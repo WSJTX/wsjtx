@@ -8,7 +8,7 @@
      integer(c_int) :: nutc
      logical(c_bool) :: ndiskdat
      integer(c_int) :: ntr
-     integer(c_int) :: nQSOProgress ! See MainWindow::m_QSOProgress for values
+     integer(c_int) :: nQSOProgress ! Values are defined by ../QsoProgress.hpp
      integer(c_int) :: nfqso
      integer(c_int) :: nftx
      logical(c_bool) :: newdat

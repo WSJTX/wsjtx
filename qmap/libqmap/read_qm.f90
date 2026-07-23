@@ -7,21 +7,28 @@ subroutine read_qm(fname,iret)
   real*8 fcenter
   integer nxtra(15)                        !For possible future additions
   integer*1 id1(2,NMAX)
+  save id1                              !Keep this big array off the stack
   common/datcom/dd(2,5760000),ss(400,NFFT),savg(NFFT),                  &
        fcenter,nutc,fselected,mousedf,mousefqso,nagain,                 &
        ndepth,ndiskdat,ntx60,newdat,nn1,nn2,nfcal,nfshift,              &
        ntx30a,ntx30b   !...
 
   open(28,file=trim(fname),status='old',access='stream',err=900)
-  read(28,end=910) prog_id,mycall,mygrid,fcenter,nutc,ntx30a,           &
+  read(28,end=910,err=910) prog_id,mycall,mygrid,fcenter,nutc,ntx30a,   &
        ntx30b,ndop00,ndop58,ia,ib,fac0,nxtra
+
+  if(.not. ((ia.eq.1 .and. ib.eq.NMAX) .or.                          &
+       (ia.eq.1 .and. ib.eq.NMAX/2) .or.                              &
+       (ia.eq.NMAX/2+1 .and. ib.eq.NMAX) .or.                         &
+       (ia.eq.NMAX/2+1 .and. ib.eq.NMAX/2))) go to 910
+
   iret=3
   if(ib.eq.NMAX/2) iret=1
   if(ia.eq.NMAX/2+1) iret=2
   fac=1.0
   if(fac0.gt.0.0) fac=1.0/fac0
   id1=0
-  read(28,end=910) id1(1:2,ia:ib)
+  read(28,end=910,err=910) id1(1:2,ia:ib)
   dd=0.
   dd(1:2,ia:ib)=fac*id1(1:2,ia:ib)   !Boost back to previous level
   go to 999

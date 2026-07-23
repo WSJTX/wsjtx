@@ -1,7 +1,7 @@
 
 subroutine ft8mfcqvar(s8,itone,msgd,msg37,lft8sd)
 
-  use ft8_mod1, only : idtone25
+  use ft8_mod1, only : idtone25,idtone25_valid
   real, intent(in) :: s8(0:7,79)
   real s8d(0:7,58)
   character*37 msgd,msg37,msgsent37
@@ -10,10 +10,14 @@ subroutine ft8mfcqvar(s8,itone,msgd,msg37,lft8sd)
   logical(1) lft8sd
 
   if(len_trim(msgd).lt.6) return
+  idtone25(1,1:58)=0
+  idtone25_valid(1)=.false.
   i3=-1; n3=-1
   call genft8sdvar(msgd,i3,n3,msgsent37,msgbits,itone)
+  if(i3.lt.0) return
   idtone25(1,1:29)=itone(8:36)
   idtone25(1,30:58)=itone(44:72)
+  idtone25_valid(1)=.true.
 
   thresh=0.0; i1=0; i2=0
   do i=1,58; if(i.le.29) then; s8d(0:7,i)=s8(0:7,i+7); else; s8d(0:7,i)=s8(0:7,i+14); endif; enddo
@@ -28,6 +32,7 @@ subroutine ft8mfcqvar(s8,itone,msgd,msg37,lft8sd)
 
   ipk=0; u1=0.0; u2=0.0
   do k=1,25
+    if(.not.idtone25_valid(k)) cycle
     psum=0.; ref=ref0
     do j=1,58; i3=idtone25(k,j); psum=psum + s8d(i3,j); if(i3.eq.mrs(j)) ref=ref - s8d(i3,j) + s8d(mrs2(j),j); enddo
     p=psum/ref

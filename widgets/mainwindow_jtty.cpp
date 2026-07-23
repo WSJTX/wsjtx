@@ -2,13 +2,11 @@
 #include "ui_mainwindow.h"
 #include "widegraph.h"
 #include "commons.h"
-#include "Audio/WavFile.hpp"
 #include "JttyMessages.hpp"
 #include "Logger.hpp"
 #include <QByteArray>
 #include <QDateTime>
 #include "Modulator/Modulator.hpp"
-#include <QtConcurrent/QtConcurrentRun>
 #include <iostream>
 #include <vector>
 
@@ -61,13 +59,8 @@ void MainWindow::jtty_save_wav()
   auto const& tstart=now.addMSecs(-ms);
   m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
   int samples=m_k0;
-  short const * data = &dec_data.d2[0];
   QString dgrd = "jtty";
-  m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
-    return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
-                                 m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
-                                 m_hisCall, m_hisGrid, dgrd);
-  }));
+  save_wave_file (m_fnameWE, samples, m_freqNominalPeriod, dgrd);
 }
 
 void MainWindow::jtty_decode(int k)

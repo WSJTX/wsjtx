@@ -6,8 +6,8 @@ on:
   pull_request:
     branches: [develop]
     # `labeled` is added to the defaults (opened/synchronize/reopened) so
-    # that applying the `full-ci` label to an already-open PR triggers a
-    # fresh run that includes the expensive matrix (see the gate below).
+    # that applying `full-ci` or `sanitizers` to an already-open PR triggers
+    # a fresh run that includes the requested opt-in jobs (see the gates below).
     types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
     inputs:
@@ -101,16 +101,15 @@ jobs:
           echo "Build-system recache: $recache"
           echo "recache=$recache" >> "$GITHUB_OUTPUT"
 
-  # Two-tier CI to conserve Action minutes. Roughly 95% of the bill is the
-  # macOS (10x) and Windows (2x) legs; both Linux legs bill at 1x.
+  # Two-tier CI to conserve Actions minutes. The default path runs one Linux
+  # x86_64 smoke leg; sanitizer and broader platform coverage are opt-in.
   #
-  #   * Default (every push / PR to develop): Linux only -- `linux` (x86_64)
-  #     plus `linux-arm` (aarch64, native ubuntu-24.04-arm). Fast, cheap, and
-  #     catches the large majority of breakage.
-  #   * Expensive matrix (macos, macos-intel, windows): opt-in only. Runs when
-  #     a PR carries the `full-ci` label, or when the workflow is started
-  #     manually ("Run workflow" / workflow_dispatch). Release builds are
-  #     unaffected -- they run the full matrix via release.yml on build/v* tags.
+  #   * Default (every push / PR to develop): Linux x86_64 only -- `linux`.
+  #   * Sanitizers: runs on PRs carrying `sanitizers` or `full-ci`.
+  #   * Opt-in matrix (`linux-arm`, macos, macos-intel, windows): runs when a
+  #     PR carries the `full-ci` label, or when the workflow is started manually
+  #     ("Run workflow" / workflow_dispatch). Release builds are unaffected --
+  #     they run the full matrix via release.yml on build/v* tags.
   #
   # Every non-prepare leg also `needs: linux`, so a break that fails
   # everywhere fails fast on the cheapest runner before any costly leg
@@ -158,8 +157,28 @@ jobs:
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 
+  linux-sanitizers:
+    name: Linux x86_64 ASan + UBSan
+    needs: [prepare, detect-build-system-changes, linux]
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+      contains(github.event.pull_request.labels.*.name, 'sanitizers')
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/build-linux-sanitizers
+        with:
+          hamlib_branch: "4.7.2"
+          recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+
   linux-arm:
     needs: [prepare, detect-build-system-changes, linux]
+    # Opt-in only -- see the two-tier note above.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci')
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}

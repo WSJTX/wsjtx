@@ -9,6 +9,7 @@
 #include <QNetworkInterface>
 #include <QHostInfo>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QQueue>
 #include <QByteArray>
 #include <QColor>
@@ -27,6 +28,14 @@
 #define TRACE_UDP(MSG)
 #endif
 
+namespace
+{
+  int constexpr replay_interval_ms {10};
+  int constexpr replay_write_budget {10};
+  int constexpr replay_message_budget {10};
+  qint64 constexpr replay_work_budget_ms {2};
+}
+
 class MessageClient::impl
   : public QUdpSocket
 {
@@ -44,9 +53,15 @@ public:
     , server_port_ {server_port}
     , TTL_ {TTL}
     , schema_ {2}  // use 2 prior to negotiation not 1 which is broken
+    , replay_state_ {ReplayState::Idle}
     , heartbeat_timer_ {new QTimer {this}}
+    , replay_timer_ {new QTimer {this}}
+    , replay_generation_ {0}
   {
     connect (heartbeat_timer_, &QTimer::timeout, this, &impl::heartbeat);
+    replay_timer_->setSingleShot (true);
+    replay_timer_->setTimerType (Qt::PreciseTimer);
+    connect (replay_timer_, &QTimer::timeout, this, &impl::drain_replay);
     connect (this, &QIODevice::readyRead, this, &impl::pending_datagrams);
 
     heartbeat_timer_->start (NetworkMessage::pulse * 1000);
@@ -62,6 +77,19 @@ public:
   }
 
   enum StreamStatus {Fail, Short, OK};
+  enum class ReplayState {Idle, Collecting, Draining};
+
+  struct PendingMessage
+  {
+    explicit PendingMessage (QByteArray const& contents)
+      : contents {contents}
+      , next_interface {0}
+    {
+    }
+
+    QByteArray contents;
+    std::size_t next_interface;
+  };
 
   void set_server (QString const& server_name, QStringList const& network_interface_names);
   Q_SLOT void host_info_results (QHostInfo);
@@ -70,8 +98,13 @@ public:
   void pending_datagrams ();
   void heartbeat ();
   void closedown ();
+  bool begin_replay ();
+  void end_replay ();
+  void cancel_replay ();
+  void drain_replay ();
   StreamStatus check_status (QDataStream const&) const;
   void send_message (QByteArray const&, bool queue_if_pending = true, bool allow_duplicates = false);
+  void send_message_immediately (QByteArray const&);
   void send_message (QDataStream const& out, QByteArray const& message, bool queue_if_pending = true, bool allow_duplicates = false)
   {
     if (OK == check_status (out))
@@ -95,11 +128,15 @@ public:
   int TTL_;
   std::vector<QNetworkInterface> network_interfaces_;
   quint32 schema_;
+  ReplayState replay_state_;
   QTimer * heartbeat_timer_;
+  QTimer * replay_timer_;
+  quint64 replay_generation_;
   std::vector<QHostAddress> blocked_addresses_;
 
   // hold messages sent before host lookup completes asynchronously
   QQueue<QByteArray> pending_messages_;
+  QQueue<PendingMessage> replay_messages_;
   QByteArray last_message_;
 };
 
@@ -107,6 +144,7 @@ public:
 
 void MessageClient::impl::set_server (QString const& server_name, QStringList const& network_interface_names)
 {
+  cancel_replay ();
   // qDebug () << "MessageClient server:" << server_name << "port:" << server_port_ << "interfaces:" << network_interface_names;
   server_.setAddress (server_name);
   network_interfaces_.clear ();
@@ -299,7 +337,6 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
               TRACE_UDP ("Replay");
               if (check_status (in) != Fail)
                 {
-                  last_message_.clear ();
                   Q_EMIT self_->replay ();
                 }
               break;
@@ -451,6 +488,7 @@ void MessageClient::impl::heartbeat ()
 
 void MessageClient::impl::closedown ()
 {
+  cancel_replay ();
    if (server_port_ && !server_.isNull ())
     {
       QByteArray message;
@@ -460,30 +498,124 @@ void MessageClient::impl::closedown ()
     }
 }
 
+bool MessageClient::impl::begin_replay ()
+{
+  if (ReplayState::Idle != replay_state_)
+    {
+      return false;
+    }
+
+  last_message_.clear ();
+  replay_state_ = ReplayState::Collecting;
+  return true;
+}
+
+void MessageClient::impl::end_replay ()
+{
+  if (ReplayState::Collecting != replay_state_)
+    {
+      return;
+    }
+
+  if (replay_messages_.isEmpty ())
+    {
+      replay_state_ = ReplayState::Idle;
+      return;
+    }
+
+  replay_state_ = ReplayState::Draining;
+  replay_timer_->start (replay_interval_ms);
+}
+
+void MessageClient::impl::cancel_replay ()
+{
+  ++replay_generation_;
+  replay_timer_->stop ();
+  replay_messages_.clear ();
+  replay_state_ = ReplayState::Idle;
+}
+
+void MessageClient::impl::drain_replay ()
+{
+  if (ReplayState::Draining != replay_state_)
+    {
+      return;
+    }
+
+  auto const generation = replay_generation_;
+  QElapsedTimer work_timer;
+  work_timer.start ();
+  int writes {0};
+  int messages {0};
+
+  while (!replay_messages_.isEmpty ()
+         && writes < replay_write_budget
+         && messages < replay_message_budget
+         && work_timer.elapsed () < replay_work_budget_ms)
+    {
+      auto const contents = replay_messages_.head ().contents;
+      if (is_multicast_address (server_))
+        {
+          auto const next_interface = replay_messages_.head ().next_interface;
+          if (next_interface < network_interfaces_.size ())
+            {
+              setMulticastInterface (network_interfaces_[next_interface]);
+              writeDatagram (contents, server_, server_port_);
+              if (generation != replay_generation_ || ReplayState::Draining != replay_state_)
+                {
+                  return;
+                }
+              ++replay_messages_.head ().next_interface;
+              ++writes;
+            }
+
+          if (replay_messages_.head ().next_interface < network_interfaces_.size ())
+            {
+              continue;
+            }
+        }
+      else
+        {
+          writeDatagram (contents, server_, server_port_);
+          if (generation != replay_generation_ || ReplayState::Draining != replay_state_)
+            {
+              return;
+            }
+          ++writes;
+        }
+
+      last_message_ = contents;
+      replay_messages_.dequeue ();
+      ++messages;
+    }
+
+  if (replay_messages_.isEmpty ())
+    {
+      replay_state_ = ReplayState::Idle;
+    }
+  else
+    {
+      replay_timer_->start (replay_interval_ms);
+    }
+}
+
 void MessageClient::impl::send_message (QByteArray const& message, bool queue_if_pending, bool allow_duplicates)
 {
   if (server_port_)
     {
       if (!server_.isNull ())
         {
-          if (allow_duplicates || message != last_message_) // avoid duplicates
+          auto const& previous_message = replay_messages_.isEmpty () ? last_message_ : replay_messages_.back ().contents;
+          if (allow_duplicates || message != previous_message) // avoid duplicates
             {
-              if (is_multicast_address (server_))
+              if (ReplayState::Idle != replay_state_)
                 {
-                  // send datagram on each selected network interface
-                  std::for_each (network_interfaces_.begin (), network_interfaces_.end ()
-                                 , [&] (QNetworkInterface const& net_if) {
-                                     setMulticastInterface (net_if);
-                                     // qDebug () << "Multicast UDP datagram sent to:" << server_ << "port:" << server_port_ << "on:" << multicastInterface ().humanReadableName ();
-                                     writeDatagram (message, server_, server_port_);
-                                   });
+                  replay_messages_.enqueue (PendingMessage {message});
                 }
               else
                 {
-                  // qDebug () << "Unicast UDP datagram sent to:" << server_ << "port:" << server_port_;
-                  writeDatagram (message, server_, server_port_);
+                  send_message_immediately (message);
                 }
-              last_message_ = message;
             }
         }
       else if (queue_if_pending)
@@ -491,6 +623,23 @@ void MessageClient::impl::send_message (QByteArray const& message, bool queue_if
           pending_messages_.enqueue (message);
         }
     }
+}
+
+void MessageClient::impl::send_message_immediately (QByteArray const& message)
+{
+  if (is_multicast_address (server_))
+    {
+      for (auto const& net_if : network_interfaces_)
+        {
+          setMulticastInterface (net_if);
+          writeDatagram (message, server_, server_port_);
+        }
+    }
+  else
+    {
+      writeDatagram (message, server_, server_port_);
+    }
+  last_message_ = message;
 }
 
 auto MessageClient::impl::check_status (QDataStream const& stream) const -> StreamStatus
@@ -563,7 +712,11 @@ void MessageClient::set_server (QString const& server_name, QStringList const& n
 
 void MessageClient::set_server_port (port_type server_port)
 {
-  m_->server_port_ = server_port;
+  if (m_->server_port_ != server_port)
+    {
+      m_->cancel_replay ();
+      m_->server_port_ = server_port;
+    }
 }
 
 void MessageClient::set_TTL (int TTL)
@@ -575,6 +728,16 @@ void MessageClient::set_TTL (int TTL)
 void MessageClient::enable (bool flag)
 {
   m_->enabled_ = flag;
+}
+
+bool MessageClient::begin_replay ()
+{
+  return m_->begin_replay ();
+}
+
+void MessageClient::end_replay ()
+{
+  m_->end_replay ();
 }
 
 void MessageClient::status_update (Frequency f, QString const& mode, QString const& dx_call

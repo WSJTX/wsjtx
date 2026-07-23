@@ -38,7 +38,7 @@ subroutine foxgen(bSuperFox,fname)
      n=nslots
      if(bMoreCQs) cmsg(1)(40:40)='1'               !Set flag to include a CQ
      if(bSendMsg) then
-        n=min(nslots+1,3)
+        n=min(nslots+1,5)
         cmsg(n)=textMsg
         cmsg(n)(39:39)='1'                         !Set flag for text message
         nslots=n

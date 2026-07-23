@@ -1,6 +1,8 @@
 #ifndef WAVFILE_HPP
 #define WAVFILE_HPP
 
+#include <QAudioFormat>
+#include <QByteArray>
 #include <QString>
 #include "Radio.hpp"
 
@@ -10,6 +12,17 @@ namespace Radio
 class WavFile
 {
 public:
+  struct LoadResult
+  {
+    QByteArray samples;
+    QAudioFormat format;
+    QString error;
+    int frames {0};
+
+    bool isValid () const {return error.isEmpty ();}
+  };
+
+  static LoadResult load (QString const& name, int max_frames);
   static QString save (QString const& name, short const * data, int samples,
                        QString const& my_callsign, QString const& my_grid,
                        QString const& mode, qint32 sub_mode,

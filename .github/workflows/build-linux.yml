@@ -189,7 +189,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pfunit-prefix
-          key: pfunit-linux-armhf-v4.9.0-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
+          key: pfunit-linux-armhf-v4.14.0-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
       - name: Cache Hamlib
         uses: actions/cache@v6
         with:

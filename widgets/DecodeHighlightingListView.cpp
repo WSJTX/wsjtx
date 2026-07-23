@@ -15,6 +15,10 @@ DecodeHighlightingListView::DecodeHighlightingListView (QWidget * parent)
   addAction (fg_colour_action);
   connect (fg_colour_action, &QAction::triggered, [this] (bool /*checked*/) {
       auto const& index = currentIndex ();
+      if (!model () || !index.isValid ())
+        {
+          return;
+        }
       auto colour = QColorDialog::getColor (model ()->data (index, Qt::ForegroundRole).value<QBrush> ().color ()
                                             , this
                                             , tr ("Choose %1 Foreground Color")
@@ -28,13 +32,21 @@ DecodeHighlightingListView::DecodeHighlightingListView (QWidget * parent)
   auto * unset_fg_colour_action = new QAction {tr ("&Unset foreground color"), this};
   addAction (unset_fg_colour_action);
   connect (unset_fg_colour_action, &QAction::triggered, [this] (bool /*checked*/) {
-      model ()->setData (currentIndex (), QBrush {}, Qt::ForegroundRole);
+      auto const& index = currentIndex ();
+      if (model () && index.isValid ())
+        {
+          model ()->setData (index, QBrush {}, Qt::ForegroundRole);
+        }
     });
 
   auto * bg_colour_action = new QAction {tr ("&Background color ..."), this};
   addAction (bg_colour_action);
   connect (bg_colour_action, &QAction::triggered, [this] (bool /*checked*/) {
       auto const& index = currentIndex ();
+      if (!model () || !index.isValid ())
+        {
+          return;
+        }
       auto colour = QColorDialog::getColor (model ()->data (index, Qt::BackgroundRole).value<QBrush> ().color ()
                                             , this
                                             , tr ("Choose %1 Background Color")
@@ -48,13 +60,21 @@ DecodeHighlightingListView::DecodeHighlightingListView (QWidget * parent)
   auto * unset_bg_colour_action = new QAction {tr ("U&nset background color"), this};
   addAction (unset_bg_colour_action);
   connect (unset_bg_colour_action, &QAction::triggered, [this] (bool /*checked*/) {
-      model ()->setData (currentIndex (), QBrush {}, Qt::BackgroundRole);
+      auto const& index = currentIndex ();
+      if (model () && index.isValid ())
+        {
+          model ()->setData (index, QBrush {}, Qt::BackgroundRole);
+        }
     });
 
   auto * defaults_action = new QAction {tr ("&Reset this item to defaults"), this};
   addAction (defaults_action);
   connect (defaults_action, &QAction::triggered, [this] (bool /*checked*/) {
       auto const& index = currentIndex ();
+      if (!model () || !index.isValid ())
+        {
+          return;
+        }
       model ()->setData (index, model ()->data (index, DecodeHighlightingModel::EnabledDefaultRole).toBool () ? Qt::Checked : Qt::Unchecked, Qt::CheckStateRole);
       model ()->setData (index, model ()->data (index, DecodeHighlightingModel::ForegroundDefaultRole), Qt::ForegroundRole);
       model ()->setData (index, model ()->data (index, DecodeHighlightingModel::BackgroundDefaultRole), Qt::BackgroundRole);

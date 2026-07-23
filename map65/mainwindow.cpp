@@ -486,7 +486,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
 // Create "m_worked", a dictionary of all calls in wsjt.log
   QFile f("wsjt.log");
-  qDebug() << "MainWindow Constructor File open result:" << f.open(QFileDevice::ReadOnly);
+  (void)f.open(QFileDevice::ReadOnly);
+  qDebug() << "MainWindow Constructor File open result:" << f.isOpen();
   if(f.isOpen()) {
     QTextStream in(&f);
     QString line,t,callsign;
@@ -2307,7 +2308,8 @@ void MainWindow::guiUpdate()
       QString t="  Tx " + m_modeTx + "   ";
       t=t.left(11);
       QFile f("map65_tx.log");
-      qDebug() << "MainWindow::guiUpdate 1 File open result:" << f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
+      (void)f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
+      qDebug() << "MainWindow::guiUpdate 1 File open result:" << f.isOpen();
       QTextStream out(&f);
       out << QDateTime::currentDateTimeUtc().toString("yyyy-MMM-dd hh:mm")
           << t << QString::fromLatin1(msgsent)
@@ -2338,7 +2340,8 @@ void MainWindow::guiUpdate()
     QString t="  Tx " + m_modeTx + "   ";
     t=t.left(11);
     QFile f("map65_tx.log");
-    qDebug() << "MainWindow::guiUpdate 2 File open result:" << f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
+    (void)f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
+    qDebug() << "MainWindow::guiUpdate 2 File open result:" << f.isOpen();
     QTextStream out(&f);
     out << QDateTime::currentDateTimeUtc().toString("yyyy-MMM-dd hh:mm")
         << t << QString::fromLatin1(msgsent)
@@ -2789,7 +2792,8 @@ void MainWindow::on_addButton_clicked()                       //Add button
     if (f0.exists ()) f0.remove ();
     f1.copy (old_path);         // copying as we want to preserve
                                 // symlinks
-    qDebug() << "MainWindow::on_addButton_clicked File open result:" << f1.open (QFileDevice::WriteOnly | QFileDevice::Text); // truncates
+    (void)f1.open (QFileDevice::WriteOnly | QFileDevice::Text); // truncates
+    qDebug() << "MainWindow::on_addButton_clicked File open result:" << f1.isOpen();
     f2.seek (0);
     f1.write (f2.readAll ());   // copy contents
     f2.remove ();
@@ -3121,7 +3125,8 @@ void MainWindow::read_log()
   // Update "m_worked" by reading wsjtx.log
   m_worked.clear();                     //Start from scratch
   QFile f("wsjtx.log");
-//  qDebug() << "MainWindow::read_log File open result:" << f.open(QFileDevice::ReadOnly);
+//  (void)f.open(QFileDevice::ReadOnly);
+//  qDebug() << "MainWindow::read_log File open result:" << f.isOpen();
   if(f.isOpen()) {
     QTextStream in(&f);
     QString line,callsign;

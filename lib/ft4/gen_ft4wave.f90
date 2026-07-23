@@ -3,11 +3,13 @@ subroutine gen_ft4wave(itone,nsym,nsps,fsample,f0,cwave,wave,icmplx,nwave)
   real wave(nwave)
   complex cwave(nwave)
   real pulse(6912)              !576*4*3
-  real dphi(0:250000-1)
+  real, allocatable :: dphi(:)
   integer itone(nsym)
   logical first
   data first/.true./
   save pulse,first,twopi,dt,hmod
+
+  allocate(dphi(0:(nsym+2)*nsps-1))
 
   if(first) then
      twopi=8.0*atan(1.0)

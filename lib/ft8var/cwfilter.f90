@@ -1,6 +1,7 @@
 subroutine cwfilter(first)
 
   use ft8_mod1, only : cw,windowc1,windowx,pivalue,facx,mcq,m73,mrr73,mrrr,one,twopi,facc1,dt,csync,idtone25,csynccq, &
+                       idtone25_valid, &
                        NFILT1,NFILT2,endcorr,ctwkw,ctwkn,ctwk256
   use jt65_mod9 ! callsign DB to memory
   use prog_args ! path to files
@@ -112,9 +113,12 @@ subroutine cwfilter(first)
     msgcq25(23)='CQ SM2GSH KP05'
     msgcq25(24)='CQ UA9OHX NO15'
     msgcq25(25)='CQ JA W0YH EN12'
+    idtone25(2:25,1:58)=0
+    idtone25_valid(2:25)=.false.
     do i=2,25
       i3=-1; n3=-1
       call genft8sdvar(msgcq25(i),i3,n3,msgsent37,msgbits,itone)
+      if(i3.lt.0) cycle
       if(i.eq.2) then
         call gen_ft8wave(itone,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
         m=1
@@ -127,6 +131,7 @@ subroutine cwfilter(first)
       endif
       idtone25(i,1:29)=itone(8:36)
       idtone25(i,30:58)=itone(44:72)
+      idtone25_valid(i)=.true.
     enddo
     dt2=0.005 ! fs2=200 Hz
     k=1

@@ -34,7 +34,6 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   character*72 result,ctmp
   character*8 result2                      !liveCQ
   character*20 datetime,datetime1
-  character*1 c1
   common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
   common/decodes2/result2(50)              !liveCQ

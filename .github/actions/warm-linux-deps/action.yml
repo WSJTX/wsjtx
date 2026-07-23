@@ -39,12 +39,12 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: pfunit-prefix
-        key: pfunit-linux-${{ inputs.arch }}-v4.9.0-${{ inputs.runtime_base }}-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-linux.sh') }}
+        key: pfunit-linux-${{ inputs.arch }}-v4.14.0-${{ inputs.runtime_base }}-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-linux.sh') }}
 
     - name: Build pFUnit
       if: steps.pfunit-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: .github/scripts/build-pfunit-linux.sh v4.9.0 "${GITHUB_WORKSPACE}/pfunit-prefix"
+      run: .github/scripts/build-pfunit-linux.sh v4.14.0 "${GITHUB_WORKSPACE}/pfunit-prefix"
 
     - name: Locate pFUnit config
       shell: bash

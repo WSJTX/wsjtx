@@ -63,6 +63,7 @@ subroutine getpfx1(callsign, k, nv2)
 !  Original JT65 would force this compound callsign to be treated as
 !  plain text.  In JT65v2, we will encode the prefix or suffix into nc1.
 !  The task here is to compute the proper value of k.
+!  TODO: Reject invalid compound characters before nchar can stop MAP65.
      lof=callsign0(:islash-1)
      rof=callsign0(islash+1:)
      llof=len_trim(lof)

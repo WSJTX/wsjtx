@@ -67,7 +67,7 @@ apt-get install -y --no-install-recommends \
   asciidoctor \
   rpm \
   python3 \
-  file xz-utils \
+  file xz-utils xauth xvfb \
   portaudio19-dev
 
 # ── 2. Build pFUnit if cache empty ───────────────────────────────────
@@ -78,7 +78,7 @@ if find pfunit-prefix -name PFUNITConfig.cmake -print -quit 2>/dev/null | grep -
 else
   echo "::group::Build pFUnit (cache miss)"
   rm -rf pfunit-src pfunit-build pfunit-prefix
-  git clone --depth 1 --branch v4.9.0 --recursive \
+  git clone --depth 1 --branch v4.14.0 --recursive \
     https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
   cmake -S pfunit-src -B pfunit-build \
     -DSKIP_MPI=YES \
@@ -140,7 +140,8 @@ echo "::endgroup::"
 echo "::group::wsjtx ctest"
 (
   cd wsjtx-build
-  QT_QPA_PLATFORM=offscreen ctest --output-on-failure --output-junit ctest-results.xml
+  QT_QPA_PLATFORM=xcb xvfb-run -a -s "-screen 0 1280x1024x24" \
+    ctest --output-on-failure --output-junit ctest-results.xml
 )
 echo "::endgroup::"
 

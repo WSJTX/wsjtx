@@ -9,6 +9,7 @@
 #include "widgets/CabrilloLogWindow.hpp"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/qsymonitor.h"
+#include "validators/CallsignValidator.hpp"
 #include "qt_helpers.hpp"
 
 #include <QSettings>
@@ -145,7 +146,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("RxAll", ui->cbRxAll->isChecked ());
 // m_settings->setValue("ShMsgs",m_bShMsgs);
   m_settings->setValue("SWL",ui->cbSWL->isChecked());
-  if(m_mode=="MSK144" && m_msk144basefreq > 0) {
+  if(m_mode=="MSK144" && hasMsk144BaseFrequency ()) {
     m_settings->setValue ("DialFreq", QVariant::fromValue(m_msk144basefreq));  // MSK144 QSY
   } else {
     m_settings->setValue ("DialFreq", QVariant::fromValue(m_lastMonitoredFrequency));
@@ -469,7 +470,9 @@ void MainWindow::readSettings()
   ui->rbFixedTone->setChecked(m_settings->value("EchoFixedTone",true).toBool());
   ui->rbEchoMessage->setChecked(m_settings->value("EchoMessageRB",false).toBool());
   ui->rbEchoCW->setChecked(m_settings->value("EchoCW",false).toBool());
-  ui->leEchoMessage->setText(m_settings->value("EchoMessage",QString {}).toString());
+  ui->leEchoMessage->setText (CallsignValidator::normalizeStoredInput (
+      m_settings->value ("EchoMessage", QString {}).toString (),
+      ui->leEchoMessage->maxLength (), false));
   m_minSync=m_settings->value("MinSync",0).toInt();
   ui->syncSpinBox->setValue(m_minSync);
   ui->cbAutoSeq->setChecked (m_settings->value ("AutoSeq", false).toBool());

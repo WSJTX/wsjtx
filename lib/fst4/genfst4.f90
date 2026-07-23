@@ -23,7 +23,7 @@ subroutine genfst4(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
    integer*1 msgbits(101),rvec(77)
    integer isyncword1(8),isyncword2(8)
    integer ncrc24
-   logical unpk77_success
+   logical requested_wspr,encoded_wspr,unpk77_success
    data isyncword1/0,1,3,2,1,0,2,3/
    data isyncword2/2,3,1,0,3,2,0,1/
    data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
@@ -42,24 +42,35 @@ subroutine genfst4(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
       message=message(i+1:)
    enddo
 
+   requested_wspr=iwspr.eq.1
    i3=-1
    n3=-1
-   if(iwspr.eq.1) then
-      i3=0
-      n3=6
+   c77=' '
+   if(requested_wspr) then
+      call pack77(message,i3,n3,c77, &
+       pack77_options(prefer_wspr_50bit=.true.))
+   else
+      call pack77_legacy_truncating_fallback(message,i3,n3,c77)
    endif
-   call pack77(message,i3,n3,c77)
-   call unpack77(c77,0,msgsent,unpk77_success) !Unpack to get msgsent
+   encoded_wspr=i3.eq.0.and.n3.eq.6
+   unpk77_success=.false.
+   if(i3.ge.0.and.n3.ge.0) then
+      call unpack77(c77,0,msgsent,unpk77_success) !Unpack to get msgsent
+   endif
    msgbits=0
    iwspr=0
-   if(i3.eq.0.and.n3.eq.6) then
+   if(requested_wspr.and..not.encoded_wspr) then
+      iwspr=1
+      go to 1
+   endif
+   if(encoded_wspr) then
       iwspr=1
       read(c77,'(50i1)') msgbits(1:50)
       call get_crc24(msgbits,74,ncrc24)
       write(c24,'(b24.24)') ncrc24
       read(c24,'(24i1)') msgbits(51:74)
    else
-      read(c77,'(77i1)') msgbits(1:77)
+      read(c77,'(77i1)',err=1) msgbits(1:77)
       msgbits(1:77)=mod(msgbits(1:77)+rvec,2)
       call get_crc24(msgbits,101,ncrc24)
       write(c24,'(b24.24)') ncrc24
@@ -68,8 +79,9 @@ subroutine genfst4(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
 
    if(ichk.eq.1) go to 999
    if(unpk77_success) go to 2
-   msgbits=0
-   itone=0
+1  msgbits=0
+   i4tone=0
+   if(requested_wspr) iwspr=1
    msgsent='*** bad message ***                  '
    go to 999
 

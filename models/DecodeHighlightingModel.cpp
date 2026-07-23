@@ -166,10 +166,21 @@ auto DecodeHighlightingModel::items () const -> HighlightItems const&
 
 void DecodeHighlightingModel::items (HighlightItems const& items)
 {
+  if (items.size () != m_->data_.size ())
+    {
+      beginResetModel ();
+      m_->data_ = items;
+      endResetModel ();
+      return;
+    }
+
   m_->data_ = items;
-  QVector<int> roles;
-  roles << Qt::CheckStateRole << Qt::ForegroundRole << Qt::BackgroundRole;
-  Q_EMIT dataChanged (index (0, 0), index (rowCount () - 1, 0), roles);
+  if (!m_->data_.isEmpty ())
+    {
+      QVector<int> roles;
+      roles << Qt::DisplayRole << Qt::CheckStateRole << Qt::ForegroundRole << Qt::BackgroundRole << TypeRole;
+      Q_EMIT dataChanged (index (0, 0), index (rowCount () - 1, 0), roles);
+    }
 }
 
 void DecodeHighlightingModel::set_font (QFont const& font)

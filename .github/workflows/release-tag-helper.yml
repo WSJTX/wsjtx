@@ -57,6 +57,16 @@ jobs:
       - name: Fetch all branches and tags
         run: git fetch origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
 
+      - name: Validate version input
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Expected forms like 3.0.1 or 3.0.1-rc1."
+            exit 1
+          fi
+
       - name: Resolve target SHA
         id: resolve
         env:
@@ -84,14 +94,23 @@ jobs:
           else
             sha=""
           fi
+          source_delimiter="release_tag_helper_source_$(uuidgen)"
           if [ -z "$sha" ] || [ "$sha" = "null" ]; then
             echo "::error::Could not resolve '$ref' to a commit in ${GITHUB_REPOSITORY}. Verify the SHA, branch, or tag exists in this repo."
-            echo "sha=" >> "$GITHUB_OUTPUT"
-            echo "source=$source (UNRESOLVED)" >> "$GITHUB_OUTPUT"
+            {
+              echo "sha="
+              echo "source<<$source_delimiter"
+              printf '%s\n' "$source (UNRESOLVED)"
+              echo "$source_delimiter"
+            } >> "$GITHUB_OUTPUT"
             exit 1
           fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "source=$source" >> "$GITHUB_OUTPUT"
+          {
+            echo "sha=$sha"
+            echo "source<<$source_delimiter"
+            printf '%s\n' "$source"
+            echo "$source_delimiter"
+          } >> "$GITHUB_OUTPUT"
           echo "Resolved target: $sha ($source)"
 
       - name: Check (a) — most recent ci.yml run on SHA succeeded
@@ -105,15 +124,19 @@ jobs:
             --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml")] | sort_by(.created_at) | reverse | .[0]')
           if [ -z "$run" ] || [ "$run" = "null" ]; then
             echo "::error::No ci.yml run found for SHA $SHA"
-            echo "ci_passed=false" >> "$GITHUB_OUTPUT"
-            echo "ci_run_id=" >> "$GITHUB_OUTPUT"
-            echo "ci_conclusion=missing" >> "$GITHUB_OUTPUT"
+            {
+              echo "ci_passed=false"
+              echo "ci_run_id="
+              echo "ci_conclusion=missing"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
           conclusion=$(echo "$run" | jq -r '.conclusion')
           run_id=$(echo "$run" | jq -r '.id')
-          echo "ci_run_id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "ci_conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+          {
+            echo "ci_run_id=$run_id"
+            echo "ci_conclusion=$conclusion"
+          } >> "$GITHUB_OUTPUT"
           if [ "$conclusion" = "success" ]; then
             echo "ci_passed=true" >> "$GITHUB_OUTPUT"
             echo "ci.yml run $run_id: success"
@@ -193,6 +216,16 @@ jobs:
       - name: Step summary
         if: always()
         env:
+          VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ steps.resolve.outputs.sha }}
+          SHA_SOURCE: ${{ steps.resolve.outputs.source }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          CI_RUN_ID: ${{ steps.ci_check.outputs.ci_run_id }}
+          CI_CONCLUSION: ${{ steps.ci_check.outputs.ci_conclusion }}
+          OLD_V_SHA: ${{ steps.current_tags.outputs.old_v_sha }}
+          OLD_BUILD_SHA: ${{ steps.current_tags.outputs.old_build_sha }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
           CI_OK: ${{ steps.ci_check.outputs.ci_passed }}
           ART_OK: ${{ steps.artifact_check.outputs.artifacts_passed }}
           VERDICT: ${{ steps.verdict.outputs.passed }}
@@ -205,17 +238,17 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Version | \`${{ inputs.version }}\` |"
-            echo "| Target SHA | \`${{ steps.resolve.outputs.sha }}\` |"
-            echo "| SHA source | ${{ steps.resolve.outputs.source }} |"
-            echo "| Dry run | \`${{ inputs.dry_run }}\` |"
-            echo "| ci.yml run | [${{ steps.ci_check.outputs.ci_run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.ci_check.outputs.ci_run_id }}) |"
-            echo "| ci.yml conclusion | \`${{ steps.ci_check.outputs.ci_conclusion }}\` |"
+            echo "| Version | \`$VERSION\` |"
+            echo "| Target SHA | \`$TARGET_SHA\` |"
+            echo "| SHA source | $SHA_SOURCE |"
+            echo "| Dry run | \`$DRY_RUN\` |"
+            echo "| ci.yml run | [$CI_RUN_ID]($SERVER_URL/$REPOSITORY/actions/runs/$CI_RUN_ID) |"
+            echo "| ci.yml conclusion | \`$CI_CONCLUSION\` |"
             echo "| ci.yml gate (a) | $ci_emoji |"
             echo "| Artifact gate (b) | $art_emoji |"
             echo "| Preflight verdict | $verdict_label |"
-            echo "| Current \`v${{ inputs.version }}\` | \`${{ steps.current_tags.outputs.old_v_sha }}\` |"
-            echo "| Current \`build/v${{ inputs.version }}\` | \`${{ steps.current_tags.outputs.old_build_sha }}\` |"
+            echo "| Current \`v$VERSION\` | \`$OLD_V_SHA\` |"
+            echo "| Current \`build/v$VERSION\` | \`$OLD_BUILD_SHA\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Halt if preflight failed

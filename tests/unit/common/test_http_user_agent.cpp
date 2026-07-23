@@ -8,6 +8,26 @@ class TestHttpUserAgent final
   Q_OBJECT
 
 private Q_SLOTS:
+  void labelsDisplayRevision ()
+  {
+    auto const display = display_revision ();
+    auto const build_revision = revision ();
+
+    if (build_revision.isEmpty ())
+      {
+        QVERIFY (display == "(revision unavailable)"
+                 || display.contains (", build unavailable)"));
+      }
+    else if (display.startsWith ("(source "))
+      {
+        QVERIFY (display.endsWith (", build " + build_revision + ")"));
+      }
+    else
+      {
+        QCOMPARE (display, "(revision " + build_revision + ")");
+      }
+  }
+
   void includesApplicationIdentityAndPlatformContext ()
   {
     auto const user_agent = http_user_agent ();

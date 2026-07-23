@@ -14,6 +14,7 @@ program ldpcsim240_101
    integer*1 cw(240)
    integer*1 codeword(N),message101(101)
    integer ncrc24
+   integer pack_status
    real rxdata(N),llr(N)
    logical first,unpk77_success
    data first/.true./
@@ -41,7 +42,17 @@ program ldpcsim240_101
    read(arg,*) Keff
    msg0='K9AN K1JT FN20                       '
    if(nargs.eq.6) call getarg(6,msg0)
-   call pack77(msg0,i3,n3,c77)
+   call pack77_legacy_truncating_fallback(msg0,i3,n3,c77, &
+        status=pack_status)
+   if(pack_status.ne.PACK77_STATUS_ENCODED) then
+      print*,'Cannot encode message: ',trim(msg0)
+      stop 1
+   endif
+   call unpack77(c77,0,msg,unpk77_success)
+   if(.not.unpk77_success) then
+      print*,'Cannot encode message: ',trim(msg0)
+      stop 1
+   endif
 
    rate=real(Keff)/real(N)
 
@@ -50,6 +61,7 @@ program ldpcsim240_101
    write(*,*) "norder   : ",norder
    write(*,*) "s        : ",s
    write(*,*) "K        : ",Keff
+   write(*,*) 'Message sent: ',trim(msg)
 
    msgbits=0
    read(c77,'(77i1)') msgbits(1:77)

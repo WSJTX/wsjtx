@@ -976,7 +976,7 @@ Function .onInit
   ; (built into every supported Windows version) so no NSIS plugin is
   ; required.
   wsjtx_running_check:
-    nsExec::Exec '"$SYSDIR\cmd.exe" /c tasklist /FI "IMAGENAME eq wsjtx.exe" 2>NUL | $SYSDIR\findstr.exe /I "wsjtx.exe" >NUL'
+    nsExec::Exec '"$SYSDIR\cmd.exe" /c ""$SYSDIR\tasklist.exe" /FI "IMAGENAME eq wsjtx.exe" 2>NUL | "$SYSDIR\findstr.exe" /I "wsjtx.exe" >NUL"'
     Pop $0
     ${If} $0 == "0"
       MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION \

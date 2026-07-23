@@ -35,14 +35,20 @@
 ! Format support: fmt=0x00 (int16 PCM) only. Other formats may be
 ! added later.
 !
-! Platform: reads stdin via stream-access unformatted I/O. POSIX (Linux,
-! macOS) opens /dev/stdin; Windows / no /dev/stdin falls back to the
-! preconnected stdin unit 5, with binary mode forced first via the C helper
-! stream_set_stdin_binary (lib/stream_setmode.c; no-op on POSIX). The Windows
-! fallback path is not yet exercised by CI — it needs a Windows runner.
+! Platform: reads stdin through a portable C read-fully helper on fd 0
+! (stream_stdin_read_fully, lib/stream_stdin.c) — the same code path on
+! every platform. Fortran unit I/O cannot read a redirected stdin
+! portably: native Windows has no /dev/stdin, and re-OPENing the
+! preconnected unit 5 with ACCESS='STREAM' is non-conforming (F2018
+! 12.5.6.1 — ACCESS is not a changeable mode), rejected by libgfortran
+! everywhere. Binary mode is forced on Windows first via
+! stream_set_stdin_binary (lib/stream_setmode.c; no-op on POSIX). The
+! helper loops read() until the request fills or the stream truly ends,
+! so a pipe short-read is never mistaken for EOF.
 
 subroutine jt9_stream(shared_data, mode, TRperiod)
   use, intrinsic :: iso_fortran_env, only: int8, int16, int32, error_unit
+  use, intrinsic :: iso_c_binding, only: c_int64_t
   use prog_args, only: data_dir
   use timer_module, only: timer
   use streaming_emit, only: streaming_emit_ready,                          &
@@ -69,8 +75,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        int(z'57', int8), int(z'53', int8),                                 &
        int(z'4A', int8), int(z'54', int8) ]
 
-  integer :: lu, ios, fmt, ch, rate_khz
-  integer(int8)  :: hdr(HDR_LEN), type_byte, len_bytes(4)
+  integer :: ios, fmt, ch, rate_khz
+  integer(int8)  :: hdr(HDR_LEN), type_byte(1), len_bytes(4)
   integer(int32) :: frame_len
 
   integer :: nsps, kstep, npts, k, nhsym, nhsym0
@@ -84,7 +90,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! FT8 decoder's `dd` array is populated only on nzhsym <= 47 calls, so we
   ! mirror the WAV path's 41/47/50 call cadence with a working copy zeroed
   ! past the per-call sample boundary.
-  integer(int16) :: id2a(180000)
+  integer(int16), save :: id2a(180000)  !Keep this big array off the stack
   character(len=CTL_BUF_LEN) :: ctl_buf
   integer(int8)  :: ctl_bytes(CTL_BUF_LEN)
   integer :: i_ctl, prev_mode
@@ -97,45 +103,41 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   type(control_type_error) :: terr
   integer :: action
 
-  ! Windows binary-mode helper (lib/stream_setmode.c). No-op on POSIX.
+  ! C stdin helpers. stream_set_stdin_binary (lib/stream_setmode.c) is a
+  ! no-op on POSIX; stream_stdin_read_fully (lib/stream_stdin.c) is the
+  ! read-fully byte reader used on all platforms.
   interface
      subroutine stream_set_stdin_binary() bind(C, name="stream_set_stdin_binary")
      end subroutine stream_set_stdin_binary
+     function stream_stdin_read_fully(buf, n) result(nread)               &
+          bind(C, name="stream_stdin_read_fully")
+       import :: c_int64_t
+       type(*), dimension(*), intent(inout) :: buf
+       integer(c_int64_t), value :: n
+       integer(c_int64_t) :: nread
+     end function stream_stdin_read_fully
   end interface
 
   bLowSidelobes = .false.
   ingain        = 0
   nminw         = 1
 
-  ! Read the framed byte stream from stdin. POSIX (Linux/macOS): open
-  ! /dev/stdin as an unformatted stream. Windows / no /dev/stdin: fall back to
-  ! the preconnected stdin unit 5 (binary mode already forced above). The 6
-  ! reads below operate on `lu` and are unchanged by which path opened it.
+  ! Read the framed byte stream from stdin via the C helper (stdin_read
+  ! below) — no Fortran unit is opened. Binary mode must be forced before
+  ! the first read on Windows or the CRT stops at 0x1A and rewrites CRLF.
   call stream_set_stdin_binary()
-  open(newunit=lu, file='/dev/stdin', access='stream',                     &
-       form='unformatted', status='old', action='read', iostat=ios)
-  if (ios /= 0) then
-     lu = 5
-     open(unit=lu, access='stream', form='unformatted',                    &
-          action='read', iostat=ios)
-  end if
-  if (ios /= 0) then
-     call streaming_emit_error('cannot open stdin')
-     write(error_unit, '(a)') 'jt9 --stream: cannot open stdin'
-     stop 1
-  end if
 
-  read(lu, iostat=ios) hdr
+  call stdin_read(hdr, HDR_LEN, ios)
   if (ios /= 0) then
      call streaming_emit_error('short header (need 8 bytes)')
      write(error_unit, '(a)') 'jt9 --stream: short header (need 8 bytes)'
-     close(lu); stop 1
+     stop 1
   end if
 
   if (any(hdr(1:4) /= MAGIC)) then
      call streaming_emit_error('bad magic (expected ''WSJT'')')
      write(error_unit, '(a)') 'jt9 --stream: bad magic (expected ''WSJT'')'
-     close(lu); stop 1
+     stop 1
   end if
 
   fmt      = iand(int(hdr(5)), 255)
@@ -146,21 +148,21 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      call streaming_emit_error('unsupported format (only fmt=0 int16 PCM supported)')
      write(error_unit, '(a,i0,a)')                                         &
           'jt9 --stream: unsupported fmt=', fmt, ' (only int16 PCM supported)'
-     close(lu); stop 1
+     stop 1
   end if
 
   if (ch /= 1) then
      call streaming_emit_error('unsupported channel count (only mono supported)')
      write(error_unit, '(a,i0,a)')                                         &
           'jt9 --stream: unsupported channels=', ch, ' (only mono supported)'
-     close(lu); stop 1
+     stop 1
   end if
 
   if (rate_khz /= 12) then
      call streaming_emit_error('unsupported sample rate (only 12 kHz supported)')
      write(error_unit, '(a,i0,a)')                                         &
           'jt9 --stream: unsupported rate=', rate_khz, ' kHz (only 12 kHz supported)'
-     close(lu); stop 1
+     stop 1
   end if
 
   write(error_unit, '(a,i0,a,i0,a,i0,a)')                                  &
@@ -208,11 +210,11 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
 
      ! Inner frame loop: read frames until period full, halt, or EOF.
      do while (k .lt. npts .and. .not. halt_req .and. .not. eof_period)
-        read(lu, iostat=ios) type_byte
+        call stdin_read(type_byte, 1, ios)
         if (ios /= 0) then
            eof_period = .true.; exit
         end if
-        read(lu, iostat=ios) len_bytes
+        call stdin_read(len_bytes, 4, ios)
         if (ios /= 0) then
            eof_period = .true.; exit
         end if
@@ -225,13 +227,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            eof_period = .true.; exit
         end if
 
-        if (iand(int(type_byte), 255) .eq. FRAME_AUDIO) then
+        if (iand(int(type_byte(1)), 255) .eq. FRAME_AUDIO) then
            if (mod(frame_len, 2_int32) /= 0) then
               call streaming_emit_error('odd audio frame length')
               body_left = frame_len
               do while (body_left .gt. 0)
                  take_bytes = min(body_left, size(byte_sink))
-                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
+                 call stdin_read(byte_sink, take_bytes, ios)
                  if (ios /= 0) then
                     eof_period = .true.; exit
                  end if
@@ -244,7 +246,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               if (k .lt. npts) then
                  take_bytes   = min(body_left, 2 * size(chunk))
                  take_samples = take_bytes / 2
-                 read(lu, iostat=ios) chunk(1:take_samples)
+                 call stdin_read(chunk, 2*take_samples, ios)
                  if (ios /= 0) then
                     eof_period = .true.; exit
                  end if
@@ -271,7 +273,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               else
                  ! Period full: drain the rest of this audio frame.
                  take_bytes = min(body_left, size(byte_sink))
-                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
+                 call stdin_read(byte_sink, take_bytes, ios)
                  if (ios /= 0) then
                     eof_period = .true.; exit
                  end if
@@ -279,7 +281,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               end if
            end do
 
-        else if (iand(int(type_byte), 255) .eq. FRAME_CONTROL) then
+        else if (iand(int(type_byte(1)), 255) .eq. FRAME_CONTROL) then
            ! Read JSON body into char buffer (cap at CTL_BUF_LEN)
            if (frame_len .gt. CTL_BUF_LEN) then
               call streaming_emit_error('control frame too large')
@@ -287,13 +289,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               body_left = frame_len
               do while (body_left .gt. 0)
                  take_bytes = min(body_left, size(byte_sink))
-                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
+                 call stdin_read(byte_sink, take_bytes, ios)
                  if (ios /= 0) exit
                  body_left = body_left - take_bytes
               end do
               cycle
            end if
-           read(lu, iostat=ios) ctl_bytes(1:frame_len)
+           call stdin_read(ctl_bytes, frame_len, ios)
            if (ios /= 0) then
               eof_period = .true.; exit
            end if
@@ -361,7 +363,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            body_left = frame_len
            do while (body_left .gt. 0)
               take_bytes = min(body_left, size(byte_sink))
-              read(lu, iostat=ios) byte_sink(1 : take_bytes)
+              call stdin_read(byte_sink, take_bytes, ios)
               if (ios /= 0) then
                  eof_period = .true.; exit
               end if
@@ -414,10 +416,22 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         end if
      end if
 
-     if (halt_req .or. eof_period) then
-        close(lu)
-        return
-     end if
+     if (halt_req .or. eof_period) return
   end do
+
+contains
+
+  ! Read exactly nbytes from stdin via the C helper; ios=0 on success,
+  ! ios=1 on end-of-stream (short delivery — the producer closed the
+  ! pipe). Every caller treats nonzero ios as end-of-stream, matching
+  ! the old unformatted-stream-read iostat contract.
+  subroutine stdin_read(buf, nbytes, ios)
+    type(*), dimension(*), intent(inout) :: buf
+    integer, intent(in)  :: nbytes
+    integer, intent(out) :: ios
+    ios = 0
+    if (stream_stdin_read_fully(buf, int(nbytes, c_int64_t)) /=          &
+         int(nbytes, c_int64_t)) ios = 1
+  end subroutine stdin_read
 
 end subroutine jt9_stream

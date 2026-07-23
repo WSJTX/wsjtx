@@ -1,0 +1,167 @@
+name: "Build Windows dependencies"
+description: "Restore or populate Windows Boost, pFUnit, and Hamlib dependency caches."
+
+inputs:
+  boost_version:
+    description: "Boost version to build"
+    required: false
+    default: "1.91.0"
+  boost_source_sha256:
+    description: "Expected SHA-256 for the Boost source archive"
+    required: false
+    default: "de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5"
+  windows_api_floor:
+    description: "Windows API floor used for Boost and WSJT-X builds"
+    required: false
+    default: "0x0601"
+  hamlib_branch:
+    description: "Hamlib branch to build"
+    required: true
+  save_caches:
+    description: "Whether to save dependency caches on misses"
+    required: false
+    default: "true"
+
+outputs:
+  boost_prefix:
+    description: "MSYS path to the Boost prefix"
+    value: ${{ steps.paths.outputs.boost_prefix }}
+  hamlib_prefix:
+    description: "MSYS path to the Hamlib prefix"
+    value: ${{ steps.paths.outputs.hamlib_prefix }}
+  pfunit_dir:
+    description: "Directory containing PFUNITConfig.cmake"
+    value: ${{ steps.pfunit.outputs.pfunit_dir }}
+  gftl_dir:
+    description: "Directory containing GFTLConfig.cmake"
+    value: ${{ steps.pfunit.outputs.gftl_dir }}
+  gftl_shared_dir:
+    description: "Directory containing GFTL_SHAREDConfig.cmake"
+    value: ${{ steps.pfunit.outputs.gftl_shared_dir }}
+  fargparse_dir:
+    description: "Directory containing FARGPARSEConfig.cmake"
+    value: ${{ steps.pfunit.outputs.fargparse_dir }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve dependency prefixes
+      id: paths
+      shell: msys2 {0}
+      run: |
+        WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+        {
+          echo "boost_prefix=${WORKSPACE}/boost-prefix"
+          echo "hamlib_prefix=${WORKSPACE}/hamlib-prefix"
+          echo "pfunit_prefix=${WORKSPACE}/pfunit-prefix"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore Boost cache
+      id: boost-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: boost-prefix
+        key: boost-windows-windows-latest-mingw64-${{ inputs.boost_version }}-${{ inputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
+
+    - name: Build Boost
+      if: steps.boost-cache.outputs.cache-hit != 'true'
+      shell: msys2 {0}
+      run: .github/scripts/build-boost-windows.sh "${{ inputs.boost_version }}" "${{ inputs.boost_source_sha256 }}" "${{ inputs.windows_api_floor }}" "${{ steps.paths.outputs.boost_prefix }}"
+
+    - name: Save Boost cache
+      if: inputs.save_caches == 'true' && steps.boost-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: boost-prefix
+        key: ${{ steps.boost-cache.outputs.cache-primary-key }}
+
+    - name: Verify Boost Windows API floor
+      shell: msys2 {0}
+      run: |
+        boost_dlls=("${{ steps.paths.outputs.boost_prefix }}"/lib/libboost_*.dll)
+        if [ ! -e "${boost_dlls[0]}" ]; then
+          echo "::error::Boost DLLs not found under ${{ steps.paths.outputs.boost_prefix }}/lib"
+          ls -la "${{ steps.paths.outputs.boost_prefix }}/lib" || true
+          exit 1
+        fi
+        bad=0
+        for boost_dll in "${boost_dlls[@]}"; do
+          echo "Inspecting ${boost_dll}"
+          objdump -p "$boost_dll" | awk '/DLL Name:/ {print "  " $3}' | sort -u
+          if objdump -p "$boost_dll" | awk '/WaitOnAddress|WakeByAddressSingle|WakeByAddressAll|api-ms-win-core-synch-l1-2-0\.dll/ { found=1; print } END { exit found ? 0 : 1 }'; then
+            echo "::error::${boost_dll} imports Windows 8+ synchronization APIs"
+            bad=1
+          fi
+        done
+        exit "$bad"
+
+    - name: Locate gfortran
+      id: fc
+      shell: msys2 {0}
+      run: echo "version=$(gfortran -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore pFUnit cache
+      id: pfunit-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: pfunit-prefix
+        key: pfunit-windows-windows-latest-mingw64-v4.14.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
+
+    - name: Build pFUnit
+      if: steps.pfunit-cache.outputs.cache-hit != 'true'
+      shell: msys2 {0}
+      run: .github/scripts/build-pfunit-windows.sh v4.14.0 "${{ steps.paths.outputs.pfunit_prefix }}"
+
+    - name: Locate pFUnit config
+      id: pfunit
+      shell: msys2 {0}
+      run: |
+        for pkg in PFUNIT GFTL GFTL_SHARED FARGPARSE; do
+          CONFIG=$(find "${{ steps.paths.outputs.pfunit_prefix }}" -name ${pkg}Config.cmake | head -1)
+          if [ -z "$CONFIG" ]; then
+            echo "ERROR: ${pkg}Config.cmake not found under pfunit-prefix"
+            find "${{ steps.paths.outputs.pfunit_prefix }}" -maxdepth 3 -type d
+            exit 1
+          fi
+          DIR="$(dirname "$CONFIG")"
+          echo "Found ${pkg}Config.cmake at: $CONFIG"
+          echo "$(echo $pkg | tr '[:upper:]' '[:lower:]')_dir=${DIR}" >> "$GITHUB_OUTPUT"
+        done
+
+    - name: Save pFUnit cache
+      if: inputs.save_caches == 'true' && steps.pfunit-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: pfunit-prefix
+        key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
+
+    - name: Restore Hamlib cache
+      id: hamlib-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: hamlib-prefix
+        key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch2-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
+
+    - name: Build Hamlib
+      if: steps.hamlib-cache.outputs.cache-hit != 'true'
+      shell: msys2 {0}
+      env:
+        MSYS2_PATH_TYPE: inherit
+      run: .github/scripts/build-hamlib-windows.sh "${{ inputs.hamlib_branch }}" "${{ steps.paths.outputs.hamlib_prefix }}"
+
+    - name: Verify Hamlib prefix
+      shell: msys2 {0}
+      run: |
+        test -f "${{ steps.paths.outputs.hamlib_prefix }}/bin/libhamlib-4.dll"
+        test -f "${{ steps.paths.outputs.hamlib_prefix }}/bin/rigctl.exe"
+        test -f "${{ steps.paths.outputs.hamlib_prefix }}/bin/rigctld.exe"
+        test -f "${{ steps.paths.outputs.hamlib_prefix }}/bin/rigctlcom.exe"
+        test -f "${{ steps.paths.outputs.hamlib_prefix }}/include/hamlib/rig.h"
+        test -f "${{ steps.paths.outputs.hamlib_prefix }}/lib/libhamlib.dll.a"
+
+    - name: Save Hamlib cache
+      if: inputs.save_caches == 'true' && steps.hamlib-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: hamlib-prefix
+        key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}

@@ -19,7 +19,7 @@
 ! the apply-routing unit are their coverage; utc is decode-observable (Gates 19/20).
 program p8_parse_test
   use streaming_control, only: parse_control_frame, configure_fields,        &
-       control_type_error, CTRL_CONFIGURE
+       control_type_error, CTRL_CONFIGURE, CTRL_PARSE_ERR
   implicit none
   integer :: nfail
   nfail = 0
@@ -34,6 +34,7 @@ program p8_parse_test
   call frame_H()
   call frame_H2()
   call frame_I()
+  call frame_J()
 
   write(*,'(a)') '------------------------------------------------------------'
   if (nfail .eq. 0) then
@@ -263,5 +264,36 @@ contains
     call ok('candthin_threshold unset',  .not. cfg%candthin_threshold_set)
     call ok('dt_center_seconds unset',   .not. cfg%dt_center_seconds_set)
   end subroutine frame_I
+
+  ! Frame J: truncated values exercise every scalar getter at end-of-buffer.
+  subroutine frame_J()
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    write(*,'(a)') 'Frame J: truncated key values at end of frame'
+
+    call parse_control_frame('{"t":', action, cfg, terr)
+    call ok('truncated required t -> parse error', action .eq. CTRL_PARSE_ERR)
+
+    call parse_control_frame('{"t":"configure","mode":', action, cfg, terr)
+    call ok('truncated string key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('truncated string key: terr not present', .not. terr%present)
+    call ok('truncated string key: mode unset', .not. cfg%mode_set)
+
+    call parse_control_frame('{"t":"configure","depth":', action, cfg, terr)
+    call ok('truncated int key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('truncated int key: terr not present', .not. terr%present)
+    call ok('truncated int key: depth unset', .not. cfg%depth_set)
+
+    call parse_control_frame('{"t":"configure","trperiod":   ', action, cfg, terr)
+    call ok('space-only real key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('space-only real key: terr not present', .not. terr%present)
+    call ok('space-only real key: trperiod unset', .not. cfg%trperiod_set)
+
+    call parse_control_frame('{"t":"configure","my_call_standard":', action, cfg, terr)
+    call ok('truncated bool key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('truncated bool key: terr not present', .not. terr%present)
+    call ok('truncated bool key: my_call_standard unset', .not. cfg%my_call_standard_set)
+  end subroutine frame_J
 
 end program p8_parse_test

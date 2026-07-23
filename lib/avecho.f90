@@ -1,4 +1,4 @@
-subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
+subroutine avecho(id2_0,ndop,nfrit,nauto,navg,nqual,f1,xlevel,  &
      snrdb,db_err,dfreq,width,bDiskData,bEchoCall,txcall,rxcall)
 
   parameter (NTX=6*4096)
@@ -29,7 +29,8 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
   data navg0/-1/
   save dop0,navg0,sax,sbx
 
-  if(ndf.eq.-999) stop                !Silence compiler warning
+  rxcall='      '
+
   if(bEchoCall .and. .not.bDiskData) then
 ! Calculate the transmitted tones for real-time Echo Call testing
      call gen_echocall(txcall,itone4)
@@ -81,7 +82,6 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
 
 ! Shift all tone frequencies to 1500 Hz, returning modified data in id2
 ! and decoded message in rxcall.
-  rxcall='      '
   call decode_echo(id2,.false.,rxcall)
 
   x(1:15)=0.

@@ -83,7 +83,7 @@ unsigned int endstate            /* Encoder ending state */
 ){
   int bitcnt = -(K-1);
   int m0,m1;
-  int i,j,sym,ipp;
+  int i,j,sym;
   int mets[1 << N];
   unsigned int paths[(MAXNBITS+K-1)*D];
   unsigned int *pp,mask;
@@ -113,7 +113,6 @@ unsigned int endstate            /* Encoder ending state */
   cmetric[startstate] = 0;
 
   pp = paths;
-  ipp=0;
   for(;;){ /* For each data bit */
     /* Read input symbols and compute branch metrics */
     for(i=0;i< 1<<N;i++){
@@ -152,12 +151,10 @@ unsigned int endstate            /* Encoder ending state */
       if(mask == 0){
 	mask = 1;
 	pp++;
-	ipp++;
       }
     }
     if(mask != 1){
       pp++;
-      ipp++;
     }
     if(++bitcnt == (int)nbits){
       *metric = nmetric[endstate];
@@ -174,7 +171,6 @@ unsigned int endstate            /* Encoder ending state */
   for(i=nbits-1;i >= 0;i--){
     //    int a0,a1;
     pp -= D;
-    ipp -= D;
     m0=endstate >> LOGLONGBITS;
     m1=1L << (endstate & (LONGBITS-1));
     if(pp[m0] & m1) {

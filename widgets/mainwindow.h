@@ -12,6 +12,8 @@
 #include <QProgressBar>
 #include <QTimer>
 #include <QDateTime>
+#include <QElapsedTimer>
+#include <QMap>
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QList>
@@ -29,13 +31,16 @@
 #include <QScrollBar>
 #include <QQueue>
 #include <QFuture>
+#include <QFutureSynchronizer>
 #include <QFutureWatcher>
 #include <QDateTime>
 #include <array>
+#include <memory>
 
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
+#include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
 #include "Radio.hpp"
 #include "models/Modes.hpp"
@@ -56,6 +61,7 @@
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "AutoRespondSelectionLatch.hpp"
+#include "QsoProgress.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -80,6 +86,12 @@
 namespace Ui {
   class MainWindow;
 }
+
+class QWidget;
+class QRadioButton;
+class QFocusFrame;
+class QFrame;
+class QButtonGroup;
 
 class QProcessEnvironment;
 class QSharedMemory;
@@ -110,6 +122,15 @@ class SoundInput;
 class Detector;
 class SampleDownloader;
 class MultiSettings;
+
+namespace DecodedMessageReaction
+{
+  enum class ContestHint;
+  enum class WaitDecodeSource;
+  struct QsoReactionEffect;
+  struct QsoReactionPlan;
+  struct QsoReactionSnapshot;
+}
 class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
@@ -149,7 +170,7 @@ public:
 
   explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
                       QSharedMemory *shdmem, unsigned downSampleFactor,
-                      QSplashScreen *, QProcessEnvironment const&,
+                      QSplashScreen *, QProcessEnvironment const&, bool startup_smoke_test,
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -207,6 +228,8 @@ private:
   void childEvent(QChildEvent *) override;
   bool eventFilter(QObject *, QEvent *) override;
   void showQSYMessage(QString message);
+  void save_wave_file(QString const& name, int samples, Frequency frequency,
+                      QString const& dgrd);
 
 private slots:
   void initialize_fonts ();
@@ -539,15 +562,13 @@ private slots:
 private:
   enum class DecodeAlertSound { None, DXcall, Wanted };
 
-  bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
-  void parseAveragingInfo(const QByteArray& line, bool& bAvgMsg, int& navg) const;
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
   void processFoxSignals(const DecodedText& dt);
   void processSFoxVerification(const DecodedText& dt, bool& filtered);
-  void processSprintLogic(const QString& text);
-  bool processWaitAndReply(const DecodedText& dt, const QString& text);
-  void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
-  bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
+  bool processWaitReplyCall(
+    DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
+    bool * block_right_display = nullptr);
+  bool applyFiltering(const DecodedText& dt, bool& filtered);
   void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
                          bool& play_Wanted, bool& play_DXcall);
   void cycleRespondMode();
@@ -599,7 +620,10 @@ private:
   bool elide_tx1_not_allowed () const;
   void readWidebandDecodes();
   void configActiveStations();
-  void sfox_tx();
+  bool sfox_tx();
+  void clearSuperFoxPreparedTx();
+  void abortSuperFoxTxStart();
+  void displayFoxTxMsgs();
   void jtty_tx(QString message);
 #ifdef WIN32
   void handleMmttyTxString(QString message);
@@ -647,16 +671,21 @@ private:
   bool play_Wanted = false;
   bool inSettings = false;
 
+  bool m_event_filter_ready {false};
   QProcessEnvironment const& m_env;
   NetworkAccessManager m_network_manager;
   bool m_valid;
   QSplashScreen * m_splash;
   QString m_revision;
   bool m_multiple;
+  bool m_startup_smoke_test;
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
   QSettings * m_settings;
   QScopedPointer<Ui::MainWindow> ui;
+  QButtonGroup * m_tx_message_button_group {nullptr};
+  QFocusFrame * m_main_window_focus_frame {nullptr};
+  QFrame * m_message_selector_focus_frame {nullptr};
 
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
@@ -716,8 +745,7 @@ private:
   Frequency m_freqNominal;
   Frequency m_freqNominalPeriod;
   Frequency m_freqTxNominal;
-  quint64 m_msk144basefreq;
-  quint64 m_msk144oldfreq;
+  Frequency m_msk144basefreq {0};
   quint64  m_mslastTX;   //ft8md
   qint32  m_nlasttx;     //ft8md
   qint32  m_lapmyc;      //ft8md
@@ -820,12 +848,30 @@ private:
   qint32  m_echoSec0=0;
   qint32  m_fetched=0;
   qint32  m_position;
+  qint64  m_decoderDiagSequence=0;
+  qint64  m_decoderDiagActiveSequence=0;
+  qint32  m_decoderDiagStartIhsym=0;
+  qint32  m_decoderDiagStartHsymStop=0;
+  qint32  m_decoderDiagStartNzhsym=0;
+  qint32  m_decoderDiagStartNewdat=0;
+  qint32  m_decoderDiagStartNagain=0;
+  qint32  m_decoderDiagStartNdiskdat=0;
+  double  m_decoderDiagStartTRperiod=0.0;
+  QElapsedTimer m_decoderDiagElapsedTimer;
+  QString m_decoderDiagStartMode;
+  QMap<QString, QDateTime> m_decoderDiagLastSampleUtc;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
   bool    m_loopall;
   bool    m_decoderBusy;
   bool    m_modeLocked = false;
+  bool    m_decode_button_enabled_before_wav {false};
+  bool    m_decoderDiagActive=false;
+  bool    m_decoderDiagBusyRequestLogged=false;
+  bool    m_decoderDiagOverrunLogged=false;
+  bool    m_decoderDiagHardHangLogged=false;
+  bool    m_decoderDiagAbnormalClear=false;
   bool    m_txFirst;
   bool    m_auto;
   bool    m_restart;
@@ -904,16 +950,13 @@ private:
 
   SpecOp  m_specOp;
 
-  enum
-    {
-      CALLING,
-      REPLYING,
-      REPORT,
-      ROGER_REPORT,
-      ROGERS,
-      SIGNOFF
-    }
-    m_QSOProgress;        //State machine counter
+  static constexpr QsoProgress CALLING {QsoProgress::Calling};
+  static constexpr QsoProgress REPLYING {QsoProgress::Replying};
+  static constexpr QsoProgress REPORT {QsoProgress::Report};
+  static constexpr QsoProgress ROGER_REPORT {QsoProgress::RogerReport};
+  static constexpr QsoProgress ROGERS {QsoProgress::Rogers};
+  static constexpr QsoProgress SIGNOFF {QsoProgress::Signoff};
+  QsoProgress m_QSOProgress;
 
   enum {CALL, GRID, DXCC, MULT};
 
@@ -941,10 +984,9 @@ private:
   QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
-
-  QFuture<void> m_wav_future;
-  QFutureWatcher<void> m_wav_future_watcher;
+  WavLoadCoordinator m_wav_load_coordinator;
   QFutureWatcher<void> watcher3;
+  QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;
 
   NonInheritingProcess proc_jt9;
@@ -1163,10 +1205,18 @@ private:
   void writeSettings();
   void createStatusBar();
   void updateStatusBar();
+  void updateMainWindowAccessibility();
+  void registerMainWindowFocusControls();
+  std::array<QRadioButton *, 6> txNextButtons() const;
+  std::array<QWidget *, 13> focusIndicatorWidgets() const;
+  void updateTxNextFocusPolicies();
+  bool switchTxNextMessage(QKeyEvent const *key_event);
+  bool switchMainWindowTab(QKeyEvent const *key_event);
   void genStdMsgs(QString rpt, bool unconditional = false);
   void genCQMsg();
   void clearDX ();
   void lookup();
+  QString expandTxMacros(QString const& message) const;
   void ba2msg(QByteArray ba, char* message);
   void msgtype(QString t, QLineEdit* tx);
   void stub();
@@ -1183,6 +1233,15 @@ private:
   void transmitDisplay (bool);
   void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier,
                       bool from_udp_reply = false);
+  void processSyntheticMessage(DecodedText const& message);
+  DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
+    Qt::KeyboardModifiers modifiers = Qt::NoModifier, bool from_udp_reply = false) const;
+  void applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
+                            DecodedText const& message, bool * block_right_display = nullptr);
+  void applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
+                              DecodedText const& message, bool * block_right_display);
+  void showContestHint(DecodedMessageReaction::ContestHint hint);
+  void refreshQsoPane(DecodedText const& message);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);
   void locationChange(QString const& location);
   void replayDecodes ();
@@ -1190,6 +1249,7 @@ private:
   void postWSPRDecode (bool is_new, QStringList message_parts);
   void enable_DXCC_entity (bool on);
   void switch_mode (Mode);
+  bool hasMsk144BaseFrequency () const {return m_msk144basefreq > 0;}
   void WSPR_scheduling ();
   void freqCalStep();
   void setRig (Frequency = 0);  // zero frequency means no change
@@ -1208,6 +1268,8 @@ private:
   QString sortHoundCalls(QString t, int isort, int max_dB);
   void rm_tb4(QString houndCall);
   void read_wav_file (QString const& fname);
+  void wav_file_loaded ();
+  void update_wav_file_actions ();
   void decodeDone ();
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
   void subProcessError (QProcess *, QProcess::ProcessError);
@@ -1229,11 +1291,18 @@ private:
   void updateFoxQSOsInProgressDisplay();
   void foxQueueTopCallCommand();
   void foxRxSequencer(QString msg, QString houndCall, QString rptRcvd);
-  void foxTxSequencer();
+  bool foxTxSequencer();
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
   void update_foxLogWindow_rate();
   void to_jt9(qint32 n, qint32 istart, qint32 idone);
+  qint64 decoderDiagnosticElapsedMs() const;
+  void beginDecoderDiagnostic();
+  void logDecoderBusyRequest(QString const& reason);
+  void logDecoderProgress();
+  void logDecoderAbnormalClear(QString const& reason);
+  void finishDecoderDiagnostic();
+  void clearHungDecoderStatus(QString const& reason);
   bool is77BitMode () const;
   void cease_auto_Tx_after_QSO ();
   Q_SLOT void ARRL_Digi_Display();

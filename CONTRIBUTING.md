@@ -87,6 +87,7 @@ On macOS, add Qt5 and other Homebrew paths to `CMAKE_PREFIX_PATH`:
 cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix;$(brew --prefix qt@5);$(brew --prefix fftw);$(brew --prefix boost)" \
   -DCMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran ../src
 ```
+Homebrew-linked macOS builds are for local development and testing, not release artifact validation. The legacy install-time BundleUtilities path is opt-in with `-DWSJT_MACOS_INSTALL_TIME_FIXUP=ON`; deployable macOS packages use the controlled dependency deploy and verification path in CI.
 
 ### Updating and Rebuilding
 

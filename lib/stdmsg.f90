@@ -41,3 +41,37 @@ function stdmsg(msg0)
   
   return
 end function stdmsg
+
+function stdmsg72(msg0,is_jt65)
+
+  use iso_c_binding, only: c_bool
+  use packjt, only: packmsg, unpackmsg
+
+  implicit none
+
+  character(len=37), intent(in) :: msg0
+  logical(c_bool), intent(in) :: is_jt65
+  logical(c_bool) :: stdmsg72
+  character(len=22) :: msg72,decoded72
+  integer :: dat(12),itype,n
+
+  stdmsg72=.false.
+  msg72=msg0(1:22)
+
+  if(msg0(23:24).eq.' d' .and. msg72(22:22).eq.'?') msg72(22:22)=' '
+
+  if(is_jt65) then
+     n=len_trim(msg72)
+     if(n.ge.4) then
+        if(msg72(n-3:n).eq.' OOO') msg72(n-3:)=' '
+     endif
+  endif
+
+  call packmsg(msg72,dat,itype)
+  if(itype.lt.1 .or. itype.gt.5) return
+
+  call unpackmsg(dat,decoded72)
+  stdmsg72=(decoded72.eq.msg72)
+
+  return
+end function stdmsg72

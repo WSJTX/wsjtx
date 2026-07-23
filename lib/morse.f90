@@ -1,4 +1,12 @@
-subroutine morse(msg,idat,n)
+module morse_encoder
+
+  implicit none
+  private
+  public encode_morse
+
+contains
+
+subroutine encode_morse(msg,idat,n)
 
 ! Convert ascii message to a Morse code bit string.
 !    Dash = 3 dots
@@ -6,9 +14,12 @@ subroutine morse(msg,idat,n)
 !    Space between letters = 3 dots
 !    Space between words = 7 dots
 
-  character*(*) msg
-  integer idat(250)
+  implicit none
+
+  character(len=*), intent(in) :: msg
+  integer, intent(out) :: idat(:),n
   integer*1 ic(21,38)
+  integer i,j,jj,k,msglen,nmax
   data ic/                                        &
      1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,20,  &
      1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,0,0,18,  &
@@ -48,7 +59,6 @@ subroutine morse(msg,idat,n)
      1,1,1,0,1,1,1,0,1,0,1,0,0,0,0,0,0,0,0,0,12,  &
      1,1,1,0,1,0,1,0,1,1,1,0,1,0,0,0,0,0,0,0,14,  &
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 2/     !Incremental word space
-  save
 
   msglen=len(msg)
   idat=0
@@ -56,15 +66,24 @@ subroutine morse(msg,idat,n)
   do k=1,msglen
      jj=ichar(msg(k:k))
      if(jj.ge.97 .and. jj.le.122) jj=jj-32  !Convert lower to upper case
-     if(jj.ge.48 .and. jj.le.57) j=jj-48    !Numbers
-     if(jj.ge.65 .and. jj.le.90) j=jj-55    !Letters
-     if(jj.eq.47) j=36                      !Slash (/)
-     if(jj.eq.32) j=37                      !Word space
+     if(jj.ge.48 .and. jj.le.57) then
+        j=jj-48                              !Numbers
+     else if(jj.ge.65 .and. jj.le.90) then
+        j=jj-55                              !Letters
+     else if(jj.eq.47) then
+        j=36                                 !Slash (/)
+     else if(jj.eq.32) then
+        j=37                                 !Word space
+     else
+        idat=0
+        n=0
+        return
+     endif
      j=j+1
 
 ! Insert this character
      nmax=ic(21,j)
-     if (n + nmax + 4 .gt. size (idat)) exit
+     if (n + nmax + 6 .gt. size (idat)) exit
      do i=1,nmax
         n=n+1
         idat(n)=ic(i,j)
@@ -84,4 +103,17 @@ subroutine morse(msg,idat,n)
   enddo
 
   return
+end subroutine encode_morse
+
+end module morse_encoder
+
+subroutine morse(msg,idat,n)
+
+  use morse_encoder, only: encode_morse
+  implicit none
+
+  character(len=*), intent(in) :: msg
+  integer, intent(out) :: idat(250),n
+  call encode_morse(msg,idat,n)
+
 end subroutine morse

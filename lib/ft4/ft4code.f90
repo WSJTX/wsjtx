@@ -12,6 +12,7 @@ program ft4code
   character*77 c77
   character*9 comment
   character bad*1,msgtype*18
+  integer pack_status
   integer itone(NN)
   integer*1 msgbits(77),rvec(77),codeword(174)
   data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
@@ -46,10 +47,16 @@ program ft4code
      if(nmsg.gt.1) msg=testmsg(imsg)
      
 ! Generate msgsent, msgbits, and itone
-     i3=-1
-     n3=-1
-     call pack77(msg,i3,n3,c77)
      call genft4(msg,0,msgsent,msgbits,itone)
+     if(trim(msgsent).eq.'*** bad message ***') then
+        print*,'Cannot encode message: ',trim(msg)
+        stop 1
+     endif
+     call pack77(msgsent,i3,n3,c77,status=pack_status)
+     if(pack_status.ne.PACK77_STATUS_ENCODED) then
+        print*,'Cannot encode message: ',trim(msg)
+        stop 1
+     endif
      call encode174_91(msgbits,codeword)
      msgtype=""
      if(i3.eq.0) then

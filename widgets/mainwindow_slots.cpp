@@ -82,6 +82,11 @@ extern "C" {
 
 void MainWindow::on_monitorButton_clicked (bool checked)
 {
+  if (m_wav_load_coordinator.isLoading ()) {
+    ui->monitorButton->setChecked (false);
+    return;
+  }
+
   if (!m_transmitting) {
     auto prior = m_monitoring;
     monitor (checked);
@@ -197,6 +202,11 @@ void MainWindow::on_pbBandHopping_clicked()
 
 void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
 {
+  if (m_wav_load_coordinator.isLoading ()) {
+    ui->DecodeButton->setChecked (false);
+    return;
+  }
+
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
   } else if(m_mode=="JTTY") {
@@ -299,7 +309,8 @@ void MainWindow::on_txb6_clicked()
     set_dateTimeQSO(-1);
     ui->txrb6->setChecked(true);
     if(m_transmitting) m_restart=true;
-    if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0 && !programStart && !m_band_changed) {
+    if(m_mode=="MSK144" && !programStart && !m_band_changed && !keep_msk144_frequency
+        && hasMsk144BaseFrequency ()) {
       setRig(m_msk144basefreq);  // reset MSK144 QSY
       msk144qsy = false;
     }
@@ -704,17 +715,32 @@ void MainWindow::on_pbFoxReset_clicked()
 void MainWindow::on_pbFreeText_clicked()
 {
   bool ok;
+  QString freeTextMsg;
   if(m_config.superFox()) {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
+    freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
            tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(26);
   } else {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
+    freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
            tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(13);
   }
-  if(ok) {
-    m_freeTextMsg=m_freeTextMsg.toUpper();
-    m_freeTextMsg0=m_freeTextMsg;
+  if(!ok) return;
+
+  freeTextMsg=freeTextMsg.toUpper();
+  if(m_config.superFox()) {
+    // Mirrors valid_sfox_free_text in lib/superfox/sfox_pack.f90.
+    QString const validChars {" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?"};
+    for(QChar const ch: freeTextMsg) {
+      if(!validChars.contains(ch)) {
+        QString const message = tr ("SuperFox free text may only contain "
+            "spaces, digits, uppercase letters, and + - . / ?.");
+        MessageBox::warning_message (this, tr ("Free Text Message"), message);
+        return;
+      }
+    }
   }
+
+  m_freeTextMsg=freeTextMsg;
+  m_freeTextMsg0=m_freeTextMsg;
 }
 
 void MainWindow::on_pbBestSP_clicked()

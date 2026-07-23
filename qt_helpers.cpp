@@ -9,6 +9,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QStringList>
 
 QString font_as_stylesheet (QFont const& font)
 {
@@ -52,23 +53,79 @@ QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds)
   return dt;
 }
 
-QString app_sounds_directory (QString const& subdirectory)
+namespace
+{
+QString app_sounds_root ()
 {
 #if defined (__APPLE__)
-  QString root {QCoreApplication::applicationDirPath () + "/../Resources/sounds"};
+  return QCoreApplication::applicationDirPath () + "/../Resources/sounds";
 #else
-  QString root {QCoreApplication::applicationDirPath () + "/sounds"};
+  return QCoreApplication::applicationDirPath () + "/sounds";
 #endif
+}
 
-  auto child = subdirectory;
+QString normalized_app_sounds_child (QString const& subdirectory)
+{
+  auto child = subdirectory.trimmed ();
+  child.replace (QChar {'\\'}, QChar {'/'});
   while (child.startsWith (QChar {'/'}))
     {
       child.remove (0, 1);
     }
+  return QDir::cleanPath (child);
+}
 
-  QDir dir {root};
-  auto path = child.isEmpty () ? dir.absolutePath () : dir.absoluteFilePath (child);
-  return QDir::cleanPath (path) + QChar {'/'};
+bool normalized_app_sounds_child_is_safe (QString const& child)
+{
+  return child.isEmpty () || child == "."
+    || (!QDir::isAbsolutePath (child) && child != ".." && !child.startsWith ("../"));
+}
+}
+
+bool app_sounds_subdirectory_is_safe (QString const& subdirectory)
+{
+  return normalized_app_sounds_child_is_safe (normalized_app_sounds_child (subdirectory));
+}
+
+bool parse_app_voice_entry (QString const& record, QString& subdirectory, QString& display_name)
+{
+  auto const fields = record.split (QChar {'|'});
+  if (fields.size () != 2)
+    {
+      return false;
+    }
+
+  auto const candidate_subdirectory = fields.at (0).trimmed ();
+  auto const candidate_display_name = fields.at (1).trimmed ();
+  auto const normalized_subdirectory = normalized_app_sounds_child (candidate_subdirectory);
+  if (normalized_subdirectory.isEmpty () || normalized_subdirectory == "."
+      || candidate_display_name.isEmpty ()
+      || !normalized_app_sounds_child_is_safe (normalized_subdirectory))
+    {
+      return false;
+    }
+
+  subdirectory = normalized_subdirectory;
+  display_name = candidate_display_name;
+  return true;
+}
+
+QString app_sounds_directory (QString const& subdirectory)
+{
+  auto const root = QDir::cleanPath (QDir {app_sounds_root ()}.absolutePath ());
+  auto const child = normalized_app_sounds_child (subdirectory);
+
+  if (!normalized_app_sounds_child_is_safe (child) || child.isEmpty () || child == ".")
+    {
+      return root + QChar {'/'};
+    }
+
+  auto const path = QDir::cleanPath (QDir {root}.absoluteFilePath (child));
+  if (path != root && !path.startsWith (root + QChar {'/'}))
+    {
+      return root + QChar {'/'};
+    }
+  return path + QChar {'/'};
 }
 
 int next_cyclic_index (int current_index, int item_count)

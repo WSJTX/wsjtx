@@ -15,6 +15,7 @@ subroutine save_qm(fname,revision,mycall,mygrid,dd,ntx30a,ntx30b,fcenter,  &
   ib=NMAX
   if(ntx30a.gt.5) ia=NMAX/2+1
   if(ntx30b.gt.5) ib=NMAX/2
+  if(ia.gt.ib) return
   
   sq=0.
   do i=ia,ib
@@ -60,4 +61,3 @@ subroutine save_qm(fname,revision,mycall,mygrid,dd,ntx30a,ntx30b,fcenter,  &
 
   return
 end subroutine save_qm
-

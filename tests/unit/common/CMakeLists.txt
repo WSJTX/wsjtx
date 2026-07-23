@@ -5,6 +5,13 @@ add_executable (test_qt_helpers
 target_link_libraries (test_qt_helpers Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_qt_helpers COMMAND test_qt_helpers)
 
+add_executable (test_callsign_validator
+  test_callsign_validator.cpp
+  ${CMAKE_SOURCE_DIR}/validators/CallsignValidator.cpp
+)
+target_link_libraries (test_callsign_validator Qt5::Test Qt5::Gui)
+add_test (NAME test_callsign_validator COMMAND test_callsign_validator)
+
 add_executable (test_wf_palette
   test_wf_palette.cpp
 )
@@ -31,11 +38,25 @@ add_executable (test_fox_guard_bands
 target_link_libraries (test_fox_guard_bands Qt5::Test)
 add_test (NAME test_fox_guard_bands COMMAND test_fox_guard_bands)
 
+add_executable (test_highlighting_rules
+  test_highlighting_rules.cpp
+  ${CMAKE_SOURCE_DIR}/HighlightingRules.cpp
+)
+target_link_libraries (test_highlighting_rules Qt5::Test)
+add_test (NAME test_highlighting_rules COMMAND test_highlighting_rules)
+
 add_executable (test_tx_start_policy
   test_tx_start_policy.cpp
 )
 target_link_libraries (test_tx_start_policy Qt5::Test)
 add_test (NAME test_tx_start_policy COMMAND test_tx_start_policy)
+
+add_executable (test_superfox_tx_planner
+  test_superfox_tx_planner.cpp
+  ${CMAKE_SOURCE_DIR}/SuperFoxTxPlanner.cpp
+)
+target_link_libraries (test_superfox_tx_planner Qt5::Test)
+add_test (NAME test_superfox_tx_planner COMMAND test_superfox_tx_planner)
 
 add_executable (test_auto_respond_selection_latch
   test_auto_respond_selection_latch.cpp
@@ -73,8 +94,34 @@ add_executable (test_decoded_message_reaction
 target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)
 
+add_executable (test_decode_output_plan
+  test_decode_output_plan.cpp
+)
+target_link_libraries (test_decode_output_plan wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_decode_output_plan COMMAND test_decode_output_plan)
+
 add_executable (test_auto_sequence_reaction
   test_auto_sequence_reaction.cpp
 )
 target_link_libraries (test_auto_sequence_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_auto_sequence_reaction COMMAND test_auto_sequence_reaction)
+
+add_executable (test_qso_reaction
+  test_qso_reaction.cpp
+)
+target_link_libraries (test_qso_reaction wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_qso_reaction COMMAND test_qso_reaction)
+
+add_executable (test_qsy_message_parser
+  test_qsy_message_parser.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/QSYMessageParser.cpp
+)
+target_link_libraries (test_qsy_message_parser Qt5::Test)
+add_test (NAME test_qsy_message_parser COMMAND test_qsy_message_parser)
+
+add_executable (test_spec_op_label
+  test_spec_op_label.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/SpecOpLabel.cpp
+)
+target_link_libraries (test_spec_op_label Qt5::Test)
+add_test (NAME test_spec_op_label COMMAND test_spec_op_label)

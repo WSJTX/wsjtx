@@ -21,14 +21,14 @@
 #include <QDir>
 #include <QDebug>
 #include <QDateTime>
+#include <QMutexLocker>
 #include <QTimer>
+#include <QVector>
 
-static constexpr quint32 AudioHeaderSize = 16u*sizeof(quint32);
+#include "DecDataMutex.hpp"
 
 namespace
 {
-  quint32 constexpr MaxTciAudioSamples {8192u};
-
   char const * const TCI_transceiver_1_name {"TCI Client RX1"};
   char const * const TCI_transceiver_2_name {"TCI Client RX2"};
 
@@ -51,30 +51,6 @@ namespace
 
     *result = 10 * whole + fractional;
     return true;
-  }
-
-  bool checked_audio_frame_size (quint32 sample_count, quint32 channels, int * size)
-  {
-    if (!size || sample_count > MaxTciAudioSamples)
-      {
-        return false;
-      }
-
-    auto const payload_bytes = static_cast<quint64> (sample_count) * sizeof (float) * channels;
-    auto const frame_bytes = static_cast<quint64> (AudioHeaderSize) + payload_bytes;
-    if (frame_bytes > static_cast<quint64> ((std::numeric_limits<int>::max) ()))
-      {
-        return false;
-      }
-
-    *size = static_cast<int> (frame_bytes);
-    return true;
-  }
-
-  bool inbound_float_payload_complete (QByteArray const& data, quint32 sample_count)
-  {
-    int expected_size;
-    return checked_audio_frame_size (sample_count, 1u, &expected_size) && data.size () >= expected_size;
   }
 
   QString map_mode (Transceiver::MODE mode)
@@ -448,6 +424,7 @@ int TCITransceiver::do_start ()
   tci_Ready = false;
   ESDR3 = false;
   HPSDR = false;
+  stream_channels_supported_ = false;
   band_change = false;
   trxA = 0;
   trxB = 0;
@@ -913,6 +890,8 @@ void TCITransceiver::onMessageReceived(const QString &str)
         if (!has_required_args (args, 1)) break;
         if(args.at(0)=="ExpertSDR3") ESDR3 = true;
         else if (args.at(0)=="Thetis") HPSDR = true;
+        stream_channels_supported_ = has_required_args (args, 2)
+          && TciStream::protocol_has_channels (args.at (1));
         break;
       case Cmd_Device:
         printf("%s CmdDevice : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
@@ -941,16 +920,16 @@ void TCITransceiver::sendTextMessage(const QString &message)
 
 void TCITransceiver::onBinaryReceived(const QByteArray &data)
 {
-  if (data.size () < static_cast<int> (AudioHeaderSize)) {
+  auto const * pStream = TciStream::header (data);
+  if (!pStream) {
     return;
   }
 
-  auto * pStream = reinterpret_cast<Data_Stream *> (const_cast<char *> (data.constData ()));
   if (pStream->type != last_type) {
     last_type = pStream->type;
   }
-  if (pStream->type == Iq_Stream){
-    if (!inbound_float_payload_complete (data, pStream->length)) {
+  if (pStream->type == TciStream::IqStream){
+    if (!TciStream::has_complete_float_payload (data, pStream->length)) {
       return;
     }
     bool tx = false;
@@ -963,36 +942,37 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
       trxB = 1;
     }
     printf("sendIqData\n");
-    emit sendIqData(pStream->receiver,pStream->length,pStream->data,tx);
+    emit sendIqData(pStream->receiver,pStream->length,
+                    const_cast<float *> (TciStream::float_payload (data)),tx);
     qDebug() << "IQ" << data.size() << pStream->length;
-  } else if (pStream->type == RxAudioStream && audio_  && pStream->receiver == rx_.toUInt()) {
-    if (!inbound_float_payload_complete (data, pStream->length)) {
+  } else if (pStream->type == TciStream::RxAudioStream && audio_  && pStream->receiver == rx_.toUInt()) {
+    if (!TciStream::has_complete_float_payload (data, pStream->length)) {
       return;
     }
-    writeAudioData(pStream->data,pStream->length);
-  } else if (pStream->type == TxChrono &&  pStream->receiver == rx_.toUInt()) {
-    int ssize;
-    if (!checked_audio_frame_size (pStream->length, 2u, &ssize)) {
+    writeAudioData(const_cast<float *> (TciStream::float_payload (data)),pStream->length);
+  } else if (pStream->type == TciStream::TxChrono &&  pStream->receiver == rx_.toUInt()) {
+    quint32 channels;
+    if (!TciStream::valid_tx_chrono (*pStream, stream_channels_supported_,
+                                     audioSampleRate, &channels)) {
       return;
     }
-    mtx_.lock(); tx_fifo += 1; tx_fifo &= 7;
-    quint16 tehtud;
-    if (m_tx1[tx_fifo].size() != ssize) m_tx1[tx_fifo].resize(ssize);
-    Data_Stream * pOStream1 = reinterpret_cast<Data_Stream *> (m_tx1[tx_fifo].data());
-    std::memset (pOStream1, 0, AudioHeaderSize);
-    pOStream1->receiver = pStream->receiver;
-    pOStream1->sampleRate = pStream->sampleRate;
-    pOStream1->format = pStream->format;
-    pOStream1->codec = 0;
-    pOStream1->crc = 0;
-    pOStream1->length = pStream->length;
-    pOStream1->type = TxAudioStream;
-    tehtud = readAudioData(pOStream1->data,pOStream1->length, txAtten);
-    if (tehtud && tehtud != pOStream1->length) {
-      quint16 valmis = tehtud;
-      tehtud = readAudioData(pOStream1->data + valmis,pOStream1->length - valmis,txAtten);
+
+    {
+      std::lock_guard<std::mutex> lock {mtx_};
+      tx_fifo += 1; tx_fifo &= 7;
+      if (!TciStream::prepare_tx_audio_frame (&m_tx1[tx_fifo], *pStream, channels)) {
+        return;
+      }
+
+      auto * response = TciStream::header (&m_tx1[tx_fifo]);
+      auto * payload = TciStream::float_payload (&m_tx1[tx_fifo]);
+      auto generated = readAudioData (payload, response->length, channels, txAtten);
+      if (generated < response->length) {
+        readAudioData (payload + generated, response->length - generated, channels, txAtten);
+      }
+      tx_fifo2 = tx_fifo;
     }
-    tx_fifo2 = tx_fifo; mtx_.unlock();
+
     if (!inConnected || commander_->sendBinaryMessage(m_tx1[tx_fifo2]) != m_tx1[tx_fifo2].size()) {
     }
   }
@@ -1000,23 +980,22 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
 
 void TCITransceiver::txAudioData(quint32 len, float * data)
 {
-  int frame_size;
-  if (!checked_audio_frame_size (len, 2u, &frame_size)) {
+  if (len % TciStream::DefaultChannels || (len && !data)) {
     return;
   }
 
+  TciStream::Header chrono {};
+  chrono.receiver = 0u;
+  chrono.sampleRate = audioSampleRate;
+  chrono.length = len;
   QByteArray tx;
-  tx.resize(frame_size);
-  Data_Stream * pStream = reinterpret_cast<Data_Stream *> (tx.data());
-  std::memset (pStream, 0, AudioHeaderSize);
-  pStream->receiver = 0;
-  pStream->sampleRate = audioSampleRate;
-  pStream->format = 3;
-  pStream->codec = 0;
-  pStream->crc = 0;
-  pStream->length = len;
-  pStream->type = TxAudioStream;
-  memcpy(pStream->data,data,len*sizeof(float)*2);
+  if (!TciStream::prepare_tx_audio_frame (&tx, chrono, TciStream::DefaultChannels)) {
+    return;
+  }
+
+  if (len) {
+    std::memcpy (TciStream::float_payload (&tx), data, len * sizeof (float));
+  }
   commander_->sendBinaryMessage(tx);
 }
 
@@ -1053,16 +1032,25 @@ void TCITransceiver::poll_jtty_drain ()
 
 quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 {
+  if (dec_data_input_blocked ()) return maxSize;
+
   static unsigned mstr0=999999;
+  QVector<qint64> frame_counts;
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
-  if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
-    dec_data.params.kin = 0;
-    m_bufferPos = 0;
-  }
-  mstr0=mstr;
 
-  if(data != NULL) {
+  if(data == NULL) {
+    QMutexLocker lock {&dec_data_mutex ()};
+    if (dec_data_input_blocked ()) return maxSize;
+    if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
+      dec_data.params.kin = 0;
+      m_bufferPos = 0;
+    }
+    mstr0=mstr;
+    return maxSize;    // we drop any data past the end of the buffer on
+    // the floor until the next period starts
+  }
+
   // block below adjusts receive audio attenuation
   quint64 i = 0;
   float * data1 = (float*)malloc(maxSize * sizeof(float));
@@ -1070,62 +1058,79 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
     data1[i] = ((float)(pow(10, 0.05*rxAtten) * data[i]));
   }
 
-  // no torn frames
-  Q_ASSERT (!(maxSize % static_cast<qint32> (bytesPerFrame)));
+  {
+    QMutexLocker lock {&dec_data_mutex ()};
+    if (dec_data_input_blocked ()) {
+      free(data1);
+      return maxSize;
+    }
 
-  // these are in terms of input frames (not down sampled)
-  size_t framesAcceptable ((sizeof (dec_data.d2) /
-                               sizeof (dec_data.d2[0]) - dec_data.params.kin) * m_downSampleFactor);
-  size_t framesAccepted (qMin (static_cast<size_t> (maxSize /
-                                                    bytesPerFrame), framesAcceptable));
+    if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
+      dec_data.params.kin = 0;
+      m_bufferPos = 0;
+    }
+    mstr0=mstr;
 
-  if (framesAccepted < static_cast<size_t> (maxSize / bytesPerFrame)) {
-    qDebug () << "dropped " << maxSize / bytesPerFrame - framesAccepted
-             << " frames of data on the floor!"
-             << dec_data.params.kin << mstr;
+    // no torn frames
+    Q_ASSERT (!(maxSize % static_cast<qint32> (rxChannels)));
+
+    // these are in terms of input frames (not down sampled)
+    size_t framesAcceptable ((sizeof (dec_data.d2) /
+                                 sizeof (dec_data.d2[0]) - dec_data.params.kin) * m_downSampleFactor);
+    size_t framesAccepted (qMin (static_cast<size_t> (maxSize /
+                                                      rxChannels), framesAcceptable));
+
+    if (framesAccepted < static_cast<size_t> (maxSize / rxChannels)) {
+      qDebug () << "dropped " << maxSize / rxChannels - framesAccepted
+               << " frames of data on the floor!"
+               << dec_data.params.kin << mstr;
+    }
+
+    for (unsigned remaining = framesAccepted; remaining; ) {
+      size_t numFramesProcessed (qMin (m_samplesPerFFT *
+                                       m_downSampleFactor - m_bufferPos, remaining));
+
+      if(m_downSampleFactor > 1) {
+        store (&data1[(framesAccepted - remaining) * rxChannels],
+              numFramesProcessed, &m_buffer[m_bufferPos]);
+        m_bufferPos += numFramesProcessed;
+
+        if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
+          qint32 framesToProcess (m_samplesPerFFT * m_downSampleFactor);
+          qint32 framesAfterDownSample (m_samplesPerFFT);
+          if(m_downSampleFactor > 1 && dec_data.params.kin>=0 &&
+              dec_data.params.kin < (NTMAX*12000 - framesAfterDownSample)) {
+            fil4_(&m_buffer[0], &framesToProcess, &dec_data.d2[dec_data.params.kin],
+                  &framesAfterDownSample, &dec_data.d2[dec_data.params.kin]);
+            dec_data.params.kin += framesAfterDownSample;
+          } else {
+            qDebug() << "framesToProcess     = " << framesToProcess;
+            qDebug() << "dec_data.params.kin = " << dec_data.params.kin;
+            qDebug() << "framesAfterDownSample" << framesAfterDownSample;
+          }
+          frame_counts << dec_data.params.kin;
+          m_bufferPos = 0;
+        }
+
+      } else {
+        store (&data1[(framesAccepted - remaining) * rxChannels],
+              numFramesProcessed, &dec_data.d2[dec_data.params.kin]);
+        m_bufferPos += numFramesProcessed;
+        dec_data.params.kin += numFramesProcessed;
+        if (m_bufferPos == static_cast<unsigned> (m_samplesPerFFT)) {
+          frame_counts << dec_data.params.kin;
+          m_bufferPos = 0;
+        }
+      }
+      remaining -= numFramesProcessed;
+    }
   }
 
-  for (unsigned remaining = framesAccepted; remaining; ) {
-    size_t numFramesProcessed (qMin (m_samplesPerFFT *
-                                     m_downSampleFactor - m_bufferPos, remaining));
-
-    if(m_downSampleFactor > 1) {
-      store (&data1[(framesAccepted - remaining) * bytesPerFrame],
-            numFramesProcessed, &m_buffer[m_bufferPos]);
-      m_bufferPos += numFramesProcessed;
-
-      if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
-        qint32 framesToProcess (m_samplesPerFFT * m_downSampleFactor);
-        qint32 framesAfterDownSample (m_samplesPerFFT);
-        if(m_downSampleFactor > 1 && dec_data.params.kin>=0 &&
-            dec_data.params.kin < (NTMAX*12000 - framesAfterDownSample)) {
-          fil4_(&m_buffer[0], &framesToProcess, &dec_data.d2[dec_data.params.kin],
-                &framesAfterDownSample, &dec_data.d2[dec_data.params.kin]);
-          dec_data.params.kin += framesAfterDownSample;
-        } else {
-          qDebug() << "framesToProcess     = " << framesToProcess;
-          qDebug() << "dec_data.params.kin = " << dec_data.params.kin;
-          qDebug() << "framesAfterDownSample" << framesAfterDownSample;
-        }
-        Q_EMIT tciframeswritten (dec_data.params.kin);
-        m_bufferPos = 0;
-      }
-
-    } else {
-      store (&data1[(framesAccepted - remaining) * bytesPerFrame],
-            numFramesProcessed, &dec_data.d2[dec_data.params.kin]);
-      m_bufferPos += numFramesProcessed;
-      dec_data.params.kin += numFramesProcessed;
-      if (m_bufferPos == static_cast<unsigned> (m_samplesPerFFT)) {
-        Q_EMIT tciframeswritten (dec_data.params.kin);
-        m_bufferPos = 0;
-      }
-    }
-    remaining -= numFramesProcessed;
+  for (auto frames : frame_counts) {
+    Q_EMIT tciframeswritten (frames);
   }
 
   free(data1);
-}
   return maxSize;    // we drop any data past the end of the buffer on
   // the floor until the next period starts
 }
@@ -1189,8 +1194,9 @@ void TCITransceiver::do_audio (bool on)
 {
   TRACE_CAT ("TCITransceiver", on << state ());
   if (on) {
-    dec_data.params.kin = 0;
+    QMutexLocker lock {&dec_data_mutex ()};
     m_bufferPos = 0;
+    if (!dec_data_input_blocked ()) dec_data.params.kin = 0;
   }
   audio_ = on;
 }
@@ -1674,8 +1680,11 @@ void TCITransceiver::do_modulator_stop (bool quick)
   tx_audio_ = false;
 }
 
-quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtten)
+quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, quint32 channels, qreal txAtten)
 {
+  Q_ASSERT (channels == 1u || channels == 2u);
+  Q_ASSERT (maxSize >= 0 && !(static_cast<quint32> (maxSize) % channels));
+
   double toneFrequency=1500.0;
   if(m_nsps==6) {
     toneFrequency=1000.0;
@@ -1687,9 +1696,9 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
   qreal newVolume = pow(2.22222 * (45 - txAtten) * 0.01,2);
   //printf("txAtten is %f and newVolume is %f\n",txAtten, newVolume);
 
-  qint64 numFrames (maxSize/bytesPerFrame);
+  qint64 numFrames (maxSize/channels);
   float * samples (reinterpret_cast<float *> (data));
-  float * end (samples + numFrames * bytesPerFrame);
+  float * end (samples + numFrames * channels);
   qint64 framesGenerated (0);
 
   switch (m_state)
@@ -1698,10 +1707,10 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
     {
       if (m_silentFrames)	{  // send silence up to first second
         framesGenerated = qMin (m_silentFrames, numFrames);
-        for ( ; samples != end; samples = load (0, samples)) { // silence
+        for ( ; samples != end; samples = load (0, channels, samples)) { // silence
         }
         m_silentFrames -= framesGenerated;
-        return framesGenerated * bytesPerFrame;
+        return framesGenerated * channels;
       }
       m_state = Active;
       Q_EMIT tci_mod_active(m_state != Idle);
@@ -1714,7 +1723,7 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
     {
       if (m_txMode == "JTTY" && !m_tuning)
         {
-          return readJttyAudioData (data, maxSize, txAtten);
+          return readJttyAudioData (data, maxSize, channels, txAtten);
         }
 
       unsigned int isym=0;
@@ -1745,13 +1754,13 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
             sample=round(newVolume * amp * x);
           }
           if (int (j) <= icw[0] && j < NUM_CW_SYMBOLS) { // stopu condition
-            samples = load (postProcessSample (sample), samples);
+            samples = load (postProcessSample (sample), channels, samples);
             ++framesGenerated;
             ++m_ic;
           } else {
             m_state = Idle;
             Q_EMIT tci_mod_active(m_state != Idle);
-            return framesGenerated * bytesPerFrame;
+            return framesGenerated * channels;
           }
 
           // adjust ramp
@@ -1761,7 +1770,7 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
           }
           m_cwLevel = level;
         }
-        return framesGenerated * bytesPerFrame;
+        return framesGenerated * channels;
       } //End of code for CW ID
 
       double const baud (12000.0 / m_nsps);
@@ -1827,7 +1836,7 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
           m_amp=32767.0;
           sample=qRound(newVolume * m_amp*foxcom_.wave[m_ic]);
         }
-        samples = load (postProcessSample (sample), samples);
+        samples = load (postProcessSample (sample), channels, samples);
         ++framesGenerated;
         ++m_ic;
       }
@@ -1837,7 +1846,7 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
           // no CW ID to send
           m_state = Idle;
           Q_EMIT tci_mod_active(m_state != Idle);
-          return framesGenerated * bytesPerFrame;
+          return framesGenerated * channels;
         }
         m_phi = 0.0;
       }
@@ -1847,27 +1856,30 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
       if (samples != end && framesGenerated) {
       }
       while (samples != end) { // pad block with silence
-        samples = load (0, samples);
+        samples = load (0, channels, samples);
         ++framesGenerated;
       }
-      return framesGenerated * bytesPerFrame;
+      return framesGenerated * channels;
     }
       // fall through
 
     case Idle:
-      while (samples != end) samples = load (0, samples);
+      while (samples != end) samples = load (0, channels, samples);
   }
 
   Q_ASSERT (Idle == m_state);
   return 0;
 }
 
-quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, qreal txAtten)
+quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, quint32 channels, qreal txAtten)
 {
+  Q_ASSERT (channels == 1u || channels == 2u);
+  Q_ASSERT (maxSize >= 0 && !(static_cast<quint32> (maxSize) % channels));
+
   if(maxSize==0) return 0;
 
   qreal const newVolume = pow(2.22222 * (45 - txAtten) * 0.01,2);
-  qint64 const numFrames (maxSize/bytesPerFrame);
+  qint64 const numFrames (maxSize/channels);
   float * samples (reinterpret_cast<float *> (data));
   qint64 framesGenerated (0);
 
@@ -1879,11 +1891,11 @@ quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, qreal t
       qint32 sample = qRound (newVolume * m_jttyPcmFifo.pullSample (m_jttyDrainGuard));
       if (sample > std::numeric_limits<qint16>::max ()) sample = std::numeric_limits<qint16>::max ();
       if (sample < std::numeric_limits<qint16>::min ()) sample = std::numeric_limits<qint16>::min ();
-      samples = load (postProcessSample (qint16 (sample)), samples);
+      samples = load (postProcessSample (qint16 (sample)), channels, samples);
       ++framesGenerated;
     }
 
-  return framesGenerated * bytesPerFrame;
+  return framesGenerated * channels;
 }
 
 qint16 TCITransceiver::postProcessSample (qint16 sample) const

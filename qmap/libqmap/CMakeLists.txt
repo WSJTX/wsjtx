@@ -49,6 +49,14 @@ set (libq65_C_and_CXXSRCS
 set_property (SOURCE ${libq65_C_and_CXXSRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -include wsjtx_config.h")
 set_property (SOURCE ${libq65_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_BINARY_DIR}/wsjtx_config.h)
 
+# These carry dummy arguments that are genuine QMAP-GUI-supplied state
+# (see qmap/mainwindow.cpp) which the current Fortran implementation
+# doesn't happen to reference; removing them would mean touching the
+# GUI call sites too, so we suppress the warning instead.
+set_source_files_properties (chkstat.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
+set_source_files_properties (symspec.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
+set_source_files_properties (q65b.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
+
 
 #
 # build our targets

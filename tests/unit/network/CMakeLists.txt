@@ -11,3 +11,9 @@ add_executable (test_wsprnet_upload
   )
 target_link_libraries (test_wsprnet_upload Qt5::Test Qt5::Network)
 add_test (NAME test_wsprnet_upload COMMAND test_wsprnet_upload)
+
+add_executable (test_message_client_replay
+  test_message_client_replay.cpp
+  )
+target_link_libraries (test_message_client_replay wsjt_qt Qt5::Test Qt5::Network)
+add_test (NAME test_message_client_replay COMMAND test_message_client_replay)
