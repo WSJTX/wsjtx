@@ -5,6 +5,13 @@ add_executable (test_qt_helpers
 target_link_libraries (test_qt_helpers Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_qt_helpers COMMAND test_qt_helpers)
 
+add_executable (test_callsign_validator
+  test_callsign_validator.cpp
+  ${CMAKE_SOURCE_DIR}/validators/CallsignValidator.cpp
+)
+target_link_libraries (test_callsign_validator Qt5::Test Qt5::Gui)
+add_test (NAME test_callsign_validator COMMAND test_callsign_validator)
+
 add_executable (test_wf_palette
   test_wf_palette.cpp
 )

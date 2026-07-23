@@ -314,7 +314,7 @@ extern "C" {
 
   void gen65(char* msg, int* ichk, char msgsent[], int itone[], int* itext);
 
-  void gen_cw_wave_(char* msg, int* ifreq, float wave[], fortran_charlen_t);
+  void gen_cw_wave_(char const * msg, int* ifreq, float wave[], fortran_charlen_t);
 
   void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
               int* i3, int* n3, fortran_charlen_t, fortran_charlen_t);
@@ -709,6 +709,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   add_child_to_event_filter (this);
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
+  ui->leEchoMessage->setValidator (new CallsignValidator {this, false});
   ui->sbTR->values ({5, 10, 15, 30, 60, 120, 300, 900, 1800});
   ui->sbTR_FST4W->values ({120, 300, 900, 1800});
   ui->decodedTextBrowser->set_configuration (&m_config, true);
@@ -2059,10 +2060,10 @@ void MainWindow::dataSink(qint64 frames)
       }
 
       bool bEchoCall=ui->rbEchoMessage->isChecked();
-      QString txcall=ui->leEchoMessage->text();
+      auto const txcall = ui->leEchoMessage->text().toLatin1().leftJustified(6, ' ', true);
       static char crxcall[7];
       avecho_(dec_data.d2,&nDop,&nfrit,&nauto,&ndf,&navg,&nqual,&f1,&xlevel,&sigdb,
-          &dBerr,&dfreq,&width,&m_diskData,&bEchoCall,txcall.toLatin1().constData(),
+          &dBerr,&dfreq,&width,&m_diskData,&bEchoCall,txcall.constData(),
           &crxcall[0],(FCL)6,(FCL)6);
       crxcall[6]=0;
       QString rxcall {QString::fromLatin1(crxcall)};
@@ -10801,9 +10802,8 @@ void MainWindow::transmit (double snr)
       if(ui->rbEchoCW->isChecked()) {
         freq=1500.0;
         int ifreq=freq;
-        int n=ui->leEchoMessage->text().length();
-        gen_cw_wave_(const_cast<char *> (ui->leEchoMessage->text().toLatin1().constData()), &ifreq,
-                   foxcom_.wave, (FCL)n);
+        auto const message = ui->leEchoMessage->text().toLatin1();
+        gen_cw_wave_(message.constData(), &ifreq, foxcom_.wave, (FCL)message.size());
       } else {
         toneSpacing=ui->sbToneSpacing->value();
         int nsps4=4*framesPerSymbol;                           //48000 Hz sampling

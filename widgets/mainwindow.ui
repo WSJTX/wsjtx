@@ -4753,6 +4753,9 @@ Double-click to reset to the standard 73 message</string>
                    <property name="enabled">
                     <bool>false</bool>
                    </property>
+                   <property name="maxLength">
+                    <number>6</number>
+                   </property>
                    <property name="maximumSize">
                     <size>
                      <width>16777215</width>

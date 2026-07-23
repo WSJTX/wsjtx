@@ -11,6 +11,7 @@ subroutine gen_cw_wave(message,ifreq,wave)
   real x(NMAX)
   real y(NMAX)
 
+  wave=0.
   call morse(message,icw,ncw)
 
   i1=0
