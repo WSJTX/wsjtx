@@ -646,15 +646,14 @@ jobs:
             --arch "${{ inputs.arch }}" \
             "$STAGE"
 
-      - name: Import signing certificates
+      - name: Import application signing certificate
         if: steps.check_secrets.outputs.signing_enabled == 'true'
+        id: app_keychain
         env:
           APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
           APP_P12_PW: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
-          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
         run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -663,20 +662,14 @@ jobs:
 
           echo "$APP_P12" | base64 --decode > "$RUNNER_TEMP/app.p12"
           security import "$RUNNER_TEMP/app.p12" -P "$APP_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-
-          echo "$INST_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
-          security import "$RUNNER_TEMP/installer.p12" -P "$INST_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          rm -f "$RUNNER_TEMP/app.p12"
 
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
 
           APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
-          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
           echo "App identity: $APP_IDENTITY"
-          echo "Installer identity: $INST_IDENTITY"
           echo "identity=$APP_IDENTITY" >> "$GITHUB_OUTPUT"
-          echo "installer_identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
-        id: keychain
 
       # ALWAYS runs. Real Developer ID when secrets are present, ad-hoc
       # signing (-) otherwise. Mirrors the Windows self-signed-sandbox
@@ -694,7 +687,7 @@ jobs:
           ENTITLEMENTS="${GITHUB_WORKSPACE}/entitlements.plist"
 
           if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
-            IDENTITY="${{ steps.keychain.outputs.identity }}"
+            IDENTITY="${{ steps.app_keychain.outputs.identity }}"
             TS="--timestamp"
             echo "Code signing mode: Developer ID (real)"
           else
@@ -758,49 +751,18 @@ jobs:
               -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           done
 
-      - name: Smoke-launch deployed WSJT-X app
-        id: deployed_wsjtx_smoke
-        timeout-minutes: 1
+      - name: Remove application signing credentials
+        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
         run: |
-          APP="${GITHUB_WORKSPACE}/${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
-          DIAGNOSTICS="${GITHUB_WORKSPACE}/wsjtx-build/deployed-startup-smoke-diagnostics"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          rm -f "$RUNNER_TEMP/app.p12"
+          if [ "${{ steps.app_keychain.outcome }}" = "success" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          else
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi
 
-          unset DYLD_LIBRARY_PATH
-          unset DYLD_FRAMEWORK_PATH
-          unset DYLD_INSERT_LIBRARIES
-          unset DYLD_ROOT_PATH
-          unset DYLD_IMAGE_SUFFIX
-          unset QT_PLUGIN_PATH
-          unset QT_QPA_PLATFORM_PLUGIN_PATH
-          unset QML_IMPORT_PATH
-          unset QML2_IMPORT_PATH
-
-          export DYLD_FALLBACK_LIBRARY_PATH="/usr/lib"
-          export DYLD_FALLBACK_FRAMEWORK_PATH="/System/Library/Frameworks"
-          export QT_QPA_PLATFORM="cocoa"
-          export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-
-          cd "$RUNNER_TEMP"
-          /bin/bash "${GITHUB_WORKSPACE}/test/run-wsjtx-startup-macos.sh" \
-            "$DIAGNOSTICS" \
-            "${APP}/Contents/MacOS/wsjtx" \
-            --startup-smoke-test \
-            --rig-name CI-DEPLOYED-STARTUP
-
-      - name: Upload deployed WSJT-X startup diagnostics
-        if: failure() && steps.deployed_wsjtx_smoke.outcome == 'failure'
-        uses: actions/upload-artifact@v7
-        with:
-          name: wsjtx-deployed-startup-smoke-macos-${{ inputs.arch }}
-          path: wsjtx-build/deployed-startup-smoke-diagnostics
-          if-no-files-found: ignore
-          retention-days: 7
-
-      # ALWAYS runs. productbuild signs with the Developer ID Installer
-      # cert when secrets are present; produces an unsigned .pkg
-      # otherwise. Either way the artifact is named identically and
-      # satisfies the all-platforms-ready gate in release.yml.
-      - name: Build and verify installer pkg
+      - name: Prepare installer package
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
           PKG_ID="org.k1jt.wsjtx.${{ inputs.arch }}"
@@ -845,9 +807,38 @@ jobs:
             --install-location / \
             "$RUNNER_TEMP/wsjtx-component.pkg"
 
+      - name: Import installer signing certificate
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        id: installer_keychain
+        env:
+          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/installer-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$INST_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+          security import "$RUNNER_TEMP/installer.p12" -P "$INST_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          rm -f "$RUNNER_TEMP/installer.p12"
+
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
+          echo "Installer identity: $INST_IDENTITY"
+          echo "identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
+
+      # productbuild signs with the Developer ID Installer cert when
+      # secrets are present and produces an unsigned .pkg otherwise.
+      - name: Build installer pkg
+        run: |
           PKG_OUT="wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
           if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
-            INST_IDENTITY="${{ steps.keychain.outputs.installer_identity }}"
+            INST_IDENTITY="${{ steps.installer_keychain.outputs.identity }}"
             productbuild \
               --package "$RUNNER_TEMP/wsjtx-component.pkg" \
               --sign "$INST_IDENTITY" \
@@ -858,6 +849,20 @@ jobs:
               "$PKG_OUT"
           fi
 
+      - name: Remove installer signing credentials
+        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/installer-signing.keychain-db"
+          rm -f "$RUNNER_TEMP/installer.p12"
+          if [ "${{ steps.installer_keychain.outcome }}" = "success" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          else
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi
+
+      - name: Verify installer pkg
+        run: |
+          PKG_OUT="wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
           CHECK_PAYLOAD="$RUNNER_TEMP/pkg-check"
           pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
           [ "$(/usr/libexec/PlistBuddy -c "Print :0:BundleIsRelocatable" "$RUNNER_TEMP/components.plist")" = "false" ]
@@ -943,9 +948,16 @@ jobs:
           fi
           rm cli-tools.zip
 
-      - name: Clean up keychain
+      - name: Ensure signing credentials are removed
         if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
-        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+        run: |
+          rm -f "$RUNNER_TEMP/app.p12" "$RUNNER_TEMP/installer.p12"
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true
+          security delete-keychain "$RUNNER_TEMP/installer-signing.keychain-db" 2>/dev/null || true
+          test ! -e "$RUNNER_TEMP/app.p12"
+          test ! -e "$RUNNER_TEMP/installer.p12"
+          test ! -e "$RUNNER_TEMP/app-signing.keychain-db"
+          test ! -e "$RUNNER_TEMP/installer-signing.keychain-db"
 
       - name: Upload pkg
         uses: actions/upload-artifact@v7
@@ -979,3 +991,43 @@ jobs:
         with:
           name: individual-binaries-macos-${{ inputs.arch }}
           path: packages/*.tar.gz
+
+      # Keep repository-built code after signing, notarization, cleanup, and
+      # artifact publication so a detached child cannot reach later secrets.
+      - name: Smoke-launch deployed WSJT-X app
+        id: deployed_wsjtx_smoke
+        timeout-minutes: 1
+        run: |
+          APP="${GITHUB_WORKSPACE}/${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
+          DIAGNOSTICS="${GITHUB_WORKSPACE}/wsjtx-build/deployed-startup-smoke-diagnostics"
+
+          unset DYLD_LIBRARY_PATH
+          unset DYLD_FRAMEWORK_PATH
+          unset DYLD_INSERT_LIBRARIES
+          unset DYLD_ROOT_PATH
+          unset DYLD_IMAGE_SUFFIX
+          unset QT_PLUGIN_PATH
+          unset QT_QPA_PLATFORM_PLUGIN_PATH
+          unset QML_IMPORT_PATH
+          unset QML2_IMPORT_PATH
+
+          export DYLD_FALLBACK_LIBRARY_PATH="/usr/lib"
+          export DYLD_FALLBACK_FRAMEWORK_PATH="/System/Library/Frameworks"
+          export QT_QPA_PLATFORM="cocoa"
+          export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+
+          cd "$RUNNER_TEMP"
+          /bin/bash "${GITHUB_WORKSPACE}/test/run-wsjtx-startup-macos.sh" \
+            "$DIAGNOSTICS" \
+            "${APP}/Contents/MacOS/wsjtx" \
+            --startup-smoke-test \
+            --rig-name CI-DEPLOYED-STARTUP
+
+      - name: Upload deployed WSJT-X startup diagnostics
+        if: failure() && steps.deployed_wsjtx_smoke.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-deployed-startup-smoke-macos-${{ inputs.arch }}
+          path: wsjtx-build/deployed-startup-smoke-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
