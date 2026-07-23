@@ -41,10 +41,11 @@ program test_avecho_disk_metadata
   disk_data=.true.
   echo_call=.false.
   txcall='      '
-  rxcall='      '
+  rxcall='BADBAD'
 
   call avecho(id2,ndop,nfrit,nauto,navg,nqual,f1,xlevel,snrdb,db_err,dfreq, &
        width,disk_data,echo_call,txcall,rxcall)
+  if(rxcall.ne.'      ') error stop 2
 
   print*,'Echo disk metadata test passed'
 

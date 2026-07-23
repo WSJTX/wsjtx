@@ -3,9 +3,26 @@ if (NOT DEFINED ECHOCALLSIM OR NOT DEFINED TESTECHOCALL OR NOT DEFINED TEST_DIR)
 endif ()
 
 file (MAKE_DIRECTORY "${TEST_DIR}")
+set (source_wav "${TEST_DIR}/000000_000000.wav")
+file (REMOVE "${source_wav}")
 
 execute_process (
-  COMMAND "${ECHOCALLSIM}" K1JT 1500 0 1 10 1 0
+  COMMAND "${TESTECHOCALL}"
+  RESULT_VARIABLE no_argument_result
+  OUTPUT_VARIABLE no_argument_output
+  ERROR_VARIABLE no_argument_error
+)
+if (no_argument_result EQUAL 0)
+  message (FATAL_ERROR "testEchoCall accepted a missing input filename")
+endif ()
+set (no_argument_output "${no_argument_output}${no_argument_error}")
+if (NOT no_argument_output MATCHES "Usage: testEchoCall")
+  message (FATAL_ERROR
+    "testEchoCall missing-input output was unexpected:\n${no_argument_output}")
+endif ()
+
+execute_process (
+  COMMAND "${ECHOCALLSIM}" K1JT 1500 0 0 10 1 99
   WORKING_DIRECTORY "${TEST_DIR}"
   RESULT_VARIABLE simulator_result
   OUTPUT_VARIABLE simulator_output
@@ -15,8 +32,9 @@ if (NOT simulator_result EQUAL 0)
   message (FATAL_ERROR
     "EchoCallSim failed (${simulator_result}):\n${simulator_output}${simulator_error}")
 endif ()
-
-set (source_wav "${TEST_DIR}/000000_000000.wav")
+if (NOT EXISTS "${source_wav}")
+  message (FATAL_ERROR "EchoCallSim did not create ${source_wav}")
+endif ()
 
 function (expect_accepted filename expected_timestamp)
   configure_file ("${source_wav}" "${TEST_DIR}/${filename}" COPYONLY)
@@ -83,6 +101,11 @@ endfunction ()
 expect_accepted ("123456.wav" "123456")
 expect_accepted ("235959.WAV" "235959")
 
+set (long_path_component
+  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+file (MAKE_DIRECTORY "${TEST_DIR}/${long_path_component}")
+expect_accepted ("${long_path_component}/123456.wav" "123456")
+
 expect_rejected ("badname")
 expect_rejected ("abc.wav")
 expect_rejected ("abcdef.wav")
@@ -99,3 +122,10 @@ endif ()
 
 file (WRITE "${TEST_DIR}/010204.wav" "truncated")
 expect_io_failure ("010204.wav" "testEchoCall: cannot read")
+
+set (invalid_wav_payload "not a RIFF/WAVE file")
+foreach (iteration RANGE 1 12)
+  set (invalid_wav_payload "${invalid_wav_payload}${invalid_wav_payload}")
+endforeach ()
+file (WRITE "${TEST_DIR}/010205.wav" "${invalid_wav_payload}")
+expect_io_failure ("010205.wav" "not a RIFF/WAVE file")

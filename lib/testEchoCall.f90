@@ -1,25 +1,27 @@
 program testEchoCall
 
   use, intrinsic :: iso_fortran_env, only: error_unit
+  use readwav, only: wav_header
 
   parameter (NSPS=4096,NH=NSPS/2,NZ=3*12000)
   integer*2 iwave(NZ)                    !Raw data, 12000 Hz sample rate
-  integer ihdr(11)
   integer*4 itone(6)
-  character*120 fname
+  type(wav_header) wav
+  character(:), allocatable :: fname
   character*256 iomsg
   character*6 rxcall,hhmmss,txcall
   character*4 extension
   logical*1 bDiskData,bEchoCall
   logical valid_time
-  integer i,ich,ios,name_length,nerrors
+  integer argument_length,i,ich,ios,name_length,nerrors,samples_read
   common/echocom/nclearave,nsum,blue(4096),red(4096)
   common/echocom2/fspread_self,fspread_dx
 
   nerrors=0
-  narg=iargc()
+  narg=command_argument_count()
   if(narg.lt.1) then
      print*,'Usage: testEchoCall fname1 [fname2, ...]'
+     nerrors=1
      go to 999
   endif
 
@@ -35,7 +37,20 @@ program testEchoCall
   bEchoCall=.false.
   txcall='      '
   do ifile=1,narg
-     call getarg(ifile,fname)
+     call get_command_argument(ifile,length=argument_length,status=ios)
+     if(ios.ne.0) then
+        write(error_unit,'(a,i0)') 'testEchoCall: cannot read argument ',ifile
+        nerrors=nerrors+1
+        cycle
+     endif
+     if(allocated(fname)) deallocate(fname)
+     allocate(character(len=max(1,argument_length)) :: fname)
+     call get_command_argument(ifile,value=fname,status=ios)
+     if(ios.ne.0) then
+        write(error_unit,'(a,i0)') 'testEchoCall: cannot read argument ',ifile
+        nerrors=nerrors+1
+        cycle
+     endif
      name_length=len_trim(fname)
      valid_time=.false.
      if(name_length.ge.10) then
@@ -61,24 +76,39 @@ program testEchoCall
         cycle
      endif
 
-     open(10,file=trim(fname),access='stream',status='old',action='read', &
-          iostat=ios,iomsg=iomsg)
+     call wav%read(trim(fname),ios,iomsg)
      if(ios.ne.0) then
-        write(error_unit,'(a)') &
-             'testEchoCall: cannot open '//trim(fname)//': '//trim(iomsg)
+        if(trim(iomsg).eq.'cannot open file') then
+           write(error_unit,'(a)') 'testEchoCall: cannot open '//trim(fname)//': '//trim(iomsg)
+        else
+           write(error_unit,'(a)') 'testEchoCall: cannot read '//trim(fname)//': '//trim(iomsg)
+        endif
         nerrors=nerrors+1
         cycle
      endif
 
-     read(10,iostat=ios,iomsg=iomsg) ihdr,iwave
+     if(wav%audio_format%sample_rate.ne.12000) then
+        close(wav%lun)
+        write(error_unit,'(a)') &
+             'testEchoCall: cannot read '//trim(fname)//': expected a 12000 Hz WAV file'
+        nerrors=nerrors+1
+        cycle
+     endif
+
+     call wav%read_samples(iwave,samples_read,ios,iomsg)
+     close(wav%lun)
      if(ios.ne.0) then
-        close(10)
         write(error_unit,'(a)') &
              'testEchoCall: cannot read '//trim(fname)//': '//trim(iomsg)
         nerrors=nerrors+1
         cycle
      endif
-     close(10)
+     if(samples_read.lt.NZ) then
+        write(error_unit,'(a,i0,a,i0)') 'testEchoCall: cannot read '//trim(fname)// &
+             ': expected ',NZ,' samples, found ',samples_read
+        nerrors=nerrors+1
+        cycle
+     endif
 
 ! Retrieve params known at time of transmissiion and saved in iwave
      call save_echo_params(nDop,nDopAudio,nfrit,f1,fspread,ndf,itone,iwave,-1)

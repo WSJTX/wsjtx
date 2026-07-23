@@ -90,7 +90,13 @@ program EchoCallSim
      datpk=maxval(abs(dat))
      fac=rms
      if(datpk.gt.0.0) then
-        if(snrdb.ge.90.0 .or. fac*datpk.gt.32766.0) fac=32766.0/datpk
+        if(snrdb.ge.90.0) then
+           fac=32766.0/datpk
+        elseif(fac*datpk.gt.32766.0) then
+           fac=32766.0/datpk
+           write(*,'(a,i0,a)') 'Warning: normalized file ',ifile, &
+                ' to prevent 16-bit PCM overflow; absolute level was not preserved.'
+        endif
      endif
      iwave(1:npts)=nint(fac*dat(1:npts))
      iwave(npts+1:)=0

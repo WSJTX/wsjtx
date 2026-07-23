@@ -8,7 +8,6 @@ program echosim
   type(hdr) h                            !Header for .wav file
   character arg*12,fname*17
   complex c0(0:NZ-1)
-  complex c(0:NZ-1)
   real*4 level_1,level_2
   real*8 f0,dt,twopi,phi,dphi
   real wave(NZ)
@@ -88,9 +87,7 @@ program echosim
         enddo
         c0(NWAVE:)=0.
         if(fspread.gt.0.0) call fspread_lorentz(c0,fspread)
-        c=sig*c0
-        wave(1:NWAVE)=imag(c(0:NWAVE-1))
-        peak=maxval(abs(wave))
+        wave(1:NWAVE)=sig*imag(c0(0:NWAVE-1))
      endif
 
      if(snrdb.lt.90) then

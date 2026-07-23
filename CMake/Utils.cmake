@@ -51,6 +51,7 @@ if (WSJT_ENABLE_TESTS)
       -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/test_echocall_filename
       -P ${CMAKE_SOURCE_DIR}/tests/unit/echo/test_echocall_input.cmake
   )
+  set_tests_properties (test_echocall_filename PROPERTIES TIMEOUT 30)
 endif ()
 
 add_executable (cwsim lib/cwsim.f90)
