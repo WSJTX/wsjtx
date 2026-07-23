@@ -89,7 +89,7 @@ program echosim
         c0(NWAVE:)=0.
         if(fspread.gt.0.0) call fspread_lorentz(c0,fspread)
         c=sig*c0
-        wave(1:NWAVE)=imag(c(1:NWAVE))
+        wave(1:NWAVE)=imag(c(0:NWAVE-1))
         peak=maxval(abs(wave))
      endif
 

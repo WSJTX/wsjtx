@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <QtEndian>
 #include <QtMultimedia/QAudioFormat>
 
 #include "Audio/BWFFile.hpp"
@@ -28,6 +29,35 @@ class TestEchosimWavTrailer
   Q_OBJECT
 
 private:
+  Q_SLOT void preserves_generated_sample_alignment ()
+  {
+    QTemporaryDir dir;
+    QVERIFY (dir.isValid ());
+
+    QProcess process;
+    process.setWorkingDirectory (dir.path ());
+    process.start (ECHOSIM_EXECUTABLE, {"1500", "0.0", "0.0", "1", "100"});
+    QVERIFY (process.waitForFinished (30000));
+    QCOMPARE (process.exitCode (), 0);
+
+    QDir out {dir.path ()};
+    auto const wavs = out.entryList ({"*.wav"}, QDir::Files);
+    QCOMPARE (wavs.size (), 1);
+
+    BWFFile file {default_format (), out.filePath (wavs.first ())};
+    QVERIFY (file.open (QIODevice::ReadOnly));
+
+    // The first ten samples contain Echo metadata; sample 11 is generated audio.
+    qint16 sample;
+    QVERIFY (file.seek (10 * sizeof sample));
+    QCOMPARE (file.read (reinterpret_cast<char *> (&sample), sizeof sample),
+              static_cast<qint64> (sizeof sample));
+    sample = qFromLittleEndian (sample);
+    QVERIFY (sample >= 23168 && sample <= 23172);
+
+    file.close ();
+  }
+
   Q_SLOT void writes_correct_data_size_and_list_info_trailer ()
   {
     QTemporaryDir dir;

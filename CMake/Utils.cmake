@@ -42,6 +42,16 @@ wsjt_add_simulator_usage_test (EchoCallSim "Usage:[ ]+EchoCallSim")
 
 add_executable (testEchoCall lib/testEchoCall.f90)
 wsjt_link_common_fortran (testEchoCall)
+if (WSJT_ENABLE_TESTS)
+  add_test (
+    NAME test_echocall_filename
+    COMMAND ${CMAKE_COMMAND}
+      -DECHOCALLSIM=$<TARGET_FILE:EchoCallSim>
+      -DTESTECHOCALL=$<TARGET_FILE:testEchoCall>
+      -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/test_echocall_filename
+      -P ${CMAKE_SOURCE_DIR}/tests/unit/echo/test_echocall_input.cmake
+  )
+endif ()
 
 add_executable (cwsim lib/cwsim.f90)
 wsjt_link_common_fortran (cwsim)

@@ -4,13 +4,13 @@ program EchoCallSim
 
   use wavhdr
   parameter (NSPS=4096,NZ=3*12000)
-  parameter (NMAX=6*NSPS)                !Samples in .wav file, 2.2*12000
+  parameter (NMAX=6*NSPS)                !Samples occupied by the signal
   type(hdr) h                            !Header for .wav file
   integer*2 iwave(NZ)                    !Generated waveform
   integer itone(6)                       !Channel symbols, values 0-37
   real*4 xnoise(NMAX)                    !Generated random noise
   real*4 dat(NMAX)                       !Generated real data
-  complex cdat(NMAX)                     !Generated complex waveform
+  complex cdat(NZ)                       !Generated full-length complex waveform
   complex z
   real*8 f0,dt,twopi,phi,dphi,fsample,freq
   character callsign*6,fname*17,arg*8
@@ -46,7 +46,7 @@ program EchoCallSim
   twopi=8.d0*atan(1.d0)
   rms=100.
   fsample=12000.d0                   !Sample rate (Hz)
-  npts=NMAX                          !Total samples in .wav file
+  npts=NMAX                          !Samples occupied by the signal
   nfft=npts
   nh=nfft/2
   dt=1.d0/fsample                    !Sample interval (s)
@@ -61,8 +61,11 @@ program EchoCallSim
      endif
 
      bandwidth_ratio=2500.0/6000.0
-     sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*snrdb)
-     if(snrdb.gt.90.0) sig=1.0
+     if(snrdb.ge.90.0) then
+        sig=1.0
+     else
+        sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*snrdb)
+     endif
 
      phi=0.d0
      dphi=0.d0
@@ -80,12 +83,16 @@ program EchoCallSim
         enddo
      enddo
 
+     cdat(npts+1:)=0.
      if(fspread.gt.0.0) call fspread_lorentz(cdat,fspread)
 
-     dat=aimag(cdat) + xnoise                 !Add generated AWGN noise
-     fac=32767.0
-     if(snrdb.ge.90.0) iwave(1:npts)=nint(fac*dat(1:npts))
-     if(snrdb.lt.90.0) iwave(1:npts)=nint(rms*dat(1:npts))
+     dat=aimag(cdat(1:npts)) + xnoise         !Add generated AWGN noise
+     datpk=maxval(abs(dat))
+     fac=rms
+     if(datpk.gt.0.0) then
+        if(snrdb.ge.90.0 .or. fac*datpk.gt.32766.0) fac=32766.0/datpk
+     endif
+     iwave(1:npts)=nint(fac*dat(1:npts))
      iwave(npts+1:)=0
 
      nDop=nint(fdop)
@@ -111,5 +118,3 @@ program EchoCallSim
   enddo
 
 999 end program EchoCallSim
-
-
