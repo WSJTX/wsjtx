@@ -133,6 +133,11 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
+namespace Radio
+{
+  struct WavInputResult;
+}
+
 #include "Modulator/JttyTxBuffer.hpp"
 #include "Modulator/JttyTxStream.hpp"
 
@@ -214,8 +219,6 @@ Q_SIGNALS:
   void skedFreq(double sf);
 
 private:
-  struct WavLoadResult;
-
   static constexpr int MaxActiveStationRows = 50;
   // Keep this matched with MAX_CALLERS in the Q65 q3list Fortran helpers.
   static constexpr int MaxQ65PileupCallers = 50;
@@ -970,8 +973,8 @@ private:
   QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
-  QFuture<std::shared_ptr<WavLoadResult>> m_wav_future;
-  QFutureWatcher<std::shared_ptr<WavLoadResult>> m_wav_future_watcher;
+  QFuture<std::shared_ptr<Radio::WavInputResult>> m_wav_future;
+  QFutureWatcher<std::shared_ptr<Radio::WavInputResult>> m_wav_future_watcher;
   QFutureWatcher<void> watcher3;
   QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;

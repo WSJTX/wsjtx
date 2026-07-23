@@ -139,6 +139,7 @@ set (wsjtx_CXXSRCS
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
   Network/PSKReporterIPFIX.cpp
+  Audio/WavInputLoader.cpp
   Modulator/Modulator.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
@@ -834,5 +835,4 @@ if (WIN32)
     file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
   endif ()
 endif ()
-
 

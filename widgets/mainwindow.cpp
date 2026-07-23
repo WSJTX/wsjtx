@@ -118,6 +118,7 @@
 #include "PrefixSuffix.hpp"
 #include "HelpText.hpp"
 #include "HighlightingRules.hpp"
+#include "Audio/WavInputLoader.hpp"
 #include "Audio/WavFile.hpp"
 #include "WSJTXLogging.hpp"
 #include "Logger.hpp"
@@ -342,8 +343,6 @@ extern "C" {
                     fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
   void degrade_snr_(short d2[], int* n, float* db, float* bandwidth);
 
-  void wav12_(short d2[], short d1[], int* nbytes, short* nbitsam2);
-
   void refspectrum_(short int d2[], bool* bclearrefspec,
                     bool* brefspec, bool* buseref, const char* c_fname, fortran_charlen_t);
 
@@ -375,15 +374,6 @@ int volatile itone0[MAX_NUM_SYMBOLS];  //Dummy array, data not actually used
 int volatile icw[NUM_CW_SYMBOLS];      //Dits for CW ID
 dec_data_t& dec_data = *new dec_data_t{};
 
-struct MainWindow::WavLoadResult
-{
-  std::vector<short> samples;
-  QString fileDateTime;
-  int frames {0};
-  int nutc {0};
-  int yymmdd {0};
-  bool valid {false};
-};
 int outBufSize;
 int rc;
 qint32  g_iptt {0};
@@ -1305,7 +1295,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->txrb6->setChecked(true);
 
   connect (&m_wav_future_watcher,
-           &QFutureWatcher<std::shared_ptr<WavLoadResult>>::finished,
+           &QFutureWatcher<std::shared_ptr<Radio::WavInputResult>>::finished,
            this, &MainWindow::wav_file_loaded);
 
   connect(&watcher3, SIGNAL(finished()),this,SLOT(fast_decode_done()));
@@ -4144,46 +4134,8 @@ void MainWindow::read_wav_file (QString const& fname)
   ui->DecodeButton->setEnabled (false);
   update_wav_file_actions ();
   m_wav_future=QtConcurrent::run ([fname, sample_limit] {
-    auto result=std::make_shared<WavLoadResult> ();
-    auto basename = fname.mid (fname.lastIndexOf ('/') + 1);
-    auto pos = fname.indexOf (".wav", 0, Qt::CaseInsensitive);
-    int i1=fname.indexOf(".wav");
-    int i3=fname.lastIndexOf("/");
-    if (pos > 0) {
-      if (i1-i3 > 13) {
-        result->nutc = basename.mid(7, 6).toInt();
-        result->fileDateTime=basename.mid(0, 13);
-      } else {
-        if (pos == fname.indexOf ('_', -11) + 7) {
-          result->nutc = fname.mid (pos - 6, 6).toInt ();
-          result->fileDateTime=fname.mid(pos-13,13);
-        } else {
-          result->nutc = 100 * fname.mid (pos - 4, 4).toInt ();
-          result->fileDateTime=fname.mid(pos-11,11);
-        }
-      }
-    }
-    auto const wav=Radio::WavFile::load (fname, sample_limit);
-    if(wav.isValid ()) {
-      result->samples.assign (sample_limit, 0);
-      if (!wav.samples.isEmpty ()) {
-        std::memcpy (result->samples.data (), wav.samples.constData (), wav.samples.size ());
-      }
-      int frames_read=wav.frames;
-      if (11025 == wav.format.sampleRate ()) {
-        int constexpr resampled_capacity=60 * RX_SAMPLE_RATE;
-        result->samples.resize (std::max (sample_limit, resampled_capacity), 0);
-        short sample_size = wav.format.sampleSize ();
-        wav12_ (result->samples.data (), result->samples.data (), &frames_read, &sample_size);
-        frames_read=std::min (frames_read, sample_limit);
-        result->samples.resize (sample_limit);
-      }
-      result->frames=frames_read;
-      result->valid=true;
-    }
-
-    result->yymmdd=basename.left(6).toInt();
-    return result;
+    return std::make_shared<Radio::WavInputResult> (
+        Radio::load_wav_input (fname, sample_limit));
   });
   m_wav_future_watcher.setFuture (m_wav_future);
 }

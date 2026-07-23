@@ -10,3 +10,10 @@ if (WSJT_BUILD_UTILS)
   add_dependencies (test_echosim_wav_trailer echosim)
   add_test (NAME test_echosim_wav_trailer COMMAND test_echosim_wav_trailer)
 endif ()
+
+add_executable (test_wav_input_loading
+  test_wav_input_loading.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/WavInputLoader.cpp)
+target_link_libraries (test_wav_input_loading
+  wsjt_qtmm wsjt_qt wsjt_fort_common Qt5::Test Qt5::Multimedia)
+add_test (NAME test_wav_input_loading COMMAND test_wav_input_loading)
