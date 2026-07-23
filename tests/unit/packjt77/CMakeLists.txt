@@ -70,6 +70,22 @@ wsjt_link_common_fortran (test_packjt77_hash_state)
 
 add_test (NAME test_packjt77_hash_state COMMAND test_packjt77_hash_state)
 
+if (WSJT_BUILD_FORTRAN_OPENMP)
+  add_executable (test_packjt77_concurrent_unpack
+    test_packjt77_concurrent_unpack.f90)
+  target_include_directories (test_packjt77_concurrent_unpack PRIVATE
+    ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
+  target_link_libraries (test_packjt77_concurrent_unpack PRIVATE
+    wsjt_fort_omp wsjt_fortran_openmp)
+
+  add_test (NAME test_packjt77_concurrent_unpack
+    COMMAND test_packjt77_concurrent_unpack)
+  set_tests_properties (test_packjt77_concurrent_unpack PROPERTIES
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=4;OMP_THREAD_LIMIT=4"
+    PROCESSORS 4
+    TIMEOUT 30)
+endif ()
+
 add_executable (test_packjt77_pack28_sweep
   test_packjt77_pack28_sweep.f90)
 target_include_directories (test_packjt77_pack28_sweep PRIVATE ${CMAKE_BINARY_DIR})

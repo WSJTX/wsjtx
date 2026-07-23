@@ -17,7 +17,6 @@ module packjt77
   character (len=13) :: dxcall13=''
   integer, dimension(1:MAXHASH) :: ihash22=-1
   integer :: nzhash=0
-  integer n28a,n28b
   ! Configured/var decodes queue per-thread facts until fillhashvar folds them
   ! into the shared hash and recent-call state.
   character (len=13), dimension(1:840) :: queued_calls_by_thread=''
@@ -54,7 +53,7 @@ module packjt77
   public :: fold_queued_recent_calls,sync_configured_calls_for_decode_start
   public :: MAXHASH,MAXRECENT
   public :: calls10,calls12,calls22,recent_calls,ihash22,nzhash
-  public :: mycall13,dxcall13,n28a,n28b
+  public :: mycall13,dxcall13
   public :: queued_calls_by_thread,queued_recent_calls_by_thread
   public :: nqueued_calls_by_thread,nqueued_recent_calls_by_thread
   public :: mycall13_configured,dxcall13_configured
@@ -1550,6 +1549,7 @@ subroutine unpack77_decode_i3_0(c77,context,decoded)
   type(pack77_wspr_type1_fields) :: wspr1_fields
   type(pack77_wspr_type2_fields) :: wspr2_fields
   type(pack77_wspr_type3_fields) :: wspr3_fields
+  integer :: n28a,n28b
 
   if(decoded%n3.eq.0) then
 ! 0.0  Free text
@@ -1723,6 +1723,7 @@ subroutine unpack77_decode_type12(c77,context,decoded)
   character*4 grid4
   logical unpk28_success,unpkg4_success,ok
   type(pack77_type12_fields) :: type12_fields
+  integer :: n28a,n28b
   ! Type 1 (standard message) or Type 2 ("/P" form for EU VHF contest)
   if(decoded%i3.eq.1) then
      call decode_pack77_type1(c77,type12_fields,ok,.true.)
@@ -1799,6 +1800,7 @@ subroutine unpack77_decode_type3(c77,context,decoded)
   character crpt*3
   logical unpk28_success,ok
   type(pack77_type3_fields) :: type3_fields
+  integer :: n28a,n28b
   ! Type 3: ARRL RTTY Contest
   call decode_pack77_type3(c77,type3_fields,ok,.true.)
   if(.not.ok) then
