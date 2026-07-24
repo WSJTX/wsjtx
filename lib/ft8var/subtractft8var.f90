@@ -12,8 +12,8 @@ subroutine subtractft8var(itone,f0,dt)
   parameter (NFFT=180000,NMAX=180000,NFRAME=151680)
   complex cref(nframe),cfilt(nmax)
   integer itone(79)
-  save cfilt
-  !$omp threadprivate(cfilt)
+  save cref,cfilt
+  !$omp threadprivate(cref,cfilt)
 
   nstart=dt*12000+1
   call gen_ft8wavevar(itone,79,1920,2.0,12000.0,f0,cref,xjunk,1,NFRAME)

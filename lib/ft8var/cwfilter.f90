@@ -7,7 +7,7 @@ subroutine cwfilter(first)
   use prog_args ! path to files
 
   parameter (NFFT=180000)
-  complex csig0(151680)
+  complex, allocatable :: csig0(:)
   real*4 window1(-NFILT1/2:NFILT1/2)
   character*37 msgcq25(25),msgsent37
   integer itone(79)
@@ -18,6 +18,7 @@ subroutine cwfilter(first)
 !note that with new, larger ALLCALL7.TXT files, dimensions of various ncall arrays may need to be increased in jt65_mod9.f90
 !on 20250709 callj dim was increased from 9000 to 10000 when updated ALLCALL7.TXT file was added
   if(first) then
+    allocate(csig0(151680))
     ! Open the shipped read-only ALLCALL7.TXT for reading only. status='old' with
     ! action='read' makes a missing/unreadable file degrade cleanly to an empty
     ! callsign DB (handled by the count check below) instead of status='unknown'

@@ -81,7 +81,7 @@ contains
        real xdt
       complex cs(0:7,79)
     end type tmpcqsig_struct
-    type(tmpcqsig_struct) tmpcqsig(numcqsig) ! 20 sigs
+    type(tmpcqsig_struct), allocatable :: tmpcqsig(:) ! 20 sigs
 
     type tmpmyc_struct
        real freq
@@ -103,6 +103,7 @@ contains
     end type tmpqsosig_struct
     type(tmpqsosig_struct) tmpqsosig(1)
 
+    allocate(tmpcqsig(numcqsig))
     oddtmp%lstate=.false.
     eventmp%lstate=.false.
     nmsgloc=0

@@ -12,7 +12,7 @@ subroutine sync8dvar(cd0,i0,ctwk,itwk,sync,ipass,lastsync,iqso,lcq,lcallsstd,lcq
   logical(1), intent(in) :: lcq,lcallsstd,lcqcand
   logical(1) lastsync,lsync1_valid
 
-  sync=0.; sync1=0.; zt1=0.; zt2=0.; zt3=0.; z11=0.; z22=0.; z33=0.!; sync2=0.
+  sync=0.; sync1=0.; zt1=0.; zt2=0.; zt3=0.; z4=0.; z11=0.; z22=0.; z33=0.!; sync2=0.
   lsync1_valid=.false.
   k=1
   do i=0,6 ! Sum over 7 Costas frequencies and three Costas arrays

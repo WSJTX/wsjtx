@@ -3,7 +3,9 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
   use ft8_mod1, only : dd8,windowx,facx,icos7,lagcc,lagccbail,nfawide,nfbwide
   include 'ft8_params.f90'
   complex cx(0:NH1)
-  real s(NH1,NHSYM),x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
+  real, save :: s(NH1,NHSYM)
+  !$omp threadprivate(s)
+  real x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
   integer jpeak(NH1),indx(NH1),ii(1)
   integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter
   logical(1) syncq(NH1,jzb:jzt),redcq(NH1),lcq,lcq2,lpass1,lpass2
@@ -74,7 +76,7 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
     nfos6=12 ! nfos*6
     do j=jzb,jzt
       do i=iaw,ibw
-        ta=0.; tb=0.; tc=0.
+        ta=0.; tb=0.; tc=0.; tall=0.
         do n=0,6
           k=j+jstrt+nssy*n
           if(k.gt.0) then

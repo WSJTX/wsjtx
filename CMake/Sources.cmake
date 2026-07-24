@@ -789,7 +789,10 @@ set_source_files_properties (${WSJTX_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATI
 
 # suppress intransigent compiler diagnostics
 set_source_files_properties (lib/decoder.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
-set_source_files_properties (lib/filbig.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing")
+set_source_files_properties (
+  lib/filbig.f90
+  lib/ft8var/filbigvar.f90
+  PROPERTIES COMPILE_FLAGS "-Wno-aliasing")
 
 # foxgen.f90's fname is genuine C++-supplied state (see mainwindow.cpp
 # call sites) that the current Fortran implementation doesn't happen to
