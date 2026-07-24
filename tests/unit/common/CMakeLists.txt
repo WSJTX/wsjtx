@@ -131,6 +131,13 @@ add_executable (test_qso_reaction
 target_link_libraries (test_qso_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_qso_reaction COMMAND test_qso_reaction)
 
+add_executable (test_hound_transmission_policy
+  test_hound_transmission_policy.cpp
+  ${CMAKE_SOURCE_DIR}/HoundTransmissionPolicy.cpp
+)
+target_link_libraries (test_hound_transmission_policy Qt5::Test)
+add_test (NAME test_hound_transmission_policy COMMAND test_hound_transmission_policy)
+
 add_executable (test_qsy_message_parser
   test_qsy_message_parser.cpp
   ${CMAKE_SOURCE_DIR}/widgets/QSYMessageParser.cpp

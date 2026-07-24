@@ -164,6 +164,7 @@ set (wsjtx_CXXSRCS
   WSPR/WsprTxScheduler.cpp
   AutoRespondSelectionLatch.cpp
   HighlightingRules.cpp
+  HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp

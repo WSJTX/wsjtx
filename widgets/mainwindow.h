@@ -63,6 +63,7 @@
 #include "Network/NetworkAccessManager.hpp"
 #include "AutoRespondSelectionLatch.hpp"
 #include "AutoRespondScoring.hpp"
+#include "HoundTransmissionPolicy.hpp"
 #include "QsoProgress.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
@@ -837,8 +838,7 @@ private:
   qint32  m_maxFoxWait=3;      //Max wait time for expected Hound replies
   qint32  m_foxCQtime=10;      //CQs at least every 5 minutes
   qint32  m_tFoxTxSinceCQ=999; //Fox Tx cycles since most recent CQ
-  qint32  m_nFoxFreq;          //Audio freq at which Hound received a call from Fox
-  qint32  m_nSentFoxRrpt=0;    //Serial number for next R+rpt Hound will send to Fox
+  HoundTransmissionPolicy::State m_houndTransmissionState;
   qint32  m_kin0=0;
   qint32  m_earlyDecode=41;
   qint32  m_earlyDecode2=47;
@@ -1281,7 +1281,7 @@ private:
   void write_all(QString txRx, QString message);
   bool isWorked(int itype, QString key, float fMHz=0, QString="");
 
-  void hound_reply ();
+  void hound_reply (int foxFrequency);
   QString sortHoundCalls(QString t, int isort, int max_dB);
   void rm_tb4(QString houndCall);
   void read_wav_file (QString const& fname);

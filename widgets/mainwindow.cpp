@@ -5342,8 +5342,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                and ui->tx3->text().length()>0) {
               m_rptRcvd=w.at(4);
               m_rptSent=decodedtext.string().mid(7,3);
-              m_nFoxFreq=decodedtext.string().mid(16,4).toInt();
-              hound_reply ();
+              hound_reply (decodedtext.string().mid(16,4).toInt());
             }
           }
         } else {
@@ -5362,8 +5361,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    (w.at(2).mid(0,1)=="+" or w.at(2).mid(0,1)=="-")) {
                   m_rptRcvd=w.at(2);
                   m_rptSent=decodedtext.string().mid(7,3);
-                  m_nFoxFreq=decodedtext.string().mid(16,4).toInt();
-                  hound_reply ();
+                  hound_reply (decodedtext.string().mid(16,4).toInt());
                 } else {
                   if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) continue;
                   if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))  processSyntheticMessage(decodedtext0);   // needed for MSHV multistream messages
@@ -5682,25 +5680,26 @@ void MainWindow::guiUpdate()
           }
         }
         else if (SpecOp::HOUND == m_specOp && !m_config.superFox()) {
-          if(m_auto && !m_tune) {
-            if (ui->TxFreqSpinBox->value() < 999 && m_ntx != 3) {
+          HoundTransmissionPolicy::ClassicTxStartInput input;
+          input.autoEnabled = m_auto;
+          input.tune = m_tune;
+          input.selectedTxMessage = m_ntx;
+          input.currentTxFrequency = ui->TxFreqSpinBox->value();
+          auto const plan = HoundTransmissionPolicy::planClassicTxStart (
+            m_houndTransmissionState, input);
+          if (HoundTransmissionPolicy::FrequencyAction::RandomizeCalling
+              == plan.frequencyDecision.action) {
               // Hound randomized range: 1000-3000 Hz
 #if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
               ui->TxFreqSpinBox->setValue (QRandomGenerator::global ()->bounded (1000, 2999));
 #else
               ui->TxFreqSpinBox->setValue ((qrand () % 2000) + 1000);
 #endif
-            }
+          } else if (HoundTransmissionPolicy::FrequencyAction::Set
+                     == plan.frequencyDecision.action) {
+            ui->TxFreqSpinBox->setValue (plan.frequencyDecision.frequency);
           }
-          if (m_nSentFoxRrpt==2 and m_ntx==3) {
-            // move off the original Fox frequency on subsequent tries of Tx3
-            int nfreq=m_nFoxFreq + 300;
-            if(m_nFoxFreq>600) nfreq=m_nFoxFreq - 300;  //keep nfreq below 900 Hz
-            ui->TxFreqSpinBox->setValue(nfreq);
-          }
-          if (m_nSentFoxRrpt == 1) {
-            ++m_nSentFoxRrpt;
-          }
+          m_houndTransmissionState = plan.nextState;
         }
       }
       
@@ -11912,17 +11911,36 @@ void MainWindow::readWidebandDecodes()
 
 // -------------------------- Code for FT8 DXpedition Mode ---------------------------
 
-void MainWindow::hound_reply ()
+void MainWindow::hound_reply (int foxFrequency)
 {
-  if (!m_tune) {
-    // Select Tx3, set TxFreq to FoxFreq, and Force Auto ON.
-    ui->txrb3->setChecked (true);
-    m_nSentFoxRrpt = 1;
-    ui->rptSpinBox->setValue(m_rptSent.toInt());
-    if (!m_auto) auto_tx_mode(true);
-    if (!m_config.superFox()) ui->TxFreqSpinBox->setValue (m_nFoxFreq);
-    stopWRTimer.start(int(11000.0*m_TRperiod));     // Tx3 timeout when in Hound mode
-  }
+  HoundTransmissionPolicy::ReplyInput input;
+  input.protocol = m_config.superFox () ? HoundTransmissionPolicy::Protocol::SuperFox
+    : HoundTransmissionPolicy::Protocol::Classic;
+  input.tune = m_tune;
+  input.autoEnabled = m_auto;
+  input.sentReport = m_rptSent.toInt ();
+  input.decodedFoxFrequency = foxFrequency;
+  input.trPeriod = m_TRperiod;
+  auto const plan = HoundTransmissionPolicy::planFoxReportReply (
+    m_houndTransmissionState, input);
+  if (!plan.applyReply)
+    {
+      m_houndTransmissionState = plan.nextState;
+      return;
+    }
+
+  if (HoundTransmissionPolicy::TxMessage::Tx3 == plan.txMessage)
+    {
+      ui->txrb3->setChecked (true);
+    }
+  m_houndTransmissionState = plan.nextState;
+  ui->rptSpinBox->setValue (plan.report);
+  if (plan.enableAuto) auto_tx_mode (true);
+  if (HoundTransmissionPolicy::FrequencyAction::Set == plan.frequencyDecision.action)
+    {
+      ui->TxFreqSpinBox->setValue (plan.frequencyDecision.frequency);
+    }
+  stopWRTimer.start (plan.timeoutMilliseconds);
 }
 
 void MainWindow::on_sbNlist_valueChanged(int n)
