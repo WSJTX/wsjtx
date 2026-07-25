@@ -1,0 +1,113 @@
+name: Sign Windows Release
+
+# Rebuilds the Windows installer from the mirrored public source and
+# submits it to SignPath Foundation for signing; architecture and
+# requirements in ci-cd/DEPLOYMENT_PLAYBOOK.md §5.4.
+#
+#   vX.Y.Z        → release-signing
+#   anything else → test-signing (validation only; never distribute)
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  prepare:
+    if: github.repository == 'WSJTX/wsjtx'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      signing_policy: ${{ steps.v.outputs.signing_policy }}
+      release_channel: ${{ steps.v.outputs.release_channel }}
+    steps:
+      - id: v
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            SIGNING_POLICY=release-signing
+            RELEASE_CHANNEL=GA
+          else
+            SIGNING_POLICY=test-signing
+            RELEASE_CHANNEL=DEVEL
+          fi
+          {
+            echo "version=$VERSION"
+            echo "signing_policy=$SIGNING_POLICY"
+            echo "release_channel=$RELEASE_CHANNEL"
+          } >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION policy=$SIGNING_POLICY channel=$RELEASE_CHANNEL"
+
+  build:
+    needs: prepare
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      sign_mode: "none"
+
+  sign:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      # SignPath fetches the artifact and run metadata via GITHUB_TOKEN.
+      actions: read
+      contents: read
+    steps:
+      - name: Submit signing request to SignPath
+        id: signpath
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: "4c211821-e011-48a2-8a84-2cc29a76a8bf"
+          project-slug: "wsjtx"
+          signing-policy-slug: ${{ needs.prepare.outputs.signing_policy }}
+          github-artifact-id: ${{ needs.build.outputs.installer-artifact-id }}
+          wait-for-completion: true
+          # release-signing may require manual approval in SignPath.
+          wait-for-completion-timeout-in-seconds: "3600"
+          output-artifact-directory: signed
+
+      - name: Show signing request result
+        run: |
+          echo "Signing request: ${{ steps.signpath.outputs.signing-request-web-url }}"
+          ls -la signed/
+
+      # release.yml's signing gate downloads this artifact by this name.
+      - name: Upload signed installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ needs.prepare.outputs.version }}-windows-x86_64-installer-signed
+          path: signed/*.exe
+          if-no-files-found: error
+
+  # Hard-fails for release-signing; informational for test-signing,
+  # whose self-signed cert never chains.
+  verify:
+    needs: [prepare, sign]
+    runs-on: windows-latest
+    steps:
+      - name: Download signed installer
+        uses: actions/download-artifact@v8
+        with:
+          name: wsjtx-${{ needs.prepare.outputs.version }}-windows-x86_64-installer-signed
+          path: signed
+
+      - name: Verify Authenticode chain (signtool)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem signed -Filter *.exe | Select-Object -First 1
+          if (-not $exe) { throw "No signed installer found in artifact" }
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName | Select-Object -Last 1
+          if (-not $signtool) { throw "signtool.exe not found on runner" }
+          & $signtool.FullName verify /pa /v $exe.FullName
+          $verified = ($LASTEXITCODE -eq 0)
+          Get-AuthenticodeSignature $exe.FullName | Format-List Status, StatusMessage, SignerCertificate
+          if ("${{ needs.prepare.outputs.signing_policy }}" -eq "release-signing" -and -not $verified) {
+            throw "GA installer signature does not chain to a trusted root"
+          }
+          if (-not $verified) {
+            Write-Host "test-signing signature does not chain to a trusted root (expected for the self-signed test certificate)."
+          }
+          exit 0

@@ -81,9 +81,20 @@ Understanding the architecture will help you debug issues during deployment.
 │                                    unsigned.
 │
 ├── build-windows.yml            ← Reusable workflow (workflow_call).
-│                                    Windows x86_64 via MSYS2/MinGW64 + per-run
-│                                    ephemeral self-signed osslsigncode (sandbox;
-│                                    production will switch to Authenticode — Phase 5 / decision #5).
+│                                    Windows x86_64 via MSYS2/MinGW64. Installer
+│                                    signing per sign_mode input: ephemeral
+│                                    self-signed osslsigncode (CI/DEVEL/RC) or
+│                                    none (GA — SignPath signs downstream, §5.4).
+│
+├── sign-windows-release.yml     ← Public repo (WSJTX/wsjtx) only; triggered by
+│                                    the v* tag release.yml's mirror step pushes.
+│                                    Rebuilds the installer from public source,
+│                                    SignPath authenticode-signs it, verifies the
+│                                    chain with signtool /pa (hard-fail on GA).
+│
+├── signpath-smoke.yml           ← workflow_dispatch; public repo.
+│                                    ~2-minute SignPath round-trip check
+│                                    with a trivial PE — no WSJT source built.
 │
 ├── hamlib-upstream-check.yml    ← Scheduled (`cron: '0 12 * * MON'`) + `workflow_dispatch`.
 │                                    Weekly poll of Hamlib upstream tags; files a
@@ -154,7 +165,7 @@ Each successful `build/v*` tag yields one installer per platform plus a source t
 | `wsjtx-<ver>-x86_64-macOS.pkg` | `build-macos.yml` (x86_64 leg) | Signed + notarized `.pkg` installer |
 | `wsjtx-<ver>-linux-x86_64.AppImage` | `build-linux.yml` (x86_64 leg) | Portable AppImage |
 | `wsjtx-<ver>-linux-aarch64.AppImage` | `build-linux.yml` (aarch64 leg) | Portable AppImage |
-| `wsjtx-<ver>-win64.exe` | `build-windows.yml` | NSIS installer (sandbox: per-run ephemeral self-signed osslsigncode; production: Authenticode post-Phase-5 / decision #5 — see §5.4) |
+| `wsjtx-<ver>-win64.exe` | `build-windows.yml` | NSIS installer (GA: SignPath Foundation Authenticode via `sign-windows-release.yml` on the public repo; RC/DEVEL: per-run ephemeral self-signed osslsigncode — see §5.4) |
 | `wsjtx-<ver>-src.tar.gz` | `release.yml:113-126` (`git archive`) | Source tarball |
 
 The source tarball is assembled from the pushed `build/v*` tag with `git archive --format=tar.gz --prefix="wsjtx-<ver>/"` and is published with every release — no per-release step or decision. This repo has no git submodules, so `git archive`'s default single-tree output captures the full source; if submodules are ever added, the step must be revisited (`git archive` does not recurse into submodules on its own).
@@ -518,85 +529,55 @@ DEVELOPER_ID_INSTALLER_PASSWORD Updated 2026-...
 
 If any are missing, the macOS build will fail at the signing step with an empty identity error.
 
-> **About Windows signing.** The current sandbox machinery signs the Windows installer with a per-run ephemeral self-signed osslsigncode certificate (`build-windows.yml:208-239`); no Windows secrets are required at this stage. Once the team provisions the production Authenticode certificate (decision #5 in the adoption email), two additional secrets are added — Secrets 9 and 10 below — bringing the total to 10.
+> **About Windows signing.** GA installers are Authenticode-signed by SignPath Foundation on the **public** repo — see §5.4. No Windows signing secrets exist on `wsjtx-internal`; the only signing-related secret is `SIGNPATH_API_TOKEN` on `WSJTX/wsjtx`, and the certificate's private key never leaves SignPath's HSM. CI/DEVEL/RC builds use a per-run ephemeral self-signed osslsigncode certificate (no stored secret).
 
-### 5.4 Secrets 9-10: Windows Authenticode Signing (post-Phase-5 replacement of the sandbox osslsigncode step)
+### 5.4 Windows Authenticode Signing via SignPath Foundation
 
-> **Pattern-2 — sandbox vs. production Windows signing.** The current sandbox machinery uses a **per-run ephemeral self-signed osslsigncode** certificate (`build-windows.yml:208-239`), generated at build time with no stored secret. That produces a structurally-signed installer that does not chain to a trusted root — by design, because the production Authenticode certificate is team-owned (decision #5 in the adoption email). The steps in this subsection describe the **post-Phase-5 replacement**: once the team provisions the Windows Authenticode certificate, the ephemeral-cert step in `build-windows.yml:208-239` is replaced with the signtool-based step below, and two new secrets (Secrets 9-10) are added.
+> **How it works.** SignPath Foundation signs OSS artifacts **built from the public repository only** — the signature attests provenance, not just identity. `release.yml` therefore mirrors source + tag to `WSJTX/wsjtx` *before* publishing anything; the tag push triggers `sign-windows-release.yml` on the public repo, which rebuilds the installer (`build-windows.yml` with `sign_mode=none`), submits it via `signpath/github-action-submit-signing-request@v2` (org `4c211821-e011-48a2-8a84-2cc29a76a8bf`, project `wsjtx`, policy `release-signing` for GA-shaped tags), verifies the chain with `signtool verify /pa`, and uploads a `…-installer-signed` artifact. The internal release job waits for that run, swaps the signed exe in, and only then publishes both releases. A failed or rejected signing run fails the release — no unsigned GA ships. The certificate's private key lives in SignPath's HSM; there is no `.pfx` to export, store, or protect.
 
-Once the team has the Authenticode certificate, it is used in CI the same way as the macOS certificates — base64-encoded and stored as a repository secret.
+#### The one secret
 
-#### Preparing the certificate
-
-Export the existing Authenticode certificate as a `.pfx` file (if you don't already have one exported). Base64-encode it, same as the macOS certificates:
+Set on the **public** repo (not `wsjtx-internal`):
 
 ```bash
-# On macOS:
-base64 -i wsjtx-signing.pfx -o wsjtx-signing.pfx.b64
-
-# On Linux:
-base64 -w0 wsjtx-signing.pfx > wsjtx-signing.pfx.b64
+gh secret set SIGNPATH_API_TOKEN --repo WSJTX/wsjtx
+# (paste the SignPath CI user's API token, press Enter)
 ```
 
-#### Set the secrets
+The SignPath CI user must be a **submitter** on the signing policies (`release-signing`, `test-signing`). Additionally, `CROSS_REPO_TOKEN` needs **Actions:read** on `WSJTX/wsjtx` (on top of its baseline Contents:write) so the internal release job can poll the sign run and download the signed artifact.
 
-```bash
-# Windows signing certificate (base64-encoded .pfx):
-gh secret set WINDOWS_SIGNING_CERT_PFX --repo WSJTX/wsjtx-internal < wsjtx-signing.pfx.b64
+#### SignPath dashboard configuration
 
-# Password for the certificate:
-gh secret set WINDOWS_SIGNING_CERT_PASSWORD --repo WSJTX/wsjtx-internal
-# (paste the password, press Enter)
-```
+- **Artifact configuration** — GitHub Actions artifacts are always ZIP-wrapped, so the root element must be `zip-file`:
 
-**Delete local files after setting secrets:**
-```bash
-rm wsjtx-signing.pfx wsjtx-signing.pfx.b64
-```
+  ```xml
+  <?xml version="1.0" encoding="utf-8" ?>
+  <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+    <zip-file>
+      <pe-file path="*.exe">
+        <authenticode-sign />
+      </pe-file>
+    </zip-file>
+  </artifact-configuration>
+  ```
 
-#### Replacing the osslsigncode step in `build-windows.yml`
+- **Trusted build system** — the predefined *GitHub.com* trusted build system added to the SignPath org and linked to the `wsjtx` project; the [SignPath GitHub App](https://github.com/apps/signpath) installed with access to the public repo (origin verification).
 
-**Remove** the existing sandbox ephemeral-signing block at `build-windows.yml:204-239` (the `Sign installer with self-signed sandbox cert` step and its `osslsigncode verify ... || true` follow-up). **Insert** the Authenticode-based step below in its place (after the "Build" step and before "Upload build artifacts"):
+#### Validation
 
-```yaml
-    - name: Sign Windows binaries
-      shell: pwsh
-      env:
-        CERT_PFX: ${{ secrets.WINDOWS_SIGNING_CERT_PFX }}
-        CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
-      run: |
-        if (-not $env:CERT_PFX) {
-          Write-Warning "WINDOWS_SIGNING_CERT_PFX not set — skipping signing"
-          exit 0
-        }
-        $pfxPath = "$env:RUNNER_TEMP\signing.pfx"
-        [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:CERT_PFX))
+`signpath-smoke.yml` (workflow_dispatch on the public repo) signs a trivial hello-world PE through the complete round trip in ~2 minutes — no WSJT source is built or exposed. Dispatch it against `test-signing` to validate plumbing without consuming a `release-signing` approval. Success: the workflow completes green — the returned exe carries a parseable Authenticode signature (hard-checked); chain status is printed for inspection only, since the test certificate never chains to a trusted root.
 
-        $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits" `
-          -Recurse -Filter "signtool.exe" | Where-Object {
-            $_.FullName -match "x64"
-          } | Select-Object -First 1
+#### RC/DEVEL builds
 
-        if (-not $signtool) { throw "signtool.exe not found" }
-
-        foreach ($exe in @("wsjtx-build\wsjtx.exe", "wsjtx-build\jt9.exe", "wsjtx-build\wsprd.exe")) {
-          if (Test-Path $exe) {
-            & $signtool.FullName sign /f $pfxPath /p $env:CERT_PASSWORD `
-              /tr http://timestamp.digicert.com /td sha256 /fd sha256 $exe
-          }
-        }
-        Remove-Item $pfxPath
-```
-
-The step is structured to skip gracefully if the secrets aren't set — the build succeeds unsigned during initial setup while secrets are being configured.
+CI, DEVEL, and RC builds use a per-run ephemeral self-signed certificate (the `osslsigncode` step in `build-windows.yml`, skipped when the caller passes `sign_mode=none`). GA release builds pass `sign_mode=none` on both repos — the internal installer is an unsigned placeholder until the signing gate swaps in the SignPath-signed exe. RC source stays internal by policy, and Foundation cannot sign non-public builds, so RC installers use the ephemeral cert and its `|| true`-guarded verify.
 
 ### 5.5 Linux Signing (Optional)
 
 Linux binary signing is less critical — Linux users don't encounter SmartScreen-style warnings when downloading binaries. However, GPG-signing release tarballs is good practice if the team distributes `.tar.gz` or `.deb` packages. This would require one additional secret (`GPG_SIGNING_KEY`) and a small step in the release workflow.
 
-### Verification: All Secrets (post-Authenticode provisioning)
+### Verification: All Secrets
 
-Once Windows Authenticode secrets are in place (only after the team has provisioned the certificate per decision #5), the list totals 10 secrets:
+`wsjtx-internal` stays at the 8 baseline secrets; Windows signing adds exactly one secret, on the public repo:
 
 ```bash
 gh secret list --repo WSJTX/wsjtx-internal
@@ -611,8 +592,14 @@ DEVELOPER_ID_CERTIFICATE_P12      Updated 2026-...
 DEVELOPER_ID_CERTIFICATE_PASSWORD Updated 2026-...
 DEVELOPER_ID_INSTALLER_P12        Updated 2026-...
 DEVELOPER_ID_INSTALLER_PASSWORD   Updated 2026-...
-WINDOWS_SIGNING_CERT_PFX          Updated 2026-...
-WINDOWS_SIGNING_CERT_PASSWORD     Updated 2026-...
+```
+
+```bash
+gh secret list --repo WSJTX/wsjtx
+```
+
+```
+SIGNPATH_API_TOKEN                Updated 2026-...
 ```
 
 ---
@@ -1131,11 +1118,11 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal
 
 ### Secrets Required on `wsjtx-internal`
 
-Initial adoption runs on 8 baseline secrets (macOS signing + notarization + cross-repo sync). The two Windows Authenticode secrets are added post-Phase-5, once the team provisions the production cert (decision 5 in the adoption email). Until then, Windows signing uses the per-run ephemeral self-signed osslsigncode cert built into `build-windows.yml:208-239` — no secret required.
+Initial adoption runs on 8 baseline secrets (macOS signing + notarization + cross-repo sync) on `wsjtx-internal`. Windows Authenticode signing (SignPath Foundation) adds a single `SIGNPATH_API_TOKEN` secret on the **public** repo — no signing secret is ever added to `wsjtx-internal`, and the private key never leaves SignPath's HSM. CI/DEVEL/RC builds keep the per-run ephemeral self-signed osslsigncode cert built into `build-windows.yml` — no secret required. `CROSS_REPO_TOKEN` additionally needs Actions:read on `WSJTX/wsjtx` for the release job's sign-run polling.
 
-| Secret Name | Used By | Required For | Baseline (8) | Post-Phase-5 (+2) |
+| Secret Name | Used By | Required For | Baseline (8) | SignPath (+1, public repo) |
 |-------------|---------|-------------|:------------:|:-----------------:|
-| `CROSS_REPO_TOKEN` | `release.yml` | Public repo sync | Yes | — |
+| `CROSS_REPO_TOKEN` | `release.yml` | Public repo sync + sign-run polling | Yes | — |
 | `DEVELOPER_ID_CERTIFICATE_P12` | `build-macos.yml` | macOS app code signing | Yes | — |
 | `DEVELOPER_ID_CERTIFICATE_PASSWORD` | `build-macos.yml` | macOS app code signing | Yes | — |
 | `DEVELOPER_ID_INSTALLER_P12` | `build-macos.yml` | macOS installer signing | Yes | — |
@@ -1143,8 +1130,7 @@ Initial adoption runs on 8 baseline secrets (macOS signing + notarization + cros
 | `APPLE_ID` | `build-macos.yml` | macOS notarization | Yes | — |
 | `APPLE_APP_SPECIFIC_PASSWORD` | `build-macos.yml` | macOS notarization | Yes | — |
 | `APPLE_TEAM_ID` | `build-macos.yml` | macOS notarization | Yes | — |
-| `WINDOWS_SIGNING_CERT_PFX` | `build-windows.yml` | Windows Authenticode signing | — | Yes |
-| `WINDOWS_SIGNING_CERT_PASSWORD` | `build-windows.yml` | Windows Authenticode signing | — | Yes |
+| `SIGNPATH_API_TOKEN` (on `WSJTX/wsjtx`) | `sign-windows-release.yml`, `signpath-smoke.yml` | Windows Authenticode via SignPath | — | Yes |
 
 ### External Dependencies (Downloaded at Build Time)
 
