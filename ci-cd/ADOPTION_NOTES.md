@@ -56,7 +56,7 @@ Every `${{ secrets.X }}` reference, its files, and its reconciliation requiremen
 
 **Graceful-degradation posture (build-macos.yml:34-44):** when the macOS secrets are absent (e.g. Dependabot PR or external fork), the workflow sets `signing_enabled=false` and the `Import signing certificates` / `Code sign binaries` / `Build installer pkg` / `Notarize pkg` / `Notarize CLI tools` / `Upload pkg` steps all short-circuit via `if: steps.check_secrets.outputs.signing_enabled == 'true'`. Compile, ctest, and dylib-bundling still run. This preserves PR coverage on unprivileged triggers. Upstream may retain this posture or enforce secrets-required on protected branches.
 
-**Windows signing uses no secrets (`build-windows.yml:208-239`):** an ephemeral self-signed cert is generated per run, satisfies osslsigncode structurally but does not chain to a trusted root. `osslsigncode verify` is `|| true`-guarded (line 235) because the self-signed CA will never pass CA-trust. Per decision #5 in the adoption email, production replaces this with a real cert in an encrypted secret (e.g. `WINDOWS_CODESIGN_PFX_BASE64`) and removes the `|| true`. Flagged here because the Windows replication is a drop-in copy minus this signing block, which is cert-gated.
+**Windows signing (SignPath Foundation):** GA installers are Authenticode-signed by SignPath. Because SignPath Foundation only signs artifacts built from the public repository, `release.yml` mirrors source + tag to `WSJTX/wsjtx` *before* publishing releases; the tag push triggers `sign-windows-release.yml` on the public repo, which rebuilds the installer (`build-windows.yml` with `sign_mode=none`), submits it to SignPath (org `4c211821-e011-48a2-8a84-2cc29a76a8bf`, project `wsjtx`), verifies the chain with `signtool verify /pa`, and publishes a `…-installer-signed` artifact that the internal release job swaps into both the internal and public release assets. CI/DEVEL/RC builds use the ephemeral self-signed cert (RC source stays internal, so Foundation cannot sign it); its `osslsigncode verify` is `|| true`-guarded for that path only. Secrets: `SIGNPATH_API_TOKEN` on the public repo; `CROSS_REPO_TOKEN` additionally needs Actions:read on `WSJTX/wsjtx` for sign-run polling + artifact download. `signpath-smoke.yml` (workflow_dispatch on the public repo) validates the SignPath round-trip without a full build.
 
 ---
 
@@ -176,7 +176,7 @@ One possible ordering, presented for the team's planning convenience. The team d
 |---|---|---|---|
 | **CI matrix** | `ci.yml` + `build-{macos,linux,windows}.yml` | Lowest — PR status only, no public surface | Runners (§4); macOS secrets (§3) — graceful-degraded, so replication works with secrets absent initially |
 | **Upstream watch** | `hamlib-upstream-check.yml` | Low — files a tracking issue once per week | `issues: write` permission (§5) |
-| **Release** | `release.yml` | Highest — touches GitHub Releases + (optionally) public mirror | All of §3, §7 tag convention, §8 mirror decision, production cert delivery (out of scope here — decision #5 in the adoption email) |
+| **Release** | `release.yml` | Highest — touches GitHub Releases + (optionally) public mirror | All of §3, §7 tag convention, §8 mirror decision, Windows signing via SignPath Foundation (see §3) |
 
 The CI chunk does not depend on the release chunk; the release chunk does not start producing real releases until the team chooses to tag `build/v*` on the team repo. Replication can land the CI chunk and run it for weeks before the team authorises the first real release tag.
 
@@ -194,7 +194,7 @@ The third bullet is a team action: adoption of proven machinery — when and how
 
 ## 11. What this inventory does NOT cover
 
-- **Production code-signing certs** (team-owned; tied to decision #5 in the adoption email).
+- **Production code-signing certs** (macOS: team-owned Apple credentials; Windows: SignPath Foundation — see §3).
 - **When** the team replicates, **in what order**, or **by which PRs** — team-owned.
 - **Branch-protection settings** on `WSJTX/*` — applied by the team at its own cadence.
 - **Governance files** (`SECURITY.md`, `CONTRIBUTING.md`, `CODEOWNERS`) — already in the sandbox; team applies same shape if/when adopting.

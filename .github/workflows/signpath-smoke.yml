@@ -1,0 +1,68 @@
+name: SignPath Smoke Test
+
+# Signs a trivial PE through the full SignPath round trip (token, slugs,
+# artifact configuration, trusted build system) without building or
+# exposing WSJT source.
+
+on:
+  workflow_dispatch:
+    inputs:
+      signing-policy-slug:
+        description: "SignPath signing policy to exercise"
+        required: false
+        type: choice
+        options:
+          - test-signing
+          - release-signing
+        default: test-signing
+
+jobs:
+  smoke:
+    if: github.repository == 'WSJTX/wsjtx'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Build trivial PE file
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q gcc-mingw-w64-x86-64
+          cat > smoke.c <<'EOF'
+          #include <stdio.h>
+          int main(void) { puts("WSJT SignPath smoke test"); return 0; }
+          EOF
+          x86_64-w64-mingw32-gcc smoke.c -o signpath-smoke.exe
+          file signpath-smoke.exe
+
+      - name: Upload unsigned artifact
+        id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: signpath-smoke
+          path: signpath-smoke.exe
+
+      - name: Submit signing request to SignPath
+        id: signpath
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: "4c211821-e011-48a2-8a84-2cc29a76a8bf"
+          project-slug: "wsjtx"
+          signing-policy-slug: ${{ inputs.signing-policy-slug }}
+          github-artifact-id: ${{ steps.upload.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Verify returned signature
+        run: |
+          echo "Signing request: ${{ steps.signpath.outputs.signing-request-web-url }}"
+          sudo apt-get install -y -q osslsigncode
+          ls -la signed/
+          # The test cert never chains to a trusted root, so chain
+          # verification can't gate here. Require instead that an
+          # Authenticode signature is present and parses as PKCS#7 —
+          # both commands hard-fail on an unsigned or malformed exe.
+          osslsigncode extract-signature -in signed/signpath-smoke.exe -out smoke-sig.der
+          openssl pkcs7 -inform DER -in smoke-sig.der -print_certs -noout
+          # Chain status, informational only:
+          osslsigncode verify signed/signpath-smoke.exe || true

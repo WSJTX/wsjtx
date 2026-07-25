@@ -30,27 +30,27 @@ The pipeline has been proven end-to-end in the sandbox — a complete happy-path
 | macOS Intel x86_64 | ~10 min | Yes | Developer ID + Apple Notarization, Gatekeeper-ready |
 | Linux x86_64 | ~7 min | No | AppImage output; GPG signing can be added |
 | Linux aarch64 | ~10 min | No | AppImage output; `ubuntu-24.04-arm` runner |
-| Windows x86_64 | ~15 min | Sandbox: self-signed | Production: Authenticode (team cert — see decision 5) |
+| Windows x86_64 | ~15 min | GA: SignPath Foundation | RC/DEVEL: ephemeral self-signed (SmartScreen warns) |
 
 The release pipeline was validated: tag push triggered five-platform builds, created a GitHub Release with all artifacts, and synced source + tag to the public repo — all automatically.
 
 ### Code Signing in CI
 
-The macOS signing path is fully wired to real Apple Developer credentials. The Windows signing path is **wired but uses a sandbox placeholder cert** pending decision 5 (production Authenticode adoption).
+The macOS signing path is fully wired to real Apple Developer credentials. The Windows signing path is **wired to SignPath Foundation for GA releases**; CI/DEVEL/RC builds use an ephemeral placeholder cert.
 
 **macOS:** The build signs the application binary and dylibs with the Developer ID Application certificate, signs the `.pkg` installer with the Developer ID Installer certificate, and submits the package to Apple for notarization. The resulting `.pkg` passes Gatekeeper without warnings. Secrets-absent builds (Dependabot, external forks) short-circuit the signing/notarization steps via a `signing_enabled` guard so compile + ctest still run.
 
-**Windows:** The sandbox currently signs the NSIS installer with a **per-run ephemeral self-signed cert** generated at build time (`osslsigncode`, no stored secret). The signature is structurally valid but does not chain to a trusted root — Windows SmartScreen will still show an *"Unknown Publisher"* warning, because only certificates chained to a Microsoft-trusted Authenticode root suppress that prompt. `osslsigncode verify` is `|| true`-guarded so CI stays green. This proves the signing step is wired into the pipeline. Production replaces the ephemeral cert with a team-owned Authenticode certificate in an encrypted secret (e.g. `WINDOWS_CODESIGN_PFX_BASE64`) and drops the `|| true` guard — see email decision 5.
+**Windows:** GA installers are **Authenticode-signed via SignPath Foundation**. Foundation terms require signing builds of *public* source, so `release.yml` mirrors source + tag to the public repo *before* publishing; `sign-windows-release.yml` there rebuilds the installer, SignPath signs it with the project certificate, the chain is verified with `signtool verify /pa` (hard-fail on GA), and the release job attaches the signed exe to both the internal and public releases. CI/DEVEL/RC builds use a **per-run ephemeral self-signed cert** (`osslsigncode`, no stored secret) that does not chain to a trusted root — SmartScreen still warns on those, and their `osslsigncode verify` is `|| true`-guarded. RCs are ephemeral deliberately: RC source stays internal, and Foundation cannot sign non-public builds.
 
 **Linux:** Unsigned for now. Linux users don't encounter the same install-time warnings as macOS and Windows. GPG-signing release tarballs is straightforward to add if the team wants it — one additional secret (GPG private key) and a small step in the release workflow.
 
-The Deployment Playbook covers how to export the macOS certificates as CI secrets. Windows cert provisioning is covered by email decision 5.
+The Deployment Playbook covers how to export the macOS certificates as CI secrets. Windows signing setup (SignPath dashboard configuration, the single `SIGNPATH_API_TOKEN` secret on the public repo) is covered in Playbook §5.4.
 
 ## What It Takes to Deploy
 
 **Six workflow files** copied to `.github/workflows/` (`ci.yml`, `release.yml`, `build-macos.yml`, `build-linux.yml`, `build-windows.yml`, `hamlib-upstream-check.yml`) — a small number of edits across two files (the public-repo URL block in `release.yml`, and optionally the Hamlib branch pin; the version string is auto-derived from `CMakeLists.txt`).
 
-**Eight repository secrets today** — Apple signing certificates (4), Apple notarization credentials (3), and a GitHub token for public-repo sync (1). The team's existing Apple signing credentials are used directly — they just need to be exported as base64-encoded secrets. Set once via `gh secret set` (`gh` is the [GitHub CLI](https://cli.github.com/)). **Production adds two more secrets** when the Windows Authenticode certificate lands (see email decision 5), bringing the total to ten.
+**Eight repository secrets on `wsjtx-internal`** — Apple signing certificates (4), Apple notarization credentials (3), and a GitHub token for public-repo sync (1). The team's existing Apple signing credentials are used directly — they just need to be exported as base64-encoded secrets. Set once via `gh secret set` (`gh` is the [GitHub CLI](https://cli.github.com/)). Windows signing adds exactly **one secret on the public repo** (`SIGNPATH_API_TOKEN`) — SignPath Foundation holds the certificate, so no key material is ever stored in CI (see Playbook §5.4).
 
 The Apple Developer account is currently held by **John G4KLA**, who produces the team's existing signed/notarized macOS releases. Adopting this pipeline does not require transferring the account — John exports his existing Developer ID certificates as `.p12` files and they become CI secrets. See the [Deployment Playbook §5.2](DEPLOYMENT_PLAYBOOK.md#52-secrets-2-5-macos-code-signing-certificates) for the handoff workflow.
 

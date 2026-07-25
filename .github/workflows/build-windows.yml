@@ -27,6 +27,17 @@ on:
         required: false
         type: string
         default: ""
+      sign_mode:
+        description: >-
+          "ephemeral" (default) self-signs the installer; "none" leaves
+          it unsigned for downstream SignPath signing.
+        required: false
+        type: string
+        default: "ephemeral"
+    outputs:
+      installer-artifact-id:
+        description: "Installer artifact id, for the SignPath submit step"
+        value: ${{ jobs.build.outputs.installer-artifact-id }}
   # Also runnable on its own ("Run workflow" / gh workflow run) to build just
   # the Windows installer, at ~1/6 the cost of the full ci.yml matrix. GitHub
   # only exposes workflow_dispatch when the trigger is present on the default
@@ -70,6 +81,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      installer-artifact-id: ${{ steps.upload_installer.outputs.artifact-id }}
     env:
       BOOST_VERSION: 1.91.0
       BOOST_SOURCE_SHA256: de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5
@@ -328,11 +341,11 @@ jobs:
           cpack "${cpack_args[@]}"
           ls -la *.exe
 
-      # Self-signed ephemeral signing — the signing step is wired into the
-      # pipeline, but the signature does NOT chain to a trusted root. This
-      # is intentional: Authenticode certification is a separate decision
-      # (CI/CD adoption decision #5). Generates an ephemeral cert per-run.
+      # Ephemeral cert for CI/DEVEL/RC builds; does not chain to a
+      # trusted root. GA installers are SignPath-signed on the public
+      # repo instead (sign_mode=none skips this step).
       - name: Sign installer with self-signed ephemeral cert
+        if: inputs.sign_mode != 'none'
         run: |
           cd wsjtx-build
           INSTALLER=$(ls wsjtx-${{ inputs.version }}-*.exe | head -1)
@@ -366,6 +379,7 @@ jobs:
           # Structural presence is proven by the sign step succeeding above.
 
       - name: Upload installer artifact
+        id: upload_installer
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-${{ inputs.version }}-windows-x86_64-installer
