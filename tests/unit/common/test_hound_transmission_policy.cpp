@@ -89,17 +89,19 @@ void TestHoundTransmissionPolicy::planFoxReportReply ()
 
 void TestHoundTransmissionPolicy::planInitialCallingFrequency_data ()
 {
+  using namespace HoundTransmissionPolicy;
   QTest::addColumn<bool> ("autoEnabled");
   QTest::addColumn<bool> ("tune");
   QTest::addColumn<int> ("selectedTxMessage");
   QTest::addColumn<int> ("currentTxFrequency");
-  QTest::addColumn<bool> ("randomize");
+  QTest::addColumn<int> ("frequencyAction");
 
-  QTest::newRow ("eligible at 998 Hz") << true << false << 1 << 998 << true;
-  QTest::newRow ("Auto off") << false << false << 1 << 998 << false;
-  QTest::newRow ("Tune") << true << true << 1 << 998 << false;
-  QTest::newRow ("Tx3") << true << false << 3 << 998 << false;
-  QTest::newRow ("999 Hz") << true << false << 1 << 999 << false;
+  QTest::newRow ("eligible at 998 Hz") << true << false << 1 << 998
+    << int (FrequencyAction::RandomizeCalling);
+  QTest::newRow ("Auto off") << false << false << 1 << 998 << int (FrequencyAction::Keep);
+  QTest::newRow ("Tune") << true << true << 1 << 998 << int (FrequencyAction::Keep);
+  QTest::newRow ("Tx3") << true << false << 3 << 998 << int (FrequencyAction::Keep);
+  QTest::newRow ("999 Hz") << true << false << 1 << 999 << int (FrequencyAction::Keep);
 }
 
 void TestHoundTransmissionPolicy::planInitialCallingFrequency ()
@@ -108,7 +110,7 @@ void TestHoundTransmissionPolicy::planInitialCallingFrequency ()
   QFETCH (bool, tune);
   QFETCH (int, selectedTxMessage);
   QFETCH (int, currentTxFrequency);
-  QFETCH (bool, randomize);
+  QFETCH (int, frequencyAction);
 
   using namespace HoundTransmissionPolicy;
   ClassicTxStartInput input;
@@ -117,7 +119,7 @@ void TestHoundTransmissionPolicy::planInitialCallingFrequency ()
   input.selectedTxMessage = selectedTxMessage;
   input.currentTxFrequency = currentTxFrequency;
   auto const plan = planClassicTxStart (State {}, input);
-  QCOMPARE (plan.frequencyDecision.action == FrequencyAction::RandomizeCalling, randomize);
+  QCOMPARE (int (plan.frequencyDecision.action), frequencyAction);
 }
 
 void TestHoundTransmissionPolicy::planReplyTransmission_data ()
