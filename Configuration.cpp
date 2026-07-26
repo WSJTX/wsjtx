@@ -651,8 +651,10 @@ private:
   Q_SLOT void handle_transceiver_tci_mod_active (bool);
   Q_SLOT void handle_transceiver_update (TransceiverState const&, unsigned sequence_number);
   Q_SLOT void handle_transceiver_failure (QString const& reason);
-  Q_SLOT void on_DXCC_check_box_clicked(bool checked);
-  Q_SLOT void on_PWR_and_SWR_check_box_clicked(bool checked);
+  Q_SLOT void on_DXCC_check_box_toggled (bool);
+  void update_DXCC_control_availability ();
+  Q_SLOT void on_PWR_and_SWR_check_box_toggled (bool);
+  void update_PWR_and_SWR_control_availability ();
   Q_SLOT void on_reset_highlighting_to_defaults_push_button_clicked (bool);
   Q_SLOT void on_reset_highlighting_to_defaults2_push_button_clicked (bool);
   Q_SLOT void on_move_highlighting_up_push_button_clicked (bool = false);
@@ -2833,7 +2835,7 @@ void Configuration::impl::initialize_models ()
   ui_->PTT_method_button_group->button (rig_params_.ptt_type)->setChecked (true);
   ui_->PWR_and_SWR_check_box->setChecked (PWR_and_SWR_);
   ui_->check_SWR_check_box->setChecked (check_SWR_);
-  if (!ui_->PWR_and_SWR_check_box->isChecked()) ui_->check_SWR_check_box->setEnabled (false);
+  update_PWR_and_SWR_control_availability ();
   ui_->save_path_display_label->setText (save_directory_.absolutePath ());
   ui_->azel_path_display_label->setText (azel_directory_.absolutePath ());
   ui_->CW_id_after_73_check_box->setChecked (id_after_73_);
@@ -2858,10 +2860,7 @@ void Configuration::impl::initialize_models ()
   ui_->DXCC_check_box->setChecked (DXCC_);
   ui_->ppfx_check_box->setChecked (ppfx_);
   ui_->show_country_names_check_box->setChecked (show_country_names_);
-  if (!ui_->DXCC_check_box->isChecked()) {
-    ui_->ppfx_check_box->setEnabled (false);
-    ui_->show_country_names_check_box->setEnabled (false);
-  }
+  update_DXCC_control_availability ();
   ui_->Map_Grid_to_State->setChecked(gridMap_);
   ui_->Map_All_Messages->setChecked(gridMapAll_);
   ui_->miles_check_box->setChecked (miles_);
@@ -4669,15 +4668,16 @@ void Configuration::impl::display_file_information ()
 #endif
 }
 
-void Configuration::impl::on_DXCC_check_box_clicked(bool checked)
+void Configuration::impl::on_DXCC_check_box_toggled (bool)
 {
-    if (checked) {
-        ui_->ppfx_check_box->setEnabled (true);
-        ui_->show_country_names_check_box->setEnabled (true);
-    } else {
-        ui_->ppfx_check_box->setEnabled (false);
-        ui_->show_country_names_check_box->setEnabled (false);
-    }
+  update_DXCC_control_availability ();
+}
+
+void Configuration::impl::update_DXCC_control_availability ()
+{
+  auto const enabled = ui_->DXCC_check_box->isChecked ();
+  ui_->ppfx_check_box->setEnabled (enabled);
+  ui_->show_country_names_check_box->setEnabled (enabled);
 }
 
 void Configuration::impl::on_PTT_port_combo_box_activated (int /* index */)
@@ -4709,13 +4709,14 @@ void Configuration::impl::on_rig_combo_box_currentIndexChanged (int /* index */)
   }
 }
 
-void Configuration::impl::on_PWR_and_SWR_check_box_clicked(bool checked)
+void Configuration::impl::on_PWR_and_SWR_check_box_toggled (bool)
 {
-    if (checked) {
-        ui_->check_SWR_check_box->setEnabled (true);
-    } else {
-        ui_->check_SWR_check_box->setEnabled (false);
-    }
+  update_PWR_and_SWR_control_availability ();
+}
+
+void Configuration::impl::update_PWR_and_SWR_control_availability ()
+{
+  ui_->check_SWR_check_box->setEnabled (ui_->PWR_and_SWR_check_box->isChecked ());
 }
 
 void Configuration::impl::on_CAT_poll_interval_spin_box_valueChanged (int /* value */)
