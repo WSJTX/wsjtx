@@ -671,8 +671,9 @@ private:
 
   Q_SLOT void on_cbx2ToneSpacing_toggled (bool);
   Q_SLOT void on_cbx4ToneSpacing_toggled (bool);
-  Q_SLOT void on_prompt_to_log_check_box_clicked(bool);
-  Q_SLOT void on_cbAutoLog_clicked(bool);
+  Q_SLOT void on_prompt_to_log_check_box_toggled (bool);
+  Q_SLOT void on_cbAutoLog_toggled (bool);
+  void update_logging_control_availability ();
   Q_SLOT void on_Field_Day_Exchange_editingFinished ();
   Q_SLOT void on_RTTY_Exchange_editingFinished ();
   Q_SLOT void on_OTPUrl_textEdited (QString const&);
@@ -2848,6 +2849,7 @@ void Configuration::impl::initialize_models ()
   ui_->prompt_to_log_check_box->setChecked (prompt_to_log_);
   ui_->cbAutoLog->setChecked(autoLog_);
   ui_->cbContestingOnly->setChecked(contestingOnly_);
+  update_logging_control_availability ();
   ui_->cbZZ00->setChecked(ZZ00_);
   ui_->cbLog4digitGrids->setChecked(log4digitGrids_);
   ui_->decodes_from_top_check_box->setChecked (decodes_from_top_);
@@ -3296,6 +3298,7 @@ void Configuration::impl::read_settings ()
   bLowSidelobes_ = settings_->value("LowSidelobes",true).toBool();
   prompt_to_log_ = settings_->value ("PromptToLog", false).toBool ();
   autoLog_ = settings_->value ("AutoLog", true).toBool ();
+  if (prompt_to_log_ && autoLog_) prompt_to_log_ = false;
   contestingOnly_ = settings_->value ("ContestingOnly", true).toBool ();
   ZZ00_ = settings_->value("ZZ00",false).toBool ();
   log4digitGrids_ = settings_->value ("Log4digitGrids", false).toBool ();
@@ -5323,16 +5326,21 @@ void Configuration::impl::on_calibration_slope_ppm_spin_box_valueChanged (double
   rig_active_ = false;          // force reset
 }
 
-void Configuration::impl::on_prompt_to_log_check_box_clicked(bool checked)
+void Configuration::impl::on_prompt_to_log_check_box_toggled (bool checked)
 {
-  if(checked) ui_->cbAutoLog->setChecked(false);
-  ui_->cbContestingOnly->setEnabled(false);
+  if (checked) ui_->cbAutoLog->setChecked (false);
+  update_logging_control_availability ();
 }
 
-void Configuration::impl::on_cbAutoLog_clicked(bool checked)
+void Configuration::impl::on_cbAutoLog_toggled (bool checked)
 {
-  ui_->cbContestingOnly->setEnabled(true);
-  if(checked) ui_->prompt_to_log_check_box->setChecked(false);
+  if (checked) ui_->prompt_to_log_check_box->setChecked (false);
+  update_logging_control_availability ();
+}
+
+void Configuration::impl::update_logging_control_availability ()
+{
+  ui_->cbContestingOnly->setEnabled (!ui_->prompt_to_log_check_box->isChecked ());
 }
 
 void Configuration::impl::on_cbx2ToneSpacing_toggled (bool checked)
