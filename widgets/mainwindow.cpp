@@ -5845,6 +5845,8 @@ void MainWindow::guiUpdate()
 
     ba2msg(ba,message);
     int ichk=0;
+    std::fill_n(msgsent, sizeof msgsent, ' ');
+    msgsent[37]=0;
     if (m_lastMessageSent != m_currentMessage
         || m_lastMessageType != m_currentMessageType)
       {
@@ -5854,6 +5856,8 @@ void MainWindow::guiUpdate()
     m_currentMessageType = 0;
     if(m_tune or m_mode=="Echo") {
       itone[0]=0;
+      auto const generated_label = m_tune ? QByteArrayLiteral("TUNE") : QByteArrayLiteral("ECHO");
+      std::copy(generated_label.cbegin(), generated_label.cend(), msgsent);
       if(ui->rbEchoMessage->isChecked() or ui->rbEchoCW->isChecked()) {
         QString echoMsg=(ui->leEchoMessage->text()+"      ").left(6);
         gen_echocall_(const_cast <char *> (echoMsg.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
