@@ -859,6 +859,7 @@ private:
   bool    m_txFirst;
   bool    m_auto;
   bool    m_restart;
+  bool    m_generated_message_error;
   bool    m_startAnother;
 
   // start ft8md
@@ -1197,6 +1198,9 @@ private:
   QString expandTxMacros(QString const& message) const;
   void ba2msg(QByteArray ba, char* message);
   void msgtype(QString t, QLineEdit* tx);
+  void show_generated_message_error ();
+  void clear_generated_message_error ();
+  void update_generated_message_error ();
   void stub();
   void statusChanged();
   void fixStop();

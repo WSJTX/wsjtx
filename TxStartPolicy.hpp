@@ -37,4 +37,10 @@ inline bool can_start_transmit (QString const& mode, bool tx_time,
                     && tx_payload_ready (mode, standard_message_length));
 }
 
+inline bool should_block_generated_transmit (QString const& generated_message, bool tuning)
+{
+  return !tuning
+    && generated_message.trimmed () == QStringLiteral ("*** bad message ***");
+}
+
 #endif

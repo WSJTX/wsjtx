@@ -574,6 +574,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_txFirst {false},
   m_auto {false},
   m_restart {false},
+  m_generated_message_error {false},
   m_startAnother {false},
   m_skipTx1 {false}, //ft8md
   m_filter {false}, //ft8md
@@ -3629,6 +3630,37 @@ void MainWindow::createStatusBar()                           //createStatusBar
   watchdog_label.setAccessibleName (tr ("Transmit watchdog"));
 }
 
+void MainWindow::show_generated_message_error ()
+{
+  m_generated_message_error = true;
+  if (!m_tx_watchdog) update_generated_message_error ();
+}
+
+void MainWindow::clear_generated_message_error ()
+{
+  if (!m_generated_message_error) return;
+
+  m_generated_message_error = false;
+  tx_status_label.setToolTip (QString {});
+  tx_status_label.setAccessibleDescription (QString {});
+  if (!m_transmitting && !m_tx_watchdog) {
+    tx_status_label.setStyleSheet ("");
+    tx_status_label.setText ("");
+  }
+}
+
+void MainWindow::update_generated_message_error ()
+{
+  auto const details = tr ("The selected transmit message cannot be encoded. "
+                           "Enable Tx has been turned off. Edit the selected "
+                           "message or check station settings before trying again.");
+  tx_status_label.setStyleSheet (
+    "QLabel{color: #000000; background-color: #ffff00}");
+  tx_status_label.setText (tr ("Tx message cannot be encoded; Enable Tx is off"));
+  tx_status_label.setToolTip (details);
+  tx_status_label.setAccessibleDescription (details);
+}
+
 void MainWindow::setup_status_bar (bool vhf)
 {
   auto submode = current_submode ();
@@ -5790,8 +5822,6 @@ void MainWindow::guiUpdate()
       }
 
       setXIT (ui->TxFreqSpinBox->value ());
-      m_config.transceiver_ptt (true); //Assert the PTT
-      m_tx_when_ready = true;
     }
     if(!m_bTxTime and !m_tune and (m_mode != "JTTY")) m_btxok=false;       //Time to stop transmitting
   }
@@ -5827,12 +5857,6 @@ void MainWindow::guiUpdate()
         ui->txrb1->setChecked(true);
       }
 
-      if(m_mode=="FT4" and m_bBestSPArmed) {
-        m_BestCQpriority="";
-        m_bBestSPArmed=false;
-        ui->pbBestSP->setStyleSheet ("");
-      }
-
       QString txText;
       if(m_ntx == 1) txText=ui->tx1->text();
       if(m_ntx == 2) txText=ui->tx2->text();
@@ -5848,12 +5872,8 @@ void MainWindow::guiUpdate()
     int msgsent_length=37;
     std::fill_n(msgsent, sizeof msgsent, ' ');
     msgsent[37]=0;
-    if (m_lastMessageSent != m_currentMessage
-        || m_lastMessageType != m_currentMessageType)
-      {
-        m_lastMessageSent = m_currentMessage;
-        m_lastMessageType = m_currentMessageType;
-      }
+    auto const previous_message = m_currentMessage;
+    auto const previous_message_type = m_currentMessageType;
     m_currentMessageType = 0;
     if(m_tune or m_mode=="Echo") {
       itone[0]=0;
@@ -5864,8 +5884,6 @@ void MainWindow::guiUpdate()
         gen_echocall_(const_cast <char *> (echoMsg.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
       }
     } else {
-      if(m_QSOProgress==REPORT || m_QSOProgress==ROGER_REPORT) m_bSentReport=true;
-      if(m_bSentReport and (m_QSOProgress<REPORT or m_QSOProgress>ROGER_REPORT)) m_bSentReport=false;
       if(m_mode=="JT4") gen4_(message, &ichk , msgsent, const_cast<int *> (itone),
                                 &m_currentMessageType, (FCL)22, (FCL)22);
       if(m_mode=="JT9") gen9_(message, &ichk, msgsent, const_cast<int *> (itone),
@@ -5880,7 +5898,8 @@ void MainWindow::guiUpdate()
         if(m_mode=="MSK144") {
           genmsk_128_90_(message, &ichk, msgsent, const_cast<int *> (itone),
                          &m_currentMessageType, (FCL)37, (FCL)37);
-          if(m_restart) {
+          if(m_restart && !should_block_generated_transmit (
+               QString::fromLatin1 (msgsent), m_tune)) {
             int nsym=144;
             if(itone[40]==-40) nsym=40;
             m_modulator->set_nsym(nsym);
@@ -5896,35 +5915,37 @@ void MainWindow::guiUpdate()
             char ft8msgbits[77];
             genft8_(message, &i3, &n3, msgsent, const_cast<char *> (ft8msgbits),
                     const_cast<int *> (itone), (FCL)37, (FCL)37);
-            int nsym=79;
-            int nsps=4*1920;
-            float fsample=48000.0;
-            float bt=2.0;
-            float f0=ui->TxFreqSpinBox->value() - m_XIT;
-            int icmplx=0;
-            int nwave=nsym*nsps;
-            gen_ft8wave_(const_cast<int *>(itone),&nsym,&nsps,&bt,&fsample,&f0,foxcom_.wave,
-                         foxcom_.wave,&icmplx,&nwave);
-            if(SpecOp::FOX == m_specOp) {
-              //Fox must generate the full Tx waveform, not just an itone[] array.
-              QString fm = QString::fromStdString(message).trimmed();
-              clearFoxTxMessages();
-              foxGenWaveform(0,fm);
-              foxcom_.nslots=1;
-              foxcom_.nfreq=ui->TxFreqSpinBox->value();
-              if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;  //Fox Tx freq
-              QString foxCall=m_config.my_callsign() + "         ";
-              ::memcpy(foxcom_.mycall, foxCall.toLatin1(), sizeof foxcom_.mycall); //Copy Fox callsign into foxcom_
-              bool bSuperFox=m_config.superFox();
-              auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
-              foxcom_.bMoreCQs=ui->cbMoreCQs->isChecked();
-              foxcom_.bSendMsg=ui->cbSendMsg->isChecked();
-              memcpy(foxcom_.textMsg, m_freeTextMsg.leftJustified(26,' ').toLatin1(),26);
-              foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
-              if(bSuperFox) {
-                if(sfox_tx()) {
-                  displayFoxTxMsgs();
-                  writeFoxTxMsgs();
+            if (!should_block_generated_transmit (QString::fromLatin1 (msgsent), m_tune)) {
+              int nsym=79;
+              int nsps=4*1920;
+              float fsample=48000.0;
+              float bt=2.0;
+              float f0=ui->TxFreqSpinBox->value() - m_XIT;
+              int icmplx=0;
+              int nwave=nsym*nsps;
+              gen_ft8wave_(const_cast<int *>(itone),&nsym,&nsps,&bt,&fsample,&f0,foxcom_.wave,
+                           foxcom_.wave,&icmplx,&nwave);
+              if(SpecOp::FOX == m_specOp) {
+                //Fox must generate the full Tx waveform, not just an itone[] array.
+                QString fm = QString::fromStdString(message).trimmed();
+                clearFoxTxMessages();
+                foxGenWaveform(0,fm);
+                foxcom_.nslots=1;
+                foxcom_.nfreq=ui->TxFreqSpinBox->value();
+                if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;  //Fox Tx freq
+                QString foxCall=m_config.my_callsign() + "         ";
+                ::memcpy(foxcom_.mycall, foxCall.toLatin1(), sizeof foxcom_.mycall); //Copy Fox callsign into foxcom_
+                bool bSuperFox=m_config.superFox();
+                auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
+                foxcom_.bMoreCQs=ui->cbMoreCQs->isChecked();
+                foxcom_.bSendMsg=ui->cbSendMsg->isChecked();
+                memcpy(foxcom_.textMsg, m_freeTextMsg.leftJustified(26,' ').toLatin1(),26);
+                foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
+                if(bSuperFox) {
+                  if(sfox_tx()) {
+                    displayFoxTxMsgs();
+                    writeFoxTxMsgs();
+                  }
                 }
               }
             }
@@ -5935,14 +5956,16 @@ void MainWindow::guiUpdate()
           char ft4msgbits[77];
           genft4_(message, &ichk, msgsent, const_cast<char *> (ft4msgbits),
                   const_cast<int *>(itone), (FCL)37, (FCL)37);
-          int nsym=103;
-          int nsps=4*576;
-          float fsample=48000.0;
-          float f0=ui->TxFreqSpinBox->value() - m_XIT;
-          int nwave=(nsym+2)*nsps;
-          int icmplx=0;
-          gen_ft4wave_(const_cast<int *>(itone),&nsym,&nsps,&fsample,&f0,foxcom_.wave,
-                       foxcom_.wave,&icmplx,&nwave);
+          if (!should_block_generated_transmit (QString::fromLatin1 (msgsent), m_tune)) {
+            int nsym=103;
+            int nsps=4*576;
+            float fsample=48000.0;
+            float f0=ui->TxFreqSpinBox->value() - m_XIT;
+            int nwave=(nsym+2)*nsps;
+            int icmplx=0;
+            gen_ft4wave_(const_cast<int *>(itone),&nsym,&nsps,&fsample,&f0,foxcom_.wave,
+                         foxcom_.wave,&icmplx,&nwave);
+          }
         }
         if(m_mode=="FST4" or m_mode=="FST4W") {
           int ichk=0;
@@ -5957,73 +5980,107 @@ void MainWindow::guiUpdate()
           }
           genfst4_(message,&ichk,msgsent,const_cast<char *> (fst4msgbits),
                    const_cast<int *>(itone), &iwspr, (FCL)37, (FCL)37);
-          int hmod=1;
-          if(m_config.x2ToneSpacing()) hmod=2;
-          if(m_config.x4ToneSpacing()) hmod=4;
-          int nsps=720;
-          if(m_TRperiod==30) nsps=1680;
-          if(m_TRperiod==60) nsps=3888;
-          if(m_TRperiod==120) nsps=8200;
-          if(m_TRperiod==300) nsps=21504;
-          if(m_TRperiod==900) nsps=66560;
-          if(m_TRperiod==1800) nsps=134400;
-          nsps=4*nsps;                           //48000 Hz sampling
-          int nsym=160;
-          float fsample=48000.0;
-          float dfreq=hmod*fsample/nsps;
-          float f0=ui->TxFreqSpinBox->value() - m_XIT + 1.5*dfreq;
-          if(m_mode=="FST4W") f0=ui->WSPRfreqSpinBox->value() - m_XIT + 1.5*dfreq;
-          int nwave=(nsym+2)*nsps;
-          int icmplx=0;
-          gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
-                        &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
-
-          QString t = QString::fromStdString(message).trimmed();
+          if (!should_block_generated_transmit (QString::fromLatin1 (msgsent), m_tune)) {
+            int hmod=1;
+            if(m_config.x2ToneSpacing()) hmod=2;
+            if(m_config.x4ToneSpacing()) hmod=4;
+            int nsps=720;
+            if(m_TRperiod==30) nsps=1680;
+            if(m_TRperiod==60) nsps=3888;
+            if(m_TRperiod==120) nsps=8200;
+            if(m_TRperiod==300) nsps=21504;
+            if(m_TRperiod==900) nsps=66560;
+            if(m_TRperiod==1800) nsps=134400;
+            nsps=4*nsps;                           //48000 Hz sampling
+            int nsym=160;
+            float fsample=48000.0;
+            float dfreq=hmod*fsample/nsps;
+            float f0=ui->TxFreqSpinBox->value() - m_XIT + 1.5*dfreq;
+            if(m_mode=="FST4W") f0=ui->WSPRfreqSpinBox->value() - m_XIT + 1.5*dfreq;
+            int nwave=(nsym+2)*nsps;
+            int icmplx=0;
+            gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
+                          &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
+          }
         }
         if(m_mode=="Q65") {
           int i3=-1;
           int n3=-1;
           genq65_(message, &ichk,msgsent, const_cast<int *>(itone), &i3, &n3, (FCL)37, (FCL)37);
-          int nsps=1800;
-          if(m_TRperiod==30) nsps=3600;
-          if(m_TRperiod==60) nsps=7200;
-          if(m_TRperiod==120) nsps=16000;
-          if(m_TRperiod==300) nsps=41472;
-          int nsps4=4*nsps;                           //48000 Hz sampling
-          int nsym=85;
-          float fsample=48000.0;
-          int nwave=(nsym+2)*nsps4;
-          int icmplx=0;
-          float f0=ui->TxFreqSpinBox->value()-m_XIT;
-          double toneSpacing=fsample/nsps4;
-          genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
-                   &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
-        }
-
-        if(SpecOp::EU_VHF==m_specOp) {
-          if(m_ntx==2) m_xSent=ui->tx2->text().right(13);
-          if(m_ntx==3) m_xSent=ui->tx3->text().right(13);
-        }
-
-        if(SpecOp::FIELD_DAY==m_specOp or SpecOp::RTTY==m_specOp) {
-          if(m_ntx==2 or m_ntx==3) {
-            QStringList t=ui->tx2->text().split(' ', SkipEmptyParts);
-            int n=t.size();
-            if (n > 3) m_xSent=t.at(n-2) + " " + t.at(n-1);
+          if (!should_block_generated_transmit (QString::fromLatin1 (msgsent), m_tune)) {
+            int nsps=1800;
+            if(m_TRperiod==30) nsps=3600;
+            if(m_TRperiod==60) nsps=7200;
+            if(m_TRperiod==120) nsps=16000;
+            if(m_TRperiod==300) nsps=41472;
+            int nsps4=4*nsps;                           //48000 Hz sampling
+            int nsym=85;
+            float fsample=48000.0;
+            int nwave=(nsym+2)*nsps4;
+            int icmplx=0;
+            float f0=ui->TxFreqSpinBox->value()-m_XIT;
+            double toneSpacing=fsample/nsps4;
+            genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
+                     &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
           }
         }
       }
       msgsent[msgsent_length]=0;
     }
 
-    {
-      auto temp = m_currentMessage;
-      m_currentMessage = QString::fromLatin1(msgsent);
-      if (m_currentMessage != temp) // check if tx message changed
-      {
-          statusUpdate ();
-        }
+    QString const generated_message = QString::fromLatin1(msgsent);
+    if (should_block_generated_transmit (generated_message, m_tune)) {
+      m_currentMessageType = previous_message_type;
+      m_tx_when_ready = false;
+      ptt1Timer.stop ();
+      m_btxok = false;
+      m_bTxTime = false;
+      m_restart = false;
+      if ((m_mode=="WSPR" or m_mode=="FST4W") and m_ntr==-1) m_ntr=0;
+      show_generated_message_error ();
+      if (m_auto) auto_tx_mode (false);
+      if (m_transmitting) {
+        stopTx ();
+      } else {
+        g_iptt = 0;
+      }
+      statusUpdate ();
+      return;
     }
+
+    clear_generated_message_error ();
+    if (m_lastMessageSent != previous_message
+        || m_lastMessageType != previous_message_type)
+      {
+        m_lastMessageSent = previous_message;
+        m_lastMessageType = previous_message_type;
+      }
+    m_currentMessage = generated_message;
+    if (m_currentMessage != previous_message) statusUpdate ();
+
+    if(m_QSOProgress==REPORT || m_QSOProgress==ROGER_REPORT) m_bSentReport=true;
+    if(m_bSentReport and (m_QSOProgress<REPORT or m_QSOProgress>ROGER_REPORT)) m_bSentReport=false;
+    if(m_mode=="FT4" and m_bBestSPArmed) {
+      m_BestCQpriority="";
+      m_bBestSPArmed=false;
+      ui->pbBestSP->setStyleSheet ("");
+    }
+    if(SpecOp::EU_VHF==m_specOp) {
+      if(m_ntx==2) m_xSent=ui->tx2->text().right(13);
+      if(m_ntx==3) m_xSent=ui->tx3->text().right(13);
+    }
+    if(SpecOp::FIELD_DAY==m_specOp or SpecOp::RTTY==m_specOp) {
+      if(m_ntx==2 or m_ntx==3) {
+        QStringList t=ui->tx2->text().split(' ', SkipEmptyParts);
+        int n=t.size();
+        if (n > 3) m_xSent=t.at(n-2) + " " + t.at(n-1);
+      }
+    }
+    if (g_iptt == 1 && m_iptt0 == 0) {
+      m_config.transceiver_ptt (true);
+      m_tx_when_ready = true;
+    }
+
     m_bCallingCQ = 6 == m_ntx
       || m_currentMessage.contains (cq_or_qrz_message_regexp);
     m_maxPoints=-1;
@@ -6390,6 +6447,8 @@ void MainWindow::guiUpdate()
           tx_status_label.setText(t.trimmed());
         }
       }
+    } else if(m_generated_message_error && !m_tx_watchdog) {
+      update_generated_message_error ();
     } else if(m_monitoring) {
       if (!m_tx_watchdog) {
         tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #00ff00}");
@@ -6534,7 +6593,7 @@ void MainWindow::stopTx()
   m_btxok = false;
   m_transmitting = false;
   g_iptt=0;
-  if (!m_tx_watchdog) {
+  if (!m_tx_watchdog && !m_generated_message_error) {
     tx_status_label.setStyleSheet("");
     tx_status_label.setText("");
   }
@@ -6635,6 +6694,7 @@ void MainWindow::set_dateTimeQSO(int m_ntx)
 
 void MainWindow::set_ntx(int n)                                   //set_ntx()
 {
+  if (n != m_ntx) clear_generated_message_error ();
   m_ntx=n;
 }
 
@@ -6642,6 +6702,7 @@ void MainWindow::on_txrb1_toggled (bool status)
 {
   if (status) {
     if (ui->tx1->isEnabled ()) {
+      clear_generated_message_error ();
       m_ntx = 1;
       set_dateTimeQSO (-1); // we reset here as tx2/tx3 is used for start times
     }
@@ -6674,6 +6735,7 @@ void MainWindow::on_txrb2_toggled (bool status)
 {
   // Tx 2 means we already have CQ'd so good reference
   if (status) {
+    clear_generated_message_error ();
     m_ntx=2;
     set_dateTimeQSO (m_ntx);
   }
@@ -6683,6 +6745,7 @@ void MainWindow::on_txrb3_toggled(bool status)
 {
   // Tx 3 means we should have already have done Tx 1 so good reference
   if (status) {
+    clear_generated_message_error ();
     m_ntx=3;
     set_dateTimeQSO(m_ntx);
   }
@@ -6691,6 +6754,7 @@ void MainWindow::on_txrb3_toggled(bool status)
 void MainWindow::on_txrb4_toggled (bool status)
 {
   if (status) {
+    clear_generated_message_error ();
     m_ntx=4;
   }
 }
@@ -6708,6 +6772,7 @@ void MainWindow::on_txrb4_doubleClicked ()
 void MainWindow::on_txrb5_toggled (bool status)
 {
   if (status) {
+    clear_generated_message_error ();
     m_ntx = 5;
   }
 }
@@ -6720,6 +6785,7 @@ void MainWindow::on_txrb5_doubleClicked ()
 void MainWindow::on_txrb6_toggled(bool status)
 {
   if (status) {
+    clear_generated_message_error ();
     m_ntx=6;
     if (ui->txrb6->text().contains (cq_or_qrz_message_regexp)) set_dateTimeQSO(-1);
   }
@@ -7635,6 +7701,7 @@ void MainWindow::msgtype(QString t, QLineEdit* tx)               //msgtype()
 
 void MainWindow::on_tx1_editingFinished()                       //tx1 edited
 {
+  if (m_ntx==1) clear_generated_message_error ();
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_bDoubleClicked) {
     clearDX();
     return;
@@ -7647,10 +7714,12 @@ void MainWindow::on_tx2_editingFinished()                       //tx2 edited
 {
   QString t=ui->tx2->text();
   msgtype(t, ui->tx2);
+  if (m_ntx==2) clear_generated_message_error ();
 }
 
 void MainWindow::on_tx3_editingFinished()                       //tx3 edited
 {
+  if (m_ntx==3) clear_generated_message_error ();
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_bDoubleClicked) {
     clearDX();
     return;
@@ -7663,11 +7732,13 @@ void MainWindow::on_tx4_editingFinished()                       //tx4 edited
 {
   QString t=ui->tx4->text();
   msgtype(t, ui->tx4);
+  if (m_ntx==4) clear_generated_message_error ();
 }
 
 void MainWindow::on_tx5_currentTextChanged (QString const& text) //tx5 edited
 {
   msgtype(text, ui->tx5->lineEdit ());
+  if (m_ntx==5) clear_generated_message_error ();
 }
 
 void MainWindow::on_tx6_editingFinished()                       //tx6 edited
@@ -7682,6 +7753,7 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
     if(t1.size()<=3 and t1.contains(NN3)) m_CQtype="CQ " + t1;
   }
   msgtype(t, ui->tx6);
+  if (m_ntx==6) clear_generated_message_error ();
 }
 
 void MainWindow::on_RoundRobin_currentTextChanged(QString text)
@@ -9482,6 +9554,7 @@ void MainWindow::on_actionFreqCal_triggered()
 
 void MainWindow::switch_mode (Mode mode)
 {
+  clear_generated_message_error ();
   if (mode != Modes::MSK144) m_msk144basefreq = 0;
   no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
   msk144qsy = false;     // MSK144 QSY
