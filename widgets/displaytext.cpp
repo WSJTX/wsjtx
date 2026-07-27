@@ -92,12 +92,12 @@ DisplayText::DisplayText(QWidget *parent)
   scroll_to_bottom_button_->setCursor (Qt::ArrowCursor);
   scroll_to_bottom_button_->setToolTip (tr ("Scroll to the latest entry"));
   scroll_to_bottom_button_->hide ();
-  connect (scroll_to_bottom_button_, &QToolButton::clicked, this, &DisplayText::scroll_to_bottom);
+  connect (scroll_to_bottom_button_, &QToolButton::clicked, this, &DisplayText::scrollToBottom);
   connect (verticalScrollBar (), &QScrollBar::valueChanged, this, [this] (int) {
-      update_scroll_to_bottom_button ();
+      updateScrollToBottomButton ();
     });
   connect (verticalScrollBar (), &QScrollBar::rangeChanged, this, [this] (int, int) {
-      update_scroll_to_bottom_button ();
+      updateScrollToBottomButton ();
     });
 }
 
@@ -105,10 +105,14 @@ void DisplayText::erase ()
 {
   clear ();
   last_auto_scroll_position_ = verticalScrollBar ()->value ();
-  update_scroll_to_bottom_button ();
+  updateScrollToBottomButton ();
   Q_EMIT erased ();
 }
 
+//
+// Return true while the view is still tracking new entries, i.e. parked at the
+// bottom or at the position to which we last automatically scrolled.
+//
 bool DisplayText::following () const
 {
   auto const * vertical_scroll_bar = verticalScrollBar ();
@@ -118,15 +122,21 @@ bool DisplayText::following () const
     || vertical_scroll_bar->value () == last_auto_scroll_position_;
 }
 
-void DisplayText::scroll_to_bottom ()
+//
+// Scroll the view to the latest entry at the bottom and resume tracking.
+//
+void DisplayText::scrollToBottom ()
 {
   auto * vertical_scroll_bar = verticalScrollBar ();
   vertical_scroll_bar->setValue (vertical_scroll_bar->maximum ());
   last_auto_scroll_position_ = vertical_scroll_bar->value ();
-  update_scroll_to_bottom_button ();
+  updateScrollToBottomButton ();
 }
 
-void DisplayText::update_scroll_to_bottom_button ()
+//
+// Update position, size, and visibility of the scroll-to-bottom button.
+//
+void DisplayText::updateScrollToBottomButton ()
 {
   auto const * vertical_scroll_bar = verticalScrollBar ();
   // park the button in the bottom-right corner of the viewport, sized to fit
@@ -148,10 +158,13 @@ void DisplayText::update_scroll_to_bottom_button ()
   scroll_to_bottom_button_->setVisible (wanted);
 }
 
+//
+// Handle resize events to reposition the scroll-to-bottom button in viewport.
+//
 void DisplayText::resizeEvent (QResizeEvent * e)
 {
   QTextEdit::resizeEvent (e);
-  update_scroll_to_bottom_button ();
+  updateScrollToBottomButton ();
 }
 
 void DisplayText::setContentFont(QFont const& font)
@@ -178,7 +191,7 @@ void DisplayText::setContentFont(QFont const& font)
       // this counts as an automatic scroll, so keep following from here
       last_auto_scroll_position_ = verticalScrollBar ()->value ();
     }
-  update_scroll_to_bottom_button ();
+  updateScrollToBottomButton ();
 }
 
 void DisplayText::mouseDoubleClickEvent(QMouseEvent *e)
@@ -328,7 +341,7 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
       vertical_scroll_bar->setValue (vertical_scroll_bar->value ()
                                      + cursorRect (anchor).top () - anchor_offset);
     }
-  update_scroll_to_bottom_button ();
+  updateScrollToBottomButton ();
 }
 
 void DisplayText::extend_vertical_scrollbar (int min, int max)
@@ -380,7 +393,7 @@ void DisplayText::new_period ()
       verticalScrollBar ()->setSliderPosition (verticalScrollBar ()->maximum ());
       last_auto_scroll_position_ = verticalScrollBar ()->value ();
     }
-  update_scroll_to_bottom_button ();
+  updateScrollToBottomButton ();
 }
 
 QString DisplayText::appendWorkedB4 (QString message, QString call, QString const& grid,

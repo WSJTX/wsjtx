@@ -50,8 +50,8 @@ public:
   Q_SLOT void insertText (QString const& text, QColor bg = QColor {}, QColor fg = QColor {}
                           , QString const& call1 = QString {}, QString const& call2 = QString {}, QTextCursor::MoveOperation location=QTextCursor::End);
   Q_SLOT void erase ();
-  // jump back to the newest entry and resume following it
-  Q_SLOT void scroll_to_bottom ();
+  // Jump back to the newest entry and resume following it.
+  Q_SLOT void scrollToBottom ();
   Q_SLOT void highlight_callsign (QString const& callsign, QColor const& bg, QColor const& fg, bool last_period_only);
 
 private:
@@ -63,10 +63,10 @@ private:
 
   void extend_vertical_scrollbar (int min, int max);
 
-  // true while the view is still tracking new entries, i.e. the user has
-  // not scrolled away from the position we last scrolled to
+  // Return true while the view is still tracking new entries, i.e. the user has
+  // not scrolled away from the position we last scrolled to.
   bool following () const;
-  void update_scroll_to_bottom_button ();
+  void updateScrollToBottomButton ();
 
   Configuration const * m_config;
   bool m_bPrincipalPrefix;
