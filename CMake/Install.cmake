@@ -91,7 +91,13 @@ install (PROGRAMS
   )
 
 install (FILES
-  README
+  README.md
+  DESTINATION ${CMAKE_INSTALL_DOCDIR}
+  RENAME README
+  #COMPONENT runtime
+  )
+
+install (FILES
   COPYING
   AUTHORS
   THANKS
