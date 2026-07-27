@@ -9,10 +9,8 @@
 #include "Modulator/Modulator.hpp"
 #include <iostream>
 #include <vector>
-
 #ifdef WIN32
 #include "MMTTYIF.hpp"
-#include "MMTTY_Messages.hpp"
 #undef MessageBox
 #endif
 
@@ -40,6 +38,18 @@ void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
                     float xjunk[], float wave[], int* icmplx, int* nwave);
 }
 
+#ifdef WIN32
+static QString append_separator(QString message) {
+    if (!message.isEmpty()) {
+        QChar lastChar = message.at(message.length() - 1);
+        if (lastChar != '\r' && lastChar != '\n' && lastChar != ' ') {
+            message += "\r\n";
+        }
+    }
+    return message;
+}
+#endif
+
 void MainWindow::jtty_save_wav()
 {
   //Save JTTY data to a .wav file
@@ -61,6 +71,19 @@ void MainWindow::jtty_decode(int k)
     return QString::fromLatin1(bytes.constData(), bytes.size());
   };
   int nsps=384;
+  // rjtty_sub_ restarts its own internal slot table whenever k stops
+  // advancing (a fresh WAV, or a "decode again" replay of the current one).
+  // Mirror that here: freeze whatever's already shown in both panes rather
+  // than matching new growth against a frozen line from an earlier session
+  // (a replayed WAV can regrow to the exact same final text, which would
+  // otherwise match -- and silently stop updating -- the old, completed
+  // line instead of the new, still-growing one).
+  bool const newAllFreqsSession = (k <= m_jttyLastAllFreqsK);
+  m_jttyLastAllFreqsK = k;
+  if (newAllFreqsSession) {
+      m_jttyAllFreqsGroupStart = QTextBlock();
+      m_jttyQsoLines.clear();
+  }
   char qso_freq[800];
   char all_freqs[2400];
   float f0 = ui->RxFreqSpinBox_2->value();
@@ -70,35 +93,93 @@ void MainWindow::jtty_decode(int k)
 
   rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol);
 
+  // jtty_get_msgs_ rebuilds qso_freq (and all_freqs) from scratch every
+  // call: it's a frequency-sorted snapshot of every slot currently within
+  // ftol of f0, not an append-only stream. A slot can drop out for a call
+  // or two (its estimated frequency briefly outside ftol) and the relative
+  // order between near-identical frequencies isn't stable either, so we
+  // can't diff the blob as one string below. Instead track each
+  // transmission as its own line, matched by content (a new fragment
+  // "continues" a known line when it extends that line's text),
+  // independent of where in the blob or in what order it shows up this call.
   jtty_get_msgs_(&f0, &ftol, &all_new, &qso_new, &all_freqs[0],
                  &qso_freq[0], (FCL)2400, (FCL)800);
 
   QString allMsgs {boundedLatin1(all_freqs, sizeof all_freqs)};
   if(ui->cbLowerCase->isChecked()) allMsgs = allMsgs.toLower();
   if(all_new) {
-      ui->decodedTextBrowser->clear();
-      if(allMsgs.left(1) == " ") {
-          ui->decodedTextBrowser->insertText(" " + allMsgs.trimmed());
-      } else {
-          ui->decodedTextBrowser->insertText(allMsgs.trimmed());
+      QString const trimmedAll = allMsgs.trimmed();
+      if (!trimmedAll.isEmpty()) {
+          // insertText() (below, via a plain QTextCursor) doesn't stamp the
+          // app-configured content font the way DisplayText::insertText()
+          // does, so pin it explicitly to match the rest of the pane.
+          QTextCharFormat format;
+          format.setFont(ui->decodedTextBrowser->contentFont());
+
+          QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+          if (m_jttyAllFreqsGroupStart.isValid()) {
+              // Same group still growing: replace just its own text with the
+              // freshly resorted snapshot, leaving earlier groups untouched.
+              cursor.setPosition(m_jttyAllFreqsGroupStart.position());
+              cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+              cursor.removeSelectedText();
+          } else {
+              // First group ever, or first group of a new session: start a
+              // new block below any earlier group (with a blank spacer line)
+              // instead of clearing them.
+              cursor.movePosition(QTextCursor::End);
+              if (cursor.position() > 0) {
+                  cursor.insertBlock();   // blank spacer line
+                  cursor.insertBlock();   // start of the new group
+              }
+          }
+          m_jttyAllFreqsGroupStart = cursor.block();
+          cursor.insertText(allMsgs.left(1) == " " ? (" " + trimmedAll) : trimmedAll, format);
+          ui->decodedTextBrowser->setTextCursor(cursor);
+          ui->decodedTextBrowser->ensureCursorVisible();
       }
 #ifdef WIN32
       if (m_mmttyif) {
-          m_mmttyif->echo_message_to_n1mm(allMsgs);
+          m_mmttyif->echo_message_to_n1mm(append_separator(allMsgs));
       }
 #endif
   }
   if(qso_new) {
-      QString message2 {boundedLatin1(qso_freq, sizeof qso_freq)};
-      if(ui->cbLowerCase->isChecked()) message2 = message2.toLower();
-      int n2=message2.length();
-      if(n2 > 0) {
-        ui->decodedTextBrowser2->clear();
-        ui->decodedTextBrowser2->insertText(message2.trimmed());
+      QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
+      if(ui->cbLowerCase->isChecked()) message_qso_freq = message_qso_freq.toLower();
+
+      QStringList const newLines = message_qso_freq.split(QChar('\n'), SkipEmptyParts);
+      for (auto const& rawLine : newLines) {
+          QString const newLine = rawLine.trimmed();
+          if (newLine.isEmpty()) continue;
+
+          int matchIndex = -1;
+          for (int i = 0; i < m_jttyQsoLines.size(); ++i) {
+              if (newLine.startsWith(m_jttyQsoLines.at(i).text)) {
+                  matchIndex = i;
+                  break;
+              }
+          }
+
+          QString delta;
+          if (matchIndex >= 0) {
+              auto& known = m_jttyQsoLines[matchIndex];
+              if (newLine.length() <= known.text.length()) continue;   // unchanged this call
+              delta = newLine.mid(known.text.length());
+              QTextCursor cursor {known.block};
+              cursor.movePosition(QTextCursor::EndOfBlock);
+              cursor.insertText(delta);
+              known.text = newLine;
+          } else {
+              delta = newLine;
+              ui->decodedTextBrowser2->insertText(newLine);
+              m_jttyQsoLines.append({newLine, ui->decodedTextBrowser2->textCursor().block()});
+          }
+
 #ifdef WIN32
-        if (m_mmttyif) {
-            m_mmttyif->echo_message_to_n1mm(message2);
-        }
+          if (m_mmttyif) {
+              m_mmttyif->echo_message_to_n1mm(append_separator(delta));
+          }
 #endif
       }
   }
@@ -268,7 +349,7 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
 
 #ifdef WIN32
   if (m_mmttyif) {
-    m_mmttyif->echo_message_to_n1mm(message);
+    m_mmttyif->echo_message_to_n1mm(append_separator(message));
   }
 #endif
 
@@ -526,67 +607,158 @@ void MainWindow::on_TxFreqSpinBox_2_valueChanged(int n)
 
 void MainWindow::on_sbFtol_2_valueChanged (int n)
 {
-  Q_UNUSED(n);
+  m_wideGraph->setTol(n);
 }
 
+#ifdef WIN32
 void MainWindow::logText(const QString &text) {
   LOG_INFO(text);
 }
 
-#ifdef Q_OS_WIN
+QString MainWindow::jttyRejectReasonText(JttyTxRejectReason reason) const
+{
+  switch (reason) {
+  case JttyTxRejectReason::Empty: return QStringLiteral("empty");
+  case JttyTxRejectReason::EncodingFailed: return QStringLiteral("encoding failed");
+  case JttyTxRejectReason::QueueFull: return QStringLiteral("queue full");
+  case JttyTxRejectReason::BackendRejected: return QStringLiteral("backend rejected");
+  case JttyTxRejectReason::Aborted: return QStringLiteral("aborted");
+  case JttyTxRejectReason::NotAvailable: return QStringLiteral("not available");
+  }
+  return QStringLiteral("unknown");
+}
 
-void MainWindow::initMMTTY(const QString& hexHandle) {
+void MainWindow::handleMmttyTxString(QString message)
+{
+  if (m_mode != "JTTY") {
+    jtty_tx(message);
+    return;
+  }
+
+  if (m_mmttyJttyFinishRequested) {
+    logText(QStringLiteral("MMTTY/N1MM JTTY text ignored after graceful OFF"));
+    return;
+  }
+
+  qint64 const requestId = ++m_jttyTxRequestId;
+  m_mmttyJttyRequests.insert(requestId, message);
+  execute_jtty_tx(requestId, message);
+}
+
+void MainWindow::handleMmttyStartTx()
+{
+  if (m_mode != "JTTY") {
+    startTx2();
+    return;
+  }
+
+  m_mmttyJttyFinishRequested = false;
+  m_mmttyJttyStartRequested = true;
+  startPendingMmttyJttyTx();
+}
+
+void MainWindow::handleMmttyStopTx()
+{
+  if (m_mode != "JTTY") {
+    stopTx();
+    return;
+  }
+
+  m_mmttyJttyFinishRequested = true;
+  m_mmttyJttyStartRequested = false;
+  logText(QStringLiteral("MMTTY/N1MM JTTY OFF requested; waiting for backend drain"));
+}
+
+void MainWindow::handleMmttyAbortTx()
+{
+  m_mmttyJttyStartRequested = false;
+  m_mmttyJttyFinishRequested = false;
+  m_mmttyJttyOutputPending = false;
+  m_mmttyJttyRequests.clear();
+  abort_jtty_tx();
+}
+
+void MainWindow::handleMmttyJttyAccepted(qint64 requestId)
+{
+  if (!m_mmttyJttyRequests.contains(requestId)) return;
+
+  logText(QStringLiteral("MMTTY/N1MM JTTY request %1 accepted").arg(requestId));
+  m_mmttyJttyOutputPending = true;
+  startPendingMmttyJttyTx();
+}
+
+void MainWindow::handleMmttyJttyRejected(qint64 requestId, JttyTxRejectReason reason)
+{
+  if (!m_mmttyJttyRequests.remove(requestId)) return;
+
+  logText(QStringLiteral("MMTTY/N1MM JTTY request %1 rejected: %2")
+          .arg(requestId)
+          .arg(jttyRejectReasonText(reason)));
+  if (m_mmttyJttyRequests.isEmpty()) {
+    m_mmttyJttyStartRequested = false;
+  }
+}
+
+void MainWindow::handleMmttyJttyCompleted(qint64 requestId)
+{
+  if (!m_mmttyJttyRequests.remove(requestId)) return;
+
+  logText(QStringLiteral("MMTTY/N1MM JTTY request %1 completed").arg(requestId));
+}
+
+void MainWindow::handleMmttyJttySessionDrained(qint64 sessionId)
+{
+  Q_UNUSED(sessionId)
+  m_mmttyJttyStartRequested = false;
+  m_mmttyJttyFinishRequested = false;
+  bool const reportOutputComplete = m_mmttyJttyOutputPending;
+  m_mmttyJttyOutputPending = false;
+  if (m_mmttyif && reportOutputComplete) {
+    m_mmttyif->report_output_complete();
+  }
+}
+
+void MainWindow::startPendingMmttyJttyTx()
+{
+  if (m_mode != "JTTY" || !m_mmttyJttyStartRequested) return;
+
+  if (!m_jttyTxActive || m_jttyQueuedSamples <= 0) {
+    logText(QStringLiteral("MMTTY/N1MM JTTY start deferred until text is accepted"));
+    return;
+  }
+
+  if (g_iptt == 1) {
+    logText(QStringLiteral("MMTTY/N1MM JTTY start ignored; transmitter is already keyed"));
+    m_mmttyJttyStartRequested = false;
+    return;
+  }
+
+  m_mmttyJttyStartRequested = false;
+  startTx2();
+}
+
+void MainWindow::initMMTTY(quint16 port) {
     if (!m_mmttyif) {
         m_mmttyif = new MMTTYIF(this);
     }
+
+    m_mmttyif->initialize(port);
+
     connect(m_mmttyif, &MMTTYIF::log_message, this, &MainWindow::logText);
+    connect(m_mmttyif, &MMTTYIF::app_tx_string, this, &MainWindow::handleMmttyTxString);
+    connect(m_mmttyif, &MMTTYIF::app_start_tx, this, &MainWindow::handleMmttyStartTx);
+    connect(m_mmttyif, &MMTTYIF::app_stop_tx, this, &MainWindow::handleMmttyStopTx);
+    connect(m_mmttyif, &MMTTYIF::app_abort_tx, this, &MainWindow::handleMmttyAbortTx);
+    connect(this, &MainWindow::jttyTextAccepted, this, &MainWindow::handleMmttyJttyAccepted);
+    connect(this, &MainWindow::jttyTextRejected, this, &MainWindow::handleMmttyJttyRejected);
+    connect(this, &MainWindow::jttyTextCompleted, this, &MainWindow::handleMmttyJttyCompleted);
+    connect(this, &MainWindow::jttySessionDrained, this, &MainWindow::handleMmttyJttySessionDrained);
 
-    // Register custom window message
-    UINT MSG_MMTTY = ::RegisterWindowMessageA("MMTTY");
-
-    // Print to logs the assigned custom message number for "MMTTY"
-    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-    MMTTYIF::logText(QString("%1 [INIT] Registered MMTTY message: 0x%2")
-                     .arg(timestamp)
-                     .arg(MSG_MMTTY, 4, 16, QChar('0')));
-
-    // Get the WId (Window ID) of the MainWindow instance
-    WId winId = this->winId();
-    HWND hwnd = reinterpret_cast<HWND>(winId);
-
-    // Get our own thread ID
-    DWORD threadId = GetCurrentThreadId();
-
-    HWND targetHwnd = HWND_BROADCAST;
-    QString targetName = "Broadcast";
-
-    if (!hexHandle.isEmpty()) {
-        bool ok;
-        targetHwnd = reinterpret_cast<HWND>(hexHandle.toULongLong(&ok, 16));
-        if (ok) {
-            targetName = QString("0x%1").arg(hexHandle);
-        } else {
-            // Revert back to broadcast if parsing failed
-            targetHwnd = HWND_BROADCAST;
-        }
-    }
-
-    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
-    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId)); // Send Thread ID
-
-    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
-    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd)); // Send Window Handle
-
-    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_START, 0x00000000);
-    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_START, 0x00000000); // Send Start signal
-
-    m_mmttyif->initialize(hexHandle, this->winId()); // Or however you get handles
-
-    connect(m_mmttyif, &MMTTYIF::app_tx_string, this, &MainWindow::jtty_tx);
-    // Graceful MMTTY/N1MM OFF should stop submitting text, not call stopTx();
-    // accepted JTTY audio drains through onJttyBackendDrained().
     connect(m_mmttyif, &MMTTYIF::inactivity_timeout, qApp, &QCoreApplication::quit);
-    connect(m_mmttyif, &MMTTYIF::app_is_quitting, qApp, &QCoreApplication::quit);
+    connect(m_mmttyif, &MMTTYIF::app_is_quitting, this, [this]() {
+        abort_jtty_tx();
+        close();
+    });
 
     // Auto-switch to JTTY mode after MMTTY connects
     QTimer::singleShot(3000, this, [this]() {
@@ -596,20 +768,5 @@ void MainWindow::initMMTTY(const QString& hexHandle) {
 
 MMTTYIF *MainWindow::getMmttyIf() const {
     return m_mmttyif;
-}
-
-bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *result)
-{
-    if (eventType == "windows_generic_MSG") {
-        MSG *msg = static_cast<MSG *>(message);
-        if (m_mmttyif && msg->message == m_mmttyif->getMttyMsg()) {
-            m_mmttyif->filterEvent(message);
-            *result = 0; // Return 0 to indicate we handled the message
-            return true; // Stop standard Qt processing for this message
-        }
-    }
-
-    // Call base class method for unhandled messages
-    return QMainWindow::nativeEvent(eventType, message, result);
 }
 #endif

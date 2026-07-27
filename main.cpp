@@ -252,10 +252,15 @@ int main(int argc, char *argv[])
                                      , "rig-name");
       parser.addOption (rig_option);
 
-      QCommandLineOption handle_option (QStringList {} << "w" << "window-handle"
-                                        , "N1MM window handle (hexadecimal)."
-                                        , "N1MM Window handle");
-      parser.addOption (handle_option);
+      QCommandLineOption n1mm_tcp_port_option (QStringList {} << "p" << "n1mm-tcp-port" << "n1mm_tcp_port"
+                                        , "N1MM Logger+ TCP port number."
+                                        , "TCP port");
+      parser.addOption (n1mm_tcp_port_option);
+
+      QCommandLineOption mode_option (QStringList {} << "mode"
+                                     , "Startup mode (ft8, ft4, jtty)."
+                                     , "mode");
+      parser.addOption (mode_option);
 
       // support for start up configuration
       QCommandLineOption cfg_option (QStringList {} << "c" << "config"
@@ -590,10 +595,23 @@ int main(int argc, char *argv[])
                        startup_smoke_test);
           smoke_phase ("MainWindow constructed");
 #ifdef Q_OS_WIN
-          if (parser.isSet(handle_option)) {
-              w.initMMTTY(parser.value(handle_option));
+          quint16 mmtty_port = 0;
+          if (parser.isSet(n1mm_tcp_port_option)) {
+              mmtty_port = parser.value(n1mm_tcp_port_option).toUShort();
+          }
+          
+          if (mmtty_port > 0) {
+              LOG_INFO("Starting JTTY/N1MM Logger interface on port: " << mmtty_port);
+              w.initMMTTY(mmtty_port);
+          } else {
+              LOG_INFO("JTTY/N1MM Logger interface not enabled (no port or matching rig name provided).");
           }
 #endif
+          if (parser.isSet(mode_option)) {
+              bool lock_mode = parser.isSet(n1mm_tcp_port_option);
+              w.set_mode_from_command_line(parser.value(mode_option), lock_mode);
+          }
+
           w.show();
           smoke_phase ("MainWindow shown");
           if (startup_smoke_test)

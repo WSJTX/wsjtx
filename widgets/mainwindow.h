@@ -26,8 +26,10 @@
 #include <QHostAddress>
 #include <QPointer>
 #include <QSet>
+#include <QHash>
 #include <QVector>
 #include <QScrollBar>
+#include <QTextBlock>
 #include <QQueue>
 #include <QFuture>
 #include <QFutureSynchronizer>
@@ -174,13 +176,15 @@ public:
   ~MainWindow();
 
 #ifdef WIN32
-  void initMMTTY(const QString& hexHandle);
+  void initMMTTY(quint16 port);
   MMTTYIF *getMmttyIf() const;
 #endif
 
   int decoderBusy () const {return m_decoderBusy;}
+  void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
 
-Q_SIGNALS:
+
+  Q_SIGNALS:
   void jttyTextAccepted(qint64 requestId) const;
   void jttyTextRejected(qint64 requestId, JttyTxRejectReason reason) const;
   void jttyTextCompleted(qint64 requestId) const;
@@ -543,6 +547,7 @@ private slots:
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
   void on_pbSendMessage_clicked();
+
   void on_pbF1_clicked();
   void on_pbF2_clicked();
   void on_pbF3_clicked();
@@ -551,8 +556,9 @@ private slots:
   void on_pbF6_clicked();
   void on_pbF7_clicked();
   void on_pbF8_clicked();
-
+#ifdef WIN32
   void logText(const QString &text);
+#endif
 
 private:
   enum class DecodeAlertSound { None, DXcall, Wanted };
@@ -575,9 +581,7 @@ private:
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt, bool& verified);
-#ifdef Q_OS_WIN
-  bool nativeEvent(const QByteArray &, void *, long int *);
-#endif
+
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
       unsigned channels, unsigned msBuffered) const;
@@ -622,6 +626,18 @@ private:
   void abortSuperFoxTxStart();
   void displayFoxTxMsgs();
   void jtty_tx(QString message);
+#ifdef WIN32
+  void handleMmttyTxString(QString message);
+  void handleMmttyStartTx();
+  void handleMmttyStopTx();
+  void handleMmttyAbortTx();
+  void handleMmttyJttyAccepted(qint64 requestId);
+  void handleMmttyJttyRejected(qint64 requestId, JttyTxRejectReason reason);
+  void handleMmttyJttyCompleted(qint64 requestId);
+  void handleMmttyJttySessionDrained(qint64 sessionId);
+  void startPendingMmttyJttyTx();
+  QString jttyRejectReasonText(JttyTxRejectReason reason) const;
+#endif
   void execute_jtty_tx(qint64 requestId, QString message);
   void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
   void recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample);
@@ -850,6 +866,7 @@ private:
   bool    m_diskData;
   bool    m_loopall;
   bool    m_decoderBusy;
+  bool    m_modeLocked = false;
   bool    m_decode_button_enabled_before_wav {false};
   bool    m_decoderDiagActive=false;
   bool    m_decoderDiagBusyRequestLogged=false;
@@ -944,19 +961,19 @@ private:
 
   enum {CALL, GRID, DXCC, MULT};
 
-  int		m_ihsym;
-  int		m_nzap;
-  int		m_npts8;
+  int			m_ihsym;
+  int			m_nzap;
+  int			m_npts8;
   float		m_px;
-  float     m_pxmax;
+  float   m_pxmax;
   float		m_df3;
-  int		m_iptt0;
+  int			m_iptt0;
   bool		m_btxok0;
-  int		m_nsendingsh;
+  int			m_nsendingsh;
   double	m_onAirFreq0;
   bool		m_first_error;
 
-  char      m_msg[100][80];
+  char    m_msg[100][80];
 
   // labels in status bar
   QLabel tx_status_label;
@@ -1158,6 +1175,20 @@ private:
   QVector<AcceptedJttyTxRequest> m_acceptedJttyTxRequests;
   qint64 m_jttyTxRequestId;
   qint64 m_jttyTciEnqueueId;
+  struct JttyQsoLine
+  {
+    QString text;        // full text currently shown on this line
+    QTextBlock block;    // the decodedTextBrowser2 paragraph holding it
+  };
+  QVector<JttyQsoLine> m_jttyQsoLines;   // one entry per concurrently-growing JTTY transmission
+  int m_jttyLastAllFreqsK = -1;          // detects a restarted decode (new WAV, or "decode again")
+  QTextBlock m_jttyAllFreqsGroupStart;   // start of decodedTextBrowser's currently-growing group
+#ifdef WIN32
+  bool m_mmttyJttyStartRequested;
+  bool m_mmttyJttyFinishRequested;
+  bool m_mmttyJttyOutputPending;
+  QHash<qint64, QString> m_mmttyJttyRequests;
+#endif
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;

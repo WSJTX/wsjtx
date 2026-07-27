@@ -7,6 +7,7 @@ module jtty_mdec
      real :: snrdb = 0.0              !SNR of decoded frame
      integer ::  k = 0                !Accumulated length of decoded text
      character(len=80) :: decoded = ''
+     logical :: trailing_sep = .false. !decoded ends with an implicit separator column
   end type decode
 
   integer, parameter        :: MAX_DECODES = 100
@@ -278,7 +279,7 @@ contains
                success=.true.
                ndecodes=ndecodes+1
                write(c32(1),'(32i1)') message32
-               call unpack_jtty(c32,1,cand(ncand)%decoded)
+               call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep)
                if(cand(ncand)%decoded(1:4).eq.'599 ') then
                   cand(ncand)%decoded = '~' // trim(cand(ncand)%decoded)
                endif
@@ -318,8 +319,16 @@ contains
                         k=slot(i)%k
                         n=len_trim(dec%decoded)
                         kz=min(k+n,80)
-                        slot(i)%decoded=trim(slot(i)%decoded)//dec%decoded(1:kz-k)
+                        ! The prior frame's implicit separator column is just an
+                        ! untouched blank in slot(i)%decoded, so trim() above
+                        ! would silently drop it; put it back explicitly.
+                        if(slot(i)%trailing_sep) then
+                           slot(i)%decoded=trim(slot(i)%decoded)//' '//dec%decoded(1:kz-k)
+                        else
+                           slot(i)%decoded=trim(slot(i)%decoded)//dec%decoded(1:kz-k)
+                        endif
                         slot(i)%k=kz
+                        slot(i)%trailing_sep=dec%trailing_sep
                         exit
                      endif
                   enddo

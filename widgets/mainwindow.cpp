@@ -478,8 +478,6 @@ namespace
 
 QRegExp const MainWindow::message_alphabet {"[- @A-Za-z0-9+./?#<>;$]*"};
 QRegularExpression const MainWindow::grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
-constexpr int MainWindow::MaxActiveStationRows;
-constexpr int MainWindow::MaxQ65PileupCallers;
 QRegularExpression const MainWindow::non_r_db_regexp {"\\A[-+]{1}[0-9]{1,2}\\z"};
 
 //--------------------------------------------------- MainWindow constructor
@@ -650,6 +648,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_jttyQueuedSamples {0},
   m_jttyTxRequestId {0},
   m_jttyTciEnqueueId {0},
+#ifdef WIN32
+  m_mmttyJttyStartRequested {false},
+  m_mmttyJttyFinishRequested {false},
+  m_mmttyJttyOutputPending {false},
+#endif
   m_block_pwr_tooltip {false},
   m_PwrBandSetOK {true},
   m_lastMonitoredFrequency {default_frequency},
@@ -3772,6 +3775,8 @@ void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
 
 }
 
+
+
 //Display local copy of manual
 void MainWindow::on_actionLocal_User_Guide_triggered()
 {
@@ -5584,6 +5589,9 @@ void MainWindow::rx_frequency_activity_cleared ()
 {
   m_QSOText.clear();
   set_dateTimeQSO(-1);          // G4WJS: why do we do this?
+  // decodedTextBrowser2's document just lost every block; drop our cached
+  // JTTY per-transmission QTextBlock handles along with it.
+  m_jttyQsoLines.clear();
 }
 
 void MainWindow::decodeBusy(bool b)                             //decodeBusy()
@@ -9253,6 +9261,11 @@ void MainWindow::on_actionJTTY_triggered()
   ui->RxFreqSpinBox_2->setValue(1500);
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
+  // setValue() above is a no-op (no valueChanged signal) if the spinbox
+  // already held this value from a prior JTTY session, so set the plotter
+  // state directly rather than relying on that signal to reach it.
+  m_wideGraph->setRxFreq(ui->RxFreqSpinBox_2->value());
+  m_wideGraph->setTol(ui->sbFtol_2->value());
   setDecodeHeadings("", "");
   ui->lh_decodes_headings_label->setText("Freq  dB  " + tr ("Message"));
   ui->rh_decodes_headings_label->setText("Freq  dB  " + tr ("Message"));
@@ -10412,6 +10425,11 @@ void MainWindow::transmit (double snr)
     if (m_jttyTxUsesTciAudio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
              384.0,1500.0,toneSpacing,false,false,snr,txt);
+    } else if (m_tune) {
+      // Special case to activate Tune in JTTY mode.
+      Q_EMIT sendMessage (m_mode, m_nsym_jtty, 384.0, 1500.0, toneSpacing,
+             m_soundOutput, m_config.audio_output_channel (),
+             false, false, snr, txt);
     } else {
       Q_EMIT startJttyStream (m_soundOutput, m_config.audio_output_channel(), m_jttyTxSessionId);
     }
@@ -10720,7 +10738,7 @@ void MainWindow::transmitDisplay (bool transmitting)
     }
 
     // the following are always disallowed in transmit
-    ui->menuMode->setEnabled (!transmitting);
+    ui->menuMode->setEnabled (!transmitting && !m_modeLocked);
   }
 }
 
@@ -14963,4 +14981,29 @@ void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QB
                                                   haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
     }
   }
+}
+
+void MainWindow::set_mode_from_command_line(const QString& mode, bool lock_mode)
+{
+    QString m = mode.toLower();
+    if (m == "ft8") {
+        on_actionFT8_triggered();
+    } else if (m == "ft4") {
+        on_actionFT4_triggered();
+    } else if (m == "jtty") {
+        on_actionJTTY_triggered();
+    } else {
+        LOG_INFO("Invalid or unsupported mode specified via command line: " << mode);
+    }
+    
+    if (lock_mode) {
+        m_modeLocked = true;
+        ui->menuMode->setEnabled(false);
+        ui->ft8Button->setEnabled(false);
+        ui->ft4Button->setEnabled(false);
+        ui->msk144Button->setEnabled(false);
+        ui->q65Button->setEnabled(false);
+        ui->jt65Button->setEnabled(false);
+        ui->houndButton->setEnabled(false);
+    }
 }

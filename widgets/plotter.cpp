@@ -689,7 +689,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
                         drawablePixel(x2 - 5, m_ScalePixmap.width()), 20);
     }
 
-    if(m_mode=="Q65" or (m_mode=="JT65" and m_bVHF) or (m_mode=="FT8" and m_bSuperHound)) {
+    if(m_mode=="Q65" or m_mode=="JTTY" or (m_mode=="JT65" and m_bVHF) or
+            (m_mode=="FT8" and m_bSuperHound)) {
       painter0.setPen(penGreen);
       x1=XfromFreq(m_rxFreq-m_tol);
       x2=XfromFreq(m_rxFreq+m_tol);

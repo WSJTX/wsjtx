@@ -27,6 +27,7 @@ public:
     high_volume_ = high_volume;
   }
   void setContentFont (QFont const&);
+  QFont contentFont () const {return char_font_;}
   void insertLineSpacer(QString const&);
   void displayDecodedText(DecodedText const& decodedText, QString const& myCall, QString const& mode,
                           bool displayDXCCEntity, LogBook const& logBook,

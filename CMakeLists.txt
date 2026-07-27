@@ -505,19 +505,7 @@ target_include_directories (wsprd PRIVATE ${FFTW3_INCLUDE_DIRS})
 target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 
-# mmtty_interface utility
-set (mmtty_interface_SRCS
-  mmtty_interface/main.cpp
-  mmtty_interface/MainWindow.cpp
-  mmtty_interface/MainWindow.hpp
-  widgets/MMTTYIF.cpp
-  widgets/MMTTYIF.hpp
-)
 
-add_executable (mmtty_interface WIN32 ${mmtty_interface_SRCS})
-wsjt_enable_qt_automoc (mmtty_interface)
-target_link_libraries (mmtty_interface Qt5::Widgets)
-target_include_directories (mmtty_interface PRIVATE widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
 # don't use Qt "keywords" signal, slot, emit in generated files to
@@ -840,7 +828,7 @@ else ()
       LINK_FLAGS " -Wl,--stack,0x1000000,--heap,0x20000000")
   endif ()
 endif ()
-target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
   if (APPLE)
