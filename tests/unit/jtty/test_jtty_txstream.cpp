@@ -313,27 +313,41 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   // drain timer is a parented child, so it must ride to the worker thread and
   // tick there; a value-member timer could not be started cross-thread and
   // drained() would never fire (this test would then time out). start() and the
-  // audio pull run on the worker thread; drained() must cross back to the spy.
+  // audio pull run on the worker thread; drained() must cross back to the
+  // main-thread receiver.
   JttyTxBuffer buffer;
   JttyTxStream s {buffer};
-  QSignalSpy spy (&s, &JttyTxStream::drained);
+  qint64 drainedSession {-1};
+  qint64 drainedTotal {-1};
+  int drainedCount {0};
+  QObject receiver;
+  // Qt 5's QSignalSpy records through a direct connection, so explicitly queue
+  // cross-thread test state onto a main-thread receiver.
+  connect (&s, &JttyTxStream::drained, &receiver,
+           [&drainedSession, &drainedTotal, &drainedCount]
+           (qint64 sessionId, qint64 totalAtDrain) {
+             drainedSession = sessionId;
+             drainedTotal = totalAtDrain;
+             ++drainedCount;
+           }, Qt::QueuedConnection);
 
   QVERIFY (buffer.enqueueMessage (QVector<qint16> {7, 7, 7}, 51));
 
   QThread worker;
   s.moveToThread (&worker);
-  worker.start ();
 
+  // Queue before starting the worker so thread creation establishes the
+  // cross-thread handoff.
   QMetaObject::invokeMethod (&s, [&s] {
     s.start (nullptr, AudioDevice::Mono, 51);
     QByteArray buf ((3 + DEFAULT_GUARD) * 2, '\0');
     s.read (buf.data (), buf.size ());
   }, Qt::QueuedConnection);
+  worker.start ();
 
-  QVERIFY (spy.wait (2000));
-  QCOMPARE (spy.count (), 1);
-  QCOMPARE (spy.at (0).at (0).toLongLong (), qint64 (51));
-  QCOMPARE (spy.at (0).at (1).toLongLong (), qint64 (3));
+  QTRY_COMPARE_WITH_TIMEOUT (drainedCount, 1, 2000);
+  QCOMPARE (drainedSession, qint64 (51));
+  QCOMPARE (drainedTotal, qint64 (3));
 
   // Tear down on the worker thread: stop the timer on its own thread and
   // re-home the object to this thread for safe destruction. moveToThread must
