@@ -1177,9 +1177,21 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
     set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
   endif (CMAKE_OSX_SYSROOT)
 
-  # Add assembler flag to disable executable stack
+  # gfortran compiles the FT8 decoder callback (an internal procedure passed as
+  # an actual argument) into a trampoline on the stack; with a non-executable
+  # stack this crashes at run time (jt9 SIGSEGV in ft8_decode) on gfortran and
+  # hardened toolchains. Prefer heap-allocated trampolines where supported
+  # (gfortran >= 14) so the stack can remain non-executable; otherwise mark the
+  # stack executable so the trampoline can run.
   if (UNIX AND NOT APPLE AND Fortran_COMPILER_NAME MATCHES "gfortran.*")
-     set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wa,--noexecstack")
+    include (CheckFortranCompilerFlag)
+    check_fortran_compiler_flag ("-ftrampoline-impl=heap" WSJT_HAVE_HEAP_TRAMPOLINES)
+    if (WSJT_HAVE_HEAP_TRAMPOLINES)
+      set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ftrampoline-impl=heap -Wa,--noexecstack")
+    else ()
+      message (STATUS "gfortran lacks -ftrampoline-impl=heap; enabling an executable stack (required by the FT8 decoder callback trampoline)")
+      set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wa,--execstack")
+    endif ()
   endif()
 
   set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -fbounds-check -funroll-all-loops -fno-f2c -ffpe-summary=invalid,zero,overflow,underflow ${General_FFLAGS}")
