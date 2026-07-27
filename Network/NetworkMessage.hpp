@@ -50,6 +50,10 @@
  * strings  and null  strings. Empty  strings  have a  length of  zero
  * whereas null strings have a length field of 0xffffffff.
  *
+ * Reference servers distinguish clients by sender address and Id and echo
+ * that Id in requests. The destination UDP endpoint selects the WSJT-X
+ * recipient; Id is not an authorization check.
+ *
  *
  * Schema Negotiation
  * ------------------
@@ -231,6 +235,9 @@
  *      validation. Off air decodes are those that result from playing
  *      back a .WAV file.
  *
+ *      Mode is the decoded-line marker ("~" for FT8, "+" for FT4), not
+ *      the operating mode name carried by Status.
+ *
  *
  * Clear         Out/In    3                      quint32
  *                         Id (unique key)        utf8
@@ -278,6 +285,10 @@
  *      user  interface for  WSJT-X,  it is  expected  that after  QSO
  *      initiation the rest  of the QSO is carried  out manually using
  *      the normal WSJT-X user interface.
+ *
+ *      Copy the fields from Time through Low confidence unchanged from
+ *      Decode. Substituting a Status mode name such as "FT8" for the
+ *      decoded-line marker "~" prevents matching.
  *
  *      The  Modifiers   field  allows  the  equivalent   of  keyboard
  *      modifiers to be sent "as if" those modifier keys where pressed
