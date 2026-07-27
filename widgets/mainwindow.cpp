@@ -5876,7 +5876,7 @@ void MainWindow::ARRL_Digi_Update(DecodedText dt)
     m_latestDecodeTime=dt.timeInSeconds();
     rc.txEven = (m_latestDecodeTime % int(2*m_TRperiod)) > 0;
     rc.ready2call=false;
-    bool bCQ=dt.messageWords()[0].left(3)=="CQ ";
+    bool bCQ=!dt.messageWords().isEmpty() && dt.messageWords()[0].left(3)=="CQ ";
     if(bCQ or deGrid=="RR73" or deGrid=="73") rc.ready2call=true;
     rc.decodeTime=m_latestDecodeTime;
     m_recentCall[deCall]=rc;
@@ -6118,7 +6118,7 @@ void MainWindow::callSandP2(int n)
 void MainWindow::activeWorked(QString call, QString band)
 {
   QString bands=m_activeCall[call].bands;
-  QByteArray ba=bands.toLatin1();
+  QByteArray ba=bands.toLatin1(); if(ba.size()<7) ba=QByteArray(7,'.');
   if(band=="160m") ba[0]='a';
   if(band=="80m")  ba[1]='b';
   if(band=="40m")  ba[2]='c';
@@ -6306,7 +6306,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 //            ui->decodedTextBrowser->insertText("deCall has false syntax");
             filtered = true;
           }
-          if (word[0]!="CQ" && word[0]!="TNX" && word[0]!="73 " && word[0]!="HNY" && word[0]!="QSY" && word[0]!="PSE" &&
+          if (!word.isEmpty() && word[0]!="CQ" && word[0]!="TNX" && word[0]!="73 " && word[0]!="HNY" && word[0]!="QSY" && word[0]!="PSE" &&
               !(word[0].left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
                 word[0].left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
                 word[0].left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
