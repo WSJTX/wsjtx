@@ -19,6 +19,8 @@
 #include <QListIterator>
 #include <QRegularExpression>
 #include <QScrollBar>
+#include <QToolButton>
+#include <QResizeEvent>
 
 #include "Configuration.hpp"
 #include "Decoder/decodedtext.h"
@@ -52,6 +54,8 @@ DisplayText::DisplayText(QWidget *parent)
   , erase_action_ {new QAction {tr ("&Erase"), this}}
   , high_volume_ {false}
   , modified_vertical_scrollbar_max_ {-1}
+  , scroll_to_bottom_button_ {new QToolButton {viewport ()}}
+  , last_auto_scroll_position_ {0}
 {
   setReadOnly (true);
   setUndoRedoEnabled (false);
@@ -70,12 +74,97 @@ DisplayText::DisplayText(QWidget *parent)
       delete menu;
     });
   connect (erase_action_, &QAction::triggered, this, &DisplayText::erase);
+
+  // floating "jump to latest" button in the bottom-right corner of the text
+  // area, shown only while the user has scrolled away from the newest entry.
+  // It is parented to the viewport so its placement never depends on the
+  // vertical scroll bar's (unreliable) geometry.
+  scroll_to_bottom_button_->setText (tr ("Return to live activity"));
+  scroll_to_bottom_button_->setToolButtonStyle (Qt::ToolButtonTextOnly);
+  scroll_to_bottom_button_->setAutoRaise (false);
+  // bright red chip with white text so it is unmistakable against the decodes
+  scroll_to_bottom_button_->setStyleSheet (
+      QStringLiteral ("QToolButton { background: #d00000; color: #ffffff;"
+                      " border: 1px solid #8b0000; border-radius: 3px;"
+                      " font-weight: bold; padding: 1px 8px; }"
+                      "QToolButton:hover { background: #ef2b2b; }"));
+  scroll_to_bottom_button_->setFocusPolicy (Qt::NoFocus);
+  scroll_to_bottom_button_->setCursor (Qt::ArrowCursor);
+  scroll_to_bottom_button_->setToolTip (tr ("Scroll to the latest entry"));
+  scroll_to_bottom_button_->hide ();
+  connect (scroll_to_bottom_button_, &QToolButton::clicked, this, &DisplayText::scrollToBottom);
+  connect (verticalScrollBar (), &QScrollBar::valueChanged, this, [this] (int) {
+      updateScrollToBottomButton ();
+    });
+  connect (verticalScrollBar (), &QScrollBar::rangeChanged, this, [this] (int, int) {
+      updateScrollToBottomButton ();
+    });
 }
 
 void DisplayText::erase ()
 {
   clear ();
+  last_auto_scroll_position_ = verticalScrollBar ()->value ();
+  updateScrollToBottomButton ();
   Q_EMIT erased ();
+}
+
+//
+// Return true while the view is still tracking new entries, i.e. parked at the
+// bottom or at the position to which we last automatically scrolled.
+//
+bool DisplayText::following () const
+{
+  auto const * vertical_scroll_bar = verticalScrollBar ();
+  // either parked at the very bottom, or still exactly where we last
+  // scrolled to automatically - anything else means the user has taken over
+  return vertical_scroll_bar->value () >= vertical_scroll_bar->maximum ()
+    || vertical_scroll_bar->value () == last_auto_scroll_position_;
+}
+
+//
+// Scroll the view to the latest entry at the bottom and resume tracking.
+//
+void DisplayText::scrollToBottom ()
+{
+  auto * vertical_scroll_bar = verticalScrollBar ();
+  vertical_scroll_bar->setValue (vertical_scroll_bar->maximum ());
+  last_auto_scroll_position_ = vertical_scroll_bar->value ();
+  updateScrollToBottomButton ();
+}
+
+//
+// Update position, size, and visibility of the scroll-to-bottom button.
+//
+void DisplayText::updateScrollToBottomButton ()
+{
+  auto const * vertical_scroll_bar = verticalScrollBar ();
+  // park the button in the bottom-right corner of the viewport, sized to fit
+  // its label so it stays a large, easy target while the scroll bar is dragged
+  auto const hint = scroll_to_bottom_button_->sizeHint ();
+  auto const button_height = qMax (hint.height (), qMax (20, vertical_scroll_bar->sizeHint ().width ()));
+  auto const button_width = hint.width () + 8;
+  auto const margin = 3;
+  scroll_to_bottom_button_->resize (button_width, button_height);
+  scroll_to_bottom_button_->move (viewport ()->width () - button_width - margin
+                                  , viewport ()->height () - button_height - margin);
+  auto const wanted = vertical_scroll_bar->maximum () > vertical_scroll_bar->minimum ()
+    && !following ();
+  if (wanted)
+    {
+      // keep the button above the decode text after each new insertion
+      scroll_to_bottom_button_->raise ();
+    }
+  scroll_to_bottom_button_->setVisible (wanted);
+}
+
+//
+// Handle resize events to reposition the scroll-to-bottom button in viewport.
+//
+void DisplayText::resizeEvent (QResizeEvent * e)
+{
+  QTextEdit::resizeEvent (e);
+  updateScrollToBottomButton ();
 }
 
 void DisplayText::setContentFont(QFont const& font)
@@ -99,7 +188,10 @@ void DisplayText::setContentFont(QFont const& font)
     {
       setTextCursor (cursor);
       ensureCursorVisible ();
+      // this counts as an automatic scroll, so keep following from here
+      last_auto_scroll_position_ = verticalScrollBar ()->value ();
     }
+  updateScrollToBottomButton ();
 }
 
 void DisplayText::mouseDoubleClickEvent(QMouseEvent *e)
@@ -149,6 +241,13 @@ namespace
 void DisplayText::insertText(QString const& text, QColor bg, QColor fg
                              , QString const& call1, QString const& call2, QTextCursor::MoveOperation location)
 {
+  // only chase new entries if the view has not been scrolled away by the user
+  auto const was_following = following ();
+  // remember where the top visible line sits so that trimming of old entries,
+  // or insertion above the view port, does not drag a parked view along
+  auto const anchor = cursorForPosition (QPoint {0, 0});
+  auto const anchor_offset = cursorRect (anchor).top ();
+
   auto cursor = textCursor ();
   cursor.movePosition (location);
   auto block_format = cursor.blockFormat ();
@@ -225,12 +324,24 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
 
   // position so viewport scrolled to left
   cursor.movePosition (QTextCursor::StartOfLine);
-  if (!high_volume_ || !m_config || !m_config->decodes_from_top ())
+  if (was_following && (!high_volume_ || !m_config || !m_config->decodes_from_top ()))
     {
       setTextCursor (cursor);
       ensureCursorVisible ();
     }
   document ()->setMaximumBlockCount (document ()->maximumBlockCount ());
+  auto * vertical_scroll_bar = verticalScrollBar ();
+  if (was_following)
+    {
+      last_auto_scroll_position_ = vertical_scroll_bar->value ();
+    }
+  else
+    {
+      // hold the parked view on the same content
+      vertical_scroll_bar->setValue (vertical_scroll_bar->value ()
+                                     + cursorRect (anchor).top () - anchor_offset);
+    }
+  updateScrollToBottomButton ();
 }
 
 void DisplayText::extend_vertical_scrollbar (int min, int max)
@@ -252,6 +363,8 @@ void DisplayText::extend_vertical_scrollbar (int min, int max)
 
 void DisplayText::new_period ()
 {
+  // sample this before the block count and scroll bar range are altered below
+  auto const was_following = following ();
   if (m_config->decodes_from_top ()) {
     document ()->setMaximumBlockCount (4800);
     document ()->setMaximumBlockCount (5000);
@@ -275,7 +388,12 @@ void DisplayText::new_period ()
                                                extend_vertical_scrollbar (min, max );
                                              });
     }
-  verticalScrollBar ()->setSliderPosition (verticalScrollBar ()->maximum ());
+  if (was_following)
+    {
+      verticalScrollBar ()->setSliderPosition (verticalScrollBar ()->maximum ());
+      last_auto_scroll_position_ = verticalScrollBar ()->value ();
+    }
+  updateScrollToBottomButton ();
 }
 
 QString DisplayText::appendWorkedB4 (QString message, QString call, QString const& grid,
