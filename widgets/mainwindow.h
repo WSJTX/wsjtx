@@ -62,6 +62,7 @@
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "AutoRespondSelectionLatch.hpp"
+#include "AutoRespondScoring.hpp"
 #include "QsoProgress.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
@@ -1018,6 +1019,7 @@ private:
   QTimer m_jttyTxWatchdog;
   QTimer m_refSpecTimer;
   AutoRespondSelectionLatch m_autoRespondSelectionLatch;
+  AutoRespondScores m_autoRespondScores;
   int m_refSpecSecondsRemaining = 0;
 
   QString m_path;

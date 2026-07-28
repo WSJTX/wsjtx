@@ -407,12 +407,6 @@ bool not_erase = false;
 bool first_Fox_alert = true;
 bool second_Fox_alert = true;
 bool no_Fox_alert = false;
-int Dpoints=0;
-int maxDPoints=0;
-int dBpoints=-28;
-int dBpoints2=99;
-int maxdBPoints=-28;
-int mindBPoints=99;
 bool pounce = false;
 bool filtered = false;
 bool ignored = false;
@@ -2327,14 +2321,7 @@ void MainWindow::fastSink(qint64 frames)
 
     auto filterResult = MessageFilterLogic::evaluateMSK144(decodedtext, ctx, &m_logBook);
     if (filterResult.filtered) filtered = true;
-    if (filterResult.resetPoints) {
-      Dpoints=0;
-      maxDPoints=0;
-      dBpoints=-28;
-      dBpoints2=99;
-      maxdBPoints=-28;
-      mindBPoints=99;
-    }
+    if (filterResult.resetPoints) m_autoRespondScores.reset();
     if (filterResult.shouldReturn) return;
 
     // hide or ignore callsigns for MSK144
@@ -2411,10 +2398,9 @@ void MainWindow::fastSink(qint64 frames)
             azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
                     const_cast <char *> ((deGrid + "      ").left (6).toLatin1().constData()),&utch,
                     &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
-            Dpoints=nDkm;
-            if (!deGrid.contains(MainWindow::grid_regexp)) Dpoints=1;
-            if(Dpoints>maxDPoints) {
-                maxDPoints=Dpoints;
+            int distancePoints=nDkm;
+            if (!deGrid.contains(MainWindow::grid_regexp)) distancePoints=1;
+            if(m_autoRespondScores.considerDistance(distancePoints)) {
                 m_deCall=deCall;
                 m_bDoubleClicked=true;
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
@@ -2443,9 +2429,7 @@ void MainWindow::fastSink(qint64 frames)
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
                           )) {
-            dBpoints=decodedtext.string().mid(7,3).toInt();
-            if(dBpoints>maxdBPoints) {
-                maxdBPoints=dBpoints;
+            if(m_autoRespondScores.considerMaximumDb(decodedtext.snr())) {
                 m_deCall=deCall;
                 m_bDoubleClicked=true;
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
@@ -2474,9 +2458,7 @@ void MainWindow::fastSink(qint64 frames)
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
                           )) {
-            dBpoints2=decodedtext.string().mid(7,3).toInt();
-            if(dBpoints2<mindBPoints) {
-                mindBPoints=dBpoints2;
+            if(m_autoRespondScores.considerMinimumDb(decodedtext.snr())) {
                 m_deCall=deCall;
                 m_bDoubleClicked=true;
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
@@ -7583,12 +7565,7 @@ void MainWindow::clearDX ()
   if (m_config.clear_DXgrid () or (SpecOp::HOUND == m_specOp && m_config.superFox())) ui->dxGridEntry->clear ();
   if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
   if (ui->respondComboBox->isVisible()) {
-    Dpoints=0;                          // reset points
-    maxDPoints=0;                       // reset points
-    dBpoints=-28;                       // reset points
-    dBpoints2=99;                       // reset points
-    maxdBPoints=-28;                    // reset points
-    mindBPoints=99;                     // reset points
+    m_autoRespondScores.reset();
   }
   m_lastCallsign.clear ();
   m_rptSent.clear ();
@@ -7817,12 +7794,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->dxGridEntry->clear ();                   // clear dxGridEntry
     if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
     if (ui->respondComboBox->isVisible()) {
-      Dpoints=0;                          // reset points
-      maxDPoints=0;                       // reset points
-      dBpoints=-28;                       // reset points
-      dBpoints2=99;                       // reset points
-      maxdBPoints=-28;                    // reset points
-      mindBPoints=99;                     // reset points
+      m_autoRespondScores.reset();
     }
     ui->DX_Call_Button->clearFocus();
   }
@@ -14585,15 +14557,7 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
   keywordContext.respondSelection = ui->respondComboBox->currentText();
   auto const keywordDecision = DecodeOutputPlan::decideKeywordFilter(decodedtext, keywordContext);
   filtered = keywordDecision.filtered;
-  if (keywordDecision.resetPounceScores) {
-    extern int Dpoints, maxDPoints, dBpoints, dBpoints2, maxdBPoints, mindBPoints;
-    Dpoints = 0;
-    maxDPoints = 0;
-    dBpoints = -28;
-    dBpoints2 = 99;
-    maxdBPoints = -28;
-    mindBPoints = 99;
-  }
+  if (keywordDecision.resetPounceScores) m_autoRespondScores.reset();
   if (!keywordDecision.continueBatch) return false;
 
   DecodeOutputPlan::VisibilityFilterContext visibilityContext;
@@ -14821,7 +14785,6 @@ MainWindow::DecodeAlertSound MainWindow::selectDecodeAlertSound(bool alertsEnabl
 
 void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool pounce)
 {
-  extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints,maxdBPoints;
   if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
         or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
       && !filtered && !m_autoRespondSelectionLatch.isSelected() && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
@@ -14850,10 +14813,9 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
       azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
               const_cast <char *> ((deGrid + "      ").left (6).toLatin1().constData()),&utch,
               &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
-      Dpoints=nDkm;
-      if (!deGrid.contains(MainWindow::grid_regexp)) Dpoints=1;
-      if(Dpoints>maxDPoints) {
-          maxDPoints=Dpoints;
+      int distancePoints=nDkm;
+      if (!deGrid.contains(MainWindow::grid_regexp)) distancePoints=1;
+      if(m_autoRespondScores.considerDistance(distancePoints)) {
           m_deCall=deCall;
           m_bDoubleClicked=true;
           if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
@@ -14882,9 +14844,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
         (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
         (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
          )) {
-            dBpoints=decodedtext.string().mid(7,3).toInt();
-            if(dBpoints>maxdBPoints) {
-                maxdBPoints=dBpoints;
+            if(m_autoRespondScores.considerMaximumDb(decodedtext.snr())) {
                 m_deCall=deCall;
                 m_bDoubleClicked=true;
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
@@ -14913,9 +14873,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
         (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
         (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
          )) {
-            dBpoints2=decodedtext.string().mid(7,3).toInt();
-            if(dBpoints2<mindBPoints) {
-                mindBPoints=dBpoints2;
+            if(m_autoRespondScores.considerMinimumDb(decodedtext.snr())) {
                 m_deCall=deCall;
                 m_bDoubleClicked=true;
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {

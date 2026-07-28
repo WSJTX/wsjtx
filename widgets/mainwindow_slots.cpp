@@ -45,12 +45,6 @@ extern bool not_erase;
 extern bool first_Fox_alert;
 extern bool second_Fox_alert;
 extern bool no_Fox_alert;
-extern int Dpoints;
-extern int maxDPoints;
-extern int dBpoints;
-extern int dBpoints2;
-extern int maxdBPoints;
-extern int mindBPoints;
 extern bool pounce;
 extern bool filtered;
 extern bool ignored;
@@ -136,12 +130,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
       filtered = false;
       ignored = false;
       m_muted = false;
-      Dpoints=0;                          // reset points
-      maxDPoints=0;                       // reset points
-      dBpoints=-28;                       // reset points
-      dBpoints2=99;                       // reset points
-      maxdBPoints=-28;                    // reset points
-      mindBPoints=99;                     // reset points
+      m_autoRespondScores.reset();
   }
   m_maxPoints=-1;
   if (checked && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None"
@@ -175,12 +164,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
   if (ui->respondComboBox->isVisible() and ui->respondComboBox->currentIndex()!=0 and !m_diskData) {
-    Dpoints=0;                          // reset points
-    maxDPoints=0;                       // reset points
-    dBpoints=-28;                       // reset points
-    dBpoints2=99;                       // reset points
-    maxdBPoints=-28;                    // reset points
-    mindBPoints=99;                     // reset points
+    m_autoRespondScores.reset();
     if (!(m_mode=="Q65" or m_mode=="JT65")) {
       clearDX();                                   // clear dxCallEntry
       ui->dxGridEntry->clear ();                   // clear dxGridEntry
@@ -526,12 +510,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
                         ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
   m_inQSOwith="";
   if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
-        Dpoints=0;                          // reset points
-        maxDPoints=0;                       // reset points
-        dBpoints=-28;                       // reset points
-        dBpoints2=99;                       // reset points
-        maxdBPoints=-28;                    // reset points
-        mindBPoints=99;                     // reset points
+        m_autoRespondScores.reset();
   }
   QTimer::singleShot (2000, [=] {
       pounce = false;
@@ -611,12 +590,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
   if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
-      Dpoints=0;                          // reset points
-      maxDPoints=0;                       // reset points
-      dBpoints=-28;                       // reset points
-      dBpoints2=99;                       // reset points
-      maxdBPoints=-28;                    // reset points
-      mindBPoints=99;                     // reset points
+      m_autoRespondScores.reset();
   }
   pounce = false;
   ui->autoButton->setChecked(false);  // ensure autoButton is unchecked

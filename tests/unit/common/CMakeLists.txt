@@ -78,6 +78,12 @@ add_executable (test_auto_respond_selection_latch
 target_link_libraries (test_auto_respond_selection_latch Qt5::Test)
 add_test (NAME test_auto_respond_selection_latch COMMAND test_auto_respond_selection_latch)
 
+add_executable (test_auto_respond_scoring
+  test_auto_respond_scoring.cpp
+)
+target_link_libraries (test_auto_respond_scoring Qt5::Test)
+add_test (NAME test_auto_respond_scoring COMMAND test_auto_respond_scoring)
+
 add_executable (test_emulate_split_transceiver
   test_emulate_split_transceiver.cpp
   ${CMAKE_SOURCE_DIR}/Transceiver/EmulateSplitTransceiver.cpp
