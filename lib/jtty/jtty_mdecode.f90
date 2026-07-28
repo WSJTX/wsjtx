@@ -98,7 +98,6 @@ contains
          nslots=0
       endif
       if(sum(abs(int(iwave))).eq.0) return
-      if(f0+ftol.eq.-99.0) return               !Silence compiler warning of unused params
 
       nchunk6=nchunk/2                ! chunk size at 6000 Sa/s
 ! nana is the size of c0 - next power of 2 larger than nchunk
@@ -167,9 +166,9 @@ contains
          istep=istep+1
       enddo
 
-! Look for up to 2 sync candidates in each 0.424 second by 2*FTol rectangle in 
+! Look for up to 2 sync candidates in each quarter-frame (0.424 second) by 2*FTol rectangle in 
 ! the time/frequency plane. Find the peak in the search rectangle, then zero a small region
-! of size nfz by ntz centered on the peak location. Then find the location of the next peak.
+! of size nfz by ntz centered on the peak location and find the location of the next peak.
 
       nfz=nint(10.0/df2)            ! 14 
       ntz=nint(0.016*6000.0/12.0)   !  8
@@ -180,8 +179,10 @@ contains
 
       do ichan=0, nchan         ! frequency channels - channel 0 is always centered on f0
          if(ichan.eq.0) then
-            fc=1500      ! hardwired for now
-            fwid=50
+!            fc=1500      ! hardwired for now
+!            fwid=50
+            fc=f0
+            fwid=ftol
          else            ! for now, hardwired nonoverlapping channels
             fc=ichan*200
             fwid=100
