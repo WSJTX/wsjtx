@@ -138,11 +138,14 @@ void MainWindow::jtty_decode(int k)
           ui->decodedTextBrowser->setTextCursor(cursor);
           ui->decodedTextBrowser->ensureCursorVisible();
       }
-#ifdef WIN32
-      if (m_mmttyif) {
-          m_mmttyif->echo_message_to_n1mm(append_separator(allMsgs));
-      }
-#endif
+
+//For now, at least, we're sending only the "on-frequency" decodes to N1MM
+//#ifdef WIN32
+//      if (m_mmttyif) {
+//          m_mmttyif->echo_message_to_n1mm(append_separator(allMsgs));
+//      }
+//#endif
+
   }
   if(qso_new) {
       QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
@@ -162,6 +165,7 @@ void MainWindow::jtty_decode(int k)
           }
 
           QString delta;
+          bool startNew{false};       //Set to "true" when N1MM should start display of text on a new line
           if (matchIndex >= 0) {
               auto& known = m_jttyQsoLines[matchIndex];
               if (newLine.length() <= known.text.length()) continue;   // unchanged this call
@@ -171,6 +175,7 @@ void MainWindow::jtty_decode(int k)
               cursor.insertText(delta);
               known.text = newLine;
           } else {
+              startNew = true;
               delta = newLine;
               ui->decodedTextBrowser2->insertText(newLine);
               m_jttyQsoLines.append({newLine, ui->decodedTextBrowser2->textCursor().block()});
@@ -178,7 +183,9 @@ void MainWindow::jtty_decode(int k)
 
 #ifdef WIN32
           if (m_mmttyif) {
-              m_mmttyif->echo_message_to_n1mm(append_separator(delta));
+//            m_mmttyif->echo_message_to_n1mm(append_separator(delta));
+            if(startNew) delta = "\r\n" + delta.mid(8,-1); //Insert CRLF at start and delete the Freq and SNR info
+            m_mmttyif->echo_message_to_n1mm(delta);
           }
 #endif
       }
