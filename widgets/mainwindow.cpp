@@ -5135,9 +5135,6 @@ void MainWindow::activeWorked(QString call, QString band)
 void MainWindow::readFromStdout()                             //readFromStdout
 {
   bool bDisplayPoints = false;
-  filtered = false;
-  ignored = false;
-  m_muted = false;
   QString all_decodes;
   if(m_ActiveStationsWidget!=NULL) {
     bDisplayPoints=(m_mode=="FT4" or m_mode=="FT8") and
@@ -5161,6 +5158,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
   preparationContext.nominalFrequency = m_freqNominal;
   preparationContext.reduceFalseDecodes = ui->actionReduce_false_decodes->isChecked();
   while(proc_jt9.canReadLine()) {
+    filtered = false;
+    ignored = false;
+    m_muted = false;
     auto const raw_line = proc_jt9.readLine ();
     // earlyDecodes grows as lines are displayed within this batch
     preparationContext.earlyDecodes = earlyDecodes;
