@@ -35,10 +35,11 @@ private:
     QVERIFY(!scores.considerMinimumDb(-5));
   }
 
-  Q_SLOT void distanceRequiresPositiveImprovement()
+  Q_SLOT void firstDistanceCandidateAlwaysWins()
   {
     AutoRespondScores scores;
 
+    QVERIFY(scores.considerDistance(0));
     QVERIFY(!scores.considerDistance(0));
     QVERIFY(scores.considerDistance(1));
     QVERIFY(scores.considerDistance(100));
@@ -54,7 +55,7 @@ private:
 
     scores.reset();
 
-    QVERIFY(scores.considerDistance(1));
+    QVERIFY(scores.considerDistance(0));
     QVERIFY(scores.considerMaximumDb(-40));
     QVERIFY(scores.considerMinimumDb(40));
   }

@@ -8,7 +8,7 @@ class AutoRespondScores final
 public:
   void reset()
   {
-    m_maximumDistance = 0;
+    m_maximumDistance = std::numeric_limits<int>::lowest();
     m_maximumDb = std::numeric_limits<int>::lowest();
     m_minimumDb = std::numeric_limits<int>::max();
   }
@@ -35,7 +35,7 @@ public:
   }
 
 private:
-  int m_maximumDistance {0};
+  int m_maximumDistance {std::numeric_limits<int>::lowest()};
   int m_maximumDb {std::numeric_limits<int>::lowest()};
   int m_minimumDb {std::numeric_limits<int>::max()};
 };
