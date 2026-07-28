@@ -165,7 +165,9 @@ void MainWindow::jtty_decode(int k)
           }
 
           QString delta;
+#ifdef WIN32
           bool startNew{false};       //Set to "true" when N1MM should start display of text on a new line
+#endif
           if (matchIndex >= 0) {
               auto& known = m_jttyQsoLines[matchIndex];
               if (newLine.length() <= known.text.length()) continue;   // unchanged this call
@@ -175,7 +177,9 @@ void MainWindow::jtty_decode(int k)
               cursor.insertText(delta);
               known.text = newLine;
           } else {
+#ifdef WIN32
               startNew = true;
+#endif
               delta = newLine;
               ui->decodedTextBrowser2->insertText(newLine);
               m_jttyQsoLines.append({newLine, ui->decodedTextBrowser2->textCursor().block()});
