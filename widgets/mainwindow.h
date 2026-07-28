@@ -128,6 +128,7 @@ class MultiSettings;
 namespace DecodedMessageReaction
 {
   enum class ContestHint;
+  enum class ReactionDisposition;
   enum class WaitDecodeSource;
   struct QsoReactionEffect;
   struct QsoReactionPlan;
@@ -567,7 +568,7 @@ private:
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
   void processFoxSignals(const DecodedText& dt);
   void processSFoxVerification(const DecodedText& dt, bool& filtered);
-  bool processWaitReplyCall(
+  DecodedMessageReaction::ReactionDisposition processWaitReplyCall(
     DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
     bool * block_right_display = nullptr);
   bool applyFiltering(const DecodedText& dt, bool& filtered);

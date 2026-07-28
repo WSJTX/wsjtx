@@ -809,7 +809,7 @@ namespace DecodedMessageReaction
 
     if (reply && slowPolicy && snapshot.specOp == SpecOp::HOUND
         && (text.mid(4, 2).contains("15") || text.mid(4, 2).contains("45"))) {
-      plan.disposition = ReactionDisposition::AbortDecodeBatch;
+      plan.disposition = ReactionDisposition::IgnoreDecode;
       plan.reason = "hound ignores slow decode from wrong time slot";
       return plan;
     }

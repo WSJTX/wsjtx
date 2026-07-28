@@ -16,7 +16,7 @@ namespace DecodedMessageReaction
   {
     NoReaction,
     Reacted,
-    AbortDecodeBatch
+    IgnoreDecode
   };
 
   enum class WaitDecodeSource

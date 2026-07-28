@@ -2366,8 +2366,9 @@ void MainWindow::fastSink(qint64 frames)
       }
     }
 
-    if (!processWaitReplyCall(
-          decodedtext, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder)) return;
+    if (processWaitReplyCall(
+          decodedtext, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder)
+        == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) return;
 
     updateRespondTarget(decodedtext, text, pounce);
     // show distance and bearing for MSK144
@@ -5123,8 +5124,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         QString text = decodedtext.string().replace("<", "").replace(">", "");
 
-        if (!processWaitReplyCall(decodedtext0, DecodedMessageReaction::WaitDecodeSource::SlowDecoder,
-                                  &block_right_display)) return;
+        if (processWaitReplyCall(decodedtext0, DecodedMessageReaction::WaitDecodeSource::SlowDecoder,
+                                 &block_right_display)
+            == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) continue;
 
         if (!applyFiltering(decodedtext, filtered)) continue;
 
@@ -5355,7 +5357,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   m_nFoxFreq=decodedtext.string().mid(16,4).toInt();
                   hound_reply ();
                 } else {
-                  if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) return;  // ignore stations calling in the wrong time slot
+                  if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) continue;
                   if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))  processSyntheticMessage(decodedtext0);   // needed for MSHV multistream messages
                 }
               }
@@ -14401,11 +14403,11 @@ void MainWindow::processSFoxVerification(const DecodedText& decodedtext0, bool& 
 #endif
 }
 
-bool MainWindow::processWaitReplyCall(
+DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
   DecodedText const& message, DecodedMessageReaction::WaitDecodeSource source,
   bool * block_right_display)
 {
-  if (m_hisCall.isEmpty()) return true;
+  if (m_hisCall.isEmpty()) return DecodedMessageReaction::ReactionDisposition::NoReaction;
 
   bool const waitFeaturesEnabled = m_config.Wait_features_enabled();
   bool eligible = false;
@@ -14425,12 +14427,12 @@ bool MainWindow::processWaitReplyCall(
     eligible = m_mode == "MSK144"
       && (waitReply || waitCall || ui->DX_Call_Button->isChecked());
   }
-  if (!eligible) return true;
+  if (!eligible) return DecodedMessageReaction::ReactionDisposition::NoReaction;
 
   auto const plan = DecodedMessageReaction::planWaitReplyCall(
     message, qsoReactionSnapshot(), source);
   applyQsoReactionPlan(plan, message, block_right_display);
-  return plan.disposition != DecodedMessageReaction::ReactionDisposition::AbortDecodeBatch;
+  return plan.disposition;
 }
 bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
 {

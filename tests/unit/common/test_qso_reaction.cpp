@@ -456,7 +456,7 @@ private slots:
     QCOMPARE(intEffect(plan, Effect::Kind::StartWaitCallTimer), 93000);
   }
 
-  void slowHoundWrongSlotAbortsBatch()
+  void slowHoundWrongSlotIgnoresDecode()
   {
     auto snapshot = baseSnapshot();
     snapshot.specOp = SpecialOperatingActivity::HOUND;
@@ -464,7 +464,7 @@ private slots:
     auto const plan = DecodedMessageReaction::planWaitReplyCall(
       decode("K1ABC W1AW -10", "~", "060515"), snapshot,
       DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
-    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::AbortDecodeBatch);
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::IgnoreDecode);
   }
 
   void msk144WaitPolicies()
