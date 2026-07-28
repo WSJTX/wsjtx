@@ -57,6 +57,16 @@ namespace
       return batch_sizes_;
     }
 
+    QHostAddress senderAddress () const
+    {
+      return sender_address_;
+    }
+
+    quint16 senderPort () const
+    {
+      return sender_port_;
+    }
+
     void clear ()
     {
       drain ();
@@ -74,7 +84,8 @@ namespace
         {
           QByteArray datagram;
           datagram.resize (static_cast<int> (socket_.pendingDatagramSize ()));
-          if (0 <= socket_.readDatagram (datagram.data (), datagram.size ()))
+          if (0 <= socket_.readDatagram (datagram.data (), datagram.size (),
+                                         &sender_address_, &sender_port_))
             {
               datagrams_.append (datagram);
               arrival_times_.append (clock_.elapsed ());
@@ -92,6 +103,8 @@ namespace
     QVector<QByteArray> datagrams_;
     QVector<qint64> arrival_times_;
     QVector<int> batch_sizes_;
+    QHostAddress sender_address_;
+    quint16 sender_port_ {0};
   };
 
   NetworkMessage::Type messageType (QByteArray const& datagram)
@@ -123,6 +136,19 @@ namespace
                           50, 15, "Default", tx_message);
   }
 
+  void sendReply (DatagramReceiver& receiver, QTime time, qint32 snr, float delta_time,
+                  quint32 delta_frequency, QString const& mode, QString const& message,
+                  bool low_confidence = false)
+  {
+    QByteArray datagram;
+    NetworkMessage::Builder out {&datagram, NetworkMessage::Reply, "test-client", 2};
+    out << time << snr << delta_time << delta_frequency << mode.toUtf8 () << message.toUtf8 ()
+        << low_confidence << quint8 {0};
+    QCOMPARE (receiver.socket ()->writeDatagram (datagram, receiver.senderAddress (),
+                                                  receiver.senderPort ()),
+              static_cast<qint64> (datagram.size ()));
+  }
+
   std::unique_ptr<MessageClient> makeClient (quint16 port)
   {
     return std::unique_ptr<MessageClient> {new MessageClient {
@@ -143,6 +169,53 @@ class TestMessageClientReplay final
   Q_OBJECT
 
 private Q_SLOTS:
+  void replyMatchesSentDecodeIndependentlyOfDisplay ()
+  {
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QTime const time {12, 34, 45};
+    QString const message {"K1ABC N0CALL -10"};
+    client->decode (true, time, -12, 0.2f, 1425, "~", message, false, false);
+    QTRY_COMPARE (receiver.datagrams ().size (), 1);
+
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", message);
+
+    QTRY_COMPARE (replies.size (), 1);
+    QCOMPARE (replies.front ().at (5).toString (), message);
+  }
+
+  void replyRequiresUnclearedExactDecode ()
+  {
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QTime const time {12, 34, 45};
+    QString const message {"CQ K1ABC FN42"};
+    client->decode (true, time, -12, 0.2f, 1425, "~", message, false, false);
+    QTRY_COMPARE (receiver.datagrams ().size (), 1);
+
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", "CQ K1ABC FN43");
+    QTest::qWait (20);
+    QCOMPARE (replies.size (), 0);
+
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", message);
+    QTRY_COMPARE (replies.size (), 1);
+
+    client->decodes_cleared ();
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", message);
+    QTest::qWait (20);
+    QCOMPARE (replies.size (), 1);
+  }
+
   void replayIsDeferredPacedAndOrdered ()
   {
     DatagramReceiver receiver;

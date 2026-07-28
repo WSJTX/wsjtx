@@ -160,7 +160,6 @@ namespace {
   QRegularExpression const cq_or_qrz_message_regexp {"^(CQ|QRZ) "};
   QRegularExpression const leading_r_report_regexp {"^R(?!R73|RR)"};
   QRegularExpression const roger_ack_regexp {"^RR(?:R|73)$"};
-  QRegularExpression const ap_suffix_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9]?)$)"};
   QRegularExpression const reply_cq_or_qrz_regexp {R"(^(CQ |CQDX |QRZ ))"};
 
   void clearFoxTxMessages()
@@ -10961,67 +10960,37 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
                             , QString const& mode, QString const& message_text
                             , bool /*low_confidence*/, quint8 modifiers)
 {
-  QString format_string {"%1 %2 %3 %4 %5 %6"};
   auto const& time_string = time.toString ("~" == mode || "&" == mode || "+" == mode
                                            || (m_TRperiod < 60. && ("`" == mode || ":" == mode))
                                            ? "hhmmss" : "hhmm");
-  auto text = message_text;
-  auto ap_pos = text.lastIndexOf (ap_suffix_regexp);
-  if (ap_pos >= 0)
-    {
-      // beware of decodes ending on shorter version of wanted call so
-      // add a space
-      text = text.left (ap_pos).trimmed () + ' ';
-    }
-  auto message_line = format_string
+  auto message_line = QString {"%1 %2 %3 %4 %5 %6"}
     .arg (time_string)
     .arg (snr, 3)
     .arg (delta_time, 4, 'f', 1)
     .arg (delta_frequency, 4)
     .arg (mode, -2)
-    .arg (text);
-  QTextCursor start {ui->decodedTextBrowser->document ()};
-  start.movePosition (QTextCursor::End);
-  auto cursor = ui->decodedTextBrowser->document ()->find (message_line, start, QTextDocument::FindBackward);
-  if (cursor.isNull ())
+    .arg (message_text);
+  if (m_config.udpWindowToFront ())
     {
-      // try again with with -0.0 delta time
-      cursor = ui->decodedTextBrowser->document ()->find (format_string
-                                                          .arg (time_string)
-                                                          .arg (snr, 3)
-                                                          .arg ('-' + QString::number (delta_time, 'f', 1), 4)
-                                                          .arg (delta_frequency, 4)
-                                                          .arg (mode, -2)
-                                                          .arg (text), start, QTextDocument::FindBackward);
+      show ();
+      raise ();
+      activateWindow ();
     }
-  if (!cursor.isNull ())
+  if (m_config.udpWindowRestore () && isMinimized ())
     {
-      if (m_config.udpWindowToFront ())
-        {
-          show ();
-          raise ();
-          activateWindow ();
-        }
-      if (m_config.udpWindowRestore () && isMinimized ())
-        {
-          showNormal ();
-          raise ();
-        }
-      if ((text.contains (reply_cq_or_qrz_regexp))
-          || text.contains("73 ") || (ui->cbHoldTxFreq->isChecked ())) {
-        // a message we are willing to accept and auto reply to
-        m_bDoubleClicked = true;
-      }
-      DecodedText message {message_line};
-      Qt::KeyboardModifiers kbmod {modifiers << 24};
-      processMessage (message, kbmod, /*from_udp_reply=*/true);
-      tx_watchdog (false);
-      QApplication::alert (this);
+      showNormal ();
+      raise ();
     }
-  else
-    {
-      qDebug () << "process reply message ignored, decode not found:" << message_line;
+  if ((message_text.contains (reply_cq_or_qrz_regexp))
+      || message_text.contains("73 ") || (ui->cbHoldTxFreq->isChecked ())) {
+    // a message we are willing to accept and auto reply to
+    m_bDoubleClicked = true;
     }
+  DecodedText message {message_line};
+  Qt::KeyboardModifiers kbmod {modifiers << 24};
+  processMessage (message, kbmod, /*from_udp_reply=*/true);
+  tx_watchdog (false);
+  QApplication::alert (this);
 }
 
 void MainWindow::locationChange (QString const& location)
