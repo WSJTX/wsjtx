@@ -1,7 +1,7 @@
 #include "Transceiver/TCITransceiver.hpp"
+#include "Transceiver/TCIProtocol.hpp"
 
 #include <QRegularExpression>
-#include <QLocale>
 #include <QThread>
 #include <qmath.h>
 
@@ -31,6 +31,8 @@ namespace
 {
   char const * const TCI_transceiver_1_name {"TCI Client RX1"};
   char const * const TCI_transceiver_2_name {"TCI Client RX2"};
+  // Exactly 1 MHz remains within the current band.
+  quint64 constexpr band_change_threshold_hz {1000000u};
 
   bool has_required_args (QStringList const& args, int required)
   {
@@ -695,11 +697,27 @@ void TCITransceiver::onMessageReceived(const QString &str)
         printf("%s Cmd_Power : %s %d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str(),power_);
         break;
       case Cmd_VFO:
+      {
         printf("%s Cmd_VFO : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
         printf("band_change:%d busy_other_frequency_:%d timer1_remaining:%d timer2_remaining:%d",band_change,busy_other_frequency_,tci_timer7_->remainingTime(),tci_timer2_->remainingTime());
-        if (!has_required_args (args, 3)) break;
-        if(args.at(0)==rx_ && args.at(1) == "0") {
-          if (args.at(2).left(1) != "-") rx_frequency_ = args.at(2);
+        if (!has_required_args (args, 1) || args.at (0) != rx_) break;
+        if (!has_required_args (args, 3)
+            || (args.at (1) != "0" && args.at (1) != "1"))
+          {
+            error_ = tr ("TCI sent an invalid VFO frequency");
+            CAT_TRACE (error_);
+            break;
+          }
+        Frequency received_frequency;
+        if (!TciProtocol::parse_frequency (args.at (2), &received_frequency))
+          {
+            error_ = tr ("TCI sent an invalid VFO frequency");
+            CAT_TRACE (error_ + ": " + args.at (2));
+            break;
+          }
+        auto const received_frequency_text = QString::number (received_frequency);
+        if(args.at(1) == "0") {
+          rx_frequency_ = received_frequency_text;
           CAT_TRACE("Rx VFO Frequency from SDR is :");
           CAT_TRACE(rx_frequency_);
           if (!tci_Ready && requested_rx_frequency_.isEmpty()) requested_rx_frequency_ = rx_frequency_;
@@ -711,8 +729,8 @@ void TCITransceiver::onMessageReceived(const QString &str)
             tci_timer2_->start(210);
           }
         }
-        else if (args.at(0)==rx_ && args.at(1) == "1") {
-          if (args.at(2).left(1) != "-") other_frequency_ = args.at(2);
+        else {
+          other_frequency_ = received_frequency_text;
           CAT_TRACE("Tx VFO (other) Frequency from SDR is :");
           CAT_TRACE(other_frequency_);
           if (!tci_Ready && requested_other_frequency_.isEmpty()) requested_other_frequency_ = other_frequency_;
@@ -733,6 +751,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
           }
         }
         break;
+      }
       case Cmd_Mode:
         printf("%s Cmd_Mode : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
         if (!has_required_args (args, 2)) break;
@@ -1254,11 +1273,13 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
   if (tci_Ready && _power_) {
     if ((rx_frequency_ != requested_rx_frequency_)) {
       busy_rx_frequency_ = true;
-      band_change = abs(rx_frequency_.toInt()-requested_rx_frequency_.toInt()) > 1000000;
+      band_change = TciProtocol::frequency_difference_exceeds (
+        string_to_frequency (rx_frequency_), f, band_change_threshold_hz);
       const QString cmd = CmdVFO + SmDP + rx_ + SmCM + "0" + SmCM + requested_rx_frequency_ + SmTZ;
       if(f > 100000 && f< 250000000000) sendTextMessage(cmd);
       mysleep7(2000);
-      band_change2 = abs(rx_frequency_.toInt()-requested_rx_frequency_.toInt()) > 1000000;
+      band_change2 = TciProtocol::frequency_difference_exceeds (
+        string_to_frequency (rx_frequency_), f, band_change_threshold_hz);
       if (!band_change2) update_rx_frequency (f);
       else {
         printf("%s TCI failed set rxfreq:%s->%s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),rx_frequency_.toStdString().c_str(),requested_rx_frequency_.toStdString().c_str());
@@ -1322,7 +1343,8 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
         const QString cmd = CmdVFO + SmDP + rx_ + SmCM + "1" + SmCM + requested_other_frequency_ + SmTZ;
         if(tx > 100000 && tx < 250000000000) sendTextMessage(cmd);
         mysleep2(1000);
-        other_band_change = abs(other_frequency_.toInt()-requested_other_frequency_.toInt()) > 1000000;
+        other_band_change = TciProtocol::frequency_difference_exceeds (
+          string_to_frequency (other_frequency_), tx, band_change_threshold_hz);
         if (!other_band_change) update_other_frequency (tx);
         else {
           printf("%s TCI failed set txfreq:%s->%s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),other_frequency_.toStdString().c_str(),requested_other_frequency_.toStdString().c_str());
@@ -1481,19 +1503,14 @@ QString TCITransceiver::frequency_to_string (Frequency f) const
   return f_string;
 }
 
-auto TCITransceiver::string_to_frequency (QString s) const -> Frequency
+auto TCITransceiver::string_to_frequency (QString const& s) const -> Frequency
 {
-  s.replace (QChar {QChar::ReplacementCharacter}, locale_.groupSeparator ());
-
-  bool ok;
-
-  auto f = QLocale::c ().toDouble (s, &ok);
-
-  if (!ok)
-  {
-    printf("Frequency rejected is ***%s***\n",s.toStdString().c_str());
-  }
-  return f;
+  Frequency frequency;
+  if (!TciProtocol::parse_frequency (s, &frequency))
+    {
+      throw error {tr ("TCI sent an invalid VFO frequency")};
+    }
+  return frequency;
 }
 
 void TCITransceiver::mysleep1 (int ms)

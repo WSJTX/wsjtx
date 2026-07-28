@@ -186,7 +186,7 @@ protected:
 private:
   MODE get_mode (bool requested = false);
   QString frequency_to_string (Frequency) const;
-  Frequency string_to_frequency (QString) const;
+  Frequency string_to_frequency (QString const&) const;
   void mysleep1 (int ms = 1);
   void mysleep2 (int ms = 1);
   void mysleep3 (int ms = 1);
@@ -209,7 +209,6 @@ private:
   bool tci_audio_;
   bool _power_;
   QWebSocket * commander_;
-  QLocale locale_;
   QTimer * tci_timer1_;
   QEventLoop * tci_loop1_;
   QTimer * tci_timer2_;
