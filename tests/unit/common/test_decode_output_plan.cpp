@@ -29,7 +29,7 @@ class TestDecodeOutputPlan final
   {
     KeywordFiltered = 1 << 0,
     FinallyFiltered = 1 << 1,
-    ContinueBatch = 1 << 2,
+    ContinueProcessing = 1 << 2,
     AlwaysPassed = 1 << 3,
     ResetPounceScores = 1 << 4,
     DisplayLeft = 1 << 5
@@ -648,7 +648,7 @@ private slots:
     QCOMPARE(actionNames(plan.actions), QStringList({"qsy"}));
   }
 
-  void blacklistCanAbortOrContinueWithScoreReset()
+  void blacklistCanRejectOrContinueWithScoreReset()
   {
     DecodedText const message {"060500 -10  0.3 1500 ~  CQ W1AW FN31"};
     DecodeOutputPlan::KeywordFilterContext context;
@@ -658,7 +658,7 @@ private slots:
 
     auto decision = DecodeOutputPlan::decideKeywordFilter(message, context);
     QVERIFY(decision.filtered);
-    QVERIFY(!decision.continueBatch);
+    QVERIFY(!decision.continueProcessing);
     QVERIFY(!decision.resetPounceScores);
 
     context.waitAndPounceOnly = true;
@@ -666,7 +666,7 @@ private slots:
     context.respondSelection = "CQ: Max Dist";
     decision = DecodeOutputPlan::decideKeywordFilter(message, context);
     QVERIFY(decision.filtered);
-    QVERIFY(decision.continueBatch);
+    QVERIFY(decision.continueProcessing);
     QVERIFY(decision.resetPounceScores);
   }
 
@@ -683,32 +683,32 @@ private slots:
       QTest::newRow(name) << options << outcomes << keywordReason << visibilityReason;
     };
 
-    addRow("baseline", 0, ContinueBatch | DisplayLeft);
-    addRow("blacklist stops batch", Blacklist, KeywordFiltered | FinallyFiltered,
+    addRow("baseline", 0, ContinueProcessing | DisplayLeft);
+    addRow("blacklist rejects message", Blacklist, KeywordFiltered | FinallyFiltered,
            "blacklist matched");
-    addRow("whitelist miss stops batch", Whitelist, KeywordFiltered | FinallyFiltered,
+    addRow("whitelist miss rejects message", Whitelist, KeywordFiltered | FinallyFiltered,
            "whitelist did not match");
     addRow("blacklist precedes whitelist", Blacklist | Whitelist,
            KeywordFiltered | FinallyFiltered, "blacklist matched");
     addRow("always-pass precedes keyword lists", AlwaysPass | Blacklist | Whitelist,
-           ContinueBatch | AlwaysPassed | DisplayLeft);
+           ContinueProcessing | AlwaysPassed | DisplayLeft);
     addRow("always-pass preserves earlier filter", InitiallyFiltered | AlwaysPass | Blacklist,
-           KeywordFiltered | FinallyFiltered | ContinueBatch | AlwaysPassed);
+           KeywordFiltered | FinallyFiltered | ContinueProcessing | AlwaysPassed);
     addRow("always-pass does not bypass ignore list", AlwaysPass | HideIgnored,
-           FinallyFiltered | ContinueBatch | AlwaysPassed, {}, "ignore-list filter");
+           FinallyFiltered | ContinueProcessing | AlwaysPassed, {}, "ignore-list filter");
     addRow("always-pass does not bypass worked-today", AlwaysPass | HideWorkedToday,
-           FinallyFiltered | ContinueBatch | AlwaysPassed, {}, "recently-worked filter");
+           FinallyFiltered | ContinueProcessing | AlwaysPassed, {}, "recently-worked filter");
     addRow("bypass suppresses all filters but resets scoring pounce",
            Blacklist | Whitelist | Bypass | ScoringPounce | HideIgnored | HideWorkedToday,
-           ContinueBatch | ResetPounceScores | DisplayLeft, "blacklist matched");
+           ContinueProcessing | ResetPounceScores | DisplayLeft, "blacklist matched");
     addRow("wait-and-pounce filter continues and displays",
            Blacklist | WaitAndPounceOnly | ScoringPounce,
-           KeywordFiltered | FinallyFiltered | ContinueBatch | ResetPounceScores | DisplayLeft,
+           KeywordFiltered | FinallyFiltered | ContinueProcessing | ResetPounceScores | DisplayLeft,
            "blacklist matched");
     addRow("non-scoring pounce does not reset", Blacklist | WaitAndPounceOnly | NonScoringPounce,
-           KeywordFiltered | FinallyFiltered | ContinueBatch | DisplayLeft,
+           KeywordFiltered | FinallyFiltered | ContinueProcessing | DisplayLeft,
            "blacklist matched");
-    addRow("stopped batch does not reset scoring pounce", Blacklist | ScoringPounce,
+    addRow("rejected message does not reset scoring pounce", Blacklist | ScoringPounce,
            KeywordFiltered | FinallyFiltered, "blacklist matched");
   }
 
@@ -737,7 +737,7 @@ private slots:
     auto const keywordDecision = DecodeOutputPlan::decideKeywordFilter(message, keywordContext);
     bool finalFiltered = keywordDecision.filtered;
     QString visibilityReason;
-    if (keywordDecision.continueBatch) {
+    if (keywordDecision.continueProcessing) {
       DecodeOutputPlan::VisibilityFilterContext visibilityContext;
       visibilityContext.alreadyFiltered = finalFiltered;
       visibilityContext.alwaysPassed = keywordDecision.alwaysPassed;
@@ -752,13 +752,13 @@ private slots:
       finalFiltered = visibilityDecision.filtered;
       visibilityReason = visibilityDecision.reason;
     }
-    bool const displayLeft = keywordDecision.continueBatch
+    bool const displayLeft = keywordDecision.continueProcessing
       && DecodeOutputPlan::shouldDisplayLeft(false, "FT8", SpecOp::NONE, finalFiltered,
                                              keywordContext.waitAndPounceOnly);
 
     QCOMPARE(keywordDecision.filtered, bool(expectedOutcomes & KeywordFiltered));
     QCOMPARE(finalFiltered, bool(expectedOutcomes & FinallyFiltered));
-    QCOMPARE(keywordDecision.continueBatch, bool(expectedOutcomes & ContinueBatch));
+    QCOMPARE(keywordDecision.continueProcessing, bool(expectedOutcomes & ContinueProcessing));
     QCOMPARE(keywordDecision.alwaysPassed, bool(expectedOutcomes & AlwaysPassed));
     QCOMPARE(keywordDecision.resetPounceScores, bool(expectedOutcomes & ResetPounceScores));
     QCOMPARE(keywordDecision.reason, expectedKeywordReason);
@@ -779,7 +779,7 @@ private slots:
 
     QCOMPARE(decision.selectedWord, QString {"W1AW"});
     QVERIFY(decision.filtered);
-    QVERIFY(!decision.continueBatch);
+    QVERIFY(!decision.continueProcessing);
   }
 
   void alwaysPassSkipsGeographyLookupButNotIgnoreList()

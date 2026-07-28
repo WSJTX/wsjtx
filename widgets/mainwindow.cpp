@@ -5232,7 +5232,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         if (!processWaitReplyCall(decodedtext0, DecodedMessageReaction::WaitDecodeSource::SlowDecoder,
                                   &block_right_display)) return;
 
-        if (!applyFiltering(decodedtext, filtered)) return;
+        if (!applyFiltering(decodedtext, filtered)) continue;
 
 
         // insert blank line, but only if not filtered and no decodes
@@ -14558,7 +14558,7 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
   auto const keywordDecision = DecodeOutputPlan::decideKeywordFilter(decodedtext, keywordContext);
   filtered = keywordDecision.filtered;
   if (keywordDecision.resetPounceScores) m_autoRespondScores.reset();
-  if (!keywordDecision.continueBatch) return false;
+  if (!keywordDecision.continueProcessing) return false;
 
   DecodeOutputPlan::VisibilityFilterContext visibilityContext;
   visibilityContext.alreadyFiltered = filtered;
