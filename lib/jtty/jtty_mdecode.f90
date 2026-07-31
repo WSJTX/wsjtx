@@ -18,8 +18,7 @@ module jtty_mdec
 
 contains
 
-  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,f0,ftol,smin, &
-       synced,xdt_qso,f1_qso,snr_qso,line,success,nharderrors,nsync,dmin)
+  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
 !  jtty_decode.f90. Does not pass decodes back to rjtty_sub yet - just prints
@@ -36,39 +35,38 @@ contains
       integer, parameter             :: NFRAME_SYM = 53
       real, parameter                :: FSAMPLE = 6000.0
       real, parameter                :: TWOPI = 6.283185307179586
-      character(len=80), intent(out) :: line
       character(len=80)              :: msg
       character(len=32)              :: c32(MAX_FRAMES)
       integer(int8)                  :: message32(32), cw80(80)
       integer(int16), intent(in)     :: iwave(nchunk)
       integer, intent(in)            :: istart, ndebug
-      integer                        :: i,i0,j,ja,jb,k,kz,n
+      integer                        :: i,i0,is,j,ja,jb,k,kz,n
       integer, save                  :: ntstep
       integer                        :: istep
       integer                        :: nchan, ichan
       integer, intent(in)            :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
+      integer, intent(in)            :: nfa,nfb       !Wide Graph freq range
       integer                        :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
       integer, save                  :: nframe6       !size of frame at 6000 Sa/s
       integer, save                  :: nsps0=-999
       integer, save                  :: nfft,nh2,nss
       integer                        :: iloc(1)
-      integer                        :: irxsync(NSYNC_SYM)
+      integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
       integer                        :: ndeep, maxiterations, islot
       integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc
-      integer, intent(out)           :: nharderrors,nsync
+      integer                        :: nharderrors,nsync,nsymerrs
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
       real, allocatable, save        :: s(:), sm(:), s0(:,:)
       real                           :: a(3)
-      real                           :: bitmetrics(1:80), pow(0:3)
+      real                           :: bitmetrics(1:80), pow(0:3,NCHAN_SYM)
       real                           :: p00, p01, p11, p10
       real, save                     :: baud,dt,df2
       real                           :: phi,dphi
       real                           :: x2,db
       real, intent(in)               :: f0,ftol,smin
-      real, intent(out)              :: dmin
-      real, intent(out)              :: xdt_qso,f1_qso,snr_qso
+      real                           :: dmin
       real                           :: snrdb, xdt
       real                           :: xdt1, f11, snr0, df1, dtsync, dxdt
       complex, allocatable,save      :: c(:)
@@ -77,21 +75,15 @@ contains
       complex, allocatable,save      :: csync(:)    !Waveform for sync at 6000 s^-1 sample rate
       complex, allocatable,save      :: ctones(:,:)
       complex                        :: z
-      logical, intent(out)           :: success
-      logical, intent(inout)         :: synced
       logical                        :: match
       logical                        :: dupe
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
 
-      line=' '
-      xdt_qso=0.0
-      f1_qso=0.0
-      snr_qso=-99.0
+!      print*,'AA',nfa,nfb
       nharderrors=-1
       nsync=0
       dmin=0.0
-      success=.false.
 
       if(istart.eq.1) then
          ndecodes=0
@@ -173,7 +165,8 @@ contains
       nfz=nint(10.0/df2)            ! 14 
       ntz=nint(0.016*6000.0/12.0)   !  8
 
-      nchan = 14
+!     nchan = 14
+      nchan = 2
       nc=2          ! look for 2 candidates in each channel
       ncand=0
 
@@ -184,8 +177,11 @@ contains
             fc=f0
             fwid=ftol
          else            ! for now, hardwired nonoverlapping channels
-            fc=ichan*200
-            fwid=100
+!           fc=ichan*200
+!           fwid=100
+            fc=1350
+            if(ichan.eq.2) fc=1650
+            fwid=150
          endif
 
          fbest=0.
@@ -220,19 +216,20 @@ contains
 
             pt=0.
             pa=0.
+            pow=0.0
             do j=1,NSYNC_SYM                                ! find tone powers for sync symbols
                i0=nint(cand(ncand)%xdt/dt) + (j-1)*nss
                if(i0+nss.gt.nchunk6) exit
 
                do i=0,3
                   z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
-                  pow(i)=real(z*conjg(z))
+                  pow(i,j)=real(z*conjg(z))
                enddo
 
-               iloc=maxloc(pow)-1
+               iloc=maxloc(pow(:,j))-1
                irxsync(j)=iloc(1)
-               pt=pt+pow(is13(j))                !signal plus noise
-               pa=pa+sum(pow)                    !signal plus 4*noise
+               pt=pt+pow(is13(j),j)              !signal plus noise
+               pa=pa+sum(pow(:,j))               !signal plus 4*noise
             enddo
 
             snrdb=-99.9
@@ -245,17 +242,21 @@ contains
             if( ichan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
 ! looks like a real candidate - try to decode
+            pow(:,:)=0.0
             do j=1,NCHAN_SYM                  ! find tone powers for 40 symbols
                i0=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss + (j-1)*nss
                if(i0+nss .gt. nchunk6) exit
 
                do i=0,3
                   z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
-                  pow(i)=real(z*conjg(z))
+                  pow(i,j)=real(z*conjg(z))
                enddo
 
+               iloc=maxloc(pow(:,j))-1
+               irxchan(j)=iloc(1)   ! hard decision received channel symbols
+
 ! tones 0:3 represent bit sequences 00, 01, 11, 10, respectively
-               p00=pow(0); p01=pow(1); p11=pow(2); p10=pow(3)
+               p00=pow(0,j); p01=pow(1,j); p11=pow(2,j); p10=pow(3,j)
 
                bitmetrics(2*j-1) = max(p11,p10) - max(p00,p01)
                bitmetrics(2*j  ) = max(p11,p01) - max(p00,p10)
@@ -275,10 +276,25 @@ contains
             endif
             if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
             cand(ncand)%decoded=' '
-!            line=' '
             if( nharderrors .ge. 0 ) then
-               success=.true.
                ndecodes=ndecodes+1
+               nsymerrs=13-nsync
+               do j = 1, 40
+                  is=cw80(2*j) + 2*cw80(2*j-1)
+                  if(is.eq.2) then     ! graymap
+                      is=3
+                  elseif(is.eq.3) then
+                      is=2
+                  endif  
+                  if(is.ne.irxchan(j)) nsymerrs=nsymerrs+1
+                  pt=pt+pow(is,j)
+                  pa=pa+sum(pow(:,j))
+               enddo
+               pn=(pa-pt)/3.0
+               if(pn.gt.0.) then
+                  snrdb=db(pt/pn)
+                  cand(ncand)%snrdb=snrdb
+               endif
                write(c32(1),'(32i1)') message32
                call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep)
                if(cand(ncand)%decoded(1:4).eq.'599 ') then
@@ -293,16 +309,7 @@ contains
                   abs(cand(i)%tsync - cand(ncand)%tsync).lt. 0.032 ) dupe=.true.
                enddo
                if(dupe) exit
-
                dec=cand(ncand)
-               if(ichan.eq.0) then
-! Make single-channel rjtty_sub happy
-                  line=cand(ncand)%decoded
-                  xdt_qso=cand(ncand)%xdt
-                  f1_qso=cand(ncand)%f1
-                  snr_qso=cand(ncand)%snrdb - 20.0
-!                  print*,'b',f1_qso,xdt_qso,snr_qso,trim(line)
-               endif
                match=.false.
                islot=1
                if(ndecodes.eq.1) then
@@ -314,7 +321,7 @@ contains
                      df1=dec%f1 - slot(i)%f1
                      dxdt=dec%xdt - slot(i)%xdt
                      dtsync=dec%tsync - slot(i)%tsync
-                     match=abs(df1).lt.5.0 .and. abs(dxdt).lt.0.005
+                     match=abs(df1).lt.8.0 .and. abs(dxdt).lt.0.008
                      if(match) then
                         islot=i
                         k=slot(i)%k
@@ -346,19 +353,17 @@ contains
                enddo
                if(msg(1:1).eq.' ') msg=msg(2:)
                if(ndebug.eq.0) then
-                  write(*,3001) nint(dec%f1),nint(dec%snrdb-20.0),trim(msg)
-3001              format(i4,i4,2x,a)
+                  write(*,3001) nint(dec%f1),trim(msg)
+3001              format(i4,2x,a)
                else if(ndebug.gt.0) then
                   write(*,3002) ichan,ic,ndecodes,islot,nslots,match,dec%f1, &
-                     dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(msg)
-3002              format(5i4,L3,f7.1,f7.3,f9.3,i5,2x,a)
+                     dec%xdt,dec%tsync,nint(dec%snrdb-20.0),nsync,nsymerrs,nharderrors,dmin,trim(msg)
+3002              format(5i4,L3,f7.1,f7.3,f9.3,i5,i4,i4,i4,f6.1,2x,a)
                endif
             endif
          enddo     ! candidate loop
       enddo     ! ichan, frequency channel loop
 
-      synced=.false.
-      success=.false.
       flush(6)
 
       return

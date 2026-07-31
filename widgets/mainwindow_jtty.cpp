@@ -27,9 +27,10 @@ extern qint32 g_iptt;
 #define FCL fortran_charlen_t
 
 extern "C" {
-  void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol);
+  void rjtty_sub_(short int d2[], int* k, int* nsps, int* nfa, int*nfb,
+                  float* f0, float* ftol);
 
-void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
+   void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
     char all_freqs[], char line[], fortran_charlen_t, fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
@@ -52,6 +53,9 @@ static QString append_separator(QString message) {
 
 void MainWindow::jtty_save_wav()
 {
+  if (m_k0 == m_jttyLastSavedWavK0) return;  //Guard against re-saving same audio under a new timestamp
+  m_jttyLastSavedWavK0 = m_k0;
+
   //Save JTTY data to a .wav file
   QDateTime now {QDateTime::currentDateTimeUtc ()};
   qint64 ms = m_k0/12;
@@ -60,6 +64,9 @@ void MainWindow::jtty_save_wav()
   int samples=m_k0;
   QString dgrd = "jtty";
   save_wave_file (m_fnameWE, samples, m_freqNominalPeriod, dgrd);
+  // "Save decoded" keeps the file only if something was decoded; give the
+  // decoder a further 3 seconds to finish before killWaveFile() decides.
+  if (m_saveDecoded) killFileTimer.start (3000);
 }
 
 void MainWindow::jtty_decode(int k)
@@ -83,6 +90,8 @@ void MainWindow::jtty_decode(int k)
   if (newAllFreqsSession) {
       m_jttyAllFreqsGroupStart = QTextBlock();
       m_jttyQsoLines.clear();
+      m_bDecoded = false;
+      m_jttyLastSavedWavK0 = -1;
   }
   char qso_freq[800];
   char all_freqs[2400];
@@ -90,8 +99,10 @@ void MainWindow::jtty_decode(int k)
   float ftol = ui->sbFtol_2->value();
   bool all_new = true;
   bool qso_new = true;
+  int nfa = m_wideGraph->nStartFreq();
+  int nfb = m_wideGraph->Fmax();
 
-  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol);
+  rjtty_sub_(dec_data.d2,&k,&nsps,&nfa,&nfb,&f0,&ftol);
 
   // jtty_get_msgs_ rebuilds qso_freq (and all_freqs) from scratch every
   // call: it's a frequency-sorted snapshot of every slot currently within
@@ -184,6 +195,7 @@ void MainWindow::jtty_decode(int k)
               ui->decodedTextBrowser2->insertText(newLine);
               m_jttyQsoLines.append({newLine, ui->decodedTextBrowser2->textCursor().block()});
           }
+          m_bDecoded = true;
 
 #ifdef WIN32
           if (m_mmttyif) {
@@ -348,7 +360,7 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
 
   monitor(false);
-  if(!m_diskData && m_saveAll && (m_k0 > 53*384) && (m_k0 < 9999999)) {
+  if(!m_diskData && (m_saveAll || m_saveDecoded) && (m_k0 > 53*384) && (m_k0 < 9999999)) {
     jtty_save_wav();
   }
 

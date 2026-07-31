@@ -1940,7 +1940,7 @@ void MainWindow::dataSink(qint64 frames)
   }
   if(m_mode=="MSK144") return;
   if(m_mode=="JTTY") {
-    if(m_ihsym >= m_hsymStop and m_saveAll) {
+    if(m_ihsym >= m_hsymStop and (m_saveAll or m_saveDecoded)) {
       monitor(false);
       jtty_save_wav();
       if(!m_diskData) monitor(true);

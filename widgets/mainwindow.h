@@ -1183,6 +1183,7 @@ private:
   };
   QVector<JttyQsoLine> m_jttyQsoLines;   // one entry per concurrently-growing JTTY transmission
   int m_jttyLastAllFreqsK = -1;          // detects a restarted decode (new WAV, or "decode again")
+  qint32 m_jttyLastSavedWavK0 = -1;      // m_k0 at last JTTY WAV save; skips saving unchanged audio again
   QTextBlock m_jttyAllFreqsGroupStart;   // start of decodedTextBrowser's currently-growing group
 #ifdef WIN32
   bool m_mmttyJttyStartRequested;
