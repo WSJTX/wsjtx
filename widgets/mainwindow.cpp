@@ -5074,7 +5074,7 @@ void::MainWindow::fast_decode_done()
   float t,tmax=-99.0;
   dec_data.params.nagain=false;
   dec_data.params.ndiskdat=false;
-//  if(m_msg[0][0]==0) m_bDecoded=false;
+  if(m_mode=="JTTY") flushJttyDecodeLines();
   for(int i=0; m_msg[i][0] && i<100; i++) {
     QString message=QString::fromLatin1(m_msg[i]);
     m_msg[i][0]=0;
@@ -14742,6 +14742,8 @@ void MainWindow::write_all(QString txRx, QString message,
   auto const sequenceStart = context ? context->sequenceStart : m_dateTimeSeqStart;
   QRegularExpression verified_call_regex {"[A-Z0-9/]+\\sverified\\s*"};
 
+  if(mode=="JTTY" and txRx=="Tx") message = m_JTTY_TxMessage;
+
   if(mode!="Echo") {
     if (message.size () > 5 && message[4]==' ') {
       msg=message.mid(4,-1);
@@ -14773,6 +14775,15 @@ void MainWindow::write_all(QString txRx, QString message,
 
     t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
     if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
+    if (mode=="JTTY" and txRx=="Rx") {
+      bool freqOk = false, snrOk = false;
+      int const freqField = message.left(4).trimmed().toInt(&freqOk);
+      int const snrField = message.mid(4,4).trimmed().toInt(&snrOk);
+      QString const cleanMessage = freqOk ? message.mid(10).trimmed() : message.trimmed();
+      QString const snrStr = snrOk ? QString ().asprintf("%4d", snrField) : "   0";
+      t = t.asprintf("%5d", freqOk ? freqField : int(ui->RxFreqSpinBox_2->value()));
+      msg=snrStr + "  0.0" + t + " " + cleanMessage;
+    }
     auto time = QDateTime::currentDateTimeUtc ();
     if( (txRx=="Rx" || txRx=="Ck") && (context || !m_bFastMode) ) time=sequenceStart;
 
@@ -14781,7 +14792,7 @@ void MainWindow::write_all(QString txRx, QString message,
   } else {
      t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   }
-    if (diskData) {
+    if (diskData and txRx!="Tx") {
       if (m_fileDateTime.size()==11) {
         line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;
       } else {

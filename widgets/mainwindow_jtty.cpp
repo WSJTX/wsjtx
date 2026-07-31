@@ -122,8 +122,13 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
   bool const newAllFreqsSession = (k <= m_jttyLastAllFreqsK);
   m_jttyLastAllFreqsK = k;
   if (newAllFreqsSession) {
+      // The old session's slot table is gone on the Fortran side too (istart==1
+      // resets it), so every line still accumulated here is now final. Log
+      // whatever hasn't been logged yet before discarding it.
+      flushJttyDecodeLines();
       m_jttyAllFreqsGroupStart = QTextBlock();
       m_jttyQsoLines.clear();
+      m_jttyAllFreqLines.clear();
       m_bDecoded = false;
       m_jttyLastSavedWavK0 = -1;
   }
@@ -208,6 +213,34 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 //      }
 //#endif
 
+      // Track each decode (any frequency) by content, same idea as the
+      // qso_freq matching below, purely so flushJttyDecodeLines() can log
+      // each one to ALL.TXT exactly once when it's done growing. all_freqs
+      // is a superset of qso_freq (same slot text, not frequency-filtered),
+      // so this alone covers on-frequency decodes too -- no separate
+      // tracking is needed for the QSO Frequency pane's content.
+      QStringList const allLines = allMsgs.split(QChar('\n'), SkipEmptyParts);
+      for (auto const& rawLine : allLines) {
+          QString const newLine = rawLine.trimmed();
+          if (newLine.isEmpty()) continue;
+
+          int matchIndex = -1;
+          for (int i = 0; i < m_jttyAllFreqLines.size(); ++i) {
+              if (newLine.startsWith(m_jttyAllFreqLines.at(i).text)) {
+                  matchIndex = i;
+                  break;
+              }
+          }
+
+          if (matchIndex >= 0) {
+              auto& known = m_jttyAllFreqLines[matchIndex];
+              if (newLine.length() > known.text.length()) known.text = newLine;
+          } else {
+              JttyDecodeLine decodeLine;
+              decodeLine.text = newLine;
+              m_jttyAllFreqLines.append(decodeLine);
+          }
+      }
   }
   if(qso_new) {
       QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
@@ -501,6 +534,8 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   }
 #endif
 
+  m_JTTY_TxMessage = message;
+
   // Only a new session starts transmit; a message appended to an already-active
   // session chains gaplessly (soundcard) via the enqueue above. When PTT is not
   // yet up, guiUpdate keys it and ptt1Timer -> startTx2 -> transmit starts the
@@ -729,6 +764,7 @@ void MainWindow::jtty_again()
   for(int k=3456; k<dec_data.params.kin; k+=3456) {
     jtty_decode(k);
   }
+  flushJttyDecodeLines();
   finishDecodeUi();
 }
 
@@ -759,6 +795,21 @@ void MainWindow::jttyDecodeAgainAt(float secondsAgo)
     if (eom || k >= istop) break;
   }
   finishDecodeUi();
+}
+
+void MainWindow::flushJttyDecodeLines()
+{
+  // Called wherever a JTTY decode session is deemed finished -- either
+  // because a new one is starting (rjtty_sub_'s own slot table is already
+  // gone at that point) or because we've reached the end of what audio is
+  // available to decode right now. Each line is logged at most once.
+  for (auto& line : m_jttyAllFreqLines) {
+    if (line.written) continue;
+    QString const text = line.text.trimmed();
+    if (text.isEmpty()) continue;
+    write_all("Rx", text);
+    line.written = true;
+  }
 }
 
 bool MainWindow::jtty_key_struck(QKeyEvent * e)
