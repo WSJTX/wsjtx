@@ -99,6 +99,12 @@ add_executable (test_hamlib_mode
 target_link_libraries (test_hamlib_mode wsjt_qt Qt5::Test)
 add_test (NAME test_hamlib_mode COMMAND test_hamlib_mode)
 
+add_executable (test_hamlib_vfo_role_state
+  test_hamlib_vfo_role_state.cpp
+)
+target_link_libraries (test_hamlib_vfo_role_state Hamlib::Hamlib Qt5::Test)
+add_test (NAME test_hamlib_vfo_role_state COMMAND test_hamlib_vfo_role_state)
+
 add_executable (test_active_station_list
   test_active_station_list.cpp
   ${CMAKE_SOURCE_DIR}/ActiveStationList.cpp

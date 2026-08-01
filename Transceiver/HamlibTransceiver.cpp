@@ -20,6 +20,7 @@
 #ifndef HAMLIB_STATE
 #include <hamlib/rig_state.h>
 #endif
+#include "HamlibVfoRoleState.hpp"
 #include "pimpl_impl.hpp"
 #include "moc_HamlibTransceiver.cpp"
 
@@ -175,7 +176,6 @@ public:
     , back_ptt_port_ {false}
     , one_VFO_ {false}
     , is_dummy_ {true}
-    , reversed_ {false}
     , freq_query_works_ {true}
     , mode_query_works_ {true}
     , split_query_works_ {true}
@@ -198,7 +198,6 @@ public:
     , back_ptt_port_ {TransceiverFactory::TX_audio_source_rear == params.audio_source}
     , one_VFO_ {false}
     , is_dummy_ {RIG_MODEL_DUMMY == model_}
-    , reversed_ {false}
     , freq_query_works_ {rig_ && rig_get_function_ptr (model_, RIG_FUNCTION_GET_FREQ)}
     , mode_query_works_ {rig_ && rig_get_function_ptr (model_, RIG_FUNCTION_GET_MODE)}
     , split_query_works_ {rig_ && rig_get_function_ptr (model_, RIG_FUNCTION_GET_SPLIT_VFO)}
@@ -220,7 +219,9 @@ public:
   void error_check (int ret_code, QString const& doing) const;
   void set_conf (char const * item, char const * value);
   QByteArray get_conf (char const * item);
-  std::tuple<vfo_t, vfo_t> get_vfos (bool for_split) const;
+  Transceiver::MODE map_mode (rmode_t) const;
+  rmode_t map_mode (Transceiver::MODE mode) const;
+  std::tuple<vfo_t, vfo_t> get_vfos (bool for_split, bool split_ptt_active) const;
 
   HamlibTransceiver::logger_type mutable * logger_;
   unsigned model_;
@@ -237,7 +238,7 @@ public:
   static freq_t dummy_frequency_;
   static rmode_t dummy_mode_;
 
-  bool mutable reversed_;
+  HamlibVfoRoleState mutable vfo_roles_;
 
   bool freq_query_works_;
   bool mode_query_works_;
@@ -314,7 +315,7 @@ void HamlibTransceiver::impl::error_check (int ret_code, QString const& doing) c
     }
 }
 
-std::tuple<vfo_t, vfo_t> HamlibTransceiver::impl::get_vfos (bool for_split) const
+std::tuple<vfo_t, vfo_t> HamlibTransceiver::impl::get_vfos (bool for_split, bool split_ptt_active) const
 {
   if (get_vfo_works_ && rig_get_function_ptr (model_, RIG_FUNCTION_GET_VFO))
     {
@@ -322,7 +323,7 @@ std::tuple<vfo_t, vfo_t> HamlibTransceiver::impl::get_vfos (bool for_split) cons
       error_check (rig_get_vfo (rig_.data (), &v), tr ("getting current VFO")); // has side effect of establishing current VFO inside hamlib
       CAT_TRACE ("rig_get_vfo VFO=" << rig_strvfo (v));
 
-      reversed_ = RIG_VFO_B == v;
+      vfo_roles_.observe_active_vfo (v, split_ptt_active);
     }
   else if (!for_split && set_vfo_works_ && rig_get_function_ptr (model_, RIG_FUNCTION_SET_VFO) && rig_get_function_ptr (model_, RIG_FUNCTION_SET_SPLIT_VFO))
     {
@@ -339,14 +340,14 @@ std::tuple<vfo_t, vfo_t> HamlibTransceiver::impl::get_vfos (bool for_split) cons
   auto tx_vfo = (WSJT_RIG_NONE_CAN_SPLIT || !is_dummy_) && for_split
     ? ::tx_vfo (rig_.data ())
     : rx_vfo;
-  if (reversed_)
+  if (vfo_roles_.reversed ())
     {
       CAT_TRACE ("reversing VFOs");
-      std::swap (rx_vfo, tx_vfo);
     }
 
-  CAT_TRACE ("RX VFO=" << rig_strvfo (rx_vfo) << " TX VFO=" << rig_strvfo (tx_vfo));
-  return std::make_tuple (rx_vfo, tx_vfo);
+  auto vfos = vfo_roles_.resolve (rx_vfo, tx_vfo);
+  CAT_TRACE ("RX VFO=" << rig_strvfo (std::get<0> (vfos)) << " TX VFO=" << rig_strvfo (std::get<1> (vfos)));
+  return vfos;
 }
 
 void HamlibTransceiver::impl::set_conf (char const * item, char const * value)
@@ -606,7 +607,7 @@ int HamlibTransceiver::do_start ()
 
   // reset dynamic state
   m_->one_VFO_ = false;
-  m_->reversed_ = false;
+  m_->vfo_roles_.reset ();
   m_->freq_query_works_ = rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_FREQ);
   m_->mode_query_works_ = rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_MODE);
   m_->split_query_works_ = rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_SPLIT_VFO);
@@ -744,7 +745,7 @@ int HamlibTransceiver::do_start ()
               CAT_TRACE ("rig_get_vfo current VFO=" << rig_strvfo (v));
             }
 
-          m_->reversed_ = RIG_VFO_B == v;
+          m_->vfo_roles_.observe_active_vfo (v, false);
 
           if (m_->mode_query_works_ && !(rig_get_caps_int (m_->model_, RIG_CAPS_TARGETABLE_VFO) & RIG_TARGETABLE_MODE))
             {
@@ -834,7 +835,7 @@ int HamlibTransceiver::do_start ()
 
   do_poll ();
 
-  CAT_TRACE ("finished start " << state () << " reversed=" << m_->reversed_ << " resolution=" << resolution);
+  CAT_TRACE ("finished start " << state () << " reversed=" << m_->vfo_roles_.reversed () << " resolution=" << resolution);
   return resolution;
 }
 
@@ -855,12 +856,12 @@ void HamlibTransceiver::do_stop ()
       rig_close (m_->rig_.data ());
     }
 
-  CAT_TRACE ("state: " << state () << " reversed=" << m_->reversed_);
+  CAT_TRACE ("state: " << state () << " reversed=" << m_->vfo_roles_.reversed ());
 }
 
 void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
 {
-  CAT_TRACE ("f: " << f << " mode: " << m << " reversed: " << m_->reversed_);
+  CAT_TRACE ("f: " << f << " mode: " << m << " reversed: " << m_->vfo_roles_.reversed ());
 
   // only change when receiving or simplex or direct VFO addressing
   // unavailable or forced
@@ -916,12 +917,12 @@ void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
 
 void HamlibTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
 {
-  CAT_TRACE ("txf: " << tx << " reversed: " << m_->reversed_);
+  CAT_TRACE ("txf: " << tx << " reversed: " << m_->vfo_roles_.reversed ());
 
   if (WSJT_RIG_NONE_CAN_SPLIT || !m_->is_dummy_) // split is meaningless if you can't see it
     {
       auto split = tx ? RIG_SPLIT_ON : RIG_SPLIT_OFF;
-      auto vfos = m_->get_vfos (tx);
+      auto vfos = m_->get_vfos (tx, state ().ptt () && state ().split ());
       // auto rx_vfo = std::get<0> (vfos); // or use RIG_VFO_CURR
       auto tx_vfo = std::get<1> (vfos);
 
@@ -1046,7 +1047,7 @@ void HamlibTransceiver::do_mode (MODE mode)
 {
   CAT_TRACE (mode);
 
-  auto vfos = m_->get_vfos (state ().split ());
+  auto vfos = m_->get_vfos (state ().split (), state ().ptt () && state ().split ());
   // auto rx_vfo = std::get<0> (vfos);
   auto tx_vfo = std::get<1> (vfos);
 
@@ -1112,7 +1113,7 @@ void HamlibTransceiver::do_poll ()
       vfo_t v;
       m_->error_check (rig_get_vfo (m_->rig_.data (), &v), tr ("getting current VFO")); // has side effect of establishing current VFO inside hamlib
       CAT_TRACE ("VFO=" << rig_strvfo (v));
-      m_->reversed_ = RIG_VFO_B == v;
+      m_->vfo_roles_.observe_active_vfo (v, state ().ptt () && state ().split ());
     }
 
   if ((WSJT_RIG_NONE_CAN_SPLIT || !m_->is_dummy_)
@@ -1124,10 +1125,6 @@ void HamlibTransceiver::do_poll ()
         {
           CAT_TRACE ("rig_get_split_vfo split=" << s << " VFO=" << rig_strvfo (v));
           update_split (true);
-          // if (RIG_VFO_A == v)
-          // 	{
-          // 	  m_->reversed_ = true;	// not sure if this helps us here
-          // 	}
         }
       else if (-RIG_OK == rc)	// not split
         {
@@ -1166,11 +1163,8 @@ void HamlibTransceiver::do_poll ()
 
           // we can only probe current VFO unless rig supports reading
           // the other one directly because we can't glitch the Rx
-          m_->error_check (rig_get_freq (m_->rig_.data ()
-                                         , m_->reversed_
-                                         ? rx_vfo (m_->rig_.data ())
-                                         : tx_vfo (m_->rig_.data ())
-                                         , &f), tr ("getting other VFO frequency"));
+          auto vfos = m_->vfo_roles_.resolve (rx_vfo (m_->rig_.data ()), tx_vfo (m_->rig_.data ()));
+          m_->error_check (rig_get_freq (m_->rig_.data (), std::get<1> (vfos), &f), tr ("getting other VFO frequency"));
           f = std::round (f);
           CAT_TRACE ("rig_get_freq other VFO=" << f);
           update_other_frequency (f);
@@ -1266,7 +1260,7 @@ void HamlibTransceiver::do_poll ()
 
 void HamlibTransceiver::do_ptt (bool on)
 {
-    CAT_TRACE ("PTT: " << on << " " << state () << " reversed=" << m_->reversed_);
+    CAT_TRACE ("PTT: " << on << " " << state () << " reversed=" << m_->vfo_roles_.reversed ());
   if (on)
     {
        if (ptt_port_configured (m_->rig_.data ()))
