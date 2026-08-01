@@ -64,9 +64,8 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
         if(msg(j:j).eq.'~') msg(j:j)=' '
      enddo
      if(msg(1:1).eq.' ') msg=trim(msg(2:))
-     write(msg2,1000) nint(slot(i)%f1),nint(slot(i)%snrdb - 20.0),  &
-          trim(msg) // char(10)
-1000 format(2i4,2x,a)
+     write(msg2,1000) nint(slot(i)%f1),trim(msg) // char(10)
+1000 format(i4,2x,a)
      nmsg=len_trim(msg2)
      ncopy=min(nmsg,len(all_freqs)-kall)
      if(ncopy.gt.0) then

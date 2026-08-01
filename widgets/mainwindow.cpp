@@ -9334,8 +9334,8 @@ void MainWindow::on_actionJTTY_triggered()
   m_wideGraph->setRxFreq(ui->RxFreqSpinBox_2->value());
   m_wideGraph->setTol(ui->sbFtol_2->value());
   setDecodeHeadings("", "");
-  ui->lh_decodes_headings_label->setText("Freq  dB  " + tr ("Message"));
-  ui->rh_decodes_headings_label->setText("Freq  dB  " + tr ("Message"));
+  ui->lh_decodes_headings_label->setText("Freq  " + tr ("Message"));
+  ui->rh_decodes_headings_label->setText("Freq  " + tr ("Message"));
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
 //                           012345678901234567890123456789012345678
     displayWidgets(nWidgets("111111000100111000010000000100000000000"));

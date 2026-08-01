@@ -80,7 +80,6 @@ contains
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
 
-!      print*,'AA',nfa,nfb
       nharderrors=-1
       nsync=0
       dmin=0.0
@@ -165,25 +164,22 @@ contains
       nfz=nint(10.0/df2)            ! 14 
       ntz=nint(0.016*6000.0/12.0)   !  8
 
-!     nchan = 14
       nchan = 2
       nc=2          ! look for 2 candidates in each channel
       ncand=0
 
       do ichan=0, nchan         ! frequency channels - channel 0 is always centered on f0
          if(ichan.eq.0) then
-!            fc=1500      ! hardwired for now
-!            fwid=50
             fc=f0
             fwid=ftol
          else            ! for now, hardwired nonoverlapping channels
-!           fc=ichan*200
-!           fwid=100
             fc=1350
             if(ichan.eq.2) fc=1650
             fwid=150
          endif
 
+         if(fc.lt.float(nfa)) fc=nfa
+         if(fc.gt.float(nfb)) fc=nfb
          fbest=0.
          xdtbest=0.
          fpk=0.
@@ -297,9 +293,6 @@ contains
                endif
                write(c32(1),'(32i1)') message32
                call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep)
-               if(cand(ncand)%decoded(1:4).eq.'599 ') then
-                  cand(ncand)%decoded = '~' // trim(cand(ncand)%decoded)
-               endif
                cand(ncand)%tsync=(istart-1)/12000.0 + cand(ncand)%xdt
 
 ! dupe detection 
@@ -316,6 +309,10 @@ contains
                   nslots=1
                   islot=1
                   slot(1)=dec
+                  ! A "599 ..." frame opening a slot has no preceding structured
+                  ! frame to supply a separator, so mark one explicitly here.
+                  if(slot(1)%decoded(1:4).eq.'599 ') &
+                       slot(1)%decoded='~'//trim(slot(1)%decoded)
                else
                   do i=1,nslots
                      df1=dec%f1 - slot(i)%f1
@@ -345,6 +342,10 @@ contains
                      nslots=nslots+1
                      slot(nslots)=dec
                      islot=nslots
+                     ! Same as above: a fresh slot starting with "599" has no
+                     ! preceding separator, so mark one explicitly.
+                     if(slot(nslots)%decoded(1:4).eq.'599 ') &
+                          slot(nslots)%decoded='~'//trim(slot(nslots)%decoded)
                   endif
                endif
                msg=slot(islot)%decoded
@@ -363,8 +364,6 @@ contains
             endif
          enddo     ! candidate loop
       enddo     ! ichan, frequency channel loop
-
-      flush(6)
 
       return
    end subroutine jtty_mdecode
