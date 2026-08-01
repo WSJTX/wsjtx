@@ -43,6 +43,7 @@ set (wsjt_qt_CXXSRCS
   Transceiver/EmulateSplitTransceiver.cpp
   Transceiver/TransceiverFactory.cpp
   Transceiver/PollingTransceiver.cpp
+  Transceiver/HamlibMode.cpp
   Transceiver/HamlibTransceiver.cpp
   Transceiver/TCITransceiver.cpp
   Transceiver/HRDMessage.cpp

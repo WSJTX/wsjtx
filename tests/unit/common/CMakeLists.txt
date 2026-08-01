@@ -93,6 +93,12 @@ add_executable (test_emulate_split_transceiver
 target_link_libraries (test_emulate_split_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_emulate_split_transceiver COMMAND test_emulate_split_transceiver)
 
+add_executable (test_hamlib_mode
+  test_hamlib_mode.cpp
+)
+target_link_libraries (test_hamlib_mode wsjt_qt Qt5::Test)
+add_test (NAME test_hamlib_mode COMMAND test_hamlib_mode)
+
 add_executable (test_active_station_list
   test_active_station_list.cpp
   ${CMAKE_SOURCE_DIR}/ActiveStationList.cpp
