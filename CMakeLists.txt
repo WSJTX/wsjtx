@@ -744,6 +744,11 @@ if (WSJT_ENABLE_TESTS)
       samples/JT65/JT65B/000000_0004.wav
       test/fixtures/jt65_000000_0004.expected.txt
       --jt65 -b B -f 1700 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_jt4_OK1KIR_141105_175700
+      samples/JT4/JT4F/OK1KIR_141105_175700.WAV
+      test/fixtures/jt4_OK1KIR_141105_175700.expected.txt
+      --jt4 -b F -f 1200 -d 3)
   endif ()
 endif ()
 

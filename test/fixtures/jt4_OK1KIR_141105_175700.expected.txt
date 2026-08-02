@@ -1,0 +1,2 @@
+**** -14  1.8 1199 $# G3WDG OK1KIR RRR       f  
+<DecodeFinished>   0   1        0

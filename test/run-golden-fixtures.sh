@@ -109,6 +109,11 @@ run_fixture "jt65_000000_0004" \
   "$FIXTURES/jt65_000000_0004.expected.txt" \
   --jt65 -b B -f 1700 -d 3
 
+run_fixture "jt4_OK1KIR_141105_175700" \
+  "$SAMPLES/JT4/JT4F/OK1KIR_141105_175700.WAV" \
+  "$FIXTURES/jt4_OK1KIR_141105_175700.expected.txt" \
+  --jt4 -b F -f 1200 -d 3
+
 echo ""
 if [[ $FAIL -eq 0 ]]; then
   echo "All golden fixtures passed."
