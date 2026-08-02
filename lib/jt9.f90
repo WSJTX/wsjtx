@@ -56,7 +56,7 @@ program jt9
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',    &
         'SECONDS'),                                                          &
     option ('executable-path', .true., 'e',                                  &
-        'Location of subordinate executables (KVASD) default PATH="."',      &
+        'Location of subordinate executables, default PATH="."',            &
         'PATH'),                                                             &
     option ('data-path', .true., 'a',                                        &
         'Location of writeable data files, default PATH="."', 'PATH'),       &
