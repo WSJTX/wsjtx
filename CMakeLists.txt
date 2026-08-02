@@ -671,13 +671,19 @@ if (WSJT_ENABLE_TESTS)
   # Golden output is pinned to the required GNU/Linux x86-64 decoder path.
   if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
       CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
-    function (wsjt_add_jt9_golden_test test_name mode sample expected)
+    # mode_args is one or more jt9 flags (e.g. -8, or --q65 -p 30 -f 1000 -d 3).
+    # $<SEMICOLON> protects the list separators through the single -DMODE=...
+    # COMMAND argument; compare_decoder_output.cmake expands ${MODE} unquoted
+    # so it splits back into separate jt9 arguments on the far side.
+    function (wsjt_add_jt9_golden_test test_name sample expected)
+      set (mode_args ${ARGN})
+      string (REPLACE ";" "$<SEMICOLON>" mode_args "${mode_args}")
       set (work_dir "${CMAKE_BINARY_DIR}/Testing/Golden/${test_name}")
       file (MAKE_DIRECTORY "${work_dir}")
       add_test (NAME ${test_name}
         COMMAND ${CMAKE_COMMAND}
           -DJT9=$<TARGET_FILE:jt9>
-          -DMODE=${mode}
+          "-DMODE=${mode_args}"
           -DSAMPLE=${CMAKE_SOURCE_DIR}/${sample}
           -DEXPECTED=${CMAKE_SOURCE_DIR}/${expected}
           -DWORK_DIR=${work_dir}
@@ -689,13 +695,50 @@ if (WSJT_ENABLE_TESTS)
     endfunction ()
 
     wsjt_add_jt9_golden_test (
-      test_jt9_golden_ft8_210703_133430 -8
+      test_jt9_golden_ft8_210703_133430
       samples/FT8/210703_133430.wav
-      test/fixtures/ft8_210703_133430.expected.txt)
+      test/fixtures/ft8_210703_133430.expected.txt
+      -8)
     wsjt_add_jt9_golden_test (
-      test_jt9_golden_jt9_130418_1742 -9
+      test_jt9_golden_jt9_130418_1742
       samples/JT9/130418_1742.wav
-      test/fixtures/jt9_130418_1742.expected.txt)
+      test/fixtures/jt9_130418_1742.expected.txt
+      -9)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_q65_30a_201203_024000
+      samples/Q65/30A_Ionoscatter_6m/201203_024000.wav
+      test/fixtures/q65_30a_201203_024000.expected.txt
+      --q65 -p 30 -f 1000 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_q65_300a_201210_0505
+      samples/Q65/300A_Optical_Scatter/201210_0505.wav
+      test/fixtures/q65_300a_201210_0505.expected.txt
+      --q65 -p 300 -f 1000 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_q65_60d_201212_1838
+      samples/Q65/60D_EME_10GHz/201212_1838.wav
+      test/fixtures/q65_60d_201212_1838.expected.txt
+      --q65 -b D -p 60 -f 1000 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_msk144_181211_120800
+      samples/MSK144/181211_120800.wav
+      test/fixtures/msk144_181211_120800.expected.txt
+      --msk144 -p 15 -f 1500 -F 50 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_fst4_210115_0058
+      samples/FST4+FST4W/210115_0058.wav
+      test/fixtures/fst4_210115_0058.expected.txt
+      --fst4 -p 60 -f 1331 -L 1000 -H 1400 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_fst4w_201230_0300
+      samples/FST4+FST4W/201230_0300.wav
+      test/fixtures/fst4w_201230_0300.expected.txt
+      --fst4w -p 1800 -f 1433 -F 100 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_ft4_000000_000002
+      samples/FT4/000000_000002.wav
+      test/fixtures/ft4_000000_000002.expected.txt
+      --ft4 -d 3)
   endif ()
 endif ()
 

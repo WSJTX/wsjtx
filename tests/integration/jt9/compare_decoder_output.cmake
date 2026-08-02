@@ -13,7 +13,7 @@ execute_process (
           -a "${WORK_DIR}"
           -t "${WORK_DIR}"
           -r "${SOURCE_DIR}"
-          "${MODE}"
+          ${MODE}
           "${SAMPLE}"
   WORKING_DIRECTORY "${WORK_DIR}"
   RESULT_VARIABLE decoder_result
