@@ -39,9 +39,14 @@ name. The name is appended to the application identity, separating its
 instance lock, settings file, and writable data directory from other
 instances.
 
-*-w, --window-handle*=_HANDLE_::
-On Windows, initialize the N1MM integration using the specified hexadecimal
-window handle.
+*-p, --n1mm-tcp-port*=_PORT_::
+On Windows, connect the N1MM Logger+ interface to TCP port _PORT_ on the local
+host.
+
+*--mode*=_MODE_::
+Start in FT8, FT4, or JTTY mode. Mode names are case-insensitive. When
+*--n1mm-tcp-port* is supplied, the selected mode is locked for the N1MM
+session.
 
 *-c, --config*=_CONFIGURATION_::
 Select an existing saved configuration at startup. Configurations share the
