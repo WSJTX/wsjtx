@@ -39,6 +39,8 @@
 #include <QBitArray>
 #include <QMetaType>
 #include <QPushButton>
+#include <QMessageBox>
+#include <QProgressDialog>
 
 #include "ExceptionCatchingApplication.hpp"
 #include "Logger.hpp"
@@ -131,6 +133,50 @@ namespace
         details << QCoreApplication::translate ("main", "Owner information is not available.");
       }
     return details.join ('\n');
+  }
+
+  QString diagnostic_text (QString text)
+  {
+    return text.replace ('\\', "\\\\")
+      .replace ('\n', "\\n")
+      .replace ('\r', "\\r")
+      .replace ('\t', "\\t")
+      .replace ('"', "\\\"");
+  }
+
+  char const * window_modality_name (Qt::WindowModality modality)
+  {
+    switch (modality)
+      {
+      case Qt::NonModal: return "NonModal";
+      case Qt::WindowModal: return "WindowModal";
+      case Qt::ApplicationModal: return "ApplicationModal";
+      }
+    return "Unknown";
+  }
+
+  void report_unexpected_modal (QWidget const& modal)
+  {
+    std::cerr << "WSJT-X startup smoke: unexpected modal window:"
+              << " class=" << modal.metaObject ()->className ()
+              << " objectName=\"" << diagnostic_text (modal.objectName ()).toStdString () << '"'
+              << " title=\"" << diagnostic_text (modal.windowTitle ()).toStdString () << '"'
+              << " visible=" << (modal.isVisible () ? "true" : "false")
+              << " modal=" << (modal.isModal () ? "true" : "false")
+              << " modality=" << window_modality_name (modal.windowModality ());
+
+    if (auto const *message_box = qobject_cast<QMessageBox const *> (&modal))
+      {
+        std::cerr << " text=\"" << diagnostic_text (message_box->text ()).toStdString () << '"'
+                  << " informativeText=\""
+                  << diagnostic_text (message_box->informativeText ()).toStdString () << '"';
+      }
+    if (auto const *progress_dialog = qobject_cast<QProgressDialog const *> (&modal))
+      {
+        std::cerr << " labelText=\""
+                  << diagnostic_text (progress_dialog->labelText ()).toStdString () << '"';
+      }
+    std::cerr << std::endl;
   }
 
   enum class LockFileAction
@@ -620,8 +666,7 @@ int main(int argc, char *argv[])
                 smoke_phase ("event loop reached");
                 if (auto *modal = QApplication::activeModalWidget ())
                   {
-                    std::cerr << "WSJT-X startup smoke: unexpected modal window: "
-                              << modal->windowTitle ().toStdString () << std::endl;
+                    report_unexpected_modal (*modal);
                     modal->close ();
                     w.close ();
                     a.exit (EXIT_FAILURE);
