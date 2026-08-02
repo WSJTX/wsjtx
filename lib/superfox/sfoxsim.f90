@@ -159,7 +159,7 @@ program sfoxsim
      nmin=(nsec-nhr*3600)/60
      nsec=mod(nsec,60)
      write(fname(8:13),'(3i2.2)') nhr,nmin,nsec
-     open(10,file=trim(fname),access='stream',status='unknown')
+     open(10,file=trim(fname),access='stream',status='replace')
      write(10) h,iwave(1:NMAX)                !Save the .wav file
      close(10)
   enddo  ! ifile

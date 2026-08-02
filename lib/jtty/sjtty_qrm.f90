@@ -117,7 +117,7 @@ program sjtty_qrm
   do ifile=1,nfiles
      write(fname,1002) ifile         !Output filename
 1002 format('000000_',i6.6,'.wav')
-     open(10,file=fname,access='stream',status='unknown')
+     open(10,file=fname,access='stream',status='replace')
      write(*,1004) ifile,fname
 1004 format(i3,2x,a17)
      xnoise=0.

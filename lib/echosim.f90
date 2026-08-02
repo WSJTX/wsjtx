@@ -130,7 +130,7 @@ program echosim
      isec=mod(n,60)
      write(fname,1102) ihr,imin,isec
 1102 format('000000_',3i2.2,'.wav')
-     open(10,file=fname,status='unknown',access='stream')
+     open(10,file=fname,status='replace',access='stream')
      write(10) h,iwave                !Save to *.wav file
      call write_wav_info_trailer(10,isft,icrd,icmt)
      close(10)

@@ -46,7 +46,7 @@ program cwsim
   twopi=8.0*atan(1.0)
 
   h=default_header(12000,NMAX)
-  open(10,file='000000_0000.wav',access='stream',status='unknown')
+  open(10,file='000000_0000.wav',access='stream',status='replace')
   do i=1,NMAX                   !Generate gaussian noise
      xnoise(i)=gran()
   enddo
