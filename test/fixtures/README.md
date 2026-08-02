@@ -15,6 +15,7 @@ These fixtures are the regression baseline: any change that alters `jt9`'s stdou
 | `q65_60d_201212_1838.expected.txt` | `samples/Q65/60D_EME_10GHz/201212_1838.wav` | Q65-60D (`--q65 -b D -p 60 -f 1000 -d 3`) | 1 signal | K1JT, 2026-08-02 |
 | `msk144_181211_120800.expected.txt` | `samples/MSK144/181211_120800.wav` | MSK144 (`--msk144 -p 15 -f 1500 -F 50 -d 3`) | 2 signals | K1JT, 2026-08-02 |
 | `fst4_210115_0058.expected.txt` | `samples/FST4+FST4W/210115_0058.wav` | FST4 (`--fst4 -p 60 -f 1331 -L 1000 -H 1400 -d 3`) | 3 signals | K1JT, 2026-08-02 |
+| `fst4w_201230_0300.expected.txt` | `samples/FST4+FST4W/201230_0300.wav` | FST4W (`--fst4w -p 1800 -f 1433 -F 100 -d 3`) | 1 signal | K1JT, 2026-08-02 |
 
 ## Running
 
@@ -34,6 +35,6 @@ Exits 0 on pass, 1 on regression. CI runs this on every push/PR to `main` after 
 
 ## Coverage
 
-- FT8 + JT9 + Q65-30A + Q65-300A + Q65-60D + MSK144 + FST4 fixtures above cover basic decoder regression.
+- FT8 + JT9 + Q65-30A + Q65-300A + Q65-60D + MSK144 + FST4 + FST4W fixtures above cover basic decoder regression.
 - The streaming harnesses extend coverage to FST4 (`-7`), Q65 (`-3`), MSK144 (`-5`), and wsprd streaming.
 - Streaming I/O parity: `test/run-stream-wav-parity.sh` validates that `jt9 --stream` decodes **contain** these expected decodes. The check is **containment, not identity**: streaming legitimately finds *more* signals (the early `nzhsym` passes pick up low-SNR signals) and the `snr`/`dt`/`freq` fields drift between the WAV and stream decode paths for the same signal (≈ ±2 dB / ±0.05 s / ±3 Hz — different fine estimates), so the decoded **message text** is the parity identity. FT8/JT9 only (FST4W has no good fixture; EME/JT65 I/Q paths are pass-on-absence).

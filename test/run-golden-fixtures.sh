@@ -94,6 +94,11 @@ run_fixture "fst4_210115_0058" \
   "$FIXTURES/fst4_210115_0058.expected.txt" \
   --fst4 -p 60 -f 1331 -L 1000 -H 1400 -d 3
 
+run_fixture "fst4w_201230_0300" \
+  "$SAMPLES/FST4+FST4W/201230_0300.wav" \
+  "$FIXTURES/fst4w_201230_0300.expected.txt" \
+  --fst4w -p 1800 -f 1433 -F 100 -d 3
+
 echo ""
 if [[ $FAIL -eq 0 ]]; then
   echo "All golden fixtures passed."
