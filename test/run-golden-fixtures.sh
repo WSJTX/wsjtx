@@ -79,6 +79,11 @@ run_fixture "q65_300a_201210_0505" \
   "$FIXTURES/q65_300a_201210_0505.expected.txt" \
   --q65 -p 300 -f 1000 -d 3
 
+run_fixture "q65_60d_201212_1838" \
+  "$SAMPLES/Q65/60D_EME_10GHz/201212_1838.wav" \
+  "$FIXTURES/q65_60d_201212_1838.expected.txt" \
+  --q65 -b D -p 60 -f 1000 -d 3
+
 echo ""
 if [[ $FAIL -eq 0 ]]; then
   echo "All golden fixtures passed."
