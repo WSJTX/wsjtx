@@ -749,6 +749,30 @@ if (WSJT_ENABLE_TESTS)
       samples/JT4/JT4F/OK1KIR_141105_175700.WAV
       test/fixtures/jt4_OK1KIR_141105_175700.expected.txt
       --jt4 -b F -f 1200 -d 3)
+
+    # WSPR decodes via the standalone wsprd binary, not jt9. -a isolates its
+    # writable side files (wspr_wisdom.dat, ALL_WSPR.TXT, wspr_spots.txt,
+    # wspr_timer.out, hashtable.txt) in the per-test work dir; confirmed this
+    # doesn't affect stdout.
+    function (wsjt_add_wsprd_golden_test test_name sample expected)
+      set (work_dir "${CMAKE_BINARY_DIR}/Testing/Golden/${test_name}")
+      file (MAKE_DIRECTORY "${work_dir}")
+      add_test (NAME ${test_name}
+        COMMAND ${CMAKE_COMMAND}
+          -DWSPRD=$<TARGET_FILE:wsprd>
+          -DSAMPLE=${CMAKE_SOURCE_DIR}/${sample}
+          -DEXPECTED=${CMAKE_SOURCE_DIR}/${expected}
+          -DWORK_DIR=${work_dir}
+          -P ${CMAKE_SOURCE_DIR}/tests/integration/wsprd/compare_wsprd_output.cmake)
+      set_tests_properties (${test_name} PROPERTIES
+        LABELS "decoder;golden;integration"
+        TIMEOUT 120)
+    endfunction ()
+
+    wsjt_add_wsprd_golden_test (
+      test_wsprd_golden_150426_0918
+      samples/WSPR/150426_0918.wav
+      test/fixtures/wspr_150426_0918.expected.txt)
   endif ()
 endif ()
 
