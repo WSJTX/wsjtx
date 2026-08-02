@@ -1,0 +1,2 @@
+024000 -18  0.3 1008 :  K1JT K9AN R-16                        q0 
+<DecodeFinished>   0   1     1000
