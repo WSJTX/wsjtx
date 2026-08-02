@@ -69,7 +69,9 @@ private:
   QString appendWorkedB4(QString message, QString callsign
                          , QString const& grid, QColor * bg, QColor * fg
                          , LogBook const& logBook, QString const& currentBand
-                         , QString const& currentMode, QString extra);
+                         , QString const& currentMode, QString extra
+                         , QString const& state = QString {}
+                         , bool entityMismatch = false);
   QFont char_font_;
   QAction * erase_action_;
   enum class ClickState
