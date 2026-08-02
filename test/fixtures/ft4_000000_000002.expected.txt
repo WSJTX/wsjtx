@@ -1,0 +1,20 @@
+000002 -10 -0.2  296 +  N1TRK N4FKH 569 VA                      
+000002  -9 -0.4  422 +  N1TRK KB7RUQ RR73                       
+000002  -7 -0.1  560 +  CQ RU AB5XS EM12                        
+000002 -12  0.1  727 +  NZ7P WA7JAY 589 CA                      
+000002  16  0.3 1149 +  KB0VHA KA1YQC R 539 MA                  
+000002  -3 -0.2 1640 +  CQ RU N9OY EN43                         
+000002 -11  0.2 1910 +  K1JT WB4HXE 559 GA                      
+000002   5  0.3 2067 +  VE3LON K7RL R 549 WA                    
+000002  -1  0.2 2310 +  WD9IGY KX1X 73                          
+000002 -17 -0.4 2413 +  W7BOB KJ7G RR73                         
+000002  -7 -0.3 2566 +  NI6G W7DRW 569 AZ                       
+000002   2 -0.3 2725 +  K4SQC VE3RX RR73                        
+000002  -6 -0.4 2813 +  CQ RU W1QA FN32                         
+000002   0  0.0 2995 +  CQ RU WS4WW FM17                        
+000002  13  0.2 3159 +  HB9BUN KG4W R 549 VA                    
+000002  -8  0.4 3337 +  W9TO KN3ILZ 529 PA                      
+000002 -10 -0.3  520 +  W9JA PY2APK RRR                         
+000002 -15  0.2 2299 +  AC6BW KR9A R 559 WI                     
+000002 -13 -0.3 2560 +  CQ RU W0FRC DM79                        
+<DecodeFinished>   0  19        0
