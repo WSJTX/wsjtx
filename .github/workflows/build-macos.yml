@@ -39,16 +39,8 @@ on:
         required: false
         type: string
         default: ""
-  # Also runnable on its own ("Run workflow" / gh workflow run) to build a single
-  # macOS arch without dispatching the full ci.yml matrix. GitHub only exposes
-  # workflow_dispatch when the trigger is on the default branch (develop), so
-  # this must be merged before it can be dispatched. Inputs mirror workflow_call
-  # with standalone defaults; hamlib_branch matches what ci.yml / release.yml
-  # pass (4.7.2). Neither the runner nor the macOS deployment target is a dispatch
-  # input -- both are derived from arch (runs-on / the DEPLOYMENT_TARGET env
-  # below), so a manual run can never pair the wrong runner or deployment target
-  # with the target arch (x86_64 -> macos-15-intel / 10.13; arm64 -> macos-15 /
-  # 11.0).
+  # Standalone dispatch builds one architecture. Derive its runner and deployment
+  # target from that architecture so unsupported tuples cannot be selected.
   workflow_dispatch:
     inputs:
       version:
@@ -91,13 +83,8 @@ on:
 
 jobs:
   build:
-    # workflow_call passes `runner` + `deployment_target` explicitly (they win
-    # via ||). On a standalone workflow_dispatch run both are unset, so derive
-    # them from arch to keep the runner, deployment target, and target
-    # architecture in lockstep. runs-on must inline the runner expression
-    # (job-level env is not yet available when runs-on is evaluated); RUNNER
-    # mirrors it so the cache keys below use the same effective runner under
-    # both triggers, letting a dispatch build share the workflow_call cache.
+    # runs-on cannot reference job-level env, so keep this expression and RUNNER
+    # aligned. RUNNER also keeps cache keys consistent across both triggers.
     runs-on: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
     env:
       RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
@@ -671,14 +658,8 @@ jobs:
           echo "App identity: $APP_IDENTITY"
           echo "identity=$APP_IDENTITY" >> "$GITHUB_OUTPUT"
 
-      # ALWAYS runs. Real Developer ID when secrets are present, ad-hoc
-      # signing (-) otherwise. Mirrors the Windows self-signed-sandbox
-      # pattern in build-windows.yml: prove the signing step is wired,
-      # rely on a real cert in production. Ad-hoc signing produces a
-      # structurally-valid signature with no Apple trust chain — pkg
-      # will not pass Gatekeeper without right-click→Open, but is
-      # well-formed and the all-platforms-ready gate in release.yml
-      # finds the artifact at the expected path.
+      # The fallback signature has no Apple trust chain; its package is unsigned
+      # and is suitable only for build validation.
       - name: Code sign binaries
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
@@ -696,17 +677,8 @@ jobs:
             echo "Code signing mode: ad-hoc (no Apple trust chain; pkg will be unsigned)"
           fi
 
-          # entitlements.plist declares com.apple.security.cs.disable-
-          # library-validation, which is required for any app bundling
-          # its own non-system frameworks (Qt, etc.) under hardened
-          # runtime — otherwise dyld refuses to load them. Applied on
-          # both signing paths: the real-cert path needs it for
-          # notarization-friendly distribution; the ad-hoc path needs
-          # it because each ad-hoc signature has its own pseudo-Team-ID
-          # so the main binary and bundled frameworks never match.
-          # (The plist is non-empty, so macos-15-intel's codesign now
-          # parses it cleanly — no need for the conditional that PR #23
-          # introduced as a workaround for the empty-plist parser bug.)
+          # Sign nested code before the containing bundle. Executable
+          # entitlements are defined in the repository-root plist.
           find "${APP}/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) \
             -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           find "${APP}/Contents/Frameworks" -name "*.framework" -type d | while read -r fw; do
@@ -717,20 +689,13 @@ jobs:
 
           find "${APP}/Contents/MacOS" -type f -perm +111 \
             -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
-          # Bundle-level codesign re-signs the main executable. --force
-          # without --entitlements would WIPE the entitlements applied
-          # in the previous step (PR #27 missed this — rc1 shipped with
-          # an unentitled wsjtx binary, so disable-library-validation
-          # never took effect and the dyld load of QtSerialPort still
-          # failed with mismatched Team IDs).
+          # Bundle signing re-signs the main executable, so it must receive the
+          # entitlement file again.
           codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" "${APP}"
           codesign --verify --deep --strict --verbose=2 "${APP}"
 
-          # Defensive: confirm the entitlement actually made it onto
-          # the main binary. `codesign --verify` doesn't check
-          # entitlement presence — it only validates the signature
-          # itself — so a re-sign that wipes entitlements would still
-          # pass verify (that's how rc1 shipped broken).
+          # codesign --verify validates the signature, not required entitlement
+          # presence.
           MAIN_BIN="${APP}/Contents/MacOS/wsjtx"
           ENTITLEMENTS_OUT=$(codesign -d --entitlements - "$MAIN_BIN" 2>/dev/null)
           if [[ "$ENTITLEMENTS_OUT" != *"disable-library-validation"* ]]; then
@@ -832,8 +797,6 @@ jobs:
           echo "Installer identity: $INST_IDENTITY"
           echo "identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
 
-      # productbuild signs with the Developer ID Installer cert when
-      # secrets are present and produces an unsigned .pkg otherwise.
       - name: Build installer pkg
         run: |
           PKG_OUT="wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
@@ -967,9 +930,7 @@ jobs:
 
       - name: Package individual binaries
         run: |
-          # Tarball and inner-dir names include the arch suffix so arm64
-          # and x86_64 per-binary artifacts can coexist in a single
-          # GitHub Release without ReleaseAsset.name collisions (#24).
+          # Architecture-qualified names prevent release-asset collisions.
           ASSETS="${{ steps.collect.outputs.assets_dir }}"
           ARCH="${{ inputs.arch }}"
           PKGS=packages
