@@ -739,6 +739,11 @@ if (WSJT_ENABLE_TESTS)
       samples/FT4/000000_000002.wav
       test/fixtures/ft4_000000_000002.expected.txt
       --ft4 -d 3)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_jt65_000000_0004
+      samples/JT65/JT65B/000000_0004.wav
+      test/fixtures/jt65_000000_0004.expected.txt
+      --jt65 -b B -f 1700 -d 3)
   endif ()
 endif ()
 
