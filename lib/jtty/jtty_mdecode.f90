@@ -18,6 +18,35 @@ module jtty_mdec
 
 contains
 
+  pure subroutine jtty_search_window(fc,fwid,nfa,nfb,constrain_to_graph,df, &
+       first_bin,last_bin,ja,jb,usable)
+      implicit none
+      real, intent(inout) :: fc
+      real, intent(in) :: fwid,df
+      integer, intent(in) :: nfa,nfb,first_bin,last_bin
+      integer, intent(out) :: ja,jb
+      logical, intent(in) :: constrain_to_graph
+      logical, intent(out) :: usable
+
+      ja=first_bin
+      jb=last_bin
+      usable=.false.
+      if(df.le.0.0 .or. fwid.lt.0.0 .or. first_bin.gt.last_bin) return
+
+      if(constrain_to_graph) then
+         if(nfa.gt.nfb) return
+         fc=max(real(nfa),min(fc,real(nfb)))
+      endif
+
+      ja=max(first_bin,int((fc-fwid)/df))
+      jb=min(last_bin,int((fc+fwid)/df))
+      if(constrain_to_graph) then
+         ja=max(ja,ceiling(real(nfa)/df))
+         jb=min(jb,floor(real(nfb)/df))
+      endif
+      usable=ja.le.jb
+  end subroutine jtty_search_window
+
   subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
@@ -77,6 +106,7 @@ contains
       complex                        :: z
       logical                        :: match
       logical                        :: dupe
+      logical                        :: usable
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
 
@@ -178,15 +208,12 @@ contains
             fwid=150
          endif
 
-         if(fc.lt.float(nfa)) fc=nfa
-         if(fc.gt.float(nfb)) fc=nfb
+         call jtty_search_window(fc,fwid,nfa,nfb,.true.,df2,3, &
+              ubound(s0,1)-2,ja,jb,usable)
+         if(.not.usable) cycle
          fbest=0.
          xdtbest=0.
          fpk=0.
-
-         ja=(fc-fwid)/df2
-         jb=(fc+fwid)/df2
-         if(ja .lt. 3) ja=3
 
          do ic=1,nc
             nsloc=maxloc(s0(ja:jb,:))

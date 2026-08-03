@@ -10,6 +10,10 @@ set_tests_properties (test_jtty_pack PROPERTIES
   PASS_REGULAR_EXPRESSION "^ 3     3    67 14     NOW IS THE TIME FOR ALL GOOD MEN TO COME TO THE AID OF THEIR PARTY\.;^ 3     3    52 11     THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG, TWICE\.;\nTotal messages: 36   Number of errors:  0\n$"
 )
 
+add_executable (test_jtty_frequency_window test_jtty_frequency_window.f90)
+wsjt_link_common_fortran (test_jtty_frequency_window)
+add_test (NAME test_jtty_frequency_window COMMAND test_jtty_frequency_window)
+
 add_executable (test_jtty_txstream
   test_jtty_txstream.cpp
   ${CMAKE_SOURCE_DIR}/Modulator/JttyPcmFifo.cpp
