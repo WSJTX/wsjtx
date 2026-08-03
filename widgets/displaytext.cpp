@@ -561,16 +561,23 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
                      // state code appended at the end of this function.
 
   // K (contiguous US), KL (Alaska), KH6 (Hawaii), KH0 (Mariana Is.),
-  // KH2 (Guam), KH8 (American Samoa), KP2 (US Virgin Is.), and KP4 (Puerto
-  // Rico) are all separate DXCC entities that license under the same
-  // K/N/W/A callsign blocks (e.g. a WP3 call resolves to the KP4 entity via
-  // lookup() below, same as KP4 itself). Any of them can genuinely be
-  // transmitting from one of the 50 states (e.g. KL7YY portable from
-  // Colorado, or KP4 portable from Nebraska), so all are eligible for
-  // grid-based state mapping, not just plain "K" calls. Deleted/uninhabited
-  // entities (Navassa, Wake, Midway, etc.) are intentionally omitted.
+  // KH2 (Guam), KH8 (American Samoa), KP2 (US Virgin Is.), KP4 (Puerto
+  // Rico), and KG4 (Guantanamo Bay) are all separate DXCC entities that
+  // license under the same K/N/W/A callsign blocks (e.g. a WP3 call
+  // resolves to the KP4 entity via lookup() below, same as KP4 itself).
+  // cty.dat already exact-matches ordinary stateside KG4-suffix calls back
+  // to primary_prefix "K", so primary_prefix "KG4" here only ever means a
+  // genuine Guantanamo Bay call. Any of these can genuinely be transmitting
+  // from one of the 50 states (e.g. KL7YY portable from Colorado, or KP4
+  // portable from Nebraska), so all are eligible for grid-based state
+  // mapping, not just plain "K" calls. The remaining K/N/W/A-administered
+  // entities (Baker & Howland, Palmyra & Jarvis, Wake, Navassa, Desecheo,
+  // Swains, plus the deleted Johnston and Midway) are intentionally
+  // omitted: they have no resident ham population, so they're never
+  // genuinely "home" to a callsign the way the entities above are --
+  // activations are DXpeditions using calls issued for the trip.
   static QStringList const us_family_prefixes {
-    "K", "KL", "KH6", "KH0", "KH2", "KH8", "KP2", "KP4"};
+    "K", "KL", "KH6", "KH0", "KH2", "KH8", "KP2", "KP4", "KG4"};
   // KL and KH6 are the only entities in that set with their own recognized
   // "state" code in grid.dat (Alaska and Hawaii are modelled there like
   // states). If a KL/KH6 call's grid resolves to exactly that code, the
