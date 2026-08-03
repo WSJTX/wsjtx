@@ -34,6 +34,20 @@ program test_jtty_frequency_window
   call assert_true(fc.eq.4900.0, 'center is clamped to the graph lower edge')
   call assert_true(.not.usable, 'graph above the spectrum is rejected')
 
+  fc=1500.0
+  call jtty_search_window(fc,20.0,4900,5000,.false.,df,first_bin,last_bin, &
+       ja,jb,usable)
+  call assert_true(usable, 'QSO window ignores an unrelated graph range')
+  call assert_true(fc.eq.1500.0, 'QSO center is not moved to the graph edge')
+  call assert_true(ja.eq.int(1480.0/df), 'QSO lower bin follows Rx tolerance')
+  call assert_true(jb.eq.int(1520.0/df), 'QSO upper bin follows Rx tolerance')
+
+  fc=1500.0
+  call jtty_search_window(fc,20.0,1800,1200,.false.,df,first_bin,last_bin, &
+       ja,jb,usable)
+  call assert_true(usable, 'QSO window ignores inverted graph limits')
+  call assert_true(fc.eq.1500.0, 'inverted graph limits do not move QSO center')
+
   fc=1350.0
   call jtty_search_window(fc,150.0,1400,1600,.true.,df,first_bin,last_bin, &
        ja,jb,usable)

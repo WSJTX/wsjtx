@@ -208,7 +208,7 @@ contains
             fwid=150
          endif
 
-         call jtty_search_window(fc,fwid,nfa,nfb,.true.,df2,3, &
+         call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
               ubound(s0,1)-2,ja,jb,usable)
          if(.not.usable) cycle
          fbest=0.
