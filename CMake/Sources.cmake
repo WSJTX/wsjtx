@@ -136,6 +136,7 @@ set (jt9stream_FSRCS
   )
 
 set (wsjtx_CXXSRCS
+  Audio/AudioInputSource.hpp
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
   Network/PSKReporterIPFIX.cpp
@@ -185,6 +186,13 @@ set (wsjtx_CXXSRCS
   widgets/qsymonitor.cpp
   widgets/MMTTYIF.cpp
   )
+
+if (WSJT_ENABLE_TESTS)
+  list (APPEND wsjtx_CXXSRCS
+    Audio/FixtureAudioInput.cpp
+    LiveAudioTestController.cpp
+    )
+endif ()
 
 set (wsjt_CXXSRCS
   Logger.cpp

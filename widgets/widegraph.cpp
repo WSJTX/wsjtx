@@ -295,6 +295,17 @@ int WideGraph::fSpan()
   return ui->widePlot->fSpan ();
 }
 
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+void WideGraph::setFrequencyScale(int startFrequency, int binsPerPixel, int plotWidth)
+{
+  ui->widePlot->setFixedWidth(plotWidth);
+  ui->widePlot->setStartFreq(startFrequency);
+  ui->widePlot->setBinsPerPixel(binsPerPixel);
+  ui->fStartSpinBox->setValue(startFrequency);
+  ui->bppSpinBox->setValue(binsPerPixel);
+}
+#endif
+
 void WideGraph::setPeriod(double trperiod, int nsps)                  //SetPeriod
 {
   m_TRperiod=trperiod;

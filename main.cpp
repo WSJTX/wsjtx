@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <ios>
 #include <locale>
+#include <memory>
 #include <fftw3.h>
 
 #include <QApplication>
@@ -24,6 +25,7 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QLockFile>
@@ -54,6 +56,11 @@
 #include "WSJTXLogging.hpp"
 #include "MultiSettings.hpp"
 #include "widgets/mainwindow.h"
+#include "Audio/AudioInputSource.hpp"
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+#include "Audio/FixtureAudioInput.hpp"
+#include "LiveAudioTestController.hpp"
+#endif
 #include "commons.h"
 #include "lib/init_random_seed.h"
 #include "Radio.hpp"
@@ -266,6 +273,10 @@ int main(int argc, char *argv[])
 
   ExceptionCatchingApplication a(argc, argv);
   bool startup_smoke_test {false};
+  bool automated_test {false};
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+  bool live_audio_test {false};
+#endif
   try
     {
       // LOG_INfO ("+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++");
@@ -329,6 +340,21 @@ int main(int argc, char *argv[])
         "Start the application, process initial GUI events, and exit.");
       parser.addOption (startup_smoke_test_option);
 
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+      QCommandLineOption live_audio_test_option (
+        QStringList {} << "live-audio-test",
+        "Feed a WAV fixture through the live receive path.", "wav-path");
+      parser.addOption (live_audio_test_option);
+      QCommandLineOption live_audio_expected_option (
+        QStringList {} << "live-audio-expected",
+        "Expected decoder output used by --live-audio-test.", "expected-path");
+      parser.addOption (live_audio_expected_option);
+      QCommandLineOption live_audio_data_dir_option (
+        QStringList {} << "live-audio-data-dir",
+        "Shipped decoder data used by --live-audio-test.", "directory");
+      parser.addOption (live_audio_data_dir_option);
+#endif
+
       if (!parser.parse (a.arguments ()))
         {
           MessageBox::critical_message (nullptr, "Command line error", parser.errorText ());
@@ -349,6 +375,39 @@ int main(int argc, char *argv[])
         }
 
       startup_smoke_test = parser.isSet (startup_smoke_test_option);
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+      live_audio_test = parser.isSet (live_audio_test_option);
+      if (live_audio_test != parser.isSet (live_audio_expected_option)
+          || live_audio_test != parser.isSet (live_audio_data_dir_option))
+        {
+          std::cerr << "--live-audio-test, --live-audio-expected, and "
+                       "--live-audio-data-dir must be used together"
+                    << std::endl;
+          return EXIT_FAILURE;
+        }
+      if (startup_smoke_test && live_audio_test)
+        {
+          std::cerr << "--startup-smoke-test and --live-audio-test are mutually exclusive"
+                    << std::endl;
+          return EXIT_FAILURE;
+        }
+      if (live_audio_test)
+        {
+          QDir const decoderDataDir {parser.value (live_audio_data_dir_option)};
+          QFileInfo const allCallsigns {
+            decoderDataDir.absoluteFilePath ("ALLCALL7.TXT")};
+          if (!allCallsigns.isFile () || !allCallsigns.isReadable ())
+            {
+              std::cerr << "--live-audio-data-dir does not contain a readable "
+                           "ALLCALL7.TXT"
+                        << std::endl;
+              return EXIT_FAILURE;
+            }
+        }
+      automated_test = startup_smoke_test || live_audio_test;
+#else
+      automated_test = startup_smoke_test;
+#endif
       auto const smoke_phase = [startup_smoke_test] (char const *phase) {
         if (startup_smoke_test)
           {
@@ -356,11 +415,11 @@ int main(int argc, char *argv[])
           }
       };
       smoke_phase ("command line accepted");
-      QStandardPaths::setTestModeEnabled (parser.isSet (test_option) || startup_smoke_test);
+      QStandardPaths::setTestModeEnabled (parser.isSet (test_option) || automated_test);
 
       // support for multiple instances running from a single installation
       bool multiple {false};
-      if (parser.isSet (rig_option) || parser.isSet (test_option) || startup_smoke_test)
+      if (parser.isSet (rig_option) || parser.isSet (test_option) || automated_test)
         {
           auto temp_name = parser.value (rig_option);
           if (!temp_name.isEmpty ())
@@ -374,7 +433,7 @@ int main(int argc, char *argv[])
               a.setApplicationName (a.applicationName () + " - " + temp_name);
             }
 
-          if (parser.isSet (test_option) || startup_smoke_test)
+          if (parser.isSet (test_option) || automated_test)
             {
               a.setApplicationName (a.applicationName () + " - test");
             }
@@ -583,7 +642,7 @@ int main(int argc, char *argv[])
                 std::cerr << "WSJT-X startup: shared memory creation failed"
                           << " (error " << static_cast<int> (shared_memory_error) << "): "
                           << shared_memory_error_text.toStdString () << std::endl;
-                if (!startup_smoke_test)
+                if (!automated_test)
                   {
                     splash.hide ();
                     MessageBox::critical_message (
@@ -599,7 +658,7 @@ int main(int argc, char *argv[])
               std::cerr << "WSJT-X startup: orphaned jt9 shared memory segment remained after "
                            "shutdown attempts"
                         << std::endl;
-              if (!startup_smoke_test)
+              if (!automated_test)
                 {
                   splash.hide ();
                   MessageBox::critical_message (
@@ -631,14 +690,37 @@ int main(int argc, char *argv[])
 #endif
                                                                   ).toBool () ? 1u : 4u;
 
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+            if (live_audio_test) downSampleFactor = 1u;
+#endif
+
           }
 
           QDir::setCurrent(qApp->applicationDirPath()); //This helps to find the SF executables
 
           // run the application UI
           smoke_phase ("constructing MainWindow");
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+          FixtureAudioInput * fixture_input {nullptr};
+          std::unique_ptr<AudioInputSource> audio_input;
+          if (live_audio_test)
+            {
+              std::unique_ptr<FixtureAudioInput> fixture {
+                new FixtureAudioInput {parser.value (live_audio_test_option)}};
+              fixture_input = fixture.get ();
+              audio_input = std::move (fixture);
+            }
+#else
+          std::unique_ptr<AudioInputSource> audio_input;
+#endif
           MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env,
-                       startup_smoke_test);
+                       automated_test, std::move (audio_input),
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+                       live_audio_test ? parser.value (live_audio_data_dir_option) : QString {}
+#else
+                       QString {}
+#endif
+                       );
           smoke_phase ("MainWindow constructed");
 #ifdef Q_OS_WIN
           quint16 mmtty_port = 0;
@@ -660,6 +742,20 @@ int main(int argc, char *argv[])
 
           w.show();
           smoke_phase ("MainWindow shown");
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+          std::unique_ptr<LiveAudioTestController> live_audio_controller;
+          if (live_audio_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              live_audio_controller.reset (new LiveAudioTestController {
+                &w, fixture_input, parser.value (live_audio_expected_option)});
+              auto * controller = live_audio_controller.get ();
+              QTimer::singleShot (0, live_audio_controller.get (),
+                                  [controller] {
+                                    controller->begin ();
+                                  });
+            }
+#endif
           if (startup_smoke_test)
             {
               QTimer::singleShot (1000, &w, [&a, &w, &smoke_phase, &startup_smoke_ready] {
@@ -693,11 +789,18 @@ int main(int argc, char *argv[])
               std::cerr << "WSJT-X startup smoke: application exited before readiness" << std::endl;
               result = EXIT_FAILURE;
             }
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+          if (live_audio_test && (!live_audio_controller
+                                  || !live_audio_controller->succeeded ()))
+            {
+              result = EXIT_FAILURE;
+            }
+#endif
 
           // ensure config switches start with the right style sheet
           a.setStyleSheet (original_style_sheet);
         }
-      while (!result && !multi_settings.exit ());
+      while (!result && !multi_settings.exit () && !automated_test);
 
       // clean up lazily initialized resources
       {
@@ -721,7 +824,7 @@ int main(int argc, char *argv[])
     }
   catch (std::exception const& e)
     {
-      if (!startup_smoke_test)
+      if (!automated_test)
         {
           MessageBox::critical_message (nullptr, "Fatal error", e.what ());
         }
@@ -729,7 +832,7 @@ int main(int argc, char *argv[])
     }
   catch (...)
     {
-      if (!startup_smoke_test)
+      if (!automated_test)
         {
           MessageBox::critical_message (nullptr, "Unexpected fatal error");
         }

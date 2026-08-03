@@ -518,7 +518,7 @@ QString DisplayText::leftJustifyAppendage (QString message, QString const& appen
   return message;
 }
 
-void DisplayText::displayDecodedText(DecodedText const& decodedText, QString const& myCall,
+bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString const& myCall,
                                      QString const& mode,
                                      bool displayDXCCEntity, LogBook const& logBook,
                                      QString const& currentBand, bool ppfx, bool bCQonly,
@@ -547,7 +547,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
     }
   else
     {
-      if (bCQonly) return;
+      if (bCQonly) return false;
     }
   auto message = decodedText.string();
   QString dxCall;
@@ -754,6 +754,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   }
 
   insertText (message.trimmed (), bg, fg, decodedText.call (), dxCall);
+  return true;
 }
 
 void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 txFreq,

@@ -121,7 +121,7 @@ class EQSL;
 class WSPRNet;
 class SoundOutput;
 class Modulator;
-class SoundInput;
+class AudioInputSource;
 class Detector;
 class SampleDownloader;
 class MultiSettings;
@@ -174,7 +174,9 @@ public:
 
   explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
                       QSharedMemory *shdmem, unsigned downSampleFactor,
-                      QSplashScreen *, QProcessEnvironment const&, bool startup_smoke_test,
+                      QSplashScreen *, QProcessEnvironment const&, bool automated_test,
+                      std::unique_ptr<AudioInputSource> audio_input_source = {},
+                      QString decoder_data_path = {},
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -185,9 +187,35 @@ public:
 
   int decoderBusy () const {return m_decoderBusy;}
   void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
-
+  bool decoderBackendRunning () const;
+  bool diskDataActive () const {return m_diskData;}
+  bool monitoringActive () const {return m_monitoring;}
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  bool liveAudioTestMultithreadedFt8Enabled () const {return m_multithreadFT8;}
+  int liveAudioTestFt8ThreadCount () const {return m_ft8threads;}
+  int liveAudioTestDecodeDepth () const {return m_ndepth & 7;}
+  int liveAudioTestFt8Cycles () const {return m_nFT8Cycles;}
+  int liveAudioTestFt8Sensitivity () const {return m_ft8Sensitivity;}
+  int liveAudioTestFt8DecoderStart () const {return m_ft8DecoderStart;}
+  static constexpr int liveAudioTestDecodeLowFrequency () {return 200;}
+  static constexpr int liveAudioTestDecodeHighFrequency () {return 3000;}
+  bool configureLiveAudioTestDecodeRange ();
+#endif
 
   Q_SIGNALS:
+  void decoderBackendStarted () const;
+  void decoderBackendFailed (QString reason) const;
+  void decodeCycleStarted (quint64 generation) const;
+  void decodeCycleCompleted (quint64 generation) const;
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  void ft8DecoderInvocation (bool multithreaded, int threadCount, int depth,
+                             int cycles, bool subpass, int decoderStart,
+                             int halfSymbols, int sampleCount,
+                             int lowFrequency, int highFrequency) const;
+  void decoderOutputLine (QByteArray line) const;
+#endif
+  void decodedMessageProcessed (QString message) const;
+  void decodedMessageDisplayed (QString message) const;
   void jttyTextAccepted(qint64 requestId) const;
   void jttyTextRejected(qint64 requestId, JttyTxRejectReason reason) const;
   void jttyTextCompleted(qint64 requestId) const;
@@ -682,7 +710,7 @@ private:
   QSplashScreen * m_splash;
   QString m_revision;
   bool m_multiple;
-  bool m_startup_smoke_test;
+  bool m_automated_test;
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
   QSettings * m_settings;
@@ -696,6 +724,7 @@ private:
 #endif
 
   Configuration m_config;
+  QDir m_decoderDataDir;
   LogBook m_logBook;            // must be after Configuration construction
   Cloudlog m_cloudlog;
   WSPRBandHopping m_WSPR_band_hopping;
@@ -730,7 +759,8 @@ private:
 
   Detector * m_detector;
   unsigned m_FFTSize;
-  SoundInput * m_soundInput;
+  AudioInputSource * m_soundInput;
+  quint64 m_decodeCycleGeneration {0};
   Modulator * m_modulator;
   QScopedPointer<JttyTxBuffer> m_jttyTxBuffer;
   JttyTxStream * m_jttyTxStream;

@@ -29,7 +29,7 @@ public:
   void setContentFont (QFont const&);
   QFont contentFont () const {return char_font_;}
   void insertLineSpacer(QString const&);
-  void displayDecodedText(DecodedText const& decodedText, QString const& myCall, QString const& mode,
+  bool displayDecodedText(DecodedText const& decodedText, QString const& myCall, QString const& mode,
                           bool displayDXCCEntity, LogBook const& logBook,
                           QString const& currentBand=QString {}, bool ppfx=false, bool bCQonly=false,
                           bool haveFSpread = false, float fSpread = 0.0, bool bDisplayPoints=false,

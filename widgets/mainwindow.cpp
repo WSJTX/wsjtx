@@ -70,6 +70,7 @@
 #include "Network/NetworkAccessManager.hpp"
 #include "Audio/soundout.h"
 #include "Audio/soundin.h"
+#include "Audio/AudioInputSource.hpp"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "DecDataMutex.hpp"
@@ -482,7 +483,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        MultiSettings * multi_settings, QSharedMemory *shdmem,
                        unsigned downSampleFactor,
                        QSplashScreen * splash, QProcessEnvironment const& env,
-                       bool startup_smoke_test, QWidget *parent) :
+                       bool automated_test,
+                       std::unique_ptr<AudioInputSource> audio_input_source,
+                       QString decoder_data_path,
+                       QWidget *parent) :
   MultiGeometryWidget {parent},
   m_env {env},
   m_network_manager {this},
@@ -490,12 +494,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_splash {splash},
   m_revision {revision ()},
   m_multiple {multiple},
-  m_startup_smoke_test {startup_smoke_test},
+  m_automated_test {automated_test},
   m_multi_settings {multi_settings},
   m_configurations_button {0},
   m_settings {multi_settings->settings ()},
   ui(new Ui::MainWindow),
   m_config {&m_network_manager, temp_directory, m_settings, &m_logBook, this},
+  m_decoderDataDir {decoder_data_path.isEmpty ()
+                    ? m_config.data_dir () : QDir {decoder_data_path}},
   m_logBook {&m_config},
   m_cloudlog {&m_config, &m_network_manager},
   m_WSPR_band_hopping {m_settings, &m_config, this},
@@ -511,7 +517,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_dialFreqRxWSPR {0},
   m_detector {new Detector {RX_SAMPLE_RATE, double(NTMAX), downSampleFactor}},
   m_FFTSize {6192 / 2},         // conservative value to avoid buffer overruns
-  m_soundInput {new SoundInput},
+  m_soundInput {audio_input_source
+                ? audio_input_source.release ()
+                : static_cast<AudioInputSource *> (new SoundInput)},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
   m_jttyTxBuffer {new JttyTxBuffer},
   m_jttyTxStream {new JttyTxStream {*m_jttyTxBuffer}},
@@ -722,6 +730,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // start audio thread and hook up slots & signals for shutdown management
   // these objects need to be in the audio thread so that invoking
   // their slots is done in a thread safe way
+  Q_ASSERT (!m_soundInput->parent ());
   m_soundOutput->moveToThread (&m_audioThread);
   m_modulator->moveToThread (&m_audioThread);
   m_jttyTxStream->moveToThread (&m_audioThread);
@@ -755,14 +764,17 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_audioThread, &QThread::finished, m_jttyTxStream, &QObject::deleteLater);
 
   // hook up the audio input stream signals, slots and disposal
-  connect (this, &MainWindow::startAudioInputStream, m_soundInput, &SoundInput::start);
-  connect (this, &MainWindow::suspendAudioInputStream, m_soundInput, &SoundInput::suspend);
-  connect (this, &MainWindow::resumeAudioInputStream, m_soundInput, &SoundInput::resume);
-  connect (this, &MainWindow::reset_audio_input_stream, m_soundInput, &SoundInput::reset);
-  connect (this, &MainWindow::finished, m_soundInput, &SoundInput::stop);
-  connect(m_soundInput, &SoundInput::error, this, &MainWindow::showSoundInError);
-  connect(m_soundInput, &SoundInput::error, &m_config, &Configuration::invalidate_audio_input_device);
-  // connect(m_soundInput, &SoundInput::status, this, &MainWindow::showStatusMessage);
+  connect (this, &MainWindow::startAudioInputStream, m_soundInput, &AudioInputSource::start);
+  connect (this, &MainWindow::suspendAudioInputStream, m_soundInput, &AudioInputSource::suspend);
+  connect (this, &MainWindow::resumeAudioInputStream, m_soundInput, &AudioInputSource::resume);
+  connect (this, &MainWindow::reset_audio_input_stream, m_soundInput, &AudioInputSource::reset);
+  connect (this, &MainWindow::finished, m_soundInput, &AudioInputSource::stop);
+  if (!m_automated_test)
+    {
+      connect(m_soundInput, &AudioInputSource::error, this, &MainWindow::showSoundInError);
+    }
+  connect(m_soundInput, &AudioInputSource::error, &m_config, &Configuration::invalidate_audio_input_device);
+  // connect(m_soundInput, &AudioInputSource::status, this, &MainWindow::showStatusMessage);
   connect (&m_audioThread, &QThread::finished, m_soundInput, &QObject::deleteLater);
 
   connect (this, &MainWindow::finished, this, &MainWindow::close);
@@ -989,13 +1001,16 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   setWindowTitle (program_title ());
 
   connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
+  connect(&proc_jt9, &QProcess::started, this, &MainWindow::decoderBackendStarted);
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
+            Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
             subProcessError (&proc_jt9, error);
           });
 #else
   connect(&proc_jt9, &QProcess::errorOccurred, [this] (QProcess::ProcessError error) {
+                                                 Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
                                                  subProcessError (&proc_jt9, error);
                                                });
 #endif
@@ -1003,6 +1018,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           [this] (int exitCode, QProcess::ExitStatus status) {
             if (subProcessFailed (&proc_jt9, exitCode, status))
               {
+                Q_EMIT decoderBackendFailed (
+                  tr ("jt9 exited unexpectedly with code %1.").arg (exitCode));
                 m_valid = false;          // ensures exit if still
                                           // constructing
                 QTimer::singleShot (0, this, SLOT (close ()));
@@ -1281,7 +1298,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       , "-t", QDir::toNativeSeparators (m_config.temp_dir ().absolutePath ())
       // -r: read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...) for the
       // Fortran decoder; resolves to Contents/Resources/wsjtx on macOS.
-      , "-r", QDir::toNativeSeparators (m_config.data_dir ().absolutePath ())
+      , "-r", QDir::toNativeSeparators (m_decoderDataDir.absolutePath ())
       };
   QProcessEnvironment new_env {m_env};
   new_env.insert ("OMP_STACKSIZE", "10M");
@@ -1317,12 +1334,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_tci_audio = (m_config.tci_audio() && m_config.is_tci());
 
   if (!m_tci_audio) {
-    if (!m_config.audio_input_device ().isNull ())
-      {
-        Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                      , m_rx_audio_buffer_frames
-                                      , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
-      }
+    Q_EMIT startAudioInputStream (m_config.audio_input_device ()
+                                  , m_rx_audio_buffer_frames
+                                  , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
     if (!m_config.audio_output_device ().isNull ())
       {
         Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
@@ -1517,7 +1531,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
 void MainWindow::not_GA_warning_message ()
 {
-  if (!m_startup_smoke_test)
+  if (!m_automated_test)
     {
       MessageBox::critical_message (this,
                                     "This is a pre-release version of WSJT-X " + version (false) + " made\n"
@@ -1606,6 +1620,11 @@ MainWindow::~MainWindow()
 // Force linking of Fortran function stdmsg().
   QString t="1234567890123456789012345678901234567";
   if(stdmsg_(const_cast <char *> (t.toLatin1().constData()),(FCL)37)) return;
+}
+
+bool MainWindow::decoderBackendRunning () const
+{
+  return proc_jt9.state () == QProcess::Running;
 }
 
 void MainWindow::save_wave_file(QString const& name, int samples, Frequency frequency,
@@ -2732,7 +2751,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     bool was_monitoring = m_monitoring;
     if (m_monitoring && (m_config.restart_tci () or !m_tci_audio)) on_monitorButton_clicked (false);
     if (!m_tci_audio) {
-      if(m_config.restart_audio_input () && !m_config.audio_input_device ().isNull ()) {
+      if(m_config.restart_audio_input ()) {
         Q_EMIT startAudioInputStream (m_config.audio_input_device ()
                                       , m_rx_audio_buffer_frames
                                       , m_detector, m_downSampleFactor
@@ -4520,6 +4539,17 @@ void MainWindow::decode()                                       //decode()
         mem_jt9->lock ();
         memcpy(to, from, qMin(mem_jt9->size(), size));
         mem_jt9->unlock ();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+        if (m_mode == "FT8")
+          {
+            Q_EMIT ft8DecoderInvocation (
+              dec_data.params.lmultift8, dec_data.params.nmt,
+              dec_data.params.ndepth & 7, dec_data.params.nft8cycles,
+              dec_data.params.lft8subpass, dec_data.params.ndecoderstart,
+              dec_data.params.nzhsym, dec_data.params.kin,
+              dec_data.params.nfa, dec_data.params.nfb);
+          }
+#endif
         to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
         decodeBusy(true);
       }
@@ -4529,6 +4559,16 @@ void MainWindow::decode()                                       //decode()
     if(m_mode!="Q65") m_ActiveStationsWidget->erase();  //TEMP
   }
 }
+
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+bool MainWindow::configureLiveAudioTestDecodeRange ()
+{
+  // FT8's 1500/2048 Hz bins make 956 pixels at 4 bins/pixel span 200-3000 Hz.
+  m_wideGraph->setFrequencyScale (liveAudioTestDecodeLowFrequency (), 4, 956);
+  return m_wideGraph->nStartFreq () == liveAudioTestDecodeLowFrequency ()
+    && m_wideGraph->Fmax () == liveAudioTestDecodeHighFrequency ();
+}
+#endif
 
 void::MainWindow::fast_decode_done()
 {
@@ -5049,6 +5089,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
     ignored = false;
     m_muted = false;
     auto const raw_line = proc_jt9.readLine ();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+    Q_EMIT decoderOutputLine (raw_line);
+#endif
     // earlyDecodes grows as lines are displayed within this batch
     preparationContext.earlyDecodes = earlyDecodes;
     auto const prepared = DecodeOutputPlan::prepareLine (raw_line, preparationContext);
@@ -5085,6 +5128,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     QString const message0 = prepared.decodedOriginal;
     DecodedText decodedtext0 {prepared.decodedOriginal};
     DecodedText const& decodedtext {prepared.logicMessage};
+    Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
     {
     bool const bAvgMsg = prepared.averaged;
@@ -5514,6 +5558,7 @@ void MainWindow::rx_frequency_activity_cleared ()
 
 void MainWindow::decodeBusy(bool b)                             //decodeBusy()
 {
+  auto const was_busy = m_decoderBusy;
   if (b && m_decoderDiagActive) {
     logDecoderAbnormalClear("decoder busy session replaced");
     finishDecoderDiagnostic();
@@ -5528,6 +5573,14 @@ void MainWindow::decodeBusy(bool b)                             //decodeBusy()
     m_optimizingProgress.reset ();
   }
   m_decoderBusy=b;
+  if (b && !was_busy)
+    {
+      Q_EMIT decodeCycleStarted (++m_decodeCycleGeneration);
+    }
+  else if (!b && was_busy)
+    {
+      Q_EMIT decodeCycleCompleted (m_decodeCycleGeneration);
+    }
   ui->DecodeButton->setEnabled(!b && !m_wav_load_coordinator.isLoading ());
   update_wav_file_actions ();
 
@@ -14288,11 +14341,7 @@ void MainWindow::on_actionErase_Ignore_List_triggered()
 
 void MainWindow::read_ALLCALL7()
 {
-  // Read the shipped read-only ALLCALL7.TXT from the data dir where it installs
-  // (Contents/Resources/wsjtx on macOS, share/wsjtx on Linux/Windows), mirroring
-  // the JPLEPH idiom (m_config.data_dir()). The function-local static is built on
-  // the first call, after Configuration is constructed, so m_config is valid.
-  static QFile AllCall7File {m_config.data_dir ().absoluteFilePath ("ALLCALL7.TXT")};
+  static QFile AllCall7File {m_decoderDataDir.absoluteFilePath ("ALLCALL7.TXT")};
   QTextStream AllCall7Stream(&AllCall7File);
   if(AllCall7File.open(QIODevice::ReadOnly | QIODevice::Text)) {
     while (!AllCall7Stream.atEnd()) {
@@ -14864,29 +14913,37 @@ QString MainWindow::calculateDistanceAndBearing(const DecodedText& decodedtext)
 
 void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints)
 {
+  bool displayed;
   if ((m_mode == "JT65" or m_mode == "JT9" or m_mode == "JT4") && m_config.DXCC()) {
     DecodedText decodedtextJT {((QString::fromUtf8(line_read.left(44).constData())) + (QString::fromUtf8(line_read.mid(62, 2).constData())))};
-    ui->decodedTextBrowser->displayDecodedText (decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+    displayed = ui->decodedTextBrowser->displayDecodedText (
+      decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
+      m_logBook, m_currentBandPeriod, m_config.ppfx (),
+      ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+      haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
   } else {
     if (ui->actionHide_AP_info->isVisible() && ui->actionHide_AP_info->isChecked()) {
       // Hide FT8 AP information
       QByteArray line = line_read;
       DecodedText decodedtext2 {(QString::fromUtf8(line.replace("a1","").replace("a2","").replace("a3","").replace("a4","")
                                  .replace("a5","").replace("a6","").replace("a7","").replace("a8","").replace("a9","").replace("?","")))};
-      ui->decodedTextBrowser->displayDecodedText (decodedtext2, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                  m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                  ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                  haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+      displayed = ui->decodedTextBrowser->displayDecodedText (
+        decodedtext2, m_config.my_callsign (), m_mode, m_config.DXCC (),
+        m_logBook, m_currentBandPeriod, m_config.ppfx (),
+        ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+        haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
     } else {
-      ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                  m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                  ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                  haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+      displayed = ui->decodedTextBrowser->displayDecodedText (
+        decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
+        m_logBook, m_currentBandPeriod, m_config.ppfx (),
+        ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+        haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
     }
   }
+  if (displayed)
+    {
+      Q_EMIT decodedMessageDisplayed (decodedtext.message ().simplified ());
+    }
 }
 
 void MainWindow::set_mode_from_command_line(const QString& mode, bool lock_mode)

@@ -53,6 +53,11 @@ void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, Audi
 
   stop ();
 
+  if (device.isNull ())
+    {
+      return;
+    }
+
   m_sink = sink;
 
   QAudioFormat format (device.preferredFormat());

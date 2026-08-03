@@ -33,6 +33,9 @@ public:
   int    Fmin();
   int    Fmax();
   int    fSpan();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  void   setFrequencyScale(int startFrequency, int binsPerPixel, int plotWidth);
+#endif
   void   saveSettings();
   void   setFsample(int n);
   void   setPeriod(double trperiod, int nsps);

@@ -692,6 +692,22 @@ if (WSJT_ENABLE_TESTS)
       test_jt9_golden_ft8_210703_133430 -8
       samples/FT8/210703_133430.wav
       test/fixtures/ft8_210703_133430.expected.txt)
+    if (WSJT_BUILD_FORTRAN_OPENMP)
+      set (jt9_mtd_work_dir
+        "${CMAKE_BINARY_DIR}/Testing/Golden/test_jt9_mtd_ft8_210703_133430")
+      file (MAKE_DIRECTORY "${jt9_mtd_work_dir}")
+      add_test (NAME test_jt9_mtd_ft8_210703_133430
+        COMMAND ${CMAKE_COMMAND}
+          -DJT9=$<TARGET_FILE:jt9>
+          -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+          -DEXPECTED=${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt
+          -DWORK_DIR=${jt9_mtd_work_dir}
+          -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+          -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/compare_mtd_messages.cmake)
+      set_tests_properties (test_jt9_mtd_ft8_210703_133430 PROPERTIES
+        LABELS "decoder;golden;integration;mtd"
+        TIMEOUT 120)
+    endif ()
     wsjt_add_jt9_golden_test (
       test_jt9_golden_jt9_130418_1742 -9
       samples/JT9/130418_1742.wav
@@ -788,6 +804,10 @@ add_executable (wsjtx MACOSX_BUNDLE
 
 wsjt_enable_qt_automoc (wsjtx)
 
+if (WSJT_ENABLE_TESTS)
+  target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
+endif ()
+
 if (APPLE)
   add_custom_command(
       TARGET wsjtx
@@ -850,6 +870,34 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
     RUN_SERIAL TRUE
     TIMEOUT ${wsjtx_startup_test_timeout}
   )
+endif ()
+
+if (WSJT_ENABLE_TESTS AND WSJT_BUILD_FORTRAN_OPENMP
+    AND CMAKE_SYSTEM_NAME STREQUAL "Linux"
+    AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+  set (wsjtx_live_audio_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_ft8")
+  file (MAKE_DIRECTORY
+    "${wsjtx_live_audio_test_root}/config"
+    "${wsjtx_live_audio_test_root}/data"
+    "${wsjtx_live_audio_test_root}/cache"
+    "${wsjtx_live_audio_test_root}/tmp")
+  add_test (
+    NAME test_wsjtx_live_audio_ft8
+    COMMAND $<TARGET_FILE:wsjtx>
+      --live-audio-test
+      "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
+      --live-audio-expected
+      "${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt"
+      --live-audio-data-dir
+      "${CMAKE_SOURCE_DIR}"
+      --rig-name CTEST-LIVE-AUDIO)
+  set_tests_properties (test_wsjtx_live_audio_ft8 PROPERTIES
+    ENVIRONMENT
+      "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config;XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data;XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache;TMPDIR=${wsjtx_live_audio_test_root}/tmp"
+    LABELS "gui;audio;decoder;integration"
+    RUN_SERIAL TRUE
+    TIMEOUT 60)
 endif ()
 
 # make a library for WSJT-X UDP servers
