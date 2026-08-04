@@ -1,4 +1,4 @@
-subroutine multimode_decoder(ss,id2,params,nfsample)
+subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
 
 !$ use omp_lib
   use prog_args
@@ -12,7 +12,9 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   use fst4_decode
   use q65_decode
   use streaming_emit, only: streaming_emit_enabled,                       &
-       streaming_emit_decode, streaming_emit_decode_finished
+       streaming_emit_decode
+  use decode_completion_module, only: decode_completion_result,          &
+       reset_decode_completion, set_decode_completion
 
 !ft8md added 3 uses below
   use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,mycall12_0,         &
@@ -61,6 +63,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   logical(1) lhoundprev !ft8md
   integer nutc,ndelay
   type(params_block) :: params
+  type(decode_completion_result), intent(out) :: completion
   data ndelay/0/
   data first/.true./ !ft8md
   data firstsd/.true./ !ft8md
@@ -86,6 +89,21 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   type(counting_fst4_decoder) :: my_fst4
   type(counting_q65_decoder) :: my_q65  
 
+  call reset_decode_completion(completion)
+
+  my_jt4%decoded = 0
+  my_jt65%decoded = 0
+  my_jt9%decoded = 0
+  my_ft8%decoded = 0
+  my_ft8var%decodedvar = 0
+  my_ft8var%callback => ft8_decodedvar   !Set once in serial init; avoids racing writes in decodevar
+  my_ft4%decoded = 0
+  my_fst4%decoded = 0
+  my_q65%decoded = 0
+  my_ft8var%xdtt=0.
+  nsynced=0
+  navg0=0
+
   if(.not.params%newdat .and. params%ntr.gt.ntr0) go to 800
   ntr0=params%ntr
   rms=sqrt(dot_product(float(id2(1:180000)),float(id2(1:180000)))/180000.0)
@@ -100,18 +118,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   mygrid=transfer(params%mygrid,mygrid)
   hisgrid=transfer(params%hisgrid,hisgrid)
   hisgrid4=hisgrid(1:4)
-
-! Initialize decode counts
-  my_jt4%decoded = 0
-  my_jt65%decoded = 0
-  my_jt9%decoded = 0
-  my_ft8%decoded = 0
-  my_ft8var%decodedvar = 0
-  my_ft8var%callback => ft8_decodedvar   !Set once in serial init; avoids racing writes in decodevar
-  my_ft4%decoded = 0
-  my_fst4%decoded = 0
-  my_q65%decoded = 0
-  my_ft8var%xdtt=0.
 
   ncandall=0           !ft8md
   ncandallthr=0        !ft8md
@@ -1398,13 +1404,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   if(params%nmode.ne.8 .or. params%nzhsym.eq.50 .or. &
        (params%lmultift8 .and. params%nmode.eq.8 .and. params%nzhsym.gt.45) .or. &
        .not.params%ndiskdat) then !ft8md
-     if (streaming_emit_enabled()) then
-        call streaming_emit_decode_finished(params%nutc)
-     else if(.not.lquiet) then
-        write(*,1010) nsynced,ndecoded,navg0
-1010    format('<DecodeFinished>',2i4,i9)
-     end if
-     call flush(6)
+     call set_decode_completion(completion,nsynced,ndecoded,navg0)
   endif
   close(13)
   if(ncontest.eq.6) close(19)
@@ -2021,4 +2021,29 @@ contains
     return
   end subroutine q65_decoded
 
+end subroutine multimode_decoder_core
+
+subroutine multimode_decoder(ss,id2,params,nfsample)
+  use prog_args, only: lquiet
+  use streaming_emit, only: streaming_emit_enabled,                       &
+       streaming_emit_decode_finished
+  use decode_completion_module, only: decode_completion_result,          &
+       write_decode_completion
+
+  include 'jt9com.f90'
+
+  real ss(184,NSMAX)
+  integer*2 id2(NTMAX*12000)
+  type(params_block) :: params
+  type(decode_completion_result) :: completion
+
+  call multimode_decoder_core(ss,id2,params,nfsample,completion)
+  if (.not. completion%available) return
+
+  if (streaming_emit_enabled()) then
+     call streaming_emit_decode_finished(params%nutc)
+  else if (.not. lquiet) then
+     call write_decode_completion(completion)
+  end if
+  call flush(6)
 end subroutine multimode_decoder

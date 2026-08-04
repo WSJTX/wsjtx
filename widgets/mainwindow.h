@@ -21,7 +21,6 @@
 #include <QStringList>
 #include <QScopedPointer>
 #include <QDir>
-#include <QProgressDialog>
 #include <QAbstractSocket>
 #include <QHostAddress>
 #include <QPointer>
@@ -65,6 +64,8 @@
 #include "AutoRespondScoring.hpp"
 #include "HoundTransmissionPolicy.hpp"
 #include "QsoProgress.hpp"
+#include "DecodeOperatingContext.hpp"
+#include "DecoderOutputFramer.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -185,7 +186,7 @@ public:
   MMTTYIF *getMmttyIf() const;
 #endif
 
-  int decoderBusy () const {return m_decoderBusy;}
+  bool decoderBusy () const {return DecodeOwner::None != m_decodeOwner;}
   void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
   bool decoderBackendRunning () const;
   bool diskDataActive () const {return m_diskData;}
@@ -250,6 +251,39 @@ public:
   void skedFreq(double sf);
 
 private:
+  enum class DecodeOwner
+  {
+    None,
+    Jt9,
+    Wsprd
+  };
+
+  enum class Jt9ProcessPhase
+  {
+    InitialStarting,
+    Ready,
+    StopRequested,
+    Terminating,
+    Killing,
+    ReplacementStarting,
+    Closing
+  };
+
+  enum class DecodePublishResult
+  {
+    Published,
+    Unavailable,
+    Failed
+  };
+
+  struct ActiveJt9Decode
+  {
+    qint32 generation {0};
+    DecodeOperatingContext context;
+    bool copiedSamples {false};
+    bool obsolete {false};
+  };
+
   static constexpr int MaxActiveStationRows = 50;
   // Keep this matched with MAX_CALLERS in the Q65 q3list Fortran helpers.
   static constexpr int MaxQ65PileupCallers = 50;
@@ -356,7 +390,6 @@ private slots:
   void on_actionSWL_Mode_triggered (bool checked);
   void on_DecodeButton_clicked (bool);
   void decode();
-  void decodeBusy(bool b);
   void on_EraseButton_clicked();
   void band_activity_cleared ();
   void rx_frequency_activity_cleared ();
@@ -512,7 +545,6 @@ private slots:
   void on_cbSWL_toggled(bool b);
   void on_cbTx6_toggled(bool b);
   void on_cbMenus_toggled(bool b);
-  void on_cbCQonly_toggled(bool b);
   void on_cbAutoSeq_toggled(bool b);
   void networkError (QString const&);
   void on_ClrAvgButton_clicked();
@@ -883,6 +915,7 @@ private:
   qint32  m_position;
   qint64  m_decoderDiagSequence=0;
   qint64  m_decoderDiagActiveSequence=0;
+  qint32  m_nextDecoderGeneration=0;
   qint32  m_decoderDiagStartIhsym=0;
   qint32  m_decoderDiagStartHsymStop=0;
   qint32  m_decoderDiagStartNzhsym=0;
@@ -897,19 +930,24 @@ private:
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
   bool    m_loopall;
-  bool    m_decoderBusy;
+  DecodeOwner m_decodeOwner=DecodeOwner::None;
+  Jt9ProcessPhase m_jt9ProcessPhase=Jt9ProcessPhase::InitialStarting;
   bool    m_modeLocked = false;
-  bool    m_decode_button_enabled_before_wav {false};
   bool    m_decoderDiagActive=false;
   bool    m_decoderDiagBusyRequestLogged=false;
   bool    m_decoderDiagOverrunLogged=false;
   bool    m_decoderDiagHardHangLogged=false;
   bool    m_decoderDiagAbnormalClear=false;
+  bool    m_decoderCompletedSinceStart=false;
+  bool    m_jt9PayloadValid=false;
+  bool    m_closing=false;
   bool    m_txFirst;
   bool    m_auto;
   bool    m_restart;
   bool    m_generated_message_error;
   bool    m_startAnother;
+  ActiveJt9Decode m_activeJt9Decode;
+  DecoderOutputFramer m_decoderOutputFramer;
 
   // start ft8md
   bool    m_FT8EarlyStart;   
@@ -1034,6 +1072,10 @@ private:
   EQSL *Eqsl;
 
   QTimer m_guiTimer;
+  QTimer m_decoderShutdownTimer;
+  QTimer m_decoderTerminateTimer;
+  QTimer m_decoderKillTimer;
+  QTimer m_decoderStartTimer;
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
   QTimer ptt1Timer;                 //StartTx delay
@@ -1229,8 +1271,6 @@ private:
   bool m_bDisplayedOnce;
   Frequency m_lastMonitoredFrequency;
   double m_toneSpacing;
-  int m_firstDecode;
-  QProgressDialog m_optimizingProgress;
   QTimer m_heartbeat;
   MessageClient * m_messageClient;
   PSKReporter m_psk_Reporter;
@@ -1276,6 +1316,8 @@ private:
   void rigFailure (QString const& reason);
   void pskSetLocal ();
   void pskPost(DecodedText const& decodedtext);
+  void pskPost(DecodedText const& decodedtext,
+               DecodeOperatingContext const& context);
   void displayDialFrequency ();
   void transmitDisplay (bool);
   void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier,
@@ -1308,7 +1350,8 @@ private:
   void useNextCall();
   void abortQSO();
   void updateRate();
-  void write_all(QString txRx, QString message);
+  void write_all(QString txRx, QString message,
+                 DecodeOperatingContext const * context = nullptr);
   bool isWorked(int itype, QString key, float fMHz=0, QString="");
 
   void hound_reply (int foxFrequency);
@@ -1317,7 +1360,7 @@ private:
   void read_wav_file (QString const& fname);
   void wav_file_loaded ();
   void update_wav_file_actions ();
-  void decodeDone ();
+  void finishDecodeUi ();
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
   void subProcessError (QProcess *, QProcess::ProcessError);
   void statusUpdate () const;
@@ -1342,8 +1385,24 @@ private:
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
   void update_foxLogWindow_rate();
-  void to_jt9(qint32 n, qint32 istart, qint32 idone);
+  DecodePublishResult publishDecodeRequest(bool copySamples);
+  bool handleDecoderOutputEvent(DecoderOutputFramer::Event const& event,
+                                bool& decodeCompleted);
+  DecodeOperatingContext currentDecodeOperatingContext() const;
+  bool activeDecodeOperatingContextMatchesCurrent() const;
+  bool initializeDecoderSharedMemory();
+  void startDecoderProcess();
+  bool beginDecode(DecodeOwner owner);
+  void endDecode(DecodeOwner owner);
+  void updateDecodeControls();
+  bool usesJt9Process() const;
+  bool decoderRestartInProgress() const;
+  void abortJt9Transaction();
+  void recoverDecoderAtBoundary(QString const& reason, bool manual);
+  void requestDecoderRestart(QString const& reason);
   qint64 decoderDiagnosticElapsedMs() const;
+  qint64 decoderRequestDeadlineMs() const;
+  bool decoderRequestDeadlineExpired() const;
   void beginDecoderDiagnostic();
   void logDecoderBusyRequest(QString const& reason);
   void logDecoderProgress();

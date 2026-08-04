@@ -40,7 +40,6 @@
 #include <QDir>
 #include <QDebug>
 #include <QtConcurrent/QtConcurrentRun>
-#include <QProgressDialog>
 #include <QHostInfo>
 #include <QMutexLocker>
 #include <QVector>
@@ -74,6 +73,7 @@
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "DecDataMutex.hpp"
+#include "DecoderIpc.hpp"
 #include "TxStartPolicy.hpp"
 #include "ActiveStationList.hpp"
 #include "widgets/SpecOpLabel.h"
@@ -572,7 +572,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_btxok {false},
   m_diskData {false},
   m_loopall {false},
-  m_decoderBusy {false},
   m_txFirst {false},
   m_auto {false},
   m_restart {false},
@@ -662,10 +661,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_PwrBandSetOK {true},
   m_lastMonitoredFrequency {default_frequency},
   m_toneSpacing {0.},
-  m_firstDecode {0},
-  m_optimizingProgress {"Optimizing decoder FFTs for your CPU.\n"
-      "Please be patient,\n"
-      "this may take a few minutes", QString {}, 0, 1, this},
   m_messageClient {new MessageClient {QApplication::applicationName (),
         version (), revision (),
         m_config.udp_server_name (), m_config.udp_server_port (),
@@ -706,10 +701,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->sbTR_FST4W->values ({120, 300, 900, 1800});
   ui->decodedTextBrowser->set_configuration (&m_config, true);
   ui->decodedTextBrowser2->set_configuration (&m_config);
-
-  m_optimizingProgress.setWindowModality (Qt::WindowModal);
-  m_optimizingProgress.setAutoReset (false);
-  m_optimizingProgress.setMinimumDuration (15000); // only show after 15s delay
 
   //Attach or create a memory segment to be shared with QMAP.
   int memSize=4096;
@@ -999,23 +990,68 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   setWindowTitle (program_title ());
 
+  connect(&proc_jt9, &QProcess::started, this, [this] {
+      if (Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
+          || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase)
+        {
+          m_decoderStartTimer.stop ();
+          m_decoderCompletedSinceStart = false;
+          m_jt9ProcessPhase = Jt9ProcessPhase::Ready;
+          updateDecodeControls ();
+        }
+    });
   connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
   connect(&proc_jt9, &QProcess::started, this, &MainWindow::decoderBackendStarted);
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
+            if ((Jt9ProcessPhase::StopRequested == m_jt9ProcessPhase
+                 || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
+                 || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
+                && QProcess::Crashed == error) return;
             Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
             subProcessError (&proc_jt9, error);
           });
 #else
   connect(&proc_jt9, &QProcess::errorOccurred, [this] (QProcess::ProcessError error) {
+                                                 if ((Jt9ProcessPhase::StopRequested == m_jt9ProcessPhase
+                                                      || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
+                                                      || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
+                                                     && QProcess::Crashed == error) return;
                                                  Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
                                                  subProcessError (&proc_jt9, error);
                                                });
 #endif
   connect(&proc_jt9, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
-            if (subProcessFailed (&proc_jt9, exitCode, status))
+            if (m_closing) return;
+            if (decoderRestartInProgress ())
+              {
+                m_decoderShutdownTimer.stop ();
+                m_decoderTerminateTimer.stop ();
+                m_decoderKillTimer.stop ();
+                m_decoderStartTimer.stop ();
+                proc_jt9.readAllStandardOutput ();
+                proc_jt9.readAllStandardError ();
+                if (!initializeDecoderSharedMemory ())
+                  {
+                    m_valid = false;
+                    QTimer::singleShot (0, this, SLOT (close ()));
+                    return;
+                  }
+                m_jt9PayloadValid = false;
+                m_activeJt9Decode = {};
+                m_decoderOutputFramer.reset ();
+                startDecoderProcess ();
+                return;
+              }
+            auto const failed = subProcessFailed (&proc_jt9, exitCode, status);
+            if (!failed && m_valid)
+              {
+                MessageBox::critical_message (this, tr ("Decoder Error"),
+                                              tr ("The decoder subprocess exited unexpectedly."));
+              }
+            if (m_valid)
               {
                 Q_EMIT decoderBackendFailed (
                   tr ("jt9 exited unexpectedly with code %1.").arg (exitCode));
@@ -1170,6 +1206,41 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(&m_guiTimer, &QTimer::timeout, this, &MainWindow::guiUpdate);
   m_guiTimer.start(100);   //### Don't change the 100 ms! ###
 
+  m_decoderShutdownTimer.setSingleShot (true);
+  connect (&m_decoderShutdownTimer, &QTimer::timeout, this, [this] {
+      if (Jt9ProcessPhase::StopRequested != m_jt9ProcessPhase
+          || QProcess::NotRunning == proc_jt9.state ()) return;
+      m_jt9ProcessPhase = Jt9ProcessPhase::Terminating;
+      proc_jt9.terminate ();
+      m_decoderTerminateTimer.start (1000);
+    });
+  m_decoderTerminateTimer.setSingleShot (true);
+  connect (&m_decoderTerminateTimer, &QTimer::timeout, this, [this] {
+      if (Jt9ProcessPhase::Terminating != m_jt9ProcessPhase
+          || QProcess::NotRunning == proc_jt9.state ()) return;
+      m_jt9ProcessPhase = Jt9ProcessPhase::Killing;
+      proc_jt9.kill ();
+      m_decoderKillTimer.start (2000);
+    });
+  m_decoderKillTimer.setSingleShot (true);
+  connect (&m_decoderKillTimer, &QTimer::timeout, this, [this] {
+      if (Jt9ProcessPhase::Killing != m_jt9ProcessPhase
+          || QProcess::NotRunning == proc_jt9.state ()) return;
+      MessageBox::critical_message (this, tr ("Decoder Error"),
+                                    tr ("The decoder subprocess could not be stopped."));
+      m_valid = false;
+      QTimer::singleShot (0, this, SLOT (close ()));
+    });
+  m_decoderStartTimer.setSingleShot (true);
+  connect (&m_decoderStartTimer, &QTimer::timeout, this, [this] {
+      if (Jt9ProcessPhase::ReplacementStarting != m_jt9ProcessPhase
+          || QProcess::Running == proc_jt9.state ()) return;
+      MessageBox::critical_message (this, tr ("Decoder Error"),
+                                    tr ("The decoder subprocess could not be restarted."));
+      m_valid = false;
+      QTimer::singleShot (0, this, SLOT (close ()));
+    });
+
   stopWRTimer.setSingleShot(true);
   connect(&stopWRTimer, &QTimer::timeout, this, &MainWindow::stopWRTimeout);
 
@@ -1212,7 +1283,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_wideGraph.data (), SIGNAL(setFreq3(int,int)),this,
           SLOT(setFreq4(int,int)));
 
-  decodeBusy(false);
+  updateDecodeControls ();
 
   m_msg[0][0]=0;
 
@@ -1274,36 +1345,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
   }
 
-  to_jt9(0,0,0);     //initialize IPC variables
-
-  QStringList jt9_args {
-    "-s", QApplication::applicationName () // shared memory key,
-                                           // includes rig
-#ifdef NDEBUG
-      , "-w", "1"               //FFTW patience - release
-#else
-      , "-w", "1"               //FFTW patience - debug builds for speed
-#endif
-      // The number  of threads for  FFTW specified here is  chosen as
-      // three because  that gives  the best  throughput of  the large
-      // FFTs used  in jt9.  The count  is the minimum of  (the number
-      // available CPU threads less one) and three.  This ensures that
-      // there is always at least one free CPU thread to run the other
-      // mode decoder in parallel.
-      , "-m", QString::number (qMin (qMax (QThread::idealThreadCount () - 1, 1), 3)) //FFTW threads
-
-      , "-e", QDir::toNativeSeparators (m_appDir)
-      , "-a", QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath ())
-      , "-t", QDir::toNativeSeparators (m_config.temp_dir ().absolutePath ())
-      // -r: read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...) for the
-      // Fortran decoder; resolves to Contents/Resources/wsjtx on macOS.
-      , "-r", QDir::toNativeSeparators (m_decoderDataDir.absolutePath ())
-      };
-  QProcessEnvironment new_env {m_env};
-  new_env.insert ("OMP_STACKSIZE", "10M");
-  proc_jt9.setProcessEnvironment (new_env);
-  proc_jt9.start(QDir::toNativeSeparators (m_appDir) + QDir::separator () +
-          "jt9", jt9_args, QIODevice::ReadWrite | QIODevice::Unbuffered);
+  startDecoderProcess ();
 
   auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
   fftwf_import_wisdom_from_filename (fname.toLocal8Bit ());
@@ -1312,17 +1354,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->txrb6->setChecked(true);
 
   connect (&m_wav_load_coordinator, &WavLoadCoordinator::loadingChanged,
-           this, [this] (bool loading) {
-             if (loading)
-               {
-                 m_decode_button_enabled_before_wav = ui->DecodeButton->isEnabled ();
-                 ui->DecodeButton->setEnabled (false);
-               }
-             else if (!m_decoderBusy)
-               {
-                 ui->DecodeButton->setEnabled (m_decode_button_enabled_before_wav);
-               }
-             update_wav_file_actions ();
+           this, [this] (bool) {
+             updateDecodeControls ();
            });
   connect (&m_wav_load_coordinator, &WavLoadCoordinator::resultReady,
            this, &MainWindow::wav_file_loaded);
@@ -2006,10 +2039,8 @@ void MainWindow::dataSink(qint64 frames)
   }
 
   if(m_mode=="FT8") {
-    to_jt9(m_ihsym,-1,-1);     //Allow jt9 to bail out early, if necessary
-    if(m_ihsym==40 and m_decoderBusy) {
-      logDecoderAbnormalClear("FT8 symbol-40 auto-clear");
-      decodeDone();  //Clear a hung decoder status
+    if(m_ihsym==40 and decoderBusy ()) {
+      recoverDecoderAtBoundary ("FT8 symbol-40 boundary", false);
     }
   }
 
@@ -2229,9 +2260,11 @@ void MainWindow::dataSink(qint64 frames)
                  << QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath())
                  << t2 << m_fnameWE + ".wav";
       }
-      if (ui) ui->DecodeButton->setChecked (true);
-      p1Timer.start(1000);
-      decodeBusy(true);
+      if (beginDecode (DecodeOwner::Wsprd))
+        {
+          if (ui) ui->DecodeButton->setChecked (true);
+          p1Timer.start(1000);
+        }
     }
     m_rxDone=true;
   }
@@ -2630,7 +2663,7 @@ void MainWindow::fastSink(qint64 frames)
     m_t1=k/12000.0;
     m_kdone=k;
     dec_data.params.newdat=1;
-    if(!m_decoderBusy) {
+    if(!decoderBusy ()) {
       m_bFastDecodeCalled=true;
       decode();
     }
@@ -2969,7 +3002,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     return;
     case Qt::Key_D:
       if(m_mode != "WSPR" && e->modifiers() & Qt::ShiftModifier) {
-        if(!m_decoderBusy) {
+        if(!decoderBusy ()) {
           dec_data.params.newdat=0;
           dec_data.params.nagain=0;
           decode();
@@ -3623,6 +3656,12 @@ void MainWindow::setup_status_bar (bool vhf)
 
 void MainWindow::closeEvent(QCloseEvent * e)
 {
+  m_closing = true;
+  m_jt9ProcessPhase = Jt9ProcessPhase::Closing;
+  m_decoderShutdownTimer.stop ();
+  m_decoderTerminateTimer.stop ();
+  m_decoderKillTimer.stop ();
+  m_decoderStartTimer.stop ();
   m_valid = false;              // suppresses subprocess errors
   m_config.transceiver_offline ();
   writeSettings ();
@@ -3653,7 +3692,12 @@ void MainWindow::closeEvent(QCloseEvent * e)
   int nh=100;
   int irow=-99;
   plotsave_(&sw,&nw,&nh,&irow);
-  to_jt9(m_ihsym,999,-1);          //Tell jt9 to terminate
+  if (DecoderIpc::hasUsableSize (mem_jt9->size ())
+      && mem_jt9->data ())
+    {
+      auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
+      DecoderIpc::shutdown (*shared);
+    }
   if (proc_jt9.state() != QProcess::NotRunning) {
     if (!proc_jt9.waitForFinished(5000)) {
       proc_jt9.terminate();
@@ -4019,7 +4063,7 @@ void MainWindow::on_actionActiveStations_triggered()
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
 {
-  if (m_decoderBusy || m_wav_load_coordinator.isLoading ()) return;
+  if (decoderBusy () || m_wav_load_coordinator.isLoading ()) return;
   monitor (false);
 
   QString fname;
@@ -4115,7 +4159,10 @@ void MainWindow::wav_file_loaded ()
 
 void MainWindow::update_wav_file_actions ()
 {
-  bool const enabled=!m_decoderBusy && !m_wav_load_coordinator.isLoading ();
+  auto const backendReady = !usesJt9Process ()
+    || Jt9ProcessPhase::Ready == m_jt9ProcessPhase;
+  bool const enabled=!decoderBusy () && backendReady
+    && !m_wav_load_coordinator.isLoading ();
   ui->actionOpen->setEnabled(enabled);
   ui->actionOpen_next_in_directory->setEnabled(enabled);
   ui->actionDecode_remaining_files_in_directory->setEnabled(enabled);
@@ -4124,7 +4171,7 @@ void MainWindow::update_wav_file_actions ()
 
 void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 {
-  if(m_decoderBusy || m_wav_load_coordinator.isLoading ()) return;
+  if(decoderBusy () || m_wav_load_coordinator.isLoading ()) return;
   monitor (false);
   int i,len;
   QFileInfo fi(m_path);
@@ -4153,7 +4200,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 //Open all remaining files
 void MainWindow::on_actionDecode_remaining_files_in_directory_triggered()
 {
-  if(m_decoderBusy || m_wav_load_coordinator.isLoading ()) return;
+  if(decoderBusy () || m_wav_load_coordinator.isLoading ()) return;
   m_loopall=true;
   on_actionOpen_next_in_directory_triggered();
 }
@@ -4271,10 +4318,26 @@ void MainWindow::msgAvgDecode2()
 
 void MainWindow::decode()                                       //decode()
 {
-  if(m_decoderBusy) {
-    logDecoderBusyRequest("decode request");
-    return;                          //Don't start decoder if it's already busy.
+  if(decoderBusy ()) {
+    recoverDecoderAtBoundary ("decode cycle boundary", false);
+    if (decoderBusy ()) {
+      logDecoderBusyRequest("decode request");
+      return;                        //Don't start decoder if it's already busy.
+    }
   }
+  if (usesJt9Process ()
+      && (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
+          || QProcess::Running != proc_jt9.state ()))
+    {
+      ui->DecodeButton->setChecked (false);
+      showStatusMessage (tr ("Decoder is starting; decode request skipped."));
+      return;
+    }
+  if (usesJt9Process () && !dec_data.params.newdat && !m_jt9PayloadValid)
+    {
+      dec_data.params.newdat = true;
+      dec_data.params.nagain = false;
+    }
   m_fetched=0;
   QDateTime now = QDateTime::currentDateTimeUtc ();
   if( m_dateTimeLastTX.isValid () ) {
@@ -4491,66 +4554,59 @@ void MainWindow::decode()                                       //decode()
   if(!hisCall.isEmpty() && !m_auto && hisCall != m_lastloggedcall) dec_data.params.lenabledxcsearch=true;  //ft8md was && !m_enableTx
   else dec_data.params.lenabledxcsearch=false;
 
-  if (auto * to = reinterpret_cast<char *> (mem_jt9->data()))
-    {
-      char *from = (char*) dec_data.ipc;
-      int size=sizeof(struct dec_data);
-      if(dec_data.params.newdat==0) {
-        int noffset {offsetof (struct dec_data, params.nutc)};
-        to += noffset;
-        from += noffset;
-        size -= noffset;
-      }
-      if(m_mode=="MSK144" or m_bFast9) {
-        float t0=m_t0;
-        float t1=m_t1;
-        qApp->processEvents();                                //Update the waterfall
-        if(m_nPick > 0) {
-          t0=m_t0Pick;
-          t1=m_t1Pick;
-        }
-        static short int d2b[360000];
-        narg[0]=dec_data.params.nutc;
-        if(m_kdone>int(12000.0*m_TRperiod)) {
-          m_kdone=int(12000.0*m_TRperiod);
-        }
-        narg[1]=m_kdone;
-        narg[2]=m_nSubMode;
-        narg[3]=dec_data.params.newdat;
-        narg[4]=dec_data.params.minSync;
-        narg[5]=m_nPick;
-        narg[6]=1000.0*t0;
-        narg[7]=1000.0*t1;
-        narg[8]=2;                                //Max decode lines per decode attempt
-        if(dec_data.params.minSync<0) narg[8]=50;
-        if(m_mode=="JT9") narg[9]=102;            //Fast JT9
-        if(m_mode=="MSK144") narg[9]=104;         //MSK144
-        narg[10]=ui->RxFreqSpinBox->value();
-        narg[11]=ui->sbFtol->value ();
-        narg[12]=0;
-        narg[13]=-1;
-        narg[14]=m_config.aggressive();
-        memcpy(d2b,dec_data.d2,2*360000);
-        watcher3.setFuture (QtConcurrent::run (std::bind (fast_decode_, &d2b[0],
-            &narg[0],&m_TRperiod, &m_msg[0][0], dec_data.params.mycall,
-            dec_data.params.hiscall, (FCL)8000, (FCL)12, (FCL)12)));
-      } else {
-        mem_jt9->lock ();
-        memcpy(to, from, qMin(mem_jt9->size(), size));
-        mem_jt9->unlock ();
+  if(m_mode=="MSK144" or m_bFast9) {
+    float t0=m_t0;
+    float t1=m_t1;
+    qApp->processEvents();                                //Update the waterfall
+    if(m_nPick > 0) {
+      t0=m_t0Pick;
+      t1=m_t1Pick;
+    }
+    static short int d2b[360000];
+    narg[0]=dec_data.params.nutc;
+    if(m_kdone>int(12000.0*m_TRperiod)) {
+      m_kdone=int(12000.0*m_TRperiod);
+    }
+    narg[1]=m_kdone;
+    narg[2]=m_nSubMode;
+    narg[3]=dec_data.params.newdat;
+    narg[4]=dec_data.params.minSync;
+    narg[5]=m_nPick;
+    narg[6]=1000.0*t0;
+    narg[7]=1000.0*t1;
+    narg[8]=2;                                //Max decode lines per decode attempt
+    if(dec_data.params.minSync<0) narg[8]=50;
+    if(m_mode=="JT9") narg[9]=102;            //Fast JT9
+    if(m_mode=="MSK144") narg[9]=104;         //MSK144
+    narg[10]=ui->RxFreqSpinBox->value();
+    narg[11]=ui->sbFtol->value ();
+    narg[12]=0;
+    narg[13]=-1;
+    narg[14]=m_config.aggressive();
+    memcpy(d2b,dec_data.d2,2*360000);
+    watcher3.setFuture (QtConcurrent::run (std::bind (fast_decode_, &d2b[0],
+        &narg[0],&m_TRperiod, &m_msg[0][0], dec_data.params.mycall,
+        dec_data.params.hiscall, (FCL)8000, (FCL)12, (FCL)12)));
+  } else {
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-        if (m_mode == "FT8")
-          {
-            Q_EMIT ft8DecoderInvocation (
-              dec_data.params.lmultift8, dec_data.params.nmt,
-              dec_data.params.ndepth & 7, dec_data.params.nft8cycles,
-              dec_data.params.lft8subpass, dec_data.params.ndecoderstart,
-              dec_data.params.nzhsym, dec_data.params.kin,
-              dec_data.params.nfa, dec_data.params.nfb);
-          }
+    if (m_mode == "FT8")
+      {
+        Q_EMIT ft8DecoderInvocation (
+          dec_data.params.lmultift8, dec_data.params.nmt,
+          dec_data.params.ndepth & 7, dec_data.params.nft8cycles,
+          dec_data.params.lft8subpass, dec_data.params.ndecoderstart,
+          dec_data.params.nzhsym, dec_data.params.kin,
+          dec_data.params.nfa, dec_data.params.nfb);
+      }
 #endif
-        to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
-        decodeBusy(true);
+    auto const publishResult = publishDecodeRequest (dec_data.params.newdat);
+    if (DecodePublishResult::Published != publishResult)
+      {
+        ui->DecodeButton->setChecked (false);
+        if (DecodePublishResult::Failed == publishResult)
+          {
+            requestDecoderRestart ("decode publication failed");
+          }
       }
     }
   if((m_mode=="FT4" or (m_mode=="FT8" and m_ihsym==41) or m_diskData) and
@@ -4613,22 +4669,258 @@ void::MainWindow::fast_decode_done()
   m_bFastDone=false;
 }
 
-void MainWindow::to_jt9(qint32 n, qint32 istart, qint32 idone)
+void MainWindow::startDecoderProcess ()
 {
-  if (auto * dd = reinterpret_cast<dec_data_t *> (mem_jt9->data()))
+  auto const replacement = decoderRestartInProgress ();
+  m_jt9ProcessPhase = replacement ? Jt9ProcessPhase::ReplacementStarting
+                                  : Jt9ProcessPhase::InitialStarting;
+  m_activeJt9Decode = {};
+  m_decoderOutputFramer.reset ();
+  QStringList jt9Args {
+    "-s", QApplication::applicationName (), // shared memory key, includes rig
+    "-w", "1", // FFTW planning patience
+    // The number  of threads for  FFTW specified here is  chosen as
+    // three because  that gives  the best  throughput of  the large
+    // FFTs used  in jt9.  The count  is the minimum of  (the number
+    // available CPU threads less one) and three.  This ensures that
+    // there is always at least one free CPU thread to run the other
+    // mode decoder in parallel.
+    "-m", QString::number (qMin (qMax (QThread::idealThreadCount () - 1, 1), 3)),
+    "-e", QDir::toNativeSeparators (m_appDir),
+    "-a", QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath ()),
+    "-t", QDir::toNativeSeparators (m_config.temp_dir ().absolutePath ()),
+    // -r: read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...) for the
+    // Fortran decoder; resolves to Contents/Resources/wsjtx on macOS.
+    "-r", QDir::toNativeSeparators (m_decoderDataDir.absolutePath ())
+  };
+  QProcessEnvironment environment {m_env};
+  environment.insert ("OMP_STACKSIZE", "10M");
+  proc_jt9.setProcessEnvironment (environment);
+  proc_jt9.start (QDir::toNativeSeparators (QDir {m_appDir}.filePath ("jt9")),
+                  jt9Args, QIODevice::ReadWrite | QIODevice::Unbuffered);
+  if (replacement) m_decoderStartTimer.start (5000);
+  updateDecodeControls ();
+}
+
+bool MainWindow::initializeDecoderSharedMemory ()
+{
+  if (!DecoderIpc::hasUsableSize (mem_jt9->size ())
+      || !mem_jt9->data ())
     {
-      mem_jt9->lock ();
-      dd->ipc[0]=n;
-      if(istart>=0) dd->ipc[1]=istart;
-      if(idone>=0)  dd->ipc[2]=idone;
-      mem_jt9->unlock ();
+      return false;
     }
+  auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
+  DecoderIpc::initialize (*shared);
+  return true;
+}
+
+DecodeOperatingContext MainWindow::currentDecodeOperatingContext () const
+{
+  auto const periodFrequency = m_freqNominalPeriod ? m_freqNominalPeriod
+                                                    : m_freqNominal;
+  auto const periodBand = m_currentBandPeriod.isEmpty ()
+    ? m_config.bands ()->find (periodFrequency) : m_currentBandPeriod;
+  DecodeOperatingContext context;
+  context.mode = m_mode;
+  context.specOp = m_specOp;
+  context.periodFrequency = periodFrequency;
+  context.band = periodBand;
+  context.sequenceStart = m_dateTimeSeqStart;
+  context.trPeriod = m_TRperiod;
+  context.submode = m_nSubMode;
+  context.diskData = m_diskData;
+  context.multithreadFt8 = m_multithreadFT8;
+  context.ft8DecoderStart = m_ft8DecoderStart;
+  context.superFox = m_config.superFox ();
+  context.myCall = m_config.my_callsign ();
+  return context;
+}
+
+bool MainWindow::activeDecodeOperatingContextMatchesCurrent () const
+{
+  auto const& context = m_activeJt9Decode.context;
+  auto current = currentDecodeOperatingContext ();
+  current.periodFrequency = m_freqNominal;
+  current.band = m_config.bands ()->find (m_freqNominal);
+  return context.hasSameDecodeIdentity (current);
+}
+
+MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (bool copySamples)
+{
+  if (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
+      || QProcess::Running != proc_jt9.state ()
+      || decoderBusy ())
+    {
+      return DecodePublishResult::Unavailable;
+    }
+  if ((!copySamples && !m_jt9PayloadValid)
+      || !DecoderIpc::hasUsableSize (mem_jt9->size ())
+      || !mem_jt9->data ())
+    {
+      return DecodePublishResult::Failed;
+    }
+
+  if (!m_freqNominalPeriod)
+    {
+      m_freqNominalPeriod = m_freqNominal;
+      m_currentBandPeriod = m_config.bands ()->find (m_freqNominal);
+    }
+
+  auto const generation = DecoderIpc::nextGeneration (m_nextDecoderGeneration);
+  if (!beginDecode (DecodeOwner::Jt9))
+    {
+      return DecodePublishResult::Failed;
+    }
+  m_activeJt9Decode = {};
+  m_activeJt9Decode.generation = generation;
+  m_activeJt9Decode.context = currentDecodeOperatingContext ();
+  m_activeJt9Decode.copiedSamples = copySamples;
+  bool published {false};
+  {
+    QMutexLocker payloadLock {&dec_data_mutex ()};
+    auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
+    published = DecoderIpc::publish (*shared, dec_data, copySamples, generation);
+  }
+  if (!published)
+    {
+      logDecoderAbnormalClear ("decode publication failed");
+      m_activeJt9Decode = {};
+      endDecode (DecodeOwner::Jt9);
+      return DecodePublishResult::Failed;
+    }
+
+  m_nextDecoderGeneration = generation;
+  return DecodePublishResult::Published;
+}
+
+void MainWindow::requestDecoderRestart (QString const& reason)
+{
+  if (m_closing || decoderRestartInProgress ()) return;
+  if (DecodeOwner::Wsprd == m_decodeOwner) return;
+
+  logDecoderAbnormalClear (reason);
+  m_jt9ProcessPhase = Jt9ProcessPhase::StopRequested;
+  abortJt9Transaction ();
+  updateDecodeControls ();
+
+  if (DecoderIpc::hasUsableSize (mem_jt9->size ())
+      && mem_jt9->data ())
+    {
+      auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
+      DecoderIpc::shutdown (*shared);
+    }
+
+  if (QProcess::NotRunning == proc_jt9.state ())
+    {
+      if (!initializeDecoderSharedMemory ())
+        {
+          m_valid = false;
+          QTimer::singleShot (0, this, SLOT (close ()));
+          return;
+        }
+      startDecoderProcess ();
+      return;
+    }
+  m_decoderShutdownTimer.start (250);
+}
+
+bool MainWindow::decoderRestartInProgress () const
+{
+  return Jt9ProcessPhase::StopRequested == m_jt9ProcessPhase
+    || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
+    || Jt9ProcessPhase::Killing == m_jt9ProcessPhase
+    || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase;
+}
+
+bool MainWindow::usesJt9Process () const
+{
+  return "WSPR" != m_mode && "JTTY" != m_mode
+    && "MSK144" != m_mode && !m_bFast9;
+}
+
+bool MainWindow::beginDecode (DecodeOwner owner)
+{
+  if (DecodeOwner::None == owner || DecodeOwner::None != m_decodeOwner) return false;
+  m_decodeOwner = owner;
+  Q_EMIT decodeCycleStarted (++m_decodeCycleGeneration);
+  if (DecodeOwner::Jt9 == owner) beginDecoderDiagnostic ();
+  updateDecodeControls ();
+  return true;
+}
+
+void MainWindow::endDecode (DecodeOwner owner)
+{
+  if (owner != m_decodeOwner)
+    {
+      qWarning () << "Ignoring decode completion from a non-owning decoder";
+      return;
+    }
+  if (DecodeOwner::Jt9 == owner)
+    {
+      finishDecoderDiagnostic ();
+    }
+  m_decodeOwner = DecodeOwner::None;
+  Q_EMIT decodeCycleCompleted (m_decodeCycleGeneration);
+  updateDecodeControls ();
+}
+
+void MainWindow::updateDecodeControls ()
+{
+  auto const backendReady = !usesJt9Process ()
+    || Jt9ProcessPhase::Ready == m_jt9ProcessPhase;
+  auto const enabled = DecodeOwner::None == m_decodeOwner && backendReady
+    && !m_wav_load_coordinator.isLoading ();
+  ui->DecodeButton->setEnabled (enabled && "WSPR" != m_mode
+                                && "FST4W" != m_mode && "Echo" != m_mode);
+  update_wav_file_actions ();
+  statusUpdate ();
+}
+
+void MainWindow::abortJt9Transaction ()
+{
+  m_decoderOutputFramer.reset ();
+  m_activeJt9Decode = {};
+  m_jt9PayloadValid = false;
+  dec_data.params.nagain = false;
+  dec_data.params.ndiskdat = false;
+  m_nclearave = 0;
+  m_RxLog = 0;
+  m_nDecodes = 0;
+  m_bDecoded = false;
+  m_manualDecode = false;
+  m_startAnother = false;
+  m_loopall = false;
+  m_bNoMoreFiles = false;
+  ui->DecodeButton->setChecked (false);
+  ndecodes_label.setText ("Q65" == m_mode ? "0  0" : "0");
+  if (DecodeOwner::Jt9 == m_decodeOwner) endDecode (DecodeOwner::Jt9);
+  else updateDecodeControls ();
 }
 
 qint64 MainWindow::decoderDiagnosticElapsedMs() const
 {
   if(!m_decoderDiagActive || !m_decoderDiagElapsedTimer.isValid()) return -1;
   return m_decoderDiagElapsedTimer.elapsed();
+}
+
+qint64 MainWindow::decoderRequestDeadlineMs() const
+{
+  auto const automaticLiveDecode = m_decoderCompletedSinceStart
+    && !m_decoderDiagStartNdiskdat
+    && m_decoderDiagStartNewdat
+    && !m_decoderDiagStartNagain;
+  if (automaticLiveDecode && "FT4" == m_decoderDiagStartMode) return 6000;
+  if (automaticLiveDecode && "FT8" == m_decoderDiagStartMode) return 10000;
+
+  auto const minimum = m_decoderCompletedSinceStart ? 60000 : 300000;
+  return std::max<qint64> (
+      minimum, static_cast<qint64> (4.0 * m_decoderDiagStartTRperiod * 1000.0));
+}
+
+bool MainWindow::decoderRequestDeadlineExpired() const
+{
+  auto const elapsed = decoderDiagnosticElapsedMs ();
+  return elapsed >= 0 && elapsed >= decoderRequestDeadlineMs ();
 }
 
 void MainWindow::beginDecoderDiagnostic()
@@ -4669,7 +4961,7 @@ void MainWindow::logDecoderBusyRequest(QString const& reason)
 
 void MainWindow::logDecoderProgress()
 {
-  if(!m_decoderDiagActive) return;
+  if(DecodeOwner::Jt9 != m_decodeOwner || !m_decoderDiagActive) return;
 
   auto const elapsedMs = decoderDiagnosticElapsedMs();
   if(elapsedMs < 0) return;
@@ -4689,7 +4981,7 @@ void MainWindow::logDecoderProgress()
     m_decoderDiagOverrunLogged=true;
   }
 
-  auto const hardHangMs = std::max<qint64>(60000, static_cast<qint64>(4.0 * m_decoderDiagStartTRperiod * 1000.0));
+  auto const hardHangMs = decoderRequestDeadlineMs ();
   if(!m_decoderDiagHardHangLogged && elapsedMs >= hardHangMs) {
     qWarning() << "Decoder hard-hang candidate"
                << "seq:" << m_decoderDiagActiveSequence
@@ -4702,7 +4994,13 @@ void MainWindow::logDecoderProgress()
                << "startIhsym:" << m_decoderDiagStartIhsym
                << "hsymStop:" << m_decoderDiagStartHsymStop
                << "nzhsym:" << m_decoderDiagStartNzhsym;
+    if (proc_jt9.canReadLine ())
+      {
+        readFromStdout ();
+        if (DecodeOwner::Jt9 != m_decodeOwner || !m_decoderDiagActive) return;
+      }
     m_decoderDiagHardHangLogged=true;
+    requestDecoderRestart ("decoder hard timeout");
   }
 }
 
@@ -4778,14 +5076,27 @@ void MainWindow::finishDecoderDiagnostic()
 
 void MainWindow::clearHungDecoderStatus(QString const& reason)
 {
-  if(!m_decoderBusy) return;
-
-  logDecoderAbnormalClear(reason);
-  to_jt9(m_ihsym,-1,-1);
-  decodeDone();
+  if(DecodeOwner::Jt9 != m_decodeOwner) return;
+  recoverDecoderAtBoundary (reason, true);
 }
 
-void MainWindow::decodeDone ()
+void MainWindow::recoverDecoderAtBoundary (QString const& reason, bool manual)
+{
+  if (DecodeOwner::Jt9 != m_decodeOwner) return;
+  if (!manual && !decoderRequestDeadlineExpired ())
+    {
+      logDecoderBusyRequest (reason);
+      return;
+    }
+  if (proc_jt9.canReadLine ())
+    {
+      readFromStdout ();
+      if (DecodeOwner::Jt9 != m_decodeOwner) return;
+    }
+  requestDecoderRestart (reason);
+}
+
+void MainWindow::finishDecodeUi ()
 {
   if(m_mode=="Q65") m_wideGraph->drawRed(0,0);
   if ("FST4W" == m_mode)
@@ -4818,14 +5129,11 @@ void MainWindow::decodeDone ()
   dec_data.params.ndiskdat=0;
   m_nclearave=0;
   ui->DecodeButton->setChecked (false);
-  decodeBusy(false);
   m_RxLog=0;
   if(SpecOp::FOX == m_specOp) {
     houndCallers();
     if(ui->cbWorkDupes->isChecked()) QTimer::singleShot (5000, this, [=] {band_activity_cleared();});
   }
-  to_jt9(m_ihsym,-1,1);                //Tell jt9 we know it has finished
-
   m_startAnother=m_loopall;
   if(m_bNoMoreFiles) {
     MessageBox::information_message(this, tr("No more files to open."));
@@ -5058,36 +5366,157 @@ void MainWindow::activeWorked(QString call, QString band)
   m_activeCall[call].bands=QString::fromLatin1(ba);
 }
 
+bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& event,
+                                           bool& decodeCompleted)
+{
+  if (DecoderOutputFramer::EventType::Record == event.type)
+    {
+      if (DecodeOwner::Jt9 != m_decodeOwner
+          || !m_activeJt9Decode.generation
+          || event.generation != m_activeJt9Decode.generation)
+        {
+          return true;
+        }
+      if (!m_activeJt9Decode.obsolete
+          && !activeDecodeOperatingContextMatchesCurrent ())
+        {
+          m_activeJt9Decode.obsolete = true;
+          qInfo () << "Discarding obsolete decoder output"
+                   << "generation:" << event.generation;
+        }
+      return m_activeJt9Decode.obsolete;
+    }
+
+  if (DecoderOutputFramer::EventType::Malformed == event.type)
+    {
+      qWarning () << "Ignoring malformed or unframed decoder output:"
+                  << event.rawLine.trimmed ();
+      if (event.rawLine.startsWith ("<DecodeStarted>")
+          || event.rawLine.startsWith ("<DecodeFinished>"))
+        {
+          if (Jt9ProcessPhase::Ready == m_jt9ProcessPhase
+              && DecodeOwner::Jt9 == m_decodeOwner)
+            {
+              requestDecoderRestart ("malformed decoder output frame");
+            }
+        }
+      return true;
+    }
+
+  if (DecoderOutputFramer::EventType::Started == event.type)
+    {
+      auto const authoritative = Jt9ProcessPhase::Ready == m_jt9ProcessPhase
+        && DecodeOwner::Jt9 == m_decodeOwner
+        && m_activeJt9Decode.generation
+        && event.generation == m_activeJt9Decode.generation;
+      if (!authoritative)
+        {
+          qWarning () << "Quarantining stale decoder output"
+                      << "generation:" << event.generation
+                      << "activeGeneration:" << m_activeJt9Decode.generation;
+          if (Jt9ProcessPhase::Ready == m_jt9ProcessPhase
+              && DecodeOwner::Jt9 == m_decodeOwner)
+            {
+              requestDecoderRestart ("decoder output generation mismatch");
+            }
+        }
+      return true;
+    }
+
+  auto const completion = event.completion;
+  auto const authoritative = DecodeOwner::Jt9 == m_decodeOwner
+    && m_activeJt9Decode.generation
+    && event.generation == m_activeJt9Decode.generation;
+  if (!authoritative)
+    {
+      qWarning () << "Ignoring stale decoder completion"
+                  << "generation:" << completion.generation;
+      return true;
+    }
+
+  if (!m_activeJt9Decode.obsolete
+      && !activeDecodeOperatingContextMatchesCurrent ())
+    {
+      m_activeJt9Decode.obsolete = true;
+      qInfo () << "Discarding obsolete decoder completion"
+               << "generation:" << event.generation;
+    }
+
+  bool consumed {false};
+  int state {-1};
+  if (DecoderIpc::hasUsableSize (mem_jt9->size ())
+      && mem_jt9->data ())
+    {
+      auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
+      if (DECODER_IPC_VERSION == DecoderIpc::protocolVersion (*shared)
+          && completion.generation == DecoderIpc::generation (*shared))
+        {
+          state = DecoderIpc::state (*shared);
+          consumed = DecoderIpc::consume (*shared, completion.generation);
+        }
+    }
+  if (!consumed)
+    {
+      qWarning () << "Unable to consume matching decoder completion"
+                  << "generation:" << completion.generation
+                  << "state:" << state;
+      requestDecoderRestart ("matching decoder completion could not be consumed");
+      return true;
+    }
+
+  if (!m_activeJt9Decode.obsolete)
+    {
+      m_bDecoded = completion.decoded > 0;
+      auto const& context = m_activeJt9Decode.context;
+      if(context.mode=="Q65") {
+        auto const n0 = completion.average / 1000;
+        auto const n1 = completion.average % 1000;
+        ndecodes_label.setText(QString {"%1  %2"}.arg (n0).arg (n1));
+      } else if(m_nDecodes==0 && !(context.multithreadFt8 && context.diskData)) {
+        ndecodes_label.setText("0");
+      }
+    }
+  m_activeJt9Decode.generation = 0;
+  decodeCompleted = true;
+  return true;
+}
+
 void MainWindow::readFromStdout()                             //readFromStdout
 {
+  bool decodeCompleted {false};
+  auto const decodeContext = m_activeJt9Decode.context;
   bool bDisplayPoints = false;
   QString all_decodes;
   if(m_ActiveStationsWidget!=NULL) {
-    bDisplayPoints=(m_mode=="FT4" or m_mode=="FT8") and
-      (m_specOp==SpecOp::ARRL_DIGI or m_ActiveStationsWidget->isVisible());
+    bDisplayPoints=(decodeContext.mode=="FT4" or decodeContext.mode=="FT8") and
+      (decodeContext.specOp==SpecOp::ARRL_DIGI or m_ActiveStationsWidget->isVisible());
   }
   extern bool no_a7_decodes;
   extern QString earlyDecodes;
   DecodeOutputPlan::PreparationContext preparationContext;
-  preparationContext.mode = m_mode;
-  preparationContext.specOp = m_specOp;
-  preparationContext.myCall = m_config.my_callsign ();
+  preparationContext.mode = decodeContext.mode;
+  preparationContext.specOp = decodeContext.specOp;
+  preparationContext.myCall = decodeContext.myCall;
   preparationContext.qsyEnabled = ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget;
   preparationContext.activeStationsAvailable = m_ActiveStationsWidget != nullptr;
   preparationContext.activeStationsWantedOnly = m_ActiveStationsWidget && m_ActiveStationsWidget->wantedOnly();
   preparationContext.displayPoints = bDisplayPoints;
   preparationContext.noOwnCall = ui->cbNoOwnCall->isChecked ();
-  preparationContext.diskData = m_diskData;
+  preparationContext.diskData = decodeContext.diskData;
   preparationContext.noA7Decodes = no_a7_decodes;
-  preparationContext.multithreadFt8 = m_multithreadFT8;
-  preparationContext.ft8DecoderStart = m_ft8DecoderStart;
-  preparationContext.nominalFrequency = m_freqNominal;
+  preparationContext.multithreadFt8 = decodeContext.multithreadFt8;
+  preparationContext.ft8DecoderStart = decodeContext.ft8DecoderStart;
+  preparationContext.nominalFrequency = decodeContext.periodFrequency;
   preparationContext.reduceFalseDecodes = ui->actionReduce_false_decodes->isChecked();
-  while(proc_jt9.canReadLine()) {
+  m_decoderOutputFramer.drain (
+    proc_jt9, [this, &all_decodes, &preparationContext, &decodeCompleted,
+               &decodeContext, bDisplayPoints]
+    (DecoderOutputFramer::Event const& event) {
+    if (handleDecoderOutputEvent (event, decodeCompleted)) return;
     filtered = false;
     ignored = false;
     m_muted = false;
-    auto const raw_line = proc_jt9.readLine ();
+    auto const raw_line = event.rawLine;
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
     Q_EMIT decoderOutputLine (raw_line);
 #endif
@@ -5107,18 +5536,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         updateArrlActivity = true;
       }
     }
-    if (prepared.disposition == DecodeOutputPlan::LineDisposition::Ignore) continue;
-    if (prepared.disposition == DecodeOutputPlan::LineDisposition::Finish) {
-      m_bDecoded = prepared.batchHasDecodes;
-      if(m_mode=="Q65") {
-        ndecodes_label.setText(QString {"%1  %2"}.arg (prepared.q65SingleDecodes)
-                               .arg (prepared.q65AveragedDecodes));
-      } else {
-        if(m_nDecodes==0 && !(m_multithreadFT8 && m_diskData)) ndecodes_label.setText("0");
-      }
-      decodeDone ();
-      return;
-    }
+    if (prepared.disposition != DecodeOutputPlan::LineDisposition::Decode) return;
 
     auto line_read = prepared.normalizedLine;
     bool haveFSpread = prepared.haveFrequencySpread;
@@ -5135,9 +5553,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
     for (auto const& action : prepared.actions) {
       if (action.kind == DecodeOutputPlan::ActionKind::IncrementDecodeCount) {
         m_nDecodes += 1;
-        if(m_mode!="Q65") ndecodes_label.setText(QString::number(m_nDecodes));
+        if(decodeContext.mode!="Q65") ndecodes_label.setText(QString::number(m_nDecodes));
       } else if (action.kind == DecodeOutputPlan::ActionKind::WriteAll) {
-        write_all("Rx", action.text);
+        write_all("Rx", action.text, &decodeContext);
       } else if (action.kind == DecodeOutputPlan::ActionKind::UploadWsprSpot) {
         uploadWSPRSpots (true, action.text);
       }
@@ -5179,15 +5597,15 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         if (processWaitReplyCall(decodedtext0, DecodedMessageReaction::WaitDecodeSource::SlowDecoder,
                                  &block_right_display)
-            == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) continue;
+            == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) return;
 
-        if (!applyFiltering(decodedtext, filtered)) continue;
+        if (!applyFiltering(decodedtext, filtered)) return;
 
 
         // insert blank line, but only if not filtered and no decodes
         int ntime=6;
-        if (m_TRperiod>=60) ntime=4;
-        if ((m_config.insert_blank () or m_config.alert_Enabled()) && (line_read.left(ntime) != m_tBlankLine) && message0.left(4).contains(four_digit_regexp) && !m_diskData) {
+        if (decodeContext.trPeriod>=60) ntime=4;
+        if ((m_config.insert_blank () or m_config.alert_Enabled()) && (line_read.left(ntime) != m_tBlankLine) && message0.left(4).contains(four_digit_regexp) && !decodeContext.diskData) {
           ui->decodedTextBrowser->new_period ();
           if (m_specOp == SpecOp::FOX and m_ActiveStationsWidget != NULL && m_config.insert_blank ()) { // clear the ActiveStations window
             m_ActiveStationsWidget->clearStations();
@@ -5196,15 +5614,15 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if (SpecOp::FOX != m_specOp && (!filtered or m_config.filters_for_Wait_and_Pounce_only()) && m_config.insert_blank ()) {
             QString band;
             if(((QDateTime::currentMSecsSinceEpoch() / 1000 - m_secBandChanged) > 4*int(m_TRperiod)/4) or m_displayBand) {
-              band = ' ' + m_config.bands ()->find (m_freqNominal);
+              band = ' ' + decodeContext.band;
             }
             if (m_config.insert_blank ()) {
               if (ui->actionUse_Dark_Style->isChecked()) {
                 if (m_config.detailed_blank()) {
                   if (m_config.DXCC()) {
-                    ui->decodedTextBrowser->insertText(("------ " + m_dateTimeSeqStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + m_currentBandPeriod + " - " + m_mode + " ------"), "#a2a2a2", "#000000");
+                    ui->decodedTextBrowser->insertText(("------ " + decodeContext.sequenceStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + decodeContext.band + " - " + decodeContext.mode + " ------"), "#a2a2a2", "#000000");
                   } else {
-                    ui->decodedTextBrowser->insertText(("------ " + m_dateTimeSeqStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + m_currentBandPeriod + " - " + m_mode), "#a2a2a2", "#000000");
+                    ui->decodedTextBrowser->insertText(("------ " + decodeContext.sequenceStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + decodeContext.band + " - " + decodeContext.mode), "#a2a2a2", "#000000");
                   }
                 } else {
                   ui->decodedTextBrowser->insertText(band.rightJustified(40, '-'), "#a2a2a2", "#000000");
@@ -5212,9 +5630,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
               } else {
                 if (m_config.detailed_blank()) {
                   if (m_config.DXCC()) {
-                    ui->decodedTextBrowser->insertLineSpacer ("------ " + m_dateTimeSeqStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + m_currentBandPeriod + " - " + m_mode + " ------");
+                    ui->decodedTextBrowser->insertLineSpacer ("------ " + decodeContext.sequenceStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + decodeContext.band + " - " + decodeContext.mode + " ------");
                   } else {
-                    ui->decodedTextBrowser->insertLineSpacer ("------ " + m_dateTimeSeqStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + m_currentBandPeriod + " - " + m_mode);
+                    ui->decodedTextBrowser->insertLineSpacer ("------ " + decodeContext.sequenceStart.toString("yyyy-MM-dd - hh:mm:ss' UTC - '") + decodeContext.band + " - " + decodeContext.mode);
                   }
                 } else {
                   ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
@@ -5229,7 +5647,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
         processSuperHoundVerification(decodedtext0, verified);
 
         // show distance and bearing
-        if (DecodeOutputPlan::shouldDisplayLeft(bAvgMsg, m_mode, m_specOp, filtered,
+        if (DecodeOutputPlan::shouldDisplayLeft(bAvgMsg, decodeContext.mode,
+                                                decodeContext.specOp, filtered,
                                                 m_config.filters_for_Wait_and_Pounce_only())) {
           QString distance = calculateDistanceAndBearing(decodedtext);
           displayDecodedTextLine(decodedtext1, line_read, distance, haveFSpread, fSpread, bDisplayPoints);
@@ -5283,10 +5702,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
 //Right (Rx Frequency) window
       DecodeOutputPlan::RoutingContext routingContext;
-      routingContext.mode = m_mode;
-      routingContext.specOp = m_specOp;
-      routingContext.myCall = m_config.my_callsign();
-      routingContext.baseCall = m_baseCall;
+      routingContext.mode = decodeContext.mode;
+      routingContext.specOp = decodeContext.specOp;
+      routingContext.myCall = decodeContext.myCall;
+      routingContext.baseCall = Radio::base_callsign (decodeContext.myCall);
       routingContext.hisCall = m_hisCall;
       routingContext.rxFrequency = ui->RxFreqSpinBox->value();
       routingContext.wideGraphRxFrequency = m_wideGraph->rxFreq();
@@ -5408,7 +5827,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   m_rptSent=decodedtext.string().mid(7,3);
                   hound_reply (decodedtext.string().mid(16,4).toInt());
                 } else {
-                  if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) continue;
+                  if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) return;
                   if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))  processSyntheticMessage(decodedtext0);   // needed for MSHV multistream messages
                 }
               }
@@ -5447,15 +5866,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
 // extract details and send to PSKreporter
         bool const okToPost =
           QDateTime::currentMSecsSinceEpoch()/1000-m_secBandChanged > int(4*m_TRperiod)/5;
-        if (DecodeOutputPlan::shouldPostPsk(m_mode, m_specOp, m_config.superFox(),
+        if (DecodeOutputPlan::shouldPostPsk(decodeContext.mode, decodeContext.specOp,
+                                            decodeContext.superFox,
                                             stdMsg, okToPost)) {
           if(m_mode=="FST4W") {
             line_read=line_read.left(22) + " CQ " + line_read.trimmed().mid(22);
             auto p = line_read.lastIndexOf (' ');
             DecodedText FST4W_post {QString::fromUtf8 (line_read.left (p).constData ())};
-            pskPost(FST4W_post);
+            pskPost(FST4W_post, decodeContext);
           } else {
-            pskPost(decodedtext);
+            pskPost(decodedtext, decodeContext);
           }
         }
         if((m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65")
@@ -5470,14 +5890,30 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
       }
     }
-  }
+  });
   auto const batchActions = DecodeOutputPlan::finishBatchActions(
-    m_mode, m_specOp, m_ActiveStationsWidget != nullptr, all_decodes);
+    decodeContext.mode, decodeContext.specOp,
+    m_ActiveStationsWidget != nullptr, all_decodes);
   for (auto const& action : batchActions) {
     if (action.kind == DecodeOutputPlan::ActionKind::FlushFoxActivity) {
       m_ActiveStationsWidget->addLine(action.text);
     }
   }
+  if (decodeCompleted && DecodeOwner::Jt9 == m_decodeOwner)
+    {
+      if (m_activeJt9Decode.obsolete)
+        {
+          abortJt9Transaction ();
+        }
+      else
+        {
+          m_decoderCompletedSinceStart = true;
+          m_jt9PayloadValid = m_jt9PayloadValid || m_activeJt9Decode.copiedSamples;
+          m_activeJt9Decode = {};
+          finishDecodeUi ();
+          endDecode (DecodeOwner::Jt9);
+        }
+    }
 }
 
 //
@@ -5500,30 +5936,37 @@ void MainWindow::auto_sequence(DecodedText const& message, unsigned start_tolera
 }
 void MainWindow::pskPost (DecodedText const& decodedtext)
 {
-  if (m_diskData || !m_config.spot_to_psk_reporter() || decodedtext.isLowConfidence ()
-      || (decodedtext.string().contains(m_baseCall) && decodedtext.string().contains(m_config.my_grid().left(4)))) return; // prevent self-spotting when running multiple instances
+  pskPost (decodedtext, currentDecodeOperatingContext ());
+}
+
+void MainWindow::pskPost (DecodedText const& decodedtext,
+                          DecodeOperatingContext const& context)
+{
+  auto const baseCall = Radio::base_callsign (context.myCall);
+  if (context.diskData || !m_config.spot_to_psk_reporter() || decodedtext.isLowConfidence ()
+      || (decodedtext.string().contains(baseCall) && decodedtext.string().contains(m_config.my_grid().left(4)))) return; // prevent self-spotting when running multiple instances
   int h=decodedtext.string().mid(0,2).toInt();
   int m=decodedtext.string().mid(2,2).toInt();
   int s=decodedtext.string().mid(4,2).toInt();
   int sTimeString = decodedtext.string().mid(0,6).toInt();
   QTime time2(h, m, s);
   QDateTime qSpotTime;
-  if (sTimeString + m_TRperiod < 236000) {
+  if (sTimeString + context.trPeriod < 236000) {
     qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
   }
   else {
     qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
   }    
-  QString msgmode=m_mode;
+  QString msgmode=context.mode;
   QString deCall;
   QString grid;
   decodedtext.deCallAndGrid(/*out*/deCall,grid);
   int audioFrequency = decodedtext.frequencyOffset();
-  if(m_mode=="FT8" or m_mode=="MSK144" or m_mode=="FT4") {
+  if(context.mode=="FT8" or context.mode=="MSK144" or context.mode=="FT4") {
     audioFrequency=decodedtext.string().mid(16,4).toInt();
   }
   int snr = decodedtext.snr();
-  Frequency frequency = m_freqNominalPeriod + audioFrequency;   // prevent spotting wrong band
+  Frequency frequency = context.periodFrequency + audioFrequency;
   if(grid.contains (MainWindow::grid_regexp)  || decodedtext.string().contains(" CQ ")) {
 //    qDebug() << "To PSKreporter:" << deCall << grid << frequency << msgmode << snr;
     if (!m_psk_Reporter.addRemoteStation (deCall, grid, frequency, msgmode, snr, qSpotTime))
@@ -5553,37 +5996,6 @@ void MainWindow::rx_frequency_activity_cleared ()
   // decodedTextBrowser2's document just lost every block; drop our cached
   // JTTY per-transmission QTextBlock handles along with it.
   m_jttyQsoLines.clear();
-}
-
-void MainWindow::decodeBusy(bool b)                             //decodeBusy()
-{
-  auto const was_busy = m_decoderBusy;
-  if (b && m_decoderDiagActive) {
-    logDecoderAbnormalClear("decoder busy session replaced");
-    finishDecoderDiagnostic();
-  }
-  if (b) {
-    beginDecoderDiagnostic();
-  }
-  if (!b) {
-    finishDecoderDiagnostic();
-  }
-  if (!b) {
-    m_optimizingProgress.reset ();
-  }
-  m_decoderBusy=b;
-  if (b && !was_busy)
-    {
-      Q_EMIT decodeCycleStarted (++m_decodeCycleGeneration);
-    }
-  else if (!b && was_busy)
-    {
-      Q_EMIT decodeCycleCompleted (m_decodeCycleGeneration);
-    }
-  ui->DecodeButton->setEnabled(!b && !m_wav_load_coordinator.isLoading ());
-  update_wav_file_actions ();
-
-  statusUpdate ();
 }
 
 //------------------------------------------------------------- //guiUpdate()
@@ -6213,7 +6625,7 @@ void MainWindow::guiUpdate()
   if(m_mode=="Q65") {
     mem_qmap.lock();
     int n=0;
-    if(m_decoderBusy) n=1;
+    if(decoderBusy ()) n=1;
     ipc_qmap[3]=n;
     n=0;
     if(m_transmitting) n=m_TRperiod;
@@ -6238,10 +6650,8 @@ void MainWindow::guiUpdate()
       QDateTime now = QDateTime::currentDateTimeUtc();
       int s = now.time().toString("ss").toInt();
       if (m_ft8DecoderStart<2 or m_freqNominal>45000000) {
-        if ((s == 7 || s == 22 ||s == 37 || s == 52) && m_decoderBusy) {
-          logDecoderAbnormalClear("FT8 early-decode auto-clear");
-          to_jt9(m_ihsym,-1,-1);   //Allow jt9 to bail out early, if necessary
-          decodeDone();            //We better clear a hung decoder status at this point
+        if ((s == 7 || s == 22 ||s == 37 || s == 52) && decoderBusy ()) {
+          recoverDecoderAtBoundary ("FT8 early-decode boundary", false);
         }
         if (s == 10 || s == 25 ||s == 40 || s == 55) earlyDecodes = "";
       }
@@ -9533,6 +9943,7 @@ void MainWindow::switch_mode (Mode mode)
   check_button_color();
   ui->autoButton->setEnabled(m_mode != "JTTY");
   ui->autoButton->setVisible(m_mode != "JTTY");
+  updateDecodeControls ();
 }
 
 void MainWindow::WSPR_config(bool b)
@@ -11142,7 +11553,7 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
       }
       m_RxLog=0;
       m_startAnother=m_loopall;
-      decodeBusy(false);
+      endDecode (DecodeOwner::Wsprd);
     } else {
       int n=t.length();
       t=t.mid(0,n-2) + "                                                  ";
@@ -11510,7 +11921,7 @@ void MainWindow::fastPick(int x0, int x1, int y)
   float pixPerSecond=12000.0/512.0;
   if(m_TRperiod<30.0) pixPerSecond=12000.0/256.0;
   if(m_mode!="MSK144") return;
-  if(!m_decoderBusy) {
+  if(!decoderBusy ()) {
     dec_data.params.newdat=0;
     dec_data.params.nagain=1;
     m_nPick=1;
@@ -11658,7 +12069,7 @@ void MainWindow::statusUpdate () const
   m_messageClient->status_update (m_freqNominal, m_mode, m_hisCall,
                                   QString::number (ui->rptSpinBox->value ()),
                                   m_mode, ui->autoButton->isChecked (),
-                                  m_transmitting, m_decoderBusy,
+                                  m_transmitting, decoderBusy (),
                                   rx_frequency, ui->TxFreqSpinBox->value (),
                                   m_config.my_callsign (), m_config.my_grid (),
                                   m_hisGrid, m_tx_watchdog,
@@ -11760,12 +12171,6 @@ void MainWindow::update_watchdog_label ()
 void MainWindow::on_cbMenus_toggled(bool b)
 {
   select_geometry (!b ? 2 : ui->actionSWL_Mode->isChecked () ? 1 : 0);
-}
-
-void MainWindow::on_cbCQonly_toggled(bool)
-{  //Fix this -- no decode here?
-  to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
-  decodeBusy(true);
 }
 
 void MainWindow::on_cbAutoSeq_toggled(bool b)
@@ -12266,7 +12671,7 @@ void MainWindow::selectHound(QString line, bool bTopQueue)
 //------------------------------------------------------------------------------
 void MainWindow::houndCallers()
 {
-/* Called from decodeDone(), in DXpedition Fox mode.  Reads decodes from file
+/* Called from finishDecodeUi(), in DXpedition Fox mode.  Reads decodes from file
  * "houndcallers.txt", ignoring any that are not addressed to MyCall, are already
  * in the stack, or with whom a QSO has been started.  Others are considered to
  * be Hounds eager for a QSO.  We add caller information (Call, Grid, SNR, Freq,
@@ -13098,7 +13503,8 @@ void MainWindow::foxTest()
     }
 }
 
-void MainWindow::write_all(QString txRx, QString message)
+void MainWindow::write_all(QString txRx, QString message,
+                           DecodeOperatingContext const * context)
 {
   if (!(ui->actionDisable_writing_of_ALL_TXT->isChecked())) {
   QString line;
@@ -13106,9 +13512,15 @@ void MainWindow::write_all(QString txRx, QString message)
   QString msg;
   QString mode_string;
   QString file_name="ALL.TXT";
+  auto const mode = context ? context->mode : m_mode;
+  auto const specOp = context ? context->specOp : m_specOp;
+  auto const superFox = context ? context->superFox : m_config.superFox ();
+  auto const diskData = context ? context->diskData : m_diskData;
+  auto const periodFrequency = context ? context->periodFrequency : m_freqNominalPeriod;
+  auto const sequenceStart = context ? context->sequenceStart : m_dateTimeSeqStart;
   QRegularExpression verified_call_regex {"[A-Z0-9/]+\\sverified\\s*"};
 
-  if(m_mode!="Echo") {
+  if(mode!="Echo") {
     if (message.size () > 5 && message[4]==' ') {
       msg=message.mid(4,-1);
     } else {
@@ -13119,17 +13531,17 @@ void MainWindow::write_all(QString txRx, QString message)
       mode_string="JT65  ";
     } else if (message.size () > 19 && message[19]=='@') {
       mode_string="JT9   ";
-    } else if(m_mode=="Q65") {
+    } else if(mode=="Q65") {
       mode_string=mode_label.text();
     } else {
-      mode_string=m_mode.leftJustified(6,' ');
+      mode_string=mode.leftJustified(6,' ');
     }
 
-    if(mode_string=="FT8   " and txRx=="Tx" and m_config.superFox() and
-       m_specOp==SpecOp::FOX) mode_string="FT8_SF";
+    if(mode_string=="FT8   " and txRx=="Tx" and superFox and
+       specOp==SpecOp::FOX) mode_string="FT8_SF";
 
-    if(mode_string=="FT8   " and m_config.superFox() and
-       m_specOp==SpecOp::HOUND) mode_string="FT8_SH";
+    if(mode_string=="FT8   " and superFox and
+       specOp==SpecOp::HOUND) mode_string="FT8_SH";
 
     if (mode_string == "FT8_SH" && verified_call_regex.match(message).hasMatch()) {
       msg = "               "+message;
@@ -13140,14 +13552,14 @@ void MainWindow::write_all(QString txRx, QString message)
     t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
     if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
     auto time = QDateTime::currentDateTimeUtc ();
-    if( (txRx=="Rx" || txRx=="Ck") && !m_bFastMode ) time=m_dateTimeSeqStart;
+    if( (txRx=="Rx" || txRx=="Ck") && (context || !m_bFastMode) ) time=sequenceStart;
 
   if (txRx=="Rx") {
-     t = t.asprintf("%10.3f ",m_freqNominalPeriod/1.e6);   // prevent writing of wrong frequencies
+     t = t.asprintf("%10.3f ",periodFrequency/1.e6);
   } else {
      t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   }
-    if (m_diskData) {
+    if (diskData) {
       if (m_fileDateTime.size()==11) {
         line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;
       } else {
@@ -13159,7 +13571,7 @@ void MainWindow::write_all(QString txRx, QString message)
 
     if (ui->actionSplit_ALL_TXT_yearly->isChecked()) file_name=(time.toString("yyyy") + "-" + "ALL.TXT");
     if (ui->actionSplit_ALL_TXT_monthly->isChecked()) file_name=(time.toString("yyyy-MM") + "-" + "ALL.TXT");
-    if (m_mode=="WSPR") file_name="ALL_WSPR.TXT";
+    if (mode=="WSPR") file_name="ALL_WSPR.TXT";
   } else {
     file_name="all_echo.txt";
     line=message;

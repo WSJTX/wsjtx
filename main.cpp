@@ -62,6 +62,7 @@
 #include "LiveAudioTestController.hpp"
 #endif
 #include "commons.h"
+#include "DecoderIpc.hpp"
 #include "lib/init_random_seed.h"
 #include "Radio.hpp"
 #include "models/FrequencyList.hpp"
@@ -621,10 +622,11 @@ int main(int argc, char *argv[])
               if (mem_jt9.attach ()) // shared memory presence implies
                                      // orphaned jt9 sub-process
                 {
-                  dec_data_t * dd = reinterpret_cast<dec_data_t *> (mem_jt9.data());
-                  mem_jt9.lock ();
-                  dd->ipc[1] = 999; // tell jt9 to shut down
-                  mem_jt9.unlock ();
+                  if (DecoderIpc::hasUsableSize (mem_jt9.size ()))
+                    {
+                      auto * control = reinterpret_cast<decoder_ipc_control_t *> (mem_jt9.data ());
+                      DecoderIpc::shutdown (*control);
+                    }
                   mem_jt9.detach (); // start again
                 }
               else
@@ -635,7 +637,7 @@ int main(int argc, char *argv[])
             }
           if (!mem_jt9.attach ())
             {
-              if (!mem_jt9.create (sizeof (dec_data)))
+              if (!mem_jt9.create (sizeof (shared_dec_data_t)))
               {
                 auto const shared_memory_error = mem_jt9.error ();
                 auto const shared_memory_error_text = mem_jt9.errorString ();
@@ -667,9 +669,8 @@ int main(int argc, char *argv[])
                 }
               throw std::runtime_error {"Sub-process error"};
             }
-          mem_jt9.lock ();
-          memset(mem_jt9.data(),0,sizeof(struct dec_data)); //Zero all decoding params in shared memory
-          mem_jt9.unlock ();
+          auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9.data ());
+          DecoderIpc::initialize (*shared);
 
           unsigned downSampleFactor;
           {

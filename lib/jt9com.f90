@@ -1,9 +1,22 @@
   use, intrinsic :: iso_c_binding, only: c_int, c_short, c_float, c_char, c_bool
   include 'constants.f90'
 
+  integer(c_int), parameter :: DECODER_IPC_VERSION = 1
+  integer(c_int), parameter :: DECODER_IPC_IDLE = 0
+  integer(c_int), parameter :: DECODER_IPC_READY = 1
+  integer(c_int), parameter :: DECODER_IPC_DECODING = 2
+  integer(c_int), parameter :: DECODER_IPC_COMPLETE = 3
+  integer(c_int), parameter :: DECODER_IPC_SHUTDOWN = 999
+
   !
   ! these structures must be kept in sync with ../commons.h
   !
+  type, bind(C) :: decoder_ipc_control
+     integer(c_int) :: generation
+     integer(c_int) :: state
+     integer(c_int) :: version
+  end type decoder_ipc_control
+
   type, bind(C) :: params_block
      integer(c_int) :: nutc
      logical(c_bool) :: ndiskdat
@@ -92,10 +105,14 @@
   end type params_block
 
   type, bind(C) :: dec_data
-     integer(c_int) :: ipc(3)
      real(c_float) :: ss(184,NSMAX)
      real(c_float) :: savg(NSMAX)
      real(c_float) :: sred(5760)
      integer(c_short) :: id2(NMAX)
      type(params_block) :: params
   end type dec_data
+
+  type, bind(C) :: shared_dec_data
+     type(decoder_ipc_control) :: control
+     type(dec_data) :: payload
+  end type shared_dec_data

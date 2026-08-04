@@ -27,16 +27,6 @@ module shmem
        integer(c_int) :: shmem_size
      end function shmem_size
 
-     function shmem_lock () bind(C, name="shmem_lock")
-       use iso_c_binding, only: c_bool
-       logical(c_bool) :: shmem_lock
-     end function shmem_lock
-
-     function shmem_unlock () bind(C, name="shmem_unlock")
-       use iso_c_binding, only: c_bool
-       logical(c_bool) :: shmem_unlock
-     end function shmem_unlock
-
      function shmem_detach () bind(C, name="shmem_detach")
        use iso_c_binding, only: c_bool
        logical(c_bool) :: shmem_detach

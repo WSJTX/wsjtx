@@ -138,6 +138,7 @@ set (jt9stream_FSRCS
 
 set (wsjtx_CXXSRCS
   Audio/AudioInputSource.hpp
+  DecoderOutputFramer.cpp
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
   Network/PSKReporterIPFIX.cpp
@@ -168,6 +169,7 @@ set (wsjtx_CXXSRCS
   HighlightingRules.cpp
   HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
+  DecoderIpc.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
@@ -197,6 +199,7 @@ endif ()
 
 set (wsjt_CXXSRCS
   Logger.cpp
+  lib/decoder_ipc_control.cpp
   lib/crc10.cpp
   lib/crc13.cpp
   lib/crc14.cpp
@@ -225,6 +228,8 @@ set (wsjt_FSRCS
   # put module sources first in the hope that they get rebuilt before use
   lib/types.f90
   lib/C_interface_module.f90
+  lib/decoder_ipc_atomic.f90
+  lib/decode_completion.f90
   lib/jt9_input_validation.f90
   lib/shmem.f90
   lib/crc.f90
