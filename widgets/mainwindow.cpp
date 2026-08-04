@@ -1434,7 +1434,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   settings_restore.finish ();
   PerformanceTrace::Phase runtime_initialize {m_startup_trace_run, "mainwindow.runtime_initialize"};
   connect (ui->respondComboBox, &QComboBox::currentTextChanged, this,
-           [this] (QString const&) {check_button_color ();});
+           [this] (QString const&) {
+             if (AutoRespondPolicy::None == autoRespondPolicy()) {
+               m_autoRespondPeriodState.disarm();
+             }
+             check_button_color();
+           });
   if(m_mode=="Q65") {
     m_score=0;
     read_log();
@@ -2631,7 +2636,7 @@ void MainWindow::fastSink(qint64 frames)
           decodedtext, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder)
         == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) return;
 
-    updateRespondTarget(decodedtext, text, pounce);
+    updateRespondTarget(decodedtext, text, pounce, m_dateTimeSeqStart, m_diskData);
     // show distance and bearing for MSK144
     if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {
         QString distance;
@@ -4124,6 +4129,45 @@ void MainWindow::cycleRespondMode()
 {
   ui->respondComboBox->setCurrentIndex (
     next_cyclic_index (ui->respondComboBox->currentIndex (), ui->respondComboBox->count ()));
+}
+
+QString MainWindow::selectedTxMessage() const
+{
+  switch (m_ntx) {
+  case 1: return ui->tx1->text();
+  case 2: return ui->tx2->text();
+  case 3: return ui->tx3->text();
+  case 4: return ui->tx4->text();
+  case 5: return ui->tx5->currentText();
+  case 6: return ui->tx6->text();
+  default: return {};
+  }
+}
+
+AutoRespondPolicy MainWindow::autoRespondPolicy() const
+{
+  auto const selection = ui->respondComboBox->currentText();
+  if (selection == "CQ: First") return AutoRespondPolicy::First;
+  if (selection == "CQ: Max Dist") return AutoRespondPolicy::MaxDistance;
+  if (selection == "CQ: Max dB") return AutoRespondPolicy::MaxSignal;
+  if (selection == "CQ: Min dB") return AutoRespondPolicy::MinSignal;
+  return AutoRespondPolicy::None;
+}
+
+bool MainWindow::pendingCqAutoRespondIntent() const
+{
+  return m_auto
+    && !m_diskData
+    && !m_tune
+    && SpecOp::FOX != m_specOp
+    && SpecOp::HOUND != m_specOp
+    && CALLING == m_QSOProgress
+    && ui->cbAutoSeq->isVisible()
+    && ui->cbAutoSeq->isEnabled()
+    && ui->cbAutoSeq->isChecked()
+    && ui->respondComboBox->isVisible()
+    && AutoRespondPolicy::None != autoRespondPolicy()
+    && selectedTxMessage().contains(cq_or_qrz_message_regexp);
 }
 
 void MainWindow::on_actionSWL_Mode_triggered (bool checked)
@@ -6406,7 +6450,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
          if(bWorkedOnBand) activeWorked(deCall,m_currentBand);
         }
 
-        updateRespondTarget(decodedtext0, text, pounce);
+        updateRespondTarget(decodedtext0, text, pounce, decodeContext.sequenceStart,
+                            decodeContext.diskData);
 
         // Ensure that Tx stops and QSO is logged when repeat_Tx is enabled and "73" is received
         if(m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73 ")) {
@@ -6759,7 +6804,8 @@ void MainWindow::guiUpdate()
     tx2 += m_TRperiod;
   }
 
-  qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
+  auto const nowUtc = QDateTime::currentDateTimeUtc();
+  qint64 ms = nowUtc.toMSecsSinceEpoch() % 86400000;
   int nsec=ms/1000;
   double tsec=0.001*ms;
   double t2p=fmod(tsec,2*m_TRperiod);
@@ -6804,6 +6850,13 @@ void MainWindow::guiUpdate()
     }
   }
   if(m_tune) m_bTxTime=true;                 //"Tune" takes precedence
+
+  bool const nominalTransmitPeriod = m_txFirst ? t2p < m_TRperiod : t2p >= m_TRperiod;
+  auto const periodStart = qt_truncate_date_time_to(nowUtc, qRound(m_TRperiod * 1000.0));
+  if (m_autoRespondPeriodState.observePeriod(periodStart, !nominalTransmitPeriod,
+                                             pendingCqAutoRespondIntent(), autoRespondPolicy())) {
+    m_autoRespondScores.reset();
+  }
 
   if(m_transmitting or m_auto or m_tune) {
     m_dateTimeLastTX = QDateTime::currentDateTimeUtc ();
@@ -6872,6 +6925,7 @@ void MainWindow::guiUpdate()
 
     if(g_iptt==0 and can_start_transmit (m_mode, m_bTxTime, fTR, msgLength, m_tune)) {
       //### Allow late starts
+      m_autoRespondPeriodState.close();
       icw[0]=m_ncw;
       g_iptt = 1;
       reapplyCurrentRigFrequencyCorrection ();
@@ -9675,7 +9729,7 @@ void MainWindow::updateMainWindowAccessibility()
   ui->ignoreButton->setAccessibleName (tr ("Ignore DX call"));
 
   ui->respondComboBox->setAccessibleName (tr ("CQ response mode"));
-  ui->respondComboBox->setAccessibleDescription (tr ("Selects a station automatically from replies to your CQ or from CQ messages for Wait & Pounce."));
+  ui->respondComboBox->setAccessibleDescription (tr ("Selects a station automatically from replies to your pending CQ after Enable Tx is armed in the current receive period, or from CQ messages for Wait & Pounce."));
   ui->TxFreqSpinBox->setAccessibleName (tr ("Transmit audio frequency"));
   ui->RxFreqSpinBox->setAccessibleName (tr ("Receive audio frequency"));
   ui->rptSpinBox->setAccessibleName (tr ("Signal report"));
@@ -11372,6 +11426,7 @@ void MainWindow::band_changed (Frequency frequency)
 void MainWindow::applyBandChange (Frequency f, Frequency previous_frequency)
 {
   if (f != m_freqNominal) cancelPendingFt8Decode ("dial frequency changed");
+  m_autoRespondPeriodState.disarm();
   msk144qsy = false;  // MSK144 QSY
   // Don't allow a7 decodes during the first period because they can be leftovers from the previous band
   no_a7_decodes = true;
@@ -13367,6 +13422,7 @@ void MainWindow::on_cbMenus_toggled(bool b)
 
 void MainWindow::on_cbAutoSeq_toggled(bool b)
 {
+  if (!b) m_autoRespondPeriodState.disarm();
   ui->respondComboBox->setVisible((m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST4"
       or m_mode=="Q65" or m_mode=="MSK144" or m_mode=="JT65" or m_mode=="JT9") and b);
   check_button_color();
@@ -14816,6 +14872,7 @@ void MainWindow::chkFT4()
 
 void MainWindow::set_mode (QString const& mode)
 {
+    m_autoRespondPeriodState.disarm();
     if ("FT4" == mode) on_actionFT4_triggered ();
     else if ("FST4" == mode) on_actionFST4_triggered ();
     else if ("FST4W" == mode) on_actionFST4W_triggered ();
@@ -15291,6 +15348,10 @@ void MainWindow::check_button_color()
             autoButtonToolTip = QString {"Toggle Auto-Tx On/Off.\n"
                                          "Right-click to enable Wait & Pounce using %1."}.arg(respondMode);
         }
+    }
+    if (ui->cbAutoSeq->isChecked()
+        && AutoRespondPolicy::None != autoRespondPolicy()) {
+        autoButtonToolTip += "\nA direct caller may replace a pending CQ or QRZ.";
     }
     ui->autoButton->setToolTip(autoButtonToolTip);
     ui->DX_Call_Button->setAccessibleDescription(ui->DX_Call_Button->toolTip());
@@ -16351,15 +16412,34 @@ MainWindow::DecodeAlertSound MainWindow::selectDecodeAlertSound(bool alertsEnabl
   return DecodeAlertSound::None;
 }
 
-void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool pounce)
+void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool pounce,
+                                     QDateTime const& decodePeriodStart, bool diskData)
 {
-  if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-        or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
-      && !filtered && !m_autoRespondSelectionLatch.isSelected() && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
-      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+  bool const fullDuplexBlocked = ui->actionFull_Duplex_Mode->isChecked() && m_txing;
+  bool const currentPeriodCaller = !diskData
+    && !filtered
+    && !ignored
+    && !fullDuplexBlocked
+    && m_autoRespondPeriodState.accepts(decodePeriodStart)
+    && isDirectAutoRespondCandidate(decodedtext, m_config.my_callsign());
+  auto const periodPolicy = m_autoRespondPeriodState.policy();
+  bool const pounceCq = pounce
+    && text.contains(" CQ ")
+    && m_config.Wait_features_enabled();
+
+  bool const selectPounceFirst = pounceCq
+    && !filtered
+    && !ignored
+    && !fullDuplexBlocked
+    && !m_autoRespondSelectionLatch.isSelected()
+    && ui->respondComboBox->isVisible()
+    && ui->respondComboBox->currentText() == "CQ: First";
+  bool const selectCurrentFirst = currentPeriodCaller
+    && AutoRespondPolicy::First == periodPolicy
+    && m_autoRespondPeriodState.claimFirst(decodePeriodStart);
+  if (selectPounceFirst || selectCurrentFirst) {
     m_bDoubleClicked=true;
-    // CQ: First suppresses additional picks briefly, then reopens for the next decode window.
-    m_autoRespondSelectionLatch.selectFor();
+    if (selectPounceFirst) m_autoRespondSelectionLatch.selectFor();
     auto_tx_mode(true);
     processSyntheticMessage(decodedtext);
     auto now = QDateTime::currentDateTimeUtc();
@@ -16367,97 +16447,92 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
   }
 
-  if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max Dist"
-      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-    QString deCall;
-    QString deGrid;
-    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-    if (!filtered && !ignored && (deGrid.contains(MainWindow::grid_regexp) or m_bCallingCQ) && (
-        (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-        (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-         )) {
-      double utch=0.0;
-      int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
-      azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
-              const_cast <char *> ((deGrid + "      ").left (6).toLatin1().constData()),&utch,
-              &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
-      int distancePoints=nDkm;
-      if (!deGrid.contains(MainWindow::grid_regexp)) distancePoints=1;
-      if(m_autoRespondScores.considerDistance(distancePoints)) {
-          m_deCall=deCall;
-          m_bDoubleClicked=true;
-          if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-            auto_tx_mode(true);
-            processSyntheticMessage(decodedtext);
-            if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
-          }
-          ui->dxCallEntry->setText(deCall);
-          genStdMsgs(QString::number(decodedtext.snr()));
-          ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-          setTxMsg(m_ntx);
-          m_currentMessageType=m_ntx;
-          auto now = QDateTime::currentDateTimeUtc();
-          m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-      }
+  QString deCall;
+  QString deGrid;
+  decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+
+  bool const selectPounceDistance = pounceCq
+    && !filtered
+    && !ignored
+    && !fullDuplexBlocked
+    && !txLog.contains(deCall)
+    && deGrid.contains(MainWindow::grid_regexp)
+    && ui->respondComboBox->isVisible()
+    && ui->respondComboBox->currentText() == "CQ: Max Dist";
+  bool const selectCurrentDistance = currentPeriodCaller
+    && AutoRespondPolicy::MaxDistance == periodPolicy;
+  if (selectPounceDistance || selectCurrentDistance) {
+    double utch=0.0;
+    int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
+    azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
+            const_cast <char *> ((deGrid + "      ").left (6).toLatin1().constData()),&utch,
+            &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
+    int distancePoints=nDkm;
+    if (!deGrid.contains(MainWindow::grid_regexp)) distancePoints=1;
+    if(m_autoRespondScores.considerDistance(distancePoints)) {
+      m_deCall=deCall;
+      m_bDoubleClicked=true;
+      auto_tx_mode(true);
+      processSyntheticMessage(decodedtext);
+      if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+      ui->dxCallEntry->setText(deCall);
+      genStdMsgs(QString::number(decodedtext.snr()));
+      ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+      setTxMsg(m_ntx);
+      m_currentMessageType=m_ntx;
+      auto now = QDateTime::currentDateTimeUtc();
+      m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
     }
   }
 
-  // CQ: Max dB
-  if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max dB"
-      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-    QString deCall;
-    QString deGrid;
-    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-    if (!filtered && !ignored && (
-        (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-        (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-         )) {
-            if(m_autoRespondScores.considerMaximumDb(decodedtext.snr())) {
-                m_deCall=deCall;
-                m_bDoubleClicked=true;
-                if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                  auto_tx_mode(true);
-                  processSyntheticMessage(decodedtext);
-                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
-                }
-                ui->dxCallEntry->setText(deCall);
-                genStdMsgs(QString::number(decodedtext.snr()));
-                ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                setTxMsg(m_ntx);
-                m_currentMessageType=m_ntx;
-                auto now = QDateTime::currentDateTimeUtc();
-                m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-            }
-    }
+  bool const selectPounceMaximum = pounceCq
+    && !filtered
+    && !ignored
+    && !fullDuplexBlocked
+    && !txLog.contains(deCall)
+    && ui->respondComboBox->isVisible()
+    && ui->respondComboBox->currentText() == "CQ: Max dB";
+  bool const selectCurrentMaximum = currentPeriodCaller
+    && AutoRespondPolicy::MaxSignal == periodPolicy;
+  if ((selectPounceMaximum || selectCurrentMaximum)
+      && m_autoRespondScores.considerMaximumDb(decodedtext.snr())) {
+    m_deCall=deCall;
+    m_bDoubleClicked=true;
+    auto_tx_mode(true);
+    processSyntheticMessage(decodedtext);
+    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+    ui->dxCallEntry->setText(deCall);
+    genStdMsgs(QString::number(decodedtext.snr()));
+    ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+    setTxMsg(m_ntx);
+    m_currentMessageType=m_ntx;
+    auto now = QDateTime::currentDateTimeUtc();
+    m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
   }
 
-  // CQ: Min dB
-  if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Min dB"
-      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-    QString deCall;
-    QString deGrid;
-    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-    if (!filtered && !ignored && (
-        (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-        (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-         )) {
-            if(m_autoRespondScores.considerMinimumDb(decodedtext.snr())) {
-                m_deCall=deCall;
-                m_bDoubleClicked=true;
-                if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                  auto_tx_mode(true);
-                  processSyntheticMessage(decodedtext);
-                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
-                }
-                ui->dxCallEntry->setText(deCall);
-                genStdMsgs(QString::number(decodedtext.snr()));
-                ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                setTxMsg(m_ntx);
-                m_currentMessageType=m_ntx;
-                auto now = QDateTime::currentDateTimeUtc();
-                m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-            }
-    }
+  bool const selectPounceMinimum = pounceCq
+    && !filtered
+    && !ignored
+    && !fullDuplexBlocked
+    && !txLog.contains(deCall)
+    && ui->respondComboBox->isVisible()
+    && ui->respondComboBox->currentText() == "CQ: Min dB";
+  bool const selectCurrentMinimum = currentPeriodCaller
+    && AutoRespondPolicy::MinSignal == periodPolicy;
+  if ((selectPounceMinimum || selectCurrentMinimum)
+      && m_autoRespondScores.considerMinimumDb(decodedtext.snr())) {
+    m_deCall=deCall;
+    m_bDoubleClicked=true;
+    auto_tx_mode(true);
+    processSyntheticMessage(decodedtext);
+    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+    ui->dxCallEntry->setText(deCall);
+    genStdMsgs(QString::number(decodedtext.snr()));
+    ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+    setTxMsg(m_ntx);
+    m_currentMessageType=m_ntx;
+    auto now = QDateTime::currentDateTimeUtc();
+    m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
   }
 }
 

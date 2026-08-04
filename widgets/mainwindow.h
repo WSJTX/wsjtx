@@ -66,6 +66,7 @@
 #include "Network/NetworkAccessManager.hpp"
 #include "AutoRespondSelectionLatch.hpp"
 #include "AutoRespondScoring.hpp"
+#include "AutoRespondPeriod.hpp"
 #include "HoundTransmissionPolicy.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
@@ -695,7 +696,11 @@ private:
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
   void playDecodeAlertSound(bool play_Wanted, bool play_DXcall);
   void playDecodeAlertSound(DecodeAlertSound sound);
-  void updateRespondTarget(const DecodedText& dt, const QString& text, bool pounce);
+  void updateRespondTarget(const DecodedText& dt, const QString& text, bool pounce,
+                           QDateTime const& decodePeriodStart, bool diskData);
+  QString selectedTxMessage() const;
+  AutoRespondPolicy autoRespondPolicy() const;
+  bool pendingCqAutoRespondIntent() const;
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt, bool& verified);
@@ -1177,6 +1182,7 @@ private:
   QTimer m_refSpecTimer;
   AutoRespondSelectionLatch m_autoRespondSelectionLatch;
   AutoRespondScores m_autoRespondScores;
+  AutoRespondPeriodState m_autoRespondPeriodState;
   int m_refSpecSecondsRemaining = 0;
 
   QString m_path;

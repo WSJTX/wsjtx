@@ -119,6 +119,13 @@ add_executable (test_auto_respond_scoring
 target_link_libraries (test_auto_respond_scoring Qt5::Test)
 add_test (NAME test_auto_respond_scoring COMMAND test_auto_respond_scoring)
 
+add_executable (test_auto_respond_period
+  test_auto_respond_period.cpp
+  ${CMAKE_SOURCE_DIR}/AutoRespondPeriod.cpp
+)
+target_link_libraries (test_auto_respond_period wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_auto_respond_period COMMAND test_auto_respond_period)
+
 add_executable (test_emulate_split_transceiver
   test_emulate_split_transceiver.cpp
   ${CMAKE_SOURCE_DIR}/Transceiver/EmulateSplitTransceiver.cpp

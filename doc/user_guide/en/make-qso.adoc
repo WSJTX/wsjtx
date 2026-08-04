@@ -70,12 +70,21 @@ image::auto-seq.png[align="center",alt="AutoSeq"]
 When calling CQ you may choose to select *CQ: First* to reply
 automatically to the first decoded responder, or *CQ: Max Dist* to
 reply to the most distant responder, or the strongest or weakest
-responder.
+responder. Automatic caller selection requires *Auto-Seq* and a response
+mode other than *CQ: None*. If a CQ or QRZ message is selected, an eligible
+direct caller decoded after *Enable Tx* is armed can replace it, including
+immediately after the preceding QSO. Arming during reception applies only
+to the remainder of that period; earlier decodes and callers from earlier
+periods are not retained.
 
 NOTE: When *Auto-Seq* is enabled, the program de-activates *Enable Tx*
 at the end of each QSO. _WSJT-X_ will not make consecutive, 
 fully automated QSOs.  Auto-sequencing is an operator aid, not an
 operator replacement.
+
+NOTE: The current-period caller behavior applies to direct calls to your
+station. Answering a general CQ from another station is the separate
+*Wait and Pounce* feature described below.
 
 [[WAIT_FEATURES]]
 === Wait Features

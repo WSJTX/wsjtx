@@ -137,11 +137,15 @@ void MainWindow::on_autoButton_clicked (bool checked)
       m_muted = false;
       m_autoRespondScores.reset();
   }
+  bool const enableTxChanged = m_autoRespondPeriodState.setEnableTx(checked);
+  if (checked && enableTxChanged && m_autoRespondPeriodState.armCurrentReceivePeriod(
+        pendingCqAutoRespondIntent(), autoRespondPolicy())) {
+    m_autoRespondScores.reset();
+  }
   m_maxPoints=-1;
   if (checked && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None"
       && CALLING == m_QSOProgress) {
       m_bAutoReply = false;         // ready for next
-      m_bCallingCQ = true;          // allows tail-enders to be picked up
   }
   statusUpdate ();
   m_bEchoTxOK=false;
@@ -256,6 +260,7 @@ void MainWindow::on_EraseButton_clicked ()
 
 void MainWindow::on_txb1_clicked()
 {
+  m_autoRespondPeriodState.disarm();
   if (ui->tx1->isEnabled ()) {
     m_ntx=1;
     m_QSOProgress = REPLYING;
@@ -269,6 +274,7 @@ void MainWindow::on_txb1_clicked()
 
 void MainWindow::on_txb2_clicked()
 {
+    m_autoRespondPeriodState.disarm();
     m_ntx=2;
     m_QSOProgress = REPORT;
     ui->txrb2->setChecked(true);
@@ -277,6 +283,7 @@ void MainWindow::on_txb2_clicked()
 
 void MainWindow::on_txb3_clicked()
 {
+    m_autoRespondPeriodState.disarm();
     m_ntx=3;
     m_QSOProgress = ROGER_REPORT;
     ui->txrb3->setChecked(true);
@@ -285,6 +292,7 @@ void MainWindow::on_txb3_clicked()
 
 void MainWindow::on_txb4_clicked()
 {
+    m_autoRespondPeriodState.disarm();
     m_ntx=4;
     m_QSOProgress = ROGERS;
     ui->txrb4->setChecked(true);
@@ -293,6 +301,7 @@ void MainWindow::on_txb4_clicked()
 
 void MainWindow::on_txb5_clicked()
 {
+    m_autoRespondPeriodState.disarm();
     m_ntx=5;
     m_QSOProgress = SIGNOFF;
     ui->txrb5->setChecked(true);
@@ -301,6 +310,7 @@ void MainWindow::on_txb5_clicked()
 
 void MainWindow::on_txb6_clicked()
 {
+    m_autoRespondPeriodState.disarm();
     m_ntx=6;
     m_QSOProgress = CALLING;
     set_dateTimeQSO(-1);
@@ -550,6 +560,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
+  if (checked) m_autoRespondPeriodState.disarm();
   ui->pbBandHopping->setChecked(false); // disable band hopping
   // prevent tuning on top of a SuperFox message
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_tune) {
@@ -601,6 +612,7 @@ void MainWindow::on_tuneButton_clicked (bool checked)
 
 void MainWindow::reset_transmit_controls_after_stop ()
 {
+  m_autoRespondPeriodState.setEnableTx(false);
   ui->pbBandHopping->setChecked(false); // disable band hopping
   m_btxok=false;
   m_bCallingCQ = false;
