@@ -140,9 +140,9 @@ endif ()
 #
 # Options & features
 #
-#	Some of these directly effect compilation by being defined in
-#	wsjtx_config.h.in which makes them available to the C/C++
-#	pre-processor.
+#       Some of these directly effect compilation by being defined in
+#       wsjtx_config.h.in which makes them available to the C/C++
+#       pre-processor.
 #
 include (CMakeDependentOption)
 
@@ -1211,10 +1211,15 @@ endif()
 #
 # Linker setup
 #
-if (NOT APPLE)
+if (APPLE)
+  # Reserve space in Mach-O headers for post-link install_name_tool modifications
+  # during app bundling. Without this, install_name_tool fails with "larger updated
+  # load commands do not fit" when adding rpaths to executables (e.g. rigctl-wsjtx).
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-headerpad_max_install_names")
+elseif (NOT APPLE)
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--gc-sections")
   set (CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} -Wl,--gc-sections")
-endif (NOT APPLE)
+endif (APPLE)
 
 
 #
@@ -1400,7 +1405,7 @@ target_link_libraries (jt9code wsjt_fort wsjt_cxx)
 
 add_executable (wsprcode lib/wsprcode/wsprcode.f90 lib/wsprcode/nhash.c)
 target_link_libraries (wsprcode wsjt_fort wsjt_cxx)
-	       
+               
 add_executable (encode77 lib/77bit/encode77.f90)
 target_link_libraries (encode77 wsjt_fort wsjt_cxx)
 
@@ -1501,7 +1506,7 @@ include_directories (${CMAKE_CURRENT_BINARY_DIR})
 # don't use Qt "keywords" signal, slot, emit in generated files to
 # avoid compatability issue with other libraries
 # ADD_DEFINITIONS (-DQT_NO_KEYWORDS)
-# ADD_DEFINITIONS (-DUNICODE)	#as per qmake
+# ADD_DEFINITIONS (-DUNICODE)   #as per qmake
 
 # As moc files are generated in the binary dir, tell CMake to always
 # look for includes there:
@@ -1521,23 +1526,23 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 
 # Qt i18n - always include the country generic if any regional variant is included
 set (LANGUAGES
-  ca				# Catalan
-  da				# Danish
-  en				# English (we need this to stop
-				# translation loaders loading the
-				# second preference UI languge, it
-				# doesn't need to be populated)
-  en_GB				# English UK
-  es				# Spanish
-  it				# Italian
-  ja				# Japanese
-  #no				# Norwegian
-  #pt				# Portuguese
-  ru				# Russian
-  #sv				# Swedish
-  zh				# Chinese
-  zh_TW				# Chinese traditional
-  it				# Italian
+  ca                            # Catalan
+  da                            # Danish
+  en                            # English (we need this to stop
+                                # translation loaders loading the
+                                # second preference UI languge, it
+                                # doesn't need to be populated)
+  en_GB                         # English UK
+  es                            # Spanish
+  it                            # Italian
+  ja                            # Japanese
+  #no                           # Norwegian
+  #pt                           # Portuguese
+  ru                            # Russian
+  #sv                           # Swedish
+  zh                            # Chinese
+  zh_TW                         # Chinese traditional
+  it                            # Italian
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/translations/wsjtx_${lang_}.ts ts_)
@@ -2090,10 +2095,10 @@ else ()
     find_program (DPKG_PROGRAM dpkg DOC "dpkg program of Debian-based systems")
     if (DPKG_PROGRAM)
       execute_process (
-	COMMAND ${DPKG_PROGRAM} --print-architecture
-	OUTPUT_VARIABLE CPACK_DEBIAN_PACKAGE_ARCHITECTURE
-	OUTPUT_STRIP_TRAILING_WHITESPACE
-	)
+        COMMAND ${DPKG_PROGRAM} --print-architecture
+        OUTPUT_VARIABLE CPACK_DEBIAN_PACKAGE_ARCHITECTURE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
     else (DPKG_PROGRAM)
       set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE noarch)
     endif (DPKG_PROGRAM)
