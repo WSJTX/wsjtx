@@ -1,4 +1,5 @@
 program tbcc_4fsk_simulation
+
     use, intrinsic :: iso_fortran_env, only: real32, int32, int16, real64
     use omp_lib
     implicit none
@@ -19,9 +20,18 @@ program tbcc_4fsk_simulation
     integer(int32), parameter :: CRC_BITS     = 12
     integer(int32), parameter :: TOTAL_K     = PAYLOAD_BITS + CRC_BITS ! 46 bits
 
-    ! Octal-to-Hex mappings for generator polynomials: 7173_8 = E7B, 5261_8 = AB1
-    integer(int32), parameter :: G0_HEX = int(Z"E7B", int32)
-    integer(int32), parameter :: G1_HEX = int(Z"AB1", int32)
+    ! Rate-1/2 generator polynomials and the shift-register width they're
+    ! applied over. Both depend on memory_nu (constraint length K =
+    ! memory_nu+1) -- an optimal polynomial pair for one K is not, in
+    ! general, optimal (or even valid past a truncated low-order subset)
+    ! for another K, so these are set at runtime by
+    ! select_generator_polynomials() once memory_nu is known, rather than
+    ! being fixed PARAMETERs. REG_MASK = 2**(memory_nu+1)-1, the K-bit
+    ! window the taps are applied over; previously a fixed Z"FFF" (12
+    ! bits), which silently truncated the top bit of the register for any
+    ! K > 12.
+    integer(int32) :: G0_HEX, G1_HEX, REG_MASK
+
     integer(int32), parameter :: CRC_POLY = int(Z"80F", int32)
 
     type candidate_t
@@ -38,7 +48,7 @@ program tbcc_4fsk_simulation
     real(real32)   :: rx_tone_energies(0:3, TOTAL_K) 
     integer(int32) :: rx_decoded(PAYLOAD_BITS)
     
-    integer(int32) :: correct_frames, undetected_errors, total_detected_errors
+    integer(int32) :: correct_frames, undetected_errors, total_detected_errors, total_frames
     integer(int32) :: num_states, num_frames, memory_nu, L_size, wava_iters, isnr1, isnr2
     real(real32)   :: p_correct, uer
     integer(int32) :: f, e, t, s, g0_out, g1_out, out_b0, out_b1, i, state, bit, nargs
@@ -67,25 +77,32 @@ program tbcc_4fsk_simulation
 
     print *, "=========================================================================="
     print *, "Tail-Biting Convolutional Code (92,46) Noncoherent 4-FSK Simulation Suite"
-    print *, "Symbol Rate = 31.25 Baud | Reference Bandwidth = 2500 Hz | List Size L = ", L_size
+    print *, "Symbol Rate = 31.25 Baud | Reference Bandwidth = 2500 Hz"
     print *, "OpenMP threads available: ", omp_get_max_threads()
     print *, "Writing data logs directly to simulation_results.csv..."
     print *, "=========================================================================="
 
     ! Open CSV data output buffer file
+    open(unit=24, file="simulation_results.dat", status="unknown", action="write")
     open(unit=25, file="simulation_results.csv", status="unknown", action="write")
+    write(24, '(A)') "snr,frames,good,uer"
     write(25, '(A)') "channel,snr_db,p_correct,uer_pct"
 
     t_wall_start = omp_get_wtime()
     num_states = 2**memory_nu
+    call select_generator_polynomials(memory_nu, G0_HEX, G1_HEX)
+    REG_MASK = 2**(memory_nu + 1) - 1
+    total_frames = 0
 
     do e = 1, 2
         channel_type = merge("AWGN    ", "RAYLEIGH", e == 1)
         print *, ""
         print *, "--- Channel Profile: ", trim(channel_type), " ---"
+        write(24,'(a,a,a)') "--- Channel Profile: ", trim(channel_type), " ---"
 
         write(*,1000)
-1000    format(' SNR_2500   Frames    Good      UER   '/39('-'))
+        write(24,1000)
+1000    format(' SNR_2500   Frames    Good       UER   '/39('-'))
 
         isnr1 = -5
         isnr2 = -20
@@ -93,7 +110,6 @@ program tbcc_4fsk_simulation
             snr_2500_db = s
             if(xsnr.ne.0.0) snr_2500_db = xsnr
             esno_linear = (10.0_real32 ** (snr_2500_db / 10.0_real32)) * 80.0_real32
-            
             correct_frames = 0
             undetected_errors = 0
             total_detected_errors = 0
@@ -115,14 +131,14 @@ program tbcc_4fsk_simulation
                 call encode_crc12(tx_payload, tx_encoded)
                 
                 state = 0
-                do t = 0, 10
-                    bit = tx_encoded(1, TOTAL_K - 10 + t)
+                do t = 0, memory_nu - 1
+                    bit = tx_encoded(1, TOTAL_K - (memory_nu - 1) + t)
                     state = iand(ior(ishft(state, 1), bit), NUM_STATES-1)
                 end do
                 
                 do t = 1, TOTAL_K
                     bit = tx_encoded(1, t)
-                    g0_out = iand(ior(ishft(state, 1), bit), Z"FFF")
+                    g0_out = iand(ior(ishft(state, 1), bit), REG_MASK)
                     out_b0 = parity(iand(g0_out, G0_HEX))
                     out_b1 = parity(iand(g0_out, G1_HEX))
                     
@@ -181,20 +197,24 @@ program tbcc_4fsk_simulation
 
             p_correct = real(correct_frames, real32) / real(num_frames, real32)
             uer       = real(undetected_errors, real32) / real(num_frames, real32)
-!            print '(F15.2, I16, F20.5, E24.4E2)', snr_2500_db, num_frames, p_correct, uer
+            total_frames = total_frames + num_frames
+
             write(*,1001) snr_2500_db, num_frames, p_correct, uer
+            write(24,1001) snr_2500_db, num_frames, p_correct, uer
 1001        format(f8.1,i10,2f10.6)
             
             ! Write tracking vectors to the spreadsheet data table (Multiplying UER by 100 for percentage scale)
             write(25, '(A,A,F6.1,A,F7.5,A,F7.5)') trim(channel_type), ",", snr_2500_db, ",", p_correct, ",", uer * 100.0_real32
             if(xsnr.ne.0.0) exit
-        end do
-    end do
+        end do  !Loop over SNRs
+    end do  !Loop over channel types (AWGN, then Rayleigh)
 
+    close(24)
     close(25)
 
     t_wall_end = omp_get_wtime()
     print '(A,F8.2,A)', "Total wall-clock time: ", t_wall_end - t_wall_start, " s"
+    print '(a,f7.3,a)' ,"Average time per frame: ", 1000.0*(t_wall_end - t_wall_start)/total_frames, " ms"
 
 contains
 
@@ -235,7 +255,7 @@ contains
                     prev_s = iand(ishft(s, -1), NUM_STATES-1)
                     
                     ! Option A: The oldest bit dropped from the register was 0
-                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), Z"FFF")
+                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), REG_MASK)
                     out_b0 = parity(iand(g0_out, G0_HEX))
                     out_b1 = parity(iand(g0_out, G1_HEX))
                     if (out_b0 == 0 .and. out_b1 == 0) tone_idx = 0
@@ -246,7 +266,7 @@ contains
 
                     ! Option B: The oldest bit dropped from the register was 1
                     prev_s = ior(prev_s, ishft(1, memory_nu-1))
-                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), Z"FFF")
+                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), REG_MASK)
                     out_b0 = parity(iand(g0_out, G0_HEX))
                     out_b1 = parity(iand(g0_out, G1_HEX))
                     if (out_b0 == 0 .and. out_b1 == 0) tone_idx = 0
@@ -371,6 +391,37 @@ contains
         rng_state = ieor(rng_state, ishft(rng_state, 5))
         u = real(iand(rng_state, huge(rng_state)), real32) / real(huge(rng_state), real32)
     end function thread_uniform
+
+    subroutine select_generator_polynomials(nu, g0, g1)
+        ! Optimal (maximum free distance, noncatastrophic) rate-1/2
+        ! generator polynomials, indexed by memory order nu (constraint
+        ! length K = nu+1). K=12 (nu=11) keeps this file's original pair
+        ! (octal 7173,5261), unchanged, so results already gathered at
+        ! that setting stay reproducible. K=10, 11, 13 are the standard
+        ! maximum-dfree pairs from the Larsen/Odenwalder rate-1/2 tables
+        ! (as tabulated in e.g. Proakis "Digital Communications" and Lin &
+        ! Costello "Error Control Coding"):
+        !   K=10 (nu= 9): octal 1167,1545  dfree=12
+        !   K=11 (nu=10): octal 2335,3661  dfree=14
+        !   K=12 (nu=11): octal 7173,5261  (this file's existing pair)
+        !   K=13 (nu=12): octal 10533,17661 dfree=16
+        integer(int32), intent(in)  :: nu
+        integer(int32), intent(out) :: g0, g1
+        select case (nu)
+        case (9)   ! K = 10, dfree = 12
+            g0 = int(Z"277", int32);  g1 = int(Z"365", int32)
+        case (10)  ! K = 11, dfree = 14
+            g0 = int(Z"4DD", int32);  g1 = int(Z"7B1", int32)
+        case (11)  ! K = 12 -- this file's original constants
+            g0 = int(Z"E7B", int32);  g1 = int(Z"AB1", int32)
+        case (12)  ! K = 13, dfree = 16
+            g0 = int(Z"115B", int32); g1 = int(Z"1FB1", int32)
+        case default
+            print *, "No optimal generator polynomial pair defined for memory_nu =", nu
+            print *, "Supported values: 9, 10, 11, 12 (K = 10, 11, 12, 13)"
+            stop 1
+        end select
+    end subroutine select_generator_polynomials
 
     pure integer(int32) function parity(val)
         integer(int32), intent(in) :: val
