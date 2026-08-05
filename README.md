@@ -1,6 +1,6 @@
 # Weak Signal Communication Software
 
-##NOTE:
+## NOTE:
 This is a special fork of WSJT-X with support for the Texas QSO Party exchange. Stations using other versions of FT8/FT4 software will not be able to decode the TQP specific messages. Both stations must be using the TQP software. 
 
 To operate in TQP, choose Texas QSO Party as the special operating mode in the configuration just like you would for field day. 
