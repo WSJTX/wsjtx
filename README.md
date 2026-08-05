@@ -1,5 +1,10 @@
 # Weak Signal Communication Software
 
+##NOTE:
+This is a special fork of WSJT-X with support for the Texas QSO Party exchange. Stations using other versions of FT8/FT4 software will not be able to decode the TQP specific messages. Both stations must be using the TQP software. 
+
+To operate in TQP, choose Texas QSO Party as the special operating mode in the configuration just like you would for field day. 
+
 ## Programs
 *WSJT-X*, *MAP65*, and *QMAP* are open-source, multi-platform programs designed for weak-signal digital communication by amateur radio. *WSJT-X* works with a standard SSB transceiver, while *MAP65* and *QMAP* use wideband SDR-style hardware. The programs are open source, free of charge, and licensed under the GNU General Public License.
 
