@@ -7,6 +7,7 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
   !$omp threadprivate(s)
   real x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
   integer jpeak(NH1),indx(NH1),ii(1)
+  integer, parameter :: max_sync_stencil=16
   integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter
   logical(1) syncq(NH1,jzb:jzt),redcq(NH1),lcq,lcq2,lpass1,lpass2
   logical(1), intent(in) :: lqsothread
@@ -16,8 +17,11 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
   tstep=0.04 ! NSTEP/12000.0                         
   df=3.125 ! 12000.0/NFFT1 , Hz
   syncq=.false.; redcq=.false.; candidate(4,:)=0.
+  ncand=0
   rcandthin=ncandthin/100.;
   dtcenter=ndtcenter/100.
+
+  if(nfa.gt.nfb .or. nfawide.gt.nfbwide) return
 
   if(ipass.eq.1 .or. ipass.eq.4 .or. ipass.eq.7) then
     do j=1,NHSYM
@@ -65,7 +69,13 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
     enddo
   endif
 
-  ia=max(1,nint(nfa/df)); ib=max(1,nint(nfb/df)); iaw=max(1,nint(nfawide/df)); ibw=max(1,nint(nfbwide/df))
+  ia=max(1,nint(nfa/df))
+  ib=min(NH1-max_sync_stencil,nint(nfb/df))
+  iaw=max(1,nint(nfawide/df))
+  ibw=min(NH1-max_sync_stencil,nint(nfbwide/df))
+  ia=max(ia,iaw)
+  ib=min(ib,ibw)
+  if(ia.gt.ib .or. iaw.gt.ibw) return
   nssy=4 ! NSPS/NSTEP   ! # steps per symbol
   nssy36=144 ! nssy*36
   nssy72=288 ! nssy*72
@@ -117,7 +127,7 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
     enddo
   else
 !    nfos6=15 ! 16i spec bw -1
-    nfos6=16
+    nfos6=max_sync_stencil
     do j=jzb,jzt
       do i=iaw,ibw
         ta=0.; tb=0.; tc=0.; tcq=0.; t0a=0.; t0b=0.; t0c=0.; t0cq=0.

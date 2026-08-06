@@ -272,6 +272,7 @@ set (wsjt_FSRCS
   lib/superfox/julian.f90
   lib/superfox/popen_module.f90
   lib/superfox/qpc/qpc_mod.f90
+  lib/ft8var/ft8_decode_ranges.f90
   lib/ft8var/ft8_decodevar.f90
   lib/jtty/jtty_mod.f90
   lib/jtty/jtty_fec_mod.f90
