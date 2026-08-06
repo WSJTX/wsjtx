@@ -34,7 +34,7 @@ subroutine rjtty_sub(iwave,kz,nsps,nfa,nfb,f0,ftol)
 999 return
 end subroutine rjtty_sub
 
-subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
+subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
 
   use jtty_mdec
   character*2400               :: all_freqs
@@ -44,9 +44,13 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
   character*80 msg
   character*96 msg2
   integer indx(MAX_SLOTS)
-  integer kall,kqso,nmsg,ncopy
+  integer kall,kqso,kqso_line,nmsg,ncopy
   real f1(MAX_SLOTS)
   logical*1 all_new,qso_new
+  ! One entry per line actually written into qso_freq, in the same order,
+  ! true if that slot's last frame (end-of-message) has been decoded.
+  ! Not yet consumed by the GUI -- available for future use.
+  logical*1, intent(out)       :: qso_eom(MAX_SLOTS)
   save all_freqs0,qso_freq0
 
   f1(1:nslots)=slot(1:nslots)%f1
@@ -54,6 +58,8 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
 
   kall=1
   kqso=1
+  kqso_line=0
+  qso_eom=.false.
   all_freqs=''
   qso_freq=''
   do ii=1,nslots
@@ -78,6 +84,10 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
         if(ncopy.gt.0) then
            qso_freq(kqso:kqso+ncopy-1)=msg2(1:ncopy)
            kqso=kqso+ncopy
+           if(kqso_line.lt.MAX_SLOTS) then
+              kqso_line=kqso_line+1
+              qso_eom(kqso_line)=slot(i)%is_last_frame
+           endif
         endif
      endif
   enddo

@@ -615,6 +615,7 @@ set (wsjt_FSRCS
   lib/jtty/genjtty.f90
   lib/jtty/gen_jttywave.f90
   lib/jtty/gen_syncwave.f90
+  lib/jtty/subtractjtty.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit

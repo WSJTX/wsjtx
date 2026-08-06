@@ -30,8 +30,12 @@ extern "C" {
   void rjtty_sub_(short int d2[], int* k, int* nsps, int* nfa, int*nfb,
                   float* f0, float* ftol);
 
+   // qso_eom[30] must match jtty_mdec's MAX_SLOTS (lib/jtty/jtty_mdecode.f90);
+   // one entry per line actually written into qso_freq, same order, true if
+   // that slot's last frame (end-of-message) has been decoded. Not yet
+   // consumed here -- available for future use.
    void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
-    char all_freqs[], char line[], fortran_charlen_t, fortran_charlen_t);
+    char all_freqs[], char line[], bool qso_eom[], fortran_charlen_t, fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -95,6 +99,7 @@ void MainWindow::jtty_decode(int k)
   }
   char qso_freq[800];
   char all_freqs[2400];
+  bool qso_eom[30];  // must match jtty_mdec's MAX_SLOTS
   float f0 = ui->RxFreqSpinBox_2->value();
   float ftol = ui->sbFtol_2->value();
   bool all_new = true;
@@ -114,7 +119,7 @@ void MainWindow::jtty_decode(int k)
   // "continues" a known line when it extends that line's text),
   // independent of where in the blob or in what order it shows up this call.
   jtty_get_msgs_(&f0, &ftol, &all_new, &qso_new, &all_freqs[0],
-                 &qso_freq[0], (FCL)2400, (FCL)800);
+                 &qso_freq[0], &qso_eom[0], (FCL)2400, (FCL)800);
 
   QString allMsgs {boundedLatin1(all_freqs, sizeof all_freqs)};
   if(ui->cbLowerCase->isChecked()) allMsgs = allMsgs.toLower();
