@@ -1,5 +1,7 @@
 module jtty_mdec
 
+  use jtty_fec, only: PAYLOAD_BITS
+
   type :: decode
      real :: f1    = 0.0              !Synced audio frequency
      real :: xdt   = 0.0              !Synced DT (0 to 0.5 s)
@@ -16,6 +18,21 @@ module jtty_mdec
   integer                   :: ndecodes = 0
   integer                   :: nslots = 0
   type(decode)              :: slot(MAX_SLOTS)   !Accumulating decode messages
+
+! Cross-call "retro re-sweep" plumbing (see jtty_mdecode_step): a caller
+! that wants a given jtty_mdecode call to first subtract a known signal out
+! of its own c0 before searching sets interferer_* and calls jtty_mdecode;
+! this call's own subtraction events (for a future retro pass) are reported
+! back out via nsubtracted/subtracted_*.
+  integer, parameter        :: MAX_SUBTRACTED = 16
+  logical                   :: interferer_pending = .false.
+  real                      :: interferer_f1 = 0.0
+  real                      :: interferer_tsync = 0.0
+  integer                   :: interferer_payload(PAYLOAD_BITS) = 0
+  integer                   :: nsubtracted = 0
+  real                      :: subtracted_f1(MAX_SUBTRACTED) = 0.0
+  real                      :: subtracted_tsync(MAX_SUBTRACTED) = 0.0
+  integer                   :: subtracted_payload(PAYLOAD_BITS,MAX_SUBTRACTED) = 0
 
 contains
 
@@ -115,6 +132,19 @@ contains
       integer                        :: ir
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
+      logical                        :: use_interferer
+      real                            :: use_interferer_f1, use_interferer_tsync
+      integer                         :: use_interferer_payload(PAYLOAD_BITS)
+
+! Capture and clear the retro-resweep interferer request (if any) as the
+! very first thing this call does, before any possible early return below
+! -- otherwise a stale request could leak into a later, unrelated call.
+      use_interferer=interferer_pending
+      use_interferer_f1=interferer_f1
+      use_interferer_tsync=interferer_tsync
+      use_interferer_payload=interferer_payload
+      interferer_pending=.false.
+      nsubtracted=0
 
       nharderrors=-1
       nsync=0
@@ -125,7 +155,7 @@ contains
          call tbcc_init(JTTY_WAVA_NU)
       endif
 
-      if(istart.eq.1) then
+      if(istart.eq.1 .and. .not.use_interferer) then
          ndecodes=0
          nslots=0
       endif
@@ -179,6 +209,21 @@ contains
 !  convert integer samples at 12K Sa/s to complex analytic signal at 6K Sa/s
       call ana64a(iwave,nchunk,c0,nana)
       c0(nchunk6:)=0.
+
+      if(use_interferer) then
+         ! Retro re-sweep call: subtract the already-known signal out of
+         ! this window's own c0 before searching, on the theory that this
+         ! window's own candidates (whose frame spans reach ~ntstep to
+         ! nframe6 forward of this window's own [0,ntstep] search range)
+         ! may have been corrupted by that signal's energy even though this
+         ! window never itself searched for that signal's own sync. See
+         ! jtty_mdecode_step.
+         tone_symbols_full(1:NSYNC_SYM)=is13
+         call tbcc_encode(use_interferer_payload, tone_symbols_chk)
+         tone_symbols_full(NSYNC_SYM+1:NFRAME_SYM)=tone_symbols_chk
+         call subtract_jtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM, &
+              nss, use_interferer_f1, use_interferer_tsync-(istart-1)/12000.0)
+      endif
 
 ! Look for up to 2 sync candidates in each quarter-frame (0.424 second) by 2*FTol rectangle in
 ! the time/frequency plane. Find the peak in the search rectangle, then zero a small region
@@ -398,6 +443,13 @@ contains
            nss, cand(ncand)%f1, cand(ncand)%xdt)
       any_subtracted=.true.
 
+      if(nsubtracted.lt.MAX_SUBTRACTED) then
+         nsubtracted=nsubtracted+1
+         subtracted_f1(nsubtracted)=cand(ncand)%f1
+         subtracted_tsync(nsubtracted)=cand(ncand)%tsync
+         subtracted_payload(:,nsubtracted)=final_payload
+      endif
+
       dec=cand(ncand)
       match=.false.
       islot=1
@@ -422,6 +474,16 @@ contains
             match=abs(df1).lt.8.0 .and. abs(dxdt).lt.0.008
             if(match) then
                islot=i
+               if(abs(dtsync).lt.0.9) then
+                  ! Same frame instant already merged into this slot -- a
+                  ! retro re-sweep re-runs the FULL candidate sweep over a
+                  ! window that may already have been fully processed, so
+                  ! an unrelated signal that already succeeded there
+                  ! originally will likely be rediscovered here. Don't
+                  ! re-append its text (well under the ~1.888 s real
+                  ! inter-frame spacing, comfortable margin).
+                  exit
+               endif
                k=slot(i)%k
                n=len_trim(dec%decoded)
                kz=min(k+n,80)
@@ -466,5 +528,67 @@ contains
    end subroutine decode_and_merge
 
    end subroutine jtty_mdecode
+
+   subroutine jtty_mdecode_step(iwave,nwave,istart,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
+
+! Wraps jtty_mdecode with "retro" re-sweeps: after the normal forward call,
+! for every signal that call newly subtracted out of its own c0, re-run the
+! candidate sweep for the up-to-3 prior quarter-frame windows. Those windows
+! never searched for this exact signal's own sync (it lies outside their
+! own [0,ntstep] search range), so there's no duplicate-discovery risk from
+! the interferer itself -- but their own candidates' frame spans can
+! overlap the interferer's energy (guaranteed for 1 and 2 steps back, only
+! possible -- not guaranteed -- for 3 steps back), so subtracting it first
+! before retrying can recover a candidate that overlap corrupted. Both
+! rjtty_sub and rjtty call this instead of jtty_mdecode directly, passing
+! the FULL buffer (not a pre-sliced window) so the retro calls can reach
+! backward into it.
+!
+! No cascading: retro calls' own subtraction events are not fed into
+! further retro passes (bounded to 3 steps back from the original
+! forward-progress discovery only).
+
+      use iso_fortran_env, only: int16
+      implicit none
+      integer, intent(in)        :: nwave
+      integer(int16), intent(in) :: iwave(nwave)
+      integer, intent(in)        :: istart, nchunk, nsps, ndebug, nfa, nfb
+      real, intent(in)           :: f0, ftol, smin
+      integer                    :: n_local, nframe, step, istart_prev, k, i
+      real                       :: f1_local(MAX_SUBTRACTED)
+      real                       :: tsync_local(MAX_SUBTRACTED)
+      integer                    :: payload_local(PAYLOAD_BITS,MAX_SUBTRACTED)
+
+      interferer_pending=.false.   ! defensive: no stale interferer input
+      call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,nfa,nfb, &
+           f0,ftol,smin)
+
+! Copy this call's subtraction events out before any retro call below
+! overwrites the same module-level output arrays with its own results.
+      n_local=nsubtracted
+      if(n_local.gt.0) then
+         f1_local(1:n_local)=subtracted_f1(1:n_local)
+         tsync_local(1:n_local)=subtracted_tsync(1:n_local)
+         payload_local(:,1:n_local)=subtracted_payload(:,1:n_local)
+      endif
+
+      nframe=59*nsps
+      step=nframe/4
+
+      do i=1,n_local
+         do k=1,3
+            istart_prev=istart-k*step
+            if(istart_prev.lt.1) cycle
+            interferer_pending=.true.
+            interferer_f1=f1_local(i)
+            interferer_tsync=tsync_local(i)
+            interferer_payload=payload_local(:,i)
+            call jtty_mdecode(istart_prev,iwave(istart_prev),nchunk,nsps, &
+                 ndebug,nfa,nfb,f0,ftol,smin)
+         enddo
+      enddo
+
+      return
+   end subroutine jtty_mdecode_step
 
 end module jtty_mdec

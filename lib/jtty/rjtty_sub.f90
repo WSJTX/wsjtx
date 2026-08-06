@@ -26,7 +26,7 @@ subroutine rjtty_sub(iwave,kz,nsps,nfa,nfb,f0,ftol)
   do while (istart+nchunk-1 .le. kz)
      ndebug=-1
      snr=-99.0
-     call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,nfa,nfb, &
+     call jtty_mdecode_step(iwave,kz,istart,nchunk,nsps,ndebug,nfa,nfb, &
           f0,ftol,smin)
      istart=istart+nframe/4
   enddo
