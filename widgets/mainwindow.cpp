@@ -4588,18 +4588,23 @@ void MainWindow::decode()                                       //decode()
         &narg[0],&m_TRperiod, &m_msg[0][0], dec_data.params.mycall,
         dec_data.params.hiscall, (FCL)8000, (FCL)12, (FCL)12)));
   } else {
+    decoder_params_t decoderParams;
+    {
+      QMutexLocker lock {&dec_data_mutex ()};
+      decoderParams = dec_data.params;
+    }
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-    if (m_mode == "FT8")
+    if (m_automated_test && m_mode == "FT8")
       {
         Q_EMIT ft8DecoderInvocation (
-          dec_data.params.lmultift8, dec_data.params.nmt,
-          dec_data.params.ndepth & 7, dec_data.params.nft8cycles,
-          dec_data.params.lft8subpass, dec_data.params.ndecoderstart,
-          dec_data.params.nzhsym, dec_data.params.kin,
-          dec_data.params.nfa, dec_data.params.nfb);
+          decoderParams.lmultift8, decoderParams.nmt,
+          decoderParams.ndepth & 7, decoderParams.nft8cycles,
+          decoderParams.lft8subpass, decoderParams.ndecoderstart,
+          decoderParams.nzhsym, decoderParams.kin,
+          decoderParams.nfa, decoderParams.nfb);
       }
 #endif
-    auto const publishResult = publishDecodeRequest (dec_data.params.newdat);
+    auto const publishResult = publishDecodeRequest (decoderParams.newdat);
     if (DecodePublishResult::Published != publishResult)
       {
         ui->DecodeButton->setChecked (false);
