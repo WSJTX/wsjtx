@@ -3,7 +3,7 @@ program test_jtty_pack
   use jtty_mod
   use packjt77, only: pack28
   character*80 msg0,msg,expected
-  character*32 c32(MAX_FRAMES)
+  character*34 c32(MAX_FRAMES)
   character*17 cparms
   character*1 err
   integer, parameter :: expected_errors = 0
@@ -95,6 +95,7 @@ program test_jtty_pack
   call expect_unpack_overflow_guard()
   call expect_structured_unpack_boundary()
   call expect_empty_waveform_guard()
+  call expect_last_frame_flag()
 
 contains
 
@@ -109,7 +110,7 @@ contains
   subroutine expect_pack(text,want_nf,want_i2a,want_n2a,want_i2b,want_n2b)
     character*(*) text
     character*80 input,decoded,want_decoded
-    character*32 frames(MAX_FRAMES)
+    character*34 frames(MAX_FRAMES)
     integer want_nf,want_i2a,want_n2a,want_i2b,want_n2b
     integer got_nf,got_i2a,got_n2a,got_i2b,got_n2b
 
@@ -163,7 +164,7 @@ contains
   end subroutine expect_pack
 
   subroutine expect_no_reserved_frame_ids(frames,nframes,input)
-    character*32 frames(MAX_FRAMES)
+    character*34 frames(MAX_FRAMES)
     character*(*) input
     integer nframes, iframe, got_i2, got_n2
 
@@ -178,7 +179,7 @@ contains
   end subroutine expect_no_reserved_frame_ids
 
   subroutine expect_unassigned_unpack_empty(i2,n2)
-    character*32 frames(MAX_FRAMES)
+    character*34 frames(MAX_FRAMES)
     character*80 decoded
     character*13 c13
     integer i2,n2,n28,n32
@@ -187,7 +188,7 @@ contains
     c13='K1ABC        '
     call pack28(c13,n28)
     n32=shiftl(n28,4) + 4*n2 + i2
-    write(frames(1),'(b32.32)') n32
+    write(frames(1),'(b32.32,a2)') n32,'00'
     call unpack_jtty(frames,1,decoded)
     if(len_trim(decoded).ne.0) then
        write(*,1280) i2,n2,trim(decoded)
@@ -197,13 +198,13 @@ contains
   end subroutine expect_unassigned_unpack_empty
 
   subroutine expect_unpack_overflow_guard()
-    character*32 frames(MAX_FRAMES)
+    character*34 frames(MAX_FRAMES)
     character*80 decoded,expected
     integer iframe
 
     ! Sixteen 599 frames must decode exactly up to the fixed output boundary.
     do iframe=1,MAX_FRAMES
-       write(frames(iframe),'(b32.32)') 2
+       write(frames(iframe),'(b32.32,a2)') 2,'00'
     enddo
     expected=''
     do iframe=1,8
@@ -219,7 +220,7 @@ contains
   end subroutine expect_unpack_overflow_guard
 
   subroutine expect_structured_unpack_boundary()
-    character*32 frames(MAX_FRAMES)
+    character*34 frames(MAX_FRAMES)
     character*80 decoded,expected
     character*13 c13
     integer iframe,n28,n32,n30
@@ -232,12 +233,12 @@ contains
     enddo
     n32=ishft(n30,2) + 3
     do iframe=1,14
-       write(frames(iframe),'(b32.32)') n32
+       write(frames(iframe),'(b32.32,a2)') n32,'00'
     enddo
     c13='KA1ABC       '
     call pack28(c13,n28)
     n32=shiftl(n28,4) + 4*1 + 1
-    write(frames(15),'(b32.32)') n32
+    write(frames(15),'(b32.32,a2)') n32,'00'
 
     expected=''
     do i=1,70
@@ -276,5 +277,37 @@ contains
        error stop 1
     endif
   end subroutine expect_empty_waveform_guard
+
+  subroutine expect_last_frame_flag()
+    ! Bit 34 of each 34-bit frame word must be 0 on every frame except the
+    ! last, and 1 on the last frame of a multi-frame message -- matching how
+    ! the real decode drivers call unpack_jtty one frame at a time.
+    character*80 input, decoded
+    character*34 frames(MAX_FRAMES)
+    integer got_nf, iframe
+    logical is_last
+
+    input='TU NOW JA6DEF 599 123'
+    frames=''
+    call pack_jtty(input,frames,got_nf)
+    if(got_nf.lt.2) then
+       write(*,1400) got_nf
+1400   format('expect_last_frame_flag: expected >=2 frames, got ',i0)
+       error stop 1
+    endif
+    do iframe=1,got_nf
+       call unpack_jtty(frames(iframe:iframe),1,decoded,is_last_frame=is_last)
+       if(iframe.lt.got_nf .and. is_last) then
+          write(*,1410) iframe
+1410      format('expect_last_frame_flag: frame ',i0,' unexpectedly flagged as last')
+          error stop 1
+       endif
+       if(iframe.eq.got_nf .and. .not.is_last) then
+          write(*,1420) iframe
+1420      format('expect_last_frame_flag: final frame ',i0,' not flagged as last')
+          error stop 1
+       endif
+    enddo
+  end subroutine expect_last_frame_flag
 
 end program test_jtty_pack

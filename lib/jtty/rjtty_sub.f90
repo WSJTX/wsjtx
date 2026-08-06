@@ -7,7 +7,7 @@ subroutine rjtty_sub(iwave,kz,nsps,nfa,nfb,f0,ftol)
 
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 
-  nframe = 53*nsps
+  nframe = 59*nsps
   nchunk = nframe + nframe/4
   smin=4.6
 

@@ -43,7 +43,7 @@ program jtty
   autoseq=.false.
   QSO_in_progress=.false.
   ntxed=0
-  nwave=53*384
+  nwave=59*384
   txmsg=''
   ftx=1500.0
 

@@ -3,23 +3,24 @@ program sjtty
   ! Simulate received data for JTTY, a mode operationally similar to RTTY
   ! but providing much better performance and reliability.
 
-  ! Messages are source-encoded into 32-bit blocks. A 10-bit CRC is
-  ! added to create a 42 bit payload, which is then FEC-encoded using
-  ! a systematic (80,42) block code to create 80-bit codewords.
+  ! Messages are source-encoded into 34-bit blocks. A 12-bit CRC is
+  ! added to create a 46 bit payload, which is then FEC-encoded using
+  ! a tail-biting rate-1/2 convolutional code (K=10) to create 92-bit
+  ! (46-symbol) codewords.
 
   ! Modulation is 4FSK at 12000/NSPS = 31.25 baud. Each transmitted frame
-  ! consists of 13 sync symbols followed by 40 codeword symbols. 
+  ! consists of 13 sync symbols followed by 46 codeword symbols.
 
   use wavhdr
   use jtty_mod                      ! This module provides NSPS
   use jtty_fec
 
-  parameter (MAX_TONES=53*16)       !Max number of channel symbols
+  parameter (MAX_TONES=59*16)       !Max number of channel symbols
   character*12 arg                  !Command line argument
   character*2 arg4                  !The 4th command-line argument
-  character*80 umsg                 !User-formatted message 
+  character*80 umsg                 !User-formatted message
   character*40 fname                !Output file name
-  character*32 c32(16)
+  character*34 c32(16)
   complex, allocatable :: cwave(:)  !Complex generated waveform (12000 Hz)
   complex, allocatable :: c0(:)     !With propagation degradation
   complex, allocatable :: c(:)      !With propagation degradation
@@ -27,11 +28,9 @@ program sjtty
   type(hdr) h                       !Header for .wav file
   integer itone(MAX_TONES)          !Array of tone frequencies for this message
   integer*2, allocatable :: iwave(:) !Data written to the *.wav file
-  integer*1 message32(32)
-  integer*1 codeword80(80)
-  integer graymap(0:3)
+  integer payload(PAYLOAD_BITS)
+  integer tone_symbols(46)
   logical itu_model                 !True if fdop, delay are from an ITU model
-  data graymap/0,1,3,2/
 
   nargs=iargc()
   if(nargs.eq.1) then
@@ -46,11 +45,11 @@ program sjtty
     nsps=384
     if(nframes.eq.1) then
        write(*,'(i4,a,f5.2,a)') nframes," frame, Transmission length ", &
-          53*nframes*nsps/12000.0," seconds"
+          59*nframes*nsps/12000.0," seconds"
     else
        write(*,'(i4,a,f5.2,a)') nframes," frames, Transmission length ", &
-          53*nframes*nsps/12000.0," seconds"
-    endif 
+          59*nframes*nsps/12000.0," seconds"
+    endif
     go to 999
   else if(nargs.ne.8) then
      print*,'Usage:     sjtty       message'
@@ -130,19 +129,16 @@ program sjtty
   bw=4.0*baud                      !Signal bandwidth
   hmod=1.0                         !Modulation index
 
+  call tbcc_init(JTTY_WAVA_NU)
   call pack_jtty(umsg,c32,nframes)
   nsym=0
   do i=1,nframes
-    read(c32(i),'(32i1)') message32(1:32) 
-    call encode_80_32(message32,codeword80)
-    ib=(i-1)*53+1   ! 53 tones per frame
-    ie=ib+52       
+    read(c32(i),'(34i1)') payload
+    call tbcc_encode(payload,tone_symbols)
+    ib=(i-1)*59+1   ! 59 tones per frame
     itone(ib:ib+12)=is13
-    do j = 1, 40
-       is=codeword80(2*j) + 2*codeword80(2*j-1)
-       itone(ib+12+j) = graymap(is)
-    enddo
-    nsym=nsym+53
+    itone(ib+13:ib+58)=tone_symbols
+    nsym=nsym+59
   enddo
 
   txt=nsym*nsps*dt                            !Transmission length (s)
@@ -156,7 +152,7 @@ program sjtty
 
   nwave=nsps*nsym                  !Length of i*2 data written to *.wav file
   npts=2**(int(log(float(nwave)+xdt/dt)/log(2.0) + 0.9999))  !Round up to integer power of 2
-  iz=nint(xdt/dt) + nwave + nsps*53              !Add one frame of noise at end
+  iz=nint(xdt/dt) + nwave + nsps*59              !Add one frame of noise at end
   nbuf=max(nwave,npts,iz)
 
   allocate(cwave(0:nwave-1))

@@ -6,8 +6,8 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    use jtty_fec
    implicit none
    character*80, intent(out) :: decoded
-   character*32              :: c32(MAX_FRAMES)
-   integer*1                 :: message32(32), cw80(80)
+   character*34              :: c32(MAX_FRAMES)
+   integer                   :: final_payload(PAYLOAD_BITS)
    integer*2, intent(in)     :: iwave(nchunk)
    integer                   :: i,j,i0,ja,jb
    integer, intent(in)       :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
@@ -15,20 +15,19 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    integer                   :: nframe6       !size of frame at 6000 Sa/s
    integer, save             :: nsps0=-999
    integer, save             :: nfft,nh2,nss
+   integer, save             :: nu0=-999
    integer                   :: iloc(1)
    integer                   :: irxsync(13)
-   integer                   :: ndeep, maxiterations
    integer, intent(out)      :: nharderrors,nsync
    real                      :: fsample
    real                      :: spk,fpk,pa,pt,pn
    real                      :: fbest,xdtbest,sbest
    real, allocatable         :: s(:), sm(:), s0(:)
    real                      :: a(3)
-   real                      :: bitmetrics(1:80), pow(0:3)
-   real                      :: p00, p01, p11, p10
+   real                      :: tone_energies(0:3,46), pow(0:3)
    real, save                :: twopi,baud,dt
    real                      :: phi,dphi,df2
-   real                      :: x2,ssnr,db
+   real                      :: ssnr,db
    real, intent(in)          :: f0,ftol,smin
    real, intent(out)         :: dmin
    real, intent(inout)       :: xdt,f1,snr
@@ -43,6 +42,11 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 
    success=.false.
    if(sum(abs(iwave)).eq.0) return
+
+   if(nu0.ne.JTTY_WAVA_NU) then
+      nu0=JTTY_WAVA_NU
+      call tbcc_init(JTTY_WAVA_NU)
+   endif
 
    if(nsps.ne.nsps0) then
       nsps0=nsps
@@ -72,8 +76,8 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       enddo
    endif
 
-   nchunk6=nchunk/2                ! chunk size at 6000 Sa/s 
-   nframe6=53*nss                  ! frame size at 6000 Sa/s
+   nchunk6=nchunk/2                ! chunk size at 6000 Sa/s
+   nframe6=59*nss                  ! frame size at 6000 Sa/s
 
 ! make size of c0 next power of 2 larger than nchunk
    nana = 2**nint(log(real(nchunk))/log(2.0)+0.5)
@@ -167,40 +171,27 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 10 synced=.true.
 
 
-   do j=1,40                                ! find tone powers for 40 symbols
+   do j=1,46                                ! find tone powers for 46 symbols
       i0=nint(xdt/dt) + 13*nss + (j-1)*nss
       if(i0+nss .gt. nchunk6) exit
 
       do i=0,3
          c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
          z=sum(c(0:nss-1))
-         pow(i)=abs(z)**2
+         tone_energies(i,j)=abs(z)**2
       enddo
-
-! tones 0:3 represent bit sequences 00, 01, 11, 10, respectively
-      p00=pow(0); p01=pow(1); p11=pow(2); p10=pow(3)
-
-      bitmetrics(2*j-1) = max(p11,p10) - max(p00,p01)
-      bitmetrics(2*j  ) = max(p11,p01) - max(p00,p10)
    enddo
 
-   x2=sum(bitmetrics**2)/80.0
-   bitmetrics=2.75*bitmetrics/sqrt(x2)
-
-   maxiterations=25
-   nharderrors=-1
    dmin=0.0
-   call bpdecode_80_32(bitmetrics,maxiterations,message32,cw80,nharderrors)
-   if(nharderrors .lt. 0) then
-      ndeep=3 
-      call osd80_32(bitmetrics, ndeep, message32, cw80, nharderrors, dmin)
-   endif
-   if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
+   call tbcc_wava_fsk_decode(tone_energies, JTTY_WAVA_L, JTTY_WAVA_ITERS,             &
+        final_payload, success, reserved_zero_bit=JTTY_RESERVED_BIT)
+   if(success .and. sum(final_payload).eq.0) success=.false.  ! reject the all zero message
+   nharderrors=-1
+   if(success) nharderrors=0
 
    decoded=' '
-   if( nharderrors .ge. 0 ) then
-      success=.true.
-      write(c32(1),'(32i1)') message32
+   if( success ) then
+      write(c32(1),'(34i1)') final_payload
       call unpack_jtty(c32,1,decoded)
    endif
    return

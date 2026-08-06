@@ -73,7 +73,7 @@ subroutine update(ic1,ic2)
 
   nready=iwrite-idone
   if(nready.lt.0) nready=nready+NMAX
-  if(nready.lt.53*384) go to 100
+  if(nready.lt.59*384) go to 100
      
      ! Call the jtty decoder here, using code from rjtty.
      ! ### Maybe call rjtty_sub(y1,iwrite,line1)  ??? ###

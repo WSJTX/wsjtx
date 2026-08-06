@@ -7,11 +7,11 @@ program rjtty
    use jtty_mdec
 
 ! MAX_FRAMES = 16 in pack_jtty. Each frame is
-! 53 symbols (13 sync + 40 codeword).
+! 59 symbols (13 sync + 46 codeword).
 ! Maximum length of a transmission is
-! 16*53*(symbol_duration).
+! 16*59*(symbol_duration).
 ! With baud rate 31.25 s^-1, symbol duration = 32 ms,
-! so maximum txt = 16*53*0.032 = 27.136 s.
+! so maximum txt = 16*59*0.032 = 30.208 s.
 
    parameter (NMAX=180*12000)                 !Max length of data
    type(hdr) h
@@ -48,7 +48,7 @@ program rjtty
    call getarg(5,arg)
    read(arg,*) ftol
 
-   nframe = 53*nsps
+   nframe = 59*nsps
    nchunk = nframe + nframe/4
    ndecodes = 0
 

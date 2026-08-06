@@ -8,6 +8,7 @@ module jtty_mdec
      integer ::  k = 0                !Accumulated length of decoded text
      character(len=80) :: decoded = ''
      logical :: trailing_sep = .false. !decoded ends with an implicit separator column
+     logical :: is_last_frame = .false. !this frame had the "last frame of message" bit set
   end type decode
 
   integer, parameter        :: MAX_DECODES = 100
@@ -54,19 +55,19 @@ contains
 !  results to the console
 
 !  Note: nsps is samples per symbol at 12000 s^-1 sample rate.
-      use iso_fortran_env, only: int8, int16
+      use iso_fortran_env, only: int16
       use jtty_mod
       use jtty_fec
       implicit none
       integer, parameter             :: MAXCAND = 100
       integer, parameter             :: NSYNC_SYM  = 13
-      integer, parameter             :: NCHAN_SYM  = 40
-      integer, parameter             :: NFRAME_SYM = 53
+      integer, parameter             :: NCHAN_SYM  = 46
+      integer, parameter             :: NFRAME_SYM = 59
       real, parameter                :: FSAMPLE = 6000.0
       real, parameter                :: TWOPI = 6.283185307179586
       character(len=80)              :: msg
-      character(len=32)              :: c32(MAX_FRAMES)
-      integer(int8)                  :: message32(32), cw80(80)
+      character(len=34)              :: c32(MAX_FRAMES)
+      integer                        :: final_payload(PAYLOAD_BITS), tone_symbols_chk(NCHAN_SYM)
       integer(int16), intent(in)     :: iwave(nchunk)
       integer, intent(in)            :: istart, ndebug
       integer                        :: i,i0,is,j,ja,jb,k,kz,n
@@ -78,10 +79,11 @@ contains
       integer                        :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
       integer, save                  :: nframe6       !size of frame at 6000 Sa/s
       integer, save                  :: nsps0=-999
+      integer, save                  :: nu0=-999
       integer, save                  :: nfft,nh2,nss
       integer                        :: iloc(1)
       integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
-      integer                        :: ndeep, maxiterations, islot
+      integer                        :: islot
       integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc,nstep_search
       integer                        :: nharderrors,nsync,nsymerrs
       real                           :: fc,fwid
@@ -89,11 +91,10 @@ contains
       real                           :: fbest,xdtbest
       real, allocatable, save        :: s(:), s0(:,:)
       real                           :: a(3)
-      real                           :: bitmetrics(1:80), pow(0:3,NCHAN_SYM)
-      real                           :: p00, p01, p11, p10
+      real                           :: pow(0:3,NCHAN_SYM)
       real, save                     :: baud,dt,df2
       real                           :: phi,dphi
-      real                           :: x2,db
+      real                           :: db
       real, intent(in)               :: f0,ftol,smin
       real                           :: dmin
       real                           :: snrdb, xdt
@@ -107,12 +108,18 @@ contains
       logical                        :: match
       logical                        :: dupe
       logical                        :: usable
+      logical                        :: success_dec
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
 
       nharderrors=-1
       nsync=0
       dmin=0.0
+
+      if(nu0.ne.JTTY_WAVA_NU) then
+         nu0=JTTY_WAVA_NU
+         call tbcc_init(JTTY_WAVA_NU)
+      endif
 
       if(istart.eq.1) then
          ndecodes=0
@@ -265,7 +272,7 @@ contains
 
 ! looks like a real candidate - try to decode
             pow(:,:)=0.0
-            do j=1,NCHAN_SYM                  ! find tone powers for 40 symbols
+            do j=1,NCHAN_SYM                  ! find tone powers for 46 symbols
                i0=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss + (j-1)*nss
                if(i0+nss .gt. nchunk6) exit
 
@@ -276,38 +283,25 @@ contains
 
                iloc=maxloc(pow(:,j))-1
                irxchan(j)=iloc(1)   ! hard decision received channel symbols
-
-! tones 0:3 represent bit sequences 00, 01, 11, 10, respectively
-               p00=pow(0,j); p01=pow(1,j); p11=pow(2,j); p10=pow(3,j)
-
-               bitmetrics(2*j-1) = max(p11,p10) - max(p00,p01)
-               bitmetrics(2*j  ) = max(p11,p01) - max(p00,p10)
             enddo
 
-            x2=sum(bitmetrics**2)/80.0
-            bitmetrics=2.75*bitmetrics/sqrt(x2)
-
-            maxiterations=25
-            nharderrors=-1
             dmin=0.0
-            call bpdecode_80_32(bitmetrics,maxiterations,message32,cw80,nharderrors)
-            if(nharderrors .lt. 0) then
-               ndeep=1
-               if(ichan.eq.0) ndeep=3
-               call osd80_32(bitmetrics, ndeep, message32, cw80, nharderrors, dmin)
-            endif
-            if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
+            call tbcc_wava_fsk_decode(pow, JTTY_WAVA_L, JTTY_WAVA_ITERS,             &
+                 final_payload, success_dec, reserved_zero_bit=JTTY_RESERVED_BIT)
+            if(success_dec .and. sum(final_payload).eq.0) success_dec=.false. ! reject all-zero
+            nharderrors=-1
+            if(success_dec) nharderrors=0
             cand(ncand)%decoded=' '
-            if( nharderrors .ge. 0 ) then
+            if( success_dec ) then
                ndecodes=ndecodes+1
+               ! Re-encode the decoded payload to recover the expected tone
+               ! per symbol, for the symbol-error-count/SNR diagnostic below
+               ! (mirrors what the old LDPC path got for free from its own
+               ! codeword bits).
+               call tbcc_encode(final_payload, tone_symbols_chk)
                nsymerrs=13-nsync
-               do j = 1, 40
-                  is=cw80(2*j) + 2*cw80(2*j-1)
-                  if(is.eq.2) then     ! graymap
-                      is=3
-                  elseif(is.eq.3) then
-                      is=2
-                  endif  
+               do j = 1, NCHAN_SYM
+                  is=tone_symbols_chk(j)
                   if(is.ne.irxchan(j)) nsymerrs=nsymerrs+1
                   pt=pt+pow(is,j)
                   pa=pa+sum(pow(:,j))
@@ -317,8 +311,9 @@ contains
                   snrdb=db(pt/pn)
                   cand(ncand)%snrdb=snrdb
                endif
-               write(c32(1),'(32i1)') message32
-               call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep)
+               write(c32(1),'(34i1)') final_payload
+               call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep,   &
+                    cand(ncand)%is_last_frame)
                cand(ncand)%tsync=(istart-1)/12000.0 + cand(ncand)%xdt
 
 ! dupe detection 
@@ -360,6 +355,7 @@ contains
                         endif
                         slot(i)%k=kz
                         slot(i)%trailing_sep=dec%trailing_sep
+                        slot(i)%is_last_frame=dec%is_last_frame
                         exit
                      endif
                   enddo

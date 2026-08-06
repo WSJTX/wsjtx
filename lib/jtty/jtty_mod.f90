@@ -9,17 +9,24 @@ contains
 subroutine pack_jtty(message,c32,nframes)
 
 ! Input:   character*80   message     !JTTY message, as it appears to a user
-! Output:  character*32   c32         !32-bit payload
+! Output:  character*34   c32         !34-bit payload: 32 bits of existing
+!                                      !grammar (unchanged) + 1 "last frame
+!                                      !of this message" flag (c32(:)(34:34))
+!                                      !+ 1 reserved bit, always '0'
+!                                      !(c32(:)(33:33)), that the decoder
+!                                      !uses as a free extra check beyond
+!                                      !the CRC.
 !          integer        nframes     !Frames in this message (max = 16)
 !
 ! Source coding flow:
 !   1. Normalize operator text into the JTTY source alphabet.
 !   2. Find the minimum-frame path through compact forms plus free text.
-!   3. Convert the selected path into 32-bit JTTY payload frames.
+!   3. Convert the selected path into 32-bit JTTY payload frames, then
+!      append the reserved bit and last-frame flag.
 
   use packjt77
   character*80 message,msg
-  character*32 c32(MAX_FRAMES)
+  character*34 c32(MAX_FRAMES)
 
   integer, parameter :: KIND_TEXT=1, KIND_599=2, KIND_STRUCT=3
   integer, parameter :: RANK_COMPACT=1, RANK_TEXT=2, INF=999
@@ -78,8 +85,14 @@ subroutine pack_jtty(message,c32,nframes)
      endif
      write(c32(nframes),1002) n32
 1002 format(b32.32)
+     ! Bits 33-34: reserved (always 0) + "last frame of this message" flag.
+     ! The flag defaults to 0 here and is set to 1 below, only on the frame
+     ! actually emitted last, once the full frame count is known.
+     c32(nframes)(33:34)='00'
      ipos=choice_next(ipos)
   enddo
+
+  if(nframes.ge.1) c32(nframes)(34:34)='1'
 
   if(ipos.le.n) then
      nframes=-1
@@ -324,13 +337,20 @@ subroutine normalize_jtty_message(raw,normalized)
 
 end subroutine normalize_jtty_message
 
-subroutine unpack_jtty(c32,nframes,message,trailing_sep)
+subroutine unpack_jtty(c32,nframes,message,trailing_sep,is_last_frame)
 
-! Input:   character*32   c32         !32-bit payload
+! Input:   character*34   c32         !34-bit payload: 32 bits of existing
+!                                      !grammar + 1 reserved bit (33) + 1
+!                                      !"last frame of this message" flag (34)
 !          integer        nframes     !Frames in this message (max = 16)
 ! Output:  character*80   message     !JTTY message, as it appears to a user
 !          logical        trailing_sep (optional) !True if the last frame
 !                          processed appended an implicit separator column.
+!          logical        is_last_frame (optional) !True if the last frame
+!                          processed had its "last frame of message" flag
+!                          set -- for callers (e.g. jtty_mdecode's slot
+!                          accumulation) that decode one frame at a time and
+!                          need to know when a message is complete.
 !
 ! Frame decoding flow:
 !   1. Read the class bits once for each 32-bit payload.
@@ -339,19 +359,23 @@ subroutine unpack_jtty(c32,nframes,message,trailing_sep)
 
   use packjt77
   character*80 message
-  character*32 c32(MAX_FRAMES)
+  character*34 c32(MAX_FRAMES)
   logical, intent(out), optional :: trailing_sep
+  logical, intent(out), optional :: is_last_frame
 
   character*13 c13
   logical success
   logical last_frame_sep
+  logical last_frame_flag
 
   message=''
   k=1
   last_frame_sep=.false.
+  last_frame_flag=.false.
   do iframe=1,nframes
      if(k.gt.len(message)) exit             !Output buffer full; stop decoding
      last_frame_sep=.false.
+     last_frame_flag=c32(iframe)(34:34).eq.'1'
      read(c32(iframe),1002) n28,n2,i2
 1002 format(b28.28,b2.2,b2.2)
 
@@ -375,6 +399,7 @@ subroutine unpack_jtty(c32,nframes,message,trailing_sep)
   enddo
 
   if(present(trailing_sep)) trailing_sep=last_frame_sep
+  if(present(is_last_frame)) is_last_frame=last_frame_flag
 
   return
 

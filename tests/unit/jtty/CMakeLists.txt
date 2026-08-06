@@ -2,6 +2,14 @@ add_executable (test_jtty_pack test_jtty_pack.f90)
 target_include_directories (test_jtty_pack PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_pack)
 
+add_executable (test_tbcc test_tbcc.f90)
+target_include_directories (test_tbcc PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_tbcc)
+add_test (NAME test_tbcc COMMAND test_tbcc)
+set_tests_properties (test_tbcc PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_tbcc: all checks passed"
+)
+
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
 
 add_test (NAME test_jtty_pack COMMAND test_jtty_pack)

@@ -179,7 +179,4 @@ add_test (
 add_executable (ldpcsim240_74 lib/fst4/ldpcsim240_74.f90)
 wsjt_link_common_fortran (ldpcsim240_74)
 
-add_executable (ldpcsim80_42 lib/jtty/ldpcsim80_42.f90)
-wsjt_link_common_fortran (ldpcsim80_42)
-
 endif(WSJT_BUILD_UTILS)

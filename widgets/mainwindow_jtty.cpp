@@ -224,7 +224,7 @@ qint64 MainWindow::submitJttyText(QString message)
 
 void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
 {
-  int itone[848];
+  int itone[944];
   if(ui->cbLowerCase->isChecked()) message = message.toLower();
 
   auto const preparedMessage = Jtty::prepareTransmitText(message);
@@ -396,7 +396,7 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
 
   monitor(false);
-  if(!m_diskData && (m_saveAll || m_saveDecoded) && (m_k0 > 53*384) && (m_k0 < 9999999)) {
+  if(!m_diskData && (m_saveAll || m_saveDecoded) && (m_k0 > 59*384) && (m_k0 < 9999999)) {
     jtty_save_wav();
   }
 

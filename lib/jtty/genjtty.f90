@@ -6,28 +6,23 @@ subroutine genjtty(umsg,itone,nsym)
 
   use jtty_mod
   use jtty_fec
-  parameter (MAX_TONES=53*16)       !Max number of channel symbols
-  character*80 umsg                 !User-formatted message 
-  character*32 c32(16)
+  parameter (MAX_TONES=59*16)       !Max number of channel symbols
+  character*80 umsg                 !User-formatted message
+  character*34 c32(16)
   integer itone(MAX_TONES)          !Array of tone frequencies for this message
-  integer*1 message32(32)
-  integer*1 codeword80(80)
-  integer graymap(0:3)
-  data graymap/0,1,3,2/
+  integer payload(PAYLOAD_BITS)
+  integer tone_symbols(46)
 
+  call tbcc_init(JTTY_WAVA_NU)
   call pack_jtty(umsg,c32,nframes)
   nsym=0
   do i=1,nframes
-    read(c32(i),'(32i1)') message32(1:32) 
-    call encode_80_32(message32,codeword80)
-    ib=(i-1)*53+1   ! 53 tones per frame
-    ie=ib+52       
+    read(c32(i),'(34i1)') payload
+    call tbcc_encode(payload,tone_symbols)
+    ib=(i-1)*59+1   ! 59 tones per frame
     itone(ib:ib+12)=is13
-    do j = 1, 40
-       is=codeword80(2*j) + 2*codeword80(2*j-1)
-       itone(ib+12+j) = graymap(is)
-    enddo
-    nsym=nsym+53
+    itone(ib+13:ib+58)=tone_symbols
+    nsym=nsym+59
  enddo
 
  return
