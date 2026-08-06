@@ -4,7 +4,7 @@ module tbcc
     ! mode (lib/jtty/jtty_fec_mod.f90 and callers) and by the standalone
     ! research tools under lib/jtty/wava/.
     use, intrinsic :: iso_fortran_env, only: real32, int32, int16
-    use omp_lib
+    !$ use omp_lib
     implicit none
 
     ! Fixed frame parameters, shared with every caller.
@@ -325,8 +325,11 @@ contains
         ! changing OMP_NUM_THREADS changes how frames are partitioned across
         ! streams, so per-frame outcomes differ (though aggregate statistics
         ! over num_frames should not, within Monte Carlo noise).
+        ! In a non-OpenMP build, !$ lines and !$omp directives are comments,
+        ! so use a deterministic single-thread seed without requiring libgomp.
+        rng_state = 9999_int32
         !$omp parallel default(shared)
-        rng_state = 9999_int32 + 104729_int32 * int(omp_get_thread_num(), int32)
+        !$ rng_state = 9999_int32 + 104729_int32 * int(omp_get_thread_num(), int32)
         if (rng_state == 0_int32) rng_state = 1_int32
         !$omp end parallel
     end subroutine seed_random_generator
