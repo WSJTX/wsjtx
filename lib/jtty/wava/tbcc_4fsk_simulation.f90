@@ -6,9 +6,7 @@ program tbcc_4fsk_simulation
 
     ! Per-thread RNG state (xorshift32). The RANDOM_NUMBER intrinsic keeps a
     ! single shared generator state and is not safe to call concurrently from
-    ! multiple OpenMP threads, so each thread gets its own independent stream
-    ! instead (see thread_uniform()); seeded once per thread in
-    ! seed_random_generator().
+    ! multiple OpenMP threads.
 
     integer(int32), save :: rng_state = 0
     !$omp threadprivate(rng_state)
@@ -27,9 +25,8 @@ program tbcc_4fsk_simulation
     ! for another K, so these are set at runtime by
     ! select_generator_polynomials() once memory_nu is known, rather than
     ! being fixed PARAMETERs. REG_MASK = 2**(memory_nu+1)-1, the K-bit
-    ! window the taps are applied over; previously a fixed Z"FFF" (12
-    ! bits), which silently truncated the top bit of the register for any
-    ! K > 12.
+    ! window the taps are applied over. 
+
     integer(int32) :: G0_HEX, G1_HEX, REG_MASK
 
     integer(int32), parameter :: CRC_POLY = int(Z"80F", int32)
@@ -58,7 +55,7 @@ program tbcc_4fsk_simulation
     nargs=iargc()
     if(nargs.ne.5) then
        print*,'Usage:   tbcc_sim  nu  L  iters  Nmax SNR'
-       print*,'Example: tbcc_sim  10  8    6   10000  0'  
+       print*,'Example: tbcc_sim   9  4    2   10000  0'  
        stop
     endif
 
@@ -120,6 +117,7 @@ program tbcc_4fsk_simulation
             ! frame writes must be private -- otherwise threads clobber each
             ! other's tx_payload/tx_encoded/etc. The three tallies are
             ! combined across threads via REDUCTION.
+            
             !$omp parallel do default(shared) &
             !$omp   private(f, t, i, state, bit, g0_out, g1_out, out_b0, out_b1, &
             !$omp           n_i, n_q, h_fade, ch_i, ch_q, decode_success, payload_match, &
@@ -180,8 +178,9 @@ program tbcc_4fsk_simulation
                 end do
 
                 ! Decoding Execution
-                call tbcc_wava_fsk_decode(rx_tone_energies, L_size, wava_iters, rx_decoded, decode_success)
-                
+                call tbcc_wava_fsk_decode(rx_tone_energies, L_size, wava_iters, &
+                     rx_decoded, decode_success)
+
                 if (decode_success) then
                     payload_match = all(tx_payload == rx_decoded)
                     if (payload_match) then
@@ -203,8 +202,10 @@ program tbcc_4fsk_simulation
             write(24,1001) snr_2500_db, num_frames, p_correct, uer
 1001        format(f8.1,i10,2f10.6)
             
-            ! Write tracking vectors to the spreadsheet data table (Multiplying UER by 100 for percentage scale)
-            write(25, '(A,A,F6.1,A,F7.5,A,F7.5)') trim(channel_type), ",", snr_2500_db, ",", p_correct, ",", uer * 100.0_real32
+            ! Write tracking vectors to the spreadsheet data table (Multiplying UER by
+            ! 100 for percentage scale)
+            write(25, '(A,A,F6.1,A,F7.5,A,F7.5)') trim(channel_type), ",", snr_2500_db, &
+                 ",", p_correct, ",", uer * 100.0_real32
             if(xsnr.ne.0.0) exit
         end do  !Loop over SNRs
     end do  !Loop over channel types (AWGN, then Rayleigh)
@@ -214,11 +215,13 @@ program tbcc_4fsk_simulation
 
     t_wall_end = omp_get_wtime()
     print '(A,F8.2,A)', "Total wall-clock time: ", t_wall_end - t_wall_start, " s"
-    print '(a,f7.3,a)' ,"Average time per frame: ", 1000.0*(t_wall_end - t_wall_start)/total_frames, " ms"
+    print '(a,f7.3,a)' ,"Average time per frame: ",                                      &
+         1000.0*(t_wall_end - t_wall_start)/total_frames, " ms"
 
 contains
 
-    subroutine tbcc_wava_fsk_decode(tone_energies, list_size, max_wava_iters, final_payload, success)
+    subroutine tbcc_wava_fsk_decode(tone_energies, list_size, max_wava_iters,            &
+        final_payload, success)
         use, intrinsic :: iso_fortran_env, only: int16
         real(real32), intent(in)     :: tone_energies(0:3, TOTAL_K)
         integer(int32), intent(in)   :: list_size
@@ -251,7 +254,8 @@ contains
                 do s = 0, NUM_STATES-1
                     ! For a destination state 's' at time 't' under a left-shift model,
                     ! the two possible predecessor states at time 't-1' are determined 
-                    ! by shifting 's' right and checking both options for the bit that left the window.
+                    ! by shifting 's' right and checking both options for the bit that
+                    ! left the window.
                     prev_s = iand(ishft(s, -1), NUM_STATES-1)
                     
                     ! Option A: The oldest bit dropped from the register was 0
@@ -278,10 +282,12 @@ contains
                     ! Select and record maximum likelihood trajectory decision
                     if (m0 > m1) then
                         curr_m(s) = m0
-                        traceback_table(s, t) = 0_int16 ! Picked path from state with dropped bit 0
+                        ! Picked path from state with dropped bit 0
+                        traceback_table(s, t) = 0_int16
                     else
                         curr_m(s) = m1
-                        traceback_table(s, t) = 1_int16 ! Picked path from state with dropped bit 1
+                        ! Picked path from state with dropped bit 1
+                        traceback_table(s, t) = 1_int16
                     end if
                 end do
                 prev_m = curr_m
@@ -379,12 +385,12 @@ contains
         end do
     end subroutine generate_random_bits
 
-    ! Fast per-thread xorshift32 generator returning a uniform value on
-    ! [0,1]. rng_state is !$omp threadprivate (declared at the top of the
-    ! program), so this advances each thread's own independent stream with
-    ! no shared mutable state and no locking -- the replacement for
-    ! RANDOM_NUMBER, which is not safe to call from a parallel region.
     function thread_uniform() result(u)
+        ! Fast per-thread xorshift32 generator returning a uniform value on
+        ! [0,1]. rng_state is !$omp threadprivate (declared at the top of the
+        ! program), so this advances each thread's own independent stream with
+        ! no shared mutable state and no locking -- the replacement for
+        ! RANDOM_NUMBER, which is not safe to call from a parallel region.
         real(real32) :: u
         rng_state = ieor(rng_state, ishft(rng_state, 13))
         rng_state = ieor(rng_state, ishft(rng_state, -17))
