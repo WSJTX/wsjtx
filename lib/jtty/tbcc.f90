@@ -18,7 +18,7 @@ module tbcc
     ! runtime choice (see select_generator_polynomials()): set once by
     ! tbcc_init(), after which every module procedure reads them but never
     ! modifies them.
-    integer(int32) :: memory_nu, num_states, G0_HEX, G1_HEX, REG_MASK
+    integer(int32) :: memory_nu, num_states, g0_poly, g1_poly, reg_mask
 
     type candidate_t
         real(real32) :: metric
@@ -40,14 +40,14 @@ module tbcc
 contains
 
     subroutine tbcc_init(nu)
-        ! Sets memory_nu, num_states, G0_HEX, G1_HEX, and REG_MASK for the
+        ! Sets memory_nu, num_states, g0_poly, g1_poly, and reg_mask for the
         ! chosen constraint length K = nu+1. Call once, before any
         ! encode/decode.
         integer(int32), intent(in) :: nu
         memory_nu  = nu
         num_states = 2**nu
-        call select_generator_polynomials(nu, G0_HEX, G1_HEX)
-        REG_MASK = 2**(nu + 1) - 1
+        call select_generator_polynomials(nu, g0_poly, g1_poly)
+        reg_mask = 2**(nu + 1) - 1
     end subroutine tbcc_init
 
     subroutine tbcc_encode(payload, tone_symbols)
@@ -70,15 +70,15 @@ contains
         state = 0
         do t = 0, memory_nu - 1
             bit = info_bits(1, TOTAL_K - (memory_nu - 1) + t)
-            state = iand(ior(ishft(state, 1), bit), NUM_STATES-1)
+            state = iand(ior(ishft(state, 1), bit), num_states-1)
         end do
 
         do t = 1, TOTAL_K
             bit = info_bits(1, t)
-            g0_out = iand(ior(ishft(state, 1), bit), REG_MASK)
-            out_b0 = parity(iand(g0_out, G0_HEX))
-            out_b1 = parity(iand(g0_out, G1_HEX))
-            state = iand(ior(ishft(state, 1), bit), NUM_STATES-1)
+            g0_out = iand(ior(ishft(state, 1), bit), reg_mask)
+            out_b0 = parity(iand(g0_out, g0_poly))
+            out_b1 = parity(iand(g0_out, g1_poly))
+            state = iand(ior(ishft(state, 1), bit), num_states-1)
 
             if (out_b0 == 0 .and. out_b1 == 0) tone_symbols(t) = 0
             if (out_b0 == 0 .and. out_b1 == 1) tone_symbols(t) = 1
@@ -113,8 +113,8 @@ contains
         integer(int32) :: tmp_bits(TOTAL_K)
 
         success = .false.
-        allocate(prev_m(0:NUM_STATES-1), curr_m(0:NUM_STATES-1))
-        allocate(traceback_table(0:NUM_STATES-1, TOTAL_K), sorted_list(list_size))
+        allocate(prev_m(0:num_states-1), curr_m(0:num_states-1))
+        allocate(traceback_table(0:num_states-1, TOTAL_K), sorted_list(list_size))
 
         prev_m = 0.0_real32
 
@@ -126,17 +126,17 @@ contains
         do iter = 1, max_wava_iters
             do t = 1, TOTAL_K
                 curr_m = -1.0e30_real32
-                do s = 0, NUM_STATES-1
+                do s = 0, num_states-1
                     ! For a destination state 's' at time 't' under a left-shift model,
                     ! the two possible predecessor states at time 't-1' are determined
                     ! by shifting 's' right and checking both options for the bit that
                     ! left the window.
-                    prev_s = iand(ishft(s, -1), NUM_STATES-1)
+                    prev_s = iand(ishft(s, -1), num_states-1)
 
                     ! Option A: The oldest bit dropped from the register was 0
-                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), REG_MASK)
-                    out_b0 = parity(iand(g0_out, G0_HEX))
-                    out_b1 = parity(iand(g0_out, G1_HEX))
+                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), reg_mask)
+                    out_b0 = parity(iand(g0_out, g0_poly))
+                    out_b1 = parity(iand(g0_out, g1_poly))
                     if (out_b0 == 0 .and. out_b1 == 0) tone_idx = 0
                     if (out_b0 == 0 .and. out_b1 == 1) tone_idx = 1
                     if (out_b0 == 1 .and. out_b1 == 1) tone_idx = 2
@@ -145,9 +145,9 @@ contains
 
                     ! Option B: The oldest bit dropped from the register was 1
                     prev_s = ior(prev_s, ishft(1, memory_nu-1))
-                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), REG_MASK)
-                    out_b0 = parity(iand(g0_out, G0_HEX))
-                    out_b1 = parity(iand(g0_out, G1_HEX))
+                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), reg_mask)
+                    out_b0 = parity(iand(g0_out, g0_poly))
+                    out_b1 = parity(iand(g0_out, g1_poly))
                     if (out_b0 == 0 .and. out_b1 == 0) tone_idx = 0
                     if (out_b0 == 0 .and. out_b1 == 1) tone_idx = 1
                     if (out_b0 == 1 .and. out_b1 == 1) tone_idx = 2
@@ -170,7 +170,7 @@ contains
         end do
 
         ! REVISED TRACEBACK ALIGNMENT
-        do s = 0, NUM_STATES-1
+        do s = 0, num_states-1
             curr_s = s
             do t = TOTAL_K, 1, -1
                 ! The input bit that caused the transition into 'curr_s' is its LSB (bit 0)
@@ -178,7 +178,7 @@ contains
                 tmp_bits(t) = bit_in
 
                 ! Recover the parent state index using the recorded history bit flag
-                prev_s = iand(ishft(curr_s, -1), NUM_STATES-1)
+                prev_s = iand(ishft(curr_s, -1), num_states-1)
                 if (traceback_table(curr_s, t) == 1_int16) then
                     prev_s = ior(prev_s, ishft(1, memory_nu-1))
                 end if

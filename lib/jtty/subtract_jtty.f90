@@ -1,4 +1,4 @@
-subroutine subtractjtty(c0, n, nvalid, tone_symbols, nsym_total, nss, f1, xdt)
+subroutine subtract_jtty(c0, n, nvalid, tone_symbols, nsym_total, nss, f1, xdt)
 
 ! Subtract a decoded JTTY signal from the complex analytic buffer c0 (at
 ! 6000 Sa/s -- the domain jtty_mdecode.f90 already works in, produced from
@@ -96,4 +96,4 @@ subroutine subtractjtty(c0, n, nvalid, tone_symbols, nsym_total, nss, f1, xdt)
   enddo
 
   return
-end subroutine subtractjtty
+end subroutine subtract_jtty

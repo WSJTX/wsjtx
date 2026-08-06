@@ -394,7 +394,7 @@ contains
       ! assembles for TX.
       tone_symbols_full(1:NSYNC_SYM)=is13
       tone_symbols_full(NSYNC_SYM+1:NFRAME_SYM)=tone_symbols_chk
-      call subtractjtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM,   &
+      call subtract_jtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM,   &
            nss, cand(ncand)%f1, cand(ncand)%xdt)
       any_subtracted=.true.
 
