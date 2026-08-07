@@ -132,3 +132,28 @@ Commit       No_AP       MyCall     BothCalls
 7ad881: 1
 7ad881: 2
 7ad881: 3
+
+Mode: JTTY
+Data: W2PU_260807 (25 files, real on-air conversational QSO test between K9AN
+      and W2PU, 2026-08-07, D:\data\JTTY\W2PU_260807\)
+Message: conversational (not a fixed repeated test message)
+RxFreq: 1500/10 and 1500/50 (FTol)
+
+Metric: total accumulated decode lines logged by rjtty across the 25-file
+corpus (each successful frame merge prints the slot's current full text, so
+this counts decode *events*, not distinct correct messages -- a regression
+check against the known-good snapshot, not a literal "number correct" count).
+
+Commit                          Lines(ftol=10)  Lines(ftol=50)
+-----------------------------------------------------------------
+4e5aa053f (pre jtty_peakup fix):      240             238
+86fff7d28 (jtty_peakup fix):          241             241
+
+86fff7d28 fixed lib/jtty/jtty_peakup.f90's time-search upper bound (ib was
+clamped to the sync-pattern length instead of the c1 buffer's actual valid
+range, silently zeroing ~17.5% of channel-0 candidate refinements whose
+coarse time offset exceeded ~0.416 s). 260807_134202.wav went from a
+3-way-split, partly garbled decode to a single clean thread exactly matching
+the known-correct message ("LOST THE END DUE TO 3 MINUTE TRANSITION");
+several other files' frequency estimates were also measurably more stable
+post-fix. No duplicate-word corruption found in a full corpus diff.
