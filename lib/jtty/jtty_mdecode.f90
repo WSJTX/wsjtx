@@ -103,11 +103,14 @@ contains
       integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
       integer                        :: islot
       integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc,nstep_search
+      integer                        :: nc0,n_ch0_ok
+      integer                        :: ja_ch0_ok(8),jb_ch0_ok(8)
       integer                        :: nharderrors,nsync,nsymerrs
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
       real, allocatable, save        :: s(:), s0(:,:)
+      logical, allocatable, save     :: mask0(:,:)
       real                           :: a(3)
       real                           :: pow(0:3,NCHAN_SYM)
       real, save                     :: baud,dt,df2
@@ -190,6 +193,8 @@ contains
            allocate(s(0:nh2))
          if(allocated(s0)) deallocate(s0)
            allocate(s0(0:nh2,0:ntgrid))
+         if(allocated(mask0)) deallocate(mask0)
+           allocate(mask0(0:nh2,0:ntgrid))
 
 ! Generate complex waveform for sync
          baud=FSAMPLE/real(nss)   !31.25 for nss=192
@@ -262,14 +267,31 @@ contains
       enddo
       nstep_search=istep-1
 
+! Frequency neighborhoods (bin ranges) of channel 0's actual successful
+! decodes this ipass -- populated below as channel 0 is processed (it's
+! always ichan=0, first), then used to keep channels 1/2 from rediscovering,
+! unrefined, a signal channel 0 already decoded. Reset per ipass since s0
+! (and so what channel 0 finds in it) is rebuilt fresh above each pass.
+      n_ch0_ok=0
+
       do ichan=0, nchan         ! frequency channels - channel 0 is always centered on f0
          if(ichan.eq.0) then
             fc=f0
             fwid=ftol
+            ! Scale channel 0's candidate count with FTol: a wide band lets
+            ! other real signals win both fixed nc=2 slots before the
+            ! target's own cleanest sync moment is ever tried (confirmed via
+            ! 260807_134202.wav/260807_140401.wav at ftol=50, zero decodes
+            ! for the whole file despite passing the nsync/snrdb gate).
+            ! nfz*df2 is the ~10 Hz peak-exclusion width already used below,
+            ! i.e. this reads as "how many independent peaks of that width
+            ! fit in [f0-ftol,f0+ftol]".
+            nc0=max(2, min(8, nint(fwid/(nfz*df2))))
          else            ! for now, hardwired nonoverlapping channels
             fc=1350
             if(ichan.eq.2) fc=1650
             fwid=150
+            nc0=nc
          endif
 
          call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
@@ -280,12 +302,32 @@ contains
          fpk=0.
          channel_decoded=.false.
 
-         do ic=1,nc
-            nsloc=maxloc(s0(ja:jb,0:nstep_search))
+         if(ichan.ne.0 .and. n_ch0_ok.gt.0) then
+            ! Remove only neighborhoods of channel 0 decodes that actually
+            ! succeeded, leaving channel 1/2 as a fallback for missed peaks.
+            do i=1,n_ch0_ok
+               if(max(ja,ja_ch0_ok(i)) .le. min(jb,jb_ch0_ok(i))) &
+                    s0(max(ja,ja_ch0_ok(i)):min(jb,jb_ch0_ok(i)),0:nstep_search) = 0.0
+            enddo
+         endif
+
+         if(ichan.eq.0) mask0(ja:jb,0:nstep_search)=.true.
+
+         do ic=1,nc0
+            if(ichan.eq.0) then
+               ! Keep channel 0 candidate rejection from erasing peaks that
+               ! channels 1/2 still need to search.
+               nsloc=maxloc(s0(ja:jb,0:nstep_search), &
+                    mask=mask0(ja:jb,0:nstep_search))
+               mask0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),  &
+                   max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = .false.
+            else
+               nsloc=maxloc(s0(ja:jb,0:nstep_search))
+               s0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),        &
+                   max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = 0.0
+            endif
             fbest   = (nsloc(1)-1+ja)*df2
             xdtbest = (nsloc(2)-1)*dt*12
-            s0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),        &
-                max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = 0.0
 
             if(ichan.eq.0) then
                call jtty_peakup(c0,c1,csync,nchunk6, nss, xdtbest, fbest, xdt1, f11, snr0)
@@ -332,6 +374,11 @@ contains
 ! looks like a real candidate - try to decode
             call decode_and_merge(ic, decoded_ok)
             if(decoded_ok) channel_decoded=.true.
+            if(ichan.eq.0 .and. decoded_ok .and. n_ch0_ok.lt.8) then
+               n_ch0_ok=n_ch0_ok+1
+               ja_ch0_ok(n_ch0_ok)=nint(cand(ncand)%f1/df2)-nfz
+               jb_ch0_ok(n_ch0_ok)=nint(cand(ncand)%f1/df2)+nfz
+            endif
          enddo     ! candidate loop
 
          if(.not.channel_decoded) then
@@ -498,6 +545,17 @@ contains
                slot(i)%k=kz
                slot(i)%trailing_sep=dec%trailing_sep
                slot(i)%is_last_frame=dec%is_last_frame
+               ! Track the most recently merged frame, not the frame that
+               ! first opened this slot: continuation matching (df1/dxdt
+               ! above) and the same-frame dedup check (dtsync) both need
+               ! to compare against the last frame actually merged in, or a
+               ! long message's gradual frequency/timing drift eventually
+               ! reads as "too far from frame 1" (spurious slot split) and
+               ! a re-decode of frame 2+ (e.g. via a retro re-sweep) no
+               ! longer reads as "the same frame" (duplicated text).
+               slot(i)%f1=dec%f1
+               slot(i)%xdt=dec%xdt
+               slot(i)%tsync=dec%tsync
                exit
             endif
          enddo
