@@ -673,9 +673,10 @@ contains
          write(*,3001) nint(dec%f1),trim(msg)
 3001     format(i4,2x,a)
       else if(ndebug.gt.0) then
-         write(*,3002) ichan,ic_label,ndecodes,islot,nslots,match,dec%f1, &
-            dec%xdt,dec%tsync,nint(dec%snrdb-20.0),nsync,nsymerrs,nharderrors,trim(msg)
-3002     format(5i4,L3,f7.1,f7.3,f9.3,i5,i4,i4,i4,2x,a)
+         write(*,3002) ichan,ipass,ic_label,ndecodes,islot,nslots,match, &
+            use_interferer,dec%f1,dec%xdt,dec%tsync,nint(dec%snrdb-20.0), &
+            nsync,nsymerrs,nharderrors,trim(msg)
+3002     format(6i4,2L3,f7.1,f7.3,f9.3,i5,i4,i4,i4,2x,a)
       endif
    end subroutine decode_and_merge
 
