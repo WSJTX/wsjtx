@@ -11,6 +11,14 @@ module jtty_mdec
      character(len=80) :: decoded = ''
      logical :: trailing_sep = .false. !decoded ends with an implicit separator column
      logical :: is_last_frame = .false. !this frame had the "last frame of message" bit set
+     ! Per-frame merge history (capped at MAX_FRAMES, the permanent limit
+     ! pack_jtty enforces on any real message -- see jtty_mod.f90) so a
+     ! rediscovery of an already-merged frame (e.g. via a retro re-sweep)
+     ! can be recognized against the specific frame it duplicates, not just
+     ! this slot's current/latest position.
+     integer :: nframes_merged = 0
+     real    :: frame_f1(16) = 0.0
+     real    :: frame_tsync(16) = 0.0
   end type decode
 
   integer, parameter        :: MAX_DECODES = 100
@@ -129,10 +137,12 @@ contains
       logical                        :: match
       logical                        :: dupe
       logical                        :: usable
+      logical                        :: is_history_dupe
       logical                        :: success_dec
       logical                        :: channel_decoded, decoded_ok
       logical                        :: any_subtracted
       integer                        :: ir
+      integer                        :: kf
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
       logical                        :: use_interferer
@@ -589,6 +599,9 @@ contains
          ! frame to supply a separator, so mark one explicitly here.
          if(slot(1)%decoded(1:4).eq.'599 ') &
               slot(1)%decoded='~'//trim(slot(1)%decoded)
+         slot(1)%nframes_merged=1
+         slot(1)%frame_f1(1)=dec%f1
+         slot(1)%frame_tsync(1)=dec%tsync
       else
          do i=1,nslots
             ! A slot whose last frame has already been merged in is
@@ -613,9 +626,34 @@ contains
             ! sticky-sync retry already uses for the same physical fact.
             match=abs(df1).lt.8.0 .and.                                       &
                  (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
+
+            ! Neither condition above catches a rediscovery of a frame that
+            ! was merged into this slot several frames ago (not just its
+            ! current/latest one) -- e.g. a retro re-sweep revisiting an
+            ! early window after the slot has since advanced well past it.
+            ! Comparing only to the slot's current position always fails
+            ! for that case (dxdt is a stale local coordinate; dtsync is
+            ! some uncontrolled multiple of the frame period, not exactly
+            ! one), so also check the slot's full per-frame merge history
+            ! for the specific instant this candidate duplicates -- same
+            ! 8 Hz/50 ms thresholds already used by the channel-0-vs-1/2
+            ! same-call dupe check above (confirmed 260807_134312.wav/
+            ! 260807_134915.wav).
+            is_history_dupe=.false.
+            if(.not.match) then
+               do kf=1,slot(i)%nframes_merged
+                  if(abs(dec%f1-slot(i)%frame_f1(kf)).lt.8.0 .and. &
+                       abs(dec%tsync-slot(i)%frame_tsync(kf)).lt.0.05) then
+                     match=.true.
+                     is_history_dupe=.true.
+                     exit
+                  endif
+               enddo
+            endif
+
             if(match) then
                islot=i
-               if(abs(dtsync).lt.0.9) then
+               if(is_history_dupe .or. abs(dtsync).lt.0.9) then
                   ! Same frame instant already merged into this slot -- a
                   ! retro re-sweep re-runs the FULL candidate sweep over a
                   ! window that may already have been fully processed, so
@@ -650,6 +688,11 @@ contains
                slot(i)%f1=dec%f1
                slot(i)%xdt=dec%xdt
                slot(i)%tsync=dec%tsync
+               if(slot(i)%nframes_merged.lt.16) then
+                  slot(i)%nframes_merged=slot(i)%nframes_merged+1
+                  slot(i)%frame_f1(slot(i)%nframes_merged)=dec%f1
+                  slot(i)%frame_tsync(slot(i)%nframes_merged)=dec%tsync
+               endif
                exit
             endif
          enddo
@@ -662,6 +705,9 @@ contains
             ! preceding separator, so mark one explicitly.
             if(slot(nslots)%decoded(1:4).eq.'599 ') &
                  slot(nslots)%decoded='~'//trim(slot(nslots)%decoded)
+            slot(nslots)%nframes_merged=1
+            slot(nslots)%frame_f1(1)=dec%f1
+            slot(nslots)%frame_tsync(1)=dec%tsync
          endif
       endif
       msg=slot(islot)%decoded
