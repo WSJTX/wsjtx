@@ -167,14 +167,31 @@ void MainWindow::jtty_decode(int k)
       QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
       if(ui->cbLowerCase->isChecked()) message_qso_freq = message_qso_freq.toLower();
 
+      // qso_freq lines are "<freq>  <message>" (Fortran format i4,2x,a); the
+      // leading frequency is slot(i)%f1 rounded to the nearest Hz, which can
+      // legitimately drift by a Hz or two frame-to-frame within the SAME
+      // message (normal sync jitter, not a decode error). Matching growth by
+      // startsWith() on the full line -- including those digits -- means a
+      // one-Hz shift mid-message stops matching the known line and starts a
+      // second, orphaned one that never gets touched again. Strip the
+      // frequency prefix before comparing so growth still matches; the
+      // originally-displayed frequency for a line is left as-is rather than
+      // rewritten on drift, which is fine since it's only a rough locator.
+      auto messageBody = [](QString const& line) {
+          int i = 0;
+          while (i < line.size() && line.at(i).isDigit()) ++i;
+          return line.mid(i).trimmed();
+      };
+
       QStringList const newLines = message_qso_freq.split(QChar('\n'), SkipEmptyParts);
       for (auto const& rawLine : newLines) {
           QString const newLine = rawLine.trimmed();
           if (newLine.isEmpty()) continue;
+          QString const newBody = messageBody(newLine);
 
           int matchIndex = -1;
           for (int i = 0; i < m_jttyQsoLines.size(); ++i) {
-              if (newLine.startsWith(m_jttyQsoLines.at(i).text)) {
+              if (newBody.startsWith(messageBody(m_jttyQsoLines.at(i).text))) {
                   matchIndex = i;
                   break;
               }
@@ -186,8 +203,9 @@ void MainWindow::jtty_decode(int k)
 #endif
           if (matchIndex >= 0) {
               auto& known = m_jttyQsoLines[matchIndex];
-              if (newLine.length() <= known.text.length()) continue;   // unchanged this call
-              delta = newLine.mid(known.text.length());
+              QString const knownBody = messageBody(known.text);
+              if (newBody.length() <= knownBody.length()) continue;   // unchanged this call
+              delta = newBody.mid(knownBody.length());
               QTextCursor cursor {known.block};
               cursor.movePosition(QTextCursor::EndOfBlock);
               cursor.insertText(delta);
