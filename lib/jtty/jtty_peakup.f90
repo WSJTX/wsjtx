@@ -17,7 +17,18 @@ subroutine jtty_peakup(c0,c1,csync,nchunk,nss,xdt0,f0,xdt,f1,snr)
    fsample=6000.0
    dt=1.0/fsample
    ia=max(0,nint((xdt0-0.004)/dt))
-   ib=min(npsync-1,nint((xdt0+0.004)/dt))
+   ! The i0 search loop below reads c1(i0:i0+npsync-1), so its upper bound
+   ! must keep that in range for c1's actual size (nchunk) -- npsync-1 (the
+   ! *sync pattern's own* length, an unrelated quantity also used below for
+   ! the small work array c) was wrong here and left ib < ia (an empty
+   ! search, silently returning f1=xdt=0) for any xdt0 beyond npsync*dt
+   ! (~0.416 s at nsps=384) -- a legitimately reachable value within the
+   ! real ~0.472 s candidate search range, confirmed hitting 100 of 570
+   ! jtty_peakup calls (17.5%) on 260807_134202.wav, destroying the best
+   ! candidate for several real frames and forcing a fallback to noisier,
+   ! less precise ones (260807_134202.wav decoded perfectly and
+   ! consistently at a single frequency with this call disabled entirely).
+   ib=min(nchunk-npsync,nint((xdt0+0.004)/dt))
 
    pmax=0.
    fpk=0.
