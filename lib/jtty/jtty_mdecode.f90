@@ -117,7 +117,6 @@ contains
       real                           :: phi,dphi
       real                           :: db
       real, intent(in)               :: f0,ftol,smin
-      real                           :: dmin
       real                           :: snrdb, xdt
       real                           :: xdt1, f11, snr0, df1, dtsync, dxdt
       complex, allocatable,save      :: c(:)
@@ -151,7 +150,6 @@ contains
 
       nharderrors=-1
       nsync=0
-      dmin=0.0
 
       if(nu0.ne.JTTY_WAVA_NU) then
          nu0=JTTY_WAVA_NU
@@ -438,7 +436,6 @@ contains
          irxchan(j)=iloc(1)   ! hard decision received channel symbols
       enddo
 
-      dmin=0.0
       call tbcc_wava_fsk_decode(pow, JTTY_WAVA_L, JTTY_WAVA_ITERS,             &
            final_payload, success_dec, reserved_zero_bit=JTTY_RESERVED_BIT)
       if(success_dec .and. sum(final_payload).eq.0) success_dec=.false. ! reject all-zero
@@ -593,8 +590,8 @@ contains
 3001     format(i4,2x,a)
       else if(ndebug.gt.0) then
          write(*,3002) ichan,ic_label,ndecodes,islot,nslots,match,dec%f1, &
-            dec%xdt,dec%tsync,nint(dec%snrdb-20.0),nsync,nsymerrs,nharderrors,dmin,trim(msg)
-3002     format(5i4,L3,f7.1,f7.3,f9.3,i5,i4,i4,i4,f6.1,2x,a)
+            dec%xdt,dec%tsync,nint(dec%snrdb-20.0),nsync,nsymerrs,nharderrors,trim(msg)
+3002     format(5i4,L3,f7.1,f7.3,f9.3,i5,i4,i4,i4,2x,a)
       endif
    end subroutine decode_and_merge
 

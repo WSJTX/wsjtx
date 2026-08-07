@@ -22,7 +22,6 @@ subroutine rjtty_sub(iwave,kz,nsps,nfa,nfb,f0,ftol)
   if(kz-istart+1 .lt. nchunk) return      ! wait for enough data
 
   nsync=0
-  dmin=0.0    !Nonzero returned if OSD successful. Use to reject false decodes?
   do while (istart+nchunk-1 .le. kz)
      ndebug=-1
      snr=-99.0
