@@ -518,7 +518,20 @@ contains
             df1=dec%f1 - slot(i)%f1
             dxdt=dec%xdt - slot(i)%xdt
             dtsync=dec%tsync - slot(i)%tsync
-            match=abs(df1).lt.8.0 .and. abs(dxdt).lt.0.008
+            ! A continuation frame decoded via an unrefined channel (1/2,
+            ! no jtty_peakup) can have enough sync-timing noise to miss the
+            ! tight local dxdt match even though it's genuinely the next
+            ! real frame -- confirmed on 260807_140401.wav, where "THAT"
+            ! (dxdt=0.012, just past the 0.008 tolerance) started its own
+            ! spurious slot, and the following real frame then reattached
+            ! to the original slot's stale position, silently dropping
+            ! "THAT" from the decoded message. Real consecutive JTTY frames
+            ! are transmitted back-to-back with no gap, so also recognize a
+            ! match when the absolute time gap is close to exactly one
+            ! frame period (nframe6/6000.0), mirroring the tolerance the
+            ! sticky-sync retry already uses for the same physical fact.
+            match=abs(df1).lt.8.0 .and.                                       &
+                 (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
             if(match) then
                islot=i
                if(abs(dtsync).lt.0.9) then
