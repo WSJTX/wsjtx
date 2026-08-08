@@ -55,9 +55,10 @@ program sjtty_qrm
      print*,'Example: sjtty_qrm  384  MM 1200 1800   5     10   -5'
      print*,'NSPS must be 240, 320, 384, or 480'
      print*,'ITU propagation models: AW LQ LM LD MQ MM MD HQ HM HD'
+     print*,'Main signal at f0 = 1500 Hz and specified SNR.'
+     print*,'Off-freq signals at random freqs in range nfa to nfb Hz.'
+     print*,'Off-freq SNRs randomized by +/- 5 dB around specified value'
      print*,'DT values random in range 0.1 to 1.0 s.'
-     print*,'Freqs random in range 500 to 2500 Hz.'
-     print*,'SNRs are randomized by +/- 5 dB around specified value'
      go to 999
   endif
 
@@ -136,7 +137,7 @@ program sjtty_qrm
 
      do isig=1,nsigs
         f0=nfa + (nfb-nfa)*ran1(idum)
-        xdt=4.0*ran1(idum)
+        xdt=0.1 + 3.9*ran1(idum)
         snr=snrdb + 10.0*(ran1(idum)-0.5)
         sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snr)
         i0=i0+1
@@ -144,6 +145,7 @@ program sjtty_qrm
         umsg=xcall(i0)
         if(isig.eq.1) then
            f0=1500.0
+           snr=snrdb
            umsg='599 123'
         endif
         write(*,1006) isig,f0,xdt,snr,sig,trim(umsg)
