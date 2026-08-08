@@ -122,7 +122,8 @@ contains
       real                           :: db
       real, intent(in)               :: f0,ftol,smin
       real                           :: snrdb, xdt
-      real                           :: xdt1, f11, snr0, df1, dtsync, dxdt
+      real                           :: xdt1, f11, snr0, df1, dtsync
+      real                           :: qstep, resid
       complex, allocatable,save      :: c(:)
       complex, allocatable,save      :: c0(:)
       complex, allocatable,save      :: c1(:)
@@ -133,6 +134,7 @@ contains
       logical                        :: dupe
       logical                        :: usable
       logical                        :: is_history_dupe
+      logical                        :: is_window_dupe
       logical                        :: is_pure_dupe
       logical                        :: success_dec
       logical                        :: channel_decoded, decoded_ok
@@ -556,33 +558,49 @@ contains
       else
          do i=1,nslots
             df1=dec%f1 - slot(i)%f1
-            dxdt=dec%xdt - slot(i)%xdt
             dtsync=dec%tsync - slot(i)%tsync
+            ! xdt is only meaningful as a *local* offset within whichever
+            ! call found it (always in [0,ntstep*dt], bounded by that
+            ! call's own istart) -- two candidates from different calls
+            ! can land on the same local xdt purely by coincidence, so
+            ! only dtsync (absolute time, comparable across calls) is
+            ! used here now.
+            !
             ! A slot whose last frame has already been merged in is closed
             ! to new continuations -- a further decode near its time/
             ! frequency is either a stray/spurious match or the start of a
-            ! new message, never a continuation of this one. It can still
-            ! be a rediscovery of the same signal's own already-merged
-            ! frame(s) though (e.g. a short single-frame message found
-            ! again by an overlapping search window), so it still needs to
-            ! go through the history-dedup check below rather than being
-            ! skipped outright -- otherwise every rediscovery spawns a new
-            ! spurious slot for the same signal.
+            ! new message, never a continuation of this one.
             match=.false.
             if(.not.slot(i)%is_last_frame) then
-               ! A continuation frame decoded via an unrefined channel (no
-               ! jtty_peakup) can have enough sync-timing noise to miss
-               ! the tight local dxdt match even though it's genuinely the
-               ! next frame, so also match when the absolute time gap is
-               ! close to exactly one frame period (nframe6/6000.0).
-               match=abs(df1).lt.3.0 .and.                                    &
-                    (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
+               ! Real consecutive JTTY frames are transmitted back-to-back
+               ! with no gap, so a genuine continuation lands close to
+               ! exactly one frame period later.
+               match=abs(df1).lt.3.0 .and. abs(dtsync-nframe6/6000.0).lt.0.1
+            endif
+
+            ! A rediscovery of the same signal via a search window shifted
+            ! by a whole number of quarter-frame steps (retro re-sweep, or
+            ! the forward sliding-window loop's own overlap) lands dtsync
+            ! close to some *other* multiple of that quarter-frame period
+            ! -- close enough in frequency and precisely enough aligned to
+            ! that grid that it isn't a coincidence. Reject it outright:
+            ! merging it could splice in a later frame's payload with an
+            ! earlier frame missing in between, and letting it through
+            ! would otherwise spawn its own spurious slot.
+            is_window_dupe=.false.
+            if(.not.match) then
+               qstep=nframe6/6000.0/4.0
+               resid=abs(dtsync-qstep*nint(dtsync/qstep))
+               if(abs(df1).lt.10.0 .and. resid.lt.0.003) then
+                  match=.true.
+                  is_window_dupe=.true.
+               endif
             endif
 
             ! Neither condition above catches a rediscovery of a frame
             ! merged into this slot several frames ago (e.g. a retro
             ! re-sweep revisiting an earlier window) -- check the slot's
-            ! full per-frame history too, same thresholds as above.
+            ! full per-frame history too, same frequency threshold.
             is_history_dupe=.false.
             if(.not.match) then
                do kf=1,slot(i)%nframes_merged
@@ -597,7 +615,7 @@ contains
 
             if(match) then
                islot=i
-               if(is_history_dupe .or. abs(dtsync).lt.0.9) then
+               if(is_history_dupe .or. is_window_dupe .or. abs(dtsync).lt.0.9) then
                   ! Already merged into this slot -- a retro re-sweep can
                   ! rediscover it; don't re-append, and don't reprint an
                   ! unchanged line.
