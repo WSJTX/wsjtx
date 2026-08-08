@@ -556,15 +556,28 @@ contains
       ! is the "two parallel slots for one signal" bug -- the frequency/
       ! timing difference is sync-estimation noise (confirmed
       ! 260807_134915.wav: df1=6.6 Hz, dtsync=9 ms), not a distinct signal.
-      ! 50 ms comfortably covers the observed 9-12 ms real same-frame
-      ! divergence while staying far below nframe6/6000.0 (~1.888 s, the
-      ! unrelated "next frame" gap used by the match condition below). This
-      ! is the backstop for the sticky-sync retry path, which redecodes
-      ! directly at a remembered slot position and so bypasses s0/the
-      ! carve-out above entirely.
+      ! 3.5 Hz is a deliberately conservative frequency gate (K1JT):
+      ! jtty_peakup's coherent 13-symbol/416 ms sync observation gives an
+      ! uncertainty-principle precision estimate of ~1/416ms = 2.4 Hz, but
+      ! that assumes a stable path -- real ionospheric channels are not
+      ! coherent over the full 416 ms, and today's K9AN<->W2PU path was a
+      ! comparatively good one, so real-world estimates run noisier still
+      ! (confirmed: a genuine same-message frame pair on 260807_140633.wav
+      ! measured df1~3.0 Hz, right at an earlier, tighter 3.0 Hz gate's
+      ! boundary, corrupting "KNOW IF PRIOR" into "KNOPRIOR"). Deliberately
+      ! erring tight for now -- accepting more orphan fragments in exchange
+      ! for fewer wrong merges -- pending more on-air data across a wider
+      ! range of path conditions, and a closer look at whether
+      ! jtty_peakup's own precision can be improved. 50 ms comfortably
+      ! covers the observed 9-12 ms real same-frame divergence while
+      ! staying far below nframe6/6000.0 (~1.888 s, the unrelated "next
+      ! frame" gap used by the match condition below). This is the
+      ! backstop for the sticky-sync retry path, which redecodes directly
+      ! at a remembered slot position and so bypasses s0/the carve-out
+      ! above entirely.
       if(ichan.ne.0) then
          do i=1,n_ch0_ok
-            if( abs(cand(ncand)%f1-f1_ch0_ok(i)).lt.8.0 .and. &
+            if( abs(cand(ncand)%f1-f1_ch0_ok(i)).lt.3.5 .and. &
                 abs(cand(ncand)%tsync-tsync_ch0_ok(i)).lt.0.05 ) dupe=.true.
          enddo
       endif
@@ -624,7 +637,21 @@ contains
             ! match when the absolute time gap is close to exactly one
             ! frame period (nframe6/6000.0), mirroring the tolerance the
             ! sticky-sync retry already uses for the same physical fact.
-            match=abs(df1).lt.8.0 .and.                                       &
+            ! 3.5 Hz frequency gate: deliberately conservative (K1JT) --
+            ! jtty_peakup's coherent 13-symbol/416 ms sync observation
+            ! gives an uncertainty-principle precision estimate of
+            ! ~1/416ms = 2.4 Hz, but that assumes a stable path; real
+            ! ionospheric paths aren't coherent over the full 416 ms, and
+            ! today's K9AN<->W2PU test path was a comparatively good one,
+            ! so real-world estimates run noisier still (confirmed: a
+            ! genuine same-message frame pair on 260807_140633.wav
+            ! measured df1~3.0 Hz, right at an earlier, tighter 3.0 Hz
+            ! gate's boundary, corrupting "KNOW IF PRIOR" into
+            ! "KNOPRIOR"). Erring tight for now -- more orphan fragments,
+            ! fewer wrong merges -- pending more on-air data across a
+            ! wider range of path conditions and a closer look at whether
+            ! jtty_peakup's own precision can be improved.
+            match=abs(df1).lt.3.5 .and.                                       &
                  (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
 
             ! Neither condition above catches a rediscovery of a frame that
@@ -636,13 +663,13 @@ contains
             ! some uncontrolled multiple of the frame period, not exactly
             ! one), so also check the slot's full per-frame merge history
             ! for the specific instant this candidate duplicates -- same
-            ! 8 Hz/50 ms thresholds already used by the channel-0-vs-1/2
+            ! 3.5 Hz/50 ms thresholds already used by the channel-0-vs-1/2
             ! same-call dupe check above (confirmed 260807_134312.wav/
             ! 260807_134915.wav).
             is_history_dupe=.false.
             if(.not.match) then
                do kf=1,slot(i)%nframes_merged
-                  if(abs(dec%f1-slot(i)%frame_f1(kf)).lt.8.0 .and. &
+                  if(abs(dec%f1-slot(i)%frame_f1(kf)).lt.3.5 .and. &
                        abs(dec%tsync-slot(i)%frame_tsync(kf)).lt.0.05) then
                      match=.true.
                      is_history_dupe=.true.
