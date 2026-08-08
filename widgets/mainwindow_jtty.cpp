@@ -658,6 +658,8 @@ void MainWindow::startJttyTxWatchdog(int durationMs)
 
 void MainWindow::jtty_again()
 {
+  ui->DecodeButton->setChecked (true);
+  qApp->processEvents();                                //Update the DecodeButton highlight
   for(int k=3456; k<dec_data.params.kin; k+=3456) {
     jtty_decode(k);
   }
