@@ -119,7 +119,7 @@ contains
       real                           :: pow(0:3,NCHAN_SYM)
       real, save                     :: baud,dt,df2
       real                           :: phi,dphi
-      real                           :: db
+      real, external                 :: db
       real, intent(in)               :: f0,ftol,smin
       real                           :: snrdb, xdt
       real                           :: xdt1, f11, snr0, df1, dtsync
