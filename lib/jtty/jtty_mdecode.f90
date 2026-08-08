@@ -490,13 +490,11 @@ contains
          abs(cand(i)%tsync - cand(ncand)%tsync).lt. 0.032 ) dupe=.true.
       enddo
       ! A channel-1/2 candidate matching a frame channel 0 already decoded
-      ! this call is sync-estimation noise, not a distinct signal. 3.5 Hz
-      ! deliberately errs tight (K1JT): real ionospheric paths aren't
-      ! coherent enough for jtty_peakup's ~2.4 Hz theoretical precision
-      ! bound to hold in practice.
+      ! this call is sync-estimation noise, not a distinct signal. 3.0 Hz
+      ! tracks jtty_peakup's coherent-combining frequency precision.
       if(ichan.ne.0) then
          do i=1,n_ch0_ok
-            if( abs(cand(ncand)%f1-f1_ch0_ok(i)).lt.3.5 .and. &
+            if( abs(cand(ncand)%f1-f1_ch0_ok(i)).lt.3.0 .and. &
                 abs(cand(ncand)%tsync-tsync_ch0_ok(i)).lt.0.05 ) dupe=.true.
          enddo
       endif
@@ -548,7 +546,7 @@ contains
             ! tight local dxdt match even though it's genuinely the next
             ! frame, so also match when the absolute time gap is close to
             ! exactly one frame period (nframe6/6000.0).
-            match=abs(df1).lt.3.5 .and.                                       &
+            match=abs(df1).lt.3.0 .and.                                       &
                  (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
 
             ! Neither condition above catches a rediscovery of a frame
@@ -558,7 +556,7 @@ contains
             is_history_dupe=.false.
             if(.not.match) then
                do kf=1,slot(i)%nframes_merged
-                  if(abs(dec%f1-slot(i)%frame_f1(kf)).lt.3.5 .and. &
+                  if(abs(dec%f1-slot(i)%frame_f1(kf)).lt.3.0 .and. &
                        abs(dec%tsync-slot(i)%frame_tsync(kf)).lt.0.05) then
                      match=.true.
                      is_history_dupe=.true.
