@@ -436,6 +436,9 @@ contains
       ! slot(:). ic_label is only for the ndebug print (-1 for a retry).
       integer, intent(in)  :: ic_label
       logical, intent(out) :: decoded_ok
+      complex               :: zsym(0:3,NCHAN_SYM)
+      real                  :: pow_try(0:3,NCHAN_SYM)
+      integer               :: itry, iblk
 
       decoded_ok=.false.
       pow(:,:)=0.0
@@ -445,6 +448,7 @@ contains
 
          do i=0,3
             z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
+            zsym(i,j)=z          ! retained for block detection -- no extra dot_product cost
             pow(i,j)=real(z*conjg(z))
          enddo
 
@@ -452,8 +456,24 @@ contains
          irxchan(j)=iloc(1)   ! hard decision received channel symbols
       enddo
 
-      call tbcc_wava_fsk_decode(pow, JTTY_WAVA_L, JTTY_WAVA_ITERS,             &
-           final_payload, success_dec, reserved_zero_bit=JTTY_RESERVED_BIT)
+      ! Block detection: blocksize-1 (today's pow, unchanged) first; on
+      ! failure, retry with coherent 2- and then 4-symbol block detection
+      ! (jtty_block_pow.f90), reusing zsym so no symbol is ever re-correlated
+      ! against c1. Every reference to `pow` below this point (nsymerrs/SNR
+      ! diagnostic) must keep reading the original blocksize-1 values, never
+      ! pow_try -- block-refined magnitudes are on a different scale.
+      success_dec=.false.
+      do itry=1,3
+         if(itry.eq.1) then
+            pow_try=pow
+         else
+            iblk=merge(2,4,itry.eq.2)
+            call jtty_block_pow(zsym, NCHAN_SYM, iblk, pow_try)
+         endif
+         call tbcc_wava_fsk_decode(pow_try, JTTY_WAVA_L, JTTY_WAVA_ITERS,      &
+              final_payload, success_dec, reserved_zero_bit=JTTY_RESERVED_BIT)
+         if(success_dec) exit
+      enddo
       if(success_dec .and. sum(final_payload).eq.0) success_dec=.false. ! reject all-zero
       nharderrors=-1
       if(success_dec) nharderrors=0

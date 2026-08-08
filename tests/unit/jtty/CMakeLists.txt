@@ -10,6 +10,14 @@ set_tests_properties (test_tbcc PROPERTIES
   PASS_REGULAR_EXPRESSION "test_tbcc: all checks passed"
 )
 
+add_executable (test_jtty_block_pow test_jtty_block_pow.f90)
+target_include_directories (test_jtty_block_pow PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_block_pow)
+add_test (NAME test_jtty_block_pow COMMAND test_jtty_block_pow)
+set_tests_properties (test_jtty_block_pow PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_block_pow: all checks passed"
+)
+
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
 
 add_test (NAME test_jtty_pack COMMAND test_jtty_pack)

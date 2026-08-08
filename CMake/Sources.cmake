@@ -611,6 +611,7 @@ set (wsjt_FSRCS
   lib/jtty/jtty_decode.f90
   lib/jtty/rjtty_sub.f90
   lib/jtty/jtty_peakup.f90
+  lib/jtty/jtty_block_pow.f90
   lib/jtty/ana64a.f90
   lib/jtty/genjtty.f90
   lib/jtty/gen_jttywave.f90
