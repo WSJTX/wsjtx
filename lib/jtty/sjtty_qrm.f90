@@ -11,7 +11,7 @@ program sjtty_qrm
   ! Modulation is 4FSK at 12000/NSPS = 31.25 baud. Each transmitted frame
   ! consists of 13 sync symbols followed by 46 codeword symbols.
 
-  ! This version generates multiple signals spread across 500 to 2500 Hz.
+  ! This version generates multiple signals spread across nfa to nfb Hz.
   ! One signal falls at f0 = 1500 Hz and has the message "599 123". Others
   ! are spread in frequency and DT, and contain just a callsign.
 
@@ -50,9 +50,9 @@ program sjtty_qrm
              'WB2KSP'/
   
   nargs=iargc()
-  if(nargs.ne.5) then
-     print*,'Usage:   sjtty_qrm nsps prop nsigs nfiles snr'
-     print*,'Example: sjtty_qrm  384  MM    5     10   -5'
+  if(nargs.ne.7) then
+     print*,'Usage:   sjtty_qrm nsps prop nfa  nfb nsigs nfiles snr'
+     print*,'Example: sjtty_qrm  384  MM 1200 1800   5     10   -5'
      print*,'NSPS must be 240, 320, 384, or 480'
      print*,'ITU propagation models: AW LQ LM LD MQ MM MD HQ HM HD'
      print*,'DT values random in range 0.1 to 1.0 s.'
@@ -97,10 +97,14 @@ program sjtty_qrm
      delay=0.0
   endif
   call getarg(3,arg)
-  read(arg,*) nsigs
+  read(arg,*) nfa
   call getarg(4,arg)
-  read(arg,*) nfiles                     !Number of files
+  read(arg,*) nfb
   call getarg(5,arg)
+  read(arg,*) nsigs
+  call getarg(6,arg)
+  read(arg,*) nfiles
+  call getarg(7,arg)
   read(arg,*) snrdb
 
   fsample=12000.0
@@ -131,7 +135,7 @@ program sjtty_qrm
      i0=25.0*ran1(idum)
 
      do isig=1,nsigs
-        f0=500.0 + 2000.0*ran1(idum)
+        f0=nfa + (nfb-nfa)*ran1(idum)
         xdt=4.0*ran1(idum)
         snr=snrdb + 10.0*(ran1(idum)-0.5)
         sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snr)
