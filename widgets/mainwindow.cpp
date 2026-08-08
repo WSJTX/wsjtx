@@ -10619,7 +10619,7 @@ void MainWindow::on_actionJTTY_triggered()
   ui->TxFreqSpinBox_2->setValue(1500);
   ui->RxFreqSpinBox_2->setValue(1500);
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
-  ui->sbFtol_2->values ({10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
+  ui->sbFtol_2->values ({2, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
   // setValue() above is a no-op (no valueChanged signal) if the spinbox
   // already held this value from a prior JTTY session, so set the plotter
   // state directly rather than relying on that signal to reach it.
