@@ -133,6 +133,7 @@ contains
       logical                        :: dupe
       logical                        :: usable
       logical                        :: is_history_dupe
+      logical                        :: is_pure_dupe
       logical                        :: success_dec
       logical                        :: channel_decoded, decoded_ok
       logical                        :: any_subtracted
@@ -520,6 +521,7 @@ contains
 
       dec=cand(ncand)
       match=.false.
+      is_pure_dupe=.false.
       islot=1
       if(ndecodes.eq.1) then
          nslots=1
@@ -533,21 +535,29 @@ contains
          slot(1)%frame_tsync(1)=dec%tsync
       else
          do i=1,nslots
-            ! A slot whose last frame has already been merged in is
-            ! closed -- a further decode near its time/frequency is
-            ! either a stray/spurious match or the start of a new
-            ! message, never a continuation of this one.
-            if(slot(i)%is_last_frame) cycle
             df1=dec%f1 - slot(i)%f1
             dxdt=dec%xdt - slot(i)%xdt
             dtsync=dec%tsync - slot(i)%tsync
-            ! A continuation frame decoded via an unrefined channel (no
-            ! jtty_peakup) can have enough sync-timing noise to miss the
-            ! tight local dxdt match even though it's genuinely the next
-            ! frame, so also match when the absolute time gap is close to
-            ! exactly one frame period (nframe6/6000.0).
-            match=abs(df1).lt.3.0 .and.                                       &
-                 (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
+            ! A slot whose last frame has already been merged in is closed
+            ! to new continuations -- a further decode near its time/
+            ! frequency is either a stray/spurious match or the start of a
+            ! new message, never a continuation of this one. It can still
+            ! be a rediscovery of the same signal's own already-merged
+            ! frame(s) though (e.g. a short single-frame message found
+            ! again by an overlapping search window), so it still needs to
+            ! go through the history-dedup check below rather than being
+            ! skipped outright -- otherwise every rediscovery spawns a new
+            ! spurious slot for the same signal.
+            match=.false.
+            if(.not.slot(i)%is_last_frame) then
+               ! A continuation frame decoded via an unrefined channel (no
+               ! jtty_peakup) can have enough sync-timing noise to miss
+               ! the tight local dxdt match even though it's genuinely the
+               ! next frame, so also match when the absolute time gap is
+               ! close to exactly one frame period (nframe6/6000.0).
+               match=abs(df1).lt.3.0 .and.                                    &
+                    (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
+            endif
 
             ! Neither condition above catches a rediscovery of a frame
             ! merged into this slot several frames ago (e.g. a retro
@@ -569,7 +579,9 @@ contains
                islot=i
                if(is_history_dupe .or. abs(dtsync).lt.0.9) then
                   ! Already merged into this slot -- a retro re-sweep can
-                  ! rediscover it; don't re-append.
+                  ! rediscover it; don't re-append, and don't reprint an
+                  ! unchanged line.
+                  is_pure_dupe=.true.
                   exit
                endif
                k=slot(i)%k
@@ -618,7 +630,7 @@ contains
       enddo
       if(msg(1:1).eq.' ') msg=msg(2:)
       if(ndebug.eq.0) then
-         write(*,3001) nint(dec%f1),trim(msg)
+         if(.not.is_pure_dupe) write(*,3001) nint(dec%f1),trim(msg)
 3001     format(i4,2x,a)
       else if(ndebug.gt.0) then
          write(*,3002) ichan,ipass,ic_label,ndecodes,islot,nslots,match, &
