@@ -11,11 +11,8 @@ module jtty_mdec
      character(len=80) :: decoded = ''
      logical :: trailing_sep = .false. !decoded ends with an implicit separator column
      logical :: is_last_frame = .false. !this frame had the "last frame of message" bit set
-     ! Per-frame merge history (capped at MAX_FRAMES, the permanent limit
-     ! pack_jtty enforces on any real message -- see jtty_mod.f90) so a
-     ! rediscovery of an already-merged frame (e.g. via a retro re-sweep)
-     ! can be recognized against the specific frame it duplicates, not just
-     ! this slot's current/latest position.
+     ! Per-frame merge history (capped at MAX_FRAMES, jtty_mod.f90), so a
+     ! rediscovered frame can be matched against the exact frame it repeats.
      integer :: nframes_merged = 0
      real    :: frame_f1(16) = 0.0
      real    :: frame_tsync(16) = 0.0
@@ -27,11 +24,9 @@ module jtty_mdec
   integer                   :: nslots = 0
   type(decode)              :: slot(MAX_SLOTS)   !Accumulating decode messages
 
-! Cross-call "retro re-sweep" plumbing (see jtty_mdecode_step): a caller
-! that wants a given jtty_mdecode call to first subtract a known signal out
-! of its own c0 before searching sets interferer_* and calls jtty_mdecode;
-! this call's own subtraction events (for a future retro pass) are reported
-! back out via nsubtracted/subtracted_*.
+! Cross-call "retro re-sweep" plumbing (see jtty_mdecode_step): interferer_*
+! requests a pre-search subtraction; nsubtracted/subtracted_* report this
+! call's own subtractions back out.
   integer, parameter        :: MAX_SUBTRACTED = 16
   logical                   :: interferer_pending = .false.
   real                      :: interferer_f1 = 0.0
@@ -251,16 +246,9 @@ contains
       ncand=0
       any_subtracted=.false.
 
-      ! Phase A: channel 0 (user-tunable band, refined via jtty_peakup) gets
-      ! first claim on every signal -- runs its own full up-to-2-pass sweep
-      ! to completion, accumulating n_ch0_ok/ja_ch0_ok/jb_ch0_ok/f1_ch0_ok/
-      ! tsync_ch0_ok across BOTH of its own passes (not reset between them),
-      ! before channels 1/2 (Phase B) ever run. Fixes the race where
-      ! channel 1/2 independently decoded the same physical frame in pass 1,
-      ! ahead of channel 0's own later success on the same frame (confirmed
-      ! 260807_134915.wav: ichan=1 decoded "LET'S..." first, ichan=0 decoded
-      ! the SAME frame -- 9 ms/6.6 Hz apart -- later, as a second, never-
-      ! merging slot).
+      ! Phase A: channel 0 gets first claim on every signal -- runs its own
+      ! full up-to-2-pass sweep to completion, accumulating n_ch0_ok across
+      ! both passes, before channels 1/2 (Phase B) ever run.
       n_ch0_ok=0
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
@@ -269,12 +257,8 @@ contains
          call process_channel()
       enddo
 
-      ! Phase B: channels 1/2 (hardwired [1200,1500]/[1500,1800], unrefined
-      ! maxloc-only estimates). s0 is rebuilt fresh here, reflecting
-      ! whatever channel 0 subtracted during Phase A; channel 0's now-
-      ! complete n_ch0_ok carve-out data is available for this phase's
-      ! entire duration, not just from whichever pass channel 0 happened to
-      ! succeed in.
+      ! Phase B: channels 1/2 (hardwired bands, unrefined estimates). s0 is
+      ! rebuilt fresh, reflecting whatever channel 0 subtracted in Phase A.
       any_subtracted=.false.
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
@@ -289,11 +273,8 @@ contains
    contains
 
    subroutine build_s0()
-      ! Rebuild s0, the FFT-correlation-based sync search surface, from the
-      ! current c0 (which may already reflect subtractions from an earlier
-      ! phase/pass). Called once at the top of every pass in both Phase A
-      ! (channel 0) and Phase B (channels 1/2). Host-associated; identical
-      ! to the original inline block.
+      ! Rebuild s0, the FFT-correlation sync-search surface, from the
+      ! current c0 (may already reflect earlier-phase subtractions).
       istep=0
       do i0=0,ntstep,12                     !Search over quarter-frame segment
          xdt=i0*dt
@@ -313,24 +294,13 @@ contains
    end subroutine build_s0
 
    subroutine process_channel()
-      ! One channel's own up-to-nc0-candidate search plus sticky-sync
-      ! retry. Called once per ichan per pass from either Phase A (ichan=0
-      ! only) or Phase B (ichan=1,2). Host-associated: uses the host's
-      ! ichan (set by the caller immediately before calling) plus
-      ! fc,fwid,nc0,ja,jb,ic,nsloc,fbest,xdtbest,fpk,channel_decoded,
-      ! decoded_ok,ir and friends -- exactly as decode_and_merge already
-      ! relies on host association for everything it touches.
+      ! One channel's candidate search plus sticky-sync retry, for the
+      ! host's current ichan/ipass (host-associated with jtty_mdecode).
       if(ichan.eq.0) then
          fc=f0
          fwid=ftol
-         ! Scale channel 0's candidate count with FTol: a wide band lets
-         ! other real signals win both fixed nc=2 slots before the
-         ! target's own cleanest sync moment is ever tried (confirmed via
-         ! 260807_134202.wav/260807_140401.wav at ftol=50, zero decodes
-         ! for the whole file despite passing the nsync/snrdb gate).
-         ! nfz*df2 is the ~10 Hz peak-exclusion width already used below,
-         ! i.e. this reads as "how many independent peaks of that width
-         ! fit in [f0-ftol,f0+ftol]".
+         ! Scale channel 0's candidate count with FTol, so a wide band
+         ! can't let other signals win both fixed nc=2 slots first.
          nc0=max(2, min(8, nint(fwid/(nfz*df2))))
       else            ! for now, hardwired nonoverlapping channels
          fc=1350
@@ -348,16 +318,9 @@ contains
       channel_decoded=.false.
 
       if(ichan.ne.0 .and. n_ch0_ok.gt.0) then
-         ! Erase only the neighborhoods of channel 0's ACTUAL successful
-         ! decodes this call (not its whole nominal [f0-ftol,f0+ftol]
-         ! band) from this channel's search rectangle, so a real signal
-         ! channel 0 already decoded can't also be rediscovered,
-         ! unrefined, here (confirmed on 260807_134915.wav). Keying off
-         ! actual successes rather than the whole band leaves channel
-         ! 1/2 free to catch a signal channel 0's own search missed
-         ! entirely -- e.g. due to candidate-slot starvation at a wide
-         ! FTol, confirmed on 260807_140401.wav, where the real signal
-         ! was only ever found via channel 2.
+         ! Erase only channel 0's actual successful-decode neighborhoods
+         ! (not its whole nominal band) so channels 1/2 can't rediscover
+         ! them, while staying free to catch what channel 0 missed.
          do i=1,n_ch0_ok
             if(max(ja,ja_ch0_ok(i)) .le. min(jb,jb_ch0_ok(i))) &
                  s0(max(ja,ja_ch0_ok(i)):min(jb,jb_ch0_ok(i)),0:nstep_search) = 0.0
@@ -368,18 +331,9 @@ contains
 
       do ic=1,nc0
          if(ichan.eq.0) then
-            ! Channel 0's own "move to next candidate" step uses a
-            ! private mask instead of physically zeroing s0: a wide
-            ! FTol means channel 0 may need to explore several
-            ! candidates that never pass the decode gate (Bug B), and
-            ! zeroing s0 for every one of them -- not just the ones
-            ! that succeed -- would eat into the shared search surface
-            ! channels 1/2 depend on for their own, independent search
-            ! (confirmed on 260807_140401.wav: the real signal there is
-            ! only ever found via channel 2, and increasing channel 0's
-            ! own candidate count without this mask was silently
-            ! starving channel 2 of the exact territory it needed,
-            ! even though channel 0 itself never once decoded it).
+            ! Channel 0 uses a private mask instead of zeroing s0
+            ! directly, so candidates that never pass the decode gate
+            ! don't eat into channels 1/2's shared search surface.
             nsloc=maxloc(s0(ja:jb,0:nstep_search), &
                  mask=mask0(ja:jb,0:nstep_search))
             mask0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),  &
@@ -441,14 +395,10 @@ contains
       enddo     ! candidate loop
 
       if(.not.channel_decoded) then
-         ! Sticky-sync retry: nothing decoded in this channel's blind
-         ! search this call. If a still-open (EOM not yet seen) decode
-         ! from this same channel's frequency window landed almost
-         ! exactly one frame duration ago, its continuation frame's own
-         ! sync may be too weak to pass the blind search above -- retry
-         ! the FEC decode directly at that remembered sync point (no
-         ! fresh sync-symbol search or nsync/snrdb gate) instead of
-         ! giving up on it. slot(:) is the "memory of prior decodes".
+         ! Sticky-sync retry: nothing decoded this call. If a still-open
+         ! slot's continuation frame is due almost exactly one frame
+         ! period ago, retry the FEC decode directly at that remembered
+         ! sync point instead of giving up on it.
          do ir=1,nslots
             if(slot(ir)%is_last_frame) cycle
             if(slot(ir)%f1.lt.fc-fwid .or. slot(ir)%f1.gt.fc+fwid) cycle
@@ -468,16 +418,8 @@ contains
    end subroutine process_channel
 
    subroutine record_ch0_success()
-      ! Record channel 0's successful decode's frequency/time neighborhood
-      ! so Phase B (channels 1/2) can avoid re-searching/re-deciding it,
-      ! and so decode_and_merge's same-frame dedup check can catch a
-      ! residual rediscovery (e.g. via the sticky-sync retry, which
-      ! bypasses s0/the carve-out entirely). A no-op for ichan.ne.0.
-      ! Called after EVERY decode_and_merge call in this subroutine --
-      ! normal candidate loop and sticky-sync retry alike -- whenever
-      ! decoded_ok is true (previously only the normal candidate loop
-      ! recorded a success; a channel-0 success via sticky retry was
-      ! silently unrecorded).
+      ! Record channel 0's successful-decode neighborhood so Phase B can
+      ! avoid it, and decode_and_merge's dedup check can catch it too.
       if(ichan.ne.0) return
       if(n_ch0_ok.ge.16) return
       n_ch0_ok=n_ch0_ok+1
@@ -488,12 +430,9 @@ contains
    end subroutine record_ch0_success
 
    subroutine decode_and_merge(ic_label, decoded_ok)
-      ! Shared by the normal per-candidate path and the sticky-sync retry:
-      ! given cand(ncand)%xdt/%f1 already set by the caller, compute tone
-      ! powers for the 46 info symbols, WAVA-decode, and (on success) merge
-      ! the result into slot(:) exactly like any other successful decode.
-      ! ic_label is only for the ndebug>0 print -- pass -1 for a retry,
-      ! since it wasn't drawn from this call's ic candidate loop.
+      ! Shared by the candidate loop and the sticky-sync retry: given
+      ! cand(ncand)%xdt/%f1, decode the 46 info symbols and merge into
+      ! slot(:). ic_label is only for the ndebug print (-1 for a retry).
       integer, intent(in)  :: ic_label
       logical, intent(out) :: decoded_ok
 
@@ -550,31 +489,11 @@ contains
          if( cand(i)%decoded .eq. cand(ncand)%decoded .and. &
          abs(cand(i)%tsync - cand(ncand)%tsync).lt. 0.032 ) dupe=.true.
       enddo
-      ! A channel-1/2 candidate landing on the same physical frame channel 0
-      ! already successfully decoded this call (Phase A always completes
-      ! before Phase B starts, so n_ch0_ok is complete by construction here)
-      ! is the "two parallel slots for one signal" bug -- the frequency/
-      ! timing difference is sync-estimation noise (confirmed
-      ! 260807_134915.wav: df1=6.6 Hz, dtsync=9 ms), not a distinct signal.
-      ! 3.5 Hz is a deliberately conservative frequency gate (K1JT):
-      ! jtty_peakup's coherent 13-symbol/416 ms sync observation gives an
-      ! uncertainty-principle precision estimate of ~1/416ms = 2.4 Hz, but
-      ! that assumes a stable path -- real ionospheric channels are not
-      ! coherent over the full 416 ms, and today's K9AN<->W2PU path was a
-      ! comparatively good one, so real-world estimates run noisier still
-      ! (confirmed: a genuine same-message frame pair on 260807_140633.wav
-      ! measured df1~3.0 Hz, right at an earlier, tighter 3.0 Hz gate's
-      ! boundary, corrupting "KNOW IF PRIOR" into "KNOPRIOR"). Deliberately
-      ! erring tight for now -- accepting more orphan fragments in exchange
-      ! for fewer wrong merges -- pending more on-air data across a wider
-      ! range of path conditions, and a closer look at whether
-      ! jtty_peakup's own precision can be improved. 50 ms comfortably
-      ! covers the observed 9-12 ms real same-frame divergence while
-      ! staying far below nframe6/6000.0 (~1.888 s, the unrelated "next
-      ! frame" gap used by the match condition below). This is the
-      ! backstop for the sticky-sync retry path, which redecodes directly
-      ! at a remembered slot position and so bypasses s0/the carve-out
-      ! above entirely.
+      ! A channel-1/2 candidate matching a frame channel 0 already decoded
+      ! this call is sync-estimation noise, not a distinct signal. 3.5 Hz
+      ! deliberately errs tight (K1JT): real ionospheric paths aren't
+      ! coherent enough for jtty_peakup's ~2.4 Hz theoretical precision
+      ! bound to hold in practice.
       if(ichan.ne.0) then
          do i=1,n_ch0_ok
             if( abs(cand(ncand)%f1-f1_ch0_ok(i)).lt.3.5 .and. &
@@ -608,8 +527,7 @@ contains
          nslots=1
          islot=1
          slot(1)=dec
-         ! A "599 ..." frame opening a slot has no preceding structured
-         ! frame to supply a separator, so mark one explicitly here.
+         ! A "599 ..." frame has no preceding separator; mark one explicitly.
          if(slot(1)%decoded(1:4).eq.'599 ') &
               slot(1)%decoded='~'//trim(slot(1)%decoded)
          slot(1)%nframes_merged=1
@@ -625,47 +543,18 @@ contains
             df1=dec%f1 - slot(i)%f1
             dxdt=dec%xdt - slot(i)%xdt
             dtsync=dec%tsync - slot(i)%tsync
-            ! A continuation frame decoded via an unrefined channel (1/2,
-            ! no jtty_peakup) can have enough sync-timing noise to miss the
+            ! A continuation frame decoded via an unrefined channel (no
+            ! jtty_peakup) can have enough sync-timing noise to miss the
             ! tight local dxdt match even though it's genuinely the next
-            ! real frame -- confirmed on 260807_140401.wav, where "THAT"
-            ! (dxdt=0.012, just past the 0.008 tolerance) started its own
-            ! spurious slot, and the following real frame then reattached
-            ! to the original slot's stale position, silently dropping
-            ! "THAT" from the decoded message. Real consecutive JTTY frames
-            ! are transmitted back-to-back with no gap, so also recognize a
-            ! match when the absolute time gap is close to exactly one
-            ! frame period (nframe6/6000.0), mirroring the tolerance the
-            ! sticky-sync retry already uses for the same physical fact.
-            ! 3.5 Hz frequency gate: deliberately conservative (K1JT) --
-            ! jtty_peakup's coherent 13-symbol/416 ms sync observation
-            ! gives an uncertainty-principle precision estimate of
-            ! ~1/416ms = 2.4 Hz, but that assumes a stable path; real
-            ! ionospheric paths aren't coherent over the full 416 ms, and
-            ! today's K9AN<->W2PU test path was a comparatively good one,
-            ! so real-world estimates run noisier still (confirmed: a
-            ! genuine same-message frame pair on 260807_140633.wav
-            ! measured df1~3.0 Hz, right at an earlier, tighter 3.0 Hz
-            ! gate's boundary, corrupting "KNOW IF PRIOR" into
-            ! "KNOPRIOR"). Erring tight for now -- more orphan fragments,
-            ! fewer wrong merges -- pending more on-air data across a
-            ! wider range of path conditions and a closer look at whether
-            ! jtty_peakup's own precision can be improved.
+            ! frame, so also match when the absolute time gap is close to
+            ! exactly one frame period (nframe6/6000.0).
             match=abs(df1).lt.3.5 .and.                                       &
                  (abs(dxdt).lt.0.008 .or. abs(dtsync-nframe6/6000.0).lt.0.1)
 
-            ! Neither condition above catches a rediscovery of a frame that
-            ! was merged into this slot several frames ago (not just its
-            ! current/latest one) -- e.g. a retro re-sweep revisiting an
-            ! early window after the slot has since advanced well past it.
-            ! Comparing only to the slot's current position always fails
-            ! for that case (dxdt is a stale local coordinate; dtsync is
-            ! some uncontrolled multiple of the frame period, not exactly
-            ! one), so also check the slot's full per-frame merge history
-            ! for the specific instant this candidate duplicates -- same
-            ! 3.5 Hz/50 ms thresholds already used by the channel-0-vs-1/2
-            ! same-call dupe check above (confirmed 260807_134312.wav/
-            ! 260807_134915.wav).
+            ! Neither condition above catches a rediscovery of a frame
+            ! merged into this slot several frames ago (e.g. a retro
+            ! re-sweep revisiting an earlier window) -- check the slot's
+            ! full per-frame history too, same thresholds as above.
             is_history_dupe=.false.
             if(.not.match) then
                do kf=1,slot(i)%nframes_merged
@@ -681,13 +570,8 @@ contains
             if(match) then
                islot=i
                if(is_history_dupe .or. abs(dtsync).lt.0.9) then
-                  ! Same frame instant already merged into this slot -- a
-                  ! retro re-sweep re-runs the FULL candidate sweep over a
-                  ! window that may already have been fully processed, so
-                  ! an unrelated signal that already succeeded there
-                  ! originally will likely be rediscovered here. Don't
-                  ! re-append its text (well under the ~1.888 s real
-                  ! inter-frame spacing, comfortable margin).
+                  ! Already merged into this slot -- a retro re-sweep can
+                  ! rediscover it; don't re-append.
                   exit
                endif
                k=slot(i)%k
@@ -705,13 +589,8 @@ contains
                slot(i)%trailing_sep=dec%trailing_sep
                slot(i)%is_last_frame=dec%is_last_frame
                ! Track the most recently merged frame, not the frame that
-               ! first opened this slot: continuation matching (df1/dxdt
-               ! above) and the same-frame dedup check (dtsync) both need
-               ! to compare against the last frame actually merged in, or a
-               ! long message's gradual frequency/timing drift eventually
-               ! reads as "too far from frame 1" (spurious slot split) and
-               ! a re-decode of frame 2+ (e.g. via a retro re-sweep) no
-               ! longer reads as "the same frame" (duplicated text).
+               ! opened this slot -- a long message's gradual drift would
+               ! otherwise eventually read as "too far from frame 1".
                slot(i)%f1=dec%f1
                slot(i)%xdt=dec%xdt
                slot(i)%tsync=dec%tsync
@@ -728,8 +607,6 @@ contains
             nslots=nslots+1
             slot(nslots)=dec
             islot=nslots
-            ! Same as above: a fresh slot starting with "599" has no
-            ! preceding separator, so mark one explicitly.
             if(slot(nslots)%decoded(1:4).eq.'599 ') &
                  slot(nslots)%decoded='~'//trim(slot(nslots)%decoded)
             slot(nslots)%nframes_merged=1
@@ -758,21 +635,11 @@ contains
    subroutine jtty_mdecode_step(iwave,nwave,istart,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 ! Wraps jtty_mdecode with "retro" re-sweeps: after the normal forward call,
-! for every signal that call newly subtracted out of its own c0, re-run the
-! candidate sweep for the up-to-3 prior quarter-frame windows. Those windows
-! never searched for this exact signal's own sync (it lies outside their
-! own [0,ntstep] search range), so there's no duplicate-discovery risk from
-! the interferer itself -- but their own candidates' frame spans can
-! overlap the interferer's energy (guaranteed for 1 and 2 steps back, only
-! possible -- not guaranteed -- for 3 steps back), so subtracting it first
-! before retrying can recover a candidate that overlap corrupted. Both
-! rjtty_sub and rjtty call this instead of jtty_mdecode directly, passing
-! the FULL buffer (not a pre-sliced window) so the retro calls can reach
-! backward into it.
-!
-! No cascading: retro calls' own subtraction events are not fed into
-! further retro passes (bounded to 3 steps back from the original
-! forward-progress discovery only).
+! re-run the candidate sweep for up to 3 prior quarter-frame windows for
+! every signal this call newly subtracted, since their candidates' frame
+! spans could overlap that signal's energy. Not cascaded to further retro
+! passes. Both rjtty_sub and rjtty call this instead of jtty_mdecode
+! directly, passing the FULL buffer so retro calls can reach backward into it.
 
       use iso_fortran_env, only: int16
       implicit none
