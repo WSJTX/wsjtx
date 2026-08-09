@@ -139,7 +139,6 @@ program sjtty_qrm
         f0=nfa + (nfb-nfa)*ran1(idum)
         xdt=0.1 + 3.9*ran1(idum)
         snr=snrdb + 10.0*(ran1(idum)-0.5)
-        sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snr)
         i0=i0+1
         if(i0.gt.25) i0=1
         umsg=xcall(i0)
@@ -148,6 +147,7 @@ program sjtty_qrm
            snr=snrdb
            umsg='599 123'
         endif
+        sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snr)
         write(*,1006) isig,f0,xdt,snr,sig,trim(umsg)
 1006    format(i4,f8.1,f8.3,f7.1,f10.3,2x,a)
 
@@ -166,12 +166,12 @@ program sjtty_qrm
         call gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
         c0=0.
         i1=nint(xdt/dt)
-        c0(i1:nwave+i1-1)=sig*cwave(0:nwave-1)!
+        c0(i1:nwave+i1-1)=cwave(0:nwave-1)!
         if(fspread.ne.0.0 .or. delay.ne.0.0) then
            ! Apply channel propagation
            call watterson(c0,npts,nwave,fsample,delay,fspread)
         endif
-        cdat=cdat + c0
+        cdat=cdat + sig*c0
      enddo  ! isig
 
      c0=cdat
