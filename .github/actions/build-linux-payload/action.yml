@@ -3,10 +3,9 @@ description: >-
   Build, test, and package wsjtx for one Linux architecture. Encapsulates the
   full payload — pFUnit + Hamlib + cmake build + ctest + .deb + RPM + AppImage —
   so build-linux.yml can call it once per arch (one job per arch, optionally
-  inside a debian:bookworm-slim container when runtime_base=bookworm). The
-  caller decides host-vs-container at the job level via the `container:`
-  directive; this action just runs the same shell pipeline on whatever it
-  lands on.
+  inside gcc:13.4.0-bookworm when runtime_base=bookworm-gcc13.4). The caller
+  decides host-vs-container at the job level via the `container:` directive;
+  this action just runs the same shell pipeline on whatever it lands on.
 
 inputs:
   arch:
@@ -20,12 +19,10 @@ inputs:
     required: true
   runtime_base:
     description: >-
-      Runtime baseline tag for cache namespacing. Use 'bookworm' when the job
-      runs inside debian:bookworm-slim (produces glibc-2.36 + pre-t64 binaries
-      that resolve on Raspberry Pi OS Bookworm); use 'host' when the job runs
-      directly on the GitHub-hosted ubuntu-24.04(-arm) runner. The value is
-      part of every cache key so a runtime_base flip never reuses a cache
-      built against a different ABI.
+      Runtime profile used for cache namespacing. Use 'bookworm-gcc13.4' for
+      the GCC 13.4 Bookworm image and 'host' for the GitHub-hosted
+      ubuntu-24.04(-arm) runner. The value is part of every cache key so a
+      profile change never reuses incompatible build outputs.
     required: false
     default: "host"
   recache:
@@ -44,12 +41,8 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # The aarch64 leg runs inside debian:bookworm-slim, which is intentionally
-    # minimal — no sudo, no git, no curl, no ca-certificates, no python3. The
-    # x86_64 leg runs on ubuntu-24.04 (host) where sudo is required and the
-    # base packages above are already installed. This step covers both: the
-    # SUDO wrapper resolves to empty inside the container (root) and to "sudo"
-    # on the host (non-root runner user).
+    # The aarch64 leg runs inside gcc:13.4.0-bookworm as root. The x86_64 leg
+    # runs on ubuntu-24.04 where sudo is required. This step covers both.
     - name: Install dependencies
       shell: bash
       run: |
@@ -57,26 +50,56 @@ runs:
         if [ "$(id -u)" != "0" ]; then
           SUDO="sudo"
         fi
-        $SUDO apt-get update
-        $SUDO apt-get install -y --no-install-recommends \
-          ca-certificates curl git \
-          build-essential cmake gfortran ccache \
-          libfftw3-dev libboost-all-dev \
-          qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
-          libqt5sql5-sqlite libqt5websockets5-dev \
-          libqt5multimedia5-plugins \
-          libusb-1.0-0-dev libudev-dev libreadline-dev \
-          autoconf automake libtool pkg-config \
-          texinfo \
-          dpkg-dev fakeroot \
-          asciidoctor \
-          rpm \
-          python3 \
-          file xz-utils xauth xvfb \
+        packages=(
+          ca-certificates curl git
+          build-essential cmake ccache
+          libfftw3-dev libboost-all-dev
+          qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev
+          libqt5sql5-sqlite libqt5websockets5-dev
+          libqt5multimedia5-plugins
+          libusb-1.0-0-dev libudev-dev libreadline-dev
+          autoconf automake libtool pkg-config
+          texinfo
+          dpkg-dev fakeroot
+          asciidoctor
+          rpm
+          python3
+          file xz-utils xauth xvfb
           portaudio19-dev
+        )
+        if ! command -v gfortran >/dev/null 2>&1; then
+          packages+=(gfortran)
+        fi
+        $SUDO apt-get update
+        $SUDO apt-get install -y --no-install-recommends "${packages[@]}"
+
+    - name: Select GCC 13.4 Bookworm toolchain
+      if: inputs.runtime_base == 'bookworm-gcc13.4'
+      shell: bash
+      run: |
+        CC=/usr/local/bin/gcc
+        CXX=/usr/local/bin/g++
+        FC=/usr/local/bin/gfortran
+
+        for compiler in "$CC" "$CXX" "$FC"; do
+          if [ ! -x "$compiler" ]; then
+            echo "::error::Expected compiler not found at $compiler"
+            exit 1
+          fi
+          version=$("$compiler" -dumpfullversion -dumpversion)
+          echo "$compiler: $version"
+          if [ "$version" != "13.4.0" ]; then
+            echo "::error::Expected GCC 13.4.0, found $version at $compiler"
+            exit 1
+          fi
+        done
+
+        echo "CC=$CC" >> "$GITHUB_ENV"
+        echo "CXX=$CXX" >> "$GITHUB_ENV"
+        echo "FC=$FC" >> "$GITHUB_ENV"
 
     # ccache persists compiled objects across runs to cut rebuild time.
-    # Namespaced by arch + runtime_base so the host and bookworm-container
+    # Namespaced by arch + runtime_base so the host and Bookworm-container
     # caches never collide; keyed on the commit SHA with a prefix
     # restore-key so each build warm-starts from the most recent ancestor.
     - name: Cache ccache
@@ -110,7 +133,7 @@ runs:
       uses: actions/cache@v5
       with:
         path: pfunit-prefix
-        # Keyed on arch + runtime_base so the bookworm aarch64 cache and a
+        # Keyed on arch + runtime_base so the Bookworm aarch64 cache and a
         # host build never collide. hashFiles points at the shared
         # build-pfunit-linux.sh (the actual build recipe, also called by the
         # x86_64/aarch64 legs) so any change to how pFUnit is built rebusts
@@ -309,7 +332,7 @@ runs:
         file "$DEB"
         # sed instead of `| head -20` so dpkg-deb doesn't get SIGPIPE'd by
         # head's early close — interacts badly with `bash -o pipefail` under
-        # bookworm's dpkg-deb (observed exit 141 on first container run).
+        # Bookworm's dpkg-deb (observed exit 141 on first container run).
         dpkg-deb --info "$DEB" | sed -n '1,20p'
         FILES=$(dpkg-deb -c "$DEB")
         require_package_path() {
@@ -351,7 +374,7 @@ runs:
       run: |
         # Capture rpm -qpl once to avoid SIGPIPE on `| head` / `| grep -q`
         # under `bash -o pipefail` (the same pattern that broke dpkg-deb on
-        # the bookworm-slim aarch64 leg). One rpm invocation, three queries.
+        # the Bookworm aarch64 leg). One rpm invocation, three queries.
         RPM=$(ls *.rpm | sed -n '1p')
         echo "Querying $RPM"
         rpm -qpi "$RPM"
@@ -408,7 +431,7 @@ runs:
         # `--appimage-extract-and-run` instead of expecting FUSE to be
         # available. The host runner has libfuse2 installed by default so
         # the plain `./linuxdeploy.AppImage --appimage-extract-and-run`
-        # was enough for x86_64; debian:bookworm-slim has no FUSE and the
+        # was enough for x86_64; the Bookworm container has no FUSE and the
         # plugin AppImage's first call (`--plugin-api-version`) exits 127
         # without this env var. APPIMAGE_EXTRACT_AND_RUN=1 is the
         # AppImage runtime's documented FUSE-less escape hatch.

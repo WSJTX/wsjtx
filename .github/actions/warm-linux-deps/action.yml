@@ -22,12 +22,42 @@ runs:
         if [ "$(id -u)" != "0" ]; then
           SUDO="sudo"
         fi
-        $SUDO apt-get update
-        $SUDO apt-get install -y --no-install-recommends \
-          ca-certificates git \
-          build-essential cmake gfortran \
-          autoconf automake libtool pkg-config \
+        packages=(
+          ca-certificates git
+          build-essential cmake
+          autoconf automake libtool pkg-config
           texinfo
+        )
+        if ! command -v gfortran >/dev/null 2>&1; then
+          packages+=(gfortran)
+        fi
+        $SUDO apt-get update
+        $SUDO apt-get install -y --no-install-recommends "${packages[@]}"
+
+    - name: Select GCC 13.4 Bookworm toolchain
+      if: inputs.runtime_base == 'bookworm-gcc13.4'
+      shell: bash
+      run: |
+        CC=/usr/local/bin/gcc
+        CXX=/usr/local/bin/g++
+        FC=/usr/local/bin/gfortran
+
+        for compiler in "$CC" "$CXX" "$FC"; do
+          if [ ! -x "$compiler" ]; then
+            echo "::error::Expected compiler not found at $compiler"
+            exit 1
+          fi
+          version=$("$compiler" -dumpfullversion -dumpversion)
+          echo "$compiler: $version"
+          if [ "$version" != "13.4.0" ]; then
+            echo "::error::Expected GCC 13.4.0, found $version at $compiler"
+            exit 1
+          fi
+        done
+
+        echo "CC=$CC" >> "$GITHUB_ENV"
+        echo "CXX=$CXX" >> "$GITHUB_ENV"
+        echo "FC=$FC" >> "$GITHUB_ENV"
 
     - name: Locate gfortran
       id: fc

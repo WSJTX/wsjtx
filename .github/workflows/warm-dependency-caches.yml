@@ -195,13 +195,13 @@ jobs:
     if: needs.detect.outputs.linux == 'true'
     runs-on: ubuntu-24.04-arm
     container:
-      image: debian:bookworm-slim
+      image: gcc:13.4.0-bookworm
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/warm-linux-deps
         with:
           arch: aarch64
-          runtime_base: bookworm
+          runtime_base: bookworm-gcc13.4
           hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
 
   warm-windows-x86_64:

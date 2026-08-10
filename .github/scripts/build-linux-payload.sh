@@ -47,15 +47,13 @@ WSJT_RC_NUMBER="${WSJT_RC_NUMBER:-}"
 cd /work
 
 # ── 1. Install build deps ────────────────────────────────────────────
-# bookworm-slim is intentionally minimal — sudo, git, ca-certificates,
-# curl, python3 are all absent. The container runs as root (no sudo
-# wrapper needed). Keep the package list aligned with the composite
-# action's Install dependencies step so the runtime profile matches
-# x86_64/aarch64 builds.
+# The Bookworm GCC image runs as root and already provides GCC, G++, and
+# GFortran in /usr/local. Keep the remaining packages aligned with the
+# composite action's dependency step.
 apt-get update
 apt-get install -y --no-install-recommends \
   ca-certificates curl git \
-  build-essential cmake gfortran \
+  build-essential cmake \
   libfftw3-dev libboost-all-dev \
   qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
   libqt5sql5-sqlite libqt5websockets5-dev \
@@ -69,6 +67,23 @@ apt-get install -y --no-install-recommends \
   python3 \
   file xz-utils xauth xvfb \
   portaudio19-dev
+
+export CC=/usr/local/bin/gcc
+export CXX=/usr/local/bin/g++
+export FC=/usr/local/bin/gfortran
+
+for compiler in "$CC" "$CXX" "$FC"; do
+  if [ ! -x "$compiler" ]; then
+    echo "::error::Expected compiler not found at $compiler"
+    exit 1
+  fi
+  version=$("$compiler" -dumpfullversion -dumpversion)
+  echo "$compiler: $version"
+  if [ "$version" != "13.4.0" ]; then
+    echo "::error::Expected GCC 13.4.0, found $version at $compiler"
+    exit 1
+  fi
+done
 
 # ── 2. Build pFUnit if cache empty ───────────────────────────────────
 # GHA actions/cache restored pfunit-prefix on the host before docker
@@ -253,7 +268,7 @@ chmod +x linuxdeploy.AppImage linuxdeploy-plugin-qt.AppImage
 # APPIMAGE_EXTRACT_AND_RUN=1 extends FUSE-less behavior to every child
 # AppImage in the linuxdeploy invocation tree (qt plugin + appimagetool,
 # both invoked as AppImages internally). Same defense as the composite
-# action's bookworm-slim aarch64 leg (Learning #206, S137).
+# action's Bookworm container leg (Learning #206, S137).
 export APPIMAGE_EXTRACT_AND_RUN=1
 export OUTPUT="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
 ./linuxdeploy.AppImage --appimage-extract-and-run \

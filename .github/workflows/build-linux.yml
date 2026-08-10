@@ -87,11 +87,11 @@ on:
 #
 #   x86_64 — host runner (ubuntu-24.04). No analogous field-side runtime gap
 #            has surfaced for that arch.
-#   aarch64 — debian:bookworm-slim container on ubuntu-24.04-arm. The Bookworm
-#            base produces binaries whose glibc 2.36 + pre-t64 Qt5/boost runtime
-#            demands resolve on Raspberry Pi OS Bookworm (issue #49).
-#   armhf  — debian:bookworm-slim arm/v7 container on ubuntu-24.04-arm via
-#            QEMU user-mode emulation (issue #51). DigiPi / Pi Zero 2W class.
+#   aarch64 — gcc:13.4.0-bookworm container on ubuntu-24.04-arm. This keeps the
+#            Bookworm glibc 2.36 + pre-t64 library baseline while using GCC 13
+#            (issue #49).
+#   armhf  — gcc:13.4.0-bookworm arm/v7 container on ubuntu-24.04-arm via QEMU
+#            user-mode emulation (issue #51). DigiPi / Pi Zero 2W class.
 #            See the build-armhf job below for the QEMU + --platform recipe.
 #
 # All three jobs share a single composite action (`.github/actions/build-linux-
@@ -116,13 +116,10 @@ jobs:
   build-aarch64:
     if: inputs.arch == 'aarch64'
     runs-on: ubuntu-24.04-arm
-    # Bookworm container produces a binary whose glibc + Qt5 + boost runtime
-    # demands match Raspberry Pi OS Bookworm (issue #49). debian:bookworm-slim
-    # is intentionally minimal — the composite action installs the full build
-    # toolchain and re-bootstraps the no-sudo / no-git / no-ca-certificates
-    # gaps as its first step.
+    # The official GCC image adds GCC 13.4 without moving off the Bookworm
+    # glibc 2.36 and pre-t64 runtime baseline (issue #49).
     container:
-      image: debian:bookworm-slim
+      image: gcc:13.4.0-bookworm
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/build-linux-payload
@@ -130,7 +127,7 @@ jobs:
           arch: aarch64
           version: ${{ inputs.version }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
-          runtime_base: bookworm
+          runtime_base: bookworm-gcc13.4
           recache: ${{ inputs.recache }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
@@ -139,7 +136,7 @@ jobs:
     if: inputs.arch == 'armhf'
     runs-on: ubuntu-24.04-arm
     # 32-bit ARM (armhf) runtime for DigiPi / Raspberry Pi Zero 2W class
-    # (issue #51). Builds inside debian:bookworm-slim arm/v7 on the aarch64
+    # (issue #51). Builds inside gcc:13.4.0-bookworm arm/v7 on the aarch64
     # ubuntu-24.04-arm runner via QEMU user-mode emulation.
     #
     # NOTE on architecture (different from x86_64/aarch64): this job does
@@ -189,18 +186,18 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pfunit-prefix
-          key: pfunit-linux-armhf-v4.14.0-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
+          key: pfunit-linux-armhf-v4.14.0-bookworm-gcc13.4-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
       - name: Cache Hamlib
         uses: actions/cache@v6
         with:
           path: hamlib-prefix
-          key: hamlib-linux-armhf-${{ inputs.hamlib_branch }}-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
+          key: hamlib-linux-armhf-${{ inputs.hamlib_branch }}-bookworm-gcc13.4-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
 
-      - name: Build inside arm/v7 bookworm-slim
+      - name: Build inside arm/v7 Bookworm GCC image
         env:
           ARCH: armhf
         run: |
-          docker pull --platform linux/arm/v7 debian:bookworm-slim
+          docker pull --platform linux/arm/v7 gcc:13.4.0-bookworm
           docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
@@ -209,7 +206,7 @@ jobs:
             -e ARCH \
             -e WSJT_RELEASE_CHANNEL \
             -e WSJT_RC_NUMBER \
-            debian:bookworm-slim \
+            gcc:13.4.0-bookworm \
             bash .github/scripts/build-linux-payload.sh
 
       # Artifacts produced inside the container land in $GITHUB_WORKSPACE
