@@ -710,6 +710,11 @@ private:
   Configuration * const self_;	// back pointer to public interface
 
   QThread * transceiver_thread_;
+
+  // TX Inhibit: pin filter lives inside HamlibTransceiver (do_ptt). See docs/TX_INHIBIT.md.
+  bool enable_tx_inhibit_ {false};
+  quint16 tx_inhibit_port_ {0};
+
   TransceiverFactory transceiver_factory_;
   QList<QMetaObject::Connection> rig_connections_;
 
@@ -1248,6 +1253,16 @@ void Configuration::transceiver_ptt (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
   m_->transceiver_ptt (on);
+}
+
+bool Configuration::enable_tx_inhibit () const
+{
+  return m_->enable_tx_inhibit_;
+}
+
+quint16 Configuration::tx_inhibit_port () const
+{
+  return m_->tx_inhibit_port_;
 }
 
 void Configuration::transceiver_audio (bool on)
@@ -2143,6 +2158,7 @@ void Configuration::impl::initialize_models ()
   ui_->sbBandwidth->setValue (RxBandwidth_);
   ui_->tci_audio_check_box->setChecked (tci_audio_);
   ui_->PTT_method_button_group->button (rig_params_.ptt_type)->setChecked (true);
+  ui_->tx_inhibit_check_box->setChecked (enable_tx_inhibit_);
   ui_->PWR_and_SWR_check_box->setChecked (PWR_and_SWR_);
   ui_->check_SWR_check_box->setChecked (check_SWR_);
   if (!ui_->PWR_and_SWR_check_box->isChecked()) ui_->check_SWR_check_box->setEnabled (false);
@@ -2603,6 +2619,8 @@ void Configuration::impl::read_settings ()
   rig_params_.ptt_type = settings_->value ("PTTMethod", QVariant::fromValue (TransceiverFactory::PTT_method_VOX)).value<TransceiverFactory::PTTMethod> ();
   rig_params_.audio_source = settings_->value ("TXAudioSource", QVariant::fromValue (TransceiverFactory::TX_audio_source_front)).value<TransceiverFactory::TXAudioSource> ();
   rig_params_.ptt_port = settings_->value ("PTTport").toString ();
+  enable_tx_inhibit_ = settings_->value ("EnableTxInhibit", false).toBool ();
+  rig_params_.enable_tx_inhibit = enable_tx_inhibit_;
   data_mode_ = settings_->value ("DataMode", QVariant::fromValue (data_mode_none)).value<Configuration::DataMode> ();
   bLowSidelobes_ = settings_->value("LowSidelobes",true).toBool();
   prompt_to_log_ = settings_->value ("PromptToLog", false).toBool ();
@@ -2816,6 +2834,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("CATTCIPort", rig_params_.tci_port);
   settings_->setValue ("PTTMethod", QVariant::fromValue (rig_params_.ptt_type));
   settings_->setValue ("PTTport", rig_params_.ptt_port);
+  settings_->setValue ("EnableTxInhibit", enable_tx_inhibit_);
   settings_->setValue ("SaveDir", save_directory_.absolutePath ());
   settings_->setValue ("AzElDir", azel_directory_.absolutePath ());
   if (!audio_input_device_.isNull ()) {
@@ -3017,6 +3036,8 @@ void Configuration::impl::set_rig_invariants ()
   auto enable_ptt_port = TransceiverFactory::PTT_method_CAT != ptt_method && TransceiverFactory::PTT_method_VOX != ptt_method;
   ui_->PTT_port_combo_box->setEnabled (enable_ptt_port);
   ui_->PTT_port_label->setEnabled (enable_ptt_port);
+  // TX Inhibit only applies to RTS/DTR pin keying.
+  ui_->tx_inhibit_check_box->setEnabled (enable_ptt_port && !is_tci_);
 
   if (CAT_indirect_serial_PTT)
     {
@@ -3273,6 +3294,9 @@ TransceiverFactory::ParameterPack Configuration::impl::gather_rig_data ()
   if (is_tci_ && ui_->tci_audio_check_box->isChecked ()) result.poll_interval |= tci__audio;
   result.ptt_type = static_cast<TransceiverFactory::PTTMethod> (ui_->PTT_method_button_group->checkedId ());
   result.ptt_port = ui_->PTT_port_combo_box->currentText ();
+  result.enable_tx_inhibit = ui_->tx_inhibit_check_box->isChecked ()
+    && (TransceiverFactory::PTT_method_DTR == result.ptt_type
+        || TransceiverFactory::PTT_method_RTS == result.ptt_type);
   result.audio_source = static_cast<TransceiverFactory::TXAudioSource> (ui_->TX_audio_source_button_group->checkedId ());
   result.split_mode = static_cast<TransceiverFactory::SplitMode> (ui_->split_mode_button_group->checkedId ());
   return result;
@@ -3487,6 +3511,7 @@ void Configuration::impl::accept ()
   bLowSidelobes_ = ui_->rbLowSidelobes->isChecked();
   save_directory_.setPath (ui_->save_path_display_label->text ());
   azel_directory_.setPath (ui_->azel_path_display_label->text ());
+  enable_tx_inhibit_ = ui_->tx_inhibit_check_box->isChecked ();
   enable_VHF_features_ = ui_->enable_VHF_features_check_box->isChecked ();
   decode_at_52s_ = ui_->decode_at_52s_check_box->isChecked ();
   kHz_without_k_ = ui_->kHz_without_k_check_box->isChecked ();
@@ -5050,6 +5075,12 @@ bool Configuration::impl::open_rig (bool force)
           if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
           close_rig ();
 
+          // Stock Hamlib open (including RTS/DTR). Optional TX Inhibit is a
+          // pin filter inside HamlibTransceiver::do_ptt when enabled and PTT
+          // is RTS/DTR — no VOX rewrite, no second serial open.
+          // See docs/TX_INHIBIT.md.
+          tx_inhibit_port_ = 0;
+
           // create a new Transceiver object
           auto rig = transceiver_factory_.create (rig_data, transceiver_thread_);
           cached_rig_state_ = Transceiver::TransceiverState {};
@@ -5066,6 +5097,20 @@ bool Configuration::impl::open_rig (bool force)
           rig_connections_ << connect (rig.get (), &Transceiver::resolution, this, [=] (int resolution) {
               rig_resolution_ = resolution;
             });
+          // TX Inhibit badge / KEY-agent port (optional; only when enabled).
+          rig_connections_ << connect (rig.get (), &Transceiver::tx_inhibit_changed,
+                                       this, [this] (bool inhibited, QString const& source
+                                                     , quint32 hold_rx, quint32 release_rx
+                                                     , quint32 expiries, quint32 invalid) {
+                                         Q_EMIT self_->tx_inhibit_changed (inhibited, source
+                                                                           , hold_rx, release_rx
+                                                                           , expiries, invalid);
+                                       });
+          rig_connections_ << connect (rig.get (), &Transceiver::tx_inhibit_port_bound,
+                                       this, [this] (quint16 port) {
+                                         tx_inhibit_port_ = port;
+                                         Q_EMIT self_->tx_inhibit_port_changed (port);
+                                       });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
           rig_connections_ << connect (rig.get (), &Transceiver::update, this, &Configuration::impl::handle_transceiver_update);
@@ -5188,7 +5233,8 @@ void Configuration::impl::transceiver_ptt (bool on)
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
   cached_rig_state_.ptt (on);
-  // qDebug () << "Configuration::impl::transceiver_ptt: n:" << transceiver_command_number_ + 1 << "on:" << on;
+  // Stock path only. TX Inhibit (if any) filters inside HamlibTransceiver::do_ptt
+  // after Fake It QSY — Configuration does not own PTT or hold state.
   LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
   Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
 }
@@ -5449,6 +5495,7 @@ void Configuration::impl::close_rig ()
       rig_connections_.clear ();
       rig_active_ = false;
     }
+  tx_inhibit_port_ = 0;
 }
 
 // find the audio device that matches the specified name, also

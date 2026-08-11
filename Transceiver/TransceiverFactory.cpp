@@ -122,7 +122,7 @@ std::unique_ptr<Transceiver> TransceiverFactory::create (ParameterPack const& pa
         if (PTT_method_CAT != params.ptt_type)
           {
             // we start with a dummy HamlibTransceiver object instance that can support direct PTT
-            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port});
+            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port, params.enable_tx_inhibit});
             if (target_thread)
               {
                 basic_transceiver.get ()->moveToThread (target_thread);
@@ -144,7 +144,7 @@ std::unique_ptr<Transceiver> TransceiverFactory::create (ParameterPack const& pa
         if (PTT_method_CAT != params.ptt_type)
           {
             // we start with a dummy HamlibTransceiver object instance that can support direct PTT
-            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port});
+            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port, params.enable_tx_inhibit});
             if (target_thread)
               {
                 basic_transceiver.get ()->moveToThread (target_thread);
@@ -167,7 +167,7 @@ std::unique_ptr<Transceiver> TransceiverFactory::create (ParameterPack const& pa
         if (PTT_method_CAT != params.ptt_type && "CAT" != params.ptt_port)
           {
             // we start with a dummy HamlibTransceiver object instance that can support direct PTT
-            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port});
+            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port, params.enable_tx_inhibit});
             if (target_thread)
               {
                 basic_transceiver.get ()->moveToThread (target_thread);
@@ -189,7 +189,7 @@ std::unique_ptr<Transceiver> TransceiverFactory::create (ParameterPack const& pa
         if (PTT_method_CAT != params.ptt_type && "CAT" != params.ptt_port)
           {
             // we start with a dummy HamlibTransceiver object instance that can support direct PTT
-            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port});
+            basic_transceiver.reset (new HamlibTransceiver {&logger_, params.ptt_type, params.ptt_port, params.enable_tx_inhibit});
             if (target_thread)
               {
                 basic_transceiver.get ()->moveToThread (target_thread);

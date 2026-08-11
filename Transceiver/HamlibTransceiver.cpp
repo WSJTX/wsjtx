@@ -1,4 +1,5 @@
 #include "HamlibTransceiver.hpp"
+#include "TxInhibit/TxInhibitGate.hpp"
 
 #include <cstring>
 #include <cmath>
@@ -411,8 +412,11 @@ rmode_t HamlibTransceiver::impl::map_mode (MODE mode) const
 
 HamlibTransceiver::HamlibTransceiver (logger_type * logger,
                                       TransceiverFactory::PTTMethod ptt_type, QString const& ptt_port,
-                                      QObject * parent)
+                                      bool enable_tx_inhibit, QObject * parent)
   : PollingTransceiver {logger, 0, parent}
+  , use_tx_inhibit_ {enable_tx_inhibit
+                     && (TransceiverFactory::PTT_method_DTR == ptt_type
+                         || TransceiverFactory::PTT_method_RTS == ptt_type)}
   , m_ {logger}
 {
   if (!m_->rig_)
@@ -432,6 +436,8 @@ HamlibTransceiver::HamlibTransceiver (logger_type * logger,
 
     case TransceiverFactory::PTT_method_DTR:
     case TransceiverFactory::PTT_method_RTS:
+      // Stock Hamlib RTS/DTR (shared CAT port uses same fd). TX Inhibit
+      // filters do_ptt → apply_physical_ptt; it does not open the port.
       if (!ptt_port.isEmpty ())
         {
 #if defined (WIN32)
@@ -461,6 +467,9 @@ HamlibTransceiver::HamlibTransceiver (logger_type * logger,
                                       TransceiverFactory::ParameterPack const& params,
                                       QObject * parent)
   : PollingTransceiver {logger, params.poll_interval, parent}
+  , use_tx_inhibit_ {params.enable_tx_inhibit
+                     && (TransceiverFactory::PTT_method_DTR == params.ptt_type
+                         || TransceiverFactory::PTT_method_RTS == params.ptt_type)}
   , m_ {logger, model_number, params}
 {
   if (!m_->rig_)
@@ -873,12 +882,94 @@ int HamlibTransceiver::do_start ()
 
   do_poll ();
 
+  // After rig_open: optional TX Inhibit (RTS/DTR only). Same thread as CAT.
+  if (use_tx_inhibit_)
+    {
+      start_tx_inhibit_gate ();
+    }
+
   CAT_TRACE ("finished start " << state () << " reversed=" << m_->reversed_ << " resolution=" << resolution);
   return resolution;
 }
 
+void HamlibTransceiver::start_tx_inhibit_gate ()
+{
+  if (inhibit_gate_)
+    {
+      return;
+    }
+  // Child of this object → transceiver thread; DirectConnection to pin apply.
+  inhibit_gate_ = new TxInhibitGate {this};
+  connect (inhibit_gate_, &TxInhibitGate::physicalPtt,
+           this, &HamlibTransceiver::apply_physical_ptt, Qt::DirectConnection);
+  connect (inhibit_gate_, &TxInhibitGate::inhibitChanged,
+           this, &Transceiver::tx_inhibit_changed);
+  connect (inhibit_gate_, &TxInhibitGate::portBound,
+           this, &Transceiver::tx_inhibit_port_bound);
+  // UDP bind problems are non-fatal: keep stock intent→pin path, log only.
+  connect (inhibit_gate_, &TxInhibitGate::lineError,
+           this, [this] (QString const& msg) {
+             CAT_TRACE (msg);
+           });
+  inhibit_gate_->start_listening ();
+  CAT_TRACE ("TX Inhibit gate listening (pin filter on do_ptt)");
+}
+
+void HamlibTransceiver::stop_tx_inhibit_gate ()
+{
+  if (!inhibit_gate_)
+    {
+      return;
+    }
+  // Drop pin connection first so destructor / second shutdown cannot call
+  // rig_set_ptt after rig_close (Hamlib CHECK_RIG_ARG fails if !comm_state).
+  disconnect (inhibit_gate_, &TxInhibitGate::physicalPtt,
+              this, &HamlibTransceiver::apply_physical_ptt);
+  // Safe pin-low while the port is still open.
+  try
+    {
+      apply_physical_ptt (false);
+    }
+  catch (...)
+    {
+      // Teardown must not throw.
+    }
+  // No further pin emits from the gate.
+  inhibit_gate_->shutdown (false);
+  inhibit_gate_->deleteLater ();
+  inhibit_gate_ = nullptr;
+}
+
+void HamlibTransceiver::apply_physical_ptt (bool radiate)
+{
+  // Lowest-level PTT write through Hamlib (RTS/DTR or CAT PTT type).
+  // Hamlib rejects set_ptt when comm_state is false (not open / already closed).
+  if (!m_->rig_ || !m_->rig_->caps
+      || !m_->rig_->state.comm_state
+      || RIG_PTT_NONE == m_->rig_->state.pttport.type.ptt)
+    {
+      CAT_TRACE ("apply_physical_ptt skipped (no open rig/ptt) radiate=" << radiate);
+      return;
+    }
+  if (radiate)
+    {
+      CAT_TRACE ("apply_physical_ptt ON");
+      auto ptt_type = rig_get_caps_int (m_->model_, RIG_CAPS_PTT_TYPE);
+      m_->error_check (rig_set_ptt (m_->rig_.data (), RIG_VFO_CURR
+                                    , RIG_PTT_RIG_MICDATA == ptt_type && m_->back_ptt_port_
+                                    ? RIG_PTT_ON_DATA : RIG_PTT_ON), tr ("setting PTT on"));
+    }
+  else
+    {
+      CAT_TRACE ("apply_physical_ptt OFF");
+      m_->error_check (rig_set_ptt (m_->rig_.data (), RIG_VFO_CURR, RIG_PTT_OFF), tr ("setting PTT off"));
+    }
+}
+
 void HamlibTransceiver::do_stop ()
 {
+  // Gate down (and pin low) before closing the serial port.
+  stop_tx_inhibit_gate ();
   if (m_->is_dummy_ && !m_->ptt_only_)
     {
       rig_get_freq (m_->rig_.data (), RIG_VFO_CURR, &impl::dummy_frequency_);
@@ -1214,7 +1305,11 @@ void HamlibTransceiver::do_poll ()
         }
     }
 
-  if (RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt && rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_PTT))
+  // Under TX Inhibit, software PTT follows WSJT-X intent (do_ptt), not the
+  // physical pin (which is held low during a KEY-agent hold). Skip GET_PTT.
+  if (!inhibit_gate_
+      && RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt
+      && rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_PTT))
   {
     ptt_t p;
     auto rc = rig_get_ptt (m_->rig_.data (), RIG_VFO_CURR, &p);
@@ -1281,29 +1376,25 @@ void HamlibTransceiver::do_poll ()
 
 void HamlibTransceiver::do_ptt (bool on)
 {
-    CAT_TRACE ("PTT: " << on << " " << state () << " reversed=" << m_->reversed_);
-  if (on)
+  CAT_TRACE ("PTT: " << on << " " << state () << " reversed=" << m_->reversed_);
+  // Upstream only tracks ptt_on_ for rigs that actually have a PTT port, and
+  // do_poll() gates its PWR/SWR reads on it. Hoisting this above the guard
+  // turned those reads on for RIG_PTT_NONE rigs -- a change to the stock path
+  // that has nothing to do with TX Inhibit, and would not belong in a
+  // merge-back diff. See docs/REVIEW-rc2.md C5.
+  if (RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt)
     {
-       if (RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt)
-        {
-          ptt_on_ = true;
-          CAT_TRACE ("rig_set_ptt PTT=true");
-          auto ptt_type = rig_get_caps_int (m_->model_, RIG_CAPS_PTT_TYPE);
-          m_->error_check (rig_set_ptt (m_->rig_.data (), RIG_VFO_CURR
-                                        , RIG_PTT_RIG_MICDATA == ptt_type && m_->back_ptt_port_
-                                        ? RIG_PTT_ON_DATA : RIG_PTT_ON), tr ("setting PTT on"));
-        }
+      ptt_on_ = on;
     }
-  else
+  if (inhibit_gate_)
     {
-      if (RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt)
-        {
-          ptt_on_ = false;
-          CAT_TRACE ("rig_set_ptt PTT=false");
-          m_->error_check (rig_set_ptt (m_->rig_.data (), RIG_VFO_CURR, RIG_PTT_OFF), tr ("setting PTT off"));
-        }
+      // Stock sequencing already did Fake It QSY. Intent only; gate mixes
+      // private UDP hold and emits physicalPtt → apply_physical_ptt.
+      inhibit_gate_->set_intent (on);
+      update_PTT (on); // software PTT state follows intent (not pin)
+      return;
     }
-
+  apply_physical_ptt (on);
   update_PTT (on);
 }
 

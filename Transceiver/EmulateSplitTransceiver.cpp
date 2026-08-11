@@ -21,6 +21,8 @@ EmulateSplitTransceiver::EmulateSplitTransceiver (logger_type * logger,
   connect (wrapped_.get (), &Transceiver::tci_mod_active, this, &Transceiver::tci_mod_active);
   connect (wrapped_.get (), &Transceiver::finished, this, &Transceiver::finished);
   connect (wrapped_.get (), &Transceiver::failure, this, &Transceiver::failure);
+  connect (wrapped_.get (), &Transceiver::tx_inhibit_changed, this, &Transceiver::tx_inhibit_changed);
+  connect (wrapped_.get (), &Transceiver::tx_inhibit_port_bound, this, &Transceiver::tx_inhibit_port_bound);
 }
 
 void EmulateSplitTransceiver::set (TransceiverState const& s, unsigned sequence_number) noexcept

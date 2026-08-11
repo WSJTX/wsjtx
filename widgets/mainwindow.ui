@@ -4968,7 +4968,7 @@ QPushButton[state=&quot;ok&quot;] {
   </action>
   <action name="actionAbout">
    <property name="text">
-    <string>About WSJT-X</string>
+    <string>About wsjtx-inhibit</string>
    </property>
    <property name="menuRole">
     <enum>QAction::AboutRole</enum>

@@ -787,6 +787,12 @@ private:
 
   // labels in status bar
   QLabel tx_status_label;
+  // Latest TX Inhibit state, mirrored here so guiUpdate() can report the
+  // physical PTT state rather than the sequencer's intent. See docs/TX_INHIBIT.md.
+  bool m_tx_inhibited {false};
+  QString m_tx_inhibit_holder;     // station named in the current hold, if any
+  bool m_tx_inhibit_warned {false};      // "not reachable" already reported?
+  quint16 m_tx_inhibit_warned_port {0};  // port that warning referred to
   QLabel config_label;
   QLabel mode_label;
   QLabel last_tx_label;
@@ -983,6 +989,7 @@ private:
   void setDecodedTextFont (QFont const&);
   void writeSettings();
   void createStatusBar();
+  void update_inhibit_status ();
   void updateStatusBar();
   void genStdMsgs(QString rpt, bool unconditional = false);
   void genCQMsg();

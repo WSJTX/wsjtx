@@ -111,6 +111,17 @@ OmniRigTransceiver::OmniRigTransceiver (logger_type * the_logger,
   , reversed_ {false}
 {
   CoInitializeEx (nullptr, 0 /*COINIT_APARTMENTTHREADED*/); // required because Qt only does this for GUI thread
+  // Forward optional TX Inhibit telemetry from the wrapped PTT-only rig.
+  // Without this the gate still holds PTT off correctly, but the operator gets
+  // no badge, no tooltip and no InhibitStatus -- PTT simply stops working with
+  // no visible reason. See docs/REVIEW-rc2.md C3.
+  if (wrapped_)
+    {
+      connect (wrapped_.get (), &Transceiver::tx_inhibit_changed,
+               this, &Transceiver::tx_inhibit_changed);
+      connect (wrapped_.get (), &Transceiver::tx_inhibit_port_bound,
+               this, &Transceiver::tx_inhibit_port_bound);
+    }
   CAT_TRACE ("constructed");
 }
 
