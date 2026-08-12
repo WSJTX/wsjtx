@@ -109,7 +109,7 @@ contains
       integer                        :: nc0,n_ch0_ok
       integer                        :: ja_ch0_ok(16),jb_ch0_ok(16)
       real                            :: f1_ch0_ok(16),tsync_ch0_ok(16)
-      integer                        :: nharderrors,nsync,nsymerrs
+      integer                        :: nsync,nsymerrs
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
@@ -157,7 +157,6 @@ contains
       interferer_pending=.false.
       nsubtracted=0
 
-      nharderrors=-1
       nsync=0
 
       if(nu0.ne.JTTY_WAVA_NU) then
@@ -477,8 +476,6 @@ contains
          if(success_dec) exit
       enddo
       if(success_dec .and. sum(final_payload).eq.0) success_dec=.false. ! reject all-zero
-      nharderrors=-1
-      if(success_dec) nharderrors=0
       cand(ncand)%decoded=' '
       if( .not. success_dec ) return
 
@@ -673,8 +670,8 @@ contains
       else if(ndebug.gt.0) then
          write(*,3002) ichan,ipass,ic_label,ndecodes,islot,nslots,match, &
             use_interferer,dec%f1,dec%xdt,dec%tsync,nint(dec%snrdb-20.0), &
-            nsync,nsymerrs,nharderrors,trim(msg)
-3002     format(6i4,2L3,f7.1,f7.3,f9.3,i5,i4,i4,i4,2x,a)
+            nsync,nsymerrs,trim(msg)
+3002     format(6i4,2L3,f7.1,f7.3,f9.3,i5,i4,i4,2x,a)
       endif
    end subroutine decode_and_merge
 
