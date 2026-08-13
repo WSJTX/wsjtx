@@ -6,6 +6,7 @@
 #include <QNetworkReply>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QUrlQuery>
 
 #include "Network/wsprnet.h"
@@ -101,7 +102,8 @@ namespace
   };
 
   class FakeNetworkAccessManager final
-    : public QNetworkAccessManager
+    : public QObject
+    , public WSPRNet::Transport
   {
   public:
     struct Request
@@ -111,7 +113,7 @@ namespace
     };
 
     explicit FakeNetworkAccessManager (QObject *parent = nullptr)
-      : QNetworkAccessManager {parent}
+      : QObject {parent}
       , auto_finish {true}
       , next_reply_to_finish_ {0}
     {
@@ -140,11 +142,9 @@ namespace
     QList<Request> requests;
     bool auto_finish;
 
-  protected:
-    QNetworkReply *createRequest (Operation op, QNetworkRequest const& request, QIODevice *outgoing_data = nullptr) override
+    QNetworkReply *post (QNetworkRequest const& request, QByteArray const& body) override
     {
-      Q_UNUSED (op);
-      Request recorded {request.url (), outgoing_data ? outgoing_data->readAll () : QByteArray {}};
+      Request recorded {request.url (), body};
       requests.append (recorded);
 
       NetworkResponse response;
