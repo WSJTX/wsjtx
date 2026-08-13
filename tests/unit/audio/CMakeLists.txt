@@ -24,3 +24,9 @@ add_executable (test_wav_load_coordinator
 target_link_libraries (test_wav_load_coordinator wsjt_qt Qt5::Test)
 add_test (NAME test_wav_load_coordinator COMMAND test_wav_load_coordinator)
 set_tests_properties (test_wav_load_coordinator PROPERTIES TIMEOUT 15)
+
+add_executable (test_tx_playback_diagnostics
+  test_tx_playback_diagnostics.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/TxPlaybackDiagnostics.cpp)
+target_link_libraries (test_tx_playback_diagnostics Qt5::Core Qt5::Test)
+add_test (NAME test_tx_playback_diagnostics COMMAND test_tx_playback_diagnostics)

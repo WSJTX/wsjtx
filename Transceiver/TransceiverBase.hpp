@@ -124,7 +124,8 @@ protected:
   virtual void do_volume (qreal) {}
   virtual void do_txvolume (qreal) {}
   //parameters are MODE,symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,FASTMODE,dbsdr,trperiod //parameters added by w3sz are in bold
-  virtual void do_modulator_start(QString, unsigned, double, double, double, bool, bool, double, double) {}
+  virtual void do_modulator_start(QString, unsigned, double, double, double, bool, bool, double, double,
+                                  TxEvidence::TxSessionId, TxEvidence::TxGeneration) {}
   virtual void do_modulator_stop(bool) {}
 
   virtual bool do_pre_update () {return true;}

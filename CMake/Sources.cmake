@@ -36,6 +36,7 @@ set (wsjt_qt_CXXSRCS
   validators/LiveFrequencyValidator.cpp
   GetUserId.cpp
   Audio/AudioDevice.cpp
+  Audio/TxPlaybackDiagnostics.cpp
   Modulator/JttyPcmFifo.cpp
   Modulator/JttyTxBuffer.cpp
   Transceiver/Transceiver.cpp

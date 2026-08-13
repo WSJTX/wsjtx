@@ -529,7 +529,7 @@ public:
   void transceiver_tune (bool);
   void transceiver_period (double, bool = false);
   void transceiver_blocksize (qint32);
-  void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double);
+  void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double, TxEvidence::TxSessionId, TxEvidence::TxGeneration);
   void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
   void transceiver_clear_jtty_pcm (qint64);
   void transceiver_modulator_stop (bool);
@@ -1324,14 +1324,15 @@ void Configuration::transceiver_blocksize (qint32 blocksize)
 }
 
 void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbolslength, double framespersymbol, double trfrequency,
-                     double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+                     double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod,
+                     TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
 {
 #if WSJT_TRACE_CAT
   qDebug () << "Configuration::transceiver_modulator_start:" << symbolslength << m_->cached_rig_state_;
 #endif
 
   if (!m_->can_control_rig ("transceiver_modulator_start")) return;
-  m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod);
+  m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod,sessionId,generation);
 }
 
 void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
@@ -5871,6 +5872,8 @@ bool Configuration::impl::open_rig (bool force)
             });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
+          rig_connections_ << connect (rig.get (), &Transceiver::txSourceCommitted, self_, &Configuration::txSourceCommitted);
+          rig_connections_ << connect (rig.get (), &Transceiver::rawTxPlayoutSnapshot, self_, &Configuration::rawTxPlayoutSnapshot);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_drained, self_, &Configuration::transceiver_jtty_drained);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_accepted, self_, &Configuration::transceiver_jtty_enqueue_accepted);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
@@ -6109,7 +6112,7 @@ void Configuration::impl::transceiver_volume (double volume)
   }
 }
 
-void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned symbolslength, double framespersymbol, double frequency, double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned symbolslength, double framespersymbol, double frequency, double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod, TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
@@ -6125,6 +6128,8 @@ void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned 
     cached_rig_state_.trperiod (trperiod);
     cached_rig_state_.jtmode(jtmode);
     cached_rig_state_.fastmode(fastmode);
+    cached_rig_state_.tx_session_id (sessionId);
+    cached_rig_state_.tx_generation (generation);
     //    printf("%s(%0.1f) Configuration #:%d modulator_start: symbolslength=%d framespersymbol=%0.1f frequency=%0.1f tonespacing=%0.1f synchronize= %d dbsnr=%0.1f trperiod=%0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,symbolslength,framespersymbol,frequency,tonespacing,synchronize,dbsnr,trperiod);
     Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
   }

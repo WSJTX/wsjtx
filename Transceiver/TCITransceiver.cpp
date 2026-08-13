@@ -227,6 +227,11 @@ TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<Transceive
   , m_state {Idle}
   , m_jttyDrainTimer {nullptr}
   , m_jttyDrainGuard {24000}
+  , m_tciBackendStartSequence {0}
+  , m_tciSuccessfullyWrittenFrames {0}
+  , m_tciStartMsecs {0}
+  , m_tciLastReportMsecs {0}
+  , m_tciFinalSnapshotEmitted {false}
   , m_tuning {false}
   , m_cwLevel {false}
   , m_j0 {-1}
@@ -949,6 +954,7 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
       return;
     }
 
+    qint64 generatedScalars {0};
     {
       std::lock_guard<std::mutex> lock {mtx_};
       tx_fifo += 1; tx_fifo &= 7;
@@ -959,14 +965,26 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
       auto * response = TciStream::header (&m_tx1[tx_fifo]);
       auto * payload = TciStream::float_payload (&m_tx1[tx_fifo]);
       auto generated = readAudioData (payload, response->length, channels, txAtten);
+      generatedScalars = generated;
       if (generated < response->length) {
-        readAudioData (payload + generated, response->length - generated, channels, txAtten);
+        generatedScalars += readAudioData (payload + generated,
+                                           response->length - generated,
+                                           channels, txAtten);
       }
       tx_fifo2 = tx_fifo;
     }
 
     if (!inConnected || commander_->sendBinaryMessage(m_tx1[tx_fifo2]) != m_tx1[tx_fifo2].size()) {
+      return;
     }
+
+    // A generated source frame is committed only when its containing WebSocket
+    // response is sent completely; protocol padding past the source extent is
+    // not evidence that omitted source audio reached the radio.
+    qint64 const frames = TxEvidence::interleavedFrameCount (generatedScalars,
+                                                             int (channels));
+    m_tciSuccessfullyWrittenFrames += frames;
+    emit_tci_playout_snapshot (false, m_state == Idle);
   }
 }
 
@@ -1565,7 +1583,8 @@ void TCITransceiver::mysleep8 (int ms)
 // Modulator part
 
 void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, double framesPerSymbol,
-                                        double frequency, double toneSpacing, bool synchronize, bool fastMode, double dBSNR, double TRperiod)
+                                        double frequency, double toneSpacing, bool synchronize, bool fastMode, double dBSNR, double TRperiod,
+                                        TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
 {
   // Time according to this computer which becomes our base time
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
@@ -1616,9 +1635,23 @@ void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, d
   }
   m_state = (synchronize && m_silentFrames) ?
                 Synchronizing : Active;
+  m_txStartSnapshot.session_id = sessionId;
+  m_txStartSnapshot.generation = generation;
+  m_txStartSnapshot.mode = m_txMode;
+  m_txStartSnapshot.sample_rate_hz = int (audioSampleRate);
+  m_txStartSnapshot.committed_end_sample = bounded_source_frames ();
+  m_txStartSnapshot.target_known = m_txStartSnapshot.committed_end_sample >= 0;
+  m_txStartSnapshot.diagnostic = tr ("TCI source commitment; playout evidence is protocol-send dead reckoning, not DAC confirmation");
+  ++m_tciBackendStartSequence;
+  m_tciSuccessfullyWrittenFrames = 0;
+  m_tciStartMsecs = QDateTime::currentMSecsSinceEpoch ();
+  m_tciLastReportMsecs = m_tciStartMsecs;
+  m_tciFinalSnapshotEmitted = false;
   printf("%s TCI modulator startdelay_ms=%d ASR=%d mstr=%d mstr2=%d m_ic=%d s_Frames=%lld synchronize=%d m_tuning=%d State=%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),delay_ms,audioSampleRate,mstr,mstr2,m_ic,m_silentFrames,synchronize,m_tuning,m_state);
   if (m_txMode == "JTTY" && !m_jttyDrainTimer->isActive ()) m_jttyDrainTimer->start ();
   Q_EMIT tci_mod_active(m_state != Idle);
+  Q_EMIT txSourceCommitted (m_txStartSnapshot);
+  emit_tci_playout_snapshot (true, true);
 }
 
 void TCITransceiver::do_tune (bool newState)
@@ -1635,7 +1668,48 @@ void TCITransceiver::do_modulator_stop (bool quick)
     Q_EMIT tci_mod_active(m_state != Idle);
   }
   if (m_jttyDrainTimer->isActive ()) m_jttyDrainTimer->stop ();
+  emit_tci_playout_snapshot (false, true);
   tx_audio_ = false;
+}
+
+qint64 TCITransceiver::bounded_source_frames () const
+{
+  if (m_tuning || m_txMode == "JTTY" || m_txMode == "CW" || icw[0] > 0) return -1;
+
+  qint64 i1 = qint64 (m_symbolsLength * 4.0 * m_nsps);
+  if (m_bFastMode)
+    {
+      i1 = qint64 (m_TRperiod * 48000.0 - 24000.0);
+    }
+  return TxEvidence::boundedCommittedEndSample (m_silentFrames, m_ic, i1);
+}
+
+void TCITransceiver::emit_tci_playout_snapshot (bool start_event, bool force)
+{
+  qint64 const now = QDateTime::currentMSecsSinceEpoch ();
+  bool const final = m_state == Idle;
+  if (!start_event && !force && now - m_tciLastReportMsecs < 1000) return;
+  if (final && m_tciFinalSnapshotEmitted) return;
+
+  TxEvidence::TxRawPlayoutSnapshot snapshot;
+  snapshot.tier = TxEvidence::TxPlayoutTier::DeadReckoning;
+  snapshot.backend_start_sequence = m_tciBackendStartSequence;
+  snapshot.start_event = start_event;
+  snapshot.available = inConnected;
+  snapshot.state = final ? TxEvidence::TxBackendState::Idle : TxEvidence::TxBackendState::Active;
+  snapshot.elapsed_usecs = (now - m_tciStartMsecs) * 1000;
+  snapshot.successfully_written_frames = m_tciSuccessfullyWrittenFrames;
+  snapshot.sample_rate_hz = int (audioSampleRate);
+  snapshot.report_interval_ms = int (now - m_tciLastReportMsecs);
+  snapshot.diagnostic = tr ("TCI WebSocket send progress; no radio DAC or RF playback confirmation");
+  if (m_txMode == "JTTY")
+    {
+      snapshot.source_served_frames = m_jttyPcmFifo.servedReal ();
+      snapshot.source_total_frames = m_jttyPcmFifo.totalReal ();
+    }
+  Q_EMIT rawTxPlayoutSnapshot (snapshot);
+  m_tciLastReportMsecs = now;
+  if (final) m_tciFinalSnapshotEmitted = true;
 }
 
 quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, quint32 channels, qreal txAtten)

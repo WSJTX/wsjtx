@@ -40,6 +40,9 @@
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
+#include "Audio/TxIdentity.hpp"
+#include "Audio/TxPlaybackDiagnostics.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
 #include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
 #include "Radio.hpp"
@@ -665,8 +668,10 @@ private:
       double framesPerSymbol, double frequency, double toneSpacing,
       SoundOutput *, AudioDevice::Channel = AudioDevice::Mono,
       bool synchronize = true, bool fastMode = false, double dBSNR = 99.,
-                             int TRperiod=60) const;
-  Q_SIGNAL void startJttyStream (SoundOutput *, AudioDevice::Channel, qint64 sessionId);
+      int TRperiod = 60, TxEvidence::TxSessionId = {},
+      TxEvidence::TxGeneration = {}) const;
+  Q_SIGNAL void startJttyStream (SoundOutput *, AudioDevice::Channel, qint64 fifoSessionId,
+      TxEvidence::TxSessionId, TxEvidence::TxGeneration);
   Q_SIGNAL void endJttyStream () const;
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
@@ -674,6 +679,17 @@ private:
 
 private:
   void set_mode (QString const& mode);
+  void beginTxEvidenceSession ();
+  void beginTxEvidenceGeneration (qint64 committedEndSample = -1,
+                                  bool targetKnown = false);
+  void recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapshot);
+  void recordRawTxPlayout (TxEvidence::TxRawPlayoutSnapshot const& snapshot);
+  void noteTxStopReason (TxEvidence::TxStopReason reason);
+  void noteTxModeChange (QString const& mode);
+  int txStopTailMs (bool tciAudio) const;
+  void stopTxEvidence (int tailMs);
+  void captureJttyTxEvidenceTotals (qint64 servedSamples, qint64 totalSamples,
+                                    QString const& diagnostic);
   void astroUpdate ();
   void writeAllTxt(QString message);
   void auto_sequence (DecodedText const& message, unsigned start_tolerance, unsigned stop_tolerance);
@@ -1228,6 +1244,11 @@ private:
   bool m_transmitting;
   bool m_tune;
   bool m_tx_watchdog;           // true when watchdog triggered
+  TxEvidence::TxPlaybackDiagnostics m_txPlaybackDiagnostics;
+  TxEvidence::TxSessionId m_txEvidenceSession;
+  TxEvidence::TxSessionId m_txEvidenceSourceSession;
+  TxEvidence::TxGeneration m_txEvidenceGeneration;
+  TxEvidence::TxStopReason m_pendingTxStopReason {TxEvidence::TxStopReason::NormalEnd};
   bool m_jttyTxActive;
   bool m_jttyTxUsesTciAudio;
   qint64 m_jttyTxSessionId;

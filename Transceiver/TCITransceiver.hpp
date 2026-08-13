@@ -146,7 +146,8 @@ protected:
   void do_volume (qreal volume) override;
   void do_txvolume (qreal txvolume) override;
   void do_modulator_start(QString jtmode, unsigned symbolsLength, double framesPerSymbol, double frequency,
-                     double toneSpacing, bool synchronize = true, bool fastmode=false, double dBSNR = 99., double TRperiod=60.0) override;
+                     double toneSpacing, bool synchronize = true, bool fastmode=false, double dBSNR = 99., double TRperiod=60.0,
+                     TxEvidence::TxSessionId = {}, TxEvidence::TxGeneration = {}) override;
   void do_modulator_stop(bool quick = false) override;
   
   void rx2_enable (bool on);
@@ -296,6 +297,8 @@ private:
   quint16 readAudioData (float * data, qint32 maxSize, quint32 channels, qreal txVolume);
   quint16 readJttyAudioData (float * data, qint32 maxSize, quint32 channels, qreal txVolume);
   qint16 postProcessSample (qint16 sample) const;
+  qint64 bounded_source_frames () const;
+  void emit_tci_playout_snapshot (bool start_event, bool force);
   bool m_quickClose = false;
 
   unsigned m_symbolsLength;
@@ -322,6 +325,12 @@ private:
   JttyPcmFifo m_jttyPcmFifo;
   QTimer * m_jttyDrainTimer;
   qint64 m_jttyDrainGuard;
+  TxEvidence::TxStartSnapshot m_txStartSnapshot;
+  qint64 m_tciBackendStartSequence;
+  qint64 m_tciSuccessfullyWrittenFrames;
+  qint64 m_tciStartMsecs;
+  qint64 m_tciLastReportMsecs;
+  bool m_tciFinalSnapshotEmitted;
 
   bool m_tuning;
   bool m_addNoise;

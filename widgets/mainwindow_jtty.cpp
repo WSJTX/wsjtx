@@ -332,10 +332,27 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
 
 void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio)
 {
+  if (newSession) {
+    beginTxEvidenceSession ();
+  }
   m_currentMessage = message;
   qint64 const endSample = m_jttyQueuedSamples + sampleCount;
   recordAcceptedJttyTextRequest(requestId, endSample);
   m_jttyQueuedSamples = endSample;
+  if (m_txEvidenceGeneration.isValid () &&
+      m_txEvidenceSourceSession == m_txEvidenceSession) {
+    m_txPlaybackDiagnostics.commitTarget (m_txEvidenceSession,
+                                           m_txEvidenceGeneration,
+                                           m_jttyQueuedSamples - 1, false);
+    auto const sessionId = m_txEvidenceSession;
+    auto const generation = m_txEvidenceGeneration;
+    auto const totalSamples = m_jttyQueuedSamples;
+    QTimer::singleShot (0, this, [this, sessionId, generation, totalSamples] {
+      LOG_INFO (QString ("TX playout evidence JTTY target commit session=%1 generation=%2 total=%3\n%4")
+                .arg (sessionId.value ()).arg (generation.value ())
+                .arg (totalSamples).arg (m_txPlaybackDiagnostics.diagnosticDump ()));
+    });
+  }
   m_jttyTxActive = true;
   m_transmitting = true;
   Q_EMIT jttyTextAccepted(requestId);
@@ -434,6 +451,7 @@ void MainWindow::handleJttyContestSerial(QString const& message)
 
 void MainWindow::abort_jtty_tx()
 {
+   noteTxStopReason (TxEvidence::TxStopReason::UserHalt);
    interruptJttyTx();
 
 #ifdef WIN32
@@ -452,6 +470,14 @@ void MainWindow::interruptJttyTx()
   }
 
   qint64 const interruptedSessionId = m_jttyTxSessionId;
+  if (!m_jttyTxUsesTciAudio) {
+    captureJttyTxEvidenceTotals (m_jttyTxBuffer->servedReal (),
+                                 m_jttyTxBuffer->totalReal (),
+                                 QStringLiteral ("JTTY source totals captured before abort"));
+  } else {
+    captureJttyTxEvidenceTotals (-1, m_jttyQueuedSamples,
+                                 QStringLiteral ("TCI JTTY committed total captured before abort"));
+  }
   ++m_jttyTxSessionId;
   clearAcceptedJttyTextRequests(interruptedSessionId);
   rejectPendingJttyTciMessages(JttyTxRejectReason::Aborted);
@@ -473,6 +499,11 @@ void MainWindow::onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain)
   if (sessionId != m_jttyTxSessionId || totalAtDrain != m_jttyQueuedSamples) {
     return;
   }
+
+  qint64 const servedAtDrain = m_jttyTxUsesTciAudio
+    ? totalAtDrain : m_jttyTxBuffer->servedReal ();
+  captureJttyTxEvidenceTotals (servedAtDrain, totalAtDrain,
+                               QStringLiteral ("JTTY source totals captured at drain"));
 
   auto const completedRequestIds = takeCompletedJttyTextRequests(sessionId, totalAtDrain);
   resetJttyTxState();
@@ -546,6 +577,7 @@ void MainWindow::handleJttyTxWatchdog()
   }
 
   LOG_WARN("JTTY transmit completion watchdog expired");
+  noteTxStopReason (TxEvidence::TxStopReason::Watchdog);
   interruptJttyTx();
 #ifdef WIN32
   if (m_mmttyif) {
@@ -683,6 +715,7 @@ void MainWindow::handleMmttyStartTx()
 void MainWindow::handleMmttyStopTx()
 {
   if (m_mode != "JTTY") {
+    noteTxStopReason (TxEvidence::TxStopReason::UserHalt);
     stopTx();
     return;
   }

@@ -105,7 +105,7 @@ void TransceiverBase::set (TransceiverState const& s,
           }
           if (requested_.tx_audio() != s.tx_audio()) {
             if (s.tx_audio()) {
-              do_modulator_start(s.jtmode(), s.symbolslength (), s.framespersymbol (), s.trfrequency (), s.tonespacing (), s.synchronize (),s.fastmode(), s.dbsnr (), s.trperiod ());
+              do_modulator_start(s.jtmode(), s.symbolslength (), s.framespersymbol (), s.trfrequency (), s.tonespacing (), s.synchronize (),s.fastmode(), s.dbsnr (), s.trperiod (), s.tx_session_id (), s.tx_generation ());
               requested_.symbolslength(s.symbolslength ());
               requested_.framespersymbol(s.framespersymbol ());
               requested_.trfrequency(s.trfrequency ());
@@ -113,6 +113,8 @@ void TransceiverBase::set (TransceiverState const& s,
               requested_.synchronize(s.synchronize ());
               requested_.dbsnr(s.dbsnr ());
               requested_.trperiod(s.trperiod ());
+              requested_.tx_session_id (s.tx_session_id ());
+              requested_.tx_generation (s.tx_generation ());
             } else {
               do_modulator_stop(s.quick ());
               requested_.quick (s.quick ());

@@ -25,6 +25,65 @@ extern float gran();		// Noise generator (for tests only)
 
 double constexpr Modulator::m_twoPi;
 
+namespace
+{
+  TxEvidence::TxStartSnapshot txStartSnapshot (TxEvidence::TxSessionId sessionId,
+                                                TxEvidence::TxGeneration generation,
+                                                QString const& mode, int sampleRateHz,
+                                                qint64 silentFrames, unsigned initialSample,
+                                                bool tuning, bool fastMode,
+                                                unsigned symbolsLength,
+                                                double framesPerSymbol,
+                                                double trPeriod)
+  {
+    TxEvidence::TxStartSnapshot snapshot;
+    snapshot.session_id = sessionId;
+    snapshot.generation = generation;
+    snapshot.mode = mode;
+    snapshot.sample_rate_hz = sampleRateHz;
+    if (mode == QStringLiteral ("JTTY"))
+      {
+        snapshot.diagnostic = QStringLiteral ("JTTY source commits its own target.");
+        return snapshot;
+      }
+    if (tuning)
+      {
+        snapshot.diagnostic = QStringLiteral ("Tune transmission has no bounded target.");
+        return snapshot;
+      }
+    if (icw[0] > 0)
+      {
+        snapshot.diagnostic = QStringLiteral ("CW ID can extend the generated target.");
+        return snapshot;
+      }
+    if (symbolsLength == 0 || framesPerSymbol <= 0.0)
+      {
+        snapshot.diagnostic = QStringLiteral ("Generated target inputs are invalid.");
+        return snapshot;
+      }
+
+    double const end = fastMode ? trPeriod * 48000.0 - 24000.0
+                                : symbolsLength * 4.0 * framesPerSymbol;
+    if (end < 0.0 || end > std::numeric_limits<unsigned>::max ())
+      {
+        snapshot.diagnostic = QStringLiteral ("Generated target end is invalid.");
+        return snapshot;
+      }
+    unsigned const i1 {static_cast<unsigned> (end)};
+    if (initialSample > i1)
+      {
+        snapshot.diagnostic = QStringLiteral ("Late start skipped the generated target.");
+        return snapshot;
+      }
+
+    snapshot.target_known = true;
+    snapshot.committed_end_sample = TxEvidence::boundedCommittedEndSample (
+      silentFrames, initialSample, i1);
+    snapshot.diagnostic = QStringLiteral ("Generated target committed.");
+    return snapshot;
+  }
+}
+
 //    float wpm=20.0;
 //    unsigned m_nspd=1.2*48000.0/wpm;
 //    m_nspd=3072;                           //18.75 WPM
@@ -49,7 +108,8 @@ Modulator::Modulator (unsigned frameRate, double periodLengthInSeconds,
 void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSymbol,
                        double frequency, double toneSpacing,
                        SoundOutput * stream, Channel channel,
-                       bool synchronize, bool fastMode, double dBSNR, double TRperiod)
+                       bool synchronize, bool fastMode, double dBSNR, double TRperiod,
+                       TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
 {
 //  qDebug () << mode << symbolsLength << framesPerSymbol << frequency << toneSpacing
 //            << channel << synchronize << fastMode << dBSNR << TRperiod;
@@ -110,7 +170,6 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   initialize (QIODevice::ReadOnly, channel);
   Q_EMIT stateChanged ((m_state = (synchronize && m_silentFrames) ?
                         Synchronizing : Active));
-
 //  qDebug() << "delay_ms:" << delay_ms << "mstr:" << mstr << "m_silentFrames:"
 //           << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state << synchronize;
 
@@ -123,6 +182,9 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
     {
       qDebug () << "Modulator::start: no audio output stream assigned";
     }
+  Q_EMIT txSourceCommitted (txStartSnapshot (sessionId, generation, m_mode, m_frameRate,
+                                             m_silentFrames, m_ic, m_tuning, m_bFastMode,
+                                             m_symbolsLength, m_nsps, m_TRperiod));
 }
 
 void Modulator::tune (bool newState)

@@ -744,11 +744,19 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::transmitFrequency, m_modulator, &Modulator::setFrequency);
   connect (this, &MainWindow::endTransmitMessage, m_modulator, &Modulator::stop);
   connect (this, &MainWindow::tune, m_modulator, &Modulator::tune);
-  connect (this, &MainWindow::sendMessage, m_modulator, &Modulator::start);
+  connect (this, &MainWindow::sendMessage, m_modulator, &Modulator::start,
+           Qt::QueuedConnection);
+  connect (m_modulator, &Modulator::txSourceCommitted,
+           this, &MainWindow::recordTxSourceCommit, Qt::QueuedConnection);
+  connect (m_soundOutput, &SoundOutput::rawTxPlayoutSnapshot,
+           this, &MainWindow::recordRawTxPlayout, Qt::QueuedConnection);
   connect (&m_audioThread, &QThread::finished, m_modulator, &QObject::deleteLater);
 
   // hook up the JTTY async transmit stream slots and disposal
-  connect (this, &MainWindow::startJttyStream, m_jttyTxStream, &JttyTxStream::start);
+  connect (this, &MainWindow::startJttyStream, m_jttyTxStream, &JttyTxStream::start,
+           Qt::QueuedConnection);
+  connect (m_jttyTxStream, &JttyTxStream::txSourceCommitted,
+           this, &MainWindow::recordTxSourceCommit, Qt::QueuedConnection);
   connect (this, &MainWindow::endJttyStream, m_jttyTxStream, &JttyTxStream::stop);
   connect (m_jttyTxStream, &JttyTxStream::drained, this, &MainWindow::onJttyBackendDrained);
   connect (&m_audioThread, &QThread::finished, m_jttyTxStream, &QObject::deleteLater);
@@ -1154,6 +1162,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
   connect (&m_config, &Configuration::transceiver_TCIframesWritten, this, live_data_sink);
   connect (&m_config, &Configuration::transceiver_TCImodActive, this, &MainWindow::tci_mod_active);
+  connect (&m_config, &Configuration::txSourceCommitted,
+           this, &MainWindow::recordTxSourceCommit, Qt::QueuedConnection);
+  connect (&m_config, &Configuration::rawTxPlayoutSnapshot,
+           this, &MainWindow::recordRawTxPlayout, Qt::QueuedConnection);
   connect (&m_config, &Configuration::transceiver_jtty_drained, this, &MainWindow::onJttyBackendDrained);
   connect (&m_config, &Configuration::transceiver_jtty_enqueue_accepted, this, &MainWindow::onJttyBackendEnqueueAccepted);
   connect (&m_config, &Configuration::transceiver_jtty_enqueue_failed, this, &MainWindow::onJttyBackendEnqueueFailed);
@@ -6441,6 +6453,10 @@ void MainWindow::guiUpdate()
       }
     }
     if (g_iptt == 1 && m_iptt0 == 0) {
+      if (m_mode != "JTTY")
+        {
+          beginTxEvidenceSession ();
+        }
       m_config.transceiver_ptt (true);
       m_tx_when_ready = true;
     }
@@ -6939,11 +6955,144 @@ void MainWindow::startTx2()
   }
 }
 
+void MainWindow::beginTxEvidenceSession ()
+{
+  m_txEvidenceSession = TxEvidence::TxPlaybackDiagnostics::allocateSessionId ();
+  m_pendingTxStopReason = TxEvidence::TxStopReason::NormalEnd;
+}
+
+void MainWindow::beginTxEvidenceGeneration (qint64 committedEndSample, bool targetKnown)
+{
+  if (!m_txEvidenceSession.isValid ())
+    {
+      beginTxEvidenceSession ();
+    }
+  if (m_txEvidenceSourceSession == m_txEvidenceSession &&
+      m_txEvidenceGeneration.isValid ())
+    {
+      m_txPlaybackDiagnostics.stop (m_txEvidenceSourceSession,
+                                    m_txEvidenceGeneration,
+                                    TxEvidence::TxStopReason::NormalEnd, 0);
+    }
+  m_txEvidenceSourceSession = m_txEvidenceSession;
+  m_txEvidenceGeneration = TxEvidence::TxPlaybackDiagnostics::allocateGeneration ();
+  TxEvidence::TxStartSnapshot snapshot;
+  snapshot.session_id = m_txEvidenceSourceSession;
+  snapshot.generation = m_txEvidenceGeneration;
+  snapshot.mode = m_mode;
+  snapshot.sample_rate_hz = TX_SAMPLE_RATE;
+  snapshot.committed_end_sample = committedEndSample;
+  snapshot.target_known = targetKnown;
+  snapshot.diagnostic = QStringLiteral ("awaiting backend source commit");
+  m_txPlaybackDiagnostics.commitStart (snapshot);
+  auto const sessionId = m_txEvidenceSourceSession;
+  auto const generation = m_txEvidenceGeneration;
+  auto const mode = m_mode;
+  QTimer::singleShot (0, this, [this, sessionId, generation, mode] {
+    LOG_INFO (QString ("TX playout evidence begin session=%1 generation=%2 mode=%3\n%4")
+              .arg (sessionId.value ()).arg (generation.value ()).arg (mode)
+              .arg (m_txPlaybackDiagnostics.diagnosticDump ()));
+  });
+}
+
+void MainWindow::recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapshot)
+{
+  if (!snapshot.session_id.isValid () || !snapshot.generation.isValid ()) return;
+  if (!m_txPlaybackDiagnostics.commitStart (snapshot))
+    {
+      m_txPlaybackDiagnostics.commitTarget (snapshot.session_id, snapshot.generation,
+                                             snapshot.committed_end_sample,
+                                             snapshot.target_known,
+                                             snapshot.diagnostic);
+    }
+  LOG_INFO (QString ("TX playout evidence source commit session=%1 generation=%2\n%3")
+            .arg (snapshot.session_id.value ()).arg (snapshot.generation.value ())
+            .arg (m_txPlaybackDiagnostics.diagnosticDump ()));
+}
+
+void MainWindow::recordRawTxPlayout (TxEvidence::TxRawPlayoutSnapshot const& snapshot)
+{
+  if (m_txEvidenceSourceSession.isValid () && m_txEvidenceGeneration.isValid ())
+    {
+      m_txPlaybackDiagnostics.observe (m_txEvidenceSourceSession,
+                                       m_txEvidenceGeneration, snapshot);
+    }
+}
+
+void MainWindow::noteTxStopReason (TxEvidence::TxStopReason reason)
+{
+  if (m_pendingTxStopReason == TxEvidence::TxStopReason::NormalEnd &&
+      reason != TxEvidence::TxStopReason::NormalEnd)
+    {
+      m_pendingTxStopReason = reason;
+    }
+}
+
+void MainWindow::noteTxModeChange (QString const& mode)
+{
+  if (mode != m_mode && (m_transmitting || g_iptt == 1 || m_jttyTxActive))
+    {
+      noteTxStopReason (TxEvidence::TxStopReason::ModeChange);
+    }
+}
+
+int MainWindow::txStopTailMs (bool tciAudio) const
+{
+  return TxEvidence::TxPlaybackDiagnostics::decisionFor (
+    m_pendingTxStopReason, tciAudio || m_mode == "JTTY").tail_ms;
+}
+
+void MainWindow::stopTxEvidence (int tailMs)
+{
+  if (!m_txEvidenceSession.isValid ()) return;
+  if (!m_txEvidenceGeneration.isValid () ||
+      m_txEvidenceSourceSession != m_txEvidenceSession)
+    {
+      beginTxEvidenceGeneration ();
+    }
+  m_txPlaybackDiagnostics.stop (m_txEvidenceSession, m_txEvidenceGeneration,
+                                m_pendingTxStopReason, tailMs);
+  auto const sessionId = m_txEvidenceSession;
+  auto const generation = m_txEvidenceGeneration;
+  QTimer::singleShot (tailMs + 1, this, [this, sessionId, generation] {
+    LOG_INFO (QString ("TX playout evidence stop session=%1 generation=%2\n%3")
+              .arg (sessionId.value ()).arg (generation.value ())
+              .arg (m_txPlaybackDiagnostics.diagnosticDump ()));
+  });
+  m_txEvidenceSession = TxEvidence::TxSessionId::invalid ();
+}
+
+void MainWindow::captureJttyTxEvidenceTotals (qint64 servedSamples,
+                                               qint64 totalSamples,
+                                               QString const& diagnostic)
+{
+  if (!m_txEvidenceSourceSession.isValid () || !m_txEvidenceGeneration.isValid ()) return;
+  if (servedSamples >= 0)
+    {
+      m_txPlaybackDiagnostics.observeSourceProgress (m_txEvidenceSourceSession,
+                                                      m_txEvidenceGeneration,
+                                                      servedSamples, totalSamples,
+                                                      diagnostic);
+    }
+  m_txPlaybackDiagnostics.commitTarget (m_txEvidenceSourceSession,
+                                         m_txEvidenceGeneration,
+                                         totalSamples > 0 ? totalSamples - 1 : -1,
+                                         totalSamples > 0,
+                                         servedSamples < 0 ? diagnostic : QString ());
+}
+
 void MainWindow::stopTx()
 {
   bool const tciAudio = (m_mode == "JTTY" && m_transmitting)
       ? m_jttyTxUsesTciAudio
       : m_tci_audio;
+  int const stopTxDelayMs = txStopTailMs (tciAudio);
+  if (m_mode == "JTTY" && m_jttyTxActive && !tciAudio)
+    {
+      captureJttyTxEvidenceTotals (m_jttyTxBuffer->servedReal (),
+                                   m_jttyTxBuffer->totalReal (),
+                                   QStringLiteral ("JTTY source totals captured before stop"));
+    }
   if (m_mode == "JTTY" && m_jttyTxActive) {
     interruptJttyTx();
   }
@@ -6960,13 +7109,13 @@ void MainWindow::stopTx()
     tx_status_label.setText("");
   }
   if (tciAudio) {
-    ptt0Timer.start(0);
+    ptt0Timer.start(stopTxDelayMs);
   } else {
-    int const stopTxDelayMs = m_mode == "JTTY" ? 0 : 200;
     ptt0Timer.start(stopTxDelayMs);
     monitor (true);
     statusUpdate ();
   }
+  stopTxEvidence (stopTxDelayMs);
 }
 
 void MainWindow::stopTx2()
@@ -9085,6 +9234,7 @@ void MainWindow::setDecodeHeadings(QString const& lh, QString const& rh)
 
 void MainWindow::on_actionFST4_triggered()
 {
+  noteTxModeChange (QStringLiteral ("FST4"));
   QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
@@ -9137,6 +9287,7 @@ void MainWindow::on_actionFST4_triggered()
 
 void MainWindow::on_actionFST4W_triggered()
 {
+  noteTxModeChange (QStringLiteral ("FST4W"));
   m_mode="FST4W";
   if(m_specOp==SpecOp::HOUND) {
     m_config.setSpecial_None();
@@ -9171,6 +9322,7 @@ void MainWindow::on_actionFST4W_triggered()
 
 void MainWindow::on_actionFT4_triggered()
 {
+  noteTxModeChange (QStringLiteral ("FT4"));
   if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT4_triggered();});
   QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
@@ -9219,6 +9371,7 @@ void MainWindow::on_actionFT4_triggered()
 
 void MainWindow::on_actionFT8_triggered()
 {
+  noteTxModeChange (QStringLiteral ("FT8"));
   if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT8_triggered();});
   QTimer::singleShot (50, this, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
@@ -9378,6 +9531,7 @@ void MainWindow::on_actionFT8_triggered()
 
 void MainWindow::on_actionJT4_triggered()
 {
+  noteTxModeChange (QStringLiteral ("JT4"));
   QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
@@ -9434,6 +9588,7 @@ void MainWindow::on_actionJT4_triggered()
 
 void MainWindow::on_actionJT9_triggered()
 {
+  noteTxModeChange (QStringLiteral ("JT9"));
   m_mode="JT9";
   if(m_specOp==SpecOp::HOUND) {
     m_config.setSpecial_None();
@@ -9511,6 +9666,7 @@ void MainWindow::on_actionJT9_triggered()
 
 void MainWindow::on_actionJT65_triggered()
 {
+  noteTxModeChange (QStringLiteral ("JT65"));
   if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionJT65_triggered();});
   QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
@@ -9578,6 +9734,7 @@ void MainWindow::on_actionJT65_triggered()
 
 void MainWindow::on_actionQ65_triggered()
 {
+  noteTxModeChange (QStringLiteral ("Q65"));
   if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionQ65_triggered();});
   QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
@@ -9649,6 +9806,7 @@ void MainWindow::on_actionQ65_triggered()
 
 void MainWindow::on_actionJTTY_triggered()
 {
+  noteTxModeChange (QStringLiteral ("JTTY"));
   on_stopButton_clicked();
   m_mode = "JTTY";
   ui->actionJTTY->setChecked(true);
@@ -9710,6 +9868,7 @@ void MainWindow::on_actionMSK144_triggered()
        "MSK144 not available if Fox, Hound, Field Day, FT Roundup, WW Digi. or ARRL Digi contest is selected.");
     return;
   }
+  noteTxModeChange (QStringLiteral ("MSK144"));
   m_mode="MSK144";
   if(m_specOp==SpecOp::HOUND) {
     m_config.setSpecial_None();
@@ -9779,6 +9938,7 @@ void MainWindow::on_actionMSK144_triggered()
 
 void MainWindow::on_actionWSPR_triggered()
 {
+  noteTxModeChange (QStringLiteral ("WSPR"));
   m_mode="WSPR";
   if(m_specOp==SpecOp::HOUND) {
     m_config.setSpecial_None();
@@ -9814,6 +9974,7 @@ void MainWindow::on_actionWSPR_triggered()
 
 void MainWindow::on_actionEcho_triggered()
 {
+  noteTxModeChange (QStringLiteral ("Echo"));
   int nd=int(m_ndepth&3);
   on_actionJT4_triggered();
   // Don't allow decoding depth to be changed just because Echo mode was entered:
@@ -9868,6 +10029,7 @@ void MainWindow::on_actionEcho_triggered()
 
 void MainWindow::on_actionFreqCal_triggered()
 {
+  noteTxModeChange (QStringLiteral ("FreqCal"));
   on_actionJT9_triggered();
   m_mode="FreqCal";
   if(m_specOp==SpecOp::HOUND) {
@@ -10453,6 +10615,7 @@ void MainWindow::stop_tuning ()
 
 void MainWindow::stopTuneATU()
 {
+  noteTxStopReason (TxEvidence::TxStopReason::Watchdog);
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   on_tuneButton_clicked(false);
   m_bTxTime=false;
@@ -10676,6 +10839,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 
 void MainWindow::handle_transceiver_failure (QString const& reason)
 {
+  noteTxStopReason (TxEvidence::TxStopReason::Error);
   update_dynamic_property (ui->readFreq, "state", "error");
   ui->readFreq->setEnabled (true);
   // tune carrier isn't gated by m_btxok, so stop it explicitly; messages self-stop via guiUpdate
@@ -10738,6 +10902,11 @@ void MainWindow::rigFailure (QString const& reason)
 
 void MainWindow::transmit (double snr)
 {
+  beginTxEvidenceGeneration (m_mode == "JTTY" && m_jttyQueuedSamples > 0
+                               ? m_jttyQueuedSamples - 1 : -1,
+                             false);
+  auto const txSessionId = m_txEvidenceSourceSession;
+  auto const txGeneration = m_txEvidenceGeneration;
   double toneSpacing=0.0;
   if (m_mode == "JT65") {
     if(m_nSubMode==0) toneSpacing=11025.0/4096.0;
@@ -10746,12 +10915,12 @@ void MainWindow::transmit (double snr)
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_JT65_SYMBOLS,
              4096.0*12000.0/11025.0, ui->TxFreqSpinBox->value () - m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod);
+             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode, NUM_JT65_SYMBOLS,
              4096.0*12000.0/11025.0, ui->TxFreqSpinBox->value () - m_XIT,
              toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-             true, false, snr, m_TRperiod);
+             true, false, snr, m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10770,23 +10939,23 @@ void MainWindow::transmit (double snr)
       if (m_tci_audio) {
         Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_SUPERFOX_SYMBOLS,
             1024.0,ui->TxFreqSpinBox->value()-m_XIT,
-            toneSpacing,true,false,snr,m_TRperiod);
+            toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
       } else {
         Q_EMIT sendMessage (m_mode, NUM_SUPERFOX_SYMBOLS,
             1024.0, ui->TxFreqSpinBox->value () - m_XIT,
             toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-            true, false, snr, m_TRperiod);
+            true, false, snr, m_TRperiod,txSessionId,txGeneration);
       }
     } else {
         if (m_tci_audio) {
           Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_FT8_SYMBOLS,
               1920.0,ui->TxFreqSpinBox->value()-m_XIT,
-              toneSpacing,true,false,snr,m_TRperiod);
+              toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
         } else {
           Q_EMIT sendMessage (m_mode, NUM_FT8_SYMBOLS,
               1920.0, ui->TxFreqSpinBox->value () - m_XIT,
               toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-              true, false, snr, m_TRperiod);
+              true, false, snr, m_TRperiod,txSessionId,txGeneration);
         }
     }
   }
@@ -10797,12 +10966,12 @@ void MainWindow::transmit (double snr)
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_FT4_SYMBOLS,
              576.0,ui->TxFreqSpinBox->value()-m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod);
+             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode, NUM_FT4_SYMBOLS,
              576.0, ui->TxFreqSpinBox->value() - m_XIT,
              toneSpacing, m_soundOutput, m_config.audio_output_channel(),
-             true, false, snr, m_TRperiod);
+             true, false, snr, m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10812,14 +10981,15 @@ void MainWindow::transmit (double snr)
     double txt=m_nsym_jtty*384.0/12000.0;
     if (m_jttyTxUsesTciAudio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
-             384.0,1500.0,toneSpacing,false,false,snr,txt);
+             384.0,1500.0,toneSpacing,false,false,snr,txt,txSessionId,txGeneration);
     } else if (m_tune) {
       // Special case to activate Tune in JTTY mode.
       Q_EMIT sendMessage (m_mode, m_nsym_jtty, 384.0, 1500.0, toneSpacing,
              m_soundOutput, m_config.audio_output_channel (),
-             false, false, snr, txt);
+             false, false, snr, txt,txSessionId,txGeneration);
     } else {
-      Q_EMIT startJttyStream (m_soundOutput, m_config.audio_output_channel(), m_jttyTxSessionId);
+      Q_EMIT startJttyStream (m_soundOutput, m_config.audio_output_channel(),
+                              m_jttyTxSessionId, txSessionId, txGeneration);
     }
   }
 
@@ -10842,11 +11012,11 @@ void MainWindow::transmit (double snr)
     if(!m_tune) f0 += 1.5*dfreq;
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_FST4_SYMBOLS,double(nsps),f0,toneSpacing,
-             true,false,snr,m_TRperiod);
+             true,false,snr,m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode, NUM_FST4_SYMBOLS,double(nsps),f0,toneSpacing,
                           m_soundOutput,m_config.audio_output_channel(),
-                          true, false, snr, m_TRperiod);
+                          true, false, snr, m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10862,12 +11032,12 @@ void MainWindow::transmit (double snr)
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_Q65_SYMBOLS,
              double(nsps),ui->TxFreqSpinBox->value()-m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod);
+             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode, NUM_Q65_SYMBOLS,
              double(nsps), ui->TxFreqSpinBox->value () - m_XIT,
              toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-             true, false, snr, m_TRperiod);
+             true, false, snr, m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10887,12 +11057,12 @@ void MainWindow::transmit (double snr)
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_JT9_SYMBOLS,sps,
              ui->TxFreqSpinBox->value()-m_XIT,
-             m_toneSpacing,true,fastmode,snr,m_TRperiod);
+             m_toneSpacing,true,fastmode,snr,m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode, NUM_JT9_SYMBOLS, sps,
                           ui->TxFreqSpinBox->value() - m_XIT, m_toneSpacing,
                           m_soundOutput, m_config.audio_output_channel (),
-                          true, fastmode, snr, m_TRperiod);
+                          true, fastmode, snr, m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10912,11 +11082,11 @@ void MainWindow::transmit (double snr)
     if(itone[40] < 0) nsym=40;
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, nsym,double(m_nsps),f0, m_toneSpacing,
-             true,true,snr,m_TRperiod);
+             true,true,snr,m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode, nsym, double(m_nsps), f0, m_toneSpacing,
                           m_soundOutput, m_config.audio_output_channel (),
-                          true, true, snr, m_TRperiod);
+                          true, true, snr, m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10931,12 +11101,12 @@ void MainWindow::transmit (double snr)
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_JT4_SYMBOLS,
              2520.0*12000.0/11025.0,ui->TxFreqSpinBox->value()-m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod);
+             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
      } else {
       Q_EMIT sendMessage (m_mode, NUM_JT4_SYMBOLS,
              2520.0*12000.0/11025.0, ui->TxFreqSpinBox->value () - m_XIT,
              toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-             true, false, snr, m_TRperiod);
+             true, false, snr, m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10948,13 +11118,13 @@ void MainWindow::transmit (double snr)
       Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_WSPR_SYMBOLS,8192.0,
              ui->TxFreqSpinBox->value() - 1.5 * 12000 / 8192,
              m_toneSpacing*nToneSpacing,true,false,snr,
-             m_TRperiod);
+             m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode, NUM_WSPR_SYMBOLS, 8192.0,
                           ui->TxFreqSpinBox->value() - 1.5 * 12000 / 8192,
                           m_toneSpacing*nToneSpacing, m_soundOutput,
                           m_config.audio_output_channel(),true, false, snr,
-                          m_TRperiod);
+                          m_TRperiod,txSessionId,txGeneration);
     }
   }
 
@@ -10995,10 +11165,11 @@ void MainWindow::transmit (double snr)
     m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,
-             false,false,snr,m_TRperiod);
+             false,false,snr,m_TRperiod,txSessionId,txGeneration);
     } else {
       Q_EMIT sendMessage (m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,m_soundOutput,
-                          m_config.audio_output_channel(), false, false, snr, m_TRperiod);
+                          m_config.audio_output_channel(), false, false, snr, m_TRperiod,
+                          txSessionId, txGeneration);
     }
   }
 
@@ -12133,6 +12304,7 @@ void MainWindow::tx_watchdog (bool triggered)
   m_tx_watchdog = triggered;
   if (triggered)
     {
+      noteTxStopReason (TxEvidence::TxStopReason::Watchdog);
       m_bTxTime=false;
       if (m_tune) stop_tuning ();
       if (m_auto) auto_tx_mode (false);

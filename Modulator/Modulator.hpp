@@ -5,6 +5,7 @@
 #include <QPointer>
 
 #include "Audio/AudioDevice.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
 
 class SoundOutput;
 
@@ -38,11 +39,14 @@ public:
   Q_SLOT void start (QString mode, unsigned symbolsLength, double framesPerSymbol, double frequency,
                      double toneSpacing, SoundOutput *, Channel = Mono,
                      bool synchronize = true, bool fastMode = false,
-                     double dBSNR = 99., double TRperiod=60.0);
+                     double dBSNR = 99., double TRperiod=60.0,
+                     TxEvidence::TxSessionId sessionId = TxEvidence::TxSessionId {},
+                     TxEvidence::TxGeneration generation = TxEvidence::TxGeneration {});
   Q_SLOT void stop (bool quick = false);
   Q_SLOT void tune (bool newState = true);
   Q_SLOT void setFrequency (double newFrequency) {m_frequency = newFrequency;}
   Q_SIGNAL void stateChanged (ModulatorState) const;
+  Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot snapshot) const;
 
 protected:
   qint64 readData (char * data, qint64 maxSize) override;

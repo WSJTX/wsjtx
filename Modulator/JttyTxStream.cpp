@@ -14,6 +14,21 @@ namespace
   constexpr qint64 DRAIN_GUARD_MARGIN  = 4800;   // 100 ms safety margin
 }
 
+TxEvidence::TxStartSnapshot makeJttyTxStartSnapshot (TxEvidence::TxSessionId sessionId,
+                                                      TxEvidence::TxGeneration generation,
+                                                      qint64 committedEndSample)
+{
+  TxEvidence::TxStartSnapshot snapshot;
+  snapshot.session_id = sessionId;
+  snapshot.generation = generation;
+  snapshot.mode = "JTTY";
+  snapshot.sample_rate_hz = 48000;
+  snapshot.committed_end_sample = committedEndSample;
+  snapshot.target_known = false;
+  snapshot.diagnostic = "JTTY PCM extent may grow while messages are queued";
+  return snapshot;
+}
+
 JttyTxStream::JttyTxStream (JttyTxBuffer& buffer, QObject * parent)
   : AudioDevice {parent}
   , m_buffer {buffer}
@@ -25,14 +40,17 @@ JttyTxStream::JttyTxStream (JttyTxBuffer& buffer, QObject * parent)
   connect (m_drainTimer, &QTimer::timeout, this, &JttyTxStream::pollDrain);
 }
 
-void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel, qint64 sessionId)
+void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel,
+                          qint64 fifoSessionId, TxEvidence::TxSessionId sessionId,
+                          TxEvidence::TxGeneration generation)
 {
   if (m_active) return;
   if (!m_buffer.queuedReal () && m_buffer.servedReal () == m_buffer.totalReal ())
     {
-      m_buffer.clear (sessionId);
+      m_buffer.clear (fifoSessionId);
     }
   m_buffer.applyPendingReset ();
+  qint64 const totalReal = m_buffer.totalReal ();
   initialize (QIODevice::ReadOnly, channel);
   m_active = true;
   m_stream = stream;
@@ -49,6 +67,8 @@ void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel, qi
                            std::memory_order_release);
     }
   if (!m_drainTimer->isActive ()) m_drainTimer->start ();
+  Q_EMIT txSourceCommitted (makeJttyTxStartSnapshot (sessionId, generation,
+                                                      totalReal > 0 ? totalReal - 1 : -1));
 }
 
 void JttyTxStream::stop ()

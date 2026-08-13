@@ -4,6 +4,8 @@
 #include <QVector>
 
 #include "Audio/AudioDevice.hpp"
+#include "Audio/TxIdentity.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
 #include "Modulator/JttyPcmFifo.hpp"
 #include "Modulator/JttyTxBuffer.hpp"
 #include "Modulator/JttyTxStream.hpp"
@@ -33,6 +35,8 @@ private slots:
   void readDoesNotEmitDrainedDirectly ();
   void timerEmitsDrainedEdge ();
   void drainedEmittedFromWorkerThread ();
+  void sourceCommitUsesCurrentRealExtent ();
+  void sourceCommitIsEmittedOncePerStart ();
 };
 
 namespace
@@ -285,7 +289,8 @@ void TestJttyTxStream::timerEmitsDrainedEdge ()
   QSignalSpy spy (&s, &JttyTxStream::drained);
 
   QVERIFY (buffer.enqueueMessage (QVector<qint16> {7, 7, 7}, 41));
-  s.start (nullptr, AudioDevice::Mono, 41);
+  s.start (nullptr, AudioDevice::Mono, 41, TxEvidence::TxSessionId {41},
+           TxEvidence::TxGeneration {1});
 
   // Serve the 3 real samples plus exactly the guard worth of trailing silence.
   (void) readFrames (s, 3 + DEFAULT_GUARD);
@@ -339,7 +344,8 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   // Queue before starting the worker so thread creation establishes the
   // cross-thread handoff.
   QMetaObject::invokeMethod (&s, [&s] {
-    s.start (nullptr, AudioDevice::Mono, 51);
+    s.start (nullptr, AudioDevice::Mono, 51, TxEvidence::TxSessionId {51},
+             TxEvidence::TxGeneration {1});
     QByteArray buf ((3 + DEFAULT_GUARD) * 2, '\0');
     s.read (buf.data (), buf.size ());
   }, Qt::QueuedConnection);
@@ -359,6 +365,63 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   }, Qt::BlockingQueuedConnection);
   worker.quit ();
   QVERIFY (worker.wait (2000));
+}
+
+void TestJttyTxStream::sourceCommitUsesCurrentRealExtent ()
+{
+  auto const snapshot = makeJttyTxStartSnapshot (TxEvidence::TxSessionId {61},
+                                                  TxEvidence::TxGeneration {7}, 3);
+  QCOMPARE (snapshot.session_id.value (), qint64 (61));
+  QCOMPARE (snapshot.generation.value (), qint64 (7));
+  QCOMPARE (snapshot.mode, QString {"JTTY"});
+  QCOMPARE (snapshot.sample_rate_hz, 48000);
+  QCOMPARE (snapshot.committed_end_sample, qint64 (3));
+  QVERIFY (!snapshot.target_known);
+  QVERIFY (!snapshot.diagnostic.isEmpty ());
+
+  JttyTxBuffer buffer;
+  JttyTxStream stream {buffer};
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {1, 2, 3}, 61));
+  TxEvidence::TxStartSnapshot committed;
+  int commitCount {0};
+  connect (&stream, &JttyTxStream::txSourceCommitted, &stream,
+           [&committed, &commitCount] (TxEvidence::TxStartSnapshot snapshot) {
+             committed = snapshot;
+             ++commitCount;
+           });
+
+  stream.start (nullptr, AudioDevice::Mono, 61, TxEvidence::TxSessionId {61},
+                TxEvidence::TxGeneration {7});
+  QCOMPARE (commitCount, 1);
+  QCOMPARE (committed.committed_end_sample, qint64 (2));
+  (void) readFrames (stream, 3 + DEFAULT_GUARD);
+  QCOMPARE (buffer.servedReal (), qint64 (3));
+  stream.stop ();
+}
+
+void TestJttyTxStream::sourceCommitIsEmittedOncePerStart ()
+{
+  JttyTxBuffer buffer;
+  JttyTxStream stream {buffer};
+  QVector<TxEvidence::TxStartSnapshot> commits;
+  connect (&stream, &JttyTxStream::txSourceCommitted, &stream,
+           [&commits] (TxEvidence::TxStartSnapshot snapshot) {commits.append (snapshot);});
+
+  stream.start (nullptr, AudioDevice::Mono, 71, TxEvidence::TxSessionId {71},
+                TxEvidence::TxGeneration {1});
+  stream.start (nullptr, AudioDevice::Mono, 71, TxEvidence::TxSessionId {71},
+                TxEvidence::TxGeneration {1});
+  QCOMPARE (commits.size (), 1);
+  QCOMPARE (commits.at (0).committed_end_sample, qint64 (-1));
+  stream.stop ();
+
+  stream.start (nullptr, AudioDevice::Mono, 72, TxEvidence::TxSessionId {72},
+                TxEvidence::TxGeneration {2});
+  QCOMPARE (commits.size (), 2);
+  QCOMPARE (commits.at (0).session_id.value (), qint64 (71));
+  QCOMPARE (commits.at (1).session_id.value (), qint64 (72));
+  QCOMPARE (commits.at (1).generation.value (), qint64 (2));
+  stream.stop ();
 }
 
 QTEST_MAIN (TestJttyTxStream)

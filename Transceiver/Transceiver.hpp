@@ -11,8 +11,16 @@
 
 #include "qt_helpers.hpp"
 #include "Radio.hpp"
+#include "Audio/TxIdentity.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
 
 class QString;
+
+// Qt 5 moc generates unqualified argument names for these value types.
+using TxSessionId = TxEvidence::TxSessionId;
+using TxGeneration = TxEvidence::TxGeneration;
+using TxStartSnapshot = TxEvidence::TxStartSnapshot;
+using TxRawPlayoutSnapshot = TxEvidence::TxRawPlayoutSnapshot;
 
 //
 // Abstract Transceiver Interface
@@ -109,6 +117,8 @@ public:
       , swr_ {0}
       , jtmode_ {"FT8"}  //w3sz tci
       , fastmode_ {false}  //w3sz tci
+      , tx_session_id_ {}
+      , tx_generation_ {}
     {
     }
 
@@ -140,6 +150,8 @@ public:
     unsigned int swr () const {return swr_;}
     QString jtmode () const {return jtmode_;}  //w3sz tci
     bool fastmode () const {return fastmode_;}  //w3sz tci
+    TxEvidence::TxSessionId tx_session_id () const {return tx_session_id_;}
+    TxEvidence::TxGeneration tx_generation () const {return tx_generation_;}
 
     void online (bool state) {online_ = state;}
     void frequency (Frequency f) {rx_frequency_ = f;}
@@ -169,6 +181,8 @@ public:
     void swr (unsigned int mswr) {swr_ = mswr;}
     void jtmode(QString jtmode) {jtmode_ = jtmode;}  //w3sz tci
     void fastmode(bool fastmode) {fastmode_ = fastmode;}  //w3sz tci
+    void tx_session_id (TxEvidence::TxSessionId value) {tx_session_id_ = value;}
+    void tx_generation (TxEvidence::TxGeneration value) {tx_generation_ = value;}
 
   private:
     bool online_;
@@ -199,6 +213,8 @@ public:
     unsigned int swr_;
     QString jtmode_;  //w3sz tci
     bool fastmode_;  //w3sz tci
+    TxEvidence::TxSessionId tx_session_id_;
+    TxEvidence::TxGeneration tx_generation_;
 
     // Don't forget to update the debug print and != operator if you
     // add more members here
@@ -246,6 +262,10 @@ public:
 
   // rig audio data transfer  w3sz tci
   Q_SIGNAL void tci_mod_active (bool);
+
+  // Diagnostics only: source commitment and TCI protocol-send progress.
+  Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot);
+  Q_SIGNAL void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot);
 
   Q_SIGNAL void jtty_drained (qint64 sessionId, qint64 totalAtDrain);
   Q_SIGNAL void jtty_enqueue_accepted (qint64 sessionId, qint64 enqueueId, qint64 sampleCount);

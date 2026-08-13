@@ -8,6 +8,8 @@
 #include <QAudioDeviceInfo>
 #include <QOperatingSystemVersion>
 
+#include "Audio/TxPlaybackEvidence.hpp"
+
 class QIODevice;
 class QAudioDeviceInfo;
 
@@ -23,6 +25,7 @@ public:
     : m_framesBuffered {0}
     , m_volume {1.0}
     , error_ {false}
+    , m_backendStartSequence {0}
   {
   }
 
@@ -47,9 +50,13 @@ Q_SIGNALS:
   void status (QString message) const;
   void audioOutputActive () const;
   void audioOutputIdle () const;
+  void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot snapshot) const;
 
 private:
   bool checkStream () const;
+  TxEvidence::TxRawPlayoutSnapshot makeRawTxPlayoutSnapshot (bool startEvent = false) const;
+  void publishRawTxPlayoutSnapshot (bool startEvent = false) const;
+  void publishUnavailableTxPlayoutSnapshot (bool startEvent, QString const& diagnostic) const;
 
 private Q_SLOTS:
   void handleStateChanged (QAudio::State);
@@ -61,6 +68,7 @@ private:
   int m_framesBuffered;
   qreal m_volume;
   bool error_;
+  qint64 m_backendStartSequence;
 };
 
 #endif
