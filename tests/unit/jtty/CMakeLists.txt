@@ -22,3 +22,11 @@ add_test (NAME test_jtty_txstream COMMAND test_jtty_txstream)
 add_executable (test_jtty_messages test_jtty_messages.cpp)
 target_link_libraries (test_jtty_messages Qt5::Test)
 add_test (NAME test_jtty_messages COMMAND test_jtty_messages)
+
+add_executable (test_mmttyif
+  test_mmttyif.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/MMTTYIF.cpp
+)
+target_link_libraries (test_mmttyif Qt5::Test Qt5::Network)
+add_test (NAME test_mmttyif COMMAND test_mmttyif)
+set_tests_properties (test_mmttyif PROPERTIES TIMEOUT 10)

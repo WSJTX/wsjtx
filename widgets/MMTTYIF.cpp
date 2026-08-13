@@ -4,10 +4,34 @@
 #include <QFile>
 #include <QTextStream>
 
+namespace
+{
+  int constexpr maximum_header_bytes {64};
+  int constexpr maximum_payload_bytes {64 * 1024};
+  int constexpr maximum_frame_bytes {maximum_header_bytes + maximum_payload_bytes};
+
+  bool resynchronizeAt (QByteArray * buffer, int next)
+  {
+    if (next < 0) {
+      buffer->clear ();
+      return false;
+    }
+
+    buffer->remove (0, next);
+    return true;
+  }
+
+  bool resynchronize (QByteArray * buffer)
+  {
+    return resynchronizeAt (buffer, buffer->indexOf ('<', 1));
+  }
+}
+
 MMTTYIF::MMTTYIF(QObject *parent) : QObject(parent),
                                     m_socket(new QTcpSocket(this)),
                                     m_retryTimer(new QTimer(this)) {
     m_retryTimer->setSingleShot(true);
+    m_socket->setReadBufferSize(maximum_frame_bytes);
 
     connect(m_socket, &QTcpSocket::readyRead, this, &MMTTYIF::onReadyRead);
     connect(m_socket, &QTcpSocket::connected, this, &MMTTYIF::onConnected);
@@ -92,7 +116,21 @@ void MMTTYIF::parseBufferedCommands() {
         }
 
         int const close = m_rxBuffer.indexOf('>');
-        if (close < 0) return;
+        if (close < 0) {
+            if (m_rxBuffer.size() < maximum_header_bytes) return;
+
+            emit log_message(QString("[TCP WARN] Command header exceeds %1-byte limit")
+                             .arg(maximum_header_bytes));
+            if (!resynchronize(&m_rxBuffer)) return;
+            continue;
+        }
+
+        if (close + 1 > maximum_header_bytes) {
+            emit log_message(QString("[TCP WARN] Command header exceeds %1-byte limit")
+                             .arg(maximum_header_bytes));
+            if (!resynchronize(&m_rxBuffer)) return;
+            continue;
+        }
 
         QByteArray const header = m_rxBuffer.mid(1, close - 1);
         int const colon = header.indexOf(':');
@@ -104,7 +142,14 @@ void MMTTYIF::parseBufferedCommands() {
             if (!ok || payloadLength < 0) {
                 emit log_message(QString("[TCP WARN] Invalid command length in <%1>")
                                  .arg(QString::fromLatin1(header)));
-                m_rxBuffer.remove(0, close + 1);
+                if (!resynchronize (&m_rxBuffer)) return;
+                continue;
+            }
+            if (payloadLength > maximum_payload_bytes) {
+                emit log_message(QString("[TCP WARN] Command payload length exceeds %1-byte limit in <%2>")
+                                 .arg(maximum_payload_bytes)
+                                 .arg(QString::fromLatin1(header)));
+                if (!resynchronize (&m_rxBuffer)) return;
                 continue;
             }
         }
@@ -112,11 +157,18 @@ void MMTTYIF::parseBufferedCommands() {
         int payloadStart = close + 1;
         int payloadEnd = payloadStart;
         if (payloadLength >= 0) {
+            int const availablePayload = m_rxBuffer.size() - payloadStart;
+            if (availablePayload < payloadLength) return;
             payloadEnd = payloadStart + payloadLength;
-            if (m_rxBuffer.size() < payloadEnd) return;
         } else {
             int const next = m_rxBuffer.indexOf('<', payloadStart);
             payloadEnd = next >= 0 ? next : m_rxBuffer.size();
+            if (payloadEnd - payloadStart > maximum_payload_bytes) {
+                emit log_message(QString("[TCP WARN] Command payload exceeds %1-byte limit")
+                                 .arg(maximum_payload_bytes));
+                if (!resynchronizeAt (&m_rxBuffer, next)) return;
+                continue;
+            }
         }
 
         QByteArray const payload = m_rxBuffer.mid(payloadStart, payloadEnd - payloadStart);
