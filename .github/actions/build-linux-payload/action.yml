@@ -188,6 +188,7 @@ runs:
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_ENABLE_TESTS=ON \
+          -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
           -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
           -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \

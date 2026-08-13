@@ -214,6 +214,8 @@ if (WSJT_SKIP_MAP65_WAS_USER_PROVIDED OR WSJT_SKIP_MAP65)
     "installs by default.")
 endif ()
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
+option (WSJT_ENABLE_GUI_SMOKE_TESTS
+  "Register GUI-driven smoke tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
 option (WSJT_BUILD_JT9STREAM "Build the Qt-free streaming decoder jt9stream alongside jt9 (uses the jt9a stub, never links fort_qt)." ON)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
@@ -876,9 +878,12 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
   )
 endif ()
 
-if (WSJT_ENABLE_TESTS AND WSJT_BUILD_FORTRAN_OPENMP
+if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
+    AND WSJT_BUILD_FORTRAN_OPENMP
     AND CMAKE_SYSTEM_NAME STREQUAL "Linux"
     AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+  add_dependencies (wsjtx sjtty)
+
   set (wsjtx_live_audio_test_root
     "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_ft8")
   file (MAKE_DIRECTORY
@@ -902,6 +907,35 @@ if (WSJT_ENABLE_TESTS AND WSJT_BUILD_FORTRAN_OPENMP
     LABELS "gui;audio;decoder;integration"
     RUN_SERIAL TRUE
     TIMEOUT 60)
+
+  set (wsjtx_jtty_live_audio_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_jtty")
+  add_test (
+    NAME test_wsjtx_live_audio_jtty
+    COMMAND ${CMAKE_COMMAND}
+      "-DSJTTY=$<TARGET_FILE:sjtty>"
+      "-DWSJTX=$<TARGET_FILE:wsjtx>"
+      "-DWORK_DIR=${wsjtx_jtty_live_audio_test_root}"
+      "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/jtty/live_audio.expected.txt"
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_live_audio.cmake)
+  set_tests_properties (test_wsjtx_live_audio_jtty PROPERTIES
+    LABELS "gui;audio;jtty;integration"
+    RUN_SERIAL TRUE
+    TIMEOUT 60)
+
+  set (wsjtx_jtty_tx_loopback_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_jtty_tx_loopback")
+  add_test (
+    NAME test_wsjtx_jtty_tx_loopback
+    COMMAND ${CMAKE_COMMAND}
+      "-DWSJTX=$<TARGET_FILE:wsjtx>"
+      "-DWORK_DIR=${wsjtx_jtty_tx_loopback_test_root}"
+      "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/jtty/tx_loopback.expected.txt"
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_tx_loopback.cmake)
+  set_tests_properties (test_wsjtx_jtty_tx_loopback PROPERTIES
+    LABELS "gui;audio;jtty;integration"
+    RUN_SERIAL TRUE
+    TIMEOUT 90)
 endif ()
 
 # make a library for WSJT-X UDP servers

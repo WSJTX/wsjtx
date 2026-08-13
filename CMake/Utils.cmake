@@ -6,6 +6,22 @@
 # wsjt_add_simulator_usage_test(), both defined earlier in the
 # top-level file.
 #
+
+# The Linux live-audio smoke tests synthesize their fixture at test time. Keep
+# this one generator in the build graph even in lean CI configurations where
+# the rest of the simulator utilities are disabled.
+set (wsjt_jtty_live_audio_tests FALSE)
+if (WSJT_ENABLE_TESTS AND WSJT_BUILD_FORTRAN_OPENMP
+    AND CMAKE_SYSTEM_NAME STREQUAL "Linux"
+    AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+  set (wsjt_jtty_live_audio_tests TRUE)
+endif ()
+
+if (WSJT_BUILD_UTILS OR wsjt_jtty_live_audio_tests)
+  add_executable (sjtty lib/jtty/sjtty.f90)
+  wsjt_link_common_fortran (sjtty)
+endif ()
+
 if(WSJT_BUILD_UTILS)
 
 add_executable (jt4sim lib/jt4sim.f90)
@@ -13,9 +29,6 @@ wsjt_link_common_fortran (jt4sim)
 
 add_executable (jt65sim lib/jt65sim.f90)
 wsjt_link_common_fortran (jt65sim)
-
-add_executable (sjtty lib/jtty/sjtty.f90)
-wsjt_link_common_fortran (sjtty)
 
 add_executable (sjtty_qrm lib/jtty/sjtty_qrm.f90)
 wsjt_link_common_fortran (sjtty_qrm)

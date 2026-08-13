@@ -17,7 +17,14 @@ class FixtureAudioInput final
   Q_OBJECT
 
 public:
-  explicit FixtureAudioInput (QString path, QObject * parent = nullptr);
+  enum class Profile
+  {
+    Ft8,
+    Jtty
+  };
+
+  explicit FixtureAudioInput (QString path, Profile profile = Profile::Ft8,
+                              QObject * parent = nullptr);
 
   Q_SLOT void start (QAudioDeviceInfo const&, int framesPerBuffer,
                      AudioDevice * sink, unsigned downSampleFactor,
@@ -32,20 +39,28 @@ public:
   Q_SIGNAL void emissionFinished (qint64 frames) const;
 
 private:
-  qint64 totalFrames () const {return m_pcm.size () / bytesPerFrame;}
+  qint64 fixtureFrames () const {return m_pcm.size () / bytesPerFrame;}
+  qint64 totalFrames () const
+  {
+    return m_leadInFrames + fixtureFrames () + m_tailFrames;
+  }
   void fail (QString const& message);
   void maybeSchedule ();
   void scheduleNextChunk ();
   Q_SLOT void emitNextChunk ();
 
-  static constexpr int sampleRate = 12000;
+  static constexpr int detectorSampleRate = 12000;
   static constexpr int bytesPerFrame = 2;
 
   QString m_path;
+  Profile m_profile;
   QByteArray m_pcm;
   QPointer<AudioDevice> m_sink;
   QTimer * m_timer;
   QVector<int> m_chunkFrames {257, 509, 1021, 2039};
+  int m_inputSampleRate {detectorSampleRate};
+  qint64 m_leadInFrames {0};
+  qint64 m_tailFrames {0};
   qint64 m_framesEmitted {0};
   qint64 m_periodStartMs {0};
   int m_chunkIndex {0};

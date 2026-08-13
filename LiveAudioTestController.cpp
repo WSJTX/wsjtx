@@ -14,23 +14,47 @@
 #include <QApplication>
 #include <QFile>
 #include <QMetaObject>
+#include <QTextEdit>
 #include <QTextStream>
 
 #include "moc_LiveAudioTestController.cpp"
 
 LiveAudioTestController::LiveAudioTestController (
   MainWindow * window, FixtureAudioInput * fixture, QString expectedPath,
-  QObject * parent)
+  Mode mode, QObject * parent)
   : QObject {parent}
   , m_window {window}
   , m_fixture {fixture}
   , m_expectedPath {std::move (expectedPath)}
-  , m_expected {readExpectedMessages (m_expectedPath, &m_initializationError)}
+  , m_mode {mode}
 {
+  if (Mode::Ft8 == m_mode)
+    {
+      m_expected = readExpectedMessages (m_expectedPath, &m_initializationError);
+    }
+  else
+    {
+      m_expectedJtty = readExpectedJttyMessages (
+        m_expectedPath, &m_initializationError);
+      for (auto& message : m_expectedJtty)
+        {
+          message = message.simplified ().toUpper ();
+        }
+      if (!m_expectedJtty.isEmpty ())
+        {
+          auto const& first = m_expectedJtty.constFirst ();
+          auto const prefixLength = std::max (4, first.size () / 2);
+          m_expectedJttyPrefix = first.left (
+            std::min (prefixLength, std::max (0, first.size () - 1)));
+        }
+    }
+
   m_timeout.setSingleShot (true);
-  m_timeout.setInterval (57000);
+  m_timeout.setInterval (Mode::Ft8 == m_mode ? 57000 : 45000);
   connect (&m_timeout, &QTimer::timeout, this, [this] {
-    fail (tr ("Timed out after 57 seconds."));
+    fail (Mode::Ft8 == m_mode
+          ? tr ("Timed out after 57 seconds.")
+          : tr ("Timed out after 45 seconds."));
   });
 
   m_prepareTimer.setSingleShot (true);
@@ -41,11 +65,18 @@ LiveAudioTestController::LiveAudioTestController (
   connect (&m_modalTimer, &QTimer::timeout,
            this, &LiveAudioTestController::checkForUnexpectedModal);
 
+  m_jttyPollTimer.setInterval (50);
+  connect (&m_jttyPollTimer, &QTimer::timeout,
+           this, &LiveAudioTestController::pollJttyDisplay);
+
   connect (m_window, &MainWindow::decoderBackendStarted,
            this, &LiveAudioTestController::prepareWhenReady);
   connect (m_window, &MainWindow::decoderBackendFailed,
            this, [this] (QString const& reason) {
-             fail (tr ("Decoder backend failed: %1").arg (reason));
+             if (Mode::Ft8 == m_mode)
+               {
+                 fail (tr ("Decoder backend failed: %1").arg (reason));
+               }
            });
   connect (m_window, &MainWindow::decodedMessageProcessed,
            this, [this] (QString const& message) {
@@ -122,6 +153,15 @@ LiveAudioTestController::LiveAudioTestController (
              m_emittedFrames = frames;
              m_fixtureFinished = true;
              maybeFinish ();
+             if (Mode::Jtty == m_mode)
+               {
+                 QTimer::singleShot (3000, this, [this] {
+                   if (!m_finished)
+                     {
+                       fail (tr ("JTTY display did not settle to the expected text after input ended."));
+                     }
+                 });
+               }
            });
   connect (m_fixture, &AudioInputSource::error,
            this, [this] (QString const& reason) {
@@ -167,6 +207,32 @@ QSet<QString> LiveAudioTestController::readExpectedMessages (
   return messages;
 }
 
+QStringList LiveAudioTestController::readExpectedJttyMessages (
+  QString const& path, QString * error)
+{
+  QFile file {path};
+  if (!file.open (QIODevice::ReadOnly | QIODevice::Text))
+    {
+      *error = tr ("Unable to open expected JTTY text file %1: %2")
+        .arg (path, file.errorString ());
+      return {};
+    }
+
+  QStringList messages;
+  QTextStream stream {&file};
+  while (!stream.atEnd ())
+    {
+      auto const line = stream.readLine ().simplified ();
+      if (!line.isEmpty () && !line.startsWith ('#')) messages.append (line);
+    }
+  if (messages.isEmpty ())
+    {
+      *error = tr ("Expected JTTY text file %1 contains no messages.")
+        .arg (path);
+    }
+  return messages;
+}
+
 QString LiveAudioTestController::messageFromDecoderLine (QByteArray const& rawLine)
 {
   auto const line = QString::fromUtf8 (rawLine).simplified ();
@@ -186,6 +252,18 @@ QString LiveAudioTestController::messageFromDecoderLine (QByteArray const& rawLi
 }
 
 void LiveAudioTestController::prepareWhenReady ()
+{
+  if (Mode::Jtty == m_mode)
+    {
+      prepareJttyWhenReady ();
+    }
+  else
+    {
+      prepareFt8WhenReady ();
+    }
+}
+
+void LiveAudioTestController::prepareFt8WhenReady ()
 {
   if (m_finished || m_armed) return;
   if (!m_window->decoderBackendRunning ())
@@ -275,7 +353,69 @@ void LiveAudioTestController::prepareWhenReady ()
             << std::endl;
 }
 
+void LiveAudioTestController::prepareJttyWhenReady ()
+{
+  if (m_finished || m_armed) return;
+
+  auto * jttyAction = m_window->findChild<QAction *> ("actionJTTY");
+  auto * monitorButton = m_window->findChild<QAbstractButton *> ("monitorButton");
+  m_jttyAllDecodes = m_window->findChild<QTextEdit *> ("decodedTextBrowser");
+  m_jttyQsoFrequency = m_window->findChild<QTextEdit *> ("decodedTextBrowser2");
+  if (!jttyAction || !monitorButton || !m_jttyAllDecodes || !m_jttyQsoFrequency)
+    {
+      fail (tr ("A required JTTY mode, monitoring, or decode display control was not found."));
+      return;
+    }
+  if (!jttyAction->isEnabled () || !monitorButton->isEnabled ())
+    {
+      m_prepareTimer.start (50);
+      return;
+    }
+
+  jttyAction->trigger ();
+  if (!jttyAction->isChecked ())
+    {
+      fail (tr ("The JTTY GUI action did not select JTTY mode."));
+      return;
+    }
+  if (!monitorButton->isChecked ()) monitorButton->click ();
+  if (!m_window->monitoringActive ())
+    {
+      fail (tr ("Monitor did not enter the active state for JTTY."));
+      return;
+    }
+  if (m_window->diskDataActive ())
+    {
+      fail (tr ("Synthetic JTTY input unexpectedly selected the disk-data path."));
+      return;
+    }
+
+  m_armed = QMetaObject::invokeMethod (
+    m_fixture, "arm", Qt::QueuedConnection);
+  if (!m_armed)
+    {
+      fail (tr ("Unable to arm the synthetic JTTY audio source."));
+      return;
+    }
+  m_jttyPollTimer.start ();
+  std::cerr << "WSJT-X JTTY live audio test: GUI ready, monitoring active, "
+            << "expected=\"" << m_expectedJtty.join (QStringLiteral (" | ")).toStdString () << "\""
+            << std::endl;
+}
+
 void LiveAudioTestController::maybeFinish ()
+{
+  if (Mode::Jtty == m_mode)
+    {
+      maybeFinishJtty ();
+    }
+  else
+    {
+      maybeFinishFt8 ();
+    }
+}
+
+void LiveAudioTestController::maybeFinishFt8 ()
 {
   if (m_finished || !m_fixtureFinished || m_window->decoderBusy ()
       || m_completedCycles == 0)
@@ -362,6 +502,75 @@ void LiveAudioTestController::maybeFinish ()
   QCoreApplication::exit (EXIT_SUCCESS);
 }
 
+void LiveAudioTestController::pollJttyDisplay ()
+{
+  if (m_finished || !m_jttyAllDecodes || !m_jttyQsoFrequency) return;
+
+  auto const allText = m_jttyAllDecodes->toPlainText ().simplified ().toUpper ();
+  auto const qsoText = m_jttyQsoFrequency->toPlainText ().simplified ().toUpper ();
+  for (auto const& message : m_expectedJtty)
+    {
+      if (allText.contains (message)) m_jttyAllFinals.insert (message);
+      if (qsoText.contains (message)) m_jttyQsoFinals.insert (message);
+    }
+
+  if (m_jttyAllFinals.isEmpty () && allText.contains (m_expectedJttyPrefix))
+    {
+      m_jttyAllSawPrefix = true;
+    }
+  if (m_jttyQsoFinals.isEmpty () && qsoText.contains (m_expectedJttyPrefix))
+    {
+      m_jttyQsoSawPrefix = true;
+    }
+  maybeFinishJtty ();
+}
+
+void LiveAudioTestController::maybeFinishJtty ()
+{
+  if (m_finished || !m_fixtureFinished
+      || m_jttyAllFinals.size () != m_expectedJtty.size ()
+      || m_jttyQsoFinals.size () != m_expectedJtty.size ())
+    {
+      return;
+    }
+  auto const messagesAppearInOrder = [this] (QString const& text) {
+    int offset = 0;
+    for (auto const& message : m_expectedJtty)
+      {
+        auto const index = text.indexOf (message, offset);
+        if (index < 0) return false;
+        offset = index + message.size ();
+      }
+    return true;
+  };
+  auto const allText = m_jttyAllDecodes->toPlainText ().simplified ().toUpper ();
+  auto const qsoText = m_jttyQsoFrequency->toPlainText ().simplified ().toUpper ();
+  if (!messagesAppearInOrder (allText) || !messagesAppearInOrder (qsoText))
+    {
+      fail (tr ("The expected JTTY messages did not reach both panes in FIFO order."));
+      return;
+    }
+  if (m_expectedJtty.size () == 1
+      && (!m_jttyAllSawPrefix || !m_jttyQsoSawPrefix))
+    {
+      fail (tr ("The expected JTTY message reached both panes without an observed growing prefix."));
+      return;
+    }
+
+  m_finished = true;
+  m_succeeded = true;
+  m_timeout.stop ();
+  m_modalTimer.stop ();
+  m_jttyPollTimer.stop ();
+  std::cout << "WSJT-X JTTY live audio test passed: expected="
+            << m_expectedJtty.size ()
+            << " all_prefix=" << m_jttyAllSawPrefix
+            << " qso_prefix=" << m_jttyQsoSawPrefix
+            << " frames=" << m_emittedFrames << std::endl;
+  m_window->close ();
+  QCoreApplication::exit (EXIT_SUCCESS);
+}
+
 void LiveAudioTestController::fail (QString const& reason)
 {
   if (m_finished) return;
@@ -391,6 +600,15 @@ void LiveAudioTestController::fail (QString const& reason)
             << earlyRaw.join (" | ").toStdString () << std::endl;
   std::cerr << "WSJT-X live audio test: raw MTD messages: "
             << multithreadedRaw.join (" | ").toStdString () << std::endl;
+  if (Mode::Jtty == m_mode && m_jttyAllDecodes && m_jttyQsoFrequency)
+    {
+      std::cerr << "WSJT-X JTTY live audio test: All Decodes text: "
+                << m_jttyAllDecodes->toPlainText ().simplified ().toStdString ()
+                << std::endl;
+      std::cerr << "WSJT-X JTTY live audio test: QSO Frequency text: "
+                << m_jttyQsoFrequency->toPlainText ().simplified ().toStdString ()
+                << std::endl;
+    }
   if (auto * modal = QApplication::activeModalWidget ()) modal->close ();
   m_window->close ();
   QCoreApplication::exit (EXIT_FAILURE);

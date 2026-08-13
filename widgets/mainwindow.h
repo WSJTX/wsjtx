@@ -180,6 +180,7 @@ public:
                       QSharedMemory *shdmem, unsigned downSampleFactor,
                       QSplashScreen *, QProcessEnvironment const&, bool automated_test,
                       std::unique_ptr<AudioInputSource> audio_input_source = {},
+                      std::unique_ptr<SoundOutput> sound_output = {},
                       QString decoder_data_path = {},
                       QWidget *parent = nullptr);
   ~MainWindow();

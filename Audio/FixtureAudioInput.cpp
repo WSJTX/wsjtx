@@ -3,6 +3,7 @@
 #include "Audio/BWFFile.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <utility>
 
 #include <QAudioFormat>
@@ -12,9 +13,11 @@
 
 #include "moc_FixtureAudioInput.cpp"
 
-FixtureAudioInput::FixtureAudioInput (QString path, QObject * parent)
+FixtureAudioInput::FixtureAudioInput (QString path, Profile profile,
+                                      QObject * parent)
   : AudioInputSource {parent}
   , m_path {std::move (path)}
+  , m_profile {profile}
   , m_timer {new QTimer {this}}
 {
   m_timer->setSingleShot (true);
@@ -30,9 +33,15 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
       fail (tr ("Synthetic audio input has no detector sink."));
       return;
     }
-  if (downSampleFactor != 1)
+  if (Profile::Ft8 == m_profile && downSampleFactor != 1)
     {
-      fail (tr ("Synthetic audio input requires a downsample factor of 1."));
+      fail (tr ("Synthetic FT8 audio input requires a downsample factor of 1."));
+      return;
+    }
+  if (Profile::Jtty == m_profile
+      && downSampleFactor != 1 && downSampleFactor != 4)
+    {
+      fail (tr ("Synthetic JTTY audio input requires a downsample factor of 1 or 4."));
       return;
     }
   if (channel != AudioDevice::Mono)
@@ -51,19 +60,35 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
 
   auto const& format = file.format ();
   if (format.codec () != "audio/pcm" || format.channelCount () != 1
-      || format.sampleRate () != sampleRate || format.sampleSize () != 16
+      || format.sampleSize () != 16
       || format.sampleType () != QAudioFormat::SignedInt
       || format.byteOrder () != QAudioFormat::LittleEndian)
     {
-      fail (tr ("Synthetic audio fixture must be 12 kHz, mono, signed 16-bit little-endian PCM."));
+      fail (tr ("Synthetic audio fixture must be mono, signed 16-bit little-endian PCM."));
+      return;
+    }
+  auto const expectedSampleRate = detectorSampleRate
+    * static_cast<int> (downSampleFactor);
+  if (format.sampleRate () != expectedSampleRate)
+    {
+      fail (tr ("Synthetic audio fixture must be %1 Hz for downsample factor %2; found %3 Hz.")
+            .arg (expectedSampleRate).arg (downSampleFactor).arg (format.sampleRate ()));
       return;
     }
 
-  constexpr qint64 expectedFrames = 15 * sampleRate;
-  if (file.size () != expectedFrames * bytesPerFrame)
+  if (Profile::Ft8 == m_profile)
     {
-      fail (tr ("Synthetic FT8 audio fixture must contain exactly %1 frames; found %2.")
-            .arg (expectedFrames).arg (file.size () / bytesPerFrame));
+      constexpr qint64 expectedFrames = 15 * detectorSampleRate;
+      if (file.size () != expectedFrames * bytesPerFrame)
+        {
+          fail (tr ("Synthetic FT8 audio fixture must contain exactly %1 frames; found %2.")
+                .arg (expectedFrames).arg (file.size () / bytesPerFrame));
+          return;
+        }
+    }
+  else if (file.size () <= 0 || file.size () % bytesPerFrame)
+    {
+      fail (tr ("Synthetic JTTY audio fixture must contain complete PCM frames."));
       return;
     }
 
@@ -85,6 +110,12 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
     }
 
   m_sink = sink;
+  m_inputSampleRate = format.sampleRate ();
+  if (Profile::Jtty == m_profile)
+    {
+      m_leadInFrames = m_inputSampleRate / 4;
+      m_tailFrames = 2 * m_inputSampleRate;
+    }
   m_started = true;
   Q_EMIT status (tr ("Synthetic audio fixture ready"));
   maybeSchedule ();
@@ -107,7 +138,7 @@ void FixtureAudioInput::resume ()
   if (m_emitting && m_framesEmitted)
     {
       m_periodStartMs = QDateTime::currentMSecsSinceEpoch ()
-        - (m_framesEmitted * 1000 / sampleRate);
+        - (m_framesEmitted * 1000 / m_inputSampleRate);
     }
   Q_EMIT status (tr ("Synthetic audio input receiving"));
   maybeSchedule ();
@@ -118,6 +149,8 @@ void FixtureAudioInput::stop ()
   m_timer->stop ();
   m_sink.clear ();
   m_pcm.clear ();
+  m_leadInFrames = 0;
+  m_tailFrames = 0;
   m_framesEmitted = 0;
   m_periodStartMs = 0;
   m_chunkIndex = 0;
@@ -150,8 +183,20 @@ void FixtureAudioInput::maybeSchedule ()
     }
 
   auto const now = QDateTime::currentMSecsSinceEpoch ();
-  constexpr qint64 periodMs = 15000;
-  m_periodStartMs = ((now / periodMs) + 1) * periodMs;
+  if (Profile::Ft8 == m_profile)
+    {
+      constexpr qint64 periodMs = 15000;
+      m_periodStartMs = ((now / periodMs) + 1) * periodMs;
+    }
+  else
+    {
+      constexpr qint64 periodMs = 180000;
+      auto const fixtureDurationMs = (totalFrames () * 1000 + m_inputSampleRate - 1)
+        / m_inputSampleRate;
+      auto const periodOffsetMs = now % periodMs;
+      m_periodStartMs = periodOffsetMs + fixtureDurationMs <= periodMs
+        ? now : ((now / periodMs) + 1) * periodMs;
+    }
   m_emitting = true;
   auto const delay = std::max<qint64> (0, m_periodStartMs - now);
   m_timer->start (static_cast<int> (delay));
@@ -159,7 +204,7 @@ void FixtureAudioInput::maybeSchedule ()
 
 void FixtureAudioInput::scheduleNextChunk ()
 {
-  auto const target = m_periodStartMs + m_framesEmitted * 1000 / sampleRate;
+  auto const target = m_periodStartMs + m_framesEmitted * 1000 / m_inputSampleRate;
   auto const delay = std::max<qint64> (0, target - QDateTime::currentMSecsSinceEpoch ());
   m_timer->start (static_cast<int> (delay));
 }
@@ -179,9 +224,24 @@ void FixtureAudioInput::emitNextChunk ()
   auto const remainingFrames = totalFrames () - m_framesEmitted;
   auto const chunkFrames = std::min<qint64> (
     remainingFrames, m_chunkFrames.at (m_chunkIndex % m_chunkFrames.size ()));
-  auto const byteOffset = m_framesEmitted * bytesPerFrame;
   auto const chunkBytes = chunkFrames * bytesPerFrame;
-  auto const written = m_sink->write (m_pcm.constData () + byteOffset, chunkBytes);
+  QByteArray chunk (static_cast<int> (chunkBytes), '\0');
+  auto const chunkStart = m_framesEmitted;
+  auto const chunkEnd = chunkStart + chunkFrames;
+  auto const fixtureStart = m_leadInFrames;
+  auto const fixtureEnd = fixtureStart + fixtureFrames ();
+  auto const copyStart = std::max (chunkStart, fixtureStart);
+  auto const copyEnd = std::min (chunkEnd, fixtureEnd);
+  if (copyStart < copyEnd)
+    {
+      auto const sourceOffset = (copyStart - fixtureStart) * bytesPerFrame;
+      auto const targetOffset = (copyStart - chunkStart) * bytesPerFrame;
+      auto const copyBytes = (copyEnd - copyStart) * bytesPerFrame;
+      std::memcpy (chunk.data () + targetOffset,
+                   m_pcm.constData () + sourceOffset,
+                   static_cast<size_t> (copyBytes));
+    }
+  auto const written = m_sink->write (chunk.constData (), chunkBytes);
   if (written != chunkBytes)
     {
       fail (tr ("Detector accepted %1 of %2 synthetic PCM bytes.")

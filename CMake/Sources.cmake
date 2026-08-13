@@ -194,6 +194,8 @@ set (wsjtx_CXXSRCS
 if (WSJT_ENABLE_TESTS)
   list (APPEND wsjtx_CXXSRCS
     Audio/FixtureAudioInput.cpp
+    Audio/FixtureSoundOutput.cpp
+    JttyTxLoopbackTestController.cpp
     LiveAudioTestController.cpp
     )
 endif ()

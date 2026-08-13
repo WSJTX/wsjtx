@@ -81,6 +81,7 @@ runs:
           -DWSJT_GENERATE_DOCS=OFF \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_ENABLE_TESTS=ON \
+          -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
           -DWSJT_ENABLE_ASAN_UBSAN=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
           -Wno-dev

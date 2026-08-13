@@ -57,9 +57,14 @@
 #include "MultiSettings.hpp"
 #include "widgets/mainwindow.h"
 #include "Audio/AudioInputSource.hpp"
+#include "Audio/soundout.h"
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+#include "Audio/BWFFile.hpp"
 #include "Audio/FixtureAudioInput.hpp"
+#include "Audio/FixtureSoundOutput.hpp"
+#include "JttyTxLoopbackTestController.hpp"
 #include "LiveAudioTestController.hpp"
+#include <QAudioFormat>
 #endif
 #include "commons.h"
 #include "DecoderIpc.hpp"
@@ -277,6 +282,8 @@ int main(int argc, char *argv[])
   bool automated_test {false};
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
   bool live_audio_test {false};
+  bool jtty_live_audio_test {false};
+  bool jtty_tx_loopback_test {false};
 #endif
   try
     {
@@ -354,6 +361,18 @@ int main(int argc, char *argv[])
         QStringList {} << "live-audio-data-dir",
         "Shipped decoder data used by --live-audio-test.", "directory");
       parser.addOption (live_audio_data_dir_option);
+      QCommandLineOption jtty_live_audio_test_option (
+        QStringList {} << "jtty-live-audio-test",
+        "Feed a WAV fixture through the live JTTY receive path.", "wav-path");
+      parser.addOption (jtty_live_audio_test_option);
+      QCommandLineOption jtty_live_audio_expected_option (
+        QStringList {} << "jtty-live-audio-expected",
+        "Expected message used by --jtty-live-audio-test.", "text-path");
+      parser.addOption (jtty_live_audio_expected_option);
+      QCommandLineOption jtty_tx_loopback_test_option (
+        QStringList {} << "jtty-tx-loopback-test",
+        "Capture two gaplessly queued JTTY messages to a WAV file.", "wav-path");
+      parser.addOption (jtty_tx_loopback_test_option);
 #endif
 
       if (!parser.parse (a.arguments ()))
@@ -378,6 +397,8 @@ int main(int argc, char *argv[])
       startup_smoke_test = parser.isSet (startup_smoke_test_option);
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
       live_audio_test = parser.isSet (live_audio_test_option);
+      jtty_live_audio_test = parser.isSet (jtty_live_audio_test_option);
+      jtty_tx_loopback_test = parser.isSet (jtty_tx_loopback_test_option);
       if (live_audio_test != parser.isSet (live_audio_expected_option)
           || live_audio_test != parser.isSet (live_audio_data_dir_option))
         {
@@ -386,9 +407,18 @@ int main(int argc, char *argv[])
                     << std::endl;
           return EXIT_FAILURE;
         }
-      if (startup_smoke_test && live_audio_test)
+      if (jtty_live_audio_test != parser.isSet (jtty_live_audio_expected_option))
         {
-          std::cerr << "--startup-smoke-test and --live-audio-test are mutually exclusive"
+          std::cerr << "--jtty-live-audio-test and --jtty-live-audio-expected "
+                       "must be used together" << std::endl;
+          return EXIT_FAILURE;
+        }
+      if ((startup_smoke_test ? 1 : 0) + (live_audio_test ? 1 : 0)
+          + (jtty_live_audio_test ? 1 : 0)
+          + (jtty_tx_loopback_test ? 1 : 0) > 1)
+        {
+          std::cerr << "Startup, FT8 live-audio, JTTY live-audio, and JTTY TX "
+                       "loopback tests are mutually exclusive"
                     << std::endl;
           return EXIT_FAILURE;
         }
@@ -405,7 +435,8 @@ int main(int argc, char *argv[])
               return EXIT_FAILURE;
             }
         }
-      automated_test = startup_smoke_test || live_audio_test;
+      automated_test = startup_smoke_test || live_audio_test
+        || jtty_live_audio_test || jtty_tx_loopback_test;
 #else
       automated_test = startup_smoke_test;
 #endif
@@ -693,6 +724,16 @@ int main(int argc, char *argv[])
 
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
             if (live_audio_test) downSampleFactor = 1u;
+            if (jtty_live_audio_test)
+              {
+                BWFFile fixture {QAudioFormat {},
+                                 parser.value (jtty_live_audio_test_option)};
+                if (fixture.open (BWFFile::ReadOnly))
+                  {
+                    downSampleFactor = fixture.format ().sampleRate () == 48000
+                      ? 4u : 1u;
+                  }
+              }
 #endif
 
           }
@@ -703,19 +744,39 @@ int main(int argc, char *argv[])
           smoke_phase ("constructing MainWindow");
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           FixtureAudioInput * fixture_input {nullptr};
+          FixtureSoundOutput * fixture_output {nullptr};
           std::unique_ptr<AudioInputSource> audio_input;
-          if (live_audio_test)
+          std::unique_ptr<SoundOutput> sound_output;
+          if (live_audio_test || jtty_live_audio_test)
             {
               std::unique_ptr<FixtureAudioInput> fixture {
-                new FixtureAudioInput {parser.value (live_audio_test_option)}};
+                new FixtureAudioInput {
+                  parser.value (live_audio_test
+                                ? live_audio_test_option
+                                : jtty_live_audio_test_option),
+                  live_audio_test ? FixtureAudioInput::Profile::Ft8
+                                  : FixtureAudioInput::Profile::Jtty}};
               fixture_input = fixture.get ();
               audio_input = std::move (fixture);
+            }
+          if (jtty_tx_loopback_test)
+            {
+              std::unique_ptr<FixtureSoundOutput> fixture {
+                new FixtureSoundOutput {
+                  parser.value (jtty_tx_loopback_test_option)}};
+              fixture_output = fixture.get ();
+              sound_output = std::move (fixture);
             }
 #else
           std::unique_ptr<AudioInputSource> audio_input;
 #endif
           MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env,
                        automated_test, std::move (audio_input),
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+                       std::move (sound_output),
+#else
+                       {},
+#endif
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
                        live_audio_test ? parser.value (live_audio_data_dir_option) : QString {}
 #else
@@ -745,13 +806,31 @@ int main(int argc, char *argv[])
           smoke_phase ("MainWindow shown");
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           std::unique_ptr<LiveAudioTestController> live_audio_controller;
-          if (live_audio_test)
+          std::unique_ptr<JttyTxLoopbackTestController> jtty_tx_controller;
+          if (live_audio_test || jtty_live_audio_test)
             {
               a.setQuitOnLastWindowClosed (false);
               live_audio_controller.reset (new LiveAudioTestController {
-                &w, fixture_input, parser.value (live_audio_expected_option)});
+                &w, fixture_input,
+                parser.value (live_audio_test
+                              ? live_audio_expected_option
+                              : jtty_live_audio_expected_option),
+                live_audio_test ? LiveAudioTestController::Mode::Ft8
+                                : LiveAudioTestController::Mode::Jtty});
               auto * controller = live_audio_controller.get ();
               QTimer::singleShot (0, live_audio_controller.get (),
+                                  [controller] {
+                                    controller->begin ();
+                                  });
+            }
+          if (jtty_tx_loopback_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              jtty_tx_controller.reset (new JttyTxLoopbackTestController {
+                &w, fixture_output,
+                parser.value (jtty_tx_loopback_test_option)});
+              auto * controller = jtty_tx_controller.get ();
+              QTimer::singleShot (0, jtty_tx_controller.get (),
                                   [controller] {
                                     controller->begin ();
                                   });
@@ -791,8 +870,13 @@ int main(int argc, char *argv[])
               result = EXIT_FAILURE;
             }
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
-          if (live_audio_test && (!live_audio_controller
-                                  || !live_audio_controller->succeeded ()))
+          if ((live_audio_test || jtty_live_audio_test)
+              && (!live_audio_controller || !live_audio_controller->succeeded ()))
+            {
+              result = EXIT_FAILURE;
+            }
+          if (jtty_tx_loopback_test
+              && (!jtty_tx_controller || !jtty_tx_controller->succeeded ()))
             {
               result = EXIT_FAILURE;
             }
