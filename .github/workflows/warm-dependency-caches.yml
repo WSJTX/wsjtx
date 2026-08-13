@@ -71,6 +71,7 @@ jobs:
           HAMLIB_BRANCH: ${{ inputs.hamlib_branch || '4.7.2' }}
         run: |
           set -euo pipefail
+          .github/scripts/validate-ci-inputs.sh
 
           linux=false
           windows=false

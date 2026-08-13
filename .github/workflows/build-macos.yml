@@ -89,19 +89,29 @@ jobs:
     env:
       RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
       DEPLOYMENT_TARGET: ${{ inputs.deployment_target || (inputs.arch == 'x86_64' && '10.13' || '11.0') }}
+      VERSION: ${{ inputs.version }}
+      HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+      WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+      ARCH: ${{ inputs.arch }}
       BOOST_VERSION: 1.85.0
       BOOST_SOURCE_SHA256: 7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617
     steps:
       - uses: actions/checkout@v7
 
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+        run: .github/scripts/validate-ci-inputs.sh
+
       - name: Verify macOS build tuple
         run: |
-          case "${{ inputs.arch }}:${{ env.RUNNER }}:${{ env.DEPLOYMENT_TARGET }}" in
+          case "${ARCH}:${RUNNER}:${DEPLOYMENT_TARGET}" in
             arm64:macos-15:11.0|x86_64:macos-15-intel:10.13)
-              echo "Using supported macOS build tuple: ${{ inputs.arch }} on ${{ env.RUNNER }} targeting ${{ env.DEPLOYMENT_TARGET }}"
+              echo "Using supported macOS build tuple: ${ARCH} on ${RUNNER} targeting ${DEPLOYMENT_TARGET}"
               ;;
             *)
-              echo "::error::Unsupported macOS build tuple: arch=${{ inputs.arch }}, runner=${{ env.RUNNER }}, deployment_target=${{ env.DEPLOYMENT_TARGET }}"
+              echo "::error::Unsupported macOS build tuple: arch=${ARCH}, runner=${RUNNER}, deployment_target=${DEPLOYMENT_TARGET}"
               echo "::error::Use arm64:macos-15:11.0 or x86_64:macos-15-intel:10.13 for deployable macOS artifacts."
               exit 1
               ;;
@@ -363,8 +373,8 @@ jobs:
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
         run: |
           .github/scripts/build-hamlib-macos.sh \
-            "${{ inputs.hamlib_branch }}" \
-            "${{ env.DEPLOYMENT_TARGET }}" \
+            "${HAMLIB_BRANCH}" \
+            "${DEPLOYMENT_TARGET}" \
             "${GITHUB_WORKSPACE}/hamlib-prefix" \
             "${GITHUB_WORKSPACE}/libusb-prefix"
 
@@ -442,8 +452,8 @@ jobs:
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
             -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
-            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
-            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
+            -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
+            -DWSJT_RC_NUMBER="${WSJT_RC_NUMBER}" \
             -Wno-dev
 
       - name: Build and test targets
@@ -516,7 +526,7 @@ jobs:
         id: collect
         run: |
           BUILD=wsjtx-build
-          STAGE=stage/wsjtx-${{ inputs.version }}-${{ inputs.arch }}
+          STAGE="stage/wsjtx-${VERSION}-${ARCH}"
           ASSETS=assets
 
           mkdir -p "${ASSETS}"
@@ -729,8 +739,8 @@ jobs:
       - name: Prepare installer package
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
-          PKG_ID="org.k1jt.wsjtx.${{ inputs.arch }}"
-          PKG_VERSION="${{ inputs.version }}"
+          PKG_ID="org.k1jt.wsjtx.${ARCH}"
+          PKG_VERSION="${VERSION}"
 
           PAYLOAD="$RUNNER_TEMP/pkg-payload"
           SCRIPTS="$RUNNER_TEMP/pkg-scripts"
@@ -798,7 +808,7 @@ jobs:
 
       - name: Build installer pkg
         run: |
-          PKG_OUT="wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
           if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
             INST_IDENTITY="${{ steps.installer_keychain.outputs.identity }}"
             productbuild \
@@ -824,7 +834,7 @@ jobs:
 
       - name: Verify installer pkg
         run: |
-          PKG_OUT="wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
           CHECK_PAYLOAD="$RUNNER_TEMP/pkg-check"
           pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
           [ "$(/usr/libexec/PlistBuddy -c "Print :0:BundleIsRelocatable" "$RUNNER_TEMP/components.plist")" = "false" ]
@@ -883,7 +893,7 @@ jobs:
             xcrun stapler staple "$file"
           }
 
-          notarize_and_staple "wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+          notarize_and_staple "wsjtx-${VERSION}-${ARCH}-macOS.pkg"
 
       - name: Notarize CLI tools
         if: steps.check_secrets.outputs.signing_enabled == 'true'

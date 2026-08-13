@@ -41,6 +41,16 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate workflow inputs
+      shell: bash
+      env:
+        WSJTX_VERSION: ${{ inputs.version }}
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+        WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+        ARCH: ${{ inputs.arch }}
+      run: .github/scripts/validate-ci-inputs.sh
+
     # The aarch64 leg runs inside gcc:13.4.0-bookworm as root. The x86_64 leg
     # runs on ubuntu-24.04 where sudo is required. This step covers both.
     - name: Install dependencies
@@ -173,7 +183,9 @@ runs:
     - name: Build Hamlib
       if: steps.hamlib-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: .github/scripts/build-hamlib-linux.sh "${{ inputs.hamlib_branch }}" "${GITHUB_WORKSPACE}/hamlib-prefix"
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      run: .github/scripts/build-hamlib-linux.sh "$HAMLIB_BRANCH" "${GITHUB_WORKSPACE}/hamlib-prefix"
 
     - name: Verify Hamlib prefix
       shell: bash
@@ -181,6 +193,9 @@ runs:
 
     - name: Configure build and tests
       shell: bash
+      env:
+        WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+        WSJT_RC_NUMBER: ${{ inputs.rc_number }}
       run: |
         cmake -S . -B wsjtx-build \
           -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
@@ -190,8 +205,8 @@ runs:
           -DWSJT_ENABLE_TESTS=ON \
           -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
-          -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
-          -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
+          -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
+          -DWSJT_RC_NUMBER="${WSJT_RC_NUMBER}" \
           -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
           -Wno-dev
 

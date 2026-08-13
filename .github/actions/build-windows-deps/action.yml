@@ -45,6 +45,12 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate workflow inputs
+      shell: bash
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      run: .github/scripts/validate-ci-inputs.sh
+
     - name: Resolve dependency prefixes
       id: paths
       shell: msys2 {0}
@@ -147,7 +153,8 @@ runs:
       shell: msys2 {0}
       env:
         MSYS2_PATH_TYPE: inherit
-      run: .github/scripts/build-hamlib-windows.sh "${{ inputs.hamlib_branch }}" "${{ steps.paths.outputs.hamlib_prefix }}"
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      run: .github/scripts/build-hamlib-windows.sh "$HAMLIB_BRANCH" "${{ steps.paths.outputs.hamlib_prefix }}"
 
     - name: Verify Hamlib prefix
       shell: msys2 {0}

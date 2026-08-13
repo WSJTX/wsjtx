@@ -87,6 +87,10 @@ jobs:
       BOOST_VERSION: 1.91.0
       BOOST_SOURCE_SHA256: de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5
       WSJT_WINDOWS_API_FLOOR: "0x0601"
+      VERSION: ${{ inputs.version }}
+      HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+      WSJT_RC_NUMBER: ${{ inputs.rc_number }}
     defaults:
       run:
         shell: msys2 {0}
@@ -103,6 +107,12 @@ jobs:
         run: git config --global core.autocrlf false
 
       - uses: actions/checkout@v7
+
+      - name: Validate workflow inputs
+        shell: bash
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+        run: .github/scripts/validate-ci-inputs.sh
 
       # Boost is source-built by build-windows-deps so the Windows 7 API floor
       # and Boost.Atomic patch stay pinned; do not install MSYS2 Boost here.
@@ -215,8 +225,8 @@ jobs:
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
-            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
-            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
+            -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
+            -DWSJT_RC_NUMBER="${WSJT_RC_NUMBER}" \
             -DPFUNIT_DIR="${{ steps.windows-deps.outputs.pfunit_dir }}" \
             -DGFTL_DIR="${{ steps.windows-deps.outputs.gftl_dir }}" \
             -DGFTL_SHARED_DIR="${{ steps.windows-deps.outputs.gftl_shared_dir }}" \
@@ -331,8 +341,8 @@ jobs:
           # suffix gap.
           cpack_args=(
             -G NSIS
-            -D CPACK_PACKAGE_VERSION="${{ inputs.version }}"
-            -D CPACK_PACKAGE_FILE_NAME="wsjtx-${{ inputs.version }}-win64"
+            -D CPACK_PACKAGE_VERSION="${VERSION}"
+            -D CPACK_PACKAGE_FILE_NAME="wsjtx-${VERSION}-win64"
           )
           if [ "${CPACK_VERBOSE:-0}" = "1" ]; then
             cpack_args+=(-V)
@@ -347,7 +357,7 @@ jobs:
         if: inputs.sign_mode != 'none'
         run: |
           cd wsjtx-build
-          INSTALLER=$(ls wsjtx-${{ inputs.version }}-*.exe | head -1)
+          INSTALLER=$(ls wsjtx-${VERSION}-*.exe | head -1)
           if [ -z "$INSTALLER" ]; then
             echo "ERROR: no NSIS installer produced by cpack"
             ls -la

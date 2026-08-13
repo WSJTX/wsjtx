@@ -103,6 +103,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+          WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+          ARCH: ${{ inputs.arch }}
+        run: .github/scripts/validate-ci-inputs.sh
       - uses: ./.github/actions/build-linux-payload
         with:
           arch: x86_64
@@ -122,6 +130,14 @@ jobs:
       image: gcc:13.4.0-bookworm
     steps:
       - uses: actions/checkout@v7
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+          WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+          ARCH: ${{ inputs.arch }}
+        run: .github/scripts/validate-ci-inputs.sh
       - uses: ./.github/actions/build-linux-payload
         with:
           arch: aarch64
@@ -174,6 +190,14 @@ jobs:
         with:
           platforms: linux/arm/v7
       - uses: actions/checkout@v7
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+          WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+          ARCH: armhf
+        run: .github/scripts/validate-ci-inputs.sh
 
       # Cache pFUnit + Hamlib on the host (GHA cache primitives don't
       # work inside an arm/v7 container — see job-level NOTE above).

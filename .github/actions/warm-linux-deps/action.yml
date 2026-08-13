@@ -15,6 +15,13 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate workflow inputs
+      shell: bash
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        ARCH: ${{ inputs.arch }}
+      run: .github/scripts/validate-ci-inputs.sh
+
     - name: Install dependencies
       shell: bash
       run: |
@@ -104,7 +111,9 @@ runs:
     - name: Build Hamlib
       if: steps.hamlib-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: .github/scripts/build-hamlib-linux.sh "${{ inputs.hamlib_branch }}" "${GITHUB_WORKSPACE}/hamlib-prefix"
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      run: .github/scripts/build-hamlib-linux.sh "$HAMLIB_BRANCH" "${GITHUB_WORKSPACE}/hamlib-prefix"
 
     - name: Verify Hamlib prefix
       shell: bash
