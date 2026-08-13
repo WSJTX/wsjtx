@@ -529,7 +529,7 @@ public:
   void transceiver_tune (bool);
   void transceiver_period (double, bool = false);
   void transceiver_blocksize (qint32);
-  void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double, TxEvidence::TxSessionId, TxEvidence::TxGeneration);
+  void transceiver_modulator_start (TxEvidence::TxRequest const&);
   void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
   void transceiver_clear_jtty_pcm (qint64);
   void transceiver_modulator_stop (bool);
@@ -1323,16 +1323,14 @@ void Configuration::transceiver_blocksize (qint32 blocksize)
   m_->transceiver_blocksize (blocksize);
 }
 
-void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbolslength, double framespersymbol, double trfrequency,
-                     double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod,
-                     TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
+void Configuration::transceiver_modulator_start (TxEvidence::TxRequest request)
 {
 #if WSJT_TRACE_CAT
-  qDebug () << "Configuration::transceiver_modulator_start:" << symbolslength << m_->cached_rig_state_;
+  qDebug () << "Configuration::transceiver_modulator_start:" << request.symbols_length << m_->cached_rig_state_;
 #endif
 
   if (!m_->can_control_rig ("transceiver_modulator_start")) return;
-  m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod,sessionId,generation);
+  m_->transceiver_modulator_start (request);
 }
 
 void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
@@ -6112,24 +6110,14 @@ void Configuration::impl::transceiver_volume (double volume)
   }
 }
 
-void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned symbolslength, double framespersymbol, double frequency, double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod, TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
+void Configuration::impl::transceiver_modulator_start (TxEvidence::TxRequest const& request)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
   if (!cached_rig_state_.tx_audio())
   {
     cached_rig_state_.tx_audio (true);
-    cached_rig_state_.symbolslength (symbolslength);
-    cached_rig_state_.framespersymbol (framespersymbol);
-    cached_rig_state_.trfrequency (frequency);
-    cached_rig_state_.tonespacing (tonespacing);
-    cached_rig_state_.synchronize (synchronize);
-    cached_rig_state_.dbsnr (dbsnr);
-    cached_rig_state_.trperiod (trperiod);
-    cached_rig_state_.jtmode(jtmode);
-    cached_rig_state_.fastmode(fastmode);
-    cached_rig_state_.tx_session_id (sessionId);
-    cached_rig_state_.tx_generation (generation);
+    cached_rig_state_.tx_request (request);
     //    printf("%s(%0.1f) Configuration #:%d modulator_start: symbolslength=%d framespersymbol=%0.1f frequency=%0.1f tonespacing=%0.1f synchronize= %d dbsnr=%0.1f trperiod=%0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,symbolslength,framespersymbol,frequency,tonespacing,synchronize,dbsnr,trperiod);
     Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
   }

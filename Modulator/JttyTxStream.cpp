@@ -14,14 +14,13 @@ namespace
   constexpr qint64 DRAIN_GUARD_MARGIN  = 4800;   // 100 ms safety margin
 }
 
-TxEvidence::TxStartSnapshot makeJttyTxStartSnapshot (TxEvidence::TxSessionId sessionId,
-                                                      TxEvidence::TxGeneration generation,
+TxEvidence::TxStartSnapshot makeJttyTxStartSnapshot (TxEvidence::TxRequest const& request,
                                                       qint64 committedEndSample)
 {
   TxEvidence::TxStartSnapshot snapshot;
-  snapshot.session_id = sessionId;
-  snapshot.generation = generation;
-  snapshot.mode = "JTTY";
+  snapshot.session_id = request.session_id;
+  snapshot.generation = request.generation;
+  snapshot.mode = request.mode;
   snapshot.sample_rate_hz = 48000;
   snapshot.committed_end_sample = committedEndSample;
   snapshot.target_known = false;
@@ -40,18 +39,16 @@ JttyTxStream::JttyTxStream (JttyTxBuffer& buffer, QObject * parent)
   connect (m_drainTimer, &QTimer::timeout, this, &JttyTxStream::pollDrain);
 }
 
-void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel,
-                          qint64 fifoSessionId, TxEvidence::TxSessionId sessionId,
-                          TxEvidence::TxGeneration generation)
+void JttyTxStream::start (TxEvidence::TxRequest request, SoundOutput * stream)
 {
   if (m_active) return;
   if (!m_buffer.queuedReal () && m_buffer.servedReal () == m_buffer.totalReal ())
     {
-      m_buffer.clear (fifoSessionId);
+      m_buffer.clear (request.fifo_session_id);
     }
   m_buffer.applyPendingReset ();
   qint64 const totalReal = m_buffer.totalReal ();
-  initialize (QIODevice::ReadOnly, channel);
+  initialize (QIODevice::ReadOnly, request.channel);
   m_active = true;
   m_stream = stream;
   if (m_stream)
@@ -67,8 +64,8 @@ void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel,
                            std::memory_order_release);
     }
   if (!m_drainTimer->isActive ()) m_drainTimer->start ();
-  Q_EMIT txSourceCommitted (makeJttyTxStartSnapshot (sessionId, generation,
-                                                      totalReal > 0 ? totalReal - 1 : -1));
+  Q_EMIT txSourceCommitted (makeJttyTxStartSnapshot (
+    request, totalReal > 0 ? totalReal - 1 : -1));
 }
 
 void JttyTxStream::stop ()

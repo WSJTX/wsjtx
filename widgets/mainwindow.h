@@ -43,6 +43,7 @@
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackDiagnostics.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 #include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
 #include "Radio.hpp"
@@ -196,6 +197,13 @@ public:
   bool diskDataActive () const {return m_diskData;}
   bool monitoringActive () const {return m_monitoring;}
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  enum class LiveAudioTestFt8TransmitResult
+  {
+    Started,
+    MissedWindow,
+    Failed
+  };
+
   bool liveAudioTestMultithreadedFt8Enabled () const {return m_multithreadFT8;}
   int liveAudioTestFt8ThreadCount () const {return m_ft8threads;}
   int liveAudioTestDecodeDepth () const {return m_ndepth & 7;}
@@ -205,6 +213,8 @@ public:
   static constexpr int liveAudioTestDecodeLowFrequency () {return 200;}
   static constexpr int liveAudioTestDecodeHighFrequency () {return 3000;}
   bool configureLiveAudioTestDecodeRange ();
+  LiveAudioTestFt8TransmitResult startLiveAudioTestFt8Transmit (
+    qint64 latestStartMs);
 #endif
 
   Q_SIGNALS:
@@ -665,14 +675,8 @@ private:
   Q_SIGNAL void transmitFrequency (double) const;
   Q_SIGNAL void endTransmitMessage (bool quick = false) const;
   Q_SIGNAL void tune (bool = true) const;
-  Q_SIGNAL void sendMessage (QString mode, unsigned symbolsLength,
-      double framesPerSymbol, double frequency, double toneSpacing,
-      SoundOutput *, AudioDevice::Channel = AudioDevice::Mono,
-      bool synchronize = true, bool fastMode = false, double dBSNR = 99.,
-      int TRperiod = 60, TxEvidence::TxSessionId = {},
-      TxEvidence::TxGeneration = {}) const;
-  Q_SIGNAL void startJttyStream (SoundOutput *, AudioDevice::Channel, qint64 fifoSessionId,
-      TxEvidence::TxSessionId, TxEvidence::TxGeneration);
+  Q_SIGNAL void sendMessage (TxEvidence::TxRequest, SoundOutput *) const;
+  Q_SIGNAL void startJttyStream (TxEvidence::TxRequest, SoundOutput *);
   Q_SIGNAL void endJttyStream () const;
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
@@ -680,6 +684,7 @@ private:
 
 private:
   void set_mode (QString const& mode);
+  void dispatchTxRequest (TxEvidence::TxRequest const& request);
   void beginTxEvidenceSession ();
   void beginTxEvidenceGeneration (qint64 committedEndSample = -1,
                                   bool targetKnown = false);

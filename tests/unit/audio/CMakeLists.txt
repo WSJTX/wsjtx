@@ -30,3 +30,7 @@ add_executable (test_tx_playback_diagnostics
   ${CMAKE_SOURCE_DIR}/Audio/TxPlaybackDiagnostics.cpp)
 target_link_libraries (test_tx_playback_diagnostics Qt5::Core Qt5::Test)
 add_test (NAME test_tx_playback_diagnostics COMMAND test_tx_playback_diagnostics)
+
+add_executable (test_tx_request test_tx_request.cpp)
+target_link_libraries (test_tx_request Qt5::Test)
+add_test (NAME test_tx_request COMMAND test_tx_request)

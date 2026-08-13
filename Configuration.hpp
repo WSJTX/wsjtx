@@ -10,6 +10,7 @@
 #include "Radio.hpp"
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 #include "models/IARURegions.hpp"
 #include "Audio/AudioDevice.hpp"
 #include "Transceiver/Transceiver.hpp"
@@ -420,7 +421,7 @@ public:
 
   // Set modulation start TCI audio
   //
-  Q_SLOT void transceiver_modulator_start (QString="FT8", unsigned = 79, double = 1920.0, double = 1500.0, double = -3.0, bool = true, bool=false, double = 99., double = 60.0, TxEvidence::TxSessionId = {}, TxEvidence::TxGeneration = {});
+  Q_SLOT void transceiver_modulator_start (TxEvidence::TxRequest request = {});
 
   Q_SLOT void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
   Q_SLOT void transceiver_clear_jtty_pcm (qint64);

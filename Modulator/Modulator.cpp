@@ -105,45 +105,44 @@ Modulator::Modulator (unsigned frameRate, double periodLengthInSeconds,
 {
 }
 
-void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSymbol,
-                       double frequency, double toneSpacing,
-                       SoundOutput * stream, Channel channel,
-                       bool synchronize, bool fastMode, double dBSNR, double TRperiod,
-                       TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
+void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
 {
-//  qDebug () << mode << symbolsLength << framesPerSymbol << frequency << toneSpacing
-//            << channel << synchronize << fastMode << dBSNR << TRperiod;
+//  qDebug () << request.mode << request.symbols_length << request.frames_per_symbol
+//            << request.frequency_hz << request.tone_spacing << request.channel
+//            << request.synchronize << request.fast_mode << request.snr_db
+//            << request.tr_period_s;
   Q_ASSERT (stream);
 // Time according to this computer which becomes our base time
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
 
   if(m_state != Idle) stop();
-  m_mode = mode;
+  m_mode = request.mode;
   m_quickClose = false;
-  m_symbolsLength = symbolsLength;
+  m_symbolsLength = request.symbols_length;
   m_isym0 = std::numeric_limits<unsigned>::max (); // big number
   m_frequency0 = 0.;
   m_phi = 0.;
-  m_addNoise = dBSNR < 0.;
-  m_nsps = framesPerSymbol;
-  m_frequency = frequency;
+  m_addNoise = request.snr_db < 0.;
+  m_nsps = request.frames_per_symbol;
+  m_frequency = request.frequency_hz;
   m_amp = std::numeric_limits<qint16>::max ();
-  m_toneSpacing = toneSpacing;
-  m_bFastMode=fastMode;
-  m_TRperiod=TRperiod;
+  m_toneSpacing = request.tone_spacing;
+  m_bFastMode=request.fast_mode;
+  m_TRperiod=request.tr_period_s;
+  m_tuning=request.tuning;
   m_icmin=4294967295;
   m_icmax=0;
   unsigned delay_ms=1000;
-  if((mode=="FT8" and m_nsps==1920) or (mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
-  if((mode=="FT8" and m_nsps==1024)) delay_ms=400;            //SuperFox Qary Polar Code transmission
-  if(mode=="Q65" and m_nsps<=3600) delay_ms=500;              //Q65-15 and Q65-30
-  if(mode=="FT4") delay_ms=300;                               //FT4
-  if(mode=="JTTY")delay_ms=0;
+  if((request.mode=="FT8" and m_nsps==1920) or (request.mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
+  if((request.mode=="FT8" and m_nsps==1024)) delay_ms=400;            //SuperFox Qary Polar Code transmission
+  if(request.mode=="Q65" and m_nsps<=3600) delay_ms=500;              //Q65-15 and Q65-30
+  if(request.mode=="FT4") delay_ms=300;                               //FT4
+  if(request.mode=="JTTY")delay_ms=0;
 
 // noise generator parameters
   if (m_addNoise) {
-    m_snr = qPow (10.0, 0.05 * (dBSNR - 6.0));
+    m_snr = qPow (10.0, 0.05 * (request.snr_db - 6.0));
     m_fac = 3000.0;
     if (m_snr > 1.0) m_fac = 3000.0 / m_snr;
   }
@@ -154,7 +153,7 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
     {
       // calculate number of silent frames to send, so that audio will
       // start at the nominal time "delay_ms" into the Tx sequence.
-      if (synchronize)
+      if (request.synchronize)
         {
           if(delay_ms > mstr) m_silentFrames = (delay_ms - mstr) * m_frameRate / 1000;
         }
@@ -165,10 +164,10 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
           m_ic = (mstr - delay_ms) * m_frameRate / 1000;
         }
     }
-  if(mode=="Echo" or mode=="JTTY") m_ic=0;
+  if(request.mode=="Echo" or request.mode=="JTTY") m_ic=0;
 
-  initialize (QIODevice::ReadOnly, channel);
-  Q_EMIT stateChanged ((m_state = (synchronize && m_silentFrames) ?
+  initialize (QIODevice::ReadOnly, request.channel);
+  Q_EMIT stateChanged ((m_state = (request.synchronize && m_silentFrames) ?
                         Synchronizing : Active));
 //  qDebug() << "delay_ms:" << delay_ms << "mstr:" << mstr << "m_silentFrames:"
 //           << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state << synchronize;
@@ -182,7 +181,8 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
     {
       qDebug () << "Modulator::start: no audio output stream assigned";
     }
-  Q_EMIT txSourceCommitted (txStartSnapshot (sessionId, generation, m_mode, m_frameRate,
+  Q_EMIT txSourceCommitted (txStartSnapshot (request.session_id, request.generation,
+                                             m_mode, m_frameRate,
                                              m_silentFrames, m_ic, m_tuning, m_bFastMode,
                                              m_symbolsLength, m_nsps, m_TRperiod));
 }

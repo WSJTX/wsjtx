@@ -7,15 +7,14 @@
 #include <QVector>
 
 #include "Audio/AudioDevice.hpp"
-#include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 #include "Modulator/JttyTxBuffer.hpp"
 
 class SoundOutput;
 
 TxEvidence::TxStartSnapshot makeJttyTxStartSnapshot (
-  TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation,
-  qint64 committedEndSample);
+  TxEvidence::TxRequest const& request, qint64 committedEndSample);
 
 //
 // JTTY-only asynchronous transmit source.
@@ -34,9 +33,7 @@ public:
 
   bool isActive () const {return m_active;}
 
-  Q_SLOT void start (SoundOutput * stream, AudioDevice::Channel channel, qint64 fifoSessionId,
-                     TxEvidence::TxSessionId sessionId,
-                     TxEvidence::TxGeneration generation);
+  Q_SLOT void start (TxEvidence::TxRequest request, SoundOutput * stream);
   Q_SLOT void stop ();
 
   Q_SIGNAL void drained (qint64 sessionId, qint64 totalAtDrain);

@@ -1582,9 +1582,7 @@ void TCITransceiver::mysleep8 (int ms)
 }
 // Modulator part
 
-void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, double framesPerSymbol,
-                                        double frequency, double toneSpacing, bool synchronize, bool fastMode, double dBSNR, double TRperiod,
-                                        TxEvidence::TxSessionId sessionId, TxEvidence::TxGeneration generation)
+void TCITransceiver::do_modulator_start (TxEvidence::TxRequest const& request)
 {
   // Time according to this computer which becomes our base time
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
@@ -1594,28 +1592,28 @@ void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, d
     throw error {tr ("TCI modulator not Idle")};
   }
   m_quickClose = false;
-  m_txMode = mode;
-  m_symbolsLength = symbolsLength;
+  m_txMode = request.mode;
+  m_symbolsLength = request.symbols_length;
   m_isym0 = std::numeric_limits<unsigned>::max (); // big number
   m_frequency0 = 0.;
   m_phi = 0.;
-  m_addNoise = dBSNR < 0.;
-  m_nsps = framesPerSymbol;
-  m_trfrequency = frequency;
+  m_addNoise = request.snr_db < 0.;
+  m_nsps = request.frames_per_symbol;
+  m_trfrequency = request.frequency_hz;
   m_amp = std::numeric_limits<qint16>::max ();
-  m_toneSpacing = toneSpacing;
-  m_bFastMode=fastMode;
-  m_TRperiod=TRperiod;
+  m_toneSpacing = request.tone_spacing;
+  m_bFastMode=request.fast_mode;
+  m_TRperiod=request.tr_period_s;
   unsigned delay_ms=1000;
 
-  if((mode=="FT8" and m_nsps==1920) or (mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
-  if((mode=="FT8" and m_nsps==1024)) delay_ms=400;            //SuperFox Qary Polar Code transmission
-  if(mode=="Q65" and m_nsps<=3600) delay_ms=500;              //Q65-15 and Q65-30
-  if(mode=="FT4") delay_ms=300;                               //FT4
+  if((request.mode=="FT8" and m_nsps==1920) or (request.mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
+  if((request.mode=="FT8" and m_nsps==1024)) delay_ms=400;            //SuperFox Qary Polar Code transmission
+  if(request.mode=="Q65" and m_nsps<=3600) delay_ms=500;              //Q65-15 and Q65-30
+  if(request.mode=="FT4") delay_ms=300;                               //FT4
 
   // noise generator parameters
   if (m_addNoise) {
-    m_snr = qPow (10.0, 0.05 * (dBSNR - 6.0));
+    m_snr = qPow (10.0, 0.05 * (request.snr_db - 6.0));
     m_fac = 3000.0;
     if (m_snr > 1.0) m_fac = 3000.0 / m_snr;
   }
@@ -1630,16 +1628,16 @@ void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, d
 
   m_silentFrames = 0;
   // calculate number of silent frames to send
-  if (m_ic == 0 && synchronize && !m_tuning)	{
+  if (m_ic == 0 && request.synchronize && !request.tuning)	{
     m_silentFrames = audioSampleRate / (1000 / delay_ms) - (mstr * (audioSampleRate / 1000));
   }
-  m_state = (synchronize && m_silentFrames) ?
+  m_state = (request.synchronize && m_silentFrames) ?
                 Synchronizing : Active;
-  m_txStartSnapshot.session_id = sessionId;
-  m_txStartSnapshot.generation = generation;
+  m_txStartSnapshot.session_id = request.session_id;
+  m_txStartSnapshot.generation = request.generation;
   m_txStartSnapshot.mode = m_txMode;
   m_txStartSnapshot.sample_rate_hz = int (audioSampleRate);
-  m_txStartSnapshot.committed_end_sample = bounded_source_frames ();
+  m_txStartSnapshot.committed_end_sample = bounded_source_frames (request.tuning);
   m_txStartSnapshot.target_known = m_txStartSnapshot.committed_end_sample >= 0;
   m_txStartSnapshot.diagnostic = tr ("TCI source commitment; playout evidence is protocol-send dead reckoning, not DAC confirmation");
   ++m_tciBackendStartSequence;
@@ -1647,7 +1645,7 @@ void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, d
   m_tciStartMsecs = QDateTime::currentMSecsSinceEpoch ();
   m_tciLastReportMsecs = m_tciStartMsecs;
   m_tciFinalSnapshotEmitted = false;
-  printf("%s TCI modulator startdelay_ms=%d ASR=%d mstr=%d mstr2=%d m_ic=%d s_Frames=%lld synchronize=%d m_tuning=%d State=%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),delay_ms,audioSampleRate,mstr,mstr2,m_ic,m_silentFrames,synchronize,m_tuning,m_state);
+  printf("%s TCI modulator startdelay_ms=%d ASR=%d mstr=%d mstr2=%d m_ic=%d s_Frames=%lld synchronize=%d m_tuning=%d State=%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),delay_ms,audioSampleRate,mstr,mstr2,m_ic,m_silentFrames,request.synchronize,request.tuning,m_state);
   if (m_txMode == "JTTY" && !m_jttyDrainTimer->isActive ()) m_jttyDrainTimer->start ();
   Q_EMIT tci_mod_active(m_state != Idle);
   Q_EMIT txSourceCommitted (m_txStartSnapshot);
@@ -1672,9 +1670,9 @@ void TCITransceiver::do_modulator_stop (bool quick)
   tx_audio_ = false;
 }
 
-qint64 TCITransceiver::bounded_source_frames () const
+qint64 TCITransceiver::bounded_source_frames (bool tuning) const
 {
-  if (m_tuning || m_txMode == "JTTY" || m_txMode == "CW" || icw[0] > 0) return -1;
+  if (tuning || m_txMode == "JTTY" || m_txMode == "CW" || icw[0] > 0) return -1;
 
   qint64 i1 = qint64 (m_symbolsLength * 4.0 * m_nsps);
   if (m_bFastMode)

@@ -6,6 +6,7 @@
 #include "Audio/AudioDevice.hpp"
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 #include "Modulator/JttyPcmFifo.hpp"
 #include "Modulator/JttyTxBuffer.hpp"
 #include "Modulator/JttyTxStream.hpp"
@@ -44,6 +45,17 @@ namespace
   // Default drain guard baked into JttyTxStream when start() has not run (no
   // device buffer to measure). Mirrors DEFAULT_DRAIN_GUARD in JttyTxStream.cpp.
   constexpr int DEFAULT_GUARD = 9600;
+
+  TxEvidence::TxRequest jttyRequest (qint64 sessionId, qint64 generation,
+                                     qint64 fifoSessionId = -1)
+  {
+    TxEvidence::TxRequest request;
+    request.mode = QStringLiteral ("JTTY");
+    request.session_id = TxEvidence::TxSessionId {sessionId};
+    request.generation = TxEvidence::TxGeneration {generation};
+    request.fifo_session_id = fifoSessionId >= 0 ? fifoSessionId : sessionId;
+    return request;
+  }
 
   QVector<qint16> readFrames (JttyTxStream & s, int frames)
   {
@@ -289,8 +301,7 @@ void TestJttyTxStream::timerEmitsDrainedEdge ()
   QSignalSpy spy (&s, &JttyTxStream::drained);
 
   QVERIFY (buffer.enqueueMessage (QVector<qint16> {7, 7, 7}, 41));
-  s.start (nullptr, AudioDevice::Mono, 41, TxEvidence::TxSessionId {41},
-           TxEvidence::TxGeneration {1});
+  s.start (jttyRequest (41, 1), nullptr);
 
   // Serve the 3 real samples plus exactly the guard worth of trailing silence.
   (void) readFrames (s, 3 + DEFAULT_GUARD);
@@ -344,8 +355,7 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   // Queue before starting the worker so thread creation establishes the
   // cross-thread handoff.
   QMetaObject::invokeMethod (&s, [&s] {
-    s.start (nullptr, AudioDevice::Mono, 51, TxEvidence::TxSessionId {51},
-             TxEvidence::TxGeneration {1});
+    s.start (jttyRequest (51, 1), nullptr);
     QByteArray buf ((3 + DEFAULT_GUARD) * 2, '\0');
     s.read (buf.data (), buf.size ());
   }, Qt::QueuedConnection);
@@ -369,8 +379,7 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
 
 void TestJttyTxStream::sourceCommitUsesCurrentRealExtent ()
 {
-  auto const snapshot = makeJttyTxStartSnapshot (TxEvidence::TxSessionId {61},
-                                                  TxEvidence::TxGeneration {7}, 3);
+  auto const snapshot = makeJttyTxStartSnapshot (jttyRequest (61, 7), 3);
   QCOMPARE (snapshot.session_id.value (), qint64 (61));
   QCOMPARE (snapshot.generation.value (), qint64 (7));
   QCOMPARE (snapshot.mode, QString {"JTTY"});
@@ -390,8 +399,7 @@ void TestJttyTxStream::sourceCommitUsesCurrentRealExtent ()
              ++commitCount;
            });
 
-  stream.start (nullptr, AudioDevice::Mono, 61, TxEvidence::TxSessionId {61},
-                TxEvidence::TxGeneration {7});
+  stream.start (jttyRequest (61, 7), nullptr);
   QCOMPARE (commitCount, 1);
   QCOMPARE (committed.committed_end_sample, qint64 (2));
   (void) readFrames (stream, 3 + DEFAULT_GUARD);
@@ -407,16 +415,13 @@ void TestJttyTxStream::sourceCommitIsEmittedOncePerStart ()
   connect (&stream, &JttyTxStream::txSourceCommitted, &stream,
            [&commits] (TxEvidence::TxStartSnapshot snapshot) {commits.append (snapshot);});
 
-  stream.start (nullptr, AudioDevice::Mono, 71, TxEvidence::TxSessionId {71},
-                TxEvidence::TxGeneration {1});
-  stream.start (nullptr, AudioDevice::Mono, 71, TxEvidence::TxSessionId {71},
-                TxEvidence::TxGeneration {1});
+  stream.start (jttyRequest (71, 1), nullptr);
+  stream.start (jttyRequest (71, 1), nullptr);
   QCOMPARE (commits.size (), 1);
   QCOMPARE (commits.at (0).committed_end_sample, qint64 (-1));
   stream.stop ();
 
-  stream.start (nullptr, AudioDevice::Mono, 72, TxEvidence::TxSessionId {72},
-                TxEvidence::TxGeneration {2});
+  stream.start (jttyRequest (72, 2), nullptr);
   QCOMPARE (commits.size (), 2);
   QCOMPARE (commits.at (0).session_id.value (), qint64 (71));
   QCOMPARE (commits.at (1).session_id.value (), qint64 (72));

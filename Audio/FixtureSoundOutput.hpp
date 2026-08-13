@@ -23,7 +23,15 @@ class FixtureSoundOutput final
   Q_OBJECT
 
 public:
-  explicit FixtureSoundOutput (QString capturePath, QObject * parent = nullptr);
+  enum class Profile
+  {
+    JttyStrict,
+    Ft8Period
+  };
+
+  explicit FixtureSoundOutput (QString capturePath,
+                               Profile profile = Profile::JttyStrict,
+                               QObject * parent = nullptr);
   ~FixtureSoundOutput () override;
 
   int bufferSize () const override;
@@ -48,22 +56,27 @@ Q_SIGNALS:
   void captureFailed (QString message) const;
 
 private:
+  bool appendCapturedPcm (QByteArray const& pcm);
+  bool appendSilence (qint64 frames);
   void finishCapture ();
   void fail (QString const& message);
   void scheduleNextPull ();
   Q_SLOT void pullAudio ();
 
   static constexpr int sampleRate = 48000;
+  static constexpr qint64 ft8PeriodFrames = 15 * sampleRate;
   static constexpr int bytesPerCapturedFrame = 2;
   static constexpr int simulatedBufferBytes = 9600;
 
   QString m_capturePath;
+  Profile m_profile;
   QPointer<QIODevice> m_source;
   std::unique_ptr<BWFFile> m_capture;
   QTimer * m_timer;
   QElapsedTimer m_elapsed;
   QVector<int> m_chunkFrames {257, 509, 1021, 2039};
   qint64 m_framesPulled {0};
+  qint64 m_scheduleOriginFrame {0};
   std::atomic<qint64> m_capturedFrames {0};
   std::atomic<qint64> m_maxInternalSilentFrames {0};
   std::atomic<int> m_restartCount {0};

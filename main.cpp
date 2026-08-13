@@ -62,6 +62,7 @@
 #include "Audio/BWFFile.hpp"
 #include "Audio/FixtureAudioInput.hpp"
 #include "Audio/FixtureSoundOutput.hpp"
+#include "Ft8TxLoopbackTestController.hpp"
 #include "JttyTxLoopbackTestController.hpp"
 #include "LiveAudioTestController.hpp"
 #include <QAudioFormat>
@@ -284,6 +285,7 @@ int main(int argc, char *argv[])
   bool live_audio_test {false};
   bool jtty_live_audio_test {false};
   bool jtty_tx_loopback_test {false};
+  bool ft8_tx_loopback_test {false};
 #endif
   try
     {
@@ -373,6 +375,10 @@ int main(int argc, char *argv[])
         QStringList {} << "jtty-tx-loopback-test",
         "Capture two gaplessly queued JTTY messages to a WAV file.", "wav-path");
       parser.addOption (jtty_tx_loopback_test_option);
+      QCommandLineOption ft8_tx_loopback_test_option (
+        QStringList {} << "ft8-tx-loopback-test",
+        "Capture one period-aligned FT8 transmission to a WAV file.", "wav-path");
+      parser.addOption (ft8_tx_loopback_test_option);
 #endif
 
       if (!parser.parse (a.arguments ()))
@@ -399,6 +405,7 @@ int main(int argc, char *argv[])
       live_audio_test = parser.isSet (live_audio_test_option);
       jtty_live_audio_test = parser.isSet (jtty_live_audio_test_option);
       jtty_tx_loopback_test = parser.isSet (jtty_tx_loopback_test_option);
+      ft8_tx_loopback_test = parser.isSet (ft8_tx_loopback_test_option);
       if (live_audio_test != parser.isSet (live_audio_expected_option)
           || live_audio_test != parser.isSet (live_audio_data_dir_option))
         {
@@ -415,10 +422,10 @@ int main(int argc, char *argv[])
         }
       if ((startup_smoke_test ? 1 : 0) + (live_audio_test ? 1 : 0)
           + (jtty_live_audio_test ? 1 : 0)
-          + (jtty_tx_loopback_test ? 1 : 0) > 1)
+          + (jtty_tx_loopback_test ? 1 : 0)
+          + (ft8_tx_loopback_test ? 1 : 0) > 1)
         {
-          std::cerr << "Startup, FT8 live-audio, JTTY live-audio, and JTTY TX "
-                       "loopback tests are mutually exclusive"
+          std::cerr << "Startup, live-audio, and TX loopback tests are mutually exclusive"
                     << std::endl;
           return EXIT_FAILURE;
         }
@@ -436,7 +443,7 @@ int main(int argc, char *argv[])
             }
         }
       automated_test = startup_smoke_test || live_audio_test
-        || jtty_live_audio_test || jtty_tx_loopback_test;
+        || jtty_live_audio_test || jtty_tx_loopback_test || ft8_tx_loopback_test;
 #else
       automated_test = startup_smoke_test;
 #endif
@@ -723,7 +730,15 @@ int main(int argc, char *argv[])
                                                                   ).toBool () ? 1u : 4u;
 
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
-            if (live_audio_test) downSampleFactor = 1u;
+            if (live_audio_test)
+              {
+                BWFFile fixture {QAudioFormat {}, parser.value (live_audio_test_option)};
+                if (fixture.open (BWFFile::ReadOnly))
+                  {
+                    downSampleFactor = fixture.format ().sampleRate () == 48000
+                      ? 4u : 1u;
+                  }
+              }
             if (jtty_live_audio_test)
               {
                 BWFFile fixture {QAudioFormat {},
@@ -759,11 +774,16 @@ int main(int argc, char *argv[])
               fixture_input = fixture.get ();
               audio_input = std::move (fixture);
             }
-          if (jtty_tx_loopback_test)
+          if (jtty_tx_loopback_test || ft8_tx_loopback_test)
             {
               std::unique_ptr<FixtureSoundOutput> fixture {
                 new FixtureSoundOutput {
-                  parser.value (jtty_tx_loopback_test_option)}};
+                  parser.value (jtty_tx_loopback_test
+                                ? jtty_tx_loopback_test_option
+                                : ft8_tx_loopback_test_option),
+                  ft8_tx_loopback_test
+                    ? FixtureSoundOutput::Profile::Ft8Period
+                    : FixtureSoundOutput::Profile::JttyStrict}};
               fixture_output = fixture.get ();
               sound_output = std::move (fixture);
             }
@@ -807,6 +827,7 @@ int main(int argc, char *argv[])
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           std::unique_ptr<LiveAudioTestController> live_audio_controller;
           std::unique_ptr<JttyTxLoopbackTestController> jtty_tx_controller;
+          std::unique_ptr<Ft8TxLoopbackTestController> ft8_tx_controller;
           if (live_audio_test || jtty_live_audio_test)
             {
               a.setQuitOnLastWindowClosed (false);
@@ -831,6 +852,18 @@ int main(int argc, char *argv[])
                 parser.value (jtty_tx_loopback_test_option)});
               auto * controller = jtty_tx_controller.get ();
               QTimer::singleShot (0, jtty_tx_controller.get (),
+                                  [controller] {
+                                    controller->begin ();
+                                  });
+            }
+          if (ft8_tx_loopback_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              ft8_tx_controller.reset (new Ft8TxLoopbackTestController {
+                &w, fixture_output,
+                parser.value (ft8_tx_loopback_test_option)});
+              auto * controller = ft8_tx_controller.get ();
+              QTimer::singleShot (0, ft8_tx_controller.get (),
                                   [controller] {
                                     controller->begin ();
                                   });
@@ -877,6 +910,11 @@ int main(int argc, char *argv[])
             }
           if (jtty_tx_loopback_test
               && (!jtty_tx_controller || !jtty_tx_controller->succeeded ()))
+            {
+              result = EXIT_FAILURE;
+            }
+          if (ft8_tx_loopback_test
+              && (!ft8_tx_controller || !ft8_tx_controller->succeeded ()))
             {
               result = EXIT_FAILURE;
             }

@@ -33,9 +33,10 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
       fail (tr ("Synthetic audio input has no detector sink."));
       return;
     }
-  if (Profile::Ft8 == m_profile && downSampleFactor != 1)
+  if (Profile::Ft8 == m_profile
+      && downSampleFactor != 1 && downSampleFactor != 4)
     {
-      fail (tr ("Synthetic FT8 audio input requires a downsample factor of 1."));
+      fail (tr ("Synthetic FT8 audio input requires a downsample factor of 1 or 4."));
       return;
     }
   if (Profile::Jtty == m_profile
@@ -78,7 +79,7 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
 
   if (Profile::Ft8 == m_profile)
     {
-      constexpr qint64 expectedFrames = 15 * detectorSampleRate;
+      auto const expectedFrames = qint64 {15} * format.sampleRate ();
       if (file.size () != expectedFrames * bytesPerFrame)
         {
           fail (tr ("Synthetic FT8 audio fixture must contain exactly %1 frames; found %2.")

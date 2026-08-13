@@ -4646,6 +4646,49 @@ bool MainWindow::configureLiveAudioTestDecodeRange ()
   return m_wideGraph->nStartFreq () == liveAudioTestDecodeLowFrequency ()
     && m_wideGraph->Fmax () == liveAudioTestDecodeHighFrequency ();
 }
+
+MainWindow::LiveAudioTestFt8TransmitResult
+MainWindow::startLiveAudioTestFt8Transmit (qint64 latestStartMs)
+{
+  if (!m_automated_test || m_mode != QStringLiteral ("FT8"))
+    {
+      std::cerr << "FT8 TX loopback trigger rejected: automated="
+                << m_automated_test << " mode=" << m_mode.toStdString ()
+                << std::endl;
+      return LiveAudioTestFt8TransmitResult::Failed;
+    }
+
+  if (!m_transmitting)
+    {
+      g_iptt = 1;
+      m_iptt0 = 0;
+      guiUpdate ();
+    }
+  if (!m_transmitting)
+    {
+      std::cerr << "FT8 TX loopback could not arm transmission: g_iptt="
+                << g_iptt << " m_iptt0=" << m_iptt0
+                << " message=" << m_currentMessage.toStdString ()
+                << " generated_error=" << m_generated_message_error
+                << std::endl;
+      return LiveAudioTestFt8TransmitResult::Failed;
+    }
+
+  if (QDateTime::currentMSecsSinceEpoch () > latestStartMs)
+    {
+      m_tx_when_ready = false;
+      ptt1Timer.stop ();
+      stopTx ();
+      return LiveAudioTestFt8TransmitResult::MissedWindow;
+    }
+
+  // The fixture has no rig backend, so release the generated waveform at the
+  // same seam normally reached after the rig acknowledges PTT.
+  m_tx_when_ready = false;
+  ptt1Timer.stop ();
+  startTx2 ();
+  return LiveAudioTestFt8TransmitResult::Started;
+}
 #endif
 
 void::MainWindow::fast_decode_done()
@@ -10906,6 +10949,27 @@ void MainWindow::rigFailure (QString const& reason)
     }
 }
 
+void MainWindow::dispatchTxRequest (TxEvidence::TxRequest const& request)
+{
+  bool const useTciAudio = request.mode == QStringLiteral ("JTTY")
+    ? m_jttyTxUsesTciAudio : m_tci_audio;
+  if (useTciAudio)
+    {
+      Q_EMIT m_config.transceiver_modulator_start (request);
+    }
+  else if (request.mode == QStringLiteral ("JTTY") && !request.tuning)
+    {
+      Q_EMIT startJttyStream (request, m_soundOutput);
+    }
+  else
+    {
+      auto localRequest = request;
+      // The local modulator historically receives an integer period; TCI retains the full value.
+      localRequest.tr_period_s = static_cast<int> (localRequest.tr_period_s);
+      Q_EMIT sendMessage (localRequest, m_soundOutput);
+    }
+}
+
 void MainWindow::transmit (double snr)
 {
   beginTxEvidenceGeneration (m_mode == "JTTY" && m_jttyQueuedSamples > 0
@@ -10913,21 +10977,25 @@ void MainWindow::transmit (double snr)
                              false);
   auto const txSessionId = m_txEvidenceSourceSession;
   auto const txGeneration = m_txEvidenceGeneration;
+  TxEvidence::TxRequest request;
+  request.mode = m_mode;
+  request.channel = m_config.audio_output_channel ();
+  request.snr_db = snr;
+  request.tr_period_s = m_TRperiod;
+  request.session_id = txSessionId;
+  request.generation = txGeneration;
+  request.fifo_session_id = m_jttyTxSessionId;
+  request.tuning = m_tune;
   double toneSpacing=0.0;
   if (m_mode == "JT65") {
     if(m_nSubMode==0) toneSpacing=11025.0/4096.0;
     if(m_nSubMode==1) toneSpacing=2*11025.0/4096.0;
     if(m_nSubMode==2) toneSpacing=4*11025.0/4096.0;
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_JT65_SYMBOLS,
-             4096.0*12000.0/11025.0, ui->TxFreqSpinBox->value () - m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode, NUM_JT65_SYMBOLS,
-             4096.0*12000.0/11025.0, ui->TxFreqSpinBox->value () - m_XIT,
-             toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-             true, false, snr, m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = NUM_JT65_SYMBOLS;
+    request.frames_per_symbol = 4096.0*12000.0/11025.0;
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.tone_spacing = toneSpacing;
+    dispatchTxRequest (request);
   }
 
   if((m_mode=="FT4" or m_mode=="FT8") and m_maxPoints>0 and SpecOp::ARRL_DIGI==m_specOp) {
@@ -10942,61 +11010,38 @@ void MainWindow::transmit (double snr)
     if(m_config.x4ToneSpacing()) toneSpacing=4*12000.0/1920.0;
     if(SpecOp::FOX==m_specOp and !m_tune) toneSpacing=-1;
     if(SpecOp::FOX==m_specOp and m_config.superFox()) {
-      if (m_tci_audio) {
-        Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_SUPERFOX_SYMBOLS,
-            1024.0,ui->TxFreqSpinBox->value()-m_XIT,
-            toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
-      } else {
-        Q_EMIT sendMessage (m_mode, NUM_SUPERFOX_SYMBOLS,
-            1024.0, ui->TxFreqSpinBox->value () - m_XIT,
-            toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-            true, false, snr, m_TRperiod,txSessionId,txGeneration);
-      }
+      request.symbols_length = NUM_SUPERFOX_SYMBOLS;
+      request.frames_per_symbol = 1024.0;
     } else {
-        if (m_tci_audio) {
-          Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_FT8_SYMBOLS,
-              1920.0,ui->TxFreqSpinBox->value()-m_XIT,
-              toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
-        } else {
-          Q_EMIT sendMessage (m_mode, NUM_FT8_SYMBOLS,
-              1920.0, ui->TxFreqSpinBox->value () - m_XIT,
-              toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-              true, false, snr, m_TRperiod,txSessionId,txGeneration);
-        }
+      request.symbols_length = NUM_FT8_SYMBOLS;
+      request.frames_per_symbol = 1920.0;
     }
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.tone_spacing = toneSpacing;
+    dispatchTxRequest (request);
   }
 
   if (m_mode == "FT4") {
     m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
     toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_FT4_SYMBOLS,
-             576.0,ui->TxFreqSpinBox->value()-m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode, NUM_FT4_SYMBOLS,
-             576.0, ui->TxFreqSpinBox->value() - m_XIT,
-             toneSpacing, m_soundOutput, m_config.audio_output_channel(),
-             true, false, snr, m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = NUM_FT4_SYMBOLS;
+    request.frames_per_symbol = 576.0;
+    request.frequency_hz = ui->TxFreqSpinBox->value() - m_XIT;
+    request.tone_spacing = toneSpacing;
+    dispatchTxRequest (request);
   }
 
   if (m_mode == "JTTY") {
     m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
     toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
     double txt=m_nsym_jtty*384.0/12000.0;
-    if (m_jttyTxUsesTciAudio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
-             384.0,1500.0,toneSpacing,false,false,snr,txt,txSessionId,txGeneration);
-    } else if (m_tune) {
-      // Special case to activate Tune in JTTY mode.
-      Q_EMIT sendMessage (m_mode, m_nsym_jtty, 384.0, 1500.0, toneSpacing,
-             m_soundOutput, m_config.audio_output_channel (),
-             false, false, snr, txt,txSessionId,txGeneration);
-    } else {
-      Q_EMIT startJttyStream (m_soundOutput, m_config.audio_output_channel(),
-                              m_jttyTxSessionId, txSessionId, txGeneration);
-    }
+    request.symbols_length = m_nsym_jtty;
+    request.frames_per_symbol = 384.0;
+    request.frequency_hz = 1500.0;
+    request.tone_spacing = toneSpacing;
+    request.synchronize = false;
+    request.tr_period_s = txt;
+    dispatchTxRequest (request);
   }
 
   if (m_mode == "FST4" or m_mode == "FST4W") {
@@ -11016,14 +11061,11 @@ void MainWindow::transmit (double snr)
     double f0=ui->WSPRfreqSpinBox->value() - m_XIT;
     if(m_mode=="FST4") f0=ui->TxFreqSpinBox->value() - m_XIT;
     if(!m_tune) f0 += 1.5*dfreq;
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_FST4_SYMBOLS,double(nsps),f0,toneSpacing,
-             true,false,snr,m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode, NUM_FST4_SYMBOLS,double(nsps),f0,toneSpacing,
-                          m_soundOutput,m_config.audio_output_channel(),
-                          true, false, snr, m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = NUM_FST4_SYMBOLS;
+    request.frames_per_symbol = double(nsps);
+    request.frequency_hz = f0;
+    request.tone_spacing = toneSpacing;
+    dispatchTxRequest (request);
   }
 
   if (m_mode == "Q65") {
@@ -11035,16 +11077,11 @@ void MainWindow::transmit (double snr)
     int mode65=pow(2.0,double(m_nSubMode));
     toneSpacing=mode65*12000.0/nsps;
 //    toneSpacing=-4.0;
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_Q65_SYMBOLS,
-             double(nsps),ui->TxFreqSpinBox->value()-m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode, NUM_Q65_SYMBOLS,
-             double(nsps), ui->TxFreqSpinBox->value () - m_XIT,
-             toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-             true, false, snr, m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = NUM_Q65_SYMBOLS;
+    request.frames_per_symbol = double(nsps);
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.tone_spacing = toneSpacing;
+    dispatchTxRequest (request);
   }
 
   if (m_mode == "JT9") {
@@ -11060,16 +11097,12 @@ void MainWindow::transmit (double snr)
       sps=nsps[m_nSubMode-4];
       m_toneSpacing=12000.0/sps;
     }
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_JT9_SYMBOLS,sps,
-             ui->TxFreqSpinBox->value()-m_XIT,
-             m_toneSpacing,true,fastmode,snr,m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode, NUM_JT9_SYMBOLS, sps,
-                          ui->TxFreqSpinBox->value() - m_XIT, m_toneSpacing,
-                          m_soundOutput, m_config.audio_output_channel (),
-                          true, fastmode, snr, m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = NUM_JT9_SYMBOLS;
+    request.frames_per_symbol = sps;
+    request.frequency_hz = ui->TxFreqSpinBox->value() - m_XIT;
+    request.tone_spacing = m_toneSpacing;
+    request.fast_mode = fastmode;
+    dispatchTxRequest (request);
   }
 
   if (m_mode == "MSK144") {
@@ -11086,14 +11119,12 @@ void MainWindow::transmit (double snr)
     int nsym;
     nsym=NUM_MSK144_SYMBOLS;
     if(itone[40] < 0) nsym=40;
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, nsym,double(m_nsps),f0, m_toneSpacing,
-             true,true,snr,m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode, nsym, double(m_nsps), f0, m_toneSpacing,
-                          m_soundOutput, m_config.audio_output_channel (),
-                          true, true, snr, m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = nsym;
+    request.frames_per_symbol = double(m_nsps);
+    request.frequency_hz = f0;
+    request.tone_spacing = m_toneSpacing;
+    request.fast_mode = true;
+    dispatchTxRequest (request);
   }
 
   if (m_mode == "JT4") {
@@ -11104,34 +11135,22 @@ void MainWindow::transmit (double snr)
     if(m_nSubMode==4) toneSpacing=18*4.375;
     if(m_nSubMode==5) toneSpacing=36*4.375;
     if(m_nSubMode==6) toneSpacing=72*4.375;
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_JT4_SYMBOLS,
-             2520.0*12000.0/11025.0,ui->TxFreqSpinBox->value()-m_XIT,
-             toneSpacing,true,false,snr,m_TRperiod,txSessionId,txGeneration);
-     } else {
-      Q_EMIT sendMessage (m_mode, NUM_JT4_SYMBOLS,
-             2520.0*12000.0/11025.0, ui->TxFreqSpinBox->value () - m_XIT,
-             toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-             true, false, snr, m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = NUM_JT4_SYMBOLS;
+    request.frames_per_symbol = 2520.0*12000.0/11025.0;
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.tone_spacing = toneSpacing;
+    dispatchTxRequest (request);
   }
 
   if (m_mode=="WSPR") {
     int nToneSpacing=1;
     if(m_config.x2ToneSpacing()) nToneSpacing=2;
     if(m_config.x4ToneSpacing()) nToneSpacing=4;
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_WSPR_SYMBOLS,8192.0,
-             ui->TxFreqSpinBox->value() - 1.5 * 12000 / 8192,
-             m_toneSpacing*nToneSpacing,true,false,snr,
-             m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode, NUM_WSPR_SYMBOLS, 8192.0,
-                          ui->TxFreqSpinBox->value() - 1.5 * 12000 / 8192,
-                          m_toneSpacing*nToneSpacing, m_soundOutput,
-                          m_config.audio_output_channel(),true, false, snr,
-                          m_TRperiod,txSessionId,txGeneration);
-    }
+    request.symbols_length = NUM_WSPR_SYMBOLS;
+    request.frames_per_symbol = 8192.0;
+    request.frequency_hz = ui->TxFreqSpinBox->value() - 1.5 * 12000 / 8192;
+    request.tone_spacing = m_toneSpacing*nToneSpacing;
+    dispatchTxRequest (request);
   }
 
   if(m_mode=="Echo") {
@@ -11169,14 +11188,12 @@ void MainWindow::transmit (double snr)
     }
 
     m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
-    if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,
-             false,false,snr,m_TRperiod,txSessionId,txGeneration);
-    } else {
-      Q_EMIT sendMessage (m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,m_soundOutput,
-                          m_config.audio_output_channel(), false, false, snr, m_TRperiod,
-                          txSessionId, txGeneration);
-    }
+    request.symbols_length = numEchoSymbols;
+    request.frames_per_symbol = framesPerSymbol;
+    request.frequency_hz = freq;
+    request.tone_spacing = toneSpacing;
+    request.synchronize = false;
+    dispatchTxRequest (request);
   }
 
 // In auto-sequencing mode, stop after 5 transmissions of "73" message.

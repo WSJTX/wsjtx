@@ -953,6 +953,21 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     LABELS "gui;audio;jtty;integration"
     RUN_SERIAL TRUE
     TIMEOUT 180)
+
+  set (wsjtx_ft8_tx_loopback_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_ft8_tx_loopback")
+  add_test (
+    NAME test_wsjtx_ft8_tx_loopback
+    COMMAND ${CMAKE_COMMAND}
+      "-DWSJTX=$<TARGET_FILE:wsjtx>"
+      "-DWORK_DIR=${wsjtx_ft8_tx_loopback_test_root}"
+      "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/ft8/tx_loopback.expected.txt"
+      "-DDATA_DIR=${CMAKE_SOURCE_DIR}"
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/ft8/run_tx_loopback.cmake)
+  set_tests_properties (test_wsjtx_ft8_tx_loopback PROPERTIES
+    LABELS "gui;audio;decoder;ft8;integration"
+    RUN_SERIAL TRUE
+    TIMEOUT 150)
 endif ()
 
 # make a library for WSJT-X UDP servers
