@@ -220,6 +220,7 @@ jobs:
       - name: Build inside arm/v7 Bookworm GCC image
         env:
           ARCH: armhf
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           docker pull --platform linux/arm/v7 gcc:13.4.0-bookworm
           docker run --rm --platform linux/arm/v7 \
@@ -230,6 +231,7 @@ jobs:
             -e ARCH \
             -e WSJT_RELEASE_CHANNEL \
             -e WSJT_RC_NUMBER \
+            -e GITHUB_TOKEN \
             gcc:13.4.0-bookworm \
             bash .github/scripts/build-linux-payload.sh
 

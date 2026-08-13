@@ -27,6 +27,7 @@
 # Optional env vars:
 #   WSJT_RELEASE_CHANNEL — DEVEL, RC, or GA
 #   WSJT_RC_NUMBER       — release candidate number when channel is RC
+#   GITHUB_TOKEN         — authenticates linuxdeploy-plugin-qt API lookups
 #
 # Required mount (passed via docker run -v):
 #   /work           — the runner's $GITHUB_WORKSPACE bind-mounted into
@@ -229,7 +230,11 @@ echo "::endgroup::"
 # ── 10. Package AppImage ─────────────────────────────────────────────
 echo "::group::Package AppImage"
 LINUXDEPLOY_TAG="1-alpha-20251107-1"
-curl_flags=(--fail --show-error --silent --location --retry 5 --retry-all-errors --retry-delay 5)
+curl_flags=(--fail --show-error --silent --location --retry 5 --retry-delay 5)
+api_headers=(-H "User-Agent: wsjtx-ci")
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  api_headers+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+fi
 case "$ARCH" in
   x86_64)
     LINUXDEPLOY_SHA256="c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d"
@@ -248,7 +253,7 @@ esac
 
 QT_PLUGIN_ASSET_NAME="linuxdeploy-plugin-qt-${ARCH}.AppImage"
 QT_PLUGIN_ASSET_ID="$(
-  curl "${curl_flags[@]}" -H "Accept: application/vnd.github+json" \
+  curl "${curl_flags[@]}" "${api_headers[@]}" -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/tags/continuous" |
   python3 -c 'import json, sys; name = sys.argv[1]; matches = [asset for asset in json.load(sys.stdin)["assets"] if asset["name"] == name]; print(matches[0]["id"]) if matches else sys.exit("asset not found: " + name)' "$QT_PLUGIN_ASSET_NAME"
 )"
@@ -258,7 +263,7 @@ QT_PLUGIN_ASSET_ID="$(
 # reviewing the new binary.
 curl "${curl_flags[@]}" -o linuxdeploy.AppImage \
   "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_TAG}/linuxdeploy-${ARCH}.AppImage"
-curl "${curl_flags[@]}" -H "Accept: application/octet-stream" -o linuxdeploy-plugin-qt.AppImage \
+curl "${curl_flags[@]}" "${api_headers[@]}" -H "Accept: application/octet-stream" -o linuxdeploy-plugin-qt.AppImage \
   "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/assets/${QT_PLUGIN_ASSET_ID}"
 echo "${LINUXDEPLOY_SHA256}  linuxdeploy.AppImage" | sha256sum -c -
 echo "${QT_PLUGIN_SHA256}  linuxdeploy-plugin-qt.AppImage" | sha256sum -c -
