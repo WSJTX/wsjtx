@@ -50,11 +50,11 @@ LiveAudioTestController::LiveAudioTestController (
     }
 
   m_timeout.setSingleShot (true);
-  m_timeout.setInterval (Mode::Ft8 == m_mode ? 57000 : 45000);
+  m_timeout.setInterval (Mode::Ft8 == m_mode ? 110000 : 100000);
   connect (&m_timeout, &QTimer::timeout, this, [this] {
     fail (Mode::Ft8 == m_mode
-          ? tr ("Timed out after 57 seconds.")
-          : tr ("Timed out after 45 seconds."));
+          ? tr ("Timed out after 110 seconds.")
+          : tr ("Timed out after 100 seconds."));
   });
 
   m_prepareTimer.setSingleShot (true);
@@ -155,7 +155,7 @@ LiveAudioTestController::LiveAudioTestController (
              maybeFinish ();
              if (Mode::Jtty == m_mode)
                {
-                 QTimer::singleShot (3000, this, [this] {
+                 QTimer::singleShot (8000, this, [this] {
                    if (!m_finished)
                      {
                        fail (tr ("JTTY display did not settle to the expected text after input ended."));

@@ -113,7 +113,7 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
   m_inputSampleRate = format.sampleRate ();
   if (Profile::Jtty == m_profile)
     {
-      m_leadInFrames = m_inputSampleRate / 4;
+      m_leadInFrames = m_inputSampleRate / 2;
       m_tailFrames = 2 * m_inputSampleRate;
     }
   m_started = true;

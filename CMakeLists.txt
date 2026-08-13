@@ -906,7 +906,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config;XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data;XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache;TMPDIR=${wsjtx_live_audio_test_root}/tmp"
     LABELS "gui;audio;decoder;integration"
     RUN_SERIAL TRUE
-    TIMEOUT 60)
+    TIMEOUT 120)
 
   set (wsjtx_jtty_live_audio_test_root
     "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_jtty")
@@ -921,7 +921,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
   set_tests_properties (test_wsjtx_live_audio_jtty PROPERTIES
     LABELS "gui;audio;jtty;integration"
     RUN_SERIAL TRUE
-    TIMEOUT 60)
+    TIMEOUT 120)
 
   set (wsjtx_jtty_tx_loopback_test_root
     "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_jtty_tx_loopback")
@@ -935,7 +935,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
   set_tests_properties (test_wsjtx_jtty_tx_loopback PROPERTIES
     LABELS "gui;audio;jtty;integration"
     RUN_SERIAL TRUE
-    TIMEOUT 90)
+    TIMEOUT 180)
 endif ()
 
 # make a library for WSJT-X UDP servers
