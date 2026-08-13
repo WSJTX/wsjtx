@@ -1,5 +1,6 @@
 #include <QtTest>
 
+#include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QSignalSpy>
 #include <QTimer>
@@ -305,16 +306,23 @@ private Q_SLOTS:
     client->end_replay ();
 
     QVERIFY (first_batch.wait (1000));
-    auto const delivered_before_change = original_receiver.datagrams ().size ();
-    QVERIFY (delivered_before_change > 0);
-    QVERIFY (delivered_before_change <= 10);
+    QVERIFY (original_receiver.datagrams ().size () > 0);
 
+    // Cancel as soon as the first paced batch is observed. Packets already
+    // written to the OS before cancel can still arrive after the first
+    // readyRead, so settle the original socket before taking a baseline.
     client->set_server_port (new_receiver.port ());
+    QTest::qWait (50);
+    QCoreApplication::processEvents ();
+    auto const delivered_after_cancel = original_receiver.datagrams ().size ();
+    QVERIFY (delivered_after_cancel > 0);
+    QVERIFY (delivered_after_cancel <= 10);
+
     sendDecode (*client, true, 25);
 
     QTRY_COMPARE (new_receiver.datagrams ().size (), 1);
-    QTest::qWait (30);
-    QCOMPARE (original_receiver.datagrams ().size (), delivered_before_change);
+    QTest::qWait (50);
+    QCOMPARE (original_receiver.datagrams ().size (), delivered_after_cancel);
     QCOMPARE (messageType (new_receiver.datagrams ().front ()), NetworkMessage::Decode);
     QVERIFY (decodeIsNew (new_receiver.datagrams ().front ()));
   }

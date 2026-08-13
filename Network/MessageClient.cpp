@@ -615,6 +615,10 @@ void MessageClient::impl::drain_replay ()
           auto const next_interface = replay_messages_.head ().next_interface;
           if (next_interface < network_interfaces_.size ())
             {
+              if (generation != replay_generation_ || ReplayState::Draining != replay_state_)
+                {
+                  return;
+                }
               setMulticastInterface (network_interfaces_[next_interface]);
               writeDatagram (contents, server_, server_port_);
               if (generation != replay_generation_ || ReplayState::Draining != replay_state_)
@@ -632,6 +636,10 @@ void MessageClient::impl::drain_replay ()
         }
       else
         {
+          if (generation != replay_generation_ || ReplayState::Draining != replay_state_)
+            {
+              return;
+            }
           writeDatagram (contents, server_, server_port_);
           if (generation != replay_generation_ || ReplayState::Draining != replay_state_)
             {
