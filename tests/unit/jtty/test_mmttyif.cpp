@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QCoreApplication>
 #include <QHostAddress>
 #include <QSignalSpy>
 #include <QTcpServer>
@@ -24,15 +25,18 @@ private slots:
   void init ()
   {
     server_.reset (new QTcpServer);
-    QVERIFY (server_->listen (QHostAddress::LocalHost, 0));
+    // MMTTYIF connects to 127.0.0.1 (IPv4). Bind the same family so Windows
+    // does not leave the server on ::1 while the client dials IPv4.
+    QVERIFY (server_->listen (QHostAddress {QStringLiteral ("127.0.0.1")}, 0));
+    QCoreApplication::processEvents ();
 
     interface_.reset (new MMTTYIF);
     interface_->initialize (server_->serverPort ());
 
-    QTRY_VERIFY_WITH_TIMEOUT (server_->hasPendingConnections (), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT (server_->hasPendingConnections (), 5000);
     peer_ = server_->nextPendingConnection ();
     QVERIFY (peer_);
-    QTRY_VERIFY_WITH_TIMEOUT (interface_->isConnected (), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT (interface_->isConnected (), 5000);
   }
 
   void cleanup ()

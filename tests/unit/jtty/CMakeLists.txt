@@ -29,4 +29,5 @@ add_executable (test_mmttyif
 )
 target_link_libraries (test_mmttyif Qt5::Test Qt5::Network)
 add_test (NAME test_mmttyif COMMAND test_mmttyif)
-set_tests_properties (test_mmttyif PROPERTIES TIMEOUT 10)
+# Connection setup may retry for several seconds on slow Windows runners.
+set_tests_properties (test_mmttyif PROPERTIES TIMEOUT 30)
