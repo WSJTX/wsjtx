@@ -575,7 +575,7 @@ contains
                match=abs(df1).lt.3.0 .and. abs(dtsync-nframe6/6000.0).lt.0.1
             endif
 
-            ! A rediscovery of the same signal via a search window shifted
+            ! For an open slot, a rediscovery of the same signal via a search window shifted
             ! by a whole number of quarter-frame steps (retro re-sweep, or
             ! the forward sliding-window loop's own overlap) lands dtsync
             ! close to some *other* multiple of that quarter-frame period
@@ -583,9 +583,10 @@ contains
             ! that grid that it isn't a coincidence. Reject it outright:
             ! merging it could splice in a later frame's payload with an
             ! earlier frame missing in between, and letting it through
-            ! would otherwise spawn its own spurious slot.
+            ! would otherwise spawn its own spurious slot. Closed slots rely
+            ! on the exact frame history below so an adjacent message can start.
             is_window_dupe=.false.
-            if(.not.match) then
+            if(.not.match .and. .not.slot(i)%is_last_frame) then
                qstep=nframe6/6000.0/4.0
                resid=abs(dtsync-qstep*nint(dtsync/qstep))
                if(abs(df1).lt.10.0 .and. resid.lt.0.003) then
