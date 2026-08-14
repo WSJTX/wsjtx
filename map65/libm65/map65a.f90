@@ -382,7 +382,8 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
             abort_decode = abort_saved
 
             if (decoded_jt65 /= '                      ') then
-               call dbg('map65a manual: JT65 decoded="' // decoded_jt65 // '" sync1=' // itoa(nint(sync1)) // ' sync2=' // itoa(nint(sync2)))
+               call dbg('map65a manual: JT65 decoded="' // decoded_jt65 // '" sync1=' // &
+                 itoa(nint(sync1)) // ' sync2=' // itoa(nint(sync2)))
                jt65_success = .true.
 
                km = km + 1
