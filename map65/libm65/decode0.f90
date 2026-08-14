@@ -37,26 +37,22 @@ contains
          savg_old = savg
       endif
 
-
-      call dbg('decode0 ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
-        ', nhsym=' // itoa(nhsym) // ', newdat=' // itoa(newdat))
-
       nkeep = 20
 
       call sec0(0, tquick)
       call timer('decode0 ', 0)
       
-      if (manualDecodeFlag /= 0 ) then
-         call dbg('decode0: manualDecodeFlag=1, using snapshot buffers')
-         dd_use   => dd_old
-         ss_use   => ss_old
-         savg_use => savg_old
-      else
-         call dbg('decode0: manualDecodeFlag=0, using live buffers')
-         dd_use   => dd
-         ss_use   => ss
-         savg_use => savg
-      endif
+      ! Always decode from the snapshot (dd_old/ss_old/savg_old) taken above,
+      ! never the live dd/ss/savg. The nhsym2 pass routinely runs past the
+      ! minute boundary (several seconds), and symspec_() on the GUI thread
+      ! resets/overwrites the live buffers for the next cycle unconditionally
+      ! as soon as new UDP data arrives -- with no lock between the two
+      ! threads. Without this, a still-running decode reads a mix of this
+      ! cycle's and next cycle's data for candidates it hasn't reached yet
+      ! in its frequency sweep.
+      dd_use   => dd_old
+      ss_use   => ss_old
+      savg_use => savg_old
 
       if (newdat .ne. 0 .or. manualDecodeFlag /= 0) then
          nz = int( real(nrate_active, kind=real64) * nhsym / 5.3833_real64 )
@@ -91,7 +87,6 @@ contains
 
       ! Manual decode: force a single nhsym2-style cycle and always emit DecodeFinished
       if (manualDecodeFlag /= 0) then
-         call dbg('decode0: manualDecodeFlag=1, forcing nhsym2 cycle')
          nhsym = nhsym2
 
          call timer('map65a  ', 0)
@@ -140,8 +135,6 @@ contains
          newdat = 0  !change 20260723
       end if
 
-      !  call dbg('decode0 END: nhsym=' // itoa(nhsym))
-!      print *, 'nhsym is: ',nhsym,' nhsym1 is: ',nhsym1,' nhsym2 is: ',nhsym2
       return
    end if
    end subroutine decode0

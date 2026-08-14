@@ -69,10 +69,7 @@ contains
       if (ia .lt. 1) ia = 1
       if (ib .gt. nfft_active - 1) ib = nfft_active - 1
       iz = ib - ia + 1
-      
-   !  call dbg('get_candidates: df3=' // rtoa(df3) // ' ia=' // itoa(ia) // &
-   !         ' ib=' // itoa(ib) // ' iz=' // itoa(iz))
-            
+                  
       allocate (indx(iz))
 
       ! w3sz this if block should not be necessary but it is
@@ -87,9 +84,6 @@ contains
       n_top = indx(iz) + ia - 1
       snr_top = sync(n_top)%ccfmax
       flip_top = sync(n_top)%iflip
-
-   !  call dbg('get_candidates: top peak at n=' // itoa(n_top) // &
-   !         ' snr_top=' // rtoa(snr_top) // ' flip_top=' // rtoa(flip_top))
             
       k = 0
       do i = 1, MAX_PEAKS
@@ -136,25 +130,13 @@ contains
          cand(k)%pol = sync(n)%pol
          cand(k)%ipol = sync(n)%ipol
          cand(k)%iflip = nint(flip)
-         cand(k)%indx = n
-         
-      if (k .le. 5) then
-         !  call dbg('get_candidates: cand(' // itoa(k) // '): f=' // rtoa(cand(k)%f) // &
-         !         ' snr=' // rtoa(cand(k)%snr) // ' xdt=' // rtoa(cand(k)%xdt) // &
-         !         ' iflip=' // itoa(cand(k)%iflip) // ' indx=' // itoa(cand(k)%indx))
-      endif
-         
+         cand(k)%indx = n            
          
 !     write(50,3050) i,k,m,f0+32.0,diffhz,bw,snr1,db(snr1)
 !3050 format(3i5,f8.3,2f8.0,2f8.2)
          if (k .ge. MAX_CANDIDATES) exit
       enddo
       ncand = k
-      call dbg('get_candidates: jz=' // itoa(jz) // ' ncand=' // itoa(ncand))
-      do m = 1, ncand
-         call dbg('get_candidates: cand(' // itoa(m) // '): f=' // rtoa(cand(m)%f) // &
-                  ' snr=' // rtoa(cand(m)%snr) // ' iflip=' // itoa(cand(m)%iflip))
-      enddo
       return
    end subroutine get_candidates
 

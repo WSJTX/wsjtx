@@ -69,14 +69,6 @@ contains
     nfft2 = min(nfft2, MAXFFT2)
     if (nfft2 .gt. MAXFFT2) nfft2 = MAXFFT2
     
-    ! !  call dbg('FILBIG: nfft1=' // itoa(nfft1) // ' nfft2=' // itoa(nfft2))
-!  call dbg('FILBIG: nfsample=' // itoa(nfsample) // &
-    !     ' nrate_active=' // itoa(nrate_active) // &
-    !     ' nmax=' // itoa(nmax) // &
-    !     ' nfft1=' // itoa(nfft1) // &
-    !     ' nfft2=' // itoa(nfft2))
-
-
     ! Preserve the legacy 95238 special case (Linrad odd rate); if you
     ! still use it, override the derived sizes with the historical ones.
     if (nfsample .eq. 95238) then
@@ -192,22 +184,7 @@ contains
     ! Number of valid output samples at ~1375 Hz
     n4 = min( int( real(nmax, kind=real64) / decim ), nfft2 )
     n4 = min( int( real(nmax, kind=real64) / decim ), nfft2 )
- 
-    !  call dbg('FILBIG: decim=' // rtoa(real(decim)) // &
-    !     ' n4=' // itoa(n4))
-
-
-!!  call dbg('FILBIG: nrate_active=' // itoa(nrate_active) // &
-!         ' nfsample=' // itoa(nfsample) // &
-!         ' nmax=' // itoa(nmax) // &
-!         ' nfft1=' // itoa(nfft1) // &
-!         ' nfft2=' // itoa(nfft2) // &
-!         ' decim=' // rtoa(real(decim)) // &
-!         ' n4=' // itoa(n4))
-
-    
-    ! !  call dbg('FILBIG: n4=' // itoa(n4) // ' nmax=' // itoa(nmax))
-    
+     
     go to 999
 
   900   call sfftw_destroy_plan(plan1)

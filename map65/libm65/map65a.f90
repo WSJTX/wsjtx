@@ -102,19 +102,14 @@ contains
 
       manualDecodeFlag_initial = manualDecodeFlag
 
-call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
-         ', nhsym=' // itoa(nhsym))
-
 !------------------------------------------------------------
 ! BUFFER SELECTION
 !------------------------------------------------------------
-      if (manualDecodeFlag /= 0) then
-         ss_dec   => ss_old
-         savg_dec => savg_old
-      else
-         ss_dec   => ss
-         savg_dec => savg
-      endif
+      ! Always use the snapshot (see decode0.f90) -- ss/savg are live and
+      ! can be reset/overwritten mid-decode by symspec_() on the GUI thread
+      ! once the next cycle's UDP data starts arriving.
+      ss_dec   => ss_old
+      savg_dec => savg_old
 
       abort_decode = .false.
 
@@ -188,21 +183,10 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
 
          i = nint(freq*1000.0/df) + icenter   ! bin corresponding to that RF
          i = max(51, min(nfft_active - 51, i))
-         call dbg('manual:   i=' // itoa(i) // ' fnb=' // itoa(nint(freq*1000.0)))
 
          ! --- local search around clicked bin within ftol ---
          ftol = real(ntol)
          ftol_bins = nint(ftol / df)
-
-         call dbg('MANUAL-CLICK-DEBUG: fqso=' // itoa(nint(fqso)) // &
-         ' mousefqso=' // itoa(mousefqso) // &
-         ' mousedf=' // itoa(mousedf) // &
-         ' fcenter=' // itoa(nint(fcenter)) // &
-         ' freq=' // itoa(nint(freq*1000)) // &
-         ' df=' // itoa(nint(df)) // &
-         ' icenter=' // itoa(icenter) // &
-         ' i=' // itoa(i) // &
-         'ftol=' //rtoa(ftol))
 
          jpz = merge(4,1,xpol)
 
@@ -247,9 +231,6 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
          ipol2     = best_ipol2
          dt2       = best_dt2
 
-         call dbg('map65a manual: best i=' // itoa(i) // ' sync1=' // itoa(nint(sync1)) // &
-         ' snr2=' // itoa(nint(snr2)) // ' dt=' // itoa(nint(dt)))
-
          thresh1 = 1.0
          nflip   = nint(flipk)
 
@@ -283,35 +264,11 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
          ikhz = nint(freq + 0.5*(nfa + nfb) - foffset) - nfshift
          idf = nint(1000.0*(freq + 0.5*(nfa + nfb) - foffset - (ikHz + nfshift)))
 
-         call dbg('manual:   ikhz=' // itoa(ikhz) // ' idf=' // itoa(idf) // &
-     &            ' f00=' // itoa(nint(f00)) // ' i=' // itoa(i))
-
-         call dbg('MANUAL-INSTR: fqso=' // itoa(nint(fqso)) // &
-            ' mousedf=' // itoa(mousedf) // &
-            ' freq=' // itoa(nint(freq*1000)) // &
-            ' nfa=' // itoa(nfa) // ' nfb=' // itoa(nfb))
-
-         call dbg('MANUAL-INSTR: i=' // itoa(i) // &
-                  ' f00=' // itoa(nint(f00)) // &
-                  ' ikhz=' // itoa(ikhz) // &
-                  ' idf=' // itoa(idf) // &
-                  ' nfshift=' // itoa(nfshift) // &
-                  ' foffset=' // itoa(nint(foffset)))
-
-         call dbg('MANUAL-INSTR: nhsym=' // itoa(nhsym))
-
-         call dbg('MANUAL-INSTR: sync1=' // itoa(nint(sync1)) // &
-                  ' syncshort=' // itoa(nint(syncshort)) // &
-                  ' snr2=' // itoa(nint(snr2)) // &
-                  ' dt=' // itoa(nint(dt*1000)) // &
-                  ' flipk=' // itoa(nint(flipk)))
-
          noffset = nint(1000.0*(freq - fqso) - mousedf)
 
          ! JT65-specific rejects only when JT65 is active
          if (mode65 > 0) then
             if (sync1 <= thresh1) then
-               call dbg('map65a manual: JT65 sync1 below thresh1')
 
                if (.not. bq65) then
                      ! JT65-only mode → real reject
@@ -328,11 +285,9 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
                endif
 
                ! JT65 failed but Q65 is active → DO NOT RETURN
-               call dbg('map65a manual: JT65 failed, trying Q65')
             endif
 
             if (abs(noffset) > ntol) then
-               call dbg('map65a manual: reject, noffset outside ntol (JT65)')
 
                if (.not. bq65) then
                      ! JT65-only mode → real reject
@@ -353,7 +308,6 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
                endif
 
                ! JT65 failed but Q65 is active → DO NOT RETURN
-               call dbg('map65a manual: JT65 failed, trying Q65')
             endif
          endif
 
@@ -364,12 +318,6 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
          decoded_jt65 = '                      '
 
          if (mode65 > 0 .and. sync1 > thresh1 .and. abs(noffset) <= ntol) then
-            call dbg('MANUAL-INSTR: Calling decode1a with: ' // &
-                     ' newdat=' // itoa(newdat) // &
-                     ' mode65=' // itoa(mode65) // &
-                     ' nfsample=' // itoa(nfsample) // &
-                     ' xpol=' // itoa(merge(1,0,xpol)) // &
-                     ' ntol=' // itoa(ntol))
 
             call timer('decode1a',0)
             ifreq = i
@@ -382,8 +330,6 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
             abort_decode = abort_saved
 
             if (decoded_jt65 /= '                      ') then
-               call dbg('map65a manual: JT65 decoded="' // decoded_jt65 // '" sync1=' // &
-                 itoa(nint(sync1)) // ' sync2=' // itoa(nint(sync2)))
                jt65_success = .true.
 
                km = km + 1
@@ -425,24 +371,6 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
                            ! path (gated on nqd==1) actually emits the result
             ikhz     = nint(freq_q65)
 
-            call dbg('MANUAL-Q65: f0=' // rtoa(real(f0)) // ' freq=' // itoa(nint(freq*1000)) // &
-                     ' mode_q65=' // itoa(mode_q65))
-
-            call dbg('Q65-CALL: src=MANUAL' // &
-               ' nutc=' // itoa(nutc) // &
-               ' nqd=' // itoa(nqd) // &
-               ' ikhz=' // itoa(ikhz) // &
-               ' mousedf=' // itoa(mousedf) // &
-               ' ntol=' // itoa(ntol) // &
-               ' mode_q65=' // itoa(mode_q65) // &
-               ' f0=' // rtoa(real(f0)) // &
-               ' fqso=' // itoa(nint(fqso)) // &
-               ' newdat=' // itoa(newdat) // &
-               ' nagain=' // itoa(nagain) // &
-               ' max_drift=' // itoa(max_drift) // &
-               ' ndop00=' // itoa(ndop00))
-
-
             call timer('q65b    ', 0)
             call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
                       ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
@@ -455,9 +383,6 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
             ! whatever digit was left over from an earlier, unrelated decode.
             ! nsnr0 is q65b's own internal success test (freshly reset to -99
             ! immediately before it attempts this decode), so use that instead.
-            call dbg('MANUAL-Q65: idec=' // itoa(idec) // ' nsnr0=' // itoa(nsnr0) // &
-                     ' nfreq0=' // itoa(nfreq0) // ' xdt0=' // rtoa(xdt0) // &
-                     ' cq0=[' // cq0 // ']' // ' msg0=[' // trim(msg0) // ']')
 
             q65_success = (nsnr0 .gt. -99)
             ! On success, q65b has already written the decoded text itself
@@ -532,13 +457,10 @@ call dbg('map65a ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
                endif
             enddo  ! k=1,km
 
-            call dbg('map65a manual: wrote ' // itoa(nwrite) // ' decode line(s)')
-
             manualDecodeFlag = 0
             return
          endif
 
-         call dbg('map65a manual: no JT65/Q65 decode from manual click')
          newdat = 0
          km     = 0
          ncand  = 0
@@ -585,27 +507,16 @@ if (nagain .eq. 0) then
    candec = .false.
 endif
 
-
-!call dbg('JT65WB: tsec_mod='//trim(rtoa(tsec_mod))// &
-!         ' min='//trim(itoa(nutc))// &
-!         ' nsamp='//trim(itoa(nfsample))// &
-!         ' fs='//trim(rtoa(real(nrate_active,kind=4)))// &
-!         ' fcenter='//trim(rtoa(real(fcenter,kind=4)))// &
-!         ' foffset='//trim(rtoa(real(foffset,kind=4)))// &
-!         ' rms='//trim(rtoa(real(rms,kind=4))))
-
       do nqd = 1, 0, -1         
          
          call system_clock(t_now, t_rate)
          if (real(t_now - t_start)/real(t_rate) > 40.0) then
-            call dbg('Decode abort: exceeded 40 seconds at start of nqd = 1, 0, -1 pass, nqd=' // itoa(nqd))
             abort_decode = .true.
             go to 700
          endif
 
          if (manualDecodeFlag_initial == 1 .and. nqd == 0) cycle
 
-   !  call dbg('MAP65A: starting pass with nqd=' // itoa(nqd))
 
          if (nqd .eq. 1) then                     !Quick decode, at fQSO
             fa = 1000.0*(fqso + 0.001*mousedf) - ntol
@@ -619,9 +530,6 @@ endif
 !write(sfa, '(F20.6)') fa
 !write(sfb, '(F20.6)') fb
 !write(sspan, '(F20.6)') (fb-fa)/1000.0
-
-!  call dbg('JT65 wideband: fa=' // trim(sfa) // ' fb=' // trim(sfb) // &
-!         ' span_kHz=' // trim(sspan))
 
          endif
          icenter = nfft_active/2 + 1
@@ -645,18 +553,14 @@ endif
 
          do i = ia, ib                               !Search over freq range
 
-         if (i == nint(freq*1000.0/df) + icenter) then
-            call dbg('wideband: i=' // itoa(i) // ' fwb=' // itoa(nint((i - icenter)*df)))
-         endif
-     
-         call system_clock(t_now, t_rate)
-         if (real(t_now - t_start)/real(t_rate) > 40.0) then
-            call dbg('Decode abort: exceeded 40 seconds in do i = ia, ib pass, nqd=' // itoa(nqd) // ' i=' // itoa(i))
-            abort_decode = .true.
-            go to 700
-         endif
+            call system_clock(t_now, t_rate)
+            if (real(t_now - t_start)/real(t_rate) > 40.0) then
+               call dbg('Decode abort: exceeded 40 seconds in do i = ia, ib pass, nqd=' // itoa(nqd) // ' i=' // itoa(i))
+               abort_decode = .true.
+               go to 700
+            endif
 
-         freq = 0.001*(i - icenter)*df
+            freq = 0.001*(i - icenter)*df
 !  Find the local base level for each polarization; update every 10 bins.
             if (mod(i - ia, 10) .eq. 0) then
                do jp = 1, jpz
@@ -786,46 +690,10 @@ endif
                         go to 900
                      endif
 
-!     call dbg('JT65: trying cand ' // itoa(i) // ' snr2=' // rtoa(snr2))
-
                      call timer('decode1a', 0)
                      ifreq = i
                      ikhz = nint(freq + 0.5*(nfa + nfb) - foffset) - nfshift
                      idf = nint(1000.0*(freq + 0.5*(nfa + nfb) - foffset - (ikHz + nfshift)))
-
-call dbg('wideband: ikhz=' // itoa(ikhz) // ' idf=' // itoa(idf) // &
-         ' f00=' // itoa(nint(f00)) // ' i=' // itoa(i))
-         
-     call dbg('AUTO-INSTR: fqso=' // itoa(nint(fqso)) // &
-         ' mousedf=' // itoa(mousedf) // &
-         ' freq=' // itoa(nint(freq*1000)) // &
-         ' nfa=' // itoa(nfa) // ' nfb=' // itoa(nfb) // &
-         ' nqd=' // itoa(nqd) // &
-         'manualDecodeFlag=' // itoa(manualDecodeFlag))
-
-call dbg('AUTO-INSTR: i=' // itoa(i) // &
-         ' f00=' // itoa(nint(f00)) // &
-         ' ikhz=' // itoa(ikhz) // &
-         ' idf=' // itoa(idf) // &
-         ' nfshift=' // itoa(nfshift) // &
-         ' foffset=' // itoa(nint(foffset)))
-
-call dbg('AUTO-INSTR: nhsym=' // itoa(nhsym) // &
-         ' jpmax=' // itoa(jpmax) // &
-         ' smax=' // itoa(nint(smax*1000)))
-
-call dbg('AUTO-INSTR: sync1=' // itoa(nint(sync1)) // &
-         ' syncshort=' // itoa(nint(syncshort)) // &
-         ' snr2=' // itoa(nint(snr2)) // &
-         ' dt=' // itoa(nint(dt*1000)) // &
-         ' flipk=' // itoa(nint(flipk)))
-
-call dbg('AUTO-INSTR: Calling decode1a with: ' // &
-         ' newdat=' // itoa(newdat) // &
-         ' mode65=' // itoa(mode65) // &
-         ' nfsample=' // itoa(nfsample) // &
-         ' xpol=' // itoa(merge(1,0,xpol)) // &
-         ' ntol=' // itoa(ntol))
 
                      call decode1a(dd, newdat, f00, nflip, mode65, nfsample, &
                                    xpol, mycall, hiscall, hisgrid, neme, ndepth, nqd, dphi, &
@@ -833,18 +701,6 @@ call dbg('AUTO-INSTR: Calling decode1a with: ' // &
                                    a, dt, pol, nkv, nhist, nsum, nsave, qual, decoded)
                      call timer('decode1a', 1)
                      
-!     call dbg('JT65: decode1a returned: decoded="' // decoded // '" dt=' // rtoa(dt) // &
-!         ' sync2=' // rtoa(sync2) // ' qual=' // rtoa(qual))
-
-!         call dbg('JT65CAND: i='//itoa(i)// &
-!         ' freq='//rtoa(real(freq,kind=4))// &
-!         ' ibin='//itoa(ifreq)// &
-!         ' dt='//rtoa(real(dt,kind=4))// &
-!         ' snr2='//rtoa(real(snr2,kind=4))// &
-!         ' sync2='//rtoa(real(sync2,kind=4)))
-
-
-
 ! The case sync1=2.0 is just to make sure decode1a is called and bigfft done.
                      if (mode65 .ne. 0 .and. sync1 .ne. 2.000000) then
                         if (km .lt. MAXMSG) km = km + 1
@@ -880,9 +736,7 @@ call dbg('AUTO-INSTR: Calling decode1a with: ' // &
          if (nqd .eq. 1) then
             nwrite = 0
             if (mode65 .eq. 0) km = 0
-            
-!            call dbg('map65a: km=' // itoa(km) // ' (number of decoded messages)')
-            
+                        
             do k = 1, km
                decoded = msg(k)
                if (decoded .ne. '                      ') then
@@ -929,9 +783,7 @@ call dbg('AUTO-INSTR: Calling decode1a with: ' // &
                      call write_stdout(trim(line)//new_line('a'))
                   else
                      if (iloop .ge. 1) qphi(iloop) = sig(k, 10)
-                     
-                     !  call dbg('map65a: DECODED k=' // itoa(k) // ' decoded="' // decoded // '"')
-                     
+                                          
                      write (line, '("!",I3,I5,I4,I6.4,F5.1,I5,1X,A1,1X,A22,I2,I5,I5,1X,A1)') &
                         nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, 30*iloop
                      call write_stdout(trim(line)//new_line('a'))
@@ -953,30 +805,13 @@ call dbg('AUTO-INSTR: Calling decode1a with: ' // &
                   ikhz = mousefqso
                   q65b_called = .true.
                   f0 = cand(icand)%f
-                  call timer('q65b    ', 0)
-
-                  
-            call dbg('Q65-CALL: src=WB-QUICK' // &
-               ' nutc=' // itoa(nutc) // &
-               ' nqd=' // itoa(nqd) // &
-               ' ikhz=' // itoa(ikhz) // &
-               ' mousedf=' // itoa(mousedf) // &
-               ' ntol=' // itoa(ntol) // &
-               ' mode_q65=' // itoa(mode_q65) // &
-               ' f0=' // rtoa(real(f0)) // &
-               ' fqso=' // itoa(nint(fqso)) // &
-               ' newdat=' // itoa(newdat) // &
-               ' nagain=' // itoa(nagain) // &
-               ' max_drift=' // itoa(max_drift) // &
-               ' ndop00=' // itoa(ndop00))
+                  call timer('q65b    ', 0)                  
 
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
                            ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                            newdat, nagain, max_drift, ndop00, idec)
 
                   call timer('q65b    ', 1)
-                  call dbg('WIDEBAND-Q65-QUICK: idec=' // itoa(idec) // &
-                           ' nsnr0=' // itoa(nsnr0) // ' msg0=[' // trim(msg0) // ']')
 
                   if (idec .ge. 0) candec(icand) = .true.
                enddo
@@ -986,27 +821,11 @@ call dbg('AUTO-INSTR: Calling decode1a with: ' // &
                   f0 = freq - (nkhz_center - real(nrate_active)/2000.0 - 1.27046)
                   call timer('q65b    ', 0)
                  
-               call dbg('Q65-CALL: src=WB-QUICK-FALLBACK' // &
-                  ' nutc=' // itoa(nutc) // &
-                  ' nqd=' // itoa(nqd) // &
-                  ' ikhz=' // itoa(ikhz) // &
-                  ' mousedf=' // itoa(mousedf) // &
-                  ' ntol=' // itoa(ntol) // &
-                  ' mode_q65=' // itoa(mode_q65) // &
-                  ' f0=' // rtoa(real(f0)) // &
-                  ' fqso=' // itoa(nint(fqso)) // &
-                  ' newdat=' // itoa(newdat) // &
-                  ' nagain=' // itoa(nagain) // &
-                  ' max_drift=' // itoa(max_drift) // &
-                  ' ndop00=' // itoa(ndop00))
-
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
                         ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                         newdat, nagain, max_drift, ndop00, idec)
 
                   call timer('q65b    ', 1)
-                  call dbg('WIDEBAND-Q65-QUICK-FALLBACK: idec=' // itoa(idec))
-
                endif
             endif
 
@@ -1050,26 +869,11 @@ call dbg('AUTO-INSTR: Calling decode1a with: ' // &
                f0 = cand(icand)%f
                call timer('q65b    ', 0)
 
-               call dbg('Q65-CALL: src=WB-FULL' // &
-                  ' nutc=' // itoa(nutc) // &
-                  ' nqd=' // itoa(nqd) // &
-                  ' ikhz=' // itoa(ikhz) // &
-                  ' mousedf=' // itoa(mousedf) // &
-                  ' ntol=' // itoa(ntol) // &
-                  ' mode_q65=' // itoa(mode_q65) // &
-                  ' f0=' // rtoa(real(f0)) // &
-                  ' fqso=' // itoa(nint(fqso)) // &
-                  ' newdat=' // itoa(newdat) // &
-                  ' nagain=' // itoa(nagain) // &
-                  ' max_drift=' // itoa(max_drift) // &
-                  ' ndop00=' // itoa(ndop00))
-
                call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
                         ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                         newdat, nagain, max_drift, ndop00, idec)
 
                call timer('q65b    ', 1)
-               call dbg('WIDEBAND-Q65-FULL: idec=' // itoa(idec))
 
                if (idec .ge. 0) candec(icand) = .true.
                if (abort_decode) go to 700
@@ -1108,9 +912,7 @@ call dbg('AUTO-INSTR: Calling decode1a with: ' // &
 
          if (i .ge. 1) then
             if (.not. done(i)) then
-            
-            !  call dbg('Q65: decoded cand ' // itoa(icand))
-            
+                        
                done(i) = .true.
                nutc = sig(i, 2)
                freq = sig(i, 3)

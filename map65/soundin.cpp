@@ -218,10 +218,6 @@ void SoundInThread::run()                           //SoundInThread::run()
     nsec = ms/1000;
     ntr = nsec % m_TRperiod;
 
-    if (!m_monitoring) {
-        qDebug() << "SoundInThread: m_monitoring is FALSE";
-    }
-
     if(ntr < ntr0 or !m_monitoring or m_TRperiod!=m_TRperiod0) {
       nhsym0=0;
       udata.bzero=true;
@@ -229,7 +225,6 @@ void SoundInThread::run()                           //SoundInThread::run()
     }
 
     k=udata.kin;
-    qDebug() << "SoundInThread: k =" << k << "hsym =" << m_hsym;
 
     udata.iqswap= (m_IQswap != 0);
     udata.dB=m_dB;
@@ -241,10 +236,9 @@ void SoundInThread::run()                           //SoundInThread::run()
       m_hsym=(k-2048)*11025.0/(2048.0*m_rate);
 
       if(m_hsym != nhsym0) {
-            if (!m_dataSinkBusy) {
-                qDebug() << "SoundInThread: emitting readyForFFT k =" << k << " m_rate is:" << m_rate;
+        if (!m_dataSinkBusy) {
           m_dataSinkBusy=true;
-                emit readyForFFT(k);
+          emit readyForFFT(k);
         }
         nhsym0=m_hsym;
       }

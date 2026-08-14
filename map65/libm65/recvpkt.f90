@@ -37,52 +37,24 @@ subroutine recvpkt(nsam, nblock2, userx_no, k, buf4, buf8, buf16) &
           do i = 1, 174
              k = k + 1
              call unpack_r8_to_r4(buf8(i), dd(1,k), dd(2,k))
-
-            if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
-            dd(1, k)   = 1.0e6
-            dd(1, k+1) = 0.0
-            dd(1, k+2) = 1.0e6
-            mark_done  = 1
-            end if
          end do
 
          case (1)
             do i = 1, 348
                k = k + 1
                call unpack_r4_to_i2_as_r4(buf4(i), dd(1,k), dd(2,k))
-
-               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
-                  dd(1, k)   = 1.0e6
-                  dd(1, k+1) = 0.0
-                  dd(1, k+2) = 1.0e6
-                  mark_done  = 1
-               end if
             end do
 
          case (-2)
             do i = 1, 87
                k = k + 1
                call unpack_c16_to_r4(buf16(i), dd(1,k), dd(2,k), dd(3,k), dd(4,k))
-
-               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
-                  dd(1, k)   = 1.0e6
-                  dd(1, k+1) = 0.0
-                  dd(1, k+2) = 1.0e6
-                  mark_done  = 1
-               end if
             end do
 
          case (2)
             do i = 1, 174
                k = k + 1
                call unpack_r8_to_i2_as_r4(buf8(i), dd(1,k), dd(2,k), dd(3,k), dd(4,k))
-
-               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
-                  dd(1, k)   = 1.0e6
-                  dd(1, k+1) = 0.0
-                  dd(1, k+2) = 1.0e6
-                  mark_done  = 1
-               end if
             end do
          end select
 
@@ -92,13 +64,6 @@ subroutine recvpkt(nsam, nblock2, userx_no, k, buf4, buf8, buf16) &
             do i = 1, nsam
                k = k + 1
                call unpack_r4_to_i2_as_r4(buf4(i), dd(1,k), dd(2,k))
-
-               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
-                  dd(1, k)   = 1.0e6
-                  dd(1, k+1) = 0.0
-                  dd(1, k+2) = 1.0e6
-                  mark_done  = 1
-               end if
 
                k = k + 1
                dd(1,k) = dd(1,k-1)

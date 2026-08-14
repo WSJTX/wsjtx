@@ -185,6 +185,7 @@ void WideGraph::resizeEvent(QResizeEvent* )                    //resizeEvent()
   int w = size().width();
   int h = size().height();
   ui->labFreq->setGeometry(QRect(w-256,h-100,227,41));
+  updateSpanFromSpinbox();
 }
 
 void WideGraph::saveSettings()
@@ -224,7 +225,7 @@ void WideGraph::addDecodeLabel(double freq_khz, const QString& callsign,
       lab.last_seen_ms = now;
       // Only overwrite freq when the caller has sub-kHz precision.
       // The "&" bandmap tap only has 3-char integer-kHz precision
-      // (display.f90 cfreq0 is character(3) — no ndf field), so it
+      // (display.f90 cfreq0 is character(3) ï¿½ no ndf field), so it
       // would otherwise stomp on a precise "!" tick that already
       // includes ndf, leaving the tick up to ~500 Hz off the signal.
       if (freq_reliable) lab.freq_khz = freq_khz;

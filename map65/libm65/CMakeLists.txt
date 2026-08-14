@@ -186,11 +186,11 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
 
 # MAP65 uses OpenMP critical regions to protect shared FFTW planning state,
 # independently of which common Fortran library variant it consumes.
-##if (NOT TARGET wsjt_fortran_openmp)
-##  message (FATAL_ERROR "MAP65 requires Fortran OpenMP support")
-##endif ()
+if (NOT TARGET wsjt_fortran_openmp)
+  message (FATAL_ERROR "MAP65 requires Fortran OpenMP support")
+endif ()
 target_link_libraries (m65impl PUBLIC Qt5::Core)
-##target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
+target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
 wsjt_link_common_fortran (m65impl)
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -207,7 +207,7 @@ add_executable (mapsim mapsim.f90)
 add_dependencies(mapsim m65impl)
 target_include_directories(mapsim PRIVATE ${CMAKE_BINARY_DIR}/mod )
 target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
-##wsjt_add_simulator_usage_test (mapsim "Usage:[ ]+mapsim")
+wsjt_add_simulator_usage_test (mapsim "Usage:[ ]+mapsim")
 
 #add_executable (synctest synctest.f90)
 #target_link_libraries (synctest m65impl ${FFTW3_LIBRARIES})

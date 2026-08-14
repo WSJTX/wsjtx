@@ -2,6 +2,7 @@ module debug_log
   implicit none
   integer, save :: dbg_unit = -1
   logical, save :: dbg_opened = .false.
+  logical, save :: dbg_enabled = .false.   ! master switch; set .true./.false. from run_m65 to enable/disable all dbg() output
 contains
   subroutine ensure_log_open()
     if (.not. dbg_opened) then
@@ -10,9 +11,10 @@ contains
       dbg_opened = .true.
     end if
   end subroutine ensure_log_open
-  
+
   subroutine dbg(msg)
     character(len=*), intent(in) :: msg
+    if (.not. dbg_enabled) return
     call ensure_log_open()
     write(dbg_unit,'(A)') trim(msg)
     flush(dbg_unit)

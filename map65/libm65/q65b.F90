@@ -153,20 +153,14 @@
       ia = nint(ifreq - ntol/df3)
       ib = nint(ifreq + ntol/df3)
 
-     !  call dbg('Q65B: f0=' // rtoa(real(f0)) // ' df3=' // rtoa(df3) // &
-!   ' ifreq=' // itoa(ifreq) // ' ia=' // itoa(ia) // ' ib=' // itoa(ib))
-
     if (ia >= 1 .and. ia <= nfft_active .and. ib >= 1 .and. ib <= nfft_active) then
          ipk1 = maxloc(sync(ia:ib)%ccfmax)
       else
-       !  call dbg('Q65B: ia/ib out of range, skipping')
          go to 901
       endif
 
       ipk = ia + ipk1(1) - 1
       snr1 = sync(ipk)%ccfmax
-      !  call dbg('Q65B: ipk=' // itoa(ipk) // ' snr1=' // rtoa(snr1))
-
 
       ipk = ia + ipk1(1) - 1
       ! ldecoded(ipk) exists to keep the wideband scan from repeatedly
@@ -303,13 +297,9 @@
       ndpth = 3
 
 ! NB: Frequency of ipk is now shifted to 1000 Hz.
-!  call dbg('Q65B: nfft1=' // itoa(nfft1) // ' nfft2=' // itoa(nfft2) // &
-!   ' df=' // rtoa(df) // ' k0=' // itoa(k0) // ' nh=' // itoa(nh))
 
       call map65_mmdec(nutc, iwave, nqd, 60, nsubmode, nfa, nfb, 1000, ntol, &
                        newdat, nagain, max_drift, ndpth, mycall, hiscall0, hisgrid)
-
-!  call dbg('Q65B: after mmdec nsnr0=' // rtoa(real(nsnr0)) // ' xdt0=' // rtoa(xdt0))
 
       MHz = fcenter
       freq0 = MHz + 0.001d0*ikhz
@@ -330,22 +320,11 @@
          if (ndf .lt. -500) ikhz1 = ikhz + (nq65df - 500)/1000
          ndf = nq65df - 1000*(ikhz1 - ikhz)
 
-         call dbg('Q65 gate: nq65df=' // itoa(nq65df) // ' mousedf=' // itoa(mousedf) // &
-                  ' ntol=' // itoa(ntol) // ' nqd=' // itoa(nqd) // &
-                  ' nrate_active=' // itoa(nrate_active) // &
-                  ' msg0=[' // trim(msg0) // ']')
-
          if (nqd .eq. 1 .and. abs(nq65df - mousedf) .lt. ntol) then
-
-            call dbg('Q65 gate PASSED')
 
             write (linenew, '("!",I3.3,I5,I4,I6.4,F5.1,I5," : ",A28,A3,I4,1X,A1)') &
                ikhz1, ndf, npol, nutc, xdt0, nsnr0, msg0(1:28), cq0, ntxpol, cp
             call write_stdout(trim(linenew)//new_line('a'))
-
-         else
-            call dbg('Q65 gate FAILED')
-
          endif
 
 ! Write to lu 26, for Messages and Band Map windows

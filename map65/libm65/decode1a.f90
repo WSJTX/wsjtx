@@ -61,27 +61,18 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   data first/.true./,jjjmin/1000/,jjjmax/-1000/
   data nutc0/-999/,nhz0/-9999999/  
   save
-  
-! !  call dbg('DECODE1A: entry f0=' // rtoa(real(f0,kind=real32)))
-   
+     
 ! Mix sync tone to baseband, low-pass filter, downsample to 1378.125 Hz
   dt00=dt
   call timer('filbig  ',0)
-  
-! !  call dbg('DECODE1A: calling filbig')
-  
+    
   if (.not. ieee_is_finite(f0)) then 
     write(*,*) 'DECODE1A: bad f0, skipping filbig. f0=', f0 
     return 
   end if
   call filbig(dd, nsmax_active, f0, newdat, nfsample, xpol, cx, cy, n5)
-  !  call dbg('DECODE1A: nfsample=' // itoa(nfsample) // &
-     !    ' nsmax_active=' // itoa(nsmax_active) // &
-     !    ' n5=' // itoa(n5))
-
   
-!  call dbg('DECODE1A: returned from filbig')
-call timer('filbig  ',1)
+  call timer('filbig  ',1)
 
 ! NB: cx, cy have sample rate 96000*77125/5376000 = 1378.125 Hz
   if(mode65.eq.0) return
@@ -93,7 +84,6 @@ call timer('filbig  ',1)
   enddo
   sqa=sqa/n5
   sqb=sqb/n5
-  !  call dbg('DECODE1A: after power loop sqa=' // rtoa(sqa) // ' sqb=' // rtoa(sqb))
 
 ! Find best DF, f1, f2, DT, and pol.  Start by downsampling to 344.53125 Hz
   if(xpol) then
@@ -110,8 +100,6 @@ call timer('filbig  ',1)
   endif
   n6=n6+nadd
 
-  !  call dbg('DECODE1A: after fil6521 n6=' // itoa(n6))
-
   ! JT65 uses quarter-rate for symbol timing
   fsample = 1378.125/4.0
 
@@ -124,19 +112,10 @@ call timer('filbig  ',1)
   endif
   nz=n6+1-i0
 
-  !  call dbg('DECODE1A: i0=' // itoa(i0) // ' nz=' // itoa(nz))
-
 ! We're looking only at sync tone here... so why not downsample by another
 ! factor of 1/8, say?  Should be a significant execution speed-up.
 ! Best fit for DF, f1, f2, pol
-!  call dbg('DECODE1A: calling afc65b, nz=' // itoa(nz) // ' fsample=' // rtoa(fsample))
 call afc65b(c5x(i0), c5y(i0), nz, fsample, nflip, ipol, xpol, ndphi, a, ccfbest, dtbest)
-!  call dbg('DECODE1A: returned from afc65b')
-! !  call dbg('DECODE1A: afc65b dtbest=' // rtoa(dtbest) // ' dt00=' // rtoa(dt00))
-
-!  call dbg('DECODE1A: afc65b ccfbest=' // rtoa(ccfbest) // &
-    !     ' dtbest=' // rtoa(dtbest) // &
-    !     ' dt00=' // rtoa(dt00))
 
   pol=a(4)/57.2957795
   aa=cos(pol)
@@ -193,7 +172,6 @@ call afc65b(c5x(i0), c5y(i0), nz, fsample, nflip, ipol, xpol, ndphi, a, ccfbest,
   flip=nflip
   call timer('dec65b  ',0)
   
-! !  call dbg('DECODE1A: calling decode65b')
 ! After filling s2(66,126), just before:
 !   call decode65b(...)
 
@@ -205,20 +183,10 @@ call afc65b(c5x(i0), c5y(i0), nz, fsample, nflip, ipol, xpol, ndphi, a, ccfbest,
 !end do
 
 !s2mean = s2sum / dble(66*nsym)
-
-!!  call dbg('DECODE1A: s2mean=' // rtoa(real(s2mean,kind=real32)) // &
-!         ' mode65=' // itoa(mode65) // &
-!         ' n5=' // itoa(n5) // &
-!         ' nfsample=' // itoa(nfsample))
-
-!!  call dbg('DECODE1A: s2sum=' // rtoa(real(s2sum,kind=real32)) // ' mode65=' // itoa(mode65) // &
-!         ' n5=' // itoa(n5) // ' nfsample=' // itoa(nfsample))
   
   call decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,    &
        nqd,nkv,nhist,qual,decoded,s3,sy)
-       
-       ! !  call dbg('DECODE1A: returned from decode65b')
-       
+              
   dt=dt00 + dtbest + 1.7
   call timer('dec65b  ',1)
 
