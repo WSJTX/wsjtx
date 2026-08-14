@@ -13,27 +13,19 @@ real function fchisq(cx, cy, npts, fsample, nflip, a, ccfmax, dtmax)
   integer, intent(in)    :: npts, nflip
   complex, intent(in)    :: cx(npts), cy(npts)
   real,    intent(in)    :: fsample
-  real,    intent(inout) :: a(5)          ! a(1:3) used for AFC, a(4) for pol
+  real,    intent(inout) :: a(5)
   real,    intent(out)   :: ccfmax, dtmax
 
-  !==== Local parameters =====================================================
-  integer, parameter :: NMAX = 60*96000
-
   !==== Local variables ======================================================
-  complex :: w, wstep = (1.0, 0.0), za, zb, z
-  real    :: ss(3000)
-  complex :: csx(0:NMAX/64), csy(0:NMAX/64)
+  complex :: w, wstep, za, zb, z
+  real,    allocatable :: ss(:)
+  complex, allocatable :: csx(:), csy(:)
 
   integer :: i, j, k, lagpk
   integer :: ndiv, nout, nsph, nsps
 
-  real :: a1, a2, a3
   real :: dphi, dtstep, fac
   real :: p2, pol, s, twopi, x, x0, baud
-
-  !==== Saved state (explicitly initialized) =================================
-  save a1, a2, a3
-  data a1, a2, a3 / 99.0, 99.0, 99.0 /
 
   !==== Initialize outputs ===================================================
   ccfmax = 0.0
@@ -44,50 +36,48 @@ real function fchisq(cx, cy, npts, fsample, nflip, a, ccfmax, dtmax)
   baud  = 11025.0 / 4096.0
 
   !==== Symbol timing ========================================================
-  nsps  = nint(fsample / baud)     ! samples per symbol
-  nsph  = nsps / 2                 ! samples per half-symbol
-  ndiv  = 16                       ! ss() steps per symbol
-  nout  = ndiv * npts / nsps
+  nsps   = nint(fsample / baud)
+  nsph   = nsps / 2
+  ndiv   = 16
+  nout   = ndiv * npts / nsps
   dtstep = 1.0 / (ndiv * baud)
 
+  !==== Allocate buffers =====================================================
+  allocate(csx(0:npts), csy(0:npts))
   call timer('fchisq  ', 0)
 
   !===========================================================================
-  !  MIX AND INTEGRATE (only if a(1:3) changed)
+  !  MIX AND INTEGRATE (always recompute)
   !===========================================================================
-  if (a(1) /= a1 .or. a(2) /= a2 .or. a(3) /= a3) then
-     a1 = a(1)
-     a2 = a(2)
-     a3 = a(3)
+  csx(0) = (0.0, 0.0)
+  csy(0) = (0.0, 0.0)
 
-     csx(0) = (0.0, 0.0)
-     csy(0) = (0.0, 0.0)
+  wstep = (1.0, 0.0)
+  w     = (1.0, 0.0)
+  x0    = 0.5*(npts + 1)
+  s     = 2.0 / npts
 
-     w  = (1.0, 0.0)
-     x0 = 0.5*(npts + 1)
-     s  = 2.0 / npts
+  do i = 1, npts
+     x = s*(i - x0)
 
-     do i = 1, npts
-        x = s*(i - x0)
+     if (mod(i,100) == 1) then
+        p2   = 1.5*x*x - 0.5
+        dphi = (a(1) + x*a(2) + p2*a(3)) * (twopi/fsample)
+        wstep = cmplx(cos(dphi), sin(dphi))
+     end if
 
-        if (mod(i,100) == 1) then
-           p2 = 1.5*x*x - 0.5
-           dphi = (a(1) + x*a(2) + p2*a(3)) * (twopi/fsample)
-           wstep = cmplx(cos(dphi), sin(dphi))
-        end if
-
-        w = w * wstep
-        csx(i) = csx(i-1) + w*cx(i)
-        csy(i) = csy(i-1) + w*cy(i)
-     end do
-  end if
+     w      = w * wstep
+     csx(i) = csx(i-1) + w*cx(i)
+     csy(i) = csy(i-1) + w*cy(i)
+  end do
 
   !===========================================================================
   !  COMPUTE HALF-SYMBOL POWERS
   !===========================================================================
   fac = 1.0e-4
   pol = a(4) / 57.2957795
-  ss  = 0.0
+  allocate(ss(nout))
+  ss = 0.0
 
   do i = 1, nout
      j = i*nsps/ndiv
@@ -111,8 +101,12 @@ real function fchisq(cx, cy, npts, fsample, nflip, a, ccfmax, dtmax)
   dtmax = lagpk * dtstep
   fchisq = -ccfmax
 
-  call timer('fchisq  ', 1)
+  !==== Cleanup ==============================================================
+  deallocate(ss)
+  deallocate(csx, csy)
 
+  call timer('fchisq  ', 1)
 end function fchisq
 
 end module fchisq_mod
+

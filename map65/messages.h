@@ -3,7 +3,7 @@
 
 #include <QDialog>
 #include "commons.h"
-#include "../Network/PSKReporter.hpp"
+#include "PSKReporter.hpp"
 #include <memory>
 #include <QNetworkReply>
 #include <QDateTime>
@@ -12,7 +12,7 @@ namespace Ui {
   class Messages;
 }
 
-class PSKReporter; // Forward declaration — avoids including PSKReporter.h here
+class PSKReporter; // Forward declaration ï¿½ avoids including PSKReporter.h here
 
 class Messages : public QDialog
 {
@@ -30,6 +30,8 @@ public:
 signals:
   void click2OnCallsign(QString hiscall, QString t2, bool ctrl);
   void errorOccurred(const QString &error);  // Emitted on error
+  void sendLocalStationData(QString const& call, QString const& grid, QString const& antenna, QString const& rigInformation);
+  void sendRemoteStationData (QString const& call, QString const& grid, quint64 freq, QString const& mode, int snr, QDateTime qSpotTime);
   void sendLocalStationData2(QString const& call, QString const& grid, QString const& theUrl);
   void sendRemoteStationData2 (QByteArray const& postByteArray, QString const& theUrl);
 
@@ -53,7 +55,7 @@ private:
   QString m_color2;
   QString m_color3;
   
-  std::unique_ptr<PSKReporter> pskReporter_;
+  QThread* pskThread; 
   QThread* livecqThread; 
 
   bool m_closingForShutdown = false;
@@ -65,6 +67,7 @@ private:
   void sendLiveCQData(QStringList decodeList);  // This will trigger the web request
   void initializePSKReporting();
   bool testCall(QString w);  //liveCQ
+  bool m_spot_to_psk_reporter;
 
   QString w3szUrlAddr="https://w3sz.com/livecq_update.php"; //liveCQ
 

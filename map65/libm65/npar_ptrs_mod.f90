@@ -4,6 +4,7 @@ module npar_ptrs_mod
 
   ! Scalar values
   real(c_double) :: fcenter      ! RF center frequency (MHz)
+  real(c_double) :: ftol_nb      ! Narrow band decode ftol
   integer(c_int) :: nfa          ! Low decode limit (kHz, RF-relative)
   integer(c_int) :: nfb          ! High decode limit (kHz, RF-relative)
   integer(c_int) :: nfshift      ! Display center shift (kHz, RF-relative)
@@ -18,10 +19,44 @@ module npar_ptrs_mod
   character(len=20) :: datetime  ! changed 1/4/26 to match legacy code
   integer(c_int)  :: stop_m65 = 0
   integer(c_int)  :: decoder_ready = 0
+  integer(c_int) :: manualDecodeFlag = 0
   character(len=512) :: wsjtx_dir = ''
 
+  integer(c_int) :: nrate_active    = 96000
+  integer(c_int) :: nfft_active     = 32768
+  integer(c_int) :: nsmax_active    = 60*96000
+  integer(c_int) :: nfft_big_active = 56*96000
+  integer(c_int) :: t_start = -1
+  logical(c_bool) :: abort_decode = .false.
   
 contains
+
+  subroutine set_manual_decode_flag(val) bind(C, name="set_manual_decode_flag")
+    integer(c_int), value :: val
+    manualDecodeFlag = val
+  end subroutine
+
+  function get_manual_decode_flag() bind(C, name="get_manual_decode_flag")
+      use iso_c_binding
+      integer(c_int) :: get_manual_decode_flag
+      get_manual_decode_flag = manualDecodeFlag
+  end function
+  
+  subroutine set_ftol_nb(val) bind(C, name="set_ftol_nb")
+    integer(c_int), value :: val
+    ftol_nb = val
+  end subroutine
+
+  subroutine set_runtime_params(rate_hz, nfft, nfft_big) bind(C, name="set_runtime_params_")
+    use iso_c_binding
+    implicit none
+    integer(c_int), value :: rate_hz, nfft, nfft_big
+
+    nrate_active    = rate_hz
+    nfft_active     = nfft
+    nsmax_active    = 60*rate_hz
+    nfft_big_active = nfft_big
+  end subroutine set_runtime_params
 
   subroutine set_wsjtx_dir(path, path_len) bind(C, name="set_wsjtx_dir_")
     use iso_c_binding

@@ -10,8 +10,9 @@
 #include <QVBoxLayout>
 #include "SettingsGroup.hpp"
 #include "ui_widegraph.h"
+#include "globals.h"
 
-#define NFFT 32768
+extern int g_sampleRate;
 
 WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   : QDialog {parent},
@@ -44,8 +45,20 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   int n = settings.value("FreqSpan",60).toInt();
   int w = settings.value("PlotWidth",1000).toInt();
   ui->freqSpanSpinBox->setValue(n);
+
+  if (g_sampleRate == 96000 || g_sampleRate == 95238)
+      setFreqSpanLimits(60, 90);
+  else
+      setFreqSpanLimits(60, 190);
+  updateSpanFromSpinbox();
+
+  extern int g_sampleRate;          // at top of widegraph.cpp
   ui->widePlot->setNSpan(n);
-  int nbpp = n * 32768.0/(w*96.0) + 0.5;
+  double sr_kHz = g_sampleRate / 1000.0;   // 96.0 or 192.0
+  int sr_display = int(sr_kHz + 0.5);
+  ui->srValueLabel->setText(QString::number(sr_display));
+  int nbpp = int(n * g_activeNfft / (w * sr_kHz) + 0.5);
+  if (nbpp < 1) nbpp = 1;                  // safety
   ui->widePlot->setBinsPerPixel(nbpp);
   m_waterfallAvg = settings.value("WaterfallAvg",10).toInt();
   ui->waterfallAvgSpinBox->setValue(m_waterfallAvg);
@@ -309,9 +322,9 @@ void WideGraph::setDecodeLabelPosition(DecodeLabelPosition p)
 }
 
 void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
-                          uchar lstrong[])
+                          uchar lstrong[], int lstrongSize)
 {
-  static float splot[NFFT];
+  static std::vector<float> splot;
   float swide[2048];
   float smax;
   double df;
@@ -319,7 +332,10 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
   static int n=0;
   static int nkhz0=-999;
   static int ntrz=0;
-  df = m_fSample/32768.0;
+    
+  if ((int)splot.size() != g_activeNfft)
+    splot.assign(g_activeNfft, 0.0f);
+  df = double(g_sampleRate) / double(g_activeNfft);
   if(nkhz != nkhz0) {
     ui->widePlot->setNkhz(nkhz);                   //Why do we need both?
     ui->widePlot->SetCenterFreq(nkhz);             //Why do we need both?
@@ -329,34 +345,58 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
 
   //Average spectra over specified number, m_waterfallAvg
   if (n==0) {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<g_activeNfft; i++)
       splot[i]=s[i];
   } else {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<g_activeNfft; i++)
       splot[i] += s[i];
   }
   n++;
 
   if (n>=m_waterfallAvg) {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<g_activeNfft; i++)
         splot[i] /= n;                       //Normalize the average
     n=0;
 
     int w=ui->widePlot->plotWidth();
     qint64 sf = nkhz + ui->widePlot->freqOffset() - 0.5*w*nbpp*df/1000.0;
-    if(sf != ui->widePlot->startFreq()) ui->widePlot->SetStartFreq(sf);
-    int i0=16384.0+(ui->widePlot->startFreq()-nkhz+1.27046+0.001*m_fCal) *
-        1000.0/df + 0.5;
+    if (sf != ui->widePlot->startFreq())
+        ui->widePlot->SetStartFreq(sf);
+
+    int i0 = (g_activeNfft/2)
+           + (ui->widePlot->startFreq() - nkhz + 1.27046 + 0.001*m_fCal) * 1000.0/df
+           + 0.5;
+
+    // Clamp i0 into [0, g_activeNfft-1]
+    if (i0 < 0) i0 = 0;
+    if (i0 > g_activeNfft-1) i0 = g_activeNfft-1;
+
     int i=i0;
-    for (int j=0; j<2048; j++) {
-        smax=0;
-        for (int k=0; k<nbpp; k++) {
-            i++;
+
+    // How many bins can we safely consume?
+    int maxBins = g_activeNfft - 1 - i0;
+    int maxCols = maxBins > 0 ? maxBins / nbpp : 0;
+    if (maxCols > 2048) maxCols = 2048;
+
+    for (int j = 0; j < maxCols; ++j) {
+        smax = 0.0f;
+        for (int k = 0; k < nbpp; ++k) {
+            ++i;
+            if (i >= g_activeNfft) break;
             if(splot[i]>smax) smax=splot[i];
         }
         swide[j]=smax;
-        if(lstrong[1 + i/32]!=0) swide[j]=-smax;   //Tag strong signals
+
+        int binsPerStrongFlag = std::max(1, g_activeNfft / lstrongSize);
+        int li = 1 + i / binsPerStrongFlag;
+        if (li >= 0 && li < lstrongSize && lstrong[li] != 0)
+            swide[j] = -smax;
     }
+
+    // Optionally zero any remaining swide entries if j < 2048
+    for (int j = maxCols; j < 2048; ++j)
+        swide[j] = 0.0f;
+
 
 // Time according to this computer
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
@@ -366,12 +406,12 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
       for (int i=0; i<2048; i++) {
         swide[i] = 1.e30;
       }
-      for (int i=0; i<32768; i++) {
+      for (int i=0; i<g_activeNfft; i++) {
         splot[i] = 1.e30;
       }
     }
     ntrz=ntr;
-    ui->widePlot->draw(swide,i0,splot);
+    ui->widePlot->draw(swide,i0,splot.data());
   }
 }
 
@@ -380,15 +420,19 @@ void WideGraph::on_freqOffsetSpinBox_valueChanged(int f)
   ui->widePlot->SetFreqOffset(f);
 }
 
-void WideGraph::on_freqSpanSpinBox_valueChanged(int n)
+void WideGraph::on_freqSpanSpinBox_valueChanged(int)
 {
-  ui->widePlot->setNSpan(n);
-  int w = ui->widePlot->plotWidth();
-  int nbpp = n * 32768.0/(w*96.0) + 0.5;
-  if(nbpp < 1) nbpp=1;
-  if(w > 0) {
-    ui->widePlot->setBinsPerPixel(nbpp);
-  }
+    updateSpanFromSpinbox();
+}
+
+void WideGraph::setFreqSpanLimits(int min, int max)
+{
+    ui->freqSpanSpinBox->setMinimum(min);
+    ui->freqSpanSpinBox->setMaximum(max);
+
+    int v = ui->freqSpanSpinBox->value();
+    if (v < min) ui->freqSpanSpinBox->setValue(min);
+    if (v > max) ui->freqSpanSpinBox->setValue(max);
 }
 
 void WideGraph::on_waterfallAvgSpinBox_valueChanged(int n)
@@ -490,11 +534,6 @@ void WideGraph::on_autoZeroPushButton_clicked()
 void WideGraph::setPalette(QString palette)
 {
   ui->widePlot->setPalette(palette);
-}
-void WideGraph::setFsample(int n)
-{
-  m_fSample=n;
-  ui->widePlot->setFsample(n);
 }
 
 void WideGraph::setMode65(int n)
@@ -607,3 +646,21 @@ void WideGraph::enableSetRxHardware(bool b)
 {
   ui->pbSetRxHardware->setEnabled(b);
 }
+
+void WideGraph::updateSpanFromSpinbox()
+{
+    int n = ui->freqSpanSpinBox->value();
+
+    // Update NSpan
+    ui->widePlot->setNSpan(n);
+
+    // Recompute bins-per-pixel
+    int w = ui->widePlot->plotWidth();
+    int nbpp = int(n * g_activeNfft / (w * (g_sampleRate / 1000.0)) + 0.5);
+    if (nbpp < 1) nbpp = 1;
+
+    if (w > 0)
+        ui->widePlot->setBinsPerPixel(nbpp);
+}
+
+

@@ -10,7 +10,7 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   use debug_log
   use m65a_mod
   use datcom_ptrs_mod, only: dd, ss, savg
-  use npar_ptrs_mod, only: newdat, stop_m65, decoder_ready
+  use npar_ptrs_mod, only: newdat, stop_m65, decoder_ready, t_start, manualDecodeFlag
   use stdout_channel_mod, only: write_stdout
   use decodes_mod, only: nhsym1,nhsym2
   use sleep_msec_mod
@@ -28,11 +28,12 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   character(len=10) :: t
   integer           :: v(8)
   character(len=32) :: timestamp
+  integer :: t_rate
 
   nhsym1=280
   nhsym2=302 
   
-  ! call ensure_log_open() !uncomment this to enable logging to file
+  call ensure_log_open()
 
   if (sample_rate_96000 /=0) then
      sample_rate = 96000
@@ -85,11 +86,14 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   do while (stop_m65 == 0)
      if (decoder_ready /=0 .and. newdat /= 0) then
       !  call date_and_time(d, t, values=v)
-
+      call dbg('manual decode: manualDecodeFlag=' // trim(adjustl(itoa(manualDecodeFlag))))
       !  write(timestamp, '(I4.4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2,".",I3.3)') &
       !       v(1), v(2), v(3), v(5), v(6), v(7), v(8)
 
       !  print *, trim(timestamp), ' CALLING M65A'
+        call system_clock(t_start, t_rate)
+      !  call dbg('t_start='//itoa(t_start))
+
         call m65a()
      end if
 !print *, ' ENTERING SLEEP_MSEC'

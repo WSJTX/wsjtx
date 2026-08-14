@@ -7,8 +7,8 @@ contains
       use iso_c_binding, only: c_int
       use timer_module, only: timer
       use npar_ptrs_mod
-      use datcom_ptrs_mod, only: NFFT, dd
-      use debug_log
+      use datcom_ptrs_mod, only: NFFT, dd, dd_old, dd_use, ss, ss_old, savg, savg_old, ss_use, savg_use
+      use debug_log, only: dbg, itoa
       use map65a_mod
       use stdout_channel_mod, only: write_stdout
       use decodes_mod, only: ndecodes, nhsym1, nhsym2
@@ -16,7 +16,6 @@ contains
 
       implicit none
 
-      integer, parameter :: NSMAX = 60*96000
       integer(c_int), intent(in) :: nstandalone
       integer hist(0:32768)
       integer i, j1, j2, j3, j4, m, mcall3b, ndphi, neme0, nsum
@@ -25,25 +24,51 @@ contains
       integer nz
       character(len=128) :: line
       character mycall0*12, hiscall0*12, hisgrid0*6
+
+      integer :: t_now, t_rate
+
       data neme0/-99/, mcall3b/1/, mycall0/'            '/, hiscall0/'            '/, hisgrid0/'      '/
 
       save
+
+      if (newdat /= 0 .and. manualDecodeFlag == 0) then
+         dd_old   = dd
+         ss_old   = ss
+         savg_old = savg
+      endif
+
+
+      call dbg('decode0 ENTRY: manualDecodeFlag=' // itoa(manualDecodeFlag) // &
+        ', nhsym=' // itoa(nhsym) // ', newdat=' // itoa(newdat))
 
       nkeep = 20
 
       call sec0(0, tquick)
       call timer('decode0 ', 0)
-      if (newdat .ne. 0) then
-         nz = int(96000.0*nhsym/5.3833)
+      
+      if (manualDecodeFlag /= 0 ) then
+         call dbg('decode0: manualDecodeFlag=1, using snapshot buffers')
+         dd_use   => dd_old
+         ss_use   => ss_old
+         savg_use => savg_old
+      else
+         call dbg('decode0: manualDecodeFlag=0, using live buffers')
+         dd_use   => dd
+         ss_use   => ss
+         savg_use => savg
+      endif
+
+      if (newdat .ne. 0 .or. manualDecodeFlag /= 0) then
+         nz = int( real(nrate_active, kind=real64) * nhsym / 5.3833_real64 )
          hist = 0
          do i = 1, nz
-            j1 = int(min(abs(dd(1, i)), 32768.0))
+            j1 = int(min(abs(dd_use(1, i)), 32768.0))
             hist(j1) = hist(j1) + 1
-            j2 = int(min(abs(dd(2, i)), 32768.0))
+            j2 = int(min(abs(dd_use(2, i)), 32768.0))
             hist(j2) = hist(j2) + 1
-            j3 = int(min(abs(dd(3, i)), 32768.0))
+            j3 = int(min(abs(dd_use(3, i)), 32768.0))
             hist(j3) = hist(j3) + 1
-            j4 = int(min(abs(dd(4, i)), 32768.0))
+            j4 = int(min(abs(dd_use(4, i)), 32768.0))
             hist(j4) = hist(j4) + 1
          enddo
          m = 0
@@ -64,8 +89,35 @@ contains
       hisgrid0 = hisgrid
       neme0 = neme
 
+      ! Manual decode: force a single nhsym2-style cycle and always emit DecodeFinished
+      if (manualDecodeFlag /= 0) then
+         call dbg('decode0: manualDecodeFlag=1, forcing nhsym2 cycle')
+         nhsym = nhsym2
+
+         call timer('map65a  ', 0)
+         call map65a(dd_use, newdat, nutc, fcenter, ntol, idphi, nfa, nfb, &
+                     mousedf, mousefqso, nagain, ndecdone, nfshift, ndphi, max_drift, &
+                     nfcal, nkeep, mcall3b, nsum, nsave, nxant, mycall, mygrid, &
+                     neme, ndepth, nstandalone, hiscall, hisgrid, nhsym, nfsample, &
+                     ndiskdat, nxpol, nmode, ndop00)
+         call timer('map65a  ', 1)
+         call timer('decode0 ', 1)
+
+         call sec0(1, tdec)
+
+         write (line, '("<DecodeFinished>",3I4,I6,F6.2,I5)') &
+            nsum, nsave, nstandalone, nhsym, tdec, ndecodes
+         call write_stdout(trim(line)//new_line('a'))
+         newdat = 0
+         manualDecodeFlag = 0   ! <<< add this
+
+         return
+      
+      else
+
+      ! Normal wideband path: nhsym1 (EarlyFinished) + nhsym2 (DecodeFinished)
       call timer('map65a  ', 0)
-      call map65a(dd, newdat, nutc, fcenter, ntol, idphi, nfa, nfb, &
+      call map65a(dd_use, newdat, nutc, fcenter, ntol, idphi, nfa, nfb, &
                   mousedf, mousefqso, nagain, ndecdone, nfshift, ndphi, max_drift, &
                   nfcal, nkeep, mcall3b, nsum, nsave, nxant, mycall, mygrid, &
                   neme, ndepth, nstandalone, hiscall, hisgrid, nhsym, nfsample, &
@@ -85,9 +137,13 @@ contains
          write (line, '("<DecodeFinished>",3I4,I6,F6.2,I5)') &
             nsum, nsave, nstandalone, nhsym, tdec, ndecodes
          call write_stdout(trim(line)//new_line('a'))
+         newdat = 0  !change 20260723
       end if
+
+      !  call dbg('decode0 END: nhsym=' // itoa(nhsym))
 !      print *, 'nhsym is: ',nhsym,' nhsym1 is: ',nhsym1,' nhsym2 is: ',nhsym2
       return
+   end if
    end subroutine decode0
 
 end module decode0_mod

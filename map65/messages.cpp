@@ -6,10 +6,12 @@
 #include "qt_helpers.hpp"
 #include "../revision_utils.hpp"
 #include "../Logger.hpp"
-#include "../Network/PSKReporter.hpp"
+#include "PSKReporter.hpp"
 #include "liveCQSender.hpp"
+#include "runtime_paths.h"
 
 #include <QCoreApplication> //liveCQ
+#include <QFileInfo>
 #include <QNetworkAccessManager> //liveCQ
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -47,6 +49,7 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
   QString m_otherUrl = settings2.value("otherUrl","").toString();
   QString m_myCall=settings2.value("MyCall","").toString();
   QString m_myGrid=settings2.value("MyGrid","").toString();
+  m_spot_to_psk_reporter=settings2.value("spotPSK",true).toBool();
   QString theUrl;
   
   if(m_w3szUrl) {
@@ -79,14 +82,27 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
   connect(livecqThread, &QThread::finished, livecqThread, &QObject::deleteLater);
   livecqThread->start();  
   
-  pskReporter_.reset (new PSKReporter {
-    {settings2.value ("PSKReporterTCPIP", false).toBool (),
-     QCoreApplication::applicationDirPath () + "/eclipse.txt",
-     QString {"MAP65 v" + QCoreApplication::applicationVersion () + " " + revision ()}.simplified ()}
+    // Create the thread and your PSKReporter object
+  pskThread = new QThread(this);
+  
+  connect(pskThread, &QThread::started, this, [this, m_myCall,m_myGrid]() {
+      auto* reporter = new PSKReporter(m_myCall, m_myGrid, QString {"MAP65 v"
+              + QCoreApplication::applicationVersion ()
+  + " " + revision ()}.simplified () );
+
+  reporter->moveToThread(this->pskThread);
+  connect(reporter, &PSKReporter::destroyed, pskThread, &QThread::quit);
+  QMetaObject::invokeMethod(reporter, "init", Qt::QueuedConnection);
+  
+  // Connect signals for control and communication
+  connect(this, &Messages::sendLocalStationData, reporter, &PSKReporter::setLocalStation);
+  connect(this, &Messages::sendRemoteStationData, reporter, &PSKReporter::addRemoteStation);
+    
   });
-  if (m_spot_to_psk_reporter)
-    {
-      initializePSKReporting ();
+    connect(pskThread, &QThread::finished, pskThread, &QObject::deleteLater);
+    pskThread->start(); 
+    if (m_spot_to_psk_reporter) {   
+      initializePSKReporting();
     }
 }
  
@@ -120,10 +136,7 @@ void Messages::initializePSKReporting()
   SettingsGroup g {&settings, "Common"}; 
   QString receiverCallsign=settings.value("MyCall","").toString();
   QString receiverLocator=settings.value("MyGrid","").toString();
-  if (pskReporter_)
-    {
-      pskReporter_->setLocalStation(receiverCallsign, receiverLocator, "N/A", "N/A (MAP65)");
-    }
+  emit sendLocalStationData(receiverCallsign, receiverLocator, "N/A", "N/A (MAP65)");   
 }
 
 void Messages::sendLiveCQData(QStringList decodeList) {
@@ -145,7 +158,7 @@ void Messages::sendLiveCQData(QStringList decodeList) {
   else return;
   for (const QString &theLine : decodeList) {
     QStringList thePostLine = theLine.split(" ",SkipEmptyParts);
-    if((thePostLine.at(5) == "CQ" || thePostLine.at(5) == "QRZ" || thePostLine.at(5) == "CQV" ||  thePostLine.at(5) == "CQH" || thePostLine.at(5) == "QRT") && m_myCall.length() >=3 && m_myGrid.length()>=4) {
+    if((thePostLine.at(5).trimmed() == "CQ" || thePostLine.at(5).trimmed() == "QRZ" || thePostLine.at(5).trimmed() == "CQV" ||  thePostLine.at(5) == "CQH" || thePostLine.at(5).trimmed() == "QRT") && m_myCall.length() >=3 && m_myGrid.length()>=4) {
       if(allDecodes.filter(theLine.mid(0,53)).length() == 0) {
         allDecodes.append(theLine);
         QString freq = thePostLine.at(0).trimmed();
@@ -424,35 +437,27 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
         QTime time2(h, m, s);
         QDateTime qSpotTime;
         if (sTime + m_TRperiod < 236000) {
-      #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
-          qSpotTime = QDateTime(
-              QDateTime::currentDateTimeUtc().date(),
-              time2,
-              QTimeZone::UTC
-          );
-      #else
-          qSpotTime = QDateTime(
-              QDateTime::currentDateTimeUtc().date(),
-              time2,
-              Qt::UTC
-          );
-      #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+          qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
+                                time2,
+                                QTimeZone::UTC);
+#else
+          qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
+                                time2,
+                                Qt::UTC);
+#endif 
         }
         else {
-      #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
-          qSpotTime = QDateTime(
-              QDateTime::currentDateTimeUtc().addDays(-1).date(),
-              time2,
-              QTimeZone::UTC
-          );
-      #else
-          qSpotTime = QDateTime(
-              QDateTime::currentDateTimeUtc().addDays(-1).date(),
-              time2,
-              Qt::UTC
-          );
-      #endif
-    }            
+          #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+          qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(),
+                                time2,
+                                QTimeZone::UTC);
+#else
+          qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(),
+                                time2,
+                                Qt::UTC);
+#endif 
+        }            
         
         // Handle CQ CALL but NO GRID -- dot at 7
       if(thePostLine.at(7).contains(".")) {
@@ -502,10 +507,7 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
           continue; 
         }             
                 
-        if (pskReporter_)
-          {
-            pskReporter_->addRemoteStation(senderCallsign, senderLocator, frequency, mode, sNR, qSpotTime);
-          }
+        emit sendRemoteStationData(senderCallsign, senderLocator, frequency, mode, sNR, qSpotTime);        
       }
     }
   }

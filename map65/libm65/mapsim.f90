@@ -2,29 +2,32 @@ module dopspread_mod
   implicit none
 contains
 
-  subroutine dopspread(cwave,fspread)
+  subroutine dopspread(cwave, npts, fsample, fspread)
     use four2a_mod
     use gran_interface
     use iso_fortran_env, only: real32, real64
     implicit none
-    integer, parameter :: NMAX=60*96000
-    integer, parameter :: NFFT=NMAX, NH=NFFT/2
-    complex, intent(inout) :: cwave(NMAX)
-    real(real64), intent(in) :: fspread
-    complex, allocatable ::  cspread(:)
+    integer, intent(in) :: npts
+    real(real64), intent(in) :: fsample, fspread
+    complex(real32), intent(inout) :: cwave(npts)
+
+    integer :: nfft, nh, i
+    complex(real32), allocatable :: cspread(:)
     real(real32) :: twopi, df, b, f, x, a, phi1, phi2
     real(real32) :: sum, p, avep, fac
-    complex :: z
-    integer :: i
-    
-    allocate(cspread(0:NMAX-1))
-  
-    twopi=8.0*atan(1.0)
-    df=96000.0/nfft
+    complex(real32) :: z
+
+    nfft = npts
+    nh   = nfft/2
+    allocate(cspread(0:nfft-1))
+
+    twopi = 8.0*atan(1.0)
+    df    = real(fsample,real32)/real(nfft,real32)
+
     cspread(0)=1.0
-    cspread(NH)=0.
+    cspread(nh)=0.
     b=6.0                       !Use truncated Lorenzian shape for fspread
-    do i=1,NH
+    do i=1,nh
        f=i*df
        x=b*f/fspread
        z=0.
@@ -73,9 +76,9 @@ program mapsim
   use iso_fortran_env, only: real32, real64, int16
   implicit none
 
-  integer, parameter :: NMAX=60*96000
+  integer :: NMAX
 	
-  real(real32) d4(4,NMAX)                   !Floating-point data
+  real(real32), allocatable :: d4(:,:)                  !Floating-point data
   integer(int16), allocatable ::  id4(:,:)               !i*2 data, dual polarization
   integer(int16), allocatable ::  id2(:,:)               !i*2 data, single polarization
   complex(real32), allocatable ::  cwave(:)                !i*2 data, single polarization
@@ -97,6 +100,7 @@ program mapsim
   integer :: nargs, nsigs, npol, nfiles, isig, nmin, ifile
   integer :: ntone_spacing, ntxfreq, nsendingsh, nwave, npts
   integer :: ilist, i0, i, j
+  integer :: sRatekHz
   
   data msg_list/                                          &
       ! 'CQ K1WDG/R','CQ YL/EA8DBM','<YL/EA8DBM> OH3LWP KP11', &
@@ -134,9 +138,9 @@ program mapsim
        'G2OYO F3PYP JN57','G4QYQ F5RYR JN58','G6SYS F7TYT JN59'/
     
   nargs=command_argument_count()
-  if(nargs.ne.12) then
-     print*,'Usage:   mapsim "message"     mode DT  fa fb nsigs pol fDop SNR nfiles fcenter HHmm'
-     print*,'Example: mapsim "CQ K1ABC FN42" B 2.5 -20 20  21    45  0.0 -20   1   1296.1  1803'
+  if(nargs.ne.13) then
+     print*,'Usage:   mapsim "message"     mode DT  fa fb nsigs pol fDop SNR nfiles fcenter HHmm sRatekHz'
+     print*,'Example: mapsim "CQ K1ABC FN42" B 2.5 -20 20  21    45  0.0 -20   1   1296.1  1803 96'
      print*,' '
      print*,'         mode = A B C for JT65; QA-QE for Q65-60A' 
      print*,'         fa = lowest freq in kHz, relative to center'
@@ -144,12 +148,9 @@ program mapsim
      print*,'         message = "list" to use callsigns from list'
      print*,'         pol = -1 to generate a range of polarization angles.'
      print*,'         SNR = 0 to generate a range of SNRs.'
+     print*,'         sRateKHz must be one of 96, 128, 192,256'
      go to 999
   endif
-
-  allocate(id4(4,NMAX))               !i*2 data, dual polarization
-  allocate(id2(2,NMAX))               !i*2 data, single polarization
-  allocate(cwave(NMAX))                 !Generated complex waveform (no noise)
 
   call get_command_argument(1,msg0)
   call get_command_argument(2,mode)                !JT65 sub-mode (A B C QA-QE)
@@ -174,16 +175,31 @@ program mapsim
   read(arg,*) fcenter     ! added by w3sz
   call get_command_argument(12,arg) ! added by w3sz
   read(arg,*) hhmm     ! added by w3sz
+  call get_command_argument(13,arg) ! added by w3sz
+  read(arg,*) sRatekHz     ! added by w3sz
+
+  if (sRatekHz /= 96 .and. sRatekHz /= 128 .and. sRatekHz /= 192 .and. sRatekHz /= 256) then
+    write(*,*) 'ERROR: Invalid sample rate ', sRatekHz, ' kHz'
+    write(*,*) 'Allowed sample rates are: 96, 128, 192, 256 kHz'
+    stop
+  endif
+
+  fsample = 1000.d0 * sRatekHz
+  dt      = 1.d0 / fsample
+  NMAX = 60 * sRatekHz * 1000
+  npts = NMAX
+  allocate(d4(4, NMAX))
+  allocate(id4(4,NMAX))
+  allocate(id2(2,NMAX))
+  allocate(cwave(NMAX))
 
   message=msg0                       !Transmitted message
   rmsdb=25.
   rms=10.0**(0.05*rmsdb)
   ! w3sz fcenter=144.125d0                  !Center frequency (MHz)
-  fsample=96000.d0                   !Sample rate (Hz)
-  dt=1.d0/fsample                    !Sample interval (s)
   twopi=8.d0*atan(1.d0)
   rad=360.0/twopi
-  samfac=1.d0
+  samfac = fsample / 96000.d0
   bq65=(mode(1:1).eq.'Q')
   ntone_spacing=1
   ntxfreq=1270
@@ -192,7 +208,6 @@ program mapsim
   if(mode(1:1).eq.'C' .or. mode(2:2).eq.'C') ntone_spacing=4
   if(mode(2:2).eq.'D') ntone_spacing=8
   if(mode(2:2).eq.'E') ntone_spacing=16
-  npts=NMAX
   nsendingsh=0 ! Initialize nsendingsh (was implicit?)
 
   write(*,1000)
@@ -203,22 +218,22 @@ program mapsim
      nmin=ifile-1
      if(mode(2:2).eq.' ') nmin=2*nmin
      write(fname, '(I6.6, "_", I4.4)') ifile, hhmm !Create the output filenames  ! w3sz was nmin
-     open(10,file=fname//'.iq',access='stream',status='unknown')
-     open(11,file=fname//'.tf2',access='stream',status='unknown')
+     open(10,file=fname//'.iq',access='stream',status='replace')
+     open(11,file=fname//'.tf2',access='stream',status='replace')
 
      call noisegen(d4,npts)                      !Generate Gaussuian noise
 
      if(msg0(1:4).ne.'list') then
         if(bq65) then
-           call gen_q65_cwave(message,ntxfreq,ntone_spacing,msgsent,        &
-                cwave,nwave)
+              call gen_q65_cwave(message,ntxfreq,ntone_spacing,fsample,     &
+              msgsent,cwave,nwave)
         else
-           call cgen65(message(1:22),ntone_spacing,samfac,nsendingsh,        &
-                msgsent(1:22),cwave,nwave)
+           call cgen65(message(1:22),ntone_spacing,samfac,nsendingsh,	&
+           msgsent(1:22),cwave,nwave)
         endif
      endif
 
-     if(fdop.gt.0.0) call dopspread(cwave,fdop)
+     if(fdop.gt.0.0) call dopspread(cwave,npts,fsample,fdop)
 
      do isig=1,nsigs
 
@@ -226,11 +241,11 @@ program mapsim
            ilist=ilist+1
            message=msg_list(ilist)
            if(bq65) then
-              call gen_q65_cwave(message,ntxfreq,ntone_spacing,msgsent,     &
-                   cwave,nwave)
+              call gen_q65_cwave(message,ntxfreq,ntone_spacing,fsample,     &
+              msgsent,cwave,nwave)
            else
-              call cgen65(message(1:22),ntone_spacing,samfac,nsendingsh,     &
-                   msgsent(1:22),cwave,nwave)
+              call cgen65(message,ntone_spacing,samfac,nsendingsh,msgsent,  &
+                   cwave,nwave)
            endif
         endif
 
@@ -243,7 +258,7 @@ program mapsim
 
         snrdbx=snrdb
         if(snrdb.eq.0.0) snrdbx=-15.0 - 15.0*(isig-1.0)/nsigs
-        sig=sqrt(2.2*2500.0/96000.0) * 10.0**(0.05*snrdbx)
+        sig = sqrt(2.2*2500.0/fsample) * 10.0**(0.05*snrdbx)
         write(*,1020) ifile,isig,mode,dt0,0.001*f,nint(pol),fDop,snrdbx,msgsent
 1020    format(i3,i3,2x,a2,f6.2,f8.3,i5,2f7.1,2x,a24)  !w3sz was a22
 
@@ -276,13 +291,16 @@ program mapsim
         id2(2,i)=id4(2,i)
      enddo
 
+     write(*,*) 'DEBUG: fsample =', fsample, ' sRatekHz =', sRatekHz, &
+           ' NMAX =', NMAX, ' npts =', npts
+
      write(10) fcenter,id2(1:2,1:npts)
      write(11) fcenter,id4(1:4,1:npts)
      close(10)
      close(11)
   enddo
 
-  
+  deallocate(d4)
   deallocate(id4)
   deallocate(id2)
   deallocate(cwave)

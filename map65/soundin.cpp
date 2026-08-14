@@ -10,7 +10,6 @@
 #include <sys/socket.h>
 #endif
 
-#define NFFT 32768
 #define FRAMES_PER_BUFFER 1024
 
 #include <portaudio.h>
@@ -173,7 +172,7 @@ void SoundInThread::run()                           //SoundInThread::run()
   inParam.suggestedLatency=device_info->defaultHighInputLatency;
   inParam.hostApiSpecificStreamInfo=NULL;
 
-  paerr=Pa_IsFormatSupported(&inParam,NULL,96000.0);
+  paerr=Pa_IsFormatSupported(&inParam,NULL,double(g_sampleRate));
   if(paerr<0) {
     QString error_message;
     if (paUnanticipatedHostError == paerr)
@@ -191,7 +190,7 @@ void SoundInThread::run()                           //SoundInThread::run()
     &inStream,
     &inParam,
     NULL,
-    96000.0,
+    double(g_sampleRate),
     FRAMES_PER_BUFFER,
     paClipOff,
     a2dCallback,
@@ -214,41 +213,47 @@ void SoundInThread::run()                           //SoundInThread::run()
   while (!qe) {
     qe = quitExecution;
     if (qe) break;
+
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
-    nsec = ms/1000;             // Time according to this computer
+    nsec = ms/1000;
     ntr = nsec % m_TRperiod;
 
-// Reset buffer pointer and symbol number at start of minute
+    if (!m_monitoring) {
+        qDebug() << "SoundInThread: m_monitoring is FALSE";
+    }
+
     if(ntr < ntr0 or !m_monitoring or m_TRperiod!=m_TRperiod0) {
       nhsym0=0;
       udata.bzero=true;
       m_TRperiod0=m_TRperiod;
     }
+
     k=udata.kin;
+    qDebug() << "SoundInThread: k =" << k << "hsym =" << m_hsym;
+
     udata.iqswap= (m_IQswap != 0);
     udata.dB=m_dB;
+
     if(m_monitoring) {
-      double fcenter;
-      if(m_bForceCenterFreq) {
-        fcenter = m_dForceCenterFreq;
-      } else {
-          fcenter = 144.125;   // default center
-      }
+        double fcenter = m_bForceCenterFreq ? m_dForceCenterFreq : 144.125;
       set_fcenter(fcenter);
 
       m_hsym=(k-2048)*11025.0/(2048.0*m_rate);
+
       if(m_hsym != nhsym0) {
-        if(m_dataSinkBusy) {
-        } else {
+            if (!m_dataSinkBusy) {
+                qDebug() << "SoundInThread: emitting readyForFFT k =" << k << " m_rate is:" << m_rate;
           m_dataSinkBusy=true;
-          emit readyForFFT(k);         //Signal to compute new FFTs
+                emit readyForFFT(k);
         }
         nhsym0=m_hsym;
       }
     }
+
     msleep(100);
     ntr0=ntr;
   }
+
   Pa_StopStream(inStream);
   Pa_CloseStream(inStream);
 }
@@ -304,11 +309,14 @@ void SoundInThread::setNetwork(bool b)                          //setNetwork()
 void SoundInThread::setMonitoring(bool b)                    //setMonitoring()
 {
   m_monitoring = b;
+  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
+
 }
 
 void SoundInThread::setForceCenterFreqBool(bool b)
 {
   m_bForceCenterFreq=b;
+
 
 }
 
@@ -404,7 +412,7 @@ void SoundInThread::inputUDP()
         if(m_nrx == -2) iz=87;                  // Two RF channels, r*4 data
 
         // If buffer will not overflow, move data into datcom_
-        if ((k+iz) <= 60*96000) {
+        if ((k + iz) <= 60 * m_rate) {
           int nsam=-1;
           recvpkt_(&nsam, &b.iblk, &b.nrx, &k, b.d8, b.d8, b.d8);
           double fcenter;
@@ -416,7 +424,8 @@ void SoundInThread::inputUDP()
           set_fcenter(fcenter);
         }
 
-m_hsym = (k-2048)*11025.0/(2048.0*m_rate);
+double hsym = 2048.0 * m_rate / 11025.0;
+m_hsym = (k - 2048) / hsym;
 if (m_hsym != nhsym0) {
     if (m_dataSinkBusy) {
     } else {

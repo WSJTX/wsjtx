@@ -20,6 +20,11 @@ public:
   qint32  m_outDevList[1024];
   bool    m_restartSoundIn;
   bool    m_restartSoundOut;
+  bool    m_restartRequired;
+  int     m_pendingFs96000;
+
+signals:
+  void sampleRateChanged(int newRate);
 
 public slots:
   void accept();
@@ -56,6 +61,7 @@ private:
   MainWindow *mw;
   int r,g,b,r0,g0,b0,r1,g1,b1,r2,g2,b2,r3,g3,b3;
   Ui::DialogSndCard ui;
+  int oldSampleRate;
 };
 
 #endif // DEVSETUP_H

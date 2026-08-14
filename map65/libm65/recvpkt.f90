@@ -1,6 +1,6 @@
 module recvpkt_mod
   use datcom_ptrs_mod          ! for dd
-   use iso_fortran_env, only: real64, real32, int16 
+  use iso_fortran_env, only: real64, real32, int16 
   implicit none
 contains
 
@@ -8,7 +8,8 @@ subroutine recvpkt(nsam, nblock2, userx_no, k, buf4, buf8, buf16) &
      bind(C, name="recvpkt_")
 
   use iso_c_binding
-  use datcom_ptrs_mod
+  use npar_ptrs_mod, only: nsmax_active
+  
   integer(c_int),      intent(in)    :: nsam
   integer(c_int16_t),  intent(inout) :: nblock2
   integer(c_int8_t),   intent(in)    :: userx_no
@@ -20,7 +21,9 @@ subroutine recvpkt(nsam, nblock2, userx_no, k, buf4, buf8, buf16) &
 
     ! ===== Locals =====
     integer :: i
-    integer, parameter :: NSMAX = 60*96000
+
+    ! debugging only
+    integer, save :: mark_done = 0
 
     ! Silence unused warning
     if (nblock2 .eq. -9999) nblock2 = -9998
@@ -34,41 +37,75 @@ subroutine recvpkt(nsam, nblock2, userx_no, k, buf4, buf8, buf16) &
           do i = 1, 174
              k = k + 1
              call unpack_r8_to_r4(buf8(i), dd(1,k), dd(2,k))
-          end do
 
-       case (1)
-          do i = 1, 348
-             k = k + 1
-             call unpack_r4_to_i2_as_r4(buf4(i), dd(1,k), dd(2,k))
-          end do
+            if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
+            dd(1, k)   = 1.0e6
+            dd(1, k+1) = 0.0
+            dd(1, k+2) = 1.0e6
+            mark_done  = 1
+            end if
+         end do
 
-       case (-2)
-          do i = 1, 87
-             k = k + 1
-             call unpack_c16_to_r4(buf16(i), dd(1,k), dd(2,k), dd(3,k), dd(4,k))
-          end do
+         case (1)
+            do i = 1, 348
+               k = k + 1
+               call unpack_r4_to_i2_as_r4(buf4(i), dd(1,k), dd(2,k))
 
-       case (2)
-          do i = 1, 174
-             k = k + 1
-             call unpack_r8_to_i2_as_r4(buf8(i), dd(1,k), dd(2,k), dd(3,k), dd(4,k))
-          end do
+               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
+                  dd(1, k)   = 1.0e6
+                  dd(1, k+1) = 0.0
+                  dd(1, k+2) = 1.0e6
+                  mark_done  = 1
+               end if
+            end do
 
-       end select
+         case (-2)
+            do i = 1, 87
+               k = k + 1
+               call unpack_c16_to_r4(buf16(i), dd(1,k), dd(2,k), dd(3,k), dd(4,k))
 
-    else
-       ! nsam >= 0: special case for one RF channel, r*4 data
-       if (userx_no .eq. 1) then
-          do i = 1, nsam
-             k = k + 1
-             call unpack_r4_to_i2_as_r4(buf4(i), dd(1,k), dd(2,k))
+               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
+                  dd(1, k)   = 1.0e6
+                  dd(1, k+1) = 0.0
+                  dd(1, k+2) = 1.0e6
+                  mark_done  = 1
+               end if
+            end do
 
-             k = k + 1
-             dd(1,k) = dd(1,k-1)
-             dd(2,k) = dd(2,k-1)
-          end do
-       end if
-    end if
+         case (2)
+            do i = 1, 174
+               k = k + 1
+               call unpack_r8_to_i2_as_r4(buf8(i), dd(1,k), dd(2,k), dd(3,k), dd(4,k))
+
+               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
+                  dd(1, k)   = 1.0e6
+                  dd(1, k+1) = 0.0
+                  dd(1, k+2) = 1.0e6
+                  mark_done  = 1
+               end if
+            end do
+         end select
+
+      else
+         ! nsam >= 0: special case for one RF channel, r*4 data
+         if (userx_no .eq. 1) then
+            do i = 1, nsam
+               k = k + 1
+               call unpack_r4_to_i2_as_r4(buf4(i), dd(1,k), dd(2,k))
+
+               if (mark_done == 0 .and. k > 100000 .and. k+2 <= nsmax_active) then
+                  dd(1, k)   = 1.0e6
+                  dd(1, k+1) = 0.0
+                  dd(1, k+2) = 1.0e6
+                  mark_done  = 1
+               end if
+
+               k = k + 1
+               dd(1,k) = dd(1,k-1)
+               dd(2,k) = dd(2,k-1)
+            end do
+         end if
+      end if
 
   end subroutine recvpkt
 

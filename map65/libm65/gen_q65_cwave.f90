@@ -2,22 +2,22 @@ module gen_q65_cwave_mod
   implicit none
 contains
 
-subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
+subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,fsample,msgsent,cwave,nwave)
 
   use packjt
   use q65_encoding
   use iso_fortran_env, only: real64
 
-  integer, parameter :: NMAX = 60*96000
-
   !--------------------------------------------------------------------
   ! Arguments (with correct intent and explicit types)
   !--------------------------------------------------------------------
+  ! fsample is the actual sample rate in Hz
+  real(real64), intent(in) :: fsample
   character*24, intent(in)  :: msg
   integer,      intent(in)  :: ntxfreq
   integer,      intent(in)  :: ntone_spacing
   character*24, intent(out) :: msgsent
-  complex,      intent(out) :: cwave(NMAX)
+  complex,      intent(out) :: cwave(:)
   integer,      intent(out) :: nwave
 
   !--------------------------------------------------------------------
@@ -59,15 +59,16 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
 
   ! Constants
   nsym = 85
-  tsym = 7200.d0 / 12000.d0
-  dt   = 1.d0 / 96000.d0
+  tsym = 7200.d0 / 12000.d0          ! symbol duration (unchanged)
+  dt   = 1.d0 / fsample              ! sample interval
   f0   = ntxfreq
-  dfgen = ntone_spacing * 12000.d0 / 7200.d0
+  dfgen = ntone_spacing * 12000.d0 / 7200.d0   ! tone spacing in Hz (unchanged)
 
   phi = 0.d0
   dphi = twopi * dt * f0
 
-  nwave = 85 * 7200 * 96000.d0 / 12000.d0
+  ! total samples for the 85-symbol Q65-60A waveform
+  nwave = int( nsym * tsym * fsample + 0.5d0 )
 
   t = 0.d0
   j0 = 0
