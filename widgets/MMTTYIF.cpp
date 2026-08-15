@@ -25,6 +25,15 @@ namespace
   {
     return resynchronizeAt (buffer, buffer->indexOf ('<', 1));
   }
+
+  bool hasCompleteTrailingPayload (QByteArray const& command,
+                                   QByteArray const& buffer,
+                                   int payloadStart)
+  {
+    int const payloadSize = buffer.size () - payloadStart;
+    return payloadSize == command.size ()
+      && buffer.mid (payloadStart, payloadSize).compare (command, Qt::CaseInsensitive) == 0;
+  }
 }
 
 MMTTYIF::MMTTYIF(QObject *parent) : QObject(parent),
@@ -169,6 +178,8 @@ void MMTTYIF::parseBufferedCommands() {
                 if (!resynchronizeAt (&m_rxBuffer, next)) return;
                 continue;
             }
+            if (next < 0
+                && !hasCompleteTrailingPayload (command, m_rxBuffer, payloadStart)) return;
         }
 
         QByteArray const payload = m_rxBuffer.mid(payloadStart, payloadEnd - payloadStart);

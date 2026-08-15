@@ -85,6 +85,19 @@ private slots:
     QTRY_COMPARE_WITH_TIMEOUT (close.count (), 1, 1000);
   }
 
+  void parsesFragmentedImplicitControl ()
+  {
+    QSignalSpy abort {interface_.get (), &MMTTYIF::app_abort_tx};
+    QSignalSpy received {interface_.get (), &MMTTYIF::message_received};
+
+    QVERIFY (writeToInterface ("<ABORT>AB"));
+    QTRY_VERIFY_WITH_TIMEOUT (received.count () >= 1, 1000);
+    QCOMPARE (abort.count (), 0);
+
+    QVERIFY (writeToInterface ("ORT"));
+    QTRY_COMPARE_WITH_TIMEOUT (abort.count (), 1, 1000);
+  }
+
   void recoversAfterInvalidLength ()
   {
     QSignalSpy start {interface_.get (), &MMTTYIF::app_start_tx};
@@ -141,11 +154,17 @@ private slots:
     QSignalSpy start {interface_.get (), &MMTTYIF::app_start_tx};
     QSignalSpy abort {interface_.get (), &MMTTYIF::app_abort_tx};
     QSignalSpy logs {interface_.get (), &MMTTYIF::log_message};
+    QSignalSpy received {interface_.get (), &MMTTYIF::message_received};
 
-    QByteArray frame {"<ABORT>"};
-    frame += QByteArray (maximumPayloadBytes + 1, 'A');
-    frame += "<XMIT:2>ON";
-    QVERIFY (writeToInterface (frame));
+    QByteArray firstFragment {"<ABORT>"};
+    firstFragment += QByteArray (maximumPayloadBytes / 2, 'A');
+    QVERIFY (writeToInterface (firstFragment));
+    QTRY_VERIFY_WITH_TIMEOUT (received.count () >= 1, 1000);
+    QCOMPARE (abort.count (), 0);
+
+    QByteArray secondFragment (maximumPayloadBytes / 2 + 1, 'A');
+    secondFragment += "<XMIT:2>ON";
+    QVERIFY (writeToInterface (secondFragment));
 
     QTRY_COMPARE_WITH_TIMEOUT (start.count (), 1, 2000);
     QCOMPARE (abort.count (), 0);
