@@ -213,6 +213,7 @@ if (WSJT_SKIP_MAP65_WAS_USER_PROVIDED OR WSJT_SKIP_MAP65)
     "WSJT_SKIP_MAP65 is deprecated and will be removed; MAP65 now builds and "
     "installs by default.")
 endif ()
+option (WSJT_SKIP_QMAP "Skip building QMAP." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 option (WSJT_ENABLE_GUI_SMOKE_TESTS
   "Register GUI-driven smoke tests with CTest." OFF)
@@ -367,6 +368,7 @@ endif ()
 message (STATUS "Fortran library variants: requested=${WSJT_FORTRAN_LIBRARY_VARIANTS}, effective=${WSJT_EFFECTIVE_FORTRAN_LIBRARY_VARIANTS}")
 message (STATUS "Common Fortran target: ${WSJT_COMMON_FORT_TARGET}")
 message (STATUS "MAP65: skip=${WSJT_SKIP_MAP65}")
+message (STATUS "QMAP: skip=${WSJT_SKIP_QMAP}")
 
 # Internal usage requirements for targets whose own Fortran sources contain
 # OpenMP directives. Static libraries keep the runtime dependency link-
@@ -661,9 +663,11 @@ target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 
-add_executable (ft8sim lib/ft8/ft8sim.f90 lib/print_version.c ${jt9_VERSION_RESOURCES})
-wsjt_link_common_fortran (ft8sim)
-wsjt_add_simulator_usage_test (ft8sim "Usage:[ ]+ft8sim")
+if (WSJT_BUILD_UTILS)
+  add_executable (ft8sim lib/ft8/ft8sim.f90 lib/print_version.c ${jt9_VERSION_RESOURCES})
+  wsjt_link_common_fortran (ft8sim)
+  wsjt_add_simulator_usage_test (ft8sim "Usage:[ ]+ft8sim")
+endif ()
 
 if (WSJT_ENABLE_TESTS)
   add_test (NAME test_jt9_version COMMAND $<TARGET_FILE:jt9> --version)
@@ -769,7 +773,9 @@ if (TARGET map65)
   wsjt_enable_qt_automoc (map65)
 endif ()
 
-add_subdirectory (qmap)
+if (NOT WSJT_SKIP_QMAP)
+  add_subdirectory (qmap)
+endif ()
 if (TARGET qmap)
   wsjt_enable_qt_automoc (qmap)
 endif ()

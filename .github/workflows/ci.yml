@@ -59,47 +59,7 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
           FORCE_RECACHE: ${{ inputs.recache || false }}
-        run: |
-          set -euo pipefail
-
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            base="$PR_BASE_SHA"
-            head="$CURRENT_SHA"
-          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
-            base="$BEFORE_SHA"
-            head="$CURRENT_SHA"
-          else
-            base="${CURRENT_SHA}^"
-            head="$CURRENT_SHA"
-          fi
-
-          recache=false
-          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
-            git fetch --no-tags --depth=1 origin "$base" || true
-          fi
-
-          if git cat-file -e "${base}^{commit}" 2>/dev/null && git cat-file -e "${head}^{commit}" 2>/dev/null; then
-            changed="$(git diff --name-only "$base" "$head")"
-          else
-            echo "::notice::Could not compare $base..$head; forcing ccache recache"
-            changed=""
-            recache=true
-          fi
-
-          while IFS= read -r path; do
-            case "$path" in
-              CMakeLists.txt|*/CMakeLists.txt|*.cmake|cmake/*|CMake/*|.github/workflows/ci.yml|.github/workflows/build-*.yml|.github/actions/build-*/*|.github/scripts/build-*.sh)
-                recache=true
-                ;;
-            esac
-          done <<< "$changed"
-
-          if [ "$FORCE_RECACHE" = "true" ]; then
-            recache=true
-          fi
-
-          echo "Build-system recache: $recache"
-          echo "recache=$recache" >> "$GITHUB_OUTPUT"
+        run: .github/scripts/detect-ccache-recache.sh
 
   # Two-tier CI to conserve Actions minutes. The default path runs one Linux
   # x86_64 smoke leg; sanitizer and broader platform coverage are opt-in.
