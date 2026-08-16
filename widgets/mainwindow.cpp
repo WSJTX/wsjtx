@@ -2350,7 +2350,12 @@ void MainWindow::fastSink(qint64 frames)
 
   if(m_mode=="JTTY") {
     jtty_decode(k);
-    if(dec_data.params.kin - k < 10240) fast_decode_done();
+    int detectorFrames;
+    {
+      QMutexLocker lock {&dec_data_mutex ()};
+      detectorFrames = dec_data.params.kin;
+    }
+    if(detectorFrames - k < 10240) fast_decode_done();
     return;
   }
 
