@@ -1,0 +1,9 @@
+# Keep ModemManager from opening the Keyline (or a WA1HCO FT230X) and
+# asserting RTS, which keys the radio with no WSJT-X / WIMS running.
+#
+#   sudo cp tools/inhibit-agent/99-keyline-not-modem.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", ENV{ID_MM_DEVICE_IGNORE}="1"
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{manufacturer}=="WA1HCO", ENV{ID_MM_DEVICE_IGNORE}="1"
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{product}=="*Keyline*", ENV{ID_MM_DEVICE_IGNORE}="1"

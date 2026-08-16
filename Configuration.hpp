@@ -386,7 +386,16 @@ public:
   // Note that this must be called even if VOX PTT is selected since
   // the "Emulate Split" mode requires PTT information to coordinate
   // frequency changes.
+  //
+  // When PTT is DTR/RTS and TX Inhibit is enabled, HamlibTransceiver may
+  // install a pin filter (assert PTT ⇔ want_tx and not hold). Sequencing
+  // and CAT remain stock; Configuration does not drive RTS/DTR itself.
   Q_SLOT void transceiver_ptt (bool = true);
+
+  // Settings: Enable TX Inhibit. Default false.
+  bool enable_tx_inhibit () const;
+  // Bound UDP block listen port (0 if not active).
+  quint16 tx_inhibit_port () const;
 //  Q_SLOT void transceiver_tune (bool = true);
 
   // Set/unset Audio streaming for TCI.
@@ -473,6 +482,13 @@ public:
   // re-established with a call to transceiver_online(true) assuming
   // the fault condition has been rectified or is transient.
   Q_SIGNAL void transceiver_failure (QString const& reason) const;
+
+  // TX Inhibit block level changed (status-bar badge + InhibitStatus).
+  // source empty when clear; otherwise badge text ("TX INHIBITED — …").
+  Q_SIGNAL void tx_inhibit_changed (bool inhibited, QString const& source
+                                    , quint32 hold_rx, quint32 release_rx
+                                    , quint32 expiries, quint32 invalid) const;
+  Q_SIGNAL void tx_inhibit_port_changed (quint16 port) const;
 
   // signal announces audio devices are being enumerated
   //

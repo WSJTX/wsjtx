@@ -1451,6 +1451,16 @@ other hardware interface for PTT.</string>
               </property>
              </widget>
             </item>
+            <item row="1" column="0" colspan="2">
+             <widget class="QCheckBox" name="tx_inhibit_check_box">
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;b&gt;TX Inhibit&lt;/b&gt; (RTS/DTR PTT only).&lt;/p&gt;&lt;p&gt;This &lt;b&gt;WSJT-X station&lt;/b&gt; is the app, PC, network, radio, and antenna (may be a remote go-box). When enabled, listen for UDP from a KEY agent (default port 22372). The KEY agent &lt;b&gt;tells WSJT-X stations not to transmit&lt;/b&gt; while a priority radio is keyed. Physical outcome: &lt;code&gt;assert PTT ⇔ want_tx and not hold&lt;/code&gt;. Sequencing continues; only whether this station may assert PTT is filtered.&lt;/p&gt;&lt;p&gt;Default is off (stock PTT). Co-band multi-op stations that share a band with a priority radio should enable this and run a KEY agent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Enable TX &amp;Inhibit</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
          </layout>

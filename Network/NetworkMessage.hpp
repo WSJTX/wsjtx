@@ -529,6 +529,29 @@
  *      ffffffff will remove the sort-order value from the internal table.
  *      Callsigns without a sort order will be valued at zero for sorting purposes
  *      in the hound display.
+ *
+ *
+ * InhibitStatus  Out      17
+ *                         Id (unique key)        utf8
+ *                         Inhibit port           quint16
+ *                         Inhibited              bool
+ *                         Source station         utf8
+ *                         Hold rx                quint32
+ *                         Release rx             quint32
+ *                         Expiries               quint32
+ *                         Invalid                quint32
+ *
+ *      Optional telemetry when TX Inhibit is enabled (Settings → Radio)
+ *      and the WSJT-X station block level or badge text changes. KEY-agent UDP
+ *      protocol is separate; see docs/TX_INHIBIT.md.
+ *
+ *      Inhibit port: UDP listen port for KEY-agent blocks (usually 22372;
+ *      may be ephemeral). Inhibited: block active. Source station: badge
+ *      text (may be empty). Four quint32 counters: hold packets received,
+ *      explicit release hold, hold timeout expiries (incl. after a deadman),
+ *      invalid datagrams (field names hold_rx etc. are historical wire labels).
+ *
+ *      Unknown types are ignored; schema number unchanged.
  */
 
 #include <QDataStream>
@@ -561,6 +584,7 @@ namespace NetworkMessage
       SwitchConfiguration,
       Configure,
       AnnotationInfo,
+      InhibitStatus,            // Out 17 — see protocol comment above
       maximum_message_type_     // ONLY add new message types
                                 // immediately before here
     };

@@ -206,6 +206,17 @@ TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<Transceive
   , m_toneFrequency0 {1500.0}
   , wav_file_ {QDir(QStandardPaths::writableLocation (QStandardPaths::DataLocation)).absoluteFilePath ("tx.wav").toStdString()}
 {
+  // Forward optional TX Inhibit telemetry from the wrapped PTT-only rig.
+  // Without this the gate still holds PTT off correctly, but the operator gets
+  // no badge, no tooltip and no InhibitStatus -- PTT simply stops working with
+  // no visible reason. See docs/REVIEW-rc2.md C3.
+  if (wrapped_)
+    {
+      connect (wrapped_.get (), &Transceiver::tx_inhibit_changed,
+               this, &Transceiver::tx_inhibit_changed);
+      connect (wrapped_.get (), &Transceiver::tx_inhibit_port_bound,
+               this, &Transceiver::tx_inhibit_port_bound);
+    }
   m_samplesPerFFT = 6912 / 2;
   tci_Ready = false;
   trxA = 0;
