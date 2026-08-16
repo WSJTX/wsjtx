@@ -70,7 +70,7 @@ contains
       integer(int16), intent(in)     :: iwave(nchunk)
       integer, intent(in)            :: istart, ndebug
       integer                        :: i,i0,is,j,ja,jb,k,kz,n
-      integer, save                  :: ntstep
+      integer, save                  :: ntstep, ntgrid
       integer                        :: istep
       integer                        :: nchan, ichan
       integer, intent(in)            :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
@@ -87,7 +87,7 @@ contains
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
-      real, allocatable, save        :: s(:), sm(:), s0(:,:)
+      real, allocatable, save        :: s(:), s0(:,:)
       real                           :: a(3)
       real                           :: bitmetrics(1:80), pow(0:3,NCHAN_SYM)
       real                           :: p00, p01, p11, p10
@@ -132,6 +132,7 @@ contains
          nh2=nfft/2    ! spectrum size for sync search
          nframe6=NFRAME_SYM*nss          ! frame size at 6000 Sa/s
          ntstep=nframe6/4
+         ntgrid=ntstep/12
 
 ! allocate saved arrays once
          if(allocated(csync)) deallocate(csync)
@@ -146,10 +147,8 @@ contains
            allocate(c1(0:nchunk6-1))
          if(allocated(s)) deallocate(s)
            allocate(s(0:nh2))
-         if(allocated(sm)) deallocate(sm)
-           allocate(sm(0:nh2))
          if(allocated(s0)) deallocate(s0)
-           allocate(s0(0:nh2,0:ntstep))
+           allocate(s0(0:nh2,0:ntgrid))
 
 ! Generate complex waveform for sync
          baud=FSAMPLE/real(nss)   !31.25 for nss=192
@@ -179,11 +178,10 @@ contains
          do j=0,nh2
             s(j)=real(c(j))**2 + aimag(c(j))**2
          enddo
-         sm=0.
+         s0(0:nh2,istep)=0.
          do j=2,nh2-2
-            sm(j)=s(j-2)+2*s(j-1)+3*s(j)+2*s(j+1)+s(j+2)
+            s0(j,istep)=s(j-2)+2*s(j-1)+3*s(j)+2*s(j+1)+s(j+2)
          enddo
-         s0(0:nh2,istep)=sm
          istep=istep+1
       enddo
       nstep_search=istep-1
