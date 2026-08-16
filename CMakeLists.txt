@@ -704,20 +704,30 @@ if (WSJT_ENABLE_TESTS)
       samples/FT8/210703_133430.wav
       test/fixtures/ft8_210703_133430.expected.txt)
     if (WSJT_BUILD_FORTRAN_OPENMP)
-      set (jt9_mtd_work_dir
-        "${CMAKE_BINARY_DIR}/Testing/Golden/test_jt9_mtd_ft8_210703_133430")
-      file (MAKE_DIRECTORY "${jt9_mtd_work_dir}")
-      add_test (NAME test_jt9_mtd_ft8_210703_133430
-        COMMAND ${CMAKE_COMMAND}
-          -DJT9=$<TARGET_FILE:jt9>
-          -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
-          -DEXPECTED=${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt
-          -DWORK_DIR=${jt9_mtd_work_dir}
-          -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-          -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/compare_mtd_messages.cmake)
-      set_tests_properties (test_jt9_mtd_ft8_210703_133430 PROPERTIES
-        LABELS "decoder;golden;integration;mtd"
-        TIMEOUT 120)
+      function (wsjt_add_jt9_mtd_golden_test test_name processors)
+        set (work_dir "${CMAKE_BINARY_DIR}/Testing/Golden/${test_name}")
+        file (MAKE_DIRECTORY "${work_dir}")
+        add_test (NAME ${test_name}
+          COMMAND ${CMAKE_COMMAND}
+            -DJT9=$<TARGET_FILE:jt9>
+            -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+            -DEXPECTED=${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt
+            -DWORK_DIR=${work_dir}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/compare_mtd_messages.cmake)
+        set_tests_properties (${test_name} PROPERTIES
+          LABELS "decoder;golden;integration;mtd"
+          PROCESSORS ${processors}
+          TIMEOUT 120)
+      endfunction ()
+
+      wsjt_add_jt9_mtd_golden_test (
+        test_jt9_mtd_ft8_210703_133430 4)
+      wsjt_add_jt9_mtd_golden_test (
+        test_jt9_mtd_ft8_210703_133430_limited_team 2)
+      # The -N 4 request requires at least three visible processors for this limit to reduce the runtime team.
+      set_tests_properties (test_jt9_mtd_ft8_210703_133430_limited_team PROPERTIES
+        ENVIRONMENT "OMP_THREAD_LIMIT=2")
     endif ()
     wsjt_add_jt9_golden_test (
       test_jt9_golden_jt9_130418_1742 -9
