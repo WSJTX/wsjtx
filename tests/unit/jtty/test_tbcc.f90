@@ -2,9 +2,9 @@ program test_tbcc
 
   ! Focused tests for the tail-biting convolutional code module
   ! (lib/jtty/tbcc.f90) at JTTY's chosen constraint length (K=10, nu=9):
-  ! a noiseless encode/decode round trip, and a check that the optional
-  ! reserved_zero_bit filter in tbcc_wava_fsk_decode actually rejects a
-  ! candidate that fails it, rather than being a no-op.
+  ! a noiseless encode/decode round trip, and checks that the optional
+  ! reserved_zero_bit filter rejects a candidate and returns a deterministic
+  ! payload on failure.
 
   use, intrinsic :: iso_fortran_env, only: real32, int32
   use tbcc
@@ -91,10 +91,15 @@ contains
     ! With the filter on a bit this payload actually sets to 1, the only
     ! codeword consistent with these noiseless tone energies fails the
     ! filter, so decoding must now report failure.
+    decoded = huge(0_int32)
     call tbcc_wava_fsk_decode(tone_energies, 4, 2, decoded, success,   &
          reserved_zero_bit=one_bit_pos)
     if (success) then
        print *, 'test_tbcc: reserved_zero_bit did not filter the candidate'
+       error stop 1
+    end if
+    if (any(decoded /= 0_int32)) then
+       print *, 'test_tbcc: failed decode did not clear its payload'
        error stop 1
     end if
   end subroutine expect_reserved_zero_bit_filters_candidates

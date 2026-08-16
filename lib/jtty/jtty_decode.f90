@@ -185,7 +185,9 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    dmin=0.0
    call tbcc_wava_fsk_decode(tone_energies, JTTY_WAVA_L, JTTY_WAVA_ITERS,             &
         final_payload, success, reserved_zero_bit=JTTY_RESERVED_BIT)
-   if(success .and. sum(final_payload).eq.0) success=.false.  ! reject the all zero message
+   if(success) then
+      if(all(final_payload.eq.0)) success=.false.  ! reject the all-zero message
+   endif
    nharderrors=-1
    if(success) nharderrors=0
 

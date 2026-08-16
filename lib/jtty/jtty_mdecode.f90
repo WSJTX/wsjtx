@@ -516,7 +516,9 @@ contains
               final_payload, success_dec, reserved_zero_bit=JTTY_RESERVED_BIT)
          if(success_dec) exit
       enddo
-      if(success_dec .and. sum(final_payload).eq.0) success_dec=.false. ! reject all-zero
+      if(success_dec) then
+         if(all(final_payload.eq.0)) success_dec=.false. ! reject all-zero
+      endif
       cand(ncand)%decoded=' '
       if( .not. success_dec ) return
 

@@ -94,6 +94,7 @@ contains
         integer(int32), intent(in)   :: max_wava_iters
         integer(int32), intent(out)  :: final_payload(PAYLOAD_BITS)
         logical, intent(out)         :: success
+        ! Failed decodes return an all-zero payload; success determines validity.
         ! Optional 1-based position (within PAYLOAD_BITS) of a payload bit
         ! that the caller guarantees is always transmitted as 0. When
         ! present, a list candidate is only accepted if it also satisfies
@@ -112,6 +113,7 @@ contains
         real(real32)   :: m0, m1
         integer(int32) :: tmp_bits(TOTAL_K)
 
+        final_payload = 0_int32
         success = .false.
         allocate(prev_m(0:num_states-1), curr_m(0:num_states-1))
         allocate(traceback_table(0:num_states-1, TOTAL_K), sorted_list(list_size))
