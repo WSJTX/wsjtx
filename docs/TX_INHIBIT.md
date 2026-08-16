@@ -150,6 +150,7 @@ path when several apps share the station.
 |---------|--------|-----|
 | Flaky CAT / stuck TX | RTS used as handshake | Handshake **None**; radio SEND not flow control |
 | Keys on port open | Polarity / forced DTR-RTS | Check logger forced lines; try other modem line |
+| Keys with no WSJT-X / WIMS | USB-serial default RTS (open/close or ModemManager) | `inhibit-agent` now forces RTS+DTR idle; Linux udev: `tools/inhibit-agent/99-keyline-not-modem.rules` |
 | “Worked yesterday” | Another app owns COM | One owner; restart after other apps close |
 | Test PTT OK, no RF | Often audio/mode | DATA mode, levels, power meter |
 | CW key instead of PTT | Icom USB Keying vs USB SEND | PTT → **USB SEND** |

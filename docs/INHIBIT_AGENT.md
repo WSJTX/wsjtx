@@ -115,3 +115,13 @@ If the agent stops or the dongle disappears, keepalives stop. The gate deadman
 (~600 ms) opens. Prefer a brief unprotected window over a stuck inhibit.
 
 Wrong or missing COM is **SENSE FAULT**, never silent protection.
+
+**RTS/DTR stay idle.** This program only reads **CTS**. It never keys or
+inhibits via RTS. USB-serial drivers (and Qt) assert RTS+DTR on open, and
+restoring termios on close can leave RTS high with **no WSJT-X or WIMS
+running** — that keys a radio on Keyline J3. The agent forces RTS+DTR off
+immediately after open, keeps them off, disables hangup-on-close, and does
+not restore the driver’s default lines when it exits.
+
+Linux: ModemManager will open a new USB-serial and assert RTS. Ignore the
+Keyline with the udev rule in `tools/inhibit-agent/99-keyline-not-modem.rules`.

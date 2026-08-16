@@ -9,6 +9,13 @@
 
 #include <algorithm>
 
+#if defined (Q_OS_WIN)
+# include <windows.h>
+#else
+# include <sys/ioctl.h>
+# include <termios.h>
+#endif
+
 namespace {
 
 QByteArray encode_hold (QString const& station, QString const& band,
@@ -226,21 +233,27 @@ bool InhibitAgent::start ()
     }
 
   serial_.setPortName (cfg_.serial_port);
+  serial_.setFlowControl (QSerialPort::NoFlowControl);
+#if QT_VERSION < QT_VERSION_CHECK (5, 10, 0)
+  // Qt < 5.10 restores termios on close (RTS/DTR back to driver default).
+  serial_.setSettingsRestoredOnClose (false);
+#endif
   // Open so modem-status (CTS) is readable. Do not assert RTS/DTR —
-  // Keyline J3 is an inhibit/PTT output driven by RTS.
+  // Keyline J3 is an inhibit/PTT output driven by RTS. QSerialPort and
+  // the USB-serial driver assert both on open; force them idle at once.
   if (!serial_.open (QIODevice::ReadWrite))
     {
       enter_fault (QStringLiteral ("open %1 failed: %2")
                    .arg (cfg_.serial_port, serial_.errorString ()));
       return false;
     }
-  serial_.setDataTerminalReady (false);
-  serial_.setRequestToSend (false);
+  force_outputs_idle ();
   try_set_usb_latency ();
 
   keying_.reset_transmission ();
   key_down_ = false;
   hold_active_ = false;
+  warned_rts_ = false;
   hang_until_ms_ = -1;
   keepalive_.stop ();
   poll_.start ();
@@ -258,8 +271,41 @@ void InhibitAgent::stop ()
     }
   if (serial_.isOpen ())
     {
+      force_outputs_idle ();
       serial_.close ();
     }
+}
+
+void InhibitAgent::force_outputs_idle ()
+{
+  if (!serial_.isOpen ())
+    {
+      return;
+    }
+  serial_.setFlowControl (QSerialPort::NoFlowControl);
+  serial_.setDataTerminalReady (false);
+  serial_.setRequestToSend (false);
+#if defined (Q_OS_WIN)
+  HANDLE h = reinterpret_cast<HANDLE> (serial_.handle ());
+  if (h && h != INVALID_HANDLE_VALUE)
+    {
+      EscapeCommFunction (h, CLRRTS);
+      EscapeCommFunction (h, CLRDTR);
+    }
+#else
+  int fd = static_cast<int> (serial_.handle ());
+  if (fd >= 0)
+    {
+      int bits = TIOCM_RTS | TIOCM_DTR;
+      ioctl (fd, TIOCMBIC, &bits);
+      struct termios tio;
+      if (tcgetattr (fd, &tio) == 0)
+        {
+          tio.c_cflag &= ~static_cast<tcflag_t> (HUPCL);
+          tcsetattr (fd, TCSANOW, &tio);
+        }
+    }
+#endif
 }
 
 void InhibitAgent::try_set_usb_latency ()
@@ -312,6 +358,7 @@ void InhibitAgent::enter_fault (QString const& reason)
     }
   if (serial_.isOpen ())
     {
+      force_outputs_idle ();
       serial_.close ();
     }
   set_state (AgentState::SenseFault, reason);
@@ -329,6 +376,16 @@ bool InhibitAgent::read_key (bool * keyed)
       && serial_.error () != QSerialPort::TimeoutError)
     {
       return false;
+    }
+  if (pins & QSerialPort::RequestToSendSignal)
+    {
+      force_outputs_idle ();
+      if (!warned_rts_)
+        {
+          warned_rts_ = true;
+          emit logLine (QStringLiteral (
+              "RTS was asserted — forced idle (Keyline J3 must not key)"));
+        }
     }
   bool cts = (pins & QSerialPort::ClearToSendSignal) != 0;
   *keyed = cfg_.invert ? !cts : cts;

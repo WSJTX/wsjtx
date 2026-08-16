@@ -882,6 +882,16 @@ int HamlibTransceiver::do_start ()
 
   do_poll ();
 
+  // USB-serial open asserts RTS/DTR. Drop PTT before the gate starts so a
+  // port-open glitch cannot leave the radio keyed.
+  try
+    {
+      apply_physical_ptt (false);
+    }
+  catch (...)
+    {
+    }
+
   // After rig_open: optional TX Inhibit (RTS/DTR only). Same thread as CAT.
   if (use_tx_inhibit_)
     {

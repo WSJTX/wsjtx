@@ -73,6 +73,9 @@ private:
   void end_hold (char const * reason);
   void send_packet (int ttl_ms, bool is_keepalive, char const * release_reason);
   void try_set_usb_latency ();
+  // Keyline J3 is RTS. USB-serial open/close defaults assert RTS and
+  // key the radio. Force RTS+DTR idle and leave them idle on close.
+  void force_outputs_idle ();
 
   Config cfg_;
   QHostAddress dest_addr_;
@@ -90,6 +93,7 @@ private:
   int holds_sent_ {0};
   int keepalives_sent_ {0};
   int releases_sent_ {0};
+  bool warned_rts_ {false};
 };
 
 #endif
