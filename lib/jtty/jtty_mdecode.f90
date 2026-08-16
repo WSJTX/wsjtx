@@ -82,7 +82,7 @@ contains
       integer                        :: iloc(1)
       integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
       integer                        :: ndeep, maxiterations, islot
-      integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc
+      integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc,nstep_search
       integer                        :: nharderrors,nsync,nsymerrs
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
@@ -186,6 +186,7 @@ contains
          s0(0:nh2,istep)=sm
          istep=istep+1
       enddo
+      nstep_search=istep-1
 
 ! Look for up to 2 sync candidates in each quarter-frame (0.424 second) by 2*FTol rectangle in 
 ! the time/frequency plane. Find the peak in the search rectangle, then zero a small region
@@ -216,11 +217,11 @@ contains
          fpk=0.
 
          do ic=1,nc
-            nsloc=maxloc(s0(ja:jb,:))
+            nsloc=maxloc(s0(ja:jb,0:nstep_search))
             fbest   = (nsloc(1)-1+ja)*df2
             xdtbest = (nsloc(2)-1)*dt*12
             s0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),        &
-                max(  0, nsloc(2)-ntz )    : min( ntstep, nsloc(2)+ntz )   ) = 0.0
+                max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = 0.0
 
             if(ichan.eq.0) then
                call jtty_peakup(c0,c1,csync,nchunk6, nss, xdtbest, fbest, xdt1, f11, snr0)
