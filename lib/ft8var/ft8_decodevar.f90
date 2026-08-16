@@ -24,13 +24,14 @@ contains
   subroutine decodevar(this,callback,nQSOProgress,nfqso,nft8rxfsens,nftx,nutc,  &
        nfa,nfb,ncandthin,ndtcenter,nsec,napwid,lmycallstd,lhiscallstd,          &
        stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes,  &
-       lft8apon,ncontest)
+       lft8apon,ncontest,residual,spectrum)
 
     use omp_lib
+    use ft8_mtd_residual, only : mtd_publish_worker,mtd_transform_phase
 
     use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
          lastrxmsg,lasthcall,calldteven,calldtodd,incall,oddcopy,evencopy,      &
-         avexdt,mycall,hiscall,dd8,nft8cycles,ncandallthr,nincallthr,evencq,    &
+         avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
          evenqso,oddqso,lqsomsgdcd,hisgrid4
 
@@ -38,8 +39,9 @@ contains
 
     class(ft8_decodervar), intent(inout) :: this
     procedure(ft8_decodevar_callback) :: callback
-    real, DIMENSION(:), ALLOCATABLE :: dd8m
-    real candidate(4,460),freqsub(200)
+    real, intent(inout) :: residual(180000)
+    complex, intent(inout) :: spectrum(0:96000)
+    real candidate(4,460)
     real qual !ft8md
     integer, intent(in) :: nQSOProgress,nfqso,nft8rxfsens,nftx,nfa,nfb,         &
          ncandthin,ndtcenter,nsec,napwid,nthr,numthreads
@@ -48,7 +50,7 @@ contains
          lmycallstd,lhiscallstd,lft8apon
     logical newdat1,lsubtract,ldupe,lFreeText,lspecial
     logical(1) lft8sdec,lft8s,lft8sd,lrepliedother,lhashmsg,lqsothread,         &
-         lhidemsg,lhighsens,lcqcand,lsubtracted,levenint,loddint,lnohiscall,    &
+         lhidemsg,lhighsens,lcqcand,levenint,loddint,lnohiscall,                &
          lnomycall,lnohisgrid
     character msg37*37,msg37_2*37,msg26*37,call2*12 !ft8md msg26 was *26
     character*37 msgsrcvd(130)
@@ -133,11 +135,9 @@ contains
     lrepliedother=.false.
     lft8sdec=.false.
     lqsothread=.false.
-    lsubtracted=.false.
     ncount=0
     mycalllen1=len_trim(mycall)+1
     nincallthr(nthr)=0
-    nallocthr=0
     ncqsignal=0
     nmycsignal=0
 
@@ -206,9 +206,15 @@ contains
 
     syncmin=1.3
     do ipass=1,npass
+       if(ipass.eq.4 .or. ipass.eq.7) then
+!$omp barrier
+!$omp single
+          call mtd_transform_phase(ipass)
+!$omp end single
+       endif
+       call mtd_publish_worker(nthr)
        newdat1=.true.
        lsubtract=.true.
-       npos=0
        if(ipass.eq.1 .or. ipass.eq.4 .or. ipass.eq.7) then
           if(lft8lowth) syncmin=1.225
        elseif(ipass.eq.2 .or. ipass.eq.5 .or. ipass.eq.8) then
@@ -218,34 +224,8 @@ contains
        endif
        if(ipass.gt.5 .or. (ipass.eq.3 .and. npass.eq.3)) lsubtract=.false.
 
-       if(ipass.eq.4) then
-!$omp barrier
-!$omp single
-          if(npass.eq.9) then ! 3 decoding cycles
-             nallocthr=nthr
-             allocate(dd8m(180000), STAT = nAllocateStatus1)
-             if(nAllocateStatus1.ne.0) STOP "Not enough memory"
-             dd8m=dd8
-          endif
-          do i=1,179999
-             dd8(i)=(dd8(i)+dd8(i+1))/2
-          enddo
-!$omp end single
-!$omp barrier
-       else if(ipass.eq.7) then
-!$omp barrier
-          if(nthr.eq.nallocthr) then
-             dd8(1)=dd8m(1)
-             do i=2,180000
-                dd8(i)=(dd8m(i-1)+dd8m(i))/2
-             enddo
-             deallocate (dd8m, STAT = nDeAllocateStatus1)
-             if (nDeAllocateStatus1.ne.0) print *, 'failed to release memory'
-          endif
-!$omp barrier
-       endif
-       
-       call sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,       &
+       call sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,    &
+            ipass, &
             lqsothread,ncandthin,ndtcenter)
        do icand=1,ncand
           sync=candidate(3,icand)
@@ -267,13 +247,14 @@ contains
           i3=16
           n3=16
 
-          call ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,   &
-               freqsub,tmpcqdec,tmpmyc,nagainfil,iaptype,f1,xdt,nbadcrc,        &
+          call ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,      &
+               napwid,lsubtract,tmpcqdec,tmpmyc,nagainfil,iaptype,f1,xdt,      &
+               nbadcrc,                                                         &
                lft8sdec,msg37,msg37_2,xsnr,stophint,nthr,lFreeText,ipass,       &
                lft8subpass,lspecial,lcqcand,ncqsignal,nmycsignal,npass,i3bit,   &
                lft8s,lmycallstd,lhiscallstd,levenint,loddint,lft8sd,i3,n3,      &
                nft8rxfsens,ncount,msgsrcvd,lrepliedother,lhashmsg,lqsothread,   &
-               lft8lowth,lhighsens,lsubtracted,tmpcqsig,tmpmycsig,tmpqsosig,    &
+               lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig,                &
                lnohiscall,lnomycall,lnohisgrid,qual,iaptype2)
           nsnr=nint(xsnr)
           xdt=xdt-0.5

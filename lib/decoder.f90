@@ -8,6 +8,8 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
   use jt9_decode
   use ft8_decode
   use ft8_decode_ranges, only: max_ft8_decode_ranges, partition_ft8_decode_range
+  use ft8_mtd_residual, only: mtd_prepare,mtd_finish,mtd_worker_residual, &
+       mtd_worker_spectrum
   use ft8_decodevar
   use ft4_decode
   use fst4_decode
@@ -367,6 +369,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
            call partition_ft8_decode_range(nfa,nfb,numthreads,ft8_range_low, &
                 ft8_range_high,ft8_range_count)
            numthreads=ft8_range_count
+           call mtd_prepare(dd8,numthreads)
            call fillhashvar(numthreads,.false.)
            call ft8apsetvar(params%lmycallstd,params%lhiscallstd,numthreads)
 !$omp end single
@@ -379,8 +382,11 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
                 params%napwid,params%lmycallstd,params%lhiscallstd,           &
                 params%nstophint,nthr,numthreads,logical(params%nagainfil),   &
                 params%lft8lowth,params%lft8subpass,params%lhideft8dupes,     &
-                params%lft8apon,ncontest)
+                params%lft8apon,ncontest,mtd_worker_residual(:,nthr),       &
+                mtd_worker_spectrum(:,nthr))
 !$omp end parallel
+
+           call mtd_finish(dd8)
 
            call run_ft8_mtd_a8_decode()
 

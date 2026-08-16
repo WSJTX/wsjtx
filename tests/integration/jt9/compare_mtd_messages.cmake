@@ -4,6 +4,13 @@ foreach (required_variable JT9 SAMPLE EXPECTED WORK_DIR SOURCE_DIR)
   endif ()
 endforeach ()
 
+if (NOT DEFINED NTHREADS)
+  set (NTHREADS 4)
+endif ()
+if (NOT DEFINED CYCLES)
+  set (CYCLES 3)
+endif ()
+
 file (MAKE_DIRECTORY "${WORK_DIR}")
 set (actual_file "${WORK_DIR}/actual.txt")
 set (stderr_file "${WORK_DIR}/stderr.txt")
@@ -11,7 +18,7 @@ set (stderr_file "${WORK_DIR}/stderr.txt")
 execute_process (
   COMMAND "${CMAKE_COMMAND}" -E env OMP_STACKSIZE=16M
           "${JT9}"
-          -8 -M -N 4 -d 3 -C 3 -E 3 -D 3
+          -8 -M -N "${NTHREADS}" -d 3 -C "${CYCLES}" -E 3 -D 3
           -p 15 -m 3 -L 200 -H 3000
           -a "${WORK_DIR}"
           -t "${WORK_DIR}"
