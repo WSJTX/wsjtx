@@ -202,14 +202,16 @@ void TxInhibitGate::emit_physical_ptt (bool radiate)
     }
   catch (std::exception const& e)
     {
-      Q_EMIT lineError (QStringLiteral ("TX Inhibit: setting PTT %1 failed: %2")
-                        .arg (radiate ? QStringLiteral ("on") : QStringLiteral ("off"))
-                        .arg (QString::fromUtf8 (e.what ())));
+      // Contain the exception (timer/socket slots must not qFatal) but do not
+      // hide the failure: pttApplyFailed is wired to Transceiver::failure.
+      Q_EMIT pttApplyFailed (QStringLiteral ("TX Inhibit: setting PTT %1 failed: %2")
+                             .arg (radiate ? QStringLiteral ("on") : QStringLiteral ("off"))
+                             .arg (QString::fromUtf8 (e.what ())));
     }
   catch (...)
     {
-      Q_EMIT lineError (QStringLiteral ("TX Inhibit: setting PTT %1 failed (unknown error)")
-                        .arg (radiate ? QStringLiteral ("on") : QStringLiteral ("off")));
+      Q_EMIT pttApplyFailed (QStringLiteral ("TX Inhibit: setting PTT %1 failed (unknown error)")
+                             .arg (radiate ? QStringLiteral ("on") : QStringLiteral ("off")));
     }
 }
 

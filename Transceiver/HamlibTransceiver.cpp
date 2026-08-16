@@ -911,6 +911,13 @@ void HamlibTransceiver::start_tx_inhibit_gate ()
            this, [this] (QString const& msg) {
              CAT_TRACE (msg);
            });
+  // Pin apply failure: same visibility as stock rig_set_ptt throw path.
+  // Exception is already contained in the gate (no qFatal from timer slots).
+  connect (inhibit_gate_, &TxInhibitGate::pttApplyFailed,
+           this, [this] (QString const& msg) {
+             CAT_TRACE (msg);
+             Q_EMIT failure (msg);
+           });
   inhibit_gate_->start_listening ();
   CAT_TRACE ("TX Inhibit gate listening (pin filter on do_ptt)");
 }

@@ -68,6 +68,11 @@ signals:
   // Callers must not treat this as a rig CAT/PTT failure.
   void lineError (QString const& message);
 
+  // rig_set_ptt failed while the gate was driving the pin. Unlike lineError
+  // (bind problems), this should surface as a rig/operator failure so the UI
+  // does not show "Tx" with no RF and no message.
+  void pttApplyFailed (QString const& message);
+
 private slots:
   void on_udp_ready ();
   void tick ();

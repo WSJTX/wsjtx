@@ -3511,7 +3511,10 @@ void Configuration::impl::accept ()
   bLowSidelobes_ = ui_->rbLowSidelobes->isChecked();
   save_directory_.setPath (ui_->save_path_display_label->text ());
   azel_directory_.setPath (ui_->azel_path_display_label->text ());
-  enable_tx_inhibit_ = ui_->tx_inhibit_check_box->isChecked ();
+  // Match gather_rig_data(): inhibit is only live for RTS/DTR. Using the raw
+  // checkbox here left enable_tx_inhibit_ true under CAT/VOX while the gate
+  // never started — permanent "NOT protected" status (checkbox often disabled).
+  enable_tx_inhibit_ = rig_params_.enable_tx_inhibit;
   enable_VHF_features_ = ui_->enable_VHF_features_check_box->isChecked ();
   decode_at_52s_ = ui_->decode_at_52s_check_box->isChecked ();
   kHz_without_k_ = ui_->kHz_without_k_check_box->isChecked ();
@@ -5495,7 +5498,12 @@ void Configuration::impl::close_rig ()
       rig_connections_.clear ();
       rig_active_ = false;
     }
+  // Gate is gone with the transceiver; clear port *and* any held-inhibit UI
+  // state. Port alone was zeroed before without emitting, so MainWindow's
+  // m_tx_inhibited (display-only) could stick on "Inhibit" after rig close.
   tx_inhibit_port_ = 0;
+  Q_EMIT self_->tx_inhibit_port_changed (0);
+  Q_EMIT self_->tx_inhibit_changed (false, QString {}, 0, 0, 0, 0);
 }
 
 // find the audio device that matches the specified name, also
