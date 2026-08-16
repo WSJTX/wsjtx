@@ -459,41 +459,34 @@ Enable TX Inhibit, RTS/DTR on a real serial port, then send the same UDP a KEY
 agent would (default **127.0.0.1:22372**). Expect red **TX INHIBITED**; WSJT-X station
 does not **assert PTT** while hold is active.
 
-### `inhibit-test` / `inhibit-test-gui` (KEY-agent stand-ins)
+### `inhibit-test` (KEY-agent stand-in)
 
-| Binary | Platform | Notes |
-|--------|----------|--------|
-| **`inhibit-test`** | Linux / Windows console | Canonical CLI (Qt). |
-| **`inhibit-test-gui`** | Windows GUI | Native Win32; mouse or grave; same protocol. |
-
-Implements §3 (Hold sender + KEYing monitor):
+Console KEY stand-in. Implements §3 (Hold sender + KEYing monitor):
 
 | Action | Effect |
 |--------|--------|
-| **` (grave) down** (or GUI button) | **assert KEY** → hold (`ttl_ms`=hold_timeout) + keepalives |
-| **` up** / button up | KEY open → hang per §3.2, then **release hold** (`ttl_ms: 0`) after hang |
+| **` (grave) down** | **assert KEY** → hold (`ttl_ms`=hold_timeout) + keepalives |
+| **` up** | KEY open → hang per §3.2, then **release hold** (`ttl_ms: 0`) after hang |
 | **`~` (shift+grave)** | **Latch on** — hold stays asserted after key release, so the keyboard is free to drive WSJT-X. Reads as continuous KEY (hang 0). Press `` ` `` or `~` again to clear; `` ` `` always clears the latch. |
-| **q** / **Esc** / Force RELEASE | cancel keepalives, **release hold** (quit on console) |
+| **q** / **Esc** | cancel keepalives, **release hold**, quit |
 
 **KEY key is grave/backtick `` ` ``** (left of `1` on US keyboards) — **not Space**.
 Unshifted `` ` `` is momentary; **`~` (shifted) latches** the hold on until either key
 is pressed again.
 
 Hang policy (default): break-in **1.5× word gap** from measured dit; continuous
-KEY (long mark ≥500 ms) **hang = 0**. Override: `--fixed-hang-ms` (console) or
-**fixed hang ms** field (GUI).
+KEY (long mark ≥500 ms) **hang = 0**. Override: `--fixed-hang-ms`.
 
 ```text
 inhibit-test --host 127.0.0.1 --port 22372 --station TEST-KEY --ttl-ms 600
 inhibit-test --fixed-hang-ms 0
-bin\inhibit-test-gui.exe
 ```
 
 If the WSJT-X station bound an ephemeral port, pass that `--port`.
 
-**Input focus:** console default = this terminal only (`--global-keys` = system-wide).
-GUI = keys only while the GUI window is focused. **Linux console:** group
-`input` required for `/dev/input`; without it **`inhibit-test` refuses to start**.
+**Input focus:** default = this terminal only (`--global-keys` = system-wide).
+**Linux:** group `input` required for `/dev/input`; without it **`inhibit-test`
+refuses to start**.
 
 **Digi RF checks:** hold `` ` `` ≥500 ms (continuous, hang 0) or fixed hang 0.
 
@@ -519,7 +512,7 @@ Operator checklist: [INSTALL.md §6](../INSTALL.md#6-test-tx-inhibit-with-the-ke
 | Settings **Enable TX Inhibit** + signals | `Configuration.{hpp,cpp,ui}` |
 | Status badge + `InhibitStatus` | `widgets/mainwindow.cpp` |
 | MessageClient type 17 | `Network/NetworkMessage.hpp`, `MessageClient` |
-| KEY-agent stand-in | **`inhibit-test`** (`tools/inhibit-test/`); Windows **`inhibit-test-gui`** (`tools/inhibit_spacebar/`); `send_inhibit_hold.py` |
+| KEY-agent stand-in | **`inhibit-test`** (`tools/inhibit-test/`); `send_inhibit_hold.py` |
 
 **Maintainer notes (algorithm)**
 
