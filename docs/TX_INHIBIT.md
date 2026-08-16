@@ -12,7 +12,10 @@ Design authority for this repository: how **wsjtx-inhibit** implements
 
 | Term | Meaning |
 |------|---------|
-| **WSJT-X station** | One digi position: this app + PC + network + radio + antenna (CAT/PTT). Multi-op has several. May be an unattended go-box, remote from the priority SSB/CW station and KEY agent. |
+| **WSJT-X station** | One digi position: this app + PC + network + radio + antenna (CAT/PTT). Multi-op has several. May be an unattended go-box, remote from the priority SSB/CW station and the KEY agent. |
+| **KEY agent** | Role: any process that sees the priority KEY and sends hold / keepalive / **release hold**. Not a binary name. |
+| **`inhibit-agent`** | Standalone KEY agent in this tree. Operator supplies the serial port and dest `host:port`. [INHIBIT_AGENT.md](INHIBIT_AGENT.md). Makes TX Inhibit usable **without WIMS**. |
+| **`wims-key-agent`** | WIMS KEY agent (WIMS tree, not this repo). Destinations come from WIMS discovery. Same protocol. |
 | **TX Inhibit** | Product / feature name (Settings, badge, this build). |
 | **want_tx** | Software wants to transmit (FT8 sequence, “Enable Tx”, audio path). |
 | **hold** | KEY agent has told WSJT-X stations not to transmit (UDP timed request active). |
@@ -58,11 +61,17 @@ Wire format: JSON fields `tx_inhibit`, `ttl_ms`, … (§4). No hang field.
 
 | Role | Where | Job |
 |------|--------|-----|
-| **WSJT-X station** (wsjtx-inhibit) | App + PC + network + radio + antenna (may be remote go-box) | When TX Inhibit is enabled and PTT is RTS/DTR: apply the equation (when may this station **assert PTT**). |
-| **KEY agent** | Process that sees the priority radio’s KEY (often near SSB/CW / WIMS server) | While KEY is asserted (and during agent **hang** after **release KEY**), sends hold keepalives; when hang finishes, **releases hold** (`ttl_ms: 0`). |
-| **Bench helper** | Same PC or LAN | **`inhibit-test`** (canonical KEY-agent stand-in) or `tools/send_inhibit_hold.py`. |
+| **WSJT-X station** | App + PC + network + radio + antenna (may be remote go-box) | When TX Inhibit is enabled and PTT is RTS/DTR: apply the equation (when may this station **assert PTT**). |
+| **KEY agent** | Process that sees the priority radio’s KEY | While KEY is asserted (and during agent **hang** after **release KEY**), sends hold keepalives; when hang finishes, **releases hold** (`ttl_ms: 0`). |
 
-Any program that speaks §4 is a valid KEY agent.
+Any program that speaks §4 is a valid KEY agent. This tree ships a standalone
+agent so a dual-radio seat works **without WIMS**:
+
+| Program | Tree | Setup |
+|---------|------|--------|
+| **`inhibit-agent`** / **`inhibit-agent-gui`** | this tree | Operator supplies USB-serial CTS and dest `host:port`. [INHIBIT_AGENT.md](INHIBIT_AGENT.md). |
+| **`wims-key-agent`** | WIMS | Same role; destinations from WIMS discovery. Not shipped here. |
+| **`send_inhibit_hold.py`** | this tree | Scripted bench hold / release. |
 
 ```text
   Priority radio
@@ -350,9 +359,9 @@ hold timeout and look like a stuck hold.
 
 | Input | Notes |
 |-------|--------|
-| USB-serial **CTS** (or other pin) | KEY → interface → CTS; event-driven if possible |
+| USB-serial **CTS** (or other pin) | KEY → interface → CTS. This is what **`inhibit-agent`** reads. |
 | GPIO / other | Agent-specific |
-| Manual / test | Grave/backtick **`** KEY — `inhibit-test` / `tools/send_inhibit_hold.py --interactive` |
+| Manual / test | `tools/send_inhibit_hold.py --interactive` |
 
 Debounce and **hang** (anti-chatter) live in the agent. The WSJT-X station applies only
 **hold timeout** (safety) so a **deadman** cannot leave a hold stuck forever.
@@ -447,9 +456,9 @@ needs them; neither is implemented, so do not assume either.
 **Decision:** no CTS in the WSJT-X station binary. **UDP hold only** + RTS/DTR PTT.
 
 **Why:** floating/driven CTS caused intermittent false hold. Worse than
-requiring a KEY agent (or the `inhibit-test` helper) on UDP.
+requiring a KEY agent (`inhibit-agent`) on UDP.
 
-Until CTS is opt-in and safe: KEY agent → UDP, or localhost helper.
+Until CTS is opt-in and safe: KEY agent → UDP.
 
 ---
 
@@ -459,46 +468,29 @@ Enable TX Inhibit, RTS/DTR on a real serial port, then send the same UDP a KEY
 agent would (default **127.0.0.1:22372**). Expect red **TX INHIBITED**; WSJT-X station
 does not **assert PTT** while hold is active.
 
-### `inhibit-test` (KEY-agent stand-in)
+### KEY agent (`inhibit-agent` / `inhibit-agent-gui`)
 
-Console KEY stand-in. Implements §3 (Hold sender + KEYing monitor):
-
-| Action | Effect |
-|--------|--------|
-| **` (grave) down** | **assert KEY** → hold (`ttl_ms`=hold_timeout) + keepalives |
-| **` up** | KEY open → hang per §3.2, then **release hold** (`ttl_ms: 0`) after hang |
-| **`~` (shift+grave)** | **Latch on** — hold stays asserted after key release, so the keyboard is free to drive WSJT-X. Reads as continuous KEY (hang 0). Press `` ` `` or `~` again to clear; `` ` `` always clears the latch. |
-| **q** / **Esc** | cancel keepalives, **release hold**, quit |
-
-**KEY key is grave/backtick `` ` ``** (left of `1` on US keyboards) — **not Space**.
-Unshifted `` ` `` is momentary; **`~` (shifted) latches** the hold on until either key
-is pressed again.
-
-Hang policy (default): break-in **1.5× word gap** from measured dit; continuous
-KEY (long mark ≥500 ms) **hang = 0**. Override: `--fixed-hang-ms`.
+Standalone KEY agent so TX Inhibit works **without WIMS**. USB-serial CTS
+in, dest `host:port` out. Design: [INHIBIT_AGENT.md](INHIBIT_AGENT.md).
 
 ```text
-inhibit-test --host 127.0.0.1 --port 22372 --station TEST-KEY --ttl-ms 600
-inhibit-test --fixed-hang-ms 0
+inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:22372
+inhibit-agent COM7 192.168.1.40:22372
+inhibit-agent-gui
 ```
 
-If the WSJT-X station bound an ephemeral port, pass that `--port`.
-
-**Input focus:** default = this terminal only (`--global-keys` = system-wide).
-**Linux:** group `input` required for `/dev/input`; without it **`inhibit-test`
-refuses to start**.
-
-**Digi RF checks:** hold `` ` `` ≥500 ms (continuous, hang 0) or fixed hang 0.
+Hang policy (default): break-in **1.5× word gap** from measured dit;
+continuous KEY (long mark ≥500 ms) **hang = 0**.
 
 ### Python: `tools/send_inhibit_hold.py`
+
+Scripted hold / release with no KEY dongle:
 
 ```bash
 python3 tools/send_inhibit_hold.py --interactive
 python3 tools/send_inhibit_hold.py --ttl-ms 3000 --station TEST
 python3 tools/send_inhibit_hold.py --ttl-ms 0
 ```
-
-Operator checklist: [INSTALL.md §6](../INSTALL.md#6-test-tx-inhibit-with-the-key-helper-inhibit-test).
 
 ---
 
@@ -512,7 +504,7 @@ Operator checklist: [INSTALL.md §6](../INSTALL.md#6-test-tx-inhibit-with-the-ke
 | Settings **Enable TX Inhibit** + signals | `Configuration.{hpp,cpp,ui}` |
 | Status badge + `InhibitStatus` | `widgets/mainwindow.cpp` |
 | MessageClient type 17 | `Network/NetworkMessage.hpp`, `MessageClient` |
-| KEY-agent stand-in | **`inhibit-test`** (`tools/inhibit-test/`); `send_inhibit_hold.py` |
+| Standalone KEY agent | **`inhibit-agent`** / **`inhibit-agent-gui`** (`tools/inhibit-agent/`); `send_inhibit_hold.py` |
 
 **Maintainer notes (algorithm)**
 

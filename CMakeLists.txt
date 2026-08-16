@@ -1798,6 +1798,10 @@ generate_version_info (wsjtx_app_version_VERSION_RESOURCES
 add_executable (wsjtx_app_version AppVersion/AppVersion.cpp ${wsjtx_app_version_VERSION_RESOURCES})
 target_link_libraries (wsjtx_app_version wsjt_qt)
 
+# Standalone KEY agent: USB-serial CTS -> UDP hold. CLI + GUI.
+# Makes TX Inhibit usable without WIMS (wims-key-agent).
+add_subdirectory (tools/inhibit-agent)
+
 generate_version_info (message_aggregator_VERSION_RESOURCES
   NAME message_aggregator
   BUNDLE ${PROJECT_BUNDLE_NAME}

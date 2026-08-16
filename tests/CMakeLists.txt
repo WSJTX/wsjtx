@@ -36,6 +36,13 @@ add_executable (test_tx_inhibit_logic test_tx_inhibit_logic.cpp)
 target_link_libraries (test_tx_inhibit_logic wsjt_qt Qt5::Test Qt5::Network)
 add_test (test_tx_inhibit_logic test_tx_inhibit_logic)
 
+add_executable (test_keying_monitor
+  ${CMAKE_SOURCE_DIR}/tools/inhibit-agent/test_keying_monitor.cpp)
+target_include_directories (test_keying_monitor PRIVATE
+  ${CMAKE_SOURCE_DIR}/tools/inhibit-agent)
+target_link_libraries (test_keying_monitor Qt5::Core)
+add_test (test_keying_monitor test_keying_monitor)
+
 # Logger.cpp is compiled into the wsjtx app, not wsjt_qt, but archive
 # members this test drags in (Configuration -> FileDownload on MinGW)
 # reference the sys/data global loggers it defines.
