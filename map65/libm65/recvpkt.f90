@@ -22,9 +22,6 @@ subroutine recvpkt(nsam, nblock2, userx_no, k, buf4, buf8, buf16) &
     ! ===== Locals =====
     integer :: i
 
-    ! debugging only
-    integer, save :: mark_done = 0
-
     ! Silence unused warning
     if (nblock2 .eq. -9999) nblock2 = -9998
 
