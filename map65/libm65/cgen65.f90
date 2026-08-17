@@ -21,7 +21,7 @@ subroutine cgen65(message,mode65,samfac,nsendingsh,msgsent,cwave,nwave)
 
   integer,          intent(out) :: nsendingsh
   character(len=22),intent(out) :: msgsent
-  complex,          intent(out) :: cwave(NMAX)
+  complex,          intent(out) :: cwave(:)
   integer,          intent(out) :: nwave
 
   !--------------------------------------------------------------------

@@ -7,12 +7,15 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
   use fchisq_mod
   
   implicit none
- 
+
+  integer, parameter :: MAX_STEP_TRIES     = 200
+  integer, parameter :: MAX_DOWNHILL_STEPS = 200
+
   logical            :: xpol
   integer            :: npts, nflip, ipol, ndphi
   complex            :: cx(npts), cy(npts)
   real               :: a(5), deltaa(5)
-  integer            :: iter, j, nterms
+  integer            :: iter, j, nterms, step
   real               :: ccfbest, dtbest
   real               :: chisq1, chisq2, chisq3, chisqr, chisqr0
   real               :: delta, dtmax, fn, tmp
@@ -33,26 +36,25 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
 
   nterms = 3
   if (xpol) nterms = 4
+  if (ndphi /= 0) nterms = 3   ! don't fit pol when solving for dphi
 
-  ! Don't fit polarization when solving for dphi
-  if (ndphi /= 0) nterms = 3
-
-  ! Start the iteration
   chisqr  = 0.0
   chisqr0 = 1.0e6
   
-  do iter = 1, 3                      ! One iteration is enough?
+  do iter = 1, 3
      do j = 1, nterms
         chisq1 = fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
         fn     = 0.0
         delta  = deltaa(j)
 
         ! Find first step where chisq changes
-        do
+        do step = 1, MAX_STEP_TRIES
            a(j)   = a(j) + delta
            chisq2 = fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
            if (chisq2 /= chisq1) exit
         end do
+
+        if (chisq2 == chisq1) cycle   ! no curvature in this direction
 
         ! If we stepped uphill, reverse direction and swap labels
         if (chisq2 > chisq1) then
@@ -64,7 +66,7 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
         endif
 
         ! Walk while chisq keeps improving
-        do
+        do step = 1, MAX_DOWNHILL_STEPS
            fn    = fn + 1.0
            a(j)  = a(j) + delta
            chisq3 = fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
@@ -76,8 +78,7 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
            endif
         end do
 
-        ! Guard against division by zero in flat regions
-        if (chisq3 == chisq2) cycle
+        if (chisq3 == chisq2) cycle   ! flat / noisy region, skip parabola
 
         ! Find minimum of parabola defined by last three points
         delta     = delta*(1.0/(1.0 + (chisq1 - chisq2)/(chisq3 - chisq2)) + 0.5)
@@ -98,10 +99,7 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
   if (a(4) >= 180.) a(4) = a(4) - 180.0
   if (nint(a(4)) == 180) a(4) = 0.0
 
-  if (a(4) < 0.0 .or. a(4) >= 180.0) then
-     ! print *, 'afc65b: bad a(4) after wrap, set to 0. was ', a(4)
-     a(4) = 0.0
-  endif
+  if (a(4) < 0.0 .or. a(4) >= 180.0) a(4) = 0.0
 
   ipol = nint(a(4)/45.0) + 1
   if (ipol > 4) ipol = ipol - 4

@@ -1,3 +1,6 @@
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)   
+
 set (map65_CXXSRCS
   about.cpp
   astro.cpp
@@ -10,14 +13,15 @@ set (map65_CXXSRCS
   getdev.cpp
 #  getfile.cpp
   liveCQSender.cpp
+# map65_paths.cpp
   main.cpp
   mainwindow.cpp
   messages.cpp
   meterwidget.cpp
   plotter.cpp
-  ../Network/PSKReporter.cpp
-  ../Network/PSKReporterIPFIX.cpp
+  PSKReporter.cpp
   Radio.cpp
+  runtime_paths.cpp
   set570.cpp
   signalmeter.cpp
   soundin.cpp

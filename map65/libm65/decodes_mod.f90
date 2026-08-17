@@ -1,23 +1,28 @@
 module decodes_mod
 
-    implicit none
+  use npar_ptrs_mod, only: nfft_active
 
-    integer, parameter :: NLD = 32768
-    ! from decodes
-    integer :: ndecodes = 0
-    
-    !from early 
-    integer :: nhsym1 = 0, nhsym2 = 0
+  implicit none
 
-    logical, allocatable :: ldecoded(:)
-    
-    !from c3com
-    integer :: mcall3a = 0
+  integer :: ndecodes = 0
+  integer :: nhsym1 = 0, nhsym2 = 0
+  logical, allocatable :: ldecoded(:)
+  integer :: mcall3a = 0
 
-    contains
+contains
 
-      subroutine decodes_init()
-        if (.not. allocated(ldecoded)) allocate(ldecoded(NLD))
-      end subroutine decodes_init
+  subroutine decodes_init()
+    ! (Re)allocate ldecoded to match the active symspec FFT length.
+    if (allocated(ldecoded)) then
+       if (size(ldecoded) /= nfft_active) then
+          deallocate(ldecoded)
+       end if
+    end if
+
+    if (.not. allocated(ldecoded)) then
+       allocate(ldecoded(nfft_active))
+       ldecoded = .false.
+    end if
+  end subroutine decodes_init
 
 end module decodes_mod

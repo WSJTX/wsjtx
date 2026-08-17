@@ -16,7 +16,6 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QByteArray>
 
-#define NFFT 32768
 #define NSMAX 5760000
 
 
@@ -53,6 +52,7 @@ public:
   float* getDd() const;  
   std::thread stdoutReaderThread;
   std::atomic<bool> stdoutReaderStop {false};
+  void writeSettings();
   
   bool m_network;
   int m_pttPortNumber = 0;
@@ -84,7 +84,8 @@ public:
   
   bool    m_xpol;
   bool    m_xpolx;
-  bool    m_fs96000;
+  int     m_fs96000;
+  int     m_pendingFs96000 {-1};
   bool    m_IQswap;
   bool    m_initIQplus;
   bool    m_bIQxt;
@@ -202,12 +203,13 @@ private slots:
   void on_actionQ65D_triggered();
   void on_actionQ65E_triggered();
   void on_pbTxMode_clicked();
+  void onSampleRateChanged(int newRate);
 
 private:
+  QString call3Path() const;
   virtual void keyPressEvent (QKeyEvent *) override;
   virtual bool eventFilter (QObject *, QEvent *) override;
   virtual void closeEvent (QCloseEvent *) override;
-  QString call3Path() const;
 
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<BandMap> m_band_map_window;
@@ -290,6 +292,7 @@ private:
   QLabel* lab5;
   QLabel* lab6;
   QLabel* lab7;
+  QLabel* lab8;
 
   QMessageBox msgBox0;
 
@@ -323,7 +326,6 @@ private:
 
   //---------------------------------------------------- private functions
   void readSettings();
-  void writeSettings();
   void createStatusBar();
   void updateStatusBar();
   void msgBox(QString t);
@@ -342,6 +344,10 @@ private:
   void startSharedMemoryStdoutReader(DecoderContext* ctx);
   void createMessagesWindow();
 };
+
+extern int g_sampleRate;
+extern int active_nfft;
+extern std::vector<qint16> id;
 
 extern void getDev(int* numDevices,char hostAPI_DeviceName[][50],
                    int minChan[], int maxChan[],

@@ -102,9 +102,9 @@ subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
 
      ! === Multiply by sync patterns in frequency domain ===
      do i=0,NH
-            cs2(i) = cs(i)*conjg(cpr2(i))
-            cs(i) = cs(i)*conjg(cpr(i))
-         enddo
+        cs2(i) = cs(i) * conjg(cpr2(i))
+        cs(i)  = cs(i) * conjg(cpr(i))
+     enddo
 
      ! === Inverse FFT: packed half-spectrum ? real ===
      call c2r_legacy(cs,  s,  NFFT)

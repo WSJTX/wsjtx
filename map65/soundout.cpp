@@ -7,7 +7,7 @@
 #include <portaudio.h>
 
 extern float gran();
-extern short int (&iwave)[2*60*12000];
+extern short int iwave[2*60*12000]; //was 11025
 extern int nwave;
 extern bool btxok;
 extern bool bTune;
@@ -37,25 +37,17 @@ extern "C" int d2aCallback(const void * /*inputBuffer*/, void *outputBuffer,
   
   // step is ~0.229 for 48k ASIO, and exactly 1.0 for 11k MME
     // Calculate step once outside the loop
-  double step = 11025.0 / udata->streamSampleRate; 
-
-  // Debug: Check this value in your console once to ensure it's ~0.229 for ASIO
-  static bool debugOnce = true;
-  if(debugOnce) {
-      qDebug() << "Stream Rate:" << udata->streamSampleRate << "Step:" << step;
-      qDebug() << "channels:" << channels;
-      debugOnce = false;
-  }
-
+  double step = 11025.0 / udata->streamSampleRate;   
+  const int waveCapacity = sizeof(iwave) / sizeof(iwave[0]);
 
   static double ic_exact = 0.0; 
   static bool btxok0 = false;
   static bool bTune0 = false;
   static int nStart = 0;
   static double phi = 0.;
-
+  
   double tsec, tstart;
-  double dphi = 0.;
+  double dphi = 0.0;
   int nsec;
   int nTRperiod = udata->nTRperiod;
 
@@ -69,9 +61,9 @@ extern "C" int d2aCallback(const void * /*inputBuffer*/, void *outputBuffer,
   qreal yAmp = txPower * 295.00 * amp;
   static int nsec0 = 0;
 
-    if(bTune) {
+  if(bTune) {
     ic_exact = 0;
-    // CHANGE: Use the actual stream sample rate, not 11025
+    // Use the actual stream sample rate, not 11025
     dphi = 6.28318530718 * 1270.46 / udata->streamSampleRate;
   }
 
@@ -105,33 +97,26 @@ extern "C" int d2aCallback(const void * /*inputBuffer*/, void *outputBuffer,
     short int i2a = 0;
     short int i2b = 0;
 
-    // 2. Linear Interpolation to clean up the noise
-if (btxok && (2 * i1 + 1) < 1440000) {
+    int i0a = 2 * i0;
+    int i0b = i0a + 1;
+    int i1a = 2 * i1;
+    int i1b = i1a + 1;
+    bool haveWaveformSample = i1b < nwave && i1b < waveCapacity;
 
-    // Interpolate message waveform
-    qreal I = (1.0 - frac) * iwave[2*i0]     + frac * iwave[2*i1];
-    qreal Q = (1.0 - frac) * iwave[2*i0 + 1] + frac * iwave[2*i1 + 1];
+    if(btxok && (bTune || haveWaveformSample)) {
 
-    if (bTune) {
-        // --- TUNE MODE (unchanged) ---
+      if(bTune) {
         phi += dphi;
-        I = xAmp * qCos(phi);
-        Q = yAmp * qSin(phi + dPhase);
-
-    } else {
-        // --- MESSAGE TX: scale using the Tune slider percentage ---
-        qreal gain = txPower / 100.0;   // 0.0 ? 1.0
-
-        I *= gain;
-        Q *= gain;
+      } else {
+          // 2. Linear Interpolation to clean up the noise
+          // Blend current sample (i0) and next sample (i1) based on frac
+          i2a = (short int)((1.0 - frac) * iwave[i0a] + frac * iwave[i1a]);
+          i2b = (short int)((1.0 - frac) * iwave[i0b] + frac * iwave[i1b]);
+          phi = qAtan2(qreal(i2b), qreal(i2a));
+        }        
+      i2a = xAmp * qCos(phi);
+      i2b = yAmp * qSin(phi + dPhase);
     }
-
-    // Clamp to 16-bit
-    i2a = short(qBound(-32768.0, I, 32767.0));
-    i2b = short(qBound(-32768.0, Q, 32767.0));
-}
-
-
 
     *wptr++ = i2b; // Left
     *wptr++ = i2a; // Right

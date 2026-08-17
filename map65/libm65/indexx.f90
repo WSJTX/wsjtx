@@ -99,7 +99,6 @@ contains
         indx(l) = indx(j)
         indx(j) = indxt
 
-
         ! Push larger segment, process smaller first
         jstack = jstack + 2
         if (jstack > NSTACK) stop 'NSTACK too small in indexx'
