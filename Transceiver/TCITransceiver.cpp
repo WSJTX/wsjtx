@@ -1604,6 +1604,7 @@ void TCITransceiver::do_modulator_start (TxEvidence::TxRequest const& request)
   m_toneSpacing = request.tone_spacing;
   m_bFastMode=request.fast_mode;
   m_TRperiod=request.tr_period_s;
+  m_tuning=request.tuning;
   unsigned delay_ms=1000;
 
   if((request.mode=="FT8" and m_nsps==1920) or (request.mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
@@ -1645,7 +1646,7 @@ void TCITransceiver::do_modulator_start (TxEvidence::TxRequest const& request)
   m_tciStartMsecs = QDateTime::currentMSecsSinceEpoch ();
   m_tciLastReportMsecs = m_tciStartMsecs;
   m_tciFinalSnapshotEmitted = false;
-  printf("%s TCI modulator startdelay_ms=%d ASR=%d mstr=%d mstr2=%d m_ic=%d s_Frames=%lld synchronize=%d m_tuning=%d State=%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),delay_ms,audioSampleRate,mstr,mstr2,m_ic,m_silentFrames,request.synchronize,request.tuning,m_state);
+  printf("%s TCI modulator startdelay_ms=%d ASR=%d mstr=%d mstr2=%d m_ic=%d s_Frames=%lld synchronize=%d m_tuning=%d State=%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),delay_ms,audioSampleRate,mstr,mstr2,m_ic,m_silentFrames,request.synchronize,m_tuning,m_state);
   if (m_txMode == "JTTY" && !m_jttyDrainTimer->isActive ()) m_jttyDrainTimer->start ();
   Q_EMIT tci_mod_active(m_state != Idle);
   Q_EMIT txSourceCommitted (m_txStartSnapshot);
