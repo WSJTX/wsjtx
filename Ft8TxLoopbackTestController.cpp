@@ -30,7 +30,9 @@ namespace
   constexpr int bytesPerFrame = 2;
   constexpr qint64 periodMs = 15000;
   constexpr qint64 startTriggerOffsetMs = 25;
-  constexpr qint64 latestStartOffsetMs = 400;
+  // Stay well before Modulator::start's 500 ms FT8 lead-in. The GUI can
+  // return Started before the queued audio-thread start() samples mstr.
+  constexpr qint64 latestStartOffsetMs = 250;
 }
 
 Ft8TxLoopbackTestController::Ft8TxLoopbackTestController (
