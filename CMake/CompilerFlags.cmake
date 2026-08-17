@@ -1,5 +1,5 @@
 #
-# Compiler/linker flags, Fortran-C interop, RPATH, and qmake queries
+# Compiler/linker flags, Fortran-C interop, RPATH, and Qt install paths
 # -- included from the top-level CMakeLists.txt at the equivalent
 # point. Included (not add_subdirectory'd), so CMAKE_CURRENT_SOURCE_DIR
 # stays the project root; depends on package/compiler results from
@@ -240,22 +240,30 @@ if (NOT "${QT_LIBRARY_DIR}" STREQUAL "/lib" AND NOT "${QT_LIBRARY_DIR}" STREQUAL
   set (QT_NEED_RPATH TRUE)
 endif ()
 
-#
-# stuff only qmake can tell us
-#
-get_target_property (QMAKE_EXECUTABLE Qt5::qmake LOCATION)
 get_target_property (LCONVERT_EXECUTABLE Qt5::lconvert LOCATION)
-function (QUERY_QMAKE VAR RESULT)
-  exec_program (${QMAKE_EXECUTABLE} ARGS "-query ${VAR}" RETURN_VALUE return_code OUTPUT_VARIABLE output)
-  if (NOT return_code)
-    file (TO_CMAKE_PATH "${output}" output)
-    set (${RESULT} ${output} PARENT_SCOPE)
-  endif (NOT return_code)
-  message (STATUS "Asking qmake for ${RESULT} and got ${output}")
-endfunction (QUERY_QMAKE)
 
-query_qmake (QT_INSTALL_PLUGINS QT_PLUGINS_DIR)
-query_qmake (QT_INSTALL_TRANSLATIONS QT_TRANSLATIONS_DIR)
-query_qmake (QT_INSTALL_IMPORTS QT_IMPORTS_DIR)
-query_qmake (QT_HOST_DATA QT_DATA_DIR)
-set (QT_MKSPECS_DIR ${QT_DATA_DIR}/mkspecs)
+if (NOT Qt5Gui_PLUGINS)
+  message (FATAL_ERROR "Qt did not provide any imported GUI plugin targets")
+endif ()
+list (GET Qt5Gui_PLUGINS 0 qt_plugin_target_)
+get_target_property (qt_plugin_file_ ${qt_plugin_target_} LOCATION)
+get_filename_component (qt_plugin_type_dir_ "${qt_plugin_file_}" DIRECTORY)
+get_filename_component (QT_PLUGINS_DIR "${qt_plugin_type_dir_}" DIRECTORY)
+message (STATUS "Qt plugins directory: ${QT_PLUGINS_DIR}")
+
+# Qt 5's qtpaths does not expose the translations directory, whose layout
+# varies across platforms and distribution packages.
+get_target_property (QMAKE_EXECUTABLE Qt5::qmake LOCATION)
+execute_process (
+  COMMAND "${QMAKE_EXECUTABLE}" -query QT_INSTALL_TRANSLATIONS
+  RESULT_VARIABLE qt_translations_query_result_
+  OUTPUT_VARIABLE QT_TRANSLATIONS_DIR
+  ERROR_VARIABLE qt_translations_query_error_
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+if (NOT "${qt_translations_query_result_}" STREQUAL "0" OR NOT QT_TRANSLATIONS_DIR)
+  message (FATAL_ERROR
+    "Unable to determine the Qt translations directory: ${qt_translations_query_error_}")
+endif ()
+file (TO_CMAKE_PATH "${QT_TRANSLATIONS_DIR}" QT_TRANSLATIONS_DIR)
+message (STATUS "Qt translations directory: ${QT_TRANSLATIONS_DIR}")

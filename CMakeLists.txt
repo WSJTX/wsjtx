@@ -517,11 +517,6 @@ target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
-# don't use Qt "keywords" signal, slot, emit in generated files to
-# avoid compatability issue with other libraries
-# ADD_DEFINITIONS (-DQT_NO_KEYWORDS)
-# ADD_DEFINITIONS (-DUNICODE)	#as per qmake
-
 # As moc files are generated in the binary dir, tell CMake to always
 # look for includes there:
 set (CMAKE_INCLUDE_CURRENT_DIR ON)

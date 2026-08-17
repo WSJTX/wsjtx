@@ -124,7 +124,7 @@ configure_args=(
 make -j"$(nproc)"
 make install
 
-actual_version="$("${prefix}/bin/qmake" -query QT_VERSION)"
+actual_version="$("${prefix}/bin/qtpaths" --qt-version)"
 if [ "$actual_version" != "$TSAN_QT_VERSION" ]; then
   echo "Qt version mismatch: expected $TSAN_QT_VERSION, got $actual_version" >&2
   exit 1
