@@ -68,6 +68,49 @@ contains
       usable=ja.le.jb
   end subroutine jtty_search_window
 
+   pure subroutine classify_slot_candidate(existing,candidate,frame_period, &
+       match,is_window_dupe,is_history_dupe)
+      type(decode), intent(in) :: existing,candidate
+      real, intent(in) :: frame_period
+      logical, intent(out) :: match,is_window_dupe,is_history_dupe
+      real :: df1,dtsync,qstep,resid
+      integer :: kf
+
+      df1=candidate%f1-existing%f1
+      dtsync=candidate%tsync-existing%tsync
+      match=.false.
+      if(.not.existing%is_last_frame) then
+         ! A continuation follows the latest frame in an open slot by one
+         ! complete frame period.
+         match=abs(df1).lt.3.0 .and. abs(dtsync-frame_period).lt.0.1
+      endif
+
+      ! Overlapping forward windows and retro re-sweeps can rediscover an
+      ! open signal on the quarter-frame search grid. A completed slot uses
+      ! exact frame history instead so an adjacent message can start.
+      is_window_dupe=.false.
+      if(.not.match .and. .not.existing%is_last_frame) then
+         qstep=frame_period/4.0
+         resid=abs(dtsync-qstep*nint(dtsync/qstep))
+         if(abs(df1).lt.10.0 .and. resid.lt.0.003) then
+            match=.true.
+            is_window_dupe=.true.
+         endif
+      endif
+
+      is_history_dupe=.false.
+      if(.not.match) then
+         do kf=1,existing%nframes_merged
+            if(abs(candidate%f1-existing%frame_f1(kf)).lt.3.0 .and. &
+                 abs(candidate%tsync-existing%frame_tsync(kf)).lt.0.05) then
+               match=.true.
+               is_history_dupe=.true.
+               exit
+            endif
+         enddo
+      endif
+   end subroutine classify_slot_candidate
+
   subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
@@ -122,8 +165,7 @@ contains
       real, external                 :: db
       real, intent(in)               :: f0,ftol,smin
       real                           :: snrdb, xdt
-      real                           :: xdt1, f11, snr0, df1, dtsync
-      real                           :: qstep, resid
+      real                           :: xdt1, f11, snr0, dtsync
       complex, allocatable,save      :: c(:)
       complex, allocatable,save      :: c0(:)
       complex, allocatable,save      :: c1(:)
@@ -140,7 +182,6 @@ contains
       logical                        :: channel_decoded, decoded_ok
       logical                        :: any_subtracted
       integer                        :: ir
-      integer                        :: kf
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
       logical                        :: use_interferer
@@ -554,62 +595,9 @@ contains
          slot(1)%frame_tsync(1)=dec%tsync
       else
          do i=1,nslots
-            df1=dec%f1 - slot(i)%f1
             dtsync=dec%tsync - slot(i)%tsync
-            ! xdt is only meaningful as a *local* offset within whichever
-            ! call found it (always in [0,ntstep*dt], bounded by that
-            ! call's own istart) -- two candidates from different calls
-            ! can land on the same local xdt purely by coincidence, so
-            ! only dtsync (absolute time, comparable across calls) is
-            ! used here now.
-            !
-            ! A slot whose last frame has already been merged in is closed
-            ! to new continuations -- a further decode near its time/
-            ! frequency is either a stray/spurious match or the start of a
-            ! new message, never a continuation of this one.
-            match=.false.
-            if(.not.slot(i)%is_last_frame) then
-               ! Real consecutive JTTY frames are transmitted back-to-back
-               ! with no gap, so a genuine continuation lands close to
-               ! exactly one frame period later.
-               match=abs(df1).lt.3.0 .and. abs(dtsync-nframe6/6000.0).lt.0.1
-            endif
-
-            ! For an open slot, a rediscovery of the same signal via a search window shifted
-            ! by a whole number of quarter-frame steps (retro re-sweep, or
-            ! the forward sliding-window loop's own overlap) lands dtsync
-            ! close to some *other* multiple of that quarter-frame period
-            ! -- close enough in frequency and precisely enough aligned to
-            ! that grid that it isn't a coincidence. Reject it outright:
-            ! merging it could splice in a later frame's payload with an
-            ! earlier frame missing in between, and letting it through
-            ! would otherwise spawn its own spurious slot. Closed slots rely
-            ! on the exact frame history below so an adjacent message can start.
-            is_window_dupe=.false.
-            if(.not.match .and. .not.slot(i)%is_last_frame) then
-               qstep=nframe6/6000.0/4.0
-               resid=abs(dtsync-qstep*nint(dtsync/qstep))
-               if(abs(df1).lt.10.0 .and. resid.lt.0.003) then
-                  match=.true.
-                  is_window_dupe=.true.
-               endif
-            endif
-
-            ! Neither condition above catches a rediscovery of a frame
-            ! merged into this slot several frames ago (e.g. a retro
-            ! re-sweep revisiting an earlier window) -- check the slot's
-            ! full per-frame history too, same frequency threshold.
-            is_history_dupe=.false.
-            if(.not.match) then
-               do kf=1,slot(i)%nframes_merged
-                  if(abs(dec%f1-slot(i)%frame_f1(kf)).lt.3.0 .and. &
-                       abs(dec%tsync-slot(i)%frame_tsync(kf)).lt.0.05) then
-                     match=.true.
-                     is_history_dupe=.true.
-                     exit
-                  endif
-               enddo
-            endif
+            call classify_slot_candidate(slot(i),dec,nframe6/6000.0, &
+                 match,is_window_dupe,is_history_dupe)
 
             if(match) then
                islot=i

@@ -18,6 +18,14 @@ set_tests_properties (test_jtty_block_pow PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_block_pow: all checks passed"
 )
 
+add_executable (test_jtty_slot_matching test_jtty_slot_matching.f90)
+target_include_directories (test_jtty_slot_matching PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_slot_matching)
+add_test (NAME test_jtty_slot_matching COMMAND test_jtty_slot_matching)
+set_tests_properties (test_jtty_slot_matching PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_slot_matching: all checks passed"
+)
+
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
 
 add_test (NAME test_jtty_pack COMMAND test_jtty_pack)
