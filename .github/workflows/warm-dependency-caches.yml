@@ -11,10 +11,13 @@ on:
       - ".github/workflows/build-windows.yml"
       - ".github/workflows/warm-dependency-caches.yml"
       - ".github/actions/build-linux-payload/**"
+      - ".github/actions/prepare-linux-tsan-deps/**"
       - ".github/actions/warm-linux-deps/**"
       - ".github/actions/warm-macos-deps/**"
       - ".github/actions/build-windows-deps/**"
       - ".github/scripts/build-*-linux.sh"
+      - ".github/scripts/tsan-linux-deps-config.sh"
+      - ".github/scripts/verify-tsan-deps-linux.sh"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
       - ".github/scripts/install-*-macos*.sh"
@@ -34,6 +37,7 @@ on:
           - macos
           - windows
           - linux
+          - linux-tsan
           - all
         default: macos-arm64
       hamlib_branch:
@@ -51,6 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       linux: ${{ steps.detect.outputs.linux }}
+      linux_tsan: ${{ steps.detect.outputs.linux_tsan }}
       windows: ${{ steps.detect.outputs.windows }}
       macos_arm64: ${{ steps.detect.outputs.macos_arm64 }}
       macos_x86_64: ${{ steps.detect.outputs.macos_x86_64 }}
@@ -74,12 +79,14 @@ jobs:
           .github/scripts/validate-ci-inputs.sh
 
           linux=false
+          linux_tsan=false
           windows=false
           macos_arm64=false
           macos_x86_64=false
 
           enable_all() {
             linux=true
+            linux_tsan=true
             windows=true
             macos_arm64=true
             macos_x86_64=true
@@ -96,6 +103,9 @@ jobs:
                   ;;
                 linux)
                   linux=true
+                  ;;
+                linux-tsan)
+                  linux_tsan=true
                   ;;
                 windows)
                   windows=true
@@ -144,6 +154,9 @@ jobs:
                   .github/workflows/build-linux.yml|.github/actions/build-linux-payload/*|.github/actions/warm-linux-deps/*|.github/scripts/build-pfunit-linux.sh|.github/scripts/build-hamlib-linux.sh)
                     linux=true
                     ;;
+                  .github/actions/prepare-linux-tsan-deps/*|.github/scripts/build-*-tsan-linux.sh|.github/scripts/tsan-linux-deps-config.sh|.github/scripts/verify-tsan-deps-linux.sh)
+                    linux_tsan=true
+                    ;;
                   .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh)
                     windows=true
                     ;;
@@ -162,6 +175,7 @@ jobs:
 
           {
             echo "linux=$linux"
+            echo "linux_tsan=$linux_tsan"
             echo "windows=$windows"
             echo "macos_arm64=$macos_arm64"
             echo "macos_x86_64=$macos_x86_64"
@@ -174,6 +188,7 @@ jobs:
             echo "| Target | Enabled |"
             echo "| --- | --- |"
             echo "| Linux x86_64/aarch64 | $linux |"
+            echo "| Linux x86_64 TSan | $linux_tsan |"
             echo "| Windows x86_64 | $windows |"
             echo "| macOS arm64 | $macos_arm64 |"
             echo "| macOS x86_64 | $macos_x86_64 |"
@@ -204,6 +219,18 @@ jobs:
           arch: aarch64
           runtime_base: bookworm-gcc13.4
           hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+
+  warm-linux-tsan:
+    needs: detect
+    if: needs.detect.outputs.linux_tsan == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/prepare-linux-tsan-deps
+        with:
+          hamlib_ref: ${{ needs.detect.outputs.hamlib_branch }}
+          save_caches: "true"
 
   warm-windows-x86_64:
     needs: detect

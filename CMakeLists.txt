@@ -218,6 +218,7 @@ option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 option (WSJT_ENABLE_GUI_SMOKE_TESTS
   "Register GUI-driven smoke tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
+option (WSJT_ENABLE_TSAN "Instrument in-tree code with ThreadSanitizer." OFF)
 option (WSJT_BUILD_JT9STREAM "Build the Qt-free streaming decoder jt9stream alongside jt9 (uses the jt9a stub, never links fort_qt)." ON)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")

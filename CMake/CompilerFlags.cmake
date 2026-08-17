@@ -108,6 +108,11 @@ FortranCInterface_HEADER (FC.h MACRO_NAMESPACE "FC_" SYMBOL_NAMESPACE "FC_"
   grayline
   )
 
+if (WSJT_ENABLE_ASAN_UBSAN AND WSJT_ENABLE_TSAN)
+  message (FATAL_ERROR
+    "WSJT_ENABLE_ASAN_UBSAN and WSJT_ENABLE_TSAN cannot be enabled together.")
+endif ()
+
 if (WSJT_ENABLE_ASAN_UBSAN)
   if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message (FATAL_ERROR "WSJT_ENABLE_ASAN_UBSAN is supported only on Linux.")
@@ -154,6 +159,49 @@ if (WSJT_ENABLE_ASAN_UBSAN)
     "-fsanitize=address,undefined")
   link_libraries (wsjt_sanitizers)
   message (STATUS "AddressSanitizer and UndefinedBehaviorSanitizer enabled")
+elseif (WSJT_ENABLE_TSAN)
+  if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message (FATAL_ERROR "WSJT_ENABLE_TSAN is supported only on Linux.")
+  endif ()
+  if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
+      NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
+      NOT CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    message (FATAL_ERROR
+      "WSJT_ENABLE_TSAN requires GNU C, C++, and Fortran compilers.")
+  endif ()
+
+  include (CheckCCompilerFlag)
+  include (CheckCXXCompilerFlag)
+  include (CheckFortranCompilerFlag)
+  set (_wsjt_sanitizer_probe_flags "-fsanitize=thread")
+  set (_wsjt_saved_required_libraries "${CMAKE_REQUIRED_LIBRARIES}")
+  list (APPEND CMAKE_REQUIRED_LIBRARIES "-fsanitize=thread")
+  check_c_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_C_TSAN_SUPPORTED)
+  check_cxx_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_CXX_TSAN_SUPPORTED)
+  check_fortran_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_FORTRAN_TSAN_SUPPORTED)
+  set (CMAKE_REQUIRED_LIBRARIES "${_wsjt_saved_required_libraries}")
+  if (NOT WSJT_C_TSAN_SUPPORTED OR
+      NOT WSJT_CXX_TSAN_SUPPORTED OR
+      NOT WSJT_FORTRAN_TSAN_SUPPORTED)
+    message (FATAL_ERROR
+      "The selected GNU toolchain cannot compile and link TSan code in every project language.")
+  endif ()
+
+  add_library (wsjt_sanitizers INTERFACE)
+  target_compile_options (wsjt_sanitizers INTERFACE
+    $<$<COMPILE_LANGUAGE:C>:-fsanitize=thread>
+    $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=thread>
+    $<$<COMPILE_LANGUAGE:Fortran>:-fsanitize=thread>
+    -fno-omit-frame-pointer
+    -g1
+    -O1
+    )
+  target_link_libraries (wsjt_sanitizers INTERFACE "-fsanitize=thread")
+  link_libraries (wsjt_sanitizers)
+  message (STATUS "ThreadSanitizer enabled")
 endif ()
 
 

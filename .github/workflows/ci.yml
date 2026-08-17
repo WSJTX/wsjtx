@@ -131,6 +131,24 @@ jobs:
       - uses: ./.github/actions/build-linux-sanitizers
         with:
           hamlib_branch: "4.7.2"
+          sanitizer: asan-ubsan
+          recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+
+  linux-tsan:
+    name: Linux x86_64 TSan
+    needs: [prepare, detect-build-system-changes, linux]
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+      contains(github.event.pull_request.labels.*.name, 'sanitizers')
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/build-linux-sanitizers
+        with:
+          hamlib_branch: "4.7.2"
+          sanitizer: tsan
           recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
 
   linux-arm:
