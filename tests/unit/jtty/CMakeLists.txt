@@ -26,6 +26,15 @@ set_tests_properties (test_jtty_slot_matching PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_slot_matching: all checks passed"
 )
 
+add_executable (test_jtty_adjacent_decode test_jtty_adjacent_decode.f90)
+target_include_directories (test_jtty_adjacent_decode PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_adjacent_decode)
+add_test (NAME test_jtty_adjacent_decode COMMAND test_jtty_adjacent_decode)
+set_tests_properties (test_jtty_adjacent_decode PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_adjacent_decode: all checks passed"
+  TIMEOUT 60
+)
+
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
 
 add_test (NAME test_jtty_pack COMMAND test_jtty_pack)
