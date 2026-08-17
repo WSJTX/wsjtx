@@ -14,12 +14,20 @@
 # Upstream: Hamlib#2146. Remove after the WSJT-X Hamlib pin includes it.
 race:rig_set_cache_freq
 race:rig_set_cache_mode
+race:rig_get_freq
 race:rig_get_vfo
 race:rig_poll_routine_stop
 
 # Hamlib 4.7 Morse worker stop-flag race.
 # Upstream: Hamlib#2109 / backport Hamlib#2126. Remove after that release.
 race:morse_data_handler_stop
+
+# Boost.Log 1.83 publishes asynchronous queue nodes with relaxed atomics,
+# leaving TSan without a producer/consumer happens-before edge for the
+# record payload. Match the queue operations and the resulting attribute
+# detachment reports without suppressing application logging frames.
+race:boost::log::v2_mt_posix::aux::threadsafe_queue
+race:boost::log::v2_mt_posix::attribute_value::detach_from_thread
 
 # libgfortran I/O-unit lock-order false positive in single-threaded tests.
 # Tracked as WSJT-X#292.
