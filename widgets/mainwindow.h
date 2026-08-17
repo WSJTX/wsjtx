@@ -70,6 +70,7 @@
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
 #include "DecoderOutputFramer.hpp"
+#include "Ft8MtdDecodeCoordinator.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -191,7 +192,8 @@ public:
   MMTTYIF *getMmttyIf() const;
 #endif
 
-  bool decoderBusy () const {return DecodeOwner::None != m_decodeOwner;}
+  bool decoderBusy () const
+    {return DecodeOwner::None != m_decodeOwner || m_ft8MtdDecodeCoordinator.hasPending ();}
   void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
   bool decoderBackendRunning () const;
   bool diskDataActive () const {return m_diskData;}
@@ -209,6 +211,7 @@ public:
   int liveAudioTestFt8Cycles () const {return m_nFT8Cycles;}
   int liveAudioTestFt8Sensitivity () const {return m_ft8Sensitivity;}
   int liveAudioTestFt8DecoderStart () const {return m_ft8DecoderStart;}
+  QString liveAudioTestFt8BackpressureDiagnostics () const;
   static constexpr int liveAudioTestDecodeLowFrequency () {return 200;}
   static constexpr int liveAudioTestDecodeHighFrequency () {return 3000;}
   bool configureLiveAudioTestDecodeRange ();
@@ -300,6 +303,8 @@ private:
     DecodeOperatingContext context;
     bool copiedSamples {false};
     bool obsolete {false};
+    Ft8MtdDecodeCoordinator::Stage ft8Stage {Ft8MtdDecodeCoordinator::Stage::None};
+    qint64 ft8Period {-1};
   };
 
   static constexpr int MaxActiveStationRows = 50;
@@ -982,6 +987,7 @@ private:
   bool    m_startAnother;
   ActiveJt9Decode m_activeJt9Decode;
   DecoderOutputFramer m_decoderOutputFramer;
+  Ft8MtdDecodeCoordinator m_ft8MtdDecodeCoordinator;
 
   // start ft8md
   bool    m_FT8EarlyStart;   
@@ -1432,14 +1438,35 @@ private:
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
   void update_foxLogWindow_rate();
-  DecodePublishResult publishDecodeRequest(bool copySamples);
+  DecodePublishResult publishDecodeRequest(
+      bool copySamples,
+      Ft8MtdDecodeCoordinator::Stage ft8Stage = Ft8MtdDecodeCoordinator::Stage::None,
+      qint64 ft8Period = -1);
+  DecodePublishResult publishPendingFt8Decode ();
+  void decode (Ft8MtdDecodeCoordinator::Stage stage);
+  qint64 currentFt8DecodePeriod () const;
+  bool usesFt8MtdFinal () const;
+  int configuredFt8MtdEarlyStageCount () const;
+  std::unique_ptr<Ft8MtdDecodeCoordinator::PendingMtdDecode>
+    capturePendingFt8MtdDecode (qint64 period) const;
+  void cancelPendingFt8Decode (QString const& reason);
+  void reportFt8BackpressureDecision (
+      Ft8MtdDecodeCoordinator::Decision const& decision, qint64 period);
+  void reportFt8BackpressureRecovery (qint64 period);
+  void emitFt8DecoderInvocation (decoder_params_t const& params) const;
   bool handleDecoderOutputEvent(DecoderOutputFramer::Event const& event,
                                 bool& decodeCompleted);
   DecodeOperatingContext currentDecodeOperatingContext() const;
+  bool decodeOperatingContextMatchesCurrent(
+      DecodeOperatingContext const& context) const;
+  bool pendingFt8DecodeOperatingContextMatchesCurrent(
+      DecodeOperatingContext const& context) const;
   bool activeDecodeOperatingContextMatchesCurrent() const;
   bool initializeDecoderSharedMemory();
   void startDecoderProcess();
-  bool beginDecode(DecodeOwner owner);
+  bool beginDecode(
+      DecodeOwner owner, decoder_params_t const * diagnosticParams = nullptr,
+      DecodeOperatingContext const * diagnosticContext = nullptr);
   void endDecode(DecodeOwner owner);
   void updateDecodeControls();
   bool usesJt9Process() const;
@@ -1450,7 +1477,9 @@ private:
   qint64 decoderDiagnosticElapsedMs() const;
   qint64 decoderRequestDeadlineMs() const;
   bool decoderRequestDeadlineExpired() const;
-  void beginDecoderDiagnostic();
+  void beginDecoderDiagnostic(
+      decoder_params_t const * params = nullptr,
+      DecodeOperatingContext const * context = nullptr);
   void logDecoderBusyRequest(QString const& reason);
   void logDecoderProgress();
   void logDecoderAbnormalClear(QString const& reason);

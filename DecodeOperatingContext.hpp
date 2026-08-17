@@ -19,6 +19,16 @@ struct DecodeOperatingContext
   bool diskData {false};
   bool multithreadFt8 {false};
   int ft8DecoderStart {0};
+  int ft8ThreadCount {0};
+  int decodeDepth {0};
+  int ft8Cycles {0};
+  int ft8Sensitivity {0};
+  int ft8RxFrequencySensitivity {0};
+  int decodeLowFrequency {0};
+  int decodeHighFrequency {0};
+  bool ft8WideDxCallSearch {false};
+  bool hideFt8DuplicateMessages {false};
+  bool ft8ApEnabled {false};
   bool superFox {false};
   QString myCall;
 
@@ -35,6 +45,23 @@ struct DecodeOperatingContext
       && ft8DecoderStart == other.ft8DecoderStart
       && superFox == other.superFox
       && myCall == other.myCall;
+  }
+
+  bool hasSameFt8PendingIdentity (DecodeOperatingContext const& other) const
+  {
+    return "FT8" == mode
+      && "FT8" == other.mode
+      && hasSameDecodeIdentity (other)
+      && ft8ThreadCount == other.ft8ThreadCount
+      && decodeDepth == other.decodeDepth
+      && ft8Cycles == other.ft8Cycles
+      && ft8Sensitivity == other.ft8Sensitivity
+      && ft8RxFrequencySensitivity == other.ft8RxFrequencySensitivity
+      && decodeLowFrequency == other.decodeLowFrequency
+      && decodeHighFrequency == other.decodeHighFrequency
+      && ft8WideDxCallSearch == other.ft8WideDxCallSearch
+      && hideFt8DuplicateMessages == other.hideFt8DuplicateMessages
+      && ft8ApEnabled == other.ft8ApEnabled;
   }
 };
 

@@ -4,10 +4,21 @@
 #include <QByteArray>
 #include <QtGlobal>
 
+#include <array>
+
 #include "commons.h"
 
 namespace DecoderIpc
 {
+  // FT8 reads the complete 15-second buffer even when decoding starts earlier.
+  constexpr std::size_t Ft8SampleCount {15 * RX_SAMPLE_RATE};
+
+  struct Ft8MtdPayload
+  {
+    std::array<short, Ft8SampleCount> samples {};
+    decoder_params_t params {};
+  };
+
   struct Completion
   {
     qint32 synchronized;
@@ -26,6 +37,8 @@ namespace DecoderIpc
   void shutdown (decoder_ipc_control_t& control);
   bool publish (shared_dec_data_t& shared, dec_data_t const& payload,
                 bool copySamples, qint32 generation);
+  bool publishFt8Mtd (shared_dec_data_t& shared,
+                      Ft8MtdPayload const& payload, qint32 generation);
   bool claim (shared_dec_data_t& shared, qint32& generation);
   bool finish (shared_dec_data_t& shared, qint32 generation);
   bool consume (shared_dec_data_t& shared, qint32 generation);

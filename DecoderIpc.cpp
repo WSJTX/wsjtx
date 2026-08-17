@@ -98,6 +98,27 @@ bool DecoderIpc::publish (shared_dec_data_t& shared, dec_data_t const& payload,
                                       &shared.control.version, generation);
 }
 
+bool DecoderIpc::publishFt8Mtd (shared_dec_data_t& shared,
+                                Ft8MtdPayload const& payload,
+                                qint32 generation)
+{
+  if (!hasCurrentProtocol (shared)
+      || DECODER_IPC_IDLE != state (shared)
+      || generation <= 0
+      || 8 != payload.params.nmode
+      || !payload.params.lmultift8)
+    {
+      return false;
+    }
+
+  shared.payload.params = payload.params;
+  std::memcpy (shared.payload.d2, payload.samples.data (),
+               sizeof payload.samples);
+  return decoder_ipc_control_publish (&shared.control.generation,
+                                      &shared.control.state,
+                                      &shared.control.version, generation);
+}
+
 bool DecoderIpc::claim (shared_dec_data_t& shared, qint32& generation)
 {
   return DECODER_IPC_CLAIMED == decoder_ipc_control_try_claim (

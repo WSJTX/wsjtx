@@ -173,6 +173,8 @@ set (wsjtx_CXXSRCS
   HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
   DecoderIpc.cpp
+  Ft8MtdDecodeScheduler.cpp
+  Ft8MtdDecodeCoordinator.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp

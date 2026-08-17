@@ -584,6 +584,12 @@ void LiveAudioTestController::fail (QString const& reason)
             << " displayed=" << m_displayed.size ()
             << " frames=" << m_emittedFrames
             << " decode_cycles=" << m_completedCycles << std::endl;
+  if (Mode::Ft8 == m_mode)
+    {
+      std::cerr << "WSJT-X live audio test: FT8 backpressure: "
+                << m_window->liveAudioTestFt8BackpressureDiagnostics ().toStdString ()
+                << std::endl;
+    }
   auto early = m_earlyObserved.values ();
   auto multithreaded = m_multithreadedObserved.values ();
   auto earlyRaw = m_earlyRaw.values ();

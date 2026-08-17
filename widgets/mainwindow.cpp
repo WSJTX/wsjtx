@@ -979,6 +979,28 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionMT11->setActionGroup(FT8threadsGroup);
   ui->actionMT12->setActionGroup(FT8threadsGroup);
 
+  auto resetFt8Backpressure = [this] (QAction *) {
+      cancelPendingFt8Decode ("decoder setting changed");
+    };
+  connect (DepthGroup, &QActionGroup::triggered, this, resetFt8Backpressure);
+  connect (FT8CyclesGroup, &QActionGroup::triggered, this, resetFt8Backpressure);
+  connect (FT8RXfreqSensitivityGroup, &QActionGroup::triggered,
+           this, resetFt8Backpressure);
+  connect (FT8DecoderSensitivityGroup, &QActionGroup::triggered,
+           this, resetFt8Backpressure);
+  connect (FT8DecoderStartGroup, &QActionGroup::triggered,
+           this, resetFt8Backpressure);
+  connect (FT8threadsGroup, &QActionGroup::triggered,
+           this, resetFt8Backpressure);
+  connect (ui->actionUse_multithreaded_FT8_decoder, &QAction::toggled,
+           this, [this] {cancelPendingFt8Decode ("FT8 decoder changed");});
+  connect (ui->actionFT8WidebandDXCallSearch, &QAction::toggled,
+           this, [this] {cancelPendingFt8Decode ("FT8 decoder changed");});
+  connect (ui->actionHide_FT8_dupe_messages, &QAction::toggled,
+           this, [this] {cancelPendingFt8Decode ("FT8 decoder changed");});
+  connect (ui->actionEnable_AP_FT8, &QAction::toggled,
+           this, [this] {cancelPendingFt8Decode ("FT8 decoder changed");});
+
   connect (ui->download_samples_action, &QAction::triggered, [this] () {
       if (!m_sampleDownloader)
         {
@@ -1034,6 +1056,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           m_decoderCompletedSinceStart = false;
           m_jt9ProcessPhase = Jt9ProcessPhase::Ready;
           updateDecodeControls ();
+          QTimer::singleShot (0, this, [this] {
+              auto const pendingResult = publishPendingFt8Decode ();
+              if (DecodePublishResult::Failed == pendingResult)
+                {
+                  requestDecoderRestart (
+                    "pending FT8 decode publication failed after restart");
+                }
+            });
         }
     });
   connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
@@ -1942,7 +1972,7 @@ void MainWindow::fixStop()
   } else if (m_mode=="FreqCal"){
     m_hsymStop=((int(m_TRperiod/0.288))/8)*8;
   } else if (m_mode=="FT8") {
-    if (m_multithreadFT8 && !(m_specOp==SpecOp::HOUND && m_config.superFox())) {
+    if (usesFt8MtdFinal ()) {
       if (m_ft8DecoderStart==0) m_hsymStop=49;
       else if (m_ft8DecoderStart==1) {
         m_hsymStop=50;
@@ -2116,6 +2146,7 @@ void MainWindow::dataSink(qint64 frames)
   // end of ft8md
   
   bool bCallDecoder=false;
+  auto ft8Stage = Ft8MtdDecodeCoordinator::Stage::None;
 
   if(m_multithreadFT8 && m_ft8DecoderStart==1) m_earlyDecode2 = 46; // ft8md
 
@@ -2124,6 +2155,13 @@ void MainWindow::dataSink(qint64 frames)
     if(m_ihsym==m_earlyDecode) bCallDecoder=true;
     if(m_ihsym==m_earlyDecode2 && !(m_multithreadFT8 && m_ft8DecoderStart!=1)) bCallDecoder=true;
   }
+  // Standard FT8 passes share subtraction state; only an independent MTD final can be deferred.
+  if (m_mode == "FT8" && !m_diskData && bCallDecoder && usesFt8MtdFinal ())
+    {
+      if (m_ihsym == m_hsymStop) ft8Stage = Ft8MtdDecodeCoordinator::Stage::Final;
+      else if (m_ihsym == m_earlyDecode) ft8Stage = Ft8MtdDecodeCoordinator::Stage::EarlyOne;
+      else if (m_ihsym == m_earlyDecode2) ft8Stage = Ft8MtdDecodeCoordinator::Stage::EarlyTwo;
+    }
 
   if(bCallDecoder) {
     if(m_mode=="Echo") {
@@ -2243,7 +2281,7 @@ void MainWindow::dataSink(qint64 frames)
     m_dateTime = now.toString ("yyyy-MMM-dd hh:mm");
     if(m_mode!="WSPR") {
       if (m_mode=="FT8" && m_multithreadFT8 && m_ihsym>47) last=now;  // ft8md
-      decode(); //Start decoder
+      decode (ft8Stage); //Start decoder
     }
 
     if(m_mode=="FT8" and !(m_diskData or (m_multithreadFT8 && m_ft8DecoderStart<2)) and (m_ihsym==m_earlyDecode or m_ihsym==m_earlyDecode2)) return;
@@ -2800,6 +2838,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   SpecOp nContest0=m_specOp;
   auto psk_on = m_config.spot_to_psk_reporter ();
   if (QDialog::Accepted == m_config.exec ()) {
+    cancelPendingFt8Decode ("settings changed");
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
       m_baseCall = Radio::base_callsign (m_config.my_callsign ());
@@ -2977,6 +3016,7 @@ void MainWindow::monitor (bool state)
     }
   }
   m_monitoring = state;
+  if (!state) cancelPendingFt8Decode ("monitoring stopped");
   check_button_color();
 }
 
@@ -3725,6 +3765,7 @@ void MainWindow::setup_status_bar (bool vhf)
 
 void MainWindow::closeEvent(QCloseEvent * e)
 {
+  cancelPendingFt8Decode ("application closing");
   m_closing = true;
   m_jt9ProcessPhase = Jt9ProcessPhase::Closing;
   m_decoderShutdownTimer.stop ();
@@ -4387,7 +4428,30 @@ void MainWindow::msgAvgDecode2()
 
 void MainWindow::decode()                                       //decode()
 {
-  if(decoderBusy ()) {
+  decode (Ft8MtdDecodeCoordinator::Stage::None);
+}
+
+void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage)
+{
+  auto const ft8Period = currentFt8DecodePeriod ();
+  auto const scheduledFt8 = Ft8MtdDecodeCoordinator::Stage::None != ft8Stage;
+  Ft8MtdDecodeCoordinator::Decision ft8Decision;
+  if (scheduledFt8)
+    {
+      ft8Decision = m_ft8MtdDecodeCoordinator.request (
+        ft8Stage, ft8Period, configuredFt8MtdEarlyStageCount (), decoderBusy ());
+      reportFt8BackpressureDecision (ft8Decision, ft8Period);
+      if (Ft8MtdDecodeCoordinator::Action::SkipEarly == ft8Decision.action)
+        {
+          ui->DecodeButton->setChecked (false);
+          return;
+        }
+    }
+
+  auto const deferFt8Final = scheduledFt8
+    && (Ft8MtdDecodeCoordinator::Action::DeferFinal == ft8Decision.action
+        || Ft8MtdDecodeCoordinator::Action::ReplaceFinal == ft8Decision.action);
+  if(decoderBusy () && !deferFt8Final) {
     recoverDecoderAtBoundary ("decode cycle boundary", false);
     if (decoderBusy ()) {
       logDecoderBusyRequest("decode request");
@@ -4396,7 +4460,8 @@ void MainWindow::decode()                                       //decode()
   }
   if (usesJt9Process ()
       && (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
-          || QProcess::Running != proc_jt9.state ()))
+          || QProcess::Running != proc_jt9.state ())
+      && Ft8MtdDecodeCoordinator::Stage::Final != ft8Stage)
     {
       ui->DecodeButton->setChecked (false);
       showStatusMessage (tr ("Decoder is starting; decode request skipped."));
@@ -4662,23 +4727,45 @@ void MainWindow::decode()                                       //decode()
       QMutexLocker lock {&dec_data_mutex ()};
       decoderParams = dec_data.params;
     }
-#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-    if (m_automated_test && m_mode == "FT8")
+    if (deferFt8Final)
       {
-        Q_EMIT ft8DecoderInvocation (
-          decoderParams.lmultift8, decoderParams.nmt,
-          decoderParams.ndepth & 7, decoderParams.nft8cycles,
-          decoderParams.lft8subpass, decoderParams.ndecoderstart,
-          decoderParams.nzhsym, decoderParams.kin,
-          decoderParams.nfa, decoderParams.nfb);
+        auto pending = capturePendingFt8MtdDecode (ft8Period);
+        auto const action = m_ft8MtdDecodeCoordinator.deferFinal (std::move (pending));
+        qWarning () << (Ft8MtdDecodeCoordinator::Action::ReplaceFinal == action
+                         ? "Replacing pending FT8 final decode"
+                         : "Deferring FT8 final decode")
+                    << "period:" << ft8Period
+                    << "backoffPeriods:" << m_ft8MtdDecodeCoordinator.skippedPeriods ();
+        ui->DecodeButton->setChecked (false);
+        updateDecodeControls ();
+        return;
       }
-#endif
-    auto const publishResult = publishDecodeRequest (decoderParams.newdat);
+
+    auto const publishResult = publishDecodeRequest (
+      decoderParams.newdat, ft8Stage, ft8Period);
+    if (DecodePublishResult::Published == publishResult && scheduledFt8)
+      {
+        if (m_ft8MtdDecodeCoordinator.published (ft8Stage, ft8Period))
+          {
+            reportFt8BackpressureRecovery (ft8Period);
+          }
+        emitFt8DecoderInvocation (decoderParams);
+      }
     if (DecodePublishResult::Published != publishResult)
       {
         ui->DecodeButton->setChecked (false);
+        if (DecodePublishResult::Unavailable == publishResult
+            && Ft8MtdDecodeCoordinator::Stage::Final == ft8Stage)
+          {
+            auto pending = capturePendingFt8MtdDecode (ft8Period);
+            m_ft8MtdDecodeCoordinator.deferFinal (std::move (pending));
+            qWarning () << "Deferring FT8 final decode while decoder starts"
+                        << "period:" << ft8Period;
+            updateDecodeControls ();
+          }
         if (DecodePublishResult::Failed == publishResult)
           {
+            m_ft8MtdDecodeCoordinator.publicationFailed (ft8Stage, ft8Period);
             requestDecoderRestart ("decode publication failed");
           }
       }
@@ -4742,6 +4829,18 @@ MainWindow::startLiveAudioTestFt8Transmit (qint64 targetPeriodStartMs)
     }
   return {m_liveAudioTestFt8StartSessionId,
           m_liveAudioTestFt8StartGeneration};
+}
+
+QString MainWindow::liveAudioTestFt8BackpressureDiagnostics () const
+{
+  return QString {"degraded=%1 pending_final=%2 backoff_periods=%3 "
+                  "next_probe_period=%4 owner=%5 process_phase=%6"}
+    .arg (m_ft8MtdDecodeCoordinator.degraded ())
+    .arg (m_ft8MtdDecodeCoordinator.hasPending ())
+    .arg (m_ft8MtdDecodeCoordinator.skippedPeriods ())
+    .arg (m_ft8MtdDecodeCoordinator.nextProbePeriod ())
+    .arg (static_cast<int> (m_decodeOwner))
+    .arg (static_cast<int> (m_jt9ProcessPhase));
 }
 #endif
 
@@ -4851,6 +4950,16 @@ DecodeOperatingContext MainWindow::currentDecodeOperatingContext () const
   context.diskData = m_diskData;
   context.multithreadFt8 = m_multithreadFT8;
   context.ft8DecoderStart = m_ft8DecoderStart;
+  context.ft8ThreadCount = m_ft8threads;
+  context.decodeDepth = m_ndepth;
+  context.ft8Cycles = m_nFT8Cycles;
+  context.ft8Sensitivity = m_ft8Sensitivity;
+  context.ft8RxFrequencySensitivity = m_nFT8RXfSens;
+  context.decodeLowFrequency = m_wideGraph->nStartFreq ();
+  context.decodeHighFrequency = m_wideGraph->Fmax ();
+  context.ft8WideDxCallSearch = m_FT8WideDxCallSearch;
+  context.hideFt8DuplicateMessages = ui->actionHide_FT8_dupe_messages->isChecked ();
+  context.ft8ApEnabled = ui->actionEnable_AP_FT8->isChecked ();
   context.superFox = m_config.superFox ();
   context.myCall = m_config.my_callsign ();
   return context;
@@ -4858,14 +4967,111 @@ DecodeOperatingContext MainWindow::currentDecodeOperatingContext () const
 
 bool MainWindow::activeDecodeOperatingContextMatchesCurrent () const
 {
-  auto const& context = m_activeJt9Decode.context;
+  return decodeOperatingContextMatchesCurrent (m_activeJt9Decode.context);
+}
+
+bool MainWindow::decodeOperatingContextMatchesCurrent (
+    DecodeOperatingContext const& context) const
+{
   auto current = currentDecodeOperatingContext ();
   current.periodFrequency = m_freqNominal;
   current.band = m_config.bands ()->find (m_freqNominal);
   return context.hasSameDecodeIdentity (current);
 }
 
-MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (bool copySamples)
+bool MainWindow::pendingFt8DecodeOperatingContextMatchesCurrent (
+    DecodeOperatingContext const& context) const
+{
+  auto current = currentDecodeOperatingContext ();
+  current.periodFrequency = m_freqNominal;
+  current.band = m_config.bands ()->find (m_freqNominal);
+  return context.hasSameFt8PendingIdentity (current);
+}
+
+qint64 MainWindow::currentFt8DecodePeriod () const
+{
+  auto const periodMs = qMax<qint64> (1, qRound64 (m_TRperiod * 1000.0));
+  return QDateTime::currentMSecsSinceEpoch () / periodMs;
+}
+
+bool MainWindow::usesFt8MtdFinal () const
+{
+  auto const standardFinalRequired =
+    SpecOp::HOUND == m_specOp && m_config.superFox ();
+  return m_mode == "FT8"
+    && Ft8MtdDecodeScheduler::supportsBackpressure (
+      m_multithreadFT8, standardFinalRequired);
+}
+
+int MainWindow::configuredFt8MtdEarlyStageCount () const
+{
+  Q_ASSERT (usesFt8MtdFinal ());
+  if (0 == m_ft8DecoderStart) return 1;
+  if (1 == m_ft8DecoderStart) return 2;
+  return 0;
+}
+
+std::unique_ptr<Ft8MtdDecodeCoordinator::PendingMtdDecode>
+MainWindow::capturePendingFt8MtdDecode (qint64 period) const
+{
+  auto pending = std::make_unique<Ft8MtdDecodeCoordinator::PendingMtdDecode> ();
+  pending->period = period;
+  pending->context = currentDecodeOperatingContext ();
+  {
+    QMutexLocker payloadLock {&dec_data_mutex ()};
+    pending->payload.params = dec_data.params;
+    Q_ASSERT (8 == pending->payload.params.nmode);
+    Q_ASSERT (pending->payload.params.lmultift8);
+    std::copy_n (dec_data.d2, DecoderIpc::Ft8SampleCount,
+                 pending->payload.samples.begin ());
+  }
+  return pending;
+}
+
+void MainWindow::reportFt8BackpressureDecision (
+    Ft8MtdDecodeCoordinator::Decision const& decision, qint64 period)
+{
+  if (decision.enteredDegraded)
+    {
+      showStatusMessage (tr (
+        "FT8 decoding is running behind; early passes are temporarily reduced."));
+      qWarning () << "FT8 decoder entered bounded backpressure"
+                  << "period:" << period
+                  << "backoffPeriods:" << decision.skippedPeriods;
+    }
+  else if (Ft8MtdDecodeCoordinator::Action::SkipEarly == decision.action)
+    {
+      qInfo () << "Skipping FT8 early decode during backpressure"
+               << "period:" << period
+               << "backoffPeriods:" << decision.skippedPeriods
+               << "nextProbePeriod:" << m_ft8MtdDecodeCoordinator.nextProbePeriod ();
+    }
+}
+
+void MainWindow::reportFt8BackpressureRecovery (qint64 period)
+{
+  showStatusMessage (tr ("FT8 decoding caught up; configured early passes restored."));
+  qInfo () << "FT8 decoder recovered from bounded backpressure"
+           << "period:" << period;
+}
+
+void MainWindow::emitFt8DecoderInvocation (decoder_params_t const& params) const
+{
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  if (m_automated_test)
+    {
+      Q_EMIT ft8DecoderInvocation (
+        params.lmultift8, params.nmt, params.ndepth & 7,
+        params.nft8cycles, params.lft8subpass, params.ndecoderstart,
+        params.nzhsym, params.kin, params.nfa, params.nfb);
+    }
+#else
+  Q_UNUSED (params);
+#endif
+}
+
+MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
+    bool copySamples, Ft8MtdDecodeCoordinator::Stage ft8Stage, qint64 ft8Period)
 {
   if (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
       || QProcess::Running != proc_jt9.state ()
@@ -4895,6 +5101,8 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (bool copySampl
   m_activeJt9Decode.generation = generation;
   m_activeJt9Decode.context = currentDecodeOperatingContext ();
   m_activeJt9Decode.copiedSamples = copySamples;
+  m_activeJt9Decode.ft8Stage = ft8Stage;
+  m_activeJt9Decode.ft8Period = ft8Period;
   bool published {false};
   {
     QMutexLocker payloadLock {&dec_data_mutex ()};
@@ -4911,6 +5119,83 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (bool copySampl
 
   m_nextDecoderGeneration = generation;
   return DecodePublishResult::Published;
+}
+
+MainWindow::DecodePublishResult MainWindow::publishPendingFt8Decode ()
+{
+  using DrainResult = Ft8MtdDecodeCoordinator::DrainResult;
+  using PendingPublishResult = Ft8MtdDecodeCoordinator::PendingPublishResult;
+
+  auto const outcome = m_ft8MtdDecodeCoordinator.drainPending (
+    [this] (Ft8MtdDecodeCoordinator::PendingMtdDecode const& pending) {
+      return m_monitoring
+        && pendingFt8DecodeOperatingContextMatchesCurrent (pending.context);
+    },
+    [this] (Ft8MtdDecodeCoordinator::PendingMtdDecode const& pending) {
+      if (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
+          || QProcess::Running != proc_jt9.state ())
+        {
+          return PendingPublishResult::Unavailable;
+        }
+      if (!DecoderIpc::hasUsableSize (mem_jt9->size ()) || !mem_jt9->data ())
+        {
+          return PendingPublishResult::Failed;
+        }
+
+      auto const generation = DecoderIpc::nextGeneration (
+        m_nextDecoderGeneration);
+      if (!beginDecode (DecodeOwner::Jt9, &pending.payload.params,
+                        &pending.context))
+        {
+          return PendingPublishResult::Unavailable;
+        }
+      m_activeJt9Decode = {};
+      m_activeJt9Decode.generation = generation;
+      m_activeJt9Decode.context = pending.context;
+      m_activeJt9Decode.copiedSamples = true;
+      m_activeJt9Decode.ft8Stage = Ft8MtdDecodeCoordinator::Stage::Final;
+      m_activeJt9Decode.ft8Period = pending.period;
+
+      auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
+      if (!DecoderIpc::publishFt8Mtd (*shared, pending.payload, generation))
+        {
+          logDecoderAbnormalClear ("pending FT8 decode publication failed");
+          m_activeJt9Decode = {};
+          endDecode (DecodeOwner::Jt9);
+          return PendingPublishResult::Failed;
+        }
+
+      m_nextDecoderGeneration = generation;
+      emitFt8DecoderInvocation (pending.payload.params);
+      qInfo () << "Published pending FT8 final decode"
+               << "period:" << pending.period
+               << "generation:" << generation;
+      return PendingPublishResult::Published;
+    });
+
+  if (DrainResult::Obsolete == outcome.result)
+    {
+      qInfo () << "Canceling obsolete pending FT8 final decode"
+               << "period:" << outcome.period;
+      updateDecodeControls ();
+    }
+  if (outcome.recovered) reportFt8BackpressureRecovery (outcome.period);
+  if (DrainResult::Published == outcome.result)
+    {
+      return DecodePublishResult::Published;
+    }
+  if (DrainResult::Failed == outcome.result) return DecodePublishResult::Failed;
+  return DecodePublishResult::Unavailable;
+}
+
+void MainWindow::cancelPendingFt8Decode (QString const& reason)
+{
+  if (m_ft8MtdDecodeCoordinator.hasPending () || m_ft8MtdDecodeCoordinator.degraded ())
+    {
+      qInfo () << "Resetting FT8 decode backpressure" << "reason:" << reason;
+    }
+  m_ft8MtdDecodeCoordinator.cancel ();
+  updateDecodeControls ();
 }
 
 void MainWindow::requestDecoderRestart (QString const& reason)
@@ -4958,12 +5243,17 @@ bool MainWindow::usesJt9Process () const
     && "MSK144" != m_mode && !m_bFast9;
 }
 
-bool MainWindow::beginDecode (DecodeOwner owner)
+bool MainWindow::beginDecode (
+    DecodeOwner owner, decoder_params_t const * diagnosticParams,
+    DecodeOperatingContext const * diagnosticContext)
 {
   if (DecodeOwner::None == owner || DecodeOwner::None != m_decodeOwner) return false;
   m_decodeOwner = owner;
   Q_EMIT decodeCycleStarted (++m_decodeCycleGeneration);
-  if (DecodeOwner::Jt9 == owner) beginDecoderDiagnostic ();
+  if (DecodeOwner::Jt9 == owner)
+    {
+      beginDecoderDiagnostic (diagnosticParams, diagnosticContext);
+    }
   updateDecodeControls ();
   return true;
 }
@@ -4988,7 +5278,7 @@ void MainWindow::updateDecodeControls ()
 {
   auto const backendReady = !usesJt9Process ()
     || Jt9ProcessPhase::Ready == m_jt9ProcessPhase;
-  auto const enabled = DecodeOwner::None == m_decodeOwner && backendReady
+  auto const enabled = !decoderBusy () && backendReady
     && !m_wav_load_coordinator.isLoading ();
   ui->DecodeButton->setEnabled (enabled && "WSPR" != m_mode
                                 && "FST4W" != m_mode && "Echo" != m_mode);
@@ -4999,6 +5289,8 @@ void MainWindow::updateDecodeControls ()
 void MainWindow::abortJt9Transaction ()
 {
   m_decoderOutputFramer.reset ();
+  m_ft8MtdDecodeCoordinator.publicationFailed (
+    m_activeJt9Decode.ft8Stage, m_activeJt9Decode.ft8Period);
   m_activeJt9Decode = {};
   m_jt9PayloadValid = false;
   dec_data.params.nagain = false;
@@ -5043,19 +5335,21 @@ bool MainWindow::decoderRequestDeadlineExpired() const
   return elapsed >= 0 && elapsed >= decoderRequestDeadlineMs ();
 }
 
-void MainWindow::beginDecoderDiagnostic()
+void MainWindow::beginDecoderDiagnostic(
+    decoder_params_t const * params, DecodeOperatingContext const * context)
 {
+  auto const& diagnosticParams = params ? *params : dec_data.params;
   m_decoderDiagActive=true;
   m_decoderDiagActiveSequence=++m_decoderDiagSequence;
   m_decoderDiagElapsedTimer.start();
-  m_decoderDiagStartMode=m_mode;
-  m_decoderDiagStartTRperiod=m_TRperiod;
-  m_decoderDiagStartIhsym=m_ihsym;
-  m_decoderDiagStartHsymStop=m_hsymStop;
-  m_decoderDiagStartNzhsym=dec_data.params.nzhsym;
-  m_decoderDiagStartNewdat=dec_data.params.newdat;
-  m_decoderDiagStartNagain=dec_data.params.nagain;
-  m_decoderDiagStartNdiskdat=dec_data.params.ndiskdat;
+  m_decoderDiagStartMode=context ? context->mode : m_mode;
+  m_decoderDiagStartTRperiod=context ? context->trPeriod : m_TRperiod;
+  m_decoderDiagStartIhsym=params ? diagnosticParams.nzhsym : m_ihsym;
+  m_decoderDiagStartHsymStop=params ? diagnosticParams.nzhsym : m_hsymStop;
+  m_decoderDiagStartNzhsym=diagnosticParams.nzhsym;
+  m_decoderDiagStartNewdat=diagnosticParams.newdat;
+  m_decoderDiagStartNagain=diagnosticParams.nagain;
+  m_decoderDiagStartNdiskdat=diagnosticParams.ndiskdat;
   m_decoderDiagBusyRequestLogged=false;
   m_decoderDiagOverrunLogged=false;
   m_decoderDiagHardHangLogged=false;
@@ -6027,11 +6321,18 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
       else
         {
+          m_ft8MtdDecodeCoordinator.completed (
+            m_activeJt9Decode.ft8Stage, m_activeJt9Decode.ft8Period);
           m_decoderCompletedSinceStart = true;
           m_jt9PayloadValid = m_jt9PayloadValid || m_activeJt9Decode.copiedSamples;
           m_activeJt9Decode = {};
           finishDecodeUi ();
           endDecode (DecodeOwner::Jt9);
+        }
+      auto const pendingResult = publishPendingFt8Decode ();
+      if (DecodePublishResult::Failed == pendingResult)
+        {
+          requestDecoderRestart ("pending FT8 decode publication failed");
         }
     }
 }
@@ -7128,6 +7429,7 @@ void MainWindow::noteTxStopReason (TxEvidence::TxStopReason reason)
 
 void MainWindow::noteTxModeChange (QString const& mode)
 {
+  if (mode != m_mode) cancelPendingFt8Decode ("mode changed");
   if (mode != m_mode && (m_transmitting || g_iptt == 1 || m_jttyTxActive))
     {
       noteTxStopReason (TxEvidence::TxStopReason::ModeChange);
@@ -10579,6 +10881,7 @@ void MainWindow::on_bandComboBox_activated (int index)
 
 void MainWindow::band_changed (Frequency f)
 {
+  if (f != m_freqNominal) cancelPendingFt8Decode ("dial frequency changed");
   msk144qsy = false;  // MSK144 QSY
   // Don't allow a7 decodes during the first period because they can be leftovers from the previous band
   no_a7_decodes = true;
@@ -10913,6 +11216,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
           m_freqNominal = s.frequency () - m_astroCorrection.rx;
           if (old_freqNominal != m_freqNominal)
             {
+              cancelPendingFt8Decode ("dial frequency changed");
               m_freqTxNominal = m_freqNominal;
               genCQMsg ();
             }
