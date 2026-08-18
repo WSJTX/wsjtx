@@ -17,6 +17,8 @@ Ft8MtdDecodeScheduler::Decision Ft8MtdDecodeScheduler::request (
     {
       if (decoderBusy)
         {
+          result.supersedeActiveEarly = activePeriod_ == period
+            && (Stage::EarlyOne == activeStage_ || Stage::EarlyTwo == activeStage_);
           auto const wasDegraded = degraded_;
           auto const failedProbe = probePeriod_ == period
             && !probeComplete (period);

@@ -78,6 +78,7 @@ private:
   bool m_sawEarlyStandardDecode {false};
   bool m_sawConfiguredMultithreadedDecode {false};
   bool m_completedMultithreadedDecode {false};
+  quint64 m_supersededEarlyGeneration {0};
   bool m_fixtureFinished {false};
   bool m_armed {false};
   bool m_jttyAllSawPrefix {false};

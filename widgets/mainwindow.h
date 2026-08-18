@@ -233,6 +233,7 @@ public:
                              int halfSymbols, int sampleCount,
                              int lowFrequency, int highFrequency) const;
   void decoderOutputLine (QByteArray line) const;
+  void liveAudioTestFt8EarlyDecodeSuperseded (quint64 generation) const;
   void liveAudioTestJttyFramesConsumed (qint64 frames) const;
   void liveAudioTestFt8TransmitStartDecided (qint64 sessionId,
                                              qint64 generation,

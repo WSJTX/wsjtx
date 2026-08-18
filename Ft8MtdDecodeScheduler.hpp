@@ -32,6 +32,7 @@ public:
   {
     Action action {Action::Publish};
     bool enteredDegraded {false};
+    bool supersedeActiveEarly {false};
     int skippedPeriods {0};
   };
 

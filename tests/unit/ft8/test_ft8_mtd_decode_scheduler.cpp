@@ -11,6 +11,7 @@ private Q_SLOTS:
   void idleRequestsPublishImmediately ();
   void earlyRequestsNeverQueue ();
   void finalRequestsDeferOrReplace ();
+  void finalSupersedesActiveEarlySamePeriod ();
   void failedProbesBackOffExponentially ();
   void oneEarlyPassMtdConfigurationRecovers ();
   void twoEarlyPassMtdConfigurationRequiresBothEarlyPasses ();
@@ -53,6 +54,20 @@ void TestFt8MtdDecodeScheduler::finalRequestsDeferOrReplace ()
             Action::DeferFinal);
   QCOMPARE (scheduler.request (Stage::Final, 31, 1, true, true).action,
             Action::ReplaceFinal);
+}
+
+void TestFt8MtdDecodeScheduler::finalSupersedesActiveEarlySamePeriod ()
+{
+  Ft8MtdDecodeScheduler scheduler;
+  scheduler.published (Stage::EarlyOne, 35);
+
+  auto const decision = scheduler.request (Stage::Final, 35, 1, true, false);
+  QCOMPARE (decision.action, Action::DeferFinal);
+  QVERIFY (decision.supersedeActiveEarly);
+
+  scheduler.completed (Stage::EarlyOne, 35);
+  auto const unrelated = scheduler.request (Stage::Final, 36, 1, true, false);
+  QVERIFY (!unrelated.supersedeActiveEarly);
 }
 
 void TestFt8MtdDecodeScheduler::failedProbesBackOffExponentially ()
