@@ -4,16 +4,17 @@ foreach (required_variable WSJTX WORK_DIR EXPECTED)
   endif ()
 endforeach ()
 
+set (ipc_dir "${WORK_DIR}-ipc")
 file (REMOVE_RECURSE "${WORK_DIR}")
 file (MAKE_DIRECTORY
   "${WORK_DIR}/capture/config"
   "${WORK_DIR}/capture/data"
   "${WORK_DIR}/capture/cache"
-  "${WORK_DIR}/capture/tmp"
   "${WORK_DIR}/replay/config"
   "${WORK_DIR}/replay/data"
   "${WORK_DIR}/replay/cache"
-  "${WORK_DIR}/replay/tmp")
+  "${ipc_dir}/capture"
+  "${ipc_dir}/replay")
 
 set (capture "${WORK_DIR}/jtty-tx-loopback.wav")
 set (capture_environment
@@ -25,8 +26,8 @@ set (replay_environment
   "XDG_DATA_HOME=${WORK_DIR}/replay/data"
   "XDG_CACHE_HOME=${WORK_DIR}/replay/cache")
 if (NOT APPLE)
-  list (APPEND capture_environment "TMPDIR=${WORK_DIR}/capture/tmp")
-  list (APPEND replay_environment "TMPDIR=${WORK_DIR}/replay/tmp")
+  list (APPEND capture_environment "TMPDIR=${ipc_dir}/capture")
+  list (APPEND replay_environment "TMPDIR=${ipc_dir}/replay")
 endif ()
 
 execute_process (

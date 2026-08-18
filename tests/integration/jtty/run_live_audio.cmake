@@ -4,12 +4,13 @@ foreach (required_variable SJTTY WSJTX WORK_DIR EXPECTED)
   endif ()
 endforeach ()
 
+set (ipc_dir "${WORK_DIR}-ipc")
 file (REMOVE_RECURSE "${WORK_DIR}")
 file (MAKE_DIRECTORY
   "${WORK_DIR}/config"
   "${WORK_DIR}/data"
   "${WORK_DIR}/cache"
-  "${WORK_DIR}/tmp")
+  "${ipc_dir}")
 
 execute_process (
   COMMAND "${SJTTY}"
@@ -40,7 +41,7 @@ set (wsjtx_environment
   "XDG_DATA_HOME=${WORK_DIR}/data"
   "XDG_CACHE_HOME=${WORK_DIR}/cache")
 if (NOT APPLE)
-  list (APPEND wsjtx_environment "TMPDIR=${WORK_DIR}/tmp")
+  list (APPEND wsjtx_environment "TMPDIR=${ipc_dir}")
 endif ()
 
 execute_process (
