@@ -29,6 +29,17 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
 
   include 'jt9com.f90'
 
+  interface
+     subroutine wsjt_tsan_acquire_decoder_section_primary() bind(C)
+     end subroutine wsjt_tsan_acquire_decoder_section_primary
+     subroutine wsjt_tsan_release_decoder_section_primary() bind(C)
+     end subroutine wsjt_tsan_release_decoder_section_primary
+     subroutine wsjt_tsan_acquire_decoder_section_secondary() bind(C)
+     end subroutine wsjt_tsan_acquire_decoder_section_secondary
+     subroutine wsjt_tsan_release_decoder_section_secondary() bind(C)
+     end subroutine wsjt_tsan_release_decoder_section_secondary
+  end interface
+
   type, extends(jt4_decoder) :: counting_jt4_decoder
      integer :: decoded
   end type counting_jt4_decoder
@@ -660,9 +671,12 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
 
 !$ call omp_set_dynamic(.true.)
 
+  call wsjt_tsan_release_decoder_section_primary()
+  call wsjt_tsan_release_decoder_section_secondary()
 !$omp parallel sections num_threads(2) shared(ndecoded) if(.true.) !iif() needed on Mac
 
 !$omp section
+  call wsjt_tsan_acquire_decoder_section_primary()
   if(params%nmode.eq.65) then                       ! We're in JT65 mode     
      if(newdat65) dd(1:npts65)=id2(1:npts65)
      nf1=params%nfa
@@ -687,8 +701,10 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
           params%nmode,params%nsubmode,params%nexp_decode)
      call timer('decjt9  ',1)
   endif
+  call wsjt_tsan_release_decoder_section_primary()
 
 !$omp section
+  call wsjt_tsan_acquire_decoder_section_secondary()
   if(params%nmode.eq.(65+9)) then       !Do the other mode (we're in dual mode)
      if (params%ntxmode.eq.9) then
         if(newdat65) dd(1:npts65)=id2(1:npts65)
@@ -712,8 +728,11 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
         call timer('decjt9  ',1)
      end if
   endif
+  call wsjt_tsan_release_decoder_section_secondary()
 
 !$omp end parallel sections
+  call wsjt_tsan_acquire_decoder_section_primary()
+  call wsjt_tsan_acquire_decoder_section_secondary()
 
 
 ! JT65 is not yet producing info for nsynced, ndecoded.
