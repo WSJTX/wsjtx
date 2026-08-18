@@ -52,6 +52,10 @@ module ft8_mtd_residual
        real, intent(in) :: f0,dt
        real, intent(out), optional :: delta(151680)
      end subroutine subtractft8var
+     subroutine wsjt_tsan_acquire_ft8_mtd() bind(C)
+     end subroutine wsjt_tsan_acquire_ft8_mtd
+     subroutine wsjt_tsan_release_ft8_mtd() bind(C)
+     end subroutine wsjt_tsan_release_ft8_mtd
   end interface
 
 contains
@@ -66,6 +70,7 @@ contains
 
     call ensure_capacity(nworkers)
 !$omp critical(ft8_mtd_canonical)
+    call wsjt_tsan_acquire_ft8_mtd()
     active_workers=nworkers
     current_epoch=current_epoch+1_int64
     canonical_generation=0_int64
@@ -76,6 +81,7 @@ contains
     worker_epoch(1:active_workers)=current_epoch
     worker_spectrum_generation(1:active_workers)=-1_int64
     worker_spectrum_epoch(1:active_workers)=current_epoch
+    call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
   end subroutine mtd_prepare
 
@@ -114,11 +120,13 @@ contains
 
     call assert_worker(worker)
 !$omp critical(ft8_mtd_canonical)
+    call wsjt_tsan_acquire_ft8_mtd()
     mtd_worker_residual(:,worker)=canonical_residual
     worker_generation(worker)=canonical_generation
     worker_epoch(worker)=current_epoch
     worker_spectrum_generation(worker)=-1_int64
     worker_spectrum_epoch(worker)=current_epoch
+    call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
   end subroutine mtd_publish_worker
 
@@ -132,6 +140,7 @@ contains
 
     call assert_worker(worker)
 !$omp critical(ft8_mtd_canonical)
+    call wsjt_tsan_acquire_ft8_mtd()
     refresh_residual=worker_epoch(worker).ne.current_epoch
     if(.not.refresh_residual) then
        do i=1,history_count
@@ -162,6 +171,7 @@ contains
        enddo
     endif
     rebuild_spectrum=newdat1
+    call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
   end subroutine mtd_refresh_candidate
 
@@ -207,6 +217,7 @@ contains
     endif
 
 !$omp critical(ft8_mtd_canonical)
+    call wsjt_tsan_acquire_ft8_mtd()
     descriptor%epoch=current_epoch
     if(history_contains_duplicate(descriptor)) then
        outcome=mtd_commit_duplicate
@@ -220,6 +231,7 @@ contains
     residual=canonical_residual
     worker_generation(worker)=canonical_generation
     worker_epoch(worker)=current_epoch
+    call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
     if(present(final_outcome)) final_outcome=outcome
   end subroutine mtd_commit_subtraction
@@ -245,6 +257,7 @@ contains
 
     call assert_worker(worker)
 !$omp critical(ft8_mtd_canonical)
+    call wsjt_tsan_acquire_ft8_mtd()
     if(history_contains_duplicate(descriptor)) then
        outcome=mtd_commit_duplicate
     else if(history_has_conflict(base_epoch,base_generation,descriptor)) then
@@ -262,6 +275,7 @@ contains
          outcome.eq.mtd_commit_independent) residual=canonical_residual
     worker_generation(worker)=canonical_generation
     worker_epoch(worker)=current_epoch
+    call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
   end subroutine mtd_try_commit_delta
 
@@ -386,6 +400,7 @@ contains
     integer, intent(in) :: ipass
 
 !$omp critical(ft8_mtd_canonical)
+    call wsjt_tsan_acquire_ft8_mtd()
     if(ipass.eq.4) then
        post_pass3_residual=canonical_residual
        call mtd_forward_half_sample(canonical_residual)
@@ -397,6 +412,7 @@ contains
     endif
     current_epoch=current_epoch+1_int64
     canonical_generation=canonical_generation+1_int64
+    call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
   end subroutine mtd_transform_phase
 
@@ -406,7 +422,9 @@ contains
     if(size(output_residual).ne.mtd_residual_samples) error stop &
          'MTD output residual has an unexpected sample count'
 !$omp critical(ft8_mtd_canonical)
+    call wsjt_tsan_acquire_ft8_mtd()
     output_residual=canonical_residual
+    call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
   end subroutine mtd_finish
 

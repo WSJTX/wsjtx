@@ -35,6 +35,17 @@ contains
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
          evenqso,oddqso,lqsomsgdcd,hisgrid4
 
+    interface
+       subroutine wsjt_tsan_acquire_ft8_find_dupes() bind(C)
+       end subroutine wsjt_tsan_acquire_ft8_find_dupes
+       subroutine wsjt_tsan_release_ft8_find_dupes() bind(C)
+       end subroutine wsjt_tsan_release_ft8_find_dupes
+       subroutine wsjt_tsan_acquire_ft8_update_structures() bind(C)
+       end subroutine wsjt_tsan_acquire_ft8_update_structures
+       subroutine wsjt_tsan_release_ft8_update_structures() bind(C)
+       end subroutine wsjt_tsan_release_ft8_update_structures
+    end interface
+
     include 'ft8_params.f90'
 
     class(ft8_decodervar), intent(inout) :: this
@@ -267,6 +278,7 @@ contains
              endif
 
 !$omp critical(find_dupes)
+             call wsjt_tsan_acquire_ft8_find_dupes()
              do k=1,nspecial
           !ft8md  if(k.eq.2) msg37=msg37_2  ! this splits DXpedition mode msg into 2 lines 
                 ldupe=.false.
@@ -392,6 +404,7 @@ contains
                 endif
 4               continue
              enddo !do k
+             call wsjt_tsan_release_ft8_find_dupes()
 !$omp end critical(find_dupes)
           endif
        enddo !icand
@@ -443,6 +456,7 @@ contains
 
     if(nmsgloc.gt.0) then
 !$omp critical(update_structures)
+       call wsjt_tsan_acquire_ft8_update_structures()
        if(levenint) then
           even(nmsg+1:nmsg+nmsgloc)%msg=eventmp(1:nmsgloc)%msg
           even(nmsg+1:nmsg+nmsgloc)%freq=eventmp(1:nmsgloc)%freq
@@ -456,6 +470,7 @@ contains
           odd(nmsg+1:nmsg+nmsgloc)%lstate=oddtmp(1:nmsgloc)%lstate
           nmsg=nmsg+nmsgloc
        endif
+       call wsjt_tsan_release_ft8_update_structures()
 !$omp end critical(update_structures)
     endif
 

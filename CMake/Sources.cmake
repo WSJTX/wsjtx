@@ -632,6 +632,7 @@ set (qra_CSRCS
 
 set (wsjt_CSRCS
   ${ka9q_CSRCS}
+  lib/ft8var/ft8_tsan.c
   lib/ftrsd/ftrsdap.c
   lib/sgran.c
   lib/golay24_table.c
