@@ -4,7 +4,8 @@
 #include <QDebug>
 #include <QMutexLocker>
 #include <QVector>
-#include <math.h>
+#include <cmath>
+#include <cstddef>
 #include "commons.h"
 #include "DecDataMutex.hpp"
 
@@ -50,14 +51,17 @@ void Detector::clear ()
   m_bufferPos = 0;
   if (dec_data_input_blocked ()) return;
 
-  // set index to roughly where we are in time (1ms resolution)
-  // qint64 now (QDateTime::currentMSecsSinceEpoch ());
-  // unsigned msInPeriod ((now % 86400000LL) % (m_period * 1000));
-  // dec_data.params.kin = qMin ((msInPeriod * m_frameRate) / 1000, static_cast<unsigned> (sizeof (dec_data.d2) / sizeof (dec_data.d2[0])));
-  dec_data.params.kin = 0;
+  resetPeriodBuffer ();
+}
 
-  // fill buffer with zeros (G4WJS commented out because it might cause decoder hangs)
-  // qFill (dec_data.d2, dec_data.d2 + sizeof (dec_data.d2) / sizeof (dec_data.d2[0]), 0);
+void Detector::resetPeriodBuffer ()
+{
+  auto const capacity = sizeof dec_data.d2 / sizeof dec_data.d2[0];
+  auto const periodFrames = static_cast<std::size_t> (
+      std::ceil (m_period * RX_SAMPLE_RATE));
+  std::fill_n (dec_data.d2, std::min (capacity, periodFrames), qint16 {0});
+  dec_data.params.kin = 0;
+  m_bufferPos = 0;
 }
 
 qint64 Detector::writeData (char const * data, qint64 maxSize)
@@ -73,8 +77,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
     QMutexLocker lock {&dec_data_mutex ()};
     if (dec_data_input_blocked ()) return maxSize;
     if(mstr < mstr0) {              //When mstr has wrapped around to 0, restart the buffer
-      dec_data.params.kin = 0;
-      m_bufferPos = 0;
+      resetPeriodBuffer ();
     }
     mstr0=mstr;
 

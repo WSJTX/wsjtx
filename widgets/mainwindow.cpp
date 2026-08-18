@@ -2306,10 +2306,6 @@ void MainWindow::fastSink(qint64 frames)
     memcpy(fast_green2,fast_green,4*703);        //Copy fast_green[] to fast_green2[]
     memcpy(fast_s2,fast_s,4*703*64);             //Copy fast_s[] into fast_s2[]
     fast_jh2=fast_jh;
-    if(!m_diskData) {
-      QMutexLocker lock {&dec_data_mutex ()};
-      memset(dec_data.d2,0,2*30*12000);   //Zero the d2[] array
-    }
     m_bFastDecodeCalled=false;
     m_bDecoded=false;
   }

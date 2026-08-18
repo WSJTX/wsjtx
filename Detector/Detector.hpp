@@ -41,6 +41,7 @@ protected:
 
 private:
   void clear ();		// discard buffer contents
+  void resetPeriodBuffer ();
 
   unsigned m_frameRate;
   double   m_period;

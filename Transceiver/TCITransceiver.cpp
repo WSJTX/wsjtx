@@ -5,6 +5,9 @@
 #include <QThread>
 #include <qmath.h>
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 
@@ -1050,6 +1053,16 @@ void TCITransceiver::poll_jtty_drain ()
     }
 }
 
+void TCITransceiver::clear ()
+{
+  auto const capacity = sizeof dec_data.d2 / sizeof dec_data.d2[0];
+  auto const periodFrames = static_cast<std::size_t> (
+      std::ceil (m_period * RX_SAMPLE_RATE));
+  std::fill_n (dec_data.d2, std::min (capacity, periodFrames), qint16 {0});
+  dec_data.params.kin = 0;
+  m_bufferPos = 0;
+}
+
 quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 {
   if (dec_data_input_blocked ()) return maxSize;
@@ -1063,8 +1076,7 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
     QMutexLocker lock {&dec_data_mutex ()};
     if (dec_data_input_blocked ()) return maxSize;
     if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
-      dec_data.params.kin = 0;
-      m_bufferPos = 0;
+      clear ();
     }
     mstr0=mstr;
     return maxSize;    // we drop any data past the end of the buffer on
@@ -1086,8 +1098,7 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
     }
 
     if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
-      dec_data.params.kin = 0;
-      m_bufferPos = 0;
+      clear ();
     }
     mstr0=mstr;
 
@@ -1216,7 +1227,7 @@ void TCITransceiver::do_audio (bool on)
   if (on) {
     QMutexLocker lock {&dec_data_mutex ()};
     m_bufferPos = 0;
-    if (!dec_data_input_blocked ()) dec_data.params.kin = 0;
+    if (!dec_data_input_blocked ()) clear ();
   }
   audio_ = on;
 }
