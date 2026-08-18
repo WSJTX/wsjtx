@@ -20,6 +20,17 @@
 
 #include "moc_LiveAudioTestController.cpp"
 
+namespace
+{
+#if defined(WSJT_TSAN_TEST_PROFILE)
+  constexpr int ft8TestThreadCount = 2;
+  constexpr int ft8TestCycleCount = 1;
+#else
+  constexpr int ft8TestThreadCount = 4;
+  constexpr int ft8TestCycleCount = 3;
+#endif
+}
+
 LiveAudioTestController::LiveAudioTestController (
   MainWindow * window, FixtureAudioInput * fixture, QString expectedPath,
   Mode mode, QObject * parent)
@@ -131,8 +142,8 @@ LiveAudioTestController::LiveAudioTestController (
                {
                  m_sawEarlyStandardDecode = true;
                }
-             if (multithreaded && threadCount == 4 && depth == 3
-                 && cycles == 3 && subpass && decoderStart == 0
+             if (multithreaded && threadCount == ft8TestThreadCount && depth == 3
+                 && cycles == ft8TestCycleCount && subpass && decoderStart == 0
                  && halfSymbols == 49
                  && sampleCount == DecoderIpc::Ft8SampleCount
                  && lowFrequency == MainWindow::liveAudioTestDecodeLowFrequency ()
@@ -295,16 +306,17 @@ void LiveAudioTestController::prepareFt8WhenReady ()
   auto * deepAction = m_window->findChild<QAction *> ("actionDeepestDecode");
   auto * multithreadedAction =
     m_window->findChild<QAction *> ("actionUse_multithreaded_FT8_decoder");
-  auto * fourThreadsAction = m_window->findChild<QAction *> ("actionMT4");
-  auto * threeCyclesAction =
-    m_window->findChild<QAction *> ("actionDecFT8cycles3");
+  auto * threadCountAction = m_window->findChild<QAction *> (
+    QStringLiteral ("actionMT%1").arg (ft8TestThreadCount));
+  auto * cycleCountAction = m_window->findChild<QAction *> (
+    QStringLiteral ("actionDecFT8cycles%1").arg (ft8TestCycleCount));
   auto * subpassAction = m_window->findChild<QAction *> ("actionFT8subpass");
   auto * twoStageAction =
     m_window->findChild<QAction *> ("actionStartTwoStage");
   auto * monitorButton = m_window->findChild<QAbstractButton *> ("monitorButton");
   auto * autoButton = m_window->findChild<QAbstractButton *> ("autoButton");
   if (!ft8Action || !deepAction || !multithreadedAction
-      || !fourThreadsAction || !threeCyclesAction || !subpassAction
+      || !threadCountAction || !cycleCountAction || !subpassAction
       || !twoStageAction || !monitorButton || !autoButton)
     {
       fail (tr ("A required FT8 decoder or monitoring GUI control was not found."));
@@ -319,8 +331,8 @@ void LiveAudioTestController::prepareFt8WhenReady ()
   ft8Action->trigger ();
   deepAction->setChecked (true);
   if (!multithreadedAction->isChecked ()) multithreadedAction->trigger ();
-  fourThreadsAction->trigger ();
-  threeCyclesAction->trigger ();
+  threadCountAction->trigger ();
+  cycleCountAction->trigger ();
   subpassAction->setChecked (true);
   twoStageAction->setChecked (true);
   if (!m_window->configureLiveAudioTestDecodeRange ())
@@ -338,9 +350,9 @@ void LiveAudioTestController::prepareFt8WhenReady ()
 
   bool const decoderConfigurationMatches =
     m_window->liveAudioTestMultithreadedFt8Enabled ()
-    && m_window->liveAudioTestFt8ThreadCount () == 4
+    && m_window->liveAudioTestFt8ThreadCount () == ft8TestThreadCount
     && m_window->liveAudioTestDecodeDepth () == 3
-    && m_window->liveAudioTestFt8Cycles () == 3
+    && m_window->liveAudioTestFt8Cycles () == ft8TestCycleCount
     && m_window->liveAudioTestFt8Sensitivity () == 3
     && m_window->liveAudioTestFt8DecoderStart () == 0;
   if (!decoderConfigurationMatches)
@@ -370,8 +382,9 @@ void LiveAudioTestController::prepareFt8WhenReady ()
       return;
     }
   std::cerr << "WSJT-X live audio test: GUI ready, FT8 monitoring active, "
-            << "MTD=1 threads=4 depth=3 cycles=3 sensitivity=3 start=0 "
-               "decode_range="
+            << "MTD=1 threads=" << ft8TestThreadCount
+            << " depth=3 cycles=" << ft8TestCycleCount
+            << " sensitivity=3 start=0 decode_range="
             << MainWindow::liveAudioTestDecodeLowFrequency () << '-'
             << MainWindow::liveAudioTestDecodeHighFrequency ()
             << std::endl;
@@ -449,13 +462,13 @@ void LiveAudioTestController::maybeFinishFt8 ()
 
   if (!m_sawEarlyStandardDecode || !m_sawConfiguredMultithreadedDecode)
     {
-      fail (tr ("The expected early standard and final four-thread MTD decoder "
+      fail (tr ("The expected early standard and final configured MTD decoder "
                 "invocations were not both observed."));
       return;
     }
   if (m_multithreadedRaw.isEmpty ())
     {
-      fail (tr ("The four-thread MTD invocation produced no decoder output."));
+      fail (tr ("The configured MTD invocation produced no decoder output."));
       return;
     }
 

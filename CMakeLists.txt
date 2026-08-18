@@ -699,7 +699,8 @@ if (WSJT_ENABLE_TESTS)
       samples/FT8/210703_133430.wav
       test/fixtures/ft8_210703_133430.expected.txt)
     if (WSJT_BUILD_FORTRAN_OPENMP)
-      function (wsjt_add_jt9_mtd_golden_test test_name processors)
+      function (wsjt_add_jt9_mtd_golden_test test_name processors mtd_workers
+          decode_cycles fft_threads)
         set (work_dir "${CMAKE_BINARY_DIR}/Testing/Golden/${test_name}")
         file (MAKE_DIRECTORY "${work_dir}")
         add_test (NAME ${test_name}
@@ -709,6 +710,9 @@ if (WSJT_ENABLE_TESTS)
             -DEXPECTED=${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt
             -DWORK_DIR=${work_dir}
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -DMTD_WORKERS=${mtd_workers}
+            -DDECODE_CYCLES=${decode_cycles}
+            -DFFT_THREADS=${fft_threads}
             -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/compare_mtd_messages.cmake)
         set_tests_properties (${test_name} PROPERTIES
           LABELS "decoder;golden;integration;mtd"
@@ -716,13 +720,21 @@ if (WSJT_ENABLE_TESTS)
           TIMEOUT 120)
       endfunction ()
 
-      wsjt_add_jt9_mtd_golden_test (
-        test_jt9_mtd_ft8_210703_133430 4)
-      wsjt_add_jt9_mtd_golden_test (
-        test_jt9_mtd_ft8_210703_133430_limited_team 2)
-      # The -N 4 request requires at least three visible processors for this limit to reduce the runtime team.
-      set_tests_properties (test_jt9_mtd_ft8_210703_133430_limited_team PROPERTIES
-        ENVIRONMENT "OMP_THREAD_LIMIT=2")
+      if (WSJT_ENABLE_TSAN)
+        # One decode cycle covers the same full sample and golden message set
+        # while keeping the instrumented two-worker synchronization bounded.
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_210703_133430_tsan 2 2 1 1)
+      else ()
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_210703_133430 4 4 3 3)
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_210703_133430_limited_team 2 4 3 3)
+        # The -N 4 request requires at least three visible processors for this
+        # limit to reduce the runtime team.
+        set_tests_properties (test_jt9_mtd_ft8_210703_133430_limited_team PROPERTIES
+          ENVIRONMENT "OMP_THREAD_LIMIT=2")
+      endif ()
     endif ()
     wsjt_add_jt9_golden_test (
       test_jt9_golden_jt9_130418_1742 -9
@@ -867,6 +879,10 @@ else ()
   endif ()
 endif ()
 target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+
+if (WSJT_ENABLE_TSAN)
+  target_compile_definitions (wsjtx PRIVATE WSJT_TSAN_TEST_PROFILE)
+endif ()
 
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
   if (APPLE)
