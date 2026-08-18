@@ -14,32 +14,33 @@ program test_ft8_mtd_transaction_concurrent
 contains
 
   subroutine test_independent_publishers()
-    real, allocatable :: source(:),delta(:,:),actual(:)
+    real, allocatable :: source(:),actual(:)
     integer :: outcomes(4),worker,tones(79)
     integer(int64) :: epoch,generation
     type(ft8_subtraction_descriptor) :: descriptor
 
-    allocate(source(mtd_residual_samples),delta(frame_samples,4), &
-         actual(mtd_residual_samples))
+    allocate(source(mtd_residual_samples),actual(mtd_residual_samples))
     source=0.0
-    delta=0.0
-    delta(1,1)=-1.0
-    delta(1,2)=-2.0
-    delta(1,3)=-3.0
-    delta(1,4)=-4.0
     call mtd_prepare(source,4)
 
 !$omp parallel num_threads(4) private(worker,tones,epoch,generation,descriptor)
+    block
+    real, allocatable :: delta(:)
+    allocate(delta(frame_samples))
     worker=omp_get_thread_num()+1
+    delta=0.0
+    delta(1)=-real(worker)
     tones=worker
     call mtd_publish_worker(worker)
     call mtd_capture_generation(worker,epoch,generation)
     call mtd_make_descriptor(descriptor,1,tones, &
          800.0+100.0*real(worker),0.0)
-    mtd_worker_residual(1,worker)=mtd_worker_residual(1,worker)+delta(1,worker)
+    mtd_worker_residual(1,worker)=mtd_worker_residual(1,worker)+delta(1)
 !$omp barrier
     call mtd_try_commit_delta(worker,mtd_worker_residual(:,worker),descriptor, &
-         epoch,generation,delta(:,worker),outcomes(worker))
+         epoch,generation,delta,outcomes(worker))
+    deallocate(delta)
+    end block
 !$omp end parallel
 
     call mtd_finish(actual)
@@ -51,29 +52,32 @@ contains
   end subroutine test_independent_publishers
 
   subroutine test_duplicate_publishers()
-    real, allocatable :: source(:),delta(:,:),actual(:)
+    real, allocatable :: source(:),actual(:)
     integer :: outcomes(4),worker,tones(79)
     integer(int64) :: epoch,generation
     type(ft8_subtraction_descriptor) :: descriptor
 
-    allocate(source(mtd_residual_samples),delta(frame_samples,4), &
-         actual(mtd_residual_samples))
+    allocate(source(mtd_residual_samples),actual(mtd_residual_samples))
     source=0.0
-    delta=0.0
-    delta(1,:)=-1.0
-    tones=7
     call mtd_prepare(source,4)
 
-!$omp parallel num_threads(4) private(worker,epoch,generation,descriptor) &
-!$omp shared(tones)
+!$omp parallel num_threads(4) private(worker,epoch,generation,descriptor,tones)
+    block
+    real, allocatable :: delta(:)
+    allocate(delta(frame_samples))
     worker=omp_get_thread_num()+1
+    delta=0.0
+    delta(1)=-1.0
+    tones=7
     call mtd_publish_worker(worker)
     call mtd_capture_generation(worker,epoch,generation)
     call mtd_make_descriptor(descriptor,1,tones,1000.0,0.0)
-    mtd_worker_residual(1,worker)=mtd_worker_residual(1,worker)+delta(1,worker)
+    mtd_worker_residual(1,worker)=mtd_worker_residual(1,worker)+delta(1)
 !$omp barrier
     call mtd_try_commit_delta(worker,mtd_worker_residual(:,worker),descriptor, &
-         epoch,generation,delta(:,worker),outcomes(worker))
+         epoch,generation,delta,outcomes(worker))
+    deallocate(delta)
+    end block
 !$omp end parallel
 
     call mtd_finish(actual)
@@ -86,7 +90,7 @@ contains
 
   subroutine test_coherent_snapshots()
     integer, parameter :: writer_iterations=50,reader_iterations=500
-    real, allocatable :: source(:),delta(:,:),actual(:)
+    real, allocatable :: source(:),actual(:)
     real :: snapshot_value
     integer :: worker,iteration,tones(79),outcome,writers_started,reader_ready, &
          first_commits,reader_observed
@@ -94,10 +98,8 @@ contains
     logical :: torn_snapshot,intermediate_observed
     type(ft8_subtraction_descriptor) :: descriptor
 
-    allocate(source(mtd_residual_samples),delta(frame_samples,3), &
-         actual(mtd_residual_samples))
+    allocate(source(mtd_residual_samples),actual(mtd_residual_samples))
     source=0.0
-    delta=-1.0
     torn_snapshot=.false.
     intermediate_observed=.false.
     writers_started=0
@@ -110,10 +112,14 @@ contains
 !$omp generation,descriptor,snapshot_value) &
 !$omp shared(torn_snapshot,intermediate_observed,writers_started,reader_ready, &
 !$omp first_commits,reader_observed)
+    block
+    real, allocatable :: delta(:)
+    allocate(delta(frame_samples))
     worker=omp_get_thread_num()+1
     call mtd_publish_worker(worker)
 !$omp barrier
     if(worker.le.3) then
+       delta=-1.0
 !$omp atomic update
        writers_started=writers_started+1
        do
@@ -130,9 +136,9 @@ contains
           do
              call mtd_capture_generation(worker,epoch,generation)
              mtd_worker_residual(1:frame_samples,worker)= &
-                  mtd_worker_residual(1:frame_samples,worker)+delta(:,worker)
+                  mtd_worker_residual(1:frame_samples,worker)+delta
              call mtd_try_commit_delta(worker,mtd_worker_residual(:,worker), &
-                  descriptor,epoch,generation,delta(:,worker),outcome)
+                  descriptor,epoch,generation,delta,outcome)
              if(outcome.ne.mtd_commit_conflict) exit
           enddo
           if(iteration.eq.1) then
@@ -174,6 +180,8 @@ contains
                intermediate_observed=.true.
        enddo
     endif
+    deallocate(delta)
+    end block
 !$omp end parallel
 
     if(torn_snapshot) error stop 'reader observed a torn canonical snapshot'
