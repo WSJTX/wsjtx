@@ -29,6 +29,7 @@ runs:
           ca-certificates git
           build-essential cmake
           autoconf automake libtool pkg-config
+          libusb-1.0-0-dev libudev-dev
           texinfo
         )
         if ! command -v gfortran >/dev/null 2>&1; then

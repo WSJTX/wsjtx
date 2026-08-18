@@ -73,10 +73,10 @@ runs:
           ca-certificates git \
           build-essential binutils cmake ccache \
           libfftw3-dev \
-          libusb-1.0-0-dev libudev-dev libreadline-dev \
+          libusb-1.0-0-dev libudev-dev \
           autoconf automake libtool pkg-config texinfo \
-          python3 file xauth xvfb portaudio19-dev \
-          gfortran libboost-all-dev \
+          python3 xauth xvfb \
+          gfortran libboost-log-dev \
           qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
           libqt5sql5-sqlite libqt5websockets5-dev \
           libqt5multimedia5-plugins

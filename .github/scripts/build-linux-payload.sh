@@ -55,14 +55,14 @@ cd /work
 .github/scripts/run-apt-get.sh install -y --no-install-recommends \
   ca-certificates curl git \
   build-essential cmake \
-  libfftw3-dev libboost-all-dev \
+  libfftw3-dev libboost-log-dev \
   qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
   libqt5sql5-sqlite libqt5websockets5-dev \
   libqt5multimedia5-plugins \
-  libusb-1.0-0-dev libudev-dev libreadline-dev \
+  libusb-1.0-0-dev libudev-dev \
   autoconf automake libtool pkg-config \
   texinfo \
-  dpkg-dev fakeroot \
+  dpkg-dev \
   asciidoctor \
   rpm \
   python3 \
@@ -129,6 +129,7 @@ else
       --prefix="${PWD}/../hamlib-prefix" \
       --disable-shared --enable-static \
       --without-cxx-binding \
+      --without-readline \
       CFLAGS="-g -O2 -fPIC -fdata-sections -ffunction-sections" \
       LDFLAGS="-Wl,--gc-sections"
     make -j"$(nproc)"
