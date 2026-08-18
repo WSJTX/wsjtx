@@ -41,6 +41,7 @@ cd "$source_dir"
 ./configure \
   --prefix="$prefix" \
   --disable-shared --enable-static \
+  --without-indi \
   --without-cxx-binding \
   CC="$TSAN_CC" \
   CFLAGS="${TSAN_SANITIZER_FLAGS} -fPIC -fdata-sections -ffunction-sections" \

@@ -25,6 +25,7 @@ cd hamlib-src
   --disable-shared --enable-static \
   --without-cxx-binding \
   --without-readline \
+  --without-indi \
   CFLAGS="-g -O2 -fPIC -fdata-sections -ffunction-sections" \
   LDFLAGS="-Wl,--gc-sections"
 make -j"$(nproc)"
