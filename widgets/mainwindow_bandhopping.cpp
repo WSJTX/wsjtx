@@ -8,6 +8,7 @@
 #include "widegraph.h"
 
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 #include <QDateTime>
@@ -129,11 +130,11 @@ void MainWindow::bandHopping(bool user_requested)
       {ui->cbQRG8, BandHopMode::CustomQRG, 0, ui->sbQRG8},
     };
 
-  std::vector<bool> selected;
-  selected.reserve (sizeof entries / sizeof entries[0]);
-  for (auto const& entry : entries)
+  auto const entry_count = sizeof entries / sizeof entries[0];
+  std::vector<bool> selected (entry_count);
+  for (std::size_t index = 0; index < entry_count; ++index)
     {
-      selected.push_back (entry.checkbox_->isChecked ());
+      selected[index] = entries[index].checkbox_->isChecked ();
     }
 
   // Checkboxes are live controls; a user can leave the active set empty while
