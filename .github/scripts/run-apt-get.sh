@@ -9,7 +9,7 @@ fi
 
 case "$1" in
   update)
-    timeout_limit="${APT_UPDATE_TIMEOUT:-8m}"
+    timeout_limit="${APT_UPDATE_TIMEOUT:-15m}"
     ;;
   install)
     timeout_limit="${APT_INSTALL_TIMEOUT:-20m}"
