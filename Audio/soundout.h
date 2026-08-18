@@ -40,6 +40,11 @@ public Q_SLOTS:
   virtual void setFormat (QAudioDeviceInfo const& device, unsigned channels,
                           int frames_buffered = 0);
   virtual void restart (QIODevice *);
+  virtual void restart (QIODevice * source, qint64 period_offset_ms)
+  {
+    Q_UNUSED (period_offset_ms);
+    restart (source);
+  }
   void suspend ();
   void resume ();
   void reset ();

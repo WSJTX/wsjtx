@@ -43,6 +43,9 @@ public:
   Q_SLOT void setFrequency (double newFrequency) {m_frequency = newFrequency;}
   Q_SIGNAL void stateChanged (ModulatorState) const;
   Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot snapshot) const;
+  Q_SIGNAL void constrainedStartDecided (qint64 sessionId, qint64 generation,
+                                         qint64 windowOpenMs, bool accepted,
+                                         qint64 actualStartMs) const;
 
 protected:
   qint64 readData (char * data, qint64 maxSize) override;

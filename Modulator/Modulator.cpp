@@ -113,8 +113,22 @@ void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
 //            << request.tr_period_s;
   Q_ASSERT (stream);
 // Time according to this computer which becomes our base time
-  qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
+  auto const actualStartMs = QDateTime::currentMSecsSinceEpoch ();
+  qint64 ms0 = actualStartMs % 86400000;
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
+
+  bool const constrained = request.start_window_open_ms >= 0
+    && request.start_window_close_ms >= request.start_window_open_ms;
+  if (constrained
+      && (actualStartMs < request.start_window_open_ms
+          || actualStartMs > request.start_window_close_ms))
+    {
+      Q_EMIT constrainedStartDecided (request.session_id.value (),
+                                      request.generation.value (),
+                                      request.start_window_open_ms, false,
+                                      actualStartMs);
+      return;
+    }
 
   if(m_state != Idle) stop();
   m_mode = request.mode;
@@ -175,7 +189,7 @@ void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
   m_stream = stream;
   if (m_stream)
     {
-      m_stream->restart (this);
+      m_stream->restart (this, mstr);
     }
   else
     {
@@ -185,6 +199,13 @@ void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
                                              m_mode, m_frameRate,
                                              m_silentFrames, m_ic, m_tuning, m_bFastMode,
                                              m_symbolsLength, m_nsps, m_TRperiod));
+  if (constrained)
+    {
+      Q_EMIT constrainedStartDecided (request.session_id.value (),
+                                      request.generation.value (),
+                                      request.start_window_open_ms, true,
+                                      actualStartMs);
+    }
 }
 
 void Modulator::tune (bool newState)

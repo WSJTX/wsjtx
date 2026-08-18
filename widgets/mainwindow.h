@@ -197,11 +197,10 @@ public:
   bool diskDataActive () const {return m_diskData;}
   bool monitoringActive () const {return m_monitoring;}
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-  enum class LiveAudioTestFt8TransmitResult
+  struct LiveAudioTestFt8TransmitRequest
   {
-    Started,
-    MissedWindow,
-    Failed
+    qint64 session_id {-1};
+    qint64 generation {-1};
   };
 
   bool liveAudioTestMultithreadedFt8Enabled () const {return m_multithreadFT8;}
@@ -213,8 +212,8 @@ public:
   static constexpr int liveAudioTestDecodeLowFrequency () {return 200;}
   static constexpr int liveAudioTestDecodeHighFrequency () {return 3000;}
   bool configureLiveAudioTestDecodeRange ();
-  LiveAudioTestFt8TransmitResult startLiveAudioTestFt8Transmit (
-    qint64 latestStartMs);
+  LiveAudioTestFt8TransmitRequest startLiveAudioTestFt8Transmit (
+    qint64 targetPeriodStartMs);
 #endif
 
   Q_SIGNALS:
@@ -228,6 +227,11 @@ public:
                              int halfSymbols, int sampleCount,
                              int lowFrequency, int highFrequency) const;
   void decoderOutputLine (QByteArray line) const;
+  void liveAudioTestFt8TransmitStartDecided (qint64 sessionId,
+                                             qint64 generation,
+                                             qint64 targetPeriodStartMs,
+                                             bool accepted,
+                                             qint64 actualStartMs) const;
 #endif
   void decodedMessageProcessed (QString message) const;
   void decodedMessageDisplayed (QString message) const;
@@ -500,7 +504,7 @@ private slots:
   void on_actionErase_WSPR_hashtable_triggered();
   void on_actionErase_list_of_Q65_callers_triggered();
   void on_actionExport_Cabrillo_log_triggered();
-  void startTx2();
+  bool startTx2();
   void startP1();
   void stopTx();
   void stopTx2();
@@ -1263,6 +1267,12 @@ private:
   TxEvidence::TxSessionId m_txEvidenceSourceSession;
   TxEvidence::TxGeneration m_txEvidenceGeneration;
   TxEvidence::TxStopReason m_pendingTxStopReason {TxEvidence::TxStopReason::NormalEnd};
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  qint64 m_liveAudioTestFt8StartWindowOpenMs {-1};
+  qint64 m_liveAudioTestFt8StartWindowCloseMs {-1};
+  qint64 m_liveAudioTestFt8StartSessionId {-1};
+  qint64 m_liveAudioTestFt8StartGeneration {-1};
+#endif
   bool m_jttyTxActive;
   bool m_jttyTxUsesTciAudio;
   TxAudioQueueEpoch m_jttyTxQueueEpoch;

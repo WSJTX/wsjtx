@@ -26,6 +26,9 @@ public:
 private:
   void prepareWhenReady ();
   void startWhenScheduled ();
+  void handleStartDecision (qint64 sessionId, qint64 generation,
+                            qint64 targetPeriodStartMs, bool accepted,
+                            qint64 actualStartMs);
   void maybeFinish ();
   bool validateCapture (QString * error) const;
   void fail (QString const& reason);
@@ -39,9 +42,10 @@ private:
   QTimer m_startTimer;
   QTimer m_modalTimer;
   qint64 m_targetPeriodStartMs {0};
-  qint64 m_latestStartMs {0};
+  qint64 m_startSessionId {-1};
+  qint64 m_startGeneration {-1};
   qint64 m_startCallbackMs {-1};
-  qint64 m_startCompletedMs {-1};
+  qint64 m_startDecidedMs {-1};
   qint64 m_firstNonSilentFrame {-1};
   qint64 m_capturedFrames {0};
   int m_captureStartCount {0};

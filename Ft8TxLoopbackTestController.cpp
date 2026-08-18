@@ -30,9 +30,6 @@ namespace
   constexpr int bytesPerFrame = 2;
   constexpr qint64 periodMs = 15000;
   constexpr qint64 startTriggerOffsetMs = 25;
-  // Stay well before Modulator::start's 500 ms FT8 lead-in. The GUI can
-  // return Started before the queued audio-thread start() samples mstr.
-  constexpr qint64 latestStartOffsetMs = 250;
 }
 
 Ft8TxLoopbackTestController::Ft8TxLoopbackTestController (
@@ -57,6 +54,8 @@ Ft8TxLoopbackTestController::Ft8TxLoopbackTestController (
   m_startTimer.setTimerType (Qt::PreciseTimer);
   connect (&m_startTimer, &QTimer::timeout,
            this, &Ft8TxLoopbackTestController::startWhenScheduled);
+  connect (m_window, &MainWindow::liveAudioTestFt8TransmitStartDecided,
+           this, &Ft8TxLoopbackTestController::handleStartDecision);
 
   m_modalTimer.setInterval (100);
   connect (&m_modalTimer, &QTimer::timeout,
@@ -176,7 +175,6 @@ void Ft8TxLoopbackTestController::prepareWhenReady ()
     }
 
   m_targetPeriodStartMs = nextPeriod * periodMs;
-  m_latestStartMs = m_targetPeriodStartMs + latestStartOffsetMs;
   auto const targetStart = m_targetPeriodStartMs + startTriggerOffsetMs;
   auto const startDelay = targetStart
     - QDateTime::currentMSecsSinceEpoch ();
@@ -219,32 +217,53 @@ void Ft8TxLoopbackTestController::startWhenScheduled ()
   QMetaObject::invokeMethod (tx6, "editingFinished", Qt::DirectConnection);
   txb6->click ();
 
-  auto const result = m_window->startLiveAudioTestFt8Transmit (m_latestStartMs);
-  m_startCompletedMs = QDateTime::currentMSecsSinceEpoch ();
-  if (MainWindow::LiveAudioTestFt8TransmitResult::Started == result)
+  auto const request = m_window->startLiveAudioTestFt8Transmit (
+    m_targetPeriodStartMs);
+  if (request.session_id < 0 || request.generation < 0)
+    {
+      fail (tr ("Unable to start the synthetic FT8 transmission."));
+      return;
+    }
+  m_startSessionId = request.session_id;
+  m_startGeneration = request.generation;
+}
+
+void Ft8TxLoopbackTestController::handleStartDecision (
+  qint64 sessionId, qint64 generation, qint64 targetPeriodStartMs,
+  bool accepted, qint64 actualStartMs)
+{
+  if (m_finished || sessionId != m_startSessionId
+      || generation != m_startGeneration
+      || targetPeriodStartMs != m_targetPeriodStartMs)
+    {
+      return;
+    }
+
+  m_startDecidedMs = actualStartMs;
+  if (accepted)
     {
       std::cerr << "WSJT-X FT8 TX loopback start: attempt="
                 << m_startAttemptCount
                 << " callback_offset_ms="
                 << m_startCallbackMs - m_targetPeriodStartMs
-                << " completed_offset_ms="
-                << m_startCompletedMs - m_targetPeriodStartMs << std::endl;
-      return;
-    }
-  if (MainWindow::LiveAudioTestFt8TransmitResult::Failed == result)
-    {
-      fail (tr ("Unable to start the synthetic FT8 transmission."));
+                << " audio_decision_offset_ms="
+                << m_startDecidedMs - m_targetPeriodStartMs << std::endl;
       return;
     }
 
+  auto * autoButton = m_window->findChild<QAbstractButton *> ("autoButton");
+  if (!autoButton)
+    {
+      fail (tr ("The FT8 Auto control disappeared before retry."));
+      return;
+    }
   if (autoButton->isChecked ()) autoButton->click ();
   std::cerr << "WSJT-X FT8 TX loopback retry: attempt="
             << m_startAttemptCount
             << " callback_offset_ms="
             << m_startCallbackMs - m_targetPeriodStartMs
-            << " completed_offset_ms="
-            << m_startCompletedMs - m_targetPeriodStartMs
-            << " latest_offset_ms=" << latestStartOffsetMs << std::endl;
+            << " audio_decision_offset_ms="
+            << m_startDecidedMs - m_targetPeriodStartMs << std::endl;
   m_prepared = false;
   m_prepareTimer.start (50);
 }
@@ -287,8 +306,8 @@ void Ft8TxLoopbackTestController::maybeFinish ()
             << " start_attempts=" << m_startAttemptCount
             << " callback_offset_ms="
             << m_startCallbackMs - m_targetPeriodStartMs
-            << " completed_offset_ms="
-            << m_startCompletedMs - m_targetPeriodStartMs
+            << " audio_decision_offset_ms="
+            << m_startDecidedMs - m_targetPeriodStartMs
             << " frames=" << m_capturedFrames
             << " capture=" << m_capturePath.toStdString () << std::endl;
   m_window->close ();
@@ -348,8 +367,8 @@ void Ft8TxLoopbackTestController::fail (QString const& reason)
             << " start_attempts=" << m_startAttemptCount
             << " callback_offset_ms="
             << m_startCallbackMs - m_targetPeriodStartMs
-            << " completed_offset_ms="
-            << m_startCompletedMs - m_targetPeriodStartMs
+            << " audio_decision_offset_ms="
+            << m_startDecidedMs - m_targetPeriodStartMs
             << " frames=" << m_capturedFrames << std::endl;
   if (auto * modal = QApplication::activeModalWidget ()) modal->close ();
   m_window->close ();

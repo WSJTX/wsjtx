@@ -754,6 +754,28 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
            Qt::QueuedConnection);
   connect (m_modulator, &Modulator::txSourceCommitted,
            this, &MainWindow::recordTxSourceCommit, Qt::QueuedConnection);
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  connect (m_modulator, &Modulator::constrainedStartDecided,
+           this, [this] (qint64 sessionId, qint64 generation,
+                         qint64 windowOpenMs,
+                         bool accepted, qint64 actualStartMs) {
+             if (sessionId != m_liveAudioTestFt8StartSessionId
+                 || generation != m_liveAudioTestFt8StartGeneration)
+               {
+                 return;
+               }
+             m_liveAudioTestFt8StartSessionId = -1;
+             m_liveAudioTestFt8StartGeneration = -1;
+             if (!accepted)
+               {
+                 m_tx_when_ready = false;
+                 ptt1Timer.stop ();
+                 stopTx ();
+               }
+             Q_EMIT liveAudioTestFt8TransmitStartDecided (
+               sessionId, generation, windowOpenMs, accepted, actualStartMs);
+           }, Qt::QueuedConnection);
+#endif
   connect (m_soundOutput, &SoundOutput::rawTxPlayoutSnapshot,
            this, &MainWindow::recordRawTxPlayout, Qt::QueuedConnection);
   connect (&m_audioThread, &QThread::finished, m_modulator, &QObject::deleteLater);
@@ -4676,15 +4698,15 @@ bool MainWindow::configureLiveAudioTestDecodeRange ()
     && m_wideGraph->Fmax () == liveAudioTestDecodeHighFrequency ();
 }
 
-MainWindow::LiveAudioTestFt8TransmitResult
-MainWindow::startLiveAudioTestFt8Transmit (qint64 latestStartMs)
+MainWindow::LiveAudioTestFt8TransmitRequest
+MainWindow::startLiveAudioTestFt8Transmit (qint64 targetPeriodStartMs)
 {
   if (!m_automated_test || m_mode != QStringLiteral ("FT8"))
     {
       std::cerr << "FT8 TX loopback trigger rejected: automated="
                 << m_automated_test << " mode=" << m_mode.toStdString ()
                 << std::endl;
-      return LiveAudioTestFt8TransmitResult::Failed;
+      return {};
     }
 
   if (!m_transmitting)
@@ -4700,23 +4722,26 @@ MainWindow::startLiveAudioTestFt8Transmit (qint64 latestStartMs)
                 << " message=" << m_currentMessage.toStdString ()
                 << " generated_error=" << m_generated_message_error
                 << std::endl;
-      return LiveAudioTestFt8TransmitResult::Failed;
-    }
-
-  if (QDateTime::currentMSecsSinceEpoch () > latestStartMs)
-    {
-      m_tx_when_ready = false;
-      ptt1Timer.stop ();
-      stopTx ();
-      return LiveAudioTestFt8TransmitResult::MissedWindow;
+      return {};
     }
 
   // The fixture has no rig backend, so release the generated waveform at the
   // same seam normally reached after the rig acknowledges PTT.
+  m_liveAudioTestFt8StartWindowOpenMs = targetPeriodStartMs;
+  m_liveAudioTestFt8StartWindowCloseMs = targetPeriodStartMs + 499;
+  m_liveAudioTestFt8StartSessionId = -1;
+  m_liveAudioTestFt8StartGeneration = -1;
   m_tx_when_ready = false;
   ptt1Timer.stop ();
-  startTx2 ();
-  return LiveAudioTestFt8TransmitResult::Started;
+  auto const dispatched = startTx2 ();
+  m_liveAudioTestFt8StartWindowOpenMs = -1;
+  m_liveAudioTestFt8StartWindowCloseMs = -1;
+  if (!dispatched)
+    {
+      return {};
+    }
+  return {m_liveAudioTestFt8StartSessionId,
+          m_liveAudioTestFt8StartGeneration};
 }
 #endif
 
@@ -6982,11 +7007,11 @@ void MainWindow::useNextCall()
   genStdMsgs(m_nextRpt);
 }
 
-void MainWindow::startTx2()
+bool MainWindow::startTx2()
 {
   if (m_mode == "JTTY" && !m_tune
       && (!m_jttyTxActive || jttyTxCommittedSamples () <= 0)) {
-    return;
+    return false;
   }
   bool modulator_active;
   bool const tci_active = (m_mode == "JTTY" && m_jttyTxActive)
@@ -7023,7 +7048,9 @@ void MainWindow::startTx2()
       write_all("Tx",m_currentMessage);
       if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
     }
+    return true;
   }
+  return false;
 }
 
 void MainWindow::beginTxEvidenceSession ()
@@ -11037,6 +11064,15 @@ void MainWindow::transmit (double snr)
   request.generation = txGeneration;
   request.queue_epoch = m_jttyTxQueueEpoch;
   request.tuning = m_tune;
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  request.start_window_open_ms = m_liveAudioTestFt8StartWindowOpenMs;
+  request.start_window_close_ms = m_liveAudioTestFt8StartWindowCloseMs;
+  if (request.start_window_open_ms >= 0)
+    {
+      m_liveAudioTestFt8StartSessionId = txSessionId.value ();
+      m_liveAudioTestFt8StartGeneration = txGeneration.value ();
+    }
+#endif
   double toneSpacing=0.0;
   if (m_mode == "JT65") {
     if(m_nSubMode==0) toneSpacing=11025.0/4096.0;

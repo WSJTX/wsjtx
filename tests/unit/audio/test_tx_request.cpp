@@ -44,6 +44,8 @@ private:
     QCOMPARE (request.generation, TxEvidence::TxGeneration::invalid ());
     QCOMPARE (request.queue_epoch, TxAudioQueueEpoch::invalid ());
     QVERIFY (!request.tuning);
+    QCOMPARE (request.start_window_open_ms, qint64 {-1});
+    QCOMPARE (request.start_window_close_ms, qint64 {-1});
   }
 
   Q_SLOT void copies_every_distinct_field ()
@@ -63,6 +65,8 @@ private:
     source.generation = TxEvidence::TxGeneration {808};
     source.queue_epoch = TxAudioQueueEpoch {909};
     source.tuning = true;
+    source.start_window_open_ms = 1010;
+    source.start_window_close_ms = 1111;
 
     auto const copy = source;
     source = {};
@@ -81,6 +85,8 @@ private:
     QCOMPARE (copy.generation, TxEvidence::TxGeneration {808});
     QCOMPARE (copy.queue_epoch, TxAudioQueueEpoch {909});
     QVERIFY (copy.tuning);
+    QCOMPARE (copy.start_window_open_ms, qint64 {1010});
+    QCOMPARE (copy.start_window_close_ms, qint64 {1111});
   }
 
   Q_SLOT void registers_and_delivers_queued_requests ()

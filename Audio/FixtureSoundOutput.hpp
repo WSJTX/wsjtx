@@ -47,6 +47,7 @@ public:
 public Q_SLOTS:
   void setFormat (QAudioDeviceInfo const&, unsigned, int = 0) override;
   void restart (QIODevice * source) override;
+  void restart (QIODevice * source, qint64 periodOffsetMs) override;
   void stop () override;
 
 Q_SIGNALS:

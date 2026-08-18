@@ -43,6 +43,11 @@ void FixtureSoundOutput::setFormat (QAudioDeviceInfo const&, unsigned, int)
 
 void FixtureSoundOutput::restart (QIODevice * source)
 {
+  restart (source, -1);
+}
+
+void FixtureSoundOutput::restart (QIODevice * source, qint64 periodOffsetMs)
+{
   ++m_restartCount;
   finishCapture ();
 
@@ -109,8 +114,9 @@ void FixtureSoundOutput::restart (QIODevice * source)
   if (Profile::Ft8Period == m_profile)
     {
       constexpr qint64 periodMs = 15000;
-      auto const periodOffsetMs = QDateTime::currentMSecsSinceEpoch () % periodMs;
-      auto const prefixFrames = periodOffsetMs * sampleRate / 1000;
+      auto const capturedOffsetMs = periodOffsetMs >= 0
+        ? periodOffsetMs : QDateTime::currentMSecsSinceEpoch () % periodMs;
+      auto const prefixFrames = capturedOffsetMs * sampleRate / 1000;
       if (!appendSilence (prefixFrames)) return;
       m_framesPulled = prefixFrames;
       m_scheduleOriginFrame = prefixFrames;
