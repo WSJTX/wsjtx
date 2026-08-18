@@ -14,6 +14,7 @@
 #include <QtWebSockets/QWebSocket>
 #include <QTimer>
 #include <QEventLoop>
+#include <QVector>
 #include <mutex>
 
 typedef float REAL;
@@ -334,6 +335,7 @@ private:
   bool m_bFastMode;
 
   bool m_cwLevel;
+  QVector<int> m_cwId;
   unsigned m_ic;
   unsigned m_isym0;
   int m_j0;

@@ -1625,6 +1625,7 @@ void TCITransceiver::do_modulator_start (TxEvidence::TxRequest const& request)
   m_bFastMode=request.fast_mode;
   m_TRperiod=request.tr_period_s;
   m_tuning=request.tuning;
+  m_cwId=request.cw_id;
   unsigned delay_ms=1000;
 
   if((request.mode=="FT8" and m_nsps==1920) or (request.mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
@@ -1693,7 +1694,7 @@ void TCITransceiver::do_modulator_stop (bool quick)
 
 qint64 TCITransceiver::bounded_source_frames (bool tuning) const
 {
-  if (tuning || m_txMode == "JTTY" || m_txMode == "CW" || icw[0] > 0) return -1;
+  if (tuning || m_txMode == "JTTY" || m_txMode == "CW" || !m_cwId.isEmpty ()) return -1;
 
   qint64 i1 = qint64 (m_symbolsLength * 4.0 * m_nsps);
   if (m_bFastMode)
@@ -1780,7 +1781,7 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, quint32 cha
       unsigned int isym=0;
       qint16 sample=0;
       if(!m_tuning) isym=m_ic/(4.0*m_nsps);          // Actual fsample=48000
-      bool slowCwId=((isym >= m_symbolsLength) && (icw[0] > 0));
+      bool slowCwId=((isym >= m_symbolsLength) && !m_cwId.isEmpty ());
       m_nspd=2560;                 // 22.5 WPM
 
       if(m_TRperiod > 16.0 && slowCwId) {     // Transmit CW ID?
@@ -1790,7 +1791,13 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, quint32 cha
 
         while (samples != end) {
           j = (m_ic - ic0)/m_nspd + 1; // symbol of this sample
-          bool level {bool (icw[j])};
+          if (j == 0 || j > static_cast<unsigned> (m_cwId.size ()))
+            {
+              m_state = Idle;
+              Q_EMIT tci_mod_active(m_state != Idle);
+              return framesGenerated * channels;
+            }
+          bool level {bool (m_cwId.at (j - 1))};
           m_phi += m_dphi;
           if (m_phi > m_twoPi) m_phi -= m_twoPi;
           sample=0;
@@ -1804,15 +1811,9 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, quint32 cha
             }
             sample=round(newVolume * amp * x);
           }
-          if (int (j) <= icw[0] && j < NUM_CW_SYMBOLS) { // stopu condition
-            samples = load (postProcessSample (sample), channels, samples);
-            ++framesGenerated;
-            ++m_ic;
-          } else {
-            m_state = Idle;
-            Q_EMIT tci_mod_active(m_state != Idle);
-            return framesGenerated * channels;
-          }
+          samples = load (postProcessSample (sample), channels, samples);
+          ++framesGenerated;
+          ++m_ic;
 
           // adjust ramp
           if ((m_ramp != 0 && m_ramp != std::numeric_limits<qint16>::min ()) || level != m_cwLevel) {
@@ -1893,7 +1894,7 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, quint32 cha
       }
 
       if (m_amp == 0.0) { // TODO G4WJS: compare double with zero might not be wise
-        if (icw[0] == 0) {
+        if (m_cwId.isEmpty ()) {
           // no CW ID to send
           m_state = Idle;
           Q_EMIT tci_mod_active(m_state != Idle);

@@ -32,6 +32,7 @@ namespace
                                                 QString const& mode, int sampleRateHz,
                                                 qint64 silentFrames, unsigned initialSample,
                                                 bool tuning, bool fastMode,
+                                                bool hasCwId,
                                                 unsigned symbolsLength,
                                                 double framesPerSymbol,
                                                 double trPeriod)
@@ -51,7 +52,7 @@ namespace
         snapshot.diagnostic = QStringLiteral ("Tune transmission has no bounded target.");
         return snapshot;
       }
-    if (icw[0] > 0)
+    if (hasCwId)
       {
         snapshot.diagnostic = QStringLiteral ("CW ID can extend the generated target.");
         return snapshot;
@@ -145,6 +146,7 @@ void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
   m_bFastMode=request.fast_mode;
   m_TRperiod=request.tr_period_s;
   m_tuning=request.tuning;
+  m_cwId=request.cw_id;
   m_icmin=4294967295;
   m_icmax=0;
   unsigned delay_ms=1000;
@@ -198,6 +200,7 @@ void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
   Q_EMIT txSourceCommitted (txStartSnapshot (request.session_id, request.generation,
                                              m_mode, m_frameRate,
                                              m_silentFrames, m_ic, m_tuning, m_bFastMode,
+                                             !m_cwId.isEmpty (),
                                              m_symbolsLength, m_nsps, m_TRperiod));
   if (constrained)
     {
@@ -287,13 +290,13 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
         unsigned int isym=0;
 
         if(!m_tuning) isym=m_ic/(4.0*m_nsps);            // Actual fsample=48000
-        bool slowCwId=((isym >= m_symbolsLength) && (icw[0] > 0)) && (!m_bFastMode);
+        bool slowCwId=((isym >= m_symbolsLength) && !m_cwId.isEmpty ()) && (!m_bFastMode);
         if(m_TRperiod==3.0) slowCwId=false;
         bool fastCwId=false;
         static bool bCwId=false;
         qint64 ms = QDateTime::currentMSecsSinceEpoch();
         float tsec=0.001*(ms % int(1000*m_TRperiod));
-        if(m_bFastMode and (icw[0]>0) and (tsec > (m_TRperiod-5.0))) fastCwId=true;
+        if(m_bFastMode and !m_cwId.isEmpty () and (tsec > (m_TRperiod-5.0))) fastCwId=true;
         if(!m_bFastMode) m_nspd=2560;                 // 22.5 WPM
 
 
@@ -306,7 +309,7 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
             m_nsps=4096.0*12000.0/11025.0;
             m_ic=2246949;
             m_nspd=2560;               // 22.5 WPM
-            if(icw[0]*m_nspd/48000.0 > 4.0) m_nspd=4.0*48000.0/icw[0];  //Faster CW for long calls
+            if(m_cwId.size ()*m_nspd/48000.0 > 4.0) m_nspd=4.0*48000.0/m_cwId.size ();  //Faster CW for long calls
           }
           bCwId=true;
           unsigned ic0 = m_symbolsLength * 4 * m_nsps;
@@ -314,7 +317,12 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
 
           while (samples != end) {
             j = (m_ic - ic0)/m_nspd + 1; // symbol of this sample
-            bool level {bool (icw[j])};
+            if (j == 0 || j > static_cast<unsigned> (m_cwId.size ()))
+              {
+                Q_EMIT stateChanged ((m_state = Idle));
+                return framesGenerated * bytesPerFrame ();
+              }
+            bool level {bool (m_cwId.at (j - 1))};
             m_phi += m_dphi;
             if (m_phi > m_twoPi) m_phi -= m_twoPi;
             qint16 sample=0;
@@ -332,14 +340,9 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
               sample=0;
               if(level) sample=32767.0*x;
             }
-            if (int (j) <= icw[0] && j < NUM_CW_SYMBOLS) { // stop condition
-              samples = load (postProcessSample (sample), samples);
-              ++framesGenerated;
-              ++m_ic;
-            } else {
-              Q_EMIT stateChanged ((m_state = Idle));
-              return framesGenerated * bytesPerFrame ();
-            }
+            samples = load (postProcessSample (sample), samples);
+            ++framesGenerated;
+            ++m_ic;
 
             // adjust ramp
             if ((m_ramp != 0 && m_ramp != std::numeric_limits<qint16>::min ()) || level != m_cwLevel) {
@@ -435,7 +438,7 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
 //                 << tsec << m_TRperiod << m_ic << i1;
 
         if (m_amp == 0.0) { // TODO G4WJS: compare double with zero might not be wise
-          if (icw[0] == 0) {
+          if (m_cwId.isEmpty ()) {
             // no CW ID to send
             Q_EMIT stateChanged ((m_state = Idle));
             return framesGenerated * bytesPerFrame ();

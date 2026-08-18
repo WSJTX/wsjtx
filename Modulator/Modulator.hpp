@@ -3,6 +3,7 @@
 
 #include <QAudio>
 #include <QPointer>
+#include <QVector>
 
 #include "Audio/AudioDevice.hpp"
 #include "Audio/TxRequest.hpp"
@@ -92,6 +93,7 @@ private:
   bool m_bFastMode;
 
   bool m_cwLevel;
+  QVector<int> m_cwId;
   unsigned m_ic;
   unsigned m_icmin;
   unsigned m_icmax;

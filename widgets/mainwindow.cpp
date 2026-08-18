@@ -11450,6 +11450,9 @@ void MainWindow::transmit (double snr)
   request.generation = txGeneration;
   request.queue_epoch = m_jttyTxQueueEpoch;
   request.tuning = m_tune;
+  int const cwSymbols = qBound (0, int (icw[0]), NUM_CW_SYMBOLS - 1);
+  request.cw_id.reserve (cwSymbols);
+  for (int i = 1; i <= cwSymbols; ++i) request.cw_id.append (int (icw[i]));
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   request.start_window_open_ms = m_liveAudioTestFt8StartWindowOpenMs;
   request.start_window_close_ms = m_liveAudioTestFt8StartWindowCloseMs;

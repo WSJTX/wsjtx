@@ -3,6 +3,7 @@
 
 #include <QMetaType>
 #include <QString>
+#include <QVector>
 #include <QtGlobal>
 
 #include "AudioDevice.hpp"
@@ -27,6 +28,7 @@ namespace TxEvidence
     TxGeneration generation {};
     TxAudioQueueEpoch queue_epoch {};
     bool tuning {false};
+    QVector<int> cw_id;
     qint64 start_window_open_ms {-1};
     qint64 start_window_close_ms {-1};
   };

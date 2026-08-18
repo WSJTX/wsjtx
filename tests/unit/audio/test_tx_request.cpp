@@ -44,6 +44,7 @@ private:
     QCOMPARE (request.generation, TxEvidence::TxGeneration::invalid ());
     QCOMPARE (request.queue_epoch, TxAudioQueueEpoch::invalid ());
     QVERIFY (!request.tuning);
+    QVERIFY (request.cw_id.isEmpty ());
     QCOMPARE (request.start_window_open_ms, qint64 {-1});
     QCOMPARE (request.start_window_close_ms, qint64 {-1});
   }
@@ -65,6 +66,7 @@ private:
     source.generation = TxEvidence::TxGeneration {808};
     source.queue_epoch = TxAudioQueueEpoch {909};
     source.tuning = true;
+    source.cw_id = {1, 0, 1};
     source.start_window_open_ms = 1010;
     source.start_window_close_ms = 1111;
 
@@ -85,6 +87,7 @@ private:
     QCOMPARE (copy.generation, TxEvidence::TxGeneration {808});
     QCOMPARE (copy.queue_epoch, TxAudioQueueEpoch {909});
     QVERIFY (copy.tuning);
+    QCOMPARE (copy.cw_id, QVector<int> ({1, 0, 1}));
     QCOMPARE (copy.start_window_open_ms, qint64 {1010});
     QCOMPARE (copy.start_window_close_ms, qint64 {1111});
   }
@@ -105,6 +108,7 @@ private:
     request.session_id = TxEvidence::TxSessionId {12};
     request.generation = TxEvidence::TxGeneration {34};
     request.queue_epoch = TxAudioQueueEpoch {56};
+    request.cw_id = {0, 1, 0};
     Q_EMIT relay.requestReady (request);
 
     QTRY_VERIFY (relay.delivered);
@@ -112,6 +116,7 @@ private:
     QCOMPARE (relay.received.session_id, TxEvidence::TxSessionId {12});
     QCOMPARE (relay.received.generation, TxEvidence::TxGeneration {34});
     QCOMPARE (relay.received.queue_epoch, request.queue_epoch);
+    QCOMPARE (relay.received.cw_id, QVector<int> ({0, 1, 0}));
   }
 };
 
