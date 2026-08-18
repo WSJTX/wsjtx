@@ -238,6 +238,7 @@ runs:
         path: |
           ${{ steps.sanitizer.outputs.build_dir }}/ctest-results.xml
           ${{ steps.sanitizer.outputs.build_dir }}/Testing/Temporary/LastTest.log
+          ${{ steps.sanitizer.outputs.build_dir }}/Testing/Golden/test_jt9_mtd_ft8_210703_133430*/stderr.txt
         if-no-files-found: ignore
 
     - name: Require sanitizer tests to pass

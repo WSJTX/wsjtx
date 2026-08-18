@@ -8,6 +8,7 @@ endforeach ()
 file (MAKE_DIRECTORY "${WORK_DIR}")
 set (actual_file "${WORK_DIR}/actual.txt")
 set (stderr_file "${WORK_DIR}/stderr.txt")
+file (WRITE "${stderr_file}" "")
 
 execute_process (
   COMMAND "${CMAKE_COMMAND}" -E env OMP_STACKSIZE=16M
@@ -21,10 +22,10 @@ execute_process (
   WORKING_DIRECTORY "${WORK_DIR}"
   RESULT_VARIABLE decoder_result
   OUTPUT_VARIABLE decoder_stdout
-  ERROR_VARIABLE decoder_stderr)
+  ERROR_FILE "${stderr_file}")
 
 file (WRITE "${actual_file}" "${decoder_stdout}")
-file (WRITE "${stderr_file}" "${decoder_stderr}")
+file (READ "${stderr_file}" decoder_stderr)
 
 if (NOT "${decoder_result}" STREQUAL "0")
   message (FATAL_ERROR

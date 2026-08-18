@@ -4926,14 +4926,38 @@ MainWindow::startLiveAudioTestFt8Transmit (qint64 targetPeriodStartMs)
 
 QString MainWindow::liveAudioTestFt8BackpressureDiagnostics () const
 {
+  qint32 ipcState {-1};
+  qint32 ipcGeneration {-1};
+  qint32 ipcProgress {-1};
+  if (DecoderIpc::hasUsableSize (mem_jt9->size ()) && mem_jt9->data ())
+    {
+      auto const * shared = reinterpret_cast<shared_dec_data_t const *> (
+          mem_jt9->constData ());
+      if (DECODER_IPC_VERSION == DecoderIpc::protocolVersion (*shared))
+        {
+          ipcState = DecoderIpc::state (*shared);
+          ipcGeneration = DecoderIpc::generation (*shared);
+          ipcProgress = DecoderIpc::progress (*shared);
+        }
+    }
+
   return QString {"degraded=%1 pending_final=%2 backoff_periods=%3 "
-                  "next_probe_period=%4 owner=%5 process_phase=%6"}
+                  "next_probe_period=%4 owner=%5 process_phase=%6 "
+                  "active_generation=%7 ipc_state=%8 ipc_generation=%9 "
+                  "ipc_progress=%10 decoder_elapsed_ms=%11 "
+                  "decoder_idle_ms=%12"}
     .arg (m_ft8MtdDecodeCoordinator.degraded ())
     .arg (m_ft8MtdDecodeCoordinator.hasPending ())
     .arg (m_ft8MtdDecodeCoordinator.skippedPeriods ())
     .arg (m_ft8MtdDecodeCoordinator.nextProbePeriod ())
     .arg (static_cast<int> (m_decodeOwner))
-    .arg (static_cast<int> (m_jt9ProcessPhase));
+    .arg (static_cast<int> (m_jt9ProcessPhase))
+    .arg (m_activeJt9Decode.generation)
+    .arg (ipcState)
+    .arg (ipcGeneration)
+    .arg (ipcProgress)
+    .arg (decoderDiagnosticElapsedMs ())
+    .arg (decoderDiagnosticIdleMs ());
 }
 #endif
 
