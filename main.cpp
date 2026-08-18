@@ -569,7 +569,14 @@ int main(int argc, char *argv[])
         // for a new version, the user will be able to re-disable it
         // if they wish
         QString splash_flag_name {"Splash_v1.7"};
-        if (multi_settings.common_value (splash_flag_name, true).toBool ())
+#if defined(WSJT_TSAN_TEST_PROFILE)
+        // GCC TSan cannot track Qt's instrumented SVG setjmp/longjmp rasterizer.
+        auto const skip_splash = automated_test;
+#else
+        auto const skip_splash = false;
+#endif
+        if (!skip_splash
+            && multi_settings.common_value (splash_flag_name, true).toBool ())
           {
             QObject::connect (&splash, &SplashScreen::disabled, [&, splash_flag_name] {
                 multi_settings.set_common_value (splash_flag_name, false);
