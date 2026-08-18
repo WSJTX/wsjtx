@@ -99,7 +99,6 @@ private slots:
 
 private:
   void readPalette ();
-  void setRxRange ();
   void replot();
 
   QScopedPointer<Ui::WideGraph> ui;
