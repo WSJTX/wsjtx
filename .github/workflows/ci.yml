@@ -6,7 +6,8 @@ on:
   pull_request:
     branches: [develop]
     # `labeled` is added to the defaults (opened/synchronize/reopened) so
-    # that applying `full-ci` or `sanitizers` to an already-open PR triggers
+    # that applying `full-ci`, `sanitizers`, or `thread-sanitizer` to an
+    # already-open PR triggers
     # a fresh run that includes the requested opt-in jobs (see the gates below).
     types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
@@ -70,7 +71,7 @@ jobs:
   #
   #   * Default (every push / PR to develop): Linux x86_64 only -- `linux`.
   #   * ASan + UBSan: runs on PRs carrying `sanitizers` or `full-ci`.
-  #   * TSan: runs only on PRs carrying `sanitizers`.
+  #   * TSan: runs only on PRs carrying `thread-sanitizer`.
   #   * Opt-in matrix (`linux-arm`, macos, macos-intel, windows): runs when a
   #     PR carries the `full-ci` label, or when the workflow is started manually
   #     ("Run workflow" / workflow_dispatch). Release builds are unaffected --
@@ -142,7 +143,7 @@ jobs:
   linux-tsan:
     name: Linux x86_64 TSan
     needs: [prepare, detect-build-system-changes, linux]
-    if: contains(github.event.pull_request.labels.*.name, 'sanitizers')
+    if: contains(github.event.pull_request.labels.*.name, 'thread-sanitizer')
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 180
