@@ -1,6 +1,7 @@
 #include "LiveAudioTestController.hpp"
 
 #include "Audio/FixtureAudioInput.hpp"
+#include "DecoderIpc.hpp"
 #include "Decoder/decodedtext.h"
 #include "widgets/mainwindow.h"
 
@@ -99,6 +100,10 @@ LiveAudioTestController::LiveAudioTestController (
   connect (m_window, &MainWindow::decodeCycleCompleted,
            this, [this] (quint64) {
              ++m_completedCycles;
+             if (m_decoderStage == DecoderStage::Multithreaded)
+               {
+                 m_completedMultithreadedDecode = true;
+               }
              maybeFinish ();
              m_decoderStage = DecoderStage::None;
            });
@@ -129,6 +134,7 @@ LiveAudioTestController::LiveAudioTestController (
              if (multithreaded && threadCount == 4 && depth == 3
                  && cycles == 3 && subpass && decoderStart == 0
                  && halfSymbols == 49
+                 && sampleCount == DecoderIpc::Ft8SampleCount
                  && lowFrequency == MainWindow::liveAudioTestDecodeLowFrequency ()
                  && highFrequency == MainWindow::liveAudioTestDecodeHighFrequency ())
                {
@@ -151,6 +157,13 @@ LiveAudioTestController::LiveAudioTestController (
   connect (m_fixture, &FixtureAudioInput::emissionFinished,
            this, [this] (qint64 frames) {
              m_emittedFrames = frames;
+             auto const completionError = Mode::Ft8 == m_mode
+               ? m_window->completeLiveAudioTestFt8Input (frames) : QString {};
+             if (!completionError.isEmpty ())
+               {
+                 fail (completionError);
+                 return;
+               }
              m_fixtureFinished = true;
              maybeFinish ();
              if (Mode::Jtty == m_mode)
@@ -163,6 +176,12 @@ LiveAudioTestController::LiveAudioTestController (
                  });
                }
            });
+  if (Mode::Jtty == m_mode)
+    {
+      connect (m_window, &MainWindow::liveAudioTestJttyFramesConsumed,
+               m_fixture, &FixtureAudioInput::acknowledgeJttyFrames,
+               Qt::QueuedConnection);
+    }
   connect (m_fixture, &AudioInputSource::error,
            this, [this] (QString const& reason) {
              fail (tr ("Synthetic audio source failed: %1").arg (reason));
@@ -311,6 +330,11 @@ void LiveAudioTestController::prepareFt8WhenReady ()
             .arg (MainWindow::liveAudioTestDecodeHighFrequency ()));
       return;
     }
+  if (!m_window->prepareLiveAudioTestFt8InputCompletion ())
+    {
+      fail (tr ("Unable to prepare the complete FT8 fixture decode."));
+      return;
+    }
 
   bool const decoderConfigurationMatches =
     m_window->liveAudioTestMultithreadedFt8Enabled ()
@@ -418,7 +442,7 @@ void LiveAudioTestController::maybeFinish ()
 void LiveAudioTestController::maybeFinishFt8 ()
 {
   if (m_finished || !m_fixtureFinished || m_window->decoderBusy ()
-      || m_completedCycles == 0)
+      || !m_completedMultithreadedDecode)
     {
       return;
     }

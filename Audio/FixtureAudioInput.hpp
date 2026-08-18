@@ -34,6 +34,7 @@ public:
   Q_SLOT void stop () override;
   Q_SLOT void reset (bool reportDroppedFrames) override;
   Q_SLOT void arm ();
+  Q_SLOT void acknowledgeJttyFrames (qint64 detectorFrames);
 
   Q_SIGNAL void emissionStarted (qint64 utcStartMilliseconds) const;
   Q_SIGNAL void emissionFinished (qint64 frames) const;
@@ -63,11 +64,14 @@ private:
   qint64 m_tailFrames {0};
   qint64 m_framesEmitted {0};
   qint64 m_periodStartMs {0};
+  qint64 m_jttyAcknowledgedInputFrames {0};
   int m_chunkIndex {0};
   bool m_started {false};
   bool m_armed {false};
   bool m_suspended {true};
   bool m_emitting {false};
+  bool m_jttyDecoderReady {false};
+  bool m_waitingForJttyDecoder {false};
 };
 
 #endif

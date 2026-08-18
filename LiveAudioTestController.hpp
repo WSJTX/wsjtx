@@ -77,6 +77,7 @@ private:
   DecoderStage m_decoderStage {DecoderStage::None};
   bool m_sawEarlyStandardDecode {false};
   bool m_sawConfiguredMultithreadedDecode {false};
+  bool m_completedMultithreadedDecode {false};
   bool m_fixtureFinished {false};
   bool m_armed {false};
   bool m_jttyAllSawPrefix {false};

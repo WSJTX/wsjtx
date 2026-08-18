@@ -2281,7 +2281,29 @@ void MainWindow::dataSink(qint64 frames)
     m_dateTime = now.toString ("yyyy-MMM-dd hh:mm");
     if(m_mode!="WSPR") {
       if (m_mode=="FT8" && m_multithreadFT8 && m_ihsym>47) last=now;  // ft8md
-      decode (ft8Stage); //Start decoder
+      bool deferLiveAudioTestFinal {false};
+      qint64 liveAudioTestFinalPeriod {-1};
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+      deferLiveAudioTestFinal = m_automated_test
+        && m_liveAudioTestAwaitFt8InputCompletion
+        && Ft8MtdDecodeCoordinator::Stage::Final == ft8Stage;
+      if (deferLiveAudioTestFinal)
+        {
+          m_liveAudioTestPendingFt8FinalPeriod = currentFt8DecodePeriod ();
+          if (m_liveAudioTestFt8InputComplete)
+            {
+              liveAudioTestFinalPeriod = m_liveAudioTestPendingFt8FinalPeriod;
+              m_liveAudioTestPendingFt8FinalPeriod = -1;
+              m_liveAudioTestAwaitFt8InputCompletion = false;
+              m_liveAudioTestFt8InputComplete = false;
+              deferLiveAudioTestFinal = false;
+            }
+        }
+#endif
+      if (!deferLiveAudioTestFinal)
+        {
+          decode (ft8Stage, liveAudioTestFinalPeriod); //Start decoder
+        }
     }
 
     if(m_mode=="FT8" and !(m_diskData or (m_multithreadFT8 && m_ft8DecoderStart<2)) and (m_ihsym==m_earlyDecode or m_ihsym==m_earlyDecode2)) return;
@@ -2412,6 +2434,12 @@ void MainWindow::fastSink(qint64 frames)
 
   if(m_mode=="JTTY") {
     jtty_decode(k);
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+    if (m_automated_test)
+      {
+        Q_EMIT liveAudioTestJttyFramesConsumed (k);
+      }
+#endif
     int detectorFrames;
     {
       QMutexLocker lock {&dec_data_mutex ()};
@@ -4431,9 +4459,10 @@ void MainWindow::decode()                                       //decode()
   decode (Ft8MtdDecodeCoordinator::Stage::None);
 }
 
-void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage)
+void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
+                         qint64 ft8Period)
 {
-  auto const ft8Period = currentFt8DecodePeriod ();
+  if (ft8Period < 0) ft8Period = currentFt8DecodePeriod ();
   auto const scheduledFt8 = Ft8MtdDecodeCoordinator::Stage::None != ft8Stage;
   Ft8MtdDecodeCoordinator::Decision ft8Decision;
   if (scheduledFt8)
@@ -4783,6 +4812,59 @@ bool MainWindow::configureLiveAudioTestDecodeRange ()
   m_wideGraph->setFrequencyScale (liveAudioTestDecodeLowFrequency (), 4, 956);
   return m_wideGraph->nStartFreq () == liveAudioTestDecodeLowFrequency ()
     && m_wideGraph->Fmax () == liveAudioTestDecodeHighFrequency ();
+}
+
+bool MainWindow::prepareLiveAudioTestFt8InputCompletion ()
+{
+  if (!m_automated_test || m_mode != QStringLiteral ("FT8")) return false;
+  m_liveAudioTestPendingFt8FinalPeriod = -1;
+  m_liveAudioTestAwaitFt8InputCompletion = true;
+  m_liveAudioTestFt8InputComplete = false;
+  return true;
+}
+
+QString MainWindow::completeLiveAudioTestFt8Input (qint64 frames)
+{
+  auto const expectedInputFrames =
+    static_cast<qint64> (DecoderIpc::Ft8SampleCount)
+    * static_cast<qint64> (m_downSampleFactor);
+  if (!m_automated_test || !m_liveAudioTestAwaitFt8InputCompletion
+      || frames != expectedInputFrames)
+    {
+      return tr ("FT8 input completion was rejected: automated=%1 awaiting=%2 frames=%3.")
+        .arg (m_automated_test)
+        .arg (m_liveAudioTestAwaitFt8InputCompletion)
+        .arg (frames);
+    }
+
+  if (m_downSampleFactor > 1
+      && !QMetaObject::invokeMethod (
+        m_detector, "flushBufferedFrames", Qt::BlockingQueuedConnection,
+        Q_ARG (qint64, DecoderIpc::Ft8SampleCount)))
+    {
+      return tr ("Unable to flush the final FT8 downsampling block.");
+    }
+
+  {
+    QMutexLocker lock {&dec_data_mutex ()};
+    if (dec_data.params.kin != DecoderIpc::Ft8SampleCount)
+      {
+        return tr ("FT8 input completed with %1 of %2 samples in the decode buffer.")
+          .arg (dec_data.params.kin)
+          .arg (DecoderIpc::Ft8SampleCount);
+      }
+  }
+
+  m_liveAudioTestFt8InputComplete = true;
+  if (m_liveAudioTestPendingFt8FinalPeriod >= 0)
+    {
+      auto const period = m_liveAudioTestPendingFt8FinalPeriod;
+      m_liveAudioTestPendingFt8FinalPeriod = -1;
+      m_liveAudioTestAwaitFt8InputCompletion = false;
+      m_liveAudioTestFt8InputComplete = false;
+      decode (Ft8MtdDecodeCoordinator::Stage::Final, period);
+    }
+  return {};
 }
 
 MainWindow::LiveAudioTestFt8TransmitRequest

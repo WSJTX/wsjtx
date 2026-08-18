@@ -215,6 +215,8 @@ public:
   static constexpr int liveAudioTestDecodeLowFrequency () {return 200;}
   static constexpr int liveAudioTestDecodeHighFrequency () {return 3000;}
   bool configureLiveAudioTestDecodeRange ();
+  bool prepareLiveAudioTestFt8InputCompletion ();
+  QString completeLiveAudioTestFt8Input (qint64 frames);
   LiveAudioTestFt8TransmitRequest startLiveAudioTestFt8Transmit (
     qint64 targetPeriodStartMs);
 #endif
@@ -230,6 +232,7 @@ public:
                              int halfSymbols, int sampleCount,
                              int lowFrequency, int highFrequency) const;
   void decoderOutputLine (QByteArray line) const;
+  void liveAudioTestJttyFramesConsumed (qint64 frames) const;
   void liveAudioTestFt8TransmitStartDecided (qint64 sessionId,
                                              qint64 generation,
                                              qint64 targetPeriodStartMs,
@@ -988,6 +991,11 @@ private:
   ActiveJt9Decode m_activeJt9Decode;
   DecoderOutputFramer m_decoderOutputFramer;
   Ft8MtdDecodeCoordinator m_ft8MtdDecodeCoordinator;
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  qint64 m_liveAudioTestPendingFt8FinalPeriod {-1};
+  bool m_liveAudioTestAwaitFt8InputCompletion {false};
+  bool m_liveAudioTestFt8InputComplete {false};
+#endif
 
   // start ft8md
   bool    m_FT8EarlyStart;   
@@ -1443,7 +1451,7 @@ private:
       Ft8MtdDecodeCoordinator::Stage ft8Stage = Ft8MtdDecodeCoordinator::Stage::None,
       qint64 ft8Period = -1);
   DecodePublishResult publishPendingFt8Decode ();
-  void decode (Ft8MtdDecodeCoordinator::Stage stage);
+  void decode (Ft8MtdDecodeCoordinator::Stage stage, qint64 ft8Period = -1);
   qint64 currentFt8DecodePeriod () const;
   bool usesFt8MtdFinal () const;
   int configuredFt8MtdEarlyStageCount () const;

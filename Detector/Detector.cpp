@@ -1,4 +1,5 @@
 #include "Detector.hpp"
+#include <algorithm>
 #include <QDateTime>
 #include <QtAlgorithms>
 #include <QDebug>
@@ -35,6 +36,32 @@ Detector::Detector (unsigned frameRate, double periodLengthInSeconds,
 void Detector::setBlockSize (unsigned n)
 {
   m_samplesPerFFT = n;
+}
+
+void Detector::flushBufferedFrames (qint64 frameLimit)
+{
+  qint64 framesWritten {0};
+  {
+    QMutexLocker lock {&dec_data_mutex ()};
+    if (m_downSampleFactor <= 1 || !m_bufferPos
+        || dec_data_input_blocked () || dec_data.params.kin >= frameLimit)
+      {
+        return;
+      }
+
+    auto const blockFrames = m_samplesPerFFT * m_downSampleFactor;
+    std::fill (m_buffer.data () + m_bufferPos,
+               m_buffer.data () + blockFrames, 0);
+    qint32 framesToProcess = blockFrames;
+    qint32 framesAfterDownSample = m_samplesPerFFT;
+    fil4_ (m_buffer.data (), &framesToProcess,
+           &dec_data.d2[dec_data.params.kin], &framesAfterDownSample);
+    dec_data.params.kin = std::min<qint64> (
+      frameLimit, dec_data.params.kin + framesAfterDownSample);
+    framesWritten = dec_data.params.kin;
+    m_bufferPos = 0;
+  }
+  Q_EMIT this->framesWritten (framesWritten);
 }
 
 bool Detector::reset ()

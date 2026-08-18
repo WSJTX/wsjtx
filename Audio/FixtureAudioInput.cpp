@@ -21,6 +21,7 @@ FixtureAudioInput::FixtureAudioInput (QString path, Profile profile,
   , m_timer {new QTimer {this}}
 {
   m_timer->setSingleShot (true);
+  m_timer->setTimerType (Qt::PreciseTimer);
   connect (m_timer, &QTimer::timeout, this, &FixtureAudioInput::emitNextChunk);
 }
 
@@ -154,10 +155,13 @@ void FixtureAudioInput::stop ()
   m_tailFrames = 0;
   m_framesEmitted = 0;
   m_periodStartMs = 0;
+  m_jttyAcknowledgedInputFrames = 0;
   m_chunkIndex = 0;
   m_started = false;
   m_suspended = true;
   m_emitting = false;
+  m_jttyDecoderReady = false;
+  m_waitingForJttyDecoder = false;
 }
 
 void FixtureAudioInput::reset (bool)
@@ -168,6 +172,21 @@ void FixtureAudioInput::arm ()
 {
   m_armed = true;
   maybeSchedule ();
+}
+
+void FixtureAudioInput::acknowledgeJttyFrames (qint64 detectorFrames)
+{
+  if (Profile::Jtty != m_profile || detectorFrames < 0) return;
+
+  auto const inputFrames = detectorFrames * m_inputSampleRate / detectorSampleRate;
+  m_jttyAcknowledgedInputFrames = std::max (
+    m_jttyAcknowledgedInputFrames, inputFrames);
+  m_jttyDecoderReady = true;
+  if (m_waitingForJttyDecoder)
+    {
+      m_waitingForJttyDecoder = false;
+      scheduleNextChunk ();
+    }
 }
 
 void FixtureAudioInput::fail (QString const& message)
@@ -217,12 +236,37 @@ void FixtureAudioInput::emitNextChunk ()
       return;
     }
 
+  auto const target =
+    m_periodStartMs + m_framesEmitted * 1000 / m_inputSampleRate;
+  auto const now = QDateTime::currentMSecsSinceEpoch ();
+  if (now < target)
+    {
+      m_timer->start (static_cast<int> (target - now));
+      return;
+    }
+
   if (!m_framesEmitted)
     {
       Q_EMIT emissionStarted (m_periodStartMs);
     }
 
-  auto const remainingFrames = totalFrames () - m_framesEmitted;
+  auto remainingFrames = totalFrames () - m_framesEmitted;
+  if (Profile::Jtty == m_profile)
+    {
+      constexpr qint64 maxDetectorLeadFrames = 10240;
+      auto const maxInputLeadFrames =
+        maxDetectorLeadFrames * m_inputSampleRate / detectorSampleRate;
+      auto const allowedFrames = m_jttyDecoderReady
+        ? m_jttyAcknowledgedInputFrames + maxInputLeadFrames
+        : m_leadInFrames;
+      remainingFrames = std::min (
+        remainingFrames, allowedFrames - m_framesEmitted);
+      if (remainingFrames <= 0)
+        {
+          m_waitingForJttyDecoder = true;
+          return;
+        }
+    }
   auto const chunkFrames = std::min<qint64> (
     remainingFrames, m_chunkFrames.at (m_chunkIndex % m_chunkFrames.size ()));
   auto const chunkBytes = chunkFrames * bytesPerFrame;
