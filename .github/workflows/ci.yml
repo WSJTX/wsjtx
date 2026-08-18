@@ -65,7 +65,8 @@ jobs:
   # x86_64 smoke leg; sanitizer and broader platform coverage are opt-in.
   #
   #   * Default (every push / PR to develop): Linux x86_64 only -- `linux`.
-  #   * Sanitizers: runs on PRs carrying `sanitizers` or `full-ci`.
+  #   * ASan + UBSan: runs on PRs carrying `sanitizers` or `full-ci`.
+  #   * TSan: runs only on PRs carrying `sanitizers`.
   #   * Opt-in matrix (`linux-arm`, macos, macos-intel, windows): runs when a
   #     PR carries the `full-ci` label, or when the workflow is started manually
   #     ("Run workflow" / workflow_dispatch). Release builds are unaffected --
@@ -137,9 +138,7 @@ jobs:
   linux-tsan:
     name: Linux x86_64 TSan
     needs: [prepare, detect-build-system-changes, linux]
-    if: >-
-      contains(github.event.pull_request.labels.*.name, 'full-ci') ||
-      contains(github.event.pull_request.labels.*.name, 'sanitizers')
+    if: contains(github.event.pull_request.labels.*.name, 'sanitizers')
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 180
