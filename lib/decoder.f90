@@ -1,4 +1,4 @@
-subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
+subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_generation)
 
 !$ use omp_lib
   use prog_args
@@ -17,7 +17,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
   use streaming_emit, only: streaming_emit_enabled,                       &
        streaming_emit_decode
   use decode_completion_module, only: decode_completion_result,          &
-       reset_decode_completion, set_decode_completion
+       reset_decode_completion, set_decode_completion, write_decode_progress
 
 !ft8md added 3 uses below
   use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,mycall12_0,         &
@@ -70,6 +70,8 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
   integer :: ft8_range_count
   integer :: requested_threads
   integer :: nthr
+  integer, intent(in) :: progress_generation
+  integer :: active_progress_generation
   type(params_block) :: params
   type(decode_completion_result), intent(out) :: completion
   data ndelay/0/
@@ -98,6 +100,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
   type(counting_q65_decoder) :: my_q65  
 
   call reset_decode_completion(completion)
+  active_progress_generation=progress_generation
 
   my_jt4%decoded = 0
   my_jt65%decoded = 0
@@ -382,13 +385,17 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
                 params%napwid,params%lmycallstd,params%lhiscallstd,           &
                 params%nstophint,nthr,numthreads,logical(params%nagainfil),   &
                 params%lft8lowth,params%lft8subpass,params%lhideft8dupes,     &
-                params%lft8apon,ncontest,mtd_worker_residual(:,nthr),       &
+                params%lft8apon,ncontest,active_progress_generation,         &
+                mtd_worker_residual(:,nthr),                                  &
                 mtd_worker_spectrum(:,nthr))
 !$omp end parallel
 
+           call write_decode_progress(active_progress_generation)
            call mtd_finish(dd8)
 
+           call write_decode_progress(active_progress_generation)
            call run_ft8_mtd_a8_decode()
+           call write_decode_progress(active_progress_generation)
 
            do i=1,numthreads
               do m=1,nincallthr(i)
@@ -462,6 +469,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
            
            if(nFT8decd.gt.10 .and. nintcount.eq.1) avexdt=sumxdt/nFT8decd ! fast track after Sync or mode change on crowded bands
            call fillhashvar(numthreads,.true.)
+           call write_decode_progress(active_progress_generation)
            ncandall=sum(ncandallthr(1:numthreads))
            if(nFT8decd.eq.0) avexdt=0. ! reset to let correct sliding in decoder
            call timer('decft8  ',1)
@@ -732,6 +740,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion)
        (params%lmultift8 .and. params%nmode.eq.8 .and. params%nzhsym.gt.45) .or. &
        .not.params%ndiskdat) then !ft8md
      call set_decode_completion(completion,nsynced,ndecoded,navg0)
+     call write_decode_progress(active_progress_generation)
   endif
   close(13)
   if(ncontest.eq.6) close(19)
@@ -757,7 +766,8 @@ contains
     f1=nfqso
     dxgrid=hisgrid4
     call timer('ft8_a8d ',0)
-    call ft8_a8d(dd8,mycall,hiscall,dxgrid,f1,xdt,fbest,xsnr,plog,msg37)
+    call ft8_a8d(dd8,mycall,hiscall,dxgrid,f1,xdt,fbest,xsnr,plog,msg37, &
+         active_progress_generation)
     call timer('ft8_a8d ',1)
 
     if(msg37(1:1).ne.' ') then
@@ -1364,7 +1374,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   type(params_block) :: params
   type(decode_completion_result) :: completion
 
-  call multimode_decoder_core(ss,id2,params,nfsample,completion)
+  call multimode_decoder_core(ss,id2,params,nfsample,completion,0)
   if (.not. completion%available) return
 
   if (streaming_emit_enabled()) then

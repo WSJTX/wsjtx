@@ -24,10 +24,11 @@ contains
   subroutine decodevar(this,callback,nQSOProgress,nfqso,nft8rxfsens,nftx,nutc,  &
        nfa,nfb,ncandthin,ndtcenter,nsec,napwid,lmycallstd,lhiscallstd,          &
        stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes,  &
-       lft8apon,ncontest,residual,spectrum)
+       lft8apon,ncontest,progress_generation,residual,spectrum)
 
     use omp_lib
     use ft8_mtd_residual, only : mtd_publish_worker,mtd_transform_phase
+    use decode_completion_module, only : write_decode_progress
 
     use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
          lastrxmsg,lasthcall,calldteven,calldtodd,incall,oddcopy,evencopy,      &
@@ -55,7 +56,7 @@ contains
     real candidate(4,460)
     real qual !ft8md
     integer, intent(in) :: nQSOProgress,nfqso,nft8rxfsens,nftx,nfa,nfb,         &
-         ncandthin,ndtcenter,nsec,napwid,nthr,numthreads
+         ncandthin,ndtcenter,nsec,napwid,nthr,numthreads,progress_generation
     logical, intent(in) :: nagainfil
     logical(1), intent(in) :: stophint,lft8lowth,lft8subpass,lhideft8dupes,     &
          lmycallstd,lhiscallstd,lft8apon
@@ -235,10 +236,12 @@ contains
        endif
        if(ipass.gt.5 .or. (ipass.eq.3 .and. npass.eq.3)) lsubtract=.false.
 
+       call write_decode_progress(progress_generation)
        call sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,    &
-            ipass, &
-            lqsothread,ncandthin,ndtcenter)
+            ipass,lqsothread,ncandthin,ndtcenter,progress_generation)
+       call write_decode_progress(progress_generation)
        do icand=1,ncand
+          if(mod(icand,8).eq.0) call write_decode_progress(progress_generation)
           sync=candidate(3,icand)
           f1=candidate(1,icand)
           xdt=candidate(2,icand)
@@ -266,7 +269,8 @@ contains
                lft8s,lmycallstd,lhiscallstd,levenint,loddint,lft8sd,i3,n3,      &
                nft8rxfsens,ncount,msgsrcvd,lrepliedother,lhashmsg,lqsothread,   &
                lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig,                &
-               lnohiscall,lnomycall,lnohisgrid,qual,iaptype2)
+               lnohiscall,lnomycall,lnohisgrid,qual,iaptype2,                   &
+               progress_generation)
           nsnr=nint(xsnr)
           xdt=xdt-0.5
           if(nbadcrc.eq.0) then
@@ -408,6 +412,7 @@ contains
 !$omp end critical(find_dupes)
           endif
        enddo !icand
+       call write_decode_progress(progress_generation)
        ncandthr=ncandthr+ncand
     enddo !ipass
             
@@ -475,5 +480,6 @@ contains
     endif
 
     return
+
   end subroutine decodevar
 end module ft8_decodevar

@@ -43,6 +43,11 @@ bool DecoderIpc::hasUsableSize (qint64 size)
   return size >= static_cast<qint64> (sizeof (shared_dec_data_t));
 }
 
+bool DecoderIpc::hasShutdownControlSize (qint64 size)
+{
+  return size >= static_cast<qint64> (offsetof (decoder_ipc_control_t, progress));
+}
+
 qint32 DecoderIpc::state (shared_dec_data_t const& shared)
 {
   return decoder_ipc_atomic_load (&shared.control.state);
@@ -51,6 +56,11 @@ qint32 DecoderIpc::state (shared_dec_data_t const& shared)
 qint32 DecoderIpc::generation (shared_dec_data_t const& shared)
 {
   return decoder_ipc_atomic_load (&shared.control.generation);
+}
+
+qint32 DecoderIpc::progress (shared_dec_data_t const& shared)
+{
+  return decoder_ipc_atomic_load (&shared.control.progress);
 }
 
 qint32 DecoderIpc::protocolVersion (shared_dec_data_t const& shared)
@@ -62,7 +72,7 @@ void DecoderIpc::initialize (shared_dec_data_t& shared)
 {
   std::memset (&shared, 0, sizeof (shared));
   decoder_ipc_control_initialize (&shared.control.generation, &shared.control.state,
-                                  &shared.control.version);
+                                  &shared.control.version, &shared.control.progress);
 }
 
 void DecoderIpc::shutdown (shared_dec_data_t& shared)
@@ -72,7 +82,13 @@ void DecoderIpc::shutdown (shared_dec_data_t& shared)
 
 void DecoderIpc::shutdown (decoder_ipc_control_t& control)
 {
-  decoder_ipc_control_shutdown (&control.state, &control.version);
+  shutdownControl (&control);
+}
+
+void DecoderIpc::shutdownControl (void * control)
+{
+  auto * words = static_cast<int *> (control);
+  decoder_ipc_control_shutdown (words + 1, words + 2);
 }
 
 bool DecoderIpc::publish (shared_dec_data_t& shared, dec_data_t const& payload,
@@ -95,7 +111,8 @@ bool DecoderIpc::publish (shared_dec_data_t& shared, dec_data_t const& payload,
     }
   return decoder_ipc_control_publish (&shared.control.generation,
                                       &shared.control.state,
-                                      &shared.control.version, generation);
+                                      &shared.control.version,
+                                      &shared.control.progress, generation);
 }
 
 bool DecoderIpc::publishFt8Mtd (shared_dec_data_t& shared,
@@ -116,7 +133,8 @@ bool DecoderIpc::publishFt8Mtd (shared_dec_data_t& shared,
                sizeof payload.samples);
   return decoder_ipc_control_publish (&shared.control.generation,
                                       &shared.control.state,
-                                      &shared.control.version, generation);
+                                      &shared.control.version,
+                                      &shared.control.progress, generation);
 }
 
 bool DecoderIpc::claim (shared_dec_data_t& shared, qint32& generation)

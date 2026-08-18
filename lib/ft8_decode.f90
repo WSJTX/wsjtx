@@ -290,7 +290,7 @@ contains
 ! Try for an a8 decode at nfqso
       f1=nfqso
       call timer('ft8_a8d ',0)
-      call ft8_a8d(dd,mycall12,hiscall12,hisgrid,f1,xdt,fbest,xsnr,plog,msg37)
+      call ft8_a8d(dd,mycall12,hiscall12,hisgrid,f1,xdt,fbest,xsnr,plog,msg37,0)
       call timer('ft8_a8d ',1)
 
       if(msg37(1:1).ne.' ') then

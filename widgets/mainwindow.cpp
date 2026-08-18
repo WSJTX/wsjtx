@@ -5195,7 +5195,7 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
     {
       logDecoderAbnormalClear ("decode publication failed");
       m_activeJt9Decode = {};
-      endDecode (DecodeOwner::Jt9);
+      endDecode (DecodeOwner::Jt9, DecodeEndState::Aborted);
       return DecodePublishResult::Failed;
     }
 
@@ -5243,7 +5243,7 @@ MainWindow::DecodePublishResult MainWindow::publishPendingFt8Decode ()
         {
           logDecoderAbnormalClear ("pending FT8 decode publication failed");
           m_activeJt9Decode = {};
-          endDecode (DecodeOwner::Jt9);
+          endDecode (DecodeOwner::Jt9, DecodeEndState::Aborted);
           return PendingPublishResult::Failed;
         }
 
@@ -5340,7 +5340,7 @@ bool MainWindow::beginDecode (
   return true;
 }
 
-void MainWindow::endDecode (DecodeOwner owner)
+void MainWindow::endDecode (DecodeOwner owner, DecodeEndState state)
 {
   if (owner != m_decodeOwner)
     {
@@ -5352,7 +5352,14 @@ void MainWindow::endDecode (DecodeOwner owner)
       finishDecoderDiagnostic ();
     }
   m_decodeOwner = DecodeOwner::None;
-  Q_EMIT decodeCycleCompleted (m_decodeCycleGeneration);
+  if (DecodeEndState::Completed == state)
+    {
+      Q_EMIT decodeCycleCompleted (m_decodeCycleGeneration);
+    }
+  else
+    {
+      Q_EMIT decodeCycleAborted (m_decodeCycleGeneration);
+    }
   updateDecodeControls ();
 }
 
@@ -5387,7 +5394,10 @@ void MainWindow::abortJt9Transaction ()
   m_bNoMoreFiles = false;
   ui->DecodeButton->setChecked (false);
   ndecodes_label.setText ("Q65" == m_mode ? "0  0" : "0");
-  if (DecodeOwner::Jt9 == m_decodeOwner) endDecode (DecodeOwner::Jt9);
+  if (DecodeOwner::Jt9 == m_decodeOwner)
+    {
+      endDecode (DecodeOwner::Jt9, DecodeEndState::Aborted);
+    }
   else updateDecodeControls ();
 }
 
@@ -5395,6 +5405,12 @@ qint64 MainWindow::decoderDiagnosticElapsedMs() const
 {
   if(!m_decoderDiagActive || !m_decoderDiagElapsedTimer.isValid()) return -1;
   return m_decoderDiagElapsedTimer.elapsed();
+}
+
+qint64 MainWindow::decoderDiagnosticIdleMs() const
+{
+  if(!m_decoderDiagActive || !m_decoderDiagProgressTimer.isValid()) return -1;
+  return m_decoderDiagProgressTimer.elapsed();
 }
 
 qint64 MainWindow::decoderRequestDeadlineMs() const
@@ -5413,8 +5429,8 @@ qint64 MainWindow::decoderRequestDeadlineMs() const
 
 bool MainWindow::decoderRequestDeadlineExpired() const
 {
-  auto const elapsed = decoderDiagnosticElapsedMs ();
-  return elapsed >= 0 && elapsed >= decoderRequestDeadlineMs ();
+  auto const idle = decoderDiagnosticIdleMs ();
+  return idle >= 0 && idle >= decoderRequestDeadlineMs ();
 }
 
 void MainWindow::beginDecoderDiagnostic(
@@ -5424,6 +5440,7 @@ void MainWindow::beginDecoderDiagnostic(
   m_decoderDiagActive=true;
   m_decoderDiagActiveSequence=++m_decoderDiagSequence;
   m_decoderDiagElapsedTimer.start();
+  m_decoderDiagProgressTimer.start();
   m_decoderDiagStartMode=context ? context->mode : m_mode;
   m_decoderDiagStartTRperiod=context ? context->trPeriod : m_TRperiod;
   m_decoderDiagStartIhsym=params ? diagnosticParams.nzhsym : m_ihsym;
@@ -5432,10 +5449,16 @@ void MainWindow::beginDecoderDiagnostic(
   m_decoderDiagStartNewdat=diagnosticParams.newdat;
   m_decoderDiagStartNagain=diagnosticParams.nagain;
   m_decoderDiagStartNdiskdat=diagnosticParams.ndiskdat;
+  m_decoderDiagProgressCount=0;
   m_decoderDiagBusyRequestLogged=false;
   m_decoderDiagOverrunLogged=false;
   m_decoderDiagHardHangLogged=false;
   m_decoderDiagAbnormalClear=false;
+}
+
+void MainWindow::markDecoderProgress()
+{
+  if(m_decoderDiagActive) m_decoderDiagProgressTimer.restart();
 }
 
 void MainWindow::logDecoderBusyRequest(QString const& reason)
@@ -5459,6 +5482,22 @@ void MainWindow::logDecoderProgress()
 {
   if(DecodeOwner::Jt9 != m_decodeOwner || !m_decoderDiagActive) return;
 
+  if (DecoderIpc::hasUsableSize (mem_jt9->size ()) && mem_jt9->data ())
+    {
+      auto const * shared = reinterpret_cast<shared_dec_data_t const *> (
+          mem_jt9->constData ());
+      if (DECODER_IPC_VERSION == DecoderIpc::protocolVersion (*shared)
+          && m_activeJt9Decode.generation == DecoderIpc::generation (*shared))
+        {
+          auto const progress = DecoderIpc::progress (*shared);
+          if (progress != m_decoderDiagProgressCount)
+            {
+              m_decoderDiagProgressCount = progress;
+              markDecoderProgress ();
+            }
+        }
+    }
+
   auto const elapsedMs = decoderDiagnosticElapsedMs();
   if(elapsedMs < 0) return;
 
@@ -5478,11 +5517,13 @@ void MainWindow::logDecoderProgress()
   }
 
   auto const hardHangMs = decoderRequestDeadlineMs ();
-  if(!m_decoderDiagHardHangLogged && elapsedMs >= hardHangMs) {
+  auto const idleMs = decoderDiagnosticIdleMs ();
+  if(!m_decoderDiagHardHangLogged && idleMs >= hardHangMs) {
     qWarning() << "Decoder hard-hang candidate"
                << "seq:" << m_decoderDiagActiveSequence
                << "mode:" << m_decoderDiagStartMode
                << "elapsedMs:" << elapsedMs
+               << "idleMs:" << idleMs
                << "thresholdMs:" << hardHangMs
                << "TRperiod:" << m_decoderDiagStartTRperiod
                << "currentMode:" << m_mode
@@ -5494,6 +5535,7 @@ void MainWindow::logDecoderProgress()
       {
         readFromStdout ();
         if (DecodeOwner::Jt9 != m_decodeOwner || !m_decoderDiagActive) return;
+        if (!decoderRequestDeadlineExpired ()) return;
       }
     m_decoderDiagHardHangLogged=true;
     requestDecoderRestart ("decoder hard timeout");
@@ -5873,6 +5915,7 @@ bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& eve
         {
           return true;
         }
+      markDecoderProgress ();
       if (!m_activeJt9Decode.obsolete
           && !activeDecodeOperatingContextMatchesCurrent ())
         {
@@ -5896,6 +5939,10 @@ bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& eve
               requestDecoderRestart ("malformed decoder output frame");
             }
         }
+      else
+        {
+          markDecoderProgress ();
+        }
       return true;
     }
 
@@ -5915,6 +5962,10 @@ bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& eve
             {
               requestDecoderRestart ("decoder output generation mismatch");
             }
+        }
+      else
+        {
+          markDecoderProgress ();
         }
       return true;
     }

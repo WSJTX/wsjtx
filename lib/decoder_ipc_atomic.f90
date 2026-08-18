@@ -28,5 +28,22 @@ module decoder_ipc_atomic
        integer(c_int), value :: request_generation
        integer(c_int) :: decoder_ipc_control_finish
      end function decoder_ipc_control_finish
+
+     subroutine decoder_ipc_progress_bind(generation, state, version, &
+          progress) bind(C)
+       import c_int
+       integer(c_int), intent(in) :: generation
+       integer(c_int), intent(in) :: state
+       integer(c_int), intent(in) :: version
+       integer(c_int), intent(inout) :: progress
+     end subroutine decoder_ipc_progress_bind
+
+     subroutine decoder_ipc_progress_unbind() bind(C)
+     end subroutine decoder_ipc_progress_unbind
+
+     subroutine decoder_ipc_progress_report(request_generation) bind(C)
+       import c_int
+       integer(c_int), value :: request_generation
+     end subroutine decoder_ipc_progress_report
   end interface
 end module decoder_ipc_atomic

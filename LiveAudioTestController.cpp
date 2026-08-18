@@ -118,6 +118,10 @@ LiveAudioTestController::LiveAudioTestController (
              maybeFinish ();
              m_decoderStage = DecoderStage::None;
            });
+  connect (m_window, &MainWindow::decodeCycleAborted,
+           this, [this] (quint64) {
+             fail (QStringLiteral ("Decoder generation aborted before completion."));
+           });
   connect (m_window, &MainWindow::decoderOutputLine,
            this, [this] (QByteArray const& line) {
              auto const message = messageFromDecoderLine (line);

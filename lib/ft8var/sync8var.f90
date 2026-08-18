@@ -1,7 +1,8 @@
 subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass, &
-     lqsothread,ncandthin,ndtcenter)
+     lqsothread,ncandthin,ndtcenter,progress_generation)
 
   use ft8_mod1, only : windowx,facx,icos7,lagcc,lagccbail,nfawide,nfbwide
+  use decode_completion_module, only : write_decode_progress
   real, intent(in) :: residual(180000)
   include 'ft8_params.f90'
   complex cx(0:NH1)
@@ -10,7 +11,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
   real x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
   integer jpeak(NH1),indx(NH1),ii(1)
   integer, parameter :: max_sync_stencil=16
-  integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter
+  integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter,progress_generation
   logical(1) syncq(NH1,jzb:jzt),redcq(NH1),lcq,lcq2,lpass1,lpass2
   logical(1), intent(in) :: lqsothread
   equivalence (x,cx)
@@ -38,6 +39,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
       do i=1,NH1
         s(i,j)=SQRT(real(cx(i))**2 + aimag(cx(i))**2)
       enddo
+      if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
   if(ipass.eq.2 .or. ipass.eq.5 .or. ipass.eq.8) then
@@ -53,6 +55,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
       do i=1,NH1
         s(i,j)=real(cx(i))**2 + aimag(cx(i))**2
       enddo
+      if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
   if(ipass.eq.3 .or. ipass.eq.6 .or. ipass.eq.9) then
@@ -68,6 +71,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
       do i=1,NH1
         s(i,j)=abs(real(cx(i))) + abs(aimag(cx(i)))
       enddo
+      if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
 
@@ -126,6 +130,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
         endif
         sync2d(i,j)=max(sync_abc,sync_bc); if(lcq) syncq(i,j)=.true.
       enddo
+      if(mod(j-jzb+1,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   else
 !    nfos6=15 ! 16i spec bw -1
@@ -165,6 +170,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
         sync2d(i,j)=max(syncf,syncs)
         if(syncf.gt.syncs) then; if(lcq) syncq(i,j)=.true.; else; if(lcq2) syncq(i,j)=.true.; endif
       enddo
+      if(mod(j-jzb+1,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
 

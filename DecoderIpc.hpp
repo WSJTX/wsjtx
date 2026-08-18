@@ -29,12 +29,15 @@ namespace DecoderIpc
 
   qint32 nextGeneration (qint32 current);
   bool hasUsableSize (qint64 size);
+  bool hasShutdownControlSize (qint64 size);
   qint32 state (shared_dec_data_t const& shared);
   qint32 generation (shared_dec_data_t const& shared);
+  qint32 progress (shared_dec_data_t const& shared);
   qint32 protocolVersion (shared_dec_data_t const& shared);
   void initialize (shared_dec_data_t& shared);
   void shutdown (shared_dec_data_t& shared);
   void shutdown (decoder_ipc_control_t& control);
+  void shutdownControl (void * control);
   bool publish (shared_dec_data_t& shared, dec_data_t const& payload,
                 bool copySamples, qint32 generation);
   bool publishFt8Mtd (shared_dec_data_t& shared,

@@ -119,11 +119,11 @@ typedef struct shared_dec_data {
 
 #ifdef __cplusplus
 static_assert (sizeof (int) == 4, "decoder IPC requires 32-bit C integers");
-static_assert (sizeof (decoder_ipc_control_t) == 12,
-               "decoder IPC control header must remain 12 bytes");
+static_assert (sizeof (decoder_ipc_control_t) == 16,
+               "decoder IPC control header must remain 16 bytes");
 static_assert (offsetof (decoder_ipc_control_t, state) == 4,
                "decoder IPC state must remain at the legacy shutdown offset");
-static_assert (offsetof (shared_dec_data_t, payload) == 12,
+static_assert (offsetof (shared_dec_data_t, payload) == 16,
                "decoder payload must immediately follow the control header");
 static_assert (sizeof (shared_dec_data_t) ==
                sizeof (decoder_ipc_control_t) + sizeof (dec_data_t),

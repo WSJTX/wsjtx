@@ -1,7 +1,7 @@
   use, intrinsic :: iso_c_binding, only: c_int, c_short, c_float, c_char, c_bool
   include 'constants.f90'
 
-  integer(c_int), parameter :: DECODER_IPC_VERSION = 1
+  integer(c_int), parameter :: DECODER_IPC_VERSION = 2
   integer(c_int), parameter :: DECODER_IPC_IDLE = 0
   integer(c_int), parameter :: DECODER_IPC_READY = 1
   integer(c_int), parameter :: DECODER_IPC_DECODING = 2
@@ -15,6 +15,7 @@
      integer(c_int) :: generation
      integer(c_int) :: state
      integer(c_int) :: version
+     integer(c_int) :: progress
   end type decoder_ipc_control
 
   type, bind(C) :: params_block

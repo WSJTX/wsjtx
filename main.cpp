@@ -660,10 +660,9 @@ int main(int argc, char *argv[])
               if (mem_jt9.attach ()) // shared memory presence implies
                                      // orphaned jt9 sub-process
                 {
-                  if (DecoderIpc::hasUsableSize (mem_jt9.size ()))
+                  if (DecoderIpc::hasShutdownControlSize (mem_jt9.size ()))
                     {
-                      auto * control = reinterpret_cast<decoder_ipc_control_t *> (mem_jt9.data ());
-                      DecoderIpc::shutdown (*control);
+                      DecoderIpc::shutdownControl (mem_jt9.data ());
                     }
                   mem_jt9.detach (); // start again
                 }

@@ -3,8 +3,11 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <thread>
+#include <vector>
 
 #include "DecoderIpc.hpp"
+#include "lib/decoder_ipc_control.h"
 
 extern "C"
 {
@@ -22,6 +25,7 @@ private Q_SLOTS:
   void compactFt8MtdPublicationCopiesRequiredPayload ();
   void compactFt8MtdPublicationRejectsInvalidRequests ();
   void transitionsRequireMatchingGeneration ();
+  void sharedProgressTracksActiveGeneration ();
   void delayedCompletionCannotClobberNextRequest ();
   void compatibleShutdownReleasesWorkers ();
   void shutdownReplacesAnyState_data ();
@@ -37,21 +41,21 @@ private Q_SLOTS:
 
 void TestDecoderIpcProtocol::layoutMatchesFortran ()
 {
-  struct LegacySharedData
+  struct CompatibleSharedData
   {
-    int ipc[3];
+    int ipc[4];
     dec_data_t payload;
   };
 
-  QCOMPARE (sizeof (decoder_ipc_control_t), size_t {12});
+  QCOMPARE (sizeof (decoder_ipc_control_t), size_t {16});
   QCOMPARE (offsetof (decoder_ipc_control_t, state), size_t {4});
-  QCOMPARE (offsetof (shared_dec_data_t, payload), size_t {12});
+  QCOMPARE (offsetof (shared_dec_data_t, payload), size_t {16});
   QCOMPARE (sizeof (shared_dec_data_t),
             sizeof (decoder_ipc_control_t) + sizeof (dec_data_t));
-  QCOMPARE (sizeof (shared_dec_data_t), sizeof (LegacySharedData));
-  QCOMPARE (offsetof (LegacySharedData, ipc) + sizeof (int),
+  QCOMPARE (sizeof (shared_dec_data_t), sizeof (CompatibleSharedData));
+  QCOMPARE (offsetof (CompatibleSharedData, ipc) + sizeof (int),
             offsetof (decoder_ipc_control_t, state));
-  QCOMPARE (offsetof (LegacySharedData, payload),
+  QCOMPARE (offsetof (CompatibleSharedData, payload),
             offsetof (shared_dec_data_t, payload));
 
   std::unique_ptr<shared_dec_data_t> shared {new shared_dec_data_t};
@@ -76,9 +80,19 @@ void TestDecoderIpcProtocol::layoutMatchesFortran ()
 void TestDecoderIpcProtocol::sharedMemorySizeAllowsPlatformRounding ()
 {
   auto const required = static_cast<qint64> (sizeof (shared_dec_data_t));
+  auto const shutdownRequired = static_cast<qint64> (
+      offsetof (decoder_ipc_control_t, progress));
+  QVERIFY (!DecoderIpc::hasShutdownControlSize (shutdownRequired - 1));
+  QVERIFY (DecoderIpc::hasShutdownControlSize (shutdownRequired));
   QVERIFY (!DecoderIpc::hasUsableSize (required - 1));
   QVERIFY (DecoderIpc::hasUsableSize (required));
   QVERIFY (DecoderIpc::hasUsableSize (required + 80));
+
+  int compatibleControl[3] {17, DECODER_IPC_DECODING, 0};
+  DecoderIpc::shutdownControl (compatibleControl);
+  QCOMPARE (compatibleControl[0], 17);
+  QCOMPARE (compatibleControl[1], int {DECODER_IPC_SHUTDOWN});
+  QCOMPARE (compatibleControl[2], 1);
 }
 
 void TestDecoderIpcProtocol::publicationAndClaimValidateControl ()
@@ -218,6 +232,48 @@ void TestDecoderIpcProtocol::transitionsRequireMatchingGeneration ()
   DecoderIpc::shutdown (*shared);
 }
 
+void TestDecoderIpcProtocol::sharedProgressTracksActiveGeneration ()
+{
+  std::unique_ptr<shared_dec_data_t> shared {new shared_dec_data_t};
+  std::unique_ptr<dec_data_t> payload {new dec_data_t {}};
+  DecoderIpc::initialize (*shared);
+
+  QVERIFY (DecoderIpc::publish (*shared, *payload, false, 7));
+  qint32 claimed {0};
+  QVERIFY (DecoderIpc::claim (*shared, claimed));
+  QCOMPARE (DecoderIpc::progress (*shared), qint32 {0});
+
+  decoder_ipc_progress_bind (&shared->control.generation,
+                             &shared->control.state,
+                             &shared->control.version,
+                             &shared->control.progress);
+  decoder_ipc_progress_report (6);
+  QCOMPARE (DecoderIpc::progress (*shared), qint32 {0});
+  std::vector<std::thread> workers;
+  for (int worker = 0; worker < 4; ++worker)
+    {
+      workers.emplace_back ([] {
+          for (int report = 0; report < 1000; ++report)
+            {
+              decoder_ipc_progress_report (7);
+            }
+        });
+    }
+  for (auto& worker: workers) worker.join ();
+  QCOMPARE (DecoderIpc::progress (*shared), qint32 {4000});
+
+  QVERIFY (DecoderIpc::finish (*shared, 7));
+  decoder_ipc_progress_report (7);
+  QCOMPARE (DecoderIpc::progress (*shared), qint32 {4000});
+  QVERIFY (DecoderIpc::consume (*shared, 7));
+  QVERIFY (DecoderIpc::publish (*shared, *payload, false, 8));
+  QCOMPARE (DecoderIpc::progress (*shared), qint32 {0});
+
+  decoder_ipc_progress_unbind ();
+  decoder_ipc_progress_report (8);
+  QCOMPARE (DecoderIpc::progress (*shared), qint32 {0});
+}
+
 void TestDecoderIpcProtocol::delayedCompletionCannotClobberNextRequest ()
 {
   std::unique_ptr<shared_dec_data_t> shared {new shared_dec_data_t};
@@ -242,11 +298,13 @@ void TestDecoderIpcProtocol::delayedCompletionCannotClobberNextRequest ()
 
 void TestDecoderIpcProtocol::compatibleShutdownReleasesWorkers ()
 {
-  decoder_ipc_control_t control {17, 0, 0};
+  decoder_ipc_control_t control {17, 0, DECODER_IPC_VERSION, 4};
   DecoderIpc::shutdown (control);
 
+  QCOMPARE (control.generation, 17);
   QCOMPARE (control.state, int {DECODER_IPC_SHUTDOWN});
   QCOMPARE (control.version, 1);
+  QCOMPARE (control.progress, 4);
 }
 
 void TestDecoderIpcProtocol::shutdownReplacesAnyState_data ()
@@ -261,13 +319,13 @@ void TestDecoderIpcProtocol::shutdownReplacesAnyState_data ()
 void TestDecoderIpcProtocol::shutdownReplacesAnyState ()
 {
   QFETCH (int, state);
-  decoder_ipc_control_t control {17, state, DECODER_IPC_VERSION};
+  decoder_ipc_control_t control {17, state, DECODER_IPC_VERSION, 0};
 
   DecoderIpc::shutdown (control);
 
   QCOMPARE (control.generation, 17);
   QCOMPARE (control.state, int {DECODER_IPC_SHUTDOWN});
-  QCOMPARE (control.version, int {DECODER_IPC_VERSION});
+  QCOMPARE (control.version, 1);
 }
 
 void TestDecoderIpcProtocol::generationWrapsWithoutUsingZero ()

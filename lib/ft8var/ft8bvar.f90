@@ -5,11 +5,12 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
      nmycsignal,npass,i3bit,lft8s,lmycallstd,lhiscallstd,levenint,loddint,lft8sd, &
      i3,n3,nft8rxfsens,ncount,msgsrcvd,lrepliedother,lhashmsg,lqsothread,         &
      lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig,lnohiscall,               &
-     lnomycall,lnohisgrid,qual,iaptype2)
+     lnomycall,lnohisgrid,qual,iaptype2,progress_generation)
 
   use packjt77, only : unpack77, unpack77_configured, unpack77_options
   use ft8_mtd_residual, only : mtd_commit_subtraction,mtd_mark_spectrum_current, &
        mtd_refresh_candidate
+  use decode_completion_module, only : write_decode_progress
   use ft8_mod1, only : allmessages,ndecodes,apsym,mcq,m73,mrr73,mrrr,icos7,       &
        naptypes,nhaptypes,one,graymap,oddcopy,evencopy,lastrxmsg,lasthcall,       &
        nlasttx,calldteven,calldtodd,lqsomsgdcd,mycalllen1,msgroot,msgrootlen,     &
@@ -41,7 +42,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   real qual !ft8md  
   integer*1 message77(77),apmask(174),cw(174),nsmax(8)
   integer itone(79),ip(1),ka(1),nqsoend(3)
-  integer, intent(in) :: nQSOProgress,nfqso,nftx,napwid,nthr,ipass,nft8rxfsens
+  integer, intent(in) :: nQSOProgress,nfqso,nftx,napwid,nthr,ipass,nft8rxfsens, &
+       progress_generation
   logical newdat1,lsubtract,lFreeText,nagainfil,lspecial,unpk77_successvar
   logical rebuild_spectrum
   logical(1), intent(in) :: stophint,lft8subpass,lmycallstd,lhiscallstd,          &
@@ -1070,6 +1072,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
      endif
 
      do isubp1=1,nsubpasses
+        call write_decode_progress(progress_generation)
         if(nweak.eq.1 .and. isubp1.eq.2) cycle
    
        ! skip if it is lmycsignal, can be both lcq and lmy
@@ -1321,6 +1324,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
     !  print*,'hisgrid is ',hisgrid
 
         do isubp2=1,31
+           call write_decode_progress(progress_generation)
            if(isubp2.lt.5) then
               if(lapcqonly .or. lskipnotap) cycle
               if(ltxing) then
@@ -2108,7 +2112,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
               if(nagainfil) ndeep=5
 !print *,omp_get_nested(),OMP_get_num_threads()
 
-              call osd174_91var(llrz,apmask,ndeep,message77,cw,nharderrors,dmin,nthr)
+              call osd174_91var(llrz,apmask,ndeep,message77,cw,nharderrors,dmin, &
+                   nthr,progress_generation)
            endif
            
            nbadcrc=1

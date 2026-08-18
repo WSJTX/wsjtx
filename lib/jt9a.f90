@@ -1,7 +1,8 @@
 subroutine jt9a()
   use, intrinsic :: iso_c_binding, only: c_f_pointer, c_null_char, c_bool, c_sizeof, c_int
   use decoder_ipc_atomic, only: decoder_ipc_control_try_claim, &
-       decoder_ipc_control_finish, DECODER_IPC_CLAIM_INVALID, &
+       decoder_ipc_control_finish, decoder_ipc_progress_bind, &
+       decoder_ipc_progress_unbind, DECODER_IPC_CLAIM_INVALID, &
        DECODER_IPC_CLAIM_INCOMPATIBLE, DECODER_IPC_CLAIM_NONE, &
        DECODER_IPC_CLAIMED, DECODER_IPC_CLAIM_SHUTDOWN
   use decode_completion_module, only: decode_completion_result,          &
@@ -42,6 +43,10 @@ subroutine jt9a()
      go to 999
   endif
 
+  call decoder_ipc_progress_bind(shared_memory%control%generation, &
+       shared_memory%control%state, shared_memory%control%version, &
+       shared_memory%control%progress)
+
   call reset_decode_completion(completion)
 
 10 claim_result=decoder_ipc_control_try_claim( &
@@ -78,13 +83,13 @@ subroutine jt9a()
      id2a(1:nearly*3456)=shared_memory%payload%id2(1:nearly*3456)
      id2a(nearly*3456+1:)=0
      call multimode_decoder_core(shared_memory%payload%ss,id2a,local_params, &
-          12000,completion)
+          12000,completion,active_generation)
      nearly=47
      local_params%nzhsym=nearly
      id2a(1:nearly*3456)=shared_memory%payload%id2(1:nearly*3456)
      id2a(nearly*3456+1:)=0
      call multimode_decoder_core(shared_memory%payload%ss,id2a,local_params, &
-          12000,completion)
+          12000,completion,active_generation)
      local_params%nzhsym=50
   endif
   
@@ -99,7 +104,7 @@ subroutine jt9a()
         id2a(1:nearly*3456)=shared_memory%payload%id2(1:nearly*3456)
         id2a(nearly*3456+1:)=0
         call multimode_decoder_core(shared_memory%payload%ss,id2a,local_params, &
-             12000,completion)
+             12000,completion,active_generation)
         if(local_params%ndecoderstart.lt.2) then
            nearly=46
            local_params%lmultift8=.false.
@@ -107,7 +112,7 @@ subroutine jt9a()
            id2a(1:nearly*3456)=shared_memory%payload%id2(1:nearly*3456)
            id2a(nearly*3456+1:)=0
            call multimode_decoder_core(shared_memory%payload%ss,id2a,local_params, &
-                12000,completion)
+                12000,completion,active_generation)
         endif
         if(local_params%ndecoderstart.eq.0) nearly=49
         if(local_params%ndecoderstart.eq.1) nearly=50
@@ -165,7 +170,7 @@ subroutine jt9a()
   else
     ! Normal decoding pass
      call multimode_decoder_core(shared_memory%payload%ss, &
-          shared_memory%payload%id2,local_params,12000,completion)
+          shared_memory%payload%id2,local_params,12000,completion,active_generation)
   endif
 
   call timer('decoder ',1)
@@ -182,7 +187,8 @@ subroutine jt9a()
   endif
   go to 10
   
-999 call timer('decoder ',101)
+999 call decoder_ipc_progress_unbind()
+  call timer('decoder ',101)
 
   return
 end subroutine jt9a

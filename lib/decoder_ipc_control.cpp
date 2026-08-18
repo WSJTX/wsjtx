@@ -1,6 +1,8 @@
 #include "decoder_ipc_control.h"
 
+#include <atomic>
 #include <cstdint>
+#include <limits>
 
 #if defined (_MSC_VER)
 #include <intrin.h>
@@ -11,6 +13,11 @@ static_assert (sizeof (int) == sizeof (std::int32_t),
 
 namespace
 {
+  std::atomic<int const *> progressGeneration {nullptr};
+  std::atomic<int const *> progressState {nullptr};
+  std::atomic<int const *> progressVersion {nullptr};
+  std::atomic<int *> progressCounter {nullptr};
+
 #if defined (_MSC_VER)
   static_assert (sizeof (long) == sizeof (int),
                  "decoder IPC requires 32-bit MSVC interlocked words");
@@ -64,9 +71,10 @@ extern "C" int decoder_ipc_atomic_load (int const * value)
 }
 
 extern "C" void decoder_ipc_control_initialize (int * generation, int * state,
-                                                   int * version)
+                                                   int * version, int * progress)
 {
   atomicStore (generation, 0);
+  atomicStore (progress, 0);
   atomicStore (version, DECODER_IPC_VERSION);
   atomicStore (state, DECODER_IPC_IDLE);
 }
@@ -80,6 +88,7 @@ extern "C" void decoder_ipc_control_shutdown (int * state,
 
 extern "C" int decoder_ipc_control_publish (int * generation, int * state,
                                              int const * version,
+                                             int * progress,
                                              int request_generation)
 {
   if (request_generation <= 0 || !hasCurrentVersion (version)
@@ -88,6 +97,7 @@ extern "C" int decoder_ipc_control_publish (int * generation, int * state,
       return 0;
     }
 
+  atomicStore (progress, 0);
   atomicStore (generation, request_generation);
   return compareExchange (state, DECODER_IPC_IDLE, DECODER_IPC_READY);
 }
@@ -135,4 +145,47 @@ extern "C" int decoder_ipc_control_consume (int const * generation, int * state,
     }
 
   return compareExchange (state, DECODER_IPC_COMPLETE, DECODER_IPC_IDLE);
+}
+
+extern "C" void decoder_ipc_progress_bind (int const * generation,
+                                             int const * state,
+                                             int const * version,
+                                             int * progress)
+{
+  progressGeneration.store (generation, std::memory_order_relaxed);
+  progressState.store (state, std::memory_order_relaxed);
+  progressVersion.store (version, std::memory_order_relaxed);
+  progressCounter.store (progress, std::memory_order_release);
+}
+
+extern "C" void decoder_ipc_progress_unbind ()
+{
+  progressCounter.store (nullptr, std::memory_order_release);
+  progressVersion.store (nullptr, std::memory_order_relaxed);
+  progressState.store (nullptr, std::memory_order_relaxed);
+  progressGeneration.store (nullptr, std::memory_order_relaxed);
+}
+
+extern "C" void decoder_ipc_progress_report (int request_generation)
+{
+  auto * progress = progressCounter.load (std::memory_order_acquire);
+  auto const * version = progressVersion.load (std::memory_order_relaxed);
+  auto const * state = progressState.load (std::memory_order_relaxed);
+  auto const * generation = progressGeneration.load (std::memory_order_relaxed);
+  if (!progress || !version || !state || !generation
+      || request_generation <= 0
+      || DECODER_IPC_VERSION != atomicLoad (version)
+      || DECODER_IPC_DECODING != atomicLoad (state)
+      || request_generation != atomicLoad (generation))
+    {
+      return;
+    }
+
+  for (;;)
+    {
+      auto const current = atomicLoad (progress);
+      auto const next = std::numeric_limits<int>::max () == current
+        ? 1 : current + 1;
+      if (compareExchange (progress, current, next)) return;
+    }
 }

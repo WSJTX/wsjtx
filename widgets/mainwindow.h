@@ -226,6 +226,7 @@ public:
   void decoderBackendFailed (QString reason) const;
   void decodeCycleStarted (quint64 generation) const;
   void decodeCycleCompleted (quint64 generation) const;
+  void decodeCycleAborted (quint64 generation) const;
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   void ft8DecoderInvocation (bool multithreaded, int threadCount, int depth,
                              int cycles, bool subpass, int decoderStart,
@@ -280,6 +281,12 @@ private:
     None,
     Jt9,
     Wsprd
+  };
+
+  enum class DecodeEndState
+  {
+    Completed,
+    Aborted
   };
 
   enum class Jt9ProcessPhase
@@ -964,8 +971,10 @@ private:
   qint32  m_decoderDiagStartNewdat=0;
   qint32  m_decoderDiagStartNagain=0;
   qint32  m_decoderDiagStartNdiskdat=0;
+  qint32  m_decoderDiagProgressCount=0;
   double  m_decoderDiagStartTRperiod=0.0;
   QElapsedTimer m_decoderDiagElapsedTimer;
+  QElapsedTimer m_decoderDiagProgressTimer;
   QString m_decoderDiagStartMode;
   QMap<QString, QDateTime> m_decoderDiagLastSampleUtc;
 
@@ -1475,7 +1484,8 @@ private:
   bool beginDecode(
       DecodeOwner owner, decoder_params_t const * diagnosticParams = nullptr,
       DecodeOperatingContext const * diagnosticContext = nullptr);
-  void endDecode(DecodeOwner owner);
+  void endDecode(DecodeOwner owner,
+                 DecodeEndState state = DecodeEndState::Completed);
   void updateDecodeControls();
   bool usesJt9Process() const;
   bool decoderRestartInProgress() const;
@@ -1483,11 +1493,13 @@ private:
   void recoverDecoderAtBoundary(QString const& reason, bool manual);
   void requestDecoderRestart(QString const& reason);
   qint64 decoderDiagnosticElapsedMs() const;
+  qint64 decoderDiagnosticIdleMs() const;
   qint64 decoderRequestDeadlineMs() const;
   bool decoderRequestDeadlineExpired() const;
   void beginDecoderDiagnostic(
       decoder_params_t const * params = nullptr,
       DecodeOperatingContext const * context = nullptr);
+  void markDecoderProgress();
   void logDecoderBusyRequest(QString const& reason);
   void logDecoderProgress();
   void logDecoderAbnormalClear(QString const& reason);
