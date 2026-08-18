@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
   QString dataDir = writableMap65DataDir();
   QSettings settings(map65SettingsFile(appDir, dataDir), QSettings::IniFormat);
   settings.beginGroup("Common");
-  int srFlag = settings.value("FSam96000", 1).toInt();
+  int srFlag = readFSam96000(settings, 1);
   settings.endGroup();
   if(srFlag <= 1) g_sampleRate = 96000;
   else if(srFlag == 2) g_sampleRate = 192000;

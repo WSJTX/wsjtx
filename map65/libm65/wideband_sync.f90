@@ -315,16 +315,28 @@ contains
       do i = ia, ib
          if (sync(i)%ccfmax .lt. syncmin) cycle
          if ((i .lt. 1) .or. (i .gt. (nfft_active - nbw))) cycle !w3sz debug
-         ! Restrict the local-peak search, and the blanking below, to bins
-         ! of the same signal type as sync(i) (iflip: 0=Q65, +/-1=JT65).
-         ! Q65 and JT65 sync correlations are computed independently per
-         ! bin above and are NOT duplicate detections of each other just
-         ! because they're close in frequency -- collapsing across types
-         ! here would erase a real, independent detection of one type
-         ! whenever it falls within one blanking window of a stronger
-         ! detection of the other type (confirmed via BLANK COLLISION
-         ! logging: a strong JT65 signal was silently erasing a co-channel
-         ! Q65 signal ~100 Hz away, every cycle).
+         ! Restrict the local-peak search to bins of the same signal type
+         ! as sync(i) (iflip: 0=Q65, +/-1=JT65), so a strong signal of one
+         ! type doesn't nominate itself as "the peak" for a window that's
+         ! really centered on a different, independent signal of the other
+         ! type.
+         !
+         ! Blanking below is unconditional for same-type bins (that's the
+         ! whole point of this pass: collapse a strong signal's own nearby
+         ! sidelobes/duplicates down to one surviving peak). For cross-type
+         ! bins, only blank ones that could never have become a candidate
+         ! on their own merit anyway (ccfmax < SNR1_THRESHOLD). This still
+         ! protects a real, independent detection of the other type -- a
+         ! bin can only ever reach get_candidates() if its ccfmax clears
+         ! SNR1_THRESHOLD there too, so anything strong enough to matter is
+         ! never touched here (confirmed via BLANK COLLISION logging: a
+         ! strong JT65 signal was silently erasing a co-channel Q65 signal
+         ! ~100 Hz away, every cycle). What it additionally suppresses is
+         ! sub-threshold cross-type correlation leakage from a strong
+         ! signal or birdie spilling into nearby bins -- previously immune
+         ! to blanking purely because it happened to score against a
+         ! different sync pattern than the dominant peak, which was
+         ! surfacing as spurious low-SNR JT65 candidates next to birdies.
          spk = maxval(sync(i:i + nbw)%ccfmax, mask=(sync(i:i + nbw)%iflip .eq. sync(i)%iflip))
          ip = maxloc(sync(i:i + nbw)%ccfmax, mask=(sync(i:i + nbw)%iflip .eq. sync(i)%iflip))
          i0 = ip(1) + i - 1
@@ -335,6 +347,8 @@ contains
          if (ja .gt. nfft_active) cycle !ja = NFFT  !w3sz debug
          if (jb .gt. nfft_active) cycle !jb = NFFT  !w3sz debug
          where (sync(ja:jb)%iflip .eq. sync(i0)%iflip) sync(ja:jb)%ccfmax = 0.
+         where (sync(ja:jb)%iflip .ne. sync(i0)%iflip .and. sync(ja:jb)%ccfmax .lt. SNR1_THRESHOLD) &
+            sync(ja:jb)%ccfmax = 0.
          sync(i0)%ccfmax = spk
       enddo
 

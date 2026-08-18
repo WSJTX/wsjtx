@@ -6,6 +6,8 @@
 #include <QStandardPaths>
 #include <QDebug>
 #include <QStringList>
+#include <QSettings>
+#include <QVariant>
 
 namespace
 {
@@ -57,6 +59,17 @@ QString map65SettingsFile(QString const& appDir, QString const& dataDir)
     }
   }
   return settingsFile;
+}
+
+int readFSam96000(QSettings const& settings, int defaultValue)
+{
+  QString text = settings.value("FSam96000", QString::number(defaultValue)).toString();
+  if (text.compare("true", Qt::CaseInsensitive) == 0) return 1;    // legacy bool: true  == 96000
+  if (text.compare("false", Qt::CaseInsensitive) == 0) return 0;   // legacy bool: false == 95238
+  bool ok = false;
+  int value = text.toInt(&ok);
+  if (ok && value >= 0 && value <= 2) return value;                // current int: 0/1/2
+  return defaultValue;
 }
 
 QString map65RuntimeFile(QString const& dataDir, QString const& fileName)

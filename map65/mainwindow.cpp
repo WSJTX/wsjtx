@@ -877,7 +877,7 @@ void MainWindow::writeSettings()
   settings.setValue("Fcal",m_fCal);
   settings.setValue("Fadd",m_fAdd);
   settings.setValue("NetworkInput", m_network);
-  settings.setValue("FSam96000", m_pendingFs96000 >= 0 ? m_pendingFs96000 : m_fs96000);
+  settings.setValue("FSam96000", QString::number(m_pendingFs96000 >= 0 ? m_pendingFs96000 : m_fs96000));
   settings.setValue("SoundInIndex",m_nDevIn);
   settings.setValue("paInDevice",m_paInDevice);
   settings.setValue("SoundOutIndex",m_nDevOut);
@@ -959,7 +959,20 @@ void MainWindow::readSettings()
   ui->actionFind_Delta_Phi->setEnabled(m_xpol);
   m_xpolx=settings.value("XpolX",false).toBool();
   m_saveDir=settings.value("SaveDir",QDir {m_dataDir}.absoluteFilePath("save")).toString();
-  m_azelDir=settings.value("AzElDir",m_appDir).toString();
+  m_azelDir=settings.value("AzElDir",m_dataDir).toString();
+  if (!settings.value("AzElDirMigratedToDataDir",false).toBool()) {
+    // One-time migration: earlier versions defaulted AzElDir to the
+    // application/bin directory instead of the user data directory, and
+    // that default got persisted the first time settings were saved. An
+    // exact-match check against the *current* m_appDir can't catch this,
+    // since the saved value may point at some older build's bin directory
+    // that no longer matches this run's m_appDir at all. So instead: force
+    // everyone onto the new default exactly once, unconditionally, then
+    // remember it's done so a deliberate later customization (via the
+    // Setup dialog's AzEl Directory field) is never overwritten again.
+    m_azelDir = m_dataDir;
+    settings.setValue("AzElDirMigratedToDataDir",true);
+  }
   m_editorCommand=settings.value("Editor","notepad").toString();
   m_dxccPfx=settings.value("DXCCpfx","").toString();
   m_timeout=settings.value("Timeout",20).toInt();
@@ -970,7 +983,7 @@ void MainWindow::readSettings()
   m_fAdd=settings.value("Fadd",0).toDouble();
   soundInThread.setFadd(m_fAdd);
   m_network = settings.value("NetworkInput",true).toBool();
-  m_fs96000 = settings.value("FSam96000",1).toInt();
+  m_fs96000 = readFSam96000(settings,1);
   qDebug() << "In MainWindow::readSettings FSam96000 is read as:" << m_fs96000;
   m_nDevIn = settings.value("SoundInIndex", 0).toInt();
   m_paInDevice = settings.value("paInDevice",0).toInt();
