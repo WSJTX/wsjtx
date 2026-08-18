@@ -144,10 +144,12 @@ subroutine jt9a()
      endif
   elseif (local_params%nmode.eq.8 .and. local_params%lmultift8 .and. .not. &
        local_params%ndiskdat) then
-     npts1=180000
+     npts1=min(180000,local_params%nzhsym*3456)
      dd(1:npts1)=shared_memory%payload%id2(1:npts1)
+     dd(npts1+1:)=0
      rms=sum(abs(dd(1:10))) + sum(abs(dd(76001:76010))) + sum(abs(dd(151670:151680)))
      dd8(1:npts1)=dd(1:npts1)
+     dd8(npts1+1:)=0
 
 !### WHY WAS THIS STUFF HERE ??? ###
 !     if(rms.gt.0.001) then
