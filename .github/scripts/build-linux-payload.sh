@@ -51,8 +51,8 @@ cd /work
 # The Bookworm GCC image runs as root and already provides GCC, G++, and
 # GFortran in /usr/local. Keep the remaining packages aligned with the
 # composite action's dependency step.
-apt-get update
-apt-get install -y --no-install-recommends \
+.github/scripts/run-apt-get.sh update
+.github/scripts/run-apt-get.sh install -y --no-install-recommends \
   ca-certificates curl git \
   build-essential cmake \
   libfftw3-dev libboost-all-dev \

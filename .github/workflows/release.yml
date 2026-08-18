@@ -13,6 +13,7 @@ jobs:
   # single output so the six platform artifacts cannot disagree.
   prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
       release_channel: ${{ steps.v.outputs.release_channel }}
@@ -115,7 +116,7 @@ jobs:
 
   # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Built via
   # QEMU user-mode emulation in a debian:bookworm-slim arm/v7 container on
-  # ubuntu-24.04-arm. Wall-clock budget ~50–80 min vs ~10 min native — the
+  # ubuntu-24.04-arm. Wall-clock budget is about 105 min vs ~10 min native — the
   # cost is justified once-per-release here, NOT once-per-PR (ci.yml
   # intentionally does NOT include this leg). See build-linux.yml's
   # build-armhf job for the QEMU + --platform recipe.
@@ -147,6 +148,7 @@ jobs:
   release:
     needs: [prepare, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
     runs-on: ubuntu-latest
+    timeout-minutes: 150
     permissions:
       contents: write
     steps:

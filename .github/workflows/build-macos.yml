@@ -86,6 +86,7 @@ jobs:
     # runs-on cannot reference job-level env, so keep this expression and RUNNER
     # aligned. RUNNER also keeps cache keys consistent across both triggers.
     runs-on: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
+    timeout-minutes: 45
     env:
       RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
       DEPLOYMENT_TARGET: ${{ inputs.deployment_target || (inputs.arch == 'x86_64' && '10.13' || '11.0') }}

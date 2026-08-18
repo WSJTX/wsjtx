@@ -20,13 +20,17 @@ jobs:
   smoke:
     if: github.repository == 'WSJTX/wsjtx'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       actions: read
       contents: read
     steps:
+      - uses: actions/checkout@v7
+
       - name: Build trivial PE file
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q gcc-mingw-w64-x86-64
+          .github/scripts/run-apt-get.sh update -q
+          .github/scripts/run-apt-get.sh install -y -q gcc-mingw-w64-x86-64
           cat > smoke.c <<'EOF'
           #include <stdio.h>
           int main(void) { puts("WSJT SignPath smoke test"); return 0; }
@@ -51,12 +55,13 @@ jobs:
           signing-policy-slug: ${{ inputs.signing-policy-slug }}
           github-artifact-id: ${{ steps.upload.outputs.artifact-id }}
           wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: "3600"
           output-artifact-directory: signed
 
       - name: Verify returned signature
         run: |
           echo "Signing request: ${{ steps.signpath.outputs.signing-request-web-url }}"
-          sudo apt-get install -y -q osslsigncode
+          .github/scripts/run-apt-get.sh install -y -q osslsigncode
           ls -la signed/
           # The test cert never chains to a trusted root, so chain
           # verification can't gate here. Require instead that an

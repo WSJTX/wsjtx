@@ -51,15 +51,9 @@ runs:
         ARCH: ${{ inputs.arch }}
       run: .github/scripts/validate-ci-inputs.sh
 
-    # The aarch64 leg runs inside gcc:13.4.0-bookworm as root. The x86_64 leg
-    # runs on ubuntu-24.04 where sudo is required. This step covers both.
     - name: Install dependencies
       shell: bash
       run: |
-        SUDO=""
-        if [ "$(id -u)" != "0" ]; then
-          SUDO="sudo"
-        fi
         packages=(
           ca-certificates curl git
           build-essential cmake ccache
@@ -80,8 +74,8 @@ runs:
         if ! command -v gfortran >/dev/null 2>&1; then
           packages+=(gfortran)
         fi
-        $SUDO apt-get update
-        $SUDO apt-get install -y --no-install-recommends "${packages[@]}"
+        .github/scripts/run-apt-get.sh update
+        .github/scripts/run-apt-get.sh install -y --no-install-recommends "${packages[@]}"
 
     - name: Select GCC 13.4 Bookworm toolchain
       if: inputs.runtime_base == 'bookworm-gcc13.4'

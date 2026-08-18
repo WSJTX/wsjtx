@@ -68,8 +68,8 @@ runs:
       if: inputs.sanitizer == 'asan-ubsan'
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
+        .github/scripts/run-apt-get.sh update
+        .github/scripts/run-apt-get.sh install -y --no-install-recommends \
           ca-certificates git \
           build-essential binutils cmake ccache \
           libfftw3-dev \

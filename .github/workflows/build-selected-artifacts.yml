@@ -37,6 +37,7 @@ concurrency:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
@@ -53,6 +54,7 @@ jobs:
 
   detect-build-system-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       recache: ${{ steps.detect.outputs.recache }}
     steps:

@@ -101,6 +101,7 @@ jobs:
   build-x86_64:
     if: inputs.arch == 'x86_64'
     runs-on: ubuntu-24.04
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v7
       - name: Validate workflow inputs
@@ -124,6 +125,7 @@ jobs:
   build-aarch64:
     if: inputs.arch == 'aarch64'
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
     # The official GCC image adds GCC 13.4 without moving off the Bookworm
     # glibc 2.36 and pre-t64 runtime baseline (issue #49).
     container:
@@ -151,6 +153,7 @@ jobs:
   build-armhf:
     if: inputs.arch == 'armhf'
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 160
     # 32-bit ARM (armhf) runtime for DigiPi / Raspberry Pi Zero 2W class
     # (issue #51). Builds inside gcc:13.4.0-bookworm arm/v7 on the aarch64
     # ubuntu-24.04-arm runner via QEMU user-mode emulation.
@@ -172,7 +175,7 @@ jobs:
     # so the diff vs build-aarch64 (which DOES use `container:`) doesn't
     # read as inconsistent.
     #
-    # Wall-clock budget: ~50–80 min under QEMU vs ~10 min native. Asymmetric
+    # Wall-clock budget: about 105 min observed under QEMU vs ~10 min native. Asymmetric
     # CI gating (NOT in PR matrix; tags + workflow_dispatch only) — see
     # release.yml for the production wiring.
     env:

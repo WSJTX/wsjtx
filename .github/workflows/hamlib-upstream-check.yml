@@ -15,6 +15,7 @@ jobs:
     # Mirrored to the public repo at GA; upstream watch runs internal-only.
     if: github.repository == 'WSJTX/wsjtx-internal'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
