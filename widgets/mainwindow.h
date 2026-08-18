@@ -71,6 +71,7 @@
 #include "DecodeOperatingContext.hpp"
 #include "DecoderOutputFramer.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
+#include "RigFrequencyChangePolicy.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -368,7 +369,7 @@ private slots:
   void stopWRTimeout();
   void stopWCTimeout();
   void bandHoppingTimer();
-  void bandHopping();
+  void bandHopping(bool user_requested = false);
   void on_houndButton_clicked(bool checked);
   void on_cbHoldTxFreq_clicked (bool);
   void on_ft8Button_clicked();
@@ -659,6 +660,12 @@ private slots:
 #endif
 
 private:
+  enum class FrequencyRequestOrigin
+  {
+    User,
+    Automatic
+  };
+
   enum class DecodeAlertSound { None, DXcall, Wanted };
 
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
@@ -1412,7 +1419,19 @@ private:
   bool hasMsk144BaseFrequency () const {return m_msk144basefreq > 0;}
   void WSPR_scheduling ();
   void freqCalStep();
-  void setRig (Frequency = 0);  // zero frequency means no change
+  RigFrequencyChangePolicy::Activity rigFrequencyActivity () const;
+  RigFrequencyChangePolicy::Decision rigFrequencyChangeDecision (
+    RigFrequencyChangePolicy::ChangeKind) const;
+  bool nominalFrequencyChangeAllowed (FrequencyRequestOrigin);
+  bool requestNominalFrequencyChange (Frequency, FrequencyRequestOrigin);
+  bool requestBandChange (Frequency, FrequencyRequestOrigin);
+  bool workingFrequencyAt (int row, Frequency&) const;
+  void applyBandChange (Frequency, Frequency previous_frequency);
+  bool requestBandButtonFrequency (Frequency lookup_frequency, Frequency fallback_frequency,
+                                   double msk144_tr_period = 0.);
+  bool requestAlternateBandFrequency (Frequency);
+  bool reapplyCurrentRigFrequencyCorrection ();
+  void restoreNominalFrequencySelection ();
   void WSPR_history(Frequency dialFreq, int ndecodes);
   QString beacon_start_time (int n = 0);
   QString WSPR_message();

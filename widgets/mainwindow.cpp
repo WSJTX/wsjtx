@@ -49,6 +49,7 @@
 #include <QAction>
 #include <QButtonGroup>
 #include <QActionGroup>
+#include <QSignalBlocker>
 #include <QSplashScreen>
 #include <QUdpSocket>
 #include <QAbstractItemView>
@@ -1224,7 +1225,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->bandComboBox->setValidator (band_validator);
 
   // Hook up signals.
-  connect (band_validator, &LiveFrequencyValidator::valid, this, &MainWindow::band_changed);
+  connect (band_validator, &LiveFrequencyValidator::valid, this, [this] (Frequency frequency) {
+    requestBandChange (frequency, FrequencyRequestOrigin::User);
+  });
   connect (ui->bandComboBox->lineEdit (), &QLineEdit::textEdited, [this] (QString const&) {m_bandEdited = true;});
 
   // hook up configuration signals
@@ -1265,8 +1268,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       statusUpdate ();
 #if defined(Q_OS_WIN)
       QTimer::singleShot (250, this, [=] {
-        setRig (m_lastMonitoredFrequency);            // This is needed for Hamradio Deluxe
-        m_msk144basefreq = m_lastMonitoredFrequency;  // This is needed for Hamradio Deluxe
+        if (requestNominalFrequencyChange (
+              m_lastMonitoredFrequency, FrequencyRequestOrigin::Automatic))
+          {
+            m_msk144basefreq = m_lastMonitoredFrequency;  // This is needed for Hamradio Deluxe
+          }
       });
 #endif
     });
@@ -1484,8 +1490,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   if(m_mode=="Echo") {
     QTimer::singleShot (5000, this, [=] {
       auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
-      ui->bandComboBox->setCurrentIndex (row);
-      if (row >= 0) on_bandComboBox_activated (row);
+      Frequency frequency;
+      if (workingFrequencyAt (row, frequency)
+          && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic))
+        {
+          ui->bandComboBox->setCurrentIndex (row);
+          requestBandChange (frequency, FrequencyRequestOrigin::Automatic);
+        }
       if (m_monitoring) ui->monitorButton->click();
     });
   }
@@ -3191,8 +3202,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       return;
     case Qt::Key_F11:
       if((e->modifiers() & Qt::ControlModifier) and (e->modifiers() & Qt::ShiftModifier)) {
-        m_bandEdited = true;
-        band_changed(m_freqNominal-1000);
+        requestBandChange (m_freqNominal - 1000, FrequencyRequestOrigin::User);
       } else {
         n=11;
         if(e->modifiers() & Qt::ControlModifier) n+=100;
@@ -3207,8 +3217,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       return;
     case Qt::Key_F12:
       if((e->modifiers() & Qt::ControlModifier) and (e->modifiers() & Qt::ShiftModifier)) {
-        m_bandEdited = true;
-        band_changed(m_freqNominal+1000);
+        requestBandChange (m_freqNominal + 1000, FrequencyRequestOrigin::User);
       } else {
         n=12;
         if(e->modifiers() & Qt::ControlModifier) n+=100;
@@ -3381,7 +3390,7 @@ void MainWindow::displayDialFrequency ()
         ui->bandComboBox->setCurrentText (band_name.size () ? band_name : m_config.bands ()->oob ());
         m_wideGraph->setRxBand (band_name);
         m_lastBand = band_name;
-        band_changed(dial_frequency);
+        band_changed (dial_frequency);
       }
       // prevent wrong frequencies for all.txt, PSK Reporter and highlighting for late decodes after band changes
       m_displayBand = false;
@@ -4073,7 +4082,7 @@ void MainWindow::on_actionAstronomical_data_toggled (bool checked)
       connect (this, &MainWindow::finished, m_astroWidget.data (), &Astro::close);
       connect (m_astroWidget.data (), &Astro::tracking_update, [this] {
           m_astroCorrection = {};
-          setRig ();
+          reapplyCurrentRigFrequencyCorrection ();
           setXIT (ui->TxFreqSpinBox->value ());
           displayDialFrequency ();
         });
@@ -4092,10 +4101,15 @@ void MainWindow::on_actionAstronomical_data_toggled (bool checked)
 
 void MainWindow::skedFreq(double freqMHz)
 {
-  m_skedFreq=freqMHz;
-  m_bandEdited=true;
   Frequency f=qRound64(1000000.0*freqMHz);
-  band_changed(f);
+  if (requestBandChange (f, FrequencyRequestOrigin::User))
+    {
+      m_skedFreq=freqMHz;
+    }
+  else if (m_astroWidget)
+    {
+      m_astroWidget->setSkedFreq (m_skedFreq);
+    }
 }
 
 void MainWindow::on_actionQSYMessage_Creator_triggered()
@@ -5873,12 +5887,14 @@ void MainWindow::callSandP2(int n)
     return;
   }
 
+  bool frequency_changed = false;
   if(m_mode=="Q65") {
     if(w.size() < 7) return;
     if(!bCtrl) {                          //Do not reset m_freqNominal if CTRL was down
       double kHz=w[1].toDouble();
       int nMHz=m_freqNominal/1000000;
-      m_freqNominal=(nMHz*1000 + kHz)* 1000;
+      frequency_changed = requestNominalFrequencyChange (
+        (nMHz*1000 + kHz)* 1000, FrequencyRequestOrigin::User);
     }
     m_deCall=w[4];
     m_deGrid=w[5];
@@ -5923,8 +5939,10 @@ void MainWindow::callSandP2(int n)
       ui->autoButton->click(); // Enable Tx again, on double click
     }
     if(m_mode=="Q65" && m_ActiveStationsWidget!=NULL) {
-      setRig (m_freqNominal);
-      setXIT (ui->TxFreqSpinBox->value ());
+      if (frequency_changed || (bCtrl && reapplyCurrentRigFrequencyCorrection ()))
+        {
+          setXIT (ui->TxFreqSpinBox->value ());
+        }
     }
   } else {
     if(ui->autoButton->isChecked()) {
@@ -6727,7 +6745,7 @@ void MainWindow::guiUpdate()
       //### Allow late starts
       icw[0]=m_ncw;
       g_iptt = 1;
-      setRig ();
+      reapplyCurrentRigFrequencyCorrection ();
       if(m_mode=="FT8") {
         if (SpecOp::FOX == m_specOp) {
           if(m_config.superFox()) {
@@ -7232,7 +7250,9 @@ void MainWindow::guiUpdate()
       readWidebandDecodes();
     }
     if(ipc_qmap[5]>0) {
-      setRig((m_freqNominal/1000000)*1000000 + 1000*ipc_qmap[5]);
+      requestNominalFrequencyChange (
+        (m_freqNominal/1000000)*1000000 + 1000*ipc_qmap[5],
+        FrequencyRequestOrigin::Automatic);
       ipc_qmap[5]=0;
     }
     mem_qmap.unlock();
@@ -7876,8 +7896,10 @@ void MainWindow::on_txrb6_toggled(bool status)
   }
   if(m_mode=="MSK144" && !programStart && !m_band_changed && !keep_msk144_frequency
       && hasMsk144BaseFrequency ()) {
-    setRig(m_msk144basefreq);  // reset MSK144 QSY
-    msk144qsy = false;
+    if (requestNominalFrequencyChange (m_msk144basefreq, FrequencyRequestOrigin::User))
+      {
+        msk144qsy = false;
+      }
   }
 }
 
@@ -7983,16 +8005,21 @@ void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt:
     if(m_mode=="MSK144" && hasMsk144BaseFrequency () && message.frequencyOffset() > 0
        && (modifiers==Qt::ControlModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier))) {
       Frequency dial_frequency = m_msk144basefreq + (message.frequencyOffset() - 1500);
-      keep_msk144_frequency = true;
-      monitor (true);
-      setRig(dial_frequency);
-      ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
-      msk144qsy = true;
+      if (nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User))
+        {
+          keep_msk144_frequency = true;
+          monitor (true);
+          if (requestNominalFrequencyChange (dial_frequency, FrequencyRequestOrigin::User))
+            {
+              ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
+              msk144qsy = true;
+            }
+          keep_msk144_frequency = false;
+        }
       if(modifiers==Qt::AltModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier)) {
         m_bDoubleClicked = false;
         if (m_auto) auto_tx_mode (false);
       }
-      keep_msk144_frequency = false;
     }
     m_muted = false;
   }
@@ -8034,6 +8061,8 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
   snapshot.modifiers.alt = modifiers.testFlag(Qt::AltModifier);
   snapshot.fastMode = m_bFastMode;
   snapshot.transceiverOnline = m_config.is_transceiver_online();
+  snapshot.nominalQsyAllowed = rigFrequencyChangeDecision (
+    RigFrequencyChangePolicy::ChangeKind::NominalQsy).allowed;
   snapshot.enableVhfFeatures = m_config.enable_VHF_features();
   snapshot.holdTxFrequency = ui->cbHoldTxFreq->isChecked();
   snapshot.rxFrequencyEnabled = ui->RxFreqSpinBox->isEnabled();
@@ -8093,14 +8122,20 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
   case Effect::Kind::SetTxFrequency:
     ui->TxFreqSpinBox->setValue(effect.intValue);
     break;
-  case Effect::Kind::SetRigFrequency:
-    setRig(effect.frequency);
+  case Effect::Kind::ApplyFastCqQsy:
+    RigFrequencyChangePolicy::commitIfAccepted (
+      [this, &effect] {
+        return requestNominalFrequencyChange (
+          effect.frequency,
+          effect.userInitiated ? FrequencyRequestOrigin::User : FrequencyRequestOrigin::Automatic);
+      },
+      [this, &effect] {
+        ui->decodedTextBrowser2->displayQSY (effect.text);
+        if (effect.boolValue) m_msk144basefreq = effect.frequency;
+      });
     break;
-  case Effect::Kind::DisplayQsy:
-    ui->decodedTextBrowser2->displayQSY(effect.text);
-    break;
-  case Effect::Kind::SetMsk144BaseFrequency:
-    m_msk144basefreq = effect.frequency;
+  case Effect::Kind::RejectNominalQsy:
+    nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User);
     break;
   case Effect::Kind::SetTxFirst:
     m_txFirst = effect.boolValue;
@@ -8833,35 +8868,34 @@ void MainWindow::on_RoundRobin_currentTextChanged(QString text)
 
 void MainWindow::wheelEvent(QWheelEvent *event)         // mouse wheel events
 {
-  if(ui->labDialFreq->hasFocus() && !m_transmitting) {                         // kHz + or -
+  if(ui->labDialFreq->hasFocus()) {                         // kHz + or -
     Frequency dial_frequency {m_rigState.ptt () && m_rigState.split () ?
         m_rigState.tx_frequency () : m_rigState.frequency ()};
     if (event->angleDelta().x() > 2 or event->angleDelta().y() > 2) {
       dial_frequency = dial_frequency + 1000;
-      ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
     } else if (event->angleDelta().x() < -2 or event->angleDelta().y() < -2) {
       dial_frequency = dial_frequency - 1000;
-      ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
     }
-  if (m_astroWidget && m_astroWidget->doppler_tracking() && m_astroWidget->DopplerMethod()!=0) {
-    setRig(dial_frequency - m_astroCorrection.rx);
-  } else {
-    setRig(dial_frequency);
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-  ui->labDialFreq->clearFocus();
+    Frequency requested_frequency = dial_frequency;
+    if (m_astroWidget && m_astroWidget->doppler_tracking()
+        && m_astroWidget->DopplerMethod()!=0) {
+      requested_frequency -= m_astroCorrection.rx;
+    }
+    if (requestNominalFrequencyChange (requested_frequency, FrequencyRequestOrigin::User)) {
+      ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
+      setXIT (ui->TxFreqSpinBox->value ());
+    }
+    ui->labDialFreq->clearFocus();
   }
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 {
-  if(ui->labDialFreq->hasFocus() && !m_transmitting) {                         // kHz + or -
+  if(ui->labDialFreq->hasFocus()) {                         // kHz + or -
     if (event->button() & Qt::RightButton) {
-      m_bandEdited = true;
-      band_changed(m_freqNominal+1000);
+      requestBandChange (m_freqNominal + 1000, FrequencyRequestOrigin::User);
     } else if (event->button() & Qt::LeftButton) {
-      m_bandEdited = true;
-      band_changed(m_freqNominal-1000);
+      requestBandChange (m_freqNominal - 1000, FrequencyRequestOrigin::User);
     }
     ui->labDialFreq->clearFocus();
   }
@@ -9035,66 +9069,39 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   }
   // Toggle FT8 DXp frequencies
   if(ui->pb80->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(3567000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (3567000);
     ui->pb80->clearFocus();
   }
   if(ui->pb40->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(7056000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (7056000);
     ui->pb40->clearFocus();
   }
   if(ui->pb30->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(10131000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (10131000);
     ui->pb30->clearFocus();
   }
   if(ui->pb20->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(14090000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (14090000);
     ui->pb20->clearFocus();
   }
   if(ui->pb17->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(18095000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (18095000);
     ui->pb17->clearFocus();
   }
   if(ui->pb15->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(21091000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (21091000);
     ui->pb15->clearFocus();
   }
   if(ui->pb12->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(24911000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (24911000);
     ui->pb12->clearFocus();
   }
   if(ui->pb10->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
-    keep_frequency = true;
-    setRig(28091000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (28091000);
     ui->pb10->clearFocus();
   }
   if(ui->pb6->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
-    keep_frequency = true;
-    setRig(50323000);
-    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
-    setXIT (ui->TxFreqSpinBox->value ());
+    requestAlternateBandFrequency (50323000);
     ui->pb6->clearFocus();
   }
   if(ui->pb2->hasFocus() && (event->button() & Qt::RightButton)) {
@@ -9103,40 +9110,39 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       f = 222174000;
     } else {
       f = 70154000;
-      if (m_mode=="MSK144") {
+      if (m_mode=="MSK144"
+          && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User)) {
         ui->sbTR->setValue (m_msk144_tr6);
         programStart = true;
         QTimer::singleShot (250, this, [=] {programStart = false;});
       }
     }
-    auto const& row = m_config.frequencies ()->best_working_frequency (f);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(f);
-      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
+    if (nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User)) {
+      auto const row = m_config.frequencies ()->best_working_frequency (f);
+      if (row >= 0) {
+        ui->bandComboBox->setCurrentIndex (row);
+        on_bandComboBox_activated (row);
+      } else {
+        requestAlternateBandFrequency (f);
+      }
     }
-    setXIT (ui->TxFreqSpinBox->value ());
     ui->pb2->clearFocus();
   }
   if(ui->pb70->hasFocus() && (event->button() & Qt::RightButton)) {
-    auto const& row = m_config.frequencies ()->best_working_frequency (1296174000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(1296174000);
-      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
+    if (nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User)) {
+      auto const row = m_config.frequencies ()->best_working_frequency (1296174000);
+      if (row >= 0) {
+        ui->bandComboBox->setCurrentIndex (row);
+        on_bandComboBox_activated (row);
+      } else {
+        requestAlternateBandFrequency (1296174000);
+      }
     }
-    setXIT (ui->TxFreqSpinBox->value ());
     ui->pb70->clearFocus();
   }
   if (ui->pbBandHopping->hasFocus() && event->button() & Qt::RightButton) {  // Band Hopping button
     if(ui->pbBandHopping->isChecked()) {
-      bandHopping();  // Force band hopping to switch to the next selected frequency
+      bandHopping(true);  // Force band hopping to switch to the next selected frequency
     } else {
       // Testing the default audio device
 #ifdef WIN32
@@ -10616,8 +10622,13 @@ void MainWindow::on_actionEcho_triggered()
   // Ensure that the correct frequency is set and displayed
   QTimer::singleShot (500, this, [=] {
     auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) on_bandComboBox_activated (row);
+    Frequency frequency;
+    if (workingFrequencyAt (row, frequency)
+        && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic))
+      {
+        ui->bandComboBox->setCurrentIndex (row);
+        requestBandChange (frequency, FrequencyRequestOrigin::Automatic);
+      }
     if (m_monitoring) ui->monitorButton->click();
   });
 }
@@ -10671,11 +10682,11 @@ void MainWindow::switch_mode (Mode mode)
   m_fastGraph->setMode(m_mode);
   m_config.frequencies ()->filter (m_config.region (), mode, true); // filter on current time
   auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
-  if (!keep_frequency) {
+  Frequency frequency;
+  if (!keep_frequency && workingFrequencyAt (row, frequency)
+      && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic)) {
       ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0 ) {
-      on_bandComboBox_activated (row);
-    }
+      requestBandChange (frequency, FrequencyRequestOrigin::Automatic);
   }
   ui->rptSpinBox->setSingleStep(1);
   ui->rptSpinBox->setMinimum(-50);
@@ -10733,7 +10744,8 @@ void MainWindow::WSPR_config(bool b)
     if(!m_config.miles()) t += " km";
     ui->lh_decodes_headings_label->setText(t);
     if (m_config.is_transceiver_online ()) {
-      m_config.transceiver_tx_frequency (0); // turn off split
+      m_config.transceiver_tx_frequency (
+        0, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection); // turn off split
     }
     m_bSimplex = true;
   } else
@@ -10804,7 +10816,21 @@ void MainWindow::on_RxFreqSpinBox_valueChanged(int n)
   }
   m_wideGraph->setRxFreq(n);
   if (m_mode == "FreqCal") {
-    setRig ();
+    if (m_frequency_list_fcal_iter != m_config.frequencies ()->end ())
+      {
+        if (!requestNominalFrequencyChange (
+              m_frequency_list_fcal_iter->frequency_ - n,
+              FrequencyRequestOrigin::User))
+          {
+            auto const accepted_rx_frequency = static_cast<int> (
+              m_frequency_list_fcal_iter->frequency_ - m_freqNominal);
+            QSignalBlocker const rx_blocker {ui->RxFreqSpinBox};
+            QSignalBlocker const rx_copy_blocker {ui->RxFreqSpinBox_2};
+            ui->RxFreqSpinBox->setValue (accepted_rx_frequency);
+            ui->RxFreqSpinBox_2->setValue (accepted_rx_frequency);
+            m_wideGraph->setRxFreq (accepted_rx_frequency);
+          }
+      }
   }
   if (m_mode != "MSK144" && m_mode != "FST4W" && m_mode != "WSPR" && m_mode != "Echo" && m_mode != "FreqCal"
       && !(SpecOp::HOUND == m_specOp && m_config.superFox())) {
@@ -11027,7 +11053,6 @@ void MainWindow::on_bandComboBox_currentIndexChanged (int index)
   // Lookup band
   auto const& band  = m_config.bands ()->find (frequency);
   ui->bandComboBox->setCurrentText (band.size () ? band : m_config.bands ()->oob ());
-  setXIT (ui->TxFreqSpinBox->value ());
   displayDialFrequency ();
 }
 
@@ -11052,14 +11077,118 @@ void MainWindow::on_bandComboBox_activated (int index)
     {
       frequency = frequencies->frequency_list ()[source_index.row ()].frequency_;
     }
-  m_bandEdited = true;
-  band_changed (frequency);
-  m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
+  if (requestBandChange (frequency, FrequencyRequestOrigin::User))
+    {
+      setXIT (ui->TxFreqSpinBox->value ());
+      m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
+    }
 //  m_specOp=m_config.special_op_id();
 //  if (m_specOp==SpecOp::HOUND) auto_tx_mode(false);  // only required if RETURN intiates TXing
 }
 
-void MainWindow::band_changed (Frequency f)
+bool MainWindow::requestBandChange (Frequency frequency, FrequencyRequestOrigin origin)
+{
+  if (!nominalFrequencyChangeAllowed (origin))
+    {
+      restoreNominalFrequencySelection ();
+      return false;
+    }
+  auto const previous_frequency = m_freqNominal;
+  if (!m_monitoring) monitor (true);
+
+  if (!requestNominalFrequencyChange (frequency, origin))
+    {
+      restoreNominalFrequencySelection ();
+      return false;
+    }
+
+  m_bandEdited = true;
+  applyBandChange (frequency, previous_frequency);
+  return true;
+}
+
+bool MainWindow::workingFrequencyAt (int row, Frequency& frequency) const
+{
+  if (row < 0) return false;
+
+  auto const& frequencies = m_config.frequencies ();
+  auto const source_index = frequencies->mapToSource (
+    frequencies->index (row, FrequencyList_v2_101::frequency_column));
+  if (!source_index.isValid ()) return false;
+
+  frequency = frequencies->frequency_list ()[source_index.row ()].frequency_;
+  return true;
+}
+
+bool MainWindow::requestBandButtonFrequency (Frequency lookup_frequency,
+                                             Frequency fallback_frequency,
+                                             double msk144_tr_period)
+{
+  if (!nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User)) return false;
+
+  if (m_mode == "MSK144")
+    {
+      ui->sbTR->setValue (msk144_tr_period);
+      programStart = true;
+      QTimer::singleShot (250, [=] {programStart = false;});
+    }
+
+  auto const row = m_config.frequencies ()->best_working_frequency (lookup_frequency);
+  if (row >= 0)
+    {
+      Frequency frequency;
+      if (!workingFrequencyAt (row, frequency)) return false;
+      ui->bandComboBox->setCurrentIndex (row);
+      if (!requestBandChange (frequency, FrequencyRequestOrigin::User)) return false;
+      setXIT (ui->TxFreqSpinBox->value ());
+      m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
+    }
+  else
+    {
+      keep_frequency = true;
+      if (!requestNominalFrequencyChange (fallback_frequency, FrequencyRequestOrigin::User))
+        {
+          keep_frequency = false;
+          restoreNominalFrequencySelection ();
+          return false;
+        }
+      QTimer::singleShot (250, [=] {keep_frequency = false;});
+      setXIT (ui->TxFreqSpinBox->value ());
+    }
+  return true;
+}
+
+bool MainWindow::requestAlternateBandFrequency (Frequency frequency)
+{
+  if (!nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User)) return false;
+
+  keep_frequency = true;
+  if (!requestNominalFrequencyChange (frequency, FrequencyRequestOrigin::User))
+    {
+      keep_frequency = false;
+      restoreNominalFrequencySelection ();
+      return false;
+    }
+  QTimer::singleShot (250, this, [=] {keep_frequency = false;});
+  setXIT (ui->TxFreqSpinBox->value ());
+  return true;
+}
+
+void MainWindow::restoreNominalFrequencySelection ()
+{
+  m_bandEdited = false;
+  QSignalBlocker const blocker {ui->bandComboBox};
+  auto const band = m_config.bands ()->find (m_freqNominal);
+  ui->bandComboBox->setCurrentText (band.size () ? band : m_config.bands ()->oob ());
+  displayDialFrequency ();
+}
+
+void MainWindow::band_changed (Frequency frequency)
+{
+  applyBandChange (frequency, m_freqNominal);
+}
+
+void MainWindow::applyBandChange (Frequency f, Frequency previous_frequency)
 {
   if (f != m_freqNominal) cancelPendingFt8Decode ("dial frequency changed");
   msk144qsy = false;  // MSK144 QSY
@@ -11080,9 +11209,9 @@ void MainWindow::band_changed (Frequency f)
 
   if (m_bandEdited && !keep_frequency) {
     if (m_mode!="WSPR" && !ui->pbBandHopping->isChecked() && !ui->DX_Call_Button->isChecked()) { // preserves auto Tx
-      if (f + m_wideGraph->nStartFreq () > m_freqNominal + ui->TxFreqSpinBox->value ()
+      if (f + m_wideGraph->nStartFreq () > previous_frequency + ui->TxFreqSpinBox->value ()
           || f + m_wideGraph->nStartFreq () + m_wideGraph->fSpan () <=
-          m_freqNominal + ui->TxFreqSpinBox->value ()) {
+          previous_frequency + ui->TxFreqSpinBox->value ()) {
 //        qDebug () << "start f:" << m_wideGraph->nStartFreq () << "span:" << m_wideGraph->fSpan () << "DF:" << ui->TxFreqSpinBox->value ();
         // disable auto Tx if "blind" QSY outside of waterfall
         ui->stopTxButton->click (); // halt any transmission
@@ -11102,11 +11231,6 @@ void MainWindow::band_changed (Frequency f)
       {
         m_frequency_list_fcal_iter = m_config.frequencies ()->find (f);
       }
-    if(m_tci) {
-      m_freqNominal = f;
-      m_freqTxNominal = m_freqNominal;
-    }
-    setRig (f);
     setXIT (ui->TxFreqSpinBox->value ());
     m_specOp=m_config.special_op_id();
     if (m_specOp==SpecOp::FOX) FoxReset("BandChange");  // when changing bands, don't preserve the Fox queues
@@ -11234,7 +11358,8 @@ void MainWindow::rigOpen ()
 
 void MainWindow::setXIT(int n, Frequency base)
 {
-  if (m_transmitting && !m_config.tx_QSY_allowed ()) return;
+  auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
+  if (!rigFrequencyChangeDecision (kind).allowed) return;
   // If "CQ nnn ..." feature is active, set the proper Tx frequency
   if(m_config.split_mode () && ui->cbCQTx->isEnabled () && ui->cbCQTx->isVisible () &&
      ui->cbCQTx->isChecked())
@@ -11244,15 +11369,17 @@ void MainWindow::setXIT(int n, Frequency base)
           // All conditions are met, use calling frequency
           base = m_freqNominal / 1000000 * 1000000 + 1000 * ui->sbCQTxFreq->value () + m_XIT;
         }
-    }
+  }
   if (!base) base = m_freqNominal;
-  m_XIT = 0;
+  FrequencyDelta requested_xit = 0;
+  Frequency requested_tx_nominal = base;
+  bool update_tx_nominal = false;
   if (!(m_bSimplex || (SpecOp::FOX==m_specOp && m_config.superFox()))) {
     // m_bSimplex is false, so we can use split mode if requested
     if (m_config.split_mode () && (!m_config.enable_VHF_features () ||
         m_mode=="FT4" || m_mode == "FT8" || m_mode=="FST4")) {
       // Don't use XIT for VHF & up
-      m_XIT=(n/500)*500 - 1500;
+      requested_xit=(n/500)*500 - 1500;
     }
 
     if ((m_monitoring || m_transmitting)
@@ -11261,9 +11388,10 @@ void MainWindow::setXIT(int n, Frequency base)
       {
         // All conditions are met, reset the transceiver Tx dial
         // frequency
-        m_freqTxNominal = base + m_XIT;
-        if (m_astroWidget) m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
-        m_config.transceiver_tx_frequency (m_freqTxNominal + m_astroCorrection.tx);
+        requested_tx_nominal = base + requested_xit;
+        if (!m_config.transceiver_tx_frequency (
+              requested_tx_nominal + m_astroCorrection.tx, kind)) return;
+        update_tx_nominal = true;
       }
   }
   if (SpecOp::FOX==m_specOp && m_config.superFox()
@@ -11272,10 +11400,21 @@ void MainWindow::setXIT(int n, Frequency base)
       {
         // the transceiver Tx dial frequency must be consistent with
         // zero m_XIT for SuperFox
-        m_freqTxNominal = base;
-        if (m_astroWidget) m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
-        m_config.transceiver_tx_frequency (m_freqTxNominal + m_astroCorrection.tx);
+        requested_tx_nominal = base;
+        if (!m_config.transceiver_tx_frequency (
+              requested_tx_nominal + m_astroCorrection.tx, kind)) return;
+        update_tx_nominal = true;
       }
+
+  m_XIT = requested_xit;
+  if (update_tx_nominal)
+    {
+      m_freqTxNominal = requested_tx_nominal;
+      if (m_astroWidget)
+        {
+          m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
+        }
+    }
 
   //Now set the audio Tx freq
   if (m_tci_audio) Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_XIT);
@@ -11287,7 +11426,11 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
   if (m_mode=="Q65" && ui->actionDisable_clicks_on_waterfall->isVisible() && ui->actionDisable_clicks_on_waterfall->isChecked()
       && !(Qt::AltModifier & QApplication::keyboardModifiers ())) return;
   if (m_mode=="ECHO") return; // we do not adjust rx/tx for echo mode -- always 1500Hz
-  if (ui->RxFreqSpinBox->isEnabled () && !(SpecOp::HOUND==m_specOp && m_config.superFox() &&
+  bool const vhf_dial_adjustment = !ui->TxFreqSpinBox->isEnabled ()
+    && m_config.enable_VHF_features ()
+    && (Qt::ControlModifier & QApplication::keyboardModifiers ());
+  if (!vhf_dial_adjustment && ui->RxFreqSpinBox->isEnabled ()
+      && !(SpecOp::HOUND==m_specOp && m_config.superFox() &&
       (rxFreq < 700 or rxFreq > 800))) ui->RxFreqSpinBox->setValue(rxFreq);
   if(m_mode=="WSPR" or m_mode=="FST4W") {
     ui->WSPRfreqSpinBox->setValue(txFreq);
@@ -11301,14 +11444,16 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
           if (m_transmitting) m_restart = true;
         }
     }
-    else if (m_config.enable_VHF_features ()
-             && (Qt::ControlModifier & QApplication::keyboardModifiers ())) {
+    else if (vhf_dial_adjustment) {
       // for VHF & up we adjust Tx dial frequency to equalize Tx to Rx
       // when user CTRL+clicks on waterfall
       auto temp = ui->TxFreqSpinBox->value ();
-      ui->RxFreqSpinBox->setValue (temp);
-      setRig (m_freqNominal + txFreq - temp);
-      setXIT (ui->TxFreqSpinBox->value ());
+      if (requestNominalFrequencyChange (
+            m_freqNominal + txFreq - temp, FrequencyRequestOrigin::User))
+        {
+          ui->RxFreqSpinBox->setValue (temp);
+          setXIT (ui->TxFreqSpinBox->value ());
+        }
     }
   }
 }
@@ -11425,8 +11570,15 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       }
       if (m_astroWidget) m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
   }
+  if (!s.ptt () && s.frequency () != old_state.frequency ())
+    {
+      setXIT (ui->TxFreqSpinBox->value ());
+    }
   // ensure frequency display is correct
-  if (m_astroWidget && old_state.ptt () != s.ptt ()) setRig ();
+  if (m_astroWidget && old_state.ptt () != s.ptt ())
+    {
+      reapplyCurrentRigFrequencyCorrection ();
+    }
 
   displayDialFrequency ();
   update_dynamic_property (ui->readFreq, "state", "ok");
@@ -11876,7 +12028,7 @@ void MainWindow::transmitDisplay (bool transmitting)
       m_btxok=true;
     }
 
-    auto QSY_allowed = !transmitting or m_config.tx_QSY_allowed () or
+    auto QSY_allowed = !transmitting or m_config.tx_frequency_corrections_allowed () or
       !m_config.split_mode ();
     if (ui->cbHoldTxFreq->isChecked ()) {
       ui->TxFreqSpinBox->setEnabled (QSY_allowed);
@@ -12557,8 +12709,26 @@ void MainWindow::WSPR_scheduling ()
               << "tx:" << hop_data.tx_next_;
     m_WSPR_tx_next = hop_data.tx_next_;
     if (hop_data.frequencies_index_ >= 0) { // new band
+      if (!nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic))
+        {
+          m_WSPR_tx_next = false;
+          band_hopping_label.setText (hop_data.period_name_);
+          return;
+        }
+      Frequency frequency;
+      if (!workingFrequencyAt (hop_data.frequencies_index_, frequency))
+        {
+          m_WSPR_tx_next = false;
+          return;
+        }
       ui->bandComboBox->setCurrentIndex (hop_data.frequencies_index_);
-      on_bandComboBox_activated (hop_data.frequencies_index_);
+      if (!requestBandChange (frequency, FrequencyRequestOrigin::Automatic))
+        {
+          m_WSPR_tx_next = false;
+          return;
+        }
+      setXIT (ui->TxFreqSpinBox->value ());
+      m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
       // Execute user's hardware controller
       auto band = m_config.bands ()->find (m_freqNominal).remove ('m');
 #if defined(Q_OS_WIN)
@@ -12602,18 +12772,18 @@ void MainWindow::astroUpdate ()
     // no Doppler correction while CTRL pressed allows manual tuning
     if (Qt::ControlModifier & QApplication::queryKeyboardModifiers ()) return;
     if (m_tci && (ui->bandComboBox->currentText()=="OOB")) {
-      qDebug() << "TCI Mode and OOB so MainWindow::setRig returning at top\n";
+      qDebug() << "TCI Mode and OOB so rig-frequency correction is skipped\n";
       return;
     }
 
     auto correction = m_astroWidget->astroUpdate(QDateTime::currentDateTimeUtc (),
          m_config.my_grid(), m_hisGrid,m_freqNominal,"Echo" == m_mode,
-         m_transmitting,m_auto,!m_config.tx_QSY_allowed (),m_TRperiod);
+         m_transmitting,m_auto,!m_config.tx_frequency_corrections_allowed (),m_TRperiod);
     m_fDop=correction.dop;
     m_fSpread=correction.width;
     m_tEcho=correction.techo;
 
-    if (m_transmitting && !m_config.tx_QSY_allowed ()) return;  // No Tx Doppler correction if rig can't do it
+    if (m_transmitting && !m_config.tx_frequency_corrections_allowed ()) return;  // No Tx Doppler correction if rig can't do it
     if (!m_astroWidget->doppler_tracking() or m_astroWidget->DopplerMethod()==0) {
       // We are not using RF Doppler correction
       m_fAudioShift=m_fDop;
@@ -12663,30 +12833,87 @@ void MainWindow::astroUpdate ()
       } else {
         m_astroCorrection = {};
       }
-    if(!(m_tci && inSettings)) setRig ();
+    if(!(m_tci && inSettings)) reapplyCurrentRigFrequencyCorrection ();
     m_fAudioShift=m_fDop - correction.rx;
   }
 }
 
-void MainWindow::setRig (Frequency f)
+RigFrequencyChangePolicy::Activity MainWindow::rigFrequencyActivity () const
 {
-  if (f) {
-    m_freqNominal = f;
-    genCQMsg ();
-    m_freqTxNominal = m_freqNominal;
-    if (m_astroWidget) m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
-  }
-  if (m_mode == "FreqCal" && m_frequency_list_fcal_iter != m_config.frequencies ()->end ()) {
-    m_freqNominal = m_frequency_list_fcal_iter->frequency_ - ui->RxFreqSpinBox->value ();
-  }
-  if (m_transmitting && !m_config.tx_QSY_allowed ()) return;
+  return {
+    g_iptt == 1,
+    m_tx_when_ready,
+    m_transmitting,
+    m_tune,
+    m_jttyTxActive,
+    ptt1Timer.isActive (),
+    ptt0Timer.isActive (),
+    m_rigState.ptt (),
+    m_rigState.tune ()
+  };
+}
+
+RigFrequencyChangePolicy::Decision MainWindow::rigFrequencyChangeDecision (
+  RigFrequencyChangePolicy::ChangeKind kind) const
+{
+  return RigFrequencyChangePolicy::evaluate (
+    kind, rigFrequencyActivity (), m_config.tx_frequency_corrections_allowed ());
+}
+
+bool MainWindow::nominalFrequencyChangeAllowed (FrequencyRequestOrigin origin)
+{
+  auto const decision = rigFrequencyChangeDecision (
+    RigFrequencyChangePolicy::ChangeKind::NominalQsy);
+  if (!decision.allowed && origin == FrequencyRequestOrigin::User)
+    {
+      statusBar ()->showMessage (
+        tr ("Stop transmitting or tuning before changing the dial frequency."), 5000);
+    }
+  return decision.allowed;
+}
+
+bool MainWindow::requestNominalFrequencyChange (Frequency frequency,
+                                                FrequencyRequestOrigin origin)
+{
+  if (!frequency || !nominalFrequencyChangeAllowed (origin)) return false;
+
+  if ((m_monitoring || m_transmitting) && m_config.transceiver_online ())
+    {
+      if (!m_config.transceiver_frequency (
+            frequency + m_astroCorrection.rx,
+            RigFrequencyChangePolicy::ChangeKind::NominalQsy))
+        {
+          if (origin == FrequencyRequestOrigin::User)
+            {
+              statusBar ()->showMessage (
+                tr ("Stop transmitting or tuning before changing the dial frequency."), 5000);
+            }
+          return false;
+        }
+    }
+
+  m_freqNominal = frequency;
+  m_freqTxNominal = frequency;
+  genCQMsg ();
+  if (m_astroWidget)
+    {
+      m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
+    }
+  return true;
+}
+
+bool MainWindow::reapplyCurrentRigFrequencyCorrection ()
+{
+  auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
+  if (!rigFrequencyChangeDecision (kind).allowed) return false;
   if ((m_monitoring || m_transmitting) && m_config.transceiver_online ()) {
     if (m_transmitting && m_config.split_mode () && !(m_config.superFox() && m_specOp==SpecOp::FOX)) {
-      m_config.transceiver_tx_frequency (m_freqTxNominal + m_astroCorrection.tx);
+      return m_config.transceiver_tx_frequency (m_freqTxNominal + m_astroCorrection.tx, kind);
     } else {
-      m_config.transceiver_frequency (m_freqNominal + m_astroCorrection.rx);
+      return m_config.transceiver_frequency (m_freqNominal + m_astroCorrection.rx, kind);
     }
   }
+  return true;
 }
 
 void MainWindow::fastPick(int x0, int x1, int y)
@@ -12786,14 +13013,17 @@ void MainWindow::on_actionErase_reference_spectrum_triggered()
 
 void MainWindow::freqCalStep()
 {
-  if (m_frequency_list_fcal_iter == m_config.frequencies ()->end ()
-      || ++m_frequency_list_fcal_iter == m_config.frequencies ()->end ()) {
-    m_frequency_list_fcal_iter = m_config.frequencies ()->begin ();
+  auto next = m_frequency_list_fcal_iter;
+  if (next == m_config.frequencies ()->end ()
+      || ++next == m_config.frequencies ()->end ()) {
+    next = m_config.frequencies ()->begin ();
   }
 
   // allow for empty list
-  if (m_frequency_list_fcal_iter != m_config.frequencies ()->end ()) {
-    setRig (m_frequency_list_fcal_iter->frequency_ - ui->RxFreqSpinBox->value ());
+  if (next != m_config.frequencies ()->end ()
+      && requestNominalFrequencyChange (
+        next->frequency_ - ui->RxFreqSpinBox->value (), FrequencyRequestOrigin::Automatic)) {
+    m_frequency_list_fcal_iter = next;
   }
 }
 
@@ -12811,7 +13041,7 @@ void MainWindow::on_cbCQTx_toggled(bool b)
     m_ntx=6;
     m_QSOProgress = CALLING;
   }
-  setRig ();
+  reapplyCurrentRigFrequencyCorrection ();
   setXIT (ui->TxFreqSpinBox->value ());
 }
 
@@ -12956,6 +13186,13 @@ void MainWindow::on_cbAutoSeq_toggled(bool b)
 
 void MainWindow::on_measure_check_box_stateChanged (int state)
 {
+  if (!nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User))
+    {
+      QSignalBlocker const blocker {ui->measure_check_box};
+      ui->measure_check_box->setCheckState (
+        Qt::Checked == state ? Qt::Unchecked : Qt::Checked);
+      return;
+    }
   m_config.enable_calibration (Qt::Checked != state);
 }
 

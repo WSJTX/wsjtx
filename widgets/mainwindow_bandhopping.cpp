@@ -1,9 +1,16 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "Configuration.hpp"
+#include "models/Bands.hpp"
 #include "models/FrequencyList.hpp"
+#include "models/Modes.hpp"
 #include "widgets/BandHopping.hpp"
+#include "widegraph.h"
 
+#include <cmath>
+#include <limits>
+
+#include <QDateTime>
 #include <QTimer>
 
 extern bool m_displayBand;
@@ -26,6 +33,41 @@ namespace
     int frequency_;
     QSpinBox * custom_frequency_;
   };
+
+  Radio::Frequency resolveBandHopFrequency (FrequencyList_v2_101 const& frequencies,
+                                            Bands const& bands,
+                                            Radio::Frequency requested,
+                                            IARURegions::Region region,
+                                            Modes::Mode mode)
+  {
+    auto const target_band = bands.find (requested);
+    if (target_band.isEmpty ()) return 0;
+
+    auto const now = QDateTime::currentDateTimeUtc ();
+    Radio::Frequency result {0};
+    Radio::FrequencyDelta delta {std::numeric_limits<Radio::FrequencyDelta>::max ()};
+    for (auto const& candidate : frequencies.frequency_list ())
+      {
+        if (region != IARURegions::ALL
+            && candidate.region_ != IARURegions::ALL
+            && candidate.region_ != region) continue;
+        if (candidate.mode_ != Modes::ALL && candidate.mode_ != mode) continue;
+        if (candidate.start_time_.isValid () && candidate.start_time_ > now) continue;
+        if (candidate.end_time_.isValid () && candidate.end_time_ < now) continue;
+        if (bands.find (candidate.frequency_) != target_band) continue;
+        if (candidate.preferred_) return candidate.frequency_;
+
+        Radio::FrequencyDelta const candidate_delta =
+          static_cast<Radio::FrequencyDelta> (requested)
+          - static_cast<Radio::FrequencyDelta> (candidate.frequency_);
+        if (std::abs (candidate_delta) < std::abs (delta))
+          {
+            delta = candidate_delta;
+            result = candidate.frequency_;
+          }
+      }
+    return result;
+  }
 }
 
 void MainWindow::bandHoppingTimer()
@@ -38,7 +80,6 @@ void MainWindow::bandHoppingTimer()
             startIndex = nextStartIndex;  // band hopping every other minute
             return;
     case 1:
-            m_displayBand = false;
             bandHopping();
             startIndex = 0;
             return;
@@ -46,14 +87,10 @@ void MainWindow::bandHoppingTimer()
    }
 }
 
-void MainWindow::bandHopping()
+void MainWindow::bandHopping(bool user_requested)
 {
-  if (!ui->pbBandHopping->isChecked()
-      || ui->autoButton->isChecked()
-      || ui->tuneButton->isChecked ())
-    {
-      return;
-    }
+  if (!ui->pbBandHopping->isChecked()) return;
+  bool const schedule_blocked = ui->autoButton->isChecked() || ui->tuneButton->isChecked ();
 
   static int startIndex = 0;
 
@@ -114,33 +151,77 @@ void MainWindow::bandHopping()
     ? entry.custom_frequency_->value () * 1000
     : entry.frequency_;
 
-  switch (entry.mode_)
+  auto const origin = user_requested
+    ? FrequencyRequestOrigin::User
+    : FrequencyRequestOrigin::Automatic;
+  auto const skip_hop = [&] {
+    if (!user_requested) startIndex = hop_index + 1;
+  };
+  if (!nominalFrequencyChangeAllowed (origin))
     {
-    case BandHopMode::FT8:
-      on_actionFT8_triggered ();
-      break;
-    case BandHopMode::FT4:
-      on_actionFT4_triggered ();
-      break;
-    case BandHopMode::MSK144:
-      on_actionMSK144_triggered ();
-      break;
-    case BandHopMode::CustomQRG:
+      skip_hop ();
+      return;
+    }
+  if (schedule_blocked)
+    {
+      skip_hop ();
+      return;
+    }
+  if (entry.mode_ == BandHopMode::CustomQRG)
+    {
+      if (!m_monitoring) monitor (true);
       keep_frequency = true;
+      if (!requestNominalFrequencyChange (frequency, origin))
+        {
+          keep_frequency = false;
+          skip_hop ();
+          return;
+        }
+      m_displayBand = false;
       QTimer::singleShot (250, [=] {keep_frequency = false;});
-      setRig (frequency);
       setXIT (ui->TxFreqSpinBox->value ());
       on_actionFT8_triggered ();
       ui->pbBandHopping->setChecked (true);
       startIndex = hop_index + 1;
       return;
-    default:
-      Q_UNREACHABLE ();
     }
 
-  auto const& row = m_config.frequencies ()->best_working_frequency (frequency);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) on_bandComboBox_activated (row);
+  Modes::Mode mode {Modes::FT8};
+  if (entry.mode_ == BandHopMode::FT4) mode = Modes::FT4;
+  if (entry.mode_ == BandHopMode::MSK144) mode = Modes::MSK144;
+  auto const requested_frequency = resolveBandHopFrequency (
+    *m_config.frequencies (), *m_config.bands (), frequency, m_config.region (), mode);
+  if (!requested_frequency)
+    {
+      skip_hop ();
+      return;
+    }
+
+  if (!m_monitoring) monitor (true);
+  auto const previous_frequency = m_freqNominal;
+  if (!requestNominalFrequencyChange (requested_frequency, origin))
+    {
+      skip_hop ();
+      return;
+    }
+
+  m_displayBand = false;
+  keep_frequency = true;
+  switch (entry.mode_)
+    {
+    case BandHopMode::FT8: on_actionFT8_triggered (); break;
+    case BandHopMode::FT4: on_actionFT4_triggered (); break;
+    case BandHopMode::MSK144: on_actionMSK144_triggered (); break;
+    case BandHopMode::CustomQRG: Q_UNREACHABLE ();
+    }
+  keep_frequency = false;
+
+  auto const& row = m_config.frequencies ()->best_working_frequency (requested_frequency);
+  if (row >= 0) ui->bandComboBox->setCurrentIndex (row);
+  m_bandEdited = true;
+  applyBandChange (requested_frequency, previous_frequency);
+  setXIT (ui->TxFreqSpinBox->value ());
+  m_wideGraph->setRxBand (m_config.bands ()->find (requested_frequency));
   ui->pbBandHopping->setChecked (true);
   startIndex = hop_index + 1;
 }

@@ -83,6 +83,12 @@ add_executable (test_tx_start_policy
 target_link_libraries (test_tx_start_policy Qt5::Test)
 add_test (NAME test_tx_start_policy COMMAND test_tx_start_policy)
 
+add_executable (test_rig_frequency_change_policy
+  test_rig_frequency_change_policy.cpp
+)
+target_link_libraries (test_rig_frequency_change_policy Qt5::Test)
+add_test (NAME test_rig_frequency_change_policy COMMAND test_rig_frequency_change_policy)
+
 add_executable (test_wait_feature_policy
   test_wait_feature_policy.cpp
 )

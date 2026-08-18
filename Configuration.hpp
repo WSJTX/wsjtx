@@ -8,6 +8,7 @@
 
 #include "SpecialOperatingActivity.hpp"
 #include "Radio.hpp"
+#include "RigFrequencyChangePolicy.hpp"
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
 #include "Audio/TxRequest.hpp"
@@ -179,7 +180,7 @@ public:
   double txDelay() const;
   bool tci_audio() const;
   bool id_after_73 () const;
-  bool tx_QSY_allowed () const;
+  bool tx_frequency_corrections_allowed () const;
   bool progressBar_red () const;
   bool spot_to_psk_reporter () const;
   bool psk_reporter_tcpip () const;
@@ -387,11 +388,11 @@ public:
   void read_CALL3_version ();
 
   // Set transceiver frequency in Hertz.
-  Q_SLOT void transceiver_frequency (Frequency);
+  Q_SLOT bool transceiver_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
 
   // Setting a non zero TX frequency means split operation
   // rationalise_mode means ensure TX uses same mode as RX.
-  Q_SLOT void transceiver_tx_frequency (Frequency = 0u);
+  Q_SLOT bool transceiver_tx_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
 
   // Set transceiver mode.
   Q_SLOT void transceiver_mode (MODE);

@@ -83,16 +83,6 @@ namespace
     plan.effects.append(effect);
   }
 
-  void appendFrequencyEffect(QsoReactionPlan& plan, QsoReactionEffect::Kind kind,
-                             Radio::Frequency frequency, QString const& text = QString {})
-  {
-    QsoReactionEffect effect;
-    effect.kind = kind;
-    effect.frequency = frequency;
-    effect.text = text;
-    plan.effects.append(effect);
-  }
-
   void appendProgressEffect(QsoReactionPlan& plan, QsoProgress progress)
   {
     QsoReactionEffect effect;
@@ -218,12 +208,19 @@ namespace
       bool ok = false;
       auto const kHz = parts[6].toUInt(&ok);
       if (ok && kHz >= 10 && parts[6].size() == 3) {
-        auto const dialFrequency = snapshot.nominalFrequency / 1000000 * 1000000 + 1000 * kHz;
-        appendFrequencyEffect(plan, QsoReactionEffect::Kind::SetRigFrequency, dialFrequency);
-        appendFrequencyEffect(plan, QsoReactionEffect::Kind::DisplayQsy, snapshot.nominalFrequency,
-                              QString {"QSY %1"}.arg(snapshot.nominalFrequency / 1e6, 7, 'f', 3));
-        if (snapshot.mode == "MSK144") {
-          appendFrequencyEffect(plan, QsoReactionEffect::Kind::SetMsk144BaseFrequency, dialFrequency);
+        if (snapshot.nominalQsyAllowed) {
+          auto const dialFrequency = snapshot.nominalFrequency / 1000000 * 1000000 + 1000 * kHz;
+          QsoReactionEffect effect;
+          effect.kind = QsoReactionEffect::Kind::ApplyFastCqQsy;
+          effect.frequency = dialFrequency;
+          effect.text = QString {"QSY %1"}.arg(snapshot.nominalFrequency / 1e6, 7, 'f', 3);
+          effect.boolValue = snapshot.mode == "MSK144";
+          effect.userInitiated = snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None;
+          plan.effects.append(effect);
+        } else if (snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None) {
+          appendEffect(plan, QsoReactionEffect::Kind::RejectNominalQsy);
+          analysis.reason = "fast CQ requires a blocked nominal QSY";
+          return analysis;
         }
       }
     }

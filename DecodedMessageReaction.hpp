@@ -85,6 +85,7 @@ namespace DecodedMessageReaction
 
     bool fastMode {false};
     bool transceiverOnline {false};
+    bool nominalQsyAllowed {false};
     bool enableVhfFeatures {false};
     bool holdTxFrequency {false};
     bool rxFrequencyEnabled {true};
@@ -120,9 +121,8 @@ namespace DecodedMessageReaction
     {
       SetRxFrequency,
       SetTxFrequency,
-      SetRigFrequency,
-      DisplayQsy,
-      SetMsk144BaseFrequency,
+      ApplyFastCqQsy,
+      RejectNominalQsy,
       SetTxFirst,
       // Keep setTxMsg(), raw index assignment, checked-state changes, and clicks distinct;
       // each has different synchronous signal behavior in MainWindow.
@@ -178,6 +178,7 @@ namespace DecodedMessageReaction
     Radio::Frequency frequency {0u};
     QString text;
     bool boolValue {false};
+    bool userInitiated {false};
     QsoProgress progress {QsoProgress::Calling};
     ContestHint contestHint {ContestHint::EuVhf};
   };

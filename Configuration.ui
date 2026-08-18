@@ -400,12 +400,12 @@ text message.</string>
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QCheckBox" name="tx_QSY_check_box">
+           <widget class="QCheckBox" name="tx_frequency_corrections_check_box">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some rigs are not able to process CAT commands while transmitting. This means that if you are operating in split mode you may have to uncheck this option.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allow automatic Doppler tracking and split/Fake It/XIT to correct the transmit frequency while transmitting, including corrections of tens of kHz on microwave bands.&lt;/p&gt;&lt;p&gt;This option does not allow nominal dial or band changes while transmitting or tuning. Leave it unchecked if your rig cannot accept frequency-setting CAT commands while transmitting; WSJT-X will then make one midpoint Doppler correction before transmission starts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Allow Tx frequency changes while transmitting</string>
+             <string>Allow Tx-frequency corrections while transmitting</string>
             </property>
            </widget>
           </item>
