@@ -205,6 +205,8 @@ contains
           if(bVHF) then
              flip=ca(icand)%flip
              nflip=int(flip)
+          else
+             nflip=1
           endif
           if(sync1.lt.float(minsync)) nflip=0
           if(ipass.eq.1) ntry65a=ntry65a + 1
