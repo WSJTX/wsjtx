@@ -75,8 +75,7 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,fsample,msgsent,cwave,nwave)
 
   do i = 1, nwave
      t = t + dt
-     j = t/tsym + 1
-     if (j > 85) exit
+     j = min(nsym, int(t/tsym) + 1)
 
      if (j /= j0) then
         f = f0 + itone(j) * dfgen
