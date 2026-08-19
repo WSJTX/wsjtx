@@ -92,6 +92,10 @@ target_link_libraries(map65 PRIVATE
     Usb::Usb
 )
 
+if (APPLE)
+  target_link_libraries(map65 PRIVATE m65_qt)
+endif ()
+
 # Linux needs libusb
 # if (UNIX AND NOT APPLE)
 #    find_package(PkgConfig REQUIRED)

@@ -137,6 +137,13 @@ else ()
   )
 endif ()
 
+if (APPLE)
+  # Keep Apple's framework include flags out of m65impl's Fortran sources.
+  list (REMOVE_ITEM libm65_CSRCS stdout_shared_memory.cpp)
+  add_library (m65_qt STATIC stdout_shared_memory.cpp)
+  target_link_libraries (m65_qt PRIVATE Qt5::Core)
+endif ()
+
 #set (libm65_CXXSRCS
 #  ipcomm.cpp
 #  )
@@ -189,7 +196,9 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
 if (NOT TARGET wsjt_fortran_openmp)
   message (FATAL_ERROR "MAP65 requires Fortran OpenMP support")
 endif ()
-target_link_libraries (m65impl PUBLIC Qt5::Core)
+if (NOT APPLE)
+  target_link_libraries (m65impl PUBLIC Qt5::Core)
+endif ()
 target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
 wsjt_link_common_fortran (m65impl)
 
