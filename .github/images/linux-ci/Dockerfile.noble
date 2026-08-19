@@ -43,6 +43,7 @@ RUN set -eux; \
     cd /tmp/wsjtx-hamlib-build; \
     /usr/local/share/wsjtx-ci/build-hamlib-linux.sh \
       "$LINUX_HAMLIB_COMMIT" "$LINUX_HAMLIB_PREFIX"; \
+    cd /; \
     rm -rf /tmp/wsjtx-pfunit-build /tmp/wsjtx-hamlib-build; \
     /usr/local/bin/write-wsjtx-ci-manifest \
       normal x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \

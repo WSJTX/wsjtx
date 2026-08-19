@@ -137,6 +137,7 @@ jobs:
       hamlib_branch: "4.7.2"
       arch: "x86_64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
       save_ccache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
     secrets: inherit
@@ -152,6 +153,7 @@ jobs:
       hamlib_branch: "4.7.2"
       sanitizer: asan-ubsan
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
       advisory: true
     secrets: inherit
@@ -180,6 +182,7 @@ jobs:
       hamlib_branch: "4.7.2"
       arch: "aarch64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 

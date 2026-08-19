@@ -96,7 +96,24 @@ if [ -n "${IMAGE_RECIPE_SHA256:-}" ]; then
 else
   expected_recipe="$(.github/scripts/linux-ci-image-fingerprint.sh "$profile")"
 fi
-require_equal recipe_sha256 "$expected_recipe" "${recipe_sha256:-}"
+toolchain_recipe=$expected_recipe
+if [ "${WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH:-false}" = true ] &&
+   [ "${recipe_sha256:-}" != "$expected_recipe" ]; then
+  echo "::warning::Linux CI image recipe fingerprint differs from this checkout; using the last known-good image generation" >&2
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    {
+      echo "### Linux CI image fallback"
+      echo
+      echo "This job used a previously promoted image while the dependency refresh was in progress."
+      echo
+      echo "- Image recipe in the image: \`${recipe_sha256:-missing}\`"
+      echo "- Recipe in this checkout: \`$expected_recipe\`"
+    } >> "$GITHUB_STEP_SUMMARY"
+  fi
+  toolchain_recipe=${recipe_sha256:-}
+else
+  require_equal recipe_sha256 "$expected_recipe" "${recipe_sha256:-}"
+fi
 require_equal compiler "$expected_compiler" "${compiler:-}"
 test -n "${compiler:-}"
 test -n "${compiler_version:-}"
@@ -113,7 +130,7 @@ if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
   require_equal compiler_sha256 "$compiler_sha256" "$(sha256sum "$compiler_path" | awk '{print $1}')"
   actual_package_sha256="$(dpkg-query -W -f='${binary:Package}=${Version}\n' | LC_ALL=C sort | sha256sum | awk '{print $1}')"
   require_equal package_sha256 "$package_sha256" "$actual_package_sha256"
-  toolchain_identity="$expected_recipe:$compiler_target:$compiler_sha256:$package_sha256"
+  toolchain_identity="$toolchain_recipe:$compiler_target:$compiler_sha256:$package_sha256"
   toolchain_sha256="$(printf '%s' "$toolchain_identity" | sha256sum | awk '{print $1}')"
   require_equal toolchain_id "$toolchain_id" "gcc${compiler_version}-${expected_arch}-${toolchain_sha256:0:20}"
 fi

@@ -49,9 +49,11 @@ write_manifest() {
 }
 
 run_verify() {
+  local allow_stale_image=${1:-false}
   WSJTX_CI_IMAGE_MANIFEST="$manifest" \
     WSJTX_CI_PREFIX_OVERRIDE="$fixture/prefix" \
     WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS=true \
+    WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$allow_stale_image" \
     .github/scripts/verify-linux-ci-image.sh normal x86_64 "$LINUX_HAMLIB_REF"
 }
 
@@ -67,6 +69,10 @@ fi
 write_manifest "$LINUX_HAMLIB_COMMIT" 0000000000000000000000000000000000000000000000000000000000000000
 if run_verify >/dev/null 2>&1; then
   echo "Expected a mismatched recipe fingerprint to fail" >&2
+  exit 1
+fi
+if ! run_verify true >/dev/null 2>&1; then
+  echo "Expected stale image allowance to accept a mismatched recipe fingerprint" >&2
   exit 1
 fi
 

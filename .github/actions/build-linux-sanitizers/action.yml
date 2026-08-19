@@ -18,6 +18,10 @@ inputs:
     description: "Save compiled objects for trusted builds"
     required: false
     default: "false"
+  allow_stale_image:
+    description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -71,6 +75,8 @@ runs:
     - name: Verify Linux CI image
       id: image
       shell: bash
+      env:
+        WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
       run: |
         flavor=normal
         if [ "${{ inputs.sanitizer }}" = tsan ]; then

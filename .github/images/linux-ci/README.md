@@ -48,6 +48,13 @@ The TSan workflow resolves `linux-tsan-noble:stable` independently when its
 optional label is used. A missing TSan generation fails explicitly instead of
 silently using the normal image.
 
+Ordinary non-TSan PR and `develop` jobs may overlap a dependency refresh. They
+pin the image generation resolved at job start and allow a recipe-fingerprint
+mismatch with a warning, so the last known-good stable generation remains a
+usable fallback while the refresh completes. Image publication, release, and
+TSan jobs keep strict fingerprint checks; if no promoted generation exists, the
+resolver still fails explicitly.
+
 The dependency refresh workflow runs image publication monthly and when image
 recipes change on `develop`. The monthly refresh includes TSan; weekly and
 `all` refreshes omit it unless the explicit `linux-tsan` manual target is

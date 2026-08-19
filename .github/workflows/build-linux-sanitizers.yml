@@ -32,6 +32,11 @@ on:
         required: false
         type: boolean
         default: false
+      allow_stale_image:
+        description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -85,3 +90,4 @@ jobs:
           sanitizer: ${{ inputs.sanitizer }}
           recache: ${{ inputs.recache }}
           save_ccache: ${{ inputs.save_ccache }}
+          allow_stale_image: ${{ inputs.allow_stale_image }}

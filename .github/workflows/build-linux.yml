@@ -27,6 +27,11 @@ on:
         required: false
         type: string
         default: ""
+      allow_stale_image:
+        description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+        required: false
+        type: boolean
+        default: false
       save_ccache:
         description: "Save compiled objects for trusted builds"
         required: false
@@ -81,6 +86,11 @@ on:
         required: false
         type: string
         default: ""
+      allow_stale_image:
+        description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+        required: false
+        type: boolean
+        default: false
       save_ccache:
         description: "Save compiled objects"
         required: false
@@ -176,6 +186,7 @@ jobs:
           save_ccache: ${{ inputs.save_ccache }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
+          allow_stale_image: ${{ inputs.allow_stale_image }}
 
   build-aarch64:
     needs: resolve-image
@@ -210,6 +221,7 @@ jobs:
           save_ccache: ${{ inputs.save_ccache }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
+          allow_stale_image: ${{ inputs.allow_stale_image }}
 
   build-armhf:
     needs: resolve-image

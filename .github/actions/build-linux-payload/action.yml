@@ -37,6 +37,10 @@ inputs:
     description: "Release candidate number when release_channel is RC"
     required: false
     default: ""
+  allow_stale_image:
+    description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -54,6 +58,8 @@ runs:
     - name: Verify Linux CI image
       id: image
       shell: bash
+      env:
+        WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
       run: >-
         .github/scripts/verify-linux-ci-image.sh
         normal "${{ inputs.arch }}" "${{ inputs.hamlib_branch }}"
