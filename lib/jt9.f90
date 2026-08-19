@@ -598,6 +598,7 @@ program jt9
   endif
   call fftwf_cleanup_threads()
   call fftwf_cleanup()
+  if (allocated(shared_data)) deallocate(shared_data)
 
 contains
 
