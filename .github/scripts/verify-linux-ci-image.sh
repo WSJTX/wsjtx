@@ -18,6 +18,10 @@ if [ ! -f "$config_dir/linux-ci-image-config.sh" ]; then
 fi
 # shellcheck source=.github/scripts/linux-ci-image-config.sh
 . "$config_dir/linux-ci-image-config.sh"
+if [ "$expected_flavor" = tsan ]; then
+  # shellcheck source=.github/scripts/tsan-linux-deps-config.sh
+  . "$config_dir/tsan-linux-deps-config.sh"
+fi
 
 if [ ! -f "$manifest" ]; then
   echo "Linux CI image manifest not found: $manifest" >&2

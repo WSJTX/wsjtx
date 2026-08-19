@@ -9,7 +9,10 @@ touch "$fixture/prefix/hamlib/lib/libhamlib.a"
 
 # shellcheck source=.github/scripts/linux-ci-image-config.sh
 . .github/scripts/linux-ci-image-config.sh
+# shellcheck source=.github/scripts/tsan-linux-deps-config.sh
+. .github/scripts/tsan-linux-deps-config.sh
 recipe="$(.github/scripts/linux-ci-image-fingerprint.sh normal-noble)"
+tsan_recipe="$(.github/scripts/linux-ci-image-fingerprint.sh tsan-noble)"
 manifest="$fixture/image.env"
 compiler=gcc
 compiler_path="$(readlink -f "$(command -v "$compiler")")"
@@ -73,6 +76,49 @@ if run_verify >/dev/null 2>&1; then
 fi
 if ! run_verify true >/dev/null 2>&1; then
   echo "Expected stale image allowance to accept a mismatched recipe fingerprint" >&2
+  exit 1
+fi
+
+tsan_config_dir="$fixture/tsan-config"
+mkdir -p "$tsan_config_dir" "$fixture/prefix/tsan/boost/cmake"
+cp .github/scripts/verify-linux-ci-image.sh \
+  .github/scripts/linux-ci-image-config.sh \
+  .github/scripts/tsan-linux-deps-config.sh \
+  "$tsan_config_dir/"
+cp .github/scripts/linux-ci-image-fingerprint.sh "$tsan_config_dir/"
+cat > "$tsan_config_dir/verify-tsan-deps-linux.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+EOF
+chmod +x "$tsan_config_dir/verify-tsan-deps-linux.sh"
+touch "$fixture/prefix/tsan/boost/cmake/BoostConfig.cmake"
+
+tsan_manifest="$fixture/tsan-image.env"
+cat > "$tsan_manifest" <<EOF
+schema=1
+flavor=tsan
+architecture=x86_64
+generation=build-20260818-1-1
+compiler=gcc-13
+compiler_version=$TSAN_GCC_VERSION
+compiler_sha256=fixture
+compiler_target=fixture
+package_sha256=fixture
+toolchain_id=fixture
+hamlib_ref=$TSAN_HAMLIB_REF
+hamlib_commit=$TSAN_HAMLIB_COMMIT
+hamlib_patch_commit=$TSAN_HAMLIB_PATCH_COMMIT
+qt_version=$TSAN_QT_VERSION
+boost_version=$TSAN_BOOST_VERSION
+recipe_sha256=$tsan_recipe
+EOF
+if ! WSJTX_CI_IMAGE_MANIFEST="$tsan_manifest" \
+  WSJTX_CI_PREFIX_OVERRIDE="$fixture/prefix" \
+  WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS=true \
+  IMAGE_RECIPE_SHA256="$tsan_recipe" \
+  "$tsan_config_dir/verify-linux-ci-image.sh" \
+    tsan x86_64 "$TSAN_HAMLIB_REF" >/dev/null; then
+  echo "Expected TSan image verification to load its dependency configuration" >&2
   exit 1
 fi
 

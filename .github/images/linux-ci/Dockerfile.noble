@@ -53,6 +53,8 @@ RUN set -eux; \
 
 FROM common AS tsan
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ARG IMAGE_GENERATION=local
 ARG IMAGE_RECIPE_SHA256
 ARG IMAGE_REFRESH_EPOCH
@@ -74,6 +76,7 @@ COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-man
 
 RUN set -eux; \
     chmod +x /usr/local/bin/write-wsjtx-ci-manifest; \
+    . /usr/local/share/wsjtx-ci/tsan-linux-deps-config.sh; \
     /usr/local/share/wsjtx-ci/build-qt-tsan-linux.sh /opt/wsjtx/tsan/qt; \
     /usr/local/share/wsjtx-ci/build-boost-tsan-linux.sh /opt/wsjtx/tsan/boost; \
     /usr/local/share/wsjtx-ci/build-hamlib-tsan-linux.sh /opt/wsjtx/tsan/hamlib; \
