@@ -20,14 +20,14 @@ contains
       use ccf65_legacy_mod
       use pctile_mod
       use stdout_channel_mod, only: write_stdout
-      use decodes_mod, only: nhsym1, nhsym2, ldecoded, ndecodes, mcall3a, decodes_init
+      use decodes_mod, only: nhsym1, ldecoded, ndecodes, mcall3a, decodes_init
       use display_mod
       use timf2_mod
       use getdphi_mod
-      use datcom_ptrs_mod, only: ss, savg, ss_old, savg_old
+      use datcom_ptrs_mod, only: ss_old, savg_old
       use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, manualDecodeFlag
       use sec0_mod, only: sec0
-      use q65_decode, only: nsnr0, msg0, xdt0, nfreq0, cq0
+      use q65_decode, only: nsnr0
 
       implicit none
 
@@ -732,7 +732,6 @@ endif
             endif
          enddo  !i=ia,ib
          
-600 continue
          if (nqd .eq. 1) then
             nwrite = 0
             if (mode65 .eq. 0) km = 0

@@ -228,7 +228,7 @@ program mapsim
               call gen_q65_cwave(message,ntxfreq,ntone_spacing,fsample,     &
               msgsent,cwave,nwave)
         else
-           call cgen65(message(1:22),ntone_spacing,samfac,nsendingsh,	&
+           call cgen65(message(1:22),ntone_spacing,samfac,nsendingsh,   &
            msgsent(1:22),cwave,nwave)
         endif
      endif
