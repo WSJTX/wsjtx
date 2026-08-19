@@ -25,8 +25,6 @@ contains
       character(len=128) :: line
       character mycall0*12, hiscall0*12, hisgrid0*6
 
-      integer :: t_now, t_rate
-
       data neme0/-99/, mcall3b/1/, mycall0/'            '/, hiscall0/'            '/, hisgrid0/'      '/
 
       save

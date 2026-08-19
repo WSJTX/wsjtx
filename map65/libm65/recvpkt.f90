@@ -8,8 +8,7 @@ subroutine recvpkt(nsam, nblock2, userx_no, k, buf4, buf8, buf16) &
      bind(C, name="recvpkt_")
 
   use iso_c_binding
-  use npar_ptrs_mod, only: nsmax_active
-  
+
   integer(c_int),      intent(in)    :: nsam
   integer(c_int16_t),  intent(inout) :: nblock2
   integer(c_int8_t),   intent(in)    :: userx_no

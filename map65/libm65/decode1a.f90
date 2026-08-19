@@ -21,7 +21,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   use timf2_mod
   use fil6521_mod
   use twkfreq_xy_mod
-  use npar_ptrs_mod, only: nsmax_active, t_start    
+  use npar_ptrs_mod, only: nsmax_active
   
   implicit none
   
@@ -51,9 +51,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   integer :: i, i0, ihzdiff, j, jj, jjjmax, jjjmin, k, n, n5
   integer :: n6, nadd, nfft, nhz, nhz0, npol, nsym, nutc0, nz
   logical first
-  
-  integer :: t_now, t_rate
-   
+
 !  real(kind=8) :: s2sum, s2mean
 !  integer :: ii,kk
    

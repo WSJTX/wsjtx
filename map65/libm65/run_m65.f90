@@ -9,8 +9,7 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   use timer_impl, only: init_timer, fini_timer
   use debug_log
   use m65a_mod
-  use datcom_ptrs_mod, only: dd, ss, savg
-  use npar_ptrs_mod, only: newdat, stop_m65, decoder_ready, t_start, manualDecodeFlag
+  use npar_ptrs_mod, only: newdat, stop_m65, decoder_ready, t_start
   use stdout_channel_mod, only: write_stdout
   use decodes_mod, only: nhsym1,nhsym2
   use sleep_msec_mod
@@ -22,12 +21,6 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   ! Local variables
   integer :: sample_rate
   character(len=128) :: line
-  
-  ! timestamp variables
-  character(len=8)  :: d
-  character(len=10) :: t
-  integer           :: v(8)
-  character(len=32) :: timestamp
   integer :: t_rate
 
   nhsym1=280
