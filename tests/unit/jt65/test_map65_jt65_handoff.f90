@@ -12,9 +12,10 @@ program test_map65_jt65_handoff
   real(real64), parameter :: map65_base_frequency = 118.0_real64 * 11025.0_real64 / 1024.0_real64
 
   allocate(dd(4, nsmax_active))
-  call test_mode(dd, 1, 'JT65A MAP65 handoff')
-  call test_mode(dd, 2, 'JT65B MAP65 handoff')
-  call test_mode(dd, 4, 'JT65C MAP65 handoff')
+  call test_mode(dd, standard_tones, 1, 1, 'JT65A MAP65 handoff')
+  call test_mode(dd, standard_tones, 2, 1, 'JT65B MAP65 handoff')
+  call test_mode(dd, standard_tones, 4, 1, 'JT65C MAP65 handoff')
+  call test_mode(dd, ooo_tones, 1, -1, 'JT65A OOO MAP65 handoff')
   print '(a)', 'MAP65 JT65 handoff tests passed'
 
 contains
@@ -29,9 +30,11 @@ contains
     end if
   end subroutine require
 
-  subroutine test_mode(waveform, mode65, description)
+  subroutine test_mode(waveform, tones, mode65, polarity, description)
     real(real32), intent(inout) :: waveform(:,:)
+    integer, intent(in) :: tones(:)
     integer, intent(in) :: mode65
+    integer, intent(in) :: polarity
     character(len=*), intent(in) :: description
     integer :: newdat, nflip, nfsample, neme, ndepth, nqd, ndphi
     integer :: nutc, nkhz, ndf, ipol, ntol, nkv, nhist, nsum, nsave
@@ -41,9 +44,9 @@ contains
     character(len=22) :: decoded
     real :: dphi, sync2, a(5), dt, pol, qual
 
-    call make_map65_wave(waveform, standard_tones, mode65, map65_base_frequency)
+    call make_map65_wave(waveform, tones, mode65, map65_base_frequency)
     newdat = 1
-    nflip = 1
+    nflip = polarity
     nfsample = 96000
     xpol = .false.
     mycall = 'K1ABC       '
