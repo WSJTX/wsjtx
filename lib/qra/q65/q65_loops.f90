@@ -1,24 +1,23 @@
-subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
+subroutine q65_loops(workspace,c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
      xdt0,f0,iaptype,xdt1,f1,snr2,dat4,idec)
 
   use packjt77
   use timer_module, only: timer
   use q65
+  use q65_workspace, only: q65_workspace_type
   
   parameter (NN=63)
   parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
+  type(q65_workspace_type), intent(inout) :: workspace
   complex c00(0:npts2-1)           !Analytic representation of dd(), 6000 Hz
-  complex ,allocatable :: c0(:)    !Ditto, with freq shift
   character decoded*37
   real a(3)                        !twkfreq params f,f1,f2
-  real,allocatable :: s3(:)        !Symbol spectra
   integer dat4(13)                 !Decoded message (as 13 six-bit integers)
   integer nap(0:11)                !AP return codes
   data nap/0,2,3,2,3,4,2,3,6,4,6,6/
 
   LL=64*(mode_q65+2)
-  allocate(s3(LL*NN))
-  allocate(c0(0:npts2-1))
+  call workspace%ensure(npts2,LL)
   idec=-1
   ircbest=9999
   irc=-99
@@ -54,18 +53,19 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
      a(1)=-(f0+0.5*baud*ndf)
 ! Variable 'drift' is frequency increase over full TxT.  Therefore we want:
      a(2)=-0.5*drift
-     call twkfreq(c00,c0,npts2,6000.0,a)
+     call twkfreq(c00,workspace%c0(0:npts2-1),npts2,6000.0,a)
      do idt=1,idtmax
         ndt=idt/2
         if(mod(idt,2).eq.0) ndt=-ndt
         jpk=jpk0 + nsps2*ndt/16              !tsym/16
         jpk=max(0,jpk)
         jpk=min(29000,jpk)
-        call spec64(c0,npts2,nsps2,mode_q65,jpk,s3,LL,NN)
-        call pctile(s3,LL*NN,40,base)
-        s3=s3/base
-        where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim
-        call q65_bzap(s3,LL)                   !Zap birdies
+        call spec64(workspace%c0(0:npts2-1),workspace%cs,npts2,nsps2,  &
+             mode_q65,jpk,workspace%s3(1:LL*NN),LL,NN)
+        call pctile(workspace%s3(1:LL*NN),LL*NN,40,base)
+        workspace%s3(1:LL*NN)=workspace%s3(1:LL*NN)/base
+        where(workspace%s3(1:LL*NN)>s3lim) workspace%s3(1:LL*NN)=s3lim
+        call q65_bzap(workspace%s3(1:LL*NN),LL) !Zap birdies
         do ibw=ibwa,ibwb
            ndist=ndf**2 + ndt**2 + (ibw-ibw0)**2
            if(ndist.gt.maxdist) cycle
@@ -73,7 +73,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
            if(b90.gt.345.0) cycle
            b90ts = b90/baud
            call timer('dec2    ',0)
-           call q65_dec2(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
+           call q65_dec2(workspace%s3(1:LL*NN),nsubmode,b90ts,esnodb,irc,dat4,decoded)
            call timer('dec2    ',1)
               ! irc > 0 ==> number of iterations required to decode
               !  -1 = invalid params
