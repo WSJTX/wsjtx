@@ -218,6 +218,13 @@ if (WSJT_ENABLE_TESTS)
   target_link_libraries (test_q65_waveform_generator PRIVATE m65impl)
   add_test (NAME test_q65_waveform_generator COMMAND test_q65_waveform_generator)
   set_tests_properties (test_q65_waveform_generator PROPERTIES TIMEOUT 180)
+
+  add_executable (test_ccf65_correlator
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_ccf65_correlator.f90)
+  target_include_directories (test_ccf65_correlator PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_ccf65_correlator PRIVATE m65impl)
+  add_test (NAME test_ccf65_correlator COMMAND test_ccf65_correlator)
+  set_tests_properties (test_ccf65_correlator PROPERTIES TIMEOUT 180)
 endif ()
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
