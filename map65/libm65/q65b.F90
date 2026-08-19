@@ -93,6 +93,7 @@
       integer   :: j, ja, jb, k0, mhz, ndf, ndpth, nfft1, nfft2
       integer   :: npol, nq65df, nsubmode, ntxpol, nutc00, nh
       integer   :: nfa, nfb
+      integer   :: k0_click, mousedf_gate
       real      :: df, df3, f_ipk, f_mouse, fac
       real      :: freq1_00, frx, fsked, poldeg, r, snr1
       real(real64)    :: freq0, freq1
@@ -308,6 +309,17 @@
          ldecoded(ipk) = .true.
          nq65df = nint(1000*( 0.001*k0*df + nkhz_center - real(nrate_active)/2000.0 + 1.000 - 1.27046 - ikhz )) - nfcal
          nq65df = nq65df + nfreq0 - 1000
+         ! Gate comparison target, expressed in the same ikhz-relative frame
+         ! as nq65df above -- computed from f0 (the unambiguous target
+         ! frequency for this call, for both a manual click and a wideband
+         ! candidate) via the same k0/nq65df formula, rather than from raw
+         ! mousedf, which is relative to mousefqso and only matches ikhz's
+         ! frame when the target happens to already be sub-kHz. mousedf
+         ! itself is left untouched -- f_mouse/k0 above still need it in its
+         ! original, unmodified form.
+         k0_click = nint((1000.0*f0 - 1000.0)/df)
+         mousedf_gate = nint(1000*( 0.001*k0_click*df + nkhz_center - real(nrate_active)/2000.0 + &
+                              1.000 - 1.27046 - ikhz )) - nfcal
          npol = nint(poldeg)
          if (nxant .ne. 0) then
             npol = npol - 45
@@ -320,7 +332,7 @@
          if (ndf .lt. -500) ikhz1 = ikhz + (nq65df - 500)/1000
          ndf = nq65df - 1000*(ikhz1 - ikhz)
 
-         if (nqd .eq. 1 .and. abs(nq65df - mousedf) .lt. ntol) then
+         if (nqd .eq. 1 .and. abs(nq65df - mousedf_gate) .lt. ntol) then
 
             write (linenew, '("!",I3.3,I5,I4,I6.4,F5.1,I5," : ",A28,A3,I4,1X,A1)') &
                ikhz1, ndf, npol, nutc, xdt0, nsnr0, msg0(1:28), cq0, ntxpol, cp

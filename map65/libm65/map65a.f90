@@ -370,6 +370,16 @@ contains
                            ! fQSO; also required so q65b's own write_stdout/output
                            ! path (gated on nqd==1) actually emits the result
             ikhz     = nint(freq_q65)
+            ! NB: mousedf must stay relative to mousefqso here, unmodified --
+            ! q65b.F90 also uses it (via f_mouse) to pick k0, the actual
+            ! sample-extraction point for the decode. A previous attempt to
+            ! re-reference it to ikhz here (for q65b's output gate, which
+            ! compares against ikhz-relative nq65df) fixed the gate but broke
+            ! k0/f_mouse, silently decoding whatever signal sits near the
+            ! *other* kHz bucket instead of the one actually clicked. The
+            ! gate's reference-frame mismatch is now fixed inside q65b.F90
+            ! itself instead, from f0 (already unambiguous), leaving this
+            ! mousedf untouched for f_mouse/k0 to keep working correctly.
 
             call timer('q65b    ', 0)
             call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
@@ -678,16 +688,19 @@ endif
                      ntry = ntry + 1
                      if ((nqd .eq. 1 .and. ntry .ge. 40) .or. &
                          (nqd .eq. 0 .and. ntry .ge. 400)) then
-  ! Too many calls to decode1a! NB: this "go to 900" skips the rest of
-  ! this pass, including the wideband Q65 full-decode loop further below
-  ! when nqd=0 -- so this abort can silently cost Q65 a whole minute even
-  ! though it was tripped by JT65 candidate volume, not a Q65 problem.
+  ! Too many calls to decode1a for this pass -- stop scanning more
+  ! frequency bins for JT65 candidates here, but only here: exit just this
+  ! do i=ia,ib sweep. A "go to 900" used to jump all the way past the rest
+  ! of this pass (including the wideband Q65 full-decode loop further
+  ! below when nqd=0), all remaining nqd passes, and the post-loop
+  ! cleanup/display() -- silently costing Q65 a whole minute even though
+  ! the abort was tripped by JT65 candidate volume, not a Q65 problem.
                         call dbg('map65a: Signal too strong, decoding aborted, nqd=' // itoa(nqd) // &
                                  ' ntry=' // itoa(ntry) // ' i=' // itoa(i))
                         call write_stdout('! Signal too strong, or suspect data?  Decoding aborted.'//new_line('a'))
                         write (13, *) 'Signal too strong, or suspect data?  Decoding aborted.'
                         flush (13)
-                        go to 900
+                        exit
                      endif
 
                      call timer('decode1a', 0)
