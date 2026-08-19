@@ -71,6 +71,7 @@ jobs:
       windows: ${{ steps.detect.outputs.windows }}
       macos_arm64: ${{ steps.detect.outputs.macos_arm64 }}
       macos_x86_64: ${{ steps.detect.outputs.macos_x86_64 }}
+      include_tsan: ${{ steps.detect.outputs.include_tsan }}
       hamlib_branch: ${{ steps.detect.outputs.hamlib_branch }}
     steps:
       - uses: actions/checkout@v7
@@ -96,6 +97,7 @@ jobs:
           windows=false
           macos_arm64=false
           macos_x86_64=false
+          include_tsan=false
 
           enable_cache_all() {
             windows=true
@@ -114,6 +116,7 @@ jobs:
               if [ "$SCHEDULE" = "17 9 1 * *" ]; then
                 linux_images=true
                 retention=true
+                include_tsan=true
               else
                 enable_cache_all
                 retention=true
@@ -124,8 +127,12 @@ jobs:
                 all)
                   enable_all
                   ;;
-                linux|linux-tsan|linux-images)
+                linux|linux-images)
                   linux_images=true
+                  ;;
+                linux-tsan)
+                  linux_images=true
+                  include_tsan=true
                   ;;
                 linux-retention)
                   retention=true
@@ -202,6 +209,7 @@ jobs:
             echo "windows=$windows"
             echo "macos_arm64=$macos_arm64"
             echo "macos_x86_64=$macos_x86_64"
+            echo "include_tsan=$include_tsan"
             echo "hamlib_branch=$HAMLIB_BRANCH"
           } >> "$GITHUB_OUTPUT"
 
@@ -211,6 +219,7 @@ jobs:
             echo "| Target | Enabled |"
             echo "| --- | --- |"
             echo "| Linux GHCR images | $linux_images |"
+            echo "| TSan GHCR image | $include_tsan |"
             echo "| Linux GHCR retention | $retention |"
             echo "| Windows x86_64 | $windows |"
             echo "| macOS arm64 | $macos_arm64 |"
@@ -226,6 +235,7 @@ jobs:
       packages: write
     with:
       promote: true
+      include_tsan: ${{ needs.detect.outputs.include_tsan == 'true' }}
     secrets: inherit
 
   retain-linux-images:
