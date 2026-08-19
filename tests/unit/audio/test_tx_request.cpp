@@ -42,7 +42,7 @@ private:
     QCOMPARE (request.tr_period_s, 60.0);
     QCOMPARE (request.session_id, TxEvidence::TxSessionId::invalid ());
     QCOMPARE (request.generation, TxEvidence::TxGeneration::invalid ());
-    QCOMPARE (request.fifo_session_id, qint64 {0});
+    QCOMPARE (request.queue_epoch, TxAudioQueueEpoch::invalid ());
     QVERIFY (!request.tuning);
   }
 
@@ -61,7 +61,7 @@ private:
     source.tr_period_s = 606.5;
     source.session_id = TxEvidence::TxSessionId {707};
     source.generation = TxEvidence::TxGeneration {808};
-    source.fifo_session_id = 909;
+    source.queue_epoch = TxAudioQueueEpoch {909};
     source.tuning = true;
 
     auto const copy = source;
@@ -79,7 +79,7 @@ private:
     QCOMPARE (copy.tr_period_s, 606.5);
     QCOMPARE (copy.session_id, TxEvidence::TxSessionId {707});
     QCOMPARE (copy.generation, TxEvidence::TxGeneration {808});
-    QCOMPARE (copy.fifo_session_id, qint64 {909});
+    QCOMPARE (copy.queue_epoch, TxAudioQueueEpoch {909});
     QVERIFY (copy.tuning);
   }
 
@@ -98,14 +98,14 @@ private:
     request.mode = "FT4";
     request.session_id = TxEvidence::TxSessionId {12};
     request.generation = TxEvidence::TxGeneration {34};
-    request.fifo_session_id = 56;
+    request.queue_epoch = TxAudioQueueEpoch {56};
     Q_EMIT relay.requestReady (request);
 
     QTRY_VERIFY (relay.delivered);
     QCOMPARE (relay.received.mode, QString {"FT4"});
     QCOMPARE (relay.received.session_id, TxEvidence::TxSessionId {12});
     QCOMPARE (relay.received.generation, TxEvidence::TxGeneration {34});
-    QCOMPARE (relay.received.fifo_session_id, qint64 {56});
+    QCOMPARE (relay.received.queue_epoch, request.queue_epoch);
   }
 };
 

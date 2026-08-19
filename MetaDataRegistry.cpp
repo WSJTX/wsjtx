@@ -7,6 +7,7 @@
 #include "Radio.hpp"
 #include "models/FrequencyList.hpp"
 #include "Audio/AudioDevice.hpp"
+#include "Audio/TxAudioQueue.hpp"
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
 #include "Audio/TxRequest.hpp"
@@ -72,6 +73,9 @@ void register_types ()
   qRegisterMetaType<AudioDevice::Channel> ("AudioDevice::Channel");
   qRegisterMetaType<TxEvidence::TxSessionId> ("TxEvidence::TxSessionId");
   qRegisterMetaType<TxEvidence::TxGeneration> ("TxEvidence::TxGeneration");
+  qRegisterMetaType<TxAudioQueueEpoch> ("TxAudioQueueEpoch");
+  qRegisterMetaType<TxAudioQueueProgress> ("TxAudioQueueProgress");
+  qRegisterMetaType<TxAudioQueueDrainState> ("TxAudioQueueDrainState");
   TxEvidence::register_tx_request_type ();
   qRegisterMetaType<TxEvidence::TxStartSnapshot> ("TxEvidence::TxStartSnapshot");
   qRegisterMetaType<TxEvidence::TxRawPlayoutSnapshot> ("TxEvidence::TxRawPlayoutSnapshot");

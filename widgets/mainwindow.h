@@ -144,7 +144,7 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
-#include "Modulator/JttyTxBuffer.hpp"
+#include "Audio/TxAudioQueue.hpp"
 #include "Modulator/JttyTxStream.hpp"
 
 #ifdef WIN32
@@ -530,6 +530,7 @@ private slots:
   void on_outAttenuation_valueChanged (int);
   void rigOpen ();
   void handle_transceiver_update (Transceiver::TransceiverState const&);
+  void handle_transceiver_closing (bool failed);
   void handle_transceiver_failure (QString const& reason);
   void handle_leavingSettings();
   void on_actionAstronomical_data_toggled (bool);
@@ -724,18 +725,24 @@ private:
   QString jttyRejectReasonText(JttyTxRejectReason reason) const;
 #endif
   void execute_jtty_tx(qint64 requestId, QString message);
-  void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
+  void advanceJttyTxQueueEpoch();
+  qint64 jttyTxCommittedSamples() const;
+  void completeJttyTxEnqueue(qint64 requestId, QString const& message,
+                             TxAudioQueueProgress progress, bool newSession,
+                             bool useTciAudio);
   void recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample);
-  QVector<qint64> takeCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain);
-  void clearAcceptedJttyTextRequests(qint64 sessionId);
+  QVector<qint64> takeCompletedJttyTextRequests(TxAudioQueueEpoch epoch,
+                                               qint64 totalAtDrain);
+  void clearAcceptedJttyTextRequests(TxAudioQueueEpoch epoch);
   void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();
   void interruptJttyTx();
   void rejectPendingJttyTciMessages(JttyTxRejectReason reason);
   void sync_tci_tx_volume (bool force = false);
-  void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
-  void onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
-  void onJttyBackendEnqueueFailed(qint64 sessionId, qint64 enqueueId);
+  void onJttyBackendDrained(TxAudioQueueDrainState drain);
+  void onJttyBackendEnqueueAccepted(qint64 enqueueId, qint64 sampleCount,
+                                    TxAudioQueueProgress progress);
+  void onJttyBackendEnqueueFailed(TxAudioQueueEpoch epoch, qint64 enqueueId);
   void handleJttyTxWatchdog();
   void resetJttyTxState();
   void startJttyTxWatchdog(int durationMs);
@@ -816,7 +823,7 @@ private:
   AudioInputSource * m_soundInput;
   quint64 m_decodeCycleGeneration {0};
   Modulator * m_modulator;
-  QScopedPointer<JttyTxBuffer> m_jttyTxBuffer;
+  QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
   SoundOutput * m_soundOutput;
   int m_rx_audio_buffer_frames;
@@ -1257,11 +1264,11 @@ private:
   TxEvidence::TxStopReason m_pendingTxStopReason {TxEvidence::TxStopReason::NormalEnd};
   bool m_jttyTxActive;
   bool m_jttyTxUsesTciAudio;
-  qint64 m_jttyTxSessionId;
-  qint64 m_jttyQueuedSamples;
+  TxAudioQueueEpoch m_jttyTxQueueEpoch;
+  TxAudioQueueProgress m_jttyTxQueueProgress;
   struct PendingJttyTciMessage
   {
-    qint64 sessionId;
+    TxAudioQueueEpoch epoch;
     qint64 enqueueId;
     qint64 requestId;
     qint64 sampleCount;
@@ -1271,7 +1278,7 @@ private:
   QVector<PendingJttyTciMessage> m_pendingJttyTciMessages;
   struct AcceptedJttyTxRequest
   {
-    qint64 sessionId;
+    TxAudioQueueEpoch epoch;
     qint64 requestId;
     qint64 endSample;
   };

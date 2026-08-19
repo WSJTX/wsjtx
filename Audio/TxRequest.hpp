@@ -6,6 +6,7 @@
 #include <QtGlobal>
 
 #include "AudioDevice.hpp"
+#include "TxAudioQueue.hpp"
 #include "TxIdentity.hpp"
 
 namespace TxEvidence
@@ -24,7 +25,7 @@ namespace TxEvidence
     double tr_period_s {60.0};
     TxSessionId session_id {};
     TxGeneration generation {};
-    qint64 fifo_session_id {0};
+    TxAudioQueueEpoch queue_epoch {};
     bool tuning {false};
   };
 }

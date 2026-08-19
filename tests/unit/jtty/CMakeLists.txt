@@ -16,11 +16,12 @@ add_test (NAME test_jtty_frequency_window COMMAND test_jtty_frequency_window)
 
 add_executable (test_jtty_txstream
   test_jtty_txstream.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
   ${CMAKE_SOURCE_DIR}/Modulator/JttyPcmFifo.cpp
-  ${CMAKE_SOURCE_DIR}/Modulator/JttyTxBuffer.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/TxAudioQueue.cpp
   ${CMAKE_SOURCE_DIR}/Modulator/JttyTxStream.cpp
   ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
-target_link_libraries (test_jtty_txstream wsjt_qt Qt5::Test Qt5::Multimedia)
+target_link_libraries (test_jtty_txstream wsjt_qt Boost::log_setup Qt5::Test Qt5::Multimedia)
 add_test (NAME test_jtty_txstream COMMAND test_jtty_txstream)
 
 add_executable (test_jtty_messages test_jtty_messages.cpp)

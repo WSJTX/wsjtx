@@ -37,8 +37,8 @@ set (wsjt_qt_CXXSRCS
   GetUserId.cpp
   Audio/AudioDevice.cpp
   Audio/TxPlaybackDiagnostics.cpp
+  Audio/TxAudioQueue.cpp
   Modulator/JttyPcmFifo.cpp
-  Modulator/JttyTxBuffer.cpp
   Transceiver/Transceiver.cpp
   Transceiver/TransceiverBase.cpp
   Transceiver/EmulateSplitTransceiver.cpp

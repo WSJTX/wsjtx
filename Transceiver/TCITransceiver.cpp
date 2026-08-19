@@ -1009,34 +1009,44 @@ void TCITransceiver::txAudioData(quint32 len, float * data)
   commander_->sendBinaryMessage(tx);
 }
 
-void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId) noexcept
+void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples,
+                                       TxAudioQueueEpoch epoch,
+                                       qint64 enqueueId) noexcept
 {
   qint64 const count = samples.size () / int (sizeof (qint16));
   if (count <= 0) return;
 
   qint16 const * pcm = reinterpret_cast<qint16 const *> (samples.constData ());
-  if (!m_jttyPcmFifo.enqueue (pcm, count, sessionId))
+  auto const result = m_txAudioQueue.enqueue (pcm, count, epoch);
+  if (!result.accepted)
     {
-      CAT_WARNING ("JTTY TCI transmit FIFO overflow; rejecting PCM enqueue\n");
-      Q_EMIT jtty_enqueue_failed (sessionId, enqueueId);
+      if (epoch == result.progress.epoch)
+        {
+          CAT_WARNING ("JTTY TCI transmit FIFO overflow; rejecting PCM enqueue\n");
+        }
+      else
+        {
+          CAT_DEBUG ("JTTY TCI transmit queue epoch changed; rejecting stale PCM enqueue\n");
+        }
+      Q_EMIT jtty_enqueue_failed (epoch, enqueueId);
       return;
     }
-  Q_EMIT jtty_enqueue_accepted (sessionId, enqueueId, count);
+  Q_EMIT jtty_enqueue_accepted (enqueueId, count, result.progress);
 }
 
-void TCITransceiver::clear_jtty_pcm (qint64 sessionId) noexcept
+void TCITransceiver::clear_jtty_pcm (TxAudioQueueEpoch epoch) noexcept
 {
-  m_jttyPcmFifo.clear (sessionId);
+  m_txAudioQueue.clear (epoch);
 }
 
 void TCITransceiver::poll_jtty_drain ()
 {
   // TCI audio is pulled while responding to TxChrono packets. Emitting the
   // completion signal here keeps Qt work out of that packet/audio path.
-  auto const drain = m_jttyPcmFifo.takeDrainReady ();
+  auto const drain = m_txAudioQueue.takeDrainReady ();
   if (drain.ready)
     {
-      Q_EMIT jtty_drained (drain.sessionId, drain.totalAtDrain);
+      Q_EMIT jtty_drained (drain);
     }
 }
 
@@ -1703,8 +1713,9 @@ void TCITransceiver::emit_tci_playout_snapshot (bool start_event, bool force)
   snapshot.diagnostic = tr ("TCI WebSocket send progress; no radio DAC or RF playback confirmation");
   if (m_txMode == "JTTY")
     {
-      snapshot.source_served_frames = m_jttyPcmFifo.servedReal ();
-      snapshot.source_total_frames = m_jttyPcmFifo.totalReal ();
+      auto const progress = m_txAudioQueue.progress ();
+      snapshot.source_served_frames = progress.served_samples;
+      snapshot.source_total_frames = progress.total_samples;
     }
   Q_EMIT rawTxPlayoutSnapshot (snapshot);
   m_tciLastReportMsecs = now;
@@ -1918,7 +1929,7 @@ quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, quint32
   // sample has cleared the backend.
   for (qint64 i = 0; i < numFrames; ++i)
     {
-      qint32 sample = qRound (newVolume * m_jttyPcmFifo.pullSample (m_jttyDrainGuard));
+      qint32 sample = qRound (newVolume * m_txAudioQueue.pullSample (m_jttyDrainGuard));
       if (sample > std::numeric_limits<qint16>::max ()) sample = std::numeric_limits<qint16>::max ();
       if (sample < std::numeric_limits<qint16>::min ()) sample = std::numeric_limits<qint16>::min ();
       samples = load (postProcessSample (qint16 (sample)), channels, samples);

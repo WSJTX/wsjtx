@@ -530,8 +530,8 @@ public:
   void transceiver_period (double, bool = false);
   void transceiver_blocksize (qint32);
   void transceiver_modulator_start (TxEvidence::TxRequest const&);
-  void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
-  void transceiver_clear_jtty_pcm (qint64);
+  void transceiver_enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64);
+  void transceiver_clear_jtty_pcm (TxAudioQueueEpoch);
   void transceiver_modulator_stop (bool);
   void transceiver_spread (double);
   void transceiver_nsym (int);
@@ -586,7 +586,7 @@ private:
   void set_cached_mode ();
   bool open_rig (bool force = false);
   //bool set_mode ();
-  void close_rig ();
+  void close_rig (bool failed = false);
   TransceiverFactory::ParameterPack gather_rig_data ();
   void enumerate_rigs ();
   void set_rig_invariants ();
@@ -735,8 +735,8 @@ private:
   Q_SIGNAL void set_transceiver (Transceiver::TransceiverState const&,
                                  unsigned sequence_number) const;
   Q_SIGNAL void stop_transceiver () const;
-  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, qint64, qint64) const;
-  Q_SIGNAL void clear_jtty_pcm (qint64) const;
+  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64) const;
+  Q_SIGNAL void clear_jtty_pcm (TxAudioQueueEpoch) const;
 
   Configuration * const self_;	// back pointer to public interface
 
@@ -1333,14 +1333,16 @@ void Configuration::transceiver_modulator_start (TxEvidence::TxRequest request)
   m_->transceiver_modulator_start (request);
 }
 
-void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
+void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples,
+                                                   TxAudioQueueEpoch epoch,
+                                                   qint64 enqueueId)
 {
-  m_->transceiver_enqueue_jtty_pcm (samples, sessionId, enqueueId);
+  m_->transceiver_enqueue_jtty_pcm (samples, epoch, enqueueId);
 }
 
-void Configuration::transceiver_clear_jtty_pcm (qint64 sessionId)
+void Configuration::transceiver_clear_jtty_pcm (TxAudioQueueEpoch epoch)
 {
-  m_->transceiver_clear_jtty_pcm (sessionId);
+  m_->transceiver_clear_jtty_pcm (epoch);
 }
 
 void Configuration::transceiver_modulator_stop (bool on)
@@ -6124,14 +6126,16 @@ void Configuration::impl::transceiver_modulator_start (TxEvidence::TxRequest con
 //  else printf("%s(%0.1f) Configuration modulator_start: WAS ALLREADY RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
 }
 
-void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
+void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples,
+                                                         TxAudioQueueEpoch epoch,
+                                                         qint64 enqueueId)
 {
-  Q_EMIT enqueue_jtty_pcm (samples, sessionId, enqueueId);
+  Q_EMIT enqueue_jtty_pcm (samples, epoch, enqueueId);
 }
 
-void Configuration::impl::transceiver_clear_jtty_pcm (qint64 sessionId)
+void Configuration::impl::transceiver_clear_jtty_pcm (TxAudioQueueEpoch epoch)
 {
-  Q_EMIT clear_jtty_pcm (sessionId);
+  Q_EMIT clear_jtty_pcm (epoch);
 }
 
 void Configuration::impl::transceiver_modulator_stop (bool on)
@@ -6224,7 +6228,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 void Configuration::impl::handle_transceiver_failure (QString const& reason)
 {
   LOG_ERROR ("handle_transceiver_failure: " << summarize_transceiver_failure (reason));
-  close_rig ();
+  close_rig (true);
   ui_->test_PTT_push_button->setChecked (false);
 
   if (isVisible ())
@@ -6238,13 +6242,14 @@ void Configuration::impl::handle_transceiver_failure (QString const& reason)
     }
 }
 
-void Configuration::impl::close_rig ()
+void Configuration::impl::close_rig (bool failed)
 {
   ui_->test_PTT_push_button->setEnabled (false);
 
   // revert to no rig configured
   if (rig_active_)
     {
+      Q_EMIT self_->transceiver_closing (failed);
       ui_->test_CAT_push_button->setStyleSheet ("QPushButton {background-color: red;}");
       LOG_TRACE ("emitting stop_transceiver");
       Q_EMIT stop_transceiver ();

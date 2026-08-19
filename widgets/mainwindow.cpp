@@ -522,8 +522,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                 ? audio_input_source.release ()
                 : static_cast<AudioInputSource *> (new SoundInput)},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
-  m_jttyTxBuffer {new JttyTxBuffer},
-  m_jttyTxStream {new JttyTxStream {*m_jttyTxBuffer}},
+  m_jttyTxQueue {new TxAudioQueue},
+  m_jttyTxStream {new JttyTxStream {*m_jttyTxQueue}},
   m_soundOutput {sound_output ? sound_output.release () : new SoundOutput},
   m_rx_audio_buffer_frames {0},
   m_tx_audio_buffer_frames {0},
@@ -650,8 +650,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_tx_watchdog {false},
   m_jttyTxActive {false},
   m_jttyTxUsesTciAudio {false},
-  m_jttyTxSessionId {0},
-  m_jttyQueuedSamples {0},
+  m_jttyTxQueueEpoch {},
+  m_jttyTxQueueProgress {},
   m_jttyTxRequestId {0},
   m_jttyTciEnqueueId {0},
 #ifdef WIN32
@@ -1171,6 +1171,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::transceiver_jtty_drained, this, &MainWindow::onJttyBackendDrained);
   connect (&m_config, &Configuration::transceiver_jtty_enqueue_accepted, this, &MainWindow::onJttyBackendEnqueueAccepted);
   connect (&m_config, &Configuration::transceiver_jtty_enqueue_failed, this, &MainWindow::onJttyBackendEnqueueFailed);
+  connect (&m_config, &Configuration::transceiver_closing, this, &MainWindow::handle_transceiver_closing);
   connect (&m_config, &Configuration::transceiver_failure, this, &MainWindow::handle_transceiver_failure);
   connect (&m_config, &Configuration::udp_server_changed, m_messageClient, &MessageClient::set_server);
   connect (&m_config, &Configuration::udp_server_port_changed, m_messageClient, &MessageClient::set_server_port);
@@ -6972,13 +6973,14 @@ void MainWindow::useNextCall()
 
 void MainWindow::startTx2()
 {
+  if (m_mode == "JTTY" && !m_tune
+      && (!m_jttyTxActive || jttyTxCommittedSamples () <= 0)) {
+    return;
+  }
   bool modulator_active;
   bool const tci_active = (m_mode == "JTTY" && m_jttyTxActive)
       ? m_jttyTxUsesTciAudio
       : m_tci_audio;
-  if (m_mode == "JTTY" && tci_active && m_jttyTxActive && m_jttyQueuedSamples <= 0) {
-    return;
-  }
   if (tci_active) modulator_active=m_tci_mod_active;
   else modulator_active=m_modulator->isActive ();
   if (!modulator_active) { // TODO - not thread safe
@@ -7145,12 +7147,6 @@ void MainWindow::stopTx()
       ? m_jttyTxUsesTciAudio
       : m_tci_audio;
   int const stopTxDelayMs = txStopTailMs (tciAudio);
-  if (m_mode == "JTTY" && m_jttyTxActive && !tciAudio)
-    {
-      captureJttyTxEvidenceTotals (m_jttyTxBuffer->servedReal (),
-                                   m_jttyTxBuffer->totalReal (),
-                                   QStringLiteral ("JTTY source totals captured before stop"));
-    }
   if (m_mode == "JTTY" && m_jttyTxActive) {
     interruptJttyTx();
   }
@@ -10895,6 +10891,19 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   ui->readFreq->setText (s.split () ? "S" : "");
 }
 
+void MainWindow::handle_transceiver_closing (bool failed)
+{
+  if (m_closing || m_mode != "JTTY" || !m_jttyTxActive
+      || !m_jttyTxUsesTciAudio)
+    {
+      return;
+    }
+
+  noteTxStopReason (failed ? TxEvidence::TxStopReason::Error
+                           : TxEvidence::TxStopReason::UserHalt);
+  stopTx ();
+}
+
 void MainWindow::handle_transceiver_failure (QString const& reason)
 {
   noteTxStopReason (TxEvidence::TxStopReason::Error);
@@ -10981,8 +10990,9 @@ void MainWindow::dispatchTxRequest (TxEvidence::TxRequest const& request)
 
 void MainWindow::transmit (double snr)
 {
-  beginTxEvidenceGeneration (m_mode == "JTTY" && m_jttyQueuedSamples > 0
-                               ? m_jttyQueuedSamples - 1 : -1,
+  qint64 const jttyCommittedSamples = jttyTxCommittedSamples ();
+  beginTxEvidenceGeneration (m_mode == "JTTY" && jttyCommittedSamples > 0
+                               ? jttyCommittedSamples - 1 : -1,
                              false);
   auto const txSessionId = m_txEvidenceSourceSession;
   auto const txGeneration = m_txEvidenceGeneration;
@@ -10993,7 +11003,7 @@ void MainWindow::transmit (double snr)
   request.tr_period_s = m_TRperiod;
   request.session_id = txSessionId;
   request.generation = txGeneration;
-  request.fifo_session_id = m_jttyTxSessionId;
+  request.queue_epoch = m_jttyTxQueueEpoch;
   request.tuning = m_tune;
   double toneSpacing=0.0;
   if (m_mode == "JT65") {

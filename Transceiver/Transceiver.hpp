@@ -11,6 +11,7 @@
 
 #include "qt_helpers.hpp"
 #include "Radio.hpp"
+#include "Audio/TxAudioQueue.hpp"
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
 #include "Audio/TxRequest.hpp"
@@ -226,8 +227,8 @@ public:
   // Connect and disconnect.
   Q_SLOT virtual void start (unsigned sequence_number) noexcept = 0;
   Q_SLOT virtual void stop () noexcept = 0;
-  Q_SLOT virtual void enqueue_jtty_pcm (QByteArray const&, qint64, qint64) noexcept {}
-  Q_SLOT virtual void clear_jtty_pcm (qint64) noexcept {}
+    Q_SLOT virtual void enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64) noexcept {}
+    Q_SLOT virtual void clear_jtty_pcm (TxAudioQueueEpoch) noexcept {}
 
   //
   // asynchronous status updates
@@ -250,9 +251,10 @@ public:
   Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot);
   Q_SIGNAL void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot);
 
-  Q_SIGNAL void jtty_drained (qint64 sessionId, qint64 totalAtDrain);
-  Q_SIGNAL void jtty_enqueue_accepted (qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
-  Q_SIGNAL void jtty_enqueue_failed (qint64 sessionId, qint64 enqueueId);
+  Q_SIGNAL void jtty_drained (TxAudioQueueDrainState drain);
+  Q_SIGNAL void jtty_enqueue_accepted (qint64 enqueueId, qint64 sampleCount,
+                                       TxAudioQueueProgress progress);
+    Q_SIGNAL void jtty_enqueue_failed (TxAudioQueueEpoch epoch, qint64 enqueueId);
 
   // rig state changed
   Q_SIGNAL void update (Transceiver::TransceiverState const&,

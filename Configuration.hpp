@@ -423,8 +423,8 @@ public:
   //
   Q_SLOT void transceiver_modulator_start (TxEvidence::TxRequest request = {});
 
-  Q_SLOT void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
-  Q_SLOT void transceiver_clear_jtty_pcm (qint64);
+  Q_SLOT void transceiver_enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64);
+  Q_SLOT void transceiver_clear_jtty_pcm (TxAudioQueueEpoch);
 
   // Set modulation start TCI audio
   //
@@ -483,9 +483,12 @@ public:
   Q_SIGNAL void transceiver_TCImodActive (bool) const;
   Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot) const;
   Q_SIGNAL void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot) const;
-  Q_SIGNAL void transceiver_jtty_drained (qint64 sessionId, qint64 totalAtDrain) const;
-  Q_SIGNAL void transceiver_jtty_enqueue_accepted (qint64 sessionId, qint64 enqueueId, qint64 sampleCount) const;
-  Q_SIGNAL void transceiver_jtty_enqueue_failed (qint64 sessionId, qint64 enqueueId) const;
+  Q_SIGNAL void transceiver_jtty_drained (TxAudioQueueDrainState drain) const;
+  Q_SIGNAL void transceiver_jtty_enqueue_accepted (qint64 enqueueId, qint64 sampleCount,
+                                                   TxAudioQueueProgress progress) const;
+  Q_SIGNAL void transceiver_jtty_enqueue_failed (TxAudioQueueEpoch epoch,
+                                                 qint64 enqueueId) const;
+  Q_SIGNAL void transceiver_closing (bool failed) const;
   Q_SIGNAL void leavingSettings (bool) const;
 
   // Signals a failure of a control rig CAT or PTT connection.

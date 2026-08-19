@@ -34,3 +34,10 @@ add_test (NAME test_tx_playback_diagnostics COMMAND test_tx_playback_diagnostics
 add_executable (test_tx_request test_tx_request.cpp)
 target_link_libraries (test_tx_request Qt5::Test)
 add_test (NAME test_tx_request COMMAND test_tx_request)
+
+add_executable (test_tx_audio_queue
+  test_tx_audio_queue.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/TxAudioQueue.cpp
+  ${CMAKE_SOURCE_DIR}/Modulator/JttyPcmFifo.cpp)
+target_link_libraries (test_tx_audio_queue Qt5::Core Qt5::Test)
+add_test (NAME test_tx_audio_queue COMMAND test_tx_audio_queue)

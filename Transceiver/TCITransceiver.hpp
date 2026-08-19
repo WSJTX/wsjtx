@@ -9,7 +9,7 @@
 #include "PollingTransceiver.hpp"
 #include "TCIStream.hpp"
 #include "commons.h"
-#include "Modulator/JttyPcmFifo.hpp"
+#include "Audio/TxAudioQueue.hpp"
 
 #include <QtWebSockets/QWebSocket>
 #include <QTimer>
@@ -102,8 +102,9 @@ qreal txAtten;
 public slots:
   void sendTextMessage(const QString &message);
   void txAudioData(quint32 len, float * data);
-  void enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId) noexcept override;
-  void clear_jtty_pcm (qint64 sessionId) noexcept override;
+  void enqueue_jtty_pcm (QByteArray const& samples, TxAudioQueueEpoch epoch,
+                         qint64 enqueueId) noexcept override;
+  void clear_jtty_pcm (TxAudioQueueEpoch epoch) noexcept override;
 
 private slots:
   void onBinaryReceived(const QByteArray &data);
@@ -320,7 +321,7 @@ private:
   QString m_txMode;
   qint16 m_ramp;
   ModulatorState m_state;
-  JttyPcmFifo m_jttyPcmFifo;
+  TxAudioQueue m_txAudioQueue;
   QTimer * m_jttyDrainTimer;
   qint64 m_jttyDrainGuard;
   TxEvidence::TxStartSnapshot m_txStartSnapshot;
