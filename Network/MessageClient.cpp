@@ -661,6 +661,11 @@ void MessageClient::impl::drain_replay ()
     {
       replay_timer_->start (replay_interval_ms);
     }
+
+  if (messages)
+    {
+      Q_EMIT self_->replay_batch_processed (messages);
+    }
 }
 
 void MessageClient::impl::send_message (QByteArray const& message, bool queue_if_pending, bool allow_duplicates)
