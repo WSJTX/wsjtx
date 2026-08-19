@@ -2,7 +2,7 @@ module symspec_mod
   implicit none
 contains
 
-subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
+subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,    &
      iqadjust,iqapply,gainx,gainy,phasex,phasey,rejectx,rejecty,  &
      pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong) bind(C, name='symspec_')
 
@@ -17,7 +17,7 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
 
   ! C-facing arguments (keep these as in your modern version)
   integer(c_int),    intent(in)    :: k, nxpol, ndiskdat, nb, nbslider
-  integer(c_int),    intent(in)    :: idphi, nfsample
+  integer(c_int),    intent(in)    :: idphi
   integer(c_int),    intent(in)    :: iqadjust, iqapply
   real(c_float),     intent(inout) :: gainx, gainy, phasex, phasey
   real(c_float),     intent(out)   :: rejectx, rejecty, pxdb, pydb

@@ -1131,16 +1131,13 @@ void MainWindow::dataSink(int k)
 // Get x and y power, polarized spectrum, nkhz, and ihsym
   nb=0;
   if(m_NB) nb=1;
-  nfsample=96000;
-  if(m_fs96000 == 0) nfsample=95238;
-  else if (m_fs96000 == 2) nfsample=192000;
   nxpol=0;
   if(m_xpol) nxpol=1;
   nadj++;
   if(m_adjustIQ==0) nadj=0;
-    
+
   symspec_(&k, &nxpol, &ndiskdat, &nb, &m_NBslider, &m_dPhi,
-           &nfsample, &m_adjustIQ, &m_applyIQcal,
+           &m_adjustIQ, &m_applyIQcal,
            &m_gainx, &m_gainy, &m_phasex, &m_phasey, &rejectx, &rejecty,
            &px, &py, s, &nkhz, &ihsym, &nzap, &slimit, lstrong);
 
