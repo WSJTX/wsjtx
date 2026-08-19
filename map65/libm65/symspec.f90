@@ -38,8 +38,8 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
   real(real32) :: fac, faclim, peaklimit, px, py, q, rejectx0, rms, rmsx, rmsy, &
              s135, s45, sigmas, sx, sy, u, x1, x2, x3, x4, dphi, pi
  
-  real(real32), allocatable, save :: w(:), w2a(:), w2b(:)
-  complex,      allocatable, save :: cx(:), cy(:), cx00(:), cy00(:)
+  real(real32), allocatable :: w(:), w2a(:), w2b(:)
+  complex,      allocatable :: cx(:), cy(:), cx00(:), cy00(:)
 
   complex :: z, zfac, zsumx, zsumy
   complex :: cx0(0:1023), cx1(0:1023), cy0(0:1023), cy1(0:1023)

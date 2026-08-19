@@ -104,7 +104,6 @@
       character(len=2)  :: cmode
       character(len=256) :: linenew
 
-      logical, save :: dumped_96 = .false., dumped_192 = .false.
       integer :: t_now, t_rate
 
       ! From q65_decode / wideband_sync / globals:
@@ -267,22 +266,6 @@
       enddo
 
       iwave(2*nfft2 + 1:) = 0
-
-    !  if (nrate_active == 192000 .and. .not. dumped_192) then
-    !     open(30,file='Q65_192.wav',status='unknown',access='stream')
-    !     call write_wav_header(30, 2*nfft2, 12000)
-    !     write(30) iwave(1:2*nfft2)
-!  close(30)
-    !     dumped_192 = .true.
-    !  endif
-
-    !  if (nrate_active == 96000 .and. .not. dumped_96) then
-    !     open(30,file='Q65_96.wav',status='unknown',access='stream')
-    !     call write_wav_header(30, 2*nfft2, 12000)
-    !     write(30) iwave(1:2*nfft2)
-    !     close(30)
-    !     dumped_96 = .true.
-    !  endif
 
       nsubmode = mode_q65 - 1
       nfa = 990                   !Tight limits around ipk for the wideband decode
