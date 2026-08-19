@@ -223,4 +223,10 @@ program sjtty
 1110 format(i4,f7.2,f8.2,f7.1,2x,a17)
   enddo
 
-999 end program sjtty
+999 if (allocated(cwave)) deallocate(cwave)
+    if (allocated(c0)) deallocate(c0)
+    if (allocated(c)) deallocate(c)
+    if (allocated(wave)) deallocate(wave)
+    if (allocated(iwave)) deallocate(iwave)
+
+end program sjtty
