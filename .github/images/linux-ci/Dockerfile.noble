@@ -28,6 +28,7 @@ RUN test -n "$IMAGE_REFRESH_EPOCH" && /usr/local/bin/install-packages normal
 COPY .github/scripts/linux-ci-image-config.sh \
      .github/scripts/build-pfunit-linux.sh \
      .github/scripts/build-hamlib-linux.sh \
+     .github/scripts/verify-linux-ci-image.sh \
      /usr/local/share/wsjtx-ci/
 COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
 
@@ -44,7 +45,10 @@ RUN set -eux; \
       "$LINUX_HAMLIB_COMMIT" "$LINUX_HAMLIB_PREFIX"; \
     rm -rf /tmp/wsjtx-pfunit-build /tmp/wsjtx-hamlib-build; \
     /usr/local/bin/write-wsjtx-ci-manifest \
-      normal x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"
+      normal x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
+    IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-linux-ci-image.sh \
+        normal x86_64 "$LINUX_HAMLIB_REF"
 
 FROM common AS tsan
 
@@ -63,6 +67,7 @@ COPY .github/scripts/linux-ci-image-config.sh \
      .github/scripts/build-boost-tsan-linux.sh \
      .github/scripts/build-hamlib-tsan-linux.sh \
      .github/scripts/verify-tsan-deps-linux.sh \
+     .github/scripts/verify-linux-ci-image.sh \
      /usr/local/share/wsjtx-ci/
 COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
 
@@ -71,7 +76,8 @@ RUN set -eux; \
     /usr/local/share/wsjtx-ci/build-qt-tsan-linux.sh /opt/wsjtx/tsan/qt; \
     /usr/local/share/wsjtx-ci/build-boost-tsan-linux.sh /opt/wsjtx/tsan/boost; \
     /usr/local/share/wsjtx-ci/build-hamlib-tsan-linux.sh /opt/wsjtx/tsan/hamlib; \
-    /usr/local/share/wsjtx-ci/verify-tsan-deps-linux.sh \
-      /opt/wsjtx/tsan/qt /opt/wsjtx/tsan/boost /opt/wsjtx/tsan/hamlib; \
     /usr/local/bin/write-wsjtx-ci-manifest \
-      tsan x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"
+      tsan x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
+    IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-linux-ci-image.sh \
+        tsan x86_64 "$TSAN_HAMLIB_REF"

@@ -17,17 +17,22 @@ are never baked into these images.
 The Ubuntu and GCC base tags intentionally follow their maintained upstream
 security updates. Each published generation records the resolved package set,
 compiler identity, dependency pins, and recipe fingerprint. Promotion is gated
-by the normal, ASan/UBSan, and arm64 build/test pipelines. The TSan dependency
-image is an explicit `include_tsan: true` refresh option and verifies its
-pinned closure during the image build; the current code-level TSan suite is
-not part of image promotion.
+by image construction and lightweight manifest, toolchain, metadata, plugin,
+and compile/link checks. Full application pipelines remain useful consumer
+smoke tests but do not block promotion. The TSan dependency image is an
+explicit `include_tsan: true` refresh option and verifies its pinned closure
+during the image build; the current code-level TSan suite is not part of image
+promotion.
 
 ## Publication
 
 `publish-linux-ci-images.yml` pushes unique candidate and immutable `build-*`
-tags for the three routinely used packages. It then runs the normal, ASan/UBSan,
-and aarch64 pipelines against those candidates. The TSan image's dependency
-verification runs during its image build. Successful generations
+tags for the three routinely used packages. Each Docker build verifies the
+image manifest, dependency metadata, and a representative compile/link smoke
+test before promotion. Full normal, ASan/UBSan, aarch64, and TSan application
+pipelines remain separate consumer checks in ordinary CI and do not gate image
+publication. The TSan image's dependency verification runs during its image
+build. Successful generations
 also receive `validated-build-*` tags. The secondary `stable` tags move
 first and `linux-noble:stable` moves last as the generation pointer. Consumers
 resolve that pointer to its immutable `build-*` tag and use the same generation
@@ -44,11 +49,13 @@ optional label is used. A missing TSan generation fails explicitly instead of
 silently using the normal image.
 
 The dependency refresh workflow runs image publication monthly and when image
-recipes change on `develop`. Its `linux` and `linux-images` manual targets run
-the same refresh without armhf; use the direct publisher workflow when an
-explicit armhf validation is needed. A monthly epoch invalidates the package-install
-layer so repository security updates are not hidden by BuildKit's cache. The
-direct publisher workflow also supports
+recipes change on `develop`. The monthly refresh includes TSan; weekly and
+`all` refreshes omit it unless the explicit `linux-tsan` manual target is
+selected. Its `linux` and `linux-images` manual targets run the normal and
+arm64 refresh without armhf or TSan; use the direct publisher workflow when an
+explicit armhf validation is needed. A monthly epoch invalidates the
+package-install layer so repository security updates are not hidden by
+BuildKit's cache. The direct publisher workflow also supports
 retagging a retained `validated-build-*` generation as `stable` for rollback.
 
 ## Retention

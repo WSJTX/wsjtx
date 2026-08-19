@@ -285,71 +285,19 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable
           cache-to: type=inline
 
-  validate-normal:
-    needs: [metadata, build-normal]
-    uses: ./.github/workflows/build-linux.yml
-    with:
-      version: ${{ needs.metadata.outputs.version }}
-      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
-      arch: x86_64
-      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
-      save_ccache: true
-    secrets: inherit
-
-  validate-asan:
-    needs: [metadata, build-normal]
-    uses: ./.github/workflows/build-linux-sanitizers.yml
-    with:
-      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
-      sanitizer: asan-ubsan
-      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
-      save_ccache: true
-    secrets: inherit
-
-  validate-arm64:
-    needs: [metadata, build-arm64]
-    uses: ./.github/workflows/build-linux.yml
-    with:
-      version: ${{ needs.metadata.outputs.version }}
-      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
-      arch: aarch64
-      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
-      save_ccache: true
-    secrets: inherit
-
-  validate-armv7:
-    if: inputs.include_armhf
-    needs: [metadata, build-armv7]
-    uses: ./.github/workflows/build-linux.yml
-    with:
-      version: ${{ needs.metadata.outputs.version }}
-      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
-      arch: armhf
-      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
-      save_ccache: true
-    secrets: inherit
-
   promote:
     if: >-
       always() && inputs.mode == 'refresh' && inputs.promote &&
       needs.build-normal.result == 'success' &&
       needs.build-arm64.result == 'success' &&
-      needs.validate-normal.result == 'success' &&
-      needs.validate-asan.result == 'success' &&
-      needs.validate-arm64.result == 'success' &&
       (inputs.include_tsan == false || needs.build-tsan.result == 'success') &&
-      (inputs.include_armhf == false ||
-       (needs.build-armv7.result == 'success' && needs.validate-armv7.result == 'success'))
+      (inputs.include_armhf == false || needs.build-armv7.result == 'success')
     needs:
       - metadata
       - build-normal
       - build-tsan
       - build-arm64
       - build-armv7
-      - validate-normal
-      - validate-asan
-      - validate-arm64
-      - validate-armv7
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

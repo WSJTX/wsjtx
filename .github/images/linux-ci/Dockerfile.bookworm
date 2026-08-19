@@ -25,6 +25,7 @@ RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-packages \
 COPY .github/scripts/linux-ci-image-config.sh \
      .github/scripts/build-pfunit-linux.sh \
      .github/scripts/build-hamlib-linux.sh \
+     .github/scripts/verify-linux-ci-image.sh \
      /usr/local/share/wsjtx-ci/
 COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
 
@@ -42,4 +43,7 @@ RUN set -eux; \
       "$LINUX_HAMLIB_COMMIT" "$LINUX_HAMLIB_PREFIX"; \
     rm -rf /tmp/wsjtx-pfunit-build /tmp/wsjtx-hamlib-build; \
     /usr/local/bin/write-wsjtx-ci-manifest \
-      normal "$IMAGE_ARCH" "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"
+      normal "$IMAGE_ARCH" "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
+    IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-linux-ci-image.sh \
+        normal "$IMAGE_ARCH" "$LINUX_HAMLIB_REF"
