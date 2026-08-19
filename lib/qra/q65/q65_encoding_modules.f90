@@ -175,7 +175,7 @@ subroutine get_q65_tones(msg37,codeword,itone,msgsent,success)
    integer message(15)
    integer shortcodeword(63)
    integer itone(85)
-   integer i,j,k,ios,pack_status
+   integer i,j,k,ios,pack_status,ng15
    integer*1 mbits(90)
    integer i3,n3,ncrc1,ncrc2
    logical success,unpk77_success
@@ -191,6 +191,9 @@ subroutine get_q65_tones(msg37,codeword,itone,msgsent,success)
    call pack77_legacy_truncating_fallback(msg37,i3,n3,c77, &
         status=pack_status)
    if(pack_status.ne.PACK77_STATUS_ENCODED) return
+   read(c77(60:74),'(b15)',iostat=ios) ng15
+   if(ios.ne.0) return
+   if(ng15.eq.32373) c77(60:74)='111111010010011'    !Message is RR73
    call unpack77(c77,0,msgsent,unpk77_success)
    if(.not.unpk77_success) then
       msgsent='*** bad message ***                  '
