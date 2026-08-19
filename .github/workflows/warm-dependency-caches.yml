@@ -1,4 +1,4 @@
-name: Warm Dependency Caches
+name: Refresh Dependency Environments
 
 on:
   push:
@@ -7,17 +7,22 @@ on:
       - ".github/workflows/ci.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/build-linux.yml"
+      - ".github/workflows/build-linux-sanitizers.yml"
+      - ".github/workflows/publish-linux-ci-images.yml"
       - ".github/workflows/build-macos.yml"
       - ".github/workflows/build-windows.yml"
       - ".github/workflows/warm-dependency-caches.yml"
       - ".github/actions/build-linux-payload/**"
-      - ".github/actions/prepare-linux-tsan-deps/**"
-      - ".github/actions/warm-linux-deps/**"
+      - ".github/actions/build-linux-sanitizers/**"
+      - ".github/images/linux-ci/**"
       - ".github/actions/warm-macos-deps/**"
       - ".github/actions/build-windows-deps/**"
       - ".github/scripts/build-*-linux.sh"
       - ".github/scripts/tsan-linux-deps-config.sh"
+      - ".github/scripts/linux-ci-image-config.sh"
+      - ".github/scripts/run-apt-get.sh"
       - ".github/scripts/verify-tsan-deps-linux.sh"
+      - ".github/scripts/linux-ci-image-fingerprint.sh"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
       - ".github/scripts/install-*-macos*.sh"
@@ -25,6 +30,7 @@ on:
       - ".github/scripts/verify-macos-*.sh"
   schedule:
     - cron: "23 10 * * 1"
+    - cron: "17 9 1 * *"
   workflow_dispatch:
     inputs:
       targets:
@@ -38,6 +44,8 @@ on:
           - windows
           - linux
           - linux-tsan
+          - linux-images
+          - linux-retention
           - all
         default: macos-arm64
       hamlib_branch:
@@ -45,6 +53,9 @@ on:
         required: false
         type: string
         default: "4.7.2"
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -55,8 +66,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      linux: ${{ steps.detect.outputs.linux }}
-      linux_tsan: ${{ steps.detect.outputs.linux_tsan }}
+      linux_images: ${{ steps.detect.outputs.linux_images }}
+      retention: ${{ steps.detect.outputs.retention }}
       windows: ${{ steps.detect.outputs.windows }}
       macos_arm64: ${{ steps.detect.outputs.macos_arm64 }}
       macos_x86_64: ${{ steps.detect.outputs.macos_x86_64 }}
@@ -71,6 +82,7 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
           BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
           TARGETS: ${{ inputs.targets || '' }}
@@ -79,34 +91,44 @@ jobs:
           set -euo pipefail
           .github/scripts/validate-ci-inputs.sh
 
-          linux=false
-          linux_tsan=false
+          linux_images=false
+          retention=false
           windows=false
           macos_arm64=false
           macos_x86_64=false
 
-          enable_all() {
-            linux=true
-            linux_tsan=true
+          enable_cache_all() {
             windows=true
             macos_arm64=true
             macos_x86_64=true
           }
 
+          enable_all() {
+            linux_images=true
+            retention=true
+            enable_cache_all
+          }
+
           case "$EVENT_NAME" in
             schedule)
-              enable_all
+              if [ "$SCHEDULE" = "17 9 1 * *" ]; then
+                linux_images=true
+                retention=true
+              else
+                enable_cache_all
+                retention=true
+              fi
               ;;
             workflow_dispatch)
               case "$TARGETS" in
                 all)
                   enable_all
                   ;;
-                linux)
-                  linux=true
+                linux|linux-tsan|linux-images)
+                  linux_images=true
                   ;;
-                linux-tsan)
-                  linux_tsan=true
+                linux-retention)
+                  retention=true
                   ;;
                 windows)
                   windows=true
@@ -149,18 +171,14 @@ jobs:
               while IFS= read -r path; do
                 [ -n "$path" ] || continue
                 case "$path" in
-                  .github/workflows/ci.yml|.github/workflows/release.yml|.github/workflows/warm-dependency-caches.yml)
-                    enable_all
+                  .github/workflows/ci.yml|.github/workflows/release.yml)
+                    enable_cache_all
                     ;;
-                  .github/workflows/build-linux.yml|.github/actions/build-linux-payload/*|.github/actions/warm-linux-deps/*|.github/scripts/build-pfunit-linux.sh|.github/scripts/build-hamlib-linux.sh)
-                    linux=true
-                    ;;
-                  .github/actions/prepare-linux-tsan-deps/*|.github/scripts/build-*-tsan-linux.sh|.github/scripts/tsan-linux-deps-config.sh|.github/scripts/verify-tsan-deps-linux.sh)
-                    linux_tsan=true
+                  .github/workflows/warm-dependency-caches.yml|.github/workflows/publish-linux-ci-images.yml|.github/workflows/build-linux.yml|.github/workflows/build-linux-sanitizers.yml|.github/actions/build-linux-payload/*|.github/actions/build-linux-sanitizers/*|.github/images/linux-ci/*|.github/scripts/linux-ci-image-config.sh|.github/scripts/build-pfunit-linux.sh|.github/scripts/build-hamlib-linux.sh|.github/scripts/build-*-tsan-linux.sh|.github/scripts/tsan-linux-deps-config.sh|.github/scripts/verify-tsan-deps-linux.sh)
+                    linux_images=true
                     ;;
                   .github/scripts/run-apt-get.sh)
-                    linux=true
-                    linux_tsan=true
+                    linux_images=true
                     ;;
                   .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh)
                     windows=true
@@ -179,8 +197,8 @@ jobs:
           esac
 
           {
-            echo "linux=$linux"
-            echo "linux_tsan=$linux_tsan"
+            echo "linux_images=$linux_images"
+            echo "retention=$retention"
             echo "windows=$windows"
             echo "macos_arm64=$macos_arm64"
             echo "macos_x86_64=$macos_x86_64"
@@ -192,52 +210,60 @@ jobs:
             echo
             echo "| Target | Enabled |"
             echo "| --- | --- |"
-            echo "| Linux x86_64/aarch64 | $linux |"
-            echo "| Linux x86_64 TSan | $linux_tsan |"
+            echo "| Linux GHCR images | $linux_images |"
+            echo "| Linux GHCR retention | $retention |"
             echo "| Windows x86_64 | $windows |"
             echo "| macOS arm64 | $macos_arm64 |"
             echo "| macOS x86_64 | $macos_x86_64 |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  warm-linux-x86_64:
+  refresh-linux-images:
     needs: detect
-    if: needs.detect.outputs.linux == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/warm-linux-deps
-        with:
-          arch: x86_64
-          runtime_base: host
-          hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+    if: needs.detect.outputs.linux_images == 'true'
+    uses: ./.github/workflows/publish-linux-ci-images.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      promote: true
+    secrets: inherit
 
-  warm-linux-aarch64:
-    needs: detect
-    if: needs.detect.outputs.linux == 'true'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
-    container:
-      image: gcc:13.4.0-bookworm
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/warm-linux-deps
-        with:
-          arch: aarch64
-          runtime_base: bookworm-gcc13.4
-          hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
-
-  warm-linux-tsan:
-    needs: detect
-    if: needs.detect.outputs.linux_tsan == 'true'
+  retain-linux-images:
+    needs: [detect, refresh-linux-images]
+    if: >-
+      always() &&
+      needs.detect.outputs.retention == 'true' &&
+      (needs.refresh-linux-images.result == 'success' ||
+       needs.refresh-linux-images.result == 'skipped')
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: linux-ci-image-publishing
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/prepare-linux-tsan-deps
-        with:
-          hamlib_ref: ${{ needs.detect.outputs.hamlib_branch }}
-          save_caches: "true"
+      - name: Apply GHCR retention
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLY: ${{ github.event_name == 'schedule' }}
+        shell: bash
+        run: |
+          args=(
+            --owner WSJTX
+            --max-age-days 60
+            --keep 3
+            --package wsjtx-internal/linux-noble
+            --package wsjtx-internal/linux-tsan-noble
+            --package wsjtx-internal/linux-arm64-bookworm
+            --package wsjtx-internal/linux-armv7-bookworm
+          )
+          if [ "$APPLY" = true ]; then
+            args+=(--apply)
+          fi
+          .github/scripts/ghcr_retention.py "${args[@]}"
 
   warm-windows-x86_64:
     needs: detect

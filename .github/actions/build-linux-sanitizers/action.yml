@@ -14,6 +14,10 @@ inputs:
     description: "Force ccache to recompile and refresh cached objects"
     required: false
     default: "false"
+  save_ccache:
+    description: "Save compiled objects for trusted builds"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -64,38 +68,43 @@ runs:
             ;;
         esac
 
-    - name: Install dependencies
-      if: inputs.sanitizer == 'asan-ubsan'
+    - name: Verify Linux CI image
+      id: image
       shell: bash
       run: |
-        .github/scripts/run-apt-get.sh update
-        .github/scripts/run-apt-get.sh install -y --no-install-recommends \
-          ca-certificates git \
-          build-essential binutils cmake ccache \
-          libfftw3-dev \
-          libusb-1.0-0-dev libudev-dev \
-          autoconf automake libtool pkg-config texinfo \
-          python3 xauth xvfb \
-          gfortran libboost-log-dev \
-          qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
-          libqt5sql5-sqlite libqt5websockets5-dev \
-          libqt5multimedia5-plugins
+        flavor=normal
+        if [ "${{ inputs.sanitizer }}" = tsan ]; then
+          flavor=tsan
+        fi
+        .github/scripts/verify-linux-ci-image.sh \
+          "$flavor" x86_64 "${{ inputs.hamlib_branch }}"
 
-    - name: Prepare pinned TSan dependencies
-      id: tsan-deps
+    - name: Export TSan dependency environment
       if: inputs.sanitizer == 'tsan'
-      uses: ./.github/actions/prepare-linux-tsan-deps
-      with:
-        hamlib_ref: ${{ inputs.hamlib_branch }}
-        save_caches: "false"
+      shell: bash
+      run: |
+        {
+          echo "CC=gcc-13"
+          echo "CXX=g++-13"
+          echo "FC=gfortran-13"
+          echo "TSAN_QT_PREFIX=${{ steps.image.outputs.qt_prefix }}"
+          echo "TSAN_BOOST_PREFIX=${{ steps.image.outputs.boost_prefix }}"
+          echo "TSAN_HAMLIB_PREFIX=${{ steps.image.outputs.hamlib_prefix }}"
+          echo "TSAN_CMAKE_PREFIX_PATH=${{ steps.image.outputs.qt_prefix }};${{ steps.image.outputs.boost_prefix }};${{ steps.image.outputs.hamlib_prefix }}"
+          echo "LD_LIBRARY_PATH=${{ steps.image.outputs.qt_prefix }}/lib:${{ steps.image.outputs.boost_prefix }}/lib:${LD_LIBRARY_PATH:-}"
+          echo "PKG_CONFIG_PATH=${{ steps.image.outputs.qt_prefix }}/lib/pkgconfig:${{ steps.image.outputs.boost_prefix }}/lib/pkgconfig:${{ steps.image.outputs.hamlib_prefix }}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          echo "QT_PLUGIN_PATH=${{ steps.image.outputs.qt_prefix }}/plugins"
+        } >> "$GITHUB_ENV"
+        echo "${{ steps.image.outputs.qt_prefix }}/bin" >> "$GITHUB_PATH"
 
-    - name: Cache sanitizer objects
-      uses: actions/cache@v5
+    - name: Restore sanitizer objects
+      id: ccache
+      uses: actions/cache/restore@v5
       with:
         path: ${{ steps.sanitizer.outputs.ccache_dir }}
-        key: ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.tsan-deps.outputs.toolchain_id || 'host' }}-${{ github.sha }}
+        key: ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}
         restore-keys: |
-          ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.tsan-deps.outputs.toolchain_id || 'host' }}-
+          ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.toolchain_id }}-
 
     - name: Configure ccache
       shell: bash
@@ -111,30 +120,10 @@ runs:
         ccache --version
         ccache --zero-stats
 
-    - name: Cache Hamlib
-      id: hamlib-cache
-      if: inputs.sanitizer == 'asan-ubsan'
-      uses: actions/cache@v5
-      with:
-        path: hamlib-prefix
-        key: hamlib-linux-x86_64-${{ inputs.hamlib_branch }}-host-${{ hashFiles('.github/scripts/build-hamlib-linux.sh') }}
-
-    - name: Build Hamlib
-      if: inputs.sanitizer == 'asan-ubsan' && steps.hamlib-cache.outputs.cache-hit != 'true'
-      shell: bash
-      env:
-        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
-      run: .github/scripts/build-hamlib-linux.sh "$HAMLIB_BRANCH" "${GITHUB_WORKSPACE}/hamlib-prefix"
-
-    - name: Verify Hamlib prefix
-      if: inputs.sanitizer == 'asan-ubsan'
-      shell: bash
-      run: test -f "${GITHUB_WORKSPACE}/hamlib-prefix/lib/libhamlib.a"
-
     - name: Configure sanitizer build
       shell: bash
       run: |
-        prefix_path="${GITHUB_WORKSPACE}/hamlib-prefix"
+        prefix_path="${{ steps.image.outputs.hamlib_prefix }}"
         compiler_args=()
         boost_args=()
         if [ "${{ inputs.sanitizer }}" = "tsan" ]; then
@@ -257,3 +246,10 @@ runs:
         if [ "$failed" = "true" ]; then
           exit 1
         fi
+
+    - name: Save sanitizer objects
+      if: inputs.save_ccache == 'true' && steps.ccache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ steps.sanitizer.outputs.ccache_dir }}
+        key: ${{ steps.ccache.outputs.cache-primary-key }}

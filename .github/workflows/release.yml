@@ -4,6 +4,10 @@ on:
   push:
     tags: ["build/v*"]
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # ── Derive the version string once from the pushed tag ────────────
   # Strips the "build/v" prefix so artifacts are named "wsjtx-3.0.1-rc1-*"
@@ -18,6 +22,8 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       release_channel: ${{ steps.v.outputs.release_channel }}
       rc_number: ${{ steps.v.outputs.rc_number }}
+      linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
+      armhf_image_tag: ${{ steps.armhf-image.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v7
       - id: v
@@ -64,6 +70,17 @@ jobs:
             exit 1
           fi
           echo "Parity check PASSED."
+      - id: linux-image
+        name: Resolve Linux CI image generation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/resolve-linux-ci-image-tag.py
+      - id: armhf-image
+        name: Resolve armhf CI image generation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESOLVE_ARMHF: true
+        run: .github/scripts/resolve-linux-ci-image-tag.py
 
   # ── Build all six platforms ────────────────────────────────────────
   macos:
@@ -99,6 +116,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "x86_64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      save_ccache: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
@@ -110,6 +129,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "aarch64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      save_ccache: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
@@ -127,6 +148,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "armhf"
+      image_tag: ${{ needs.prepare.outputs.armhf_image_tag }}
+      save_ccache: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit

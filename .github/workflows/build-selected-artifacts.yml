@@ -34,12 +34,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets }}-${{ inputs.mode }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
+      linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v7
       - id: v
@@ -51,6 +56,11 @@ jobs:
           fi
           echo "Derived version from CMakeLists.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - id: linux-image
+        name: Resolve Linux CI image generation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/resolve-linux-ci-image-tag.py
 
   detect-build-system-changes:
     runs-on: ubuntu-latest
@@ -117,6 +127,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "x86_64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      save_ccache: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 
@@ -130,6 +142,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "x86_64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      save_ccache: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 
@@ -147,6 +161,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "aarch64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      save_ccache: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 

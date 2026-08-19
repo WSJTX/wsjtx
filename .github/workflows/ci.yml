@@ -22,6 +22,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # Single source of truth for the project version string: read it from
   # CMakeLists.txt so CI and release.yml cannot disagree. Strip the
@@ -32,10 +36,17 @@ jobs:
     timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
+      linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v7
       - name: Validate workflow job timeouts
         run: .github/scripts/validate-workflow-timeouts.py
+      - name: Run CI policy self-tests
+        run: |
+          .github/scripts/validate-ci-inputs.sh --self-test
+          .github/scripts/detect-ccache-recache.sh --self-test
+          .github/scripts/test-verify-linux-ci-image.sh
+          python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
       - id: v
         run: |
           VERSION=$(grep -E '^\s*VERSION\s+[0-9]' CMakeLists.txt | head -1 | awk '{print $2}' | cut -d. -f1-3)
@@ -45,6 +56,11 @@ jobs:
           fi
           echo "Derived version from CMakeLists.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - id: linux-image
+        name: Resolve Linux CI image generation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/resolve-linux-ci-image-tag.py
 
   detect-build-system-changes:
     runs-on: ubuntu-latest
@@ -120,7 +136,9 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "x86_64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      save_ccache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
     secrets: inherit
 
   linux-sanitizers:
@@ -129,31 +147,26 @@ jobs:
     if: >-
       contains(github.event.pull_request.labels.*.name, 'full-ci') ||
       contains(github.event.pull_request.labels.*.name, 'sanitizers')
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/build-linux-sanitizers
-        with:
-          hamlib_branch: "4.7.2"
-          sanitizer: asan-ubsan
-          recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+    uses: ./.github/workflows/build-linux-sanitizers.yml
+    with:
+      hamlib_branch: "4.7.2"
+      sanitizer: asan-ubsan
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      advisory: true
+    secrets: inherit
 
   linux-tsan:
     name: Linux x86_64 TSan
     needs: [prepare, detect-build-system-changes, linux]
     if: contains(github.event.pull_request.labels.*.name, 'thread-sanitizer')
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/build-linux-sanitizers
-        with:
-          hamlib_branch: "4.7.2"
-          sanitizer: tsan
-          recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+    uses: ./.github/workflows/build-linux-sanitizers.yml
+    with:
+      hamlib_branch: "4.7.2"
+      sanitizer: tsan
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      advisory: true
+    secrets: inherit
 
   linux-arm:
     needs: [prepare, detect-build-system-changes, linux]
@@ -166,6 +179,7 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "aarch64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 

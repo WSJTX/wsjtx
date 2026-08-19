@@ -1,0 +1,471 @@
+name: Publish Linux CI Images
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "Refresh or rollback"
+        required: false
+        type: string
+        default: "refresh"
+      promote:
+        description: "Promote candidates after every validation succeeds"
+        required: false
+        type: boolean
+        default: true
+      rollback_tag:
+        description: "Retained validated-build-* tag to promote when mode is rollback"
+        required: false
+        type: string
+        default: ""
+      include_armhf:
+        description: "Build and validate the expensive armhf QEMU image during refresh"
+        required: false
+        type: boolean
+        default: false
+      include_tsan:
+        description: "Build and publish the expensive TSan dependency image during refresh"
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Build a new generation or roll stable back to a retained tag"
+        required: true
+        type: choice
+        options:
+          - refresh
+          - rollback
+        default: refresh
+      promote:
+        description: "Promote candidates after every validation succeeds"
+        required: false
+        type: boolean
+        default: true
+      rollback_tag:
+        description: "Retained validated-build-* tag to promote when mode is rollback"
+        required: false
+        type: string
+        default: ""
+      include_armhf:
+        description: "Build and validate the expensive armhf QEMU image during refresh"
+        required: false
+        type: boolean
+        default: false
+      include_tsan:
+        description: "Build and publish the expensive TSan dependency image during refresh"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: linux-ci-image-publishing
+  cancel-in-progress: false
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Validate publication request
+        env:
+          MODE: ${{ inputs.mode }}
+          ROLLBACK_TAG: ${{ inputs.rollback_tag }}
+        shell: bash
+        run: |
+          case "$MODE" in
+            refresh)
+              if [ -n "$ROLLBACK_TAG" ]; then
+                echo "::error::rollback_tag must be empty in refresh mode"
+                exit 2
+              fi
+              ;;
+            rollback)
+              if [[ ! "$ROLLBACK_TAG" =~ ^validated-build-[0-9]{8}-[0-9]+-[0-9]+$ ]]; then
+                echo "::error::rollback_tag must identify a validated retained generation"
+                exit 2
+              fi
+              ;;
+            *)
+              echo "::error::Unsupported publication mode: $MODE"
+              exit 2
+              ;;
+          esac
+
+  metadata:
+    if: inputs.mode != 'rollback'
+    needs: validate-inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      build_tag: ${{ steps.metadata.outputs.build_tag }}
+      candidate_tag: ${{ steps.metadata.outputs.candidate_tag }}
+      created: ${{ steps.metadata.outputs.created }}
+      version: ${{ steps.metadata.outputs.version }}
+      normal_hamlib_ref: ${{ steps.metadata.outputs.normal_hamlib_ref }}
+      tsan_hamlib_ref: ${{ steps.metadata.outputs.tsan_hamlib_ref }}
+      normal_noble_recipe: ${{ steps.metadata.outputs.normal_noble_recipe }}
+      normal_bookworm_recipe: ${{ steps.metadata.outputs.normal_bookworm_recipe }}
+      tsan_noble_recipe: ${{ steps.metadata.outputs.tsan_noble_recipe }}
+      refresh_epoch: ${{ steps.metadata.outputs.refresh_epoch }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: metadata
+        shell: bash
+        run: |
+          created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          date_tag="$(date -u +%Y%m%d)"
+          version="$(awk '/^[[:space:]]*VERSION[[:space:]]+[0-9]/{print $2; exit}' CMakeLists.txt | cut -d. -f1-3)"
+          . .github/scripts/linux-ci-image-config.sh
+          . .github/scripts/tsan-linux-deps-config.sh
+          {
+            echo "build_tag=build-${date_tag}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "candidate_tag=candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "created=$created"
+            echo "version=$version"
+            echo "normal_hamlib_ref=$LINUX_HAMLIB_REF"
+            echo "tsan_hamlib_ref=$TSAN_HAMLIB_REF"
+            echo "normal_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-noble)"
+            echo "normal_bookworm_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-bookworm)"
+            echo "tsan_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh tsan-noble)"
+            echo "refresh_epoch=$(date -u +%Y-%m)"
+          } >> "$GITHUB_OUTPUT"
+
+  build-normal:
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/images/linux-ci/Dockerfile.noble
+          target: normal
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ghcr.io/wsjtx/wsjtx-internal/linux-noble:${{ needs.metadata.outputs.candidate_tag }}
+            ghcr.io/wsjtx/wsjtx-internal/linux-noble:${{ needs.metadata.outputs.build_tag }}
+          build-args: |
+            IMAGE_CREATED=${{ needs.metadata.outputs.created }}
+            IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
+            IMAGE_REVISION=${{ github.sha }}
+            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_noble_recipe }}
+            IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
+          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-noble:stable
+          cache-to: type=inline
+
+  build-tsan:
+    if: inputs.include_tsan
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/images/linux-ci/Dockerfile.noble
+          target: tsan
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${{ needs.metadata.outputs.candidate_tag }}
+            ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${{ needs.metadata.outputs.build_tag }}
+          build-args: |
+            IMAGE_CREATED=${{ needs.metadata.outputs.created }}
+            IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
+            IMAGE_REVISION=${{ github.sha }}
+            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.tsan_noble_recipe }}
+            IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
+          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:stable
+          cache-to: type=inline
+
+  build-arm64:
+    needs: metadata
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/images/linux-ci/Dockerfile.bookworm
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${{ needs.metadata.outputs.candidate_tag }}
+            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${{ needs.metadata.outputs.build_tag }}
+          build-args: |
+            IMAGE_ARCH=aarch64
+            IMAGE_CREATED=${{ needs.metadata.outputs.created }}
+            IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
+            IMAGE_REVISION=${{ github.sha }}
+            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_bookworm_recipe }}
+            IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
+          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:stable
+          cache-to: type=inline
+
+  build-armv7:
+    if: inputs.include_armhf
+    needs: metadata
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: linux/arm/v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/images/linux-ci/Dockerfile.bookworm
+          platforms: linux/arm/v7
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.metadata.outputs.candidate_tag }}
+            ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.metadata.outputs.build_tag }}
+          build-args: |
+            IMAGE_ARCH=armhf
+            IMAGE_CREATED=${{ needs.metadata.outputs.created }}
+            IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
+            IMAGE_REVISION=${{ github.sha }}
+            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_bookworm_recipe }}
+            IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
+          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable
+          cache-to: type=inline
+
+  validate-normal:
+    needs: [metadata, build-normal]
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
+      arch: x86_64
+      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
+      save_ccache: true
+    secrets: inherit
+
+  validate-asan:
+    needs: [metadata, build-normal]
+    uses: ./.github/workflows/build-linux-sanitizers.yml
+    with:
+      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
+      sanitizer: asan-ubsan
+      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
+      save_ccache: true
+    secrets: inherit
+
+  validate-arm64:
+    needs: [metadata, build-arm64]
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
+      arch: aarch64
+      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
+      save_ccache: true
+    secrets: inherit
+
+  validate-armv7:
+    if: inputs.include_armhf
+    needs: [metadata, build-armv7]
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
+      arch: armhf
+      image_tag: ${{ needs.metadata.outputs.candidate_tag }}
+      save_ccache: true
+    secrets: inherit
+
+  promote:
+    if: >-
+      always() && inputs.mode == 'refresh' && inputs.promote &&
+      needs.build-normal.result == 'success' &&
+      needs.build-arm64.result == 'success' &&
+      needs.validate-normal.result == 'success' &&
+      needs.validate-asan.result == 'success' &&
+      needs.validate-arm64.result == 'success' &&
+      (inputs.include_tsan == false || needs.build-tsan.result == 'success') &&
+      (inputs.include_armhf == false ||
+       (needs.build-armv7.result == 'success' && needs.validate-armv7.result == 'success'))
+    needs:
+      - metadata
+      - build-normal
+      - build-tsan
+      - build-arm64
+      - build-armv7
+      - validate-normal
+      - validate-asan
+      - validate-arm64
+      - validate-armv7
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote validated image digests
+        env:
+          VALIDATED_TAG: validated-${{ needs.metadata.outputs.build_tag }}
+          INCLUDE_ARMHF: ${{ inputs.include_armhf }}
+          INCLUDE_TSAN: ${{ inputs.include_tsan }}
+        shell: bash
+        run: |
+          docker buildx imagetools create --prefer-index=false \
+            --tag "ghcr.io/wsjtx/wsjtx-internal/linux-noble:${VALIDATED_TAG}" \
+            ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
+          if [ "$INCLUDE_TSAN" = true ]; then
+            docker buildx imagetools create --prefer-index=false \
+              --tag "ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${VALIDATED_TAG}" \
+              ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble@${{ needs.build-tsan.outputs.digest }}
+          fi
+          docker buildx imagetools create --prefer-index=false \
+            --tag "ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${VALIDATED_TAG}" \
+            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
+          if [ "$INCLUDE_ARMHF" = true ]; then
+            docker buildx imagetools create --prefer-index=false \
+              --tag "ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${VALIDATED_TAG}" \
+              ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
+          fi
+
+          # linux-noble:stable is the generation pointer and moves last.
+          if [ "$INCLUDE_TSAN" = true ]; then
+            docker buildx imagetools create --prefer-index=false \
+              --tag ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:stable \
+              ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble@${{ needs.build-tsan.outputs.digest }}
+          fi
+          docker buildx imagetools create --prefer-index=false \
+            --tag ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:stable \
+            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
+          if [ "$INCLUDE_ARMHF" = true ]; then
+            docker buildx imagetools create --prefer-index=false \
+              --tag ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable \
+              ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
+          fi
+          docker buildx imagetools create --prefer-index=false \
+            --tag ghcr.io/wsjtx/wsjtx-internal/linux-noble:stable \
+            ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
+
+  rollback:
+    if: inputs.mode == 'rollback'
+    needs: validate-inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore retained generation
+        env:
+          ROLLBACK_TAG: ${{ inputs.rollback_tag }}
+          INCLUDE_ARMHF: ${{ inputs.include_armhf }}
+          INCLUDE_TSAN: ${{ inputs.include_tsan }}
+        shell: bash
+        run: |
+          tsan_available=false
+          if docker buildx imagetools inspect \
+              "ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${ROLLBACK_TAG}" \
+              >/dev/null 2>&1; then
+            tsan_available=true
+          elif [ "$INCLUDE_TSAN" = true ]; then
+            echo "::error::Requested TSan rollback generation is not present: ${ROLLBACK_TAG}"
+            exit 1
+          else
+            echo "::notice::Rollback generation has no TSan member; retaining the current TSan stable image"
+          fi
+
+          armhf_available=false
+          if docker buildx imagetools inspect \
+              "ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${ROLLBACK_TAG}" \
+              >/dev/null 2>&1; then
+            armhf_available=true
+          elif [ "$INCLUDE_ARMHF" = true ]; then
+            echo "::error::Requested armhf rollback generation is not present: ${ROLLBACK_TAG}"
+            exit 1
+          else
+            echo "::notice::Rollback generation has no armhf member; retaining the current armhf stable image"
+          fi
+
+          packages=(linux-noble linux-arm64-bookworm)
+          if [ "$tsan_available" = true ]; then
+            packages+=(linux-tsan-noble)
+          fi
+          if [ "$armhf_available" = true ]; then
+            packages+=(linux-armv7-bookworm)
+          fi
+          for package in "${packages[@]}"; do
+            docker buildx imagetools inspect \
+              "ghcr.io/wsjtx/wsjtx-internal/${package}:${ROLLBACK_TAG}" >/dev/null
+          done
+
+          # The pointer moves last, so consumers see either complete generation.
+          stable_packages=(linux-arm64-bookworm linux-noble)
+          if [ "$tsan_available" = true ]; then
+            stable_packages=(linux-tsan-noble linux-arm64-bookworm linux-noble)
+          fi
+          if [ "$armhf_available" = true ]; then
+            stable_packages=(linux-tsan-noble linux-arm64-bookworm linux-armv7-bookworm linux-noble)
+          fi
+          for package in "${stable_packages[@]}"; do
+            docker buildx imagetools create --prefer-index=false \
+              --tag "ghcr.io/wsjtx/wsjtx-internal/${package}:stable" \
+              "ghcr.io/wsjtx/wsjtx-internal/${package}:${ROLLBACK_TAG}"
+          done

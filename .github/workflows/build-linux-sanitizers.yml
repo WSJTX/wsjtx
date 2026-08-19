@@ -1,0 +1,87 @@
+name: Build Linux Sanitizers
+
+on:
+  workflow_call:
+    inputs:
+      hamlib_branch:
+        description: "Hamlib version baked into the CI image"
+        required: false
+        type: string
+        default: "4.7.2"
+      sanitizer:
+        description: "Sanitizer mode: asan-ubsan or tsan"
+        required: true
+        type: string
+      image_tag:
+        description: "Immutable GHCR image tag; empty resolves the current validated generation"
+        required: false
+        type: string
+        default: ""
+      recache:
+        description: "Force ccache to recompile"
+        required: false
+        type: boolean
+        default: false
+      save_ccache:
+        description: "Save compiled objects for trusted builds"
+        required: false
+        type: boolean
+        default: false
+      advisory:
+        description: "Allow sanitizer failures without failing the caller"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  resolve-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: resolve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+          RESOLVE_TSAN: ${{ inputs.sanitizer == 'tsan' }}
+        shell: bash
+        run: |
+          if [ -n "$REQUESTED_TAG" ]; then
+            IMAGE_TAG="$REQUESTED_TAG" .github/scripts/validate-ci-inputs.sh
+            echo "image_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          elif [ "$RESOLVE_TSAN" = true ]; then
+            RESOLVE_TSAN=true .github/scripts/resolve-linux-ci-image-tag.py
+          else
+            .github/scripts/resolve-linux-ci-image-tag.py
+          fi
+
+  build:
+    needs: resolve-image
+    name: ${{ inputs.sanitizer == 'tsan' && 'Linux x86_64 TSan' || 'Linux x86_64 ASan + UBSan' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ inputs.sanitizer == 'tsan' && 180 || 40 }}
+    continue-on-error: ${{ inputs.advisory }}
+    container:
+      image: ${{ inputs.sanitizer == 'tsan' && format('ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:{0}', needs.resolve-image.outputs.image_tag) || format('ghcr.io/wsjtx/wsjtx-internal/linux-noble:{0}', needs.resolve-image.outputs.image_tag) }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate workflow inputs
+        env:
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+        run: .github/scripts/validate-ci-inputs.sh
+      - uses: ./.github/actions/build-linux-sanitizers
+        with:
+          hamlib_branch: ${{ inputs.hamlib_branch }}
+          sanitizer: ${{ inputs.sanitizer }}
+          recache: ${{ inputs.recache }}
+          save_ccache: ${{ inputs.save_ccache }}

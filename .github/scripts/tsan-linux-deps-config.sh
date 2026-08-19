@@ -106,8 +106,7 @@ tsan_dependency_recipe_hash() {
   tsan_sha256_files \
     "${tsan_config_dir}/tsan-linux-deps-config.sh" \
     "${tsan_config_dir}/${build_script}" \
-    "${tsan_config_dir}/verify-tsan-deps-linux.sh" \
-    "${tsan_config_dir}/../actions/prepare-linux-tsan-deps/action.yml"
+    "${tsan_config_dir}/verify-tsan-deps-linux.sh"
 }
 
 tsan_dependency_version() {

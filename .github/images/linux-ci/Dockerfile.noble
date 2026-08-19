@@ -1,0 +1,77 @@
+ARG BASE_IMAGE=ubuntu:24.04
+FROM ${BASE_IMAGE} AS common
+
+ARG IMAGE_CREATED
+ARG IMAGE_GENERATION=local
+ARG IMAGE_REVISION
+ARG IMAGE_RECIPE_SHA256
+
+LABEL org.opencontainers.image.created="${IMAGE_CREATED}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/WSJTX/wsjtx-internal"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
+COPY .github/images/linux-ci/install-packages.sh /usr/local/bin/install-packages
+RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-packages
+
+FROM common AS normal
+
+ARG IMAGE_REFRESH_EPOCH
+
+LABEL org.opencontainers.image.title="WSJT-X Noble Linux CI" \
+      org.opencontainers.image.description="Ubuntu 24.04 build environment for WSJT-X normal and ASan/UBSan CI"
+
+RUN test -n "$IMAGE_REFRESH_EPOCH" && /usr/local/bin/install-packages normal
+
+COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/build-pfunit-linux.sh \
+     .github/scripts/build-hamlib-linux.sh \
+     /usr/local/share/wsjtx-ci/
+COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
+
+RUN set -eux; \
+    chmod +x /usr/local/bin/write-wsjtx-ci-manifest; \
+    . /usr/local/share/wsjtx-ci/linux-ci-image-config.sh; \
+    mkdir -p /tmp/wsjtx-pfunit-build; \
+    cd /tmp/wsjtx-pfunit-build; \
+    /usr/local/share/wsjtx-ci/build-pfunit-linux.sh \
+      "$LINUX_PFUNIT_COMMIT" "$LINUX_PFUNIT_PREFIX"; \
+    mkdir -p /tmp/wsjtx-hamlib-build; \
+    cd /tmp/wsjtx-hamlib-build; \
+    /usr/local/share/wsjtx-ci/build-hamlib-linux.sh \
+      "$LINUX_HAMLIB_COMMIT" "$LINUX_HAMLIB_PREFIX"; \
+    rm -rf /tmp/wsjtx-pfunit-build /tmp/wsjtx-hamlib-build; \
+    /usr/local/bin/write-wsjtx-ci-manifest \
+      normal x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"
+
+FROM common AS tsan
+
+ARG IMAGE_GENERATION=local
+ARG IMAGE_RECIPE_SHA256
+ARG IMAGE_REFRESH_EPOCH
+
+LABEL org.opencontainers.image.title="WSJT-X Noble TSan CI" \
+      org.opencontainers.image.description="Ubuntu 24.04 environment with TSan-instrumented WSJT-X dependencies"
+
+RUN test -n "$IMAGE_REFRESH_EPOCH" && /usr/local/bin/install-packages tsan
+
+COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/tsan-linux-deps-config.sh \
+     .github/scripts/build-qt-tsan-linux.sh \
+     .github/scripts/build-boost-tsan-linux.sh \
+     .github/scripts/build-hamlib-tsan-linux.sh \
+     .github/scripts/verify-tsan-deps-linux.sh \
+     /usr/local/share/wsjtx-ci/
+COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
+
+RUN set -eux; \
+    chmod +x /usr/local/bin/write-wsjtx-ci-manifest; \
+    /usr/local/share/wsjtx-ci/build-qt-tsan-linux.sh /opt/wsjtx/tsan/qt; \
+    /usr/local/share/wsjtx-ci/build-boost-tsan-linux.sh /opt/wsjtx/tsan/boost; \
+    /usr/local/share/wsjtx-ci/build-hamlib-tsan-linux.sh /opt/wsjtx/tsan/hamlib; \
+    /usr/local/share/wsjtx-ci/verify-tsan-deps-linux.sh \
+      /opt/wsjtx/tsan/qt /opt/wsjtx/tsan/boost /opt/wsjtx/tsan/hamlib; \
+    /usr/local/bin/write-wsjtx-ci-manifest \
+      tsan x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"

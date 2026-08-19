@@ -76,6 +76,22 @@ validate_inputs() {
     esac
   fi
 
+  if [ -n "${IMAGE_TAG+x}" ]; then
+    require_nonempty "image_tag" "$IMAGE_TAG"
+    if [ "${#IMAGE_TAG}" -gt 128 ]; then
+      fail "Invalid image_tag: value exceeds the 128-character container tag limit"
+    fi
+    case "$IMAGE_TAG" in
+      *[!A-Za-z0-9._-]*)
+        fail "Invalid image_tag '${IMAGE_TAG}': use a letter or number followed by letters, numbers, '.', '_', or '-'"
+        ;;
+    esac
+    case "$IMAGE_TAG" in
+      [A-Za-z0-9]*) ;;
+      *) fail "Invalid image_tag '${IMAGE_TAG}': the first character must be a letter or number" ;;
+    esac
+  fi
+
   if [ -n "${DEPLOYMENT_TARGET+x}" ]; then
     case "$DEPLOYMENT_TARGET" in
       ''|*[!0-9.]*)
@@ -105,7 +121,7 @@ validate_inputs() {
 
 run_isolated() {
   env -u WSJTX_VERSION -u HAMLIB_BRANCH -u WSJT_RELEASE_CHANNEL \
-    -u WSJT_RC_NUMBER -u ARCH -u DEPLOYMENT_TARGET -u RUNNER -u SIGN_MODE \
+    -u WSJT_RC_NUMBER -u ARCH -u IMAGE_TAG -u DEPLOYMENT_TARGET -u RUNNER -u SIGN_MODE \
     "$@" "$0"
 }
 
@@ -127,7 +143,7 @@ if [ "${1:-}" = "--self-test" ]; then
     env WSJTX_VERSION="3.0.1-rc1" HAMLIB_BRANCH="4.7.2" \
         WSJT_RELEASE_CHANNEL="RC" WSJT_RC_NUMBER="1" \
         ARCH="x86_64" DEPLOYMENT_TARGET="10.13" RUNNER="macos-15-intel" \
-        SIGN_MODE="ephemeral" \
+        SIGN_MODE="ephemeral" IMAGE_TAG="candidate-123-1" \
     >/dev/null
   run_isolated env HAMLIB_BRANCH="integration/4.7" >/dev/null
 
@@ -140,6 +156,10 @@ if [ "${1:-}" = "--self-test" ]; then
   expect_failure 'non-numeric rc' WSJT_RC_NUMBER='1a'
   expect_failure 'empty version' WSJTX_VERSION=''
   expect_failure 'invalid arch' ARCH='x86_64; id'
+  expect_failure 'slash in image tag' IMAGE_TAG='candidate/unsafe'
+  expect_failure 'leading punctuation in image tag' IMAGE_TAG='-candidate'
+  expect_failure 'empty image tag' IMAGE_TAG=''
+  expect_failure 'overlong image tag' IMAGE_TAG="$(printf 'a%.0s' {1..129})"
   expect_failure 'command substitution in deployment_target' DEPLOYMENT_TARGET='11.0$(id)'
 
   echo "validate-ci-inputs.sh self-test passed"

@@ -28,14 +28,12 @@
 #   WSJT_RELEASE_CHANNEL — DEVEL, RC, or GA
 #   WSJT_RC_NUMBER       — release candidate number when channel is RC
 #   GITHUB_TOKEN         — authenticates linuxdeploy-plugin-qt API lookups
+#   CCACHE_DIR           — bind-mounted compiler cache directory
 #
 # Required mount (passed via docker run -v):
 #   /work           — the runner's $GITHUB_WORKSPACE bind-mounted into
-#                     the container. Cache restores (pfunit-prefix,
-#                     hamlib-prefix) land here BEFORE this script runs;
-#                     produced artifacts (.deb, .rpm, .AppImage) land
-#                     here for the host workflow to upload after this
-#                     script returns.
+#                     the container. Produced artifacts land here for the
+#                     host workflow to upload after this script returns.
 
 set -euo pipefail
 
@@ -47,27 +45,8 @@ WSJT_RC_NUMBER="${WSJT_RC_NUMBER:-}"
 
 cd /work
 
-# ── 1. Install build deps ────────────────────────────────────────────
-# The Bookworm GCC image runs as root and already provides GCC, G++, and
-# GFortran in /usr/local. Keep the remaining packages aligned with the
-# composite action's dependency step.
-.github/scripts/run-apt-get.sh update
-.github/scripts/run-apt-get.sh install -y --no-install-recommends \
-  ca-certificates curl git \
-  build-essential cmake \
-  libfftw3-dev libboost-log-dev \
-  qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
-  libqt5sql5-sqlite libqt5websockets5-dev \
-  libqt5multimedia5-plugins \
-  libusb-1.0-0-dev libudev-dev \
-  autoconf automake libtool pkg-config \
-  texinfo \
-  dpkg-dev \
-  asciidoctor \
-  rpm \
-  python3 \
-  file xz-utils xauth xvfb \
-  portaudio19-dev
+# ── 1. Verify the baked dependency environment ──────────────────────
+.github/scripts/verify-linux-ci-image.sh normal "$ARCH" "$HAMLIB_BRANCH"
 
 export CC=/usr/local/bin/gcc
 export CXX=/usr/local/bin/g++
@@ -86,62 +65,24 @@ for compiler in "$CC" "$CXX" "$FC"; do
   fi
 done
 
-# ── 2. Build pFUnit if cache empty ───────────────────────────────────
-# GHA actions/cache restored pfunit-prefix on the host before docker
-# run; we detect cache hit by presence of PFUNITConfig.cmake.
-if find pfunit-prefix -name PFUNITConfig.cmake -print -quit 2>/dev/null | grep -q .; then
-  echo "pFUnit cache hit — skipping rebuild"
-else
-  echo "::group::Build pFUnit (cache miss)"
-  rm -rf pfunit-src pfunit-build pfunit-prefix
-  git clone --depth 1 --branch v4.14.0 --recursive \
-    https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
-  cmake -S pfunit-src -B pfunit-build \
-    -DSKIP_MPI=YES \
-    -DSKIP_OPENMP=YES \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -DCMAKE_INSTALL_PREFIX="${PWD}/pfunit-prefix"
-  cmake --build pfunit-build -j"$(nproc)"
-  cmake --install pfunit-build
-  echo "::endgroup::"
-fi
-
-PFUNIT_CONFIG=$(find pfunit-prefix -name PFUNITConfig.cmake -print -quit)
+PFUNIT_CONFIG=$(find /opt/wsjtx/pfunit -name PFUNITConfig.cmake -print -quit)
 if [ -z "$PFUNIT_CONFIG" ]; then
-  echo "::error::PFUNITConfig.cmake not found under pfunit-prefix"
+  echo "::error::PFUNITConfig.cmake not found in the Linux CI image"
   exit 1
 fi
 PFUNIT_DIR=$(dirname "$PFUNIT_CONFIG")
 echo "pFUnit config dir: $PFUNIT_DIR"
 
-# ── 3. Build Hamlib if cache empty ───────────────────────────────────
-if [ -f hamlib-prefix/lib/libhamlib.a ]; then
-  echo "Hamlib cache hit — skipping rebuild"
-else
-  echo "::group::Build Hamlib (cache miss)"
-  rm -rf hamlib-src hamlib-prefix
-  git clone --depth 1 --branch "$HAMLIB_BRANCH" \
-    https://github.com/Hamlib/Hamlib.git hamlib-src
-  (
-    cd hamlib-src
-    ./bootstrap
-    ./configure \
-      --prefix="${PWD}/../hamlib-prefix" \
-      --disable-shared --enable-static \
-      --without-cxx-binding \
-      --without-readline \
-      CFLAGS="-g -O2 -fPIC -fdata-sections -ffunction-sections" \
-      LDFLAGS="-Wl,--gc-sections"
-    make -j"$(nproc)"
-    make install
-  )
-  echo "::endgroup::"
-fi
+export CCACHE_DIR="${CCACHE_DIR:-/work/.ccache-armhf}"
+mkdir -p "$CCACHE_DIR"
+ccache --zero-stats
 
-# ── 4. Configure + build wsjtx ───────────────────────────────────────
+# ── 2. Configure + build wsjtx ───────────────────────────────────────
 echo "::group::wsjtx configure + build"
 cmake -S . -B wsjtx-build \
-  -DCMAKE_PREFIX_PATH="${PWD}/hamlib-prefix;${PWD}/pfunit-prefix" \
+  -DCMAKE_PREFIX_PATH="/opt/wsjtx/hamlib;/opt/wsjtx/pfunit" \
+  -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
   -DWSJT_SKIP_MANPAGES=ON \
   -DWSJT_ENABLE_TESTS=ON \
   -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
@@ -150,6 +91,7 @@ cmake -S . -B wsjtx-build \
   -DPFUNIT_DIR="$PFUNIT_DIR" \
   -Wno-dev
 cmake --build wsjtx-build -j"$(nproc)"
+ccache --show-stats
 echo "::endgroup::"
 
 # ── 5. Run tests ─────────────────────────────────────────────────────

@@ -95,8 +95,12 @@ jobs:
 
           - \`.github/workflows/ci.yml\` (five jobs)
           - \`.github/workflows/release.yml\` (five jobs)
+          - \`.github/scripts/linux-ci-image-config.sh\`
+          - \`.github/scripts/tsan-linux-deps-config.sh\`
 
-          Open a PR against \`develop\`, let CI run on all five platforms, then merge.
+          Update both exact commits, publish and validate a candidate Linux
+          image generation, update the remaining platform pins, then let CI run
+          on all five platforms.
 
           ## Notes
 
