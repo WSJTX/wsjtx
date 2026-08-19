@@ -33,7 +33,7 @@ program test_q65_decode_pipeline
   lapcqonly=.false.
   allocate(iwave(q65_nsamples))
 
-  do nsubmode=0,1
+  do nsubmode=0,4
      call make_q65_wave(iwave,nsubmode)
      call run_direct_decode(decoder,iwave,nsubmode,1)
   enddo
@@ -41,14 +41,13 @@ program test_q65_decode_pipeline
   iwave=0_int16
   call run_direct_decode(decoder,iwave,0,0)
 
-  call make_q65_wave(iwave,0)
-  call run_map65_decode(iwave,0,.true.)
+  do nsubmode=0,4
+     call make_q65_wave(iwave,nsubmode)
+     call run_map65_decode(iwave,nsubmode,.true.)
+  enddo
 
   iwave=0_int16
   call run_map65_decode(iwave,0,.false.)
-
-  call make_q65_wave(iwave,1)
-  call run_map65_decode(iwave,1,.true.)
 
   write(*,'(a)') 'Q65 raw decoder and MAP65 handoff tests passed'
 
