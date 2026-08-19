@@ -5,6 +5,28 @@ add_executable (test_pskreporter_ipfix
 target_link_libraries (test_pskreporter_ipfix Qt5::Test)
 add_test (NAME test_pskreporter_ipfix COMMAND test_pskreporter_ipfix)
 
+add_executable (test_pskreporter_transport
+  test_pskreporter_transport.cpp
+  ${CMAKE_SOURCE_DIR}/Network/PSKReporter.cpp
+  ${CMAKE_SOURCE_DIR}/Network/PSKReporterIPFIX.cpp
+  )
+target_link_libraries (test_pskreporter_transport wsjt_cxx Qt5::Test Qt5::Network)
+add_test (NAME test_pskreporter_transport COMMAND test_pskreporter_transport)
+
+add_executable (test_map65_pskreporter_settings
+  test_map65_pskreporter_settings.cpp
+  ${CMAKE_SOURCE_DIR}/map65/pskreporter_settings.cpp
+  )
+target_link_libraries (test_map65_pskreporter_settings Qt5::Test)
+add_test (NAME test_map65_pskreporter_settings COMMAND test_map65_pskreporter_settings)
+
+add_executable (test_map65_pskreporter_decode
+  test_map65_pskreporter_decode.cpp
+  ${CMAKE_SOURCE_DIR}/map65/pskreporter_decode.cpp
+  )
+target_link_libraries (test_map65_pskreporter_decode Qt5::Test)
+add_test (NAME test_map65_pskreporter_decode COMMAND test_map65_pskreporter_decode)
+
 add_executable (test_wsprnet_upload
   test_wsprnet_upload.cpp
   ${CMAKE_SOURCE_DIR}/Network/wsprnet.cpp

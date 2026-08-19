@@ -156,8 +156,6 @@ extern QString guiDate;
 
 extern bool m_w3szUrl;
 extern QString m_otherUrl;
-extern bool m_spot_to_psk_reporter;
-extern bool m_psk_reporter_tcpip;
 
 // Scalar getters
 inline int getNutc()            { return get_nutc(); }

@@ -19,9 +19,12 @@ set (map65_CXXSRCS
   messages.cpp
   meterwidget.cpp
   plotter.cpp
-  PSKReporter.cpp
+  pskreporter_decode.cpp
+  pskreporter_settings.cpp
   Radio.cpp
   runtime_paths.cpp
+  ../Network/PSKReporter.cpp
+  ../Network/PSKReporterIPFIX.cpp
   set570.cpp
   signalmeter.cpp
   soundin.cpp

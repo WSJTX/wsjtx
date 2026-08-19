@@ -275,6 +275,7 @@ for (id = 0; id < numDevices; id++) {
   else ui.otherBut->setChecked(true);
   
   ui.pskBox->setChecked(mw->m_spot_to_psk_reporter);
+  ui.pskReporterTcpIpBox->setChecked(mw->m_psk_reporter_tcpip);
 }
 
 //------------------------------------------------------- accept()
@@ -356,6 +357,7 @@ void DevSetup::accept()
   mw->m_w3szUrl = ui.w3szBut->isChecked();  
   
   mw->m_spot_to_psk_reporter = ui.pskBox->isChecked();
+  mw->m_psk_reporter_tcpip = ui.pskReporterTcpIpBox->isChecked();
 
   if (m_restartRequired) {
       QMessageBox::information(this,

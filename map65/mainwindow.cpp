@@ -47,6 +47,7 @@
 
 #include "stdout_channel.h"
 #include "fortran_mutex.hpp"
+#include "pskreporter_settings.h"
 #include "runtime_paths.h"
 
 #if !defined(Q_OS_WIN)
@@ -93,8 +94,6 @@ QStringList allDecodes;  //liveCQ
 QStringList allDecodes2;  //liveCQ
 QString m_otherUrl;
 bool m_w3szUrl;
-bool m_spot_to_psk_reporter;
-bool m_psk_reporter_tcpip;
 
 struct MainWindow::DecoderContext 
 { 
@@ -934,6 +933,7 @@ void MainWindow::writeSettings()
 void MainWindow::readSettings()
 {
   QSettings settings(m_settings_filename, QSettings::IniFormat);
+  auto const pskReporterSettings = readMap65PSKReporterSettings(settings);
   {
     SettingsGroup g {&settings, "MainWindow"};
     restoreGeometry(settings.value("geometry").toByteArray());
@@ -1052,8 +1052,8 @@ void MainWindow::readSettings()
   if(m_ndepth==2) ui->actionAggressive_Deep_Search->setChecked(true);
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
-  m_spot_to_psk_reporter=settings.value("spotPSK",true).toBool();
-  m_psk_reporter_tcpip=settings.value("PSKReporterTCPIP",false).toBool();
+  m_spot_to_psk_reporter = pskReporterSettings.enabled;
+  m_psk_reporter_tcpip = pskReporterSettings.use_tcpip;
 
   m_tol=settings.value("FTol",500).toInt();
   m_wide_graph_window->setTol(m_tol);
@@ -1445,6 +1445,9 @@ void MainWindow::on_actionDeviceSetup_triggered()
         {
             m_pendingFs96000 = dlg.m_pendingFs96000;
             writeSettings();
+            if (m_messages_window) {
+                m_messages_window->setPSKReportingEnabled(m_spot_to_psk_reporter);
+            }
             return;
         }
         m_pendingFs96000 = -1;
@@ -1506,6 +1509,9 @@ void MainWindow::on_actionDeviceSetup_triggered()
         // Save to disk
         //
         writeSettings();
+        if (m_messages_window) {
+            m_messages_window->setPSKReportingEnabled(m_spot_to_psk_reporter);
+        }
   }
 }
 
