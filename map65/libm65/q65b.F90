@@ -197,7 +197,17 @@
       nh = nfft2/2
       f_mouse = 1000.0*(fqso + real(nrate_active/2000.0)) + mousedf
       f_ipk = ipk*df3
-      k0 = nint((f_ipk - 1000.0)/df)
+      ! k0 used to come from f_ipk (ipk*df3), i.e. re-derived from the coarse,
+      ! JT65-oriented "orange sync curve" bin (df3 ~ 2.9 Hz resolution) rather
+      ! than from the candidate's own already-refined frequency. For a
+      ! wideband Q65 candidate, f0 (set by the caller from cand()%f, which
+      ! wb_sync already computed with sub-bin precision) is a strictly better
+      ! estimate of the true signal frequency than re-quantizing through ipk
+      ! -- and the difference matters here because the actual decode below
+      ! only searches a tight +/-10 Hz window (nfa=990..1010) around k0.
+      ! Use f0 directly, same as the manual-click/nagain path already does
+      ! via f_mouse below.
+      k0 = nint((1000.0*f0 - 1000.0)/df)
       ! ipk (and therefore f_ipk) comes from maxloc'ing the JT65-oriented
       ! "orange sync curve" over the whole +/-ntol window -- fine for a
       ! wideband scan, but if a strong JT65 signal happens to sit anywhere

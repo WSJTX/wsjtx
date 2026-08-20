@@ -567,7 +567,15 @@ endif
             if (real(t_now - t_start)/real(t_rate) > 40.0) then
                call dbg('Decode abort: exceeded 40 seconds in do i = ia, ib pass, nqd=' // itoa(nqd) // ' i=' // itoa(i))
                abort_decode = .true.
-               go to 700
+               ! "go to 700" here used to jump past the Q65 candidate-decode
+               ! loop below (do icand = 1, ncand), which only runs after this
+               ! JT65 sweep completes -- so a slow JT65 sweep (e.g. many
+               ! birdie-triggered decode1a calls) could burn the whole 40 s
+               ! budget and starve Q65 of any decode attempt at all, even
+               ! though its candidates were already found by get_candidates()
+               ! before this loop started. Just stop scanning more JT65 bins
+               ! instead, so Q65 still gets its turn this pass.
+               exit
             endif
 
             freq = 0.001*(i - icenter)*df

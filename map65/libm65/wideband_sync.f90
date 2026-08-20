@@ -160,9 +160,9 @@ contains
       integer, parameter :: LAGMAX = 30
       real(c_float) :: savg_med(4)
       real ccf4(4), ccf4best(4), a(3)
-      real base, bw, ccf, ccfmax, df3, fac, flip, poldeg, spk, syncmin, tstep
-      integer i, i0, ia, ib, ipolbest, j, ja, jb, k, lag, lagbest
-      integer nbw, nguard, npol, ipol
+      real base, ccf, ccfmax, df3, fac, flip, poldeg, tstep
+      integer i, ia, ib, ipolbest, j, k, lag, lagbest
+      integer npol, ipol
       logical first
       integer isync(22)
       integer jsync0(63), jsync1(63)
@@ -308,49 +308,20 @@ contains
       call pctile(sync(ia:ib)%ccfmax, ib - ia + 1, 50, base)
       sync(ia:ib)%ccfmax = sync(ia:ib)%ccfmax/base
 
-      bw = 65*4*1.66666667                        !Q65-60C bandwidth
-      nbw = int(bw/df3 + 1)                            !Number of bins to blank
-      syncmin = 2.0
-      nguard = 10
-      do i = ia, ib
-         if (sync(i)%ccfmax .lt. syncmin) cycle
-         if ((i .lt. 1) .or. (i .gt. (nfft_active - nbw))) cycle !w3sz debug
-         ! Restrict the local-peak search to bins of the same signal type
-         ! as sync(i) (iflip: 0=Q65, +/-1=JT65), so a strong signal of one
-         ! type doesn't nominate itself as "the peak" for a window that's
-         ! really centered on a different, independent signal of the other
-         ! type.
-         !
-         ! Blanking below is unconditional for same-type bins (that's the
-         ! whole point of this pass: collapse a strong signal's own nearby
-         ! sidelobes/duplicates down to one surviving peak). For cross-type
-         ! bins, only blank ones that could never have become a candidate
-         ! on their own merit anyway (ccfmax < SNR1_THRESHOLD). This still
-         ! protects a real, independent detection of the other type -- a
-         ! bin can only ever reach get_candidates() if its ccfmax clears
-         ! SNR1_THRESHOLD there too, so anything strong enough to matter is
-         ! never touched here (confirmed via BLANK COLLISION logging: a
-         ! strong JT65 signal was silently erasing a co-channel Q65 signal
-         ! ~100 Hz away, every cycle). What it additionally suppresses is
-         ! sub-threshold cross-type correlation leakage from a strong
-         ! signal or birdie spilling into nearby bins -- previously immune
-         ! to blanking purely because it happened to score against a
-         ! different sync pattern than the dominant peak, which was
-         ! surfacing as spurious low-SNR JT65 candidates next to birdies.
-         spk = maxval(sync(i:i + nbw)%ccfmax, mask=(sync(i:i + nbw)%iflip .eq. sync(i)%iflip))
-         ip = maxloc(sync(i:i + nbw)%ccfmax, mask=(sync(i:i + nbw)%iflip .eq. sync(i)%iflip))
-         i0 = ip(1) + i - 1
-         ja = min(i, i0 - nguard)
-         jb = i0 + nbw + nguard
-         if (ja .lt. 1) cycle !ja = 1  !w3sz debug
-         if (jb .lt. 1) cycle !jb = 1  !w3sz debug
-         if (ja .gt. nfft_active) cycle !ja = NFFT  !w3sz debug
-         if (jb .gt. nfft_active) cycle !jb = NFFT  !w3sz debug
-         where (sync(ja:jb)%iflip .eq. sync(i0)%iflip) sync(ja:jb)%ccfmax = 0.
-         where (sync(ja:jb)%iflip .ne. sync(i0)%iflip .and. sync(ja:jb)%ccfmax .lt. SNR1_THRESHOLD) &
-            sync(ja:jb)%ccfmax = 0.
-         sync(i0)%ccfmax = spk
-      enddo
+      ! A local-peak "collapse to single survivor" pass used to run here,
+      ! blanking a wide (~450 Hz) same-type swath around whatever bin its
+      ! own forward-only search happened to land on. Because that search
+      ! and blanking radius were not centered on the true global peak, it
+      ! could -- and, for closely-spaced real Q65 signals, did -- wipe out
+      ! a much stronger genuine peak in favor of a weaker one found earlier
+      ! in the frequency sweep, corrupting the candidate frequency reported
+      ! for that signal (confirmed via w3sz debug logging: a real Q65
+      ! signal's candidate frequency was off by ~150-200 Hz from its true
+      ! peak whenever this pass ran, and exactly correct with it removed).
+      ! get_candidates() below already does its own correct, strength-
+      ! ordered, same-type-only deduplication (skip a candidate within its
+      ! own signal bandwidth of an already-accepted stronger one), which
+      ! does not have this failure mode, so this pass is not needed.
 
 !  do i=ia,ib
 !     write(15,3015) 0.001*(i-1)*df3+32.0,sync(i)%ccfmax,sync(i)%xdt,  &
