@@ -156,6 +156,7 @@ contains
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
+      real                           :: xdt_retry
       real, allocatable, save        :: s(:), s0(:,:)
       logical, allocatable, save     :: mask0(:,:)
       real                           :: a(3)
@@ -447,10 +448,29 @@ contains
             if(slot(ir)%f1.lt.fc-fwid .or. slot(ir)%f1.gt.fc+fwid) cycle
             if(abs(((istart-1)/12000.0 - slot(ir)%tsync) - nframe6/6000.0) &
                  .gt. 0.1) cycle
+            ! slot%xdt is a LOCAL offset within whichever call last merged
+            ! this slot, not this call's own window -- reusing it directly
+            ! is only correct when this window happens to start exactly
+            ! one frame period after that one. Re-derive it from absolute
+            ! time instead: predicted sync instant (slot%tsync plus one
+            ! frame period) minus this call's own window start. A
+            ! negative result means the predicted instant precedes this
+            ! window's buffer entirely (dchristle, PR #337) -- skip
+            ! rather than read c1 out of bounds.
+            xdt_retry=slot(ir)%tsync + nframe6/6000.0 - (istart-1)/12000.0
+            if(xdt_retry.lt.0.0) cycle
             if(ncand .ge. MAXCAND) exit
             ncand=ncand+1
-            cand(ncand)%xdt=slot(ir)%xdt
+            cand(ncand)%xdt=xdt_retry
             cand(ncand)%f1=slot(ir)%f1
+            ! decode_and_merge reads tone powers from c1, which is only
+            ! valid for whichever frequency the blind-candidate loop
+            ! above last shifted it to -- re-shift it for this retry's
+            ! own frequency, or it silently correlates against the wrong
+            ! signal (dchristle, PR #337).
+            a=0.
+            a(1)=-cand(ncand)%f1
+            call twkfreq(c0,c1,nchunk6,6000.0,a)
             nsync=-1   ! not meaningful for a sticky-sync retry; flags it in ndebug output
             call decode_and_merge(-1, decoded_ok)
             if(decoded_ok) call record_ch0_success()
