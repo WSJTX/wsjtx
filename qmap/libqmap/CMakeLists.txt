@@ -1,5 +1,6 @@
 set (libq65_FSRCS
 # Modules come first:
+  qmap_decode_ipc.f90
   cacb_mod.f90
 
 # Non-module Fortran routines:

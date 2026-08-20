@@ -33,7 +33,7 @@
 #define NFFT 32768
 
 QSharedMemory mem_qmap("mem_qmap");            //Memory segment to be shared (optionally) with WSJT-X
-int* ipc_wsjtx;
+qmap_decode_ipc::DecodeRows* ipc_wsjtx;
 
 extern const int RxDataFrequency = 96000;
 
@@ -111,13 +111,13 @@ MainWindow::MainWindow(QWidget *parent) :
   xSignalMeter->resize(50, 160);
 
 //Attach or create a memory segment to be shared with WSJT-X.
-  int memSize=4096;
+  auto const memSize=static_cast<int>(qmap_decode_ipc::shared_memory_size);
   if(!mem_qmap.attach()) {
     if(!mem_qmap.create(memSize)) {
       msgBox("Unable to create shared memory segment mem_qmap.");
     }
   }
-  ipc_wsjtx = (int*)mem_qmap.data();
+  ipc_wsjtx = static_cast<qmap_decode_ipc::DecodeRows*>(mem_qmap.data());
   mem_qmap.lock();
   memset(ipc_wsjtx,0,memSize);         //Zero all of shared memory
   mem_qmap.unlock();
@@ -843,10 +843,10 @@ void MainWindow::decoderFinished()
   decodes_.kHzRequested=0;
   if(m_diskData) decodes_.nQDecoderDone=2;
   mem_qmap.lock();
-  decodes_.nWDecoderBusy=ipc_wsjtx[3];                   //Prevent overwriting values
-  decodes_.nWTransmitting=ipc_wsjtx[4];                  //written here by WSJT-X
+  decodes_.nWDecoderBusy=ipc_wsjtx->nWDecoderBusy;       //Prevent overwriting values
+  decodes_.nWTransmitting=ipc_wsjtx->nWTransmitting;     //written here by WSJT-X
   m_bWTransmitting=decodes_.nWTransmitting>0;
-  memcpy((char*)ipc_wsjtx, &decodes_, sizeof(decodes_)); //Send decodes and flags to WSJT-X
+  memcpy(ipc_wsjtx, &decodes_, sizeof(decodes_));        //Send decodes and flags to WSJT-X
   mem_qmap.unlock();
   QString t1;
   t1=t1.asprintf(" %.1f s  %d/%d ", 0.15*datcom2_.nhsym, decodes_.ndecodes, decodes_.ncand);
@@ -925,7 +925,7 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
   if(n==3) {
     decodes_.kHzRequested=m_wide_graph_window->QSOfreq();
     mem_qmap.lock();
-    ipc_wsjtx[5]=decodes_.kHzRequested;
+    ipc_wsjtx->kHzRequested=decodes_.kHzRequested;
     mem_qmap.unlock();
     return;
   }
@@ -1232,8 +1232,12 @@ void MainWindow::guiUpdate()
   if(decodes_.ndecodes > m_fetched) {
     doLiveCQ = true;
     while(m_fetched<decodes_.ndecodes) {
-      QString t=QString::fromLatin1(decodes_.result[m_fetched]);
-      QString t2=QString::fromLatin1(decodes2_.result2[m_fetched]);
+      auto const& row=decodes_.result[m_fetched];
+      auto const& live_cq_row=decodes2_.result2[m_fetched];
+      QString t=QString::fromLatin1(row,
+        static_cast<int>(qmap_decode_ipc::text_length(row)));
+      QString t2=QString::fromLatin1(live_cq_row,
+        static_cast<int>(qmap_decode_ipc::text_length(live_cq_row)));
 
       // Vertical-waterfall callsign overlay. Column layout is fixed by
       // the Fortran write (qmap/libqmap/q65b.f90:167-168, format
@@ -1316,12 +1320,11 @@ void MainWindow::guiUpdate()
     m_n60=nsec%60;
 
 // See if WSJT-X is transmitting
-    int itest[5];
     mem_qmap.lock();
-    memcpy(&itest, (char*)ipc_wsjtx, 20);
+    int const transmitting=ipc_wsjtx->nWTransmitting;
     mem_qmap.unlock();
-    if(itest[4]>0) {
-      m_WSJTX_TRperiod=itest[4];
+    if(transmitting>0) {
+      m_WSJTX_TRperiod=transmitting;
       m_bWTransmitting=true;
       if(m_WSJTX_TRperiod==30 and m_n60<30) m_nTx30a++;
       if(m_WSJTX_TRperiod==30 and m_n60>=30) m_nTx30b++;

@@ -117,6 +117,7 @@
 #include "ExportCabrillo.h"
 #include "Network/Cloudlog.hpp"
 #include "ui_mainwindow.h"
+#include "qmap/decode_ipc.h"
 #include "moc_mainwindow.cpp"
 #include "MessageFilter.hpp"
 #include "MessageFilterLogic.hpp"
@@ -444,16 +445,8 @@ QString m_hisCall0 = "";
 QString earlyDecodes = "";  //ft8md
 
 QSharedMemory mem_qmap("mem_qmap");         //Memory segment to be shared (optionally) with QMAP
-struct {
-  int ndecodes;          //Number of QMAP decodes available (so far)
-  int ncand;             //Number of QMAP candidates considered for decoding
-  int nQDecoderDone;     //QMAP decoder is finished (0 or 1)
-  int nWDecoderBusy;     //WSJT-X decoder is busy (0 or 1)
-  int nWTransmitting;    //WSJT-X is transmitting (0 or 1)
-  int kHzRequested;      //Integer kHz dial frequency requested from QMAP
-  char result[50][72];   //Decodes as character*72 arrays
-} qmapcom;
-int* ipc_qmap;
+qmap_decode_ipc::DecodeRows qmapcom;
+qmap_decode_ipc::DecodeRows* ipc_qmap;
 
 namespace
 {
@@ -720,9 +713,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->decodedTextBrowser2->set_configuration (&m_config);
 
   //Attach or create a memory segment to be shared with QMAP.
-  int memSize=4096;
+  auto const memSize=static_cast<int>(qmap_decode_ipc::shared_memory_size);
   if(!mem_qmap.attach()) mem_qmap.create(memSize);
-  ipc_qmap = (int*)mem_qmap.data();
+  ipc_qmap = static_cast<qmap_decode_ipc::DecodeRows*>(mem_qmap.data());
   mem_qmap.lock();
   memset(ipc_qmap,0,memSize);         //Zero all of QMAP shared memory
   mem_qmap.unlock();
@@ -1742,7 +1735,7 @@ MainWindow::~MainWindow()
   m_saveWAVSynchronizer.waitForFinished ();
   m_saveWAVSynchronizer.clearFutures ();
   remove_child_from_event_filter (this);
-  memset(ipc_qmap,0,4096);         //Zero all of QMAP shared memory
+  memset(ipc_qmap,0,qmap_decode_ipc::shared_memory_size); //Zero QMAP shared memory
 // Force linking of Fortran function stdmsg().
   QString t="1234567890123456789012345678901234567";
   if(stdmsg_(const_cast <char *> (t.toLatin1().constData()),(FCL)37)) return;
@@ -7241,19 +7234,19 @@ void MainWindow::guiUpdate()
     mem_qmap.lock();
     int n=0;
     if(decoderBusy ()) n=1;
-    ipc_qmap[3]=n;
+    ipc_qmap->nWDecoderBusy=n;
     n=0;
     if(m_transmitting) n=m_TRperiod;
-    ipc_qmap[4]=n;
-    if(ipc_qmap[0] > 0) {             //ndecodes
-      memcpy(&qmapcom, (char*)ipc_qmap, sizeof(qmapcom));  //Fetch the new decode(s)
+    ipc_qmap->nWTransmitting=n;
+    if(ipc_qmap->ndecodes > 0) {
+      memcpy(&qmapcom, ipc_qmap, sizeof(qmapcom));  //Fetch the new decode(s)
       readWidebandDecodes();
     }
-    if(ipc_qmap[5]>0) {
+    if(ipc_qmap->kHzRequested>0) {
       requestNominalFrequencyChange (
-        (m_freqNominal/1000000)*1000000 + 1000*ipc_qmap[5],
+        (m_freqNominal/1000000)*1000000 + 1000*ipc_qmap->kHzRequested,
         FrequencyRequestOrigin::Automatic);
-      ipc_qmap[5]=0;
+      ipc_qmap->kHzRequested=0;
     }
     mem_qmap.unlock();
   }
@@ -13237,8 +13230,9 @@ void MainWindow::readWidebandDecodes()
   int const qmap_decodes = qBound(0, qmapcom.ndecodes, max_qmap_decodes);
   while(m_fetched < qmap_decodes) {
     // Recover and parse each decoded line.
-    char const * const row=qmapcom.result[m_fetched];
-    QString line=QString::fromLatin1(row, int(qstrnlen(row, sizeof qmapcom.result[m_fetched])));
+    auto const& row=qmapcom.result[m_fetched];
+    QString line=QString::fromLatin1(row,
+      static_cast<int>(qmap_decode_ipc::text_length(row)));
     m_fetched++;
     nhr=line.mid(0,2).toInt();
     nmin=line.mid(2,2).toInt();
@@ -13336,10 +13330,10 @@ void MainWindow::readWidebandDecodes()
     m_ActiveStationsWidget->displayRecentStations(m_mode,t);
     m_ActiveStationsWidget->setClickOK(true);
   }
-  if(ipc_qmap[2]!=0) {
+  if(ipc_qmap->nQDecoderDone!=0) {
     m_fetched=0;
-    ipc_qmap[0]=0;
-    ipc_qmap[2]=0;
+    ipc_qmap->ndecodes=0;
+    ipc_qmap->nQDecoderDone=0;
   }
 }
 
