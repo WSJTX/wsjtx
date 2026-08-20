@@ -1,5 +1,6 @@
 #include <QtTest/QtTest>
 #include <QSignalSpy>
+#include <QPointer>
 #include <QThread>
 #include <QVector>
 
@@ -357,14 +358,15 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   TxAudioQueue queue;
   auto const epoch = queueEpoch (51);
   queue.clear (epoch);
-  JttyTxStream s {queue};
+  auto * stream = new JttyTxStream {queue};
+  QPointer<JttyTxStream> streamWitness {stream};
   qint64 drainedSession {-1};
   qint64 drainedTotal {-1};
   int drainedCount {0};
   QObject receiver;
   // Qt 5's QSignalSpy records through a direct connection, so explicitly queue
   // cross-thread test state onto a main-thread receiver.
-  connect (&s, &JttyTxStream::drained, &receiver,
+  connect (stream, &JttyTxStream::drained, &receiver,
            [&drainedSession, &drainedTotal, &drainedCount]
            (TxAudioQueueDrainState drain) {
              drainedSession = drain.epoch.value ();
@@ -375,14 +377,15 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   QVERIFY (queue.enqueue (QVector<qint16> {7, 7, 7}, epoch).accepted);
 
   QThread worker;
-  s.moveToThread (&worker);
+  stream->moveToThread (&worker);
+  connect (&worker, &QThread::finished, stream, &QObject::deleteLater);
 
   // Queue before starting the worker so thread creation establishes the
   // cross-thread handoff.
-  QMetaObject::invokeMethod (&s, [&s] {
-    s.start (jttyRequest (51, 1), nullptr);
+  QMetaObject::invokeMethod (stream, [stream] {
+    stream->start (jttyRequest (51, 1), nullptr);
     QByteArray buf ((3 + DEFAULT_GUARD) * 2, '\0');
-    s.read (buf.data (), buf.size ());
+    stream->read (buf.data (), buf.size ());
   }, Qt::QueuedConnection);
   worker.start ();
 
@@ -390,16 +393,12 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   QCOMPARE (drainedSession, qint64 (51));
   QCOMPARE (drainedTotal, qint64 (3));
 
-  // Tear down on the worker thread: stop the timer on its own thread and
-  // re-home the object to this thread for safe destruction. moveToThread must
-  // run on the object's current (worker) thread, so do it before the worker exits.
-  QThread * const home = QThread::currentThread ();
-  QMetaObject::invokeMethod (&s, [&s, home] {
-    s.stop ();
-    s.moveToThread (home);
-  }, Qt::BlockingQueuedConnection);
+  // The stream owns timers that must stop and be destroyed on their thread.
+  QVERIFY (QMetaObject::invokeMethod (
+    stream, "stop", Qt::BlockingQueuedConnection));
   worker.quit ();
   QVERIFY (worker.wait (2000));
+  QVERIFY (streamWitness.isNull ());
 }
 
 void TestJttyTxStream::sourceCommitUsesCurrentRealExtent ()
