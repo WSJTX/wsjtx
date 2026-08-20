@@ -12,8 +12,12 @@ program sjtty_qrm
   ! consists of 13 sync symbols followed by 46 codeword symbols.
 
   ! This version generates multiple signals spread across nfa to nfb Hz.
-  ! One signal falls at f0 = 1500 Hz and has the message "599 123". Others
-  ! are spread in frequency and DT, and contain just a callsign.
+  ! One signal falls at f0 = 1500 Hz and has the message "599 123" (or, if
+  ! an 8th command-line argument is given, that text instead -- a longer,
+  ! multi-frame message there is useful for exercising continuation-frame
+  ! logic, e.g. the sticky-sync retry, that a single-frame message never
+  ! reaches). Others are spread in frequency and DT, and contain just a
+  ! callsign.
 
   use wavhdr
   use jtty_mod
@@ -25,6 +29,7 @@ program sjtty_qrm
   character*12 arg                  !Command line argument
   character*2 arg4                  !The 4th command-line argument
   character*80 umsg                 !User-formatted message
+  character*80 msg_override         !Optional 8th-arg override for f0=1500 signal
   character*17 fname                !Output file name,
   character*10 flags                !Single-character shorthand flags
   character*34 c32(16)
@@ -50,12 +55,22 @@ program sjtty_qrm
              'WB2KSP'/
   
   nargs=iargc()
-  if(nargs.ne.7) then
-     print*,'Usage:   sjtty_qrm nsps prop nfa  nfb nsigs nfiles snr'
+  if(nargs.ne.7 .and. nargs.ne.8) then
+     print*,'Usage:   sjtty_qrm nsps prop nfa  nfb nsigs nfiles snr [message]'
      print*,'Example: sjtty_qrm  384  MM 1200 1800   5     10   -5'
+     print*,'Example: sjtty_qrm  384  MM 1200 1800   5     10   -5 ',   &
+          '"LET''S ASK BRIAN WHAT HE THINKS"'
      print*,'NSPS must be 240, 320, 384, or 480'
      print*,'ITU propagation models: AW LQ LM LD MQ MM MD HQ HM HD'
-     print*,'Main signal at f0 = 1500 Hz and specified SNR.'
+     print*,'Main signal at f0 = 1500 Hz and specified SNR, message'
+     print*,'"599 123" unless the optional 8th argument overrides it --'
+     print*,'quote it if it contains spaces. A message long enough to'
+     print*,'need more than one frame exercises continuation-frame'
+     print*,'decoder logic that "599 123" alone never reaches; frames'
+     print*,'beyond what the fixed-size output buffer can hold at this'
+     print*,'signal''s randomly-drawn DT are silently dropped (matches a'
+     print*,'transmission truncated by a WAV-file boundary), with a'
+     print*,'warning printed when that happens.'
      print*,'Off-freq signals at random freqs in range nfa to nfb Hz.'
      print*,'Off-freq SNRs randomized by +/- 5 dB around specified value'
      print*,'DT values random in range 0.1 to 1.0 s.'
@@ -107,6 +122,8 @@ program sjtty_qrm
   read(arg,*) nfiles
   call getarg(7,arg)
   read(arg,*) snrdb
+  msg_override=' '
+  if(nargs.eq.8) call getarg(8,msg_override)
 
   fsample=12000.0
   dt=1.0/fsample
@@ -146,12 +163,33 @@ program sjtty_qrm
            f0=1500.0
            snr=snrdb
            umsg='599 123'
+           if(len_trim(msg_override).gt.0) umsg=msg_override
         endif
         sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snr)
         write(*,1006) isig,f0,xdt,snr,sig,trim(umsg)
 1006    format(i4,f8.1,f8.3,f7.1,f10.3,2x,a)
 
+        i1=nint(xdt/dt)
         call pack_jtty(umsg,c32,nframes)
+        ! itone/cwave/c0 are all fixed at NMAX -- gen_jttywave trusts its
+        ! caller's nwave completely, with no bounds checking of its own,
+        ! so a long enough message combined with this signal's own
+        ! (randomly drawn) start offset i1 could otherwise write past the
+        ! end of those arrays. Clamp to however many frames actually fit
+        ! before building itone, rather than risk that: this can only
+        ! happen with a message overriding the default "599 123" (that
+        ! one frame always fits), so it's silent for existing callers.
+        nframes_fit=max(0,(NMAX-i1)/(nsps*59))
+        if(nframes.gt.nframes_fit) then
+           write(*,1007) nframes,nframes_fit
+1007       format('  WARNING: message needs ',i2,' frames but only ',   &
+                i2,' fit in the output buffer at this DT -- truncating')
+           nframes=nframes_fit
+        endif
+        if(nframes.lt.1) then
+           print*,'  WARNING: no room for this signal at this DT -- skipping'
+           cycle
+        endif
         nsym=0
         do i=1,nframes
            read(c32(i),'(34i1)') payload
@@ -165,7 +203,6 @@ program sjtty_qrm
         icmplx=1
         call gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
         c0=0.
-        i1=nint(xdt/dt)
         c0(i1:nwave+i1-1)=cwave(0:nwave-1)!
         if(fspread.ne.0.0 .or. delay.ne.0.0) then
            ! Apply channel propagation
