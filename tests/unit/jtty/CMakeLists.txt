@@ -35,6 +35,15 @@ set_tests_properties (test_jtty_adjacent_decode PROPERTIES
   TIMEOUT 60
 )
 
+add_executable (test_jtty_sticky_retry test_jtty_sticky_retry.f90)
+target_include_directories (test_jtty_sticky_retry PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_sticky_retry)
+add_test (NAME test_jtty_sticky_retry COMMAND test_jtty_sticky_retry)
+set_tests_properties (test_jtty_sticky_retry PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_sticky_retry: all checks passed"
+  TIMEOUT 60
+)
+
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
 
 add_test (NAME test_jtty_pack COMMAND test_jtty_pack)
