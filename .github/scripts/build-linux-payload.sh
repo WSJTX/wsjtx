@@ -37,6 +37,11 @@
 
 set -euo pipefail
 
+# Keep the token out of build, test, and packaging subprocess environments. The
+# authenticated curl helper below reintroduces it only for its curl process.
+github_api_token="${GITHUB_TOKEN:-}"
+unset GITHUB_TOKEN
+
 VERSION="${VERSION:?missing}"
 ARCH="${ARCH:?missing}"
 HAMLIB_BRANCH="${HAMLIB_BRANCH:?missing}"
@@ -174,10 +179,15 @@ echo "::endgroup::"
 echo "::group::Package AppImage"
 LINUXDEPLOY_TAG="1-alpha-20251107-1"
 curl_flags=(--fail --show-error --silent --location --retry 5 --retry-delay 5)
-api_headers=(-H "User-Agent: wsjtx-ci")
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-  api_headers+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
-fi
+github_api_curl() {
+  local api_headers=(-H "User-Agent: wsjtx-ci")
+  if [ -n "$github_api_token" ]; then
+    api_headers+=(-H "Authorization: Bearer ${github_api_token}")
+    env GITHUB_TOKEN="$github_api_token" curl "${curl_flags[@]}" "${api_headers[@]}" "$@"
+  else
+    curl "${curl_flags[@]}" "${api_headers[@]}" "$@"
+  fi
+}
 case "$ARCH" in
   x86_64)
     LINUXDEPLOY_SHA256="c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d"
@@ -196,7 +206,7 @@ esac
 
 QT_PLUGIN_ASSET_NAME="linuxdeploy-plugin-qt-${ARCH}.AppImage"
 QT_PLUGIN_ASSET_ID="$(
-  curl "${curl_flags[@]}" "${api_headers[@]}" -H "Accept: application/vnd.github+json" \
+  github_api_curl -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/tags/continuous" |
   python3 -c 'import json, sys; name = sys.argv[1]; matches = [asset for asset in json.load(sys.stdin)["assets"] if asset["name"] == name]; print(matches[0]["id"]) if matches else sys.exit("asset not found: " + name)' "$QT_PLUGIN_ASSET_NAME"
 )"
@@ -206,7 +216,7 @@ QT_PLUGIN_ASSET_ID="$(
 # reviewing the new binary.
 curl "${curl_flags[@]}" -o linuxdeploy.AppImage \
   "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_TAG}/linuxdeploy-${ARCH}.AppImage"
-curl "${curl_flags[@]}" "${api_headers[@]}" -H "Accept: application/octet-stream" -o linuxdeploy-plugin-qt.AppImage \
+github_api_curl -H "Accept: application/octet-stream" -o linuxdeploy-plugin-qt.AppImage \
   "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/assets/${QT_PLUGIN_ASSET_ID}"
 echo "${LINUXDEPLOY_SHA256}  linuxdeploy.AppImage" | sha256sum -c -
 echo "${QT_PLUGIN_SHA256}  linuxdeploy-plugin-qt.AppImage" | sha256sum -c -
@@ -218,7 +228,7 @@ chmod +x linuxdeploy.AppImage linuxdeploy-plugin-qt.AppImage
 # action's Bookworm container leg (Learning #206, S137).
 export APPIMAGE_EXTRACT_AND_RUN=1
 export OUTPUT="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
-./linuxdeploy.AppImage --appimage-extract-and-run \
+env -u GITHUB_TOKEN ./linuxdeploy.AppImage --appimage-extract-and-run \
   --appdir AppDir \
   --plugin qt \
   --output appimage \

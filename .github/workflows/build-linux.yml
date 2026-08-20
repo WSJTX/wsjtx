@@ -310,9 +310,8 @@ jobs:
         env:
           ARCH: armhf
           BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          docker run --rm --platform linux/arm/v7 \
+          GITHUB_TOKEN="${{ github.token }}" docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             -e VERSION \
