@@ -219,7 +219,6 @@ TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<Transceive
   , tci_loop7_ {nullptr}
   , tci_timer8_ {nullptr}
   , tci_loop8_ {nullptr}
-  , wavptr_ {nullptr}
   , m_downSampleFactor {4}
   , m_buffer ((m_downSampleFactor > 1) ?
               new short [max_buffer_size * m_downSampleFactor] : nullptr)

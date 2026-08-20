@@ -225,7 +225,6 @@ private:
   QEventLoop * tci_loop7_;
   QTimer * tci_timer8_;
   QEventLoop * tci_loop8_;
-  int nIqBytes;
   bool inConnected;
   bool tci_Ready;
   bool ESDR3;
@@ -237,7 +236,6 @@ private:
   bool other_band_change;
   QUrl url_;
   quint32 audioSampleRate;
-  FILE * wavptr_;
   QByteArray t_iqData;
   int trxA;
   int trxB;
