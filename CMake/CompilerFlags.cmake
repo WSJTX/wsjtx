@@ -207,6 +207,7 @@ elseif (WSJT_ENABLE_TSAN)
     $<$<COMPILE_LANGUAGE:C>:-fsanitize=thread>
     $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=thread>
     $<$<COMPILE_LANGUAGE:Fortran>:-fsanitize=thread>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=tsan>
     -fno-omit-frame-pointer
     -g1
     -O1
