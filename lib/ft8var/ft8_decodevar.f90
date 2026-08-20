@@ -31,7 +31,7 @@ contains
     use decode_completion_module, only : write_decode_progress
 
     use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
-         lastrxmsg,lasthcall,calldteven,calldtodd,incall,oddcopy,evencopy,      &
+         lastrxmsg,calldteven,calldtodd,incall,oddcopy,evencopy,                &
          avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
          evenqso,oddqso,lqsomsgdcd,hisgrid4
@@ -129,13 +129,6 @@ contains
     tmpcqsig(:)%freq=6000.0
     tmpmycsig(:)%freq=6000.0
     tmpqsosig(1)%freq=6000.0
-    if(hiscall.eq.'') then
-       lastrxmsg(1)%lstate=.false. 
-    else if(lastrxmsg(1)%lstate .and. lasthcall.ne.hiscall .and.               &
-         index(lastrxmsg(1)%lastmsg,trim(hiscall)).le.0) then
-       lastrxmsg(1)%lstate=.false.
-    endif
-
     levenint=.false.
     loddint=.false.
     if(nsec.eq.0 .or. nsec.eq.30) then

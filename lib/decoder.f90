@@ -25,7 +25,8 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
        lqsomsgdcd,mycalllen1,msgroot,msgrootlen,lapmyc,sumxdtt,avexdt,          &
        nfawide,nfbwide,mycall,hiscall,lhound,mybcall,hisbcall,lenabledxcsearch, &
        lwidedxcsearch,hisgrid4,lmultinst,dd8,nft8cycles,lskiptx1,ncandallthr,   &
-       nincallthr,incall,msgincall,xdtincall,maskincallthr,ltxing,hisgrid
+       nincallthr,incall,msgincall,xdtincall,maskincallthr,ltxing,hisgrid,      &
+       lastrxmsg,lasthcall
 
   include 'jt9com.f90'
 
@@ -374,6 +375,13 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
            nFT8decd=0
            sumxdt=0.0
            if(params%nmode.eq.4) sumxdtt=0.0
+
+           if(hiscall.eq.'') then
+              lastrxmsg(1)%lstate=.false.
+           else if(lastrxmsg(1)%lstate .and. lasthcall.ne.hiscall .and.        &
+                index(lastrxmsg(1)%lastmsg,trim(hiscall)).le.0) then
+              lastrxmsg(1)%lstate=.false.
+           endif
 
 !$omp parallel num_threads(requested_threads) private(nthr) shared(numthreads)
 !$omp single
