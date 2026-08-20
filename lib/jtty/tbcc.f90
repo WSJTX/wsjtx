@@ -115,6 +115,16 @@ contains
 
         final_payload = 0_int32
         success = .false.
+        ! Zero iterations means the WAVA loop below never runs, leaving
+        ! curr_m/traceback_table unread-by-design -- but the traceback and
+        ! list-selection code after the loop unconditionally reads them
+        ! regardless. Bail out before allocating rather than let that read
+        ! uninitialized memory (production always passes max_wava_iters=2;
+        ! only reachable via the CLI simulator's --iters option, which
+        ! accepts any caller-supplied value; found by David Christle, PR
+        ! #337, who confirmed it otherwise returns success=.true. with an
+        ! all-zero payload).
+        if (max_wava_iters < 1) return
         allocate(prev_m(0:num_states-1), curr_m(0:num_states-1))
         allocate(traceback_table(0:num_states-1, TOTAL_K), sorted_list(list_size))
 
