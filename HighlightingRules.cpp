@@ -17,4 +17,20 @@ namespace HighlightingRules
 
     return false;
   }
+
+  bool matchesCallsignPrefix (QString const& configured_entries, QString const& call)
+  {
+    if (call.size () < 3) return false;
+
+    bool const matched =
+      configured_entries.contains (call + ",")
+      || configured_entries.contains (";" + call.left (3) + ";")
+      || configured_entries.contains (";" + call.left (2) + ";")
+      || (configured_entries.contains (";" + call.left (1) + ";") && call.at (1).isDigit ())
+      || configured_entries.contains (";" + call.left (1) + "*;");
+    if (!matched) return false;
+
+    return !configured_entries.contains ("!" + call.left (2) + "!")
+        && !configured_entries.contains ("!" + call.left (3) + "!");
+  }
 }
