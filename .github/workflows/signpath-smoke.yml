@@ -25,12 +25,12 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v7
-
       - name: Build trivial PE file
         run: |
-          .github/scripts/run-apt-get.sh update -q
-          .github/scripts/run-apt-get.sh install -y -q gcc-mingw-w64-x86-64
+          # Keep this job independent of the dispatched repository ref. It
+          # submits an executable with the SignPath API token below.
+          sudo apt-get update -q
+          sudo apt-get install -y -q gcc-mingw-w64-x86-64
           cat > smoke.c <<'EOF'
           #include <stdio.h>
           int main(void) { puts("WSJT SignPath smoke test"); return 0; }
@@ -61,7 +61,7 @@ jobs:
       - name: Verify returned signature
         run: |
           echo "Signing request: ${{ steps.signpath.outputs.signing-request-web-url }}"
-          .github/scripts/run-apt-get.sh install -y -q osslsigncode
+          sudo apt-get install -y -q osslsigncode
           ls -la signed/
           # The test cert never chains to a trusted root, so chain
           # verification can't gate here. Require instead that an
