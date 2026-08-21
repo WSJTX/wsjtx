@@ -8914,7 +8914,6 @@ void MainWindow::displayWidgets(qint64 n)
   ui->sbEchoAvg->setVisible(m_mode=="Echo");
   ui->sbSerialNumber->setMaximum(SpecOp::EU_VHF==m_specOp ? eu_vhf_type5_serial_max : default_serial_number_max);
   ui->sbSerialNumber->setVisible(b);
-  ui->ClrAvgButton->setVisible(m_mode != "JTTY");
   m_lastCallsign.clear ();     // ensures Tx5 is updated for new modes
   b=m_mode.startsWith("FST4");
   ui->sbNB->setVisible(b);
