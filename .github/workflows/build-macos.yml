@@ -467,17 +467,24 @@ jobs:
           import plistlib
           import subprocess
 
+          expected_arguments = [
+              "/usr/sbin/sysctl",
+              "kern.sysv.shmmax=52428800",
+              "kern.sysv.shmall=25600",
+          ]
+
           with open("Darwin/com.wsjtx.sysctl.plist", "rb") as source:
               configuration = plistlib.load(source)
 
-          program = configuration["Program"]
-          arguments = configuration["ProgramArguments"]
-          if not arguments or arguments[0] != program:
-              raise SystemExit("shared memory plist ProgramArguments do not match Program")
+          if (
+              configuration.get("Program") != expected_arguments[0]
+              or configuration.get("ProgramArguments") != expected_arguments
+          ):
+              raise SystemExit("shared memory plist does not match CI expectations")
 
-          subprocess.run(["sudo", *arguments], check=True)
+          subprocess.run(["/usr/bin/sudo", *expected_arguments], check=True)
           subprocess.run(
-              [program, "kern.sysv.shmmax", "kern.sysv.shmall"], check=True
+              [expected_arguments[0], "kern.sysv.shmmax", "kern.sysv.shmall"], check=True
           )
           PY
 
