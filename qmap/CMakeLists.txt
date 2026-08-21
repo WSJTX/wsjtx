@@ -4,6 +4,7 @@ set (qmap_CXXSRCS
   devsetup.cpp
   displaytext.cpp
   getfile.cpp
+  livecq_parser.cpp
   main.cpp
   mainwindow.cpp
   meterwidget.cpp

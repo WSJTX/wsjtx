@@ -202,7 +202,6 @@ private:
   bool isGrid4(QString g);
   void CreateLiveCQ(QStringList cqliveText);           //liveCQ
   void sendLiveCQData(QList<QStringList> decodeList);  //liveCQ
-  bool testCall(QString callsign); //liveCQ
 };
 
 extern void getfile(QString fname, bool xpol, int idInt);
