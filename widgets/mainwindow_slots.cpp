@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QtMath>
 #include "MessageBox.hpp"
+#include "DecodedMessageReaction.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "commons.h"
 #include "echograph.h"
@@ -458,13 +459,15 @@ void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
 
 void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 {
-  if (!((m_config.repeat_Tx() or !m_send_RR73) && (m_mode=="MSK144" or m_mode=="Q65"))) {
+  auto stopAutoTx = [this] {
     if (SpecOp::NA_VHF==m_specOp && m_mode=="FT4" && m_config.NCCC_Sprint()) {
-      QTimer::singleShot (int(850.0*m_TRperiod), [=] {cease_auto_Tx_after_QSO ();});
+      QTimer::singleShot (int(850.0*m_TRperiod), [this] {cease_auto_Tx_after_QSO ();});
     } else {
       cease_auto_Tx_after_QSO ();
     }
-  }
+  };
+  DecodedMessageReaction::applyAutoTxStopAfterLogging(
+    m_mode, m_config.repeat_Tx(), m_send_RR73, stopAutoTx);
 
   if (!m_hisCall.size ()) {
     MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));

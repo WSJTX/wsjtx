@@ -5,6 +5,7 @@
 #include "Radio.hpp"
 #include "SpecialOperatingActivity.hpp"
 
+#include <functional>
 #include <QString>
 #include <QVector>
 
@@ -190,6 +191,10 @@ namespace DecodedMessageReaction
     QString reason;
     QVector<QsoReactionEffect> effects;
   };
+
+  bool shouldDeferAutoTxStopAfterRrr(QString const& mode, bool repeatTx, bool sendRr73);
+  void applyAutoTxStopAfterLogging(QString const& mode, bool repeatTx, bool sendRr73,
+                                   std::function<void()> stopAutoTx);
 
   QsoReactionPlan planProcessMessage(DecodedText const& message, QsoReactionSnapshot const& snapshot);
   QsoReactionPlan planAutoSequence(DecodedText const& message, QsoReactionSnapshot const& snapshot,

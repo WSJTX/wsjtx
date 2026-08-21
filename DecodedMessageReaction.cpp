@@ -387,6 +387,19 @@ namespace
 
 namespace DecodedMessageReaction
 {
+  bool shouldDeferAutoTxStopAfterRrr(QString const& mode, bool repeatTx, bool sendRr73)
+  {
+    return !sendRr73 && (mode == "MSK144" || (mode == "Q65" && repeatTx));
+  }
+
+  void applyAutoTxStopAfterLogging(QString const& mode, bool repeatTx, bool sendRr73,
+                                   std::function<void()> stopAutoTx)
+  {
+    if (!shouldDeferAutoTxStopAfterRrr(mode, repeatTx, sendRr73)) {
+      stopAutoTx();
+    }
+  }
+
   QsoReactionPlan planProcessMessage(DecodedText const& message, QsoReactionSnapshot const& snapshot)
   {
     QsoReactionPlan plan;
@@ -549,8 +562,7 @@ namespace DecodedMessageReaction
               } else {
                 appendEffect(plan, QsoReactionEffect::Kind::CeaseAutoTx);
               }
-              if ((snapshot.mode == "MSK144" || (snapshot.mode == "Q65" && snapshot.repeatTx))
-                  && !snapshot.sendRr73) {
+              if (shouldDeferAutoTxStopAfterRrr(snapshot.mode, snapshot.repeatTx, snapshot.sendRr73)) {
                 appendIntEffect(plan, QsoReactionEffect::Kind::ClickTxMessage, 5);
                 appendIntEffect(plan, QsoReactionEffect::Kind::ScheduleAutoFlagOff,
                                 int(1000.0 * snapshot.trPeriod));
