@@ -779,6 +779,7 @@ private:
   QButtonGroup * m_tx_message_button_group {nullptr};
   QFocusFrame * m_main_window_focus_frame {nullptr};
   QFrame * m_message_selector_focus_frame {nullptr};
+  bool m_keyboard_focus_active {false};
 
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
@@ -1327,6 +1328,8 @@ private:
   void registerMainWindowFocusControls();
   std::array<QRadioButton *, 6> txNextButtons() const;
   std::array<QWidget *, 13> focusIndicatorWidgets() const;
+  void showMainWindowFocusIndicator(QWidget *widget);
+  void hideMainWindowFocusIndicators();
   void updateTxNextFocusPolicies();
   bool switchTxNextMessage(QKeyEvent const *key_event);
   bool switchMainWindowTab(QKeyEvent const *key_event);

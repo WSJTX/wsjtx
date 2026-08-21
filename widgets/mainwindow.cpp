@@ -24,6 +24,7 @@
 #include <QTextBlock>
 #include <QProgressBar>
 #include <QLineEdit>
+#include <QFocusEvent>
 #include <QFocusFrame>
 #include <QFrame>
 #include <QWidget>
@@ -3470,23 +3471,31 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
     {
     case QEvent::FocusIn:
       {
+        auto const focus_reason = static_cast<QFocusEvent *> (event)->reason ();
+        if (focus_reason == Qt::MouseFocusReason)
+          {
+            m_keyboard_focus_active = false;
+          }
+        else if (focus_reason == Qt::TabFocusReason
+                 || focus_reason == Qt::BacktabFocusReason
+                 || focus_reason == Qt::ShortcutFocusReason)
+          {
+            m_keyboard_focus_active = true;
+          }
+
         auto *widget = qobject_cast<QWidget *> (object);
         auto const indicator_widgets = focusIndicatorWidgets ();
         auto const is_focus_indicator_target = std::find (indicator_widgets.cbegin (), indicator_widgets.cend (), widget)
           != indicator_widgets.cend ();
         if (is_focus_indicator_target)
           {
-            if (widget == ui->tabWidget->tabBar ())
+            if (m_keyboard_focus_active)
               {
-                m_message_selector_focus_frame->setGeometry (widget->rect ());
-                m_message_selector_focus_frame->raise ();
-                m_message_selector_focus_frame->show ();
+                showMainWindowFocusIndicator (widget);
               }
             else
               {
-                m_main_window_focus_frame->setWidget (widget);
-                m_main_window_focus_frame->raise ();
-                m_main_window_focus_frame->show ();
+                hideMainWindowFocusIndicators ();
               }
           }
         break;
@@ -3506,6 +3515,15 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
 
     case QEvent::KeyPress:
       {
+        m_keyboard_focus_active = true;
+        auto *widget = qobject_cast<QWidget *> (object);
+        auto const indicator_widgets = focusIndicatorWidgets ();
+        if (std::find (indicator_widgets.cbegin (), indicator_widgets.cend (), widget)
+            != indicator_widgets.cend ())
+          {
+            showMainWindowFocusIndicator (widget);
+          }
+
         auto const key_event = static_cast<QKeyEvent *> (event);
         auto const handled = switchMainWindowTab (key_event) || switchTxNextMessage (key_event);
         tx_watchdog (false);
@@ -3525,6 +3543,8 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
       }
 
     case QEvent::MouseButtonPress:
+      m_keyboard_focus_active = false;
+      hideMainWindowFocusIndicators ();
       // reset the Tx watchdog
       tx_watchdog (false);
       break;
@@ -9173,6 +9193,28 @@ std::array<QWidget *, 13> MainWindow::focusIndicatorWidgets() const
   return {{ui->tabWidget->tabBar (),
            buttons[0], buttons[1], buttons[2], buttons[3], buttons[4], buttons[5],
            ui->txb1, ui->txb2, ui->txb3, ui->txb4, ui->txb5, ui->txb6}};
+}
+
+void MainWindow::showMainWindowFocusIndicator(QWidget *widget)
+{
+  if (widget == ui->tabWidget->tabBar ())
+    {
+      m_message_selector_focus_frame->setGeometry (widget->rect ());
+      m_message_selector_focus_frame->raise ();
+      m_message_selector_focus_frame->show ();
+      return;
+    }
+
+  m_main_window_focus_frame->setWidget (widget);
+  m_main_window_focus_frame->raise ();
+  m_main_window_focus_frame->show ();
+}
+
+void MainWindow::hideMainWindowFocusIndicators()
+{
+  m_message_selector_focus_frame->hide ();
+  m_main_window_focus_frame->hide ();
+  m_main_window_focus_frame->setWidget (nullptr);
 }
 
 void MainWindow::updateTxNextFocusPolicies()
