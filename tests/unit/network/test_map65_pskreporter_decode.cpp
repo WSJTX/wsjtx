@@ -109,6 +109,16 @@ private slots:
     QCOMPARE(spots.first().time, expectedTime);
   }
 
+  void acceptsThreeCharacterCallsignDecode()
+  {
+    QStringList seen;
+    auto const spots = Map65PSKReporter::parseMap65PSKReporterSpots(
+      {decodeLine({"CQ", "N5L", "1200.0", "#A"})},
+      "N0CALL", "FN21", nowUtc(), seen);
+    QCOMPARE(spots.size(), 1);
+    QCOMPARE(spots.first().callsign, QString {"N5L"});
+  }
+
   void suppressesDuplicateDecodeKeys()
   {
     auto const first = decodeLine({"CQ", "K1ABC", "1200.0", "#A"})

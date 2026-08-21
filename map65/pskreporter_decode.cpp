@@ -1,8 +1,8 @@
 #include "pskreporter_decode.h"
 
 #include "../validators/LiveCQCallsign.hpp"
+#include "../Network/DecodedTime.hpp"
 
-#include <QTime>
 #include <QtGlobal>
 
 namespace
@@ -12,15 +12,6 @@ namespace
     return messageType == "CQ" || messageType == "QRZ"
       || messageType == "CQV" || messageType == "CQH"
       || messageType == "QRT";
-  }
-
-  QDateTime utcDateTime(QDate const& date, QTime const& time)
-  {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    return QDateTime {date, time, QTimeZone::UTC};
-#else
-    return QDateTime {date, time, Qt::UTC};
-#endif
   }
 
   bool parseSpot(QStringList const& tokens,
@@ -41,25 +32,10 @@ namespace
       return false;
     }
 
-    auto const encodedTime = tokens.at(3).trimmed() + "00";
-    auto const timeValue = encodedTime.toInt(&ok);
-    if (!ok) {
+    auto const spotTime = DecodedTime::spotTime(tokens.at(3).trimmed(), nowUtc, 60);
+    if (!spotTime.isValid()) {
       return false;
     }
-
-    auto const time = QTime {
-      encodedTime.mid(0, 2).toInt(),
-      encodedTime.mid(2, 2).toInt(),
-      encodedTime.mid(4, 2).toInt()
-    };
-    if (!time.isValid()) {
-      return false;
-    }
-
-    auto const spotDate = timeValue + 60 < 236000
-      ? nowUtc.date()
-      : nowUtc.addDays(-1).date();
-    auto const spotTime = utcDateTime(spotDate, time);
 
     QString callsign;
     QString locator = "--";

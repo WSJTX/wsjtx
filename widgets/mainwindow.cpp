@@ -67,6 +67,7 @@
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "Network/NetworkAccessManager.hpp"
+#include "Network/DecodedTime.hpp"
 #include "Audio/soundout.h"
 #include "Audio/soundin.h"
 #include "Audio/AudioInputSource.hpp"
@@ -6019,18 +6020,10 @@ void MainWindow::pskPost (DecodedText const& decodedtext,
   auto const baseCall = Radio::base_callsign (context.myCall);
   if (context.diskData || !m_config.spot_to_psk_reporter() || decodedtext.isLowConfidence ()
       || (decodedtext.string().contains(baseCall) && decodedtext.string().contains(m_config.my_grid().left(4)))) return; // prevent self-spotting when running multiple instances
-  int h=decodedtext.string().mid(0,2).toInt();
-  int m=decodedtext.string().mid(2,2).toInt();
-  int s=decodedtext.string().mid(4,2).toInt();
-  int sTimeString = decodedtext.string().mid(0,6).toInt();
-  QTime time2(h, m, s);
-  QDateTime qSpotTime;
-  if (sTimeString + context.trPeriod < 236000) {
-    qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
-  }
-  else {
-    qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
-  }    
+  auto const qSpotTime = DecodedTime::spotTime(
+    decodedtext.string().section(' ', 0, 0),
+    QDateTime::currentDateTimeUtc(), context.trPeriod);
+  if (!qSpotTime.isValid()) return;
   QString msgmode=context.mode;
   QString deCall;
   QString grid;
@@ -12449,15 +12442,9 @@ void MainWindow::readWidebandDecodes()
     nhr=line.mid(0,2).toInt();
     nmin=line.mid(2,2).toInt();
     nsec=line.mid(4,2).toInt();
-    int sTimeString = line.mid(0,6).toInt();
-    QTime time2(nhr, nmin, nsec);
-    QDateTime qSpotTime;
-    if (sTimeString + m_TRperiod < 236000) {
-      qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
-    }
-    else {
-      qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
-    }        
+    auto const qSpotTime = DecodedTime::spotTime(
+      line.left(6), QDateTime::currentDateTimeUtc(), m_TRperiod);
+    if (!qSpotTime.isValid()) continue;
     double frx=line.mid(6,9).toDouble();
     double fsked=line.mid(16,7).toDouble();
     QString submode=line.mid(36,3);

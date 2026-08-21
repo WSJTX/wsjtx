@@ -16,6 +16,7 @@ set (wsjt_qt_CXXSRCS
   widgets/MessageBox.cpp
   MetaDataRegistry.cpp
   Network/NetworkServerLookup.cpp
+  Network/DecodedTime.cpp
   revision_utils.cpp
   L10nLoader.cpp
   HighDpiScaling.cpp
