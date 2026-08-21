@@ -107,7 +107,7 @@ MainWindow::DecoderContext::DecoderContext()
     stdoutChan = new StdoutChannel(
         L"MAP65_STDOUT_MAPPING",
         L"MAP65_STDOUT_EVENT",
-        64 * 1024
+        1024 * 1024
     );
 }
 
@@ -215,6 +215,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionNo_Deep_Search->setActionGroup(DepthGroup);
   ui->actionNormal_Deep_Search->setActionGroup(DepthGroup);
   ui->actionAggressive_Deep_Search->setActionGroup(DepthGroup);
+  ui->actionFull_Deep_Search->setActionGroup(DepthGroup);
 
   QButtonGroup* txMsgButtonGroup = new QButtonGroup;
   txMsgButtonGroup->addButton(ui->txrb1,1);
@@ -593,6 +594,7 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
       std::uint32_t readIndex = h0.writeIndex;
       if (readIndex >= bufSize)
           readIndex = 0;
+      region->header.readIndex = readIndex;
 
       std::string lineBuffer;
 
@@ -626,6 +628,11 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
                   );
               }
           }
+
+          // Publish how far we've drained so the Fortran writer can
+          // compute free space and wait for room instead of wrapping
+          // around and overwriting data we haven't read yet.
+          region->header.readIndex = readIndex;
       }
 
     });
@@ -1050,6 +1057,7 @@ void MainWindow::readSettings()
   if(m_ndepth==0) ui->actionNo_Deep_Search->setChecked(true);
   if(m_ndepth==1) ui->actionNormal_Deep_Search->setChecked(true);
   if(m_ndepth==2) ui->actionAggressive_Deep_Search->setChecked(true);
+  if(m_ndepth==3) ui->actionFull_Deep_Search->setChecked(true);
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
   m_spot_to_psk_reporter = pskReporterSettings.enabled;
@@ -1966,6 +1974,14 @@ void MainWindow::on_actionErase_Band_Map_and_Messages_triggered()
 {
   m_band_map_window->setText("");
   m_messages_window->setText("","");
+  // m_messagesText/m_bandmapText accumulate across decode cycles and are
+  // only reset when a "!" line arrives (processStdOut). Without clearing
+  // them here too, the next <EarlyFinished>/<DecodeFinished> redisplay
+  // (or a cycle with no fresh decodes) repaints the stale pre-erase text
+  // right back into the windows.
+  m_messagesText.clear();
+  m_bandmapText.clear();
+  m_widebandDecode = false;
   m_map65RxLog |= 4;
 }
 
@@ -2003,6 +2019,11 @@ void MainWindow::on_actionNormal_Deep_Search_triggered()      //Normal DS
 void MainWindow::on_actionAggressive_Deep_Search_triggered()  //Aggressive DS
 {
   m_ndepth=2;
+}
+
+void MainWindow::on_actionFull_Deep_Search_triggered()        //Full DS
+{
+  m_ndepth=3;
 }
 
 void MainWindow::on_actionNone_triggered()                    //Save None

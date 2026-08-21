@@ -1382,6 +1382,7 @@ p, li { white-space: pre-wrap; }
     <addaction name="actionNo_Deep_Search"/>
     <addaction name="actionNormal_Deep_Search"/>
     <addaction name="actionAggressive_Deep_Search"/>
+    <addaction name="actionFull_Deep_Search"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuSave">
@@ -1694,6 +1695,14 @@ p, li { white-space: pre-wrap; }
    </property>
    <property name="text">
     <string>Aggressive Deep Search</string>
+   </property>
+  </action>
+  <action name="actionFull_Deep_Search">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Full Deep Search</string>
    </property>
   </action>
   <action name="actionNone">

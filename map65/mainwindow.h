@@ -155,6 +155,7 @@ private slots:
   void on_actionNo_Deep_Search_triggered();
   void on_actionNormal_Deep_Search_triggered();
   void on_actionAggressive_Deep_Search_triggered();
+  void on_actionFull_Deep_Search_triggered();
   void on_actionNone_triggered();
   void on_actionSave_all_triggered();
   void on_actionKeyboard_shortcuts_triggered();

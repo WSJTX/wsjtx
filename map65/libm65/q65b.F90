@@ -48,7 +48,7 @@
       use iso_fortran_env, only: real64, int16
       use map65_mmdec_mod
       use npar_ptrs_mod, only: nrate_active, nfft_big_active, nfft_active, t_start, abort_decode, &
-                               manualDecodeFlag
+                               manualDecodeFlag, ndepth
 
       implicit none
 
@@ -90,7 +90,7 @@
       complex   :: cx(0:MAXFFT2-1), cy(0:MAXFFT2-1), cz(0:MAXFFT2)
       integer   :: ipk1(1)
       integer   :: i, ia, ib, ifreq, ikhz1, ipk, ipol
-      integer   :: j, ja, jb, k0, mhz, ndf, ndpth, nfft1, nfft2
+      integer   :: j, ja, jb, k0, mhz, ndf, nfft1, nfft2
       integer   :: npol, nq65df, nsubmode, ntxpol, nutc00, nh
       integer   :: nfa, nfb
       integer   :: k0_click, mousedf_gate
@@ -288,12 +288,16 @@
          nfa = max(100, 1000 - ntol)
          nfb = min(2500, 1000 + ntol)
       endif
-      ndpth = 3
 
 ! NB: Frequency of ipk is now shifted to 1000 Hz.
 
+      ! ndepth comes from npar_ptrs_mod, set from the GUI's Decode Depth
+      ! menu (see MainWindow::decode() -> setNdepth()). This used to be a
+      ! local variable "ndpth" hardwired to 3 here, which was never
+      ! connected to the GUI at all -- Q65 always ran at depth 3
+      ! regardless of what the user selected.
       call map65_mmdec(nutc, iwave, nqd, 60, nsubmode, nfa, nfb, 1000, ntol, &
-                       newdat, nagain, max_drift, ndpth, mycall, hiscall0, hisgrid)
+                       newdat, nagain, max_drift, ndepth, mycall, hiscall0, hisgrid)
 
       MHz = fcenter
       freq0 = MHz + 0.001d0*ikhz
