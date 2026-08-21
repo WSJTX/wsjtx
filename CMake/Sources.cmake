@@ -34,6 +34,7 @@ set (wsjt_qt_CXXSRCS
   item_delegates/ForeignKeyDelegate.cpp
   item_delegates/MessageItemDelegate.cpp
   validators/LiveFrequencyValidator.cpp
+  validators/LiveCQCallsign.cpp
   GetUserId.cpp
   Audio/AudioDevice.cpp
   Audio/TxPlaybackDiagnostics.cpp

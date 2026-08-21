@@ -27,7 +27,7 @@ private slots:
   void acceptsMap65Callsigns()
   {
     const auto valid = QStringList {
-      "K1ABC", "YW18FIFA", "QU1RK", "<K1ABC>", "K1ABC/P"
+      "K1ABC", "YW18FIFA", "QU1RK", "<K1ABC>", "K1ABC/P", "N5L", "GM/N5L"
     };
     for (auto const& callsign : valid) {
       QVERIFY2(Map65PSKReporter::isValidMap65Callsign(callsign),
@@ -35,7 +35,7 @@ private slots:
     }
 
     const auto invalid = QStringList {
-      "KABC", "Q1ABC", "K1AB1", "K1ABCDE", "K1AB-C", "K1AB?"
+      "", "N", "N5", "KABC", "Q1ABC", "K1AB1", "K1ABCDE", "K1AB-C", "K1AB?"
     };
     for (auto const& callsign : invalid) {
       QVERIFY2(!Map65PSKReporter::isValidMap65Callsign(callsign),

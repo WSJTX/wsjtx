@@ -12,6 +12,12 @@ add_executable (test_callsign_validator
 target_link_libraries (test_callsign_validator Qt5::Test Qt5::Gui)
 add_test (NAME test_callsign_validator COMMAND test_callsign_validator)
 
+add_executable (test_livecq_callsign
+  test_livecq_callsign.cpp
+)
+target_link_libraries (test_livecq_callsign wsjt_qt Qt5::Test)
+add_test (NAME test_livecq_callsign COMMAND test_livecq_callsign)
+
 add_executable (test_displaytext
   test_displaytext.cpp
   ${CMAKE_SOURCE_DIR}/widgets/displaytext.cpp

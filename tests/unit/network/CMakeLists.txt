@@ -23,7 +23,8 @@ add_test (NAME test_map65_pskreporter_settings COMMAND test_map65_pskreporter_se
 add_executable (test_map65_pskreporter_decode
   test_map65_pskreporter_decode.cpp
   ${CMAKE_SOURCE_DIR}/map65/pskreporter_decode.cpp
-  )
+  ${CMAKE_SOURCE_DIR}/validators/LiveCQCallsign.cpp
+)
 target_link_libraries (test_map65_pskreporter_decode Qt5::Test)
 add_test (NAME test_map65_pskreporter_decode COMMAND test_map65_pskreporter_decode)
 
