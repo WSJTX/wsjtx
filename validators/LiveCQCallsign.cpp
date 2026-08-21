@@ -40,7 +40,7 @@ namespace LiveCQ
     }
 
     int digitPosition = 0;
-    for (int i = 1; i < qMin(baseLength, 4); ++i) {
+    for (int i = 1; i < qMin<int>(static_cast<int> (baseLength), 4); ++i) {
       if (baseCall.at(i).isDigit()) {
         digitPosition = i;
       }
