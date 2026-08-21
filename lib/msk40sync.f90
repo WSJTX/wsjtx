@@ -27,6 +27,13 @@ subroutine msk40sync(cdat,nframes,ntol,delf,navmask,npeaks,fc,fest,   &
   data s8r/1,0,1,1,0,0,0,1/
   save first,cb,fs,pi,twopi,dt,s8r,pp
 
+  interface
+     subroutine wsjt_tsan_acquire_msk40_sync() bind(C)
+     end subroutine wsjt_tsan_acquire_msk40_sync
+     subroutine wsjt_tsan_release_msk40_sync() bind(C)
+     end subroutine wsjt_tsan_release_msk40_sync
+  end interface
+
   if(first) then
      pi=4.0*atan(1.0)
      twopi=8.0*atan(1.0)
@@ -68,9 +75,12 @@ subroutine msk40sync(cdat,nframes,ntol,delf,navmask,npeaks,fc,fest,   &
   if(id.eq.nthreads) if2=nint(ntol/delf)
   call msk40_freq_search(cdat,fc,if1,if2,delf,nframes,navmask,cb,    &
        cdat2(1,id),xm(id),bf(id),cs(1,id),xccs(:,id))
+  ! GCC TSan does not observe libgomp's implicit barrier.
+  call wsjt_tsan_release_msk40_sync()
 !  write(73,3002) id,if1,if2,nfreqs,nthreads,bf(id),xm(id)
 !3002 format(5i5,2f10.3)
   !$OMP END PARALLEL
+  call wsjt_tsan_acquire_msk40_sync()
 
   xmax=xm(1)
   fest=fc+bf(1)
