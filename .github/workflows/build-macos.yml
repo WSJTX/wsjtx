@@ -450,6 +450,7 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
             -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
@@ -480,9 +481,15 @@ jobs:
           )
           PY
 
+      - name: Raise shared memory total for parallel GUI tests
+        run: |
+          # Three decoder segments require 35,359 pages; leave headroom for other IPC.
+          sudo /usr/sbin/sysctl kern.sysv.shmall=40960
+          /usr/sbin/sysctl kern.sysv.shmmax kern.sysv.shmall
+
       - name: Run tests
         id: ctest
-        run: ctest --output-on-failure --output-junit ctest-results.xml
+        run: ctest --parallel 3 --output-on-failure --output-junit ctest-results.xml
         working-directory: wsjtx-build
 
       - name: Publish test summary

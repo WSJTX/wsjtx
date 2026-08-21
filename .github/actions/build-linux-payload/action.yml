@@ -197,7 +197,7 @@ runs:
     - name: Run tests
       id: ctest
       shell: bash
-      run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --output-on-failure --output-junit ctest-results.xml
+      run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --parallel 3 --output-on-failure --output-junit ctest-results.xml
       working-directory: wsjtx-build
       env:
         QT_QPA_PLATFORM: xcb

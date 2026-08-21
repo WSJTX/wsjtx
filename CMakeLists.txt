@@ -892,8 +892,9 @@ endif ()
 
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     AND WSJT_BUILD_FORTRAN_OPENMP
-    AND CMAKE_SYSTEM_NAME STREQUAL "Linux"
-    AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    AND (APPLE OR
+      (CMAKE_SYSTEM_NAME STREQUAL "Linux"
+        AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")))
   add_dependencies (wsjtx sjtty)
 
   set (wsjtx_live_audio_test_root
@@ -903,6 +904,14 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     "${wsjtx_live_audio_test_root}/data"
     "${wsjtx_live_audio_test_root}/cache"
     "${wsjtx_live_audio_test_root}/tmp")
+  set (wsjtx_live_audio_test_environment
+    "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config"
+    "XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data"
+    "XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache")
+  if (NOT APPLE)
+    list (APPEND wsjtx_live_audio_test_environment
+      "TMPDIR=${wsjtx_live_audio_test_root}/tmp")
+  endif ()
   add_test (
     NAME test_wsjtx_live_audio_ft8
     COMMAND $<TARGET_FILE:wsjtx>
@@ -914,10 +923,9 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       "${CMAKE_SOURCE_DIR}"
       --rig-name CTEST-LIVE-AUDIO)
   set_tests_properties (test_wsjtx_live_audio_ft8 PROPERTIES
-    ENVIRONMENT
-      "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config;XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data;XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache;TMPDIR=${wsjtx_live_audio_test_root}/tmp"
+    ENVIRONMENT "${wsjtx_live_audio_test_environment}"
     LABELS "gui;audio;decoder;integration"
-    RUN_SERIAL TRUE
+    PROCESSORS 1
     TIMEOUT 120)
 
   set (wsjtx_jtty_live_audio_test_root
@@ -932,7 +940,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_live_audio.cmake)
   set_tests_properties (test_wsjtx_live_audio_jtty PROPERTIES
     LABELS "gui;audio;jtty;integration"
-    RUN_SERIAL TRUE
+    PROCESSORS 1
     TIMEOUT 120)
 
   set (wsjtx_jtty_tx_loopback_test_root
@@ -946,7 +954,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_tx_loopback.cmake)
   set_tests_properties (test_wsjtx_jtty_tx_loopback PROPERTIES
     LABELS "gui;audio;jtty;integration"
-    RUN_SERIAL TRUE
+    PROCESSORS 1
     TIMEOUT 180)
 
   set (wsjtx_ft8_tx_loopback_test_root

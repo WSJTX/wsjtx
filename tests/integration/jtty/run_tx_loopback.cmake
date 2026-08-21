@@ -16,12 +16,22 @@ file (MAKE_DIRECTORY
   "${WORK_DIR}/replay/tmp")
 
 set (capture "${WORK_DIR}/jtty-tx-loopback.wav")
+set (capture_environment
+  "XDG_CONFIG_HOME=${WORK_DIR}/capture/config"
+  "XDG_DATA_HOME=${WORK_DIR}/capture/data"
+  "XDG_CACHE_HOME=${WORK_DIR}/capture/cache")
+set (replay_environment
+  "XDG_CONFIG_HOME=${WORK_DIR}/replay/config"
+  "XDG_DATA_HOME=${WORK_DIR}/replay/data"
+  "XDG_CACHE_HOME=${WORK_DIR}/replay/cache")
+if (NOT APPLE)
+  list (APPEND capture_environment "TMPDIR=${WORK_DIR}/capture/tmp")
+  list (APPEND replay_environment "TMPDIR=${WORK_DIR}/replay/tmp")
+endif ()
+
 execute_process (
   COMMAND "${CMAKE_COMMAND}" -E env
-    "XDG_CONFIG_HOME=${WORK_DIR}/capture/config"
-    "XDG_DATA_HOME=${WORK_DIR}/capture/data"
-    "XDG_CACHE_HOME=${WORK_DIR}/capture/cache"
-    "TMPDIR=${WORK_DIR}/capture/tmp"
+    ${capture_environment}
     "${WSJTX}"
     --jtty-tx-loopback-test "${capture}"
     --rig-name CTEST-JTTY-TX-CAPTURE
@@ -52,10 +62,7 @@ endif ()
 
 execute_process (
   COMMAND "${CMAKE_COMMAND}" -E env
-    "XDG_CONFIG_HOME=${WORK_DIR}/replay/config"
-    "XDG_DATA_HOME=${WORK_DIR}/replay/data"
-    "XDG_CACHE_HOME=${WORK_DIR}/replay/cache"
-    "TMPDIR=${WORK_DIR}/replay/tmp"
+    ${replay_environment}
     "${WSJTX}"
     --jtty-live-audio-test "${capture}"
     --jtty-live-audio-expected "${EXPECTED}"

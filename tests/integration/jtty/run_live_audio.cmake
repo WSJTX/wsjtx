@@ -35,12 +35,17 @@ if (fixture_size LESS 45)
   message (FATAL_ERROR "sjtty created a malformed ${fixture_size}-byte WAV")
 endif ()
 
+set (wsjtx_environment
+  "XDG_CONFIG_HOME=${WORK_DIR}/config"
+  "XDG_DATA_HOME=${WORK_DIR}/data"
+  "XDG_CACHE_HOME=${WORK_DIR}/cache")
+if (NOT APPLE)
+  list (APPEND wsjtx_environment "TMPDIR=${WORK_DIR}/tmp")
+endif ()
+
 execute_process (
   COMMAND "${CMAKE_COMMAND}" -E env
-    "XDG_CONFIG_HOME=${WORK_DIR}/config"
-    "XDG_DATA_HOME=${WORK_DIR}/data"
-    "XDG_CACHE_HOME=${WORK_DIR}/cache"
-    "TMPDIR=${WORK_DIR}/tmp"
+    ${wsjtx_environment}
     "${WSJTX}"
     --jtty-live-audio-test "${fixture}"
     --jtty-live-audio-expected "${EXPECTED}"
