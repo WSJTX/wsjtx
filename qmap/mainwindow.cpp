@@ -1044,8 +1044,6 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
   QList<QStringList> decodeList;
 
   for (const QString &item : cqliveText) {
-    QString line = " ";
-    line = line.repeated(100);  //.replace("<","").replace(">","");
     QStringList const thePieces = item.split(" ",SkipEmptyParts);
     QMapLiveCQ::Record record;
     if (!QMapLiveCQ::parse(thePieces, freqOffset, record)) {
@@ -1053,25 +1051,11 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
     }
     qDebug () << "item is: " << item;
     if (m_myCall.length() >= 3 && m_myGrid.length() >= 4) {
-      QString theMsg = record.message;
       QString theCall = record.callsign;
       QString theGrid = record.grid;
       int rxFreq = record.receiveFrequency;
       QString skedFreqString = QString::number(record.scheduledFrequency)
         .rightJustified(3, '0');
-      QString mode = "0 Q65-" + thePieces.at(5);
-      line.insert(0,bandFreq + "." + skedFreqString);
-      line.insert(10,QString::number(rxFreq));
-      line.insert(15,"0");
-      line.insert(18,thePieces.at(0));
-      line.insert(26,thePieces.at(3));
-      line.insert(32,thePieces.at(4));
-      line.insert(36,theMsg);
-      line.insert(55,mode);
-      line.insert(67,m_myGrid.toUpper());
-      line.insert(74,"Q");
-      line.insert(76,theDate);
-      line.insert(88,m_myCall.toUpper());
       QStringList thePostLine;
 
       thePostLine.insert(0, bandFreq + "." + skedFreqString);  //skedfreq
