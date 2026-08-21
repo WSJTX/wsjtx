@@ -20,10 +20,12 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDateTime>
+#include <QPointer>
 #include "Configuration.hpp"
 #include "revision_utils.hpp"
 #include "Logger.hpp"
 #include "qt_helpers.hpp"
+#include "WorkedBeforeLoadState.hpp"
 #include "pimpl_impl.hpp"
 
 #include "moc_WorkedBefore.cpp"
@@ -372,18 +374,19 @@ public:
   {
   }
 
-  void reload ()
+  void start_loader ()
   {
-    if (load_active_)
-      {
-        reload_pending_ = true;
-        return;
-      }
-
     prefixes_.reload (configuration_);
-    load_active_ = true;
     async_loader_ = QtConcurrent::run (loader, path_, &prefixes_);
     loader_watcher_.setFuture (async_loader_);
+  }
+
+  void reload ()
+  {
+    if (WorkedBeforeLoadState::ReloadResult::Start == load_state_.request_reload ())
+      {
+        start_loader ();
+      }
   }
 
   Configuration const * configuration_;
@@ -392,37 +395,44 @@ public:
   QFutureWatcher<worked_before_database_type> loader_watcher_;
   QFuture<worked_before_database_type> async_loader_;
   worked_before_database_type worked_;
-  bool load_active_ {false};
-  bool reload_pending_ {false};
+  WorkedBeforeLoadState load_state_;
 };
 
 WorkedBefore::WorkedBefore (Configuration const * configuration)
   : m_ {configuration}
 {
   Q_ASSERT (configuration);
-  connect (&m_->loader_watcher_, &QFutureWatcher<worked_before_database_type>::finished, [this] () {
-      QString error;
-      size_t n {0};
-      try
-        {
-          m_->worked_ = m_->loader_watcher_.result ();
-          n = m_->worked_.size ();
-        }
-      catch (LoaderException const& e)
-        {
-          error = e.error ();
-        }
-      QString cty_ver = m_->prefixes_.version();
-      LOG_DEBUG(QString{"WorkedBefore::reload: CTY.DAT version %1"}.arg (cty_ver));
-      Q_EMIT finished_loading (n, cty_ver, error);
-      m_->load_active_ = false;
-      if (m_->reload_pending_)
-        {
-          m_->reload_pending_ = false;
-          m_->reload ();
-        }
-    });
+  connect (&m_->loader_watcher_, &QFutureWatcher<worked_before_database_type>::finished,
+           this, &WorkedBefore::handle_loader_finished);
   reload ();
+}
+
+void WorkedBefore::handle_loader_finished ()
+{
+  m_->load_state_.begin_completion ();
+  QString error;
+  size_t n {0};
+  try
+    {
+      m_->worked_ = m_->loader_watcher_.result ();
+      n = m_->worked_.size ();
+    }
+  catch (LoaderException const& e)
+    {
+      error = e.error ();
+    }
+  QString cty_ver = m_->prefixes_.version();
+  LOG_DEBUG(QString{"WorkedBefore::reload: CTY.DAT version %1"}.arg (cty_ver));
+  QPointer<WorkedBefore> guard {this};
+  Q_EMIT finished_loading (n, cty_ver, error);
+  if (!guard)
+    {
+      return;
+    }
+  if (WorkedBeforeLoadState::CompletionResult::Restart == m_->load_state_.finish_completion ())
+    {
+      m_->start_loader ();
+    }
 }
 
 QString WorkedBefore::cty_version () const
