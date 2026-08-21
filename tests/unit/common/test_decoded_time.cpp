@@ -33,6 +33,12 @@ private slots:
     QCOMPARE(DecodedTime::spotTime("235930", nowUtc(), 15), thirdExpected);
   }
 
+  void roundsFractionalPeriodForMidnight()
+  {
+    auto const expected = QDateTime {QDate {2026, 8, 16}, QTime {23, 59, 52}, Qt::UTC};
+    QCOMPARE(DecodedTime::spotTime("235952", nowUtc(), 7.5), expected);
+  }
+
   void rejectsMalformedTimes()
   {
     for (auto const& encodedTime : {QString {}, QString {"123"}, QString {"1234567"},

@@ -7,7 +7,7 @@
 namespace DecodedTime
 {
   QDateTime spotTime (QString const& encodedTime, QDateTime const& nowUtc,
-                      int periodSeconds);
+                      double periodSeconds);
 }
 
 #endif

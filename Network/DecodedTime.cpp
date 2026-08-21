@@ -1,6 +1,7 @@
 #include "DecodedTime.hpp"
 
 #include <QTime>
+#include <QtMath>
 
 namespace
 {
@@ -44,7 +45,7 @@ namespace
 namespace DecodedTime
 {
   QDateTime spotTime(QString const& encodedTime, QDateTime const& nowUtc,
-                     int periodSeconds)
+                     double periodSeconds)
   {
     QTime time;
     int secondsSinceMidnight {0};
@@ -53,7 +54,7 @@ namespace DecodedTime
     }
 
     auto const currentDate = nowUtc.toUTC().date();
-    auto const spotDate = secondsSinceMidnight + periodSeconds >= secondsPerDay
+    auto const spotDate = secondsSinceMidnight + qCeil(periodSeconds) >= secondsPerDay
       ? currentDate.addDays(-1) : currentDate;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     return {spotDate, time, QTimeZone::UTC};
