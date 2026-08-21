@@ -993,6 +993,7 @@ void DisplayText::AudioAlerts()
   if(m_config->alert_Enabled()) {
         QString audioPath = app_sounds_directory (m_config->voicesPath());
 #endif
+#ifdef WIN32
         QFile *effect2 = new QFile(this);
         QFile *effect3 = new QFile(this);
         QFile *effect4 = new QFile(this);
@@ -1017,6 +1018,7 @@ void DisplayText::AudioAlerts()
         effect11->setFileName(QString("%1/%2").arg(audioPath, "Grid.wav"));
         effect12->setFileName(QString("%1/%2").arg(audioPath, "GridOnBand.wav"));
         effect13->setFileName(QString("%1/%2").arg(audioPath, "CQ.wav"));
+#endif
         static int startIndex = 0;
         int nextStartIndex = startIndex +1;
         switch (startIndex) {
