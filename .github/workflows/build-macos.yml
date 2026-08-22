@@ -420,7 +420,7 @@ jobs:
           DATADIR="${APP}/Contents/Resources/wsjtx"
           DOCDIR="${APP}/Contents/Resources/doc/wsjtx"
 
-          for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH; do
+          for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH sounds/Wanted.wav; do
             if [ ! -f "${DATADIR}/${file}" ]; then
               echo "::error::Expected CMake-installed data file is missing: ${DATADIR}/${file}"
               exit 1
@@ -439,6 +439,7 @@ jobs:
             echo "::error::Expected CMake-installed MAP65 binary is missing: ${APP}/Contents/MacOS/map65"
             exit 1
           fi
+
           echo "Verified CMake-installed data files in ${DATADIR}"
           echo "Verified CMake-installed local user guides:"
           printf '  %s\n' "$@"
@@ -1048,7 +1049,7 @@ jobs:
           DATADIR="${APP_PAYLOAD}/Contents/Resources/wsjtx"
           DOCDIR="${APP_PAYLOAD}/Contents/Resources/doc/wsjtx"
 
-          for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH; do
+          for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH sounds/Wanted.wav; do
             if [ ! -f "${DATADIR}/${file}" ]; then
               echo "::error::Expected packaged data file is missing: ${DATADIR}/${file}"
               exit 1
@@ -1067,6 +1068,7 @@ jobs:
             echo "::error::Expected packaged MAP65 binary is missing: ${APP_PAYLOAD}/Contents/MacOS/map65"
             exit 1
           fi
+
           echo "Verified packaged local user guides:"
           printf '  %s\n' "$@"
 
