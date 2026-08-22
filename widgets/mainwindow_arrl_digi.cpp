@@ -73,7 +73,8 @@ void MainWindow::ARRL_Digi_Update(DecodedText dt)
     m_latestDecodeTime=dt.timeInSeconds();
     rc.txEven = (m_latestDecodeTime % int(2*m_TRperiod)) > 0;
     rc.ready2call=false;
-    bool bCQ=dt.messageWords()[0].left(3)=="CQ ";
+    auto const words = dt.messageWords();
+    bool bCQ=!words.isEmpty() && words.at(0).left(3)=="CQ ";
     if(bCQ or deGrid=="RR73" or deGrid=="73") rc.ready2call=true;
     rc.decodeTime=m_latestDecodeTime;
     m_recentCall[deCall]=rc;
