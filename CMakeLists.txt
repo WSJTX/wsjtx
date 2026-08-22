@@ -740,6 +740,40 @@ if (WSJT_ENABLE_TESTS)
       test_jt9_golden_jt9_130418_1742 -9
       samples/JT9/130418_1742.wav
       test/fixtures/jt9_130418_1742.expected.txt)
+  else ()
+    set (jt9_smoke_work_dir
+      "${CMAKE_BINARY_DIR}/Testing/Smoke/test_jt9_ft8_callback_smoke")
+    file (MAKE_DIRECTORY "${jt9_smoke_work_dir}")
+    add_test (NAME test_jt9_ft8_callback_smoke
+      COMMAND ${CMAKE_COMMAND}
+        -DJT9=$<TARGET_FILE:jt9>
+        -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+        -DEXPECTED_MESSAGE=CQ\ F5RXL\ IN94
+        -DWORK_DIR=${jt9_smoke_work_dir}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/smoke_decoder_callback.cmake)
+    set_tests_properties (test_jt9_ft8_callback_smoke PROPERTIES
+      LABELS "decoder;ft8;integration"
+      TIMEOUT 120)
+  endif ()
+
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set (WSJT_READELF "${CMAKE_READELF}")
+    if (NOT WSJT_READELF)
+      find_program (WSJT_READELF NAMES readelf llvm-readelf)
+    endif ()
+    if (NOT WSJT_READELF)
+      message (FATAL_ERROR
+        "readelf is required to verify that jt9 has a non-executable stack")
+    endif ()
+    add_test (NAME test_jt9_non_executable_stack
+      COMMAND ${CMAKE_COMMAND}
+        -DREADELF=${WSJT_READELF}
+        -DEXECUTABLE=$<TARGET_FILE:jt9>
+        -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_elf_stack.cmake)
+    set_tests_properties (test_jt9_non_executable_stack PROPERTIES
+      LABELS "build;elf;security"
+      TIMEOUT 30)
   endif ()
 endif ()
 

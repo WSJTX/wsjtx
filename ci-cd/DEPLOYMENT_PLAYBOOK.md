@@ -611,9 +611,8 @@ The current plist enables:
 |-------------|---------------------|
 | `com.apple.security.cs.disable-library-validation` | Allows loading bundled third-party code that does not satisfy library validation, including ad-hoc CI artifacts. |
 | `com.apple.security.device.audio-input` | Allows WSJT-X to capture audio under hardened runtime. `NSMicrophoneUsageDescription` in the app's `Info.plist` supplies the separate TCC permission prompt. |
-| `com.apple.security.cs.allow-unsigned-executable-memory` | Allows the executable trampolines used by `jt9`'s gfortran internal-procedure callbacks. The trampoline implementation varies by compiler and architecture. |
 
-All three entitlements are currently applied as one set, including to executables that may not exercise every capability. Narrowing that scope is a security-sensitive behavior change and is outside this playbook.
+Both entitlements are currently applied as one set, including to executables that may not exercise every capability. Narrowing that scope is a security-sensitive behavior change and is outside this playbook.
 
 Bundle signing re-signs the main executable, so it must receive the entitlement file again after nested code is signed. `codesign --verify` validates signature integrity but does not prove that required entitlements are present. Inspect the effective entitlements and exercise audio capture and a decoder cycle when validating a release.
 
@@ -861,7 +860,7 @@ codesign -d --entitlements :- "$APP/Contents/MacOS/wsjtx"
 codesign -d --entitlements :- "$APP/Contents/MacOS/jt9"
 ```
 
-Signature verification must succeed, and both inspected executables must contain the three keys in `entitlements.plist`. The effective-entitlement check detects an outer bundle re-sign that preserved a valid signature but removed the executable entitlements.
+Signature verification must succeed, and both inspected executables must contain the two keys in `entitlements.plist`. The effective-entitlement check detects an outer bundle re-sign that preserved a valid signature but removed the executable entitlements.
 
 Finally, install the package on a disposable or release-test macOS system and launch the installed app through Finder. Confirm that macOS grants audio input after the usage prompt, the receive level responds to live input, and `jt9` completes a decode cycle without a hardened-runtime or dynamic-loader failure. A successful signing or notarization check does not establish these runtime properties.
 

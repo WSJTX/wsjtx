@@ -46,7 +46,7 @@ runs:
             echo "cmake_option=WSJT_ENABLE_ASAN_UBSAN" >> "$GITHUB_OUTPUT"
             echo "summary_name=Linux x86_64 ASan + UBSan" >> "$GITHUB_OUTPUT"
             echo "artifact_name=ctest-results-linux-x86_64-asan-ubsan" >> "$GITHUB_OUTPUT"
-            echo "asan_options=detect_leaks=0:detect_stack_use_after_return=0:halt_on_error=1:abort_on_error=1" >> "$GITHUB_OUTPUT"
+            echo "asan_options=detect_leaks=0:detect_stack_use_after_return=1:halt_on_error=1:abort_on_error=1" >> "$GITHUB_OUTPUT"
             echo "ubsan_options=halt_on_error=1:print_stacktrace=1" >> "$GITHUB_OUTPUT"
             echo "tsan_options=" >> "$GITHUB_OUTPUT"
             ;;
@@ -212,7 +212,6 @@ runs:
       shell: bash
       working-directory: ${{ steps.sanitizer.outputs.build_dir }}
       env:
-        # GNU Fortran internal-procedure trampolines cannot execute from ASan's fake stack.
         ASAN_OPTIONS: ${{ steps.sanitizer.outputs.asan_options }}
         UBSAN_OPTIONS: ${{ steps.sanitizer.outputs.ubsan_options }}
         TSAN_OPTIONS: ${{ steps.sanitizer.outputs.tsan_options }}

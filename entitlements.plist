@@ -17,12 +17,5 @@
     <key>com.apple.security.device.audio-input</key>
     <true/>
 
-    <!--
-        Required by jt9's gfortran internal-procedure callbacks. Current
-        macOS toolchains implement these callbacks with runtime-generated
-        executable trampolines, which hardened runtime otherwise blocks.
-    -->
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <true/>
 </dict>
 </plist>

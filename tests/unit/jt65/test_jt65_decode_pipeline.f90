@@ -1,14 +1,9 @@
-program test_jt65_decode_pipeline
+module jt65_pipeline_callback
 
-  use iso_fortran_env, only: real32
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use jt65_decode
-  use jt65_test_fixture
-  use jt65_test_vectors
+  use jt65_test_vectors, only: padded_message
   implicit none
 
-  type(jt65_decoder) :: decoder
-  real(real32), allocatable :: samples(:)
   integer :: callback_count
   integer :: callback_snr, callback_freq, callback_drift, callback_nflip
   integer :: callback_ft, callback_qual, callback_nsmo, callback_nsum, callback_minsync
@@ -16,6 +11,47 @@ program test_jt65_decode_pipeline
   real :: callback_sync, callback_dt, callback_width
   character(len=22) :: callback_message
 
+contains
+
+  subroutine capture_callback(this, sync, snr, dt, freq, drift, nflip, width, &
+       decoded, ft, qual, nsmo, nsum, minsync)
+    class(jt65_decoder), intent(inout) :: this
+    real, intent(in) :: sync, dt, width
+    integer, intent(in) :: snr, freq, drift, nflip, ft, qual, nsmo, nsum, minsync
+    character(len=22), intent(in) :: decoded
+
+    callback_count = callback_count + 1
+    callback_sync = sync
+    callback_snr = snr
+    callback_dt = dt
+    callback_freq = freq
+    callback_drift = drift
+    callback_nflip = nflip
+    callback_width = width
+    callback_message = decoded
+    callback_ft = ft
+    callback_qual = qual
+    callback_nsmo = nsmo
+    callback_nsum = nsum
+    callback_minsync = minsync
+    callback_max_nsum = max(callback_max_nsum, nsum)
+    if (decoded /= padded_message('')) callback_message_count = callback_message_count + 1
+  end subroutine capture_callback
+
+end module jt65_pipeline_callback
+
+program test_jt65_decode_pipeline
+
+  use iso_fortran_env, only: real32
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use jt65_decode
+  use jt65_pipeline_callback
+  use jt65_test_fixture
+  use jt65_test_vectors
+  implicit none
+
+  type(jt65_decoder) :: decoder
+  real(real32), allocatable :: samples(:)
   allocate(samples(jt65_sample_count))
   call test_clean_modes(samples)
   call test_ooo_signal(samples)
@@ -54,31 +90,6 @@ contains
        error stop 1
     end if
   end subroutine require
-
-  subroutine capture_callback(this, sync, snr, dt, freq, drift, nflip, width, &
-       decoded, ft, qual, nsmo, nsum, minsync)
-    class(jt65_decoder), intent(inout) :: this
-    real, intent(in) :: sync, dt, width
-    integer, intent(in) :: snr, freq, drift, nflip, ft, qual, nsmo, nsum, minsync
-    character(len=22), intent(in) :: decoded
-
-    callback_count = callback_count + 1
-    callback_sync = sync
-    callback_snr = snr
-    callback_dt = dt
-    callback_freq = freq
-    callback_drift = drift
-    callback_nflip = nflip
-    callback_width = width
-    callback_message = decoded
-    callback_ft = ft
-    callback_qual = qual
-    callback_nsmo = nsmo
-    callback_nsum = nsum
-    callback_minsync = minsync
-    callback_max_nsum = max(callback_max_nsum, nsum)
-    if (decoded /= padded_message('')) callback_message_count = callback_message_count + 1
-  end subroutine capture_callback
 
   subroutine decode_signal(decoder_to_use, waveform, nsubmode, clearave, decode_flags, &
        decode_nutc, decode_depth, decode_again)
