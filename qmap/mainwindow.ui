@@ -597,6 +597,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
     </widget>
     <addaction name="actionAstro_Data"/>
     <addaction name="actionWide_Waterfall"/>
+    <addaction name="actionVertical_Waterfall"/>
     <addaction name="separator"/>
     <addaction name="menuWaterfall_palette"/>
     <addaction name="separator"/>
@@ -682,6 +683,11 @@ li.checked::marker { content: &quot;\2612&quot;; }
   <action name="actionWide_Waterfall">
    <property name="text">
     <string>Wideband Waterfall</string>
+   </property>
+  </action>
+  <action name="actionVertical_Waterfall">
+   <property name="text">
+    <string>Vertical Waterfall</string>
    </property>
   </action>
   <action name="actionOpen">

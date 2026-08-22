@@ -138,6 +138,8 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
     }
     ntrz=ntr;
     ui->widePlot->draw(swide,i0,splot);
+    emit spectrumReady(swide, qMin(w,2048), ui->widePlot->startFreq(), ui->widePlot->m_fSpan,
+                       ui->widePlot->getPlotZero(), ui->widePlot->getPlotGain());
   }
 }
 

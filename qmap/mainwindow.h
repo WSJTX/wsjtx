@@ -25,6 +25,7 @@ namespace Ui {
 class QTimer;
 class Astro;
 class WideGraph;
+class VertWaterfall;
 
 class MainWindow : public QMainWindow
 {
@@ -58,6 +59,7 @@ private slots:
   void on_tolSpinBox_valueChanged(int arg1);
   void on_actionAstro_Data_triggered();
   void on_actionWide_Waterfall_triggered();
+  void on_actionVertical_Waterfall_triggered();
   void on_actionOpen_triggered();
   void on_actionOpen_next_in_directory_triggered();
   void on_actionDecode_remaining_files_in_directory_triggered();
@@ -100,6 +102,7 @@ private:
   QString m_settings_filename;
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<WideGraph> m_wide_graph_window;
+  QScopedPointer<VertWaterfall> m_vert_waterfall_window;
   QPointer<QTimer> m_gui_timer;
   qint32  m_waterfallAvg;
   qint32  m_DF;

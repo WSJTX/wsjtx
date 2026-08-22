@@ -11,6 +11,8 @@
 #include <QFrame>
 #include <QImage>
 #include <QToolTip>
+#include <QVector>
+#include <QList>
 #include <cstring>
 #include "commons.h"
 
@@ -92,6 +94,23 @@ private:
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);
+
+  // Raw wideband-row snapshots (post color-mapping input, pre color-map),
+  // front=newest, so a resize can repaint m_WaterfallPixmap from history
+  // instead of blanking it. m_zwf already plays this role for the zoom
+  // row -- this is the wideband row's counterpart. Each row keeps the
+  // frequency-per-pixel (df) it was captured at, since that changes with
+  // window width -- rebuildWideFromHistory() remaps by frequency, not by
+  // raw pixel index, so a width change rescales existing data instead of
+  // just shifting it to the wrong frequency.
+  struct WideHistoryLine {
+    QVector<float> row;
+    double startFreq;   // m_StartFreq at capture time
+    double df;           // kHz per pixel at capture time (m_fSpan/width)
+  };
+  void rebuildWideFromHistory();
+  QList<WideHistoryLine> m_wideHistory;
+  static constexpr int kMaxWideHistory = 2048;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;

@@ -41,6 +41,11 @@ public:
 signals:
   void freezeDecode2(int n);
   void f11f12(int n);
+  // Emitted once per average cycle, right after the wideband waterfall's
+  // own top-row draw(), so VertWaterfall can show exactly the same
+  // spectral data instead of an independently-decimated copy of it.
+  void spectrumReady(const float swide[], int n, double startFreqKHz, double fSpanKHz,
+                     int plotZero, int plotGain);
 
 public slots:
   void wideFreezeDecode(int n);
