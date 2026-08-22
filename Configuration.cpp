@@ -723,6 +723,7 @@ private:
   QDir data_dir_;
   QDir temp_dir_;
   QDir writeable_data_dir_;
+  QDir voices_dir_;
   QDir default_save_directory_;
   QDir save_directory_;
   QDir default_azel_directory_;
@@ -850,7 +851,6 @@ private:
   QString hamlib_backed_up_;
   QString cloudLogApiUrl_;
   QString cloudLogApiKey_;
-  QString voicesPath_;
   bool send_to_eqsl_;
   QString eqsl_username_;
   QString eqsl_passwd_;
@@ -1011,6 +1011,7 @@ QDir Configuration::doc_dir () const {return m_->doc_dir_;}
 QDir Configuration::data_dir () const {return m_->data_dir_;}
 QDir Configuration::writeable_data_dir () const {return m_->writeable_data_dir_;}
 QDir Configuration::temp_dir () const {return m_->temp_dir_;}
+QDir Configuration::voice_dir () const {return m_->voices_dir_;}
 
 void Configuration::select_tab (int index) {m_->ui_->configuration_tabs->setCurrentIndex (index);}
 int Configuration::exec () {return m_->exec ();}
@@ -1626,11 +1627,6 @@ QString Configuration::highlight_orange_callsigns() const
 QString Configuration::highlight_blue_callsigns() const
 {
   return m_->highlight_blue_callsigns_;
-}
-
-QString Configuration::voicesPath() const
-{
-  return m_->voicesPath_;
 }
 
 auto Configuration::special_op_id () const -> SpecialOperatingActivity
@@ -4979,9 +4975,7 @@ void Configuration::impl::on_voices_combo_box_currentIndexChanged (int /* index 
 
 void Configuration::impl::read_voices ()
 {
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds/";
-  QString voiceList = audioPath + "voices.dat";  // load the content of voices.dat file to the voices combo box
-  QFile file2 {voiceList};
+  QFile file2 {QDir {data_dir_.absoluteFilePath ("sounds")}.absoluteFilePath ("voices.dat")};  // load the content of voices.dat file to the voices combo box
   QStringList wordList;
   QTextStream stream2(&file2);
   if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
@@ -5001,15 +4995,20 @@ void Configuration::impl::read_voices ()
 
 void Configuration::impl::read_voicesPath ()
 {
-  voicesPath_ = ui_->voices_combo_box->currentData().toString().left('|');
+  QString child {ui_->voices_combo_box->currentData().toString()};
+  while (child.startsWith (QChar {'/'})) {
+    child.remove (0, 1);
+  }
+  QDir dir {data_dir_.absoluteFilePath ("sounds")};
+  voices_dir_ = child.isEmpty () ? dir : QDir {dir.absoluteFilePath (child)};
 }
 
 void Configuration::impl::on_pb_test_alerts_clicked (bool)
 {
   read_voicesPath();
+  QString const testWav {voices_dir_.absoluteFilePath ("Testing123.wav")};
 #ifdef WIN32
   QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
   QAudioFormat format;
   format.setCodec("audio/pcm");
   format.setSampleRate (48000);
@@ -5019,12 +5018,11 @@ void Configuration::impl::on_pb_test_alerts_clicked (bool)
   QAudioOutput* audio;
   audio = new QAudioOutput(format, this);
   QFile *effect = new QFile(this);
-  effect->setFileName(QString("%1/%2").arg(audioPath, "Testing123.wav"));
+  effect->setFileName(testWav);
   effect->open(QIODevice::ReadOnly);
   audio->start(effect);
 #else
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
-  QSound::play(audioPath + "Testing123.wav");  // for Linux and macOS
+  QSound::play(testWav);  // for Linux and macOS
 #endif
 }
 
