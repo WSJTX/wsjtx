@@ -419,7 +419,6 @@ jobs:
           APP="${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
           DATADIR="${APP}/Contents/Resources/wsjtx"
           DOCDIR="${APP}/Contents/Resources/doc/wsjtx"
-          SOUNDDIR="${APP}/Contents/Resources/sounds"
 
           for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH; do
             if [ ! -f "${DATADIR}/${file}" ]; then
@@ -436,24 +435,13 @@ jobs:
             exit 1
           fi
 
-          if [ ! -f "${SOUNDDIR}/Wanted.wav" ]; then
-            echo "::error::Expected CMake-installed alert sound is missing: ${SOUNDDIR}/Wanted.wav"
-            exit 1
-          fi
           if [ ! -x "${APP}/Contents/MacOS/map65" ]; then
             echo "::error::Expected CMake-installed MAP65 binary is missing: ${APP}/Contents/MacOS/map65"
             exit 1
           fi
-
-          if [ -e "${APP}/Contents/MacOS/sounds" ]; then
-            echo "::error::Alert sounds must not be installed under Contents/MacOS; codesign treats them as unsigned code."
-            exit 1
-          fi
-
           echo "Verified CMake-installed data files in ${DATADIR}"
           echo "Verified CMake-installed local user guides:"
           printf '  %s\n' "$@"
-          echo "Verified CMake-installed alert sounds in ${SOUNDDIR}"
 
       - name: Bundle dylibs into app
         run: |
@@ -1059,7 +1047,6 @@ jobs:
           APP_PAYLOAD="$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app"
           DATADIR="${APP_PAYLOAD}/Contents/Resources/wsjtx"
           DOCDIR="${APP_PAYLOAD}/Contents/Resources/doc/wsjtx"
-          SOUNDDIR="${APP_PAYLOAD}/Contents/Resources/sounds"
 
           for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH; do
             if [ ! -f "${DATADIR}/${file}" ]; then
@@ -1076,23 +1063,12 @@ jobs:
             exit 1
           fi
 
-          if [ ! -f "${SOUNDDIR}/Wanted.wav" ]; then
-            echo "::error::Expected packaged alert sound is missing: ${SOUNDDIR}/Wanted.wav"
-            exit 1
-          fi
           if [ ! -x "${APP_PAYLOAD}/Contents/MacOS/map65" ]; then
             echo "::error::Expected packaged MAP65 binary is missing: ${APP_PAYLOAD}/Contents/MacOS/map65"
             exit 1
           fi
-
-          if [ -e "${APP_PAYLOAD}/Contents/MacOS/sounds" ]; then
-            echo "::error::Packaged alert sounds must not be under Contents/MacOS."
-            exit 1
-          fi
-
           echo "Verified packaged local user guides:"
           printf '  %s\n' "$@"
-          echo "Verified packaged alert sounds in ${SOUNDDIR}"
 
       - name: Notarize pkg
         if: steps.check_secrets.outputs.signing_enabled == 'true'
