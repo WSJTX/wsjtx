@@ -52,6 +52,7 @@ private:
 
 private slots:
   void on_monitorButton_clicked();
+  void on_stopButton_clicked();
   void on_actionExit_triggered();
   void on_actionAbout_triggered();
   void on_actionLinrad_triggered();
