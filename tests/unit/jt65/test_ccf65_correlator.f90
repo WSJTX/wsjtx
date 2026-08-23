@@ -1,6 +1,7 @@
 program test_ccf65_correlator
 
   use ccf65_legacy_mod, only: ccf65
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite, ieee_quiet_nan, ieee_value
   implicit none
 
   integer, parameter :: nhsym = 254
@@ -36,6 +37,18 @@ program test_ccf65_correlator
   call ccf65(ss, nhsym, 1.0e30, sync1, ipol1, 1, dt, flipk, syncshort, snr2, ipol2, dt2)
   call require(sync1 < 0.0, 'low-signal input is rejected')
   call require(syncshort < 0.0, 'low-signal input is not shorthand')
+
+  ss = 0.0
+  call ccf65(ss, nhsym, 1.0e30, sync1, ipol1, 1, dt, flipk, syncshort, snr2, ipol2, dt2)
+  call require(sync1 == -4.0 .and. syncshort == -4.0, 'zero signal has explicit sync defaults')
+  call require(all_finite(sync1, dt, flipk, syncshort, snr2, dt2), 'zero signal outputs are finite')
+
+  call make_sync_plane(ss, 1.0)
+  ss(2:4,:) = ieee_value(0.0, ieee_quiet_nan)
+  call ccf65(ss, nhsym, 1.0e30, sync1, ipol1, 1, dt, flipk, syncshort, snr2, ipol2, dt2)
+  call require(sync1 > 0.0, 'inactive polarization data does not affect JT65 detection')
+  call require(all_finite(sync1, dt, flipk, syncshort, snr2, dt2), &
+       'inactive polarization data produces finite correlator outputs')
   print '(a)', 'ccf65 correlator tests passed'
 
 contains
@@ -49,6 +62,14 @@ contains
        error stop 1
     end if
   end subroutine require
+
+  logical function all_finite(v1, v2, v3, v4, v5, v6)
+    real, intent(in) :: v1, v2, v3, v4, v5, v6
+
+    all_finite = ieee_is_finite(v1) .and. ieee_is_finite(v2) .and. &
+         ieee_is_finite(v3) .and. ieee_is_finite(v4) .and. &
+         ieee_is_finite(v5) .and. ieee_is_finite(v6)
+  end function all_finite
 
   subroutine make_sync_plane(ss_plane, polarity)
     real, intent(out) :: ss_plane(4,322)
