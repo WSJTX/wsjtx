@@ -79,6 +79,8 @@ class QSharedMemory;
 class QSplashScreen;
 class QSettings;
 class QLineEdit;
+class QMenu;
+class QAction;
 class QFont;
 class QHostInfo;
 class EchoGraph;
@@ -706,6 +708,14 @@ private:
 
   bool    m_saveDecoded;
   bool    m_saveAll;
+
+  // Save->Save By Mode submenu: audio files are only kept for the modes ticked
+  // there, unless its "All" entry is checked. Built at run time from the Mode
+  // menu, so modes added upstream need no further changes here.
+  QMenu * m_saveByModeMenu;
+  QAction * m_saveByModeAll;
+  QHash<QString, QAction *> m_saveByModeActions;
+
   bool    m_widebandDecode;
   bool    m_call3Modified;
   bool    m_dataAvailable;
@@ -979,6 +989,8 @@ private:
 
   //---------------------------------------------------- private functions
   void readSettings();
+  void setupSaveByModeMenu();
+  bool saveModeSelected(QString const& mode) const;
   void set_application_font (QFont const&);
   void setDecodedTextFont (QFont const&);
   void writeSettings();
