@@ -9,7 +9,7 @@
 #include <QDebug>
 #include "widgets/itoneAndicw.h"  //w3sz tci
 //#include "widgets/mainwindow.h" // TODO: G4WJS - break this dependency //w3sz tci
-#include "Audio/soundout.h"
+#include "Audio/AudioOutputSink.hpp"
 #include "commons.h"
 
 #include "moc_Modulator.cpp"
@@ -107,7 +107,7 @@ Modulator::Modulator (unsigned frameRate, double periodLengthInSeconds,
 {
 }
 
-void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
+void Modulator::start (TxEvidence::TxRequest request, AudioOutputSink * stream)
 {
 //  qDebug () << request.mode << request.symbols_length << request.frames_per_symbol
 //            << request.frequency_hz << request.tone_spacing << request.channel

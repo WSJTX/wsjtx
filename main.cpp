@@ -909,7 +909,7 @@ int main(int argc, char *argv[])
           FixtureAudioInput * fixture_input {nullptr};
           FixtureSoundOutput * fixture_output {nullptr};
           std::unique_ptr<AudioInputSource> audio_input;
-          std::unique_ptr<SoundOutput> sound_output;
+          std::unique_ptr<AudioOutputSink> sound_output;
           if (live_audio_test || jtty_live_audio_test || receive_handoff_test)
             {
               std::unique_ptr<FixtureAudioInput> fixture {

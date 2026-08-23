@@ -143,7 +143,7 @@ class WSPRBandHopping;
 class HelpTextWindow;
 class EQSL;
 class WSPRNet;
-class SoundOutput;
+class AudioOutputSink;
 class Modulator;
 class AudioInputSource;
 class Detector;
@@ -203,7 +203,7 @@ public:
                       QSplashScreen *, QProcessEnvironment const&, bool automated_test,
                       QString base_style_sheet,
                       std::unique_ptr<AudioInputSource> audio_input_source = {},
-                      std::unique_ptr<SoundOutput> sound_output = {},
+                      std::unique_ptr<AudioOutputSink> sound_output = {},
                       QString decoder_data_path = {},
                       QWidget *parent = nullptr);
   ~MainWindow();
@@ -773,8 +773,8 @@ private:
   Q_SIGNAL void transmitFrequency (double) const;
   Q_SIGNAL void endTransmitMessage (bool quick = false) const;
   Q_SIGNAL void tune (bool = true) const;
-  Q_SIGNAL void sendMessage (TxEvidence::TxRequest, SoundOutput *) const;
-  Q_SIGNAL void startJttyStream (TxEvidence::TxRequest, SoundOutput *);
+  Q_SIGNAL void sendMessage (TxEvidence::TxRequest, AudioOutputSink *) const;
+  Q_SIGNAL void startJttyStream (TxEvidence::TxRequest, AudioOutputSink *);
   Q_SIGNAL void endJttyStream () const;
   Q_SIGNAL void clearJttyStream (TxAudioQueueEpoch epoch) const;
   Q_SIGNAL void enqueueJttyStream (QByteArray const& samples,
@@ -993,7 +993,7 @@ private:
   Modulator * m_modulator;
   QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
-  SoundOutput * m_soundOutput;
+  AudioOutputSink * m_soundOutput;
   int m_rx_audio_buffer_frames;
   int m_tx_audio_buffer_frames;
   QThread m_audioThread;

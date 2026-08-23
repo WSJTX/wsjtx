@@ -13,7 +13,7 @@
 #include "Audio/TxPlaybackEvidence.hpp"
 #include "Audio/TxRequest.hpp"
 
-class SoundOutput;
+class AudioOutputSink;
 
 TxEvidence::TxStartSnapshot makeJttyTxStartSnapshot (
   TxEvidence::TxRequest const& request, qint64 committedEndSample);
@@ -35,7 +35,7 @@ public:
 
   bool isActive () const {return m_active;}
 
-  Q_SLOT void start (TxEvidence::TxRequest request, SoundOutput * stream);
+  Q_SLOT void start (TxEvidence::TxRequest request, AudioOutputSink * stream);
   Q_SLOT void stop ();
   Q_SLOT void clearQueue (TxAudioQueueEpoch epoch);
   // Reserve queued payload capacity before posting to the audio thread.
@@ -68,7 +68,7 @@ private:
   TxAudioQueue& m_queue;
   std::atomic<qint64> m_drainGuard;
 
-  QPointer<SoundOutput> m_stream;
+  QPointer<AudioOutputSink> m_stream;
   QTimer * m_drainTimer;
   std::atomic<bool> m_active;
   TxAudioQueueProgress m_lastProgress;

@@ -515,7 +515,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        bool automated_test,
                        QString base_style_sheet,
                        std::unique_ptr<AudioInputSource> audio_input_source,
-                       std::unique_ptr<SoundOutput> sound_output,
+                       std::unique_ptr<AudioOutputSink> sound_output,
                        QString decoder_data_path,
                        QWidget *parent) :
   MultiGeometryWidget {parent},
@@ -815,11 +815,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_tx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_tx_audio_buffer_frames;
 
   // hook up sound output stream slots & signals and disposal
-  connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &SoundOutput::setFormat);
-  connect (m_soundOutput, &SoundOutput::error, this, &MainWindow::showSoundOutError);
-  connect (m_soundOutput, &SoundOutput::error, &m_config, &Configuration::invalidate_audio_output_device);
-  // connect (m_soundOutput, &SoundOutput::status, this, &MainWindow::showStatusMessage);
-  connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &SoundOutput::setAttenuation);
+  connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &AudioOutputSink::setFormat);
+  connect (m_soundOutput, &AudioOutputSink::error, this, &MainWindow::showSoundOutError);
+  connect (m_soundOutput, &AudioOutputSink::error, &m_config, &Configuration::invalidate_audio_output_device);
+  // connect (m_soundOutput, &AudioOutputSink::status, this, &MainWindow::showStatusMessage);
+  connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &AudioOutputSink::setAttenuation);
   connect (&m_audioThread, &QThread::finished, m_soundOutput, &QObject::deleteLater);
 
   // hook up Modulator slots and disposal
@@ -852,7 +852,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                sessionId, generation, windowOpenMs, accepted, actualStartMs);
            }, Qt::QueuedConnection);
 #endif
-  connect (m_soundOutput, &SoundOutput::rawTxPlayoutSnapshot,
+  connect (m_soundOutput, &AudioOutputSink::rawTxPlayoutSnapshot,
            this, &MainWindow::recordRawTxPlayout, Qt::QueuedConnection);
   connect (&m_audioThread, &QThread::finished, m_modulator, &QObject::deleteLater);
 

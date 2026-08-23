@@ -9,7 +9,7 @@
 #include "Audio/TxRequest.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
 
-class SoundOutput;
+class AudioOutputSink;
 
 //
 // Input device that generates PCM audio frames that encode a message
@@ -38,7 +38,7 @@ public:
   void set_nsym(int n) {m_symbolsLength=n;}
   void set_ms0(qint64 ms) {m_ms0=ms;}
 
-  Q_SLOT void start (TxEvidence::TxRequest request, SoundOutput *);
+  Q_SLOT void start (TxEvidence::TxRequest request, AudioOutputSink *);
   Q_SLOT void stop (bool quick = false);
   Q_SLOT void tune (bool newState = true);
   Q_SLOT void setFrequency (double newFrequency) {m_frequency = newFrequency;}
@@ -58,7 +58,7 @@ protected:
 private:
   qint16 postProcessSample (qint16 sample) const;
 
-  QPointer<SoundOutput> m_stream;
+  QPointer<AudioOutputSink> m_stream;
   bool m_quickClose;
 
   unsigned m_symbolsLength;

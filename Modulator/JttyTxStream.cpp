@@ -1,6 +1,6 @@
 #include "JttyTxStream.hpp"
 
-#include "Audio/soundout.h"
+#include "Audio/AudioOutputSink.hpp"
 #include "Logger.hpp"
 #include <QSemaphore>
 
@@ -48,7 +48,7 @@ JttyTxStream::JttyTxStream (TxAudioQueue& queue, QObject * parent)
   connect (m_drainTimer, &QTimer::timeout, this, &JttyTxStream::pollDrain);
 }
 
-void JttyTxStream::start (TxEvidence::TxRequest request, SoundOutput * stream)
+void JttyTxStream::start (TxEvidence::TxRequest request, AudioOutputSink * stream)
 {
   if (m_active) return;
   auto progress = m_queue.progress ();
@@ -75,14 +75,13 @@ void JttyTxStream::start (TxEvidence::TxRequest request, SoundOutput * stream)
   if (m_stream)
     {
       m_stream->restart (this);
-      // Size the drain guard to the actual device buffer (now valid) plus a
-      // margin; same audio thread as SoundOutput, so this is not a cross-thread
-      // QAudioOutput access.
-      qint64 const bufFrames = bytesPerFrame ()
-        ? qint64 (m_stream->bufferSize ()) / qint64 (bytesPerFrame ())
+      // Include the sink's unplayed tail estimate and a safety margin.
+      qint64 const tailFrames = bytesPerFrame ()
+        ? qint64 (m_stream->unplayedBufferBytes ()) / qint64 (bytesPerFrame ())
         : 0;
-      m_drainGuard.store (qMax (bufFrames, DEFAULT_DRAIN_GUARD) + DRAIN_GUARD_MARGIN,
-                           std::memory_order_release);
+      m_drainGuard.store (
+        qMax (tailFrames, DEFAULT_DRAIN_GUARD) + DRAIN_GUARD_MARGIN,
+        std::memory_order_release);
     }
   if (!m_drainTimer->isActive ()) m_drainTimer->start ();
   Q_EMIT txSourceCommitted (makeJttyTxStartSnapshot (

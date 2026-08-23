@@ -144,6 +144,7 @@ set (wsjt_codec_FSRCS
 set (wsjtx_CXXSRCS
   Audio/AudioInputSource.hpp
   Audio/AudioStreamClock.hpp
+  Audio/AudioOutputSink.hpp
   DecoderOutputFramer.cpp
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
