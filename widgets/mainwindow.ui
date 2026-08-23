@@ -45,17 +45,18 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
+            <weight>50</weight>
             <bold>false</bold>
            </font>
-          </property>
-          <property name="text">
-           <string>Band Activity</string>
           </property>
           <property name="accessibleName">
            <string>Band Activity decode pane title</string>
           </property>
           <property name="accessibleDescription">
            <string>Title for the Band Activity decoded messages pane.</string>
+          </property>
+          <property name="text">
+           <string>Band Activity</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -140,6 +141,12 @@
             </disabled>
            </palette>
           </property>
+          <property name="accessibleName">
+           <string>Band Activity decoded messages headings</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Columns: UTC dB DT Freq Message.</string>
+          </property>
           <property name="autoFillBackground">
            <bool>true</bool>
           </property>
@@ -152,16 +159,16 @@
           <property name="indent">
            <number>5</number>
           </property>
-          <property name="accessibleName">
-           <string>Band Activity decoded messages headings</string>
-          </property>
-          <property name="accessibleDescription">
-           <string>Columns: UTC dB DT Freq Message.</string>
-          </property>
          </widget>
         </item>
         <item>
          <widget class="DisplayText" name="decodedTextBrowser">
+          <property name="accessibleName">
+           <string>Band Activity decoded messages</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Decoded messages in the Band Activity pane. Columns: UTC dB DT Freq Message.</string>
+          </property>
           <property name="frameShape">
            <enum>QFrame::StyledPanel</enum>
           </property>
@@ -176,12 +183,6 @@
           </property>
           <property name="textInteractionFlags">
            <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
-          </property>
-          <property name="accessibleName">
-           <string>Band Activity decoded messages</string>
-          </property>
-          <property name="accessibleDescription">
-           <string>Decoded messages in the Band Activity pane. Columns: UTC dB DT Freq Message.</string>
           </property>
          </widget>
         </item>
@@ -206,17 +207,18 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
+            <weight>50</weight>
             <bold>false</bold>
            </font>
-          </property>
-          <property name="text">
-           <string>Rx Frequency</string>
           </property>
           <property name="accessibleName">
            <string>Rx Frequency decode pane title</string>
           </property>
           <property name="accessibleDescription">
            <string>Title for the Rx Frequency decoded messages pane.</string>
+          </property>
+          <property name="text">
+           <string>Rx Frequency</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -301,6 +303,12 @@
             </disabled>
            </palette>
           </property>
+          <property name="accessibleName">
+           <string>Rx Frequency decoded messages headings</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Columns: UTC dB DT Freq Message.</string>
+          </property>
           <property name="autoFillBackground">
            <bool>true</bool>
           </property>
@@ -313,18 +321,18 @@
           <property name="indent">
            <number>5</number>
           </property>
-          <property name="accessibleName">
-           <string>Rx Frequency decoded messages headings</string>
-          </property>
-          <property name="accessibleDescription">
-           <string>Columns: UTC dB DT Freq Message.</string>
-          </property>
          </widget>
         </item>
         <item>
          <widget class="DisplayText" name="decodedTextBrowser2">
           <property name="enabled">
            <bool>true</bool>
+          </property>
+          <property name="accessibleName">
+           <string>Rx Frequency decoded messages</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Decoded messages in the Rx Frequency pane. Columns: UTC dB DT Freq Message.</string>
           </property>
           <property name="verticalScrollBarPolicy">
            <enum>Qt::ScrollBarAlwaysOn</enum>
@@ -334,12 +342,6 @@
           </property>
           <property name="textInteractionFlags">
            <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
-          </property>
-          <property name="accessibleName">
-           <string>Rx Frequency decoded messages</string>
-          </property>
-          <property name="accessibleDescription">
-           <string>Decoded messages in the Rx Frequency pane. Columns: UTC dB DT Freq Message.</string>
           </property>
          </widget>
         </item>
@@ -3734,99 +3736,6 @@ Double-click to reset to the standard 73 message</string>
            </widget>
            <widget class="QWidget" name="page_4">
             <layout class="QGridLayout" name="gridLayout_12">
-             <item row="2" column="0" colspan="3">
-              <layout class="QGridLayout" name="gridLayout_4">
-               <item row="2" column="0">
-                <widget class="QLabel" name="label_3">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>80</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>Call next: </string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item row="4" column="0">
-                <spacer name="verticalSpacer_8">
-                 <property name="orientation">
-                  <enum>Qt::Vertical</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>20</width>
-                   <height>40</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item row="1" column="1" colspan="2">
-                <widget class="QLineEdit" name="Tx_Message"/>
-               </item>
-               <item row="3" column="0">
-                <layout class="QHBoxLayout" name="horizontalLayout_18"/>
-               </item>
-               <item row="2" column="1">
-                <widget class="QLineEdit" name="lineEdit"/>
-               </item>
-               <item row="1" column="0">
-                <widget class="QLabel" name="label_13">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>80</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>Tx msg: </string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item row="2" column="2">
-                <spacer name="horizontalSpacer_8">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item row="0" column="1">
-                <widget class="QCheckBox" name="cbLowerCase">
-                 <property name="text">
-                  <string>Display lower case</string>
-                 </property>
-                 <property name="checked">
-                  <bool>false</bool>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
              <item row="0" column="0">
               <widget class="QWidget" name="widget" native="true">
                <property name="sizePolicy">
@@ -3842,65 +3751,34 @@ Double-click to reset to the standard 73 message</string>
                 </size>
                </property>
                <layout class="QGridLayout" name="gridLayout_14">
-                <item row="1" column="0">
-                 <widget class="QPushButton" name="pbR2T_2">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>15</width>
-                    <height>0</height>
-                   </size>
-                  </property>
+                <item row="0" column="0" colspan="4">
+                 <widget class="QSpinBox" name="TxFreqSpinBox_2">
                   <property name="maximumSize">
                    <size>
-                    <width>35</width>
+                    <width>16777215</width>
                     <height>16777215</height>
                    </size>
                   </property>
                   <property name="toolTip">
-                   <string>Set Tx frequency to Rx Frequency</string>
+                   <string>Audio Tx frequency</string>
                   </property>
-                  <property name="accessibleName">
-                   <string>Set Tx frequency to Rx Frequency</string>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
                   </property>
-                  <property name="text">
-                   <string>▲</string>
+                  <property name="suffix">
+                   <string>  Hz</string>
                   </property>
-                 </widget>
-                </item>
-                <item row="1" column="3">
-                 <widget class="QPushButton" name="pbT2R_2">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
+                  <property name="prefix">
+                   <string>Tx  </string>
                   </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>15</width>
-                    <height>0</height>
-                   </size>
+                  <property name="minimum">
+                   <number>200</number>
                   </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>35</width>
-                    <height>16777215</height>
-                   </size>
+                  <property name="maximum">
+                   <number>5000</number>
                   </property>
-                  <property name="toolTip">
-                   <string>Set Rx frequency to Tx Frequency</string>
-                  </property>
-                  <property name="accessibleName">
-                   <string>Set Rx frequency to Tx Frequency</string>
-                  </property>
-                  <property name="text">
-                   <string>▼</string>
+                  <property name="value">
+                   <number>1500</number>
                   </property>
                  </widget>
                 </item>
@@ -3938,34 +3816,34 @@ Double-click to reset to the standard 73 message</string>
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="0" colspan="4">
-                 <widget class="QSpinBox" name="TxFreqSpinBox_2">
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="pbR2T_2">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>15</width>
+                    <height>0</height>
+                   </size>
+                  </property>
                   <property name="maximumSize">
                    <size>
-                    <width>16777215</width>
+                    <width>35</width>
                     <height>16777215</height>
                    </size>
                   </property>
                   <property name="toolTip">
-                   <string>Audio Tx frequency</string>
+                   <string>Set Tx frequency to Rx Frequency</string>
                   </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
+                  <property name="accessibleName">
+                   <string>Set Tx frequency to Rx Frequency</string>
                   </property>
-                  <property name="suffix">
-                   <string>  Hz</string>
-                  </property>
-                  <property name="prefix">
-                   <string>Tx  </string>
-                  </property>
-                  <property name="minimum">
-                   <number>200</number>
-                  </property>
-                  <property name="maximum">
-                   <number>5000</number>
-                  </property>
-                  <property name="value">
-                   <number>1500</number>
+                  <property name="text">
+                   <string>▲</string>
                   </property>
                  </widget>
                 </item>
@@ -4000,47 +3878,34 @@ Double-click to reset to the standard 73 message</string>
                   </property>
                  </widget>
                 </item>
-                <item row="3" column="0" colspan="2">
-                 <widget class="QPushButton" name="pbSendMessage">
+                <item row="1" column="3">
+                 <widget class="QPushButton" name="pbT2R_2">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
                   <property name="minimumSize">
                    <size>
-                    <width>0</width>
+                    <width>15</width>
                     <height>0</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
-                    <width>16777215</width>
+                    <width>35</width>
                     <height>16777215</height>
                    </size>
+                  </property>
+                  <property name="toolTip">
+                   <string>Set Rx frequency to Tx Frequency</string>
+                  </property>
+                  <property name="accessibleName">
+                   <string>Set Rx frequency to Tx Frequency</string>
                   </property>
                   <property name="text">
-                   <string>Send</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="3" column="2" colspan="2">
-                 <widget class="QSpinBox" name="sbSerialNumber_2">
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="minimum">
-                   <number>1</number>
-                  </property>
-                  <property name="maximum">
-                   <number>5000</number>
+                   <string>▼</string>
                   </property>
                  </widget>
                 </item>
@@ -4060,12 +3925,18 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>CQ %M CQ</string>
                     </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
                    </widget>
                   </item>
                   <item row="1" column="1">
                    <widget class="QLineEdit" name="msg2">
                     <property name="text">
                      <string>%H 599 %N</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -4074,12 +3945,18 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>%H TU CQ %M CQ</string>
                     </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
                    </widget>
                   </item>
                   <item row="1" column="3">
                    <widget class="QLineEdit" name="msg4">
                     <property name="text">
                      <string>%M</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -4088,12 +3965,18 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>%H</string>
                     </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
                    </widget>
                   </item>
                   <item row="3" column="1">
                    <widget class="QLineEdit" name="msg6">
                     <property name="text">
                      <string>TU NOW %Q 599 %N</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -4102,6 +3985,9 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>%H AGN?</string>
                     </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
                    </widget>
                   </item>
                   <item row="3" column="3">
@@ -4109,10 +3995,16 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>599 %N</string>
                     </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
                    </widget>
                   </item>
                   <item row="0" column="0">
                    <widget class="QPushButton" name="pbF1">
+                    <property name="toolTip">
+                     <string>CQ</string>
+                    </property>
                     <property name="text">
                      <string>F1</string>
                     </property>
@@ -4120,6 +4012,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="0" column="1">
                    <widget class="QPushButton" name="pbF2">
+                    <property name="toolTip">
+                     <string>HisCall Exchange</string>
+                    </property>
                     <property name="text">
                      <string>F2</string>
                     </property>
@@ -4127,6 +4022,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="0" column="2">
                    <widget class="QPushButton" name="pbF3">
+                    <property name="toolTip">
+                     <string>TU CQ</string>
+                    </property>
                     <property name="text">
                      <string>F3</string>
                     </property>
@@ -4134,6 +4032,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="0" column="3">
                    <widget class="QPushButton" name="pbF4">
+                    <property name="toolTip">
+                     <string>MyCall</string>
+                    </property>
                     <property name="text">
                      <string>F4</string>
                     </property>
@@ -4141,6 +4042,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="2" column="0">
                    <widget class="QPushButton" name="pbF5">
+                    <property name="toolTip">
+                     <string>HisCall</string>
+                    </property>
                     <property name="text">
                      <string>F5</string>
                     </property>
@@ -4148,6 +4052,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="2" column="1">
                    <widget class="QPushButton" name="pbF6">
+                    <property name="toolTip">
+                     <string>Now QueuedCall Exchange</string>
+                    </property>
                     <property name="text">
                      <string>F6</string>
                     </property>
@@ -4155,6 +4062,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="2" column="2">
                    <widget class="QPushButton" name="pbF7">
+                    <property name="toolTip">
+                     <string>HisCall AGN ?</string>
+                    </property>
                     <property name="text">
                      <string>F7</string>
                     </property>
@@ -4162,6 +4072,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="2" column="3">
                    <widget class="QPushButton" name="pbF8">
+                    <property name="toolTip">
+                     <string>Exchange</string>
+                    </property>
                     <property name="text">
                      <string>F8</string>
                     </property>
@@ -4171,6 +4084,153 @@ Double-click to reset to the standard 73 message</string>
                 </item>
                </layout>
               </widget>
+             </item>
+             <item row="2" column="0" colspan="3">
+              <layout class="QGridLayout" name="gridLayout_4">
+               <item row="8" column="0">
+                <spacer name="verticalSpacer_8">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item row="3" column="2">
+                <spacer name="horizontalSpacer_8">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Minimum</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>300</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item row="3" column="1">
+                <widget class="QSpinBox" name="sbSerialNumber_2">
+                 <property name="minimumSize">
+                  <size>
+                   <width>75</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>100</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="minimum">
+                  <number>1</number>
+                 </property>
+                 <property name="maximum">
+                  <number>5000</number>
+                 </property>
+                 <property name="value">
+                  <number>1</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QPushButton" name="pbSendMessage">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>100</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>Send message</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_3">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>100</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>Call next </string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1" colspan="4">
+                <widget class="QLineEdit" name="Tx_Message"/>
+               </item>
+               <item row="7" column="1">
+                <widget class="QCheckBox" name="cbLowerCase">
+                 <property name="maximumSize">
+                  <size>
+                   <width>100</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>  Lower case</string>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_6">
+                 <property name="maximumSize">
+                  <size>
+                   <width>100</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>Serial Number </string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="lineEdit">
+                 <property name="maximumSize">
+                  <size>
+                   <width>100</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </item>
             </layout>
            </widget>
@@ -4753,9 +4813,6 @@ Double-click to reset to the standard 73 message</string>
                    <property name="enabled">
                     <bool>false</bool>
                    </property>
-                   <property name="maxLength">
-                    <number>6</number>
-                   </property>
                    <property name="maximumSize">
                     <size>
                      <width>16777215</width>
@@ -4764,6 +4821,9 @@ Double-click to reset to the standard 73 message</string>
                    </property>
                    <property name="text">
                     <string>K1JT</string>
+                   </property>
+                   <property name="maxLength">
+                    <number>6</number>
                    </property>
                    <property name="alignment">
                     <set>Qt::AlignCenter</set>
@@ -5187,7 +5247,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
