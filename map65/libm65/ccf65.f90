@@ -176,6 +176,10 @@ subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
   if(base.gt.0.0) snr2=0.398107*ccfbest2/base  !### empirical
   dt2=2.5 + lagpk2*(2048.0/11025.0)
 
+  if (.not. ieee_is_finite(sync1)) sync1 = -4.0
+  if (.not. ieee_is_finite(syncshort)) syncshort = -4.0
+  if (.not. ieee_is_finite(snr2)) snr2 = 0.01
+
   return
 end subroutine ccf65
 end module ccf65_legacy_mod
