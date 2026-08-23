@@ -57,6 +57,14 @@ race:boost::log::v2_mt_posix::attribute_value_set::~attribute_value_set
 race:boost::log::v2_mt_posix::record_view::public_data::destroy
 race:boost::log::v2_mt_posix::intrusive_ptr_release
 
+# Additional Boost 1.92 formatting and attribute lifetime frames from the
+# asynchronous logging path. Keep these tied to the reported Boost types;
+# do not suppress generic std::string or unsymbolized Boost frames.
+race:boost::intrusive_ptr<boost::log::v2_mt_posix::attribute_value::impl>::operator bool
+race:boost::date_time::int_adapter<long>::as_number
+race:boost::date_time::int_adapter<long>::is_nan
+race:boost::log::v2_mt_posix::operator<<
+
 # libgfortran I/O-unit lock-order false positive in single-threaded tests.
 # Tracked as WSJT-X#292.
 deadlock:libgfortran.so
