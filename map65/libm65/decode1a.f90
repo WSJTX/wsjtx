@@ -95,6 +95,8 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   if(xpol) then
      c5y(:nadd)=0.
      call fil6521(cy,n5,c5y(nadd+1),n6)
+  else
+     c5y(:n6+nadd)=0.
   endif
   n6=n6+nadd
 
