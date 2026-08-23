@@ -198,21 +198,6 @@ option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
 option (WSJT_SKIP_BUNDLE_FIXUP "Skip install-time bundle dependency fixup." OFF)
 option (WSJT_MACOS_INSTALL_TIME_FIXUP
   "Run legacy install-time BundleUtilities fixup for macOS bundles." OFF)
-# Track whether this deprecated option came from the user or from our own
-# default, so normal reconfigures do not warn just because the cache exists.
-set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED FALSE)
-if (DEFINED WSJT_SKIP_MAP65 AND NOT WSJT_SKIP_MAP65_DEFAULTED)
-  set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED TRUE)
-endif ()
-option (WSJT_SKIP_MAP65 "Deprecated: skip building and installing MAP65." OFF)
-if (NOT WSJT_SKIP_MAP65_WAS_USER_PROVIDED AND NOT DEFINED WSJT_SKIP_MAP65_DEFAULTED)
-  set (WSJT_SKIP_MAP65_DEFAULTED TRUE CACHE INTERNAL "WSJT_SKIP_MAP65 used its default value")
-endif ()
-if (WSJT_SKIP_MAP65_WAS_USER_PROVIDED OR WSJT_SKIP_MAP65)
-  message (WARNING
-    "WSJT_SKIP_MAP65 is deprecated and will be removed; MAP65 now builds and "
-    "installs by default.")
-endif ()
 option (WSJT_SKIP_QMAP "Skip building QMAP." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 option (WSJT_ENABLE_GUI_SMOKE_TESTS
@@ -368,7 +353,6 @@ if (WSJT_EFFECTIVE_FORTRAN_LIBRARY_VARIANTS STREQUAL "OPENMP_ONLY")
 endif ()
 message (STATUS "Fortran library variants: requested=${WSJT_FORTRAN_LIBRARY_VARIANTS}, effective=${WSJT_EFFECTIVE_FORTRAN_LIBRARY_VARIANTS}")
 message (STATUS "Common Fortran target: ${WSJT_COMMON_FORT_TARGET}")
-message (STATUS "MAP65: skip=${WSJT_SKIP_MAP65}")
 message (STATUS "QMAP: skip=${WSJT_SKIP_QMAP}")
 
 # Internal usage requirements for targets whose own Fortran sources contain
@@ -821,10 +805,8 @@ if (WSJT_BUILD_JT9STREAM)
   # jt9stream NEVER links fort_qt — that is the Qt-free guarantee.
 endif (WSJT_BUILD_JT9STREAM)
 
-if (NOT WSJT_SKIP_MAP65)
-  find_package (Portaudio REQUIRED)
-  add_subdirectory (map65)
-endif ()
+find_package (Portaudio REQUIRED)
+add_subdirectory (map65)
 if (TARGET map65)
   wsjt_enable_qt_automoc (map65)
 endif ()

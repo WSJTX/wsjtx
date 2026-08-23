@@ -18,9 +18,7 @@ if (APPLE OR WIN32)
   # if a system Qt is used (e.g. installed in /usr/lib/), it will not be included in the installation
   set (fixup_exe "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMAKE_PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
   set (fixup_exes "${fixup_exe}")
-  if (NOT WSJT_SKIP_MAP65)
-    list (APPEND fixup_exes "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/map65${CMAKE_EXECUTABLE_SUFFIX}")
-  endif ()
+  list (APPEND fixup_exes "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/map65${CMAKE_EXECUTABLE_SUFFIX}")
 
   #get_filename_component (hamlib_lib_dir ${Hamlib_LIBRARIES} PATH)
 
@@ -84,10 +82,8 @@ if (APPLE OR WIN32)
     get_filename_component (usb_lib_dir ${Usb_LIBRARY} PATH)
     list (APPEND fixup_library_dirs ${usb_lib_dir})
 
-    if (NOT WSJT_SKIP_MAP65)
-      get_filename_component (portaudio_lib_dir ${Portaudio_LIBRARY} PATH)
-      list (APPEND fixup_library_dirs ${portaudio_lib_dir}/../bin)
-    endif ()
+    get_filename_component (portaudio_lib_dir ${Portaudio_LIBRARY} PATH)
+    list (APPEND fixup_library_dirs ${portaudio_lib_dir}/../bin)
 
     get_filename_component (fftw_lib_dir ${FFTW3F_LIBRARY} PATH)
     list (APPEND fixup_library_dirs ${fftw_lib_dir})

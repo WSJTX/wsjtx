@@ -158,7 +158,6 @@ runs:
           -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
           -D${{ steps.sanitizer.outputs.cmake_option }}=ON \
           -DWSJT_BUILD_UTILS=OFF \
-          -DWSJT_SKIP_MAP65=ON \
           -DWSJT_SKIP_QMAP=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
           "${compiler_args[@]}" \
