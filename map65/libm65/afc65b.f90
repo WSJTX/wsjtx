@@ -25,8 +25,8 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
   real               :: delta, dtmax
   real, intent(in)   :: fsample
   real               :: ccfmax
-  real               :: x0, xprev, xbest, xnext, candidate
-  real               :: fprev, fbest, fnext, fcandidate, curvature, tolerance
+  real               :: x0, xlast, xprev, xbest, xnext, candidate
+  real               :: flast, fprev, fbest, fnext, fcandidate, curvature, tolerance
   logical            :: bracketed, improved, have_previous
 
   ! Initial parameter guesses
@@ -65,18 +65,24 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
         delta = abs(deltaa(j))
         if (.not. ieee_is_finite(delta) .or. delta < MIN_STEP) delta = MIN_STEP
         improved = .false.
-        xnext = x0
+        xlast = x0
+        flast = chisq1
+        xnext = xlast
 
         do step = 1, MAX_STEP_TRIES
-           xnext = xnext + delta
+           xnext = xlast + delta
            a(j) = xnext
            chisq2 = fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
            if (.not. ieee_is_finite(chisq2)) exit
            tolerance = OBJECTIVE_REL_TOL * max(1.0, abs(chisq1), abs(chisq2))
            if (abs(chisq2 - chisq1) > tolerance) then
+              xprev = xlast
+              fprev = flast
               improved = .true.
               exit
            endif
+           xlast = xnext
+           flast = chisq2
         end do
 
         if (.not. improved) then
@@ -96,10 +102,10 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
               deltaa(j) = max(MIN_STEP, 0.5*abs(delta))
               cycle
            endif
+           xprev = x0
+           fprev = chisq1
         endif
 
-        xprev = x0
-        fprev = chisq1
         xbest = xnext
         fbest = chisq2
         downhill_steps = 0
