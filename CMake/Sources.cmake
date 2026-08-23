@@ -142,6 +142,7 @@ set (jt9stream_FSRCS
 
 set (wsjtx_CXXSRCS
   Audio/AudioInputSource.hpp
+  Audio/AudioStreamClock.hpp
   DecoderOutputFramer.cpp
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp

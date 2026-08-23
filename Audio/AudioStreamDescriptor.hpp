@@ -53,6 +53,9 @@ struct AudioStreamDescriptor
   ClockDomain clock_domain {ClockDomain::Unknown};
   TimingEvidence timing_evidence {TimingEvidence::Unavailable};
 
+  // UTC timestamp for the first frame in this descriptor epoch, when anchored.
+  qint64 capture_anchor_utc_ms {0};
+
   // True only when the source has a mechanism for reporting discontinuities.
   bool can_report_discontinuities {false};
 
@@ -77,6 +80,7 @@ inline bool operator== (AudioStreamDescriptor const& lhs,
     && lhs.channel_layout == rhs.channel_layout
     && lhs.clock_domain == rhs.clock_domain
     && lhs.timing_evidence == rhs.timing_evidence
+    && lhs.capture_anchor_utc_ms == rhs.capture_anchor_utc_ms
     && lhs.can_report_discontinuities == rhs.can_report_discontinuities;
 }
 

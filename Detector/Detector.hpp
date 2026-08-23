@@ -1,6 +1,7 @@
 #ifndef DETECTOR_HPP__
 #define DETECTOR_HPP__
 #include "Audio/AudioDevice.hpp"
+#include "Audio/AudioStreamClock.hpp"
 #include <QScopedArrayPointer>
 
 //
@@ -31,6 +32,7 @@ public:
   Q_SIGNAL void framesWritten (qint64) const;
   Q_SLOT void setBlockSize (unsigned);
   Q_SLOT void flushBufferedFrames (qint64 frameLimit);
+  Q_SLOT void setStreamDescriptor (AudioStreamDescriptor);
 
 protected:
   qint64 readData (char * /* data */, qint64 /* maxSize */) override
@@ -48,6 +50,8 @@ private:
   double   m_period;
   unsigned m_downSampleFactor;
   qint32 m_samplesPerFFT;	// after any down sampling
+  AudioStreamClock m_stream_clock;
+  qint64 m_last_period_offset_ms {-1};
   static size_t const max_buffer_size {7 * 512};
   QScopedArrayPointer<short> m_buffer; // de-interleaved sample buffer
   // big enough for all the

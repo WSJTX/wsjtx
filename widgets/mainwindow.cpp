@@ -805,6 +805,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::resumeAudioInputStream, m_soundInput, &AudioInputSource::resume);
   connect (this, &MainWindow::reset_audio_input_stream, m_soundInput, &AudioInputSource::reset);
   connect (this, &MainWindow::finished, m_soundInput, &AudioInputSource::stop);
+  connect (m_soundInput, &AudioInputSource::streamDescriptorChanged,
+           m_detector, &Detector::setStreamDescriptor);
   if (!m_automated_test)
     {
       connect(m_soundInput, &AudioInputSource::error, this, &MainWindow::showSoundInError);

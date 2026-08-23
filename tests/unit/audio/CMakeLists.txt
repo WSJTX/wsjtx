@@ -46,7 +46,9 @@ add_executable (test_audio_input_stream_descriptor
   test_audio_input_stream_descriptor.cpp
   ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
   ${CMAKE_SOURCE_DIR}/Audio/AudioInputSource.hpp
-  ${CMAKE_SOURCE_DIR}/Audio/FixtureAudioInput.cpp)
+  ${CMAKE_SOURCE_DIR}/Audio/FixtureAudioInput.cpp
+  ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp
+  ${CMAKE_SOURCE_DIR}/Detector/Detector.cpp)
 target_link_libraries (test_audio_input_stream_descriptor
   wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia)
 add_test (NAME test_audio_input_stream_descriptor

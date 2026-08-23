@@ -155,9 +155,25 @@ void FixtureAudioInput::resume ()
     {
       m_periodStartMs = QDateTime::currentMSecsSinceEpoch ()
         - (m_framesEmitted * 1000 / m_inputSampleRate);
+      publishCaptureAnchor (m_framesEmitted);
     }
   Q_EMIT status (tr ("Synthetic audio input receiving"));
   maybeSchedule ();
+}
+
+qint64 FixtureAudioInput::captureTimestamp (qint64 frameIndex) const
+{
+  return m_periodStartMs + frameIndex * 1000 / m_inputSampleRate;
+}
+
+void FixtureAudioInput::publishCaptureAnchor (qint64 firstFrame)
+{
+  auto descriptor = streamDescriptor ();
+  if (descriptor.isValid () && m_periodStartMs > 0)
+    {
+      descriptor.capture_anchor_utc_ms = captureTimestamp (firstFrame);
+      setStreamDescriptor (descriptor);
+    }
 }
 
 void FixtureAudioInput::stop ()
@@ -233,13 +249,14 @@ void FixtureAudioInput::maybeSchedule ()
         ? now : ((now / periodMs) + 1) * periodMs;
     }
   m_emitting = true;
+  publishCaptureAnchor (m_framesEmitted);
   auto const delay = std::max<qint64> (0, m_periodStartMs - now);
   m_timer->start (static_cast<int> (delay));
 }
 
 void FixtureAudioInput::scheduleNextChunk ()
 {
-  auto const target = m_periodStartMs + m_framesEmitted * 1000 / m_inputSampleRate;
+  auto const target = captureTimestamp (m_framesEmitted);
   auto const delay = std::max<qint64> (0, target - QDateTime::currentMSecsSinceEpoch ());
   m_timer->start (static_cast<int> (delay));
 }
@@ -251,8 +268,7 @@ void FixtureAudioInput::emitNextChunk ()
       return;
     }
 
-  auto const target =
-    m_periodStartMs + m_framesEmitted * 1000 / m_inputSampleRate;
+  auto const target = captureTimestamp (m_framesEmitted);
   auto const now = QDateTime::currentMSecsSinceEpoch ();
   if (now < target)
     {

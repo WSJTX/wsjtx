@@ -46,6 +46,8 @@ private:
     return m_leadInFrames + fixtureFrames () + m_tailFrames;
   }
   void fail (QString const& message);
+  qint64 captureTimestamp (qint64 frameIndex) const;
+  void publishCaptureAnchor (qint64 firstFrame);
   void maybeSchedule ();
   void scheduleNextChunk ();
   Q_SLOT void emitNextChunk ();
