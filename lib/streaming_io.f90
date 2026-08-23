@@ -47,14 +47,15 @@
 ! so a pipe short-read is never mistaken for EOF.
 
 subroutine jt9_stream(shared_data, mode, TRperiod)
-  use, intrinsic :: iso_fortran_env, only: int8, int16, int32, error_unit
+  use, intrinsic :: iso_fortran_env, only: int8, int16, int64, error_unit
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use, intrinsic :: iso_c_binding, only: c_int64_t
   use prog_args, only: data_dir
   use timer_module, only: timer
   use streaming_emit, only: streaming_emit_ready,                          &
        streaming_emit_decode_finished, streaming_emit_error,               &
        streaming_emit_error_code, streaming_emit_error_version,            &
-       streaming_emit_error_type
+       streaming_emit_error_type, streaming_emit_warning_samples
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR
   use streaming_apply, only: apply_configure_fields
@@ -77,13 +78,15 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
 
   integer :: ios, fmt, ch, rate_khz
   integer(int8)  :: hdr(HDR_LEN), type_byte(1), len_bytes(4)
-  integer(int32) :: frame_len
+  integer(int64) :: frame_len_wide, max_audio_frame_bytes
+  integer        :: frame_len
 
   integer :: nsps, kstep, npts, k, nhsym, nhsym0
   integer :: ingain, nminw, ihsym, npts8
   real    :: pxdb, df3, pxdbmax, s(NSMAX)
   integer :: npct_unused
   integer :: body_left, take_bytes, take_samples
+  integer(int64) :: discarded_samples
   integer(int16) :: chunk(4096)
   integer(int8)  :: byte_sink(4096)
   ! FT8 progressive-decode working buffer (mirrors jt9.f90:19's id2a) — the
@@ -191,6 +194,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   baseline_nfb = shared_data%params%nfb
 
   call streaming_emit_ready()
+  max_audio_frame_bytes = 2_int64 * int(size(shared_data%id2), int64)
 
   ! ===== Outer period loop ===========================================
   do
@@ -218,18 +222,23 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         if (ios /= 0) then
            eof_period = .true.; exit
         end if
-        frame_len = iand(int(len_bytes(1), int32), int(z'FF', int32))                  &
-             + ishft(iand(int(len_bytes(2), int32), int(z'FF', int32)),  8)            &
-             + ishft(iand(int(len_bytes(3), int32), int(z'FF', int32)), 16)            &
-             + ishft(iand(int(len_bytes(4), int32), int(z'FF', int32)), 24)
-        if (frame_len .lt. 0) then
-           call streaming_emit_error('negative frame length')
-           eof_period = .true.; exit
+        frame_len_wide = iand(int(len_bytes(1), int64), int(z'FF', int64))       &
+             + 256_int64 * iand(int(len_bytes(2), int64), int(z'FF', int64))     &
+             + 65536_int64 * iand(int(len_bytes(3), int64), int(z'FF', int64))   &
+             + 16777216_int64 * iand(int(len_bytes(4), int64), int(z'FF', int64))
+        if (frame_len_wide .gt. max_audio_frame_bytes) then
+           call streaming_emit_error_code('frame_too_large',                    &
+                'frame length exceeds the streaming sample-buffer capacity')
+           write(error_unit, '(a,i0,a,i0)') 'jt9 --stream: frame length ',      &
+                frame_len_wide, ' exceeds capacity ', max_audio_frame_bytes
+           stop 1
         end if
+        frame_len = int(frame_len_wide)
 
         if (iand(int(type_byte(1)), 255) .eq. FRAME_AUDIO) then
-           if (mod(frame_len, 2_int32) /= 0) then
-              call streaming_emit_error('odd audio frame length')
+           if (mod(frame_len, 2) /= 0) then
+              call streaming_emit_error_code('odd_audio_frame',                &
+                   'audio frame length must contain whole int16 samples')
               body_left = frame_len
               do while (body_left .gt. 0)
                  take_bytes = min(body_left, size(byte_sink))
@@ -240,6 +249,12 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  body_left = body_left - take_bytes
               end do
               cycle
+           end if
+           discarded_samples = max(0_int64, frame_len_wide / 2_int64           &
+                - int(npts - k, int64))
+           if (discarded_samples .gt. 0_int64) then
+              call streaming_emit_warning_samples('period_boundary_discard',   &
+                   discarded_samples)
            end if
            body_left = frame_len
            do while (body_left .gt. 0)
@@ -284,7 +299,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         else if (iand(int(type_byte(1)), 255) .eq. FRAME_CONTROL) then
            ! Read JSON body into char buffer (cap at CTL_BUF_LEN)
            if (frame_len .gt. CTL_BUF_LEN) then
-              call streaming_emit_error('control frame too large')
+              call streaming_emit_error_code('control_frame_too_large',        &
+                   'control frame exceeds the configured buffer capacity')
               ! drain + skip
               body_left = frame_len
               do while (body_left .gt. 0)
@@ -328,6 +344,19 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  ! effect).
                  call streaming_emit_error_type(trim(terr%key),             &
                       trim(terr%expected), trim(terr%got))
+                 cycle
+              end if
+              if (cfg%mode_invalid) then
+                 call streaming_emit_error_code('unknown_mode',                 &
+                      'configure frame contains an unsupported mode')
+                 cycle
+              end if
+              if (cfg%trperiod_set .and.                                      &
+                  (.not. ieee_is_finite(cfg%trperiod) .or.                     &
+                   cfg%trperiod .le. 0.d0 .or.                                &
+                   cfg%trperiod .gt. dble(NTMAX))) then
+                 call streaming_emit_error_code('invalid_trperiod',             &
+                      'trperiod must be finite and between 0 and 1800 seconds')
                  cycle
               end if
               prev_mode = mode

@@ -659,6 +659,10 @@ target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 
+if (TARGET test_streaming_consumers)
+  add_dependencies (test_streaming_consumers jt9 wsprd)
+endif ()
+
 if (WSJT_BUILD_UTILS)
   add_executable (ft8sim lib/ft8/ft8sim.f90 lib/print_version.c ${jt9_VERSION_RESOURCES})
   wsjt_link_common_fortran (ft8sim)
