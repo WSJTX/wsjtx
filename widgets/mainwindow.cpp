@@ -5173,10 +5173,10 @@ void MainWindow::on_actionSave_all_triggered()                //Save All
 }
 
 //
-// Build the "Save By Mode" submenu of the Save menu. It holds an "All" entry
-// plus one independent checkbox per mode, and restricts "Save decoded" and
-// "Save all" to the ticked modes. The mode list is read from the Mode menu at
-// run time so that any mode added there also appears here.
+// Build the "Save By Mode" submenu of the Save menu. It holds "All" and "None"
+// entries plus one independent checkbox per mode, and restricts "Save decoded"
+// and "Save all" to the ticked modes. The mode list is read from the Mode menu
+// at run time so that any mode added there also appears here.
 //
 void MainWindow::setupSaveByModeMenu()
 {
@@ -5184,6 +5184,13 @@ void MainWindow::setupSaveByModeMenu()
   m_saveByModeAll=m_saveByModeMenu->addAction(tr("All"));
   m_saveByModeAll->setCheckable(true);
   m_saveByModeAll->setChecked(true);
+  //"None" is a one-shot command rather than a state: it clears "All" and every
+  //per-mode tick, so nothing is saved until a mode is ticked again.
+  auto noneAction=m_saveByModeMenu->addAction(tr("None"));
+  connect(noneAction,&QAction::triggered,this,[this] () {
+    m_saveByModeAll->setChecked(false);
+    for(auto action: m_saveByModeActions) action->setChecked(false);
+  });
   m_saveByModeMenu->addSeparator();
   for(auto action: ui->menuMode->actions()) {
     if(action->isSeparator() or action->text().isEmpty()) continue;
