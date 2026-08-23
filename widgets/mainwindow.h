@@ -650,6 +650,7 @@ private slots:
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
   void on_pbSendMessage_clicked();
+  void on_Tx_Message_returnPressed();
 
   void on_pbF1_clicked();
   void on_pbF2_clicked();

@@ -248,6 +248,10 @@ qint64 MainWindow::submitJttyText(QString message)
 void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
 {
   int itone[944];
+  // Captured before anything below can change m_jttyTxActive: true means
+  // this message is being queued behind one still transmitting, not
+  // starting a fresh session.
+  bool const isChainedMessage = m_jttyTxActive;
   if(ui->cbLowerCase->isChecked()) message = message.toLower();
 
   auto const preparedMessage = Jtty::prepareTransmitText(message);
@@ -259,6 +263,8 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::Empty);
     return;
   }
+
+  message = Jtty::withChainedSpacing(message, isChainedMessage);
 
   int n=message.length();
   QString t = " ";
