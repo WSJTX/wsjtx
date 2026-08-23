@@ -11,14 +11,14 @@ contains
 subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
                  syncshort, snr2, ipol2, dt2)
 
-  use four2a_legacy_wrap_mod, only: r2c_legacy, c2r_legacy
+  use four2a_legacy_wrap_mod, only: r2c_legacy, c2r_legacy, JT65_NFFT, JT65_NH
   use pctile_mod, only: pctile
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
 
   implicit none
 
-  integer, parameter :: NFFT = 512
-  integer, parameter :: NH = NFFT/2
+  integer, parameter :: NFFT = JT65_NFFT
+  integer, parameter :: NH = JT65_NH
   integer, parameter :: MAX_NHSYM = 322
 
   integer, intent(in) :: nhsym, jpz
@@ -90,8 +90,8 @@ subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
      pr(j)=fac*(2*npr(i)-1)
   enddo
 
-  call r2c_legacy(pr,  cpr, NFFT)
-  call r2c_legacy(pr2, cpr2, NFFT)
+  call r2c_legacy(pr,  cpr)
+  call r2c_legacy(pr2, cpr2)
 
   ccf = 0.0
 
@@ -112,7 +112,7 @@ subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
      s(nhsym:NFFT)=0.
 
      ! === Forward FFT: real ? packed half-spectrum ===
-     call r2c_legacy(s, cs, NFFT)
+     call r2c_legacy(s, cs)
 
      ! === Multiply by sync patterns in frequency domain ===
      do i=0,NH
@@ -121,8 +121,8 @@ subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
      enddo
 
      ! === Inverse FFT: packed half-spectrum ? real ===
-     call c2r_legacy(cs,  s, NFFT)
-     call c2r_legacy(cs2, s2, NFFT)
+     call c2r_legacy(cs,  s)
+     call c2r_legacy(cs2, s2)
 
      do lag=-11,54                             !Check for best JT65 sync
         j=lag

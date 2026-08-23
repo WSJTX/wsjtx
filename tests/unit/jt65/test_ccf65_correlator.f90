@@ -1,6 +1,7 @@
 program test_ccf65_correlator
 
   use ccf65_legacy_mod, only: ccf65
+  use four2a_legacy_wrap_mod, only: c2r_legacy, r2c_legacy, JT65_NFFT, JT65_NH
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite, ieee_quiet_nan, ieee_value
   implicit none
 
@@ -10,6 +11,8 @@ program test_ccf65_correlator
   integer :: i
   real :: sync1, dt, flipk, syncshort, snr2, dt2
   integer :: ipol1, ipol2
+
+  call test_fft_roundtrip()
 
   call make_sync_plane(ss, 1.0)
   call ccf65(ss, nhsym, 1.0e30, sync1, ipol1, 1, dt, flipk, syncshort, snr2, ipol2, dt2)
@@ -62,6 +65,21 @@ contains
        error stop 1
     end if
   end subroutine require
+
+  subroutine test_fft_roundtrip()
+    real :: input(JT65_NFFT), output(JT65_NFFT)
+    complex :: spectrum(0:JT65_NH)
+    integer :: k
+
+    do k = 1, JT65_NFFT
+       input(k) = sin(0.013*real(k)) + 0.25*cos(0.071*real(k))
+    end do
+
+    call r2c_legacy(input, spectrum)
+    call c2r_legacy(spectrum, output)
+    call require(maxval(abs(output/JT65_NFFT - input)) < 1.0e-5, &
+         'legacy packed FFT round trip preserves real samples')
+  end subroutine test_fft_roundtrip
 
   logical function all_finite(v1, v2, v3, v4, v5, v6)
     real, intent(in) :: v1, v2, v3, v4, v5, v6
