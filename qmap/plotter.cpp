@@ -1,5 +1,6 @@
 #include "plotter.h"
 #include <math.h>
+#include <algorithm>
 #include <QDebug>
 #include <fstream>
 #include <iostream>
@@ -183,6 +184,11 @@ void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
   QRect target2(0,h+60,w,h);           // (x,y,width,height)
   QRect source2(0,0,w,h);
   painter.drawPixmap(target2,m_ZoomWaterfallPixmap,source2);
+  // Decoded-callsign overlay -- rendered last so labels sit on top of the
+  // upper waterfall pixmap. WideGraph maintains the list lifecycle.
+  if (!m_decodeLabels.isEmpty()) {
+    paintDecodeLabels(painter);
+  }
   m_paintEventBusy=false;
 }
 
@@ -557,6 +563,65 @@ float CPlotter::FreqfromX(int x)                               //FreqfromX()
   float w = m_WaterfallPixmap.width();
   double f =m_CenterFreq - 0.5*m_fSpan + m_fSpan * x/w;
   return f;
+}
+
+void CPlotter::setDecodeLabels(const QList<WideDecodeLabel>& labels)
+{
+  m_decodeLabels = labels;
+  update();
+}
+
+void CPlotter::paintDecodeLabels(QPainter& painter)
+{
+  // Sort left-to-right so the stacking pass below assigns rows in order
+  // of x-position.
+  QList<WideDecodeLabel> sorted = m_decodeLabels;
+  std::sort(sorted.begin(), sorted.end(),
+            [this](WideDecodeLabel const& a, WideDecodeLabel const& b) {
+                return XfromFreq(static_cast<float>(a.freq_khz))
+                     < XfromFreq(static_cast<float>(b.freq_khz));
+            });
+
+  QFont font("Arial", 8, QFont::Bold);
+  painter.setFont(font);
+  QFontMetrics metrics(font);
+  const int row_height = metrics.height() + 1;
+
+  // Up to 5 stack rows -- plenty for how many simultaneous decoded
+  // stations typically show up in one wideband span.
+  constexpr int max_rows = 5;
+  // Upper-waterfall geometry: paintEvent() draws the scale at y=0..30
+  // and the waterfall row starting at y=30, height (m_Size.height()-60)/2.
+  constexpr int waterfall_top_y = 30;
+  int row_right_edge[max_rows];
+  for (int i = 0; i < max_rows; ++i) row_right_edge[i] = -1000;
+
+  for (auto const& l : sorted) {
+    const int x = XfromFreq(static_cast<float>(l.freq_khz));
+    const int text_w = metrics.horizontalAdvance(l.callsign);
+    const int rect_w = text_w + 4;
+    const int rect_x = x - rect_w / 2;
+
+    int row = 0;
+    for (; row < max_rows; ++row) {
+      if (rect_x > row_right_edge[row] + 4) break;
+    }
+    if (row >= max_rows) continue;
+    row_right_edge[row] = rect_x + rect_w;
+
+    const int y_top = waterfall_top_y + row_height * row;
+    const QRect rect(rect_x, y_top, rect_w, row_height);
+    painter.fillRect(rect, QColor(0, 0, 0, 180));
+
+    // Primary (60s) decodes yellow; second-30s-half decodes a distinct
+    // hue (orange) rather than a shade, so they stay legible at a glance.
+    const QColor col = l.second_half ? QColor(255, 165, 0) : QColor(255, 255, 0);
+    painter.setPen(QColor(col.red(), col.green(), col.blue(), 200));
+    // Tick points down into the waterfall trace at the label's exact frequency.
+    painter.drawLine(x, y_top + row_height, x, y_top + row_height + 4);
+    painter.setPen(col);
+    painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, l.callsign);
+  }
 }
 
 void CPlotter::SetRunningState(bool running)              //SetRunningState()

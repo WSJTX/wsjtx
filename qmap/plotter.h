@@ -15,6 +15,7 @@
 #include <QList>
 #include <cstring>
 #include "commons.h"
+#include "decode_label.h"
 
 #define VERT_DIVS 7	//specify grid screen divisions
 #define HORZ_DIVS 20
@@ -77,6 +78,11 @@ public:
   double txFreq();
 //  void updateFreqLabel();
 
+  // Decoded-callsign overlay. WideGraph maintains the list and pushes it
+  // here; rendered as labels on top of the waterfall at the audio-offset
+  // x-position. Triggers update() to schedule a paintEvent.
+  void setDecodeLabels(const QList<WideDecodeLabel>& labels);
+
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
@@ -94,6 +100,10 @@ private:
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);
+  // Render m_decodeLabels overlay on top of the waterfall pixmap. Stacks
+  // colliding labels vertically (max 5 rows) so a busy band doesn't paint
+  // labels on top of each other.
+  void paintDecodeLabels(QPainter& painter);
 
   // Raw wideband-row snapshots (post color-mapping input, pre color-map),
   // front=newest, so a resize can repaint m_WaterfallPixmap from history
@@ -111,6 +121,8 @@ private:
   void rebuildWideFromHistory();
   QList<WideHistoryLine> m_wideHistory;
   static constexpr int kMaxWideHistory = 2048;
+
+  QList<WideDecodeLabel> m_decodeLabels;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;

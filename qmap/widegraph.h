@@ -2,6 +2,8 @@
 #define WIDEGRAPH_H
 
 #include <QDialog>
+#include <QList>
+#include "decode_label.h"
 
 namespace Ui {
   class WideGraph;
@@ -35,6 +37,14 @@ public:
   double fGreen();
   void   updateFreqLabel();
   void   enableSetRxHardware(bool b);
+
+  // Decoded-callsign overlay on the wideband waterfall. mainwindow calls
+  // this for each fresh decode line (it already parses freq/callsign for
+  // VertWaterfall's own overlay); dedups by callsign and ages entries out
+  // using the decode line's own hhmmss-derived seconds-of-day, not
+  // wall-clock time, so aging is correct at any file-replay speed.
+  void   addDecodeLabel(double freq_khz, QString const& callsign,
+                        bool second_half, int decode_secs);
 
   qint32 m_qsoFreq;
 
@@ -73,6 +83,11 @@ private:
   qint32 m_fSample;
   qint32 m_mode65;
   qint32 m_TRperiod=60;
+
+  void   ageDecodeLabels(int nowSecs);
+  QList<WideDecodeLabel> m_decodeLabels;
+  static constexpr int kDecodeLabelMax = 100;
+  static constexpr int kDecodeLabelLifetimeSecs = 3*60;
 };
 
 #endif // WIDEGRAPH_H

@@ -1,4 +1,5 @@
 #include "widegraph.h"
+#include <algorithm>
 #include <QSettings>
 #include <QMessageBox>
 #include "SettingsGroup.hpp"
@@ -140,6 +141,45 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
     ui->widePlot->draw(swide,i0,splot);
     emit spectrumReady(swide, qMin(w,2048), ui->widePlot->startFreq(), ui->widePlot->m_fSpan,
                        ui->widePlot->getPlotZero(), ui->widePlot->getPlotGain());
+  }
+}
+
+void WideGraph::addDecodeLabel(double freq_khz, QString const& callsign,
+                               bool second_half, int decode_secs)
+{
+  ageDecodeLabels(decode_secs);
+
+  for (auto& lab : m_decodeLabels) {
+    if (lab.callsign == callsign) {
+      lab.freq_khz = freq_khz;
+      lab.last_seen_secs = decode_secs;
+      lab.second_half = second_half;
+      if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+      return;
+    }
+  }
+  if (m_decodeLabels.size() >= kDecodeLabelMax) {
+    m_decodeLabels.removeFirst();
+  }
+  m_decodeLabels.append(WideDecodeLabel{freq_khz, callsign, decode_secs, second_half});
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+}
+
+void WideGraph::ageDecodeLabels(int nowSecs)
+{
+  if (m_decodeLabels.isEmpty()) return;
+  int before = m_decodeLabels.size();
+  m_decodeLabels.erase(
+      std::remove_if(m_decodeLabels.begin(), m_decodeLabels.end(),
+                     [nowSecs](WideDecodeLabel const& l) {
+                         int delta = nowSecs - l.last_seen_secs;
+                         if (delta < -43200) delta += 86400;   // UTC midnight wrap
+                         else if (delta > 43200) delta -= 86400;
+                         return delta > kDecodeLabelLifetimeSecs;
+                     }),
+      m_decodeLabels.end());
+  if (m_decodeLabels.size() != before && ui && ui->widePlot) {
+    ui->widePlot->setDecodeLabels(m_decodeLabels);
   }
 }
 

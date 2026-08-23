@@ -1248,7 +1248,7 @@ void MainWindow::guiUpdate()
       // submode decoded alongside a 60-second one at the same tone
       // spacing -- q65b.f90:112, nhhmmss=100*nutc+iseq*30) and "00"
       // otherwise.
-      if (m_vert_waterfall_window) {
+      if (m_vert_waterfall_window || m_wide_graph_window) {
         bool ok = false;
         double frx = t.mid(6,9).trimmed().toDouble(&ok);
         bool secondHalf = (t.mid(4,2) == "30");
@@ -1266,7 +1266,8 @@ void MainWindow::guiUpdate()
         static const QRegularExpression call_re(
             "^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z](/[A-Z0-9]+)?$");
         if (ok && !sender.isEmpty() && call_re.match(sender.toUpper()).hasMatch()) {
-          m_vert_waterfall_window->addDecodeLabel(frx, sender, secondHalf, decodeSecs);
+          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(frx, sender, secondHalf, decodeSecs);
+          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(frx, sender, secondHalf, decodeSecs);
         }
       }
 
