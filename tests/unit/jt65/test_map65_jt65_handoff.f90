@@ -5,6 +5,7 @@ program test_map65_jt65_handoff
        ieee_quiet_nan, ieee_set_flag, ieee_value
   use decode1a_mod
   use filbig_mod
+  use afc65b_mod, only: afc65b
   use jt65_test_fixture
   use jt65_test_vectors
   use npar_ptrs_mod, only: nsmax_active
@@ -15,6 +16,7 @@ program test_map65_jt65_handoff
 
   allocate(dd(4, nsmax_active))
   call test_mono_filter_output(dd)
+  call test_afc_zero_signal()
   call test_mode(dd, standard_tones, 1, 1, 'JT65A MAP65 handoff')
   call test_mode(dd, standard_tones, 2, 1, 'JT65B MAP65 handoff')
   call test_mode(dd, standard_tones, 4, 1, 'JT65C MAP65 handoff')
@@ -53,6 +55,32 @@ contains
          all(ieee_is_finite(aimag(cy(:n5)))), 'mono filter output is finite')
     call require(all(abs(cy(:n5)) == 0.0), 'mono filter output is zero')
   end subroutine test_mono_filter_output
+
+  subroutine test_afc_zero_signal()
+    integer, parameter :: npts = 1024
+    complex :: cx(npts), cy(npts)
+    real :: a(5), ccfbest, dtbest
+    integer :: ipol, nflip, ndphi
+    logical :: invalid_raised
+
+    cx = (0.0, 0.0)
+    cy = (0.0, 0.0)
+    a = 0.0
+    ipol = 1
+    nflip = 1
+    ndphi = 0
+    call ieee_set_flag(ieee_invalid, .false.)
+    call afc65b(cx, cy, npts, 1378.125/4.0, nflip, ipol, .false., ndphi, a, ccfbest, dtbest)
+    call ieee_get_flag(ieee_invalid, invalid_raised)
+
+    call require(.not. invalid_raised, 'flat AFC objective avoids invalid arithmetic')
+    call require(all(ieee_is_finite(a(1:4))) .and. ieee_is_finite(ccfbest) .and. &
+         ieee_is_finite(dtbest), 'flat AFC objective produces finite outputs')
+    call require(all(a(1:3) == 0.0) .and. a(4) == 0.0, &
+         'flat AFC objective preserves the accepted parameter point')
+    call require(ccfbest == 0.0 .and. dtbest == 0.0 .and. ipol == 1, &
+         'flat AFC objective has explicit detection defaults')
+  end subroutine test_afc_zero_signal
 
   subroutine test_mode(waveform, tones, mode65, polarity, description, cross_polarized)
     real(real32), intent(inout) :: waveform(:,:)

@@ -33,7 +33,8 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   integer, intent(in)   :: neme, ndepth, nqd, ndphi
   real,    intent(in)   :: dphi
   real(real64),  intent(in)   :: f0
-  integer, intent(in)   :: nutc, nkhz, ndf, ipol, ntol
+  integer, intent(in)   :: nutc, nkhz, ndf, ntol
+  integer, intent(inout) :: ipol
   real,    intent(inout):: sync2, a(5), dt, pol, qual
   integer, intent(inout):: nkv, nhist, nsum, nsave, newdat
   character(len=22), intent(out) :: decoded
