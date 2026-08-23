@@ -8,6 +8,7 @@
 
 #include <QAudioFormat>
 #include <QDateTime>
+#include <QDebug>
 #include <QSysInfo>
 #include <QTimer>
 
@@ -119,6 +120,19 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
       m_tailFrames = 2 * m_inputSampleRate;
     }
   m_started = true;
+  auto descriptor = audioStreamDescriptorFromQAudioFormat (format);
+  if (descriptor.isValid ())
+    {
+      descriptor.clock_domain = AudioStreamDescriptor::ClockDomain::SystemClock;
+      descriptor.timing_evidence =
+        AudioStreamDescriptor::TimingEvidence::CaptureTimeAnchored;
+      descriptor.can_report_discontinuities = false;
+      setStreamDescriptor (descriptor);
+    }
+  else
+    {
+      qWarning () << "Opened fixture audio stream has an unrecognized format";
+    }
   Q_EMIT status (tr ("Synthetic audio fixture ready"));
   maybeSchedule ();
 }
@@ -162,6 +176,7 @@ void FixtureAudioInput::stop ()
   m_emitting = false;
   m_jttyDecoderReady = false;
   m_waitingForJttyDecoder = false;
+  clearStreamDescriptor ();
 }
 
 void FixtureAudioInput::reset (bool)

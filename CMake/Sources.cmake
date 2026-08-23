@@ -115,6 +115,7 @@ set (wsjt_qt_CXXSRCS
   )
 
 set (wsjt_qtmm_CXXSRCS
+  Audio/AudioStreamDescriptor.cpp
   Audio/BWFFile.cpp
   Audio/WavFile.cpp
   )
