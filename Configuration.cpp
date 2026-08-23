@@ -292,6 +292,26 @@ namespace
   constexpr quint32 qrg_magic {0xadbccbdb};
   constexpr quint32 qrg_version {101}; // M.mm
   constexpr quint32 qrg_version_100 {100};
+
+  QString cloudlog_connection_check_style (Cloudlog::ConnectionCheckStatus status)
+  {
+    switch (status)
+      {
+      case Cloudlog::ConnectionCheckStatus::Success:
+        return QStringLiteral ("QPushButton {background-color: green;}");
+      case Cloudlog::ConnectionCheckStatus::ReadOnlyKey:
+        return QStringLiteral ("QPushButton {background-color: orange;}");
+      case Cloudlog::ConnectionCheckStatus::InvalidKey:
+      case Cloudlog::ConnectionCheckStatus::StationProfileUnavailable:
+      case Cloudlog::ConnectionCheckStatus::EndpointUnavailable:
+      case Cloudlog::ConnectionCheckStatus::UploadShapeRejected:
+      case Cloudlog::ConnectionCheckStatus::NetworkError:
+      case Cloudlog::ConnectionCheckStatus::UnexpectedResponse:
+        return QStringLiteral ("QPushButton {background-color: red;}");
+      }
+
+    return {};
+  }
 }
 
 
@@ -607,6 +627,9 @@ private:
 
   void delete_stations ();
   void insert_station ();
+  void handle_cloudlog_connection_check_result (Cloudlog::ConnectionCheckResult const& result);
+  void set_cloudlog_station_profiles (QList<Cloudlog::StationProfile> const& profiles);
+  qint32 cloudlog_station_profile_id () const;
 
   Q_SLOT void on_font_push_button_clicked ();
   Q_SLOT void on_decoded_text_font_push_button_clicked ();
@@ -1989,7 +2012,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , temp_dir_ {temp_directory}
   , writeable_data_dir_ {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}
   , lotw_users_ {network_manager_}
-  , cloudlog_ {self}
+  , cloudlog_ {self, network_manager_}
   , restart_sound_input_device_ {false}
   , restart_sound_output_device_ {false}
   , restart_tci_device_ {false}
@@ -2378,7 +2401,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->cbCloudlog,
     ui_->leCloudlogApiUrl,
     ui_->leCloudlogApiKey,
-    ui_->sbCloudlogStationID,
+    ui_->cbCloudlogStationProfile,
     ui_->pbTestCloudlog,
     ui_->cbEQSL,
     ui_->eqsluser_edit,
@@ -2553,19 +2576,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   lotw_users_.set_local_file_path (writeable_data_dir_.absoluteFilePath ("lotw-user-activity.csv"));
 
-  // set up Cloudlog API key test button
-  connect (&cloudlog_, &Cloudlog::apikey_ok, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: green;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key OK"));
-    });
-  connect (&cloudlog_, &Cloudlog::apikey_ro, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: orange;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key read-only"));
-    });
-  connect (&cloudlog_, &Cloudlog::apikey_invalid, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: red;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key invalid"));
-    });
+  connect (&cloudlog_, &Cloudlog::connection_check_finished, this, &Configuration::impl::handle_cloudlog_connection_check_result);
 
   //
   // validation
@@ -2901,7 +2912,11 @@ void Configuration::impl::initialize_models ()
   ui_->cbEQSL->setChecked(send_to_eqsl_);
   ui_->leCloudlogApiUrl->setText(cloudLogApiUrl_);
   ui_->leCloudlogApiKey->setText(cloudLogApiKey_);
-  ui_->sbCloudlogStationID->setValue (cloudLogStationID_);
+  ui_->cbCloudlogStationProfile->clear ();
+  if (cloudLogStationID_ > 0)
+    {
+      ui_->cbCloudlogStationProfile->addItem (QString::number (cloudLogStationID_), cloudLogStationID_);
+    }
   on_cbCloudlog_toggled (ui_->cbCloudlog->isChecked ());
   on_cbEQSL_toggled (ui_->cbEQSL->isChecked ());
   ui_->special_op_activity_button_group->button (SelectedActivity_)->setChecked (true);
@@ -4213,7 +4228,7 @@ void Configuration::impl::accept ()
   send_to_eqsl_ = ui_->cbEQSL->isChecked ();
   cloudLogApiUrl_ = ui_->leCloudlogApiUrl->text ();
   cloudLogApiKey_ = ui_->leCloudlogApiKey->text ();
-  cloudLogStationID_ = ui_->sbCloudlogStationID->value ();
+  cloudLogStationID_ = cloudlog_station_profile_id ();
   SelectedActivity_ = ui_->special_op_activity_button_group->checkedId();
   x2ToneSpacing_ = ui_->cbx2ToneSpacing->isChecked ();
   x4ToneSpacing_ = ui_->cbx4ToneSpacing->isChecked ();
@@ -4743,18 +4758,84 @@ void Configuration::impl::on_test_CAT_push_button_clicked ()
 
 void Configuration::impl::on_pbTestCloudlog_clicked ()
 {
-  //fprintf(stderr, "API URL: %s\n", ui_->leCloudlogApiUrl->text().toStdString().c_str());
-  cloudlog_.testApi(ui_->leCloudlogApiUrl->text(), ui_->leCloudlogApiKey->text());
+  cloudlog_.checkConnection ({ui_->leCloudlogApiUrl->text (),
+                              ui_->leCloudlogApiKey->text (),
+                              cloudlog_station_profile_id ()});
+}
+
+void Configuration::impl::handle_cloudlog_connection_check_result (Cloudlog::ConnectionCheckResult const& result)
+{
+  if (!result.stationProfiles.isEmpty ())
+    {
+      set_cloudlog_station_profiles (result.stationProfiles);
+    }
+
+  ui_->pbTestCloudlog->setStyleSheet (cloudlog_connection_check_style (result.status));
+
+  auto tooltip = result.message;
+  if (!result.detail.isEmpty ())
+    {
+      tooltip += QStringLiteral ("\n") + result.detail;
+    }
+  ui_->pbTestCloudlog->setToolTip (tooltip);
+}
+
+void Configuration::impl::set_cloudlog_station_profiles (QList<Cloudlog::StationProfile> const& profiles)
+{
+  auto const current_id = cloudlog_station_profile_id ();
+  ui_->cbCloudlogStationProfile->clear ();
+  for (auto const& profile : profiles)
+    {
+      ui_->cbCloudlogStationProfile->addItem (Cloudlog::stationProfileDisplayText (profile), profile.id);
+    }
+
+  if (current_id > 0)
+    {
+      auto const index = ui_->cbCloudlogStationProfile->findData (current_id);
+      if (index >= 0)
+        {
+          ui_->cbCloudlogStationProfile->setCurrentIndex (index);
+        }
+      else
+        {
+          ui_->cbCloudlogStationProfile->insertItem (0, QString::number (current_id), current_id);
+          ui_->cbCloudlogStationProfile->setCurrentIndex (0);
+        }
+    }
+  else if (ui_->cbCloudlogStationProfile->count () > 0)
+    {
+      ui_->cbCloudlogStationProfile->setCurrentIndex (0);
+    }
+}
+
+qint32 Configuration::impl::cloudlog_station_profile_id () const
+{
+  bool ok {false};
+  auto const current_text = ui_->cbCloudlogStationProfile->currentText ().trimmed ();
+  auto const current_index = ui_->cbCloudlogStationProfile->currentIndex ();
+  if (current_index >= 0 && ui_->cbCloudlogStationProfile->itemText (current_index).trimmed () == current_text)
+    {
+      auto const data = ui_->cbCloudlogStationProfile->itemData (current_index);
+      auto const id = data.toInt (&ok);
+      if (ok && id > 0)
+        {
+          return id;
+        }
+    }
+
+  auto const prefix = current_text.section (QStringLiteral (" - "), 0, 0).trimmed ();
+  auto const text_id = prefix.toInt (&ok);
+  return ok && text_id > 0 ? text_id : 0;
 }
 
 void Configuration::impl::on_cbCloudlog_toggled (bool checked)
 {
   ui_->api_url_label->setEnabled (checked);
   ui_->api_key_label->setEnabled (checked);
-  ui_->station_id_label->setEnabled (checked);
+  ui_->station_profile_label->setEnabled (checked);
   ui_->leCloudlogApiUrl->setEnabled (checked);
   ui_->leCloudlogApiKey->setEnabled (checked);
-  ui_->sbCloudlogStationID->setEnabled (checked);
+  ui_->cbCloudlogStationProfile->setEnabled (checked);
   ui_->pbTestCloudlog->setEnabled (checked);
   ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: none;}");
 }
