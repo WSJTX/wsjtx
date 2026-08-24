@@ -522,15 +522,17 @@ void MainWindow::on_actionSettings_triggered()
 
 void MainWindow::on_monitorButton_clicked()                  //Monitor
 {
-  if(m_monitoring or m_loopall) {
-    m_monitoring=false;
-    soundInThread.setMonitoring(false);
-    m_loopall=false;
-  } else {
-    m_monitoring=true;
-    soundInThread.setMonitoring(true);
-    m_diskData=false;
-  }
+  m_monitoring=true;
+  soundInThread.setMonitoring(true);
+  m_diskData=false;
+}
+
+void MainWindow::on_stopButton_clicked()                      //stopButton
+{
+  m_monitoring=false;
+  soundInThread.setMonitoring(m_monitoring);
+  m_loopall=false;
+  m_startAnother=false;
 }
 
 void MainWindow::on_actionLinrad_triggered()                 //Linrad palette
@@ -704,7 +706,7 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
       lab1->setStyleSheet("QLabel{background-color: #66ff66}");
       lab1->setText(" " + fname.mid(i,15) + " ");
     }
-    if(m_monitoring) on_monitorButton_clicked();
+    on_stopButton_clicked();
     m_diskData=true;
     int dbDgrd=0;
     int iret=4;
