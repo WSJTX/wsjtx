@@ -1,7 +1,8 @@
 subroutine sync8dvar(cd0,i0,ctwk,itwk,sync,ipass,lastsync,iqso,lcq,lcallsstd,lcqcand)
 
 ! Compute sync power for a complex, downsampled FT8 signal.
-  use ft8_mod1, only : csync,csynce,csyncsd,csyncsdcq,csynccq
+  use ft8_mod1, only : csync,csynce,csyncsd,csyncsdcq,csynccq, &
+       csyncsd_valid,csyncsdcq_valid
 
   complex, intent(in) :: cd0(-800:4000),ctwk(32)
   complex csync1(0:18,32),csync2(32),z1,z2,z3,z4,zt1(0:6),zt2(0:6),zt3(0:6),zt4(0:7),zt5(0:18), &
@@ -9,9 +10,10 @@ subroutine sync8dvar(cd0,i0,ctwk,itwk,sync,ipass,lastsync,iqso,lcq,lcallsstd,lcq
   real sync1(0:20)!,sync2(0:20)
   integer, intent(in) :: i0,ipass,iqso
   logical(1), intent(in) :: lcq,lcallsstd,lcqcand
-  logical(1) lastsync
+  logical(1) lastsync,lsync1_valid
 
-  sync=0.; sync1=0.; zt1=0.; zt2=0.; zt3=0.; z11=0.; z22=0.; z33=0.!; sync2=0.
+  sync=0.; sync1=0.; zt1=0.; zt2=0.; zt3=0.; z4=0.; z11=0.; z22=0.; z33=0.!; sync2=0.
+  lsync1_valid=.false.
   k=1
   do i=0,6 ! Sum over 7 Costas frequencies and three Costas arrays
     i1=i0+i*32; i2=i1+1152; i3=i1+2304 ! +36*32, +72*32
@@ -83,9 +85,15 @@ subroutine sync8dvar(cd0,i0,ctwk,itwk,sync,ipass,lastsync,iqso,lcq,lcallsstd,lcq
   endif
 
   if(.not.lastsync) then
-    if(iqso.gt.1 .and. iqso.lt.4 .and. lcallsstd) csync1=csynce; if(iqso.eq.4 .and. .not.lcq) csync1=csyncsd
+    if(iqso.gt.1 .and. iqso.lt.4 .and. lcallsstd) then
+      csync1=csynce
+      lsync1_valid=.true.
+    else if(iqso.eq.4 .and. .not.lcq .and. csyncsd_valid) then
+      csync1=csyncsd
+      lsync1_valid=.true.
+    endif
 
-    if((iqso.eq.4 .and. .not.lcq) .or. ((iqso.eq.2 .or. iqso.eq.3) .and. lcallsstd)) then
+    if(lsync1_valid) then
       zt5=0.
       do i=0,18
         csync2=csync1(i,1:32)
@@ -105,7 +113,7 @@ subroutine sync8dvar(cd0,i0,ctwk,itwk,sync,ipass,lastsync,iqso,lcq,lcallsstd,lcq
       enddo
     endif
 
-    if(iqso.eq.4 .and. lcq) then
+    if(iqso.eq.4 .and. lcq .and. csyncsdcq_valid) then
       do i=0,57
         csync2=csyncsdcq(i,1:32)
         if(itwk.eq.1) csync2=ctwk*csync2      !Tweak the frequency

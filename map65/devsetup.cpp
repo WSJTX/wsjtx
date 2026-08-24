@@ -9,6 +9,7 @@
 #include <QStringList>
 #include <QSerialPortInfo>
 #include <QRegularExpression>
+#include <QSignalBlocker>
 
 #if !defined(Q_OS_WIN)
 extern "C" {
@@ -56,6 +57,8 @@ DevSetup::DevSetup(MainWindow *parent)
   ui.setupUi(this);	//setup the dialog form
   m_restartSoundIn=false;
   m_restartSoundOut=false;
+  m_restartRequired=false;
+  m_pendingFs96000=-1;
 
   QButtonGroup *buttonGroup = new QButtonGroup(this);
   buttonGroup->addButton(ui.w3szBut);
@@ -105,8 +108,9 @@ getDev(&numDevices,
 k = 0;
 for (id = 0; id < numDevices; id++) {
 
-    if (!(96000 >= minSpeed[id] && 96000 <= maxSpeed[id]))
+    if (!(g_sampleRate >= minSpeed[id] && g_sampleRate <= maxSpeed[id]))
         continue;
+
 
 #ifdef _WIN32
     if (!QString(hostAPI_DeviceName[id].name).contains("MME"))
@@ -201,6 +205,14 @@ for (id = 0; id < numDevices; id++) {
       ptt_set_override(nullptr);
   #endif
 
+  if      (mw->m_fs96000 == 2)
+      oldSampleRate = 192000;
+  else if (mw->m_fs96000 == 1)
+      oldSampleRate = 96000;
+  else if (mw->m_fs96000 == 0)
+      oldSampleRate = 95238;
+  else oldSampleRate = 96000;
+
   ui.astroFont->setValue(mw->m_astroFont);
   ui.cbXpol->setChecked(mw->m_xpol);
   ui.rbAntennaX->setChecked(mw->m_xpolx);
@@ -212,10 +224,16 @@ for (id = 0; id < numDevices; id++) {
   ui.dPhiSpinBox->setValue(mw->m_dPhi);
   ui.fCalSpinBox->setValue(mw->m_fCal);
   ui.faddEntry->setText(QString::number(mw->m_fAdd,'f',3));
-  ui.networkRadioButton->setChecked(mw->m_network);
-  ui.soundCardRadioButton->setChecked(!mw->m_network);
-  ui.rb96000->setChecked(mw->m_fs96000);
-  ui.rb95238->setChecked(!mw->m_fs96000);
+  {
+    QSignalBlocker blockNetwork {ui.networkRadioButton};
+    QSignalBlocker blockSoundCard {ui.soundCardRadioButton};
+    ui.networkRadioButton->setChecked(mw->m_network);
+    ui.soundCardRadioButton->setChecked(!mw->m_network);
+  }
+  ui.rb192000->setChecked(mw->m_fs96000 == 2);
+  ui.rb96000->setChecked(mw->m_fs96000 == 1);
+  ui.rb95238->setChecked(mw->m_fs96000 == 0);
+  on_soundCardRadioButton_toggled(ui.soundCardRadioButton->isChecked());
   ui.rbIQXT->setChecked(mw->m_bIQxt);
   ui.rbSi570->setChecked(!mw->m_bIQxt);
   ui.mult570TxSpinBox->setEnabled(mw->m_bIQxt);
@@ -267,6 +285,20 @@ void DevSetup::accept()
   // Check to see whether SoundInThread must be restarted,
   // and save user parameters.
 
+  int newSampleRate = ui.rb192000->isChecked() ? 192000 :
+      ui.rb96000->isChecked()  ? 96000  :
+      95238;
+  int newFs96000 = ui.rb192000->isChecked() ? 2 :
+      ui.rb96000->isChecked()  ? 1  :
+      0;
+
+  m_restartRequired = oldSampleRate != newSampleRate;
+  if (m_restartRequired) {
+    m_pendingFs96000 = newFs96000;
+  } else {
+    emit sampleRateChanged(newSampleRate);
+  }
+
   if(mw->m_network!=ui.networkRadioButton->isChecked() or
      mw->m_nDevIn!=ui.comboBoxSndIn->currentIndex() or
      mw->m_paInDevice!=m_inDevList[mw->m_nDevIn] or
@@ -305,7 +337,9 @@ void DevSetup::accept()
   mw->m_fCal=ui.fCalSpinBox->value();
   mw->m_fAdd=ui.faddEntry->text().toDouble();
   mw->m_network=ui.networkRadioButton->isChecked();
-  mw->m_fs96000=ui.rb96000->isChecked();
+  if (!m_restartRequired) {
+    mw->m_fs96000 = newFs96000;
+  }
   mw->m_bIQxt=ui.rbIQXT->isChecked();
   mw->m_nDevIn=ui.comboBoxSndIn->currentIndex();
   mw->m_paInDevice=m_inDevList[mw->m_nDevIn];
@@ -325,13 +359,34 @@ void DevSetup::accept()
   mw->m_spot_to_psk_reporter = ui.pskBox->isChecked();
   mw->m_psk_reporter_tcpip = ui.pskReporterTcpIpBox->isChecked();
 
+  if (m_restartRequired) {
+      QMessageBox::information(this,
+          "Restart Required",
+          "Changing sample rate requires MAP65 to be restarted.\n"
+          "Please exit MAP65 and start it again.");
+  }
+
+  // Normal path
   QDialog::accept();
+
 }
 
 void DevSetup::on_soundCardRadioButton_toggled(bool checked)
 {
   ui.comboBoxSndIn->setEnabled(ui.soundCardRadioButton->isChecked());
-  ui.rb96000->setChecked(checked);
+  int fs96000 = ui.rb192000->isChecked() ? 2 :
+      ui.rb95238->isChecked() ? 0 :
+      1;
+  if(checked) {
+    if(fs96000 == 0) fs96000 = 1;
+    ui.rb95238->setEnabled(false);
+  }
+  else {
+    ui.rb95238->setEnabled(true);
+  }
+  ui.rb192000->setChecked(fs96000 == 2);
+  ui.rb96000->setChecked(fs96000 == 1);
+  ui.rb95238->setChecked(fs96000 == 0);
   ui.rb95238->setEnabled(!checked);
   ui.label_InputDev->setEnabled(checked);
   ui.label_Port->setEnabled(!checked);

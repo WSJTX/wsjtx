@@ -2,11 +2,11 @@
 :man source: AsciiDoc
 :man version: {VERSION}
 :man manual: WSJT-X Manual
-= wsjtx(1)
+= message_aggregator(1)
 
 == NAME
 
-message_aggregator - Reference example UDP server
+message_aggregator - Graphical reference server for the WSJT-X UDP protocol.
 
 == SYNOPSIS
 
@@ -14,29 +14,25 @@ message_aggregator - Reference example UDP server
 
 == DESCRIPTION
 
-*message_aggregator* does not serve any useful purpose other than to
- demonstrate the UDP message features of *WSJT-X*. It is a small GUI
- application that interacts with any running *WSJT-X* instances.
+*message_aggregator* is a graphical reference implementation of a server for
+the WSJT-X UDP protocol. It displays logged QSOs and WSPR decodes, and creates
+a dockable status and decode view for each connected WSJT-X instance. It also
+demonstrates requests and commands that an external application can send back
+to a WSJT-X client. Its source provides a starting point for applications that
+integrate with WSJT-X:
 
-Developers writing add on applications may find the source code of
-message_aggregator contained in the *WSJT-X* code repository
-useful. The files NetworkMessage.hpp, MessageServer.hpp,
-MessageClient.hpp and their associated implementations along with the
-application source MessageAggregator.cpp should cover all the required
-areas. All these files can be found at:
+https://github.com/WSJTX/wsjtx/tree/master/UDPExamples
 
-https://sourceforge.net/p/wsjt/wsjt/HEAD/tree/branches/wsjtx/
+The server starts in unicast mode on UDP port 2237. Enter a valid multicast
+group to use multicast, select one or more network interfaces if required, and
+configure the same group and port in each WSJT-X instance under
+*Settings -> Reporting -> UDP Server*. Multicast permits multiple servers to
+receive the same WSJT-X messages. MAC-ambiguous IPv4 multicast group addresses
+are not supported.
 
-*message_aggregator* may also be used as a multi-cast UDP server which
-allows multiple instances of *message_aggregator* to be run
-concurrently, to do this simply use a suitable multi-cast group
-address in *message_aggregator* and in *WSJT-X* in the
-"*Settings->Reporting->UDP Server*" pane e.g. 239.255.0.1 or ff03::1
-for a local scope group.
-
-Note that on some systems it may be necessary to add a static
-multi-cast route to the routing table before multi-cast traffic can be
-routed to sockets on the same host as the sender.
+When no multicast interface is selected, the server joins the loopback
+interface. Some systems may require a suitable multicast route before traffic
+can be delivered to sockets on the sending host.
 
 == AUTHOR
 
@@ -45,10 +41,10 @@ Bill Somerville, G4WJS.
 == COPYING
 
 *message_aggregator* is Copyright (C) 2015 by William Somerville, G4WJS,
-with contributions from additional authors.  *message_aggregator* is Open Source
-software, licensed under the GNU General Public License (GPLv3).
+with contributions from additional authors. *message_aggregator* is Open
+Source software, licensed under the GNU General Public License (GPLv3).
 
 This program is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 General Public License for more details.

@@ -1,4 +1,5 @@
-subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest)
+subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
+     progress_generation)
 
 ! List decoding for FT8, activated only at nfqso (Rx Freq) +/- 10 Hz and when
 ! DxCall and DxGrid are populated. Returns xdt, fbest, and msgbest.
@@ -6,6 +7,7 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest)
   use packjt77
   use ft8_a7
   use timer_module, only: timer
+  use decode_completion_module, only: write_decode_progress
   include 'ft8_params.f90'           !Set various constants
   parameter (NWAVE=NN*NSPS/NDOWN)    !Length of generated cwave = 2528
   parameter (NZZ=3200)               !Length of downsampled arrays
@@ -30,6 +32,7 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest)
   complex csymb(0:31)
   integer itone(NN)
   integer itone_best(NN)
+  integer, intent(in) :: progress_generation
   integer ipk(1)
   logical newdat
 
@@ -54,6 +57,7 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest)
   msgbest=''
   itone_best=0
   do imsg=1,NMSGS
+     call write_decode_progress(progress_generation)
      call getmsg(imsg,mycall,dxcall,dxgrid,msg)
 
 ! Source-encode the message, get itone(), and generate complex FT8 waveform.

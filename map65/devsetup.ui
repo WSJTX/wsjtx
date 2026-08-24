@@ -799,6 +799,29 @@
                    </spacer>
                   </item>
                   <item>
+                   <widget class="QRadioButton" name="rb192000">
+                    <property name="text">
+                     <string>192000 Hz</string>
+                    </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_6">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
                    <widget class="QRadioButton" name="rb96000">
                     <property name="text">
                      <string>96000 Hz</string>
@@ -809,7 +832,7 @@
                    </widget>
                   </item>
                   <item>
-                   <spacer name="horizontalSpacer_6">
+                   <spacer name="horizontalSpacer_61">
                     <property name="orientation">
                      <enum>Qt::Orientation::Horizontal</enum>
                     </property>
@@ -1714,13 +1737,6 @@
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
-        <widget class="QCheckBox" name="pskReporterTcpIpBox">
-         <property name="text">
-          <string>Use TCP/IP for PSKReporter</string>
-         </property>
-        </widget>
-       </item>
        <item row="5" column="0">
         <spacer name="verticalSpacer_7">
          <property name="orientation">
@@ -1733,6 +1749,16 @@
           </size>
          </property>
         </spacer>
+       </item>
+       <item row="4" column="0">
+        <widget class="QCheckBox" name="pskReporterTcpIpBox">
+         <property name="toolTip">
+          <string>Transport changes take effect the next time MAP65 starts.</string>
+         </property>
+         <property name="text">
+          <string>Use TCP for PSK Reporter</string>
+         </property>
+        </widget>
        </item>
        <item row="1" column="0">
         <widget class="QGroupBox" name="LiveCQ_groupBox">

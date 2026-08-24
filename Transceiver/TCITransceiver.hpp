@@ -7,12 +7,14 @@
 
 #include "TransceiverFactory.hpp"
 #include "PollingTransceiver.hpp"
+#include "TCIStream.hpp"
 #include "commons.h"
-#include "Modulator/JttyPcmFifo.hpp"
+#include "Audio/TxAudioQueue.hpp"
 
 #include <QtWebSockets/QWebSocket>
 #include <QTimer>
 #include <QEventLoop>
+#include <QVector>
 #include <mutex>
 
 typedef float REAL;
@@ -20,40 +22,15 @@ typedef float REAL;
 class QWebSocket;
 class QByteArray;
 class QString;
-//
-// TCI Interface
-//
-
-typedef struct
-{
-	quint32 receiver; //!< software receiver number
-	quint32 sampleRate; //!< sampling frequency
-	quint32 format; //!< data field format (0 - int16, 1 - int24, 2 - int32, 3 - float32, 4 - float64)
-	quint32 codec; //!< compression algorithm (not implemented), always 0
-	quint32 crc; //!< checksum
-	quint32 length; //!< data field length number of float numbers
-	quint32 type; //!< data stream type
-	quint32 reserv[9]; //!< reserved
-	float data[8192]; //!< data field
-}Data_Stream;
-
-typedef enum
-{
-    Iq_Stream = 0,
-    RxAudioStream,
-    TxAudioStream,
-    TxChrono,
-}Stream_Type;
-
 class TCITransceiver final
   : public PollingTransceiver
 {
-  Q_OBJECT;                     // for translation context
+  Q_OBJECT;
 
 public:
   static void register_transceivers (logger_type *, TransceiverFactory::Transceivers *, unsigned id1, unsigned id2);
 
-  // takes ownership of wrapped Transceiver
+  // Takes ownership of the wrapped transceiver.
   explicit TCITransceiver (logger_type * logger, std::unique_ptr<TransceiverBase> wrapped, QString const& rignr,
                                            QString const& address, bool use_for_ptt,
                                            int poll_interval, QObject * parent = nullptr);
@@ -124,13 +101,11 @@ qreal rxAtten;
 qreal txAtten;
 
 public slots:
-//  void close();
   void sendTextMessage(const QString &message);
-//  void trxChanged(quint32 trx, bool state);
   void txAudioData(quint32 len, float * data);
-  void enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId) noexcept override;
-  void clear_jtty_pcm (qint64 sessionId) noexcept override;
-//  void setAudioSampleRate(const quint32 &sr);
+  void enqueue_jtty_pcm (QByteArray const& samples, TxAudioQueueEpoch epoch,
+                         qint64 enqueueId) noexcept override;
+  void clear_jtty_pcm (TxAudioQueueEpoch epoch) noexcept override;
 
 private slots:
   void onBinaryReceived(const QByteArray &data);
@@ -163,7 +138,6 @@ protected:
   void do_ptt (bool on) override;
 
   void do_poll () override;
-//for Audio
   void do_audio (bool on) override;
   void do_tune (bool on) override;
   void do_period(double period) override;
@@ -173,9 +147,7 @@ protected:
   void do_trfrequency(double newfrequency) override {m_trfrequency = newfrequency;}
   void do_volume (qreal volume) override;
   void do_txvolume (qreal txvolume) override;
-//bounch
-  void do_modulator_start(QString jtmode, unsigned symbolsLength, double framesPerSymbol, double frequency,
-                     double toneSpacing, bool synchronize = true, bool fastmode=false, double dBSNR = 99., double TRperiod=60.0) override;
+  void do_modulator_start (TxEvidence::TxRequest const&) override;
   void do_modulator_stop(bool quick = false) override;
   
   void rx2_enable (bool on);
@@ -200,7 +172,7 @@ protected:
 
   }
 
-  float * load (qint16 sample, float * dest)
+  float * load (qint16 sample, quint32 channels, float * dest)
   
   {
     static constexpr float K1 = 0.999/0x7FFF;
@@ -208,17 +180,14 @@ protected:
     float value;
     if (tx_top_)  value = K1*static_cast<float>(sample);
     else  value = K2*static_cast<float>(sample);
-    *dest++ = value;
-    *dest++ = value;
-      
-    return dest;
+    return TciStream::write_channel_frame (value, channels, dest);
   }
   enum ModulatorState {Synchronizing, Active, Idle};
 
 private:
   MODE get_mode (bool requested = false);
   QString frequency_to_string (Frequency) const;
-  Frequency string_to_frequency (QString) const;
+  Frequency string_to_frequency (QString const&) const;
   void mysleep1 (int ms = 1);
   void mysleep2 (int ms = 1);
   void mysleep3 (int ms = 1);
@@ -241,7 +210,6 @@ private:
   bool tci_audio_;
   bool _power_;
   QWebSocket * commander_;
-  QLocale locale_;
   QTimer * tci_timer1_;
   QEventLoop * tci_loop1_;
   QTimer * tci_timer2_;
@@ -258,25 +226,24 @@ private:
   QEventLoop * tci_loop7_;
   QTimer * tci_timer8_;
   QEventLoop * tci_loop8_;
-  int nIqBytes;
   bool inConnected;
   bool tci_Ready;
   bool ESDR3;
   bool HPSDR;
+  bool stream_channels_supported_ = false;
   bool tx_top_;
   bool band_change;
   bool band_change2;
   bool other_band_change;
   QUrl url_;
   quint32 audioSampleRate;
-  FILE * wavptr_;
   QByteArray t_iqData;
   int trxA;
   int trxB;
   int cntIQ;
   bool bIQ;
 
-// CAT internal variables
+  // Rig state
   QString requested_mode_;
   QString mode_;
   QString started_mode_;
@@ -310,26 +277,26 @@ private:
   bool busy_PTT_; 
   bool busy_rx2_;  
   QHash<QString,Tci_Cmd> mapCmd_;
-  // from Detector
+  // Receive audio buffering
     void clear ();                // discard buffer contents
 
   double m_period = 15.0;
   unsigned m_downSampleFactor;
   qint32 m_samplesPerFFT;       // after any down sampling
   qint32 m_ns;
+  // m_samplesPerFFT must not exceed this post-downsampling limit; m_buffer
+  // scales it to hold one complete block at the input sample rate.
   static size_t const max_buffer_size {7 * 512};
   QScopedArrayPointer<short> m_buffer; // de-interleaved sample buffer
-  // big enough for all the
-  // samples for one increment of
-  // data (a signals worth) at
-  // the input sample rate
   unsigned m_bufferPos;
   quint32 writeAudioData (float * data, qint32 maxSize);
-  static size_t const bytesPerFrame = 2;
-  // from Modulator
-  quint16 readAudioData (float * data, qint32 maxSize, qreal txVolume);
-  quint16 readJttyAudioData (float * data, qint32 maxSize, qreal txVolume);
+  static size_t const rxChannels = 2;
+  // Transmit audio generation
+  quint16 readAudioData (float * data, qint32 maxSize, quint32 channels, qreal txVolume);
+  quint16 readJttyAudioData (float * data, qint32 maxSize, quint32 channels, qreal txVolume);
   qint16 postProcessSample (qint16 sample) const;
+  qint64 bounded_source_frames (bool tuning) const;
+  void emit_tci_playout_snapshot (bool start_event, bool force);
   bool m_quickClose = false;
 
   unsigned m_symbolsLength;
@@ -353,15 +320,22 @@ private:
   QString m_txMode;
   qint16 m_ramp;
   ModulatorState m_state;
-  JttyPcmFifo m_jttyPcmFifo;
+  TxAudioQueue m_txAudioQueue;
   QTimer * m_jttyDrainTimer;
   qint64 m_jttyDrainGuard;
+  TxEvidence::TxStartSnapshot m_txStartSnapshot;
+  qint64 m_tciBackendStartSequence;
+  qint64 m_tciSuccessfullyWrittenFrames;
+  qint64 m_tciStartMsecs;
+  qint64 m_tciLastReportMsecs;
+  bool m_tciFinalSnapshotEmitted;
 
   bool m_tuning;
   bool m_addNoise;
   bool m_bFastMode;
 
   bool m_cwLevel;
+  QVector<int> m_cwId;
   unsigned m_ic;
   unsigned m_isym0;
   int m_j0;

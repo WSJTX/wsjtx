@@ -15,8 +15,9 @@
 #include <QColor>
 #include <QToolTip>
 
+#include "WaterfallScale.hpp"
+
 #define VERT_DIVS 7	//specify grid screen divisions
-#define HORZ_DIVS 20
 
 extern bool g_single_decode;
 
@@ -50,7 +51,6 @@ public:
   int  plotWidth();
   void UpdateOverlay();
   void setDataFromDisk(bool b);
-  void setRxRange(int fMin);
   void setBinsPerPixel(int n);
   int  binsPerPixel();
   void setWaterfallAvg(int n);
@@ -71,9 +71,9 @@ public:
   bool cumulative() const {return m_bCumulative;}
   void setLinearAvg(bool b) {m_bLinearAvg = b;}
   bool linearAvg() const {return m_bLinearAvg;}
-  void setBreadth(qint32 w) {m_w = w;}
-  qint32 breadth() const {return m_w;}
-  float fSpan() const {return m_fSpan;}
+  void setBreadth(qint32 w) {m_scale.setWidth(w);}
+  qint32 breadth() const {return m_scale.width();}
+  float fSpan() const {return m_scale.spanHz();}
   void setColours(QVector<QColor> const& cl);
   void setTimestamp(int n);
   void setBars(bool b);
@@ -113,7 +113,6 @@ protected:
 
 private:
 
-  void MakeFrequencyStrs();
   int XfromFreq(float f);
   float FreqfromX(int x);
   void drawSavedWaterfall();
@@ -136,7 +135,6 @@ private:
   bool    m_bSuperHound=false;
   bool	  m_bars;
   bool    m_freq=false;
-  float   m_fSpan;
   float   m_pdB=0.0;
   float   m_vpixperdiv;
   bool	  m_useDarkStyle=false;
@@ -145,9 +143,7 @@ private:
   qint32  m_plotGain;
   qint32  m_plot2dGain;
   qint32  m_plot2dZero;
-  qint32  m_binsPerPixel;
   qint32  m_waterfallAvg;
-  qint32  m_w;
   qint32  m_Flatten;
   qint32  m_nSubMode;
   qint32  m_ia;
@@ -167,7 +163,6 @@ private:
   QPoint  m_pos;
   QSize   m_Size;
   QString m_Str;
-  QVector<QString> m_HDivText;
   QVector<float> m_swideDisplay;
   QVector<float> m_savgDisplay;
   QVector<float> m_replotRow;
@@ -181,20 +176,15 @@ private:
   bool    m_dataFromDisk;
   bool    m_bReplot;
 
-  double  m_fftBinWidth;
   double  m_dialFreq;
-  double  m_xOffset;
   double  m_TRperiod;
 
   float   m_sum[2048];
 
   qint32  m_dBStepSize;
-  qint32  m_FreqUnits;
-  qint32  m_hdivs;
   qint32  m_line;
   qint32  m_fSample;
   qint32  m_xClick;
-  qint32  m_freqPerDiv;
   qint32  m_nsps;
   qint32  m_Percent2DScreen;
   qint32  m_Percent2DScreen0;
@@ -204,14 +194,13 @@ private:
   qint32  m_rxFreq;
   qint32  m_rxFreq0=0;
   qint32  m_txFreq;
-  qint32  m_fMin;
-  qint32  m_fMax;
-  qint32  m_startFreq;
   qint32  m_tol;
   qint32  m_lastMouseX;
   qint32  m_lastPaintedX;
   qint32  m_j;
   char    m_sutc[6];
+
+  WaterfallScale m_scale;
 
 private slots:
   void leaveEvent(QEvent *event) override;

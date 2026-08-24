@@ -1,5 +1,8 @@
 #include <QtTest>
 
+#include <cmath>
+#include <limits>
+
 #include <QDateTime>
 #include <QModelIndex>
 #include <QString>
@@ -20,6 +23,8 @@ class TestFrequencyEditors
 
 private Q_SLOTS:
   void frequency_line_edit_requires_positive_frequency ();
+  void frequency_line_edit_accepts_frequency_above_signed_range ();
+  void frequency_conversion_rejects_unsigned_limit ();
   void frequency_delta_line_edit_accepts_signed_offsets ();
   void station_list_rejects_invalid_offset_variants ();
   void frequency_list_rejects_invalid_frequency_variants ();
@@ -37,6 +42,26 @@ void TestFrequencyEditors::frequency_line_edit_requires_positive_frequency ()
   editor.setText ("0.000001");
   QCOMPARE (editor.frequency (&ok), Radio::Frequency {1});
   QVERIFY (ok);
+}
+
+void TestFrequencyEditors::frequency_line_edit_accepts_frequency_above_signed_range ()
+{
+  FrequencyLineEdit editor;
+  editor.setText ("9223372036864.000000");
+
+  QVERIFY (editor.hasAcceptableInput ());
+  bool ok {false};
+  QCOMPARE (editor.frequency (&ok), Radio::Frequency {9223372036864000000ULL});
+  QVERIFY (ok);
+}
+
+void TestFrequencyEditors::frequency_conversion_rejects_unsigned_limit ()
+{
+  auto const limit = std::ldexp (1., std::numeric_limits<Radio::Frequency>::digits);
+  bool ok {true};
+
+  QCOMPARE (Radio::frequency (limit, 0, &ok), Radio::Frequency {0});
+  QVERIFY (!ok);
 }
 
 void TestFrequencyEditors::frequency_delta_line_edit_accepts_signed_offsets ()

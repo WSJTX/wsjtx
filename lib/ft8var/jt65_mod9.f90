@@ -1,5 +1,7 @@
 module jt65_mod9 
 ! stores callsign DB in memory for false decodes checking
+
+  save
   
   parameter (MAXC=200000)
 ! supporting 7-char Australian callsigns

@@ -68,37 +68,36 @@ contains
 
         ! Partition loop replacing labels 3 and 4
         do
-	   ! Move i right
+           ! Move i right
            do
               i = i + 1
-	      if (i > ir) exit  ! exit inner loop
+              if (i > ir) exit  ! exit inner loop
               if (arr(indx(i)) >= a) exit
            end do
 
-	   ! Move j left
+           ! Move j left
            do
               j = j - 1
-	      if (j < l) then
-	        exit  ! exit inner loop
-	        end if
+              if (j < l) then
+                exit  ! exit inner loop
+                end if
               if (arr(indx(j)) <= a) exit
            end do
 
            ! If j < i, partition is done
            if (j < i) exit
 
-	   ! Swap
-	   itemp = indx(i)
-	   indx(i) = indx(j)
-	   indx(j) = itemp
+           ! Swap
+           itemp = indx(i)
+           indx(i) = indx(j)
+           indx(j) = itemp
         end do
 
-	! But now j might be < l, so clamp it:
-	if (j < l) j = l
+        ! But now j might be < l, so clamp it:
+        if (j < l) j = l
 
         indx(l) = indx(j)
         indx(j) = indxt
-
 
         ! Push larger segment, process smaller first
         jstack = jstack + 2

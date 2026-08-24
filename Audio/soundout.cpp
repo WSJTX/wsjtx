@@ -12,6 +12,37 @@
 
 #include "moc_soundout.cpp"
 
+namespace
+{
+  TxEvidence::TxBackendState txBackendState (QAudio::State state) noexcept
+  {
+    switch (state)
+      {
+      case QAudio::ActiveState: return TxEvidence::TxBackendState::Active;
+      case QAudio::IdleState: return TxEvidence::TxBackendState::Idle;
+      case QAudio::SuspendedState: return TxEvidence::TxBackendState::Suspended;
+      case QAudio::StoppedState: return TxEvidence::TxBackendState::Stopped;
+#if QT_VERSION >= QT_VERSION_CHECK (5, 10, 0)
+      case QAudio::InterruptedState: return TxEvidence::TxBackendState::Interrupted;
+#endif
+      }
+    return TxEvidence::TxBackendState::Unknown;
+  }
+
+  TxEvidence::TxBackendError txBackendError (QAudio::Error error) noexcept
+  {
+    switch (error)
+      {
+      case QAudio::NoError: return TxEvidence::TxBackendError::None;
+      case QAudio::OpenError: return TxEvidence::TxBackendError::Open;
+      case QAudio::IOError: return TxEvidence::TxBackendError::Io;
+      case QAudio::UnderrunError: return TxEvidence::TxBackendError::Underrun;
+      case QAudio::FatalError: return TxEvidence::TxBackendError::Fatal;
+      }
+    return TxEvidence::TxBackendError::Unknown;
+  }
+}
+
 bool SoundOutput::checkStream () const
 {
   bool result {false};
@@ -54,6 +85,8 @@ void SoundOutput::setFormat (QAudioDeviceInfo const& device, unsigned channels, 
 
 void SoundOutput::restart (QIODevice * source)
 {
+  ++m_backendStartSequence;
+  bool failed {false};
   if (!m_device.isNull ())
     {
       QAudioFormat format (m_device.preferredFormat ());
@@ -67,10 +100,12 @@ void SoundOutput::restart (QIODevice * source)
       if (!format.isValid ())
         {
           Q_EMIT error (tr ("Requested output audio format is not valid."));
+          failed = true;
         }
       else if (!m_device.isFormatSupported (format))
         {
           Q_EMIT error (tr ("Requested output audio format is not supported on device."));
+          failed = true;
         }
       else
         {
@@ -82,10 +117,21 @@ void SoundOutput::restart (QIODevice * source)
           error_ = false;
 
           connect (m_stream.data(), &QAudioOutput::stateChanged, this, &SoundOutput::handleStateChanged);
-          connect (m_stream.data(), &QAudioOutput::notify, [this] () {checkStream ();});
+          connect (m_stream.data(), &QAudioOutput::notify, [this] () {
+              checkStream ();
+              publishRawTxPlayoutSnapshot ();
+            });
 
           //      qDebug() << "A" << m_volume << m_stream->notifyInterval();
         }
+    }
+  else
+    {
+      failed = true;
+    }
+  if (failed)
+    {
+      publishUnavailableTxPlayoutSnapshot (true, tr ("Audio output restart attempt failed."));
     }
   if (!m_stream)
     {
@@ -93,6 +139,10 @@ void SoundOutput::restart (QIODevice * source)
         {
           error_ = true;        // only signal error once
           Q_EMIT error (tr ("No audio output device configured."));
+        }
+      if (!failed)
+        {
+          publishUnavailableTxPlayoutSnapshot (true, tr ("No audio output device configured."));
         }
       return;
     }
@@ -111,6 +161,7 @@ void SoundOutput::restart (QIODevice * source)
     }
   m_stream->setCategory ("production");
   m_stream->start (source);
+  publishRawTxPlayoutSnapshot (true);
 //  LOG_DEBUG ("Selected buffer size (bytes): " << m_stream->bufferSize () << " period size: " << m_stream->periodSize ());
 }
 
@@ -120,6 +171,7 @@ void SoundOutput::suspend ()
     {
       m_stream->suspend ();
       checkStream ();
+      publishRawTxPlayoutSnapshot ();
     }
 }
 
@@ -129,6 +181,7 @@ void SoundOutput::resume ()
     {
       m_stream->resume ();
       checkStream ();
+      publishRawTxPlayoutSnapshot ();
     }
 }
 
@@ -136,8 +189,15 @@ void SoundOutput::reset ()
 {
   if (m_stream)
     {
+      auto const beforeReset = makeRawTxPlayoutSnapshot ();
       m_stream->reset ();
       checkStream ();
+      Q_EMIT rawTxPlayoutSnapshot (beforeReset);
+      publishRawTxPlayoutSnapshot ();
+    }
+  else
+    {
+      publishRawTxPlayoutSnapshot ();
     }
 }
 
@@ -145,8 +205,15 @@ void SoundOutput::stop ()
 {
   if (m_stream)
     {
+      auto const beforeStop = makeRawTxPlayoutSnapshot ();
       m_stream->reset ();
       m_stream->stop ();
+      Q_EMIT rawTxPlayoutSnapshot (beforeStop);
+      publishRawTxPlayoutSnapshot ();
+    }
+  else
+    {
+      publishRawTxPlayoutSnapshot ();
     }
 #ifdef __APPLE__
   // this code is here to help certain rigs not drop audio, however on Sequoia this causes audio to drop, so we don't do it!
@@ -163,6 +230,54 @@ qreal SoundOutput::attenuation () const
 int SoundOutput::bufferSize () const
 {
   return m_stream ? m_stream->bufferSize () : 0;
+}
+
+TxEvidence::TxRawPlayoutSnapshot SoundOutput::makeRawTxPlayoutSnapshot (bool startEvent) const
+{
+  TxEvidence::TxRawPlayoutSnapshot snapshot;
+  if (!m_stream) return snapshot;
+
+  QAudioFormat const format {m_stream->format ()};
+  qint64 const capacity {m_stream->bufferSize ()};
+  qint64 const available {m_stream->bytesFree ()};
+  snapshot.tier = TxEvidence::TxPlayoutTier::DeviceClock;
+  snapshot.backend_start_sequence = m_backendStartSequence;
+  snapshot.start_event = startEvent;
+  snapshot.available = true;
+  snapshot.state = txBackendState (m_stream->state ());
+  snapshot.error = txBackendError (m_stream->error ());
+  snapshot.available_bytes = available;
+  snapshot.buffered_bytes = capacity >= 0 && available >= 0 ? qMax<qint64> (0, capacity - available) : -1;
+  snapshot.capacity_bytes = capacity;
+  snapshot.processed_usecs = m_stream->processedUSecs ();
+  snapshot.elapsed_usecs = m_stream->elapsedUSecs ();
+  snapshot.channel_count = format.channelCount ();
+  snapshot.bytes_per_frame = format.bytesPerFrame ();
+  snapshot.sample_rate_hz = format.sampleRate ();
+  snapshot.report_interval_ms = m_stream->notifyInterval ();
+  return snapshot;
+}
+
+void SoundOutput::publishRawTxPlayoutSnapshot (bool startEvent) const
+{
+  if (!m_stream)
+    {
+      publishUnavailableTxPlayoutSnapshot (startEvent, tr ("No audio output stream is active."));
+      return;
+    }
+  auto const snapshot = makeRawTxPlayoutSnapshot (startEvent);
+  Q_EMIT rawTxPlayoutSnapshot (snapshot);
+}
+
+void SoundOutput::publishUnavailableTxPlayoutSnapshot (bool startEvent, QString const& diagnostic) const
+{
+  TxEvidence::TxRawPlayoutSnapshot snapshot;
+  snapshot.backend_start_sequence = m_backendStartSequence;
+  snapshot.start_event = startEvent;
+  snapshot.state = TxEvidence::TxBackendState::Unavailable;
+  snapshot.error = TxEvidence::TxBackendError::Open;
+  snapshot.diagnostic = diagnostic;
+  Q_EMIT rawTxPlayoutSnapshot (snapshot);
 }
 
 void SoundOutput::setAttenuation (qreal a)
@@ -220,4 +335,5 @@ void SoundOutput::handleStateChanged (QAudio::State newState)
         }
       break;
     }
+  publishRawTxPlayoutSnapshot ();
 }

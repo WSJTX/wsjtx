@@ -3,7 +3,7 @@ subroutine genft8sdvar(msg,i3,n3,msgsent,msgbits,itone)
 
 ! Encode an FT8 message, producing array itone().
   
-  use packjt77sdvar
+  use packjt77
   use ft8_mod1, only : icos7,graymap
   character msg*37,msgsent*37,c77*77
   integer*1 msgbits(77),codeword(174)
@@ -12,8 +12,16 @@ subroutine genft8sdvar(msg,i3,n3,msgsent,msgbits,itone)
 
   i3=-1
   n3=-1
-  call pack77sdvar(msg,i3,n3,c77)
-  call unpack77sdvar(c77,msgsent,unpk77_successvar)
+  call pack77(msg,i3,n3,c77,pack77_options(record_tx_hashes=.false.))
+  ! SD thresholds are calibrated for classic Type 1/2 templates only.
+  if(.not.(i3.ge.0 .and. (i3.eq.1 .or. i3.eq.2) .and. &
+       index(msg,'<').eq.0)) then
+     i3=-1
+     n3=-1
+  endif
+  if(i3.lt.0) go to 1
+  call unpack77_configured(c77,0,msgsent,unpk77_successvar, &
+       unpack77_options(record_hashes=.false.,record_recent_calls=.false.))
   read(c77,'(77i1)',err=1) msgbits
   if(unpk77_successvar) go to 2
 1 msgbits=0

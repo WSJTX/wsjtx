@@ -16,6 +16,7 @@ subroutine getcand2(ss,savg0,nts_q65,nagain,nhsym,ntx30a,ntx30b,     &
   type(candidate) :: cand(MAX_CANDIDATES)
   real ss(400,NFFT)                     !Symbol spectra
   real savg0(NFFT),savg(NFFT)           !Average spectra over whole Rx sequence
+  save savg                             !Keep this big array off the stack
   integer ipk1(1)                       !Peak index of local portion of spectrum
   logical sync_ok                       !True if sync pattern is present
   logical*1 bAlso30

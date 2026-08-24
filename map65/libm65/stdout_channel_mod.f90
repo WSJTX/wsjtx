@@ -8,7 +8,7 @@ module stdout_channel_mod
     type, bind(C) :: StdoutSharedHeader
         integer(c_int32_t) :: version
         integer(c_int32_t) :: writeIndex
-        integer(c_int32_t) :: dataSize
+        integer(c_int32_t) :: readIndex
         integer(c_int32_t) :: seq
     end type StdoutSharedHeader
 
@@ -75,6 +75,7 @@ end subroutine set_stdout_channel
     !=========================================================
 subroutine write_stdout(msg)
     use iso_c_binding
+    use sleep_msec_mod, only: sleep_msec
     implicit none
 
     !==== Dummy argument =====================================================
@@ -82,7 +83,9 @@ subroutine write_stdout(msg)
 
     !==== Local variables ====================================================
     integer(c_int32_t) :: n, i, rc
-    integer(c_int32_t) :: w, idx
+    integer(c_int32_t) :: w, idx, r, occupied, free_bytes
+    integer :: nwait
+    integer, parameter :: MAX_WAIT_ITERS = 2000  ! ~2 s at 1 ms/iter
     character(kind=c_char) :: ch
 
     if (.not. initialized) return
@@ -99,6 +102,21 @@ subroutine write_stdout(msg)
     ! Snapshot current write index (0..g_buf_size-1)
     w = hdr%writeIndex
     if (w < 0 .or. w >= g_buf_size) w = 0
+
+    ! Wait for the reader to make room rather than overwriting unread
+    ! data. One byte of the buffer is always kept empty so a full ring
+    ! can be told apart from an empty one. If the reader stalls for a
+    ! couple of seconds we give up waiting and write anyway, so a dead
+    ! or stuck reader can never hang the decoder.
+    do nwait = 1, MAX_WAIT_ITERS
+        r = hdr%readIndex
+        if (r < 0 .or. r >= g_buf_size) r = 0
+        occupied = w - r
+        if (occupied < 0) occupied = occupied + g_buf_size
+        free_bytes = g_buf_size - 1 - occupied
+        if (free_bytes >= n) exit
+        call sleep_msec(1)
+    end do
 
     ! Write bytes with wraparound, using 0-based idx and 1-based buf
     do i = 0, n - 1

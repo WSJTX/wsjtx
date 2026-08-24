@@ -20,7 +20,6 @@ module wideband_sync
       logical :: birdie
    end type sync_dat
 
-   integer, parameter :: NFFT = 32768
    integer, parameter :: MAX_CANDIDATES = 50
    real(real32), parameter :: SNR1_THRESHOLD = 4.5
    type(sync_dat), allocatable :: sync(:)  !NFFT
@@ -30,15 +29,16 @@ contains
 
    subroutine get_candidates(ss, savg, xpol, jz, nfa, nfb, nts_jt65, nts_q65, cand, ncand)
       use iso_c_binding
-      use debug_log
+      use debug_log, only: dbg, itoa, rtoa
       use indexx_mod, only: indexx
       use iso_fortran_env, only: real64
+      use npar_ptrs_mod, only: nrate_active, nfft_active
       
       implicit none
 
       !==== Dummy arguments =====================================================
-      real,    intent(in)    :: ss(4,322,NFFT)
-      real,    intent(in)    :: savg(4,NFFT)
+      real,    intent(in)    :: ss(4,322,nfft_active)
+      real,    intent(in)    :: savg(4,nfft_active)
       logical, intent(in)    :: xpol
       integer, intent(in)    :: jz, nfa, nfb
       integer, intent(in)    :: nts_jt65, nts_q65
@@ -63,12 +63,13 @@ contains
       call wb_sync(ss, savg, xpol, jz, nfa, nfb)          !Output to sync() array
 
       tstep = 2048.0/11025.0        !0.185760 s: 0.5*tsym_jt65, 0.3096*tsym_q65
-      df3 = 96000.0/NFFT
+      df3 = real(nrate_active)/real(nfft_active)
       ia = nint(1000*nfa/df3) + 1
       ib = nint(1000*nfb/df3) + 1
       if (ia .lt. 1) ia = 1
-      if (ib .gt. NFFT - 1) ib = NFFT - 1
+      if (ib .gt. nfft_active - 1) ib = nfft_active - 1
       iz = ib - ia + 1
+                  
       allocate (indx(iz))
 
       ! w3sz this if block should not be necessary but it is
@@ -83,7 +84,7 @@ contains
       n_top = indx(iz) + ia - 1
       snr_top = sync(n_top)%ccfmax
       flip_top = sync(n_top)%iflip
-
+            
       k = 0
       do i = 1, MAX_PEAKS
          if ((iz + 1 - i) .lt. 1) cycle !w3sz debug
@@ -115,6 +116,7 @@ contains
          if (pmax .gt. 5.0) cycle
          skip = .false.
          do m = 1, k                              !Skip false syncs within signal bw
+            if (cand(m)%iflip .ne. nint(flip)) cycle   !only dedupe within the same type
             diffhz = 1000.0*(f0 - cand(m)%f)
             bw = nts_q65*110.0
             if (cand(m)%iflip .ne. 0) bw = nts_jt65*178.0
@@ -128,12 +130,13 @@ contains
          cand(k)%pol = sync(n)%pol
          cand(k)%ipol = sync(n)%ipol
          cand(k)%iflip = nint(flip)
-         cand(k)%indx = n
+         cand(k)%indx = n            
+         
 !     write(50,3050) i,k,m,f0+32.0,diffhz,bw,snr1,db(snr1)
 !3050 format(3i5,f8.3,2f8.0,2f8.2)
          if (k .ge. MAX_CANDIDATES) exit
       enddo
-      ncand = k      
+      ncand = k
       return
    end subroutine get_candidates
 
@@ -145,20 +148,21 @@ contains
       use trimlist_mod
       use pctile_mod
       use polfit_mod
+      use npar_ptrs_mod, only: nrate_active, nfft_active
       implicit none
 
       !==== Dummy arguments =====================================================
-      real,    intent(in)    :: ss(4,322,NFFT)
-      real,    intent(in)    :: savg(4,NFFT)
+      real,    intent(in)    :: ss(4,322,nfft_active)
+      real,    intent(in)    :: savg(4,nfft_active)
       logical, intent(in)    :: xpol
       integer, intent(in)    :: jz, nfa, nfb
 
       integer, parameter :: LAGMAX = 30
       real(c_float) :: savg_med(4)
       real ccf4(4), ccf4best(4), a(3)
-      real base, bw, ccf, ccfmax, df3, fac, flip, poldeg, spk, syncmin, tstep
-      integer i, i0, ia, ib, ipolbest, j, ja, jb, k, lag, lagbest
-      integer nbw, nguard, npol, ipol
+      real base, ccf, ccfmax, df3, fac, flip, poldeg, tstep
+      integer i, ia, ib, ipolbest, j, k, lag, lagbest
+      integer npol, ipol
       logical first
       integer isync(22)
       integer jsync0(63), jsync1(63)
@@ -195,11 +199,11 @@ contains
          first = .false.
       endif
 
-      df3 = 96000.0/NFFT
+      df3 = real(nrate_active)/real(nfft_active)
       ia = nint(1000*nfa/df3) + 1          !Flat frequency range for WSE converters
       ib = nint(1000*nfb/df3) + 1
       if (ia .lt. 1) ia = 1
-      if (ib .gt. NFFT - 1) ib = NFFT - 1
+      if (ib .gt. nfft_active - 1) ib = nfft_active - 1
       npol = 1
       if (xpol) npol = 4
 
@@ -304,25 +308,20 @@ contains
       call pctile(sync(ia:ib)%ccfmax, ib - ia + 1, 50, base)
       sync(ia:ib)%ccfmax = sync(ia:ib)%ccfmax/base
 
-      bw = 65*4*1.66666667                        !Q65-60C bandwidth
-      nbw = int(bw/df3 + 1)                            !Number of bins to blank
-      syncmin = 2.0
-      nguard = 10
-      do i = ia, ib
-         if (sync(i)%ccfmax .lt. syncmin) cycle
-         if ((i .lt. 1) .or. (i .gt. (NFFT - nbw))) cycle !w3sz debug
-         spk = maxval(sync(i:i + nbw)%ccfmax)
-         ip = maxloc(sync(i:i + nbw)%ccfmax)
-         i0 = ip(1) + i - 1
-         ja = min(i, i0 - nguard)
-         jb = i0 + nbw + nguard
-         if (ja .lt. 1) cycle !ja = 1  !w3sz debug
-         if (jb .lt. 1) cycle !jb = 1  !w3sz debug
-         if (ja .gt. NFFT) cycle !ja = NFFT  !w3sz debug
-         if (jb .gt. NFFT) cycle !jb = NFFT  !w3sz debug
-         sync(ja:jb)%ccfmax = 0.
-         sync(i0)%ccfmax = spk
-      enddo
+      ! A local-peak "collapse to single survivor" pass used to run here,
+      ! blanking a wide (~450 Hz) same-type swath around whatever bin its
+      ! own forward-only search happened to land on. Because that search
+      ! and blanking radius were not centered on the true global peak, it
+      ! could -- and, for closely-spaced real Q65 signals, did -- wipe out
+      ! a much stronger genuine peak in favor of a weaker one found earlier
+      ! in the frequency sweep, corrupting the candidate frequency reported
+      ! for that signal (confirmed via w3sz debug logging: a real Q65
+      ! signal's candidate frequency was off by ~150-200 Hz from its true
+      ! peak whenever this pass ran, and exactly correct with it removed).
+      ! get_candidates() below already does its own correct, strength-
+      ! ordered, same-type-only deduplication (skip a candidate within its
+      ! own signal bandwidth of an already-accepted stronger one), which
+      ! does not have this failure mode, so this pass is not needed.
 
 !  do i=ia,ib
 !     write(15,3015) 0.001*(i-1)*df3+32.0,sync(i)%ccfmax,sync(i)%xdt,  &
@@ -333,10 +332,10 @@ contains
       return
    end subroutine wb_sync
 
-   subroutine init_wideband_sync(n)
+   subroutine init_wideband_sync()
+      use npar_ptrs_mod, only: nfft_active
       implicit none
-      integer, intent(in) :: n
-      if (.not. allocated(sync)) allocate (sync(n))
+      if (.not. allocated(sync)) allocate (sync(nfft_active))
    end subroutine init_wideband_sync
 
 end module wideband_sync

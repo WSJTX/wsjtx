@@ -1,5 +1,7 @@
 module jt65_mod
 
+  save
+
   integer param(0:9)
   integer mrs(63)
   integer mrs2(63)

@@ -3,10 +3,12 @@
 #include <stdexcept>
 
 #include <QColor>
+#include <QDir>
 #include <QFile>
 #include <QString>
 #include <QTemporaryFile>
 #include <QTextStream>
+#include <QUuid>
 
 #include "WFPalette.hpp"
 
@@ -98,11 +100,9 @@ private Q_SLOTS:
 
   void constructor_rejects_missing_file ()
   {
-    QTemporaryFile file;
-    QVERIFY (file.open ());
-    auto const file_name = file.fileName ();
-    file.close ();
-    QVERIFY (QFile::remove (file_name));
+    auto const file_name = QDir::temp ().absoluteFilePath (
+      QUuid::createUuid ().toString (QUuid::WithoutBraces) + ".pal");
+    QVERIFY (!QFile::exists (file_name));
 
     QVERIFY_EXCEPTION_THROWN (WFPalette {file_name}, std::runtime_error);
   }

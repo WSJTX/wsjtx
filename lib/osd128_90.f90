@@ -110,7 +110,8 @@ subroutine osd128_90(llr,apmask,ndeep,message77,cw,nhardmin,dmin)
   ntotal=0
   nrejected=0
 
-  if(ndeep.eq.0) goto 998  ! norder=0
+  nord=0
+  if(ndeep.le.0) goto 998  ! norder=0
   if(ndeep.gt.5) ndeep=5
   if( ndeep.eq. 1) then
      nord=1

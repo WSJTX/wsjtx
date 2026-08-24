@@ -13,6 +13,7 @@ program ft4sim
   complex c(0:NMAX-1)
   real wave(NMAX)
   integer itone(NN)
+  integer pack_status
   integer*1 msgbits(77)
   integer*2 iwave(NMAX)                  !Generated full-length waveform
   integer icos4(4)
@@ -54,11 +55,16 @@ program ft4sim
   if(snrdb.gt.90.0) sig=1.0
 
   ! Source-encode, then get itone()
-  i3=-1
-  n3=-1
-  call pack77(msg37,i3,n3,c77)
-  read(c77,'(77i1)') msgbits
   call genft4(msg37,0,msgsent37,msgbits,itone)
+  if(trim(msgsent37).eq.'*** bad message ***') then
+     print*,'Cannot encode message: ',trim(msg37)
+     stop 1
+  endif
+  call pack77(msgsent37,i3,n3,c77,status=pack_status)
+  if(pack_status.ne.PACK77_STATUS_ENCODED) then
+     print*,'Cannot encode message: ',trim(msg37)
+     stop 1
+  endif
   write(*,*)  
   write(*,'(a9,a37,3x,a7,i1,a1,i1)') 'Message: ',msgsent37,'i3.n3: ',i3,'.',n3
   write(*,1000) f0,xdt,txt,snrdb
@@ -115,7 +121,7 @@ program ft4sim
      h=default_header(12000,NMAX)
      write(fname,1102) ifile
 1102 format('000000_',i6.6,'.wav')
-     open(10,file=fname,status='unknown',access='stream')
+     open(10,file=fname,status='replace',access='stream')
      write(10) h,iwave                !Save to *.wav file
      close(10)
      write(*,1110) ifile,xdt,f0,snrdb,fname

@@ -23,6 +23,11 @@ clicking the corresponding downward-pointing button. Your on-the-air
 frequency (normally that of your lowest tone) is the sum of dial
 frequency and audio Tx frequency.
 
+IMPORTANT: The operator is responsible for ensuring that the complete occupied
+spectrum of each transmission remains within applicable frequency allocations
+and license conditions, and follows local band-plan conventions. _WSJT-X_ does
+not enforce jurisdiction-specific operating limits.
+
 * Check the box *Hold Tx Freq* to ensure that the specified Tx
 frequency is not changed automatically when you double-click on
 decoded text or a signal in the waterfall.

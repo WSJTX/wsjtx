@@ -1,34 +1,26 @@
-subroutine ft8_downsamplevar(newdat1,f0,nqso,c0,c2,c3,lhighsens,lsubtracted,npos,freqsub)
+subroutine ft8_downsamplevar(residual,cxx,newdat1,f0,nqso,c0,c2,c3,lhighsens)
 
 ! Downconvert to complex data sampled at 200 Hz ==> 32 samples/symbol
-  use ft8_mod1, only : dd8,windowc1,facc1
+  use ft8_mod1, only : windowc1,facc1
   parameter (NFFT1=192000,NFFT2=3200)      !192000/60 = 3200
   
   logical newdat1
   complex, intent(out) :: c0(-800:4000),c2(-800:4000),c3(-800:4000)
-  complex cx(0:96000),cxx(0:96000),c1(0:3199) ! 0:NFFT1/2
+  real, intent(in) :: residual(180000)
+  complex, intent(inout) :: cxx(0:96000)
+  complex cx(0:96000),c1(0:3199) ! 0:NFFT1/2
   real x(NFFT1)
   real, intent(in) :: f0
   integer, intent(in) :: nqso
-  real freqsub(200)
   logical(1), intent(in) :: lhighsens
-  logical(1) lsubtracted,ldofft
   equivalence (x,cx)
-  save cxx
 
-  ldofft=.false.
-  if(lsubtracted) then
-    do i=1,npos
-      if(abs(f0-freqsub(i)).lt.50.) then; ldofft=.true.; lsubtracted=.false.; exit; endif
-    enddo
-  endif
-
-  if(newdat1 .or. ldofft) then
-! Data in dd have changed, recompute the long FFT
-     x(1:180000)=dd8
+  if(newdat1) then
+! Residual has changed, recompute the long FFT
+     x(1:180000)=residual
      x(180001:NFFT1)=0.                       !Zero-pad the x array
      call four2avar(cx,NFFT1,1,-1,0)             !r2c FFT to freq domain
-     newdat1=.false.; ldofft=.false.; npos=0
+     newdat1=.false.
      cxx=cx
   endif
 

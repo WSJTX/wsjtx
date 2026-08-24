@@ -30,6 +30,7 @@ public:
 
   Q_SIGNAL void framesWritten (qint64) const;
   Q_SLOT void setBlockSize (unsigned);
+  Q_SLOT void flushBufferedFrames (qint64 frameLimit);
 
 protected:
   qint64 readData (char * /* data */, qint64 /* maxSize */) override
@@ -41,6 +42,7 @@ protected:
 
 private:
   void clear ();		// discard buffer contents
+  void resetPeriodBuffer ();
 
   unsigned m_frameRate;
   double   m_period;

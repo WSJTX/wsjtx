@@ -1,11 +1,18 @@
-subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothread,ncandthin,ndtcenter)
+subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass, &
+     lqsothread,ncandthin,ndtcenter,progress_generation)
 
-  use ft8_mod1, only : dd8,windowx,facx,icos7,lagcc,lagccbail,nfawide,nfbwide
+  use ft8_mod1, only : windowx,facx,icos7,lagcc,lagccbail,nfawide,nfbwide
+  use decode_completion_module, only : write_decode_progress
+  real, intent(in) :: residual(180000)
   include 'ft8_params.f90'
   complex cx(0:NH1)
-  real s(NH1,NHSYM),x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
+  real, save :: s(NH1,NHSYM)
+  !$omp threadprivate(s)
+  real x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
+  real candidate_sync(450)
   integer jpeak(NH1),indx(NH1),ii(1)
-  integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter
+  integer, parameter :: max_sync_stencil=16
+  integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter,progress_generation
   logical(1) syncq(NH1,jzb:jzt),redcq(NH1),lcq,lcq2,lpass1,lpass2
   logical(1), intent(in) :: lqsothread
   equivalence (x,cx)
@@ -14,22 +21,26 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
   tstep=0.04 ! NSTEP/12000.0                         
   df=3.125 ! 12000.0/NFFT1 , Hz
   syncq=.false.; redcq=.false.; candidate(4,:)=0.
+  ncand=0
   rcandthin=ncandthin/100.;
   dtcenter=ndtcenter/100.
+
+  if(nfa.gt.nfb .or. nfawide.gt.nfbwide) return
 
   if(ipass.eq.1 .or. ipass.eq.4 .or. ipass.eq.7) then
     do j=1,NHSYM
       ia=(j-1)*NSTEP + 1
       ib=ia+NSPS-1
       x(1:759)=0.
-      if(j.ne.1) then; x(760:960)=dd8(ia-201:ia-1)*windowx(200:0:-1); else; x(760:960)=0.; endif
-      x(961:2880)=facx*dd8(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
-      if(j.ne.NHSYM) then; x(2881:3081)=dd8(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
+      if(j.ne.1) then; x(760:960)=residual(ia-201:ia-1)*windowx(200:0:-1); else; x(760:960)=0.; endif
+      x(961:2880)=facx*residual(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
+      if(j.ne.NHSYM) then; x(2881:3081)=residual(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
       x(3082:)=0.
       call four2avar(cx,NFFT1,1,-1,0)              !r2c FFT
       do i=1,NH1
         s(i,j)=SQRT(real(cx(i))**2 + aimag(cx(i))**2)
       enddo
+      if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
   if(ipass.eq.2 .or. ipass.eq.5 .or. ipass.eq.8) then
@@ -37,14 +48,15 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
       ia=(j-1)*NSTEP + 1
       ib=ia+NSPS-1
       x(1:759)=0.
-      if(j.ne.1) then; x(760:960)=dd8(ia-201:ia-1)*windowx(200:0:-1); else; x(760:960)=0.; endif
-      x(961:2880)=facx*dd8(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
-      if(j.ne.NHSYM) then; x(2881:3081)=dd8(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
+      if(j.ne.1) then; x(760:960)=residual(ia-201:ia-1)*windowx(200:0:-1); else; x(760:960)=0.; endif
+      x(961:2880)=facx*residual(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
+      if(j.ne.NHSYM) then; x(2881:3081)=residual(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
       x(3082:)=0.
       call four2avar(cx,NFFT1,1,-1,0)              !r2c FFT
       do i=1,NH1
         s(i,j)=real(cx(i))**2 + aimag(cx(i))**2
       enddo
+      if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
   if(ipass.eq.3 .or. ipass.eq.6 .or. ipass.eq.9) then
@@ -52,18 +64,25 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
       ia=(j-1)*NSTEP + 1
       ib=ia+NSPS-1
       x(1:759)=0.
-      if(j.ne.1) then; x(760:960)=dd8(ia-201:ia-1)*windowx(200:0:-1); else; x(760:960)=0.; endif
-      x(961:2880)=facx*dd8(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
-      if(j.ne.NHSYM) then; x(2881:3081)=dd8(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
+      if(j.ne.1) then; x(760:960)=residual(ia-201:ia-1)*windowx(200:0:-1); else; x(760:960)=0.; endif
+      x(961:2880)=facx*residual(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
+      if(j.ne.NHSYM) then; x(2881:3081)=residual(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
       x(3082:)=0.
       call four2avar(cx,NFFT1,1,-1,0)              !r2c FFT
       do i=1,NH1
         s(i,j)=abs(real(cx(i))) + abs(aimag(cx(i)))
       enddo
+      if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
 
-  ia=max(1,nint(nfa/df)); ib=max(1,nint(nfb/df)); iaw=max(1,nint(nfawide/df)); ibw=max(1,nint(nfbwide/df))
+  ia=max(1,nint(nfa/df))
+  ib=min(NH1-max_sync_stencil,nint(nfb/df))
+  iaw=max(1,nint(nfawide/df))
+  ibw=min(NH1-max_sync_stencil,nint(nfbwide/df))
+  ia=max(ia,iaw)
+  ib=min(ib,ibw)
+  if(ia.gt.ib .or. iaw.gt.ibw) return
   nssy=4 ! NSPS/NSTEP   ! # steps per symbol
   nssy36=144 ! nssy*36
   nssy72=288 ! nssy*72
@@ -74,7 +93,7 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
     nfos6=12 ! nfos*6
     do j=jzb,jzt
       do i=iaw,ibw
-        ta=0.; tb=0.; tc=0.
+        ta=0.; tb=0.; tc=0.; tall=0.
         do n=0,6
           k=j+jstrt+nssy*n
           if(k.gt.0) then
@@ -112,10 +131,11 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
         endif
         sync2d(i,j)=max(sync_abc,sync_bc); if(lcq) syncq(i,j)=.true.
       enddo
+      if(mod(j-jzb+1,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   else
 !    nfos6=15 ! 16i spec bw -1
-    nfos6=16
+    nfos6=max_sync_stencil
     do j=jzb,jzt
       do i=iaw,ibw
         ta=0.; tb=0.; tc=0.; tcq=0.; t0a=0.; t0b=0.; t0c=0.; t0cq=0.
@@ -151,6 +171,7 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
         sync2d(i,j)=max(syncf,syncs)
         if(syncf.gt.syncs) then; if(lcq) syncq(i,j)=.true.; else; if(lcq2) syncq(i,j)=.true.; endif
       enddo
+      if(mod(j-jzb+1,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
 
@@ -226,10 +247,11 @@ subroutine sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,lqsothre
 
 ! Sort by sync
 !  call indexx(candidate0(3,1:ncand),ncand,indx)
-  if(rcandthin.gt.0.99) then; call indexx(candidate0(3,1:ncand),ncand,indx)
+  if(rcandthin.gt.0.99) then; candidate_sync(1:ncand)=candidate0(3,1:ncand)
 ! sort by sync value with DT weight
-  else; call indexx(candidate0(5,1:ncand),ncand,indx)
+  else; candidate_sync(1:ncand)=candidate0(5,1:ncand)
   endif
+  call indexx(candidate_sync,ncand,indx)
 ! Sort by frequency 
 !  call indexx(candidate0(1,1:ncand),ncand,indx)
 

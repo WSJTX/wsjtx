@@ -52,6 +52,8 @@ QString HelpText::keyboardShortcuts()
   <tr><td><b>Ctrl+Shift+R  </b></td><td>Refresh Active Stations window</td></tr>
   <tr><td><b>Alt+S    </b></td><td>Stop monitoring</td></tr>
   <tr><td><b>Alt+T    </b></td><td>Toggle Tune status</td></tr>
+  <tr><td><b>Ctrl+X       </b></td><td>Open next file in directory</td></tr>
+  <tr><td><b>Alt+x </b></td><td>Decode all remaining files in directory</td></tr>
   <tr><td><b>Alt+Z    </b></td><td>Clear hung decoder status</td></tr>
 
 </table>)");
@@ -126,7 +128,8 @@ QString HelpText::specialMouseCommands()
   <tr>
     <td align="right">Enable Tx Button:</td>
     <td><b>Click</b> to toggle Auto-Tx mode On/Off.<br/>
-        <b>Right-click</b> to toggle Wait & Pounce On/Off.
+        <b>Right-click</b> to toggle Wait & Pounce On/Off after selecting<br/>
+        any CQ response mode other than CQ: None.
     </td>
   </tr>
   <tr>

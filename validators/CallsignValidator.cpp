@@ -6,6 +6,17 @@ CallsignValidator::CallsignValidator (QObject * parent, bool allow_compound)
 {
 }
 
+QString CallsignValidator::normalizeStoredInput (QString input, int max_length,
+                                                 bool allow_compound)
+{
+  input = input.trimmed ();
+  input.truncate (max_length);
+  CallsignValidator validator {nullptr, allow_compound};
+  auto pos = input.size ();
+  if (Invalid == validator.validate (input, pos)) input.clear ();
+  return input;
+}
+
 auto CallsignValidator::validate (QString& input, int& pos) const -> State
 {
   input = input.toUpper ();

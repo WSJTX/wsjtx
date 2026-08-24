@@ -28,12 +28,16 @@ module streaming_control
   integer, parameter, public :: CTRL_CONFIGURE = 1
   integer, parameter, public :: CTRL_HALT      = 2
   integer, parameter, public :: CTRL_PARSE_ERR = 3
+  ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
+  integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
+  integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
 
   type, public :: configure_fields
      ! Each "*_set" flag indicates whether the JSON contained that key.
      ! Callers apply only the fields that were set so partial updates work.
      logical                :: mode_set     = .false.
      integer                :: mode         = 0
+     logical                :: mode_invalid = .false.
      logical                :: depth_set    = .false.
      integer                :: depth        = 0
      logical                :: rxfreq_set   = .false.
@@ -389,10 +393,10 @@ contains
 
     character(len=64)  :: t_value
     character(len=128) :: str_val
-    integer            :: int_val
+    integer            :: int_val, mode_value_start, mode_buffer_length
     real(8)            :: real_val
     logical            :: lval
-    logical            :: ok, proceed
+    logical            :: ok, proceed, mode_present
     integer            :: hh, mm, ss, yr, mo, dy, enc   ! Phase 8 ISO/encode temps
     logical            :: vok                           ! Phase 8 value-parse ok
 
@@ -427,12 +431,20 @@ contains
           if (int_val .ge. 0) then
              cfg%mode_set = .true.
              cfg%mode     = int_val
+          else
+             cfg%mode_invalid = .true.
           end if
        else
           call get_int_(buf, '"mode"', int_val, ok)
-          if (ok) then
+          if (ok .and. valid_mode_int_(int_val)) then
              cfg%mode_set = .true.
              cfg%mode     = int_val
+          else if (ok) then
+             cfg%mode_invalid = .true.
+          else
+             call find_key_(buf, '"mode"', mode_value_start,                 &
+                  mode_buffer_length, mode_present)
+             cfg%mode_invalid = mode_present
           end if
        end if
     end if
@@ -674,7 +686,8 @@ contains
          .false., .true., terr, proceed)
     if (proceed) then
        call get_int_(buf, '"npts_c0_array"', int_val, ok)
-       if (ok) then
+       if (ok .and. int_val .ge. NPTS_C0_ARRAY_MIN .and.                   &
+            int_val .le. NPTS_C0_ARRAY_MAX) then
           cfg%npts_c0_array_set = .true.
           cfg%npts_c0_array     = int_val
        end if
@@ -1294,6 +1307,18 @@ contains
     end select
   end function mode_string_to_int
 
+  pure function valid_mode_int_(mode_int) result(valid)
+    integer, intent(in) :: mode_int
+    logical             :: valid
+
+    select case (mode_int)
+    case (4, 5, 8, 9, 65, 66, 74, 144, 240, 241, 242)
+       valid = .true.
+    case default
+       valid = .false.
+    end select
+  end function valid_mode_int_
+
   ! ===== internals ======================================================
 
   ! Find a string value in a flat JSON: looks for `key:"value"`, returns
@@ -1309,6 +1334,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     if (buf(vstart:vstart) .ne. '"') return
     vstart = vstart + 1
     vend = index(buf(vstart:blen), '"')
@@ -1331,6 +1357,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     if (buf(vstart:vstart) .eq. '"') return  ! string, not int
     vend = vstart
     do while (vend .le. blen)
@@ -1356,6 +1383,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     if (buf(vstart:vstart) .eq. '"') return
     vend = vstart
     do while (vend .le. blen)
@@ -1385,6 +1413,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     ch = buf(vstart:vstart)
     if (ch .eq. 't') then
        val = .true.;  ok = .true.
@@ -1642,21 +1671,24 @@ contains
        start = kpos + 1              ! next search resumes after this match
        ! preceding non-space char must be '{' or ',' (a structural key position)
        p = kpos - 1
-       do while (p .ge. 1 .and. buf(p:p) .eq. ' ')
+       do while (p .ge. 1)
+          if (buf(p:p) .ne. ' ') exit
           p = p - 1
        end do
        if (p .lt. 1) cycle
        if (buf(p:p) .ne. '{' .and. buf(p:p) .ne. ',') cycle
        ! following non-space char must be ':'
        p = kpos + klen
-       do while (p .le. blen .and. buf(p:p) .eq. ' ')
+       do while (p .le. blen)
+          if (buf(p:p) .ne. ' ') exit
           p = p + 1
        end do
        if (p .gt. blen) cycle
        if (buf(p:p) .ne. ':') cycle
        ! skip ':' and following spaces -> first value char
        p = p + 1
-       do while (p .le. blen .and. buf(p:p) .eq. ' ')
+       do while (p .le. blen)
+          if (buf(p:p) .ne. ' ') exit
           p = p + 1
        end do
        vstart = p

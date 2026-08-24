@@ -27,6 +27,32 @@
 
 namespace
 {
+  class QNetworkAccessManagerTransport final
+    : public QObject
+    , public WSPRNet::Transport
+  {
+  public:
+    explicit QNetworkAccessManagerTransport (QObject *parent = nullptr)
+      : QObject {parent}
+      , network_manager_ {new QNetworkAccessManager {this}}
+    {
+    }
+
+    QNetworkReply *post (QNetworkRequest const& request, QByteArray const& body) override
+    {
+#if QT_VERSION < QT_VERSION_CHECK (5, 15, 0)
+      if (QNetworkAccessManager::Accessible != network_manager_->networkAccessible ()) {
+        // try and recover network access for QNAM
+        network_manager_->setNetworkAccessible (QNetworkAccessManager::Accessible);
+      }
+#endif
+      return network_manager_->post (request, body);
+    }
+
+  private:
+    QNetworkAccessManager * network_manager_;
+  };
+
   char const * const wsprNetUrl = "http://wsprnet.org/post/";
   char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/";
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
@@ -95,9 +121,16 @@ with app.test_request_context ():
 };
 
 WSPRNet::WSPRNet(QObject *parent)
+  : WSPRNet {nullptr, RetryPolicy {}, false, parent}
+{
+}
+
+WSPRNet::WSPRNet (Transport *transport, RetryPolicy retry_policy,
+                  bool take_transport_ownership, QObject *parent)
   : QObject {parent}
-  , network_manager_ {new QNetworkAccessManager(this)}
-  , retry_policy_ {}
+  , transport_ {transport ? transport : new QNetworkAccessManagerTransport {this}}
+  , owns_transport_ {transport && take_transport_ownership}
+  , retry_policy_ {retry_policy}
   , TR_period_ {0.F}
   , uploads_started_ {0}
   , next_file_batch_id_ {1}
@@ -108,23 +141,12 @@ WSPRNet::WSPRNet(QObject *parent)
   connect (&upload_timer_, &QTimer::timeout, this, &WSPRNet::work);
 }
 
-WSPRNet::WSPRNet (QNetworkAccessManager *network_manager, RetryPolicy retry_policy,
-                  bool take_network_manager_ownership, QObject *parent)
-  : QObject {parent}
-  , network_manager_ {network_manager ? network_manager : new QNetworkAccessManager {this}}
-  , retry_policy_ {retry_policy}
-  , TR_period_ {0.F}
-  , uploads_started_ {0}
-  , next_file_batch_id_ {1}
-  , next_logical_upload_id_ {1}
-  , upload_session_active_ {false}
+WSPRNet::~WSPRNet ()
 {
-  if (take_network_manager_ownership && network_manager)
+  if (owns_transport_)
     {
-      network_manager_->setParent (this);
+      delete transport_;
     }
-  upload_timer_.setSingleShot (true);
-  connect (&upload_timer_, &QTimer::timeout, this, &WSPRNet::work);
 }
 
 void WSPRNet::upload (QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
@@ -454,12 +476,6 @@ void WSPRNet::enforcePendingLimit ()
 
 void WSPRNet::sendUpload (PendingUpload upload)
 {
-#if QT_VERSION < QT_VERSION_CHECK (5, 15, 0)
-  if (QNetworkAccessManager::Accessible != network_manager_->networkAccessible ()) {
-    // try and recover network access for QNAM
-    network_manager_->setNetworkAccessible (QNetworkAccessManager::Accessible);
-  }
-#endif
   QNetworkRequest request (QUrl {upload.url});
   request.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
   if (!upload.attempts)
@@ -467,7 +483,7 @@ void WSPRNet::sendUpload (PendingUpload upload)
       ++uploads_started_;
     }
   ++upload.attempts;
-  QNetworkReply *reply = network_manager_->post (request, upload.query.query (QUrl::FullyEncoded).toUtf8 ());
+  QNetworkReply *reply = transport_->post (request, upload.query.query (QUrl::FullyEncoded).toUtf8 ());
   connect (reply, &QNetworkReply::finished, this, [this, reply]() { networkReply (reply); });
   outstanding_requests_.insert (reply, upload);
   Q_EMIT uploadStatus (QString {"Uploading Spot %1/%2"}.arg (uploads_started_).arg (uploadsToSend ()));

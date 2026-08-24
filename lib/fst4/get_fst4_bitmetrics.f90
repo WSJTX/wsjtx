@@ -15,7 +15,7 @@ subroutine get_fst4_bitmetrics(cd,nss,bitmetrics,s4,nsync_qual,badsync)
    logical first
    logical badsync
    real bitmetrics(2*NN,4)
-   real s2(0:65535)
+   real, save :: s2(0:65535)
    real s4(0:3,NN)
    data isyncword1/0,1,3,2,1,0,2,3/
    data isyncword2/2,3,1,0,3,2,0,1/

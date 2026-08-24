@@ -51,6 +51,7 @@ private:
 
 private slots:
   void on_monitorButton_clicked();
+  void on_stopButton_clicked();
   void on_actionExit_triggered();
   void on_actionAbout_triggered();
   void on_actionLinrad_triggered();
@@ -202,7 +203,6 @@ private:
   bool isGrid4(QString g);
   void CreateLiveCQ(QStringList cqliveText);           //liveCQ
   void sendLiveCQData(QList<QStringList> decodeList);  //liveCQ
-  bool testCall(QString callsign); //liveCQ
 };
 
 extern void getfile(QString fname, bool xpol, int idInt);

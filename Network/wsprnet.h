@@ -12,8 +12,8 @@
 #include <QByteArray>
 #include <QSet>
 
-class QNetworkAccessManager;
 class QNetworkReply;
+class QNetworkRequest;
 
 class WSPRNet : public QObject
 {
@@ -22,6 +22,14 @@ class WSPRNet : public QObject
   using SpotQueue = QQueue<QUrlQuery>;
 
 public:
+  // HTTP post seam so tests can upload without constructing QNetworkAccessManager.
+  class Transport
+  {
+  public:
+    virtual ~Transport () = default;
+    virtual QNetworkReply *post (QNetworkRequest const& request, QByteArray const& body) = 0;
+  };
+
   struct RetryPolicy
   {
     int max_attempts = 7;
@@ -61,8 +69,9 @@ public:
   };
 
   explicit WSPRNet (QObject *parent = nullptr);
-  WSPRNet (QNetworkAccessManager *network_manager, RetryPolicy retry_policy,
-           bool take_network_manager_ownership, QObject *parent = nullptr);
+  WSPRNet (Transport *transport, RetryPolicy retry_policy,
+           bool take_transport_ownership, QObject *parent = nullptr);
+  ~WSPRNet ();
   void upload (QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
                QString const& mode, float TR_period, QString const& tpct, QString const& dbm,
                QString const& version, QString const& fileName);
@@ -140,7 +149,8 @@ private:
   void maybeRemoveCompletedFile (int file_batch_id);
   void maybeFinalize ();
 
-  QNetworkAccessManager * network_manager_;
+  Transport * transport_;
+  bool owns_transport_;
   RetryPolicy retry_policy_;
   QHash<QNetworkReply *, PendingUpload> outstanding_requests_;
   QHash<int, FileUploadState> file_uploads_;

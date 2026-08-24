@@ -21,6 +21,7 @@ void wsprd_stream_emit_decode(const char *date, const char *uttime,
                               int drift, const char *message);
 void wsprd_stream_emit_decode_finished(const char *date, const char *uttime);
 void wsprd_stream_emit_error(const char *msg);
+void wsprd_stream_emit_error_code(const char *code, const char *detail);
 
 // Reads WSJT header + frames from stdin until halt or EOF. On success,
 // populates *cfg and the supplied I/Q buffers (idat/qdat must hold

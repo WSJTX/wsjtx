@@ -137,12 +137,24 @@ else ()
   )
 endif ()
 
+if (APPLE)
+  # Keep Apple's framework include flags out of m65impl's Fortran sources.
+  list (REMOVE_ITEM libm65_CSRCS stdout_shared_memory.cpp)
+  add_library (m65_qt STATIC stdout_shared_memory.cpp)
+  target_link_libraries (m65_qt PRIVATE Qt5::Core)
+endif ()
+
 #set (libm65_CXXSRCS
 #  ipcomm.cpp
 #  )
 
 add_definitions (-DBIGSYM=1)
 set_source_files_properties (sec_midn.f90 PROPERTIES COMPILE_FLAGS -fno-second-underscore)
+# pol is genuine C-supplied state (bind(C, name='run_m65_'), called from
+# MAP65's audio callback) that the current implementation doesn't happen
+# to reference; removing it would mean touching the C++ caller too, so we
+# suppress the warning instead.
+set_source_files_properties (run_m65.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
 if(Qt6_FOUND)
   set_source_files_properties(m65a.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing -fallow-argument-mismatch")
 else()  
@@ -179,13 +191,41 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
     Fortran_PREPROCESS ON
 )
 
-# MAP65 should not choose between wsjt_fort and wsjt_fort_omp locally. The
-# common interface target keeps the variant policy in one place and still
-# resolves to wsjt_fort_omp when OPENMP_ONLY leaves no non-OpenMP library.
-# Default BOTH builds intentionally use the non-OpenMP common target here;
-# release Windows and Linux builds pin OPENMP_ONLY when MAP65 needs OpenMP.
-target_link_libraries (m65impl PUBLIC Qt5::Core)
+# MAP65 uses OpenMP critical regions to protect shared FFTW planning state,
+# independently of which common Fortran library variant it consumes.
+if (NOT TARGET wsjt_fortran_openmp)
+  message (FATAL_ERROR "MAP65 requires Fortran OpenMP support")
+endif ()
+if (NOT APPLE)
+  target_link_libraries (m65impl PUBLIC Qt5::Core)
+endif ()
+target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
 wsjt_link_common_fortran (m65impl)
+
+if (WSJT_ENABLE_TESTS)
+  add_executable (test_map65_jt65_handoff
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_vectors.f90
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_fixture.f90
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_map65_jt65_handoff.f90)
+  target_include_directories (test_map65_jt65_handoff PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_jt65_handoff PRIVATE m65impl)
+  add_test (NAME test_map65_jt65_handoff COMMAND test_map65_jt65_handoff)
+  set_tests_properties (test_map65_jt65_handoff PROPERTIES TIMEOUT 180)
+
+  add_executable (test_q65_waveform_generator
+    ${CMAKE_SOURCE_DIR}/tests/unit/q65/test_q65_waveform_generator.f90)
+  target_include_directories (test_q65_waveform_generator PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_q65_waveform_generator PRIVATE m65impl)
+  add_test (NAME test_q65_waveform_generator COMMAND test_q65_waveform_generator)
+  set_tests_properties (test_q65_waveform_generator PROPERTIES TIMEOUT 180)
+
+  add_executable (test_ccf65_correlator
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_ccf65_correlator.f90)
+  target_include_directories (test_ccf65_correlator PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_ccf65_correlator PRIVATE m65impl)
+  add_test (NAME test_ccf65_correlator COMMAND test_ccf65_correlator)
+  set_tests_properties (test_ccf65_correlator PROPERTIES TIMEOUT 180)
+endif ()
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
     target_compile_definitions(m65impl PRIVATE _WIN32)
@@ -199,8 +239,8 @@ endif()
 
 add_executable (mapsim mapsim.f90)
 add_dependencies(mapsim m65impl)
-target_include_directories(mapsim PRIVATE ${CMAKE_BINARY_DIR}/mod )
 target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
+wsjt_add_simulator_usage_test (mapsim "Usage:[ ]+mapsim")
 
 #add_executable (synctest synctest.f90)
 #target_link_libraries (synctest m65impl ${FFTW3_LIBRARIES})

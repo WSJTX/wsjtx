@@ -35,7 +35,7 @@ program sumsim
   fac=1.0/nargs
   iwave(1:npts)=nint(fac*wave(1:npts))
   
-  open(12,file='000001_0000.wav',access='stream',status='unknown')
+  open(12,file='000001_0000.wav',access='stream',status='replace')
   write(12) h,iwave(1:npts)
   close(12)
 

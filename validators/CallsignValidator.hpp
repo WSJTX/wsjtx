@@ -12,6 +12,8 @@ class CallsignValidator final
 {
 public:
   CallsignValidator (QObject * parent = nullptr, bool allow_compound = true);
+  static QString normalizeStoredInput (QString input, int max_length,
+                                       bool allow_compound = true);
 
   // QValidator implementation
   State validate (QString& input, int& pos) const override;

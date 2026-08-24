@@ -15,6 +15,7 @@ private slots:
   void canStartTransmitRequiresPayloadAndOpenWindow ();
   void generatedPayloadModesRespectStartWindow ();
   void tuningCanStartWithoutPayload ();
+  void rejectedGeneratedMessageBlocksTransmit ();
 };
 
 void TestTxStartPolicy::standardMessageModesRequireText ()
@@ -85,6 +86,21 @@ void TestTxStartPolicy::generatedPayloadModesRespectStartWindow ()
 void TestTxStartPolicy::tuningCanStartWithoutPayload ()
 {
   QVERIFY (can_start_transmit ("FT8", false, 0.95, 0, true));
+}
+
+void TestTxStartPolicy::rejectedGeneratedMessageBlocksTransmit ()
+{
+  QVERIFY (should_block_generated_transmit ("*** bad message ***", false));
+  QVERIFY (should_block_generated_transmit (
+    QStringLiteral ("*** bad message ***").leftJustified (37, ' '), false));
+
+  QVERIFY (!should_block_generated_transmit ("*** bad message ***", true));
+  QVERIFY (!should_block_generated_transmit ("TUNE", false));
+  QVERIFY (!should_block_generated_transmit ("ECHO", false));
+  QVERIFY (!should_block_generated_transmit (
+    QStringLiteral ("K1ABC W9XYZ R-10").leftJustified (22, ' '), false));
+  QVERIFY (!should_block_generated_transmit (
+    QStringLiteral ("CQ K1ABC FN42").leftJustified (37, ' '), false));
 }
 
 QTEST_MAIN (TestTxStartPolicy)

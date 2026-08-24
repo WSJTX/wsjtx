@@ -13,6 +13,8 @@
 !   error (version)   {"v":1,"t":"error","code":"unknown_schema_version","got":N}
 !   error (type)      {"v":1,"t":"error","code":"configure_type_error",
 !                      "key":"depth","expected":"int","got":"string"}
+!   warning           {"v":1,"t":"warning","code":"period_boundary_discard",
+!                      "discarded_samples":N}
 !
 ! Activation: program jt9 calls streaming_emit_set_enabled(.true.) when
 ! --stream is parsed. Decoder per-mode sites in lib/decoder.f90 query
@@ -21,7 +23,7 @@
 ! this module is a no-op so non-streaming jt9 (WAV / shmem) is unchanged.
 
 module streaming_emit
-  use, intrinsic :: iso_fortran_env, only: output_unit
+  use, intrinsic :: iso_fortran_env, only: int64, output_unit
   implicit none
   private
 
@@ -36,6 +38,7 @@ module streaming_emit
   public :: streaming_emit_error_code
   public :: streaming_emit_error_version
   public :: streaming_emit_error_type
+  public :: streaming_emit_warning_samples
 
 contains
 
@@ -162,6 +165,16 @@ contains
          '","got":"', trim(got), '"}'
     flush(output_unit)
   end subroutine streaming_emit_error_type
+
+  subroutine streaming_emit_warning_samples(code, discarded_samples)
+    character(len=*), intent(in) :: code
+    integer(int64),   intent(in) :: discarded_samples
+    if (.not. enabled_) return
+    write(output_unit, '(3a,i0,a)')                                        &
+         '{"v":1,"t":"warning","code":"', trim(code),                 &
+         '","discarded_samples":', discarded_samples, '}'
+    flush(output_unit)
+  end subroutine streaming_emit_warning_samples
 
   ! Internals -------------------------------------------------------------
 

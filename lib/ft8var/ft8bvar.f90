@@ -1,47 +1,57 @@
-subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub, &
-     tmpcqdec,tmpmyc,nagainfil,iaptype,f1,xdt,nbadcrc,lft8sdec,msg37,msg37_2,     &
+subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
+     lsubtract,tmpcqdec,tmpmyc,nagainfil,iaptype,f1,xdt,nbadcrc,lft8sdec,       &
+     msg37,msg37_2,                                                              &
      xsnr,stophint,nthr,lFreeText,ipass,lft8subpass,lspecial,lcqcand,ncqsignal,   &
      nmycsignal,npass,i3bit,lft8s,lmycallstd,lhiscallstd,levenint,loddint,lft8sd, &
      i3,n3,nft8rxfsens,ncount,msgsrcvd,lrepliedother,lhashmsg,lqsothread,         &
-     lft8lowth,lhighsens,lsubtracted,tmpcqsig,tmpmycsig,tmpqsosig,lnohiscall,     &
-     lnomycall,lnohisgrid,qual,iaptype2)
+     lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig,lnohiscall,               &
+     lnomycall,lnohisgrid,qual,iaptype2,progress_generation)
 
-  use packjt77, only : unpack77var
+  use packjt77, only : unpack77, unpack77_configured, unpack77_options
+  use ft8_mtd_residual, only : mtd_commit_subtraction,mtd_mark_spectrum_current, &
+       mtd_refresh_candidate
+  use decode_completion_module, only : write_decode_progress
   use ft8_mod1, only : allmessages,ndecodes,apsym,mcq,m73,mrr73,mrrr,icos7,       &
        naptypes,nhaptypes,one,graymap,oddcopy,evencopy,lastrxmsg,lasthcall,       &
        nlasttx,calldteven,calldtodd,lqsomsgdcd,mycalllen1,msgroot,msgrootlen,     &
-       allfreq,idtone25,lapmyc,idtonemyc,mycall,hiscall,lhound,apsymsp,           &
+       allfreq,idtone25,idtone25_valid,lapmyc,idtonemyc,mycall,hiscall,lhound,apsymsp, &
        ndxnsaptypes,apsymdxns1,apsymdxnsrrr,lenabledxcsearch,lwidedxcsearch,      &
        apcqsym,apsymdxnsrr73,apsymdxns73,mybcall,hisbcall,lskiptx1,nft8cycles,    &
        ctwkw,ctwkn,nincallthr,msgincall,xdtincall,maskincallthr,ctwk256,numcqsig, &
        numdeccq,evencq,oddcq,nummycsig,numdecmyc,evenmyc,oddmyc,idtone56,         &
+       idtone56_valid,                                                            &
        idtonecqdxcns,evenqso,oddqso,nmycnsaptypes,apsymmyns1,apsymmyns2,          &
        apsymmynsrr73,apsymmyns73,apsymdxstd,apsymdxnsr73,apsymdxns732,ltxing,     &
        apsymmynsrrr,idtonedxcns73,idtonefox73,idtonespec  !ft8md added
 
   include 'ft8_params.f90'
+  real, intent(inout) :: residual(180000)
+  complex, intent(inout) :: spectrum(0:96000)
   character c77*77,msg37*37,msg37_2*37,msgd*37,msgbase37*37,call_a*12,call_b*12
   character callsign*12,grid*12
   character*37 msgsrcvd(130)
   complex cd0(-800:4000),cd1(-800:4000),cd2(-800:4000),cd3(-800:4000),ctwk(32),   &
-       csymb(32),cs(0:7,79),csymbr(32),csr(0:7,79),csig(32),csig0(151680),z1,     &
+       csymb(32),cs(0:7,79),csymbr(32),csr(0:7,79),csig(32),z1,                   &
        csymb256(256),cstmp2(0:7,79),csold(0:7,79),cscs(0:7,79)
+  complex, allocatable :: csig0(:)
   real a(5),s8(0:7,79),s82(0:7,79),s2(0:511),sp(0:7),s81(0:7),snrsync(21),        &
-       syncw(7),sumkw(7),scoreratiow(7),freqsub(200),s256(0:8),s2563(0:26),       &
+       syncw(7),sumkw(7),scoreratiow(7),s256(0:8),s2563(0:26),                   &
        syncavpart(3)
   real bmeta(174),bmetb(174),bmetc(174),bmetd(174)
   real llra(174),llrb(174),llrc(174),llrd(174),llrz(174)
   real qual !ft8md  
   integer*1 message77(77),apmask(174),cw(174),nsmax(8)
   integer itone(79),ip(1),ka(1),nqsoend(3)
-  integer, intent(in) :: nQSOProgress,nfqso,nftx,napwid,nthr,ipass,nft8rxfsens
+  integer, intent(in) :: nQSOProgress,nfqso,nftx,napwid,nthr,ipass,nft8rxfsens, &
+       progress_generation
   logical newdat1,lsubtract,lFreeText,nagainfil,lspecial,unpk77_successvar
+  logical rebuild_spectrum
   logical(1), intent(in) :: stophint,lft8subpass,lmycallstd,lhiscallstd,          &
        lqsothread,lft8lowth,lhighsens,lcqcand,levenint,loddint,lnohiscall,        &
        lnomycall,lnohisgrid
   logical(1) falsedec,lastsync,ldupemsg,lft8s,lft8sdec,lft8sd,lsdone,ldupeft8sd,  &
        lrepliedother,lhashmsg,lvirtual2,lvirtual3,lsd,lcq,ldeepsync,lcallsstd,    &
-       lfound,lsubptxfreq,lreverse,lchkcall,lgvalid,lwrongcall,lsubtracted,       &
+       lfound,lsubptxfreq,lreverse,lchkcall,lgvalid,lwrongcall,                  &
        lcqsignal,loutapwid,lfoundcq,lmycsignal,lfoundmyc,lqsosig,ldxcsig,         &
        lcqdxcsig,lcqdxcnssig,lqsocandave,lcall1hash,lqsosigtype3,lqso73,lqsorr73, &
        lqsorrr,lfoxspecrpt,lfoxstdr73,lapcqonly,lcall2hash,lskipnotap
@@ -185,8 +195,10 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
      endif
   endif
 
-  call ft8_downsamplevar(newdat1,f1,nqso,cd0,cd2,cd3,lhighsens,lsubtracted,npos, &
-       freqsub)   !Mix f1 to baseband and downsample
+  call mtd_refresh_candidate(nthr,f1,newdat1,rebuild_spectrum)
+  call ft8_downsamplevar(residual,spectrum,newdat1,f1,nqso,cd0,cd2,cd3, &
+       lhighsens)   !Mix f1 to baseband and downsample
+  if(rebuild_spectrum) call mtd_mark_spectrum_current(nthr)
 
   lsd=.false.
   isd=1
@@ -847,16 +859,18 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
      if(.not.lqsomsgdcd .and. (dfqso.lt.napwid .or. abs(nftx-f1).lt.napwid) .and. &
           lapmyc .and. len_trim(hiscall).gt.2) then
         nqsot=0
-        do i=1,19
-           ip=maxloc(s8(:,i+7))
-           if(ip(1).eq.idtone56(1,i)+1) nqsot=nqsot+1
-        enddo
-        if(nqsot.gt.6) lqsosig=.true. ! decoding depth only
-        do i=20,22
-           ip=maxloc(s8(:,i+7))
-           if(ip(1).eq.idtone56(1,i)+1) nqsot=nqsot+1
-        enddo
-        if(nqsot.gt.3) lqsosigtype3=.true.
+        if(idtone56_valid(1)) then
+           do i=1,19
+              ip=maxloc(s8(:,i+7))
+              if(ip(1).eq.idtone56(1,i)+1) nqsot=nqsot+1
+           enddo
+           if(nqsot.gt.6) lqsosig=.true. ! decoding depth only
+           do i=20,22
+              ip=maxloc(s8(:,i+7))
+              if(ip(1).eq.idtone56(1,i)+1) nqsot=nqsot+1
+           enddo
+           if(nqsot.gt.3) lqsosigtype3=.true.
+        endif
         nqsoend=0 ! array 73,rr73,rrr
         if(dfqso.lt.napwid .and. (nQSOProgress.eq.3 .or. nQSOProgress.eq.4)) then
            ! QSO RX freq only
@@ -866,9 +880,9 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
               else
                  ip=maxloc(s8(:,i+14))
               endif
-              if(ip(1).eq.idtone56(56,i)+1) nqsoend(1)=nqsoend(1)+1
-              if(ip(1).eq.idtone56(55,i)+1) nqsoend(2)=nqsoend(2)+1
-              if(ip(1).eq.idtone56(54,i)+1) nqsoend(3)=nqsoend(3)+1
+              if(idtone56_valid(56) .and. ip(1).eq.idtone56(56,i)+1) nqsoend(1)=nqsoend(1)+1
+              if(idtone56_valid(55) .and. ip(1).eq.idtone56(55,i)+1) nqsoend(2)=nqsoend(2)+1
+              if(idtone56_valid(54) .and. ip(1).eq.idtone56(54,i)+1) nqsoend(3)=nqsoend(3)+1
            enddo
            ip=maxloc(nqsoend)
            if(nqsoend(ip(1)).gt.6) then
@@ -900,10 +914,12 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
      lcqdxcnssig=.false.
      ndxt=0
      if(lhiscallstd) then
-        do k11=17,26
-           ip=maxloc(s8(:,k11))
-           if(ip(1).eq.idtone56(1,k11-7)+1) ndxt=ndxt+1
-        enddo
+        if(idtone56_valid(1)) then
+           do k11=17,26
+              ip=maxloc(s8(:,k11))
+              if(ip(1).eq.idtone56(1,k11-7)+1) ndxt=ndxt+1
+           enddo
+        endif
         if(ndxt.gt.3) ldxcsig=.true.
         if(lcqsignal .and. ldxcsig) lcqdxcsig=.true.
      endif
@@ -1056,6 +1072,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
      endif
 
      do isubp1=1,nsubpasses
+        call write_decode_progress(progress_generation)
         if(nweak.eq.1 .and. isubp1.eq.2) cycle
    
        ! skip if it is lmycsignal, can be both lcq and lmy
@@ -1307,6 +1324,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
     !  print*,'hisgrid is ',hisgrid
 
         do isubp2=1,31
+           call write_decode_progress(progress_generation)
            if(isubp2.lt.5) then
               if(lapcqonly .or. lskipnotap) cycle
               if(ltxing) then
@@ -1381,6 +1399,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
                     
                     if(iaptype.eq.1) then
                        if(isubp2.eq.20) then
+                          if(.not.idtone25_valid(2)) cycle
                           scqlev=0.
                           do i4=1,9
                              scqlev=scqlev+s8(idtone25(2,i4),i4+7)
@@ -1553,6 +1572,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
                     
                     if(iaptype.eq.1) then
                        if(isubp2.eq.20) then
+                          if(.not.idtone25_valid(2)) cycle
                           scqlev=0.
                           do i4=1,9
                              scqlev=scqlev+s8(idtone25(2,i4),i4+7)
@@ -1703,6 +1723,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
 
                     if(iaptype.eq.1) then
                        if(isubp2.eq.20) then
+                          if(.not.idtone25_valid(2)) cycle
                           scqlev=0.
                           do i4=1,9
                              scqlev=scqlev+s8(idtone25(2,i4),i4+7)
@@ -2091,7 +2112,8 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
               if(nagainfil) ndeep=5
 !print *,omp_get_nested(),OMP_get_num_threads()
 
-              call osd174_91var(llrz,apmask,ndeep,message77,cw,nharderrors,dmin,nthr)
+              call osd174_91var(llrz,apmask,ndeep,message77,cw,nharderrors,dmin, &
+                   nthr,progress_generation)
            endif
            
            nbadcrc=1
@@ -2253,7 +2275,8 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
                 ! and n3.eq.5 for USA calls with EU VHF 
                 ! added .or. n3.eq.2 .or. n3.eq.8 .or. n3.eq.9 as test for EU VHF
            !print*,'did not cycle at line 2248'
-           call unpack77var(c77,1,msg37,unpk77_successvar,nthr)
+           call unpack77_configured(c77,1,msg37,unpk77_successvar, &
+                unpack77_options(thread_index=nthr))
            if(.not.unpk77_successvar) then
               if(lqsothread .and. (.not.lhound .and. iaptype.ge.3 .or. lhound .and. &
                    (iaptype.eq.21 .or. iaptype.eq.23)) .and. .not.lsdone) then
@@ -2901,6 +2924,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
         syncp=0.
         syncm=0.
         k=1
+        allocate(csig0(151680))
         call gen_ft8wavevar(itone,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
         do i=0,78
            do j=1,32
@@ -2920,6 +2944,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
            z1=sum(cd0(i21:i21+31)*conjg(csig))
            syncm = syncm + real(z1)**2 + aimag(z1)**2
         enddo
+        deallocate(csig0)
         call peakup(syncm,sync0,syncp,dx)
         if(abs(dx).gt.1.0) then
            scorr=0.
@@ -2927,12 +2952,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
            scorr=real(noff)*(dx) ! was * dx ft8md
         endif
         xdt3=xdt+scorr*dt2
-        call subtractft8var(itone,f1,xdt3)
-        lsubtracted=.true. ! inside current thread
-        if(npos.lt.200) then
-           npos=npos+1
-           freqsub(npos)=f1
-        endif
+        call mtd_commit_subtraction(nthr,ipass,itone,f1,xdt3,residual)
      endif
   endif
 

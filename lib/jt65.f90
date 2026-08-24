@@ -17,6 +17,7 @@ program jt65
   character(len=500) optarg
   character*12 mycall,hiscall
   character*6 hisgrid
+  integer :: files_read, samples_read
 
   type (option) :: long_options(12) = [ &
        option ('aggressive',.true.,'a','aggressiveness [0-10], default AGGR=0','AGGR'), &
@@ -107,6 +108,7 @@ program jt65
   call timer('jt65    ',0)
 
   ndecoded=0
+  files_read=0
   do ifile=noffset+1,noffset+nremain
      nfa=nlow
      nfb=nhigh
@@ -114,14 +116,32 @@ program jt65
      call get_command_argument(ifile,optarg,narglen)
      infile=optarg(:narglen)
      call timer('read    ',0)
-     call wav%read (infile)
+     call wav%read (infile, ios, optarg)
+     if (ios /= 0) then
+        call timer('read    ',1)
+        write(*,*) 'Cannot read WAV file ',trim(infile),': ',trim(optarg)
+        cycle
+     end if
+     if (wav%audio_format%sample_rate /= 12000) then
+        close(unit=wav%lun)
+        call timer('read    ',1)
+        write(*,*) 'Cannot read WAV file ',trim(infile),': unsupported sample rate'
+        cycle
+     end if
      i1=index(infile,'.wav')
      if( i1 .eq. 0 ) i1=index(infile,'.WAV')
      read(infile(i1-4:i1-1),*,err=998) nutc
      npts=52*12000
-     read(unit=wav%lun) id2(1:npts)
+     id2=0
+     call wav%read_samples(id2(1:npts), samples_read, ios, optarg)
      close(unit=wav%lun)
      call timer('read    ',1)
+     if (ios /= 0) then
+        write(*,*) 'Cannot read WAV file ',trim(infile),': ',trim(optarg)
+        cycle
+     end if
+     if (samples_read < npts) print*,'EOF on input file ',trim(infile)
+     files_read=files_read+1
      dd(1:npts)=id2(1:npts)
      dd(npts+1:)=0.
      call test(dd,nutc,nfa,nfb,nfqso,ntol,nsubmode, &
@@ -132,6 +152,7 @@ program jt65
 
   call timer('jt65    ',1)
   call timer('jt65    ',101)
+  if (files_read == 0) stop 2
   !  call four2a(a,-1,1,1,1)                  !Free the memory used for plans
   !  call filbig(a,-1,1,0.0,0,0,0,0,0)        ! (ditto)
   go to 999

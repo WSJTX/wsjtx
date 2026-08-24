@@ -1,7 +1,8 @@
 
 subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint)
 
-  use ft8_mod1, only : itone56,idtone56,msg,nlasttx,lastrxmsg,mycall,hiscall
+  use ft8_mod1, only : itone56,idtone56,msg,nlasttx,lastrxmsg,mycall,hiscall, &
+       idtone56_valid
   real, intent(in) :: s8(0:7,79),srr
   real s8_1(0:7,79),s8d(0:7,58),xsync(21),xmsync(21),xdata(58),xmdata(58),xnoise(79),xmnoise(79)
   character, intent(out) :: msg37*37
@@ -9,6 +10,7 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint)
   integer, intent(out) :: itone(79)
   integer, intent(in) :: nft8rxfsens
   integer itonedem(58),idtone(58),mrs(58),mrs2(58),mrs3(58),mrs4(58),ip1(1)
+  integer*1 msgbits(77)
   logical(1), intent(in) :: stophint
   logical(1), intent(out) :: lft8s
   logical(1) lmatched(58),lmycall,lhiscall,lrrr,lr73,lcallingrprt,lastrrprt,lastreport,lgrid
@@ -53,12 +55,18 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint)
   if(lastrxmsg(1)%lstate .and. .not.lmycall .and. lhiscall .and. nlasttx.eq.2) lcallingrprt=.true. ! calling with REPORT
 
   if(lgrid .and. index(msg(53),trim(mycall)//' '//trim(hiscall)//' AA00').eq.1) then ! standard callsigns
+    idtone56(53,1:58)=0
+    itone56(53,1:79)=0
+    idtone56_valid(53)=.false.
     i3=-1; n3=-1
-    msg(53)=lastrxmsg(1)%lastmsg
-    call genft8sdvar(msg(53),i3,n3,msgsent37,msgbits,itone)
-    idtone56(53,1:29)=itone(8:36)
-    idtone56(53,30:58)=itone(44:72)
-    itone56(53,1:79)=itone(1:79)
+    call genft8sdvar(lastrxmsg(1)%lastmsg,i3,n3,msgsent37,msgbits,itone)
+    if(i3.ge.0) then
+      msg(53)=lastrxmsg(1)%lastmsg
+      idtone56(53,1:29)=itone(8:36)
+      idtone56(53,30:58)=itone(44:72)
+      itone56(53,1:79)=itone(1:79)
+      idtone56_valid(53)=.true.
+    endif
   endif
 
   do i=1,58
@@ -67,9 +75,11 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint)
   enddo
 
   nmycall1=0; nbase1=0
-  do k=1,19
-    if(idtone56(1,k).eq.itonedem(k)) then; if(k.lt.10) nmycall1=nmycall1+1; nbase1=nbase1+1; endif
-  enddo
+  if(idtone56_valid(1)) then
+    do k=1,19
+      if(idtone56(1,k).eq.itonedem(k)) then; if(k.lt.10) nmycall1=nmycall1+1; nbase1=nbase1+1; endif
+    enddo
+  endif
 
 ! /'-01 ','-02 ','-03 ','-04 ','-05 ','-06 ','-07 ','-08 ','-09 ','-10 ',
 !  '-11 ','-12 ','-13 ','-14 ','-15 ','-16 ','-17 ','-18 ','-19 ','-20 ',
@@ -89,6 +99,7 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint)
 
   nmatchditer1=0; ncrcpatyiter1=0; imax=0
   do i=ilow,ihigh
+    if(.not.idtone56_valid(i)) cycle
     if(lastreport .and. i.gt.26 .and. i.lt.54) cycle ! RREPORT is not a valid msg, direction change is not allowed
     nmatch1=0; ncrcpaty1=0
     do k=1,58
@@ -132,6 +143,7 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint)
   ref0oth=ref0mycl+ref0paty
   ipk=0; u1=0.; u2=0.; u1paty=0.; u2paty=0.; u1oth=0.; u2oth=0.
   do k=ilow,ihigh
+    if(.not.idtone56_valid(k)) cycle
     if(lastreport .and. k.gt.26 .and. k.lt.54) cycle ! GRID, RREPORT is not a valid msg, direction change is not allowed
     psum=0.0; ref=ref0; psumpaty=0.; refpaty=ref0paty; psumoth=0.; refoth=ref0oth
     do j=1,58; i=idtone56(k,j); psum=psum + s8d(i,j)

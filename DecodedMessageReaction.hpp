@@ -1,25 +1,50 @@
 #ifndef DECODEDMESSAGEREACTION_HPP
 #define DECODEDMESSAGEREACTION_HPP
 
+#include "QsoProgress.hpp"
 #include "Radio.hpp"
 #include "SpecialOperatingActivity.hpp"
 
+#include <functional>
 #include <QString>
-#include <QStringList>
 #include <QVector>
 
 class DecodedText;
 
 namespace DecodedMessageReaction
 {
-  enum class QsoProgress
+  enum class ReactionDisposition
   {
-    Calling,
-    Replying,
-    Report,
-    RogerReport,
-    Rogers,
-    Signoff
+    NoReaction,
+    Reacted,
+    IgnoreDecode
+  };
+
+  enum class WaitDecodeSource
+  {
+    SlowDecoder,
+    Msk144FastDecoder
+  };
+
+  enum class AutoSequencePhase
+  {
+    StandardDecode,
+    LegacyShortMessage
+  };
+
+  enum class ContestHint
+  {
+    EuVhf,
+    FieldDay,
+    Rtty
+  };
+
+  enum class SelectionOrigin
+  {
+    None,
+    Manual,
+    Synthetic,
+    Udp
   };
 
   struct KeyboardModifiers
@@ -29,7 +54,7 @@ namespace DecodedMessageReaction
     bool alt {false};
   };
 
-  struct ProcessMessageContext
+  struct QsoReactionSnapshot
   {
     QString mode;
     SpecialOperatingActivity specOp {SpecialOperatingActivity::NONE};
@@ -37,30 +62,59 @@ namespace DecodedMessageReaction
     QString baseCall;
     QString dxCall;
     QString hisCall;
+    QString hisGrid;
+    QString respondSelection;
     double trPeriod {60.0};
     Radio::Frequency nominalFrequency {0u};
     int rxFrequency {0};
     int txFrequency {0};
+
+    QsoProgress qsoProgress {QsoProgress::Calling};
+    int selectedTxMessage {0};
+    int currentMessageType {0};
+    bool sentReport {false};
+    bool shortMessages {false};
+    bool sendRr73 {false};
+    bool transmitting {false};
+    bool transmittingSignoff {false};
+
+    bool doubleClicked {false};
+    bool doubleClickAfterCqFrequency {false};
+    SelectionOrigin selectionOrigin {SelectionOrigin::None};
+    KeyboardModifiers modifiers;
+
     bool fastMode {false};
     bool transceiverOnline {false};
     bool enableVhfFeatures {false};
     bool holdTxFrequency {false};
     bool rxFrequencyEnabled {true};
-    bool txFirst {false};
-    bool txFirstVisible {true};
-    bool txFirstEnabled {true};
-    bool doubleClicked {false};
-    bool fromUdpReply {false};
-    bool transmittingSignoff {false};
-    bool autoReply {false};
-    bool autoEnabled {false};
     bool tx1Enabled {true};
-    int currentMessageType {0};
-    QsoProgress qsoProgress {QsoProgress::Calling};
-    KeyboardModifiers modifiers;
+
+    bool autoEnabled {false};
+    bool autoButtonChecked {false};
+    bool autoReply {false};
+    bool callingCq {false};
+    bool sentFirst73 {false};
+    bool autoSequenceEnabled {false};
+    bool autoSequenceChecked {false};
+    bool quickCall {false};
+    bool repeatTx {false};
+
+    bool loggingEnabled {false};
+    bool contestHintShown {false};
+    bool ncccSprint {false};
+    int tx73Count {0};
+
+    bool waitFeaturesEnabled {false};
+    bool waitAndCall {false};
+    bool noWaitAndCall {false};
+    bool waitAndCallControlChecked {false};
+    bool fullDuplexEnabled {false};
+    bool txing {false};
+
   };
 
-  struct ProcessMessageAction
+  struct QsoReactionEffect
   {
     enum class Kind
     {
@@ -70,7 +124,53 @@ namespace DecodedMessageReaction
       DisplayQsy,
       SetMsk144BaseFrequency,
       SetTxFirst,
-      SetDxCall
+      // Keep setTxMsg(), raw index assignment, checked-state changes, and clicks distinct;
+      // each has different synchronous signal behavior in MainWindow.
+      SetTxMessage,
+      SetTxMessageIndex,
+      CheckTxMessage,
+      ClickTxMessage,
+      SetQsoProgress,
+      SetDxCall,
+      ClearDxGrid,
+      SetDxGrid,
+      SetReport,
+      SetReceivedExchange,
+      SetCallingCq,
+      SetMaxPoints,
+      SetRestart,
+      SetDoubleClicked,
+      SetDoubleClickAfterCqFrequency,
+      SetTuMessage,
+      SetNextCall,
+      SetNoLogging,
+      SetNoWaitAndCall,
+      SetBlockRightDisplay,
+      SetAutoEnabled,
+      RefreshQsoPaneIfChanged,
+      Lookup,
+      CaptureHisGrid,
+      ExtractReceivedReport,
+      GenerateStandardMessages,
+      RecordRr73Received,
+      RequestLogQso,
+      RequestLogQsoUnlessSuppressed,
+      CeaseAutoTx,
+      StopTx,
+      ClickStopTx,
+      LogStopped,
+      StartTxAgainTimer,
+      ResetWatchdog,
+      StopWaitCallTimer,
+      DisableWaitAndCallControl,
+      StartWaitReplyTimer,
+      StartWaitCallTimer,
+      ScheduleStopTx,
+      ScheduleNcccAutoReset,
+      ScheduleNoLoggingReset,
+      ScheduleAutoFlagOff,
+      QueueContestHint,
+      ProcessSyntheticMessageNow
     };
 
     Kind kind;
@@ -78,60 +178,30 @@ namespace DecodedMessageReaction
     Radio::Frequency frequency {0u};
     QString text;
     bool boolValue {false};
+    QsoProgress progress {QsoProgress::Calling};
+    ContestHint contestHint {ContestHint::EuVhf};
   };
 
-  struct ProcessMessageDecision
+  struct QsoReactionPlan
   {
-    bool continueProcessing {false};
+    // Plans are deterministic for their inputs, but are one-shot ordered imperative scripts.
+    // Effects must never be reordered, replayed, or batched. ProcessSyntheticMessageNow takes
+    // a fresh live snapshot after every preceding effect has been applied.
+    ReactionDisposition disposition {ReactionDisposition::NoReaction};
     QString reason;
-    QStringList messageWords;
-    QStringList payloadWords;
-    QString firstCall;
-    QString hisCall;
-    QString hisGrid;
-    QString effectiveDxCall;
-    QString qsoPartnerBaseCall;
-    QString hisBaseCall;
-    bool is73 {false};
-    QVector<ProcessMessageAction> actions;
+    QVector<QsoReactionEffect> effects;
   };
 
-  struct AutoSequenceContext
-  {
-    QString mode;
-    SpecialOperatingActivity specOp {SpecialOperatingActivity::NONE};
-    QString myCall;
-    QString baseCall;
-    QString dxCall;
-    QString hisCall;
-    int rxFrequency {0};
-    int txFrequency {0};
-    bool autoEnabled {false};
-    bool autoSequenceEnabled {false};
-    bool callingCQ {false};
-    bool autoReply {false};
-    bool sentFirst73 {false};
-    bool tx1Enabled {true};
-    QsoProgress qsoProgress {QsoProgress::Calling};
-  };
+  bool shouldDeferAutoTxStopAfterRrr(QString const& mode, bool repeatTx, bool sendRr73);
+  void applyAutoTxStopAfterLogging(QString const& mode, bool repeatTx, bool sendRr73,
+                                   std::function<void()> stopAutoTx);
 
-  struct AutoSequenceDecision
-  {
-    enum class Action
-    {
-      None,
-      StopToAvoidQrm,
-      ProcessMessage
-    };
-
-    Action action {Action::None};
-    QString reason;
-    QString receivedExchange;
-  };
-
-  ProcessMessageDecision decideProcessMessageEntry(DecodedText const& message, ProcessMessageContext const& context);
-  AutoSequenceDecision decideAutoSequence(DecodedText const& message, AutoSequenceContext const& context,
-                                          unsigned startTolerance, unsigned stopTolerance);
+  QsoReactionPlan planProcessMessage(DecodedText const& message, QsoReactionSnapshot const& snapshot);
+  QsoReactionPlan planAutoSequence(DecodedText const& message, QsoReactionSnapshot const& snapshot,
+                                   AutoSequencePhase phase, unsigned startTolerance,
+                                   unsigned stopTolerance);
+  QsoReactionPlan planWaitReplyCall(DecodedText const& message, QsoReactionSnapshot const& snapshot,
+                                    WaitDecodeSource source);
 }
 
 #endif // DECODEDMESSAGEREACTION_HPP

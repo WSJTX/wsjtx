@@ -57,6 +57,10 @@ public:
   // enable incoming messages
   Q_SLOT void enable (bool);
 
+  // bracket serialization of a paced replay transaction
+  bool begin_replay ();
+  void end_replay ();
+
   // outgoing messages
   Q_SLOT void status_update (Frequency, QString const& mode, QString const& dx_call, QString const& report
                              , QString const& tx_mode, bool tx_enabled, bool transmitting, bool decoding
@@ -101,6 +105,9 @@ public:
   // this signal is emitted if the server has requested a replay of
   // all decodes
   Q_SIGNAL void replay ();
+
+  // this signal is emitted after a paced replay batch has been processed
+  Q_SIGNAL void replay_batch_processed (int message_count);
 
   // this signal is emitted if the server has requested immediate (or
   // auto Tx if auto_only is true) transmission to halt

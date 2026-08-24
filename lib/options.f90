@@ -106,6 +106,7 @@ contains
 
     integer :: chrpos, length, st, id = 0
     character :: chr
+    character(len=100) :: longopt_name
     logical :: long
 
     if (cnt == 0) cnt = command_argument_count()
@@ -152,6 +153,7 @@ contains
           end if
 
           chr = longopts(id)%chr
+          longopt_name = longopts(id)%name
 
           ! check if option requires an argument
           if (.not. longopts(id)%has_arg) then
@@ -248,7 +250,7 @@ contains
                      // " requires an argument"
              else
                 write (error_unit, *) "error: option --" &
-                     // trim(longopts(id)%name) // " requires an argument"
+                     // trim(longopt_name) // " requires an argument"
              end if
           end select
 

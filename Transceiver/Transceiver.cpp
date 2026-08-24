@@ -24,13 +24,13 @@ QDebug operator << (QDebug d, Transceiver::TransceiverState const& s)
     << "; QUICK: " << (s.quick_ ? "on" : "off")
     << "; PERIOD: " << s.period_ << "sec."
     << "; BLOCKSIZE: " << s.blocksize_
-    << "; SYMBOLSLENGTH: " << s.symbolslength_
-    << "; FRAMESPERSYMBOL: " << s.framespersymbol_
-    << "; TRFREQUENCY: " << s.trfrequency_ << "Hz"
-    << "; TONESPACING: " << s.tonespacing_
-    << "; SYNCHRONIZE: " << (s.synchronize_ ? "on" : "off")
-    << "; DBSNR: " << s.dbsnr_
-    << "; TRPERIOD: " << s.trperiod_ << "sec."
+    << "; SYMBOLSLENGTH: " << s.tx_request_.symbols_length
+    << "; FRAMESPERSYMBOL: " << s.tx_request_.frames_per_symbol
+    << "; TRFREQUENCY: " << s.tx_request_.frequency_hz << "Hz"
+    << "; TONESPACING: " << s.tx_request_.tone_spacing
+    << "; SYNCHRONIZE: " << (s.tx_request_.synchronize ? "on" : "off")
+    << "; DBSNR: " << s.tx_request_.snr_db
+    << "; TRPERIOD: " << s.tx_request_.tr_period_s << "sec."
     << "; SPREAD: " << s.spread_
     << "; NSYM: " << s.nsym_
     << "; VOLUME: " << s.volume_
@@ -38,6 +38,8 @@ QDebug operator << (QDebug d, Transceiver::TransceiverState const& s)
     << "; LEVEL: " << s.level_ << "dBm"
     << "; POWER: " << s.power_ << "mWatts"
     << "; SWR: " << s.swr_
+    << "; TX_SESSION: " << s.tx_request_.session_id.value ()
+    << "; TX_GENERATION: " << s.tx_request_.generation.value ()
     << ")\n";
   return d.space (); 
 }
@@ -59,6 +61,8 @@ std::ostream& operator << (std::ostream& os, Transceiver::TransceiverState const
     << "; POWER: " << s.power_ << "mWatts"
     << "; SWR: " << s.swr_
     << "; TUNE: " << s.tune_
+    << "; TX_SESSION: " << s.tx_request_.session_id.value ()
+    << "; TX_GENERATION: " << s.tx_request_.generation.value ()
     << ")\n";
 }
 
@@ -80,20 +84,23 @@ bool operator != (Transceiver::TransceiverState const& lhs, Transceiver::Transce
     || lhs.quick_ != rhs.quick_
     || lhs.period_ != rhs.period_
     || lhs.blocksize_ != rhs.blocksize_
-    || lhs.symbolslength_ != rhs.symbolslength_
-    || lhs.framespersymbol_ != rhs.framespersymbol_
-    || lhs.trfrequency_ != rhs.trfrequency_
-    || lhs.tonespacing_ != rhs.tonespacing_
-    || lhs.synchronize_ != rhs.synchronize_
-    || lhs.dbsnr_ != rhs.dbsnr_
-    || lhs.trperiod_ != rhs.trperiod_
+    || lhs.tx_request_.symbols_length != rhs.tx_request_.symbols_length
+    || lhs.tx_request_.frames_per_symbol != rhs.tx_request_.frames_per_symbol
+    || lhs.tx_request_.frequency_hz != rhs.tx_request_.frequency_hz
+    || lhs.tx_request_.tone_spacing != rhs.tx_request_.tone_spacing
+    || lhs.tx_request_.synchronize != rhs.tx_request_.synchronize
+    || lhs.tx_request_.snr_db != rhs.tx_request_.snr_db
+    || lhs.tx_request_.tr_period_s != rhs.tx_request_.tr_period_s
+    || lhs.tx_request_.cw_id != rhs.tx_request_.cw_id
     || lhs.spread_ != rhs.spread_
     || lhs.nsym_ != rhs.nsym_
     || lhs.volume_ != rhs.volume_
     || lhs.txvolume_ != rhs.txvolume_
     || lhs.level_ != rhs.level_
     || lhs.power_ != rhs.power_
-    || lhs.swr_ != rhs.swr_;
+    || lhs.swr_ != rhs.swr_
+    || lhs.tx_request_.session_id != rhs.tx_request_.session_id
+    || lhs.tx_request_.generation != rhs.tx_request_.generation;
 }
 
 bool operator == (Transceiver::TransceiverState const& lhs, Transceiver::TransceiverState const& rhs)

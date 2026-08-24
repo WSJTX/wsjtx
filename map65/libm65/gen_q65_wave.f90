@@ -25,7 +25,7 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   !--------------------------------------------------------------------
   ! Local character
   !--------------------------------------------------------------------
-  character*37 :: msg37
+  character*37 :: msg37,msgsent37
 
   !--------------------------------------------------------------------
   ! Explicit REAL*8 variables (as in original)
@@ -40,6 +40,7 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
 
   integer :: codeword(65), itone(85)
   integer :: icos7(0:6)
+  logical :: success
 
   data icos7 /2,5,6,0,4,1,3/
   data twopi /6.283185307179586476d0/
@@ -48,7 +49,6 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   !--------------------------------------------------------------------
   ! Logic (unchanged)
   !--------------------------------------------------------------------
-   msgsent = msg
    msg37   = ''
    msg37(1:22) = msg
 
@@ -59,7 +59,13 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
       end if
    end if
 
-   call get_q65_tones(msg37, codeword, itone)
+   call get_q65_tones(msg37, codeword, itone, msgsent37, success)
+   msgsent = msgsent37(1:len(msgsent))
+   if(.not.success) then
+      iwave=0
+      nwave=0
+      return
+   endif
 
   nsym = 85
   tsym = 7200.d0/12000.d0
@@ -76,7 +82,7 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
 
   do i = 1, iz
      t = t + dt
-     j = t/tsym + 1.0
+     j = min(nsym, int(t/tsym) + 1)
      if (j /= j0) then
         f    = f0 + itone(j)*dfgen
         dphi = twopi*dt*f

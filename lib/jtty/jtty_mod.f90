@@ -324,11 +324,13 @@ subroutine normalize_jtty_message(raw,normalized)
 
 end subroutine normalize_jtty_message
 
-subroutine unpack_jtty(c32,nframes,message)
-  
+subroutine unpack_jtty(c32,nframes,message,trailing_sep)
+
 ! Input:   character*32   c32         !32-bit payload
 !          integer        nframes     !Frames in this message (max = 16)
 ! Output:  character*80   message     !JTTY message, as it appears to a user
+!          logical        trailing_sep (optional) !True if the last frame
+!                          processed appended an implicit separator column.
 !
 ! Frame decoding flow:
 !   1. Read the class bits once for each 32-bit payload.
@@ -338,14 +340,18 @@ subroutine unpack_jtty(c32,nframes,message)
   use packjt77
   character*80 message
   character*32 c32(MAX_FRAMES)
+  logical, intent(out), optional :: trailing_sep
 
   character*13 c13
   logical success
+  logical last_frame_sep
 
   message=''
   k=1
+  last_frame_sep=.false.
   do iframe=1,nframes
      if(k.gt.len(message)) exit             !Output buffer full; stop decoding
+     last_frame_sep=.false.
      read(c32(iframe),1002) n28,n2,i2
 1002 format(b28.28,b2.2,b2.2)
 
@@ -367,6 +373,8 @@ subroutine unpack_jtty(c32,nframes,message)
      end select
 
   enddo
+
+  if(present(trailing_sep)) trailing_sep=last_frame_sep
 
   return
 
@@ -435,6 +443,7 @@ contains
   subroutine append_implicit_separator()
     ! Structured frames leave one blank column before any following frame.
     k=k+1
+    last_frame_sep=.true.
   end subroutine append_implicit_separator
 
 end subroutine unpack_jtty

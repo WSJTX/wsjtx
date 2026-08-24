@@ -34,6 +34,7 @@ public:
     int CQ_zone;
     int ITU_zone;
     QString entity_name;
+    QString abbreviated_entity_name;
     bool WAE_only;
     float latitude;
     float longtitude;

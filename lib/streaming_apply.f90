@@ -20,7 +20,8 @@
 !   include jt9com.f90 -> params_block (+ iso_c_binding / constants.f90)
 
 module streaming_apply
-  use streaming_control, only: configure_fields
+  use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
+       NPTS_C0_ARRAY_MAX
   use jt9_params_init,   only: apply_per_mode_policy
 
   include 'jt9com.f90'
@@ -115,7 +116,10 @@ contains
          params%emedelay = real(in_cfg%eme_delay_seconds, kind(params%emedelay))
     if (in_cfg%kin_samples_set)       params%kin       = in_cfg%kin_samples
     if (in_cfg%nzhsym_per_period_set) params%nzhsym    = in_cfg%nzhsym_per_period
-    if (in_cfg%npts_c0_array_set)     params%npts8     = in_cfg%npts_c0_array
+    if (in_cfg%npts_c0_array_set .and.                                      &
+         in_cfg%npts_c0_array .ge. NPTS_C0_ARRAY_MIN .and.                  &
+         in_cfg%npts_c0_array .le. NPTS_C0_ARRAY_MAX)                       &
+         params%npts8 = in_cfg%npts_c0_array
     if (in_cfg%min_width_set)         params%minw      = in_cfg%min_width
     if (in_cfg%min_sync_set)          params%minsync   = in_cfg%min_sync
     if (in_cfg%n_2pass_set)           params%n2pass    = in_cfg%n_2pass
@@ -199,8 +203,9 @@ contains
     ! (<0 or >5) faults the decoder (an -fbounds-check abort -> a one-frame DoS;
     ! silent memory corruption without the flag) -- a qso_progress_state=99
     ! crashes jt9 --stream. The valid range is [0,5] universally (every decoder
-    ! dimensions naptypes(0:5,4)/nappasses(0:5); the GUI MainWindow::m_QSOProgress
-    ! enum is 0..5). So, exactly like the Phase 6 multithreaded_ft8 guard
+    ! dimensions naptypes(0:5,4)/nappasses(0:5); QsoProgress.hpp defines the
+    ! C++ producer values as 0..5). So, exactly like the Phase 6
+    ! multithreaded_ft8 guard
     ! (the receiver IGNORES a value that would break the decode path), the apply
     ! IGNORES an out-of-range value, keeping the safe default. Valid [0,5] pass
     ! through UNCHANGED -> wire-parity preserved for every value the CLI -Q path

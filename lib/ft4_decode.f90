@@ -415,12 +415,12 @@ contains
                      maxosd=3
                   endif
                   if(.not.doosd) maxosd = -1
-                  call timer('dec174_91 ',0)
+                  call timer('dec174_9',0)
                   Keff=91
                   call decode174_91(llr,Keff,maxosd,ndeep,apmask,message91,cw, &
                                     ntype,nharderror,dmin)
                   message77=message91(1:77)
-                  call timer('dec174_91 ',1)
+                  call timer('dec174_9',1)
 
                   if(sum(message77).eq.0) cycle
                   if( nharderror.ge.0 ) then

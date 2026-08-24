@@ -2,11 +2,11 @@
 :man source: AsciiDoc
 :man version: {VERSION}
 :man manual: WSJT-X Manual
-= wsjtx(1)
+= udp_daemon(1)
 
 == NAME
 
-udp_daemon - Reference example UDP server
+udp_daemon - Command-line reference server for the WSJT-X UDP protocol.
 
 == SYNOPSIS
 
@@ -14,42 +14,51 @@ udp_daemon - Reference example UDP server
 
 == DESCRIPTION
 
-*udp_daemon*  does  not  serve  any   useful  purpose  other  than  to
- demonstrate  the UDP  message features  of  *WSJT-X*. It  is a  small
- command  line application  that interacts  with any  running *WSJT-X*
- instances.
+*udp_daemon* is a command-line reference implementation of a server for the
+WSJT-X UDP protocol. It discovers WSJT-X clients and prints their status,
+decodes, WSPR decodes, logged QSOs, and logged ADIF records. Its source also
+demonstrates how an external application can receive and respond to WSJT-X
+messages:
 
-Developers writing  add on  applications may find  the source  code of
-*udp_daemon*  contained in  the *WSJT-X*  code repository  useful. The
-files  NetworkMessage.hpp,  MessageServer.hpp,  MessageClient.hpp  and
-their  associated implementations  along with  the application  source
-UDPDaemon.cpp should cover all the required areas. All these files can
-be found at:
+https://github.com/WSJTX/wsjtx/tree/master/UDPExamples
 
-https://sourceforge.net/p/wsjt/wsjt/HEAD/tree/branches/wsjtx/
+The daemon listens as a unicast server by default. To use multicast, specify a
+valid multicast group with *--multicast-group* and configure the same group
+and port in each WSJT-X instance under *Settings -> Reporting -> UDP Server*.
+Multicast permits multiple servers to receive the same WSJT-X messages.
+MAC-ambiguous IPv4 multicast group addresses are not supported.
 
-*udp_daemon* may also be used as  a multi-cast UDP server which allows
-multiple instances of *udp_daemon* to  be run concurrently, to do this
-simply pass a suitable multi-cast group address using the command line
-option and in *WSJT-X* in the "*Settings->Reporting->UDP Server*" pane
-e.g. 239.255.0.1 or ff03::1 for a local scope group.
-
-Note  that  on some  systems  it  may be  necessary  to  add a  static
-multi-cast route to the routing table before multi-cast traffic can be
-routed to sockets on the same host as the sender.
+Without *--network-interface*, a multicast server joins the loopback
+interface. Use *--list-interfaces* to find interface names and repeat
+*--network-interface* to join the group on one or more selected interfaces.
+Some systems may require a suitable multicast route before traffic can be
+delivered to sockets on the sending host.
 
 == OPTIONS
-*-p* PORT, *--port*=PORT::
 
-Optional service port number to listen on (default 2237).
+*-h, --help*::
+Display command-line help and exit.
 
-*-g* MULTICAST-GROUP, *--group*=MULTICAST-GROUP::
+*--help-all*::
+Display command-line help including Qt-specific options and exit.
 
-Optional multicast group address to join (Default unicast server).
+*-v, --version*::
+Display the application version and exit.
 
-*-v, --version*:: Display the application version.
+*-l, --list-interfaces*::
+Print the available network interfaces and exit.
 
-*-h,--help*:: Display usage information.
+*-p* _PORT_, *--port*=_PORT_::
+Listen on UDP service port _PORT_. The default is 2237.
+
+*-g* _GROUP_, *--multicast-group*=_GROUP_::
+Join multicast group _GROUP_. Without this option, listen as a unicast server
+on all interfaces.
+
+*-i* _INTERFACE_, *--network-interface*=_INTERFACE_::
+Join the multicast group on the named network interface. This option may be
+repeated to select multiple interfaces; without it, multicast uses the
+loopback interface.
 
 == AUTHOR
 
@@ -58,10 +67,10 @@ Bill Somerville, G4WJS.
 == COPYING
 
 *udp_daemon* is Copyright (C) 2015 by William Somerville, G4WJS,
-with contributions from additional authors.  *udp_daemon* is Open Source
+with contributions from additional authors. *udp_daemon* is Open Source
 software, licensed under the GNU General Public License (GPLv3).
 
 This program is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 General Public License for more details.

@@ -25,11 +25,14 @@ subroutine genq65(msg0,ichk,msgsent,itone,i3,n3)
   endif
   i3=-1
   n3=-1
-  call pack77(msg0,i3,n3,c77)
-  read(c77(60:74),'(b15)') ng15
+  c77=' '
+  unpk77_success=.false.
+  call pack77_legacy_truncating_fallback(msg0,i3,n3,c77)
+  if(i3.lt.0 .or. n3.lt.0) go to 998
+  read(c77(60:74),'(b15)',err=998) ng15
   if(ng15.eq.32373) c77(60:74)='111111010010011'    !Message is RR73
   call unpack77(c77,0,msgsent,unpk77_success)    !Unpack to get msgsent
-  read(c77,1001) dgen
+  read(c77,1001,err=998) dgen
 1001 format(12b6.6,b5.5)
   dgen(13)=2*dgen(13)           !Convert 77-bit to 78-bit payload
   if(ichk.eq.1) go to 999       !Return if checking only
@@ -47,5 +50,12 @@ subroutine genq65(msg0,ichk,msgsent,itone,i3,n3)
      endif
   enddo
 
+  go to 999
+998 dgen=0
+  sent=0
+  itone=0
+  i3=-1
+  n3=-1
+  msgsent='*** bad message ***                  '
 999 return
 end subroutine genq65

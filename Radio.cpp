@@ -52,19 +52,14 @@ namespace Radio
   Frequency frequency (double value, int scale, bool * ok)
   {
     value *= std::pow (10., scale);
-    if (ok)
+    auto const exclusive_frequency_limit = std::ldexp (1., std::numeric_limits<Frequency>::digits);
+    auto const valid = std::isfinite (value) && value >= 0. && value < exclusive_frequency_limit;
+    if (ok) *ok = valid;
+    if (!valid)
       {
-        if (value < 0. || value > static_cast<double>(std::numeric_limits<Frequency>::max ()))
-          {
-            value = 0.;
-            *ok = false;
-          }
-        else
-          {
-            *ok = true;
-          }
+        return 0;
       }
-    return std::llround (value);
+    return static_cast<Frequency> (std::round (value));
   }
 
   FrequencyDelta frequency_delta (QVariant const& v, int scale, bool * ok, QLocale const& locale)

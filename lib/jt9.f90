@@ -10,6 +10,8 @@ program jt9
   use timer_module, only: timer
   use timer_impl, only: init_timer, fini_timer
   use readwav
+  use jt9_input_validation, only: parse_integer, parse_real, parse_wav_filename_nutc
+  use, intrinsic :: iso_fortran_env, only: error_unit
   use ft8_mod1, only : dd8
   use jt65_mod6, only : dd
   use streaming_emit, only: streaming_emit_set_enabled, streaming_emit_error
@@ -17,6 +19,11 @@ program jt9
        apply_per_mode_policy, cli_args_t
 
   include 'jt9com.f90'
+
+  interface
+     subroutine jt9_print_version() bind(C, name='jt9_print_version')
+     end subroutine jt9_print_version
+  end interface
 
   type(cli_args_t) :: args
   integer*2 id2a(180000)
@@ -32,14 +39,16 @@ program jt9
 
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0,ncycles=3,  &
-       nft8rxfsens=3,nmt=0,nmtft8decsens=3,ndecoderstart=3
+       nft8rxfsens=3,nmt=0,nmtft8decsens=3,ndecoderstart=3, samples_read, wav_status
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
+       display_version = .false.,                                            &
        bLowSidelobes = .false., nexp_decode_set = .false.,                   &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.,      &
        stream_mode = .false.
-  type (option) :: long_options(42) = [                                      &
+  type (option) :: long_options(43) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
+    option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
     option ('stream', .false., '0',                                          &
         'Read framed PCM samples from stdin',                                &
@@ -47,7 +56,7 @@ program jt9
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',    &
         'SECONDS'),                                                          &
     option ('executable-path', .true., 'e',                                  &
-        'Location of subordinate executables (KVASD) default PATH="."',      &
+        'Location of subordinate executables, default PATH="."',            &
         'PATH'),                                                             &
     option ('data-path', .true., 'a',                                        &
         'Location of writeable data files, default PATH="."', 'PATH'),       &
@@ -126,7 +135,7 @@ program jt9
   TRperiod=60.d0
 
   do
-     call getopt('hs:e:a:b:r:m:p:d:f:F:w:t:9876543WYqkTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:',     &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:9876543WYqkTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:',    &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -134,6 +143,8 @@ program jt9
      select case (c)
         case ('h')
            display_help = .true.
+        case ('v')
+           display_version = .true.
         case ('s')
            read_files = .false.
            shm_key = optarg(:arglen)
@@ -152,36 +163,39 @@ program jt9
         case ('t')
            temp_dir = optarg(:arglen)
         case ('m')
-           read (optarg(:arglen), *) nthreads
+           call require_integer('m', optarg(:arglen), nthreads)
         case ('p')
-           read (optarg(:arglen), *) TRperiod
+           call require_real('p', optarg(:arglen), TRperiod)
+           if (TRperiod <= 0.d0 .or. TRperiod > dble(NTMAX)) then
+              call invalid_option('p', optarg(:arglen), 'must be between 0 and 1800 seconds')
+           end if
         case ('d')
-           read (optarg(:arglen), *) ndepth
+           call require_integer('d', optarg(:arglen), ndepth)
         case ('f')
-           read (optarg(:arglen), *) nrxfreq
+           call require_integer('f', optarg(:arglen), nrxfreq)
         case ('F')
-           read (optarg(:arglen), *) ntol
+           call require_integer('F', optarg(:arglen), ntol)
            have_ntol = .true.
         case ('L')
-           read (optarg(:arglen), *) flow
+           call require_integer('L', optarg(:arglen), flow)
         case ('S')
-           read (optarg(:arglen), *) fsplit
+           call require_integer('S', optarg(:arglen), fsplit)
         case ('H')
-           read (optarg(:arglen), *) fhigh
+           call require_integer('H', optarg(:arglen), fhigh)
         case ('M')
            multift8 = .true.
         case ('C')
-           read (optarg(:arglen), *) ncycles
+           call require_integer('C', optarg(:arglen), ncycles)
         case ('U')
            hidedupes = .true.
         case ('R')
-           read (optarg(:arglen), *) nft8rxfsens
+           call require_integer('R', optarg(:arglen), nft8rxfsens)
         case ('N')
-           read (optarg(:arglen), *) nmt
+           call require_integer('N', optarg(:arglen), nmt)
         case ('E')
-           read (optarg(:arglen), *) nmtft8decsens
+           call require_integer('E', optarg(:arglen), nmtft8decsens)
         case ('D')
-           read (optarg(:arglen), *) ndecoderstart
+           call require_integer('D', optarg(:arglen), ndecoderstart)
         case ('Z')
            lwidedxcsearch = .false.
         case ('q')
@@ -189,7 +203,10 @@ program jt9
         case ('k')
            mode = 144
         case ('Q')
-           read (optarg(:arglen), *) nQSOProg
+           call require_integer('Q', optarg(:arglen), nQSOProg)
+           if (nQSOProg < 0 .or. nQSOProg > 5) then
+              call invalid_option('Q', optarg(:arglen), 'must be between 0 and 5')
+           end if
         case ('3')
            mode = 66
         case ('4')
@@ -207,7 +224,7 @@ program jt9
         case ('T')
            tx9 = .true.
         case ('w')
-           read (optarg(:arglen), *) npatience
+           call require_integer('w', optarg(:arglen), npatience)
         case ('W')
            mode = 241
         case ('Y')
@@ -221,10 +238,15 @@ program jt9
         case ('g')
            read (optarg(:arglen), *) hisgrid
         case ('X')
-           read (optarg(:arglen), *) nexp_decode
+           call require_integer('X', optarg(:arglen), nexp_decode)
            nexp_decode_set = .true.
      end select
   end do
+
+  if (display_version) then
+     call jt9_print_version()
+     stop
+  endif
   
   if (display_help .or. stat .lt. 0                      &
        .or. (.not. read_files .and. remain .gt. 0)       &
@@ -355,18 +377,20 @@ program jt9
   do iarg = offset + 1, offset + remain
      call get_command_argument (iarg, optarg, arglen)
      infile = optarg(:arglen)
-     call wav%read (infile)
+     call wav%read (infile, wav_status, optarg)
+     if (wav_status /= 0) then
+        write(error_unit, '(A)') 'jt9: cannot read WAV file ' // trim(infile) // ': ' // trim(optarg)
+        stop 2
+     end if
      nfsample=wav%audio_format%sample_rate
-     i1=index(infile,'.wav')
-     if(i1.lt.1) i1=index(infile,'.WAV')
-     if(infile(i1-5:i1-5).eq.'_') then
-        read(infile(i1-4:i1-1),*,err=1) nutc
-     else
-        read(infile(i1-6:i1-1),*,err=1) nutc
-     endif
-     go to 2
-1    nutc=0
-2    nsps=6912
+     if (nfsample /= 12000 .and. .not. (mode == 4 .and. nfsample == 11025)) then
+        close(unit=wav%lun)
+        write(error_unit, '(A,I0,A)') 'jt9: unsupported ',nfsample, &
+             ' Hz WAV sample rate for the selected mode'
+        stop 2
+     end if
+     call parse_wav_filename_nutc(infile, nutc)
+     nsps=6912
      npts=TRperiod*12000.d0
      kstep=nsps/2
      k=0
@@ -383,12 +407,19 @@ program jt9
         k=iblk*kstep
         if(mode.eq.8 .and. k.gt.179712) exit
         call timer('read_wav',0)
-        read(unit=wav%lun,end=3) shared_data%id2(k-kstep+1:k)
-        go to 4
-3       call timer('read_wav',1)
-        print*,'EOF on input file ',trim(infile)
-        exit
-4       call timer('read_wav',1)
+        call wav%read_samples(shared_data%id2(k-kstep+1:k), samples_read, &
+             wav_status, optarg)
+        call timer('read_wav',1)
+        if (wav_status /= 0) then
+           close(unit=wav%lun)
+           write(error_unit, '(A)') 'jt9: cannot read WAV file ' // &
+                trim(infile) // ': ' // trim(optarg)
+           stop 2
+        end if
+        if (samples_read == 0) then
+           print*,'EOF on input file ',trim(infile)
+           exit
+        end if
         nhsym=(k-2048)/kstep
         if(nhsym.ge.1 .and. nhsym.ne.nhsym0) then
            if(mode.eq.9 .or. mode.eq.74) then
@@ -404,6 +435,10 @@ program jt9
            if(nhsym.ge.181 .and. mode.ne.240 .and. mode.ne.241 .and. &
               mode.ne.242 .and. mode.ne.66) exit
         endif
+        if (samples_read < kstep) then
+           print*,'EOF on input file ',trim(infile)
+           exit
+        end if
      enddo
      close(unit=wav%lun)
 
@@ -563,5 +598,36 @@ program jt9
   endif
   call fftwf_cleanup_threads()
   call fftwf_cleanup()
+  if (allocated(shared_data)) deallocate(shared_data)
+
+contains
+
+  subroutine require_integer(option, text, value)
+    character(len=*), intent(in) :: option, text
+    integer, intent(out) :: value
+
+    logical :: ok
+
+    call parse_integer(text, value, ok)
+    if (.not. ok) call invalid_option(option, text, 'must be an integer')
+  end subroutine require_integer
+
+  subroutine require_real(option, text, value)
+    character(len=*), intent(in) :: option, text
+    real(kind=8), intent(out) :: value
+
+    logical :: ok
+
+    call parse_real(text, value, ok)
+    if (.not. ok) call invalid_option(option, text, 'must be a finite number')
+  end subroutine require_real
+
+  subroutine invalid_option(option, text, reason)
+    character(len=*), intent(in) :: option, text, reason
+
+    write(error_unit, '(A)') 'jt9: invalid value for -' // trim(option) // ': ' // &
+         trim(text) // ' (' // trim(reason) // ')'
+    stop 2
+  end subroutine invalid_option
 
 end program jt9

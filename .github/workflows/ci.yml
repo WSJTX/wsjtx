@@ -6,8 +6,9 @@ on:
   pull_request:
     branches: [develop]
     # `labeled` is added to the defaults (opened/synchronize/reopened) so
-    # that applying the `full-ci` label to an already-open PR triggers a
-    # fresh run that includes the expensive matrix (see the gate below).
+    # that applying `full-ci`, `sanitizers`, or `thread-sanitizer` to an
+    # already-open PR triggers
+    # a fresh run that includes the requested opt-in jobs (see the gates below).
     types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
     inputs:
@@ -21,6 +22,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # Single source of truth for the project version string: read it from
   # CMakeLists.txt so CI and release.yml cannot disagree. Strip the
@@ -28,10 +33,20 @@ jobs:
   # shape release.yml derives from build/v<X.Y.Z> tags.
   prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
+      linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v7
+      - name: Validate workflow job timeouts
+        run: .github/scripts/validate-workflow-timeouts.py
+      - name: Run CI policy self-tests
+        run: |
+          .github/scripts/validate-ci-inputs.sh --self-test
+          .github/scripts/detect-ccache-recache.sh --self-test
+          .github/scripts/test-verify-linux-ci-image.sh
+          python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
       - id: v
         run: |
           VERSION=$(grep -E '^\s*VERSION\s+[0-9]' CMakeLists.txt | head -1 | awk '{print $2}' | cut -d. -f1-3)
@@ -41,9 +56,15 @@ jobs:
           fi
           echo "Derived version from CMakeLists.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - id: linux-image
+        name: Resolve Linux CI image generation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/resolve-linux-ci-image-tag.py
 
   detect-build-system-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       recache: ${{ steps.detect.outputs.recache }}
     steps:
@@ -59,58 +80,18 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
           FORCE_RECACHE: ${{ inputs.recache || false }}
-        run: |
-          set -euo pipefail
+        run: .github/scripts/detect-ccache-recache.sh
 
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            base="$PR_BASE_SHA"
-            head="$CURRENT_SHA"
-          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
-            base="$BEFORE_SHA"
-            head="$CURRENT_SHA"
-          else
-            base="${CURRENT_SHA}^"
-            head="$CURRENT_SHA"
-          fi
-
-          recache=false
-          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
-            git fetch --no-tags --depth=1 origin "$base" || true
-          fi
-
-          if git cat-file -e "${base}^{commit}" 2>/dev/null && git cat-file -e "${head}^{commit}" 2>/dev/null; then
-            changed="$(git diff --name-only "$base" "$head")"
-          else
-            echo "::notice::Could not compare $base..$head; forcing ccache recache"
-            changed=""
-            recache=true
-          fi
-
-          while IFS= read -r path; do
-            case "$path" in
-              CMakeLists.txt|*/CMakeLists.txt|*.cmake|cmake/*|CMake/*|.github/workflows/ci.yml|.github/workflows/build-*.yml|.github/actions/build-*/*|.github/scripts/build-*.sh)
-                recache=true
-                ;;
-            esac
-          done <<< "$changed"
-
-          if [ "$FORCE_RECACHE" = "true" ]; then
-            recache=true
-          fi
-
-          echo "Build-system recache: $recache"
-          echo "recache=$recache" >> "$GITHUB_OUTPUT"
-
-  # Two-tier CI to conserve Action minutes. Roughly 95% of the bill is the
-  # macOS (10x) and Windows (2x) legs; both Linux legs bill at 1x.
+  # Two-tier CI to conserve Actions minutes. The default path runs one Linux
+  # x86_64 smoke leg; sanitizer and broader platform coverage are opt-in.
   #
-  #   * Default (every push / PR to develop): Linux only -- `linux` (x86_64)
-  #     plus `linux-arm` (aarch64, native ubuntu-24.04-arm). Fast, cheap, and
-  #     catches the large majority of breakage.
-  #   * Expensive matrix (macos, macos-intel, windows): opt-in only. Runs when
-  #     a PR carries the `full-ci` label, or when the workflow is started
-  #     manually ("Run workflow" / workflow_dispatch). Release builds are
-  #     unaffected -- they run the full matrix via release.yml on build/v* tags.
+  #   * Default (every push / PR to develop): Linux x86_64 only -- `linux`.
+  #   * ASan + UBSan: runs on PRs carrying `sanitizers` or `full-ci`.
+  #   * TSan: runs only on PRs carrying `thread-sanitizer`.
+  #   * Opt-in matrix (`linux-arm`, macos, macos-intel, windows): runs when a
+  #     PR carries the `full-ci` label, or when the workflow is started manually
+  #     ("Run workflow" / workflow_dispatch). Release builds are unaffected --
+  #     they run the full matrix via release.yml on build/v* tags.
   #
   # Every non-prepare leg also `needs: linux`, so a break that fails
   # everywhere fails fast on the cheapest runner before any costly leg
@@ -155,16 +136,53 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "x86_64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      save_ccache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+    secrets: inherit
+
+  linux-sanitizers:
+    name: Linux x86_64 ASan + UBSan
+    needs: [prepare, detect-build-system-changes, linux]
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+      contains(github.event.pull_request.labels.*.name, 'sanitizers')
+    uses: ./.github/workflows/build-linux-sanitizers.yml
+    with:
+      hamlib_branch: "4.7.2"
+      sanitizer: asan-ubsan
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      advisory: true
+    secrets: inherit
+
+  linux-tsan:
+    name: Linux x86_64 TSan
+    needs: [prepare, detect-build-system-changes, linux]
+    if: contains(github.event.pull_request.labels.*.name, 'thread-sanitizer')
+    uses: ./.github/workflows/build-linux-sanitizers.yml
+    with:
+      hamlib_branch: "4.7.2"
+      sanitizer: tsan
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      advisory: true
     secrets: inherit
 
   linux-arm:
     needs: [prepare, detect-build-system-changes, linux]
+    # Opt-in only -- see the two-tier note above.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci')
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "aarch64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 

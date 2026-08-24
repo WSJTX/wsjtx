@@ -11,6 +11,7 @@ program sfoxsim
   type(hdr) h                            !Header for .wav file
   logical*1 bMoreCQs                     !Include a CQ when space available?
   logical*1 bSendMsg                     !Send a Free text message
+  integer pack_error
   integer*2 iwave(NMAX)                  !Generated i*2 waveform
   integer isync(24)                      !Indices of sync symbols
   integer itone(151)                     !Symbol values, data and sync
@@ -112,7 +113,8 @@ program sfoxsim
 ! Generate a SuperFox message
   nslots=5
   call foxgen2(nslots,cmsg,line,foxcall)      !Parse old-style Fox messages
-  call sfox_pack(line,ckey,bMoreCQs,bSendMsg,text_msg,xin)
+  call sfox_pack(line,ckey,bMoreCQs,bSendMsg,text_msg,xin,pack_error)
+  if(pack_error.ne.0) error stop 'SuperFox pack failed'
   call qpc_encode(y,xin)
 
   y=cshift(y,1)
@@ -157,7 +159,7 @@ program sfoxsim
      nmin=(nsec-nhr*3600)/60
      nsec=mod(nsec,60)
      write(fname(8:13),'(3i2.2)') nhr,nmin,nsec
-     open(10,file=trim(fname),access='stream',status='unknown')
+     open(10,file=trim(fname),access='stream',status='replace')
      write(10) h,iwave(1:NMAX)                !Save the .wav file
      close(10)
   enddo  ! ifile

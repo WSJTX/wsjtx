@@ -1,23 +1,20 @@
-subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
+subroutine rjtty_sub(iwave,kz,nsps,nfa,nfb,f0,ftol)
 
   use jtty_mdec
   integer*2 iwave(kz)
-  character*80 umsg
-  logical synced,success
   data kz0/9999999/,missed_syncs/0/
-  save istart,kz0,kchar,success,synced,missed_syncs,ndtol
+  save istart,kz0,kchar,missed_syncs,ndtol
 
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 
   nframe = 53*nsps
   nchunk = nframe + nframe/4
-  smin=3.0
+  smin=4.6
 
   if(kz .le. kz0 ) then
      kz0=kz
      istart=1
      kchar=0
-     synced=.false.
      ndtol=0
      nslots=0
      go to 999
@@ -27,33 +24,11 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
   nsync=0
   dmin=0.0    !Nonzero returned if OSD successful. Use to reject false decodes?
   do while (istart+nchunk-1 .le. kz)
-     success=.false.
-!     synced=.false.             ! uncomment this to disable use of prior sync 
      ndebug=-1
      snr=-99.0
-     call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
-              smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
-     
-     if(synced) then
-        missed_syncs = 0
-     else
-        missed_syncs = missed_syncs + 1
-        if(missed_syncs.ge.2) then
-           f1good = -99.
-           xdtgood = -99.
-!           missed_syncs = 0
-        endif
-     endif
-
-     if(success) then
-        ndecodes = ndecodes + 1
-        istart=istart+nframe
-! Use this sync for next frame only if was strong strong
-        if(nsync.lt.12) synced=.false.
-     else
-        istart=istart+nframe/4
-        synced=.false.
-     endif
+     call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,nfa,nfb, &
+          f0,ftol,smin)
+     istart=istart+nframe/4
   enddo
 
 999 return
@@ -89,9 +64,8 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
         if(msg(j:j).eq.'~') msg(j:j)=' '
      enddo
      if(msg(1:1).eq.' ') msg=trim(msg(2:))
-     write(msg2,1000) nint(slot(i)%f1),nint(slot(i)%snrdb - 20.0),  &
-          trim(msg) // char(10)
-1000 format(2i4,2x,a)
+     write(msg2,1000) nint(slot(i)%f1),trim(msg) // char(10)
+1000 format(i4,2x,a)
      nmsg=len_trim(msg2)
      ncopy=min(nmsg,len(all_freqs)-kall)
      if(ncopy.gt.0) then

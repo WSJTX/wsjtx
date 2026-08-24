@@ -81,10 +81,13 @@ subroutine genmsk_128_90(msg0,ichk,msgsent,i4tone,itype)
 
      i3=-1
      n3=-1
-     call pack77(message,i3,n3,c77)
+     c77=' '
+     unpk77_success=.false.
+     call pack77_legacy_truncating_fallback(message,i3,n3,c77)
+     if(i3.lt.0 .or. n3.lt.0) go to 998
      call unpack77(c77,0,msgsent,unpk77_success) !Unpack to get msgsent
      if(ichk.eq.1) go to 999
-     read(c77,"(77i1)") msgbits
+     read(c77,"(77i1)",err=998) msgbits
      call encode_128_90(msgbits,codeword)
 
 !Create 144-bit channel vector:
@@ -116,5 +119,11 @@ subroutine genmsk_128_90(msg0,ichk,msgsent,i4tone,itype)
 
 ! Flip polarity
   i4tone=-i4tone+1
+  go to 999
+998 msgbits=0
+  bitseq=0
+  i4tone=0
+  msgsent='*** bad message ***                  '
+  itype=-1
 999 return
 end subroutine genmsk_128_90

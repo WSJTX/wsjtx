@@ -18,11 +18,12 @@ Source code for WSJT-X, MAP65, and QMAP together amounts to more than 130,000 li
 ### Prerequisites
 
 **All platforms:**
-- CMake 3.16+
+- CMake 3.12 or later
 - Qt 5.12+ (Core, Widgets, Multimedia, SerialPort, Network, Sql, LinguistTools)
 - FFTW 3 (single precision — `libfftw3f`)
 - Boost C++ libraries
-- Compilers for C++ and FORTRAN, typically gcc and gfortran
+- A C++ compiler with C++17 support
+- A Fortran compiler, typically gfortran
 - Git
 
 **Linux (Debian/Ubuntu):**
@@ -44,11 +45,14 @@ Windows builds use the [Hamlib SDK](https://sourceforge.net/projects/hamlib-sdk/
 
 ### First Step: Build Hamlib
 
-WSJT-X requires a specific Hamlib version. Check `ci.yml` in `.github/workflows/` for the current `hamlib_branch` value — this is what CI builds against and what your local build should match.
+WSJT-X builds against the Hamlib revision pinned by CI. Check the current
+`hamlib_branch` value in `.github/workflows/ci.yml` and use the same revision
+for a local build.
 
 ```bash
-# Replace HAMLIB_BRANCH with the current value from ci.yml (e.g., "4.7.2"):
-HAMLIB_BRANCH="4.7.2"
+# Replace <HAMLIB_BRANCH> with the current hamlib_branch value from
+# .github/workflows/ci.yml.
+HAMLIB_BRANCH="<HAMLIB_BRANCH>"
 
 mkdir -p ~/hamlib-prefix/build
 cd ~/hamlib-prefix
@@ -82,11 +86,18 @@ cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix" ../src
 cmake --build .
 ```
 
+CMake selects the project's C++17 language standard automatically; an
+additional `-std=` option is normally not needed. After pulling changes to
+the build configuration or compiler requirements, rerun the CMake configure
+step. If an existing build directory reports cached compiler or configuration
+errors, configure a fresh build directory.
+
 On macOS, add Qt5 and other Homebrew paths to `CMAKE_PREFIX_PATH`:
 ```bash
 cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix;$(brew --prefix qt@5);$(brew --prefix fftw);$(brew --prefix boost)" \
   -DCMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran ../src
 ```
+Homebrew-linked macOS builds are for local development and testing, not release artifact validation. The legacy install-time BundleUtilities path is opt-in with `-DWSJT_MACOS_INSTALL_TIME_FIXUP=ON`; deployable macOS packages use the controlled dependency deploy and verification path in CI.
 
 ### Updating and Rebuilding
 

@@ -1,8 +1,10 @@
-subroutine osd174_91var(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr)
+subroutine osd174_91var(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
+     progress_generation)
 !
 ! An ordered-statistics decoder for the (174,91) code.
 !
 use ft8_mod1, only : first_osd,gen
+use decode_completion_module, only : write_decode_progress
 integer, parameter:: N=174, K=91, M=N-K
 integer*1 apmask(N),apmaskr(N)
 integer*1 genmrb(K,N),g2(N,K)
@@ -12,7 +14,8 @@ integer indices(N),nxor(N)
 integer*1 cw(N),ce(N),c0(N),hdec(N)
 integer*1 decoded(K)
 integer*1 message77(77)
-integer indx(N)
+integer indx(N),progress_work
+integer, intent(in) :: progress_generation
 real llr(N),rx(N),absrx(N)
 include '/lib/ft8/ldpc_174_91_c_generator.f90'
 logical reset
@@ -37,8 +40,8 @@ interface
 end interface
 
 npre1=0; npre2=0; d1=0.
-if(first_osd) then ! fill the generator matrix
 !$omp critical(first_osd)
+if(first_osd) then ! fill the generator matrix
   gen=0
   do i=1,M
     do j=1,23
@@ -55,8 +58,8 @@ if(first_osd) then ! fill the generator matrix
     gen(irow,irow)=1
   enddo
 first_osd=.false.
-!$omp end critical(first_osd)
 endif
+!$omp end critical(first_osd)
 
 rx=llr
 apmaskr=apmask
@@ -161,10 +164,13 @@ elseif(ndeep.eq.5) then
 endif
 
 do iorder=1,nord
+   progress_work=0
    misub(1:K-iorder)=0
    misub(K-iorder+1:K)=1
    iflag=K-iorder+1
    do while(iflag .ge.0)
+      progress_work=progress_work+1
+      if(mod(progress_work,32).eq.0) call write_decode_progress(progress_generation)
       if(iorder.eq.nord .and. npre1.eq.0) then
          iend=iflag
       else
@@ -220,6 +226,7 @@ if(npre2.eq.1) then
    reset=.true.
    ntotal=0
    do i1=K,1,-1
+      if(mod(i1,8).eq.0) call write_decode_progress(progress_generation)
       do i2=i1-1,1,-1
          ntotal=ntotal+1
          mi(1:ntau)=ieor(g2(K+1:K+ntau,i1),g2(K+1:K+ntau,i2))
@@ -234,7 +241,10 @@ if(npre2.eq.1) then
    misub(1:K-nord)=0
    misub(K-nord+1:K)=1
    iflag=K-nord+1
+   progress_work=0
    do while(iflag .ge.0)
+      progress_work=progress_work+1
+      if(mod(progress_work,32).eq.0) call write_decode_progress(progress_generation)
       me=ieor(m0,misub)
       call mrbencode91var(me,ce,g2,N,K)
       e2sub=ieor(ce(K+1:N),hdec(K+1:N))

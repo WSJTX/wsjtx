@@ -13,6 +13,7 @@
 #include <QList>
 #include <QToolTip>
 #include <cstring>
+#include <vector>
 #include "commons.h"
 #include "decode_label.h"
 
@@ -68,13 +69,13 @@ public:
   int  DF();
   int  autoZero();
   void setPalette(QString palette);
-  void setFsample(int n);
   void setMode65(int n);
   void set2Dspec(bool b);
   double fGreen();
   void setLockTxRx(bool b);
   double rxFreq();
   double txFreq();
+//  void resetWaterfall()
 //  void updateFreqLabel();
 
   // Decoded-callsign overlay (N6NU 2026-05-12, ported from QMAP).
@@ -114,6 +115,7 @@ private:
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);
+  void ensureWaterfallHistory(int rows);
   // Render m_decodeLabels overlay on top of the waterfall pixmap.
   // Stacks colliding labels vertically (max 5 rows) so a busy band
   // doesn't paint labels on top of each other.
@@ -130,7 +132,9 @@ private:
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;
   QPixmap m_2DPixmap;
-  unsigned char m_zwf[32768*400];
+  std::vector<unsigned char> m_zwf;
+  int     m_waterfallStride {0};
+  int     m_waterfallRows {0};
   QPixmap m_ScalePixmap;
   QPixmap m_ZoomScalePixmap;
   QSize   m_Size;
@@ -158,7 +162,6 @@ private:
   qint32  m_z1;
   qint32  m_z2;
   qint32  m_nkhz;
-  qint32  m_fSample;
   qint32  m_mode65;
   qint32  m_i0;
   qint32  m_xClick;

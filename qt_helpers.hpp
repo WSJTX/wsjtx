@@ -129,13 +129,17 @@ QString font_as_stylesheet (QFont const&);
 // conditional style sheet updates
 void update_dynamic_property (QWidget *, char const * property, QVariant const& value);
 
-// round a QDateTime instance to an integral interval of milliseconds
+// Invalid input, a nonpositive interval, or an unrepresentable result returns an invalid QDateTime.
+// Round to the nearest interval, resolving midpoint ties toward the later interval.
 QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds);
 
-// truncate a QDateTime to an integral interval of milliseconds
+// Invalid input, a nonpositive interval, or an unrepresentable result returns an invalid QDateTime.
+// Truncate to the earlier interval.
 QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds);
 
 QString app_sounds_directory (QString const& subdirectory = QString {});
+bool app_sounds_subdirectory_is_safe (QString const& subdirectory);
+bool parse_app_voice_entry (QString const& record, QString& subdirectory, QString& display_name);
 
 // Empty lists have no valid index; -1 advances to the first item.
 int next_cyclic_index (int current_index, int item_count);

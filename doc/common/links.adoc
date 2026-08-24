@@ -15,7 +15,6 @@ Perform searches from the doc root directory: doc
 Search: grep -rl --exclude-dir="*\.git" {pskreporter} .
 	grep -rl --exclude-dir="*\.git" PSK Reporter .
 	grep -rl --exclude-dir="*\.git" {devrepo} .
-        grep -rl --exclude-dir="*\.git" {kvasd} .
         grep -rl --exclude-dir="*\.git" {ntpsetup} .
 
 Include links.adoc: grep -rl --exclude-dir="*\.git" pskreporter .

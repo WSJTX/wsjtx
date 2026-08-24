@@ -13,6 +13,8 @@
 #include <QSettings>
 #include <QtMath>
 #include "MessageBox.hpp"
+#include "DecodedMessageReaction.hpp"
+#include "WaitFeaturePolicy.hpp"
 #include "commons.h"
 #include "echograph.h"
 #include "widegraph.h"
@@ -45,12 +47,6 @@ extern bool not_erase;
 extern bool first_Fox_alert;
 extern bool second_Fox_alert;
 extern bool no_Fox_alert;
-extern int Dpoints;
-extern int maxDPoints;
-extern int dBpoints;
-extern int dBpoints2;
-extern int maxdBPoints;
-extern int mindBPoints;
 extern bool pounce;
 extern bool filtered;
 extern bool ignored;
@@ -82,6 +78,11 @@ extern "C" {
 
 void MainWindow::on_monitorButton_clicked (bool checked)
 {
+  if (m_wav_load_coordinator.isLoading ()) {
+    ui->monitorButton->setChecked (false);
+    return;
+  }
+
   if (!m_transmitting) {
     auto prior = m_monitoring;
     monitor (checked);
@@ -131,12 +132,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
       filtered = false;
       ignored = false;
       m_muted = false;
-      Dpoints=0;                          // reset points
-      maxDPoints=0;                       // reset points
-      dBpoints=-28;                       // reset points
-      dBpoints2=99;                       // reset points
-      maxdBPoints=-28;                    // reset points
-      mindBPoints=99;                     // reset points
+      m_autoRespondScores.reset();
   }
   m_maxPoints=-1;
   if (checked && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None"
@@ -170,12 +166,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
   if (ui->respondComboBox->isVisible() and ui->respondComboBox->currentIndex()!=0 and !m_diskData) {
-    Dpoints=0;                          // reset points
-    maxDPoints=0;                       // reset points
-    dBpoints=-28;                       // reset points
-    dBpoints2=99;                       // reset points
-    maxdBPoints=-28;                    // reset points
-    mindBPoints=99;                     // reset points
+    m_autoRespondScores.reset();
     if (!(m_mode=="Q65" or m_mode=="JT65")) {
       clearDX();                                   // clear dxCallEntry
       ui->dxGridEntry->clear ();                   // clear dxGridEntry
@@ -197,12 +188,25 @@ void MainWindow::on_pbBandHopping_clicked()
 
 void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
 {
+  if (m_wav_load_coordinator.isLoading ()) {
+    ui->DecodeButton->setChecked (false);
+    return;
+  }
+
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
   } else if(m_mode=="JTTY") {
     jtty_again();
   } else {
-    if(m_mode!="WSPR" && !m_decoderBusy) {
+    if(m_mode!="WSPR" && !decoderBusy ()) {
+      if (usesJt9Process ()
+          && (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
+              || QProcess::Running != proc_jt9.state ()))
+        {
+          ui->DecodeButton->setChecked (false);
+          showStatusMessage (tr ("Decoder is starting; decode request skipped."));
+          return;
+        }
       m_manualDecode=true;
       dec_data.params.newdat=0;
       dec_data.params.nagain=1;
@@ -299,7 +303,8 @@ void MainWindow::on_txb6_clicked()
     set_dateTimeQSO(-1);
     ui->txrb6->setChecked(true);
     if(m_transmitting) m_restart=true;
-    if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0 && !programStart && !m_band_changed) {
+    if(m_mode=="MSK144" && !programStart && !m_band_changed && !keep_msk144_frequency
+        && hasMsk144BaseFrequency ()) {
       setRig(m_msk144basefreq);  // reset MSK144 QSY
       msk144qsy = false;
     }
@@ -418,9 +423,15 @@ void MainWindow::on_ignoreButton_clicked()                    //Ignore button
 
 void MainWindow::on_DX_Call_Button_clicked (bool checked)
 {
-  if((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="MSK144") &&
-     (m_specOp==SpecOp::NONE or m_specOp==SpecOp::HOUND) && ui->cbAutoSeq->isChecked() && checked
-     && (m_hisCall!="" or (m_mode=="FT8" && m_specOp==SpecOp::HOUND))) {
+  WaitFeatureContext const waitContext {
+    m_mode,
+    m_specOp,
+    m_config.Wait_features_enabled(),
+    ui->cbAutoSeq->isChecked(),
+    !m_hisCall.isEmpty(),
+    m_config.NCCC_Sprint()
+  };
+  if (checked && wait_and_call_arming_eligible (waitContext)) {
       wait_and_call = true;       // toggle Wait & Call on when allowed
   } else {
       wait_and_call = false;      // toggle Wait & Call off in any other case
@@ -448,13 +459,15 @@ void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
 
 void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 {
-  if (!((m_config.repeat_Tx() or !m_send_RR73) && (m_mode=="MSK144" or m_mode=="Q65"))) {
+  auto stopAutoTx = [this] {
     if (SpecOp::NA_VHF==m_specOp && m_mode=="FT4" && m_config.NCCC_Sprint()) {
-      QTimer::singleShot (int(850.0*m_TRperiod), [=] {cease_auto_Tx_after_QSO ();});
+      QTimer::singleShot (int(850.0*m_TRperiod), [this] {cease_auto_Tx_after_QSO ();});
     } else {
       cease_auto_Tx_after_QSO ();
     }
-  }
+  };
+  DecodedMessageReaction::applyAutoTxStopAfterLogging(
+    m_mode, m_config.repeat_Tx(), m_send_RR73, stopAutoTx);
 
   if (!m_hisCall.size ()) {
     MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));
@@ -515,12 +528,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
                         ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
   m_inQSOwith="";
   if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
-        Dpoints=0;                          // reset points
-        maxDPoints=0;                       // reset points
-        dBpoints=-28;                       // reset points
-        dBpoints2=99;                       // reset points
-        maxdBPoints=-28;                    // reset points
-        mindBPoints=99;                     // reset points
+        m_autoRespondScores.reset();
   }
   QTimer::singleShot (2000, [=] {
       pounce = false;
@@ -586,11 +594,9 @@ void MainWindow::on_tuneButton_clicked (bool checked)
   else Q_EMIT tune (checked);
 }
 
-void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
+void MainWindow::reset_transmit_controls_after_stop ()
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
-  if (m_tune) stop_tuning ();
-  if (m_auto and !m_tuneup) auto_tx_mode (false);
   m_btxok=false;
   m_bCallingCQ = false;
   m_bAutoReply = false;         // ready for next
@@ -602,19 +608,26 @@ void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
   if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
-      Dpoints=0;                          // reset points
-      maxDPoints=0;                       // reset points
-      dBpoints=-28;                       // reset points
-      dBpoints2=99;                       // reset points
-      maxdBPoints=-28;                    // reset points
-      mindBPoints=99;                     // reset points
+      m_autoRespondScores.reset();
   }
   pounce = false;
-  ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
+  ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
+  ui->tuneButton->setChecked (false);
+  ui->tuneButton->setText("Tune");
+  m_tune=false;
+  m_bTxTime=false;
   filtered = false;
   ignored = false;
   m_muted = false;
   check_button_color();
+}
+
+void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
+{
+  noteTxStopReason (TxEvidence::TxStopReason::UserHalt);
+  if (m_tune) stop_tuning ();
+  if (m_auto and !m_tuneup) auto_tx_mode (false);
+  reset_transmit_controls_after_stop ();
 }
 
 void MainWindow::on_pbR2T_clicked()
@@ -695,17 +708,32 @@ void MainWindow::on_pbFoxReset_clicked()
 void MainWindow::on_pbFreeText_clicked()
 {
   bool ok;
+  QString freeTextMsg;
   if(m_config.superFox()) {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
+    freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
            tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(26);
   } else {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
+    freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
            tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(13);
   }
-  if(ok) {
-    m_freeTextMsg=m_freeTextMsg.toUpper();
-    m_freeTextMsg0=m_freeTextMsg;
+  if(!ok) return;
+
+  freeTextMsg=freeTextMsg.toUpper();
+  if(m_config.superFox()) {
+    // Mirrors valid_sfox_free_text in lib/superfox/sfox_pack.f90.
+    QString const validChars {" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?"};
+    for(QChar const ch: freeTextMsg) {
+      if(!validChars.contains(ch)) {
+        QString const message = tr ("SuperFox free text may only contain "
+            "spaces, digits, uppercase letters, and + - . / ?.");
+        MessageBox::warning_message (this, tr ("Free Text Message"), message);
+        return;
+      }
+    }
   }
+
+  m_freeTextMsg=freeTextMsg;
+  m_freeTextMsg0=m_freeTextMsg;
 }
 
 void MainWindow::on_pbBestSP_clicked()

@@ -34,6 +34,7 @@ program apply_routing_test
   nfail = 0
 
   call frame_flat()
+  call frame_npts_c0_guard()
   call frame_rxfreq()
   call frame_decouple()
   call frame_emedelay_survive()
@@ -75,6 +76,30 @@ contains
     call init_default_params(p, 8, 15.d0, args)
     call init_streaming_extra_fields(p, args)
   end subroutine fresh
+
+  subroutine frame_npts_c0_guard()
+    type(configure_fields) :: cfg
+    type(params_block) :: p
+    integer :: md
+    real(8) :: tr
+    write(*,'(a)') 'Frame npts_c0_array domain guard'
+    call fresh(p)
+    md = 9; tr = 60.d0
+    p%npts8 = 74736
+    cfg%npts_c0_array_set = .true.
+    cfg%npts_c0_array = -1
+    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call ok('negative npts_c0_array not applied', p%npts8 .eq. 74736)
+    cfg%npts_c0_array = 0
+    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call ok('zero npts_c0_array not applied', p%npts8 .eq. 74736)
+    cfg%npts_c0_array = 81649
+    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call ok('oversize npts_c0_array not applied', p%npts8 .eq. 74736)
+    cfg%npts_c0_array = 81648
+    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call ok('max npts_c0_array applied', p%npts8 .eq. 81648)
+  end subroutine frame_npts_c0_guard
 
   ! Read back a c_char(N) params field as a fixed-length string (inverse of the
   ! transfer() the apply does).

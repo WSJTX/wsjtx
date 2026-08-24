@@ -3,15 +3,21 @@ program echosim
 ! Generate simulated echo-mode files -- self-echo or "measure" 
 
   use wavhdr
-  parameter (NWAVE=27648,NMAX=32768,NZ=36000)
+  use julian
+  parameter (NWAVE=27648,NZ=36000)
   type(hdr) h                            !Header for .wav file
   character arg*12,fname*17
-  complex c0(0:NMAX-1)
-  complex c(0:NMAX-1)
+  complex c0(0:NZ-1)
   real*4 level_1,level_2
   real*8 f0,dt,twopi,phi,dphi
   real wave(NZ)
   integer*2 iwave(NZ)                  !Generated full-length waveform
+  character*32 isft                    !WAV LIST/INFO trailer fields
+  character*24 icrd
+  character*64 icmt
+  integer*8 tsec8
+  integer gmt(9)
+  integer*4 trailerlen,wav_trailer_length
   equivalence (nDop0,iwave(1))
   equivalence (nDopAudio0,iwave(3))
   equivalence (nfrit0,iwave(5))
@@ -59,6 +65,15 @@ program echosim
   write(*,1000)
 1000 format('   N   f0     fDop fSpread   SNR  File name'/51('-'))
 
+  isft='WSJT-X echosim'
+  tsec8=itime8()
+  call gmtime(int(tsec8,4),gmt)
+  write(icrd,1004) gmt(6)+1900,gmt(5)+1,gmt(4),gmt(3),gmt(2),gmt(1)
+1004 format(i4.4,'-',i2.2,'-',i2.2,'T',i2.2,':',i2.2,':',i2.2,'Z')
+  write(icmt,1005) nfiles
+1005 format('Mode=Echo; Simulated by echosim; nfiles=',i0)
+  trailerlen=wav_trailer_length(isft,icrd,icmt)
+
   do ifile=1,nfiles
      wave=0.
 
@@ -72,9 +87,7 @@ program echosim
         enddo
         c0(NWAVE:)=0.
         if(fspread.gt.0.0) call fspread_lorentz(c0,fspread)
-        c=sig*c0
-        wave(1:NWAVE)=imag(c(1:NWAVE))
-        peak=maxval(abs(wave))
+        wave(1:NWAVE)=sig*imag(c0(0:NWAVE-1))
      endif
 
      if(snrdb.lt.90) then
@@ -109,18 +122,66 @@ program echosim
      f10=f0 + fdop
      fspread0=fspread
      
-     h=default_header(12000,NMAX)
+     h=default_header(12000,NZ)
+     h%lenfile=h%lenfile + trailerlen       ! Include trailing metadata in the RIFF size
      n=3*(ifile-1)
      ihr=n/3600
      imin=(n-3600*ihr)/60
      isec=mod(n,60)
      write(fname,1102) ihr,imin,isec
 1102 format('000000_',3i2.2,'.wav')
-     open(10,file=fname,status='unknown',access='stream')
+     open(10,file=fname,status='replace',access='stream')
      write(10) h,iwave                !Save to *.wav file
+     call write_wav_info_trailer(10,isft,icrd,icmt)
      close(10)
      write(*,1110) ifile,f0,fdop,fspread,snrdb,fname
 1110 format(i4,4f7.1,2x,a17)
   enddo
 
 999 end program echosim
+
+integer*4 function wav_info_field_bytes(nchar)
+! Match BWFFile's NUL-terminated, word-aligned INFO subchunk layout.
+  integer, intent(in) :: nchar
+  integer*4 n
+  n=nchar+1
+  wav_info_field_bytes=8+n+mod(n,2)
+end function wav_info_field_bytes
+
+integer*4 function wav_trailer_length(isft,icrd,icmt)
+! Return the complete LIST chunk size, including its 8-byte header.
+  character(len=*), intent(in) :: isft,icrd,icmt
+  integer*4 wav_info_field_bytes
+  wav_trailer_length = 8 + 4                            &  !'LIST' id+size, 'INFO'
+       + wav_info_field_bytes(len_trim(isft))            &
+       + wav_info_field_bytes(len_trim(icrd))            &
+       + wav_info_field_bytes(len_trim(icmt))
+end function wav_trailer_length
+
+subroutine write_wav_info_trailer(lu,isft,icrd,icmt)
+! Append LIST/INFO metadata at the current stream position.
+  integer, intent(in) :: lu
+  character(len=*), intent(in) :: isft,icrd,icmt
+  integer*4 listlen,wav_info_field_bytes
+
+  listlen = 4                                            &  !'INFO'
+       + wav_info_field_bytes(len_trim(isft))             &
+       + wav_info_field_bytes(len_trim(icrd))             &
+       + wav_info_field_bytes(len_trim(icmt))
+
+  write(lu) 'LIST',listlen,'INFO'
+  call write_wav_info_field(lu,'ISFT',isft(1:len_trim(isft)))
+  call write_wav_info_field(lu,'ICRD',icrd(1:len_trim(icrd)))
+  call write_wav_info_field(lu,'ICMT',icmt(1:len_trim(icmt)))
+end subroutine write_wav_info_trailer
+
+subroutine write_wav_info_field(lu,id,value)
+! Write one NUL-terminated, word-aligned INFO subchunk.
+  integer, intent(in) :: lu
+  character*4, intent(in) :: id
+  character(len=*), intent(in) :: value
+  integer*4 n
+  n=len(value)+1
+  write(lu) id,n,value,char(0)
+  if(mod(n,2).eq.1) write(lu) char(0)
+end subroutine write_wav_info_field

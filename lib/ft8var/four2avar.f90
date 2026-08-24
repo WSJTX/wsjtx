@@ -32,12 +32,20 @@ subroutine four2avar(a,nfft,ndim,isign,iform)
   include '/lib/fftw3.f90'                    !FFTW definitions
   save plan,nplan,nn,ns,nf,nl
 
+  interface
+     subroutine wsjt_tsan_acquire_four2avar_setup() bind(C)
+     end subroutine wsjt_tsan_acquire_four2avar_setup
+     subroutine wsjt_tsan_release_four2avar_setup() bind(C)
+     end subroutine wsjt_tsan_release_four2avar_setup
+  end interface
+
   if(nfft.lt.0) go to 999
 
   nloc=loc(a)
   found_plan = .false.
 
   !$omp critical(four2avar_setup)
+  call wsjt_tsan_acquire_four2avar_setup()
   do i=1,nplan
      if(nfft.eq.nn(i) .and. isign.eq.ns(i) .and.                     &
           iform.eq.nf(i) .and. nloc.eq.nl(i)) then
@@ -91,6 +99,7 @@ subroutine four2avar(a,nfft,ndim,isign,iform)
         a(1:jz)=aa(1:jz)
      endif
   end if
+  call wsjt_tsan_release_four2avar_setup()
   !$omp end critical(four2avar_setup)
 
   call sfftw_execute(plan(i))

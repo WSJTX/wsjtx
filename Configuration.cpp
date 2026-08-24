@@ -149,6 +149,7 @@
 #include <QDialog>
 #include <QAction>
 #include <QKeyEvent>
+#include <QTabBar>
 #include <QFileDialog>
 #include <QDir>
 #include <QTemporaryFile>
@@ -167,6 +168,7 @@
 #include <QFont>
 #include <QFontDialog>
 #include <QComboBox>
+#include <QScopedValueRollback>
 #include <QScopedPointer>
 #include <QNetworkInterface>
 #include <QHostInfo>
@@ -290,6 +292,26 @@ namespace
   constexpr quint32 qrg_magic {0xadbccbdb};
   constexpr quint32 qrg_version {101}; // M.mm
   constexpr quint32 qrg_version_100 {100};
+
+  QString cloudlog_connection_check_style (Cloudlog::ConnectionCheckStatus status)
+  {
+    switch (status)
+      {
+      case Cloudlog::ConnectionCheckStatus::Success:
+        return QStringLiteral ("QPushButton {background-color: green;}");
+      case Cloudlog::ConnectionCheckStatus::ReadOnlyKey:
+        return QStringLiteral ("QPushButton {background-color: orange;}");
+      case Cloudlog::ConnectionCheckStatus::InvalidKey:
+      case Cloudlog::ConnectionCheckStatus::StationProfileUnavailable:
+      case Cloudlog::ConnectionCheckStatus::EndpointUnavailable:
+      case Cloudlog::ConnectionCheckStatus::UploadShapeRejected:
+      case Cloudlog::ConnectionCheckStatus::NetworkError:
+      case Cloudlog::ConnectionCheckStatus::UnexpectedResponse:
+        return QStringLiteral ("QPushButton {background-color: red;}");
+      }
+
+    return {};
+  }
 }
 
 
@@ -515,6 +537,9 @@ public:
   ~impl ();
 
   bool have_rig ();
+  bool can_control_rig (char const * command) const;
+  void mark_rig_offline ();
+  static QString summarize_transceiver_failure (QString const& reason);
 
   void transceiver_frequency (Frequency);
   void transceiver_tx_frequency (Frequency);
@@ -524,9 +549,9 @@ public:
   void transceiver_tune (bool);
   void transceiver_period (double, bool = false);
   void transceiver_blocksize (qint32);
-  void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double);
-  void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
-  void transceiver_clear_jtty_pcm (qint64);
+  void transceiver_modulator_start (TxEvidence::TxRequest const&);
+  void transceiver_enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64);
+  void transceiver_clear_jtty_pcm (TxAudioQueueEpoch);
   void transceiver_modulator_stop (bool);
   void transceiver_spread (double);
   void transceiver_nsym (int);
@@ -542,9 +567,18 @@ public:
 
 private:
   typedef QList<QAudioDeviceInfo> AudioDevices;
+  struct SettingsFocusPage
+  {
+    QWidget * page;
+    QList<QWidget *> tab_stops;
+  };
 
   bool eventFilter (QObject *, QEvent *) override;
-  bool move_advanced_tab_focus (bool reverse);
+  void register_settings_focus_page (QWidget * page, QList<QWidget *> const& tab_stops);
+  QList<QWidget *> current_settings_focus_path () const;
+  QList<QWidget *> settings_dialog_buttons () const;
+  int settings_focus_index (QList<QWidget *> const& path, QWidget * widget) const;
+  bool move_settings_focus (QList<QWidget *> const& path, int current_index, bool reverse);
 
   void read_settings ();
   void write_settings ();
@@ -572,7 +606,7 @@ private:
   void set_cached_mode ();
   bool open_rig (bool force = false);
   //bool set_mode ();
-  void close_rig ();
+  void close_rig (bool failed = false);
   TransceiverFactory::ParameterPack gather_rig_data ();
   void enumerate_rigs ();
   void set_rig_invariants ();
@@ -593,17 +627,16 @@ private:
 
   void delete_stations ();
   void insert_station ();
+  void handle_cloudlog_connection_check_result (Cloudlog::ConnectionCheckResult const& result);
+  void set_cloudlog_station_profiles (QList<Cloudlog::StationProfile> const& profiles);
+  qint32 cloudlog_station_profile_id () const;
 
   Q_SLOT void on_font_push_button_clicked ();
   Q_SLOT void on_decoded_text_font_push_button_clicked ();
   Q_SLOT void on_PTT_port_combo_box_activated (int);
   Q_SLOT void on_CAT_port_combo_box_activated (int);
   Q_SLOT void on_CAT_serial_baud_combo_box_currentIndexChanged (int);
-  Q_SLOT void on_CAT_data_bits_button_group_buttonClicked (int);
-  Q_SLOT void on_CAT_stop_bits_button_group_buttonClicked (int);
-  Q_SLOT void on_CAT_handshake_button_group_buttonClicked (int);
   Q_SLOT void on_CAT_poll_interval_spin_box_valueChanged (int);
-  Q_SLOT void on_split_mode_button_group_buttonClicked (int);
   Q_SLOT void on_test_CAT_push_button_clicked ();
   Q_SLOT void on_test_PTT_push_button_clicked (bool checked);
   Q_SLOT void on_pbTestCloudlog_clicked ();
@@ -619,11 +652,11 @@ private:
   Q_SLOT void on_delete_macro_push_button_clicked (bool = false);
   Q_SLOT void on_move_macro_up_push_button_clicked (bool = false);
   Q_SLOT void on_move_macro_down_push_button_clicked (bool = false);
-  Q_SLOT void on_PTT_method_button_group_buttonClicked (int);
   Q_SLOT void on_add_macro_line_edit_editingFinished ();
   Q_SLOT void delete_macro ();
   void delete_selected_macros (QModelIndexList);
   void move_selected_macros (int);
+  void move_selected_highlighting_rule (int);
   void after_CTY_downloaded();
   void set_CTY_DAT_version(QString const& version);
   void error_during_CTY_download (QString const& reason);
@@ -641,10 +674,14 @@ private:
   Q_SLOT void handle_transceiver_tci_mod_active (bool);
   Q_SLOT void handle_transceiver_update (TransceiverState const&, unsigned sequence_number);
   Q_SLOT void handle_transceiver_failure (QString const& reason);
-  Q_SLOT void on_DXCC_check_box_clicked(bool checked);
-  Q_SLOT void on_PWR_and_SWR_check_box_clicked(bool checked);
+  Q_SLOT void on_DXCC_check_box_toggled (bool);
+  void update_DXCC_control_availability ();
+  Q_SLOT void on_PWR_and_SWR_check_box_toggled (bool);
+  void update_PWR_and_SWR_control_availability ();
   Q_SLOT void on_reset_highlighting_to_defaults_push_button_clicked (bool);
   Q_SLOT void on_reset_highlighting_to_defaults2_push_button_clicked (bool);
+  Q_SLOT void on_move_highlighting_up_push_button_clicked (bool = false);
+  Q_SLOT void on_move_highlighting_down_push_button_clicked (bool = false);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
   Q_SLOT void on_CTY_download_button_clicked (bool);
   Q_SLOT void on_CALL3_download_button_clicked (bool);
@@ -657,10 +694,11 @@ private:
   void display_file_information();
   void check_visibility();
 
-  Q_SLOT void on_cbx2ToneSpacing_clicked(bool);
-  Q_SLOT void on_cbx4ToneSpacing_clicked(bool);
-  Q_SLOT void on_prompt_to_log_check_box_clicked(bool);
-  Q_SLOT void on_cbAutoLog_clicked(bool);
+  Q_SLOT void on_cbx2ToneSpacing_toggled (bool);
+  Q_SLOT void on_cbx4ToneSpacing_toggled (bool);
+  Q_SLOT void on_prompt_to_log_check_box_toggled (bool);
+  Q_SLOT void on_cbAutoLog_toggled (bool);
+  void update_logging_control_availability ();
   Q_SLOT void on_Field_Day_Exchange_editingFinished ();
   Q_SLOT void on_RTTY_Exchange_editingFinished ();
   Q_SLOT void on_OTPUrl_textEdited (QString const&);
@@ -720,8 +758,8 @@ private:
   Q_SIGNAL void set_transceiver (Transceiver::TransceiverState const&,
                                  unsigned sequence_number) const;
   Q_SIGNAL void stop_transceiver () const;
-  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, qint64, qint64) const;
-  Q_SIGNAL void clear_jtty_pcm (qint64) const;
+  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64) const;
+  Q_SIGNAL void clear_jtty_pcm (TxAudioQueueEpoch) const;
 
   Configuration * const self_;	// back pointer to public interface
 
@@ -730,7 +768,7 @@ private:
   QList<QMetaObject::Connection> rig_connections_;
 
   QScopedPointer<Ui::configuration_dialog> ui_;
-  QList<QWidget *> advanced_tab_stops_;
+  QList<SettingsFocusPage> settings_focus_pages_;
 
   QNetworkAccessManager * network_manager_;
   QSettings * settings_;
@@ -814,6 +852,7 @@ private:
   CalibrationParams calibration_;
   bool frequency_calibration_disabled_; // not persistent
   unsigned transceiver_command_number_;
+  bool initializing_models_;
   QString dynamic_grid_;
 
   // configuration fields that we publish
@@ -1248,36 +1287,42 @@ void Configuration::transceiver_offline ()
 void Configuration::transceiver_frequency (Frequency f)
 {
   LOG_TRACE (f << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_frequency")) return;
   m_->transceiver_frequency (f);
 }
 
 void Configuration::transceiver_tx_frequency (Frequency f)
 {
   LOG_TRACE (f << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_tx_frequency")) return;
   m_->transceiver_tx_frequency (f);
 }
 
 void Configuration::transceiver_mode (MODE mode)
 {
   LOG_TRACE (mode << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_mode")) return;
   m_->transceiver_mode (mode);
 }
 
 void Configuration::transceiver_ptt (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_ptt")) return;
   m_->transceiver_ptt (on);
 }
 
 void Configuration::transceiver_audio (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_audio")) return;
   m_->transceiver_audio (on);
 }
 
 void Configuration::transceiver_tune (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_tune")) return;
   m_->transceiver_tune (on);
 }
 
@@ -1287,6 +1332,7 @@ void Configuration::transceiver_period (double period, bool force)
   qDebug () << "Configuration::transceiver_period:" << period << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_period")) return;
   m_->transceiver_period (period, force);
 }
 
@@ -1296,27 +1342,30 @@ void Configuration::transceiver_blocksize (qint32 blocksize)
   qDebug () << "Configuration::transceiver_blocksize:" << blocksize << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_blocksize")) return;
   m_->transceiver_blocksize (blocksize);
 }
 
-void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbolslength, double framespersymbol, double trfrequency,
-                     double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+void Configuration::transceiver_modulator_start (TxEvidence::TxRequest request)
 {
 #if WSJT_TRACE_CAT
-  qDebug () << "Configuration::transceiver_modulator_start:" << symbolslength << m_->cached_rig_state_;
+  qDebug () << "Configuration::transceiver_modulator_start:" << request.symbols_length << m_->cached_rig_state_;
 #endif
 
-  m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod);
+  if (!m_->can_control_rig ("transceiver_modulator_start")) return;
+  m_->transceiver_modulator_start (request);
 }
 
-void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
+void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples,
+                                                   TxAudioQueueEpoch epoch,
+                                                   qint64 enqueueId)
 {
-  m_->transceiver_enqueue_jtty_pcm (samples, sessionId, enqueueId);
+  m_->transceiver_enqueue_jtty_pcm (samples, epoch, enqueueId);
 }
 
-void Configuration::transceiver_clear_jtty_pcm (qint64 sessionId)
+void Configuration::transceiver_clear_jtty_pcm (TxAudioQueueEpoch epoch)
 {
-  m_->transceiver_clear_jtty_pcm (sessionId);
+  m_->transceiver_clear_jtty_pcm (epoch);
 }
 
 void Configuration::transceiver_modulator_stop (bool on)
@@ -1325,6 +1374,7 @@ void Configuration::transceiver_modulator_stop (bool on)
   qDebug () << "Configuration::transceiver_stop:" << on << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_modulator_stop")) return;
   m_->transceiver_modulator_stop (on);
 }
 
@@ -1334,6 +1384,7 @@ void Configuration::transceiver_spread (double spread)
   qDebug () << "Configuration::transceiver_spread:" << spread << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_spread")) return;
   m_->transceiver_spread (spread);
 }
 
@@ -1343,6 +1394,7 @@ void Configuration::transceiver_nsym (qint32 nsym)
   qDebug () << "Configuration::transceiver_nsym:" << nsym << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_nsym")) return;
   m_->transceiver_nsym (nsym);
 }
 
@@ -1352,6 +1404,7 @@ void Configuration::transceiver_trfrequency (double trfrequency)
   qDebug () << "Configuration::transceiver_trfrequency:" << trfrequency << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_trfrequency")) return;
   m_->transceiver_trfrequency (trfrequency);
 }
 
@@ -1361,6 +1414,7 @@ void Configuration::transceiver_txvolume (qreal txvolume, bool force)
   qDebug () << "Configuration::transceiver_txvolume:" << txvolume << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_txvolume")) return;
   m_->transceiver_txvolume (txvolume, force);
 }
 
@@ -1370,6 +1424,7 @@ void Configuration::transceiver_volume (qreal volume)
   qDebug () << "Configuration::transceiver_volume:" << volume << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_volume")) return;
   m_->transceiver_volume (volume);
 }
 
@@ -1377,6 +1432,7 @@ void Configuration::transceiver_volume (qreal volume)
 void Configuration::sync_transceiver (bool force_signal, bool enforce_mode_and_split)
 {
   LOG_TRACE ("force signal: " << force_signal << " enforce_mode_and_split: " << enforce_mode_and_split << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("sync_transceiver")) return;
   m_->sync_transceiver (force_signal);
   if (!enforce_mode_and_split)
     {
@@ -1805,37 +1861,132 @@ namespace
 
 bool Configuration::impl::eventFilter (QObject *object, QEvent *event)
 {
-  if (event->type () == QEvent::KeyPress
-      && ui_->configuration_tabs->currentWidget () == ui_->advanced_tab)
+  if (event->type () == QEvent::KeyPress)
     {
       auto key_event = static_cast<QKeyEvent *> (event);
-      auto const is_tab = key_event->key () == Qt::Key_Tab || key_event->key () == Qt::Key_Backtab;
-      auto const reverse = key_event->key () == Qt::Key_Backtab
-        || (key_event->key () == Qt::Key_Tab && key_event->modifiers ().testFlag (Qt::ShiftModifier));
-      if (is_tab && advanced_tab_stops_.contains (qobject_cast<QWidget *> (object)))
+      auto const navigation_modifiers = key_event->modifiers ()
+        & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+      auto const is_forward_tab = key_event->key () == Qt::Key_Tab
+        && navigation_modifiers == Qt::NoModifier;
+      auto const is_reverse_tab = (key_event->key () == Qt::Key_Tab
+                                   && navigation_modifiers == Qt::ShiftModifier)
+        || (key_event->key () == Qt::Key_Backtab
+            && (navigation_modifiers == Qt::NoModifier
+                || navigation_modifiers == Qt::ShiftModifier));
+      auto const is_tab = is_forward_tab || is_reverse_tab;
+      if (is_tab)
         {
-          return move_advanced_tab_focus (reverse);
+          auto const path = current_settings_focus_path ();
+          auto object_widget = qobject_cast<QWidget *> (object);
+          auto current_index = settings_focus_index (path, QApplication::focusWidget ());
+          if (current_index < 0)
+            {
+              current_index = settings_focus_index (path, object_widget);
+            }
+          if (current_index >= 0)
+            {
+              return move_settings_focus (path, current_index, is_reverse_tab);
+            }
         }
     }
 
   return QDialog::eventFilter (object, event);
 }
 
-bool Configuration::impl::move_advanced_tab_focus (bool reverse)
+void Configuration::impl::register_settings_focus_page (QWidget * page, QList<QWidget *> const& tab_stops)
 {
-  auto focus_widget = QApplication::focusWidget ();
-  auto const current_index = advanced_tab_stops_.indexOf (focus_widget);
-  if (current_index < 0 || advanced_tab_stops_.isEmpty ())
+  settings_focus_pages_.append ({page, tab_stops});
+
+  for (auto control : tab_stops)
+    {
+      control->setFocusPolicy (Qt::StrongFocus);
+      control->installEventFilter (this);
+    }
+}
+
+QList<QWidget *> Configuration::impl::current_settings_focus_path () const
+{
+  auto const current_page = ui_->configuration_tabs->currentWidget ();
+  for (auto const& focus_page : settings_focus_pages_)
+    {
+      if (focus_page.page == current_page)
+        {
+          auto path = QList<QWidget *> {ui_->configuration_tabs};
+          path.append (focus_page.tab_stops);
+          path.append (settings_dialog_buttons ());
+          return path;
+        }
+    }
+
+  return {};
+}
+
+QList<QWidget *> Configuration::impl::settings_dialog_buttons () const
+{
+  QList<QWidget *> buttons;
+  auto const button_box = ui_->configuration_dialog_button_box;
+  for (auto button : {
+       button_box->button (QDialogButtonBox::Ok),
+       button_box->button (QDialogButtonBox::Cancel),
+       })
+    {
+      if (button)
+        {
+          buttons.append (button);
+        }
+    }
+
+  std::sort (buttons.begin (), buttons.end (), [button_box] (QWidget * lhs, QWidget * rhs) {
+    auto const lhs_center = lhs->geometry ().center ();
+    auto const rhs_center = rhs->geometry ().center ();
+    if (button_box->orientation () == Qt::Vertical && lhs_center.y () != rhs_center.y ())
+      {
+        return lhs_center.y () < rhs_center.y ();
+      }
+
+    if (button_box->layoutDirection () == Qt::RightToLeft)
+      {
+        return lhs_center.x () > rhs_center.x ();
+      }
+
+    return lhs_center.x () < rhs_center.x ();
+  });
+
+  return buttons;
+}
+
+int Configuration::impl::settings_focus_index (QList<QWidget *> const& path, QWidget * widget) const
+{
+  if (!widget)
+    {
+      return -1;
+    }
+
+  auto const tab_bar = ui_->configuration_tabs->tabBar ();
+  for (int index = 0; index < path.size (); ++index)
+    {
+      if (path.at (index) == widget
+          || (path.at (index) == ui_->configuration_tabs && tab_bar == widget))
+        {
+          return index;
+        }
+    }
+
+  return -1;
+}
+
+bool Configuration::impl::move_settings_focus (QList<QWidget *> const& path, int current_index, bool reverse)
+{
+  if (current_index < 0 || path.isEmpty ())
     {
       return false;
     }
 
   auto const direction = reverse ? -1 : 1;
-  for (int offset = 1; offset <= advanced_tab_stops_.size (); ++offset)
+  for (int offset = 1; offset <= path.size (); ++offset)
     {
-      auto const next_index = (current_index + direction * offset + advanced_tab_stops_.size ())
-        % advanced_tab_stops_.size ();
-      auto next = advanced_tab_stops_.at (next_index);
+      auto const next_index = (current_index + direction * offset + path.size ()) % path.size ();
+      auto next = path.at (next_index);
       if (next->isEnabledTo (this) && next->isVisibleTo (this))
         {
           next->setFocus (reverse ? Qt::BacktabFocusReason : Qt::TabFocusReason);
@@ -1861,7 +2012,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , temp_dir_ {temp_directory}
   , writeable_data_dir_ {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}
   , lotw_users_ {network_manager_}
-  , cloudlog_ {self}
+  , cloudlog_ {self, network_manager_}
   , restart_sound_input_device_ {false}
   , restart_sound_output_device_ {false}
   , restart_tci_device_ {false}
@@ -1894,6 +2045,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , rig_resolution_ {0}
   , frequency_calibration_disabled_ {false}
   , transceiver_command_number_ {0}
+  , initializing_models_ {false}
   , degrade_ {0.}               // initialize to zero each run, not
                                 // saved in settings
   , udp_server_name_edited_ {false}
@@ -1907,7 +2059,312 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 {
   ui_->setupUi (this);
 
-  advanced_tab_stops_ = {
+  installEventFilter (this);
+  ui_->configuration_tabs->setFocusPolicy (Qt::StrongFocus);
+  ui_->configuration_tabs->installEventFilter (this);
+  ui_->configuration_tabs->tabBar ()->installEventFilter (this);
+  ui_->configuration_dialog_button_box->installEventFilter (this);
+  for (auto button : settings_dialog_buttons ())
+    {
+      button->setFocusPolicy (Qt::StrongFocus);
+      button->installEventFilter (this);
+    }
+
+  auto update_rig_invariants_when_checked = [this] (QButtonGroup *button_group) {
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    connect (button_group, QOverload<int, bool>::of (&QButtonGroup::buttonToggled),
+#else
+    connect (button_group, &QButtonGroup::idToggled,
+#endif
+             this, [this] (int, bool checked) {
+               if (checked && !initializing_models_)
+                 {
+                   set_rig_invariants ();
+                 }
+             });
+  };
+  update_rig_invariants_when_checked (ui_->CAT_data_bits_button_group);
+  update_rig_invariants_when_checked (ui_->CAT_stop_bits_button_group);
+  update_rig_invariants_when_checked (ui_->CAT_handshake_button_group);
+  update_rig_invariants_when_checked (ui_->PTT_method_button_group);
+  update_rig_invariants_when_checked (ui_->split_mode_button_group);
+
+  auto set_accessible_line_edit_names = [] (QList<QLineEdit *> const& line_edits,
+                                            QString const& name_template) {
+    for (int index = 0; index < line_edits.size (); ++index)
+      {
+        line_edits.at (index)->setAccessibleName (name_template.arg (index + 1));
+      }
+  };
+  set_accessible_line_edit_names ({
+    ui_->Territory1,
+    ui_->Territory2,
+    ui_->Territory3,
+    ui_->Territory4,
+  }, tr ("Wanted territory %1"));
+  set_accessible_line_edit_names ({
+    ui_->Blacklist1,
+    ui_->Blacklist2,
+    ui_->Blacklist3,
+    ui_->Blacklist4,
+    ui_->Blacklist5,
+    ui_->Blacklist6,
+    ui_->Blacklist7,
+    ui_->Blacklist8,
+    ui_->Blacklist9,
+    ui_->Blacklist10,
+    ui_->Blacklist11,
+    ui_->Blacklist12,
+  }, tr ("Blacklist keyword %1"));
+  set_accessible_line_edit_names ({
+    ui_->Whitelist1,
+    ui_->Whitelist2,
+    ui_->Whitelist3,
+    ui_->Whitelist4,
+    ui_->Whitelist5,
+    ui_->Whitelist6,
+    ui_->Whitelist7,
+    ui_->Whitelist8,
+    ui_->Whitelist9,
+    ui_->Whitelist10,
+    ui_->Whitelist11,
+    ui_->Whitelist12,
+  }, tr ("Whitelist keyword %1"));
+  set_accessible_line_edit_names ({
+    ui_->Pass1,
+    ui_->Pass2,
+    ui_->Pass3,
+    ui_->Pass4,
+    ui_->Pass5,
+    ui_->Pass6,
+    ui_->Pass7,
+    ui_->Pass8,
+    ui_->Pass9,
+    ui_->Pass10,
+    ui_->Pass11,
+    ui_->Pass12,
+  }, tr ("Always pass keyword %1"));
+
+  ui_->CAT_port_combo_box->setAccessibleName (tr ("CAT control port"));
+  ui_->CAT_serial_baud_combo_box->setAccessibleName (tr ("CAT baud rate"));
+  ui_->CAT_default_bit_radio_button->setAccessibleName (tr ("Default CAT data bits"));
+  ui_->CAT_7_bit_radio_button->setAccessibleName (tr ("Seven CAT data bits"));
+  ui_->CAT_8_bit_radio_button->setAccessibleName (tr ("Eight CAT data bits"));
+  ui_->CAT_default_stop_bit_radio_button->setAccessibleName (tr ("Default CAT stop bits"));
+  ui_->CAT_one_stop_bit_radio_button->setAccessibleName (tr ("One CAT stop bit"));
+  ui_->CAT_two_stop_bit_radio_button->setAccessibleName (tr ("Two CAT stop bits"));
+  ui_->CAT_handshake_default_radio_button->setAccessibleName (tr ("Default CAT handshake"));
+  ui_->CAT_handshake_none_radio_button->setAccessibleName (tr ("No CAT handshake"));
+  ui_->CAT_handshake_xon_radio_button->setAccessibleName (tr ("XON/XOFF CAT handshake"));
+  ui_->CAT_handshake_hardware_radio_button->setAccessibleName (tr ("Hardware CAT handshake"));
+  ui_->force_DTR_combo_box->setAccessibleName (tr ("Force DTR control line"));
+  ui_->force_RTS_combo_box->setAccessibleName (tr ("Force RTS control line"));
+  ui_->PTT_VOX_radio_button->setAccessibleName (tr ("VOX PTT method"));
+  ui_->PTT_DTR_radio_button->setAccessibleName (tr ("DTR PTT method"));
+  ui_->PTT_CAT_radio_button->setAccessibleName (tr ("CAT PTT method"));
+  ui_->PTT_RTS_radio_button->setAccessibleName (tr ("RTS PTT method"));
+  ui_->PTT_port_combo_box->setAccessibleName (tr ("PTT control port"));
+  ui_->TX_source_data_radio_button->setAccessibleName (tr ("Rear or data transmit audio source"));
+  ui_->TX_source_mic_radio_button->setAccessibleName (tr ("Front or mic transmit audio source"));
+  ui_->mode_none_radio_button->setAccessibleName (tr ("No radio mode control"));
+  ui_->mode_USB_radio_button->setAccessibleName (tr ("USB radio mode"));
+  ui_->mode_data_radio_button->setAccessibleName (tr ("Data or packet radio mode"));
+  ui_->split_none_radio_button->setAccessibleName (tr ("No split operation"));
+  ui_->split_rig_radio_button->setAccessibleName (tr ("Rig split operation"));
+  ui_->split_emulate_radio_button->setAccessibleName (tr ("Fake It split operation"));
+  ui_->CAT_poll_interval_spin_box->setAccessibleName (tr ("CAT poll interval"));
+  ui_->calibration_slope_ppm_spin_box->setAccessibleName (tr ("Frequency calibration slope"));
+  ui_->calibration_intercept_spin_box->setAccessibleName (tr ("Frequency calibration intercept"));
+  ui_->frequencies_table_view->setAccessibleName (tr ("Working frequencies table"));
+  ui_->stations_table_view->setAccessibleName (tr ("Station information table"));
+  ui_->highlighting_list_view->setAccessibleName (tr ("Decode highlighting rules"));
+  ui_->highlighting_list_view->setAccessibleDescription (tr ("Highlighting rules and priorities for decoded messages."));
+  ui_->highlighting_actions_tool_button->setAccessibleName (tr ("Decode highlighting actions"));
+  ui_->highlighting_actions_tool_button->setAccessibleDescription (tr ("Change or reset colors for the selected highlighting rule."));
+  ui_->move_highlighting_up_push_button->setAccessibleName (tr ("Move selected highlighting rule up"));
+  ui_->move_highlighting_up_push_button->setAccessibleDescription (tr ("Move the selected highlighting rule earlier in priority order."));
+  ui_->move_highlighting_down_push_button->setAccessibleName (tr ("Move selected highlighting rule down"));
+  ui_->move_highlighting_down_push_button->setAccessibleDescription (tr ("Move the selected highlighting rule later in priority order."));
+  ui_->highlight_orange_callsigns->setAccessibleName (tr ("Orange highlight callsigns and grids"));
+  ui_->highlight_blue_callsigns->setAccessibleName (tr ("Blue highlight callsigns and grids"));
+
+  register_settings_focus_page (ui_->general_tab, {
+    ui_->callsign_line_edit,
+    ui_->grid_line_edit,
+    ui_->use_dynamic_grid,
+    ui_->region_combo_box,
+    ui_->type_2_msg_gen_combo_box,
+    ui_->decodes_from_top_check_box,
+    ui_->insert_blank_check_box,
+    ui_->cb_detailed_blank_line,
+    ui_->miles_check_box,
+    ui_->cbHighlightDXcall,
+    ui_->font_push_button,
+    ui_->TX_messages_check_box,
+    ui_->cbHighlightDXgrid,
+    ui_->decoded_text_font_push_button,
+    ui_->DXCC_check_box,
+    ui_->ppfx_check_box,
+    ui_->show_country_names_check_box,
+    ui_->monitor_off_check_box,
+    ui_->enable_VHF_features_check_box,
+    ui_->repeat_Tx_check_box,
+    ui_->monitor_last_used_check_box,
+    ui_->tx_QSY_check_box,
+    ui_->auto_astro_check_box,
+    ui_->quick_call_check_box,
+    ui_->decode_at_52s_check_box,
+    ui_->kHz_without_k_check_box,
+    ui_->disable_TX_on_73_check_box,
+    ui_->single_decode_check_box,
+    ui_->progress_bar_check_box,
+    ui_->force_call_1st_check_box,
+    ui_->CW_id_after_73_check_box,
+    ui_->CW_id_interval_spin_box,
+    ui_->alternate_bindings_check_box,
+    ui_->tune_watchdog_check_box,
+    ui_->tune_watchdog_spin_box,
+    ui_->tx_watchdog_spin_box,
+    ui_->Map_Grid_to_State,
+    ui_->cbEraseBandActivity,
+    ui_->alternate_erase_button_check_box,
+    ui_->Map_All_Messages,
+    ui_->cbRxToTxAfterQSO,
+    ui_->enable_Wait_features_check_box,
+    ui_->cbClearDXcall,
+    ui_->cbClearDXgrid,
+    ui_->disable_button_coloring_check_box,
+    ui_->cb_showDistance,
+    ui_->cb_showAzimuth,
+    ui_->cb_Align,
+    ui_->align_spin_box,
+    ui_->align_spin_box2,
+  });
+
+  register_settings_focus_page (ui_->radio_tab, {
+    ui_->rig_combo_box,
+    ui_->CAT_poll_interval_spin_box,
+    ui_->CAT_port_combo_box,
+    ui_->CAT_serial_baud_combo_box,
+    ui_->CAT_default_bit_radio_button,
+    ui_->CAT_7_bit_radio_button,
+    ui_->CAT_8_bit_radio_button,
+    ui_->CAT_default_stop_bit_radio_button,
+    ui_->CAT_one_stop_bit_radio_button,
+    ui_->CAT_two_stop_bit_radio_button,
+    ui_->CAT_handshake_default_radio_button,
+    ui_->CAT_handshake_none_radio_button,
+    ui_->CAT_handshake_xon_radio_button,
+    ui_->CAT_handshake_hardware_radio_button,
+    ui_->force_DTR_combo_box,
+    ui_->force_RTS_combo_box,
+    ui_->PTT_VOX_radio_button,
+    ui_->PTT_DTR_radio_button,
+    ui_->PTT_CAT_radio_button,
+    ui_->PTT_RTS_radio_button,
+    ui_->PTT_port_combo_box,
+    ui_->TX_source_data_radio_button,
+    ui_->TX_source_mic_radio_button,
+    ui_->mode_none_radio_button,
+    ui_->mode_USB_radio_button,
+    ui_->mode_data_radio_button,
+    ui_->split_none_radio_button,
+    ui_->split_rig_radio_button,
+    ui_->split_emulate_radio_button,
+    ui_->test_CAT_push_button,
+    ui_->test_PTT_push_button,
+    ui_->rbHamlib64,
+    ui_->rbHamlib32,
+    ui_->hamlib_download_button,
+    ui_->revert_update_button,
+    ui_->PWR_and_SWR_check_box,
+    ui_->check_SWR_check_box,
+  });
+
+  register_settings_focus_page (ui_->audio_tab, {
+    ui_->sound_input_combo_box,
+    ui_->sound_input_channel_combo_box,
+    ui_->sound_output_combo_box,
+    ui_->sound_output_channel_combo_box,
+    ui_->refresh_push_button,
+    ui_->tci_audio_check_box,
+    ui_->TCI_spin_box,
+    ui_->cbSortAlphabetically,
+    ui_->cbHideCARD,
+    ui_->save_path_select_push_button,
+    ui_->azel_path_select_push_button,
+    ui_->checkBoxAzElExtraLines,
+    ui_->checkBoxPwrBandTxMemory,
+    ui_->checkBoxPwrBandTuneMemory,
+  });
+
+  register_settings_focus_page (ui_->tx_macros_tab, {
+    ui_->add_macro_line_edit,
+    ui_->add_macro_push_button,
+    ui_->delete_macro_push_button,
+    ui_->move_macro_up_push_button,
+    ui_->move_macro_down_push_button,
+    ui_->macros_list_view,
+  });
+
+  register_settings_focus_page (ui_->reporting_tab, {
+    ui_->prompt_to_log_check_box,
+    ui_->opCallEntry,
+    ui_->cbAutoLog,
+    ui_->cbContestingOnly,
+    ui_->cbZZ00,
+    ui_->cbLog4digitGrids,
+    ui_->log_as_RTTY_check_box,
+    ui_->report_in_comments_check_box,
+    ui_->specOp_in_comments_check_box,
+    ui_->psk_reporter_check_box,
+    ui_->psk_reporter_tcpip_check_box,
+    ui_->udp_server_line_edit,
+    ui_->udp_server_port_spin_box,
+    ui_->udp_interfaces_combo_box,
+    ui_->udp_TTL_spin_box,
+    ui_->accept_udp_requests_check_box,
+    ui_->udpWindowToFront,
+    ui_->udpWindowRestore,
+    ui_->enable_n1mm_broadcast_check_box,
+    ui_->n1mm_server_name_line_edit,
+    ui_->n1mm_server_port_spin_box,
+  });
+
+  register_settings_focus_page (ui_->frequencies_tab, {
+    ui_->calibration_slope_ppm_spin_box,
+    ui_->calibration_intercept_spin_box,
+    ui_->frequencies_actions_tool_button,
+    ui_->frequencies_table_view,
+    ui_->stations_actions_tool_button,
+    ui_->stations_table_view,
+  });
+
+  register_settings_focus_page (ui_->colors_tab, {
+    ui_->highlighting_list_view,
+    ui_->highlighting_actions_tool_button,
+    ui_->move_highlighting_up_push_button,
+    ui_->move_highlighting_down_push_button,
+    ui_->reset_highlighting_to_defaults_push_button,
+    ui_->reset_highlighting_to_defaults2_push_button,
+    ui_->rescan_log_push_button,
+    ui_->highlight_by_mode_check_box,
+    ui_->highlight_orange_check_box,
+    ui_->highlight_orange_callsigns,
+    ui_->only_fields_check_box,
+    ui_->include_WAE_check_box,
+    ui_->highlight_blue_check_box,
+    ui_->highlight_blue_callsigns,
+    ui_->highlight_73_check_box,
+    ui_->LotW_CSV_URL_line_edit,
+    ui_->LotW_CSV_fetch_push_button,
+    ui_->LotW_days_since_upload_spin_box,
+    ui_->CTY_download_button,
+    ui_->CALL3_download_button,
+    ui_->CALL3_EME_download_button,
+  });
+
+  register_settings_focus_page (ui_->advanced_tab, {
     ui_->sbNtrials,
     ui_->sbAggressive,
     ui_->cbTwoPass,
@@ -1944,18 +2401,83 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->cbCloudlog,
     ui_->leCloudlogApiUrl,
     ui_->leCloudlogApiKey,
-    ui_->sbCloudlogStationID,
+    ui_->cbCloudlogStationProfile,
     ui_->pbTestCloudlog,
     ui_->cbEQSL,
     ui_->eqsluser_edit,
     ui_->eqslpasswd_edit,
     ui_->eqslnick_edit,
-  };
-  for (auto control : advanced_tab_stops_)
-    {
-      control->setFocusPolicy (Qt::StrongFocus);
-      control->installEventFilter (this);
-    }
+  });
+
+  register_settings_focus_page (ui_->alerts_tab, {
+    ui_->voices_combo_box,
+    ui_->pb_test_alerts,
+    ui_->cbContinent,
+    ui_->cbContinentOB,
+    ui_->cbDXCC,
+    ui_->cbDXCCOB,
+    ui_->cbCQZ,
+    ui_->cbCQZOB,
+    ui_->cbITUZ,
+    ui_->cbITUZOB,
+    ui_->cbGrid,
+    ui_->cbGridOB,
+    ui_->cbMyCall,
+    ui_->cbWanted,
+    ui_->cbDXcall,
+    ui_->cbQSYmessage,
+    ui_->cbCQ,
+    ui_->pbAlerts,
+  });
+
+  register_settings_focus_page (ui_->filters_tab, {
+    ui_->Territory1,
+    ui_->Territory2,
+    ui_->Territory3,
+    ui_->Territory4,
+    ui_->cbBlacklist,
+    ui_->Blacklist1,
+    ui_->Blacklist2,
+    ui_->Blacklist3,
+    ui_->Blacklist4,
+    ui_->Blacklist5,
+    ui_->Blacklist6,
+    ui_->Blacklist7,
+    ui_->Blacklist8,
+    ui_->Blacklist9,
+    ui_->Blacklist10,
+    ui_->Blacklist11,
+    ui_->Blacklist12,
+    ui_->cbWhitelist,
+    ui_->Whitelist1,
+    ui_->Whitelist2,
+    ui_->Whitelist3,
+    ui_->Whitelist4,
+    ui_->Whitelist5,
+    ui_->Whitelist6,
+    ui_->Whitelist7,
+    ui_->Whitelist8,
+    ui_->Whitelist9,
+    ui_->Whitelist10,
+    ui_->Whitelist11,
+    ui_->Whitelist12,
+    ui_->cbPass,
+    ui_->Pass1,
+    ui_->Pass2,
+    ui_->Pass3,
+    ui_->Pass4,
+    ui_->Pass5,
+    ui_->Pass6,
+    ui_->Pass7,
+    ui_->Pass8,
+    ui_->Pass9,
+    ui_->Pass10,
+    ui_->Pass11,
+    ui_->Pass12,
+    ui_->cb_filters_for_word2,
+    ui_->cb_filters_for_Wait_and_Pounce_only,
+    ui_->cb_twoDays,
+  });
 
   auto update_visibility_when_toggled = [this] (QAbstractButton *button) {
     connect (button, &QAbstractButton::toggled, this, &Configuration::impl::check_visibility);
@@ -2054,19 +2576,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   lotw_users_.set_local_file_path (writeable_data_dir_.absoluteFilePath ("lotw-user-activity.csv"));
 
-  // set up Cloudlog API key test button
-  connect (&cloudlog_, &Cloudlog::apikey_ok, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: green;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key OK"));
-    });
-  connect (&cloudlog_, &Cloudlog::apikey_ro, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: orange;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key read-only"));
-    });
-  connect (&cloudlog_, &Cloudlog::apikey_invalid, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: red;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key invalid"));
-    });
+  connect (&cloudlog_, &Cloudlog::connection_check_finished, this, &Configuration::impl::handle_cloudlog_connection_check_result);
 
   //
   // validation
@@ -2245,6 +2755,17 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   // colours and highlighting setup
   //
   ui_->highlighting_list_view->setModel (&next_decode_highlighing_model_);
+  ui_->highlighting_list_view->setTabKeyNavigation (false);
+  auto highlighting_actions_menu = new QMenu {ui_->highlighting_actions_tool_button};
+  highlighting_actions_menu->addActions (ui_->highlighting_list_view->actions ());
+  connect (highlighting_actions_menu, &QMenu::aboutToShow, this, [this, highlighting_actions_menu] {
+      auto const has_current_rule = ui_->highlighting_list_view->currentIndex ().isValid ();
+      for (auto action : highlighting_actions_menu->actions ())
+        {
+          action->setEnabled (has_current_rule);
+        }
+    });
+  ui_->highlighting_actions_tool_button->setMenu (highlighting_actions_menu);
 
   enumerate_rigs ();
   initialize_models ();
@@ -2285,6 +2806,8 @@ Configuration::impl::~impl ()
 
 void Configuration::impl::initialize_models ()
 {
+  QScopedValueRollback<bool> initializing_models {initializing_models_, true};
+
   next_audio_input_device_ = audio_input_device_;
   next_audio_input_channel_ = audio_input_channel_;
   next_audio_output_device_ = audio_output_device_;
@@ -2324,7 +2847,7 @@ void Configuration::impl::initialize_models ()
   ui_->PTT_method_button_group->button (rig_params_.ptt_type)->setChecked (true);
   ui_->PWR_and_SWR_check_box->setChecked (PWR_and_SWR_);
   ui_->check_SWR_check_box->setChecked (check_SWR_);
-  if (!ui_->PWR_and_SWR_check_box->isChecked()) ui_->check_SWR_check_box->setEnabled (false);
+  update_PWR_and_SWR_control_availability ();
   ui_->save_path_display_label->setText (save_directory_.absolutePath ());
   ui_->azel_path_display_label->setText (azel_directory_.absolutePath ());
   ui_->CW_id_after_73_check_box->setChecked (id_after_73_);
@@ -2340,6 +2863,7 @@ void Configuration::impl::initialize_models ()
   ui_->prompt_to_log_check_box->setChecked (prompt_to_log_);
   ui_->cbAutoLog->setChecked(autoLog_);
   ui_->cbContestingOnly->setChecked(contestingOnly_);
+  update_logging_control_availability ();
   ui_->cbZZ00->setChecked(ZZ00_);
   ui_->cbLog4digitGrids->setChecked(log4digitGrids_);
   ui_->decodes_from_top_check_box->setChecked (decodes_from_top_);
@@ -2348,10 +2872,7 @@ void Configuration::impl::initialize_models ()
   ui_->DXCC_check_box->setChecked (DXCC_);
   ui_->ppfx_check_box->setChecked (ppfx_);
   ui_->show_country_names_check_box->setChecked (show_country_names_);
-  if (!ui_->DXCC_check_box->isChecked()) {
-    ui_->ppfx_check_box->setEnabled (false);
-    ui_->show_country_names_check_box->setEnabled (false);
-  }
+  update_DXCC_control_availability ();
   ui_->Map_Grid_to_State->setChecked(gridMap_);
   ui_->Map_All_Messages->setChecked(gridMapAll_);
   ui_->miles_check_box->setChecked (miles_);
@@ -2391,7 +2912,11 @@ void Configuration::impl::initialize_models ()
   ui_->cbEQSL->setChecked(send_to_eqsl_);
   ui_->leCloudlogApiUrl->setText(cloudLogApiUrl_);
   ui_->leCloudlogApiKey->setText(cloudLogApiKey_);
-  ui_->sbCloudlogStationID->setValue (cloudLogStationID_);
+  ui_->cbCloudlogStationProfile->clear ();
+  if (cloudLogStationID_ > 0)
+    {
+      ui_->cbCloudlogStationProfile->addItem (QString::number (cloudLogStationID_), cloudLogStationID_);
+    }
   on_cbCloudlog_toggled (ui_->cbCloudlog->isChecked ());
   on_cbEQSL_toggled (ui_->cbEQSL->isChecked ());
   ui_->special_op_activity_button_group->button (SelectedActivity_)->setChecked (true);
@@ -2788,6 +3313,7 @@ void Configuration::impl::read_settings ()
   bLowSidelobes_ = settings_->value("LowSidelobes",true).toBool();
   prompt_to_log_ = settings_->value ("PromptToLog", false).toBool ();
   autoLog_ = settings_->value ("AutoLog", true).toBool ();
+  if (prompt_to_log_ && autoLog_) prompt_to_log_ = false;
   contestingOnly_ = settings_->value ("ContestingOnly", true).toBool ();
   ZZ00_ = settings_->value("ZZ00",false).toBool ();
   log4digitGrids_ = settings_->value ("Log4digitGrids", false).toBool ();
@@ -2838,6 +3364,7 @@ void Configuration::impl::read_settings ()
   SelectedActivity_ = settings_->value("SelectedActivity",1).toInt ();
   x2ToneSpacing_ = settings_->value("x2ToneSpacing",false).toBool ();
   x4ToneSpacing_ = settings_->value("x4ToneSpacing",false).toBool ();
+  if (x4ToneSpacing_) x2ToneSpacing_ = false;
   rig_params_.poll_interval = settings_->value ("Polling", 0).toInt ();
   rig_params_.split_mode = settings_->value ("SplitMode", QVariant::fromValue (TransceiverFactory::split_mode_none)).value<TransceiverFactory::SplitMode> ();
   opCall_ = settings_->value ("OpCall", "").toString ();
@@ -3701,7 +4228,7 @@ void Configuration::impl::accept ()
   send_to_eqsl_ = ui_->cbEQSL->isChecked ();
   cloudLogApiUrl_ = ui_->leCloudlogApiUrl->text ();
   cloudLogApiKey_ = ui_->leCloudlogApiKey->text ();
-  cloudLogStationID_ = ui_->sbCloudlogStationID->value ();
+  cloudLogStationID_ = cloudlog_station_profile_id ();
   SelectedActivity_ = ui_->special_op_activity_button_group->checkedId();
   x2ToneSpacing_ = ui_->cbx2ToneSpacing->isChecked ();
   x4ToneSpacing_ = ui_->cbx4ToneSpacing->isChecked ();
@@ -4157,15 +4684,16 @@ void Configuration::impl::display_file_information ()
 #endif
 }
 
-void Configuration::impl::on_DXCC_check_box_clicked(bool checked)
+void Configuration::impl::on_DXCC_check_box_toggled (bool)
 {
-    if (checked) {
-        ui_->ppfx_check_box->setEnabled (true);
-        ui_->show_country_names_check_box->setEnabled (true);
-    } else {
-        ui_->ppfx_check_box->setEnabled (false);
-        ui_->show_country_names_check_box->setEnabled (false);
-    }
+  update_DXCC_control_availability ();
+}
+
+void Configuration::impl::update_DXCC_control_availability ()
+{
+  auto const enabled = ui_->DXCC_check_box->isChecked ();
+  ui_->ppfx_check_box->setEnabled (enabled);
+  ui_->show_country_names_check_box->setEnabled (enabled);
 }
 
 void Configuration::impl::on_PTT_port_combo_box_activated (int /* index */)
@@ -4179,11 +4707,6 @@ void Configuration::impl::on_CAT_port_combo_box_activated (int /* index */)
 }
 
 void Configuration::impl::on_CAT_serial_baud_combo_box_currentIndexChanged (int /* index */)
-{
-  set_rig_invariants ();
-}
-
-void Configuration::impl::on_CAT_handshake_button_group_buttonClicked (int /* id */)
 {
   set_rig_invariants ();
 }
@@ -4202,31 +4725,17 @@ void Configuration::impl::on_rig_combo_box_currentIndexChanged (int /* index */)
   }
 }
 
-void Configuration::impl::on_PWR_and_SWR_check_box_clicked(bool checked)
+void Configuration::impl::on_PWR_and_SWR_check_box_toggled (bool)
 {
-    if (checked) {
-        ui_->check_SWR_check_box->setEnabled (true);
-    } else {
-        ui_->check_SWR_check_box->setEnabled (false);
-    }
+  update_PWR_and_SWR_control_availability ();
 }
 
-void Configuration::impl::on_CAT_data_bits_button_group_buttonClicked (int /* id */)
+void Configuration::impl::update_PWR_and_SWR_control_availability ()
 {
-  set_rig_invariants ();
-}
-
-void Configuration::impl::on_CAT_stop_bits_button_group_buttonClicked (int /* id */)
-{
-  set_rig_invariants ();
+  ui_->check_SWR_check_box->setEnabled (ui_->PWR_and_SWR_check_box->isChecked ());
 }
 
 void Configuration::impl::on_CAT_poll_interval_spin_box_valueChanged (int /* value */)
-{
-  set_rig_invariants ();
-}
-
-void Configuration::impl::on_split_mode_button_group_buttonClicked (int /* id */)
 {
   set_rig_invariants ();
 }
@@ -4249,18 +4758,84 @@ void Configuration::impl::on_test_CAT_push_button_clicked ()
 
 void Configuration::impl::on_pbTestCloudlog_clicked ()
 {
-  //fprintf(stderr, "API URL: %s\n", ui_->leCloudlogApiUrl->text().toStdString().c_str());
-  cloudlog_.testApi(ui_->leCloudlogApiUrl->text(), ui_->leCloudlogApiKey->text());
+  cloudlog_.checkConnection ({ui_->leCloudlogApiUrl->text (),
+                              ui_->leCloudlogApiKey->text (),
+                              cloudlog_station_profile_id ()});
+}
+
+void Configuration::impl::handle_cloudlog_connection_check_result (Cloudlog::ConnectionCheckResult const& result)
+{
+  if (!result.stationProfiles.isEmpty ())
+    {
+      set_cloudlog_station_profiles (result.stationProfiles);
+    }
+
+  ui_->pbTestCloudlog->setStyleSheet (cloudlog_connection_check_style (result.status));
+
+  auto tooltip = result.message;
+  if (!result.detail.isEmpty ())
+    {
+      tooltip += QStringLiteral ("\n") + result.detail;
+    }
+  ui_->pbTestCloudlog->setToolTip (tooltip);
+}
+
+void Configuration::impl::set_cloudlog_station_profiles (QList<Cloudlog::StationProfile> const& profiles)
+{
+  auto const current_id = cloudlog_station_profile_id ();
+  ui_->cbCloudlogStationProfile->clear ();
+  for (auto const& profile : profiles)
+    {
+      ui_->cbCloudlogStationProfile->addItem (Cloudlog::stationProfileDisplayText (profile), profile.id);
+    }
+
+  if (current_id > 0)
+    {
+      auto const index = ui_->cbCloudlogStationProfile->findData (current_id);
+      if (index >= 0)
+        {
+          ui_->cbCloudlogStationProfile->setCurrentIndex (index);
+        }
+      else
+        {
+          ui_->cbCloudlogStationProfile->insertItem (0, QString::number (current_id), current_id);
+          ui_->cbCloudlogStationProfile->setCurrentIndex (0);
+        }
+    }
+  else if (ui_->cbCloudlogStationProfile->count () > 0)
+    {
+      ui_->cbCloudlogStationProfile->setCurrentIndex (0);
+    }
+}
+
+qint32 Configuration::impl::cloudlog_station_profile_id () const
+{
+  bool ok {false};
+  auto const current_text = ui_->cbCloudlogStationProfile->currentText ().trimmed ();
+  auto const current_index = ui_->cbCloudlogStationProfile->currentIndex ();
+  if (current_index >= 0 && ui_->cbCloudlogStationProfile->itemText (current_index).trimmed () == current_text)
+    {
+      auto const data = ui_->cbCloudlogStationProfile->itemData (current_index);
+      auto const id = data.toInt (&ok);
+      if (ok && id > 0)
+        {
+          return id;
+        }
+    }
+
+  auto const prefix = current_text.section (QStringLiteral (" - "), 0, 0).trimmed ();
+  auto const text_id = prefix.toInt (&ok);
+  return ok && text_id > 0 ? text_id : 0;
 }
 
 void Configuration::impl::on_cbCloudlog_toggled (bool checked)
 {
   ui_->api_url_label->setEnabled (checked);
   ui_->api_key_label->setEnabled (checked);
-  ui_->station_id_label->setEnabled (checked);
+  ui_->station_profile_label->setEnabled (checked);
   ui_->leCloudlogApiUrl->setEnabled (checked);
   ui_->leCloudlogApiKey->setEnabled (checked);
-  ui_->sbCloudlogStationID->setEnabled (checked);
+  ui_->cbCloudlogStationProfile->setEnabled (checked);
   ui_->pbTestCloudlog->setEnabled (checked);
   ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: none;}");
 }
@@ -4296,11 +4871,6 @@ void Configuration::impl::on_force_DTR_combo_box_currentIndexChanged (int /* ind
 }
 
 void Configuration::impl::on_force_RTS_combo_box_currentIndexChanged (int /* index */)
-{
-  set_rig_invariants ();
-}
-
-void Configuration::impl::on_PTT_method_button_group_buttonClicked (int /* id */)
 {
   set_rig_invariants ();
 }
@@ -4461,6 +5031,44 @@ void Configuration::impl::on_move_macro_up_push_button_clicked (bool /* checked 
 void Configuration::impl::on_move_macro_down_push_button_clicked (bool /* checked */)
 {
   move_selected_macros (1);
+}
+
+void Configuration::impl::move_selected_highlighting_rule (int delta)
+{
+  auto const current_index = ui_->highlighting_list_view->currentIndex ();
+  if (!current_index.isValid () || 0 == delta)
+    {
+      return;
+    }
+
+  auto items = next_decode_highlighing_model_.items ();
+  auto const row = current_index.row ();
+  auto const target_row = row + delta;
+  if (row < 0 || row >= items.size () || target_row < 0 || target_row >= items.size ())
+    {
+      return;
+    }
+
+  qSwap (items[row], items[target_row]);
+  next_decode_highlighing_model_.items (items);
+
+  auto const moved_index = next_decode_highlighing_model_.index (target_row, 0);
+  ui_->highlighting_list_view->setCurrentIndex (moved_index);
+  if (auto selection_model = ui_->highlighting_list_view->selectionModel ())
+    {
+      selection_model->clearSelection ();
+      selection_model->select (moved_index, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    }
+}
+
+void Configuration::impl::on_move_highlighting_up_push_button_clicked (bool /* checked */)
+{
+  move_selected_highlighting_rule (-1);
+}
+
+void Configuration::impl::on_move_highlighting_down_push_button_clicked (bool /* checked */)
+{
+  move_selected_highlighting_rule (1);
 }
 
 void Configuration::impl::on_add_macro_push_button_clicked (bool /* checked */)
@@ -4801,26 +5409,31 @@ void Configuration::impl::on_calibration_slope_ppm_spin_box_valueChanged (double
   rig_active_ = false;          // force reset
 }
 
-void Configuration::impl::on_prompt_to_log_check_box_clicked(bool checked)
+void Configuration::impl::on_prompt_to_log_check_box_toggled (bool checked)
 {
-  if(checked) ui_->cbAutoLog->setChecked(false);
-  ui_->cbContestingOnly->setEnabled(false);
+  if (checked) ui_->cbAutoLog->setChecked (false);
+  update_logging_control_availability ();
 }
 
-void Configuration::impl::on_cbAutoLog_clicked(bool checked)
+void Configuration::impl::on_cbAutoLog_toggled (bool checked)
 {
-  ui_->cbContestingOnly->setEnabled(true);
-  if(checked) ui_->prompt_to_log_check_box->setChecked(false);
+  if (checked) ui_->prompt_to_log_check_box->setChecked (false);
+  update_logging_control_availability ();
 }
 
-void Configuration::impl::on_cbx2ToneSpacing_clicked(bool b)
+void Configuration::impl::update_logging_control_availability ()
 {
-  if(b) ui_->cbx4ToneSpacing->setChecked(false);
+  ui_->cbContestingOnly->setEnabled (!ui_->prompt_to_log_check_box->isChecked ());
 }
 
-void Configuration::impl::on_cbx4ToneSpacing_clicked(bool b)
+void Configuration::impl::on_cbx2ToneSpacing_toggled (bool checked)
 {
-  if(b) ui_->cbx2ToneSpacing->setChecked(false);
+  if (checked) ui_->cbx4ToneSpacing->setChecked (false);
+}
+
+void Configuration::impl::on_cbx4ToneSpacing_toggled (bool checked)
+{
+  if (checked) ui_->cbx2ToneSpacing->setChecked (false);
 }
 
 void Configuration::impl::check_visibility ()
@@ -5199,26 +5812,34 @@ void Configuration::impl::read_voices ()
   QString audioPath = app_sounds_directory ();
   QString voiceList = audioPath + "voices.dat";  // load the content of voices.dat file to the voices combo box
   QFile file2 {voiceList};
-  QStringList wordList;
   QTextStream stream2(&file2);
   if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
     while (!stream2.atEnd()) {
       QString line = stream2.readLine();
-      wordList = line.split('|');
-      ui_->voices_combo_box->addItem (wordList[1], wordList[0]);
+      QString voicePath;
+      QString voiceName;
+      if (!parse_app_voice_entry (line, voicePath, voiceName))
+        {
+          continue;
+        }
+      ui_->voices_combo_box->addItem (voiceName, voicePath);
     }
     stream2.flush();
     file2.close();
   } else {
     voice_=0;
   }
+  if (voice_ < 0 || voice_ >= ui_->voices_combo_box->count ())
+    {
+      voice_=0;
+    }
   ui_->voices_combo_box->setCurrentIndex (voice_);
   read_voicesPath();
 }
 
 void Configuration::impl::read_voicesPath ()
 {
-  voicesPath_ = ui_->voices_combo_box->currentData().toString().left('|');
+  voicesPath_ = ui_->voices_combo_box->currentData().toString();
 }
 
 void Configuration::impl::on_pb_test_alerts_clicked (bool)
@@ -5253,6 +5874,46 @@ bool Configuration::impl::have_rig ()
                                     , tr ("Failed to open connection to rig"));
     }
   return rig_active_;
+}
+
+bool Configuration::impl::can_control_rig (char const * command) const
+{
+  if (rig_active_) return true;
+
+  LOG_TRACE ("suppressing " << command << " because rig is not active");
+  return false;
+}
+
+void Configuration::impl::mark_rig_offline ()
+{
+  cached_rig_state_.online (false);
+  cached_rig_state_.ptt (false);
+  cached_rig_state_.tune (false);
+  cached_rig_state_.audio (false);
+  cached_rig_state_.tx_audio (false);
+}
+
+QString Configuration::impl::summarize_transceiver_failure (QString const& reason)
+{
+  auto lines = reason.split (QRegularExpression {"[\\r\\n]+"}, SkipEmptyParts);
+  for (auto& line: lines)
+    {
+      line = line.simplified ();
+    }
+  lines.removeAll (QString {});
+
+  auto summary = lines.isEmpty () ? reason.simplified () : lines.front ();
+  if (lines.size () > 1 && lines.back () != summary)
+    {
+      summary += " | " + lines.back ();
+    }
+
+  constexpr int max_summary_length {500};
+  if (summary.size () > max_summary_length)
+    {
+      summary = summary.left (max_summary_length - 3) + "...";
+    }
+  return summary;
 }
 
 bool Configuration::impl::open_rig (bool force)
@@ -5292,6 +5953,8 @@ bool Configuration::impl::open_rig (bool force)
             });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
+          rig_connections_ << connect (rig.get (), &Transceiver::txSourceCommitted, self_, &Configuration::txSourceCommitted);
+          rig_connections_ << connect (rig.get (), &Transceiver::rawTxPlayoutSnapshot, self_, &Configuration::rawTxPlayoutSnapshot);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_drained, self_, &Configuration::transceiver_jtty_drained);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_accepted, self_, &Configuration::transceiver_jtty_enqueue_accepted);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
@@ -5326,7 +5989,6 @@ bool Configuration::impl::open_rig (bool force)
         }
       catch (std::exception const& e)
         {
-          qDebug() << "Configuration::impl::open_rig failed with error " << e.what();
           handle_transceiver_failure (e.what ());
         }
 
@@ -5531,36 +6193,30 @@ void Configuration::impl::transceiver_volume (double volume)
   }
 }
 
-void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned symbolslength, double framespersymbol, double frequency, double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+void Configuration::impl::transceiver_modulator_start (TxEvidence::TxRequest const& request)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
   if (!cached_rig_state_.tx_audio())
   {
     cached_rig_state_.tx_audio (true);
-    cached_rig_state_.symbolslength (symbolslength);
-    cached_rig_state_.framespersymbol (framespersymbol);
-    cached_rig_state_.trfrequency (frequency);
-    cached_rig_state_.tonespacing (tonespacing);
-    cached_rig_state_.synchronize (synchronize);
-    cached_rig_state_.dbsnr (dbsnr);
-    cached_rig_state_.trperiod (trperiod);
-    cached_rig_state_.jtmode(jtmode);
-    cached_rig_state_.fastmode(fastmode);
+    cached_rig_state_.tx_request (request);
     //    printf("%s(%0.1f) Configuration #:%d modulator_start: symbolslength=%d framespersymbol=%0.1f frequency=%0.1f tonespacing=%0.1f synchronize= %d dbsnr=%0.1f trperiod=%0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,symbolslength,framespersymbol,frequency,tonespacing,synchronize,dbsnr,trperiod);
     Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
   }
 //  else printf("%s(%0.1f) Configuration modulator_start: WAS ALLREADY RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
 }
 
-void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
+void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples,
+                                                         TxAudioQueueEpoch epoch,
+                                                         qint64 enqueueId)
 {
-  Q_EMIT enqueue_jtty_pcm (samples, sessionId, enqueueId);
+  Q_EMIT enqueue_jtty_pcm (samples, epoch, enqueueId);
 }
 
-void Configuration::impl::transceiver_clear_jtty_pcm (qint64 sessionId)
+void Configuration::impl::transceiver_clear_jtty_pcm (TxAudioQueueEpoch epoch)
 {
-  Q_EMIT clear_jtty_pcm (sessionId);
+  Q_EMIT clear_jtty_pcm (epoch);
 }
 
 void Configuration::impl::transceiver_modulator_stop (bool on)
@@ -5652,9 +6308,8 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 
 void Configuration::impl::handle_transceiver_failure (QString const& reason)
 {
-  LOG_ERROR ("handle_transceiver_failure: reason: " << reason);
-  qDebug() << "Configuration::impl::handle_transceiver_failure called with reason: " << reason << "\n";
-  close_rig ();
+  LOG_ERROR ("handle_transceiver_failure: " << summarize_transceiver_failure (reason));
+  close_rig (true);
   ui_->test_PTT_push_button->setChecked (false);
 
   if (isVisible ())
@@ -5668,13 +6323,14 @@ void Configuration::impl::handle_transceiver_failure (QString const& reason)
     }
 }
 
-void Configuration::impl::close_rig ()
+void Configuration::impl::close_rig (bool failed)
 {
   ui_->test_PTT_push_button->setEnabled (false);
 
   // revert to no rig configured
   if (rig_active_)
     {
+      Q_EMIT self_->transceiver_closing (failed);
       ui_->test_CAT_push_button->setStyleSheet ("QPushButton {background-color: red;}");
       LOG_TRACE ("emitting stop_transceiver");
       Q_EMIT stop_transceiver ();
@@ -5686,6 +6342,7 @@ void Configuration::impl::close_rig ()
       rig_connections_.clear ();
       rig_active_ = false;
     }
+  mark_rig_offline ();
 }
 
 // find the audio device that matches the specified name, also

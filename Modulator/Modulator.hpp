@@ -3,8 +3,11 @@
 
 #include <QAudio>
 #include <QPointer>
+#include <QVector>
 
 #include "Audio/AudioDevice.hpp"
+#include "Audio/TxRequest.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
 
 class SoundOutput;
 
@@ -35,14 +38,15 @@ public:
   void set_nsym(int n) {m_symbolsLength=n;}
   void set_ms0(qint64 ms) {m_ms0=ms;}
 
-  Q_SLOT void start (QString mode, unsigned symbolsLength, double framesPerSymbol, double frequency,
-                     double toneSpacing, SoundOutput *, Channel = Mono,
-                     bool synchronize = true, bool fastMode = false,
-                     double dBSNR = 99., double TRperiod=60.0);
+  Q_SLOT void start (TxEvidence::TxRequest request, SoundOutput *);
   Q_SLOT void stop (bool quick = false);
   Q_SLOT void tune (bool newState = true);
   Q_SLOT void setFrequency (double newFrequency) {m_frequency = newFrequency;}
   Q_SIGNAL void stateChanged (ModulatorState) const;
+  Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot snapshot) const;
+  Q_SIGNAL void constrainedStartDecided (qint64 sessionId, qint64 generation,
+                                         qint64 windowOpenMs, bool accepted,
+                                         qint64 actualStartMs) const;
 
 protected:
   qint64 readData (char * data, qint64 maxSize) override;
@@ -89,6 +93,7 @@ private:
   bool m_bFastMode;
 
   bool m_cwLevel;
+  QVector<int> m_cwId;
   unsigned m_ic;
   unsigned m_icmin;
   unsigned m_icmax;

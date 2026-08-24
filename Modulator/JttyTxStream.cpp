@@ -1,6 +1,7 @@
 #include "JttyTxStream.hpp"
 
 #include "Audio/soundout.h"
+#include "Logger.hpp"
 
 #include "moc_JttyTxStream.cpp"
 
@@ -14,9 +15,23 @@ namespace
   constexpr qint64 DRAIN_GUARD_MARGIN  = 4800;   // 100 ms safety margin
 }
 
-JttyTxStream::JttyTxStream (JttyTxBuffer& buffer, QObject * parent)
+TxEvidence::TxStartSnapshot makeJttyTxStartSnapshot (TxEvidence::TxRequest const& request,
+                                                      qint64 committedEndSample)
+{
+  TxEvidence::TxStartSnapshot snapshot;
+  snapshot.session_id = request.session_id;
+  snapshot.generation = request.generation;
+  snapshot.mode = request.mode;
+  snapshot.sample_rate_hz = 48000;
+  snapshot.committed_end_sample = committedEndSample;
+  snapshot.target_known = false;
+  snapshot.diagnostic = "JTTY PCM extent may grow while messages are queued";
+  return snapshot;
+}
+
+JttyTxStream::JttyTxStream (TxAudioQueue& queue, QObject * parent)
   : AudioDevice {parent}
-  , m_buffer {buffer}
+  , m_queue {queue}
   , m_drainGuard {DEFAULT_DRAIN_GUARD}
   , m_drainTimer {new QTimer {this}}
   , m_active {false}
@@ -25,15 +40,27 @@ JttyTxStream::JttyTxStream (JttyTxBuffer& buffer, QObject * parent)
   connect (m_drainTimer, &QTimer::timeout, this, &JttyTxStream::pollDrain);
 }
 
-void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel, qint64 sessionId)
+void JttyTxStream::start (TxEvidence::TxRequest request, SoundOutput * stream)
 {
   if (m_active) return;
-  if (!m_buffer.queuedReal () && m_buffer.servedReal () == m_buffer.totalReal ())
+  auto progress = m_queue.progress ();
+  if (progress.epoch != request.queue_epoch)
     {
-      m_buffer.clear (sessionId);
+      LOG_DEBUG ("JTTY transmit stream start rejected before pending reset; "
+                 "requested queue epoch=" << request.queue_epoch.value ()
+                 << " current epoch=" << progress.epoch.value ());
+      return;
     }
-  m_buffer.applyPendingReset ();
-  initialize (QIODevice::ReadOnly, channel);
+  m_queue.applyPendingReset ();
+  progress = m_queue.progress ();
+  if (progress.epoch != request.queue_epoch)
+    {
+      LOG_DEBUG ("JTTY transmit stream start rejected after pending reset; "
+                 "requested queue epoch=" << request.queue_epoch.value ()
+                 << " current epoch=" << progress.epoch.value ());
+      return;
+    }
+  initialize (QIODevice::ReadOnly, request.channel);
   m_active = true;
   m_stream = stream;
   if (m_stream)
@@ -49,6 +76,8 @@ void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel, qi
                            std::memory_order_release);
     }
   if (!m_drainTimer->isActive ()) m_drainTimer->start ();
+  Q_EMIT txSourceCommitted (makeJttyTxStartSnapshot (
+    request, progress.total_samples > 0 ? progress.total_samples - 1 : -1));
 }
 
 void JttyTxStream::stop ()
@@ -75,7 +104,7 @@ qint64 JttyTxStream::readData (char * data, qint64 maxSize)
   qint64 const drainGuard = m_drainGuard.load (std::memory_order_acquire);
   for (qint64 frame = 0; frame < numFrames; ++frame)
     {
-      samples = load (m_buffer.pullSample (drainGuard), samples);
+      samples = load (m_queue.pullSample (drainGuard), samples);
     }
 
   return numFrames * qint64 (bytesPerFrame ());
@@ -83,9 +112,9 @@ qint64 JttyTxStream::readData (char * data, qint64 maxSize)
 
 void JttyTxStream::pollDrain ()
 {
-  auto const drain = m_buffer.takeDrainReady ();
+  auto const drain = m_queue.takeDrainReady ();
   if (drain.ready)
     {
-      Q_EMIT drained (drain.sessionId, drain.totalAtDrain);
+      Q_EMIT drained (drain);
     }
 }

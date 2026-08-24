@@ -1,67 +1,30 @@
 subroutine fillhashvar(numthreads,lfill)
 
-  use packjt77 ! also setting mycall13var,dxcall13var
+  use packjt77
   use ft8_mod1, only : mycall,hiscall
   integer, intent(in) :: numthreads
   logical, intent(in) :: lfill
   character*13 cw
 
   if(lfill) then
+    ! End of a configured/var decode pass: merge per-thread successful decode
+    ! effects into the shared callsign hash and recent-call state.
     do i=1,numthreads
-      do m=1,nlast_callsvar(i)
-        nposition=nthrindexvar(i)+m
-        cw=last_callsvar(nposition)
+      do m=1,nqueued_calls_by_thread(i)
+        nposition=thread_call_index(i)+m
+        cw=queued_calls_by_thread(nposition)
 !print *,i,m,cw
-        n10=ihashcall(cw,10)
-        if(n10.ge.0 .and. n10 .le. 1023 .and. cw.ne.mycall13var) calls10var(n10)=cw
-
-        n12=ihashcall(cw,12)
-        if(n12.ge.0 .and. n12 .le. 4095 .and. cw.ne.mycall13var) calls12var(n12)=cw
-
-        n22=ihashcall(cw,22)
-        if(any(ihash22var.eq.n22)) then   ! If entry exists, make sure callsign is the most recently received one
-          where(ihash22var.eq.n22) calls22var=cw
-          go to 900
-        endif
-
-! New entry: move table down, making room for new one at the top
-        ihash22var(nzhashvar:2:-1)=ihash22var(nzhashvar-1:1:-1)
-
-! Add the new entry
-        calls22var(nzhashvar:2:-1)=calls22var(nzhashvar-1:1:-1)
-        ihash22var(1)=n22
-        calls22var(1)=cw
-        if(nzhashvar.lt.MAXHASHvar) nzhashvar=nzhashvar+1
-900     continue
+        call save_hash_call(cw,n10,n12,n22)
       enddo
     enddo
+    call fold_queued_recent_calls(numthreads)
   else
-    nlast_callsvar=0
-    mycall13var=mycall//' '; dxcall13var=hiscall//' '
-    if(mycall13var.ne.mycall13_0var) then
-      if(len(trim(mycall13var)).gt.2) then
-        mycall13_setvar=.true.
-        mycall13_0var=mycall13var
-        call save_hash_mycallvar(mycall13var,hashmy10var,hashmy12var,hashmy22var)
-!print *,mycall13var,hashmy10var,hashmy12var,hashmy22var
-      else
-        mycall13_setvar=.false.
-      endif
-    endif
-
-    if(dxcall13var.ne.dxcall13_0var) then
-      if(len(trim(dxcall13var)).gt.2) then
-        dxcall13_setvar=.true.
-        dxcall13_0var=dxcall13var
-        hashdx10var=ihashcall(dxcall13var,10)
-! make sure new DX Call is stored in hash tables prior to decoding
-! it is needed if manually callsign set in DX Call window was not decoded before
-        call save_hash_callvar(dxcall13var,1)
-!print *,dxcall13var,hashdx10var
-      else
-        dxcall13_setvar=.false.
-      endif
-    endif
+    ! Start of a configured/var decode pass: clear staged worker effects and
+    ! snapshot the operator-configured calls used by hash-only decode guards.
+    nqueued_calls_by_thread=0
+    nqueued_recent_calls_by_thread=0
+    mycall13=mycall//' '; dxcall13=hiscall//' '
+    call sync_configured_calls_for_decode_start()
   endif
 
   return

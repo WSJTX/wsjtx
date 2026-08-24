@@ -18,6 +18,15 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate workflow inputs
+      shell: bash
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        ARCH: ${{ inputs.arch }}
+        DEPLOYMENT_TARGET: ${{ inputs.deployment_target }}
+        RUNNER: ${{ inputs.runner }}
+      run: .github/scripts/validate-ci-inputs.sh
+
     - name: Verify macOS build tuple
       shell: bash
       run: |
@@ -211,7 +220,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: boost-prefix
-        key: boost-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.85.0-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
+        key: boost-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.85.0-7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
 
     - name: Build Boost
       if: steps.boost-cache.outputs.cache-hit != 'true'
@@ -219,6 +228,7 @@ runs:
       run: |
         .github/scripts/build-boost-macos.sh \
           1.85.0 \
+          7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617 \
           "${{ inputs.arch }}" \
           "${{ inputs.deployment_target }}" \
           "${GITHUB_WORKSPACE}/boost-prefix"
@@ -255,10 +265,13 @@ runs:
     - name: Build Hamlib
       if: steps.hamlib-cache.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        DEPLOYMENT_TARGET: ${{ inputs.deployment_target }}
       run: |
         .github/scripts/build-hamlib-macos.sh \
-          "${{ inputs.hamlib_branch }}" \
-          "${{ inputs.deployment_target }}" \
+          "$HAMLIB_BRANCH" \
+          "$DEPLOYMENT_TARGET" \
           "${GITHUB_WORKSPACE}/hamlib-prefix" \
           "${GITHUB_WORKSPACE}/libusb-prefix"
 
@@ -284,7 +297,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: pfunit-prefix
-        key: pfunit-macos-${{ inputs.arch }}-${{ inputs.runner }}-v4.9.0-${{ steps.fc.outputs.cache_key }}-min${{ inputs.deployment_target }}-epoch3-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
+        key: pfunit-macos-${{ inputs.arch }}-${{ inputs.runner }}-v4.14.0-${{ steps.fc.outputs.cache_key }}-min${{ inputs.deployment_target }}-epoch3-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
 
     - name: Build pFUnit
       if: steps.pfunit-cache.outputs.cache-hit != 'true'
@@ -293,7 +306,7 @@ runs:
         DYLD_LIBRARY_PATH: ${{ steps.fc.outputs.runtime_lib_dir }}
       run: |
         .github/scripts/build-pfunit-macos.sh \
-          v4.9.0 \
+          v4.14.0 \
           "${{ steps.fc.outputs.path }}" \
           "${{ inputs.deployment_target }}" \
           "${GITHUB_WORKSPACE}/pfunit-prefix"

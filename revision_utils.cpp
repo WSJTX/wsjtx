@@ -76,12 +76,19 @@ QString display_revision ()
       source_revision = source_revision.left (6);
       if (source_revision != build_revision.left (6))
         {
-          return QString {"source %1 (build %2)"}.arg (source_revision, build_revision);
+          return QString {"(source %1, build %2)"}.arg (
+            source_revision,
+            build_revision.isEmpty () ? QString {"unavailable"} : build_revision);
         }
     }
 #endif
 
-  return build_revision;
+  if (build_revision.isEmpty ())
+    {
+      return QString {"(revision unavailable)"};
+    }
+
+  return QString {"(revision %1)"}.arg (build_revision);
 }
 
 QString version (bool include_patch)

@@ -8,9 +8,19 @@
 
 #include "SpecialOperatingActivity.hpp"
 #include "Radio.hpp"
+#include "Audio/TxIdentity.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 #include "models/IARURegions.hpp"
 #include "Audio/AudioDevice.hpp"
 #include "Transceiver/Transceiver.hpp"
+#include "Network/CloudlogConfiguration.hpp"
+
+// Qt 5 moc generates unqualified argument names for these value types.
+using TxSessionId = TxEvidence::TxSessionId;
+using TxGeneration = TxEvidence::TxGeneration;
+using TxStartSnapshot = TxEvidence::TxStartSnapshot;
+using TxRawPlayoutSnapshot = TxEvidence::TxRawPlayoutSnapshot;
 #include "otpgenerator.h"
 
 #include "pimpl_h.hpp"
@@ -60,7 +70,7 @@ class LogBook;
 //  descriptions.
 //
 class Configuration final
-  : public QObject
+  : public QObject, public CloudlogConfiguration
 {
   Q_OBJECT
 
@@ -183,9 +193,9 @@ public:
   bool report_in_comments () const;
   bool specOp_in_comments () const;
   bool cloudlog_enabled () const;
-  QString cloudlog_api_url() const;
-  QString cloudlog_api_key() const;
-  qint32 cloudlog_api_station_id() const;
+  QString cloudlog_api_url () const override;
+  QString cloudlog_api_key () const override;
+  qint32 cloudlog_api_station_id () const override;
   bool prompt_to_log () const;
   bool autoLog() const;
   bool contestingOnly() const;
@@ -412,10 +422,10 @@ public:
 
   // Set modulation start TCI audio
   //
-  Q_SLOT void transceiver_modulator_start (QString="FT8", unsigned = 79, double = 1920.0, double = 1500.0, double = -3.0, bool = true, bool=false, double = 99., double = 60.0);
+  Q_SLOT void transceiver_modulator_start (TxEvidence::TxRequest request = {});
 
-  Q_SLOT void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
-  Q_SLOT void transceiver_clear_jtty_pcm (qint64);
+  Q_SLOT void transceiver_enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64);
+  Q_SLOT void transceiver_clear_jtty_pcm (TxAudioQueueEpoch);
 
   // Set modulation start TCI audio
   //
@@ -472,9 +482,14 @@ public:
   Q_SIGNAL void transceiver_update (Transceiver::TransceiverState const&) const;
   Q_SIGNAL void transceiver_TCIframesWritten (qint64) const;
   Q_SIGNAL void transceiver_TCImodActive (bool) const;
-  Q_SIGNAL void transceiver_jtty_drained (qint64 sessionId, qint64 totalAtDrain) const;
-  Q_SIGNAL void transceiver_jtty_enqueue_accepted (qint64 sessionId, qint64 enqueueId, qint64 sampleCount) const;
-  Q_SIGNAL void transceiver_jtty_enqueue_failed (qint64 sessionId, qint64 enqueueId) const;
+  Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot) const;
+  Q_SIGNAL void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot) const;
+  Q_SIGNAL void transceiver_jtty_drained (TxAudioQueueDrainState drain) const;
+  Q_SIGNAL void transceiver_jtty_enqueue_accepted (qint64 enqueueId, qint64 sampleCount,
+                                                   TxAudioQueueProgress progress) const;
+  Q_SIGNAL void transceiver_jtty_enqueue_failed (TxAudioQueueEpoch epoch,
+                                                 qint64 enqueueId) const;
+  Q_SIGNAL void transceiver_closing (bool failed) const;
   Q_SIGNAL void leavingSettings (bool) const;
 
   // Signals a failure of a control rig CAT or PTT connection.

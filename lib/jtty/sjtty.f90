@@ -216,11 +216,17 @@ program sjtty
      h=default_header(12000,iz)
      write(fname,1102) ifile
 1102 format('000000_',i6.6,'.wav')
-     open(10,file=fname,status='unknown',access='stream')
+     open(10,file=fname,status='replace',access='stream')
      write(10) h,iwave(1:iz)                !Save to *.wav file
      close(10)
      write(*,1110) ifile,xdt,f0,snrdb,fname
 1110 format(i4,f7.2,f8.2,f7.1,2x,a17)
   enddo
 
-999 end program sjtty
+999 if (allocated(cwave)) deallocate(cwave)
+    if (allocated(c0)) deallocate(c0)
+    if (allocated(c)) deallocate(c)
+    if (allocated(wave)) deallocate(wave)
+    if (allocated(iwave)) deallocate(iwave)
+
+end program sjtty

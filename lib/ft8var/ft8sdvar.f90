@@ -9,7 +9,7 @@ subroutine ft8sdvar(s8,srr,itone,msgd,msg37,lft8sd,lcq)
   integer itone(79),itonedem(58),idtone(58),ip1(1)
   integer*1 msgbits(77)
   logical(1), intent(in) :: lcq
-  logical(1) lft8sd,lmatched(58)
+  logical(1) lft8sd,lmatched(58),valid4(4)
 
   if(index(msgd,' RR73').gt.0 .or. index(msgd,' 73').gt.0) return ! do not process 73 messages
 ! do not process messages with grid
@@ -39,13 +39,17 @@ subroutine ft8sdvar(s8,srr,itone,msgd,msg37,lft8sd,lcq)
     i3=-1; n3=-1
     msg372=msgd
     call genft8sdvar(msg372,i3,n3,msgsent37,msgbits,itone)
+    if(i3.lt.0) return
     idtone(1:29)=itone(8:36)
     idtone(30:58)=itone(44:72)
   else
+    valid4=.false.
     do i=1,4
       msg372=msg4(i)
       i3=-1; n3=-1
       call genft8sdvar(msg372,i3,n3,msgsent37,msgbits,itone)
+      if(i3.lt.0) cycle
+      valid4(i)=.true.
       idtone4(i,1:29)=itone(8:36)
       idtone4(i,30:58)=itone(44:72)
       itone4(i,1:79)=itone(1:79)
@@ -67,6 +71,7 @@ subroutine ft8sdvar(s8,srr,itone,msgd,msg37,lft8sd,lcq)
   else
     nmatchditer1=0; nbaseiter1=0; ncrcpatyiter1=0;
     do i=1,4
+      if(.not.valid4(i)) cycle
       nmatch1=0; nbase1=0; ncrcpaty1=0
       do k=1,58
         if(idtone4(i,k).eq.itonedem(k)) then
