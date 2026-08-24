@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QToolTip>
 #include <QDebug>
+#include <QRegularExpression>
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "SettingsGroup.hpp"
@@ -17,6 +18,7 @@
 #include "about.h"
 #include "astro.h"
 #include "widegraph.h"
+#include "vertwaterfall.h"
 #include "sleep.h"
 #include "livecq_parser.h"
 
@@ -44,6 +46,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_settings_filename {qmapSettingsFile (m_appDir, m_dataDir)},
   m_astro_window {new Astro {m_settings_filename}},
   m_wide_graph_window {new WideGraph {m_settings_filename}},
+  m_vert_waterfall_window {new VertWaterfall {m_settings_filename}},
   m_gui_timer {new QTimer {this}}
 {
   ui->setupUi(this);
@@ -136,7 +139,25 @@ MainWindow::MainWindow(QWidget *parent) :
       border-color: black; min-width: 5em; padding: 3px;}";
 
   on_actionAstro_Data_triggered();           //Create the other windows
-  on_actionWide_Waterfall_triggered();
+  {
+    // Restore each waterfall to whether it was open when the program
+    // last exited (MainWindow::closeEvent records this alongside each
+    // window's own saved geometry). Defaults preserve pre-existing
+    // behavior: Wideband Waterfall was always shown; Vertical Waterfall
+    // is new and starts hidden until the user opens it once.
+    QSettings settings {m_settings_filename, QSettings::IniFormat};
+    bool wideVisible, vertVisible;
+    {
+      SettingsGroup g {&settings, "MainWindow"};
+      wideVisible = settings.value ("WideGraphVisible", true).toBool ();
+    }
+    {
+      SettingsGroup g {&settings, "VertWaterfall"};
+      vertVisible = settings.value ("VertWaterfallVisible", false).toBool ();
+    }
+    if (wideVisible) on_actionWide_Waterfall_triggered();
+    if (vertVisible) on_actionVertical_Waterfall_triggered();
+  }
   if (m_astro_window) m_astro_window->setFontSize (m_astroFont);
 
   if(m_modeQ65==1) on_actionQ65A_triggered();
@@ -202,6 +223,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
   connect (m_wide_graph_window.get (), &WideGraph::freezeDecode2, this, &MainWindow::freezeDecode);
   connect (m_wide_graph_window.get (), &WideGraph::f11f12, this, &MainWindow::bumpDF);
+  connect (m_wide_graph_window.get (), &WideGraph::spectrumReady,
+           m_vert_waterfall_window.get (), &VertWaterfall::dataSinkVert);
 
   //default freq at startup for Doppler and Tsky  
   datcom_.fcenter = 1296.150;
@@ -669,9 +692,30 @@ void MainWindow::on_actionExit_triggered()                     //Exit()
 void MainWindow::closeEvent (QCloseEvent * e)
 {
   if (m_gui_timer) m_gui_timer->stop ();
+
+  // Record whether each waterfall was open, so it can be restored on the
+  // next startup. Must happen before close() below, since close() hides
+  // the window and isVisible() would otherwise read back false. Written
+  // directly here (not from each window's own saveSettings(), which also
+  // runs again from its destructor after close() -- that second call
+  // would otherwise clobber this with isVisible()==false).
+  {
+    QSettings settings {m_settings_filename, QSettings::IniFormat};
+    {
+      SettingsGroup g {&settings, "MainWindow"};
+      settings.setValue ("WideGraphVisible", m_wide_graph_window && m_wide_graph_window->isVisible ());
+    }
+    {
+      SettingsGroup g {&settings, "VertWaterfall"};
+      settings.setValue ("VertWaterfallVisible", m_vert_waterfall_window && m_vert_waterfall_window->isVisible ());
+    }
+  }
+
   m_wide_graph_window->saveSettings();
+  if (m_vert_waterfall_window) m_vert_waterfall_window->saveSettings();
   if (m_astro_window) m_astro_window->close ();
   if (m_wide_graph_window) m_wide_graph_window->close ();
+  if (m_vert_waterfall_window) m_vert_waterfall_window->close ();
   QMainWindow::closeEvent (e);
 }
 
@@ -689,6 +733,11 @@ void MainWindow::on_actionAstro_Data_triggered()             //Display Astro
 void MainWindow::on_actionWide_Waterfall_triggered()      //Display Waterfalls
 {
   m_wide_graph_window->show();
+}
+
+void MainWindow::on_actionVertical_Waterfall_triggered()  //Display Vertical Waterfall
+{
+  if (m_vert_waterfall_window) m_vert_waterfall_window->show();
 }
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
@@ -1185,6 +1234,44 @@ void MainWindow::guiUpdate()
     while(m_fetched<decodes_.ndecodes) {
       QString t=QString::fromLatin1(decodes_.result[m_fetched]);
       QString t2=QString::fromLatin1(decodes2_.result2[m_fetched]);
+
+      // Vertical-waterfall callsign overlay. Column layout is fixed by
+      // the Fortran write (qmap/libqmap/q65b.f90:167-168, format
+      // (i6.6,f9.3,f7.1,f7.2,i5,2x,a)): frx occupies columns 7-15
+      // (0-indexed 6..14), and the message (submode + text) starts at
+      // column 38 (0-indexed 37) -- confirmed against the existing
+      // t.mid(36,2) submode check a few lines below. Must run before
+      // t is trimmed, since f9.3 right-justifies frx with leading
+      // spaces that trimmed() would otherwise eat.
+      //
+      // nhhmmss's seconds field (0-indexed 4..5) is "30" for a decode
+      // from the second 30 s half of a 60 s Rx interval (a 30-second
+      // submode decoded alongside a 60-second one at the same tone
+      // spacing -- q65b.f90:112, nhhmmss=100*nutc+iseq*30) and "00"
+      // otherwise.
+      if (m_vert_waterfall_window || m_wide_graph_window) {
+        bool ok = false;
+        double frx = t.mid(6,9).trimmed().toDouble(&ok);
+        bool secondHalf = (t.mid(4,2) == "30");
+        int hhmmss = t.left(6).toInt();
+        int decodeSecs = (hhmmss/10000)*3600 + ((hhmmss/100)%100)*60 + (hhmmss%100);
+        QStringList msg_cols = t.mid(41).trimmed().split(QRegularExpression("\\s+"),SkipEmptyParts);
+        QString sender;
+        if (msg_cols.size() >= 2) {
+          if (msg_cols[0] == "CQ") {
+            sender = (msg_cols.size() >= 3 && msg_cols[1] == "DX") ? msg_cols[2] : msg_cols[1];
+          } else {
+            sender = msg_cols[1];   // directed: TO_call FROM_call
+          }
+        }
+        static const QRegularExpression call_re(
+            "^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z](/[A-Z0-9]+)?$");
+        if (ok && !sender.isEmpty() && call_re.match(sender.toUpper()).hasMatch()) {
+          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(frx, sender, secondHalf, decodeSecs);
+          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(frx, sender, secondHalf, decodeSecs);
+        }
+      }
+
       if(m_UTC0!="" and m_UTC0!=t.left(4)) {
         t1="-";
         ui->decodedTextBrowser->append(t1.repeated(60));

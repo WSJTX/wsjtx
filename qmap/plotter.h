@@ -11,8 +11,11 @@
 #include <QFrame>
 #include <QImage>
 #include <QToolTip>
+#include <QVector>
+#include <QList>
 #include <cstring>
 #include "commons.h"
+#include "decode_label.h"
 
 #define VERT_DIVS 7	//specify grid screen divisions
 #define HORZ_DIVS 20
@@ -75,6 +78,11 @@ public:
   double txFreq();
 //  void updateFreqLabel();
 
+  // Decoded-callsign overlay. WideGraph maintains the list and pushes it
+  // here; rendered as labels on top of the waterfall at the audio-offset
+  // x-position. Triggers update() to schedule a paintEvent.
+  void setDecodeLabels(const QList<WideDecodeLabel>& labels);
+
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
@@ -92,6 +100,29 @@ private:
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);
+  // Render m_decodeLabels overlay on top of the waterfall pixmap. Stacks
+  // colliding labels vertically (max 5 rows) so a busy band doesn't paint
+  // labels on top of each other.
+  void paintDecodeLabels(QPainter& painter);
+
+  // Raw wideband-row snapshots (post color-mapping input, pre color-map),
+  // front=newest, so a resize can repaint m_WaterfallPixmap from history
+  // instead of blanking it. m_zwf already plays this role for the zoom
+  // row -- this is the wideband row's counterpart. Each row keeps the
+  // frequency-per-pixel (df) it was captured at, since that changes with
+  // window width -- rebuildWideFromHistory() remaps by frequency, not by
+  // raw pixel index, so a width change rescales existing data instead of
+  // just shifting it to the wrong frequency.
+  struct WideHistoryLine {
+    QVector<float> row;
+    double startFreq;   // m_StartFreq at capture time
+    double df;           // kHz per pixel at capture time (m_fSpan/width)
+  };
+  void rebuildWideFromHistory();
+  QList<WideHistoryLine> m_wideHistory;
+  static constexpr int kMaxWideHistory = 2048;
+
+  QList<WideDecodeLabel> m_decodeLabels;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;
