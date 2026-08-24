@@ -7297,8 +7297,7 @@ void MainWindow::guiUpdate()
     mem_qmap.unlock();
   }
 
-  // Drain click requests in every mode so a request cannot fire later after
-  // an unrelated mode change.
+  // Drained every cycle, not just in Q65 mode -- qmapCallSandP() no-ops outside Q65 anyway.
   {
     QString qmap_dxcall;
     bool qmap_doubleClick=false;
@@ -13299,10 +13298,6 @@ void MainWindow::write_transmit_entry (QString const& file_name)
 
 void MainWindow::readWidebandDecodes()
 {
-  // m_EMECall (below) is the data source qmapCallSandP() looks up a
-  // clicked QMAP waterfall callsign in, so it must stay populated
-  // whether or not Active Stations has ever been opened -- only the
-  // Active Stations list display itself, further down, needs the widget.
   int nhr=0;
   int nmin=0;
   int nsec=0;
@@ -13326,9 +13321,7 @@ void MainWindow::readWidebandDecodes()
     QString submode=line.mid(36,3);
     QString msg=line.mid(41,-1);
     int i1=msg.indexOf(" ");
-    // "CQ DX <call> <grid>" has an extra qualifier token before the
-    // callsign; skip past it so dxcall below doesn't extract "DX".
-    if(msg.left(i1)=="CQ" and msg.mid(i1+1,2)=="DX") i1=msg.indexOf(" ",i1+1);
+    if(msg.left(i1)=="CQ" and msg.mid(i1+1,2)=="DX") i1=msg.indexOf(" ",i1+1);  //Skip "DX" qualifier
     int i2=i1 +1 + msg.mid(i1+1,-1).indexOf(" ");
     QString dxcall=msg.mid(i1+1,i2-i1-1);
     if(stdCall(dxcall)) {

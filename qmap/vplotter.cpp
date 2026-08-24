@@ -245,8 +245,7 @@ QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(QFontMetrics cons
   }
   for (auto& ll : out) {
     int text_w = fm.horizontalAdvance(ll.callsign);
-    // Baseline matches the actual drawText() call below: dispY+4, not dispY.
-    ll.rect = QRect(ll.textX - 2, ll.dispY + 4 - fm.ascent(), text_w + 4, fm.height());
+    ll.rect = QRect(ll.textX - 2, ll.dispY + 4 - fm.ascent(), text_w + 4, fm.height());  //Matches drawText() baseline below
   }
   return out;
 }
