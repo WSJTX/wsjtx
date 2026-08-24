@@ -18,3 +18,10 @@ wsjt_link_common_fortran (test_q65_decode_pipeline)
 add_test (NAME test_q65_decode_pipeline COMMAND test_q65_decode_pipeline)
 set_tests_properties (test_q65_decode_pipeline PROPERTIES
   TIMEOUT 180)
+
+add_executable (test_q65_llh_contracts
+  test_q65_llh_contracts.c)
+target_include_directories (test_q65_llh_contracts PRIVATE
+  ${CMAKE_SOURCE_DIR}/lib/qra/q65)
+target_link_libraries (test_q65_llh_contracts PRIVATE wsjt_cxx)
+add_test (NAME test_q65_llh_contracts COMMAND test_q65_llh_contracts)
