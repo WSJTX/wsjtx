@@ -6,7 +6,7 @@ program test_ccf65_correlator
   implicit none
 
   integer, parameter :: nhsym = 254
-  real, parameter :: expected_sync = 18.2396
+  real, parameter :: expected_sync = 25.8397
   real :: ss(4,322)
   integer :: i
   real :: sync1, dt, flipk, syncshort, snr2, dt2
@@ -100,11 +100,18 @@ contains
          1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1, &
          0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1, &
          1,1,1,1,1,1]
-    integer :: symbol
+    integer :: i
+    real :: target_sum
 
+    ! Build a non-negative spectrum whose adjacent-bin sums have one lag only.
     ss_plane = 0.0
-    do symbol = 1, size(npr)
-       ss_plane(1,2*symbol) = polarity * real(2*npr(symbol) - 1)
+    ss_plane(1,1) = 2.0
+    do i = 1, nhsym - 1
+       target_sum = 4.0
+       if (mod(i,2) == 1 .and. (i+1)/2 <= size(npr)) then
+          target_sum = target_sum + polarity * real(2*npr((i+1)/2) - 1)
+       endif
+       ss_plane(1,i+1) = target_sum - ss_plane(1,i)
     end do
   end subroutine make_sync_plane
 
