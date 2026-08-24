@@ -119,20 +119,8 @@ LiveAudioTestController::LiveAudioTestController (
              m_decoderStage = DecoderStage::None;
            });
   connect (m_window, &MainWindow::decodeCycleAborted,
-           this, [this] (quint64 generation) {
-             if (m_decoderStage == DecoderStage::EarlyStandard
-                 && m_sawEarlyStandardDecode
-                 && generation == m_supersededEarlyGeneration)
-               {
-                 m_supersededEarlyGeneration = 0;
-                 m_decoderStage = DecoderStage::None;
-                 return;
-               }
+           this, [this] {
              fail (QStringLiteral ("Decoder generation aborted before completion."));
-           });
-  connect (m_window, &MainWindow::liveAudioTestFt8EarlyDecodeSuperseded,
-           this, [this] (quint64 generation) {
-             m_supersededEarlyGeneration = generation;
            });
   connect (m_window, &MainWindow::decoderOutputLine,
            this, [this] (QByteArray const& line) {

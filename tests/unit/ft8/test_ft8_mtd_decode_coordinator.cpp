@@ -21,6 +21,12 @@ namespace
     pending->payload.params.lmultift8 = true;
     pending->payload.params.nutc = nutc;
     pending->payload.samples[0] = firstSample;
+    pending->context.mode = "FT8";
+    pending->context.periodFrequency = 14074000;
+    pending->context.band = "20m";
+    pending->context.multithreadFt8 = true;
+    pending->context.ft8ThreadCount = 4;
+    pending->context.decodeDepth = 3;
     return pending;
   }
 
@@ -78,6 +84,7 @@ namespace
           publishedPeriods.push_back (pending.period);
           publishedNutcs.push_back (pending.payload.params.nutc);
           publishedFirstSamples.push_back (pending.payload.samples[0]);
+          publishedContext = pending.context;
           return PendingPublishResult::Published;
         });
       QCOMPARE (outcome.result, DrainResult::Published);
@@ -95,6 +102,7 @@ namespace
     std::vector<qint64> publishedPeriods;
     std::vector<int> publishedNutcs;
     std::vector<short> publishedFirstSamples;
+    DecodeOperatingContext publishedContext;
   };
 }
 
@@ -104,11 +112,14 @@ class TestFt8MtdDecodeCoordinator final : public QObject
 
 private Q_SLOTS:
   void slowEarlyDecodeRetainsAndPublishesFinalOnce ();
+  void unrelatedCompletionDoesNotPublishPendingFinal ();
   void multiPeriodOverrunPublishesOnlyNewestFinal ();
   void pendingSnapshotIsImmutable ();
+  void pendingContextReachesFinalPublication ();
   void pendingCountsAsBusyUntilDrain ();
   void temporaryBackendFailurePreservesPending ();
   void fatalBackendFailureDropsPending ();
+  void publicationFailureLeavesPendingForRestart ();
   void changedContextDropsPendingWithoutPublishing ();
   void cancellationDropsPendingAndSchedulingState ();
 };
@@ -124,8 +135,25 @@ void TestFt8MtdDecodeCoordinator::slowEarlyDecodeRetainsAndPublishesFinalOnce ()
 
   QVERIFY (backend.publishedPeriods == std::vector<qint64> ({100, 100}));
   QVERIFY (backend.publishedNutcs == std::vector<int> ({120000}));
+  QCOMPARE (backend.activeStage, Stage::Final);
+  QCOMPARE (backend.activePeriod, qint64 {100});
   QVERIFY (backend.active);
   QVERIFY (!backend.coordinator.hasPending ());
+}
+
+void TestFt8MtdDecodeCoordinator::unrelatedCompletionDoesNotPublishPendingFinal ()
+{
+  FakeBackend backend;
+  backend.startEarly (Stage::EarlyOne, 150, 1);
+  backend.submitFinal (150, 120015, 18);
+
+  backend.coordinator.completed (Stage::EarlyOne, 149);
+
+  QVERIFY (backend.coordinator.hasPending ());
+  QVERIFY (backend.publishedPeriods == std::vector<qint64> ({150}));
+
+  backend.completeAndDrain ();
+  QVERIFY (backend.publishedPeriods == std::vector<qint64> ({150, 150}));
 }
 
 void TestFt8MtdDecodeCoordinator::multiPeriodOverrunPublishesOnlyNewestFinal ()
@@ -157,6 +185,23 @@ void TestFt8MtdDecodeCoordinator::pendingSnapshotIsImmutable ()
 
   QCOMPARE (backend.publishedNutcs.back (), 140000);
   QCOMPARE (backend.publishedFirstSamples.back (), short {31});
+}
+
+void TestFt8MtdDecodeCoordinator::pendingContextReachesFinalPublication ()
+{
+  FakeBackend backend;
+  backend.startEarly (Stage::EarlyOne, 350, 1);
+  backend.submitFinal (350, 140015, 35);
+
+  backend.completeAndDrain ();
+
+  auto const& context = backend.publishedContext;
+  QCOMPARE (context.mode, QStringLiteral ("FT8"));
+  QCOMPARE (context.periodFrequency, Radio::Frequency {14074000});
+  QCOMPARE (context.band, QStringLiteral ("20m"));
+  QVERIFY (context.multithreadFt8);
+  QCOMPARE (context.ft8ThreadCount, 4);
+  QCOMPARE (context.decodeDepth, 3);
 }
 
 void TestFt8MtdDecodeCoordinator::pendingCountsAsBusyUntilDrain ()
@@ -226,6 +271,21 @@ void TestFt8MtdDecodeCoordinator::fatalBackendFailureDropsPending ()
 
   QCOMPARE (outcome.result, DrainResult::Failed);
   QVERIFY (!coordinator.hasPending ());
+}
+
+void TestFt8MtdDecodeCoordinator::publicationFailureLeavesPendingForRestart ()
+{
+  FakeBackend backend;
+  backend.startEarly (Stage::EarlyOne, 515, 1);
+  backend.submitFinal (515, 160020, 52);
+
+  backend.coordinator.publicationFailed (Stage::EarlyOne, 515);
+  QVERIFY (backend.coordinator.hasPending ());
+
+  backend.completeAndDrain ();
+
+  QVERIFY (backend.publishedPeriods == std::vector<qint64> ({515, 515}));
+  QVERIFY (!backend.coordinator.hasPending ());
 }
 
 void TestFt8MtdDecodeCoordinator::changedContextDropsPendingWithoutPublishing ()

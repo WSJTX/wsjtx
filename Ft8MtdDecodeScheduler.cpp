@@ -17,8 +17,6 @@ Ft8MtdDecodeScheduler::Decision Ft8MtdDecodeScheduler::request (
     {
       if (decoderBusy)
         {
-          result.supersedeActiveEarly = activePeriod_ == period
-            && (Stage::EarlyOne == activeStage_ || Stage::EarlyTwo == activeStage_);
           auto const wasDegraded = degraded_;
           auto const failedProbe = probePeriod_ == period
             && !probeComplete (period);
@@ -77,10 +75,8 @@ Ft8MtdDecodeScheduler::Decision Ft8MtdDecodeScheduler::request (
   return result;
 }
 
-bool Ft8MtdDecodeScheduler::published (Stage stage, qint64 period)
+bool Ft8MtdDecodeScheduler::published (Stage stage, qint64)
 {
-  activeStage_ = stage;
-  activePeriod_ = period;
   if (Stage::Final != stage || !recoverOnFinalPublish_) return false;
 
   degraded_ = false;
@@ -93,11 +89,6 @@ bool Ft8MtdDecodeScheduler::published (Stage stage, qint64 period)
 
 void Ft8MtdDecodeScheduler::completed (Stage stage, qint64 period)
 {
-  if (stage == activeStage_ && period == activePeriod_)
-    {
-      activeStage_ = Stage::None;
-      activePeriod_ = -1;
-    }
   if (period != probePeriod_) return;
   if (Stage::EarlyOne == stage)
     {
@@ -115,8 +106,6 @@ void Ft8MtdDecodeScheduler::publicationFailed (Stage stage, qint64 period)
     {
       degrade (period, true);
     }
-  activeStage_ = Stage::None;
-  activePeriod_ = -1;
   recoverOnFinalPublish_ = false;
 }
 
@@ -125,8 +114,6 @@ void Ft8MtdDecodeScheduler::cancel ()
   degraded_ = false;
   backoffIndex_ = 0;
   nextProbePeriod_ = 0;
-  activeStage_ = Stage::None;
-  activePeriod_ = -1;
   recoverOnFinalPublish_ = false;
   clearProbe ();
 }

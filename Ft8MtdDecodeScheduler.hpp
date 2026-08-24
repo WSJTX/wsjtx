@@ -32,7 +32,6 @@ public:
   {
     Action action {Action::Publish};
     bool enteredDegraded {false};
-    bool supersedeActiveEarly {false};
     int skippedPeriods {0};
   };
 
@@ -61,8 +60,6 @@ private:
   qint64 probePeriod_ {-1};
   int probeEarlyStageCount_ {0};
   int completedEarlyStages_ {0};
-  Stage activeStage_ {Stage::None};
-  qint64 activePeriod_ {-1};
   bool recoverOnFinalPublish_ {false};
 };
 

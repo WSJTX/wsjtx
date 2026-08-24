@@ -4786,17 +4786,6 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
                     << "backoffPeriods:" << m_ft8MtdDecodeCoordinator.skippedPeriods ();
         ui->DecodeButton->setChecked (false);
         updateDecodeControls ();
-        if (ft8Decision.supersedeActiveEarly)
-          {
-#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-            if (m_automated_test)
-              {
-                Q_EMIT liveAudioTestFt8EarlyDecodeSuperseded (
-                  m_decodeCycleGeneration);
-              }
-#endif
-            requestDecoderRestart ("FT8 final superseded an active early decode");
-          }
         return;
       }
 
