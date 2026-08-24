@@ -1,4 +1,4 @@
-# ThreadSanitizer suppressions for classified third-party reports.
+# ThreadSanitizer suppressions for cross-cutting classified third-party reports.
 #
 # Hamlib is statically linked in the TSan prefix, so called_from_lib
 # cannot be used for it. Match the SUMMARY functions from the
@@ -18,25 +18,13 @@ race:rig_get_freq
 race:rig_get_vfo
 race:rig_poll_routine_stop
 
-# Hamlib 4.7.x rig_open debug-buffer race.
-# rig_open starts a worker that races with its caller on debugmsgsave2.
-# Keep this as a function match; do not suppress the Hamlib library broadly.
-race:rig_open
+# Hamlib 4.7.x debug-buffer race during rig_open.
+# Match only the known shared buffer; retain visibility for other rig_open races.
+race:debugmsgsave2
 
 # Hamlib 4.7 Morse worker stop-flag race.
 # Upstream: Hamlib#2109 / backport Hamlib#2126. Remove after that release.
 race:morse_data_handler_stop
-
-# GLib/GIO gdbus cleanup and socket races observed in the network tests.
-# These are individual dependency functions, not library-wide suppressions.
-race:g_main_context_unref
-race:g_hash_table_unref
-race:g_str_equal
-race:g_queue_pop_head
-race:g_socket_send_message_with_timeout
-race:g_bytes_unref
-race:g_queue_foreach
-race:g_slice_free_chain_with_offset
 
 # Boost.Log 1.83 publishes asynchronous queue nodes with relaxed atomics;
 # the Arch investigation used Boost.Log 1.92.0. Function names and report
@@ -63,24 +51,7 @@ race:boost::log::v2_mt_posix::intrusive_ptr_release
 race:boost::intrusive_ptr<boost::log::v2_mt_posix::attribute_value::impl>::operator bool
 race:boost::date_time::int_adapter<long>::as_number
 race:boost::date_time::int_adapter<long>::is_nan
-race:boost::log::v2_mt_posix::operator<<
 
-# libgfortran I/O-unit lock-order false positive in single-threaded tests.
-# Tracked as WSJT-X#292.
-deadlock:libgfortran.so
-
-# Qt/DBus lock-order in the uninstrumented system library.
-deadlock:libdbus-1.so
-
-# Qt 5.15 network bearer startup and teardown races observed by the isolated
-# network tests. The conflicting accesses remain inside QtCore/DBus; the
-# application frames only initiate QNetworkAccessManager activity.
-race:QArrayData::allocate
-race:QCoreApplication::event
-race:QCoreApplication::removePostedEvents
-race:QCoreApplicationPrivate::sendPostedEvents
-race:QWaitCondition::wakeAll
-race:QWaitCondition::~QWaitCondition
-race:QObjectPrivate::Connection::~Connection
-race:QObjectPrivate::ConnectionData::deleteOrphaned
-race:dbus_connection_get_is_connected
+# Dependency suppressions that only apply to Fortran-backed, network, or GUI tests
+# live in tsan-fortran.supp, tsan-network.supp, and tsan-gui.supp. CMake
+# combines each scope file with this baseline before assigning TSAN_OPTIONS.

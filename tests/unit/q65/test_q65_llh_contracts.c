@@ -1,5 +1,6 @@
 #include "q65.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -24,12 +25,18 @@ int main (void)
            "valid codeword symbol rejected");
 
   symbol = -1;
-  require (q65_check_llh (NULL, &symbol, 1, 64, intrinsics) == 0,
+  float llh = 123.0f;
+  require (q65_check_llh (&llh, &symbol, 1, 64, intrinsics) == 0,
            "negative codeword symbol accepted");
+  require (isinf (llh) && llh < 0.0f,
+           "invalid codeword symbol left LLH undefined");
 
   symbol = 64;
-  require (q65_check_llh (NULL, &symbol, 1, 64, intrinsics) == 0,
+  llh = 123.0f;
+  require (q65_check_llh (&llh, &symbol, 1, 64, intrinsics) == 0,
            "out-of-range codeword symbol accepted");
+  require (isinf (llh) && llh < 0.0f,
+           "out-of-range codeword symbol left LLH undefined");
 
   return 0;
 }

@@ -57,3 +57,15 @@ add_dependencies (test_cloudlog_connection_check revisiontag)
 target_include_directories (test_cloudlog_connection_check PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_cloudlog_connection_check Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_cloudlog_connection_check COMMAND test_cloudlog_connection_check)
+
+if (WSJT_ENABLE_TSAN)
+  set (wsjt_tsan_network_test_environment
+    "QT_QPA_PLATFORM=offscreen"
+    "TSAN_OPTIONS=${wsjt_tsan_network_options}")
+  set_tests_properties (
+    test_pskreporter_transport
+    test_message_client_replay
+    test_message_server
+    test_cloudlog_connection_check
+    PROPERTIES ENVIRONMENT "${wsjt_tsan_network_test_environment}")
+endif ()

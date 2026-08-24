@@ -255,6 +255,28 @@ if (WSJT_ENABLE_TESTS)
      message (STATUS "Including tests")
  endif()
 
+if (WSJT_ENABLE_TSAN)
+  # A CTest ENVIRONMENT assignment replaces the inherited TSAN_OPTIONS. Build
+  # complete per-family suppression files from the cross-cutting baseline so
+  # scoped tests retain the same TSan controls and classified Hamlib/Boost
+  # suppressions as the rest of the suite.
+  set (wsjt_tsan_suppression_directory
+    "${CMAKE_BINARY_DIR}/tsan-suppressions")
+  file (MAKE_DIRECTORY "${wsjt_tsan_suppression_directory}")
+  file (READ "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan.supp"
+    wsjt_tsan_base_suppressions)
+  foreach (wsjt_tsan_scope IN ITEMS fortran network gui)
+    file (READ
+      "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan-${wsjt_tsan_scope}.supp"
+      wsjt_tsan_scope_suppressions)
+    file (GENERATE
+      OUTPUT "${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp"
+      CONTENT "${wsjt_tsan_base_suppressions}\n${wsjt_tsan_scope_suppressions}")
+    set (wsjt_tsan_${wsjt_tsan_scope}_options
+      "halt_on_error=0:second_deadlock_stack=1:suppressions=${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp")
+  endforeach ()
+endif ()
+
 include (CMake/Sources.cmake)
 #
 # decide on platform specifc packing and fixing up
@@ -680,6 +702,10 @@ if (WSJT_ENABLE_TESTS)
       set_tests_properties (${test_name} PROPERTIES
         LABELS "decoder;golden;integration"
         TIMEOUT 120)
+      if (WSJT_ENABLE_TSAN)
+        set_tests_properties (${test_name} PROPERTIES
+          ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+      endif ()
     endfunction ()
 
     wsjt_add_jt9_golden_test (
@@ -706,6 +732,10 @@ if (WSJT_ENABLE_TESTS)
           LABELS "decoder;golden;integration;mtd"
           PROCESSORS ${processors}
           TIMEOUT 120)
+        if (WSJT_ENABLE_TSAN)
+          set_tests_properties (${test_name} PROPERTIES
+            ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+        endif ()
       endfunction ()
 
       if (WSJT_ENABLE_TSAN)
@@ -924,6 +954,10 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
     RUN_SERIAL TRUE
     TIMEOUT ${wsjtx_startup_test_timeout}
   )
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (test_wsjtx_startup PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
 endif ()
 
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
@@ -947,6 +981,10 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
   if (NOT APPLE)
     list (APPEND wsjtx_live_audio_test_environment
       "TMPDIR=${wsjtx_live_audio_test_root}/tmp")
+  endif ()
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND wsjtx_live_audio_test_environment
+      "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
   endif ()
   add_test (
     NAME test_wsjtx_live_audio_ft8
@@ -1007,6 +1045,13 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     LABELS "gui;audio;decoder;ft8;integration"
     RUN_SERIAL TRUE
     TIMEOUT 150)
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (
+      test_wsjtx_live_audio_jtty
+      test_wsjtx_jtty_tx_loopback
+      test_wsjtx_ft8_tx_loopback
+      PROPERTIES ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
 endif ()
 
 # make a library for WSJT-X UDP servers

@@ -23,6 +23,11 @@ add_executable (test_jtty_txstream
   ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
 target_link_libraries (test_jtty_txstream wsjt_qt Boost::log_setup Qt5::Test Qt5::Multimedia)
 add_test (NAME test_jtty_txstream COMMAND test_jtty_txstream)
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_jtty_txstream PROPERTIES
+    ENVIRONMENT
+    "QT_QPA_PLATFORM=offscreen;TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+endif ()
 
 add_executable (test_jtty_messages test_jtty_messages.cpp)
 target_link_libraries (test_jtty_messages Qt5::Test)

@@ -188,3 +188,21 @@ add_executable (test_spec_op_label
 )
 target_link_libraries (test_spec_op_label Qt5::Test)
 add_test (NAME test_spec_op_label COMMAND test_spec_op_label)
+
+if (WSJT_ENABLE_TSAN)
+  # These tests exercise Qt GUI classes but do not test the window-system
+  # integration. Offscreen QPA avoids Arch xcb/DBus startup reports while
+  # preserving the tests' widget and event-loop behavior.
+  set_tests_properties (
+    test_qt_helpers
+    test_displaytext
+    test_wf_palette
+    test_emulate_split_transceiver
+    test_hamlib_mode
+    test_frequency_editors
+    test_decoded_message_reaction
+    test_decode_output_plan
+    test_auto_sequence_reaction
+    test_qso_reaction
+    PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif ()

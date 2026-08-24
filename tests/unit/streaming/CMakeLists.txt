@@ -10,3 +10,7 @@ set_tests_properties (test_streaming_consumers PROPERTIES
   LABELS "streaming;runtime"
   TIMEOUT 120
 )
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_streaming_consumers PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()

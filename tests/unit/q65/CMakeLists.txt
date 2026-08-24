@@ -18,6 +18,10 @@ wsjt_link_common_fortran (test_q65_decode_pipeline)
 add_test (NAME test_q65_decode_pipeline COMMAND test_q65_decode_pipeline)
 set_tests_properties (test_q65_decode_pipeline PROPERTIES
   TIMEOUT 180)
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_q65_decode_pipeline PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
 
 add_executable (test_q65_llh_contracts
   test_q65_llh_contracts.c)

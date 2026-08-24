@@ -1,6 +1,10 @@
 add_executable (test_bwf_file test_bwf_file.cpp)
 target_link_libraries (test_bwf_file wsjt_qtmm wsjt_qt Qt5::Test Qt5::Multimedia)
 add_test (NAME test_bwf_file COMMAND test_bwf_file)
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_bwf_file PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif ()
 
 if (WSJT_BUILD_UTILS)
   add_executable (test_echosim_wav_trailer test_echosim_wav_trailer.cpp)
