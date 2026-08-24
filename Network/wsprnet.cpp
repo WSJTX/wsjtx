@@ -270,30 +270,30 @@ bool WSPRNet::fileMatchesSnapshot (FileSnapshot const& snapshot) const
 
 bool WSPRNet::hasPendingFileLeg (int file_batch_id, int logical_upload_id) const
 {
-  auto has_pending_leg = [file_batch_id, logical_upload_id](QQueue<PendingUpload> const& uploads)
+  auto is_file_leg = [file_batch_id, logical_upload_id](PendingUpload const& upload)
   {
-    for (auto const& upload : uploads)
-      {
-        if (UploadSource::File == upload.source
-            && upload.file_batch_id == file_batch_id
-            && upload.logical_upload_id == logical_upload_id)
-          {
-            return true;
-          }
-      }
-    return false;
+    return UploadSource::File == upload.source
+      && upload.file_batch_id == file_batch_id
+      && upload.logical_upload_id == logical_upload_id;
   };
 
-  if (has_pending_leg (pending_primary_uploads_) || has_pending_leg (pending_alternate_uploads_))
+  for (auto const& upload : pending_primary_uploads_)
     {
-      return true;
+      if (is_file_leg (upload))
+        {
+          return true;
+        }
     }
-
+  for (auto const& upload : pending_alternate_uploads_)
+    {
+      if (is_file_leg (upload))
+        {
+          return true;
+        }
+    }
   for (auto const& upload : outstanding_requests_)
     {
-      if (UploadSource::File == upload.source
-          && upload.file_batch_id == file_batch_id
-          && upload.logical_upload_id == logical_upload_id)
+      if (is_file_leg (upload))
         {
           return true;
         }

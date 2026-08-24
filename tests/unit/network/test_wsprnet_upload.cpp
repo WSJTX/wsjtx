@@ -39,7 +39,6 @@ namespace
       , response_ {response}
       , body_ {response.body}
       , offset_ {0}
-      , finished_ {false}
     {
       setRequest (request);
       setUrl (request.url ());
@@ -64,18 +63,13 @@ namespace
       return true;
     }
 
-    bool isFinished () const
-    {
-      return finished_;
-    }
-
     void finish ()
     {
-      if (finished_)
+      if (isFinished ())
         {
           return;
         }
-      finished_ = true;
+      setFinished (true);
       if (QNetworkReply::NoError != response_.error)
         {
           setError (response_.error, response_.error_string);
@@ -104,7 +98,6 @@ namespace
     NetworkResponse response_;
     QByteArray body_;
     qint64 offset_;
-    bool finished_;
   };
 
   class FakeNetworkAccessManager final
@@ -132,8 +125,7 @@ namespace
 
     void finishAll ()
     {
-      auto const pending = replies_;
-      for (auto const& reply : pending)
+      for (auto const& reply : replies_)
         {
           if (reply)
             {
@@ -150,10 +142,7 @@ namespace
           ++next_reply_to_finish_;
         }
       QVERIFY (next_reply_to_finish_ < replies_.size ());
-      if (next_reply_to_finish_ < replies_.size ())
-        {
-          replies_[next_reply_to_finish_++]->finish ();
-        }
+      replies_[next_reply_to_finish_++]->finish ();
     }
 
     void finishHost (QString const& host)
@@ -675,14 +664,8 @@ private slots:
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
 
-    int primary = 0, alternate = 0;
-    for (auto const& request : manager.requests)
-      {
-        if ("wsprnet.org" == request.url.host ()) ++primary;
-        else if ("wsprnet.eu" == request.url.host ()) ++alternate;
-      }
-    QCOMPARE (primary, 1);
-    QCOMPARE (alternate, 2);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.org"), 1);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 2);
     QCOMPARE (manager.requests.size (), 3);
   }
 
