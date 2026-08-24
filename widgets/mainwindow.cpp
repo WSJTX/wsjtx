@@ -7294,9 +7294,16 @@ void MainWindow::guiUpdate()
         FrequencyRequestOrigin::Automatic);
       ipc_qmap->decodes.kHzRequested=0;
     }
+    mem_qmap.unlock();
+  }
+
+  // Drain click requests in every mode so a request cannot fire later after
+  // an unrelated mode change.
+  {
     QString qmap_dxcall;
     bool qmap_doubleClick=false;
     bool qmap_hasClickRequest=false;
+    mem_qmap.lock();
     if (ipc_qmap->click.action != QMapClickAction::None) {
       qmap_dxcall = QString::fromLatin1 (ipc_qmap->click.selectedCall, qstrnlen (
         ipc_qmap->click.selectedCall, sizeof ipc_qmap->click.selectedCall)).trimmed ();
@@ -13292,7 +13299,10 @@ void MainWindow::write_transmit_entry (QString const& file_name)
 
 void MainWindow::readWidebandDecodes()
 {
-  if(m_ActiveStationsWidget==NULL) return;
+  // m_EMECall (below) is the data source qmapCallSandP() looks up a
+  // clicked QMAP waterfall callsign in, so it must stay populated
+  // whether or not Active Stations has ever been opened -- only the
+  // Active Stations list display itself, further down, needs the widget.
   int nhr=0;
   int nmin=0;
   int nsec=0;
@@ -13316,6 +13326,9 @@ void MainWindow::readWidebandDecodes()
     QString submode=line.mid(36,3);
     QString msg=line.mid(41,-1);
     int i1=msg.indexOf(" ");
+    // "CQ DX <call> <grid>" has an extra qualifier token before the
+    // callsign; skip past it so dxcall below doesn't extract "DX".
+    if(msg.left(i1)=="CQ" and msg.mid(i1+1,2)=="DX") i1=msg.indexOf(" ",i1+1);
     int i2=i1 +1 + msg.mid(i1+1,-1).indexOf(" ");
     QString dxcall=msg.mid(i1+1,i2-i1-1);
     if(stdCall(dxcall)) {
@@ -13344,6 +13357,8 @@ void MainWindow::readWidebandDecodes()
   if (m_config.spot_to_psk_reporter ()) {
     m_psk_Reporter.sendReport();                // Upload any queued spots
   }
+
+  if(m_ActiveStationsWidget==NULL) return;
 
 // Displayed row numbers index m_ready2call, so the rendered QMAP list must
 // stay within the same capacity as its click-target storage.
