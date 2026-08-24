@@ -388,13 +388,13 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
 
            nthr=1
 !$         nthr=omp_get_thread_num()+1
-           call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
-                params%nft8rxfsens,params%nftx,nutc,ft8_range_low(nthr),      &
+           call my_ft8var%decodevar(params%nQSOProgress,nfqso,                &
+                params%nft8rxfsens,params%nftx,ft8_range_low(nthr),           &
                 ft8_range_high(nthr),params%ncandthin,params%ndtcenter,nsec,  &
                 params%napwid,params%lmycallstd,params%lhiscallstd,           &
                 params%nstophint,nthr,numthreads,logical(params%nagainfil),   &
                 params%lft8lowth,params%lft8subpass,params%lhideft8dupes,     &
-                params%lft8apon,active_progress_generation,                 &
+                active_progress_generation,                                  &
                 mtd_worker_residual(:,nthr),                                  &
                 mtd_worker_spectrum(:,nthr))
 !$omp end parallel
