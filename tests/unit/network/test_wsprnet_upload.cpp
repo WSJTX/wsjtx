@@ -193,6 +193,16 @@ namespace
     return "130223 2258 7    -19 -0.2  14.097120  K2DEF FN31 33          0    35    0\n";
   }
 
+  QString type2SpotFileLine ()
+  {
+    return "130223 2258 7    -19 -0.2  14.097120  K1ABC/P 37          0    35    0\n";
+  }
+
+  QString unresolvedHashSpotFileLine ()
+  {
+    return "130223 2258 7    -19 -0.2  14.097120  <...> IO81UT 37          0    35    0\n";
+  }
+
   QString twoSpotFileLines ()
   {
     return spotFileLine () + secondSpotFileLine ();
@@ -268,44 +278,37 @@ private slots:
     postFst4w (wspr);
     wspr.work ();
 
-    QTRY_COMPARE (manager.requests.size (), 1);
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (manager.requests.size (), 2);
     QVERIFY (manager.requests.front ().body.contains ("function=wspr"));
     QVERIFY (manager.requests.front ().body.contains ("tcall=K1ABC"));
-    QTRY_VERIFY (sawStatus (statuses, "done"));
   }
 
   void fst4wRetrySurvivesLaterDecodeCycles ()
   {
     FakeNetworkAccessManager manager;
-    manager.auto_finish = false;
     manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
-    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});
-    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});
     WSPRNet wspr {&manager, retryPolicy (3), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
 
     postFst4w (wspr, fst4wDecode ());
     postFst4w (wspr);
     wspr.work ();
-    QCOMPARE (manager.requests.size (), 1);
     QVERIFY (manager.requests.front ().body.contains ("tcall=K1ABC"));
 
     postFst4w (wspr, "1235 -11 0.2 1505 ` K2DEF FN31 33");
     postFst4w (wspr);
-    manager.finishNext ();
-    wspr.work ();
 
-    QCOMPARE (manager.requests.size (), 2);
-    QVERIFY (manager.requests.at (1).body.contains ("tcall=K2DEF"));
+    QTRY_VERIFY (sawStatus (statuses, "done"));
 
-    manager.finishNext ();
-    wspr.work ();
-    QCOMPARE (manager.requests.size (), 3);
-    QVERIFY (manager.requests.at (2).body.contains ("tcall=K1ABC"));
-
-    manager.finishNext ();
-    QCoreApplication::processEvents ();
-    QVERIFY (sawStatus (statuses, "done"));
+    int k1abc = 0, k2def = 0;
+    for (auto const& request : manager.requests)
+      {
+        if (request.body.contains ("tcall=K1ABC")) ++k1abc;
+        if (request.body.contains ("tcall=K2DEF")) ++k2def;
+      }
+    QVERIFY (k1abc >= 3);
+    QCOMPARE (k2def, 2);
   }
 
   void emptyFst4wFlushUploadsStatusAndCompletes ()
@@ -317,9 +320,51 @@ private slots:
     postFst4w (wspr);
     wspr.work ();
 
-    QTRY_COMPARE (manager.requests.size (), 1);
-    QVERIFY (manager.requests.front ().body.contains ("function=wsprstat"));
     QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (manager.requests.size (), 1);
+    QVERIFY (manager.requests.front ().body.contains ("function=wsprstat"));
+  }
+
+  void spotWithoutTargetGridUploadsOnlyToPrimary ()
+  {
+    QTemporaryDir dir;
+    QVERIFY (dir.isValid ());
+    auto const path = writeSpotFile (dir, type2SpotFileLine ());
+
+    FakeNetworkAccessManager manager;
+    WSPRNet wspr {&manager, retryPolicy (), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    uploadFile (wspr, path);
+    wspr.work ();
+
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (manager.requests.size (), 1);
+    QCOMPARE (manager.requests.front ().url.host (), QString {"wsprnet.org"});
+    QUrlQuery query {QString::fromUtf8 (manager.requests.front ().body)};
+    QCOMPARE (query.queryItemValue ("tcall", QUrl::FullyDecoded), QString {"K1ABC/P"});
+    QCOMPARE (query.queryItemValue ("tgrid", QUrl::FullyDecoded), QString {});
+    QVERIFY (!QFile::exists (path));
+  }
+
+  void unresolvedHashCallsignIsNotUploadedAsSpot ()
+  {
+    QTemporaryDir dir;
+    QVERIFY (dir.isValid ());
+    auto const path = writeSpotFile (dir, unresolvedHashSpotFileLine ());
+
+    FakeNetworkAccessManager manager;
+    WSPRNet wspr {&manager, retryPolicy (), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    uploadFile (wspr, path);
+    wspr.work ();
+
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (manager.requests.size (), 1);
+    QUrlQuery query {QString::fromUtf8 (manager.requests.front ().body)};
+    QCOMPARE (query.queryItemValue ("function", QUrl::FullyDecoded), QString {"wsprstat"});
+    QCOMPARE (query.queryItemValue ("tcall", QUrl::FullyDecoded), QString {});
   }
 
   void directUploadSuccessDoesNotDeleteStaleFilePath ()
@@ -361,7 +406,7 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
+    QCOMPARE (manager.requests.size (), 3);
     QVERIFY (!QFile::exists (path));
   }
 
@@ -401,6 +446,8 @@ private slots:
     writeSpotFile (dir, secondSpotFileLine ());
     manager.finishNext ();
     QCoreApplication::processEvents ();
+    manager.finishNext ();
+    QCoreApplication::processEvents ();
 
     QVERIFY (sawStatus (statuses, "done"));
     QVERIFY (QFile::exists (path));
@@ -412,7 +459,7 @@ private slots:
     QVERIFY (!contents.contains ("K1ABC"));
   }
 
-  void fileBackedPartialFailureRetainsSpotFile ()
+  void fileBackedAlternateFailureDoesNotRetainAcceptedSpotFile ()
   {
     QTemporaryDir dir;
     QVERIFY (dir.isValid ());
@@ -428,8 +475,28 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (manager.requests.size (), 4);
+    QVERIFY (!QFile::exists (path));
+  }
+
+  void fileBackedPrimaryRejectionCanBeDeliveredByAlternate ()
+  {
+    QTemporaryDir dir;
+    QVERIFY (dir.isValid ());
+    auto const path = writeSpotFile (dir);
+
+    FakeNetworkAccessManager manager;
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "rejected"});
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});
+    WSPRNet wspr {&manager, retryPolicy (1), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    uploadFile (wspr, path);
+    wspr.work ();
+
+    QTRY_VERIFY (sawStatus (statuses, "done"));
     QCOMPARE (manager.requests.size (), 2);
-    QVERIFY (QFile::exists (path));
+    QVERIFY (!QFile::exists (path));
   }
 
   void fileBackedTransportFailureRetriesThenRetainsSpotFile ()
@@ -441,6 +508,8 @@ private slots:
     FakeNetworkAccessManager manager;
     manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
     manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
     WSPRNet wspr {&manager, retryPolicy (2), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
 
@@ -448,16 +517,17 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
+    QCOMPARE (manager.requests.size (), 4);
     QVERIFY (QFile::exists (path));
   }
 
   void directUploadStopsAfterConfiguredAttempts ()
   {
     FakeNetworkAccessManager manager;
-    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
-    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
-    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    for (int i = 0; i != 6; ++i)
+      {
+        manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+      }
     WSPRNet wspr {&manager, retryPolicy (3), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
 
@@ -466,7 +536,7 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 3);
+    QCOMPARE (manager.requests.size (), 6);
   }
 
   void fileBackedBadServerResponseRetriesThenRetainsSpotFile ()
@@ -477,6 +547,8 @@ private slots:
 
     FakeNetworkAccessManager manager;
     manager.enqueueResponse ({QNetworkReply::NoError, {}, "rejected"});
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "rejected"});
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "still rejected"});
     manager.enqueueResponse ({QNetworkReply::NoError, {}, "still rejected"});
     WSPRNet wspr {&manager, retryPolicy (2), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
@@ -485,8 +557,34 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
+    QCOMPARE (manager.requests.size (), 4);
     QVERIFY (QFile::exists (path));
+  }
+
+  void alternateSiteFailureDoesNotResendAcceptedPrimary ()
+  {
+    FakeNetworkAccessManager manager;
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    WSPRNet wspr {&manager, retryPolicy (2), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    postFst4w (wspr, fst4wDecode ());
+    postFst4w (wspr);
+    wspr.work ();
+
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+
+    int primary = 0, alternate = 0;
+    for (auto const& request : manager.requests)
+      {
+        if ("wsprnet.org" == request.url.host ()) ++primary;
+        else if ("wsprnet.eu" == request.url.host ()) ++alternate;
+      }
+    QCOMPARE (primary, 1);
+    QCOMPARE (alternate, 2);
+    QCOMPARE (manager.requests.size (), 3);
   }
 
   void expiredPendingUploadsAreDroppedAndFinalize ()

@@ -54,7 +54,33 @@ namespace
   };
 
   char const * const wsprNetUrl = "http://wsprnet.org/post/";
+  char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/";
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
+
+  struct UploadEndpoint
+  {
+    QString url;
+    bool accepts_status;
+    bool requires_tgrid;
+  };
+
+  QVector<UploadEndpoint> const& uploadEndpoints ()
+  {
+    static QVector<UploadEndpoint> const endpoints {
+      {QString::fromLatin1 (wsprNetUrl), true, false},
+      {QString::fromLatin1 (wsprNetUrl2), false, true},
+    };
+    return endpoints;
+  }
+
+  bool endpointAccepts (UploadEndpoint const& endpoint, QUrlQuery const& query, bool is_status)
+  {
+    if (is_status)
+      {
+        return endpoint.accepts_status;
+      }
+    return !endpoint.requires_tgrid || !query.queryItemValue ("tgrid", QUrl::FullyDecoded).isEmpty ();
+  }
 
   //
   // tested with this python REST mock of WSPRNet.org
@@ -108,6 +134,7 @@ WSPRNet::WSPRNet (Transport *transport, RetryPolicy retry_policy,
   , TR_period_ {0.F}
   , uploads_started_ {0}
   , next_file_batch_id_ {1}
+  , next_logical_upload_id_ {1}
   , upload_session_active_ {false}
 {
   upload_timer_.setSingleShot (true);
@@ -266,6 +293,29 @@ bool WSPRNet::fileMatchesSnapshot (FileSnapshot const& snapshot) const
   return QCryptographicHash::hash (contents, QCryptographicHash::Sha256) == snapshot.hash;
 }
 
+bool WSPRNet::hasPendingFileLeg (int file_batch_id, int logical_upload_id) const
+{
+  for (auto const& upload : pending_uploads_)
+    {
+      if (UploadSource::File == upload.source
+          && upload.file_batch_id == file_batch_id
+          && upload.logical_upload_id == logical_upload_id)
+        {
+          return true;
+        }
+    }
+  for (auto const& upload : outstanding_requests_)
+    {
+      if (UploadSource::File == upload.source
+          && upload.file_batch_id == file_batch_id
+          && upload.logical_upload_id == logical_upload_id)
+        {
+          return true;
+        }
+    }
+  return false;
+}
+
 void WSPRNet::networkReply (QNetworkReply * reply)
 {
   if (!outstanding_requests_.contains (reply))
@@ -314,12 +364,20 @@ void WSPRNet::networkReply (QNetworkReply * reply)
 void WSPRNet::enqueueUpload (QUrlQuery const& query, UploadSource source, PayloadKind kind, QString const& source_file, int file_batch_id)
 {
   auto const now = QDateTime::currentDateTimeUtc ();
-  pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
-                             now.addMSecs (retry_policy_.ttl_ms), now, 0});
+  auto const logical_upload_id = UploadSource::File == source ? next_logical_upload_id_++ : 0;
   if (UploadSource::File == source)
     {
       auto& state = file_uploads_[file_batch_id];
       ++state.total;
+    }
+  for (auto const& endpoint : uploadEndpoints ())
+    {
+      if (endpointAccepts (endpoint, query, PayloadKind::Status == kind))
+        {
+          pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
+                                     now.addMSecs (retry_policy_.ttl_ms), now, 0, endpoint.url,
+                                     logical_upload_id});
+        }
     }
   pruneExpiredUploads (now);
   enforcePendingLimit ();
@@ -418,7 +476,7 @@ void WSPRNet::enforcePendingLimit ()
 
 void WSPRNet::sendUpload (PendingUpload upload)
 {
-  QNetworkRequest request (QUrl {wsprNetUrl});
+  QNetworkRequest request (QUrl {upload.url});
   request.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
   if (!upload.attempts)
     {
@@ -496,8 +554,13 @@ void WSPRNet::markAccepted (PendingUpload const& upload)
 {
   if (UploadSource::File == upload.source)
     {
-      auto& state = file_uploads_[upload.file_batch_id];
-      ++state.accepted;
+      auto state = file_uploads_.find (upload.file_batch_id);
+      if (state == file_uploads_.end ())
+        {
+          return;
+        }
+      state->accepted.insert (upload.logical_upload_id);
+      state->failed.remove (upload.logical_upload_id);
       maybeRemoveCompletedFile (upload.file_batch_id);
       maybeRemoveFailedFileBatch (upload.file_batch_id);
     }
@@ -507,7 +570,15 @@ void WSPRNet::markFailed (PendingUpload const& upload)
 {
   if (UploadSource::File == upload.source)
     {
-      file_uploads_[upload.file_batch_id].failed = true;
+      auto state = file_uploads_.find (upload.file_batch_id);
+      if (state == file_uploads_.end () || state->accepted.contains (upload.logical_upload_id))
+        {
+          return;
+        }
+      if (!hasPendingFileLeg (upload.file_batch_id, upload.logical_upload_id))
+        {
+          state->failed.insert (upload.logical_upload_id);
+        }
       maybeRemoveFailedFileBatch (upload.file_batch_id);
     }
 }
@@ -515,26 +586,15 @@ void WSPRNet::markFailed (PendingUpload const& upload)
 void WSPRNet::maybeRemoveFailedFileBatch (int file_batch_id)
 {
   auto const state = file_uploads_.constFind (file_batch_id);
-  if (state == file_uploads_.constEnd () || !state->failed)
+  if (state == file_uploads_.constEnd () || state->failed.isEmpty ())
     {
       return;
     }
 
-  for (auto const& upload : pending_uploads_)
+  if (state->accepted.size () + state->failed.size () >= state->total)
     {
-      if (UploadSource::File == upload.source && upload.file_batch_id == file_batch_id)
-        {
-          return;
-        }
+      file_uploads_.remove (file_batch_id);
     }
-  for (auto const& upload : outstanding_requests_)
-    {
-      if (UploadSource::File == upload.source && upload.file_batch_id == file_batch_id)
-        {
-          return;
-        }
-    }
-  file_uploads_.remove (file_batch_id);
 }
 
 void WSPRNet::maybeRemoveCompletedFile (int file_batch_id)
@@ -545,7 +605,7 @@ void WSPRNet::maybeRemoveCompletedFile (int file_batch_id)
     }
 
   auto const state = file_uploads_.value (file_batch_id);
-  if (!state.failed && state.total > 0 && state.accepted == state.total)
+  if (state.total > 0 && state.accepted.size () == state.total)
     {
       QFile f {state.snapshot.path};
       // wsprd can rewrite this scratch file between the check and remove.
@@ -577,6 +637,10 @@ bool WSPRNet::decodeLine (QString const& line, SpotQueue::value_type& query) con
 {
   auto const& rx_match = wspr_re.match (line);
   if (rx_match.hasMatch ()) {
+    if (line.contains ("<...>")) {
+      return false;
+    }
+
     int msgType = 0;
     QString msg = rx_match.captured (7);
     QString call, grid, dbm;
