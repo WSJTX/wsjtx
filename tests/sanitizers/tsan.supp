@@ -79,6 +79,7 @@ race:QArrayData::allocate
 race:QCoreApplication::event
 race:QCoreApplication::removePostedEvents
 race:QCoreApplicationPrivate::sendPostedEvents
+race:QWaitCondition::wakeAll
 race:QWaitCondition::~QWaitCondition
 race:QObjectPrivate::Connection::~Connection
 race:QObjectPrivate::ConnectionData::deleteOrphaned
