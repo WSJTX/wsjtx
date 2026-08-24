@@ -47,3 +47,13 @@ add_executable (test_message_server
   )
 target_link_libraries (test_message_server wsjtx_udp-static Qt5::Test Qt5::Network)
 add_test (NAME test_message_server COMMAND test_message_server)
+
+add_executable (test_cloudlog_connection_check
+  test_cloudlog_connection_check.cpp
+  test_cloudlog_revision_stub.cpp
+  ${CMAKE_SOURCE_DIR}/Network/Cloudlog.cpp
+  )
+add_dependencies (test_cloudlog_connection_check revisiontag)
+target_include_directories (test_cloudlog_connection_check PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_cloudlog_connection_check Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
+add_test (NAME test_cloudlog_connection_check COMMAND test_cloudlog_connection_check)

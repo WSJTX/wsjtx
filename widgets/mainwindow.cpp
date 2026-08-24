@@ -5937,8 +5937,8 @@ void MainWindow::callSandP2(int n)
 
 void MainWindow::activeWorked(QString call, QString band)
 {
-  QString bands=m_activeCall[call].bands;
-  QByteArray ba=bands.toLatin1();
+  auto& activeCall = m_activeCall[call];
+  QByteArray ba=activeCall.bands.toLatin1().leftJustified(7, '.');
   if(band=="160m") ba[0]='a';
   if(band=="80m")  ba[1]='b';
   if(band=="40m")  ba[2]='c';
@@ -5946,7 +5946,7 @@ void MainWindow::activeWorked(QString call, QString band)
   if(band=="15m")  ba[4]='e';
   if(band=="10m")  ba[5]='f';
   if(band=="6m")   ba[6]='g';
-  m_activeCall[call].bands=QString::fromLatin1(ba);
+  activeCall.bands=QString::fromLatin1(ba);
 }
 
 bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& event,

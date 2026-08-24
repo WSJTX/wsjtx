@@ -667,6 +667,8 @@ int q65_check_llh(float *llh, const int* ydec, const int nN, const int nM, const
 	float t = 0;
 
 	for (k=0;k<nN;k++) {
+	  if (ydec[k] < 0 || ydec[k] >= nM)
+	    return 0;
 	  float x=pIntrin[ydec[k]];
 	  if(x < 1.0e-36) x = 1.0e-36; 
 	  t+=logf(x);

@@ -1,6 +1,6 @@
 module jt65_test_fixture
 
-  use iso_fortran_env, only: real32, real64
+  use iso_fortran_env, only: int64, real32, real64
   implicit none
 
   integer, parameter :: jt65_sample_rate = 12000
@@ -12,15 +12,38 @@ module jt65_test_fixture
 
 contains
 
-  subroutine make_jt65_wave(samples, tones, mode65, f0)
+  subroutine make_jt65_wave(samples, tones, mode65, f0, amplitude, noise_amplitude, noise_seed)
     real(real32), intent(out) :: samples(:)
     integer, intent(in) :: tones(jt65_symbol_count)
     integer, intent(in) :: mode65
     real(real64), intent(in) :: f0
+    real(real64), intent(in), optional :: amplitude
+    real(real64), intent(in), optional :: noise_amplitude
+    integer, intent(in), optional :: noise_seed
+    real(real64) :: signal_amplitude
+    real(real64) :: noise_scale, sample_noise, u1, u2
     real(real64) :: phase, frequency, samples_per_symbol
-    integer :: signal_sample, output_sample, symbol
+    integer(int64) :: noise_state
+    integer :: sample, signal_sample, output_sample, symbol
 
-    samples = 0.0_real32
+    signal_amplitude = jt65_amplitude
+    if (present(amplitude)) signal_amplitude = amplitude
+    noise_scale = 0.0_real64
+    if (present(noise_amplitude)) noise_scale = noise_amplitude
+    noise_state = 104729_int64
+    if (present(noise_seed)) noise_state = 104729_int64 + int(noise_seed, int64)
+    if (noise_scale == 0.0_real64) then
+       samples = 0.0_real32
+    else
+       do sample = 1, size(samples)
+          noise_state = modulo(16807_int64 * noise_state, 2147483647_int64)
+          u1 = max(real(noise_state, real64) / 2147483647.0_real64, tiny(1.0_real64))
+          noise_state = modulo(16807_int64 * noise_state, 2147483647_int64)
+          u2 = real(noise_state, real64) / 2147483647.0_real64
+          sample_noise = sqrt(-2.0_real64 * log(u1)) * cos(2.0_real64 * jt65_pi * u2)
+          samples(sample) = real(noise_scale * sample_noise, real32)
+       end do
+    end if
     phase = 0.0_real64
     samples_per_symbol = real(jt65_sample_rate, real64) / jt65_baud
     do signal_sample = 1, size(samples) - jt65_sample_rate
@@ -29,7 +52,7 @@ contains
        frequency = f0 + real(tones(symbol), real64) * jt65_baud * real(mode65, real64)
        phase = phase + 2.0_real64 * jt65_pi * frequency / real(jt65_sample_rate, real64)
        output_sample = jt65_sample_rate + signal_sample
-       samples(output_sample) = real(jt65_amplitude * sin(phase), real32)
+       samples(output_sample) = samples(output_sample) + real(signal_amplitude * sin(phase), real32)
     end do
   end subroutine make_jt65_wave
 

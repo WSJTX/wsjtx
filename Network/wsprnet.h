@@ -10,6 +10,7 @@
 #include <QDateTime>
 #include <QVector>
 #include <QByteArray>
+#include <QSet>
 
 class QNetworkReply;
 class QNetworkRequest;
@@ -103,6 +104,8 @@ private:
     QDateTime expires_at;
     QDateTime next_attempt_at;
     int attempts;
+    QString url;
+    int logical_upload_id;
   };
 
   struct FileSnapshot
@@ -116,13 +119,14 @@ private:
   {
     FileSnapshot snapshot;
     int total = 0;
-    int accepted = 0;
-    bool failed = false;
+    QSet<int> accepted;
+    QSet<int> failed;
   };
 
   void applyContext (StationContext const& context);
   FileSnapshot snapshotFile (QString const& file_name) const;
   bool fileMatchesSnapshot (FileSnapshot const& snapshot) const;
+  bool hasPendingFileLeg (int file_batch_id, int logical_upload_id) const;
   bool decodeLine (QString const& line, SpotQueue::value_type& query) const;
   SpotQueue::value_type urlEncodeNoSpot () const;
   SpotQueue::value_type urlEncodeSpot (SpotQueue::value_type& spot) const;
@@ -161,6 +165,7 @@ private:
   float TR_period_;
   int uploads_started_;
   int next_file_batch_id_;
+  int next_logical_upload_id_;
   QQueue<PendingUpload> pending_uploads_;
   QTimer upload_timer_;
   bool upload_session_active_;

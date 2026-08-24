@@ -3,9 +3,12 @@
 #define AUDIO_INPUT_SOURCE_HPP__
 
 #include <QObject>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QString>
 
 #include "Audio/AudioDevice.hpp"
+#include "Audio/AudioStreamDescriptor.hpp"
 
 class QAudioDeviceInfo;
 
@@ -22,6 +25,13 @@ public:
 
   ~AudioInputSource () override = default;
 
+  // Return a consistent snapshot that is safe to read from another thread.
+  AudioStreamDescriptor streamDescriptor () const
+  {
+    QMutexLocker locker {&stream_descriptor_mutex_};
+    return stream_descriptor_;
+  }
+
   Q_SLOT virtual void start (QAudioDeviceInfo const&, int framesPerBuffer,
                              AudioDevice * sink, unsigned downSampleFactor,
                              AudioDevice::Channel = AudioDevice::Mono) = 0;
@@ -32,6 +42,30 @@ public:
 
   Q_SIGNAL void error (QString message) const;
   Q_SIGNAL void status (QString message) const;
+  Q_SIGNAL void streamDescriptorChanged (AudioStreamDescriptor descriptor) const;
+
+protected:
+  void setStreamDescriptor (AudioStreamDescriptor descriptor)
+  {
+    {
+      QMutexLocker locker {&stream_descriptor_mutex_};
+      if (descriptor == stream_descriptor_)
+        {
+          return;
+        }
+      stream_descriptor_ = descriptor;
+    }
+    Q_EMIT streamDescriptorChanged (descriptor);
+  }
+
+  void clearStreamDescriptor ()
+  {
+    setStreamDescriptor ({});
+  }
+
+private:
+  mutable QMutex stream_descriptor_mutex_;
+  AudioStreamDescriptor stream_descriptor_;
 };
 
 #endif

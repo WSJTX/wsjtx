@@ -21,10 +21,10 @@ module ft8_decodevar
 
 contains
 
-  subroutine decodevar(this,callback,nQSOProgress,nfqso,nft8rxfsens,nftx,nutc,  &
+  subroutine decodevar(this,nQSOProgress,nfqso,nft8rxfsens,nftx,               &
        nfa,nfb,ncandthin,ndtcenter,nsec,napwid,lmycallstd,lhiscallstd,          &
        stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes,  &
-       lft8apon,ncontest,progress_generation,residual,spectrum)
+       progress_generation,residual,spectrum)
 
     use omp_lib
     use ft8_mtd_residual, only : mtd_publish_worker,mtd_transform_phase
@@ -50,7 +50,6 @@ contains
     include 'ft8_params.f90'
 
     class(ft8_decodervar), intent(inout) :: this
-    procedure(ft8_decodevar_callback) :: callback
     real, intent(inout) :: residual(180000)
     complex, intent(inout) :: spectrum(0:96000)
     real candidate(4,460)
@@ -59,7 +58,7 @@ contains
          ncandthin,ndtcenter,nsec,napwid,nthr,numthreads,progress_generation
     logical, intent(in) :: nagainfil
     logical(1), intent(in) :: stophint,lft8lowth,lft8subpass,lhideft8dupes,     &
-         lmycallstd,lhiscallstd,lft8apon
+         lmycallstd,lhiscallstd
     logical newdat1,lsubtract,ldupe,lFreeText,lspecial
     logical(1) lft8sdec,lft8s,lft8sd,lrepliedother,lhashmsg,lqsothread,         &
          lhidemsg,lhighsens,lcqcand,levenint,loddint,lnohiscall,                &

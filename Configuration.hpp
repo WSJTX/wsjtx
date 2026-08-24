@@ -14,6 +14,7 @@
 #include "models/IARURegions.hpp"
 #include "Audio/AudioDevice.hpp"
 #include "Transceiver/Transceiver.hpp"
+#include "Network/CloudlogConfiguration.hpp"
 
 // Qt 5 moc generates unqualified argument names for these value types.
 using TxSessionId = TxEvidence::TxSessionId;
@@ -69,7 +70,7 @@ class LogBook;
 //  descriptions.
 //
 class Configuration final
-  : public QObject
+  : public QObject, public CloudlogConfiguration
 {
   Q_OBJECT
 
@@ -192,9 +193,9 @@ public:
   bool report_in_comments () const;
   bool specOp_in_comments () const;
   bool cloudlog_enabled () const;
-  QString cloudlog_api_url() const;
-  QString cloudlog_api_key() const;
-  qint32 cloudlog_api_station_id() const;
+  QString cloudlog_api_url () const override;
+  QString cloudlog_api_key () const override;
+  qint32 cloudlog_api_station_id () const override;
   bool prompt_to_log () const;
   bool autoLog() const;
   bool contestingOnly() const;

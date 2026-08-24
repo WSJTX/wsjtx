@@ -41,3 +41,13 @@ add_executable (test_tx_audio_queue
   ${CMAKE_SOURCE_DIR}/Modulator/JttyPcmFifo.cpp)
 target_link_libraries (test_tx_audio_queue Qt5::Core Qt5::Test)
 add_test (NAME test_tx_audio_queue COMMAND test_tx_audio_queue)
+
+add_executable (test_audio_input_stream_descriptor
+  test_audio_input_stream_descriptor.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioInputSource.hpp
+  ${CMAKE_SOURCE_DIR}/Audio/FixtureAudioInput.cpp)
+target_link_libraries (test_audio_input_stream_descriptor
+  wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia)
+add_test (NAME test_audio_input_stream_descriptor
+  COMMAND test_audio_input_stream_descriptor)

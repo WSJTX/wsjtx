@@ -33,7 +33,8 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   integer, intent(in)   :: neme, ndepth, nqd, ndphi
   real,    intent(in)   :: dphi
   real(real64),  intent(in)   :: f0
-  integer, intent(in)   :: nutc, nkhz, ndf, ipol, ntol
+  integer, intent(in)   :: nutc, nkhz, ndf, ntol
+  integer, intent(inout) :: ipol
   real,    intent(inout):: sync2, a(5), dt, pol, qual
   integer, intent(inout):: nkv, nhist, nsum, nsave, newdat
   character(len=22), intent(out) :: decoded
@@ -95,6 +96,8 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   if(xpol) then
      c5y(:nadd)=0.
      call fil6521(cy,n5,c5y(nadd+1),n6)
+  else
+     c5y(:n6+nadd)=0.
   endif
   n6=n6+nadd
 

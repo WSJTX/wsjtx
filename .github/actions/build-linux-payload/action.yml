@@ -182,18 +182,6 @@ runs:
         done
         exit $fail
 
-    - name: Configure deprecated MAP65 skip path
-      if: inputs.arch == 'x86_64'
-      shell: bash
-      run: |
-        cmake -S . -B cfgmatrix-skip-map65-openmp-only \
-          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
-          -DWSJT_SKIP_MANPAGES=ON \
-          -DWSJT_SKIP_MAP65=ON \
-          -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
-          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
-          -Wno-dev
-
     - name: Run tests
       id: ctest
       shell: bash

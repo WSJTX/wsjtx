@@ -115,6 +115,7 @@ set (wsjt_qt_CXXSRCS
   )
 
 set (wsjt_qtmm_CXXSRCS
+  Audio/AudioStreamDescriptor.cpp
   Audio/BWFFile.cpp
   Audio/WavFile.cpp
   )
@@ -327,6 +328,7 @@ set (wsjt_FSRCS
   lib/decode9w.f90
   lib/decode_echo.f90
   lib/ft8/decode174_91.f90
+  lib/decoder_callbacks.f90
   lib/decoder.f90
   lib/env_module.f90
   lib/deep4.f90
@@ -816,7 +818,7 @@ endif (APPLE)
 set_source_files_properties (${WSJTX_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
 # suppress intransigent compiler diagnostics
-set_source_files_properties (lib/decoder.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
+set_source_files_properties (lib/decoder_callbacks.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
 set_source_files_properties (
   lib/filbig.f90
   lib/ft8var/filbigvar.f90
@@ -825,7 +827,7 @@ set_source_files_properties (
 # foxgen.f90's fname is genuine C++-supplied state (see mainwindow.cpp
 # call sites) that the current Fortran implementation doesn't happen to
 # reference; removing it would mean touching those call sites too, so we
-# suppress the warning here instead, matching lib/decoder.f90 above. The
+# suppress the warning here instead, matching lib/decoder_callbacks.f90 above. The
 # equivalent qmap/libqmap and map65/libm65 cases are set in those
 # subdirectories' own CMakeLists.txt -- set_source_files_properties() is
 # scoped to the directory it's called from, so it can't be done from here.

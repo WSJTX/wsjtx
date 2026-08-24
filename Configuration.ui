@@ -3430,22 +3430,22 @@ Right click for insert and delete options.</string>
              </widget>
             </item>
             <item row="2" column="0">
-             <widget class="QLabel" name="station_id_label">
+             <widget class="QLabel" name="station_profile_label">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Station ID.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Cloudlog or Wavelog station profile.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
-               <string>Station ID: </string>
+               <string>Station profile: </string>
               </property>
               <property name="buddy">
-               <cstring>sbCloudlogStationID</cstring>
+               <cstring>cbCloudlogStationProfile</cstring>
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
-             <widget class="QSpinBox" name="sbCloudlogStationID">
+            <item row="2" column="1" colspan="2">
+             <widget class="QComboBox" name="cbCloudlogStationProfile">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
@@ -3463,13 +3463,13 @@ Right click for insert and delete options.</string>
                </size>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Station ID.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Cloudlog or Wavelog station profile.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
-              <property name="minimum">
-               <number>1</number>
+              <property name="editable">
+               <bool>true</bool>
               </property>
-              <property name="maximum">
-               <number>999999</number>
+              <property name="insertPolicy">
+               <enum>QComboBox::NoInsert</enum>
               </property>
              </widget>
             </item>
@@ -3490,25 +3490,12 @@ Right click for insert and delete options.</string>
             <item row="2" column="3">
              <widget class="QPushButton" name="pbTestCloudlog">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Test the Cloudlog or Wavelog API key.&lt;/p&gt;&lt;p&gt;The button will turn green if the API key is writable. It will turn orange if the API key is read-only. If the API key is invalid it will turn red.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check the Cloudlog or Wavelog connection, API key, station profile, and upload path where safe.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection can upload QSOs, orange if the key is valid but read-only, and red if the configuration is unusable.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
-               <string>Test API Key</string>
+               <string>Check Connection</string>
               </property>
              </widget>
-            </item>
-            <item row="2" column="2">
-             <spacer name="horizontalSpacer_13">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
             </item>
            </layout>
           </item>
@@ -5395,7 +5382,7 @@ Right click for insert and delete options.</string>
   <tabstop>cbCloudlog</tabstop>
   <tabstop>leCloudlogApiUrl</tabstop>
   <tabstop>leCloudlogApiKey</tabstop>
-  <tabstop>sbCloudlogStationID</tabstop>
+  <tabstop>cbCloudlogStationProfile</tabstop>
   <tabstop>pbTestCloudlog</tabstop>
   <tabstop>cbEQSL</tabstop>
   <tabstop>eqsluser_edit</tabstop>

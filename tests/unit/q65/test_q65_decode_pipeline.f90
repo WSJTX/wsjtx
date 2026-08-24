@@ -1,7 +1,43 @@
+module q65_pipeline_callback
+
+  use q65_decode, only: q65_decoder
+  implicit none
+
+  integer :: callback_count
+  integer :: callback_idec,callback_nused,callback_ntrperiod
+  integer :: callback_nutc,callback_nsnr
+  real :: callback_snr1,callback_dt,callback_freq
+  character(len=37) :: callback_message
+
+contains
+
+
+  subroutine capture_callback(this,nutc,snr1,nsnr,dt,freq,decoded,idec, &
+       nused,ntrperiod)
+    class(q65_decoder), intent(inout) :: this
+    integer, intent(in) :: nutc,nsnr,idec,nused,ntrperiod
+    real, intent(in) :: snr1,dt,freq
+    character(len=37), intent(in) :: decoded
+
+    callback_count=callback_count+1
+    callback_nutc=nutc
+    callback_snr1=snr1
+    callback_nsnr=nsnr
+    callback_dt=dt
+    callback_freq=freq
+    callback_message=decoded
+    callback_idec=idec
+    callback_nused=nused
+    callback_ntrperiod=ntrperiod
+  end subroutine capture_callback
+
+end module q65_pipeline_callback
+
 program test_q65_decode_pipeline
 
   use iso_fortran_env, only: int16
   use map65_mmdec_mod, only: map65_mmdec
+  use q65_pipeline_callback
   use prog_args, only: data_dir,temp_dir
   use q65_decode, only: q65_decoder,cq0,msg0,nsnr0,nfreq0,xdt0
   use q65_test_fixture, only: make_q65_wave,q65_nsamples,q65_ntrperiod
@@ -9,12 +45,7 @@ program test_q65_decode_pipeline
 
   integer(int16), allocatable :: iwave(:)
   integer :: nqf(20),navg0,nsubmode
-  integer :: callback_count
-  integer :: callback_idec,callback_nused,callback_ntrperiod
-  integer :: callback_nutc,callback_nsnr
   logical :: lclearave,single_decode,lagain,lnewdat,lapcqonly
-  real :: callback_snr1,callback_dt,callback_freq
-  character(len=37) :: callback_message
   type(q65_decoder) :: decoder
   character(len=12) :: mycall,hiscall
   character(len=6) :: hisgrid
@@ -131,24 +162,5 @@ contains
     endif
   end subroutine run_map65_decode
 
-  subroutine capture_callback(this,nutc,snr1,nsnr,dt,freq,decoded,idec, &
-       nused,ntrperiod)
-    use q65_decode, only: q65_decoder
-    class(q65_decoder), intent(inout) :: this
-    integer, intent(in) :: nutc,nsnr,idec,nused,ntrperiod
-    real, intent(in) :: snr1,dt,freq
-    character(len=37), intent(in) :: decoded
-
-    callback_count=callback_count+1
-    callback_nutc=nutc
-    callback_snr1=snr1
-    callback_nsnr=nsnr
-    callback_dt=dt
-    callback_freq=freq
-    callback_message=decoded
-    callback_idec=idec
-    callback_nused=nused
-    callback_ntrperiod=ntrperiod
-  end subroutine capture_callback
 
 end program test_q65_decode_pipeline

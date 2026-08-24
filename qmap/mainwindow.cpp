@@ -555,6 +555,7 @@ void MainWindow::on_stopButton_clicked()                      //stopButton
   m_monitoring=false;
   soundInThread.setMonitoring(m_monitoring);
   m_loopall=false;
+  m_startAnother=false;
 }
 
 void MainWindow::on_actionLinrad_triggered()                 //Linrad palette

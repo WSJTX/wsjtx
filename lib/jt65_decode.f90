@@ -277,6 +277,8 @@ contains
 ! Display a decoded message obtained by averaging 2 or more transmissions
                    call this%callback(sync1,nsnr,dtx-1.0,nfreq,ndrift,  &
                         nflip,width,avemsg,nftt,nqave,nsmo,nsum,minsync)
+                   if (iand(ndepth,128).ne.0 .and. .not.nagain .and.    &
+                        abs(nfreq-nfqso).le.ntol) clear_avg65=.true.  ! AutoClrAvg
                    prtavg=.true.
                 end if
 

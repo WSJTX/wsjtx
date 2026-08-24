@@ -198,21 +198,6 @@ option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
 option (WSJT_SKIP_BUNDLE_FIXUP "Skip install-time bundle dependency fixup." OFF)
 option (WSJT_MACOS_INSTALL_TIME_FIXUP
   "Run legacy install-time BundleUtilities fixup for macOS bundles." OFF)
-# Track whether this deprecated option came from the user or from our own
-# default, so normal reconfigures do not warn just because the cache exists.
-set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED FALSE)
-if (DEFINED WSJT_SKIP_MAP65 AND NOT WSJT_SKIP_MAP65_DEFAULTED)
-  set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED TRUE)
-endif ()
-option (WSJT_SKIP_MAP65 "Deprecated: skip building and installing MAP65." OFF)
-if (NOT WSJT_SKIP_MAP65_WAS_USER_PROVIDED AND NOT DEFINED WSJT_SKIP_MAP65_DEFAULTED)
-  set (WSJT_SKIP_MAP65_DEFAULTED TRUE CACHE INTERNAL "WSJT_SKIP_MAP65 used its default value")
-endif ()
-if (WSJT_SKIP_MAP65_WAS_USER_PROVIDED OR WSJT_SKIP_MAP65)
-  message (WARNING
-    "WSJT_SKIP_MAP65 is deprecated and will be removed; MAP65 now builds and "
-    "installs by default.")
-endif ()
 option (WSJT_SKIP_QMAP "Skip building QMAP." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 option (WSJT_ENABLE_GUI_SMOKE_TESTS
@@ -368,7 +353,6 @@ if (WSJT_EFFECTIVE_FORTRAN_LIBRARY_VARIANTS STREQUAL "OPENMP_ONLY")
 endif ()
 message (STATUS "Fortran library variants: requested=${WSJT_FORTRAN_LIBRARY_VARIANTS}, effective=${WSJT_EFFECTIVE_FORTRAN_LIBRARY_VARIANTS}")
 message (STATUS "Common Fortran target: ${WSJT_COMMON_FORT_TARGET}")
-message (STATUS "MAP65: skip=${WSJT_SKIP_MAP65}")
 message (STATUS "QMAP: skip=${WSJT_SKIP_QMAP}")
 
 # Internal usage requirements for targets whose own Fortran sources contain
@@ -659,6 +643,10 @@ target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 
+if (TARGET test_streaming_consumers)
+  add_dependencies (test_streaming_consumers jt9 wsprd)
+endif ()
+
 if (WSJT_BUILD_UTILS)
   add_executable (ft8sim lib/ft8/ft8sim.f90 lib/print_version.c ${jt9_VERSION_RESOURCES})
   wsjt_link_common_fortran (ft8sim)
@@ -740,6 +728,40 @@ if (WSJT_ENABLE_TESTS)
       test_jt9_golden_jt9_130418_1742 -9
       samples/JT9/130418_1742.wav
       test/fixtures/jt9_130418_1742.expected.txt)
+  else ()
+    set (jt9_smoke_work_dir
+      "${CMAKE_BINARY_DIR}/Testing/Smoke/test_jt9_ft8_callback_smoke")
+    file (MAKE_DIRECTORY "${jt9_smoke_work_dir}")
+    add_test (NAME test_jt9_ft8_callback_smoke
+      COMMAND ${CMAKE_COMMAND}
+        -DJT9=$<TARGET_FILE:jt9>
+        -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+        -DEXPECTED_MESSAGE=CQ\ F5RXL\ IN94
+        -DWORK_DIR=${jt9_smoke_work_dir}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/smoke_decoder_callback.cmake)
+    set_tests_properties (test_jt9_ft8_callback_smoke PROPERTIES
+      LABELS "decoder;ft8;integration"
+      TIMEOUT 120)
+  endif ()
+
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set (WSJT_READELF "${CMAKE_READELF}")
+    if (NOT WSJT_READELF)
+      find_program (WSJT_READELF NAMES readelf llvm-readelf)
+    endif ()
+    if (NOT WSJT_READELF)
+      message (FATAL_ERROR
+        "readelf is required to verify that jt9 has a non-executable stack")
+    endif ()
+    add_test (NAME test_jt9_non_executable_stack
+      COMMAND ${CMAKE_COMMAND}
+        -DREADELF=${WSJT_READELF}
+        -DEXECUTABLE=$<TARGET_FILE:jt9>
+        -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_elf_stack.cmake)
+    set_tests_properties (test_jt9_non_executable_stack PROPERTIES
+      LABELS "build;elf;security"
+      TIMEOUT 30)
   endif ()
 endif ()
 
@@ -783,10 +805,8 @@ if (WSJT_BUILD_JT9STREAM)
   # jt9stream NEVER links fort_qt — that is the Qt-free guarantee.
 endif (WSJT_BUILD_JT9STREAM)
 
-if (NOT WSJT_SKIP_MAP65)
-  find_package (Portaudio REQUIRED)
-  add_subdirectory (map65)
-endif ()
+find_package (Portaudio REQUIRED)
+add_subdirectory (map65)
 if (TARGET map65)
   wsjt_enable_qt_automoc (map65)
 endif ()

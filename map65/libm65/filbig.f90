@@ -179,7 +179,11 @@ contains
     call timer('FFTsmall', 1)
 
     c4a(1:nfft2) = c4a_buf(1:nfft2)
-    if (xpol) c4b(1:nfft2) = c4b_buf(1:nfft2)
+    if (xpol) then
+       c4b(1:nfft2) = c4b_buf(1:nfft2)
+    else
+       c4b(1:nfft2) = 0.0
+    endif
 
     ! Number of valid output samples at ~1375 Hz
     n4 = min( int( real(nmax, kind=real64) / decim ), nfft2 )
@@ -197,5 +201,4 @@ contains
   end subroutine filbig
 
 end module filbig_mod
-
 

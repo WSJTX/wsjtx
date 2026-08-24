@@ -1,0 +1,260 @@
+#include <QtTest>
+
+#include <QAudioDeviceInfo>
+#include <QAudioFormat>
+#include <QFile>
+#include <QTemporaryFile>
+#include <QVector>
+
+#include <utility>
+
+#include "Audio/AudioDevice.hpp"
+#include "Audio/AudioStreamDescriptor.hpp"
+#include "Audio/BWFFile.hpp"
+#include "Audio/FixtureAudioInput.hpp"
+
+namespace
+{
+  QAudioFormat pcmFormat (QAudioFormat::SampleType sampleType,
+                          int sampleSize, QAudioFormat::Endian byteOrder,
+                          int channels)
+  {
+    QAudioFormat format;
+    format.setByteOrder (byteOrder);
+    format.setChannelCount (channels);
+    format.setCodec ("audio/pcm");
+    format.setSampleRate (12000);
+    format.setSampleSize (sampleSize);
+    format.setSampleType (sampleType);
+    return format;
+  }
+
+  QString createJttyFixture ()
+  {
+    QTemporaryFile temp;
+    temp.setAutoRemove (false);
+    if (!temp.open ())
+      {
+        return {};
+      }
+    auto const path = temp.fileName ();
+    temp.close ();
+
+    BWFFile file {
+      pcmFormat (QAudioFormat::SignedInt, 16,
+                 QAudioFormat::LittleEndian, 1), path};
+    if (!file.open (QIODevice::WriteOnly))
+      {
+        QFile::remove (path);
+        return {};
+      }
+    char const samples[] = {'\0', '\0'};
+    auto constexpr sampleBytes = qint64 {sizeof samples};
+    if (file.write (samples, sampleBytes) != sampleBytes)
+      {
+        file.close ();
+        QFile::remove (path);
+        return {};
+      }
+    file.close ();
+    return path;
+  }
+
+  class TestAudioSink final
+    : public AudioDevice
+  {
+  protected:
+    qint64 readData (char *, qint64) override {return -1;}
+    qint64 writeData (char const *, qint64 size) override {return size;}
+  };
+
+  class TemporaryPathCleanup final
+  {
+  public:
+    explicit TemporaryPathCleanup (QString path)
+      : path_ {std::move (path)}
+    {
+    }
+
+    ~TemporaryPathCleanup ()
+    {
+      if (!path_.isEmpty ()) QFile::remove (path_);
+    }
+
+    TemporaryPathCleanup (TemporaryPathCleanup const&) = delete;
+    TemporaryPathCleanup& operator= (TemporaryPathCleanup const&) = delete;
+
+  private:
+    QString path_;
+  };
+}
+
+class TestAudioInputStreamDescriptor
+  : public QObject
+{
+  Q_OBJECT
+
+private:
+  Q_SLOT void default_descriptor_is_invalid ()
+  {
+    AudioStreamDescriptor const descriptor;
+    QVERIFY (!descriptor.isValid ());
+    QCOMPARE (descriptor.sample_rate_hz, 0);
+    QVERIFY (descriptor.sample_encoding
+             == AudioStreamDescriptor::SampleEncoding::Unknown);
+    QCOMPARE (descriptor.sample_size_bits, 0);
+    QVERIFY (descriptor.byte_order == AudioStreamDescriptor::ByteOrder::Unknown);
+    QCOMPARE (descriptor.channel_count, 0);
+    QVERIFY (descriptor.channel_layout
+             == AudioStreamDescriptor::ChannelLayout::Unknown);
+    QVERIFY (descriptor.clock_domain
+             == AudioStreamDescriptor::ClockDomain::Unknown);
+    QVERIFY (descriptor.timing_evidence
+             == AudioStreamDescriptor::TimingEvidence::Unavailable);
+    QVERIFY (!descriptor.can_report_discontinuities);
+  }
+
+  Q_SLOT void validity_and_equality_cover_all_facts ()
+  {
+    AudioStreamDescriptor descriptor;
+    descriptor.sample_rate_hz = 48000;
+    descriptor.sample_encoding =
+      AudioStreamDescriptor::SampleEncoding::SignedInteger;
+    descriptor.sample_size_bits = 16;
+    descriptor.byte_order = AudioStreamDescriptor::ByteOrder::LittleEndian;
+    descriptor.channel_count = 2;
+    descriptor.channel_layout = AudioStreamDescriptor::ChannelLayout::Stereo;
+    descriptor.clock_domain = AudioStreamDescriptor::ClockDomain::DeviceClock;
+    descriptor.timing_evidence =
+      AudioStreamDescriptor::TimingEvidence::PositionCountable;
+
+    QVERIFY (descriptor.isValid ());
+    auto copy = descriptor;
+    QVERIFY (copy == descriptor);
+    copy.can_report_discontinuities = true;
+    QVERIFY (copy != descriptor);
+
+    copy = descriptor;
+    copy.sample_rate_hz = 0;
+    QVERIFY (!copy.isValid ());
+    copy = descriptor;
+    copy.sample_encoding = AudioStreamDescriptor::SampleEncoding::Unknown;
+    QVERIFY (!copy.isValid ());
+    copy = descriptor;
+    copy.sample_size_bits = 0;
+    QVERIFY (!copy.isValid ());
+    copy = descriptor;
+    copy.byte_order = AudioStreamDescriptor::ByteOrder::Unknown;
+    QVERIFY (!copy.isValid ());
+    copy = descriptor;
+    copy.channel_count = 0;
+    QVERIFY (!copy.isValid ());
+  }
+
+  Q_SLOT void maps_qt_pcm_formats ()
+  {
+    auto descriptor = audioStreamDescriptorFromQAudioFormat (
+      pcmFormat (QAudioFormat::SignedInt, 16,
+                 QAudioFormat::LittleEndian, 1));
+    QVERIFY (descriptor.isValid ());
+    QCOMPARE (descriptor.sample_rate_hz, 12000);
+    QCOMPARE (descriptor.sample_size_bits, 16);
+    QCOMPARE (descriptor.channel_count, 1);
+    QVERIFY (descriptor.sample_encoding
+             == AudioStreamDescriptor::SampleEncoding::SignedInteger);
+    QVERIFY (descriptor.byte_order
+             == AudioStreamDescriptor::ByteOrder::LittleEndian);
+    QVERIFY (descriptor.channel_layout
+             == AudioStreamDescriptor::ChannelLayout::Mono);
+
+    descriptor = audioStreamDescriptorFromQAudioFormat (
+      pcmFormat (QAudioFormat::UnSignedInt, 8,
+                 QAudioFormat::LittleEndian, 6));
+    QVERIFY (descriptor.isValid ());
+    QCOMPARE (descriptor.sample_rate_hz, 12000);
+    QCOMPARE (descriptor.sample_size_bits, 8);
+    QCOMPARE (descriptor.channel_count, 6);
+    QVERIFY (descriptor.sample_encoding
+             == AudioStreamDescriptor::SampleEncoding::UnsignedInteger);
+    QVERIFY (descriptor.byte_order == AudioStreamDescriptor::ByteOrder::Unknown);
+    QVERIFY (descriptor.channel_layout
+             == AudioStreamDescriptor::ChannelLayout::Unknown);
+
+    descriptor = audioStreamDescriptorFromQAudioFormat (
+      pcmFormat (QAudioFormat::Float, 32, QAudioFormat::BigEndian, 2));
+    QVERIFY (descriptor.isValid ());
+    QCOMPARE (descriptor.sample_rate_hz, 12000);
+    QCOMPARE (descriptor.sample_size_bits, 32);
+    QCOMPARE (descriptor.channel_count, 2);
+    QVERIFY (descriptor.sample_encoding
+             == AudioStreamDescriptor::SampleEncoding::FloatingPoint);
+    QVERIFY (descriptor.byte_order
+             == AudioStreamDescriptor::ByteOrder::BigEndian);
+    QVERIFY (descriptor.channel_layout
+             == AudioStreamDescriptor::ChannelLayout::Stereo);
+  }
+
+  Q_SLOT void rejects_unrecognized_qt_formats ()
+  {
+    QVERIFY (!audioStreamDescriptorFromQAudioFormat (QAudioFormat {}).isValid ());
+
+    auto unknown = pcmFormat (QAudioFormat::Unknown, 16,
+                              QAudioFormat::LittleEndian, 1);
+    QVERIFY (!audioStreamDescriptorFromQAudioFormat (unknown).isValid ());
+
+    auto nonPcm = pcmFormat (QAudioFormat::SignedInt, 16,
+                             QAudioFormat::LittleEndian, 1);
+    nonPcm.setCodec ("audio/example");
+    QVERIFY (!audioStreamDescriptorFromQAudioFormat (nonPcm).isValid ());
+
+    auto nonByteAligned = pcmFormat (QAudioFormat::SignedInt, 7,
+                                     QAudioFormat::LittleEndian, 1);
+    QVERIFY (!audioStreamDescriptorFromQAudioFormat (nonByteAligned).isValid ());
+  }
+
+  Q_SLOT void fixture_reports_opened_stream ()
+  {
+    auto const path = createJttyFixture ();
+    QVERIFY (!path.isEmpty ());
+    TemporaryPathCleanup cleanup {path};
+
+    FixtureAudioInput source {path, FixtureAudioInput::Profile::Jtty};
+    TestAudioSink sink;
+    QVector<AudioStreamDescriptor> changes;
+    connect (&source, &AudioInputSource::streamDescriptorChanged,
+             [&changes] (AudioStreamDescriptor descriptor) {
+               changes.append (descriptor);
+             });
+
+    QVERIFY (!source.streamDescriptor ().isValid ());
+    source.start (QAudioDeviceInfo {}, 0, &sink, 1, AudioDevice::Mono);
+
+    QCOMPARE (changes.size (), 1);
+    auto const descriptor = source.streamDescriptor ();
+    QVERIFY (descriptor.isValid ());
+    QCOMPARE (descriptor.sample_rate_hz, 12000);
+    QVERIFY (descriptor.sample_encoding
+             == AudioStreamDescriptor::SampleEncoding::SignedInteger);
+    QCOMPARE (descriptor.sample_size_bits, 16);
+    QVERIFY (descriptor.byte_order
+             == AudioStreamDescriptor::ByteOrder::LittleEndian);
+    QCOMPARE (descriptor.channel_count, 1);
+    QVERIFY (descriptor.channel_layout
+             == AudioStreamDescriptor::ChannelLayout::Mono);
+    QVERIFY (descriptor.clock_domain
+             == AudioStreamDescriptor::ClockDomain::SystemClock);
+    QVERIFY (descriptor.timing_evidence
+             == AudioStreamDescriptor::TimingEvidence::CaptureTimeAnchored);
+    QVERIFY (!descriptor.can_report_discontinuities);
+    QVERIFY (changes.constFirst () == descriptor);
+
+    source.stop ();
+    QCOMPARE (changes.size (), 2);
+    QVERIFY (!changes.constLast ().isValid ());
+    QVERIFY (!source.streamDescriptor ().isValid ());
+  }
+};
+
+QTEST_GUILESS_MAIN (TestAudioInputStreamDescriptor)
+
+#include "test_audio_input_stream_descriptor.moc"

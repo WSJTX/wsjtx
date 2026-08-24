@@ -136,8 +136,11 @@ subroutine ft8c(dd0,newdat,call_1,call_2,grid4,xdt,f1,nharderrors,dmin,  &
     nt=2**(3*nsym)
     do ihalf=1,2
       do k=1,29,nsym
-        if(ihalf.eq.1) ks=k+7
-        if(ihalf.eq.2) ks=k+43
+        if(ihalf.eq.1) then
+          ks=k+7
+        else
+          ks=k+43
+        endif
         amax=-1.0
         do i=0,nt-1
           i1=i/64

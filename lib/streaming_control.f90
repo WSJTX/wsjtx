@@ -37,6 +37,7 @@ module streaming_control
      ! Callers apply only the fields that were set so partial updates work.
      logical                :: mode_set     = .false.
      integer                :: mode         = 0
+     logical                :: mode_invalid = .false.
      logical                :: depth_set    = .false.
      integer                :: depth        = 0
      logical                :: rxfreq_set   = .false.
@@ -392,10 +393,10 @@ contains
 
     character(len=64)  :: t_value
     character(len=128) :: str_val
-    integer            :: int_val
+    integer            :: int_val, mode_value_start, mode_buffer_length
     real(8)            :: real_val
     logical            :: lval
-    logical            :: ok, proceed
+    logical            :: ok, proceed, mode_present
     integer            :: hh, mm, ss, yr, mo, dy, enc   ! Phase 8 ISO/encode temps
     logical            :: vok                           ! Phase 8 value-parse ok
 
@@ -430,12 +431,20 @@ contains
           if (int_val .ge. 0) then
              cfg%mode_set = .true.
              cfg%mode     = int_val
+          else
+             cfg%mode_invalid = .true.
           end if
        else
           call get_int_(buf, '"mode"', int_val, ok)
-          if (ok) then
+          if (ok .and. valid_mode_int_(int_val)) then
              cfg%mode_set = .true.
              cfg%mode     = int_val
+          else if (ok) then
+             cfg%mode_invalid = .true.
+          else
+             call find_key_(buf, '"mode"', mode_value_start,                 &
+                  mode_buffer_length, mode_present)
+             cfg%mode_invalid = mode_present
           end if
        end if
     end if
@@ -1297,6 +1306,18 @@ contains
     case ('MSK144');  mode_int = 144
     end select
   end function mode_string_to_int
+
+  pure function valid_mode_int_(mode_int) result(valid)
+    integer, intent(in) :: mode_int
+    logical             :: valid
+
+    select case (mode_int)
+    case (4, 5, 8, 9, 65, 66, 74, 144, 240, 241, 242)
+       valid = .true.
+    case default
+       valid = .false.
+    end select
+  end function valid_mode_int_
 
   ! ===== internals ======================================================
 

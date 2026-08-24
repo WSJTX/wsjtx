@@ -42,10 +42,12 @@ private:
   Q_SLOT void handleStateChanged (QAudio::State);
 
   bool checkStream ();
+  void publishStreamDescriptor ();
 
   QScopedPointer<QAudioInput> m_stream;
   QPointer<AudioDevice> m_sink;
   qint64 cummulative_lost_usec_;
+  bool m_destroying {false};
 };
 
 #endif

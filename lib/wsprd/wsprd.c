@@ -734,6 +734,19 @@ void usage(void)
     printf("          input file argument.\n");
 }
 
+static int build_data_path(char *destination, size_t capacity,
+                           const char *data_dir, const char *filename)
+{
+    const char *base = data_dir ? data_dir : ".";
+    int written = snprintf(destination, capacity, "%s/%s", base, filename);
+    if (written < 0 || (size_t)written >= capacity) {
+        fprintf(stderr, "Error: data path for '%s' exceeds %zu bytes\n",
+                filename, capacity - 1);
+        return -1;
+    }
+    return 0;
+}
+
 //***************************************************************************
 int main(int argc, char *argv[])
 {
@@ -824,6 +837,24 @@ int main(int argc, char *argv[])
     
     idat=calloc(maxpts,sizeof(float));
     qdat=calloc(maxpts,sizeof(float));
+    if (!hashtab || !loctab || !symbols || !apmask || !cw || !decdata ||
+        !channel_symbols || !callsign || !grid || !call_loc_pow ||
+        !idat || !qdat) {
+        fprintf(stderr, "Error: unable to allocate wsprd decoder buffers\n");
+        free(hashtab);
+        free(loctab);
+        free(symbols);
+        free(apmask);
+        free(cw);
+        free(decdata);
+        free(channel_symbols);
+        free(callsign);
+        free(grid);
+        free(call_loc_pow);
+        free(idat);
+        free(qdat);
+        return EXIT_FAILURE;
+    }
     
     while ( (c = getopt(argc, argv, "a:BcC:de:f:HJmo:qstwvz:0")) !=-1 ) {
         switch (c) {
@@ -902,6 +933,10 @@ int main(int argc, char *argv[])
     
     if( stackdecoder ) {
         stack=calloc(stacksize,sizeof(struct snode));
+        if (!stack) {
+            fprintf(stderr, "Error: unable to allocate wsprd stack decoder\n");
+            return EXIT_FAILURE;
+        }
     }
 
     // setup metric table
@@ -911,23 +946,18 @@ int main(int argc, char *argv[])
     }
     
     FILE *fp_fftwf_wisdom_file, *fall_wspr, *fwsprd, *fhash, *ftimer;
-    strcpy(wisdom_fname,".");
-    strcpy(all_fname,".");
-    strcpy(spots_fname,".");
-    strcpy(timer_fname,".");
-    strcpy(hash_fname,".");
-    if(data_dir != NULL) {
-      strncpy(wisdom_fname,data_dir, sizeof wisdom_fname);
-      strncpy(all_fname,data_dir, sizeof all_fname);
-      strncpy(spots_fname,data_dir, sizeof spots_fname);
-      strncpy(timer_fname,data_dir, sizeof timer_fname);
-      strncpy(hash_fname,data_dir, sizeof hash_fname);
+    if (build_data_path(wisdom_fname, sizeof wisdom_fname, data_dir,
+                        "wspr_wisdom.dat") != 0 ||
+        build_data_path(all_fname, sizeof all_fname, data_dir,
+                        "ALL_WSPR.TXT") != 0 ||
+        build_data_path(spots_fname, sizeof spots_fname, data_dir,
+                        "wspr_spots.txt") != 0 ||
+        build_data_path(timer_fname, sizeof timer_fname, data_dir,
+                        "wspr_timer.out") != 0 ||
+        build_data_path(hash_fname, sizeof hash_fname, data_dir,
+                        "hashtable.txt") != 0) {
+        return EXIT_FAILURE;
     }
-    strncat(wisdom_fname,"/wspr_wisdom.dat",20);
-    strncat(all_fname,"/ALL_WSPR.TXT",20);
-    strncat(spots_fname,"/wspr_spots.txt",20);
-    strncat(timer_fname,"/wspr_timer.out",20);
-    strncat(hash_fname,"/hashtable.txt",20);
     if ((fp_fftwf_wisdom_file = fopen(wisdom_fname, "r"))) {  //Open FFTW wisdom
         fftwf_import_wisdom_from_file(fp_fftwf_wisdom_file);
         fclose(fp_fftwf_wisdom_file);
@@ -998,7 +1028,19 @@ int main(int argc, char *argv[])
     int nffts=4*floor(npoints/512)-1;
     fftin=(fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex)*512);
     fftout=(fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex)*512);
+    if (!fftin || !fftout) {
+        fprintf(stderr, "Error: unable to allocate wsprd FFT buffers\n");
+        if (fftin) fftwf_free(fftin);
+        if (fftout) fftwf_free(fftout);
+        return EXIT_FAILURE;
+    }
     PLAN3 = fftwf_plan_dft_1d(512, fftin, fftout, FFTW_FORWARD, PATIENCE);
+    if (!PLAN3) {
+        fprintf(stderr, "Error: unable to create wsprd FFT plan\n");
+        fftwf_free(fftin);
+        fftwf_free(fftout);
+        return EXIT_FAILURE;
+    }
     
     float ps[512][nffts];
     float w[512];
@@ -1588,9 +1630,9 @@ int main(int argc, char *argv[])
     fclose(fwsprd);
     //  fclose(fdiag);
     fclose(ftimer);
-    fftwf_destroy_plan(PLAN1);
-    fftwf_destroy_plan(PLAN2);
-    fftwf_destroy_plan(PLAN3);
+    if (PLAN1) fftwf_destroy_plan(PLAN1);
+    if (PLAN2) fftwf_destroy_plan(PLAN2);
+    if (PLAN3) fftwf_destroy_plan(PLAN3);
     
     if( usehashtable ) {
         fhash=fopen(hash_fname,"w");
@@ -1607,9 +1649,12 @@ int main(int argc, char *argv[])
     free(hashtab);
     free(loctab);
     free(symbols);
+    free(apmask);
+    free(cw);
     free(decdata);
     free(channel_symbols);
     free(callsign);
+    free(grid);
     free(call_loc_pow);
     free(idat);
     free(qdat);
