@@ -9,6 +9,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
   real, save :: s(NH1,NHSYM)
   !$omp threadprivate(s)
   real x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
+  real candidate_sync(450)
   integer jpeak(NH1),indx(NH1),ii(1)
   integer, parameter :: max_sync_stencil=16
   integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter,progress_generation
@@ -246,10 +247,11 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
 
 ! Sort by sync
 !  call indexx(candidate0(3,1:ncand),ncand,indx)
-  if(rcandthin.gt.0.99) then; call indexx(candidate0(3,1:ncand),ncand,indx)
+  if(rcandthin.gt.0.99) then; candidate_sync(1:ncand)=candidate0(3,1:ncand)
 ! sort by sync value with DT weight
-  else; call indexx(candidate0(5,1:ncand),ncand,indx)
+  else; candidate_sync(1:ncand)=candidate0(5,1:ncand)
   endif
+  call indexx(candidate_sync,ncand,indx)
 ! Sort by frequency 
 !  call indexx(candidate0(1,1:ncand),ncand,indx)
 
