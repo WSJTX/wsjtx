@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QPointer>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -61,6 +62,11 @@ namespace
     bool isSequential () const override
     {
       return true;
+    }
+
+    bool isFinished () const
+    {
+      return finished_;
     }
 
     void finish ()
@@ -127,16 +133,40 @@ namespace
     void finishAll ()
     {
       auto const pending = replies_;
-      for (auto *reply : pending)
+      for (auto const& reply : pending)
         {
-          reply->finish ();
+          if (reply)
+            {
+              reply->finish ();
+            }
         }
     }
 
     void finishNext ()
     {
+      while (next_reply_to_finish_ < replies_.size ()
+             && (!replies_[next_reply_to_finish_] || replies_[next_reply_to_finish_]->isFinished ()))
+        {
+          ++next_reply_to_finish_;
+        }
       QVERIFY (next_reply_to_finish_ < replies_.size ());
-      replies_[next_reply_to_finish_++]->finish ();
+      if (next_reply_to_finish_ < replies_.size ())
+        {
+          replies_[next_reply_to_finish_++]->finish ();
+        }
+    }
+
+    void finishHost (QString const& host)
+    {
+      for (auto const& reply : replies_)
+        {
+          if (reply && !reply->isFinished () && reply->url ().host () == host)
+            {
+              reply->finish ();
+              return;
+            }
+        }
+      QFAIL (qPrintable (QString {"no unfinished reply for %1"}.arg (host)));
     }
 
     QList<Request> requests;
@@ -163,7 +193,7 @@ namespace
 
   private:
     QList<NetworkResponse> responses_;
-    QList<FakeReply *> replies_;
+    QList<QPointer<FakeReply>> replies_;
     int next_reply_to_finish_;
   };
 
@@ -256,6 +286,20 @@ namespace
       }
     return false;
   }
+
+  int requestCountForHost (QList<FakeNetworkAccessManager::Request> const& requests,
+                           QString const& host)
+  {
+    auto count = 0;
+    for (auto const& request : requests)
+      {
+        if (request.url.host () == host)
+          {
+            ++count;
+          }
+      }
+    return count;
+  }
 }
 
 class TestWSPRNetUpload final
@@ -282,6 +326,59 @@ private slots:
     QCOMPARE (manager.requests.size (), 2);
     QVERIFY (manager.requests.front ().body.contains ("function=wspr"));
     QVERIFY (manager.requests.front ().body.contains ("tcall=K1ABC"));
+  }
+
+  void primaryUploadsContinueWhileAlternateUploadIsOutstanding ()
+  {
+    FakeNetworkAccessManager manager;
+    manager.auto_finish = false;
+    WSPRNet wspr {&manager, retryPolicy (1), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    postFst4w (wspr, fst4wDecode ());
+    postFst4w (wspr, "1235 -11 0.2 1505 ` K2DEF FN31 33");
+    postFst4w (wspr);
+    wspr.work ();
+
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.org"), 1);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 1);
+
+    manager.finishHost ("wsprnet.org");
+    QTRY_COMPARE (requestCountForHost (manager.requests, "wsprnet.org"), 2);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 1);
+
+    manager.finishHost ("wsprnet.eu");
+    QTRY_COMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 2);
+    manager.finishHost ("wsprnet.org");
+    manager.finishHost ("wsprnet.eu");
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+  }
+
+  void alternateRetryDoesNotSuppressLaterPrimaryStatus ()
+  {
+    FakeNetworkAccessManager manager;
+    manager.auto_finish = false;
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    WSPRNet wspr {&manager, retryPolicy (2), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    postFst4w (wspr, fst4wDecode ());
+    postFst4w (wspr);
+    wspr.work ();
+    manager.finishHost ("wsprnet.org");
+    manager.finishHost ("wsprnet.eu");
+
+    postFst4w (wspr);
+    wspr.work ();
+
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.org"), 2);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 2);
+    QVERIFY (manager.requests.at (2).body.contains ("function=wsprstat"));
+
+    manager.finishHost ("wsprnet.org");
+    manager.finishHost ("wsprnet.eu");
+    QTRY_VERIFY (sawStatus (statuses, "done"));
   }
 
   void fst4wRetrySurvivesLaterDecodeCycles ()
@@ -424,6 +521,8 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.org"), 1);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 1);
     QVERIFY (!QFile::exists (path));
   }
 
@@ -440,7 +539,7 @@ private slots:
 
     uploadFile (wspr, path);
     wspr.work ();
-    QCOMPARE (manager.requests.size (), 1);
+    QCOMPARE (manager.requests.size (), 2);
     QVERIFY (manager.requests.front ().body.contains ("tcall=K1ABC"));
 
     writeSpotFile (dir, secondSpotFileLine ());
@@ -616,8 +715,26 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
+    QCOMPARE (manager.requests.size (), 4);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.org"), 2);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 2);
     QVERIFY (sawStatusContaining (statuses, "oldest pending"));
+  }
+
+  void queueCapDoesNotDropPrimaryForAlternateLegs ()
+  {
+    FakeNetworkAccessManager manager;
+    WSPRNet wspr {&manager, retryPolicy (1, 1), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    postFst4w (wspr, fst4wDecode ());
+    postFst4w (wspr, "1235 -11 0.2 1505 ` K2DEF FN31 33");
+    postFst4w (wspr);
+    wspr.work ();
+
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.org"), 1);
+    QCOMPARE (requestCountForHost (manager.requests, "wsprnet.eu"), 1);
   }
 
   void abortClearsQueuedRetriesAndIgnoresStaleReplies ()
@@ -633,7 +750,7 @@ private slots:
 
     uploadFile (wspr, path);
     wspr.work ();
-    QCOMPARE (manager.requests.size (), 1);
+    QCOMPARE (manager.requests.size (), 2);
 
     wspr.abortOutstandingRequests ();
     manager.finishAll ();

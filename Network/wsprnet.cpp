@@ -57,31 +57,6 @@ namespace
   char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/";
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
 
-  struct UploadEndpoint
-  {
-    QString url;
-    bool accepts_status;
-    bool requires_tgrid;
-  };
-
-  QVector<UploadEndpoint> const& uploadEndpoints ()
-  {
-    static QVector<UploadEndpoint> const endpoints {
-      {QString::fromLatin1 (wsprNetUrl), true, false},
-      {QString::fromLatin1 (wsprNetUrl2), false, true},
-    };
-    return endpoints;
-  }
-
-  bool endpointAccepts (UploadEndpoint const& endpoint, QUrlQuery const& query, bool is_status)
-  {
-    if (is_status)
-      {
-        return endpoint.accepts_status;
-      }
-    return !endpoint.requires_tgrid || !query.queryItemValue ("tgrid", QUrl::FullyDecoded).isEmpty ();
-  }
-
   //
   // tested with this python REST mock of WSPRNet.org
   //
@@ -234,7 +209,7 @@ void WSPRNet::queueFst4wDecode (StationContext const& context, QString const& de
 void WSPRNet::flush (StationContext const& context)
 {
   applyContext (context);
-  if (pending_uploads_.isEmpty () && outstanding_requests_.isEmpty ())
+  if (pending_primary_uploads_.isEmpty () && !hasOutstanding (UploadTarget::Primary))
     {
       enqueueUpload (urlEncodeNoSpot (), UploadSource::Direct, PayloadKind::Status);
     }
@@ -295,7 +270,26 @@ bool WSPRNet::fileMatchesSnapshot (FileSnapshot const& snapshot) const
 
 bool WSPRNet::hasPendingFileLeg (int file_batch_id, int logical_upload_id) const
 {
-  for (auto const& upload : pending_uploads_)
+  auto has_pending_leg = [file_batch_id, logical_upload_id](QQueue<PendingUpload> const& uploads)
+  {
+    for (auto const& upload : uploads)
+      {
+        if (UploadSource::File == upload.source
+            && upload.file_batch_id == file_batch_id
+            && upload.logical_upload_id == logical_upload_id)
+          {
+            return true;
+          }
+      }
+    return false;
+  };
+
+  if (has_pending_leg (pending_primary_uploads_) || has_pending_leg (pending_alternate_uploads_))
+    {
+      return true;
+    }
+
+  for (auto const& upload : outstanding_requests_)
     {
       if (UploadSource::File == upload.source
           && upload.file_batch_id == file_batch_id
@@ -304,11 +298,14 @@ bool WSPRNet::hasPendingFileLeg (int file_batch_id, int logical_upload_id) const
           return true;
         }
     }
+  return false;
+}
+
+bool WSPRNet::hasOutstanding (UploadTarget target) const
+{
   for (auto const& upload : outstanding_requests_)
     {
-      if (UploadSource::File == upload.source
-          && upload.file_batch_id == file_batch_id
-          && upload.logical_upload_id == logical_upload_id)
+      if (upload.target == target)
         {
           return true;
         }
@@ -370,14 +367,21 @@ void WSPRNet::enqueueUpload (QUrlQuery const& query, UploadSource source, Payloa
       auto& state = file_uploads_[file_batch_id];
       ++state.total;
     }
-  for (auto const& endpoint : uploadEndpoints ())
+  auto enqueue_for_target = [this, &query, source, kind, &source_file, file_batch_id,
+                             logical_upload_id, now](UploadTarget target)
+  {
+    auto& uploads = target == UploadTarget::Primary
+      ? pending_primary_uploads_ : pending_alternate_uploads_;
+    uploads.enqueue ({query, source, kind, source_file, file_batch_id, now,
+                      now.addMSecs (retry_policy_.ttl_ms), now, 0, target,
+                      logical_upload_id});
+  };
+
+  enqueue_for_target (UploadTarget::Primary);
+  if (PayloadKind::Spot == kind
+      && !query.queryItemValue ("tgrid", QUrl::FullyDecoded).isEmpty ())
     {
-      if (endpointAccepts (endpoint, query, PayloadKind::Status == kind))
-        {
-          pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
-                                     now.addMSecs (retry_policy_.ttl_ms), now, 0, endpoint.url,
-                                     logical_upload_id});
-        }
+      enqueue_for_target (UploadTarget::Alternate);
     }
   pruneExpiredUploads (now);
   enforcePendingLimit ();
@@ -408,29 +412,32 @@ void WSPRNet::scheduleWork ()
 
   auto const now = QDateTime::currentDateTimeUtc ();
   pruneExpiredUploads (now);
-  if (pending_uploads_.isEmpty ())
+  QDateTime next_attempt_at;
+  auto have_next_attempt = false;
+  auto consider_queue = [this, &next_attempt_at, &have_next_attempt]
+    (QQueue<PendingUpload> const& uploads, UploadTarget target)
+  {
+    if (hasOutstanding (target))
+      {
+        return;
+      }
+    for (auto const& upload : uploads)
+      {
+        if (!have_next_attempt || upload.next_attempt_at < next_attempt_at)
+          {
+            next_attempt_at = upload.next_attempt_at;
+            have_next_attempt = true;
+          }
+      }
+  };
+  consider_queue (pending_primary_uploads_, UploadTarget::Primary);
+  consider_queue (pending_alternate_uploads_, UploadTarget::Alternate);
+  if (!have_next_attempt)
     {
       upload_timer_.stop ();
       return;
     }
 
-  // Send one spot at a time so QNAM reuses a single keep-alive connection
-  // instead of opening parallel sockets; the completing reply re-schedules
-  // the next send via networkReply().
-  if (!outstanding_requests_.isEmpty ())
-    {
-      upload_timer_.stop ();
-      return;
-    }
-
-  auto next_attempt_at = pending_uploads_.head ().next_attempt_at;
-  for (auto const& upload : pending_uploads_)
-    {
-      if (upload.next_attempt_at < next_attempt_at)
-        {
-          next_attempt_at = upload.next_attempt_at;
-        }
-    }
   auto const delay = qMax<qint64> (0, now.msecsTo (next_attempt_at));
   upload_timer_.start (static_cast<int> (qMin<qint64> (delay, std::numeric_limits<int>::max ())));
 }
@@ -438,18 +445,23 @@ void WSPRNet::scheduleWork ()
 void WSPRNet::pruneExpiredUploads (QDateTime const& now)
 {
   int dropped = 0;
-  for (int i = 0; i < pending_uploads_.size ();)
+  auto prune_queue = [this, &now, &dropped](QQueue<PendingUpload>& uploads)
     {
-      if (pending_uploads_[i].expires_at <= now)
+      for (int i = 0; i < uploads.size ();)
         {
-          markFailed (pending_uploads_.takeAt (i));
-          ++dropped;
+          if (uploads[i].expires_at <= now)
+            {
+              markFailed (uploads.takeAt (i));
+              ++dropped;
+            }
+          else
+            {
+              ++i;
+            }
         }
-      else
-        {
-          ++i;
-        }
-    }
+    };
+  prune_queue (pending_primary_uploads_);
+  prune_queue (pending_alternate_uploads_);
   if (dropped)
     {
       Q_EMIT uploadStatus (QString {"Dropped %1 expired WSPRNet upload(s)"}.arg (dropped));
@@ -463,11 +475,16 @@ void WSPRNet::enforcePendingLimit ()
   pruneExpiredUploads (now);
 
   int dropped = 0;
-  while (pending_uploads_.size () > max_pending)
+  auto enforce_queue_limit = [this, max_pending, &dropped](QQueue<PendingUpload>& uploads)
     {
-      markFailed (pending_uploads_.dequeue ());
-      ++dropped;
-    }
+      while (uploads.size () > max_pending)
+        {
+          markFailed (uploads.dequeue ());
+          ++dropped;
+        }
+    };
+  enforce_queue_limit (pending_primary_uploads_);
+  enforce_queue_limit (pending_alternate_uploads_);
   if (dropped)
     {
       Q_EMIT uploadStatus (QString {"Dropped %1 oldest pending WSPRNet upload(s)"}.arg (dropped));
@@ -476,7 +493,8 @@ void WSPRNet::enforcePendingLimit ()
 
 void WSPRNet::sendUpload (PendingUpload upload)
 {
-  QNetworkRequest request (QUrl {upload.url});
+  auto const url = upload.target == UploadTarget::Primary ? wsprNetUrl : wsprNetUrl2;
+  QNetworkRequest request (QUrl {url});
   request.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
   if (!upload.attempts)
     {
@@ -532,20 +550,27 @@ int WSPRNet::retryDelayMs (PendingUpload const& upload) const
 int WSPRNet::uploadsToSend () const
 {
   auto total = uploads_started_;
-  for (auto const& upload : pending_uploads_)
+  auto count_unstarted = [&total](QQueue<PendingUpload> const& uploads)
     {
-      if (!upload.attempts)
+      for (auto const& upload : uploads)
         {
-          ++total;
+          if (!upload.attempts)
+            {
+              ++total;
+            }
         }
-    }
+    };
+  count_unstarted (pending_primary_uploads_);
+  count_unstarted (pending_alternate_uploads_);
   return qMax (uploads_started_, total);
 }
 
 void WSPRNet::retryUpload (PendingUpload upload, QDateTime const& now, int retry_delay_ms)
 {
   upload.next_attempt_at = now.addMSecs (retry_delay_ms);
-  pending_uploads_.enqueue (upload);
+  auto& uploads = upload.target == UploadTarget::Primary
+    ? pending_primary_uploads_ : pending_alternate_uploads_;
+  uploads.enqueue (upload);
   Q_EMIT uploadStatus (QString {"Retrying WSPRNet upload in %1 ms"}.arg (retry_delay_ms));
   enforcePendingLimit ();
 }
@@ -624,7 +649,8 @@ void WSPRNet::maybeFinalize ()
     {
       return;
     }
-  if (pending_uploads_.isEmpty () && outstanding_requests_.isEmpty ())
+  if (pending_primary_uploads_.isEmpty () && pending_alternate_uploads_.isEmpty ()
+      && outstanding_requests_.isEmpty ())
     {
       uploads_started_ = 0;
       upload_session_active_ = false;
@@ -744,24 +770,24 @@ void WSPRNet::work()
   auto const now = QDateTime::currentDateTimeUtc ();
   pruneExpiredUploads (now);
 
-  // Keep at most one request in flight so the connection is reused.
-  if (!outstanding_requests_.isEmpty ())
+  auto send_ready_upload = [this, &now](QQueue<PendingUpload>& uploads, UploadTarget target)
     {
-      scheduleWork ();
-      maybeFinalize ();
-      return;
-    }
-
-  for (int i = 0; i < pending_uploads_.size (); ++i)
-    {
-      if (pending_uploads_[i].next_attempt_at <= now)
+      if (hasOutstanding (target))
         {
-          sendUpload (pending_uploads_.takeAt (i));
-          scheduleWork ();
-          maybeFinalize ();
           return;
         }
-    }
+      for (int i = 0; i < uploads.size (); ++i)
+        {
+          if (uploads[i].next_attempt_at <= now)
+            {
+              sendUpload (uploads.takeAt (i));
+              return;
+            }
+        }
+    };
+
+  send_ready_upload (pending_primary_uploads_, UploadTarget::Primary);
+  send_ready_upload (pending_alternate_uploads_, UploadTarget::Alternate);
 
   scheduleWork ();
   maybeFinalize ();
@@ -769,7 +795,8 @@ void WSPRNet::work()
 
 void WSPRNet::abortOutstandingRequests () {
   upload_timer_.stop ();
-  pending_uploads_.clear ();
+  pending_primary_uploads_.clear ();
+  pending_alternate_uploads_.clear ();
   file_uploads_.clear ();
   uploads_started_ = 0;
   upload_session_active_ = false;

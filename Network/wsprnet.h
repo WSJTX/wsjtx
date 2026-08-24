@@ -92,6 +92,7 @@ public slots:
 private:
   enum class UploadSource {Direct, File};
   enum class PayloadKind {Spot, Status};
+  enum class UploadTarget {Primary, Alternate};
 
   struct PendingUpload
   {
@@ -104,7 +105,7 @@ private:
     QDateTime expires_at;
     QDateTime next_attempt_at;
     int attempts;
-    QString url;
+    UploadTarget target;
     int logical_upload_id;
   };
 
@@ -127,6 +128,7 @@ private:
   FileSnapshot snapshotFile (QString const& file_name) const;
   bool fileMatchesSnapshot (FileSnapshot const& snapshot) const;
   bool hasPendingFileLeg (int file_batch_id, int logical_upload_id) const;
+  bool hasOutstanding (UploadTarget target) const;
   bool decodeLine (QString const& line, SpotQueue::value_type& query) const;
   SpotQueue::value_type urlEncodeNoSpot () const;
   SpotQueue::value_type urlEncodeSpot (SpotQueue::value_type& spot) const;
@@ -166,7 +168,8 @@ private:
   int uploads_started_;
   int next_file_batch_id_;
   int next_logical_upload_id_;
-  QQueue<PendingUpload> pending_uploads_;
+  QQueue<PendingUpload> pending_primary_uploads_;
+  QQueue<PendingUpload> pending_alternate_uploads_;
   QTimer upload_timer_;
   bool upload_session_active_;
 };
