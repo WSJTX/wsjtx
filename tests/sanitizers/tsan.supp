@@ -71,3 +71,15 @@ deadlock:libgfortran.so
 
 # Qt/DBus lock-order in the uninstrumented system library.
 deadlock:libdbus-1.so
+
+# Qt 5.15 network bearer startup and teardown races observed by the isolated
+# network tests. The conflicting accesses remain inside QtCore/DBus; the
+# application frames only initiate QNetworkAccessManager activity.
+race:QArrayData::allocate
+race:QCoreApplication::event
+race:QCoreApplication::removePostedEvents
+race:QCoreApplicationPrivate::sendPostedEvents
+race:QWaitCondition::~QWaitCondition
+race:QObjectPrivate::Connection::~Connection
+race:QObjectPrivate::ConnectionData::deleteOrphaned
+race:dbus_connection_get_is_connected
