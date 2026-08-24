@@ -10,12 +10,7 @@ namespace Ui {
   class VertWaterfall;
 }
 
-// Optional alternative to the Horizontal Waterfall (WideGraph): narrower and
-// taller, frequency running bottom-to-top, spectra scrolling to the left,
-// with a frequency scale and decoded-callsign labels at the right. Fed by
-// WideGraph::spectrumReady so it shows exactly the same spectral data as
-// the top of the Horizontal Waterfall, not a second, independently-decimated
-// copy of it.
+// Optional alternative to the Horizontal Waterfall.
 class VertWaterfall : public QDialog
 {
   Q_OBJECT

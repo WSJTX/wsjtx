@@ -38,7 +38,7 @@ public:
   void   updateFreqLabel();
   void   enableSetRxHardware(bool b);
 
-  // Decoded-callsign overlay on the wideband waterfall. mainwindow calls
+  // Decoded-callsign overlay on the Horizontal Waterfall. mainwindow calls
   // this for each fresh decode line (it already parses freq/callsign for
   // VertWaterfall's own overlay); dedups by callsign and ages entries out
   // using the decode line's own hhmmss-derived seconds-of-day, not
@@ -52,7 +52,7 @@ signals:
   void freezeDecode2(int n);
   void f11f12(int n);
   void decodeLabelClicked2(QString callsign, bool doubleClick);
-  // Emitted once per average cycle, right after the wideband waterfall's
+  // Emitted once per average cycle, right after the Horizontal Waterfall's
   // own top-row draw(), so VertWaterfall can show exactly the same
   // spectral data instead of an independently-decimated copy of it.
   void spectrumReady(const float swide[], int n, double startFreqKHz, double fSpanKHz,

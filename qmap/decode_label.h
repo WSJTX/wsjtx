@@ -4,7 +4,7 @@
 #include <QString>
 #include <QtGlobal>
 
-// One decoded-callsign label drawn on top of the wideband waterfall at
+// One decoded-callsign label drawn on top of the Horizontal Waterfall at
 // its audio-offset x-position. WideGraph maintains a list of these
 // (fed from mainwindow's decode-fetch loop); CPlotter reads the list
 // via setDecodeLabels() and overlays them in paintEvent.

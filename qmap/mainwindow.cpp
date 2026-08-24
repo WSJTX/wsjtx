@@ -143,11 +143,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
   on_actionAstro_Data_triggered();           //Create the other windows
   {
-    // Restore each waterfall to whether it was open when the program
-    // last exited (MainWindow::closeEvent records this alongside each
-    // window's own saved geometry). Defaults preserve pre-existing
-    // behavior: Horizontal Waterfall was always shown; Vertical Waterfall
-    // is new and starts hidden until the user opens it once.
+    // Restore each waterfall's visibility from its last-exit setting.
     QSettings settings {m_settings_filename, QSettings::IniFormat};
     bool wideVisible, vertVisible;
     {
