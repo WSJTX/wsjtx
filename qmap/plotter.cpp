@@ -203,6 +203,8 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
   int i,j,w,h;
   float y;
 
+  if (m_WaterfallPixmap.isNull()) return;   // not yet sized (window never shown)
+
   m_i0=i0;
   w = m_WaterfallPixmap.width();
   h = m_WaterfallPixmap.height();
