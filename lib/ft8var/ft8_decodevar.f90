@@ -24,7 +24,7 @@ contains
   subroutine decodevar(this,callback,nQSOProgress,nfqso,nft8rxfsens,nftx,nutc,  &
        nfa,nfb,ncandthin,ndtcenter,nsec,napwid,lmycallstd,lhiscallstd,          &
        stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes,  &
-       lft8apon,ncontest,progress_generation,residual,spectrum)
+       lft8apon,progress_generation,residual,spectrum)
 
     use omp_lib
     use ft8_mtd_residual, only : mtd_publish_worker,mtd_transform_phase

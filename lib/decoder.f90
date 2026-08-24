@@ -394,7 +394,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
                 params%napwid,params%lmycallstd,params%lhiscallstd,           &
                 params%nstophint,nthr,numthreads,logical(params%nagainfil),   &
                 params%lft8lowth,params%lft8subpass,params%lhideft8dupes,     &
-                params%lft8apon,ncontest,active_progress_generation,         &
+                params%lft8apon,active_progress_generation,                 &
                 mtd_worker_residual(:,nthr),                                  &
                 mtd_worker_spectrum(:,nthr))
 !$omp end parallel
