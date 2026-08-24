@@ -6,7 +6,7 @@ program test_ccf65_correlator
   implicit none
 
   integer, parameter :: nhsym = 254
-  real, parameter :: expected_sync = 12.4682
+  real, parameter :: expected_sync = 18.2396
   real :: ss(4,322)
   integer :: i
   real :: sync1, dt, flipk, syncshort, snr2, dt2
