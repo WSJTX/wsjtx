@@ -146,7 +146,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // Restore each waterfall to whether it was open when the program
     // last exited (MainWindow::closeEvent records this alongside each
     // window's own saved geometry). Defaults preserve pre-existing
-    // behavior: Wideband Waterfall was always shown; Vertical Waterfall
+    // behavior: Horizontal Waterfall was always shown; Vertical Waterfall
     // is new and starts hidden until the user opens it once.
     QSettings settings {m_settings_filename, QSettings::IniFormat};
     bool wideVisible, vertVisible;

@@ -702,7 +702,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
   </action>
   <action name="actionWide_Waterfall">
    <property name="text">
-    <string>Wideband Waterfall</string>
+    <string>Horizontal Waterfall</string>
    </property>
   </action>
   <action name="actionVertical_Waterfall">

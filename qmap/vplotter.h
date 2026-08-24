@@ -2,7 +2,7 @@
 // Rotated counterpart of plotter.h/CPlotter: frequency runs bottom-to-top
 // instead of left-to-right, and spectra scroll to the left instead of
 // scrolling down. Used by VertWaterfall, the optional narrow/tall sibling
-// of the Wideband Waterfall (WideGraph/CPlotter).
+// of the Horizontal Waterfall (WideGraph/CPlotter).
 ///////////////////////////////////////////////////////////////////////////
 
 #ifndef VPLOTTER_H

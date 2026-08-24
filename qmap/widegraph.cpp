@@ -13,7 +13,7 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
     m_settings_filename {settings_filename}
 {
   ui->setupUi(this);
-  setWindowTitle("Wideband Waterfall");
+  setWindowTitle("Horizontal Waterfall");
   setWindowFlags(Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint);
   installEventFilter(parent); //Installing the filter
   ui->widePlot->setCursor(Qt::CrossCursor);
