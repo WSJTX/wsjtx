@@ -571,7 +571,7 @@ void CPlotter::setDecodeLabels(const QList<WideDecodeLabel>& labels)
   update();
 }
 
-void CPlotter::paintDecodeLabels(QPainter& painter)
+QVector<CPlotter::DecodeLabelRect> CPlotter::layoutDecodeLabels()
 {
   // Sort left-to-right so the stacking pass below assigns rows in order
   // of x-position.
@@ -583,7 +583,6 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
             });
 
   QFont font("Arial", 8, QFont::Bold);
-  painter.setFont(font);
   QFontMetrics metrics(font);
   const int row_height = metrics.height() + 1;
 
@@ -596,6 +595,7 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
   int row_right_edge[max_rows];
   for (int i = 0; i < max_rows; ++i) row_right_edge[i] = -1000;
 
+  QVector<DecodeLabelRect> out;
   for (auto const& l : sorted) {
     const int x = XfromFreq(static_cast<float>(l.freq_khz));
     const int text_w = metrics.horizontalAdvance(l.callsign);
@@ -610,18 +610,41 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
     row_right_edge[row] = rect_x + rect_w;
 
     const int y_top = waterfall_top_y + row_height * row;
-    const QRect rect(rect_x, y_top, rect_w, row_height);
-    painter.fillRect(rect, QColor(0, 0, 0, 180));
+    out.append({l, QRect(rect_x, y_top, rect_w, row_height)});
+  }
+  return out;
+}
+
+void CPlotter::paintDecodeLabels(QPainter& painter)
+{
+  QFont font("Arial", 8, QFont::Bold);
+  painter.setFont(font);
+  const int row_height = QFontMetrics(font).height() + 1;
+
+  for (auto const& lr : layoutDecodeLabels()) {
+    painter.fillRect(lr.rect, QColor(0, 0, 0, 180));
 
     // Primary (60s) decodes yellow; second-30s-half decodes a distinct
     // hue (orange) rather than a shade, so they stay legible at a glance.
-    const QColor col = l.second_half ? QColor(255, 165, 0) : QColor(255, 255, 0);
+    const QColor col = lr.label.second_half ? QColor(255, 165, 0) : QColor(255, 255, 0);
+    const int x = XfromFreq(static_cast<float>(lr.label.freq_khz));
     painter.setPen(QColor(col.red(), col.green(), col.blue(), 200));
     // Tick points down into the waterfall trace at the label's exact frequency.
-    painter.drawLine(x, y_top + row_height, x, y_top + row_height + 4);
+    painter.drawLine(x, lr.rect.top() + row_height, x, lr.rect.top() + row_height + 4);
     painter.setPen(col);
-    painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, l.callsign);
+    painter.drawText(lr.rect, Qt::AlignHCenter | Qt::AlignVCenter, lr.label.callsign);
   }
+}
+
+bool CPlotter::hitTestDecodeLabel(QPoint const& pos, QString& callsign)
+{
+  for (auto const& lr : layoutDecodeLabels()) {
+    if (lr.rect.contains(pos)) {
+      callsign = lr.label.callsign;
+      return true;
+    }
+  }
+  return false;
 }
 
 void CPlotter::SetRunningState(bool running)              //SetRunningState()
@@ -735,6 +758,8 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
   if(y < h+30) {                                      // Wideband waterfall
     if(button==1) {
       setFQSO(x,false);
+      QString callsign;
+      if(hitTestDecodeLabel(QPoint(x,y), callsign)) emit decodeLabelClicked(callsign, false);
       if(event->modifiers() & Qt::ControlModifier) emit freezeDecode1(3);
     }
     if(button==2 and !m_bLockTxRx) {
@@ -761,6 +786,8 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
   if(y < h+30) {
     m_DF=0;
     setFQSO(x,false);
+    QString callsign;
+    if(hitTestDecodeLabel(QPoint(x,y), callsign)) emit decodeLabelClicked(callsign, true);
     emit freezeDecode1(2);
   } else {
     float f = m_ZoomStartFreq + x*m_fSample/32768.0;

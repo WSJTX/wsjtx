@@ -43,6 +43,7 @@ public slots:
   void diskDat(int iret);
   void decoderFinished();
   void freezeDecode(int n);
+  void decodeLabelClicked(QString callsign, bool doubleClick);
   void guiUpdate();
 
 private:

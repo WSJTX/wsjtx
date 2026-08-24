@@ -36,11 +36,15 @@ public slots:
   // or replaying a saved file at any speed.
   void addDecodeLabel(double freq_khz, QString const& callsign, bool second_half, int decode_secs);
 
+signals:
+  void decodeLabelClicked2(QString callsign, bool doubleClick);
+
 protected:
   void closeEvent(QCloseEvent * event) override;
 
 private slots:
   void on_cbShowCallsigns_toggled(bool checked);
+  void vertDecodeLabelClicked(QString callsign, bool doubleClick);
 
 private:
   void ageDecodeLabels(int nowSecs);

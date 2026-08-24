@@ -119,6 +119,7 @@
 #include "ui_mainwindow.h"
 #include "qmap/decode_ipc.h"
 #include "qmap/shared_memory_key.h"
+#include "qmap/qmap_ipc.h"
 #include "moc_mainwindow.cpp"
 #include "MessageFilter.hpp"
 #include "MessageFilterLogic.hpp"
@@ -447,7 +448,7 @@ QString earlyDecodes = "";  //ft8md
 
 QSharedMemory mem_qmap;                     //Memory segment to be shared (optionally) with QMAP
 qmap_decode_ipc::DecodeRows qmapcom;
-qmap_decode_ipc::DecodeRows* ipc_qmap;
+QMapSharedMemory * ipc_qmap;
 
 namespace
 {
@@ -717,7 +718,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   auto const memSize=static_cast<int>(qmap_decode_ipc::shared_memory_size);
   mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) mem_qmap.create(memSize);
-  ipc_qmap = static_cast<qmap_decode_ipc::DecodeRows*>(mem_qmap.data());
+  ipc_qmap = static_cast<QMapSharedMemory *> (mem_qmap.data());
   mem_qmap.lock();
   memset(ipc_qmap,0,memSize);         //Zero all of QMAP shared memory
   mem_qmap.unlock();
@@ -5939,6 +5940,60 @@ void MainWindow::callSandP2(int n)
   if(m_transmitting) m_restart=true;
 }
 
+// Callsign-keyed counterpart of callSandP2, for a callsign clicked directly
+// in a QMAP waterfall label rather than a row in this window's own Active
+// Stations list. QMAP can't know this list's own filtered/sorted row
+// numbering, so it sends the callsign itself; m_EMECall is the same
+// per-callsign map callSandP2's row text is built from (readWidebandDecodes),
+// keyed the way QMAP's request already is. QMAP reports genuine click vs
+// double-click directly, so this doesn't need callSandP2's own 500ms
+// two-click timing heuristic (built for a widget with no real double-click
+// signal of its own).
+void MainWindow::qmapCallSandP(QString const& dxcall, bool doubleClick)
+{
+  if (m_mode!="Q65" || SpecOp::NONE!=m_specOp || !m_EMECall.contains (dxcall)) return;
+  auto const& call=m_EMECall[dxcall];
+
+  int nMHz=m_freqNominal/1000000;
+  m_freqNominal=(nMHz*1000 + call.fsked)*1000;
+  m_deCall=dxcall;
+  m_deGrid=call.grid4;
+  QString submode=call.submode;
+  int odd=0;
+  if(submode.left(2)=="30" and (call.t%60)==0) odd=1;
+  if(submode.left(2)=="60" and (call.t%120)==0) odd=1;
+  m_txFirst=(odd==0);
+
+  if(submode.left(2)=="30") {
+    ui->sbTR->setValue(30);
+  } else {
+    ui->sbTR->setValue(60);
+  }
+  if(submode.right(1)=="A") ui->sbSubmode->setValue(0);
+  if(submode.right(1)=="B") ui->sbSubmode->setValue(1);
+  if(submode.right(1)=="C") ui->sbSubmode->setValue(2);
+  if(submode.right(1)=="D") ui->sbSubmode->setValue(3);
+  if(submode.right(1)=="E") ui->sbSubmode->setValue(4);
+  if(submode.right(1)=="F") ui->sbSubmode->setValue(5);
+
+  m_bDoubleClicked=true;
+  setDXInfo(m_deCall, m_deGrid);
+  ui->rptSpinBox->setValue(call.nsnr);
+  genStdMsgs(QString::number(call.nsnr));
+  setTxMsg(1);
+  ui->txFirstCheckBox->setChecked(m_txFirst);
+
+  setRig(m_freqNominal);
+  setXIT(ui->TxFreqSpinBox->value());
+
+  if(doubleClick) {
+    if(!ui->autoButton->isChecked()) ui->autoButton->click(); // Enable Tx
+  } else if(ui->autoButton->isChecked()) {
+    ui->autoButton->click(); // Disable Tx: a fresh selection shouldn't keep transmitting to the old one
+  }
+  if(m_transmitting) m_restart=true;
+}
+
 void MainWindow::activeWorked(QString call, QString band)
 {
   auto& activeCall = m_activeCall[call];
@@ -7225,21 +7280,35 @@ void MainWindow::guiUpdate()
     mem_qmap.lock();
     int n=0;
     if(decoderBusy ()) n=1;
-    ipc_qmap->nWDecoderBusy=n;
+    ipc_qmap->decodes.nWDecoderBusy=n;
     n=0;
     if(m_transmitting) n=m_TRperiod;
-    ipc_qmap->nWTransmitting=n;
-    if(ipc_qmap->ndecodes > 0) {
-      memcpy(&qmapcom, ipc_qmap, sizeof(qmapcom));  //Fetch the new decode(s)
+    ipc_qmap->decodes.nWTransmitting=n;
+    if(ipc_qmap->decodes.ndecodes > 0) {
+      memcpy(&qmapcom, &ipc_qmap->decodes, sizeof(qmapcom));  //Fetch the new decode(s)
       readWidebandDecodes();
     }
-    if(ipc_qmap->kHzRequested>0) {
+    if(ipc_qmap->decodes.kHzRequested>0) {
       requestNominalFrequencyChange (
-        (m_freqNominal/1000000)*1000000 + 1000*ipc_qmap->kHzRequested,
+        (m_freqNominal/1000000)*1000000 + 1000*ipc_qmap->decodes.kHzRequested,
         FrequencyRequestOrigin::Automatic);
-      ipc_qmap->kHzRequested=0;
+      ipc_qmap->decodes.kHzRequested=0;
+    }
+    QString qmap_dxcall;
+    bool qmap_doubleClick=false;
+    bool qmap_hasClickRequest=false;
+    if (ipc_qmap->click.action != QMapClickAction::None) {
+      qmap_dxcall = QString::fromLatin1 (ipc_qmap->click.selectedCall, qstrnlen (
+        ipc_qmap->click.selectedCall, sizeof ipc_qmap->click.selectedCall)).trimmed ();
+      qmap_doubleClick = ipc_qmap->click.action == QMapClickAction::SelectAndEnableTx;
+      ipc_qmap->click.action = QMapClickAction::None;
+      qmap_hasClickRequest = true;
     }
     mem_qmap.unlock();
+    // Handled outside the lock: qmapCallSandP touches rig/UI state and can
+    // run arbitrarily long (setRig, message generation), which shouldn't
+    // hold up QMAP's own decoders waiting on this shared segment.
+    if (qmap_hasClickRequest) qmapCallSandP (qmap_dxcall, qmap_doubleClick);
   }
 
 //Once per second (onesec)
@@ -13332,10 +13401,10 @@ void MainWindow::readWidebandDecodes()
     m_ActiveStationsWidget->displayRecentStations(m_mode,t);
     m_ActiveStationsWidget->setClickOK(true);
   }
-  if(ipc_qmap->nQDecoderDone!=0) {
+  if(ipc_qmap->decodes.nQDecoderDone!=0) {
     m_fetched=0;
-    ipc_qmap->ndecodes=0;
-    ipc_qmap->nQDecoderDone=0;
+    ipc_qmap->decodes.ndecodes=0;
+    ipc_qmap->decodes.nQDecoderDone=0;
   }
 }
 

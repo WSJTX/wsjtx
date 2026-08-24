@@ -86,6 +86,8 @@ public:
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
+  // A decoded-callsign label was clicked/double-clicked in the waterfall.
+  void decodeLabelClicked(QString callsign, bool doubleClick);
 
 protected:
   //re-implemented widget event handlers
@@ -104,6 +106,16 @@ private:
   // colliding labels vertically (max 5 rows) so a busy band doesn't paint
   // labels on top of each other.
   void paintDecodeLabels(QPainter& painter);
+
+  // One label's collision-stacked rect, as painted. Shared by
+  // paintDecodeLabels() and hitTestDecodeLabel() so a click always lands
+  // (or doesn't) exactly where the label is actually drawn.
+  struct DecodeLabelRect {
+    WideDecodeLabel label;
+    QRect rect;
+  };
+  QVector<DecodeLabelRect> layoutDecodeLabels();
+  bool hitTestDecodeLabel(QPoint const& pos, QString& callsign);
 
   // Raw wideband-row snapshots (post color-mapping input, pre color-map),
   // front=newest, so a resize can repaint m_WaterfallPixmap from history

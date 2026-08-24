@@ -22,6 +22,7 @@
 #include "sleep.h"
 #include "livecq_parser.h"
 #include "shared_memory_key.h"
+#include "qmap_ipc.h"
 
 #include <QCoreApplication>  //liveCQ
 #include <QNetworkAccessManager>  //liveCQ
@@ -34,7 +35,7 @@
 #define NFFT 32768
 
 QSharedMemory mem_qmap;                        //Memory segment to be shared (optionally) with WSJT-X
-qmap_decode_ipc::DecodeRows* ipc_wsjtx;
+QMapSharedMemory * ipc_wsjtx;
 
 extern const int RxDataFrequency = 96000;
 
@@ -119,7 +120,7 @@ MainWindow::MainWindow(QWidget *parent) :
       msgBox("Unable to create shared memory segment mem_qmap.");
     }
   }
-  ipc_wsjtx = static_cast<qmap_decode_ipc::DecodeRows*>(mem_qmap.data());
+  ipc_wsjtx = static_cast<QMapSharedMemory *> (mem_qmap.data());
   mem_qmap.lock();
   memset(ipc_wsjtx,0,memSize);         //Zero all of shared memory
   mem_qmap.unlock();
@@ -224,6 +225,8 @@ MainWindow::MainWindow(QWidget *parent) :
   if(ui->actionBlue->isChecked()) on_actionBlue_triggered();
 
   connect (m_wide_graph_window.get (), &WideGraph::freezeDecode2, this, &MainWindow::freezeDecode);
+  connect (m_wide_graph_window.get (), &WideGraph::decodeLabelClicked2, this, &MainWindow::decodeLabelClicked);
+  connect (m_vert_waterfall_window.get (), &VertWaterfall::decodeLabelClicked2, this, &MainWindow::decodeLabelClicked);
   connect (m_wide_graph_window.get (), &WideGraph::f11f12, this, &MainWindow::bumpDF);
   connect (m_wide_graph_window.get (), &WideGraph::spectrumReady,
            m_vert_waterfall_window.get (), &VertWaterfall::dataSinkVert);
@@ -845,10 +848,10 @@ void MainWindow::decoderFinished()
   decodes_.kHzRequested=0;
   if(m_diskData) decodes_.nQDecoderDone=2;
   mem_qmap.lock();
-  decodes_.nWDecoderBusy=ipc_wsjtx->nWDecoderBusy;       //Prevent overwriting values
-  decodes_.nWTransmitting=ipc_wsjtx->nWTransmitting;     //written here by WSJT-X
+  decodes_.nWDecoderBusy=ipc_wsjtx->decodes.nWDecoderBusy;       //Prevent overwriting values
+  decodes_.nWTransmitting=ipc_wsjtx->decodes.nWTransmitting;     //written here by WSJT-X
   m_bWTransmitting=decodes_.nWTransmitting>0;
-  memcpy(ipc_wsjtx, &decodes_, sizeof(decodes_));        //Send decodes and flags to WSJT-X
+  memcpy(&ipc_wsjtx->decodes, &decodes_, sizeof(decodes_)); //Send decodes and flags to WSJT-X
   mem_qmap.unlock();
   QString t1;
   t1=t1.asprintf(" %.1f s  %d/%d ", 0.15*datcom2_.nhsym, decodes_.ndecodes, decodes_.ncand);
@@ -927,7 +930,7 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
   if(n==3) {
     decodes_.kHzRequested=m_wide_graph_window->QSOfreq();
     mem_qmap.lock();
-    ipc_wsjtx->kHzRequested=decodes_.kHzRequested;
+    ipc_wsjtx->decodes.kHzRequested=decodes_.kHzRequested;
     mem_qmap.unlock();
     return;
   }
@@ -945,6 +948,17 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
     datcom_.newdat=0;
     on_DecodeButton_clicked();
   }
+}
+
+void MainWindow::decodeLabelClicked(QString callsign, bool doubleClick)
+{
+  QByteArray latin1 = callsign.toLatin1();
+  mem_qmap.lock();
+  qstrncpy(ipc_wsjtx->click.selectedCall, latin1.constData(),
+           sizeof ipc_wsjtx->click.selectedCall);
+  ipc_wsjtx->click.action = doubleClick ? QMapClickAction::SelectAndEnableTx
+                                         : QMapClickAction::Select;
+  mem_qmap.unlock();
 }
 
 void MainWindow::decode()                                       //decode()
@@ -1323,7 +1337,7 @@ void MainWindow::guiUpdate()
 
 // See if WSJT-X is transmitting
     mem_qmap.lock();
-    int const transmitting=ipc_wsjtx->nWTransmitting;
+    int const transmitting=ipc_wsjtx->decodes.nWTransmitting;
     mem_qmap.unlock();
     if(transmitting>0) {
       m_WSJTX_TRperiod=transmitting;

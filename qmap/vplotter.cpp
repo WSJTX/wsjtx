@@ -3,6 +3,7 @@
 #include <math.h>
 #include <QPainter>
 #include <QFontMetrics>
+#include <QMouseEvent>
 #include <QtMath>
 
 CVertPlotter::CVertPlotter(QWidget *parent) :
@@ -207,14 +208,24 @@ void CVertPlotter::setDecodeLabels(const QList<VertDecodeLabel>& labels)
   update();
 }
 
+QFont CVertPlotter::labelFont() const
+{
+  QFont font("Arial");
+  font.setPointSize(9);
+  return font;
+}
+
 // Greedy top-down declutter: sort by true (frequency) position, then push
 // any label down that would otherwise overlap the one above it. QMAP's
 // dual-submode decoding (e.g. Q65-60C + Q65-30B at the same tone spacing)
 // typically produces small clusters of 2-4 nearby labels, not dense
 // crowds, so this simple pass is sufficient -- it isn't a general N-label
 // layout solver.
-QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(int minSpacing) const
+QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(QFontMetrics const& fm, int minSpacing) const
 {
+  int labelX = m_waterfallPixmap.width() + m_scaleWidth;
+  int indentPx = fm.horizontalAdvance("MM");
+
   QVector<LabelLayout> out;
   out.reserve(m_decodeLabels.size());
   for (auto const& lab : qAsConst(m_decodeLabels)) {
@@ -222,6 +233,7 @@ QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(int minSpacing) c
     ll.callsign    = lab.callsign;
     ll.second_half = lab.second_half;
     ll.trueY = ll.dispY = yFromFreq(lab.freq_khz);
+    ll.textX = labelX + 14 + (lab.second_half ? indentPx : 0);
     out.append(ll);
   }
   std::sort(out.begin(), out.end(), [](LabelLayout const& a, LabelLayout const& b) {
@@ -231,7 +243,37 @@ QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(int minSpacing) c
     if (out[i].dispY < out[i-1].dispY + minSpacing)
       out[i].dispY = out[i-1].dispY + minSpacing;
   }
+  for (auto& ll : out) {
+    int text_w = fm.horizontalAdvance(ll.callsign);
+    ll.rect = QRect(ll.textX - 2, ll.dispY - fm.ascent(), text_w + 4, fm.height());
+  }
   return out;
+}
+
+bool CVertPlotter::hitTestDecodeLabel(QPoint const& pos, QString& callsign)
+{
+  QFontMetrics fm(labelFont());
+  for (auto const& ll : computeLayout(fm, fm.height() + 2)) {
+    if (ll.rect.contains(pos)) {
+      callsign = ll.callsign;
+      return true;
+    }
+  }
+  return false;
+}
+
+void CVertPlotter::mousePressEvent(QMouseEvent *event)
+{
+  if (event->button() != Qt::LeftButton) return;
+  QString callsign;
+  if (hitTestDecodeLabel(event->pos(), callsign)) emit decodeLabelClicked(callsign, false);
+}
+
+void CVertPlotter::mouseDoubleClickEvent(QMouseEvent *event)
+{
+  if (event->button() != Qt::LeftButton) return;
+  QString callsign;
+  if (hitTestDecodeLabel(event->pos(), callsign)) emit decodeLabelClicked(callsign, true);
 }
 
 void CVertPlotter::paintEvent(QPaintEvent*)
@@ -248,26 +290,23 @@ void CVertPlotter::paintEvent(QPaintEvent*)
   int labelX = w + m_scaleWidth;
   painter.fillRect(labelX, 0, m_labelWidth, height(), QColor(255,255,240));
 
-  QFont font("Arial");
-  font.setPointSize(9);
+  QFont font = labelFont();
   painter.setFont(font);
   QFontMetrics fm(font);
   int minSpacing = fm.height() + 2;
-  int indentPx = fm.horizontalAdvance("MM");
 
   QColor dotColor(230,200,40);
   QColor leaderColor(150,150,140);
-  for (auto const& ll : computeLayout(minSpacing)) {
-    int x = labelX + 14 + (ll.second_half ? indentPx : 0);
+  for (auto const& ll : computeLayout(fm, minSpacing)) {
     painter.setPen(Qt::NoPen);
     painter.setBrush(dotColor);
     painter.drawEllipse(QPoint(labelX+5,ll.trueY), 3, 3);
     if (ll.dispY != ll.trueY || ll.second_half) {
       painter.setPen(QPen(leaderColor,1));
-      painter.drawLine(labelX+8, ll.trueY, x-2, ll.dispY);
+      painter.drawLine(labelX+8, ll.trueY, ll.textX-2, ll.dispY);
     }
     painter.setPen(Qt::black);
-    painter.drawText(x, ll.dispY+4, ll.callsign);
+    painter.drawText(ll.textX, ll.dispY+4, ll.callsign);
   }
 }
 

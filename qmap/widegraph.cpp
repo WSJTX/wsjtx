@@ -22,6 +22,8 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->widePlot->setMaximumHeight(800);
   connect(ui->widePlot, SIGNAL(freezeDecode1(int)),this,
           SLOT(wideFreezeDecode(int)));
+  connect(ui->widePlot, SIGNAL(decodeLabelClicked(QString,bool)),this,
+          SLOT(wideDecodeLabelClicked(QString,bool)));
 
   //Restore user's settings
   QSettings settings {m_settings_filename, QSettings::IniFormat};
@@ -236,6 +238,11 @@ int WideGraph::nStartFreq()
 void WideGraph::wideFreezeDecode(int n)
 {
   emit freezeDecode2(n);
+}
+
+void WideGraph::wideDecodeLabelClicked(QString callsign, bool doubleClick)
+{
+  emit decodeLabelClicked2(callsign, doubleClick);
 }
 
 void WideGraph::setTol(int n)

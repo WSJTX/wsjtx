@@ -635,6 +635,7 @@ private slots:
                          , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
                          , QString const& dx_grid, bool generate_messages);
   void callSandP2(int nline);
+  void qmapCallSandP(QString const& dxcall, bool doubleClick);
   void refreshHoundQueueDisplay();
   void queueActiveWindowHound2(QString text);
   void update_tx5(const QString &qsy_text);

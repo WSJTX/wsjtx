@@ -14,6 +14,11 @@
 #include <QVector>
 #include <QString>
 #include <QtGlobal>
+#include <QRect>
+#include <QFont>
+
+class QMouseEvent;
+class QFontMetrics;
 
 // One decoded-callsign label drawn in the label strip, at the y-position
 // matching its frequency. Mirrors the *design* of map65/decode_label.h's
@@ -53,9 +58,15 @@ public:
   void setPalette(QString palette);
   void setDecodeLabels(const QList<VertDecodeLabel>& labels);
 
+signals:
+  // A decoded-callsign label was clicked/double-clicked in the label strip.
+  void decodeLabelClicked(QString callsign, bool doubleClick);
+
 protected:
   void paintEvent(QPaintEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
   void drawScale();
@@ -81,13 +92,20 @@ private:
   // (the real frequency position); dispY is where its text is drawn,
   // pushed down just enough to keep a minimum line spacing from the
   // label above it. A leader line connects the two when they differ.
+  // textX/rect are the same text-draw position and clickable bounds used
+  // by both paintEvent() and hitTestDecodeLabel(), so a click always
+  // lands (or doesn't) exactly where the label is actually drawn.
   struct LabelLayout {
     QString callsign;
     bool    second_half;
     int     trueY;
     int     dispY;
+    int     textX;
+    QRect   rect;
   };
-  QVector<LabelLayout> computeLayout(int minSpacing) const;
+  QVector<LabelLayout> computeLayout(QFontMetrics const& fm, int minSpacing) const;
+  QFont labelFont() const;
+  bool  hitTestDecodeLabel(QPoint const& pos, QString& callsign);
 
   QColor  m_ColorTbl[256];
   QPixmap m_waterfallPixmap;   // spectrogram: x=time (newest at right), y=frequency (high at top)

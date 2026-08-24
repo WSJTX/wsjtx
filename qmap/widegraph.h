@@ -51,6 +51,7 @@ public:
 signals:
   void freezeDecode2(int n);
   void f11f12(int n);
+  void decodeLabelClicked2(QString callsign, bool doubleClick);
   // Emitted once per average cycle, right after the wideband waterfall's
   // own top-row draw(), so VertWaterfall can show exactly the same
   // spectral data instead of an independently-decimated copy of it.
@@ -59,6 +60,7 @@ signals:
 
 public slots:
   void wideFreezeDecode(int n);
+  void wideDecodeLabelClicked(QString callsign, bool doubleClick);
 
 protected:
   virtual void keyPressEvent( QKeyEvent *e );
