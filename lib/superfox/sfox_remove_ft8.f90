@@ -133,8 +133,11 @@ subroutine sfox_remove_ft8(dd,npts)
       nt=2**(3*nsym)
       do ihalf=1,2
          do k=1,29,nsym
-            if(ihalf.eq.1) ks=k+7
-            if(ihalf.eq.2) ks=k+43
+            if(ihalf.eq.1) then
+               ks=k+7
+            else
+               ks=k+43
+            endif
             amax=-1.0
             do i=0,nt-1
                i3=iand(i,7)
