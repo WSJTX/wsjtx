@@ -299,7 +299,7 @@ jobs:
 
       - name: Restore armhf ccache
         id: ccache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .ccache-armhf
           key: ccache-linux-armhf-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}
@@ -365,7 +365,7 @@ jobs:
 
       - name: Save armhf ccache
         if: inputs.save_ccache && steps.ccache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .ccache-armhf
           key: ${{ steps.ccache.outputs.cache-primary-key }}
