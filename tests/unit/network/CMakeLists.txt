@@ -50,7 +50,6 @@ add_test (NAME test_message_server COMMAND test_message_server)
 
 add_executable (test_cloudlog_connection_check
   test_cloudlog_connection_check.cpp
-  test_cloudlog_configuration_stub.cpp
   test_cloudlog_revision_stub.cpp
   ${CMAKE_SOURCE_DIR}/Network/Cloudlog.cpp
   )

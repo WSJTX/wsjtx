@@ -24,7 +24,6 @@
 
 #include "moc_Cloudlog.cpp"
 
-#include "Configuration.hpp"
 #include "revision_utils.hpp"
 
 namespace
@@ -433,7 +432,7 @@ class Cloudlog::impl final
   Q_OBJECT
 
 public:
-  impl (Cloudlog * self, Configuration const * config, QNetworkAccessManager * network_manager)
+  impl (Cloudlog * self, CloudlogConfiguration const * config, QNetworkAccessManager * network_manager)
     : self_ {self}
     , config_ {config}
     , network_manager_ {network_manager}
@@ -861,7 +860,7 @@ private:
   }
 
   Cloudlog * self_;
-  Configuration const * config_;
+  CloudlogConfiguration const * config_;
   QNetworkAccessManager * network_manager_;
   QPointer<QNetworkReply> upload_reply_;
   QPointer<QNetworkReply> check_reply_;
@@ -921,7 +920,7 @@ QString Cloudlog::stationProfileDisplayText (StationProfile const& profile)
   return fields.join (QStringLiteral (" - "));
 }
 
-Cloudlog::Cloudlog (Configuration const * config, QNetworkAccessManager * network_manager, QObject * parent)
+Cloudlog::Cloudlog (CloudlogConfiguration const * config, QNetworkAccessManager * network_manager, QObject * parent)
   : QObject {parent}
   , m_ {this, config, network_manager}
 {

@@ -6,10 +6,10 @@
 #include <QMetaType>
 #include <QObject>
 #include <QString>
+#include "CloudlogConfiguration.hpp"
 #include "pimpl_h.hpp"
 
 class QNetworkAccessManager;
-class Configuration;
 
 //
 // Cloudlog
@@ -110,7 +110,8 @@ public:
     int httpStatusCode {0};
   };
 
-  explicit Cloudlog (Configuration const * config, QNetworkAccessManager * network_manager, QObject * parent = nullptr);
+  explicit Cloudlog (CloudlogConfiguration const * config, QNetworkAccessManager * network_manager,
+                     QObject * parent = nullptr);
   ~Cloudlog ();
 
   static QString normalizeBaseUrl (QString const& url);

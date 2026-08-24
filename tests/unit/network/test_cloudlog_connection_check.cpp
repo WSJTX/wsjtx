@@ -9,12 +9,36 @@
 
 #include "Network/Cloudlog.hpp"
 
-namespace test_cloudlog_configuration_stub
+class TestCloudlogConfiguration final
+  : public CloudlogConfiguration
 {
-  void reset ();
-  void setCloudlogValues (QString const& url, QString const& apiKey, qint32 stationId);
-  Configuration const * configuration ();
-}
+public:
+  TestCloudlogConfiguration (QString const& url, QString const& apiKey, qint32 stationId)
+    : url {url}
+    , apiKey {apiKey}
+    , stationId {stationId}
+  {
+  }
+
+  QString url;
+  QString apiKey;
+  qint32 stationId {0};
+
+  QString cloudlog_api_url () const override
+  {
+    return url;
+  }
+
+  QString cloudlog_api_key () const override
+  {
+    return apiKey;
+  }
+
+  qint32 cloudlog_api_station_id () const override
+  {
+    return stationId;
+  }
+};
 
 namespace
 {
@@ -210,12 +234,13 @@ namespace
 
   Cloudlog::UploadResult runLogQso (FakeNetworkAccessManager& network, FakeResponse const& response)
   {
-    test_cloudlog_configuration_stub::reset ();
-    test_cloudlog_configuration_stub::setCloudlogValues (QStringLiteral (" https://example.test/index.php/api/qso/ "),
-                                                         QStringLiteral ("secret/key"), 7);
+    TestCloudlogConfiguration configuration {
+      QStringLiteral (" https://example.test/index.php/api/qso/ "),
+      QStringLiteral ("secret/key"),
+      7};
     network.queueResponse (response);
 
-    Cloudlog cloudlog {test_cloudlog_configuration_stub::configuration (), &network};
+    Cloudlog cloudlog {&configuration, &network};
     QSignalSpy spy {&cloudlog, &Cloudlog::qso_upload_finished};
     cloudlog.logQso (QByteArray {"<call:5>K1ABC"});
     if (spy.isEmpty ())
