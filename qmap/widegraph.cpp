@@ -112,6 +112,11 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
     }
     n=0;
 
+    // Not yet sized (window never shown): plotWidth()==0 makes the loop
+    // below index splot[] and lstrong[] far out of bounds, independent of
+    // draw()'s own guard against this same never-shown case.
+    if (ui->widePlot->plotWidth() <= 0) return;
+
     int w=ui->widePlot->plotWidth();
     qint64 sf = nkhz - 0.5*w*nbpp*df/1000.0;
     if(sf != ui->widePlot->startFreq()) ui->widePlot->SetStartFreq(sf);
