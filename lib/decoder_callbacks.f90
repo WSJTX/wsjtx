@@ -308,7 +308,7 @@ contains
     logical context_b_superfox
     character(len=12) context_mycall
     data first/.true./
-    save
+    save :: first,nwrap
 
     isgrid4(w)=(len_trim(w).eq.4 .and.                                        &
          ichar(w(1:1)).ge.ichar('A') .and. ichar(w(1:1)).le.ichar('R') .and.  &
@@ -425,7 +425,7 @@ contains
     logical context_b_superfox
     character(len=12) context_mycall
     data first/.true./
-    save
+    save :: first,nwrap
 
     isgrid4(w)=(len_trim(w).eq.4 .and.                                        &
          ichar(w(1:1)).ge.ichar('A') .and. ichar(w(1:1)).le.ichar('R') .and.  &
