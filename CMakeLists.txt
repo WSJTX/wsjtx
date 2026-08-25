@@ -715,6 +715,9 @@ if (WSJT_ENABLE_TESTS)
     if (WSJT_BUILD_FORTRAN_OPENMP)
       function (wsjt_add_jt9_mtd_golden_test test_name processors mtd_workers
           decode_cycles fft_threads)
+        set (options CONSECUTIVE_PERIODS)
+        set (one_value_args MY_CALL DX_CALL QSO_FREQUENCY QSO_PROGRESS)
+        cmake_parse_arguments (MTD_TEST "${options}" "${one_value_args}" "" ${ARGN})
         set (work_dir "${CMAKE_BINARY_DIR}/Testing/Golden/${test_name}")
         file (MAKE_DIRECTORY "${work_dir}")
         add_test (NAME ${test_name}
@@ -727,6 +730,11 @@ if (WSJT_ENABLE_TESTS)
             -DMTD_WORKERS=${mtd_workers}
             -DDECODE_CYCLES=${decode_cycles}
             -DFFT_THREADS=${fft_threads}
+            -DCONSECUTIVE_PERIODS=${MTD_TEST_CONSECUTIVE_PERIODS}
+            -DMY_CALL=${MTD_TEST_MY_CALL}
+            -DDX_CALL=${MTD_TEST_DX_CALL}
+            -DQSO_FREQUENCY=${MTD_TEST_QSO_FREQUENCY}
+            -DQSO_PROGRESS=${MTD_TEST_QSO_PROGRESS}
             -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/compare_mtd_messages.cmake)
         set_tests_properties (${test_name} PROPERTIES
           LABELS "decoder;golden;integration;mtd"
@@ -743,9 +751,29 @@ if (WSJT_ENABLE_TESTS)
         # while keeping the instrumented two-worker synchronization bounded.
         wsjt_add_jt9_mtd_golden_test (
           test_jt9_mtd_ft8_210703_133430_tsan 2 2 1 1)
+        # Reusing the sample in one process carries decoded messages into the
+        # next period and exercises signal-directed and QSO-state concurrency.
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_prior_period_qso_tsan 2 2 1 1
+          CONSECUTIVE_PERIODS
+          MY_CALL K1JT
+          DX_CALL HA0DU
+          QSO_FREQUENCY 590
+          QSO_PROGRESS 1)
+        set_tests_properties (test_jt9_mtd_ft8_prior_period_qso_tsan PROPERTIES
+          TIMEOUT 360)
       else ()
         wsjt_add_jt9_mtd_golden_test (
           test_jt9_mtd_ft8_210703_133430 4 4 3 3)
+        # Keep the stateful path covered in ordinary OpenMP builds as well as
+        # sanitizer builds.
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_prior_period_qso 4 4 1 1
+          CONSECUTIVE_PERIODS
+          MY_CALL K1JT
+          DX_CALL HA0DU
+          QSO_FREQUENCY 590
+          QSO_PROGRESS 1)
         wsjt_add_jt9_mtd_golden_test (
           test_jt9_mtd_ft8_210703_133430_limited_team 2 4 3 3)
         # The -N 4 request requires at least three visible processors for this
