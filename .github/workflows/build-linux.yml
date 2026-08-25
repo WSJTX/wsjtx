@@ -37,6 +37,11 @@ on:
         required: false
         type: boolean
         default: false
+      validate_fortran_fallback:
+        description: "Build the x86_64 non-OpenMP common-library sentinel graph"
+        required: false
+        type: boolean
+        default: false
       release_channel:
         description: "Build release channel: DEVEL, RC, or GA"
         required: false
@@ -93,6 +98,11 @@ on:
         default: false
       save_ccache:
         description: "Save compiled objects"
+        required: false
+        type: boolean
+        default: false
+      validate_fortran_fallback:
+        description: "Build the x86_64 non-OpenMP common-library sentinel graph"
         required: false
         type: boolean
         default: false
@@ -175,6 +185,7 @@ jobs:
           WSJT_RC_NUMBER: ${{ inputs.rc_number }}
           ARCH: ${{ inputs.arch }}
           IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+          VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
         run: .github/scripts/validate-ci-inputs.sh
       - uses: ./.github/actions/build-linux-payload
         with:
@@ -184,6 +195,7 @@ jobs:
           runtime_base: host
           recache: ${{ inputs.recache }}
           save_ccache: ${{ inputs.save_ccache }}
+          validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
           allow_stale_image: ${{ inputs.allow_stale_image }}
@@ -210,6 +222,7 @@ jobs:
           WSJT_RC_NUMBER: ${{ inputs.rc_number }}
           ARCH: ${{ inputs.arch }}
           IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+          VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
         run: .github/scripts/validate-ci-inputs.sh
       - uses: ./.github/actions/build-linux-payload
         with:
@@ -219,6 +232,7 @@ jobs:
           runtime_base: bookworm-gcc13.4
           recache: ${{ inputs.recache }}
           save_ccache: ${{ inputs.save_ccache }}
+          validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
           allow_stale_image: ${{ inputs.allow_stale_image }}
@@ -275,6 +289,7 @@ jobs:
           WSJT_RC_NUMBER: ${{ inputs.rc_number }}
           ARCH: armhf
           IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+          VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
         run: .github/scripts/validate-ci-inputs.sh
 
       - uses: docker/login-action@v4

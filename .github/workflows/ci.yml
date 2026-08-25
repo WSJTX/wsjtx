@@ -140,6 +140,7 @@ jobs:
       allow_stale_image: true
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
       save_ccache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+      validate_fortran_fallback: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
     secrets: inherit
 
   linux-sanitizers:

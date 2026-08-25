@@ -29,6 +29,13 @@ require_nonempty() {
   fi
 }
 
+require_boolean() {
+  case "$2" in
+    true|false) ;;
+    *) fail "Invalid $1 '$2': use true or false" ;;
+  esac
+}
+
 validate_inputs() {
   if [ -n "${WSJTX_VERSION+x}" ]; then
     require_nonempty "version" "$WSJTX_VERSION"
@@ -74,6 +81,10 @@ validate_inputs() {
         fail "Invalid arch '${ARCH}': use x86_64, aarch64, armhf, or arm64"
         ;;
     esac
+  fi
+
+  if [ -n "${VALIDATE_FORTRAN_FALLBACK+x}" ]; then
+    require_boolean "validate_fortran_fallback" "$VALIDATE_FORTRAN_FALLBACK"
   fi
 
   if [ -n "${IMAGE_TAG+x}" ]; then
@@ -122,6 +133,7 @@ validate_inputs() {
 run_isolated() {
   env -u WSJTX_VERSION -u HAMLIB_BRANCH -u WSJT_RELEASE_CHANNEL \
     -u WSJT_RC_NUMBER -u ARCH -u IMAGE_TAG -u DEPLOYMENT_TARGET -u RUNNER -u SIGN_MODE \
+    -u VALIDATE_FORTRAN_FALLBACK \
     "$@" "$0"
 }
 
@@ -144,8 +156,9 @@ if [ "${1:-}" = "--self-test" ]; then
         WSJT_RELEASE_CHANNEL="RC" WSJT_RC_NUMBER="1" \
         ARCH="x86_64" DEPLOYMENT_TARGET="10.13" RUNNER="macos-15-intel" \
         SIGN_MODE="ephemeral" IMAGE_TAG="candidate-123-1" \
+        VALIDATE_FORTRAN_FALLBACK="true" \
     >/dev/null
-  run_isolated env HAMLIB_BRANCH="integration/4.7" >/dev/null
+  run_isolated env HAMLIB_BRANCH="integration/4.7" VALIDATE_FORTRAN_FALLBACK="false" >/dev/null
 
   expect_failure 'command substitution in version' WSJTX_VERSION='3.1.0$(id)'
   expect_failure 'backticks in version' WSJTX_VERSION='3.1.0`id`'
@@ -161,6 +174,10 @@ if [ "${1:-}" = "--self-test" ]; then
   expect_failure 'empty image tag' IMAGE_TAG=''
   expect_failure 'overlong image tag' IMAGE_TAG="$(printf 'a%.0s' {1..129})"
   expect_failure 'command substitution in deployment_target' DEPLOYMENT_TARGET='11.0$(id)'
+  expect_failure 'empty fallback boolean' VALIDATE_FORTRAN_FALLBACK=''
+  expect_failure 'uppercase fallback boolean' VALIDATE_FORTRAN_FALLBACK='TRUE'
+  expect_failure 'numeric fallback boolean' VALIDATE_FORTRAN_FALLBACK='1'
+  expect_failure 'shell payload in fallback boolean' VALIDATE_FORTRAN_FALLBACK='true$(id)'
 
   echo "validate-ci-inputs.sh self-test passed"
   exit 0

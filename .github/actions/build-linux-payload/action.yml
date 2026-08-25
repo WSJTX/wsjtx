@@ -29,6 +29,10 @@ inputs:
     description: "Save compiled objects for trusted builds"
     required: false
     default: "false"
+  validate_fortran_fallback:
+    description: "Build the x86_64 non-OpenMP common-library sentinel graph"
+    required: false
+    default: "false"
   release_channel:
     description: "Build release channel: DEVEL, RC, or GA"
     required: false
@@ -53,6 +57,7 @@ runs:
         WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
         WSJT_RC_NUMBER: ${{ inputs.rc_number }}
         ARCH: ${{ inputs.arch }}
+        VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
       run: .github/scripts/validate-ci-inputs.sh
 
     - name: Verify Linux CI image
@@ -111,6 +116,18 @@ runs:
         ccache --version
         ccache --zero-stats
 
+    # Exercise the public CMake default without duplicating its compile graph.
+    # AUTO resolves to BOTH on the OpenMP-capable Linux x86_64 toolchain.
+    - name: Configure default Fortran graph
+      if: inputs.arch == 'x86_64'
+      shell: bash
+      run: |
+        cmake -S . -B cfgmatrix-default \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+          -DWSJT_SKIP_MANPAGES=ON \
+          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
+          -Wno-dev
+
     - name: Configure build and tests
       shell: bash
       env:
@@ -139,48 +156,21 @@ runs:
       shell: bash
       run: ccache --show-stats
 
-    # Configure sweep across the Fortran-variant matrix with MAP65 enabled.
-    # Sentinel target builds keep central Fortran linkage covered without
-    # duplicating the full main build across every variant. x86_64-only:
-    # this is build-coverage for the central Fortran linkage, not a per-arch
-    # runtime concern, so it runs once on the cheapest/native leg.
-    - name: Configure-matrix (Fortran variants × MAP65)
-      if: inputs.arch == 'x86_64'
+    # MAP65 retains target-local OpenMP while the shared WSJT Fortran library
+    # uses its serial variant. Run this fallback graph only on the native leg.
+    - name: Build non-OpenMP common-library sentinels
+      if: inputs.arch == 'x86_64' && inputs.validate_fortran_fallback == 'true'
       shell: bash
       run: |
-        fail=0
-        for variant in AUTO BOTH OPENMP_ONLY NON_OPENMP_ONLY; do
-          echo "::group::configure WSJT_FORTRAN_LIBRARY_VARIANTS=${variant} (MAP65 enabled)"
-          rm -rf "cfgmatrix-${variant}"
-          if cmake -S . -B "cfgmatrix-${variant}" \
-               -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
-               -DWSJT_SKIP_MANPAGES=ON \
-               -DWSJT_FORTRAN_LIBRARY_VARIANTS="${variant}" \
-               -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
-               -Wno-dev; then
-            echo "configure OK: ${variant}"
-          else
-            echo "::error::configure FAILED for WSJT_FORTRAN_LIBRARY_VARIANTS=${variant} with MAP65 enabled"
-            fail=1
-          fi
-          echo "::endgroup::"
-
-          case "${variant}" in
-            AUTO|NON_OPENMP_ONLY)
-              echo "::group::sentinel build WSJT_FORTRAN_LIBRARY_VARIANTS=${variant}"
-              if cmake --build "cfgmatrix-${variant}" \
-                   --target jt65sim m65impl qmap_impl test_jtty_pack \
-                   -j$(nproc); then
-                echo "sentinel build OK: ${variant}"
-              else
-                echo "::error::sentinel build FAILED for WSJT_FORTRAN_LIBRARY_VARIANTS=${variant}"
-                fail=1
-              fi
-              echo "::endgroup::"
-              ;;
-          esac
-        done
-        exit $fail
+        cmake -S . -B cfgmatrix-NON_OPENMP_ONLY \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+          -DWSJT_SKIP_MANPAGES=ON \
+          -DWSJT_FORTRAN_LIBRARY_VARIANTS=NON_OPENMP_ONLY \
+          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
+          -Wno-dev
+        cmake --build cfgmatrix-NON_OPENMP_ONLY \
+          --target jt65sim m65impl qmap_impl test_jtty_pack \
+          -j$(nproc)
 
     - name: Run tests
       id: ctest
