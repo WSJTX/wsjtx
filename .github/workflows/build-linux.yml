@@ -312,12 +312,18 @@ jobs:
           fi
           echo "toolchain_id=$toolchain_id" >> "$GITHUB_OUTPUT"
 
+      - name: Select armhf ccache key
+        id: ccache-key
+        env:
+          RECACHE: ${{ inputs.recache }}
+        run: .github/scripts/select-ccache-key-suffix.sh
+
       - name: Restore armhf ccache
         id: ccache
         uses: actions/cache/restore@v6
         with:
           path: .ccache-armhf
-          key: ccache-linux-armhf-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}
+          key: ccache-linux-armhf-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
           restore-keys: |
             ccache-linux-armhf-${{ steps.image.outputs.toolchain_id }}-
 
@@ -325,7 +331,12 @@ jobs:
         env:
           ARCH: armhf
           BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          RECACHE: ${{ inputs.recache }}
         run: |
+          ccache_args=()
+          if [ "$RECACHE" = true ]; then
+            ccache_args=(-e CCACHE_RECACHE=1)
+          fi
           GITHUB_TOKEN="${{ github.token }}" docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
@@ -336,6 +347,7 @@ jobs:
             -e WSJT_RC_NUMBER \
             -e GITHUB_TOKEN \
             -e CCACHE_DIR=/work/.ccache-armhf \
+            "${ccache_args[@]}" \
             "$BUILDER_IMAGE" \
             bash .github/scripts/build-linux-payload.sh
 

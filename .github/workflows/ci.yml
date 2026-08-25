@@ -13,7 +13,12 @@ on:
   workflow_dispatch:
     inputs:
       recache:
-        description: "Force ccache to recompile and refresh cached objects"
+        description: "Force recompilation and persist refreshed ccache objects on develop"
+        required: false
+        type: boolean
+        default: false
+      save_ccache:
+        description: "Persist Linux x64 ccache objects without forcing recompilation on develop"
         required: false
         type: boolean
         default: false
@@ -37,6 +42,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
+      save_linux_ccache: ${{ steps.ccache-policy.outputs.save_ccache }}
     steps:
       - uses: actions/checkout@v7
       - name: Validate workflow job timeouts
@@ -45,6 +51,8 @@ jobs:
         run: |
           .github/scripts/validate-ci-inputs.sh --self-test
           .github/scripts/is-linux-ci-image-input.sh --self-test
+          .github/scripts/select-ccache-key-suffix.sh --self-test
+          .github/scripts/select-linux-ccache-save.sh --self-test
           .github/scripts/test-verify-linux-ci-image.sh
           python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
       - id: v
@@ -56,6 +64,15 @@ jobs:
           fi
           echo "Derived version from CMakeLists.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      # PRs can consume develop caches, so only trusted develop executions may
+      # publish the Linux cache shared with later pull-request builds.
+      - id: ccache-policy
+        name: Select Linux ccache save policy
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUEST_SAVE_CCACHE: ${{ inputs.save_ccache || false }}
+          RECACHE: ${{ inputs.recache || false }}
+        run: .github/scripts/select-linux-ccache-save.sh
       - id: linux-image
         name: Resolve Linux CI image generation
         env:
@@ -119,7 +136,7 @@ jobs:
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}
-      save_ccache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+      save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       validate_fortran_fallback: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
     secrets: inherit
 

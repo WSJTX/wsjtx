@@ -94,12 +94,21 @@ runs:
         echo "CXX=$CXX" >> "$GITHUB_ENV"
         echo "FC=$FC" >> "$GITHUB_ENV"
 
+    # Run-unique keys let a refreshed archive become the newest prefix match
+    # even when an immutable cache already exists for the same commit SHA.
+    - name: Select ccache key
+      id: ccache-key
+      shell: bash
+      env:
+        RECACHE: ${{ inputs.recache }}
+      run: .github/scripts/select-ccache-key-suffix.sh
+
     - name: Restore ccache
       id: ccache
       uses: actions/cache/restore@v5
       with:
         path: .ccache
-        key: ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}
+        key: ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
         restore-keys: |
           ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.toolchain_id }}-
 

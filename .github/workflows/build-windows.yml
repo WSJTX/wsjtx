@@ -150,11 +150,18 @@ jobs:
       - name: Install asciidoctor (Ruby gem)
         run: gem install asciidoctor --no-document
 
+      - name: Select ccache key
+        id: ccache-key
+        shell: bash
+        env:
+          RECACHE: ${{ inputs.recache }}
+        run: .github/scripts/select-ccache-key-suffix.sh
+
       - name: Cache ccache
         uses: actions/cache@v6
         with:
           path: .ccache
-          key: ccache-windows-x86_64-gcc-${{ github.sha }}
+          key: ccache-windows-x86_64-gcc-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
           restore-keys: |
             ccache-windows-x86_64-gcc-
 

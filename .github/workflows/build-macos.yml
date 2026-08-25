@@ -136,11 +136,17 @@ jobs:
       - name: Install dependencies
         run: brew install cmake autoconf automake libtool asciidoctor ccache pkg-config
 
+      - name: Select ccache key
+        id: ccache-key
+        env:
+          RECACHE: ${{ inputs.recache }}
+        run: .github/scripts/select-ccache-key-suffix.sh
+
       - name: Cache ccache
         uses: actions/cache@v6
         with:
           path: .ccache
-          key: ccache-macos-${{ inputs.arch }}-appleclang-${{ github.sha }}
+          key: ccache-macos-${{ inputs.arch }}-appleclang-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
           restore-keys: |
             ccache-macos-${{ inputs.arch }}-appleclang-
 

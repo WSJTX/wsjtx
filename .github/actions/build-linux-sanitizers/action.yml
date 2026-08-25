@@ -103,12 +103,19 @@ runs:
         } >> "$GITHUB_ENV"
         echo "${{ steps.image.outputs.qt_prefix }}/bin" >> "$GITHUB_PATH"
 
+    - name: Select ccache key
+      id: ccache-key
+      shell: bash
+      env:
+        RECACHE: ${{ inputs.recache }}
+      run: .github/scripts/select-ccache-key-suffix.sh
+
     - name: Restore sanitizer objects
       id: ccache
       uses: actions/cache/restore@v5
       with:
         path: ${{ steps.sanitizer.outputs.ccache_dir }}
-        key: ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}
+        key: ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
         restore-keys: |
           ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.toolchain_id }}-
 
