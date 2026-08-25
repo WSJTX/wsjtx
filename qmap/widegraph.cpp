@@ -27,9 +27,11 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
 
   //Restore user's settings
   QSettings settings {m_settings_filename, QSettings::IniFormat};
+  QRect geom;
   {
     SettingsGroup g {&settings, "MainWindow"}; // historical reasons
-    setGeometry (settings.value ("WideGraphGeom", QRect {45,30,1023,340}).toRect ());
+    geom = settings.value ("WideGraphGeom", QRect {45,30,1023,340}).toRect ();
+    setGeometry (geom);
   }
   SettingsGroup g {&settings, "WideGraph"};
   ui->widePlot->setPlotZero(settings.value("PlotZero", 20).toInt());
@@ -44,6 +46,9 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->widePlot->setBinsPerPixel(nbpp);
   m_waterfallAvg = settings.value("WaterfallAvg",10).toInt();
   ui->waterfallAvgSpinBox->setValue(m_waterfallAvg);
+
+  // Force a real size now, since dataSink2()/spectrumReady (and so the Vertical Waterfall) need it even if this window is never shown.
+  ui->widePlot->ensureSized(w, qMax(100, geom.height()-60));
 }
 
 WideGraph::~WideGraph()

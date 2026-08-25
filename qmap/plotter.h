@@ -83,6 +83,9 @@ public:
   // x-position. Triggers update() to schedule a paintEvent.
   void setDecodeLabels(const QList<WideDecodeLabel>& labels);
 
+  // Forces waterfall pixmap allocation immediately, without waiting on a resizeEvent (see WideGraph's constructor).
+  void ensureSized(int w, int h);
+
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
@@ -99,6 +102,7 @@ private:
 
   void MakeFrequencyStrs();
   void UTCstr();
+  void applySize();   // shared body of resizeEvent()/ensureSized()
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);

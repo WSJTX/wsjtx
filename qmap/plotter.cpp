@@ -57,6 +57,19 @@ QSize CPlotter::sizeHint() const
 void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
 {
   if(!size().isValid()) return;
+  applySize();
+}
+
+// Applies applySize() directly rather than waiting on resizeEvent, which a hidden top-level's children aren't guaranteed to receive before first shown.
+void CPlotter::ensureSized(int w, int h)
+{
+  resize(w, h);
+  if(!size().isValid()) return;
+  applySize();
+}
+
+void CPlotter::applySize()
+{
   bool changed = (m_Size != size());
   if(changed) {
     //if changed, resize pixmaps to new screensize
