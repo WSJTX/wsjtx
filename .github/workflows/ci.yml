@@ -44,7 +44,7 @@ jobs:
       - name: Run CI policy self-tests
         run: |
           .github/scripts/validate-ci-inputs.sh --self-test
-          .github/scripts/detect-ccache-recache.sh --self-test
+          .github/scripts/is-linux-ci-image-input.sh --self-test
           .github/scripts/test-verify-linux-ci-image.sh
           python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
       - id: v
@@ -62,26 +62,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .github/scripts/resolve-linux-ci-image-tag.py
 
-  detect-build-system-changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      recache: ${{ steps.detect.outputs.recache }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 2
-      - id: detect
-        name: Detect build-system changes
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          BEFORE_SHA: ${{ github.event.before }}
-          CURRENT_SHA: ${{ github.sha }}
-          FORCE_RECACHE: ${{ inputs.recache || false }}
-        run: .github/scripts/detect-ccache-recache.sh
-
   # Two-tier CI to conserve Actions minutes. The default path runs one Linux
   # x86_64 smoke leg; sanitizer and broader platform coverage are opt-in.
   #
@@ -98,7 +78,7 @@ jobs:
   # starts, instead of burning them in parallel. `prepare` stays in `needs`
   # for its version output.
   macos:
-    needs: [prepare, detect-build-system-changes, linux]
+    needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -110,11 +90,11 @@ jobs:
       arch: "arm64"
       runner: "macos-15"
       deployment_target: "11.0"
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache || false }}
     secrets: inherit
 
   macos-intel:
-    needs: [prepare, detect-build-system-changes, linux]
+    needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -126,11 +106,11 @@ jobs:
       arch: "x86_64"
       runner: "macos-15-intel"
       deployment_target: "10.13"
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache || false }}
     secrets: inherit
 
   linux:
-    needs: [prepare, detect-build-system-changes]
+    needs: [prepare]
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -138,14 +118,14 @@ jobs:
       arch: "x86_64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       allow_stale_image: true
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache || false }}
       save_ccache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
       validate_fortran_fallback: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
     secrets: inherit
 
   linux-sanitizers:
     name: Linux x86_64 ASan + UBSan
-    needs: [prepare, detect-build-system-changes, linux]
+    needs: [prepare, linux]
     if: >-
       contains(github.event.pull_request.labels.*.name, 'full-ci') ||
       contains(github.event.pull_request.labels.*.name, 'sanitizers')
@@ -155,24 +135,24 @@ jobs:
       sanitizer: asan-ubsan
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       allow_stale_image: true
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache || false }}
       advisory: true
     secrets: inherit
 
   linux-tsan:
     name: Linux x86_64 TSan
-    needs: [prepare, detect-build-system-changes, linux]
+    needs: [prepare, linux]
     if: contains(github.event.pull_request.labels.*.name, 'thread-sanitizer')
     uses: ./.github/workflows/build-linux-sanitizers.yml
     with:
       hamlib_branch: "4.7.2"
       sanitizer: tsan
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache || false }}
       advisory: true
     secrets: inherit
 
   linux-arm:
-    needs: [prepare, detect-build-system-changes, linux]
+    needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -184,11 +164,11 @@ jobs:
       arch: "aarch64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       allow_stale_image: true
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache || false }}
     secrets: inherit
 
   windows:
-    needs: [prepare, detect-build-system-changes, linux]
+    needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -197,5 +177,5 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache || false }}
     secrets: inherit

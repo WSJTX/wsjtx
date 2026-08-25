@@ -62,65 +62,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .github/scripts/resolve-linux-ci-image-tag.py
 
-  detect-build-system-changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      recache: ${{ steps.detect.outputs.recache }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 2
-      - id: detect
-        name: Detect build-system changes
-        shell: bash
-        env:
-          BEFORE_SHA: ${{ github.event.before }}
-          CURRENT_SHA: ${{ github.sha }}
-          FORCE_RECACHE: ${{ inputs.recache || false }}
-        run: |
-          set -euo pipefail
-
-          if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
-            base="$BEFORE_SHA"
-            head="$CURRENT_SHA"
-          else
-            base="${CURRENT_SHA}^"
-            head="$CURRENT_SHA"
-          fi
-
-          recache=false
-          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
-            git fetch --no-tags --depth=1 origin "$base" || true
-          fi
-
-          if git cat-file -e "${base}^{commit}" 2>/dev/null && git cat-file -e "${head}^{commit}" 2>/dev/null; then
-            changed="$(git diff --name-only "$base" "$head")"
-          else
-            echo "::notice::Could not compare $base..$head; forcing ccache recache"
-            changed=""
-            recache=true
-          fi
-
-          while IFS= read -r path; do
-            case "$path" in
-              CMakeLists.txt|*/CMakeLists.txt|*.cmake|cmake/*|CMake/*|.github/workflows/*.yml|.github/actions/build-*/*|.github/scripts/build-*.sh)
-                recache=true
-                ;;
-            esac
-          done <<< "$changed"
-
-          if [ "$FORCE_RECACHE" = "true" ]; then
-            recache=true
-          fi
-
-          echo "Build-system recache: $recache"
-          echo "recache=$recache" >> "$GITHUB_OUTPUT"
-
   # In linux-smoke-first mode, this is both the cheap gate and a normal Linux
   # x64 artifact build. Do not also run linux-x64 for the same dispatch.
   linux-smoke-x64:
-    needs: [prepare, detect-build-system-changes]
+    needs: [prepare]
     if: inputs.mode == 'linux-smoke-first'
     uses: ./.github/workflows/build-linux.yml
     with:
@@ -129,11 +74,11 @@ jobs:
       arch: "x86_64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       save_ccache: true
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache }}
     secrets: inherit
 
   linux-x64:
-    needs: [prepare, detect-build-system-changes]
+    needs: [prepare]
     if: >-
       inputs.mode != 'linux-smoke-first' &&
       (inputs.targets == 'linux-x64' || inputs.targets == 'all')
@@ -144,16 +89,15 @@ jobs:
       arch: "x86_64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       save_ccache: true
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache }}
     secrets: inherit
 
   linux-arm64:
-    needs: [prepare, detect-build-system-changes, linux-smoke-x64]
+    needs: [prepare, linux-smoke-x64]
     if: >-
       always() &&
       !cancelled() &&
       needs.prepare.result == 'success' &&
-      needs.detect-build-system-changes.result == 'success' &&
       (needs.linux-smoke-x64.result == 'success' || needs.linux-smoke-x64.result == 'skipped') &&
       (inputs.targets == 'linux-arm64' || inputs.targets == 'all')
     uses: ./.github/workflows/build-linux.yml
@@ -163,16 +107,15 @@ jobs:
       arch: "aarch64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       save_ccache: true
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache }}
     secrets: inherit
 
   macos-arm64:
-    needs: [prepare, detect-build-system-changes, linux-smoke-x64]
+    needs: [prepare, linux-smoke-x64]
     if: >-
       always() &&
       !cancelled() &&
       needs.prepare.result == 'success' &&
-      needs.detect-build-system-changes.result == 'success' &&
       (needs.linux-smoke-x64.result == 'success' || needs.linux-smoke-x64.result == 'skipped') &&
       (
         inputs.targets == 'macos-arm64' ||
@@ -186,16 +129,15 @@ jobs:
       arch: "arm64"
       runner: "macos-15"
       deployment_target: "11.0"
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache }}
     secrets: inherit
 
   macos-x64:
-    needs: [prepare, detect-build-system-changes, linux-smoke-x64]
+    needs: [prepare, linux-smoke-x64]
     if: >-
       always() &&
       !cancelled() &&
       needs.prepare.result == 'success' &&
-      needs.detect-build-system-changes.result == 'success' &&
       (needs.linux-smoke-x64.result == 'success' || needs.linux-smoke-x64.result == 'skipped') &&
       (inputs.targets == 'macos-x64' || inputs.targets == 'all')
     uses: ./.github/workflows/build-macos.yml
@@ -205,16 +147,15 @@ jobs:
       arch: "x86_64"
       runner: "macos-15-intel"
       deployment_target: "10.13"
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache }}
     secrets: inherit
 
   windows-x64:
-    needs: [prepare, detect-build-system-changes, linux-smoke-x64]
+    needs: [prepare, linux-smoke-x64]
     if: >-
       always() &&
       !cancelled() &&
       needs.prepare.result == 'success' &&
-      needs.detect-build-system-changes.result == 'success' &&
       (needs.linux-smoke-x64.result == 'success' || needs.linux-smoke-x64.result == 'skipped') &&
       (
         inputs.targets == 'windows-x64' ||
@@ -225,5 +166,5 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
-      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
+      recache: ${{ inputs.recache }}
     secrets: inherit

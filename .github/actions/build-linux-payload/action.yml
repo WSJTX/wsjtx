@@ -22,7 +22,7 @@ inputs:
     required: false
     default: "host"
   recache:
-    description: "Force ccache to recompile and refresh cached objects"
+    description: "Manual ccache refresh; ordinary source changes do not enable it"
     required: false
     default: "false"
   save_ccache:

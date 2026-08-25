@@ -6,23 +6,22 @@ on:
     paths:
       - ".github/workflows/ci.yml"
       - ".github/workflows/release.yml"
-      - ".github/workflows/build-linux.yml"
-      - ".github/workflows/build-linux-sanitizers.yml"
-      - ".github/workflows/publish-linux-ci-images.yml"
+      - ".github/images/linux-ci/**"
+      - ".github/scripts/linux-ci-image-config.sh"
+      - ".github/scripts/linux-ci-image-fingerprint.sh"
+      - ".github/scripts/run-apt-get.sh"
+      - ".github/scripts/build-pfunit-linux.sh"
+      - ".github/scripts/build-hamlib-linux.sh"
+      - ".github/scripts/tsan-linux-deps-config.sh"
+      - ".github/scripts/build-qt-tsan-linux.sh"
+      - ".github/scripts/build-boost-tsan-linux.sh"
+      - ".github/scripts/build-hamlib-tsan-linux.sh"
+      - ".github/scripts/verify-linux-ci-image.sh"
+      - ".github/scripts/verify-tsan-deps-linux.sh"
       - ".github/workflows/build-macos.yml"
       - ".github/workflows/build-windows.yml"
-      - ".github/workflows/warm-dependency-caches.yml"
-      - ".github/actions/build-linux-payload/**"
-      - ".github/actions/build-linux-sanitizers/**"
-      - ".github/images/linux-ci/**"
       - ".github/actions/warm-macos-deps/**"
       - ".github/actions/build-windows-deps/**"
-      - ".github/scripts/build-*-linux.sh"
-      - ".github/scripts/tsan-linux-deps-config.sh"
-      - ".github/scripts/linux-ci-image-config.sh"
-      - ".github/scripts/run-apt-get.sh"
-      - ".github/scripts/verify-tsan-deps-linux.sh"
-      - ".github/scripts/linux-ci-image-fingerprint.sh"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
       - ".github/scripts/install-*-macos*.sh"
@@ -65,6 +64,9 @@ jobs:
   detect:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
     outputs:
       linux_images: ${{ steps.detect.outputs.linux_images }}
       retention: ${{ steps.detect.outputs.retention }}
@@ -113,13 +115,14 @@ jobs:
 
           case "$EVENT_NAME" in
             schedule)
-              if [ "$SCHEDULE" = "17 9 1 * *" ]; then
+              retention=true
+              # Refresh the promoted image monthly only when no newer refresh occurred.
+              if [ "$SCHEDULE" = "17 9 1 * *" ] && \
+                python3 .github/scripts/should-refresh-linux-ci-images.py --max-age-days 30; then
                 linux_images=true
-                retention=true
                 include_tsan=true
-              else
+              elif [ "$SCHEDULE" = "23 10 * * 1" ]; then
                 enable_cache_all
-                retention=true
               fi
               ;;
             workflow_dispatch)
@@ -181,18 +184,17 @@ jobs:
                   .github/workflows/ci.yml|.github/workflows/release.yml)
                     enable_cache_all
                     ;;
-                  .github/workflows/warm-dependency-caches.yml|.github/workflows/publish-linux-ci-images.yml|.github/workflows/build-linux.yml|.github/workflows/build-linux-sanitizers.yml|.github/actions/build-linux-payload/*|.github/actions/build-linux-sanitizers/*|.github/images/linux-ci/*|.github/scripts/linux-ci-image-config.sh|.github/scripts/build-pfunit-linux.sh|.github/scripts/build-hamlib-linux.sh|.github/scripts/build-*-tsan-linux.sh|.github/scripts/tsan-linux-deps-config.sh|.github/scripts/verify-tsan-deps-linux.sh)
-                    linux_images=true
-                    ;;
-                  .github/scripts/run-apt-get.sh)
-                    linux_images=true
-                    ;;
                   .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh)
                     windows=true
                     ;;
                   .github/workflows/build-macos.yml|.github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh|.github/scripts/verify-macos-*.sh)
                     macos_arm64=true
                     macos_x86_64=true
+                    ;;
+                  *)
+                    if .github/scripts/is-linux-ci-image-input.sh "$path"; then
+                      linux_images=true
+                    fi
                     ;;
                 esac
               done <<< "$changed"
