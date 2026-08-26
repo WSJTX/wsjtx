@@ -1,6 +1,7 @@
 module jt65_pipeline_callback
 
   use jt65_decode
+  use jt65_mod, only: s1, s3a
   use jt65_test_vectors, only: padded_message
   implicit none
 
@@ -58,6 +59,7 @@ program test_jt65_decode_pipeline
   call test_silence_and_frequency_rejection(samples)
   call test_decoder_reuse(samples, decoder)
   call test_auto_clear_average(samples, decoder)
+  call test_duplicate_average_cursor
   print '(a)', 'JT65 decoder pipeline tests passed'
 
 contains
@@ -247,5 +249,45 @@ contains
     call require(callback_message_count == 0, &
          'auto-clear prevents a previous JT65 average from decoding again')
   end subroutine test_auto_clear_average
+
+  subroutine test_duplicate_average_cursor
+    integer :: nsave, ndepth, neme, nftt, nsum, ndeepave, nQSOProgress
+    integer :: ntrials, naggressive
+    logical :: clear_avg65, ljt65apon
+    character(len=12) :: mycall, hiscall
+    character(len=6) :: hisgrid
+    character(len=22) :: avemsg, deepave
+    real :: qave
+
+    s1=0.0
+    s3a=0.0
+    nsave=0
+    ndepth=3
+    neme=0
+    nftt=-1
+    nsum=-1
+    ndeepave=0
+    nQSOProgress=0
+    ntrials=1000
+    naggressive=5
+    clear_avg65=.true.
+    ljt65apon=.false.
+    mycall='K1ABC       '
+    hiscall='W9XYZ       '
+    hisgrid='FN42  '
+
+    call avg65(1,nsave,1.0,0.0,1,1500,1,100,ndepth,.false.,ntrials, &
+         naggressive,clear_avg65,neme,mycall,hiscall,hisgrid,nftt,avemsg, &
+         qave,deepave,nsum,ndeepave,nQSOProgress,ljt65apon)
+    call require(nsave == 1 .and. nsum == 1, &
+         'first average observation occupies the initial slot')
+
+    nsave=2
+    call avg65(1,nsave,1.0,0.0,1,1500,1,100,ndepth,.false.,ntrials, &
+         naggressive,clear_avg65,neme,mycall,hiscall,hisgrid,nftt,avemsg, &
+         qave,deepave,nsum,ndeepave,nQSOProgress,ljt65apon)
+    call require(nsave == 1 .and. nsum == 1 .and. nftt == 0, &
+         'duplicate average observation does not advance the ring')
+  end subroutine test_duplicate_average_cursor
 
 end program test_jt65_decode_pipeline

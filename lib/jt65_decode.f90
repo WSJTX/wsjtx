@@ -374,6 +374,13 @@ contains
     data first/.true./
     save
 
+    nftt=0
+    avemsg='                      '
+    deepave='                      '
+    qave=0.0
+    deepbest='                      '
+    nfttbest=0
+
     if(first .or. clear_avg65) then
        iutc=-1
        nfsave=0
@@ -389,7 +396,10 @@ contains
 
     do i=1,64
        if(iutc(i).lt.0) exit
-       if(nutc.eq.iutc(i) .and. abs(nfreq-nfsave(i)).le.ntol) go to 10
+       if(nutc.eq.iutc(i) .and. abs(nfreq-nfsave(i)).le.ntol) then
+          nsave=mod(nsave-2+MAXAVE,MAXAVE)+1
+          go to 10
+       endif
     enddo
 
 ! Save data for message averaging
@@ -400,9 +410,6 @@ contains
     nflipsave(nsave)=nflip
     s1save(-255:256,1:126,nsave)=s1
     s3save(1:64,1:63,nsave)=s3a
-    avemsg='                      '
-    deepbest='                      '
-    nfttbest=0
     
 10  syncsum=0.
     dtsum=0.
