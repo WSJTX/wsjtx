@@ -149,6 +149,9 @@ jobs:
       hamlib_branch: "4.7.2"
       arch: "armhf"
       image_tag: ${{ needs.prepare.outputs.armhf_image_tag }}
+      # armhf images are promoted separately from routine Linux recipe refreshes.
+      # Retained images remain fully verified, and stale recipes cannot save ccache.
+      allow_stale_image: true
       save_ccache: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}

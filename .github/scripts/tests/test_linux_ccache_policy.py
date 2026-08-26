@@ -70,6 +70,13 @@ class LinuxCcachePolicyTests(unittest.TestCase):
             workflow,
         )
 
+    def test_release_accepts_separately_promoted_armhf_recipe(self):
+        workflow = self.read(".github/workflows/release.yml")
+        armhf_job = workflow.split("  linux-armhf:\n", 1)[1].split(
+            "\n  windows:\n", 1
+        )[0]
+        self.assertIn("allow_stale_image: true", armhf_job)
+
 
 if __name__ == "__main__":
     unittest.main()
