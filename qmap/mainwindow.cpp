@@ -1240,6 +1240,8 @@ void MainWindow::guiUpdate()
   }
 
   m_wide_graph_window->updateFreqLabel();
+  m_wide_graph_window->pruneDecodeLabels(nsec);
+  if (m_vert_waterfall_window) m_vert_waterfall_window->pruneDecodeLabels(nsec);
 
   if(m_startAnother and !m_bDiskDatBusy) {
     m_startAnother=false;

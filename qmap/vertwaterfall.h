@@ -19,6 +19,7 @@ public:
   ~VertWaterfall();
 
   void saveSettings();
+  void pruneDecodeLabels(int nowSeconds);
 
 public slots:
   void dataSinkVert(const float swide[], int n, double startFreqKHz, double fSpanKHz,

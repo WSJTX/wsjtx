@@ -40,6 +40,7 @@ public:
   void   enableSetRxHardware(bool b);
 
   void   addDecodeLabel(QMapDecodeRecord const& record);
+  void   pruneDecodeLabels(int nowSeconds);
 
   qint32 m_qsoFreq;
 

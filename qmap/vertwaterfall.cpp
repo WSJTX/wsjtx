@@ -59,6 +59,15 @@ void VertWaterfall::addDecodeLabel(QMapDecodeRecord const& record)
   ui->vertPlot->setDecodeLabels(m_decodeLabels);
 }
 
+void VertWaterfall::pruneDecodeLabels(int nowSeconds)
+{
+  auto const previousSize = m_decodeLabels.size();
+  pruneQMapDecodeLabels(m_decodeLabels, nowSeconds);
+  if (m_decodeLabels.size() != previousSize) {
+    ui->vertPlot->setDecodeLabels(m_decodeLabels);
+  }
+}
+
 void VertWaterfall::on_cbShowCallsigns_toggled(bool checked)
 {
   m_decodeLabelsEnabled = checked;

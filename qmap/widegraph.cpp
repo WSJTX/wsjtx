@@ -158,6 +158,15 @@ void WideGraph::addDecodeLabel(QMapDecodeRecord const& record)
   if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
 }
 
+void WideGraph::pruneDecodeLabels(int nowSeconds)
+{
+  auto const previousSize = m_decodeLabels.size();
+  pruneQMapDecodeLabels(m_decodeLabels, nowSeconds);
+  if (m_decodeLabels.size() != previousSize && ui && ui->widePlot) {
+    ui->widePlot->setDecodeLabels(m_decodeLabels);
+  }
+}
+
 void WideGraph::on_waterfallAvgSpinBox_valueChanged(int n)
 {
   m_waterfallAvg = n;
