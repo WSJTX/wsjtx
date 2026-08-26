@@ -33,7 +33,6 @@ protected:
 
 private slots:
   void on_cbShowCallsigns_toggled(bool checked);
-  void vertDecodeLabelClicked(QByteArray decodeRow, bool doubleClick);
 
 private:
   Ui::VertWaterfall * ui;

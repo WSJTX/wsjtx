@@ -55,7 +55,6 @@ signals:
 
 public slots:
   void wideFreezeDecode(int n);
-  void wideDecodeLabelClicked(QByteArray decodeRow, bool doubleClick);
 
 protected:
   virtual void keyPressEvent( QKeyEvent *e );

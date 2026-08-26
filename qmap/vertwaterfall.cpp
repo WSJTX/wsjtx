@@ -21,13 +21,8 @@ VertWaterfall::VertWaterfall (QString const& settings_filename, QWidget * parent
   }
   ui->cbShowCallsigns->setChecked (m_decodeLabelsEnabled);
 
-  connect (ui->vertPlot, SIGNAL (decodeLabelClicked (QByteArray,bool)), this,
-           SLOT (vertDecodeLabelClicked (QByteArray,bool)));
-}
-
-void VertWaterfall::vertDecodeLabelClicked(QByteArray decodeRow, bool doubleClick)
-{
-  emit decodeLabelClicked2(decodeRow, doubleClick);
+  connect (ui->vertPlot, &CVertPlotter::decodeLabelClicked,
+           this, &VertWaterfall::decodeLabelClicked2);
 }
 
 VertWaterfall::~VertWaterfall()
