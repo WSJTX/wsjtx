@@ -8,6 +8,7 @@
 #include <QTemporaryFile>
 #include <QVector>
 
+#include <algorithm>
 #include <utility>
 
 #include "Audio/AudioDevice.hpp"
@@ -22,6 +23,15 @@
 namespace
 {
   dec_data_t test_dec_data {};
+
+  void clear_dec_data (dec_data_t& data)
+  {
+    std::fill_n (data.ss, sizeof data.ss / sizeof *data.ss, 0.F);
+    std::fill_n (data.savg, sizeof data.savg / sizeof *data.savg, 0.F);
+    std::fill_n (data.sred, sizeof data.sred / sizeof *data.sred, 0.F);
+    std::fill_n (data.d2, sizeof data.d2 / sizeof *data.d2, 0);
+    data.params = {};
+  }
 }
 
 dec_data_t& dec_data = test_dec_data;
@@ -115,7 +125,7 @@ private:
   Q_SLOT void init ()
   {
     set_dec_data_input_blocked (false);
-    dec_data = {};
+    clear_dec_data (dec_data);
   }
 
   Q_SLOT void cleanup ()
