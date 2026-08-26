@@ -2,6 +2,7 @@ set (qmap_CXXSRCS
   about.cpp
   astro.cpp
   devsetup.cpp
+  decode_click_coalescer.cpp
   displaytext.cpp
   getfile.cpp
   livecq_parser.cpp

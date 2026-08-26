@@ -15,6 +15,7 @@
 #include <QList>
 #include <cstring>
 #include "commons.h"
+#include "decode_click_coalescer.h"
 #include "decode_label.h"
 
 #define VERT_DIVS 7	//specify grid screen divisions
@@ -86,7 +87,7 @@ public:
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
-  void decodeLabelClicked(QByteArray decodeRow, bool doubleClick);
+  void decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture);
 
 protected:
   //re-implemented widget event handlers
@@ -98,7 +99,7 @@ private:
 
   void MakeFrequencyStrs();
   void UTCstr();
-  void applySize();   // shared body of resizeEvent()/ensureSized()
+  void applySize();
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);
@@ -113,7 +114,7 @@ private:
     QRect rect;
   };
   QVector<DecodeLabelRect> layoutDecodeLabels();
-  bool hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow);
+  bool hitTestDecodeLabel(QPoint const& pos, QMapDecodeLabel& label);
 
   // Raw wideband-row snapshots (post color-mapping input, pre color-map),
   // front=newest, so a resize can repaint m_WaterfallPixmap from history
@@ -133,6 +134,7 @@ private:
   static constexpr int kMaxWideHistory = 2048;
 
   QList<QMapDecodeLabel> m_decodeLabels;
+  DecodeClickCoalescer m_decodeClickCoalescer;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;

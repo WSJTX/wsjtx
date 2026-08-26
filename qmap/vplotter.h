@@ -17,6 +17,7 @@
 #include <QRect>
 #include <QFont>
 
+#include "decode_click_coalescer.h"
 #include "decode_label.h"
 
 class QMouseEvent;
@@ -42,7 +43,7 @@ public:
   void setDecodeLabels(const QList<QMapDecodeLabel>& labels);
 
 signals:
-  void decodeLabelClicked(QByteArray decodeRow, bool doubleClick);
+  void decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture);
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -80,7 +81,7 @@ private:
   };
   QVector<LabelLayout> computeLayout(QFontMetrics const& fm, int minSpacing) const;
   QFont labelFont() const;
-  bool  hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow);
+  bool  hitTestDecodeLabel(QPoint const& pos, QMapDecodeLabel& label);
 
   QColor  m_ColorTbl[256];
   QPixmap m_waterfallPixmap;   // spectrogram: x=time (newest at right), y=frequency (high at top)
@@ -96,6 +97,7 @@ private:
   double  m_freq0;             // frequency of the first (bottom-most) tick
 
   QList<QMapDecodeLabel> m_decodeLabels;
+  DecodeClickCoalescer m_decodeClickCoalescer;
 };
 
 #endif // VPLOTTER_H

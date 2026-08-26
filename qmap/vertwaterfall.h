@@ -10,7 +10,6 @@ namespace Ui {
   class VertWaterfall;
 }
 
-// Optional alternative to the Horizontal Waterfall.
 class VertWaterfall : public QDialog
 {
   Q_OBJECT
@@ -27,7 +26,7 @@ public slots:
   void addDecodeLabel(QMapDecodeRecord const& record);
 
 signals:
-  void decodeLabelClicked2(QByteArray decodeRow, bool doubleClick);
+  void decodeLabelClicked2(QByteArray decodeRow, DecodeClickGesture gesture);
 
 protected:
   void closeEvent(QCloseEvent * event) override;

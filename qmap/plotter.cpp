@@ -9,7 +9,10 @@
 
 
 CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
-  QFrame(parent)
+  QFrame(parent),
+  m_decodeClickCoalescer {this, [this] (QByteArray const& decodeRow, DecodeClickGesture gesture) {
+    emit decodeLabelClicked (decodeRow, gesture);
+  }}
 {
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
@@ -635,11 +638,11 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
   }
 }
 
-bool CPlotter::hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow)
+bool CPlotter::hitTestDecodeLabel(QPoint const& pos, QMapDecodeLabel& label)
 {
   for (auto const& lr : layoutDecodeLabels()) {
     if (lr.rect.contains(pos)) {
-      decodeRow = lr.label.raw;
+      label = lr.label;
       return true;
     }
   }
@@ -757,8 +760,10 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
   if(y < h+30) {                                      // Wideband waterfall
     if(button==1) {
       setFQSO(x,false);
-      QByteArray decodeRow;
-      if(hitTestDecodeLabel(QPoint(x,y), decodeRow)) emit decodeLabelClicked(decodeRow, false);
+      QMapDecodeLabel label;
+      if(hitTestDecodeLabel(QPoint(x,y), label)) {
+        m_decodeClickCoalescer.press(label.callsign, label.raw);
+      }
       if(event->modifiers() & Qt::ControlModifier) emit freezeDecode1(3);
     }
     if(button==2 and !m_bLockTxRx) {
@@ -785,8 +790,10 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
   if(y < h+30) {
     m_DF=0;
     setFQSO(x,false);
-    QByteArray decodeRow;
-    if(hitTestDecodeLabel(QPoint(x,y), decodeRow)) emit decodeLabelClicked(decodeRow, true);
+    QMapDecodeLabel label;
+    if(hitTestDecodeLabel(QPoint(x,y), label)) {
+      m_decodeClickCoalescer.doubleClick(label.callsign, label.raw);
+    }
     emit freezeDecode1(2);
   } else {
     float f = m_ZoomStartFreq + x*m_fSample/32768.0;

@@ -26,6 +26,7 @@ class QTimer;
 class Astro;
 class WideGraph;
 class VertWaterfall;
+enum class DecodeClickGesture;
 
 class MainWindow : public QMainWindow
 {
@@ -43,7 +44,7 @@ public slots:
   void diskDat(int iret);
   void decoderFinished();
   void freezeDecode(int n);
-  void decodeLabelClicked(QByteArray decodeRow, bool doubleClick);
+  void decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture);
   void guiUpdate();
 
 private:

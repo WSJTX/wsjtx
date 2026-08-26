@@ -945,13 +945,17 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
   }
 }
 
-void MainWindow::decodeLabelClicked(QByteArray decodeRow, bool doubleClick)
+void MainWindow::decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture)
 {
   if (decodeRow.size () != static_cast<int> (QMapDecodeRowSize)) return;
   mem_qmap.lock();
   std::memcpy(ipc_wsjtx->click.selectedDecode, decodeRow.constData(), QMapDecodeRowSize);
-  ipc_wsjtx->click.action = doubleClick ? QMapClickAction::SelectAndEnableTx
-                                       : QMapClickAction::Select;
+  if (gesture == DecodeClickGesture::Press) ipc_wsjtx->click.action = QMapClickAction::Disarm;
+  else if (gesture == DecodeClickGesture::SingleClick) {
+    ipc_wsjtx->click.action = QMapClickAction::Select;
+  } else {
+    ipc_wsjtx->click.action = QMapClickAction::SelectAndEnableTx;
+  }
   mem_qmap.unlock();
 }
 

@@ -7,7 +7,10 @@
 #include <QtMath>
 
 CVertPlotter::CVertPlotter(QWidget *parent) :
-  QFrame(parent)
+  QFrame(parent),
+  m_decodeClickCoalescer {this, [this] (QByteArray const& decodeRow, DecodeClickGesture gesture) {
+    emit decodeLabelClicked (decodeRow, gesture);
+  }}
 {
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setAttribute(Qt::WA_OpaquePaintEvent, false);
@@ -244,12 +247,12 @@ QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(QFontMetrics cons
   return out;
 }
 
-bool CVertPlotter::hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow)
+bool CVertPlotter::hitTestDecodeLabel(QPoint const& pos, QMapDecodeLabel& label)
 {
   QFontMetrics fm(labelFont());
   for (auto const& ll : computeLayout(fm, fm.height() + 2)) {
     if (ll.rect.contains(pos)) {
-      decodeRow = ll.label.raw;
+      label = ll.label;
       return true;
     }
   }
@@ -259,15 +262,19 @@ bool CVertPlotter::hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow)
 void CVertPlotter::mousePressEvent(QMouseEvent *event)
 {
   if (event->button() != Qt::LeftButton) return;
-  QByteArray decodeRow;
-  if (hitTestDecodeLabel(event->pos(), decodeRow)) emit decodeLabelClicked(decodeRow, false);
+  QMapDecodeLabel label;
+  if (hitTestDecodeLabel(event->pos(), label)) {
+    m_decodeClickCoalescer.press(label.callsign, label.raw);
+  }
 }
 
 void CVertPlotter::mouseDoubleClickEvent(QMouseEvent *event)
 {
   if (event->button() != Qt::LeftButton) return;
-  QByteArray decodeRow;
-  if (hitTestDecodeLabel(event->pos(), decodeRow)) emit decodeLabelClicked(decodeRow, true);
+  QMapDecodeLabel label;
+  if (hitTestDecodeLabel(event->pos(), label)) {
+    m_decodeClickCoalescer.doubleClick(label.callsign, label.raw);
+  }
 }
 
 void CVertPlotter::paintEvent(QPaintEvent*)

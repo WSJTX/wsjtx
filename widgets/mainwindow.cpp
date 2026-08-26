@@ -7291,21 +7291,26 @@ void MainWindow::guiUpdate()
 
   {
     QByteArray qmap_decodeRow;
-    bool qmap_doubleClick=false;
+    QMapClickAction qmap_clickAction=QMapClickAction::None;
     bool qmap_hasClickRequest=false;
     mem_qmap.lock();
     if (ipc_qmap->click.action != QMapClickAction::None) {
       qmap_decodeRow = QByteArray {ipc_qmap->click.selectedDecode,
                                   static_cast<int> (QMapDecodeRowSize)};
-      qmap_doubleClick = ipc_qmap->click.action == QMapClickAction::SelectAndEnableTx;
+      qmap_clickAction = ipc_qmap->click.action;
       ipc_qmap->click.action = QMapClickAction::None;
       qmap_hasClickRequest = true;
     }
     mem_qmap.unlock();
     // UI and rig updates must not hold the shared-memory lock used by QMAP's decoder.
-    if (qmap_hasClickRequest) {
+    if (qmap_clickAction == QMapClickAction::Disarm) {
+      if(m_mode=="Q65" && SpecOp::NONE==m_specOp && ui->autoButton->isChecked()) {
+        ui->autoButton->click();
+      }
+    } else if (qmap_hasClickRequest) {
       auto const record = parseQMapDecodeRecord (qmap_decodeRow);
-      if (record) qmapCallSandP (*record, qmap_doubleClick);
+      if (record) qmapCallSandP (*record,
+        qmap_clickAction == QMapClickAction::SelectAndEnableTx);
     }
   }
 
