@@ -9,6 +9,8 @@ on:
       - ".github/images/linux-ci/**"
       - ".github/scripts/linux-ci-image-config.sh"
       - ".github/scripts/linux-ci-image-fingerprint.sh"
+      - ".github/scripts/linux-ci-image-inputs.sh"
+      - ".github/scripts/linux-ccache-compiler-signature.sh"
       - ".github/scripts/run-apt-get.sh"
       - ".github/scripts/build-pfunit-linux.sh"
       - ".github/scripts/build-hamlib-linux.sh"
@@ -73,7 +75,7 @@ jobs:
       windows: ${{ steps.detect.outputs.windows }}
       macos_arm64: ${{ steps.detect.outputs.macos_arm64 }}
       macos_x86_64: ${{ steps.detect.outputs.macos_x86_64 }}
-      include_tsan: ${{ steps.detect.outputs.include_tsan }}
+      image_set: ${{ steps.detect.outputs.image_set }}
       hamlib_branch: ${{ steps.detect.outputs.hamlib_branch }}
     steps:
       - uses: actions/checkout@v7
@@ -94,12 +96,12 @@ jobs:
           set -euo pipefail
           .github/scripts/validate-ci-inputs.sh
 
-          linux_images=false
+          normal_images=false
+          tsan_images=false
           retention=false
           windows=false
           macos_arm64=false
           macos_x86_64=false
-          include_tsan=false
 
           enable_cache_all() {
             windows=true
@@ -108,7 +110,7 @@ jobs:
           }
 
           enable_all() {
-            linux_images=true
+            normal_images=true
             retention=true
             enable_cache_all
           }
@@ -119,8 +121,8 @@ jobs:
               # Refresh the promoted image monthly only when no newer refresh occurred.
               if [ "$SCHEDULE" = "17 9 1 * *" ] && \
                 python3 .github/scripts/should-refresh-linux-ci-images.py --max-age-days 30; then
-                linux_images=true
-                include_tsan=true
+                normal_images=true
+                tsan_images=true
               elif [ "$SCHEDULE" = "23 10 * * 1" ]; then
                 enable_cache_all
               fi
@@ -131,11 +133,10 @@ jobs:
                   enable_all
                   ;;
                 linux|linux-images)
-                  linux_images=true
+                  normal_images=true
                   ;;
                 linux-tsan)
-                  linux_images=true
-                  include_tsan=true
+                  tsan_images=true
                   ;;
                 linux-retention)
                   retention=true
@@ -176,6 +177,7 @@ jobs:
                 echo "::notice::Could not compare $base..$CURRENT_SHA; warming all dependency caches"
                 changed=""
                 enable_all
+                tsan_images=true
               fi
 
               while IFS= read -r path; do
@@ -192,9 +194,18 @@ jobs:
                     macos_x86_64=true
                     ;;
                   *)
-                    if .github/scripts/is-linux-ci-image-input.sh "$path"; then
-                      linux_images=true
-                    fi
+                    case "$(.github/scripts/is-linux-ci-image-input.sh --classify "$path")" in
+                      normal)
+                        normal_images=true
+                        ;;
+                      tsan)
+                        tsan_images=true
+                        ;;
+                      normal-and-tsan)
+                        normal_images=true
+                        tsan_images=true
+                        ;;
+                    esac
                     ;;
                 esac
               done <<< "$changed"
@@ -205,13 +216,27 @@ jobs:
               ;;
           esac
 
+          if [ "$normal_images" = true ] && [ "$tsan_images" = true ]; then
+            image_set=normal-and-tsan
+          elif [ "$normal_images" = true ]; then
+            image_set=normal
+          elif [ "$tsan_images" = true ]; then
+            image_set=tsan
+          else
+            image_set=none
+          fi
+          linux_images=false
+          if [ "$image_set" != none ]; then
+            linux_images=true
+          fi
+
           {
             echo "linux_images=$linux_images"
             echo "retention=$retention"
             echo "windows=$windows"
             echo "macos_arm64=$macos_arm64"
             echo "macos_x86_64=$macos_x86_64"
-            echo "include_tsan=$include_tsan"
+            echo "image_set=$image_set"
             echo "hamlib_branch=$HAMLIB_BRANCH"
           } >> "$GITHUB_OUTPUT"
 
@@ -220,8 +245,7 @@ jobs:
             echo
             echo "| Target | Enabled |"
             echo "| --- | --- |"
-            echo "| Linux GHCR images | $linux_images |"
-            echo "| TSan GHCR image | $include_tsan |"
+            echo "| Linux GHCR image set | $image_set |"
             echo "| Linux GHCR retention | $retention |"
             echo "| Windows x86_64 | $windows |"
             echo "| macOS arm64 | $macos_arm64 |"
@@ -237,7 +261,7 @@ jobs:
       packages: write
     with:
       promote: true
-      include_tsan: ${{ needs.detect.outputs.include_tsan == 'true' }}
+      image_set: ${{ needs.detect.outputs.image_set }}
     secrets: inherit
 
   retain-linux-images:

@@ -23,11 +23,11 @@ on:
         required: false
         type: boolean
         default: false
-      include_tsan:
-        description: "Build and publish the expensive TSan dependency image during refresh"
+      image_set:
+        description: "Image cohort: normal, tsan, or normal-and-tsan"
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: "normal"
   workflow_dispatch:
     inputs:
       mode:
@@ -53,11 +53,15 @@ on:
         required: false
         type: boolean
         default: false
-      include_tsan:
-        description: "Build and publish the expensive TSan dependency image during refresh"
-        required: false
-        type: boolean
-        default: false
+      image_set:
+        description: "Images to publish or roll back"
+        required: true
+        type: choice
+        options:
+          - normal
+          - tsan
+          - normal-and-tsan
+        default: normal
 
 permissions:
   contents: read
@@ -76,6 +80,10 @@ jobs:
         env:
           MODE: ${{ inputs.mode }}
           ROLLBACK_TAG: ${{ inputs.rollback_tag }}
+          IMAGE_SET: ${{ inputs.image_set }}
+          INCLUDE_ARMHF: ${{ inputs.include_armhf }}
+          PROMOTE: ${{ inputs.promote }}
+          REQUEST_REF: ${{ github.ref }}
         shell: bash
         run: |
           case "$MODE" in
@@ -97,6 +105,25 @@ jobs:
               ;;
           esac
 
+          case "$IMAGE_SET" in
+            normal|tsan|normal-and-tsan) ;;
+            *)
+              echo "::error::Unsupported image_set: $IMAGE_SET"
+              exit 2
+              ;;
+          esac
+
+          if [ "$IMAGE_SET" = tsan ] && [ "$INCLUDE_ARMHF" = true ]; then
+            echo "::error::include_armhf is valid only when normal images are selected"
+            exit 2
+          fi
+
+          if { [ "$MODE" = rollback ] || [ "$PROMOTE" = true ]; } && \
+            [ "$REQUEST_REF" != refs/heads/develop ]; then
+            echo "::error::Promotion and rollback must run from refs/heads/develop"
+            exit 2
+          fi
+
   metadata:
     if: inputs.mode != 'rollback'
     needs: validate-inputs
@@ -116,27 +143,34 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: metadata
+        env:
+          IMAGE_SET: ${{ inputs.image_set }}
         shell: bash
         run: |
           created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           date_tag="$(date -u +%Y%m%d)"
           version="$(awk '/^[[:space:]]*VERSION[[:space:]]+[0-9]/{print $2; exit}' CMakeLists.txt | cut -d. -f1-3)"
-          . .github/scripts/linux-ci-image-config.sh
-          . .github/scripts/tsan-linux-deps-config.sh
           {
             echo "build_tag=build-${date_tag}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             echo "candidate_tag=candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             echo "created=$created"
             echo "version=$version"
-            echo "normal_hamlib_ref=$LINUX_HAMLIB_REF"
-            echo "tsan_hamlib_ref=$TSAN_HAMLIB_REF"
-            echo "normal_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-noble)"
-            echo "normal_bookworm_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-bookworm)"
-            echo "tsan_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh tsan-noble)"
             echo "refresh_epoch=$(date -u +%Y-%m)"
+            if [ "$IMAGE_SET" != tsan ]; then
+              . .github/scripts/linux-ci-image-config.sh
+              echo "normal_hamlib_ref=$LINUX_HAMLIB_REF"
+              echo "normal_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-noble)"
+              echo "normal_bookworm_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-bookworm)"
+            fi
+            if [ "$IMAGE_SET" != normal ]; then
+              . .github/scripts/tsan-linux-deps-config.sh
+              echo "tsan_hamlib_ref=$TSAN_HAMLIB_REF"
+              echo "tsan_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh tsan-noble)"
+            fi
           } >> "$GITHUB_OUTPUT"
 
   build-normal:
+    if: inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan'
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -173,7 +207,7 @@ jobs:
           cache-to: type=inline
 
   build-tsan:
-    if: inputs.include_tsan
+    if: inputs.image_set == 'tsan' || inputs.image_set == 'normal-and-tsan'
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 240
@@ -210,6 +244,7 @@ jobs:
           cache-to: type=inline
 
   build-arm64:
+    if: inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan'
     needs: metadata
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
@@ -246,7 +281,9 @@ jobs:
           cache-to: type=inline
 
   build-armv7:
-    if: inputs.include_armhf
+    if: >-
+      inputs.include_armhf &&
+      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs: metadata
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
@@ -285,19 +322,43 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable
           cache-to: type=inline
 
+  warm-normal-ccache:
+    if: >-
+      inputs.promote &&
+      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+    needs:
+      - metadata
+      - build-normal
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
+      arch: x86_64
+      image_tag: ${{ needs.metadata.outputs.build_tag }}
+      allow_stale_image: false
+      recache: false
+      save_ccache: true
+    secrets: inherit
+
   promote:
     if: >-
       always() && inputs.mode == 'refresh' && inputs.promote &&
-      needs.build-normal.result == 'success' &&
-      needs.build-arm64.result == 'success' &&
-      (inputs.include_tsan == false || needs.build-tsan.result == 'success') &&
-      (inputs.include_armhf == false || needs.build-armv7.result == 'success')
+      (inputs.image_set == 'tsan' ||
+       (needs.build-normal.result == 'success' &&
+        needs.build-arm64.result == 'success' &&
+        needs.warm-normal-ccache.result == 'success' &&
+        (inputs.include_armhf == false || needs.build-armv7.result == 'success'))) &&
+      (inputs.image_set == 'normal' || needs.build-tsan.result == 'success')
     needs:
       - metadata
       - build-normal
       - build-tsan
       - build-arm64
       - build-armv7
+      - warm-normal-ccache
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -311,43 +372,47 @@ jobs:
         env:
           VALIDATED_TAG: validated-${{ needs.metadata.outputs.build_tag }}
           INCLUDE_ARMHF: ${{ inputs.include_armhf }}
-          INCLUDE_TSAN: ${{ inputs.include_tsan }}
+          IMAGE_SET: ${{ inputs.image_set }}
         shell: bash
         run: |
-          docker buildx imagetools create --prefer-index=false \
-            --tag "ghcr.io/wsjtx/wsjtx-internal/linux-noble:${VALIDATED_TAG}" \
-            ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
-          if [ "$INCLUDE_TSAN" = true ]; then
+          if [ "$IMAGE_SET" != tsan ]; then
+            docker buildx imagetools create --prefer-index=false \
+              --tag "ghcr.io/wsjtx/wsjtx-internal/linux-noble:${VALIDATED_TAG}" \
+              ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
+            docker buildx imagetools create --prefer-index=false \
+              --tag "ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${VALIDATED_TAG}" \
+              ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
+            if [ "$INCLUDE_ARMHF" = true ]; then
+              docker buildx imagetools create --prefer-index=false \
+                --tag "ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${VALIDATED_TAG}" \
+                ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
+            fi
+          fi
+          if [ "$IMAGE_SET" != normal ]; then
             docker buildx imagetools create --prefer-index=false \
               --tag "ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${VALIDATED_TAG}" \
               ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble@${{ needs.build-tsan.outputs.digest }}
           fi
-          docker buildx imagetools create --prefer-index=false \
-            --tag "ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${VALIDATED_TAG}" \
-            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
-          if [ "$INCLUDE_ARMHF" = true ]; then
-            docker buildx imagetools create --prefer-index=false \
-              --tag "ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${VALIDATED_TAG}" \
-              ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
-          fi
 
-          # linux-noble:stable is the generation pointer and moves last.
-          if [ "$INCLUDE_TSAN" = true ]; then
+          if [ "$IMAGE_SET" != normal ]; then
             docker buildx imagetools create --prefer-index=false \
               --tag ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:stable \
               ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble@${{ needs.build-tsan.outputs.digest }}
           fi
-          docker buildx imagetools create --prefer-index=false \
-            --tag ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:stable \
-            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
-          if [ "$INCLUDE_ARMHF" = true ]; then
+          if [ "$IMAGE_SET" != tsan ]; then
             docker buildx imagetools create --prefer-index=false \
-              --tag ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable \
-              ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
+              --tag ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:stable \
+              ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
+            if [ "$INCLUDE_ARMHF" = true ]; then
+              docker buildx imagetools create --prefer-index=false \
+                --tag ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable \
+                ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
+            fi
+            # linux-noble:stable moves last within the normal image cohort.
+            docker buildx imagetools create --prefer-index=false \
+              --tag ghcr.io/wsjtx/wsjtx-internal/linux-noble:stable \
+              ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
           fi
-          docker buildx imagetools create --prefer-index=false \
-            --tag ghcr.io/wsjtx/wsjtx-internal/linux-noble:stable \
-            ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
 
   rollback:
     if: inputs.mode == 'rollback'
@@ -365,53 +430,35 @@ jobs:
         env:
           ROLLBACK_TAG: ${{ inputs.rollback_tag }}
           INCLUDE_ARMHF: ${{ inputs.include_armhf }}
-          INCLUDE_TSAN: ${{ inputs.include_tsan }}
+          IMAGE_SET: ${{ inputs.image_set }}
         shell: bash
         run: |
-          tsan_available=false
-          if docker buildx imagetools inspect \
-              "ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${ROLLBACK_TAG}" \
-              >/dev/null 2>&1; then
-            tsan_available=true
-          elif [ "$INCLUDE_TSAN" = true ]; then
-            echo "::error::Requested TSan rollback generation is not present: ${ROLLBACK_TAG}"
-            exit 1
-          else
-            echo "::notice::Rollback generation has no TSan member; retaining the current TSan stable image"
+          packages=()
+          stable_packages=()
+          if [ "$IMAGE_SET" != tsan ]; then
+            packages+=(linux-noble linux-arm64-bookworm)
+            stable_packages+=(linux-arm64-bookworm)
+            if [ "$INCLUDE_ARMHF" = true ]; then
+              packages+=(linux-armv7-bookworm)
+              stable_packages+=(linux-armv7-bookworm)
+            fi
+            # linux-noble:stable moves last within the normal image cohort.
+            stable_packages+=(linux-noble)
           fi
-
-          armhf_available=false
-          if docker buildx imagetools inspect \
-              "ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${ROLLBACK_TAG}" \
-              >/dev/null 2>&1; then
-            armhf_available=true
-          elif [ "$INCLUDE_ARMHF" = true ]; then
-            echo "::error::Requested armhf rollback generation is not present: ${ROLLBACK_TAG}"
-            exit 1
-          else
-            echo "::notice::Rollback generation has no armhf member; retaining the current armhf stable image"
-          fi
-
-          packages=(linux-noble linux-arm64-bookworm)
-          if [ "$tsan_available" = true ]; then
+          if [ "$IMAGE_SET" != normal ]; then
             packages+=(linux-tsan-noble)
+            if [ "$IMAGE_SET" = tsan ]; then
+              stable_packages=(linux-tsan-noble)
+            else
+              stable_packages=(linux-tsan-noble "${stable_packages[@]}")
+            fi
           fi
-          if [ "$armhf_available" = true ]; then
-            packages+=(linux-armv7-bookworm)
-          fi
+
           for package in "${packages[@]}"; do
             docker buildx imagetools inspect \
               "ghcr.io/wsjtx/wsjtx-internal/${package}:${ROLLBACK_TAG}" >/dev/null
           done
 
-          # The pointer moves last, so consumers see either complete generation.
-          stable_packages=(linux-arm64-bookworm linux-noble)
-          if [ "$tsan_available" = true ]; then
-            stable_packages=(linux-tsan-noble linux-arm64-bookworm linux-noble)
-          fi
-          if [ "$armhf_available" = true ]; then
-            stable_packages=(linux-tsan-noble linux-arm64-bookworm linux-armv7-bookworm linux-noble)
-          fi
           for package in "${stable_packages[@]}"; do
             docker buildx imagetools create --prefer-index=false \
               --tag "ghcr.io/wsjtx/wsjtx-internal/${package}:stable" \

@@ -76,7 +76,7 @@ def resolve_tsan(client: GitHubPackagesClient) -> str:
         raise RuntimeError(
             "No promoted TSan Linux CI image generation is available: "
             "linux-tsan-noble:stable is missing. Publish an image with "
-            "include_tsan=true before running the TSan workflow."
+            "image_set=tsan before running the TSan workflow."
         )
     if len(stable) != 1:
         raise RuntimeError(
