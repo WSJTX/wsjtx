@@ -1,7 +1,7 @@
 #ifndef COMMONS_H
 #define COMMONS_H
 
-#include "decode_ipc.h"
+#include "qmap_ipc.h"
 
 #define NFFT 32768
 

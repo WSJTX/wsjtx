@@ -42,6 +42,10 @@ static_assert (offsetof (QMapClickMailbox, action) == 12,
                "QMAP click request offset changed");
 static_assert (sizeof (QMapClickMailbox) == 16,
                "QMAP click mailbox size changed");
+static_assert (std::is_standard_layout<QMapSharedMemory>::value,
+               "QMAP shared memory must have a stable field layout");
+static_assert (std::is_trivially_copyable<QMapSharedMemory>::value,
+               "QMAP shared memory must support byte-for-byte copying");
 static_assert (offsetof (QMapSharedMemory, decodes) == 0,
                "QMAP decode block must start the shared segment");
 static_assert (offsetof (QMapSharedMemory, click) == sizeof (QMapDecodeBlock),

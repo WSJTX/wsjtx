@@ -77,6 +77,7 @@
 #include "Detector/Detector.hpp"
 #include "DecDataMutex.hpp"
 #include "DecoderIpc.hpp"
+#include "qmap/qmap_ipc.h"
 #include "TxStartPolicy.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "ActiveStationList.hpp"
@@ -119,7 +120,6 @@
 #include "ui_mainwindow.h"
 #include "qmap/decode_ipc.h"
 #include "qmap/shared_memory_key.h"
-#include "qmap/qmap_ipc.h"
 #include "moc_mainwindow.cpp"
 #include "MessageFilter.hpp"
 #include "MessageFilterLogic.hpp"
@@ -447,7 +447,7 @@ QString m_hisCall0 = "";
 QString earlyDecodes = "";  //ft8md
 
 QSharedMemory mem_qmap;                     //Memory segment to be shared (optionally) with QMAP
-qmap_decode_ipc::DecodeRows qmapcom;
+QMapDecodeBlock qmapcom {};
 QMapSharedMemory * ipc_qmap;
 
 namespace
@@ -1738,7 +1738,7 @@ MainWindow::~MainWindow()
   m_saveWAVSynchronizer.waitForFinished ();
   m_saveWAVSynchronizer.clearFutures ();
   remove_child_from_event_filter (this);
-  memset(ipc_qmap,0,qmap_decode_ipc::shared_memory_size); //Zero QMAP shared memory
+  memset(ipc_qmap,0,QMapSharedMemorySize); //Zero all of QMAP shared memory
 // Force linking of Fortran function stdmsg().
   QString t="1234567890123456789012345678901234567";
   if(stdmsg_(const_cast <char *> (t.toLatin1().constData()),(FCL)37)) return;
