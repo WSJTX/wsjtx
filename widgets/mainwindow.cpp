@@ -451,6 +451,7 @@ QString earlyDecodes = "";  //ft8md
 QSharedMemory mem_qmap;                     //Memory segment to be shared (optionally) with QMAP
 QMapDecodeBlock qmapcom {};
 QMapSharedMemory * ipc_qmap;
+bool qmap_click_mailbox_available {false};
 
 namespace
 {
@@ -720,9 +721,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   auto const memSize=static_cast<int>(QMapSharedMemorySize);
   mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) mem_qmap.create(memSize);
+  auto const mappedSize = mem_qmap.size();
+  qmap_click_mailbox_available = mappedSize >= memSize;
   ipc_qmap = static_cast<QMapSharedMemory *> (mem_qmap.data());
   mem_qmap.lock();
-  memset(ipc_qmap,0,memSize);         //Zero all of QMAP shared memory
+  memset(ipc_qmap,0,qMin(memSize, mappedSize));         //Zero all of QMAP shared memory
   mem_qmap.unlock();
 
   // Closedown.
@@ -1740,7 +1743,9 @@ MainWindow::~MainWindow()
   m_saveWAVSynchronizer.waitForFinished ();
   m_saveWAVSynchronizer.clearFutures ();
   remove_child_from_event_filter (this);
-  memset(ipc_qmap,0,QMapSharedMemorySize); //Zero all of QMAP shared memory
+  if (ipc_qmap) {
+    memset(ipc_qmap,0,qMin(static_cast<int> (QMapSharedMemorySize), mem_qmap.size()));
+  }
 // Force linking of Fortran function stdmsg().
   QString t="1234567890123456789012345678901234567";
   if(stdmsg_(const_cast <char *> (t.toLatin1().constData()),(FCL)37)) return;
@@ -7294,7 +7299,8 @@ void MainWindow::guiUpdate()
     QMapClickAction qmap_clickAction=QMapClickAction::None;
     bool qmap_hasClickRequest=false;
     mem_qmap.lock();
-    if (ipc_qmap->click.action != QMapClickAction::None) {
+    if (qmap_click_mailbox_available
+        && ipc_qmap->click.action != QMapClickAction::None) {
       qmap_decodeRow = QByteArray {ipc_qmap->click.selectedDecode,
                                   static_cast<int> (QMapDecodeRowSize)};
       qmap_clickAction = ipc_qmap->click.action;

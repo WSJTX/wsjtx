@@ -38,6 +38,7 @@
 
 QSharedMemory mem_qmap;                        //Memory segment to be shared (optionally) with WSJT-X
 QMapSharedMemory * ipc_wsjtx;
+bool qmap_click_mailbox_available {false};
 
 extern const int RxDataFrequency = 96000;
 
@@ -122,9 +123,11 @@ MainWindow::MainWindow(QWidget *parent) :
       msgBox("Unable to create shared memory segment mem_qmap.");
     }
   }
+  auto const mappedSize = mem_qmap.size();
+  qmap_click_mailbox_available = mappedSize >= memSize;
   ipc_wsjtx = static_cast<QMapSharedMemory *> (mem_qmap.data());
   mem_qmap.lock();
-  memset(ipc_wsjtx,0,memSize);         //Zero all of shared memory
+  memset(ipc_wsjtx,0,qMin(memSize, mappedSize));         //Zero all of shared memory
   mem_qmap.unlock();
 
 //  fftwf_import_wisdom_from_filename (QDir {m_appDir}.absoluteFilePath ("qmap_wisdom.dat").toLocal8Bit ());
@@ -947,7 +950,8 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
 
 void MainWindow::decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture)
 {
-  if (decodeRow.size () != static_cast<int> (QMapDecodeRowSize)) return;
+  if (!qmap_click_mailbox_available
+      || decodeRow.size () != static_cast<int> (QMapDecodeRowSize)) return;
   mem_qmap.lock();
   std::memcpy(ipc_wsjtx->click.selectedDecode, decodeRow.constData(), QMapDecodeRowSize);
   if (gesture == DecodeClickGesture::Press) ipc_wsjtx->click.action = QMapClickAction::Disarm;
