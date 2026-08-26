@@ -7295,6 +7295,10 @@ void MainWindow::guiUpdate()
         (m_freqNominal/1000000)*1000000 + 1000*qmap_requestedKHz,
         FrequencyRequestOrigin::Automatic);
     }
+  } else {
+    mem_qmap.lock();
+    ipc_qmap->decodes.kHzRequested=0;
+    mem_qmap.unlock();
   }
 
   {
