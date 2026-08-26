@@ -63,6 +63,12 @@ private:
     QTest::newRow ("exclusion does not affect an unrelated 2-char prefix") << ";K*;VK;!KH6!" << "VK2ABC" << true;
     QTest::newRow ("no configured entries") << "" << "K1ABC" << false;
     QTest::newRow ("call too short") << ";K*;" << "K1" << false;
+    QTest::newRow ("documented format's first prefix has no leading semicolon")
+        << "VK;ZL;T88;" << "VK2ABC" << true;
+    QTest::newRow ("exact callsign does not match as a substring tail of a longer entry")
+        << "AK1ABC," << "K1ABC" << false;
+    QTest::newRow ("exact callsign still matches when properly delimited alongside a longer entry")
+        << "AK1ABC,K1ABC," << "K1ABC" << true;
   }
 
   Q_SLOT void callsign_prefix_matching ()
