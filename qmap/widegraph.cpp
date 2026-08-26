@@ -167,6 +167,13 @@ void WideGraph::pruneDecodeLabels(int nowSeconds)
   }
 }
 
+void WideGraph::clearDecodeLabels()
+{
+  if (m_decodeLabels.isEmpty ()) return;
+  m_decodeLabels.clear ();
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabels (m_decodeLabels);
+}
+
 void WideGraph::on_waterfallAvgSpinBox_valueChanged(int n)
 {
   m_waterfallAvg = n;

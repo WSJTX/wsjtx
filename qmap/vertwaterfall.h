@@ -20,6 +20,7 @@ public:
 
   void saveSettings();
   void pruneDecodeLabels(int nowSeconds);
+  void clearDecodeLabels();
 
 public slots:
   void dataSinkVert(const float swide[], int n, double startFreqKHz, double fSpanKHz,

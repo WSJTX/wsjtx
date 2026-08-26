@@ -79,6 +79,7 @@
 #include "DecoderIpc.hpp"
 #include "qmap/qmap_ipc.h"
 #include "qmap/qmap_decode_record.h"
+#include "qmap/qmap_click_policy.h"
 #include "TxStartPolicy.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "ActiveStationList.hpp"
@@ -450,7 +451,8 @@ QString earlyDecodes = "";  //ft8md
 
 QSharedMemory mem_qmap;                     //Memory segment to be shared (optionally) with QMAP
 QMapDecodeBlock qmapcom {};
-QMapSharedMemory * ipc_qmap;
+QMapSharedMemory * ipc_qmap {nullptr};
+bool qmap_decoder_region_available {false};
 bool qmap_click_mailbox_available {false};
 
 namespace
@@ -721,12 +723,16 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   auto const memSize=static_cast<int>(QMapSharedMemorySize);
   mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) mem_qmap.create(memSize);
-  auto const mappedSize = mem_qmap.size();
-  qmap_click_mailbox_available = mappedSize >= memSize;
-  ipc_qmap = static_cast<QMapSharedMemory *> (mem_qmap.data());
-  mem_qmap.lock();
-  memset(ipc_qmap,0,qMin(memSize, mappedSize));         //Zero all of QMAP shared memory
-  mem_qmap.unlock();
+  auto const mappedSize = mem_qmap.isAttached ()
+    ? static_cast<std::size_t> (mem_qmap.size ()) : 0u;
+  qmap_decoder_region_available = qmapDecoderRegionAvailable (mappedSize);
+  qmap_click_mailbox_available = qmapClickMailboxAvailable (mappedSize);
+  ipc_qmap = qmap_decoder_region_available
+    ? static_cast<QMapSharedMemory *> (mem_qmap.data ()) : nullptr;
+  if (ipc_qmap && mem_qmap.lock ()) {
+    clearQMapSharedMemory (ipc_qmap, mappedSize);
+    mem_qmap.unlock ();
+  }
 
   // Closedown.
   connect (ui->actionExit, &QAction::triggered, this, &QMainWindow::close);
@@ -1743,10 +1749,10 @@ MainWindow::~MainWindow()
   m_saveWAVSynchronizer.waitForFinished ();
   m_saveWAVSynchronizer.clearFutures ();
   remove_child_from_event_filter (this);
-  if (ipc_qmap) {
-    mem_qmap.lock();
-    memset(ipc_qmap,0,qMin(static_cast<int> (QMapSharedMemorySize), mem_qmap.size()));
-    mem_qmap.unlock();
+  if (ipc_qmap && mem_qmap.isAttached () && mem_qmap.lock ()) {
+    clearQMapSharedMemory (ipc_qmap,
+                           static_cast<std::size_t> (mem_qmap.size ()));
+    mem_qmap.unlock ();
   }
 // Force linking of Fortran function stdmsg().
   QString t="1234567890123456789012345678901234567";
@@ -5961,10 +5967,18 @@ void MainWindow::qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick)
   if (m_mode!="Q65" || SpecOp::NONE!=m_specOp
       || !LiveCQ::isValidCallsign (record.callsign)) return;
 
+  auto const clickPolicy = qmapClickPolicy (
+    doubleClick, false, ui->autoButton->isChecked (), m_transmitting);
+  if (clickPolicy.disarmBeforeQsy) {
+    ui->autoButton->click();
+  }
+
   int nMHz=m_freqNominal/1000000;
   Frequency const frequency = (nMHz*1000 + record.scheduledFrequencyKHz)*1000;
   bool const frequency_changed = requestNominalFrequencyChange (
     frequency, FrequencyRequestOrigin::User);
+  auto const completedClickPolicy = qmapClickPolicy (
+    doubleClick, frequency_changed, ui->autoButton->isChecked (), m_transmitting);
   QString submode=record.submode;
   int odd=0;
   if(submode.left(2)=="30" and (record.secondsSinceMidnight%60)==0) odd=1;
@@ -5976,13 +5990,13 @@ void MainWindow::qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick)
 
   if (frequency_changed) setXIT(ui->TxFreqSpinBox->value());
 
-  if(doubleClick) {
+  if(completedClickPolicy.enableAutoTx) {
     if(!ui->autoButton->isChecked()) ui->autoButton->click();
-  } else if(ui->autoButton->isChecked()) {
+  } else if(completedClickPolicy.disableAutoTx && ui->autoButton->isChecked()) {
     // Never carry an active transmission over to a newly selected station.
     ui->autoButton->click();
   }
-  if(m_transmitting) m_restart=true;
+  if(completedClickPolicy.restartTransmission) m_restart=true;
 }
 
 void MainWindow::activeWorked(QString call, QString band)
@@ -7271,23 +7285,24 @@ void MainWindow::guiUpdate()
     bool qmap_hasDecodes=false;
     bool qmap_batchComplete=false;
     int qmap_requestedKHz=0;
-    mem_qmap.lock();
-    int n=0;
-    if(decoderBusy ()) n=1;
-    ipc_qmap->decodes.nWDecoderBusy=n;
-    n=0;
-    if(m_transmitting) n=m_TRperiod;
-    ipc_qmap->decodes.nWTransmitting=n;
-    if(ipc_qmap->decodes.ndecodes > 0) {
-      memcpy(&qmapcom, &ipc_qmap->decodes, sizeof(qmapcom));  //Fetch the new decode(s)
-      qmap_hasDecodes=true;
+    if (qmap_decoder_region_available && ipc_qmap && mem_qmap.lock ()) {
+      int n=0;
+      if(decoderBusy ()) n=1;
+      ipc_qmap->decodes.nWDecoderBusy=n;
+      n=0;
+      if(m_transmitting) n=m_TRperiod;
+      ipc_qmap->decodes.nWTransmitting=n;
+      if(ipc_qmap->decodes.ndecodes > 0) {
+        memcpy(&qmapcom, &ipc_qmap->decodes, sizeof(qmapcom));  //Fetch the new decode(s)
+        qmap_hasDecodes=true;
+      }
+      qmap_batchComplete=acknowledgeQMapDecodeBatch(ipc_qmap->decodes);
+      if(ipc_qmap->decodes.kHzRequested>0) {
+        qmap_requestedKHz=ipc_qmap->decodes.kHzRequested;
+        ipc_qmap->decodes.kHzRequested=0;
+      }
+      mem_qmap.unlock();
     }
-    qmap_batchComplete=acknowledgeQMapDecodeBatch(ipc_qmap->decodes);
-    if(ipc_qmap->decodes.kHzRequested>0) {
-      qmap_requestedKHz=ipc_qmap->decodes.kHzRequested;
-      ipc_qmap->decodes.kHzRequested=0;
-    }
-    mem_qmap.unlock();
     if(qmap_hasDecodes) readWidebandDecodes();
     if(qmap_batchComplete) m_fetched=0;
     if(qmap_requestedKHz>0) {
@@ -7296,25 +7311,26 @@ void MainWindow::guiUpdate()
         FrequencyRequestOrigin::Automatic);
     }
   } else {
-    mem_qmap.lock();
-    ipc_qmap->decodes.kHzRequested=0;
-    mem_qmap.unlock();
+    if (qmap_decoder_region_available && ipc_qmap && mem_qmap.lock ()) {
+      ipc_qmap->decodes.kHzRequested=0;
+      mem_qmap.unlock ();
+    }
   }
 
   {
     QByteArray qmap_decodeRow;
     QMapClickAction qmap_clickAction=QMapClickAction::None;
     bool qmap_hasClickRequest=false;
-    mem_qmap.lock();
-    if (qmap_click_mailbox_available
-        && ipc_qmap->click.action != QMapClickAction::None) {
-      qmap_decodeRow = QByteArray {ipc_qmap->click.selectedDecode,
-                                  static_cast<int> (QMapDecodeRowSize)};
-      qmap_clickAction = ipc_qmap->click.action;
-      ipc_qmap->click.action = QMapClickAction::None;
-      qmap_hasClickRequest = true;
+    if (qmap_click_mailbox_available && ipc_qmap && mem_qmap.lock ()) {
+      if (ipc_qmap->click.action != QMapClickAction::None) {
+        qmap_decodeRow = QByteArray {ipc_qmap->click.selectedDecode,
+                                    static_cast<int> (QMapDecodeRowSize)};
+        qmap_clickAction = ipc_qmap->click.action;
+        ipc_qmap->click.action = QMapClickAction::None;
+        qmap_hasClickRequest = true;
+      }
+      mem_qmap.unlock ();
     }
-    mem_qmap.unlock();
     // UI and rig updates must not hold the shared-memory lock used by QMAP's decoder.
     if (qmap_clickAction == QMapClickAction::Disarm) {
       if(m_mode=="Q65" && SpecOp::NONE==m_specOp && ui->autoButton->isChecked()) {
@@ -13346,7 +13362,8 @@ void MainWindow::readWidebandDecodes()
       m_EMECall[dxcall].ready2call=(bCQ);
       Frequency frequency = (m_freqNominal/1000000) * 1000000 + int(fsked*1000.0);
       bool bFromDisk=qmapcom.nQDecoderDone==2;
-      if(!bFromDisk and (m_EMECall[dxcall].grid4.contains(MainWindow::grid_regexp)  or bCQ)) {
+      if(!bFromDisk && m_config.spot_to_psk_reporter ()
+          && (m_EMECall[dxcall].grid4.contains(MainWindow::grid_regexp)  or bCQ)) {
         qDebug() << "To PSKreporter:" << dxcall << m_EMECall[dxcall].grid4 << frequency << m_mode << nsnr;
         if (!m_psk_Reporter.addRemoteStation (dxcall, m_EMECall[dxcall].grid4, frequency, m_mode, nsnr, qSpotTime)) {
           showStatusMessage (tr ("PSK Reporter spot queue full; oldest spot dropped"));

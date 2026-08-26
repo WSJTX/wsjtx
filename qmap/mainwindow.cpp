@@ -37,7 +37,8 @@
 #define NFFT 32768
 
 QSharedMemory mem_qmap;                        //Memory segment to be shared (optionally) with WSJT-X
-QMapSharedMemory * ipc_wsjtx;
+QMapSharedMemory * ipc_wsjtx {nullptr};
+bool qmap_decoder_region_available {false};
 bool qmap_click_mailbox_available {false};
 
 extern const int RxDataFrequency = 96000;
@@ -123,12 +124,16 @@ MainWindow::MainWindow(QWidget *parent) :
       msgBox("Unable to create shared memory segment mem_qmap.");
     }
   }
-  auto const mappedSize = mem_qmap.size();
-  qmap_click_mailbox_available = mappedSize >= memSize;
-  ipc_wsjtx = static_cast<QMapSharedMemory *> (mem_qmap.data());
-  mem_qmap.lock();
-  memset(ipc_wsjtx,0,qMin(memSize, mappedSize));         //Zero all of shared memory
-  mem_qmap.unlock();
+  auto const mappedSize = mem_qmap.isAttached ()
+    ? static_cast<std::size_t> (mem_qmap.size ()) : 0u;
+  qmap_decoder_region_available = qmapDecoderRegionAvailable (mappedSize);
+  qmap_click_mailbox_available = qmapClickMailboxAvailable (mappedSize);
+  ipc_wsjtx = qmap_decoder_region_available
+    ? static_cast<QMapSharedMemory *> (mem_qmap.data ()) : nullptr;
+  if (ipc_wsjtx && mem_qmap.lock ()) {
+    clearQMapSharedMemory (ipc_wsjtx, mappedSize);
+    mem_qmap.unlock ();
+  }
 
 //  fftwf_import_wisdom_from_filename (QDir {m_appDir}.absoluteFilePath ("qmap_wisdom.dat").toLocal8Bit ());
   readSettings();		             //Restore user's setup params
@@ -246,6 +251,12 @@ MainWindow::~MainWindow()
 {
   writeSettings();
   all_done_();
+
+  if (ipc_wsjtx && mem_qmap.isAttached () && mem_qmap.lock ()) {
+    clearQMapSharedMemory (ipc_wsjtx,
+                           static_cast<std::size_t> (mem_qmap.size ()));
+    mem_qmap.unlock ();
+  }
 
   if (soundInThread.isRunning()) {
     soundInThread.quit();
@@ -551,9 +562,16 @@ void MainWindow::on_actionSettings_triggered()
 
 void MainWindow::on_monitorButton_clicked()                  //Monitor
 {
+  clearDecodeLabels ();
   m_monitoring=true;
   soundInThread.setMonitoring(true);
   m_diskData=false;
+}
+
+void MainWindow::clearDecodeLabels ()
+{
+  if (m_wide_graph_window) m_wide_graph_window->clearDecodeLabels ();
+  if (m_vert_waterfall_window) m_vert_waterfall_window->clearDecodeLabels ();
 }
 
 void MainWindow::on_stopButton_clicked()                      //stopButton
@@ -762,6 +780,7 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
       lab1->setText(" " + fname.mid(i,15) + " ");
     }
     on_stopButton_clicked();
+    clearDecodeLabels ();
     m_diskData=true;
     int dbDgrd=0;
     int iret=4;
@@ -797,6 +816,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
         lab1->setStyleSheet("QLabel{background-color: #66ff66}");
         lab1->setText(" " + fname.mid(i,len) + " ");
       }
+      clearDecodeLabels ();
       m_diskData=true;
       int dbDgrd=0;
       int iret=4;
@@ -847,10 +867,11 @@ void MainWindow::decoderFinished()
   m_startAnother=m_loopall;
   decodes_.nQDecoderDone=1;
   if(m_diskData) decodes_.nQDecoderDone=2;
-  mem_qmap.lock();
-  publishQMapDecodeBlock(*ipc_wsjtx, decodes_);
+  if (qmap_decoder_region_available && ipc_wsjtx && mem_qmap.lock ()) {
+    publishQMapDecodeBlock(*ipc_wsjtx, decodes_);
+    mem_qmap.unlock ();
+  }
   m_bWTransmitting=decodes_.nWTransmitting>0;
-  mem_qmap.unlock();
   QString t1;
   t1=t1.asprintf(" %.1f s  %d/%d ", 0.15*datcom2_.nhsym, decodes_.ndecodes, decodes_.ncand);
   lab4->setText(t1);
@@ -926,10 +947,12 @@ void MainWindow::on_DecodeButton_clicked()                    //Decode request
 void MainWindow::freezeDecode(int n)                          //freezeDecode()
 {
   if(n==3) {
+    if (!qmap_decoder_region_available || !ipc_wsjtx) return;
     decodes_.kHzRequested=m_wide_graph_window->QSOfreq();
-    mem_qmap.lock();
-    ipc_wsjtx->decodes.kHzRequested=decodes_.kHzRequested;
-    mem_qmap.unlock();
+    if (mem_qmap.lock ()) {
+      ipc_wsjtx->decodes.kHzRequested=decodes_.kHzRequested;
+      mem_qmap.unlock ();
+    }
     return;
   }
   if(n==2) {
@@ -950,17 +973,18 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
 
 void MainWindow::decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture)
 {
-  if (!qmap_click_mailbox_available
+  if (!qmap_click_mailbox_available || !ipc_wsjtx
       || decodeRow.size () != static_cast<int> (QMapDecodeRowSize)) return;
-  mem_qmap.lock();
-  std::memcpy(ipc_wsjtx->click.selectedDecode, decodeRow.constData(), QMapDecodeRowSize);
-  if (gesture == DecodeClickGesture::Press) ipc_wsjtx->click.action = QMapClickAction::Disarm;
-  else if (gesture == DecodeClickGesture::SingleClick) {
-    ipc_wsjtx->click.action = QMapClickAction::Select;
-  } else {
-    ipc_wsjtx->click.action = QMapClickAction::SelectAndEnableTx;
+  if (mem_qmap.lock ()) {
+    std::memcpy(ipc_wsjtx->click.selectedDecode, decodeRow.constData(), QMapDecodeRowSize);
+    if (gesture == DecodeClickGesture::Press) ipc_wsjtx->click.action = QMapClickAction::Disarm;
+    else if (gesture == DecodeClickGesture::SingleClick) {
+      ipc_wsjtx->click.action = QMapClickAction::Select;
+    } else {
+      ipc_wsjtx->click.action = QMapClickAction::SelectAndEnableTx;
+    }
+    mem_qmap.unlock ();
   }
-  mem_qmap.unlock();
 }
 
 void MainWindow::decode()                                       //decode()
@@ -1240,8 +1264,10 @@ void MainWindow::guiUpdate()
   }
 
   m_wide_graph_window->updateFreqLabel();
-  m_wide_graph_window->pruneDecodeLabels(nsec);
-  if (m_vert_waterfall_window) m_vert_waterfall_window->pruneDecodeLabels(nsec);
+  if (!m_diskData) {
+    m_wide_graph_window->pruneDecodeLabels(nsec);
+    if (m_vert_waterfall_window) m_vert_waterfall_window->pruneDecodeLabels(nsec);
+  }
 
   if(m_startAnother and !m_bDiskDatBusy) {
     m_startAnother=false;
@@ -1312,9 +1338,11 @@ void MainWindow::guiUpdate()
     m_n60=nsec%60;
 
 // See if WSJT-X is transmitting
-    mem_qmap.lock();
-    int const transmitting=ipc_wsjtx->decodes.nWTransmitting;
-    mem_qmap.unlock();
+    int transmitting = 0;
+    if (qmap_decoder_region_available && ipc_wsjtx && mem_qmap.lock ()) {
+      transmitting=ipc_wsjtx->decodes.nWTransmitting;
+      mem_qmap.unlock ();
+    }
     if(transmitting>0) {
       m_WSJTX_TRperiod=transmitting;
       m_bWTransmitting=true;

@@ -206,6 +206,7 @@ private:
   void updateStatusBar();
   void msgBox(QString t);
   bool isGrid4(QString g);
+  void clearDecodeLabels();
   void CreateLiveCQ(QStringList cqliveText);           //liveCQ
   void sendLiveCQData(QList<QStringList> decodeList);  //liveCQ
 };

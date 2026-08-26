@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include "qmap/decode_click_coalescer.h"
+#include "qmap/qmap_click_policy.h"
 
 class TestDecodeClickCoalescer final : public QObject
 {
@@ -10,6 +11,7 @@ private slots:
   void disarmsBeforeSingleClick();
   void coalescesUpdatedRecordByIdentity();
   void keepsDifferentRecordsSeparate();
+  void protectsDoubleClickWhenDisarmIsOverwritten();
 };
 
 namespace
@@ -71,6 +73,21 @@ void TestDecodeClickCoalescer::keepsDifferentRecordsSeparate()
   QTRY_COMPARE_WITH_TIMEOUT (dispatched.size (), 4, 100);
   QCOMPARE (dispatched.last ().row, QByteArray {"second"});
   QVERIFY (dispatched.last ().gesture == DecodeClickGesture::SingleClick);
+}
+
+void TestDecodeClickCoalescer::protectsDoubleClickWhenDisarmIsOverwritten()
+{
+  auto const failedDoubleClick = qmapClickPolicy (true, false, true, true);
+  QVERIFY (failedDoubleClick.disarmBeforeQsy);
+  QVERIFY (!failedDoubleClick.enableAutoTx);
+  QVERIFY (!failedDoubleClick.restartTransmission);
+
+  auto const acceptedDoubleClick = qmapClickPolicy (true, true, false, true);
+  QVERIFY (acceptedDoubleClick.enableAutoTx);
+  QVERIFY (acceptedDoubleClick.restartTransmission);
+
+  auto const failedSingleClick = qmapClickPolicy (false, false, true, false);
+  QVERIFY (failedSingleClick.disableAutoTx);
 }
 
 QTEST_GUILESS_MAIN (TestDecodeClickCoalescer)

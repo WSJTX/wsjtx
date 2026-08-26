@@ -94,6 +94,8 @@ protected:
   void paintEvent(QPaintEvent *event) override;
   void resizeEvent(QResizeEvent* event) override;
   void mouseMoveEvent(QMouseEvent * event) override;
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
 
@@ -174,9 +176,6 @@ private:
   qint32  m_TXkHz {125};
   qint32  m_TxDF {};
 
-private slots:
-  void mousePressEvent(QMouseEvent *event) override;
-  void mouseDoubleClickEvent(QMouseEvent *event) override;
 };
 
 #endif // PLOTTER_H

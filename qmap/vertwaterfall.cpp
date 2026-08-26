@@ -68,6 +68,13 @@ void VertWaterfall::pruneDecodeLabels(int nowSeconds)
   }
 }
 
+void VertWaterfall::clearDecodeLabels()
+{
+  if (m_decodeLabels.isEmpty ()) return;
+  m_decodeLabels.clear ();
+  ui->vertPlot->setDecodeLabels (m_decodeLabels);
+}
+
 void VertWaterfall::on_cbShowCallsigns_toggled(bool checked)
 {
   m_decodeLabelsEnabled = checked;

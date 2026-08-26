@@ -227,6 +227,8 @@ QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(QFontMetrics cons
   QVector<LabelLayout> out;
   out.reserve(m_decodeLabels.size());
   for (auto const& lab : qAsConst(m_decodeLabels)) {
+    if (lab.receiveFrequencyKHz < m_startFreqKHz
+        || lab.receiveFrequencyKHz > m_startFreqKHz + m_fSpanKHz) continue;
     LabelLayout ll;
     ll.label = lab;
     ll.trueY = ll.dispY = yFromFreq(lab.receiveFrequencyKHz);

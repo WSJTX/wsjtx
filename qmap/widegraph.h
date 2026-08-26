@@ -41,6 +41,7 @@ public:
 
   void   addDecodeLabel(QMapDecodeRecord const& record);
   void   pruneDecodeLabels(int nowSeconds);
+  void   clearDecodeLabels();
 
   qint32 m_qsoFreq;
 

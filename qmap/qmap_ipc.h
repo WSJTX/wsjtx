@@ -3,12 +3,17 @@
 
 #include "decode_ipc.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <type_traits>
 
 constexpr std::size_t QMapDecodeCapacity = qmap_decode_ipc::max_rows;
 constexpr std::size_t QMapDecodeRowSize = qmap_decode_ipc::row_size;
+
+static_assert (QMapDecodeRowSize == 80,
+               "QMAP IPC must use the fixed 80-byte decoder row");
 
 enum class QMapClickAction : std::int32_t
 {
@@ -60,6 +65,27 @@ static_assert (QMapSharedMemorySize >= qmap_decode_ipc::shared_memory_size,
                "QMAP shared memory must preserve the decoder segment size");
 static_assert (sizeof (QMapSharedMemory) <= QMapSharedMemorySize,
                "QMAP IPC exceeds the shared-memory segment");
+
+constexpr bool qmapDecoderRegionAvailable (std::size_t mappedSize) noexcept
+{
+  return mappedSize >= qmap_decode_ipc::shared_memory_size;
+}
+
+constexpr bool qmapClickMailboxAvailable (std::size_t mappedSize) noexcept
+{
+  return mappedSize >= sizeof (QMapSharedMemory);
+}
+
+constexpr std::size_t qmapClearLength (std::size_t mappedSize) noexcept
+{
+  return std::min (mappedSize, QMapSharedMemorySize);
+}
+
+inline void clearQMapSharedMemory (void * mappedData,
+                                   std::size_t mappedSize) noexcept
+{
+  if (mappedData) std::memset (mappedData, 0, qmapClearLength (mappedSize));
+}
 
 inline void publishQMapDecodeBlock (QMapSharedMemory& shared,
                                     QMapDecodeBlock& publication) noexcept

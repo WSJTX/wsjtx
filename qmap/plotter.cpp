@@ -103,6 +103,9 @@ void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
   int h = (m_Size.height()-60)/2;
   painter.drawPixmap(0,0,m_ScalePixmap);
   painter.drawPixmap(0,30,m_WaterfallPixmap);
+  if (!m_decodeLabels.isEmpty()) {
+    paintDecodeLabels(painter);
+  }
   if(m_2Dspec) {
     painter.drawPixmap(0,h+30,m_ScalePixmap);
     painter.drawPixmap(0,h+60,m_2DPixmap);
@@ -184,11 +187,6 @@ void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
   QRect target2(0,h+60,w,h);           // (x,y,width,height)
   QRect source2(0,0,w,h);
   painter.drawPixmap(target2,m_ZoomWaterfallPixmap,source2);
-  // Decoded-callsign overlay -- rendered last so labels sit on top of the
-  // upper waterfall pixmap. WideGraph maintains the list lifecycle.
-  if (!m_decodeLabels.isEmpty()) {
-    paintDecodeLabels(painter);
-  }
   m_paintEventBusy=false;
 }
 
@@ -599,6 +597,8 @@ QVector<CPlotter::DecodeLabelRect> CPlotter::layoutDecodeLabels()
 
   QVector<DecodeLabelRect> out;
   for (auto const& l : sorted) {
+    if (l.receiveFrequencyKHz < m_StartFreq
+        || l.receiveFrequencyKHz > m_StartFreq + m_fSpan) continue;
     const int x = XfromFreq(static_cast<float>(l.receiveFrequencyKHz));
     const int text_w = metrics.horizontalAdvance(l.callsign);
     const int rect_w = text_w + 4;
@@ -759,12 +759,15 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
   int button=event->button();
   if(y < h+30) {                                      // Wideband waterfall
     if(button==1) {
-      setFQSO(x,false);
       QMapDecodeLabel label;
-      if(hitTestDecodeLabel(QPoint(x,y), label)) {
+      bool const controlClick = event->modifiers() & Qt::ControlModifier;
+      bool const labelClicked = !controlClick
+        && hitTestDecodeLabel(QPoint(x,y), label);
+      setFQSO(x,false);
+      if (labelClicked) {
         m_decodeClickCoalescer.press(label.callsign, label.raw);
       }
-      if(event->modifiers() & Qt::ControlModifier) emit freezeDecode1(3);
+      if(controlClick) emit freezeDecode1(3);
     }
     if(button==2 and !m_bLockTxRx) {
       if(x<0) x=0;      // x is pixel number
@@ -789,9 +792,12 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
   int y=event->y();
   if(y < h+30) {
     m_DF=0;
-    setFQSO(x,false);
     QMapDecodeLabel label;
-    if(hitTestDecodeLabel(QPoint(x,y), label)) {
+    bool const controlClick = event->modifiers() & Qt::ControlModifier;
+    bool const labelClicked = !controlClick
+      && hitTestDecodeLabel(QPoint(x,y), label);
+    setFQSO(x,false);
+    if (labelClicked) {
       m_decodeClickCoalescer.doubleClick(label.callsign, label.raw);
     }
     emit freezeDecode1(2);
