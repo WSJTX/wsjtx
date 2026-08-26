@@ -1,20 +1,10 @@
-~~~text
- __       __   ______      _____  ________      __    __
-|  \  _  |  \ /      \    |     \|        \    |  \  |  \
-| $$ / \ | $$|  $$$$$$\    \$$$$$ \$$$$$$$$    | $$  | $$
-| $$/  $\| $$| $$___\$$      | $$   | $$ ______ \$$\/  $$
-| $$  $$$\ $$ \$$    \  __   | $$   | $$|      \ >$$  $$
-| $$ $$\$$\$$ _\$$$$$$\|  \  | $$   | $$ \$$$$$$/  $$$$\
-| $$$$  \$$$$|  \__| $$| $$__| $$   | $$       |  $$ \$$\
-| $$$    \$$$ \$$    $$ \$$    $$   | $$       | $$  | $$
- \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
-~~~
+![WSJT-X](wsjtx_icon.webp)
 
 # Weak Signal Communication Software
 
 ## Programs
 
-*WSJT-X*, *MAP65*, and *QMAP* are open-source, multi-platform programs designed for weak-signal digital communication by amateur radio. *WSJT-X* works with a standard SSB transceiver, while *MAP65* and *QMAP* use wideband SDR-style hardware. The programs are open source, free of charge, and licensed under the GNU General Public License.
+*WSJT-X*, *MAP65*, and *QMAP* are open-source, multi-platform programs designed for weak-signal digital communication by amateur radio. *WSJT-X* works with a standard SSB transceiver, while *MAP65* and *QMAP* use wideband SDR-style hardware. The programs are open source, free of charge, and licensed under the GNU General Public License. These program names are trademarks of the WSJT Development Team; see [TRADEMARK.md](TRADEMARK.md) for our policy on their use.
 
 They can be built and used on Windows, macOS, and Linux.
 
