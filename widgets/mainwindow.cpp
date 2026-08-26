@@ -7962,6 +7962,17 @@ void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt:
     }
     return;
   }
+  QString hiscall;
+  QString hisgrid;
+  message.deCallAndGrid(/*out*/hiscall,hisgrid);
+  if (is77BitMode () && modifiers!=Qt::AltModifier
+      && Radio::is_77bit_nonstandard_callsign (m_config.my_callsign ())
+      && Radio::is_77bit_nonstandard_callsign (hiscall)) {
+    auto const& msg = tr ("A QSO between two stations with nonstandard callsigns won't work.\n\n"
+                          "Auto Seq would get stuck in an endless loop.");
+    MessageBox::information_message (this, msg);
+    return;
+  }
   int nmod = fmod(double(message.timeInSeconds()),2.0*m_TRperiod);
   if(ui->txFirstCheckBox->isVisible() && !ui->txFirstCheckBox->isEnabled() && (
         (nmod!=0 && !ui->txFirstCheckBox->isChecked()) or
