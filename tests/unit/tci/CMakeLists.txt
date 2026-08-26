@@ -32,3 +32,8 @@ target_link_libraries (test_tci_transceiver_characterization PRIVATE
 add_test (NAME test_tci_transceiver_characterization
   COMMAND test_tci_transceiver_characterization)
 set_tests_properties (test_tci_transceiver_characterization PROPERTIES TIMEOUT 120)
+
+add_executable (test_transceiver_base_period test_transceiver_base_period.cpp)
+target_include_directories (test_transceiver_base_period PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_transceiver_base_period PRIVATE wsjt_qt Qt5::Test)
+add_test (NAME test_transceiver_base_period COMMAND test_transceiver_base_period)

@@ -167,6 +167,8 @@ private:
   TransceiverState actual_;
   TransceiverState last_;
   unsigned last_sequence_number_;    // from set state operation
+  bool period_applied_ {false};
+  double applied_period_ {0.0};
 };
 
 // some loggimg macros
