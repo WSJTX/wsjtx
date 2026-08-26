@@ -11,9 +11,8 @@ A modified program build that behaves differently but is still called "WSJT-X" �
 ## Actions allowed
 
 - Redistributing exact, unmodified binaries built from our official source releases, under our program names.
-- Packaging our unmodified software for a distro, OS, or platform, including the minor, purely mechanical patches that packaging sometimes requires (build-flag changes, path fixes, dependency-version bumps and the like), without renaming — provided the program's behavior and on-air protocol
-  handling are unchanged. 
-- Forking, modifying, and redistributing the source code under the GPL — including studying it, building on it, and shipping your own version — provided you follow the renaming rule below.
+- Packaging our unmodified software for a distro, OS, or platform, including the minor, purely mechanical patches that packaging sometimes requires (build-flag changes, path fixes, dependency-version bumps and the like), without renaming — provided the program's behavior and on-air protocol handling are unchanged. (Use of an appended revision number like "2.7.0-1" is acceptable, but replacement of the real version number with a fabricated one like "4.0" is not.)
+- Forking, modifying, and redistributing the source code under the GPL — including studying it, building on it, and shipping your own version — provided you follow the renaming rule below. 
 - Saying your fork is "based on WSJT-X" (or MAP65, or QMAP) — that's just true, and we want people to know your fork's heritage.
 
 ## Forbidden without renaming
