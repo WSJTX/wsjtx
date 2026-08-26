@@ -1,5 +1,6 @@
 //------------------------------------------------------------------ MainWindow
 #include "mainwindow.h"
+#include <cstring>
 #include <fftw3.h>
 #include <QDir>
 #include <QSettings>
@@ -944,12 +945,11 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
   }
 }
 
-void MainWindow::decodeLabelClicked(QString callsign, bool doubleClick)
+void MainWindow::decodeLabelClicked(QByteArray decodeRow, bool doubleClick)
 {
-  QByteArray latin1 = callsign.toLatin1();
+  if (decodeRow.size () != static_cast<int> (QMapDecodeRowSize)) return;
   mem_qmap.lock();
-  qstrncpy(ipc_wsjtx->click.selectedCall, latin1.constData(),
-           sizeof ipc_wsjtx->click.selectedCall);
+  std::memcpy(ipc_wsjtx->click.selectedDecode, decodeRow.constData(), QMapDecodeRowSize);
   ipc_wsjtx->click.action = doubleClick ? QMapClickAction::SelectAndEnableTx
                                        : QMapClickAction::Select;
   mem_qmap.unlock();
@@ -1253,12 +1253,8 @@ void MainWindow::guiUpdate()
         auto const record = parseQMapDecodeRecord (
           QByteArray {decodes_.result[m_fetched], static_cast<int> (QMapDecodeRowSize)});
         if (record && LiveCQ::isValidCallsign (record->callsign)) {
-          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(
-            record->receiveFrequencyKHz, record->callsign, record->secondHalf,
-            record->secondsSinceMidnight);
-          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(
-            record->receiveFrequencyKHz, record->callsign, record->secondHalf,
-            record->secondsSinceMidnight);
+          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(*record);
+          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(*record);
         }
       }
 

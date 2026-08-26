@@ -38,20 +38,14 @@ public:
   void   updateFreqLabel();
   void   enableSetRxHardware(bool b);
 
-  // Decoded-callsign overlay on the Horizontal Waterfall. mainwindow calls
-  // this for each fresh decode line (it already parses freq/callsign for
-  // VertWaterfall's own overlay); dedups by callsign and ages entries out
-  // using the decode line's own hhmmss-derived seconds-of-day, not
-  // wall-clock time, so aging is correct at any file-replay speed.
-  void   addDecodeLabel(double freq_khz, QString const& callsign,
-                        bool second_half, int decode_secs);
+  void   addDecodeLabel(QMapDecodeRecord const& record);
 
   qint32 m_qsoFreq;
 
 signals:
   void freezeDecode2(int n);
   void f11f12(int n);
-  void decodeLabelClicked2(QString callsign, bool doubleClick);
+  void decodeLabelClicked2(QByteArray decodeRow, bool doubleClick);
   // Emitted once per average cycle, right after the Horizontal Waterfall's
   // own top-row draw(), so VertWaterfall can show exactly the same
   // spectral data instead of an independently-decimated copy of it.
@@ -60,7 +54,7 @@ signals:
 
 public slots:
   void wideFreezeDecode(int n);
-  void wideDecodeLabelClicked(QString callsign, bool doubleClick);
+  void wideDecodeLabelClicked(QByteArray decodeRow, bool doubleClick);
 
 protected:
   virtual void keyPressEvent( QKeyEvent *e );
@@ -86,10 +80,7 @@ private:
   qint32 m_mode65;
   qint32 m_TRperiod=60;
 
-  void   ageDecodeLabels(int nowSecs);
-  QList<WideDecodeLabel> m_decodeLabels;
-  static constexpr int kDecodeLabelMax = 100;
-  static constexpr int kDecodeLabelLifetimeSecs = 3*60;
+  QList<QMapDecodeLabel> m_decodeLabels;
 };
 
 #endif // WIDEGRAPH_H

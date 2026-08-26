@@ -1,23 +1,38 @@
 #ifndef QMAP_DECODE_LABEL_H
 #define QMAP_DECODE_LABEL_H
 
-#include <QString>
-#include <QtGlobal>
+#include <algorithm>
 
-// One decoded-callsign label drawn on top of the Horizontal Waterfall at
-// its audio-offset x-position. WideGraph maintains a list of these
-// (fed from mainwindow's decode-fetch loop); CPlotter reads the list
-// via setDecodeLabels() and overlays them in paintEvent.
-//
-// Lives in its own header so widegraph.h and plotter.h can both include
-// it without widegraph.h having to pull in all of plotter.h's QFrame-
-// based widget declarations just for this one struct.
-struct WideDecodeLabel
+#include <QList>
+
+#include "qmap_decode_record.h"
+
+using QMapDecodeLabel = QMapDecodeRecord;
+constexpr int QMapDecodeLabelMaximum = 100;
+constexpr int QMapDecodeLabelLifetimeSecs = 3 * 60;
+
+inline void upsertQMapDecodeLabel (QList<QMapDecodeLabel>& labels,
+                                   QMapDecodeRecord const& record)
 {
-  double  freq_khz;        // audio offset (kHz), same scale as m_StartFreq/XfromFreq
-  QString callsign;
-  int     last_seen_secs;  // decode line's own hhmmss-derived seconds-of-day
-  bool    second_half;     // true = decoded from the second 30s half of a 60s Rx interval
-};
+  for (auto& label : labels) {
+    if (label.callsign == record.callsign) {
+      label = record;
+      return;
+    }
+  }
+  if (labels.size () >= QMapDecodeLabelMaximum) labels.removeFirst ();
+  labels.append (record);
+}
+
+inline void pruneQMapDecodeLabels (QList<QMapDecodeLabel>& labels, int nowSeconds)
+{
+  labels.erase (std::remove_if (labels.begin (), labels.end (),
+    [nowSeconds] (QMapDecodeLabel const& label) {
+      int delta = nowSeconds - label.secondsSinceMidnight;
+      if (delta < -43200) delta += 86400;
+      else if (delta > 43200) delta -= 86400;
+      return delta > QMapDecodeLabelLifetimeSecs;
+    }), labels.end ());
+}
 
 #endif // QMAP_DECODE_LABEL_H

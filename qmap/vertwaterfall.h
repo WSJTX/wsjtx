@@ -24,35 +24,24 @@ public:
 public slots:
   void dataSinkVert(const float swide[], int n, double startFreqKHz, double fSpanKHz,
                     int plotZero, int plotGain);
-  // decode_secs: seconds-since-midnight-UTC parsed from the decode
-  // line's own hhmmss (not wall-clock "now"). Also drives aging -- each
-  // call sweeps out labels that have fallen kDecodeLabelLifetimeSecs
-  // behind decode_secs, so stale entries clear whether monitoring live
-  // or replaying a saved file at any speed.
-  void addDecodeLabel(double freq_khz, QString const& callsign, bool second_half, int decode_secs);
+  void addDecodeLabel(QMapDecodeRecord const& record);
 
 signals:
-  void decodeLabelClicked2(QString callsign, bool doubleClick);
+  void decodeLabelClicked2(QByteArray decodeRow, bool doubleClick);
 
 protected:
   void closeEvent(QCloseEvent * event) override;
 
 private slots:
   void on_cbShowCallsigns_toggled(bool checked);
-  void vertDecodeLabelClicked(QString callsign, bool doubleClick);
+  void vertDecodeLabelClicked(QByteArray decodeRow, bool doubleClick);
 
 private:
-  void ageDecodeLabels(int nowSecs);
-
   Ui::VertWaterfall * ui;
   QString m_settings_filename;
 
-  QList<VertDecodeLabel> m_decodeLabels;
+  QList<QMapDecodeLabel> m_decodeLabels;
   bool m_decodeLabelsEnabled;
-  static constexpr int kDecodeLabelMax = 100;
-  // Age out a callsign once its own decode timestamp falls this many
-  // seconds behind the most recently arrived decode's timestamp.
-  static constexpr int kDecodeLabelLifetimeSecs = 3*60;
 };
 
 #endif // VERTWATERFALL_H

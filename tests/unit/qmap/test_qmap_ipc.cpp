@@ -50,7 +50,7 @@ void TestQMapIpc::decoderPublicationPreservesRequests()
   shared.decodes.nWTransmitting = 60;
   shared.decodes.kHzRequested = 144;
   shared.click.action = QMapClickAction::Select;
-  qstrncpy (shared.click.selectedCall, "K1ABC", sizeof shared.click.selectedCall);
+  std::memset (shared.click.selectedDecode, 'x', sizeof shared.click.selectedDecode);
   QMapDecodeBlock publication {};
   publication.ndecodes = 2;
 
@@ -61,7 +61,9 @@ void TestQMapIpc::decoderPublicationPreservesRequests()
   QCOMPARE (shared.decodes.nWTransmitting, 60);
   QCOMPARE (shared.decodes.kHzRequested, 144);
   QCOMPARE (shared.click.action, QMapClickAction::Select);
-  QCOMPARE (QByteArray {shared.click.selectedCall}, QByteArray {"K1ABC"});
+  QByteArray const selectedDecode {shared.click.selectedDecode,
+                                   static_cast<int> (sizeof shared.click.selectedDecode)};
+  QCOMPARE (selectedDecode, QByteArray (static_cast<int> (QMapDecodeRowSize), 'x'));
 }
 
 QTEST_GUILESS_MAIN (TestQMapIpc)

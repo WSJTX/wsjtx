@@ -17,27 +17,10 @@
 #include <QRect>
 #include <QFont>
 
+#include "decode_label.h"
+
 class QMouseEvent;
 class QFontMetrics;
-
-// One decoded-callsign label drawn in the label strip, at the y-position
-// matching its frequency. Mirrors the *design* of map65/decode_label.h's
-// DecodeLabel (separate executable, so not shared code).
-struct VertDecodeLabel
-{
-  double  freq_khz;
-  QString callsign;
-  // Seconds-since-midnight-UTC of the decode line's own hhmmss, not
-  // wall-clock time -- so aging tracks the decoded data's own timeline,
-  // correct whether monitoring live or replaying a saved .iq/.qm file
-  // at any speed.
-  int     last_seen_secs;
-  // true if this decode is from the second 30 s half of a 60 s Rx
-  // interval (e.g. a 30-second submode decoded alongside a 60-second
-  // one at the same tone spacing). Always indented right a bit, so
-  // its recency is visible even when nothing else is nearby.
-  bool    second_half;
-};
 
 class CVertPlotter : public QFrame
 {
@@ -56,11 +39,10 @@ public:
   void draw(const float swide[], int n, double startFreqKHz, double fSpanKHz,
             int plotZero, int plotGain);
   void setPalette(QString palette);
-  void setDecodeLabels(const QList<VertDecodeLabel>& labels);
+  void setDecodeLabels(const QList<QMapDecodeLabel>& labels);
 
 signals:
-  // A decoded-callsign label was clicked/double-clicked in the label strip.
-  void decodeLabelClicked(QString callsign, bool doubleClick);
+  void decodeLabelClicked(QByteArray decodeRow, bool doubleClick);
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -88,16 +70,9 @@ private:
   QList<HistoryLine> m_history;   // front = newest
   static constexpr int kMaxHistory = 4096;
 
-  // One label after vertical de-collision: trueY is where its dot sits
-  // (the real frequency position); dispY is where its text is drawn,
-  // pushed down just enough to keep a minimum line spacing from the
-  // label above it. A leader line connects the two when they differ.
-  // textX/rect are the same text-draw position and clickable bounds used
-  // by both paintEvent() and hitTestDecodeLabel(), so a click always
-  // lands (or doesn't) exactly where the label is actually drawn.
+  // Painting and hit-testing share the same frequency and displaced text bounds.
   struct LabelLayout {
-    QString callsign;
-    bool    second_half;
+    QMapDecodeLabel label;
     int     trueY;
     int     dispY;
     int     textX;
@@ -105,7 +80,7 @@ private:
   };
   QVector<LabelLayout> computeLayout(QFontMetrics const& fm, int minSpacing) const;
   QFont labelFont() const;
-  bool  hitTestDecodeLabel(QPoint const& pos, QString& callsign);
+  bool  hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow);
 
   QColor  m_ColorTbl[256];
   QPixmap m_waterfallPixmap;   // spectrogram: x=time (newest at right), y=frequency (high at top)
@@ -120,7 +95,7 @@ private:
   double  m_freqPerDiv;
   double  m_freq0;             // frequency of the first (bottom-most) tick
 
-  QList<VertDecodeLabel> m_decodeLabels;
+  QList<QMapDecodeLabel> m_decodeLabels;
 };
 
 #endif // VPLOTTER_H

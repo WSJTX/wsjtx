@@ -78,10 +78,7 @@ public:
   double txFreq();
 //  void updateFreqLabel();
 
-  // Decoded-callsign overlay. WideGraph maintains the list and pushes it
-  // here; rendered as labels on top of the waterfall at the audio-offset
-  // x-position. Triggers update() to schedule a paintEvent.
-  void setDecodeLabels(const QList<WideDecodeLabel>& labels);
+  void setDecodeLabels(const QList<QMapDecodeLabel>& labels);
 
   // Hidden plotters may not receive an initial resize event, but spectrum production still needs valid geometry.
   void ensureSized(int w, int h);
@@ -89,8 +86,7 @@ public:
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
-  // A decoded-callsign label was clicked/double-clicked in the waterfall.
-  void decodeLabelClicked(QString callsign, bool doubleClick);
+  void decodeLabelClicked(QByteArray decodeRow, bool doubleClick);
 
 protected:
   //re-implemented widget event handlers
@@ -111,15 +107,13 @@ private:
   // labels on top of each other.
   void paintDecodeLabels(QPainter& painter);
 
-  // One label's collision-stacked rect, as painted. Shared by
-  // paintDecodeLabels() and hitTestDecodeLabel() so a click always lands
-  // (or doesn't) exactly where the label is actually drawn.
+  // Painting and hit-testing share the same collision-adjusted bounds.
   struct DecodeLabelRect {
-    WideDecodeLabel label;
+    QMapDecodeLabel label;
     QRect rect;
   };
   QVector<DecodeLabelRect> layoutDecodeLabels();
-  bool hitTestDecodeLabel(QPoint const& pos, QString& callsign);
+  bool hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow);
 
   // Raw wideband-row snapshots (post color-mapping input, pre color-map),
   // front=newest, so a resize can repaint m_WaterfallPixmap from history
@@ -138,7 +132,7 @@ private:
   QList<WideHistoryLine> m_wideHistory;
   static constexpr int kMaxWideHistory = 2048;
 
-  QList<WideDecodeLabel> m_decodeLabels;
+  QList<QMapDecodeLabel> m_decodeLabels;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;

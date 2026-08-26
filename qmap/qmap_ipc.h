@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <type_traits>
 
-constexpr std::size_t QMapSharedMemorySize = qmap_decode_ipc::shared_memory_size;
 constexpr std::size_t QMapDecodeCapacity = qmap_decode_ipc::max_rows;
 constexpr std::size_t QMapDecodeRowSize = qmap_decode_ipc::row_size;
 
@@ -23,7 +22,7 @@ using QMapDecodeBlock = qmap_decode_ipc::DecodeRows;
 
 struct QMapClickMailbox
 {
-  char selectedCall[12];
+  char selectedDecode[QMapDecodeRowSize];
   QMapClickAction action;
 };
 
@@ -38,9 +37,9 @@ static_assert (std::is_standard_layout<QMapClickMailbox>::value,
                "QMAP click mailbox must have a stable field layout");
 static_assert (std::is_trivially_copyable<QMapClickMailbox>::value,
                "QMAP click mailbox must support byte-for-byte copying");
-static_assert (offsetof (QMapClickMailbox, action) == 12,
+static_assert (offsetof (QMapClickMailbox, action) == QMapDecodeRowSize,
                "QMAP click request offset changed");
-static_assert (sizeof (QMapClickMailbox) == 16,
+static_assert (sizeof (QMapClickMailbox) == QMapDecodeRowSize + sizeof (std::int32_t),
                "QMAP click mailbox size changed");
 static_assert (std::is_standard_layout<QMapSharedMemory>::value,
                "QMAP shared memory must have a stable field layout");
@@ -50,6 +49,15 @@ static_assert (offsetof (QMapSharedMemory, decodes) == 0,
                "QMAP decode block must start the shared segment");
 static_assert (offsetof (QMapSharedMemory, click) == sizeof (QMapDecodeBlock),
                "QMAP click mailbox offset changed");
+static_assert (sizeof (QMapSharedMemory) == sizeof (QMapDecodeBlock) + sizeof (QMapClickMailbox),
+               "QMAP IPC wire layout changed");
+
+constexpr std::size_t QMapSharedMemorySize {
+  ((sizeof (QMapSharedMemory) + 15) / 16) * 16
+};
+
+static_assert (QMapSharedMemorySize >= qmap_decode_ipc::shared_memory_size,
+               "QMAP shared memory must preserve the decoder segment size");
 static_assert (sizeof (QMapSharedMemory) <= QMapSharedMemorySize,
                "QMAP IPC exceeds the shared-memory segment");
 

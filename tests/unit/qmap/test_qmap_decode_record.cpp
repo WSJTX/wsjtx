@@ -1,5 +1,6 @@
 #include <QtTest>
 
+#include "qmap/decode_label.h"
 #include "qmap/qmap_decode_record.h"
 
 namespace
@@ -25,6 +26,8 @@ class TestQMapDecodeRecord final : public QObject
 private slots:
   void parsesFixedWidthRecord();
   void rejectsMalformedRecord();
+  void replacesLabelWithLatestRecord();
+  void prunesExpiredLabelsAcrossMidnight();
 };
 
 void TestQMapDecodeRecord::parsesFixedWidthRecord()
@@ -53,6 +56,40 @@ void TestQMapDecodeRecord::rejectsMalformedRecord()
   auto row = makeRow ("CQ K1ABC FN42");
   row.replace (0, 6, "256099");
   QVERIFY (!parseQMapDecodeRecord (row));
+}
+
+void TestQMapDecodeRecord::replacesLabelWithLatestRecord()
+{
+  auto firstRow = makeRow ("CQ K1ABC FN42");
+  auto secondRow = firstRow;
+  secondRow.replace (6, 9, "  222.333");
+  secondRow.replace (29, 5, "  -07");
+  auto const first = parseQMapDecodeRecord (firstRow);
+  auto const second = parseQMapDecodeRecord (secondRow);
+  QVERIFY (first);
+  QVERIFY (second);
+
+  QList<QMapDecodeLabel> labels;
+  upsertQMapDecodeLabel (labels, *first);
+  upsertQMapDecodeLabel (labels, *second);
+
+  QCOMPARE (labels.size (), 1);
+  QCOMPARE (labels.first ().raw, secondRow);
+  QCOMPARE (labels.first ().receiveFrequencyKHz, 222.333);
+  QCOMPARE (labels.first ().snr, -7);
+}
+
+void TestQMapDecodeRecord::prunesExpiredLabelsAcrossMidnight()
+{
+  auto record = *parseQMapDecodeRecord (makeRow ("CQ K1ABC FN42"));
+  record.secondsSinceMidnight = 23 * 3600 + 59 * 60;
+  QList<QMapDecodeLabel> labels {record};
+
+  pruneQMapDecodeLabels (labels, 60);
+  QCOMPARE (labels.size (), 1);
+
+  pruneQMapDecodeLabels (labels, 3 * 60 + 1);
+  QVERIFY (labels.isEmpty ());
 }
 
 QTEST_GUILESS_MAIN (TestQMapDecodeRecord)

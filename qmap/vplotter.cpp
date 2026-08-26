@@ -202,7 +202,7 @@ void CVertPlotter::drawScale()
   }
 }
 
-void CVertPlotter::setDecodeLabels(const QList<VertDecodeLabel>& labels)
+void CVertPlotter::setDecodeLabels(const QList<QMapDecodeLabel>& labels)
 {
   m_decodeLabels = labels;
   update();
@@ -215,12 +215,7 @@ QFont CVertPlotter::labelFont() const
   return font;
 }
 
-// Greedy top-down declutter: sort by true (frequency) position, then push
-// any label down that would otherwise overlap the one above it. QMAP's
-// dual-submode decoding (e.g. Q65-60C + Q65-30B at the same tone spacing)
-// typically produces small clusters of 2-4 nearby labels, not dense
-// crowds, so this simple pass is sufficient -- it isn't a general N-label
-// layout solver.
+// Displace nearby labels downward in frequency order to keep them legible.
 QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(QFontMetrics const& fm, int minSpacing) const
 {
   int labelX = m_waterfallPixmap.width() + m_scaleWidth;
@@ -230,10 +225,9 @@ QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(QFontMetrics cons
   out.reserve(m_decodeLabels.size());
   for (auto const& lab : qAsConst(m_decodeLabels)) {
     LabelLayout ll;
-    ll.callsign    = lab.callsign;
-    ll.second_half = lab.second_half;
-    ll.trueY = ll.dispY = yFromFreq(lab.freq_khz);
-    ll.textX = labelX + 14 + (lab.second_half ? indentPx : 0);
+    ll.label = lab;
+    ll.trueY = ll.dispY = yFromFreq(lab.receiveFrequencyKHz);
+    ll.textX = labelX + 14 + (lab.secondHalf ? indentPx : 0);
     out.append(ll);
   }
   std::sort(out.begin(), out.end(), [](LabelLayout const& a, LabelLayout const& b) {
@@ -244,18 +238,18 @@ QVector<CVertPlotter::LabelLayout> CVertPlotter::computeLayout(QFontMetrics cons
       out[i].dispY = out[i-1].dispY + minSpacing;
   }
   for (auto& ll : out) {
-    int text_w = fm.horizontalAdvance(ll.callsign);
-    ll.rect = QRect(ll.textX - 2, ll.dispY + 4 - fm.ascent(), text_w + 4, fm.height());  //Matches drawText() baseline below
+    int text_w = fm.horizontalAdvance(ll.label.callsign);
+    ll.rect = QRect(ll.textX - 2, ll.dispY + 4 - fm.ascent(), text_w + 4, fm.height());
   }
   return out;
 }
 
-bool CVertPlotter::hitTestDecodeLabel(QPoint const& pos, QString& callsign)
+bool CVertPlotter::hitTestDecodeLabel(QPoint const& pos, QByteArray& decodeRow)
 {
   QFontMetrics fm(labelFont());
   for (auto const& ll : computeLayout(fm, fm.height() + 2)) {
     if (ll.rect.contains(pos)) {
-      callsign = ll.callsign;
+      decodeRow = ll.label.raw;
       return true;
     }
   }
@@ -265,15 +259,15 @@ bool CVertPlotter::hitTestDecodeLabel(QPoint const& pos, QString& callsign)
 void CVertPlotter::mousePressEvent(QMouseEvent *event)
 {
   if (event->button() != Qt::LeftButton) return;
-  QString callsign;
-  if (hitTestDecodeLabel(event->pos(), callsign)) emit decodeLabelClicked(callsign, false);
+  QByteArray decodeRow;
+  if (hitTestDecodeLabel(event->pos(), decodeRow)) emit decodeLabelClicked(decodeRow, false);
 }
 
 void CVertPlotter::mouseDoubleClickEvent(QMouseEvent *event)
 {
   if (event->button() != Qt::LeftButton) return;
-  QString callsign;
-  if (hitTestDecodeLabel(event->pos(), callsign)) emit decodeLabelClicked(callsign, true);
+  QByteArray decodeRow;
+  if (hitTestDecodeLabel(event->pos(), decodeRow)) emit decodeLabelClicked(decodeRow, true);
 }
 
 void CVertPlotter::paintEvent(QPaintEvent*)
@@ -283,10 +277,6 @@ void CVertPlotter::paintEvent(QPaintEvent*)
   painter.drawPixmap(0,0,m_waterfallPixmap);
   painter.drawPixmap(w,0,m_scalePixmap);
 
-  // Decoded-callsign labels, right of the scale, at the y matching freq,
-  // on their own tinted panel (cream, like CW Skimmer's callsign list),
-  // decluttered vertically and indented for second-30s-half decodes,
-  // with a leader line from the true-frequency dot when displaced.
   int labelX = w + m_scaleWidth;
   painter.fillRect(labelX, 0, m_labelWidth, height(), QColor(255,255,240));
 
@@ -301,12 +291,12 @@ void CVertPlotter::paintEvent(QPaintEvent*)
     painter.setPen(Qt::NoPen);
     painter.setBrush(dotColor);
     painter.drawEllipse(QPoint(labelX+5,ll.trueY), 3, 3);
-    if (ll.dispY != ll.trueY || ll.second_half) {
+    if (ll.dispY != ll.trueY || ll.label.secondHalf) {
       painter.setPen(QPen(leaderColor,1));
       painter.drawLine(labelX+8, ll.trueY, ll.textX-2, ll.dispY);
     }
     painter.setPen(Qt::black);
-    painter.drawText(ll.textX, ll.dispY+4, ll.callsign);
+    painter.drawText(ll.textX, ll.dispY+4, ll.label.callsign);
   }
 }
 

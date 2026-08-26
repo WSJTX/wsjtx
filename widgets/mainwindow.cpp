@@ -5949,19 +5949,21 @@ void MainWindow::applyQ65StationSelection (Q65StationSelection const& selection)
   ui->txFirstCheckBox->setChecked(m_txFirst);
 }
 
-void MainWindow::qmapCallSandP(QString const& dxcall, bool doubleClick)
+void MainWindow::qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick)
 {
-  if (m_mode!="Q65" || SpecOp::NONE!=m_specOp || !m_EMECall.contains (dxcall)) return;
-  auto const& call=m_EMECall[dxcall];
+  if (m_mode!="Q65" || SpecOp::NONE!=m_specOp
+      || !LiveCQ::isValidCallsign (record.callsign)) return;
 
   int nMHz=m_freqNominal/1000000;
-  m_freqNominal=(nMHz*1000 + call.fsked)*1000;
-  QString submode=call.submode;
+  m_freqNominal=(nMHz*1000 + record.scheduledFrequencyKHz)*1000;
+  QString submode=record.submode;
   int odd=0;
-  if(submode.left(2)=="30" and (call.t%60)==0) odd=1;
-  if(submode.left(2)=="60" and (call.t%120)==0) odd=1;
-  applyQ65StationSelection ({dxcall, call.grid4, submode,
-                             QString::number (call.nsnr), odd==0});
+  if(submode.left(2)=="30" and (record.secondsSinceMidnight%60)==0) odd=1;
+  if(submode.left(2)=="60" and (record.secondsSinceMidnight%120)==0) odd=1;
+  auto grid = record.grid;
+  if(grid.isEmpty ()) grid = m_EMECall.value (record.callsign).grid4;
+  applyQ65StationSelection ({record.callsign, grid, submode,
+                             QString::number (record.snr), odd==0});
 
   setRig(m_freqNominal);
   setXIT(ui->TxFreqSpinBox->value());
@@ -7287,24 +7289,24 @@ void MainWindow::guiUpdate()
     }
   }
 
-  // Drained every cycle, not just in Q65 mode -- qmapCallSandP() no-ops outside Q65 anyway.
   {
-    QString qmap_dxcall;
+    QByteArray qmap_decodeRow;
     bool qmap_doubleClick=false;
     bool qmap_hasClickRequest=false;
     mem_qmap.lock();
     if (ipc_qmap->click.action != QMapClickAction::None) {
-      qmap_dxcall = QString::fromLatin1 (ipc_qmap->click.selectedCall, qstrnlen (
-        ipc_qmap->click.selectedCall, sizeof ipc_qmap->click.selectedCall)).trimmed ();
+      qmap_decodeRow = QByteArray {ipc_qmap->click.selectedDecode,
+                                  static_cast<int> (QMapDecodeRowSize)};
       qmap_doubleClick = ipc_qmap->click.action == QMapClickAction::SelectAndEnableTx;
       ipc_qmap->click.action = QMapClickAction::None;
       qmap_hasClickRequest = true;
     }
     mem_qmap.unlock();
-    // Handled outside the lock: qmapCallSandP touches rig/UI state and can
-    // run arbitrarily long (setRig, message generation), which shouldn't
-    // hold up QMAP's own decoders waiting on this shared segment.
-    if (qmap_hasClickRequest) qmapCallSandP (qmap_dxcall, qmap_doubleClick);
+    // UI and rig updates must not hold the shared-memory lock used by QMAP's decoder.
+    if (qmap_hasClickRequest) {
+      auto const record = parseQMapDecodeRecord (qmap_decodeRow);
+      if (record) qmapCallSandP (*record, qmap_doubleClick);
+    }
   }
 
 //Once per second (onesec)
