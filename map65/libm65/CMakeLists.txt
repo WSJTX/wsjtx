@@ -225,6 +225,13 @@ if (WSJT_ENABLE_TESTS)
   target_link_libraries (test_ccf65_correlator PRIVATE m65impl)
   add_test (NAME test_ccf65_correlator COMMAND test_ccf65_correlator)
   set_tests_properties (test_ccf65_correlator PROPERTIES TIMEOUT 180)
+
+  add_executable (test_map65_s3avg_contracts
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_map65_s3avg_contracts.f90)
+  target_include_directories (test_map65_s3avg_contracts PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_s3avg_contracts PRIVATE m65impl)
+  add_test (NAME test_map65_s3avg_contracts COMMAND test_map65_s3avg_contracts)
+  set_tests_properties (test_map65_s3avg_contracts PROPERTIES TIMEOUT 180)
 endif ()
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)

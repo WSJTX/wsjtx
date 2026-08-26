@@ -13,32 +13,35 @@ subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decod
   integer,      intent(in)    :: mode65, nutc, nhz, npol, ntol
   real,         intent(in)    :: xdt
   real,         intent(in)    :: s3(64,63)   !Synchronized spectra for 63 symbols
-  integer,      intent(inout) :: nsum, nkv
-  character(len=22), intent(inout) :: decoded
+  integer,      intent(out) :: nsum, nkv
+  character(len=22), intent(out) :: decoded
 
   real s3a(64,63,64)                    !Saved spectra
   real s3b(64,63)                       !Average spectra
   integer iutc(64),ihz(64),ipol(64)
   integer :: i,ihzdiff,nadd,ncount,nhist
   integer :: mrs(63), mrs2(63)          !Dummy arguments for extract
-  real :: dtdiff
+  real, parameter :: dtdiff=0.2
   real dt(64)
   logical ltext,first
   data first/.true./
-  save
+  save first,iutc,ihz,ipol,s3a,dt
+
+  nsum=0
+  nkv=0
+  decoded='                      '
+  ihzdiff=min(100,ntol)
 
   if(first) then
      iutc=-1
      ihz=0
      ipol=0
      first=.false.
-     ihzdiff=min(100,ntol)
-     dtdiff=0.2
   endif
 
   do i=1,64
-     if(nutc.eq.iutc(i) .and. abs(nhz-ihz(i)).lt.ihzdiff) then
-        nsave=mod(nsave-1+64,64)+1
+     if(nutc.eq.iutc(i) .and. abs(nhz-ihz(i)).le.ihzdiff) then
+        nsave=mod(nsave-2+64,64)+1
         go to 10
      endif
   enddo
@@ -59,7 +62,6 @@ subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decod
      nsum=nsum+1
   enddo
  
-  decoded='                      '
   if(nsum.ge.2) then                        !Try decoding the sverage
      nadd=mode65*nsum
      call extract(s3b,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)     !Extract the message
