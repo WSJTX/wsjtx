@@ -21,3 +21,7 @@ add_test (NAME test_qmap_plotter_initialization COMMAND test_qmap_plotter_initia
 set_tests_properties (test_qmap_plotter_initialization PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+add_executable (test_qmap_ipc test_qmap_ipc.cpp)
+target_link_libraries (test_qmap_ipc Qt5::Test)
+add_test (NAME test_qmap_ipc COMMAND test_qmap_ipc)

@@ -7277,6 +7277,9 @@ void MainWindow::guiUpdate()
   if(m_mode=="Echo" and !m_monitoring and !m_auto and !m_diskData) m_echoRunning=false;
 
   if(m_mode=="Q65") {
+    bool qmap_hasDecodes=false;
+    bool qmap_batchComplete=false;
+    int qmap_requestedKHz=0;
     mem_qmap.lock();
     int n=0;
     if(decoderBusy ()) n=1;
@@ -7286,15 +7289,21 @@ void MainWindow::guiUpdate()
     ipc_qmap->decodes.nWTransmitting=n;
     if(ipc_qmap->decodes.ndecodes > 0) {
       memcpy(&qmapcom, &ipc_qmap->decodes, sizeof(qmapcom));  //Fetch the new decode(s)
-      readWidebandDecodes();
+      qmap_hasDecodes=true;
     }
+    qmap_batchComplete=acknowledgeQMapDecodeBatch(ipc_qmap->decodes);
     if(ipc_qmap->decodes.kHzRequested>0) {
-      requestNominalFrequencyChange (
-        (m_freqNominal/1000000)*1000000 + 1000*ipc_qmap->decodes.kHzRequested,
-        FrequencyRequestOrigin::Automatic);
+      qmap_requestedKHz=ipc_qmap->decodes.kHzRequested;
       ipc_qmap->decodes.kHzRequested=0;
     }
     mem_qmap.unlock();
+    if(qmap_hasDecodes) readWidebandDecodes();
+    if(qmap_batchComplete) m_fetched=0;
+    if(qmap_requestedKHz>0) {
+      requestNominalFrequencyChange (
+        (m_freqNominal/1000000)*1000000 + 1000*qmap_requestedKHz,
+        FrequencyRequestOrigin::Automatic);
+    }
   }
 
   // Drained every cycle, not just in Q65 mode -- qmapCallSandP() no-ops outside Q65 anyway.
@@ -13408,11 +13417,6 @@ void MainWindow::readWidebandDecodes()
     m_ActiveStationsWidget->erase();
     m_ActiveStationsWidget->displayRecentStations(m_mode,t);
     m_ActiveStationsWidget->setClickOK(true);
-  }
-  if(ipc_qmap->decodes.nQDecoderDone!=0) {
-    m_fetched=0;
-    ipc_qmap->decodes.ndecodes=0;
-    ipc_qmap->decodes.nQDecoderDone=0;
   }
 }
 
