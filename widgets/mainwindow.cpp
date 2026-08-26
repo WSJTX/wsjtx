@@ -118,6 +118,7 @@
 #include "Network/Cloudlog.hpp"
 #include "ui_mainwindow.h"
 #include "qmap/decode_ipc.h"
+#include "qmap/shared_memory_key.h"
 #include "moc_mainwindow.cpp"
 #include "MessageFilter.hpp"
 #include "MessageFilterLogic.hpp"
@@ -444,7 +445,7 @@ QString ALLCALL7 = "";
 QString m_hisCall0 = "";
 QString earlyDecodes = "";  //ft8md
 
-QSharedMemory mem_qmap("mem_qmap");         //Memory segment to be shared (optionally) with QMAP
+QSharedMemory mem_qmap;                     //Memory segment to be shared (optionally) with QMAP
 qmap_decode_ipc::DecodeRows qmapcom;
 qmap_decode_ipc::DecodeRows* ipc_qmap;
 
@@ -714,6 +715,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   //Attach or create a memory segment to be shared with QMAP.
   auto const memSize=static_cast<int>(qmap_decode_ipc::shared_memory_size);
+  mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) mem_qmap.create(memSize);
   ipc_qmap = static_cast<qmap_decode_ipc::DecodeRows*>(mem_qmap.data());
   mem_qmap.lock();

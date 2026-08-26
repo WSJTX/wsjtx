@@ -21,6 +21,7 @@
 #include "vertwaterfall.h"
 #include "sleep.h"
 #include "livecq_parser.h"
+#include "shared_memory_key.h"
 
 #include <QCoreApplication>  //liveCQ
 #include <QNetworkAccessManager>  //liveCQ
@@ -32,7 +33,7 @@
 
 #define NFFT 32768
 
-QSharedMemory mem_qmap("mem_qmap");            //Memory segment to be shared (optionally) with WSJT-X
+QSharedMemory mem_qmap;                        //Memory segment to be shared (optionally) with WSJT-X
 qmap_decode_ipc::DecodeRows* ipc_wsjtx;
 
 extern const int RxDataFrequency = 96000;
@@ -112,6 +113,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 //Attach or create a memory segment to be shared with WSJT-X.
   auto const memSize=static_cast<int>(qmap_decode_ipc::shared_memory_size);
+  mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) {
     if(!mem_qmap.create(memSize)) {
       msgBox("Unable to create shared memory segment mem_qmap.");

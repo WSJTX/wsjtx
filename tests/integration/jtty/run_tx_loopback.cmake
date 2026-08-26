@@ -20,11 +20,13 @@ set (capture "${WORK_DIR}/jtty-tx-loopback.wav")
 set (capture_environment
   "XDG_CONFIG_HOME=${WORK_DIR}/capture/config"
   "XDG_DATA_HOME=${WORK_DIR}/capture/data"
-  "XDG_CACHE_HOME=${WORK_DIR}/capture/cache")
+  "XDG_CACHE_HOME=${WORK_DIR}/capture/cache"
+  "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_jtty_tx_loopback")
 set (replay_environment
   "XDG_CONFIG_HOME=${WORK_DIR}/replay/config"
   "XDG_DATA_HOME=${WORK_DIR}/replay/data"
-  "XDG_CACHE_HOME=${WORK_DIR}/replay/cache")
+  "XDG_CACHE_HOME=${WORK_DIR}/replay/cache"
+  "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_jtty_tx_loopback")
 if (NOT APPLE)
   list (APPEND capture_environment "TMPDIR=${ipc_dir}/capture")
   list (APPEND replay_environment "TMPDIR=${ipc_dir}/replay")

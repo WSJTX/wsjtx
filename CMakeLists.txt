@@ -1006,7 +1006,8 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
   set (wsjtx_live_audio_test_environment
     "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config"
     "XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data"
-    "XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache")
+    "XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache"
+    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_live_audio_ft8")
   if (NOT APPLE)
     list (APPEND wsjtx_live_audio_test_environment
       "TMPDIR=${wsjtx_live_audio_test_root}/tmp")

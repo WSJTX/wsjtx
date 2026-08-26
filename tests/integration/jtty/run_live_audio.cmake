@@ -39,7 +39,8 @@ endif ()
 set (wsjtx_environment
   "XDG_CONFIG_HOME=${WORK_DIR}/config"
   "XDG_DATA_HOME=${WORK_DIR}/data"
-  "XDG_CACHE_HOME=${WORK_DIR}/cache")
+  "XDG_CACHE_HOME=${WORK_DIR}/cache"
+  "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_live_audio_jtty")
 if (NOT APPLE)
   list (APPEND wsjtx_environment "TMPDIR=${ipc_dir}")
 endif ()
