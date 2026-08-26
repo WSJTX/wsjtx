@@ -29,17 +29,17 @@ public:
 
   QSize minimumSizeHint() const override;
   QSize sizeHint() const override;
-  QColor  m_ColorTbl[256];
-  bool    m_bDecodeFinished;
-  int     m_plotZero;
-  int     m_plotGain;
-  float   m_fSpan;
-  qint32  m_nSpan;
-  qint32  m_binsPerPixel;
-  qint32  m_fQSO;
-  qint32  m_DF;
-  qint32  m_tol;
-  qint32  m_fCal;
+  QColor  m_ColorTbl[256] {};
+  bool    m_bDecodeFinished {};
+  int     m_plotZero {};
+  int     m_plotGain {};
+  float   m_fSpan {65.f};
+  qint32  m_nSpan {65};
+  qint32  m_binsPerPixel {1};
+  qint32  m_fQSO {125};
+  qint32  m_DF {};
+  qint32  m_tol {};
+  qint32  m_fCal {};
 
   void draw(float sw[], int i0, float splot[]);		//Update the waterfalls
   void SetRunningState(bool running);
@@ -83,7 +83,7 @@ public:
   // x-position. Triggers update() to schedule a paintEvent.
   void setDecodeLabels(const QList<WideDecodeLabel>& labels);
 
-  // Forces waterfall pixmap allocation immediately, without waiting on a resizeEvent (see WideGraph's constructor).
+  // Hidden plotters may not receive an initial resize event, but spectrum production still needs valid geometry.
   void ensureSized(int w, int h);
 
 signals:
@@ -143,40 +143,40 @@ private:
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;
   QPixmap m_2DPixmap;
-  unsigned char m_zwf[32768*400];
+  unsigned char m_zwf[32768*400] {};
   QPixmap m_ScalePixmap;
   QPixmap m_ZoomScalePixmap;
   QSize   m_Size;
   QString m_Str;
   QString m_HDivText[483];
-  bool    m_Running;
-  bool    m_paintEventBusy;
-  bool    m_2Dspec;
-  bool    m_paintAllZoom;
-  bool    m_bLockTxRx;
-  double  m_CenterFreq;
-  double  m_fGreen;
-  double  m_TXfreq;
-  qint64  m_StartFreq;
-  qint64  m_ZoomStartFreq;
-  qint64  m_FreqOffset;
-  qint32  m_dBStepSize;
-  qint32  m_FreqUnits;
-  qint32  m_hdivs;
-  bool    m_dataFromDisk;
+  bool    m_Running {};
+  bool    m_paintEventBusy {};
+  bool    m_2Dspec {};
+  bool    m_paintAllZoom {};
+  bool    m_bLockTxRx {};
+  double  m_CenterFreq {};
+  double  m_fGreen {};
+  double  m_TXfreq {};
+  qint64  m_StartFreq {100};
+  qint64  m_ZoomStartFreq {};
+  qint64  m_FreqOffset {};
+  qint32  m_dBStepSize {};
+  qint32  m_FreqUnits {1};
+  qint32  m_hdivs {HORZ_DIVS};
+  bool    m_dataFromDisk {};
   QString m_sutc;
-  qint32  m_line;
-  qint32  m_hist1[256];
-  qint32  m_hist2[256];
-  qint32  m_z1;
-  qint32  m_z2;
-  qint32  m_nkhz;
-  qint32  m_fSample;
-  qint32  m_mode65;
-  qint32  m_i0;
-  qint32  m_xClick;
-  qint32  m_TXkHz;
-  qint32  m_TxDF;
+  qint32  m_line {};
+  qint32  m_hist1[256] {};
+  qint32  m_hist2[256] {};
+  qint32  m_z1 {};
+  qint32  m_z2 {};
+  qint32  m_nkhz {};
+  qint32  m_fSample {96000};
+  qint32  m_mode65 {};
+  qint32  m_i0 {};
+  qint32  m_xClick {};
+  qint32  m_TXkHz {125};
+  qint32  m_TxDF {};
 
 private slots:
   void mousePressEvent(QMouseEvent *event) override;

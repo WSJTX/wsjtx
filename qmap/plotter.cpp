@@ -19,27 +19,12 @@ CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   setAttribute(Qt::WA_NoSystemBackground, true);
   setMouseTracking(true);
 
-  m_StartFreq = 100;
-  m_nSpan=65;                    //Units: kHz
-  m_fSpan=(float)m_nSpan;
-  m_hdivs = HORZ_DIVS;
-  m_FreqUnits = 1;
-  m_Running = false;
-  m_paintEventBusy=false;
   m_WaterfallPixmap = QPixmap(0,0);
   m_ZoomWaterfallPixmap = QPixmap(0,0);
   m_2DPixmap = QPixmap(0,0);
   m_ScalePixmap = QPixmap(0,0);
   m_ZoomScalePixmap = QPixmap(0,0);
   m_Size = QSize(0,0);
-  m_fQSO = 125;
-  m_TXkHz = m_fQSO;
-  m_line = 0;
-  m_fSample = 96000;
-  m_paintAllZoom = false;
-  m_TxDF=0;
-  m_bDecodeFinished=false;
-  memset(m_zwf,0,sizeof(m_zwf));   // once, not on every resize -- see resizeEvent()
 }
 
 CPlotter::~CPlotter() { }                                      // Destructor
@@ -60,7 +45,6 @@ void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
   applySize();
 }
 
-// Applies applySize() directly rather than waiting on resizeEvent, which a hidden top-level's children aren't guaranteed to receive before first shown.
 void CPlotter::ensureSized(int w, int h)
 {
   resize(w, h);

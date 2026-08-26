@@ -47,7 +47,6 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   m_waterfallAvg = settings.value("WaterfallAvg",10).toInt();
   ui->waterfallAvgSpinBox->setValue(m_waterfallAvg);
 
-  // Force a real size now, since dataSink2()/spectrumReady (and so the Vertical Waterfall) need it even if this window is never shown.
   ui->widePlot->ensureSized(w, qMax(100, geom.height()-60));
 }
 
