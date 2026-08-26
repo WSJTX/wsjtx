@@ -717,7 +717,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->decodedTextBrowser2->set_configuration (&m_config);
 
   //Attach or create a memory segment to be shared with QMAP.
-  auto const memSize=static_cast<int>(qmap_decode_ipc::shared_memory_size);
+  auto const memSize=static_cast<int>(QMapSharedMemorySize);
   mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) mem_qmap.create(memSize);
   ipc_qmap = static_cast<QMapSharedMemory *> (mem_qmap.data());

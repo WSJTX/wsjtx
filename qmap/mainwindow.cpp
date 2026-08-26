@@ -115,7 +115,7 @@ MainWindow::MainWindow(QWidget *parent) :
   xSignalMeter->resize(50, 160);
 
 //Attach or create a memory segment to be shared with WSJT-X.
-  auto const memSize=static_cast<int>(qmap_decode_ipc::shared_memory_size);
+  auto const memSize=static_cast<int>(QMapSharedMemorySize);
   mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) {
     if(!mem_qmap.create(memSize)) {
