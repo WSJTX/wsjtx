@@ -74,25 +74,31 @@ contains
       real, intent(in) :: frame_period
       logical, intent(out) :: match,is_window_dupe,is_history_dupe
       real :: df1,dtsync,qstep,resid
-      integer :: kf
+      integer :: kf,nstep
 
       df1=candidate%f1-existing%f1
       dtsync=candidate%tsync-existing%tsync
       match=.false.
       if(.not.existing%is_last_frame) then
          ! A continuation follows the latest frame in an open slot by one
-         ! complete frame period.
-         match=abs(df1).lt.3.0 .and. abs(dtsync-frame_period).lt.0.1
+         ! complete frame period. Overlapping signals can pull the refined
+         ! frequency a few hertz off the stored value, so this gate is the
+         ! same 10 Hz used for window-dupe; decode_and_merge then keeps the
+         ! closest open slot.
+         match=abs(df1).lt.10.0 .and. abs(dtsync-frame_period).lt.0.1
       endif
 
       ! Overlapping forward windows and retro re-sweeps can rediscover an
       ! open signal on the quarter-frame search grid. A completed slot uses
       ! exact frame history instead so an adjacent message can start.
+      ! A one-frame-period step is a continuation, not a rediscovery.
       is_window_dupe=.false.
       if(.not.match .and. .not.existing%is_last_frame) then
          qstep=frame_period/4.0
-         resid=abs(dtsync-qstep*nint(dtsync/qstep))
-         if(abs(df1).lt.10.0 .and. resid.lt.0.003) then
+         nstep=nint(dtsync/qstep)
+         resid=abs(dtsync-qstep*nstep)
+         if(abs(df1).lt.10.0 .and. resid.lt.0.003 .and. &
+              .not.(mod(abs(nstep),4).eq.0 .and. nstep.ne.0)) then
             match=.true.
             is_window_dupe=.true.
          endif
@@ -501,6 +507,9 @@ contains
       complex               :: zsym(0:3,NCHAN_SYM)
       real                  :: pow_try(0:3,NCHAN_SYM)
       integer               :: itry, iblk
+      integer               :: best_cont
+      real                  :: best_df,dfabs
+      logical               :: have_hist,have_win
 
       decoded_ok=.false.
       pow(:,:)=0.0
@@ -616,48 +625,74 @@ contains
          slot(1)%frame_f1(1)=dec%f1
          slot(1)%frame_tsync(1)=dec%tsync
       else
+         match=.false.
+         have_hist=.false.
+         have_win=.false.
+         best_cont=0
+         best_df=1.0e30
          do i=1,nslots
-            dtsync=dec%tsync - slot(i)%tsync
             call classify_slot_candidate(slot(i),dec,nframe6/6000.0, &
                  match,is_window_dupe,is_history_dupe)
-
-            if(match) then
+            if(.not.match) cycle
+            if(is_history_dupe) then
                islot=i
-               if(is_history_dupe .or. is_window_dupe .or. abs(dtsync).lt.0.9) then
-                  ! Already merged into this slot -- a retro re-sweep can
-                  ! rediscover it; don't re-append, and don't reprint an
-                  ! unchanged line.
-                  is_pure_dupe=.true.
-                  exit
+               have_hist=.true.
+               exit
+            endif
+            if(is_window_dupe) then
+               if(.not.have_win) then
+                  islot=i
+                  have_win=.true.
                endif
-               k=slot(i)%k
+               cycle
+            endif
+            dfabs=abs(dec%f1-slot(i)%f1)
+            if(dfabs.lt.best_df) then
+               best_df=dfabs
+               best_cont=i
+            endif
+         enddo
+         if(have_hist .or. have_win) then
+            match=.true.
+            is_pure_dupe=.true.
+         else if(best_cont.gt.0) then
+            match=.true.
+            islot=best_cont
+            dtsync=dec%tsync-slot(islot)%tsync
+            if(abs(dtsync).lt.0.9) then
+               is_pure_dupe=.true.
+            else
+               k=slot(islot)%k
                n=len_trim(dec%decoded)
                kz=min(k+n,80)
                ! The prior frame's implicit separator column is just an
-               ! untouched blank in slot(i)%decoded, so trim() above
+               ! untouched blank in slot(islot)%decoded, so trim() above
                ! would silently drop it; put it back explicitly.
-               if(slot(i)%trailing_sep) then
-                  slot(i)%decoded=trim(slot(i)%decoded)//' '//dec%decoded(1:kz-k)
+               if(slot(islot)%trailing_sep) then
+                  slot(islot)%decoded=trim(slot(islot)%decoded)//' '// &
+                       dec%decoded(1:kz-k)
                else
-                  slot(i)%decoded=trim(slot(i)%decoded)//dec%decoded(1:kz-k)
+                  slot(islot)%decoded=trim(slot(islot)%decoded)// &
+                       dec%decoded(1:kz-k)
                endif
-               slot(i)%k=kz
-               slot(i)%trailing_sep=dec%trailing_sep
-               slot(i)%is_last_frame=dec%is_last_frame
+               slot(islot)%k=kz
+               slot(islot)%trailing_sep=dec%trailing_sep
+               slot(islot)%is_last_frame=dec%is_last_frame
                ! Track the most recently merged frame, not the frame that
                ! opened this slot -- a long message's gradual drift would
                ! otherwise eventually read as "too far from frame 1".
-               slot(i)%f1=dec%f1
-               slot(i)%xdt=dec%xdt
-               slot(i)%tsync=dec%tsync
-               if(slot(i)%nframes_merged.lt.16) then
-                  slot(i)%nframes_merged=slot(i)%nframes_merged+1
-                  slot(i)%frame_f1(slot(i)%nframes_merged)=dec%f1
-                  slot(i)%frame_tsync(slot(i)%nframes_merged)=dec%tsync
+               slot(islot)%f1=dec%f1
+               slot(islot)%xdt=dec%xdt
+               slot(islot)%tsync=dec%tsync
+               if(slot(islot)%nframes_merged.lt.16) then
+                  slot(islot)%nframes_merged=slot(islot)%nframes_merged+1
+                  slot(islot)%frame_f1(slot(islot)%nframes_merged)=dec%f1
+                  slot(islot)%frame_tsync(slot(islot)%nframes_merged)=dec%tsync
                endif
-               exit
             endif
-         enddo
+         else
+            match=.false.
+         endif
          if(.not.match) then
             if(nslots .ge. MAX_SLOTS) return
             nslots=nslots+1

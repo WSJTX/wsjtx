@@ -27,6 +27,14 @@ program test_jtty_slot_matching
   call expect(match .and. is_window_dupe .and. .not.is_history_dupe, &
        'an open slot rejects a quarter-frame rediscovery',failures)
 
+  candidate%f1=1505.0
+  candidate%tsync=existing%tsync+frame_period
+  candidate%decoded='WIDE CONTINUATION'
+  call classify_slot_candidate(existing,candidate,frame_period, &
+       match,is_window_dupe,is_history_dupe)
+  call expect(match .and. .not.is_window_dupe .and. .not.is_history_dupe, &
+       'an open slot accepts a 5 Hz next frame',failures)
+
   existing%is_last_frame=.true.
   candidate%f1=existing%frame_f1(1)
   candidate%tsync=existing%frame_tsync(1)
