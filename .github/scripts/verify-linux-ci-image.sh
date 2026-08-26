@@ -39,11 +39,27 @@ require_equal() {
   fi
 }
 
+require_sha256() {
+  local field=$1 value=$2
+  if [[ ! "$value" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "Linux CI image $field is not a SHA-256 value: ${value:-missing}" >&2
+    exit 1
+  fi
+}
+
+require_key_component() {
+  local field=$1 value=$2
+  if [[ ! "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    echo "Linux CI image $field is not a safe cache-key component: ${value:-missing}" >&2
+    exit 1
+  fi
+}
+
 require_equal schema 1 "${schema:-}"
 require_equal flavor "$expected_flavor" "${flavor:-}"
 require_equal architecture "$expected_arch" "${architecture:-}"
 require_equal hamlib_ref "$expected_hamlib_ref" "${hamlib_ref:-}"
-test -n "${generation:-}"
+require_key_component generation "${generation:-}"
 
 case "$expected_flavor" in
   normal)
@@ -101,6 +117,7 @@ else
   expected_recipe="$(.github/scripts/linux-ci-image-fingerprint.sh "$profile")"
 fi
 toolchain_recipe=$expected_recipe
+recipe_match=true
 if [ "${WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH:-false}" = true ] &&
    [ "${recipe_sha256:-}" != "$expected_recipe" ]; then
   echo "::warning::Linux CI image recipe fingerprint differs from this checkout; using the last known-good image generation" >&2
@@ -115,6 +132,7 @@ if [ "${WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH:-false}" = true ] &&
     } >> "$GITHUB_STEP_SUMMARY"
   fi
   toolchain_recipe=${recipe_sha256:-}
+  recipe_match=false
 else
   require_equal recipe_sha256 "$expected_recipe" "${recipe_sha256:-}"
 fi
@@ -124,7 +142,28 @@ test -n "${compiler_version:-}"
 test -n "${compiler_sha256:-}"
 test -n "${compiler_target:-}"
 test -n "${package_sha256:-}"
-test -n "${toolchain_id:-}"
+require_key_component toolchain_id "${toolchain_id:-}"
+if [[ ! "${compiler_version:-}" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
+  echo "Linux CI image compiler_version is invalid: ${compiler_version:-missing}" >&2
+  exit 1
+fi
+require_key_component compiler_target "${compiler_target:-}"
+require_sha256 compiler_sha256 "${compiler_sha256:-}"
+require_sha256 package_sha256 "${package_sha256:-}"
+require_sha256 recipe_sha256 "${recipe_sha256:-}"
+
+if [ "$recipe_match" = true ]; then
+  compiler_major=${compiler_version%%.*}
+  require_equal ccache_compatibility_id \
+    "gcc${compiler_major}-v2" "${ccache_compatibility_id:-}"
+  require_key_component ccache_compatibility_id "$ccache_compatibility_id"
+  require_sha256 compiler_signature_sha256 "${compiler_signature_sha256:-}"
+  verified_ccache_compatibility_id=$ccache_compatibility_id
+  verified_ccache_compiler_check="string:$compiler_signature_sha256"
+else
+  verified_ccache_compatibility_id=$toolchain_id
+  verified_ccache_compiler_check=mtime
+fi
 
 if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
   compiler_path="$(readlink -f "$(command -v "$compiler")")"
@@ -137,6 +176,25 @@ if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
   toolchain_identity="$toolchain_recipe:$compiler_target:$compiler_sha256:$package_sha256"
   toolchain_sha256="$(printf '%s' "$toolchain_identity" | sha256sum | awk '{print $1}')"
   require_equal toolchain_id "$toolchain_id" "gcc${compiler_version}-${expected_arch}-${toolchain_sha256:0:20}"
+
+  if [ "$recipe_match" = true ]; then
+    signature_helper="$config_dir/linux-ccache-compiler-signature.sh"
+    if [ ! -x "$signature_helper" ]; then
+      echo "Linux ccache compiler signature helper not found: $signature_helper" >&2
+      exit 1
+    fi
+    IFS=$'\t' read -r actual_compiler_version actual_compiler_target \
+      actual_compiler_sha256 actual_ccache_compatibility_id \
+      actual_compiler_signature_sha256 \
+      < <("$signature_helper" "$compiler")
+    require_equal compiler_version "$compiler_version" "$actual_compiler_version"
+    require_equal compiler_target "$compiler_target" "$actual_compiler_target"
+    require_equal compiler_sha256 "$compiler_sha256" "$actual_compiler_sha256"
+    require_equal ccache_compatibility_id "$ccache_compatibility_id" \
+      "$actual_ccache_compatibility_id"
+    require_equal compiler_signature_sha256 "$compiler_signature_sha256" \
+      "$actual_compiler_signature_sha256"
+  fi
 fi
 
 if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
@@ -189,12 +247,15 @@ EOF
   rm -rf "$smoke_dir"
 fi
 
-echo "Linux CI image: ${generation:-unknown} (${toolchain_id:-unknown})"
+echo "Linux CI image: ${generation:-unknown} (${toolchain_id:-unknown}; ccache ${verified_ccache_compatibility_id:-unknown})"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   {
     printf 'generation=%s\n' "$generation"
     printf 'toolchain_id=%s\n' "$toolchain_id"
+    printf 'ccache_compatibility_id=%s\n' "$verified_ccache_compatibility_id"
+    printf 'ccache_compiler_check=%s\n' "$verified_ccache_compiler_check"
+    printf 'recipe_match=%s\n' "$recipe_match"
     if [ "$expected_flavor" = normal ]; then
       printf 'pfunit_dir=%s\n' "$pfunit_dir"
       printf 'hamlib_prefix=%s\n' "$hamlib_prefix"

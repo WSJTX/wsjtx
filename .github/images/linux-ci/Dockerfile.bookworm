@@ -25,6 +25,7 @@ RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-packages \
 COPY .github/scripts/linux-ci-image-config.sh \
      .github/scripts/build-pfunit-linux.sh \
      .github/scripts/build-hamlib-linux.sh \
+     .github/scripts/linux-ccache-compiler-signature.sh \
      .github/scripts/verify-linux-ci-image.sh \
      /usr/local/share/wsjtx-ci/
 COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest

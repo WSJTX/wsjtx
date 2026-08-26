@@ -13,6 +13,7 @@ recipe_sha256=$4
 
 # shellcheck source=.github/scripts/linux-ci-image-config.sh
 . /usr/local/share/wsjtx-ci/linux-ci-image-config.sh
+compiler_signature_helper=/usr/local/share/wsjtx-ci/linux-ccache-compiler-signature.sh
 
 case "$flavor" in
   normal)
@@ -29,10 +30,9 @@ case "$flavor" in
     ;;
 esac
 
-compiler_path="$(readlink -f "$(command -v "$compiler")")"
-compiler_version="$($compiler -dumpfullversion -dumpversion)"
-compiler_sha256="$(sha256sum "$compiler_path" | awk '{print $1}')"
-compiler_target="$($compiler -dumpmachine)"
+IFS=$'\t' read -r compiler_version compiler_target compiler_sha256 \
+  ccache_compatibility_id compiler_signature_sha256 \
+  < <("$compiler_signature_helper" "$compiler")
 dpkg_arch="$(dpkg --print-architecture)"
 case "$arch:$dpkg_arch" in
   x86_64:amd64|aarch64:arm64|armhf:armhf) ;;
@@ -60,6 +60,8 @@ mkdir -p /opt/wsjtx-ci
   printf 'package_sha256=%s\n' "$package_sha256"
   printf 'recipe_sha256=%s\n' "$recipe_sha256"
   printf 'toolchain_id=%s\n' "$toolchain_id"
+  printf 'ccache_compatibility_id=%s\n' "$ccache_compatibility_id"
+  printf 'compiler_signature_sha256=%s\n' "$compiler_signature_sha256"
   if [ "$flavor" = normal ]; then
     printf 'hamlib_ref=%s\n' "$LINUX_HAMLIB_REF"
     printf 'hamlib_commit=%s\n' "$LINUX_HAMLIB_COMMIT"

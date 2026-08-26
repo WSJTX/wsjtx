@@ -25,13 +25,17 @@ if command -v dpkg-query >/dev/null 2>&1; then
   toolchain_sha256="$(printf '%s' "$toolchain_identity" | sha256sum | awk '{print $1}')"
   toolchain_id="gcc${compiler_version}-x86_64-${toolchain_sha256:0:20}"
 else
-  package_sha256=fixture
+  package_sha256=0000000000000000000000000000000000000000000000000000000000000000
   toolchain_id=fixture
 fi
+compiler_major=${compiler_version%%.*}
+ccache_compatibility_id="gcc${compiler_major}-v2"
+compiler_signature_sha256=1111111111111111111111111111111111111111111111111111111111111111
 
 write_manifest() {
   local hamlib_commit=${1:-$LINUX_HAMLIB_COMMIT}
   local recipe_sha=${2:-$recipe}
+  local include_ccache_identity=${3:-true}
   {
     echo "schema=1"
     echo "flavor=normal"
@@ -43,6 +47,10 @@ write_manifest() {
     echo "compiler_target=$compiler_target"
     echo "package_sha256=$package_sha256"
     echo "toolchain_id=$toolchain_id"
+    if [ "$include_ccache_identity" = true ]; then
+      echo "ccache_compatibility_id=$ccache_compatibility_id"
+      echo "compiler_signature_sha256=$compiler_signature_sha256"
+    fi
     echo "hamlib_ref=$LINUX_HAMLIB_REF"
     echo "hamlib_commit=$hamlib_commit"
     echo "pfunit_version=$LINUX_PFUNIT_VERSION"
@@ -63,13 +71,32 @@ run_verify() {
 write_manifest
 run_verify >/dev/null
 
+output="$fixture/output"
+GITHUB_OUTPUT="$output" run_verify >/dev/null
+grep -qx 'recipe_match=true' "$output"
+grep -qx "ccache_compatibility_id=$ccache_compatibility_id" "$output"
+grep -qx "ccache_compiler_check=string:$compiler_signature_sha256" "$output"
+
+write_manifest "$LINUX_HAMLIB_COMMIT" "$recipe" false
+if run_verify >/dev/null 2>&1; then
+  echo "Expected a current image without ccache identity fields to fail" >&2
+  exit 1
+fi
+
+write_manifest
+printf '%s\n' 'compiler_signature_sha256=invalid' >> "$manifest"
+if run_verify >/dev/null 2>&1; then
+  echo "Expected an invalid compiler signature to fail" >&2
+  exit 1
+fi
+
 write_manifest 0000000000000000000000000000000000000000
 if run_verify >/dev/null 2>&1; then
   echo "Expected a mismatched Hamlib commit to fail" >&2
   exit 1
 fi
 
-write_manifest "$LINUX_HAMLIB_COMMIT" 0000000000000000000000000000000000000000000000000000000000000000
+write_manifest "$LINUX_HAMLIB_COMMIT" 0000000000000000000000000000000000000000000000000000000000000000 false
 if run_verify >/dev/null 2>&1; then
   echo "Expected a mismatched recipe fingerprint to fail" >&2
   exit 1
@@ -78,10 +105,16 @@ if ! run_verify true >/dev/null 2>&1; then
   echo "Expected stale image allowance to accept a mismatched recipe fingerprint" >&2
   exit 1
 fi
+output="$fixture/stale-output"
+GITHUB_OUTPUT="$output" run_verify true >/dev/null 2>&1
+grep -qx 'recipe_match=false' "$output"
+grep -qx "ccache_compatibility_id=$toolchain_id" "$output"
+grep -qx 'ccache_compiler_check=mtime' "$output"
 
 tsan_config_dir="$fixture/tsan-config"
 mkdir -p "$tsan_config_dir" "$fixture/prefix/tsan/boost/cmake"
 cp .github/scripts/verify-linux-ci-image.sh \
+  .github/scripts/linux-ccache-compiler-signature.sh \
   .github/scripts/linux-ci-image-config.sh \
   .github/scripts/tsan-linux-deps-config.sh \
   "$tsan_config_dir/"
@@ -101,10 +134,12 @@ architecture=x86_64
 generation=build-20260818-1-1
 compiler=gcc-13
 compiler_version=$TSAN_GCC_VERSION
-compiler_sha256=fixture
+compiler_sha256=0000000000000000000000000000000000000000000000000000000000000000
 compiler_target=fixture
-package_sha256=fixture
+package_sha256=0000000000000000000000000000000000000000000000000000000000000000
 toolchain_id=fixture
+ccache_compatibility_id=gcc${TSAN_GCC_VERSION%%.*}-v2
+compiler_signature_sha256=1111111111111111111111111111111111111111111111111111111111111111
 hamlib_ref=$TSAN_HAMLIB_REF
 hamlib_commit=$TSAN_HAMLIB_COMMIT
 hamlib_patch_commit=$TSAN_HAMLIB_PATCH_COMMIT

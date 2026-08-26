@@ -53,6 +53,7 @@ jobs:
           .github/scripts/is-linux-ci-image-input.sh --self-test
           .github/scripts/select-ccache-key-suffix.sh --self-test
           .github/scripts/select-linux-ccache-save.sh --self-test
+          .github/scripts/test-linux-ccache-compiler-signature.sh
           .github/scripts/test-verify-linux-ci-image.sh
           python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
       - id: v
