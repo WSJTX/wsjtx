@@ -105,6 +105,7 @@ class QFrame;
 class QButtonGroup;
 
 class QProcessEnvironment;
+class QPaintEvent;
 class QSharedMemory;
 class QSplashScreen;
 class QSettings;
@@ -326,6 +327,7 @@ private:
   void change_layout (std::size_t) override;
   void keyPressEvent (QKeyEvent *) override;
   void closeEvent(QCloseEvent *) override;
+  void paintEvent(QPaintEvent *) override;
   void childEvent(QChildEvent *) override;
   bool eventFilter(QObject *, QEvent *) override;
   void showQSYMessage(QString message);
@@ -802,6 +804,12 @@ private:
   bool play_Wanted = false;
   bool inSettings = false;
 
+  quint64 m_startup_trace_run {0};
+  bool m_startup_paint_reported {false};
+  bool m_startup_decoder_reported {false};
+  bool m_startup_audio_reported {false};
+  bool m_startup_logbook_reported {false};
+  bool m_startup_rig_reported {false};
   bool m_event_filter_ready {false};
   QProcessEnvironment const& m_env;
   NetworkAccessManager m_network_manager;

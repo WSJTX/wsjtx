@@ -46,6 +46,7 @@
 
 #include "ExceptionCatchingApplication.hpp"
 #include "Logger.hpp"
+#include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
 #include "HighDpiScaling.hpp"
 #include "MetaDataRegistry.hpp"
@@ -262,6 +263,8 @@ namespace
 
 int main(int argc, char *argv[])
 {
+  PerformanceTrace::begin_run ("startup", "initial");
+  PerformanceTrace::Phase process_bootstrap {"process.bootstrap"};
   init_random_seed ();
 
   // make the Qt type magic happen
@@ -483,6 +486,9 @@ int main(int argc, char *argv[])
       // now we have the application name we can open the logging and settings
       WSJTXLogging lg;
       LOG_INFO (program_title (revision ()) << " - Program startup");
+      process_bootstrap.finish ();
+      PerformanceTrace::milestone ("logging.ready");
+      PerformanceTrace::Phase process_prepare {"process.prepare"};
       MultiSettings multi_settings {parser.value (cfg_option)};
 
       // find the temporary files path
@@ -613,12 +619,14 @@ int main(int argc, char *argv[])
       // db.exec ("PRAGMA synchronous=OFF"); // system crash risk
       // db.exec ("PRAGMA journal_mode=MEMORY"); // application crash risk
       db.exec ("PRAGMA locking_mode=EXCLUSIVE");
+      process_prepare.finish ();
 
       int result;
       bool startup_smoke_ready {false};
       auto const& original_style_sheet = a.styleSheet ();
       do
         {
+          PerformanceTrace::Phase runtime_prepare {"runtime.prepare"};
           // dump settings
           auto sys_lg = sys::get ();
           if (auto rec = sys_lg.open_record
@@ -760,9 +768,11 @@ int main(int argc, char *argv[])
           }
 
           QDir::setCurrent(qApp->applicationDirPath()); //This helps to find the SF executables
+          runtime_prepare.finish ();
 
           // run the application UI
           smoke_phase ("constructing MainWindow");
+          PerformanceTrace::Phase main_window_construct {"mainwindow.construct"};
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           FixtureAudioInput * fixture_input {nullptr};
           FixtureSoundOutput * fixture_output {nullptr};
@@ -809,6 +819,7 @@ int main(int argc, char *argv[])
                        QString {}
 #endif
                        );
+          main_window_construct.finish ();
           smoke_phase ("MainWindow constructed");
 #ifdef Q_OS_WIN
           quint16 mmtty_port = 0;
@@ -829,6 +840,7 @@ int main(int argc, char *argv[])
           }
 
           w.show();
+          PerformanceTrace::milestone ("ui.show_returned");
           smoke_phase ("MainWindow shown");
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           std::unique_ptr<LiveAudioTestController> live_audio_controller;
@@ -903,6 +915,7 @@ int main(int argc, char *argv[])
           splash.raise ();
           QObject::connect (&a, SIGNAL (lastWindowClosed()), &a, SLOT (quit()));
           result = a.exec();
+          PerformanceTrace::milestone ("event_loop.exit");
           if (startup_smoke_test && !startup_smoke_ready)
             {
               std::cerr << "WSJT-X startup smoke: application exited before readiness" << std::endl;
@@ -929,7 +942,7 @@ int main(int argc, char *argv[])
           // ensure config switches start with the right style sheet
           a.setStyleSheet (original_style_sheet);
         }
-      while (!result && !multi_settings.exit () && !automated_test);
+      while (!multi_settings.exit () && !result && !automated_test);
 
       // clean up lazily initialized resources
       {

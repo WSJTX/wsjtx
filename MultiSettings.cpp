@@ -28,8 +28,8 @@
 #include <QMetaObject>
 
 #include "SettingsGroup.hpp"
+#include "PerformanceTrace.hpp"
 #include "qt_helpers.hpp"
-#include "SettingsGroup.hpp"
 #include "widgets/MessageBox.hpp"
 #include "HighDpiScaling.hpp"
 
@@ -196,7 +196,7 @@ private:
 
   // action to take on restart
   enum class RepositionType {unchanged, replace, save_and_replace};
-  void restart (RepositionType);
+  void restart (RepositionType, PerformanceTrace::RunId run = 0);
 
   MultiSettings const * parent_;  // required for emitting signals
   QMainWindow * main_window_;
@@ -459,11 +459,20 @@ void MultiSettings::impl::create_menu_actions (QMainWindow * main_window, QMenu 
 // main window really wants to quit or to run again with a new configuration
 bool MultiSettings::impl::exit ()
 {
+  auto const run = PerformanceTrace::current_run ();
+  PerformanceTrace::milestone ("window.destroyed");
+  PerformanceTrace::Phase settings_reposition {"settings.reposition"};
   // ensure that configuration name changed signal gets fired on restart
   name_change_emit_pending_ = true;
 
   // do any configuration swap required and return exit flag
-  return reposition ();
+  auto const exit = reposition ();
+  settings_reposition.finish ();
+  if (exit)
+    {
+      PerformanceTrace::finish_run (run, "shutdown.complete");
+    }
+  return exit;
 }
 
 QMenu * MultiSettings::impl::create_sub_menu (QMenu * parent_menu,
@@ -578,6 +587,7 @@ void MultiSettings::impl::select_configuration (QString const& target_name)
   if (main_window_ && target_name != current_)
     {
       bool changed {false};
+      PerformanceTrace::RunId restart_run {0};
       {
         auto const& current_group = settings_.group ();
         if (current_group.size ()) settings_.endGroup ();
@@ -585,10 +595,13 @@ void MultiSettings::impl::select_configuration (QString const& target_name)
         SettingsGroup alternatives {&settings_, multi_settings_root_group};
         if (settings_.childGroups ().contains (target_name))
           {
+            auto const run = PerformanceTrace::begin_run ("startup", "configuration_switch");
+            PerformanceTrace::milestone (run, "switch.requested");
             changed = true;
             // save the target settings
             SettingsGroup target_group {&settings_, target_name};
             new_settings_ = get_settings ();
+            restart_run = run;
           }
         if (current_group.size ()) settings_.beginGroup (current_group);
       }
@@ -597,7 +610,7 @@ void MultiSettings::impl::select_configuration (QString const& target_name)
           // and set up the restart
           current_ = target_name;
           Q_EMIT parent_->configurationNameChanged (unescape_ampersands (current_));
-          restart (RepositionType::save_and_replace);
+          restart (RepositionType::save_and_replace, restart_run);
         }
     }
 }
@@ -822,9 +835,14 @@ void MultiSettings::impl::delete_configuration (QMenu * menu)
   menu->deleteLater ();
 }
 
-void MultiSettings::impl::restart (RepositionType type)
+void MultiSettings::impl::restart (RepositionType type, PerformanceTrace::RunId run)
 {
   Q_ASSERT (main_window_);
+  if (!run)
+    {
+      run = PerformanceTrace::begin_run ("startup", "configuration_switch");
+      PerformanceTrace::milestone (run, "switch.requested");
+    }
   reposition_type_ = type;
   exit_flag_ = false;
   main_window_->close ();

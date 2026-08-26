@@ -65,6 +65,7 @@ set (wsjt_qt_CXXSRCS
   SampleDownloader/FileNode.cpp
   SampleDownloader/RemoteFile.cpp
   DisplayManual.cpp
+  PerformanceTrace.cpp
   WSJTXLogging.cpp
   Decoder/decodedtext.cpp
   qmap/qmap_decode_record.cpp

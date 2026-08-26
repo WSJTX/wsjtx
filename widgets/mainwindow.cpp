@@ -17,6 +17,7 @@
 #include <QStringListModel>
 #include <QSettings>
 #include <QKeyEvent>
+#include <QPaintEvent>
 #include <QWheelEvent>
 #include <QProcessEnvironment>
 #include <QSharedMemory>
@@ -66,6 +67,7 @@
 #include "itoneAndicw.h" // TCI
 
 #include "helper_functions.h"
+#include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "Network/NetworkAccessManager.hpp"
@@ -502,6 +504,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        QString decoder_data_path,
                        QWidget *parent) :
   MultiGeometryWidget {parent},
+  m_startup_trace_run {PerformanceTrace::current_run ()},
   m_env {env},
   m_network_manager {this},
   m_valid {true},
@@ -688,6 +691,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_block_udp_status_updates {false},
   m_useDarkStyle {false}
 {
+  PerformanceTrace::milestone (m_startup_trace_run, "mainwindow.members_ready");
+  PerformanceTrace::Phase ui_initialize {m_startup_trace_run, "mainwindow.ui_initialize"};
   programStart = true;
   ui->setupUi(this);
   m_tx_message_button_group = new QButtonGroup {this};
@@ -815,6 +820,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::finished, m_soundInput, &AudioInputSource::stop);
   connect (m_soundInput, &AudioInputSource::streamDescriptorChanged,
            m_detector, &Detector::setStreamDescriptor);
+  connect (m_soundInput, &AudioInputSource::streamDescriptorChanged, this,
+           [this] (AudioStreamDescriptor const&) {
+             if (!m_startup_audio_reported)
+               {
+                 m_startup_audio_reported = true;
+                 PerformanceTrace::milestone (m_startup_trace_run, "audio.input_ready");
+               }
+           });
   if (!m_automated_test)
     {
       connect(m_soundInput, &AudioInputSource::error, this, &MainWindow::showSoundInError);
@@ -852,6 +865,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // hook up the log book
   connect (&m_logBook, &LogBook::finished_loading, [this] (int record_count, QString cty_version, QString const& error) {
+      if (!m_startup_logbook_reported)
+        {
+          m_startup_logbook_reported = true;
+          PerformanceTrace::milestone (
+            m_startup_trace_run, "logbook.ready",
+            QString {"status=%1 unique_entries=%2"}
+              .arg (error.isEmpty () ? "ok" : "error").arg (record_count));
+        }
       if (error.size ())
         {
           MessageBox::warning_message (this, tr ("Error Scanning ADIF Log"), error);
@@ -1069,6 +1090,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   setWindowTitle (program_title ());
 
   connect(&proc_jt9, &QProcess::started, this, [this] {
+      if (!m_startup_decoder_reported)
+        {
+          m_startup_decoder_reported = true;
+          PerformanceTrace::milestone (m_startup_trace_run, "decoder.process_started");
+        }
       if (Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
           || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase)
         {
@@ -1402,7 +1428,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->labAz->setText("");
   auto t = "UTC   dB   DT Freq    " + tr ("Message");
   setDecodeHeadings(t, t);
+  ui_initialize.finish ();
+  PerformanceTrace::Phase settings_restore {m_startup_trace_run, "mainwindow.settings_restore"};
   readSettings();            //Restore user's setup parameters
+  settings_restore.finish ();
+  PerformanceTrace::Phase runtime_initialize {m_startup_trace_run, "mainwindow.runtime_initialize"};
   connect (ui->respondComboBox, &QComboBox::currentTextChanged, this,
            [this] (QString const&) {check_button_color ();});
   if(m_mode=="Q65") {
@@ -1441,10 +1471,16 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
   }
 
-  startDecoderProcess ();
+  {
+    PerformanceTrace::Phase decoder_start {m_startup_trace_run, "decoder.start_request"};
+    startDecoderProcess ();
+  }
 
-  auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
-  fftwf_import_wisdom_from_filename (fname.toLocal8Bit ());
+  {
+    PerformanceTrace::Phase wisdom_import {m_startup_trace_run, "fft_wisdom.import"};
+    auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
+    fftwf_import_wisdom_from_filename (fname.toLocal8Bit ());
+  }
 
   m_ntx = 6;
   ui->txrb6->setChecked(true);
@@ -1461,29 +1497,39 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_tci = m_config.is_tci();
   m_tci_audio = (m_config.tci_audio() && m_config.is_tci());
 
-  if (!m_tci_audio) {
-    Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                  , m_rx_audio_buffer_frames
-                                  , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
-    if (!m_config.audio_output_device ().isNull ())
-      {
-        Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
-                                            , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
-                                            , m_tx_audio_buffer_frames);
-      }
-    Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
+  {
+    PerformanceTrace::Phase audio_start {m_startup_trace_run, "audio.start_request"};
+    if (!m_tci_audio) {
+      Q_EMIT startAudioInputStream (m_config.audio_input_device ()
+                                    , m_rx_audio_buffer_frames
+                                    , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
+      if (!m_config.audio_output_device ().isNull ())
+        {
+          Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
+                                              , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
+                                              , m_tx_audio_buffer_frames);
+        }
+      Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
+    }
   }
 
-  enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
+  {
+    PerformanceTrace::Phase logbook_initialize {m_startup_trace_run, "logbook.initialize_request"};
+    enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
+  }
 
   // this must be done before initializing the mode as some modes need
   // to turn off split on the rig e.g. WSPR
-  m_config.transceiver_online ();
+  {
+    PerformanceTrace::Phase rig_start {m_startup_trace_run, "rig.start_request"};
+    m_config.transceiver_online ();
+  }
   bool vhf {m_config.enable_VHF_features ()};
 
   ui->txFirstCheckBox->setChecked(m_txFirst);
   morse_(const_cast<char *> (m_config.my_callsign ().toLatin1().constData()),
          const_cast<int *> (icw), &m_ncw, (FCL)m_config.my_callsign().length());
+  PerformanceTrace::Phase mode_initialize {m_startup_trace_run, "mode.initialize"};
   on_actionWide_Waterfall_triggered();
   ui->cbShMsgs->setChecked(m_bShMsgs);
   ui->cbSWL->setChecked(m_bSWL);
@@ -1580,6 +1626,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   m_fastGraph->setMode(m_mode);
   m_wideGraph->setMode(m_mode);
+  mode_initialize.finish ();
 
   connect (&minuteTimer, &QTimer::timeout, this, &MainWindow::bandHoppingTimer);
   connect (&minuteTimer, &QTimer::timeout, this, &MainWindow::on_the_minute);
@@ -1614,15 +1661,28 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   update_foxLogWindow_rate(); // update the rate on the window
   check_button_color();
-  read_txLog();
-  read_ignoreList();
-  read_ALLCALL7();
+  {
+    PerformanceTrace::Phase tx_log_load {m_startup_trace_run, "tx_log.load"};
+    read_txLog();
+  }
+  {
+    PerformanceTrace::Phase ignore_list_load {m_startup_trace_run, "ignore_list.load"};
+    read_ignoreList();
+  }
+  {
+    PerformanceTrace::Phase allcall_load {m_startup_trace_run, "allcall.load"};
+    read_ALLCALL7();
+  }
   if (ui->actionRemove_after_30days->isChecked ()) {
+    PerformanceTrace::Phase saved_audio_cleanup {m_startup_trace_run, "saved_audio.cleanup"};
     remove_old_files(m_config.save_directory().absolutePath(), 30); // remove saved audio files after 30 days
   }
 
-  QString jpleph = m_config.data_dir().absoluteFilePath("JPLEPH");
-  jpl_setup_(const_cast<char *>(jpleph.toLocal8Bit().constData()),256);
+  {
+    PerformanceTrace::Phase ephemeris_initialize {m_startup_trace_run, "jpl_ephemeris.initialize"};
+    QString jpleph = m_config.data_dir().absoluteFilePath("JPLEPH");
+    jpl_setup_(const_cast<char *>(jpleph.toLocal8Bit().constData()),256);
+  }
 
 #ifdef WIN32
   // backup libhamlib-4.dll file, so it is still available after the next program update
@@ -1643,6 +1703,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   QTimer::singleShot (4000, this, [=] {programStart=false;});
 
 // this must be the last statement of constructor
+  runtime_initialize.finish ();
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
 }
 
@@ -1720,17 +1781,30 @@ void MainWindow::on_the_minute ()
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
 {
+  PerformanceTrace::Phase destructor {"mainwindow.destructor_body"};
   // wav12 shares FFT state that main() releases after this window is destroyed.
-  m_wav_load_coordinator.waitForFinished ();
+  {
+    PerformanceTrace::Phase wav_load_wait {"wav_load.shutdown_wait"};
+    m_wav_load_coordinator.waitForFinished ();
+  }
   if(m_astroWidget) m_astroWidget.reset ();
   if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset ();
   if(m_QSYMessageWidget) m_QSYMessageWidget.reset ();
   if(m_qsymonitorWidget) m_qsymonitorWidget.reset ();
-  auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
-  fftwf_export_wisdom_to_filename (fname.toLocal8Bit ());
-  m_audioThread.quit ();
-  m_audioThread.wait ();
-  m_saveWAVSynchronizer.waitForFinished ();
+  {
+    PerformanceTrace::Phase wisdom_export {"fft_wisdom.export"};
+    auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
+    fftwf_export_wisdom_to_filename (fname.toLocal8Bit ());
+  }
+  {
+    PerformanceTrace::Phase audio_shutdown {"audio_thread.shutdown"};
+    m_audioThread.quit ();
+    m_audioThread.wait ();
+  }
+  {
+    PerformanceTrace::Phase wav_save_wait {"wav_save.shutdown_wait"};
+    m_saveWAVSynchronizer.waitForFinished ();
+  }
   m_saveWAVSynchronizer.clearFutures ();
   remove_child_from_event_filter (this);
   if (ipc_qmap && mem_qmap.isAttached () && mem_qmap.lock ()) {
@@ -3807,8 +3881,25 @@ void MainWindow::setup_status_bar (bool vhf)
 }
 
 
+void MainWindow::paintEvent (QPaintEvent * event)
+{
+  MultiGeometryWidget::paintEvent (event);
+  if (!m_startup_paint_reported)
+    {
+      m_startup_paint_reported = true;
+      PerformanceTrace::finish_run (m_startup_trace_run, "ui.first_paint");
+    }
+}
+
 void MainWindow::closeEvent(QCloseEvent * e)
 {
+  auto const active_run = PerformanceTrace::current_run ();
+  if (active_run == m_startup_trace_run)
+    {
+      auto const shutdown_run = PerformanceTrace::begin_run ("shutdown", "application_exit");
+      PerformanceTrace::milestone (shutdown_run, "shutdown.requested");
+    }
+  PerformanceTrace::Phase close {"window.close"};
   cancelPendingFt8Decode ("application closing");
   m_closing = true;
   m_jt9ProcessPhase = Jt9ProcessPhase::Closing;
@@ -3817,8 +3908,14 @@ void MainWindow::closeEvent(QCloseEvent * e)
   m_decoderKillTimer.stop ();
   m_decoderStartTimer.stop ();
   m_valid = false;              // suppresses subprocess errors
-  m_config.transceiver_offline ();
-  writeSettings ();
+  {
+    PerformanceTrace::Phase rig_shutdown {"rig.shutdown_request"};
+    m_config.transceiver_offline ();
+  }
+  {
+    PerformanceTrace::Phase settings_write {"mainwindow.settings_write"};
+    writeSettings ();
+  }
   if(m_astroWidget) m_astroWidget.reset ();
   if(m_QSYMessageCreatorWidget) {
     QCloseEvent closeEvent;
@@ -3846,25 +3943,29 @@ void MainWindow::closeEvent(QCloseEvent * e)
   int nh=100;
   int irow=-99;
   plotsave_(&sw,&nw,&nh,&irow);
-  if (DecoderIpc::hasUsableSize (mem_jt9->size ())
-      && mem_jt9->data ())
-    {
-      auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
-      DecoderIpc::shutdown (*shared);
-    }
-  if (proc_jt9.state() != QProcess::NotRunning) {
-    if (!proc_jt9.waitForFinished(5000)) {
-      proc_jt9.terminate();
-      if (!proc_jt9.waitForFinished(1000)) {
-        proc_jt9.kill();
-        proc_jt9.waitForFinished(1000);
+  {
+    PerformanceTrace::Phase decoder_shutdown {"decoder.shutdown"};
+    if (DecoderIpc::hasUsableSize (mem_jt9->size ())
+        && mem_jt9->data ())
+      {
+        auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9->data ());
+        DecoderIpc::shutdown (*shared);
+      }
+    if (proc_jt9.state() != QProcess::NotRunning) {
+      if (!proc_jt9.waitForFinished(5000)) {
+        proc_jt9.terminate();
+        if (!proc_jt9.waitForFinished(1000)) {
+          proc_jt9.kill();
+          proc_jt9.waitForFinished(1000);
+        }
       }
     }
+    proc_jt9.close();
   }
-  proc_jt9.close();
   mem_jt9->detach();
   Q_EMIT finished ();
   QMainWindow::closeEvent (e);
+  close.finish ();
 }
 
 
@@ -11540,6 +11641,13 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
 
 void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const& s)
 {
+  if (!m_startup_rig_reported)
+    {
+      m_startup_rig_reported = true;
+      PerformanceTrace::milestone (
+        m_startup_trace_run, "rig.first_update",
+        QString {"online=%1"}.arg (s.online () ? "true" : "false"));
+    }
   Transceiver::TransceiverState old_state {m_rigState};
   //transmitDisplay (s.ptt ());
   if (s.ptt () // && !m_rigState.ptt ()

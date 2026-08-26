@@ -11,6 +11,7 @@
 #include "Configuration.hpp"
 #include "MessageBox.hpp"
 #include "SettingsGroup.hpp"
+#include "PerformanceTrace.hpp"
 #include "moc_widegraph.cpp"
 
 WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
@@ -23,6 +24,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
   m_bHaveTransmitted {false},
   m_user_defined {tr ("User Defined")}
 {
+  PerformanceTrace::Phase construction {"widegraph.construct"};
   ui->setupUi(this);
 
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Wide Graph"));

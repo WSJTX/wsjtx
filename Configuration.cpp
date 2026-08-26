@@ -191,6 +191,7 @@
 
 #include "pimpl_impl.hpp"
 #include "Logger.hpp"
+#include "PerformanceTrace.hpp"
 #include "qt_helpers.hpp"
 #include "MetaDataRegistry.hpp"
 #include "SettingsGroup.hpp"
@@ -768,7 +769,8 @@ private:
   Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64) const;
   Q_SIGNAL void clear_jtty_pcm (TxAudioQueueEpoch) const;
 
-  Configuration * const self_;	// back pointer to public interface
+  PerformanceTrace::Phase construction_trace_;
+  Configuration * const self_;  // back pointer to public interface
 
   QThread * transceiver_thread_;
   TransceiverFactory transceiver_factory_;
@@ -2031,6 +2033,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
                            , QDir const& temp_directory, QSettings * settings, LogBook * logbook
                            , QWidget * parent)
   : QDialog {parent}
+  , construction_trace_ {"configuration.construct"}
   , self_ {self}
   , transceiver_thread_ {nullptr}
   , ui_ {new Ui::configuration_dialog}
@@ -2087,7 +2090,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , default_audio_input_device_selected_ {false}
   , default_audio_output_device_selected_ {false}
 {
-  ui_->setupUi (this);
+  {
+    PerformanceTrace::Phase ui_setup {"configuration.ui_setup"};
+    ui_->setupUi (this);
+  }
 
   SettingsDialogLayout::install (*ui_);
 
@@ -2528,6 +2534,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   update_visibility_when_toggled (ui_->cbContestName);
 
   {
+    PerformanceTrace::Phase data_directories {"configuration.data_directories"};
     // Make sure the default save directory exists
     QString save_dir {"save"};
     default_save_directory_ = writeable_data_dir_;
@@ -2571,7 +2578,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   }
 
   // this must be done after the default paths above are set
-  read_settings ();
+  {
+    PerformanceTrace::Phase settings_read {"configuration.settings_read"};
+    read_settings ();
+  }
 
   // set up dynamic loading of audio devices
   connect (ui_->sound_input_combo_box, &LazyFillComboBox::about_to_show_popup, [this] () {
@@ -2666,7 +2676,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   //
   // setup PTT port combo box drop down content
   //
-  fill_port_combo_box (ui_->PTT_port_combo_box);
+  {
+    PerformanceTrace::Phase serial_ports {"configuration.serial_ports"};
+    fill_port_combo_box (ui_->PTT_port_combo_box);
+  }
   ui_->PTT_port_combo_box->addItem ("CAT");
   ui_->PTT_port_combo_box->setItemData (ui_->PTT_port_combo_box->count () - 1, "Delegate to proxy CAT service", Qt::ToolTipRole);
 
@@ -2799,8 +2812,14 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     });
   ui_->highlighting_actions_tool_button->setMenu (highlighting_actions_menu);
 
-  enumerate_rigs ();
-  initialize_models ();
+  {
+    PerformanceTrace::Phase rig_models {"configuration.rig_models"};
+    enumerate_rigs ();
+  }
+  {
+    PerformanceTrace::Phase models {"configuration.models_initialize"};
+    initialize_models ();
+  }
   restart_tci_device_ = false;
 
   audio_input_device_ = next_audio_input_device_;
@@ -2827,13 +2846,20 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->eqsluser_edit->setText (eqsl_username_);
   ui_->eqslpasswd_edit->setText (eqsl_passwd_);
   ui_->eqslnick_edit->setText (eqsl_nickname_);
+  construction_trace_.finish ();
 }
 
 Configuration::impl::~impl ()
 {
-  transceiver_thread_->quit ();
-  transceiver_thread_->wait ();
-  write_settings ();
+  {
+    PerformanceTrace::Phase transceiver_thread {"transceiver_thread.shutdown"};
+    transceiver_thread_->quit ();
+    transceiver_thread_->wait ();
+  }
+  {
+    PerformanceTrace::Phase settings_write {"configuration.settings_write"};
+    write_settings ();
+  }
 }
 
 void Configuration::impl::initialize_models ()

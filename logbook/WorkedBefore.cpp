@@ -22,6 +22,7 @@
 #include <QDateTime>
 #include <QPointer>
 #include "Configuration.hpp"
+#include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
 #include "Logger.hpp"
 #include "qt_helpers.hpp"
@@ -280,8 +281,10 @@ namespace
     return QString {};
   }
 
-  worked_before_database_type loader (QString const& path, AD1CCty const * prefixes)
+  worked_before_database_type loader (QString const& path, AD1CCty const * prefixes,
+                                      PerformanceTrace::RunId run)
   {
+    PerformanceTrace::Phase parse {run, "logbook.parse"};
     worked_before_database_type worked;
     QFile inputFile {path};
     if (inputFile.exists ())
@@ -360,6 +363,7 @@ namespace
             throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Error opening ADIF log file for read: %0").arg (inputFile.errorString ()).toLocal8Bit ()});
           }
       }
+    parse.finish (QString {"unique_entries=%1"}.arg (worked.size ()));
     return worked;
   }
 }
@@ -368,16 +372,23 @@ class WorkedBefore::impl final
 {
 public:
   impl (Configuration const * configuration)
-    : configuration_ {configuration}
+    : construction_trace_ {"logbook.construct"}
+    , configuration_ {configuration}
     , path_ {writable_file_path (configuration->writeable_data_dir (), logFileName)}
     , prefixes_ {configuration}
   {
+    construction_trace_.finish ();
   }
 
   void start_loader ()
   {
-    prefixes_.reload (configuration_);
-    async_loader_ = QtConcurrent::run (loader, path_, &prefixes_);
+    loader_run_ = PerformanceTrace::current_run ();
+    {
+      PerformanceTrace::Phase prefixes_reload {loader_run_, "logbook.prefixes_reload"};
+      prefixes_.reload (configuration_);
+    }
+    PerformanceTrace::milestone (loader_run_, "logbook.load_started");
+    async_loader_ = QtConcurrent::run (loader, path_, &prefixes_, loader_run_);
     loader_watcher_.setFuture (async_loader_);
   }
 
@@ -389,6 +400,7 @@ public:
       }
   }
 
+  PerformanceTrace::Phase construction_trace_;
   Configuration const * configuration_;
   QString path_;
   AD1CCty prefixes_;
@@ -396,6 +408,7 @@ public:
   QFuture<worked_before_database_type> async_loader_;
   worked_before_database_type worked_;
   WorkedBeforeLoadState load_state_;
+  PerformanceTrace::RunId loader_run_ {0};
 };
 
 WorkedBefore::WorkedBefore (Configuration const * configuration)
@@ -447,6 +460,7 @@ void WorkedBefore::reload ()
 
 WorkedBefore::~WorkedBefore ()
 {
+  PerformanceTrace::Phase shutdown_wait {"logbook.shutdown_wait"};
   m_->async_loader_.waitForFinished ();
 }
 

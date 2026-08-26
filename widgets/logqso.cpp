@@ -16,6 +16,7 @@
 #include "models/CabrilloLog.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "qt_helpers.hpp"
+#include "PerformanceTrace.hpp"
 
 #include "ui_logqso.h"
 #include "moc_logqso.cpp"
@@ -88,6 +89,7 @@ LogQSO::LogQSO(QString const& programTitle, QSettings * settings
   , m_config {config}
   , m_log {log}
 {
+  PerformanceTrace::Phase construction {"logqso.construct"};
   ui->setupUi(this);
   setWindowTitle(programTitle + " - Log QSO");
   ui->comboBoxSatellite->addItem ("", "");
