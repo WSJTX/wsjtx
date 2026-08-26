@@ -115,15 +115,20 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ${{ steps.sanitizer.outputs.ccache_dir }}
-        key: ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
+        key: ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
         restore-keys: |
-          ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.toolchain_id }}-
+          ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+          ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.ccache_compatibility_id }}-
 
     - name: Configure ccache
       shell: bash
       run: |
         export CCACHE_DIR="${GITHUB_WORKSPACE}/${{ steps.sanitizer.outputs.ccache_dir }}"
-        echo "CCACHE_DIR=$CCACHE_DIR" >> "$GITHUB_ENV"
+        export CCACHE_COMPILERCHECK="${{ steps.image.outputs.ccache_compiler_check }}"
+        {
+          echo "CCACHE_DIR=$CCACHE_DIR"
+          echo "CCACHE_COMPILERCHECK=$CCACHE_COMPILERCHECK"
+        } >> "$GITHUB_ENV"
         echo "ccache recache: ${{ inputs.recache }}"
         if [ "${{ inputs.recache }}" = "true" ]; then
           echo "CCACHE_RECACHE=1" >> "$GITHUB_ENV"
@@ -131,6 +136,7 @@ runs:
         fi
         mkdir -p "$CCACHE_DIR"
         ccache --version
+        ccache --show-config
         ccache --zero-stats
 
     - name: Configure sanitizer build
@@ -259,8 +265,13 @@ runs:
           exit 1
         fi
 
+    - name: Report suppressed sanitizer ccache save
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match != 'true'
+      shell: bash
+      run: echo "::notice::Not saving sanitizer ccache because this build used a stale Linux CI image recipe"
+
     - name: Save sanitizer objects
-      if: inputs.save_ccache == 'true' && steps.ccache.outputs.cache-hit != 'true'
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
       with:
         path: ${{ steps.sanitizer.outputs.ccache_dir }}

@@ -302,15 +302,20 @@ jobs:
         id: image
         env:
           BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          ALLOW_STALE_IMAGE: ${{ inputs.allow_stale_image }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
         run: |
           docker pull --platform linux/arm/v7 "$BUILDER_IMAGE"
-          toolchain_id="$(docker run --rm --platform linux/arm/v7 "$BUILDER_IMAGE" \
-            bash -c '. /opt/wsjtx-ci/image.env; printf "%s" "$toolchain_id"')"
-          if [ -z "$toolchain_id" ]; then
-            echo "::error::armhf image did not provide a toolchain identity"
-            exit 1
-          fi
-          echo "toolchain_id=$toolchain_id" >> "$GITHUB_OUTPUT"
+          output_file=.armhf-image-verification-output
+          trap 'rm -f "$output_file"' EXIT
+          docker run --rm --platform linux/arm/v7 \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            -e GITHUB_OUTPUT=/work/$output_file \
+            -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$ALLOW_STALE_IMAGE" \
+            "$BUILDER_IMAGE" \
+            bash .github/scripts/verify-linux-ci-image.sh normal armhf "$HAMLIB_BRANCH"
+          cat "$output_file" >> "$GITHUB_OUTPUT"
 
       - name: Select armhf ccache key
         id: ccache-key
@@ -323,15 +328,18 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: .ccache-armhf
-          key: ccache-linux-armhf-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
+          key: ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
           restore-keys: |
-            ccache-linux-armhf-${{ steps.image.outputs.toolchain_id }}-
+            ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+            ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-
 
       - name: Build inside arm/v7 Bookworm GCC image
         env:
           ARCH: armhf
           BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
           RECACHE: ${{ inputs.recache }}
+          CCACHE_COMPILERCHECK: ${{ steps.image.outputs.ccache_compiler_check }}
+          WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
         run: |
           ccache_args=()
           if [ "$RECACHE" = true ]; then
@@ -347,6 +355,8 @@ jobs:
             -e WSJT_RC_NUMBER \
             -e GITHUB_TOKEN \
             -e CCACHE_DIR=/work/.ccache-armhf \
+            -e CCACHE_COMPILERCHECK \
+            -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH \
             "${ccache_args[@]}" \
             "$BUILDER_IMAGE" \
             bash .github/scripts/build-linux-payload.sh
@@ -390,8 +400,12 @@ jobs:
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
 
+      - name: Report suppressed armhf ccache save
+        if: inputs.save_ccache && steps.image.outputs.recipe_match != 'true'
+        run: echo "::notice::Not saving armhf ccache because this build used a stale Linux CI image recipe"
+
       - name: Save armhf ccache
-        if: inputs.save_ccache && steps.ccache.outputs.cache-hit != 'true'
+        if: inputs.save_ccache && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: .ccache-armhf

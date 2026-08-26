@@ -69,6 +69,16 @@ runs:
         .github/scripts/verify-linux-ci-image.sh
         normal "${{ inputs.arch }}" "${{ inputs.hamlib_branch }}"
 
+    - name: Select Noble toolchain
+      if: inputs.runtime_base == 'host'
+      shell: bash
+      run: |
+        {
+          echo "CC=gcc"
+          echo "CXX=g++"
+          echo "FC=gfortran"
+        } >> "$GITHUB_ENV"
+
     - name: Select GCC 13.4 Bookworm toolchain
       if: inputs.runtime_base == 'bookworm-gcc13.4'
       shell: bash
@@ -108,14 +118,20 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: .ccache
-        key: ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.toolchain_id }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
+        key: ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
         restore-keys: |
-          ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.toolchain_id }}-
+          ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+          ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-
 
     - name: Configure ccache
       shell: bash
       run: |
-        echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+        export CCACHE_DIR="${GITHUB_WORKSPACE}/.ccache"
+        export CCACHE_COMPILERCHECK="${{ steps.image.outputs.ccache_compiler_check }}"
+        {
+          echo "CCACHE_DIR=$CCACHE_DIR"
+          echo "CCACHE_COMPILERCHECK=$CCACHE_COMPILERCHECK"
+        } >> "$GITHUB_ENV"
         echo "ccache recache: ${{ inputs.recache }}"
         if [ "${{ inputs.recache }}" = "true" ]; then
           echo "CCACHE_RECACHE=1" >> "$GITHUB_ENV"
@@ -123,6 +139,7 @@ runs:
         fi
         mkdir -p "${GITHUB_WORKSPACE}/.ccache"
         ccache --version
+        ccache --show-config
         ccache --zero-stats
 
     # Exercise the public CMake default without duplicating its compile graph.
@@ -560,8 +577,13 @@ runs:
           wsjtx-build/wsprd
           wsjtx-build/wsjtx
 
+    - name: Report suppressed ccache save
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match != 'true'
+      shell: bash
+      run: echo "::notice::Not saving ccache because this build used a stale Linux CI image recipe"
+
     - name: Save ccache
-      if: inputs.save_ccache == 'true' && steps.ccache.outputs.cache-hit != 'true'
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
       with:
         path: .ccache

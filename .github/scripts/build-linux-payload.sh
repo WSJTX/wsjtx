@@ -80,6 +80,7 @@ echo "pFUnit config dir: $PFUNIT_DIR"
 
 export CCACHE_DIR="${CCACHE_DIR:-/work/.ccache-armhf}"
 mkdir -p "$CCACHE_DIR"
+ccache --show-config
 ccache --zero-stats
 
 # ── 2. Configure + build wsjtx ───────────────────────────────────────
