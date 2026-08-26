@@ -760,6 +760,16 @@ set (TOP_LEVEL_RESOURCES
   artwork/splash.png
   )
 
+set (WSJTX_DATA_FILES
+  cty.dat
+  cty.dat_copyright.txt
+  grid.dat
+  sat.dat
+  contrib/Ephemeris/JPLEPH
+  eclipse.txt
+  ALLCALL7.TXT
+  )
+
 set (PALETTE_FILES
   Palettes/Banana.pal
   Palettes/Blue1.pal
@@ -794,6 +804,9 @@ set (PALETTE_FILES
 
 if (APPLE)
   set (WSJTX_ICON_FILE ${CMAKE_PROJECT_NAME}.icns)
+  set (wsjtx_BUNDLE_DATA_FILES ${WSJTX_DATA_FILES})
+  set_source_files_properties (${wsjtx_BUNDLE_DATA_FILES}
+    PROPERTIES MACOSX_PACKAGE_LOCATION Resources/wsjtx)
   set (ICONSRCS
     icons/Darwin/${CMAKE_PROJECT_NAME}.iconset/icon_16x16.png
     icons/Darwin/${CMAKE_PROJECT_NAME}.iconset/icon_16x16@2x.png

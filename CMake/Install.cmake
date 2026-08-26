@@ -108,13 +108,7 @@ install (FILES
   )
 
 install (FILES
-  cty.dat
-  cty.dat_copyright.txt
-  grid.dat
-  sat.dat
-  contrib/Ephemeris/JPLEPH
-  eclipse.txt
-  ALLCALL7.TXT
+  ${WSJTX_DATA_FILES}
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
   #COMPONENT runtime
   )

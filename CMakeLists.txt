@@ -908,6 +908,7 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_RESOURCES_RCC}
   ${wsjtx_VERSION_RESOURCES}
   ${wsjtx_PLATFORM_RESOURCES}
+  ${wsjtx_BUNDLE_DATA_FILES}
   )
 
 wsjt_enable_qt_automoc (wsjtx)
