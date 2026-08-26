@@ -5863,7 +5863,7 @@ void MainWindow::callSandP2(int n)
       return;
     }
     m_deGrid=w[3];
-    m_bDoubleClicked=true;               //### needed?
+    m_bDoubleClicked=true;
     m_txFirst=true;
     setDXInfo(m_deCall, m_deGrid);
     ui->txFirstCheckBox->setChecked(m_txFirst);
@@ -5883,40 +5883,30 @@ void MainWindow::callSandP2(int n)
       frequency_changed = requestNominalFrequencyChange (
         (nMHz*1000 + kHz)* 1000, FrequencyRequestOrigin::User);
     }
-    m_deCall=w[4];
-    m_deGrid=w[5];
-    m_txFirst=(w[6]=="0");
-//    ui->TxFreqSpinBox->setValue(1500);
+    applyQ65StationSelection ({w[4], w[5], w[3], w[2], w[6]=="0"});
   } else {
     if(w.size() < 6) return;
     m_deCall=w[0];
     m_deGrid=w[1];
     ui->RxFreqSpinBox->setValue(w[4].toInt());
     m_txFirst = (w[5]=="0");
-  }
-
-  if(w[3].left(2)=="30") {
-    ui->sbTR->setValue(30);
-  } else {
-    ui->sbTR->setValue(60);
-  }
-  if(w[3].right(1)=="A") ui->sbSubmode->setValue(0);
-  if(w[3].right(1)=="B") ui->sbSubmode->setValue(1);
-  if(w[3].right(1)=="C") ui->sbSubmode->setValue(2);
-  if(w[3].right(1)=="D") ui->sbSubmode->setValue(3);
-  if(w[3].right(1)=="E") ui->sbSubmode->setValue(4);
-  if(w[3].right(1)=="F") ui->sbSubmode->setValue(5);
-
-  m_bDoubleClicked=true;               //### needed?
-  setDXInfo(m_deCall, m_deGrid);
-  if(m_mode=="Q65") {
-    ui->rptSpinBox->setValue(w[2].toInt());
-    genStdMsgs(w[2]);
-  } else {
+    if(w[3].left(2)=="30") {
+      ui->sbTR->setValue(30);
+    } else {
+      ui->sbTR->setValue(60);
+    }
+    if(w[3].right(1)=="A") ui->sbSubmode->setValue(0);
+    if(w[3].right(1)=="B") ui->sbSubmode->setValue(1);
+    if(w[3].right(1)=="C") ui->sbSubmode->setValue(2);
+    if(w[3].right(1)=="D") ui->sbSubmode->setValue(3);
+    if(w[3].right(1)=="E") ui->sbSubmode->setValue(4);
+    if(w[3].right(1)=="F") ui->sbSubmode->setValue(5);
+    m_bDoubleClicked=true;
+    setDXInfo(m_deCall, m_deGrid);
     genStdMsgs(w[3]);
+    setTxMsg(1);
+    ui->txFirstCheckBox->setChecked(m_txFirst);
   }
-  setTxMsg(1);
-  ui->txFirstCheckBox->setChecked(m_txFirst);
   static qint64 ms0=0;
   qint64 ms=QDateTime::currentMSecsSinceEpoch();
   if(SpecOp::NONE==m_specOp) {
@@ -5942,15 +5932,23 @@ void MainWindow::callSandP2(int n)
   if(m_transmitting) m_restart=true;
 }
 
-// Callsign-keyed counterpart of callSandP2, for a callsign clicked directly
-// in a QMAP waterfall label rather than a row in this window's own Active
-// Stations list. QMAP can't know this list's own filtered/sorted row
-// numbering, so it sends the callsign itself; m_EMECall is the same
-// per-callsign map callSandP2's row text is built from (readWidebandDecodes),
-// keyed the way QMAP's request already is. QMAP reports genuine click vs
-// double-click directly, so this doesn't need callSandP2's own 500ms
-// two-click timing heuristic (built for a widget with no real double-click
-// signal of its own).
+void MainWindow::applyQ65StationSelection (Q65StationSelection const& selection)
+{
+  m_deCall=selection.call;
+  m_deGrid=selection.grid;
+  m_txFirst=selection.txFirst;
+  ui->sbTR->setValue (selection.submode.startsWith ("30") ? 30 : 60);
+  auto const submode = QString {"ABCDEF"}.indexOf (selection.submode.right (1));
+  if (submode >= 0) ui->sbSubmode->setValue (submode);
+
+  m_bDoubleClicked=true;
+  setDXInfo(m_deCall, m_deGrid);
+  ui->rptSpinBox->setValue(selection.report.toInt());
+  genStdMsgs(selection.report);
+  setTxMsg(1);
+  ui->txFirstCheckBox->setChecked(m_txFirst);
+}
+
 void MainWindow::qmapCallSandP(QString const& dxcall, bool doubleClick)
 {
   if (m_mode!="Q65" || SpecOp::NONE!=m_specOp || !m_EMECall.contains (dxcall)) return;
@@ -5958,40 +5956,21 @@ void MainWindow::qmapCallSandP(QString const& dxcall, bool doubleClick)
 
   int nMHz=m_freqNominal/1000000;
   m_freqNominal=(nMHz*1000 + call.fsked)*1000;
-  m_deCall=dxcall;
-  m_deGrid=call.grid4;
   QString submode=call.submode;
   int odd=0;
   if(submode.left(2)=="30" and (call.t%60)==0) odd=1;
   if(submode.left(2)=="60" and (call.t%120)==0) odd=1;
-  m_txFirst=(odd==0);
-
-  if(submode.left(2)=="30") {
-    ui->sbTR->setValue(30);
-  } else {
-    ui->sbTR->setValue(60);
-  }
-  if(submode.right(1)=="A") ui->sbSubmode->setValue(0);
-  if(submode.right(1)=="B") ui->sbSubmode->setValue(1);
-  if(submode.right(1)=="C") ui->sbSubmode->setValue(2);
-  if(submode.right(1)=="D") ui->sbSubmode->setValue(3);
-  if(submode.right(1)=="E") ui->sbSubmode->setValue(4);
-  if(submode.right(1)=="F") ui->sbSubmode->setValue(5);
-
-  m_bDoubleClicked=true;
-  setDXInfo(m_deCall, m_deGrid);
-  ui->rptSpinBox->setValue(call.nsnr);
-  genStdMsgs(QString::number(call.nsnr));
-  setTxMsg(1);
-  ui->txFirstCheckBox->setChecked(m_txFirst);
+  applyQ65StationSelection ({dxcall, call.grid4, submode,
+                             QString::number (call.nsnr), odd==0});
 
   setRig(m_freqNominal);
   setXIT(ui->TxFreqSpinBox->value());
 
   if(doubleClick) {
-    if(!ui->autoButton->isChecked()) ui->autoButton->click(); // Enable Tx
+    if(!ui->autoButton->isChecked()) ui->autoButton->click();
   } else if(ui->autoButton->isChecked()) {
-    ui->autoButton->click(); // Disable Tx: a fresh selection shouldn't keep transmitting to the old one
+    // Never carry an active transmission over to a newly selected station.
+    ui->autoButton->click();
   }
   if(m_transmitting) m_restart=true;
 }

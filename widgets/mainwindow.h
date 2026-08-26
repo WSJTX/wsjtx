@@ -668,7 +668,17 @@ private:
 
   enum class DecodeAlertSound { None, DXcall, Wanted };
 
+  struct Q65StationSelection
+  {
+    QString call;
+    QString grid;
+    QString submode;
+    QString report;
+    bool txFirst;
+  };
+
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
+  void applyQ65StationSelection (Q65StationSelection const& selection);
   void processFoxSignals(const DecodedText& dt);
   void processSFoxVerification(const DecodedText& dt, bool& filtered);
   DecodedMessageReaction::ReactionDisposition processWaitReplyCall(
