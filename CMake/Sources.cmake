@@ -67,6 +67,7 @@ set (wsjt_qt_CXXSRCS
   DisplayManual.cpp
   WSJTXLogging.cpp
   Decoder/decodedtext.cpp
+  qmap/qmap_decode_record.cpp
   Configuration.cpp
   logbook/logbook.cpp
   logbook/AdifQso.cpp

@@ -18,6 +18,10 @@ add_executable (test_livecq_callsign
 target_link_libraries (test_livecq_callsign wsjt_qt Qt5::Test)
 add_test (NAME test_livecq_callsign COMMAND test_livecq_callsign)
 
+add_executable (test_decoded_message_fields test_decoded_message_fields.cpp)
+target_link_libraries (test_decoded_message_fields wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_decoded_message_fields COMMAND test_decoded_message_fields)
+
 add_executable (test_decoded_time
   test_decoded_time.cpp
   ${CMAKE_SOURCE_DIR}/Network/DecodedTime.cpp

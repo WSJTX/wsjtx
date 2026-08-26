@@ -25,3 +25,7 @@ set_tests_properties (test_qmap_plotter_initialization PROPERTIES
 add_executable (test_qmap_ipc test_qmap_ipc.cpp)
 target_link_libraries (test_qmap_ipc Qt5::Test)
 add_test (NAME test_qmap_ipc COMMAND test_qmap_ipc)
+
+add_executable (test_qmap_decode_record test_qmap_decode_record.cpp)
+target_link_libraries (test_qmap_decode_record wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_qmap_decode_record COMMAND test_qmap_decode_record)

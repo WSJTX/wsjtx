@@ -78,6 +78,7 @@
 #include "DecDataMutex.hpp"
 #include "DecoderIpc.hpp"
 #include "qmap/qmap_ipc.h"
+#include "qmap/qmap_decode_record.h"
 #include "TxStartPolicy.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "ActiveStationList.hpp"
@@ -108,6 +109,7 @@
 #include "MultiSettings.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "validators/CallsignValidator.hpp"
+#include "validators/LiveCQCallsign.hpp"
 #include "EqualizationToolsDialog.hpp"
 #include "Network/LotWUsers.hpp"
 #include "logbook/AD1CCty.hpp"
@@ -13319,30 +13321,28 @@ void MainWindow::readWidebandDecodes()
     QString line=QString::fromLatin1(row,
       static_cast<int>(qmap_decode_ipc::text_length(row)));
     m_fetched++;
-    nhr=line.mid(0,2).toInt();
-    nmin=line.mid(2,2).toInt();
-    nsec=line.mid(4,2).toInt();
+    auto const record = parseQMapDecodeRecord (
+      QByteArray {row, static_cast<int> (QMapDecodeRowSize)});
+    if (!record) continue;
+    nhr=record->secondsSinceMidnight/3600;
+    nmin=(record->secondsSinceMidnight/60)%60;
+    nsec=record->secondsSinceMidnight%60;
     auto const qSpotTime = DecodedTime::spotTime(
       line.left(6), QDateTime::currentDateTimeUtc(), m_TRperiod);
     if (!qSpotTime.isValid()) continue;
-    double frx=line.mid(6,9).toDouble();
-    double fsked=line.mid(16,7).toDouble();
-    QString submode=line.mid(36,3);
-    QString msg=line.mid(41,-1);
-    int i1=msg.indexOf(" ");
-    if(msg.left(i1)=="CQ" and msg.mid(i1+1,2)=="DX") i1=msg.indexOf(" ",i1+1);  //Skip "DX" qualifier
-    int i2=i1 +1 + msg.mid(i1+1,-1).indexOf(" ");
-    QString dxcall=msg.mid(i1+1,i2-i1-1);
-    if(stdCall(dxcall)) {
-      QString w3=msg.mid(i2+1,-1);
-      nsnr=line.mid(31,3).toInt();
+    double frx=record->receiveFrequencyKHz;
+    double fsked=record->scheduledFrequencyKHz;
+    QString const& submode=record->submode;
+    QString const& dxcall=record->callsign;
+    if(stdCall (dxcall)) {
+      nsnr=record->snr;
       m_EMECall[dxcall].frx=frx;
       m_EMECall[dxcall].fsked=fsked;
       m_EMECall[dxcall].nsnr=nsnr;
       m_EMECall[dxcall].t=3600*nhr + 60*nmin + nsec;
       m_EMECall[dxcall].submode=submode;
-      if(w3.contains(MainWindow::grid_regexp)) m_EMECall[dxcall].grid4=w3;
-      bool bCQ=line.contains(" CQ ");
+      if(!record->grid.isEmpty ()) m_EMECall[dxcall].grid4=record->grid;
+      bool bCQ=record->cq;
 //      m_EMECall[dxcall].ready2call=(bCQ or line.contains(" 73") or line.contains(" RR73"));
       m_EMECall[dxcall].ready2call=(bCQ);
       Frequency frequency = (m_freqNominal/1000000) * 1000000 + int(fsked*1000.0);

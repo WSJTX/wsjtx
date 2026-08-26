@@ -6,7 +6,6 @@
 #include <QTimer>
 #include <QToolTip>
 #include <QDebug>
-#include <QRegularExpression>
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "SettingsGroup.hpp"
@@ -23,6 +22,8 @@
 #include "livecq_parser.h"
 #include "shared_memory_key.h"
 #include "qmap_ipc.h"
+#include "qmap_decode_record.h"
+#include "validators/LiveCQCallsign.hpp"
 
 #include <QCoreApplication>  //liveCQ
 #include <QNetworkAccessManager>  //liveCQ
@@ -1251,40 +1252,16 @@ void MainWindow::guiUpdate()
       QString t2=QString::fromLatin1(live_cq_row,
         static_cast<int>(qmap_decode_ipc::text_length(live_cq_row)));
 
-      // Vertical-waterfall callsign overlay. Column layout is fixed by
-      // the Fortran write (qmap/libqmap/q65b.f90:167-168, format
-      // (i6.6,f9.3,f7.1,f7.2,i5,2x,a)): frx occupies columns 7-15
-      // (0-indexed 6..14), and the message (submode + text) starts at
-      // column 38 (0-indexed 37) -- confirmed against the existing
-      // t.mid(36,2) submode check a few lines below. Must run before
-      // t is trimmed, since f9.3 right-justifies frx with leading
-      // spaces that trimmed() would otherwise eat.
-      //
-      // nhhmmss's seconds field (0-indexed 4..5) is "30" for a decode
-      // from the second 30 s half of a 60 s Rx interval (a 30-second
-      // submode decoded alongside a 60-second one at the same tone
-      // spacing -- q65b.f90:112, nhhmmss=100*nutc+iseq*30) and "00"
-      // otherwise.
       if (m_vert_waterfall_window || m_wide_graph_window) {
-        bool ok = false;
-        double frx = t.mid(6,9).trimmed().toDouble(&ok);
-        bool secondHalf = (t.mid(4,2) == "30");
-        int hhmmss = t.left(6).toInt();
-        int decodeSecs = (hhmmss/10000)*3600 + ((hhmmss/100)%100)*60 + (hhmmss%100);
-        QStringList msg_cols = t.mid(41).trimmed().split(QRegularExpression("\\s+"),SkipEmptyParts);
-        QString sender;
-        if (msg_cols.size() >= 2) {
-          if (msg_cols[0] == "CQ") {
-            sender = (msg_cols.size() >= 3 && msg_cols[1] == "DX") ? msg_cols[2] : msg_cols[1];
-          } else {
-            sender = msg_cols[1];   // directed: TO_call FROM_call
-          }
-        }
-        static const QRegularExpression call_re(
-            "^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z](/[A-Z0-9]+)?$");
-        if (ok && !sender.isEmpty() && call_re.match(sender.toUpper()).hasMatch()) {
-          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(frx, sender, secondHalf, decodeSecs);
-          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(frx, sender, secondHalf, decodeSecs);
+        auto const record = parseQMapDecodeRecord (
+          QByteArray {decodes_.result[m_fetched], static_cast<int> (QMapDecodeRowSize)});
+        if (record && LiveCQ::isValidCallsign (record->callsign)) {
+          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(
+            record->receiveFrequencyKHz, record->callsign, record->secondHalf,
+            record->secondsSinceMidnight);
+          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(
+            record->receiveFrequencyKHz, record->callsign, record->secondHalf,
+            record->secondsSinceMidnight);
         }
       }
 

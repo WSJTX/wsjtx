@@ -11,7 +11,15 @@
 
 #include <QString>
 
+struct DecodedMessageFields
+{
+  QString destination;
+  QString sender;
+  QString grid;
+  bool cq {};
+};
 
+DecodedMessageFields parseDecodedMessage (QString message);
 
 /*
 012345678901234567890123456789012345678901
