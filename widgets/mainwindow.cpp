@@ -5963,7 +5963,8 @@ void MainWindow::qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick)
 
   int nMHz=m_freqNominal/1000000;
   Frequency const frequency = (nMHz*1000 + record.scheduledFrequencyKHz)*1000;
-  if (!requestNominalFrequencyChange (frequency, FrequencyRequestOrigin::Automatic)) return;
+  bool const frequency_changed = requestNominalFrequencyChange (
+    frequency, FrequencyRequestOrigin::User);
   QString submode=record.submode;
   int odd=0;
   if(submode.left(2)=="30" and (record.secondsSinceMidnight%60)==0) odd=1;
@@ -5973,7 +5974,7 @@ void MainWindow::qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick)
   applyQ65StationSelection ({record.callsign, grid, submode,
                              QString::number (record.snr), odd==0});
 
-  setXIT(ui->TxFreqSpinBox->value());
+  if (frequency_changed) setXIT(ui->TxFreqSpinBox->value());
 
   if(doubleClick) {
     if(!ui->autoButton->isChecked()) ui->autoButton->click();
