@@ -1744,7 +1744,9 @@ MainWindow::~MainWindow()
   m_saveWAVSynchronizer.clearFutures ();
   remove_child_from_event_filter (this);
   if (ipc_qmap) {
+    mem_qmap.lock();
     memset(ipc_qmap,0,qMin(static_cast<int> (QMapSharedMemorySize), mem_qmap.size()));
+    mem_qmap.unlock();
   }
 // Force linking of Fortran function stdmsg().
   QString t="1234567890123456789012345678901234567";
