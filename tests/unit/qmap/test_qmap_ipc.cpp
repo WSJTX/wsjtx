@@ -1,5 +1,7 @@
 #include <QtTest>
 
+#include <cstring>
+
 #include "qmap/qmap_ipc.h"
 
 class TestQMapIpc final : public QObject
@@ -10,6 +12,7 @@ private slots:
   void leavesIncompleteBatchPending();
   void acknowledgesCompletedBatch_data();
   void acknowledgesCompletedBatch();
+  void decoderPublicationPreservesRequests();
 };
 
 void TestQMapIpc::leavesIncompleteBatchPending()
@@ -38,6 +41,27 @@ void TestQMapIpc::acknowledgesCompletedBatch()
   QVERIFY (acknowledgeQMapDecodeBatch (shared));
   QCOMPARE (shared.ndecodes, 0);
   QCOMPARE (shared.nQDecoderDone, 0);
+}
+
+void TestQMapIpc::decoderPublicationPreservesRequests()
+{
+  QMapSharedMemory shared {};
+  shared.decodes.nWDecoderBusy = 1;
+  shared.decodes.nWTransmitting = 60;
+  shared.decodes.kHzRequested = 144;
+  shared.click.action = QMapClickAction::Select;
+  qstrncpy (shared.click.selectedCall, "K1ABC", sizeof shared.click.selectedCall);
+  QMapDecodeBlock publication {};
+  publication.ndecodes = 2;
+
+  publishQMapDecodeBlock (shared, publication);
+
+  QCOMPARE (shared.decodes.ndecodes, 2);
+  QCOMPARE (shared.decodes.nWDecoderBusy, 1);
+  QCOMPARE (shared.decodes.nWTransmitting, 60);
+  QCOMPARE (shared.decodes.kHzRequested, 144);
+  QCOMPARE (shared.click.action, QMapClickAction::Select);
+  QCOMPARE (QByteArray {shared.click.selectedCall}, QByteArray {"K1ABC"});
 }
 
 QTEST_GUILESS_MAIN (TestQMapIpc)

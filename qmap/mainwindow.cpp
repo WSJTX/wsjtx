@@ -842,13 +842,10 @@ void MainWindow::decoderFinished()
 {
   m_startAnother=m_loopall;
   decodes_.nQDecoderDone=1;
-  decodes_.kHzRequested=0;
   if(m_diskData) decodes_.nQDecoderDone=2;
   mem_qmap.lock();
-  decodes_.nWDecoderBusy=ipc_wsjtx->decodes.nWDecoderBusy;       //Prevent overwriting values
-  decodes_.nWTransmitting=ipc_wsjtx->decodes.nWTransmitting;     //written here by WSJT-X
+  publishQMapDecodeBlock(*ipc_wsjtx, decodes_);
   m_bWTransmitting=decodes_.nWTransmitting>0;
-  memcpy(&ipc_wsjtx->decodes, &decodes_, sizeof(decodes_)); //Send decodes and flags to WSJT-X
   mem_qmap.unlock();
   QString t1;
   t1=t1.asprintf(" %.1f s  %d/%d ", 0.15*datcom2_.nhsym, decodes_.ndecodes, decodes_.ncand);
@@ -954,7 +951,7 @@ void MainWindow::decodeLabelClicked(QString callsign, bool doubleClick)
   qstrncpy(ipc_wsjtx->click.selectedCall, latin1.constData(),
            sizeof ipc_wsjtx->click.selectedCall);
   ipc_wsjtx->click.action = doubleClick ? QMapClickAction::SelectAndEnableTx
-                                         : QMapClickAction::Select;
+                                       : QMapClickAction::Select;
   mem_qmap.unlock();
 }
 
