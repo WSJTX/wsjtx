@@ -1003,7 +1003,6 @@ private:
   DecodeOwner m_decodeOwner=DecodeOwner::None;
   Jt9ProcessPhase m_jt9ProcessPhase=Jt9ProcessPhase::InitialStarting;
   bool    m_modeLocked = false;
-  bool    m_decode_button_enabled_before_wav {false};
   bool    m_decoderDiagActive=false;
   bool    m_decoderDiagBusyRequestLogged=false;
   bool    m_decoderDiagOverrunLogged=false;
