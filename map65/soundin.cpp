@@ -113,6 +113,14 @@ extern "C" int a2dCallback(const void* inputBuffer, void* outputBuffer,
 
 namespace
 {
+  constexpr int symspecLookaheadSamples = 512;
+
+  int symspecReadyPointer(int acquiredSamples)
+  {
+    // symspec's final 1024-sample window extends one 512-sample hop past k.
+    return acquiredSamples - symspecLookaheadSamples;
+  }
+
   struct COMWrapper
   {
     explicit COMWrapper ()
@@ -233,12 +241,13 @@ void SoundInThread::run()                           //SoundInThread::run()
         double fcenter = m_bForceCenterFreq ? m_dForceCenterFreq : 144.125;
       set_fcenter(fcenter);
 
-      m_hsym=(k-2048)*11025.0/(2048.0*m_rate);
+      int const fftPointer=symspecReadyPointer(k);
+      m_hsym=(fftPointer-2048)*11025.0/(2048.0*m_rate);
 
       if(m_hsym != nhsym0) {
         if (!m_dataSinkBusy) {
           m_dataSinkBusy=true;
-          emit readyForFFT(k);
+          emit readyForFFT(fftPointer);
         }
         nhsym0=m_hsym;
       }
@@ -419,7 +428,8 @@ void SoundInThread::inputUDP()
         }
 
 double hsym = 2048.0 * m_rate / 11025.0;
-m_hsym = (k - 2048) / hsym;
+int const fftPointer=symspecReadyPointer(k);
+m_hsym = (fftPointer - 2048) / hsym;
 if (m_hsym != nhsym0) {
     if (m_dataSinkBusy) {
     } else {
@@ -428,7 +438,7 @@ if (m_hsym != nhsym0) {
         QDateTime now = QDateTime::currentDateTime();
         QString ts = now.toString("yyyy-MM-dd hh:mm:ss.zzz");
 
-        emit readyForFFT(k);
+        emit readyForFFT(fftPointer);
     }
     nhsym0 = m_hsym;
 }

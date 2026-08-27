@@ -27,6 +27,8 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,    &
   real(c_float),     intent(inout) :: slimit
   integer(c_signed_char), intent(out) :: lstrong(0:1023)
 
+  integer, parameter :: live_lookahead_samples=512
+
   
   ! ---- from legacy body, adapted to modules ----
   ! (no COMMON, no local fcenter, no logical*1 lstrong)
@@ -96,7 +98,7 @@ if (k.lt.k0) then
    ihsym = 0
    k1    = 0
  !  if (ndiskdat.eq.0) dd(1:4,k+1:5760000)=0.
-   if (ndiskdat.eq.0) dd(1:4,k+1:nsmax_active)=0.
+   if (ndiskdat.eq.0) dd(1:4,k+live_lookahead_samples+1:nsmax_active)=0.
 endif
 
 k0 = k
