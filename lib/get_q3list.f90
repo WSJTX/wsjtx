@@ -128,7 +128,11 @@ subroutine jpl_setup(fname)
   character*256 fname,jpleph_file_name
   common/jplcom/jpleph_file_name
   j = index(fname,char(0))
-  jpleph_file_name(1:j)=fname(1:j)
-  jpleph_file_name(j:)=' '
+  if(j.eq.0) then
+     jpleph_file_name=fname
+  else
+     jpleph_file_name(1:j)=fname(1:j)
+     jpleph_file_name(j:)=' '
+  endif
   return
 end subroutine jpl_setup

@@ -143,6 +143,7 @@ program ldpcsim80_42
 ! noncoherent MFSK
             do i = 1, 40
 
+               A = 1.0
                do j = 0, 3
                   if(j.eq.itone(i)) then
                      if(channeltype.eq.0) then

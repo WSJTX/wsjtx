@@ -1,93 +1,195 @@
 name: "Build Linux sanitizers"
 description: >-
-  Build and test WSJT-X with GCC AddressSanitizer and
-  UndefinedBehaviorSanitizer on Linux x86_64.
+  Build and test WSJT-X with GCC sanitizers on Linux x86_64.
 
 inputs:
   hamlib_branch:
     description: "Hamlib branch to build"
     required: true
+  sanitizer:
+    description: "Sanitizer mode: asan-ubsan or tsan"
+    required: false
+    default: "asan-ubsan"
   recache:
     description: "Force ccache to recompile and refresh cached objects"
+    required: false
+    default: "false"
+  save_ccache:
+    description: "Save compiled objects for trusted builds"
+    required: false
+    default: "false"
+  allow_stale_image:
+    description: "Allow a previously promoted image when a dependency refresh changed the recipe"
     required: false
     default: "false"
 
 runs:
   using: "composite"
   steps:
-    - name: Install dependencies
+    - name: Validate workflow inputs
+      shell: bash
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      run: .github/scripts/validate-ci-inputs.sh
+
+    - name: Resolve sanitizer configuration
+      id: sanitizer
+      shell: bash
+      env:
+        SANITIZER: ${{ inputs.sanitizer }}
+      run: |
+        case "$SANITIZER" in
+          asan-ubsan)
+            echo "build_dir=wsjtx-sanitizer-build" >> "$GITHUB_OUTPUT"
+            echo "ccache_dir=.ccache-sanitizers" >> "$GITHUB_OUTPUT"
+            echo "cache_key=asan-ubsan-gcc" >> "$GITHUB_OUTPUT"
+            echo "cmake_option=WSJT_ENABLE_ASAN_UBSAN" >> "$GITHUB_OUTPUT"
+            echo "summary_name=Linux x86_64 ASan + UBSan" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=ctest-results-linux-x86_64-asan-ubsan" >> "$GITHUB_OUTPUT"
+            echo "asan_options=detect_leaks=0:detect_stack_use_after_return=1:halt_on_error=1:abort_on_error=1" >> "$GITHUB_OUTPUT"
+            echo "ubsan_options=halt_on_error=1:print_stacktrace=1" >> "$GITHUB_OUTPUT"
+            echo "tsan_options=" >> "$GITHUB_OUTPUT"
+            ;;
+          tsan)
+            echo "build_dir=wsjtx-tsan-build" >> "$GITHUB_OUTPUT"
+            echo "ccache_dir=.ccache-tsan" >> "$GITHUB_OUTPUT"
+            echo "cache_key=tsan-gcc" >> "$GITHUB_OUTPUT"
+            echo "cmake_option=WSJT_ENABLE_TSAN" >> "$GITHUB_OUTPUT"
+            echo "summary_name=Linux x86_64 TSan" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=ctest-results-linux-x86_64-tsan" >> "$GITHUB_OUTPUT"
+            echo "asan_options=" >> "$GITHUB_OUTPUT"
+            echo "ubsan_options=" >> "$GITHUB_OUTPUT"
+            tsan_suppressions="${GITHUB_WORKSPACE}/tests/sanitizers/tsan.supp"
+            if [ ! -f "$tsan_suppressions" ]; then
+              echo "::error::TSan suppressions file not found: $tsan_suppressions"
+              exit 1
+            fi
+            echo "tsan_options=halt_on_error=0:second_deadlock_stack=1:suppressions=${tsan_suppressions}" >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo "::error::Unsupported sanitizer mode: $SANITIZER"
+            exit 1
+            ;;
+        esac
+
+    - name: Verify Linux CI image
+      id: image
+      shell: bash
+      env:
+        WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
+      run: |
+        flavor=normal
+        if [ "${{ inputs.sanitizer }}" = tsan ]; then
+          flavor=tsan
+        fi
+        .github/scripts/verify-linux-ci-image.sh \
+          "$flavor" x86_64 "${{ inputs.hamlib_branch }}"
+
+    - name: Export TSan dependency environment
+      if: inputs.sanitizer == 'tsan'
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-          ca-certificates git \
-          build-essential binutils cmake gfortran ccache \
-          libfftw3-dev libboost-all-dev \
-          qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
-          libqt5sql5-sqlite libqt5websockets5-dev \
-          libqt5multimedia5-plugins \
-          libusb-1.0-0-dev libudev-dev libreadline-dev \
-          autoconf automake libtool pkg-config texinfo \
-          python3 file xauth xvfb portaudio19-dev
+        {
+          echo "CC=gcc-13"
+          echo "CXX=g++-13"
+          echo "FC=gfortran-13"
+          echo "TSAN_QT_PREFIX=${{ steps.image.outputs.qt_prefix }}"
+          echo "TSAN_BOOST_PREFIX=${{ steps.image.outputs.boost_prefix }}"
+          echo "TSAN_HAMLIB_PREFIX=${{ steps.image.outputs.hamlib_prefix }}"
+          echo "TSAN_CMAKE_PREFIX_PATH=${{ steps.image.outputs.qt_prefix }};${{ steps.image.outputs.boost_prefix }};${{ steps.image.outputs.hamlib_prefix }}"
+          echo "LD_LIBRARY_PATH=${{ steps.image.outputs.qt_prefix }}/lib:${{ steps.image.outputs.boost_prefix }}/lib:${LD_LIBRARY_PATH:-}"
+          echo "PKG_CONFIG_PATH=${{ steps.image.outputs.qt_prefix }}/lib/pkgconfig:${{ steps.image.outputs.boost_prefix }}/lib/pkgconfig:${{ steps.image.outputs.hamlib_prefix }}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          echo "QT_PLUGIN_PATH=${{ steps.image.outputs.qt_prefix }}/plugins"
+        } >> "$GITHUB_ENV"
+        echo "${{ steps.image.outputs.qt_prefix }}/bin" >> "$GITHUB_PATH"
 
-    - name: Cache sanitizer objects
-      uses: actions/cache@v5
+    - name: Select ccache key
+      id: ccache-key
+      shell: bash
+      env:
+        RECACHE: ${{ inputs.recache }}
+      run: .github/scripts/select-ccache-key-suffix.sh
+
+    - name: Restore sanitizer objects
+      id: ccache
+      uses: actions/cache/restore@v5
       with:
-        path: .ccache-sanitizers
-        key: ccache-linux-x86_64-asan-ubsan-gcc-${{ github.sha }}
+        path: ${{ steps.sanitizer.outputs.ccache_dir }}
+        key: ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
         restore-keys: |
-          ccache-linux-x86_64-asan-ubsan-gcc-
+          ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+          ccache-linux-x86_64-${{ steps.sanitizer.outputs.cache_key }}-${{ steps.image.outputs.ccache_compatibility_id }}-
 
     - name: Configure ccache
       shell: bash
       run: |
-        export CCACHE_DIR="${GITHUB_WORKSPACE}/.ccache-sanitizers"
-        echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache-sanitizers" >> "$GITHUB_ENV"
+        export CCACHE_DIR="${GITHUB_WORKSPACE}/${{ steps.sanitizer.outputs.ccache_dir }}"
+        export CCACHE_COMPILERCHECK="${{ steps.image.outputs.ccache_compiler_check }}"
+        {
+          echo "CCACHE_DIR=$CCACHE_DIR"
+          echo "CCACHE_COMPILERCHECK=$CCACHE_COMPILERCHECK"
+        } >> "$GITHUB_ENV"
         echo "ccache recache: ${{ inputs.recache }}"
         if [ "${{ inputs.recache }}" = "true" ]; then
           echo "CCACHE_RECACHE=1" >> "$GITHUB_ENV"
           echo "Forcing ccache recache for this run"
         fi
-        mkdir -p "${GITHUB_WORKSPACE}/.ccache-sanitizers"
+        mkdir -p "$CCACHE_DIR"
         ccache --version
+        ccache --show-config
         ccache --zero-stats
-
-    - name: Cache Hamlib
-      id: hamlib-cache
-      uses: actions/cache@v5
-      with:
-        path: hamlib-prefix
-        key: hamlib-linux-x86_64-${{ inputs.hamlib_branch }}-host-${{ hashFiles('.github/scripts/build-hamlib-linux.sh') }}
-
-    - name: Build Hamlib
-      if: steps.hamlib-cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: .github/scripts/build-hamlib-linux.sh "${{ inputs.hamlib_branch }}" "${GITHUB_WORKSPACE}/hamlib-prefix"
-
-    - name: Verify Hamlib prefix
-      shell: bash
-      run: test -f "${GITHUB_WORKSPACE}/hamlib-prefix/lib/libhamlib.a"
 
     - name: Configure sanitizer build
       shell: bash
       run: |
-        cmake -S . -B wsjtx-sanitizer-build \
+        prefix_path="${{ steps.image.outputs.hamlib_prefix }}"
+        compiler_args=()
+        boost_args=()
+        if [ "${{ inputs.sanitizer }}" = "tsan" ]; then
+          prefix_path="$TSAN_CMAKE_PREFIX_PATH"
+          compiler_args=(
+            -DCMAKE_C_COMPILER="$CC"
+            -DCMAKE_CXX_COMPILER="$CXX"
+            -DCMAKE_Fortran_COMPILER="$FC"
+          )
+          boost_args=(
+            -DBOOST_ROOT="$TSAN_BOOST_PREFIX"
+            -DBoost_NO_SYSTEM_PATHS=ON
+          )
+        fi
+
+        cmake -S . -B "${{ steps.sanitizer.outputs.build_dir }}" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-          -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix" \
+          -DCMAKE_PREFIX_PATH="$prefix_path" \
           -DCMAKE_C_COMPILER_LAUNCHER=ccache \
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DWSJT_GENERATE_DOCS=OFF \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_ENABLE_TESTS=ON \
-          -DWSJT_ENABLE_ASAN_UBSAN=ON \
+          -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
+          -D${{ steps.sanitizer.outputs.cmake_option }}=ON \
+          -DWSJT_BUILD_UTILS=OFF \
+          -DWSJT_SKIP_QMAP=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+          "${compiler_args[@]}" \
+          "${boost_args[@]}" \
           -Wno-dev
+
+    - name: Verify configured TSan dependency resolution
+      if: inputs.sanitizer == 'tsan'
+      shell: bash
+      run: >-
+        .github/scripts/verify-tsan-deps-linux.sh
+        "$TSAN_QT_PREFIX"
+        "$TSAN_BOOST_PREFIX"
+        "$TSAN_HAMLIB_PREFIX"
+        "${{ steps.sanitizer.outputs.build_dir }}/CMakeCache.txt"
 
     - name: Build sanitizer targets
       shell: bash
-      run: cmake --build wsjtx-sanitizer-build -j"$(nproc)"
+      run: cmake --build "${{ steps.sanitizer.outputs.build_dir }}" -j"$(nproc)"
 
     - name: Show ccache stats
       if: always()
@@ -96,39 +198,58 @@ runs:
 
     - name: Verify sanitizer instrumentation
       shell: bash
-      run: python3 .github/scripts/verify-sanitizer-instrumentation.py wsjtx-sanitizer-build
+      run: >-
+        python3 .github/scripts/verify-sanitizer-instrumentation.py
+        "${{ steps.sanitizer.outputs.build_dir }}"
+        --sanitizer "${{ inputs.sanitizer }}"
+
+    - name: Verify linked TSan dependency runtime
+      if: inputs.sanitizer == 'tsan'
+      shell: bash
+      run: >-
+        .github/scripts/verify-tsan-deps-linux.sh
+        "$TSAN_QT_PREFIX"
+        "$TSAN_BOOST_PREFIX"
+        "$TSAN_HAMLIB_PREFIX"
+        "${{ steps.sanitizer.outputs.build_dir }}/CMakeCache.txt"
+        "${{ steps.sanitizer.outputs.build_dir }}/wsjtx"
 
     - name: Prepare test scratch directory
       shell: bash
-      run: mkdir -p "${GITHUB_WORKSPACE}/wsjtx-sanitizer-build/tmp"
+      run: mkdir -p "${GITHUB_WORKSPACE}/${{ steps.sanitizer.outputs.build_dir }}/tmp"
 
     - name: Run tests
       id: ctest
       continue-on-error: true
       shell: bash
-      working-directory: wsjtx-sanitizer-build
+      working-directory: ${{ steps.sanitizer.outputs.build_dir }}
       env:
-        # GNU Fortran internal-procedure trampolines cannot execute from ASan's fake stack.
-        ASAN_OPTIONS: detect_leaks=0:detect_stack_use_after_return=0:halt_on_error=1:abort_on_error=1
-        UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        ASAN_OPTIONS: ${{ steps.sanitizer.outputs.asan_options }}
+        UBSAN_OPTIONS: ${{ steps.sanitizer.outputs.ubsan_options }}
+        TSAN_OPTIONS: ${{ steps.sanitizer.outputs.tsan_options }}
         QT_QPA_PLATFORM: xcb
-        TMPDIR: ${{ github.workspace }}/wsjtx-sanitizer-build/tmp
-      run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --output-on-failure --output-junit ctest-results.xml
+        TMPDIR: ${{ github.workspace }}/${{ steps.sanitizer.outputs.build_dir }}/tmp
+      run: >-
+        xvfb-run -a -s "-screen 0 1280x1024x24"
+        ctest --parallel 1 --output-on-failure --output-junit ctest-results.xml
 
     - name: Publish test summary
       if: always() && steps.ctest.outcome != 'skipped'
       shell: bash
-      working-directory: wsjtx-sanitizer-build
-      run: python3 ../.github/scripts/publish-ctest-summary.py "Linux x86_64 ASan + UBSan" >> "$GITHUB_STEP_SUMMARY"
+      working-directory: ${{ steps.sanitizer.outputs.build_dir }}
+      run: >-
+        python3 ../.github/scripts/publish-ctest-summary.py
+        "${{ steps.sanitizer.outputs.summary_name }}" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Upload test results
       if: always() && steps.ctest.outcome != 'skipped'
       uses: actions/upload-artifact@v7
       with:
-        name: ctest-results-linux-x86_64-asan-ubsan
+        name: ${{ steps.sanitizer.outputs.artifact_name }}
         path: |
-          wsjtx-sanitizer-build/ctest-results.xml
-          wsjtx-sanitizer-build/Testing/Temporary/LastTest.log
+          ${{ steps.sanitizer.outputs.build_dir }}/ctest-results.xml
+          ${{ steps.sanitizer.outputs.build_dir }}/Testing/Temporary/LastTest.log
+          ${{ steps.sanitizer.outputs.build_dir }}/Testing/Golden/test_jt9_mtd_ft8_210703_133430*/stderr.txt
         if-no-files-found: ignore
 
     - name: Require sanitizer tests to pass
@@ -137,9 +258,21 @@ runs:
       run: |
         failed=false
         if [ "${{ steps.ctest.outcome }}" != "success" ]; then
-          echo "::error::CTest failed under ASan+UBSan"
+          echo "::error::CTest failed under ${{ steps.sanitizer.outputs.summary_name }}"
           failed=true
         fi
         if [ "$failed" = "true" ]; then
           exit 1
         fi
+
+    - name: Report suppressed sanitizer ccache save
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match != 'true'
+      shell: bash
+      run: echo "::notice::Not saving sanitizer ccache because this build used a stale Linux CI image recipe"
+
+    - name: Save sanitizer objects
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ steps.sanitizer.outputs.ccache_dir }}
+        key: ${{ steps.ccache.outputs.cache-primary-key }}

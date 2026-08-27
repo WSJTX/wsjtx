@@ -126,3 +126,7 @@ wsjt_link_common_fortran (test_packjt77_silent_rewrite_corpus)
 add_test (NAME test_packjt77_silent_rewrite_corpus
   COMMAND test_packjt77_silent_rewrite_corpus
           ${CMAKE_CURRENT_SOURCE_DIR}/silent_rewrite_corpus.txt --assert-zero-silent)
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_packjt77_silent_rewrite_corpus PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()

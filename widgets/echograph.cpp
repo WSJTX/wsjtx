@@ -6,6 +6,7 @@
 #include "echoplot.h"
 #include "ui_echograph.h"
 #include "moc_echograph.cpp"
+#include "PerformanceTrace.hpp"
 
 #define NSMAX2 1366
 
@@ -14,6 +15,7 @@ EchoGraph::EchoGraph(QSettings * settings, QWidget *parent) :
   m_settings (settings),
   ui(new Ui::EchoGraph)
 {
+  PerformanceTrace::Phase construction {"echograph.construct"};
   ui->setupUi(this);
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Echo Graph"));
   installEventFilter(parent);                   //Installing the filter

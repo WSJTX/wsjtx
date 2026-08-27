@@ -12,6 +12,23 @@ add_executable (test_callsign_validator
 target_link_libraries (test_callsign_validator Qt5::Test Qt5::Gui)
 add_test (NAME test_callsign_validator COMMAND test_callsign_validator)
 
+add_executable (test_livecq_callsign
+  test_livecq_callsign.cpp
+)
+target_link_libraries (test_livecq_callsign wsjt_qt Qt5::Test)
+add_test (NAME test_livecq_callsign COMMAND test_livecq_callsign)
+
+add_executable (test_decoded_message_fields test_decoded_message_fields.cpp)
+target_link_libraries (test_decoded_message_fields wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_decoded_message_fields COMMAND test_decoded_message_fields)
+
+add_executable (test_decoded_time
+  test_decoded_time.cpp
+  ${CMAKE_SOURCE_DIR}/Network/DecodedTime.cpp
+)
+target_link_libraries (test_decoded_time Qt5::Test)
+add_test (NAME test_decoded_time COMMAND test_decoded_time)
+
 add_executable (test_displaytext
   test_displaytext.cpp
   ${CMAKE_SOURCE_DIR}/widgets/displaytext.cpp
@@ -30,6 +47,12 @@ add_executable (test_wf_palette
 )
 target_link_libraries (test_wf_palette wsjt_qt Qt5::Test)
 add_test (NAME test_wf_palette COMMAND test_wf_palette)
+
+add_executable (test_waterfall_scale
+  test_waterfall_scale.cpp
+)
+target_link_libraries (test_waterfall_scale Qt5::Test)
+add_test (NAME test_waterfall_scale COMMAND test_waterfall_scale)
 
 add_executable (test_http_user_agent
   test_http_user_agent.cpp
@@ -64,6 +87,18 @@ add_executable (test_tx_start_policy
 target_link_libraries (test_tx_start_policy Qt5::Test)
 add_test (NAME test_tx_start_policy COMMAND test_tx_start_policy)
 
+add_executable (test_rig_frequency_change_policy
+  test_rig_frequency_change_policy.cpp
+)
+target_link_libraries (test_rig_frequency_change_policy Qt5::Test)
+add_test (NAME test_rig_frequency_change_policy COMMAND test_rig_frequency_change_policy)
+
+add_executable (test_wait_feature_policy
+  test_wait_feature_policy.cpp
+)
+target_link_libraries (test_wait_feature_policy Qt5::Test)
+add_test (NAME test_wait_feature_policy COMMAND test_wait_feature_policy)
+
 add_executable (test_superfox_tx_planner
   test_superfox_tx_planner.cpp
   ${CMAKE_SOURCE_DIR}/SuperFoxTxPlanner.cpp
@@ -92,6 +127,18 @@ add_executable (test_emulate_split_transceiver
 )
 target_link_libraries (test_emulate_split_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_emulate_split_transceiver COMMAND test_emulate_split_transceiver)
+
+add_executable (test_hamlib_mode
+  test_hamlib_mode.cpp
+)
+target_link_libraries (test_hamlib_mode wsjt_qt Qt5::Test)
+add_test (NAME test_hamlib_mode COMMAND test_hamlib_mode)
+
+add_executable (test_hamlib_vfo_role_state
+  test_hamlib_vfo_role_state.cpp
+)
+target_link_libraries (test_hamlib_vfo_role_state Hamlib::Hamlib Qt5::Test)
+add_test (NAME test_hamlib_vfo_role_state COMMAND test_hamlib_vfo_role_state)
 
 add_executable (test_active_station_list
   test_active_station_list.cpp
@@ -151,3 +198,39 @@ add_executable (test_spec_op_label
 )
 target_link_libraries (test_spec_op_label Qt5::Test)
 add_test (NAME test_spec_op_label COMMAND test_spec_op_label)
+
+if (WSJT_ENABLE_TSAN)
+  # These tests exercise Qt GUI classes but do not test the window-system
+  # integration. Offscreen QPA avoids Arch xcb/DBus startup reports while
+  # preserving the tests' widget and event-loop behavior.
+  set_tests_properties (
+    test_qt_helpers
+    test_displaytext
+    test_wf_palette
+    test_emulate_split_transceiver
+    test_hamlib_mode
+    test_frequency_editors
+    test_decoded_message_reaction
+    test_decode_output_plan
+    test_auto_sequence_reaction
+    test_qso_reaction
+    PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif ()
+qt5_wrap_ui (test_configuration_dialog_layout_UIS
+  ${CMAKE_SOURCE_DIR}/Configuration.ui
+)
+add_executable (test_configuration_dialog_layout
+  test_configuration_dialog_layout.cpp
+  ${test_configuration_dialog_layout_UIS}
+)
+target_include_directories (test_configuration_dialog_layout PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries (test_configuration_dialog_layout wsjt_qt Qt5::Test Qt5::Widgets)
+add_test (NAME test_configuration_dialog_layout COMMAND test_configuration_dialog_layout)
+add_test (NAME test_configuration_dialog_layout_fusion COMMAND test_configuration_dialog_layout)
+set_tests_properties (test_configuration_dialog_layout_fusion PROPERTIES
+  ENVIRONMENT "QT_STYLE_OVERRIDE=Fusion"
+)
+add_test (NAME test_configuration_dialog_layout_scaled COMMAND test_configuration_dialog_layout)
+set_tests_properties (test_configuration_dialog_layout_scaled PROPERTIES
+  ENVIRONMENT "QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
+)

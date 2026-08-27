@@ -5,6 +5,7 @@
 #include "Radio.hpp"
 #include "SpecialOperatingActivity.hpp"
 
+#include <functional>
 #include <QString>
 #include <QVector>
 
@@ -84,6 +85,7 @@ namespace DecodedMessageReaction
 
     bool fastMode {false};
     bool transceiverOnline {false};
+    bool nominalQsyAllowed {false};
     bool enableVhfFeatures {false};
     bool holdTxFrequency {false};
     bool rxFrequencyEnabled {true};
@@ -119,9 +121,8 @@ namespace DecodedMessageReaction
     {
       SetRxFrequency,
       SetTxFrequency,
-      SetRigFrequency,
-      DisplayQsy,
-      SetMsk144BaseFrequency,
+      ApplyFastCqQsy,
+      RejectNominalQsy,
       SetTxFirst,
       // Keep setTxMsg(), raw index assignment, checked-state changes, and clicks distinct;
       // each has different synchronous signal behavior in MainWindow.
@@ -177,6 +178,7 @@ namespace DecodedMessageReaction
     Radio::Frequency frequency {0u};
     QString text;
     bool boolValue {false};
+    bool userInitiated {false};
     QsoProgress progress {QsoProgress::Calling};
     ContestHint contestHint {ContestHint::EuVhf};
   };
@@ -190,6 +192,10 @@ namespace DecodedMessageReaction
     QString reason;
     QVector<QsoReactionEffect> effects;
   };
+
+  bool shouldDeferAutoTxStopAfterRrr(QString const& mode, bool repeatTx, bool sendRr73);
+  void applyAutoTxStopAfterLogging(QString const& mode, bool repeatTx, bool sendRr73,
+                                   std::function<void()> stopAutoTx);
 
   QsoReactionPlan planProcessMessage(DecodedText const& message, QsoReactionSnapshot const& snapshot);
   QsoReactionPlan planAutoSequence(DecodedText const& message, QsoReactionSnapshot const& snapshot,

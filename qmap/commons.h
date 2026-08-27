@@ -1,6 +1,8 @@
 #ifndef COMMONS_H
 #define COMMONS_H
 
+#include "qmap_ipc.h"
+
 #define NFFT 32768
 
 extern "C" {
@@ -87,19 +89,8 @@ extern struct {                     //This is "common/datcom/..." in Fortran
   bool bAlso30;                     //Process for 30-second submode as well as 60-second
 } datcom2_;
 
-extern struct {
-  int ndecodes;          //These are flags for inter-process communication
-  int ncand;             //between QMAP and WSJT-X
-  int nQDecoderDone;     //1 for real-time decodes, 2 for data from disk
-  int nWDecoderBusy;     //Set to 1 when WSJT-X decoder is busy
-  int nWTransmitting;    //Set to TRperiod when WSJT-X is transmitting
-  int kHzRequested;      //Integer kHz dial frequency request to WSJT-X
-  char result[50][72];   //Staging area for QMAP decodes
-} decodes_;
-
-extern struct {
-  char result2[50][8];
-} decodes2_;
+extern qmap_decode_ipc::DecodeRows decodes_;
+extern qmap_decode_ipc::LiveCqRows decodes2_;
 
 extern struct {
   char revision[22];

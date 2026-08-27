@@ -6,6 +6,7 @@
 #include <QKeyEvent>
 #include "fastplot.h"
 #include "SettingsGroup.hpp"
+#include "PerformanceTrace.hpp"
 
 #include "ui_fastgraph.h"
 #include "moc_fastgraph.cpp"
@@ -20,6 +21,7 @@ FastGraph::FastGraph(QSettings * settings, QWidget *parent) :
   m_ave {40},
   ui {new Ui::FastGraph}
 {
+  PerformanceTrace::Phase construction {"fastgraph.construct"};
   ui->setupUi(this);
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Fast Graph"));
   installEventFilter(parent);                   //Installing the filter

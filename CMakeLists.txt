@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.7.2 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.12 FATAL_ERROR)
 
 if (APPLE)
   #
@@ -79,6 +79,10 @@ project (wsjtx
   VERSION 3.2.0.0
   LANGUAGES C CXX Fortran
   )
+
+set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
+set (CMAKE_CXX_EXTENSIONS ON)
 
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
@@ -194,23 +198,12 @@ option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
 option (WSJT_SKIP_BUNDLE_FIXUP "Skip install-time bundle dependency fixup." OFF)
 option (WSJT_MACOS_INSTALL_TIME_FIXUP
   "Run legacy install-time BundleUtilities fixup for macOS bundles." OFF)
-# Track whether this deprecated option came from the user or from our own
-# default, so normal reconfigures do not warn just because the cache exists.
-set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED FALSE)
-if (DEFINED WSJT_SKIP_MAP65 AND NOT WSJT_SKIP_MAP65_DEFAULTED)
-  set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED TRUE)
-endif ()
-option (WSJT_SKIP_MAP65 "Deprecated: skip building and installing MAP65." OFF)
-if (NOT WSJT_SKIP_MAP65_WAS_USER_PROVIDED AND NOT DEFINED WSJT_SKIP_MAP65_DEFAULTED)
-  set (WSJT_SKIP_MAP65_DEFAULTED TRUE CACHE INTERNAL "WSJT_SKIP_MAP65 used its default value")
-endif ()
-if (WSJT_SKIP_MAP65_WAS_USER_PROVIDED OR WSJT_SKIP_MAP65)
-  message (WARNING
-    "WSJT_SKIP_MAP65 is deprecated and will be removed; MAP65 now builds and "
-    "installs by default.")
-endif ()
+option (WSJT_SKIP_QMAP "Skip building QMAP." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
+option (WSJT_ENABLE_GUI_SMOKE_TESTS
+  "Register GUI-driven smoke tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
+option (WSJT_ENABLE_TSAN "Instrument in-tree code with ThreadSanitizer." OFF)
 option (WSJT_BUILD_JT9STREAM "Build the Qt-free streaming decoder jt9stream alongside jt9 (uses the jt9a stub, never links fort_qt)." ON)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")
@@ -261,6 +254,28 @@ if (WSJT_ENABLE_TESTS)
      enable_testing ()
      message (STATUS "Including tests")
  endif()
+
+if (WSJT_ENABLE_TSAN)
+  # A CTest ENVIRONMENT assignment replaces the inherited TSAN_OPTIONS. Build
+  # complete per-family suppression files from the cross-cutting baseline so
+  # scoped tests retain the same TSan controls and classified Hamlib/Boost
+  # suppressions as the rest of the suite.
+  set (wsjt_tsan_suppression_directory
+    "${CMAKE_BINARY_DIR}/tsan-suppressions")
+  file (MAKE_DIRECTORY "${wsjt_tsan_suppression_directory}")
+  file (READ "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan.supp"
+    wsjt_tsan_base_suppressions)
+  foreach (wsjt_tsan_scope IN ITEMS fortran network gui)
+    file (READ
+      "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan-${wsjt_tsan_scope}.supp"
+      wsjt_tsan_scope_suppressions)
+    file (GENERATE
+      OUTPUT "${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp"
+      CONTENT "${wsjt_tsan_base_suppressions}\n${wsjt_tsan_scope_suppressions}")
+    set (wsjt_tsan_${wsjt_tsan_scope}_options
+      "halt_on_error=0:second_deadlock_stack=1:suppressions=${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp")
+  endforeach ()
+endif ()
 
 include (CMake/Sources.cmake)
 #
@@ -360,7 +375,7 @@ if (WSJT_EFFECTIVE_FORTRAN_LIBRARY_VARIANTS STREQUAL "OPENMP_ONLY")
 endif ()
 message (STATUS "Fortran library variants: requested=${WSJT_FORTRAN_LIBRARY_VARIANTS}, effective=${WSJT_EFFECTIVE_FORTRAN_LIBRARY_VARIANTS}")
 message (STATUS "Common Fortran target: ${WSJT_COMMON_FORT_TARGET}")
-message (STATUS "MAP65: skip=${WSJT_SKIP_MAP65}")
+message (STATUS "QMAP: skip=${WSJT_SKIP_QMAP}")
 
 # Internal usage requirements for targets whose own Fortran sources contain
 # OpenMP directives. Static libraries keep the runtime dependency link-
@@ -508,11 +523,6 @@ target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
-# don't use Qt "keywords" signal, slot, emit in generated files to
-# avoid compatability issue with other libraries
-# ADD_DEFINITIONS (-DQT_NO_KEYWORDS)
-# ADD_DEFINITIONS (-DUNICODE)	#as per qmake
-
 # As moc files are generated in the binary dir, tell CMake to always
 # look for includes there:
 set (CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -655,9 +665,15 @@ target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 
-add_executable (ft8sim lib/ft8/ft8sim.f90 lib/print_version.c ${jt9_VERSION_RESOURCES})
-wsjt_link_common_fortran (ft8sim)
-wsjt_add_simulator_usage_test (ft8sim "Usage:[ ]+ft8sim")
+if (TARGET test_streaming_consumers)
+  add_dependencies (test_streaming_consumers jt9 wsprd)
+endif ()
+
+if (WSJT_BUILD_UTILS)
+  add_executable (ft8sim lib/ft8/ft8sim.f90 lib/print_version.c ${jt9_VERSION_RESOURCES})
+  wsjt_link_common_fortran (ft8sim)
+  wsjt_add_simulator_usage_test (ft8sim "Usage:[ ]+ft8sim")
+endif ()
 
 if (WSJT_ENABLE_TESTS)
   add_test (NAME test_jt9_version COMMAND $<TARGET_FILE:jt9> --version)
@@ -692,6 +708,10 @@ if (WSJT_ENABLE_TESTS)
       set_tests_properties (${test_name} PROPERTIES
         LABELS "decoder;golden;integration"
         TIMEOUT 120)
+      if (WSJT_ENABLE_TSAN)
+        set_tests_properties (${test_name} PROPERTIES
+          ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+      endif ()
     endfunction ()
 
     wsjt_add_jt9_golden_test (
@@ -699,6 +719,76 @@ if (WSJT_ENABLE_TESTS)
       samples/FT8/210703_133430.wav
       test/fixtures/ft8_210703_133430.expected.txt
       -8)
+    if (WSJT_BUILD_FORTRAN_OPENMP)
+      function (wsjt_add_jt9_mtd_golden_test test_name processors mtd_workers
+          decode_cycles fft_threads)
+        set (options CONSECUTIVE_PERIODS)
+        set (one_value_args MY_CALL DX_CALL QSO_FREQUENCY QSO_PROGRESS)
+        cmake_parse_arguments (MTD_TEST "${options}" "${one_value_args}" "" ${ARGN})
+        set (work_dir "${CMAKE_BINARY_DIR}/Testing/Golden/${test_name}")
+        file (MAKE_DIRECTORY "${work_dir}")
+        add_test (NAME ${test_name}
+          COMMAND ${CMAKE_COMMAND}
+            -DJT9=$<TARGET_FILE:jt9>
+            -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+            -DEXPECTED=${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt
+            -DWORK_DIR=${work_dir}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -DMTD_WORKERS=${mtd_workers}
+            -DDECODE_CYCLES=${decode_cycles}
+            -DFFT_THREADS=${fft_threads}
+            -DCONSECUTIVE_PERIODS=${MTD_TEST_CONSECUTIVE_PERIODS}
+            -DMY_CALL=${MTD_TEST_MY_CALL}
+            -DDX_CALL=${MTD_TEST_DX_CALL}
+            -DQSO_FREQUENCY=${MTD_TEST_QSO_FREQUENCY}
+            -DQSO_PROGRESS=${MTD_TEST_QSO_PROGRESS}
+            -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/compare_mtd_messages.cmake)
+        set_tests_properties (${test_name} PROPERTIES
+          LABELS "decoder;golden;integration;mtd"
+          PROCESSORS ${processors}
+          TIMEOUT 120)
+        if (WSJT_ENABLE_TSAN)
+          set_tests_properties (${test_name} PROPERTIES
+            ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+        endif ()
+      endfunction ()
+
+      if (WSJT_ENABLE_TSAN)
+        # One decode cycle covers the same full sample and golden message set
+        # while keeping the instrumented two-worker synchronization bounded.
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_210703_133430_tsan 2 2 1 1)
+        # Reusing the sample in one process carries decoded messages into the
+        # next period and exercises signal-directed and QSO-state concurrency.
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_prior_period_qso_tsan 2 2 1 1
+          CONSECUTIVE_PERIODS
+          MY_CALL K1JT
+          DX_CALL HA0DU
+          QSO_FREQUENCY 590
+          QSO_PROGRESS 1)
+        set_tests_properties (test_jt9_mtd_ft8_prior_period_qso_tsan PROPERTIES
+          TIMEOUT 360)
+      else ()
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_210703_133430 4 4 3 3)
+        # Keep the stateful path covered in ordinary OpenMP builds as well as
+        # sanitizer builds.
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_prior_period_qso 4 4 1 1
+          CONSECUTIVE_PERIODS
+          MY_CALL K1JT
+          DX_CALL HA0DU
+          QSO_FREQUENCY 590
+          QSO_PROGRESS 1)
+        wsjt_add_jt9_mtd_golden_test (
+          test_jt9_mtd_ft8_210703_133430_limited_team 2 4 3 3)
+        # The -N 4 request requires at least three visible processors for this
+        # limit to reduce the runtime team.
+        set_tests_properties (test_jt9_mtd_ft8_210703_133430_limited_team PROPERTIES
+          ENVIRONMENT "OMP_THREAD_LIMIT=2")
+      endif ()
+    endif ()
     wsjt_add_jt9_golden_test (
       test_jt9_golden_jt9_130418_1742
       samples/JT9/130418_1742.wav
@@ -773,6 +863,40 @@ if (WSJT_ENABLE_TESTS)
       test_wsprd_golden_150426_0918
       samples/WSPR/150426_0918.wav
       test/fixtures/wspr_150426_0918.expected.txt)
+  else ()
+    set (jt9_smoke_work_dir
+      "${CMAKE_BINARY_DIR}/Testing/Smoke/test_jt9_ft8_callback_smoke")
+    file (MAKE_DIRECTORY "${jt9_smoke_work_dir}")
+    add_test (NAME test_jt9_ft8_callback_smoke
+      COMMAND ${CMAKE_COMMAND}
+        -DJT9=$<TARGET_FILE:jt9>
+        -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+        -DEXPECTED_MESSAGE=CQ\ F5RXL\ IN94
+        -DWORK_DIR=${jt9_smoke_work_dir}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/smoke_decoder_callback.cmake)
+    set_tests_properties (test_jt9_ft8_callback_smoke PROPERTIES
+      LABELS "decoder;ft8;integration"
+      TIMEOUT 120)
+  endif ()
+
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set (WSJT_READELF "${CMAKE_READELF}")
+    if (NOT WSJT_READELF)
+      find_program (WSJT_READELF NAMES readelf llvm-readelf)
+    endif ()
+    if (NOT WSJT_READELF)
+      message (FATAL_ERROR
+        "readelf is required to verify that jt9 has a non-executable stack")
+    endif ()
+    add_test (NAME test_jt9_non_executable_stack
+      COMMAND ${CMAKE_COMMAND}
+        -DREADELF=${WSJT_READELF}
+        -DEXECUTABLE=$<TARGET_FILE:jt9>
+        -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_elf_stack.cmake)
+    set_tests_properties (test_jt9_non_executable_stack PROPERTIES
+      LABELS "build;elf;security"
+      TIMEOUT 30)
   endif ()
 endif ()
 
@@ -816,15 +940,15 @@ if (WSJT_BUILD_JT9STREAM)
   # jt9stream NEVER links fort_qt — that is the Qt-free guarantee.
 endif (WSJT_BUILD_JT9STREAM)
 
-if (NOT WSJT_SKIP_MAP65)
-  find_package (Portaudio REQUIRED)
-  add_subdirectory (map65)
-endif ()
+find_package (Portaudio REQUIRED)
+add_subdirectory (map65)
 if (TARGET map65)
   wsjt_enable_qt_automoc (map65)
 endif ()
 
-add_subdirectory (qmap)
+if (NOT WSJT_SKIP_QMAP)
+  add_subdirectory (qmap)
+endif ()
 if (TARGET qmap)
   wsjt_enable_qt_automoc (qmap)
 endif ()
@@ -861,9 +985,14 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_RESOURCES_RCC}
   ${wsjtx_VERSION_RESOURCES}
   ${wsjtx_PLATFORM_RESOURCES}
+  ${wsjtx_BUNDLE_DATA_FILES}
   )
 
 wsjt_enable_qt_automoc (wsjtx)
+
+if (WSJT_ENABLE_TESTS)
+  target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
+endif ()
 
 if (APPLE)
   add_custom_command(
@@ -907,6 +1036,10 @@ else ()
 endif ()
 target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
+if (WSJT_ENABLE_TSAN)
+  target_compile_definitions (wsjtx PRIVATE WSJT_TSAN_TEST_PROFILE)
+endif ()
+
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
   if (APPLE)
     add_test (
@@ -927,6 +1060,105 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
     RUN_SERIAL TRUE
     TIMEOUT ${wsjtx_startup_test_timeout}
   )
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (test_wsjtx_startup PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
+endif ()
+
+if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
+    AND WSJT_BUILD_FORTRAN_OPENMP
+    AND (APPLE OR
+      (CMAKE_SYSTEM_NAME STREQUAL "Linux"
+        AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")))
+  add_dependencies (wsjtx sjtty)
+
+  set (wsjtx_live_audio_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_ft8")
+  file (MAKE_DIRECTORY
+    "${wsjtx_live_audio_test_root}/config"
+    "${wsjtx_live_audio_test_root}/data"
+    "${wsjtx_live_audio_test_root}/cache"
+    "${wsjtx_live_audio_test_root}/tmp")
+  set (wsjtx_live_audio_test_environment
+    "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config"
+    "XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data"
+    "XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache"
+    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_live_audio_ft8")
+  if (NOT APPLE)
+    list (APPEND wsjtx_live_audio_test_environment
+      "TMPDIR=${wsjtx_live_audio_test_root}/tmp")
+  endif ()
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND wsjtx_live_audio_test_environment
+      "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
+  add_test (
+    NAME test_wsjtx_live_audio_ft8
+    COMMAND $<TARGET_FILE:wsjtx>
+      --live-audio-test
+      "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
+      --live-audio-expected
+      "${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt"
+      --live-audio-data-dir
+      "${CMAKE_SOURCE_DIR}"
+      --rig-name CTEST-LIVE-AUDIO)
+  set_tests_properties (test_wsjtx_live_audio_ft8 PROPERTIES
+    ENVIRONMENT "${wsjtx_live_audio_test_environment}"
+    LABELS "gui;audio;decoder;integration"
+    PROCESSORS 1
+    TIMEOUT 120)
+
+  set (wsjtx_jtty_live_audio_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_jtty")
+  add_test (
+    NAME test_wsjtx_live_audio_jtty
+    COMMAND ${CMAKE_COMMAND}
+      "-DSJTTY=$<TARGET_FILE:sjtty>"
+      "-DWSJTX=$<TARGET_FILE:wsjtx>"
+      "-DWORK_DIR=${wsjtx_jtty_live_audio_test_root}"
+      "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/jtty/live_audio.expected.txt"
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_live_audio.cmake)
+  set_tests_properties (test_wsjtx_live_audio_jtty PROPERTIES
+    LABELS "gui;audio;jtty;integration"
+    PROCESSORS 1
+    TIMEOUT 120)
+
+  set (wsjtx_jtty_tx_loopback_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_jtty_tx_loopback")
+  add_test (
+    NAME test_wsjtx_jtty_tx_loopback
+    COMMAND ${CMAKE_COMMAND}
+      "-DWSJTX=$<TARGET_FILE:wsjtx>"
+      "-DWORK_DIR=${wsjtx_jtty_tx_loopback_test_root}"
+      "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/jtty/tx_loopback.expected.txt"
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_tx_loopback.cmake)
+  set_tests_properties (test_wsjtx_jtty_tx_loopback PROPERTIES
+    LABELS "gui;audio;jtty;integration"
+    PROCESSORS 1
+    TIMEOUT 180)
+
+  set (wsjtx_ft8_tx_loopback_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_ft8_tx_loopback")
+  add_test (
+    NAME test_wsjtx_ft8_tx_loopback
+    COMMAND ${CMAKE_COMMAND}
+      "-DWSJTX=$<TARGET_FILE:wsjtx>"
+      "-DWORK_DIR=${wsjtx_ft8_tx_loopback_test_root}"
+      "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/ft8/tx_loopback.expected.txt"
+      "-DDATA_DIR=${CMAKE_SOURCE_DIR}"
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/ft8/run_tx_loopback.cmake)
+  set_tests_properties (test_wsjtx_ft8_tx_loopback PROPERTIES
+    LABELS "gui;audio;decoder;ft8;integration"
+    RUN_SERIAL TRUE
+    TIMEOUT 150)
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (
+      test_wsjtx_live_audio_jtty
+      test_wsjtx_jtty_tx_loopback
+      test_wsjtx_ft8_tx_loopback
+      PROPERTIES ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
 endif ()
 
 # make a library for WSJT-X UDP servers
@@ -1129,6 +1361,7 @@ else ()
 endif ()
 
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
+set (CPACK_DEBIAN_PACKAGE_SECTION "hamradio")
 set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5websockets5 (>=5.7),  libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0) | libboost-log1.81.0 (>=1.81.0) | libboost-log1.83.0 (>=1.83.0) | libboost-log1.85.0 (>=1.85.0)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # Take over data files (icon, samples, docs) from the distro `wsjtx-data`,

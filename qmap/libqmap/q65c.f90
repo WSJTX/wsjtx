@@ -6,6 +6,7 @@ subroutine q65c
   use FFTW3
   use q65
   use q65_decode
+  use qmap_decode_ipc, only: ndecodes
 
   parameter (NFFT=32768)
   include 'njunk.f90'
@@ -20,11 +21,6 @@ subroutine q65c
   character*12 mycall,hiscall
   character*6 mygrid,hisgrid
   character*20 datetime
-  character*72 result
-  character*8 result2               !liveCQ
-  common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
-       nWTransmitting,kHzRequested,result(50)
-  common/decodes2/result2(50)       !liveCQ
   common/datcom2/dd(2,5760000),ss(400,NFFT),savg(NFFT),nparams0
   common/savecom/revision,fname
 !### REMEMBER that /npar/ is not updated until nparams=nparams0 is executed. ###

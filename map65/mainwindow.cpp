@@ -47,6 +47,8 @@
 
 #include "stdout_channel.h"
 #include "fortran_mutex.hpp"
+#include "pskreporter_settings.h"
+#include "runtime_paths.h"
 
 #if !defined(Q_OS_WIN)
 extern "C" {
@@ -66,51 +68,13 @@ extern "C" void ptt_close(void);
 #undef MessageBox
 #endif
 
-#define NFFT 32768
-
-
 QByteArray g_TxTuneGeometry;
 
-namespace {
-struct Map65TxWaveStorage { short int samples[2*60*12000]; };
-struct Map65RxSamplesStorage { qint16 samples[4*60*96000]; };
+int g_sampleRate = 96000;
+int active_nfft;
+std::vector<qint16> id;
 
-QString writableMap65DataDir()
-{
-  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-  if (dataDir.isEmpty()) {
-    dataDir = QDir::home().absoluteFilePath(".map65");
-  }
-
-  if (!QDir{}.mkpath(dataDir)) {
-    qWarning() << "Unable to create MAP65 data directory:" << dataDir;
-  }
-
-  QDir dir {dataDir};
-  if (!dir.mkpath("save")) {
-    qWarning() << "Unable to create MAP65 save directory:" << dir.absoluteFilePath("save");
-  }
-  return dataDir;
-}
-
-QString map65SettingsFile(QString const& appDir, QString const& dataDir)
-{
-  QString settingsFile = QDir {dataDir}.absoluteFilePath("map65.ini");
-  QString legacySettingsFile = QDir {appDir}.absoluteFilePath("map65.ini");
-  if (!QFile::exists(settingsFile) && QFile::exists(legacySettingsFile)) {
-    if (QFile::copy(legacySettingsFile, settingsFile)) {
-      QFile::setPermissions(settingsFile, QFile::ReadOwner | QFile::WriteOwner
-                            | QFile::ReadGroup | QFile::ReadOther);
-    } else {
-      qWarning() << "Unable to migrate MAP65 settings from" << legacySettingsFile
-                 << "to" << settingsFile;
-    }
-  }
-  return settingsFile;
-}
-}  // namespace
-
-short int (&iwave)[2*60*12000] = (new Map65TxWaveStorage{})->samples;  //Wave file for Tx audio
+short int iwave[2*60*12000];          //Wave file for Tx audio
 int nwave;                            //Length of Tx waveform
 bool btxok;                           //True if OK to transmit
 bool bTune;
@@ -119,13 +83,9 @@ double outputLatency;                 //Latency in seconds
 int txPower;
 int iqAmp;
 int iqPhase;
-qint16 (&id)[4*60*96000] = (new Map65RxSamplesStorage{})->samples;
 int pipefd[2];  // pipefd[0] = read end, pipefd[1] = write end
 
 TxTune*    g_pTxTune = NULL;
-
-extern const int RxDataFrequency = 96000;
-extern const int TxDataFrequency = 11025;
 
 std::atomic<bool> stop_m65{false};
 
@@ -134,8 +94,6 @@ QStringList allDecodes;  //liveCQ
 QStringList allDecodes2;  //liveCQ
 QString m_otherUrl;
 bool m_w3szUrl;
-bool m_spot_to_psk_reporter;
-bool m_psk_reporter_tcpip;
 
 struct MainWindow::DecoderContext 
 { 
@@ -149,7 +107,7 @@ MainWindow::DecoderContext::DecoderContext()
     stdoutChan = new StdoutChannel(
         L"MAP65_STDOUT_MAPPING",
         L"MAP65_STDOUT_EVENT",
-        64 * 1024
+        1024 * 1024
     );
 }
 
@@ -171,13 +129,16 @@ MainWindow::MainWindow(QWidget *parent) :
   m_wide_graph_window {new WideGraph {m_settings_filename}},
   m_gui_timer {new QTimer {this}}
 {
-  qDebug() << "IN MainWindow Constructor NFFT IS: " << NFFT;
-  // Legacy C++ and Fortran paths still use relative opens for runtime files.
+  qDebug() << "IN MainWindow Constructor active_nfft IS: " << active_nfft;
   if (!QDir::setCurrent(m_dataDir)) {
     qWarning() << "Unable to set MAP65 working directory:" << m_dataDir;
   }
+  QByteArray dataDirBytes = m_dataDir.toLocal8Bit();
+  set_wsjtx_dir_(dataDirBytes.constData(), dataDirBytes.size());
+  ensureMap65RuntimeFile(m_appDir, m_dataDir, "CALL3.TXT", true);
+  ensureMap65RuntimeFile(m_appDir, m_dataDir, "eclipse.txt");
   constexpr int baseSeconds  = 56;
-  constexpr int sampleRate   = 96000;
+  const int sampleRate = g_sampleRate;
   constexpr int channels     = 4;   // dd(1..4, t)
 
   decoderCtx = new DecoderContext();
@@ -192,17 +153,28 @@ MainWindow::MainWindow(QWidget *parent) :
   // Tell Fortran about the maximum shape (channels × pairsWorst)
   set_dd_ptr(dd, channels, pairsWorst);
 
+  qDebug() << "g_sampleRate:" << g_sampleRate
+    << "sampleRate:" << sampleRate
+    << "id.size():" << id.size()
+    << "bytes:" << id.size() * sizeof(id[0]);
+
   std::cout << "dd pointer set to: " << dd
             << " size: " << ddSize
             << " (channels=" << channels
             << ", pairsWorst=" << pairsWorst << ")\n";
    
-  ss = new float[4 * 322 * NFFT]; 
-  savg = new float[4 * NFFT];
-  set_ss_ptr(ss, 4, 322, NFFT);   
+  ss = new float[4 * 322 * active_nfft]; 
+  savg = new float[4 * active_nfft];
+  set_ss_ptr(ss, 4, 322, active_nfft);   
   std::cout << "ss pointer set to: " << ss << std::endl;
-  set_savg_ptr(savg, 4, NFFT); 
+  set_savg_ptr(savg, 4, active_nfft); 
   std::cout << "savg pointer set to: " << savg << std::endl; 
+  dd_old = new float[ddSize];
+  set_dd_old_ptr(dd_old, channels, pairsWorst);
+  ss_old = new float[4 * 322 * active_nfft]; 
+  savg_old = new float[4 * active_nfft];
+  set_ss_old_ptr(ss_old, 4, 322, active_nfft);   
+  set_savg_old_ptr(savg_old, 4, active_nfft); 
 
   qDebug() << "MAINWINDOW created dd ss savg ";
 
@@ -243,6 +215,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionNo_Deep_Search->setActionGroup(DepthGroup);
   ui->actionNormal_Deep_Search->setActionGroup(DepthGroup);
   ui->actionAggressive_Deep_Search->setActionGroup(DepthGroup);
+  ui->actionFull_Deep_Search->setActionGroup(DepthGroup);
 
   QButtonGroup* txMsgButtonGroup = new QButtonGroup;
   txMsgButtonGroup->addButton(ui->txrb1,1);
@@ -388,7 +361,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_NB=false;
   m_mode="JT65B";
   m_mode65=2;
-  m_fs96000=true;
+  m_fs96000=1;
   m_udpPort=50004;
   m_adjustIQ=0;
   m_applyIQcal=0;
@@ -415,7 +388,7 @@ MainWindow::MainWindow(QWidget *parent) :
   if(paerr!=paNoError) {
     msgBox("Unable to initialize PortAudio.");
   }
-  QFile quitFile(QDir {m_dataDir}.absoluteFilePath (".quit"));
+  QFile quitFile(m_appDir + "/.quit");
   quitFile.remove();
     
   m_pbdecoding_style1="QPushButton{background-color: cyan; \
@@ -460,8 +433,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
 // Assign input device and start input thread
   soundInThread.setInputDevice(m_paInDevice);
-  if(m_fs96000) soundInThread.setRate(96000.0);
-  if(!m_fs96000) soundInThread.setRate(95238.1);
+  if(m_fs96000 == 1) soundInThread.setRate(96000.0);
+  else if(m_fs96000 ==0) soundInThread.setRate(95238.1);
+  else if(m_fs96000 ==2) soundInThread.setRate(192000.0);
   soundInThread.setBufSize(10*7056);
   soundInThread.setNetwork(m_network);
   soundInThread.setPort(m_udpPort);
@@ -473,11 +447,11 @@ MainWindow::MainWindow(QWidget *parent) :
   soundOutThread.setOutputDevice(m_paOutDevice);
 
   m_monitoring=true;                           // Start with Monitoring ON
+  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
+
   soundInThread.setMonitoring(m_monitoring);
   m_diskData=false;
   m_wide_graph_window->setFcal(m_fCal);
-  if(m_fs96000) m_wide_graph_window->setFsample(96000);
-  if(!m_fs96000) m_wide_graph_window->setFsample(95238);
   m_wide_graph_window->m_mult570=m_mult570;
   m_wide_graph_window->m_mult570Tx=m_mult570Tx;
   m_wide_graph_window->m_cal570=m_cal570;
@@ -486,8 +460,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 // Create "m_worked", a dictionary of all calls in wsjt.log
   QFile f("wsjt.log");
-  (void)f.open(QFileDevice::ReadOnly);
-  qDebug() << "MainWindow Constructor File open result:" << f.isOpen();
+  qDebug() << "MainWindow Constructor File open result:" << f.open(QFileDevice::ReadOnly);
   if(f.isOpen()) {
     QTextStream in(&f);
     QString line,t,callsign;
@@ -571,32 +544,33 @@ void MainWindow::startDecoder()
 {
     qDebug() << "MAINWINDOW calling run_m65_ ";
 
-    QByteArray runtimeDir = QDir::toNativeSeparators(m_dataDir).toLocal8Bit();
-    set_wsjtx_dir_(runtimeDir.constData(), runtimeDir.size());
-
     QFutureWatcher<void>* watcher_m65 = new QFutureWatcher<void>(this);
     connect(watcher_m65, &QFutureWatcher<void>::finished,
             this, &MainWindow::onRunM65Finished);
 
     watcher_m65->setFuture(QtConcurrent::run([=]() {
-        // Hook up shared stdout channel for Fortran
-        StdoutSharedRegion* region =
-            decoderCtx->stdoutChan->shared.getRegion();
 
-        void*    bufPtr  = static_cast<void*>(region->buffer);
-        void*    hdrPtr  = static_cast<void*>(&region->header);
-        int      bufSize = static_cast<int>(decoderCtx->stdoutChan->shared.getBufferSize());
-        intptr_t eventH  = reinterpret_cast<intptr_t>(decoderCtx->stdoutChan->eventHandle);
+    qDebug() << "DECODE: starting run_m65_() with m_fs96000=" << m_fs96000;
 
-        set_stdout_channel(bufPtr, hdrPtr, bufSize, eventH);
+    // Hook up shared stdout channel for Fortran
+    StdoutSharedRegion* region =
+        decoderCtx->stdoutChan->shared.getRegion();
 
-        // Now run the decoder
-        std::lock_guard<std::mutex> lock(g_fortran_decode_mutex);
-        int xpol_flag = m_xpol ? 1 : 0;
-        int rate_flag = m_fs96000 ? 1 : 0;
-        run_m65_(&xpol_flag, &rate_flag);
+    void*    bufPtr  = static_cast<void*>(region->buffer);
+    void*    hdrPtr  = static_cast<void*>(&region->header);
+    int      bufSize = static_cast<int>(decoderCtx->stdoutChan->shared.getBufferSize());
+    intptr_t eventH  = reinterpret_cast<intptr_t>(decoderCtx->stdoutChan->eventHandle);
 
+    set_stdout_channel(bufPtr, hdrPtr, bufSize, eventH);
+
+    // Now run the decoder
+    std::lock_guard<std::mutex> lock(g_fortran_decode_mutex);
+    int xpol_flag = m_xpol ? 1 : 0;
+    run_m65_(&xpol_flag, &m_fs96000);
+
+    qDebug() << "DECODE: run_m65_() returned";
     }));
+
 }
 
 void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
@@ -620,6 +594,7 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
       std::uint32_t readIndex = h0.writeIndex;
       if (readIndex >= bufSize)
           readIndex = 0;
+      region->header.readIndex = readIndex;
 
       std::string lineBuffer;
 
@@ -653,6 +628,11 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
                   );
               }
           }
+
+          // Publish how far we've drained so the Fortran writer can
+          // compute free space and wait for room instead of wrapping
+          // around and overwriting data we haven't read yet.
+          region->header.readIndex = readIndex;
       }
 
     });
@@ -693,7 +673,7 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
       if (m_diskData) onDiskDecodeFinished();
 
         int ndecodes = t.mid(40,5).toInt();
-        lab5->setText(QString::number(ndecodes));
+        lab8->setText(QString::number(ndecodes));
         m_map65RxLog   = 0;        
     }
 
@@ -858,6 +838,7 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 
 void MainWindow::onRunM65Finished() {
     // Do something when run_m65 finishes
+  //   qDebug() << "DECODE: onRunM65Finished()";
 }
 
 void MainWindow::onDiskDecodeFinished()
@@ -902,7 +883,7 @@ void MainWindow::writeSettings()
   settings.setValue("Fcal",m_fCal);
   settings.setValue("Fadd",m_fAdd);
   settings.setValue("NetworkInput", m_network);
-  settings.setValue("FSam96000", m_fs96000);
+  settings.setValue("FSam96000", QString::number(m_pendingFs96000 >= 0 ? m_pendingFs96000 : m_fs96000));
   settings.setValue("SoundInIndex",m_nDevIn);
   settings.setValue("paInDevice",m_paInDevice);
   settings.setValue("SoundOutIndex",m_nDevOut);
@@ -959,12 +940,13 @@ void MainWindow::writeSettings()
 void MainWindow::readSettings()
 {
   QSettings settings(m_settings_filename, QSettings::IniFormat);
+  auto const pskReporterSettings = readMap65PSKReporterSettings(settings);
   {
     SettingsGroup g {&settings, "MainWindow"};
     restoreGeometry(settings.value("geometry").toByteArray());
     ui->dxCallEntry->setText(settings.value("DXcall","").toString());
     ui->dxGridEntry->setText(settings.value("DXgrid","").toString());
-    m_path = settings.value("MRUdir", QDir {m_dataDir}.absoluteFilePath("save")).toString();
+    m_path = settings.value("MRUdir", m_appDir + "/save").toString();
     m_txFirst = settings.value("TxFirst",false).toBool();
     ui->txFirstCheckBox->setChecked(m_txFirst);
   }
@@ -985,6 +967,19 @@ void MainWindow::readSettings()
   m_xpolx=settings.value("XpolX",false).toBool();
   m_saveDir=settings.value("SaveDir",QDir {m_dataDir}.absoluteFilePath("save")).toString();
   m_azelDir=settings.value("AzElDir",m_dataDir).toString();
+  if (!settings.value("AzElDirMigratedToDataDir",false).toBool()) {
+    // One-time migration: earlier versions defaulted AzElDir to the
+    // application/bin directory instead of the user data directory, and
+    // that default got persisted the first time settings were saved. An
+    // exact-match check against the *current* m_appDir can't catch this,
+    // since the saved value may point at some older build's bin directory
+    // that no longer matches this run's m_appDir at all. So instead: force
+    // everyone onto the new default exactly once, unconditionally, then
+    // remember it's done so a deliberate later customization (via the
+    // Setup dialog's AzEl Directory field) is never overwritten again.
+    m_azelDir = m_dataDir;
+    settings.setValue("AzElDirMigratedToDataDir",true);
+  }
   m_editorCommand=settings.value("Editor","notepad").toString();
   m_dxccPfx=settings.value("DXCCpfx","").toString();
   m_timeout=settings.value("Timeout",20).toInt();
@@ -995,7 +990,8 @@ void MainWindow::readSettings()
   m_fAdd=settings.value("Fadd",0).toDouble();
   soundInThread.setFadd(m_fAdd);
   m_network = settings.value("NetworkInput",true).toBool();
-  m_fs96000 = settings.value("FSam96000",true).toBool();
+  m_fs96000 = readFSam96000(settings,1);
+  qDebug() << "In MainWindow::readSettings FSam96000 is read as:" << m_fs96000;
   m_nDevIn = settings.value("SoundInIndex", 0).toInt();
   m_paInDevice = settings.value("paInDevice",0).toInt();
   m_nDevOut = settings.value("SoundOutIndex", 0).toInt();
@@ -1061,10 +1057,11 @@ void MainWindow::readSettings()
   if(m_ndepth==0) ui->actionNo_Deep_Search->setChecked(true);
   if(m_ndepth==1) ui->actionNormal_Deep_Search->setChecked(true);
   if(m_ndepth==2) ui->actionAggressive_Deep_Search->setChecked(true);
+  if(m_ndepth==3) ui->actionFull_Deep_Search->setChecked(true);
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
-  m_spot_to_psk_reporter=settings.value("spotPSK",true).toBool();
-  m_psk_reporter_tcpip=settings.value("PSKReporterTCPIP",false).toBool();
+  m_spot_to_psk_reporter = pskReporterSettings.enabled;
+  m_psk_reporter_tcpip = pskReporterSettings.use_tcpip;
 
   m_tol=settings.value("FTol",500).toInt();
   m_wide_graph_window->setTol(m_tol);
@@ -1073,7 +1070,7 @@ void MainWindow::readSettings()
   if(m_tol==50) i=2;
   if(m_tol==100) i=3;
   if(m_tol==200) i=4;
-//  if(m_tol==500) i=5;
+  if(m_tol==500) i=5;
   if(m_tol==1000) i=6;
   ui->labTol1->setText(QString::number(m_tol));
   ui->tolSpinBox->setValue(i);
@@ -1100,13 +1097,20 @@ void MainWindow::readSettings()
 //-------------------------------------------------------------- dataSink()
 void MainWindow::dataSink(int k)
 {
-  static float s[NFFT],splot[NFFT];
+  static float* s = nullptr;
+  static float* splot = nullptr;
+  if (!s) {
+      s     = new float[active_nfft];
+      splot = new float[active_nfft];
+  }
   static int n=0;
   static int ihsym=0;
   static int nzap=0;
   static int ntrz=0;
   static int nkhz;
-  int nfsample= m_fs96000 ? 96000 : 95238;
+  int nfsample = 96000; 
+  if (m_fs96000 == 0) nfsample = 95238;
+  else if(m_fs96000 == 2) nfsample = 192000;
   setNfsample(nfsample);
   int nxpol= m_xpol ? 1 : 0;
   setNxpol(nxpol);
@@ -1116,7 +1120,8 @@ void MainWindow::dataSink(int k)
   static int nb;
   static int nadj=0;
   static float px=0.0,py=0.0;
-  static uchar lstrong[1024];
+  constexpr int lstrongSize = 1024;
+  static uchar lstrong[lstrongSize];
   static float rejectx;
   static float rejecty;
   static float slimit;
@@ -1134,15 +1139,13 @@ void MainWindow::dataSink(int k)
 // Get x and y power, polarized spectrum, nkhz, and ihsym
   nb=0;
   if(m_NB) nb=1;
-  nfsample=96000;
-  if(!m_fs96000) nfsample=95238;
   nxpol=0;
   if(m_xpol) nxpol=1;
   nadj++;
   if(m_adjustIQ==0) nadj=0;
-    
+
   symspec_(&k, &nxpol, &ndiskdat, &nb, &m_NBslider, &m_dPhi,
-           &nfsample, &m_adjustIQ, &m_applyIQcal,
+           &m_adjustIQ, &m_applyIQcal,
            &m_gainx, &m_gainy, &m_phasex, &m_phasey, &rejectx, &rejecty,
            &px, &py, s, &nkhz, &ihsym, &nzap, &slimit, lstrong);
 
@@ -1177,8 +1180,9 @@ void MainWindow::dataSink(int k)
   }
   xSignalMeter->setValue(px);                   // Update the signal meters
   ySignalMeter->setValue(py);
+
   if(m_monitoring || m_diskData) {
-    m_wide_graph_window->dataSink2(s,nkhz,ihsym,m_diskData,lstrong);
+    m_wide_graph_window->dataSink2(s,nkhz,ihsym,m_diskData,lstrong,lstrongSize);
   }
 
   if(nadj == 10) {
@@ -1202,16 +1206,16 @@ void MainWindow::dataSink(int k)
 
   //Average over specified number of spectra
   if (n==0) {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<active_nfft; i++)
       splot[i]=s[i];
   } else {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<active_nfft; i++)
       splot[i] += s[i];
   }
   n++;
 
   if (n>=m_waterfallAvg) {
-    for (int i=0; i<NFFT; i++) {
+    for (int i=0; i<active_nfft; i++) {
         splot[i] /= n;                           //Normalize the average
     }
 
@@ -1219,7 +1223,7 @@ void MainWindow::dataSink(int k)
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     int ntr1 = (ms/1000) % m_TRperiod;
     if((m_diskData && ihsym <= m_waterfallAvg) || (!m_diskData && ntr1<ntrz)) {
-      for (int i=0; i<NFFT; i++) {
+      for (int i=0; i<active_nfft; i++) {
         splot[i] = 1.e30;
       }
     }
@@ -1299,7 +1303,7 @@ float* MainWindow::getDd() const
 
 void MainWindow::savetf2(QString fname, bool xpol)
 {
-  int npts=2*56*96000;
+  int npts=2*56*g_sampleRate;
   if(xpol) npts=2*npts;
   FILE* fp = fopen(fname.toUtf8().constData(), "wb");
 
@@ -1336,14 +1340,14 @@ void MainWindow::savetf2(QString fname, bool xpol)
 void MainWindow::getfile(QString fname, bool xpol, int dbDgrd)
 {
     setDecoderReady(0);
-    int npts = 2 * 56 * 96000;
+    int npts = 2 * 56 * g_sampleRate;
     if (xpol) npts = 2 * npts;
 
     // j indexes dd[], which has 4 channels per pair
     int j = 0;
 
     // Clear id[] properly
-    memset(id, 0, npts * sizeof(id[0]));
+    memset(id.data(), 0, npts * sizeof(id[0]));
 
     // Open file
     FILE* fp = fopen(fname.toUtf8().constData(), "rb");
@@ -1351,6 +1355,11 @@ void MainWindow::getfile(QString fname, bool xpol, int dbDgrd)
         qWarning() << "Failed to open file:" << fname;
         return;
     }
+
+  qDebug().noquote() << QString("NEWFILE: nfsample=%1 nrate_active=%2")
+                      .arg(active_nfft)
+                      .arg(g_sampleRate);
+  
 
     // Read fcenter
     double fcenter = 0.0;
@@ -1361,16 +1370,20 @@ void MainWindow::getfile(QString fname, bool xpol, int dbDgrd)
 
     setFcenter(fcenter);
 
-    // Skip the 8-byte zero padding
-    uint64_t pad = 0;
-    if (fread(&pad, sizeof(pad), 1, fp) != 1) {
-		fclose(fp);
-		return;
-	}
+    qint64 sampleBytes = static_cast<qint64>(npts) * static_cast<qint64>(sizeof(id[0]));
+    qint64 expectedPaddedSize = static_cast<qint64>(sizeof(fcenter)) +
+        static_cast<qint64>(sizeof(uint64_t)) + sampleBytes;
+    if (QFileInfo {fname}.size() == expectedPaddedSize) {
+        uint64_t pad = 0;
+        if (fread(&pad, sizeof(pad), 1, fp) != 1) {
+			fclose(fp);
+			return;
+		}
+    }
 
 
     // Read raw samples
-    size_t nRead = fread(id, sizeof(id[0]), npts, fp);
+    size_t nRead = fread(id.data(), sizeof(id[0]), npts, fp);
     qDebug() << "fread read" << nRead << "samples, expected" << npts;
 
     fclose(fp);
@@ -1425,10 +1438,25 @@ void MainWindow::showStatusMessage(const QString& statusMsg)
 void MainWindow::on_actionDeviceSetup_triggered()
 {
   DevSetup dlg(this);
+
+  connect(&dlg, &DevSetup::sampleRateChanged,
+      this, &MainWindow::onSampleRateChanged);
+
   dlg.initDlg();
 
     if (dlg.exec() == QDialog::Accepted)
     {
+        if (dlg.m_restartRequired)
+        {
+            m_pendingFs96000 = dlg.m_pendingFs96000;
+            writeSettings();
+            if (m_messages_window) {
+                m_messages_window->setPSKReportingEnabled(m_spot_to_psk_reporter);
+            }
+            return;
+        }
+        m_pendingFs96000 = -1;
+
         //
         // Apply runtime effects for SoundIn
         //
@@ -1440,7 +1468,9 @@ void MainWindow::on_actionDeviceSetup_triggered()
             soundInThread.setInputDevice(m_paInDevice);
       soundInThread.setNetwork(m_network);
       soundInThread.setFadd(m_fAdd);
-            soundInThread.setRate(m_fs96000 ? 96000.0 : 95238.1);
+            if (m_fs96000 == 1) soundInThread.setRate(96000.0);
+            else if (m_fs96000 == 0) soundInThread.setRate(95238.1);
+            else if (m_fs96000 == 2) soundInThread.setRate(192000.0);
             soundInThread.setSwapIQ(m_IQswap);
             soundInThread.setScale(m_dB);
             soundInThread.setPort(m_udpPort);
@@ -1484,15 +1514,33 @@ void MainWindow::on_actionDeviceSetup_triggered()
         // Save to disk
         //
         writeSettings();
+        if (m_messages_window) {
+            m_messages_window->setPSKReportingEnabled(m_spot_to_psk_reporter);
+        }
   }
+}
+
+void MainWindow::onSampleRateChanged(int newRate)
+{
+    if (!m_wide_graph_window)
+        return;
+
+    if (newRate == 96000 || newRate == 95238)
+        m_wide_graph_window->setFreqSpanLimits(60, 90);
+    else
+        m_wide_graph_window->setFreqSpanLimits(60, 190);
+
+    m_wide_graph_window->updateSpanFromSpinbox();
 }
 
 
 void MainWindow::on_monitorButton_clicked()                  //Monitor
 {
   m_monitoring=true;
+  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
   soundInThread.setMonitoring(true);
   m_diskData=false;
+
 }
 void MainWindow::on_actionLinrad_triggered()                 //Linrad palette
 {
@@ -1663,6 +1711,12 @@ void MainWindow::createStatusBar()                           //createStatusBar
   lab7->setMinimumSize(QSize(50,10));
   lab7->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab7);
+  
+  lab8 = new QLabel("QSOs: 0");
+  lab8->setAlignment(Qt::AlignHCenter);
+  lab8->setMinimumSize(QSize(50,10));
+  lab8->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  statusBar()->addWidget(lab8);
 }
 
 void MainWindow::on_tolSpinBox_valueChanged(int i)             //tolSpinBox
@@ -1684,7 +1738,7 @@ void MainWindow::closeEvent(QCloseEvent *e)
     if (m_gui_timer) m_gui_timer->stop();
     m_wide_graph_window->saveSettings();
 
-    QFile quitFile(QDir {m_dataDir}.absoluteFilePath (".quit"));
+    QFile quitFile(m_appDir + "/.quit");
     (void)quitFile.open(QFileDevice::ReadWrite);
     setQuitID(quitFile.handle());
 
@@ -1714,6 +1768,7 @@ void MainWindow::closeEvent(QCloseEvent *e)
 void MainWindow::on_stopButton_clicked()                       //stopButton
 {
   m_monitoring=false;
+  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
   soundInThread.setMonitoring(m_monitoring);
   m_loopall=false;  
 }
@@ -1781,6 +1836,8 @@ void MainWindow::on_actionMessages_triggered()              //Display Messages
 void MainWindow::on_actionOpen_triggered()                     //Open File
 {
   m_monitoring=false;
+  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
+
   soundInThread.setMonitoring(m_monitoring);
   // Wipe waterfall callsign overlay so stale labels from the previous
   // file (or live capture) don't linger over the new decode.
@@ -1852,7 +1909,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
       *future1 = QtConcurrent::run([this](QString fname, bool xpol, int dbDgrd) {
         this->getfile(fname, xpol, dbDgrd);
         }, fname, m_xpol, dbDgrd);
-    //  qDebug() << "MainWindow::on_actionOpen_next_in_directory_triggered Reading wav file: " << m_path;        
+      qDebug() << "MainWindow::on_actionOpen_next_in_directory_triggered Reading wav file: " << m_path;        
       watcher1->setFuture(*future1);
       return;
     }
@@ -1875,8 +1932,9 @@ void MainWindow::diskDat()                                   //diskDat()
     setFcenter(m_wide_graph_window->m_dForceCenterFreq);
   }
 
-  if(m_fs96000) hsym=2048.0*96000.0/11025.0;   //Samples per JT65 half-symbol
-  if(!m_fs96000) hsym=2048.0*95238.1/11025.0;
+  hsym=2048.0*96000.0/11025.0;   //Samples per JT65 half-symbol if SR = 96000
+  if(m_fs96000 == 0) hsym=2048.0*95238.1/11025.0; // Samples per JT65 half-symbol if SR =  95238.1
+  else if(m_fs96000 == 2) hsym=2048.0*192000.0/11025.0;   //Samples per JT65 half-symbol if SR = 192000
   for(int i=0; i<304; i++) {           // Do the half-symbol FFTs
     int k = i*hsym + 2048.5;
     dataSink(k);
@@ -1916,6 +1974,14 @@ void MainWindow::on_actionErase_Band_Map_and_Messages_triggered()
 {
   m_band_map_window->setText("");
   m_messages_window->setText("","");
+  // m_messagesText/m_bandmapText accumulate across decode cycles and are
+  // only reset when a "!" line arrives (processStdOut). Without clearing
+  // them here too, the next <EarlyFinished>/<DecodeFinished> redisplay
+  // (or a cycle with no fresh decodes) repaints the stale pre-erase text
+  // right back into the windows.
+  m_messagesText.clear();
+  m_bandmapText.clear();
+  m_widebandDecode = false;
   m_map65RxLog |= 4;
 }
 
@@ -1953,6 +2019,11 @@ void MainWindow::on_actionNormal_Deep_Search_triggered()      //Normal DS
 void MainWindow::on_actionAggressive_Deep_Search_triggered()  //Aggressive DS
 {
   m_ndepth=2;
+}
+
+void MainWindow::on_actionFull_Deep_Search_triggered()        //Full DS
+{
+  m_ndepth=3;
 }
 
 void MainWindow::on_actionNone_triggered()                    //Save None
@@ -2006,6 +2077,7 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
   if(!m_decoderBusy) {
     setNagain(1);
     setNewdat(0);
+    set_manual_decode_flag(1);
     decode();
   }
 }
@@ -2036,7 +2108,6 @@ void MainWindow::decode()                                       //decode()
   if(m_diskData) {
     if(m_myGrid.trimmed().length()>=6) {
       setNdiskdat(1);
-      setNagain(0);
       int i0=m_path.indexOf(".tf2");
       if(i0<0) i0=m_path.indexOf(".iq");
       if(i0>0) {
@@ -2088,8 +2159,10 @@ void MainWindow::decode()                                       //decode()
   if(getNutc() < m_nutc0) m_map65RxLog |= 1;  //Date and Time to map65_rx.log
   m_nutc0=getNutc();
   setMap65RxLog(m_map65RxLog);
-  setNfsample(96000);
-  if(!m_fs96000) setNfsample(95238);
+  if(m_fs96000 == 1) setNfsample(96000);
+  if(m_fs96000 == 0) setNfsample(95238);
+  else if(m_fs96000 == 2) setNfsample(192000);
+ // qDebug() << "MainWindow::decode setting nfsample to " << m_fs96000;
   setNxpol(0);
   if(m_xpol) setNxpol(1);
   setNmode(10*m_modeQ65 + m_modeJT65);
@@ -2241,6 +2314,8 @@ void MainWindow::guiUpdate()
   if(bTune0 and !bTune) {
     btxok=false;
     m_monitoring=bMonitoring0;
+  //  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
+
     soundInThread.setMonitoring(m_monitoring);
   }
   if(bTune and !bTune0) bMonitoring0=m_monitoring;
@@ -2293,7 +2368,7 @@ void MainWindow::guiUpdate()
     int mode65=m_mode65;
     int ntxFreq=1000;
     double samfac=1.0;
-    qDebug() << mode65 << samfac;
+  //  qDebug() << mode65 << samfac;
     if(m_modeTx=="JT65") {
       gen65_(message,&mode65,&samfac,&nsendingsh,msgsent,iwave,
              &nwave,len1,len1);
@@ -2308,8 +2383,7 @@ void MainWindow::guiUpdate()
       QString t="  Tx " + m_modeTx + "   ";
       t=t.left(11);
       QFile f("map65_tx.log");
-      (void)f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
-      qDebug() << "MainWindow::guiUpdate 1 File open result:" << f.isOpen();
+      qDebug() << "MainWindow::guiUpdate 1 File open result:" << f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
       QTextStream out(&f);
       out << QDateTime::currentDateTimeUtc().toString("yyyy-MMM-dd hh:mm")
           << t << QString::fromLatin1(msgsent)
@@ -2332,6 +2406,8 @@ void MainWindow::guiUpdate()
     xSignalMeter->setValue(0);
     ySignalMeter->setValue(0);
     m_monitoring=false;
+  //  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
+
     soundInThread.setMonitoring(false);
     btxok=true;
     m_transmitting=true;
@@ -2340,8 +2416,7 @@ void MainWindow::guiUpdate()
     QString t="  Tx " + m_modeTx + "   ";
     t=t.left(11);
     QFile f("map65_tx.log");
-    (void)f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
-    qDebug() << "MainWindow::guiUpdate 2 File open result:" << f.isOpen();
+    qDebug() << "MainWindow::guiUpdate 2 File open result:" << f.open(QFileDevice::WriteOnly | QFileDevice::Text | QFileDevice::Append);
     QTextStream out(&f);
     out << QDateTime::currentDateTimeUtc().toString("yyyy-MMM-dd hh:mm")
         << t << QString::fromLatin1(msgsent)
@@ -2372,6 +2447,8 @@ void MainWindow::guiUpdate()
     m_wide_graph_window->enableSetRxHardware(true);
     if(m_auto) {
       m_monitoring=true;
+    //  qDebug() << "m_monitoring set to" << m_monitoring << "at" << Q_FUNC_INFO;
+
       soundInThread.setMonitoring(m_monitoring);
     }
   }
@@ -2656,14 +2733,7 @@ void MainWindow::genStdMsgs(QString rpt)                       //genStdMsgs()
 
 QString MainWindow::call3Path() const
 {
-  QString writablePath = QDir {m_dataDir}.absoluteFilePath("CALL3.TXT");
-  if (!QFile::exists(writablePath)) {
-    QString bundledPath = QDir {m_appDir}.absoluteFilePath("CALL3.TXT");
-    if (QFile::exists(bundledPath)) {
-      QFile::copy(bundledPath, writablePath);
-    }
-  }
-  return writablePath;
+  return ensureMap65RuntimeFile(m_appDir, m_dataDir, "CALL3.TXT", true);
 }
 
 void MainWindow::lookup()                                       //lookup()
@@ -2792,8 +2862,7 @@ void MainWindow::on_addButton_clicked()                       //Add button
     if (f0.exists ()) f0.remove ();
     f1.copy (old_path);         // copying as we want to preserve
                                 // symlinks
-    (void)f1.open (QFileDevice::WriteOnly | QFileDevice::Text); // truncates
-    qDebug() << "MainWindow::on_addButton_clicked File open result:" << f1.isOpen();
+    qDebug() << "MainWindow::on_addButton_clicked File open result:" << f1.open (QFileDevice::WriteOnly | QFileDevice::Text); // truncates
     f2.seek (0);
     f1.write (f2.readAll ());   // copy contents
     f2.remove ();
@@ -3079,8 +3148,7 @@ void MainWindow::on_actionFUNcube_Dongle_triggered()
 
 void MainWindow::on_actionEdit_wsjt_log_triggered()
 {
-  proc_editor.start (QDir::toNativeSeparators (m_editorCommand),
-                     {QDir::toNativeSeparators (QDir {m_dataDir}.absoluteFilePath ("wsjt.log")), });
+  proc_editor.start (QDir::toNativeSeparators (m_editorCommand), {QDir::toNativeSeparators (m_appDir + "/wsjt.log"), });
 }
 
 void MainWindow::on_actionTx_Tune_triggered()
@@ -3125,8 +3193,7 @@ void MainWindow::read_log()
   // Update "m_worked" by reading wsjtx.log
   m_worked.clear();                     //Start from scratch
   QFile f("wsjtx.log");
-//  (void)f.open(QFileDevice::ReadOnly);
-//  qDebug() << "MainWindow::read_log File open result:" << f.isOpen();
+  qDebug() << "MainWindow::read_log File open result:" << f.open(QFileDevice::ReadOnly);
   if(f.isOpen()) {
     QTextStream in(&f);
     QString line,callsign;

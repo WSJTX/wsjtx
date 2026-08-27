@@ -123,8 +123,7 @@ protected:
   virtual void do_trfrequency(double) {}
   virtual void do_volume (qreal) {}
   virtual void do_txvolume (qreal) {}
-  //parameters are MODE,symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,FASTMODE,dbsdr,trperiod //parameters added by w3sz are in bold
-  virtual void do_modulator_start(QString, unsigned, double, double, double, bool, bool, double, double) {}
+  virtual void do_modulator_start (TxEvidence::TxRequest const&) {}
   virtual void do_modulator_stop(bool) {}
 
   virtual bool do_pre_update () {return true;}
@@ -168,6 +167,8 @@ private:
   TransceiverState actual_;
   TransceiverState last_;
   unsigned last_sequence_number_;    // from set state operation
+  bool period_applied_ {false};
+  double applied_period_ {0.0};
 };
 
 // some loggimg macros

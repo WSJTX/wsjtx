@@ -10,9 +10,10 @@
 #include <QDateTime>
 #include <QVector>
 #include <QByteArray>
+#include <QSet>
 
-class QNetworkAccessManager;
 class QNetworkReply;
+class QNetworkRequest;
 
 class WSPRNet : public QObject
 {
@@ -21,6 +22,14 @@ class WSPRNet : public QObject
   using SpotQueue = QQueue<QUrlQuery>;
 
 public:
+  // HTTP post seam so tests can upload without constructing QNetworkAccessManager.
+  class Transport
+  {
+  public:
+    virtual ~Transport () = default;
+    virtual QNetworkReply *post (QNetworkRequest const& request, QByteArray const& body) = 0;
+  };
+
   struct RetryPolicy
   {
     int max_attempts = 7;
@@ -60,8 +69,9 @@ public:
   };
 
   explicit WSPRNet (QObject *parent = nullptr);
-  WSPRNet (QNetworkAccessManager *network_manager, RetryPolicy retry_policy,
-           bool take_network_manager_ownership, QObject *parent = nullptr);
+  WSPRNet (Transport *transport, RetryPolicy retry_policy,
+           bool take_transport_ownership, QObject *parent = nullptr);
+  ~WSPRNet ();
   void upload (QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
                QString const& mode, float TR_period, QString const& tpct, QString const& dbm,
                QString const& version, QString const& fileName);
@@ -82,6 +92,7 @@ public slots:
 private:
   enum class UploadSource {Direct, File};
   enum class PayloadKind {Spot, Status};
+  enum class UploadTarget {Primary, Alternate};
 
   struct PendingUpload
   {
@@ -94,6 +105,8 @@ private:
     QDateTime expires_at;
     QDateTime next_attempt_at;
     int attempts;
+    UploadTarget target;
+    int logical_upload_id;
   };
 
   struct FileSnapshot
@@ -107,13 +120,15 @@ private:
   {
     FileSnapshot snapshot;
     int total = 0;
-    int accepted = 0;
-    bool failed = false;
+    QSet<int> accepted;
+    QSet<int> failed;
   };
 
   void applyContext (StationContext const& context);
   FileSnapshot snapshotFile (QString const& file_name) const;
   bool fileMatchesSnapshot (FileSnapshot const& snapshot) const;
+  bool hasPendingFileLeg (int file_batch_id, int logical_upload_id) const;
+  bool hasOutstanding (UploadTarget target) const;
   bool decodeLine (QString const& line, SpotQueue::value_type& query) const;
   SpotQueue::value_type urlEncodeNoSpot () const;
   SpotQueue::value_type urlEncodeSpot (SpotQueue::value_type& spot) const;
@@ -136,7 +151,8 @@ private:
   void maybeRemoveCompletedFile (int file_batch_id);
   void maybeFinalize ();
 
-  QNetworkAccessManager * network_manager_;
+  Transport * transport_;
+  bool owns_transport_;
   RetryPolicy retry_policy_;
   QHash<QNetworkReply *, PendingUpload> outstanding_requests_;
   QHash<int, FileUploadState> file_uploads_;
@@ -151,7 +167,9 @@ private:
   float TR_period_;
   int uploads_started_;
   int next_file_batch_id_;
-  QQueue<PendingUpload> pending_uploads_;
+  int next_logical_upload_id_;
+  QQueue<PendingUpload> pending_primary_uploads_;
+  QQueue<PendingUpload> pending_alternate_uploads_;
   QTimer upload_timer_;
   bool upload_session_active_;
 };

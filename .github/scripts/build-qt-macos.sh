@@ -161,9 +161,8 @@ jobs="$(sysctl -n hw.ncpu)"
 make -j"$jobs"
 make install
 
-"${prefix}/bin/qmake" -query
-"${prefix}/bin/qmake" -query QT_VERSION | awk -v expected="$QT_VERSION" '
+"${prefix}/bin/qtpaths" --qt-version | awk -v expected="$QT_VERSION" '
   $0 != expected {
-    printf "Expected qmake QT_VERSION %s, got %s\n", expected, $0 > "/dev/stderr"
+    printf "Expected Qt version %s, got %s\n", expected, $0 > "/dev/stderr"
     exit 1
   }'

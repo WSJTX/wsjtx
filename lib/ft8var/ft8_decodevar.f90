@@ -21,34 +21,47 @@ module ft8_decodevar
 
 contains
 
-  subroutine decodevar(this,callback,nQSOProgress,nfqso,nft8rxfsens,nftx,nutc,  &
+  subroutine decodevar(this,nQSOProgress,nfqso,nft8rxfsens,nftx,               &
        nfa,nfb,ncandthin,ndtcenter,nsec,napwid,lmycallstd,lhiscallstd,          &
        stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes,  &
-       lft8apon,ncontest)
+       progress_generation,residual,spectrum)
 
     use omp_lib
+    use ft8_mtd_residual, only : mtd_publish_worker,mtd_transform_phase
+    use decode_completion_module, only : write_decode_progress
 
     use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
-         lastrxmsg,lasthcall,calldteven,calldtodd,incall,oddcopy,evencopy,      &
-         avexdt,mycall,hiscall,dd8,nft8cycles,ncandallthr,nincallthr,evencq,    &
+         lastrxmsg,calldteven,calldtodd,incall,oddcopy,evencopy,                &
+         avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
          evenqso,oddqso,lqsomsgdcd,hisgrid4
+
+    interface
+       subroutine wsjt_tsan_acquire_ft8_find_dupes() bind(C)
+       end subroutine wsjt_tsan_acquire_ft8_find_dupes
+       subroutine wsjt_tsan_release_ft8_find_dupes() bind(C)
+       end subroutine wsjt_tsan_release_ft8_find_dupes
+       subroutine wsjt_tsan_acquire_ft8_update_structures() bind(C)
+       end subroutine wsjt_tsan_acquire_ft8_update_structures
+       subroutine wsjt_tsan_release_ft8_update_structures() bind(C)
+       end subroutine wsjt_tsan_release_ft8_update_structures
+    end interface
 
     include 'ft8_params.f90'
 
     class(ft8_decodervar), intent(inout) :: this
-    procedure(ft8_decodevar_callback) :: callback
-    real, DIMENSION(:), ALLOCATABLE :: dd8m
-    real candidate(4,460),freqsub(200)
+    real, intent(inout) :: residual(180000)
+    complex, intent(inout) :: spectrum(0:96000)
+    real candidate(4,460)
     real qual !ft8md
     integer, intent(in) :: nQSOProgress,nfqso,nft8rxfsens,nftx,nfa,nfb,         &
-         ncandthin,ndtcenter,nsec,napwid,nthr,numthreads
+         ncandthin,ndtcenter,nsec,napwid,nthr,numthreads,progress_generation
     logical, intent(in) :: nagainfil
     logical(1), intent(in) :: stophint,lft8lowth,lft8subpass,lhideft8dupes,     &
-         lmycallstd,lhiscallstd,lft8apon
+         lmycallstd,lhiscallstd
     logical newdat1,lsubtract,ldupe,lFreeText,lspecial
     logical(1) lft8sdec,lft8s,lft8sd,lrepliedother,lhashmsg,lqsothread,         &
-         lhidemsg,lhighsens,lcqcand,lsubtracted,levenint,loddint,lnohiscall,    &
+         lhidemsg,lhighsens,lcqcand,levenint,loddint,lnohiscall,                &
          lnomycall,lnohisgrid
     character msg37*37,msg37_2*37,msg26*37,call2*12 !ft8md msg26 was *26
     character*37 msgsrcvd(130)
@@ -115,13 +128,6 @@ contains
     tmpcqsig(:)%freq=6000.0
     tmpmycsig(:)%freq=6000.0
     tmpqsosig(1)%freq=6000.0
-    if(hiscall.eq.'') then
-       lastrxmsg(1)%lstate=.false. 
-    else if(lastrxmsg(1)%lstate .and. lasthcall.ne.hiscall .and.               &
-         index(lastrxmsg(1)%lastmsg,trim(hiscall)).le.0) then
-       lastrxmsg(1)%lstate=.false.
-    endif
-
     levenint=.false.
     loddint=.false.
     if(nsec.eq.0 .or. nsec.eq.30) then
@@ -133,11 +139,9 @@ contains
     lrepliedother=.false.
     lft8sdec=.false.
     lqsothread=.false.
-    lsubtracted=.false.
     ncount=0
     mycalllen1=len_trim(mycall)+1
     nincallthr(nthr)=0
-    nallocthr=0
     ncqsignal=0
     nmycsignal=0
 
@@ -206,9 +210,15 @@ contains
 
     syncmin=1.3
     do ipass=1,npass
+       if(ipass.eq.4 .or. ipass.eq.7) then
+!$omp barrier
+!$omp single
+          call mtd_transform_phase(ipass)
+!$omp end single
+       endif
+       call mtd_publish_worker(nthr)
        newdat1=.true.
        lsubtract=.true.
-       npos=0
        if(ipass.eq.1 .or. ipass.eq.4 .or. ipass.eq.7) then
           if(lft8lowth) syncmin=1.225
        elseif(ipass.eq.2 .or. ipass.eq.5 .or. ipass.eq.8) then
@@ -218,36 +228,12 @@ contains
        endif
        if(ipass.gt.5 .or. (ipass.eq.3 .and. npass.eq.3)) lsubtract=.false.
 
-       if(ipass.eq.4) then
-!$omp barrier
-!$omp single
-          if(npass.eq.9) then ! 3 decoding cycles
-             nallocthr=nthr
-             allocate(dd8m(180000), STAT = nAllocateStatus1)
-             if(nAllocateStatus1.ne.0) STOP "Not enough memory"
-             dd8m=dd8
-          endif
-          do i=1,179999
-             dd8(i)=(dd8(i)+dd8(i+1))/2
-          enddo
-!$omp end single
-!$omp barrier
-       else if(ipass.eq.7) then
-!$omp barrier
-          if(nthr.eq.nallocthr) then
-             dd8(1)=dd8m(1)
-             do i=2,180000
-                dd8(i)=(dd8m(i-1)+dd8m(i))/2
-             enddo
-             deallocate (dd8m, STAT = nDeAllocateStatus1)
-             if (nDeAllocateStatus1.ne.0) print *, 'failed to release memory'
-          endif
-!$omp barrier
-       endif
-       
-       call sync8var(nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass,       &
-            lqsothread,ncandthin,ndtcenter)
+       call write_decode_progress(progress_generation)
+       call sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,    &
+            ipass,lqsothread,ncandthin,ndtcenter,progress_generation)
+       call write_decode_progress(progress_generation)
        do icand=1,ncand
+          if(mod(icand,8).eq.0) call write_decode_progress(progress_generation)
           sync=candidate(3,icand)
           f1=candidate(1,icand)
           xdt=candidate(2,icand)
@@ -267,14 +253,16 @@ contains
           i3=16
           n3=16
 
-          call ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,   &
-               freqsub,tmpcqdec,tmpmyc,nagainfil,iaptype,f1,xdt,nbadcrc,        &
+          call ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,      &
+               napwid,lsubtract,tmpcqdec,tmpmyc,nagainfil,iaptype,f1,xdt,      &
+               nbadcrc,                                                         &
                lft8sdec,msg37,msg37_2,xsnr,stophint,nthr,lFreeText,ipass,       &
                lft8subpass,lspecial,lcqcand,ncqsignal,nmycsignal,npass,i3bit,   &
                lft8s,lmycallstd,lhiscallstd,levenint,loddint,lft8sd,i3,n3,      &
                nft8rxfsens,ncount,msgsrcvd,lrepliedother,lhashmsg,lqsothread,   &
-               lft8lowth,lhighsens,lsubtracted,tmpcqsig,tmpmycsig,tmpqsosig,    &
-               lnohiscall,lnomycall,lnohisgrid,qual,iaptype2)
+               lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig,                &
+               lnohiscall,lnomycall,lnohisgrid,qual,iaptype2,                   &
+               progress_generation)
           nsnr=nint(xsnr)
           xdt=xdt-0.5
           if(nbadcrc.eq.0) then
@@ -286,6 +274,7 @@ contains
              endif
 
 !$omp critical(find_dupes)
+             call wsjt_tsan_acquire_ft8_find_dupes()
              do k=1,nspecial
           !ft8md  if(k.eq.2) msg37=msg37_2  ! this splits DXpedition mode msg into 2 lines 
                 ldupe=.false.
@@ -411,9 +400,11 @@ contains
                 endif
 4               continue
              enddo !do k
+             call wsjt_tsan_release_ft8_find_dupes()
 !$omp end critical(find_dupes)
           endif
        enddo !icand
+       call write_decode_progress(progress_generation)
        ncandthr=ncandthr+ncand
     enddo !ipass
             
@@ -462,6 +453,7 @@ contains
 
     if(nmsgloc.gt.0) then
 !$omp critical(update_structures)
+       call wsjt_tsan_acquire_ft8_update_structures()
        if(levenint) then
           even(nmsg+1:nmsg+nmsgloc)%msg=eventmp(1:nmsgloc)%msg
           even(nmsg+1:nmsg+nmsgloc)%freq=eventmp(1:nmsgloc)%freq
@@ -475,9 +467,11 @@ contains
           odd(nmsg+1:nmsg+nmsgloc)%lstate=oddtmp(1:nmsgloc)%lstate
           nmsg=nmsg+nmsgloc
        endif
+       call wsjt_tsan_release_ft8_update_structures()
 !$omp end critical(update_structures)
     endif
 
     return
+
   end subroutine decodevar
 end module ft8_decodevar

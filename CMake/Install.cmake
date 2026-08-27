@@ -47,17 +47,17 @@ if (WSJT_BUILD_JT9STREAM)
     )
 endif (WSJT_BUILD_JT9STREAM)
 
-install (TARGETS qmap
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  )
-
-if (NOT WSJT_SKIP_MAP65)
-  install (TARGETS map65
+if (NOT WSJT_SKIP_QMAP)
+  install (TARGETS qmap
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
     BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
     )
 endif ()
+
+install (TARGETS map65
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  )
 
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code jt9code jt4code msk144code 
@@ -108,13 +108,7 @@ install (FILES
   )
 
 install (FILES
-  cty.dat
-  cty.dat_copyright.txt
-  grid.dat
-  sat.dat
-  contrib/Ephemeris/JPLEPH
-  eclipse.txt
-  ALLCALL7.TXT
+  ${WSJTX_DATA_FILES}
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
   #COMPONENT runtime
   )

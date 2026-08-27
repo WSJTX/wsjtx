@@ -48,6 +48,29 @@ namespace
   QRegularExpression const ap_suffix_re {R"(^(.*?)(?:\?\s)?[aq][0-9].*$)"};
   QRegularExpression const angle_bracket_re {"[<>]"};
   QRegularExpression const cq_qrz_re {"^(CQ|QRZ)\\s"};
+  QRegularExpression const grid_re {R"(^(?!RR73$)[A-R]{2}[0-9]{2}(?:[A-X]{2})?$)"};
+}
+
+DecodedMessageFields parseDecodedMessage (QString message)
+{
+  message = message.trimmed ().remove (angle_bracket_re);
+  if (message.startsWith ("TU; ")) message.remove (0, 4);
+  auto const match = tokens_re.match (message);
+  if (!match.hasMatch ()) return {};
+
+  DecodedMessageFields fields;
+  fields.destination = match.captured ("word1");
+  fields.sender = match.captured ("word2");
+  fields.cq = fields.destination == "CQ" || fields.destination == "CQDX"
+    || fields.destination.startsWith ("CQ ");
+  for (auto const& name : {"word3", "word4", "word5"}) {
+    auto const candidate = match.captured (name);
+    if (grid_re.match (candidate).hasMatch ()) {
+      fields.grid = candidate;
+      break;
+    }
+  }
+  return fields;
 }
 
 DecodedText::DecodedText (QString const& the_string)
@@ -118,8 +141,10 @@ QStringList DecodedText::messageWords () const
 
 QString DecodedText::CQersCall() const
 {
-  QRegularExpression callsign_re {R"(^(CQ|DE|QRZ)(\s?DX|\s([A-Z]{1,4}|\d{3}))?\s(?<callsign>[A-Z0-9/]{2,})(\s[A-R]{2}[0-9]{2})?)"};
-  return callsign_re.match (message_).captured ("callsign");
+  auto const fields = parseDecodedMessage (message_);
+  auto const callType = fields.destination.section (' ', 0, 0);
+  return callType == "CQ" || callType == "CQDX" || callType == "DE" || callType == "QRZ"
+    ? fields.sender : QString {};
 }
 
 
@@ -217,7 +242,7 @@ bool DecodedText::report(QString const& myBaseCall, QString const& dxBaseCall, /
 // get the first text word, usually the call
 QString DecodedText::call() const
 {
-  return tokens_re.match (message_).captured ("word1");
+  return parseDecodedMessage (message_).destination;
 }
 
 // get the second word, most likely the de call and the third word, most likely grid

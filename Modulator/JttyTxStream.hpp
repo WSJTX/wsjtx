@@ -7,9 +7,14 @@
 #include <QVector>
 
 #include "Audio/AudioDevice.hpp"
-#include "Modulator/JttyTxBuffer.hpp"
+#include "Audio/TxAudioQueue.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 
 class SoundOutput;
+
+TxEvidence::TxStartSnapshot makeJttyTxStartSnapshot (
+  TxEvidence::TxRequest const& request, qint64 committedEndSample);
 
 //
 // JTTY-only asynchronous transmit source.
@@ -24,14 +29,15 @@ class JttyTxStream
   Q_OBJECT;
 
 public:
-  explicit JttyTxStream (JttyTxBuffer& buffer, QObject * parent = nullptr);
+  explicit JttyTxStream (TxAudioQueue& queue, QObject * parent = nullptr);
 
   bool isActive () const {return m_active;}
 
-  Q_SLOT void start (SoundOutput * stream, AudioDevice::Channel channel, qint64 sessionId);
+  Q_SLOT void start (TxEvidence::TxRequest request, SoundOutput * stream);
   Q_SLOT void stop ();
 
-  Q_SIGNAL void drained (qint64 sessionId, qint64 totalAtDrain);
+  Q_SIGNAL void drained (TxAudioQueueDrainState drain);
+  Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot snapshot);
 
 protected:
   qint64 readData (char * data, qint64 maxSize) override;
@@ -43,7 +49,7 @@ protected:
 private:
   Q_SLOT void pollDrain ();
 
-  JttyTxBuffer& m_buffer;
+  TxAudioQueue& m_queue;
   std::atomic<qint64> m_drainGuard;
 
   QPointer<SoundOutput> m_stream;

@@ -13,14 +13,18 @@ set (map65_CXXSRCS
   getdev.cpp
 #  getfile.cpp
   liveCQSender.cpp
+# map65_paths.cpp
   main.cpp
   mainwindow.cpp
   messages.cpp
   meterwidget.cpp
   plotter.cpp
+  pskreporter_decode.cpp
+  pskreporter_settings.cpp
+  Radio.cpp
+  runtime_paths.cpp
   ../Network/PSKReporter.cpp
   ../Network/PSKReporterIPFIX.cpp
-  Radio.cpp
   set570.cpp
   signalmeter.cpp
   soundin.cpp
@@ -87,6 +91,10 @@ target_link_libraries(map65 PRIVATE
     Portaudio::Portaudio
     Usb::Usb
 )
+
+if (APPLE)
+  target_link_libraries(map65 PRIVATE m65_qt)
+endif ()
 
 # Linux needs libusb
 # if (UNIX AND NOT APPLE)

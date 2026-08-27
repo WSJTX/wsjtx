@@ -20,13 +20,17 @@ jobs:
   smoke:
     if: github.repository == 'WSJTX/wsjtx'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       actions: read
       contents: read
     steps:
       - name: Build trivial PE file
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q gcc-mingw-w64-x86-64
+          # Keep this job independent of the dispatched repository ref. It
+          # submits an executable with the SignPath API token below.
+          sudo apt-get update -q
+          sudo apt-get install -y -q gcc-mingw-w64-x86-64
           cat > smoke.c <<'EOF'
           #include <stdio.h>
           int main(void) { puts("WSJT SignPath smoke test"); return 0; }
@@ -51,6 +55,7 @@ jobs:
           signing-policy-slug: ${{ inputs.signing-policy-slug }}
           github-artifact-id: ${{ steps.upload.outputs.artifact-id }}
           wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: "3600"
           output-artifact-directory: signed
 
       - name: Verify returned signature

@@ -6,12 +6,26 @@ module datcom_ptrs_mod
   real(c_float), pointer, contiguous :: dd(:,:) => null()      ! [4, 5760000]
   real(c_float), pointer, contiguous :: ss(:,:,:) => null()     ! [4, 322, NFFT]
   real(c_float), pointer, contiguous :: savg(:,:) => null()     ! [4, NFFT]
+  real(c_float), pointer, contiguous :: dd_old(:,:) => null()      ! [4, 5760000]
+  real(c_float), pointer, contiguous :: ss_old(:,:,:) => null()     ! [4, 322, NFFT]
+  real(c_float), pointer, contiguous :: savg_old(:,:) => null()     ! [4, NFFT]
+
+  ! Pointers used by decode0 / narrowband decoder
+  real(c_float), pointer, contiguous :: dd_use(:,:)  => null()
+  real(c_float), pointer, contiguous :: ss_use(:,:,:)=> null()
+  real(c_float), pointer, contiguous :: savg_use(:,:)=> null()
 
   ! Scalar values
   integer, parameter :: NFFT=32768              !Length of FFTs
   integer(c_int) :: junk1 = 0, junk2 = 0, quitid = 0
   
 contains
+
+  subroutine snapshot_buffers() bind(C)
+    dd_old(:,:)      = dd(:,:)
+    ss_old(:,:,:)    = ss(:,:,:)
+    savg_old(:,:)    = savg(:,:)
+  end subroutine
 
   ! Helper subroutine to copy fixed-length Fortran string to C buffer
   subroutine move_chars(dest, dest_len, src)
@@ -51,6 +65,33 @@ contains
     integer(c_int), value :: dim1, dim2
     call c_f_pointer(ptr, savg, [dim1, dim2])
     print *, "Fortran: savg pointer associated with dimensions", dim1, dim2
+  end subroutine 
+  
+  subroutine set_dd_old_ptr(ptr, dim1, dim2) bind(C, name="set_dd_old_ptr")
+    use iso_c_binding
+    implicit none
+    type(c_ptr), value :: ptr
+    integer(c_int), value :: dim1, dim2
+    call c_f_pointer(ptr, dd_old, [dim1, dim2])
+    print *, "Fortran: dd_old pointer associated with dimensions", dim1, dim2
+  end subroutine
+
+  subroutine set_ss_old_ptr(ptr, dim1, dim2, dim3) bind(C, name="set_ss_old_ptr")
+    use iso_c_binding
+    implicit none
+    type(c_ptr), value :: ptr
+    integer(c_int), value :: dim1, dim2, dim3
+    call c_f_pointer(ptr, ss_old, [dim1, dim2, dim3])
+    print *, "Fortran: ss_old pointer associated with dimensions", dim1, dim2, dim3
+  end subroutine
+
+  subroutine set_savg_old_ptr(ptr, dim1, dim2) bind(C, name="set_savg_old_ptr")
+    use iso_c_binding
+    implicit none
+    type(c_ptr), value :: ptr
+    integer(c_int), value :: dim1, dim2
+    call c_f_pointer(ptr, savg_old, [dim1, dim2])
+    print *, "Fortran: savg_old pointer associated with dimensions", dim1, dim2
   end subroutine 
   
   function get_junk1() bind(C, name="get_junk1")

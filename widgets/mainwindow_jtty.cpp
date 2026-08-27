@@ -256,8 +256,7 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
 
   bool const newSession = !m_jttyTxActive;
   if (newSession) {
-    ++m_jttyTxSessionId;
-    m_jttyQueuedSamples = 0;
+    advanceJttyTxQueueEpoch();
     m_jttyTxUsesTciAudio = m_tci_audio;
   }
   bool const useTciAudio = m_jttyTxUsesTciAudio;
@@ -281,24 +280,25 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
 
   if (newSession) {
     // A fresh JTTY session starts a new FIFO accounting baseline even after a
-    // natural drain, so drain totals stay comparable to m_jttyQueuedSamples.
+    // natural drain, so drain totals remain session-relative.
     if (useTciAudio) {
-      Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
+      Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxQueueEpoch);
     } else {
-      m_jttyTxBuffer->clear(m_jttyTxSessionId);
+      m_jttyTxQueue->clear(m_jttyTxQueueEpoch);
     }
   }
 
   bool enqueued {false};
+  TxAudioQueueProgress enqueueProgress;
   if(useTciAudio) {
     // TCI enqueue is asynchronous. MainWindow can reject a message that can
     // never fit; backend occupancy failures reject only the submitted enqueue.
-    if (jttyPcmEnqueueFits (JTTY_PCM_FIFO_DEFAULT_CAPACITY, 0, samples.size ())) {
+    if (samples.size () <= TxAudioQueue::defaultCapacity ()) {
       QByteArray bytes(reinterpret_cast<char const *> (samples.constData ()),
                        samples.size () * int (sizeof (qint16)));
       qint64 const enqueueId = ++m_jttyTciEnqueueId;
       m_pendingJttyTciMessages.append(PendingJttyTciMessage {
-        m_jttyTxSessionId,
+        m_jttyTxQueueEpoch,
         enqueueId,
         requestId,
         samples.size (),
@@ -306,14 +306,20 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
         newSession
       });
       m_jttyTxActive = true;
-      Q_EMIT m_config.transceiver_enqueue_jtty_pcm(bytes, m_jttyTxSessionId, enqueueId);
+      Q_EMIT m_config.transceiver_enqueue_jtty_pcm(bytes, m_jttyTxQueueEpoch,
+                                                   enqueueId);
       return;
     } else {
       LOG_WARN("JTTY TCI transmit FIFO capacity precheck failed; rejecting PCM enqueue");
       Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::QueueFull);
     }
   } else {
-    enqueued = m_jttyTxBuffer->enqueueMessage(samples, m_jttyTxSessionId);
+    auto const result = m_jttyTxQueue->enqueue(samples, m_jttyTxQueueEpoch);
+    enqueued = result.accepted;
+    enqueueProgress = result.progress;
+    if (!enqueued) {
+      LOG_WARN("JTTY transmit FIFO overflow; rejecting PCM enqueue");
+    }
   }
 
   if (!enqueued) {
@@ -321,21 +327,51 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
       Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::QueueFull);
     }
     if (newSession) {
-      ++m_jttyTxSessionId;
-      m_jttyQueuedSamples = 0;
+      advanceJttyTxQueueEpoch();
     }
     return;
   }
 
-  completeJttyTxEnqueue(requestId, message, samples.size (), newSession, useTciAudio);
+  completeJttyTxEnqueue(requestId, message, enqueueProgress, newSession, useTciAudio);
 }
 
-void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio)
+void MainWindow::advanceJttyTxQueueEpoch()
 {
+  m_jttyTxQueueEpoch = TxAudioQueueEpoch {m_jttyTxQueueEpoch.value () + 1};
+  m_jttyTxQueueProgress = {};
+  m_jttyTxQueueProgress.epoch = m_jttyTxQueueEpoch;
+}
+
+qint64 MainWindow::jttyTxCommittedSamples() const
+{
+  return m_jttyTxQueueProgress.total_samples;
+}
+
+void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
+                                       TxAudioQueueProgress progress,
+                                       bool newSession, bool useTciAudio)
+{
+  if (newSession) {
+    beginTxEvidenceSession ();
+  }
   m_currentMessage = message;
-  qint64 const endSample = m_jttyQueuedSamples + sampleCount;
+  qint64 const endSample = progress.total_samples;
   recordAcceptedJttyTextRequest(requestId, endSample);
-  m_jttyQueuedSamples = endSample;
+  m_jttyTxQueueProgress = progress;
+  if (m_txEvidenceGeneration.isValid () &&
+      m_txEvidenceSourceSession == m_txEvidenceSession) {
+    m_txPlaybackDiagnostics.commitTarget (m_txEvidenceSession,
+                                           m_txEvidenceGeneration,
+                                           progress.total_samples - 1, false);
+    auto const sessionId = m_txEvidenceSession;
+    auto const generation = m_txEvidenceGeneration;
+    auto const totalSamples = progress.total_samples;
+    QTimer::singleShot (0, this, [this, sessionId, generation, totalSamples] {
+      LOG_INFO (QString ("TX playout evidence JTTY target commit session=%1 generation=%2 total=%3\n%4")
+                .arg (sessionId.value ()).arg (generation.value ())
+                .arg (totalSamples).arg (m_txPlaybackDiagnostics.diagnosticDump ()));
+    });
+  }
   m_jttyTxActive = true;
   m_transmitting = true;
   Q_EMIT jttyTextAccepted(requestId);
@@ -354,9 +390,9 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   // Fault-detector watchdog: generous margin over all audio still to play (the
   // whole queued session, not just this message). The happy path completes via
   // the backend drain signal well before this fires.
-  int pendingMs = useTciAudio
-      ? int(m_jttyQueuedSamples / 48)
-      : int((m_jttyTxBuffer->totalReal() - m_jttyTxBuffer->servedReal()) / 48);
+  qint64 const pendingSamples = useTciAudio
+    ? progress.total_samples : progress.queued_samples;
+  int pendingMs = int(pendingSamples / 48);
   startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
 
   monitor(false);
@@ -388,20 +424,21 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
 void MainWindow::recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample)
 {
   m_acceptedJttyTxRequests.append(AcceptedJttyTxRequest {
-    m_jttyTxSessionId,
+    m_jttyTxQueueEpoch,
     requestId,
     endSample
   });
 }
 
-QVector<qint64> MainWindow::takeCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain)
+QVector<qint64> MainWindow::takeCompletedJttyTextRequests(
+  TxAudioQueueEpoch epoch, qint64 totalAtDrain)
 {
   // Backends report only final drain, so per-text completion is observed when
   // the accepted text's containing JTTY session has drained.
   QVector<qint64> completedRequestIds;
   for (int i = 0; i < m_acceptedJttyTxRequests.size ();) {
     auto const accepted = m_acceptedJttyTxRequests.at (i);
-    if (accepted.sessionId == sessionId && accepted.endSample <= totalAtDrain) {
+    if (accepted.epoch == epoch && accepted.endSample <= totalAtDrain) {
       completedRequestIds.append(accepted.requestId);
       m_acceptedJttyTxRequests.remove (i);
     } else {
@@ -411,10 +448,10 @@ QVector<qint64> MainWindow::takeCompletedJttyTextRequests(qint64 sessionId, qint
   return completedRequestIds;
 }
 
-void MainWindow::clearAcceptedJttyTextRequests(qint64 sessionId)
+void MainWindow::clearAcceptedJttyTextRequests(TxAudioQueueEpoch epoch)
 {
   for (int i = 0; i < m_acceptedJttyTxRequests.size ();) {
-    if (m_acceptedJttyTxRequests.at (i).sessionId == sessionId) {
+    if (m_acceptedJttyTxRequests.at (i).epoch == epoch) {
       m_acceptedJttyTxRequests.remove (i);
     } else {
       ++i;
@@ -434,6 +471,7 @@ void MainWindow::handleJttyContestSerial(QString const& message)
 
 void MainWindow::abort_jtty_tx()
 {
+   noteTxStopReason (TxEvidence::TxStopReason::UserHalt);
    interruptJttyTx();
 
 #ifdef WIN32
@@ -451,47 +489,65 @@ void MainWindow::interruptJttyTx()
     return;
   }
 
-  qint64 const interruptedSessionId = m_jttyTxSessionId;
-  ++m_jttyTxSessionId;
-  clearAcceptedJttyTextRequests(interruptedSessionId);
+  auto const interruptedEpoch = m_jttyTxQueueEpoch;
+  if (!m_jttyTxUsesTciAudio) {
+    auto const progress = m_jttyTxQueue->progress ();
+    captureJttyTxEvidenceTotals (progress.served_samples,
+                                 progress.total_samples,
+                                 QStringLiteral ("JTTY source totals captured before abort"));
+  } else {
+    captureJttyTxEvidenceTotals (-1, m_jttyTxQueueProgress.total_samples,
+                                 QStringLiteral ("TCI JTTY committed total captured before abort"));
+  }
+  advanceJttyTxQueueEpoch();
+  clearAcceptedJttyTextRequests(interruptedEpoch);
   rejectPendingJttyTciMessages(JttyTxRejectReason::Aborted);
   m_pendingJttyTciMessages.clear();
   if (m_jttyTxUsesTciAudio) {
-    Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
+    Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxQueueEpoch);
   } else {
-    m_jttyTxBuffer->clear(m_jttyTxSessionId);
+    m_jttyTxQueue->clear(m_jttyTxQueueEpoch);
   }
   resetJttyTxState();
 }
 
-void MainWindow::onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain)
+void MainWindow::onJttyBackendDrained(TxAudioQueueDrainState drain)
 {
   if (m_mode != "JTTY" || !m_jttyTxActive) {
     return;
   }
 
-  if (sessionId != m_jttyTxSessionId || totalAtDrain != m_jttyQueuedSamples) {
+  if (drain.epoch != m_jttyTxQueueEpoch
+      || drain.total_at_drain != jttyTxCommittedSamples ()) {
     return;
   }
 
-  auto const completedRequestIds = takeCompletedJttyTextRequests(sessionId, totalAtDrain);
+  qint64 const servedAtDrain = m_jttyTxUsesTciAudio
+    ? drain.total_at_drain : m_jttyTxQueue->progress ().served_samples;
+  captureJttyTxEvidenceTotals (servedAtDrain, drain.total_at_drain,
+                               QStringLiteral ("JTTY source totals captured at drain"));
+
+  auto const completedRequestIds = takeCompletedJttyTextRequests(
+    drain.epoch, drain.total_at_drain);
   resetJttyTxState();
   stopTx();
   for (auto const requestId : completedRequestIds) {
     Q_EMIT jttyTextCompleted(requestId);
   }
-  Q_EMIT jttySessionDrained(sessionId);
+  Q_EMIT jttySessionDrained(drain.epoch.value ());
 }
 
-void MainWindow::onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId, qint64 sampleCount)
+void MainWindow::onJttyBackendEnqueueAccepted(qint64 enqueueId, qint64 sampleCount,
+                                              TxAudioQueueProgress progress)
 {
-  if (m_mode != "JTTY" || !m_jttyTxActive || sessionId != m_jttyTxSessionId) {
+  if (m_mode != "JTTY" || !m_jttyTxActive
+      || progress.epoch != m_jttyTxQueueEpoch) {
     return;
   }
 
   for (int i = 0; i < m_pendingJttyTciMessages.size (); ++i) {
     auto const pending = m_pendingJttyTciMessages.at (i);
-    if (pending.sessionId != sessionId || pending.enqueueId != enqueueId) {
+    if (pending.epoch != progress.epoch || pending.enqueueId != enqueueId) {
       continue;
     }
 
@@ -499,29 +555,33 @@ void MainWindow::onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId
     if (sampleCount != pending.sampleCount) {
       LOG_WARN("JTTY transmit backend accepted unexpected PCM sample count");
     }
-    bool const startsSession = pending.newSession || m_jttyQueuedSamples <= 0;
-    completeJttyTxEnqueue(pending.requestId, pending.message, sampleCount, startsSession, true);
+    bool const startsSession = pending.newSession
+      || m_jttyTxQueueProgress.total_samples <= 0;
+    completeJttyTxEnqueue(pending.requestId, pending.message, progress,
+                          startsSession, true);
     return;
   }
 }
 
-void MainWindow::onJttyBackendEnqueueFailed(qint64 sessionId, qint64 enqueueId)
+void MainWindow::onJttyBackendEnqueueFailed(TxAudioQueueEpoch epoch,
+                                            qint64 enqueueId)
 {
-  if (m_mode != "JTTY" || !m_jttyTxActive || sessionId != m_jttyTxSessionId) {
+  if (m_mode != "JTTY" || !m_jttyTxActive
+      || epoch != m_jttyTxQueueEpoch) {
     return;
   }
 
   LOG_WARN("JTTY transmit backend rejected PCM enqueue");
   for (int i = 0; i < m_pendingJttyTciMessages.size (); ++i) {
     auto const pending = m_pendingJttyTciMessages.at (i);
-    if (pending.sessionId != sessionId || pending.enqueueId != enqueueId) {
+    if (pending.epoch != epoch || pending.enqueueId != enqueueId) {
       continue;
     }
     m_pendingJttyTciMessages.remove (i);
     Q_EMIT jttyTextRejected(pending.requestId, JttyTxRejectReason::QueueFull);
-    if (pending.newSession && m_jttyQueuedSamples <= 0) {
+    if (pending.newSession && m_jttyTxQueueProgress.total_samples <= 0) {
       for (int j = 0; j < m_pendingJttyTciMessages.size (); ++j) {
-        if (m_pendingJttyTciMessages[j].sessionId == sessionId) {
+        if (m_pendingJttyTciMessages[j].epoch == epoch) {
           m_pendingJttyTciMessages[j].newSession = true;
           return;
         }
@@ -546,6 +606,7 @@ void MainWindow::handleJttyTxWatchdog()
   }
 
   LOG_WARN("JTTY transmit completion watchdog expired");
+  noteTxStopReason (TxEvidence::TxStopReason::Watchdog);
   interruptJttyTx();
 #ifdef WIN32
   if (m_mmttyif) {
@@ -559,7 +620,8 @@ void MainWindow::resetJttyTxState()
 {
   m_jttyTxWatchdog.stop();
   m_jttyTxActive = false;
-  m_jttyQueuedSamples = 0;
+  m_jttyTxQueueProgress = {};
+  m_jttyTxQueueProgress.epoch = m_jttyTxQueueEpoch;
   m_pendingJttyTciMessages.clear();
   m_acceptedJttyTxRequests.clear();
 }
@@ -576,7 +638,7 @@ void MainWindow::jtty_again()
   for(int k=3456; k<dec_data.params.kin; k+=3456) {
     jtty_decode(k);
   }
-  decodeDone();
+  finishDecodeUi();
 }
 
 bool MainWindow::jtty_key_struck(QKeyEvent * e)
@@ -683,6 +745,7 @@ void MainWindow::handleMmttyStartTx()
 void MainWindow::handleMmttyStopTx()
 {
   if (m_mode != "JTTY") {
+    noteTxStopReason (TxEvidence::TxStopReason::UserHalt);
     stopTx();
     return;
   }
@@ -745,7 +808,7 @@ void MainWindow::startPendingMmttyJttyTx()
 {
   if (m_mode != "JTTY" || !m_mmttyJttyStartRequested) return;
 
-  if (!m_jttyTxActive || m_jttyQueuedSamples <= 0) {
+  if (!m_jttyTxActive || jttyTxCommittedSamples () <= 0) {
     logText(QStringLiteral("MMTTY/N1MM JTTY start deferred until text is accepted"));
     return;
   }

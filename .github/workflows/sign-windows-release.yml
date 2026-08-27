@@ -15,6 +15,7 @@ jobs:
   prepare:
     if: github.repository == 'WSJTX/wsjtx'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
       signing_policy: ${{ steps.v.outputs.signing_policy }}
@@ -49,6 +50,7 @@ jobs:
   sign:
     needs: [prepare, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       # SignPath fetches the artifact and run metadata via GITHUB_TOKEN.
       actions: read
@@ -86,6 +88,7 @@ jobs:
   verify:
     needs: [prepare, sign]
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - name: Download signed installer
         uses: actions/download-artifact@v8

@@ -11,6 +11,7 @@
 #include "Configuration.hpp"
 #include "MessageBox.hpp"
 #include "SettingsGroup.hpp"
+#include "PerformanceTrace.hpp"
 #include "moc_widegraph.cpp"
 
 WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
@@ -23,6 +24,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
   m_bHaveTransmitted {false},
   m_user_defined {tr ("User Defined")}
 {
+  PerformanceTrace::Phase construction {"widegraph.construct"};
   ui->setupUi(this);
 
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Wide Graph"));
@@ -98,7 +100,6 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     m_waterfallPalette=m_settings->value("WaterfallPalette","Default").toString();
     m_userPalette = WFPalette {m_settings->value("UserPalette").value<WFPalette::Colours> ()};
     m_fMinPerBand = m_settings->value ("FminPerBand").toHash ();
-    setRxRange ();
     ui->controls_widget->setVisible(!m_settings->value("HideControls",false).toBool());
     ui->cbControls->setChecked(!m_settings->value("HideControls",false).toBool());
   }
@@ -273,13 +274,6 @@ void WideGraph::wideFreezeDecode(int n)                              //wideFreez
   emit freezeDecode2(n);
 }
 
-void WideGraph::setRxRange ()
-{
-  ui->widePlot->setRxRange (Fmin ());
-  ui->widePlot->DrawOverlay();
-  ui->widePlot->update();
-}
-
 int WideGraph::Fmin()                                              //Fmin
 {
   return "60m" == m_rxBand ? 0 : m_fMinPerBand.value (m_rxBand, 2500).toUInt ();
@@ -294,6 +288,17 @@ int WideGraph::fSpan()
 {
   return ui->widePlot->fSpan ();
 }
+
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+void WideGraph::setFrequencyScale(int startFrequency, int binsPerPixel, int plotWidth)
+{
+  ui->widePlot->setFixedWidth(plotWidth);
+  ui->widePlot->setStartFreq(startFrequency);
+  ui->widePlot->setBinsPerPixel(binsPerPixel);
+  ui->fStartSpinBox->setValue(startFrequency);
+  ui->bppSpinBox->setValue(binsPerPixel);
+}
+#endif
 
 void WideGraph::setPeriod(double trperiod, int nsps)                  //SetPeriod
 {
@@ -365,7 +370,6 @@ void WideGraph::on_spec2dComboBox_currentIndexChanged(int index)
 void WideGraph::on_fSplitSpinBox_valueChanged(int n)              //fSplit
 {
   if (m_rxBand != "60m") m_fMinPerBand[m_rxBand] = n;
-  setRxRange ();
 }
 
 void WideGraph::setFreq2(int rxFreq, int txFreq)                  //setFreq2
@@ -392,7 +396,6 @@ void WideGraph::setRxBand (QString const& band)
       ui->fSplitSpinBox->setEnabled (m_mode.startsWith("FST4"));
     }
   ui->widePlot->setRxBand(band);
-  setRxRange ();
 }
 
 

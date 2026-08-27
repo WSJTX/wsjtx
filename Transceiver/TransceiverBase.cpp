@@ -78,10 +78,13 @@ void TransceiverBase::set (TransceiverState const& s,
             audio_cmd = true;
             requested_.blocksize (s.blocksize ());
           }
-          if (requested_.period() != s.period()) {
+          if (!period_applied_ || applied_period_ != s.period()) {
+            bool const had_applied_period {period_applied_};
             do_period (s.period());
-            audio_cmd = true;
             requested_.period (s.period ());
+            applied_period_ = s.period ();
+            period_applied_ = true;
+            audio_cmd = audio_cmd || had_applied_period;
           }
           if (requested_.spread() != s.spread()) {
             do_spread (s.spread());
@@ -105,14 +108,8 @@ void TransceiverBase::set (TransceiverState const& s,
           }
           if (requested_.tx_audio() != s.tx_audio()) {
             if (s.tx_audio()) {
-              do_modulator_start(s.jtmode(), s.symbolslength (), s.framespersymbol (), s.trfrequency (), s.tonespacing (), s.synchronize (),s.fastmode(), s.dbsnr (), s.trperiod ());
-              requested_.symbolslength(s.symbolslength ());
-              requested_.framespersymbol(s.framespersymbol ());
-              requested_.trfrequency(s.trfrequency ());
-              requested_.tonespacing(s.tonespacing ());
-              requested_.synchronize(s.synchronize ());
-              requested_.dbsnr(s.dbsnr ());
-              requested_.trperiod(s.trperiod ());
+              do_modulator_start (s.tx_request ());
+              requested_.tx_request (s.tx_request ());
             } else {
               do_modulator_stop(s.quick ());
               requested_.quick (s.quick ());
@@ -263,6 +260,8 @@ void TransceiverBase::shutdown ()
   do_post_stop ();
   actual_ = TransceiverState {};
   requested_ = TransceiverState {};
+  period_applied_ = false;
+  applied_period_ = 0.0;
 }
 
 void TransceiverBase::stop () noexcept

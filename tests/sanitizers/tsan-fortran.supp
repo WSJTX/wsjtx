@@ -1,0 +1,7 @@
+# ThreadSanitizer suppressions for tests linked with the common Fortran
+# runtime.
+#
+# libgfortran's I/O-unit lock ordering is a classified third-party false
+# positive in deterministic Fortran tests. Keep this scope on tests that
+# exercise that runtime path. Tracked as WSJT-X#292.
+deadlock:libgfortran.so

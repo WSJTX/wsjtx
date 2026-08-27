@@ -25,6 +25,8 @@ namespace Ui {
 class QTimer;
 class Astro;
 class WideGraph;
+class VertWaterfall;
+enum class DecodeClickGesture;
 
 class MainWindow : public QMainWindow
 {
@@ -42,6 +44,7 @@ public slots:
   void diskDat(int iret);
   void decoderFinished();
   void freezeDecode(int n);
+  void decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture);
   void guiUpdate();
 
 private:
@@ -51,6 +54,7 @@ private:
 
 private slots:
   void on_monitorButton_clicked();
+  void on_stopButton_clicked();
   void on_actionExit_triggered();
   void on_actionAbout_triggered();
   void on_actionLinrad_triggered();
@@ -58,6 +62,7 @@ private slots:
   void on_tolSpinBox_valueChanged(int arg1);
   void on_actionAstro_Data_triggered();
   void on_actionWide_Waterfall_triggered();
+  void on_actionVertical_Waterfall_triggered();
   void on_actionOpen_triggered();
   void on_actionOpen_next_in_directory_triggered();
   void on_actionDecode_remaining_files_in_directory_triggered();
@@ -100,6 +105,7 @@ private:
   QString m_settings_filename;
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<WideGraph> m_wide_graph_window;
+  QScopedPointer<VertWaterfall> m_vert_waterfall_window;
   QPointer<QTimer> m_gui_timer;
   qint32  m_waterfallAvg;
   qint32  m_DF;
@@ -200,9 +206,9 @@ private:
   void updateStatusBar();
   void msgBox(QString t);
   bool isGrid4(QString g);
+  void clearDecodeLabels();
   void CreateLiveCQ(QStringList cqliveText);           //liveCQ
   void sendLiveCQData(QList<QStringList> decodeList);  //liveCQ
-  bool testCall(QString callsign); //liveCQ
 };
 
 extern void getfile(QString fname, bool xpol, int idInt);

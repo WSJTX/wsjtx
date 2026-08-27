@@ -29,7 +29,7 @@ public:
   void setContentFont (QFont const&);
   QFont contentFont () const {return char_font_;}
   void insertLineSpacer(QString const&);
-  void displayDecodedText(DecodedText const& decodedText, QString const& myCall, QString const& mode,
+  bool displayDecodedText(DecodedText const& decodedText, QString const& myCall, QString const& mode,
                           bool displayDXCCEntity, LogBook const& logBook,
                           QString const& currentBand=QString {}, bool ppfx=false, bool bCQonly=false,
                           bool haveFSpread = false, float fSpread = 0.0, bool bDisplayPoints=false,
@@ -69,7 +69,9 @@ private:
   QString appendWorkedB4(QString message, QString callsign
                          , QString const& grid, QColor * bg, QColor * fg
                          , LogBook const& logBook, QString const& currentBand
-                         , QString const& currentMode, QString extra);
+                         , QString const& currentMode, QString extra
+                         , QString const& state = QString {}
+                         , bool entityMismatch = false);
   QFont char_font_;
   QAction * erase_action_;
   enum class ClickState

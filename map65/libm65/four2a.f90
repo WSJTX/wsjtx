@@ -81,7 +81,8 @@ contains
        nflags = FFTW_ESTIMATE
 
        if (nfft <= NSMALL) then
-          jz = merge(nfft/2, nfft, iform == 0)
+          jz = nfft
+          if (iform <= 0) jz = nfft/2 + 1
           aa(1:jz) = a(1:jz)
        endif
 

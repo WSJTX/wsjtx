@@ -20,10 +20,13 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDateTime>
+#include <QPointer>
 #include "Configuration.hpp"
+#include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
 #include "Logger.hpp"
 #include "qt_helpers.hpp"
+#include "WorkedBeforeLoadState.hpp"
 #include "pimpl_impl.hpp"
 
 #include "moc_WorkedBefore.cpp"
@@ -278,8 +281,10 @@ namespace
     return QString {};
   }
 
-  worked_before_database_type loader (QString const& path, AD1CCty const * prefixes)
+  worked_before_database_type loader (QString const& path, AD1CCty const * prefixes,
+                                      PerformanceTrace::RunId run)
   {
+    PerformanceTrace::Phase parse {run, "logbook.parse"};
     worked_before_database_type worked;
     QFile inputFile {path};
     if (inputFile.exists ())
@@ -358,6 +363,7 @@ namespace
             throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Error opening ADIF log file for read: %0").arg (inputFile.errorString ()).toLocal8Bit ()});
           }
       }
+    parse.finish (QString {"unique_entries=%1"}.arg (worked.size ()));
     return worked;
   }
 }
@@ -366,48 +372,80 @@ class WorkedBefore::impl final
 {
 public:
   impl (Configuration const * configuration)
-    : configuration_ {configuration}
+    : construction_trace_ {"logbook.construct"}
+    , configuration_ {configuration}
     , path_ {writable_file_path (configuration->writeable_data_dir (), logFileName)}
     , prefixes_ {configuration}
   {
+    construction_trace_.finish ();
+  }
+
+  void start_loader ()
+  {
+    loader_run_ = PerformanceTrace::current_run ();
+    {
+      PerformanceTrace::Phase prefixes_reload {loader_run_, "logbook.prefixes_reload"};
+      prefixes_.reload (configuration_);
+    }
+    PerformanceTrace::milestone (loader_run_, "logbook.load_started");
+    async_loader_ = QtConcurrent::run (loader, path_, &prefixes_, loader_run_);
+    loader_watcher_.setFuture (async_loader_);
   }
 
   void reload ()
   {
-    prefixes_.reload (configuration_);
-    async_loader_ = QtConcurrent::run (loader, path_, &prefixes_);
-    loader_watcher_.setFuture (async_loader_);
+    if (WorkedBeforeLoadState::ReloadResult::Start == load_state_.request_reload ())
+      {
+        start_loader ();
+      }
   }
 
+  PerformanceTrace::Phase construction_trace_;
   Configuration const * configuration_;
   QString path_;
   AD1CCty prefixes_;
   QFutureWatcher<worked_before_database_type> loader_watcher_;
   QFuture<worked_before_database_type> async_loader_;
   worked_before_database_type worked_;
+  WorkedBeforeLoadState load_state_;
+  PerformanceTrace::RunId loader_run_ {0};
 };
 
 WorkedBefore::WorkedBefore (Configuration const * configuration)
   : m_ {configuration}
 {
   Q_ASSERT (configuration);
-  connect (&m_->loader_watcher_, &QFutureWatcher<worked_before_database_type>::finished, [this] () {
-      QString error;
-      size_t n {0};
-      try
-        {
-          m_->worked_ = m_->loader_watcher_.result ();
-          n = m_->worked_.size ();
-        }
-      catch (LoaderException const& e)
-        {
-          error = e.error ();
-        }
-      QString cty_ver = m_->prefixes_.version();
-      LOG_DEBUG(QString{"WorkedBefore::reload: CTY.DAT version %1"}.arg (cty_ver));
-      Q_EMIT finished_loading (n, cty_ver, error);
-    });
+  connect (&m_->loader_watcher_, &QFutureWatcher<worked_before_database_type>::finished,
+           this, &WorkedBefore::handle_loader_finished);
   reload ();
+}
+
+void WorkedBefore::handle_loader_finished ()
+{
+  m_->load_state_.begin_completion ();
+  QString error;
+  size_t n {0};
+  try
+    {
+      m_->worked_ = m_->loader_watcher_.result ();
+      n = m_->worked_.size ();
+    }
+  catch (LoaderException const& e)
+    {
+      error = e.error ();
+    }
+  QString cty_ver = m_->prefixes_.version();
+  LOG_DEBUG(QString{"WorkedBefore::reload: CTY.DAT version %1"}.arg (cty_ver));
+  QPointer<WorkedBefore> guard {this};
+  Q_EMIT finished_loading (n, cty_ver, error);
+  if (!guard)
+    {
+      return;
+    }
+  if (WorkedBeforeLoadState::CompletionResult::Restart == m_->load_state_.finish_completion ())
+    {
+      m_->start_loader ();
+    }
 }
 
 QString WorkedBefore::cty_version () const
@@ -422,6 +460,8 @@ void WorkedBefore::reload ()
 
 WorkedBefore::~WorkedBefore ()
 {
+  PerformanceTrace::Phase shutdown_wait {"logbook.shutdown_wait"};
+  m_->async_loader_.waitForFinished ();
 }
 
 QString const& WorkedBefore::path () const

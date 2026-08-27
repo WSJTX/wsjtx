@@ -21,7 +21,7 @@ public:
   ~WideGraph();
 
   void   dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
-                   uchar lstrong[]);
+                   uchar lstrong[], int lstrongSize);
   int    QSOfreq();
   int    nSpan();
   int    nStartFreq();
@@ -33,7 +33,6 @@ public:
   void   setTol(int n);
   void   setFcal(int n);
   void   setPalette(QString palette);
-  void   setFsample(int n);
   void   setMode65(int n);
   void   setPeriod(int n);
   void   setDecodeFinished();
@@ -42,6 +41,9 @@ public:
   void   tx570();
   void   updateFreqLabel();
   void   enableSetRxHardware(bool b);
+  void   setFreqSpanLimits(int min, int max);
+  void   updateSpanFromSpinbox(); 
+
 
   // Decoded-callsign overlay (N6NU 2026-05-12, port of QMAP feature).
   // mainwindow calls addDecodeLabel for each decoded line (after
@@ -125,7 +127,6 @@ private:
   bool   m_bIQxt;
   qint32 m_waterfallAvg;
   qint32 m_fCal;
-  qint32 m_fSample;
   qint32 m_mode65;
   qint32 m_TRperiod=60;
 

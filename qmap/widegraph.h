@@ -2,6 +2,9 @@
 #define WIDEGRAPH_H
 
 #include <QDialog>
+#include <QList>
+#include "decode_click_coalescer.h"
+#include "decode_label.h"
 
 namespace Ui {
   class WideGraph;
@@ -36,11 +39,21 @@ public:
   void   updateFreqLabel();
   void   enableSetRxHardware(bool b);
 
+  void   addDecodeLabel(QMapDecodeRecord const& record);
+  void   pruneDecodeLabels(int nowSeconds);
+  void   clearDecodeLabels();
+
   qint32 m_qsoFreq;
 
 signals:
   void freezeDecode2(int n);
   void f11f12(int n);
+  void decodeLabelClicked2(QByteArray decodeRow, DecodeClickGesture gesture);
+  // Emitted once per average cycle, right after the Horizontal Waterfall's
+  // own top-row draw(), so VertWaterfall can show exactly the same
+  // spectral data instead of an independently-decimated copy of it.
+  void spectrumReady(const float swide[], int n, double startFreqKHz, double fSpanKHz,
+                     int plotZero, int plotGain);
 
 public slots:
   void wideFreezeDecode(int n);
@@ -68,6 +81,8 @@ private:
   qint32 m_fSample;
   qint32 m_mode65;
   qint32 m_TRperiod=60;
+
+  QList<QMapDecodeLabel> m_decodeLabels;
 };
 
 #endif // WIDEGRAPH_H

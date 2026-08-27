@@ -22,6 +22,26 @@ on:
         required: false
         type: boolean
         default: false
+      image_tag:
+        description: "Immutable GHCR image tag; empty resolves the current validated generation"
+        required: false
+        type: string
+        default: ""
+      allow_stale_image:
+        description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+        required: false
+        type: boolean
+        default: false
+      save_ccache:
+        description: "Save compiled objects for trusted builds"
+        required: false
+        type: boolean
+        default: false
+      validate_fortran_fallback:
+        description: "Build the x86_64 non-OpenMP common-library sentinel graph"
+        required: false
+        type: boolean
+        default: false
       release_channel:
         description: "Build release channel: DEVEL, RC, or GA"
         required: false
@@ -66,6 +86,26 @@ on:
         required: false
         type: boolean
         default: false
+      image_tag:
+        description: "Immutable GHCR image tag; empty resolves the current validated generation"
+        required: false
+        type: string
+        default: ""
+      allow_stale_image:
+        description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+        required: false
+        type: boolean
+        default: false
+      save_ccache:
+        description: "Save compiled objects"
+        required: false
+        type: boolean
+        default: false
+      validate_fortran_fallback:
+        description: "Build the x86_64 non-OpenMP common-library sentinel graph"
+        required: false
+        type: boolean
+        default: false
       release_channel:
         description: "Build release channel"
         required: false
@@ -85,24 +125,68 @@ on:
 # a single `arch:` value, so exactly one job runs per call. Splitting on arch
 # keeps the per-arch runtime profile explicit at the job level:
 #
-#   x86_64 — host runner (ubuntu-24.04). No analogous field-side runtime gap
-#            has surfaced for that arch.
-#   aarch64 — debian:bookworm-slim container on ubuntu-24.04-arm. The Bookworm
-#            base produces binaries whose glibc 2.36 + pre-t64 Qt5/boost runtime
-#            demands resolve on Raspberry Pi OS Bookworm (issue #49).
-#   armhf  — debian:bookworm-slim arm/v7 container on ubuntu-24.04-arm via
-#            QEMU user-mode emulation (issue #51). DigiPi / Pi Zero 2W class.
+#   x86_64 — validated Noble container on ubuntu-24.04.
+#   aarch64 — validated GCC 13.4 Bookworm container on ubuntu-24.04-arm. This keeps the
+#            Bookworm glibc 2.36 + pre-t64 library baseline while using GCC 13
+#            (issue #49).
+#   armhf  — validated GCC 13.4 Bookworm arm/v7 container via QEMU
+#            user-mode emulation (issue #51). DigiPi / Pi Zero 2W class.
 #            See the build-armhf job below for the QEMU + --platform recipe.
 #
 # All three jobs share a single composite action (`.github/actions/build-linux-
 # payload`) so the build pipeline lives in one place; the only diff between
-# jobs is runtime base + cache namespace + (for armhf) the QEMU bootstrap.
+# jobs is architecture + (for armhf) the QEMU bootstrap.
+
+permissions:
+  contents: read
+  packages: read
+
 jobs:
-  build-x86_64:
-    if: inputs.arch == 'x86_64'
+  resolve-image:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v7
+      - id: resolve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+          ARMHF_BUILD: ${{ inputs.arch == 'armhf' }}
+        shell: bash
+        run: |
+          if [ -n "$REQUESTED_TAG" ]; then
+            IMAGE_TAG="$REQUESTED_TAG" .github/scripts/validate-ci-inputs.sh
+            echo "image_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          elif [ "$ARMHF_BUILD" = true ]; then
+            RESOLVE_ARMHF=true .github/scripts/resolve-linux-ci-image-tag.py
+          else
+            .github/scripts/resolve-linux-ci-image-tag.py
+          fi
+
+  build-x86_64:
+    needs: resolve-image
+    if: inputs.arch == 'x86_64'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    container:
+      image: ghcr.io/wsjtx/wsjtx-internal/linux-noble:${{ needs.resolve-image.outputs.image_tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+          WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+          ARCH: ${{ inputs.arch }}
+          IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+          VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
+        run: .github/scripts/validate-ci-inputs.sh
       - uses: ./.github/actions/build-linux-payload
         with:
           arch: x86_64
@@ -110,36 +194,56 @@ jobs:
           hamlib_branch: ${{ inputs.hamlib_branch }}
           runtime_base: host
           recache: ${{ inputs.recache }}
+          save_ccache: ${{ inputs.save_ccache }}
+          validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
+          allow_stale_image: ${{ inputs.allow_stale_image }}
 
   build-aarch64:
+    needs: resolve-image
     if: inputs.arch == 'aarch64'
     runs-on: ubuntu-24.04-arm
-    # Bookworm container produces a binary whose glibc + Qt5 + boost runtime
-    # demands match Raspberry Pi OS Bookworm (issue #49). debian:bookworm-slim
-    # is intentionally minimal — the composite action installs the full build
-    # toolchain and re-bootstraps the no-sudo / no-git / no-ca-certificates
-    # gaps as its first step.
+    timeout-minutes: 45
+    # The official GCC image adds GCC 13.4 without moving off the Bookworm
+    # glibc 2.36 and pre-t64 runtime baseline (issue #49).
     container:
-      image: debian:bookworm-slim
+      image: ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+          WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+          ARCH: ${{ inputs.arch }}
+          IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+          VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
+        run: .github/scripts/validate-ci-inputs.sh
       - uses: ./.github/actions/build-linux-payload
         with:
           arch: aarch64
           version: ${{ inputs.version }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
-          runtime_base: bookworm
+          runtime_base: bookworm-gcc13.4
           recache: ${{ inputs.recache }}
+          save_ccache: ${{ inputs.save_ccache }}
+          validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
+          allow_stale_image: ${{ inputs.allow_stale_image }}
 
   build-armhf:
+    needs: resolve-image
     if: inputs.arch == 'armhf'
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 160
     # 32-bit ARM (armhf) runtime for DigiPi / Raspberry Pi Zero 2W class
-    # (issue #51). Builds inside debian:bookworm-slim arm/v7 on the aarch64
+    # (issue #51). Builds inside the validated GCC Bookworm arm/v7 image on the aarch64
     # ubuntu-24.04-arm runner via QEMU user-mode emulation.
     #
     # NOTE on architecture (different from x86_64/aarch64): this job does
@@ -159,7 +263,7 @@ jobs:
     # so the diff vs build-aarch64 (which DOES use `container:`) doesn't
     # read as inconsistent.
     #
-    # Wall-clock budget: ~50–80 min under QEMU vs ~10 min native. Asymmetric
+    # Wall-clock budget: about 105 min observed under QEMU vs ~10 min native. Asymmetric
     # CI gating (NOT in PR matrix; tags + workflow_dispatch only) — see
     # release.yml for the production wiring.
     env:
@@ -177,31 +281,71 @@ jobs:
         with:
           platforms: linux/arm/v7
       - uses: actions/checkout@v7
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+          WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+          ARCH: armhf
+          IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+          VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
+        run: .github/scripts/validate-ci-inputs.sh
 
-      # Cache pFUnit + Hamlib on the host (GHA cache primitives don't
-      # work inside an arm/v7 container — see job-level NOTE above).
-      # The bind-mount in the docker run step exposes these dirs to
-      # the script as /work/{pfunit-prefix,hamlib-prefix}. Cache keys
-      # gate on the build script's hash so any script edit invalidates
-      # the cache cleanly. Namespaces segregate from x86_64+aarch64
-      # entries naturally on the (arch, runtime_base) pair.
-      - name: Cache pFUnit
-        uses: actions/cache@v6
+      - uses: docker/login-action@v4
         with:
-          path: pfunit-prefix
-          key: pfunit-linux-armhf-v4.14.0-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
-      - name: Cache Hamlib
-        uses: actions/cache@v6
-        with:
-          path: hamlib-prefix
-          key: hamlib-linux-armhf-${{ inputs.hamlib_branch }}-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build inside arm/v7 bookworm-slim
+      - name: Inspect armhf image
+        id: image
+        env:
+          BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          ALLOW_STALE_IMAGE: ${{ inputs.allow_stale_image }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        run: |
+          docker pull --platform linux/arm/v7 "$BUILDER_IMAGE"
+          output_file=.armhf-image-verification-output
+          trap 'rm -f "$output_file"' EXIT
+          docker run --rm --platform linux/arm/v7 \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            -e GITHUB_OUTPUT=/work/$output_file \
+            -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$ALLOW_STALE_IMAGE" \
+            "$BUILDER_IMAGE" \
+            bash .github/scripts/verify-linux-ci-image.sh normal armhf "$HAMLIB_BRANCH"
+          cat "$output_file" >> "$GITHUB_OUTPUT"
+
+      - name: Select armhf ccache key
+        id: ccache-key
+        env:
+          RECACHE: ${{ inputs.recache }}
+        run: .github/scripts/select-ccache-key-suffix.sh
+
+      - name: Restore armhf ccache
+        id: ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ccache-armhf
+          key: ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
+          restore-keys: |
+            ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+            ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-
+
+      - name: Build inside arm/v7 Bookworm GCC image
         env:
           ARCH: armhf
+          BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          RECACHE: ${{ inputs.recache }}
+          CCACHE_COMPILERCHECK: ${{ steps.image.outputs.ccache_compiler_check }}
+          WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
         run: |
-          docker pull --platform linux/arm/v7 debian:bookworm-slim
-          docker run --rm --platform linux/arm/v7 \
+          ccache_args=()
+          if [ "$RECACHE" = true ]; then
+            ccache_args=(-e CCACHE_RECACHE=1)
+          fi
+          GITHUB_TOKEN="${{ github.token }}" docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             -e VERSION \
@@ -209,7 +353,12 @@ jobs:
             -e ARCH \
             -e WSJT_RELEASE_CHANNEL \
             -e WSJT_RC_NUMBER \
-            debian:bookworm-slim \
+            -e GITHUB_TOKEN \
+            -e CCACHE_DIR=/work/.ccache-armhf \
+            -e CCACHE_COMPILERCHECK \
+            -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH \
+            "${ccache_args[@]}" \
+            "$BUILDER_IMAGE" \
             bash .github/scripts/build-linux-payload.sh
 
       # Artifacts produced inside the container land in $GITHUB_WORKSPACE
@@ -250,3 +399,14 @@ jobs:
           name: ctest-results-linux-armhf
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
+
+      - name: Report suppressed armhf ccache save
+        if: inputs.save_ccache && steps.image.outputs.recipe_match != 'true'
+        run: echo "::notice::Not saving armhf ccache because this build used a stale Linux CI image recipe"
+
+      - name: Save armhf ccache
+        if: inputs.save_ccache && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .ccache-armhf
+          key: ${{ steps.ccache.outputs.cache-primary-key }}

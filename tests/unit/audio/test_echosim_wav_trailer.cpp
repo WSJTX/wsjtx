@@ -91,6 +91,6 @@ private:
   }
 };
 
-QTEST_MAIN (TestEchosimWavTrailer)
+QTEST_GUILESS_MAIN (TestEchosimWavTrailer)
 
 #include "test_echosim_wav_trailer.moc"

@@ -1,6 +1,7 @@
 subroutine decode0(dd,ss,savg)
 
   use timer_module, only: timer
+  use qmap_decode_ipc, only: nQDecoderDone
   parameter (NSMAX=60*96000,NFFT=32768)
 
   real*4 dd(2,NSMAX),ss(400,NFFT),savg(NFFT)
@@ -10,9 +11,6 @@ subroutine decode0(dd,ss,savg)
   logical*1 bAlso30
   character mycall*12,hiscall*12,mygrid*6,hisgrid*6,datetime*20
   character mycall0*12,hiscall0*12,hisgrid0*6
-  character*72 result
-  common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
-       nWTransmitting,kHzRequested,result(50)
   common/npar/fcenter,nutc,fselected,mousedf,mousefqso,nagain,            &
        ndepth,ndiskdat,ntx60,newdat,nfa,nfb,nfcal,nfshift,                &
        ntx30a,ntx30b,ntol,n60,nCFOM,nfsample,ndop58,nmode,                 &

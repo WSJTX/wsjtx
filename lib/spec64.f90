@@ -1,10 +1,12 @@
-subroutine spec64(c0,npts,nsps,mode_q65,jpk,s3,LL,NN)
+subroutine spec64(c0,cs,npts,nsps,mode_q65,jpk,s3,LL,NN)
 
-  parameter (MAXFFT=20736)
+  use q65_workspace, only: Q65_MAXFFT
+
   complex c0(0:npts-1)                       !Complex spectrum of dd()
-  complex cs(0:MAXFFT-1)                     !Complex symbol spectrum
+  complex cs(0:Q65_MAXFFT-1)                 !Complex symbol spectrum
   real s3(LL,NN)                             !Synchronized symbol spectra
   real xbase0(LL),xbase(LL)
+  real s3_row(NN)
 !  integer ipk1(1)
   integer isync(22)                          !Indices of sync symbols
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
@@ -36,7 +38,8 @@ subroutine spec64(c0,npts,nsps,mode_q65,jpk,s3,LL,NN)
 
   df=6000.0/nfft
   do i=1,LL
-     call pctile(s3(i,1:NN),NN,45,xbase0(i)) !Get baseline for passband shape
+     s3_row=s3(i,1:NN)
+     call pctile(s3_row,NN,45,xbase0(i)) !Get baseline for passband shape
   enddo
   
   nh=25

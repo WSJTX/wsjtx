@@ -9,3 +9,31 @@ add_executable (test_tci_protocol
 )
 target_link_libraries (test_tci_protocol Qt5::Test)
 add_test (NAME test_tci_protocol COMMAND test_tci_protocol)
+
+add_library (tci_simulator STATIC
+  TciSimScript.cpp
+  TciSimScript.hpp
+  TciSimServer.cpp
+  TciSimServer.hpp
+)
+target_include_directories (tci_simulator PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries (tci_simulator PUBLIC Qt5::Core Qt5::Network Qt5::WebSockets)
+
+add_executable (test_tci_sim_smoke test_tci_sim_smoke.cpp)
+target_link_libraries (test_tci_sim_smoke PRIVATE tci_simulator Qt5::Test)
+add_test (NAME test_tci_sim_smoke COMMAND test_tci_sim_smoke)
+set_tests_properties (test_tci_sim_smoke PROPERTIES TIMEOUT 30)
+
+add_executable (test_tci_transceiver_characterization
+  test_tci_transceiver_characterization.cpp
+)
+target_link_libraries (test_tci_transceiver_characterization PRIVATE
+  tci_simulator wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_tci_transceiver_characterization
+  COMMAND test_tci_transceiver_characterization)
+set_tests_properties (test_tci_transceiver_characterization PROPERTIES TIMEOUT 120)
+
+add_executable (test_transceiver_base_period test_transceiver_base_period.cpp)
+target_include_directories (test_transceiver_base_period PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_transceiver_base_period PRIVATE wsjt_qt Qt5::Test)
+add_test (NAME test_transceiver_base_period COMMAND test_transceiver_base_period)

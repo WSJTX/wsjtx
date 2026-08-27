@@ -37,7 +37,6 @@ contains
        ltry_a8,lapcqonly,napwid,mycall12,hiscall12,hisgrid,ldiskdat)
     use iso_c_binding, only: c_bool, c_int
     use timer_module, only: timer
-    use shmem, only: shmem_lock, shmem_unlock
     use ft8_a7
 
     include 'ft8/ft8_params.f90'
@@ -291,7 +290,7 @@ contains
 ! Try for an a8 decode at nfqso
       f1=nfqso
       call timer('ft8_a8d ',0)
-      call ft8_a8d(dd,mycall12,hiscall12,hisgrid,f1,xdt,fbest,xsnr,plog,msg37)
+      call ft8_a8d(dd,mycall12,hiscall12,hisgrid,f1,xdt,fbest,xsnr,plog,msg37,0)
       call timer('ft8_a8d ',1)
 
       if(msg37(1:1).ne.' ') then

@@ -89,7 +89,7 @@ program wsprsim
         endif
         write(fname14,1100) ifile
 1100    format('000000_',i4.4,'.c2')
-        open(10,file=fname14,status='unknown',access='stream')
+        open(10,file=fname14,status='replace',access='stream')
         fMHz=10.1387d0
         nmin=2
         write(10) fname14,nmin,fMHz,c      !Save to *.c2 file
@@ -102,7 +102,7 @@ program wsprsim
         hwav=default_header(12000,NMAX)
         write(fname15,1102) ifile
 1102    format('000000_',i4.4,'.wav')
-        open(10,file=fname15,status='unknown',access='stream')
+        open(10,file=fname15,status='replace',access='stream')
         write(10) hwav,iwave                !Save to *.wav file
         close(10)
         write(*,1110) ifile,xdt,f0,snrdb,fname15

@@ -18,6 +18,35 @@ module jtty_mdec
 
 contains
 
+  pure subroutine jtty_search_window(fc,fwid,nfa,nfb,constrain_to_graph,df, &
+       first_bin,last_bin,ja,jb,usable)
+      implicit none
+      real, intent(inout) :: fc
+      real, intent(in) :: fwid,df
+      integer, intent(in) :: nfa,nfb,first_bin,last_bin
+      integer, intent(out) :: ja,jb
+      logical, intent(in) :: constrain_to_graph
+      logical, intent(out) :: usable
+
+      ja=first_bin
+      jb=last_bin
+      usable=.false.
+      if(df.le.0.0 .or. fwid.lt.0.0 .or. first_bin.gt.last_bin) return
+
+      if(constrain_to_graph) then
+         if(nfa.gt.nfb) return
+         fc=max(real(nfa),min(fc,real(nfb)))
+      endif
+
+      ja=max(first_bin,int((fc-fwid)/df))
+      jb=min(last_bin,int((fc+fwid)/df))
+      if(constrain_to_graph) then
+         ja=max(ja,ceiling(real(nfa)/df))
+         jb=min(jb,floor(real(nfb)/df))
+      endif
+      usable=ja.le.jb
+  end subroutine jtty_search_window
+
   subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
@@ -41,7 +70,7 @@ contains
       integer(int16), intent(in)     :: iwave(nchunk)
       integer, intent(in)            :: istart, ndebug
       integer                        :: i,i0,is,j,ja,jb,k,kz,n
-      integer, save                  :: ntstep
+      integer, save                  :: ntstep, ntgrid
       integer                        :: istep
       integer                        :: nchan, ichan
       integer, intent(in)            :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
@@ -53,12 +82,12 @@ contains
       integer                        :: iloc(1)
       integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
       integer                        :: ndeep, maxiterations, islot
-      integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc
+      integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc,nstep_search
       integer                        :: nharderrors,nsync,nsymerrs
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
-      real, allocatable, save        :: s(:), sm(:), s0(:,:)
+      real, allocatable, save        :: s(:), s0(:,:)
       real                           :: a(3)
       real                           :: bitmetrics(1:80), pow(0:3,NCHAN_SYM)
       real                           :: p00, p01, p11, p10
@@ -77,6 +106,7 @@ contains
       complex                        :: z
       logical                        :: match
       logical                        :: dupe
+      logical                        :: usable
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
 
@@ -102,6 +132,7 @@ contains
          nh2=nfft/2    ! spectrum size for sync search
          nframe6=NFRAME_SYM*nss          ! frame size at 6000 Sa/s
          ntstep=nframe6/4
+         ntgrid=ntstep/12
 
 ! allocate saved arrays once
          if(allocated(csync)) deallocate(csync)
@@ -116,10 +147,8 @@ contains
            allocate(c1(0:nchunk6-1))
          if(allocated(s)) deallocate(s)
            allocate(s(0:nh2))
-         if(allocated(sm)) deallocate(sm)
-           allocate(sm(0:nh2))
          if(allocated(s0)) deallocate(s0)
-           allocate(s0(0:nh2,0:ntstep))
+           allocate(s0(0:nh2,0:ntgrid))
 
 ! Generate complex waveform for sync
          baud=FSAMPLE/real(nss)   !31.25 for nss=192
@@ -149,13 +178,13 @@ contains
          do j=0,nh2
             s(j)=real(c(j))**2 + aimag(c(j))**2
          enddo
-         sm=0.
+         s0(0:nh2,istep)=0.
          do j=2,nh2-2
-            sm(j)=s(j-2)+2*s(j-1)+3*s(j)+2*s(j+1)+s(j+2)
+            s0(j,istep)=s(j-2)+2*s(j-1)+3*s(j)+2*s(j+1)+s(j+2)
          enddo
-         s0(0:nh2,istep)=sm
          istep=istep+1
       enddo
+      nstep_search=istep-1
 
 ! Look for up to 2 sync candidates in each quarter-frame (0.424 second) by 2*FTol rectangle in 
 ! the time/frequency plane. Find the peak in the search rectangle, then zero a small region
@@ -178,22 +207,19 @@ contains
             fwid=150
          endif
 
-         if(fc.lt.float(nfa)) fc=nfa
-         if(fc.gt.float(nfb)) fc=nfb
+         call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
+              ubound(s0,1)-2,ja,jb,usable)
+         if(.not.usable) cycle
          fbest=0.
          xdtbest=0.
          fpk=0.
 
-         ja=(fc-fwid)/df2
-         jb=(fc+fwid)/df2
-         if(ja .lt. 3) ja=3
-
          do ic=1,nc
-            nsloc=maxloc(s0(ja:jb,:))
+            nsloc=maxloc(s0(ja:jb,0:nstep_search))
             fbest   = (nsloc(1)-1+ja)*df2
             xdtbest = (nsloc(2)-1)*dt*12
             s0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),        &
-                max(  0, nsloc(2)-ntz )    : min( ntstep, nsloc(2)+ntz )   ) = 0.0
+                max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = 0.0
 
             if(ichan.eq.0) then
                call jtty_peakup(c0,c1,csync,nchunk6, nss, xdtbest, fbest, xdt1, f11, snr0)

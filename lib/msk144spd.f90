@@ -4,7 +4,9 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
 ! MSK144 short-ping-decoder
 
   use packjt77
+  use msk_spectrum, only: msk_clip_spectrum_window,msk_peak_offset
   use timer_module, only: timer
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
 
   parameter (NSPM=864, MAXSTEPS=100, NFFT=NSPM, MAXCAND=5, NPATTERNS=6)
   character*37 msgreceived
@@ -20,6 +22,7 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
   integer navmask(3)
   integer nstart(MAXCAND)
   logical ismask(NFFT)
+  logical high_window_usable,low_window_usable
   real detmet(-2:MAXSTEPS+3)
   real detmet2(-2:MAXSTEPS+3)
   real detfer(MAXSTEPS)
@@ -29,7 +32,8 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
   real softbits(144)
   real tonespec(NFFT)
   real tpat(NPATTERNS)
-  real*8 dt, df, fs, pi, twopi
+  real*8 dt,df,fs,pi,twopi,nfhi,nflo
+  real*8 ihlo_requested,ihhi_requested,illo_requested,ilhi_requested
   logical first
   data first/.true./
   data navpatterns/ &
@@ -42,6 +46,10 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
   data tpat/1.5,0.5,2.5,1.0,2.0,1.5/
 
   save df,first,fs,pi,twopi,dt,tframe,rcw
+
+  nsuccess=0
+  msgreceived=' '
+  if(n.lt.3*NSPM .or. ntol.lt.0 .or. .not.ieee_is_finite(fc)) return
 
   if(first) then
      nmatchedfilter=1
@@ -62,16 +70,21 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
   endif
 
   ! fill the detmet, detferr arrays
-  nstep=(n-NSPM)/216  ! 72ms/4=18ms steps
+  nstep=min(MAXSTEPS,(n-NSPM)/216)  ! 72ms/4=18ms steps
   detmet=0
   detmet2=0
   detfer=-999.99
-  nfhi=2*(fc+500)
-  nflo=2*(fc-500)
-  ihlo=nint((nfhi-2*ntol)/df) + 1
-  ihhi=nint((nfhi+2*ntol)/df) + 1
-  illo=nint((nflo-2*ntol)/df) + 1
-  ilhi=nint((nflo+2*ntol)/df) + 1
+  nfhi=2d0*(dble(fc)+500d0)
+  nflo=2d0*(dble(fc)-500d0)
+  ihlo_requested=(nfhi-2d0*dble(ntol))/df + 1d0
+  ihhi_requested=(nfhi+2d0*dble(ntol))/df + 1d0
+  illo_requested=(nflo-2d0*dble(ntol))/df + 1d0
+  ilhi_requested=(nflo+2d0*dble(ntol))/df + 1d0
+  call msk_clip_spectrum_window(NFFT,ihlo_requested,ihhi_requested,ihlo,ihhi, &
+       high_window_usable)
+  call msk_clip_spectrum_window(NFFT,illo_requested,ilhi_requested,illo,ilhi, &
+       low_window_usable)
+  if(.not.high_window_usable .or. .not.low_window_usable) return
   i2000=nint(nflo/df) + 1
   i4000=nint(nfhi/df) + 1
   do istp=1,nstep
@@ -94,7 +107,7 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
     ismask(ihlo:ihhi)=.true.  ! high tone search window
     iloc=maxloc(tonespec,ismask)
     ihpk=iloc(1)
-    deltah=-real( (ctmp(ihpk-1)-ctmp(ihpk+1)) / (2*ctmp(ihpk)-ctmp(ihpk-1)-ctmp(ihpk+1)) )
+    deltah=msk_peak_offset(ctmp,ihpk)
     ah=tonespec(ihpk)
     ahavp=(sum(tonespec,ismask)-ah)/count(ismask)
     trath=ah/(ahavp+0.01)
@@ -102,7 +115,7 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
     ismask(illo:ilhi)=.true.   ! window for low tone
     iloc=maxloc(tonespec,ismask)
     ilpk=iloc(1)
-    deltal=-real( (ctmp(ilpk-1)-ctmp(ilpk+1)) / (2*ctmp(ilpk)-ctmp(ilpk-1)-ctmp(ilpk+1)) )
+    deltal=msk_peak_offset(ctmp,ilpk)
     al=tonespec(ilpk)
     alavp=(sum(tonespec,ismask)-al)/count(ismask)
     tratl=al/(alavp+0.01)
@@ -121,6 +134,7 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
 
   call indexx(detmet(1:nstep),nstep,indices) !find median of detection metric vector
   xmed=detmet(indices(nstep/4))
+  if(xmed.le.0.0 .or. .not.ieee_is_finite(xmed)) return
   detmet=detmet/xmed ! noise floor of detection metric is 1.0
   ndet=0
 
@@ -152,8 +166,6 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
     enddo
   endif
 
-  nsuccess=0
-  msgreceived=' '
   npeaks=2
   ntol0=8
   deltaf=2.0

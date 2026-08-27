@@ -149,7 +149,10 @@
 #include <QDialog>
 #include <QAction>
 #include <QKeyEvent>
+#include <QScreen>
+#include <QShowEvent>
 #include <QTabBar>
+#include <QWindow>
 #include <QFileDialog>
 #include <QDir>
 #include <QTemporaryFile>
@@ -188,6 +191,7 @@
 
 #include "pimpl_impl.hpp"
 #include "Logger.hpp"
+#include "PerformanceTrace.hpp"
 #include "qt_helpers.hpp"
 #include "MetaDataRegistry.hpp"
 #include "SettingsGroup.hpp"
@@ -208,6 +212,7 @@
 #include "Network/NetworkServerLookup.hpp"
 #include "Network/FoxVerifier.hpp"
 #include "widgets/MessageBox.hpp"
+#include "widgets/SettingsDialogLayout.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "validators/CallsignValidator.hpp"
 #include "Network/LotWUsers.hpp"
@@ -292,6 +297,26 @@ namespace
   constexpr quint32 qrg_magic {0xadbccbdb};
   constexpr quint32 qrg_version {101}; // M.mm
   constexpr quint32 qrg_version_100 {100};
+
+  QString cloudlog_connection_check_style (Cloudlog::ConnectionCheckStatus status)
+  {
+    switch (status)
+      {
+      case Cloudlog::ConnectionCheckStatus::Success:
+        return QStringLiteral ("QPushButton {background-color: green;}");
+      case Cloudlog::ConnectionCheckStatus::ReadOnlyKey:
+        return QStringLiteral ("QPushButton {background-color: orange;}");
+      case Cloudlog::ConnectionCheckStatus::InvalidKey:
+      case Cloudlog::ConnectionCheckStatus::StationProfileUnavailable:
+      case Cloudlog::ConnectionCheckStatus::EndpointUnavailable:
+      case Cloudlog::ConnectionCheckStatus::UploadShapeRejected:
+      case Cloudlog::ConnectionCheckStatus::NetworkError:
+      case Cloudlog::ConnectionCheckStatus::UnexpectedResponse:
+        return QStringLiteral ("QPushButton {background-color: red;}");
+      }
+
+    return {};
+  }
 }
 
 
@@ -521,17 +546,19 @@ public:
   void mark_rig_offline ();
   static QString summarize_transceiver_failure (QString const& reason);
 
-  void transceiver_frequency (Frequency);
-  void transceiver_tx_frequency (Frequency);
+  RigFrequencyChangePolicy::Activity frequency_change_activity () const;
+  bool frequency_change_allowed (RigFrequencyChangePolicy::ChangeKind) const;
+  bool transceiver_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
+  bool transceiver_tx_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
   void transceiver_mode (MODE);
   void transceiver_ptt (bool);
   void transceiver_audio (bool);
   void transceiver_tune (bool);
-  void transceiver_period (double, bool = false);
+  void transceiver_period (double);
   void transceiver_blocksize (qint32);
-  void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double);
-  void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
-  void transceiver_clear_jtty_pcm (qint64);
+  void transceiver_modulator_start (TxEvidence::TxRequest const&);
+  void transceiver_enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64);
+  void transceiver_clear_jtty_pcm (TxAudioQueueEpoch);
   void transceiver_modulator_stop (bool);
   void transceiver_spread (double);
   void transceiver_nsym (int);
@@ -554,6 +581,7 @@ private:
   };
 
   bool eventFilter (QObject *, QEvent *) override;
+  void showEvent (QShowEvent *) override;
   void register_settings_focus_page (QWidget * page, QList<QWidget *> const& tab_stops);
   QList<QWidget *> current_settings_focus_path () const;
   QList<QWidget *> settings_dialog_buttons () const;
@@ -586,7 +614,7 @@ private:
   void set_cached_mode ();
   bool open_rig (bool force = false);
   //bool set_mode ();
-  void close_rig ();
+  void close_rig (bool failed = false);
   TransceiverFactory::ParameterPack gather_rig_data ();
   void enumerate_rigs ();
   void set_rig_invariants ();
@@ -607,6 +635,9 @@ private:
 
   void delete_stations ();
   void insert_station ();
+  void handle_cloudlog_connection_check_result (Cloudlog::ConnectionCheckResult const& result);
+  void set_cloudlog_station_profiles (QList<Cloudlog::StationProfile> const& profiles);
+  qint32 cloudlog_station_profile_id () const;
 
   Q_SLOT void on_font_push_button_clicked ();
   Q_SLOT void on_decoded_text_font_push_button_clicked ();
@@ -735,10 +766,11 @@ private:
   Q_SIGNAL void set_transceiver (Transceiver::TransceiverState const&,
                                  unsigned sequence_number) const;
   Q_SIGNAL void stop_transceiver () const;
-  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, qint64, qint64) const;
-  Q_SIGNAL void clear_jtty_pcm (qint64) const;
+  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64) const;
+  Q_SIGNAL void clear_jtty_pcm (TxAudioQueueEpoch) const;
 
-  Configuration * const self_;	// back pointer to public interface
+  PerformanceTrace::Phase construction_trace_;
+  Configuration * const self_;  // back pointer to public interface
 
   QThread * transceiver_thread_;
   TransceiverFactory transceiver_factory_;
@@ -909,7 +941,7 @@ private:
   double txDelay_;
   bool tci_audio_;
   bool id_after_73_;
-  bool tx_QSY_allowed_;
+  bool tx_frequency_corrections_allowed_;
   bool progressBar_red_;
   bool spot_to_psk_reporter_;
   bool psk_reporter_tcpip_;
@@ -1073,7 +1105,7 @@ double Configuration::txDelay() const {return m_->txDelay_;}
 qint32 Configuration::RxBandwidth() const {return m_->RxBandwidth_;}
 bool Configuration::tci_audio () const {return m_->tci_audio_;}
 bool Configuration::id_after_73 () const {return m_->id_after_73_;}
-bool Configuration::tx_QSY_allowed () const {return m_->tx_QSY_allowed_;}
+bool Configuration::tx_frequency_corrections_allowed () const {return m_->tx_frequency_corrections_allowed_;}
 bool Configuration::progressBar_red () const {return m_->progressBar_red_;}
 bool Configuration::spot_to_psk_reporter () const
 {
@@ -1226,7 +1258,8 @@ void Configuration::enable_calibration (bool on)
 {
   auto target_frequency = m_->remove_calibration (m_->cached_rig_state_.frequency ()) - m_->current_offset_;
   m_->frequency_calibration_disabled_ = !on;
-  transceiver_frequency (target_frequency);
+  transceiver_frequency (
+    target_frequency, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection);
 }
 
 bool Configuration::is_transceiver_online () const
@@ -1261,18 +1294,20 @@ void Configuration::transceiver_offline ()
   m_->close_rig ();
 }
 
-void Configuration::transceiver_frequency (Frequency f)
+bool Configuration::transceiver_frequency (Frequency f, RigFrequencyChangePolicy::ChangeKind kind)
 {
   LOG_TRACE (f << ' ' << m_->cached_rig_state_);
-  if (!m_->can_control_rig ("transceiver_frequency")) return;
-  m_->transceiver_frequency (f);
+  if (!m_->frequency_change_allowed (kind)) return false;
+  if (!m_->can_control_rig ("transceiver_frequency")) return false;
+  return m_->transceiver_frequency (f, kind);
 }
 
-void Configuration::transceiver_tx_frequency (Frequency f)
+bool Configuration::transceiver_tx_frequency (Frequency f, RigFrequencyChangePolicy::ChangeKind kind)
 {
   LOG_TRACE (f << ' ' << m_->cached_rig_state_);
-  if (!m_->can_control_rig ("transceiver_tx_frequency")) return;
-  m_->transceiver_tx_frequency (f);
+  if (!m_->frequency_change_allowed (kind)) return false;
+  if (!m_->can_control_rig ("transceiver_tx_frequency")) return false;
+  return m_->transceiver_tx_frequency (f, kind);
 }
 
 void Configuration::transceiver_mode (MODE mode)
@@ -1303,14 +1338,14 @@ void Configuration::transceiver_tune (bool on)
   m_->transceiver_tune (on);
 }
 
-void Configuration::transceiver_period (double period, bool force)
+void Configuration::transceiver_period (double period)
 {
 #if WSJT_TRACE_CAT
   qDebug () << "Configuration::transceiver_period:" << period << m_->cached_rig_state_;
 #endif
 
   if (!m_->can_control_rig ("transceiver_period")) return;
-  m_->transceiver_period (period, force);
+  m_->transceiver_period (period);
 }
 
 void Configuration::transceiver_blocksize (qint32 blocksize)
@@ -1323,25 +1358,26 @@ void Configuration::transceiver_blocksize (qint32 blocksize)
   m_->transceiver_blocksize (blocksize);
 }
 
-void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbolslength, double framespersymbol, double trfrequency,
-                     double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+void Configuration::transceiver_modulator_start (TxEvidence::TxRequest request)
 {
 #if WSJT_TRACE_CAT
-  qDebug () << "Configuration::transceiver_modulator_start:" << symbolslength << m_->cached_rig_state_;
+  qDebug () << "Configuration::transceiver_modulator_start:" << request.symbols_length << m_->cached_rig_state_;
 #endif
 
   if (!m_->can_control_rig ("transceiver_modulator_start")) return;
-  m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod);
+  m_->transceiver_modulator_start (request);
 }
 
-void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
+void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples,
+                                                   TxAudioQueueEpoch epoch,
+                                                   qint64 enqueueId)
 {
-  m_->transceiver_enqueue_jtty_pcm (samples, sessionId, enqueueId);
+  m_->transceiver_enqueue_jtty_pcm (samples, epoch, enqueueId);
 }
 
-void Configuration::transceiver_clear_jtty_pcm (qint64 sessionId)
+void Configuration::transceiver_clear_jtty_pcm (TxAudioQueueEpoch epoch)
 {
-  m_->transceiver_clear_jtty_pcm (sessionId);
+  m_->transceiver_clear_jtty_pcm (epoch);
 }
 
 void Configuration::transceiver_modulator_stop (bool on)
@@ -1412,7 +1448,7 @@ void Configuration::sync_transceiver (bool force_signal, bool enforce_mode_and_s
   m_->sync_transceiver (force_signal);
   if (!enforce_mode_and_split)
     {
-      m_->transceiver_tx_frequency (0);
+      m_->transceiver_tx_frequency (0, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection);
     }
 }
 
@@ -1880,6 +1916,26 @@ void Configuration::impl::register_settings_focus_page (QWidget * page, QList<QW
     }
 }
 
+void Configuration::impl::showEvent (QShowEvent * event)
+{
+  QDialog::showEvent (event);
+
+  auto * window = windowHandle ();
+  auto * screen = window ? window->screen () : QGuiApplication::primaryScreen ();
+  if (!screen)
+    {
+      return;
+    }
+
+  auto const bounded_size = SettingsDialogLayout::boundedWindowSize (
+    size (), screen->availableGeometry ().size (),
+    window ? window->frameMargins () : QMargins {});
+  if (bounded_size != size ())
+    {
+      resize (bounded_size);
+    }
+}
+
 QList<QWidget *> Configuration::impl::current_settings_focus_path () const
 {
   auto const current_page = ui_->configuration_tabs->currentWidget ();
@@ -1977,6 +2033,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
                            , QDir const& temp_directory, QSettings * settings, LogBook * logbook
                            , QWidget * parent)
   : QDialog {parent}
+  , construction_trace_ {"configuration.construct"}
   , self_ {self}
   , transceiver_thread_ {nullptr}
   , ui_ {new Ui::configuration_dialog}
@@ -1988,7 +2045,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , temp_dir_ {temp_directory}
   , writeable_data_dir_ {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}
   , lotw_users_ {network_manager_}
-  , cloudlog_ {self}
+  , cloudlog_ {self, network_manager_}
   , restart_sound_input_device_ {false}
   , restart_sound_output_device_ {false}
   , restart_tci_device_ {false}
@@ -2033,7 +2090,12 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , default_audio_input_device_selected_ {false}
   , default_audio_output_device_selected_ {false}
 {
-  ui_->setupUi (this);
+  {
+    PerformanceTrace::Phase ui_setup {"configuration.ui_setup"};
+    ui_->setupUi (this);
+  }
+
+  SettingsDialogLayout::install (*ui_);
 
   installEventFilter (this);
   ui_->configuration_tabs->setFocusPolicy (Qt::StrongFocus);
@@ -2186,7 +2248,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->enable_VHF_features_check_box,
     ui_->repeat_Tx_check_box,
     ui_->monitor_last_used_check_box,
-    ui_->tx_QSY_check_box,
+    ui_->tx_frequency_corrections_check_box,
     ui_->auto_astro_check_box,
     ui_->quick_call_check_box,
     ui_->decode_at_52s_check_box,
@@ -2377,7 +2439,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->cbCloudlog,
     ui_->leCloudlogApiUrl,
     ui_->leCloudlogApiKey,
-    ui_->sbCloudlogStationID,
+    ui_->cbCloudlogStationProfile,
     ui_->pbTestCloudlog,
     ui_->cbEQSL,
     ui_->eqsluser_edit,
@@ -2472,6 +2534,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   update_visibility_when_toggled (ui_->cbContestName);
 
   {
+    PerformanceTrace::Phase data_directories {"configuration.data_directories"};
     // Make sure the default save directory exists
     QString save_dir {"save"};
     default_save_directory_ = writeable_data_dir_;
@@ -2515,7 +2578,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   }
 
   // this must be done after the default paths above are set
-  read_settings ();
+  {
+    PerformanceTrace::Phase settings_read {"configuration.settings_read"};
+    read_settings ();
+  }
 
   // set up dynamic loading of audio devices
   connect (ui_->sound_input_combo_box, &LazyFillComboBox::about_to_show_popup, [this] () {
@@ -2552,19 +2618,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   lotw_users_.set_local_file_path (writeable_data_dir_.absoluteFilePath ("lotw-user-activity.csv"));
 
-  // set up Cloudlog API key test button
-  connect (&cloudlog_, &Cloudlog::apikey_ok, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: green;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key OK"));
-    });
-  connect (&cloudlog_, &Cloudlog::apikey_ro, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: orange;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key read-only"));
-    });
-  connect (&cloudlog_, &Cloudlog::apikey_invalid, [this] () {
-      ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: red;}");
-      ui_->pbTestCloudlog->setToolTip (tr ("API key invalid"));
-    });
+  connect (&cloudlog_, &Cloudlog::connection_check_finished, this, &Configuration::impl::handle_cloudlog_connection_check_result);
 
   //
   // validation
@@ -2622,7 +2676,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   //
   // setup PTT port combo box drop down content
   //
-  fill_port_combo_box (ui_->PTT_port_combo_box);
+  {
+    PerformanceTrace::Phase serial_ports {"configuration.serial_ports"};
+    fill_port_combo_box (ui_->PTT_port_combo_box);
+  }
   ui_->PTT_port_combo_box->addItem ("CAT");
   ui_->PTT_port_combo_box->setItemData (ui_->PTT_port_combo_box->count () - 1, "Delegate to proxy CAT service", Qt::ToolTipRole);
 
@@ -2755,8 +2812,14 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     });
   ui_->highlighting_actions_tool_button->setMenu (highlighting_actions_menu);
 
-  enumerate_rigs ();
-  initialize_models ();
+  {
+    PerformanceTrace::Phase rig_models {"configuration.rig_models"};
+    enumerate_rigs ();
+  }
+  {
+    PerformanceTrace::Phase models {"configuration.models_initialize"};
+    initialize_models ();
+  }
   restart_tci_device_ = false;
 
   audio_input_device_ = next_audio_input_device_;
@@ -2783,13 +2846,20 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->eqsluser_edit->setText (eqsl_username_);
   ui_->eqslpasswd_edit->setText (eqsl_passwd_);
   ui_->eqslnick_edit->setText (eqsl_nickname_);
+  construction_trace_.finish ();
 }
 
 Configuration::impl::~impl ()
 {
-  transceiver_thread_->quit ();
-  transceiver_thread_->wait ();
-  write_settings ();
+  {
+    PerformanceTrace::Phase transceiver_thread {"transceiver_thread.shutdown"};
+    transceiver_thread_->quit ();
+    transceiver_thread_->wait ();
+  }
+  {
+    PerformanceTrace::Phase settings_write {"configuration.settings_write"};
+    write_settings ();
+  }
 }
 
 void Configuration::impl::initialize_models ()
@@ -2839,7 +2909,7 @@ void Configuration::impl::initialize_models ()
   ui_->save_path_display_label->setText (save_directory_.absolutePath ());
   ui_->azel_path_display_label->setText (azel_directory_.absolutePath ());
   ui_->CW_id_after_73_check_box->setChecked (id_after_73_);
-  ui_->tx_QSY_check_box->setChecked (tx_QSY_allowed_);
+  ui_->tx_frequency_corrections_check_box->setChecked (tx_frequency_corrections_allowed_);
   ui_->progress_bar_check_box->setChecked (progressBar_red_);
   ui_->psk_reporter_check_box->setChecked (spot_to_psk_reporter_);
   ui_->psk_reporter_tcpip_check_box->setChecked (psk_reporter_tcpip_);
@@ -2900,7 +2970,11 @@ void Configuration::impl::initialize_models ()
   ui_->cbEQSL->setChecked(send_to_eqsl_);
   ui_->leCloudlogApiUrl->setText(cloudLogApiUrl_);
   ui_->leCloudlogApiKey->setText(cloudLogApiKey_);
-  ui_->sbCloudlogStationID->setValue (cloudLogStationID_);
+  ui_->cbCloudlogStationProfile->clear ();
+  if (cloudLogStationID_ > 0)
+    {
+      ui_->cbCloudlogStationProfile->addItem (QString::number (cloudLogStationID_), cloudLogStationID_);
+    }
   on_cbCloudlog_toggled (ui_->cbCloudlog->isChecked ());
   on_cbEQSL_toggled (ui_->cbEQSL->isChecked ());
   ui_->special_op_activity_button_group->button (SelectedActivity_)->setChecked (true);
@@ -3192,7 +3266,7 @@ void Configuration::impl::read_settings ()
   eqsl_nickname_ = settings_->value ("EQSLNick", "").toString ();
   send_to_eqsl_ = settings_->value ("EQSLSend", false).toBool ();
   id_after_73_ = settings_->value ("After73", false).toBool ();
-  tx_QSY_allowed_ = settings_->value ("TxQSYAllowed", false).toBool ();
+  tx_frequency_corrections_allowed_ = settings_->value ("TxQSYAllowed", false).toBool ();
   progressBar_red_ = settings_->value ("ProgressBarRed", true).toBool ();
   use_dynamic_grid_ = settings_->value ("AutoGrid", false).toBool ();
 
@@ -3534,7 +3608,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("EQSLPasswd", eqsl_passwd_);
   settings_->setValue ("EQSLNick", eqsl_nickname_);
   settings_->setValue ("After73", id_after_73_);
-  settings_->setValue ("TxQSYAllowed", tx_QSY_allowed_);
+  settings_->setValue ("TxQSYAllowed", tx_frequency_corrections_allowed_);
   settings_->setValue ("ProgressBarRed", progressBar_red_);
   settings_->setValue ("Macros", macros_.stringList ());
   settings_->setValue ("stations", QVariant::fromValue (stations_.station_list ()));
@@ -4151,7 +4225,7 @@ void Configuration::impl::accept ()
   RxBandwidth_ = ui_->sbBandwidth->value ();
   tci_audio_ = ui_->tci_audio_check_box->isChecked ();
   id_after_73_ = ui_->CW_id_after_73_check_box->isChecked ();
-  tx_QSY_allowed_ = ui_->tx_QSY_check_box->isChecked ();
+  tx_frequency_corrections_allowed_ = ui_->tx_frequency_corrections_check_box->isChecked ();
   progressBar_red_ = ui_->progress_bar_check_box->isChecked ();
   monitor_off_at_startup_ = ui_->monitor_off_check_box->isChecked ();
   monitor_last_used_ = ui_->monitor_last_used_check_box->isChecked ();
@@ -4212,7 +4286,7 @@ void Configuration::impl::accept ()
   send_to_eqsl_ = ui_->cbEQSL->isChecked ();
   cloudLogApiUrl_ = ui_->leCloudlogApiUrl->text ();
   cloudLogApiKey_ = ui_->leCloudlogApiKey->text ();
-  cloudLogStationID_ = ui_->sbCloudlogStationID->value ();
+  cloudLogStationID_ = cloudlog_station_profile_id ();
   SelectedActivity_ = ui_->special_op_activity_button_group->checkedId();
   x2ToneSpacing_ = ui_->cbx2ToneSpacing->isChecked ();
   x4ToneSpacing_ = ui_->cbx4ToneSpacing->isChecked ();
@@ -4742,18 +4816,84 @@ void Configuration::impl::on_test_CAT_push_button_clicked ()
 
 void Configuration::impl::on_pbTestCloudlog_clicked ()
 {
-  //fprintf(stderr, "API URL: %s\n", ui_->leCloudlogApiUrl->text().toStdString().c_str());
-  cloudlog_.testApi(ui_->leCloudlogApiUrl->text(), ui_->leCloudlogApiKey->text());
+  cloudlog_.checkConnection ({ui_->leCloudlogApiUrl->text (),
+                              ui_->leCloudlogApiKey->text (),
+                              cloudlog_station_profile_id ()});
+}
+
+void Configuration::impl::handle_cloudlog_connection_check_result (Cloudlog::ConnectionCheckResult const& result)
+{
+  if (!result.stationProfiles.isEmpty ())
+    {
+      set_cloudlog_station_profiles (result.stationProfiles);
+    }
+
+  ui_->pbTestCloudlog->setStyleSheet (cloudlog_connection_check_style (result.status));
+
+  auto tooltip = result.message;
+  if (!result.detail.isEmpty ())
+    {
+      tooltip += QStringLiteral ("\n") + result.detail;
+    }
+  ui_->pbTestCloudlog->setToolTip (tooltip);
+}
+
+void Configuration::impl::set_cloudlog_station_profiles (QList<Cloudlog::StationProfile> const& profiles)
+{
+  auto const current_id = cloudlog_station_profile_id ();
+  ui_->cbCloudlogStationProfile->clear ();
+  for (auto const& profile : profiles)
+    {
+      ui_->cbCloudlogStationProfile->addItem (Cloudlog::stationProfileDisplayText (profile), profile.id);
+    }
+
+  if (current_id > 0)
+    {
+      auto const index = ui_->cbCloudlogStationProfile->findData (current_id);
+      if (index >= 0)
+        {
+          ui_->cbCloudlogStationProfile->setCurrentIndex (index);
+        }
+      else
+        {
+          ui_->cbCloudlogStationProfile->insertItem (0, QString::number (current_id), current_id);
+          ui_->cbCloudlogStationProfile->setCurrentIndex (0);
+        }
+    }
+  else if (ui_->cbCloudlogStationProfile->count () > 0)
+    {
+      ui_->cbCloudlogStationProfile->setCurrentIndex (0);
+    }
+}
+
+qint32 Configuration::impl::cloudlog_station_profile_id () const
+{
+  bool ok {false};
+  auto const current_text = ui_->cbCloudlogStationProfile->currentText ().trimmed ();
+  auto const current_index = ui_->cbCloudlogStationProfile->currentIndex ();
+  if (current_index >= 0 && ui_->cbCloudlogStationProfile->itemText (current_index).trimmed () == current_text)
+    {
+      auto const data = ui_->cbCloudlogStationProfile->itemData (current_index);
+      auto const id = data.toInt (&ok);
+      if (ok && id > 0)
+        {
+          return id;
+        }
+    }
+
+  auto const prefix = current_text.section (QStringLiteral (" - "), 0, 0).trimmed ();
+  auto const text_id = prefix.toInt (&ok);
+  return ok && text_id > 0 ? text_id : 0;
 }
 
 void Configuration::impl::on_cbCloudlog_toggled (bool checked)
 {
   ui_->api_url_label->setEnabled (checked);
   ui_->api_key_label->setEnabled (checked);
-  ui_->station_id_label->setEnabled (checked);
+  ui_->station_profile_label->setEnabled (checked);
   ui_->leCloudlogApiUrl->setEnabled (checked);
   ui_->leCloudlogApiKey->setEnabled (checked);
-  ui_->sbCloudlogStationID->setEnabled (checked);
+  ui_->cbCloudlogStationProfile->setEnabled (checked);
   ui_->pbTestCloudlog->setEnabled (checked);
   ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: none;}");
 }
@@ -5871,6 +6011,8 @@ bool Configuration::impl::open_rig (bool force)
             });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
+          rig_connections_ << connect (rig.get (), &Transceiver::txSourceCommitted, self_, &Configuration::txSourceCommitted);
+          rig_connections_ << connect (rig.get (), &Transceiver::rawTxPlayoutSnapshot, self_, &Configuration::rawTxPlayoutSnapshot);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_drained, self_, &Configuration::transceiver_jtty_drained);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_accepted, self_, &Configuration::transceiver_jtty_enqueue_accepted);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
@@ -5933,50 +6075,74 @@ void Configuration::impl::set_cached_mode ()
   cached_rig_state_.mode (mode);
 }
 
-void Configuration::impl::transceiver_frequency (Frequency f)
+RigFrequencyChangePolicy::Activity Configuration::impl::frequency_change_activity () const
 {
-  cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
-
-  // apply any offset & calibration
-  // we store the offset here for use in feedback from the rig, we
-  // cannot absolutely determine if the offset should apply but by
-  // simply picking an offset when the Rx frequency is set and
-  // sticking to it we get sane behaviour
-  current_offset_ = stations_.offset (f);
-  cached_rig_state_.frequency (apply_calibration (f + current_offset_));
-
-  // qDebug () << "Configuration::impl::transceiver_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
-  LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
-  Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  return {false, false, false, false, false, false, false,
+          cached_rig_state_.ptt (), cached_rig_state_.tune ()};
 }
 
-void Configuration::impl::transceiver_tx_frequency (Frequency f)
+bool Configuration::impl::frequency_change_allowed (RigFrequencyChangePolicy::ChangeKind kind) const
 {
-  Q_ASSERT (!f || split_mode ());
-  if (split_mode ())
-    {
+  return RigFrequencyChangePolicy::evaluate (
+    kind, frequency_change_activity (), tx_frequency_corrections_allowed_).allowed;
+}
+
+bool Configuration::impl::transceiver_frequency (
+  Frequency f, RigFrequencyChangePolicy::ChangeKind kind)
+{
+  return RigFrequencyChangePolicy::applyIfAllowed (
+    kind, frequency_change_activity (), tx_frequency_corrections_allowed_, [this, f] {
       cached_rig_state_.online (true); // we want the rig online
       set_cached_mode ();
-      cached_rig_state_.split (f);
-      cached_rig_state_.tx_frequency (f);
 
-      // lookup offset for tx and apply calibration
-      if (f)
-        {
-          // apply and offset and calibration
-          // we store the offset here for use in feedback from the
-          // rig, we cannot absolutely determine if the offset should
-          // apply but by simply picking an offset when the Rx
-          // frequency is set and sticking to it we get sane behaviour
-          current_tx_offset_ = stations_.offset (f);
-          cached_rig_state_.tx_frequency (apply_calibration (f + current_tx_offset_));
-        }
+      // apply any offset & calibration
+      // we store the offset here for use in feedback from the rig, we
+      // cannot absolutely determine if the offset should apply but by
+      // simply picking an offset when the Rx frequency is set and
+      // sticking to it we get sane behaviour
+      current_offset_ = stations_.offset (f);
+      cached_rig_state_.frequency (apply_calibration (f + current_offset_));
 
-      // qDebug () << "Configuration::impl::transceiver_tx_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
+      // qDebug () << "Configuration::impl::transceiver_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
       LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
       Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    });
+}
+
+bool Configuration::impl::transceiver_tx_frequency (
+  Frequency f, RigFrequencyChangePolicy::ChangeKind kind)
+{
+  if (!RigFrequencyChangePolicy::tx_path_frequency_supported (f != 0, split_mode ()))
+    {
+      return false;
     }
+  return RigFrequencyChangePolicy::applyIfAllowed (
+    kind, frequency_change_activity (), tx_frequency_corrections_allowed_, [this, f] {
+      Q_ASSERT (!f || split_mode ());
+      if (split_mode ())
+        {
+          cached_rig_state_.online (true); // we want the rig online
+          set_cached_mode ();
+          cached_rig_state_.split (f);
+          cached_rig_state_.tx_frequency (f);
+
+          // lookup offset for tx and apply calibration
+          if (f)
+            {
+              // apply and offset and calibration
+              // we store the offset here for use in feedback from the rig, we
+              // cannot absolutely determine if the offset should apply but by
+              // simply picking an offset when the Rx frequency is set and
+              // sticking to it we get sane behaviour
+              current_tx_offset_ = stations_.offset (f);
+              cached_rig_state_.tx_frequency (apply_calibration (f + current_tx_offset_));
+            }
+
+          // qDebug () << "Configuration::impl::transceiver_tx_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
+          LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
+          Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+        }
+    });
 }
 
 void Configuration::impl::transceiver_mode (MODE m)
@@ -6022,19 +6188,13 @@ void Configuration::impl::transceiver_tune (bool on)
 }
 
 
-void Configuration::impl::transceiver_period (double period, bool force)
+void Configuration::impl::transceiver_period (double period)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
-  // force bypasses the de-dup so a caller can re-assert the period even when
-  // the cache already holds it but the rig never actually applied it (e.g. a
-  // period set that was emitted while the TCI rig was still offline).
-  if (force || cached_rig_state_.period() != period)
-  {
 //    printf("%s(%0.1f) Configuration #:%d period: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,period,cached_rig_state_.period());
-    cached_rig_state_.period (period);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
-  }
+  cached_rig_state_.period (period);
+  Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
 }
 
 void Configuration::impl::transceiver_blocksize (qint32 blocksize)
@@ -6109,36 +6269,30 @@ void Configuration::impl::transceiver_volume (double volume)
   }
 }
 
-void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned symbolslength, double framespersymbol, double frequency, double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+void Configuration::impl::transceiver_modulator_start (TxEvidence::TxRequest const& request)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
   if (!cached_rig_state_.tx_audio())
   {
     cached_rig_state_.tx_audio (true);
-    cached_rig_state_.symbolslength (symbolslength);
-    cached_rig_state_.framespersymbol (framespersymbol);
-    cached_rig_state_.trfrequency (frequency);
-    cached_rig_state_.tonespacing (tonespacing);
-    cached_rig_state_.synchronize (synchronize);
-    cached_rig_state_.dbsnr (dbsnr);
-    cached_rig_state_.trperiod (trperiod);
-    cached_rig_state_.jtmode(jtmode);
-    cached_rig_state_.fastmode(fastmode);
+    cached_rig_state_.tx_request (request);
     //    printf("%s(%0.1f) Configuration #:%d modulator_start: symbolslength=%d framespersymbol=%0.1f frequency=%0.1f tonespacing=%0.1f synchronize= %d dbsnr=%0.1f trperiod=%0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,symbolslength,framespersymbol,frequency,tonespacing,synchronize,dbsnr,trperiod);
     Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
   }
 //  else printf("%s(%0.1f) Configuration modulator_start: WAS ALLREADY RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
 }
 
-void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
+void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples,
+                                                         TxAudioQueueEpoch epoch,
+                                                         qint64 enqueueId)
 {
-  Q_EMIT enqueue_jtty_pcm (samples, sessionId, enqueueId);
+  Q_EMIT enqueue_jtty_pcm (samples, epoch, enqueueId);
 }
 
-void Configuration::impl::transceiver_clear_jtty_pcm (qint64 sessionId)
+void Configuration::impl::transceiver_clear_jtty_pcm (TxAudioQueueEpoch epoch)
 {
-  Q_EMIT clear_jtty_pcm (sessionId);
+  Q_EMIT clear_jtty_pcm (epoch);
 }
 
 void Configuration::impl::transceiver_modulator_stop (bool on)
@@ -6231,7 +6385,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 void Configuration::impl::handle_transceiver_failure (QString const& reason)
 {
   LOG_ERROR ("handle_transceiver_failure: " << summarize_transceiver_failure (reason));
-  close_rig ();
+  close_rig (true);
   ui_->test_PTT_push_button->setChecked (false);
 
   if (isVisible ())
@@ -6245,13 +6399,14 @@ void Configuration::impl::handle_transceiver_failure (QString const& reason)
     }
 }
 
-void Configuration::impl::close_rig ()
+void Configuration::impl::close_rig (bool failed)
 {
   ui_->test_PTT_push_button->setEnabled (false);
 
   // revert to no rig configured
   if (rig_active_)
     {
+      Q_EMIT self_->transceiver_closing (failed);
       ui_->test_CAT_push_button->setStyleSheet ("QPushButton {background-color: red;}");
       LOG_TRACE ("emitting stop_transceiver");
       Q_EMIT stop_transceiver ();

@@ -16,6 +16,7 @@ set (wsjt_qt_CXXSRCS
   widgets/MessageBox.cpp
   MetaDataRegistry.cpp
   Network/NetworkServerLookup.cpp
+  Network/DecodedTime.cpp
   revision_utils.cpp
   L10nLoader.cpp
   HighDpiScaling.cpp
@@ -34,15 +35,18 @@ set (wsjt_qt_CXXSRCS
   item_delegates/ForeignKeyDelegate.cpp
   item_delegates/MessageItemDelegate.cpp
   validators/LiveFrequencyValidator.cpp
+  validators/LiveCQCallsign.cpp
   GetUserId.cpp
   Audio/AudioDevice.cpp
+  Audio/TxPlaybackDiagnostics.cpp
+  Audio/TxAudioQueue.cpp
   Modulator/JttyPcmFifo.cpp
-  Modulator/JttyTxBuffer.cpp
   Transceiver/Transceiver.cpp
   Transceiver/TransceiverBase.cpp
   Transceiver/EmulateSplitTransceiver.cpp
   Transceiver/TransceiverFactory.cpp
   Transceiver/PollingTransceiver.cpp
+  Transceiver/HamlibMode.cpp
   Transceiver/HamlibTransceiver.cpp
   Transceiver/TCITransceiver.cpp
   Transceiver/HRDMessage.cpp
@@ -54,14 +58,17 @@ set (wsjt_qt_CXXSRCS
   widgets/HintedSpinBox.cpp
   widgets/RestrictedSpinBox.cpp
   widgets/HelpTextWindow.cpp
+  widgets/SettingsDialogLayout.cpp
   SampleDownloader.cpp
   SampleDownloader/DirectoryDelegate.cpp
   SampleDownloader/Directory.cpp
   SampleDownloader/FileNode.cpp
   SampleDownloader/RemoteFile.cpp
   DisplayManual.cpp
+  PerformanceTrace.cpp
   WSJTXLogging.cpp
   Decoder/decodedtext.cpp
+  qmap/qmap_decode_record.cpp
   Configuration.cpp
   logbook/logbook.cpp
   logbook/AdifQso.cpp
@@ -111,6 +118,7 @@ set (wsjt_qt_CXXSRCS
   )
 
 set (wsjt_qtmm_CXXSRCS
+  Audio/AudioStreamDescriptor.cpp
   Audio/BWFFile.cpp
   Audio/WavFile.cpp
   )
@@ -136,6 +144,9 @@ set (jt9stream_FSRCS
   )
 
 set (wsjtx_CXXSRCS
+  Audio/AudioInputSource.hpp
+  Audio/AudioStreamClock.hpp
+  DecoderOutputFramer.cpp
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
   Network/PSKReporterIPFIX.cpp
@@ -166,6 +177,9 @@ set (wsjtx_CXXSRCS
   HighlightingRules.cpp
   HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
+  DecoderIpc.cpp
+  Ft8MtdDecodeScheduler.cpp
+  Ft8MtdDecodeCoordinator.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
@@ -186,8 +200,19 @@ set (wsjtx_CXXSRCS
   widgets/MMTTYIF.cpp
   )
 
+if (WSJT_ENABLE_TESTS)
+  list (APPEND wsjtx_CXXSRCS
+    Audio/FixtureAudioInput.cpp
+    Audio/FixtureSoundOutput.cpp
+    Ft8TxLoopbackTestController.cpp
+    JttyTxLoopbackTestController.cpp
+    LiveAudioTestController.cpp
+    )
+endif ()
+
 set (wsjt_CXXSRCS
   Logger.cpp
+  lib/decoder_ipc_control.cpp
   lib/crc10.cpp
   lib/crc13.cpp
   lib/crc14.cpp
@@ -216,7 +241,10 @@ set (wsjt_FSRCS
   # put module sources first in the hope that they get rebuilt before use
   lib/types.f90
   lib/C_interface_module.f90
+  lib/decoder_ipc_atomic.f90
+  lib/decode_completion.f90
   lib/jt9_input_validation.f90
+  lib/msk_spectrum.f90
   lib/shmem.f90
   lib/crc.f90
   lib/fftw3mod.f90
@@ -241,6 +269,7 @@ set (wsjt_FSRCS
   lib/77bit/packjt77_schema.f90
   lib/77bit/packjt77_grammar.f90
   lib/77bit/packjt77.f90
+  lib/qra/q65/q65_workspace.f90
   lib/qra/q65/q65.f90
   lib/q65_decode.f90
   lib/readwav.f90
@@ -255,6 +284,8 @@ set (wsjt_FSRCS
   lib/superfox/julian.f90
   lib/superfox/popen_module.f90
   lib/superfox/qpc/qpc_mod.f90
+  lib/ft8var/ft8_decode_ranges.f90
+  lib/ft8var/ft8_mtd_residual.f90
   lib/ft8var/ft8_decodevar.f90
   lib/jtty/jtty_mod.f90
   lib/jtty/jtty_fec_mod.f90
@@ -301,6 +332,7 @@ set (wsjt_FSRCS
   lib/decode9w.f90
   lib/decode_echo.f90
   lib/ft8/decode174_91.f90
+  lib/decoder_callbacks.f90
   lib/decoder.f90
   lib/env_module.f90
   lib/deep4.f90
@@ -606,6 +638,7 @@ set (qra_CSRCS
 
 set (wsjt_CSRCS
   ${ka9q_CSRCS}
+  lib/ft8var/ft8_tsan.c
   lib/ftrsd/ftrsdap.c
   lib/sgran.c
   lib/golay24_table.c
@@ -730,6 +763,16 @@ set (TOP_LEVEL_RESOURCES
   artwork/splash.png
   )
 
+set (WSJTX_DATA_FILES
+  cty.dat
+  cty.dat_copyright.txt
+  grid.dat
+  sat.dat
+  contrib/Ephemeris/JPLEPH
+  eclipse.txt
+  ALLCALL7.TXT
+  )
+
 set (PALETTE_FILES
   Palettes/Banana.pal
   Palettes/Blue1.pal
@@ -764,6 +807,9 @@ set (PALETTE_FILES
 
 if (APPLE)
   set (WSJTX_ICON_FILE ${CMAKE_PROJECT_NAME}.icns)
+  set (wsjtx_BUNDLE_DATA_FILES ${WSJTX_DATA_FILES})
+  set_source_files_properties (${wsjtx_BUNDLE_DATA_FILES}
+    PROPERTIES MACOSX_PACKAGE_LOCATION Resources/wsjtx)
   set (ICONSRCS
     icons/Darwin/${CMAKE_PROJECT_NAME}.iconset/icon_16x16.png
     icons/Darwin/${CMAKE_PROJECT_NAME}.iconset/icon_16x16@2x.png
@@ -789,7 +835,7 @@ endif (APPLE)
 set_source_files_properties (${WSJTX_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
 # suppress intransigent compiler diagnostics
-set_source_files_properties (lib/decoder.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
+set_source_files_properties (lib/decoder_callbacks.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
 set_source_files_properties (
   lib/filbig.f90
   lib/ft8var/filbigvar.f90
@@ -798,7 +844,7 @@ set_source_files_properties (
 # foxgen.f90's fname is genuine C++-supplied state (see mainwindow.cpp
 # call sites) that the current Fortran implementation doesn't happen to
 # reference; removing it would mean touching those call sites too, so we
-# suppress the warning here instead, matching lib/decoder.f90 above. The
+# suppress the warning here instead, matching lib/decoder_callbacks.f90 above. The
 # equivalent qmap/libqmap and map65/libm65 cases are set in those
 # subdirectories' own CMakeLists.txt -- set_source_files_properties() is
 # scoped to the directory it's called from, so it can't be done from here.

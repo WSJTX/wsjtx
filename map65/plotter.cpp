@@ -11,6 +11,8 @@
 
 #define MAX_SCREENSIZE 2048
 
+extern int g_sampleRate;
+extern int g_activeNfft;
 
 CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   QFrame(parent)
@@ -39,13 +41,24 @@ CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   m_fQSO = 125;
   m_TXkHz = m_fQSO;
   m_line = 0;
-  m_fSample = 96000;
   m_paintAllZoom = false;
   m_TxDF=0;
   m_bDecodeFinished=false;
 }
 
 CPlotter::~CPlotter() { }                                      // Destructor
+
+void CPlotter::ensureWaterfallHistory(int rows)
+{
+  rows = std::max(0, rows);
+  int stride = std::max(0, g_activeNfft);
+  size_t size = static_cast<size_t>(stride) * static_cast<size_t>(rows);
+  if (m_waterfallStride != stride || m_waterfallRows != rows || m_zwf.size() != size) {
+    m_zwf.assign(size, 0);
+    m_waterfallStride = stride;
+    m_waterfallRows = rows;
+  }
+}
 
 QSize CPlotter::minimumSizeHint() const
 {
@@ -64,14 +77,14 @@ void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
     //if changed, resize pixmaps to new screensize
     m_Size = size();
     int w = m_Size.width();
-    int h = (m_Size.height()-60)/2;
+    int h = std::max(0, (m_Size.height()-60)/2);
     m_WaterfallPixmap = QPixmap(w,h);
     m_ZoomWaterfallPixmap = QPixmap(w,h);
     m_2DPixmap = QPixmap(w,h);
     m_WaterfallPixmap.fill(Qt::black);
     m_ZoomWaterfallPixmap.fill(Qt::black);
     m_2DPixmap.fill(Qt::black);
-    memset(m_zwf,0,32768*h);
+    ensureWaterfallHistory(h);
     m_ScalePixmap = QPixmap(w,30);
     m_ZoomScalePixmap = QPixmap(w,30);    //(no change on resize...)
     m_ScalePixmap.fill(Qt::white);
@@ -106,24 +119,34 @@ void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
   QRect source(0,0,w,30);
   painter.drawPixmap(target,m_ZoomScalePixmap,source);
 
-  float df=m_fSample/32768.0;
-  int x0=16384 + (0.001*(m_ZoomStartFreq+m_fCal)+m_fQSO-m_nkhz+1.27046) * \
+  float df = float(g_sampleRate) / float(g_activeNfft);
+  int x0 = g_activeNfft/2 + (0.001*(m_ZoomStartFreq+m_fCal)+m_fQSO-m_nkhz+1.27046) * \
       1000.0/df + 0.5;
 
   QPainter painter1(&m_WaterfallPixmap);
   QPainter painter2(&m_ZoomWaterfallPixmap);
   for(int i=0; i<w; i++) {                      //Paint the top row
-    painter2.setPen(m_ColorTbl[m_zwf[x0+i]]);
+    int idx = x0 + i;
+    unsigned char color = 0;
+    if (idx >= 0 && idx < m_waterfallStride && !m_zwf.empty()) {
+      color = m_zwf[static_cast<size_t>(idx)];
+    }
+    painter2.setPen(m_ColorTbl[color]);
     painter2.drawPoint(i,0);
   }
   if(m_paintAllZoom or (x0 != x00 and x00 != -99)) {
     // If new fQSO, paint all rows
     int k=x0;
     for(int j=1; j<h; j++) {
-      k += 32768;
+      k += g_activeNfft;
       if(x0 != x00 and x00 != -99) {
         for(int i=0; i<w; i++) {
-          painter2.setPen(m_ColorTbl[m_zwf[i+k]]);
+          int idx = k + i;
+          unsigned char color = 0;
+          if (idx >= 0 && static_cast<size_t>(idx) < m_zwf.size()) {
+            color = m_zwf[static_cast<size_t>(idx)];
+          }
+          painter2.setPen(m_ColorTbl[color]);
           painter2.drawPoint(i,j);
         }
       }
@@ -196,13 +219,17 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
   m_i0=i0;
   w = m_WaterfallPixmap.width();
   h = m_WaterfallPixmap.height();
+  ensureWaterfallHistory(h);
   double gain = pow(10.0,0.05*(m_plotGain+7));
 
   //move current data down one line
   //(must do this before attaching a QPainter object)
   m_WaterfallPixmap.scroll(0,1,0,0,w,h);
   m_ZoomWaterfallPixmap.scroll(0,1,0,0, w, h);
-  memmove(&m_zwf[32768],m_zwf,32768*(h-1));
+  if (m_waterfallStride > 0 && m_waterfallRows > 1) {
+    size_t stride = static_cast<size_t>(m_waterfallStride);
+    memmove(&m_zwf[stride], m_zwf.data(), stride * static_cast<size_t>(m_waterfallRows - 1));
+  }
   QPainter painter1(&m_WaterfallPixmap);
   QPainter painter2D(&m_2DPixmap);
 
@@ -251,14 +278,17 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
     }
   }
 
-  for(i=0; i<32768; i++) {
+  int rowBins = std::min(g_activeNfft, m_waterfallStride);
+  for (i = 0; i < rowBins; i++) {
     y = 10.0*log10(splot[i]);
     int y1 = 5.0*gain*(y + 30 - m_plotZero);
     if (y1<0) y1=0;
     if (y1>254) y1=254;
     if (splot[i]>1.e29) y1=255;
     m_hist2[y1]++;
-    m_zwf[i]=y1;
+    if (!m_zwf.empty()) {
+      m_zwf[static_cast<size_t>(i)] = static_cast<unsigned char>(y1);
+    }
   }
 
   if(s[0]>1.0e29) m_line=0;
@@ -305,10 +335,17 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
   painter0.setFont(Font);
   painter0.setPen(Qt::black);
 
-  m_binsPerPixel = m_nSpan * 32768.0/(w*0.001*m_fSample) + 0.5;
   double FreqPerDiv=5.0;
-  double df = m_binsPerPixel*0.001*m_fSample/32768.0;
-  m_hdivs = w*df/FreqPerDiv + 0.9999;
+  double df = m_binsPerPixel * 0.001 * double(g_sampleRate) / double(g_activeNfft);
+  m_fSpan = w * df;
+
+  m_hdivs = int(w * df / FreqPerDiv + 0.9999);
+  // Clamp to array size
+  const int MAX_HDIVS = 482;
+  if (m_hdivs < 0) m_hdivs = 0;
+  if (m_hdivs > MAX_HDIVS) m_hdivs = MAX_HDIVS;
+
+
   m_fSpan = w*df;
   m_ScalePixmap.fill(Qt::white);
   painter0.drawRect(0, 0, w, 30);
@@ -355,7 +392,7 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
     painter0.setPen(pen0);
     x = m_xClick;
     painter0.drawLine(x,15,x,30);
-    int x0=(16384-m_i0)/m_binsPerPixel;
+    int x0=((g_activeNfft/2) - m_i0)/m_binsPerPixel;
     m_fGreen=(x-x0)*df;
     x0 += (x0-x);
     QPen pen3(Qt::red, 3);
@@ -379,8 +416,10 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
   painter3.setPen(Qt::black);
 
   FreqPerDiv=0.2;
-  df = 0.001*m_fSample/32768.0;
-  m_hdivs = 32768*df/FreqPerDiv + 0.9999;
+  df = 0.001f * float(g_sampleRate) / float(g_activeNfft);
+  m_hdivs = int(g_activeNfft * df / FreqPerDiv + 0.9999);
+  if (m_hdivs < 0) m_hdivs = 0;
+  if (m_hdivs > MAX_HDIVS) m_hdivs = MAX_HDIVS;
   int nlabs=df*w/0.2 + 1.0;
   m_ZoomScalePixmap.fill(Qt::white);
   painter3.drawRect(0, 0, w, 30);
@@ -402,7 +441,7 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
                       m_HDivText[i]);
   }
 
-  df=m_fSample/32768.0;
+  df = float(g_sampleRate) / float(g_activeNfft);
   if(m_bLockTxRx) m_TxDF=m_DF;
   x = (m_DF + m_mode65*66*11025.0/4096.0 - m_ZoomStartFreq)/df;
   QPen pen2(Qt::darkGreen, 3);      //Mark top JT65B tone with dark Green tick
@@ -431,6 +470,7 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
 
 void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
 {
+
   float StartFreq = m_StartFreq;
   float freq;
   int i,j;
@@ -440,7 +480,7 @@ void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
     m_FreqUnits = 1;
     FreqPerDiv = 200;
     int w = m_WaterfallPixmap.width();
-    float df=m_fSample/32768.0;
+    float df = float(g_sampleRate) / float(g_activeNfft);
     StartFreq = -w*df/2;
     int n=StartFreq/FreqPerDiv;
     StartFreq=n*200;
@@ -631,8 +671,9 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
       m_TXfreq = floor(static_cast<int>(getFcenter())) + 0.001*m_TXkHz;
     }
   } else {                                            // Zoomed waterfall
-    if(button==1) m_DF=int(m_ZoomStartFreq + x*m_fSample/32768.0);
-    if(button==2 and !m_bLockTxRx) m_TxDF=int(m_ZoomStartFreq + x*m_fSample/32768.0);
+    float df = float(g_sampleRate) / float(g_activeNfft);
+    if (button == 1) m_DF  = int(m_ZoomStartFreq + x * df);
+    if (button == 2 && !m_bLockTxRx) m_TxDF = int(m_ZoomStartFreq + x * df);
     if(m_bLockTxRx) m_TxDF=m_DF;
   }
   DrawOverlay();
@@ -657,7 +698,8 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
     setFQSO(x,false);
     emit freezeDecode1(2);                  //### ???
   } else {
-    float f = m_ZoomStartFreq + x*m_fSample/32768.0;
+    float df = float(g_sampleRate) / float(g_activeNfft);
+    float f  = m_ZoomStartFreq + x * df;
     m_DF=int(f);
     emit freezeDecode1(1);
     DrawOverlay();
@@ -679,7 +721,7 @@ int CPlotter::autoZero()                                        //autoZero()
   int sum2=0;
   for(int i=0; i<256; i++) {
     sum2 += m_hist2[i];
-    if(sum2 > 16384) {
+    if (sum2 > g_activeNfft/2)  {
       m_z2=i;
       break;
     }
@@ -694,8 +736,23 @@ int CPlotter::autoZero()                                        //autoZero()
 void CPlotter::setNSpan(int n)                                  //setNSpan()
 {
   m_nSpan=n;
+//  ui->widePlot->resetWaterfall();
 }
+/*
+void CPlotter::resetWaterfall()
+{
+    int w = m_WaterfallPixmap.width();
+    int h = m_WaterfallPixmap.height();
 
+    m_WaterfallPixmap = QPixmap(w, h);
+    m_WaterfallPixmap.fill(Qt::black);
+
+    m_ScalePixmap = QPixmap(w, 30);
+    m_ScalePixmap.fill(Qt::white);
+
+    m_lastWaterfallLine = 0;
+}
+*/
 void CPlotter::setPalette(QString palette)                      //setPalette()
 {
   if(palette=="Linrad") {
@@ -754,11 +811,6 @@ void CPlotter::setPalette(QString palette)                      //setPalette()
   }
 }
 
-void CPlotter::setFsample(int n)
-{
-  m_fSample=n;
-}
-
 void CPlotter::setMode65(int n)
 {
   m_mode65=n;
@@ -805,8 +857,8 @@ void CPlotter::mouseMoveEvent (QMouseEvent * event)
 #endif   
   bool lower=(y > 30+h);
   float freq=FreqfromX(x);
-  float df=m_fSample/32768.0;
-  int ndf=x*df + m_ZoomStartFreq;
+  float df = float(g_sampleRate) / float(g_activeNfft);
+  int ndf  = int(x * df + m_ZoomStartFreq + 0.5f);
   if(lower) {
     QToolTip::showText(
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)

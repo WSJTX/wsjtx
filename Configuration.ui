@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
@@ -75,23 +75,27 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QLineEdit" name="grid_line_edit">
-                <property name="toolTip">
-                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maidenhead locator, preferably 6 characters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                </property>
-               </widget>
+               <layout class="QHBoxLayout" name="grid_controls_layout">
+                <item>
+                 <widget class="QLineEdit" name="grid_line_edit">
+                  <property name="toolTip">
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maidenhead locator, preferably 6 characters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="use_dynamic_grid">
+                  <property name="toolTip">
+                   <string>Check to allow grid changes from external programs</string>
+                  </property>
+                  <property name="text">
+                   <string>AutoGrid</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </item>
              </layout>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="use_dynamic_grid">
-              <property name="toolTip">
-               <string>Check to allow grid changes from external programs</string>
-              </property>
-              <property name="text">
-               <string>AutoGrid</string>
-              </property>
-             </widget>
             </item>
             <item>
              <layout class="QFormLayout" name="formLayout_2">
@@ -400,12 +404,12 @@ text message.</string>
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QCheckBox" name="tx_QSY_check_box">
+           <widget class="QCheckBox" name="tx_frequency_corrections_check_box">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some rigs are not able to process CAT commands while transmitting. This means that if you are operating in split mode you may have to uncheck this option.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allow automatic Doppler tracking and split/Fake It/XIT to correct the transmit frequency while transmitting, including corrections of tens of kHz on microwave bands.&lt;/p&gt;&lt;p&gt;This option does not allow nominal dial or band changes while transmitting or tuning. Leave it unchecked if your rig cannot accept frequency-setting CAT commands while transmitting; WSJT-X will then make one midpoint Doppler correction before transmission starts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Allow Tx frequency changes while transmitting</string>
+             <string>Allow Tx-frequency corrections while transmitting</string>
             </property>
            </widget>
           </item>
@@ -2986,8 +2990,11 @@ Right click for insert and delete options.</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_5">
           <item row="1" column="0" colspan="2">
-           <layout class="QHBoxLayout" name="horizontalLayout_20">
-            <item>
+           <layout class="QGridLayout" name="horizontalLayout_20">
+            <property name="verticalSpacing">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
              <widget class="QToolButton" name="highlighting_actions_tool_button">
               <property name="toolTip">
                <string>Change or reset colors for the selected highlighting rule.</string>
@@ -3000,7 +3007,7 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="0" column="1">
              <widget class="QPushButton" name="move_highlighting_up_push_button">
               <property name="toolTip">
                <string>Move the selected highlighting rule earlier in priority order.</string>
@@ -3010,7 +3017,7 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="1" column="0">
              <widget class="QPushButton" name="move_highlighting_down_push_button">
               <property name="toolTip">
                <string>Move the selected highlighting rule later in priority order.</string>
@@ -3020,7 +3027,7 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="1" column="1">
              <widget class="QPushButton" name="reset_highlighting_to_defaults_push_button">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -3030,14 +3037,14 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="2" column="0">
              <widget class="QPushButton" name="reset_highlighting_to_defaults2_push_button">
               <property name="text">
                <string>Reset Highlighting to Default 2</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="2" column="1">
              <widget class="QPushButton" name="rescan_log_push_button">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -3052,13 +3059,16 @@ Right click for insert and delete options.</string>
           <item row="0" column="0" colspan="2">
            <widget class="DecodeHighlightingListView" name="highlighting_list_view">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
             <property name="contextMenuPolicy">
              <enum>Qt::ActionsContextMenu</enum>
+            </property>
+            <property name="verticalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
             </property>
             <property name="acceptDrops">
              <bool>true</bool>
@@ -3141,7 +3151,7 @@ Right click for insert and delete options.</string>
             <item row="0" column="2">
              <widget class="QCheckBox" name="highlight_orange_check_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with orange background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with orange background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma. Wildcards (*) are allowed after single-character prefixes to match compound-prefix entities too (e.g. ;K*;); without the wildcard, a single-character prefix only matches calls whose 2nd character is a digit. To exclude a 2- or 3-character prefix even when a wildcard would otherwise match it, place an exclamation mark before and after it (e.g. ;K*;!KH6!KL!KP!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Highlight orange:</string>
@@ -3151,7 +3161,7 @@ Right click for insert and delete options.</string>
             <item row="2" column="2">
              <widget class="QCheckBox" name="highlight_blue_check_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with blue background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with blue background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma. Wildcards (*) are allowed after single-character prefixes to match compound-prefix entities too (e.g. ;K*;); without the wildcard, a single-character prefix only matches calls whose 2nd character is a digit. To exclude a 2- or 3-character prefix even when a wildcard would otherwise match it, place an exclamation mark before and after it (e.g. ;K*;!KH6!KL!KP!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Highlight blue:</string>
@@ -3161,14 +3171,14 @@ Right click for insert and delete options.</string>
             <item row="1" column="2">
              <widget class="QLineEdit" name="highlight_orange_callsigns">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with orange background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with orange background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma. Wildcards (*) are allowed after single-character prefixes to match compound-prefix entities too (e.g. ;K*;); without the wildcard, a single-character prefix only matches calls whose 2nd character is a digit. To exclude a 2- or 3-character prefix even when a wildcard would otherwise match it, place an exclamation mark before and after it (e.g. ;K*;!KH6!KL!KP!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </item>
             <item row="3" column="2">
              <widget class="QLineEdit" name="highlight_blue_callsigns">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with blue background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with blue background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma. Wildcards (*) are allowed after single-character prefixes to match compound-prefix entities too (e.g. ;K*;); without the wildcard, a single-character prefix only matches calls whose 2nd character is a digit. To exclude a 2- or 3-character prefix even when a wildcard would otherwise match it, place an exclamation mark before and after it (e.g. ;K*;!KH6!KL!KP!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </item>
@@ -3430,22 +3440,22 @@ Right click for insert and delete options.</string>
              </widget>
             </item>
             <item row="2" column="0">
-             <widget class="QLabel" name="station_id_label">
+             <widget class="QLabel" name="station_profile_label">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Station ID.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Cloudlog or Wavelog station profile.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
-               <string>Station ID: </string>
+               <string>Station profile: </string>
               </property>
               <property name="buddy">
-               <cstring>sbCloudlogStationID</cstring>
+               <cstring>cbCloudlogStationProfile</cstring>
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
-             <widget class="QSpinBox" name="sbCloudlogStationID">
+            <item row="2" column="1" colspan="2">
+             <widget class="QComboBox" name="cbCloudlogStationProfile">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
@@ -3463,13 +3473,13 @@ Right click for insert and delete options.</string>
                </size>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Station ID.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your Cloudlog or Wavelog station profile.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
-              <property name="minimum">
-               <number>1</number>
+              <property name="editable">
+               <bool>true</bool>
               </property>
-              <property name="maximum">
-               <number>999999</number>
+              <property name="insertPolicy">
+               <enum>QComboBox::NoInsert</enum>
               </property>
              </widget>
             </item>
@@ -3490,25 +3500,12 @@ Right click for insert and delete options.</string>
             <item row="2" column="3">
              <widget class="QPushButton" name="pbTestCloudlog">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Test the Cloudlog or Wavelog API key.&lt;/p&gt;&lt;p&gt;The button will turn green if the API key is writable. It will turn orange if the API key is read-only. If the API key is invalid it will turn red.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check the Cloudlog or Wavelog connection, API key, station profile, and upload path where safe.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection can upload QSOs, orange if the key is valid but read-only, and red if the configuration is unusable.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
-               <string>Test API Key</string>
+               <string>Check Connection</string>
               </property>
              </widget>
-            </item>
-            <item row="2" column="2">
-             <spacer name="horizontalSpacer_13">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
             </item>
            </layout>
           </item>
@@ -3610,11 +3607,11 @@ Right click for insert and delete options.</string>
           </item>
           <item row="3" column="0" colspan="2">
            <widget class="QGroupBox" name="groupBox_10">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>50</height>
-             </size>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
             <property name="accessibleName">
              <string>Tone spacing</string>
@@ -3657,11 +3654,11 @@ Right click for insert and delete options.</string>
           </item>
           <item row="4" column="0" colspan="2">
            <widget class="QGroupBox" name="groupBox_7">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>50</height>
-             </size>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
             <property name="accessibleName">
              <string>Waterfall spectra</string>
@@ -5395,7 +5392,7 @@ Right click for insert and delete options.</string>
   <tabstop>cbCloudlog</tabstop>
   <tabstop>leCloudlogApiUrl</tabstop>
   <tabstop>leCloudlogApiKey</tabstop>
-  <tabstop>sbCloudlogStationID</tabstop>
+  <tabstop>cbCloudlogStationProfile</tabstop>
   <tabstop>pbTestCloudlog</tabstop>
   <tabstop>cbEQSL</tabstop>
   <tabstop>eqsluser_edit</tabstop>

@@ -1,6 +1,8 @@
-subroutine decode_msk144(audio_samples, params, data_dir)
+subroutine decode_msk144_core(audio_samples, params, data_dir, completion)
   use streaming_emit, only: streaming_emit_enabled,                        &
-       streaming_emit_decode, streaming_emit_decode_finished
+       streaming_emit_decode
+  use decode_completion_module, only: decode_completion_result,           &
+       reset_decode_completion, set_decode_completion
   include 'jt9com.f90'
 
   ! constants
@@ -13,6 +15,7 @@ subroutine decode_msk144(audio_samples, params, data_dir)
   integer*2 audio_samples(NMAX)
   type(params_block) :: params
   character(len = 500) :: data_dir
+  type(decode_completion_result), intent(out) :: completion
 
   ! parameters of mskrtd
   integer*2 :: buffer(BLOCK_SIZE)
@@ -28,7 +31,10 @@ subroutine decode_msk144(audio_samples, params, data_dir)
   ! local variables
   integer :: sample_count
   integer :: position
-  integer :: message_count = 0
+  integer :: message_count
+
+  call reset_decode_completion(completion)
+  message_count = 0
 
 
   ! decode in 0.3s blocks
@@ -55,12 +61,7 @@ subroutine decode_msk144(audio_samples, params, data_dir)
     end if
   end do
 
-  if (streaming_emit_enabled()) then
-    call streaming_emit_decode_finished(params%nutc)
-  else if (.not. params%ndiskdat) then
-    write(*, 1002) 0, message_count, 0
-    1002 format('<DecodeFinished>', 2i4, i9)
-  end if
+  call set_decode_completion(completion, 0, message_count, 0)
 
 contains
 
@@ -84,4 +85,26 @@ contains
          adjustl(msg_l))
   end subroutine emit_msk144_line
 
+end subroutine decode_msk144_core
+
+subroutine decode_msk144(audio_samples, params, data_dir)
+  use streaming_emit, only: streaming_emit_enabled,                        &
+       streaming_emit_decode_finished
+  use decode_completion_module, only: decode_completion_result,           &
+       write_decode_completion
+
+  include 'jt9com.f90'
+
+  integer*2 audio_samples(NMAX)
+  type(params_block) :: params
+  character(len = 500) :: data_dir
+  type(decode_completion_result) :: completion
+
+  call decode_msk144_core(audio_samples, params, data_dir, completion)
+  if (streaming_emit_enabled()) then
+    call streaming_emit_decode_finished(params%nutc)
+  else if (.not. params%ndiskdat) then
+    call write_decode_completion(completion)
+    call flush(6)
+  end if
 end subroutine decode_msk144

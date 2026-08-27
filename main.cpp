@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <ios>
 #include <locale>
+#include <memory>
 #include <fftw3.h>
 
 #include <QApplication>
@@ -24,6 +25,7 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QLockFile>
@@ -39,9 +41,12 @@
 #include <QBitArray>
 #include <QMetaType>
 #include <QPushButton>
+#include <QMessageBox>
+#include <QProgressDialog>
 
 #include "ExceptionCatchingApplication.hpp"
 #include "Logger.hpp"
+#include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
 #include "HighDpiScaling.hpp"
 #include "MetaDataRegistry.hpp"
@@ -52,7 +57,19 @@
 #include "WSJTXLogging.hpp"
 #include "MultiSettings.hpp"
 #include "widgets/mainwindow.h"
+#include "Audio/AudioInputSource.hpp"
+#include "Audio/soundout.h"
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+#include "Audio/BWFFile.hpp"
+#include "Audio/FixtureAudioInput.hpp"
+#include "Audio/FixtureSoundOutput.hpp"
+#include "Ft8TxLoopbackTestController.hpp"
+#include "JttyTxLoopbackTestController.hpp"
+#include "LiveAudioTestController.hpp"
+#include <QAudioFormat>
+#endif
 #include "commons.h"
+#include "DecoderIpc.hpp"
 #include "lib/init_random_seed.h"
 #include "Radio.hpp"
 #include "models/FrequencyList.hpp"
@@ -133,6 +150,50 @@ namespace
     return details.join ('\n');
   }
 
+  QString diagnostic_text (QString text)
+  {
+    return text.replace ('\\', "\\\\")
+      .replace ('\n', "\\n")
+      .replace ('\r', "\\r")
+      .replace ('\t', "\\t")
+      .replace ('"', "\\\"");
+  }
+
+  char const * window_modality_name (Qt::WindowModality modality)
+  {
+    switch (modality)
+      {
+      case Qt::NonModal: return "NonModal";
+      case Qt::WindowModal: return "WindowModal";
+      case Qt::ApplicationModal: return "ApplicationModal";
+      }
+    return "Unknown";
+  }
+
+  void report_unexpected_modal (QWidget const& modal)
+  {
+    std::cerr << "WSJT-X startup smoke: unexpected modal window:"
+              << " class=" << modal.metaObject ()->className ()
+              << " objectName=\"" << diagnostic_text (modal.objectName ()).toStdString () << '"'
+              << " title=\"" << diagnostic_text (modal.windowTitle ()).toStdString () << '"'
+              << " visible=" << (modal.isVisible () ? "true" : "false")
+              << " modal=" << (modal.isModal () ? "true" : "false")
+              << " modality=" << window_modality_name (modal.windowModality ());
+
+    if (auto const *message_box = qobject_cast<QMessageBox const *> (&modal))
+      {
+        std::cerr << " text=\"" << diagnostic_text (message_box->text ()).toStdString () << '"'
+                  << " informativeText=\""
+                  << diagnostic_text (message_box->informativeText ()).toStdString () << '"';
+      }
+    if (auto const *progress_dialog = qobject_cast<QProgressDialog const *> (&modal))
+      {
+        std::cerr << " labelText=\""
+                  << diagnostic_text (progress_dialog->labelText ()).toStdString () << '"';
+      }
+    std::cerr << std::endl;
+  }
+
   enum class LockFileAction
   {
     RemoveLockFile,
@@ -202,6 +263,8 @@ namespace
 
 int main(int argc, char *argv[])
 {
+  PerformanceTrace::begin_run ("startup", "initial");
+  PerformanceTrace::Phase process_bootstrap {"process.bootstrap"};
   init_random_seed ();
 
   // make the Qt type magic happen
@@ -220,6 +283,13 @@ int main(int argc, char *argv[])
 
   ExceptionCatchingApplication a(argc, argv);
   bool startup_smoke_test {false};
+  bool automated_test {false};
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+  bool live_audio_test {false};
+  bool jtty_live_audio_test {false};
+  bool jtty_tx_loopback_test {false};
+  bool ft8_tx_loopback_test {false};
+#endif
   try
     {
       // LOG_INfO ("+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++");
@@ -283,6 +353,37 @@ int main(int argc, char *argv[])
         "Start the application, process initial GUI events, and exit.");
       parser.addOption (startup_smoke_test_option);
 
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+      QCommandLineOption live_audio_test_option (
+        QStringList {} << "live-audio-test",
+        "Feed a WAV fixture through the live receive path.", "wav-path");
+      parser.addOption (live_audio_test_option);
+      QCommandLineOption live_audio_expected_option (
+        QStringList {} << "live-audio-expected",
+        "Expected decoder output used by --live-audio-test.", "expected-path");
+      parser.addOption (live_audio_expected_option);
+      QCommandLineOption live_audio_data_dir_option (
+        QStringList {} << "live-audio-data-dir",
+        "Shipped decoder data used by --live-audio-test.", "directory");
+      parser.addOption (live_audio_data_dir_option);
+      QCommandLineOption jtty_live_audio_test_option (
+        QStringList {} << "jtty-live-audio-test",
+        "Feed a WAV fixture through the live JTTY receive path.", "wav-path");
+      parser.addOption (jtty_live_audio_test_option);
+      QCommandLineOption jtty_live_audio_expected_option (
+        QStringList {} << "jtty-live-audio-expected",
+        "Expected message used by --jtty-live-audio-test.", "text-path");
+      parser.addOption (jtty_live_audio_expected_option);
+      QCommandLineOption jtty_tx_loopback_test_option (
+        QStringList {} << "jtty-tx-loopback-test",
+        "Capture two gaplessly queued JTTY messages to a WAV file.", "wav-path");
+      parser.addOption (jtty_tx_loopback_test_option);
+      QCommandLineOption ft8_tx_loopback_test_option (
+        QStringList {} << "ft8-tx-loopback-test",
+        "Capture one period-aligned FT8 transmission to a WAV file.", "wav-path");
+      parser.addOption (ft8_tx_loopback_test_option);
+#endif
+
       if (!parser.parse (a.arguments ()))
         {
           MessageBox::critical_message (nullptr, "Command line error", parser.errorText ());
@@ -303,6 +404,52 @@ int main(int argc, char *argv[])
         }
 
       startup_smoke_test = parser.isSet (startup_smoke_test_option);
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+      live_audio_test = parser.isSet (live_audio_test_option);
+      jtty_live_audio_test = parser.isSet (jtty_live_audio_test_option);
+      jtty_tx_loopback_test = parser.isSet (jtty_tx_loopback_test_option);
+      ft8_tx_loopback_test = parser.isSet (ft8_tx_loopback_test_option);
+      if (live_audio_test != parser.isSet (live_audio_expected_option)
+          || live_audio_test != parser.isSet (live_audio_data_dir_option))
+        {
+          std::cerr << "--live-audio-test, --live-audio-expected, and "
+                       "--live-audio-data-dir must be used together"
+                    << std::endl;
+          return EXIT_FAILURE;
+        }
+      if (jtty_live_audio_test != parser.isSet (jtty_live_audio_expected_option))
+        {
+          std::cerr << "--jtty-live-audio-test and --jtty-live-audio-expected "
+                       "must be used together" << std::endl;
+          return EXIT_FAILURE;
+        }
+      if ((startup_smoke_test ? 1 : 0) + (live_audio_test ? 1 : 0)
+          + (jtty_live_audio_test ? 1 : 0)
+          + (jtty_tx_loopback_test ? 1 : 0)
+          + (ft8_tx_loopback_test ? 1 : 0) > 1)
+        {
+          std::cerr << "Startup, live-audio, and TX loopback tests are mutually exclusive"
+                    << std::endl;
+          return EXIT_FAILURE;
+        }
+      if (live_audio_test)
+        {
+          QDir const decoderDataDir {parser.value (live_audio_data_dir_option)};
+          QFileInfo const allCallsigns {
+            decoderDataDir.absoluteFilePath ("ALLCALL7.TXT")};
+          if (!allCallsigns.isFile () || !allCallsigns.isReadable ())
+            {
+              std::cerr << "--live-audio-data-dir does not contain a readable "
+                           "ALLCALL7.TXT"
+                        << std::endl;
+              return EXIT_FAILURE;
+            }
+        }
+      automated_test = startup_smoke_test || live_audio_test
+        || jtty_live_audio_test || jtty_tx_loopback_test || ft8_tx_loopback_test;
+#else
+      automated_test = startup_smoke_test;
+#endif
       auto const smoke_phase = [startup_smoke_test] (char const *phase) {
         if (startup_smoke_test)
           {
@@ -310,11 +457,11 @@ int main(int argc, char *argv[])
           }
       };
       smoke_phase ("command line accepted");
-      QStandardPaths::setTestModeEnabled (parser.isSet (test_option) || startup_smoke_test);
+      QStandardPaths::setTestModeEnabled (parser.isSet (test_option) || automated_test);
 
       // support for multiple instances running from a single installation
       bool multiple {false};
-      if (parser.isSet (rig_option) || parser.isSet (test_option) || startup_smoke_test)
+      if (parser.isSet (rig_option) || parser.isSet (test_option) || automated_test)
         {
           auto temp_name = parser.value (rig_option);
           if (!temp_name.isEmpty ())
@@ -328,7 +475,7 @@ int main(int argc, char *argv[])
               a.setApplicationName (a.applicationName () + " - " + temp_name);
             }
 
-          if (parser.isSet (test_option) || startup_smoke_test)
+          if (parser.isSet (test_option) || automated_test)
             {
               a.setApplicationName (a.applicationName () + " - test");
             }
@@ -339,6 +486,9 @@ int main(int argc, char *argv[])
       // now we have the application name we can open the logging and settings
       WSJTXLogging lg;
       LOG_INFO (program_title (revision ()) << " - Program startup");
+      process_bootstrap.finish ();
+      PerformanceTrace::milestone ("logging.ready");
+      PerformanceTrace::Phase process_prepare {"process.prepare"};
       MultiSettings multi_settings {parser.value (cfg_option)};
 
       // find the temporary files path
@@ -425,7 +575,14 @@ int main(int argc, char *argv[])
         // for a new version, the user will be able to re-disable it
         // if they wish
         QString splash_flag_name {"Splash_v1.7"};
-        if (multi_settings.common_value (splash_flag_name, true).toBool ())
+#if defined(WSJT_TSAN_TEST_PROFILE)
+        // GCC TSan cannot track Qt's instrumented SVG setjmp/longjmp rasterizer.
+        auto const skip_splash = automated_test;
+#else
+        auto const skip_splash = false;
+#endif
+        if (!skip_splash
+            && multi_settings.common_value (splash_flag_name, true).toBool ())
           {
             QObject::connect (&splash, &SplashScreen::disabled, [&, splash_flag_name] {
                 multi_settings.set_common_value (splash_flag_name, false);
@@ -462,12 +619,14 @@ int main(int argc, char *argv[])
       // db.exec ("PRAGMA synchronous=OFF"); // system crash risk
       // db.exec ("PRAGMA journal_mode=MEMORY"); // application crash risk
       db.exec ("PRAGMA locking_mode=EXCLUSIVE");
+      process_prepare.finish ();
 
       int result;
       bool startup_smoke_ready {false};
       auto const& original_style_sheet = a.styleSheet ();
       do
         {
+          PerformanceTrace::Phase runtime_prepare {"runtime.prepare"};
           // dump settings
           auto sys_lg = sys::get ();
           if (auto rec = sys_lg.open_record
@@ -516,10 +675,10 @@ int main(int argc, char *argv[])
               if (mem_jt9.attach ()) // shared memory presence implies
                                      // orphaned jt9 sub-process
                 {
-                  dec_data_t * dd = reinterpret_cast<dec_data_t *> (mem_jt9.data());
-                  mem_jt9.lock ();
-                  dd->ipc[1] = 999; // tell jt9 to shut down
-                  mem_jt9.unlock ();
+                  if (DecoderIpc::hasShutdownControlSize (mem_jt9.size ()))
+                    {
+                      DecoderIpc::shutdownControl (mem_jt9.data ());
+                    }
                   mem_jt9.detach (); // start again
                 }
               else
@@ -530,14 +689,14 @@ int main(int argc, char *argv[])
             }
           if (!mem_jt9.attach ())
             {
-              if (!mem_jt9.create (sizeof (dec_data)))
+              if (!mem_jt9.create (sizeof (shared_dec_data_t)))
               {
                 auto const shared_memory_error = mem_jt9.error ();
                 auto const shared_memory_error_text = mem_jt9.errorString ();
                 std::cerr << "WSJT-X startup: shared memory creation failed"
                           << " (error " << static_cast<int> (shared_memory_error) << "): "
                           << shared_memory_error_text.toStdString () << std::endl;
-                if (!startup_smoke_test)
+                if (!automated_test)
                   {
                     splash.hide ();
                     MessageBox::critical_message (
@@ -553,7 +712,7 @@ int main(int argc, char *argv[])
               std::cerr << "WSJT-X startup: orphaned jt9 shared memory segment remained after "
                            "shutdown attempts"
                         << std::endl;
-              if (!startup_smoke_test)
+              if (!automated_test)
                 {
                   splash.hide ();
                   MessageBox::critical_message (
@@ -562,9 +721,8 @@ int main(int argc, char *argv[])
                 }
               throw std::runtime_error {"Sub-process error"};
             }
-          mem_jt9.lock ();
-          memset(mem_jt9.data(),0,sizeof(struct dec_data)); //Zero all decoding params in shared memory
-          mem_jt9.unlock ();
+          auto * shared = reinterpret_cast<shared_dec_data_t *> (mem_jt9.data ());
+          DecoderIpc::initialize (*shared);
 
           unsigned downSampleFactor;
           {
@@ -585,14 +743,83 @@ int main(int argc, char *argv[])
 #endif
                                                                   ).toBool () ? 1u : 4u;
 
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+            if (live_audio_test)
+              {
+                BWFFile fixture {QAudioFormat {}, parser.value (live_audio_test_option)};
+                if (fixture.open (BWFFile::ReadOnly))
+                  {
+                    downSampleFactor = fixture.format ().sampleRate () == 48000
+                      ? 4u : 1u;
+                  }
+              }
+            if (jtty_live_audio_test)
+              {
+                BWFFile fixture {QAudioFormat {},
+                                 parser.value (jtty_live_audio_test_option)};
+                if (fixture.open (BWFFile::ReadOnly))
+                  {
+                    downSampleFactor = fixture.format ().sampleRate () == 48000
+                      ? 4u : 1u;
+                  }
+              }
+#endif
+
           }
 
           QDir::setCurrent(qApp->applicationDirPath()); //This helps to find the SF executables
+          runtime_prepare.finish ();
 
           // run the application UI
           smoke_phase ("constructing MainWindow");
+          PerformanceTrace::Phase main_window_construct {"mainwindow.construct"};
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+          FixtureAudioInput * fixture_input {nullptr};
+          FixtureSoundOutput * fixture_output {nullptr};
+          std::unique_ptr<AudioInputSource> audio_input;
+          std::unique_ptr<SoundOutput> sound_output;
+          if (live_audio_test || jtty_live_audio_test)
+            {
+              std::unique_ptr<FixtureAudioInput> fixture {
+                new FixtureAudioInput {
+                  parser.value (live_audio_test
+                                ? live_audio_test_option
+                                : jtty_live_audio_test_option),
+                  live_audio_test ? FixtureAudioInput::Profile::Ft8
+                                  : FixtureAudioInput::Profile::Jtty}};
+              fixture_input = fixture.get ();
+              audio_input = std::move (fixture);
+            }
+          if (jtty_tx_loopback_test || ft8_tx_loopback_test)
+            {
+              std::unique_ptr<FixtureSoundOutput> fixture {
+                new FixtureSoundOutput {
+                  parser.value (jtty_tx_loopback_test
+                                ? jtty_tx_loopback_test_option
+                                : ft8_tx_loopback_test_option),
+                  ft8_tx_loopback_test
+                    ? FixtureSoundOutput::Profile::Ft8Period
+                    : FixtureSoundOutput::Profile::JttyStrict}};
+              fixture_output = fixture.get ();
+              sound_output = std::move (fixture);
+            }
+#else
+          std::unique_ptr<AudioInputSource> audio_input;
+#endif
           MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env,
-                       startup_smoke_test);
+                       automated_test, std::move (audio_input),
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+                       std::move (sound_output),
+#else
+                       {},
+#endif
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+                       live_audio_test ? parser.value (live_audio_data_dir_option) : QString {}
+#else
+                       QString {}
+#endif
+                       );
+          main_window_construct.finish ();
           smoke_phase ("MainWindow constructed");
 #ifdef Q_OS_WIN
           quint16 mmtty_port = 0;
@@ -613,15 +840,60 @@ int main(int argc, char *argv[])
           }
 
           w.show();
+          PerformanceTrace::milestone ("ui.show_returned");
           smoke_phase ("MainWindow shown");
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+          std::unique_ptr<LiveAudioTestController> live_audio_controller;
+          std::unique_ptr<JttyTxLoopbackTestController> jtty_tx_controller;
+          std::unique_ptr<Ft8TxLoopbackTestController> ft8_tx_controller;
+          if (live_audio_test || jtty_live_audio_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              live_audio_controller.reset (new LiveAudioTestController {
+                &w, fixture_input,
+                parser.value (live_audio_test
+                              ? live_audio_expected_option
+                              : jtty_live_audio_expected_option),
+                live_audio_test ? LiveAudioTestController::Mode::Ft8
+                                : LiveAudioTestController::Mode::Jtty});
+              auto * controller = live_audio_controller.get ();
+              QTimer::singleShot (0, live_audio_controller.get (),
+                                  [controller] {
+                                    controller->begin ();
+                                  });
+            }
+          if (jtty_tx_loopback_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              jtty_tx_controller.reset (new JttyTxLoopbackTestController {
+                &w, fixture_output,
+                parser.value (jtty_tx_loopback_test_option)});
+              auto * controller = jtty_tx_controller.get ();
+              QTimer::singleShot (0, jtty_tx_controller.get (),
+                                  [controller] {
+                                    controller->begin ();
+                                  });
+            }
+          if (ft8_tx_loopback_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              ft8_tx_controller.reset (new Ft8TxLoopbackTestController {
+                &w, fixture_output,
+                parser.value (ft8_tx_loopback_test_option)});
+              auto * controller = ft8_tx_controller.get ();
+              QTimer::singleShot (0, ft8_tx_controller.get (),
+                                  [controller] {
+                                    controller->begin ();
+                                  });
+            }
+#endif
           if (startup_smoke_test)
             {
               QTimer::singleShot (1000, &w, [&a, &w, &smoke_phase, &startup_smoke_ready] {
                 smoke_phase ("event loop reached");
                 if (auto *modal = QApplication::activeModalWidget ())
                   {
-                    std::cerr << "WSJT-X startup smoke: unexpected modal window: "
-                              << modal->windowTitle ().toStdString () << std::endl;
+                    report_unexpected_modal (*modal);
                     modal->close ();
                     w.close ();
                     a.exit (EXIT_FAILURE);
@@ -643,16 +915,34 @@ int main(int argc, char *argv[])
           splash.raise ();
           QObject::connect (&a, SIGNAL (lastWindowClosed()), &a, SLOT (quit()));
           result = a.exec();
+          PerformanceTrace::milestone ("event_loop.exit");
           if (startup_smoke_test && !startup_smoke_ready)
             {
               std::cerr << "WSJT-X startup smoke: application exited before readiness" << std::endl;
               result = EXIT_FAILURE;
             }
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+          if ((live_audio_test || jtty_live_audio_test)
+              && (!live_audio_controller || !live_audio_controller->succeeded ()))
+            {
+              result = EXIT_FAILURE;
+            }
+          if (jtty_tx_loopback_test
+              && (!jtty_tx_controller || !jtty_tx_controller->succeeded ()))
+            {
+              result = EXIT_FAILURE;
+            }
+          if (ft8_tx_loopback_test
+              && (!ft8_tx_controller || !ft8_tx_controller->succeeded ()))
+            {
+              result = EXIT_FAILURE;
+            }
+#endif
 
           // ensure config switches start with the right style sheet
           a.setStyleSheet (original_style_sheet);
         }
-      while (!result && !multi_settings.exit ());
+      while (!multi_settings.exit () && !result && !automated_test);
 
       // clean up lazily initialized resources
       {
@@ -676,7 +966,7 @@ int main(int argc, char *argv[])
     }
   catch (std::exception const& e)
     {
-      if (!startup_smoke_test)
+      if (!automated_test)
         {
           MessageBox::critical_message (nullptr, "Fatal error", e.what ());
         }
@@ -684,7 +974,7 @@ int main(int argc, char *argv[])
     }
   catch (...)
     {
-      if (!startup_smoke_test)
+      if (!automated_test)
         {
           MessageBox::critical_message (nullptr, "Unexpected fatal error");
         }
