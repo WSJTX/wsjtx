@@ -222,6 +222,13 @@ if (WSJT_ENABLE_TESTS)
   add_test (NAME test_q65_waveform_generator COMMAND test_q65_waveform_generator)
   set_tests_properties (test_q65_waveform_generator PROPERTIES TIMEOUT 180)
 
+  add_executable (test_map65_wideband_sync_rows
+    ${CMAKE_SOURCE_DIR}/tests/unit/q65/test_map65_wideband_sync_rows.f90)
+  target_include_directories (test_map65_wideband_sync_rows PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_wideband_sync_rows PRIVATE m65impl)
+  add_test (NAME test_map65_wideband_sync_rows COMMAND test_map65_wideband_sync_rows)
+  set_tests_properties (test_map65_wideband_sync_rows PROPERTIES TIMEOUT 180)
+
   add_executable (test_ccf65_correlator
     ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_ccf65_correlator.f90)
   target_include_directories (test_ccf65_correlator PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

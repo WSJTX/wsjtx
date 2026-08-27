@@ -5,7 +5,7 @@ module wideband_sync
    type candidate
       real :: snr          !Relative S/N of sync detection
       real :: f            !Freq of sync tone, 0 to 96000 Hz
-      real :: xdt          !DT of matching sync pattern, -1.0 to +4.0 s
+      real :: xdt          !DT of matching sync pattern, -1.0 to +4.6 s
       real :: pol          !Polarization angle, degrees
       integer :: ipol      !Polarization angle, 1 to 4 ==> 0, 45, 90, 135 deg
       integer :: iflip     !Sync type: JT65 = +/- 1, Q65 = 0
@@ -158,14 +158,20 @@ contains
       integer, intent(in)    :: jz, nfa, nfb
 
       integer, parameter :: LAGMAX = 30
+      integer, parameter :: Q65_SYNC_ROWS = 3*22, JT65_SYNC_ROWS = 2*63
+      integer, parameter :: Q65_MIN_ROWS = Q65_SYNC_ROWS - 3
+      integer, parameter :: JT65_MIN_ROWS = JT65_SYNC_ROWS - 2
       real(c_float) :: savg_med(4)
       real ccf4(4), ccf4best(4), a(3)
-      real base, ccf, ccfmax, df3, fac, flip, poldeg, tstep
-      integer i, ia, ib, ipolbest, j, k, lag, lagbest
+      real base, ccf, ccfmax, df3, fac, flip, poldeg, row_scale, tstep
+      integer i, ia, ib, ipolbest, j, k, lag, lagbest, nrows
       integer npol, ipol
       logical first
       integer isync(22)
       integer jsync0(63), jsync1(63)
+      integer q65_available(22,0:LAGMAX), q65_row_count(0:LAGMAX)
+      integer jt65_0_available(63,0:LAGMAX), jt65_0_row_count(0:LAGMAX)
+      integer jt65_1_available(63,0:LAGMAX), jt65_1_row_count(0:LAGMAX)
       integer ip(1)
       
         ! --- JT65 wideband debugging probe ---
@@ -207,6 +213,26 @@ contains
       npol = 1
       if (xpol) npol = 4
 
+      q65_row_count = 0
+      jt65_0_row_count = 0
+      jt65_1_row_count = 0
+      do lag = 0, LAGMAX
+         do j = 1, 22
+            k = isync(j) + lag
+            q65_available(j,lag) = min(3,max(0,jz-k+1))
+            q65_row_count(lag) = q65_row_count(lag) + q65_available(j,lag)
+         enddo
+         do j = 1, 63
+            k = jsync0(j) + lag
+            jt65_0_available(j,lag) = min(2,max(0,jz-k+1))
+            jt65_0_row_count(lag) = jt65_0_row_count(lag) + jt65_0_available(j,lag)
+
+            k = jsync1(j) + lag
+            jt65_1_available(j,lag) = min(2,max(0,jz-k+1))
+            jt65_1_row_count(lag) = jt65_1_row_count(lag) + jt65_1_available(j,lag)
+         enddo
+      enddo
+
       do i = 1, npol
          call pctile(savg(i, ia:ib), ib - ia + 1, 50, savg_med(i))
       enddo
@@ -223,15 +249,22 @@ contains
          ccfmax = 0.
          do lag = 0, LAGMAX
 
-            if (isync(22) + lag + 2 .le. jz) then
+            nrows = q65_row_count(lag)
+            if (nrows .ge. Q65_MIN_ROWS) then
                ccf = 0.
                ccf4 = 0.
                do j = 1, 22                        !Test for Q65 sync
                   k = isync(j) + lag
-                  ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + &
-                                 ss(1:npol, k + 1, i + 1) + ss(1:npol, k + 2, i + 1)
+                  if (q65_available(j,lag) .ge. 1) &
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i+1)
+                  if (q65_available(j,lag) .ge. 2) &
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i+1)
+                  if (q65_available(j,lag) .ge. 3) &
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+2,i+1)
                enddo
-               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*3*22/float(jz)
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i+1)*real(nrows)/real(jz)
+               row_scale = sqrt(real(Q65_SYNC_ROWS)/real(nrows))
+               ccf4(1:npol) = row_scale*ccf4(1:npol)
                ccf = maxval(ccf4)
                ip = maxloc(ccf4)
                ipol = ip(1)
@@ -244,14 +277,20 @@ contains
                endif
             endif
 
-            if (jsync0(63) + lag + 1 .le. jz) then
+            nrows = jt65_0_row_count(lag)
+            if (nrows .ge. JT65_MIN_ROWS) then
                ccf = 0.
                ccf4 = 0.
                do j = 1, 63                       !Test for JT65 sync, std msg
                   k = jsync0(j) + lag
-                  ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + ss(1:npol, k + 1, i + 1)
+                  if (jt65_0_available(j,lag) .ge. 1) &
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i+1)
+                  if (jt65_0_available(j,lag) .ge. 2) &
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i+1)
                enddo
-               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*2*63/float(jz)
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i+1)*real(nrows)/real(jz)
+               row_scale = sqrt(real(JT65_SYNC_ROWS)/real(nrows))
+               ccf4(1:npol) = row_scale*ccf4(1:npol)
                ccf = maxval(ccf4)
                ip = maxloc(ccf4)
                ipol = ip(1)
@@ -264,14 +303,20 @@ contains
                endif
             endif
 
-            if (jsync1(63) + lag + 1 .le. jz) then
+            nrows = jt65_1_row_count(lag)
+            if (nrows .ge. JT65_MIN_ROWS) then
                ccf = 0.
                ccf4 = 0.
                do j = 1, 63                       !Test for JT65 sync, OOO msg
                   k = jsync1(j) + lag
-                  ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + ss(1:npol, k + 1, i + 1)
+                  if (jt65_1_available(j,lag) .ge. 1) &
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i+1)
+                  if (jt65_1_available(j,lag) .ge. 2) &
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i+1)
                enddo
-               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*2*63/float(jz)
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i+1)*real(nrows)/real(jz)
+               row_scale = sqrt(real(JT65_SYNC_ROWS)/real(nrows))
+               ccf4(1:npol) = row_scale*ccf4(1:npol)
                ccf = maxval(ccf4)
                ip = maxloc(ccf4)
                ipol = ip(1)
