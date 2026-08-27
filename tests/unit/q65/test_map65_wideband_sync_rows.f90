@@ -1,5 +1,5 @@
 program test_map65_wideband_sync_rows
-  use wideband_sync, only: init_wideband_sync, sync, wb_sync
+  use wideband_sync, only: init_wideband_sync, outside_row_count, sync, wb_sync
   use npar_ptrs_mod, only: nfft_active, nrate_active
   implicit none
 
@@ -21,7 +21,7 @@ program test_map65_wideband_sync_rows
   allocate(ss(4,322,nfft_active),savg(4,nfft_active))
   ss=1.0
   savg=real(jz)
-  do i=ia,ib+1
+  do i=ia,ib
      do j=1,jz
         ss(1,j,i)=1.0+0.001*real(mod(37*j+17*i,23))
      enddo
@@ -31,11 +31,11 @@ program test_map65_wideband_sync_rows
   do j=1,size(expanded_sync)
      k=expanded_sync(j)+lag
      do offset=0,2
-        if (k+offset <= jz) ss(1,k+offset,target_bin+1)= &
-             ss(1,k+offset,target_bin+1)+50.0
+        if (k+offset <= jz) ss(1,k+offset,target_bin)= &
+             ss(1,k+offset,target_bin)+50.0
      enddo
   enddo
-  savg(1,target_bin+1)=sum(ss(1,1:jz,target_bin+1))
+  savg(1,target_bin)=sum(ss(1,1:jz,target_bin))
 
   call init_wideband_sync()
   call wb_sync(ss,savg,.false.,jz,1,2)
@@ -47,11 +47,16 @@ program test_map65_wideband_sync_rows
 
   ccf_before=sync(target_bin)%ccfmax
   xdt_before=sync(target_bin)%xdt
-  ss(1,jz+1:322,ia:ib+1)=1.0e20
+  ss(1,jz+1:322,ia:ib)=1.0e20
   call wb_sync(ss,savg,.false.,jz,1,2)
 
   if (sync(target_bin)%ccfmax /= ccf_before) &
        error stop 'unavailable spectrum rows changed Q65 sync strength'
   if (sync(target_bin)%xdt /= xdt_before) &
        error stop 'unavailable spectrum rows changed Q65 sync lag'
+
+  if (outside_row_count(24,300,280) /= 24) &
+       error stop 'early Q65 carrier baseline used the wrong row count'
+  if (outside_row_count(-1,276,280) /= 5) &
+       error stop 'negative leading rows changed the carrier baseline count'
 end program test_map65_wideband_sync_rows

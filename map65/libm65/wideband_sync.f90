@@ -66,8 +66,8 @@ contains
       df3 = real(nrate_active)/real(nfft_active)
       ia = nint(1000*nfa/df3) + 1
       ib = nint(1000*nfb/df3) + 1
-      if (ia .lt. 1) ia = 1
-      if (ib .gt. nfft_active - 1) ib = nfft_active - 1
+      if (ia .lt. 21) ia = 21
+      if (ib .gt. nfft_active - 20) ib = nfft_active - 20
       iz = ib - ia + 1
                   
       allocate (indx(iz))
@@ -98,9 +98,10 @@ contains
          if (sync(n)%birdie) cycle
 
 ! Test for signal outside of TxT range and set bw for this signal type
-         j1 = int((sync(n)%xdt + 1.0)/tstep - 1.0)
-         j2 = int((sync(n)%xdt + 52.0)/tstep + 1.0)
+         j1 = max(0,min(jz,int((sync(n)%xdt + 1.0)/tstep - 1.0)))
+         j2 = max(1,int((sync(n)%xdt + 52.0)/tstep + 1.0))
          if (flip .ne. 0) j2 = int((sync(n)%xdt + 47.811)/tstep + 1.0)
+         j2 = max(1,j2)
          ipol = sync(n)%ipol
          pavg = 0.
          do j = 1, j1
@@ -109,11 +110,13 @@ contains
          do j = j2, jz
             pavg = pavg + ss(ipol, j, n - 20:n + 20)
          enddo
-         jsum = j1 + (jz - j2 + 1)
-         pmax = maxval(pavg(-2:2))              !### Why not just pavg(0) ?
-         base = (sum(pavg) - pmax)/jsum
-         pmax = pmax/base
-         if (pmax .gt. 5.0) cycle
+         jsum = outside_row_count(j1,j2,jz)
+         if (jsum .gt. 0) then
+            pmax = maxval(pavg(-2:2))              !### Why not just pavg(0) ?
+            base = (sum(pavg) - pmax)/jsum
+            pmax = pmax/base
+            if (pmax .gt. 5.0) cycle
+         endif
          skip = .false.
          do m = 1, k                              !Skip false syncs within signal bw
             if (cand(m)%iflip .ne. nint(flip)) cycle   !only dedupe within the same type
@@ -256,13 +259,13 @@ contains
                do j = 1, 22                        !Test for Q65 sync
                   k = isync(j) + lag
                   if (q65_available(j,lag) .ge. 1) &
-                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i+1)
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i)
                   if (q65_available(j,lag) .ge. 2) &
-                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i+1)
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i)
                   if (q65_available(j,lag) .ge. 3) &
-                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+2,i+1)
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+2,i)
                enddo
-               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i+1)*real(nrows)/real(jz)
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i)*real(nrows)/real(jz)
                row_scale = sqrt(real(Q65_SYNC_ROWS)/real(nrows))
                ccf4(1:npol) = row_scale*ccf4(1:npol)
                ccf = maxval(ccf4)
@@ -284,11 +287,11 @@ contains
                do j = 1, 63                       !Test for JT65 sync, std msg
                   k = jsync0(j) + lag
                   if (jt65_0_available(j,lag) .ge. 1) &
-                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i+1)
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i)
                   if (jt65_0_available(j,lag) .ge. 2) &
-                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i+1)
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i)
                enddo
-               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i+1)*real(nrows)/real(jz)
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i)*real(nrows)/real(jz)
                row_scale = sqrt(real(JT65_SYNC_ROWS)/real(nrows))
                ccf4(1:npol) = row_scale*ccf4(1:npol)
                ccf = maxval(ccf4)
@@ -310,11 +313,11 @@ contains
                do j = 1, 63                       !Test for JT65 sync, OOO msg
                   k = jsync1(j) + lag
                   if (jt65_1_available(j,lag) .ge. 1) &
-                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i+1)
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k,i)
                   if (jt65_1_available(j,lag) .ge. 2) &
-                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i+1)
+                     ccf4(1:npol) = ccf4(1:npol) + ss(1:npol,k+1,i)
                enddo
-               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i+1)*real(nrows)/real(jz)
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol,i)*real(nrows)/real(jz)
                row_scale = sqrt(real(JT65_SYNC_ROWS)/real(nrows))
                ccf4(1:npol) = row_scale*ccf4(1:npol)
                ccf = maxval(ccf4)
@@ -382,6 +385,13 @@ contains
 
       return
    end subroutine wb_sync
+
+   pure integer function outside_row_count(j1,j2,jz)
+      implicit none
+      integer, intent(in) :: j1,j2,jz
+
+      outside_row_count = max(0,min(j1,jz)) + max(0,jz-max(1,j2)+1)
+   end function outside_row_count
 
    subroutine init_wideband_sync()
       use npar_ptrs_mod, only: nfft_active
