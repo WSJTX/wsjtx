@@ -16,6 +16,7 @@ set (map65_CXXSRCS
 # map65_paths.cpp
   main.cpp
   mainwindow.cpp
+  map65_decode_display_filter.cpp
   messages.cpp
   meterwidget.cpp
   plotter.cpp

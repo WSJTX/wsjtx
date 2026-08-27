@@ -12,6 +12,7 @@
 #include "soundout.h"
 #include "signalmeter.h"
 #include "commons.h"
+#include "map65_decode_display_filter.h"
 #include "sleep.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QByteArray>
@@ -266,6 +267,7 @@ private:
   QString m_pbAutoOn_style;
   QString m_messagesText;
   QString m_bandmapText;
+  Map65DecodeDisplayFilter m_decodeDisplayFilter;
   QString m_hisCall;
   QString m_hisGrid;
   QString m_palette;

@@ -643,6 +643,8 @@ void MainWindow::processStdOut(QString t)
  
 //  qDebug().noquote() << QDateTime::currentMSecsSinceEpoch() << "PROCESS STDOUT:" << t;
 
+  if (m_decodeDisplayFilter.handleControlLine(t)) return;
+
   //qDebug() << "in processStdOut STDOUT:" << t;
 if (t.indexOf("<QuickDecodeDone>") >= 0) {
 
@@ -657,6 +659,11 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 
     // --- <EarlyFinished> / <DecodeFinished> ---
   if (t.indexOf("<EarlyFinished>") >= 0 || t.indexOf("<DecodeFinished>") >= 0) {
+
+    if (t.indexOf("<EarlyFinished>") >= 0)
+        m_decodeDisplayFilter.completeEarlyPass();
+    if (t.indexOf("<DecodeFinished>") >= 0)
+        m_decodeDisplayFilter.completeCycle();
 
     if (m_widebandDecode) {
         if (m_messages_window)
@@ -693,9 +700,8 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 #endif
         const QString decode_line = t.mid(1, n - m);
 
-         // Suppress *second* narrowband GUI entry, but keep everything else
-        if (m_RxState != 2 || m_diskData) {
-          if (n >= 30 || t.indexOf("Best-fit") >= 0)
+        if (n >= 30 || t.indexOf("Best-fit") >= 0) {
+          if (m_decodeDisplayFilter.shouldDisplay(decode_line))
             ui->decodedTextBrowser->append(decode_line);
         }
         

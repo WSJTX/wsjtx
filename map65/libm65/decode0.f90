@@ -86,6 +86,7 @@ contains
       ! Manual decode: force a single nhsym2-style cycle and always emit DecodeFinished
       if (manualDecodeFlag /= 0) then
          nhsym = nhsym2
+         call announce_decode_pass('manual')
 
          call timer('map65a  ', 0)
          call map65a(dd_use, newdat, nutc, fcenter, ntol, idphi, nfa, nfb, &
@@ -109,6 +110,15 @@ contains
       else
 
       ! Normal wideband path: nhsym1 (EarlyFinished) + nhsym2 (DecodeFinished)
+      if (ndiskdat /= 0) then
+         call announce_decode_pass('disk')
+      else if (nhsym == nhsym1) then
+         call announce_decode_pass('early')
+      else if (nhsym == nhsym2) then
+         call announce_decode_pass('final')
+      else
+         call announce_decode_pass('unknown')
+      endif
       call timer('map65a  ', 0)
       call map65a(dd_use, newdat, nutc, fcenter, ntol, idphi, nfa, nfb, &
                   mousedf, mousefqso, nagain, ndecdone, nfshift, ndphi, max_drift, &
@@ -136,5 +146,14 @@ contains
       return
    end if
    end subroutine decode0
+
+   subroutine announce_decode_pass(pass_name)
+      use stdout_channel_mod, only: write_stdout
+      implicit none
+
+      character(len=*), intent(in) :: pass_name
+
+      call write_stdout('<Map65DecodePass> '//trim(pass_name)//new_line('a'))
+   end subroutine announce_decode_pass
 
 end module decode0_mod
