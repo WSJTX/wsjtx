@@ -242,6 +242,14 @@ if (WSJT_ENABLE_TESTS)
   target_link_libraries (test_map65_s3avg_contracts PRIVATE m65impl)
   add_test (NAME test_map65_s3avg_contracts COMMAND test_map65_s3avg_contracts)
   set_tests_properties (test_map65_s3avg_contracts PROPERTIES TIMEOUT 180)
+
+  add_executable (test_map65_result_selection
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_result_selection.f90)
+  target_include_directories (test_map65_result_selection PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_result_selection PRIVATE m65impl)
+  add_test (NAME test_map65_result_selection COMMAND test_map65_result_selection)
+  set_tests_properties (test_map65_result_selection PROPERTIES TIMEOUT 180)
+
 endif ()
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)

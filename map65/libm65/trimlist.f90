@@ -1,39 +1,45 @@
 module trimlist_mod
   implicit none
 contains
-  subroutine trimlist(sig,km,ftol,indx,nsiz,nz)
+  subroutine select_unique_decodes(sig, msg, km, freq_tolerance, dt_tolerance, indx, nz)
     use indexx_mod
     implicit none
-  
-    integer, parameter :: MAXMSG=1000             !Size of decoded message list
-    real, intent(in) :: sig(MAXMSG,30)
+
+    integer, parameter :: MAXMSG = 1000
+    real, intent(in) :: sig(MAXMSG, 30)
+    character(len=22), intent(in) :: msg(MAXMSG)
     integer, intent(in) :: km
-    real, intent(in) :: ftol
+    real, intent(in) :: freq_tolerance, dt_tolerance
     integer, intent(out) :: indx(MAXMSG)
-    integer, intent(out) :: nsiz(MAXMSG)
     integer, intent(out) :: nz
-    
-    integer :: n, i0, i, j0, j
-  
-  !    1      2     3    4    5    6     7     8
-  !  nfile  nutc  freq  snr  dt  ipol  flip  sync
-  
-    call indexx(sig(1,3),km,indx)            !Sort list by frequency
-  
-    n=1
-    i0=1
-    do i=2,km         
-       j0=indx(i-1)
-       j=indx(i)
-       if(sig(j,3)-sig(j0,3).gt.ftol) then
-          nsiz(n)=i-i0
-          i0=i
-          n=n+1
-       endif
-    enddo
-    nz=n
-    nsiz(nz)=km+1-i0
-    nsiz(nz+1)=-1
-  
-  end subroutine trimlist
+
+    integer :: sorted(MAXMSG)
+    integer :: i, j, k
+    logical :: duplicate
+
+    nz = 0
+    if (km <= 0) return
+
+    call indexx(sig(:, 3), km, sorted)
+    do k = 1, km
+      i = sorted(k)
+      if (len_trim(msg(i)) == 0) cycle
+
+      duplicate = .false.
+      do j = 1, nz
+        if (nint(sig(i, 2)) /= nint(sig(indx(j), 2))) cycle
+        if (msg(i) /= msg(indx(j))) cycle
+        if (nint(sig(i, 7)) /= nint(sig(indx(j), 7))) cycle
+        if (abs(sig(i, 3) - sig(indx(j), 3)) > freq_tolerance) cycle
+        if (abs(sig(i, 5) - sig(indx(j), 5)) > dt_tolerance) cycle
+        duplicate = .true.
+        exit
+      end do
+
+      if (.not. duplicate) then
+        nz = nz + 1
+        indx(nz) = i
+      end if
+    end do
+  end subroutine select_unique_decodes
 end module trimlist_mod

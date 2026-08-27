@@ -32,6 +32,7 @@ contains
       implicit none
 
       integer, parameter :: MAXMSG = 1000
+      real, parameter :: RESULT_DT_TOLERANCE = 0.2
       real, intent(in) :: dd(4, nsmax_active)
       integer, intent(inout) :: newdat
       integer, intent(inout) :: nutc
@@ -59,17 +60,17 @@ contains
       character(len=22) msg(MAXMSG)
       character(len=3) shmsg0(4)
       character(len=1) :: cp, cm
-      integer indx(MAXMSG), nsiz(MAXMSG)
+      integer indx(MAXMSG)
       integer :: ipol, mode65
-      integer :: i, ia, ib, i0, icand, idf, ifile, ifile0, ifreq, ii, iii, ikhz
-      integer :: ilatest, iloop, ip000, ip001, ipol2, j, jp, jpmax, jpz
-      integer :: k, km, m, mfa, mfb, mhz, mode_q65
+      integer :: i, ia, ib, i0, icand, idf, ifreq, ii, iii, ikhz
+      integer :: iloop, ip000, ip001, ipol2, j, jp, jpmax, jpz
+      integer :: k, km, mfa, mfb, mhz, mode_q65
       integer :: mousefqso0, n, ncand, ndf, ndf0, ndf1, ndf2
       integer :: nfile, nflip, nhist, nhzdiff, nid, nkhz, nkm, nkv
       integer :: noffset, npol, nqd, nqual, nsync1, nsync2, ntry
       integer :: nts_jt65, nts_q65, ntxpol, nutc0, nwrite, nwrite_q65, nz
       integer :: idec
-      logical done(MAXMSG), xpol, bq65, q65b_called
+      logical xpol, bq65, q65b_called
       logical candec(MAX_CANDIDATES)
       character(len=22) decoded, blank, decoded_jt65
       character(len=2) cmode
@@ -121,6 +122,7 @@ contains
 
       rewind 12
       ndecodes = 0
+      km = 0
       ipol = 1
 
 !------------------------------------------------------------
@@ -549,9 +551,7 @@ endif
          ib = min(nfft_active - 51, ib)
          if (ndiskdat .eq. 1 .and. mode65 .eq. 0) ib = ia
 
-         km = 0
          nkm = 1
-         nz = n/8
          freq0 = -999.
          sync10 = -999.
          fshort0 = -999.
@@ -912,30 +912,12 @@ endif
 
       enddo  ! nqd
 
-!  Trim the list and produce a sorted index and sizes of groups.
-!  (Should trimlist remove all but best SNR for given UTC and message content?)
 700   continue   
-      call trimlist(sig, km, ftol, indx, nsiz, nz)
-      
-      if (km .gt. 0) done(1:km) = .false.
-      j = 0
-      ilatest = -1
-      do n = 1, nz
-         ifile0 = 0
-         do m = 1, nsiz(n)
-            i = indx(j + m)
-            ifile = sig(i, 1)
-            if (ifile .gt. ifile0 .and. msg(i) .ne. blank) then
-               ilatest = i
-               ifile0 = ifile
-            endif
-         enddo
-         i = ilatest
+      call select_unique_decodes(sig, msg, km, ftol, RESULT_DT_TOLERANCE, indx, nz)
 
+      do n = 1, nz
+         i = indx(n)
          if (i .ge. 1) then
-            if (.not. done(i)) then
-                        
-               done(i) = .true.
                nutc = sig(i, 2)
                freq = sig(i, 3)
                sync1 = sig(i, 4)
@@ -992,11 +974,8 @@ endif
                write (21, 1100) f0, ndf, dt, npol, nsync2, nutc, decoded, '#', cp, &
                   cmode(1:1), cmode(2:2)! was decoded,cp,
 1100           format(f8.3, i5, f5.1, 2i4, i5.4, 2x, a22, 7x, 2a1, 3x, a1, 1x, a1) ! was a22,2x,a1,1x,a1
-            endif
-
          endif
-         j = j + nsiz(n)
-      enddo  !i=1,km
+      enddo
 
       write (26, 1015) nutc
 1015  format(37x, i6.4, ' ')
