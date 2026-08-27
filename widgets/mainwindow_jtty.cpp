@@ -234,13 +234,18 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 
           if (matchIndex >= 0) {
               auto& known = m_jttyAllFreqLines[matchIndex];
-              if (newLine.length() > known.text.length()) known.text = newLine;
+              if (newLine.length() > known.text.length()) {
+                  known.text = newLine;
+                  known.lastGrowthK = k;
+              }
           } else {
               JttyDecodeLine decodeLine;
               decodeLine.text = newLine;
+              decodeLine.lastGrowthK = k;
               m_jttyAllFreqLines.append(decodeLine);
           }
       }
+      flushStaleJttyDecodeLines(k);
   }
   if(qso_new) {
       QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
@@ -799,12 +804,27 @@ void MainWindow::jttyDecodeAgainAt(float secondsAgo)
 
 void MainWindow::flushJttyDecodeLines()
 {
-  // Called wherever a JTTY decode session is deemed finished -- either
-  // because a new one is starting (rjtty_sub_'s own slot table is already
-  // gone at that point) or because we've reached the end of what audio is
-  // available to decode right now. Each line is logged at most once.
+  // Called wherever a JTTY decode session is definitely finished -- a new
+  // one is starting (rjtty_sub_'s own slot table is already gone at that
+  // point) or we've reached the true end of a file. Unconditional: whatever
+  // hasn't been logged yet is now as complete as it'll ever be.
   for (auto& line : m_jttyAllFreqLines) {
     if (line.written) continue;
+    QString const text = line.text.trimmed();
+    if (text.isEmpty()) continue;
+    write_all("Rx", text);
+    line.written = true;
+  }
+}
+
+void MainWindow::flushStaleJttyDecodeLines(int k)
+{
+  // No session-end signal during live monitoring, so flush once a line has
+  // gone quiet for 1.5 frames (59 symbols * 384 samples/symbol, 12 kHz domain).
+  constexpr int staleSamples = 3 * 59 * 384 / 2;
+  for (auto& line : m_jttyAllFreqLines) {
+    if (line.written) continue;
+    if (k - line.lastGrowthK < staleSamples) continue;
     QString const text = line.text.trimmed();
     if (text.isEmpty()) continue;
     write_all("Rx", text);

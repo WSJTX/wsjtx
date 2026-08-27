@@ -5074,7 +5074,7 @@ void::MainWindow::fast_decode_done()
   float t,tmax=-99.0;
   dec_data.params.nagain=false;
   dec_data.params.ndiskdat=false;
-  if(m_mode=="JTTY") flushJttyDecodeLines();
+  if(m_mode=="JTTY" && m_diskData) flushJttyDecodeLines();  // live: flushStaleJttyDecodeLines() instead
   for(int i=0; m_msg[i][0] && i<100; i++) {
     QString message=QString::fromLatin1(m_msg[i]);
     m_msg[i][0]=0;

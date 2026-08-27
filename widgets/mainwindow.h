@@ -807,6 +807,7 @@ private:
   bool jtty_decode(int k, int istart0 = -1, int istop = -1);
   void jtty_again();
   void flushJttyDecodeLines();
+  void flushStaleJttyDecodeLines(int k);
   QString jtty_msg_expand(QString msg);
   QString specOpLabel() const;
   void initializeFFT(int nsps);
@@ -1374,8 +1375,9 @@ private:
   QVector<JttyQsoLine> m_jttyQsoLines;   // one entry per concurrently-growing JTTY transmission
   struct JttyDecodeLine
   {
-    QString text;         // full text of this decode, as last seen in all_freqs
-    bool written = false; // already logged to ALL.TXT
+    QString text;          // full text of this decode, as last seen in all_freqs
+    bool written = false;  // already logged to ALL.TXT
+    int lastGrowthK = 0;   // k (12 kHz samples) when text last grew
   };
   QVector<JttyDecodeLine> m_jttyAllFreqLines;
   int m_jttyLastAllFreqsK = -1;          // detects a restarted decode (new WAV, or "decode again")
