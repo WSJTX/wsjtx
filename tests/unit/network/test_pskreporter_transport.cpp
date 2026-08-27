@@ -104,6 +104,10 @@ private slots:
   {
     QUdpSocket receiver;
     QVERIFY(receiver.bind(QHostAddress {QHostAddress::LocalHost}, 0));
+    // sendReport writes the maximum queue synchronously, before this test
+    // begins draining received datagrams.
+    receiver.setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption,
+                             256 * 1024);
 
     PSKReporter reporter {options(false, receiver.localPort())};
     reporter.setLocalStation("K1ABC", "FN21", "N/A", "N/A (MAP65)");
