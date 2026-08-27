@@ -1,0 +1,2 @@
+0004 -26  2.5 1700 #  K1ABC G4XYZ IO91          
+<DecodeFinished>   0   1        0

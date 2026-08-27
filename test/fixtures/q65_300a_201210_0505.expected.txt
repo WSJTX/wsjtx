@@ -1,0 +1,2 @@
+0505 -34 -0.6 1002 :  VK7MO VK7PD QE38                      q0 
+<DecodeFinished>   0   1        1

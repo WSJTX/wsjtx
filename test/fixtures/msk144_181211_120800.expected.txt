@@ -1,0 +1,3 @@
+120800   5  4.6 1458 &  CQ W4IMD EM84                                           
+120800   7 12.2 1496 &  CQ KD9VV EN71                                           
+<DecodeFinished>   0   0        0

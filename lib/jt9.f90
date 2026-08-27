@@ -401,6 +401,7 @@ program jt9
         call timer('jt9     ',0)
      endif
      shared_data%id2=0          !??? Why is this necessary ???
+     if(mode.eq.4) npts=165*3456
      if(mode.eq.5) npts=21*3456
      if(mode.eq.66) npts=TRperiod*12000
      do iblk=1,npts/kstep

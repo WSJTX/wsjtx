@@ -1,0 +1,4 @@
+0058  17  0.4 1331 `  CQ K9KFR EN71                                   
+0058  -8  0.3 1101 `  CQ N5TM EL29                                    
+0058 -29  0.4 1135 `  CQ N3HSK FM28                       ? a1        
+<DecodeFinished>   0   3        0
