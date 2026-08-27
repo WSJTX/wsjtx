@@ -18,6 +18,15 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate workflow inputs
+      shell: bash
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        ARCH: ${{ inputs.arch }}
+        DEPLOYMENT_TARGET: ${{ inputs.deployment_target }}
+        RUNNER: ${{ inputs.runner }}
+      run: .github/scripts/validate-ci-inputs.sh
+
     - name: Verify macOS build tuple
       shell: bash
       run: |
@@ -256,10 +265,13 @@ runs:
     - name: Build Hamlib
       if: steps.hamlib-cache.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        DEPLOYMENT_TARGET: ${{ inputs.deployment_target }}
       run: |
         .github/scripts/build-hamlib-macos.sh \
-          "${{ inputs.hamlib_branch }}" \
-          "${{ inputs.deployment_target }}" \
+          "$HAMLIB_BRANCH" \
+          "$DEPLOYMENT_TARGET" \
           "${GITHUB_WORKSPACE}/hamlib-prefix" \
           "${GITHUB_WORKSPACE}/libusb-prefix"
 

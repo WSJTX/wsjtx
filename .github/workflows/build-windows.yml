@@ -27,6 +27,17 @@ on:
         required: false
         type: string
         default: ""
+      sign_mode:
+        description: >-
+          "ephemeral" (default) self-signs the installer; "none" leaves
+          it unsigned for downstream SignPath signing.
+        required: false
+        type: string
+        default: "ephemeral"
+    outputs:
+      installer-artifact-id:
+        description: "Installer artifact id, for the SignPath submit step"
+        value: ${{ jobs.build.outputs.installer-artifact-id }}
   # Also runnable on its own ("Run workflow" / gh workflow run) to build just
   # the Windows installer, at ~1/6 the cost of the full ci.yml matrix. GitHub
   # only exposes workflow_dispatch when the trigger is present on the default
@@ -70,10 +81,17 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 100
+    outputs:
+      installer-artifact-id: ${{ steps.upload_installer.outputs.artifact-id }}
     env:
       BOOST_VERSION: 1.91.0
       BOOST_SOURCE_SHA256: de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5
       WSJT_WINDOWS_API_FLOOR: "0x0601"
+      VERSION: ${{ inputs.version }}
+      HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+      WSJT_RC_NUMBER: ${{ inputs.rc_number }}
     defaults:
       run:
         shell: msys2 {0}
@@ -90,6 +108,12 @@ jobs:
         run: git config --global core.autocrlf false
 
       - uses: actions/checkout@v7
+
+      - name: Validate workflow inputs
+        shell: bash
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+        run: .github/scripts/validate-ci-inputs.sh
 
       # Boost is source-built by build-windows-deps so the Windows 7 API floor
       # and Boost.Atomic patch stay pinned; do not install MSYS2 Boost here.
@@ -126,11 +150,18 @@ jobs:
       - name: Install asciidoctor (Ruby gem)
         run: gem install asciidoctor --no-document
 
+      - name: Select ccache key
+        id: ccache-key
+        shell: bash
+        env:
+          RECACHE: ${{ inputs.recache }}
+        run: .github/scripts/select-ccache-key-suffix.sh
+
       - name: Cache ccache
         uses: actions/cache@v6
         with:
           path: .ccache
-          key: ccache-windows-x86_64-gcc-${{ github.sha }}
+          key: ccache-windows-x86_64-gcc-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
           restore-keys: |
             ccache-windows-x86_64-gcc-
 
@@ -199,12 +230,11 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DOMNIRIG_TYPE_LIB="${OMNIRIG}" \
             -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
-            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
-            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
+            -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
+            -DWSJT_RC_NUMBER="${WSJT_RC_NUMBER}" \
             -DPFUNIT_DIR="${{ steps.windows-deps.outputs.pfunit_dir }}" \
             -DGFTL_DIR="${{ steps.windows-deps.outputs.gftl_dir }}" \
             -DGFTL_SHARED_DIR="${{ steps.windows-deps.outputs.gftl_shared_dir }}" \
@@ -319,8 +349,8 @@ jobs:
           # suffix gap.
           cpack_args=(
             -G NSIS
-            -D CPACK_PACKAGE_VERSION="${{ inputs.version }}"
-            -D CPACK_PACKAGE_FILE_NAME="wsjtx-${{ inputs.version }}-win64"
+            -D CPACK_PACKAGE_VERSION="${VERSION}"
+            -D CPACK_PACKAGE_FILE_NAME="wsjtx-${VERSION}-win64"
           )
           if [ "${CPACK_VERBOSE:-0}" = "1" ]; then
             cpack_args+=(-V)
@@ -328,14 +358,14 @@ jobs:
           cpack "${cpack_args[@]}"
           ls -la *.exe
 
-      # Self-signed ephemeral signing — the signing step is wired into the
-      # pipeline, but the signature does NOT chain to a trusted root. This
-      # is intentional: Authenticode certification is a separate decision
-      # (CI/CD adoption decision #5). Generates an ephemeral cert per-run.
+      # Ephemeral cert for CI/DEVEL/RC builds; does not chain to a
+      # trusted root. GA installers are SignPath-signed on the public
+      # repo instead (sign_mode=none skips this step).
       - name: Sign installer with self-signed ephemeral cert
+        if: inputs.sign_mode != 'none'
         run: |
           cd wsjtx-build
-          INSTALLER=$(ls wsjtx-${{ inputs.version }}-*.exe | head -1)
+          INSTALLER=$(ls wsjtx-${VERSION}-*.exe | head -1)
           if [ -z "$INSTALLER" ]; then
             echo "ERROR: no NSIS installer produced by cpack"
             ls -la
@@ -366,6 +396,7 @@ jobs:
           # Structural presence is proven by the sign step succeeding above.
 
       - name: Upload installer artifact
+        id: upload_installer
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-${{ inputs.version }}-windows-x86_64-installer

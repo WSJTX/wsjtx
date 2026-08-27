@@ -345,7 +345,7 @@ namespace DecodeOutputPlan
     if (rejectedByList) {
       if (!context.bypass) decision.filtered = true;
       if (!context.waitAndPounceOnly && !context.bypass) {
-        decision.continueBatch = false;
+        decision.continueProcessing = false;
         return decision;
       }
       if (shouldResetScores(context)) decision.resetPounceScores = true;

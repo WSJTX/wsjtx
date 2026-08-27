@@ -1,10 +1,12 @@
 #include "Detector.hpp"
+#include <algorithm>
 #include <QDateTime>
 #include <QtAlgorithms>
 #include <QDebug>
 #include <QMutexLocker>
 #include <QVector>
-#include <math.h>
+#include <cmath>
+#include <cstddef>
 #include "commons.h"
 #include "DecDataMutex.hpp"
 
@@ -36,6 +38,39 @@ void Detector::setBlockSize (unsigned n)
   m_samplesPerFFT = n;
 }
 
+void Detector::setStreamDescriptor (AudioStreamDescriptor descriptor)
+{
+  m_stream_clock.setDescriptor (descriptor);
+  m_last_period_offset_ms = -1;
+  clear ();
+}
+
+void Detector::flushBufferedFrames (qint64 frameLimit)
+{
+  qint64 framesWritten {0};
+  {
+    QMutexLocker lock {&dec_data_mutex ()};
+    if (m_downSampleFactor <= 1 || !m_bufferPos
+        || dec_data_input_blocked () || dec_data.params.kin >= frameLimit)
+      {
+        return;
+      }
+
+    auto const blockFrames = m_samplesPerFFT * m_downSampleFactor;
+    std::fill (m_buffer.data () + m_bufferPos,
+               m_buffer.data () + blockFrames, 0);
+    qint32 framesToProcess = blockFrames;
+    qint32 framesAfterDownSample = m_samplesPerFFT;
+    fil4_ (m_buffer.data (), &framesToProcess,
+           &dec_data.d2[dec_data.params.kin], &framesAfterDownSample);
+    dec_data.params.kin = std::min<qint64> (
+      frameLimit, dec_data.params.kin + framesAfterDownSample);
+    framesWritten = dec_data.params.kin;
+    m_bufferPos = 0;
+  }
+  Q_EMIT this->framesWritten (framesWritten);
+}
+
 bool Detector::reset ()
 {
   clear ();
@@ -50,44 +85,51 @@ void Detector::clear ()
   m_bufferPos = 0;
   if (dec_data_input_blocked ()) return;
 
-  // set index to roughly where we are in time (1ms resolution)
-  // qint64 now (QDateTime::currentMSecsSinceEpoch ());
-  // unsigned msInPeriod ((now % 86400000LL) % (m_period * 1000));
-  // dec_data.params.kin = qMin ((msInPeriod * m_frameRate) / 1000, static_cast<unsigned> (sizeof (dec_data.d2) / sizeof (dec_data.d2[0])));
-  dec_data.params.kin = 0;
+  resetPeriodBuffer ();
+}
 
-  // fill buffer with zeros (G4WJS commented out because it might cause decoder hangs)
-  // qFill (dec_data.d2, dec_data.d2 + sizeof (dec_data.d2) / sizeof (dec_data.d2[0]), 0);
+void Detector::resetPeriodBuffer ()
+{
+  auto const capacity = sizeof dec_data.d2 / sizeof dec_data.d2[0];
+  auto const periodFrames = static_cast<std::size_t> (
+      std::ceil (m_period * RX_SAMPLE_RATE));
+  std::fill_n (dec_data.d2, std::min (capacity, periodFrames), qint16 {0});
+  dec_data.params.kin = 0;
+  m_bufferPos = 0;
 }
 
 qint64 Detector::writeData (char const * data, qint64 maxSize)
 {
-  if (dec_data_input_blocked ()) return maxSize;
-
-  static unsigned mstr0=999999;
+  auto const bytes_per_frame = static_cast<qint64> (bytesPerFrame ());
+  Q_ASSERT (!(maxSize % bytes_per_frame));
+  qint64 const frames_received = maxSize / bytes_per_frame;
   QVector<qint64> frame_counts;
-  qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
-  unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
+  qint64 const now_ms = m_stream_clock.timestamp (
+    QDateTime::currentMSecsSinceEpoch ());
+  m_stream_clock.advance (frames_received);
+  qint64 const period_ms = static_cast<qint64> (1000.0 * m_period);
+  qint64 const day_ms = now_ms % 86400000;
+  qint64 const mstr = day_ms % period_ms; // ms into the nominal Tx start time
+
+  if (dec_data_input_blocked ()) return maxSize;
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
     if (dec_data_input_blocked ()) return maxSize;
-    if(mstr < mstr0) {              //When mstr has wrapped around to 0, restart the buffer
-      dec_data.params.kin = 0;
-      m_bufferPos = 0;
+    if(m_last_period_offset_ms >= 0 && mstr < m_last_period_offset_ms) {
+      resetPeriodBuffer ();
     }
-    mstr0=mstr;
+    m_last_period_offset_ms = mstr;
 
-    // no torn frames
-    Q_ASSERT (!(maxSize % static_cast<qint64> (bytesPerFrame ())));
     // these are in terms of input frames (not down sampled)
     size_t framesAcceptable ((sizeof (dec_data.d2) /
                               sizeof (dec_data.d2[0]) - dec_data.params.kin) * m_downSampleFactor);
-    size_t framesAccepted (qMin (static_cast<size_t> (maxSize /
-                                                      bytesPerFrame ()), framesAcceptable));
+    size_t framesAccepted (qMin (static_cast<size_t> (frames_received), framesAcceptable));
 
-    if (framesAccepted < static_cast<size_t> (maxSize / bytesPerFrame ())) {
-      qDebug () << "dropped " << maxSize / bytesPerFrame () - framesAccepted
+    if (framesAccepted < static_cast<size_t> (frames_received)) {
+      auto const frames_dropped = frames_received
+        - static_cast<qint64> (framesAccepted);
+      qDebug () << "dropped " << frames_dropped
                   << " frames of data on the floor!"
                   << dec_data.params.kin << mstr;
     }

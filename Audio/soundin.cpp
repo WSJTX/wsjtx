@@ -21,10 +21,12 @@ bool SoundInput::checkStream ()
       switch (m_stream->error ())
         {
         case QAudio::OpenError:
+          if (!m_destroying) clearStreamDescriptor ();
           Q_EMIT error (tr ("An error opening the audio input device has occurred."));
           break;
 
         case QAudio::IOError:
+          if (!m_destroying) clearStreamDescriptor ();
           Q_EMIT error (tr ("An error occurred during read from the audio input device."));
           break;
 
@@ -33,6 +35,7 @@ bool SoundInput::checkStream ()
         //   break;
 
         case QAudio::FatalError:
+          if (!m_destroying) clearStreamDescriptor ();
           Q_EMIT error (tr ("Non-recoverable error, audio input device not usable at this time."));
           break;
 
@@ -46,12 +49,40 @@ bool SoundInput::checkStream ()
   return result;
 }
 
+void SoundInput::publishStreamDescriptor ()
+{
+  if (!m_stream)
+    {
+      return;
+    }
+
+  auto descriptor = audioStreamDescriptorFromQAudioFormat (m_stream->format ());
+  if (descriptor.isValid ())
+    {
+      descriptor.clock_domain =
+        AudioStreamDescriptor::ClockDomain::DeviceClock;
+      descriptor.timing_evidence =
+        AudioStreamDescriptor::TimingEvidence::PositionCountable;
+      descriptor.can_report_discontinuities = false;
+      setStreamDescriptor (descriptor);
+    }
+  else
+    {
+      LOG_WARN ("Opened input audio stream has an unrecognized format");
+    }
+}
+
 void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, AudioDevice * sink
                        , unsigned downSampleFactor, AudioDevice::Channel channel)
 {
   Q_ASSERT (sink);
 
   stop ();
+
+  if (device.isNull ())
+    {
+      return;
+    }
 
   m_sink = sink;
 
@@ -95,8 +126,12 @@ void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, Audi
   if (m_sink->initialize (QIODevice::WriteOnly, channel))
     {
       m_stream->start (sink);
-      checkStream ();
+      auto const stream_ok = checkStream ();
       cummulative_lost_usec_ = -1;
+      if (stream_ok)
+        {
+          publishStreamDescriptor ();
+        }
 //      LOG_DEBUG ("Selected buffer size (bytes): " << m_stream->bufferSize () << " period size: " << m_stream->periodSize ());
     }
   else
@@ -127,7 +162,10 @@ void SoundInput::resume ()
     {
 //      m_stream->resume ();
       m_stream->start (m_sink);  // better stop and restart audio (fixes issues on Linux and macOS)
-      checkStream ();
+      if (checkStream ())
+        {
+          publishStreamDescriptor ();
+        }
     }
 }
 
@@ -208,9 +246,11 @@ void SoundInput::stop()
       m_stream->stop ();
     }
   m_stream.reset ();
+  if (!m_destroying) clearStreamDescriptor ();
 }
 
 SoundInput::~SoundInput ()
 {
+  m_destroying = true;
   stop ();
 }

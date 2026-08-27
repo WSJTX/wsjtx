@@ -33,8 +33,13 @@ features*.
 delay on received lunar echoes.
 
 - If you will use automatic Doppler tracking and your radio accepts
-frequency-setting commands while transmitting, check *Allow Tx
-frequency changes while transmitting*.  Transceivers known to permit
+frequency-setting commands while transmitting, check *Allow
+Tx-frequency corrections while transmitting*. This option permits
+automatic Doppler, split/Fake It/XIT, and other Tx-frequency corrections
+while the radio is keyed. Microwave EME Doppler corrections can be tens
+of kHz, so WSJT-X does not limit these corrections by size. The option
+never permits a nominal dial or band change while transmitting or tuning.
+Transceivers known to permit
 such changes include the IC-735, IC-756 Pro II, IC-910-H, IC-9700,
 FT-847, TS-590S, TS-590SG, TS-2000 (with Rev 9 or later firmware
 upgrade), Flex 1500 and 5000, HPSDR, Anan-10, Anan-100, and KX3.  To

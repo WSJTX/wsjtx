@@ -21,11 +21,11 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   use timf2_mod
   use fil6521_mod
   use twkfreq_xy_mod
+  use npar_ptrs_mod, only: nsmax_active
   
   implicit none
   
-  integer, parameter :: NMAX = 60*96000             !Samples per 60 s
-  real(real32), intent(in)    :: dd(4, NMAX)       !92 MB: raw data from Linrad timf2
+  real(real32), intent(in)    :: dd(4, nsmax_active)       !92 MB: raw data from Linrad timf2
   integer, intent(in)   :: nflip, mode65, nfsample
   logical, intent(in)   :: xpol
   character(len=12), intent(in) :: mycall, hiscall
@@ -33,13 +33,15 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   integer, intent(in)   :: neme, ndepth, nqd, ndphi
   real,    intent(in)   :: dphi
   real(real64),  intent(in)   :: f0
-  integer, intent(in)   :: nutc, nkhz, ndf, ipol, ntol
+  integer, intent(in)   :: nutc, nkhz, ndf, ntol
+  integer, intent(inout) :: ipol
   real,    intent(inout):: sync2, a(5), dt, pol, qual
   integer, intent(inout):: nkv, nhist, nsum, nsave, newdat
   character(len=22), intent(out) :: decoded
 
-  complex cx(NMAX/64), cy(NMAX/64)   !Data at 1378.125 samples/s
-  complex c5x(NMAX/256),c5y(NMAX/256) !Data at 344.53125 Hz
+  complex cx(nsmax_active/64), cy(nsmax_active/64)   !Data at 1378.125 samples/s
+  complex c5x(nsmax_active/256), c5y(nsmax_active/256) !Data at 344.53125 Hz
+
   complex c5a(512)
   complex z
   real s2(66,126)
@@ -50,23 +52,28 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   integer :: i, i0, ihzdiff, j, jj, jjjmax, jjjmin, k, n, n5
   integer :: n6, nadd, nfft, nhz, nhz0, npol, nsym, nutc0, nz
   logical first
+
+!  real(kind=8) :: s2sum, s2mean
+!  integer :: ii,kk
    
 !  real(c_double), dimension(*)  :: dd
   data first/.true./,jjjmin/1000/,jjjmax/-1000/
   data nutc0/-999/,nhz0/-9999999/  
   save
-   
+     
 ! Mix sync tone to baseband, low-pass filter, downsample to 1378.125 Hz
   dt00=dt
   call timer('filbig  ',0)
-  
+    
   if (.not. ieee_is_finite(f0)) then 
     write(*,*) 'DECODE1A: bad f0, skipping filbig. f0=', f0 
     return 
   end if
-  call filbig(dd,NMAX,f0,newdat,nfsample,xpol,cx,cy,n5)
-! NB: cx, cy have sample rate 96000*77125/5376000 = 1378.125 Hz
+  call filbig(dd, nsmax_active, f0, newdat, nfsample, xpol, cx, cy, n5)
+  
   call timer('filbig  ',1)
+
+! NB: cx, cy have sample rate 96000*77125/5376000 = 1378.125 Hz
   if(mode65.eq.0) return
   sqa=0.
   sqb=0.
@@ -89,10 +96,14 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   if(xpol) then
      c5y(:nadd)=0.
      call fil6521(cy,n5,c5y(nadd+1),n6)
+  else
+     c5y(:n6+nadd)=0.
   endif
   n6=n6+nadd
 
-  fsample=1378.125/4.
+  ! JT65 uses quarter-rate for symbol timing
+  fsample = 1378.125/4.0
+
   a(5)=dt00
   i0=nint((a(5)+0.5)*fsample) - 2 + nadd
   if(i0.lt.1) then
@@ -105,7 +116,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 ! We're looking only at sync tone here... so why not downsample by another
 ! factor of 1/8, say?  Should be a significant execution speed-up.
 ! Best fit for DF, f1, f2, pol
-    call afc65b(c5x(i0),c5y(i0),nz,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
+call afc65b(c5x(i0), c5y(i0), nz, fsample, nflip, ipol, xpol, ndphi, a, ccfbest, dtbest)
 
   pol=a(4)/57.2957795
   aa=cos(pol)
@@ -126,7 +137,9 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 
   nsym=126
   nfft=512
-  j=(dt00+dtbest+2.685)*1378.125
+  j = (dt00 + dtbest + 2.685)*1378.125
+!  fs_out = real(n5) / 60.0   ! actual sample rate from filbig
+!  j = (dt00 + dtbest + 2.685) * fs_out
   if(j.lt.0) j=0
 
 
@@ -137,7 +150,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 !         do n=1,mode65
      do n=1,1
         do i=1,nfft
-           j=min(j+1,NMAX/64)
+          j = min(j+1, nsmax_active/64)
            c5a(i)=aa*cx(j) + bb*cy(j)
         enddo
         call four2a(c5a,nfft,1,1,1)
@@ -159,8 +172,22 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 
   flip=nflip
   call timer('dec65b  ',0)
+  
+! After filling s2(66,126), just before:
+!   call decode65b(...)
+
+!s2sum = 0.0d0
+!do kk = 1, nsym
+!   do ii = 1, 66
+!      s2sum = s2sum + dble(s2(ii,kk))
+!   end do
+!end do
+
+!s2mean = s2sum / dble(66*nsym)
+  
   call decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,    &
        nqd,nkv,nhist,qual,decoded,s3,sy)
+              
   dt=dt00 + dtbest + 1.7
   call timer('dec65b  ',1)
 

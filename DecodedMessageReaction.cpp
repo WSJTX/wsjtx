@@ -1,6 +1,7 @@
 #include "DecodedMessageReaction.hpp"
 
 #include "Decoder/decodedtext.h"
+#include "WaitFeaturePolicy.hpp"
 #include "qt_helpers.hpp"
 
 #include <QRegularExpression>
@@ -82,16 +83,6 @@ namespace
     plan.effects.append(effect);
   }
 
-  void appendFrequencyEffect(QsoReactionPlan& plan, QsoReactionEffect::Kind kind,
-                             Radio::Frequency frequency, QString const& text = QString {})
-  {
-    QsoReactionEffect effect;
-    effect.kind = kind;
-    effect.frequency = frequency;
-    effect.text = text;
-    plan.effects.append(effect);
-  }
-
   void appendProgressEffect(QsoReactionPlan& plan, QsoProgress progress)
   {
     QsoReactionEffect effect;
@@ -164,12 +155,6 @@ namespace
       || messageWords.contains("DE");
   }
 
-  bool isSlowReactionMode(QString const& mode)
-  {
-    return mode == "FT8" || mode == "FT4" || mode == "Q65" || mode == "FST4"
-      || mode == "JT65" || mode == "JT9" || mode == "JT4";
-  }
-
   struct EntryAnalysis
   {
     bool continueProcessing {false};
@@ -223,12 +208,19 @@ namespace
       bool ok = false;
       auto const kHz = parts[6].toUInt(&ok);
       if (ok && kHz >= 10 && parts[6].size() == 3) {
-        auto const dialFrequency = snapshot.nominalFrequency / 1000000 * 1000000 + 1000 * kHz;
-        appendFrequencyEffect(plan, QsoReactionEffect::Kind::SetRigFrequency, dialFrequency);
-        appendFrequencyEffect(plan, QsoReactionEffect::Kind::DisplayQsy, snapshot.nominalFrequency,
-                              QString {"QSY %1"}.arg(snapshot.nominalFrequency / 1e6, 7, 'f', 3));
-        if (snapshot.mode == "MSK144") {
-          appendFrequencyEffect(plan, QsoReactionEffect::Kind::SetMsk144BaseFrequency, dialFrequency);
+        if (snapshot.nominalQsyAllowed) {
+          auto const dialFrequency = snapshot.nominalFrequency / 1000000 * 1000000 + 1000 * kHz;
+          QsoReactionEffect effect;
+          effect.kind = QsoReactionEffect::Kind::ApplyFastCqQsy;
+          effect.frequency = dialFrequency;
+          effect.text = QString {"QSY %1"}.arg(snapshot.nominalFrequency / 1e6, 7, 'f', 3);
+          effect.boolValue = snapshot.mode == "MSK144";
+          effect.userInitiated = snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None;
+          plan.effects.append(effect);
+        } else if (snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None) {
+          appendEffect(plan, QsoReactionEffect::Kind::RejectNominalQsy);
+          analysis.reason = "fast CQ requires a blocked nominal QSY";
+          return analysis;
         }
       }
     }
@@ -392,6 +384,19 @@ namespace
 
 namespace DecodedMessageReaction
 {
+  bool shouldDeferAutoTxStopAfterRrr(QString const& mode, bool repeatTx, bool sendRr73)
+  {
+    return !sendRr73 && (mode == "MSK144" || (mode == "Q65" && repeatTx));
+  }
+
+  void applyAutoTxStopAfterLogging(QString const& mode, bool repeatTx, bool sendRr73,
+                                   std::function<void()> stopAutoTx)
+  {
+    if (!shouldDeferAutoTxStopAfterRrr(mode, repeatTx, sendRr73)) {
+      stopAutoTx();
+    }
+  }
+
   QsoReactionPlan planProcessMessage(DecodedText const& message, QsoReactionSnapshot const& snapshot)
   {
     QsoReactionPlan plan;
@@ -554,8 +559,7 @@ namespace DecodedMessageReaction
               } else {
                 appendEffect(plan, QsoReactionEffect::Kind::CeaseAutoTx);
               }
-              if ((snapshot.mode == "MSK144" || (snapshot.mode == "Q65" && snapshot.repeatTx))
-                  && !snapshot.sendRr73) {
+              if (shouldDeferAutoTxStopAfterRrr(snapshot.mode, snapshot.repeatTx, snapshot.sendRr73)) {
                 appendIntEffect(plan, QsoReactionEffect::Kind::ClickTxMessage, 5);
                 appendIntEffect(plan, QsoReactionEffect::Kind::ScheduleAutoFlagOff,
                                 int(1000.0 * snapshot.trPeriod));
@@ -764,17 +768,24 @@ namespace DecodedMessageReaction
                                     WaitDecodeSource source)
   {
     QsoReactionPlan plan;
+    WaitFeatureContext const waitContext {
+      snapshot.mode,
+      snapshot.specOp,
+      snapshot.waitFeaturesEnabled,
+      snapshot.autoSequenceChecked,
+      !snapshot.hisCall.isEmpty(),
+      snapshot.ncccSprint
+    };
     bool const fastPolicy = source == WaitDecodeSource::Msk144FastDecoder
       && snapshot.mode == "MSK144";
     bool const slowPolicy = source == WaitDecodeSource::SlowDecoder
-      && isSlowReactionMode(snapshot.mode);
+      && slow_wait_feature_mode_supported (snapshot.mode);
     if ((!fastPolicy && !slowPolicy) || snapshot.hisCall.isEmpty()) {
       plan.reason = "decoder source does not match Wait policy";
       return plan;
     }
 
-    bool const nccc = slowPolicy && snapshot.mode == "FT4"
-      && snapshot.specOp == SpecOp::NA_VHF && snapshot.ncccSprint;
+    bool const nccc = slowPolicy && nccc_sprint_auto_reply (waitContext);
     if (!snapshot.waitFeaturesEnabled && !nccc
         && !(fastPolicy && snapshot.waitAndCallControlChecked)) {
       plan.reason = "Wait features are not active";
@@ -809,7 +820,7 @@ namespace DecodedMessageReaction
 
     if (reply && slowPolicy && snapshot.specOp == SpecOp::HOUND
         && (text.mid(4, 2).contains("15") || text.mid(4, 2).contains("45"))) {
-      plan.disposition = ReactionDisposition::AbortDecodeBatch;
+      plan.disposition = ReactionDisposition::IgnoreDecode;
       plan.reason = "hound ignores slow decode from wrong time slot";
       return plan;
     }

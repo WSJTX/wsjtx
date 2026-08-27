@@ -175,7 +175,7 @@ program ft8sim_gfsk
      h=default_header(12000,NMAX)
      write(fname,1102) ifile
 1102 format('000000_',i6.6,'.wav')
-     open(10,file=fname,status='unknown',access='stream')
+     open(10,file=fname,status='replace',access='stream')
      write(10) h,iwave                !Save to *.wav file
      close(10)
      write(*,1110) ifile,xdt,f0,snrdb,fname,snr_2500

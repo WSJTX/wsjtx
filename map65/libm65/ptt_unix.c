@@ -17,26 +17,11 @@
  */
 # include <stdio.h>
 #  include <stdlib.h>
-# include <unistd.h>
+#  include <unistd.h>
 #include <fcntl.h>
 # include <sys/ioctl.h>
 #include <errno.h>
 #include <string.h>
-#include <stdarg.h>
-
-static void ptt_log(const char *fmt, ...)
-{
-    FILE *f = fopen("/tmp/map65_ptt.log", "a");
-    if (!f) return;
-
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
-    fprintf(f, "\n");
-    va_end(ap);
-    fflush(f);
-    fclose(f);
-}
 
 #ifdef HAVE_SYS_STAT_H
 # include <sys/stat.h>

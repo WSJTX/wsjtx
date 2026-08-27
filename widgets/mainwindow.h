@@ -21,7 +21,6 @@
 #include <QStringList>
 #include <QScopedPointer>
 #include <QDir>
-#include <QProgressDialog>
 #include <QAbstractSocket>
 #include <QHostAddress>
 #include <QPointer>
@@ -29,6 +28,7 @@
 #include <QHash>
 #include <QVector>
 #include <QScrollBar>
+#include <QTextBlock>
 #include <QQueue>
 #include <QFuture>
 #include <QFutureSynchronizer>
@@ -40,6 +40,10 @@
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
+#include "Audio/TxIdentity.hpp"
+#include "Audio/TxPlaybackDiagnostics.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 #include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
 #include "Radio.hpp"
@@ -61,7 +65,13 @@
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "AutoRespondSelectionLatch.hpp"
+#include "AutoRespondScoring.hpp"
+#include "HoundTransmissionPolicy.hpp"
 #include "QsoProgress.hpp"
+#include "DecodeOperatingContext.hpp"
+#include "DecoderOutputFramer.hpp"
+#include "Ft8MtdDecodeCoordinator.hpp"
+#include "RigFrequencyChangePolicy.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -89,6 +99,7 @@ namespace Ui {
 
 class QWidget;
 class QRadioButton;
+struct QMapDecodeRecord;
 class QFocusFrame;
 class QFrame;
 class QButtonGroup;
@@ -118,7 +129,7 @@ class EQSL;
 class WSPRNet;
 class SoundOutput;
 class Modulator;
-class SoundInput;
+class AudioInputSource;
 class Detector;
 class SampleDownloader;
 class MultiSettings;
@@ -126,6 +137,7 @@ class MultiSettings;
 namespace DecodedMessageReaction
 {
   enum class ContestHint;
+  enum class ReactionDisposition;
   enum class WaitDecodeSource;
   struct QsoReactionEffect;
   struct QsoReactionPlan;
@@ -135,7 +147,7 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
-#include "Modulator/JttyTxBuffer.hpp"
+#include "Audio/TxAudioQueue.hpp"
 #include "Modulator/JttyTxStream.hpp"
 
 #ifdef WIN32
@@ -170,7 +182,10 @@ public:
 
   explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
                       QSharedMemory *shdmem, unsigned downSampleFactor,
-                      QSplashScreen *, QProcessEnvironment const&, bool startup_smoke_test,
+                      QSplashScreen *, QProcessEnvironment const&, bool automated_test,
+                      std::unique_ptr<AudioInputSource> audio_input_source = {},
+                      std::unique_ptr<SoundOutput> sound_output = {},
+                      QString decoder_data_path = {},
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -179,11 +194,56 @@ public:
   MMTTYIF *getMmttyIf() const;
 #endif
 
-  int decoderBusy () const {return m_decoderBusy;}
+  bool decoderBusy () const
+    {return DecodeOwner::None != m_decodeOwner || m_ft8MtdDecodeCoordinator.hasPending ();}
   void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
+  bool decoderBackendRunning () const;
+  bool diskDataActive () const {return m_diskData;}
+  bool monitoringActive () const {return m_monitoring;}
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  struct LiveAudioTestFt8TransmitRequest
+  {
+    qint64 session_id {-1};
+    qint64 generation {-1};
+  };
 
+  bool liveAudioTestMultithreadedFt8Enabled () const {return m_multithreadFT8;}
+  int liveAudioTestFt8ThreadCount () const {return m_ft8threads;}
+  int liveAudioTestDecodeDepth () const {return m_ndepth & 7;}
+  int liveAudioTestFt8Cycles () const {return m_nFT8Cycles;}
+  int liveAudioTestFt8Sensitivity () const {return m_ft8Sensitivity;}
+  int liveAudioTestFt8DecoderStart () const {return m_ft8DecoderStart;}
+  QString liveAudioTestFt8BackpressureDiagnostics () const;
+  static constexpr int liveAudioTestDecodeLowFrequency () {return 200;}
+  static constexpr int liveAudioTestDecodeHighFrequency () {return 3000;}
+  bool configureLiveAudioTestDecodeRange ();
+  bool prepareLiveAudioTestFt8InputCompletion ();
+  QString completeLiveAudioTestFt8Input (qint64 frames);
+  LiveAudioTestFt8TransmitRequest startLiveAudioTestFt8Transmit (
+    qint64 targetPeriodStartMs);
+#endif
 
   Q_SIGNALS:
+  void decoderBackendStarted () const;
+  void decoderBackendFailed (QString reason) const;
+  void decodeCycleStarted (quint64 generation) const;
+  void decodeCycleCompleted (quint64 generation) const;
+  void decodeCycleAborted (quint64 generation) const;
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  void ft8DecoderInvocation (bool multithreaded, int threadCount, int depth,
+                             int cycles, bool subpass, int decoderStart,
+                             int halfSymbols, int sampleCount,
+                             int lowFrequency, int highFrequency) const;
+  void decoderOutputLine (QByteArray line) const;
+  void liveAudioTestJttyFramesConsumed (qint64 frames) const;
+  void liveAudioTestFt8TransmitStartDecided (qint64 sessionId,
+                                             qint64 generation,
+                                             qint64 targetPeriodStartMs,
+                                             bool accepted,
+                                             qint64 actualStartMs) const;
+#endif
+  void decodedMessageProcessed (QString message) const;
+  void decodedMessageDisplayed (QString message) const;
   void jttyTextAccepted(qint64 requestId) const;
   void jttyTextRejected(qint64 requestId, JttyTxRejectReason reason) const;
   void jttyTextCompleted(qint64 requestId) const;
@@ -205,10 +265,10 @@ public:
   void diskDat();
   void freezeDecode(int n);
   void guiUpdate();
-  void doubleClickOnCall (Qt::KeyboardModifiers);
-  void doubleClickOnCall2(Qt::KeyboardModifiers);
-  void doubleClickOnFoxQueue(Qt::KeyboardModifiers);
-  void doubleClickOnFoxInProgress(Qt::KeyboardModifiers modifiers);
+  void doubleClickOnCall (QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnFoxQueue(QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnFoxInProgress(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers);
   void readFromStdout();
   void p1ReadFromStdout();
   void setXIT(int n, Frequency base = 0u);
@@ -218,6 +278,47 @@ public:
   void skedFreq(double sf);
 
 private:
+  enum class DecodeOwner
+  {
+    None,
+    Jt9,
+    Wsprd
+  };
+
+  enum class DecodeEndState
+  {
+    Completed,
+    Aborted
+  };
+
+  enum class Jt9ProcessPhase
+  {
+    InitialStarting,
+    Ready,
+    StopRequested,
+    Terminating,
+    Killing,
+    ReplacementStarting,
+    Closing
+  };
+
+  enum class DecodePublishResult
+  {
+    Published,
+    Unavailable,
+    Failed
+  };
+
+  struct ActiveJt9Decode
+  {
+    qint32 generation {0};
+    DecodeOperatingContext context;
+    bool copiedSamples {false};
+    bool obsolete {false};
+    Ft8MtdDecodeCoordinator::Stage ft8Stage {Ft8MtdDecodeCoordinator::Stage::None};
+    qint64 ft8Period {-1};
+  };
+
   static constexpr int MaxActiveStationRows = 50;
   // Keep this matched with MAX_CALLERS in the Q65 q3list Fortran helpers.
   static constexpr int MaxQ65PileupCallers = 50;
@@ -268,7 +369,7 @@ private slots:
   void stopWRTimeout();
   void stopWCTimeout();
   void bandHoppingTimer();
-  void bandHopping();
+  void bandHopping(bool user_requested = false);
   void on_houndButton_clicked(bool checked);
   void on_cbHoldTxFreq_clicked (bool);
   void on_ft8Button_clicked();
@@ -324,7 +425,6 @@ private slots:
   void on_actionSWL_Mode_triggered (bool checked);
   void on_DecodeButton_clicked (bool);
   void decode();
-  void decodeBusy(bool b);
   void on_EraseButton_clicked();
   void band_activity_cleared ();
   void rx_frequency_activity_cleared ();
@@ -421,7 +521,7 @@ private slots:
   void on_actionErase_WSPR_hashtable_triggered();
   void on_actionErase_list_of_Q65_callers_triggered();
   void on_actionExport_Cabrillo_log_triggered();
-  void startTx2();
+  bool startTx2();
   void startP1();
   void stopTx();
   void stopTx2();
@@ -451,6 +551,7 @@ private slots:
   void on_outAttenuation_valueChanged (int);
   void rigOpen ();
   void handle_transceiver_update (Transceiver::TransceiverState const&);
+  void handle_transceiver_closing (bool failed);
   void handle_transceiver_failure (QString const& reason);
   void handle_leavingSettings();
   void on_actionAstronomical_data_toggled (bool);
@@ -480,7 +581,6 @@ private slots:
   void on_cbSWL_toggled(bool b);
   void on_cbTx6_toggled(bool b);
   void on_cbMenus_toggled(bool b);
-  void on_cbCQonly_toggled(bool b);
   void on_cbAutoSeq_toggled(bool b);
   void networkError (QString const&);
   void on_ClrAvgButton_clicked();
@@ -536,6 +636,7 @@ private slots:
                          , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
                          , QString const& dx_grid, bool generate_messages);
   void callSandP2(int nline);
+  void qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick);
   void refreshHoundQueueDisplay();
   void queueActiveWindowHound2(QString text);
   void update_tx5(const QString &qsy_text);
@@ -560,12 +661,28 @@ private slots:
 #endif
 
 private:
+  enum class FrequencyRequestOrigin
+  {
+    User,
+    Automatic
+  };
+
   enum class DecodeAlertSound { None, DXcall, Wanted };
 
+  struct Q65StationSelection
+  {
+    QString call;
+    QString grid;
+    QString submode;
+    QString report;
+    bool txFirst;
+  };
+
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
+  void applyQ65StationSelection (Q65StationSelection const& selection);
   void processFoxSignals(const DecodedText& dt);
   void processSFoxVerification(const DecodedText& dt, bool& filtered);
-  bool processWaitReplyCall(
+  DecodedMessageReaction::ReactionDisposition processWaitReplyCall(
     DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
     bool * block_right_display = nullptr);
   bool applyFiltering(const DecodedText& dt, bool& filtered);
@@ -597,12 +714,8 @@ private:
   Q_SIGNAL void transmitFrequency (double) const;
   Q_SIGNAL void endTransmitMessage (bool quick = false) const;
   Q_SIGNAL void tune (bool = true) const;
-  Q_SIGNAL void sendMessage (QString mode, unsigned symbolsLength,
-      double framesPerSymbol, double frequency, double toneSpacing,
-      SoundOutput *, AudioDevice::Channel = AudioDevice::Mono,
-      bool synchronize = true, bool fastMode = false, double dBSNR = 99.,
-                             int TRperiod=60) const;
-  Q_SIGNAL void startJttyStream (SoundOutput *, AudioDevice::Channel, qint64 sessionId);
+  Q_SIGNAL void sendMessage (TxEvidence::TxRequest, SoundOutput *) const;
+  Q_SIGNAL void startJttyStream (TxEvidence::TxRequest, SoundOutput *);
   Q_SIGNAL void endJttyStream () const;
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
@@ -610,6 +723,18 @@ private:
 
 private:
   void set_mode (QString const& mode);
+  void dispatchTxRequest (TxEvidence::TxRequest const& request);
+  void beginTxEvidenceSession ();
+  void beginTxEvidenceGeneration (qint64 committedEndSample = -1,
+                                  bool targetKnown = false);
+  void recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapshot);
+  void recordRawTxPlayout (TxEvidence::TxRawPlayoutSnapshot const& snapshot);
+  void noteTxStopReason (TxEvidence::TxStopReason reason);
+  void noteTxModeChange (QString const& mode);
+  int txStopTailMs (bool tciAudio) const;
+  void stopTxEvidence (int tailMs);
+  void captureJttyTxEvidenceTotals (qint64 servedSamples, qint64 totalSamples,
+                                    QString const& diagnostic);
   void astroUpdate ();
   void writeAllTxt(QString message);
   void auto_sequence (DecodedText const& message, unsigned start_tolerance, unsigned stop_tolerance);
@@ -638,18 +763,24 @@ private:
   QString jttyRejectReasonText(JttyTxRejectReason reason) const;
 #endif
   void execute_jtty_tx(qint64 requestId, QString message);
-  void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
+  void advanceJttyTxQueueEpoch();
+  qint64 jttyTxCommittedSamples() const;
+  void completeJttyTxEnqueue(qint64 requestId, QString const& message,
+                             TxAudioQueueProgress progress, bool newSession,
+                             bool useTciAudio);
   void recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample);
-  QVector<qint64> takeCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain);
-  void clearAcceptedJttyTextRequests(qint64 sessionId);
+  QVector<qint64> takeCompletedJttyTextRequests(TxAudioQueueEpoch epoch,
+                                               qint64 totalAtDrain);
+  void clearAcceptedJttyTextRequests(TxAudioQueueEpoch epoch);
   void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();
   void interruptJttyTx();
   void rejectPendingJttyTciMessages(JttyTxRejectReason reason);
   void sync_tci_tx_volume (bool force = false);
-  void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
-  void onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
-  void onJttyBackendEnqueueFailed(qint64 sessionId, qint64 enqueueId);
+  void onJttyBackendDrained(TxAudioQueueDrainState drain);
+  void onJttyBackendEnqueueAccepted(qint64 enqueueId, qint64 sampleCount,
+                                    TxAudioQueueProgress progress);
+  void onJttyBackendEnqueueFailed(TxAudioQueueEpoch epoch, qint64 enqueueId);
   void handleJttyTxWatchdog();
   void resetJttyTxState();
   void startJttyTxWatchdog(int durationMs);
@@ -678,7 +809,7 @@ private:
   QSplashScreen * m_splash;
   QString m_revision;
   bool m_multiple;
-  bool m_startup_smoke_test;
+  bool m_automated_test;
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
   QSettings * m_settings;
@@ -686,12 +817,14 @@ private:
   QButtonGroup * m_tx_message_button_group {nullptr};
   QFocusFrame * m_main_window_focus_frame {nullptr};
   QFrame * m_message_selector_focus_frame {nullptr};
+  bool m_keyboard_focus_active {false};
 
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
 #endif
 
   Configuration m_config;
+  QDir m_decoderDataDir;
   LogBook m_logBook;            // must be after Configuration construction
   Cloudlog m_cloudlog;
   WSPRBandHopping m_WSPR_band_hopping;
@@ -726,9 +859,10 @@ private:
 
   Detector * m_detector;
   unsigned m_FFTSize;
-  SoundInput * m_soundInput;
+  AudioInputSource * m_soundInput;
+  quint64 m_decodeCycleGeneration {0};
   Modulator * m_modulator;
-  QScopedPointer<JttyTxBuffer> m_jttyTxBuffer;
+  QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
   SoundOutput * m_soundOutput;
   int m_rx_audio_buffer_frames;
@@ -754,11 +888,11 @@ private:
 
   double  m_tRemaining;
   double  m_TRperiod;
-  double  m_fSpread;
+  double  m_fSpread {0.};
   double  m_s6;
-  double  m_fDither;
-  double  m_fAudioShift;
-  double  m_skedFreq;
+  double  m_fDither {0.};
+  double  m_fAudioShift {0.};
+  double  m_skedFreq {1296.065};
 
   float   m_DTtol;
   float   m_t0;
@@ -834,8 +968,7 @@ private:
   qint32  m_maxFoxWait=3;      //Max wait time for expected Hound replies
   qint32  m_foxCQtime=10;      //CQs at least every 5 minutes
   qint32  m_tFoxTxSinceCQ=999; //Fox Tx cycles since most recent CQ
-  qint32  m_nFoxFreq;          //Audio freq at which Hound received a call from Fox
-  qint32  m_nSentFoxRrpt=0;    //Serial number for next R+rpt Hound will send to Fox
+  HoundTransmissionPolicy::State m_houndTransmissionState;
   qint32  m_kin0=0;
   qint32  m_earlyDecode=41;
   qint32  m_earlyDecode2=47;
@@ -850,21 +983,25 @@ private:
   qint32  m_position;
   qint64  m_decoderDiagSequence=0;
   qint64  m_decoderDiagActiveSequence=0;
+  qint32  m_nextDecoderGeneration=0;
   qint32  m_decoderDiagStartIhsym=0;
   qint32  m_decoderDiagStartHsymStop=0;
   qint32  m_decoderDiagStartNzhsym=0;
   qint32  m_decoderDiagStartNewdat=0;
   qint32  m_decoderDiagStartNagain=0;
   qint32  m_decoderDiagStartNdiskdat=0;
+  qint32  m_decoderDiagProgressCount=0;
   double  m_decoderDiagStartTRperiod=0.0;
   QElapsedTimer m_decoderDiagElapsedTimer;
+  QElapsedTimer m_decoderDiagProgressTimer;
   QString m_decoderDiagStartMode;
   QMap<QString, QDateTime> m_decoderDiagLastSampleUtc;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
   bool    m_loopall;
-  bool    m_decoderBusy;
+  DecodeOwner m_decodeOwner=DecodeOwner::None;
+  Jt9ProcessPhase m_jt9ProcessPhase=Jt9ProcessPhase::InitialStarting;
   bool    m_modeLocked = false;
   bool    m_decode_button_enabled_before_wav {false};
   bool    m_decoderDiagActive=false;
@@ -872,10 +1009,22 @@ private:
   bool    m_decoderDiagOverrunLogged=false;
   bool    m_decoderDiagHardHangLogged=false;
   bool    m_decoderDiagAbnormalClear=false;
+  bool    m_decoderCompletedSinceStart=false;
+  bool    m_jt9PayloadValid=false;
+  bool    m_closing=false;
   bool    m_txFirst;
   bool    m_auto;
   bool    m_restart;
+  bool    m_generated_message_error;
   bool    m_startAnother;
+  ActiveJt9Decode m_activeJt9Decode;
+  DecoderOutputFramer m_decoderOutputFramer;
+  Ft8MtdDecodeCoordinator m_ft8MtdDecodeCoordinator;
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  qint64 m_liveAudioTestPendingFt8FinalPeriod {-1};
+  bool m_liveAudioTestAwaitFt8InputCompletion {false};
+  bool m_liveAudioTestFt8InputComplete {false};
+#endif
 
   // start ft8md
   bool    m_FT8EarlyStart;   
@@ -1000,6 +1149,10 @@ private:
   EQSL *Eqsl;
 
   QTimer m_guiTimer;
+  QTimer m_decoderShutdownTimer;
+  QTimer m_decoderTerminateTimer;
+  QTimer m_decoderKillTimer;
+  QTimer m_decoderStartTimer;
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
   QTimer ptt1Timer;                 //StartTx delay
@@ -1016,6 +1169,7 @@ private:
   QTimer m_jttyTxWatchdog;
   QTimer m_refSpecTimer;
   AutoRespondSelectionLatch m_autoRespondSelectionLatch;
+  AutoRespondScores m_autoRespondScores;
   int m_refSpecSecondsRemaining = 0;
 
   QString m_path;
@@ -1151,13 +1305,24 @@ private:
   bool m_transmitting;
   bool m_tune;
   bool m_tx_watchdog;           // true when watchdog triggered
+  TxEvidence::TxPlaybackDiagnostics m_txPlaybackDiagnostics;
+  TxEvidence::TxSessionId m_txEvidenceSession;
+  TxEvidence::TxSessionId m_txEvidenceSourceSession;
+  TxEvidence::TxGeneration m_txEvidenceGeneration;
+  TxEvidence::TxStopReason m_pendingTxStopReason {TxEvidence::TxStopReason::NormalEnd};
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  qint64 m_liveAudioTestFt8StartWindowOpenMs {-1};
+  qint64 m_liveAudioTestFt8StartWindowCloseMs {-1};
+  qint64 m_liveAudioTestFt8StartSessionId {-1};
+  qint64 m_liveAudioTestFt8StartGeneration {-1};
+#endif
   bool m_jttyTxActive;
   bool m_jttyTxUsesTciAudio;
-  qint64 m_jttyTxSessionId;
-  qint64 m_jttyQueuedSamples;
+  TxAudioQueueEpoch m_jttyTxQueueEpoch;
+  TxAudioQueueProgress m_jttyTxQueueProgress;
   struct PendingJttyTciMessage
   {
-    qint64 sessionId;
+    TxAudioQueueEpoch epoch;
     qint64 enqueueId;
     qint64 requestId;
     qint64 sampleCount;
@@ -1167,13 +1332,22 @@ private:
   QVector<PendingJttyTciMessage> m_pendingJttyTciMessages;
   struct AcceptedJttyTxRequest
   {
-    qint64 sessionId;
+    TxAudioQueueEpoch epoch;
     qint64 requestId;
     qint64 endSample;
   };
   QVector<AcceptedJttyTxRequest> m_acceptedJttyTxRequests;
   qint64 m_jttyTxRequestId;
   qint64 m_jttyTciEnqueueId;
+  struct JttyQsoLine
+  {
+    QString text;        // full text currently shown on this line
+    QTextBlock block;    // the decodedTextBrowser2 paragraph holding it
+  };
+  QVector<JttyQsoLine> m_jttyQsoLines;   // one entry per concurrently-growing JTTY transmission
+  int m_jttyLastAllFreqsK = -1;          // detects a restarted decode (new WAV, or "decode again")
+  qint32 m_jttyLastSavedWavK0 = -1;      // m_k0 at last JTTY WAV save; skips saving unchanged audio again
+  QTextBlock m_jttyAllFreqsGroupStart;   // start of decodedTextBrowser's currently-growing group
 #ifdef WIN32
   bool m_mmttyJttyStartRequested;
   bool m_mmttyJttyFinishRequested;
@@ -1185,8 +1359,6 @@ private:
   bool m_bDisplayedOnce;
   Frequency m_lastMonitoredFrequency;
   double m_toneSpacing;
-  int m_firstDecode;
-  QProgressDialog m_optimizingProgress;
   QTimer m_heartbeat;
   MessageClient * m_messageClient;
   PSKReporter m_psk_Reporter;
@@ -1209,6 +1381,8 @@ private:
   void registerMainWindowFocusControls();
   std::array<QRadioButton *, 6> txNextButtons() const;
   std::array<QWidget *, 13> focusIndicatorWidgets() const;
+  void showMainWindowFocusIndicator(QWidget *widget);
+  void hideMainWindowFocusIndicators();
   void updateTxNextFocusPolicies();
   bool switchTxNextMessage(QKeyEvent const *key_event);
   bool switchMainWindowTab(QKeyEvent const *key_event);
@@ -1219,6 +1393,9 @@ private:
   QString expandTxMacros(QString const& message) const;
   void ba2msg(QByteArray ba, char* message);
   void msgtype(QString t, QLineEdit* tx);
+  void show_generated_message_error ();
+  void clear_generated_message_error ();
+  void update_generated_message_error ();
   void stub();
   void statusChanged();
   void fixStop();
@@ -1229,6 +1406,8 @@ private:
   void rigFailure (QString const& reason);
   void pskSetLocal ();
   void pskPost(DecodedText const& decodedtext);
+  void pskPost(DecodedText const& decodedtext,
+               DecodeOperatingContext const& context);
   void displayDialFrequency ();
   void transmitDisplay (bool);
   void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier,
@@ -1252,7 +1431,19 @@ private:
   bool hasMsk144BaseFrequency () const {return m_msk144basefreq > 0;}
   void WSPR_scheduling ();
   void freqCalStep();
-  void setRig (Frequency = 0);  // zero frequency means no change
+  RigFrequencyChangePolicy::Activity rigFrequencyActivity () const;
+  RigFrequencyChangePolicy::Decision rigFrequencyChangeDecision (
+    RigFrequencyChangePolicy::ChangeKind) const;
+  bool nominalFrequencyChangeAllowed (FrequencyRequestOrigin);
+  bool requestNominalFrequencyChange (Frequency, FrequencyRequestOrigin);
+  bool requestBandChange (Frequency, FrequencyRequestOrigin);
+  bool workingFrequencyAt (int row, Frequency&) const;
+  void applyBandChange (Frequency, Frequency previous_frequency);
+  bool requestBandButtonFrequency (Frequency lookup_frequency, Frequency fallback_frequency,
+                                   double msk144_tr_period = 0.);
+  bool requestAlternateBandFrequency (Frequency);
+  bool reapplyCurrentRigFrequencyCorrection ();
+  void restoreNominalFrequencySelection ();
   void WSPR_history(Frequency dialFreq, int ndecodes);
   QString beacon_start_time (int n = 0);
   QString WSPR_message();
@@ -1261,16 +1452,17 @@ private:
   void useNextCall();
   void abortQSO();
   void updateRate();
-  void write_all(QString txRx, QString message);
+  void write_all(QString txRx, QString message,
+                 DecodeOperatingContext const * context = nullptr);
   bool isWorked(int itype, QString key, float fMHz=0, QString="");
 
-  void hound_reply ();
+  void hound_reply (int foxFrequency);
   QString sortHoundCalls(QString t, int isort, int max_dB);
   void rm_tb4(QString houndCall);
   void read_wav_file (QString const& fname);
   void wav_file_loaded ();
   void update_wav_file_actions ();
-  void decodeDone ();
+  void finishDecodeUi ();
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
   void subProcessError (QProcess *, QProcess::ProcessError);
   void statusUpdate () const;
@@ -1295,9 +1487,51 @@ private:
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
   void update_foxLogWindow_rate();
-  void to_jt9(qint32 n, qint32 istart, qint32 idone);
+  DecodePublishResult publishDecodeRequest(
+      bool copySamples,
+      Ft8MtdDecodeCoordinator::Stage ft8Stage = Ft8MtdDecodeCoordinator::Stage::None,
+      qint64 ft8Period = -1);
+  DecodePublishResult publishPendingFt8Decode ();
+  void decode (Ft8MtdDecodeCoordinator::Stage stage, qint64 ft8Period = -1);
+  qint64 currentFt8DecodePeriod () const;
+  bool usesFt8MtdFinal () const;
+  int configuredFt8MtdEarlyStageCount () const;
+  std::unique_ptr<Ft8MtdDecodeCoordinator::PendingMtdDecode>
+    capturePendingFt8MtdDecode (qint64 period) const;
+  void cancelPendingFt8Decode (QString const& reason);
+  void reportFt8BackpressureDecision (
+      Ft8MtdDecodeCoordinator::Decision const& decision, qint64 period);
+  void reportFt8BackpressureRecovery (qint64 period);
+  void emitFt8DecoderInvocation (decoder_params_t const& params) const;
+  bool handleDecoderOutputEvent(DecoderOutputFramer::Event const& event,
+                                bool& decodeCompleted);
+  DecodeOperatingContext currentDecodeOperatingContext() const;
+  bool decodeOperatingContextMatchesCurrent(
+      DecodeOperatingContext const& context) const;
+  bool pendingFt8DecodeOperatingContextMatchesCurrent(
+      DecodeOperatingContext const& context) const;
+  bool activeDecodeOperatingContextMatchesCurrent() const;
+  bool initializeDecoderSharedMemory();
+  void startDecoderProcess();
+  bool beginDecode(
+      DecodeOwner owner, decoder_params_t const * diagnosticParams = nullptr,
+      DecodeOperatingContext const * diagnosticContext = nullptr);
+  void endDecode(DecodeOwner owner,
+                 DecodeEndState state = DecodeEndState::Completed);
+  void updateDecodeControls();
+  bool usesJt9Process() const;
+  bool decoderRestartInProgress() const;
+  void abortJt9Transaction();
+  void recoverDecoderAtBoundary(QString const& reason, bool manual);
+  void requestDecoderRestart(QString const& reason);
   qint64 decoderDiagnosticElapsedMs() const;
-  void beginDecoderDiagnostic();
+  qint64 decoderDiagnosticIdleMs() const;
+  qint64 decoderRequestDeadlineMs() const;
+  bool decoderRequestDeadlineExpired() const;
+  void beginDecoderDiagnostic(
+      decoder_params_t const * params = nullptr,
+      DecodeOperatingContext const * context = nullptr);
+  void markDecoderProgress();
   void logDecoderBusyRequest(QString const& reason);
   void logDecoderProgress();
   void logDecoderAbnormalClear(QString const& reason);

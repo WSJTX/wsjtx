@@ -12,6 +12,8 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   use wavhdr
   use timer_module, only: timer
   use map65_mmdec_mod, only: map65_mmdec
+  use qmap_decode_ipc, only: max_decode_rows, decode_row_length,           &
+       ndecodes, result, result2
   use iso_fortran_env, only: int16
   use cacb_mod, only: ca, init_cacb
 
@@ -31,12 +33,8 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   character*4 grid4
   character*3 csubmode
   character*17 fname
-  character*72 result,ctmp
-  character*8 result2                      !liveCQ
+  character(len=decode_row_length) ctmp
   character*20 datetime,datetime1
-  common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
-       nWTransmitting,kHzRequested,result(50)
-  common/decodes2/result2(50)              !liveCQ
   data ifile/0/
   save
   
@@ -163,7 +161,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
      frx=0.001*k0*df+nkhz_center-48.0+1.0 - 0.001*nfcal
      fsked=frx - 0.001*ndop00/2.0 - 0.001*offset
      ctmp=csubmode//'  '//trim(msg0)
-     ndecodes=min(ndecodes+1,50)
+     ndecodes=min(ndecodes+1,max_decode_rows)
      write(result(ndecodes),1120) nhhmmss,frx,fsked,xdt0,nsnr0,trim(ctmp)
 1120 format(i6.6,f9.3,f7.1,f7.2,i5,2x,a)
      write(result2(ndecodes),1125) fsked    !liveCQ

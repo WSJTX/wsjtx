@@ -2,7 +2,7 @@ subroutine tonesdvar(msgd,lcq)
 
   use ft8_mod1, only : csyncsd,csyncsdcq,itone76,idtone76,msgsd76, &
        idtone76_valid,csyncsd_valid,csyncsdcq_valid
-  complex csig0(151680)
+  complex, allocatable :: csig0(:)
   character, intent(in) :: msgd*37
   character msg37*37,msgsent37*37,c1*12,c2*12,grid*6
   character*4 rpt(75)
@@ -82,6 +82,8 @@ subroutine tonesdvar(msgd,lcq)
       endif
   endif
 
+  if(.not.lcq .and. .not.valid_first) return
+  allocate(csig0(151680))
   m=13441 ! 7*1920+1
   if(lcq) then
     call gen_ft8wavevar(itone,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
@@ -91,7 +93,6 @@ subroutine tonesdvar(msgd,lcq)
     enddo
     csyncsdcq_valid=.true.
   else
-    if(.not.valid_first) return
     call gen_ft8wavevar(itone1,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
     do i=0,18
       do j=1,32; csyncsd(i,j)=csig0(m); m=m+60; enddo

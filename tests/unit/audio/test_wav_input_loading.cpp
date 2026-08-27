@@ -1,8 +1,10 @@
 #include <QtTest>
 
 #include <algorithm>
+#include <future>
 
 #include <QFile>
+#include <QSemaphore>
 #include <QTemporaryFile>
 
 #include "Audio/WavInputLoader.hpp"
@@ -150,6 +152,49 @@ private:
     QVERIFY (std::all_of (result.samples.cbegin () + result.frames, result.samples.cend (),
                           [] (short sample) {return sample == 0;}));
     QFile::remove (name);
+  }
+
+  Q_SLOT void serializes_concurrent_legacy_resampling ()
+  {
+    int constexpr input_frames = 60 * 11025;
+    int constexpr sample_limit = 60 * 12000;
+    auto const first_name = write_temp_file (
+        wave_file (11025, 8, QByteArray (input_frames, static_cast<char> (40))));
+    auto const second_name = write_temp_file (
+        wave_file (11025, 8, QByteArray (input_frames, static_cast<char> (200))));
+    QVERIFY (!first_name.isEmpty ());
+    QVERIFY (!second_name.isEmpty ());
+
+    auto const expected_first = Radio::load_wav_input (first_name, sample_limit);
+    auto const expected_second = Radio::load_wav_input (second_name, sample_limit);
+    QVERIFY (expected_first.valid);
+    QVERIFY (expected_second.valid);
+
+    QSemaphore ready;
+    QSemaphore start;
+    auto concurrent_load = [&] (QString name) {
+      return std::async (std::launch::async, [&, name] {
+        ready.release ();
+        start.acquire ();
+        return Radio::load_wav_input (name, sample_limit);
+      });
+    };
+
+    auto first = concurrent_load (first_name);
+    auto second = concurrent_load (second_name);
+    ready.acquire (2);
+    start.release (2);
+    auto const actual_first = first.get ();
+    auto const actual_second = second.get ();
+
+    QVERIFY (actual_first.valid);
+    QVERIFY (actual_second.valid);
+    QCOMPARE (actual_first.frames, expected_first.frames);
+    QCOMPARE (actual_second.frames, expected_second.frames);
+    QVERIFY (actual_first.samples == expected_first.samples);
+    QVERIFY (actual_second.samples == expected_second.samples);
+    QFile::remove (first_name);
+    QFile::remove (second_name);
   }
 };
 

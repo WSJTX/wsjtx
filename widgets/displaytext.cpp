@@ -57,6 +57,8 @@ DisplayText::DisplayText(QWidget *parent)
   : QTextEdit(parent)
   , m_config {nullptr}
   , erase_action_ {new QAction {tr ("&Erase"), this}}
+  , pressed_button_ {Qt::NoButton}
+  , click_state_ {ClickState::None}
   , high_volume_ {false}
   , modified_vertical_scrollbar_max_ {-1}
 {
@@ -109,9 +111,41 @@ void DisplayText::setContentFont(QFont const& font)
     }
 }
 
-void DisplayText::mouseDoubleClickEvent(QMouseEvent *e)
+void DisplayText::captureClick (QMouseEvent const * event)
 {
-  Q_EMIT selectCallsign(e->modifiers ());
+  auto cursor = cursorForPosition (event->pos ());
+  pressed_line_ = cursor.block ().text ();
+  cursor.select (QTextCursor::WordUnderCursor);
+  pressed_word_ = cursor.selectedText ();
+  pressed_button_ = event->button ();
+  click_state_ = ClickState::Captured;
+}
+
+void DisplayText::mousePressEvent (QMouseEvent * event)
+{
+  captureClick (event);
+  QTextEdit::mousePressEvent (event);
+}
+
+void DisplayText::mouseDoubleClickEvent (QMouseEvent * event)
+{
+  if (click_state_ == ClickState::Canceled)
+    {
+      pressed_button_ = Qt::NoButton;
+      click_state_ = ClickState::None;
+      return;
+    }
+
+  if (click_state_ == ClickState::None || pressed_button_ != event->button ())
+    {
+      captureClick (event);
+    }
+
+  auto const line = pressed_line_;
+  auto const word = pressed_word_;
+  pressed_button_ = Qt::NoButton;
+  click_state_ = ClickState::None;
+  Q_EMIT selectCallsign (line, word, event->modifiers ());
 }
 
 void DisplayText::insertLineSpacer(QString const& line)
@@ -288,7 +322,7 @@ void DisplayText::new_period ()
 QString DisplayText::appendWorkedB4 (QString message, QString call, QString const& grid,
                                      QColor * bg, QColor * fg, LogBook const& logBook,
                                      QString const& currentBand, QString const& currentMode,
-                                     QString extra)
+                                     QString extra, QString const& state, bool entityMismatch)
 {
   QString countryName;
   bool callB4;
@@ -420,6 +454,22 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
         {
           extra += looked_up.primary_prefix;
         }
+      else if (!state.isEmpty () || entityMismatch)
+        {
+          // A grid-derived U.S. state overrides the callsign's own DXCC
+          // entity name here: KL7YY operating from DM78 should be shown
+          // with "U.S.A." (matching the state that follows when GridMap()
+          // is on), not "Alaska" -- the entity his callsign happens to be
+          // licensed under, not where he's actually transmitting from.
+          // entityMismatch catches this even with GridMap() off (no state
+          // code follows, but the entity name itself still shouldn't lie);
+          // state alone catches it whenever GridMap() is on, including the
+          // case where the call genuinely is in its home entity (KL7UW
+          // really in Alaska still reads "U.S.A. AK", not "Alaska AK").
+          // Worked-before/DXCC credit above is unaffected; this only
+          // changes what's shown.
+          extra += "U.S.A.";
+        }
       else
         {
           auto countryName = looked_up.abbreviated_entity_name;
@@ -468,7 +518,7 @@ QString DisplayText::leftJustifyAppendage (QString message, QString const& appen
   return message;
 }
 
-void DisplayText::displayDecodedText(DecodedText const& decodedText, QString const& myCall,
+bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString const& myCall,
                                      QString const& mode,
                                      bool displayDXCCEntity, LogBook const& logBook,
                                      QString const& currentBand, bool ppfx, bool bCQonly,
@@ -497,7 +547,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
     }
   else
     {
-      if (bCQonly) return;
+      if (bCQonly) return false;
     }
   auto message = decodedText.string();
   QString dxCall;
@@ -506,14 +556,57 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   if(!dxGrid.contains(grid_regexp)) dxGrid="";
   message = message.left (message.indexOf (QChar::Nbsp)).trimmed (); // strip appended info
   QString extra;
-  QString state;    // NJ0A
+  QString state;    // NJ0A -- populated only when GridMap() is enabled; drives
+                     // both the entity-name override below and the trailing
+                     // state code appended at the end of this function.
 
-  if (displayDXCCEntity && dxGrid.length() > 0  && logBook.countries ()->lookup (dxCall).primary_prefix  == "K") {
-      //std::cout << dxCall << " -> " << dxGrid <<  " " << logBook.countries ()->lookup (dxCall).primary_prefix <<"\n";
-      if (m_config->GridMap()) {
-          if (CQcall || is_73 || m_config->GridMapAll()) {
-            state = logBook.countries ()->findState(dxGrid);
-          }
+  // K (contiguous US), KL (Alaska), KH6 (Hawaii), KH0 (Mariana Is.),
+  // KH2 (Guam), KH8 (American Samoa), KP2 (US Virgin Is.), KP4 (Puerto
+  // Rico), and KG4 (Guantanamo Bay) are all separate DXCC entities that
+  // license under the same K/N/W/A callsign blocks (e.g. a WP3 call
+  // resolves to the KP4 entity via lookup() below, same as KP4 itself).
+  // cty.dat already exact-matches ordinary stateside KG4-suffix calls back
+  // to primary_prefix "K", so primary_prefix "KG4" here only ever means a
+  // genuine Guantanamo Bay call. Any of these can genuinely be transmitting
+  // from one of the 50 states (e.g. KL7YY portable from Colorado, or KP4
+  // portable from Nebraska), so all are eligible for grid-based state
+  // mapping, not just plain "K" calls. The remaining K/N/W/A-administered
+  // entities (Baker & Howland, Palmyra & Jarvis, Wake, Navassa, Desecheo,
+  // Swains, plus the deleted Johnston and Midway) are intentionally
+  // omitted: they have no resident ham population, so they're never
+  // genuinely "home" to a callsign the way the entities above are --
+  // activations are DXpeditions using calls issued for the trip.
+  static QStringList const us_family_prefixes {
+    "K", "KL", "KH6", "KH0", "KH2", "KH8", "KP2", "KP4", "KG4"};
+  // KL and KH6 are the only entities in that set with their own recognized
+  // "state" code in grid.dat (Alaska and Hawaii are modelled there like
+  // states). If a KL/KH6 call's grid resolves to exactly that code, the
+  // call really is where its callsign says -- no entity-name mismatch, even
+  // with GridMap() off. The other entities (KH0/KH2/KH8/KP2/KP4) have no
+  // such code, since their home territories aren't in grid.dat at all,
+  // so any resolved state for one of those always indicates the operator
+  // is actually transmitting from the mainland.
+  static QHash<QString, QString> const home_state_for_entity {
+    {"KL", "AK"}, {"KH6", "HI"}};
+  auto const& dxRecord = logBook.countries ()->lookup (dxCall);
+  bool const usFamilyEntity = us_family_prefixes.contains (dxRecord.primary_prefix);
+
+  // entityMismatch answers "does this call's grid contradict its own DXCC
+  // entity" independently of GridMap()/GridMapAll(), so the entity-name
+  // choice below can be corrected (KL7YY operating from DM78 should not be
+  // labelled "Alaska") even when the operator hasn't enabled the separate
+  // "show the state code too" feature that state/GridMap() controls.
+  QString rawState;
+  bool entityMismatch = false;
+  if (dxGrid.length() > 0 && usFamilyEntity) {
+      rawState = logBook.countries ()->findState (dxGrid);
+      if (rawState == "**") rawState.clear ();
+      entityMismatch = !rawState.isEmpty ()
+        && rawState != home_state_for_entity.value (dxRecord.primary_prefix);
+  }
+  if (dxGrid.length() > 0 && usFamilyEntity && m_config->GridMap()) {
+      if (CQcall || is_73 || m_config->GridMapAll()) {
+        state = rawState;
       }
   }
   //NJ0A
@@ -538,7 +631,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
           // preformated text line t1
           auto currentMode = mode;
           message = appendWorkedB4 (message, dxCall, dxGrid, &bg, &fg
-                                    , logBook, currentBand, currentMode, extra);
+                                    , logBook, currentBand, currentMode, extra, state, entityMismatch);
         }
       else
         {
@@ -560,6 +653,10 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
 
           if (m_bPrincipalPrefix) {
               extra += looked_up.primary_prefix;
+          } else if (!state.isEmpty () || entityMismatch) {
+              // Same reasoning as the CQ-line case above: a grid-derived
+              // U.S. state overrides the callsign's own DXCC entity name.
+              extra += "U.S.A.";
           } else {
               // assign WAE entities to the correct DXCC when "Include extra WAE entities" is not selected
               if (!(m_config->include_WAE_entities())) {
@@ -657,6 +754,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   }
 
   insertText (message.trimmed (), bg, fg, decodedText.call (), dxCall);
+  return true;
 }
 
 void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 txFreq,
@@ -895,6 +993,7 @@ void DisplayText::AudioAlerts()
   if(m_config->alert_Enabled()) {
         QString audioPath = app_sounds_directory (m_config->voicesPath());
 #endif
+#ifdef WIN32
         QFile *effect2 = new QFile(this);
         QFile *effect3 = new QFile(this);
         QFile *effect4 = new QFile(this);
@@ -919,6 +1018,7 @@ void DisplayText::AudioAlerts()
         effect11->setFileName(QString("%1/%2").arg(audioPath, "Grid.wav"));
         effect12->setFileName(QString("%1/%2").arg(audioPath, "GridOnBand.wav"));
         effect13->setFileName(QString("%1/%2").arg(audioPath, "CQ.wav"));
+#endif
         static int startIndex = 0;
         int nextStartIndex = startIndex +1;
         switch (startIndex) {

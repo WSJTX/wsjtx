@@ -6,7 +6,7 @@
 
 == NAME
 
-wsjtx, jt9 - Weak signal communications program.
+wsjtx - Weak-signal communications program.
 
 == SYNOPSIS
 
@@ -14,91 +14,95 @@ wsjtx, jt9 - Weak signal communications program.
 
 == DESCRIPTION
 
-*wsjtx* is a weak signal communications program supporting several operating
-modes: JT65, JT9, JT4 and WSPR (*wsjtx* version 1 supported JT9 only).
+*WSJT-X* is an amateur-radio application for weak-signal communication. Its
+selectable modes are FST4, FT4, FT8, JT4, JT9, JT65, Q65, JTTY, MSK144,
+FST4W, WSPR, Echo, and FreqCal.
 
-WSJT-X home page:: http://www.physics.princeton.edu/pulsar/K1JT/wsjtx.html
+WSJT-X home page:: https://wsjtx.github.io/wsjtx/
 
-WSJT-X User's Guide::
-http://www.physics.princeton.edu/pulsar/K1JT/wsjtx-doc/wsjtx-main-{VERSION}.html
-
-An alternative JT65 decoder executable *kvasd* for i386 Ubuntu is
-available at http://www.physics.princeton.edu/pulsar/K1JT/kvasd .
-This decoder is not open-source, is not included in the wsjtx package,
-and is not required for JT65 decoding.
+WSJT-X User Guide:: https://wsjtx.github.io/wsjtx/guide-full.html
 
 == OPTIONS
-*-r, --rig-name*[=RIGNAME]::
 
-Enable multiple instances of the wsjtx(1) application to run
-concurrently.  Each RIGNAME must be unique. One instance may use no
-RIGNAME. If this option is not supplied then only one instance of
-wsjtx(1) may be run at any time.
+*-h, --help*::
+Display command-line help and exit.
 
-*-v, --version*:: Display the application version.
+*--help-all*::
+Display command-line help including Qt-specific options and exit.
 
-*-h,--help*:: Display usage information.
+*-v, --version*::
+Display the application version and exit.
+
+*-r, --rig-name*=_RIG-NAME_::
+Run a named instance. Each concurrently running instance must use a unique
+name. The name is appended to the application identity, separating its
+instance lock, settings file, and writable data directory from other
+instances.
+
+*-p, --n1mm-tcp-port*=_PORT_::
+On Windows, connect the N1MM Logger+ interface to TCP port _PORT_ on the local
+host.
+
+*--mode*=_MODE_::
+Start in FT8, FT4, or JTTY mode. Mode names are case-insensitive. When
+*--n1mm-tcp-port* is supplied, the selected mode is locked for the N1MM
+session.
+
+*-c, --config*=_CONFIGURATION_::
+Select an existing saved configuration at startup. Configurations share the
+instance's settings file and do not change its writable data directory.
+
+*-l, --language*=_LANGUAGE_::
+Override the user-interface language with a language code, optionally
+followed by a country code, such as `de` or `pt-BR`.
 
 *--test-mode*::
+Redirect Qt standard writable locations to the test hierarchy and allow a
+separate test instance. This option is intended for application testing only.
 
-When this option is provided all writable files will be placed in a
-special test location (~/.qttest).  This option is only for
-application testing and is not designed for normal operations.  **Use
-with caution**.
+*--startup-smoke-test*::
+Start the application, process its initial GUI events, and exit. This option
+also uses the test-mode writable locations.
 
 == FILES
 
-Most of the following files are in a directory path containing the
-directory name *WSJT-X[ - RIGNAME]* which indicates the value of the
-command line option *--rig-name=RIGNAME* to indicate multiple instances of
-*wsjtx* running concurrently. All writable files listed below are
-therefore unique to each concurrent instance of *wsjtx*. If the
-*--rig-name* command line option is not supplied or the *RIGNAME* argument
-is not supplied then the directory paths below will have the directory
-*WSJT-X*.
+*WSJT-X* uses the platform's Qt standard paths. On Linux, the default paths
+for an unnamed instance are:
 
-~/.config/WSJT-X[ - RIGNAME].ini::
+~/.config/WSJT-X.ini::
+Application settings. Named configurations selected with *--config* are
+stored in this file.
 
-This file stores the application
-configuration settings.
+~/.local/share/WSJT-X/::
+Writable application data.
 
-~/.local/share/WSJT-X[ - RIGNAME]/ALL.txt::
+When *--rig-name* is used, a space, hyphen, space, and _RIG-NAME_ are appended
+to `WSJT-X` in both paths. If `XDG_CONFIG_HOME` or `XDG_DATA_HOME` is set, Qt
+uses that directory instead of the corresponding default above. *--test-mode*
+uses Qt's test-path hierarchy under `~/.qttest`.
 
-*ALL.txt* contains a record of transmitted and received messages and
-other activity such as frequency or band changes.
+Notable files and directories in the writable data directory include:
 
-~/.local/share/WSJT-X[ - RIGNAME]/save/::
+ALL.TXT::
+A record of transmitted and received messages and other activity. Depending
+on its logging settings and mode, WSJT-X may write date- or mode-specific
+variants instead.
 
-Is the default location for saved .WAV files recorded by the
-application.  The .WAV file save location may be changed in the
-applications settings dialog.
+save/::
+The default directory for saved audio files. The location can be changed in
+the application settings.
 
-~/.local/share/WSJT-X[ - RIGNAME]/save/samples/::
+save/samples/::
+Sample audio files used by the User Guide tutorials and sample downloader.
 
-Sample .WAV files supplied with the application are found in this
-directory, they may be played back in the application and are referred
-to in the user guide tutorial sections.
+cty.dat::
+An optional writable override for the country file installed with WSJT-X.
 
-~/.local/share/WSJT-X[ -RIGNAME]/timer.out::
+wsjtx.log::
+A plain-text CSV record of logged QSOs.
 
-This is a diagnostic file that records decode performance profiling
-information.
-
-~/.local/share/WSJT-X[ - RIGNAME]/cty.dat::
-
-This file is not required as a version of it is embedded in the
-application, but if you wish an updated version can be placed here.
-If present that version will be used in preference to the embedded
-version.
-
-~/.local/share/WSJT-X[ - RIGNAME]/wsjtx.log::
-
-This is a plain text CSV record of logged QSOs.
-
-~/.local/share/WSJT-X[ - RIGNAME]/wsjtx_log.adi::
-
-This is a record of QSOs logged in the ADIF format which is suitable
-for import into many Ham Radio logging programs.
+wsjtx_log.adi::
+The ADIF log used as the primary WSJT-X logbook.
 
 == AUTHOR
 
@@ -106,16 +110,16 @@ Joe Taylor, K1JT.
 
 == COPYING
 
-*wsjtx* is Copyright (C) 2001 - 2025 by Joseph H. Taylor, Jr., K1JT,
-with contributions from additional authors.  WSJT-X is Open Source
+*wsjtx* is Copyright (C) 2001 - 2026 by Joseph H. Taylor, Jr., K1JT,
+with contributions from additional authors. WSJT-X is Open Source
 software, licensed under the GNU General Public License (GPLv3).
 
 *wsjtx* includes the ``**Hamlib - Ham Radio Control Libraries**''
 software which is licensed under the GNU Lesser General Public License
-(LGPL).  Home page https://sourceforge.net/apps/mediawiki/hamlib,
-sources from https://sourceforge.net/p/hamlib/code/ci/master/tree/.
+(LGPL). Home page https://hamlib.github.io/, sources from
+https://github.com/Hamlib/Hamlib.
 
 This program is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 General Public License for more details.

@@ -32,10 +32,6 @@
 
 namespace
 {
-  QLatin1String HOST {"report.pskreporter.info"};
-  // QLatin1String HOST {"127.0.0.1"};
-  quint16 SERVICE_PORT {4739};
-  // quint16 SERVICE_PORT {14739};
   int MIN_SEND_INTERVAL {120}; // in seconds
   int FLUSH_INTERVAL {MIN_SEND_INTERVAL + 5}; // in send intervals
   int MAX_PENDING_SPOTS {2048};
@@ -162,8 +158,11 @@ public:
 
     // use this for pseudo connection with UDP, allows us to use
     // QIODevice::write() instead of QUDPSocket::writeDatagram()
-    socket_->connectToHost (HOST, SERVICE_PORT, QAbstractSocket::WriteOnly);
-    LOG_LOG_LOCATION (logger_, debug, "remote host: " << HOST.latin1 () << " port: " << SERVICE_PORT);
+    socket_->connectToHost (options_.destination_host, options_.destination_port,
+                            QAbstractSocket::WriteOnly);
+    LOG_LOG_LOCATION (logger_, debug,
+                      "remote host: " << qPrintable (options_.destination_host)
+                      << " port: " << options_.destination_port);
 
     if (!report_timer_.isActive ())
       {

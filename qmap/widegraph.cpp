@@ -12,7 +12,7 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
     m_settings_filename {settings_filename}
 {
   ui->setupUi(this);
-  setWindowTitle("Wideband Waterfall");
+  setWindowTitle("Horizontal Waterfall");
   setWindowFlags(Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint);
   installEventFilter(parent); //Installing the filter
   ui->widePlot->setCursor(Qt::CrossCursor);
@@ -21,12 +21,16 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->widePlot->setMaximumHeight(800);
   connect(ui->widePlot, SIGNAL(freezeDecode1(int)),this,
           SLOT(wideFreezeDecode(int)));
+  connect(ui->widePlot, &CPlotter::decodeLabelClicked,
+          this, &WideGraph::decodeLabelClicked2);
 
   //Restore user's settings
   QSettings settings {m_settings_filename, QSettings::IniFormat};
+  QRect geom;
   {
     SettingsGroup g {&settings, "MainWindow"}; // historical reasons
-    setGeometry (settings.value ("WideGraphGeom", QRect {45,30,1023,340}).toRect ());
+    geom = settings.value ("WideGraphGeom", QRect {45,30,1023,340}).toRect ();
+    setGeometry (geom);
   }
   SettingsGroup g {&settings, "WideGraph"};
   ui->widePlot->setPlotZero(settings.value("PlotZero", 20).toInt());
@@ -41,6 +45,8 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->widePlot->setBinsPerPixel(nbpp);
   m_waterfallAvg = settings.value("WaterfallAvg",10).toInt();
   ui->waterfallAvgSpinBox->setValue(m_waterfallAvg);
+
+  ui->widePlot->ensureSized(w, qMax(100, geom.height()-60));
 }
 
 WideGraph::~WideGraph()
@@ -109,6 +115,8 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
     }
     n=0;
 
+    if (ui->widePlot->plotWidth() <= 0) return;   // not yet sized (window never shown)
+
     int w=ui->widePlot->plotWidth();
     qint64 sf = nkhz - 0.5*w*nbpp*df/1000.0;
     if(sf != ui->widePlot->startFreq()) ui->widePlot->SetStartFreq(sf);
@@ -138,7 +146,32 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
     }
     ntrz=ntr;
     ui->widePlot->draw(swide,i0,splot);
+    emit spectrumReady(swide, qMin(w,2048), ui->widePlot->startFreq(), ui->widePlot->m_fSpan,
+                       ui->widePlot->getPlotZero(), ui->widePlot->getPlotGain());
   }
+}
+
+void WideGraph::addDecodeLabel(QMapDecodeRecord const& record)
+{
+  pruneQMapDecodeLabels(m_decodeLabels, record.secondsSinceMidnight);
+  upsertQMapDecodeLabel(m_decodeLabels, record);
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+}
+
+void WideGraph::pruneDecodeLabels(int nowSeconds)
+{
+  auto const previousSize = m_decodeLabels.size();
+  pruneQMapDecodeLabels(m_decodeLabels, nowSeconds);
+  if (m_decodeLabels.size() != previousSize && ui && ui->widePlot) {
+    ui->widePlot->setDecodeLabels(m_decodeLabels);
+  }
+}
+
+void WideGraph::clearDecodeLabels()
+{
+  if (m_decodeLabels.isEmpty ()) return;
+  m_decodeLabels.clear ();
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabels (m_decodeLabels);
 }
 
 void WideGraph::on_waterfallAvgSpinBox_valueChanged(int n)

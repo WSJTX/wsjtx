@@ -3,7 +3,7 @@ subroutine tone8(lmycallstd,lhiscallstd)
   use ft8_mod1, only : itone56,idtone56,msg,csynce,mycall,hiscall,idtonecqdxcns,idtonedxcns73,mybcall,hisbcall,lhound, &
                        idtone56_valid, &
                        idtonefox73,idtonespec
-  complex csig0(151680)
+  complex, allocatable :: csig0(:)
   character msg37*37,msgsent37*37,mycall14*14,hiscall14*14
   character*4 rpt(56)
   integer itone(79),itone1(79)
@@ -121,6 +121,7 @@ subroutine tone8(lmycallstd,lhiscallstd)
   endif
 
 2 if(.not.valid_first) return
+  allocate(csig0(151680))
   m=13441 ! 7*1920+1
   call gen_ft8wavevar(itone1,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
   do j=0,18

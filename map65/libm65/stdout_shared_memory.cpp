@@ -163,7 +163,7 @@ StdoutSharedMemory::StdoutSharedMemory(const std::wstring &mappingName,
     auto* region = getRegion();
     region->header.version    = 1;
     region->header.writeIndex = 0;
-    region->header.dataSize   = 0;
+    region->header.readIndex  = 0;
     region->header.seq        = 0;
 }
 

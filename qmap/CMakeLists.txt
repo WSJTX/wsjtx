@@ -2,8 +2,10 @@ set (qmap_CXXSRCS
   about.cpp
   astro.cpp
   devsetup.cpp
+  decode_click_coalescer.cpp
   displaytext.cpp
   getfile.cpp
+  livecq_parser.cpp
   main.cpp
   mainwindow.cpp
   meterwidget.cpp
@@ -11,6 +13,8 @@ set (qmap_CXXSRCS
   runtime_paths.cpp
   signalmeter.cpp
   soundin.cpp
+  vertwaterfall.cpp
+  vplotter.cpp
   widegraph.cpp
   )
 
@@ -23,6 +27,7 @@ set (qmap_UISRCS
   astro.ui
   devsetup.ui
   mainwindow.ui
+  vertwaterfall.ui
   widegraph.ui
 )
 

@@ -1,0 +1,51 @@
+ARG BASE_IMAGE=gcc:13.4.0-bookworm
+FROM ${BASE_IMAGE}
+
+ARG IMAGE_ARCH
+ARG IMAGE_CREATED
+ARG IMAGE_GENERATION=local
+ARG IMAGE_REVISION
+ARG IMAGE_RECIPE_SHA256
+ARG IMAGE_REFRESH_EPOCH
+
+LABEL org.opencontainers.image.created="${IMAGE_CREATED}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/WSJTX/wsjtx-internal" \
+      org.opencontainers.image.title="WSJT-X Bookworm Linux CI" \
+      org.opencontainers.image.description="GCC 13.4 Debian Bookworm environment for WSJT-X ARM CI"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
+COPY .github/images/linux-ci/install-packages.sh /usr/local/bin/install-packages
+RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-packages \
+    && test -n "$IMAGE_REFRESH_EPOCH" \
+    && /usr/local/bin/install-packages normal
+
+COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/build-pfunit-linux.sh \
+     .github/scripts/build-hamlib-linux.sh \
+     .github/scripts/linux-ccache-compiler-signature.sh \
+     .github/scripts/verify-linux-ci-image.sh \
+     /usr/local/share/wsjtx-ci/
+COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
+
+RUN set -eux; \
+    test -n "$IMAGE_ARCH"; \
+    chmod +x /usr/local/bin/write-wsjtx-ci-manifest; \
+    . /usr/local/share/wsjtx-ci/linux-ci-image-config.sh; \
+    mkdir -p /tmp/wsjtx-pfunit-build; \
+    cd /tmp/wsjtx-pfunit-build; \
+    /usr/local/share/wsjtx-ci/build-pfunit-linux.sh \
+      "$LINUX_PFUNIT_COMMIT" "$LINUX_PFUNIT_PREFIX"; \
+    mkdir -p /tmp/wsjtx-hamlib-build; \
+    cd /tmp/wsjtx-hamlib-build; \
+    /usr/local/share/wsjtx-ci/build-hamlib-linux.sh \
+      "$LINUX_HAMLIB_COMMIT" "$LINUX_HAMLIB_PREFIX"; \
+    cd /; \
+    rm -rf /tmp/wsjtx-pfunit-build /tmp/wsjtx-hamlib-build; \
+    /usr/local/bin/write-wsjtx-ci-manifest \
+      normal "$IMAGE_ARCH" "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
+    IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-linux-ci-image.sh \
+        normal "$IMAGE_ARCH" "$LINUX_HAMLIB_REF"

@@ -2,13 +2,13 @@ module ftnquit_mod
   use filbig_mod
   use four2a_mod
       use iso_fortran_env, only: real64, real32
+      use filbig_mod, only: MAXFFT2
+
   implicit none
 contains
 
 subroutine ftnquit
   implicit none
-
-  integer, parameter :: MAXFFT2 = 77175
 
   real(real32)        :: dd_dummy(1,1)
   integer       :: nmax_dummy = -1

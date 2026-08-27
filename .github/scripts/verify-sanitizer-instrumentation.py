@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 
+import argparse
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 
-SANITIZER_FLAG = "-fsanitize=address,undefined"
+SANITIZERS = {
+    "asan-ubsan": {
+        "flag": "-fsanitize=address,undefined",
+        "symbols": ("__asan_", "__ubsan_"),
+        "runtimes": ("libasan.so", "libubsan.so"),
+    },
+    "tsan": {
+        "flag": "-fsanitize=thread",
+        "symbols": ("__tsan_",),
+        "runtimes": ("libtsan.so",),
+    },
+}
 LANGUAGE_SUFFIXES = {
     "C": {".c"},
     "C++": {".cc", ".cpp", ".cxx"},
@@ -40,7 +51,7 @@ def tool_output(*arguments):
     return result.stdout
 
 
-def verify_compile_commands(build_dir):
+def verify_compile_commands(build_dir, sanitizer_flag):
     commands_path = build_dir / "compile_commands.json"
     require_file(commands_path)
     commands = json.loads(commands_path.read_text(encoding="utf-8"))
@@ -53,7 +64,7 @@ def verify_compile_commands(build_dir):
             if suffix not in suffixes:
                 continue
             language_counts[language] += 1
-            if SANITIZER_FLAG not in command_text(entry):
+            if sanitizer_flag not in command_text(entry):
                 uninstrumented.append(entry.get("file", "<unknown>"))
 
     missing_languages = [
@@ -77,36 +88,40 @@ def verify_archive(path, symbol):
         fail(f"{path.name} has no reference to {symbol}")
 
 
-def verify_link(build_dir, target):
+def verify_link(build_dir, target, sanitizer_flag, runtimes):
     link_command_path = build_dir / "CMakeFiles" / f"{target}.dir" / "link.txt"
     executable_path = build_dir / target
     require_file(link_command_path)
     require_file(executable_path)
 
-    if SANITIZER_FLAG not in link_command_path.read_text(encoding="utf-8"):
-        fail(f"{target} final link command does not contain {SANITIZER_FLAG}")
+    if sanitizer_flag not in link_command_path.read_text(encoding="utf-8"):
+        fail(f"{target} final link command does not contain {sanitizer_flag}")
 
     dynamic_section = tool_output("readelf", "-d", str(executable_path))
-    for runtime in ("libasan.so", "libubsan.so"):
+    for runtime in runtimes:
         if runtime not in dynamic_section:
             fail(f"{target} does not declare a dependency on {runtime}")
 
 
 def main():
-    if len(sys.argv) != 2:
-        fail(f"usage: {Path(sys.argv[0]).name} BUILD_DIR")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("build_dir", type=Path)
+    parser.add_argument(
+        "--sanitizer", choices=SANITIZERS, default="asan-ubsan"
+    )
+    args = parser.parse_args()
 
-    build_dir = Path(sys.argv[1]).resolve()
+    build_dir = args.build_dir.resolve()
     if not build_dir.is_dir():
         fail(f"build directory does not exist: {build_dir}")
 
-    language_counts = verify_compile_commands(build_dir)
-    verify_archive(build_dir / "libwsjt_cxx.a", "__asan_")
-    verify_archive(build_dir / "libwsjt_fort_omp.a", "__asan_")
-    verify_archive(build_dir / "libwsjt_cxx.a", "__ubsan_")
-    verify_archive(build_dir / "libwsjt_fort_omp.a", "__ubsan_")
-    verify_link(build_dir, "jt9")
-    verify_link(build_dir, "wsjtx")
+    sanitizer = SANITIZERS[args.sanitizer]
+    language_counts = verify_compile_commands(build_dir, sanitizer["flag"])
+    for symbol in sanitizer["symbols"]:
+        verify_archive(build_dir / "libwsjt_cxx.a", symbol)
+        verify_archive(build_dir / "libwsjt_fort_omp.a", symbol)
+    verify_link(build_dir, "jt9", sanitizer["flag"], sanitizer["runtimes"])
+    verify_link(build_dir, "wsjtx", sanitizer["flag"], sanitizer["runtimes"])
 
     print("Sanitizer instrumentation verified")
     compile_summary = ", ".join(

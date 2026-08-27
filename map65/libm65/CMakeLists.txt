@@ -137,6 +137,13 @@ else ()
   )
 endif ()
 
+if (APPLE)
+  # Keep Apple's framework include flags out of m65impl's Fortran sources.
+  list (REMOVE_ITEM libm65_CSRCS stdout_shared_memory.cpp)
+  add_library (m65_qt STATIC stdout_shared_memory.cpp)
+  target_link_libraries (m65_qt PRIVATE Qt5::Core)
+endif ()
+
 #set (libm65_CXXSRCS
 #  ipcomm.cpp
 #  )
@@ -189,9 +196,43 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
 if (NOT TARGET wsjt_fortran_openmp)
   message (FATAL_ERROR "MAP65 requires Fortran OpenMP support")
 endif ()
-target_link_libraries (m65impl PUBLIC Qt5::Core)
+if (NOT APPLE)
+  target_link_libraries (m65impl PUBLIC Qt5::Core)
+endif ()
 target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
 wsjt_link_common_fortran (m65impl)
+
+if (WSJT_ENABLE_TESTS)
+  add_executable (test_map65_jt65_handoff
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_vectors.f90
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_fixture.f90
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_map65_jt65_handoff.f90)
+  target_include_directories (test_map65_jt65_handoff PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_jt65_handoff PRIVATE m65impl)
+  add_test (NAME test_map65_jt65_handoff COMMAND test_map65_jt65_handoff)
+  set_tests_properties (test_map65_jt65_handoff PROPERTIES TIMEOUT 180)
+
+  add_executable (test_q65_waveform_generator
+    ${CMAKE_SOURCE_DIR}/tests/unit/q65/test_q65_waveform_generator.f90)
+  target_include_directories (test_q65_waveform_generator PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_q65_waveform_generator PRIVATE m65impl)
+  add_test (NAME test_q65_waveform_generator COMMAND test_q65_waveform_generator)
+  set_tests_properties (test_q65_waveform_generator PROPERTIES TIMEOUT 180)
+
+  add_executable (test_ccf65_correlator
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_ccf65_correlator.f90)
+  target_include_directories (test_ccf65_correlator PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_ccf65_correlator PRIVATE m65impl)
+  add_test (NAME test_ccf65_correlator COMMAND test_ccf65_correlator)
+  set_tests_properties (test_ccf65_correlator PROPERTIES TIMEOUT 180)
+
+  add_executable (test_map65_s3avg_contracts
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_map65_s3avg_contracts.f90)
+  target_include_directories (test_map65_s3avg_contracts PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_s3avg_contracts PRIVATE m65impl)
+  add_test (NAME test_map65_s3avg_contracts COMMAND test_map65_s3avg_contracts)
+  set_tests_properties (test_map65_s3avg_contracts PROPERTIES TIMEOUT 180)
+endif ()
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
     target_compile_definitions(m65impl PRIVATE _WIN32)
@@ -205,7 +246,6 @@ endif()
 
 add_executable (mapsim mapsim.f90)
 add_dependencies(mapsim m65impl)
-target_include_directories(mapsim PRIVATE ${CMAKE_BINARY_DIR}/mod )
 target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
 wsjt_add_simulator_usage_test (mapsim "Usage:[ ]+mapsim")
 

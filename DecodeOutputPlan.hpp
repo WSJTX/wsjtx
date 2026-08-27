@@ -97,8 +97,7 @@ namespace DecodeOutputPlan
   struct KeywordFilterDecision
   {
     bool filtered {false};
-    // False stops processing the remaining buffered decoder records.
-    bool continueBatch {true};
+    bool continueProcessing {true};
     bool alwaysPassed {false};
     bool resetPounceScores {false};
     QString selectedWord;

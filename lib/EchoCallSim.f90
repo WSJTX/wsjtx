@@ -114,7 +114,7 @@ program EchoCallSim
      isec=mod(n,60)
      write(fname,1102) ihr,imin,isec
 1102 format('000000_',3i2.2,'.wav')
-     open(10,file=trim(fname),access='stream',status='unknown')
+     open(10,file=trim(fname),access='stream',status='replace')
      write(10) h,iwave                        !Save the .wav file
      close(10)
 

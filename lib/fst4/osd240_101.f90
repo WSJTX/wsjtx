@@ -130,7 +130,8 @@ subroutine osd240_101(llr,k,apmask,ndeep,message101,cw,nhardmin,dmin)
    npre2=0
    nt=0
 
-   if(ndeep.eq.0) goto 998  ! norder=0
+   nord=0
+   if(ndeep.le.0) goto 998  ! norder=0
    if(ndeep.gt.6) ndeep=6
    if( ndeep.eq. 1) then
       nord=1
@@ -401,4 +402,3 @@ subroutine fetchit101(reset,e2,ntau,i1,i2)
    lastpat=ipat
    return
 end subroutine fetchit101
-

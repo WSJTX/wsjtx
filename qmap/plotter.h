@@ -11,8 +11,12 @@
 #include <QFrame>
 #include <QImage>
 #include <QToolTip>
+#include <QVector>
+#include <QList>
 #include <cstring>
 #include "commons.h"
+#include "decode_click_coalescer.h"
+#include "decode_label.h"
 
 #define VERT_DIVS 7	//specify grid screen divisions
 #define HORZ_DIVS 20
@@ -26,17 +30,17 @@ public:
 
   QSize minimumSizeHint() const override;
   QSize sizeHint() const override;
-  QColor  m_ColorTbl[256];
-  bool    m_bDecodeFinished;
-  int     m_plotZero;
-  int     m_plotGain;
-  float   m_fSpan;
-  qint32  m_nSpan;
-  qint32  m_binsPerPixel;
-  qint32  m_fQSO;
-  qint32  m_DF;
-  qint32  m_tol;
-  qint32  m_fCal;
+  QColor  m_ColorTbl[256] {};
+  bool    m_bDecodeFinished {};
+  int     m_plotZero {};
+  int     m_plotGain {};
+  float   m_fSpan {65.f};
+  qint32  m_nSpan {65};
+  qint32  m_binsPerPixel {1};
+  qint32  m_fQSO {125};
+  qint32  m_DF {};
+  qint32  m_tol {};
+  qint32  m_fCal {};
 
   void draw(float sw[], int i0, float splot[]);		//Update the waterfalls
   void SetRunningState(bool running);
@@ -75,65 +79,103 @@ public:
   double txFreq();
 //  void updateFreqLabel();
 
+  void setDecodeLabels(const QList<QMapDecodeLabel>& labels);
+
+  // Hidden plotters may not receive an initial resize event, but spectrum production still needs valid geometry.
+  void ensureSized(int w, int h);
+
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
+  void decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture);
 
 protected:
   //re-implemented widget event handlers
   void paintEvent(QPaintEvent *event) override;
   void resizeEvent(QResizeEvent* event) override;
   void mouseMoveEvent(QMouseEvent * event) override;
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
 
   void MakeFrequencyStrs();
   void UTCstr();
+  void applySize();
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);
+  // Render m_decodeLabels overlay on top of the waterfall pixmap. Stacks
+  // colliding labels vertically (max 5 rows) so a busy band doesn't paint
+  // labels on top of each other.
+  void paintDecodeLabels(QPainter& painter);
+
+  // Painting and hit-testing share the same collision-adjusted bounds.
+  struct DecodeLabelRect {
+    QMapDecodeLabel label;
+    QRect rect;
+  };
+  QVector<DecodeLabelRect> layoutDecodeLabels();
+  bool hitTestDecodeLabel(QPoint const& pos, QMapDecodeLabel& label);
+
+  // Raw wideband-row snapshots (post color-mapping input, pre color-map),
+  // front=newest, so a resize can repaint m_WaterfallPixmap from history
+  // instead of blanking it. m_zwf already plays this role for the zoom
+  // row -- this is the wideband row's counterpart. Each row keeps the
+  // frequency-per-pixel (df) it was captured at, since that changes with
+  // window width -- rebuildWideFromHistory() remaps by frequency, not by
+  // raw pixel index, so a width change rescales existing data instead of
+  // just shifting it to the wrong frequency.
+  struct WideHistoryLine {
+    QVector<float> row;
+    double startFreq;   // m_StartFreq at capture time
+    double df;           // kHz per pixel at capture time (m_fSpan/width)
+  };
+  void rebuildWideFromHistory();
+  QList<WideHistoryLine> m_wideHistory;
+  static constexpr int kMaxWideHistory = 2048;
+
+  QList<QMapDecodeLabel> m_decodeLabels;
+  DecodeClickCoalescer m_decodeClickCoalescer;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;
   QPixmap m_2DPixmap;
-  unsigned char m_zwf[32768*400];
+  unsigned char m_zwf[32768*400] {};
   QPixmap m_ScalePixmap;
   QPixmap m_ZoomScalePixmap;
   QSize   m_Size;
   QString m_Str;
   QString m_HDivText[483];
-  bool    m_Running;
-  bool    m_paintEventBusy;
-  bool    m_2Dspec;
-  bool    m_paintAllZoom;
-  bool    m_bLockTxRx;
-  double  m_CenterFreq;
-  double  m_fGreen;
-  double  m_TXfreq;
-  qint64  m_StartFreq;
-  qint64  m_ZoomStartFreq;
-  qint64  m_FreqOffset;
-  qint32  m_dBStepSize;
-  qint32  m_FreqUnits;
-  qint32  m_hdivs;
-  bool    m_dataFromDisk;
+  bool    m_Running {};
+  bool    m_paintEventBusy {};
+  bool    m_2Dspec {};
+  bool    m_paintAllZoom {};
+  bool    m_bLockTxRx {};
+  double  m_CenterFreq {};
+  double  m_fGreen {};
+  double  m_TXfreq {};
+  qint64  m_StartFreq {100};
+  qint64  m_ZoomStartFreq {};
+  qint64  m_FreqOffset {};
+  qint32  m_dBStepSize {};
+  qint32  m_FreqUnits {1};
+  qint32  m_hdivs {HORZ_DIVS};
+  bool    m_dataFromDisk {};
   QString m_sutc;
-  qint32  m_line;
-  qint32  m_hist1[256];
-  qint32  m_hist2[256];
-  qint32  m_z1;
-  qint32  m_z2;
-  qint32  m_nkhz;
-  qint32  m_fSample;
-  qint32  m_mode65;
-  qint32  m_i0;
-  qint32  m_xClick;
-  qint32  m_TXkHz;
-  qint32  m_TxDF;
+  qint32  m_line {};
+  qint32  m_hist1[256] {};
+  qint32  m_hist2[256] {};
+  qint32  m_z1 {};
+  qint32  m_z2 {};
+  qint32  m_nkhz {};
+  qint32  m_fSample {96000};
+  qint32  m_mode65 {};
+  qint32  m_i0 {};
+  qint32  m_xClick {};
+  qint32  m_TXkHz {125};
+  qint32  m_TxDF {};
 
-private slots:
-  void mousePressEvent(QMouseEvent *event) override;
-  void mouseDoubleClickEvent(QMouseEvent *event) override;
 };
 
 #endif // PLOTTER_H

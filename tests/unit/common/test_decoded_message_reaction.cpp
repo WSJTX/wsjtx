@@ -11,6 +11,7 @@ namespace
     auto context = neutralStationSnapshot();
     context.mode = "FT8";
     context.tx1Enabled = true;
+    context.nominalQsyAllowed = true;
     return context;
   }
 
@@ -23,6 +24,12 @@ namespace
     auto line = QString {"0605 -10  0.3 0815 "} + mode + "  " + field;
     if (!flags.isEmpty()) line += " " + flags;
     return line;
+  }
+
+  bool isFastCqQsyEffect(Effect::Kind kind)
+  {
+    return kind == Effect::Kind::ApplyFastCqQsy
+      || kind == Effect::Kind::RejectNominalQsy;
   }
 }
 
@@ -152,21 +159,87 @@ private slots:
 
     auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    bool foundRigFrequency = false;
-    bool foundDisplayQsy = false;
-    bool foundMskBaseFrequency = false;
+    bool foundQsy = false;
     for (auto const& action : decision.effects) {
-      if (action.kind == DecodedMessageReaction::QsoReactionEffect::Kind::SetRigFrequency
-          && action.frequency == 50260000) foundRigFrequency = true;
-      if (action.kind == DecodedMessageReaction::QsoReactionEffect::Kind::DisplayQsy
-          && action.text == "QSY  50.260") foundDisplayQsy = true;
-      if (action.kind == DecodedMessageReaction::QsoReactionEffect::Kind::SetMsk144BaseFrequency
-          && action.frequency == 50260000) foundMskBaseFrequency = true;
+      if (action.kind == DecodedMessageReaction::QsoReactionEffect::Kind::ApplyFastCqQsy
+          && action.frequency == 50260000
+          && action.text == "QSY  50.260"
+          && action.boolValue
+          && !action.userInitiated) foundQsy = true;
     }
 
-    QVERIFY(foundRigFrequency);
-    QVERIFY(foundDisplayQsy);
-    QVERIFY(foundMskBaseFrequency);
+    QVERIFY(foundQsy);
+  }
+
+  void blockedFastCqSuppressesOnlyNominalQsyEffects()
+  {
+    auto allowedContext = baseContext();
+    allowedContext.mode = "MSK144";
+    allowedContext.fastMode = true;
+    allowedContext.transceiverOnline = true;
+    allowedContext.nominalFrequency = 50260000;
+    auto blockedContext = allowedContext;
+    blockedContext.nominalQsyAllowed = false;
+    DecodedText message {"060522 -10  0.3 0815 &  CQ 260 W1AW FN31"};
+
+    auto const allowed = DecodedMessageReaction::planProcessMessage(message, allowedContext);
+    auto const blocked = DecodedMessageReaction::planProcessMessage(message, blockedContext);
+
+    QCOMPARE(effectCount(allowed, Effect::Kind::ApplyFastCqQsy), 1);
+    QCOMPARE(effectCount(blocked, Effect::Kind::ApplyFastCqQsy), 0);
+    QVERIFY(blocked.disposition == allowed.disposition);
+    QCOMPARE(blocked.reason, allowed.reason);
+
+    QVector<Effect const *> allowedUnrelated;
+    for (auto const& effect : allowed.effects) {
+      if (!isFastCqQsyEffect(effect.kind)) allowedUnrelated.append(&effect);
+    }
+    QCOMPARE(blocked.effects.size(), allowedUnrelated.size());
+    for (int i = 0; i < blocked.effects.size(); ++i) {
+      auto const& actual = blocked.effects.at(i);
+      auto const& expected = *allowedUnrelated.at(i);
+      QVERIFY(actual.kind == expected.kind);
+      QCOMPARE(actual.intValue, expected.intValue);
+      QCOMPARE(actual.frequency, expected.frequency);
+      QCOMPARE(actual.text, expected.text);
+      QCOMPARE(actual.boolValue, expected.boolValue);
+      QCOMPARE(actual.userInitiated, expected.userInitiated);
+      QVERIFY(actual.progress == expected.progress);
+      QVERIFY(actual.contestHint == expected.contestHint);
+    }
+  }
+
+  void blockedManualFastCqRejectsBeforeStartingQso()
+  {
+    auto context = baseContext();
+    context.mode = "MSK144";
+    context.fastMode = true;
+    context.transceiverOnline = true;
+    context.nominalFrequency = 50260000;
+    context.nominalQsyAllowed = false;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Manual;
+    DecodedText message {"060522 -10  0.3 0815 &  CQ 260 W1AW FN31"};
+
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
+
+    QCOMPARE(decision.effects.size(), 1);
+    QVERIFY(decision.effects.first().kind == Effect::Kind::RejectNominalQsy);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
+    QCOMPARE(decision.reason, QString {"fast CQ requires a blocked nominal QSY"});
+  }
+
+  void fastCqQsyPermissionDefaultsClosed()
+  {
+    auto context = neutralStationSnapshot();
+    context.mode = "MSK144";
+    context.fastMode = true;
+    context.transceiverOnline = true;
+    context.nominalFrequency = 50260000;
+    DecodedText message {"060522 -10  0.3 0815 &  CQ 260 W1AW FN31"};
+
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
+
+    QCOMPARE(effectCount(decision, Effect::Kind::ApplyFastCqQsy), 0);
   }
 
   void doubleClickDoesNotStartQsoWithOwnBaseCall()

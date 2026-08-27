@@ -5,11 +5,11 @@ subroutine qpc_decode2(c0,fsync,ftol,xdec,ndepth,dth,damp,crc_ok,   &
 
    parameter(NMAX=15*12000,NFT=365,NZ=100)
    complex c0(NMAX)                    !Signal as received
-   complex c(NMAX)                     !Signal as received
+   complex, allocatable :: c(:)        !Signal as received
    real py(0:127,0:127)                !Probabilities for received synbol values
    real py0(0:127,0:127)               !Probabilities for strong signal
    real pyd(0:127,0:127)               !Dithered values for py
-   real s2(0:127,0:151)                !Symbol spectra, including sync
+   real, allocatable :: s2(:,:)        !Symbol spectra, including sync
    real s3(0:127,0:127)                !Synchronized symbol spectra
    real No
    integer crc_chk,crc_sent
@@ -49,6 +49,8 @@ subroutine qpc_decode2(c0,fsync,ftol,xdec,ndepth,dth,damp,crc_ok,   &
         -5,  4, -4,  3, -5,  4, -4, -5,  4, -5/
 
 
+   allocate(c(NMAX),s2(0:127,0:151))
+   s2=0.0
    fsample=12000.0
    baud=12000.0/1024.0
    nstype=1

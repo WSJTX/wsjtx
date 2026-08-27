@@ -5,8 +5,10 @@
 #define NTMAX 30*60
 #define RX_SAMPLE_RATE 12000
 
+#include "DecoderIpcProtocol.h"
+
 #ifdef __cplusplus
-#include <cstdbool>
+#include <cstddef>
 #include <QString>
 #else
 #include <stdbool.h>
@@ -16,14 +18,7 @@
    * This structure is shared with Fortran code, it MUST be kept in
    * sync with lib/jt9com.f90
    */
-typedef struct dec_data {
-  int   ipc[3];
-  float ss[184*NSMAX];
-  float savg[NSMAX];
-  float sred[5760];
-  short int d2[NTMAX*RX_SAMPLE_RATE];
-  struct
-  {
+typedef struct decoder_params {
     int nutc;                   //UTC as integer, HHMM
     bool ndiskdat;              //true ==> data read from *.wav file
     int ntrperiod;              //TR period (seconds)
@@ -107,8 +102,33 @@ typedef struct dec_data {
     bool lmultinst;        //=m_multInst ? 1 : 0; (mainwindow.cpp)
     bool lskiptx1;         //=m_skipTx1 ? 1 : 0; (mainwindow.cpp)
     int ndecoderstart;      //=m_FT8DecoderStart; (mainwindow.cpp)
-  } params;
+} decoder_params_t;
+
+typedef struct dec_data {
+  float ss[184*NSMAX];
+  float savg[NSMAX];
+  float sred[5760];
+  short int d2[NTMAX*RX_SAMPLE_RATE];
+  decoder_params_t params;
 } dec_data_t;
+
+typedef struct shared_dec_data {
+  decoder_ipc_control_t control;
+  dec_data_t payload;
+} shared_dec_data_t;
+
+#ifdef __cplusplus
+static_assert (sizeof (int) == 4, "decoder IPC requires 32-bit C integers");
+static_assert (sizeof (decoder_ipc_control_t) == 16,
+               "decoder IPC control header must remain 16 bytes");
+static_assert (offsetof (decoder_ipc_control_t, state) == 4,
+               "decoder IPC state must remain at the legacy shutdown offset");
+static_assert (offsetof (shared_dec_data_t, payload) == 16,
+               "decoder payload must immediately follow the control header");
+static_assert (sizeof (shared_dec_data_t) ==
+               sizeof (decoder_ipc_control_t) + sizeof (dec_data_t),
+               "decoder shared-memory layout must not contain trailing padding");
+#endif
 
 #ifdef __cplusplus
 extern "C" {

@@ -106,6 +106,9 @@ public:
   // all decodes
   Q_SIGNAL void replay ();
 
+  // this signal is emitted after a paced replay batch has been processed
+  Q_SIGNAL void replay_batch_processed (int message_count);
+
   // this signal is emitted if the server has requested immediate (or
   // auto Tx if auto_only is true) transmission to halt
   Q_SIGNAL void halt_tx (bool auto_only);

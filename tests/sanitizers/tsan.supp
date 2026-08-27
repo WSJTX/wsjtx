@@ -1,0 +1,57 @@
+# ThreadSanitizer suppressions for cross-cutting classified third-party reports.
+#
+# Hamlib is statically linked in the TSan prefix, so called_from_lib
+# cannot be used for it. Match the SUMMARY functions from the
+# classified 4.7.2 reports instead.
+#
+# Local runs should use an absolute path:
+#   TSAN_OPTIONS=halt_on_error=0:second_deadlock_stack=1:suppressions=/abs/path/tests/sanitizers/tsan.supp
+#
+# Do not suppress MainWindow::decode, Detector::writeData, or other
+# in-tree frames. Those remain the advisory TSan signal.
+
+# Hamlib 4.7.2 cache and routing races.
+# Upstream: Hamlib#2146. Remove after the WSJT-X Hamlib pin includes it.
+race:rig_set_cache_freq
+race:rig_set_cache_mode
+race:rig_get_freq
+race:rig_get_vfo
+race:rig_poll_routine_stop
+
+# Hamlib 4.7.x debug-buffer race during rig_open.
+# Match only the known shared buffer; retain visibility for other rig_open races.
+race:debugmsgsave2
+
+# Hamlib 4.7 Morse worker stop-flag race.
+# Upstream: Hamlib#2109 / backport Hamlib#2126. Remove after that release.
+race:morse_data_handler_stop
+
+# Boost.Log 1.83 publishes asynchronous queue nodes with relaxed atomics;
+# the Arch investigation used Boost.Log 1.92.0. Function names and report
+# coverage may change between Boost releases, so revalidate after upgrades.
+# These reports leave TSan without a producer/consumer happens-before edge for
+# the record payload. Match the queue operations and resulting attribute
+# detachment reports without suppressing application logging frames.
+race:boost::log::v2_mt_posix::aux::threadsafe_queue
+race:boost::log::v2_mt_posix::attribute_value::detach_from_thread
+
+# Additional Boost.Log asynchronous record and attribute lifetime reports.
+# These match the reported Boost.Log classes/functions without suppressing
+# WSJT-X logging call sites or the entire Boost library.
+race:boost::log::v2_mt_posix::attributes::attribute_value_impl
+race:boost::log::v2_mt_posix::attribute_value::dispatch
+race:boost::log::v2_mt_posix::attribute_value::impl
+race:boost::log::v2_mt_posix::attribute_value_set::~attribute_value_set
+race:boost::log::v2_mt_posix::record_view::public_data::destroy
+race:boost::log::v2_mt_posix::intrusive_ptr_release
+
+# Additional Boost 1.92 formatting and attribute lifetime frames from the
+# asynchronous logging path. Keep these tied to the reported Boost types;
+# do not suppress generic std::string or unsymbolized Boost frames.
+race:boost::intrusive_ptr<boost::log::v2_mt_posix::attribute_value::impl>::operator bool
+race:boost::date_time::int_adapter<long>::as_number
+race:boost::date_time::int_adapter<long>::is_nan
+
+# Dependency suppressions that only apply to Fortran-backed, network, or GUI tests
+# live in tsan-fortran.supp, tsan-network.supp, and tsan-gui.supp. CMake
+# combines each scope file with this baseline before assigning TSAN_OPTIONS.

@@ -41,6 +41,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
+#include <limits.h>
 #include <math.h>
 #include <fftw3.h>
 #ifdef _WIN32
@@ -58,23 +60,63 @@
 // Buffer the producer's audio chunks. Sized for WSPR-15 worst case
 // (8 * 114 * 12000 = 10,944,000 samples). WSPR-2 needs only 1,368,000.
 #define MAX_PCM_SAMPLES (8 * 114 * 12000)
+#define MAX_CONTROL_FRAME 1024U
 
 // ============================================================
-// JSON parsing — strstr-based, schema-restricted (no escapes,
-// no nesting, ASCII only). Mirrors the streaming control-frame
-// parser's scope discipline.
+// JSON parsing for the flat, ASCII streaming control schema.
 // ============================================================
+
+static const char *skip_space(const char *p) {
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    return p;
+}
+
+static const char *skip_json_string(const char *p) {
+    if (*p != '"') return NULL;
+    for (p++; *p; p++) {
+        if (*p == '\\' && p[1]) {
+            p++;
+        } else if (*p == '"') {
+            return p + 1;
+        }
+    }
+    return NULL;
+}
 
 static const char *json_find_key(const char *json, const char *key) {
-    // Searches for "key" pattern. Returns pointer at the value position
-    // (just after the colon following the quoted key) or NULL.
-    char pat[64];
-    snprintf(pat, sizeof pat, "\"%s\"", key);
-    const char *p = strstr(json, pat);
-    if (!p) return NULL;
-    p += strlen(pat);
-    while (*p && (*p == ' ' || *p == '\t' || *p == ':')) p++;
-    return *p ? p : NULL;
+    const size_t key_len = strlen(key);
+    const char *p = skip_space(json);
+    if (*p != '{') return NULL;
+    p++;
+
+    for (;;) {
+        p = skip_space(p);
+        if (*p == ',') {
+            p = skip_space(p + 1);
+        }
+        if (*p == '}') return NULL;
+        if (*p != '"') return NULL;
+
+        const char *name = p + 1;
+        const char *after_name = skip_json_string(p);
+        if (!after_name) return NULL;
+        const size_t name_len = (size_t)(after_name - name - 1);
+        p = skip_space(after_name);
+        if (*p != ':') return NULL;
+        const char *value = skip_space(p + 1);
+        if (name_len == key_len && memcmp(name, key, key_len) == 0) {
+            return *value ? value : NULL;
+        }
+
+        if (*value == '"') {
+            p = skip_json_string(value);
+            if (!p) return NULL;
+        } else {
+            p = value;
+            while (*p && *p != ',' && *p != '}') p++;
+        }
+        if (*p == '}') return NULL;
+    }
 }
 
 static int json_get_string(const char *json, const char *key,
@@ -94,8 +136,11 @@ static int json_get_int(const char *json, const char *key, int *out) {
     const char *p = json_find_key(json, key);
     if (!p) return -1;
     char *end = NULL;
+    errno = 0;
     long v = strtol(p, &end, 10);
-    if (end == p) return -1;
+    if (end == p || errno == ERANGE || v < INT_MIN || v > INT_MAX) return -1;
+    end = (char *)skip_space(end);
+    if (*end != ',' && *end != '}') return -1;
     *out = (int) v;
     return 0;
 }
@@ -170,6 +215,17 @@ static int frame_read(FILE *fp, unsigned char *type, void **body, uint32_t *len)
     *type = hdr[0];
     *len = (uint32_t)hdr[1] | ((uint32_t)hdr[2] << 8) |
            ((uint32_t)hdr[3] << 16) | ((uint32_t)hdr[4] << 24);
+    const uint32_t max_len = *type == FRAME_CONTROL
+        ? MAX_CONTROL_FRAME
+        : (uint32_t)(MAX_PCM_SAMPLES * sizeof(int16_t));
+    if (*len > max_len) {
+        char detail[160];
+        snprintf(detail, sizeof detail,
+                 "frame length %u exceeds type capacity %u", *len, max_len);
+        wsprd_stream_emit_error_code("frame_too_large", detail);
+        fprintf(stderr, "wsprd --stream: %s\n", detail);
+        return -1;
+    }
     if (*len == 0) {
         *body = NULL;
         return 0;
@@ -177,6 +233,8 @@ static int frame_read(FILE *fp, unsigned char *type, void **body, uint32_t *len)
     *body = malloc(*len);
     if (!*body) {
         fprintf(stderr, "wsprd --stream: alloc %u bytes failed\n", *len);
+        wsprd_stream_emit_error_code("allocation_failed",
+                                     "unable to allocate frame body");
         return -1;
     }
     if (fread(*body, 1, *len, fp) != *len) {
@@ -184,6 +242,8 @@ static int frame_read(FILE *fp, unsigned char *type, void **body, uint32_t *len)
                 *len);
         free(*body);
         *body = NULL;
+        wsprd_stream_emit_error_code("frame_read_error",
+                                     "short read on frame body");
         return -1;
     }
     return 0;
@@ -198,6 +258,13 @@ static unsigned long pcm_to_iq(int16_t *pcm, size_t npcm, int ntrmin,
     int nfft1, nfft2 = 46080, nh2 = nfft2 / 2, i0;
     double df;
     size_t expected_npcm;
+    float *realin = NULL;
+    fftwf_complex *fftout = NULL;
+    fftwf_complex *fftin = NULL;
+    fftwf_complex *fftout2 = NULL;
+    fftwf_plan plan_fwd = NULL;
+    fftwf_plan plan_inv = NULL;
+    unsigned long result = 1;
 
     if (ntrmin == 2) {
         nfft1 = nfft2 * 32;
@@ -211,6 +278,8 @@ static unsigned long pcm_to_iq(int16_t *pcm, size_t npcm, int ntrmin,
         expected_npcm = 8 * 114 * 12000;
     } else {
         fprintf(stderr, "wsprd --stream: invalid wspr_type=%d\n", ntrmin);
+        wsprd_stream_emit_error_code("invalid_wspr_type",
+                                     "wspr_type must be 2 or 15");
         return 1;
     }
 
@@ -218,21 +287,40 @@ static unsigned long pcm_to_iq(int16_t *pcm, size_t npcm, int ntrmin,
         fprintf(stderr,
                 "wsprd --stream: short PCM (got %zu, expected %zu for WSPR-%d)\n",
                 npcm, expected_npcm, ntrmin);
+        wsprd_stream_emit_error_code("insufficient_audio",
+                                     "not enough PCM samples for the configured WSPR type");
         return 1;
     }
 
-    float *realin = fftwf_malloc(sizeof(float) * nfft1);
-    fftwf_complex *fftout = fftwf_malloc(sizeof(fftwf_complex) * (nfft1 / 2 + 1));
-    fftwf_plan plan_fwd = fftwf_plan_dft_r2c_1d(nfft1, realin, fftout, FFTW_ESTIMATE);
+    realin = fftwf_malloc(sizeof(float) * (size_t)nfft1);
+    fftout = fftwf_malloc(sizeof(fftwf_complex) * ((size_t)nfft1 / 2 + 1));
+    if (!realin || !fftout) {
+        wsprd_stream_emit_error_code("allocation_failed",
+                                     "unable to allocate streaming FFT buffers");
+        goto cleanup;
+    }
+    plan_fwd = fftwf_plan_dft_r2c_1d(nfft1, realin, fftout, FFTW_ESTIMATE);
+    if (!plan_fwd) {
+        wsprd_stream_emit_error_code("allocation_failed",
+                                     "unable to create streaming forward FFT plan");
+        goto cleanup;
+    }
 
     for (size_t i = 0; i < expected_npcm; i++) realin[i] = pcm[i] / 32768.0f;
     for (size_t i = expected_npcm; i < (size_t)nfft1; i++) realin[i] = 0.0f;
 
     fftwf_execute(plan_fwd);
     fftwf_destroy_plan(plan_fwd);
+    plan_fwd = NULL;
     fftwf_free(realin);
+    realin = NULL;
 
-    fftwf_complex *fftin = fftwf_malloc(sizeof(fftwf_complex) * nfft2);
+    fftin = fftwf_malloc(sizeof(fftwf_complex) * (size_t)nfft2);
+    if (!fftin) {
+        wsprd_stream_emit_error_code("allocation_failed",
+                                     "unable to allocate streaming inverse FFT input");
+        goto cleanup;
+    }
     for (size_t i = 0; i < (size_t)nfft2; i++) {
         size_t j = i0 + i;
         if (i > (size_t)nh2) j = j - nfft2;
@@ -240,20 +328,39 @@ static unsigned long pcm_to_iq(int16_t *pcm, size_t npcm, int ntrmin,
         fftin[i][1] = fftout[j][1];
     }
     fftwf_free(fftout);
+    fftout = NULL;
 
-    fftwf_complex *fftout2 = fftwf_malloc(sizeof(fftwf_complex) * nfft2);
-    fftwf_plan plan_inv = fftwf_plan_dft_1d(nfft2, fftin, fftout2, FFTW_BACKWARD,
-                                            FFTW_ESTIMATE);
+    fftout2 = fftwf_malloc(sizeof(fftwf_complex) * (size_t)nfft2);
+    if (!fftout2) {
+        wsprd_stream_emit_error_code("allocation_failed",
+                                     "unable to allocate streaming inverse FFT output");
+        goto cleanup;
+    }
+    plan_inv = fftwf_plan_dft_1d(nfft2, fftin, fftout2, FFTW_BACKWARD,
+                                 FFTW_ESTIMATE);
+    if (!plan_inv) {
+        wsprd_stream_emit_error_code("allocation_failed",
+                                     "unable to create streaming inverse FFT plan");
+        goto cleanup;
+    }
     fftwf_execute(plan_inv);
     fftwf_destroy_plan(plan_inv);
+    plan_inv = NULL;
 
     for (size_t i = 0; i < (size_t)nfft2; i++) {
         idat[i] = fftout2[i][0] / 1000.0f;
         qdat[i] = fftout2[i][1] / 1000.0f;
     }
-    fftwf_free(fftin);
-    fftwf_free(fftout2);
-    return (unsigned long) nfft2;
+    result = (unsigned long)nfft2;
+
+cleanup:
+    if (plan_fwd) fftwf_destroy_plan(plan_fwd);
+    if (plan_inv) fftwf_destroy_plan(plan_inv);
+    if (realin) fftwf_free(realin);
+    if (fftout) fftwf_free(fftout);
+    if (fftin) fftwf_free(fftin);
+    if (fftout2) fftwf_free(fftout2);
+    return result;
 }
 
 // ============================================================
@@ -315,6 +422,17 @@ void wsprd_stream_emit_error(const char *msg) {
     fflush(stdout);
 }
 
+void wsprd_stream_emit_error_code(const char *code, const char *detail) {
+    char esc_code[80];
+    char esc_detail[256];
+    json_escape_into(code ? code : "", esc_code, sizeof esc_code);
+    json_escape_into(detail ? detail : "", esc_detail, sizeof esc_detail);
+    fprintf(stdout,
+            "{\"v\":1,\"t\":\"error\",\"code\":\"%s\",\"detail\":\"%s\"}\n",
+            esc_code, esc_detail);
+    fflush(stdout);
+}
+
 // Read header + frames from stdin until configure + enough audio + halt
 // (or audio-exhaustion + EOF) are received. Populates *cfg and the
 // supplied I/Q buffers via FFT/extract/IFFT. Returns nfft2 (number of
@@ -326,7 +444,8 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
 
     int16_t *pcm = calloc(MAX_PCM_SAMPLES, sizeof(int16_t));
     if (!pcm) {
-        wsprd_stream_emit_error("alloc pcm buffer failed");
+        wsprd_stream_emit_error_code("allocation_failed",
+                                     "unable to allocate PCM accumulation buffer");
         return 1;
     }
 
@@ -346,25 +465,45 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
         int rc = frame_read(stdin, &type, &body, &len);
         if (rc < 0) {
             free(pcm);
-            wsprd_stream_emit_error("frame read failed");
             return 1;
         }
         if (rc > 0) break;  // EOF without halt — treat as drain-and-decode
 
         if (type == FRAME_CONTROL) {
-            // body is a JSON line (no trailing newline). NUL-terminate
-            // for strstr safety.
-            char *json = malloc(len + 1);
-            memcpy(json, body, len);
+            if ((size_t)len > SIZE_MAX - 1) {
+                free(body);
+                free(pcm);
+                wsprd_stream_emit_error_code("frame_too_large",
+                                             "control frame cannot be terminated safely");
+                return 1;
+            }
+            char *json = malloc((size_t)len + 1);
+            if (!json) {
+                free(body);
+                free(pcm);
+                wsprd_stream_emit_error_code("allocation_failed",
+                                             "unable to allocate control JSON buffer");
+                return 1;
+            }
+            if (len != 0) {
+                memcpy(json, body, len);
+            }
             json[len] = '\0';
             free(body);
 
-            if (strstr(json, "\"halt\"")) {
+            char event_type[16];
+            if (json_get_string(json, "t", event_type, sizeof event_type) != 0) {
+                free(json);
+                wsprd_stream_emit_error_code("control_parse_error",
+                                             "control frame is missing a string t field");
+                continue;
+            }
+            if (strcmp(event_type, "halt") == 0) {
                 halted = 1;
                 free(json);
                 continue;
             }
-            if (strstr(json, "\"configure\"")) {
+            if (strcmp(event_type, "configure") == 0) {
                 if (json_get_string(json, "date", cfg->date,
                                     sizeof cfg->date) == 0) {
                     have_date = 1;
@@ -376,7 +515,15 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
                 if (json_get_double(json, "dialfreq", &cfg->dialfreq) == 0) {
                     have_dialfreq = 1;
                 }
-                if (json_get_int(json, "wspr_type", &wspr_type_value) == 0) {
+                if (json_find_key(json, "wspr_type")) {
+                    if (json_get_int(json, "wspr_type", &wspr_type_value) != 0 ||
+                        (wspr_type_value != 2 && wspr_type_value != 15)) {
+                        free(json);
+                        free(pcm);
+                        wsprd_stream_emit_error_code("invalid_wspr_type",
+                                                     "wspr_type must be 2 or 15");
+                        return 1;
+                    }
                     cfg->wspr_type = wspr_type_value;
                 }
                 json_get_string(json, "mycall", cfg->mycall, sizeof cfg->mycall);
@@ -391,7 +538,8 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
             // body is raw int16 LE PCM. len must be even (whole samples).
             if (len % sizeof(int16_t) != 0) {
                 free(body);
-                wsprd_stream_emit_error("odd audio frame length");
+                wsprd_stream_emit_error_code("odd_audio_frame",
+                                             "audio frame length must contain whole int16 samples");
                 free(pcm);
                 return 1;
             }
@@ -399,7 +547,9 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
             if (pcm_n + nsamples > MAX_PCM_SAMPLES) {
                 nsamples = MAX_PCM_SAMPLES - pcm_n;
             }
-            memcpy(pcm + pcm_n, body, nsamples * sizeof(int16_t));
+            if (nsamples != 0) {
+                memcpy(pcm + pcm_n, body, nsamples * sizeof(int16_t));
+            }
             pcm_n += nsamples;
             free(body);
             continue;
@@ -411,12 +561,14 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
 
     if (!cfg->configure_received) {
         free(pcm);
-        wsprd_stream_emit_error("no configure frame received before halt/EOF");
+        wsprd_stream_emit_error_code("missing_configure",
+                                     "no configure frame received before halt or EOF");
         return 1;
     }
     if (!have_date || !have_time || !have_dialfreq) {
         free(pcm);
-        wsprd_stream_emit_error("configure frame missing date, time, or dialfreq");
+        wsprd_stream_emit_error_code("incomplete_configure",
+                                     "configure frame missing date, time, or dialfreq");
         return 1;
     }
 

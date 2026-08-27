@@ -132,15 +132,14 @@ codeword is "best".
     jj = (62-i)/8;
     thresh0[i] = 1.3*perr[ii][jj];
   }
-  if(nsum<=0) return;
-
   pp1=0.0;
   pp2=0.0;
+  if (nsum>0) {
   for (k=1; k<=ntrials; k++) {
     memset(era_pos,0,51*sizeof(int));
     memcpy(workdat,rxdat,sizeof(rxdat));
 
-/* 
+/*
 Mark a subset of the symbols as erasures.
 Run through the ranked symbols, starting with the worst, i=0.
 NB: j is the symbol-vector index of the symbol with rank i.
@@ -162,10 +161,10 @@ NB: j is the symbol-vector index of the symbol with rank i.
       }
     }
 
-    nerr=decode_rs_int(rs,workdat,era_pos,numera,0);        
+    nerr=decode_rs_int(rs,workdat,era_pos,numera,0);
     if( nerr >= 0 ) {
       // We have a candidate codeword.  Find its hard and soft distance from
-      // the received word.  Also find pp1 and pp2 from the full array 
+      // the received word.  Also find pp1 and pp2 from the full array
       // s3(64,63) of synchronized symbol spectra.
       ncandidates=ncandidates+1;
       nhard=0;
@@ -198,7 +197,15 @@ NB: j is the symbol-vector index of the symbol with rank i.
     }
     if(k == ntrials) ntry[0]=k;
   }
-  
+  }
+  // nsum<=0 (or no erasure trial found a valid codeword) falls through to
+  // here with ncandidates==0 and the *_min sentinels left at their "nothing
+  // found" initial values (32768) -- previously this case (nsum<=0) hit an
+  // early "return;" that skipped writing param[]/correct[]/ntry[] entirely,
+  // leaving the caller's pre-call param=0 in place, which incorrectly read
+  // as an accepted decode (ntotal=0 trivially clears the accept threshold)
+  // and unpacked whatever garbage was sitting in the uninitialized
+  // "correct" array as if it were a real message.
   param[0]=ncandidates;
   param[1]=nhard_min;
   param[2]=nsoft_min;

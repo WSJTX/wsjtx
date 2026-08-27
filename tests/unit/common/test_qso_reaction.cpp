@@ -53,6 +53,57 @@ private slots:
     QCOMPARE(static_cast<int>(QsoProgress::Signoff), 5);
   }
 
+  void rrrAutoTxShutdownPolicy_data()
+  {
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<bool>("repeatTx");
+    QTest::addColumn<bool>("sendRr73");
+    QTest::addColumn<bool>("expectedDefer");
+
+    QTest::newRow("MSK144 RRR") << "MSK144" << false << false << true;
+    QTest::newRow("MSK144 RRR repeat") << "MSK144" << true << false << true;
+    QTest::newRow("MSK144 RR73 repeat") << "MSK144" << true << true << false;
+    QTest::newRow("Q65 RRR") << "Q65" << false << false << false;
+    QTest::newRow("Q65 RRR repeat") << "Q65" << true << false << true;
+    QTest::newRow("Q65 RR73 repeat") << "Q65" << true << true << false;
+    QTest::newRow("FT8 RRR") << "FT8" << true << false << false;
+  }
+
+  void rrrAutoTxShutdownPolicy()
+  {
+    QFETCH(QString, mode);
+    QFETCH(bool, repeatTx);
+    QFETCH(bool, sendRr73);
+    QFETCH(bool, expectedDefer);
+
+    QCOMPARE(DecodedMessageReaction::shouldDeferAutoTxStopAfterRrr(mode, repeatTx, sendRr73),
+             expectedDefer);
+
+    bool stopCalled {false};
+    DecodedMessageReaction::applyAutoTxStopAfterLogging(
+      mode, repeatTx, sendRr73, [&stopCalled] { stopCalled = true; });
+    QCOMPARE(stopCalled, !expectedDefer);
+  }
+
+  void q65Final73LoggingStopsAutoTxWhenRepeatIsDisabled()
+  {
+    auto snapshot = baseSnapshot();
+    snapshot.mode = "Q65";
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.loggingEnabled = true;
+    snapshot.repeatTx = false;
+    snapshot.sendRr73 = false;
+
+    auto const plan = DecodedMessageReaction::planProcessMessage(
+      decode("K1ABC W1AW 73", ":"), snapshot);
+
+    QVERIFY(hasEffect(plan, Effect::Kind::RequestLogQso));
+    QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessageIndex), 6);
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleAutoFlagOff));
+    QVERIFY(!DecodedMessageReaction::shouldDeferAutoTxStopAfterRrr(
+      snapshot.mode, snapshot.repeatTx, snapshot.sendRr73));
+  }
+
   void responseTransitions_data()
   {
     QTest::addColumn<int>("initialProgress");
@@ -456,7 +507,7 @@ private slots:
     QCOMPARE(intEffect(plan, Effect::Kind::StartWaitCallTimer), 93000);
   }
 
-  void slowHoundWrongSlotAbortsBatch()
+  void slowHoundWrongSlotIgnoresDecode()
   {
     auto snapshot = baseSnapshot();
     snapshot.specOp = SpecialOperatingActivity::HOUND;
@@ -464,7 +515,7 @@ private slots:
     auto const plan = DecodedMessageReaction::planWaitReplyCall(
       decode("K1ABC W1AW -10", "~", "060515"), snapshot,
       DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
-    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::AbortDecodeBatch);
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::IgnoreDecode);
   }
 
   void msk144WaitPolicies()

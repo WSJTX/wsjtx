@@ -133,6 +133,8 @@ elseif(ndeep.eq.5) then
    nt=66
    ntheta=22
    ntau=16
+else
+   goto 998
 endif
 
 do iorder=1,nord

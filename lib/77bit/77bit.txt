@@ -11,26 +11,21 @@ i3.n3 Example message                    Bits           Total  Purpose
 ----------------------------------------------------------------------------------
 0.0   FREE TEXT MSG                      71               71   Free text 
 0.1   K1ABC RR73; W9XYZ <KH1/KH7Z> -12   28 28 10 5       71   DXpedition Mode
-0.2   ... tbd
+0.2   (reserved)
 0.3   WA9XYZ KA1ABC R 16A EMA            28 28 1 4 3 7    71   ARRL Field Day
 0.4   WA9XYZ KA1ABC R 32A EMA            28 28 1 4 3 7    71   ARRL Field Day
 0.5   123456789ABCDEF012                 71               71   Telemetry (18 hex)
-0.6   Temporarily hijacked in packjt77 for WSPR-LF.  This is not necessary!
-0.7   ... tbd
+0.6   K1ABC FN42 37                                            WSPR-LF (?)
+0.7   (reserved)
 
 1     WA9XYZ/R KA1ABC/R R FN42           28 1 28 1 1 15   74   Standard msg
 2     PA3XYZ/P GM4ABC/P R JO22           28 1 28 1 1 15   74   EU VHF contest
 3     TU; W9XYZ K1ABC R 579 MA           1 28 28 1 3 13   74   ARRL RTTY Roundup
 4     <WA9XYZ> PJ4/KA1ABC RR73           12 58 1 2 1      74   Nonstandard calls
 5     <G4ABC/P> <PA9XYZ> R 570007 JO22DB 12 22 1 3 11 25  74   EU VHF Contest
-6     ... tbd
-7     ... tbd
+6     (reserved)
+7     (reserved)
 ----------------------------------------------------------------------------------
-NB: three 74-bit message types and two 71-bit message subtypes are still TBD.
-----------------------------------------------------------------------------------
-
-The 28-bit fields normally used for callsigns are configured rather
-differently from before.
 
 Facts about the 28-bit integers used to encode standard callsigns:
   2^28              = 268,435,456  Available values
@@ -47,17 +42,11 @@ Further details on message types:
 i3.n3
 -----------------------------------------------------------------------------
 0.0 Free text, up to 13 characters.
-
 0.1 DXpedition mode, as developed for KH1/KH7Z.
-
-0.2 Report, QSO serial number from 0001 to 2047, 6-character grid, and Roger
-    for EU VHF contests.
-
 0.3 ARRL Field Day exchange (1-16 transmitters).
-
 0.4 ARRL Field Day exchange (17-32 transmitters).
-
 0.5 Telemetry, 71 bits
+0.6 WSPR-style
 
 1.  Two callsigns, Roger, and grid or report.  Each callsign may have
     an appended "/R" to indicate Rover status for NA VHF contests.
@@ -70,15 +59,12 @@ i3.n3
     beginning to finish a previous QSO; then two standard callsigns,
     optional "R", a 3-bit report (529 to 599), and 13 bits to indicate
     US state, Canadian province/territory, or DX serial number from
-    0001 to 7999.
+    0001 to 7999. (*** Obsolete: RTTY Roundup now allows only standard
+    Baudot RTTY ***)
 
 4.  One hashed call or "CQ"; one compound or nonstandard call with up
     to 11 characters; and (if not "CQ") an optional RRR, RR73, or 73.
 
----------------------------------------------------------------------------
-The following are tentative and not included in first release.
-
-5.  CQ WW RTTY  - US/Can: RST CQZ state/prov  R 579 5 NJ       R1 r3 z6 u7
-                  DX:     RST + CQzone        R 559 15         R1 r3 z6
-	     
-6.  CQ WPX RTTY - RST + serial                R 589 0013       R1 r3 n12
+5.  Two hashed callsigns (one 12-bit and one 22-bit), optional "R", 3-bit
+    report (52 to 59), 4-digit serial number (0001 - 2047), 6-character
+    grid locator. For EU VHF contest.

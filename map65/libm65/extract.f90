@@ -123,11 +123,7 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)
      correct(1:63)=itmp(1:63)
      call interleave63(correct,1)
      call graycode65(correct,63,1)
-  !   write(*,*) 'EXTRACT: nft=', nft, ' ncount=', ncount, ' nhist=', nhist
-  !    write(*,*) 'EXTRACT: correct(1:20) = ', correct(1:20)
-  !    write(*,*) 'EXTRACT: dat4(1:12)   = ', dat4
       call unpackmsg(dat4, decoded)   !Unpack the user message
-!      write(*,*) 'EXTRACT: decoded = "', decoded, '"'
      ncount=0
      if(iand(dat4(10),8).ne.0) ltext=.true.
   endif

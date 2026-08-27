@@ -1,4 +1,4 @@
-subroutine agccft8(nfa,nfb,forcedt)
+subroutine agccft8(nfa,nfb)
 
   use ft8_mod1, only : dd8,twopi,lagccbail
   integer, parameter :: NFFT=1024,NSZ=426,NHSYM=178,NHSTEP=960 !3413 = NFFT*5000/12000
