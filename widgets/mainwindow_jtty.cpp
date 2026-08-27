@@ -122,10 +122,7 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
   bool const newAllFreqsSession = (k <= m_jttyLastAllFreqsK);
   m_jttyLastAllFreqsK = k;
   if (newAllFreqsSession) {
-      // The old session's slot table is gone on the Fortran side too (istart==1
-      // resets it), so every line still accumulated here is now final. Log
-      // whatever hasn't been logged yet before discarding it.
-      flushJttyDecodeLines();
+      flushJttyDecodeLines();  // old session's slot table is gone Fortran-side too; log what's left
       m_jttyAllFreqsGroupStart = QTextBlock();
       m_jttyQsoLines.clear();
       m_jttyAllFreqLines.clear();
@@ -213,12 +210,7 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 //      }
 //#endif
 
-      // Track each decode (any frequency) by content, same idea as the
-      // qso_freq matching below, purely so flushJttyDecodeLines() can log
-      // each one to ALL.TXT exactly once when it's done growing. all_freqs
-      // is a superset of qso_freq (same slot text, not frequency-filtered),
-      // so this alone covers on-frequency decodes too -- no separate
-      // tracking is needed for the QSO Frequency pane's content.
+      // Tracks all_freqs by content (same idea as qso_freq below) so ALL.TXT gets each decode once.
       QStringList const allLines = allMsgs.split(QChar('\n'), SkipEmptyParts);
       for (auto const& rawLine : allLines) {
           QString const newLine = rawLine.trimmed();
@@ -804,10 +796,7 @@ void MainWindow::jttyDecodeAgainAt(float secondsAgo)
 
 void MainWindow::flushJttyDecodeLines()
 {
-  // Called wherever a JTTY decode session is definitely finished -- a new
-  // one is starting (rjtty_sub_'s own slot table is already gone at that
-  // point) or we've reached the true end of a file. Unconditional: whatever
-  // hasn't been logged yet is now as complete as it'll ever be.
+  // Called at a definite session end (new session starting, or true end of file); unconditional.
   for (auto& line : m_jttyAllFreqLines) {
     if (line.written) continue;
     QString const text = line.text.trimmed();
@@ -819,9 +808,7 @@ void MainWindow::flushJttyDecodeLines()
 
 void MainWindow::flushStaleJttyDecodeLines(int k)
 {
-  // No session-end signal during live monitoring, so flush once a line has
-  // gone quiet for 1.5 frames (59 symbols * 384 samples/symbol, 12 kHz domain).
-  constexpr int staleSamples = 3 * 59 * 384 / 2;
+  constexpr int staleSamples = 3 * 59 * 384 / 2;  // 1.5 frames (59 symbols * 384 samples/symbol)
   for (auto& line : m_jttyAllFreqLines) {
     if (line.written) continue;
     if (k - line.lastGrowthK < staleSamples) continue;
