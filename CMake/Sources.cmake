@@ -58,6 +58,7 @@ set (wsjt_qt_CXXSRCS
   widgets/HintedSpinBox.cpp
   widgets/RestrictedSpinBox.cpp
   widgets/HelpTextWindow.cpp
+  widgets/SettingsDialogLayout.cpp
   SampleDownloader.cpp
   SampleDownloader/DirectoryDelegate.cpp
   SampleDownloader/Directory.cpp

@@ -149,7 +149,10 @@
 #include <QDialog>
 #include <QAction>
 #include <QKeyEvent>
+#include <QScreen>
+#include <QShowEvent>
 #include <QTabBar>
+#include <QWindow>
 #include <QFileDialog>
 #include <QDir>
 #include <QTemporaryFile>
@@ -208,6 +211,7 @@
 #include "Network/NetworkServerLookup.hpp"
 #include "Network/FoxVerifier.hpp"
 #include "widgets/MessageBox.hpp"
+#include "widgets/SettingsDialogLayout.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "validators/CallsignValidator.hpp"
 #include "Network/LotWUsers.hpp"
@@ -576,6 +580,7 @@ private:
   };
 
   bool eventFilter (QObject *, QEvent *) override;
+  void showEvent (QShowEvent *) override;
   void register_settings_focus_page (QWidget * page, QList<QWidget *> const& tab_stops);
   QList<QWidget *> current_settings_focus_path () const;
   QList<QWidget *> settings_dialog_buttons () const;
@@ -1909,6 +1914,26 @@ void Configuration::impl::register_settings_focus_page (QWidget * page, QList<QW
     }
 }
 
+void Configuration::impl::showEvent (QShowEvent * event)
+{
+  QDialog::showEvent (event);
+
+  auto * window = windowHandle ();
+  auto * screen = window ? window->screen () : QGuiApplication::primaryScreen ();
+  if (!screen)
+    {
+      return;
+    }
+
+  auto const bounded_size = SettingsDialogLayout::boundedWindowSize (
+    size (), screen->availableGeometry ().size (),
+    window ? window->frameMargins () : QMargins {});
+  if (bounded_size != size ())
+    {
+      resize (bounded_size);
+    }
+}
+
 QList<QWidget *> Configuration::impl::current_settings_focus_path () const
 {
   auto const current_page = ui_->configuration_tabs->currentWidget ();
@@ -2063,6 +2088,8 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , default_audio_output_device_selected_ {false}
 {
   ui_->setupUi (this);
+
+  SettingsDialogLayout::install (*ui_);
 
   installEventFilter (this);
   ui_->configuration_tabs->setFocusPolicy (Qt::StrongFocus);

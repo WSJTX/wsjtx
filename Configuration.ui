@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
@@ -75,23 +75,27 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QLineEdit" name="grid_line_edit">
-                <property name="toolTip">
-                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maidenhead locator, preferably 6 characters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                </property>
-               </widget>
+               <layout class="QHBoxLayout" name="grid_controls_layout">
+                <item>
+                 <widget class="QLineEdit" name="grid_line_edit">
+                  <property name="toolTip">
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maidenhead locator, preferably 6 characters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="use_dynamic_grid">
+                  <property name="toolTip">
+                   <string>Check to allow grid changes from external programs</string>
+                  </property>
+                  <property name="text">
+                   <string>AutoGrid</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </item>
              </layout>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="use_dynamic_grid">
-              <property name="toolTip">
-               <string>Check to allow grid changes from external programs</string>
-              </property>
-              <property name="text">
-               <string>AutoGrid</string>
-              </property>
-             </widget>
             </item>
             <item>
              <layout class="QFormLayout" name="formLayout_2">
@@ -2986,8 +2990,11 @@ Right click for insert and delete options.</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_5">
           <item row="1" column="0" colspan="2">
-           <layout class="QHBoxLayout" name="horizontalLayout_20">
-            <item>
+           <layout class="QGridLayout" name="horizontalLayout_20">
+            <property name="verticalSpacing">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
              <widget class="QToolButton" name="highlighting_actions_tool_button">
               <property name="toolTip">
                <string>Change or reset colors for the selected highlighting rule.</string>
@@ -3000,7 +3007,7 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="0" column="1">
              <widget class="QPushButton" name="move_highlighting_up_push_button">
               <property name="toolTip">
                <string>Move the selected highlighting rule earlier in priority order.</string>
@@ -3010,7 +3017,7 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="1" column="0">
              <widget class="QPushButton" name="move_highlighting_down_push_button">
               <property name="toolTip">
                <string>Move the selected highlighting rule later in priority order.</string>
@@ -3020,7 +3027,7 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="1" column="1">
              <widget class="QPushButton" name="reset_highlighting_to_defaults_push_button">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -3030,14 +3037,14 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="2" column="0">
              <widget class="QPushButton" name="reset_highlighting_to_defaults2_push_button">
               <property name="text">
                <string>Reset Highlighting to Default 2</string>
               </property>
              </widget>
             </item>
-            <item>
+            <item row="2" column="1">
              <widget class="QPushButton" name="rescan_log_push_button">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -3052,13 +3059,16 @@ Right click for insert and delete options.</string>
           <item row="0" column="0" colspan="2">
            <widget class="DecodeHighlightingListView" name="highlighting_list_view">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
             <property name="contextMenuPolicy">
              <enum>Qt::ActionsContextMenu</enum>
+            </property>
+            <property name="verticalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
             </property>
             <property name="acceptDrops">
              <bool>true</bool>
@@ -3597,11 +3607,11 @@ Right click for insert and delete options.</string>
           </item>
           <item row="3" column="0" colspan="2">
            <widget class="QGroupBox" name="groupBox_10">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>50</height>
-             </size>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
             <property name="accessibleName">
              <string>Tone spacing</string>
@@ -3644,11 +3654,11 @@ Right click for insert and delete options.</string>
           </item>
           <item row="4" column="0" colspan="2">
            <widget class="QGroupBox" name="groupBox_7">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>50</height>
-             </size>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
             <property name="accessibleName">
              <string>Waterfall spectra</string>

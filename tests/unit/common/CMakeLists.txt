@@ -212,3 +212,21 @@ if (WSJT_ENABLE_TSAN)
     test_qso_reaction
     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif ()
+qt5_wrap_ui (test_configuration_dialog_layout_UIS
+  ${CMAKE_SOURCE_DIR}/Configuration.ui
+)
+add_executable (test_configuration_dialog_layout
+  test_configuration_dialog_layout.cpp
+  ${test_configuration_dialog_layout_UIS}
+)
+target_include_directories (test_configuration_dialog_layout PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries (test_configuration_dialog_layout wsjt_qt Qt5::Test Qt5::Widgets)
+add_test (NAME test_configuration_dialog_layout COMMAND test_configuration_dialog_layout)
+add_test (NAME test_configuration_dialog_layout_fusion COMMAND test_configuration_dialog_layout)
+set_tests_properties (test_configuration_dialog_layout_fusion PROPERTIES
+  ENVIRONMENT "QT_STYLE_OVERRIDE=Fusion"
+)
+add_test (NAME test_configuration_dialog_layout_scaled COMMAND test_configuration_dialog_layout)
+set_tests_properties (test_configuration_dialog_layout_scaled PROPERTIES
+  ENVIRONMENT "QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
+)
