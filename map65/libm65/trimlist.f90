@@ -33,6 +33,10 @@ contains
         if (abs(sig(i, 3) - sig(indx(j), 3)) > freq_tolerance) cycle
         if (abs(sig(i, 5) - sig(indx(j), 5)) > dt_tolerance) cycle
         duplicate = .true.
+        if (sig(i, 8) > sig(indx(j), 8) .or. &
+            (sig(i, 8) == sig(indx(j), 8) .and. sig(i, 4) > sig(indx(j), 4)) .or. &
+            (sig(i, 8) == sig(indx(j), 8) .and. sig(i, 4) == sig(indx(j), 4) .and. &
+             i > indx(j))) indx(j) = i
         exit
       end do
 

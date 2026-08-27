@@ -17,8 +17,8 @@ contains
     sig = 0.0
     msg = ' '
 
-    call set_result(1, 1, 100.000, 0.20, 1, 'K1ABC W9XYZ FN42')
-    call set_result(2, 1, 100.005, 0.25, 1, 'K1ABC W9XYZ FN42')
+    call set_result(1, 1, 100.000, 0.20, 1, 'K1ABC W9XYZ FN42', 1.0)
+    call set_result(2, 1, 100.005, 0.25, 1, 'K1ABC W9XYZ FN42', 2.0)
     call set_result(3, 1, 100.005, 0.20, 1, 'W1AAA K2BBB EM00')
     call set_result(4, 1, 100.005, 0.50, 1, 'K1ABC W9XYZ FN42')
     call set_result(5, 1, 100.005, 0.20, -1, 'K1ABC W9XYZ FN42')
@@ -34,6 +34,8 @@ contains
                  'opposite-sync results survive')
     call require(selected_count('K1ABC W9XYZ FN42', 2, 1) == 1, &
                  'results from another UTC survive')
+    call require(any(indx(1:nz) == 2) .and. .not. any(indx(1:nz) == 1), &
+                 'the stronger duplicate supplies the displayed metrics')
   end subroutine test_result_identity
 
   subroutine test_empty_and_full_lists
@@ -55,15 +57,17 @@ contains
     call require(nz == MAXMSG, 'the maximum result list does not overrun selection storage')
   end subroutine test_empty_and_full_lists
 
-  subroutine set_result(index, utc, frequency, dt, flip, message)
+  subroutine set_result(index, utc, frequency, dt, flip, message, strength)
     integer, intent(in) :: index, utc, flip
     real, intent(in) :: frequency, dt
     character(len=*), intent(in) :: message
+    real, intent(in), optional :: strength
 
     sig(index, 2) = utc
     sig(index, 3) = frequency
     sig(index, 5) = dt
     sig(index, 7) = flip
+    if (present(strength)) sig(index, 8) = strength
     msg(index) = message
   end subroutine set_result
 
