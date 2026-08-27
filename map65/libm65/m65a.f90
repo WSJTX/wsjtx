@@ -6,7 +6,7 @@ subroutine m65a()
 
   use timer_module, only: timer
   use, intrinsic :: iso_c_binding, only: C_NULL_CHAR
-  use npar_ptrs_mod
+  use npar_ptrs_mod, only: wsjtx_dir
   use datcom_ptrs_mod, only: dd,ss,savg
   use m65_mod
   use FFTW3
@@ -15,7 +15,7 @@ subroutine m65a()
   implicit none
   
   character(len=256) cwd
-
+    
   cwd = trim(wsjtx_dir)
 
   if (len_trim(cwd) == 0) then

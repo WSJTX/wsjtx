@@ -1,12 +1,10 @@
 name: "Build Linux payload"
 description: >-
   Build, test, and package wsjtx for one Linux architecture. Encapsulates the
-  full payload — pFUnit + Hamlib + cmake build + ctest + .deb + RPM + AppImage —
-  so build-linux.yml can call it once per arch (one job per arch, optionally
-  inside a debian:bookworm-slim container when runtime_base=bookworm). The
-  caller decides host-vs-container at the job level via the `container:`
-  directive; this action just runs the same shell pipeline on whatever it
-  lands on.
+  full payload — cmake build + ctest + .deb + RPM + AppImage —
+  so build-linux.yml can call it once per arch from a validated GHCR build
+  environment. The caller decides job-container versus explicit Docker
+  execution; this action runs the shared native pipeline.
 
 inputs:
   arch:
@@ -20,16 +18,19 @@ inputs:
     required: true
   runtime_base:
     description: >-
-      Runtime baseline tag for cache namespacing. Use 'bookworm' when the job
-      runs inside debian:bookworm-slim (produces glibc-2.36 + pre-t64 binaries
-      that resolve on Raspberry Pi OS Bookworm); use 'host' when the job runs
-      directly on the GitHub-hosted ubuntu-24.04(-arm) runner. The value is
-      part of every cache key so a runtime_base flip never reuses a cache
-      built against a different ABI.
+      Runtime profile used to select the GCC 13.4 Bookworm toolchain.
     required: false
     default: "host"
   recache:
-    description: "Force ccache to recompile and refresh cached objects"
+    description: "Manual ccache refresh; ordinary source changes do not enable it"
+    required: false
+    default: "false"
+  save_ccache:
+    description: "Save compiled objects for trusted builds"
+    required: false
+    default: "false"
+  validate_fortran_fallback:
+    description: "Build the x86_64 non-OpenMP common-library sentinel graph"
     required: false
     default: "false"
   release_channel:
@@ -40,57 +41,97 @@ inputs:
     description: "Release candidate number when release_channel is RC"
     required: false
     default: ""
+  allow_stale_image:
+    description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
   steps:
-    # The aarch64 leg runs inside debian:bookworm-slim, which is intentionally
-    # minimal — no sudo, no git, no curl, no ca-certificates, no python3. The
-    # x86_64 leg runs on ubuntu-24.04 (host) where sudo is required and the
-    # base packages above are already installed. This step covers both: the
-    # SUDO wrapper resolves to empty inside the container (root) and to "sudo"
-    # on the host (non-root runner user).
-    - name: Install dependencies
+    - name: Validate workflow inputs
+      shell: bash
+      env:
+        WSJTX_VERSION: ${{ inputs.version }}
+        HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+        WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+        WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+        ARCH: ${{ inputs.arch }}
+        VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
+      run: .github/scripts/validate-ci-inputs.sh
+
+    - name: Verify Linux CI image
+      id: image
+      shell: bash
+      env:
+        WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
+      run: >-
+        .github/scripts/verify-linux-ci-image.sh
+        normal "${{ inputs.arch }}" "${{ inputs.hamlib_branch }}"
+
+    - name: Select Noble toolchain
+      if: inputs.runtime_base == 'host'
       shell: bash
       run: |
-        SUDO=""
-        if [ "$(id -u)" != "0" ]; then
-          SUDO="sudo"
-        fi
-        $SUDO apt-get update
-        $SUDO apt-get install -y --no-install-recommends \
-          ca-certificates curl git \
-          build-essential cmake gfortran ccache \
-          libfftw3-dev libboost-all-dev \
-          qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
-          libqt5sql5-sqlite libqt5websockets5-dev \
-          libqt5multimedia5-plugins \
-          libusb-1.0-0-dev libudev-dev libreadline-dev \
-          autoconf automake libtool pkg-config \
-          texinfo \
-          dpkg-dev fakeroot \
-          asciidoctor \
-          rpm \
-          python3 \
-          file xz-utils xauth xvfb \
-          portaudio19-dev
+        {
+          echo "CC=gcc"
+          echo "CXX=g++"
+          echo "FC=gfortran"
+        } >> "$GITHUB_ENV"
 
-    # ccache persists compiled objects across runs to cut rebuild time.
-    # Namespaced by arch + runtime_base so the host and bookworm-container
-    # caches never collide; keyed on the commit SHA with a prefix
-    # restore-key so each build warm-starts from the most recent ancestor.
-    - name: Cache ccache
-      uses: actions/cache@v5
+    - name: Select GCC 13.4 Bookworm toolchain
+      if: inputs.runtime_base == 'bookworm-gcc13.4'
+      shell: bash
+      run: |
+        CC=/usr/local/bin/gcc
+        CXX=/usr/local/bin/g++
+        FC=/usr/local/bin/gfortran
+
+        for compiler in "$CC" "$CXX" "$FC"; do
+          if [ ! -x "$compiler" ]; then
+            echo "::error::Expected compiler not found at $compiler"
+            exit 1
+          fi
+          version=$("$compiler" -dumpfullversion -dumpversion)
+          echo "$compiler: $version"
+          if [ "$version" != "13.4.0" ]; then
+            echo "::error::Expected GCC 13.4.0, found $version at $compiler"
+            exit 1
+          fi
+        done
+
+        echo "CC=$CC" >> "$GITHUB_ENV"
+        echo "CXX=$CXX" >> "$GITHUB_ENV"
+        echo "FC=$FC" >> "$GITHUB_ENV"
+
+    # Run-unique keys let a refreshed archive become the newest prefix match
+    # even when an immutable cache already exists for the same commit SHA.
+    - name: Select ccache key
+      id: ccache-key
+      shell: bash
+      env:
+        RECACHE: ${{ inputs.recache }}
+      run: .github/scripts/select-ccache-key-suffix.sh
+
+    - name: Restore ccache
+      id: ccache
+      uses: actions/cache/restore@v5
       with:
         path: .ccache
-        key: ccache-linux-${{ inputs.arch }}-${{ inputs.runtime_base }}-gcc-${{ github.sha }}
+        key: ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
         restore-keys: |
-          ccache-linux-${{ inputs.arch }}-${{ inputs.runtime_base }}-gcc-
+          ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+          ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-
 
     - name: Configure ccache
       shell: bash
       run: |
-        echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+        export CCACHE_DIR="${GITHUB_WORKSPACE}/.ccache"
+        export CCACHE_COMPILERCHECK="${{ steps.image.outputs.ccache_compiler_check }}"
+        {
+          echo "CCACHE_DIR=$CCACHE_DIR"
+          echo "CCACHE_COMPILERCHECK=$CCACHE_COMPILERCHECK"
+        } >> "$GITHUB_ENV"
         echo "ccache recache: ${{ inputs.recache }}"
         if [ "${{ inputs.recache }}" = "true" ]; then
           echo "CCACHE_RECACHE=1" >> "$GITHUB_ENV"
@@ -98,78 +139,38 @@ runs:
         fi
         mkdir -p "${GITHUB_WORKSPACE}/.ccache"
         ccache --version
+        ccache --show-config
         ccache --zero-stats
 
-    - name: Locate gfortran
-      id: fc
-      shell: bash
-      run: echo "version=$(gfortran -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
-
-    - name: Cache pFUnit
-      id: pfunit-cache
-      uses: actions/cache@v5
-      with:
-        path: pfunit-prefix
-        # Keyed on arch + runtime_base so the bookworm aarch64 cache and a
-        # host build never collide. hashFiles points at the shared
-        # build-pfunit-linux.sh (the actual build recipe, also called by the
-        # x86_64/aarch64 legs) so any change to how pFUnit is built rebusts
-        # the cache.
-        key: pfunit-linux-${{ inputs.arch }}-v4.14.0-${{ inputs.runtime_base }}-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-linux.sh') }}
-
-    - name: Build pFUnit
-      if: steps.pfunit-cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: .github/scripts/build-pfunit-linux.sh v4.14.0 "${GITHUB_WORKSPACE}/pfunit-prefix"
-
-    - name: Locate pFUnit config
-      id: pfunit
+    # Exercise the public CMake default without duplicating its compile graph.
+    # AUTO resolves to BOTH on the OpenMP-capable Linux x86_64 toolchain.
+    - name: Configure default Fortran graph
+      if: inputs.arch == 'x86_64'
       shell: bash
       run: |
-        # `find -quit` instead of `find ... | head -1` so find doesn't get
-        # SIGPIPE'd under bash pipefail (defensive — find normally produces
-        # 1-2 lines so the pipe closes fine, but we hit the same class of
-        # failure on dpkg-deb in container so apply the pattern uniformly).
-        CONFIG=$(find "${GITHUB_WORKSPACE}/pfunit-prefix" -name PFUNITConfig.cmake -print -quit)
-        if [ -z "$CONFIG" ]; then
-          echo "ERROR: PFUNITConfig.cmake not found under pfunit-prefix"
-          find "${GITHUB_WORKSPACE}/pfunit-prefix" -maxdepth 3 -type d
-          exit 1
-        fi
-        PFUNIT_DIR="$(dirname "$CONFIG")"
-        echo "Found PFUNITConfig.cmake at: $CONFIG"
-        echo "dir=${PFUNIT_DIR}" >> "$GITHUB_OUTPUT"
-
-    - name: Cache Hamlib
-      id: hamlib-cache
-      uses: actions/cache@v5
-      with:
-        path: hamlib-prefix
-        key: hamlib-linux-${{ inputs.arch }}-${{ inputs.hamlib_branch }}-${{ inputs.runtime_base }}-${{ hashFiles('.github/scripts/build-hamlib-linux.sh') }}
-
-    - name: Build Hamlib
-      if: steps.hamlib-cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: .github/scripts/build-hamlib-linux.sh "${{ inputs.hamlib_branch }}" "${GITHUB_WORKSPACE}/hamlib-prefix"
-
-    - name: Verify Hamlib prefix
-      shell: bash
-      run: test -f "${GITHUB_WORKSPACE}/hamlib-prefix/lib/libhamlib.a"
+        cmake -S . -B cfgmatrix-default \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+          -DWSJT_SKIP_MANPAGES=ON \
+          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
+          -Wno-dev
 
     - name: Configure build and tests
       shell: bash
+      env:
+        WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+        WSJT_RC_NUMBER: ${{ inputs.rc_number }}
       run: |
         cmake -S . -B wsjtx-build \
-          -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
           -DCMAKE_C_COMPILER_LAUNCHER=ccache \
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_ENABLE_TESTS=ON \
+          -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
-          -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
-          -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
-          -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+          -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
+          -DWSJT_RC_NUMBER="${WSJT_RC_NUMBER}" \
+          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
           -Wno-dev
 
     - name: Build and test targets
@@ -181,67 +182,26 @@ runs:
       shell: bash
       run: ccache --show-stats
 
-    # Configure sweep across the Fortran-variant matrix with MAP65 enabled.
-    # Sentinel target builds keep central Fortran linkage covered without
-    # duplicating the full main build across every variant. x86_64-only:
-    # this is build-coverage for the central Fortran linkage, not a per-arch
-    # runtime concern, so it runs once on the cheapest/native leg.
-    - name: Configure-matrix (Fortran variants × MAP65)
-      if: inputs.arch == 'x86_64'
+    # MAP65 retains target-local OpenMP while the shared WSJT Fortran library
+    # uses its serial variant. Run this fallback graph only on the native leg.
+    - name: Build non-OpenMP common-library sentinels
+      if: inputs.arch == 'x86_64' && inputs.validate_fortran_fallback == 'true'
       shell: bash
       run: |
-        fail=0
-        for variant in AUTO BOTH OPENMP_ONLY NON_OPENMP_ONLY; do
-          echo "::group::configure WSJT_FORTRAN_LIBRARY_VARIANTS=${variant} (MAP65 enabled)"
-          rm -rf "cfgmatrix-${variant}"
-          if cmake -S . -B "cfgmatrix-${variant}" \
-               -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
-               -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-               -DWSJT_SKIP_MANPAGES=ON \
-               -DWSJT_FORTRAN_LIBRARY_VARIANTS="${variant}" \
-               -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
-               -Wno-dev; then
-            echo "configure OK: ${variant}"
-          else
-            echo "::error::configure FAILED for WSJT_FORTRAN_LIBRARY_VARIANTS=${variant} with MAP65 enabled"
-            fail=1
-          fi
-          echo "::endgroup::"
-
-          case "${variant}" in
-            AUTO|NON_OPENMP_ONLY)
-              echo "::group::sentinel build WSJT_FORTRAN_LIBRARY_VARIANTS=${variant}"
-              if cmake --build "cfgmatrix-${variant}" \
-                   --target jt65sim m65impl qmap_impl test_jtty_pack \
-                   -j$(nproc); then
-                echo "sentinel build OK: ${variant}"
-              else
-                echo "::error::sentinel build FAILED for WSJT_FORTRAN_LIBRARY_VARIANTS=${variant}"
-                fail=1
-              fi
-              echo "::endgroup::"
-              ;;
-          esac
-        done
-        exit $fail
-
-    - name: Configure deprecated MAP65 skip path
-      if: inputs.arch == 'x86_64'
-      shell: bash
-      run: |
-        cmake -S . -B cfgmatrix-skip-map65-openmp-only \
-          -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
-          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        cmake -S . -B cfgmatrix-NON_OPENMP_ONLY \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
           -DWSJT_SKIP_MANPAGES=ON \
-          -DWSJT_SKIP_MAP65=ON \
-          -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
-          -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+          -DWSJT_FORTRAN_LIBRARY_VARIANTS=NON_OPENMP_ONLY \
+          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
           -Wno-dev
+        cmake --build cfgmatrix-NON_OPENMP_ONLY \
+          --target jt65sim m65impl qmap_impl test_jtty_pack \
+          -j$(nproc)
 
     - name: Run tests
       id: ctest
       shell: bash
-      run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --output-on-failure --output-junit ctest-results.xml
+      run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --parallel 3 --output-on-failure --output-junit ctest-results.xml
       working-directory: wsjtx-build
       env:
         QT_QPA_PLATFORM: xcb
@@ -278,8 +238,17 @@ runs:
             [[ "$FILE_OUT" == *"ELF 32-bit"* ]]
             [[ "$FILE_OUT" == *"ARM, EABI5"* ]]
             ;;
-          *)
+          x86_64)
             [[ "$FILE_OUT" == *"ELF 64-bit"* ]]
+            [[ "$FILE_OUT" == *"x86-64"* ]]
+            ;;
+          aarch64)
+            [[ "$FILE_OUT" == *"ELF 64-bit"* ]]
+            [[ "$FILE_OUT" == *"ARM aarch64"* ]]
+            ;;
+          *)
+            echo "::error::Unsupported architecture: $ARCH"
+            exit 2
             ;;
         esac
 
@@ -309,7 +278,7 @@ runs:
         file "$DEB"
         # sed instead of `| head -20` so dpkg-deb doesn't get SIGPIPE'd by
         # head's early close — interacts badly with `bash -o pipefail` under
-        # bookworm's dpkg-deb (observed exit 141 on first container run).
+        # Bookworm's dpkg-deb (observed exit 141 on first container run).
         dpkg-deb --info "$DEB" | sed -n '1,20p'
         FILES=$(dpkg-deb -c "$DEB")
         require_package_path() {
@@ -351,7 +320,7 @@ runs:
       run: |
         # Capture rpm -qpl once to avoid SIGPIPE on `| head` / `| grep -q`
         # under `bash -o pipefail` (the same pattern that broke dpkg-deb on
-        # the bookworm-slim aarch64 leg). One rpm invocation, three queries.
+        # the Bookworm aarch64 leg). One rpm invocation, three queries.
         RPM=$(ls *.rpm | sed -n '1p')
         echo "Querying $RPM"
         rpm -qpi "$RPM"
@@ -408,52 +377,57 @@ runs:
         # `--appimage-extract-and-run` instead of expecting FUSE to be
         # available. The host runner has libfuse2 installed by default so
         # the plain `./linuxdeploy.AppImage --appimage-extract-and-run`
-        # was enough for x86_64; debian:bookworm-slim has no FUSE and the
+        # was enough for x86_64; the Bookworm container has no FUSE and the
         # plugin AppImage's first call (`--plugin-api-version`) exits 127
         # without this env var. APPIMAGE_EXTRACT_AND_RUN=1 is the
         # AppImage runtime's documented FUSE-less escape hatch.
         APPIMAGE_EXTRACT_AND_RUN: "1"
       run: |
-        curl_flags=(--fail --show-error --silent --location --retry 5 --retry-all-errors --retry-delay 5)
+        curl_flags=(--fail --show-error --silent --location --retry 5 --retry-delay 5)
+        github_api_token='${{ github.token }}'
+        github_api_curl() {
+          local api_headers=(-H "User-Agent: wsjtx-ci")
+          if [ -n "$github_api_token" ]; then
+            api_headers+=(-H "Authorization: Bearer ${github_api_token}")
+            env GITHUB_TOKEN="$github_api_token" curl "${curl_flags[@]}" "${api_headers[@]}" "$@"
+          else
+            curl "${curl_flags[@]}" "${api_headers[@]}" "$@"
+          fi
+        }
         case "$ARCH" in
           x86_64)
             LINUXDEPLOY_SHA256="c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d"
-            QT_PLUGIN_SHA256="be1b7e166bf9975cfb694ebe6759ba40502ffc6196440d3e64aa90c4dbd67e9f"
             ;;
           aarch64)
             LINUXDEPLOY_SHA256="620095110d693282b8ebeb244a95b5e911cf8f65f76c88b4b47d16ae6346fcff"
-            QT_PLUGIN_SHA256="5525e6c49c3c774c02b8864d2acc2ae4c5c0ccc3327f7dce626deaa36348e5c6"
             ;;
           armhf)
             LINUXDEPLOY_SHA256="e359161979fa4bee50b92ce7102fb510299caebf34f711d983fba7a8f4bb1c2e"
-            QT_PLUGIN_SHA256="463c3d853e78adc0bde8a9b2806c19b20eb60dd18799f8c6e68d873fb2be8ba0"
             ;;
           *)       echo "::error::Unknown linuxdeploy arch: $ARCH"; exit 1 ;;
         esac
 
         QT_PLUGIN_ASSET_NAME="linuxdeploy-plugin-qt-${ARCH}.AppImage"
         QT_PLUGIN_ASSET_ID="$(
-          curl "${curl_flags[@]}" -H "Accept: application/vnd.github+json" \
+          github_api_curl -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/tags/continuous" |
           python3 -c 'import json, sys; name = sys.argv[1]; matches = [asset for asset in json.load(sys.stdin)["assets"] if asset["name"] == name]; print(matches[0]["id"]) if matches else sys.exit("asset not found: " + name)' "$QT_PLUGIN_ASSET_NAME"
         )"
 
-        # If upstream refreshes the continuous Qt plugin assets, this lookup
-        # will keep finding the right asset ID by name; recalculate
-        # QT_PLUGIN_SHA256 after reviewing the new binary.
+        # Resolve the current asset ID because the Qt plugin intentionally
+        # follows upstream's rolling continuous release.
         curl "${curl_flags[@]}" -o linuxdeploy.AppImage \
           "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_TAG}/linuxdeploy-${ARCH}.AppImage"
-        curl "${curl_flags[@]}" -H "Accept: application/octet-stream" -o linuxdeploy-plugin-qt.AppImage \
+        github_api_curl -H "Accept: application/octet-stream" -o linuxdeploy-plugin-qt.AppImage \
           "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/assets/${QT_PLUGIN_ASSET_ID}"
         echo "${LINUXDEPLOY_SHA256}  linuxdeploy.AppImage" | sha256sum -c -
-        echo "${QT_PLUGIN_SHA256}  linuxdeploy-plugin-qt.AppImage" | sha256sum -c -
         chmod +x linuxdeploy.AppImage linuxdeploy-plugin-qt.AppImage
 
         # --appimage-extract-and-run on linuxdeploy itself + the env-var
         # above on every child AppImage means the whole pipeline runs
         # FUSE-free.
         export OUTPUT="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
-        ./linuxdeploy.AppImage --appimage-extract-and-run \
+        env -u GITHUB_TOKEN ./linuxdeploy.AppImage --appimage-extract-and-run \
           --appdir AppDir \
           --plugin qt \
           --output appimage \
@@ -602,3 +576,15 @@ runs:
           wsjtx-build/jt9
           wsjtx-build/wsprd
           wsjtx-build/wsjtx
+
+    - name: Report suppressed ccache save
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match != 'true'
+      shell: bash
+      run: echo "::notice::Not saving ccache because this build used a stale Linux CI image recipe"
+
+    - name: Save ccache
+      if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: .ccache
+        key: ${{ steps.ccache.outputs.cache-primary-key }}

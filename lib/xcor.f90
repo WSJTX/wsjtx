@@ -13,7 +13,6 @@ subroutine xcor(ipk,nsteps,nsym,lag1,lag2,ccf,ccf0,lagpk,flip,fdot,nrobust)
   real a(NSMAX)
 !  real ccf(-44:118)
   real ccf(lag1:lag2)
-  data lagmin/0/                              !Silence g77 warning
 !  save
   common/sync/ss
 
@@ -43,6 +42,8 @@ subroutine xcor(ipk,nsteps,nsym,lag1,lag2,ccf,ccf0,lagpk,flip,fdot,nrobust)
 
   ccfmax=0.
   ccfmin=0.
+  lagpk=lag1
+  lagmin=lag1
   do lag=lag1,lag2
      x=0.
      do i=1,nsym

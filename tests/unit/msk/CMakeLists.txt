@@ -1,0 +1,3 @@
+add_executable (test_msk_spectrum_edges test_msk_spectrum_edges.f90)
+wsjt_link_common_fortran (test_msk_spectrum_edges)
+add_test (NAME test_msk_spectrum_edges COMMAND test_msk_spectrum_edges)

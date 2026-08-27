@@ -105,14 +105,8 @@ void TransceiverBase::set (TransceiverState const& s,
           }
           if (requested_.tx_audio() != s.tx_audio()) {
             if (s.tx_audio()) {
-              do_modulator_start(s.jtmode(), s.symbolslength (), s.framespersymbol (), s.trfrequency (), s.tonespacing (), s.synchronize (),s.fastmode(), s.dbsnr (), s.trperiod ());
-              requested_.symbolslength(s.symbolslength ());
-              requested_.framespersymbol(s.framespersymbol ());
-              requested_.trfrequency(s.trfrequency ());
-              requested_.tonespacing(s.tonespacing ());
-              requested_.synchronize(s.synchronize ());
-              requested_.dbsnr(s.dbsnr ());
-              requested_.trperiod(s.trperiod ());
+              do_modulator_start (s.tx_request ());
+              requested_.tx_request (s.tx_request ());
             } else {
               do_modulator_stop(s.quick ());
               requested_.quick (s.quick ());

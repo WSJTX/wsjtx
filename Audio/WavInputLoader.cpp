@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <mutex>
 
 #include "Audio/WavFile.hpp"
 
@@ -13,6 +14,7 @@ extern "C"
 namespace
 {
 int constexpr wav12_output_capacity = 60 * 12000;
+std::mutex wav12_mutex;
 }
 
 namespace Radio
@@ -58,7 +60,10 @@ WavInputResult load_wav_input (QString const& name, int sample_limit)
         {
           result.samples.resize (std::max (sample_limit, wav12_output_capacity), 0);
           short sample_size = wav.format.sampleSize ();
-          wav12_ (result.samples.data (), result.samples.data (), &frames_read, &sample_size);
+          {
+            std::lock_guard<std::mutex> lock {wav12_mutex};
+            wav12_ (result.samples.data (), result.samples.data (), &frames_read, &sample_size);
+          }
           frames_read = std::min (frames_read, sample_limit);
           result.samples.resize (sample_limit);
         }

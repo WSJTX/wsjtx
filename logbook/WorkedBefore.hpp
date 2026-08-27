@@ -41,6 +41,8 @@ public:
   Q_SIGNAL void finished_loading (int worked_before_record_count, QString const, QString const& error) const;
 
 private:
+  Q_SLOT void handle_loader_finished ();
+
   class impl;
   pimpl<impl> m_;
 };

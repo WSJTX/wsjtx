@@ -1,5 +1,6 @@
 //------------------------------------------------------------------ MainWindow
 #include "mainwindow.h"
+#include <cstring>
 #include <fftw3.h>
 #include <QDir>
 #include <QSettings>
@@ -17,7 +18,13 @@
 #include "about.h"
 #include "astro.h"
 #include "widegraph.h"
+#include "vertwaterfall.h"
 #include "sleep.h"
+#include "livecq_parser.h"
+#include "shared_memory_key.h"
+#include "qmap_ipc.h"
+#include "qmap_decode_record.h"
+#include "validators/LiveCQCallsign.hpp"
 
 #include <QCoreApplication>  //liveCQ
 #include <QNetworkAccessManager>  //liveCQ
@@ -29,8 +36,10 @@
 
 #define NFFT 32768
 
-QSharedMemory mem_qmap("mem_qmap");            //Memory segment to be shared (optionally) with WSJT-X
-int* ipc_wsjtx;
+QSharedMemory mem_qmap;                        //Memory segment to be shared (optionally) with WSJT-X
+QMapSharedMemory * ipc_wsjtx {nullptr};
+bool qmap_decoder_region_available {false};
+bool qmap_click_mailbox_available {false};
 
 extern const int RxDataFrequency = 96000;
 
@@ -43,6 +52,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_settings_filename {qmapSettingsFile (m_appDir, m_dataDir)},
   m_astro_window {new Astro {m_settings_filename}},
   m_wide_graph_window {new WideGraph {m_settings_filename}},
+  m_vert_waterfall_window {new VertWaterfall {m_settings_filename}},
   m_gui_timer {new QTimer {this}}
 {
   ui->setupUi(this);
@@ -107,16 +117,23 @@ MainWindow::MainWindow(QWidget *parent) :
   xSignalMeter->resize(50, 160);
 
 //Attach or create a memory segment to be shared with WSJT-X.
-  int memSize=4096;
+  auto const memSize=static_cast<int>(QMapSharedMemorySize);
+  mem_qmap.setKey (qmap_decode_ipc::shared_memory_key ());
   if(!mem_qmap.attach()) {
     if(!mem_qmap.create(memSize)) {
       msgBox("Unable to create shared memory segment mem_qmap.");
     }
   }
-  ipc_wsjtx = (int*)mem_qmap.data();
-  mem_qmap.lock();
-  memset(ipc_wsjtx,0,memSize);         //Zero all of shared memory
-  mem_qmap.unlock();
+  auto const mappedSize = mem_qmap.isAttached ()
+    ? static_cast<std::size_t> (mem_qmap.size ()) : 0u;
+  qmap_decoder_region_available = qmapDecoderRegionAvailable (mappedSize);
+  qmap_click_mailbox_available = qmapClickMailboxAvailable (mappedSize);
+  ipc_wsjtx = qmap_decoder_region_available
+    ? static_cast<QMapSharedMemory *> (mem_qmap.data ()) : nullptr;
+  if (ipc_wsjtx && mem_qmap.lock ()) {
+    clearQMapSharedMemory (ipc_wsjtx, mappedSize);
+    mem_qmap.unlock ();
+  }
 
 //  fftwf_import_wisdom_from_filename (QDir {m_appDir}.absoluteFilePath ("qmap_wisdom.dat").toLocal8Bit ());
   readSettings();		             //Restore user's setup params
@@ -135,7 +152,21 @@ MainWindow::MainWindow(QWidget *parent) :
       border-color: black; min-width: 5em; padding: 3px;}";
 
   on_actionAstro_Data_triggered();           //Create the other windows
-  on_actionWide_Waterfall_triggered();
+  {
+    // Restore each waterfall's visibility from its last-exit setting.
+    QSettings settings {m_settings_filename, QSettings::IniFormat};
+    bool wideVisible, vertVisible;
+    {
+      SettingsGroup g {&settings, "MainWindow"};
+      wideVisible = settings.value ("WideGraphVisible", true).toBool ();
+    }
+    {
+      SettingsGroup g {&settings, "VertWaterfall"};
+      vertVisible = settings.value ("VertWaterfallVisible", false).toBool ();
+    }
+    if (wideVisible) on_actionWide_Waterfall_triggered();
+    if (vertVisible) on_actionVertical_Waterfall_triggered();
+  }
   if (m_astro_window) m_astro_window->setFontSize (m_astroFont);
 
   if(m_modeQ65==1) on_actionQ65A_triggered();
@@ -200,7 +231,11 @@ MainWindow::MainWindow(QWidget *parent) :
   if(ui->actionBlue->isChecked()) on_actionBlue_triggered();
 
   connect (m_wide_graph_window.get (), &WideGraph::freezeDecode2, this, &MainWindow::freezeDecode);
+  connect (m_wide_graph_window.get (), &WideGraph::decodeLabelClicked2, this, &MainWindow::decodeLabelClicked);
+  connect (m_vert_waterfall_window.get (), &VertWaterfall::decodeLabelClicked2, this, &MainWindow::decodeLabelClicked);
   connect (m_wide_graph_window.get (), &WideGraph::f11f12, this, &MainWindow::bumpDF);
+  connect (m_wide_graph_window.get (), &WideGraph::spectrumReady,
+           m_vert_waterfall_window.get (), &VertWaterfall::dataSinkVert);
 
   //default freq at startup for Doppler and Tsky  
   datcom_.fcenter = 1296.150;
@@ -216,6 +251,12 @@ MainWindow::~MainWindow()
 {
   writeSettings();
   all_done_();
+
+  if (ipc_wsjtx && mem_qmap.isAttached () && mem_qmap.lock ()) {
+    clearQMapSharedMemory (ipc_wsjtx,
+                           static_cast<std::size_t> (mem_qmap.size ()));
+    mem_qmap.unlock ();
+  }
 
   if (soundInThread.isRunning()) {
     soundInThread.quit();
@@ -521,15 +562,24 @@ void MainWindow::on_actionSettings_triggered()
 
 void MainWindow::on_monitorButton_clicked()                  //Monitor
 {
-  if(m_monitoring or m_loopall) {
-    m_monitoring=false;
-    soundInThread.setMonitoring(false);
-    m_loopall=false;
-  } else {
-    m_monitoring=true;
-    soundInThread.setMonitoring(true);
-    m_diskData=false;
-  }
+  clearDecodeLabels ();
+  m_monitoring=true;
+  soundInThread.setMonitoring(true);
+  m_diskData=false;
+}
+
+void MainWindow::clearDecodeLabels ()
+{
+  if (m_wide_graph_window) m_wide_graph_window->clearDecodeLabels ();
+  if (m_vert_waterfall_window) m_vert_waterfall_window->clearDecodeLabels ();
+}
+
+void MainWindow::on_stopButton_clicked()                      //stopButton
+{
+  m_monitoring=false;
+  soundInThread.setMonitoring(m_monitoring);
+  m_loopall=false;
+  m_startAnother=false;
 }
 
 void MainWindow::on_actionLinrad_triggered()                 //Linrad palette
@@ -666,9 +716,30 @@ void MainWindow::on_actionExit_triggered()                     //Exit()
 void MainWindow::closeEvent (QCloseEvent * e)
 {
   if (m_gui_timer) m_gui_timer->stop ();
+
+  // Record whether each waterfall was open, so it can be restored on the
+  // next startup. Must happen before close() below, since close() hides
+  // the window and isVisible() would otherwise read back false. Written
+  // directly here (not from each window's own saveSettings(), which also
+  // runs again from its destructor after close() -- that second call
+  // would otherwise clobber this with isVisible()==false).
+  {
+    QSettings settings {m_settings_filename, QSettings::IniFormat};
+    {
+      SettingsGroup g {&settings, "MainWindow"};
+      settings.setValue ("WideGraphVisible", m_wide_graph_window && m_wide_graph_window->isVisible ());
+    }
+    {
+      SettingsGroup g {&settings, "VertWaterfall"};
+      settings.setValue ("VertWaterfallVisible", m_vert_waterfall_window && m_vert_waterfall_window->isVisible ());
+    }
+  }
+
   m_wide_graph_window->saveSettings();
+  if (m_vert_waterfall_window) m_vert_waterfall_window->saveSettings();
   if (m_astro_window) m_astro_window->close ();
   if (m_wide_graph_window) m_wide_graph_window->close ();
+  if (m_vert_waterfall_window) m_vert_waterfall_window->close ();
   QMainWindow::closeEvent (e);
 }
 
@@ -688,6 +759,11 @@ void MainWindow::on_actionWide_Waterfall_triggered()      //Display Waterfalls
   m_wide_graph_window->show();
 }
 
+void MainWindow::on_actionVertical_Waterfall_triggered()  //Display Vertical Waterfall
+{
+  if (m_vert_waterfall_window) m_vert_waterfall_window->show();
+}
+
 void MainWindow::on_actionOpen_triggered()                     //Open File
 {
   m_monitoring=false;
@@ -703,7 +779,8 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
       lab1->setStyleSheet("QLabel{background-color: #66ff66}");
       lab1->setText(" " + fname.mid(i,15) + " ");
     }
-    if(m_monitoring) on_monitorButton_clicked();
+    on_stopButton_clicked();
+    clearDecodeLabels ();
     m_diskData=true;
     int dbDgrd=0;
     int iret=4;
@@ -739,6 +816,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
         lab1->setStyleSheet("QLabel{background-color: #66ff66}");
         lab1->setText(" " + fname.mid(i,len) + " ");
       }
+      clearDecodeLabels ();
       m_diskData=true;
       int dbDgrd=0;
       int iret=4;
@@ -788,14 +866,12 @@ void MainWindow::decoderFinished()
 {
   m_startAnother=m_loopall;
   decodes_.nQDecoderDone=1;
-  decodes_.kHzRequested=0;
   if(m_diskData) decodes_.nQDecoderDone=2;
-  mem_qmap.lock();
-  decodes_.nWDecoderBusy=ipc_wsjtx[3];                   //Prevent overwriting values
-  decodes_.nWTransmitting=ipc_wsjtx[4];                  //written here by WSJT-X
+  if (qmap_decoder_region_available && ipc_wsjtx && mem_qmap.lock ()) {
+    publishQMapDecodeBlock(*ipc_wsjtx, decodes_);
+    mem_qmap.unlock ();
+  }
   m_bWTransmitting=decodes_.nWTransmitting>0;
-  memcpy((char*)ipc_wsjtx, &decodes_, sizeof(decodes_)); //Send decodes and flags to WSJT-X
-  mem_qmap.unlock();
   QString t1;
   t1=t1.asprintf(" %.1f s  %d/%d ", 0.15*datcom2_.nhsym, decodes_.ndecodes, decodes_.ncand);
   lab4->setText(t1);
@@ -871,10 +947,12 @@ void MainWindow::on_DecodeButton_clicked()                    //Decode request
 void MainWindow::freezeDecode(int n)                          //freezeDecode()
 {
   if(n==3) {
+    if (!qmap_decoder_region_available || !ipc_wsjtx) return;
     decodes_.kHzRequested=m_wide_graph_window->QSOfreq();
-    mem_qmap.lock();
-    ipc_wsjtx[5]=decodes_.kHzRequested;
-    mem_qmap.unlock();
+    if (mem_qmap.lock ()) {
+      ipc_wsjtx->decodes.kHzRequested=decodes_.kHzRequested;
+      mem_qmap.unlock ();
+    }
     return;
   }
   if(n==2) {
@@ -890,6 +968,22 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
     datcom_.nagain=1;
     datcom_.newdat=0;
     on_DecodeButton_clicked();
+  }
+}
+
+void MainWindow::decodeLabelClicked(QByteArray decodeRow, DecodeClickGesture gesture)
+{
+  if (!qmap_click_mailbox_available || !ipc_wsjtx
+      || decodeRow.size () != static_cast<int> (QMapDecodeRowSize)) return;
+  if (mem_qmap.lock ()) {
+    std::memcpy(ipc_wsjtx->click.selectedDecode, decodeRow.constData(), QMapDecodeRowSize);
+    if (gesture == DecodeClickGesture::Press) ipc_wsjtx->click.action = QMapClickAction::Disarm;
+    else if (gesture == DecodeClickGesture::SingleClick) {
+      ipc_wsjtx->click.action = QMapClickAction::Select;
+    } else {
+      ipc_wsjtx->click.action = QMapClickAction::SelectAndEnableTx;
+    }
+    mem_qmap.unlock ();
   }
 }
 
@@ -1035,208 +1129,49 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
 //return if cqliveText is empty or data were read from disk.
   if ((m_diskData && m_myCall.toUpper() != "W3SZ" && m_myCall.toUpper() != "DL3WDG") or (cqliveText.size() == 0)) return;
 
-  QStringList cqliveFinalText;
-  QStringList oldFile;
-  bool ok;
   int freqOffset = ui->sbOffset->value();
   QStringList bandInfo;
   bandInfo = ui->labFreq->text().split(".",SkipEmptyParts);
   QString bandFreq = bandInfo.at(0);
   QString theDate = ui->labUTC->text().trimmed().mid(0,12);
   QList<QStringList> decodeList;
-  bool strOK = false;
 
   for (const QString &item : cqliveText) {
-    QString line = " ";
-    QStringList thePostLine;
-    line = line.repeated(100);  //.replace("<","").replace(">","");
-    QStringList thePieces;
+    QStringList const thePieces = item.split(" ",SkipEmptyParts);
+    QMapLiveCQ::Record record;
+    if (!QMapLiveCQ::parse(thePieces, freqOffset, record)) {
+      continue;
+    }
     qDebug () << "item is: " << item;
-    thePieces = item.split(" ",SkipEmptyParts);
-    int rxFreq = 0.0;
-    if((thePieces.at(6) == "CQ" || thePieces.at(6) == "QRZ" || thePieces.at(6) == "CQV" ||  thePieces.at(6) == "CQH" ||  thePieces.at(6) == "QRT") && m_myCall.length() >=3 && m_myGrid.length()>=4  ) {
-      try {
-        //extract Fsked freq and format to 3 digits no decimals
-        qDebug() << "entered try";
-        QString theMsg;
-        QString theCall;
-        QString theGrid;
-        QStringList thekHz;
-        int nWords=thePieces.length();
-        if(nWords==9) {
-          // Handle CQ CALL messages that do not include a locator
-          if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL) continue;
-          theCall = thePieces.at(7);
-          bool isCall = testCall(theCall);
-          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
-          if(!isCall) continue;
-          theGrid = "--";
-          theMsg = thePieces.at(6) + " " + theCall;
-          thekHz = thePieces.at(8).split(".");
-          rxFreq = freqOffset + thekHz.at(1).toInt(&ok);
-        // int rxFreq = freqOffset + 100 * thekHz.at(1).toInt(&ok);
-          if (!ok) continue;
-        } else if(nWords==10) {
-          // Handle CQ CALL GRID --or-- CQ XXX CALL
-          if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL or thePieces.at(9)==NULL) continue;
-          // Test for callsign at thePieces.at(7)
-          theCall = thePieces.at(7);
-          bool isCall = testCall(theCall);
-          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
-          // Handle CQ CALL GRID
-          if(isCall) {
-            theGrid = thePieces.at(8);
-            theMsg = thePieces.at(6) + " " + theCall + " " + theGrid;
-          }
-          // Handle CQ XXX CALL
-          else {
-            theCall = thePieces.at(8);
-            isCall = testCall(theCall);
-          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
-            if(!isCall) continue;
-            theGrid = "--";
-            theMsg = thePieces.at(6) + " " + theCall;
-          }
-          thekHz = thePieces.at(9).split(".");
-          rxFreq = freqOffset + thekHz.at(1).toInt(&ok);
-        // int rxFreq = freqOffset + 100 * thekHz.at(1).toInt(&ok);
-          if (!ok) continue;
-          // Handle CQ XXX CALL GRID
-        } else if (nWords==11) {
-           if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL or thePieces.at(9)==NULL or thePieces.at(10)==NULL) continue;
-          theCall = thePieces.at(8);
-          bool isCall = testCall(theCall);
-          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
-          if(!isCall) continue;
-          theGrid = thePieces.at(9);
-          theMsg = thePieces.at(6) + " " + theCall + " " + theGrid;
-          thekHz = thePieces.at(10).split(".");
-          rxFreq = freqOffset + thekHz.at(1).toInt(&ok);
-        // int rxFreq = freqOffset + 100 * thekHz.at(1).toInt(&ok);
-          if (!ok) continue;
-        }
-        strOK = true;
-        int skedFreq;
-        QString skedFreqString;
-        if (rxFreq <= freqOffset + 500) {
-          skedFreq = thekHz.at(0).toInt(&ok);
-        } else {
-          skedFreq = thekHz.at(0).toInt(&ok) + 1;
-          rxFreq=rxFreq - 1000;
-        }
-        skedFreqString = QString::number(skedFreq).rightJustified(3,'0');
-        QString mode = "0 Q65-" + thePieces.at(5);
-        line.insert(0,bandFreq + "." + skedFreqString);
-        line.insert(10,QString::number(rxFreq));
-        line.insert(15,"0");
-        line.insert(18,thePieces.at(0));
-        line.insert(26,thePieces.at(3));
-        line.insert(32,thePieces.at(4));
-        line.insert(36,theMsg);
-        line.insert(55,mode);
-        line.insert(67,m_myGrid.toUpper());
-        line.insert(74,"Q");
-        line.insert(76,theDate);
-        line.insert(88,m_myCall.toUpper());
-        cqliveFinalText << line.trimmed();
-        //qDebug () << "cqliveFinalText is: " << cqliveFinalText;
+    if (m_myCall.length() >= 3 && m_myGrid.length() >= 4) {
+      QString theCall = record.callsign;
+      QString theGrid = record.grid;
+      int rxFreq = record.receiveFrequency;
+      QString skedFreqString = QString::number(record.scheduledFrequency)
+        .rightJustified(3, '0');
+      QStringList thePostLine;
 
-        thePostLine.insert(0, bandFreq + "." + skedFreqString);  //skedfreq
-        thePostLine.insert(1, QString::number(rxFreq)); //rxfreq
-        thePostLine.insert(2, "--"); //rpol
-        thePostLine.insert(3,thePieces.at(0)); //utc HHmmSS
-        thePostLine.insert(4,thePieces.at(3)); //dt
-        thePostLine.insert(5, thePieces.at(4)); //dB
-        thePostLine.insert(6, "Q65-" + thePieces.at(5)); //Q65 submode
-        thePostLine.insert(7, thePieces.at(6)); //msg type
-        thePostLine.insert(8, theCall); //dx call
-        thePostLine.insert(9, theGrid); //dx grid
-        thePostLine.insert(10, m_myGrid.toUpper()); //myGrid
-        thePostLine.insert(11, theDate);  //the date
-        thePostLine.insert(12, m_myCall.toUpper()); //myCall
-        thePostLine.insert(13, "--"); //txpol
-        decodeList.append(thePostLine);
-        qDebug () << "thePostLine is: " << thePostLine;
-      }
-      catch (const std::exception& e) {
-          // Handle standard C++ exceptions
-          QMessageBox::critical(this, "Exception", "Exception at line 1116 MainWindow::CreateLiveCQ " + QString::fromStdString(e.what())); 
-      }
-      catch (...) {
-          // Handle any other type of exception
-          QMessageBox::critical(this, "Exception", "Unknown Exception at line 1121 MainWindow::CreateLiveCQ"); 
-      }
-  }
-}
-  if(strOK) {
-  sendLiveCQData(decodeList);
-  }
-}
-
-bool MainWindow::testCall(QString w)
-{
-// Check "callsign" to see if it could be a valid standard callsign or a valid
-// compound callsign.
-// Return a logical "call ok" indicator.
-  if(w.indexOf('.') >= 0) return false;
-  if(w.indexOf('+') >= 0) return false;
-  if(w.indexOf('-') >= 0) return false;
-  if(w.indexOf('?') >= 0) return false;
-  w = w.replace('<',"");
-  w = w.replace('>',"");  
-  int i0=w.indexOf('/');
-  int n1=w.length();
-  if(n1 > 11) return false;
-  qDebug() << "Line 1186 w is: " << w << " and i0 is: " << i0 << " and n1 is: " << n1 << " and call is: " << w;
-  QString bc = QString();
-  QStringList wSplit = w.split("/");
-  if(wSplit.length() > 1) {
-    if(wSplit.at(0).length() > wSplit.at(1).length()) {
-      bc = wSplit.at(0);
-    }
-    else {
-      bc = wSplit.at(1);
+      thePostLine.insert(0, bandFreq + "." + skedFreqString);  //skedfreq
+      thePostLine.insert(1, QString::number(rxFreq)); //rxfreq
+      thePostLine.insert(2, "--"); //rpol
+      thePostLine.insert(3,thePieces.at(0)); //utc HHmmSS
+      thePostLine.insert(4,thePieces.at(3)); //dt
+      thePostLine.insert(5, thePieces.at(4)); //dB
+      thePostLine.insert(6, "Q65-" + thePieces.at(5)); //Q65 submode
+      thePostLine.insert(7, thePieces.at(6)); //msg type
+      thePostLine.insert(8, theCall); //dx call
+      thePostLine.insert(9, theGrid); //dx grid
+      thePostLine.insert(10, m_myGrid.toUpper()); //myGrid
+      thePostLine.insert(11, theDate);  //the date
+      thePostLine.insert(12, m_myCall.toUpper()); //myCall
+      thePostLine.insert(13, "--"); //txpol
+      decodeList.append(thePostLine);
+      qDebug () << "thePostLine is: " << thePostLine;
     }
   }
-  else {
-    bc = w;
+  if (!decodeList.isEmpty()) {
+    sendLiveCQData(decodeList);
   }
-  int nbc=bc.trimmed().length();
-  if(nbc > 8) return false;  //Base call should have no more than 8 characters  e.g. YW18FIFA
-  qDebug() << "reached line 1201";
-
-// One of first two characters (c1 or c2) must be a letter
-  if((!bc[0].isLetter()) && (!bc[1].isLetter())) return false;
-  qDebug() << "reached line 1206";
-// Real calls don't start with Q, but we'll allow the placeholder
-// callsign QU1RK to be considered a standard call:
-  if(bc[0]=='Q' && bc.mid(0,5) != "QU1RK") return false;
-  qDebug() << "reached line 1209";
-
-// Must have a digit in 2nd or 3rd or 4th position
-  int i1=0;
-  if(bc[1].isDigit()) i1=1;
-  if(bc[2].isDigit()) i1=2;
-  if(bc[3].isDigit()) i1=3;
-  if(i1==0) return false;
-  qDebug() << "reached line 1217";
-
-// Callsign must have a suffix of 1-4 letters e.g. YW18FIFA
-  if(i1==nbc) return false;
-  qDebug() << "reached line 1221";
-  int n=0;
-  QChar j=QChar();
-  for (int i=i1+1; i<=nbc-1; ++i) {
-     j=bc[i];
-     if(j<QChar('A') || j > QChar('Z')) return false;
-  qDebug() << "reached line 1227 and n = " << n ;
-     n=n+1;
-  }
-  qDebug() << "reached line 1230";
-  if(n >= 1 && n <= 4) return true;
-  qDebug() << "reached line 1232";
-  
-  return false;  
 }
 
 void MainWindow::sendLiveCQData(QList<QStringList>decodeList)
@@ -1329,6 +1264,10 @@ void MainWindow::guiUpdate()
   }
 
   m_wide_graph_window->updateFreqLabel();
+  if (!m_diskData) {
+    m_wide_graph_window->pruneDecodeLabels(nsec);
+    if (m_vert_waterfall_window) m_vert_waterfall_window->pruneDecodeLabels(nsec);
+  }
 
   if(m_startAnother and !m_bDiskDatBusy) {
     m_startAnother=false;
@@ -1339,8 +1278,22 @@ void MainWindow::guiUpdate()
   if(decodes_.ndecodes > m_fetched) {
     doLiveCQ = true;
     while(m_fetched<decodes_.ndecodes) {
-      QString t=QString::fromLatin1(decodes_.result[m_fetched]);
-      QString t2=QString::fromLatin1(decodes2_.result2[m_fetched]);
+      auto const& row=decodes_.result[m_fetched];
+      auto const& live_cq_row=decodes2_.result2[m_fetched];
+      QString t=QString::fromLatin1(row,
+        static_cast<int>(qmap_decode_ipc::text_length(row)));
+      QString t2=QString::fromLatin1(live_cq_row,
+        static_cast<int>(qmap_decode_ipc::text_length(live_cq_row)));
+
+      if (m_vert_waterfall_window || m_wide_graph_window) {
+        auto const record = parseQMapDecodeRecord (
+          QByteArray {decodes_.result[m_fetched], static_cast<int> (QMapDecodeRowSize)});
+        if (record && LiveCQ::isValidCallsign (record->callsign)) {
+          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(*record);
+          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(*record);
+        }
+      }
+
       if(m_UTC0!="" and m_UTC0!=t.left(4)) {
         t1="-";
         ui->decodedTextBrowser->append(t1.repeated(60));
@@ -1385,12 +1338,13 @@ void MainWindow::guiUpdate()
     m_n60=nsec%60;
 
 // See if WSJT-X is transmitting
-    int itest[5];
-    mem_qmap.lock();
-    memcpy(&itest, (char*)ipc_wsjtx, 20);
-    mem_qmap.unlock();
-    if(itest[4]>0) {
-      m_WSJTX_TRperiod=itest[4];
+    int transmitting = 0;
+    if (qmap_decoder_region_available && ipc_wsjtx && mem_qmap.lock ()) {
+      transmitting=ipc_wsjtx->decodes.nWTransmitting;
+      mem_qmap.unlock ();
+    }
+    if(transmitting>0) {
+      m_WSJTX_TRperiod=transmitting;
       m_bWTransmitting=true;
       if(m_WSJTX_TRperiod==30 and m_n60<30) m_nTx30a++;
       if(m_WSJTX_TRperiod==30 and m_n60>=30) m_nTx30b++;

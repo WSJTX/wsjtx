@@ -87,7 +87,7 @@ program jt9sim
      imin=mod(nmin,60)
      write(fname,1002) ihr,imin                !Create output filename
 1002 format('000000_',2i2.2)
-     open(10,file=fname//'.wav',access='stream',status='unknown')
+     open(10,file=fname//'.wav',access='stream',status='replace')
 
      if(snrdb.lt.90) then
         do i=1,npts

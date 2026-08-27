@@ -1,0 +1,2 @@
+# Message identities are compared as a set; numeric metadata is informational.
+000000   0  0.0 1500 ~  CQ KA1ABC FN42

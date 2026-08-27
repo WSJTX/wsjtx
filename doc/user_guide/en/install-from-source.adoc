@@ -29,11 +29,11 @@ At a minimum you need:
 
 * Git
 * Qt 5.x (Core, Multimedia, SerialPort, Svg, Tools, WebSockets; ActiveQt on Windows)
-* A C/C++ compiler (g++ 4.8 or later)
-* A Fortran compiler (gfortran 4.8 or later)
-* CMake 3.x
+* A C/C++ compiler with C++17 support
+* A Fortran compiler (typically `gfortran`)
+* CMake 3.12 or later
 * FFTW v3, Boost, libusb, PortAudio
-* Hamlib (built from a pinned release, see below)
+* Hamlib (built from the release pinned by CI, see below)
 
 [[SRC_WINDOWS_MSYS2]]
 ==== Building on Windows with MSYS2
@@ -130,12 +130,14 @@ installed, skip this step.
 
 ===== Build Hamlib
 
-_WSJT-X_ pins a specific Hamlib release — currently *4.7.2*. Build it
-once into a local prefix:
+_WSJT-X_ pins a specific Hamlib release for reproducible builds. Before
+running the commands below, set `HAMLIB_BRANCH` to the current
+`hamlib_branch` value in `.github/workflows/ci.yml`:
 
 [source,bash]
 ----
-git clone --depth 1 --branch 4.7.2 \
+HAMLIB_BRANCH="<HAMLIB_BRANCH>"
+git clone --depth 1 --branch "$HAMLIB_BRANCH" \
   https://github.com/Hamlib/Hamlib.git hamlib-src
 cd hamlib-src
 ./bootstrap
@@ -149,8 +151,8 @@ make install-strip
 cd ..
 ----
 
-When the project bumps the pinned Hamlib version, change `--branch` to
-the new tag and rebuild this step.
+When the project changes the pinned Hamlib revision, update `HAMLIB_BRANCH`
+and rebuild this step.
 
 ===== Configure and build WSJT-X
 
@@ -167,7 +169,6 @@ cmake -G "MSYS Makefiles" -S . -B build \
   -DCMAKE_INSTALL_PREFIX=C:/WSJT \
   -DOMNIRIG_TYPE_LIB="$OMNIRIG" \
   -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DWSJT_SKIP_MANPAGES=ON \
   -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
   -Wno-dev
@@ -186,7 +187,6 @@ command-line utilities.
 | `CMAKE_INSTALL_PREFIX` | Where the install step below places the finished program
 | `OMNIRIG_TYPE_LIB` | The `OmniRig.exe` whose type library `dumpcpp` reads
 | `CMAKE_Fortran_FLAGS` | Modern gfortran needs these to accept legacy code
-| `CMAKE_POLICY_VERSION_MINIMUM` | Compatibility with the declared CMake range
 | `WSJT_SKIP_MANPAGES` | Manpages need extra tooling not installed here
 | `WSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY` | Build the OpenMP decoder library
 |===

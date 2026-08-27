@@ -161,32 +161,52 @@ li.checked::marker { content: &quot;\2612&quot;; }
          </widget>
         </item>
         <item row="1" column="2">
-         <widget class="QPushButton" name="monitorButton">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle monitoring On/Off. &lt;br/&gt;Yellow when saving .qm files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string>&amp;Monitor</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="monitorButtonLayout">
+          <item>
+           <widget class="QPushButton" name="stopButton">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop monitoring, and break out of a Decode-remaining-files sequence started with Shift+F6.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>&amp;Stop</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="monitorButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Start monitoring. &lt;br/&gt;Yellow when saving .qm files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>&amp;Monitor</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item row="5" column="4" colspan="2">
          <widget class="QSlider" name="NBslider">
@@ -597,6 +617,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
     </widget>
     <addaction name="actionAstro_Data"/>
     <addaction name="actionWide_Waterfall"/>
+    <addaction name="actionVertical_Waterfall"/>
     <addaction name="separator"/>
     <addaction name="menuWaterfall_palette"/>
     <addaction name="separator"/>
@@ -681,7 +702,12 @@ li.checked::marker { content: &quot;\2612&quot;; }
   </action>
   <action name="actionWide_Waterfall">
    <property name="text">
-    <string>Wideband Waterfall</string>
+    <string>Horizontal Waterfall</string>
+   </property>
+  </action>
+  <action name="actionVertical_Waterfall">
+   <property name="text">
+    <string>Vertical Waterfall</string>
    </property>
   </action>
   <action name="actionOpen">

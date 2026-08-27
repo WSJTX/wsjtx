@@ -15,7 +15,14 @@ subroutine echo_snr(sa,sb,fspread,blue,red,snrdb,db_err,fpeak,snr_detect)
   i3=nint((1500.0 + wh)/df) - 2048
   i4=nint((1500.0 + 2.0*wh)/df) - 2048
 
+  blue=0.
+  red=0.
+  snrdb=-99.
+  db_err=1.8
+  fpeak=0.
+  snr_detect=0.
   baseline=(sum(sb(i1:i2-1)) + sum(sb(i3+1:i4)))/(i2+i4-i1-i3)
+  if(.not.(baseline.gt.0.)) return
   blue=sa/baseline
   red=sb/baseline
   psig=sum(red(i2:i3)-1.0)
@@ -23,6 +30,7 @@ subroutine echo_snr(sa,sb,fspread,blue,red,snrdb,db_err,fpeak,snr_detect)
   snrdb=db(psig/pnoise_2500)
 
   smax=0.
+  ipk=2048
   mh=max(1,nint(0.2*fspread/df))
   do i=i2,i3
      ssum=sum(red(i-mh:i+mh))
@@ -36,7 +44,7 @@ subroutine echo_snr(sa,sb,fspread,blue,red,snrdb,db_err,fpeak,snr_detect)
   call averms(red(i1:i2-1),i2-i1,-1,ave1,rms1)
   call averms(red(i3+1:i4),i4-i3,-1,ave2,rms2)
   perr=0.707*(rms1+rms2)*sqrt(float(i2-i1+i4-i3))
-  snr_detect=psig/perr
+  if(perr.gt.0.) snr_detect=psig/perr
   db_err=0.8
   if(snrdb.lt.-10.0) db_err=0.8
   if(snrdb.lt.-11.0) db_err=0.9

@@ -7,7 +7,10 @@ struct StdoutSharedHeader
 {
     std::uint32_t version;       // For compatibility
     std::uint32_t writeIndex;    // Next write position in buffer
-    std::uint32_t dataSize;      // Bytes of new data just written
+    std::uint32_t readIndex;     // Last position consumed by the reader thread;
+                                  // the writer uses this to compute free space
+                                  // and apply backpressure instead of
+                                  // overwriting unread data.
     std::uint32_t seq;           // Incremented each write (helps detect missed events)
 };
 

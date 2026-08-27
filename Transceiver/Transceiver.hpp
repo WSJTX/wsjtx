@@ -11,8 +11,19 @@
 
 #include "qt_helpers.hpp"
 #include "Radio.hpp"
+#include "Audio/TxAudioQueue.hpp"
+#include "Audio/TxIdentity.hpp"
+#include "Audio/TxPlaybackEvidence.hpp"
+#include "Audio/TxRequest.hpp"
 
 class QString;
+
+// Qt 5 moc generates unqualified argument names for these value types.
+using TxSessionId = TxEvidence::TxSessionId;
+using TxGeneration = TxEvidence::TxGeneration;
+using TxStartSnapshot = TxEvidence::TxStartSnapshot;
+using TxRawPlayoutSnapshot = TxEvidence::TxRawPlayoutSnapshot;
+using TxRequest = TxEvidence::TxRequest;
 
 //
 // Abstract Transceiver Interface
@@ -93,13 +104,6 @@ public:
       , quick_ {false}
       , period_ {120.0}
       , blocksize_ {3456}
-      , symbolslength_ {79}
-      ,	framespersymbol_ {1920.0}
-      ,	trfrequency_ {1500.0}
-      ,	tonespacing_ {-3.0}
-      ,	synchronize_ {true}
-      ,	dbsnr_ {99.}
-      ,	trperiod_ {60.0}
       ,	spread_ {0.0}
       ,	nsym_ {79}
       , volume_ {0}
@@ -107,8 +111,6 @@ public:
       , level_ {0}
       , power_ {0}
       , swr_ {0}
-      , jtmode_ {"FT8"}  //w3sz tci
-      , fastmode_ {false}  //w3sz tci
     {
     }
 
@@ -124,13 +126,13 @@ public:
     bool quick () const {return quick_;}
     double period () const {return period_;}
     qint32 blocksize () const {return blocksize_;}
-    unsigned symbolslength () const {return symbolslength_;}    
-    double framespersymbol () const {return framespersymbol_;}
-    double trfrequency () const {return trfrequency_;}
-    double tonespacing () const {return tonespacing_;}
-    bool synchronize () const {return synchronize_;}
-    double dbsnr () const {return dbsnr_;}
-    double trperiod () const {return trperiod_;}
+    unsigned symbolslength () const {return tx_request_.symbols_length;}
+    double framespersymbol () const {return tx_request_.frames_per_symbol;}
+    double trfrequency () const {return tx_request_.frequency_hz;}
+    double tonespacing () const {return tx_request_.tone_spacing;}
+    bool synchronize () const {return tx_request_.synchronize;}
+    double dbsnr () const {return tx_request_.snr_db;}
+    double trperiod () const {return tx_request_.tr_period_s;}
     double spread () const {return spread_;}
     int nsym () const {return nsym_;}
     qreal volume () const {return volume_;}
@@ -138,8 +140,11 @@ public:
     int level () const {return level_;}
     unsigned int power () const {return power_;}
     unsigned int swr () const {return swr_;}
-    QString jtmode () const {return jtmode_;}  //w3sz tci
-    bool fastmode () const {return fastmode_;}  //w3sz tci
+    QString jtmode () const {return tx_request_.mode;}  //w3sz tci
+    bool fastmode () const {return tx_request_.fast_mode;}  //w3sz tci
+    TxEvidence::TxSessionId tx_session_id () const {return tx_request_.session_id;}
+    TxEvidence::TxGeneration tx_generation () const {return tx_request_.generation;}
+    TxEvidence::TxRequest const& tx_request () const {return tx_request_;}
 
     void online (bool state) {online_ = state;}
     void frequency (Frequency f) {rx_frequency_ = f;}
@@ -153,13 +158,13 @@ public:
     void quick (bool state) {quick_ = state;}
     void period (double period) {period_ = period;}
     void blocksize (qint32 blocksize) {blocksize_ = blocksize;}
-    void symbolslength (unsigned symbolslength) {symbolslength_ = symbolslength;}
-    void framespersymbol (double framespersymbol) {framespersymbol_ = framespersymbol;}
-    void trfrequency (double trfrequency) {trfrequency_ = trfrequency;}
-    void tonespacing (double tonespacing) {tonespacing_ = tonespacing;}
-    void synchronize (bool synchronize) {synchronize_ = synchronize;}
-    void dbsnr (double dbsnr) {dbsnr_ = dbsnr;}
-    void trperiod (double trperiod) {trperiod_ = trperiod;}
+    void symbolslength (unsigned symbolslength) {tx_request_.symbols_length = symbolslength;}
+    void framespersymbol (double framespersymbol) {tx_request_.frames_per_symbol = framespersymbol;}
+    void trfrequency (double trfrequency) {tx_request_.frequency_hz = trfrequency;}
+    void tonespacing (double tonespacing) {tx_request_.tone_spacing = tonespacing;}
+    void synchronize (bool synchronize) {tx_request_.synchronize = synchronize;}
+    void dbsnr (double dbsnr) {tx_request_.snr_db = dbsnr;}
+    void trperiod (double trperiod) {tx_request_.tr_period_s = trperiod;}
     void spread (double spread) {spread_ = spread;}
     void nsym (int nsym) {nsym_ = nsym;}
     void volume (qreal volume) {volume_ = volume;}
@@ -167,8 +172,11 @@ public:
     void level (int strength) {level_ = strength;}
     void power (unsigned int mwpower) {power_ = mwpower;}
     void swr (unsigned int mswr) {swr_ = mswr;}
-    void jtmode(QString jtmode) {jtmode_ = jtmode;}  //w3sz tci
-    void fastmode(bool fastmode) {fastmode_ = fastmode;}  //w3sz tci
+    void jtmode(QString jtmode) {tx_request_.mode = jtmode;}  //w3sz tci
+    void fastmode(bool fastmode) {tx_request_.fast_mode = fastmode;}  //w3sz tci
+    void tx_session_id (TxEvidence::TxSessionId value) {tx_request_.session_id = value;}
+    void tx_generation (TxEvidence::TxGeneration value) {tx_request_.generation = value;}
+    void tx_request (TxEvidence::TxRequest const& request) {tx_request_ = request;}
 
   private:
     bool online_;
@@ -183,13 +191,7 @@ public:
     bool quick_;
     double period_;
     qint32 blocksize_;
-    unsigned symbolslength_;
-    double framespersymbol_;
-    double trfrequency_;
-    double tonespacing_;
-    bool synchronize_;
-    double dbsnr_;
-    double trperiod_;
+    TxEvidence::TxRequest tx_request_;
     double spread_;
     int nsym_;
     qreal volume_;
@@ -197,8 +199,6 @@ public:
     int level_;
     unsigned int power_;
     unsigned int swr_;
-    QString jtmode_;  //w3sz tci
-    bool fastmode_;  //w3sz tci
 
     // Don't forget to update the debug print and != operator if you
     // add more members here
@@ -227,8 +227,8 @@ public:
   // Connect and disconnect.
   Q_SLOT virtual void start (unsigned sequence_number) noexcept = 0;
   Q_SLOT virtual void stop () noexcept = 0;
-  Q_SLOT virtual void enqueue_jtty_pcm (QByteArray const&, qint64, qint64) noexcept {}
-  Q_SLOT virtual void clear_jtty_pcm (qint64) noexcept {}
+    Q_SLOT virtual void enqueue_jtty_pcm (QByteArray const&, TxAudioQueueEpoch, qint64) noexcept {}
+    Q_SLOT virtual void clear_jtty_pcm (TxAudioQueueEpoch) noexcept {}
 
   //
   // asynchronous status updates
@@ -247,9 +247,14 @@ public:
   // rig audio data transfer  w3sz tci
   Q_SIGNAL void tci_mod_active (bool);
 
-  Q_SIGNAL void jtty_drained (qint64 sessionId, qint64 totalAtDrain);
-  Q_SIGNAL void jtty_enqueue_accepted (qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
-  Q_SIGNAL void jtty_enqueue_failed (qint64 sessionId, qint64 enqueueId);
+  // Diagnostics only: source commitment and TCI protocol-send progress.
+  Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot);
+  Q_SIGNAL void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot);
+
+  Q_SIGNAL void jtty_drained (TxAudioQueueDrainState drain);
+  Q_SIGNAL void jtty_enqueue_accepted (qint64 enqueueId, qint64 sampleCount,
+                                       TxAudioQueueProgress progress);
+    Q_SIGNAL void jtty_enqueue_failed (TxAudioQueueEpoch epoch, qint64 enqueueId);
 
   // rig state changed
   Q_SIGNAL void update (Transceiver::TransceiverState const&,

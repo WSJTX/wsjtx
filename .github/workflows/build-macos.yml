@@ -39,16 +39,8 @@ on:
         required: false
         type: string
         default: ""
-  # Also runnable on its own ("Run workflow" / gh workflow run) to build a single
-  # macOS arch without dispatching the full ci.yml matrix. GitHub only exposes
-  # workflow_dispatch when the trigger is on the default branch (develop), so
-  # this must be merged before it can be dispatched. Inputs mirror workflow_call
-  # with standalone defaults; hamlib_branch matches what ci.yml / release.yml
-  # pass (4.7.2). Neither the runner nor the macOS deployment target is a dispatch
-  # input -- both are derived from arch (runs-on / the DEPLOYMENT_TARGET env
-  # below), so a manual run can never pair the wrong runner or deployment target
-  # with the target arch (x86_64 -> macos-15-intel / 10.13; arm64 -> macos-15 /
-  # 11.0).
+  # Standalone dispatch builds one architecture. Derive its runner and deployment
+  # target from that architecture so unsupported tuples cannot be selected.
   workflow_dispatch:
     inputs:
       version:
@@ -91,30 +83,36 @@ on:
 
 jobs:
   build:
-    # workflow_call passes `runner` + `deployment_target` explicitly (they win
-    # via ||). On a standalone workflow_dispatch run both are unset, so derive
-    # them from arch to keep the runner, deployment target, and target
-    # architecture in lockstep. runs-on must inline the runner expression
-    # (job-level env is not yet available when runs-on is evaluated); RUNNER
-    # mirrors it so the cache keys below use the same effective runner under
-    # both triggers, letting a dispatch build share the workflow_call cache.
+    # runs-on cannot reference job-level env, so keep this expression and RUNNER
+    # aligned. RUNNER also keeps cache keys consistent across both triggers.
     runs-on: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
+    timeout-minutes: 45
     env:
       RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
       DEPLOYMENT_TARGET: ${{ inputs.deployment_target || (inputs.arch == 'x86_64' && '10.13' || '11.0') }}
+      VERSION: ${{ inputs.version }}
+      HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+      WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+      WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+      ARCH: ${{ inputs.arch }}
       BOOST_VERSION: 1.85.0
       BOOST_SOURCE_SHA256: 7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617
     steps:
       - uses: actions/checkout@v7
 
+      - name: Validate workflow inputs
+        env:
+          WSJTX_VERSION: ${{ inputs.version }}
+        run: .github/scripts/validate-ci-inputs.sh
+
       - name: Verify macOS build tuple
         run: |
-          case "${{ inputs.arch }}:${{ env.RUNNER }}:${{ env.DEPLOYMENT_TARGET }}" in
+          case "${ARCH}:${RUNNER}:${DEPLOYMENT_TARGET}" in
             arm64:macos-15:11.0|x86_64:macos-15-intel:10.13)
-              echo "Using supported macOS build tuple: ${{ inputs.arch }} on ${{ env.RUNNER }} targeting ${{ env.DEPLOYMENT_TARGET }}"
+              echo "Using supported macOS build tuple: ${ARCH} on ${RUNNER} targeting ${DEPLOYMENT_TARGET}"
               ;;
             *)
-              echo "::error::Unsupported macOS build tuple: arch=${{ inputs.arch }}, runner=${{ env.RUNNER }}, deployment_target=${{ env.DEPLOYMENT_TARGET }}"
+              echo "::error::Unsupported macOS build tuple: arch=${ARCH}, runner=${RUNNER}, deployment_target=${DEPLOYMENT_TARGET}"
               echo "::error::Use arm64:macos-15:11.0 or x86_64:macos-15-intel:10.13 for deployable macOS artifacts."
               exit 1
               ;;
@@ -138,11 +136,17 @@ jobs:
       - name: Install dependencies
         run: brew install cmake autoconf automake libtool asciidoctor ccache pkg-config
 
+      - name: Select ccache key
+        id: ccache-key
+        env:
+          RECACHE: ${{ inputs.recache }}
+        run: .github/scripts/select-ccache-key-suffix.sh
+
       - name: Cache ccache
         uses: actions/cache@v6
         with:
           path: .ccache
-          key: ccache-macos-${{ inputs.arch }}-appleclang-${{ github.sha }}
+          key: ccache-macos-${{ inputs.arch }}-appleclang-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
           restore-keys: |
             ccache-macos-${{ inputs.arch }}-appleclang-
 
@@ -376,8 +380,8 @@ jobs:
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
         run: |
           .github/scripts/build-hamlib-macos.sh \
-            "${{ inputs.hamlib_branch }}" \
-            "${{ env.DEPLOYMENT_TARGET }}" \
+            "${HAMLIB_BRANCH}" \
+            "${DEPLOYMENT_TARGET}" \
             "${GITHUB_WORKSPACE}/hamlib-prefix" \
             "${GITHUB_WORKSPACE}/libusb-prefix"
 
@@ -450,14 +454,14 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="${{ steps.fc.outputs.runtime_link_flags }}" \
             -DCMAKE_INSTALL_RPATH="${GITHUB_WORKSPACE}/qt-prefix/lib;${GITHUB_WORKSPACE}/boost-prefix/lib;${GITHUB_WORKSPACE}/fftw-prefix/lib;${GITHUB_WORKSPACE}/libusb-prefix/lib;${GITHUB_WORKSPACE}/portaudio-prefix/lib;${GITHUB_WORKSPACE}/hamlib-prefix/lib" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
             -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
-            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
-            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
+            -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
+            -DWSJT_RC_NUMBER="${WSJT_RC_NUMBER}" \
             -Wno-dev
 
       - name: Build and test targets
@@ -469,23 +473,36 @@ jobs:
           import plistlib
           import subprocess
 
+          expected_arguments = [
+              "/usr/sbin/sysctl",
+              "kern.sysv.shmmax=52428800",
+              "kern.sysv.shmall=25600",
+          ]
+
           with open("Darwin/com.wsjtx.sysctl.plist", "rb") as source:
               configuration = plistlib.load(source)
 
-          program = configuration["Program"]
-          arguments = configuration["ProgramArguments"]
-          if not arguments or arguments[0] != program:
-              raise SystemExit("shared memory plist ProgramArguments do not match Program")
+          if (
+              configuration.get("Program") != expected_arguments[0]
+              or configuration.get("ProgramArguments") != expected_arguments
+          ):
+              raise SystemExit("shared memory plist does not match CI expectations")
 
-          subprocess.run(["sudo", *arguments], check=True)
+          subprocess.run(["/usr/bin/sudo", *expected_arguments], check=True)
           subprocess.run(
-              [program, "kern.sysv.shmmax", "kern.sysv.shmall"], check=True
+              [expected_arguments[0], "kern.sysv.shmmax", "kern.sysv.shmall"], check=True
           )
           PY
 
+      - name: Raise shared memory total for parallel GUI tests
+        run: |
+          # Three decoder segments require 35,359 pages; leave headroom for other IPC.
+          sudo /usr/sbin/sysctl kern.sysv.shmall=40960
+          /usr/sbin/sysctl kern.sysv.shmmax kern.sysv.shmall
+
       - name: Run tests
         id: ctest
-        run: ctest --output-on-failure --output-junit ctest-results.xml
+        run: ctest --parallel 3 --output-on-failure --output-junit ctest-results.xml
         working-directory: wsjtx-build
 
       - name: Publish test summary
@@ -530,7 +547,7 @@ jobs:
         id: collect
         run: |
           BUILD=wsjtx-build
-          STAGE=stage/wsjtx-${{ inputs.version }}-${{ inputs.arch }}
+          STAGE="stage/wsjtx-${VERSION}-${ARCH}"
           ASSETS=assets
 
           mkdir -p "${ASSETS}"
@@ -646,15 +663,14 @@ jobs:
             --arch "${{ inputs.arch }}" \
             "$STAGE"
 
-      - name: Import signing certificates
+      - name: Import application signing certificate
         if: steps.check_secrets.outputs.signing_enabled == 'true'
+        id: app_keychain
         env:
           APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
           APP_P12_PW: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
-          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
         run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -663,29 +679,17 @@ jobs:
 
           echo "$APP_P12" | base64 --decode > "$RUNNER_TEMP/app.p12"
           security import "$RUNNER_TEMP/app.p12" -P "$APP_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-
-          echo "$INST_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
-          security import "$RUNNER_TEMP/installer.p12" -P "$INST_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          rm -f "$RUNNER_TEMP/app.p12"
 
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
 
           APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
-          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
           echo "App identity: $APP_IDENTITY"
-          echo "Installer identity: $INST_IDENTITY"
           echo "identity=$APP_IDENTITY" >> "$GITHUB_OUTPUT"
-          echo "installer_identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
-        id: keychain
 
-      # ALWAYS runs. Real Developer ID when secrets are present, ad-hoc
-      # signing (-) otherwise. Mirrors the Windows self-signed-sandbox
-      # pattern in build-windows.yml: prove the signing step is wired,
-      # rely on a real cert in production. Ad-hoc signing produces a
-      # structurally-valid signature with no Apple trust chain — pkg
-      # will not pass Gatekeeper without right-click→Open, but is
-      # well-formed and the all-platforms-ready gate in release.yml
-      # finds the artifact at the expected path.
+      # The fallback signature has no Apple trust chain; its package is unsigned
+      # and is suitable only for build validation.
       - name: Code sign binaries
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
@@ -694,7 +698,7 @@ jobs:
           ENTITLEMENTS="${GITHUB_WORKSPACE}/entitlements.plist"
 
           if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
-            IDENTITY="${{ steps.keychain.outputs.identity }}"
+            IDENTITY="${{ steps.app_keychain.outputs.identity }}"
             TS="--timestamp"
             echo "Code signing mode: Developer ID (real)"
           else
@@ -703,17 +707,8 @@ jobs:
             echo "Code signing mode: ad-hoc (no Apple trust chain; pkg will be unsigned)"
           fi
 
-          # entitlements.plist declares com.apple.security.cs.disable-
-          # library-validation, which is required for any app bundling
-          # its own non-system frameworks (Qt, etc.) under hardened
-          # runtime — otherwise dyld refuses to load them. Applied on
-          # both signing paths: the real-cert path needs it for
-          # notarization-friendly distribution; the ad-hoc path needs
-          # it because each ad-hoc signature has its own pseudo-Team-ID
-          # so the main binary and bundled frameworks never match.
-          # (The plist is non-empty, so macos-15-intel's codesign now
-          # parses it cleanly — no need for the conditional that PR #23
-          # introduced as a workaround for the empty-plist parser bug.)
+          # Sign nested code before the containing bundle. Executable
+          # entitlements are defined in the repository-root plist.
           find "${APP}/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) \
             -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           find "${APP}/Contents/Frameworks" -name "*.framework" -type d | while read -r fw; do
@@ -724,20 +719,13 @@ jobs:
 
           find "${APP}/Contents/MacOS" -type f -perm +111 \
             -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
-          # Bundle-level codesign re-signs the main executable. --force
-          # without --entitlements would WIPE the entitlements applied
-          # in the previous step (PR #27 missed this — rc1 shipped with
-          # an unentitled wsjtx binary, so disable-library-validation
-          # never took effect and the dyld load of QtSerialPort still
-          # failed with mismatched Team IDs).
+          # Bundle signing re-signs the main executable, so it must receive the
+          # entitlement file again.
           codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" "${APP}"
           codesign --verify --deep --strict --verbose=2 "${APP}"
 
-          # Defensive: confirm the entitlement actually made it onto
-          # the main binary. `codesign --verify` doesn't check
-          # entitlement presence — it only validates the signature
-          # itself — so a re-sign that wipes entitlements would still
-          # pass verify (that's how rc1 shipped broken).
+          # codesign --verify validates the signature, not required entitlement
+          # presence.
           MAIN_BIN="${APP}/Contents/MacOS/wsjtx"
           ENTITLEMENTS_OUT=$(codesign -d --entitlements - "$MAIN_BIN" 2>/dev/null)
           if [[ "$ENTITLEMENTS_OUT" != *"disable-library-validation"* ]]; then
@@ -747,6 +735,11 @@ jobs:
             exit 1
           fi
           echo "Confirmed disable-library-validation entitlement on $MAIN_BIN"
+          if [[ "$ENTITLEMENTS_OUT" == *"allow-unsigned-executable-memory"* ]]; then
+            echo "::error::${MAIN_BIN} must not grant unsigned executable memory."
+            exit 1
+          fi
+          echo "Confirmed no unsigned executable memory entitlement on $MAIN_BIN"
 
           for dir in "${STAGE}" "${ASSETS}"; do
             find "${dir}" -maxdepth 1 -type f -perm +111 \
@@ -758,53 +751,22 @@ jobs:
               -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           done
 
-      - name: Smoke-launch deployed WSJT-X app
-        id: deployed_wsjtx_smoke
-        timeout-minutes: 1
+      - name: Remove application signing credentials
+        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
         run: |
-          APP="${GITHUB_WORKSPACE}/${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
-          DIAGNOSTICS="${GITHUB_WORKSPACE}/wsjtx-build/deployed-startup-smoke-diagnostics"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          rm -f "$RUNNER_TEMP/app.p12"
+          if [ "${{ steps.app_keychain.outcome }}" = "success" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          else
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi
 
-          unset DYLD_LIBRARY_PATH
-          unset DYLD_FRAMEWORK_PATH
-          unset DYLD_INSERT_LIBRARIES
-          unset DYLD_ROOT_PATH
-          unset DYLD_IMAGE_SUFFIX
-          unset QT_PLUGIN_PATH
-          unset QT_QPA_PLATFORM_PLUGIN_PATH
-          unset QML_IMPORT_PATH
-          unset QML2_IMPORT_PATH
-
-          export DYLD_FALLBACK_LIBRARY_PATH="/usr/lib"
-          export DYLD_FALLBACK_FRAMEWORK_PATH="/System/Library/Frameworks"
-          export QT_QPA_PLATFORM="cocoa"
-          export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-
-          cd "$RUNNER_TEMP"
-          /bin/bash "${GITHUB_WORKSPACE}/test/run-wsjtx-startup-macos.sh" \
-            "$DIAGNOSTICS" \
-            "${APP}/Contents/MacOS/wsjtx" \
-            --startup-smoke-test \
-            --rig-name CI-DEPLOYED-STARTUP
-
-      - name: Upload deployed WSJT-X startup diagnostics
-        if: failure() && steps.deployed_wsjtx_smoke.outcome == 'failure'
-        uses: actions/upload-artifact@v7
-        with:
-          name: wsjtx-deployed-startup-smoke-macos-${{ inputs.arch }}
-          path: wsjtx-build/deployed-startup-smoke-diagnostics
-          if-no-files-found: ignore
-          retention-days: 7
-
-      # ALWAYS runs. productbuild signs with the Developer ID Installer
-      # cert when secrets are present; produces an unsigned .pkg
-      # otherwise. Either way the artifact is named identically and
-      # satisfies the all-platforms-ready gate in release.yml.
-      - name: Build and verify installer pkg
+      - name: Prepare installer package
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
-          PKG_ID="org.k1jt.wsjtx.${{ inputs.arch }}"
-          PKG_VERSION="${{ inputs.version }}"
+          PKG_ID="org.k1jt.wsjtx.${ARCH}"
+          PKG_VERSION="${VERSION}"
 
           PAYLOAD="$RUNNER_TEMP/pkg-payload"
           SCRIPTS="$RUNNER_TEMP/pkg-scripts"
@@ -845,9 +807,36 @@ jobs:
             --install-location / \
             "$RUNNER_TEMP/wsjtx-component.pkg"
 
-          PKG_OUT="wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+      - name: Import installer signing certificate
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        id: installer_keychain
+        env:
+          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/installer-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$INST_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+          security import "$RUNNER_TEMP/installer.p12" -P "$INST_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          rm -f "$RUNNER_TEMP/installer.p12"
+
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
+          echo "Installer identity: $INST_IDENTITY"
+          echo "identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
+
+      - name: Build installer pkg
+        run: |
+          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
           if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
-            INST_IDENTITY="${{ steps.keychain.outputs.installer_identity }}"
+            INST_IDENTITY="${{ steps.installer_keychain.outputs.identity }}"
             productbuild \
               --package "$RUNNER_TEMP/wsjtx-component.pkg" \
               --sign "$INST_IDENTITY" \
@@ -858,6 +847,20 @@ jobs:
               "$PKG_OUT"
           fi
 
+      - name: Remove installer signing credentials
+        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/installer-signing.keychain-db"
+          rm -f "$RUNNER_TEMP/installer.p12"
+          if [ "${{ steps.installer_keychain.outcome }}" = "success" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          else
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi
+
+      - name: Verify installer pkg
+        run: |
+          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
           CHECK_PAYLOAD="$RUNNER_TEMP/pkg-check"
           pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
           [ "$(/usr/libexec/PlistBuddy -c "Print :0:BundleIsRelocatable" "$RUNNER_TEMP/components.plist")" = "false" ]
@@ -916,7 +919,7 @@ jobs:
             xcrun stapler staple "$file"
           }
 
-          notarize_and_staple "wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+          notarize_and_staple "wsjtx-${VERSION}-${ARCH}-macOS.pkg"
 
       - name: Notarize CLI tools
         if: steps.check_secrets.outputs.signing_enabled == 'true'
@@ -943,9 +946,16 @@ jobs:
           fi
           rm cli-tools.zip
 
-      - name: Clean up keychain
+      - name: Ensure signing credentials are removed
         if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
-        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+        run: |
+          rm -f "$RUNNER_TEMP/app.p12" "$RUNNER_TEMP/installer.p12"
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true
+          security delete-keychain "$RUNNER_TEMP/installer-signing.keychain-db" 2>/dev/null || true
+          test ! -e "$RUNNER_TEMP/app.p12"
+          test ! -e "$RUNNER_TEMP/installer.p12"
+          test ! -e "$RUNNER_TEMP/app-signing.keychain-db"
+          test ! -e "$RUNNER_TEMP/installer-signing.keychain-db"
 
       - name: Upload pkg
         uses: actions/upload-artifact@v7
@@ -955,9 +965,7 @@ jobs:
 
       - name: Package individual binaries
         run: |
-          # Tarball and inner-dir names include the arch suffix so arm64
-          # and x86_64 per-binary artifacts can coexist in a single
-          # GitHub Release without ReleaseAsset.name collisions (#24).
+          # Architecture-qualified names prevent release-asset collisions.
           ASSETS="${{ steps.collect.outputs.assets_dir }}"
           ARCH="${{ inputs.arch }}"
           PKGS=packages
@@ -979,3 +987,43 @@ jobs:
         with:
           name: individual-binaries-macos-${{ inputs.arch }}
           path: packages/*.tar.gz
+
+      # Keep repository-built code after signing, notarization, cleanup, and
+      # artifact publication so a detached child cannot reach later secrets.
+      - name: Smoke-launch deployed WSJT-X app
+        id: deployed_wsjtx_smoke
+        timeout-minutes: 1
+        run: |
+          APP="${GITHUB_WORKSPACE}/${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
+          DIAGNOSTICS="${GITHUB_WORKSPACE}/wsjtx-build/deployed-startup-smoke-diagnostics"
+
+          unset DYLD_LIBRARY_PATH
+          unset DYLD_FRAMEWORK_PATH
+          unset DYLD_INSERT_LIBRARIES
+          unset DYLD_ROOT_PATH
+          unset DYLD_IMAGE_SUFFIX
+          unset QT_PLUGIN_PATH
+          unset QT_QPA_PLATFORM_PLUGIN_PATH
+          unset QML_IMPORT_PATH
+          unset QML2_IMPORT_PATH
+
+          export DYLD_FALLBACK_LIBRARY_PATH="/usr/lib"
+          export DYLD_FALLBACK_FRAMEWORK_PATH="/System/Library/Frameworks"
+          export QT_QPA_PLATFORM="cocoa"
+          export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+
+          cd "$RUNNER_TEMP"
+          /bin/bash "${GITHUB_WORKSPACE}/test/run-wsjtx-startup-macos.sh" \
+            "$DIAGNOSTICS" \
+            "${APP}/Contents/MacOS/wsjtx" \
+            --startup-smoke-test \
+            --rig-name CI-DEPLOYED-STARTUP
+
+      - name: Upload deployed WSJT-X startup diagnostics
+        if: failure() && steps.deployed_wsjtx_smoke.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-deployed-startup-smoke-macos-${{ inputs.arch }}
+          path: wsjtx-build/deployed-startup-smoke-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7

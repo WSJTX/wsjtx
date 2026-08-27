@@ -135,7 +135,7 @@ program q65sim
 1106    format('000000_',i4.4,'.wav')
      endif
 
-     open(10,file=trim(fname),access='stream',status='unknown')
+     open(10,file=trim(fname),access='stream',status='replace')
      xnoise=0.
      if(snrdb.lt.90) then
         do i=1,npts

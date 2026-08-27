@@ -5,6 +5,8 @@
 #include <QFile>
 #include <QTemporaryDir>
 
+#include <limits>
+
 #include "qt_helpers.hpp"
 
 class TestQtHelpers
@@ -133,6 +135,70 @@ private:
   {
     QDateTime dt {QDate {2020, 8, 6}, QTime {14, 15, 22, 501}};
     QCOMPARE (qt_truncate_date_time_to (dt, 7500), QDateTime (QDate (2020, 8, 6), QTime (14, 15, 22, 500)));
+  }
+
+  Q_SLOT void date_time_alignment_rejects_non_positive_intervals_data ()
+  {
+    QTest::addColumn<int> ("milliseconds");
+
+    QTest::newRow ("zero") << 0;
+    QTest::newRow ("negative") << -1000;
+  }
+
+  Q_SLOT void date_time_alignment_rejects_non_positive_intervals ()
+  {
+    QFETCH (int, milliseconds);
+    auto const dt = QDateTime::fromMSecsSinceEpoch (1234, Qt::UTC);
+
+    QVERIFY (!qt_round_date_time_to (dt, milliseconds).isValid ());
+    QVERIFY (!qt_truncate_date_time_to (dt, milliseconds).isValid ());
+  }
+
+  Q_SLOT void date_time_alignment_rejects_invalid_date_times ()
+  {
+    QDateTime const invalid;
+
+    QVERIFY (!qt_round_date_time_to (invalid, 1000).isValid ());
+    QVERIFY (!qt_truncate_date_time_to (invalid, 1000).isValid ());
+  }
+
+  Q_SLOT void date_time_alignment_handles_positive_boundaries ()
+  {
+    auto const between_intervals = QDateTime::fromMSecsSinceEpoch (1600, Qt::UTC);
+    QCOMPARE (qt_round_date_time_to (between_intervals, 1000).toMSecsSinceEpoch (), qint64 {2000});
+    QCOMPARE (qt_truncate_date_time_to (between_intervals, 1000).toMSecsSinceEpoch (), qint64 {1000});
+
+    auto const exact_boundary = QDateTime::fromMSecsSinceEpoch (2000, Qt::UTC);
+    QCOMPARE (qt_round_date_time_to (exact_boundary, 1000), exact_boundary);
+    QCOMPARE (qt_truncate_date_time_to (exact_boundary, 1000), exact_boundary);
+  }
+
+  Q_SLOT void date_time_alignment_handles_pre_epoch_boundaries ()
+  {
+    auto const before_epoch = QDateTime::fromMSecsSinceEpoch (-1, Qt::UTC);
+    QCOMPARE (qt_round_date_time_to (before_epoch, 1000).toMSecsSinceEpoch (), qint64 {0});
+    QCOMPARE (qt_truncate_date_time_to (before_epoch, 1000).toMSecsSinceEpoch (), qint64 {-1000});
+
+    auto const midpoint = QDateTime::fromMSecsSinceEpoch (-1500, Qt::UTC);
+    QCOMPARE (qt_round_date_time_to (midpoint, 1000).toMSecsSinceEpoch (), qint64 {-1000});
+
+    auto const exact_boundary = QDateTime::fromMSecsSinceEpoch (-2000, Qt::UTC);
+    QCOMPARE (qt_round_date_time_to (exact_boundary, 1000), exact_boundary);
+    QCOMPARE (qt_truncate_date_time_to (exact_boundary, 1000), exact_boundary);
+  }
+
+  Q_SLOT void date_time_alignment_rejects_overflow ()
+  {
+    auto const maximum = QDateTime::fromMSecsSinceEpoch (std::numeric_limits<qint64>::max (), Qt::UTC);
+    QVERIFY (maximum.isValid ());
+    QVERIFY (!qt_round_date_time_to (maximum, 2).isValid ());
+    QCOMPARE (qt_truncate_date_time_to (maximum, 2).toMSecsSinceEpoch (),
+              std::numeric_limits<qint64>::max () - 1);
+
+    auto const minimum = QDateTime::fromMSecsSinceEpoch (std::numeric_limits<qint64>::min (), Qt::UTC);
+    QVERIFY (minimum.isValid ());
+    QVERIFY (!qt_round_date_time_to (minimum, 3).isValid ());
+    QVERIFY (!qt_truncate_date_time_to (minimum, 3).isValid ());
   }
 
   Q_SLOT void next_cyclic_index_advances_through_all_items ()

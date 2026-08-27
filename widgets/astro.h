@@ -100,7 +100,7 @@ private:
   Configuration const * configuration_;
   QScopedPointer<Ui::Astro> ui_;
 
-  double m_skedFreq;
+  double m_skedFreq {1296.065};
   qint32 m_DopplerMethod;
   int m_dop;
   int m_dop00;

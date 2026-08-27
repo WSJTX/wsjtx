@@ -1,10 +1,13 @@
 module q65_decode
 
+  use q65_workspace, only: q65_workspace_type
+
   integer nsnr0,nfreq0
   real xdt0
   character msg0*37,cq0*3
 
   type :: q65_decoder
+     type(q65_workspace_type) :: workspace
      procedure(q65_decode_callback), pointer :: callback
    contains
      procedure :: decode
@@ -244,7 +247,7 @@ contains
        endif
 
        call timer('q65loop1',0)
-       call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
+       call q65_loops(this%workspace,c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
             xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
        call timer('q65loop1',1)
        if(idec.ge.0) then
@@ -412,7 +415,7 @@ contains
           endif
 
           call timer('q65loop2',0)
-          call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
+          call q65_loops(this%workspace,c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
                xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
           call timer('q65loop2',1)
 !          write(*,3001) '=e',nfqso,ntol,ndepth,xdt,f0,idec

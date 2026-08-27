@@ -11,6 +11,8 @@
 #include <QFileInfo>
 #include <QStringList>
 
+#include <limits>
+
 QString font_as_stylesheet (QFont const& font)
 {
   QString font_weight;
@@ -41,16 +43,54 @@ void update_dynamic_property (QWidget * widget, char const * property, QVariant 
   widget->update ();
 }
 
+namespace
+{
+enum class DateTimeAlignment
+{
+  earlier,
+  nearest
+};
+
+QDateTime align_date_time (QDateTime dt, int milliseconds, DateTimeAlignment alignment)
+{
+  if (!dt.isValid () || milliseconds <= 0)
+    {
+      return {};
+    }
+
+  auto const interval = static_cast<qint64> (milliseconds);
+  auto const timestamp = dt.toMSecsSinceEpoch ();
+  auto remainder = timestamp % interval;
+  if (remainder < 0)
+    {
+      remainder += interval;
+    }
+
+  auto offset = -remainder;
+  if (alignment == DateTimeAlignment::nearest && remainder >= interval - remainder)
+    {
+      offset = interval - remainder;
+    }
+
+  if ((offset > 0 && timestamp > std::numeric_limits<qint64>::max () - offset)
+      || (offset < 0 && timestamp < std::numeric_limits<qint64>::min () - offset))
+    {
+      return {};
+    }
+
+  dt.setMSecsSinceEpoch (timestamp + offset);
+  return dt;
+}
+}
+
 QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds)
 {
-  dt.setMSecsSinceEpoch (dt.addMSecs (milliseconds / 2).toMSecsSinceEpoch () / milliseconds * milliseconds);
-  return dt;
+  return align_date_time (dt, milliseconds, DateTimeAlignment::nearest);
 }
 
 QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds)
 {
-  dt.setMSecsSinceEpoch (dt.toMSecsSinceEpoch () / milliseconds * milliseconds);
-  return dt;
+  return align_date_time (dt, milliseconds, DateTimeAlignment::earlier);
 }
 
 namespace

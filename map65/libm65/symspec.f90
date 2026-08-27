@@ -2,13 +2,13 @@ module symspec_mod
   implicit none
 contains
 
-subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
+subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,    &
      iqadjust,iqapply,gainx,gainy,phasex,phasey,rejectx,rejecty,  &
      pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong) bind(C, name='symspec_')
 
   use iso_c_binding
   use datcom_ptrs_mod
-  use npar_ptrs_mod,  only: fcenter
+  use npar_ptrs_mod,  only: fcenter, nrate_active, nfft_active, nsmax_active
   use four2a_mod
   use timf2_mod
   use iqcal_mod
@@ -17,7 +17,7 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
 
   ! C-facing arguments (keep these as in your modern version)
   integer(c_int),    intent(in)    :: k, nxpol, ndiskdat, nb, nbslider
-  integer(c_int),    intent(in)    :: idphi, nfsample
+  integer(c_int),    intent(in)    :: idphi
   integer(c_int),    intent(in)    :: iqadjust, iqapply
   real(c_float),     intent(inout) :: gainx, gainy, phasex, phasey
   real(c_float),     intent(out)   :: rejectx, rejecty, pxdb, pydb
@@ -37,8 +37,11 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
              mm, nadjx, nadjy, nblk, nblks, nfft2, npts, nsum, nwindow, n, nfast
   real(real32) :: fac, faclim, peaklimit, px, py, q, rejectx0, rms, rmsx, rmsy, &
              s135, s45, sigmas, sx, sy, u, x1, x2, x3, x4, dphi, pi
-  real(real32) :: w(NFFT), w2a(NFFT), w2b(NFFT)
-  complex :: z, zfac, zsumx, zsumy, cx(NFFT), cy(NFFT), cx00(NFFT), cy00(NFFT)
+ 
+  real(real32), allocatable :: w(:), w2a(:), w2b(:)
+  complex,      allocatable :: cx(:), cy(:), cx00(:), cy00(:)
+
+  complex :: z, zfac, zsumx, zsumy
   complex :: cx0(0:1023), cx1(0:1023), cy0(0:1023), cy1(0:1023)
  
   data rms/999.0/, k0/99999999/, k1/0/, nadjx/0/, nadjy/0/
@@ -46,18 +49,32 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
 
 nfast = 1
 
-if (k.gt.5751000) goto 999
-if (k.lt.NFFT) then
+! Stop when we�re near the end of the allocated minute buffer.
+! nsmax_active = 60 * nrate_active, set from C++ at startup.
+if (k.gt.nsmax_active-9000) goto 999
+
+if (k.lt.nfft_active) then
    ihsym = 0
    goto 999
 endif
 
   if(k0.eq.99999999) then
+     ! First-time initialization: allocate buffers at runtime NFFT and
+     ! build the window(s). nfft_active is set from C++ via
+     ! set_runtime_params_() before any call into this routine.
+     if(.not.allocated(w))   allocate(w(nfft_active))
+     if(.not.allocated(w2a)) allocate(w2a(nfft_active))
+     if(.not.allocated(w2b)) allocate(w2b(nfft_active))
+     if(.not.allocated(cx))  allocate(cx(nfft_active))
+     if(.not.allocated(cy))  allocate(cy(nfft_active))
+     if(.not.allocated(cx00)) allocate(cx00(nfft_active))
+     if(.not.allocated(cy00)) allocate(cy00(nfft_active))
+
      pi=4.0*atan(1.0)
      w2a=0.
      w2b=0.
-     do i=1,NFFT
-        w(i)=(sin(i*pi/NFFT))**2                          !Window for nfast=1
+     do i=1,nfft_active
+        w(i)=(sin(i*pi/nfft_active))**2                   !Window for nfast=1
         if(i.lt.17833) w2a(i)=(sin(i*pi/17832.925))**2    !Window a for nfast=2
         j=i-8916
         if(j.gt.0 .and. j.lt.17833) w2b(i)=(sin(j*pi/17832.925))**2    ! b
@@ -66,8 +83,11 @@ endif
      w2b=sqrt(2.0)*w2b
   endif
 
-   hsym=2048.d0*96000.d0/11025.d0
-  if(nfsample.eq.95238)   hsym=2048.d0*95238.1d0/11025.d0
+ 
+! Symbol length in samples, based on the active runtime rate.
+hsym = 2048.d0 * dble(nrate_active) / 11025.d0
+ 
+if(nrate_active.eq.95238)   hsym=2048.d0*95238.1d0/11025.d0
 
 if (k.lt.k0) then
    ! Perform the legacy reset
@@ -75,7 +95,8 @@ if (k.lt.k0) then
    savg  = 0.
    ihsym = 0
    k1    = 0
-   if (ndiskdat.eq.0) dd(1:4,k+1:5760000)=0.
+ !  if (ndiskdat.eq.0) dd(1:4,k+1:5760000)=0.
+   if (ndiskdat.eq.0) dd(1:4,k+1:nsmax_active)=0.
 endif
 
 k0 = k
@@ -119,7 +140,7 @@ k0 = k
      k1=k1+kstep
   enddo
 
-  npts=NFFT                           !Samples used in each half-symbol FFT
+  npts=nfft_active                            !Samples used in each half-symbol FFT
 
   ts=ts+hsym
   ja=ts   ! ts already set from ihsym above; do not integrate it again                             !Index of first sample
@@ -178,22 +199,22 @@ k0 = k
         endif
      endif
 
-     call four2a(cx,NFFT,1,1,1)          !Second forward FFT (X)
+     call four2a(cx,nfft_active,1,1,1)          !Second forward FFT (X)
      if(iqadjust.eq.0) nadjx=0
-     if(iqadjust.ne.0 .and. nadjx.lt.50) call iqcal(nadjx,cx,NFFT,    &
+     if(iqadjust.ne.0 .and. nadjx.lt.50) call iqcal(nadjx,cx,nfft_active,    &
           gainx,phasex,zsumx,ipkx,rejectx0)
-     if(iqapply.ne.0) call iqfix(cx,NFFT,gainx,phasex)
+     if(iqapply.ne.0) call iqfix(cx,nfft_active,gainx,phasex)
 
      if(nxpol.ne.0) then
-        call four2a(cy,NFFT,1,1,1)       !Second forward FFT (Y)
+        call four2a(cy,nfft_active,1,1,1)       !Second forward FFT (Y)
         if(iqadjust.eq.0) nadjy=0
-        if(iqadjust.ne.0 .and. nadjy.lt.50) call iqcal(nadjy,cy,NFFT, &
+        if(iqadjust.ne.0 .and. nadjy.lt.50) call iqcal(nadjy,cy,nfft_active, &
              gainy,phasey,zsumy,ipky,rejecty)
-        if(iqapply.ne.0) call iqfix(cy,NFFT,gainy,phasey)
+        if(iqapply.ne.0) call iqfix(cy,nfft_active,gainy,phasey)
      endif
 
      n=min(322,ihsym)
-     do i=1,NFFT
+     do i=1,nfft_active
         sx=real(cx(i))**2 + aimag(cx(i))**2  
         ss(1,n,i)=sx                    ! Pol = 0
         savg(1,i)=savg(1,i) + sx
@@ -232,8 +253,8 @@ k0 = k
 
   if(ihsym.eq.278) then
      if(iqadjust.ne.0 .and. ipkx.ne.0 .and. ipky.ne.0) then
-        rejectx=10.0*log10(savg(1,1+nfft-ipkx)/savg(1,1+ipkx))
-        rejecty=10.0*log10(savg(3,1+nfft-ipky)/savg(3,1+ipky))
+        rejectx=10.0*log10(savg(1,1+nfft_active-ipkx)/savg(1,1+ipkx))
+        rejecty=10.0*log10(savg(3,1+nfft_active-ipky)/savg(3,1+ipky))
      endif
   endif
 

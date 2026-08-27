@@ -35,7 +35,7 @@ program ft8_a8_test
      fac=1.0/32767.0
      dd=fac*iwave
 
-     call ft8_a8d(dd,mycall,dxcall,dxgrid,f1,xdt,fbest,xsnr,plog,msgbest)
+     call ft8_a8d(dd,mycall,dxcall,dxgrid,f1,xdt,fbest,xsnr,plog,msgbest,0)
 
      apflag='  a8'
      if(plog.lt.-155) apflag(1:1)='?'

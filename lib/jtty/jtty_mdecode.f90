@@ -7,6 +7,7 @@ module jtty_mdec
      real :: snrdb = 0.0              !SNR of decoded frame
      integer ::  k = 0                !Accumulated length of decoded text
      character(len=80) :: decoded = ''
+     logical :: trailing_sep = .false. !decoded ends with an implicit separator column
   end type decode
 
   integer, parameter        :: MAX_DECODES = 100
@@ -17,8 +18,36 @@ module jtty_mdec
 
 contains
 
-  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,f0,ftol,smin, &
-       synced,xdt_qso,f1_qso,snr_qso,line,success,nharderrors,nsync,dmin)
+  pure subroutine jtty_search_window(fc,fwid,nfa,nfb,constrain_to_graph,df, &
+       first_bin,last_bin,ja,jb,usable)
+      implicit none
+      real, intent(inout) :: fc
+      real, intent(in) :: fwid,df
+      integer, intent(in) :: nfa,nfb,first_bin,last_bin
+      integer, intent(out) :: ja,jb
+      logical, intent(in) :: constrain_to_graph
+      logical, intent(out) :: usable
+
+      ja=first_bin
+      jb=last_bin
+      usable=.false.
+      if(df.le.0.0 .or. fwid.lt.0.0 .or. first_bin.gt.last_bin) return
+
+      if(constrain_to_graph) then
+         if(nfa.gt.nfb) return
+         fc=max(real(nfa),min(fc,real(nfb)))
+      endif
+
+      ja=max(first_bin,int((fc-fwid)/df))
+      jb=min(last_bin,int((fc+fwid)/df))
+      if(constrain_to_graph) then
+         ja=max(ja,ceiling(real(nfa)/df))
+         jb=min(jb,floor(real(nfb)/df))
+      endif
+      usable=ja.le.jb
+  end subroutine jtty_search_window
+
+  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
 !  jtty_decode.f90. Does not pass decodes back to rjtty_sub yet - just prints
@@ -35,39 +64,38 @@ contains
       integer, parameter             :: NFRAME_SYM = 53
       real, parameter                :: FSAMPLE = 6000.0
       real, parameter                :: TWOPI = 6.283185307179586
-      character(len=80), intent(out) :: line
       character(len=80)              :: msg
       character(len=32)              :: c32(MAX_FRAMES)
       integer(int8)                  :: message32(32), cw80(80)
       integer(int16), intent(in)     :: iwave(nchunk)
       integer, intent(in)            :: istart, ndebug
-      integer                        :: i,i0,j,ja,jb,k,kz,n
-      integer, save                  :: ntstep
+      integer                        :: i,i0,is,j,ja,jb,k,kz,n
+      integer, save                  :: ntstep, ntgrid
       integer                        :: istep
       integer                        :: nchan, ichan
       integer, intent(in)            :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
+      integer, intent(in)            :: nfa,nfb       !Wide Graph freq range
       integer                        :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
       integer, save                  :: nframe6       !size of frame at 6000 Sa/s
       integer, save                  :: nsps0=-999
       integer, save                  :: nfft,nh2,nss
       integer                        :: iloc(1)
-      integer                        :: irxsync(NSYNC_SYM)
+      integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
       integer                        :: ndeep, maxiterations, islot
-      integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc
-      integer, intent(out)           :: nharderrors,nsync
+      integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc,nstep_search
+      integer                        :: nharderrors,nsync,nsymerrs
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
-      real, allocatable, save        :: s(:), sm(:), s0(:,:)
+      real, allocatable, save        :: s(:), s0(:,:)
       real                           :: a(3)
-      real                           :: bitmetrics(1:80), pow(0:3)
+      real                           :: bitmetrics(1:80), pow(0:3,NCHAN_SYM)
       real                           :: p00, p01, p11, p10
       real, save                     :: baud,dt,df2
       real                           :: phi,dphi
       real                           :: x2,db
       real, intent(in)               :: f0,ftol,smin
-      real, intent(out)              :: dmin
-      real, intent(out)              :: xdt_qso,f1_qso,snr_qso
+      real                           :: dmin
       real                           :: snrdb, xdt
       real                           :: xdt1, f11, snr0, df1, dtsync, dxdt
       complex, allocatable,save      :: c(:)
@@ -76,28 +104,21 @@ contains
       complex, allocatable,save      :: csync(:)    !Waveform for sync at 6000 s^-1 sample rate
       complex, allocatable,save      :: ctones(:,:)
       complex                        :: z
-      logical, intent(out)           :: success
-      logical, intent(inout)         :: synced
       logical                        :: match
       logical                        :: dupe
+      logical                        :: usable
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
 
-      line=' '
-      xdt_qso=0.0
-      f1_qso=0.0
-      snr_qso=-99.0
       nharderrors=-1
       nsync=0
       dmin=0.0
-      success=.false.
 
       if(istart.eq.1) then
          ndecodes=0
          nslots=0
       endif
       if(sum(abs(int(iwave))).eq.0) return
-      if(f0+ftol.eq.-99.0) return               !Silence compiler warning of unused params
 
       nchunk6=nchunk/2                ! chunk size at 6000 Sa/s
 ! nana is the size of c0 - next power of 2 larger than nchunk
@@ -111,6 +132,7 @@ contains
          nh2=nfft/2    ! spectrum size for sync search
          nframe6=NFRAME_SYM*nss          ! frame size at 6000 Sa/s
          ntstep=nframe6/4
+         ntgrid=ntstep/12
 
 ! allocate saved arrays once
          if(allocated(csync)) deallocate(csync)
@@ -125,10 +147,8 @@ contains
            allocate(c1(0:nchunk6-1))
          if(allocated(s)) deallocate(s)
            allocate(s(0:nh2))
-         if(allocated(sm)) deallocate(sm)
-           allocate(sm(0:nh2))
          if(allocated(s0)) deallocate(s0)
-           allocate(s0(0:nh2,0:ntstep))
+           allocate(s0(0:nh2,0:ntgrid))
 
 ! Generate complex waveform for sync
          baud=FSAMPLE/real(nss)   !31.25 for nss=192
@@ -158,48 +178,48 @@ contains
          do j=0,nh2
             s(j)=real(c(j))**2 + aimag(c(j))**2
          enddo
-         sm=0.
+         s0(0:nh2,istep)=0.
          do j=2,nh2-2
-            sm(j)=s(j-2)+2*s(j-1)+3*s(j)+2*s(j+1)+s(j+2)
+            s0(j,istep)=s(j-2)+2*s(j-1)+3*s(j)+2*s(j+1)+s(j+2)
          enddo
-         s0(0:nh2,istep)=sm
          istep=istep+1
       enddo
+      nstep_search=istep-1
 
-! Look for up to 2 sync candidates in each 0.424 second by 2*FTol rectangle in 
+! Look for up to 2 sync candidates in each quarter-frame (0.424 second) by 2*FTol rectangle in 
 ! the time/frequency plane. Find the peak in the search rectangle, then zero a small region
-! of size nfz by ntz centered on the peak location. Then find the location of the next peak.
+! of size nfz by ntz centered on the peak location and find the location of the next peak.
 
       nfz=nint(10.0/df2)            ! 14 
       ntz=nint(0.016*6000.0/12.0)   !  8
 
-      nchan = 14
+      nchan = 2
       nc=2          ! look for 2 candidates in each channel
       ncand=0
 
       do ichan=0, nchan         ! frequency channels - channel 0 is always centered on f0
          if(ichan.eq.0) then
-            fc=1500      ! hardwired for now
-            fwid=50
+            fc=f0
+            fwid=ftol
          else            ! for now, hardwired nonoverlapping channels
-            fc=ichan*200
-            fwid=100
+            fc=1350
+            if(ichan.eq.2) fc=1650
+            fwid=150
          endif
 
+         call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
+              ubound(s0,1)-2,ja,jb,usable)
+         if(.not.usable) cycle
          fbest=0.
          xdtbest=0.
          fpk=0.
 
-         ja=(fc-fwid)/df2
-         jb=(fc+fwid)/df2
-         if(ja .lt. 3) ja=3
-
          do ic=1,nc
-            nsloc=maxloc(s0(ja:jb,:))
+            nsloc=maxloc(s0(ja:jb,0:nstep_search))
             fbest   = (nsloc(1)-1+ja)*df2
             xdtbest = (nsloc(2)-1)*dt*12
             s0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),        &
-                max(  0, nsloc(2)-ntz )    : min( ntstep, nsloc(2)+ntz )   ) = 0.0
+                max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = 0.0
 
             if(ichan.eq.0) then
                call jtty_peakup(c0,c1,csync,nchunk6, nss, xdtbest, fbest, xdt1, f11, snr0)
@@ -218,19 +238,20 @@ contains
 
             pt=0.
             pa=0.
+            pow=0.0
             do j=1,NSYNC_SYM                                ! find tone powers for sync symbols
                i0=nint(cand(ncand)%xdt/dt) + (j-1)*nss
                if(i0+nss.gt.nchunk6) exit
 
                do i=0,3
                   z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
-                  pow(i)=real(z*conjg(z))
+                  pow(i,j)=real(z*conjg(z))
                enddo
 
-               iloc=maxloc(pow)-1
+               iloc=maxloc(pow(:,j))-1
                irxsync(j)=iloc(1)
-               pt=pt+pow(is13(j))                !signal plus noise
-               pa=pa+sum(pow)                    !signal plus 4*noise
+               pt=pt+pow(is13(j),j)              !signal plus noise
+               pa=pa+sum(pow(:,j))               !signal plus 4*noise
             enddo
 
             snrdb=-99.9
@@ -243,17 +264,21 @@ contains
             if( ichan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
 ! looks like a real candidate - try to decode
+            pow(:,:)=0.0
             do j=1,NCHAN_SYM                  ! find tone powers for 40 symbols
                i0=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss + (j-1)*nss
                if(i0+nss .gt. nchunk6) exit
 
                do i=0,3
                   z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
-                  pow(i)=real(z*conjg(z))
+                  pow(i,j)=real(z*conjg(z))
                enddo
 
+               iloc=maxloc(pow(:,j))-1
+               irxchan(j)=iloc(1)   ! hard decision received channel symbols
+
 ! tones 0:3 represent bit sequences 00, 01, 11, 10, respectively
-               p00=pow(0); p01=pow(1); p11=pow(2); p10=pow(3)
+               p00=pow(0,j); p01=pow(1,j); p11=pow(2,j); p10=pow(3,j)
 
                bitmetrics(2*j-1) = max(p11,p10) - max(p00,p01)
                bitmetrics(2*j  ) = max(p11,p01) - max(p00,p10)
@@ -273,15 +298,27 @@ contains
             endif
             if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
             cand(ncand)%decoded=' '
-!            line=' '
             if( nharderrors .ge. 0 ) then
-               success=.true.
                ndecodes=ndecodes+1
-               write(c32(1),'(32i1)') message32
-               call unpack_jtty(c32,1,cand(ncand)%decoded)
-               if(cand(ncand)%decoded(1:4).eq.'599 ') then
-                  cand(ncand)%decoded = '~' // trim(cand(ncand)%decoded)
+               nsymerrs=13-nsync
+               do j = 1, 40
+                  is=cw80(2*j) + 2*cw80(2*j-1)
+                  if(is.eq.2) then     ! graymap
+                      is=3
+                  elseif(is.eq.3) then
+                      is=2
+                  endif  
+                  if(is.ne.irxchan(j)) nsymerrs=nsymerrs+1
+                  pt=pt+pow(is,j)
+                  pa=pa+sum(pow(:,j))
+               enddo
+               pn=(pa-pt)/3.0
+               if(pn.gt.0.) then
+                  snrdb=db(pt/pn)
+                  cand(ncand)%snrdb=snrdb
                endif
+               write(c32(1),'(32i1)') message32
+               call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep)
                cand(ncand)%tsync=(istart-1)/12000.0 + cand(ncand)%xdt
 
 ! dupe detection 
@@ -291,35 +328,38 @@ contains
                   abs(cand(i)%tsync - cand(ncand)%tsync).lt. 0.032 ) dupe=.true.
                enddo
                if(dupe) exit
-
                dec=cand(ncand)
-               if(ichan.eq.0) then
-! Make single-channel rjtty_sub happy
-                  line=cand(ncand)%decoded
-                  xdt_qso=cand(ncand)%xdt
-                  f1_qso=cand(ncand)%f1
-                  snr_qso=cand(ncand)%snrdb - 20.0
-!                  print*,'b',f1_qso,xdt_qso,snr_qso,trim(line)
-               endif
                match=.false.
                islot=1
                if(ndecodes.eq.1) then
                   nslots=1
                   islot=1
                   slot(1)=dec
+                  ! A "599 ..." frame opening a slot has no preceding structured
+                  ! frame to supply a separator, so mark one explicitly here.
+                  if(slot(1)%decoded(1:4).eq.'599 ') &
+                       slot(1)%decoded='~'//trim(slot(1)%decoded)
                else
                   do i=1,nslots
                      df1=dec%f1 - slot(i)%f1
                      dxdt=dec%xdt - slot(i)%xdt
                      dtsync=dec%tsync - slot(i)%tsync
-                     match=abs(df1).lt.5.0 .and. abs(dxdt).lt.0.005
+                     match=abs(df1).lt.8.0 .and. abs(dxdt).lt.0.008
                      if(match) then
                         islot=i
                         k=slot(i)%k
                         n=len_trim(dec%decoded)
                         kz=min(k+n,80)
-                        slot(i)%decoded=trim(slot(i)%decoded)//dec%decoded(1:kz-k)
+                        ! The prior frame's implicit separator column is just an
+                        ! untouched blank in slot(i)%decoded, so trim() above
+                        ! would silently drop it; put it back explicitly.
+                        if(slot(i)%trailing_sep) then
+                           slot(i)%decoded=trim(slot(i)%decoded)//' '//dec%decoded(1:kz-k)
+                        else
+                           slot(i)%decoded=trim(slot(i)%decoded)//dec%decoded(1:kz-k)
+                        endif
                         slot(i)%k=kz
+                        slot(i)%trailing_sep=dec%trailing_sep
                         exit
                      endif
                   enddo
@@ -328,6 +368,10 @@ contains
                      nslots=nslots+1
                      slot(nslots)=dec
                      islot=nslots
+                     ! Same as above: a fresh slot starting with "599" has no
+                     ! preceding separator, so mark one explicitly.
+                     if(slot(nslots)%decoded(1:4).eq.'599 ') &
+                          slot(nslots)%decoded='~'//trim(slot(nslots)%decoded)
                   endif
                endif
                msg=slot(islot)%decoded
@@ -336,20 +380,16 @@ contains
                enddo
                if(msg(1:1).eq.' ') msg=msg(2:)
                if(ndebug.eq.0) then
-                  write(*,3001) nint(dec%f1),nint(dec%snrdb-20.0),trim(msg)
-3001              format(i4,i4,2x,a)
+                  write(*,3001) nint(dec%f1),trim(msg)
+3001              format(i4,2x,a)
                else if(ndebug.gt.0) then
                   write(*,3002) ichan,ic,ndecodes,islot,nslots,match,dec%f1, &
-                     dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(msg)
-3002              format(5i4,L3,f7.1,f7.3,f9.3,i5,2x,a)
+                     dec%xdt,dec%tsync,nint(dec%snrdb-20.0),nsync,nsymerrs,nharderrors,dmin,trim(msg)
+3002              format(5i4,L3,f7.1,f7.3,f9.3,i5,i4,i4,i4,f6.1,2x,a)
                endif
             endif
          enddo     ! candidate loop
       enddo     ! ichan, frequency channel loop
-
-      synced=.false.
-      success=.false.
-      flush(6)
 
       return
    end subroutine jtty_mdecode

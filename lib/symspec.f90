@@ -57,7 +57,6 @@ subroutine symspec(shared_data,k,nsps,ingain,bLowSidelobes,    &
      ja=0
      ssum=0.
      ihsym=0
-     if(.not. shared_data%params%ndiskdat) shared_data%id2(k+1:)=0   !Needed to prevent "ghosts". Not sure why.
   endif
   gain=10.0**(0.1*ingain)
   sq=0.

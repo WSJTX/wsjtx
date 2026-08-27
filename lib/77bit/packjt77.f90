@@ -1201,14 +1201,13 @@ subroutine unpacktext77(c71,c13)
   return
 end subroutine unpacktext77
 
-subroutine mp_short_ops(w,u)
+subroutine mp_short_init
   character*1 w(*),u(*)
   integer i,ireg,j,n,ir,iv,ii1,ii2
   character*1 creg(4)
   save ii1,ii2
   equivalence (ireg,creg)
 
-  entry mp_short_init
   ireg=256*ichar('2')+ichar('1')
   do j=1,4
      if (creg(j).eq.'1') ii1=j
@@ -1244,7 +1243,7 @@ subroutine mp_short_ops(w,u)
   return
 
   return
-end subroutine mp_short_ops
+end subroutine mp_short_init
 
 subroutine add_call_to_recent_calls(callsign)
 

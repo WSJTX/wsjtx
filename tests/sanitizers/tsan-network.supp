@@ -1,0 +1,48 @@
+# ThreadSanitizer suppressions for the network unit-test family.
+#
+# These reports were observed with Qt 5.15's network bearer and the Arch
+# GLib/GIO stack. The conflicting accesses remain inside the dependencies;
+# application and test frames only initiate or exercise the network paths.
+# Keep this file scoped to the tests that exercise those paths. CMake
+# combines it with tsan.supp before assigning TSAN_OPTIONS.
+
+# GLib/GIO gdbus cleanup and socket races.
+race:g_main_context_unref
+race:g_source_dup_context
+race:g_hash_table_unref
+race:g_str_equal
+race:g_queue_pop_head
+race:g_socket_send_message_with_timeout
+race:g_bytes_unref
+race:g_queue_foreach
+race:g_slice_free_chain_with_offset
+race:g_dbus_connection_signal_subscribe
+race:g_dbus_message_set_num_unix_fds
+race:g_dbus_connection_call_with_unix_fd_list_sync
+race:g_dbus_proxy_new_for_bus_sync
+
+# Qt 5.15 network bearer startup and teardown races.
+race:QArrayData::allocate
+race:QCoreApplication::event
+race:QCoreApplication::removePostedEvents
+race:QCoreApplicationPrivate::sendPostedEvents
+race:QCoreApplication::postEvent
+race:QWaitCondition::wakeAll
+race:QWaitCondition::~QWaitCondition
+race:QObjectPrivate::Connection::~Connection
+race:QObjectPrivate::ConnectionData::deleteOrphaned
+race:QMetaObjectBuilder::relatedMetaObjectCount
+race:QMetaType::unregisterConverterFunction
+race:dbus_connection_get_is_connected
+
+# Qt/DBus lock-order in the uninstrumented system library.
+deadlock:libdbus-1.so
+
+# Additional DBus internals reported by the Arch DBus build.
+race:_dbus_message_loader_get_buffer
+race:_dbus_user_database_unlock_system
+race:_dbus_string_init_const
+race:dbus_connection_preallocate_send
+race:dbus_bus_register
+race:dbus_connection_remove_filter
+race:dbus_connection_close

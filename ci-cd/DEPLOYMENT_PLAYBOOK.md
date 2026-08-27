@@ -1,11 +1,8 @@
 # CI/CD Deployment Playbook
 
-Reference for deploying the proposed WSJT-X GitHub Actions CI/CD pipeline to the official `WSJTX` organization repos.
+Reference for configuring and operating the WSJT-X GitHub Actions CI/CD pipeline in the official `WSJTX` organization repositories.
 
-**Audience:** Team maintainer with moderate GitHub Actions experience, executing adoption of the proposed machinery on the team's own cadence.
-**Time estimate:** 1-2 hours for a full deployment, assuming all credentials are ready.
-
-*The pipeline this playbook deploys runs today in the `KJ5HST-LABS/wsjtx-internal` sandbox; the steps below walk a team maintainer through replicating it to `WSJTX/wsjtx-internal`. Production cert procurement, secret provisioning, and org-level GitHub Actions enablement are team actions.*
+**Audience:** Repository administrators and release managers responsible for CI/CD configuration and release credentials.
 
 ---
 
@@ -42,8 +39,8 @@ Before starting, confirm every item on this list. Missing any one of them will b
 
 | Credential | Where to Get It | Format |
 |------------|-----------------|--------|
-| Apple Developer ID Application certificate (.p12) | Apple Developer portal → Certificates | PKCS12 file + password |
-| Apple Developer ID Installer certificate (.p12) | Apple Developer portal → Certificates | PKCS12 file + password |
+| Apple Developer ID Application certificate (.p12) | Export from the Apple Developer account holder's keychain | PKCS12 file + password |
+| Apple Developer ID Installer certificate (.p12) | Export from the Apple Developer account holder's keychain | PKCS12 file + password |
 | Apple ID email (for notarization) | The email address of the Apple Developer account | Plain text |
 | App-specific password | appleid.apple.com → Sign-In and Security → App-Specific Passwords | 16-char token like `xxxx-xxxx-xxxx-xxxx` |
 | Apple Team ID | Apple Developer portal → Membership Details | 10-char alphanumeric like `ABCDE12345` |
@@ -73,17 +70,28 @@ Understanding the architecture will help you debug issues during deployment.
 │                                    jobs in total (matrix parameters).
 │
 ├── build-macos.yml              ← Reusable workflow (workflow_call).
-│                                    macOS build (arm64 or x86_64, parameterized)
-│                                    + sign + notarize.
+│                                    macOS build (arm64 or x86_64); Developer ID
+│                                    signing and notarization require credentials.
 │
 ├── build-linux.yml              ← Reusable workflow (workflow_call).
 │                                    Linux build (x86_64 or aarch64, parameterized),
 │                                    unsigned.
 │
 ├── build-windows.yml            ← Reusable workflow (workflow_call).
-│                                    Windows x86_64 via MSYS2/MinGW64 + per-run
-│                                    ephemeral self-signed osslsigncode (sandbox;
-│                                    production will switch to Authenticode — Phase 5 / decision #5).
+│                                    Windows x86_64 via MSYS2/MinGW64. Installer
+│                                    signing per sign_mode input: ephemeral
+│                                    self-signed osslsigncode (CI/DEVEL/RC) or
+│                                    none (GA — SignPath signs downstream, §5.4).
+│
+├── sign-windows-release.yml     ← Public repo (WSJTX/wsjtx) only; triggered by
+│                                    the v* tag release.yml's mirror step pushes.
+│                                    Rebuilds the installer from public source,
+│                                    SignPath authenticode-signs it, verifies the
+│                                    chain with signtool /pa (hard-fail on GA).
+│
+├── signpath-smoke.yml           ← workflow_dispatch; public repo.
+│                                    ~2-minute SignPath round-trip check
+│                                    with a trivial PE — no WSJT source built.
 │
 ├── hamlib-upstream-check.yml    ← Scheduled (`cron: '0 12 * * MON'`) + `workflow_dispatch`.
 │                                    Weekly poll of Hamlib upstream tags; files a
@@ -150,18 +158,18 @@ Each successful `build/v*` tag yields one installer per platform plus a source t
 
 | Artifact | Produced by | Format |
 |----------|-------------|--------|
-| `wsjtx-<ver>-arm64-macOS.pkg` | `build-macos.yml` (arm64 leg) | Signed + notarized `.pkg` installer |
-| `wsjtx-<ver>-x86_64-macOS.pkg` | `build-macos.yml` (x86_64 leg) | Signed + notarized `.pkg` installer |
+| `wsjtx-<ver>-arm64-macOS.pkg` | `build-macos.yml` (arm64 leg) | `.pkg`; Developer ID signed, notarized, and stapled when credentials are available |
+| `wsjtx-<ver>-x86_64-macOS.pkg` | `build-macos.yml` (x86_64 leg) | `.pkg`; Developer ID signed, notarized, and stapled when credentials are available |
 | `wsjtx-<ver>-linux-x86_64.AppImage` | `build-linux.yml` (x86_64 leg) | Portable AppImage |
 | `wsjtx-<ver>-linux-aarch64.AppImage` | `build-linux.yml` (aarch64 leg) | Portable AppImage |
-| `wsjtx-<ver>-win64.exe` | `build-windows.yml` | NSIS installer (sandbox: per-run ephemeral self-signed osslsigncode; production: Authenticode post-Phase-5 / decision #5 — see §5.4) |
+| `wsjtx-<ver>-win64.exe` | `build-windows.yml` | NSIS installer (GA: SignPath Foundation Authenticode via `sign-windows-release.yml` on the public repo; RC/DEVEL: per-run ephemeral self-signed osslsigncode — see §5.4) |
 | `wsjtx-<ver>-src.tar.gz` | `release.yml:113-126` (`git archive`) | Source tarball |
 
 The source tarball is assembled from the pushed `build/v*` tag with `git archive --format=tar.gz --prefix="wsjtx-<ver>/"` and is published with every release — no per-release step or decision. This repo has no git submodules, so `git archive`'s default single-tree output captures the full source; if submodules are ever added, the step must be revisited (`git archive` does not recurse into submodules on its own).
 
 ### All-Platforms-Ready Gate
 
-Before the release job publishes any artifacts, it runs a gate step (`release.yml:131-190`, Issue #25) that refuses to publish unless **every** platform produced an installer-grade artifact. The `needs:` array (`release.yml:98`) already enforces structural success — all five build jobs ran and exited 0 — but a job can exit 0 without actually packaging (for example, a packaging step gated by an `if:` that evaluated false, or an `upload-artifact` step that silently matched zero files). The gate fails the release job **before** any asset upload, so partial releases never reach GitHub Releases or the public mirror.
+Before publishing, the release workflow requires each platform build to produce its expected installer artifact. This prevents a structurally successful build job from creating a partial release.
 
 The gate checks for one installer per platform:
 
@@ -173,9 +181,11 @@ The gate checks for one installer per platform:
 | Linux aarch64 | `artifacts/wsjtx-<ver>-linux-aarch64-AppImage/*.AppImage` |
 | Windows x86_64 | `artifacts/wsjtx-<ver>-windows-x86_64-installer/*.exe` |
 
-If any pattern matches zero files, the gate emits `::error::MISSING <label>` lines (one per failed platform), prints a final `::error::All-platforms-ready gate FAILED — N of 5 platform(s) missing installer-grade artifact.`, and exits 1. The release job halts; nothing is published.
+If any pattern matches zero files, the release job stops before publishing.
 
-This encodes the **sandbox policy** that a release publishes only when all five platforms have an installer. If the team adopts a different policy on replication (e.g. publish-any-platform-ready, or tolerate a single-platform outage), adjust the `labels`/`patterns` arrays or remove the gate entirely — see the step's inline comment at `release.yml:149-152`.
+The gate verifies artifact presence only. It does not establish that a macOS package is Developer ID signed, notarized, stapled, accepted by Gatekeeper, or correct at runtime. Release verification must check those properties separately.
+
+Release policy currently requires all five platform installers. If that policy changes, update the all-platforms-ready gate in `release.yml`.
 
 ---
 
@@ -301,18 +311,12 @@ grep -n 'remote add public\|git push public' .github/workflows/release.yml
 
 ### 4c. Changes to `build-macos.yml`
 
-**No code changes required.** The macOS workflow is fully parameterized:
-- Version comes from `inputs.version`
-- Hamlib branch comes from `inputs.hamlib_branch`
-- Signing identities are discovered from the keychain at runtime
-- All secrets are referenced by name (covered in Phase 3)
+The workflow receives the version, Hamlib branch, architecture, runner, and deployment target as inputs. It discovers signing identities from temporary keychains populated by the secrets in Phase 3.
 
-**One thing to verify:** The `entitlements.plist` file must exist in the repo root. It's referenced on line 285:
-```yaml
-ENTITLEMENTS="${GITHUB_WORKSPACE}/entitlements.plist"
-```
+Keep these repository inputs available:
 
-**Also verify:** `Darwin/com.wsjtx.sysctl.plist` must exist. It's copied into the installer package (line 319).
+- `entitlements.plist`, used by the **Code sign binaries** step;
+- `Darwin/com.wsjtx.sysctl.plist`, copied by the **Prepare installer package** step.
 
 ### 4d. Changes to `build-linux.yml`
 
@@ -338,7 +342,7 @@ That's it — a small number of adaptations, all confined to `ci.yml` and `relea
 
 ## 5. Phase 3: Create Repository Secrets
 
-Secrets are stored at the **repository** level on `wsjtx-internal`. They are never exposed in logs — GitHub masks them automatically.
+Store secrets at the **repository** level on `wsjtx-internal`. GitHub masks registered secret values in logs, but workflows must still avoid printing credentials or derived sensitive values.
 
 ### Navigate to Secrets Settings
 
@@ -380,28 +384,28 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal
 
 ### 5.2 Secrets 2-5: macOS Code Signing Certificates
 
-These four secrets allow the macOS build to sign and package the app with a Developer ID certificate, which is required for macOS Gatekeeper to accept the binary.
+These four secrets provide the distinct Developer ID identities used for application code and installer packages.
 
-#### Who holds the Apple Developer account?
+#### Credential responsibilities
 
-The WSJT-X team's Apple Developer account is currently held by **John G4KLA**. He has produced the team's existing signed, notarized macOS releases using the Developer ID certificates in his own Keychain.
+The WSJT-X Apple Developer membership is currently held by **John G4KLA**, who is therefore the current Apple Developer Account Holder. The responsibilities below are described by role so that the procedure remains valid if the Account Holder changes.
 
-**No transfer of the underlying Apple account is required** to adopt this CI/CD pipeline. The handoff is certificate-level, not account-level:
+The Apple Developer account holder exports the signing identities. A repository administrator stores the exported credentials as GitHub Actions secrets. The team must assign responsibility for credential rotation and release-artifact verification.
 
-1. John exports his existing **Developer ID Application** and **Developer ID Installer** certificates from Keychain Access as `.p12` files (see next subsection).
-2. John (or a team member John shares the `.p12` files with) base64-encodes them and loads them as GitHub secrets via `gh secret set`.
-3. The pipeline uses those secrets on each build to sign and notarize as "Developer ID: [John's team]".
-4. John retains sole ownership of the Apple Developer account. Notarization runs under his Apple ID + app-specific password (see `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` below).
+The workflow uses two identities with different responsibilities:
 
-If John ever steps down or the account owner changes, only the four Apple-related secrets need to be re-set — no workflow-file changes.
+- **Developer ID Application** signs application executables, frameworks, plug-ins, and command-line tools.
+- **Developer ID Installer** signs the outer `.pkg` installer.
+
+Notarization uses the Apple account credentials in §5.3 rather than either certificate password. Rotate a certificate's `.p12` and password together. Rotate notarization secrets when the Apple account, app-specific password, or team changes.
 
 #### Preparing the .p12 files
 
-You need two certificates from the Apple Developer portal:
+You need two signing identities associated with the Apple Developer team:
 - **Developer ID Application** — signs the app binary and dylibs
 - **Developer ID Installer** — signs the `.pkg` installer
 
-If you already have `.p12` files exported from Keychain Access (John's existing certificates, for example), skip to the base64 step.
+If you already have `.p12` files exported from Keychain Access, skip to the base64 step.
 
 **To export from Keychain Access (on a Mac):**
 
@@ -455,11 +459,11 @@ rm app.p12 installer.p12 app.p12.b64 installer.p12.b64
 
 ### 5.3 Secrets 6-8: Apple Notarization
 
-Notarization sends the signed binary to Apple's servers for malware scanning. Without it, macOS Gatekeeper shows a scary "unidentified developer" warning.
+Notarization submits the signed package to Apple's service for automated security checks. An accepted submission is then stapled to the package so the ticket can be validated without contacting Apple. Notarization is distinct from Developer ID signing and does not by itself verify Gatekeeper acceptance or application behavior.
 
 #### `APPLE_ID`
 
-The email address of the Apple Developer account — **John G4KLA's** Apple ID, since he holds the team's Developer account (see [Who holds the Apple Developer account?](#who-holds-the-apple-developer-account) above).
+The email address used by the Apple Developer account responsible for notarization.
 
 ```bash
 gh secret set APPLE_ID --repo WSJTX/wsjtx-internal
@@ -503,100 +507,70 @@ gh secret set APPLE_TEAM_ID --repo WSJTX/wsjtx-internal
 gh secret list --repo WSJTX/wsjtx-internal
 ```
 
-You should see these 8 secrets — the **macOS-signing + cross-repo-sync baseline** that the sandbox runs on today:
+The inventory must contain the cross-repository token and the complete seven-secret Apple credential set:
 
 ```
-APPLE_APP_SPECIFIC_PASSWORD     Updated 2026-...
-APPLE_ID                        Updated 2026-...
-APPLE_TEAM_ID                   Updated 2026-...
-CROSS_REPO_TOKEN                Updated 2026-...
-DEVELOPER_ID_CERTIFICATE_P12    Updated 2026-...
-DEVELOPER_ID_CERTIFICATE_PASSWORD Updated 2026-...
-DEVELOPER_ID_INSTALLER_P12      Updated 2026-...
-DEVELOPER_ID_INSTALLER_PASSWORD Updated 2026-...
+APPLE_APP_SPECIFIC_PASSWORD
+APPLE_ID
+APPLE_TEAM_ID
+CROSS_REPO_TOKEN
+DEVELOPER_ID_CERTIFICATE_P12
+DEVELOPER_ID_CERTIFICATE_PASSWORD
+DEVELOPER_ID_INSTALLER_P12
+DEVELOPER_ID_INSTALLER_PASSWORD
 ```
 
-If any are missing, the macOS build will fail at the signing step with an empty identity error.
+The workflow selects Developer ID signing from the presence of `DEVELOPER_ID_CERTIFICATE_P12`. If it is absent, the workflow ad-hoc signs application code, creates an unsigned package, skips notarization, and still uploads build artifacts. If it is present, all remaining Apple secrets must also be configured correctly or a later signing or notarization step will fail.
 
-> **About Windows signing.** The current sandbox machinery signs the Windows installer with a per-run ephemeral self-signed osslsigncode certificate (`build-windows.yml:208-239`); no Windows secrets are required at this stage. Once the team provisions the production Authenticode certificate (decision #5 in the adoption email), two additional secrets are added — Secrets 9 and 10 below — bringing the total to 10.
+> **About Windows signing.** GA installers are Authenticode-signed by SignPath Foundation on the **public** repo — see §5.4. No Windows signing secrets exist on `wsjtx-internal`; the only signing-related secret is `SIGNPATH_API_TOKEN` on `WSJTX/wsjtx`, and the certificate's private key never leaves SignPath's HSM. CI/DEVEL/RC builds use a per-run ephemeral self-signed osslsigncode certificate (no stored secret).
 
-### 5.4 Secrets 9-10: Windows Authenticode Signing (post-Phase-5 replacement of the sandbox osslsigncode step)
+### 5.4 Windows Authenticode Signing via SignPath Foundation
 
-> **Pattern-2 — sandbox vs. production Windows signing.** The current sandbox machinery uses a **per-run ephemeral self-signed osslsigncode** certificate (`build-windows.yml:208-239`), generated at build time with no stored secret. That produces a structurally-signed installer that does not chain to a trusted root — by design, because the production Authenticode certificate is team-owned (decision #5 in the adoption email). The steps in this subsection describe the **post-Phase-5 replacement**: once the team provisions the Windows Authenticode certificate, the ephemeral-cert step in `build-windows.yml:208-239` is replaced with the signtool-based step below, and two new secrets (Secrets 9-10) are added.
+> **How it works.** SignPath Foundation signs OSS artifacts **built from the public repository only** — the signature attests provenance, not just identity. `release.yml` therefore mirrors source + tag to `WSJTX/wsjtx` *before* publishing anything; the tag push triggers `sign-windows-release.yml` on the public repo, which rebuilds the installer (`build-windows.yml` with `sign_mode=none`), submits it via `signpath/github-action-submit-signing-request@v2` (org `4c211821-e011-48a2-8a84-2cc29a76a8bf`, project `wsjtx`, policy `release-signing` for GA-shaped tags), verifies the chain with `signtool verify /pa`, and uploads a `…-installer-signed` artifact. The internal release job waits for that run, swaps the signed exe in, and only then publishes both releases. A failed or rejected signing run fails the release — no unsigned GA ships. The certificate's private key lives in SignPath's HSM; there is no `.pfx` to export, store, or protect.
 
-Once the team has the Authenticode certificate, it is used in CI the same way as the macOS certificates — base64-encoded and stored as a repository secret.
+#### The one secret
 
-#### Preparing the certificate
-
-Export the existing Authenticode certificate as a `.pfx` file (if you don't already have one exported). Base64-encode it, same as the macOS certificates:
+Set on the **public** repo (not `wsjtx-internal`):
 
 ```bash
-# On macOS:
-base64 -i wsjtx-signing.pfx -o wsjtx-signing.pfx.b64
-
-# On Linux:
-base64 -w0 wsjtx-signing.pfx > wsjtx-signing.pfx.b64
+gh secret set SIGNPATH_API_TOKEN --repo WSJTX/wsjtx
+# (paste the SignPath CI user's API token, press Enter)
 ```
 
-#### Set the secrets
+The SignPath CI user must be a **submitter** on the signing policies (`release-signing`, `test-signing`). Additionally, `CROSS_REPO_TOKEN` needs **Actions:read** on `WSJTX/wsjtx` (on top of its baseline Contents:write) so the internal release job can poll the sign run and download the signed artifact.
 
-```bash
-# Windows signing certificate (base64-encoded .pfx):
-gh secret set WINDOWS_SIGNING_CERT_PFX --repo WSJTX/wsjtx-internal < wsjtx-signing.pfx.b64
+#### SignPath dashboard configuration
 
-# Password for the certificate:
-gh secret set WINDOWS_SIGNING_CERT_PASSWORD --repo WSJTX/wsjtx-internal
-# (paste the password, press Enter)
-```
+- **Artifact configuration** — GitHub Actions artifacts are always ZIP-wrapped, so the root element must be `zip-file`:
 
-**Delete local files after setting secrets:**
-```bash
-rm wsjtx-signing.pfx wsjtx-signing.pfx.b64
-```
+  ```xml
+  <?xml version="1.0" encoding="utf-8" ?>
+  <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+    <zip-file>
+      <pe-file path="*.exe">
+        <authenticode-sign />
+      </pe-file>
+    </zip-file>
+  </artifact-configuration>
+  ```
 
-#### Replacing the osslsigncode step in `build-windows.yml`
+- **Trusted build system** — the predefined *GitHub.com* trusted build system added to the SignPath org and linked to the `wsjtx` project; the [SignPath GitHub App](https://github.com/apps/signpath) installed with access to the public repo (origin verification).
 
-**Remove** the existing sandbox ephemeral-signing block at `build-windows.yml:204-239` (the `Sign installer with self-signed sandbox cert` step and its `osslsigncode verify ... || true` follow-up). **Insert** the Authenticode-based step below in its place (after the "Build" step and before "Upload build artifacts"):
+#### Validation
 
-```yaml
-    - name: Sign Windows binaries
-      shell: pwsh
-      env:
-        CERT_PFX: ${{ secrets.WINDOWS_SIGNING_CERT_PFX }}
-        CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
-      run: |
-        if (-not $env:CERT_PFX) {
-          Write-Warning "WINDOWS_SIGNING_CERT_PFX not set — skipping signing"
-          exit 0
-        }
-        $pfxPath = "$env:RUNNER_TEMP\signing.pfx"
-        [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:CERT_PFX))
+`signpath-smoke.yml` (workflow_dispatch on the public repo) signs a trivial hello-world PE through the complete round trip in ~2 minutes — no WSJT source is built or exposed. Dispatch it against `test-signing` to validate plumbing without consuming a `release-signing` approval. Success: the workflow completes green — the returned exe carries a parseable Authenticode signature (hard-checked); chain status is printed for inspection only, since the test certificate never chains to a trusted root.
 
-        $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits" `
-          -Recurse -Filter "signtool.exe" | Where-Object {
-            $_.FullName -match "x64"
-          } | Select-Object -First 1
+#### RC/DEVEL builds
 
-        if (-not $signtool) { throw "signtool.exe not found" }
-
-        foreach ($exe in @("wsjtx-build\wsjtx.exe", "wsjtx-build\jt9.exe", "wsjtx-build\wsprd.exe")) {
-          if (Test-Path $exe) {
-            & $signtool.FullName sign /f $pfxPath /p $env:CERT_PASSWORD `
-              /tr http://timestamp.digicert.com /td sha256 /fd sha256 $exe
-          }
-        }
-        Remove-Item $pfxPath
-```
-
-The step is structured to skip gracefully if the secrets aren't set — the build succeeds unsigned during initial setup while secrets are being configured.
+CI, DEVEL, and RC builds use a per-run ephemeral self-signed certificate (the `osslsigncode` step in `build-windows.yml`, skipped when the caller passes `sign_mode=none`). GA release builds pass `sign_mode=none` on both repos — the internal installer is an unsigned placeholder until the signing gate swaps in the SignPath-signed exe. RC source stays internal by policy, and Foundation cannot sign non-public builds, so RC installers use the ephemeral cert and its `|| true`-guarded verify.
 
 ### 5.5 Linux Signing (Optional)
 
 Linux binary signing is less critical — Linux users don't encounter SmartScreen-style warnings when downloading binaries. However, GPG-signing release tarballs is good practice if the team distributes `.tar.gz` or `.deb` packages. This would require one additional secret (`GPG_SIGNING_KEY`) and a small step in the release workflow.
 
-### Verification: All Secrets (post-Authenticode provisioning)
+### Verification: All Secrets
 
-Once Windows Authenticode secrets are in place (only after the team has provisioned the certificate per decision #5), the list totals 10 secrets:
+`wsjtx-internal` stays at the 8 baseline secrets; Windows signing adds exactly one secret, on the public repo:
 
 ```bash
 gh secret list --repo WSJTX/wsjtx-internal
@@ -611,8 +585,14 @@ DEVELOPER_ID_CERTIFICATE_P12      Updated 2026-...
 DEVELOPER_ID_CERTIFICATE_PASSWORD Updated 2026-...
 DEVELOPER_ID_INSTALLER_P12        Updated 2026-...
 DEVELOPER_ID_INSTALLER_PASSWORD   Updated 2026-...
-WINDOWS_SIGNING_CERT_PFX          Updated 2026-...
-WINDOWS_SIGNING_CERT_PASSWORD     Updated 2026-...
+```
+
+```bash
+gh secret list --repo WSJTX/wsjtx
+```
+
+```
+SIGNPATH_API_TOKEN                Updated 2026-...
 ```
 
 ---
@@ -623,23 +603,18 @@ These files are referenced by the workflows and must exist in the repo.
 
 ### `entitlements.plist` (repo root)
 
-The macOS build passes this file to `codesign --entitlements` when signing binaries under `Contents/MacOS` and CLI tools. It must exist at the repo root — the workflow references it unconditionally. The file should contain an **empty dict**:
+This file is the source of truth for executable entitlements. The **Code sign binaries** step applies the complete plist to every executable under `wsjtx.app/Contents/MacOS`, re-applies it when signing the app bundle and main executable, and applies it to staged standalone executables. Frameworks, plug-in libraries, and other bundled libraries do not receive this plist. The completed bundle must pass deep signature verification.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-</dict>
-</plist>
-```
+The current plist enables:
 
-WSJT-X does not need any of the permissive hardened-runtime exceptions (`allow-jit`, `allow-unsigned-executable-memory`, `disable-executable-page-protection`). The codebase is plain C++/Fortran with Qt Widgets and FFTW — no JIT, no runtime code generation, no embedded script interpreters, no `PROT_EXEC`/`mprotect`. Earlier revisions of this file inherited those entitlements from an unrelated prototype and were never audited.
+| Entitlement | Current requirement |
+|-------------|---------------------|
+| `com.apple.security.cs.disable-library-validation` | Allows loading bundled third-party code that does not satisfy library validation, including ad-hoc CI artifacts. |
+| `com.apple.security.device.audio-input` | Allows WSJT-X to capture audio under hardened runtime. `NSMicrophoneUsageDescription` in the app's `Info.plist` supplies the separate TCC permission prompt. |
 
-**Audit evidence:** Apple's notarization service accepted a signed build using this empty plist in a sandbox CI run (`Code sign binaries`, `Build installer pkg`, `Notarize pkg`, and `Notarize CLI tools` all succeeded). Notarization fails if hardened-runtime policy is violated, so successful notarization is the authoritative verification.
+Both entitlements are currently applied as one set, including to executables that may not exercise every capability. Narrowing that scope is a security-sensitive behavior change and is outside this playbook.
 
-If a future feature ever adds true runtime code generation, re-introduce only the minimum required entitlement and document the reason inline.
+Bundle signing re-signs the main executable, so it must receive the entitlement file again after nested code is signed. `codesign --verify` validates signature integrity but does not prove that required entitlements are present. Inspect the effective entitlements and exercise audio capture and a decoder cycle when validating a release.
 
 ### `Darwin/com.wsjtx.sysctl.plist`
 
@@ -794,7 +769,7 @@ Common first-run failures:
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | "Resource not accessible by integration" | Workflow permissions too restrictive | Org Settings → Actions → Workflow permissions → "Read and write" |
-| macOS signing fails with empty identity | Missing signing secrets | Set `DEVELOPER_ID_CERTIFICATE_P12` and related secrets |
+| macOS signing fails with empty identity | Application P12 is present, but the credential set is incomplete or invalid | Verify the application P12, its password, and the imported identity |
 | macOS notarization fails | Missing or wrong `APPLE_ID` / password / team ID | Verify all three notarization secrets |
 | Windows build timeout (>60 min) | MSYS2 cache miss + slow package install | Re-run — the cache will be populated for next time |
 | "refusing to allow an OAuth App to create or update workflow" | This error can appear at PR merge time if the branch contains workflow files and was pushed with a deploy key | Push the branch using a PAT or via the GitHub web UI instead |
@@ -854,19 +829,40 @@ gh api repos/WSJTX/wsjtx/git/refs/tags/"$TEST_TAG" --jq '.ref'
 
 ### Step 5: Verify the Artifacts
 
-Download and inspect at least one artifact:
+Download the release artifacts to a new directory:
 
 ```bash
-gh release download "$TEST_TAG" --repo WSJTX/wsjtx-internal --dir /tmp/release-test
-ls -la /tmp/release-test/
+RELEASE_DIR="$(mktemp -d)"
+gh release download "$TEST_TAG" --repo WSJTX/wsjtx-internal --dir "$RELEASE_DIR"
+VERSION="${TEST_TAG#build/v}"
+PKG="$RELEASE_DIR/wsjtx-${VERSION}-arm64-macOS.pkg"
 ```
 
-For the macOS `.pkg`, verify signing:
+Verify the installer signature, stapled notarization ticket, and Gatekeeper policy independently:
 
 ```bash
-pkgutil --check-signature /tmp/release-test/wsjtx-*-arm64-macOS.pkg
-# Should show "Developer ID Installer: [Team Name]"
+pkgutil --check-signature "$PKG"
+xcrun stapler validate "$PKG"
+spctl --assess --type install --verbose=2 "$PKG"
 ```
+
+Success requires a valid Developer ID Installer chain, a valid staple, and an `accepted` Gatekeeper assessment. These checks do not validate nested application signatures, entitlements, or runtime behavior.
+
+Inspect the packaged application rather than the staged build tree:
+
+```bash
+EXPANDED="$RELEASE_DIR/expanded"
+pkgutil --expand-full "$PKG" "$EXPANDED"
+APP="$EXPANDED/wsjtx-component.pkg/Payload/Applications/wsjtx.app"
+
+codesign --verify --deep --strict --verbose=2 "$APP"
+codesign -d --entitlements :- "$APP/Contents/MacOS/wsjtx"
+codesign -d --entitlements :- "$APP/Contents/MacOS/jt9"
+```
+
+Signature verification must succeed, and both inspected executables must contain the two keys in `entitlements.plist`. The effective-entitlement check detects an outer bundle re-sign that preserved a valid signature but removed the executable entitlements.
+
+Finally, install the package on a disposable or release-test macOS system and launch the installed app through Finder. Confirm that macOS grants audio input after the usage prompt, the receive level responds to live input, and `jt9` completes a decode cycle without a hardened-runtime or dynamic-loader failure. A successful signing or notarization check does not establish these runtime properties.
 
 ### Step 6: Clean Up the Test Release
 
@@ -1043,7 +1039,7 @@ Dependabot auto-rebases its PRs when the base branch moves, CI re-runs, and GitH
 
 **Context:** The signing step can't find a Developer ID certificate in the keychain.
 
-**Root cause:** The `DEVELOPER_ID_CERTIFICATE_P12` secret is empty, not base64-encoded properly, or the password is wrong.
+**Root cause:** Developer ID mode was selected because `DEVELOPER_ID_CERTIFICATE_P12` is present, but the imported file, password, or certificate contents do not yield a Developer ID Application identity.
 
 **Diagnosis:**
 ```bash
@@ -1131,20 +1127,7 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal
 
 ### Secrets Required on `wsjtx-internal`
 
-Initial adoption runs on 8 baseline secrets (macOS signing + notarization + cross-repo sync). The two Windows Authenticode secrets are added post-Phase-5, once the team provisions the production cert (decision 5 in the adoption email). Until then, Windows signing uses the per-run ephemeral self-signed osslsigncode cert built into `build-windows.yml:208-239` — no secret required.
-
-| Secret Name | Used By | Required For | Baseline (8) | Post-Phase-5 (+2) |
-|-------------|---------|-------------|:------------:|:-----------------:|
-| `CROSS_REPO_TOKEN` | `release.yml` | Public repo sync | Yes | — |
-| `DEVELOPER_ID_CERTIFICATE_P12` | `build-macos.yml` | macOS app code signing | Yes | — |
-| `DEVELOPER_ID_CERTIFICATE_PASSWORD` | `build-macos.yml` | macOS app code signing | Yes | — |
-| `DEVELOPER_ID_INSTALLER_P12` | `build-macos.yml` | macOS installer signing | Yes | — |
-| `DEVELOPER_ID_INSTALLER_PASSWORD` | `build-macos.yml` | macOS installer signing | Yes | — |
-| `APPLE_ID` | `build-macos.yml` | macOS notarization | Yes | — |
-| `APPLE_APP_SPECIFIC_PASSWORD` | `build-macos.yml` | macOS notarization | Yes | — |
-| `APPLE_TEAM_ID` | `build-macos.yml` | macOS notarization | Yes | — |
-| `WINDOWS_SIGNING_CERT_PFX` | `build-windows.yml` | Windows Authenticode signing | — | Yes |
-| `WINDOWS_SIGNING_CERT_PASSWORD` | `build-windows.yml` | Windows Authenticode signing | — | Yes |
+Use the canonical inventory and setup procedure in [Phase 3](#5-phase-3-create-repository-secrets). `CROSS_REPO_TOKEN` additionally needs Actions:read on `WSJTX/wsjtx` for release signing-run polling. The public repository's Windows SignPath workflows use `SIGNPATH_API_TOKEN`; no SignPath private key is stored in either repository.
 
 ### External Dependencies (Downloaded at Build Time)
 

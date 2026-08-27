@@ -95,7 +95,7 @@ program rtty_spec
   h=default_header(12000,NMAX)
   datmax=maxval(abs(dat))
   iwave=nint(32767.0*dat/datmax)
-  open(10,file='000000_000001.wav',access='stream',status='unknown')
+  open(10,file='000000_000001.wav',access='stream',status='replace')
   write(10) h,iwave
   close(10)
 

@@ -91,7 +91,7 @@ program ft4sim_mult
      if(any(abs(wave).gt.32767.0)) print*,"Warning - data will be clipped."
      iwave=nint(wave)
      h=default_header(12000,NZZ)
-     open(12,file=fname,status='unknown',access='stream')
+     open(12,file=fname,status='replace',access='stream')
      write(12) h,iwave                !Save to *.wav file
      close(12)
      print*,' '

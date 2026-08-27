@@ -27,7 +27,34 @@
 
 namespace
 {
+  class QNetworkAccessManagerTransport final
+    : public QObject
+    , public WSPRNet::Transport
+  {
+  public:
+    explicit QNetworkAccessManagerTransport (QObject *parent = nullptr)
+      : QObject {parent}
+      , network_manager_ {new QNetworkAccessManager {this}}
+    {
+    }
+
+    QNetworkReply *post (QNetworkRequest const& request, QByteArray const& body) override
+    {
+#if QT_VERSION < QT_VERSION_CHECK (5, 15, 0)
+      if (QNetworkAccessManager::Accessible != network_manager_->networkAccessible ()) {
+        // try and recover network access for QNAM
+        network_manager_->setNetworkAccessible (QNetworkAccessManager::Accessible);
+      }
+#endif
+      return network_manager_->post (request, body);
+    }
+
+  private:
+    QNetworkAccessManager * network_manager_;
+  };
+
   char const * const wsprNetUrl = "http://wsprnet.org/post/";
+  char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/";
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
 
   //
@@ -69,34 +96,32 @@ with app.test_request_context ():
 };
 
 WSPRNet::WSPRNet(QObject *parent)
+  : WSPRNet {nullptr, RetryPolicy {}, false, parent}
+{
+}
+
+WSPRNet::WSPRNet (Transport *transport, RetryPolicy retry_policy,
+                  bool take_transport_ownership, QObject *parent)
   : QObject {parent}
-  , network_manager_ {new QNetworkAccessManager(this)}
-  , retry_policy_ {}
+  , transport_ {transport ? transport : new QNetworkAccessManagerTransport {this}}
+  , owns_transport_ {transport && take_transport_ownership}
+  , retry_policy_ {retry_policy}
   , TR_period_ {0.F}
   , uploads_started_ {0}
   , next_file_batch_id_ {1}
+  , next_logical_upload_id_ {1}
   , upload_session_active_ {false}
 {
   upload_timer_.setSingleShot (true);
   connect (&upload_timer_, &QTimer::timeout, this, &WSPRNet::work);
 }
 
-WSPRNet::WSPRNet (QNetworkAccessManager *network_manager, RetryPolicy retry_policy,
-                  bool take_network_manager_ownership, QObject *parent)
-  : QObject {parent}
-  , network_manager_ {network_manager ? network_manager : new QNetworkAccessManager {this}}
-  , retry_policy_ {retry_policy}
-  , TR_period_ {0.F}
-  , uploads_started_ {0}
-  , next_file_batch_id_ {1}
-  , upload_session_active_ {false}
+WSPRNet::~WSPRNet ()
 {
-  if (take_network_manager_ownership && network_manager)
+  if (owns_transport_)
     {
-      network_manager_->setParent (this);
+      delete transport_;
     }
-  upload_timer_.setSingleShot (true);
-  connect (&upload_timer_, &QTimer::timeout, this, &WSPRNet::work);
 }
 
 void WSPRNet::upload (QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
@@ -184,7 +209,7 @@ void WSPRNet::queueFst4wDecode (StationContext const& context, QString const& de
 void WSPRNet::flush (StationContext const& context)
 {
   applyContext (context);
-  if (pending_uploads_.isEmpty () && outstanding_requests_.isEmpty ())
+  if (pending_primary_uploads_.isEmpty () && !hasOutstanding (UploadTarget::Primary))
     {
       enqueueUpload (urlEncodeNoSpot (), UploadSource::Direct, PayloadKind::Status);
     }
@@ -243,6 +268,51 @@ bool WSPRNet::fileMatchesSnapshot (FileSnapshot const& snapshot) const
   return QCryptographicHash::hash (contents, QCryptographicHash::Sha256) == snapshot.hash;
 }
 
+bool WSPRNet::hasPendingFileLeg (int file_batch_id, int logical_upload_id) const
+{
+  auto is_file_leg = [file_batch_id, logical_upload_id](PendingUpload const& upload)
+  {
+    return UploadSource::File == upload.source
+      && upload.file_batch_id == file_batch_id
+      && upload.logical_upload_id == logical_upload_id;
+  };
+
+  for (auto const& upload : pending_primary_uploads_)
+    {
+      if (is_file_leg (upload))
+        {
+          return true;
+        }
+    }
+  for (auto const& upload : pending_alternate_uploads_)
+    {
+      if (is_file_leg (upload))
+        {
+          return true;
+        }
+    }
+  for (auto const& upload : outstanding_requests_)
+    {
+      if (is_file_leg (upload))
+        {
+          return true;
+        }
+    }
+  return false;
+}
+
+bool WSPRNet::hasOutstanding (UploadTarget target) const
+{
+  for (auto const& upload : outstanding_requests_)
+    {
+      if (upload.target == target)
+        {
+          return true;
+        }
+    }
+  return false;
+}
+
 void WSPRNet::networkReply (QNetworkReply * reply)
 {
   if (!outstanding_requests_.contains (reply))
@@ -291,12 +361,27 @@ void WSPRNet::networkReply (QNetworkReply * reply)
 void WSPRNet::enqueueUpload (QUrlQuery const& query, UploadSource source, PayloadKind kind, QString const& source_file, int file_batch_id)
 {
   auto const now = QDateTime::currentDateTimeUtc ();
-  pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
-                             now.addMSecs (retry_policy_.ttl_ms), now, 0});
+  auto const logical_upload_id = UploadSource::File == source ? next_logical_upload_id_++ : 0;
   if (UploadSource::File == source)
     {
       auto& state = file_uploads_[file_batch_id];
       ++state.total;
+    }
+  auto enqueue_for_target = [this, &query, source, kind, &source_file, file_batch_id,
+                             logical_upload_id, now](UploadTarget target)
+  {
+    auto& uploads = target == UploadTarget::Primary
+      ? pending_primary_uploads_ : pending_alternate_uploads_;
+    uploads.enqueue ({query, source, kind, source_file, file_batch_id, now,
+                      now.addMSecs (retry_policy_.ttl_ms), now, 0, target,
+                      logical_upload_id});
+  };
+
+  enqueue_for_target (UploadTarget::Primary);
+  if (PayloadKind::Spot == kind
+      && !query.queryItemValue ("tgrid", QUrl::FullyDecoded).isEmpty ())
+    {
+      enqueue_for_target (UploadTarget::Alternate);
     }
   pruneExpiredUploads (now);
   enforcePendingLimit ();
@@ -327,29 +412,32 @@ void WSPRNet::scheduleWork ()
 
   auto const now = QDateTime::currentDateTimeUtc ();
   pruneExpiredUploads (now);
-  if (pending_uploads_.isEmpty ())
+  QDateTime next_attempt_at;
+  auto have_next_attempt = false;
+  auto consider_queue = [this, &next_attempt_at, &have_next_attempt]
+    (QQueue<PendingUpload> const& uploads, UploadTarget target)
+  {
+    if (hasOutstanding (target))
+      {
+        return;
+      }
+    for (auto const& upload : uploads)
+      {
+        if (!have_next_attempt || upload.next_attempt_at < next_attempt_at)
+          {
+            next_attempt_at = upload.next_attempt_at;
+            have_next_attempt = true;
+          }
+      }
+  };
+  consider_queue (pending_primary_uploads_, UploadTarget::Primary);
+  consider_queue (pending_alternate_uploads_, UploadTarget::Alternate);
+  if (!have_next_attempt)
     {
       upload_timer_.stop ();
       return;
     }
 
-  // Send one spot at a time so QNAM reuses a single keep-alive connection
-  // instead of opening parallel sockets; the completing reply re-schedules
-  // the next send via networkReply().
-  if (!outstanding_requests_.isEmpty ())
-    {
-      upload_timer_.stop ();
-      return;
-    }
-
-  auto next_attempt_at = pending_uploads_.head ().next_attempt_at;
-  for (auto const& upload : pending_uploads_)
-    {
-      if (upload.next_attempt_at < next_attempt_at)
-        {
-          next_attempt_at = upload.next_attempt_at;
-        }
-    }
   auto const delay = qMax<qint64> (0, now.msecsTo (next_attempt_at));
   upload_timer_.start (static_cast<int> (qMin<qint64> (delay, std::numeric_limits<int>::max ())));
 }
@@ -357,18 +445,23 @@ void WSPRNet::scheduleWork ()
 void WSPRNet::pruneExpiredUploads (QDateTime const& now)
 {
   int dropped = 0;
-  for (int i = 0; i < pending_uploads_.size ();)
+  auto prune_queue = [this, &now, &dropped](QQueue<PendingUpload>& uploads)
     {
-      if (pending_uploads_[i].expires_at <= now)
+      for (int i = 0; i < uploads.size ();)
         {
-          markFailed (pending_uploads_.takeAt (i));
-          ++dropped;
+          if (uploads[i].expires_at <= now)
+            {
+              markFailed (uploads.takeAt (i));
+              ++dropped;
+            }
+          else
+            {
+              ++i;
+            }
         }
-      else
-        {
-          ++i;
-        }
-    }
+    };
+  prune_queue (pending_primary_uploads_);
+  prune_queue (pending_alternate_uploads_);
   if (dropped)
     {
       Q_EMIT uploadStatus (QString {"Dropped %1 expired WSPRNet upload(s)"}.arg (dropped));
@@ -382,11 +475,16 @@ void WSPRNet::enforcePendingLimit ()
   pruneExpiredUploads (now);
 
   int dropped = 0;
-  while (pending_uploads_.size () > max_pending)
+  auto enforce_queue_limit = [this, max_pending, &dropped](QQueue<PendingUpload>& uploads)
     {
-      markFailed (pending_uploads_.dequeue ());
-      ++dropped;
-    }
+      while (uploads.size () > max_pending)
+        {
+          markFailed (uploads.dequeue ());
+          ++dropped;
+        }
+    };
+  enforce_queue_limit (pending_primary_uploads_);
+  enforce_queue_limit (pending_alternate_uploads_);
   if (dropped)
     {
       Q_EMIT uploadStatus (QString {"Dropped %1 oldest pending WSPRNet upload(s)"}.arg (dropped));
@@ -395,20 +493,15 @@ void WSPRNet::enforcePendingLimit ()
 
 void WSPRNet::sendUpload (PendingUpload upload)
 {
-#if QT_VERSION < QT_VERSION_CHECK (5, 15, 0)
-  if (QNetworkAccessManager::Accessible != network_manager_->networkAccessible ()) {
-    // try and recover network access for QNAM
-    network_manager_->setNetworkAccessible (QNetworkAccessManager::Accessible);
-  }
-#endif
-  QNetworkRequest request (QUrl {wsprNetUrl});
+  auto const url = upload.target == UploadTarget::Primary ? wsprNetUrl : wsprNetUrl2;
+  QNetworkRequest request (QUrl {url});
   request.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
   if (!upload.attempts)
     {
       ++uploads_started_;
     }
   ++upload.attempts;
-  QNetworkReply *reply = network_manager_->post (request, upload.query.query (QUrl::FullyEncoded).toUtf8 ());
+  QNetworkReply *reply = transport_->post (request, upload.query.query (QUrl::FullyEncoded).toUtf8 ());
   connect (reply, &QNetworkReply::finished, this, [this, reply]() { networkReply (reply); });
   outstanding_requests_.insert (reply, upload);
   Q_EMIT uploadStatus (QString {"Uploading Spot %1/%2"}.arg (uploads_started_).arg (uploadsToSend ()));
@@ -457,20 +550,27 @@ int WSPRNet::retryDelayMs (PendingUpload const& upload) const
 int WSPRNet::uploadsToSend () const
 {
   auto total = uploads_started_;
-  for (auto const& upload : pending_uploads_)
+  auto count_unstarted = [&total](QQueue<PendingUpload> const& uploads)
     {
-      if (!upload.attempts)
+      for (auto const& upload : uploads)
         {
-          ++total;
+          if (!upload.attempts)
+            {
+              ++total;
+            }
         }
-    }
+    };
+  count_unstarted (pending_primary_uploads_);
+  count_unstarted (pending_alternate_uploads_);
   return qMax (uploads_started_, total);
 }
 
 void WSPRNet::retryUpload (PendingUpload upload, QDateTime const& now, int retry_delay_ms)
 {
   upload.next_attempt_at = now.addMSecs (retry_delay_ms);
-  pending_uploads_.enqueue (upload);
+  auto& uploads = upload.target == UploadTarget::Primary
+    ? pending_primary_uploads_ : pending_alternate_uploads_;
+  uploads.enqueue (upload);
   Q_EMIT uploadStatus (QString {"Retrying WSPRNet upload in %1 ms"}.arg (retry_delay_ms));
   enforcePendingLimit ();
 }
@@ -479,8 +579,13 @@ void WSPRNet::markAccepted (PendingUpload const& upload)
 {
   if (UploadSource::File == upload.source)
     {
-      auto& state = file_uploads_[upload.file_batch_id];
-      ++state.accepted;
+      auto state = file_uploads_.find (upload.file_batch_id);
+      if (state == file_uploads_.end ())
+        {
+          return;
+        }
+      state->accepted.insert (upload.logical_upload_id);
+      state->failed.remove (upload.logical_upload_id);
       maybeRemoveCompletedFile (upload.file_batch_id);
       maybeRemoveFailedFileBatch (upload.file_batch_id);
     }
@@ -490,7 +595,15 @@ void WSPRNet::markFailed (PendingUpload const& upload)
 {
   if (UploadSource::File == upload.source)
     {
-      file_uploads_[upload.file_batch_id].failed = true;
+      auto state = file_uploads_.find (upload.file_batch_id);
+      if (state == file_uploads_.end () || state->accepted.contains (upload.logical_upload_id))
+        {
+          return;
+        }
+      if (!hasPendingFileLeg (upload.file_batch_id, upload.logical_upload_id))
+        {
+          state->failed.insert (upload.logical_upload_id);
+        }
       maybeRemoveFailedFileBatch (upload.file_batch_id);
     }
 }
@@ -498,26 +611,15 @@ void WSPRNet::markFailed (PendingUpload const& upload)
 void WSPRNet::maybeRemoveFailedFileBatch (int file_batch_id)
 {
   auto const state = file_uploads_.constFind (file_batch_id);
-  if (state == file_uploads_.constEnd () || !state->failed)
+  if (state == file_uploads_.constEnd () || state->failed.isEmpty ())
     {
       return;
     }
 
-  for (auto const& upload : pending_uploads_)
+  if (state->accepted.size () + state->failed.size () >= state->total)
     {
-      if (UploadSource::File == upload.source && upload.file_batch_id == file_batch_id)
-        {
-          return;
-        }
+      file_uploads_.remove (file_batch_id);
     }
-  for (auto const& upload : outstanding_requests_)
-    {
-      if (UploadSource::File == upload.source && upload.file_batch_id == file_batch_id)
-        {
-          return;
-        }
-    }
-  file_uploads_.remove (file_batch_id);
 }
 
 void WSPRNet::maybeRemoveCompletedFile (int file_batch_id)
@@ -528,7 +630,7 @@ void WSPRNet::maybeRemoveCompletedFile (int file_batch_id)
     }
 
   auto const state = file_uploads_.value (file_batch_id);
-  if (!state.failed && state.total > 0 && state.accepted == state.total)
+  if (state.total > 0 && state.accepted.size () == state.total)
     {
       QFile f {state.snapshot.path};
       // wsprd can rewrite this scratch file between the check and remove.
@@ -547,7 +649,8 @@ void WSPRNet::maybeFinalize ()
     {
       return;
     }
-  if (pending_uploads_.isEmpty () && outstanding_requests_.isEmpty ())
+  if (pending_primary_uploads_.isEmpty () && pending_alternate_uploads_.isEmpty ()
+      && outstanding_requests_.isEmpty ())
     {
       uploads_started_ = 0;
       upload_session_active_ = false;
@@ -560,6 +663,10 @@ bool WSPRNet::decodeLine (QString const& line, SpotQueue::value_type& query) con
 {
   auto const& rx_match = wspr_re.match (line);
   if (rx_match.hasMatch ()) {
+    if (line.contains ("<...>")) {
+      return false;
+    }
+
     int msgType = 0;
     QString msg = rx_match.captured (7);
     QString call, grid, dbm;
@@ -663,24 +770,24 @@ void WSPRNet::work()
   auto const now = QDateTime::currentDateTimeUtc ();
   pruneExpiredUploads (now);
 
-  // Keep at most one request in flight so the connection is reused.
-  if (!outstanding_requests_.isEmpty ())
+  auto send_ready_upload = [this, &now](QQueue<PendingUpload>& uploads, UploadTarget target)
     {
-      scheduleWork ();
-      maybeFinalize ();
-      return;
-    }
-
-  for (int i = 0; i < pending_uploads_.size (); ++i)
-    {
-      if (pending_uploads_[i].next_attempt_at <= now)
+      if (hasOutstanding (target))
         {
-          sendUpload (pending_uploads_.takeAt (i));
-          scheduleWork ();
-          maybeFinalize ();
           return;
         }
-    }
+      for (int i = 0; i < uploads.size (); ++i)
+        {
+          if (uploads[i].next_attempt_at <= now)
+            {
+              sendUpload (uploads.takeAt (i));
+              return;
+            }
+        }
+    };
+
+  send_ready_upload (pending_primary_uploads_, UploadTarget::Primary);
+  send_ready_upload (pending_alternate_uploads_, UploadTarget::Alternate);
 
   scheduleWork ();
   maybeFinalize ();
@@ -688,7 +795,8 @@ void WSPRNet::work()
 
 void WSPRNet::abortOutstandingRequests () {
   upload_timer_.stop ();
-  pending_uploads_.clear ();
+  pending_primary_uploads_.clear ();
+  pending_alternate_uploads_.clear ();
   file_uploads_.clear ();
   uploads_started_ = 0;
   upload_session_active_ = false;

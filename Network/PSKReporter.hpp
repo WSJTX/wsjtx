@@ -21,6 +21,8 @@ public:
     bool use_tcpip;
     QString eclipse_file_path;
     QString program_info;
+    QString destination_host {"report.pskreporter.info"};
+    quint16 destination_port {4739};
   };
 
   explicit PSKReporter (Configuration const *, QString const& program_info);

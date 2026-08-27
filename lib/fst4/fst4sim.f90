@@ -164,7 +164,7 @@ program fst4sim
          write(fname,1104) ifile
 1104     format('000000_',i4.4,'.wav')
       endif
-      open(10,file=trim(fname),status='unknown',access='stream')
+      open(10,file=trim(fname),status='replace',access='stream')
       write(10) h,iwave                !Save to *.wav file
       close(10)
       write(*,1110) ifile,xdt,f00,snrdb,fname

@@ -7,8 +7,8 @@ subroutine sfrx_sub(nyymmdd,nutc,nfqso,ntol,iwave)
   integer*8 secday,ntime8
   integer*1 xdec(0:49)
   character*13 foxcall
-  complex c0(NMAX)                    !Complex form of signal as received
-  real dd(NMAX)
+  complex, allocatable :: c0(:)       !Complex form of signal as received
+  real, allocatable :: dd(:)
   logical crc_ok
   data secday/86400/
 
@@ -31,6 +31,7 @@ subroutine sfrx_sub(nyymmdd,nutc,nfqso,ntol,iwave)
      ntime8=secday*(JD(iyr,imo,iday)-2440588) + 3600*ih + 60*im + is
   endif
 
+  allocate(c0(NMAX),dd(NMAX))
   dd=iwave
   call sfox_remove_ft8(dd,npts)
 

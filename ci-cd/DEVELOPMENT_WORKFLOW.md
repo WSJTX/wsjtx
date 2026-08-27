@@ -180,8 +180,8 @@ Or use the GitHub web UI: go to the repo, click "Compare & pull request" on the 
 
 When the PR is opened (and on every subsequent push to the PR branch), CI builds the code on all five platforms:
 
-- **macOS ARM64** — builds, signs, and notarizes
-- **macOS Intel x86_64** — builds, signs, and notarizes
+- **macOS ARM64** — builds; Developer ID signing and notarization require credentials
+- **macOS Intel x86_64** — builds; Developer ID signing and notarization require credentials
 - **Linux x86_64** — builds
 - **Linux aarch64** — builds (ARM Linux, via `ubuntu-24.04-arm`)
 - **Windows x86_64** — builds and signs via MSYS2/MinGW
@@ -307,8 +307,8 @@ CI/CD serves two purposes: **quality gates** (does it compile?) and **release au
 
 **What CI checks:**
 - The code compiles on all five platforms (macOS ARM64, macOS Intel x86_64, Linux x86_64, Linux aarch64, Windows x86_64)
-- On macOS: the binary is correctly signed and notarized
-- On Windows: the NSIS installer is signed — sandbox uses a per-run ephemeral self-signed cert via `osslsigncode` (no stored secret; proves the signing step is wired into the pipeline), production replaces this with the team's Authenticode certificate in an encrypted secret (see email decision 5).
+- On macOS: application code is signed for build validation; Developer ID signing and notarization require credentials
+- On Windows: the NSIS installer is signed — GA releases via SignPath Foundation (rebuilt and signed from the public repo by `sign-windows-release.yml`), CI/DEVEL/RC builds via a per-run ephemeral self-signed cert with `osslsigncode` (no stored secret).
 - Build artifacts are uploaded for inspection
 - **Tests pass on every platform** (Qt helpers, decoder smoke tests, pFUnit Fortran unit tests — registered via ctest). See [Test Failure Policy](#test-failure-policy) below.
 
@@ -378,8 +378,8 @@ Team decides to release v3.0.1
   ┌───────────────────────────────────────────────┐
   │              release.yml                      │
   │                                               │
-  │  1. Build macOS ARM64 (signed + notarized)     │
-  │  2. Build macOS Intel x86_64 (signed + notar) │
+  │  1. Build macOS ARM64                          │
+  │  2. Build macOS Intel x86_64                   │
   │  3. Build Linux x86_64                        │
   │  4. Build Linux aarch64                       │
   │  5. Build Windows x86_64 (signed — sandbox:   │
@@ -481,7 +481,7 @@ This triggers a full pipeline run. Because the tag contains a hyphen, the result
 Before promoting an RC to GA, confirm:
 
 - All five platform jobs in the `Release` workflow ran green
-- The macOS `.pkg` installs without Gatekeeper warnings (notarization is live)
+- The macOS `.pkg` passes the signing, staple, Gatekeeper, entitlement, and installed-runtime checks in the Deployment Playbook
 - At least one volunteer on each supported platform (macOS ARM64, macOS Intel x86_64, Linux x86_64, Linux aarch64, Windows x86_64) has installed the RC and exercised the workflow they care about
 - No critical issue has been filed against the RC for a reasonable soak period (typically 48 hours after the platform volunteers confirm)
 
@@ -506,12 +506,12 @@ If new changes landed on the release branch between the last RC and the GA tag, 
 
 | Artifact | Platform | Signed | Notes |
 |----------|----------|--------|-------|
-| `wsjtx-3.0.1-arm64-macOS.pkg` | macOS ARM64 | Yes (Developer ID + Apple Notarization) | Gatekeeper-ready, no user warnings |
-| `wsjtx-3.0.1-x86_64-macOS.pkg` | macOS Intel x86_64 | Yes (Developer ID + Apple Notarization) | Gatekeeper-ready, no user warnings |
+| `wsjtx-3.0.1-arm64-macOS.pkg` | macOS ARM64 | With credentials | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
+| `wsjtx-3.0.1-x86_64-macOS.pkg` | macOS Intel x86_64 | With credentials | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
 | `wsjtx-3.0.1-linux-x86_64.AppImage` | Linux x86_64 | No | GPG signing can be added |
 | `wsjtx-3.0.1-linux-aarch64.AppImage` | Linux aarch64 | No | GPG signing can be added |
-| `wsjtx-3.0.1-win64.exe` | Windows x86_64 | Yes (sandbox: ephemeral self-signed via `osslsigncode`; production: Authenticode — see email decision 5) | NSIS installer |
-| Individual binary `.tar.gz` archives | macOS ARM64, macOS Intel | Yes | Signed and notarized |
+| `wsjtx-3.0.1-win64.exe` | Windows x86_64 | Yes (GA: SignPath Foundation Authenticode; RC/DEVEL: ephemeral self-signed via `osslsigncode`) | NSIS installer |
+| Individual binary `.tar.gz` archives | macOS ARM64, macOS Intel | With credentials | Contain Developer ID-signed binaries submitted for notarization; archives are not stapled |
 | `wsjtx-3.0.1-src.tar.gz` | Source | N/A | `git archive` of the tagged commit; top-level repo only (no submodules) |
 
 ### Who can trigger a release?
@@ -713,10 +713,10 @@ The `release.yml` workflow triggers automatically:
   build/v3.0.1 tag pushed
     │
     ├─→ macOS ARM64 build (8 min, cached)
-    │     └─→ Signed .pkg + notarized binaries
+    │     └─→ .pkg + individual binaries
     │
     ├─→ macOS Intel x86_64 build (10 min, cached)
-    │     └─→ Signed .pkg + notarized binaries
+    │     └─→ .pkg + individual binaries
     │
     ├─→ Linux x86_64 build (7 min, cached)
     │     └─→ AppImage + individual binaries
@@ -725,14 +725,18 @@ The `release.yml` workflow triggers automatically:
     │     └─→ AppImage + individual binaries
     │
     ├─→ Windows x86_64 build (15 min, cached)
-    │     └─→ Signed NSIS installer (sandbox: self-signed;
-    │         production: Authenticode — see email decision 5)
+    │     └─→ NSIS installer (GA: unsigned here, SignPath signs the
+    │         public-repo rebuild; RC/DEVEL: ephemeral self-signed)
     │
     └─→ Release job (after all builds complete)
-          ├─→ Creates GitHub Release "WSJT-X 3.0.1"
-          │     with all five installer-grade artifacts attached
           ├─→ Pushes source to WSJTX/wsjtx master
-          └─→ Pushes tag build/v3.0.1 to WSJTX/wsjtx
+          ├─→ Pushes tag v3.0.1 to WSJTX/wsjtx
+          │     └─→ triggers sign-windows-release.yml there:
+          │         rebuild from public source → SignPath signs →
+          │         signtool verifies chain
+          ├─→ Waits for the signed installer, swaps it in
+          └─→ Creates GitHub Releases (internal + public) with
+                all installer-grade artifacts, Windows exe signed
 ```
 
 ### 5. Verify

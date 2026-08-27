@@ -11,7 +11,15 @@
 
 #include <QString>
 
+struct DecodedMessageFields
+{
+  QString destination;
+  QString sender;
+  QString grid;
+  bool cq {};
+};
 
+DecodedMessageFields parseDecodedMessage (QString message);
 
 /*
 012345678901234567890123456789012345678901
@@ -33,6 +41,7 @@ public:
 
   QString string() const { return string_; };
   QString clean_string() const { return clean_string_; };
+  QString message() const { return message_; };
   QStringList messageWords () const;
   int indexOf(QString s) const { return string_.indexOf(s); };
   int indexOf(QString s, int i) const { return string_.indexOf(s,i); };

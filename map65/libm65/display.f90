@@ -27,7 +27,7 @@ subroutine display(nkeep, ftol)
   ! Hz offset within kHz) alongside cfreq0 in the "&" bandmap line.
   ! The C++ overlay handler (mainwindow.cpp processStdOut) reads
   ! both fields and places the tick at nkHz + ndf/1000 instead of
-  ! integer kHz, which was up to ±500 Hz off on signals with
+  ! integer kHz, which was up to ï¿½500 Hz off on signals with
   ! non-zero ndf.
   character(len=18)  :: freqcall(MAXCALLS)
 
@@ -101,6 +101,18 @@ subroutine display(nkeep, ftol)
         write(26,1022) line(i)
 1022    format(a83)
      enddo
+     ! Rewriting fewer records than the file previously held does not
+     ! shrink it -- the old, longer tail stays on disk past this point.
+     ! Without truncating here, a later rewind+read pass reads straight
+     ! through into that stale leftover data and resurrects entries this
+     ! trim was supposed to drop for good, causing unbounded growth of
+     ! the Messages window over a long session regardless of nkeep.
+     ! endfile leaves the file positioned after the EOF marker it just
+     ! wrote, and Fortran forbids further sequential I/O from there
+     ! without repositioning first -- backspace moves back onto that
+     ! marker so the next append (map65a.f90/q65b.F90) can write there.
+     endfile(26)
+     backspace(26)
   endif
 
   flush(26)

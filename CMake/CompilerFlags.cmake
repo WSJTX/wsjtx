@@ -1,5 +1,5 @@
 #
-# Compiler/linker flags, Fortran-C interop, RPATH, and qmake queries
+# Compiler/linker flags, Fortran-C interop, RPATH, and Qt install paths
 # -- included from the top-level CMakeLists.txt at the equivalent
 # point. Included (not add_subdirectory'd), so CMAKE_CURRENT_SOURCE_DIR
 # stays the project root; depends on package/compiler results from
@@ -31,10 +31,10 @@ if (WIN32)
 endif (WIN32)
 
 if (APPLE AND ${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 else ()
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=gnu++11 -pthread")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 endif ()
 
 
@@ -49,6 +49,9 @@ get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   # gfortran
 
+  # Procedure trampolines require executable stack memory on affected targets.
+  set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Werror=trampolines")
+
   # CMake compiler test is supposed to do this but doesn't yet
   if (CMAKE_OSX_DEPLOYMENT_TARGET)
     set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
@@ -57,10 +60,11 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
     set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
   endif (CMAKE_OSX_SYSROOT)
 
-  # Add assembler flag to disable executable stack
+  # Decoder callbacks are module procedures, so all gfortran builds can keep
+  # the process stack non-executable.
   if (UNIX AND NOT APPLE AND Fortran_COMPILER_NAME MATCHES "gfortran.*")
-     set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wa,--noexecstack")
-  endif()
+    set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wa,--noexecstack")
+  endif ()
 
   set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -funroll-loops -fno-f2c -ffpe-summary=invalid,zero,overflow,underflow ${General_FFLAGS}")
 
@@ -108,6 +112,11 @@ FortranCInterface_HEADER (FC.h MACRO_NAMESPACE "FC_" SYMBOL_NAMESPACE "FC_"
   grayline
   )
 
+if (WSJT_ENABLE_ASAN_UBSAN AND WSJT_ENABLE_TSAN)
+  message (FATAL_ERROR
+    "WSJT_ENABLE_ASAN_UBSAN and WSJT_ENABLE_TSAN cannot be enabled together.")
+endif ()
+
 if (WSJT_ENABLE_ASAN_UBSAN)
   if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message (FATAL_ERROR "WSJT_ENABLE_ASAN_UBSAN is supported only on Linux.")
@@ -154,6 +163,50 @@ if (WSJT_ENABLE_ASAN_UBSAN)
     "-fsanitize=address,undefined")
   link_libraries (wsjt_sanitizers)
   message (STATUS "AddressSanitizer and UndefinedBehaviorSanitizer enabled")
+elseif (WSJT_ENABLE_TSAN)
+  if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message (FATAL_ERROR "WSJT_ENABLE_TSAN is supported only on Linux.")
+  endif ()
+  if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
+      NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
+      NOT CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    message (FATAL_ERROR
+      "WSJT_ENABLE_TSAN requires GNU C, C++, and Fortran compilers.")
+  endif ()
+
+  include (CheckCCompilerFlag)
+  include (CheckCXXCompilerFlag)
+  include (CheckFortranCompilerFlag)
+  set (_wsjt_sanitizer_probe_flags "-fsanitize=thread")
+  set (_wsjt_saved_required_libraries "${CMAKE_REQUIRED_LIBRARIES}")
+  list (APPEND CMAKE_REQUIRED_LIBRARIES "-fsanitize=thread")
+  check_c_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_C_TSAN_SUPPORTED)
+  check_cxx_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_CXX_TSAN_SUPPORTED)
+  check_fortran_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_FORTRAN_TSAN_SUPPORTED)
+  set (CMAKE_REQUIRED_LIBRARIES "${_wsjt_saved_required_libraries}")
+  if (NOT WSJT_C_TSAN_SUPPORTED OR
+      NOT WSJT_CXX_TSAN_SUPPORTED OR
+      NOT WSJT_FORTRAN_TSAN_SUPPORTED)
+    message (FATAL_ERROR
+      "The selected GNU toolchain cannot compile and link TSan code in every project language.")
+  endif ()
+
+  add_library (wsjt_sanitizers INTERFACE)
+  target_compile_options (wsjt_sanitizers INTERFACE
+    $<$<COMPILE_LANGUAGE:C>:-fsanitize=thread>
+    $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=thread>
+    $<$<COMPILE_LANGUAGE:Fortran>:-fsanitize=thread>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=tsan>
+    -fno-omit-frame-pointer
+    -g1
+    -O1
+    )
+  target_link_libraries (wsjt_sanitizers INTERFACE "-fsanitize=thread")
+  link_libraries (wsjt_sanitizers)
+  message (STATUS "ThreadSanitizer enabled")
 endif ()
 
 
@@ -192,22 +245,30 @@ if (NOT "${QT_LIBRARY_DIR}" STREQUAL "/lib" AND NOT "${QT_LIBRARY_DIR}" STREQUAL
   set (QT_NEED_RPATH TRUE)
 endif ()
 
-#
-# stuff only qmake can tell us
-#
-get_target_property (QMAKE_EXECUTABLE Qt5::qmake LOCATION)
 get_target_property (LCONVERT_EXECUTABLE Qt5::lconvert LOCATION)
-function (QUERY_QMAKE VAR RESULT)
-  exec_program (${QMAKE_EXECUTABLE} ARGS "-query ${VAR}" RETURN_VALUE return_code OUTPUT_VARIABLE output)
-  if (NOT return_code)
-    file (TO_CMAKE_PATH "${output}" output)
-    set (${RESULT} ${output} PARENT_SCOPE)
-  endif (NOT return_code)
-  message (STATUS "Asking qmake for ${RESULT} and got ${output}")
-endfunction (QUERY_QMAKE)
 
-query_qmake (QT_INSTALL_PLUGINS QT_PLUGINS_DIR)
-query_qmake (QT_INSTALL_TRANSLATIONS QT_TRANSLATIONS_DIR)
-query_qmake (QT_INSTALL_IMPORTS QT_IMPORTS_DIR)
-query_qmake (QT_HOST_DATA QT_DATA_DIR)
-set (QT_MKSPECS_DIR ${QT_DATA_DIR}/mkspecs)
+if (NOT Qt5Gui_PLUGINS)
+  message (FATAL_ERROR "Qt did not provide any imported GUI plugin targets")
+endif ()
+list (GET Qt5Gui_PLUGINS 0 qt_plugin_target_)
+get_target_property (qt_plugin_file_ ${qt_plugin_target_} LOCATION)
+get_filename_component (qt_plugin_type_dir_ "${qt_plugin_file_}" DIRECTORY)
+get_filename_component (QT_PLUGINS_DIR "${qt_plugin_type_dir_}" DIRECTORY)
+message (STATUS "Qt plugins directory: ${QT_PLUGINS_DIR}")
+
+# Qt 5's qtpaths does not expose the translations directory, whose layout
+# varies across platforms and distribution packages.
+get_target_property (QMAKE_EXECUTABLE Qt5::qmake LOCATION)
+execute_process (
+  COMMAND "${QMAKE_EXECUTABLE}" -query QT_INSTALL_TRANSLATIONS
+  RESULT_VARIABLE qt_translations_query_result_
+  OUTPUT_VARIABLE QT_TRANSLATIONS_DIR
+  ERROR_VARIABLE qt_translations_query_error_
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+if (NOT "${qt_translations_query_result_}" STREQUAL "0" OR NOT QT_TRANSLATIONS_DIR)
+  message (FATAL_ERROR
+    "Unable to determine the Qt translations directory: ${qt_translations_query_error_}")
+endif ()
+file (TO_CMAKE_PATH "${QT_TRANSLATIONS_DIR}" QT_TRANSLATIONS_DIR)
+message (STATUS "Qt translations directory: ${QT_TRANSLATIONS_DIR}")

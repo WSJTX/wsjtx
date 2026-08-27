@@ -1,5 +1,6 @@
 set (libq65_FSRCS
 # Modules come first:
+  qmap_decode_ipc.f90
   cacb_mod.f90
 
 # Non-module Fortran routines:
@@ -62,5 +63,7 @@ set_source_files_properties (q65b.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dumm
 # build our targets
 #
 add_library (qmap_impl STATIC ${libq65_FSRCS} ${libq65_CSRCS} ${libq65_CXXSRCS})
-target_link_libraries (qmap_impl PUBLIC Qt5::Core)
+if (NOT APPLE)
+  target_link_libraries (qmap_impl PUBLIC Qt5::Core)
+endif ()
 wsjt_link_common_fortran (qmap_impl)

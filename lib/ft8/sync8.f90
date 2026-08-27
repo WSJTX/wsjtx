@@ -14,6 +14,7 @@ subroutine sync8(dd,npts,nfa,nfb,syncmin,nfqso,maxcand,candidate,ncand,sbase)
   real red(NH1)
   real red2(NH1)
   real candidate0(3,MAXPRECAND)
+  real candidate_sync(MAXPRECAND)
   real candidate(3,maxcand)
   real dd(npts)
   integer jpeak(NH1)
@@ -151,7 +152,8 @@ subroutine sync8(dd,npts,nfa,nfb,syncmin,nfqso,maxcand,candidate,ncand,sbase)
   s=fac*s
 
 ! Sort by sync
-  call indexx(candidate0(3,1:ncand),ncand,indx)
+  candidate_sync(1:ncand)=candidate0(3,1:ncand)
+  call indexx(candidate_sync,ncand,indx)
 ! Place candidates within 10 Hz of nfqso at the top of the list
   k=1
   do i=1,ncand

@@ -1,5 +1,6 @@
 #include "plotter.h"
 #include <math.h>
+#include <algorithm>
 #include <QDebug>
 #include <fstream>
 #include <iostream>
@@ -8,7 +9,10 @@
 
 
 CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
-  QFrame(parent)
+  QFrame(parent),
+  m_decodeClickCoalescer {this, [this] (QByteArray const& decodeRow, DecodeClickGesture gesture) {
+    emit decodeLabelClicked (decodeRow, gesture);
+  }}
 {
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
@@ -18,26 +22,12 @@ CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   setAttribute(Qt::WA_NoSystemBackground, true);
   setMouseTracking(true);
 
-  m_StartFreq = 100;
-  m_nSpan=65;                    //Units: kHz
-  m_fSpan=(float)m_nSpan;
-  m_hdivs = HORZ_DIVS;
-  m_FreqUnits = 1;
-  m_Running = false;
-  m_paintEventBusy=false;
   m_WaterfallPixmap = QPixmap(0,0);
   m_ZoomWaterfallPixmap = QPixmap(0,0);
   m_2DPixmap = QPixmap(0,0);
   m_ScalePixmap = QPixmap(0,0);
   m_ZoomScalePixmap = QPixmap(0,0);
   m_Size = QSize(0,0);
-  m_fQSO = 125;
-  m_TXkHz = m_fQSO;
-  m_line = 0;
-  m_fSample = 96000;
-  m_paintAllZoom = false;
-  m_TxDF=0;
-  m_bDecodeFinished=false;
 }
 
 CPlotter::~CPlotter() { }                                      // Destructor
@@ -55,7 +45,20 @@ QSize CPlotter::sizeHint() const
 void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
 {
   if(!size().isValid()) return;
-  if( m_Size != size() ) {
+  applySize();
+}
+
+void CPlotter::ensureSized(int w, int h)
+{
+  resize(w, h);
+  if(!size().isValid()) return;
+  applySize();
+}
+
+void CPlotter::applySize()
+{
+  bool changed = (m_Size != size());
+  if(changed) {
     //if changed, resize pixmaps to new screensize
     m_Size = size();
     int w = m_Size.width();
@@ -66,14 +69,27 @@ void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
     m_WaterfallPixmap.fill(Qt::black);
     m_ZoomWaterfallPixmap.fill(Qt::black);
     m_2DPixmap.fill(Qt::black);
-    memset(m_zwf,0,32768*h);
     m_ScalePixmap = QPixmap(w,30);
     m_ZoomScalePixmap = QPixmap(w,30);    //(no change on resize...)
     m_ScalePixmap.fill(Qt::white);
     m_ZoomScalePixmap.fill(Qt::yellow);
+
+    // m_zwf (the zoom row's raw per-bin history) is intentionally NOT
+    // cleared here -- it's sized independently of the widget and already
+    // holds the real data; only the just-recreated pixmaps above lost
+    // their pixels.
   }
   SetCenterFreq(-1);
-  DrawOverlay();
+  DrawOverlay();      // recomputes m_binsPerPixel/m_fSpan for the new width
+  if(changed) {
+    // Repaint both rows from the raw data that survived, now that
+    // DrawOverlay() above has updated m_fSpan/m_binsPerPixel to match
+    // the new width -- rebuildWideFromHistory() needs the *current*
+    // frequency-per-pixel to remap old rows by frequency, not raw index.
+    rebuildWideFromHistory();
+    m_paintAllZoom = true;      // forces paintEvent to fully repaint the
+                                 // zoom row from m_zwf at the new size
+  }
 }
 
 void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
@@ -87,6 +103,9 @@ void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
   int h = (m_Size.height()-60)/2;
   painter.drawPixmap(0,0,m_ScalePixmap);
   painter.drawPixmap(0,30,m_WaterfallPixmap);
+  if (!m_decodeLabels.isEmpty()) {
+    paintDecodeLabels(painter);
+  }
   if(m_2Dspec) {
     painter.drawPixmap(0,h+30,m_ScalePixmap);
     painter.drawPixmap(0,h+60,m_2DPixmap);
@@ -182,6 +201,8 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
   int i,j,w,h;
   float y;
 
+  if (m_WaterfallPixmap.isNull()) return;   // not yet sized (window never shown)
+
   m_i0=i0;
   w = m_WaterfallPixmap.width();
   h = m_WaterfallPixmap.height();
@@ -240,6 +261,22 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
     }
   }
 
+  // Remember this row (raw, pre-color-map, post-abs), along with the
+  // frequency-per-pixel it was captured at, so a later resize can repaint
+  // m_WaterfallPixmap by remapping frequency to the new width instead of
+  // just blanking it (or, worse, copying pixel index i to pixel index i
+  // regardless of how many kHz that pixel now represents).
+  {
+    QVector<float> row(w);
+    for (int k=0; k<w; k++) row[k]=s[k];
+    WideHistoryLine line;
+    line.row = row;
+    line.startFreq = m_StartFreq;
+    line.df = (w>0) ? m_fSpan/w : 0.0;
+    m_wideHistory.prepend(line);
+    if (m_wideHistory.size() > kMaxWideHistory) m_wideHistory.removeLast();
+  }
+
   for(i=0; i<32768; i++) {
     y = 10.0*log10(splot[i]);
     int y1 = 5.0*gain*(y + 30 - m_plotZero);
@@ -259,6 +296,46 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
     m_paintAllZoom=true;
   }
   update();                              //trigger a new paintEvent
+}
+
+// Repaints m_WaterfallPixmap from m_wideHistory, for use right after a
+// resize recreates it as a blank pixmap. Remaps by frequency (using each
+// row's own captured startFreq/df against the *current* m_StartFreq/
+// m_fSpan) rather than by raw pixel index, so a width change rescales
+// the preserved data instead of misaligning it. Uses the same
+// color-mapping formula as draw()'s main loop; kept as a separate small
+// duplicate rather than factored out, since draw()'s loop is also
+// entangled with the histogram and 2D-spectrum bookkeeping that don't
+// apply here.
+void CPlotter::rebuildWideFromHistory()
+{
+  if (m_WaterfallPixmap.isNull()) return;
+  int w = m_WaterfallPixmap.width();
+  int h = m_WaterfallPixmap.height();
+  if (w<=0 || m_fSpan<=0.0) return;
+  double gain = pow(10.0,0.05*(m_plotGain+7));
+  double newDf = m_fSpan/w;         // kHz per pixel, current width
+
+  QPainter painter(&m_WaterfallPixmap);
+  int rows = qMin(h, m_wideHistory.size());
+  for (int y=0; y<rows; y++) {
+    WideHistoryLine const& line = m_wideHistory.at(y);
+    int n = line.row.size();
+    if (n<=0 || line.df<=0.0) continue;
+    for (int i=0; i<w; i++) {
+      double freq = m_StartFreq + i*newDf;
+      int j = int((freq - line.startFreq)/line.df + 0.5);
+      if (j<0 || j>=n) continue;   // outside what this row captured
+      float sv = line.row.at(j);
+      double yv = 10.0*log10(sv);
+      int y1 = 5.0*gain*(yv + 29 - m_plotZero);
+      if (y1<0) y1=0;
+      if (y1>254) y1=254;
+      if (sv>1.e29) y1=255;
+      painter.setPen(m_ColorTbl[y1]);
+      painter.drawPoint(i,y);
+    }
+  }
 }
 
 void CPlotter::UTCstr()
@@ -297,45 +374,42 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
   m_binsPerPixel = m_nSpan * 32768.0/(w*0.001*m_fSample) + 0.5;
   double FreqPerDiv=5.0;
   double df = m_binsPerPixel*0.001*m_fSample/32768.0;
-  m_hdivs = w*df/FreqPerDiv + 0.9999;
   m_fSpan = w*df;
   m_ScalePixmap.fill(Qt::white);
   painter0.drawRect(0, 0, w, 30);
 
-  //draw tick marks on wideband (upper) scale
+  // Wideband (upper) scale ticks and labels. Snap the first division to
+  // the nearest round FreqPerDiv-kHz frequency at or after m_StartFreq,
+  // rather than starting the grid at the raw left-edge frequency (which
+  // is generally not a multiple of FreqPerDiv) -- otherwise labels read
+  // e.g. 34,39,44,... instead of the intended 35,40,45,..., and the
+  // ticks themselves sit up to FreqPerDiv/2 kHz off from where the
+  // labels claim, not just a cosmetic mislabeling. Mirrors
+  // CVertPlotter::drawScale()'s equivalent fix for the vertical
+  // waterfall's own frequency scale.
   pixperdiv = FreqPerDiv/df;
-  for( int i=1; i<m_hdivs; i++) {     //major ticks
-    x = (int)( (float)i*pixperdiv );
+  double f0 = ceil(m_StartFreq/FreqPerDiv)*FreqPerDiv;
+  double x0 = (f0 - m_StartFreq)/df;
+  int ndivs = qMin(63, (int)((m_StartFreq+m_fSpan-f0)/FreqPerDiv + 1.e-6));
+
+  for (int i=0; i<=ndivs; i++) {
+    x = (int)(x0 + i*pixperdiv + 0.5);
     painter0.drawLine(x,18,x,30);
-  }
-  for( int i=1; i<5*m_hdivs; i++) {   //minor ticks
-    x = i*pixperdiv/5.0;
-    painter0.drawLine(x,24,x,30);
+    if (i>0) {
+      for (int k=1; k<5; k++) {           //minor ticks between this major and the previous one
+        int xm = (int)(x0 + (i-1)*pixperdiv + k*pixperdiv/5.0 + 0.5);
+        painter0.drawLine(xm,24,xm,30);
+      }
+    }
+    m_HDivText[i].setNum((int)(f0 + i*FreqPerDiv + 0.5));
   }
 
   //draw frequency values
-  MakeFrequencyStrs();
-  for( int i=0; i<=m_hdivs; i++) {
-    if(0==i) {
-      //left justify the leftmost text
-      x = (int)( (float)i*pixperdiv);
-      rect0.setRect(x,0, (int)pixperdiv, 20);
-      painter0.drawText(rect0, Qt::AlignLeft|Qt::AlignVCenter,
-                       m_HDivText[i]);
-    }
-    else if(m_hdivs == i) {
-      //right justify the rightmost text
-      x = (int)( (float)i*pixperdiv - pixperdiv);
-      rect0.setRect(x,0, (int)pixperdiv, 20);
-      painter0.drawText(rect0, Qt::AlignRight|Qt::AlignVCenter,
-                       m_HDivText[i]);
-    } else {
-      //center justify the rest of the text
-      x = (int)( (float)i*pixperdiv - pixperdiv/2);
-      rect0.setRect(x,0, (int)pixperdiv, 20);
-      painter0.drawText(rect0, Qt::AlignHCenter|Qt::AlignVCenter,
-                       m_HDivText[i]);
-    }
+  for (int i=0; i<=ndivs; i++) {
+    x = (int)(x0 + i*pixperdiv + 0.5);
+    rect0.setRect(x-(int)(pixperdiv/2),0, (int)pixperdiv, 20);
+    painter0.drawText(rect0, Qt::AlignHCenter|Qt::AlignVCenter,
+                     m_HDivText[i]);
   }
 
 
@@ -491,6 +565,90 @@ float CPlotter::FreqfromX(int x)                               //FreqfromX()
   return f;
 }
 
+void CPlotter::setDecodeLabels(const QList<QMapDecodeLabel>& labels)
+{
+  m_decodeLabels = labels;
+  update();
+}
+
+QVector<CPlotter::DecodeLabelRect> CPlotter::layoutDecodeLabels()
+{
+  // Sort left-to-right so the stacking pass below assigns rows in order
+  // of x-position.
+  QList<QMapDecodeLabel> sorted = m_decodeLabels;
+  std::sort(sorted.begin(), sorted.end(),
+            [this](QMapDecodeLabel const& a, QMapDecodeLabel const& b) {
+                return XfromFreq(static_cast<float>(a.receiveFrequencyKHz))
+                     < XfromFreq(static_cast<float>(b.receiveFrequencyKHz));
+            });
+
+  QFont font("Arial", 8, QFont::Bold);
+  QFontMetrics metrics(font);
+  const int row_height = metrics.height() + 1;
+
+  // Up to 5 stack rows -- plenty for how many simultaneous decoded
+  // stations typically show up in one wideband span.
+  constexpr int max_rows = 5;
+  // Upper-waterfall geometry: paintEvent() draws the scale at y=0..30
+  // and the waterfall row starting at y=30, height (m_Size.height()-60)/2.
+  constexpr int waterfall_top_y = 30;
+  int row_right_edge[max_rows];
+  for (int i = 0; i < max_rows; ++i) row_right_edge[i] = -1000;
+
+  QVector<DecodeLabelRect> out;
+  for (auto const& l : sorted) {
+    if (l.receiveFrequencyKHz < m_StartFreq
+        || l.receiveFrequencyKHz > m_StartFreq + m_fSpan) continue;
+    const int x = XfromFreq(static_cast<float>(l.receiveFrequencyKHz));
+    const int text_w = metrics.horizontalAdvance(l.callsign);
+    const int rect_w = text_w + 4;
+    const int rect_x = x - rect_w / 2;
+
+    int row = 0;
+    for (; row < max_rows; ++row) {
+      if (rect_x > row_right_edge[row] + 4) break;
+    }
+    if (row >= max_rows) continue;
+    row_right_edge[row] = rect_x + rect_w;
+
+    const int y_top = waterfall_top_y + row_height * row;
+    out.append({l, QRect(rect_x, y_top, rect_w, row_height)});
+  }
+  return out;
+}
+
+void CPlotter::paintDecodeLabels(QPainter& painter)
+{
+  QFont font("Arial", 8, QFont::Bold);
+  painter.setFont(font);
+  const int row_height = QFontMetrics(font).height() + 1;
+
+  for (auto const& lr : layoutDecodeLabels()) {
+    painter.fillRect(lr.rect, QColor(0, 0, 0, 180));
+
+    // Primary (60s) decodes yellow; second-30s-half decodes a distinct
+    // hue (orange) rather than a shade, so they stay legible at a glance.
+    const QColor col = lr.label.secondHalf ? QColor(255, 165, 0) : QColor(255, 255, 0);
+    const int x = XfromFreq(static_cast<float>(lr.label.receiveFrequencyKHz));
+    painter.setPen(QColor(col.red(), col.green(), col.blue(), 200));
+    // Tick points down into the waterfall trace at the label's exact frequency.
+    painter.drawLine(x, lr.rect.top() + row_height, x, lr.rect.top() + row_height + 4);
+    painter.setPen(col);
+    painter.drawText(lr.rect, Qt::AlignHCenter | Qt::AlignVCenter, lr.label.callsign);
+  }
+}
+
+bool CPlotter::hitTestDecodeLabel(QPoint const& pos, QMapDecodeLabel& label)
+{
+  for (auto const& lr : layoutDecodeLabels()) {
+    if (lr.rect.contains(pos)) {
+      label = lr.label;
+      return true;
+    }
+  }
+  return false;
+}
+
 void CPlotter::SetRunningState(bool running)              //SetRunningState()
 {
   m_Running = running;
@@ -601,8 +759,15 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
   int button=event->button();
   if(y < h+30) {                                      // Wideband waterfall
     if(button==1) {
+      QMapDecodeLabel label;
+      bool const controlClick = event->modifiers() & Qt::ControlModifier;
+      bool const labelClicked = !controlClick
+        && hitTestDecodeLabel(QPoint(x,y), label);
       setFQSO(x,false);
-      if(event->modifiers() & Qt::ControlModifier) emit freezeDecode1(3);
+      if (labelClicked) {
+        m_decodeClickCoalescer.press(label.callsign, label.raw);
+      }
+      if(controlClick) emit freezeDecode1(3);
     }
     if(button==2 and !m_bLockTxRx) {
       if(x<0) x=0;      // x is pixel number
@@ -627,7 +792,14 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
   int y=event->y();
   if(y < h+30) {
     m_DF=0;
+    QMapDecodeLabel label;
+    bool const controlClick = event->modifiers() & Qt::ControlModifier;
+    bool const labelClicked = !controlClick
+      && hitTestDecodeLabel(QPoint(x,y), label);
     setFQSO(x,false);
+    if (labelClicked) {
+      m_decodeClickCoalescer.doubleClick(label.callsign, label.raw);
+    }
     emit freezeDecode1(2);
   } else {
     float f = m_ZoomStartFreq + x*m_fSample/32768.0;
