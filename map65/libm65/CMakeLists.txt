@@ -250,6 +250,13 @@ if (WSJT_ENABLE_TESTS)
   add_test (NAME test_map65_result_selection COMMAND test_map65_result_selection)
   set_tests_properties (test_map65_result_selection PROPERTIES TIMEOUT 180)
 
+  add_executable (test_map65_q65b_timeout
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_q65b_timeout.f90)
+  target_include_directories (test_map65_q65b_timeout PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_q65b_timeout PRIVATE m65impl)
+  add_test (NAME test_map65_q65b_timeout COMMAND test_map65_q65b_timeout)
+  set_tests_properties (test_map65_q65b_timeout PROPERTIES TIMEOUT 180)
+
 endif ()
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)

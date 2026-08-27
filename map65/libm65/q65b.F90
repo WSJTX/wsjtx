@@ -118,20 +118,18 @@
       data msg00  /'                            '/
       save
 
+      idec = -1
+      nsnr0 = -99
+      msg0 = ' '
+      cq0 = '   '
+      xdt0 = 0.0
+      nfreq0 = 0
+
       call system_clock(t_now, t_rate)
     if (real(t_now - t_start)/real(t_rate) > 40.0) then
       abort_decode = .true.
       return
     endif
-
-      ! Reset per-call decode state up front, before any of the early-exit
-      ! branches below (go to 900 / go to 901). Without this, a caller that
-      ! checks nsnr0 (or reads msg0/cq0/xdt0/nfreq0) after an early exit sees
-      ! stale values left over from whatever earlier call last reached the
-      ! real decode attempt below, rather than a result for this call.
-      nsnr0 = -99
-      msg0  = ' '
-      cq0   = '   '
 
       ! ca/cb storage is sized at MAXFFT1 in cacb_mod; the *active* big FFT
       ! length is nfft_big_active, set from C++ via set_runtime_params_().
