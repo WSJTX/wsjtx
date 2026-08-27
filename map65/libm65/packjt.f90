@@ -2,6 +2,28 @@ module packjt
   implicit none 
   contains
 
+pure logical function is_valid_jt65_codeword(dat)
+   integer, intent(in) :: dat(12)
+
+   integer, parameter :: NBASE = 37*36*10*27*27*27
+   integer, parameter :: LAST_V2_CALL = 267796945
+   integer :: nc1, nc2, ng
+
+   nc1 = ishft(dat(1),22) + ishft(dat(2),16) + ishft(dat(3),10) + &
+         ishft(dat(4),4) + iand(ishft(dat(5),-2),15)
+   nc2 = ishft(iand(dat(5),3),26) + ishft(dat(6),20) + &
+         ishft(dat(7),14) + ishft(dat(8),8) + ishft(dat(9),2) + &
+         iand(ishft(dat(10),-4),3)
+   ng = ishft(iand(dat(10),15),12) + ishft(dat(11),6) + dat(12)
+
+   if (ng >= 32768) then
+      is_valid_jt65_codeword = .true.
+   else
+      is_valid_jt65_codeword = nc1 /= NBASE .and. nc1 <= LAST_V2_CALL .and. &
+           nc2 < NBASE
+   endif
+end function is_valid_jt65_codeword
+
 subroutine packbits(dbits,nsymd,m0,sym)
 
  ! Pack 0s and 1s from dbits() into sym() with m0 bits per word.
@@ -147,12 +169,13 @@ subroutine unpackcall(ncall, word, iv2, psfx)
    character(len=37) :: c
 
    integer, parameter :: NBASE = 37*36*10*27*27*27
+   integer, parameter :: LAST_V2_CALL = 267796945
    data c /'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ '/
 
    word = '......'
    psfx = '    '
 
-   if ((ncall < 0 .or. ncall >= 262177560) .and. ncall .ne. 262177561) then
+   if (ncall < 0 .or. ncall == NBASE .or. ncall > LAST_V2_CALL) then
       write(*,*) 'unpackcall: ncall out of range = ', ncall
    end if
 

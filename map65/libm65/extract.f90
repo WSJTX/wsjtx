@@ -117,6 +117,10 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)
      do i=1,12
         dat4(i)=correct(13-i)
      enddo
+     if (.not. is_valid_jt65_codeword(dat4)) then
+        nft=0
+        go to 900
+     endif
      do i=1,63
        itmp(i)=correct(64-i)
      enddo
