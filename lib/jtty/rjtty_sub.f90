@@ -86,6 +86,13 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
      i=indx(ii)
      msg=trim(slot(i)%decoded)
      df=slot(i)%f1 - f0
+     ! A run of 5 tildes marks a missed-frame gap (decode_and_merge,
+     ! jtty_mdecode.f90); " ... " is exactly 5 chars too, so this is a
+     ! same-length in-place substitution. Any remaining lone tilde is the
+     ! older single-char "implicit leading separator" marker, unchanged.
+     do j=1,len_trim(msg)-4
+        if(msg(j:j+4).eq.'~~~~~') msg(j:j+4)=' ... '
+     enddo
      do j=1,len_trim(msg)
         if(msg(j:j).eq.'~') msg(j:j)=' '
      enddo

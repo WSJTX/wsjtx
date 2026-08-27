@@ -69,23 +69,38 @@ contains
   end subroutine jtty_search_window
 
    pure subroutine classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe)
+       match,is_window_dupe,is_history_dupe,nframes_gap)
       type(decode), intent(in) :: existing,candidate
       real, intent(in) :: frame_period
       logical, intent(out) :: match,is_window_dupe,is_history_dupe
-      real :: df1,dtsync,qstep,resid
-      integer :: kf,nstep
+      integer, intent(out) :: nframes_gap
+      real :: df1,dtsync,qstep,resid,fp_resid,df_tol
+      integer :: kf,nstep,nfp
+      integer, parameter :: MAX_GAP = 3   ! bridges up to 2 consecutive missed frames
 
       df1=candidate%f1-existing%f1
       dtsync=candidate%tsync-existing%tsync
       match=.false.
+      nframes_gap=1
       if(.not.existing%is_last_frame) then
-         ! A continuation follows the latest frame in an open slot by one
-         ! complete frame period. Overlapping signals can pull the refined
-         ! frequency a few hertz off the stored value, so this gate is the
-         ! same 10 Hz used for window-dupe; decode_and_merge then keeps the
-         ! closest open slot.
-         match=abs(df1).lt.10.0 .and. abs(dtsync-frame_period).lt.0.1
+         ! A continuation follows the latest frame in an open slot by N
+         ! complete frame periods, N=1 being the normal case. N>1 means one
+         ! or more frames in between failed to decode (common at marginal
+         ! SNR) -- still the same message, just missing some content, which
+         ! decode_and_merge marks with a gap sentinel rather than silently
+         ! concatenating or splitting into a new slot. Overlapping signals
+         ! can pull the refined frequency a few hertz off the stored value,
+         ! so the base tolerance is the same 10 Hz used for window-dupe,
+         ! widened a little further for each extra elapsed frame period
+         ! (more time for HF drift/Doppler) -- decode_and_merge then keeps
+         ! the closest open slot regardless.
+         nfp=nint(dtsync/frame_period)
+         fp_resid=abs(dtsync-frame_period*nfp)
+         if(nfp.ge.1 .and. nfp.le.MAX_GAP .and. fp_resid.lt.0.1) then
+            df_tol=10.0+3.0*real(nfp-1)
+            match=abs(df1).lt.df_tol
+            if(match) nframes_gap=nfp
+         endif
       endif
 
       ! Overlapping forward windows and retro re-sweeps can rediscover an
@@ -510,6 +525,7 @@ contains
       integer               :: best_cont
       real                  :: best_df,dfabs
       logical               :: have_hist,have_win
+      integer               :: gap,best_gap,nchar
 
       decoded_ok=.false.
       pow(:,:)=0.0
@@ -630,9 +646,10 @@ contains
          have_win=.false.
          best_cont=0
          best_df=1.0e30
+         best_gap=1
          do i=1,nslots
             call classify_slot_candidate(slot(i),dec,nframe6/6000.0, &
-                 match,is_window_dupe,is_history_dupe)
+                 match,is_window_dupe,is_history_dupe,gap)
             if(.not.match) cycle
             if(is_history_dupe) then
                islot=i
@@ -650,6 +667,7 @@ contains
             if(dfabs.lt.best_df) then
                best_df=dfabs
                best_cont=i
+               best_gap=gap
             endif
          enddo
          if(have_hist .or. have_win) then
@@ -664,18 +682,35 @@ contains
             else
                k=slot(islot)%k
                n=len_trim(dec%decoded)
-               kz=min(k+n,80)
-               ! The prior frame's implicit separator column is just an
-               ! untouched blank in slot(islot)%decoded, so trim() above
-               ! would silently drop it; put it back explicitly.
-               if(slot(islot)%trailing_sep) then
-                  slot(islot)%decoded=trim(slot(islot)%decoded)//' '// &
-                       dec%decoded(1:kz-k)
+               if(best_gap.gt.1) then
+                  ! One or more frames between here and the slot's last
+                  ! merged frame failed to decode -- that content is gone
+                  ! for good (each frame carries its own independent slice,
+                  ! confirmed via unpack_jtty), so mark the gap instead of
+                  ! silently concatenating or splitting into a new slot.
+                  ! Five tildes is a length-preserving sentinel a real
+                  ! decode can never produce (a lone '~' is only ever
+                  ! inserted once, at slot creation); jtty_get_msgs
+                  ! translates the run to " ... " at display time.
+                  kz=min(k+5+n,80)
+                  nchar=max(kz-k-5,0)
+                  slot(islot)%decoded=trim(slot(islot)%decoded)//'~~~~~'// &
+                       dec%decoded(1:nchar)
+                  slot(islot)%k=k+5+nchar
                else
-                  slot(islot)%decoded=trim(slot(islot)%decoded)// &
-                       dec%decoded(1:kz-k)
+                  kz=min(k+n,80)
+                  ! The prior frame's implicit separator column is just an
+                  ! untouched blank in slot(islot)%decoded, so trim() above
+                  ! would silently drop it; put it back explicitly.
+                  if(slot(islot)%trailing_sep) then
+                     slot(islot)%decoded=trim(slot(islot)%decoded)//' '// &
+                          dec%decoded(1:kz-k)
+                  else
+                     slot(islot)%decoded=trim(slot(islot)%decoded)// &
+                          dec%decoded(1:kz-k)
+                  endif
+                  slot(islot)%k=kz
                endif
-               slot(islot)%k=kz
                slot(islot)%trailing_sep=dec%trailing_sep
                slot(islot)%is_last_frame=dec%is_last_frame
                ! Track the most recently merged frame, not the frame that
@@ -706,6 +741,14 @@ contains
          endif
       endif
       msg=slot(islot)%decoded
+      ! A run of 5 tildes is the missed-frame gap sentinel (decode_and_merge,
+      ! merge branch above); " ... " is exactly 5 chars too, so this is a
+      ! same-length in-place substitution -- no reflow needed. Any remaining
+      ! lone tilde is the older single-char "implicit leading separator"
+      ! marker, unchanged.
+      do i=1,len_trim(msg)-4
+         if(msg(i:i+4).eq.'~~~~~') msg(i:i+4)=' ... '
+      enddo
       do i=1,len_trim(msg)
          if(msg(i:i).eq.'~') msg(i:i)=' ' !For display, remove ~ chars
       enddo

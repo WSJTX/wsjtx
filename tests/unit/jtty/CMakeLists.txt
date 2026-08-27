@@ -62,6 +62,15 @@ set_tests_properties (test_jtty_windowed_decode PROPERTIES
   TIMEOUT 60
 )
 
+add_executable (test_jtty_gap_merge test_jtty_gap_merge.f90)
+target_include_directories (test_jtty_gap_merge PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_gap_merge)
+add_test (NAME test_jtty_gap_merge COMMAND test_jtty_gap_merge)
+set_tests_properties (test_jtty_gap_merge PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_gap_merge: all checks passed"
+  TIMEOUT 60
+)
+
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
 
 add_test (NAME test_jtty_pack COMMAND test_jtty_pack)

@@ -6,7 +6,7 @@ program test_jtty_slot_matching
   real, parameter :: frame_period=2.0
   type(decode) :: existing,candidate
   logical :: match,is_window_dupe,is_history_dupe
-  integer :: failures
+  integer :: failures,nframes_gap
 
   failures=0
   call initialize_slot(existing)
@@ -15,15 +15,16 @@ program test_jtty_slot_matching
   candidate%tsync=existing%tsync+frame_period
   candidate%decoded='CONTINUATION'
   call classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe)
-  call expect(match .and. .not.is_window_dupe .and. .not.is_history_dupe, &
+       match,is_window_dupe,is_history_dupe,nframes_gap)
+  call expect(match .and. .not.is_window_dupe .and. .not.is_history_dupe &
+       .and. nframes_gap.eq.1, &
        'an open slot accepts the next frame',failures)
 
   candidate%f1=1505.0
   candidate%tsync=existing%tsync+frame_period/4.0
   candidate%decoded='SHIFTED REDISCOVERY'
   call classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe)
+       match,is_window_dupe,is_history_dupe,nframes_gap)
   call expect(match .and. is_window_dupe .and. .not.is_history_dupe, &
        'an open slot rejects a quarter-frame rediscovery',failures)
 
@@ -31,16 +32,43 @@ program test_jtty_slot_matching
   candidate%tsync=existing%tsync+frame_period
   candidate%decoded='WIDE CONTINUATION'
   call classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe)
+       match,is_window_dupe,is_history_dupe,nframes_gap)
   call expect(match .and. .not.is_window_dupe .and. .not.is_history_dupe, &
        'an open slot accepts a 5 Hz next frame',failures)
+
+  candidate%f1=1501.0
+  candidate%tsync=existing%tsync+2*frame_period
+  candidate%decoded='ONE MISSED FRAME'
+  call classify_slot_candidate(existing,candidate,frame_period, &
+       match,is_window_dupe,is_history_dupe,nframes_gap)
+  call expect(match .and. .not.is_window_dupe .and. .not.is_history_dupe &
+       .and. nframes_gap.eq.2, &
+       'an open slot bridges one missed frame',failures)
+
+  candidate%f1=1501.0
+  candidate%tsync=existing%tsync+3*frame_period
+  candidate%decoded='TWO MISSED FRAMES'
+  call classify_slot_candidate(existing,candidate,frame_period, &
+       match,is_window_dupe,is_history_dupe,nframes_gap)
+  call expect(match .and. .not.is_window_dupe .and. .not.is_history_dupe &
+       .and. nframes_gap.eq.3, &
+       'an open slot bridges two consecutive missed frames (MAX_GAP)', &
+       failures)
+
+  candidate%f1=1501.0
+  candidate%tsync=existing%tsync+4*frame_period
+  candidate%decoded='THREE MISSED FRAMES'
+  call classify_slot_candidate(existing,candidate,frame_period, &
+       match,is_window_dupe,is_history_dupe,nframes_gap)
+  call expect(.not.match, &
+       'an open slot does not bridge beyond MAX_GAP',failures)
 
   existing%is_last_frame=.true.
   candidate%f1=existing%frame_f1(1)
   candidate%tsync=existing%frame_tsync(1)
   candidate%decoded='EXACT REDISCOVERY'
   call classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe)
+       match,is_window_dupe,is_history_dupe,nframes_gap)
   call expect(match .and. .not.is_window_dupe .and. is_history_dupe, &
        'a completed slot rejects an exact frame rediscovery',failures)
 
@@ -48,7 +76,7 @@ program test_jtty_slot_matching
   candidate%tsync=existing%tsync+frame_period
   candidate%decoded='ADJACENT NEW MESSAGE'
   call classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe)
+       match,is_window_dupe,is_history_dupe,nframes_gap)
   call expect(.not.match .and. .not.is_window_dupe .and. &
        .not.is_history_dupe, &
        'a completed slot allows an adjacent message',failures)
