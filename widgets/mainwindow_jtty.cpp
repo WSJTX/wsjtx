@@ -78,7 +78,7 @@ void MainWindow::jtty_save_wav()
   if (m_saveDecoded) killFileTimer.start (3000);
 }
 
-void MainWindow::jtty_decode(int k, int istart0, int istop)
+bool MainWindow::jtty_decode(int k, int istart0, int istop)
 {
   auto boundedLatin1 = [] (char const *data, int size) {
     QByteArray bytes {QByteArray::fromRawData(data, size)};
@@ -238,6 +238,13 @@ void MainWindow::jtty_decode(int k, int istart0, int istop)
 #endif
       }
   }
+  // Only meaningful to a windowed caller (jttyDecodeAgainAt): whether this
+  // snapshot's qso_freq slot table includes a completed message, so a
+  // click-driven decode can stop as soon as its message is done instead of
+  // scanning all the way to the safety cap.
+  bool anyEom = false;
+  for (bool b : qso_eom) if (b) { anyEom = true; break; }
+  return anyEom;
 }
 
 void MainWindow::jtty_tx(QString message)
@@ -681,24 +688,31 @@ void MainWindow::jtty_again()
   finishDecodeUi();
 }
 
-// Triggered by double-clicking WideGraph's waterfall in JTTY mode: bounds
-// the rescan to +/-jttyPickWindowSecs around the clicked time instead of
-// the whole buffer. secondsAgo is relative to m_k0 (the buffer position at
-// the last processed block, i.e. "now"). Calls where k hasn't yet reached
-// istart0 are cheap no-ops on the Fortran side, so the outer loop doesn't
-// need to special-case its own starting point.
+// Triggered by double-clicking WideGraph's waterfall in JTTY mode: starts
+// the rescan jttyPickLookbackSecs before the clicked time (a message can
+// start just before the click) and stops as soon as jtty_decode reports a
+// completed (EOM) message, rather than scanning a fixed window. A safety
+// cap (jttyPickSafetyCapSecs forward of istart0) bounds how long it keeps
+// looking if nothing ever completes -- e.g. the click landed on noise, or
+// sync was lost partway through. secondsAgo is relative to m_k0 (the
+// buffer position at the last processed block, i.e. "now"). Calls where k
+// hasn't yet reached istart0 are cheap no-ops on the Fortran side, so the
+// outer loop doesn't need to special-case its own starting point.
 void MainWindow::jttyDecodeAgainAt(float secondsAgo)
 {
-  constexpr int jttyPickWindowSecs = 30;
+  constexpr int jttyPickLookbackSecs = 5;
+  constexpr int jttyPickSafetyCapSecs = 40;
   qint64 const center = qint64(m_k0) - qint64(qMax(0.0f, secondsAgo) * 12000.0f);
-  int const istart0 = int(qMax(qint64(1), center - qint64(jttyPickWindowSecs) * 12000));
-  int const istop = int(qMin(qint64(dec_data.params.kin), center + qint64(jttyPickWindowSecs) * 12000));
+  int const istart0 = int(qMax(qint64(1), center - qint64(jttyPickLookbackSecs) * 12000));
+  int const istop = int(qMin(qint64(dec_data.params.kin),
+                             qint64(istart0) + qint64(jttyPickSafetyCapSecs) * 12000));
   if (istop < istart0) return;   // clicked time is no longer in the buffer at all
 
   ui->DecodeButton->setChecked (true);
   qApp->processEvents();                                //Update the DecodeButton highlight
   for(int k=3456; k<dec_data.params.kin; k+=3456) {
-    jtty_decode(k, istart0, istop);
+    bool const eom = jtty_decode(k, istart0, istop);
+    if (eom || k >= istop) break;
   }
   finishDecodeUi();
 }

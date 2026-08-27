@@ -800,8 +800,9 @@ private:
   bool jtty_key_struck(QKeyEvent * e);
   // istart0/istop (sample indices into dec_data.d2) bound the Fortran scan
   // to a window instead of the whole buffer; -1/-1 (the default) means
-  // unwindowed, matching the original behavior exactly.
-  void jtty_decode(int k, int istart0 = -1, int istop = -1);
+  // unwindowed, matching the original behavior exactly. Returns true if
+  // this call's snapshot includes a completed (EOM) qso_freq message.
+  bool jtty_decode(int k, int istart0 = -1, int istop = -1);
   void jtty_again();
   QString jtty_msg_expand(QString msg);
   QString specOpLabel() const;
