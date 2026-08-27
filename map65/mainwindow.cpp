@@ -1273,7 +1273,7 @@ void MainWindow::dataSink(int k)
       watcher2->setFuture(*future2);
     }
   }
-  soundInThread.m_dataSinkBusy=false;
+  soundInThread.m_dataSinkBusy.store (false, std::memory_order_release);
 }
 
 /* Generate gaussian random float with mean=0 and std_dev=1 */

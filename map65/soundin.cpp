@@ -215,7 +215,7 @@ void SoundInThread::run()                           //SoundInThread::run()
   int k=0;
   int nsec;
   int ntr;
-  int nhsym0=0;
+  Map65HalfSymbolScheduler spectrumScheduler;
 
 //---------------------------------------------- Soundcard input loop
   while (!qe) {
@@ -227,7 +227,7 @@ void SoundInThread::run()                           //SoundInThread::run()
     ntr = nsec % m_TRperiod;
 
     if(ntr < ntr0 or !m_monitoring or m_TRperiod!=m_TRperiod0) {
-      nhsym0=0;
+      spectrumScheduler.reset ();
       udata.bzero=true;
       m_TRperiod0=m_TRperiod;
     }
@@ -244,12 +244,8 @@ void SoundInThread::run()                           //SoundInThread::run()
       int const fftPointer=symspecReadyPointer(k);
       m_hsym=(fftPointer-2048)*11025.0/(2048.0*m_rate);
 
-      if(m_hsym != nhsym0) {
-        if (!m_dataSinkBusy) {
-          m_dataSinkBusy=true;
-          emit readyForFFT(fftPointer);
-        }
-        nhsym0=m_hsym;
+      if (spectrumScheduler.claim_next (m_hsym, m_dataSinkBusy)) {
+        emit readyForFFT(fftPointer);
       }
     }
 
@@ -379,7 +375,7 @@ void SoundInThread::inputUDP()
   int k=0;
   int nsec;
   int ntr;
-  int nhsym0=0;
+  Map65HalfSymbolScheduler spectrumScheduler;
   int iz=174;
 
   // Main loop for input of UDP packets over the network:
@@ -402,7 +398,7 @@ void SoundInThread::inputUDP()
 // Reset buffer pointer and symbol number at start of minute
       if(ntr < ntr0 or !m_monitoring or m_TRperiod!=m_TRperiod0) {
         k=0;
-        nhsym0=0;
+        spectrumScheduler.reset ();
         m_TRperiod0=m_TRperiod;
       }
       ntr0=ntr;
@@ -430,17 +426,8 @@ void SoundInThread::inputUDP()
 double hsym = 2048.0 * m_rate / 11025.0;
 int const fftPointer=symspecReadyPointer(k);
 m_hsym = (fftPointer - 2048) / hsym;
-if (m_hsym != nhsym0) {
-    if (m_dataSinkBusy) {
-    } else {
-        m_dataSinkBusy = true;
-
-        QDateTime now = QDateTime::currentDateTime();
-        QString ts = now.toString("yyyy-MM-dd hh:mm:ss.zzz");
-
-        emit readyForFFT(fftPointer);
-    }
-    nhsym0 = m_hsym;
+if (spectrumScheduler.claim_next (m_hsym, m_dataSinkBusy)) {
+    emit readyForFFT(fftPointer);
 }
 
       }

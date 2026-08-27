@@ -4,7 +4,10 @@
 #include <QtCore>
 #include <QtNetwork/QUdpSocket>
 #include <QDebug>
+#include <atomic>
 #include <valarray>
+
+#include "half_symbol_scheduler.h"
 
 class MainWindow;  //Forward declaration
 
@@ -21,7 +24,7 @@ protected:
   virtual void run();
 
 public:
-  bool m_dataSinkBusy;
+  std::atomic_bool m_dataSinkBusy;
 
   SoundInThread():
     quitExecution(false),
