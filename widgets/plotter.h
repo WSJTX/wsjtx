@@ -102,6 +102,7 @@ public:
 signals:
   void freezeDecode1(int n);
   void setFreq1(int rxFreq, int txFreq);
+  void jttyDecodeAgainAt(float secondsAgo);
 
 protected:
   //re-implemented widget event handlers

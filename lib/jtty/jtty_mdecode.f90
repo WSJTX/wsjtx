@@ -117,7 +117,7 @@ contains
       endif
    end subroutine classify_slot_candidate
 
-  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
+  subroutine jtty_mdecode(istart,istart0,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
 !  jtty_decode.f90. Does not pass decodes back to rjtty_sub yet - just prints
@@ -139,7 +139,7 @@ contains
       integer                        :: final_payload(PAYLOAD_BITS), tone_symbols_chk(NCHAN_SYM)
       integer                        :: tone_symbols_full(NFRAME_SYM), ipass
       integer(int16), intent(in)     :: iwave(nchunk)
-      integer, intent(in)            :: istart, ndebug
+      integer, intent(in)            :: istart, istart0, ndebug
       integer                        :: i,i0,is,j,ja,jb,k,kz,n
       integer, save                  :: ntstep, ntgrid
       integer                        :: istep
@@ -212,7 +212,7 @@ contains
          call tbcc_init(JTTY_WAVA_NU)
       endif
 
-      if(istart.eq.1 .and. .not.use_interferer) then
+      if(istart.eq.istart0 .and. .not.use_interferer) then
          ndecodes=0
          nslots=0
       endif
@@ -723,7 +723,7 @@ contains
 
    end subroutine jtty_mdecode
 
-   subroutine jtty_mdecode_step(iwave,nwave,istart,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
+   subroutine jtty_mdecode_step(iwave,nwave,istart,istart0,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
 ! Wraps jtty_mdecode with "retro" re-sweeps: after the normal forward call,
 ! re-run the candidate sweep for up to 3 prior quarter-frame windows for
@@ -736,7 +736,7 @@ contains
       implicit none
       integer, intent(in)        :: nwave
       integer(int16), intent(in) :: iwave(nwave)
-      integer, intent(in)        :: istart, nchunk, nsps, ndebug, nfa, nfb
+      integer, intent(in)        :: istart, istart0, nchunk, nsps, ndebug, nfa, nfb
       real, intent(in)           :: f0, ftol, smin
       integer                    :: n_local, nframe, step, istart_prev, k, i
       real                       :: f1_local(MAX_SUBTRACTED)
@@ -744,7 +744,7 @@ contains
       integer                    :: payload_local(PAYLOAD_BITS,MAX_SUBTRACTED)
 
       interferer_pending=.false.   ! defensive: no stale interferer input
-      call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,nfa,nfb, &
+      call jtty_mdecode(istart,istart0,iwave(istart),nchunk,nsps,ndebug,nfa,nfb, &
            f0,ftol,smin)
 
 ! Copy this call's subtraction events out before any retro call below
@@ -767,7 +767,7 @@ contains
             interferer_f1=f1_local(i)
             interferer_tsync=tsync_local(i)
             interferer_payload=payload_local(:,i)
-            call jtty_mdecode(istart_prev,iwave(istart_prev),nchunk,nsps, &
+            call jtty_mdecode(istart_prev,istart0,iwave(istart_prev),nchunk,nsps, &
                  ndebug,nfa,nfb,f0,ftol,smin)
          enddo
       enddo

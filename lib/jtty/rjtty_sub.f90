@@ -1,9 +1,25 @@
 subroutine rjtty_sub(iwave,kz,nsps,nfa,nfb,f0,ftol)
+  ! Unwindowed entry point: scans the whole buffer, exactly as before.
+  integer*2 iwave(kz)
+  call rjtty_core(iwave,kz,nsps,nfa,nfb,f0,ftol,1,kz)
+end subroutine rjtty_sub
+
+subroutine rjtty_sub_windowed(iwave,kz,nsps,nfa,nfb,f0,ftol,istart0,istop)
+  ! Bounds the scan to [istart0,istop] (sample indices into iwave) instead
+  ! of the whole buffer -- e.g. a WideGraph click-driven re-decode that only
+  ! needs a window around a known time, not a full "decode again" pass.
+  integer*2 iwave(kz)
+  integer, intent(in) :: istart0,istop
+  call rjtty_core(iwave,kz,nsps,nfa,nfb,f0,ftol,istart0,istop)
+end subroutine rjtty_sub_windowed
+
+subroutine rjtty_core(iwave,kz,nsps,nfa,nfb,f0,ftol,istart0,istop)
 
   use jtty_mdec
   integer*2 iwave(kz)
-  data kz0/9999999/,missed_syncs/0/
-  save istart,kz0,kchar,missed_syncs,ndtol
+  integer, intent(in) :: istart0,istop
+  data kz0/9999999/,missed_syncs/0/,istart0_save/0/
+  save istart,kz0,kchar,missed_syncs,ndtol,istart0_save
 
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 
@@ -11,27 +27,32 @@ subroutine rjtty_sub(iwave,kz,nsps,nfa,nfb,f0,ftol)
   nchunk = nframe + nframe/4
   smin=4.6
 
-  if(kz .le. kz0 ) then
+  ! A shorter/new buffer always restarts; a windowed call whose window has
+  ! moved (a new click) also restarts, even mid-buffer, so its slot table
+  ! isn't polluted by a previous window's in-progress messages.
+  if(kz .le. kz0 .or. istart0.ne.istart0_save) then
      kz0=kz
-     istart=1
+     istart=istart0
      kchar=0
      ndtol=0
      nslots=0
+     istart0_save=istart0
      go to 999
   endif
-  if(kz-istart+1 .lt. nchunk) return      ! wait for enough data
+  kzeff=min(kz,istop)
+  if(kzeff-istart+1 .lt. nchunk) return    ! wait for enough data
 
   nsync=0
-  do while (istart+nchunk-1 .le. kz)
+  do while (istart+nchunk-1 .le. kzeff)
      ndebug=-1
      snr=-99.0
-     call jtty_mdecode_step(iwave,kz,istart,nchunk,nsps,ndebug,nfa,nfb, &
+     call jtty_mdecode_step(iwave,kz,istart,istart0,nchunk,nsps,ndebug,nfa,nfb, &
           f0,ftol,smin)
      istart=istart+nframe/4
   enddo
 
 999 return
-end subroutine rjtty_sub
+end subroutine rjtty_core
 
 subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
 

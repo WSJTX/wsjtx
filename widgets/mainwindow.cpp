@@ -853,6 +853,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_wideGraph.data (), SIGNAL(freezeDecode2(int)),this,SLOT(freezeDecode(int)));
   connect(m_wideGraph.data (), SIGNAL(f11f12(int)),this,SLOT(bumpFqso(int)));
   connect(m_wideGraph.data (), SIGNAL(setXIT2(int)),this,SLOT(setXIT(int)));
+  connect(m_wideGraph.data (), SIGNAL(jttyDecodeAgainAt2(float)),this,SLOT(jttyDecodeAgainAt(float)));
   m_wideGraph->setReferenceSpectrumAvailable(
         QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")));
 

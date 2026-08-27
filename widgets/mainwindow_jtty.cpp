@@ -30,6 +30,11 @@ extern "C" {
   void rjtty_sub_(short int d2[], int* k, int* nsps, int* nfa, int*nfb,
                   float* f0, float* ftol);
 
+  // Bounds the scan to [istart0,istop] (sample indices into d2) instead of
+  // the whole buffer -- see MainWindow::jtty_decode_windowed().
+  void rjtty_sub_windowed_(short int d2[], int* k, int* nsps, int* nfa, int*nfb,
+                  float* f0, float* ftol, int* istart0, int* istop);
+
    // qso_eom[30] must match jtty_mdec's MAX_SLOTS (lib/jtty/jtty_mdecode.f90);
    // one entry per line actually written into qso_freq, same order, true if
    // that slot's last frame (end-of-message) has been decoded. Not yet
@@ -73,7 +78,7 @@ void MainWindow::jtty_save_wav()
   if (m_saveDecoded) killFileTimer.start (3000);
 }
 
-void MainWindow::jtty_decode(int k)
+void MainWindow::jtty_decode(int k, int istart0, int istop)
 {
   auto boundedLatin1 = [] (char const *data, int size) {
     QByteArray bytes {QByteArray::fromRawData(data, size)};
@@ -107,7 +112,11 @@ void MainWindow::jtty_decode(int k)
   int nfa = m_wideGraph->nStartFreq();
   int nfb = m_wideGraph->Fmax();
 
-  rjtty_sub_(dec_data.d2,&k,&nsps,&nfa,&nfb,&f0,&ftol);
+  if (istart0 < 0) {
+    rjtty_sub_(dec_data.d2,&k,&nsps,&nfa,&nfb,&f0,&ftol);
+  } else {
+    rjtty_sub_windowed_(dec_data.d2,&k,&nsps,&nfa,&nfb,&f0,&ftol,&istart0,&istop);
+  }
 
   // jtty_get_msgs_ rebuilds qso_freq (and all_freqs) from scratch every
   // call: it's a frequency-sorted snapshot of every slot currently within
@@ -668,6 +677,28 @@ void MainWindow::jtty_again()
   qApp->processEvents();                                //Update the DecodeButton highlight
   for(int k=3456; k<dec_data.params.kin; k+=3456) {
     jtty_decode(k);
+  }
+  finishDecodeUi();
+}
+
+// Triggered by double-clicking WideGraph's waterfall in JTTY mode: bounds
+// the rescan to +/-jttyPickWindowSecs around the clicked time instead of
+// the whole buffer. secondsAgo is relative to m_k0 (the buffer position at
+// the last processed block, i.e. "now"). Calls where k hasn't yet reached
+// istart0 are cheap no-ops on the Fortran side, so the outer loop doesn't
+// need to special-case its own starting point.
+void MainWindow::jttyDecodeAgainAt(float secondsAgo)
+{
+  constexpr int jttyPickWindowSecs = 30;
+  qint64 const center = qint64(m_k0) - qint64(qMax(0.0f, secondsAgo) * 12000.0f);
+  int const istart0 = int(qMax(qint64(1), center - qint64(jttyPickWindowSecs) * 12000));
+  int const istop = int(qMin(qint64(dec_data.params.kin), center + qint64(jttyPickWindowSecs) * 12000));
+  if (istop < istart0) return;   // clicked time is no longer in the buffer at all
+
+  ui->DecodeButton->setChecked (true);
+  qApp->processEvents();                                //Update the DecodeButton highlight
+  for(int k=3456; k<dec_data.params.kin; k+=3456) {
+    jtty_decode(k, istart0, istop);
   }
   finishDecodeUi();
 }

@@ -44,6 +44,9 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
   connect(ui->widePlot, SIGNAL(setFreq1(int,int)),this,
           SLOT(setFreq2(int,int)));
 
+  connect(ui->widePlot, SIGNAL(jttyDecodeAgainAt(float)),this,
+          SLOT(wideJttyDecodeAgainAt(float)));
+
   {
     //Restore user's settings
     SettingsGroup g {m_settings, "WideGraph"};
@@ -272,6 +275,11 @@ int WideGraph::nStartFreq()                                             //nStart
 void WideGraph::wideFreezeDecode(int n)                              //wideFreezeDecode
 {
   emit freezeDecode2(n);
+}
+
+void WideGraph::wideJttyDecodeAgainAt(float secondsAgo)                //wideJttyDecodeAgainAt
+{
+  emit jttyDecodeAgainAt2(secondsAgo);
 }
 
 int WideGraph::Fmin()                                              //Fmin

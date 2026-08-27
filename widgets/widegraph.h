@@ -66,11 +66,13 @@ signals:
   void f11f12(int n);
   void setXIT2(int n);
   void setFreq3(int rxFreq, int txFreq);
+  void jttyDecodeAgainAt2(float secondsAgo);
 
 public slots:
   void wideFreezeDecode(int n);
   void setFreq2(int rxFreq, int txFreq);
   void setDialFreq(double d);
+  void wideJttyDecodeAgainAt(float secondsAgo);
 
 protected:
   void keyPressEvent (QKeyEvent *e) override;

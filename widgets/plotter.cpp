@@ -978,7 +978,17 @@ void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
     bool rightbutton = (event->button() & Qt::RightButton);
     bool leftbutton = (event->button() & Qt::LeftButton);
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
-  if (leftbutton) {
+  if (leftbutton and m_mode=="JTTY" and !ctrl) {
+    // Waterfall region is screen y in [30,30+m_h1); row 0 (newest) is at
+    // the top, growing downward -- see the m_j=0 draw + scroll(0,1,...) in
+    // draw(). Ctrl+double-click still falls through below for the old,
+    // unbounded full-buffer rescan.
+    int const row = event->y() - 30;
+    if (row >= 0 and row < m_h1) {
+      float const secondsAgo = row * m_waterfallAvg * 3456.0f/12000.0f;
+      emit jttyDecodeAgainAt(secondsAgo);
+    }
+  } else if (leftbutton) {
     int n=2;
     if(ctrl) n+=100;
     emit freezeDecode1(n);

@@ -279,6 +279,7 @@ public:
   void msgAvgDecode2();
   void fastPick(int x0, int x1, int y);
   void skedFreq(double sf);
+  void jttyDecodeAgainAt(float secondsAgo);
 
 private:
   enum class DecodeOwner
@@ -797,7 +798,10 @@ private:
   void startJttyTxWatchdog(int durationMs);
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
-  void jtty_decode(int k);
+  // istart0/istop (sample indices into dec_data.d2) bound the Fortran scan
+  // to a window instead of the whole buffer; -1/-1 (the default) means
+  // unwindowed, matching the original behavior exactly.
+  void jtty_decode(int k, int istart0 = -1, int istop = -1);
   void jtty_again();
   QString jtty_msg_expand(QString msg);
   QString specOpLabel() const;
