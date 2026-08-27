@@ -223,59 +223,65 @@ contains
          ccfmax = 0.
          do lag = 0, LAGMAX
 
-            ccf = 0.
-            ccf4 = 0.
-            do j = 1, 22                        !Test for Q65 sync
-               k = isync(j) + lag
-               ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + &
-                              ss(1:npol, k + 1, i + 1) + ss(1:npol, k + 2, i + 1)
-            enddo
-            ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*3*22/float(jz)
-            ccf = maxval(ccf4)
-            ip = maxloc(ccf4)
-            ipol = ip(1)
-            if (ccf .gt. ccfmax) then
-               ipolbest = ipol
-               lagbest = lag
-               ccfmax = ccf
-               ccf4best = ccf4
-               flip = 0.
+            if (isync(22) + lag + 2 .le. jz) then
+               ccf = 0.
+               ccf4 = 0.
+               do j = 1, 22                        !Test for Q65 sync
+                  k = isync(j) + lag
+                  ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + &
+                                 ss(1:npol, k + 1, i + 1) + ss(1:npol, k + 2, i + 1)
+               enddo
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*3*22/float(jz)
+               ccf = maxval(ccf4)
+               ip = maxloc(ccf4)
+               ipol = ip(1)
+               if (ccf .gt. ccfmax) then
+                  ipolbest = ipol
+                  lagbest = lag
+                  ccfmax = ccf
+                  ccf4best = ccf4
+                  flip = 0.
+               endif
             endif
 
-            ccf = 0.
-            ccf4 = 0.
-            do j = 1, 63                       !Test for JT65 sync, std msg
-               k = jsync0(j) + lag
-               ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + ss(1:npol, k + 1, i + 1)
-            enddo
-            ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*2*63/float(jz)
-            ccf = maxval(ccf4)
-            ip = maxloc(ccf4)
-            ipol = ip(1)
-            if (ccf .gt. ccfmax) then
-               ipolbest = ipol
-               lagbest = lag
-               ccfmax = ccf
-               ccf4best = ccf4
-               flip = 1.0
+            if (jsync0(63) + lag + 1 .le. jz) then
+               ccf = 0.
+               ccf4 = 0.
+               do j = 1, 63                       !Test for JT65 sync, std msg
+                  k = jsync0(j) + lag
+                  ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + ss(1:npol, k + 1, i + 1)
+               enddo
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*2*63/float(jz)
+               ccf = maxval(ccf4)
+               ip = maxloc(ccf4)
+               ipol = ip(1)
+               if (ccf .gt. ccfmax) then
+                  ipolbest = ipol
+                  lagbest = lag
+                  ccfmax = ccf
+                  ccf4best = ccf4
+                  flip = 1.0
+               endif
             endif
 
-            ccf = 0.
-            ccf4 = 0.
-            do j = 1, 63                       !Test for JT65 sync, OOO msg
-               k = jsync1(j) + lag
-               ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + ss(1:npol, k + 1, i + 1)
-            enddo
-            ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*2*63/float(jz)
-            ccf = maxval(ccf4)
-            ip = maxloc(ccf4)
-            ipol = ip(1)
-            if (ccf .gt. ccfmax) then
-               ipolbest = ipol
-               lagbest = lag
-               ccfmax = ccf
-               ccf4best = ccf4
-               flip = -1.0
+            if (jsync1(63) + lag + 1 .le. jz) then
+               ccf = 0.
+               ccf4 = 0.
+               do j = 1, 63                       !Test for JT65 sync, OOO msg
+                  k = jsync1(j) + lag
+                  ccf4(1:npol) = ccf4(1:npol) + ss(1:npol, k, i + 1) + ss(1:npol, k + 1, i + 1)
+               enddo
+               ccf4(1:npol) = ccf4(1:npol) - savg(1:npol, i + 1)*2*63/float(jz)
+               ccf = maxval(ccf4)
+               ip = maxloc(ccf4)
+               ipol = ip(1)
+               if (ccf .gt. ccfmax) then
+                  ipolbest = ipol
+                  lagbest = lag
+                  ccfmax = ccf
+                  ccf4best = ccf4
+                  flip = -1.0
+               endif
             endif
 
          enddo  ! lag
