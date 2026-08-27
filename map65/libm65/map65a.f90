@@ -85,7 +85,7 @@ contains
       logical :: m65_inited = .false.
       logical :: abort_saved
       integer :: icenter
-      logical :: shorthand_detected, jt65_success, q65_success
+      logical :: initialization_only, shorthand_detected, jt65_success, q65_success
       real :: best_sync1, best_dt, best_flipk, best_syncshort, best_snr2, best_dt2
       integer :: best_i, best_ipol2
       real :: sync1_tmp, dt_tmp, flipk_tmp, syncshort_tmp, snr2_tmp, dt2_tmp
@@ -681,7 +681,10 @@ endif
                if (nqd .eq. 1 .and. ntol .le. 100) thresh1 = 0.
                noffset = 0
                if (nqd .ge. 1) noffset = nint(1000.0*(freq - fqso) - mousedf)
-               if (newdat .eq. 1 .and. sync1 .gt. -99.0) then
+               initialization_only = .false.
+               if (newdat .eq. 1 .and. sync1 .gt. -99.0 .and. &
+                   (sync1 .le. thresh1 .or. abs(noffset) .gt. ntol)) then
+                  initialization_only = .true.
                   sync1 = thresh1 + 1.0
                   noffset = 0
                endif
@@ -716,14 +719,13 @@ endif
                      ikhz = nint(freq + 0.5*(nfa + nfb) - foffset) - nfshift
                      idf = nint(1000.0*(freq + 0.5*(nfa + nfb) - foffset - (ikHz + nfshift)))
 
-                     call decode1a(dd, newdat, f00, nflip, mode65, nfsample, &
+                     call decode1a(dd, newdat, f00, nflip, merge(0,mode65,initialization_only), nfsample, &
                                    xpol, mycall, hiscall, hisgrid, neme, ndepth, nqd, dphi, &
                                    ndphi, nutc, ikHz, idf, ipol, ntol, sync2, &
                                    a, dt, pol, nkv, nhist, nsum, nsave, qual, decoded)
                      call timer('decode1a', 1)
                      
-! The case sync1=2.0 is just to make sure decode1a is called and bigfft done.
-                     if (mode65 .ne. 0 .and. sync1 .ne. 2.000000) then
+                     if (mode65 .ne. 0 .and. .not. initialization_only) then
                         if (km .lt. MAXMSG) km = km + 1
                         sig(km, 1) = nfile
                         sig(km, 2) = nutc
