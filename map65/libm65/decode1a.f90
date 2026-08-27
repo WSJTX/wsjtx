@@ -48,7 +48,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   real s3(64,63),sy(63)
   
   real :: aa, bb, ccfbest, dt00, flip
-  real :: dtbest, fsample, sq0, sqa, sqb, syncbest, xdt
+  real :: dtbest, fsample, sq0, sqa, sqb, syncbest
   integer :: i, i0, ihzdiff, j, jj, jjjmax, jjjmin, k, n, n5
   integer :: n6, nadd, nfft, nhz, nhz0, npol, nsym, nutc0, nz
   logical first
@@ -200,7 +200,7 @@ call afc65b(c5x(i0), c5y(i0), nz, fsample, nflip, ipol, xpol, ndphi, a, ccfbest,
         nsave=mod(nsave-1,64)+1
         npol=nint(57.296*pol)
 
-        call s3avg(nsave,mode65,nutc,nhz,xdt,npol,ntol,s3,nsum,nkv,decoded)
+     call s3avg(nsave,mode65,nutc,nhz,dt,npol,ntol,s3,nsum,nkv,decoded)
         syncbest=sync2
         nhz0=nhz
      endif
