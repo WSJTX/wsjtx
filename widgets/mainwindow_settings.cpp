@@ -555,10 +555,7 @@ void MainWindow::readSettings()
   m_dBm=m_settings->value("dBm",37).toInt();
   m_send_RR73=m_settings->value("RR73",false).toBool();
   m_score=m_settings->value("Score",0).toInt();
-  if(m_send_RR73) {
-    m_send_RR73=false;
-    on_txrb4_doubleClicked();
-  }
+  if (m_send_RR73) genStdMsgs (m_rpt);
   ui->WSPR_prefer_type_1_check_box->setChecked (m_settings->value ("WSPRPreferType1", true).toBool ());
   m_uploadWSPRSpots=m_settings->value("UploadSpots",false).toBool();
   ui->cbNoOwnCall->setChecked(m_settings->value("NoOwnCall",false).toBool());

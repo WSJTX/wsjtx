@@ -750,6 +750,9 @@ private:
   void setColorHighlighting();
   void chkFT4();
   bool elide_tx1_not_allowed () const;
+  bool rr73_tx4_allowed () const;
+  bool send_rr73_for_tx4 () const;
+  void set_rr73_tx4 (bool enabled);
   void readWidebandDecodes();
   void configActiveStations();
   bool sfox_tx();

@@ -19,10 +19,13 @@ one callsign) followed by the transmitting station’s grid locator, a
 signal report, R plus a signal report, or the final acknowledgements
 RRR or 73.  These messages are compressed and encoded in a highly
 efficient and reliable way.  In uncompressed form (as displayed
-on-screen) they may contain as many as 22 characters.  Some operators
-prefer to send RR73 rather than RRR.  This is workable because RR73 is
-encoded as a valid grid locator, one unlikely ever to be occupied by
-an amateur station.
+on-screen) they may contain as many as 22 characters.
+
+In 77-bit message formats, some operators prefer to send RR73 rather
+than RRR.  RR73 is encoded as an explicit final response in these
+formats.  In legacy 72-bit formats, RR73 matches the four-character
+grid-locator form and is encoded as a grid locator, so generated Tx4
+messages use RRR instead.
 
 *Signal reports* are specified as signal-to-noise ratio (S/N or SNR) in dB,
 using a standard reference noise bandwidth of 2500 Hz.  Thus, in the
@@ -40,10 +43,11 @@ audible (to someone with very good hearing) around –15 dB.
 NOTE: Several options are available for circumstances where fast QSOs
 are desirable.  Double-click the *Tx1* control under _Now_ or _Next_
 to toggle use of the Tx2 message rather than Tx1 to start a QSO.
-Similarly, double-click the *Tx4* control to toggle between sending
-`RRR` and `RR73` in that message.  The `RR73` message should be used
-only if you are reasonably confident that no repetitions will be
-required.
+Similarly, in modes that support RR73, double-click the *Tx4* control
+to toggle between sending `RRR` and `RR73` in that message.  The
+`RR73` message should be used only if you are reasonably confident
+that no repetitions will be required.  In legacy 72-bit and shorthand
+modes, Tx4 uses `RRR` and a dialog explains why RR73 is unavailable.
 
 === Free-Text Messages
 
@@ -171,8 +175,8 @@ for each event type:
  W9XYZ K1ABC 73
 
 Either callsign (or both) may have /R appended to signify a Rover in a
-VHF contest.  You can use RR73 in place of RRR, and the final 73 is
-optional.
+VHF contest.  In 77-bit modes, you can use RR73 in place of RRR, and
+the final 73 is optional.
 
 
 *EU VHF Contest*

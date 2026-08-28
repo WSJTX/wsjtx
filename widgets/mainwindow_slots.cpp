@@ -482,7 +482,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
     }
   };
   DecodedMessageReaction::applyAutoTxStopAfterLogging(
-    m_mode, m_config.repeat_Tx(), m_send_RR73, stopAutoTx);
+    m_mode, m_config.repeat_Tx(), send_rr73_for_tx4 (), stopAutoTx);
 
   if (!m_hisCall.size ()) {
     MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));

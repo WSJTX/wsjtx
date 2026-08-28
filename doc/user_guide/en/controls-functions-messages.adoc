@@ -28,11 +28,12 @@ Pressing *Enter* on a modified message #5 automatically adds that
 message to the stored macros.
 
 * In some circumstances it may be desirable to make your QSOs as short
-as possible.  To configure the program to start contacts with message
-#2, disable message #1 by double-clicking its radio-button in the
-*Next* column or *Tx 1* button in the *Now* column.  Similarly, to
-send RR73 rather than RRR for message #4, double-click one of its
-buttons.
+  as possible.  To configure the program to start contacts with message
+  #2, disable message #1 by double-clicking its radio-button in the
+  *Next* column or *Tx 1* button in the *Now* column.  Similarly, in
+  modes that support RR73, double-click one of the *Tx 4* buttons to
+  send RR73 rather than RRR.  Legacy 72-bit and shorthand modes always
+  use RRR for Tx4.
 
 TIP: During a transmission the actual message being sent is displayed
 in the first box of the status bar (bottom-left corner of the main

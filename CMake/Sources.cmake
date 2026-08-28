@@ -176,6 +176,7 @@ set (wsjtx_CXXSRCS
   AutoRespondPeriod.cpp
   AutoRespondSelectionLatch.cpp
   HighlightingRules.cpp
+  Rr73Policy.cpp
   HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
   DecoderIpc.cpp

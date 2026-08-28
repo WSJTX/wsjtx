@@ -2300,11 +2300,11 @@ When not checked you can view the calibration results.</string>
                       <item row="4" column="1">
                        <widget class="DoubleClickableRadioButton" name="txrb4">
                         <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 when supported by the current mode&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
                         <property name="accessibleDescription">
                          <string>Send this message in next Tx interval
-Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)
+Double-click to toggle between RRR and RR73 messages in Tx4 when supported by the current mode
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</string>
                         </property>
                         <property name="styleSheet">
@@ -2474,11 +2474,11 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                       <item row="4" column="2">
                        <widget class="DoubleClickablePushButton" name="txb4">
                         <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 when supported by the current mode&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
                         <property name="accessibleDescription">
                          <string>Switch to this Tx message NOW
-Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)
+Double-click to toggle between RRR and RR73 messages in Tx4 when supported by the current mode
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</string>
                         </property>
                         <property name="styleSheet">

@@ -179,6 +179,13 @@ add_executable (test_auto_sequence_reaction
 target_link_libraries (test_auto_sequence_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_auto_sequence_reaction COMMAND test_auto_sequence_reaction)
 
+add_executable (test_rr73_policy
+  test_rr73_policy.cpp
+  ${CMAKE_SOURCE_DIR}/Rr73Policy.cpp
+)
+target_link_libraries (test_rr73_policy Qt5::Test)
+add_test (NAME test_rr73_policy COMMAND test_rr73_policy)
+
 add_executable (test_qso_reaction
   test_qso_reaction.cpp
 )

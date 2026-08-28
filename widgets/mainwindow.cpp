@@ -131,6 +131,7 @@
 #include "PrefixSuffix.hpp"
 #include "HelpText.hpp"
 #include "HighlightingRules.hpp"
+#include "Rr73Policy.hpp"
 #include "Audio/WavInputLoader.hpp"
 #include "Audio/WavFile.hpp"
 #include "WSJTXLogging.hpp"
@@ -2726,7 +2727,7 @@ void MainWindow::fastSink(qint64 frames)
     }
 
     // Ensure that Tx stops when "73" is received and repeat_Tx is enabled for MSK144
-    if (m_config.repeat_Tx() && m_mode=="MSK144" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73") && m_send_RR73)
+    if (m_config.repeat_Tx() && m_mode=="MSK144" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73") && send_rr73_for_tx4 ())
       QTimer::singleShot (int(750*m_TRperiod), this, [=] {cease_auto_Tx_after_QSO();});
 
     // highlight orange and blue callsigns for MSK144
@@ -3380,11 +3381,11 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       return;
     }
     if(e->modifiers() & Qt::AltModifier) {
-      if(!m_send_RR73) on_txrb4_doubleClicked();
-    return;
+      set_rr73_tx4 (true);
+      return;
     }
     if(e->modifiers() & Qt::ControlModifier) {
-      if(m_send_RR73) on_txrb4_doubleClicked();
+      set_rr73_tx4 (false);
       return;
     }
     break;
@@ -8090,12 +8091,7 @@ void MainWindow::on_txrb4_toggled (bool status)
 
 void MainWindow::on_txrb4_doubleClicked ()
 {
-  // RR73 only allowed if not a type 2 compound callsign
-  auto const& my_callsign = m_config.my_callsign ();
-  auto is_compound = my_callsign != m_baseCall;
-  m_send_RR73 = !((is_compound && !shortList (my_callsign)) || m_send_RR73);
-  if(m_mode=="FT4") m_send_RR73=true;
-  genStdMsgs (m_rpt);
+  set_rr73_tx4 (!send_rr73_for_tx4 ());
 }
 
 void MainWindow::on_txrb5_toggled (bool status)
@@ -8138,12 +8134,7 @@ void MainWindow::on_txb1_doubleClicked()
 
 void MainWindow::on_txb4_doubleClicked()
 {
-  // RR73 only allowed if not a type 2 compound callsign
-  auto const& my_callsign = m_config.my_callsign ();
-  auto is_compound = my_callsign != m_baseCall;
-  m_send_RR73 = !((is_compound && !shortList (my_callsign)) || m_send_RR73);
-  if(m_mode=="FT4") m_send_RR73=true;
-  genStdMsgs (m_rpt);
+  set_rr73_tx4 (!send_rr73_for_tx4 ());
 }
 
 
@@ -8281,7 +8272,7 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
   snapshot.currentMessageType = m_currentMessageType;
   snapshot.sentReport = m_bSentReport;
   snapshot.shortMessages = m_bShMsgs;
-  snapshot.sendRr73 = m_send_RR73;
+  snapshot.sendRr73 = send_rr73_for_tx4 ();
   snapshot.transmitting = m_transmitting;
   snapshot.transmittingSignoff = m_transmitting
     && message_is_73(m_currentMessageType, m_currentMessage.split(' ', SkipEmptyParts));
@@ -8674,6 +8665,30 @@ bool MainWindow::is77BitMode () const
     || "FST4" == m_mode || "Q65" == m_mode;
 }
 
+bool MainWindow::rr73_tx4_allowed () const
+{
+  return Rr73Policy::tx4AllowsRr73 (m_mode, m_bShMsgs);
+}
+
+bool MainWindow::send_rr73_for_tx4 () const
+{
+  return rr73_tx4_allowed () && ("FT4" == m_mode || m_send_RR73);
+}
+
+void MainWindow::set_rr73_tx4 (bool enabled)
+{
+  if (enabled && !rr73_tx4_allowed ()) {
+    auto mode = m_bShMsgs ? tr ("%1 shorthand-message mode").arg (m_mode) : m_mode;
+    MessageBox::information_message (this, tr (
+        "RR73 is not available in %1. Tx4 uses RRR in this mode.").arg (mode));
+    return;
+  }
+
+  m_send_RR73 = enabled;
+  if ("FT4" == m_mode) m_send_RR73 = true;
+  genStdMsgs (m_rpt);
+}
+
 void MainWindow::ScrollBarPosition(int n) {
   m_position=n;
 }
@@ -8809,13 +8824,13 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         t=t0 + "R" + rpt;
         msgtype(t, ui->tx3);
       }
-      m_send_RR73=false;
     }
 
-    t=t0 + (m_send_RR73 ? "RR73" : "RRR");
+    auto send_rr73 = send_rr73_for_tx4 ();
+    t=t0 + (send_rr73 ? "RR73" : "RRR");
     if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8" or m_mode=="FT4" || m_mode == "FST4" || m_mode == "Q65") {
-      if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> " + (m_send_RR73 ? "RR73" : "RRR");
-      if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (m_send_RR73 ? "RR73" : "RRR");
+      if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> " + (send_rr73 ? "RR73" : "RRR");
+      if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (send_rr73 ? "RR73" : "RRR");
     }
     if ((m_mode=="JT4" || m_mode=="Q65") && m_bShMsgs) t="@1500  (RRR)";
     msgtype(t, ui->tx4);
