@@ -2,7 +2,7 @@ module s3avg_mod
   implicit none
 contains
 
-subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decoded)
+subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, nflip, ntol, s3, nsum, nkv, decoded)
   use extract_mod
   implicit none
 
@@ -10,7 +10,7 @@ subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decod
 ! decoding of average.
 
   integer,      intent(inout) :: nsave
-  integer,      intent(in)    :: mode65, nutc, nhz, npol, ntol
+  integer,      intent(in)    :: mode65, nutc, nhz, npol, nflip, ntol
   real,         intent(in)    :: xdt
   real,         intent(in)    :: s3(64,63)   !Synchronized spectra for 63 symbols
   integer,      intent(out) :: nsum, nkv
@@ -18,14 +18,14 @@ subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decod
 
   real s3a(64,63,64)                    !Saved spectra
   real s3b(64,63)                       !Average spectra
-  integer iutc(64),ihz(64),ipol(64)
+  integer iutc(64),ihz(64),ipol(64),iflip(64)
   integer :: i,ihzdiff,nadd,ncount,nhist
   integer :: mrs(63), mrs2(63)          !Dummy arguments for extract
   real, parameter :: dtdiff=0.2
   real dt(64)
   logical ltext,first
   data first/.true./
-  save first,iutc,ihz,ipol,s3a,dt
+  save first,iutc,ihz,ipol,iflip,s3a,dt
 
   nsum=0
   nkv=0
@@ -36,6 +36,7 @@ subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decod
      iutc=-1
      ihz=0
      ipol=0
+     iflip=0
      first=.false.
   endif
 
@@ -49,6 +50,7 @@ subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decod
   iutc(nsave)=nutc                          !Save UTC
   ihz(nsave)=nhz                            !Save freq in Hz
   ipol(nsave)=npol                          !Save pol
+  iflip(nsave)=nflip
   dt(nsave)=xdt                             !Save DT
   s3a(1:64,1:63,nsave)=s3                   !Save the spectra
 
@@ -58,6 +60,9 @@ subroutine s3avg(nsave, mode65, nutc, nhz, xdt, npol, ntol, s3, nsum, nkv, decod
      if(mod(iutc(i),2).ne.mod(nutc,2)) cycle !Use only same sequence
      if(abs(nhz-ihz(i)).gt.ihzdiff) cycle   !Freq must match
      if(abs(xdt-dt(i)).gt.dtdiff) cycle     !DT must match
+     ! Opposite sync polarities map s3 columns to complementary symbol positions.
+     if(iflip(i).eq.0) cycle
+     if(nflip.ne.iflip(i)) cycle
      s3b=s3b + s3a(1:64,1:63,i)
      nsum=nsum+1
   enddo

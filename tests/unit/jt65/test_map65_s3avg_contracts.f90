@@ -20,36 +20,36 @@ contains
 
     call next_slot(nsave)
     nsum=-77
-    call s3avg(nsave,1,1000,1000,0.0,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1000,1000,0.0,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0 .and. len_trim(decoded) == 0, &
                  'first frequency observation is isolated')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1002,1000,0.0,2,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1002,1000,0.0,2,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 2 .and. nkv == 2 .and. decoded(1:len_trim(target)) == target, &
                  'same-parity frequency observations decode as a pair')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1003,3000,0.0,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1003,3000,0.0,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0 .and. len_trim(decoded) == 0, &
                  'frequency-separated observations do not join the group')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1101,5000,0.0,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1101,5000,0.0,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0, 'dynamic tolerance starts a new group')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1103,5050,0.0,1,50,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1103,5050,0.0,1,1,50,s3,nsum,nkv,decoded)
     call require(nsum == 2 .and. nkv == 2 .and. decoded(1:len_trim(target)) == target, &
                  'dynamic tolerance includes its inclusive boundary')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1105,5000,0.0,1,10,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1105,5000,0.0,1,1,10,s3,nsum,nkv,decoded)
     call require(nsum == 2 .and. nkv == 2 .and. decoded(1:len_trim(target)) == target, &
                  'dynamic tolerance excludes the saved 5050-Hz frame')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1107,5011,0.0,1,10,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1107,5011,0.0,1,1,10,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0 .and. len_trim(decoded) == 0, &
                  'dynamic tolerance rejects frequencies outside its boundary')
   end subroutine test_group_isolation_and_tolerance
@@ -64,33 +64,47 @@ contains
     nsave=7
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1200,7000,0.00,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1200,7000,0.00,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0, 'timing fixture starts alone')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1202,7000,0.19,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1202,7000,0.19,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 2 .and. nkv == 2 .and. decoded(1:len_trim(target)) == target, &
                  'nearby timing observations join the group')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1204,7000,0.50,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1204,7000,0.50,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0 .and. len_trim(decoded) == 0, &
                  'distant timing observations remain isolated')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1300,9000,0.00,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1300,9000,0.00,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0, 'duplicate fixture starts alone')
     duplicate_slot=nsave
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1300,9000,0.01,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1300,9000,0.01,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 1 .and. nkv == 0 .and. nsave == duplicate_slot, &
                  'same-UTC duplicate is suppressed and ring position rolls back')
 
     call next_slot(nsave)
-    call s3avg(nsave,1,1302,9000,0.02,1,100,s3,nsum,nkv,decoded)
+    call s3avg(nsave,1,1302,9000,0.02,1,1,100,s3,nsum,nkv,decoded)
     call require(nsum == 2 .and. nkv == 2 .and. decoded(1:len_trim(target)) == target, &
                  'next same-parity observation forms exactly a pair after duplicate')
+
+    call next_slot(nsave)
+    call s3avg(nsave,1,1400,11000,0.00,1,1,100,s3,nsum,nkv,decoded)
+    call require(nsum == 1 .and. nkv == 0, 'sync-polarity fixture starts alone')
+
+    call next_slot(nsave)
+    call s3avg(nsave,1,1402,11000,0.00,1,-1,100,s3,nsum,nkv,decoded)
+    call require(nsum == 1 .and. nkv == 0 .and. len_trim(decoded) == 0, &
+                 'opposite sync polarities do not join the group')
+
+    call next_slot(nsave)
+    call s3avg(nsave,1,1404,11000,0.00,1,-1,100,s3,nsum,nkv,decoded)
+    call require(nsum == 2 .and. nkv == 2 .and. decoded(1:len_trim(target)) == target, &
+                 'matching negative sync polarities decode as a pair')
   end subroutine test_timing_and_duplicates
 
   subroutine make_spectrum(message,code,s3)

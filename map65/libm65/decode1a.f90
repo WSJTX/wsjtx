@@ -200,7 +200,7 @@ call afc65b(c5x(i0), c5y(i0), nz, fsample, nflip, ipol, xpol, ndphi, a, ccfbest,
         nsave=mod(nsave-1,64)+1
         npol=nint(57.296*pol)
 
-     call s3avg(nsave,mode65,nutc,nhz,dt,npol,ntol,s3,nsum,nkv,decoded)
+     call s3avg(nsave,mode65,nutc,nhz,dt,npol,nflip,ntol,s3,nsum,nkv,decoded)
         syncbest=sync2
         nhz0=nhz
      endif
