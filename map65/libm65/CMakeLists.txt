@@ -250,6 +250,13 @@ if (WSJT_ENABLE_TESTS)
   add_test (NAME test_map65_jt65_message_validity COMMAND test_map65_jt65_message_validity)
   set_tests_properties (test_map65_jt65_message_validity PROPERTIES TIMEOUT 180)
 
+  add_executable (test_map65_jt65_candidate_consistency
+    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_map65_jt65_candidate_consistency.f90)
+  target_include_directories (test_map65_jt65_candidate_consistency PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_jt65_candidate_consistency PRIVATE m65impl)
+  add_test (NAME test_map65_jt65_candidate_consistency COMMAND test_map65_jt65_candidate_consistency)
+  set_tests_properties (test_map65_jt65_candidate_consistency PROPERTIES TIMEOUT 180)
+
   add_executable (test_map65_result_selection
     ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_result_selection.f90)
   target_include_directories (test_map65_result_selection PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

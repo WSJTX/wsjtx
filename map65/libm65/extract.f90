@@ -2,6 +2,17 @@ module extract_mod
   implicit none
 contains
 
+pure logical function jt65_candidate_is_consistent(nhard,ntotal,rtt,matched_power)
+  integer, intent(in) :: nhard,ntotal
+  real, intent(in) :: rtt,matched_power
+  logical :: high_power_mismatch,ambiguous_high_burden
+
+  high_power_mismatch=nhard.ge.42 .and. matched_power.ge.8.0
+  ambiguous_high_burden=ntotal.ge.80 .and. &
+       (matched_power.ge.7.5 .or. rtt.ge.0.87)
+  jt65_candidate_is_consistent=.not.(high_power_mismatch .or. ambiguous_high_burden)
+end function jt65_candidate_is_consistent
+
 subroutine extract(s3,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)
 
   use iso_c_binding, only: c_int
@@ -36,7 +47,7 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)
   integer :: i,ipk,naggressive,ncandidates,nd0,nerased,nfail,n
   integer :: nft,nhard,nlow,nsec1,nsoft,ntest,ntotal,ntrials
   integer(c_int) :: ntry(1)
-  real :: base,qual,r00,rtt
+  real :: base,matched_power,qual,r00,rtt
   
 !          0  1  2  3  4  5  6  7  8  9 10 11
   data h0/41,42,43,43,44,45,46,47,48,48,49,49/
@@ -95,6 +106,7 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)
   rtt=0.001*param(4)
   ntotal=param(5)
   qual=0.001*param(7)
+  matched_power=0.001*param(8)
   nd0=81
   r00=0.87
   if(naggressive.eq.10) then
@@ -107,6 +119,7 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)
   if(nhard.gt.h0(n)) nft=0
   if(ntotal.gt.d0(n)) nft=0
   if(rtt.gt.r0(n)) nft=0
+  if(.not.jt65_candidate_is_consistent(nhard,ntotal,rtt,matched_power)) nft=0
 
   ncount=-1
   decoded='                      '
