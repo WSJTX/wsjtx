@@ -125,6 +125,11 @@ void throw_qstring (QString const& qs)
 
 QString font_as_stylesheet (QFont const&);
 
+QString application_style_sheet (QString const& base_style_sheet,
+                                 QString const& dark_style_sheet,
+                                 bool dark_style,
+                                 QFont const& font);
+
 // do what is necessary to change a dynamic property and trigger any
 // conditional style sheet updates
 void update_dynamic_property (QWidget *, char const * property, QVariant const& value);

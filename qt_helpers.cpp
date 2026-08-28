@@ -35,6 +35,19 @@ QString font_as_stylesheet (QFont const& font)
      .arg (font_weight);
 }
 
+QString application_style_sheet (QString const& base_style_sheet,
+                                 QString const& dark_style_sheet,
+                                 bool dark_style,
+                                 QFont const& font)
+{
+  auto style_sheet = dark_style ? dark_style_sheet : base_style_sheet;
+  if (!style_sheet.isEmpty ())
+    {
+      style_sheet += '\n';
+    }
+  return style_sheet + "* {" + font_as_stylesheet (font) + '}';
+}
+
 void update_dynamic_property (QWidget * widget, char const * property, QVariant const& value)
 {
   widget->setProperty (property, value);

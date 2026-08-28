@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <QFont>
 #include <QTemporaryDir>
 
 #include <limits>
@@ -415,6 +416,35 @@ private:
     QFETCH (bool, result);
 
     QCOMPARE (::is_MAC_ambiguous_multicast_address (QHostAddress {addr}), result);
+  }
+
+  Q_SLOT void application_style_sheet_uses_light_base ()
+  {
+    QFont font {"Test Font", 10};
+    auto const base = QString {"QPushButton { color: red; }"};
+    auto const style_sheet = application_style_sheet (base, "dark", false, font);
+
+    QVERIFY (style_sheet.startsWith (base + '\n'));
+    QCOMPARE (style_sheet.count ("* {"), 1);
+  }
+
+  Q_SLOT void application_style_sheet_uses_dark_base ()
+  {
+    QFont font {"Test Font", 10};
+    auto const style_sheet = application_style_sheet ("light", "dark", true, font);
+
+    QVERIFY (style_sheet.startsWith ("dark\n"));
+    QVERIFY (!style_sheet.contains ("light"));
+    QCOMPARE (style_sheet.count ("* {"), 1);
+  }
+
+  Q_SLOT void application_style_sheet_adds_font_without_base ()
+  {
+    QFont font {"Test Font", 10};
+    auto const style_sheet = application_style_sheet ({}, {}, false, font);
+
+    QVERIFY (style_sheet.startsWith ("* {"));
+    QVERIFY (style_sheet.contains ("font-family: Test Font"));
   }
 };
 

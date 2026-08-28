@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QStringList>
+#include <QTextStream>
 #include <QLockFile>
 #include <QSplashScreen>
 #include <QCommandLineParser>
@@ -623,7 +624,38 @@ int main(int argc, char *argv[])
 
       int result;
       bool startup_smoke_ready {false};
-      auto const& original_style_sheet = a.styleSheet ();
+      auto const prerelease_expiration = QDateTime {
+        {2026, 9, 30}, {23, 59, 59, 999}, Qt::UTC};
+      bool prerelease_notice_pending =
+        QCoreApplication::applicationVersion ().contains ("-devel")
+        || QCoreApplication::applicationVersion ().contains ("-rc");
+      auto const original_style_sheet = a.styleSheet ();
+      auto const original_font = a.font ();
+      auto const apply_application_appearance = [&] {
+        auto font = original_font;
+        if (!font.fromString (multi_settings.settings ()->value (
+                              "Configuration/Font", original_font.toString ()).toString ()))
+          {
+            font = original_font;
+          }
+
+        auto const dark_style = multi_settings.settings ()->value (
+          "MainWindow/DarkStyle", false).toBool ();
+        QString dark_style_sheet;
+        if (dark_style)
+          {
+            QFile file {":qdarkstyle/style.qss"};
+            if (file.open (QFile::ReadOnly | QFile::Text))
+              {
+                dark_style_sheet = QTextStream {&file}.readAll ();
+              }
+          }
+
+        auto const style_sheet = application_style_sheet (
+          original_style_sheet, dark_style_sheet, dark_style, font);
+        if (a.font () != font) a.setFont (font);
+        if (a.styleSheet () != style_sheet) a.setStyleSheet (style_sheet);
+      };
       do
         {
           PerformanceTrace::Phase runtime_prepare {"runtime.prepare"};
@@ -770,6 +802,8 @@ int main(int argc, char *argv[])
           QDir::setCurrent(qApp->applicationDirPath()); //This helps to find the SF executables
           runtime_prepare.finish ();
 
+          apply_application_appearance ();
+
           // run the application UI
           smoke_phase ("constructing MainWindow");
           PerformanceTrace::Phase main_window_construct {"mainwindow.construct"};
@@ -807,7 +841,7 @@ int main(int argc, char *argv[])
           std::unique_ptr<AudioInputSource> audio_input;
 #endif
           MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env,
-                       automated_test, std::move (audio_input),
+                       automated_test, original_style_sheet, std::move (audio_input),
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
                        std::move (sound_output),
 #else
@@ -842,6 +876,26 @@ int main(int argc, char *argv[])
           w.show();
           PerformanceTrace::milestone ("ui.show_returned");
           smoke_phase ("MainWindow shown");
+          if (prerelease_notice_pending)
+            {
+              prerelease_notice_pending = false;
+              QTimer::singleShot (0, &w, [&w, automated_test, prerelease_expiration] {
+                if (!automated_test)
+                  {
+                    auto const expiration_date = QLocale::c ().toString (
+                      prerelease_expiration.date (), "MMMM d, yyyy");
+                    MessageBox::critical_message (
+                      &w,
+                      "This is a pre-release version of WSJT-X " + version (false) + " made\n"
+                      "available for testing purposes.  By design it will\n"
+                      "be nonfunctional after " + expiration_date + ".");
+                  }
+                if (QDateTime::currentDateTimeUtc () >= prerelease_expiration)
+                  {
+                    w.close ();
+                  }
+              });
+            }
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           std::unique_ptr<LiveAudioTestController> live_audio_controller;
           std::unique_ptr<JttyTxLoopbackTestController> jtty_tx_controller;
@@ -939,8 +993,6 @@ int main(int argc, char *argv[])
             }
 #endif
 
-          // ensure config switches start with the right style sheet
-          a.setStyleSheet (original_style_sheet);
         }
       while (!multi_settings.exit () && !result && !automated_test);
 

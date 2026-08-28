@@ -4863,7 +4863,20 @@ QLabel[oob=&quot;true&quot;] {
           </widget>
          </item>
          <item row="1" column="3" rowspan="2">
-          <layout class="QVBoxLayout" name="verticalLayout_15">
+          <widget class="QWidget" name="modeButtonsWidget">
+           <layout class="QVBoxLayout" name="verticalLayout_15">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
            <item>
             <widget class="QPushButton" name="houndButton">
              <property name="minimumSize">
@@ -5030,7 +5043,8 @@ QLabel[oob=&quot;true&quot;] {
              </property>
             </widget>
            </item>
-          </layout>
+           </layout>
+          </widget>
          </item>
          <item row="2" column="4" colspan="2">
           <widget class="QLabel" name="labUTC">

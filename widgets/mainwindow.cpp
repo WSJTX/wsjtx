@@ -500,6 +500,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        unsigned downSampleFactor,
                        QSplashScreen * splash, QProcessEnvironment const& env,
                        bool automated_test,
+                       QString base_style_sheet,
                        std::unique_ptr<AudioInputSource> audio_input_source,
                        std::unique_ptr<SoundOutput> sound_output,
                        QString decoder_data_path,
@@ -516,6 +517,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_multi_settings {multi_settings},
   m_configurations_button {0},
   m_settings {multi_settings->settings ()},
+  m_base_style_sheet {std::move (base_style_sheet)},
   ui(new Ui::MainWindow),
   m_config {&m_network_manager, temp_directory, m_settings, &m_logBook, this},
   m_decoderDataDir {decoder_data_path.isEmpty ()
@@ -1645,11 +1647,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   splashTimer.setSingleShot (true);
   splashTimer.start (20 * 1000);
 
-  if(QCoreApplication::applicationVersion().contains("-devel") or
-     QCoreApplication::applicationVersion().contains("-rc")) {
-     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));     //Disabled for now
-  }
-
   m_bMyCallStd=stdCall(m_config.my_callsign ()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
 
@@ -1711,21 +1708,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 // this must be the last statement of constructor
   runtime_initialize.finish ();
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
-}
-
-void MainWindow::not_GA_warning_message ()
-{
-  if (!m_automated_test)
-    {
-      MessageBox::critical_message (this,
-                                    "This is a pre-release version of WSJT-X " + version (false) + " made\n"
-                                    "available for testing purposes.  By design it will\n"
-                                    "be nonfunctional after September 30, 2026.");
-    }
-  auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2026, 9, 30}, {23, 59, 59, 999}, Qt::UTC}) {
-    Q_EMIT finished ();
-  }
 }
 
 void MainWindow::handle_leavingSettings ()
@@ -1927,11 +1909,12 @@ void MainWindow::set_application_font (QFont const& font)
       if (!f.exists())   {
           printf("Unable to set stylesheet, file not found\n");
       } else {
-          qApp->setFont (font);
-          QString ss;
           f.open(QFile::ReadOnly | QFile::Text);
           QTextStream ts(&f);
-          qApp->setStyleSheet(ts.readAll() + "* {" + font_as_stylesheet (font) + '}');
+          auto const style_sheet = application_style_sheet (
+            m_base_style_sheet, ts.readAll (), true, font);
+          if (qApp->font () != font) qApp->setFont (font);
+          if (qApp->styleSheet () != style_sheet) qApp->setStyleSheet (style_sheet);
           m_useDarkStyle = true;
           m_wideGraph->setDarkStyle(m_useDarkStyle);
           check_button_color();
@@ -1942,22 +1925,10 @@ void MainWindow::set_application_font (QFont const& font)
       m_wideGraph->setDarkStyle(m_useDarkStyle);
       check_button_color();
       ui->tabWidget->setTabShape(QTabWidget::Triangular);
-      qApp->setFont (font);
-      // set font in the application style sheet as well in case it has
-      // been modified in the style sheet which has priority
-      QString ss;
-      if (qApp->styleSheet ().size ()) {
-         auto sheet = qApp->styleSheet ();
-         sheet.remove ("file:///");
-         QFile sf {sheet};
-         if (sf.open (QFile::ReadOnly | QFile::Text))
-           {
-             QString tmp = sf.readAll();
-             if (tmp != NULL) ss = sf.readAll () + tmp;
-             else qDebug() << "tmp==NULL at sf.readAll";
-           }
-      }
-      qApp->setStyleSheet (ss + "* {" + font_as_stylesheet (font) + '}');
+      auto const style_sheet = application_style_sheet (
+        m_base_style_sheet, {}, false, font);
+      if (qApp->font () != font) qApp->setFont (font);
+      if (qApp->styleSheet () != style_sheet) qApp->setStyleSheet (style_sheet);
   }
 
   // ensure a balanced layout
@@ -1967,41 +1938,9 @@ void MainWindow::set_application_font (QFont const& font)
       ui->label->setAlignment(Qt::AlignCenter);
       ui->outAttenuation->setMinimumWidth (2.8*pointSize + 8);
   }
-  if (pointSize < 11) {
-//      ui->tabWidget->setMaximumHeight(210);                           // UR for AL
-      if (ui->actionUse_Dark_Style->isChecked()) {
-//          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
-          ui->houndButton->setMinimumWidth(50);                       // UR for normal + widescreen
-          ui->ft8Button->setMinimumWidth(50);                         // UR for normal + widescreen
-          ui->ft4Button->setMinimumWidth(50);                         // UR for normal + widescreen
-          ui->msk144Button->setMinimumWidth(50);                      // UR for normal + widescreen
-          ui->q65Button->setMinimumWidth(50);                         // UR for normal + widescreen
-          ui->jt65Button->setMinimumWidth(50);                        // UR for normal + widescreen
-      } else {
-//          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
-          ui->houndButton->setMaximumWidth(40);                       // UR for normal + widescreen
-          ui->ft8Button->setMaximumWidth(40);                         // UR for normal + widescreen
-          ui->ft4Button->setMaximumWidth(40);                         // UR for normal + widescreen
-          ui->msk144Button->setMaximumWidth(40);                      // UR for normal + widescreen
-          ui->q65Button->setMaximumWidth(40);                         // UR for normal + widescreen
-          ui->jt65Button->setMaximumWidth(40);                        // UR for normal + widescreen
-          ui->houndButton->setMinimumWidth(0);                        // UR for normal + widescreen
-          ui->ft8Button->setMinimumWidth(0);                          // UR for normal + widescreen
-          ui->ft4Button->setMinimumWidth(0);                          // UR for normal + widescreen
-          ui->msk144Button->setMinimumWidth(0);                       // UR for normal + widescreen
-          ui->q65Button->setMinimumWidth(0);                          // UR for normal + widescreen
-          ui->jt65Button->setMinimumWidth(0);                         // UR for normal + widescreen
-      }
-  } else {
-//      ui->tabWidget->setMaximumHeight(255);                           // UR for AL
-//      ui->tabWidget->setMaximumHeight(500);                           // UR for normal + widescreen
-      ui->houndButton->setMinimumWidth(50);                           // UR for normal + widescreen
-      ui->ft8Button->setMinimumWidth(50);                             // UR for normal + widescreen
-      ui->ft4Button->setMinimumWidth(50);                             // UR for normal + widescreen
-      ui->msk144Button->setMinimumWidth(50);                          // UR for normal + widescreen
-      ui->q65Button->setMinimumWidth(50);                             // UR for normal + widescreen
-      ui->jt65Button->setMinimumWidth(50);                            // UR for normal + widescreen
-  }
+  auto const compactModeButtons = pointSize < 11
+    && !ui->actionUse_Dark_Style->isChecked ();
+  ui->modeButtonsWidget->setFixedWidth (compactModeButtons ? 40 : 50);
   if (m_config.largerTabWidget()) ui->tabWidget->setMaximumHeight(1000);
   for (auto& widget : qApp->topLevelWidgets ())
     {
@@ -15477,70 +15416,70 @@ void MainWindow::check_button_color()
           }
       }
       if (ui->houndButton->isChecked() && !m_config.button_coloring_disabled()) {
-          set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
       } else {
         if (SpecOp::FOX==m_specOp && !m_config.button_coloring_disabled()) {
-          set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
         } else {
           if (m_useDarkStyle) {
-             set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
-             set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->houndButton, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
         }
       }
       if (m_mode=="FT8") {
-          set_style_sheet_if_changed(ui->ft8Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->ft8Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
       } else {
           if (m_useDarkStyle) {
-             set_style_sheet_if_changed(ui->ft8Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->ft8Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
-             set_style_sheet_if_changed(ui->ft8Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->ft8Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
       }
       if (m_mode=="FT4") {
-          set_style_sheet_if_changed(ui->ft4Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->ft4Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
       } else {
           if (m_useDarkStyle) {
-             set_style_sheet_if_changed(ui->ft4Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->ft4Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
-             set_style_sheet_if_changed(ui->ft4Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->ft4Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
       }
       if (m_mode=="MSK144") {
-          set_style_sheet_if_changed(ui->msk144Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->msk144Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
       } else {
           if (m_useDarkStyle) {
-             set_style_sheet_if_changed(ui->msk144Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->msk144Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
-             set_style_sheet_if_changed(ui->msk144Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->msk144Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
       }
       if (m_mode=="Q65") {
-          set_style_sheet_if_changed(ui->q65Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->q65Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
       } else {
           if (m_useDarkStyle) {
-             set_style_sheet_if_changed(ui->q65Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->q65Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
-             set_style_sheet_if_changed(ui->q65Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->q65Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
       }
       if (m_mode=="JT65") {
-          set_style_sheet_if_changed(ui->jt65Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->jt65Button, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
       } else {
           if (m_useDarkStyle) {
-             set_style_sheet_if_changed(ui->jt65Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->jt65Button, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
-             set_style_sheet_if_changed(ui->jt65Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->jt65Button, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
       }
       if (m_mode=="Echo" && ui->echoButton->isVisible()) {
-          set_style_sheet_if_changed(ui->echoButton, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          set_style_sheet_if_changed(ui->echoButton, "QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
       } else {
           if (m_useDarkStyle) {
-             set_style_sheet_if_changed(ui->echoButton, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->echoButton, "QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
-             set_style_sheet_if_changed(ui->echoButton, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             set_style_sheet_if_changed(ui->echoButton, "QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
       }
     }

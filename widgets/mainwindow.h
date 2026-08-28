@@ -185,6 +185,7 @@ public:
   explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
                       QSharedMemory *shdmem, unsigned downSampleFactor,
                       QSplashScreen *, QProcessEnvironment const&, bool automated_test,
+                      QString base_style_sheet,
                       std::unique_ptr<AudioInputSource> audio_input_source = {},
                       std::unique_ptr<SoundOutput> sound_output = {},
                       QString decoder_data_path = {},
@@ -629,7 +630,6 @@ private slots:
   void on_pbFreeText_clicked();
   void FoxReset(QString reason);
   void on_comboBoxHoundSort_activated (int index);
-  void not_GA_warning_message ();
   void checkMSK144ContestType();
   void on_pbBestSP_clicked();
   void on_RoundRobin_currentTextChanged(QString text);
@@ -829,6 +829,7 @@ private:
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
   QSettings * m_settings;
+  QString m_base_style_sheet;
   QScopedPointer<Ui::MainWindow> ui;
   QButtonGroup * m_tx_message_button_group {nullptr};
   QFocusFrame * m_main_window_focus_frame {nullptr};
