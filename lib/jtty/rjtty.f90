@@ -29,8 +29,8 @@ program rjtty
    nargs=iargc()
    if(nargs.lt.6) then
       print*,'Usage:    rjtty smin ndebug nsps  f0  ftol  fname [...]'
-      print*,'Examples: rjtty   4    0    384  1500  50  000000_000001.wav'
-      print*,'          rjtty   4    1    240  1500  50  *.wav'
+      print*,'Examples: rjtty  4.6   0    384  1500  50  000000_000001.wav'
+      print*,'          rjtty  4.6   1    240  1500  50  *.wav'
       print*,'nsps choices are: 240, 320, 384, 480 samples/symbol'
       go to 999
    endif
