@@ -28,7 +28,15 @@ extern "C" {
                 int * ndop, int * ndop00, double * ramoon, double * decmoon, double * dgrd,
                 double * poloffset, double * xnr, bool extraazel, double * techo, double * width1,
                 double * width2, bool bTx, const char * AzElFileName,
-                const char * jpleph); 
+                const char * jpleph, int * ephemeris_result);
+}
+
+namespace
+{
+  constexpr int ephemeris_jpl = 0;
+  constexpr int ephemeris_analytic_fallback = 1;
+  constexpr int ephemeris_invalid_input = 2;
+  constexpr int ephemeris_unavailable = 3;
 }
 
 Astro::Astro(QSettings * settings, Configuration const * configuration, QWidget * parent)
@@ -106,7 +114,7 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
   Frequency freq_moon {freq};
   double azsun,elsun,azmoon,elmoon,azmoondx,elmoondx;
   double ramoon,decmoon,dgrd,poloffset,xnr,techo,width1,width2;
-  int ntsky;
+  int ntsky, ephemeris_result;
   QString date {t.date().toString("yyyy MMM dd").trimmed ()};
   QString utc {t.time().toString().trimmed ()};
   int nyear {t.date().year()};
@@ -131,7 +139,46 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
            &m_dgrd, &poloffset, &xnr, extraazel, &techo, &width1, &width2,
            bTx,
            AzElFileName.toLocal8Bit ().constData (),
-           jpleph.toLocal8Bit ().constData ());
+           jpleph.toLocal8Bit ().constData (), &ephemeris_result);
+
+  auto report_ephemeris_transition = [this] (int result)
+    {
+      if (result == m_ephemeris_result)
+        {
+          return;
+        }
+      if (result == ephemeris_analytic_fallback)
+        {
+          qWarning () << "JPL ephemeris unavailable; using analytic fallback";
+        }
+      else if (result == ephemeris_invalid_input)
+        {
+          qWarning () << "Invalid astronomical date or time";
+        }
+      else if (result == ephemeris_unavailable)
+        {
+          qWarning () << "No valid lunar ephemeris result";
+        }
+      else if (result == ephemeris_jpl && m_ephemeris_result >= 0)
+        {
+          qInfo () << "JPL ephemeris available again";
+        }
+      m_ephemeris_result = result;
+    };
+
+  report_ephemeris_transition (ephemeris_result);
+  if (ephemeris_result == ephemeris_invalid_input)
+    {
+      ui_->text_label->setText (" " + date + "\nUTC:  " + utc
+                                + "\nEphem: Invalid input");
+      return {};
+    }
+  if (ephemeris_result == ephemeris_unavailable)
+    {
+      ui_->text_label->setText (" " + date + "\nUTC:  " + utc
+                                + "\nEphem: Unavailable");
+      return {};
+    }
 
   QString message;
   {
@@ -160,6 +207,10 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
       "SunAz:  " << azsun << "\n"
       "SunEl:  " << elsun << "\n"
       "Freq:   " << freq / 1.e6 << "\n";
+    if (ephemeris_result == ephemeris_analytic_fallback)
+      {
+        out << "Ephem: Analytic fallback\n";
+      }
     if(freq>=5000000ull) {                     //Suppress data not relevant below VHF
       out << "Tsky:   " << ntsky << "\n"
         "Dpol:   " << poloffset << "\n"
@@ -263,7 +314,14 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
                   &dgrd, &poloffset, &xnr, extraazel, &techo, &width1, &width2,
                   bTx,
                   nullptr,      // don't overwrite azel.dat
-                  jpleph.toLocal8Bit ().constData ());
+                  jpleph.toLocal8Bit ().constData (), &ephemeris_result);
+
+        report_ephemeris_transition (ephemeris_result);
+        if (ephemeris_result == ephemeris_invalid_input
+            || ephemeris_result == ephemeris_unavailable)
+          {
+            return {};
+          }
 
         FrequencyDelta offset {0};
         switch (m_DopplerMethod)

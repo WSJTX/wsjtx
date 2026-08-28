@@ -52,8 +52,7 @@ C IF 'INQUIRE' DOES NOT WORK, USUALLY IRECSZ WILL BE LEFT AT 0
      . ' INQUIRE STATEMENT PROBABLY DID NOT WORK'
 
       KSIZE=IRECSZ/NRECL
-      if(nrfile.eq.-99) stop              !silence compiler warning
-
+      NRFILE=-1
       RETURN
 
       END
@@ -97,7 +96,7 @@ C
 
 C  NRFILE IS THE INTERNAL UNIT NUMBER USED FOR THE EPHEMERIS FILE
 
-      NRFILE=12
+      NRFILE=-1
 
 C  NAMFIL IS THE EXTERNAL NAME OF THE BINARY EPHEMERIS FILE
 
@@ -112,15 +111,28 @@ C  **  DETERMINE THE SIZE OF THE EPHEMERIS RECORD
 
       MRECL=NRECL*1000
 
-        OPEN(NRFILE,
+        OPEN(NEWUNIT=NRFILE,
      *       FILE=NAMFIL,
      *       ACCESS='DIRECT',
      *       FORM='UNFORMATTED',
      *       RECL=MRECL,
-     *       STATUS='OLD')
+     *       STATUS='OLD',
+     *       ACTION='READ',
+     *       IOSTAT=IOS)
+      IF(IOS.NE.0) THEN
+        KSIZE=0
+        NRFILE=-1
+        RETURN
+      ENDIF
 
-      READ(NRFILE,REC=1)TTL,(CNAM(K),K=1,OLDMAX),SS,NCON,AU,EMRAT,
+      READ(NRFILE,REC=1,IOSTAT=IOS)TTL,
+     & (CNAM(K),K=1,OLDMAX),SS,NCON,AU,EMRAT,
      & ((IPT(I,J),I=1,3),J=1,12),NUMDE,(IPT(I,13),I=1,3)
+      IF(IOS.NE.0) THEN
+        KSIZE=0
+        CLOSE(NRFILE)
+        RETURN
+      ENDIF
 
       CLOSE(NRFILE)
 
@@ -205,14 +217,11 @@ C  *******************************************************************
       END
 C++++++++++++++++++++++++++
 C
-      SUBROUTINE PLEPH ( ET, NTARG, NCENT, RRD )
+      SUBROUTINE PLEPH ( ET, NTARG, NCENT, RRD, STATUS )
+      USE JPL_EPHEMERIS_STATUS
 C
 C++++++++++++++++++++++++++
-C  NOTE : Over the years, different versions of PLEPH have had a fifth argument:
-C  sometimes, an error return statement number; sometimes, a logical denoting
-C  whether or not the requested date is covered by the ephemeris.  We apologize
-C  for this inconsistency; in this present version, we use only the four necessary 
-C  arguments and do the testing outside of the subroutine.
+C  STATUS REPORTS FILE, HEADER, RANGE, AND REQUEST ERRORS WITHOUT TERMINATING.
 C
 C     THIS SUBROUTINE READS THE JPL PLANETARY EPHEMERIS
 C     AND GIVES THE POSITION AND VELOCITY OF THE POINT 'NTARG'
@@ -255,6 +264,8 @@ C
 C            The option is available to have the units in km and km/sec.
 C            For this, set km=.true. in the STCOMX common block.
 C
+C      STATUS = INTEGER STATUS VALUE DEFINED BY JPL_EPHEMERIS_STATUS.
+C
 
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
 
@@ -267,10 +278,8 @@ C
       DATA ZIPS/2*0.d0/
 
       LOGICAL BSAVE,KM,BARY
-      LOGICAL FIRST
-      DATA FIRST/.TRUE./
 
-      INTEGER LIST(12),IPT(39),DENUM
+      INTEGER LIST(12),IPT(39),DENUM,STATUS
       COMMON/EPHHDR/CVAL,SS,AU,EMRAT,DENUM,NCON,IPT
       COMMON/STCOMX/KM,BARY,PVSUN
 
@@ -283,13 +292,26 @@ C
 C     ENTRY POINT 'DPLEPH' FOR DOUBLY-DIMENSIONED TIME ARGUMENT 
 C          (SEE THE DISCUSSION IN THE SUBROUTINE STATE)
 
-      ENTRY DPLEPH(ET2Z,NTARG,NCENT,RRD)
+      ENTRY DPLEPH(ET2Z,NTARG,NCENT,RRD,STATUS)
 
       ET2(1)=ET2Z(1)
       ET2(2)=ET2Z(2)
 
-  11  IF(FIRST) CALL STATE(ZIPS,LIST,PVST,PNUT)
-      FIRST=.FALSE.
+  11  STATUS=JPL_STATUS_OK
+      DO I=1,6
+        RRD(I)=0.D0
+      ENDDO
+
+      IF(NTARG.EQ.14 .OR. NTARG.EQ.15) THEN
+        IF(NCENT.NE.0) THEN
+          STATUS=JPL_STATUS_INVALID_REQUEST
+          RETURN
+        ENDIF
+      ELSE IF(NTARG.LT.1 .OR. NTARG.GT.13 .OR.
+     *        NCENT.LT.1 .OR. NCENT.GT.13) THEN
+        STATUS=JPL_STATUS_INVALID_REQUEST
+        RETURN
+      ENDIF
 
       IF(NTARG .EQ. NCENT) RETURN
 
@@ -300,44 +322,25 @@ C          (SEE THE DISCUSSION IN THE SUBROUTINE STATE)
 C     CHECK FOR NUTATION CALL
 
       IF(NTARG.NE.14) GO TO 97
-        IF(IPT(35).GT.0) THEN
-          LIST(11)=2
-          CALL STATE(ET2,LIST,PVST,PNUT)
-          DO I=1,4
-            RRD(I)=PNUT(I)
-          ENDDO
-          RRD(5) = 0.d0
-          RRD(6) = 0.d0
-          RETURN
-        ELSE
-          DO I=1,4
-            RRD(I)=0.d0
-          ENDDO
-          WRITE(6,297)
-  297     FORMAT(' *****  NO NUTATIONS ON THE EPHEMERIS FILE  *****')
-          STOP
-        ENDIF
+        LIST(11)=2
+        CALL STATE(ET2,LIST,PVST,PNUT,STATUS)
+        IF(STATUS.NE.JPL_STATUS_OK) RETURN
+        DO I=1,4
+          RRD(I)=PNUT(I)
+        ENDDO
+        RETURN
 
 C     CHECK FOR LIBRATIONS
 
   97  CONTINUE
-      DO I=1,6
-        RRD(I)=0.d0
-      ENDDO
-
       IF(NTARG.NE.15) GO TO 98
-        IF(IPT(38).GT.0) THEN
-          LIST(12)=2
-          CALL STATE(ET2,LIST,PVST,PNUT)
-          DO I=1,6
-            RRD(I)=PVST(I,11)
-          ENDDO
-          RETURN
-        ELSE
-          WRITE(6,298)
-  298     FORMAT(' *****  NO LIBRATIONS ON THE EPHEMERIS FILE  *****')
-          STOP
-        ENDIF
+        LIST(12)=2
+        CALL STATE(ET2,LIST,PVST,PNUT,STATUS)
+        IF(STATUS.NE.JPL_STATUS_OK) RETURN
+        DO I=1,6
+          RRD(I)=PVST(I,11)
+        ENDDO
+        RETURN
 
 C       FORCE BARYCENTRIC OUTPUT BY 'STATE'
 
@@ -357,7 +360,8 @@ C       SET UP PROPER ENTRIES IN 'LIST' ARRAY FOR STATE CALL
 
 C       MAKE CALL TO STATE
 
-      CALL STATE(ET2,LIST,PVST,PNUT)
+      CALL STATE(ET2,LIST,PVST,PNUT,STATUS)
+      IF(STATUS.NE.JPL_STATUS_OK) GO TO 190
 
       DO I=1,10
         DO J = 1,6
@@ -408,6 +412,8 @@ C       MAKE CALL TO STATE
 
       BARY=BSAVE
 
+      RETURN
+ 190  BARY=BSAVE
       RETURN
       END
 C+++++++++++++++++++++++++++++++++
@@ -576,7 +582,10 @@ C       MAKE ADJUSTMENTS FOR NEGATIVE INPUT NUMBER
 
 C++++++++++++++++++++++++++++++++
 C
-      SUBROUTINE STATE(ET2,LIST,PV,PNUT)
+      SUBROUTINE STATE(ET2,LIST,PV,PNUT,STATUS)
+      USE JPL_EPHEMERIS_STATUS
+      USE IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
+      USE ISO_FORTRAN_ENV, ONLY: INT64
 C
 C++++++++++++++++++++++++++++++++
 C
@@ -656,8 +665,7 @@ C                        D EPSILON (NUTATION IN OBLIQUITY)
 C                        D PSI DOT
 C                        D EPSILON DOT
 C
-C           *   STATEMENT # FOR ERROR RETURN, IN CASE OF EPOCH OUT OF
-C               RANGE OR I/O ERRORS.
+C       STATUS  INTEGER STATUS VALUE DEFINED BY JPL_EPHEMERIS_STATUS.
 C
 C     COMMON AREA STCOMX:
 C
@@ -685,73 +693,153 @@ C
       PARAMETER ( OLDMAX = 400)
       INTEGER NMAX
       PARAMETER ( NMAX = 1000)
-
       DIMENSION ET2(2),PV(6,11),PNUT(4),T(2),PJD(4),BUF(1500),
      . SS(3),CVAL(NMAX),PVSUN(6)
 
-      INTEGER LIST(12),IPT(3,13)
-
-      LOGICAL FIRST
-      DATA FIRST/.TRUE./
+      INTEGER LIST(12),IPT(3,13),STATUS
+      INTEGER(INT64) FILESIZE,IRECORD_END
 
       CHARACTER*6 TTL(14,3),CNAM(NMAX)
-      CHARACTER*256 NAMFIL
+      CHARACTER*256 NAMFIL,JPLEPH_FILE_NAME,ACTIVE_PATH
 
-      LOGICAL KM,BARY
+      LOGICAL KM,BARY,INITIALIZED,FAILED,ISOPEN
+      INTEGER SAVED_GENERATION,FAILURE_STATUS
+      DATA INITIALIZED/.FALSE./,FAILED/.FALSE./
+      DATA SAVED_GENERATION/-1/,FAILURE_STATUS/1/
+      DATA NRFILE/-1/,NRL/0/,ACTIVE_PATH/' '/
 
       COMMON/EPHHDR/CVAL,SS,AU,EMRAT,NUMDE,NCON,IPT
       COMMON/CHRHDR/CNAM,TTL
       COMMON/STCOMX/KM,BARY,PVSUN
+      COMMON/JPLCOM/JPLEPH_FILE_NAME
+
+      STATUS=JPL_STATUS_OK
+      DO I=1,11
+        DO J=1,6
+          PV(J,I)=0.D0
+        ENDDO
+      ENDDO
+      DO I=1,4
+        PNUT(I)=0.D0
+      ENDDO
+      DO I=1,6
+        PVSUN(I)=0.D0
+      ENDDO
+
+C       RESET LOCAL READER STATE WHEN THE CONFIGURATION CHANGES
+
+      IF(SAVED_GENERATION.NE.CONFIGURATION_GENERATION .OR.
+     *   ACTIVE_PATH.NE.JPLEPH_FILE_NAME) THEN
+        IF(NRFILE.NE.-1) THEN
+          INQUIRE(UNIT=NRFILE,OPENED=ISOPEN)
+          IF(ISOPEN) CLOSE(NRFILE)
+        ENDIF
+        NRFILE=-1
+        NRL=0
+        INITIALIZED=.FALSE.
+        FAILED=.FALSE.
+        FAILURE_STATUS=JPL_STATUS_IO_ERROR
+        ACTIVE_PATH=JPLEPH_FILE_NAME
+        SAVED_GENERATION=CONFIGURATION_GENERATION
+        CALL NOTE_JPL_READER_CHANGE()
+      ENDIF
+
+      IF(.NOT.IEEE_IS_FINITE(ET2(1)) .OR.
+     *   .NOT.IEEE_IS_FINITE(ET2(2))) THEN
+        STATUS=JPL_STATUS_INVALID_REQUEST
+        RETURN
+      ENDIF
+
+      IF(FAILED) THEN
+        STATUS=FAILURE_STATUS
+        RETURN
+      ENDIF
 
 C
 C       ENTRY POINT - 1ST TIME IN, GET POINTER DATA, ETC., FROM EPH FILE
 C
-      IF(FIRST) THEN
-        FIRST=.FALSE.
-
-C ************************************************************************
-C ************************************************************************
-
-C THE USER MUST SELECT ONE OF THE FOLLOWING BY DELETING THE 'C' IN COLUMN 1
-
-C ************************************************************************
-
-C        CALL FSIZER1(NRECL,KSIZE,NRFILE,NAMFIL)
-C        CALL FSIZER2(NRECL,KSIZE,NRFILE,NAMFIL)
-        CALL FSIZER3(NRECL,KSIZE,NRFILE,NAMFIL)
-
-      IF(NRECL .EQ. 0) WRITE(*,*)'  ***** FSIZER IS NOT WORKING *****'
-
-C ************************************************************************
-C ************************************************************************
-
+      IF(.NOT.INITIALIZED) THEN
+      NRECL=4
+      KSIZE=2036
+      NAMFIL=JPLEPH_FILE_NAME
       IRECSZ=NRECL*KSIZE
       NCOEFFS=KSIZE/2
 
-        OPEN(NRFILE,
+        OPEN(NEWUNIT=NRFILE,
      *       FILE=NAMFIL,
      *       ACCESS='DIRECT',
      *       FORM='UNFORMATTED',
      *       RECL=IRECSZ,
-     *       STATUS='OLD')
-
-      READ(NRFILE,REC=1)TTL,(CNAM(K),K=1,OLDMAX),SS,NCON,AU,EMRAT,
-     & ((IPT(I,J),I=1,3),J=1,12),NUMDE,(IPT(I,13),I=1,3)
-     & ,(CNAM(L),L=OLDMAX+1,NCON)
-
-      IF(NCON .LE. OLDMAX)THEN
-        READ(NRFILE,REC=2)(CVAL(I),I=1,OLDMAX)
-      ELSE
-        READ(NRFILE,REC=2)(CVAL(I),I=1,NCON)
+     *       STATUS='OLD',
+     *       ACTION='READ',
+     *       IOSTAT=IOS)
+      IF(IOS.NE.0) THEN
+        NRFILE=-1
+        GO TO 990
       ENDIF
 
+      READ(NRFILE,REC=1,IOSTAT=IOS)TTL,
+     & (CNAM(K),K=1,OLDMAX),SS,NCON,AU,EMRAT,
+     & ((IPT(I,J),I=1,3),J=1,12),NUMDE,(IPT(I,13),I=1,3)
+      IF(IOS.NE.0) GO TO 991
+      IF(NCON.LT.0 .OR. NCON.GT.NMAX .OR.
+     *   NCON.GT.NCOEFFS) GO TO 992
+
+C       READ EXTENDED CONSTANT NAMES ONLY AFTER NCON IS KNOWN TO FIT
+
+      IF(NCON.GT.OLDMAX) THEN
+        READ(NRFILE,REC=1,IOSTAT=IOS)TTL,
+     &   (CNAM(K),K=1,OLDMAX),SS,NCON,AU,EMRAT,
+     &   ((IPT(I,J),I=1,3),J=1,12),NUMDE,
+     &   (IPT(I,13),I=1,3),(CNAM(L),L=OLDMAX+1,NCON)
+        IF(IOS.NE.0) GO TO 991
+      ENDIF
+
+      IF(.NOT.IEEE_IS_FINITE(SS(1)) .OR.
+     *   .NOT.IEEE_IS_FINITE(SS(2)) .OR.
+     *   .NOT.IEEE_IS_FINITE(SS(3)) .OR.
+     *   .NOT.IEEE_IS_FINITE(AU) .OR.
+     *   .NOT.IEEE_IS_FINITE(EMRAT)) GO TO 992
+      IF(SS(2).LE.SS(1) .OR. SS(3).LE.0.D0 .OR.
+     *   AU.LE.0.D0 .OR. EMRAT.LE.0.D0) GO TO 992
+
+      DO J=1,13
+        IF(IPT(1,J).EQ.0 .AND. IPT(2,J).EQ.0 .AND.
+     *     IPT(3,J).EQ.0) THEN
+          IF(J.LE.11) GO TO 992
+        ELSE
+          IF(IPT(1,J).LE.0 .OR. IPT(2,J).LE.0 .OR.
+     *       IPT(3,J).LE.0) GO TO 992
+          IF(IPT(1,J).GT.NCOEFFS .OR. IPT(2,J).GT.18
+     *       .OR. IPT(3,J).GT.NCOEFFS) GO TO 992
+          NCOMP=3
+          IF(J.EQ.12) NCOMP=2
+          IAVAILABLE=NCOEFFS-IPT(1,J)+1
+          IF(IPT(2,J).GT.IAVAILABLE/NCOMP/IPT(3,J)) GO TO 992
+        ENDIF
+      ENDDO
+
+      NVALUES=MAX(OLDMAX,NCON)
+      READ(NRFILE,REC=2,IOSTAT=IOS)(CVAL(I),I=1,NVALUES)
+      IF(IOS.NE.0) GO TO 991
+
       NRL=0
+      INITIALIZED=.TRUE.
 
       ENDIF
 
 C       ********** MAIN ENTRY POINT **********
 
       IF(ET2(1) .EQ. 0.D0) RETURN
+
+      IF(LIST(11).GT.0 .AND. IPT(2,12).EQ.0) THEN
+        STATUS=JPL_STATUS_NOT_AVAILABLE
+        RETURN
+      ENDIF
+      IF(LIST(12).GT.0 .AND. IPT(2,13).EQ.0) THEN
+        STATUS=JPL_STATUS_NOT_AVAILABLE
+        RETURN
+      ENDIF
 
       S=ET2(1)-.5D0
       CALL SPLIT_DP(S,PJD(1))
@@ -763,11 +851,21 @@ C       ********** MAIN ENTRY POINT **********
 
 C       ERROR RETURN FOR EPOCH OUT OF RANGE
 
-      IF(PJD(1)+PJD(4).LT.SS(1) .OR. PJD(1)+PJD(4).GT.SS(2)) GO TO 98
+      IF(PJD(1)+PJD(4).LT.SS(1) .OR.
+     *   PJD(1)+PJD(4).GT.SS(2)) THEN
+        STATUS=JPL_STATUS_OUT_OF_RANGE
+        RETURN
+      ENDIF
 
 C       CALCULATE RECORD # AND RELATIVE TIME IN INTERVAL
 
-      NR=IDINT((PJD(1)-SS(1))/SS(3))+3
+      RECORD_SPAN=PJD(1)-SS(1)+PJD(4)
+      IF(.NOT.IEEE_IS_FINITE(RECORD_SPAN)) GO TO 992
+      IF(SS(3).LE.RECORD_SPAN/DBLE(HUGE(NR)-3)) GO TO 992
+      RECORD_OFFSET=RECORD_SPAN/SS(3)
+      IF(.NOT.IEEE_IS_FINITE(RECORD_OFFSET) .OR.
+     *   RECORD_OFFSET.GE.DBLE(HUGE(NR)-3)) GO TO 992
+      NR=IDINT(RECORD_OFFSET)+3
       IF(PJD(1).EQ.SS(2)) NR=NR-1
 
         tmp1 = DBLE(NR-3)*SS(3) + SS(1)
@@ -777,8 +875,13 @@ C       CALCULATE RECORD # AND RELATIVE TIME IN INTERVAL
 C       READ CORRECT RECORD IF NOT IN CORE
 
       IF(NR.NE.NRL) THEN
+        INQUIRE(UNIT=NRFILE,SIZE=FILESIZE,IOSTAT=IOS)
+        IF(IOS.NE.0) GO TO 991
+        IRECORD_END=INT(NR,INT64)*INT(IRECSZ,INT64)
+        IF(FILESIZE.LT.IRECORD_END) GO TO 991
+        READ(NRFILE,REC=NR,IOSTAT=IOS)(BUF(K),K=1,NCOEFFS)
+        IF(IOS.NE.0) GO TO 991
         NRL=NR
-        READ(NRFILE,REC=NR,ERR=99)(BUF(K),K=1,NCOEFFS)
       ENDIF
 
       IF(KM) THEN
@@ -829,20 +932,27 @@ C       GET LIBRATIONS IF REQUESTED (AND IF ON FILE)
 
       RETURN
 
-  98  WRITE(*,198)ET2(1)+ET2(2),SS(1),SS(2)
- 198  FORMAT(' ***  Requested JED,',f12.2,
-     * ' not within ephemeris limits,',2f12.2,'  ***')
-
-      STOP
-
-   99 WRITE(*,'(2F12.2,A80)')ET2,'ERROR RETURN IN STATE'
-
-      STOP
+ 990  FAILURE_STATUS=JPL_STATUS_IO_ERROR
+      GO TO 994
+ 991  FAILURE_STATUS=JPL_STATUS_IO_ERROR
+      GO TO 993
+ 992  FAILURE_STATUS=JPL_STATUS_INVALID_HEADER
+ 993  IF(NRFILE.NE.-1) THEN
+        INQUIRE(UNIT=NRFILE,OPENED=ISOPEN)
+        IF(ISOPEN) CLOSE(NRFILE)
+      ENDIF
+ 994  NRFILE=-1
+      NRL=0
+      INITIALIZED=.FALSE.
+      FAILED=.TRUE.
+      STATUS=FAILURE_STATUS
+      RETURN
 
       END
 C+++++++++++++++++++++++++++++
 C
       SUBROUTINE CONST(NAM,VAL,SSS,N)
+      USE JPL_EPHEMERIS_STATUS
 C
 C+++++++++++++++++++++++++++++
 C
@@ -871,17 +981,17 @@ C
       DOUBLE PRECISION PVST(6,11),PNUT(4)
       DATA ZIPS/2*0.d0/
 
-      INTEGER IPT(3,13),DENUM,LIST(12)
-      logical first
-      data first/.true./
-
+      INTEGER IPT(3,13),DENUM,LIST(12),STATUS
       COMMON/EPHHDR/CVAL,SS,AU,EMRAT,DENUM,NCON,IPT
       COMMON/CHRHDR/CNAM,TTL
 
 C  CALL STATE TO INITIALIZE THE EPHEMERIS AND READ IN THE CONSTANTS
 
-      IF(FIRST) CALL STATE(ZIPS,LIST,PVST,PNUT)
-      first=.false.
+      CALL STATE(ZIPS,LIST,PVST,PNUT,STATUS)
+      IF(STATUS.NE.JPL_STATUS_OK) THEN
+        N=0
+        RETURN
+      ENDIF
 
       N=NCON
 

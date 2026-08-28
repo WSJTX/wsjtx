@@ -1,8 +1,11 @@
 subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
      AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8,ntsky,ndop,ndop00,    &
      dbMoon8,RAMoon8,DecMoon8,HA8,Dgrd8,sd8,poloffset8,xnr8,dfdt,dfdt0,    &
-     width1,width2,xlst8,techo8)
+     width1,width2,xlst8,techo8,ephemeris_result)
 
+  use jpl_ephemeris_status, only: EPHEMERIS_JPL,                       &
+       EPHEMERIS_ANALYTIC_FALLBACK, EPHEMERIS_INVALID_INPUT,          &
+       EPHEMERIS_UNAVAILABLE, jpl_reader_generation
   parameter (DEGS=57.2957795130823d0)
   character*6 mygrid,hisgrid
   real*8 AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8
@@ -10,16 +13,25 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   real*8 sd8,poloffset8,width1,width2,xlst8
   real*8 uth8,techo8,freq8
   real*8 xl,b
+  integer ephemeris_result,result_dx,result_self,last_result
+  integer last_reader_generation
   common/librcom/xl(2),b(2)
   common/echocom2/fspread_self,fspread_dx
   data uth8z/0.d0/
+  data last_result/-1/
+  data last_reader_generation/-1/
   save
 
   uth=uth8
   call astro(nyear,month,nday,uth,freq8,hisgrid,2,1,                 &
        AzSun,ElSun,AzMoon,ElMoon,ntsky,doppler00,doppler,            &
        dbMoon,RAMoon,DecMoon,HA,Dgrd,sd,poloffset,xnr,               &
-       day,xlon2,xlat2,xlst,techo)
+       day,xlon2,xlat2,xlst,techo,result_dx)
+  if(result_dx.eq.EPHEMERIS_INVALID_INPUT .or.                       &
+       result_dx.eq.EPHEMERIS_UNAVAILABLE) then
+     ephemeris_result=result_dx
+     go to 800
+  endif
   AzMoonB8=AzMoon
   ElMoonB8=ElMoon
   xl2=xl(1)
@@ -29,7 +41,16 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   call astro(nyear,month,nday,uth,freq8,mygrid,1,1,                  &
        AzSun,ElSun,AzMoon,ElMoon,ntsky,doppler00,doppler,            &
        dbMoon,RAMoon,DecMoon,HA,Dgrd,sd,poloffset,xnr,               &
-       day,xlon1,xlat1,xlst,techo)
+       day,xlon1,xlat1,xlst,techo,result_self)
+  if(result_self.eq.EPHEMERIS_INVALID_INPUT .or.                     &
+       result_self.eq.EPHEMERIS_UNAVAILABLE) then
+     ephemeris_result=result_self
+     go to 800
+  endif
+  ephemeris_result=EPHEMERIS_JPL
+  if(result_dx.eq.EPHEMERIS_ANALYTIC_FALLBACK .or.                    &
+       result_self.eq.EPHEMERIS_ANALYTIC_FALLBACK)                   &
+       ephemeris_result=EPHEMERIS_ANALYTIC_FALLBACK
   xl1=xl(1)
   xl1a=xl(2)
   b1=b(1)
@@ -65,19 +86,53 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   ndop=nint(doppler)
   ndop00=nint(doppler00)
 
-  if(uth8z.eq.0.d0) then
-     uth8z=uth8-1.d0/3600.d0
-     dopplerz=doppler
-     doppler00z=doppler00
+  if(uth8z.eq.0.d0 .or. ephemeris_result.ne.last_result .or.         &
+       jpl_reader_generation.ne.last_reader_generation) then
+     dfdt=0.d0
+     dfdt0=0.d0
+  else
+     dt=60.0*(uth8-uth8z)
+     if(dt.le.0) dt=1.d0/60.d0
+     dfdt=(doppler-dopplerz)/dt
+     dfdt0=(doppler00-doppler00z)/dt
   endif
-     
-  dt=60.0*(uth8-uth8z)
-  if(dt.le.0) dt=1.d0/60.d0
-  dfdt=(doppler-dopplerz)/dt
-  dfdt0=(doppler00-doppler00z)/dt
   uth8z=uth8
   dopplerz=doppler
   doppler00z=doppler00
+  last_result=ephemeris_result
+  last_reader_generation=jpl_reader_generation
 
+  return
+
+800 uth8z=0.d0
+  dopplerz=0.0
+  doppler00z=0.0
+  last_result=-1
+  last_reader_generation=-1
+  fspread_self=0.0
+  fspread_dx=0.0
+  AzSun8=0.d0
+  ElSun8=0.d0
+  AzMoon8=0.d0
+  ElMoon8=0.d0
+  AzMoonB8=0.d0
+  ElMoonB8=0.d0
+  ntsky=0
+  ndop=0
+  ndop00=0
+  dbMoon8=0.d0
+  RAMoon8=0.d0
+  DecMoon8=0.d0
+  HA8=0.d0
+  Dgrd8=0.d0
+  sd8=0.d0
+  poloffset8=0.d0
+  xnr8=0.d0
+  dfdt=0.d0
+  dfdt0=0.d0
+  width1=0.d0
+  width2=0.d0
+  xlst8=0.d0
+  techo8=0.d0
   return
 end subroutine astro0

@@ -246,6 +246,7 @@ set (wsjt_FSRCS
   lib/decode_completion.f90
   lib/jt9_input_validation.f90
   lib/msk_spectrum.f90
+  lib/jpl_ephemeris_status.f90
   lib/shmem.f90
   lib/crc.f90
   lib/fftw3mod.f90

@@ -12,10 +12,13 @@ contains
   subroutine astrosub(nyear,month,nday,uth8,freq8,mygrid_cp,                    &
        hisgrid_cp,AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8,              &
        ntsky,ndop,ndop00,RAMoon8,DecMoon8,Dgrd8,poloffset8,xnr8,extraazel,      &
-       techo8,width1,width2,bTx,AzElFileName_cp,jpleph_file_name_cp)            &
+       techo8,width1,width2,bTx,AzElFileName_cp,jpleph_file_name_cp,            &
+       ephemeris_result)                                                        &
        bind (C, name="astrosub")
 
     use :: types, only: dp
+    use :: jpl_ephemeris_status, only: EPHEMERIS_INVALID_INPUT,      &
+         EPHEMERIS_UNAVAILABLE
     use :: C_interface_module, only: C_int, C_double, C_bool, C_ptr,            &
            C_string_value, assignment(=)
 
@@ -25,7 +28,7 @@ contains
     real(C_double), intent(out) :: AzSun8, ElSun8, AzMoon8, ElMoon8, AzMoonB8,  &
          ElMoonB8, Ramoon8, DecMoon8, Dgrd8, poloffset8, xnr8, techo8, width1,  &
          width2
-    integer(C_int), intent(out) :: ntsky, ndop, ndop00
+    integer(C_int), intent(out) :: ntsky, ndop, ndop00, ephemeris_result
     logical(C_bool), intent(in), value :: bTx
     type(C_ptr), value, intent(in) :: mygrid_cp, hisgrid_cp, AzElFileName_cp,   &
          jpleph_file_name_cp
@@ -49,12 +52,13 @@ contains
     hisgrid = hisgrid_cp
     AzElFileName = C_string_value (AzElFileName_cp)
     jpleph_file_name = jpleph_file_name_cp
-
     call astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,                &
          AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8,ntsky,ndop,ndop00,  &
          dbMoon8,RAMoon8,DecMoon8,HA8,Dgrd8,sd8,poloffset8,xnr8,dfdt,dfdt0,  &
-         width1,width2,xlst8,techo8)
+         width1,width2,xlst8,techo8,ephemeris_result)
 
+    if (ephemeris_result.eq.EPHEMERIS_INVALID_INPUT .or.             &
+         ephemeris_result.eq.EPHEMERIS_UNAVAILABLE) go to 999
     if (len_trim(AzElFileName) .eq. 0) go to 999
     if(len(trim(hisgrid)).eq.0) then  !If DX grid is blank, set these to zero:
        AzMoonB8=0

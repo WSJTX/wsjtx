@@ -1,8 +1,10 @@
 subroutine astro(nyear,month,nday,uth,freq8,Mygrid,                    &
           NStation,MoonDX,AzSun,ElSun,AzMoon0,ElMoon0,                 &
           ntsky,doppler00,doppler,dbMoon,RAMoon,DecMoon,HA,Dgrd,sd,    &
-          poloffset,xnr,day,lon,lat,LST,techo)
+          poloffset,xnr,day,lon,lat,LST,techo,ephemeris_result)
 
+  use jpl_ephemeris_status, only: EPHEMERIS_INVALID_INPUT,           &
+       EPHEMERIS_UNAVAILABLE
 ! Computes astronomical quantities for display and tracking.
 ! NB: may want to smooth the Tsky map to 10 degrees or so.
 
@@ -10,6 +12,7 @@ subroutine astro(nyear,month,nday,uth,freq8,Mygrid,                    &
   real*8 freq8
   real LST
   real lat,lon
+  integer ephemeris_result
   integer*2 nt144(180)
 
 !      common/echo/xdop(2),techo,AzMoon,ElMoon,mjd
@@ -43,7 +46,31 @@ subroutine astro(nyear,month,nday,uth,freq8,Mygrid,                    &
        AzSun,ElSun,mjd,day)
 
   call MoonDopJPL(nyear,month,nday,uth,lon,lat,RAMoon,DecMoon,    &
-       LST,HA,AzMoon,ElMoon,vr,techo)
+       LST,HA,AzMoon,ElMoon,vr,techo,ephemeris_result)
+  if(ephemeris_result.eq.EPHEMERIS_INVALID_INPUT .or.                &
+       ephemeris_result.eq.EPHEMERIS_UNAVAILABLE) then
+     AzSun=0.
+     ElSun=0.
+     AzMoon0=0.
+     ElMoon0=0.
+     ntsky=0
+     doppler00=0.
+     doppler=0.
+     dbMoon=0.
+     RAMoon=0.
+     DecMoon=0.
+     HA=0.
+     Dgrd=0.
+     sd=0.
+     poloffset=0.
+     xnr=0.
+     day=0.
+     lon=0.
+     lat=0.
+     LST=0.
+     techo=0.
+     return
+  endif
   RAMoon=rad*RAMoon
   DecMoon=rad*DecMoon
   dist=2.99792458d5*techo/2.d0

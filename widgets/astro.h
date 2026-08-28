@@ -104,6 +104,7 @@ private:
   qint32 m_DopplerMethod;
   int m_dop;
   int m_dop00;
+  int m_ephemeris_result {-1};
   int ibShift;
   //int m_dx_two_way_dop;
   bool astroStart = true;
