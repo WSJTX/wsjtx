@@ -625,7 +625,7 @@ int main(int argc, char *argv[])
       int result;
       bool startup_smoke_ready {false};
       auto const prerelease_expiration = QDateTime {
-        {2026, 9, 30}, {23, 59, 59, 999}, Qt::UTC};
+        {2026, 12, 31}, {23, 59, 59, 999}, Qt::UTC};
       bool prerelease_notice_pending =
         QCoreApplication::applicationVersion ().contains ("-devel")
         || QCoreApplication::applicationVersion ().contains ("-rc");
