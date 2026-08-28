@@ -26,15 +26,15 @@ program test_jtty_get_msgs
        all_tsync,qso_tsync,all_eom,all_slot_ids)
 
   if(.not.all_new) call fail('initial all-frequency snapshot is new')
-  if(all_slot_ids(1).ne.2 .or. all_slot_ids(2).ne.1) &
-       call fail('slot identities follow frequency-sorted output')
-  if(.not.all_eom(1) .or. all_eom(2)) &
+  if(all_slot_ids(1).ne.1 .or. all_slot_ids(2).ne.2) &
+       call fail('slot identities follow start-time-sorted output')
+  if(all_eom(1) .or. .not.all_eom(2)) &
        call fail('completion flags follow their decoder slots')
-  if(abs(all_tsync(1)-3.5).gt.0.0001 .or. &
-       abs(all_tsync(2)-1.25).gt.0.0001) &
+  if(abs(all_tsync(1)-1.25).gt.0.0001 .or. &
+       abs(all_tsync(2)-3.5).gt.0.0001) &
        call fail('start times follow their decoder slots')
   if(index(all_freqs,'1500  CQ K1ABC FN20'//char(10)).eq.0 .or. &
-       index(all_freqs,char(10)//'1500  CQ K1ABC'//char(10)).eq.0) &
+       index(all_freqs,'1500  CQ K1ABC'//char(10)).eq.0) &
        call fail('same-prefix decodes remain separate output lines')
 
   slot(1)%is_last_frame=.true.
@@ -42,9 +42,8 @@ program test_jtty_get_msgs
        all_tsync,qso_tsync,all_eom,all_slot_ids)
 
   if(all_new) call fail('unchanged text does not report a new snapshot')
-  if(.not.all_eom(2)) &
+  if(.not.all_eom(1)) &
        call fail('completion metadata updates without a text change')
-
   print *, 'test_jtty_get_msgs: all checks passed'
 
 contains

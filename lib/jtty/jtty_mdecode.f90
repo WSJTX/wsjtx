@@ -69,10 +69,10 @@ contains
   end subroutine jtty_search_window
 
    pure subroutine classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe,nframes_gap)
+       match,is_window_dupe,is_history_dupe,is_near_simultaneous_dupe,nframes_gap)
       type(decode), intent(in) :: existing,candidate
       real, intent(in) :: frame_period
-      logical, intent(out) :: match,is_window_dupe,is_history_dupe
+      logical, intent(out) :: match,is_window_dupe,is_history_dupe,is_near_simultaneous_dupe
       integer, intent(out) :: nframes_gap
       real :: df1,dtsync,qstep,resid,fp_resid,df_tol
       integer :: kf,nstep,nfp
@@ -126,6 +126,19 @@ contains
                  abs(candidate%tsync-existing%frame_tsync(kf)).lt.0.05) then
                match=.true.
                is_history_dupe=.true.
+               exit
+            endif
+         enddo
+      endif
+
+      ! Overlapping search windows can rediscover the same sync instant milliseconds apart with a noisier frequency estimate; widen frequency only, timing stays the tight discriminator.
+      is_near_simultaneous_dupe=.false.
+      if(.not.match) then
+         do kf=1,existing%nframes_merged
+            if(abs(candidate%f1-existing%frame_f1(kf)).lt.12.0 .and. &
+                 abs(candidate%tsync-existing%frame_tsync(kf)).lt.0.05) then
+               match=.true.
+               is_near_simultaneous_dupe=.true.
                exit
             endif
          enddo
@@ -198,6 +211,7 @@ contains
       logical                        :: dupe
       logical                        :: usable
       logical                        :: is_history_dupe
+      logical                        :: is_near_simultaneous_dupe
       logical                        :: is_window_dupe
       logical                        :: is_pure_dupe
       logical                        :: success_dec
@@ -524,8 +538,10 @@ contains
       integer               :: itry, iblk
       integer               :: best_cont
       real                  :: best_df,dfabs
-      logical               :: have_hist,have_win
+      logical               :: have_win
       integer               :: gap,best_gap,nchar,nstart
+      integer               :: best_dupe
+      real                  :: best_dupe_df
 
       decoded_ok=.false.
       pow(:,:)=0.0
@@ -642,19 +658,24 @@ contains
          slot(1)%frame_tsync(1)=dec%tsync
       else
          match=.false.
-         have_hist=.false.
          have_win=.false.
          best_cont=0
          best_df=1.0e30
          best_gap=1
+         best_dupe=0
+         best_dupe_df=1.0e30
          do i=1,nslots
             call classify_slot_candidate(slot(i),dec,nframe6/6000.0, &
-                 match,is_window_dupe,is_history_dupe,gap)
+                 match,is_window_dupe,is_history_dupe,is_near_simultaneous_dupe,gap)
             if(.not.match) cycle
-            if(is_history_dupe) then
-               islot=i
-               have_hist=.true.
-               exit
+            if(is_history_dupe .or. is_near_simultaneous_dupe) then
+               ! Closest match across all slots wins, not the first iterated.
+               dfabs=abs(dec%f1-slot(i)%f1)
+               if(dfabs.lt.best_dupe_df) then
+                  best_dupe_df=dfabs
+                  best_dupe=i
+               endif
+               cycle
             endif
             if(is_window_dupe) then
                if(.not.have_win) then
@@ -670,7 +691,11 @@ contains
                best_gap=gap
             endif
          enddo
-         if(have_hist .or. have_win) then
+         if(best_dupe.gt.0) then
+            islot=best_dupe
+            match=.true.
+            is_pure_dupe=.true.
+         else if(have_win) then
             match=.true.
             is_pure_dupe=.true.
          else if(best_cont.gt.0) then

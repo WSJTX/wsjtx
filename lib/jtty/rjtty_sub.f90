@@ -66,7 +66,7 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
   character*96 msg2
   integer indx(MAX_SLOTS)
   integer kall,kqso,kqso_line,kall_line,nmsg,ncopy
-  real f1(MAX_SLOTS)
+  real tstart(MAX_SLOTS)
   logical*1 all_new,qso_new
   logical*1, intent(out)       :: qso_eom(MAX_SLOTS)
   logical*1, intent(out)       :: all_eom(MAX_SLOTS)
@@ -75,8 +75,9 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
   real, intent(out)            :: qso_tsync(MAX_SLOTS)
   save all_freqs0,qso_freq0
 
-  f1(1:nslots)=slot(1:nslots)%f1
-  call indexx(f1,nslots,indx)
+  ! Sort by start time (frame_tsync(1), stable) rather than frequency, which wobbles and would reorder All Decodes on every rebuild.
+  tstart(1:nslots)=slot(1:nslots)%frame_tsync(1)
+  call indexx(tstart,nslots,indx)
 
   kall=1
   kqso=1
