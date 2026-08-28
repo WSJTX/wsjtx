@@ -525,7 +525,7 @@ contains
       integer               :: best_cont
       real                  :: best_df,dfabs
       logical               :: have_hist,have_win
-      integer               :: gap,best_gap,nchar
+      integer               :: gap,best_gap,nchar,nstart
 
       decoded_ok=.false.
       pow(:,:)=0.0
@@ -688,14 +688,21 @@ contains
                   ! for good (each frame carries its own independent slice,
                   ! confirmed via unpack_jtty), so mark the gap instead of
                   ! silently concatenating or splitting into a new slot.
-                  ! Five tildes is a length-preserving sentinel a real
-                  ! decode can never produce (a lone '~' is only ever
-                  ! inserted once, at slot creation); jtty_get_msgs
-                  ! translates the run to " ... " at display time.
-                  kz=min(k+5+n,80)
+                  ! Five tildes is a length-preserving sentinel; jtty_get_msgs
+                  ! translates the run to " ... " at display time. A resuming
+                  ! frame that itself starts a new word has its own leading
+                  ! space encoded as '~' too (append_payload_chars,
+                  ! jtty_mod.f90), which would otherwise run into the
+                  ! sentinel as a 6th tilde and display as a doubled space --
+                  ! drop it, since " ... " already marks the boundary.
+                  nstart=1
+                  if(n.ge.1) then
+                     if(dec%decoded(1:1).eq.'~') nstart=2
+                  endif
+                  kz=min(k+5+(n-nstart+1),80)
                   nchar=max(kz-k-5,0)
                   slot(islot)%decoded=trim(slot(islot)%decoded)//'~~~~~'// &
-                       dec%decoded(1:nchar)
+                       dec%decoded(nstart:nstart+nchar-1)
                   slot(islot)%k=k+5+nchar
                else
                   kz=min(k+n,80)
