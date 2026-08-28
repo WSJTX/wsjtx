@@ -10632,6 +10632,11 @@ void MainWindow::on_actionJTTY_triggered()
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
 //                           012345678901234567890123456789012345678
     displayWidgets(nWidgets("111111000100111000010000000100000000000"));
+  // JTTY's decoder has no Fast/Deep behavior to select -- force Normal and
+  // disable the other two rather than offer a choice that does nothing.
+  ui->actionMediumDecode->setChecked(true);
+  ui->actionQuickDecode->setEnabled(false);
+  ui->actionDeepestDecode->setEnabled(false);
   setup_status_bar (false);
   monitor(true);
 }
