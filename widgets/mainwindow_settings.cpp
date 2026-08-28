@@ -95,6 +95,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
   m_settings->setValue("JTTY_LowerCase",ui->cbLowerCase->isChecked());
+  m_settings->setValue("JTTY_IncludeTime",ui->cbIncludeTime->isChecked());
   m_settings->endGroup();
 
   // do this in the General group because we save the parameters from various places
@@ -285,6 +286,7 @@ void MainWindow::readSettings()
   ui->actionSWL_Mode->setChecked (SWL_mode);
   ui->cbMenus->setChecked (show_menus);
   ui->cbLowerCase->setChecked(m_settings->value("JTTY_LowerCase",false).toBool());
+  ui->cbIncludeTime->setChecked(m_settings->value("JTTY_IncludeTime",false).toBool());
   auto current_view_mode = SWL_mode ? 1 : show_menus ? 0 : 2;
   change_layout (current_view_mode);
   geometries (current_view_mode, the_geometries);

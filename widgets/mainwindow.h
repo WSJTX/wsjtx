@@ -262,6 +262,7 @@ public:
   // new text and let the JTTY drain path stop TX; use abort_jtty_tx() for hard
   // abort.
   qint64 submitJttyText(QString message);
+  void updateJttyDecodeHeadings();
   void dataSink(qint64 frames);
   void fastSink(qint64 frames);
   void tci_mod_active(bool on) {m_tci_mod_active = on;}
@@ -587,6 +588,7 @@ private slots:
   void on_cbTx6_toggled(bool b);
   void on_cbMenus_toggled(bool b);
   void on_cbAutoSeq_toggled(bool b);
+  void on_cbIncludeTime_toggled(bool b);
   void networkError (QString const&);
   void on_ClrAvgButton_clicked();
   void on_actionWSPR_triggered();

@@ -35,12 +35,16 @@ extern "C" {
   void rjtty_sub_windowed_(short int d2[], int* k, int* nsps, int* nfa, int*nfb,
                   float* f0, float* ftol, int* istart0, int* istop);
 
-   // qso_eom[30] must match jtty_mdec's MAX_SLOTS (lib/jtty/jtty_mdecode.f90);
-   // one entry per line actually written into qso_freq, same order, true if
-   // that slot's last frame (end-of-message) has been decoded. Not yet
-   // consumed here -- available for future use.
+   // qso_eom[30]/all_tsync[30]/qso_tsync[30] must match jtty_mdec's
+   // MAX_SLOTS (lib/jtty/jtty_mdecode.f90). qso_eom: one entry per line
+   // actually written into qso_freq, same order, true if that slot's last
+   // frame (end-of-message) has been decoded. Not yet consumed here --
+   // available for future use. all_tsync/qso_tsync: the time (seconds from
+   // istart=1) each line's message actually started, same order as
+   // all_freqs/qso_freq respectively -- see jttyLineTimeUtc().
    void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
-    char all_freqs[], char line[], bool qso_eom[], fortran_charlen_t, fortran_charlen_t);
+    char all_freqs[], char line[], bool qso_eom[], float all_tsync[], float qso_tsync[],
+    fortran_charlen_t, fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -78,6 +82,19 @@ void MainWindow::jtty_save_wav()
   if (m_saveDecoded) killFileTimer.start (3000);
 }
 
+void MainWindow::updateJttyDecodeHeadings()
+{
+  QString const prefix = ui->cbIncludeTime->isChecked()
+    ? QStringLiteral("  UTC  Freq  ") : QStringLiteral("Freq  ");
+  ui->lh_decodes_headings_label->setText(prefix + tr ("Message"));
+  ui->rh_decodes_headings_label->setText(prefix + tr ("Message"));
+}
+
+void MainWindow::on_cbIncludeTime_toggled(bool)
+{
+  if (m_mode == "JTTY") updateJttyDecodeHeadings();
+}
+
 bool MainWindow::jtty_decode(int k, int istart0, int istop)
 {
   auto boundedLatin1 = [] (char const *data, int size) {
@@ -85,6 +102,14 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
     int const nul = bytes.indexOf('\0');
     if (nul >= 0) bytes.truncate(nul);
     return QString::fromLatin1(bytes.constData(), bytes.size());
+  };
+  // tsync is seconds from istart=1 of the currently loaded WAV, which is
+  // exactly what m_UTCdiskDateTime anchors (set from the filename at file
+  // open, read_wav_file()) -- only meaningful for disk playback, since
+  // live monitoring has no equivalent "sample 0" wall-clock anchor yet.
+  auto jttyLineTimeUtc = [this] (float tsync) -> QString {
+    if (!m_diskData || !m_UTCdiskDateTime.isValid()) return {};
+    return m_UTCdiskDateTime.addSecs(qRound(tsync)).toUTC().toString("hhmmss");
   };
   int nsps=384;
   // rjtty_sub_ restarts its own internal slot table whenever k stops
@@ -104,7 +129,9 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
   }
   char qso_freq[800];
   char all_freqs[2400];
-  bool qso_eom[30];  // must match jtty_mdec's MAX_SLOTS
+  bool qso_eom[30];    // must match jtty_mdec's MAX_SLOTS
+  float all_tsync[30]; // ditto
+  float qso_tsync[30]; // ditto
   float f0 = ui->RxFreqSpinBox_2->value();
   float ftol = ui->sbFtol_2->value();
   bool all_new = true;
@@ -128,13 +155,23 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
   // "continues" a known line when it extends that line's text),
   // independent of where in the blob or in what order it shows up this call.
   jtty_get_msgs_(&f0, &ftol, &all_new, &qso_new, &all_freqs[0],
-                 &qso_freq[0], &qso_eom[0], (FCL)2400, (FCL)800);
+                 &qso_freq[0], &qso_eom[0], &all_tsync[0], &qso_tsync[0],
+                 (FCL)2400, (FCL)800);
 
   QString allMsgs {boundedLatin1(all_freqs, sizeof all_freqs)};
   if(ui->cbLowerCase->isChecked()) allMsgs = allMsgs.toLower();
   if(all_new) {
       QString const trimmedAll = allMsgs.trimmed();
       if (!trimmedAll.isEmpty()) {
+          QString textToInsert = trimmedAll;
+          if (ui->cbIncludeTime->isChecked()) {
+              QStringList lines = trimmedAll.split(QChar('\n'));
+              for (int i = 0; i < lines.size() && i < 30; ++i) {
+                  QString const t = jttyLineTimeUtc(all_tsync[i]);
+                  if (!t.isEmpty()) lines[i] = t + " " + lines.at(i);
+              }
+              textToInsert = lines.join(QChar('\n'));
+          }
           // insertText() (below, via a plain QTextCursor) doesn't stamp the
           // app-configured content font the way DisplayText::insertText()
           // does, so pin it explicitly to match the rest of the pane.
@@ -159,7 +196,7 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
               }
           }
           m_jttyAllFreqsGroupStart = cursor.block();
-          cursor.insertText(allMsgs.left(1) == " " ? (" " + trimmedAll) : trimmedAll, format);
+          cursor.insertText(allMsgs.left(1) == " " ? (" " + textToInsert) : textToInsert, format);
           ui->decodedTextBrowser->setTextCursor(cursor);
           ui->decodedTextBrowser->ensureCursorVisible();
       }
@@ -193,8 +230,8 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
       };
 
       QStringList const newLines = message_qso_freq.split(QChar('\n'), SkipEmptyParts);
-      for (auto const& rawLine : newLines) {
-          QString const newLine = rawLine.trimmed();
+      for (int lineIdx = 0; lineIdx < newLines.size(); ++lineIdx) {
+          QString const newLine = newLines.at(lineIdx).trimmed();
           if (newLine.isEmpty()) continue;
           QString const newBody = messageBody(newLine);
 
@@ -224,7 +261,14 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
               startNew = true;
 #endif
               delta = newLine;
-              ui->decodedTextBrowser2->insertText(newLine);
+              // Timestamp is display-only: newLine (unprefixed) is what
+              // growth-matching and N1MM forwarding (via delta) both use.
+              QString displayLine = newLine;
+              if (ui->cbIncludeTime->isChecked() && lineIdx < 30) {
+                  QString const t = jttyLineTimeUtc(qso_tsync[lineIdx]);
+                  if (!t.isEmpty()) displayLine = t + " " + newLine;
+              }
+              ui->decodedTextBrowser2->insertText(displayLine);
               m_jttyQsoLines.append({newLine, ui->decodedTextBrowser2->textCursor().block()});
           }
           m_bDecoded = true;

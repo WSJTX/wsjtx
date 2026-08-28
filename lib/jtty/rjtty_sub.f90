@@ -54,7 +54,8 @@ subroutine rjtty_core(iwave,kz,nsps,nfa,nfb,f0,ftol,istart0,istop)
 999 return
 end subroutine rjtty_core
 
-subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
+subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
+     all_tsync,qso_tsync)
 
   use jtty_mdec
   character*2400               :: all_freqs
@@ -64,13 +65,22 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
   character*80 msg
   character*96 msg2
   integer indx(MAX_SLOTS)
-  integer kall,kqso,kqso_line,nmsg,ncopy
+  integer kall,kqso,kqso_line,kall_line,nmsg,ncopy
   real f1(MAX_SLOTS)
   logical*1 all_new,qso_new
   ! One entry per line actually written into qso_freq, in the same order,
   ! true if that slot's last frame (end-of-message) has been decoded.
   ! Not yet consumed by the GUI -- available for future use.
   logical*1, intent(out)       :: qso_eom(MAX_SLOTS)
+  ! Time (seconds from istart=1) that each displayed line's message
+  ! actually started -- slot%frame_tsync(1), NOT slot%tsync (which
+  ! advances as more frames merge into an already-open slot) and not the
+  ! buffer/session start. One entry per line, same order as all_freqs/
+  ! qso_freq respectively; kept as a parallel array rather than folded
+  ! into those format strings so the GUI's own frequency-prefix-stripping
+  ! line-growth matching (mainwindow_jtty.cpp) is untouched by this.
+  real, intent(out)            :: all_tsync(MAX_SLOTS)
+  real, intent(out)            :: qso_tsync(MAX_SLOTS)
   save all_freqs0,qso_freq0
 
   f1(1:nslots)=slot(1:nslots)%f1
@@ -79,6 +89,7 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
   kall=1
   kqso=1
   kqso_line=0
+  kall_line=0
   qso_eom=.false.
   all_freqs=''
   qso_freq=''
@@ -104,6 +115,10 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
      if(ncopy.gt.0) then
         all_freqs(kall:kall+ncopy-1)=msg2(1:ncopy)
         kall=kall+ncopy
+        if(kall_line.lt.MAX_SLOTS) then
+           kall_line=kall_line+1
+           all_tsync(kall_line)=slot(i)%frame_tsync(1)
+        endif
      endif
 
      if(abs(df).lt.ftol) then
@@ -114,6 +129,7 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom)
            if(kqso_line.lt.MAX_SLOTS) then
               kqso_line=kqso_line+1
               qso_eom(kqso_line)=slot(i)%is_last_frame
+              qso_tsync(kqso_line)=slot(i)%frame_tsync(1)
            endif
         endif
      endif

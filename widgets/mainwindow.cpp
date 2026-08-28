@@ -4316,7 +4316,9 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
                                      "WSJT Files (*.wav)");
   if(!fname.isEmpty ()) {
     m_path=fname;
-    int i1=fname.lastIndexOf("/");
+    // Native dialogs on Windows can return backslash-separated paths;
+    // check both so baseName strips the directory either way.
+    int i1=qMax(fname.lastIndexOf("/"), fname.lastIndexOf("\\"));
     QString baseName=fname.mid(i1+1);
     tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #99ffff}");
     tx_status_label.setText(" " + baseName + " ");
@@ -4338,13 +4340,21 @@ void MainWindow::read_wav_file (QString const& fname)
   // call diskDat() when done
   int i0=fname.lastIndexOf("_");
   int i1=fname.indexOf(".wav");
-  int i3=fname.lastIndexOf("/");
+  // Native dialogs on Windows can return backslash-separated paths; check
+  // both so baseName (and so m_UTCdiskDateTime below) is derived from just
+  // the filename either way.
+  int i3=qMax(fname.lastIndexOf("/"), fname.lastIndexOf("\\"));
   QString baseName=fname.mid(i3+1);
   int i4=baseName.indexOf(".wav");
   m_nutc0=m_UTCdisk;
   if (i1-i3 > 13) {
     m_UTCdisk=baseName.mid(7, 6).toInt();
-    if (i4-i3 > 6) {
+    // i4 is already an index into baseName (not fname), so compare it
+    // against a plain threshold rather than subtracting i3 (an fname-
+    // relative index) from it -- that mismatch made this check fail for
+    // any file whose directory path was longer than a few characters,
+    // even though baseName itself was perfectly valid.
+    if (i4 > 6) {
       m_UTCdiskDateTime = QDateTime::fromString("20" + baseName.mid(0, 13) + "Z", "yyyyMMdd_hhmmsst").toUTC();
     } else {
       m_UTCdiskDateTime = QDateTime{};
@@ -4428,7 +4438,9 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
       int n=m_path.length();
       QString fname=m_path.replace(n-len,len,list.at(i+1));
       m_path=fname;
-      int i1=fname.lastIndexOf("/");
+      // Native dialogs on Windows can return backslash-separated paths;
+      // check both so baseName strips the directory either way.
+      int i1=qMax(fname.lastIndexOf("/"), fname.lastIndexOf("\\"));
       QString baseName=fname.mid(i1+1);
       tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #99ffff}");
       tx_status_label.setText(" " + baseName + " ");
@@ -10627,8 +10639,7 @@ void MainWindow::on_actionJTTY_triggered()
   m_wideGraph->setRxFreq(ui->RxFreqSpinBox_2->value());
   m_wideGraph->setTol(ui->sbFtol_2->value());
   setDecodeHeadings("", "");
-  ui->lh_decodes_headings_label->setText("Freq  " + tr ("Message"));
-  ui->rh_decodes_headings_label->setText("Freq  " + tr ("Message"));
+  updateJttyDecodeHeadings();
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
 //                           012345678901234567890123456789012345678
     displayWidgets(nWidgets("111111000100111000010000000100000000000"));
@@ -10864,6 +10875,11 @@ void MainWindow::on_actionFreqCal_triggered()
 void MainWindow::switch_mode (Mode mode)
 {
   clear_generated_message_error ();
+  // Sit just under the decoded-text panes, outside the per-mode
+  // displayWidgets()/ModeUiControl mechanism -- only meaningful for JTTY.
+  bool const jtty = m_mode=="JTTY";
+  ui->cbLowerCase->setVisible(jtty);
+  ui->cbIncludeTime->setVisible(jtty);
   if (mode != Modes::MSK144) m_msk144basefreq = 0;
   no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
   msk144qsy = false;     // MSK144 QSY
