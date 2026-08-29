@@ -83,6 +83,14 @@ add_executable (test_jtty_frequency_window test_jtty_frequency_window.f90)
 wsjt_link_common_fortran (test_jtty_frequency_window)
 add_test (NAME test_jtty_frequency_window COMMAND test_jtty_frequency_window)
 
+add_executable (test_jtty_get_msgs test_jtty_get_msgs.f90)
+target_include_directories (test_jtty_get_msgs PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_get_msgs)
+add_test (NAME test_jtty_get_msgs COMMAND test_jtty_get_msgs)
+set_tests_properties (test_jtty_get_msgs PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_get_msgs: all checks passed"
+)
+
 add_executable (test_jtty_txstream
   test_jtty_txstream.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp

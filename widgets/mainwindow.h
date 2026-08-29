@@ -806,6 +806,7 @@ private:
   // this call's snapshot includes a completed (EOM) qso_freq message.
   bool jtty_decode(int k, int istart0 = -1, int istop = -1);
   void jtty_again();
+  void flushJttyDecodeLines();
   QString jtty_msg_expand(QString msg);
   QString specOpLabel() const;
   void initializeFFT(int nsps);
@@ -1370,6 +1371,14 @@ private:
     QTextBlock block;    // the decodedTextBrowser2 paragraph holding it
   };
   QVector<JttyQsoLine> m_jttyQsoLines;   // one entry per concurrently-growing JTTY transmission
+  struct JttyDecodeLine
+  {
+    int slotId {0};
+    QString text;
+    bool written {false};
+    DecodeOperatingContext context;
+  };
+  QVector<JttyDecodeLine> m_jttyAllFreqLines;
   int m_jttyLastAllFreqsK = -1;          // detects a restarted decode (new WAV, or "decode again")
   qint32 m_jttyLastSavedWavK0 = -1;      // m_k0 at last JTTY WAV save; skips saving unchanged audio again
   QTextBlock m_jttyAllFreqsGroupStart;   // start of decodedTextBrowser's currently-growing group

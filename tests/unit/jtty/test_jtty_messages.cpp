@@ -103,6 +103,39 @@ private slots:
 
     QCOMPARE (Jtty::formatSerialNumber (serialNumber), expected);
   }
+
+  void parseDecodeLine_data ()
+  {
+    QTest::addColumn<QString> ("line");
+    QTest::addColumn<int> ("frequency");
+    QTest::addColumn<QString> ("message");
+    QTest::addColumn<bool> ("valid");
+
+    QTest::newRow ("four-digit-frequency")
+        << QString {"1500  CQ K1ABC"} << 1500 << QString {"CQ K1ABC"} << true;
+    QTest::newRow ("three-digit-frequency-with-padding")
+        << QString {" 500  599 K1ABC "} << 500 << QString {"599 K1ABC"} << true;
+    QTest::newRow ("numeric-leading-message-is-preserved")
+        << QString {"1500  599 K1ABC"} << 1500 << QString {"599 K1ABC"} << true;
+    QTest::newRow ("malformed-frequency")
+        << QString {"CQ K1ABC"} << 0 << QString {"CQ K1ABC"} << false;
+    QTest::newRow ("empty")
+        << QString {} << 0 << QString {} << false;
+  }
+
+  void parseDecodeLine ()
+  {
+    QFETCH (QString, line);
+    QFETCH (int, frequency);
+    QFETCH (QString, message);
+    QFETCH (bool, valid);
+
+    auto const decoded = Jtty::parseDecodeLine (line);
+
+    QCOMPARE (decoded.frequency, frequency);
+    QCOMPARE (decoded.message, message);
+    QCOMPARE (decoded.valid, valid);
+  }
 };
 
 QTEST_MAIN (TestJttyMessages)

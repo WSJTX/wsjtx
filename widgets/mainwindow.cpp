@@ -128,6 +128,7 @@
 #include "moc_mainwindow.cpp"
 #include "MessageFilter.hpp"
 #include "MessageFilterLogic.hpp"
+#include "JttyMessages.hpp"
 #include "PrefixSuffix.hpp"
 #include "HelpText.hpp"
 #include "HighlightingRules.hpp"
@@ -5074,7 +5075,7 @@ void::MainWindow::fast_decode_done()
   float t,tmax=-99.0;
   dec_data.params.nagain=false;
   dec_data.params.ndiskdat=false;
-//  if(m_msg[0][0]==0) m_bDecoded=false;
+  if(m_mode=="JTTY" && m_diskData) flushJttyDecodeLines();
   for(int i=0; m_msg[i][0] && i<100; i++) {
     QString message=QString::fromLatin1(m_msg[i]);
     m_msg[i][0]=0;
@@ -7201,7 +7202,7 @@ void MainWindow::guiUpdate()
     }
     bool const superFoxFoxTx = m_mode=="FT8" && m_config.superFox() && m_specOp==SpecOp::FOX;
     if(m_restart) {
-      if(!superFoxFoxTx) write_all("Tx",m_currentMessage);
+      if(!superFoxFoxTx && m_mode!="JTTY") write_all("Tx",m_currentMessage);
       if (m_config.TX_messages () and m_mode!="Echo" and !superFoxFoxTx) {
         ui->decodedTextBrowser2->displayTransmittedText(m_currentMessage.trimmed(),m_mode,
                      ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
@@ -7310,7 +7311,7 @@ void MainWindow::guiUpdate()
     if (m_mode != "FST4W" && m_mode != "WSPR" && m_mode!="Echo")
       {
         bool const superFoxFoxTx = m_mode=="FT8" && m_config.superFox() && m_specOp==SpecOp::FOX;
-        if(!m_tune && !superFoxFoxTx) {
+        if(!m_tune && !superFoxFoxTx && m_mode!="JTTY") {
           write_all("Tx",m_currentMessage);
         }
           if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_specOp && m_mode != "JTTY") {
@@ -14771,8 +14772,17 @@ void MainWindow::write_all(QString txRx, QString message,
       msg = msg.mid(0, 15) + msg.mid(18, -1);
     }
 
-    t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
+    int const txFrequency = mode=="JTTY"
+      ? ui->TxFreqSpinBox_2->value() : ui->TxFreqSpinBox->value();
+    t = t.asprintf("%5d",txFrequency);
     if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
+    if (mode=="JTTY" and txRx=="Rx") {
+      auto const decoded = Jtty::parseDecodeLine(message);
+      int const frequency = decoded.valid
+        ? decoded.frequency : ui->RxFreqSpinBox_2->value();
+      t = t.asprintf("%5d", frequency);
+      msg="   0  0.0" + t + " " + decoded.message;
+    }
     auto time = QDateTime::currentDateTimeUtc ();
     if( (txRx=="Rx" || txRx=="Ck") && (context || !m_bFastMode) ) time=sequenceStart;
 
@@ -14781,7 +14791,7 @@ void MainWindow::write_all(QString txRx, QString message,
   } else {
      t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   }
-    if (diskData) {
+    if (diskData and !(mode=="JTTY" and txRx=="Tx")) {
       if (m_fileDateTime.size()==11) {
         line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;
       } else {
