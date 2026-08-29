@@ -7201,7 +7201,7 @@ void MainWindow::guiUpdate()
     }
     bool const superFoxFoxTx = m_mode=="FT8" && m_config.superFox() && m_specOp==SpecOp::FOX;
     if(m_restart) {
-      if(!superFoxFoxTx) write_all("Tx",m_currentMessage);
+      if(!superFoxFoxTx && m_mode!="JTTY") write_all("Tx",m_currentMessage);
       if (m_config.TX_messages () and m_mode!="Echo" and !superFoxFoxTx) {
         ui->decodedTextBrowser2->displayTransmittedText(m_currentMessage.trimmed(),m_mode,
                      ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
@@ -7310,7 +7310,7 @@ void MainWindow::guiUpdate()
     if (m_mode != "FST4W" && m_mode != "WSPR" && m_mode!="Echo")
       {
         bool const superFoxFoxTx = m_mode=="FT8" && m_config.superFox() && m_specOp==SpecOp::FOX;
-        if(!m_tune && !superFoxFoxTx) {
+        if(!m_tune && !superFoxFoxTx && m_mode!="JTTY") {
           write_all("Tx",m_currentMessage);
         }
           if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_specOp && m_mode != "JTTY") {
@@ -14742,8 +14742,6 @@ void MainWindow::write_all(QString txRx, QString message,
   auto const sequenceStart = context ? context->sequenceStart : m_dateTimeSeqStart;
   QRegularExpression verified_call_regex {"[A-Z0-9/]+\\sverified\\s*"};
 
-  if(mode=="JTTY" and txRx=="Tx") message = m_JTTY_TxMessage;
-
   if(mode!="Echo") {
     if (message.size () > 5 && message[4]==' ') {
       msg=message.mid(4,-1);
@@ -14773,7 +14771,9 @@ void MainWindow::write_all(QString txRx, QString message,
       msg = msg.mid(0, 15) + msg.mid(18, -1);
     }
 
-    t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
+    int const txFrequency = mode=="JTTY"
+      ? ui->TxFreqSpinBox_2->value() : ui->TxFreqSpinBox->value();
+    t = t.asprintf("%5d",txFrequency);
     if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
     if (mode=="JTTY" and txRx=="Rx") {
       bool freqOk = false, snrOk = false;
@@ -14792,7 +14792,7 @@ void MainWindow::write_all(QString txRx, QString message,
   } else {
      t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   }
-    if (diskData and txRx!="Tx") {
+    if (diskData and !(mode=="JTTY" and txRx=="Tx")) {
       if (m_fileDateTime.size()==11) {
         line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;
       } else {

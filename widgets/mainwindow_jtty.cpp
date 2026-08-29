@@ -493,6 +493,7 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   }
   m_jttyTxActive = true;
   m_transmitting = true;
+  write_all("Tx", message);
   Q_EMIT jttyTextAccepted(requestId);
 
   ui->decodedTextBrowser2->insertText(" ");
@@ -530,8 +531,6 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
     m_mmttyif->echo_message_to_n1mm(append_separator(message));
   }
 #endif
-
-  m_JTTY_TxMessage = message;
 
   // Only a new session starts transmit; a message appended to an already-active
   // session chains gaplessly (soundcard) via the enqueue above. When PTT is not

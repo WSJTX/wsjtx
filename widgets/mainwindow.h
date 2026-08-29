@@ -1086,7 +1086,6 @@ private:
   bool    m_tci_audio;
   int     m_currentMessageType;
   QString m_currentMessage;
-  QString m_JTTY_TxMessage;
   int     m_lastMessageType;
   QString m_lastMessageSent;
   QString m_tBlankLine;
