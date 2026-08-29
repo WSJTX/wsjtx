@@ -6,6 +6,13 @@
 
 namespace Jtty
 {
+  struct ParsedDecodeLine
+  {
+    int frequency {0};
+    QString message;
+    bool valid {false};
+  };
+
   struct PreparedTransmitText
   {
     QString text;
@@ -72,6 +79,28 @@ namespace Jtty
   inline QString formatSerialNumber (int serialNumber)
   {
     return QString {"%1"}.arg (serialNumber, 3, 10, QLatin1Char {'0'});
+  }
+
+  inline ParsedDecodeLine parseDecodeLine (QString const& line)
+  {
+    ParsedDecodeLine result;
+    QString const trimmed = line.trimmed ();
+    result.message = trimmed;
+
+    int separator = 0;
+    while (separator < trimmed.size () && !trimmed.at (separator).isSpace ()) {
+      ++separator;
+    }
+    if (separator == 0 || separator == trimmed.size ()) return result;
+
+    bool frequencyOk {false};
+    int const frequency = trimmed.left (separator).toInt (&frequencyOk);
+    if (!frequencyOk) return result;
+
+    result.frequency = frequency;
+    result.message = trimmed.mid (separator).trimmed ();
+    result.valid = true;
+    return result;
   }
 }
 

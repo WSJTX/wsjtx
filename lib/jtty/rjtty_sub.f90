@@ -55,7 +55,7 @@ subroutine rjtty_core(iwave,kz,nsps,nfa,nfb,f0,ftol,istart0,istop)
 end subroutine rjtty_core
 
 subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
-     all_tsync,qso_tsync)
+     all_tsync,qso_tsync,all_eom,all_slot_ids)
 
   use jtty_mdec
   character*2400               :: all_freqs
@@ -68,17 +68,9 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
   integer kall,kqso,kqso_line,kall_line,nmsg,ncopy
   real f1(MAX_SLOTS)
   logical*1 all_new,qso_new
-  ! One entry per line actually written into qso_freq, in the same order,
-  ! true if that slot's last frame (end-of-message) has been decoded.
-  ! Not yet consumed by the GUI -- available for future use.
   logical*1, intent(out)       :: qso_eom(MAX_SLOTS)
-  ! Time (seconds from istart=1) that each displayed line's message
-  ! actually started -- slot%frame_tsync(1), NOT slot%tsync (which
-  ! advances as more frames merge into an already-open slot) and not the
-  ! buffer/session start. One entry per line, same order as all_freqs/
-  ! qso_freq respectively; kept as a parallel array rather than folded
-  ! into those format strings so the GUI's own frequency-prefix-stripping
-  ! line-growth matching (mainwindow_jtty.cpp) is untouched by this.
+  logical*1, intent(out)       :: all_eom(MAX_SLOTS)
+  integer, intent(out)         :: all_slot_ids(MAX_SLOTS)
   real, intent(out)            :: all_tsync(MAX_SLOTS)
   real, intent(out)            :: qso_tsync(MAX_SLOTS)
   save all_freqs0,qso_freq0
@@ -91,6 +83,10 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
   kqso_line=0
   kall_line=0
   qso_eom=.false.
+  all_eom=.false.
+  all_slot_ids=0
+  all_tsync=0.0
+  qso_tsync=0.0
   all_freqs=''
   qso_freq=''
   do ii=1,nslots
@@ -118,6 +114,8 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
         if(kall_line.lt.MAX_SLOTS) then
            kall_line=kall_line+1
            all_tsync(kall_line)=slot(i)%frame_tsync(1)
+           all_eom(kall_line)=slot(i)%is_last_frame
+           all_slot_ids(kall_line)=i
         endif
      endif
 

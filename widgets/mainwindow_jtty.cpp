@@ -35,15 +35,11 @@ extern "C" {
   void rjtty_sub_windowed_(short int d2[], int* k, int* nsps, int* nfa, int*nfb,
                   float* f0, float* ftol, int* istart0, int* istop);
 
-   // qso_eom[30]/all_tsync[30]/qso_tsync[30] must match jtty_mdec's
-   // MAX_SLOTS (lib/jtty/jtty_mdecode.f90). qso_eom: one entry per line
-   // actually written into qso_freq, same order, true if that slot's last
-   // frame (end-of-message) has been decoded. Not yet consumed here --
-   // available for future use. all_tsync/qso_tsync: the time (seconds from
-   // istart=1) each line's message actually started, same order as
-   // all_freqs/qso_freq respectively -- see jttyLineTimeUtc().
+   // Parallel metadata arrays follow the display order of their corresponding
+   // all_freqs or qso_freq snapshot and must match jtty_mdec's MAX_SLOTS.
    void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
     char all_freqs[], char line[], bool qso_eom[], float all_tsync[], float qso_tsync[],
+    bool all_eom[], int all_slot_ids[],
     fortran_charlen_t, fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
@@ -103,13 +99,16 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
     if (nul >= 0) bytes.truncate(nul);
     return QString::fromLatin1(bytes.constData(), bytes.size());
   };
-  // tsync is seconds from istart=1 of the currently loaded WAV, which is
-  // exactly what m_UTCdiskDateTime anchors (set from the filename at file
-  // open, read_wav_file()) -- only meaningful for disk playback, since
-  // live monitoring has no equivalent "sample 0" wall-clock anchor yet.
-  auto jttyLineTimeUtc = [this] (float tsync) -> QString {
+  auto jttyLineDateTimeUtc = [this, k] (float tsync) -> QDateTime {
+    if (m_diskData && m_UTCdiskDateTime.isValid()) {
+      return m_UTCdiskDateTime.addMSecs(qRound64(1000.0 * tsync)).toUTC();
+    }
+    double const elapsed = qMax(0.0, double(k) / 12000.0 - double(tsync));
+    return QDateTime::currentDateTimeUtc().addMSecs(-qRound64(1000.0 * elapsed));
+  };
+  auto jttyLineTimeUtc = [this, &jttyLineDateTimeUtc] (float tsync) -> QString {
     if (!m_diskData || !m_UTCdiskDateTime.isValid()) return {};
-    return m_UTCdiskDateTime.addSecs(qRound(tsync)).toUTC().toString("hhmmss");
+    return jttyLineDateTimeUtc(tsync).toString("hhmmss");
   };
   int nsps=384;
   // rjtty_sub_ restarts its own internal slot table whenever k stops
@@ -132,6 +131,8 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
   char qso_freq[800];
   char all_freqs[2400];
   bool qso_eom[30];    // must match jtty_mdec's MAX_SLOTS
+  bool all_eom[30];    // ditto
+  int all_slot_ids[30]; // ditto
   float all_tsync[30]; // ditto
   float qso_tsync[30]; // ditto
   float f0 = ui->RxFreqSpinBox_2->value();
@@ -147,17 +148,11 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
     rjtty_sub_windowed_(dec_data.d2,&k,&nsps,&nfa,&nfb,&f0,&ftol,&istart0,&istop);
   }
 
-  // jtty_get_msgs_ rebuilds qso_freq (and all_freqs) from scratch every
-  // call: it's a frequency-sorted snapshot of every slot currently within
-  // ftol of f0, not an append-only stream. A slot can drop out for a call
-  // or two (its estimated frequency briefly outside ftol) and the relative
-  // order between near-identical frequencies isn't stable either, so we
-  // can't diff the blob as one string below. Instead track each
-  // transmission as its own line, matched by content (a new fragment
-  // "continues" a known line when it extends that line's text),
-  // independent of where in the blob or in what order it shows up this call.
+  // Each call returns frequency-sorted snapshots plus stable decoder-slot
+  // identity and completion metadata for every all-frequency line.
   jtty_get_msgs_(&f0, &ftol, &all_new, &qso_new, &all_freqs[0],
                  &qso_freq[0], &qso_eom[0], &all_tsync[0], &qso_tsync[0],
+                 &all_eom[0], &all_slot_ids[0],
                  (FCL)2400, (FCL)800);
 
   QString allMsgs {boundedLatin1(all_freqs, sizeof all_freqs)};
@@ -210,35 +205,41 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 //      }
 //#endif
 
-      // Tracks all_freqs by content (same idea as qso_freq below) so ALL.TXT gets each decode once.
-      QStringList const allLines = allMsgs.split(QChar('\n'), SkipEmptyParts);
-      for (auto const& rawLine : allLines) {
-          QString const newLine = rawLine.trimmed();
-          if (newLine.isEmpty()) continue;
+  }
 
-          int matchIndex = -1;
-          for (int i = 0; i < m_jttyAllFreqLines.size(); ++i) {
-              if (newLine.startsWith(m_jttyAllFreqLines.at(i).text)) {
-                  matchIndex = i;
-                  break;
-              }
-          }
+  QStringList const allLines = allMsgs.split(QChar('\n'), SkipEmptyParts);
+  for (int lineIdx = 0; lineIdx < allLines.size() && lineIdx < 30; ++lineIdx) {
+      QString const newLine = allLines.at(lineIdx).trimmed();
+      int const slotId = all_slot_ids[lineIdx];
+      if (newLine.isEmpty() || slotId <= 0) continue;
 
-          if (matchIndex >= 0) {
-              auto& known = m_jttyAllFreqLines[matchIndex];
-              if (newLine.length() > known.text.length()) {
-                  known.text = newLine;
-                  known.lastGrowthK = k;
-              }
-          } else {
-              JttyDecodeLine decodeLine;
-              decodeLine.text = newLine;
-              decodeLine.lastGrowthK = k;
-              m_jttyAllFreqLines.append(decodeLine);
+      int matchIndex = -1;
+      for (int i = 0; i < m_jttyAllFreqLines.size(); ++i) {
+          if (m_jttyAllFreqLines.at(i).slotId == slotId) {
+              matchIndex = i;
+              break;
           }
       }
-      flushStaleJttyDecodeLines(k);
+
+      if (matchIndex < 0) {
+          JttyDecodeLine decodeLine;
+          decodeLine.slotId = slotId;
+          decodeLine.text = newLine;
+          decodeLine.context = currentDecodeOperatingContext();
+          decodeLine.context.sequenceStart = jttyLineDateTimeUtc(all_tsync[lineIdx]);
+          m_jttyAllFreqLines.append(decodeLine);
+          matchIndex = m_jttyAllFreqLines.size() - 1;
+      } else {
+          m_jttyAllFreqLines[matchIndex].text = newLine;
+      }
+
+      auto& known = m_jttyAllFreqLines[matchIndex];
+      if (all_eom[lineIdx] && !known.written) {
+          write_all("Rx", known.text, &known.context);
+          known.written = true;
+      }
   }
+
   if(qso_new) {
       QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
       if(ui->cbLowerCase->isChecked()) message_qso_freq = message_qso_freq.toLower();
@@ -790,6 +791,7 @@ void MainWindow::jttyDecodeAgainAt(float secondsAgo)
     bool const eom = jtty_decode(k, istart0, istop);
     if (eom || k >= istop) break;
   }
+  flushJttyDecodeLines();
   finishDecodeUi();
 }
 
@@ -800,20 +802,7 @@ void MainWindow::flushJttyDecodeLines()
     if (line.written) continue;
     QString const text = line.text.trimmed();
     if (text.isEmpty()) continue;
-    write_all("Rx", text);
-    line.written = true;
-  }
-}
-
-void MainWindow::flushStaleJttyDecodeLines(int k)
-{
-  constexpr int staleSamples = 3 * 59 * 384 / 2;  // 1.5 frames (59 symbols * 384 samples/symbol)
-  for (auto& line : m_jttyAllFreqLines) {
-    if (line.written) continue;
-    if (k - line.lastGrowthK < staleSamples) continue;
-    QString const text = line.text.trimmed();
-    if (text.isEmpty()) continue;
-    write_all("Rx", text);
+    write_all("Rx", text, &line.context);
     line.written = true;
   }
 }

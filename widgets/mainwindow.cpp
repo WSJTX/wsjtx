@@ -128,6 +128,7 @@
 #include "moc_mainwindow.cpp"
 #include "MessageFilter.hpp"
 #include "MessageFilterLogic.hpp"
+#include "JttyMessages.hpp"
 #include "PrefixSuffix.hpp"
 #include "HelpText.hpp"
 #include "HighlightingRules.hpp"
@@ -5074,7 +5075,7 @@ void::MainWindow::fast_decode_done()
   float t,tmax=-99.0;
   dec_data.params.nagain=false;
   dec_data.params.ndiskdat=false;
-  if(m_mode=="JTTY" && m_diskData) flushJttyDecodeLines();  // live: flushStaleJttyDecodeLines() instead
+  if(m_mode=="JTTY" && m_diskData) flushJttyDecodeLines();
   for(int i=0; m_msg[i][0] && i<100; i++) {
     QString message=QString::fromLatin1(m_msg[i]);
     m_msg[i][0]=0;
@@ -14776,13 +14777,11 @@ void MainWindow::write_all(QString txRx, QString message,
     t = t.asprintf("%5d",txFrequency);
     if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
     if (mode=="JTTY" and txRx=="Rx") {
-      bool freqOk = false, snrOk = false;
-      int const freqField = message.left(4).trimmed().toInt(&freqOk);
-      int const snrField = message.mid(4,4).trimmed().toInt(&snrOk);
-      QString const cleanMessage = freqOk ? message.mid(10).trimmed() : message.trimmed();
-      QString const snrStr = snrOk ? QString ().asprintf("%4d", snrField) : "   0";
-      t = t.asprintf("%5d", freqOk ? freqField : int(ui->RxFreqSpinBox_2->value()));
-      msg=snrStr + "  0.0" + t + " " + cleanMessage;
+      auto const decoded = Jtty::parseDecodeLine(message);
+      int const frequency = decoded.valid
+        ? decoded.frequency : ui->RxFreqSpinBox_2->value();
+      t = t.asprintf("%5d", frequency);
+      msg="   0  0.0" + t + " " + decoded.message;
     }
     auto time = QDateTime::currentDateTimeUtc ();
     if( (txRx=="Rx" || txRx=="Ck") && (context || !m_bFastMode) ) time=sequenceStart;
