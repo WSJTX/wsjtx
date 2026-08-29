@@ -49,12 +49,7 @@ static void decode_vector(const struct wspr_vector *vector,
 static void expect_hash_entry(const char *callsign, const char *grid,
                               char *hashtab, char *loctab)
 {
-    // nhash() reads aligned 4-byte words and masks the tail, so feed it the
-    // padded WSPRD_CALLSIGN_SIZE buffer the decoder uses; a tightly-sized
-    // literal makes the (benign) tail read trip AddressSanitizer.
-    char padded[WSPRD_CALLSIGN_SIZE] = {0};
-    memcpy(padded, callsign, strlen(callsign));
-    int ihash = nhash(padded, strlen(padded), (uint32_t)146);
+    int ihash = nhash(callsign, strlen(callsign), (uint32_t)146);
     expect_string(callsign, hashtab + ihash * WSPRD_CALLSIGN_SIZE, callsign);
     if( grid != NULL ) {
         expect_string(callsign, loctab + ihash * WSPRD_GRID4_SIZE, grid);
