@@ -1,5 +1,5 @@
-#ifndef NHASH_H_
-#define NHASH_H_
+#ifndef SUPERFOX_NHASH2_H_
+#define SUPERFOX_NHASH2_H_
 
 #ifdef Win32
 #include "win_stdint.h"	/* defines uint32_t etc */
@@ -12,8 +12,7 @@
 extern "C" {
 #endif
 
-uint32_t nhash( const void * key, uint64_t length, uint32_t initval);
-  //int nhash(const char *key, int length, int initval);
+uint32_t nhash2(const void *key, uint64_t length, uint32_t initval);
 
 #ifdef __cplusplus
 }

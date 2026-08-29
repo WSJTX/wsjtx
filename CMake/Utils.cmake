@@ -100,7 +100,10 @@ wsjt_link_common_fortran (jt65code)
 add_executable (jt9code lib/jt9code.f90)
 wsjt_link_common_fortran (jt9code)
 
-add_executable (wsprcode lib/wsprcode/wsprcode.f90 lib/wsprcode/nhash.c)
+add_executable (wsprcode
+  lib/wsprcode/wsprcode.f90
+  lib/wsprcode/nhash.c
+  lib/lookup3.c)
 wsjt_link_common_fortran (wsprcode)
 	       
 add_executable (encode77 lib/77bit/encode77.f90)

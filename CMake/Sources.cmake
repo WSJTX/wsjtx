@@ -643,6 +643,7 @@ set (qra_CSRCS
 
 set (wsjt_CSRCS
   ${ka9q_CSRCS}
+  lib/lookup3.c
   lib/ft8var/ft8_tsan.c
   lib/ftrsd/ftrsdap.c
   lib/sgran.c
@@ -679,6 +680,7 @@ set (wsjt_qt_UISRCS
   )
 
 set (wsprsim_CSRCS
+  lib/lookup3.c
   lib/wsprd/wsprsim.c
   lib/wsprd/wsprsim_utils.c
   lib/wsprd/wsprd_utils.c
@@ -688,6 +690,7 @@ set (wsprsim_CSRCS
   )
 
 set (wsprd_CSRCS
+  lib/lookup3.c
   lib/wsprd/wsprd.c
   lib/wsprd/wsprsim_utils.c
   lib/wsprd/wsprd_utils.c

@@ -21,8 +21,12 @@ LIBS = c:/JTSDK/fftw3f/libfftw3-3.dll -lm
 
 all:    wsprd
 
-DEPS = fano.h
-OBJS1 = wsprd.o wsprd_utils.o fano.o tab.o nhash.o
+DEPS = fano.h nhash.h ../lookup3.h
+
+lookup3.o: ../lookup3.c ../lookup3.h
+	${CC} ${CFLAGS} -c $< -o $@
+
+OBJS1 = wsprd.o wsprd_utils.o fano.o tab.o nhash.o lookup3.o
 wsprd: $(OBJS1)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
 

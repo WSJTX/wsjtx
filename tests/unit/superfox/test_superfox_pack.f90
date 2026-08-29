@@ -17,6 +17,7 @@ program test_superfox_pack
   call expect_cq_round_trip('CQ PJ4/K1ABC FK52','PJ4/K1ABC','FK52')
   call expect_cq_round_trip('CQ K1JT AA00','K1JT','AA00')
   call expect_cq_round_trip('CQ K1JT RR99','K1JT','RR99')
+  call expect_crc_vector()
   call expect_invalid_pack('CQ',SFOX_PACK_BAD_CQ)
   call expect_invalid_pack('CQ K1JT',SFOX_PACK_BAD_CQ)
   call expect_invalid_pack('CQ K1@JT FN20',SFOX_PACK_BAD_CQ)
@@ -62,6 +63,29 @@ program test_superfox_pack
 1000 format('superfox pack tests passed: ',i0)
 
 contains
+
+  subroutine expect_crc_vector()
+    character(len=120) :: line
+    character(len=26) :: free_text
+    character(len=10) :: ckey
+    integer(kind=1) :: xin(0:49), raw(0:49)
+    integer :: crc21, i, pack_error
+    logical(kind=1) :: more_cqs, send_msg
+
+    line='CQ K1JT FN20'
+    free_text=' '
+    ckey='0000000000'
+    more_cqs=.false.
+    send_msg=.false.
+    call sfox_pack(line,ckey,more_cqs,send_msg,free_text,xin,pack_error)
+    call assert_int('SuperFox CRC pack status',SFOX_PACK_OK,pack_error)
+    do i=0,49
+       raw(i)=xin(49-i)
+    enddo
+    crc21=128*128*raw(47)+128*raw(48)+raw(49)
+    call assert_int('SuperFox CRC21',1361017,crc21)
+    ntests=ntests+1
+  end subroutine expect_crc_vector
 
   subroutine expect_standard_message(input,expected_fox,expected_hound)
     character(len=*), intent(in) :: input, expected_fox, expected_hound

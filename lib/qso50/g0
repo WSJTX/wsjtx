@@ -4,5 +4,5 @@ gfortran -o twq -Wall -Wno-conversion -fbounds-check twq.f90 \
 	 unpacktext2.f90 unpackpfx.f90 pack50.f90 unpack50.f90 \
 	 ../hash.f90 ../deg2grid.f90 ../grid2deg.f90 \
 	 ../fix_contest_msg.f90 ../to_contest_msg.f90 \
-	 ../fmtmsg.f90 ../azdist.f90 ../geodist.f90 ../wsprd/nhash.c
-	 
+	 ../fmtmsg.f90 ../azdist.f90 ../geodist.f90 ../wsprd/nhash.c \
+	 ../lookup3.c
