@@ -94,6 +94,17 @@ namespace RigFrequencyChangePolicy
     commit ();
     return true;
   }
+
+  template<typename SetMonitoring, typename Request>
+  bool requestWhileMonitoring (bool was_monitoring, SetMonitoring setMonitoring,
+                               Request request)
+  {
+    auto const started_monitoring = !was_monitoring;
+    if (started_monitoring) setMonitoring (true);
+    if (request ()) return true;
+    if (started_monitoring) setMonitoring (false);
+    return false;
+  }
 }
 
 #endif

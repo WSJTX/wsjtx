@@ -64,6 +64,7 @@ private slots:
   void guardedApplyProtectsMutationBoundary ();
   void txPathFrequencyRequiresSplit ();
   void acceptedRequestControlsDependentCommit ();
+  void rejectedRequestStopsMonitoringItStarted ();
 };
 
 void TestRigFrequencyChangePolicy::idleAllowsEveryChangeKind ()
@@ -196,6 +197,48 @@ void TestRigFrequencyChangePolicy::acceptedRequestControlsDependentCommit ()
   QVERIFY (RigFrequencyChangePolicy::commitIfAccepted (
     [] {return true;}, [&] {committed = true;}));
   QVERIFY (committed);
+}
+
+void TestRigFrequencyChangePolicy::rejectedRequestStopsMonitoringItStarted ()
+{
+  bool monitoring = false;
+  QVector<bool> transitions;
+  auto const setMonitoring = [&] (bool state) {
+    monitoring = state;
+    transitions.append (state);
+  };
+  bool request_observed_monitoring = false;
+
+  QVERIFY (!RigFrequencyChangePolicy::requestWhileMonitoring (
+    monitoring, setMonitoring, [&] {
+      request_observed_monitoring = monitoring;
+      return false;
+    }));
+  QVERIFY (request_observed_monitoring);
+  QCOMPARE (transitions, QVector<bool> ({true, false}));
+  QVERIFY (!monitoring);
+
+  transitions.clear ();
+  request_observed_monitoring = false;
+  QVERIFY (RigFrequencyChangePolicy::requestWhileMonitoring (
+    monitoring, setMonitoring, [&] {
+      request_observed_monitoring = monitoring;
+      return true;
+    }));
+  QVERIFY (request_observed_monitoring);
+  QCOMPARE (transitions, QVector<bool> ({true}));
+  QVERIFY (monitoring);
+
+  transitions.clear ();
+  request_observed_monitoring = false;
+  QVERIFY (!RigFrequencyChangePolicy::requestWhileMonitoring (
+    monitoring, setMonitoring, [&] {
+      request_observed_monitoring = monitoring;
+      return false;
+    }));
+  QVERIFY (request_observed_monitoring);
+  QVERIFY (transitions.isEmpty ());
+  QVERIFY (monitoring);
 }
 
 QTEST_GUILESS_MAIN (TestRigFrequencyChangePolicy)

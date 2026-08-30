@@ -170,9 +170,13 @@ void MainWindow::bandHopping(bool user_requested)
     }
   if (entry.mode_ == BandHopMode::CustomQRG)
     {
-      if (!m_monitoring) monitor (true);
       keep_frequency = true;
-      if (!requestNominalFrequencyChange (frequency, origin))
+      if (!RigFrequencyChangePolicy::requestWhileMonitoring (
+            m_monitoring,
+            [this] (bool state) {monitor (state);},
+            [this, frequency, origin] {
+              return requestNominalFrequencyChange (frequency, origin);
+            }))
         {
           keep_frequency = false;
           skip_hop ();
@@ -198,9 +202,13 @@ void MainWindow::bandHopping(bool user_requested)
       return;
     }
 
-  if (!m_monitoring) monitor (true);
   auto const previous_frequency = m_freqNominal;
-  if (!requestNominalFrequencyChange (requested_frequency, origin))
+  if (!RigFrequencyChangePolicy::requestWhileMonitoring (
+        m_monitoring,
+        [this] (bool state) {monitor (state);},
+        [this, requested_frequency, origin] {
+          return requestNominalFrequencyChange (requested_frequency, origin);
+        }))
     {
       skip_hop ();
       return;

@@ -11306,9 +11306,12 @@ bool MainWindow::requestBandChange (Frequency frequency, FrequencyRequestOrigin 
       return false;
     }
   auto const previous_frequency = m_freqNominal;
-  if (!m_monitoring) monitor (true);
-
-  if (!requestNominalFrequencyChange (frequency, origin))
+  if (!RigFrequencyChangePolicy::requestWhileMonitoring (
+        m_monitoring,
+        [this] (bool state) {monitor (state);},
+        [this, frequency, origin] {
+          return requestNominalFrequencyChange (frequency, origin);
+        }))
     {
       restoreNominalFrequencySelection ();
       return false;
