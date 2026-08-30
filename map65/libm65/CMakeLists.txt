@@ -91,7 +91,6 @@ set (libm65_FSRCS
   smo.f90
   sun.f90
   symspec.f90
-  test_astro_pipeline.f90
 #  timer.f90
   timf2.f90
   tm2.f90
@@ -206,6 +205,13 @@ target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
 wsjt_link_common_fortran (m65impl)
 
 if (WSJT_ENABLE_TESTS)
+  add_executable (test_map65_astro
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_astro.f90)
+  target_include_directories (test_map65_astro PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_astro PRIVATE m65impl)
+  add_test (NAME test_map65_astro COMMAND test_map65_astro)
+  set_tests_properties (test_map65_astro PROPERTIES TIMEOUT 180)
+
   add_executable (test_map65_jt65_handoff
     ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_vectors.f90
     ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_fixture.f90

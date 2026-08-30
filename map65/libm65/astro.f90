@@ -115,7 +115,7 @@ contains
     longecl_half = nint(RAD2DEG*el/2.0_real64)
     if (longecl_half < 1 .or. longecl_half > 180) longecl_half = 180
     t144 = nt144(longecl_half)
-    tsky = (real(t144,real64)-2.7_real64)*(144.0_real64/freq*1.0e-6_real64)**2.6_real64 + 2.7_real64
+    tsky = (real(t144,real64)-2.7_real64)*(144.0e6_real64/freq)**2.6_real64 + 2.7_real64
 
     xdop(NStation) = doppler
     if (NStation == 2) then
@@ -136,7 +136,7 @@ contains
        end if
 
        tr      = 80.0_real64
-       tskymin = 13.0_real64*(408.0_real64/freq*1.0e-6_real64)**2.6_real64
+       tskymin = 13.0_real64*(408.0e6_real64/freq)**2.6_real64
        tsysmin = tskymin + tr
        tsys    = tsky + tr
        Dgrd    = -10.0_real64*log10(tsys/tsysmin) + dbMoon
