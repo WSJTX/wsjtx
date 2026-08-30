@@ -291,6 +291,7 @@ void DevSetup::accept()
   int newFs96000 = ui.rb192000->isChecked() ? 2 :
       ui.rb96000->isChecked()  ? 1  :
       0;
+  double const newFAdd = ui.faddEntry->text().toDouble();
 
   m_restartRequired = oldSampleRate != newSampleRate;
   if (m_restartRequired) {
@@ -303,6 +304,7 @@ void DevSetup::accept()
      mw->m_nDevIn!=ui.comboBoxSndIn->currentIndex() or
      mw->m_paInDevice!=m_inDevList[mw->m_nDevIn] or
      mw->m_xpol!=ui.cbXpol->isChecked() or
+     mw->m_fAdd!=newFAdd or
      mw->m_udpPort!=ui.sbPort->value()) m_restartSoundIn=true;
 
   if(mw->m_nDevOut!=ui.comboBoxSndOut->currentIndex() or
@@ -335,7 +337,7 @@ void DevSetup::accept()
   mw->m_timeout=ui.timeoutSpinBox->value();
   mw->m_dPhi=ui.dPhiSpinBox->value();
   mw->m_fCal=ui.fCalSpinBox->value();
-  mw->m_fAdd=ui.faddEntry->text().toDouble();
+  mw->m_fAdd=newFAdd;
   mw->m_network=ui.networkRadioButton->isChecked();
   if (!m_restartRequired) {
     mw->m_fs96000 = newFs96000;
