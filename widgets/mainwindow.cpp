@@ -11405,7 +11405,7 @@ void MainWindow::band_changed (Frequency frequency)
 
 void MainWindow::applyBandChange (Frequency f, Frequency previous_frequency)
 {
-  if (f != m_freqNominal) cancelPendingFt8Decode ("dial frequency changed");
+  if (f != previous_frequency) cancelPendingFt8Decode ("dial frequency changed");
   m_autoRespondPeriodState.disarm();
   msk144qsy = false;  // MSK144 QSY
   // Don't allow a7 decodes during the first period because they can be leftovers from the previous band
