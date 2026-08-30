@@ -52,6 +52,7 @@ private:
   Frequency const * nominal_frequency_;
   QComboBox * combo_box_;
   bool kHz_without_k_ = false;
+  mutable bool user_edited_ = false;
 };
 
 #endif

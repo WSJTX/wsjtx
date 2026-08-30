@@ -36,6 +36,8 @@ LiveFrequencyValidator::LiveFrequencyValidator (QComboBox * combo_box
   , combo_box_ {combo_box}
   , kHz_without_k_ {kHz_without_k}
 {
+  connect (combo_box_->lineEdit (), &QLineEdit::textEdited, this,
+           [this] (QString const&) {user_edited_ = true;});
 }
 
 auto LiveFrequencyValidator::validate (QString& input, int& pos) const -> State
@@ -48,6 +50,8 @@ auto LiveFrequencyValidator::validate (QString& input, int& pos) const -> State
 
 void LiveFrequencyValidator::fixup (QString& input) const
 {
+  auto const user_edited = user_edited_;
+  user_edited_ = false;
   QRegExpValidator::fixup (input);
   if (!bands_->oob ().startsWith (input))
     {
@@ -65,7 +69,7 @@ void LiveFrequencyValidator::fixup (QString& input) const
             }
           if (!frequencies.isEmpty ())
             {
-              Q_EMIT valid (frequencies.first ().value<Frequency> ());
+              if (user_edited) Q_EMIT valid (frequencies.first ().value<Frequency> ());
             }
           else
             {
@@ -78,14 +82,14 @@ void LiveFrequencyValidator::fixup (QString& input) const
           auto f = Radio::frequency (input.remove (QChar {'k'}, Qt::CaseInsensitive), 3);
           f += *nominal_frequency_ / 1000000u * 1000000u;
           input = bands_->find (f);
-          Q_EMIT valid (f);
+          if (user_edited) Q_EMIT valid (f);
         }
       else
         {
           // frequency input
           auto f = Radio::frequency (input.remove (QChar {'M'}, Qt::CaseSensitive), 6);
           input = bands_->find (f);
-          Q_EMIT valid (f);
+          if (user_edited) Q_EMIT valid (f);
         }
 
       if (bands_->oob () == input)
