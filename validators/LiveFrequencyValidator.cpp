@@ -52,6 +52,8 @@ void LiveFrequencyValidator::fixup (QString& input) const
 {
   auto const user_edited = user_edited_;
   user_edited_ = false;
+  Frequency requested_frequency {0};
+  bool has_requested_frequency {false};
   QRegExpValidator::fixup (input);
   if (!bands_->oob ().startsWith (input))
     {
@@ -69,7 +71,8 @@ void LiveFrequencyValidator::fixup (QString& input) const
             }
           if (!frequencies.isEmpty ())
             {
-              if (user_edited) Q_EMIT valid (frequencies.first ().value<Frequency> ());
+              requested_frequency = frequencies.first ().value<Frequency> ();
+              has_requested_frequency = true;
             }
           else
             {
@@ -82,14 +85,16 @@ void LiveFrequencyValidator::fixup (QString& input) const
           auto f = Radio::frequency (input.remove (QChar {'k'}, Qt::CaseInsensitive), 3);
           f += *nominal_frequency_ / 1000000u * 1000000u;
           input = bands_->find (f);
-          if (user_edited) Q_EMIT valid (f);
+          requested_frequency = f;
+          has_requested_frequency = true;
         }
       else
         {
           // frequency input
           auto f = Radio::frequency (input.remove (QChar {'M'}, Qt::CaseSensitive), 6);
           input = bands_->find (f);
-          if (user_edited) Q_EMIT valid (f);
+          requested_frequency = f;
+          has_requested_frequency = true;
         }
 
       if (bands_->oob () == input)
@@ -101,5 +106,6 @@ void LiveFrequencyValidator::fixup (QString& input) const
           combo_box_->lineEdit ()->setStyleSheet ({});
         }
       combo_box_->setCurrentText (input);
+      if (user_edited && has_requested_frequency) Q_EMIT valid (requested_frequency);
     }
 }

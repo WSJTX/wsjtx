@@ -48,7 +48,15 @@ namespace
       QObject::connect (validator.get (), &LiveFrequencyValidator::valid,
                         [&] (Radio::Frequency frequency) {
                           requests.append (frequency);
-                          nominal_frequency = frequency;
+                          bands_at_request.append (band_editor.currentText ());
+                          if (accept_requests)
+                            {
+                              nominal_frequency = frequency;
+                            }
+                          else
+                            {
+                              band_editor.setCurrentText (bands.find (nominal_frequency));
+                            }
                         });
     }
 
@@ -74,6 +82,8 @@ namespace
     Radio::Frequency nominal_frequency {preferred_3cm_frequency};
     QComboBox band_editor;
     QVector<Radio::Frequency> requests;
+    QVector<QString> bands_at_request;
+    bool accept_requests {true};
     std::unique_ptr<LiveFrequencyValidator> validator;
   };
 }
@@ -93,6 +103,7 @@ private Q_SLOTS:
   void live_frequency_entry_requests_one_qsy_data ();
   void live_frequency_entry_requests_one_qsy ();
   void live_frequency_band_entry_requests_working_frequency ();
+  void live_frequency_rejected_request_preserves_selection ();
   void live_frequency_focus_loss_without_edit_is_harmless ();
 };
 
@@ -205,6 +216,8 @@ void TestFrequencyEditors::live_frequency_entry_requests_one_qsy ()
   fixture.enter (entry, completed_text);
 
   QCOMPARE (fixture.requests, QVector<Radio::Frequency> {expected_frequency});
+  QCOMPARE (fixture.bands_at_request,
+            QVector<QString> {fixture.bands.find (expected_frequency)});
   QCOMPARE (fixture.band_editor.currentText (), fixture.bands.find (expected_frequency));
 
   fixture.send_focus_out ();
@@ -223,6 +236,23 @@ void TestFrequencyEditors::live_frequency_band_entry_requests_working_frequency 
   fixture.enter ("3cm");
 
   QCOMPARE (fixture.requests, QVector<Radio::Frequency> {preferred_3cm_frequency});
+  QCOMPARE (fixture.bands_at_request, QVector<QString> {QString {"3cm"}});
+  QCOMPARE (fixture.band_editor.currentText (), QString {"3cm"});
+}
+
+void TestFrequencyEditors::live_frequency_rejected_request_preserves_selection ()
+{
+  LiveFrequencyEditorFixture fixture;
+  fixture.accept_requests = false;
+
+  fixture.enter ("14.074", "14.074000");
+
+  QCOMPARE (fixture.requests, QVector<Radio::Frequency> {preferred_20m_frequency});
+  QCOMPARE (fixture.bands_at_request, QVector<QString> {QString {"20m"}});
+  QCOMPARE (fixture.band_editor.currentText (), QString {"3cm"});
+
+  fixture.send_focus_out ();
+  QCOMPARE (fixture.requests, QVector<Radio::Frequency> {preferred_20m_frequency});
   QCOMPARE (fixture.band_editor.currentText (), QString {"3cm"});
 }
 
