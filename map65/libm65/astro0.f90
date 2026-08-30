@@ -1,9 +1,9 @@
 module astro0_state_mod
   use iso_fortran_env, only: real64
   implicit none
-  real(real64) :: uth8z      = 0.0_real64
-  real(real64) :: dopplerz   = 0.0_real64
-  real(real64) :: doppler00z = 0.0_real64
+  real(real64) :: uth8z      = 0.0
+  real(real64) :: dopplerz   = 0.0
+  real(real64) :: doppler00z = 0.0
 end module astro0_state_mod
 
 
@@ -77,7 +77,7 @@ contains
     AzMoon8  = AzMoon
     ElMoon8  = ElMoon
     dbMoon8  = dbMoon
-    RAMoon8  = RAMoon/15.0_real64
+    RAMoon8  = RAMoon/15.0
     DecMoon8 = DecMoon
     HA8      = HA
     Dgrd8    = Dgrd
@@ -95,34 +95,34 @@ contains
     call tm2(real(day,8)+1.0/1440.0,xlat1,xlon1,xl1a,b1a)
     call tm2(real(day,8)+1.0/1440.0,xlat2,xlon2,xl2a,b2a)
 
-    fghz  = 0.001_real64*real(nfreq,real64)
+    fghz  = 0.001*real(nfreq,real64)
     dldt1 = DEGS*(xl1a-xl1)
     dbdt1 = DEGS*(b1a-b1)
     dldt2 = DEGS*(xl2a-xl2)
     dbdt2 = DEGS*(b2a-b2)
 
-    rate1  = 2.0_real64*sqrt(dldt1**2 + dbdt1**2)
-    width1 = 0.5_real64*6741.0_real64*fghz*rate1
+    rate1  = 2.0*sqrt(dldt1**2 + dbdt1**2)
+    width1 = 0.5*6741.0*fghz*rate1
     rate2  = sqrt((dldt1+dldt2)**2 + (dbdt1+dbdt2)**2)
-    width2 = 0.5_real64*6741.0_real64*fghz*rate2
+    width2 = 0.5*6741.0*fghz*rate2
 
-    fbend = 0.7_real64
-    a2    = 0.0045_real64*log(fghz/fbend)/log(1.05_real64)
-    if (fghz < fbend) a2 = 0.0_real64
-    f50 = 0.19_real64 * (fghz/fbend)**a2
-    if (f50 > 1.0_real64) f50 = 1.0_real64
+    fbend = 0.7
+    a2    = 0.0045*log(fghz/fbend)/log(1.05)
+    if (fghz < fbend) a2 = 0.0
+    f50 = 0.19 * (fghz/fbend)**a2
+    if (f50 > 1.0) f50 = 1.0
     w501 = f50*width1
     w502 = f50*width2
 
     ! df/dt using persistent state in astro0_state_mod
-    if (uth8z == 0.0_real64) then
-       uth8z      = uth8 - 1.0_real64/3600.0_real64
+    if (uth8z == 0.0) then
+       uth8z      = uth8 - 1.0/3600.0
        dopplerz   = ndop_loc
        doppler00z = doppler00_loc
     end if
 
-    dt = 60.0_real64*(uth8-uth8z)
-    if (dt <= 0.0_real64) dt = 1.0_real64/60.0_real64
+    dt = 60.0*(uth8-uth8z)
+    if (dt <= 0.0) dt = 1.0/60.0
 
     dfdt  = (ndop_loc     - dopplerz  )/dt
     dfdt0 = (doppler00_loc - doppler00z)/dt
