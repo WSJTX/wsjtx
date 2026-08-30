@@ -1,7 +1,10 @@
 program test_jpl_resilience
+  use iso_c_binding, only: c_bool, c_char, c_double, c_int, c_loc,     &
+       c_null_char
   use iso_fortran_env, only: int8, real64
   use ieee_arithmetic, only: ieee_is_finite, ieee_value,              &
        ieee_quiet_nan, ieee_positive_inf
+  use astro_module, only: astrosub
   use jpl_ephemeris_status
   implicit none
 
@@ -35,6 +38,8 @@ program test_jpl_resilience
      call test_nonfinite_epoch(trim(source_path))
   case('invalid_input')
      call test_invalid_input()
+  case('blank_grid_compatibility')
+     call test_blank_grid_compatibility(trim(source_path))
   case('optional_sections')
      call test_optional_sections(trim(source_path))
   case('source_transition')
@@ -290,6 +295,99 @@ contains
          'UTC calendar handles leap day')
   end subroutine test_invalid_input
 
+  subroutine test_blank_grid_compatibility(path)
+    character(len=*), intent(in) :: path
+    character(len=6) :: blank_grid='      '
+    character(len=6) :: legacy_grid='BB44mm'
+    character(len=6) :: valid_grid='FN20qi'
+    character(len=6) :: dx_grid='JN18du'
+    real(real64) :: blank_values(20),legacy_values(20),blank_dx_values(20)
+    real(real64) :: both_blank_values(20)
+    real(c_double) :: blank_sub_values(14),legacy_sub_values(14)
+    real(c_double) :: blank_dx_sub_values(14)
+    integer :: blank_integers(3),legacy_integers(3),blank_dx_integers(3)
+    integer :: both_blank_integers(3),result
+    integer(c_int) :: blank_sub_integers(3),legacy_sub_integers(3)
+    integer(c_int) :: blank_dx_sub_integers(3),sub_result
+
+    call configure(path)
+    call grid_astro_values(blank_grid,dx_grid,blank_values,           &
+         blank_integers,result)
+    call require(result.eq.EPHEMERIS_JPL,'blank local grid status')
+
+    call grid_astro_values(legacy_grid,dx_grid,legacy_values,         &
+         legacy_integers,result)
+    call require(result.eq.EPHEMERIS_JPL,'legacy local grid status')
+    call require(maxval(abs(blank_values(1:15)-                      &
+         legacy_values(1:15))).lt.1.0e-10_real64,                    &
+         'blank local grid legacy values')
+    call require(maxval(abs(blank_values(17:20)-                     &
+         legacy_values(17:20))).lt.1.0e-10_real64,                   &
+         'blank local grid legacy widths and delay')
+    call require(all(blank_integers.eq.legacy_integers),             &
+         'blank local grid legacy integer values')
+
+    call astrosub_values(blank_grid,dx_grid,path,blank_sub_values,    &
+         blank_sub_integers,sub_result)
+    call require(sub_result.eq.EPHEMERIS_JPL,                        &
+         'blank local grid astrosub status')
+    call astrosub_values(legacy_grid,dx_grid,path,legacy_sub_values,  &
+         legacy_sub_integers,sub_result)
+    call require(sub_result.eq.EPHEMERIS_JPL,                        &
+         'legacy local grid astrosub status')
+    call require(maxval(abs(blank_sub_values-legacy_sub_values)).lt. &
+         1.0e-10_real64,'blank local grid astrosub legacy values')
+    call require(all(blank_sub_integers.eq.legacy_sub_integers),     &
+         'blank local grid astrosub legacy integer values')
+
+    call grid_astro_values(valid_grid,blank_grid,blank_dx_values,     &
+         blank_dx_integers,result)
+    call require(result.eq.EPHEMERIS_JPL,'blank DX grid status')
+    call require(blank_dx_values(18).eq.blank_dx_values(17),         &
+         'blank DX grid uses self width')
+    call require(blank_dx_values(14).eq.0.0_real64,                  &
+         'blank DX grid clears MNR')
+
+    call astrosub_values(valid_grid,blank_grid,path,                 &
+         blank_dx_sub_values,blank_dx_sub_integers,sub_result)
+    call require(sub_result.eq.EPHEMERIS_JPL,                        &
+         'blank DX grid astrosub status')
+    call require(all(blank_dx_sub_values([5,6,11,14]).eq.            &
+         0.0_real64),'blank DX grid clears astrosub DX values')
+    call require(blank_dx_sub_integers(2).eq.0,                      &
+         'blank DX grid clears astrosub Doppler')
+    call require(maxval(abs(blank_dx_sub_values(1:4)-                &
+         blank_dx_values(1:4))).lt.1.0e-10_real64,                  &
+         'blank DX grid preserves local azimuth and elevation')
+    call require(blank_dx_sub_values(13).eq.blank_dx_values(17),     &
+         'blank DX grid preserves self width')
+    call require(blank_dx_sub_integers(1).eq.blank_dx_integers(1)   &
+         .and. blank_dx_sub_integers(3).eq.blank_dx_integers(3),    &
+         'blank DX grid preserves local integer values')
+
+    call grid_astro_values(blank_grid,blank_grid,both_blank_values,   &
+         both_blank_integers,result)
+    call require(result.eq.EPHEMERIS_JPL,'both grids blank status')
+    call require(all(ieee_is_finite(both_blank_values)),             &
+         'both grids blank finite values')
+    call require(both_blank_values(20).gt.0.0_real64,                &
+         'both grids blank echo delay')
+
+    call configure('missing-blank-grid.jpl')
+    call grid_astro_values(blank_grid,blank_grid,both_blank_values,   &
+         both_blank_integers,result)
+    call require(result.eq.EPHEMERIS_ANALYTIC_FALLBACK,              &
+         'blank grids preserve analytic fallback')
+    call astrosub_values(blank_grid,blank_grid,                       &
+         'missing-blank-grid.jpl',blank_dx_sub_values,               &
+         blank_dx_sub_integers,sub_result)
+    call require(sub_result.eq.EPHEMERIS_ANALYTIC_FALLBACK,          &
+         'blank grids preserve astrosub analytic fallback')
+    call require(all(blank_dx_sub_values([5,6,11,14]).eq.            &
+         0.0_real64) .and. blank_dx_sub_integers(2).eq.0,            &
+         'blank grids preserve astrosub DX clearing')
+  end subroutine test_blank_grid_compatibility
+
   subroutine test_optional_sections(path)
     character(len=*), intent(in) :: path
     real(real64) :: vector(6)
@@ -409,6 +507,54 @@ contains
          output(10),output(11),output(12),output(13),output(14),    &
          dfdt,dfdt0,width1,width2,output(15),techo,result)
   end subroutine astro_values
+
+  subroutine grid_astro_values(mygrid,hisgrid,values,integer_values,  &
+       result)
+    character(len=6), intent(in) :: mygrid,hisgrid
+    real(real64), intent(out) :: values(20)
+    integer, intent(out) :: integer_values(3),result
+
+    call astro0(2024,1,1,12.0_real64,144000000.0_real64,mygrid,      &
+         hisgrid,values(1),values(2),values(3),values(4),values(5),  &
+         values(6),integer_values(1),integer_values(2),              &
+         integer_values(3),values(7),values(8),values(9),values(10),&
+         values(11),values(12),values(13),values(14),values(15),    &
+         values(16),values(17),values(18),values(19),values(20),    &
+         result)
+  end subroutine grid_astro_values
+
+  subroutine astrosub_values(mygrid,hisgrid,jpl_path,values,          &
+       integer_values,result)
+    character(len=*), intent(in) :: mygrid,hisgrid,jpl_path
+    real(c_double), intent(out) :: values(14)
+    integer(c_int), intent(out) :: integer_values(3),result
+    character(kind=c_char), target :: mygrid_c(7),hisgrid_c(7)
+    character(kind=c_char), target :: azel_file_c(64),jpl_path_c(1025)
+
+    call assign_c_string(mygrid,mygrid_c)
+    call assign_c_string(hisgrid,hisgrid_c)
+    call assign_c_string('blank-grid-azel.dat',azel_file_c)
+    call assign_c_string(jpl_path,jpl_path_c)
+    call astrosub(2024_c_int,1_c_int,1_c_int,12.0_c_double,           &
+         144000000.0_c_double,c_loc(mygrid_c),c_loc(hisgrid_c),      &
+         values(1),values(2),values(3),values(4),values(5),          &
+         values(6),integer_values(1),integer_values(2),              &
+         integer_values(3),values(7),values(8),values(9),values(10),&
+         values(11),.false._c_bool,values(12),values(13),values(14), &
+         .false._c_bool,c_loc(azel_file_c),c_loc(jpl_path_c),result)
+  end subroutine astrosub_values
+
+  subroutine assign_c_string(value,buffer)
+    character(len=*), intent(in) :: value
+    character(kind=c_char), intent(out) :: buffer(:)
+    integer :: i,count
+
+    buffer=c_null_char
+    count=min(len_trim(value),size(buffer)-1)
+    do i=1,count
+       buffer(i)=value(i:i)
+    enddo
+  end subroutine assign_c_string
 
   subroutine copy_records(source,destination,count)
     character(len=*), intent(in) :: source,destination

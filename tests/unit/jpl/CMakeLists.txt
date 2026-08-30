@@ -34,6 +34,7 @@ set (jpl_resilience_scenarios
   out_of_range
   nonfinite_epoch
   invalid_input
+  blank_grid_compatibility
   optional_sections
   source_transition)
 

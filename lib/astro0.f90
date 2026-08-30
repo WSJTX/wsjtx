@@ -7,7 +7,8 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
        EPHEMERIS_ANALYTIC_FALLBACK, EPHEMERIS_INVALID_INPUT,          &
        EPHEMERIS_UNAVAILABLE, jpl_reader_generation
   parameter (DEGS=57.2957795130823d0)
-  character*6 mygrid,hisgrid
+  character*6 mygrid,hisgrid,mygrid_calc,hisgrid_calc
+  character(len=6), parameter :: legacy_blank_grid='BB44mm'
   real*8 AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8
   real*8 dbMoon8,RAMoon8,DecMoon8,HA8,Dgrd8,xnr8,dfdt,dfdt0,dt
   real*8 sd8,poloffset8,width1,width2,xlst8
@@ -23,7 +24,13 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   save
 
   uth=uth8
-  call astro(nyear,month,nday,uth,freq8,hisgrid,2,1,                 &
+  mygrid_calc=mygrid
+  hisgrid_calc=hisgrid
+! Blank locators historically reduce to the same periodic position as BB44mm.
+  if(len_trim(mygrid_calc).eq.0) mygrid_calc=legacy_blank_grid
+  if(len_trim(hisgrid_calc).eq.0) hisgrid_calc=legacy_blank_grid
+
+  call astro(nyear,month,nday,uth,freq8,hisgrid_calc,2,1,            &
        AzSun,ElSun,AzMoon,ElMoon,ntsky,doppler00,doppler,            &
        dbMoon,RAMoon,DecMoon,HA,Dgrd,sd,poloffset,xnr,               &
        day,xlon2,xlat2,xlst,techo,result_dx)
@@ -38,7 +45,7 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   xl2a=xl(2)
   b2=b(1)
   b2a=b(2)
-  call astro(nyear,month,nday,uth,freq8,mygrid,1,1,                  &
+  call astro(nyear,month,nday,uth,freq8,mygrid_calc,1,1,             &
        AzSun,ElSun,AzMoon,ElMoon,ntsky,doppler00,doppler,            &
        dbMoon,RAMoon,DecMoon,HA,Dgrd,sd,poloffset,xnr,               &
        day,xlon1,xlat1,xlst,techo,result_self)
@@ -66,7 +73,10 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   width1=0.5*6741*fghz*rate1
   rate2=sqrt((dldt1+dldt2)**2 + (dbdt1+dbdt2)**2)
   width2=0.5*6741*fghz*rate2
-  if(hisgrid(1:4).eq.'    ') width2=width1       !No hisgrid, use self width
+  if(hisgrid(1:4).eq.'    ') then
+     width2=width1
+     xnr=0.
+  endif
   fspread_self=width1                            !Save for avecho()
   fspread_dx=width2                              !Save for avecho()
 
