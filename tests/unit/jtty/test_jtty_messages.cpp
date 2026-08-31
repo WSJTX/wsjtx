@@ -104,6 +104,37 @@ private slots:
     QCOMPARE (Jtty::formatSerialNumber (serialNumber), expected);
   }
 
+  void jttyLineTimeLabel_data ()
+  {
+    QTest::addColumn<QDateTime> ("diskDateTime");
+    QTest::addColumn<qint32> ("utcDiskRaw");
+    QTest::addColumn<float> ("tsyncSeconds");
+    QTest::addColumn<QString> ("expected");
+
+    QTest::newRow ("real-date-anchors-tsync")
+        << QDateTime {QDate {2026, 8, 28}, QTime {19, 45, 7}, Qt::UTC}
+        << qint32 {194507} << 3.0f << QString {"194510"};
+    QTest::newRow ("real-date-wraps-past-midnight")
+        << QDateTime {QDate {2026, 8, 28}, QTime {23, 59, 58}, Qt::UTC}
+        << qint32 {235958} << 5.0f << QString {"000003"};
+    QTest::newRow ("dummy-date-falls-back-to-raw-digits")
+        << QDateTime {} << qint32 {2} << 0.0f << QString {"000002"};
+    QTest::newRow ("dummy-date-fallback-still-anchors-tsync")
+        << QDateTime {} << qint32 {2} << 5.0f << QString {"000007"};
+    QTest::newRow ("neither-anchor-usable")
+        << QDateTime {} << qint32 {999999} << 0.0f << QString {};
+  }
+
+  void jttyLineTimeLabel ()
+  {
+    QFETCH (QDateTime, diskDateTime);
+    QFETCH (qint32, utcDiskRaw);
+    QFETCH (float, tsyncSeconds);
+    QFETCH (QString, expected);
+
+    QCOMPARE (Jtty::jttyLineTimeLabel (diskDateTime, utcDiskRaw, tsyncSeconds), expected);
+  }
+
   void parseDecodeLine_data ()
   {
     QTest::addColumn<QString> ("line");

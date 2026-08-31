@@ -106,9 +106,9 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
     double const elapsed = qMax(0.0, double(k) / 12000.0 - double(tsync));
     return QDateTime::currentDateTimeUtc().addMSecs(-qRound64(1000.0 * elapsed));
   };
-  auto jttyLineTimeUtc = [this, &jttyLineDateTimeUtc] (float tsync) -> QString {
-    if (!m_diskData || !m_UTCdiskDateTime.isValid()) return {};
-    return jttyLineDateTimeUtc(tsync).toString("hhmmss");
+  auto jttyLineTimeUtc = [this] (float tsync) -> QString {
+    if (!m_diskData) return {};
+    return Jtty::jttyLineTimeLabel(m_UTCdiskDateTime, m_UTCdisk, tsync);
   };
   int nsps=384;
   // rjtty_sub_ restarts its own internal slot table whenever k stops

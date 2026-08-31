@@ -2,7 +2,9 @@
 #ifndef JTTY_MESSAGES_HPP
 #define JTTY_MESSAGES_HPP
 
+#include <QDateTime>
 #include <QString>
+#include <QTime>
 
 namespace Jtty
 {
@@ -79,6 +81,20 @@ namespace Jtty
   inline QString formatSerialNumber (int serialNumber)
   {
     return QString {"%1"}.arg (serialNumber, 3, 10, QLatin1Char {'0'});
+  }
+
+  // "Include Time" label; falls back to utcDiskRaw as a bare time-of-day when diskDateTime doesn't parse (e.g. sjtty's dummy-date filenames).
+  inline QString jttyLineTimeLabel (QDateTime const& diskDateTime,
+                                     qint32 utcDiskRaw, float tsyncSeconds)
+  {
+    QDateTime anchor = diskDateTime;
+    if (!anchor.isValid ()) {
+      QTime const t = QTime::fromString (
+        QString {"%1"}.arg (utcDiskRaw, 6, 10, QLatin1Char {'0'}), "hhmmss");
+      if (!t.isValid ()) return {};
+      anchor = QDateTime {QDate {2000, 1, 1}, t, Qt::UTC};
+    }
+    return anchor.addSecs (qRound (tsyncSeconds)).toUTC ().toString ("hhmmss");
   }
 
   inline ParsedDecodeLine parseDecodeLine (QString const& line)
