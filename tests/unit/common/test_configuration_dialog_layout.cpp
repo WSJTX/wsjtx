@@ -301,9 +301,12 @@ void TestConfigurationDialogLayout::constrainedDialogKeepsNavigationAndActionsRe
 {
   QFETCH (int, font_delta);
 
+  QWidget host;
   DialogFixture fixture {font_delta};
   auto& dialog = fixture.dialog;
   auto& ui = fixture.ui;
+  dialog.setParent (&host, Qt::Widget);
+  host.show ();
   QSize const constrained_size {640, 480};
   showDialog (dialog, constrained_size);
 
