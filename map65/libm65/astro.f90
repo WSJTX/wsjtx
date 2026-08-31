@@ -91,11 +91,7 @@ contains
     lon = -elon
 
     call sun(nyear,month,nday,uth,lon,lat,RASun,DecSun,LST,AzSun,ElSun,mjd,day)
-
-    freq = nfreq*1.0e6
-    if (nfreq == 2) freq = 1.8e6
-    if (nfreq == 4) freq = 3.5e6
-
+    freq = nfreq*1.0d6
     call MoonDop(nyear,month,nday,uth,lon,lat,RAMoon,DecMoon,LST,HA,   &
          AzMoon,ElMoon,vr,dist)
 
@@ -127,7 +123,7 @@ contains
        sd        = 16.23*370152.0/dist
 
        if (NStation == 1 .and. MoonDX /= 0.0) then
-          poloffset = mod(poloffset2-poloffset1+720.0,180.0)
+          poloffset = mod(poloffset2-poloffset1+720.d0,180.d0)
           if (poloffset > 90.0) poloffset = poloffset - 180.0
           x1 = abs(cos(2.0*poloffset/RAD2DEG))
           if (x1 < 0.056234) x1 = 0.056234
