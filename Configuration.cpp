@@ -759,7 +759,7 @@ private:
   Q_SLOT void on_voices_combo_box_currentIndexChanged (int);
   Q_SLOT void on_pb_test_alerts_clicked (bool);
   void read_voices ();
-  void read_voicesPath ();
+  void read_voice_directory ();
 
   // typenames used as arguments must match registered type names :(
   Q_SIGNAL void start_transceiver (unsigned seqeunce_number) const;
@@ -915,7 +915,7 @@ private:
   QString hamlib_backed_up_;
   QString cloudLogApiUrl_;
   QString cloudLogApiKey_;
-  QString voicesPath_;
+  QDir voice_directory_;
   bool send_to_eqsl_;
   QString eqsl_username_;
   QString eqsl_passwd_;
@@ -1725,9 +1725,9 @@ QString Configuration::highlight_blue_callsigns() const
   return m_->highlight_blue_callsigns_;
 }
 
-QString Configuration::voicesPath() const
+QDir Configuration::voice_directory () const
 {
-  return m_->voicesPath_;
+  return m_->voice_directory_;
 }
 
 QStringList Configuration::pass_keywords() const
@@ -1857,18 +1857,6 @@ namespace
 #endif
   }
 
-  QString data_path ()
-  {
-#if CMAKE_BUILD
-    if (QDir::isRelativePath (CMAKE_INSTALL_DATADIR))
-      {
-	return QApplication::applicationDirPath () + app_root + CMAKE_INSTALL_DATADIR + QChar {'/'} + CMAKE_PROJECT_NAME;
-      }
-    return CMAKE_INSTALL_DATADIR;
-#else
-    return QApplication::applicationDirPath ();
-#endif
-  }
 }
 
 bool Configuration::impl::eventFilter (QObject *object, QEvent *event)
@@ -2041,7 +2029,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , settings_ {settings}
   , logbook_ {logbook}
   , doc_dir_ {doc_path ()}
-  , data_dir_ {data_path ()}
+  , data_dir_ {installed_data_directory ()}
   , temp_dir_ {temp_directory}
   , writeable_data_dir_ {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}
   , lotw_users_ {network_manager_}
@@ -4207,7 +4195,7 @@ void Configuration::impl::accept ()
   PWR_and_SWR_ = ui_->PWR_and_SWR_check_box->isChecked ();
   check_SWR_ = ui_->check_SWR_check_box->isChecked ();
 
-  read_voicesPath();
+  read_voice_directory ();
 
   spot_to_psk_reporter_ = ui_->psk_reporter_check_box->isChecked ();
   psk_reporter_tcpip_ = ui_->psk_reporter_tcpip_check_box->isChecked ();
@@ -5862,16 +5850,22 @@ void Configuration::impl::on_highlight_blue_callsigns_editingFinished ()
 void Configuration::impl::on_voices_combo_box_currentIndexChanged (int /* index */)
 {
   voice_ = ui_->voices_combo_box->currentIndex();
-  read_voicesPath();
+  read_voice_directory ();
 }
 
 void Configuration::impl::read_voices ()
 {
-  QString audioPath = app_sounds_directory ();
-  QString voiceList = audioPath + "voices.dat";  // load the content of voices.dat file to the voices combo box
+  auto const base_sounds_directory = app_sounds_directory ();
+  if (ui_->voices_combo_box->count () > 0)
+    {
+      ui_->voices_combo_box->setItemData (0, base_sounds_directory.absolutePath ());
+    }
+
+  auto const voiceList = app_voice_manifest_path ();
   QFile file2 {voiceList};
   QTextStream stream2(&file2);
-  if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
+  if(!voiceList.isEmpty () && file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
+    auto const voice_root = QFileInfo {file2}.absoluteDir ();
     while (!stream2.atEnd()) {
       QString line = stream2.readLine();
       QString voicePath;
@@ -5880,7 +5874,7 @@ void Configuration::impl::read_voices ()
         {
           continue;
         }
-      ui_->voices_combo_box->addItem (voiceName, voicePath);
+      ui_->voices_combo_box->addItem (voiceName, sounds_subdirectory (voice_root, voicePath).absolutePath ());
     }
     stream2.flush();
     file2.close();
@@ -5892,20 +5886,19 @@ void Configuration::impl::read_voices ()
       voice_=0;
     }
   ui_->voices_combo_box->setCurrentIndex (voice_);
-  read_voicesPath();
+  read_voice_directory ();
 }
 
-void Configuration::impl::read_voicesPath ()
+void Configuration::impl::read_voice_directory ()
 {
-  voicesPath_ = ui_->voices_combo_box->currentData().toString();
+  voice_directory_.setPath (ui_->voices_combo_box->currentData ().toString ());
 }
 
 void Configuration::impl::on_pb_test_alerts_clicked (bool)
 {
-  read_voicesPath();
+  read_voice_directory ();
 #ifdef WIN32
   QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-  QString audioPath = app_sounds_directory (voicesPath_);
   QAudioFormat format;
   format.setCodec("audio/pcm");
   format.setSampleRate (48000);
@@ -5915,12 +5908,11 @@ void Configuration::impl::on_pb_test_alerts_clicked (bool)
   QAudioOutput* audio;
   audio = new QAudioOutput(format, this);
   QFile *effect = new QFile(this);
-  effect->setFileName(QString("%1/%2").arg(audioPath, "Testing123.wav"));
+  effect->setFileName (voice_directory_.absoluteFilePath ("Testing123.wav"));
   effect->open(QIODevice::ReadOnly);
   audio->start(effect);
 #else
-  QString audioPath = app_sounds_directory (voicesPath_);
-  QSound::play(audioPath + "Testing123.wav");  // for Linux and macOS
+  QSound::play (voice_directory_.absoluteFilePath ("Testing123.wav"));  // for Linux and macOS
 #endif
 }
 

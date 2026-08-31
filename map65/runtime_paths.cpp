@@ -11,12 +11,14 @@
 
 namespace
 {
-  QStringList runtimeSourceCandidates(QString const& appDir, QString const& fileName)
+  QStringList runtimeSourceCandidates(QString const& appDir, QString const& installedDataDir,
+                                      QString const& fileName)
   {
     QDir app {appDir};
     QDir cwd {QDir::currentPath()};
 
     return {
+      QDir {installedDataDir}.absoluteFilePath(fileName),
       app.absoluteFilePath(fileName),
       app.absoluteFilePath("resources/" + fileName),
       app.absoluteFilePath("../" + fileName),
@@ -77,23 +79,37 @@ QString map65RuntimeFile(QString const& dataDir, QString const& fileName)
   return QDir {dataDir}.absoluteFilePath(fileName);
 }
 
-QString ensureMap65RuntimeFile(QString const& appDir, QString const& dataDir,
-                               QString const& fileName, bool replaceEmpty)
+QString map65RuntimeSourceFile(QString const& appDir, QString const& installedDataDir,
+                               QString const& writableDataDir, QString const& fileName)
 {
-  QString writablePath = map65RuntimeFile(dataDir, fileName);
+  QString const writablePath = map65RuntimeFile(writableDataDir, fileName);
+  auto const candidates = runtimeSourceCandidates(appDir, installedDataDir, fileName);
+  for (auto const& sourcePath : candidates) {
+    QFileInfo sourceInfo {sourcePath};
+    if (sourceInfo.absoluteFilePath() == writablePath || !sourceInfo.exists()
+        || !sourceInfo.isFile() || sourceInfo.size() == 0) {
+      continue;
+    }
+    return sourceInfo.absoluteFilePath();
+  }
+
+  return candidates.front();
+}
+
+QString ensureMap65RuntimeFile(QString const& appDir, QString const& installedDataDir,
+                               QString const& writableDataDir, QString const& fileName)
+{
+  QString const writablePath = map65RuntimeFile(writableDataDir, fileName);
   QFileInfo writableInfo {writablePath};
-  if (writableInfo.exists() && (!replaceEmpty || writableInfo.size() > 0)) {
+  if (writableInfo.exists() && writableInfo.size() > 0) {
     return writablePath;
   }
 
-  for (auto const& sourcePath : runtimeSourceCandidates(appDir, fileName)) {
-    QFileInfo sourceInfo {sourcePath};
-    if (!sourceInfo.exists() || !sourceInfo.isFile() || sourceInfo.size() == 0
-        || sourceInfo.absoluteFilePath() == writableInfo.absoluteFilePath()) {
-      continue;
-    }
-
-    if (writableInfo.exists() && writableInfo.size() == 0) {
+  QString const sourcePath = map65RuntimeSourceFile(appDir, installedDataDir,
+                                                    writableDataDir, fileName);
+  QFileInfo sourceInfo {sourcePath};
+  if (sourceInfo.exists() && sourceInfo.isFile() && sourceInfo.size() > 0) {
+    if (writableInfo.exists()) {
       QFile::remove(writablePath);
     }
 

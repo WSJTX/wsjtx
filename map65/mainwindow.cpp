@@ -121,7 +121,10 @@ MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
   ui(new Ui::MainWindow),
   m_appDir {QApplication::applicationDirPath ()},
+  m_installedDataDir {installed_data_directory ().absolutePath ()},
   m_dataDir {writableMap65DataDir ()},
+  m_eclipseFile {map65RuntimeSourceFile (m_appDir, m_installedDataDir, m_dataDir,
+                                        "eclipse.txt")},
   m_settings_filename {map65SettingsFile (m_appDir, m_dataDir)},
   m_astro_window {new Astro {m_settings_filename}},
   m_band_map_window {new BandMap {m_settings_filename}},
@@ -135,8 +138,7 @@ MainWindow::MainWindow(QWidget *parent) :
   }
   QByteArray dataDirBytes = m_dataDir.toLocal8Bit();
   set_wsjtx_dir_(dataDirBytes.constData(), dataDirBytes.size());
-  ensureMap65RuntimeFile(m_appDir, m_dataDir, "CALL3.TXT", true);
-  ensureMap65RuntimeFile(m_appDir, m_dataDir, "eclipse.txt");
+  ensureMap65RuntimeFile(m_appDir, m_installedDataDir, m_dataDir, "CALL3.TXT");
   constexpr int baseSeconds  = 56;
   const int sampleRate = g_sampleRate;
   constexpr int channels     = 4;   // dd(1..4, t)
@@ -483,7 +485,7 @@ MainWindow::MainWindow(QWidget *parent) :
   connect (m_wide_graph_window.get (), &WideGraph::f11f12, this, &MainWindow::bumpDF);
 
   QTimer::singleShot (0, this,[this]() {
-    m_messages_window = new Messages(m_settings_filename);
+    m_messages_window = new Messages(m_settings_filename, m_eclipseFile);
     m_messages_window->show();    
     on_actionMessages_triggered();
     connect (m_messages_window, &Messages::click2OnCallsign, this, &MainWindow::doubleClickOnMessages);
@@ -2739,7 +2741,7 @@ void MainWindow::genStdMsgs(QString rpt)                       //genStdMsgs()
 
 QString MainWindow::call3Path() const
 {
-  return ensureMap65RuntimeFile(m_appDir, m_dataDir, "CALL3.TXT", true);
+  return ensureMap65RuntimeFile(m_appDir, m_installedDataDir, m_dataDir, "CALL3.TXT");
 }
 
 void MainWindow::lookup()                                       //lookup()

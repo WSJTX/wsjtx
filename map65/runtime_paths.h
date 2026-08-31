@@ -8,8 +8,10 @@ class QSettings;
 QString writableMap65DataDir();
 QString map65SettingsFile(QString const& appDir, QString const& dataDir);
 QString map65RuntimeFile(QString const& dataDir, QString const& fileName);
-QString ensureMap65RuntimeFile(QString const& appDir, QString const& dataDir,
-                               QString const& fileName, bool replaceEmpty = false);
+QString map65RuntimeSourceFile(QString const& appDir, QString const& installedDataDir,
+                               QString const& writableDataDir, QString const& fileName);
+QString ensureMap65RuntimeFile(QString const& appDir, QString const& installedDataDir,
+                               QString const& writableDataDir, QString const& fileName);
 
 // Reads the "FSam96000" key (expected to already be scoped, e.g. via
 // settings.beginGroup("Common") / SettingsGroup) as text and interprets it

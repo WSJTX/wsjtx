@@ -9,10 +9,8 @@
 #include "liveCQSender.hpp"
 #include "pskreporter_decode.h"
 #include "pskreporter_settings.h"
-#include "runtime_paths.h"
 
 #include <QCoreApplication> //liveCQ
-#include <QFileInfo>
 #include <QNetworkAccessManager> //liveCQ
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -24,7 +22,8 @@
 #include <QThread>
 #include <QDebug>
 
-Messages::Messages (QString const& settings_filename, QWidget * parent) :
+Messages::Messages (QString const& settings_filename, QString const& eclipse_filename,
+                    QWidget * parent) :
   QDialog {parent},
   ui {new Ui::Messages},
   m_settings_filename {settings_filename}
@@ -82,7 +81,7 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
 
   m_psk_reporter.reset(new PSKReporter({
     pskReporterSettings.use_tcpip,
-    map65RuntimeFile(QFileInfo {m_settings_filename}.absolutePath(), "eclipse.txt"),
+    eclipse_filename,
     QString {"MAP65 v" + QCoreApplication::applicationVersion()
              + " " + revision()}.simplified()
   }));

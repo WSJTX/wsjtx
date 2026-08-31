@@ -8,10 +8,15 @@
 #include <QDateTime>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QStringList>
 
 #include <limits>
+
+#if CMAKE_BUILD
+#include "wsjtx_config.h"
+#endif
 
 QString font_as_stylesheet (QFont const& font)
 {
@@ -108,12 +113,12 @@ QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds)
 
 namespace
 {
-QString app_sounds_root ()
+QDir legacy_app_sounds_directory ()
 {
 #if defined (__APPLE__)
-  return QCoreApplication::applicationDirPath () + "/../Resources/sounds";
+  return QDir {QCoreApplication::applicationDirPath () + "/../Resources/sounds"};
 #else
-  return QCoreApplication::applicationDirPath () + "/sounds";
+  return QDir {QCoreApplication::applicationDirPath () + "/sounds"};
 #endif
 }
 
@@ -133,6 +138,85 @@ bool normalized_app_sounds_child_is_safe (QString const& child)
   return child.isEmpty () || child == "."
     || (!QDir::isAbsolutePath (child) && child != ".." && !child.startsWith ("../"));
 }
+}
+
+QDir resolve_installed_data_directory (QString const& application_directory,
+                                       QString const& configured_data_destination,
+                                       QString const& relative_application_root)
+{
+  if (QDir::isAbsolutePath (configured_data_destination))
+    {
+      return QDir {QDir::cleanPath (configured_data_destination)};
+    }
+
+  QDir application {application_directory};
+  auto const destination = QDir::cleanPath (
+    application.absoluteFilePath (relative_application_root + QChar {'/'} + configured_data_destination));
+  return QDir {destination};
+}
+
+QDir installed_data_directory ()
+{
+#if CMAKE_BUILD
+#if defined (Q_OS_MAC)
+  auto const relative_application_root = QStringLiteral ("../../..");
+#else
+  auto const relative_application_root = QStringLiteral ("..");
+#endif
+  return resolve_installed_data_directory (QCoreApplication::applicationDirPath (),
+                                           QString::fromUtf8 (WSJT_DATA_DESTINATION),
+                                           relative_application_root);
+#else
+  return QDir {QCoreApplication::applicationDirPath ()};
+#endif
+}
+
+QDir preferred_sounds_directory (QDir const& canonical_directory, QDir const& legacy_directory)
+{
+  if (canonical_directory.exists ())
+    {
+      return canonical_directory;
+    }
+  if (legacy_directory.exists ())
+    {
+      return legacy_directory;
+    }
+  return canonical_directory;
+}
+
+QDir app_sounds_directory ()
+{
+  auto const legacy_directory = legacy_app_sounds_directory ();
+#if defined (Q_OS_LINUX)
+  return preferred_sounds_directory (QDir {installed_data_directory ().absoluteFilePath ("sounds")},
+                                     legacy_directory);
+#else
+  return legacy_directory;
+#endif
+}
+
+QString voice_manifest_path (QDir const& canonical_directory, QDir const& legacy_directory)
+{
+  for (auto const& directory : {canonical_directory, legacy_directory})
+    {
+      QFile manifest {directory.absoluteFilePath ("voices.dat")};
+      if (manifest.open (QIODevice::ReadOnly | QIODevice::Text))
+        {
+          return manifest.fileName ();
+        }
+    }
+  return {};
+}
+
+QString app_voice_manifest_path ()
+{
+  auto const legacy_directory = legacy_app_sounds_directory ();
+#if defined (Q_OS_LINUX)
+  return voice_manifest_path (QDir {installed_data_directory ().absoluteFilePath ("sounds")},
+                              legacy_directory);
+#else
+  return voice_manifest_path (legacy_directory, legacy_directory);
+#endif
 }
 
 bool app_sounds_subdirectory_is_safe (QString const& subdirectory)
@@ -163,22 +247,22 @@ bool parse_app_voice_entry (QString const& record, QString& subdirectory, QStrin
   return true;
 }
 
-QString app_sounds_directory (QString const& subdirectory)
+QDir sounds_subdirectory (QDir const& root_directory, QString const& subdirectory)
 {
-  auto const root = QDir::cleanPath (QDir {app_sounds_root ()}.absolutePath ());
+  auto const root = QDir::cleanPath (root_directory.absolutePath ());
   auto const child = normalized_app_sounds_child (subdirectory);
 
   if (!normalized_app_sounds_child_is_safe (child) || child.isEmpty () || child == ".")
     {
-      return root + QChar {'/'};
+      return QDir {root};
     }
 
   auto const path = QDir::cleanPath (QDir {root}.absoluteFilePath (child));
   if (path != root && !path.startsWith (root + QChar {'/'}))
     {
-      return root + QChar {'/'};
+      return QDir {root};
     }
-  return path + QChar {'/'};
+  return QDir {path};
 }
 
 int next_cyclic_index (int current_index, int item_count)

@@ -9381,7 +9381,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       // Testing the default audio device
 #ifdef WIN32
       QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString audioPath = app_sounds_directory (m_config.voicesPath());
+      QString audioPath = m_config.voice_directory ().absolutePath ();
       QAudioFormat format;
       format.setCodec("audio/pcm");
       format.setSampleRate (48000);
@@ -9395,8 +9395,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       effect->open(QIODevice::ReadOnly);
       audio->start(effect);
 #else
-      QString audioPath = app_sounds_directory (m_config.voicesPath());
-      QSound::play(audioPath + "Testing_long.wav");  // for Linux and macOS
+      QSound::play (m_config.voice_directory ().absoluteFilePath ("Testing_long.wav"));  // for Linux and macOS
 #endif
     }
     ui->pbBandHopping->clearFocus();
@@ -16077,11 +16076,11 @@ void MainWindow::alertQSYmessage ()
   audio = new QAudioOutput(format, this);
   connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
   QFile *effect1 = new QFile(this);
-  effect1->setFileName(app_sounds_directory () + "Message.wav");
+  effect1->setFileName (app_sounds_directory ().absoluteFilePath ("Message.wav"));
   effect1->open(QIODevice::ReadOnly);
   audio->start(effect1);
 #else
-  QSound::play(app_sounds_directory () + "Message.wav");  // for Linux and macOS
+  QSound::play (app_sounds_directory ().absoluteFilePath ("Message.wav"));  // for Linux and macOS
 #endif
 }
 
@@ -16419,7 +16418,7 @@ void MainWindow::playDecodeAlertSound(DecodeAlertSound sound)
 
 #ifdef WIN32
   QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-  QString audioPath = app_sounds_directory (m_config.voicesPath());
+  QString audioPath = m_config.voice_directory ().absolutePath ();
   QAudioFormat format;
   format.setCodec("audio/pcm");
   format.setSampleRate (48000);
@@ -16435,9 +16434,8 @@ void MainWindow::playDecodeAlertSound(DecodeAlertSound sound)
   effect1->open(QIODevice::ReadOnly);
   audio->start(effect1);
 #else
-  QString audioPath = app_sounds_directory (m_config.voicesPath());
-  if (sound == DecodeAlertSound::DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
-  else if (sound == DecodeAlertSound::Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
+  if (sound == DecodeAlertSound::DXcall) QSound::play (m_config.voice_directory ().absoluteFilePath ("DXcall.wav"));  // for Linux and macOS
+  else if (sound == DecodeAlertSound::Wanted) QSound::play (m_config.voice_directory ().absoluteFilePath ("Wanted.wav"));  // for Linux and macOS
 #endif
 }
 

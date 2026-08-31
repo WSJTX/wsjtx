@@ -60,7 +60,9 @@ public:
   
   QString m_pttPath;
   QString m_appDir;
+  QString m_installedDataDir;
   QString m_dataDir;
+  QString m_eclipseFile;
   QString m_settings_filename;
   qint32  m_nDevIn;
   qint32  m_nDevOut;

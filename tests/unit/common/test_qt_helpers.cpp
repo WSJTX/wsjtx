@@ -226,6 +226,125 @@ private:
     QCOMPARE (next_cyclic_index (2, 3), 0);
   }
 
+  Q_SLOT void installed_data_directory_resolves_relative_destination ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    auto const application_directory = QDir {temporary.path ()}.absoluteFilePath ("bin");
+
+    auto const result = resolve_installed_data_directory (application_directory, "share/wsjtx", "..");
+
+    QCOMPARE (result.absolutePath (), QDir {temporary.path ()}.absoluteFilePath ("share/wsjtx"));
+  }
+
+  Q_SLOT void installed_data_directory_preserves_absolute_destination ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    auto const destination = QDir {temporary.path ()}.absoluteFilePath ("system-share/wsjtx");
+
+    auto const result = resolve_installed_data_directory ("/ignored/bin", destination, "..");
+
+    QCOMPARE (result.absolutePath (), destination);
+  }
+
+  Q_SLOT void installed_data_directory_resolves_macos_bundle_destination ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    auto const application_directory = QDir {temporary.path ()}.absoluteFilePath ("WSJT-X.app/Contents/MacOS");
+
+    auto const result = resolve_installed_data_directory (
+      application_directory, "WSJT-X.app/Contents/Resources/wsjtx", "../../..");
+
+    QCOMPARE (result.absolutePath (),
+              QDir {temporary.path ()}.absoluteFilePath ("WSJT-X.app/Contents/Resources/wsjtx"));
+    QVERIFY (!result.absolutePath ().endsWith ("/wsjtx/wsjtx"));
+  }
+
+  Q_SLOT void preferred_sounds_directory_uses_canonical_directory ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+    QVERIFY (root.mkpath ("share/wsjtx/sounds"));
+    QVERIFY (root.mkpath ("bin/sounds"));
+    QDir canonical {root.absoluteFilePath ("share/wsjtx/sounds")};
+    QDir legacy {root.absoluteFilePath ("bin/sounds")};
+
+    QCOMPARE (preferred_sounds_directory (canonical, legacy).absolutePath (), canonical.absolutePath ());
+  }
+
+  Q_SLOT void preferred_sounds_directory_falls_back_to_legacy_directory ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+    QVERIFY (root.mkpath ("bin/sounds"));
+    QDir canonical {root.absoluteFilePath ("share/wsjtx/sounds")};
+    QDir legacy {root.absoluteFilePath ("bin/sounds")};
+
+    QCOMPARE (preferred_sounds_directory (canonical, legacy).absolutePath (), legacy.absolutePath ());
+  }
+
+  Q_SLOT void preferred_sounds_directory_returns_canonical_when_neither_exists ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+    QDir canonical {root.absoluteFilePath ("share/wsjtx/sounds")};
+    QDir legacy {root.absoluteFilePath ("bin/sounds")};
+
+    QCOMPARE (preferred_sounds_directory (canonical, legacy).absolutePath (), canonical.absolutePath ());
+  }
+
+  Q_SLOT void voice_manifest_path_prefers_readable_canonical_manifest ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+    QVERIFY (root.mkpath ("canonical"));
+    QVERIFY (root.mkpath ("legacy"));
+    QDir canonical {root.absoluteFilePath ("canonical")};
+    QDir legacy {root.absoluteFilePath ("legacy")};
+    QFile canonical_manifest {canonical.absoluteFilePath ("voices.dat")};
+    QVERIFY (canonical_manifest.open (QIODevice::WriteOnly));
+    canonical_manifest.close ();
+    QFile legacy_manifest {legacy.absoluteFilePath ("voices.dat")};
+    QVERIFY (legacy_manifest.open (QIODevice::WriteOnly));
+    legacy_manifest.close ();
+
+    QCOMPARE (voice_manifest_path (canonical, legacy), canonical_manifest.fileName ());
+  }
+
+  Q_SLOT void voice_manifest_path_falls_back_when_canonical_base_has_no_manifest ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+    QVERIFY (root.mkpath ("canonical"));
+    QVERIFY (root.mkpath ("legacy"));
+    QDir canonical {root.absoluteFilePath ("canonical")};
+    QDir legacy {root.absoluteFilePath ("legacy")};
+    QFile legacy_manifest {legacy.absoluteFilePath ("voices.dat")};
+    QVERIFY (legacy_manifest.open (QIODevice::WriteOnly));
+    legacy_manifest.close ();
+
+    QCOMPARE (voice_manifest_path (canonical, legacy), legacy_manifest.fileName ());
+  }
+
+  Q_SLOT void voice_manifest_path_is_empty_when_no_manifest_is_readable ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+    QVERIFY (root.mkpath ("canonical"));
+    QVERIFY (root.mkpath ("legacy"));
+
+    QVERIFY (voice_manifest_path (QDir {root.absoluteFilePath ("canonical")},
+                                  QDir {root.absoluteFilePath ("legacy")}).isEmpty ());
+  }
+
   Q_SLOT void app_sounds_subdirectory_accepts_relative_children ()
   {
     QVERIFY (app_sounds_subdirectory_is_safe (""));
@@ -241,9 +360,23 @@ private:
     QVERIFY (!app_sounds_subdirectory_is_safe ("..\\outside"));
   }
 
-  Q_SLOT void app_sounds_directory_falls_back_for_traversal ()
+  Q_SLOT void sounds_subdirectory_falls_back_for_traversal ()
   {
-    QCOMPARE (app_sounds_directory ("../outside"), app_sounds_directory ());
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+
+    QCOMPARE (sounds_subdirectory (root, "../outside").absolutePath (), root.absolutePath ());
+  }
+
+  Q_SLOT void sounds_subdirectory_resolves_valid_child ()
+  {
+    QTemporaryDir temporary;
+    QVERIFY (temporary.isValid ());
+    QDir root {temporary.path ()};
+
+    QCOMPARE (sounds_subdirectory (root, "voices/German").absolutePath (),
+              root.absoluteFilePath ("voices/German"));
   }
 
   Q_SLOT void app_voice_entry_parsing_data ()

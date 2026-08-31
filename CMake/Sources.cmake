@@ -779,6 +779,7 @@ set (WSJTX_DATA_FILES
   contrib/Ephemeris/JPLEPH
   eclipse.txt
   ALLCALL7.TXT
+  CALL3.TXT
   )
 
 set (PALETTE_FILES

@@ -17,7 +17,8 @@ class Messages : public QDialog
   Q_OBJECT
 
 public:
-  explicit Messages (QString const& settings_filename, QWidget * parent = nullptr);
+  explicit Messages (QString const& settings_filename, QString const& eclipse_filename,
+                     QWidget * parent = nullptr);
   void setText(QString t, QString t2);
   void setColors(QString t);
   void setPSKReportingEnabled(bool enabled);

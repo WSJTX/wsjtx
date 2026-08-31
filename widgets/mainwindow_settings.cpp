@@ -622,7 +622,7 @@ void MainWindow::readSettings()
 #ifdef WIN32
   if (m_config.alert_Enabled()) {  // testing and initializing the default audio device for playing audible alerts
       QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString audioPath = app_sounds_directory (m_config.voicesPath());
+      QString audioPath = m_config.voice_directory ().absolutePath ();
       QAudioFormat format;
       format.setCodec("audio/pcm");
       format.setSampleRate (48000);

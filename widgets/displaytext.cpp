@@ -979,7 +979,7 @@ void DisplayText::AudioAlerts()
 #ifdef WIN32
   if(m_config->alert_Enabled()) {
         QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-        QString audioPath = app_sounds_directory (m_config->voicesPath());
+        QString audioPath = m_config->voice_directory ().absolutePath () + QChar {'/'};
         QAudioFormat format;
         format.setCodec("audio/pcm");
         format.setSampleRate (48000);
@@ -991,7 +991,7 @@ void DisplayText::AudioAlerts()
         connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
 #else
   if(m_config->alert_Enabled()) {
-        QString audioPath = app_sounds_directory (m_config->voicesPath());
+        QString audioPath = m_config->voice_directory ().absolutePath () + QChar {'/'};
 #endif
 #ifdef WIN32
         QFile *effect2 = new QFile(this);

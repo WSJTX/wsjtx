@@ -142,7 +142,15 @@ QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds);
 // Truncate to the earlier interval.
 QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds);
 
-QString app_sounds_directory (QString const& subdirectory = QString {});
+QDir resolve_installed_data_directory (QString const& application_directory,
+                                       QString const& configured_data_destination,
+                                       QString const& relative_application_root);
+QDir installed_data_directory ();
+QDir preferred_sounds_directory (QDir const& canonical_directory, QDir const& legacy_directory);
+QDir app_sounds_directory ();
+QString voice_manifest_path (QDir const& canonical_directory, QDir const& legacy_directory);
+QString app_voice_manifest_path ();
+QDir sounds_subdirectory (QDir const& root, QString const& subdirectory);
 bool app_sounds_subdirectory_is_safe (QString const& subdirectory);
 bool parse_app_voice_entry (QString const& record, QString& subdirectory, QString& display_name);
 

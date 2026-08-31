@@ -162,7 +162,7 @@ public:
   QStringList pass_keywords () const;
   QStringList blacklist_keywords () const;
   QStringList whitelist_keywords () const;
-  QString voicesPath() const;
+  QDir voice_directory () const;
   bool PWR_and_SWR() const;
   bool check_SWR() const;
 

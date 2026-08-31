@@ -2,6 +2,7 @@ add_executable (test_qt_helpers
   test_qt_helpers.cpp
   ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
 )
+target_include_directories (test_qt_helpers PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_qt_helpers Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_qt_helpers COMMAND test_qt_helpers)
 
@@ -132,6 +133,7 @@ add_executable (test_emulate_split_transceiver
   ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
   ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
 )
+target_include_directories (test_emulate_split_transceiver PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_emulate_split_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_emulate_split_transceiver COMMAND test_emulate_split_transceiver)
 
