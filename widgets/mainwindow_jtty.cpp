@@ -110,6 +110,9 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
     if (!m_diskData) return {};
     return Jtty::jttyLineTimeLabel(m_UTCdiskDateTime, m_UTCdisk, tsync);
   };
+  auto messageBody = [] (QString const& line) {
+      return Jtty::parseDecodeLine(line).message;
+  };
   int nsps=384;
   // rjtty_sub_ restarts its own internal slot table whenever k stops
   // advancing (a fresh WAV, or a "decode again" replay of the current one).
@@ -123,6 +126,8 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
   if (newAllFreqsSession) {
       flushJttyDecodeLines();  // old session's slot table is gone Fortran-side too; log what's left
       m_jttyAllFreqsGroupStart = QTextBlock();
+      m_jttyQsoGroupStart = QTextBlock();
+      m_jttyQsoGroupEnd = QTextBlock();
       m_jttyQsoLines.clear();
       m_jttyAllFreqLines.clear();
       m_bDecoded = false;
@@ -160,15 +165,32 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
   if(all_new) {
       QString const trimmedAll = allMsgs.trimmed();
       if (!trimmedAll.isEmpty()) {
-          QString textToInsert = trimmedAll;
-          if (ui->cbIncludeTime->isChecked()) {
-              QStringList lines = trimmedAll.split(QChar('\n'));
-              for (int i = 0; i < lines.size() && i < 30; ++i) {
-                  QString const t = jttyLineTimeUtc(all_tsync[i]);
-                  if (!t.isEmpty()) lines[i] = t + " " + lines.at(i);
-              }
-              textToInsert = lines.join(QChar('\n'));
+          QStringList const snapshotLines = trimmedAll.split(QChar('\n'));
+          int const lineCount = qMin(snapshotLines.size(), 30);
+          QVector<float> startTimes;
+          QVector<int> slotIds;
+          startTimes.reserve(lineCount);
+          slotIds.reserve(lineCount);
+          for (int i = 0; i < lineCount; ++i) {
+              startTimes.append(all_tsync[i]);
+              slotIds.append(all_slot_ids[i]);
           }
+          auto const lineOrder = Jtty::decodeLineOrder(startTimes, slotIds);
+
+          QStringList lines;
+          for (int const sourceIndex : lineOrder) {
+              auto const parsed = Jtty::parseDecodeLine(snapshotLines.at(sourceIndex));
+              QString line = parsed.valid
+                  ? QStringLiteral("%1  %2").arg(parsed.frequency, 4)
+                        .arg(Jtty::wrapMessage(parsed.message))
+                  : Jtty::wrapMessage(snapshotLines.at(sourceIndex));
+              if (ui->cbIncludeTime->isChecked()) {
+                  QString const t = jttyLineTimeUtc(all_tsync[sourceIndex]);
+                  if (!t.isEmpty()) line = t + " " + line;
+              }
+              lines.append(line);
+          }
+          QString const textToInsert = lines.join(QChar('\n'));
           // insertText() (below, via a plain QTextCursor) doesn't stamp the
           // app-configured content font the way DisplayText::insertText()
           // does, so pin it explicitly to match the rest of the pane.
@@ -184,16 +206,14 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
               cursor.removeSelectedText();
           } else {
               // First group ever, or first group of a new session: start a
-              // new block below any earlier group (with a blank spacer line)
-              // instead of clearing them.
+              // new block below any earlier group instead of clearing them.
               cursor.movePosition(QTextCursor::End);
               if (cursor.position() > 0) {
-                  cursor.insertBlock();   // blank spacer line
-                  cursor.insertBlock();   // start of the new group
+                  cursor.insertBlock();
               }
           }
           m_jttyAllFreqsGroupStart = cursor.block();
-          cursor.insertText(allMsgs.left(1) == " " ? (" " + textToInsert) : textToInsert, format);
+          cursor.insertText(textToInsert, format);
           ui->decodedTextBrowser->setTextCursor(cursor);
           ui->decodedTextBrowser->ensureCursorVisible();
       }
@@ -242,25 +262,23 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 
   if(qso_new) {
       QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
-      if(ui->cbLowerCase->isChecked()) message_qso_freq = message_qso_freq.toLower();
 
-      // qso_freq lines are "<freq>  <message>" (Fortran format i4,2x,a); the
-      // leading frequency is slot(i)%f1 rounded to the nearest Hz, which can
-      // legitimately drift by a Hz or two frame-to-frame within the SAME
-      // message (normal sync jitter, not a decode error). Matching growth by
-      // startsWith() on the full line -- including those digits -- means a
-      // one-Hz shift mid-message stops matching the known line and starts a
-      // second, orphaned one that never gets touched again. Strip the
-      // frequency prefix before comparing so growth still matches; the
-      // originally-displayed frequency for a line is left as-is rather than
-      // rewritten on drift, which is fine since it's only a rough locator.
-      auto messageBody = [](QString const& line) {
-          int i = 0;
-          while (i < line.size() && line.at(i).isDigit()) ++i;
-          return line.mid(i).trimmed();
+      auto wrappedDisplayFor = [this, &jttyLineTimeUtc] (JttyQsoLine const& line) {
+          auto const parsed = Jtty::parseDecodeLine(line.text);
+          QString display = parsed.valid
+              ? QStringLiteral("%1  %2").arg(parsed.frequency, 4)
+                    .arg(Jtty::wrapMessage(parsed.message))
+              : Jtty::wrapMessage(line.text);
+          if (ui->cbLowerCase->isChecked()) display = display.toLower();
+          if (ui->cbIncludeTime->isChecked()) {
+              QString const t = jttyLineTimeUtc(line.tsync);
+              if (!t.isEmpty()) display = t + " " + display;
+          }
+          return display;
       };
 
       QStringList const newLines = message_qso_freq.split(QChar('\n'), SkipEmptyParts);
+      bool anyLineChanged = false;
       for (int lineIdx = 0; lineIdx < newLines.size(); ++lineIdx) {
           QString const newLine = newLines.at(lineIdx).trimmed();
           if (newLine.isEmpty()) continue;
@@ -283,25 +301,15 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
               QString const knownBody = messageBody(known.text);
               if (newBody.length() <= knownBody.length()) continue;   // unchanged this call
               delta = newBody.mid(knownBody.length());
-              QTextCursor cursor {known.block};
-              cursor.movePosition(QTextCursor::EndOfBlock);
-              cursor.insertText(delta);
               known.text = newLine;
           } else {
 #ifdef WIN32
               startNew = true;
 #endif
               delta = newLine;
-              // Timestamp is display-only: newLine (unprefixed) is what
-              // growth-matching and N1MM forwarding (via delta) both use.
-              QString displayLine = newLine;
-              if (ui->cbIncludeTime->isChecked() && lineIdx < 30) {
-                  QString const t = jttyLineTimeUtc(qso_tsync[lineIdx]);
-                  if (!t.isEmpty()) displayLine = t + " " + newLine;
-              }
-              ui->decodedTextBrowser2->insertText(displayLine);
-              m_jttyQsoLines.append({newLine, ui->decodedTextBrowser2->textCursor().block()});
+              m_jttyQsoLines.append({newLine, lineIdx < 30 ? qso_tsync[lineIdx] : 0.0f});
           }
+          anyLineChanged = true;
           m_bDecoded = true;
 
 #ifdef WIN32
@@ -311,6 +319,30 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
             m_mmttyif->echo_message_to_n1mm(delta);
           }
 #endif
+      }
+
+      if (anyLineChanged) {
+          QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
+          if (m_jttyQsoGroupStart.isValid() && m_jttyQsoGroupEnd.isValid()) {
+              cursor.setPosition(m_jttyQsoGroupStart.position());
+              QTextCursor endCursor(m_jttyQsoGroupEnd);
+              endCursor.movePosition(QTextCursor::EndOfBlock);
+              cursor.setPosition(endCursor.position(), QTextCursor::KeepAnchor);
+              cursor.removeSelectedText();
+          } else {
+              cursor.movePosition(QTextCursor::End);
+              if (cursor.position() > 0) cursor.insertBlock();
+          }
+          QTextCharFormat format;
+          format.setFont(ui->decodedTextBrowser2->contentFont());
+          m_jttyQsoGroupStart = cursor.block();
+          QStringList renderedLines;
+          for (auto const& line : m_jttyQsoLines) {
+              renderedLines.append(wrappedDisplayFor(line));
+          }
+          cursor.insertText(renderedLines.join(QChar('\n')), format);
+          m_jttyQsoGroupEnd = cursor.block();
+          ui->decodedTextBrowser2->setTextCursor(cursor);
       }
   }
   // Only meaningful to a windowed caller (jttyDecodeAgainAt): whether this

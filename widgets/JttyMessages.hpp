@@ -2,9 +2,12 @@
 #ifndef JTTY_MESSAGES_HPP
 #define JTTY_MESSAGES_HPP
 
+#include <algorithm>
+
 #include <QDateTime>
 #include <QString>
 #include <QTime>
+#include <QVector>
 
 namespace Jtty
 {
@@ -117,6 +120,51 @@ namespace Jtty
     result.message = trimmed.mid (separator).trimmed ();
     result.valid = true;
     return result;
+  }
+
+  inline constexpr int maxDisplayWidth = 40;
+
+  inline QString wrapMessage (QString const& text, int maxWidth = maxDisplayWidth)
+  {
+    if (text.size () <= maxWidth) return text;
+
+    QString result;
+    int start = 0;
+    while (text.size () - start > maxWidth) {
+      int breakAt = -1;
+      for (int i = maxWidth; i >= 0; --i) {
+        if (text.at (start + i) == QLatin1Char {' '}) {
+          breakAt = i;
+          break;
+        }
+      }
+      if (breakAt < 0) {
+        result += text.mid (start, maxWidth) + QLatin1String {"\n  "};
+        start += maxWidth;
+      } else {
+        result += text.mid (start, breakAt) + QLatin1String {"\n  "};
+        start += breakAt + 1;
+      }
+    }
+    result += text.mid (start);
+    return result;
+  }
+
+  inline QVector<int> decodeLineOrder (QVector<float> const& startTimes,
+                                       QVector<int> const& slotIds)
+  {
+    int const count = qMin (startTimes.size (), slotIds.size ());
+    QVector<int> order;
+    order.reserve (count);
+    for (int i = 0; i < count; ++i) order.append (i);
+    std::stable_sort (order.begin (), order.end (),
+                      [&startTimes, &slotIds] (int lhs, int rhs) {
+      if (startTimes.at (lhs) != startTimes.at (rhs)) {
+        return startTimes.at (lhs) < startTimes.at (rhs);
+      }
+      return slotIds.at (lhs) < slotIds.at (rhs);
+    });
+    return order;
   }
 }
 

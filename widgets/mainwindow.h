@@ -1369,10 +1369,12 @@ private:
   qint64 m_jttyTciEnqueueId;
   struct JttyQsoLine
   {
-    QString text;        // full text currently shown on this line
-    QTextBlock block;    // the decodedTextBrowser2 paragraph holding it
+    QString text;
+    float tsync {0.0f};
   };
-  QVector<JttyQsoLine> m_jttyQsoLines;   // one entry per concurrently-growing JTTY transmission
+  QVector<JttyQsoLine> m_jttyQsoLines;
+  QTextBlock m_jttyQsoGroupStart;
+  QTextBlock m_jttyQsoGroupEnd;
   struct JttyDecodeLine
   {
     int slotId {0};
