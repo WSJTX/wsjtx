@@ -291,8 +291,22 @@ runs:
               ;;
           esac
         }
+        reject_package_path() {
+          local path="$1"
+          case $'\n'"$FILES"$'\n' in
+            *"$path"$'\n'* | *"$path/"*)
+              echo "::error::Unexpected package path is present: $path"
+              exit 1
+              ;;
+          esac
+        }
         require_package_path "/usr/bin/qmap"
         require_package_path "/usr/bin/map65"
+        require_package_path "/usr/share/wsjtx/ALLCALL7.TXT"
+        require_package_path "/usr/share/wsjtx/CALL3.TXT"
+        require_package_path "/usr/share/wsjtx/sounds/Message.wav"
+        require_package_path "/usr/share/wsjtx/sounds/Testing123.wav"
+        reject_package_path "/usr/bin/sounds"
 
     - name: Upload .deb
       uses: actions/upload-artifact@v7
@@ -337,10 +351,24 @@ runs:
               ;;
           esac
         }
+        reject_package_path() {
+          local path="$1"
+          case $'\n'"$FILES"$'\n' in
+            *"$path"$'\n'* | *"$path/"*)
+              echo "::error::Unexpected package path is present: $path"
+              exit 1
+              ;;
+          esac
+        }
         require_package_path "/usr/bin/wsjtx"
         require_package_path "/usr/bin/jt9"
         require_package_path "/usr/bin/qmap"
         require_package_path "/usr/bin/map65"
+        require_package_path "/usr/share/wsjtx/ALLCALL7.TXT"
+        require_package_path "/usr/share/wsjtx/CALL3.TXT"
+        require_package_path "/usr/share/wsjtx/sounds/Message.wav"
+        require_package_path "/usr/share/wsjtx/sounds/Testing123.wav"
+        reject_package_path "/usr/bin/sounds"
 
     - name: Upload RPM
       uses: actions/upload-artifact@v7
@@ -361,6 +389,14 @@ runs:
         test -x AppDir/usr/bin/ft8code
         test -f AppDir/usr/share/applications/wsjtx.desktop
         test -f AppDir/usr/share/pixmaps/wsjtx_icon.png
+        test -f AppDir/usr/share/wsjtx/ALLCALL7.TXT
+        test -f AppDir/usr/share/wsjtx/CALL3.TXT
+        test -f AppDir/usr/share/wsjtx/sounds/Message.wav
+        test -f AppDir/usr/share/wsjtx/sounds/Testing123.wav
+        if [ -e AppDir/usr/bin/sounds ] || [ -L AppDir/usr/bin/sounds ]; then
+          echo "::error::Unexpected executable-adjacent sounds path is present: AppDir/usr/bin/sounds"
+          exit 1
+        fi
 
     - name: Package AppImage
       shell: bash
@@ -451,6 +487,14 @@ runs:
         test -x squashfs-root/usr/bin/map65
         test -x squashfs-root/usr/bin/ft8code
         test -x squashfs-root/usr/bin/wsprd
+        test -f squashfs-root/usr/share/wsjtx/ALLCALL7.TXT
+        test -f squashfs-root/usr/share/wsjtx/CALL3.TXT
+        test -f squashfs-root/usr/share/wsjtx/sounds/Message.wav
+        test -f squashfs-root/usr/share/wsjtx/sounds/Testing123.wav
+        if [ -e squashfs-root/usr/bin/sounds ] || [ -L squashfs-root/usr/bin/sounds ]; then
+          echo "::error::Unexpected executable-adjacent sounds path is present: squashfs-root/usr/bin/sounds"
+          exit 1
+        fi
         # Capture before grep to avoid SIGPIPE on grep -q under pipefail.
         # Same arch-conditional ELF class check as the standalone Verify
         # binary step above — armhf is 32-bit ARM EABI5, the rest are 64-bit.

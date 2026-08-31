@@ -143,6 +143,31 @@ file "$DEB"
 # head's early close — same defensive pattern as the composite action
 # (Learning #205, S137).
 dpkg-deb --info "$DEB" | sed -n '1,20p'
+DEB_FILES=$(dpkg-deb -c "$DEB")
+require_deb_path() {
+  local path="$1"
+  case $'\n'"$DEB_FILES"$'\n' in
+    *"$path"$'\n'*) ;;
+    *)
+      echo "::error::Expected package path is missing: $path"
+      exit 1
+      ;;
+  esac
+}
+reject_deb_path() {
+  local path="$1"
+  case $'\n'"$DEB_FILES"$'\n' in
+    *"$path"$'\n'* | *"$path/"*)
+      echo "::error::Unexpected package path is present: $path"
+      exit 1
+      ;;
+  esac
+}
+require_deb_path "/usr/share/wsjtx/ALLCALL7.TXT"
+require_deb_path "/usr/share/wsjtx/CALL3.TXT"
+require_deb_path "/usr/share/wsjtx/sounds/Message.wav"
+require_deb_path "/usr/share/wsjtx/sounds/Testing123.wav"
+reject_deb_path "/usr/bin/sounds"
 echo "::endgroup::"
 
 # ── 8. Package RPM ───────────────────────────────────────────────────
@@ -158,10 +183,34 @@ rpm -qpi "$RPM"
 rpm -qpR "$RPM"
 RPM_FILES=$(rpm -qpl "$RPM")
 echo "$RPM_FILES" | sed -n '1,40p'
-echo "$RPM_FILES" | grep -qE '/bin/wsjtx$'
-echo "$RPM_FILES" | grep -qE '/bin/jt9$'
-echo "$RPM_FILES" | grep -qE '/bin/qmap$'
-echo "$RPM_FILES" | grep -qE '/bin/map65$'
+require_rpm_path() {
+  local path="$1"
+  case $'\n'"$RPM_FILES"$'\n' in
+    *$'\n'"$path"$'\n'*) ;;
+    *)
+      echo "::error::Expected package path is missing: $path"
+      exit 1
+      ;;
+  esac
+}
+reject_rpm_path() {
+  local path="$1"
+  case $'\n'"$RPM_FILES"$'\n' in
+    *"$path"$'\n'* | *"$path/"*)
+      echo "::error::Unexpected package path is present: $path"
+      exit 1
+      ;;
+  esac
+}
+require_rpm_path "/usr/bin/wsjtx"
+require_rpm_path "/usr/bin/jt9"
+require_rpm_path "/usr/bin/qmap"
+require_rpm_path "/usr/bin/map65"
+require_rpm_path "/usr/share/wsjtx/ALLCALL7.TXT"
+require_rpm_path "/usr/share/wsjtx/CALL3.TXT"
+require_rpm_path "/usr/share/wsjtx/sounds/Message.wav"
+require_rpm_path "/usr/share/wsjtx/sounds/Testing123.wav"
+reject_rpm_path "/usr/bin/sounds"
 echo "::endgroup::"
 
 # ── 9. Install to AppDir for AppImage packaging ──────────────────────
@@ -174,6 +223,14 @@ test -x AppDir/usr/bin/map65
 test -x AppDir/usr/bin/ft8code
 test -f AppDir/usr/share/applications/wsjtx.desktop
 test -f AppDir/usr/share/pixmaps/wsjtx_icon.png
+test -f AppDir/usr/share/wsjtx/ALLCALL7.TXT
+test -f AppDir/usr/share/wsjtx/CALL3.TXT
+test -f AppDir/usr/share/wsjtx/sounds/Message.wav
+test -f AppDir/usr/share/wsjtx/sounds/Testing123.wav
+if [ -e AppDir/usr/bin/sounds ] || [ -L AppDir/usr/bin/sounds ]; then
+  echo "::error::Unexpected executable-adjacent sounds path is present: AppDir/usr/bin/sounds"
+  exit 1
+fi
 echo "::endgroup::"
 
 # ── 10. Package AppImage ─────────────────────────────────────────────
@@ -244,6 +301,14 @@ test -x squashfs-root/usr/bin/qmap
 test -x squashfs-root/usr/bin/map65
 test -x squashfs-root/usr/bin/ft8code
 test -x squashfs-root/usr/bin/wsprd
+test -f squashfs-root/usr/share/wsjtx/ALLCALL7.TXT
+test -f squashfs-root/usr/share/wsjtx/CALL3.TXT
+test -f squashfs-root/usr/share/wsjtx/sounds/Message.wav
+test -f squashfs-root/usr/share/wsjtx/sounds/Testing123.wav
+if [ -e squashfs-root/usr/bin/sounds ] || [ -L squashfs-root/usr/bin/sounds ]; then
+  echo "::error::Unexpected executable-adjacent sounds path is present: squashfs-root/usr/bin/sounds"
+  exit 1
+fi
 FILE_OUT=$(file squashfs-root/usr/bin/wsjtx)
 case "$ARCH" in
   armhf)
