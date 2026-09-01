@@ -8005,9 +8005,15 @@ bool MainWindow::elide_tx1_not_allowed () const
     || (my_callsign != m_baseCall && !shortList (my_callsign));
 }
 
-void MainWindow::on_txrb1_doubleClicked ()
+void MainWindow::toggle_tx1_enabled_preference ()
 {
   ui->tx1->setEnabled (elide_tx1_not_allowed () || !ui->tx1->isEnabled ());
+  m_tx1_enabled_preference = ui->tx1->isEnabled ();
+}
+
+void MainWindow::on_txrb1_doubleClicked ()
+{
+  toggle_tx1_enabled_preference ();
   if (!ui->tx1->isEnabled ()) {
     // leave time for clicks to complete before setting txrb2
     QTimer::singleShot (500, ui->txrb2, SLOT (click ()));
@@ -8079,7 +8085,7 @@ void MainWindow::on_txrb6_toggled(bool status)
 
 void MainWindow::on_txb1_doubleClicked()
 {
-  ui->tx1->setEnabled (elide_tx1_not_allowed () || !ui->tx1->isEnabled ());
+  toggle_tx1_enabled_preference ();
 }
 
 

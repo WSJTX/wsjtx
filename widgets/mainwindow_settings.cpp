@@ -242,7 +242,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("DarkStyle", ui->actionUse_Dark_Style->isChecked() );
   m_settings->setValue ("BandButtons", ui->actionBand_Buttons->isChecked() );
   m_settings->setValue ("VHFUHFButtons", ui->actionVHF_UHF_Buttons->isChecked() );
-  m_settings->setValue ("tx1State", ui->tx1->isEnabled() );
+  m_settings->setValue ("tx1State", m_tx1_enabled_preference);
   m_settings->setValue ("HighlightB4", ui->actionHighlightB4->isChecked() );
   m_settings->setValue ("HighlightToday", ui->actionHighlightToday->isChecked() );
   m_settings->setValue ("HighlightIgnored", ui->actionHighlightIgnored->isChecked() );
@@ -429,7 +429,8 @@ void MainWindow::readSettings()
   ui->actionUse_Dark_Style->setChecked(m_settings->value("DarkStyle", false).toBool());
   ui->actionBand_Buttons->setChecked(m_settings->value("BandButtons", true).toBool());
   ui->actionVHF_UHF_Buttons->setChecked(m_settings->value("VHFUHFButtons", false).toBool());
-  ui->tx1->setEnabled(m_settings->value("tx1State", true).toBool());
+  m_tx1_enabled_preference = m_settings->value("tx1State", true).toBool();
+  ui->tx1->setEnabled(m_tx1_enabled_preference);
   ui->actionHighlightB4->setChecked(m_settings->value("HighlightB4", false).toBool());
   ui->actionHighlightToday->setChecked(m_settings->value("HighlightToday", false).toBool());
   ui->actionHighlightIgnored->setChecked(m_settings->value("HighlightIgnored", false).toBool());

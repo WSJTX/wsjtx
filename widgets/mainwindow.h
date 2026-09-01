@@ -754,6 +754,7 @@ private:
   void setColorHighlighting();
   void chkFT4();
   bool elide_tx1_not_allowed () const;
+  void toggle_tx1_enabled_preference ();
   bool rr73_tx4_allowed () const;
   bool send_rr73_for_tx4 () const;
   void set_rr73_tx4 (bool enabled);
@@ -1038,6 +1039,7 @@ private:
   bool    m_jt9PayloadValid=false;
   bool    m_closing=false;
   bool    m_txFirst;
+  bool    m_tx1_enabled_preference {true};
   bool    m_auto;
   bool    m_restart;
   bool    m_generated_message_error;
