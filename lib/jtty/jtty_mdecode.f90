@@ -127,16 +127,18 @@ contains
       enddo
   end function is_recent_frame
 
-  logical function try_remember_recent_frame(candidate)
+  subroutine remember_recent_frame(candidate)
       type(decode), intent(in) :: candidate
 
-      try_remember_recent_frame=.false.
-      if(nrecent.ge.MAX_RECENT_FRAMES) return
-      nrecent=nrecent+1
+      if(nrecent.ge.MAX_RECENT_FRAMES) then
+         ! Duplicate history must never prevent an otherwise valid decode.
+         recent_frames(1:MAX_RECENT_FRAMES-1)=recent_frames(2:MAX_RECENT_FRAMES)
+      else
+         nrecent=nrecent+1
+      endif
       recent_frames(nrecent)%f1=candidate%f1
       recent_frames(nrecent)%tsync=candidate%tsync
-      try_remember_recent_frame=.true.
-  end function try_remember_recent_frame
+  end subroutine remember_recent_frame
 
   subroutine queue_message_update(message,complete)
       type(message_assembly), intent(in) :: message
@@ -193,7 +195,7 @@ contains
       message=message_assembly()
       accepted=.false.
       if(.not.candidate%is_last_frame .and. nactive.ge.MAX_ACTIVE_MESSAGES) return
-      if(.not.try_remember_recent_frame(candidate)) return
+      call remember_recent_frame(candidate)
 
       message%message_id=next_message_id
       message%f1=candidate%f1
@@ -224,7 +226,7 @@ contains
       message=message_assembly()
       accepted=.false.
       if(index.lt.1 .or. index.gt.nactive) return
-      if(.not.try_remember_recent_frame(candidate)) return
+      call remember_recent_frame(candidate)
 
       k=active_messages(index)%k
       n=len_trim(candidate%decoded)

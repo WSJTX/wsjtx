@@ -1,13 +1,14 @@
 program test_jtty_receive_state
   use iso_fortran_env, only: int64
-  use jtty_mdec, only: decode,message_assembly,MAX_ACTIVE_MESSAGES,nactive,active_messages, &
+  use jtty_mdec, only: decode,message_assembly,MAX_ACTIVE_MESSAGES,MAX_RECENT_FRAMES, &
+       nactive,active_messages, &
        nrecent,npending,pending_updates,reset_decode_search_state, &
        discard_pending_updates,start_message,append_active_message, &
-       remove_active_message,is_recent_frame,prune_receive_state
+       remove_active_message,is_recent_frame,remember_recent_frame,prune_receive_state
   implicit none
 
   real, parameter :: frame_period=2.0
-  type(decode) :: candidate
+  type(decode) :: candidate,oldest_candidate
   type(message_assembly) :: accepted_message
   integer(int64) :: first_id,last_id
   integer :: i,index,nrecent_before,npending_before
@@ -103,6 +104,20 @@ program test_jtty_receive_state
   candidate=make_candidate(1500.0,12.0,'ADJACENT MESSAGE',.true.)
   call expect(.not.is_recent_frame(candidate), &
        'recent history allows a message one full frame later')
+
+  call reset_all()
+  do i=1,MAX_RECENT_FRAMES
+     candidate=make_candidate(1000.0+real(i),real(i),'HISTORY',.true.)
+     call remember_recent_frame(candidate)
+  enddo
+  oldest_candidate=make_candidate(1001.0,1.0,'HISTORY',.true.)
+  candidate=make_candidate(2500.0,1000.0,'AFTER HISTORY CAPACITY',.true.)
+  call start_message(candidate,accepted_message,accepted)
+  call expect(accepted .and. npending.eq.1, &
+       'full duplicate history does not block message delivery')
+  call expect(nrecent.eq.MAX_RECENT_FRAMES .and. is_recent_frame(candidate) .and. &
+       .not.is_recent_frame(oldest_candidate), &
+       'full duplicate history replaces its oldest fingerprint')
 
   call reset_all()
   candidate=make_candidate(1500.0,10.0,'PARTIAL',.false.)
