@@ -5,12 +5,12 @@ program test_jtty_overlap_decode
   !
   ! The 4 Hz case reproduces leftover extra-slot fragments: a real next
   ! frame lands just outside the 3 Hz continuation gate and opens a new
-  ! slot instead of staying on its message. Isolated and 2 Hz cases are
+  ! message instead of staying on its assembly. Isolated and 2 Hz cases are
   ! controls that already pass.
 
   use iso_fortran_env, only: int16
   use jtty_fec, only: is13, TOTAL_K
-  use jtty_mdec, only: nslots, slot
+  use jtty_mdec, only: npending,pending_updates,discard_pending_updates
   use jtty_mod, only: MAX_FRAMES
   implicit none
 
@@ -29,14 +29,14 @@ program test_jtty_overlap_decode
        '',1500.0,0.6,1,failures)
   call expect_complete_pair('isolated second message','',1500.0,0.2, &
        msg_b,1504.0,0.6,1,failures)
-  call expect_complete_pair('2 Hz overlap stays two complete slots', &
+  call expect_complete_pair('2 Hz overlap stays two complete messages', &
        msg_a,1500.0,0.2,msg_b,1502.0,0.6,2,failures)
 
   failures_before_overlap=failures
-  call expect_complete_pair('4 Hz overlap stays two complete slots', &
+  call expect_complete_pair('4 Hz overlap stays two complete messages', &
        msg_a,1500.0,0.2,msg_b,1504.0,0.6,2,failures)
   if(failures.gt.failures_before_overlap) then
-     write(*,'(a)') '4 Hz overlap slots: '//trim(slot_summary())
+     write(*,'(a)') '4 Hz overlap messages: '//trim(message_summary())
   endif
 
   if(failures.ne.0) then
@@ -48,17 +48,17 @@ program test_jtty_overlap_decode
 contains
 
   subroutine expect_complete_pair(description,first_message,first_hz, &
-       first_dt,second_message,second_hz,second_dt,expected_slots,count)
+       first_dt,second_message,second_hz,second_dt,expected_messages,count)
     character(len=*), intent(in) :: description,first_message,second_message
     real, intent(in) :: first_hz,first_dt,second_hz,second_dt
-    integer, intent(in) :: expected_slots
+    integer, intent(in) :: expected_messages
     integer, intent(inout) :: count
     logical :: found_a,found_b
 
     call decode_overlap(first_message,first_hz,first_dt,second_message, &
          second_hz,second_dt,50.0)
-    call slot_coverage(first_message,second_message,found_a,found_b)
-    call expect(nslots.eq.expected_slots,description//': slot count',count)
+    call message_coverage(first_message,second_message,found_a,found_b)
+    call expect(npending.eq.expected_messages,description//': message count',count)
     if(len_trim(first_message).gt.0) then
        call expect(found_a,description//': first message complete',count)
     endif
@@ -83,6 +83,7 @@ contains
     complex, allocatable :: complex_wave(:)
     character(len=80) :: first_input,second_input
 
+    call discard_pending_updates()
     first_symbols=0
     second_symbols=0
     first_samples=0
@@ -138,34 +139,34 @@ contains
     deallocate(pcm)
   end subroutine decode_overlap
 
-  subroutine slot_coverage(first_message,second_message,found_a,found_b)
+  subroutine message_coverage(first_message,second_message,found_a,found_b)
     character(len=*), intent(in) :: first_message,second_message
     logical, intent(out) :: found_a,found_b
     integer :: i
 
     found_a=len_trim(first_message).eq.0
     found_b=len_trim(second_message).eq.0
-    do i=1,nslots
+    do i=1,npending
        if(len_trim(first_message).gt.0) then
-          if(trim(normalized(slot(i)%decoded)).eq.trim(first_message)) &
+          if(trim(normalized(pending_updates(i)%decoded)).eq.trim(first_message)) &
                found_a=.true.
        endif
        if(len_trim(second_message).gt.0) then
-          if(trim(normalized(slot(i)%decoded)).eq.trim(second_message)) &
+          if(trim(normalized(pending_updates(i)%decoded)).eq.trim(second_message)) &
                found_b=.true.
        endif
     enddo
-  end subroutine slot_coverage
+  end subroutine message_coverage
 
-  function slot_summary() result(text)
+  function message_summary() result(text)
     character(len=240) :: text
     character(len=80) :: body
     integer :: i,pos
 
     text=''
     pos=1
-    do i=1,nslots
-       body=normalized(slot(i)%decoded)
+    do i=1,npending
+       body=normalized(pending_updates(i)%decoded)
        if(pos.gt.1) then
           text(pos:pos)='|'
           pos=pos+1
@@ -174,7 +175,7 @@ contains
        pos=pos+len_trim(body)
        if(pos.ge.len(text)-1) exit
     enddo
-  end function slot_summary
+  end function message_summary
 
   function normalized(value) result(result_value)
     character(len=*), intent(in) :: value

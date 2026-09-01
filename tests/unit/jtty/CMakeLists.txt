@@ -26,12 +26,20 @@ set_tests_properties (test_jtty_block_pow PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_block_pow: all checks passed"
 )
 
-add_executable (test_jtty_slot_matching test_jtty_slot_matching.f90)
-target_include_directories (test_jtty_slot_matching PRIVATE ${CMAKE_BINARY_DIR})
-wsjt_link_common_fortran (test_jtty_slot_matching)
-add_test (NAME test_jtty_slot_matching COMMAND test_jtty_slot_matching)
-set_tests_properties (test_jtty_slot_matching PROPERTIES
-  PASS_REGULAR_EXPRESSION "test_jtty_slot_matching: all checks passed"
+add_executable (test_jtty_message_matching test_jtty_message_matching.f90)
+target_include_directories (test_jtty_message_matching PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_message_matching)
+add_test (NAME test_jtty_message_matching COMMAND test_jtty_message_matching)
+set_tests_properties (test_jtty_message_matching PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_message_matching: all checks passed"
+)
+
+add_executable (test_jtty_receive_state test_jtty_receive_state.f90)
+target_include_directories (test_jtty_receive_state PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_receive_state)
+add_test (NAME test_jtty_receive_state COMMAND test_jtty_receive_state)
+set_tests_properties (test_jtty_receive_state PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_receive_state: all checks passed"
 )
 
 add_executable (test_jtty_adjacent_decode test_jtty_adjacent_decode.f90)
@@ -114,12 +122,12 @@ wsjt_link_common_fortran (test_jtty_surface_ranges)
 add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
 set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 60)
 
-add_executable (test_jtty_get_msgs test_jtty_get_msgs.f90)
-target_include_directories (test_jtty_get_msgs PRIVATE ${CMAKE_BINARY_DIR})
-wsjt_link_common_fortran (test_jtty_get_msgs)
-add_test (NAME test_jtty_get_msgs COMMAND test_jtty_get_msgs)
-set_tests_properties (test_jtty_get_msgs PROPERTIES
-  PASS_REGULAR_EXPRESSION "test_jtty_get_msgs: all checks passed"
+add_executable (test_jtty_get_updates test_jtty_get_updates.f90)
+target_include_directories (test_jtty_get_updates PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_get_updates)
+add_test (NAME test_jtty_get_updates COMMAND test_jtty_get_updates)
+set_tests_properties (test_jtty_get_updates PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_get_updates: all checks passed"
 )
 
 add_executable (test_jtty_txstream

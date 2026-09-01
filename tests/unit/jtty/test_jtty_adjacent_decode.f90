@@ -2,7 +2,7 @@ program test_jtty_adjacent_decode
 
   use iso_fortran_env, only: int16
   use jtty_fec, only: is13, TOTAL_K
-  use jtty_mdec, only: nslots, slot
+  use jtty_mdec, only: npending,pending_updates,discard_pending_updates
   use jtty_mod, only: MAX_FRAMES
   implicit none
 
@@ -36,6 +36,7 @@ contains
     complex, allocatable :: complex_wave(:)
     character(len=80) :: first_input,second_input
 
+    call discard_pending_updates()
     first_input=first_message
     second_input=second_message
     call genjtty(first_input,first_tones,first_symbols)
@@ -64,19 +65,17 @@ contains
     call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
     call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
 
-    call expect(nslots.eq.2,'the decoder keeps two adjacent messages',count)
-    call expect(trim(normalized(slot(1)%decoded)).eq.trim(first_message), &
-         'the first decoded text is retained in order',count)
-    call expect(trim(normalized(slot(2)%decoded)).eq.trim(second_message), &
-         'the second decoded text is retained in order',count)
-    call expect(slot(1)%is_last_frame, &
-         'the first message reaches end of message',count)
-    call expect(slot(2)%is_last_frame, &
-         'the second message reaches end of message',count)
-    call expect(slot(1)%nframes_merged.eq.first_frames, &
-         'the first message merges every encoded frame',count)
-    call expect(slot(2)%nframes_merged.eq.second_frames, &
-         'the second message merges every encoded frame',count)
+    call expect(npending.eq.2,'the decoder keeps two adjacent messages',count)
+    if(npending.eq.2) then
+       call expect(trim(normalized(pending_updates(1)%decoded)).eq.trim(first_message), &
+            'the first decoded text is retained in order',count)
+       call expect(trim(normalized(pending_updates(2)%decoded)).eq.trim(second_message), &
+            'the second decoded text is retained in order',count)
+       call expect(pending_updates(1)%complete, &
+            'the first message reaches end of message',count)
+       call expect(pending_updates(2)%complete, &
+            'the second message reaches end of message',count)
+    endif
 
     deallocate(pcm,first_wave,second_wave,complex_wave)
   end subroutine run_case

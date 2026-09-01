@@ -1,28 +1,60 @@
 module jtty_mdec
 
+  use iso_fortran_env, only: int64
   use jtty_fec, only: PAYLOAD_BITS
+  use jtty_mod, only: MAX_FRAMES
 
   type :: decode
      real :: f1    = 0.0              !Synced audio frequency
      real :: xdt   = 0.0              !Synced DT (0 to 0.5 s)
      real :: tsync = 0.0              !Time of sync from istart=1
      real :: snrdb = 0.0              !SNR of decoded frame
-     integer ::  k = 0                !Accumulated length of decoded text
      character(len=80) :: decoded = ''
      logical :: trailing_sep = .false. !decoded ends with an implicit separator column
      logical :: is_last_frame = .false. !this frame had the "last frame of message" bit set
-     ! Per-frame merge history (capped at MAX_FRAMES, jtty_mod.f90), so a
-     ! rediscovered frame can be matched against the exact frame it repeats.
-     integer :: nframes_merged = 0
-     real    :: frame_f1(16) = 0.0
-     real    :: frame_tsync(16) = 0.0
   end type decode
 
+  type :: message_assembly
+     integer(int64) :: message_id = 0_int64
+     real :: f1 = 0.0
+     real :: tsync = 0.0
+     real :: start_tsync = 0.0
+     integer :: k = 0
+     character(len=80) :: decoded = ''
+     logical :: trailing_sep = .false.
+  end type message_assembly
+
+  type :: frame_fingerprint
+     real :: f1 = 0.0
+     real :: tsync = 0.0
+  end type frame_fingerprint
+
+  type :: message_update
+     integer(int64) :: message_id = 0_int64
+     real :: f1 = 0.0
+     real :: start_tsync = 0.0
+     character(len=80) :: decoded = ''
+     logical :: complete = .false.
+  end type message_update
+
   integer, parameter        :: MAX_DECODES = 100
-  integer, parameter        :: MAX_SLOTS = 30
+  integer, parameter        :: MAX_ACTIVE_MESSAGES = 30
+  integer, parameter        :: MAX_RECENT_FRAMES = MAX_ACTIVE_MESSAGES*MAX_FRAMES
+  integer, parameter        :: MAX_CONTINUATION_GAP = 3
+  integer, parameter        :: MAX_RETRO_STEPS = 3
+  real, parameter           :: FRAME_HISTORY_TIME_TOLERANCE = 0.05
+  real, parameter           :: FRAME_HISTORY_FREQ_TOLERANCE = 3.0
+  real, parameter           :: NEAR_SIMULTANEOUS_FREQ_TOLERANCE = 12.0
+  real, parameter           :: CONTINUATION_TIME_TOLERANCE = 0.1
   integer                   :: ndecodes = 0
-  integer                   :: nslots = 0
-  type(decode)              :: slot(MAX_SLOTS)   !Accumulating decode messages
+  integer                   :: nactive = 0
+  integer                   :: nrecent = 0
+  integer                   :: npending = 0
+  integer                   :: pending_first = 1
+  integer(int64)            :: next_message_id = 1_int64
+  type(message_assembly)    :: active_messages(MAX_ACTIVE_MESSAGES)
+  type(frame_fingerprint)   :: recent_frames(MAX_RECENT_FRAMES)
+  type(message_update), allocatable :: pending_updates(:)
 
 ! Cross-call "retro re-sweep" plumbing (see jtty_mdecode_step): interferer_*
 ! requests a pre-search subtraction; nsubtracted/subtracted_* report this
@@ -41,6 +73,219 @@ module jtty_mdec
   integer, private :: sync_chirp_output_count=0
 
 contains
+
+  subroutine reset_decode_search_state()
+      nactive=0
+      nrecent=0
+  end subroutine reset_decode_search_state
+
+  subroutine discard_pending_updates()
+      npending=0
+      pending_first=1
+  end subroutine discard_pending_updates
+
+  pure logical function same_frame(f1_a,tsync_a,f1_b,tsync_b)
+      real, intent(in) :: f1_a,tsync_a,f1_b,tsync_b
+
+      same_frame=abs(f1_a-f1_b).lt.FRAME_HISTORY_FREQ_TOLERANCE .and. &
+           abs(tsync_a-tsync_b).lt.FRAME_HISTORY_TIME_TOLERANCE
+  end function same_frame
+
+  pure logical function same_recent_frame(f1_a,tsync_a,f1_b,tsync_b)
+      real, intent(in) :: f1_a,tsync_a,f1_b,tsync_b
+
+      same_recent_frame=abs(f1_a-f1_b).lt.NEAR_SIMULTANEOUS_FREQ_TOLERANCE .and. &
+           abs(tsync_a-tsync_b).lt.FRAME_HISTORY_TIME_TOLERANCE
+  end function same_recent_frame
+
+  pure function display_message_text(decoded) result(msg)
+      character(len=*), intent(in) :: decoded
+      character(len=80) :: msg
+      integer :: i
+
+      msg=decoded
+      do i=1,len_trim(msg)-4
+         if(msg(i:i+4).eq.'~~~~~') msg(i:i+4)=' ... '
+      enddo
+      do i=1,len_trim(msg)
+         if(msg(i:i).eq.'~') msg(i:i)=' '
+      enddo
+      if(msg(1:1).eq.' ') msg=trim(msg(2:))
+  end function display_message_text
+
+  logical function is_recent_frame(candidate)
+      type(decode), intent(in) :: candidate
+      integer :: i
+
+      is_recent_frame=.false.
+      do i=1,nrecent
+         if(same_recent_frame(candidate%f1,candidate%tsync,recent_frames(i)%f1, &
+              recent_frames(i)%tsync)) then
+            is_recent_frame=.true.
+            return
+         endif
+      enddo
+  end function is_recent_frame
+
+  logical function try_remember_recent_frame(candidate)
+      type(decode), intent(in) :: candidate
+
+      try_remember_recent_frame=.false.
+      if(nrecent.ge.MAX_RECENT_FRAMES) return
+      nrecent=nrecent+1
+      recent_frames(nrecent)%f1=candidate%f1
+      recent_frames(nrecent)%tsync=candidate%tsync
+      try_remember_recent_frame=.true.
+  end function try_remember_recent_frame
+
+  subroutine queue_message_update(message,complete)
+      type(message_assembly), intent(in) :: message
+      logical, intent(in) :: complete
+      type(message_update), allocatable :: grown(:)
+      integer :: i,index,new_capacity
+
+      do i=0,npending-1
+         index=pending_first+i
+         if(pending_updates(index)%message_id.eq.message%message_id) then
+            pending_updates(index)%f1=message%f1
+            pending_updates(index)%decoded=message%decoded
+            pending_updates(index)%complete=complete
+            return
+         endif
+      enddo
+
+      if(.not.allocated(pending_updates)) then
+         allocate(pending_updates(MAX_ACTIVE_MESSAGES))
+      else if(pending_first+npending.gt.size(pending_updates)) then
+         if(npending.lt.size(pending_updates)) then
+            pending_updates(1:npending)= &
+                 pending_updates(pending_first:pending_first+npending-1)
+         else
+            new_capacity=2*npending
+            allocate(grown(new_capacity))
+            grown(1:npending)=pending_updates(pending_first:pending_first+npending-1)
+            call move_alloc(grown,pending_updates)
+         endif
+         pending_first=1
+      endif
+      npending=npending+1
+      index=pending_first+npending-1
+      pending_updates(index)%message_id=message%message_id
+      pending_updates(index)%f1=message%f1
+      pending_updates(index)%start_tsync=message%start_tsync
+      pending_updates(index)%decoded=message%decoded
+      pending_updates(index)%complete=complete
+  end subroutine queue_message_update
+
+  subroutine remove_active_message(index)
+      integer, intent(in) :: index
+
+      if(index.lt.1 .or. index.gt.nactive) return
+      if(index.lt.nactive) active_messages(index)=active_messages(nactive)
+      nactive=nactive-1
+  end subroutine remove_active_message
+
+  subroutine start_message(candidate,message,accepted)
+      type(decode), intent(in) :: candidate
+      type(message_assembly), intent(out) :: message
+      logical, intent(out) :: accepted
+
+      message=message_assembly()
+      accepted=.false.
+      if(.not.candidate%is_last_frame .and. nactive.ge.MAX_ACTIVE_MESSAGES) return
+      if(.not.try_remember_recent_frame(candidate)) return
+
+      message%message_id=next_message_id
+      message%f1=candidate%f1
+      message%tsync=candidate%tsync
+      message%start_tsync=candidate%tsync
+      message%decoded=candidate%decoded
+      if(message%decoded(1:4).eq.'599 ') &
+           message%decoded='~'//trim(message%decoded)
+      message%k=len_trim(message%decoded)
+      message%trailing_sep=candidate%trailing_sep
+
+      next_message_id=next_message_id+1_int64
+      call queue_message_update(message,candidate%is_last_frame)
+      if(.not.candidate%is_last_frame) then
+         nactive=nactive+1
+         active_messages(nactive)=message
+      endif
+      accepted=.true.
+  end subroutine start_message
+
+  subroutine append_active_message(index,candidate,nframes_gap,message,accepted)
+      integer, intent(in) :: index,nframes_gap
+      type(decode), intent(in) :: candidate
+      type(message_assembly), intent(out) :: message
+      logical, intent(out) :: accepted
+      integer :: k,kz,n,nchar,nstart
+
+      message=message_assembly()
+      accepted=.false.
+      if(index.lt.1 .or. index.gt.nactive) return
+      if(.not.try_remember_recent_frame(candidate)) return
+
+      k=active_messages(index)%k
+      n=len_trim(candidate%decoded)
+      if(nframes_gap.gt.1) then
+         nstart=1
+         if(n.ge.1) then
+            if(candidate%decoded(1:1).eq.'~') nstart=2
+         endif
+         kz=min(k+5+(n-nstart+1),80)
+         nchar=max(kz-k-5,0)
+         active_messages(index)%decoded=trim(active_messages(index)%decoded)// &
+              '~~~~~'//candidate%decoded(nstart:nstart+nchar-1)
+         active_messages(index)%k=k+5+nchar
+      else
+         kz=min(k+n,80)
+         if(active_messages(index)%trailing_sep) then
+            active_messages(index)%decoded=trim(active_messages(index)%decoded)// &
+                 ' '//candidate%decoded(1:kz-k)
+         else
+            active_messages(index)%decoded=trim(active_messages(index)%decoded)// &
+                 candidate%decoded(1:kz-k)
+         endif
+         active_messages(index)%k=kz
+      endif
+      active_messages(index)%trailing_sep=candidate%trailing_sep
+      active_messages(index)%f1=candidate%f1
+      active_messages(index)%tsync=candidate%tsync
+      call queue_message_update(active_messages(index),candidate%is_last_frame)
+      message=active_messages(index)
+      if(candidate%is_last_frame) call remove_active_message(index)
+      accepted=.true.
+  end subroutine append_active_message
+
+  subroutine prune_receive_state(forward_tsync,frame_period)
+      real, intent(in) :: forward_tsync,frame_period
+      real :: oldest_revisit
+      integer :: i,keep
+
+      oldest_revisit=forward_tsync-real(MAX_RETRO_STEPS)*frame_period/4.0
+      ! Retro candidates move backward in time, so only the forward watermark may expire history.
+      keep=0
+      do i=1,nrecent
+         if(recent_frames(i)%tsync.lt. &
+              oldest_revisit-FRAME_HISTORY_TIME_TOLERANCE) cycle
+         keep=keep+1
+         if(keep.ne.i) recent_frames(keep)=recent_frames(i)
+      enddo
+      nrecent=keep
+
+      i=1
+      do while(i.le.nactive)
+         if(oldest_revisit-active_messages(i)%tsync.gt. &
+              real(MAX_CONTINUATION_GAP)*frame_period+ &
+              CONTINUATION_TIME_TOLERANCE) then
+            call queue_message_update(active_messages(i),.false.)
+            call remove_active_message(i)
+         else
+            i=i+1
+         endif
+      enddo
+  end subroutine prune_receive_state
 
   pure subroutine jtty_search_window(fc,fwid,nfa,nfb,constrain_to_graph,df, &
        first_bin,last_bin,ja,jb,usable)
@@ -71,82 +316,44 @@ contains
       usable=ja.le.jb
   end subroutine jtty_search_window
 
-   pure subroutine classify_slot_candidate(existing,candidate,frame_period, &
-       match,is_window_dupe,is_history_dupe,is_near_simultaneous_dupe,nframes_gap)
-      type(decode), intent(in) :: existing,candidate
+   pure subroutine classify_active_candidate(existing,candidate,frame_period, &
+       match,is_window_dupe,nframes_gap)
+      type(message_assembly), intent(in) :: existing
+      type(decode), intent(in) :: candidate
       real, intent(in) :: frame_period
-      logical, intent(out) :: match,is_window_dupe,is_history_dupe,is_near_simultaneous_dupe
+      logical, intent(out) :: match,is_window_dupe
       integer, intent(out) :: nframes_gap
       real :: df1,dtsync,qstep,resid,fp_resid,df_tol
-      integer :: kf,nstep,nfp
-      integer, parameter :: MAX_GAP = 3   ! bridges up to 2 consecutive missed frames
+      integer :: nstep,nfp
 
       df1=candidate%f1-existing%f1
       dtsync=candidate%tsync-existing%tsync
       match=.false.
       nframes_gap=1
-      if(.not.existing%is_last_frame) then
-         ! A continuation follows the latest frame in an open slot by N
-         ! complete frame periods, N=1 being the normal case. N>1 means one
-         ! or more frames in between failed to decode (common at marginal
-         ! SNR) -- still the same message, just missing some content, which
-         ! decode_and_merge marks with a gap sentinel rather than silently
-         ! concatenating or splitting into a new slot. Overlapping signals
-         ! can pull the refined frequency a few hertz off the stored value,
-         ! so the base tolerance is the same 10 Hz used for window-dupe,
-         ! widened a little further for each extra elapsed frame period
-         ! (more time for HF drift/Doppler) -- decode_and_merge then keeps
-         ! the closest open slot regardless.
-         nfp=nint(dtsync/frame_period)
-         fp_resid=abs(dtsync-frame_period*nfp)
-         if(nfp.ge.1 .and. nfp.le.MAX_GAP .and. fp_resid.lt.0.1) then
-            df_tol=10.0+3.0*real(nfp-1)
-            match=abs(df1).lt.df_tol
-            if(match) nframes_gap=nfp
-         endif
+      nfp=nint(dtsync/frame_period)
+      fp_resid=abs(dtsync-frame_period*nfp)
+      if(nfp.ge.1 .and. nfp.le.MAX_CONTINUATION_GAP .and. &
+           fp_resid.lt.CONTINUATION_TIME_TOLERANCE) then
+         df_tol=10.0+3.0*real(nfp-1)
+         match=abs(df1).lt.df_tol
+         if(match) nframes_gap=nfp
       endif
 
-      ! Overlapping forward windows and retro re-sweeps can rediscover an
-      ! open signal on the quarter-frame search grid. A completed slot uses
-      ! exact frame history instead so an adjacent message can start.
-      ! A one-frame-period step is a continuation, not a rediscovery.
+      ! Retro sweeps revisit only the preceding three quarter-frame windows.
       is_window_dupe=.false.
-      if(.not.match .and. .not.existing%is_last_frame) then
+      if(.not.match) then
          qstep=frame_period/4.0
          nstep=nint(dtsync/qstep)
          resid=abs(dtsync-qstep*nstep)
-         if(abs(df1).lt.10.0 .and. resid.lt.0.003 .and. &
+         if(abs(nstep).le.MAX_RETRO_STEPS .and. abs(df1).lt.10.0 .and. &
+              resid.lt.0.003 .and. &
               .not.(mod(abs(nstep),4).eq.0 .and. nstep.ne.0)) then
             match=.true.
             is_window_dupe=.true.
          endif
       endif
 
-      is_history_dupe=.false.
-      if(.not.match) then
-         do kf=1,existing%nframes_merged
-            if(abs(candidate%f1-existing%frame_f1(kf)).lt.3.0 .and. &
-                 abs(candidate%tsync-existing%frame_tsync(kf)).lt.0.05) then
-               match=.true.
-               is_history_dupe=.true.
-               exit
-            endif
-         enddo
-      endif
-
-      ! Overlapping search windows can rediscover the same sync instant milliseconds apart with a noisier frequency estimate; widen frequency only, timing stays the tight discriminator.
-      is_near_simultaneous_dupe=.false.
-      if(.not.match) then
-         do kf=1,existing%nframes_merged
-            if(abs(candidate%f1-existing%frame_f1(kf)).lt.12.0 .and. &
-                 abs(candidate%tsync-existing%frame_tsync(kf)).lt.0.05) then
-               match=.true.
-               is_near_simultaneous_dupe=.true.
-               exit
-            endif
-         enddo
-      endif
-   end subroutine classify_slot_candidate
+   end subroutine classify_active_candidate
 
   subroutine jtty_mdecode(istart,istart0,iwave,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
 
@@ -171,7 +378,7 @@ contains
       integer                        :: tone_symbols_full(NFRAME_SYM), ipass
       integer(int16), intent(in)     :: iwave(nchunk)
       integer, intent(in)            :: istart, istart0, ndebug
-      integer                        :: i,i0,is,j,ja,jb,k,kz,n
+      integer                        :: i,i0,is,j,ja,jb
       integer, save                  :: ntstep, ntgrid
       integer                        :: istep,first_sync_bin,last_sync_bin
       integer                        :: nchan, ichan
@@ -184,7 +391,7 @@ contains
       integer, save                  :: nfft,nh2,nss
       integer                        :: iloc(1)
       integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
-      integer                        :: islot
+      integer                        :: iactive
       integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc,nstep_search
       integer                        :: nc0,n_ch0_ok
       integer                        :: ja_ch0_ok(16),jb_ch0_ok(16)
@@ -203,7 +410,7 @@ contains
       real, external                 :: db
       real, intent(in)               :: f0,ftol,smin
       real                           :: snrdb, xdt
-      real                           :: xdt1, f11, snr0, dtsync
+      real                           :: xdt1, f11, snr0
       complex, allocatable,save      :: c(:)
       complex, allocatable,save      :: c0(:)
       complex, allocatable,save      :: c1(:)
@@ -213,8 +420,6 @@ contains
       logical                        :: match
       logical                        :: dupe
       logical                        :: usable
-      logical                        :: is_history_dupe
-      logical                        :: is_near_simultaneous_dupe
       logical                        :: is_window_dupe
       logical                        :: is_pure_dupe
       logical                        :: success_dec
@@ -247,7 +452,7 @@ contains
 
       if(istart.eq.istart0 .and. .not.use_interferer) then
          ndecodes=0
-         nslots=0
+         call reset_decode_search_state()
       endif
       if(sum(abs(int(iwave))).eq.0) return
 
@@ -635,30 +840,25 @@ contains
       enddo     ! candidate loop
 
       if(.not.channel_decoded) then
-         ! Sticky-sync retry: nothing decoded this call. If a still-open
-         ! slot's continuation frame is due almost exactly one frame
+         ! Sticky-sync retry: nothing decoded this call. If an active
+         ! message's continuation frame is due almost exactly one frame
          ! period ago, retry the FEC decode directly at that remembered
          ! sync point instead of giving up on it.
-         do ir=1,nslots
-            if(slot(ir)%is_last_frame) cycle
-            if(slot(ir)%f1.lt.fc-fwid .or. slot(ir)%f1.gt.fc+fwid) cycle
-            if(abs(((istart-1)/12000.0 - slot(ir)%tsync) - nframe6/6000.0) &
+         do ir=1,nactive
+            if(active_messages(ir)%f1.lt.fc-fwid .or. &
+                 active_messages(ir)%f1.gt.fc+fwid) cycle
+            if(abs(((istart-1)/12000.0 - active_messages(ir)%tsync) - &
+                 nframe6/6000.0) &
                  .gt. 0.1) cycle
-            ! slot%xdt is a LOCAL offset within whichever call last merged
-            ! this slot, not this call's own window -- reusing it directly
-            ! is only correct when this window happens to start exactly
-            ! one frame period after that one. Re-derive it from absolute
-            ! time instead: predicted sync instant (slot%tsync plus one
-            ! frame period) minus this call's own window start. A
-            ! negative result means the predicted instant precedes this
-            ! window's buffer entirely (dchristle, PR #337) -- skip
-            ! rather than read c1 out of bounds.
-            xdt_retry=slot(ir)%tsync + nframe6/6000.0 - (istart-1)/12000.0
+            ! Derive the local offset from absolute sync time because the
+            ! assembly may have been updated from a different decode window.
+            xdt_retry=active_messages(ir)%tsync + nframe6/6000.0 - &
+                 (istart-1)/12000.0
             if(xdt_retry.lt.0.0) cycle
             if(ncand .ge. MAXCAND) exit
             ncand=ncand+1
             cand(ncand)%xdt=xdt_retry
-            cand(ncand)%f1=slot(ir)%f1
+            cand(ncand)%f1=active_messages(ir)%f1
             ! decode_and_merge reads tone powers from c1, which is only
             ! valid for whichever frequency the blind-candidate loop
             ! above last shifted it to -- re-shift it for this retry's
@@ -691,7 +891,7 @@ contains
    subroutine decode_and_merge(ic_label, decoded_ok)
       ! Shared by the candidate loop and the sticky-sync retry: given
       ! cand(ncand)%xdt/%f1, decode the 46 info symbols and merge into
-      ! slot(:). ic_label is only for the ndebug print (-1 for a retry).
+      ! active_messages(:). ic_label is only for the ndebug print (-1 for a retry).
       integer, intent(in)  :: ic_label
       logical, intent(out) :: decoded_ok
       complex               :: zsym(0:3,NCHAN_SYM)
@@ -699,11 +899,9 @@ contains
       integer               :: itry, iblk
       integer               :: best_cont
       real                  :: best_df,dfabs
-      logical               :: have_win
-      logical               :: source_valid
-      integer               :: gap,best_gap,nchar,nstart
-      integer               :: best_dupe
-      real                  :: best_dupe_df
+      logical               :: have_win,accepted,source_valid
+      integer               :: gap,best_gap
+      type(message_assembly) :: accepted_message
 
       decoded_ok=.false.
       ! Refinement can place the final symbol beyond the available samples.
@@ -785,8 +983,8 @@ contains
       ! tracks jtty_peakup's coherent-combining frequency precision.
       if(ichan.ne.0) then
          do i=1,n_ch0_ok
-            if( abs(cand(ncand)%f1-f1_ch0_ok(i)).lt.3.0 .and. &
-                abs(cand(ncand)%tsync-tsync_ch0_ok(i)).lt.0.05 ) dupe=.true.
+            if(same_frame(cand(ncand)%f1,cand(ncand)%tsync, &
+                 f1_ch0_ok(i),tsync_ch0_ok(i))) dupe=.true.
          enddo
       endif
       if(dupe) return
@@ -812,152 +1010,63 @@ contains
 
       dec=cand(ncand)
       match=.false.
-      is_pure_dupe=.false.
-      islot=1
-      if(ndecodes.eq.1) then
-         nslots=1
-         islot=1
-         slot(1)=dec
-         ! A "599 ..." frame has no preceding separator; mark one explicitly.
-         if(slot(1)%decoded(1:4).eq.'599 ') &
-              slot(1)%decoded='~'//trim(slot(1)%decoded)
-         slot(1)%nframes_merged=1
-         slot(1)%frame_f1(1)=dec%f1
-         slot(1)%frame_tsync(1)=dec%tsync
-      else
-         match=.false.
+      is_pure_dupe=is_recent_frame(dec)
+      iactive=0
+      if(.not.is_pure_dupe .and. nactive.gt.0) then
          have_win=.false.
          best_cont=0
          best_df=1.0e30
          best_gap=1
-         best_dupe=0
-         best_dupe_df=1.0e30
-         do i=1,nslots
-            call classify_slot_candidate(slot(i),dec,nframe6/6000.0, &
-                 match,is_window_dupe,is_history_dupe,is_near_simultaneous_dupe,gap)
+         do i=1,nactive
+            call classify_active_candidate(active_messages(i),dec, &
+                 nframe6/6000.0,match,is_window_dupe,gap)
             if(.not.match) cycle
-            if(is_history_dupe .or. is_near_simultaneous_dupe) then
-               ! Closest match across all slots wins, not the first iterated.
-               dfabs=abs(dec%f1-slot(i)%f1)
-               if(dfabs.lt.best_dupe_df) then
-                  best_dupe_df=dfabs
-                  best_dupe=i
-               endif
-               cycle
-            endif
             if(is_window_dupe) then
-               if(.not.have_win) then
-                  islot=i
-                  have_win=.true.
-               endif
+               if(.not.have_win) iactive=i
+               have_win=.true.
                cycle
             endif
-            dfabs=abs(dec%f1-slot(i)%f1)
+            dfabs=abs(dec%f1-active_messages(i)%f1)
             if(dfabs.lt.best_df) then
                best_df=dfabs
                best_cont=i
                best_gap=gap
             endif
          enddo
-         if(best_dupe.gt.0) then
-            islot=best_dupe
-            match=.true.
-            is_pure_dupe=.true.
-         else if(have_win) then
+         if(have_win) then
             match=.true.
             is_pure_dupe=.true.
          else if(best_cont.gt.0) then
             match=.true.
-            islot=best_cont
-            dtsync=dec%tsync-slot(islot)%tsync
-            if(abs(dtsync).lt.0.9) then
-               is_pure_dupe=.true.
-            else
-               k=slot(islot)%k
-               n=len_trim(dec%decoded)
-               if(best_gap.gt.1) then
-                  ! One or more frames between here and the slot's last
-                  ! merged frame failed to decode -- that content is gone
-                  ! for good (each frame carries its own independent slice,
-                  ! confirmed via unpack_jtty), so mark the gap instead of
-                  ! silently concatenating or splitting into a new slot.
-                  ! Five tildes is a length-preserving sentinel; jtty_get_msgs
-                  ! translates the run to " ... " at display time. A resuming
-                  ! frame that itself starts a new word has its own leading
-                  ! space encoded as '~' too (append_payload_chars,
-                  ! jtty_mod.f90), which would otherwise run into the
-                  ! sentinel as a 6th tilde and display as a doubled space --
-                  ! drop it, since " ... " already marks the boundary.
-                  nstart=1
-                  if(n.ge.1) then
-                     if(dec%decoded(1:1).eq.'~') nstart=2
-                  endif
-                  kz=min(k+5+(n-nstart+1),80)
-                  nchar=max(kz-k-5,0)
-                  slot(islot)%decoded=trim(slot(islot)%decoded)//'~~~~~'// &
-                       dec%decoded(nstart:nstart+nchar-1)
-                  slot(islot)%k=k+5+nchar
-               else
-                  kz=min(k+n,80)
-                  ! The prior frame's implicit separator column is just an
-                  ! untouched blank in slot(islot)%decoded, so trim() above
-                  ! would silently drop it; put it back explicitly.
-                  if(slot(islot)%trailing_sep) then
-                     slot(islot)%decoded=trim(slot(islot)%decoded)//' '// &
-                          dec%decoded(1:kz-k)
-                  else
-                     slot(islot)%decoded=trim(slot(islot)%decoded)// &
-                          dec%decoded(1:kz-k)
-                  endif
-                  slot(islot)%k=kz
-               endif
-               slot(islot)%trailing_sep=dec%trailing_sep
-               slot(islot)%is_last_frame=dec%is_last_frame
-               ! Track the most recently merged frame, not the frame that
-               ! opened this slot -- a long message's gradual drift would
-               ! otherwise eventually read as "too far from frame 1".
-               slot(islot)%f1=dec%f1
-               slot(islot)%xdt=dec%xdt
-               slot(islot)%tsync=dec%tsync
-               if(slot(islot)%nframes_merged.lt.16) then
-                  slot(islot)%nframes_merged=slot(islot)%nframes_merged+1
-                  slot(islot)%frame_f1(slot(islot)%nframes_merged)=dec%f1
-                  slot(islot)%frame_tsync(slot(islot)%nframes_merged)=dec%tsync
-               endif
-            endif
+            iactive=best_cont
          else
             match=.false.
          endif
-         if(.not.match) then
-            if(nslots .ge. MAX_SLOTS) return
-            nslots=nslots+1
-            slot(nslots)=dec
-            islot=nslots
-            if(slot(nslots)%decoded(1:4).eq.'599 ') &
-                 slot(nslots)%decoded='~'//trim(slot(nslots)%decoded)
-            slot(nslots)%nframes_merged=1
-            slot(nslots)%frame_f1(1)=dec%f1
-            slot(nslots)%frame_tsync(1)=dec%tsync
-         endif
       endif
-      msg=slot(islot)%decoded
-      ! A run of 5 tildes is the missed-frame gap sentinel (decode_and_merge,
-      ! merge branch above); " ... " is exactly 5 chars too, so this is a
-      ! same-length in-place substitution -- no reflow needed. Any remaining
-      ! lone tilde is the older single-char "implicit leading separator"
-      ! marker, unchanged.
-      do i=1,len_trim(msg)-4
-         if(msg(i:i+4).eq.'~~~~~') msg(i:i+4)=' ... '
-      enddo
-      do i=1,len_trim(msg)
-         if(msg(i:i).eq.'~') msg(i:i)=' ' !For display, remove ~ chars
-      enddo
-      if(msg(1:1).eq.' ') msg=msg(2:)
+
+      if(.not.is_pure_dupe .and. match) then
+         call append_active_message(iactive,dec,best_gap,accepted_message,accepted)
+         if(.not.accepted) return
+         msg=accepted_message%decoded
+         if(dec%is_last_frame) iactive=0
+      else if(.not.is_pure_dupe) then
+         call start_message(dec,accepted_message,accepted)
+         if(.not.accepted) return
+         msg=accepted_message%decoded
+         if(dec%is_last_frame) then
+            iactive=0
+         else
+            iactive=nactive
+         endif
+      else
+         msg=dec%decoded
+      endif
+      msg=display_message_text(msg)
       if(ndebug.eq.0) then
          if(.not.is_pure_dupe) write(*,3001) nint(dec%f1),trim(msg)
 3001     format(i4,2x,a)
       else if(ndebug.gt.0) then
-         write(*,3002) ichan,ipass,ic_label,ndecodes,islot,nslots,match, &
+         write(*,3002) ichan,ipass,ic_label,ndecodes,iactive,nactive,match, &
             use_interferer,dec%f1,dec%xdt,dec%tsync,nint(dec%snrdb-20.0), &
             nsync,nsymerrs,trim(msg)
 3002     format(6i4,2L3,f7.1,f7.3,f9.3,i5,i4,i4,2x,a)
@@ -986,6 +1095,10 @@ contains
       real                       :: tsync_local(MAX_SUBTRACTED)
       integer                    :: payload_local(PAYLOAD_BITS,MAX_SUBTRACTED)
 
+      nframe=59*nsps
+      step=nframe/4
+      call prune_receive_state((istart-1)/12000.0,nframe/12000.0)
+
       interferer_pending=.false.   ! defensive: no stale interferer input
       call jtty_mdecode(istart,istart0,iwave(istart),nchunk,nsps,ndebug,nfa,nfb, &
            f0,ftol,smin)
@@ -999,11 +1112,8 @@ contains
          payload_local(:,1:n_local)=subtracted_payload(:,1:n_local)
       endif
 
-      nframe=59*nsps
-      step=nframe/4
-
       do i=1,n_local
-         do k=1,3
+         do k=1,MAX_RETRO_STEPS
             istart_prev=istart-k*step
             if(istart_prev.lt.1) cycle
             interferer_pending=.true.

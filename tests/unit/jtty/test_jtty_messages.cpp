@@ -684,6 +684,8 @@ private slots:
         << QString {" 500  599 K1ABC "} << 500 << QString {"599 K1ABC"} << true;
     QTest::newRow ("numeric-leading-message-is-preserved")
         << QString {"1500  599 K1ABC"} << 1500 << QString {"599 K1ABC"} << true;
+    QTest::newRow ("frequency-only")
+        << QString {"1500"} << 1500 << QString {} << true;
     QTest::newRow ("malformed-frequency")
         << QString {"CQ K1ABC"} << 0 << QString {"CQ K1ABC"} << false;
     QTest::newRow ("empty")
@@ -735,13 +737,121 @@ private slots:
     QCOMPARE (Jtty::wrapMessage (text), expected);
   }
 
-  void decodeLineOrderUsesStartTimeThenSlotId ()
+  void compareMessagesTracksMessageSemantics ()
   {
-    QVector<float> const startTimes {5.0f, 1.0f, 3.0f, 3.0f};
-    QVector<int> const slotIds {9, 4, 7, 2};
-    QVector<int> const expected {1, 3, 2, 0};
+    auto const unchanged = Jtty::compareMessages (
+        QStringLiteral ("CQ K1ABC"), QStringLiteral ("CQ K1ABC"));
+    QVERIFY (!unchanged.messageChanged);
+    QVERIFY (!unchanged.extendsMessage);
+    QVERIFY (!unchanged.startsMessage);
+    QVERIFY (unchanged.appendedText.isEmpty ());
 
-    QCOMPARE (Jtty::decodeLineOrder (startTimes, slotIds), expected);
+    auto const growth = Jtty::compareMessages (
+        QStringLiteral ("CQ K1"), QStringLiteral ("CQ K1ABC"));
+    QVERIFY (growth.messageChanged);
+    QVERIFY (growth.extendsMessage);
+    QVERIFY (!growth.startsMessage);
+    QCOMPARE (growth.appendedText, QStringLiteral ("ABC"));
+
+    auto const replacement = Jtty::compareMessages (
+        QStringLiteral ("FIRST"), QStringLiteral ("SECOND"));
+    QVERIFY (replacement.messageChanged);
+    QVERIFY (!replacement.extendsMessage);
+    QVERIFY (!replacement.startsMessage);
+    QVERIFY (replacement.appendedText.isEmpty ());
+
+    auto const textAfterEmptyFrame = Jtty::compareMessages (
+        QString {}, QStringLiteral ("ABC"));
+    QVERIFY (textAfterEmptyFrame.messageChanged);
+    QVERIFY (textAfterEmptyFrame.extendsMessage);
+    QVERIFY (textAfterEmptyFrame.startsMessage);
+    QCOMPARE (textAfterEmptyFrame.appendedText, QStringLiteral ("ABC"));
+  }
+
+  void messageUpdatesDoNotRemoveHistory ()
+  {
+    QVector<Jtty::MessageUpdate> history {
+      {1, 1000.f, QStringLiteral ("FIRST"), 1.f, false},
+      {2, 1100.f, QStringLiteral ("SECOND"), 2.f, false},
+    };
+    QVector<Jtty::MessageUpdate> updates {
+      {2, 1100.f, QStringLiteral ("SECOND"), 2.f, false},
+    };
+
+    QVERIFY (!Jtty::mergeMessageUpdates (history, updates));
+    QCOMPARE (history.size (), 2);
+    QCOMPARE (history.at (0).messageId, qint64 {1});
+    QCOMPARE (history.at (1).messageId, qint64 {2});
+  }
+
+  void messageUpdatesReplaceSameId ()
+  {
+    QVector<Jtty::MessageUpdate> history {
+      {8, 1400.f, QStringLiteral ("CQ K1"), 3.f, false},
+    };
+    QVector<Jtty::MessageUpdate> updates {
+      {8, 1401.f, QStringLiteral ("CQ K1ABC"), 3.f, true},
+    };
+
+    QVERIFY (Jtty::mergeMessageUpdates (history, updates));
+    QCOMPARE (history.size (), 1);
+    QCOMPARE (history.at (0).frequency, 1401.f);
+    QCOMPARE (history.at (0).text, QStringLiteral ("CQ K1ABC"));
+    QVERIFY (history.at (0).complete);
+  }
+
+  void messageUpdatesPreserveCompletionAndInitialStart ()
+  {
+    QVector<Jtty::MessageUpdate> history {
+      {12, 1600.f, QStringLiteral ("TEST"), 4.f, true},
+    };
+    QVector<Jtty::MessageUpdate> updates {
+      {12, 1600.f, QStringLiteral ("TEST"), 9.f, false},
+    };
+
+    QVERIFY (!Jtty::mergeMessageUpdates (history, updates));
+    QVERIFY (history.at (0).complete);
+    QCOMPARE (history.at (0).sequenceStart, 4.f);
+  }
+
+  void messageUpdatesDistinguishIdenticalTextById ()
+  {
+    QVector<Jtty::MessageUpdate> history {
+      {qint64 {1} << 35, 1600.f, QStringLiteral ("TEST"), 1.f, false},
+    };
+    QVector<Jtty::MessageUpdate> updates {
+      {(qint64 {1} << 35) + 1, 1600.f, QStringLiteral ("TEST"), 2.f, false},
+    };
+
+    QVERIFY (Jtty::mergeMessageUpdates (history, updates));
+    QCOMPARE (history.size (), 2);
+    QVERIFY (history.at (0).messageId != history.at (1).messageId);
+    QCOMPARE (history.at (0).text, history.at (1).text);
+  }
+
+  void messageUpdatesOrderByStartTimeThenId ()
+  {
+    QVector<Jtty::MessageUpdate> history;
+    QVector<Jtty::MessageUpdate> updates {
+      {9, 1000.f, QStringLiteral ("FOURTH"), 5.f, false},
+      {4, 2000.f, QStringLiteral ("FIRST"), 1.f, false},
+      {7, 900.f, QStringLiteral ("THIRD"), 3.f, false},
+      {2, 1800.f, QStringLiteral ("SECOND"), 3.f, false},
+    };
+
+    QVERIFY (Jtty::mergeMessageUpdates (history, updates));
+    QCOMPARE (history.size (), 4);
+    QCOMPARE (history.at (0).messageId, qint64 {4});
+    QCOMPARE (history.at (1).messageId, qint64 {2});
+    QCOMPARE (history.at (2).messageId, qint64 {7});
+    QCOMPARE (history.at (3).messageId, qint64 {9});
+  }
+
+  void qsoHistoryRetainsAdmittedMessageAcrossDrift ()
+  {
+    QVERIFY (Jtty::shouldApplyToQsoHistory (false, 1504.f, 1500.f, 5.f));
+    QVERIFY (!Jtty::shouldApplyToQsoHistory (false, 1505.f, 1500.f, 5.f));
+    QVERIFY (Jtty::shouldApplyToQsoHistory (true, 1510.f, 1500.f, 5.f));
   }
 };
 

@@ -809,8 +809,8 @@ private:
   bool sendJttyFunctionKey(int index);
   // istart0/istop (sample indices into dec_data.d2) bound the Fortran scan
   // to a window instead of the whole buffer; -1/-1 (the default) means
-  // unwindowed, matching the original behavior exactly. Returns true if
-  // this call's snapshot includes a completed (EOM) qso_freq message.
+  // unwindowed, matching the original behavior exactly. Returns true when
+  // this call delivers a completed message admitted to the QSO history.
   bool jtty_decode(int k, int istart0 = -1, int istop = -1);
   void jtty_again();
   void flushJttyDecodeLines();
@@ -1374,8 +1374,10 @@ private:
   qint64 m_jttyTciEnqueueId;
   struct JttyQsoLine
   {
+    qint64 messageId {0};
+    float frequency {0.f};
     QString text;
-    float tsync {0.0f};
+    float sequenceStart {0.f};
   };
   QVector<JttyQsoLine> m_jttyQsoLines;
   QTextBlock m_jttyQsoGroupStart;
@@ -1384,8 +1386,11 @@ private:
   bool m_jttyQsoRenderedIncludeTime {false};
   struct JttyDecodeLine
   {
-    int slotId {0};
+    qint64 messageId {0};
+    float frequency {0.f};
     QString text;
+    float sequenceStart {0.f};
+    bool complete {false};
     bool written {false};
     DecodeOperatingContext context;
   };

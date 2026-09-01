@@ -77,6 +77,7 @@ program rjtty
       do while (istart+nchunk-1 .le. nwave)
          success=.false.
          call jtty_mdecode_step(iwave,nwave,istart,1,nchunk,nsps,ndebug,nfa,nfb,f0,ftol,smin)
+         call discard_pending_updates()
          istart=istart+nframe/4
       enddo
    enddo  !ifile

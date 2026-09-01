@@ -20,7 +20,7 @@ program test_jtty_sticky_retry
 
   use iso_fortran_env, only: int16
   use jtty_fec, only: is13, TOTAL_K
-  use jtty_mdec, only: nslots, slot
+  use jtty_mdec, only: npending,pending_updates,discard_pending_updates
   use jtty_mod, only: MAX_FRAMES
   implicit none
 
@@ -51,6 +51,7 @@ contains
     complex, allocatable :: complex_wave(:)
     character(len=80) :: input,qrm_input
 
+    call discard_pending_updates()
     input=message
     call genjtty(input,tones,nsym)
     call expect(nsym.eq.nframes*frame_symbols, &
@@ -110,17 +111,24 @@ contains
     call rjtty_sub(pcm,1,nsps,200,1499,1500.0,50.0)
     call rjtty_sub(pcm,total_samples,nsps,200,1499,1500.0,50.0)
 
-    call expect(nslots.eq.2,'the decoder keeps the target and interferer', &
+    call expect(npending.eq.2,'the decoder keeps the target and interferer', &
          count)
-    call expect(slot(1)%nframes_merged.eq.nframes, &
-         'the sticky retry merges the frame with corrupted sync',count)
-    call expect(trim(normalized(slot(1)%decoded)).eq.trim(message), &
+    call expect(found_complete(message), &
          'the full message decodes despite the corrupted sync',count)
-    call expect(slot(1)%is_last_frame, &
-         'the message reaches end of message',count)
 
     deallocate(pcm,wave,complex_wave,combined,qrm_wave)
   end subroutine run_case
+
+  logical function found_complete(message)
+    character(len=*), intent(in) :: message
+    integer :: i
+
+    found_complete=.false.
+    do i=1,npending
+       if(trim(normalized(pending_updates(i)%decoded)).eq.trim(message) .and. &
+            pending_updates(i)%complete) found_complete=.true.
+    enddo
+  end function found_complete
 
   function normalized(value) result(result_value)
     character(len=*), intent(in) :: value

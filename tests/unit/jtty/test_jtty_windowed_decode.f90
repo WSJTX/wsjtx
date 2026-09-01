@@ -10,7 +10,7 @@ program test_jtty_windowed_decode
 
   use iso_fortran_env, only: int16
   use jtty_fec, only: is13, TOTAL_K
-  use jtty_mdec, only: nslots, slot
+  use jtty_mdec, only: npending,pending_updates,discard_pending_updates
   use jtty_mod, only: MAX_FRAMES
   implicit none
 
@@ -36,6 +36,7 @@ program test_jtty_windowed_decode
   decoded_a_full=decoded_text(msg_a)
 
   ! Window covering only the first message: second must not appear.
+  call discard_pending_updates()
   call rjtty_sub_windowed(pcm,1,nsps,200,2800,1500.0,50.0,1,1)
   call rjtty_sub_windowed(pcm,first_start+first_samples+2*chunk(), &
        nsps,200,2800,1500.0,50.0,1,first_start+first_samples+2*chunk())
@@ -46,6 +47,7 @@ program test_jtty_windowed_decode
        'windowed decode content matches unwindowed content',failures)
 
   ! Window covering only the second message: first must not appear.
+  call discard_pending_updates()
   call rjtty_sub_windowed(pcm,1,nsps,200,2800,1500.0,50.0, &
        max(1,second_start-2*chunk()),total_samples)
   call rjtty_sub_windowed(pcm,total_samples,nsps,200,2800,1500.0,50.0, &
@@ -119,8 +121,8 @@ contains
     character(len=*), intent(in) :: message
     integer :: i
     found=.false.
-    do i=1,nslots
-       if(trim(normalized(slot(i)%decoded)).eq.trim(message)) found=.true.
+    do i=1,npending
+       if(trim(normalized(pending_updates(i)%decoded)).eq.trim(message)) found=.true.
     enddo
   end function found
 
@@ -129,8 +131,9 @@ contains
     character(len=80) :: text
     integer :: i
     text=''
-    do i=1,nslots
-       if(trim(normalized(slot(i)%decoded)).eq.trim(message)) text=normalized(slot(i)%decoded)
+    do i=1,npending
+       if(trim(normalized(pending_updates(i)%decoded)).eq.trim(message)) &
+            text=normalized(pending_updates(i)%decoded)
     enddo
   end function decoded_text
 

@@ -3,6 +3,7 @@
 #define JTTY_MESSAGES_HPP
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <type_traits>
 
@@ -183,7 +184,8 @@ namespace Jtty
 
   // Fixed width of a JTTY transmit frame; genjtty_ (lib/jtty/genjtty.f90)
   // expects exactly this many characters.
-  inline constexpr int maxTransmitLength = 80;
+  inline constexpr int maxMessageLength = 80;
+  inline constexpr int maxTransmitLength = maxMessageLength;
 
   inline PreparedTransmitText prepareTransmitText (QString const& message)
   {
@@ -777,14 +779,15 @@ namespace Jtty
     while (separator < trimmed.size () && !trimmed.at (separator).isSpace ()) {
       ++separator;
     }
-    if (separator == 0 || separator == trimmed.size ()) return result;
+    if (separator == 0) return result;
 
     bool frequencyOk {false};
     int const frequency = trimmed.left (separator).toInt (&frequencyOk);
     if (!frequencyOk) return result;
 
     result.frequency = frequency;
-    result.message = trimmed.mid (separator).trimmed ();
+    result.message = separator < trimmed.size ()
+        ? trimmed.mid (separator).trimmed () : QString {};
     result.valid = true;
     return result;
   }
@@ -817,21 +820,91 @@ namespace Jtty
     return result;
   }
 
-  inline QVector<int> decodeLineOrder (QVector<float> const& startTimes,
-                                       QVector<int> const& slotIds)
+  struct DecodeLineChange
   {
-    int const count = qMin (startTimes.size (), slotIds.size ());
-    QVector<int> order;
-    order.reserve (count);
-    for (int i = 0; i < count; ++i) order.append (i);
-    std::stable_sort (order.begin (), order.end (),
-                      [&startTimes, &slotIds] (int lhs, int rhs) {
-      if (startTimes.at (lhs) != startTimes.at (rhs)) {
-        return startTimes.at (lhs) < startTimes.at (rhs);
+    bool messageChanged {false};
+    bool extendsMessage {false};
+    bool startsMessage {false};
+    QString appendedText;
+  };
+
+  inline DecodeLineChange compareMessages (QString const& previous,
+                                            QString const& current)
+  {
+    DecodeLineChange change;
+    change.messageChanged = previous != current;
+    change.extendsMessage = change.messageChanged
+        && current.startsWith (previous);
+    change.startsMessage = previous.isEmpty () && !current.isEmpty ();
+    if (change.extendsMessage) {
+      change.appendedText = current.mid (previous.size ());
+    }
+    return change;
+  }
+
+  struct MessageUpdate
+  {
+    qint64 messageId {0};
+    float frequency {0.f};
+    QString text;
+    float sequenceStart {0.f};
+    bool complete {false};
+  };
+
+  inline bool shouldApplyToQsoHistory (bool alreadyPresent, float frequency,
+                                       float rxFrequency, float tolerance)
+  {
+    // Later frames retain their admitted message identity despite decoder frequency drift.
+    return alreadyPresent || std::abs (frequency - rxFrequency) < tolerance;
+  }
+
+  template<typename HistoryLine, typename Factory>
+  bool mergeMessageUpdates (QVector<HistoryLine>& history,
+                            QVector<MessageUpdate> const& updates,
+                            Factory makeLine)
+  {
+    if (updates.isEmpty ()) return false;
+
+    bool changed {false};
+    bool orderChanged {false};
+    for (auto const& update : updates) {
+      auto const known = std::find_if (history.begin (), history.end (),
+                                      [&update] (HistoryLine const& line) {
+                                        return line.messageId == update.messageId;
+                                      });
+      if (known == history.end ()) {
+        history.append (makeLine (update));
+        changed = true;
+        orderChanged = true;
+      } else {
+        bool const complete = known->complete || update.complete;
+        if (known->text != update.text || known->frequency != update.frequency
+            || known->complete != complete) {
+          changed = true;
+        }
+        known->text = update.text;
+        known->frequency = update.frequency;
+        known->complete = complete;
       }
-      return slotIds.at (lhs) < slotIds.at (rhs);
-    });
-    return order;
+    }
+
+    if (orderChanged) {
+      std::sort (history.begin (), history.end (), [] (HistoryLine const& lhs,
+                                                       HistoryLine const& rhs) {
+        if (lhs.sequenceStart != rhs.sequenceStart) {
+          return lhs.sequenceStart < rhs.sequenceStart;
+        }
+        return lhs.messageId < rhs.messageId;
+      });
+    }
+    return changed;
+  }
+
+  inline bool mergeMessageUpdates (QVector<MessageUpdate>& history,
+                                   QVector<MessageUpdate> const& updates)
+  {
+    return mergeMessageUpdates (history, updates,
+                                [] (MessageUpdate const& update) { return update; });
   }
 }
 

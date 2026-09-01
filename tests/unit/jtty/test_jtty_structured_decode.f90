@@ -3,7 +3,7 @@ program test_jtty_structured_decode
   use iso_c_binding, only: c_int,c_null_char,c_sizeof
   use iso_fortran_env, only: int16,int32
   use jtty_fec, only: is13,PAYLOAD_BITS,TOTAL_K,JTTY_WAVA_NU,tbcc_init,tbcc_encode
-  use jtty_mdec, only: nslots,slot
+  use jtty_mdec, only: npending,pending_updates,nactive,discard_pending_updates
   use jtty_mod, only: jtty_source_atom,jtty_source_atom_c,jtty_call_atom, &
        jtty_exch_num_atom,unpack_jtty,MAX_FRAMES,JTTY_CALL_CALL,JTTY_ROLE_FULL, &
        JTTY_NUM_SERIAL,JTTY_ATOM_CALL,JTTY_ATOM_EXCH_NUM,JTTY_ATOM_EXCH_LOC, &
@@ -65,10 +65,10 @@ contains
          'C++ compiled descriptors cross the native encoder ABI',count)
     if(status.ne.JTTY_ENCODE_OK .or. nsymbols.ne.2*frame_symbols) return
     call decode_waveform(tones,int(nsymbols))
-    call expect(nslots.eq.1,'C++ compiled N1MM message decodes into one slot',count)
-    if(nslots.ne.1) return
-    call expect(trim(normalized(slot(1)%decoded)).eq.'W9XYZ 32D EMA' .and. &
-         slot(1)%nframes_merged.eq.2 .and. slot(1)%is_last_frame, &
+    call expect(npending.eq.1,'C++ compiled N1MM message produces one update',count)
+    if(npending.ne.1) return
+    call expect(trim(normalized(pending_updates(1)%decoded)).eq.'W9XYZ 32D EMA' .and. &
+         pending_updates(1)%complete .and. nactive.eq.0, &
          'C++ call/exchange descriptors preserve canonical text and EOM',count)
   end subroutine decode_cpp_compiled_n1mm
 
@@ -87,15 +87,13 @@ contains
 
     call decode_waveform(tones,nsymbols)
 
-    call expect(nslots.eq.1, &
-         'native call plus serial decodes into one slot',count)
-    if(nslots.ne.1) return
-    call expect(trim(normalized(slot(1)%decoded)).eq.'WB9XYZ 599 1234', &
+    call expect(npending.eq.1, &
+         'native call plus serial produces one update',count)
+    if(npending.ne.1) return
+    call expect(trim(normalized(pending_updates(1)%decoded)).eq.'WB9XYZ 599 1234', &
          'merged native atoms use canonical call and serial rendering',count)
-    call expect(slot(1)%nframes_merged.eq.2, &
-         'both native atoms merge through the production receiver',count)
-    call expect(slot(1)%is_last_frame, &
-         'only the final native atom completes the message',count)
+    call expect(pending_updates(1)%complete .and. nactive.eq.0, &
+         'final native atom completes and releases the message',count)
   end subroutine decode_native_call_and_serial
 
   subroutine decode_c_adapter_atoms(count)
@@ -120,15 +118,13 @@ contains
     if(nsymbols.le.0) return
 
     call decode_waveform(tones,int(nsymbols))
-    call expect(nslots.eq.1,'C adapter atoms decode into one slot',count)
-    if(nslots.ne.1) return
-    call expect(trim(normalized(slot(1)%decoded)).eq. &
+    call expect(npending.eq.1,'C adapter atoms produce one update',count)
+    if(npending.ne.1) return
+    call expect(trim(normalized(pending_updates(1)%decoded)).eq. &
          'K1ABC 599 012 599 CA 1D EMA FN42 QSL TU', &
          'C adapter atoms retain canonical structured rendering',count)
-    call expect(slot(1)%nframes_merged.eq.size(atoms), &
-         'all C adapter frames merge through production receiver',count)
-    call expect(slot(1)%is_last_frame, &
-         'final C adapter atom completes the message',count)
+    call expect(pending_updates(1)%complete .and. nactive.eq.0, &
+         'final C adapter atom completes and releases the message',count)
   end subroutine decode_c_adapter_atoms
 
   subroutine reject_invalid_c_descriptors(count)
@@ -207,8 +203,8 @@ contains
     tones(1:size(is13))=is13
     tones(size(is13)+1:frame_symbols)=encoded
     call decode_waveform(tones,frame_symbols)
-    call expect(nslots.eq.0, &
-         'CRC/FEC-valid source-invalid frame creates no receive slot',count)
+    call expect(npending.eq.0 .and. nactive.eq.0, &
+         'CRC/FEC-valid source-invalid frame creates no message or update',count)
   end subroutine reject_reserved_struct_family
 
   subroutine decode_waveform(tones,nsymbols)
@@ -226,6 +222,7 @@ contains
     pcm=0_int16
     pcm(1:nsamples)=int(nint(30000.0*wave),int16)
 
+    call discard_pending_updates()
     call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
     call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
 

@@ -1,15 +1,15 @@
 program test_jtty_gap_merge
 
   ! When a frame in the middle of a multi-frame message fails to decode
-  ! (common at marginal SNR), the message must still land in ONE slot with
+  ! (common at marginal SNR), the message must still remain one message with
   ! a gap marker between the surviving fragments, not split into two
-  ! slots (the bug Joe reported on 000000_000011.wav: "THE QUICK BROWN FOX
+  ! messages (the bug Joe reported on 000000_000011.wav: "THE QUICK BROWN FOX
   ! JUMPED OVER THE LAZY DOG." decoded as two separate lines, "THE Q" and
   ! "BROWN FOX JUMPED OVER THE LAZY DOG.", losing "UICK " with no trace).
 
   use iso_fortran_env, only: int16
   use jtty_fec, only: is13, TOTAL_K
-  use jtty_mdec, only: nslots, slot
+  use jtty_mdec, only: npending,pending_updates,discard_pending_updates
   use jtty_mod, only: MAX_FRAMES
   implicit none
 
@@ -66,11 +66,17 @@ contains
     integer(int16), allocatable :: pcm(:)
 
     pcm=reference_pcm
+    call discard_pending_updates()
     call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
     call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
-    full_text=trim(normalized(slot(1)%decoded))
-    call expect(nslots.eq.1 .and. full_text.eq.trim(message), &
-         'uncorrupted baseline decodes to the original message',count)
+    call expect(npending.eq.1, &
+         'uncorrupted baseline produces one message',count)
+    full_text=''
+    if(npending.eq.1) then
+       full_text=trim(normalized(pending_updates(1)%decoded))
+       call expect(full_text.eq.trim(message), &
+            'uncorrupted baseline decodes to the original message',count)
+    endif
   end subroutine run_baseline_case
 
   ! Drops n_dropped consecutive frames starting at the message's middle
@@ -97,26 +103,27 @@ contains
     drop_end=(idrop+n_dropped-1)*frame_symbols*nsps
     pcm(drop_start:drop_end)=0_int16
 
+    call discard_pending_updates()
     call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
     call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
 
     write(description,'(a,i0,a)') 'dropping ',n_dropped, &
-         ' consecutive frame(s) still merges into one slot'
-    call expect(nslots.eq.1,trim(description),count)
-    if(nslots.ne.1) return
+         ' consecutive frame(s) still merges into one message'
+    call expect(npending.eq.1,trim(description),count)
+    if(npending.ne.1) return
 
     ! The gap sentinel is a fixed-width 5-tilde run regardless of how many
     ! frames were actually dropped -- " ... " is a generic "something's
     ! missing" marker, not a precise character count (matches Joe's own
     ! suggested display).
-    gap_pos=index(slot(1)%decoded,'~~~~~')
+    gap_pos=index(pending_updates(1)%decoded,'~~~~~')
     write(description,'(a,i0,a)') 'dropping ',n_dropped, &
          ' consecutive frame(s) leaves a gap sentinel'
     call expect(gap_pos.gt.0,trim(description),count)
     if(gap_pos.le.0) return
 
-    before=trim(normalized(adjustl(slot(1)%decoded(1:gap_pos-1))))
-    after=trim(normalized(adjustl(slot(1)%decoded(gap_pos+5:))))
+    before=trim(normalized(adjustl(pending_updates(1)%decoded(1:gap_pos-1))))
+    after=trim(normalized(adjustl(pending_updates(1)%decoded(gap_pos+5:))))
     write(description,'(a,i0,a)') 'dropping ',n_dropped, &
          ' consecutive frame(s): surviving text matches the original message'
     call expect(len_trim(before).gt.0 .and. len_trim(after).gt.0 .and. &
@@ -128,7 +135,7 @@ contains
 
   ! A gap wider than MAX_GAP (3 frame-periods, i.e. 3+ consecutive missed
   ! frames) must NOT be bridged -- confirms the fallback to two separate
-  ! slots (today's behavior) still holds beyond the deliberately-bounded
+  ! messages (today's behavior) still holds beyond the deliberately-bounded
   ! gap tolerance, so unrelated signals don't get false-merged.
   subroutine run_beyond_max_gap_case(reference_pcm,total_samples,nframes,count)
     integer(int16), intent(in) :: reference_pcm(:)
@@ -145,10 +152,11 @@ contains
     drop_end=(idrop+n_dropped-1)*frame_symbols*nsps
     pcm(drop_start:drop_end)=0_int16
 
+    call discard_pending_updates()
     call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
     call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
 
-    call expect(nslots.ge.2, &
+    call expect(npending.ge.2, &
          'dropping 3 consecutive frames (beyond MAX_GAP) does not merge', &
          count)
   end subroutine run_beyond_max_gap_case

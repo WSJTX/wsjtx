@@ -28,14 +28,14 @@ subroutine rjtty_core(iwave,kz,nsps,nfa,nfb,f0,ftol,istart0,istop)
   smin=4.6
 
   ! A shorter/new buffer always restarts; a windowed call whose window has
-  ! moved (a new click) also restarts, even mid-buffer, so its slot table
-  ! isn't polluted by a previous window's in-progress messages.
+  ! moved (a new click) also restarts, even mid-buffer, so active assemblies
+  ! are not polluted by a previous window's in-progress messages.
   if(kz .le. kz0 .or. istart0.ne.istart0_save) then
      kz0=kz
      istart=istart0
      kchar=0
      ndtol=0
-     nslots=0
+     call reset_decode_search_state()
      istart0_save=istart0
      go to 999
   endif
@@ -54,92 +54,49 @@ subroutine rjtty_core(iwave,kz,nsps,nfa,nfb,f0,ftol,istart0,istop)
 999 return
 end subroutine rjtty_core
 
-subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq,qso_eom, &
-     all_tsync,qso_tsync,all_eom,all_slot_ids)
+subroutine jtty_get_updates(text_blocks,message_ids,frequencies,start_tsync,eom,count)
 
+  use iso_fortran_env, only: int64
   use jtty_mdec
-  character*2400               :: all_freqs
-  character*2400               :: all_freqs0 = " "
-  character*800                :: qso_freq
-  character*800                :: qso_freq0 = " "
-  character*80 msg
-  character*96 msg2
-  integer indx(MAX_SLOTS)
-  integer kall,kqso,kqso_line,kall_line,nmsg,ncopy
-  real tstart(MAX_SLOTS)
-  logical*1 all_new,qso_new
-  logical*1, intent(out)       :: qso_eom(MAX_SLOTS)
-  logical*1, intent(out)       :: all_eom(MAX_SLOTS)
-  integer, intent(out)         :: all_slot_ids(MAX_SLOTS)
-  real, intent(out)            :: all_tsync(MAX_SLOTS)
-  real, intent(out)            :: qso_tsync(MAX_SLOTS)
-  save all_freqs0,qso_freq0
+  integer, parameter            :: BATCH_SIZE = 30
+  integer, parameter            :: MESSAGE_LENGTH = 80
+  character(len=BATCH_SIZE*MESSAGE_LENGTH), intent(out) :: text_blocks
+  integer(int64), intent(out)   :: message_ids(BATCH_SIZE)
+  real, intent(out)             :: frequencies(BATCH_SIZE)
+  real, intent(out)             :: start_tsync(BATCH_SIZE)
+  logical*1, intent(out)        :: eom(BATCH_SIZE)
+  integer, intent(out)          :: count
+  character(len=MESSAGE_LENGTH) :: msg
+  integer :: i,index,offset
 
-  ! Sort by start time (frame_tsync(1), stable) rather than frequency, which wobbles and would reorder All Decodes on every rebuild.
-  tstart(1:nslots)=slot(1:nslots)%frame_tsync(1)
-  call indexx(tstart,nslots,indx)
+  text_blocks=''
+  message_ids=0_int64
+  frequencies=0.0
+  start_tsync=0.0
+  eom=.false.
+  count=min(npending,BATCH_SIZE)
 
-  kall=1
-  kqso=1
-  kqso_line=0
-  kall_line=0
-  qso_eom=.false.
-  all_eom=.false.
-  all_slot_ids=0
-  all_tsync=0.0
-  qso_tsync=0.0
-  all_freqs=''
-  qso_freq=''
-  do ii=1,nslots
-     i=indx(ii)
-     msg=trim(slot(i)%decoded)
-     df=slot(i)%f1 - f0
-     ! A run of 5 tildes marks a missed-frame gap (decode_and_merge,
-     ! jtty_mdecode.f90); " ... " is exactly 5 chars too, so this is a
-     ! same-length in-place substitution. Any remaining lone tilde is the
-     ! older single-char "implicit leading separator" marker, unchanged.
-     do j=1,len_trim(msg)-4
-        if(msg(j:j+4).eq.'~~~~~') msg(j:j+4)=' ... '
-     enddo
-     do j=1,len_trim(msg)
-        if(msg(j:j).eq.'~') msg(j:j)=' '
-     enddo
-     if(msg(1:1).eq.' ') msg=trim(msg(2:))
-     write(msg2,1000) nint(slot(i)%f1),trim(msg) // char(10)
-1000 format(i4,2x,a)
-     nmsg=len_trim(msg2)
-     ncopy=min(nmsg,len(all_freqs)-kall)
-     if(ncopy.gt.0) then
-        all_freqs(kall:kall+ncopy-1)=msg2(1:ncopy)
-        kall=kall+ncopy
-        if(kall_line.lt.MAX_SLOTS) then
-           kall_line=kall_line+1
-           all_tsync(kall_line)=slot(i)%frame_tsync(1)
-           all_eom(kall_line)=slot(i)%is_last_frame
-           all_slot_ids(kall_line)=i
-        endif
-     endif
-
-     if(abs(df).lt.ftol) then
-        ncopy=min(nmsg,len(qso_freq)-kqso)
-        if(ncopy.gt.0) then
-           qso_freq(kqso:kqso+ncopy-1)=msg2(1:ncopy)
-           kqso=kqso+ncopy
-           if(kqso_line.lt.MAX_SLOTS) then
-              kqso_line=kqso_line+1
-              qso_eom(kqso_line)=slot(i)%is_last_frame
-              qso_tsync(kqso_line)=slot(i)%frame_tsync(1)
-           endif
-        endif
-     endif
+  do i=1,count
+     index=pending_first+i-1
+     msg=display_message_text(pending_updates(index)%decoded)
+     offset=(i-1)*MESSAGE_LENGTH
+     text_blocks(offset+1:offset+MESSAGE_LENGTH)=msg
+     message_ids(i)=pending_updates(index)%message_id
+     frequencies(i)=pending_updates(index)%f1
+     start_tsync(i)=pending_updates(index)%start_tsync
+     eom(i)=pending_updates(index)%complete
   enddo
-  all_freqs(kall:kall)=char(0)
-  all_new = trim(all_freqs).ne.trim(all_freqs0)
-  all_freqs0 = all_freqs
 
-  qso_freq(kqso:kqso)=char(0)
-  qso_new = trim(qso_freq).ne.trim(qso_freq0)
-  qso_freq0 = qso_freq
-
-  return
-end subroutine jtty_get_msgs
+  ! Pending membership is the delivery guarantee; remove records only after copying them out.
+  pending_first=pending_first+count
+  npending=npending-count
+  if(npending.eq.0) then
+     pending_first=1
+     if(allocated(pending_updates)) then
+        if(size(pending_updates).gt.MAX_ACTIVE_MESSAGES) then
+           deallocate(pending_updates)
+           allocate(pending_updates(MAX_ACTIVE_MESSAGES))
+        endif
+     endif
+  endif
+end subroutine jtty_get_updates

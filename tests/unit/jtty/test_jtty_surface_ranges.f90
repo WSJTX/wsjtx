@@ -3,7 +3,7 @@ program test_jtty_surface_ranges
   use fftw3, only: fftwf_cleanup
   use jtty_fec, only: is13,TOTAL_K
   use jtty_mod, only: MAX_FRAMES
-  use jtty_mdec, only: nslots,slot
+  use jtty_mdec, only: npending,pending_updates,discard_pending_updates
   implicit none
   integer, parameter :: frame_symbols=size(is13)+TOTAL_K
   integer, parameter :: rates(5)=[240,320,384,480,240]
@@ -20,6 +20,7 @@ program test_jtty_surface_ranges
   do irate=1,size(rates)
      nsps=rates(irate)
      do icase=1,4
+        call discard_pending_updates()
         hz=1500.0
         fc=hz
         width=50.0
@@ -59,12 +60,12 @@ program test_jtty_surface_ranges
         pcm(nlead+1:nlead+nsamples)=int(nint(14000.0*wave),int16)
         call rjtty_sub(pcm,1,nsps,nfa,nfb,fc,width)
         call rjtty_sub(pcm,total_samples,nsps,nfa,nfb,fc,width)
-        if(nslots.ne.1) then
-           print *, 'Unexpected slot count',nsps,icase,nslots
+        if(npending.ne.1) then
+           print *, 'Unexpected message count',nsps,icase,npending
            stop 1
         endif
-        if(trim(slot(1)%decoded).ne.'N2PPI' .or. .not.slot(1)%is_last_frame) then
-           print *, 'Unexpected message',nsps,icase,slot(1)%decoded
+        if(trim(pending_updates(1)%decoded).ne.'N2PPI' .or. .not.pending_updates(1)%complete) then
+           print *, 'Unexpected message',nsps,icase,pending_updates(1)%decoded
            stop 1
         endif
         deallocate(pcm,wave,cwave)
