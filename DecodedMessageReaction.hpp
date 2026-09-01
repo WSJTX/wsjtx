@@ -42,7 +42,8 @@ namespace DecodedMessageReaction
   enum class SelectionOrigin
   {
     None,
-    Manual,
+    ManualLeftPane,
+    ManualRightPane,
     Synthetic,
     Udp
   };

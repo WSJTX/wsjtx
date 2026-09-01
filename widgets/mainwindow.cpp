@@ -614,7 +614,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_widebandDecode {false},
   m_dataAvailable {false},
   m_bDecoded {false},
-  m_decodedText2 {false},
   m_sentFirst73 {false},
   m_tci_mod_active {false},  // TCI
   m_tci {false},  // TCI
@@ -8105,13 +8104,19 @@ void MainWindow::on_txb5_doubleClicked()
 
 void MainWindow::doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
 {
-//Confusing: come here after double-click on left text window, not right window.
-  m_decodedText2=true;
-  doubleClickOnCall(line, word, modifiers);
-  m_decodedText2=false;
+  handleDecodeSelection(line, word, modifiers,
+                        DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
 }
 
 void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
+{
+  handleDecodeSelection(line, word, modifiers,
+                        DecodedMessageReaction::SelectionOrigin::ManualRightPane);
+}
+
+void MainWindow::handleDecodeSelection(
+  QString const& line, QString const& word, Qt::KeyboardModifiers modifiers,
+  DecodedMessageReaction::SelectionOrigin selection_origin)
 {
   m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
@@ -8145,7 +8150,8 @@ void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt:
 //        }
 //    }
 //  }
-  if(SpecOp::FOX==m_specOp and m_decodedText2) {
+  if(SpecOp::FOX==m_specOp
+     && selection_origin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane) {
     if(m_houndQueue.count()<10 and m_nSortedHounds>0) {
       auto const hound_line = modifiers==(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier)
         ? ui->decodedTextBrowser->document()->firstBlock().text()
@@ -8180,7 +8186,7 @@ void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt:
     m_muted = true;  // Don't play alert sounds again
     m_bDoubleClicked = true;
     m_hisCall0 = m_hisCall;
-    processMessage (message, modifiers);
+    processMessage (message, modifiers, selection_origin);
     // pressing ALT while double-clicking on a call only adds the callsign to DX Call Box
     if(SpecOp::FOX!=m_specOp && modifiers==Qt::AltModifier) {
         m_bDoubleClicked = false;
@@ -8211,7 +8217,14 @@ void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt:
 }
 
 DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
-  Qt::KeyboardModifiers modifiers, bool from_udp_reply) const
+  Qt::KeyboardModifiers modifiers) const
+{
+  return qsoReactionSnapshot(modifiers, DecodedMessageReaction::SelectionOrigin::None);
+}
+
+DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
+  Qt::KeyboardModifiers modifiers,
+  DecodedMessageReaction::SelectionOrigin selection_origin) const
 {
   DecodedMessageReaction::QsoReactionSnapshot snapshot;
   snapshot.mode = m_mode;
@@ -8237,9 +8250,9 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
     && message_is_73(m_currentMessageType, m_currentMessage.split(' ', SkipEmptyParts));
   snapshot.doubleClicked = m_bDoubleClicked;
   snapshot.doubleClickAfterCqFrequency = m_bDoubleClickAfterCQnnn;
-  snapshot.selectionOrigin = from_udp_reply
-    ? DecodedMessageReaction::SelectionOrigin::Udp
-    : (m_bDoubleClicked ? DecodedMessageReaction::SelectionOrigin::Manual
+  snapshot.selectionOrigin = selection_origin != DecodedMessageReaction::SelectionOrigin::None
+    ? selection_origin
+    : (m_bDoubleClicked ? DecodedMessageReaction::SelectionOrigin::ManualLeftPane
                         : DecodedMessageReaction::SelectionOrigin::None);
   snapshot.modifiers.shift = modifiers.testFlag(Qt::ShiftModifier);
   snapshot.modifiers.ctrl = modifiers.testFlag(Qt::ControlModifier);
@@ -8507,9 +8520,9 @@ void MainWindow::refreshQsoPane(DecodedText const& message)
 }
 
 void MainWindow::processMessage(DecodedText const& message, Qt::KeyboardModifiers modifiers,
-                                bool from_udp_reply)
+                                DecodedMessageReaction::SelectionOrigin selection_origin)
 {
-  auto const snapshot = qsoReactionSnapshot(modifiers, from_udp_reply);
+  auto const snapshot = qsoReactionSnapshot(modifiers, selection_origin);
   applyQsoReactionPlan(DecodedMessageReaction::planProcessMessage(message, snapshot), message);
 }
 
@@ -12554,7 +12567,7 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
     }
   DecodedText message {message_line};
   Qt::KeyboardModifiers kbmod {modifiers << 24};
-  processMessage (message, kbmod, /*from_udp_reply=*/true);
+  processMessage (message, kbmod, DecodedMessageReaction::SelectionOrigin::Udp);
   tx_watchdog (false);
   QApplication::alert (this);
 }
@@ -14534,8 +14547,7 @@ void MainWindow::doubleClickOnFoxInProgress(QString const& houndLine, QString co
 
 void MainWindow::foxQueueTopCallCommand()
 {
-  m_decodedText2 = true;
-  if(SpecOp::FOX==m_specOp && m_decodedText2 && m_houndQueue.count() < MAX_HOUNDS_IN_QUEUE)
+  if(SpecOp::FOX==m_specOp && m_houndQueue.count() < MAX_HOUNDS_IN_QUEUE)
     {
 
       QTextCursor cursor = ui->decodedTextBrowser->textCursor();

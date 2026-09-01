@@ -140,6 +140,7 @@ namespace DecodedMessageReaction
 {
   enum class ContestHint;
   enum class ReactionDisposition;
+  enum class SelectionOrigin;
   enum class WaitDecodeSource;
   struct QsoReactionEffect;
   struct QsoReactionPlan;
@@ -1080,7 +1081,6 @@ private:
   bool    m_dataAvailable;
   bool    m_bDecoded;
   bool    m_noSuffix;
-  bool    m_decodedText2;
   bool    m_sentFirst73;
   bool	  m_tci_mod_active;
   bool    m_tci;
@@ -1446,11 +1446,17 @@ private:
                DecodeOperatingContext const& context);
   void displayDialFrequency ();
   void transmitDisplay (bool);
-  void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier,
-                      bool from_udp_reply = false);
+  void handleDecodeSelection(QString const& line, QString const& word,
+                             Qt::KeyboardModifiers modifiers,
+                             DecodedMessageReaction::SelectionOrigin selection_origin);
+  void processMessage(DecodedText const& message, Qt::KeyboardModifiers modifiers,
+                      DecodedMessageReaction::SelectionOrigin selection_origin);
   void processSyntheticMessage(DecodedText const& message);
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
-    Qt::KeyboardModifiers modifiers = Qt::NoModifier, bool from_udp_reply = false) const;
+    Qt::KeyboardModifiers modifiers = Qt::NoModifier) const;
+  DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
+    Qt::KeyboardModifiers modifiers,
+    DecodedMessageReaction::SelectionOrigin selection_origin) const;
   void applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
                             DecodedText const& message, bool * block_right_display = nullptr);
   void applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,

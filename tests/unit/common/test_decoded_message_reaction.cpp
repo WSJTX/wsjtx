@@ -217,7 +217,7 @@ private slots:
     context.transceiverOnline = true;
     context.nominalFrequency = 50260000;
     context.nominalQsyAllowed = false;
-    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Manual;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::ManualLeftPane;
     DecodedText message {"060522 -10  0.3 0815 &  CQ 260 W1AW FN31"};
 
     auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
@@ -298,7 +298,7 @@ private slots:
     // explicit operator override and must keep working even mid-transmission.
     auto context = baseContext();
     context.doubleClicked = true;
-    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Manual;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::ManualLeftPane;
     context.transmittingSignoff = true;
     DecodedText message {"0605 -10  0.3 0815 ~  K1ABC W1AW RR73"};
 

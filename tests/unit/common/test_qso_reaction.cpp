@@ -218,7 +218,7 @@ private slots:
   {
     auto snapshot = baseSnapshot();
     snapshot.doubleClicked = true;
-    snapshot.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Manual;
+    snapshot.selectionOrigin = DecodedMessageReaction::SelectionOrigin::ManualLeftPane;
     snapshot.quickCall = true;
     snapshot.transmitting = true;
 
@@ -446,7 +446,7 @@ private slots:
     QTest::addColumn<int>("origin");
     QTest::addColumn<bool>("transmittingSignoff");
     QTest::addColumn<bool>("reacts");
-    QTest::newRow("manual") << int(DecodedMessageReaction::SelectionOrigin::Manual) << true << true;
+    QTest::newRow("manual") << int(DecodedMessageReaction::SelectionOrigin::ManualLeftPane) << true << true;
     QTest::newRow("synthetic") << int(DecodedMessageReaction::SelectionOrigin::Synthetic) << true << true;
     QTest::newRow("udp-guard") << int(DecodedMessageReaction::SelectionOrigin::Udp) << true << false;
   }
@@ -661,7 +661,40 @@ private slots:
     int const generate = effectIndex(plan, Effect::Kind::GenerateStandardMessages, lookup + 1);
     QVERIFY(log >= 0 && select > log && check > select && progress > check
             && lookup > progress && generate > lookup);
-    QCOMPARE(effectCount(plan, Effect::Kind::RefreshQsoPaneIfChanged), 1);
+  }
+
+  void qsoPaneRefreshFollowsSelectionOrigin_data()
+  {
+    QTest::addColumn<int>("origin");
+    QTest::addColumn<bool>("expectedRefresh");
+
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    QTest::newRow("automatic") << int(Origin::None) << true;
+    QTest::newRow("manual-left-pane") << int(Origin::ManualLeftPane) << true;
+    QTest::newRow("manual-right-pane") << int(Origin::ManualRightPane) << false;
+    QTest::newRow("synthetic") << int(Origin::Synthetic) << true;
+    QTest::newRow("udp") << int(Origin::Udp) << true;
+  }
+
+  void qsoPaneRefreshFollowsSelectionOrigin()
+  {
+    QFETCH(int, origin);
+    QFETCH(bool, expectedRefresh);
+
+    auto snapshot = baseSnapshot();
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.loggingEnabled = true;
+    snapshot.selectionOrigin = static_cast<DecodedMessageReaction::SelectionOrigin>(origin);
+
+    auto const plan = DecodedMessageReaction::planProcessMessage(
+      decode("K1ABC W1AW 73"), snapshot);
+
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QCOMPARE(finalState(plan, snapshot).progress, QsoProgress::Signoff);
+    QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQso), 1);
+    QCOMPARE(effectCount(plan, Effect::Kind::GenerateStandardMessages), 1);
+    QCOMPARE(effectCount(plan, Effect::Kind::RefreshQsoPaneIfChanged),
+             expectedRefresh ? 1 : 0);
   }
 
   void earlyTxDecodeEffectsPrecedeRejection()

@@ -327,7 +327,9 @@ namespace
     }
 
     QString const cleanMessage = message.clean_string().trimmed();
-    appendEffect(plan, QsoReactionEffect::Kind::RefreshQsoPaneIfChanged);
+    if (snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::ManualRightPane) {
+      appendEffect(plan, QsoReactionEffect::Kind::RefreshQsoPaneIfChanged);
+    }
 
     if (Radio::is_callsign(analysis.hisCall)
         && (analysis.hisBaseCall != analysis.qsoPartnerBaseCall
