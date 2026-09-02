@@ -1,8 +1,10 @@
 #include <QApplication>
 #include <QMouseEvent>
+#include <QScrollBar>
 #include <QTest>
 #include <QTextBlock>
 #include <QTextCursor>
+#include <QToolButton>
 
 #include "commons.h"
 #include "widgets/displaytext.h"
@@ -57,6 +59,20 @@ private:
                     Qt::LeftButton, modifiers);
     sendMouseEvent (display, QEvent::MouseButtonRelease, position, Qt::LeftButton,
                     Qt::NoButton, modifiers);
+  }
+
+  static void populateForScrolling (DisplayText& display, int count = 80)
+  {
+    for (int i = 0; i < count; ++i)
+      {
+        display.insertText (QString {"%1 decode"}.arg (i, 3, 10, QLatin1Char {'0'}));
+      }
+    QApplication::processEvents ();
+  }
+
+  static QString topVisibleLine (DisplayText const& display)
+  {
+    return display.cursorForPosition (QPoint {1, 1}).block ().text ();
   }
 
 private slots:
@@ -237,6 +253,144 @@ private slots:
 
     QCOMPARE (selected_line, QString {"K9XYZ replacement target"});
     QCOMPARE (selected_word, QString {"K9XYZ"});
+  }
+
+  void stickyScrollPreservesParkedContent ()
+  {
+    DisplayText display;
+    display.set_configuration (nullptr);
+    display.resize (360, 140);
+    display.show ();
+    populateForScrolling (display);
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+    QCOMPARE (scroll_bar->value (), scroll_bar->maximum ());
+
+    scroll_bar->triggerAction (QAbstractSlider::SliderPageStepSub);
+    QApplication::processEvents ();
+    QVERIFY (scroll_bar->value () < scroll_bar->maximum ());
+    QVERIFY (return_button->isVisible ());
+    auto const parked_line = topVisibleLine (display);
+
+    display.insertText ("new live decode");
+    QApplication::processEvents ();
+
+    QCOMPARE (topVisibleLine (display), parked_line);
+    QVERIFY (return_button->isVisible ());
+  }
+
+  void formerLivePositionDoesNotResumeFollowing ()
+  {
+    DisplayText display;
+    display.set_configuration (nullptr);
+    display.resize (360, 140);
+    display.show ();
+    populateForScrolling (display);
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+    auto const former_live_position = scroll_bar->maximum ();
+
+    scroll_bar->triggerAction (QAbstractSlider::SliderPageStepSub);
+    display.insertText ("first newer decode");
+    QApplication::processEvents ();
+    QVERIFY (scroll_bar->maximum () > former_live_position);
+
+    while (scroll_bar->value () < former_live_position)
+      {
+        scroll_bar->triggerAction (QAbstractSlider::SliderSingleStepAdd);
+      }
+    QCOMPARE (scroll_bar->value (), former_live_position);
+    QVERIFY (return_button->isVisible ());
+    auto const parked_line = topVisibleLine (display);
+
+    display.insertText ("second newer decode");
+    QApplication::processEvents ();
+
+    QCOMPARE (topVisibleLine (display), parked_line);
+    QVERIFY (scroll_bar->value () < scroll_bar->maximum ());
+  }
+
+  void returnControlIsAccessibleAndViewportBounded ()
+  {
+    DisplayText display;
+    display.set_configuration (nullptr);
+    display.resize (360, 140);
+    display.show ();
+    populateForScrolling (display);
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+    scroll_bar->triggerAction (QAbstractSlider::SliderPageStepSub);
+    QApplication::processEvents ();
+
+    auto large_font = return_button->font ();
+    large_font.setPointSize (30);
+    return_button->setFont (large_font);
+    display.resize (120, 80);
+    QApplication::processEvents ();
+
+    QVERIFY (return_button->isVisible ());
+    QCOMPARE (return_button->focusPolicy (), Qt::StrongFocus);
+    QVERIFY (return_button->styleSheet ().isEmpty ());
+    QVERIFY (display.viewport ()->rect ().contains (return_button->geometry ()));
+
+    return_button->setFocus (Qt::TabFocusReason);
+    QTRY_VERIFY (return_button->hasFocus ());
+    QTest::keyClick (return_button, Qt::Key_Space);
+
+    QCOMPARE (scroll_bar->value (), scroll_bar->maximum ());
+    QVERIFY (!return_button->isVisible ());
+  }
+
+  void unconfiguredDisplayKeepsOriginalFollowBehavior ()
+  {
+    DisplayText display;
+    display.resize (360, 140);
+    display.show ();
+    populateForScrolling (display);
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+    scroll_bar->triggerAction (QAbstractSlider::SliderPageStepSub);
+    QApplication::processEvents ();
+    QVERIFY (scroll_bar->value () < scroll_bar->maximum ());
+
+    display.insertText ("queue update");
+    QApplication::processEvents ();
+
+    QCOMPARE (display.textCursor ().block ().text (), QString {"queue update"});
+    QVERIFY (display.viewport ()->rect ().intersects (display.cursorRect (display.textCursor ())));
+    QVERIFY (!return_button->isVisible ());
+  }
+
+  void fontChangePreservesParkedContent ()
+  {
+    DisplayText display;
+    display.set_configuration (nullptr);
+    display.resize (360, 140);
+    display.show ();
+    populateForScrolling (display);
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+    scroll_bar->triggerAction (QAbstractSlider::SliderPageStepSub);
+    QApplication::processEvents ();
+    auto const parked_line = topVisibleLine (display);
+
+    auto larger_font = display.contentFont ();
+    larger_font.setPointSize (larger_font.pointSize () + 2);
+    display.setContentFont (larger_font);
+    QApplication::processEvents ();
+
+    QCOMPARE (topVisibleLine (display), parked_line);
+    QVERIFY (return_button->isVisible ());
   }
 };
 
