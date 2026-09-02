@@ -170,6 +170,46 @@ private slots:
     QCOMPARE (decoded.message, message);
     QCOMPARE (decoded.valid, valid);
   }
+
+  void wrapMessage_data ()
+  {
+    QTest::addColumn<QString> ("text");
+    QTest::addColumn<QString> ("expected");
+
+    QTest::newRow ("short-unchanged") << QString {"HELLO"} << QString {"HELLO"};
+    QTest::newRow ("exactly-40-unchanged")
+        << QString (40, QLatin1Char {'A'}) << QString (40, QLatin1Char {'A'});
+    QTest::newRow ("joes-example")
+        << QString {"MAYBE CLAUDE COULD HELP US MAKE THE 3 MIN TRANSITION SEAMLESS"}
+        << QString {"MAYBE CLAUDE COULD HELP US MAKE THE 3\n  MIN TRANSITION SEAMLESS"};
+    QTest::newRow ("break-at-boundary")
+        << (QString (39, QLatin1Char {'A'}) + QString {" B"})
+        << (QString (39, QLatin1Char {'A'}) + QString {"\n  B"});
+    QTest::newRow ("hard-break-no-blank")
+        << QString (50, QLatin1Char {'A'})
+        << (QString (40, QLatin1Char {'A'}) + QString {"\n  "}
+            + QString (10, QLatin1Char {'A'}));
+    QTest::newRow ("multiple-wrap-points")
+        << QString {"AAAAAAAAAA BBBBBBBBBB CCCCCCCCCC DDDDDDDDDD EEEEEEEEEE FFFFFFFFFF GGGGGGGGGG"}
+        << QString {"AAAAAAAAAA BBBBBBBBBB CCCCCCCCCC\n  DDDDDDDDDD EEEEEEEEEE FFFFFFFFFF\n  GGGGGGGGGG"};
+  }
+
+  void wrapMessage ()
+  {
+    QFETCH (QString, text);
+    QFETCH (QString, expected);
+
+    QCOMPARE (Jtty::wrapMessage (text), expected);
+  }
+
+  void decodeLineOrderUsesStartTimeThenSlotId ()
+  {
+    QVector<float> const startTimes {5.0f, 1.0f, 3.0f, 3.0f};
+    QVector<int> const slotIds {9, 4, 7, 2};
+    QVector<int> const expected {1, 3, 2, 0};
+
+    QCOMPARE (Jtty::decodeLineOrder (startTimes, slotIds), expected);
+  }
 };
 
 QTEST_MAIN (TestJttyMessages)
