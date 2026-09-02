@@ -15,6 +15,7 @@ module wideband_sync
       real :: ccfmax
       real :: xdt
       real :: pol
+      real :: combine_pol
       integer :: ipol
       integer :: iflip
       logical :: birdie
@@ -23,6 +24,7 @@ module wideband_sync
    integer, parameter :: MAX_CANDIDATES = 50
    real(real32), parameter :: SNR1_THRESHOLD = 4.5
    type(sync_dat), allocatable :: sync(:)  !NFFT
+   type(sync_dat), allocatable :: q65_generalized_sync(:)
    integer nkhz_center
 
 contains
@@ -60,7 +62,7 @@ contains
       integer, allocatable :: indx(:)
       logical skip
 
-      call wb_sync(ss, savg, xpol, jz, nfa, nfb)          !Output to sync() array
+      call wb_sync(ss, savg, xpol, nts_q65.ne.0, jz, nfa, nfb) !Output to sync() array
 
       tstep = 2048.0/11025.0        !0.185760 s: 0.5*tsym_jt65, 0.3096*tsym_q65
       df3 = real(nrate_active)/real(nfft_active)
@@ -143,10 +145,12 @@ contains
       return
    end subroutine get_candidates
 
-   subroutine wb_sync(ss, savg, xpol, jz, nfa, nfb)
+   subroutine wb_sync(ss, savg, xpol, q65_enabled, jz, nfa, nfb)
       use iso_c_binding
+      use iso_fortran_env, only: real64
       use debug_log
       use indexx_mod
+      use map65_polarization_score_mod, only: generalized_polarization_score,polarization_matrix
       use txpol_mod
       use trimlist_mod
       use pctile_mod
@@ -157,7 +161,7 @@ contains
       !==== Dummy arguments =====================================================
       real,    intent(in)    :: ss(4,322,nfft_active)
       real,    intent(in)    :: savg(4,nfft_active)
-      logical, intent(in)    :: xpol
+      logical, intent(in)    :: xpol,q65_enabled
       integer, intent(in)    :: jz, nfa, nfb
 
       integer, parameter :: LAGMAX = 30
@@ -166,10 +170,12 @@ contains
       integer, parameter :: JT65_MIN_ROWS = JT65_SYNC_ROWS - 2
       real(c_float) :: savg_med(4)
       real ccf4(4), ccf4best(4), a(3)
-      real base, ccf, ccfmax, df3, fac, flip, poldeg, row_scale, tstep
+      real base, ccf, ccfmax, combine_poldeg, df3, fac, flip, poldeg, row_scale, tstep
+      real(real64) :: combine_angle,g00,g01,g11,n00,n01,n11,physical_angle
+      real(real64) :: projections(4),whitened_score
       integer i, ia, ib, ipolbest, j, k, lag, lagbest, nrows
       integer npol, ipol
-      logical first
+      logical first,generalized_available,score_valid
       integer isync(22)
       integer jsync0(63), jsync1(63)
       integer q65_available(22,0:LAGMAX), q65_row_count(0:LAGMAX)
@@ -239,6 +245,17 @@ contains
       do i = 1, npol
          call pctile(savg(i, ia:ib), ib - ia + 1, 50, savg_med(i))
       enddo
+      n00=real(savg_med(1),real64)/real(jz,real64)
+      n11=n00
+      n01=0.0_real64
+      generalized_available=.false.
+      if (xpol .and. q65_enabled) then
+         n11=real(savg_med(3),real64)/real(jz,real64)
+         call pctile(0.5*(savg(2,ia:ib)-savg(4,ia:ib)),ib-ia+1,50,base)
+         n01=real(base,real64)/real(jz,real64)
+         call generalized_polarization_score(0.0_real64,0.0_real64,0.0_real64, &
+              n00,n11,n01,whitened_score,physical_angle,combine_angle,generalized_available)
+      endif
 !  do i=ia,ib
 !     write(14,3014) 0.001*(i-1)*df3,savg(1:npol,i)
 !3014 format(5f10.3)
@@ -250,6 +267,15 @@ contains
 
       do i = ia, ib
          ccfmax = 0.
+         poldeg = 0.
+         combine_poldeg = 0.
+         q65_generalized_sync(i)%ccfmax=0.
+         q65_generalized_sync(i)%xdt=0.
+         q65_generalized_sync(i)%pol=0.
+         q65_generalized_sync(i)%combine_pol=0.
+         q65_generalized_sync(i)%ipol=1
+         q65_generalized_sync(i)%iflip=0
+         q65_generalized_sync(i)%birdie=.false.
          do lag = 0, LAGMAX
 
             nrows = q65_row_count(lag)
@@ -271,6 +297,20 @@ contains
                ccf = maxval(ccf4)
                ip = maxloc(ccf4)
                ipol = ip(1)
+               if (generalized_available) then
+                  projections=real(ccf4,real64)
+                  call polarization_matrix(projections,g00,g11,g01)
+                  call generalized_polarization_score(g00,g11,g01,n00,n11,n01, &
+                       whitened_score,physical_angle,combine_angle,score_valid)
+                  if (score_valid .and. whitened_score > &
+                       real(q65_generalized_sync(i)%ccfmax,real64)) then
+                     q65_generalized_sync(i)%ccfmax=real(whitened_score)
+                     q65_generalized_sync(i)%xdt=lag*tstep-1.0
+                     q65_generalized_sync(i)%pol=real(physical_angle)
+                     q65_generalized_sync(i)%combine_pol=real(combine_angle)
+                     q65_generalized_sync(i)%ipol=ipol
+                  endif
+               endif
                if (ccf .gt. ccfmax) then
                   ipolbest = ipol
                   lagbest = lag
@@ -334,18 +374,24 @@ contains
 
          enddo  ! lag
 
-         poldeg = 0.
          if (xpol .and. ccfmax .ge. SNR1_THRESHOLD) then
             call polfit(ccf4best, 4, a)
             poldeg = a(3)
          endif
+         combine_poldeg=poldeg
         sync(i)%ccfmax = ccfmax
         sync(i)%xdt    = lagbest*tstep - 1.0
         sync(i)%pol    = poldeg
+        sync(i)%combine_pol = combine_poldeg
         sync(i)%ipol   = ipolbest
         sync(i)%iflip  = int(flip)
         sync(i)%birdie = .false.
         if (ccfmax/(savg(ipolbest, i)/savg_med(ipolbest)) .lt. 3.0) sync(i)%birdie = .true.
+        if (generalized_available) then
+           ipol=q65_generalized_sync(i)%ipol
+           if (q65_generalized_sync(i)%ccfmax/(savg(ipol,i)/savg_med(ipol)) .lt. 3.0) &
+                q65_generalized_sync(i)%birdie=.true.
+        endif
 
         ! --- JT65 wideband probe (new) ---
 !        freq_hz = 0.001 * (i - 1) * df3     ! convert FFT bin index to kHz
@@ -361,6 +407,13 @@ contains
 
       call pctile(sync(ia:ib)%ccfmax, ib - ia + 1, 50, base)
       sync(ia:ib)%ccfmax = sync(ia:ib)%ccfmax/base
+      if (generalized_available) then
+         call pctile(q65_generalized_sync(ia:ib)%ccfmax,ib-ia+1,50,base)
+         if (base > tiny(base)) then
+            q65_generalized_sync(ia:ib)%ccfmax=q65_generalized_sync(ia:ib)%ccfmax/base
+            sync(ia:ib)=q65_generalized_sync(ia:ib)
+         endif
+      endif
 
       ! A local-peak "collapse to single survivor" pass used to run here,
       ! blanking a wide (~450 Hz) same-type swath around whatever bin its
@@ -397,6 +450,8 @@ contains
       use npar_ptrs_mod, only: nfft_active
       implicit none
       if (.not. allocated(sync)) allocate (sync(nfft_active))
+      if (.not. allocated(q65_generalized_sync)) &
+           allocate (q65_generalized_sync(nfft_active))
    end subroutine init_wideband_sync
 
 end module wideband_sync

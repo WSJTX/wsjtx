@@ -6,6 +6,7 @@ set (libm65_FSRCS
   extract_shared_mod.f90
   gran_interface.f90
   m65_mod.f90
+  map65_polarization_score.f90
   four2a_legacy_wrap.f90
   npar_ptrs_mod.f90
   pfx_mod.f90
@@ -233,6 +234,12 @@ if (WSJT_ENABLE_TESTS)
   target_link_libraries (test_map65_wideband_sync_rows PRIVATE m65impl)
   add_test (NAME test_map65_wideband_sync_rows COMMAND test_map65_wideband_sync_rows)
   set_tests_properties (test_map65_wideband_sync_rows PROPERTIES TIMEOUT 180)
+
+  add_executable (test_map65_polarization_score
+    ${CMAKE_SOURCE_DIR}/tests/unit/q65/test_map65_polarization_score.f90)
+  target_include_directories (test_map65_polarization_score PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_polarization_score PRIVATE m65impl)
+  add_test (NAME test_map65_polarization_score COMMAND test_map65_polarization_score)
 
   add_executable (test_ccf65_correlator
     ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_ccf65_correlator.f90)

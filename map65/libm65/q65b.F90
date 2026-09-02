@@ -95,7 +95,7 @@
       integer   :: nfa, nfb
       integer   :: k0_click, mousedf_gate
       real      :: df, df3, f_ipk, f_mouse, fac
-      real      :: freq1_00, frx, fsked, poldeg, r, snr1
+      real      :: combine_poldeg, freq1_00, frx, fsked, poldeg, r, snr1
       real(real64)    :: freq0, freq1
       character(len=12) :: mycall, hiscall
       character(len=4)  :: grid4
@@ -249,7 +249,8 @@
          ! manual clicks in xpol mode -- not exercised by current testing,
          ! but worth revisiting if xpol manual decode misbehaves similarly.
          poldeg = sync(ipk)%pol
-         cz(0:MAXFFT2 - 1) = cos(poldeg/RAD)*cx + sin(poldeg/RAD)*cy
+         combine_poldeg = sync(ipk)%combine_pol
+         cz(0:MAXFFT2 - 1) = cos(combine_poldeg/RAD)*cx + sin(combine_poldeg/RAD)*cy
       else
          cz(0:MAXFFT2 - 1) = cx
       endif
