@@ -10,6 +10,7 @@
 #include <QTimer>
 
 class QAction;
+class QResizeEvent;
 class QToolButton;
 class Configuration;
 class LogBook;
@@ -21,12 +22,7 @@ class DisplayText
   Q_OBJECT
 public:
   explicit DisplayText(QWidget *parent = nullptr);
-  void set_configuration (Configuration const * configuration, bool high_volume = false)
-  {
-    disconnect (vertical_scroll_connection_);
-    m_config = configuration;
-    high_volume_ = high_volume;
-  }
+  void set_configuration (Configuration const * configuration, bool high_volume = false);
   void setContentFont (QFont const&);
   QFont contentFont () const {return char_font_;}
   void insertLineSpacer(QString const&);
@@ -52,8 +48,7 @@ public:
                           , QString const& call1 = QString {}, QString const& call2 = QString {}, QTextCursor::MoveOperation location=QTextCursor::End);
   Q_SLOT void clear ();
   Q_SLOT void erase ();
-  // Jump back to the newest entry and resume following it.
-  Q_SLOT void scrollToBottom ();
+  Q_SLOT void scrollToLiveActivity ();
   Q_SLOT void highlight_callsign (QString const& callsign, QColor const& bg, QColor const& fg, bool last_period_only);
 
 private:
@@ -65,12 +60,10 @@ private:
   void mouseDoubleClickEvent (QMouseEvent *) override;
   void resizeEvent (QResizeEvent *) override;
 
+  bool decodesFromTop () const;
   void extend_vertical_scrollbar (int min, int max);
-
-  // Return true while the view is still tracking new entries, i.e. the user has
-  // not scrolled away from the position we last scrolled to.
-  bool following () const;
-  void updateScrollToBottomButton ();
+  void userScrolledTo (int position);
+  void updateReturnToLiveButton ();
 
   Configuration const * m_config;
   bool m_bPrincipalPrefix;
@@ -96,19 +89,12 @@ private:
 
   QHash<QString, QPair<QColor, QColor>> highlighted_calls_;
   bool high_volume_;
+  bool sticky_scroll_enabled_;
+  bool following_live_activity_;
   QMetaObject::Connection vertical_scroll_connection_;
   long long modified_vertical_scrollbar_max_;
-  QToolButton * scroll_to_bottom_button_;
-  int last_auto_scroll_position_;
+  QToolButton * return_to_live_button_;
+  int live_scroll_position_;
 };
-
-inline void DisplayText::clear ()
-{
-  if (click_state_ == ClickState::Captured)
-    {
-      click_state_ = ClickState::Canceled;
-    }
-  QTextEdit::clear ();
-}
 
 #endif // DISPLAYTEXT_H
