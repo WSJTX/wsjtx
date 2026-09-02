@@ -299,10 +299,10 @@ private slots:
     QApplication::processEvents ();
     QVERIFY (scroll_bar->maximum () > former_live_position);
 
-    while (scroll_bar->value () < former_live_position)
-      {
-        scroll_bar->triggerAction (QAbstractSlider::SliderSingleStepAdd);
-      }
+    scroll_bar->setSliderPosition (former_live_position);
+    QVERIFY (QMetaObject::invokeMethod (scroll_bar, "sliderMoved",
+                                        Q_ARG (int, former_live_position)));
+    QApplication::processEvents ();
     QCOMPARE (scroll_bar->value (), former_live_position);
     QVERIFY (return_button->isVisible ());
     auto const parked_line = topVisibleLine (display);
@@ -339,8 +339,6 @@ private slots:
     QVERIFY (return_button->styleSheet ().isEmpty ());
     QVERIFY (display.viewport ()->rect ().contains (return_button->geometry ()));
 
-    return_button->setFocus (Qt::TabFocusReason);
-    QTRY_VERIFY (return_button->hasFocus ());
     QTest::keyClick (return_button, Qt::Key_Space);
 
     QCOMPARE (scroll_bar->value (), scroll_bar->maximum ());

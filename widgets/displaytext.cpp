@@ -218,7 +218,7 @@ void DisplayText::setContentFont(QFont const& font)
   int anchor_offset {0};
   if (preserve_view)
     {
-      view_anchor = cursorForPosition (QPoint {0, 0});
+      view_anchor = cursorForPosition (QPoint {1, 1});
       anchor_offset = cursorRect (view_anchor).top ();
     }
 
@@ -346,7 +346,7 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
   int anchor_offset {0};
   if (preserve_view)
     {
-      view_anchor = cursorForPosition (QPoint {0, 0});
+      view_anchor = cursorForPosition (QPoint {1, 1});
       anchor_offset = cursorRect (view_anchor).top ();
     }
 
