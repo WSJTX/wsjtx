@@ -117,6 +117,9 @@ private slots:
     QTest::newRow ("real-date-wraps-past-midnight")
         << QDateTime {QDate {2026, 8, 28}, QTime {23, 59, 58}, Qt::UTC}
         << qint32 {235958} << 5.0f << QString {"000003"};
+    QTest::newRow ("subsecond-offset-preserves-current-second")
+        << QDateTime {QDate {2026, 8, 28}, QTime {19, 45, 7}, Qt::UTC}
+        << qint32 {194507} << 0.6f << QString {"194507"};
     QTest::newRow ("dummy-date-falls-back-to-raw-digits")
         << QDateTime {} << qint32 {2} << 0.0f << QString {"000002"};
     QTest::newRow ("dummy-date-fallback-still-anchors-tsync")

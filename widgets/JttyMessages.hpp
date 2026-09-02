@@ -94,7 +94,7 @@ namespace Jtty
       if (!t.isValid ()) return {};
       anchor = QDateTime {QDate {2000, 1, 1}, t, Qt::UTC};
     }
-    return anchor.addSecs (qRound (tsyncSeconds)).toUTC ().toString ("hhmmss");
+    return anchor.addMSecs (qRound64 (1000.0 * tsyncSeconds)).toUTC ().toString ("hhmmss");
   }
 
   inline ParsedDecodeLine parseDecodeLine (QString const& line)
