@@ -104,9 +104,7 @@ DisplayText::DisplayText(QWidget *parent)
   connect (verticalScrollBar (), &QScrollBar::valueChanged, this, [this] (int) {
       updateReturnToLiveButton ();
     });
-  connect (verticalScrollBar (), &QScrollBar::rangeChanged, this, [this] (int, int) {
-      updateReturnToLiveButton ();
-    });
+  connect (verticalScrollBar (), &QScrollBar::rangeChanged, this, &DisplayText::scrollRangeChanged);
 }
 
 void DisplayText::set_configuration (Configuration const * configuration, bool high_volume)
@@ -150,6 +148,26 @@ void DisplayText::userScrolledTo (int position)
       following_live_activity_ = position == live_scroll_position_;
       updateReturnToLiveButton ();
     }
+}
+
+void DisplayText::scrollRangeChanged (int minimum, int maximum)
+{
+  if (sticky_scroll_enabled_)
+    {
+      if (decodesFromTop ())
+        {
+          live_scroll_position_ = qBound (minimum, live_scroll_position_, maximum);
+        }
+      else
+        {
+          live_scroll_position_ = maximum;
+          if (following_live_activity_)
+            {
+              verticalScrollBar ()->setValue (live_scroll_position_);
+            }
+        }
+    }
+  updateReturnToLiveButton ();
 }
 
 void DisplayText::scrollToLiveActivity ()

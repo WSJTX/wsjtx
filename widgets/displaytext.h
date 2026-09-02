@@ -62,6 +62,7 @@ private:
 
   bool decodesFromTop () const;
   void extend_vertical_scrollbar (int min, int max);
+  void scrollRangeChanged (int minimum, int maximum);
   void userScrolledTo (int position);
   void updateReturnToLiveButton ();
 
