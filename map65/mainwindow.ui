@@ -1981,7 +1981,7 @@ p, li { white-space: pre-wrap; }
   <customwidget>
    <class>DisplayText</class>
    <extends>QTextBrowser</extends>
-   <header>widgets/displaytext.h</header>
+   <header>displaytext.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
