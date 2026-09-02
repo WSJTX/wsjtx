@@ -86,22 +86,15 @@ DisplayText::DisplayText(QWidget *parent)
     });
   connect (erase_action_, &QAction::triggered, this, &DisplayText::erase);
 
-  // floating "jump to latest" button in the bottom-right corner of the text
-  // area, shown only while the user has scrolled away from the newest entry.
-  // It is parented to the viewport so its placement never depends on the
-  // vertical scroll bar's (unreliable) geometry.
+  return_to_live_button_->setObjectName (QStringLiteral ("returnToLiveActivityButton"));
   return_to_live_button_->setText (tr ("Return to live activity"));
   return_to_live_button_->setToolButtonStyle (Qt::ToolButtonTextOnly);
   return_to_live_button_->setAutoRaise (false);
-  // bright red chip with white text so it is unmistakable against the decodes
-  return_to_live_button_->setStyleSheet (
-      QStringLiteral ("QToolButton { background: #d00000; color: #ffffff;"
-                      " border: 1px solid #8b0000; border-radius: 3px;"
-                      " font-weight: bold; padding: 1px 8px; }"
-                      "QToolButton:hover { background: #ef2b2b; }"));
-  return_to_live_button_->setFocusPolicy (Qt::NoFocus);
+  return_to_live_button_->setFocusPolicy (Qt::StrongFocus);
   return_to_live_button_->setCursor (Qt::ArrowCursor);
-  return_to_live_button_->setToolTip (tr ("Scroll to the latest entry"));
+  return_to_live_button_->setToolTip (tr ("Return to the live activity position"));
+  return_to_live_button_->setAccessibleDescription (
+      tr ("Live activity is paused while earlier entries are visible."));
   return_to_live_button_->hide ();
   connect (return_to_live_button_, &QToolButton::clicked, this, &DisplayText::scrollToLiveActivity);
   connect (verticalScrollBar (), &QScrollBar::sliderMoved, this, &DisplayText::userScrolledTo);
@@ -172,21 +165,23 @@ void DisplayText::scrollToLiveActivity ()
 void DisplayText::updateReturnToLiveButton ()
 {
   auto const * vertical_scroll_bar = verticalScrollBar ();
-  // park the button in the bottom-right corner of the viewport, sized to fit
-  // its label so it stays a large, easy target while the scroll bar is dragged
   auto const hint = return_to_live_button_->sizeHint ();
-  auto const button_height = qMax (hint.height (), qMax (20, vertical_scroll_bar->sizeHint ().width ()));
-  auto const button_width = hint.width () + 8;
   auto const margin = 3;
+  auto const available_width = qMax (0, viewport ()->width () - 2 * margin);
+  auto const available_height = qMax (0, viewport ()->height () - 2 * margin);
+  auto const button_height = qMin (qMax (hint.height (), qMax (20, vertical_scroll_bar->sizeHint ().width ()))
+                                   , available_height);
+  auto const button_width = qMin (hint.width () + 8, available_width);
   return_to_live_button_->resize (button_width, button_height);
-  return_to_live_button_->move (viewport ()->width () - button_width - margin
-                                , viewport ()->height () - button_height - margin);
+  return_to_live_button_->move (qMax (margin, viewport ()->width () - button_width - margin)
+                                , qMax (margin, viewport ()->height () - button_height - margin));
   auto const wanted = sticky_scroll_enabled_
     && vertical_scroll_bar->maximum () > vertical_scroll_bar->minimum ()
-    && !following_live_activity_;
+    && !following_live_activity_
+    && button_width > 0
+    && button_height > 0;
   if (wanted)
     {
-      // keep the button above the decode text after each new insertion
       return_to_live_button_->raise ();
     }
   return_to_live_button_->setVisible (wanted);
