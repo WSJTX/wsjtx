@@ -1375,6 +1375,8 @@ private:
   QVector<JttyQsoLine> m_jttyQsoLines;
   QTextBlock m_jttyQsoGroupStart;
   QTextBlock m_jttyQsoGroupEnd;
+  bool m_jttyQsoRenderedLowerCase {false};
+  bool m_jttyQsoRenderedIncludeTime {false};
   struct JttyDecodeLine
   {
     int slotId {0};

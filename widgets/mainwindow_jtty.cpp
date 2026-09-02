@@ -260,7 +260,10 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
       }
   }
 
-  if(qso_new) {
+  bool const qsoDisplayOptionsChanged = !m_jttyQsoLines.isEmpty()
+      && (m_jttyQsoRenderedLowerCase != ui->cbLowerCase->isChecked()
+          || m_jttyQsoRenderedIncludeTime != ui->cbIncludeTime->isChecked());
+  if(qso_new || qsoDisplayOptionsChanged) {
       QString message_qso_freq {boundedLatin1(qso_freq, sizeof qso_freq)};
 
       auto wrappedDisplayFor = [this, &jttyLineTimeUtc] (JttyQsoLine const& line) {
@@ -277,7 +280,8 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
           return display;
       };
 
-      QStringList const newLines = message_qso_freq.split(QChar('\n'), SkipEmptyParts);
+      QStringList const newLines = qso_new
+          ? message_qso_freq.split(QChar('\n'), SkipEmptyParts) : QStringList {};
       bool anyLineChanged = false;
       for (int lineIdx = 0; lineIdx < newLines.size(); ++lineIdx) {
           QString const newLine = newLines.at(lineIdx).trimmed();
@@ -321,7 +325,7 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 #endif
       }
 
-      if (anyLineChanged) {
+      if (anyLineChanged || qsoDisplayOptionsChanged) {
           QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
           if (m_jttyQsoGroupStart.isValid() && m_jttyQsoGroupEnd.isValid()) {
               cursor.setPosition(m_jttyQsoGroupStart.position());
@@ -344,6 +348,8 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
           m_jttyQsoGroupEnd = cursor.block();
           ui->decodedTextBrowser2->setTextCursor(cursor);
       }
+      m_jttyQsoRenderedLowerCase = ui->cbLowerCase->isChecked();
+      m_jttyQsoRenderedIncludeTime = ui->cbIncludeTime->isChecked();
   }
   // Only meaningful to a windowed caller (jttyDecodeAgainAt): whether this
   // snapshot's qso_freq slot table includes a completed message, so a
