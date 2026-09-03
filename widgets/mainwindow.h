@@ -804,7 +804,7 @@ private:
   void startJttyTxWatchdog(int durationMs);
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
-  void sendJttyFunctionKey(int index);
+  bool sendJttyFunctionKey(int index);
   // istart0/istop (sample indices into dec_data.d2) bound the Fortran scan
   // to a window instead of the whole buffer; -1/-1 (the default) means
   // unwindowed, matching the original behavior exactly. Returns true if

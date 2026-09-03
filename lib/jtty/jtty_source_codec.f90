@@ -1,5 +1,5 @@
 module jtty_source_codec
-  use iso_c_binding, only: c_char,c_int8_t,c_int32_t
+  use iso_c_binding, only: c_char,c_int,c_int8_t,c_int32_t
   use packjt77, only: pack28,unpack28
   use packjt77_grammar, only: PACK77_NSEC,PACK77_ARRL_SECTIONS
   implicit none
@@ -41,6 +41,8 @@ module jtty_source_codec
   integer, parameter :: JTTY_LOC_COUNTRY_PREFIX=2,JTTY_LOC_QTH=3,JTTY_LOC_ADMIN_CODE=4
   integer, parameter :: JTTY_PAIR_ZONE_LOC3=0,JTTY_PAIR_CLASS_SECTION=1
   integer, parameter :: JTTY_MISC_CONTROL=0,JTTY_MISC_GRID4=1
+  integer(c_int), parameter :: JTTY_ENCODE_OK=0,JTTY_ENCODE_INVALID_DESCRIPTOR=1
+  integer(c_int), parameter :: JTTY_ENCODE_UNKNOWN_SECTION=2
   integer, parameter :: JTTY_CONTROL_AGN=0,JTTY_CONTROL_CALL=1,JTTY_CONTROL_AGN_CALL=2
   integer, parameter :: JTTY_CONTROL_NR=3,JTTY_CONTROL_AGN_NR=4,JTTY_CONTROL_EXCH=5
   integer, parameter :: JTTY_CONTROL_STATE=6,JTTY_CONTROL_SECTION=7,JTTY_CONTROL_ZONE=8

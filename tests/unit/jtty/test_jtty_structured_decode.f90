@@ -9,7 +9,9 @@ program test_jtty_structured_decode
        JTTY_NUM_SERIAL,JTTY_ATOM_CALL,JTTY_ATOM_EXCH_NUM,JTTY_ATOM_EXCH_LOC, &
        JTTY_ATOM_EXCH_PAIR, &
        JTTY_ATOM_CONTROL,JTTY_ATOM_GRID4,JTTY_LOC_STATE_PROVINCE, &
-       JTTY_PAIR_CLASS_SECTION,JTTY_CONTROL_QSL_TU,JTTY_ROLE_FIELD_ONLY
+       JTTY_PAIR_CLASS_SECTION,JTTY_CONTROL_QSL_TU,JTTY_ROLE_FIELD_ONLY, &
+       JTTY_ENCODE_OK,JTTY_ENCODE_INVALID_DESCRIPTOR, &
+       JTTY_ENCODE_UNKNOWN_SECTION
   implicit none
 
   integer, parameter :: nsps=384
@@ -24,12 +26,13 @@ program test_jtty_structured_decode
        integer, intent(out) :: itone(*)
        integer, intent(out) :: nsym
      end subroutine genjtty_atoms
-     subroutine genjtty_atoms_c(atoms,natoms,itone,nsym) bind(C,name='genjtty_atoms_c')
+     subroutine genjtty_atoms_c(atoms,natoms,itone,nsym,status) bind(C,name='genjtty_atoms_c')
        import :: c_int,jtty_source_atom_c
        type(jtty_source_atom_c), intent(in) :: atoms(*)
        integer(c_int), value, intent(in) :: natoms
        integer(c_int), intent(out) :: itone(*)
        integer(c_int), intent(out) :: nsym
+       integer(c_int), intent(out) :: status
      end subroutine genjtty_atoms_c
   end interface
 
@@ -76,7 +79,7 @@ contains
   subroutine decode_c_adapter_atoms(count)
     integer, intent(inout) :: count
     type(jtty_source_atom_c) :: atoms(6)
-    integer(c_int) :: tones(MAX_FRAMES*frame_symbols),nsymbols
+    integer(c_int) :: tones(MAX_FRAMES*frame_symbols),nsymbols,status
 
     call expect(c_sizeof(atoms(1)).eq.20,'C atom descriptor remains 20 bytes',count)
     call initialize_c_atom(atoms(1),JTTY_ATOM_CALL,JTTY_CALL_CALL,0,0,'K1ABC')
@@ -88,9 +91,10 @@ contains
          3,1,'EMA')
     call initialize_c_atom(atoms(5),JTTY_ATOM_GRID4,0,JTTY_ROLE_FIELD_ONLY,0,'FN42')
     call initialize_c_atom(atoms(6),JTTY_ATOM_CONTROL,JTTY_CONTROL_QSL_TU,0,0,'')
-    call genjtty_atoms_c(atoms,size(atoms),tones,nsymbols)
+    call genjtty_atoms_c(atoms,size(atoms),tones,nsymbols,status)
     call expect(nsymbols.eq.size(atoms)*frame_symbols, &
          'C adapter generates serial/state/FD/grid/control frames',count)
+    call expect(status.eq.JTTY_ENCODE_OK,'C adapter reports successful encoding',count)
     if(nsymbols.le.0) return
 
     call decode_waveform(tones,int(nsymbols))
@@ -108,32 +112,36 @@ contains
   subroutine reject_invalid_c_descriptors(count)
     integer, intent(inout) :: count
     type(jtty_source_atom_c) :: atom(1)
-    integer(c_int) :: tones(frame_symbols),nsymbols
+    integer(c_int) :: tones(frame_symbols),nsymbols,status
 
     call initialize_c_atom(atom(1),JTTY_ATOM_EXCH_LOC,JTTY_LOC_STATE_PROVINCE,1,0,'CA')
     atom(1)%reserved=1
-    call genjtty_atoms_c(atom,1,tones,nsymbols)
+    call genjtty_atoms_c(atom,1,tones,nsymbols,status)
     call expect(nsymbols.eq.0,'C adapter rejects nonzero reserved byte',count)
+    call expect(status.eq.JTTY_ENCODE_INVALID_DESCRIPTOR, &
+         'C adapter identifies invalid descriptor',count)
 
     call initialize_c_atom(atom(1),JTTY_ATOM_CALL,JTTY_CALL_CALL,0,0,'K1ABC')
     atom(1)%text='A'
-    call genjtty_atoms_c(atom,1,tones,nsymbols)
+    call genjtty_atoms_c(atom,1,tones,nsymbols,status)
     call expect(nsymbols.eq.0,'C adapter rejects unterminated text',count)
 
     call initialize_c_atom(atom(1),JTTY_ATOM_EXCH_PAIR,JTTY_PAIR_CLASS_SECTION,0,1,'ZZZ')
-    call genjtty_atoms_c(atom,1,tones,nsymbols)
+    call genjtty_atoms_c(atom,1,tones,nsymbols,status)
     call expect(nsymbols.eq.0,'C adapter rejects unknown Field Day section',count)
+    call expect(status.eq.JTTY_ENCODE_UNKNOWN_SECTION, &
+         'C adapter identifies unknown Field Day section',count)
 
     call initialize_c_atom(atom(1),JTTY_ATOM_EXCH_PAIR,0,0,1,'EMA')
-    call genjtty_atoms_c(atom,1,tones,nsymbols)
+    call genjtty_atoms_c(atom,1,tones,nsymbols,status)
     call expect(nsymbols.eq.0,'C adapter rejects non-CLASS_SECTION pair schema',count)
 
     call initialize_c_atom(atom(1),JTTY_ATOM_GRID4,0,0,0,'SA00')
-    call genjtty_atoms_c(atom,1,tones,nsymbols)
+    call genjtty_atoms_c(atom,1,tones,nsymbols,status)
     call expect(nsymbols.eq.0,'C adapter rejects invalid GRID4',count)
 
     call initialize_c_atom(atom(1),JTTY_ATOM_CONTROL,18,0,0,'')
-    call genjtty_atoms_c(atom,1,tones,nsymbols)
+    call genjtty_atoms_c(atom,1,tones,nsymbols,status)
     call expect(nsymbols.eq.0,'C adapter rejects unassigned control phrase',count)
   end subroutine reject_invalid_c_descriptors
 

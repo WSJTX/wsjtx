@@ -1,53 +1,103 @@
 # JTTY Design
 
-JTTY is a new digital mode designed for  fast RTTY-like contest exchanges and other keyboard-to-keyboard  communication on the amateur radio bands. It has an operational feel similar to standard RTTY, but far better weak-signal performance and lower error rate. JTTY transmissions can start at any time and typically last a few seconds. Any arbitrary message can be sent using letters, digits, spaces, and punctuation. Source encoding is especially well optimized for the short, fixed-format messages generally used in RTTY-style radio contesting.
+JTTY is a new digital mode designed for fast RTTY-like contest exchanges and other keyboard-to-keyboard communication on the amateur radio bands. It has an operational feel similar to standard RTTY, but far better weak-signal performance and a lower error rate. JTTY transmissions can start at any time and typically last a few seconds. Any arbitrary message can be sent using letters, digits, spaces, and punctuation. Source encoding is especially well optimized for the short, fixed-format messages generally used in RTTY-style radio contesting.
 
-A JTTY transmission is composed of one or more frames, each carrying a 34-bit payload. The well defined message grammar uses 30 bits for a frame's message content and two bits to specify one of four possible message types. The most basic type, i2=3, conveys any sequence of five characters from the supported 64-character ASCII subset; other message types and sub-types can encode a standard amateur callsign, contest exchange information, and flags to convey common contest-message fragments like `CQ`, `TU`, `599`, `AGN?`, and `TU NOW`. Two further control bits convey an end-of-message (EOM) indicator marking a frame as the last one of a multi-frame message, and a reserved bit presently transmitted as 0. To ensure the integrity of decoded messages, a 12-bit CRC is appended to the 34-bit payload, giving a 46-bit block. This block is encoded using a tail-biting convolutional code (TBCC) with rate 1/2 and constraint length K=10, making a (92,46) block code. Decoding uses the wrap-around Viterbi algorithm (WAVA) followed by CRC verification.
+## Frame and waveform
 
-JTTY signals are modulated with Gaussian-smoothed 4-tone frequency-shift keying (4-GFSK), two coded bits per tone symbol. Each frame has a 13-symbol synchronization sequence followed by 46 symbols that carry the 92 coded bits. At the currently selected symbol rate, 12000/384 = 31.25 baud, a JTTY frame is transmitted in (13+46)/31.25 = 1.888 s. The occupied bandwidth (99% of transmitted power) is 127 Hz.
+A transmission contains one or more 1.888-second frames. Each frame carries a 32-bit source-grammar word followed by two universal control bits: a reserved bit that is always zero and an end-of-message (EOM) bit set only on the final source atom. A 12-bit CRC extends this 34-bit payload to 46 bits. A tail-biting, rate-1/2 convolutional code with constraint length K=10 produces 92 coded bits.
 
-By design, source encoding is optimized for the message formats typically used in RTTY-style contesting. Repetition of important message fragments such as callsigns and contest serial numbers will generally not be needed, since JTTY's strong FEC already guarantees reliable copy. Most contest-style transmissions require only one or two frames, and thus have durations of about 1.9 or 3.8 s. Decoded message frames are displayed to the operator sequentially, on the fly, rather than at the end of a longer transmission as in other WSJT-X modes. There is no need for typical RTTY formatting necessities such as CR/LF at the start of a transmission, an extra space at the end of transmission, or LETTERS/NUMBERS shift characters. Achievable QSO rates for JTTY in contesting circumstances should be significantly higher than for standard 45-baud RTTY. JTTY will be reliable at signal levels much weaker than those needed for RTTY, and operators will see far less on-screen garbage.
+The waveform is Gaussian-smoothed four-tone frequency-shift keying (4-GFSK), with two coded bits per tone symbol. A frame contains a 13-symbol synchronization sequence followed by 46 coded symbols. At 12000/384 = 31.25 baud, its duration is (13+46)/31.25 = 1.888 seconds. The occupied bandwidth (99% of transmitted power) is 127 Hz.
 
-Example messages exchanged for two successive contest-style QSOs are shown below, along with the number of frames required for each message. In this sequence KA1ABC calls CQ, receives replies from WB9XYZ and JA6DEF, and works both callers in sequence, including a requested repeat from JA6DEF.
+The receiver verifies FEC, CRC, the universal reserved-zero bit, and the complete source grammar. A structurally invalid source word is discarded before display, EOM handling, slot creation, or signal subtraction.
 
-<div style="page-break-after: always;"></div>
+## Source contracts
 
-| Run station             | Search and Pounce station(s) | Frames |
-| ----------------------- | ---------------------------- | :----- |
-| `CQ KA1ABC CQ`          |                              | 1      |
-|                         | `WB9XYZ`                     | 1      |
-|                         | `JA6DEF`                     | 1      |
-| `WB9XYZ 599 101`        |                              | 2      |
-|                         | `599 057`                    | 1      |
-| `TU NOW JA6DEF 599 102` |                              | 2      |
-|                         | (no decode)                  | 1      |
-| `JA6DEF AGN?`           |                              | 1      |
-|                         | `599 292`                    | 1      |
-| `TU KA1ABC CQ`          |                              | 1      |
+JTTY separates literal operator text from explicitly selected native actions.
 
-These examples of typical contest QSOs use a total of 9 transmission intervals and 11 JTTY frames. The average transmission length is thus about 1.888*11/9 = 2.3 s. With a generous allowance of 1 s for T/R switching, hardware and software latencies, and operator reaction times, we get something like 3.3 s per T/R interval and 15 s per QSO. If sustained, such rates would yield well over 200 QSOs/hour.
+Ordinary keyboard text, externally queued strings, and untagged N1MM/MMTTY text use the strict literal contract. Text is folded to uppercase, whitespace is normalized, and unsupported characters become `#`; it is then sent only as five-character TEXT5 frames. A call-looking string or a string beginning with `599` is still literal. The encoder does not infer contest semantics from its spelling.
 
-Source-encoding of JTTY messages involves packing and unpacking algorithms similar to those used in other WSJT-X modes. The following table illustrates how contest-style messages are packed into the smallest possible number of frames. Software parameters i2 and n2 (the message type and sub-type) are shown for the first one or two frames of each message. 
+The eight shipped JTTY function-key templates use a NativeMacro contract. When a default template is selected, it is compiled to typed call and exchange atoms before placeholder expansion. Native atoms provide compact transmission and unambiguous fields for future logger integration. A customized template that does not match a native form falls back unchanged to literal TEXT5. A recognized native template with invalid runtime data is rejected rather than silently transmitted with different semantics.
 
-<div style="page-break-after: always;"></div>
+This boundary preserves operator intent: type literal text when typography matters, and select a native function-key action when the semantic exchange is intended.
 
-| Frame 1 i2.n2 | Frame 2 i2.n2 | Characters | Frames | Message           |
-| ---   | ---   | ---:| ---:| ---               |
-| 0.0   |       | 12  |  1  | `CQ KA1ABC CQ`    |
-| 0.1   |       |  6  |  1  | `WB9XYZ`          |
-| 0.1   | 2     | 15  |  2  | `WB9XYZ 599 0123` |
-| 0.2   |       | 12  |  1  | `TU KA1ABC CQ`    |
-| 0.3   |       |  9  |  1  | `WB9XYZ TU`       |
-| 0.3   | 0.0   | 22  |  2  | `WB9XYZ TU CQ KA1ABC CQ` |
-| 1.0   |       | 11  |  1  |  `WB9XYZ AGN?`           |
-| 1.1   | 2     | 21  |  2  | `TU NOW JA6DEF 599 123`  |
-| 1.2   |       |     |     | (not yet assigned)       |
-| 1.3   |       |     |     | (not yet assigned)       |
-| 2     |       |  8  |  1  | `599 1234`               |
-| 2     |       |  6  |  1  | `599 MA`                 |
-| 2     |       |  8  |  1  | `599 FN42`               |
-| 3     | 3     | 10  |  2  | `VP2/KA1ABC`             |
-| 3     |       |  9  |  2  | `CQ KA1ABC`       |
-| 3     | 3     | 15  |  3  | `CQ VP2/KA1ABC CQ`       |
-| 3     | 3     | 18  |  4  | `PJ4/KA1ABC 599 124`     |
-| 3     | 3     | 45  | 9 | `THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG.` |
+## Source grammar
+
+Bits 31-32 select one of four message types. The complete normative definition, including field ranges, enum assignments, validity rules, and golden vectors, is in [jtty_source_encoding.txt](jtty_source_encoding.txt).
+
+| `i2.n2` | Contents | Canonical rendering |
+| --- | --- | --- |
+| `0.0` | CQ call action | `CQ <call> CQ` |
+| `0.1` | CALL action | `<call>` |
+| `0.2` | TU/CQ call action | `TU <call> CQ` |
+| `0.3` | CALL/TU action | `<call> TU` |
+| `1.0` | CALL/AGN call action | `<call> AGN?` |
+| `1.1` | TU NOW/CALL action | `TU NOW <call>` |
+| `1.2`, `1.3` | Reserved | Invalid in version 1 |
+| `2` | STRUCT30 | Typed exchange, pair, time, control, or GRID4 atom |
+| `3` | TEXT5 | Five six-bit JTTY characters |
+
+STRUCT30 places a 27-bit family body before a three-bit family selector:
+
+| Family | Name | Fields, in transmitted bit order |
+| --- | --- | --- |
+| `000` | EXCH_NUM | `role1 + number_kind4 + value17 + zero5` |
+| `001` | EXCH_LOC | `role1 + location_kind4 + length1 + base36_token16 + zero5` |
+| `010` | EXCH_PAIR | `pair_schema3 + pair_data23 + zero1` |
+| `011` | EXCH_NUM_TIME | `role1 + serial14 + minute_of_day11 + zero1` |
+| `100` | MISC | `subtype4 + subtype_data23` |
+| `101` | Profiled/dense extension | Reserved |
+| `110` | Versioned extension | Reserved |
+| `111` | Guard space | Invalid |
+
+The assigned fields cover serials, zones, ages, power, checks, four-digit first-license years, generic numbers, two- or three-character locations, zone/location pairs, Field Day class/section pairs, serial/time pairs, GRID4, and 18 common control phrases. Native values render canonically: serials use at least three digits, zones and checks at least two, UTC time exactly four, and license years exactly four. A full exchange adds `599`; a field-only atom omits it. Decimal width, separator style, `5NN` spelling, and visible repetition do not consume wire bits.
+
+The former `i2=2` meaning, literal `599 ` followed by five characters, has been intentionally replaced by STRUCT30. There is no discriminator: old receivers display new STRUCT30 bits as `599` text, and some old type-2 frames are valid new STRUCT30 words with different meanings. JTTY is unreleased, so there is no legacy decoder mode. Literal `599 ...` text remains available through TEXT5.
+
+## Native function keys
+
+Current native templates and control phrases match after case folding and
+whitespace normalization, before placeholders are expanded. The three
+superseded serial templates are accepted only in their exact saved-default
+form so edited variants remain literal.
+
+| Key | Template | Native meaning |
+| --- | --- | --- |
+| F1 | `CQ %M CQ` | CQ with the configured call |
+| F2 | `%H %E` | His call, then configured full exchange |
+| F3 | `%H TU CQ %M CQ` | His call/TU, then CQ with the configured call |
+| F4 | `%M` | Configured call |
+| F5 | `%H` | His call |
+| F6 | `TU NOW %Q %E` | Queued call, then configured full exchange |
+| F7 | `%H AGN?` | Request repeat from his call |
+| F8 | `%E` | Configured full exchange |
+
+Keyboard shortcuts and the clickable F1-F8 buttons select the same actions. Native atom sequences use an implicit single-space separator and set EOM only on the last atom. Consecutive queued native messages do not need an intervening TEXT5 space frame.
+
+`%E` parses the selected contest profile: the default is a decimal serial, FIELD_DAY is exactly `<count><class> <section>`, and RTTY is a decimal serial or canonical two- or three-character state/province. `%G` is a field-only GRID4; the exact `599 %G` template selects its full-exchange role. The exact old F2, F6, and F8 defaults using `599 %N` remain recognized during migration and are replaced only when unchanged in saved settings. Edited variants remain literal.
+
+The practical GUI and N1MM transmit subset covers Call8, serial or RTTY state/province exchanges, Field Day class/section, GRID4, and registered control phrases. The remaining normative STRUCT30 types are decoded, validated, and rendered canonically but are not inferred from text or exposed as general-purpose macros yet.
+
+## Tagged N1MM actions
+
+N1MM may explicitly request native encoding by starting TXTEXT with `[[JTTY:<ACTION>]]`. The assigned actions are `CQ`, `CALL_EXCH`, `CALL_TU_CQ`, `MYCALL`, `HISCALL`, `TU_NOW_EXCH`, `CALL_MY`, `CALL_TU_MY`, `EXCH`, `GRID`, and `CONTROL`. N1MM expands `{MYCALL}`, `!` or `{CALL}`, and `{EXCH}` before WSJT-X validates the action payload under the active profile.
+
+Untagged N1MM text remains literal. A malformed tag, unknown action, invalid call, invalid exchange or grid, unregistered control phrase, or profile mismatch is rejected rather than transmitted as literal bracket text. The exact grammar and action payloads are in [jtty_source_encoding.txt](jtty_source_encoding.txt), with operating examples in [jtty_n1mm_integration.md](jtty_n1mm_integration.md).
+
+## Contest exchange example
+
+The native defaults keep the usual run sequence compact while retaining explicit meanings:
+
+| Run station | S+P stations | Frames |
+| --- | --- | ---: |
+| `CQ KA1ABC CQ` | | 1 |
+| | `WB9XYZ` | 1 |
+| | `JA6DEF` | 1 |
+| `WB9XYZ 599 101` | | 2 |
+| | `599 057` | 1 |
+| `TU NOW JA6DEF 599 102` | | 2 |
+| | *(no decode)* | 1 |
+| `JA6DEF AGN?` | | 1 |
+| | `599 292` | 1 |
+| `TU KA1ABC CQ` | | 1 |
+
+Typed exchanges such as `599 05 NWT`, `599 156 1749`, and `1D EMA` fit one STRUCT30 frame. Literal input with the same visible characters uses TEXT5 and may take more frames. Strong FEC makes repeated visible fields unnecessary; when RF redundancy is desired, repeating the protected atom provides another independent synchronization, FEC, and CRC opportunity.

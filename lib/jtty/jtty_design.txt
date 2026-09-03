@@ -1,110 +1,135 @@
 JTTY: A possible WSJT mode for fast RTTY-like contest exchanges
 
-Our general goal is an operational feel similar to standard ham RTTY,
-but with much better weak-signal performance and much smaller error
-rate. JTTY transmissions can start at any time and typically last a
-few seconds. Any arbitrary message can be sent (up to a 70-character
-line length), with upper-case letters, digits, spaces, and
-punctuation. Source encoding is especially well optimized for short,
-fixed-format messages that are frequently used in RTTY-style
-contesting.
+JTTY aims for an operational feel similar to conventional amateur RTTY,
+with much better weak-signal performance and a much lower error rate.
+Transmissions may start at any time and normally last a few seconds.
 
-A JTTY transmission is composed of one or more frames, each with a
-synchronising sequence followed by a data block with 32-bit
-information payload. Two payload bits select one of 4 possible message
-types; the remainder convey details of user information for that
-type. The payload is large enough to carry a standard callsign plus
-flags to convey common message words like "CQ", "TU", "599", "AGN?",
-and "TU NOW". A frame can also convey a sequence of any five
-characters chosen from the supported 64-character ASCII subset.
+FRAME AND WAVEFORM
 
-To ensure decoded message integrity, a 10-bit CRC is appended to each
-32-bit payload. The result is then encoded using a strong binary block
-code with parameters (n,k) = (80,42). The code is a shortened form of
-the (128,90) LDPC code used for MSK144 (Franke and Taylor, QEX,
-July/August 2017).
+Each frame carries 32 message-grammar bits, a reserved-zero bit, and a
+universal end-of-message bit. A 12-bit CRC extends the payload to 46 bits.
+A tail-biting rate-1/2 convolutional code with constraint length K=10
+produces 92 coded bits.
 
-JTTY uses Gaussian-smoothed 4-tone frequency-shift keying (4-GFSK).
-Each frame has a 13-symbol synchronization sequence followed by 40
-symbols carrying the message payload and error-control bits.  At the
-currently selected symbol rate, 12000/384 = 31.25 baud, a JTTY frame
-is transmitted in 1.696 seconds. Nominal signal bandwidth is 125 Hz,
-and 99% of transmitted power falls within bandwidth xxx Hz.
+JTTY uses Gaussian-smoothed four-tone frequency-shift keying (4-GFSK).
+A frame has 13 synchronization symbols followed by 46 coded symbols.
+At 12000/384 = 31.25 baud, one frame lasts 1.888 seconds. Nominal
+half-power bandwidth is 125 Hz.
 
-Source encoding is optimized for message formats typically used in
-RTTY-style contesting. Repetition of important message fragments such
-as callsigns and contest serial numbers is generally not needed, since
-JTTY's strong FEC already implies reliable copy. Most contest-style
-transmissions require only one or two frames, and thus have duration
-1.7 or 3.4 s. Received message portions are displayed to the operator
-sequentially, on the fly, rather than after the end of a
-transmission. There is no need for archaic RTTY necessities such as
-CR/LF at start of a transmission, LETTERS/NUMBERS shift characters, an
-extra space at end-of-message, etc. Achievable QSO rates for JTTY in
-contesting circumstances will be significantly higher than for
-standard 45-baud RTTY. JTTY will be reliable at signal levels well
-below those needed for RTTY, and there will be far less on-screen
-garbage.
+The receiver verifies FEC, CRC, the universal reserved-zero bit, and the
+complete source grammar. An invalid source word is discarded before it can
+be displayed, mark EOM, create a receive slot, or participate in signal
+subtraction.
 
-An example showing the messages exchanged for two successive
-contest-style QSOs is shown below, where I have also listed the number
-of frames required for each message. In this sequence KA1ABC calls CQ,
-gets decoded replies from WB9XYZ and JA6DEF, and works them both in
-sequence -- including a requested repeat from JA6DEF.
+SOURCE CONTRACTS
 
----------------------------------------------
-Run station             S+P stations   Frames
----------------------------------------------
-CQ KA1ABC CQ                             1
-                        WB9XYZ           1
-                        JA6DEF           1
-WB9XYZ 599 101                           2
-                        599 057          1
-TU NOW JA6DEF 599 102                    2
-                        (no decode)      1
-JA6DEF AGN?                              1
-                        599 292          1
-TU KA1ABC CQ                             1
----------------------------------------------
+Ordinary keyboard text, externally queued strings, and untagged N1MM/MMTTY
+text are strict literals. After the existing uppercase and whitespace
+normalization, they use only TEXT5 frames. Call-looking text and text beginning
+with "599" are not silently compressed or reinterpreted.
 
-These two example contest QSOs use a total of 9 transmission
-intervals and 12 JTTY frames. The average transmission length is thus
-about 1.7*12/9 = 2.3 s. With another ~0.7 s for T/R switching,
-hardware and software latencies, and operator reaction time, we get
-something like 3 s per T/R interval and perhaps 15 s per QSO. If
-sustained, this rate would yield 240 QSOs/hour.
+The eight shipped JTTY function-key templates are explicit native actions.
+Their call, profile-exchange, and grid placeholders compile to typed atoms. A
+customized template that does not match a native form falls back unchanged to
+literal TEXT5. If a recognized native template has invalid runtime data,
+transmission is rejected instead of changing meaning through a literal
+fallback.
 
-Source-encoding of JTTY messages involves pack() and unpack() routines
-similar to those used in other WSJT-X modes.
+SOURCE GRAMMAR
 
-Here are some examples of the way user messages are packed into the
-smallest possible number of frames, together with parameters i2.n2 for
-their first frame or two frames:
+--------------------------------------------------------------------------------
+i2.n2 Example                         Bits             Purpose
+--------------------------------------------------------------------------------
+0.0   CQ K1ABC CQ                    call28 + n2       CQ call action
+0.1   K1ABC                          call28 + n2       CALL action
+0.2   TU K1ABC CQ                    call28 + n2       TU/CQ action
+0.3   K1ABC TU                       call28 + n2       CALL/TU action
+1.0   K1ABC AGN?                     call28 + n2       CALL/AGN action
+1.1   TU NOW K1ABC                   call28 + n2       TU NOW/CALL action
+1.2   (reserved; invalid)
+1.3   (reserved; invalid)
+2     599 123                        body27 + family3  STRUCT30
+3     HELLO                          6 6 6 6 6         TEXT5
+--------------------------------------------------------------------------------
 
-i2.n2 i2.n2 NC NF err Message
----------------------------------------------------------------------------------------
- 0.0        10  1     CQ K7RU CQ
- 0.0        12  1     CQ KA1ABC CQ
- 0.1         6  1     WB9XYZ
- 0.1   2    15  2     WB9XYZ 599 0123
- 0.1   3    10  2     WB9XYZ NR?
- 0.2        10  1     TU K7RU CQ
- 0.2        12  1     TU KA1ABC CQ
- 0.3         9  1     WB9XYZ TU
- 0.3   0.0  22  2     WB9XYZ TU CQ KA1ABC CQ
- 1.0        11  1     WB9XYZ AGN?
- 1.1   2    21  2     TU NOW JA6DEF 599 123
- 2           7  1     599 456
- 2           8  1     599 1234
- 2           8  1     599 457
- 3     3     9  2     N6QEK/KL7
- 3     3    10  2     EA7/HA3NZ
- 3     3    10  2     VP2/KE2GHI
- 3     3    15  3     CQ N6QEK/KL7 CQ
- 3     3    15  3     TU N6QEK/KL7 CQ
- 3     3    16  4     CQ PJ4/KA1ABC CQ
- 3     3    17  3     EA7/HA3NZ 599 124
- 3     3    17  3     N6QEK/KL7 599 123
- 3     3    52 11     THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG, TWICE.
- 3     3    64 13     0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!"#$%,&*()_'=[]{}<>|:;
- 3     3    67 14     NOW IS THE TIME FOR ALL GOOD MEN TO COME TO THE AID OF THEIR PARTY.
+Bits 1-30 contain the form listed above and bits 31-32 contain i2. Bit 33
+is always zero. Bit 34 is one only on the final atom of a source message.
+
+STRUCT30 replaces the former i2=2 "599 " plus five-character form:
+
+--------------------------------------------------------------------------------
+Family Name            Body fields, in transmitted bit order
+--------------------------------------------------------------------------------
+000    EXCH_NUM        role1 kind4 value17 zero5
+001    EXCH_LOC        role1 kind4 length1 token16 zero5
+010    EXCH_PAIR       schema3 pair_data23 zero1
+011    EXCH_NUM_TIME   role1 serial14 minute11 zero1
+100    MISC            subtype4 subtype_data23
+101    PROFILED        reserved; invalid in version 1
+110    VERSIONED       reserved; invalid in version 1
+111    INVALID         source-validity guard space
+--------------------------------------------------------------------------------
+
+EXCH_NUM kinds 0-7 are serial, CQ zone, ITU zone, age, power, check,
+first-license year, and generic numeric. EXCH_LOC kinds 0-4 are
+state/province, ARRL/RAC section, country/prefix, generic QTH, and local
+administrative code. EXCH_PAIR schemas are ZONE_LOC3 and CLASS_SECTION.
+MISC subtypes are CONTROL and GRID4. All other IDs are invalid.
+
+Full-role fields render with a "599 " prefix; field-only fields omit it.
+Serials use at least three digits, zones and checks at least two, UTC time
+exactly four, and first-license year exactly four. Atom boundaries render
+as one implicit space. Formatting choices and visible repetitions are not
+encoded.
+
+NATIVE FUNCTION KEYS
+
+--------------------------------------------------------------------------------
+Key Template                    Native atoms
+--------------------------------------------------------------------------------
+F1  CQ %M CQ                CQ(my_call)
+F2  %H %E                   CALL(his_call), configured full exchange
+F3  %H TU CQ %M CQ          CALL_TU(his_call), CQ(my_call)
+F4  %M                      CALL(my_call)
+F5  %H                      CALL(his_call)
+F6  TU NOW %Q %E            TU_NOW_CALL(queue_call), configured exchange
+F7  %H AGN?                 CALL_AGN(his_call)
+F8  %E                      configured full exchange
+--------------------------------------------------------------------------------
+
+Current templates and control phrases match case-insensitively while ignoring
+whitespace differences, before placeholder expansion. Superseded serial
+templates match only in their exact saved-default form. Keyboard F1-F8
+shortcuts and clickable buttons select the same actions. EOM is set only on
+the final native atom; queued native messages do not require a TEXT5 spacing
+frame between them.
+
+%E uses the selected profile: decimal serial by default, exact
+"<count><class> <section>" for FIELD_DAY, and either decimal serial or a
+canonical two- or three-character state/province for RTTY. %G is field-only
+GRID4; the exact "599 %G" template selects full role. Exact old F2, F6, and F8
+defaults using 599 %N remain recognized during migration and are replaced only
+when unchanged in saved settings; edited variants remain literal.
+
+N1MM can opt into native encoding with a leading [[JTTY:<ACTION>]] marker in
+TXTEXT. Actions are CQ, CALL_EXCH, CALL_TU_CQ, MYCALL, HISCALL, TU_NOW_EXCH,
+CALL_MY, CALL_TU_MY, EXCH, GRID, and CONTROL. Untagged N1MM strings remain
+literal. Invalid or unknown tagged requests are rejected, not transmitted as
+bracket text. See jtty_source_encoding.txt and jtty_n1mm_integration.md for the
+payload grammar.
+
+The practical transmit subset is Call8, serial and RTTY state/province,
+Field Day class/section, GRID4, and registered controls. Other normative atoms
+have canonical receive decoding and rendering but are not inferred from text
+or exposed as general-purpose macros in this version.
+
+The complete normative source definition, field ranges, enum assignments,
+validation rules, and binary/hex vectors are in jtty_source_encoding.txt.
+
+COMPATIBILITY
+
+The old i2=2 form is intentionally incompatible with STRUCT30. There is no
+version discriminator: old receivers display new STRUCT30 bits as "599" text,
+and some old type-2 frames are valid new STRUCT30 words with different
+meanings. JTTY is unreleased, so no legacy decoder mode is retained. Exact
+literal text, including "599 ...", remains available through TEXT5.

@@ -127,6 +127,10 @@ add_executable (test_jtty_messages test_jtty_messages.cpp)
 target_link_libraries (test_jtty_messages Qt5::Test)
 add_test (NAME test_jtty_messages COMMAND test_jtty_messages)
 
+add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
+target_link_libraries (test_jtty_n1mm Qt5::Test)
+add_test (NAME test_jtty_n1mm COMMAND test_jtty_n1mm)
+
 add_executable (test_mmttyif
   test_mmttyif.cpp
   ${CMAKE_SOURCE_DIR}/widgets/MMTTYIF.cpp

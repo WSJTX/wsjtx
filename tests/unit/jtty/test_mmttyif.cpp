@@ -60,6 +60,31 @@ private slots:
     QCOMPARE (text.at (0).at (0).toString (), QString {"HELLO WORLD"});
   }
 
+  void dispatchesFragmentedTaggedTextBeforeStart ()
+  {
+    QStringList events;
+    connect (interface_.get (), &MMTTYIF::app_tx_string, this,
+             [&events] (QString const& message) { events.append ("text:" + message); });
+    connect (interface_.get (), &MMTTYIF::app_start_tx, this,
+             [&events] { events.append (QStringLiteral ("start")); });
+
+    QByteArray const payload {"[[JTTY:CALL_EXCH]] W9XYZ 7"};
+    QByteArray frame {"<TXTEXT:"};
+    frame += QByteArray::number (payload.size ());
+    frame += '>';
+    frame += payload;
+    int const split = frame.size () - 5;
+
+    QVERIFY (writeToInterface (frame.left (split)));
+    QTest::qWait (20);
+    QVERIFY (events.isEmpty ());
+
+    QVERIFY (writeToInterface (frame.mid (split) + "<XMIT:2>ON"));
+    QTRY_COMPARE_WITH_TIMEOUT (events.size (), 2, 1000);
+    QCOMPARE (events.at (0), QStringLiteral ("text:[[JTTY:CALL_EXCH]] W9XYZ 7"));
+    QCOMPARE (events.at (1), QStringLiteral ("start"));
+  }
+
   void parsesCoalescedFrames ()
   {
     QSignalSpy text {interface_.get (), &MMTTYIF::app_tx_string};
@@ -83,6 +108,21 @@ private slots:
     QTRY_COMPARE_WITH_TIMEOUT (stop.count (), 1, 1000);
     QTRY_COMPARE_WITH_TIMEOUT (abort.count (), 1, 1000);
     QTRY_COMPARE_WITH_TIMEOUT (close.count (), 1, 1000);
+  }
+
+  void delaysOutputCompleteUntilDrainReport ()
+  {
+    QSignalSpy stop {interface_.get (), &MMTTYIF::app_stop_tx};
+    peer_->readAll ();
+
+    QVERIFY (writeToInterface ("<XMIT:3>OFF"));
+    QTRY_COMPARE_WITH_TIMEOUT (stop.count (), 1, 1000);
+    QTest::qWait (20);
+    QCOMPARE (peer_->bytesAvailable (), qint64 {0});
+
+    interface_->report_output_complete ();
+    QTRY_VERIFY_WITH_TIMEOUT (peer_->bytesAvailable () > 0, 1000);
+    QCOMPARE (peer_->readAll (), QByteArray {"<OUTPUTCOMPLETE>"});
   }
 
   void parsesFragmentedImplicitControl ()

@@ -116,6 +116,13 @@ namespace Jtty
   static_assert (offsetof (NativeAtomDescriptor, text) == 8, "atom ABI mismatch");
   static_assert (sizeof (NativeAtomDescriptor) == 20, "atom ABI mismatch");
 
+  enum class NativeEncodeStatus
+  {
+    Ok = 0,
+    InvalidDescriptor = 1,
+    UnknownSection = 2
+  };
+
   enum class NativeMacroStatus
   {
     Native,
@@ -269,9 +276,10 @@ namespace Jtty
     QString const normalized = normalizedMacroTemplate (macroTemplate);
     if (normalized == QStringLiteral ("599 %G")) return 8;
     for (int functionKey = 1; functionKey <= 8; ++functionKey) {
+      QString const gridTemplate = nativeGridMacroTemplate (functionKey);
       if (normalized == nativeMacroTemplate (functionKey)
           || macroTemplate == legacyNativeMacroTemplate (functionKey)
-          || normalized == nativeGridMacroTemplate (functionKey)) {
+          || (!gridTemplate.isEmpty () && normalized == gridTemplate)) {
         return functionKey;
       }
     }
@@ -360,7 +368,7 @@ namespace Jtty
     atom.kind = static_cast<qint8> (NativeAtomKind::Call);
     atom.subtype = static_cast<qint8> (action);
     QByteArray const call = normalizedNativeCall (rawCall).toLatin1 ();
-    std::copy (call.cbegin (), call.cend (), atom.text);
+    std::copy_n (call.cbegin (), std::min (call.size (), 8), atom.text);
     return atom;
   }
 
@@ -427,6 +435,25 @@ namespace Jtty
       if (c < QLatin1Char {'0'} || c > QLatin1Char {'9'}) return false;
     }
     return true;
+  }
+
+  inline QString normalizedFieldDayExchange (QString const& value)
+  {
+    QString exchange = value.simplified ().toUpper ();
+    if (exchange.contains (QLatin1Char {' '})) return exchange;
+
+    int classPosition {0};
+    while (classPosition < exchange.size ()
+           && exchange.at (classPosition) >= QLatin1Char {'0'}
+           && exchange.at (classPosition) <= QLatin1Char {'9'}) {
+      ++classPosition;
+    }
+    if (classPosition > 0 && classPosition + 1 < exchange.size ()
+        && exchange.at (classPosition) >= QLatin1Char {'A'}
+        && exchange.at (classPosition) <= QLatin1Char {'F'}) {
+      exchange.insert (classPosition + 1, QLatin1Char {' '});
+    }
+    return exchange;
   }
 
   inline bool isCanonicalBase36Token (QString const& value)

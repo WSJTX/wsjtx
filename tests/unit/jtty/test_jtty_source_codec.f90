@@ -91,6 +91,7 @@ program test_jtty_source_codec
   call expect_legal(jtty_exch_num_atom(1,JTTY_NUM_CQ_ZONE,40))
   call expect_legal(jtty_exch_num_atom(1,JTTY_NUM_ITU_ZONE,1))
   call expect_legal(jtty_exch_num_atom(1,JTTY_NUM_ITU_ZONE,90))
+  call expect_legal(jtty_exch_num_atom(1,JTTY_NUM_LICENSE_YEAR,9999))
   call expect_legal(jtty_exch_loc_atom(1,0,'00'))
   call expect_legal(jtty_exch_loc_atom(1,0,'100'))
   call expect_legal(jtty_exch_num_time_atom(1,0,0))

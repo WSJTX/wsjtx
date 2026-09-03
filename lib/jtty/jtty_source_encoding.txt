@@ -1,0 +1,312 @@
+JTTY source encoding
+
+Each JTTY frame conveys 34 source bits. Bits are numbered from left to right,
+most significant first. Bits 1-32 are the message grammar, bit 33 is reserved
+and shall be zero, and bit 34 is the universal end-of-message (EOM) flag. EOM
+is one only on the final atom of a source message. It is a sender-intended
+boundary, not evidence that earlier atoms were received or that a QSO is
+complete.
+
+The 32-bit all-zero grammar word is an invalid sentinel. A receiver shall also
+reject a source word if any reserved-zero field is nonzero or if it contains an
+unassigned type, family, subtype, enum value, or out-of-range field. These
+source-validity checks are made after FEC and CRC verification. An invalid
+source word shall not be displayed, create a receive slot, complete a message
+through EOM, or participate in signal subtraction.
+
+Top-level message space
+
+--------------------------------------------------------------------------------
+i2.n2 Example                         Bits             Total  Purpose
+--------------------------------------------------------------------------------
+0.0   CQ K1ABC CQ                    28 2                30  CQ call action
+0.1   K1ABC                          28 2                30  CALL action
+0.2   TU K1ABC CQ                    28 2                30  TU/CQ action
+0.3   K1ABC TU                       28 2                30  CALL/TU action
+1.0   K1ABC AGN?                     28 2                30  CALL/AGN action
+1.1   TU NOW K1ABC                   28 2                30  TU NOW/CALL action
+1.2   (reserved; invalid)
+1.3   (reserved; invalid)
+2     599 123                        27 3                30  STRUCT30
+3     HELLO                           6 6 6 6 6          30  TEXT5
+--------------------------------------------------------------------------------
+
+For i2=0 or 1, bits 1-28 are the existing call28 representation, bits 29-30
+are n2, and bits 31-32 are i2. Only standard calls that round-trip through the
+existing pack28/unpack28 grammar are valid JTTY call atoms. The six assigned
+actions render exactly as shown above after substituting the decoded call.
+
+For i2=3, bits 1-30 contain five six-bit characters in transmission order and
+bits 31-32 are 11. Character values 0-63 index this alphabet:
+
+    0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!"#$%,&*()_'=[]{}<>|:;
+
+The final TEXT5 atom is padded on the right with spaces. Padding is not part of
+the rendered message.
+
+STRUCT30
+
+For i2=2, bits 1-27 are body27, bits 28-30 are family3, and bits 31-32
+are 10. Fields below are listed in bit order, from bit 1 toward bit 27.
+
+--------------------------------------------------------------------------------
+Family Name            Body fields                         Total  Status
+--------------------------------------------------------------------------------
+000    EXCH_NUM        role1 kind4 value17 zero5              27  assigned
+001    EXCH_LOC        role1 kind4 length1 token16 zero5       27  assigned
+010    EXCH_PAIR       schema3 pair_data23 zero1               27  assigned
+011    EXCH_NUM_TIME   role1 serial14 minute11 zero1           27  assigned
+100    MISC            subtype4 subtype_data23                  27  assigned
+101    PROFILED        body27                                   27  reserved
+110    VERSIONED       body27                                   27  reserved
+111    INVALID         body27                                   27  invalid guard
+--------------------------------------------------------------------------------
+
+Families 101-111 are invalid in version 1. They reserve space for a future
+profiled/dense extension, a versioned extension, and an explicit validity
+guard, respectively. A future assignment requires a protocol revision.
+
+Common fields
+
+role1 is an utterance role:
+
+    0  field-only; do not render a signal report
+    1  full exchange; prefix the rendered fields with "599 "
+
+Base-36 fields use digit values 0-9 followed by A-Z. A token is accumulated
+left to right, so ABC is ((10 * 36) + 11) * 36 + 12. length1 is 0 for exactly
+two characters and 1 for exactly three characters. The token16 value shall be
+less than 36^2 for length=0. For length=1 it shall be at least 36^2 and less
+than 36^3; a three-character spelling with a leading zero would have a
+canonical two-character representation and is invalid. Lowercase and
+punctuation do not occur on the wire.
+
+EXCH_NUM, family 000
+
+--------------------------------------------------------------------------------
+Kind Name                    Values       Canonical field rendering
+--------------------------------------------------------------------------------
+0    SERIAL                  0-131071     decimal, at least three digits
+1    CQ_ZONE                 1-40         decimal, at least two digits
+2    ITU_ZONE                1-90         decimal, at least two digits
+3    AGE                     0-131071     decimal
+4    POWER                   0-131071     decimal
+5    CHECK                   0-131071     decimal, at least two digits
+6    FIRST_LICENSE_YEAR      0-9999       decimal, exactly four digits
+7    GENERIC_NUMERIC         0-131071     decimal
+8-15 (reserved; invalid)
+--------------------------------------------------------------------------------
+
+The role determines whether "599 " precedes the field. Apart from CQ and ITU
+zones and the four-digit license-year domain, the core grammar enforces only
+the 17-bit range; contest-specific limits belong to future profile validation.
+Decimal width, separators, 5NN spelling, and visible repetition are not
+represented.
+
+EXCH_LOC, family 001
+
+--------------------------------------------------------------------------------
+Kind Name
+--------------------------------------------------------------------------------
+0    STATE_PROVINCE
+1    ARRL_RAC_SECTION
+2    COUNTRY_PREFIX
+3    GENERIC_QTH
+4    LOCAL_ADMINISTRATIVE_CODE
+5-15 (reserved; invalid)
+--------------------------------------------------------------------------------
+
+The token has the base-36 and length rules above. The role determines whether
+"599 " precedes it.
+
+EXCH_PAIR, family 010
+
+--------------------------------------------------------------------------------
+Schema Name             pair_data fields                 Valid ranges
+--------------------------------------------------------------------------------
+0      ZONE_LOC3        cq_zone6 length1 token16         zone 1-40; token as above
+1      CLASS_SECTION    count6 class3 section7 zero7     count 1-32; class 0-5;
+                                                           section 1-86
+2-7    (reserved; invalid)
+--------------------------------------------------------------------------------
+
+ZONE_LOC3 always renders "599 <zone> <token>" with a two-digit-minimum zone.
+CLASS_SECTION renders "<count><class> <section>". Class values 0-5 mean A-F;
+6-7 are invalid. Section values 1-86 index PACK77_ARRL_SECTIONS in
+lib/77bit/packjt77_grammar.f90; value zero and values 87-127 are invalid. The
+registry is deliberately shared rather than copied into this specification.
+
+EXCH_NUM_TIME, family 011
+
+    role1 + serial14 + minute_of_day11 + zero1
+
+serial is 0-16383. minute_of_day is 0-1439 and maps to UTC HHMM by division
+and remainder by 60. The serial uses at least three digits and UTC time exactly
+four digits. role=1 renders "599 <serial> <HHMM>"; role=0 omits "599 ". Values
+1440-2047 for minute_of_day are invalid.
+
+MISC, family 100
+
+--------------------------------------------------------------------------------
+Subtype Name       subtype_data fields
+--------------------------------------------------------------------------------
+0       CONTROL    phrase7 zero16
+1       GRID4      role1 grid4_code15 zero7
+2-15    (reserved; invalid)
+--------------------------------------------------------------------------------
+
+CONTROL phrase assignments and canonical renderings are:
+
+--------------------------------------------------------------------------------
+ID  Phrase       ID  Phrase       ID  Phrase
+--------------------------------------------------------------------------------
+ 0  AGN?          6  STATE?       12  TU
+ 1  CALL?         7  SECTION?     13  QRZ?
+ 2  AGN CALL      8  ZONE?        14  QSO B4
+ 3  NR?           9  GRID?        15  WAIT
+ 4  AGN NR       10  RPRT?        16  NIL?
+ 5  EXCH?        11  QSL TU       17  OK?
+--------------------------------------------------------------------------------
+
+Phrase values 18-127 are invalid. CONTROL's sixteen reserved bits shall be
+zero.
+
+GRID4 accepts only Maidenhead fields AA00 through RR99. With A=0, the code is:
+
+    (((field_1 * 18 + field_2) * 10 + digit_1) * 10 + digit_2)
+
+Thus the valid domain is 0-32399. Values 32400-32767 are invalid. role=1
+renders "599 <GRID4>" and role=0 renders only the four-character grid.
+
+Canonical atom sequences
+
+Atoms are rendered independently, then joined with one implicit space. The
+receiver truncates the accumulated display at 80 characters. A native sender
+sets bit 33 to zero on every atom and bit 34 only on the last atom. Queuing a
+second native message does not add a TEXT5 spacing atom.
+
+Ordinary keyboard text, externally queued strings, and N1MM/MMTTY strings use
+the strict literal contract. They are normalized to uppercase, leading,
+trailing, and repeated ASCII spaces are removed, unsupported characters become
+'#', and the result is emitted only as TEXT5. Call-looking text and text
+beginning with 599 are not silently converted to native atoms. The literal
+wrapper accepts an 80-character input field, so longer caller strings are
+truncated before normalization. The result is therefore at most sixteen TEXT5
+frames.
+
+The eight shipped JTTY function-key templates are a separate NativeMacro
+contract. Current templates and control phrases match after case folding and
+whitespace normalization, before placeholder expansion. Superseded templates
+use the exact-compatibility rule below.
+
+--------------------------------------------------------------------------------
+Key Template                    Native atoms
+--------------------------------------------------------------------------------
+F1  CQ %M CQ                CQ(my_call)
+F2  %H %E                   CALL(his_call), configured full exchange
+F3  %H TU CQ %M CQ          CALL_TU(his_call), CQ(my_call)
+F4  %M                      CALL(my_call)
+F5  %H                      CALL(his_call)
+F6  TU NOW %Q %E            TU_NOW_CALL(queue_call), configured full exchange
+F7  %H AGN?                 CALL_AGN(his_call)
+F8  %E                      configured full exchange
+--------------------------------------------------------------------------------
+
+%E is the configured profile exchange. The default profile accepts a decimal
+serial. FIELD_DAY accepts exactly "<count><class> <section>" and encodes
+CLASS_SECTION. RTTY accepts either a decimal SERIAL or a canonical two- or
+three-character STATE_PROVINCE token. %G accepts one valid GRID4 and is
+field-only; the exact template "599 %G" selects a full-role GRID4. These are
+semantic placeholders, not text substitution followed by source inference.
+
+The exact former defaults "%H 599 %N", "TU NOW %Q 599 %N", and "599 %N"
+remain recognized during migration and are replaced by their %E forms when
+still unchanged in saved settings. Edited variants are neither migrated nor
+inferred. An unrecognized customized template falls back unchanged to strict
+literal TEXT5 after normal placeholder expansion. A recognized native template
+whose required runtime call, exchange, or grid is invalid is rejected; it
+never changes meaning by falling back to literal transmission.
+
+Practical transmit subset
+
+The wire codec defines and validates every atom in this document. The current
+WSJT-X macro and tagged-N1MM compilers intentionally generate a smaller
+operator-facing subset: the six Call8 actions, SERIAL, RTTY STATE_PROVINCE,
+CLASS_SECTION, GRID4, and registered CONTROL phrases. Other number and location
+kinds, ZONE_LOC3, and EXCH_NUM_TIME have canonical receive rendering and remain
+available to explicit native codec callers, but are not inferred from literal
+text or exposed as general-purpose transmit macros in this version.
+
+Tagged N1MM TXTEXT
+
+N1MM can opt into the practical native subset by placing this marker at the
+start of the transmitted text, after the normal {TX} command:
+
+    [[JTTY:<ACTION>]]<payload>
+
+N1MM expands {MYCALL}, ! or {CALL}, and {EXCH}; WSJT-X then parses the expanded
+payload under the selected action and active profile. The tag must begin at the
+first non-space character; tag and action matching is case-insensitive. The
+marker is transport metadata and is not transmitted. Assigned actions are:
+
+--------------------------------------------------------------------------------
+Action          Expanded payload                   Native meaning
+--------------------------------------------------------------------------------
+CQ              <mycall>                           CQ(mycall)
+CALL_EXCH       <hiscall> <exchange>                CALL(hiscall), full exchange
+CALL_TU_CQ      <hiscall> <mycall>                  CALL_TU(hiscall), CQ(mycall)
+MYCALL          <mycall>                           CALL(mycall)
+HISCALL         <hiscall>                          CALL(hiscall)
+TU_NOW_EXCH     <hiscall> <exchange>                TU_NOW_CALL(hiscall), exchange
+CALL_MY         <hiscall> <mycall>                  CALL(hiscall), CALL(mycall)
+CALL_TU_MY      <hiscall> <mycall>                  CALL_TU(hiscall), CALL(mycall)
+EXCH            <exchange>                         configured full exchange
+GRID            <grid4>                            field-only GRID4
+CONTROL         <registered phrase>                CONTROL(phrase)
+--------------------------------------------------------------------------------
+
+The exchange payload follows the same default, FIELD_DAY, and RTTY profile
+rules as %E, except that tagged values are already expanded: RTTY "DX" is a
+two-letter location, and the local-configuration "DX" and "#" serial sentinels
+do not apply. It contains the exchange value only: the action supplies CQ, TU,
+TU NOW, and canonical full-exchange report text where applicable. GRID requires
+a valid four-character Maidenhead locator. CONTROL requires one exact
+registered phrase from the CONTROL table above. An untagged N1MM message
+remains strict literal TEXT5. A tag-shaped substring later in a message has no
+special meaning. An unknown or malformed leading JTTY tag, an unsupported
+action, invalid payload, or profile mismatch is rejected rather than put on
+the air as literal bracket text.
+
+Representative 34-bit vectors
+
+Binary strings below contain bits 1-34 exactly. Hex values interpret the same
+34 bits as an unsigned integer and pad to nine hex digits. Both serial rows
+encode the same atom and demonstrate the EOM difference; changing any final
+atom to non-final clears the final binary bit and subtracts one from its hex
+value.
+
+--------------------------------------------------------------------------------
+Meaning                         Bits 1-34                         Hex
+--------------------------------------------------------------------------------
+CQ K1ABC CQ                     0000100110111101111000110101000001  0x026F78D41
+EXCH_NUM full SERIAL 123, more  1000000000000001111011000000001000  0x20007B008
+EXCH_NUM full SERIAL 123, EOM   1000000000000001111011000000001001  0x20007B009
+EXCH_LOC full STATE CA          1000000000000110111010000000011001  0x2001BA019
+ZONE_LOC3 05 NWT                0000001011011110010000110100101001  0x00B790D29
+CLASS_SECTION 1D EMA            0010000010110001011000000000101001  0x082C58029
+EXCH_NUM_TIME full 156 1749     1000000100111001000010110100111001  0x204E42D39
+CONTROL AGN?                    0000000000000000000000000001001001  0x000000049
+GRID4 field-only FN42           0001001010000110011000000001001001  0x04A198049
+TEXT5 HELLO                     0100010011100101010101010110001101  0x11395558D
+--------------------------------------------------------------------------------
+
+Compatibility
+
+This version deliberately replaces the earlier i2=2 encoding, which meant the
+literal prefix "599 " followed by five six-bit characters. There is no version
+discriminator: an old receiver will render new STRUCT30 payload bits as
+arbitrary text following "599 ", while some old i2=2 frames happen to satisfy
+the new STRUCT30 structural rules and will be accepted with a different
+meaning by a new receiver. JTTY is unreleased, so this incompatibility is
+intentional and no legacy decoder mode is retained. Literal "599 ..." remains
+available through TEXT5.

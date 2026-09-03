@@ -102,6 +102,26 @@ private slots:
     QCOMPARE (editedLegacySpacing.text, QString {" 599 007 "});
   }
 
+  void blankMacroDoesNotSelectNativeCq ()
+  {
+    Jtty::NativeMacroContext const context {QString {"K1ABC"}, QString {"W9XYZ"}, 7};
+    for (int functionKey = 1; functionKey <= 8; ++functionKey) {
+      for (QString const& macro : {QString {}, QString {" \t "}}) {
+        auto const compiled = Jtty::compileNativeMacro (functionKey, macro, context);
+        QCOMPARE (compiled.status, Jtty::NativeMacroStatus::LiteralFallback);
+        QVERIFY (compiled.atoms.isEmpty ());
+        QVERIFY (compiled.text.trimmed ().isEmpty ());
+      }
+    }
+  }
+
+  void nativeCallDescriptorTextIsBounded ()
+  {
+    auto const atom = Jtty::nativeCallAtom (
+      Jtty::CallAction::Call, QStringLiteral ("K1ABCDEFGHIJK"));
+    QCOMPARE (QString::fromLatin1 (atom.text), QStringLiteral ("K1ABCDEF"));
+  }
+
   void recognizedMacroRejectsInvalidRuntime_data ()
   {
     QTest::addColumn<int> ("functionKey");
@@ -245,6 +265,24 @@ private slots:
                                << 32 << 5 << QString {"EMA"};
     QTest::newRow ("normalizes-case-and-spacing")
       << QString {" 2d   wma "} << QString {"2D WMA"} << 2 << 3 << QString {"WMA"};
+  }
+
+  void compactFieldDayConfigurationIsNormalized ()
+  {
+    QCOMPARE (Jtty::normalizedFieldDayExchange (QStringLiteral ("3AOR")),
+              QStringLiteral ("3A OR"));
+    QCOMPARE (Jtty::normalizedFieldDayExchange (QStringLiteral (" 32fema ")),
+              QStringLiteral ("32F EMA"));
+    QCOMPARE (Jtty::normalizedFieldDayExchange (QStringLiteral ("3A OR")),
+              QStringLiteral ("3A OR"));
+
+    Jtty::NativeMacroContext context;
+    context.exchangeProfile = Jtty::NativeExchangeProfile::FieldDay;
+    context.configuredExchange = Jtty::normalizedFieldDayExchange (
+      QStringLiteral ("3AOR"));
+    auto const compiled = Jtty::compileNativeMacro (QStringLiteral ("%E"), context);
+    QCOMPARE (compiled.status, Jtty::NativeMacroStatus::Native);
+    QCOMPARE (compiled.text, QStringLiteral ("3A OR"));
   }
 
   void fieldDayProfileParsesClassAndSection ()

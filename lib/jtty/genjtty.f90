@@ -55,7 +55,7 @@ subroutine genjtty_atoms(atoms,natoms,itone,nsym)
   enddo
 end subroutine genjtty_atoms
 
-subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym) bind(C,name='genjtty_atoms_c')
+subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym,status) bind(C,name='genjtty_atoms_c')
 
   use iso_c_binding, only: c_char,c_int,c_null_char
   use packjt77_grammar, only: pack77_arrl_section_index
@@ -63,11 +63,13 @@ subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym) bind(C,name='genjtty_atoms
        JTTY_ATOM_EXCH_NUM,JTTY_ATOM_EXCH_LOC,JTTY_ATOM_EXCH_PAIR, &
        JTTY_ATOM_CONTROL,JTTY_ATOM_GRID4,jtty_call_atom,jtty_exch_num_atom, &
        jtty_exch_loc_atom,jtty_class_section_atom,jtty_control_atom, &
-       jtty_grid4_atom,MAX_FRAMES
+       jtty_grid4_atom,MAX_FRAMES,JTTY_ENCODE_OK,JTTY_ENCODE_INVALID_DESCRIPTOR, &
+       JTTY_ENCODE_UNKNOWN_SECTION
   type(jtty_source_atom_c), intent(in) :: c_atoms(*)
   integer(c_int), value, intent(in) :: natoms
   integer(c_int), intent(out) :: itone(*)
   integer(c_int), intent(out) :: nsym
+  integer(c_int), intent(out) :: status
   type(jtty_source_atom) :: atoms(MAX_FRAMES)
   character(len=13) :: descriptor_text
   integer :: i,section_index
@@ -83,7 +85,7 @@ subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym) bind(C,name='genjtty_atoms
      end subroutine genjtty_atoms
   end interface
 
-  nsym=0
+  nsym=0; status=JTTY_ENCODE_INVALID_DESCRIPTOR
   if(natoms.lt.1 .or. natoms.gt.MAX_FRAMES) return
   do i=1,natoms
      if(c_atoms(i)%reserved.ne.0) return
@@ -102,10 +104,13 @@ subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym) bind(C,name='genjtty_atoms
         atoms(i)=jtty_exch_loc_atom(int(c_atoms(i)%role), &
              int(c_atoms(i)%subtype),descriptor_text)
      case(JTTY_ATOM_EXCH_PAIR)
-        section_index=pack77_arrl_section_index(descriptor_text)
-        if(section_index.lt.1) return
         if(c_atoms(i)%subtype.ne.1) return
         if(c_atoms(i)%role.lt.0 .or. c_atoms(i)%role.gt.5) return
+        section_index=pack77_arrl_section_index(descriptor_text)
+        if(section_index.lt.1) then
+           status=JTTY_ENCODE_UNKNOWN_SECTION
+           return
+        endif
         atoms(i)=jtty_class_section_atom(int(c_atoms(i)%value), &
              char(ichar('A')+int(c_atoms(i)%role)),section_index)
      case(JTTY_ATOM_CONTROL)
@@ -120,6 +125,7 @@ subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym) bind(C,name='genjtty_atoms
      end select
   enddo
   call genjtty_atoms(atoms,int(natoms),itone,nsym)
+  if(nsym.gt.0) status=JTTY_ENCODE_OK
 
 contains
 
