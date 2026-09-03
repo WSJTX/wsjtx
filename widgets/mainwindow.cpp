@@ -11273,6 +11273,12 @@ void MainWindow::on_actionOpen_log_directory_triggered ()
 
 void MainWindow::on_bandComboBox_currentIndexChanged (int index)
 {
+  if (keep_frequency)
+    {
+      restoreNominalFrequencySelection ();
+      return;
+    }
+
   auto const& frequencies = m_config.frequencies ();
   auto const& source_index = frequencies->mapToSource (frequencies->index (index, FrequencyList_v2_101::frequency_column));
   Frequency frequency {m_freqNominal};
