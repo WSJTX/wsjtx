@@ -24,6 +24,7 @@
 #include <QFileDialog>
 #include <QTextBlock>
 #include <QProgressBar>
+#include <QStyle>
 #include <QLineEdit>
 #include <QFocusEvent>
 #include <QFocusFrame>
@@ -178,6 +179,17 @@ namespace {
   void set_style_sheet_if_changed(QWidget& widget, QString const& style_sheet)
   {
     set_style_sheet_if_changed(&widget, style_sheet);
+  }
+
+  void set_button_style_state_if_changed(QWidget * widget, char const * state)
+  {
+    if (widget->property("wsjtxState").toString() != QLatin1String {state})
+      {
+        widget->setProperty("wsjtxState", state);
+        widget->style()->unpolish(widget);
+        widget->style()->polish(widget);
+        widget->update();
+      }
   }
 
   QRegularExpression const four_digit_regexp {"\\d\\d\\d\\d"};
@@ -15290,14 +15302,27 @@ void MainWindow::check_button_color()
       wait_and_call = false;
     }
 
+    static QString const dx_call_button_style {
+      "QPushButton {border: 1px solid #32414B; border-radius: 4px; padding: 3px; "
+#ifdef Q_OS_MAC
+      "margin-left: 6px; margin-right: 6px; "
+#endif
+      "outline: none;}"
+      "QPushButton[wsjtxState=\"active\"] {background-color: #ff0000; color: #ffffff;}"
+      "QPushButton[wsjtxState=\"warning\"] {background-color: #ffff00; color: #000000;}"
+      "QPushButton[wsjtxState=\"dark\"] {background-color: #505F69; color: #F0F0F0;}"
+      "QPushButton[wsjtxState=\"idle\"] {background-color: #e1e1e1; color: #000000; "
+      "border-color: #adadad;}"};
+    set_style_sheet_if_changed(ui->DX_Call_Button, dx_call_button_style);
+
     if (wait_and_call) {
-      set_style_sheet_if_changed(ui->DX_Call_Button, "QPushButton {background-color: #ff0000; color: #ffffff; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
+      set_button_style_state_if_changed(ui->DX_Call_Button, "active");
     } else if (wait_and_call_warning_eligible (waitContext)) {
-      set_style_sheet_if_changed(ui->DX_Call_Button, "QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none;}");
+      set_button_style_state_if_changed(ui->DX_Call_Button, "warning");
     } else if (m_useDarkStyle) {
-      set_style_sheet_if_changed(ui->DX_Call_Button, "QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+      set_button_style_state_if_changed(ui->DX_Call_Button, "dark");
     } else {
-      set_style_sheet_if_changed(ui->DX_Call_Button, "QPushButton {background-color: #9fafd5; border: none;}");
+      set_button_style_state_if_changed(ui->DX_Call_Button, "idle");
     }
 
     if (m_auto) {
