@@ -1006,56 +1006,40 @@ void MainWindow::on_Tx_Message_returnPressed()
 
 void MainWindow::on_pbF1_clicked()
 {
-  QString t = ui->msg1->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(1);
 }
 
 void MainWindow::on_pbF2_clicked()
 {
-  QString t = ui->msg2->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(2);
 }
 
 void MainWindow::on_pbF3_clicked()
 {
-  QString t = ui->msg3->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(3);
 }
 
 void MainWindow::on_pbF4_clicked()
 {
-  QString t = ui->msg4->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(4);
 }
 
 void MainWindow::on_pbF5_clicked()
 {
-  QString t = ui->msg5->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(5);
 }
 
 void MainWindow::on_pbF6_clicked()
 {
-  QString t = ui->msg6->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(6);
 }
 
 void MainWindow::on_pbF7_clicked()
 {
-  QString t = ui->msg7->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(7);
 }
 
 void MainWindow::on_pbF8_clicked()
 {
-  QString t = ui->msg8->text();
-  t=jtty_msg_expand(t);
-  jtty_tx(t.toUpper());
+  sendJttyFunctionKey(8);
 }

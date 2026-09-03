@@ -779,6 +779,8 @@ private:
   QString jttyRejectReasonText(JttyTxRejectReason reason) const;
 #endif
   void execute_jtty_tx(qint64 requestId, QString message);
+  void execute_jtty_tones(qint64 requestId, QString const& message,
+                          int const itone[], int nsym);
   void advanceJttyTxQueueEpoch();
   qint64 jttyTxCommittedSamples() const;
   void completeJttyTxEnqueue(qint64 requestId, QString const& message,
@@ -802,6 +804,7 @@ private:
   void startJttyTxWatchdog(int durationMs);
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
+  void sendJttyFunctionKey(int index);
   // istart0/istop (sample indices into dec_data.d2) bound the Fortran scan
   // to a window instead of the whole buffer; -1/-1 (the default) means
   // unwindowed, matching the original behavior exactly. Returns true if

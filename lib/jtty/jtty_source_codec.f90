@@ -59,7 +59,7 @@ module jtty_source_codec
   type, bind(C) :: jtty_source_atom_c
      integer(c_int8_t) :: kind,subtype,role,reserved
      integer(c_int32_t) :: value
-     character(kind=c_char) :: call(9)
+     character(kind=c_char) :: text(9)
   end type jtty_source_atom_c
 
 contains

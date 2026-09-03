@@ -11,6 +11,7 @@
 #include "widgets/qsymonitor.h"
 #include "validators/CallsignValidator.hpp"
 #include "qt_helpers.hpp"
+#include "JttyMessages.hpp"
 
 #include <QSettings>
 #include <QVariant>
@@ -311,14 +312,24 @@ void MainWindow::readSettings()
   if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
   ui->sbSerialNumber_2->setValue (m_settings->value ("SerialNumberJTTY", 1).toInt ());
-  ui->msg1->setText(m_settings->value("JTTY_msg1","CQ %M CQ").toString());
-  ui->msg2->setText(m_settings->value("JTTY_msg2","%H 599 %N").toString());
-  ui->msg3->setText(m_settings->value("JTTY_msg3","%H TU CQ %M CQ").toString());
-  ui->msg4->setText(m_settings->value("JTTY_msg4","%M").toString());
-  ui->msg5->setText(m_settings->value("JTTY_msg5","%H").toString());
-  ui->msg6->setText(m_settings->value("JTTY_msg6","TU NOW %Q 599 %N").toString());
-  ui->msg7->setText(m_settings->value("JTTY_msg7","%H AGN?").toString());
-  ui->msg8->setText(m_settings->value("JTTY_msg8","599 %N").toString());
+  auto const jttyTemplate = [this] (int functionKey) {
+    QString const key = QStringLiteral("JTTY_msg%1").arg(functionKey);
+    QString const saved = m_settings->value(
+      key, Jtty::nativeMacroTemplate(functionKey)).toString();
+    QString const migrated = Jtty::migratedNativeMacroTemplate(functionKey, saved);
+    if (m_settings->contains(key) && migrated != saved) {
+      m_settings->setValue(key, migrated);
+    }
+    return migrated;
+  };
+  ui->msg1->setText(jttyTemplate(1));
+  ui->msg2->setText(jttyTemplate(2));
+  ui->msg3->setText(jttyTemplate(3));
+  ui->msg4->setText(jttyTemplate(4));
+  ui->msg5->setText(jttyTemplate(5));
+  ui->msg6->setText(jttyTemplate(6));
+  ui->msg7->setText(jttyTemplate(7));
+  ui->msg8->setText(jttyTemplate(8));
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;
   ui->cbWorkDupes->setChecked(m_settings->value("WorkDupes",false).toBool());

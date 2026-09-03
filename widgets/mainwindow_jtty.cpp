@@ -18,6 +18,33 @@
 extern dec_data_t& dec_data;
 extern qint32 g_iptt;
 
+namespace
+{
+  Jtty::NativeMacroContext jttyNativeMacroContext(
+      Configuration const& configuration, QString const& hisCall, int serialNumber)
+  {
+    Jtty::NativeMacroContext context;
+    context.myCall = configuration.my_callsign();
+    context.hisCall = hisCall;
+    context.serialNumber = serialNumber;
+    context.grid = configuration.my_grid();
+
+    switch (configuration.special_op_id()) {
+    case Configuration::SpecialOperatingActivity::FIELD_DAY:
+      context.exchangeProfile = Jtty::NativeExchangeProfile::FieldDay;
+      context.configuredExchange = configuration.Field_Day_Exchange();
+      break;
+    case Configuration::SpecialOperatingActivity::RTTY:
+      context.exchangeProfile = Jtty::NativeExchangeProfile::RttyRoundup;
+      context.configuredExchange = configuration.RTTY_Exchange();
+      break;
+    default:
+      break;
+    }
+    return context;
+  }
+}
+
 #if QT_VERSION >= QT_VERSION_CHECK (5, 13, 0)
 #define SkipEmptyParts Qt::SkipEmptyParts
 #else
@@ -43,6 +70,8 @@ extern "C" {
     fortran_charlen_t, fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
+  void genjtty_atoms_c(Jtty::NativeAtomDescriptor const atoms[], int natoms,
+                       int itone[], int* nsym);
 
   void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
                     float xjunk[], float wave[], int* icmplx, int* nwave);
@@ -398,12 +427,21 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
   int n=message.length();
   QString t = " ";
   t = message + t.repeated(80-n);
-  genjtty_(t.toLatin1().constData(), &itone[0], &m_nsym_jtty, (FCL)80);
-  if (m_nsym_jtty <= 0) {
+  int nsym=0;
+  genjtty_(t.toLatin1().constData(), &itone[0], &nsym, (FCL)80);
+  if (nsym <= 0) {
     LOG_WARN("JTTY transmit message could not be encoded");
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
     return;
   }
+
+  execute_jtty_tones(requestId, message, itone, nsym);
+}
+
+void MainWindow::execute_jtty_tones(qint64 requestId, QString const& message,
+                                    int const itone[], int nsym)
+{
+  m_nsym_jtty=nsym;
 
   int nsps4=4*384;
   float bt=2.0;
@@ -847,41 +885,62 @@ void MainWindow::flushJttyDecodeLines()
 
 bool MainWindow::jtty_key_struck(QKeyEvent * e)
 {
-  QString t{};
   if(e->key() == Qt::Key_Escape) {
     abort_jtty_tx();
     return true;
   }
-  if(e->key() == Qt::Key_F1) t = ui->msg1->text();
-  if(e->key() == Qt::Key_F2) t = ui->msg2->text();
-  if(e->key() == Qt::Key_F3) t = ui->msg3->text();
-  if(e->key() == Qt::Key_F4) t = ui->msg4->text();
-  if(e->key() == Qt::Key_F5) t = ui->msg5->text();
-  if(e->key() == Qt::Key_F6) t = ui->msg6->text();
-  if(e->key() == Qt::Key_F7) t = ui->msg7->text();
-  if(e->key() == Qt::Key_F8) t = ui->msg8->text();
-  if(t=="") return false;
-  t=jtty_msg_expand(t);
-  jtty_tx(t);
+  int const functionKey=e->key()-Qt::Key_F1+1;
+  if(functionKey < 1 || functionKey > 8) return false;
+  sendJttyFunctionKey(functionKey);
   return true;
+}
+
+void MainWindow::sendJttyFunctionKey(int index)
+{
+  QString macro;
+  switch(index) {
+  case 1: macro=ui->msg1->text(); break;
+  case 2: macro=ui->msg2->text(); break;
+  case 3: macro=ui->msg3->text(); break;
+  case 4: macro=ui->msg4->text(); break;
+  case 5: macro=ui->msg5->text(); break;
+  case 6: macro=ui->msg6->text(); break;
+  case 7: macro=ui->msg7->text(); break;
+  case 8: macro=ui->msg8->text(); break;
+  default: return;
+  }
+
+  auto const context = jttyNativeMacroContext(
+    m_config, m_hisCall, ui->sbSerialNumber_2->value());
+  auto const compiled=Jtty::compileNativeMacro(macro,context);
+  if(compiled.status == Jtty::NativeMacroStatus::LiteralFallback) {
+    jtty_tx(compiled.text);
+    return;
+  }
+
+  qint64 const requestId=++m_jttyTxRequestId;
+  if(compiled.status == Jtty::NativeMacroStatus::InvalidRuntime) {
+    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1").arg(compiled.error));
+    Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
+    return;
+  }
+
+  int itone[944];
+  int nsym=0;
+  genjtty_atoms_c(compiled.atoms.constData(),compiled.atoms.size(),itone,&nsym);
+  if(nsym <= 0) {
+    LOG_WARN("JTTY native macro could not be encoded");
+    Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
+    return;
+  }
+  execute_jtty_tones(requestId,compiled.text,itone,nsym);
 }
 
 QString MainWindow::jtty_msg_expand(QString t)
 {
-  if(!t.contains("%")) return t;
-  for (int i=0; i<5; i++) {
-    t=t.replace("%M",m_config.my_callsign());
-    t=t.replace("%H",m_hisCall);
-    t=t.replace("%Q",m_hisCall);
-    if(t.contains("%N")) {
-      int n=ui->sbSerialNumber_2->value();
-      QString tn=Jtty::formatSerialNumber(n);
-      t=t.replace("%N",tn);
-      if(!t.contains("%")) return t;
-    }
-    if(!t.contains("%")) return t;
-  }
-  return t;
+  auto const context = jttyNativeMacroContext(
+    m_config, m_hisCall, ui->sbSerialNumber_2->value());
+  return Jtty::expandLiteralMacro(t, context);
 }
 
 void MainWindow::on_RxFreqSpinBox_2_valueChanged(int n)
