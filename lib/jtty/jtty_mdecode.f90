@@ -539,6 +539,7 @@ contains
       integer               :: best_cont
       real                  :: best_df,dfabs
       logical               :: have_win
+      logical               :: source_valid
       integer               :: gap,best_gap,nchar,nstart
       integer               :: best_dupe
       real                  :: best_dupe_df
@@ -583,6 +584,11 @@ contains
       cand(ncand)%decoded=' '
       if( .not. success_dec ) return
 
+      write(c32(1),'(34i1)') final_payload
+      call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep,   &
+           cand(ncand)%is_last_frame,source_valid)
+      if(.not.source_valid) return
+
       ndecodes=ndecodes+1
       ! Re-encode the decoded payload to recover the expected tone
       ! per symbol, for the symbol-error-count/SNR diagnostic below
@@ -601,9 +607,6 @@ contains
          snrdb=db(pt/pn)
          cand(ncand)%snrdb=snrdb
       endif
-      write(c32(1),'(34i1)') final_payload
-      call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep,   &
-           cand(ncand)%is_last_frame)
       cand(ncand)%tsync=(istart-1)/12000.0 + cand(ncand)%xdt
       decoded_ok=.true.
 

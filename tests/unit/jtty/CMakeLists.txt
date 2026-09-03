@@ -2,6 +2,14 @@ add_executable (test_jtty_pack test_jtty_pack.f90)
 target_include_directories (test_jtty_pack PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_pack)
 
+add_executable (test_jtty_source_codec test_jtty_source_codec.f90)
+target_include_directories (test_jtty_source_codec PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_source_codec)
+add_test (NAME test_jtty_source_codec COMMAND test_jtty_source_codec)
+set_tests_properties (test_jtty_source_codec PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_source_codec: all checks passed"
+)
+
 add_executable (test_tbcc test_tbcc.f90)
 target_include_directories (test_tbcc PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_tbcc)
@@ -32,6 +40,15 @@ wsjt_link_common_fortran (test_jtty_adjacent_decode)
 add_test (NAME test_jtty_adjacent_decode COMMAND test_jtty_adjacent_decode)
 set_tests_properties (test_jtty_adjacent_decode PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_adjacent_decode: all checks passed"
+  TIMEOUT 60
+)
+
+add_executable (test_jtty_structured_decode test_jtty_structured_decode.f90)
+target_include_directories (test_jtty_structured_decode PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_structured_decode)
+add_test (NAME test_jtty_structured_decode COMMAND test_jtty_structured_decode)
+set_tests_properties (test_jtty_structured_decode PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_structured_decode: all checks passed"
   TIMEOUT 60
 )
 

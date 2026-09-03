@@ -27,7 +27,7 @@ program test_jtty_sticky_retry
   integer :: failures
 
   failures=0
-  call run_case('WB9XYZ 599 0123',2,failures)
+  call run_case('WB9XYZ 599 0123',3,failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_sticky_retry: failures=',failures

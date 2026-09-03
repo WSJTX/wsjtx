@@ -39,6 +39,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    complex                   :: z
    logical, intent(out)      :: success
    logical, intent(inout)    :: synced
+   logical                   :: source_valid
 
    success=.false.
    if(sum(abs(iwave)).eq.0) return
@@ -194,7 +195,8 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    decoded=' '
    if( success ) then
       write(c32(1),'(34i1)') final_payload
-      call unpack_jtty(c32,1,decoded)
+      call unpack_jtty(c32,1,decoded,source_valid=source_valid)
+      if(.not.source_valid) success=.false.
    endif
    return
 end subroutine jtty_decode

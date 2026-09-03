@@ -290,6 +290,7 @@ set (wsjt_FSRCS
   lib/ft8var/ft8_decode_ranges.f90
   lib/ft8var/ft8_mtd_residual.f90
   lib/ft8var/ft8_decodevar.f90
+  lib/jtty/jtty_source_codec.f90
   lib/jtty/jtty_mod.f90
   lib/jtty/tbcc.f90
   lib/jtty/jtty_fec_mod.f90

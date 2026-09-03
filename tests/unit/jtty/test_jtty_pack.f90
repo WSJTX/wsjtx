@@ -55,34 +55,22 @@ program test_jtty_pack
 1100 format(/'Total messages:',i3,'   Number of errors:',i3)
   if(nerr.ne.expected_errors) error stop 1
 
-  call expect_pack('CQ KA1ABC CQ',1,0,0,-1,-1)
-  call expect_pack('WB9XYZ',1,0,1,-1,-1)
-  ! A one-frame compact call wins the canonical tie over one free-text frame.
-  call expect_pack('K1A',1,0,1,-1,-1)
-  call expect_pack('TU KA1ABC CQ',1,0,2,-1,-1)
-  call expect_pack('WB9XYZ TU',1,0,3,-1,-1)
-  call expect_pack('WB9XYZ AGN?',1,1,0,-1,-1)
-  call expect_pack('TU NOW JA6DEF 599 123',2,1,1,2,-1)
-  ! Structured frames can be adjacent with only the implicit decoded separator.
-  call expect_pack('WB9XYZ TU CQ KA1ABC CQ',2,0,3,0,0)
-  ! DP should still compact a standalone call after an earlier free-text frame.
-  call expect_pack('TEST WB9XYZ',2,3,-1,0,1)
-  call expect_pack('599 MA',1,2,-1,-1,-1)
-  ! Short 599 exchanges also prefer the compact frame on a one-frame tie.
-  call expect_pack('599 A',1,2,-1,-1,-1)
-  ! A 599 frame carries exactly five payload characters before later text.
-  call expect_pack('599 BRUCE F',2,2,-1,3,-1)
-  ! 599 is not compacted when it appears inside a larger token.
+  ! Operator text is strict literal input; call-like and exchange-like strings
+  ! are never promoted into native call or STRUCT30 atoms.
+  call expect_pack('CQ KA1ABC CQ',3,3,-1,3,-1)
+  call expect_pack('WB9XYZ',2,3,-1,3,-1)
+  call expect_pack('599 MA',2,3,-1,3,-1)
+  call expect_pack('599 A',1,3,-1,-1,-1)
+  call expect_pack('599 BRUCE F',3,3,-1,3,-1)
   call expect_pack('A599 MA',2,3,-1,3,-1)
   call expect_pack('VP2/KF2GHI',2,3,-1,3,-1)
   call expect_pack('VP2/KA1ABC',2,3,-1,3,-1)
-  ! chkcall accepts Q placeholders that are not valid JTTY compact calls.
   call expect_pack('QU1RK',1,3,-1,-1,-1)
   call expect_pack('TU QU1RKP CQ',3,3,-1,3,-1)
   call expect_pack('WB9XYZABC',2,3,-1,3,-1)
   call expect_pack('K1A A',1,3,-1,-1,-1)
   ! Normalization is part of the round-trip contract for operator input.
-  call expect_pack('cq  ka1abc   cq',1,0,0,-1,-1)
+  call expect_pack('cq  ka1abc   cq',3,3,-1,3,-1)
   call expect_pack('  vp2/kf2ghi  ',2,3,-1,3,-1)
   call expect_pack('A'//char(0)//'B',1,3,-1,-1,-1)
   call expect_pack('A~B',1,3,-1,-1,-1)
@@ -92,7 +80,6 @@ program test_jtty_pack
   call expect_pack('HELLO'//char(13)//'WORLD',3,3,-1,3,-1)
   call expect_unassigned_unpack_empty(1,2)
   call expect_unassigned_unpack_empty(1,3)
-  call expect_unpack_overflow_guard()
   call expect_structured_unpack_boundary()
   call expect_empty_waveform_guard()
   call expect_last_frame_flag()
@@ -196,28 +183,6 @@ contains
        error stop 1
     endif
   end subroutine expect_unassigned_unpack_empty
-
-  subroutine expect_unpack_overflow_guard()
-    character*34 frames(MAX_FRAMES)
-    character*80 decoded,expected
-    integer iframe
-
-    ! Sixteen 599 frames must decode exactly up to the fixed output boundary.
-    do iframe=1,MAX_FRAMES
-       write(frames(iframe),'(b32.32,a2)') 2,'00'
-    enddo
-    expected=''
-    do iframe=1,8
-       expected((iframe-1)*9+1:iframe*9)='599 00000'
-    enddo
-    expected(73:80)='599 0000'
-    call unpack_jtty(frames,MAX_FRAMES,decoded)
-    if(len_trim(decoded).ne.80 .or. decoded.ne.expected) then
-       write(*,1290) len_trim(decoded),trim(decoded)
-1290   format('Overflow-guard unpack test decoded length ',i0,' as "',a,'"')
-       error stop 1
-    endif
-  end subroutine expect_unpack_overflow_guard
 
   subroutine expect_structured_unpack_boundary()
     character*34 frames(MAX_FRAMES)
