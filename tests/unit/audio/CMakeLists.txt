@@ -57,6 +57,51 @@ target_link_libraries (test_audio_input_stream_descriptor
   wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia)
 add_test (NAME test_audio_input_stream_descriptor
   COMMAND test_audio_input_stream_descriptor)
+
+add_executable (test_receive_audio_handoff
+  test_receive_audio_handoff.cpp
+  receive_reference_probe.f90
+  ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+  ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp
+  ${CMAKE_SOURCE_DIR}/Detector/Detector.cpp)
+target_link_libraries (test_receive_audio_handoff
+  wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
+target_include_directories (test_receive_audio_handoff PRIVATE ${CMAKE_BINARY_DIR})
+# Run each case in a fresh process: refspectrum has saved accumulation state.
+foreach (scenario IN ITEMS
+    downsamplersRetainIndependentHistory
+    producersRemainIsolatedAcrossSourceSwitch
+    queued_prefix_without_reuse
+    handoff_rejects_gaps_and_disk_stale_work
+    queued_period_must_retain_identity
+    reference_measurement_vs_append
+    reference_measurement_vs_reset
+    owned_reference_survives_reset
+    reference_application_preserves_uncommitted_suffix
+    reference_application_packetization
+    echo_metadata_vs_append
+    echo_metadata_vs_reset
+    stale_echo_metadata_must_not_modify_next_period
+    owned_echo_metadata_survives_reset)
+  add_test (NAME test_receive_${scenario}
+    COMMAND test_receive_audio_handoff ${scenario})
+  set_tests_properties (test_receive_${scenario} PROPERTIES
+    TIMEOUT 30 LABELS "receive-handoff")
+  if (WSJT_ENABLE_TSAN)
+    # Do not inherit GUI event-dispatch suppressions: they can hide the very
+    # application callback accesses that these tests are intended to expose.
+    set (receive_handoff_tsan_options "halt_on_error=1:exitcode=66")
+    # Opening the reference-filter file triggers a libgfortran-internal lock
+    # ordering warning unrelated to receive ownership.  Keep race detection
+    # enabled while disabling only TSan's deadlock detector for these cases.
+    if (scenario MATCHES "^reference_application_")
+      string (APPEND receive_handoff_tsan_options ":detect_deadlocks=0")
+    endif ()
+    set_tests_properties (test_receive_${scenario} PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=${receive_handoff_tsan_options}")
+  endif ()
+endforeach ()
+
 add_executable (test_fast_decode_ownership
   test_fast_decode_ownership.cpp
   ${CMAKE_SOURCE_DIR}/FastDecode.cpp

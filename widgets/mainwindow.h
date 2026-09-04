@@ -47,6 +47,7 @@
 #include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
 #include "FastDecode.hpp"
+#include "ReferenceSpectrum.hpp"
 #include "Radio.hpp"
 #include "OperatingFrequency.hpp"
 #include "models/Modes.hpp"
@@ -244,6 +245,12 @@ public:
                              int lowFrequency, int highFrequency) const;
   void decoderOutputLine (QByteArray line) const;
   void liveAudioTestJttyFramesConsumed (qint64 frames) const;
+  void liveAudioTestReceiveRejected (qint64 notifiedFrames) const;
+  void liveAudioTestReceiveRange (quint64 epoch, int start, int end, bool accepted) const;
+  void liveAudioTestReceiveBlock (ReceiveAudio block) const;
+  void liveAudioTestReceiveCallback (qint64 notifiedFrames,
+                                     qint64 currentFrames,
+                                     qint16 observedLastSample) const;
   void liveAudioTestFt8TransmitStartDecided (qint64 sessionId,
                                              qint64 generation,
                                              qint64 targetPeriodStartMs,
@@ -726,6 +733,7 @@ private:
       unsigned downSampleFactor, AudioDevice::Channel) const;
   Q_SIGNAL void suspendAudioInputStream () const;
   Q_SIGNAL void resumeAudioInputStream () const;
+  Q_SIGNAL void stopAudioInputStream () const;
   Q_SIGNAL void startDetector (AudioDevice::Channel) const;
   Q_SIGNAL void FFTSize (unsigned) const;
   Q_SIGNAL void detectorClose () const;
@@ -1172,6 +1180,11 @@ private:
   WavLoadCoordinator m_wav_load_coordinator;
   QFutureWatcher<FastDecodeResult> watcher3;
   bool m_fastDecodePending = false;
+  ReferenceSpectrumInput m_referenceInput;
+  ReceiveAudioConsumer m_receiveConsumer;
+  QQueue<ReceiveAudio> m_receiveQueue;
+  ReceiveAudio m_activeReceiveAudio;
+  bool m_receivingAudio = false;
   QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;
 

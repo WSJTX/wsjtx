@@ -53,6 +53,44 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
       return;
     }
 
+  if (Profile::ReceiveHandoff == m_profile)
+    {
+      if (downSampleFactor != 1)
+        {
+          fail (tr ("Receive handoff fixture requires a downsample factor of 1."));
+          return;
+        }
+      if (!sink->initialize (QIODevice::WriteOnly, channel))
+        {
+          fail (tr ("Unable to initialize the detector for receive handoff input."));
+          return;
+        }
+      constexpr qint64 periodFrames = 15 * detectorSampleRate;
+      m_pcm.resize (static_cast<int> (2 * periodFrames * bytesPerFrame));
+      auto * samples = reinterpret_cast<qint16 *> (m_pcm.data ());
+      std::fill_n (samples, periodFrames, qint16 {1234});
+      std::fill_n (samples + periodFrames, periodFrames, qint16 {5678});
+      m_sink = sink;
+      m_inputSampleRate = detectorSampleRate;
+      m_chunkFrames = {3456};
+      m_started = true;
+      m_suspended = false;
+      AudioStreamDescriptor descriptor;
+      descriptor.sample_rate_hz = detectorSampleRate;
+      descriptor.sample_encoding = AudioStreamDescriptor::SampleEncoding::SignedInteger;
+      descriptor.sample_size_bits = 16;
+      descriptor.byte_order = AudioStreamDescriptor::ByteOrder::LittleEndian;
+      descriptor.channel_count = 1;
+      descriptor.channel_layout = AudioStreamDescriptor::ChannelLayout::Mono;
+      descriptor.clock_domain = AudioStreamDescriptor::ClockDomain::SystemClock;
+      descriptor.timing_evidence =
+        AudioStreamDescriptor::TimingEvidence::CaptureTimeAnchored;
+      setStreamDescriptor (descriptor);
+      Q_EMIT status (tr ("Synthetic receive handoff fixture ready"));
+      maybeSchedule ();
+      return;
+    }
+
   BWFFile file {QAudioFormat {}, m_path};
   if (!file.open (BWFFile::ReadOnly))
     {
@@ -201,6 +239,7 @@ void FixtureAudioInput::reset (bool)
 
 void FixtureAudioInput::arm ()
 {
+  if (Profile::ReceiveHandoff == m_profile) m_suspended = false;
   m_armed = true;
   maybeSchedule ();
 }
@@ -234,7 +273,7 @@ void FixtureAudioInput::maybeSchedule ()
     }
 
   auto const now = QDateTime::currentMSecsSinceEpoch ();
-  if (Profile::Ft8 == m_profile)
+  if (Profile::Ft8 == m_profile || Profile::ReceiveHandoff == m_profile)
     {
       constexpr qint64 periodMs = 15000;
       m_periodStartMs = ((now / periodMs) + 1) * periodMs;
@@ -250,12 +289,18 @@ void FixtureAudioInput::maybeSchedule ()
     }
   m_emitting = true;
   publishCaptureAnchor (m_framesEmitted);
-  auto const delay = std::max<qint64> (0, m_periodStartMs - now);
+  auto const delay = Profile::ReceiveHandoff == m_profile ? qint64 {0}
+    : std::max<qint64> (0, m_periodStartMs - now);
   m_timer->start (static_cast<int> (delay));
 }
 
 void FixtureAudioInput::scheduleNextChunk ()
 {
+  if (Profile::ReceiveHandoff == m_profile)
+    {
+      m_timer->start (0);
+      return;
+    }
   auto const target = captureTimestamp (m_framesEmitted);
   auto const delay = std::max<qint64> (0, target - QDateTime::currentMSecsSinceEpoch ());
   m_timer->start (static_cast<int> (delay));
@@ -270,7 +315,7 @@ void FixtureAudioInput::emitNextChunk ()
 
   auto const target = captureTimestamp (m_framesEmitted);
   auto const now = QDateTime::currentMSecsSinceEpoch ();
-  if (now < target)
+  if (Profile::ReceiveHandoff != m_profile && now < target)
     {
       m_timer->start (static_cast<int> (target - now));
       return;
@@ -298,8 +343,14 @@ void FixtureAudioInput::emitNextChunk ()
           return;
         }
     }
-  auto const chunkFrames = std::min<qint64> (
+  auto chunkFrames = std::min<qint64> (
     remainingFrames, m_chunkFrames.at (m_chunkIndex % m_chunkFrames.size ()));
+  if (Profile::ReceiveHandoff == m_profile)
+    {
+      constexpr qint64 periodFrames = 15 * detectorSampleRate;
+      auto const untilBoundary = periodFrames - m_framesEmitted % periodFrames;
+      chunkFrames = std::min (chunkFrames, untilBoundary);
+    }
   auto const chunkBytes = chunkFrames * bytesPerFrame;
   QByteArray chunk (static_cast<int> (chunkBytes), '\0');
   auto const chunkStart = m_framesEmitted;

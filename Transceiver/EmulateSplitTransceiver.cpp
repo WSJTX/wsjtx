@@ -18,6 +18,7 @@ EmulateSplitTransceiver::EmulateSplitTransceiver (logger_type * logger,
   // parent matching signals.
   connect (wrapped_.get (), &Transceiver::resolution, this, &Transceiver::resolution);
   connect (wrapped_.get (), &Transceiver::tciframeswritten, this, &Transceiver::tciframeswritten);
+  connect (wrapped_.get (), &Transceiver::receiveAudio, this, &Transceiver::receiveAudio);
   connect (wrapped_.get (), &Transceiver::tci_mod_active, this, &Transceiver::tci_mod_active);
   connect (wrapped_.get (), &Transceiver::txSourceCommitted, this, &Transceiver::txSourceCommitted);
   connect (wrapped_.get (), &Transceiver::rawTxPlayoutSnapshot, this, &Transceiver::rawTxPlayoutSnapshot);

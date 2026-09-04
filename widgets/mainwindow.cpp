@@ -54,6 +54,7 @@
 #include <QButtonGroup>
 #include <QActionGroup>
 #include <QSignalBlocker>
+#include <QMetaMethod>
 #include <QSplashScreen>
 #include <QUdpSocket>
 #include <QAbstractItemView>
@@ -379,7 +380,7 @@ extern "C" {
 
   void degrade_snr_(short d2[], int* n, float* db, float* bandwidth);
 
-  void refspectrum_(short int d2[], bool* bclearrefspec,
+  void refspectrum_(short int d2[], int* ninput, bool* bclearrefspec,
                     bool* brefspec, bool* buseref, const char* c_fname, fortran_charlen_t);
 
   void freqcal_(short d2[], int* k, int* nkhz,int* noffset, int* ntol,
@@ -817,6 +818,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::startAudioInputStream, m_soundInput, &AudioInputSource::start);
   connect (this, &MainWindow::suspendAudioInputStream, m_soundInput, &AudioInputSource::suspend);
   connect (this, &MainWindow::resumeAudioInputStream, m_soundInput, &AudioInputSource::resume);
+  connect (this, &MainWindow::stopAudioInputStream, m_soundInput, &AudioInputSource::stop);
   connect (this, &MainWindow::reset_audio_input_stream, m_soundInput, &AudioInputSource::reset);
   connect (this, &MainWindow::finished, m_soundInput, &AudioInputSource::stop);
   connect (m_soundInput, &AudioInputSource::streamDescriptorChanged,
@@ -841,10 +843,55 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // hook up the detector signals, slots and disposal
   connect (this, &MainWindow::FFTSize, m_detector, &Detector::setBlockSize);
-  auto const live_data_sink = [this] (qint64 frames) {
-    if (!m_wav_load_coordinator.isLoading () && !m_diskData) dataSink (frames);
+  auto const live_data_sink = [this] (ReceiveAudio audio) {
+    m_receiveQueue.enqueue (std::move (audio));
+    // decode() may dispatch GUI events. Queue nested deliveries until the
+    // current DSP invocation has finished using its consumer-owned samples.
+    if (m_receivingAudio) return;
+    m_receivingAudio = true;
+    while (!m_receiveQueue.isEmpty ())
+      {
+        auto const block = m_receiveQueue.dequeue ();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+        if (m_automated_test) Q_EMIT liveAudioTestReceiveBlock (block);
+#endif
+        if (m_wav_load_coordinator.isLoading () || m_diskData)
+          {
+            m_receiveConsumer.invalidate ();
+            continue;
+          }
+        auto const previousEpoch = m_receiveConsumer.epoch ();
+        if (!m_receiveConsumer.accept (block, dec_data))
+          {
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+            if (m_automated_test) Q_EMIT liveAudioTestReceiveRejected (block->end ());
+#endif
+            continue;
+          }
+        if (previousEpoch != m_receiveConsumer.epoch ()) m_referenceInput.reset ();
+        auto const frames = block->end ();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+        if (m_automated_test && frames > 0
+            && isSignalConnected (QMetaMethod::fromSignal (
+                 &MainWindow::liveAudioTestReceiveCallback)))
+          {
+            QMutexLocker lock {&dec_data_mutex ()};
+            auto const currentFrames = qint64 {block->sourceFrames ()};
+            auto const sample = frames <= currentFrames
+              ? dec_data.d2[frames - 1] : qint16 {0};
+            Q_EMIT liveAudioTestReceiveCallback (frames, currentFrames, sample);
+          }
+#endif
+        m_activeReceiveAudio = block;
+        dataSink (frames);
+        m_activeReceiveAudio.reset ();
+      }
+    m_receivingAudio = false;
   };
-  connect(m_detector, &Detector::framesWritten, this, live_data_sink);
+  connect (m_detector, &Detector::audioBlock, this,
+           [this, live_data_sink] (ReceiveAudio audio) {
+             if (!m_tci_audio) live_data_sink (std::move (audio));
+           });
   connect (&m_audioThread, &QThread::finished, m_detector, &QObject::deleteLater);
 
   // setup the waterfall
@@ -1272,7 +1319,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // hook up configuration signals
   connect (&m_config, &Configuration::leavingSettings, this, &MainWindow::handle_leavingSettings);
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
-  connect (&m_config, &Configuration::transceiver_TCIframesWritten, this, live_data_sink);
+  connect (&m_config, &Configuration::transceiverReceiveAudio, this,
+           [this, live_data_sink] (ReceiveAudio audio) {
+             if (m_tci_audio) live_data_sink (std::move (audio));
+           });
   connect (&m_config, &Configuration::transceiver_TCImodActive, this, &MainWindow::tci_mod_active);
   connect (&m_config, &Configuration::txSourceCommitted,
            this, &MainWindow::recordTxSourceCommit, Qt::QueuedConnection);
@@ -2080,9 +2130,18 @@ void MainWindow::dataSink(qint64 frames)
 
   m_bUseRef=m_wideGraph->useRef();
   if(!m_diskData) {
-    refspectrum_(&dec_data.d2[k-m_nsps/2],&m_bClearRefSpec,&m_bRefSpec,
-                 &m_bUseRef, fname.constData (), (FCL)fname.size ());
+    if (m_bClearRefSpec)
+      {
+        int count = 0;
+        refspectrum_ (dec_data.d2, &count, &m_bClearRefSpec, &m_bRefSpec,
+                      &m_bUseRef, fname.constData (), (FCL) fname.size ());
+      }
     m_bClearRefSpec=false;
+    m_referenceInput.consume (dec_data.d2, k, m_bRefSpec ? 1 : m_bUseRef ? 2 : 0,
+      [&] (short * samples, int count) {
+        refspectrum_ (samples, &count, &m_bClearRefSpec, &m_bRefSpec,
+                      &m_bUseRef, fname.constData (), (FCL) fname.size ());
+      });
   }
 
   if(m_mode=="MSK144" or m_bFast9) {
@@ -2499,11 +2558,13 @@ void MainWindow::fastSink(qint64 frames)
         Q_EMIT liveAudioTestJttyFramesConsumed (k);
       }
 #endif
-    int detectorFrames;
-    {
-      QMutexLocker lock {&dec_data_mutex ()};
-      detectorFrames = dec_data.params.kin;
-    }
+    int detectorFrames = dec_data.params.kin;
+    if (!m_diskData)
+      {
+        QMutexLocker lock {&dec_data_mutex ()};
+        detectorFrames = m_activeReceiveAudio
+          ? m_activeReceiveAudio->sourceFrames () : k;
+      }
     if(detectorFrames - k < 10240) fast_decode_done();
     return;
   }
@@ -2947,11 +3008,23 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
         m_psk_Reporter.sendReport (true);
       }
 
-    m_tci_audio = (m_config.tci_audio() && m_config.is_tci());  // update m_tci_audio
+    bool const next_tci_audio = m_config.tci_audio () && m_config.is_tci ();
+    bool const receive_source_changed = next_tci_audio != m_tci_audio;
     bool was_monitoring = m_monitoring;
-    if (m_monitoring && (m_config.restart_tci () or !m_tci_audio)) on_monitorButton_clicked (false);
+    if (m_monitoring && (receive_source_changed || m_config.restart_tci ()
+                         || !next_tci_audio))
+      on_monitorButton_clicked (false);
+    if (receive_source_changed && !m_tci_audio) Q_EMIT stopAudioInputStream ();
+    if (receive_source_changed && next_tci_audio)
+      Q_EMIT m_config.transceiver_audio (false);
+    m_tci_audio = next_tci_audio;
+    if (receive_source_changed)
+      {
+        m_receiveConsumer.invalidate ();
+        m_receiveQueue.clear ();
+      }
     if (!m_tci_audio) {
-      if(m_config.restart_audio_input ()) {
+      if(receive_source_changed || m_config.restart_audio_input ()) {
         Q_EMIT startAudioInputStream (m_config.audio_input_device ()
                                       , m_rx_audio_buffer_frames
                                       , m_detector, m_downSampleFactor
@@ -2964,7 +3037,11 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
                                             , m_tx_audio_buffer_frames);
       }
     }
-    if (was_monitoring && (m_config.restart_tci () or !m_tci_audio) && !m_monitoring && !m_transmitting && g_iptt!=1) {
+    if (!was_monitoring && receive_source_changed && !m_tci_audio)
+      Q_EMIT suspendAudioInputStream ();
+    if (was_monitoring && (receive_source_changed || m_config.restart_tci ()
+                           || !m_tci_audio)
+        && !m_monitoring && !m_transmitting && g_iptt!=1) {
       if(m_mode=="MSK144") {
         if (m_tci_audio) {
           if (ui->bandComboBox->currentText()!="OOB") {
@@ -3076,7 +3153,10 @@ void MainWindow::monitor (bool state)
       if (m_tci_audio) {
         if (ui->bandComboBox->currentText()!="OOB") {
           if(ms>=10) {
-            QTimer::singleShot (ms, this, [=] {Q_EMIT m_config.transceiver_audio(true);});
+            QTimer::singleShot (ms, this, [this] {
+              if (m_monitoring && m_tci_audio)
+                Q_EMIT m_config.transceiver_audio (true);
+            });
           } else {
             Q_EMIT m_config.transceiver_audio(true);
           }
@@ -3085,7 +3165,9 @@ void MainWindow::monitor (bool state)
         }
       } else {
         if(ms>=10) {
-          QTimer::singleShot (ms, this, [=] {resumeAudioInputStream();});
+          QTimer::singleShot (ms, this, [this] {
+            if (m_monitoring && !m_tci_audio) Q_EMIT resumeAudioInputStream ();
+          });
         } else {
           Q_EMIT resumeAudioInputStream ();
         }
@@ -4462,6 +4544,8 @@ void MainWindow::wav_file_loaded ()
 
   auto const result=m_wav_load_coordinator.result ();
   if (!result) return;
+  m_receiveConsumer.invalidate ();
+  m_referenceInput.reset ();
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
@@ -5023,13 +5107,16 @@ QString MainWindow::completeLiveAudioTestFt8Input (qint64 frames)
         .arg (frames);
     }
 
-  if (m_downSampleFactor > 1
-      && !QMetaObject::invokeMethod (
+  if (!QMetaObject::invokeMethod (
         m_detector, "flushBufferedFrames", Qt::BlockingQueuedConnection,
         Q_ARG (qint64, DecoderIpc::Ft8SampleCount)))
     {
-      return tr ("Unable to flush the final FT8 downsampling block.");
+      return tr ("Unable to flush the final FT8 audio block.");
     }
+
+  // The flush transfers its final owned block through the ordinary queued
+  // handoff. Complete that delivery before this test-only completeness check.
+  QCoreApplication::sendPostedEvents (this, QEvent::MetaCall);
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
@@ -10272,7 +10359,7 @@ void MainWindow::on_actionFT4_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   setDecodeHeadings("  UTC   dB   DT Freq    " + tr ("Message"), "  UTC   dB   DT Freq    " + tr ("Message"));
@@ -10339,7 +10426,7 @@ void MainWindow::on_actionFT8_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   if(SpecOp::FOX==m_specOp) {
@@ -10460,7 +10547,7 @@ void MainWindow::on_actionJT4_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   initializeFFT(6912);
   m_hsymStop=176;
@@ -10560,7 +10647,7 @@ void MainWindow::on_actionJT9_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   if(bVHF) {
@@ -10597,7 +10684,7 @@ void MainWindow::on_actionJT65_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   initializeFFT(6912);
   m_hsymStop=174;
@@ -10736,7 +10823,7 @@ void MainWindow::on_actionJTTY_triggered()
   m_TRperiod=180;                   //We need a nonzero setting for WideGraph plotter to work.
   m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+  m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   ui->TxFreqSpinBox_2->setValue(1500);
   ui->RxFreqSpinBox_2->setValue(1500);
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
@@ -10823,7 +10910,7 @@ void MainWindow::on_actionMSK144_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   m_fastGraph->setTRPeriod(m_TRperiod);
   setDecodeTitles(tr ("Band Activity"), tr ("Tx Messages"));
@@ -10864,7 +10951,7 @@ void MainWindow::on_actionWSPR_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   initializeFFT(6912);
   m_hsymStop=396;
@@ -10907,7 +10994,7 @@ void MainWindow::on_actionEcho_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   initializeFFT(6912);
   m_hsymStop=9;
@@ -10964,7 +11051,7 @@ void MainWindow::on_actionFreqCal_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   initializeFFT(6912);
   m_hsymStop=((int(m_TRperiod/0.288))/8)*8;
@@ -11921,6 +12008,11 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 
 void MainWindow::handle_transceiver_closing (bool failed)
 {
+  if (m_tci_audio)
+    {
+      m_receiveConsumer.invalidate ();
+      m_receiveQueue.clear ();
+    }
   if (m_closing || m_mode != "JTTY" || !m_jttyTxActive
       || !m_jttyTxUsesTciAudio)
     {
@@ -12481,7 +12573,7 @@ void MainWindow::on_sbTR_valueChanged(int value)
       Q_EMIT m_config.transceiver_period(m_TRperiod);
     if (!m_tci_audio) {
       m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-      m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+      m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
     }
     m_wideGraph->setPeriod (value, m_nsps);
     progressBar.setMaximum (value);

@@ -142,9 +142,9 @@ namespace
 }
 
 extern "C" {
-  void   fil4_(qint16*, qint32*, qint16*, qint32*, short int*);
+  void   fil4_state_(qint16*, qint32*, qint16*, qint32*, float*);
 }
-extern dec_data_t& dec_data;
+#include "ReceiveAudio.hpp"
 
 extern float gran();		// Noise generator (for tests only)
 
@@ -166,7 +166,7 @@ void TCITransceiver::register_transceivers (logger_type *, TransceiverFactory::T
 
 TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<TransceiverBase> wrapped,QString const& rignr,
                                QString const& address, bool use_for_ptt,
-                               int poll_interval, QObject * parent)
+                               int poll_interval, QObject * parent, ReceiveClock receive_clock)
   : PollingTransceiver {logger, poll_interval, parent}
   , wrapped_ {std::move (wrapped)}
   , rx_ {rignr}
@@ -240,6 +240,7 @@ TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<Transceive
   , m_toneFrequency0 {1500.0}
   , wav_file_ {QDir(QStandardPaths::writableLocation (QStandardPaths::DataLocation)).absoluteFilePath ("tx.wav").toStdString()}
 {
+  receive_clock_ = std::move (receive_clock);
   m_samplesPerFFT = 6912 / 2;
   tci_Ready = false;
   trxA = 0;
@@ -1054,11 +1055,7 @@ void TCITransceiver::poll_jtty_drain ()
 
 void TCITransceiver::clear ()
 {
-  auto const capacity = sizeof dec_data.d2 / sizeof dec_data.d2[0];
-  auto const periodFrames = static_cast<std::size_t> (
-      std::ceil (m_period * RX_SAMPLE_RATE));
-  std::fill_n (dec_data.d2, std::min (capacity, periodFrames), qint16 {0});
-  dec_data.params.kin = 0;
+  m_receiveAudioProducer.reset (m_period);
   m_bufferPos = 0;
 }
 
@@ -1066,18 +1063,19 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 {
   if (dec_data_input_blocked ()) return maxSize;
 
-  static unsigned mstr0=999999;
   QVector<qint64> frame_counts;
-  qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
+  QVector<ReceiveAudio> audio;
+  qint64 ms0 = (receive_clock_ ? receive_clock_ ()
+                              : QDateTime::currentMSecsSinceEpoch ()) % 86400000;
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
 
   if(data == NULL) {
     QMutexLocker lock {&dec_data_mutex ()};
     if (dec_data_input_blocked ()) return maxSize;
-    if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
+    if(mstr < m_lastPeriodOffsetMs/2) { //When mstr has wrapped around to 0, restart the buffer
       clear ();
     }
-    mstr0=mstr;
+    m_lastPeriodOffsetMs=mstr;
     return maxSize;    // we drop any data past the end of the buffer on
     // the floor until the next period starts
   }
@@ -1091,29 +1089,30 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
+    auto& producer = m_receiveAudioProducer.data ();
     if (dec_data_input_blocked ()) {
       free(data1);
       return maxSize;
     }
 
-    if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
+    if(mstr < m_lastPeriodOffsetMs/2) { //When mstr has wrapped around to 0, restart the buffer
       clear ();
     }
-    mstr0=mstr;
+    m_lastPeriodOffsetMs=mstr;
 
     // no torn frames
     Q_ASSERT (!(maxSize % static_cast<qint32> (rxChannels)));
 
     // these are in terms of input frames (not down sampled)
-    size_t framesAcceptable ((sizeof (dec_data.d2) /
-                                 sizeof (dec_data.d2[0]) - dec_data.params.kin) * m_downSampleFactor);
+    size_t framesAcceptable ((sizeof producer.d2 /
+                                 sizeof producer.d2[0] - m_receiveAudioProducer.frames ()) * m_downSampleFactor);
     size_t framesAccepted (qMin (static_cast<size_t> (maxSize /
                                                       rxChannels), framesAcceptable));
 
     if (framesAccepted < static_cast<size_t> (maxSize / rxChannels)) {
       qDebug () << "dropped " << maxSize / rxChannels - framesAccepted
                << " frames of data on the floor!"
-               << dec_data.params.kin << mstr;
+               << m_receiveAudioProducer.frames () << mstr;
     }
 
     for (unsigned remaining = framesAccepted; remaining; ) {
@@ -1128,27 +1127,30 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
         if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
           qint32 framesToProcess (m_samplesPerFFT * m_downSampleFactor);
           qint32 framesAfterDownSample (m_samplesPerFFT);
-          if(m_downSampleFactor > 1 && dec_data.params.kin>=0 &&
-              dec_data.params.kin < (NTMAX*12000 - framesAfterDownSample)) {
-            fil4_(&m_buffer[0], &framesToProcess, &dec_data.d2[dec_data.params.kin],
-                  &framesAfterDownSample, &dec_data.d2[dec_data.params.kin]);
-            dec_data.params.kin += framesAfterDownSample;
+          if(m_downSampleFactor > 1 && m_receiveAudioProducer.frames ()>=0 &&
+              m_receiveAudioProducer.frames () < (NTMAX*12000 - framesAfterDownSample)) {
+            fil4_state_(&m_buffer[0], &framesToProcess,
+                  &producer.d2[m_receiveAudioProducer.frames ()],
+                  &framesAfterDownSample, m_downsampleState.data ());
+            m_receiveAudioProducer.setFrames (m_receiveAudioProducer.frames () + framesAfterDownSample);
           } else {
             qDebug() << "framesToProcess     = " << framesToProcess;
-            qDebug() << "dec_data.params.kin = " << dec_data.params.kin;
+            qDebug() << "receive audio frames = " << m_receiveAudioProducer.frames ();
             qDebug() << "framesAfterDownSample" << framesAfterDownSample;
           }
-          frame_counts << dec_data.params.kin;
+          frame_counts << m_receiveAudioProducer.frames ();
+          audio << m_receiveAudioProducer.capture (m_receiveAudioProducer.frames (), m_period);
           m_bufferPos = 0;
         }
 
       } else {
         store (&data1[(framesAccepted - remaining) * rxChannels],
-              numFramesProcessed, &dec_data.d2[dec_data.params.kin]);
+              numFramesProcessed, &producer.d2[m_receiveAudioProducer.frames ()]);
         m_bufferPos += numFramesProcessed;
-        dec_data.params.kin += numFramesProcessed;
+        m_receiveAudioProducer.setFrames (m_receiveAudioProducer.frames () + numFramesProcessed);
         if (m_bufferPos == static_cast<unsigned> (m_samplesPerFFT)) {
-          frame_counts << dec_data.params.kin;
+          frame_counts << m_receiveAudioProducer.frames ();
+          audio << m_receiveAudioProducer.capture (m_receiveAudioProducer.frames (), m_period);
           m_bufferPos = 0;
         }
       }
@@ -1159,6 +1161,7 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
   for (auto frames : frame_counts) {
     Q_EMIT tciframeswritten (frames);
   }
+  for (auto const& block : audio) Q_EMIT receiveAudio (block);
 
   free(data1);
   return maxSize;    // we drop any data past the end of the buffer on
@@ -1234,7 +1237,12 @@ void TCITransceiver::do_audio (bool on)
 void TCITransceiver::do_period (double period)
 {
   TRACE_CAT ("TCITransceiver", period << state ());
-  m_period = period;
+  if (m_period != period)
+    {
+      QMutexLocker lock {&dec_data_mutex ()};
+      m_period = period;
+      if (!dec_data_input_blocked ()) clear ();
+    }
 }
 
 void TCITransceiver::do_volume (qreal volume)

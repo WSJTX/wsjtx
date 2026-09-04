@@ -216,9 +216,13 @@ private Q_SLOTS:
     descriptor.timing_evidence = AudioStreamDescriptor::TimingEvidence::CaptureTimeAnchored;
     descriptor.capture_anchor_utc_ms = 90000;
     detector.setStreamDescriptor (descriptor);
+    ReceiveAudioConsumer consumer;
+    auto connection = connect (&detector, &Detector::audioBlock, this,
+      [&] (ReceiveAudio audio) { QVERIFY (consumer.accept (audio, storage)); });
     std::vector<short> initial (committed, 1234);
     QCOMPARE (detector.write (reinterpret_cast<char const *> (initial.data ()),
                              initial.size () * sizeof (short)), qint64 (2 * committed));
+    disconnect (connection);
 
     std::mutex mutex;
     std::condition_variable changed;
@@ -263,13 +267,12 @@ private Q_SLOTS:
     QVERIFY (writerReady);
     QVERIFY (writerStarted);
     QCOMPARE (written, qint64 (2 * 3584));
-    QCOMPARE (dec_data.params.kin, committed + 3584);
+    QCOMPARE (dec_data.params.kin, committed);
     QVERIFY (probe.validCount);
     QCOMPARE (probe.samples.size (), std::size_t (committed));
     QVERIFY (std::all_of (probe.samples.begin (), probe.samples.end (),
                          [] (short x) { return x == 1234; }));
-    // The committed prefix is valid even on the broken implementation. TSan
-    // detects its unnecessary, unsynchronized read of the uncommitted suffix.
+    // Producer appends cannot mutate the decoder's accepted snapshot.
   }
 
   void overlapping_jobs_retain_submission_identity ()

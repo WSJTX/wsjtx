@@ -2,8 +2,10 @@
 #define TCI_TRANSCEIVER_HPP__
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <memory>
+#include <functional>
 
 #include "TransceiverFactory.hpp"
 #include "PollingTransceiver.hpp"
@@ -28,12 +30,16 @@ class TCITransceiver final
   Q_OBJECT;
 
 public:
+  // UTC milliseconds, called on the transceiver thread for receive audio.
+  // An empty provider retains the system-clock behavior.
+  using ReceiveClock = std::function<qint64 ()>;
   static void register_transceivers (logger_type *, TransceiverFactory::Transceivers *, unsigned id1, unsigned id2);
 
   // Takes ownership of the wrapped transceiver.
   explicit TCITransceiver (logger_type * logger, std::unique_ptr<TransceiverBase> wrapped, QString const& rignr,
                                            QString const& address, bool use_for_ptt,
-                                           int poll_interval, QObject * parent = nullptr);
+                                           int poll_interval, QObject * parent = nullptr,
+                                           ReceiveClock receive_clock = {});
 
 enum Tci_Cmd {
 Cmd_Unknown,
@@ -281,6 +287,10 @@ private:
     void clear ();                // discard buffer contents
 
   double m_period = 15.0;
+  ReceiveClock receive_clock_;
+  ReceiveAudioProducer m_receiveAudioProducer;
+  std::array<float, 49> m_downsampleState {};
+  unsigned m_lastPeriodOffsetMs = 999999;
   unsigned m_downSampleFactor;
   qint32 m_samplesPerFFT;       // after any down sampling
   qint32 m_ns;

@@ -1,11 +1,14 @@
-subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
+subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
 
 ! Input:
 !  id2       i*2        Raw 16-bit integer data, 12000 Hz sample rate
+!  ninput              Valid input count, 1..3456; zero resets stream history
 !  brefspec  logical    True when accumulating a reference spectrum
 
   parameter (NFFT=6912,NH=NFFT/2,NPOLYLOW=400,NPOLYHIGH=2600)
   integer*2 id2(NFFT)
+  integer*2 measurement(NH)
+  integer ninput,nmeasurement,offset,ncopy
   logical*1 bclear,brefspec,buseref,blastuse
   
   real xs(0:NH-1)                         !Saved upper half of input chunk convolved with h(t) 
@@ -30,6 +33,7 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
         w(i)=ww*ww/NFFT
      enddo
      nsave=0
+     nmeasurement=0
      s=0.0
      filter=1.0
      xs=0.
@@ -43,11 +47,27 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
      cfil=0.0
      xs=0.0
      nsave=0
+     nmeasurement=0
      blastuse=.false.
   endif
 
+  if(ninput.lt.0.or.ninput.gt.NH) return
+  if(ninput.eq.0) then
+     xs=0.0
+     nmeasurement=0
+     if(.not.buseref) blastuse=.false.
+     return
+  endif
   if(brefspec) then
-     x(0:NH-1)=0.001*id2(1:NH)
+     offset=0
+     do while(offset.lt.ninput)
+     ncopy=min(NH-nmeasurement,ninput-offset)
+     measurement(nmeasurement+1:nmeasurement+ncopy)=id2(offset+1:offset+ncopy)
+     offset=offset+ncopy
+     nmeasurement=nmeasurement+ncopy
+     if(nmeasurement.lt.NH) cycle
+     nmeasurement=0
+     x(0:NH-1)=0.001*measurement
      x(NH:NFFT-1)=0.0
      call four2a(cx,NFFT,1,-1,0)                 !r2c FFT
 
@@ -127,6 +147,7 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
         enddo
         close(16)
      endif
+     enddo
      return
   endif
 
@@ -145,21 +166,23 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
         cx(1:NH)=fil(1:NH)/NFFT
         call four2a(cx,NFFT,1,1,-1)
         x=cshift(x,-400)
-        x(800:NH)=0.0
+! Retain only the causal 800-tap response. Leaving the negative-time tail
+! near NFFT produces circular wraparound that depends on input chunk size.
+        x(800:NFFT-1)=0.0
         call four2a(cx,NFFT,1,-1,0)
         cfil=cx
         close(16)
      endif
 ! Use overlap and add method to apply causal reference filter.
-     x(0:NH-1)=id2(1:NH)
-     x(NH:NFFT-1)=0.0
+     x(0:ninput-1)=id2(1:ninput)
+     x(ninput:NFFT-1)=0.0
      x=x/NFFT
      call four2a(cx,NFFT,1,-1,0)
      cx=cfil*cx
      call four2a(cx,NFFT,1,1,-1)
      x(0:NH-1)=x(0:NH-1)+xs    
-     xs=x(NH:NFFT-1)
-     id2(1:NH)=nint(x(0:NH-1))
+     xs=x(ninput:ninput+NH-1)
+     id2(1:ninput)=nint(x(0:ninput-1))
   endif
   blastuse=buseref
 

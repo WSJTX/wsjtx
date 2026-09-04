@@ -1,5 +1,19 @@
 subroutine fil4(id1,n1,id2,n2)
 
+  parameter (NTAPS=49)
+  integer*2 id1(n1)
+  integer*2 id2(*)
+  real t(NTAPS)
+  data t/NTAPS*0.0/
+  save t
+
+  call fil4_state(id1,n1,id2,n2,t)
+
+  return
+end subroutine fil4
+
+subroutine fil4_state(id1,n1,id2,n2,t)
+
 ! FIR lowpass filter designed using ScopeFIR
 
 ! fsample     = 48000 Hz
@@ -15,7 +29,6 @@ subroutine fil4(id1,n1,id2,n2)
   integer*2 id1(n1)
   integer*2 id2(*)
   real t(NTAPS)
-  data t/NTAPS*0.0/
 
 ! Filter coefficients:
   real w(NTAPS)
@@ -33,7 +46,7 @@ subroutine fil4(id1,n1,id2,n2)
        -0.013752163325,-0.011720748164,-0.005202883094, 0.002613872664,   &
         0.008706594219, 0.011363155076, 0.010161983649, 0.010051920210,   &
         0.000861074040/
-  save w,t
+  save w
 
   n2=n1/NDOWN
   if(n2*NDOWN.ne.n1) stop 'Error in fil4'
@@ -46,4 +59,4 @@ subroutine fil4(id1,n1,id2,n2)
   enddo
 
   return
-end subroutine fil4
+end subroutine fil4_state

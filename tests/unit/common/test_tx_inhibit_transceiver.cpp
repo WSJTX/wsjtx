@@ -42,6 +42,8 @@ public:
     Q_EMIT update (state, sequence_number);
   }
 
+  void send_receive_audio (ReceiveAudio audio) { Q_EMIT receiveAudio (audio); }
+
   TransceiverState last_state;
   unsigned last_sequence_number {0};
   bool stopped {false};
@@ -86,6 +88,20 @@ class TestTxInhibitTransceiver : public QObject
 
 private:
   Q_SIGNAL void command (QString controller, quint32 ttl, QString station);
+
+  Q_SLOT void forwardsReceiveAudio ()
+  {
+    auto * fake = new FakeInhibitTransceiver;
+    TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    ReceiveAudio observed;
+    connect (&transceiver, &Transceiver::receiveAudio,
+             this, [&observed] (ReceiveAudio audio) { observed = std::move (audio); });
+    auto block = std::make_shared<ReceiveAudioBlock> ();
+
+    fake->send_receive_audio (block);
+
+    QCOMPARE (observed, ReceiveAudio {block});
+  }
 
   Q_SLOT void holdFiltersPttAndTuneWithoutChangingReportedRigState ()
   {

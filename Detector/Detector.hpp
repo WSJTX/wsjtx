@@ -2,7 +2,9 @@
 #define DETECTOR_HPP__
 #include "Audio/AudioDevice.hpp"
 #include "Audio/AudioStreamClock.hpp"
+#include "ReceiveAudio.hpp"
 #include <QScopedArrayPointer>
+#include <array>
 
 //
 // output device that distributes data in predefined chunks via a signal
@@ -26,10 +28,11 @@ public:
   Detector (unsigned frameRate, double periodLengthInSeconds, unsigned downSampleFactor = 4u,
             QObject * parent = 0);
 
-  void setTRPeriod(double p) {m_period=p;}
+  void setTRPeriod (double period);
   bool reset () override;
 
   Q_SIGNAL void framesWritten (qint64) const;
+  Q_SIGNAL void audioBlock (ReceiveAudio) const;
   Q_SLOT void setBlockSize (unsigned);
   Q_SLOT void flushBufferedFrames (qint64 frameLimit);
   Q_SLOT void setStreamDescriptor (AudioStreamDescriptor);
@@ -51,6 +54,8 @@ private:
   unsigned m_downSampleFactor;
   qint32 m_samplesPerFFT;	// after any down sampling
   AudioStreamClock m_stream_clock;
+  ReceiveAudioProducer m_receiveAudioProducer;
+  std::array<float, 49> m_downsampleState {};
   qint64 m_last_period_offset_ms {-1};
   static size_t const max_buffer_size {7 * 512};
   QScopedArrayPointer<short> m_buffer; // de-interleaved sample buffer

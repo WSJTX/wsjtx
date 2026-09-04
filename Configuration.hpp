@@ -482,6 +482,7 @@ public:
   // signals a change in one of the TransceiverState members
   Q_SIGNAL void transceiver_update (Transceiver::TransceiverState const&) const;
   Q_SIGNAL void transceiver_TCIframesWritten (qint64) const;
+  Q_SIGNAL void transceiverReceiveAudio (ReceiveAudio) const;
   Q_SIGNAL void transceiver_TCImodActive (bool) const;
   Q_SIGNAL void txSourceCommitted (TxEvidence::TxStartSnapshot) const;
   Q_SIGNAL void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot) const;

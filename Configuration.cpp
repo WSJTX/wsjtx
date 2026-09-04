@@ -6043,6 +6043,7 @@ bool Configuration::impl::open_rig (bool force)
               rig_resolution_ = resolution;
             });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
+          rig_connections_ << connect (rig.get (), &Transceiver::receiveAudio, self_, &Configuration::transceiverReceiveAudio);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
           rig_connections_ << connect (rig.get (), &Transceiver::txSourceCommitted, self_, &Configuration::txSourceCommitted);
           rig_connections_ << connect (rig.get (), &Transceiver::rawTxPlayoutSnapshot, self_, &Configuration::rawTxPlayoutSnapshot);

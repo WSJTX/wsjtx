@@ -37,3 +37,21 @@ add_executable (test_transceiver_base_period test_transceiver_base_period.cpp)
 target_include_directories (test_transceiver_base_period PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries (test_transceiver_base_period PRIVATE wsjt_qt Qt5::Test)
 add_test (NAME test_transceiver_base_period COMMAND test_transceiver_base_period)
+
+add_executable (test_tci_receive_ownership
+  test_tci_receive_ownership.cpp
+  ${CMAKE_SOURCE_DIR}/FastDecode.cpp)
+target_include_directories (test_tci_receive_ownership PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_tci_receive_ownership PRIVATE
+  tci_simulator wsjt_qt wsjt_fort_common Qt5::Test)
+foreach (scenario IN ITEMS packetization_preserves_audio
+    ignored_audio_does_not_change_reception submitted_job_survives_period_reuse
+    capture_vs_transport_append delayed_notification_retains_period_identity)
+  add_test (NAME test_tci_${scenario} COMMAND test_tci_receive_ownership ${scenario})
+  set_tests_properties (test_tci_${scenario} PROPERTIES
+    TIMEOUT 45 LABELS "receive-handoff;tci-receive")
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (test_tci_${scenario} PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
+  endif ()
+endforeach ()

@@ -15,6 +15,7 @@
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
 #include "Audio/TxRequest.hpp"
+#include "ReceiveAudio.hpp"
 
 class QString;
 
@@ -243,6 +244,7 @@ public:
 
   // rig audio data transfer w3sz tci
   Q_SIGNAL void tciframeswritten (qint64);
+  Q_SIGNAL void receiveAudio (ReceiveAudio);
 
   // rig audio data transfer  w3sz tci
   Q_SIGNAL void tci_mod_active (bool);

@@ -36,7 +36,7 @@ namespace
 
 dec_data_t& dec_data = test_dec_data;
 
-extern "C" void fil4_ (qint16 *, qint32 *, qint16 *, qint32 *)
+extern "C" void fil4_state_ (qint16 *, qint32 *, qint16 *, qint32 *, float *)
 {
 }
 
@@ -375,6 +375,8 @@ private:
   {
     Detector detector {12000, 1.0, 1};
     QVERIFY (detector.initialize (QIODevice::WriteOnly, AudioDevice::Mono));
+    detector.setBlockSize (1200);
+    QSignalSpy framesWritten {&detector, &Detector::framesWritten};
 
     auto descriptor = audioStreamDescriptorFromQAudioFormat (
       pcmFormat (QAudioFormat::SignedInt, 16,
@@ -388,7 +390,7 @@ private:
     QByteArray accepted {2400, '\0'};
     QCOMPARE (detector.write (accepted.constData (), accepted.size ()),
               qint64 {accepted.size ()});
-    QCOMPARE (dec_data.params.kin, qint64 {1200});
+    QCOMPARE (framesWritten.constLast ().constFirst ().toLongLong (), qint64 {1200});
 
     QByteArray blocked {14400, '\0'};
     set_dec_data_input_blocked (true);
@@ -396,23 +398,11 @@ private:
               qint64 {blocked.size ()});
     set_dec_data_input_blocked (false);
 
+    detector.setBlockSize (1);
     QByteArray finalFrame {2, '\0'};
     QCOMPARE (detector.write (finalFrame.constData (), finalFrame.size ()),
               qint64 {finalFrame.size ()});
-    QCOMPARE (dec_data.params.kin, qint64 {1});
-
-    detector.setStreamDescriptor (descriptor);
-    auto const capacity = sizeof dec_data.d2 / sizeof dec_data.d2[0];
-    dec_data.params.kin = static_cast<qint64> (capacity - 1);
-
-    QByteArray overflow {14400, '\0'};
-    QCOMPARE (detector.write (overflow.constData (), overflow.size ()),
-              qint64 {overflow.size ()});
-    QCOMPARE (dec_data.params.kin, static_cast<qint64> (capacity));
-
-    QCOMPARE (detector.write (finalFrame.constData (), finalFrame.size ()),
-              qint64 {finalFrame.size ()});
-    QCOMPARE (dec_data.params.kin, qint64 {1});
+    QCOMPARE (framesWritten.constLast ().constFirst ().toLongLong (), qint64 {1});
   }
 };
 

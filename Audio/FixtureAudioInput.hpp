@@ -20,7 +20,8 @@ public:
   enum class Profile
   {
     Ft8,
-    Jtty
+    Jtty,
+    ReceiveHandoff
   };
 
   explicit FixtureAudioInput (QString path, Profile profile = Profile::Ft8,

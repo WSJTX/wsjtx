@@ -33,6 +33,8 @@ public:
     Q_EMIT update (state, sequence_number);
   }
 
+  void send_receive_audio (ReceiveAudio audio) { Q_EMIT receiveAudio (audio); }
+
   TransceiverState last_state;
   unsigned last_sequence_number {0};
 };
@@ -42,6 +44,20 @@ class TestEmulateSplitTransceiver : public QObject
   Q_OBJECT
 
 private:
+  Q_SLOT void forwardsReceiveAudio ()
+  {
+    auto * raw_fake = new FakeTransceiver;
+    EmulateSplitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {raw_fake}};
+    ReceiveAudio observed;
+    connect (&transceiver, &Transceiver::receiveAudio,
+             this, [&observed] (ReceiveAudio audio) { observed = std::move (audio); });
+    auto block = std::make_shared<ReceiveAudioBlock> ();
+
+    raw_fake->send_receive_audio (block);
+
+    QCOMPARE (observed, ReceiveAudio {block});
+  }
+
   Q_SLOT void fakeSplitDoesNotPublishTransientTxDialAsRxDial ()
   {
     auto * raw_fake = new FakeTransceiver;

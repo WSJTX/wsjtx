@@ -214,6 +214,7 @@ if (WSJT_ENABLE_TESTS)
     Ft8TxLoopbackTestController.cpp
     JttyTxLoopbackTestController.cpp
     LiveAudioTestController.cpp
+    ReceiveHandoffTestController.cpp
     )
 endif ()
 

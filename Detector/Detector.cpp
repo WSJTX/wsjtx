@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QMutexLocker>
 #include <QVector>
+#include <QThread>
 #include <cmath>
 #include <cstddef>
 #include "commons.h"
@@ -13,10 +14,10 @@
 #include "moc_Detector.cpp"
 
 extern "C" {
-  void   fil4_(qint16*, qint32*, qint16*, qint32*);
+  void   fil4_state_(qint16*, qint32*, qint16*, qint32*, float*);
 }
 
-extern dec_data_t& dec_data;
+#include "ReceiveAudio.hpp"
 
 Detector::Detector (unsigned frameRate, double periodLengthInSeconds,
                     unsigned downSampleFactor, QObject * parent)
@@ -38,6 +39,22 @@ void Detector::setBlockSize (unsigned n)
   m_samplesPerFFT = n;
 }
 
+void Detector::setTRPeriod (double period)
+{
+  if (QThread::currentThread () != thread ())
+    {
+      QMetaObject::invokeMethod (this, [this, period] { setTRPeriod (period); },
+                                 Qt::QueuedConnection);
+      return;
+    }
+  if (m_period != period)
+    {
+      m_period = period;
+      m_last_period_offset_ms = -1;
+      clear ();
+    }
+}
+
 void Detector::setStreamDescriptor (AudioStreamDescriptor descriptor)
 {
   m_stream_clock.setDescriptor (descriptor);
@@ -48,27 +65,32 @@ void Detector::setStreamDescriptor (AudioStreamDescriptor descriptor)
 void Detector::flushBufferedFrames (qint64 frameLimit)
 {
   qint64 framesWritten {0};
+  ReceiveAudio audio;
   {
     QMutexLocker lock {&dec_data_mutex ()};
-    if (m_downSampleFactor <= 1 || !m_bufferPos
-        || dec_data_input_blocked () || dec_data.params.kin >= frameLimit)
+    auto& producer = m_receiveAudioProducer.data ();
+    if (dec_data_input_blocked ()) return;
+    if (m_downSampleFactor > 1 && m_bufferPos
+        && m_receiveAudioProducer.frames () < frameLimit)
       {
-        return;
+        auto const blockFrames = m_samplesPerFFT * m_downSampleFactor;
+        std::fill (m_buffer.data () + m_bufferPos,
+                   m_buffer.data () + blockFrames, 0);
+        qint32 framesToProcess = blockFrames;
+        qint32 framesAfterDownSample = m_samplesPerFFT;
+        fil4_state_ (m_buffer.data (), &framesToProcess,
+                     &producer.d2[m_receiveAudioProducer.frames ()],
+                     &framesAfterDownSample, m_downsampleState.data ());
+        m_receiveAudioProducer.setFrames (std::min<qint64> (
+          frameLimit, m_receiveAudioProducer.frames () + framesAfterDownSample));
       }
-
-    auto const blockFrames = m_samplesPerFFT * m_downSampleFactor;
-    std::fill (m_buffer.data () + m_bufferPos,
-               m_buffer.data () + blockFrames, 0);
-    qint32 framesToProcess = blockFrames;
-    qint32 framesAfterDownSample = m_samplesPerFFT;
-    fil4_ (m_buffer.data (), &framesToProcess,
-           &dec_data.d2[dec_data.params.kin], &framesAfterDownSample);
-    dec_data.params.kin = std::min<qint64> (
-      frameLimit, dec_data.params.kin + framesAfterDownSample);
-    framesWritten = dec_data.params.kin;
+    framesWritten = std::min<qint64> (frameLimit, m_receiveAudioProducer.frames ());
+    if (framesWritten <= m_receiveAudioProducer.capturedEnd ()) return;
+    audio = m_receiveAudioProducer.capture (framesWritten, m_period);
     m_bufferPos = 0;
   }
   Q_EMIT this->framesWritten (framesWritten);
+  Q_EMIT audioBlock (audio);
 }
 
 bool Detector::reset ()
@@ -90,11 +112,7 @@ void Detector::clear ()
 
 void Detector::resetPeriodBuffer ()
 {
-  auto const capacity = sizeof dec_data.d2 / sizeof dec_data.d2[0];
-  auto const periodFrames = static_cast<std::size_t> (
-      std::ceil (m_period * RX_SAMPLE_RATE));
-  std::fill_n (dec_data.d2, std::min (capacity, periodFrames), qint16 {0});
-  dec_data.params.kin = 0;
+  m_receiveAudioProducer.reset (m_period);
   m_bufferPos = 0;
 }
 
@@ -104,6 +122,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
   Q_ASSERT (!(maxSize % bytes_per_frame));
   qint64 const frames_received = maxSize / bytes_per_frame;
   QVector<qint64> frame_counts;
+  QVector<ReceiveAudio> audio;
   qint64 const now_ms = m_stream_clock.timestamp (
     QDateTime::currentMSecsSinceEpoch ());
   m_stream_clock.advance (frames_received);
@@ -115,6 +134,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
+    auto& producer = m_receiveAudioProducer.data ();
     if (dec_data_input_blocked ()) return maxSize;
     if(m_last_period_offset_ms >= 0 && mstr < m_last_period_offset_ms) {
       resetPeriodBuffer ();
@@ -122,8 +142,8 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
     m_last_period_offset_ms = mstr;
 
     // these are in terms of input frames (not down sampled)
-    size_t framesAcceptable ((sizeof (dec_data.d2) /
-                              sizeof (dec_data.d2[0]) - dec_data.params.kin) * m_downSampleFactor);
+    size_t framesAcceptable ((sizeof producer.d2 /
+                              sizeof producer.d2[0] - m_receiveAudioProducer.frames ()) * m_downSampleFactor);
     size_t framesAccepted (qMin (static_cast<size_t> (frames_received), framesAcceptable));
 
     if (framesAccepted < static_cast<size_t> (frames_received)) {
@@ -131,7 +151,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
         - static_cast<qint64> (framesAccepted);
       qDebug () << "dropped " << frames_dropped
                   << " frames of data on the floor!"
-                  << dec_data.params.kin << mstr;
+                  << m_receiveAudioProducer.frames () << mstr;
     }
 
     for (unsigned remaining = framesAccepted; remaining; ) {
@@ -146,28 +166,31 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
         if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
           qint32 framesToProcess (m_samplesPerFFT * m_downSampleFactor);
           qint32 framesAfterDownSample (m_samplesPerFFT);
-          if(m_downSampleFactor > 1 && dec_data.params.kin>=0 &&
-             dec_data.params.kin < (NTMAX*12000 - framesAfterDownSample)) {
-            fil4_(&m_buffer[0], &framesToProcess, &dec_data.d2[dec_data.params.kin],
-                &framesAfterDownSample);
-            dec_data.params.kin += framesAfterDownSample;
+          if(m_downSampleFactor > 1 && m_receiveAudioProducer.frames ()>=0 &&
+             m_receiveAudioProducer.frames () < (NTMAX*12000 - framesAfterDownSample)) {
+            fil4_state_(&m_buffer[0], &framesToProcess,
+                &producer.d2[m_receiveAudioProducer.frames ()],
+                &framesAfterDownSample, m_downsampleState.data ());
+            m_receiveAudioProducer.setFrames (m_receiveAudioProducer.frames () + framesAfterDownSample);
           } else {
             // qDebug() << "framesToProcess     = " << framesToProcess;
-            // qDebug() << "dec_data.params.kin = " << dec_data.params.kin;
+            // qDebug() << "receive audio frames = " << m_receiveAudioProducer.frames ();
             // qDebug() << "secondInPeriod      = " << secondInPeriod();
             // qDebug() << "framesAfterDownSample" << framesAfterDownSample;
           }
-          frame_counts << dec_data.params.kin;
+          frame_counts << m_receiveAudioProducer.frames ();
+          audio << m_receiveAudioProducer.capture (m_receiveAudioProducer.frames (), m_period);
           m_bufferPos = 0;
         }
 
       } else {
         store (&data[(framesAccepted - remaining) * bytesPerFrame ()],
-               numFramesProcessed, &dec_data.d2[dec_data.params.kin]);
+               numFramesProcessed, &producer.d2[m_receiveAudioProducer.frames ()]);
         m_bufferPos += numFramesProcessed;
-        dec_data.params.kin += numFramesProcessed;
+        m_receiveAudioProducer.setFrames (m_receiveAudioProducer.frames () + numFramesProcessed);
         if (m_bufferPos == static_cast<unsigned> (m_samplesPerFFT)) {
-          frame_counts << dec_data.params.kin;
+          frame_counts << m_receiveAudioProducer.frames ();
+          audio << m_receiveAudioProducer.capture (m_receiveAudioProducer.frames (), m_period);
           m_bufferPos = 0;
         }
       }
@@ -178,6 +201,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
   for (auto frames : frame_counts) {
     Q_EMIT framesWritten (frames);
   }
+  for (auto const& block : audio) Q_EMIT audioBlock (block);
 
     // we drop any data past the end of the buffer on the floor until
     // the next period starts

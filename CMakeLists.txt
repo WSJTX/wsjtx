@@ -1111,6 +1111,37 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     PROCESSORS 1
     TIMEOUT 120)
 
+  set (wsjtx_receive_handoff_test_root
+    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_receive_handoff")
+  file (MAKE_DIRECTORY
+    "${wsjtx_receive_handoff_test_root}/config"
+    "${wsjtx_receive_handoff_test_root}/data"
+    "${wsjtx_receive_handoff_test_root}/cache"
+    "${wsjtx_receive_handoff_test_root}/tmp")
+  set (wsjtx_receive_handoff_test_environment
+    "XDG_CONFIG_HOME=${wsjtx_receive_handoff_test_root}/config"
+    "XDG_DATA_HOME=${wsjtx_receive_handoff_test_root}/data"
+    "XDG_CACHE_HOME=${wsjtx_receive_handoff_test_root}/cache"
+    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_receive_handoff")
+  if (NOT APPLE)
+    list (APPEND wsjtx_receive_handoff_test_environment
+      "TMPDIR=${wsjtx_receive_handoff_test_root}/tmp")
+  endif ()
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND wsjtx_receive_handoff_test_environment
+      "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
+  add_test (
+    NAME test_wsjtx_receive_handoff
+    COMMAND $<TARGET_FILE:wsjtx>
+      --receive-handoff-test
+      --rig-name CTEST-RECEIVE-HANDOFF)
+  set_tests_properties (test_wsjtx_receive_handoff PROPERTIES
+    ENVIRONMENT "${wsjtx_receive_handoff_test_environment}"
+    LABELS "gui;audio;integration;receive-handoff"
+    PROCESSORS 1
+    TIMEOUT 30)
+
   set (wsjtx_jtty_live_audio_test_root
     "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_jtty")
   add_test (

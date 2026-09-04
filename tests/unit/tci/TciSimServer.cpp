@@ -84,6 +84,16 @@ void TciSimServer::send_text (QString text)
   client_->sendTextMessage (text);
 }
 
+bool TciSimServer::send_binary (QByteArray const& data)
+{
+  return client_connected () && client_->sendBinaryMessage (data) == data.size ();
+}
+
+bool TciSimServer::flush ()
+{
+  return client_connected () && client_->flush ();
+}
+
 void TciSimServer::send_text_later (QString text, int delay_ms)
 {
   auto const generation = connection_generation_;

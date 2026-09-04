@@ -67,6 +67,7 @@
 #include "Ft8TxLoopbackTestController.hpp"
 #include "JttyTxLoopbackTestController.hpp"
 #include "LiveAudioTestController.hpp"
+#include "ReceiveHandoffTestController.hpp"
 #include <QAudioFormat>
 #endif
 #include "commons.h"
@@ -290,6 +291,7 @@ int main(int argc, char *argv[])
   bool jtty_live_audio_test {false};
   bool jtty_tx_loopback_test {false};
   bool ft8_tx_loopback_test {false};
+  bool receive_handoff_test {false};
 #endif
   try
     {
@@ -383,6 +385,10 @@ int main(int argc, char *argv[])
         QStringList {} << "ft8-tx-loopback-test",
         "Capture one period-aligned FT8 transmission to a WAV file.", "wav-path");
       parser.addOption (ft8_tx_loopback_test_option);
+      QCommandLineOption receive_handoff_test_option (
+        QStringList {} << "receive-handoff-test",
+        "Backlog two synthetic periods at the MainWindow receive boundary.");
+      parser.addOption (receive_handoff_test_option);
 #endif
 
       if (!parser.parse (a.arguments ()))
@@ -410,6 +416,7 @@ int main(int argc, char *argv[])
       jtty_live_audio_test = parser.isSet (jtty_live_audio_test_option);
       jtty_tx_loopback_test = parser.isSet (jtty_tx_loopback_test_option);
       ft8_tx_loopback_test = parser.isSet (ft8_tx_loopback_test_option);
+      receive_handoff_test = parser.isSet (receive_handoff_test_option);
       if (live_audio_test != parser.isSet (live_audio_expected_option)
           || live_audio_test != parser.isSet (live_audio_data_dir_option))
         {
@@ -427,7 +434,8 @@ int main(int argc, char *argv[])
       if ((startup_smoke_test ? 1 : 0) + (live_audio_test ? 1 : 0)
           + (jtty_live_audio_test ? 1 : 0)
           + (jtty_tx_loopback_test ? 1 : 0)
-          + (ft8_tx_loopback_test ? 1 : 0) > 1)
+          + (ft8_tx_loopback_test ? 1 : 0)
+          + (receive_handoff_test ? 1 : 0) > 1)
         {
           std::cerr << "Startup, live-audio, and TX loopback tests are mutually exclusive"
                     << std::endl;
@@ -447,7 +455,8 @@ int main(int argc, char *argv[])
             }
         }
       automated_test = startup_smoke_test || live_audio_test
-        || jtty_live_audio_test || jtty_tx_loopback_test || ft8_tx_loopback_test;
+        || jtty_live_audio_test || jtty_tx_loopback_test || ft8_tx_loopback_test
+        || receive_handoff_test;
 #else
       automated_test = startup_smoke_test;
 #endif
@@ -795,6 +804,7 @@ int main(int argc, char *argv[])
                       ? 4u : 1u;
                   }
               }
+            if (receive_handoff_test) downSampleFactor = 1u;
 #endif
 
           }
@@ -812,15 +822,17 @@ int main(int argc, char *argv[])
           FixtureSoundOutput * fixture_output {nullptr};
           std::unique_ptr<AudioInputSource> audio_input;
           std::unique_ptr<SoundOutput> sound_output;
-          if (live_audio_test || jtty_live_audio_test)
+          if (live_audio_test || jtty_live_audio_test || receive_handoff_test)
             {
               std::unique_ptr<FixtureAudioInput> fixture {
                 new FixtureAudioInput {
-                  parser.value (live_audio_test
-                                ? live_audio_test_option
-                                : jtty_live_audio_test_option),
-                  live_audio_test ? FixtureAudioInput::Profile::Ft8
-                                  : FixtureAudioInput::Profile::Jtty}};
+                  receive_handoff_test ? QString {}
+                    : parser.value (live_audio_test
+                                    ? live_audio_test_option
+                                    : jtty_live_audio_test_option),
+                  receive_handoff_test ? FixtureAudioInput::Profile::ReceiveHandoff
+                    : (live_audio_test ? FixtureAudioInput::Profile::Ft8
+                                       : FixtureAudioInput::Profile::Jtty)}};
               fixture_input = fixture.get ();
               audio_input = std::move (fixture);
             }
@@ -898,6 +910,7 @@ int main(int argc, char *argv[])
             }
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           std::unique_ptr<LiveAudioTestController> live_audio_controller;
+          std::unique_ptr<ReceiveHandoffTestController> receive_handoff_controller;
           std::unique_ptr<JttyTxLoopbackTestController> jtty_tx_controller;
           std::unique_ptr<Ft8TxLoopbackTestController> ft8_tx_controller;
           if (live_audio_test || jtty_live_audio_test)
@@ -915,6 +928,14 @@ int main(int argc, char *argv[])
                                   [controller] {
                                     controller->begin ();
                                   });
+            }
+          if (receive_handoff_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              receive_handoff_controller.reset (new ReceiveHandoffTestController {
+                &w, fixture_input});
+              auto * controller = receive_handoff_controller.get ();
+              QTimer::singleShot (0, controller, [controller] { controller->begin (); });
             }
           if (jtty_tx_loopback_test)
             {
@@ -988,6 +1009,12 @@ int main(int argc, char *argv[])
             }
           if (ft8_tx_loopback_test
               && (!ft8_tx_controller || !ft8_tx_controller->succeeded ()))
+            {
+              result = EXIT_FAILURE;
+            }
+          if (receive_handoff_test
+              && (!receive_handoff_controller
+                  || !receive_handoff_controller->succeeded ()))
             {
               result = EXIT_FAILURE;
             }
