@@ -183,6 +183,7 @@ jobs:
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}
+      save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
     secrets: inherit
 
   windows:

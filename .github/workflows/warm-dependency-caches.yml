@@ -1,4 +1,4 @@
-name: Refresh Dependency Environments
+name: Refresh Build Caches
 
 on:
   push:
@@ -6,11 +6,16 @@ on:
     paths:
       - ".github/workflows/ci.yml"
       - ".github/workflows/release.yml"
+      - ".github/workflows/build-linux.yml"
+      - ".github/workflows/warm-dependency-caches.yml"
+      - ".github/actions/build-linux-payload/**"
       - ".github/images/linux-ci/**"
       - ".github/scripts/linux-ci-image-config.sh"
       - ".github/scripts/linux-ci-image-fingerprint.sh"
       - ".github/scripts/linux-ci-image-inputs.sh"
       - ".github/scripts/linux-ccache-compiler-signature.sh"
+      - ".github/scripts/select-ccache-key-suffix.sh"
+      - ".github/scripts/select-linux-ccache-save.sh"
       - ".github/scripts/run-apt-get.sh"
       - ".github/scripts/build-pfunit-linux.sh"
       - ".github/scripts/build-hamlib-linux.sh"
@@ -35,7 +40,7 @@ on:
   workflow_dispatch:
     inputs:
       targets:
-        description: "Dependency caches to warm"
+        description: "Platform caches to warm"
         required: false
         type: choice
         options:
@@ -44,6 +49,7 @@ on:
           - macos
           - windows
           - linux
+          - linux-arm64
           - linux-tsan
           - linux-images
           - linux-retention
@@ -71,12 +77,14 @@ jobs:
       packages: read
     outputs:
       linux_images: ${{ steps.detect.outputs.linux_images }}
+      linux_arm64: ${{ steps.detect.outputs.linux_arm64 }}
       retention: ${{ steps.detect.outputs.retention }}
       windows: ${{ steps.detect.outputs.windows }}
       macos_arm64: ${{ steps.detect.outputs.macos_arm64 }}
       macos_x86_64: ${{ steps.detect.outputs.macos_x86_64 }}
       image_set: ${{ steps.detect.outputs.image_set }}
       hamlib_branch: ${{ steps.detect.outputs.hamlib_branch }}
+      version: ${{ steps.detect.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -99,11 +107,13 @@ jobs:
           normal_images=false
           tsan_images=false
           retention=false
+          linux_arm64=false
           windows=false
           macos_arm64=false
           macos_x86_64=false
 
           enable_cache_all() {
+            linux_arm64=true
             windows=true
             macos_arm64=true
             macos_x86_64=true
@@ -134,6 +144,10 @@ jobs:
                   ;;
                 linux|linux-images)
                   normal_images=true
+                  linux_arm64=true
+                  ;;
+                linux-arm64)
+                  linux_arm64=true
                   ;;
                 linux-tsan)
                   tsan_images=true
@@ -183,8 +197,11 @@ jobs:
               while IFS= read -r path; do
                 [ -n "$path" ] || continue
                 case "$path" in
-                  .github/workflows/ci.yml|.github/workflows/release.yml)
+                  .github/workflows/ci.yml|.github/workflows/release.yml|.github/workflows/warm-dependency-caches.yml|.github/scripts/select-ccache-key-suffix.sh)
                     enable_cache_all
+                    ;;
+                  .github/workflows/build-linux.yml|.github/actions/build-linux-payload/*|.github/scripts/select-linux-ccache-save.sh)
+                    linux_arm64=true
                     ;;
                   .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh)
                     windows=true
@@ -230,22 +247,31 @@ jobs:
             linux_images=true
           fi
 
+          VERSION=$(grep -E '^\s*VERSION\s+[0-9]' CMakeLists.txt | head -1 | awk '{print $2}' | cut -d. -f1-3)
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not derive VERSION from CMakeLists.txt"
+            exit 1
+          fi
+
           {
             echo "linux_images=$linux_images"
+            echo "linux_arm64=$linux_arm64"
             echo "retention=$retention"
             echo "windows=$windows"
             echo "macos_arm64=$macos_arm64"
             echo "macos_x86_64=$macos_x86_64"
             echo "image_set=$image_set"
             echo "hamlib_branch=$HAMLIB_BRANCH"
+            echo "version=$VERSION"
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Dependency cache warmer selection"
+            echo "## Build cache warmer selection"
             echo
             echo "| Target | Enabled |"
             echo "| --- | --- |"
             echo "| Linux GHCR image set | $image_set |"
+            echo "| Linux arm64 ccache | $linux_arm64 |"
             echo "| Linux GHCR retention | $retention |"
             echo "| Windows x86_64 | $windows |"
             echo "| macOS arm64 | $macos_arm64 |"
@@ -301,7 +327,25 @@ jobs:
           fi
           .github/scripts/ghcr_retention.py "${args[@]}"
 
-  warm-windows-x86_64:
+  warm-linux-arm64-ccache:
+    needs: detect
+    if: >-
+      github.ref == 'refs/heads/develop' &&
+      needs.detect.outputs.linux_arm64 == 'true' &&
+      needs.detect.outputs.image_set != 'normal' &&
+      needs.detect.outputs.image_set != 'normal-and-tsan'
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+      arch: aarch64
+      save_ccache: true
+    secrets: inherit
+
+  warm-windows-x86_64-deps:
     needs: detect
     if: needs.detect.outputs.windows == 'true'
     runs-on: windows-latest
@@ -334,7 +378,17 @@ jobs:
           hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
           save_caches: "true"
 
-  warm-macos-arm64:
+  warm-windows-ccache:
+    needs: [detect, warm-windows-x86_64-deps]
+    if: needs.detect.outputs.windows == 'true'
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+      save_ccache: true
+    secrets: inherit
+
+  warm-macos-arm64-deps:
     needs: detect
     if: needs.detect.outputs.macos_arm64 == 'true'
     runs-on: macos-15
@@ -348,7 +402,7 @@ jobs:
           deployment_target: "11.0"
           hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
 
-  warm-macos-x86_64:
+  warm-macos-x86_64-deps:
     needs: detect
     if: needs.detect.outputs.macos_x86_64 == 'true'
     runs-on: macos-15-intel
@@ -361,3 +415,29 @@ jobs:
           runner: macos-15-intel
           deployment_target: "10.13"
           hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+
+  warm-macos-arm64-ccache:
+    needs: [detect, warm-macos-arm64-deps]
+    if: needs.detect.outputs.macos_arm64 == 'true'
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+      arch: arm64
+      runner: macos-15
+      deployment_target: "11.0"
+      save_ccache: true
+    secrets: inherit
+
+  warm-macos-x86_64-ccache:
+    needs: [detect, warm-macos-x86_64-deps]
+    if: needs.detect.outputs.macos_x86_64 == 'true'
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+      arch: x86_64
+      runner: macos-15-intel
+      deployment_target: "10.13"
+      save_ccache: true
+    secrets: inherit

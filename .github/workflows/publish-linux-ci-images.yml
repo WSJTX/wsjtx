@@ -343,6 +343,27 @@ jobs:
       save_ccache: true
     secrets: inherit
 
+  warm-arm64-ccache:
+    if: >-
+      inputs.promote &&
+      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+    needs:
+      - metadata
+      - build-arm64
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      version: ${{ needs.metadata.outputs.version }}
+      hamlib_branch: ${{ needs.metadata.outputs.normal_hamlib_ref }}
+      arch: aarch64
+      image_tag: ${{ needs.metadata.outputs.build_tag }}
+      allow_stale_image: false
+      recache: false
+      save_ccache: true
+    secrets: inherit
+
   promote:
     if: >-
       always() && inputs.mode == 'refresh' && inputs.promote &&
@@ -350,6 +371,7 @@ jobs:
        (needs.build-normal.result == 'success' &&
         needs.build-arm64.result == 'success' &&
         needs.warm-normal-ccache.result == 'success' &&
+        needs.warm-arm64-ccache.result == 'success' &&
         (inputs.include_armhf == false || needs.build-armv7.result == 'success'))) &&
       (inputs.image_set == 'normal' || needs.build-tsan.result == 'success')
     needs:
@@ -359,6 +381,7 @@ jobs:
       - build-arm64
       - build-armv7
       - warm-normal-ccache
+      - warm-arm64-ccache
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

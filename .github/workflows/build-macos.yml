@@ -29,6 +29,11 @@ on:
         required: false
         type: boolean
         default: false
+      save_ccache:
+        description: "Persist compiler objects from a trusted develop build"
+        required: false
+        type: boolean
+        default: false
       release_channel:
         description: "Build release channel: DEVEL, RC, or GA"
         required: false
@@ -66,6 +71,11 @@ on:
         required: false
         type: boolean
         default: false
+      save_ccache:
+        description: "Persist compiler objects when dispatching on develop"
+        required: false
+        type: boolean
+        default: true
       release_channel:
         description: "Build release channel"
         required: false
@@ -142,8 +152,9 @@ jobs:
           RECACHE: ${{ inputs.recache }}
         run: .github/scripts/select-ccache-key-suffix.sh
 
-      - name: Cache ccache
-        uses: actions/cache@v6
+      - name: Restore ccache
+        id: ccache
+        uses: actions/cache/restore@v6
         with:
           path: .ccache
           key: ccache-macos-${{ inputs.arch }}-appleclang-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
@@ -466,6 +477,17 @@ jobs:
 
       - name: Build and test targets
         run: cmake --build wsjtx-build -j"$(sysctl -n hw.ncpu)"
+
+      - name: Report suppressed ccache save
+        if: ${{ (inputs.save_ccache || inputs.recache) && github.ref != 'refs/heads/develop' }}
+        run: echo "::notice::Not saving ccache because shared compiler caches are published only from develop"
+
+      - name: Save ccache
+        if: ${{ success() && (inputs.save_ccache || inputs.recache) && github.ref == 'refs/heads/develop' && steps.ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       - name: Apply WSJT-X shared memory limits
         run: |
