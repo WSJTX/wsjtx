@@ -96,7 +96,8 @@ subroutine hspec(id2,k,nutc0,ntrpdepth,nrxfreq,ntol,bmsk144,             &
         k0=k-3584
         tt2=sum(float(abs(id2(k0:k0+3583))))
         if(tt1.ne.0.0 .and. tt2.ne.0) then
-           call mskrtd(id2(k-7168+1:k),nutc0,tsec,ntol,nrxfreq,ndepth,   &
+! k is the end-exclusive count supplied by the audio producer.
+           call mskrtd(id2(k-7168:k-1),nutc0,tsec,ntol,nrxfreq,ndepth,   &
                 mycall,hiscall,bshmsg,btrain,pcoeffs,bswl,datadir,line0)
            if(line0(1:1).eq.char(0)) then 
               line1(1:1)=char(0)
