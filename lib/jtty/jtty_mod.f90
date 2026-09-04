@@ -20,12 +20,14 @@ subroutine pack_jtty(message,c32,nframes)
 !                                      !the CRC.
 !          integer        nframes     !Frames in this message (max = 16)
 !
-! Literal input is normalized and encoded as TEXT5. Structured source forms
-! are available only through the explicit jtty_source_atom interface.
+! Literal input is normalized and encoded as TEXT5, except that a complete
+! registered control phrase uses its canonical CONTROL atom.
 
   character*80 message,msg
   character*34 c32(MAX_FRAMES)
-  integer n, ipos, n32
+  character*34 control_frame
+  integer n, ipos, n32, phrase_id
+  logical valid
 
   call normalize_jtty_message(message,msg)
   message=msg
@@ -34,8 +36,19 @@ subroutine pack_jtty(message,c32,nframes)
   c32=''
   if(n.le.0) return
 
-  ! Literal operator input is always encoded as TEXT5. Native callers use
-  ! pack_jtty_atoms to opt into call and STRUCT30 atoms explicitly.
+  ! Whole-message control phrases have one unambiguous canonical rendering.
+  do phrase_id=lbound(CONTROL_TEXT,1),ubound(CONTROL_TEXT,1)
+     if(trim(msg).ne.trim(CONTROL_TEXT(phrase_id))) cycle
+     call pack_jtty_atom(jtty_control_atom(phrase_id),control_frame,.true.,valid)
+     if(valid) then
+        c32(1)=control_frame
+        nframes=1
+     endif
+     return
+  enddo
+
+  ! Other literal operator input uses TEXT5. Native callers use
+  ! pack_jtty_atoms to opt into call and exchange atoms explicitly.
   nframes=(n+4)/5
   if(nframes.gt.MAX_FRAMES) then
      nframes=-1

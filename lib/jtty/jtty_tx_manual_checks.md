@@ -19,7 +19,8 @@ FIFO unit-test boundary.
 - Literal fallback: customize a function-key template so it no longer matches
   a native form and verify its expanded text uses only TEXT5 frames.
 - External text: send call-looking and `599`-prefixed strings from N1MM/MMTTY
-  and verify they remain strict literal TEXT5 messages.
+  and verify they remain literal TEXT5 messages. Send a complete registered
+  control phrase and verify it uses one CONTROL frame.
 - Queueing: queue two native messages and verify no visible or transmitted
   TEXT5 spacing frame is inserted between them.
 - Profile exchange: exercise `%E` with default serial, FIELD_DAY class/section,

@@ -186,13 +186,14 @@ sets bit 33 to zero on every atom and bit 34 only on the last atom. Queuing a
 second native message does not add a TEXT5 spacing atom.
 
 Ordinary keyboard text, externally queued strings, and N1MM/MMTTY strings use
-the strict literal contract. They are normalized to uppercase, leading,
-trailing, and repeated ASCII spaces are removed, unsupported characters become
-'#', and the result is emitted only as TEXT5. Call-looking text and text
-beginning with 599 are not silently converted to native atoms. The literal
-wrapper accepts an 80-character input field, so longer caller strings are
-truncated before normalization. The result is therefore at most sixteen TEXT5
-frames.
+the literal source interface. They are normalized to uppercase, leading,
+trailing, and repeated ASCII spaces are removed, and unsupported characters
+become '#'. A complete normalized message that exactly matches a registered
+CONTROL phrase is emitted as that atom. All other literal input uses TEXT5;
+call-looking text and text beginning with 599 are not silently converted to
+call or exchange atoms. The literal wrapper accepts an 80-character input
+field, so longer caller strings are truncated before normalization. The result
+is therefore at most sixteen TEXT5 frames.
 
 The eight shipped JTTY function-key templates are a separate NativeMacro
 contract. Current templates and control phrases match after case folding and
@@ -271,8 +272,9 @@ two-letter location, and the local-configuration "DX" and "#" serial sentinels
 do not apply. It contains the exchange value only: the action supplies CQ, TU,
 TU NOW, and canonical full-exchange report text where applicable. GRID requires
 a valid four-character Maidenhead locator. CONTROL requires one exact
-registered phrase from the CONTROL table above. An untagged N1MM message
-remains strict literal TEXT5. A tag-shaped substring later in a message has no
+registered phrase from the CONTROL table above. An untagged N1MM message uses
+the literal source interface, including the exact whole-message CONTROL
+recognition described above. A tag-shaped substring later in a message has no
 special meaning. An unknown or malformed leading JTTY tag, an unsupported
 action, invalid payload, or profile mismatch is rejected rather than put on
 the air as literal bracket text.

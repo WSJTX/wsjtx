@@ -2,7 +2,7 @@
 
 ## Summary
 
-N1MM Logger+ can send either literal JTTY text or an explicit native action. Ordinary TXTEXT remains literal and uses only TEXT5. Native encoding is opt-in through a leading `[[JTTY:<ACTION>]]` marker in the transmitted text. The marker is consumed by WSJT-X and is never put on the air.
+N1MM Logger+ can send either literal JTTY text or an explicit native action. Ordinary TXTEXT uses the literal source interface: an exact whole-message registered control phrase uses its CONTROL atom, while other text uses TEXT5. Other native encoding is opt-in through a leading `[[JTTY:<ACTION>]]` marker in the transmitted text. The marker is consumed by WSJT-X and is never put on the air.
 
 The bundled `JTTY Messages.mc` uses tagged actions for its common Run and S&P messages. This provides compact Call8 and STRUCT30 transmission without asking WSJT-X to infer meaning from visible logger text.
 
@@ -19,14 +19,15 @@ End-to-end validation with N1MM on Windows, including two-radio focus, call sele
 
 ## Literal TXTEXT
 
-N1MM expands logger macros before passing TXTEXT to WSJT-X. An untagged result is strict literal input:
+N1MM expands logger macros before passing TXTEXT to WSJT-X. An untagged result uses the literal source interface:
 
 - lowercase letters become uppercase;
 - leading, trailing, and repeated spaces are removed;
 - unsupported characters become `#`;
-- the first 80 input characters are divided into five-character TEXT5 frames after normalization.
+- an exact whole-message registered control phrase uses one CONTROL frame;
+- other input is divided into five-character TEXT5 frames after normalization.
 
-No visible pattern selects native encoding. `CQ N9ADG CQ`, `N9ADG`, and `599 123` remain literal unless TXTEXT begins with an assigned JTTY action marker. This prevents contest inference or semantic rewriting of customized messages.
+Apart from exact registered control phrases, no visible pattern selects native encoding. `CQ N9ADG CQ`, `N9ADG`, and `599 123` remain literal unless TXTEXT begins with an assigned JTTY action marker. This prevents contest inference or semantic rewriting of customized messages.
 
 The former `i2=2` shortcut for literal `599 ` plus five characters has been replaced by STRUCT30. There is no compatibility discriminator: an old receiver displays new STRUCT30 bits as `599` text, and some old type-2 frames are valid new STRUCT30 words with a different meaning. JTTY is unreleased, so no legacy decoder mode is retained.
 
@@ -73,7 +74,7 @@ local WSJT-X RTTY `%E` configuration.
 
 `GRID` accepts exactly one valid four-character Maidenhead locator. `CONTROL` accepts exactly one of the 18 registered phrases, including spaces and punctuation where shown in `jtty_source_encoding.txt`.
 
-An unknown or malformed leading JTTY marker, unsupported action, missing field, invalid call, invalid profile exchange, invalid grid, or unregistered control phrase is rejected. It never falls back to literal transmission. Untagged messages, including customized N1MM macros, continue to use literal TEXT5; a tag-shaped substring later in the text is just literal text.
+An unknown or malformed leading JTTY marker, unsupported action, missing field, invalid call, invalid profile exchange, invalid grid, or unregistered control phrase is rejected. It never falls back to literal transmission. Untagged messages, including customized N1MM macros, use the literal source interface; only an exact registered control phrase is contracted to CONTROL. A tag-shaped substring later in the text is just literal text.
 
 ## Bundled action mappings
 

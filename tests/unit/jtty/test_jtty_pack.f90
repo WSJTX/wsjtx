@@ -55,8 +55,8 @@ program test_jtty_pack
 1100 format(/'Total messages:',i3,'   Number of errors:',i3)
   if(nerr.ne.expected_errors) error stop 1
 
-  ! Operator text is strict literal input; call-like and exchange-like strings
-  ! are never promoted into native call or STRUCT30 atoms.
+  ! Call-like and exchange-like operator text is never promoted into native
+  ! atoms. Exact whole-message control phrases are the narrow exception.
   call expect_pack('CQ KA1ABC CQ',3,3,-1,3,-1)
   call expect_pack('WB9XYZ',2,3,-1,3,-1)
   call expect_pack('599 MA',2,3,-1,3,-1)
@@ -69,6 +69,9 @@ program test_jtty_pack
   call expect_pack('TU QU1RKP CQ',3,3,-1,3,-1)
   call expect_pack('WB9XYZABC',2,3,-1,3,-1)
   call expect_pack('K1A A',1,3,-1,-1,-1)
+  call expect_pack('PSE AGN NR',2,3,-1,3,-1)
+  call expect_pack('AGN NR PSE',2,3,-1,3,-1)
+  call expect_control_phrase_literals()
   ! Normalization is part of the round-trip contract for operator input.
   call expect_pack('cq  ka1abc   cq',3,3,-1,3,-1)
   call expect_pack('  vp2/kf2ghi  ',2,3,-1,3,-1)
@@ -85,6 +88,45 @@ program test_jtty_pack
   call expect_last_frame_flag()
 
 contains
+
+  subroutine expect_control_phrase_literals()
+    type(jtty_source_atom) atom
+    character*80 input,decoded,expected
+    character*34 frame,frames(MAX_FRAMES)
+    integer phrase_id,got_nf
+    logical valid,eom
+
+    do phrase_id=lbound(CONTROL_TEXT,1),ubound(CONTROL_TEXT,1)
+       input=''
+       if(phrase_id.eq.JTTY_CONTROL_AGN_NR) then
+          input='  agn   nr  '
+       else
+          input=trim(CONTROL_TEXT(phrase_id))
+       endif
+       call normalize_jtty_message(input,expected)
+       call pack_jtty(input,frames,got_nf)
+       if(got_nf.ne.1) then
+          write(*,1030) trim(expected),got_nf
+1030      format('Control phrase "',a,'" encoded in ',i0,' frames')
+          error stop 1
+       endif
+       frame=frames(1)
+       call unpack_jtty_atom(frame,atom,valid,eom)
+       if(.not.valid .or. .not.eom .or. atom%kind.ne.JTTY_ATOM_CONTROL .or. &
+            atom%subtype.ne.phrase_id .or. frames(1)(33:33).ne.'0') then
+          write(*,1040) trim(expected),phrase_id
+1040      format('Control phrase "',a,'" did not encode as CONTROL ',i0)
+          error stop 1
+       endif
+       call unpack_jtty(frames,got_nf,decoded)
+       call display_jtty_message(decoded)
+       if(decoded.ne.expected) then
+          write(*,1050) trim(expected),trim(decoded)
+1050      format('Control phrase "',a,'" decoded as "',a,'"')
+          error stop 1
+       endif
+    enddo
+  end subroutine expect_control_phrase_literals
 
   subroutine display_jtty_message(text)
     character*80 text

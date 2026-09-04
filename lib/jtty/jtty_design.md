@@ -12,9 +12,9 @@ The receiver verifies FEC, CRC, the universal reserved-zero bit, and the complet
 
 ## Source contracts
 
-JTTY separates literal operator text from explicitly selected native actions.
+JTTY separates general operator text from typed native actions. Exact registered control phrases are the narrow case whose type is self-identifying.
 
-Ordinary keyboard text, externally queued strings, and untagged N1MM/MMTTY text use the strict literal contract. Text is folded to uppercase, whitespace is normalized, and unsupported characters become `#`; it is then sent only as five-character TEXT5 frames. A call-looking string or a string beginning with `599` is still literal. The encoder does not infer contest semantics from its spelling.
+Ordinary keyboard text, externally queued strings, and untagged N1MM/MMTTY text use the literal source interface. Text is folded to uppercase, whitespace is normalized, and unsupported characters become `#`. If the complete normalized message exactly matches one of the registered control phrases, it uses the corresponding CONTROL atom; all other literal input uses five-character TEXT5 frames. A call-looking string or a string beginning with `599` is still literal. The encoder does not infer contest semantics from its spelling.
 
 The eight shipped JTTY function-key templates use a NativeMacro contract. When a default template is selected, it is compiled to typed call and exchange atoms before placeholder expansion. Native atoms provide compact transmission and unambiguous fields for future logger integration. A customized template that does not match a native form falls back unchanged to literal TEXT5. A recognized native template with invalid runtime data is rejected rather than silently transmitted with different semantics.
 

@@ -24,9 +24,11 @@ subtraction.
 SOURCE CONTRACTS
 
 Ordinary keyboard text, externally queued strings, and untagged N1MM/MMTTY
-text are strict literals. After the existing uppercase and whitespace
-normalization, they use only TEXT5 frames. Call-looking text and text beginning
-with "599" are not silently compressed or reinterpreted.
+text use the literal source interface. After the existing uppercase and
+whitespace normalization, a complete message that exactly matches a registered
+control phrase uses its CONTROL atom; all other literal input uses only TEXT5
+frames. Call-looking text and text beginning with "599" are not silently
+compressed or reinterpreted.
 
 The eight shipped JTTY function-key templates are explicit native actions.
 Their call, profile-exchange, and grid placeholders compile to typed atoms. A
@@ -113,10 +115,11 @@ when unchanged in saved settings; edited variants remain literal.
 
 N1MM can opt into native encoding with a leading [[JTTY:<ACTION>]] marker in
 TXTEXT. Actions are CQ, CALL_EXCH, CALL_TU_CQ, MYCALL, HISCALL, TU_NOW_EXCH,
-CALL_MY, CALL_TU_MY, EXCH, GRID, and CONTROL. Untagged N1MM strings remain
-literal. Invalid or unknown tagged requests are rejected, not transmitted as
-bracket text. See jtty_source_encoding.txt and jtty_n1mm_integration.md for the
-payload grammar.
+CALL_MY, CALL_TU_MY, EXCH, GRID, and CONTROL. Untagged N1MM strings use the
+literal source interface, including exact whole-message CONTROL recognition.
+Invalid or unknown tagged requests are rejected, not transmitted as bracket
+text. See jtty_source_encoding.txt and jtty_n1mm_integration.md for the payload
+grammar.
 
 The practical transmit subset is Call8, serial and RTTY state/province,
 Field Day class/section, GRID4, and registered controls. Other normative atoms
