@@ -84,23 +84,14 @@ bool operator != (Transceiver::TransceiverState const& lhs, Transceiver::Transce
     || lhs.quick_ != rhs.quick_
     || lhs.period_ != rhs.period_
     || lhs.blocksize_ != rhs.blocksize_
-    || lhs.tx_request_.symbols_length != rhs.tx_request_.symbols_length
-    || lhs.tx_request_.frames_per_symbol != rhs.tx_request_.frames_per_symbol
-    || lhs.tx_request_.frequency_hz != rhs.tx_request_.frequency_hz
-    || lhs.tx_request_.tone_spacing != rhs.tx_request_.tone_spacing
-    || lhs.tx_request_.synchronize != rhs.tx_request_.synchronize
-    || lhs.tx_request_.snr_db != rhs.tx_request_.snr_db
-    || lhs.tx_request_.tr_period_s != rhs.tx_request_.tr_period_s
-    || lhs.tx_request_.cw_id != rhs.tx_request_.cw_id
+    || lhs.tx_request_ != rhs.tx_request_
     || lhs.spread_ != rhs.spread_
     || lhs.nsym_ != rhs.nsym_
     || lhs.volume_ != rhs.volume_
     || lhs.txvolume_ != rhs.txvolume_
     || lhs.level_ != rhs.level_
     || lhs.power_ != rhs.power_
-    || lhs.swr_ != rhs.swr_
-    || lhs.tx_request_.session_id != rhs.tx_request_.session_id
-    || lhs.tx_request_.generation != rhs.tx_request_.generation;
+    || lhs.swr_ != rhs.swr_;
 }
 
 bool operator == (Transceiver::TransceiverState const& lhs, Transceiver::TransceiverState const& rhs)

@@ -564,6 +564,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
   if (checked) m_autoRespondPeriodState.disarm();
+  rigTuneTimer.stop ();
   ui->pbBandHopping->setChecked(false); // disable band hopping
   // prevent tuning on top of a SuperFox message
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_tune) {

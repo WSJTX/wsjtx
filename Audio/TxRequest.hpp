@@ -32,6 +32,32 @@ namespace TxEvidence
     qint64 start_window_open_ms {-1};
     qint64 start_window_close_ms {-1};
   };
+
+  inline bool operator == (TxRequest const& lhs, TxRequest const& rhs)
+  {
+    return lhs.mode == rhs.mode
+      && lhs.symbols_length == rhs.symbols_length
+      && lhs.frames_per_symbol == rhs.frames_per_symbol
+      && lhs.frequency_hz == rhs.frequency_hz
+      && lhs.tone_spacing == rhs.tone_spacing
+      && lhs.channel == rhs.channel
+      && lhs.synchronize == rhs.synchronize
+      && lhs.fast_mode == rhs.fast_mode
+      && lhs.snr_db == rhs.snr_db
+      && lhs.tr_period_s == rhs.tr_period_s
+      && lhs.session_id == rhs.session_id
+      && lhs.generation == rhs.generation
+      && lhs.queue_epoch == rhs.queue_epoch
+      && lhs.tuning == rhs.tuning
+      && lhs.cw_id == rhs.cw_id
+      && lhs.start_window_open_ms == rhs.start_window_open_ms
+      && lhs.start_window_close_ms == rhs.start_window_close_ms;
+  }
+
+  inline bool operator != (TxRequest const& lhs, TxRequest const& rhs)
+  {
+    return !(lhs == rhs);
+  }
 }
 
 Q_DECLARE_METATYPE (TxEvidence::TxRequest)

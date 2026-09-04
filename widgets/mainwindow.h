@@ -1156,6 +1156,7 @@ private:
 
   // labels in status bar
   QLabel tx_status_label;
+  bool m_tx_inhibited {false};
   QLabel config_label;
   QLabel mode_label;
   QLabel last_tx_label;
@@ -1191,6 +1192,7 @@ private:
   QTimer logQSOTimer;
   QTimer killFileTimer;
   QTimer tuneButtonTimer;
+  QTimer rigTuneTimer;
   QTimer uploadTimer;
   QTimer tuneATU_Timer;
   QTimer TxAgainTimer;
@@ -1421,6 +1423,10 @@ private:
   void setDecodedTextFont (QFont const&);
   void writeSettings();
   void createStatusBar();
+  void handleTxInhibitStatus (bool supported, bool inhibited, QString const& holder,
+                              quint32 hold_rx, quint32 release_rx,
+                              quint32 expiries, quint32 invalid);
+  void startTxAudioAfterPttDelay ();
   void updateStatusBar();
   void updateMainWindowAccessibility();
   void registerMainWindowFocusControls();

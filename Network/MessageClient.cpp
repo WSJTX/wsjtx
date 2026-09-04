@@ -14,6 +14,7 @@
 #include <QByteArray>
 #include <QColor>
 #include <QDebug>
+#include <QtEndian>
 
 #include "NetworkMessage.hpp"
 #include "qt_helpers.hpp"
@@ -35,6 +36,25 @@ namespace
   int constexpr replay_message_budget {10};
   qint64 constexpr replay_work_budget_ms {2};
   int constexpr decode_history_limit {5000};
+  int constexpr inhibit_message_limit {4096};
+
+  bool read_inhibit_text (QDataStream& in, QString& text, quint32 limit, bool identity)
+  {
+    quint32 length {0};
+    in >> length;
+    if (length == 0xffffffff && !identity) length = 0;
+    if (in.status () != QDataStream::Ok || length > limit
+        || length > quint64 (in.device ()->bytesAvailable ())) return false;
+    QByteArray bytes (int (length), '\0');
+    if (in.readRawData (bytes.data (), bytes.size ()) != bytes.size ()) return false;
+    text = QString::fromUtf8 (bytes);
+    if (text.toUtf8 () != bytes || (identity && text.isEmpty ())) return false;
+    for (auto character : text.toUcs4 ())
+      {
+        if (!QChar::isPrint (character) || (identity && QChar::isSpace (character))) return false;
+      }
+    return true;
+  }
 }
 
 class MessageClient::impl
@@ -64,6 +84,13 @@ public:
     replay_timer_->setTimerType (Qt::PreciseTimer);
     connect (replay_timer_, &QTimer::timeout, this, &impl::drain_replay);
     connect (this, &QIODevice::readyRead, this, &impl::pending_datagrams);
+    inhibit_invalid_timer_.setParent (this);
+    inhibit_invalid_timer_.setSingleShot (true);
+    connect (&inhibit_invalid_timer_, &QTimer::timeout, this, [this] {
+      auto const count = inhibit_invalid_count_;
+      inhibit_invalid_count_ = 0;
+      Q_EMIT self_->tx_inhibit_invalid (count);
+    });
 
     heartbeat_timer_->start (NetworkMessage::pulse * 1000);
   }
@@ -114,6 +141,8 @@ public:
   Q_SLOT void host_info_results (QHostInfo);
   void start ();
   void parse_message (QByteArray const&);
+  bool parse_tx_inhibit (QByteArray const&);
+  void invalid_inhibit ();
   void pending_datagrams ();
   void heartbeat ();
   void closedown ();
@@ -141,6 +170,8 @@ public:
 
   MessageClient * self_;
   bool enabled_;
+  QTimer inhibit_invalid_timer_;
+  quint64 inhibit_invalid_count_ {0};
   QString id_;
   QString version_;
   QString revision_;
@@ -168,6 +199,11 @@ public:
 void MessageClient::impl::set_server (QString const& server_name, QStringList const& network_interface_names)
 {
   cancel_replay ();
+  if (dns_lookup_id_ != -1)
+    {
+      QHostInfo::abortHostLookup (dns_lookup_id_);
+      dns_lookup_id_ = -1;
+    }
   // qDebug () << "MessageClient server:" << server_name << "port:" << server_port_ << "interfaces:" << network_interface_names;
   server_.setAddress (server_name);
   network_interfaces_.clear ();
@@ -237,7 +273,7 @@ void MessageClient::impl::start ()
   TRACE_UDP ("Trying server:" << server_.toString ());
   QHostAddress interface_addr {IPv6Protocol == server_.protocol () ? QHostAddress::AnyIPv6 : QHostAddress::AnyIPv4};
 
-  if (localAddress () != interface_addr)
+  if (state () != BoundState || localAddress () != interface_addr)
     {
       if (UnconnectedState != state () || state ())
         {
@@ -245,7 +281,10 @@ void MessageClient::impl::start ()
         }
       // bind to an ephemeral port on the selected interface and set
       // up for sending datagrams
-      bind (interface_addr);
+      if (!bind (interface_addr))
+        {
+          return;
+        }
       // qDebug () << "Bound to UDP port:" << localPort () << "on:" << localAddress ();
 
       // set multicast TTL to limit scope when sending to multicast
@@ -265,7 +304,8 @@ void MessageClient::impl::start ()
 
 void MessageClient::impl::pending_datagrams ()
 {
-  while (hasPendingDatagrams ())
+  int budget {64};
+  while (budget-- && hasPendingDatagrams ())
     {
       QByteArray datagram;
       datagram.resize (pendingDatagramSize ());
@@ -277,10 +317,65 @@ void MessageClient::impl::pending_datagrams ()
           parse_message (datagram);
         }
     }
+  if (hasPendingDatagrams ()) QTimer::singleShot (0, this, &impl::pending_datagrams);
+}
+
+void MessageClient::impl::invalid_inhibit ()
+{
+  ++inhibit_invalid_count_;
+  if (!inhibit_invalid_timer_.isActive ()) inhibit_invalid_timer_.start (100);
+}
+
+bool MessageClient::impl::parse_tx_inhibit (QByteArray const& msg)
+{
+  if (msg.size () < 12
+      || qFromBigEndian<quint32> (reinterpret_cast<uchar const *> (msg.constData () + 8))
+           != NetworkMessage::TxInhibit) return false;
+  if (!enabled_) return true;
+  // Bound the envelope before Reader allocates its variable-length instance ID.
+  if (msg.size () < 16 || msg.size () > inhibit_message_limit
+      || qFromBigEndian<quint32> (reinterpret_cast<uchar const *> (msg.constData () + 12)) > 1024
+      || qFromBigEndian<quint32> (reinterpret_cast<uchar const *> (msg.constData ())) != NetworkMessage::Builder::magic)
+    {
+      invalid_inhibit ();
+      return true;
+    }
+  try
+    {
+      NetworkMessage::Reader in {msg};
+      if (in.status () != QDataStream::Ok || in.schema () < 2)
+        {
+          invalid_inhibit ();
+          return true;
+        }
+      auto const id_length = qFromBigEndian<quint32> (reinterpret_cast<uchar const *> (msg.constData () + 12));
+      if (in.id ().toUtf8 () != msg.mid (16, int (id_length)))
+        {
+          invalid_inhibit ();
+          return true;
+        }
+      if (in.id () != id_) return true;
+      QString controller;
+      QString station;
+      quint32 ttl {0};
+      bool valid = read_inhibit_text (in, controller, 128, true);
+      in >> ttl;
+      valid = valid && in.status () == QDataStream::Ok
+        && (!ttl || (ttl >= 100 && ttl <= 30000))
+        && read_inhibit_text (in, station, 128, false);
+      if (!valid) invalid_inhibit ();
+      else Q_EMIT self_->tx_inhibit_command (controller, ttl, station);
+    }
+  catch (std::exception const&)
+    {
+      invalid_inhibit ();
+    }
+  return true;
 }
 
 void MessageClient::impl::parse_message (QByteArray const& msg)
 {
+  if (parse_tx_inhibit (msg)) return;
   try
     {
       // 
@@ -764,6 +859,8 @@ MessageClient::MessageClient (QString const& id, QString const& version, QString
   m_->set_server (server_name, network_interface_names);
 }
 
+MessageClient::~MessageClient () = default;
+
 QHostAddress MessageClient::server_address () const
 {
   return m_->server_;
@@ -785,6 +882,7 @@ void MessageClient::set_server_port (port_type server_port)
     {
       m_->cancel_replay ();
       m_->server_port_ = server_port;
+      if (m_->dns_lookup_id_ == -1 && !m_->server_.isNull ()) m_->start ();
     }
 }
 
@@ -849,6 +947,24 @@ void MessageClient::decode (bool is_new, QTime time, qint32 snr, float delta_tim
       out << is_new << time << snr << delta_time << delta_frequency << mode_utf8
           << message_utf8 << low_confidence << off_air;
       TRACE_UDP ("new" << is_new << "time:" << time << "snr:" << snr << "dt:" << delta_time << "df:" << delta_frequency << "mode:" << mode << "text:" << message_text << "low conf:" << low_confidence << "off air:" << off_air);
+      m_->send_message (out, message);
+    }
+}
+
+void MessageClient::inhibit_status (bool supported, bool inhibited,
+                                    QString const& source_station,
+                                    quint32 hold_rx, quint32 release_rx,
+                                    quint32 expiries, quint32 invalid)
+{
+  if (m_->server_port_ && !m_->server_.isNull ())
+    {
+      QByteArray message;
+      NetworkMessage::Builder out {&message, NetworkMessage::InhibitStatus,
+                                   m_->id_, m_->schema_};
+      out << supported << inhibited << source_station.toUtf8 ()
+          << hold_rx << release_rx << expiries << invalid;
+      TRACE_UDP ("supported:" << supported << "inhibited:" << inhibited
+                 << "source:" << source_station);
       m_->send_message (out, message);
     }
 }

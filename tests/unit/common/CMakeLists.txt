@@ -144,6 +144,16 @@ target_include_directories (test_emulate_split_transceiver PRIVATE ${CMAKE_BINAR
 target_link_libraries (test_emulate_split_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_emulate_split_transceiver COMMAND test_emulate_split_transceiver)
 
+add_executable (test_tx_inhibit_transceiver
+  test_tx_inhibit_transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/TxInhibitTransceiver.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/TransceiverBase.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
+)
+target_link_libraries (test_tx_inhibit_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
+add_test (NAME test_tx_inhibit_transceiver COMMAND test_tx_inhibit_transceiver)
+
 add_executable (test_hamlib_mode
   test_hamlib_mode.cpp
 )

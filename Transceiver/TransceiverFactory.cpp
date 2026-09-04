@@ -1,4 +1,5 @@
 #include "TransceiverFactory.hpp"
+#include "TxInhibitTransceiver.hpp"
 
 #include <QMetaType>
 
@@ -219,6 +220,15 @@ std::unique_ptr<Transceiver> TransceiverFactory::create (ParameterPack const& pa
     {
       // wrap the Transceiver object instance with a decorator that emulates split mode
       result.reset (new EmulateSplitTransceiver {&logger_, std::move (result)});
+      if (target_thread)
+        {
+          result->moveToThread (target_thread);
+        }
+    }
+
+  if (supports_tx_inhibit (params.ptt_type))
+    {
+      result.reset (new TxInhibitTransceiver {&logger_, std::move (result)});
       if (target_thread)
         {
           result->moveToThread (target_thread);

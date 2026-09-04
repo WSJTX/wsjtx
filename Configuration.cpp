@@ -192,6 +192,7 @@
 #include "pimpl_impl.hpp"
 #include "Logger.hpp"
 #include "PerformanceTrace.hpp"
+#include "Transceiver/TxInhibitTransceiver.hpp"
 #include "qt_helpers.hpp"
 #include "MetaDataRegistry.hpp"
 #include "SettingsGroup.hpp"
@@ -613,6 +614,9 @@ private:
   }
   void set_cached_mode ();
   bool open_rig (bool force = false);
+  bool rig_restart_required (TransceiverFactory::ParameterPack const&, bool) const;
+  bool tx_inhibit_blocks_rig_restart (TransceiverFactory::ParameterPack const&, bool) const;
+  void warn_tx_inhibit_restart_blocked ();
   //bool set_mode ();
   void close_rig (bool failed = false);
   TransceiverFactory::ParameterPack gather_rig_data ();
@@ -854,6 +858,9 @@ private:
   bool rig_is_dummy_;
   bool is_tci_;
   bool rig_active_;
+  bool tx_inhibit_active_ {false};
+  bool tx_inhibit_status_forwarded_ {false};
+  quint64 tx_inhibit_generation_ {0};
   bool have_rig_;
   bool rig_changed_;
   TransceiverState cached_rig_state_;
@@ -4052,6 +4059,12 @@ void Configuration::impl::accept ()
 
   // open_rig() uses values from models so we use it to validate the
   // Transceiver settings before agreeing to accept the configuration
+  if (temp_rig_params != rig_params_
+      && tx_inhibit_blocks_rig_restart (temp_rig_params, false))
+    {
+      warn_tx_inhibit_restart_blocked ();
+      return;
+    }
   if (temp_rig_params != rig_params_ && !open_rig ())
     {
       return;			// not accepting
@@ -4898,16 +4911,39 @@ void Configuration::impl::on_cbEQSL_toggled (bool checked)
 
 void Configuration::impl::on_test_PTT_push_button_clicked (bool checked)
 {
-  ui_->test_PTT_push_button->setChecked (!checked); // let status
-                                                    // update check us
+  auto const showing_requested_ptt = tx_inhibit_active_;
+  if (!showing_requested_ptt)
+    {
+      ui_->test_PTT_push_button->setChecked (!checked);
+    }
   if (!validate ())
     {
+      if (showing_requested_ptt) ui_->test_PTT_push_button->setChecked (!checked);
+      return;
+    }
+
+  auto const rig_data = gather_rig_data ();
+  if (tx_inhibit_blocks_rig_restart (rig_data, false))
+    {
+      ui_->test_PTT_push_button->setChecked (cached_rig_state_.ptt ());
+      if (!showing_requested_ptt)
+        {
+          ui_->test_PTT_push_button->setChecked (!checked);
+        }
+      MessageBox::warning_message (
+        this, tr ("Cannot test PTT while TX inhibit is active"),
+        tr ("Wait for the current inhibit hold to clear before testing "
+            "changed radio settings or changing PTT state."));
       return;
     }
 
   if (open_rig ())
     {
       Q_EMIT self_->transceiver_ptt (checked);
+    }
+  else if (showing_requested_ptt)
+    {
+      ui_->test_PTT_push_button->setChecked (!checked);
     }
 }
 
@@ -5971,7 +6007,12 @@ bool Configuration::impl::open_rig (bool force)
   auto result = false;
 
   auto const rig_data = gather_rig_data ();
-  if (force || !rig_active_ || rig_data != saved_rig_params_)
+  if (tx_inhibit_blocks_rig_restart (rig_data, force))
+    {
+      LOG_INFO ("refusing to restart the rig while TX inhibit is active");
+      return false;
+    }
+  if (rig_restart_required (rig_data, force))
     {
       try
         {
@@ -6010,6 +6051,31 @@ bool Configuration::impl::open_rig (bool force)
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
           rig_connections_ << connect (rig.get (), &Transceiver::update, this, &Configuration::impl::handle_transceiver_update);
           rig_connections_ << connect (rig.get (), &Transceiver::failure, this, &Configuration::impl::handle_transceiver_failure);
+          if (auto inhibit = qobject_cast<TxInhibitTransceiver *> (rig.get ()))
+            {
+              auto const generation = tx_inhibit_generation_;
+              rig_connections_ << connect (self_, &Configuration::tx_inhibit_command,
+                inhibit, &TxInhibitTransceiver::tx_inhibit_command, Qt::QueuedConnection);
+              rig_connections_ << connect (self_, &Configuration::tx_inhibit_invalid,
+                inhibit, &TxInhibitTransceiver::tx_inhibit_invalid, Qt::QueuedConnection);
+              rig_connections_ << connect (
+                inhibit, &TxInhibitTransceiver::statusChanged, this,
+                [this, generation] (bool supported, bool inhibited,
+                        QString const& holder,
+                        quint32 hold_rx, quint32 release_rx,
+                        quint32 expiries, quint32 invalid) {
+                  if (generation != tx_inhibit_generation_) return;
+                  tx_inhibit_active_ = inhibited;
+                  if (inhibited)
+                    {
+                      ui_->test_PTT_push_button->setChecked (cached_rig_state_.ptt ());
+                    }
+                  tx_inhibit_status_forwarded_ = true;
+                  Q_EMIT self_->tx_inhibit_status_changed (
+                    supported, inhibited, holder,
+                    hold_rx, release_rx, expiries, invalid);
+                }, Qt::QueuedConnection);
+            }
 
           // setup thread safe startup and close down semantics
           rig_connections_ << connect (this, &Configuration::impl::start_transceiver, rig.get (), &Transceiver::start);
@@ -6050,6 +6116,26 @@ bool Configuration::impl::open_rig (bool force)
       result = true;
     }
   return result;
+}
+
+bool Configuration::impl::rig_restart_required (
+  TransceiverFactory::ParameterPack const& rig_data, bool force) const
+{
+  return force || !rig_active_ || rig_data != saved_rig_params_;
+}
+
+bool Configuration::impl::tx_inhibit_blocks_rig_restart (
+  TransceiverFactory::ParameterPack const& rig_data, bool force) const
+{
+  return tx_inhibit_active_ && rig_restart_required (rig_data, force);
+}
+
+void Configuration::impl::warn_tx_inhibit_restart_blocked ()
+{
+  MessageBox::warning_message (
+    this, tr ("Cannot change radio settings while TX inhibit is active"),
+    tr ("Wait for the current inhibit hold to clear before applying "
+        "settings that require restarting the radio."));
 }
 
 void Configuration::impl::set_cached_mode ()
@@ -6335,7 +6421,8 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 
   if (state.online ())
     {
-      ui_->test_PTT_push_button->setChecked (state.ptt ());
+      ui_->test_PTT_push_button->setChecked (
+        tx_inhibit_active_ ? cached_rig_state_.ptt () : state.ptt ());
 
       if (isVisible ())
         {
@@ -6411,6 +6498,13 @@ void Configuration::impl::close_rig (bool failed)
       rig_active_ = false;
     }
   mark_rig_offline ();
+  ++tx_inhibit_generation_;
+  tx_inhibit_active_ = false;
+  if (tx_inhibit_status_forwarded_)
+    {
+      Q_EMIT self_->tx_inhibit_status_changed (false, false, {}, 0, 0, 0, 0);
+      tx_inhibit_status_forwarded_ = false;
+    }
 }
 
 // find the audio device that matches the specified name, also

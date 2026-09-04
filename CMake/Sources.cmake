@@ -44,6 +44,7 @@ set (wsjt_qt_CXXSRCS
   Transceiver/Transceiver.cpp
   Transceiver/TransceiverBase.cpp
   Transceiver/EmulateSplitTransceiver.cpp
+  Transceiver/TxInhibitTransceiver.cpp
   Transceiver/TransceiverFactory.cpp
   Transceiver/PollingTransceiver.cpp
   Transceiver/HamlibMode.cpp

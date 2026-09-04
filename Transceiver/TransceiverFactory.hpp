@@ -74,6 +74,12 @@ public:
   Q_ENUM (Handshake)
   enum PTTMethod {PTT_method_VOX, PTT_method_CAT, PTT_method_DTR, PTT_method_RTS};
   Q_ENUM (PTTMethod)
+
+  static bool supports_tx_inhibit (PTTMethod method)
+  {
+    return PTT_method_DTR == method || PTT_method_RTS == method;
+  }
+
   enum TXAudioSource {TX_audio_source_front, TX_audio_source_rear};
   Q_ENUM (TXAudioSource)
   enum SplitMode {split_mode_none, split_mode_rig, split_mode_emulate};

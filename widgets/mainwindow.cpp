@@ -891,6 +891,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // Network message handlers
   m_messageClient->enable (m_config.accept_udp_requests ());
+  connect (m_messageClient, &MessageClient::tx_inhibit_command,
+           &m_config, &Configuration::tx_inhibit_command);
+  connect (m_messageClient, &MessageClient::tx_inhibit_invalid,
+           &m_config, &Configuration::tx_inhibit_invalid);
   connect (m_messageClient, &MessageClient::clear_decodes, [this] (quint8 window) {
       ++window;
       if (window & 1)
@@ -1394,6 +1398,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   tuneButtonTimer.setSingleShot(true);
   connect(&tuneButtonTimer, &QTimer::timeout, this, &MainWindow::end_tuning);
+
+  rigTuneTimer.setSingleShot (true);
+  connect (&rigTuneTimer, &QTimer::timeout, this, [this] {
+      m_config.transceiver_tune (false);
+      ui->tuneButton->setChecked (false);
+      ui->tuneButton->setText ("Tune");
+    });
 
   tuneATU_Timer.setSingleShot(true);
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
@@ -3702,6 +3713,8 @@ void MainWindow::createStatusBar()                           //createStatusBar
   tx_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #00ff00}");
   tx_status_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&tx_status_label);
+  connect (&m_config, &Configuration::tx_inhibit_status_changed,
+           this, &MainWindow::handleTxInhibitStatus);
 
   config_label.setAlignment (Qt::AlignHCenter);
   config_label.setMinimumSize (QSize {80, 18});
@@ -3747,6 +3760,45 @@ void MainWindow::createStatusBar()                           //createStatusBar
   progressBar.setAccessibleName (tr ("Decode progress"));
   progressBar.setAccessibleDescription (tr ("Progress for the current decode operation."));
   watchdog_label.setAccessibleName (tr ("Transmit watchdog"));
+}
+
+void MainWindow::handleTxInhibitStatus (bool supported, bool inhibited,
+                                        QString const& holder, quint32 hold_rx,
+                                        quint32 release_rx, quint32 expiries,
+                                        quint32 invalid)
+{
+  m_tx_inhibited = inhibited;
+
+  if (!inhibited)
+    {
+      tx_status_label.setToolTip ({});
+      tx_status_label.setAccessibleDescription ({});
+    }
+  else
+    {
+      auto const description = holder.isEmpty ()
+        ? tr ("TX is inhibited by an external interlock controller.")
+        : tr ("TX is inhibited by %1.").arg (holder);
+      tx_status_label.setToolTip (description);
+      tx_status_label.setAccessibleDescription (description);
+    }
+
+  if (inhibited) startTxAudioAfterPttDelay ();
+  if (m_messageClient)
+    {
+      m_messageClient->inhibit_status (supported, inhibited, holder, hold_rx,
+                                       release_rx, expiries, invalid);
+    }
+}
+
+void MainWindow::startTxAudioAfterPttDelay ()
+{
+  if (!m_tx_when_ready || !g_iptt) return;
+
+  auto delay_ms = static_cast<int> (1000 * m_config.txDelay ());
+  if (m_mode == "FT4") delay_ms = 20;
+  ptt1Timer.start (delay_ms);
+  m_tx_when_ready = false;
 }
 
 void MainWindow::show_generated_message_error ()
@@ -7178,6 +7230,7 @@ void MainWindow::guiUpdate()
         }
       m_config.transceiver_ptt (true);
       m_tx_when_ready = true;
+      if (m_tx_inhibited) startTxAudioAfterPttDelay ();
     }
 
     m_bCallingCQ = 6 == m_ntx
@@ -7630,6 +7683,11 @@ void MainWindow::guiUpdate()
     } else if (!m_diskData && !m_tx_watchdog) {
       tx_status_label.setStyleSheet("");
       tx_status_label.setText("");
+    }
+    if (m_tx_inhibited && !m_tx_watchdog && !m_generated_message_error) {
+      tx_status_label.setStyleSheet (
+        "QLabel{color: #ffffff; background-color: #cc0000; font-weight: bold}");
+      tx_status_label.setText (tr ("TX inhibited"));
     }
 
     QDateTime t = QDateTime::currentDateTimeUtc();
@@ -9140,21 +9198,19 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->labDialFreq->clearFocus();
   }
   if(ui->tuneButton->hasFocus() && (event->button() & Qt::RightButton)) {      // Tune button
-    m_config.transceiver_tune (false);       // reset any prior rig tuning
-    blocked=true;
-    m_config.transceiver_tune (true);        // toggle rig tuning
-    blocked=false;
-    if(ui->tuneButton->text()=="Tuning") {   // reset Tune button by another right-click
+    if (rigTuneTimer.isActive ()) {
+      rigTuneTimer.stop ();
       ui->tuneButton->setChecked(false);
       ui->tuneButton->setText("Tune");
       m_config.transceiver_tune (false);     // reset rig tuning
     } else {
+      m_config.transceiver_tune (false);     // reset any prior rig tuning
+      blocked=true;
+      m_config.transceiver_tune (true);
+      blocked=false;
       ui->tuneButton->setChecked(true);
       ui->tuneButton->setText("Tuning");
-      QTimer::singleShot (6000, this, [=] {        // reset Tune button after 6 seconds
-        ui->tuneButton->setChecked(false);
-        ui->tuneButton->setText("Tune");
-      });
+      rigTuneTimer.start (6000);
     }
     ui->tuneButton->clearFocus();
   }
@@ -11735,12 +11791,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   if (s.ptt () // && !m_rigState.ptt ()
       ) { // safe to start audio
                                         // (caveat - DX Lab Suite Commander)
-    if (m_tx_when_ready && g_iptt) {    // waiting to Tx and still needed
-      int ms_delay=1000*m_config.txDelay();
-      if(m_mode=="FT4") ms_delay=20;
-      ptt1Timer.start(ms_delay); //Start-of-transmission sequencer delay
-      m_tx_when_ready = false;
-    }
+    startTxAudioAfterPttDelay ();
   }
 
   // Display PWR and SWR
@@ -11951,6 +12002,13 @@ void MainWindow::dispatchTxRequest (TxEvidence::TxRequest const& request)
     ? m_jttyTxUsesTciAudio : m_tci_audio;
   if (useTciAudio)
     {
+      if (!request.tuning && rigTuneTimer.isActive ())
+        {
+          rigTuneTimer.stop ();
+          m_config.transceiver_tune (false);
+          ui->tuneButton->setChecked (false);
+          ui->tuneButton->setText ("Tune");
+        }
       Q_EMIT m_config.transceiver_modulator_start (request);
     }
   else if (request.mode == QStringLiteral ("JTTY") && !request.tuning)
