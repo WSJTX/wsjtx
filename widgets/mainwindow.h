@@ -46,6 +46,7 @@
 #include "Audio/TxRequest.hpp"
 #include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
+#include "FastDecode.hpp"
 #include "Radio.hpp"
 #include "OperatingFrequency.hpp"
 #include "models/Modes.hpp"
@@ -202,7 +203,7 @@ public:
 #endif
 
   bool decoderBusy () const
-    {return DecodeOwner::None != m_decodeOwner || m_ft8MtdDecodeCoordinator.hasPending ();}
+    {return m_fastDecodePending || DecodeOwner::None != m_decodeOwner || m_ft8MtdDecodeCoordinator.hasPending ();}
   void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
   bool decoderBackendRunning () const;
   bool diskDataActive () const {return m_diskData;}
@@ -1169,7 +1170,8 @@ private:
   QProgressBar progressBar;
   QLabel watchdog_label;
   WavLoadCoordinator m_wav_load_coordinator;
-  QFutureWatcher<void> watcher3;
+  QFutureWatcher<FastDecodeResult> watcher3;
+  bool m_fastDecodePending = false;
   QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;
 

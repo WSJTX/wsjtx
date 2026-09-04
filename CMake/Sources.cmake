@@ -185,6 +185,7 @@ set (wsjtx_CXXSRCS
   Ft8MtdDecodeScheduler.cpp
   OperatingFrequency.cpp
   Ft8MtdDecodeCoordinator.cpp
+  FastDecode.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp

@@ -1,6 +1,7 @@
 //---------------------------------------------------------- MainWindow
 #include "mainwindow.h"
 #include "RoundRobinSelection.hpp"
+#include "FastDecode.hpp"
 
 #include <array>
 #include <QAudio>
@@ -376,9 +377,6 @@ extern "C" {
                 float* width, bool* bDiskData, bool* bEchoCall, char const * txcall,
                 char rxcall[], FCL len1, FCL len2);
 
-  void fast_decode_(short id2[], int narg[], double * trperiod,
-                    char msg[], char mycall[], char hiscall[],
-                    fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
   void degrade_snr_(short d2[], int* n, float* db, float* bandwidth);
 
   void refspectrum_(short int d2[], bool* bclearrefspec,
@@ -1514,7 +1512,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_wav_load_coordinator, &WavLoadCoordinator::resultReady,
            this, &MainWindow::wav_file_loaded);
 
-  connect(&watcher3, SIGNAL(finished()),this,SLOT(fast_decode_done()));
+  connect (&watcher3, &QFutureWatcher<FastDecodeResult>::finished, this, [this] {
+    auto const result = watcher3.result ();
+    std::copy (result.arguments.begin (), result.arguments.end (), narg);
+    std::memcpy (m_msg, result.messages.data (), sizeof m_msg);
+    m_fastDecodePending = false;
+    fast_decode_done ();
+  });
   
   m_tci = m_config.is_tci();
   m_tci_audio = (m_config.tci_audio() && m_config.is_tci());
@@ -4904,12 +4908,12 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(m_mode=="MSK144" or m_bFast9) {
     float t0=m_t0;
     float t1=m_t1;
+    m_fastDecodePending = true;
     qApp->processEvents();                                //Update the waterfall
     if(m_nPick > 0) {
       t0=m_t0Pick;
       t1=m_t1Pick;
     }
-    static short int d2b[360000];
     narg[0]=dec_data.params.nutc;
     if(m_kdone>int(12000.0*m_TRperiod)) {
       m_kdone=int(12000.0*m_TRperiod);
@@ -4930,10 +4934,8 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
     narg[12]=0;
     narg[13]=-1;
     narg[14]=m_config.aggressive();
-    memcpy(d2b,dec_data.d2,2*360000);
-    watcher3.setFuture (QtConcurrent::run (std::bind (fast_decode_, &d2b[0],
-        &narg[0],&m_TRperiod, &m_msg[0][0], dec_data.params.mycall,
-        dec_data.params.hiscall, (FCL)8000, (FCL)12, (FCL)12)));
+    watcher3.setFuture (startFastDecode (dec_data.d2, &narg[0], m_TRperiod,
+        dec_data.params.mycall, dec_data.params.hiscall));
   } else {
     decoder_params_t decoderParams;
     {
@@ -5136,12 +5138,13 @@ QString MainWindow::liveAudioTestFt8BackpressureDiagnostics () const
 
 void::MainWindow::fast_decode_done()
 {
+  if (m_fastDecodePending) return;
   float t,tmax=-99.0;
   dec_data.params.nagain=false;
   dec_data.params.ndiskdat=false;
   if(m_mode=="JTTY" && m_diskData) flushJttyDecodeLines();
-  for(int i=0; m_msg[i][0] && i<100; i++) {
-    QString message=QString::fromLatin1(m_msg[i]);
+  for(int i=0; i<100 && m_msg[i][0]; i++) {
+    QString message=QString::fromLatin1(m_msg[i], 80);
     m_msg[i][0]=0;
     if(message.length()>80) message=message.left (80);
     if(narg[13]/8==narg[12]) message=message.trimmed().replace("<...>",m_calls);

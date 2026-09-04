@@ -57,3 +57,35 @@ target_link_libraries (test_audio_input_stream_descriptor
   wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia)
 add_test (NAME test_audio_input_stream_descriptor
   COMMAND test_audio_input_stream_descriptor)
+add_executable (test_fast_decode_ownership
+  test_fast_decode_ownership.cpp
+  ${CMAKE_SOURCE_DIR}/FastDecode.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+  ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp
+  ${CMAKE_SOURCE_DIR}/Detector/Detector.cpp)
+target_link_libraries (test_fast_decode_ownership
+  wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
+target_include_directories (test_fast_decode_ownership PRIVATE ${CMAKE_BINARY_DIR})
+foreach (scenario IN ITEMS unchanged samples mycall hiscall period arguments)
+  add_test (NAME test_fast_decode_captures_${scenario}
+    COMMAND test_fast_decode_ownership captures_submission_inputs:${scenario})
+endforeach ()
+add_test (NAME test_fast_decode_capture_vs_append
+  COMMAND test_fast_decode_ownership capture_does_not_race_live_append)
+add_test (NAME test_fast_decode_overlapping_jobs_retain_identity
+  COMMAND test_fast_decode_ownership overlapping_jobs_retain_submission_identity)
+add_test (NAME test_fast_decode_overlap_does_not_race_decoder
+  COMMAND test_fast_decode_ownership overlapping_submission_does_not_race_decoder)
+set (fast_decode_ownership_tests
+  test_fast_decode_captures_unchanged test_fast_decode_captures_samples
+  test_fast_decode_captures_mycall test_fast_decode_captures_hiscall
+  test_fast_decode_captures_period test_fast_decode_captures_arguments
+  test_fast_decode_capture_vs_append
+  test_fast_decode_overlapping_jobs_retain_identity
+  test_fast_decode_overlap_does_not_race_decoder)
+set_tests_properties (${fast_decode_ownership_tests} PROPERTIES
+  TIMEOUT 30 LABELS "receive-handoff;fast-decode-ownership")
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (${fast_decode_ownership_tests} PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
+endif ()
