@@ -35,7 +35,7 @@ subroutine jtty_peakup(c0,c1,csync,nchunk,nss,xdt0,f0,xdt,f1,snr)
    do idf=-5,5
       a=0.
       a(1)=-f0 + 0.5*idf                     !Shift assumed peak to zero frequency
-      call twkfreq(c0,c1,nchunk,fsample,a)
+      call twkfreq(c0,c1,ib+npsync,fsample,a)
       do i0=ia,ib,4                          !Search over xdt for sync pattern
          xdt=i0*dt
          c(0:npsync-1)=conjg(csync)*c1(i0:i0+npsync-1)
