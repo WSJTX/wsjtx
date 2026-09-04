@@ -20,6 +20,8 @@ module tbcc
     ! modifies them.
     integer(int32) :: memory_nu, num_states, g0_poly, g1_poly, reg_mask
 
+    integer(int32), allocatable, protected :: incoming_tones(:,:)
+
     type candidate_t
         real(real32) :: metric
         integer(int32) :: bits(TOTAL_K)
@@ -44,10 +46,23 @@ contains
         ! chosen constraint length K = nu+1. Call once, before any
         ! encode/decode.
         integer(int32), intent(in) :: nu
+        integer(int32) :: s, dropped_bit, register_value, out_b0, out_b1
+        integer(int32), parameter :: gray_tones(0:3) = [0, 1, 3, 2]
+
         memory_nu  = nu
         num_states = 2**nu
         call select_generator_polynomials(nu, g0_poly, g1_poly)
         reg_mask = 2**(nu + 1) - 1
+        if (allocated(incoming_tones)) deallocate(incoming_tones)
+        allocate(incoming_tones(0:1, 0:num_states-1))
+        do s = 0, num_states-1
+            do dropped_bit = 0, 1
+                register_value = ior(s, ishft(dropped_bit, memory_nu))
+                out_b0 = parity(iand(register_value, g0_poly))
+                out_b1 = parity(iand(register_value, g1_poly))
+                incoming_tones(dropped_bit, s) = gray_tones(2*out_b0 + out_b1)
+            end do
+        end do
     end subroutine tbcc_init
 
     subroutine tbcc_encode(payload, tone_symbols)
@@ -109,7 +124,6 @@ contains
         integer(int16), allocatable  :: traceback_table(:,:)
         type(candidate_t), allocatable :: sorted_list(:)
         integer(int32) :: iter, t, s, bit_in, prev_s, curr_s, l, crc_reg, i
-        integer(int32) :: g0_out, g1_out, out_b0, out_b1, tone_idx
         real(real32)   :: m0, m1
         integer(int32) :: tmp_bits(TOTAL_K)
 
@@ -145,26 +159,9 @@ contains
                     ! left the window.
                     prev_s = iand(ishft(s, -1), num_states-1)
 
-                    ! Option A: The oldest bit dropped from the register was 0
-                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), reg_mask)
-                    out_b0 = parity(iand(g0_out, g0_poly))
-                    out_b1 = parity(iand(g0_out, g1_poly))
-                    if (out_b0 == 0 .and. out_b1 == 0) tone_idx = 0
-                    if (out_b0 == 0 .and. out_b1 == 1) tone_idx = 1
-                    if (out_b0 == 1 .and. out_b1 == 1) tone_idx = 2
-                    if (out_b0 == 1 .and. out_b1 == 0) tone_idx = 3
-                    m0 = prev_m(prev_s) + tone_energies(tone_idx, t)
-
-                    ! Option B: The oldest bit dropped from the register was 1
+                    m0 = prev_m(prev_s) + tone_energies(incoming_tones(0, s), t)
                     prev_s = ior(prev_s, ishft(1, memory_nu-1))
-                    g0_out = iand(ior(ishft(prev_s, 1), iand(s, 1)), reg_mask)
-                    out_b0 = parity(iand(g0_out, g0_poly))
-                    out_b1 = parity(iand(g0_out, g1_poly))
-                    if (out_b0 == 0 .and. out_b1 == 0) tone_idx = 0
-                    if (out_b0 == 0 .and. out_b1 == 1) tone_idx = 1
-                    if (out_b0 == 1 .and. out_b1 == 1) tone_idx = 2
-                    if (out_b0 == 1 .and. out_b1 == 0) tone_idx = 3
-                    m1 = prev_m(prev_s) + tone_energies(tone_idx, t)
+                    m1 = prev_m(prev_s) + tone_energies(incoming_tones(1, s), t)
 
                     ! Select and record maximum likelihood trajectory decision
                     if (m0 > m1) then
