@@ -217,6 +217,7 @@ contains
       logical                        :: success_dec
       logical                        :: channel_decoded, decoded_ok
       logical                        :: any_subtracted
+      logical                        :: s0_valid
       integer                        :: ir
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
@@ -324,6 +325,7 @@ contains
       nc=2          ! look for 2 candidates in each channel
       ncand=0
       any_subtracted=.false.
+      s0_valid=.false.
 
       ! Phase A: channel 0 gets first claim on every signal -- runs its own
       ! full up-to-2-pass sweep to completion, accumulating n_ch0_ok across
@@ -331,20 +333,21 @@ contains
       n_ch0_ok=0
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
-         call build_s0()
+         if(.not.s0_valid) call build_s0()
          ichan=0
          call process_channel()
       enddo
 
-      ! Phase B: channels 1/2 (hardwired bands, unrefined estimates). s0 is
-      ! rebuilt fresh, reflecting whatever channel 0 subtracted in Phase A.
+      ! Channel 0 masks candidates privately, so an unchanged surface can
+      ! also serve channels 1/2. Their suppression modifies s0 directly.
       any_subtracted=.false.
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
-         call build_s0()
+         if(.not.s0_valid) call build_s0()
          do ichan=1,nchan
             call process_channel()
          enddo
+         s0_valid=.false.
       enddo
 
       return
@@ -370,6 +373,7 @@ contains
          istep=istep+1
       enddo
       nstep_search=istep-1
+      s0_valid=.true.
    end subroutine build_s0
 
    subroutine process_channel()
@@ -637,6 +641,7 @@ contains
       call subtract_jtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM,   &
            nss, cand(ncand)%f1, cand(ncand)%xdt)
       any_subtracted=.true.
+      s0_valid=.false.
 
       if(nsubtracted.lt.MAX_SUBTRACTED) then
          nsubtracted=nsubtracted+1
