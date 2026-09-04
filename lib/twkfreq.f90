@@ -12,6 +12,15 @@ subroutine twkfreq(c3,c4,npts,fsample,a)
 
 ! Mix the complex signal
   w=1.0
+  if(a(2).eq.0.0 .and. a(3).eq.0.0) then
+     dphi=a(1)*(twopi/fsample)
+     wstep=cmplx(cos(dphi),sin(dphi))
+     do i=1,npts
+        w=w*wstep
+        c4(i)=w*c3(i)
+     enddo
+     return
+  endif
   wstep=1.0
   x0=0.5*(npts+1)
   s=2.0/npts
