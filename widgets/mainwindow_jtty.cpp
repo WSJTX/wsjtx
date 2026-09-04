@@ -4,6 +4,7 @@
 #include "commons.h"
 #include "JttyMessages.hpp"
 #include "JttyN1mm.hpp"
+#include "JttyReplay.hpp"
 #include "Logger.hpp"
 #include <QByteArray>
 #include <QDateTime>
@@ -793,9 +794,10 @@ void MainWindow::jtty_again()
 {
   ui->DecodeButton->setChecked (true);
   qApp->processEvents();                                //Update the DecodeButton highlight
-  for(int k=3456; k<dec_data.params.kin; k+=3456) {
+  replayJttyFrames (dec_data.params.kin, [this] (int k) {
     jtty_decode(k);
-  }
+    return false;
+  });
   flushJttyDecodeLines();
   finishDecodeUi();
 }
@@ -816,16 +818,17 @@ void MainWindow::jttyDecodeAgainAt(float secondsAgo)
   constexpr int jttyPickSafetyCapSecs = 40;
   qint64 const center = qint64(m_k0) - qint64(qMax(0.0f, secondsAgo) * 12000.0f);
   int const istart0 = int(qMax(qint64(1), center - qint64(jttyPickLookbackSecs) * 12000));
-  int const istop = int(qMin(qint64(dec_data.params.kin),
+  int const frames = snapshotJttyFrames (dec_data.params.kin);
+  int const istop = int(qMin(qint64(frames),
                              qint64(istart0) + qint64(jttyPickSafetyCapSecs) * 12000));
   if (istop < istart0) return;   // clicked time is no longer in the buffer at all
 
   ui->DecodeButton->setChecked (true);
   qApp->processEvents();                                //Update the DecodeButton highlight
-  for(int k=3456; k<dec_data.params.kin; k+=3456) {
+  replayJttyFrames (frames, [this, istart0, istop] (int k) {
     bool const eom = jtty_decode(k, istart0, istop);
-    if (eom || k >= istop) break;
-  }
+    return eom || k >= istop;
+  });
   flushJttyDecodeLines();
   finishDecodeUi();
 }
