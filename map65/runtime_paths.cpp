@@ -83,11 +83,16 @@ QString map65RuntimeSourceFile(QString const& appDir, QString const& installedDa
                                QString const& writableDataDir, QString const& fileName)
 {
   QString const writablePath = map65RuntimeFile(writableDataDir, fileName);
+  QString const writableCanonicalPath = QFileInfo {writablePath}.canonicalFilePath();
   auto const candidates = runtimeSourceCandidates(appDir, installedDataDir, fileName);
   for (auto const& sourcePath : candidates) {
     QFileInfo sourceInfo {sourcePath};
-    if (sourceInfo.absoluteFilePath() == writablePath || !sourceInfo.exists()
-        || !sourceInfo.isFile() || sourceInfo.size() == 0) {
+    if (!sourceInfo.exists() || !sourceInfo.isFile() || sourceInfo.size() == 0) {
+      continue;
+    }
+    if (sourceInfo.absoluteFilePath() == writablePath
+        || (!writableCanonicalPath.isEmpty()
+            && sourceInfo.canonicalFilePath() == writableCanonicalPath)) {
       continue;
     }
     return sourceInfo.absoluteFilePath();

@@ -133,6 +133,30 @@ private slots:
              dir.absoluteFilePath("installed/unique-runtime-data.txt"));
   }
 
+  void writableDirectoryAliasIsNotASourceFallback()
+  {
+    QTemporaryDir root;
+    QVERIFY(root.isValid());
+    QDir dir {root.path()};
+    QVERIFY(dir.mkpath("app"));
+    QVERIFY(dir.mkpath("installed"));
+    QVERIFY(dir.mkpath("writable"));
+    QString const writable = dir.absoluteFilePath("writable");
+    QString const writableAlias = dir.absoluteFilePath("writable-alias");
+    if (!QFile::link(writable, writableAlias)) {
+      QSKIP("Directory links are unavailable");
+    }
+    QVERIFY(writeFile(QDir {writable}.absoluteFilePath("unique-runtime-data.txt"),
+                       "stale copy"));
+    CurrentDirectoryGuard cwd {writable};
+    QVERIFY(cwd.changed());
+
+    QCOMPARE(map65RuntimeSourceFile(dir.absoluteFilePath("app"),
+                                    dir.absoluteFilePath("installed"), writableAlias,
+                                    "unique-runtime-data.txt"),
+             dir.absoluteFilePath("installed/unique-runtime-data.txt"));
+  }
+
   void seedsMissingWritableFile()
   {
     QTemporaryDir root;
