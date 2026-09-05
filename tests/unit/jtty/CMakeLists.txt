@@ -109,6 +109,11 @@ add_executable (test_jtty_frequency_window test_jtty_frequency_window.f90)
 wsjt_link_common_fortran (test_jtty_frequency_window)
 add_test (NAME test_jtty_frequency_window COMMAND test_jtty_frequency_window)
 
+add_executable (test_jtty_surface_ranges test_jtty_surface_ranges.f90)
+wsjt_link_common_fortran (test_jtty_surface_ranges)
+add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
+set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 60)
+
 add_executable (test_jtty_get_msgs test_jtty_get_msgs.f90)
 target_include_directories (test_jtty_get_msgs PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_get_msgs)

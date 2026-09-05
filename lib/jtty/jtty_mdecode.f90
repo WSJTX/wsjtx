@@ -170,7 +170,7 @@ contains
       integer, intent(in)            :: istart, istart0, ndebug
       integer                        :: i,i0,is,j,ja,jb,k,kz,n
       integer, save                  :: ntstep, ntgrid
-      integer                        :: istep
+      integer                        :: istep,first_sync_bin,last_sync_bin
       integer                        :: nchan, ichan
       integer, intent(in)            :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
       integer, intent(in)            :: nfa,nfb       !Wide Graph freq range
@@ -191,7 +191,7 @@ contains
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
       real                           :: xdt_retry
-      real, allocatable, save        :: s(:), s0(:,:)
+      real, allocatable, save        :: s0(:,:)
       logical, allocatable, save     :: mask0(:,:)
       real                           :: a(3)
       real                           :: pow(0:3,NCHAN_SYM)
@@ -273,10 +273,9 @@ contains
            allocate(c(0:nfft-1))        !
          if(allocated(c1)) deallocate(c1)
            allocate(c1(0:nchunk6-1))
-         if(allocated(s)) deallocate(s)
-           allocate(s(0:nh2))
          if(allocated(s0)) deallocate(s0)
            allocate(s0(0:nh2,0:ntgrid))
+         s0=0.
          if(allocated(mask0)) deallocate(mask0)
            allocate(mask0(0:nh2,0:ntgrid))
 
@@ -321,7 +320,17 @@ contains
       nfz=nint(10.0/df2)            ! 14
       ntz=nint(0.016*6000.0/12.0)   !  8
 
-      nchan = 2
+      ! Every channel reads inside this span; unsearched bins may remain stale.
+      nchan=2
+      first_sync_bin=nh2-2
+      last_sync_bin=3
+      do ichan=0,nchan
+         call channel_window()
+         if(.not.usable) cycle
+         first_sync_bin=min(first_sync_bin,ja)
+         last_sync_bin=max(last_sync_bin,jb)
+      enddo
+
       nc=2          ! look for 2 candidates in each channel
       ncand=0
       any_subtracted=.false.
@@ -355,6 +364,7 @@ contains
    contains
 
    subroutine build_s0()
+      real :: p0,p1,p2,p3,p4
       ! Rebuild s0, the FFT-correlation sync-search surface, from the
       ! current c0 (may already reflect earlier-phase subtractions).
       istep=0
@@ -363,12 +373,18 @@ contains
          c(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))*c0(i0:i0+NSYNC_SYM*nss-1)
          c(NSYNC_SYM*nss:)=0.
          call four2a(c,nfft,1,-1,1)            !Compute the sync-shifted spectrum
-         do j=0,nh2
-            s(j)=real(c(j))**2 + aimag(c(j))**2
-         enddo
-         s0(0:nh2,istep)=0.
-         do j=2,nh2-2
-            s0(j,istep)=s(j-2)+2*s(j-1)+3*s(j)+2*s(j+1)+s(j+2)
+         ! Keep the two-bin halo while advancing the five-bin smoothing kernel.
+         p0=real(c(first_sync_bin-2))**2 + aimag(c(first_sync_bin-2))**2
+         p1=real(c(first_sync_bin-1))**2 + aimag(c(first_sync_bin-1))**2
+         p2=real(c(first_sync_bin))**2 + aimag(c(first_sync_bin))**2
+         p3=real(c(first_sync_bin+1))**2 + aimag(c(first_sync_bin+1))**2
+         do j=first_sync_bin,last_sync_bin
+            p4=real(c(j+2))**2 + aimag(c(j+2))**2
+            s0(j,istep)=p0+2*p1+3*p2+2*p3+p4
+            p0=p1
+            p1=p2
+            p2=p3
+            p3=p4
          enddo
          istep=istep+1
       enddo
@@ -376,25 +392,27 @@ contains
       s0_valid=.true.
    end subroutine build_s0
 
-   subroutine process_channel()
-      ! One channel's candidate search plus sticky-sync retry, for the
-      ! host's current ichan/ipass (host-associated with jtty_mdecode).
+   subroutine channel_window()
       if(ichan.eq.0) then
          fc=f0
          fwid=ftol
-         ! Scale channel 0's candidate count with FTol, so a wide band
-         ! can't let other signals win both fixed nc=2 slots first.
-         nc0=max(2, min(8, nint(fwid/(nfz*df2))))
-      else            ! for now, hardwired nonoverlapping channels
+      else
          fc=1350
          if(ichan.eq.2) fc=1650
          fwid=150
-         nc0=nc
       endif
-
       call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
            ubound(s0,1)-2,ja,jb,usable)
+   end subroutine channel_window
+
+   subroutine process_channel()
+      ! One channel's candidate search plus sticky-sync retry, for the
+      ! host's current ichan/ipass (host-associated with jtty_mdecode).
+      call channel_window()
       if(.not.usable) return
+      nc0=nc
+      ! A wide QSO band needs more candidates to avoid crowding out its signal.
+      if(ichan.eq.0) nc0=max(2, min(8, nint(fwid/(nfz*df2))))
       fbest=0.
       xdtbest=0.
       fpk=0.
