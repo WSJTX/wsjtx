@@ -76,6 +76,8 @@ local WSJT-X RTTY `%E` configuration.
 
 An unknown or malformed leading JTTY marker, unsupported action, missing field, invalid call, invalid profile exchange, invalid grid, or unregistered control phrase is rejected. It never falls back to literal transmission. Untagged messages, including customized N1MM macros, use the literal source interface; only an exact registered control phrase is contracted to CONTROL. A tag-shaped substring later in the text is just literal text.
 
+An all-rejected transaction receives `OUTPUTCOMPLETE` at `XMIT OFF`. When a transaction also contains accepted or pending audio, completion waits until that audio has drained. `ABORT` clears the transaction without reporting a successful output completion.
+
 ## Bundled action mappings
 
 The supplied macro file deliberately omits hardcoded `599`. Full-role native exchanges render the report canonically when the selected profile calls for it; Field Day class/section does not.

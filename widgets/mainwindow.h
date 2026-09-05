@@ -50,6 +50,7 @@
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
+#include "JttyN1mmOutput.hpp"
 #include "WSPR/WSPRBandHopping.hpp"
 #include "Transceiver/Transceiver.hpp"
 #include "DisplayManual.hpp"
@@ -775,6 +776,7 @@ private:
   void handleMmttyJttyRejected(qint64 requestId, JttyTxRejectReason reason);
   void handleMmttyJttyCompleted(qint64 requestId);
   void handleMmttyJttySessionDrained(qint64 sessionId);
+  void completeMmttyJttyOutput(bool drained = false);
   void startPendingMmttyJttyTx();
   QString jttyRejectReasonText(JttyTxRejectReason reason) const;
 #endif
@@ -1392,10 +1394,7 @@ private:
   qint32 m_jttyLastSavedWavK0 = -1;      // m_k0 at last JTTY WAV save; skips saving unchanged audio again
   QTextBlock m_jttyAllFreqsGroupStart;   // start of decodedTextBrowser's currently-growing group
 #ifdef WIN32
-  bool m_mmttyJttyStartRequested;
-  bool m_mmttyJttyFinishRequested;
-  bool m_mmttyJttyOutputPending;
-  QHash<qint64, QString> m_mmttyJttyRequests;
+  Jtty::N1mmOutput m_mmttyJttyOutput;
 #endif
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;

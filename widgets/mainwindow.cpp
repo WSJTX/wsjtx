@@ -687,11 +687,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_jttyTxQueueProgress {},
   m_jttyTxRequestId {0},
   m_jttyTciEnqueueId {0},
-#ifdef WIN32
-  m_mmttyJttyStartRequested {false},
-  m_mmttyJttyFinishRequested {false},
-  m_mmttyJttyOutputPending {false},
-#endif
   m_block_pwr_tooltip {false},
   m_PwrBandSetOK {true},
   m_lastMonitoredFrequency {default_frequency},

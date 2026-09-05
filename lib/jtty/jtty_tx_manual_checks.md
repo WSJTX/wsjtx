@@ -33,7 +33,9 @@ FIFO unit-test boundary.
 - Windows/N1MM: load `JTTY Messages.mc`, exercise every tagged Run and S&P
   action, and verify the `[[JTTY:ACTION]]` marker is consumed rather than
   transmitted. Reject malformed tags, invalid profile payloads, and unknown
-  actions; verify untagged TXTEXT remains literal.
+  actions; verify untagged TXTEXT remains literal. Verify an all-rejected
+  transaction completes at OFF, and a rejected action followed by a valid
+  action still starts and completes only after the accepted audio drains.
 - Windows/N1MM: in a two-radio configuration, verify entry-window focus, `!`
   and `{CALL}` expansion, queued-call selection, `{LOGTHENPOP}`, and Run/S&P
   state changes. Before adding a Run F11 call-stacking macro, capture its

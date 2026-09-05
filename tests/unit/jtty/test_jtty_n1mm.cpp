@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include "widgets/JttyN1mm.hpp"
+#include "widgets/JttyN1mmOutput.hpp"
 
 class TestJttyN1mm final : public QObject
 {
@@ -11,6 +12,70 @@ class TestJttyN1mm final : public QObject
   using Status = Jtty::N1mmCompileStatus;
 
 private slots:
+  void rejectedOutputCompletesOnceAtOff ()
+  {
+    Jtty::N1mmOutput output;
+    output.submit (1);
+    QVERIFY (output.resolve (1));
+    QVERIFY (!output.takeCompletion (false));
+    QVERIFY (!output.takeCompletion (false, true));
+    output.start ();
+    output.finish ();
+    QVERIFY (output.takeCompletion (false));
+    QVERIFY (!output.takeCompletion (false, true));
+    output.finish ();
+    QVERIFY (!output.finishRequested ());
+  }
+
+  void mixedOutputWaitsForAcceptedAudio ()
+  {
+    Jtty::N1mmOutput output;
+    output.start ();
+    output.submit (1);
+    QVERIFY (output.resolve (1));
+    QVERIFY (!output.takeCompletion (false));
+    QVERIFY (output.startRequested ());
+    output.submit (2);
+    output.finish ();
+    QVERIFY (output.startRequested ());
+    QVERIFY (!output.takeCompletion (false));
+    QVERIFY (!output.takeCompletion (true));
+    QVERIFY (output.accept (2));
+    output.started ();
+    QVERIFY (output.resolve (2));
+    QVERIFY (!output.takeCompletion (true));
+    QVERIFY (output.takeCompletion (false, true));
+  }
+
+  void asynchronousRejectionAfterOffCompletesWithoutDrain ()
+  {
+    Jtty::N1mmOutput output;
+    output.start ();
+    output.submit (1);
+    output.finish ();
+    QVERIFY (!output.takeCompletion (true));
+    QVERIFY (output.resolve (1));
+    QVERIFY (!output.takeCompletion (true));
+    QVERIFY (output.takeCompletion (false));
+  }
+
+  void drainBeforeOffAndAbortDoNotDuplicateCompletion ()
+  {
+    Jtty::N1mmOutput output;
+    output.submit (1);
+    output.start ();
+    QVERIFY (output.accept (1));
+    QVERIFY (output.resolve (1));
+    QVERIFY (output.takeCompletion (false, true));
+    output.finish ();
+    QVERIFY (!output.takeCompletion (false));
+    output.submit (2);
+    output.abort ();
+    QVERIFY (!output.resolve (2));
+    output.finish ();
+    QVERIFY (!output.takeCompletion (false, true));
+  }
+
   void everyActionCompiles ()
   {
     struct Example
