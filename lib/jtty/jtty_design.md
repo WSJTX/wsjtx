@@ -50,4 +50,4 @@ Source-encoding of JTTY messages involves packing and unpacking algorithms simil
 | 3     |       |  9  |  2  | `CQ KA1ABC`       |
 | 3     | 3     | 15  |  3  | `CQ VP2/KA1ABC CQ`       |
 | 3     | 3     | 18  |  4  | `PJ4/KA1ABC 599 124`     |
-| 3     | 3     | 45  | 11  | `THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG.` |
+| 3     | 3     | 45  | 9 | `THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG.` |
