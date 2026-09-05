@@ -213,11 +213,10 @@ if (WSJT_ENABLE_TESTS)
   set_tests_properties (test_map65_astro PROPERTIES TIMEOUT 180)
 
   add_executable (test_map65_jt65_handoff
-    ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_vectors.f90
     ${CMAKE_SOURCE_DIR}/tests/unit/jt65/jt65_test_fixture.f90
     ${CMAKE_SOURCE_DIR}/tests/unit/jt65/test_map65_jt65_handoff.f90)
   target_include_directories (test_map65_jt65_handoff PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-  target_link_libraries (test_map65_jt65_handoff PRIVATE m65impl)
+  target_link_libraries (test_map65_jt65_handoff PRIVATE m65impl jt65_test_vectors)
   add_test (NAME test_map65_jt65_handoff COMMAND test_map65_jt65_handoff)
   set_tests_properties (test_map65_jt65_handoff PROPERTIES TIMEOUT 180)
 
