@@ -36,6 +36,9 @@ module jtty_mdec
   real                      :: subtracted_f1(MAX_SUBTRACTED) = 0.0
   real                      :: subtracted_tsync(MAX_SUBTRACTED) = 0.0
   integer                   :: subtracted_payload(PAYLOAD_BITS,MAX_SUBTRACTED) = 0
+  complex, allocatable, private :: sync_chirp_weights(:),sync_chirp_kernel(:)
+  integer, private :: sync_chirp_samples=0,sync_chirp_first_bin=-1
+  integer, private :: sync_chirp_output_count=0
 
 contains
 
@@ -365,50 +368,160 @@ contains
 
    subroutine build_s0()
       use fftw3, only: c_ptr,c_null_ptr,c_associated,fftwf_plan_dft_1d, &
-           fftwf_execute_dft,fftwf_destroy_plan,FFTW_FORWARD, &
-           FFTW_MEASURE,FFTW_PRESERVE_INPUT
-      real :: p0,p1,p2,p3,p4
+           fftwf_execute_dft,fftwf_destroy_plan,FFTW_FORWARD,FFTW_BACKWARD, &
+           FFTW_ESTIMATE,FFTW_MEASURE,FFTW_PRESERVE_INPUT
+      real(8), parameter :: CHIRP_TWOPI=6.2831853071795864769d0
+      real(8) :: phase
+      real :: p0,p1,p2,p3,p4,chirp_scale
       complex :: fft_input(0:nfft-1)
-      type(c_ptr) :: fft_plan
-      integer :: npatience,nthreads
+      complex :: chirp_output(0:nfft/2-1),cz
+      type(c_ptr) :: fft_plan,chirp_forward,chirp_backward,kernel_plan
+      integer :: npatience,nthreads,chirp_nfft,output_count,convolution_length
+      integer :: index,distance,first_output_bin
+      logical :: use_chirp
       common/patience/npatience,nthreads
       ! Rebuild s0, the FFT-correlation sync-search surface, from the
       ! current c0 (may already reflect earlier-phase subtractions).
       fft_plan=c_null_ptr
-      ! Explicit planner settings retain the existing cached four2a path.
-      if(npatience.eq.0) then
+      chirp_forward=c_null_ptr
+      chirp_backward=c_null_ptr
+      kernel_plan=c_null_ptr
+      first_output_bin=first_sync_bin-2
+      output_count=last_sync_bin-first_sync_bin+5
+      convolution_length=NSYNC_SYM*nss+output_count-1
+      chirp_nfft=1
+      do while(chirp_nfft.lt.convolution_length)
+         chirp_nfft=2*chirp_nfft
+      enddo
+      use_chirp=output_count.gt.0 .and. npatience.eq.0 .and. &
+           chirp_nfft.lt.nfft .and. chirp_nfft.le.nfft/2
+
+      if(use_chirp .and. (sync_chirp_samples.ne.NSYNC_SYM*nss .or. &
+           sync_chirp_first_bin.ne.first_output_bin .or. &
+           sync_chirp_output_count.ne.output_count)) then
+         if(allocated(sync_chirp_weights)) deallocate(sync_chirp_weights)
+         if(allocated(sync_chirp_kernel)) deallocate(sync_chirp_kernel)
+         allocate(sync_chirp_weights(0:NSYNC_SYM*nss-1))
+         allocate(sync_chirp_kernel(0:chirp_nfft-1))
+         do index=0,NSYNC_SYM*nss-1
+            phase=-CHIRP_TWOPI*(dble(first_output_bin)*dble(index)+ &
+                 0.5d0*dble(index)*dble(index))/dble(nfft)
+            sync_chirp_weights(index)=conjg(csync(index))* &
+                 cmplx(cos(phase),sin(phase))
+         enddo
+         fft_input(0:chirp_nfft-1)=0.
+         do distance=0,max(NSYNC_SYM*nss,output_count)-1
+            phase=0.5d0*CHIRP_TWOPI*dble(distance)*dble(distance)/dble(nfft)
+            if(distance.lt.output_count) &
+                 fft_input(distance)=cmplx(cos(phase),sin(phase))
+            if(distance.gt.0 .and. distance.lt.NSYNC_SYM*nss) &
+                 fft_input(chirp_nfft-distance)=cmplx(cos(phase),sin(phase))
+         enddo
+         !$omp critical(fftw)
+         kernel_plan=fftwf_plan_dft_1d(chirp_nfft,fft_input,c, &
+              FFTW_FORWARD,FFTW_ESTIMATE)
+         !$omp end critical(fftw)
+         if(c_associated(kernel_plan)) then
+            call fftwf_execute_dft(kernel_plan,fft_input,c)
+            sync_chirp_kernel=c(0:chirp_nfft-1)
+            !$omp critical(fftw)
+            call fftwf_destroy_plan(kernel_plan)
+            !$omp end critical(fftw)
+            sync_chirp_samples=NSYNC_SYM*nss
+            sync_chirp_first_bin=first_output_bin
+            sync_chirp_output_count=output_count
+         else
+            use_chirp=.false.
+         endif
+      endif
+
+      if(use_chirp) then
+         !$omp critical(fftw)
+         chirp_forward=fftwf_plan_dft_1d(chirp_nfft,fft_input,c, &
+              FFTW_FORWARD,ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
+         chirp_backward=fftwf_plan_dft_1d(chirp_nfft,c,chirp_output, &
+              FFTW_BACKWARD,FFTW_MEASURE)
+         !$omp end critical(fftw)
+         use_chirp=c_associated(chirp_forward) .and. &
+              c_associated(chirp_backward)
+      endif
+
+      ! Explicit planner settings and wider searches retain the full FFT path.
+      if(npatience.eq.0 .and. .not.use_chirp) then
          !$omp critical(fftw)
          fft_plan=fftwf_plan_dft_1d(nfft,fft_input,c,FFTW_FORWARD, &
               ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
          !$omp end critical(fftw)
       endif
-      ! Preserving the input keeps this padding intact for every time column.
-      fft_input(NSYNC_SYM*nss:)=0.
+      if(use_chirp) then
+         fft_input(NSYNC_SYM*nss:chirp_nfft-1)=0.
+         chirp_scale=1.0/real(chirp_nfft)
+      else
+         ! Preserving the input keeps this padding intact for every time column.
+         fft_input(NSYNC_SYM*nss:)=0.
+      endif
       istep=0
       do i0=0,ntstep,12                     !Search over quarter-frame segment
          xdt=i0*dt
-         fft_input(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))*c0(i0:i0+NSYNC_SYM*nss-1)
-         if(c_associated(fft_plan)) then
-            call fftwf_execute_dft(fft_plan,fft_input,c)
+         if(use_chirp) then
+            fft_input(0:NSYNC_SYM*nss-1)=sync_chirp_weights* &
+                 c0(i0:i0+NSYNC_SYM*nss-1)
+            call fftwf_execute_dft(chirp_forward,fft_input,c)
+            c(0:chirp_nfft-1)=c(0:chirp_nfft-1)*sync_chirp_kernel
+            call fftwf_execute_dft(chirp_backward,c,chirp_output)
+            ! Bluestein's omitted output chirp has unit magnitude.
+            cz=chirp_output(0)*chirp_scale
+            p0=real(cz)**2+aimag(cz)**2
+            cz=chirp_output(1)*chirp_scale
+            p1=real(cz)**2+aimag(cz)**2
+            cz=chirp_output(2)*chirp_scale
+            p2=real(cz)**2+aimag(cz)**2
+            cz=chirp_output(3)*chirp_scale
+            p3=real(cz)**2+aimag(cz)**2
+            do j=first_sync_bin,last_sync_bin
+               cz=chirp_output(j-first_sync_bin+4)*chirp_scale
+               p4=real(cz)**2+aimag(cz)**2
+               s0(j,istep)=p0+2*p1+3*p2+2*p3+p4
+               p0=p1
+               p1=p2
+               p2=p3
+               p3=p4
+            enddo
          else
-            c=fft_input
-            call four2a(c,nfft,1,-1,1)
+            fft_input(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))* &
+                 c0(i0:i0+NSYNC_SYM*nss-1)
+            if(c_associated(fft_plan)) then
+               call fftwf_execute_dft(fft_plan,fft_input,c)
+            else
+               c=fft_input
+               call four2a(c,nfft,1,-1,1)
+            endif
+            ! Keep the two-bin halo while advancing the five-bin smoothing kernel.
+            p0=real(c(first_sync_bin-2))**2 + aimag(c(first_sync_bin-2))**2
+            p1=real(c(first_sync_bin-1))**2 + aimag(c(first_sync_bin-1))**2
+            p2=real(c(first_sync_bin))**2 + aimag(c(first_sync_bin))**2
+            p3=real(c(first_sync_bin+1))**2 + aimag(c(first_sync_bin+1))**2
+            do j=first_sync_bin,last_sync_bin
+               p4=real(c(j+2))**2 + aimag(c(j+2))**2
+               s0(j,istep)=p0+2*p1+3*p2+2*p3+p4
+               p0=p1
+               p1=p2
+               p2=p3
+               p3=p4
+            enddo
          endif
-         ! Keep the two-bin halo while advancing the five-bin smoothing kernel.
-         p0=real(c(first_sync_bin-2))**2 + aimag(c(first_sync_bin-2))**2
-         p1=real(c(first_sync_bin-1))**2 + aimag(c(first_sync_bin-1))**2
-         p2=real(c(first_sync_bin))**2 + aimag(c(first_sync_bin))**2
-         p3=real(c(first_sync_bin+1))**2 + aimag(c(first_sync_bin+1))**2
-         do j=first_sync_bin,last_sync_bin
-            p4=real(c(j+2))**2 + aimag(c(j+2))**2
-            s0(j,istep)=p0+2*p1+3*p2+2*p3+p4
-            p0=p1
-            p1=p2
-            p2=p3
-            p3=p4
-         enddo
          istep=istep+1
       enddo
+      if(c_associated(chirp_forward)) then
+         !$omp critical(fftw)
+         call fftwf_destroy_plan(chirp_forward)
+         !$omp end critical(fftw)
+      endif
+      if(c_associated(chirp_backward)) then
+         !$omp critical(fftw)
+         call fftwf_destroy_plan(chirp_backward)
+         !$omp end critical(fftw)
+      endif
       if(c_associated(fft_plan)) then
          !$omp critical(fftw)
          call fftwf_destroy_plan(fft_plan)
