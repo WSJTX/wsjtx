@@ -209,6 +209,7 @@ program sjtty
      endif
 
      iwave(1:iz)=nint(wave(1:iz))
+!     call jtty_spec(iwave,iz)
      h=default_header(12000,iz)
      write(fname,1102) ifile
 1102 format('000000_',i6.6,'.wav')
@@ -226,3 +227,5 @@ program sjtty
     if (allocated(iwave)) deallocate(iwave)
 
 end program sjtty
+
+!include 'jtty_spec.f90'
