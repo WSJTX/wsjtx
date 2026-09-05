@@ -19,6 +19,11 @@ program test_jtty_structured_decode
   integer :: failures
 
   interface
+     function jtty_cpp_n1mm_smoke(tones,nsym) result(status) bind(C)
+       import :: c_int
+       integer(c_int), intent(out) :: tones(*),nsym
+       integer(c_int) :: status
+     end function jtty_cpp_n1mm_smoke
      subroutine genjtty_atoms(atoms,natoms,itone,nsym)
        use jtty_mod, only: jtty_source_atom
        type(jtty_source_atom), intent(in) :: atoms(:)
@@ -41,6 +46,7 @@ program test_jtty_structured_decode
   call decode_native_call_and_serial(failures)
   call decode_c_adapter_atoms(failures)
   call reject_invalid_c_descriptors(failures)
+  call decode_cpp_compiled_n1mm(failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_structured_decode: failures=',failures
@@ -49,6 +55,22 @@ program test_jtty_structured_decode
   write(*,'(a)') 'test_jtty_structured_decode: all checks passed'
 
 contains
+
+  subroutine decode_cpp_compiled_n1mm(count)
+    integer, intent(inout) :: count
+    integer(c_int) :: tones(MAX_FRAMES*frame_symbols),nsymbols,status
+
+    status=jtty_cpp_n1mm_smoke(tones,nsymbols)
+    call expect(status.eq.JTTY_ENCODE_OK .and. nsymbols.eq.2*frame_symbols, &
+         'C++ compiled descriptors cross the native encoder ABI',count)
+    if(status.ne.JTTY_ENCODE_OK .or. nsymbols.ne.2*frame_symbols) return
+    call decode_waveform(tones,int(nsymbols))
+    call expect(nslots.eq.1,'C++ compiled N1MM message decodes into one slot',count)
+    if(nslots.ne.1) return
+    call expect(trim(normalized(slot(1)%decoded)).eq.'W9XYZ 32D EMA' .and. &
+         slot(1)%nframes_merged.eq.2 .and. slot(1)%is_last_frame, &
+         'C++ call/exchange descriptors preserve canonical text and EOM',count)
+  end subroutine decode_cpp_compiled_n1mm
 
   subroutine decode_native_call_and_serial(count)
     integer, intent(inout) :: count

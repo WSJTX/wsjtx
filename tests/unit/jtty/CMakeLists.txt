@@ -43,9 +43,12 @@ set_tests_properties (test_jtty_adjacent_decode PROPERTIES
   TIMEOUT 60
 )
 
-add_executable (test_jtty_structured_decode test_jtty_structured_decode.f90)
+add_executable (test_jtty_structured_decode
+  test_jtty_structured_decode.f90
+  jtty_cpp_n1mm_smoke.cpp)
 target_include_directories (test_jtty_structured_decode PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_structured_decode)
+target_link_libraries (test_jtty_structured_decode PRIVATE Qt5::Core)
 add_test (NAME test_jtty_structured_decode COMMAND test_jtty_structured_decode)
 set_tests_properties (test_jtty_structured_decode PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_structured_decode: all checks passed"
