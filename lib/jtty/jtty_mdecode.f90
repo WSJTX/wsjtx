@@ -364,15 +364,36 @@ contains
    contains
 
    subroutine build_s0()
+      use fftw3, only: c_ptr,c_null_ptr,c_associated,fftwf_plan_dft_1d, &
+           fftwf_execute_dft,fftwf_destroy_plan,FFTW_FORWARD, &
+           FFTW_MEASURE,FFTW_PRESERVE_INPUT
       real :: p0,p1,p2,p3,p4
+      complex :: fft_input(0:nfft-1)
+      type(c_ptr) :: fft_plan
+      integer :: npatience,nthreads
+      common/patience/npatience,nthreads
       ! Rebuild s0, the FFT-correlation sync-search surface, from the
       ! current c0 (may already reflect earlier-phase subtractions).
+      fft_plan=c_null_ptr
+      ! Explicit planner settings retain the existing cached four2a path.
+      if(npatience.eq.0) then
+         !$omp critical(fftw)
+         fft_plan=fftwf_plan_dft_1d(nfft,fft_input,c,FFTW_FORWARD, &
+              ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
+         !$omp end critical(fftw)
+      endif
+      ! Preserving the input keeps this padding intact for every time column.
+      fft_input(NSYNC_SYM*nss:)=0.
       istep=0
       do i0=0,ntstep,12                     !Search over quarter-frame segment
          xdt=i0*dt
-         c(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))*c0(i0:i0+NSYNC_SYM*nss-1)
-         c(NSYNC_SYM*nss:)=0.
-         call four2a(c,nfft,1,-1,1)            !Compute the sync-shifted spectrum
+         fft_input(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))*c0(i0:i0+NSYNC_SYM*nss-1)
+         if(c_associated(fft_plan)) then
+            call fftwf_execute_dft(fft_plan,fft_input,c)
+         else
+            c=fft_input
+            call four2a(c,nfft,1,-1,1)
+         endif
          ! Keep the two-bin halo while advancing the five-bin smoothing kernel.
          p0=real(c(first_sync_bin-2))**2 + aimag(c(first_sync_bin-2))**2
          p1=real(c(first_sync_bin-1))**2 + aimag(c(first_sync_bin-1))**2
@@ -388,6 +409,11 @@ contains
          enddo
          istep=istep+1
       enddo
+      if(c_associated(fft_plan)) then
+         !$omp critical(fftw)
+         call fftwf_destroy_plan(fft_plan)
+         !$omp end critical(fftw)
+      endif
       nstep_search=istep-1
       s0_valid=.true.
    end subroutine build_s0

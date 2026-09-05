@@ -1,5 +1,6 @@
 program test_jtty_surface_ranges
   use iso_fortran_env, only: int16
+  use fftw3, only: fftwf_cleanup
   use jtty_fec, only: is13,TOTAL_K
   use jtty_mod, only: MAX_FRAMES
   use jtty_mdec, only: nslots,slot
@@ -11,6 +12,7 @@ program test_jtty_surface_ranges
   integer(int16), allocatable :: pcm(:)
   real, allocatable :: wave(:)
   complex, allocatable :: cwave(:)
+  complex :: fft_scratch(1)
   real :: hz,fc,width
   character(len=80) :: message
 
@@ -66,6 +68,11 @@ program test_jtty_surface_ranges
            stop 1
         endif
         deallocate(pcm,wave,cwave)
+        if(icase.eq.1) then
+           ! Decode again at the same rate after releasing FFT resources.
+           call four2a(fft_scratch,-1,1,1,1)
+           call fftwf_cleanup()
+        endif
      enddo
   enddo
   print *, 'JTTY surface range tests passed'
