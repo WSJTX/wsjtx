@@ -480,6 +480,21 @@ private slots:
               static_cast<int> (Jtty::ExchangeRole::FieldOnly));
   }
 
+  void configuredSubsquareProducesGrid4WithoutChangingLiteralExpansion ()
+  {
+    Jtty::NativeMacroContext const context {
+      QString {"K1ABC"}, QString {"W9XYZ"}, 1,
+      Jtty::NativeExchangeProfile::None, QString {}, QString {"fn42ab"}};
+    auto const native = Jtty::compileNativeMacro (QString {"%H %G"}, context);
+    QCOMPARE (native.status, Jtty::NativeMacroStatus::Native);
+    QCOMPARE (native.text, QString {"W9XYZ FN42"});
+    QCOMPARE (QString::fromLatin1 (native.atoms.at (1).text), QString {"FN42"});
+
+    auto const literal = Jtty::compileNativeMacro (QString {"GRID %G"}, context);
+    QCOMPARE (literal.status, Jtty::NativeMacroStatus::LiteralFallback);
+    QCOMPARE (literal.text, QString {"GRID fn42ab"});
+  }
+
   void invalidGridIsRejected_data ()
   {
     QTest::addColumn<QString> ("grid");
@@ -487,6 +502,7 @@ private slots:
     QTest::newRow ("short") << QString {"AA0"};
     QTest::newRow ("field-overflow") << QString {"AS00"};
     QTest::newRow ("square-letter") << QString {"AA0A"};
+    QTest::newRow ("invalid-subsquare") << QString {"FN42AZ"};
   }
 
   void invalidGridIsRejected ()

@@ -8,6 +8,7 @@
 
 #include <QByteArray>
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QString>
 #include <QStringList>
 #include <QTime>
@@ -602,11 +603,14 @@ namespace Jtty
                                                          ExchangeRole role)
   {
     NativeExchangeCompilation result;
-    QString const grid = context.grid.trimmed ().toUpper ();
-    if (!isGrid4 (grid)) {
-      result.error = QStringLiteral ("Grid must be a four-character Maidenhead locator from AA00 through RR99");
+    QString const locator = context.grid.trimmed ().toUpper ();
+    static QRegularExpression const locatorPattern {
+      QStringLiteral ("^[A-R]{2}[0-9]{2}(?:[A-X]{2}(?:[0-9]{2})?)?$")};
+    if (!locatorPattern.match (locator).hasMatch ()) {
+      result.error = QStringLiteral ("Grid must be a valid four-, six-, or eight-character Maidenhead locator");
       return result;
     }
+    QString const grid = locator.left (4);
     result.valid = true;
     result.atom = nativeGridAtom (role, grid);
     result.text = role == ExchangeRole::Full
