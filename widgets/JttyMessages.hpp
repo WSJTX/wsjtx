@@ -171,7 +171,7 @@ namespace Jtty
 
   inline QString sourceAlphabet ()
   {
-    // Keep in sync with JTTY_ALPHABET in lib/jtty/jtty_mod.f90.
+    // Keep in sync with ALPHABET in lib/jtty/jtty_source_codec.f90.
     return QStringLiteral ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!\"#$%,&*()_'=[]{}<>|:;");
   }
 

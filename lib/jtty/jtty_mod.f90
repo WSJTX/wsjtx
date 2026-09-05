@@ -3,8 +3,7 @@ module jtty_mod
   use jtty_source_codec
 
   parameter (MAX_FRAMES=16)             !Max frames for the encoded message
-  character(len=*), parameter :: JTTY_ALPHABET = &
-       '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!"#$%,&*()_''=[]{}<>|:;'
+  character(len=*), parameter :: JTTY_ALPHABET = ALPHABET
 
 contains
 
@@ -250,7 +249,7 @@ character*1 function charj(j)
 
 ! Returns the printable character corresponding to JTTY index j (0-63),
 
-  charj=JTTY_ALPHABET(j+1:j+1)
+  charj=source_char(j)
 
   return
 end function charj
@@ -261,7 +260,7 @@ integer function jchar(c0)
   
   character*1 c0
 
-  jchar=index(JTTY_ALPHABET,c0)-1
+  jchar=source_index(c0)
   
   return
 end function jchar

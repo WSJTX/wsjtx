@@ -5,25 +5,12 @@ subroutine genjtty(umsg,itone,nsym)
 !         integer*4 nsym                  !Number of channel symbols
 
   use jtty_mod
-  use jtty_fec
   parameter (MAX_TONES=59*16)       !Max number of channel symbols
   character*80 umsg                 !User-formatted message
   character*34 c32(16)
   integer itone(MAX_TONES)          !Array of tone frequencies for this message
-  integer payload(PAYLOAD_BITS)
-  integer tone_symbols(46)
-
-  call tbcc_init(JTTY_WAVA_NU)
   call pack_jtty(umsg,c32,nframes)
-  nsym=0
-  do i=1,nframes
-    read(c32(i),'(34i1)') payload
-    call tbcc_encode(payload,tone_symbols)
-    ib=(i-1)*59+1   ! 59 tones per frame
-    itone(ib:ib+12)=is13
-    itone(ib+13:ib+58)=tone_symbols
-    nsym=nsym+59
- enddo
+  call genjtty_frames(c32,nframes,itone,nsym)
 
  return
 end subroutine genjtty
@@ -31,19 +18,30 @@ end subroutine genjtty
 subroutine genjtty_atoms(atoms,natoms,itone,nsym)
 
   use jtty_mod, only: jtty_source_atom,pack_jtty_atoms,MAX_FRAMES
-  use jtty_fec
   type(jtty_source_atom), intent(in) :: atoms(:)
   integer, intent(in) :: natoms
   integer, intent(out) :: itone(*)
   integer, intent(out) :: nsym
   character(len=34) :: frames(MAX_FRAMES)
-  integer :: payload(PAYLOAD_BITS),tone_symbols(46)
-  integer :: nframes,i,ib
+  integer :: nframes
   logical :: valid
 
   call pack_jtty_atoms(atoms,natoms,frames,nframes,valid)
   nsym=0
   if(.not.valid) return
+  call genjtty_frames(frames,nframes,itone,nsym)
+end subroutine genjtty_atoms
+
+subroutine genjtty_frames(frames,nframes,itone,nsym)
+
+  use jtty_fec, only: PAYLOAD_BITS,JTTY_WAVA_NU,tbcc_init,tbcc_encode,is13
+  implicit none
+  character(len=34), intent(in) :: frames(*)
+  integer, intent(in) :: nframes
+  integer, intent(out) :: itone(*),nsym
+  integer :: payload(PAYLOAD_BITS),tone_symbols(46),i,ib
+
+  nsym=0
   call tbcc_init(JTTY_WAVA_NU)
   do i=1,nframes
      read(frames(i),'(34i1)') payload
@@ -53,7 +51,7 @@ subroutine genjtty_atoms(atoms,natoms,itone,nsym)
      itone(ib+13:ib+58)=tone_symbols
      nsym=nsym+59
   enddo
-end subroutine genjtty_atoms
+end subroutine genjtty_frames
 
 subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym,status) bind(C,name='genjtty_atoms_c')
 
