@@ -864,13 +864,19 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         if (!m_receiveConsumer.accept (block, dec_data))
           {
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-            if (m_automated_test) Q_EMIT liveAudioTestReceiveRejected (block->end ());
+            if (m_automated_test)
+              {
+                Q_EMIT liveAudioTestReceiveRejected (block->end ());
+                Q_EMIT liveAudioTestReceiveRange (block->epoch, block->start, block->end (), false);
+              }
 #endif
             continue;
           }
         if (previousEpoch != m_receiveConsumer.epoch ()) m_referenceInput.reset ();
         auto const frames = block->end ();
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+        if (m_automated_test)
+          Q_EMIT liveAudioTestReceiveRange (block->epoch, block->start, frames, true);
         if (m_automated_test && frames > 0
             && isSignalConnected (QMetaMethod::fromSignal (
                  &MainWindow::liveAudioTestReceiveCallback)))
@@ -5091,6 +5097,16 @@ bool MainWindow::prepareLiveAudioTestFt8InputCompletion ()
   m_liveAudioTestAwaitFt8InputCompletion = true;
   m_liveAudioTestFt8InputComplete = false;
   return true;
+}
+
+bool MainWindow::configureLiveAudioTestHandoff ()
+{
+  if (!m_automated_test || m_mode != "FT8") return false;
+  m_multithreadFT8 = true;
+  m_ft8DecoderStart = 3;
+  m_delay = 0;
+  fixStop ();
+  return m_hsymStop == 49;
 }
 
 QString MainWindow::completeLiveAudioTestFt8Input (qint64 frames)

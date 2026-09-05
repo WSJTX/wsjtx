@@ -36,9 +36,18 @@ public:
   Q_SLOT void reset (bool reportDroppedFrames) override;
   Q_SLOT void arm ();
   Q_SLOT void acknowledgeJttyFrames (qint64 detectorFrames);
+  QString emitFt8RolloverPrefix ();
+  static constexpr int ft8RolloverFrames () {return 6912;}
+  static constexpr qint16 ft8RolloverSample () {return -12345;}
+  Q_SLOT void advanceHandoff (qint64 captureFrames, bool fresh, bool flush);
+  static qint16 handoffSample (qint64 period, qint64 offset)
+  {
+    return static_cast<qint16> ((period ? -1 : 1) * (1000 + offset % 7001));
+  }
 
   Q_SIGNAL void emissionStarted (qint64 utcStartMilliseconds) const;
   Q_SIGNAL void emissionFinished (qint64 frames) const;
+  Q_SIGNAL void handoffCheckpoint (qint64 captureFrames) const;
 
 private:
   qint64 fixtureFrames () const {return m_pcm.size () / bytesPerFrame;}

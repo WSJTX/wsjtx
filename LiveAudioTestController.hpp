@@ -7,6 +7,7 @@
 #include <QString>
 #include <QStringList>
 #include <QTimer>
+#include <vector>
 
 class FixtureAudioInput;
 class MainWindow;
@@ -51,6 +52,7 @@ private:
   void pollJttyDisplay ();
   void fail (QString const& reason);
   void checkForUnexpectedModal ();
+  void exerciseSubmittedFt8Rollover ();
 
   MainWindow * m_window;
   FixtureAudioInput * m_fixture;
@@ -74,6 +76,16 @@ private:
   QTextEdit * m_jttyQsoFrequency {nullptr};
   qint64 m_emittedFrames {0};
   int m_completedCycles {0};
+  quint64 m_submittedGeneration {0};
+  quint64 m_submittedCycle {0};
+  quint64 m_rolloverEpoch {0};
+  quint64 m_preRolloverEpoch {0};
+  int m_rolloverAcceptedEnd {0};
+  int m_rolloverAcceptedBlocks {0};
+  int m_rolloverRejectedBlocks {0};
+  int m_submittedCompletions {0};
+  std::vector<short> m_rolloverSamples;
+  bool m_rolloverVerified {false};
   DecoderStage m_decoderStage {DecoderStage::None};
   bool m_sawEarlyStandardDecode {false};
   bool m_sawConfiguredMultithreadedDecode {false};

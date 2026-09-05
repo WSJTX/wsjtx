@@ -5,15 +5,22 @@
 #include "Decoder/decodedtext.h"
 #include "widgets/mainwindow.h"
 
+extern dec_data_t& dec_data;
+
 #include <algorithm>
+#include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <utility>
 
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
 #include <QFile>
+#include <QEvent>
 #include <QMetaObject>
 #include <QTextEdit>
 #include <QTextStream>
@@ -83,6 +90,17 @@ LiveAudioTestController::LiveAudioTestController (
 
   connect (m_window, &MainWindow::decoderBackendStarted,
            this, &LiveAudioTestController::prepareWhenReady);
+  connect (m_window, &MainWindow::decoderBackendStarted,
+           this, [this] {
+             if (m_submittedGeneration)
+               fail (tr ("Decoder backend restarted after FT8 publication."));
+           });
+  connect (m_window, &MainWindow::decodeCycleStarted,
+           this, [this] (quint64 cycle) {
+             if (m_submittedGeneration)
+               fail (tr ("Unexpected decoder cycle %1 after FT8 publication %2.")
+                     .arg (cycle).arg (m_submittedGeneration));
+           });
   connect (m_window, &MainWindow::decoderBackendFailed,
            this, [this] (QString const& reason) {
              if (Mode::Ft8 == m_mode)
@@ -109,8 +127,19 @@ LiveAudioTestController::LiveAudioTestController (
              if (!message.isEmpty ()) m_displayed.insert (message.simplified ());
            });
   connect (m_window, &MainWindow::decodeCycleCompleted,
-           this, [this] (quint64) {
+           this, [this] (quint64 cycle) {
              ++m_completedCycles;
+             if (m_submittedGeneration)
+               {
+                 if (!m_rolloverVerified || cycle != m_submittedCycle
+                     || ++m_submittedCompletions != 1)
+                   {
+                     fail (tr ("Submitted FT8 completion mismatch: cycle=%1 expected=%2 count=%3 rollover=%4.")
+                           .arg (cycle).arg (m_submittedCycle)
+                           .arg (m_submittedCompletions).arg (m_rolloverVerified));
+                     return;
+                   }
+               }
              if (m_decoderStage == DecoderStage::Multithreaded)
                {
                  m_completedMultithreadedDecode = true;
@@ -163,6 +192,41 @@ LiveAudioTestController::LiveAudioTestController (
                        << " samples=" << sampleCount
                        << " nfa=" << lowFrequency
                        << " nfb=" << highFrequency << std::endl;
+             if (multithreaded) exerciseSubmittedFt8Rollover ();
+           });
+  connect (m_window, &MainWindow::liveAudioTestReceiveRange,
+           this, [this] (quint64 epoch, int start, int end, bool accepted) {
+             if (!m_submittedGeneration || m_finished) return;
+             if (!accepted)
+               {
+                 ++m_rolloverRejectedBlocks;
+                 fail (tr ("Submitted FT8 rollover rejected epoch=%1 range=[%2,%3).")
+                       .arg (epoch).arg (start).arg (end));
+                 return;
+               }
+             if (epoch != m_rolloverEpoch || start != m_rolloverAcceptedEnd
+                 || end > int (m_rolloverSamples.size ())
+                 || !std::equal (m_rolloverSamples.begin () + start,
+                                  m_rolloverSamples.begin () + end, dec_data.d2 + start)
+                 || m_window->liveAudioTestPublishedDecoderGeneration () != m_submittedGeneration)
+               {
+                 fail (tr ("Submitted FT8 rollover mismatch: epoch=%1 expected_epoch=%2 range=[%3,%4) expected_start=%5 generation=%6.")
+                       .arg (epoch).arg (m_rolloverEpoch).arg (start).arg (end)
+                       .arg (m_rolloverAcceptedEnd).arg (m_submittedGeneration));
+                 return;
+               }
+             m_rolloverAcceptedEnd = end;
+             ++m_rolloverAcceptedBlocks;
+           });
+  connect (m_window, &MainWindow::liveAudioTestReceiveBlock,
+           this, [this] (ReceiveAudio const& block) {
+             if (!m_submittedGeneration || m_finished
+                 || block->epoch <= m_preRolloverEpoch) return;
+             if (!m_rolloverEpoch) m_rolloverEpoch = block->epoch;
+             if (block->epoch != m_rolloverEpoch
+                 || block->start != int (m_rolloverSamples.size ())) return;
+             m_rolloverSamples.insert (m_rolloverSamples.end (),
+                                       block->samples.begin (), block->samples.end ());
            });
   connect (m_fixture, &FixtureAudioInput::emissionStarted,
            this, [] (qint64 utcStartMilliseconds) {
@@ -201,6 +265,84 @@ LiveAudioTestController::LiveAudioTestController (
            this, [this] (QString const& reason) {
              fail (tr ("Synthetic audio source failed: %1").arg (reason));
            });
+}
+
+void LiveAudioTestController::exerciseSubmittedFt8Rollover ()
+{
+  if (m_submittedGeneration || m_window->liveAudioTestReceivingAudio ())
+    {
+      fail (tr ("FT8 rollover requires one final publication outside receive DSP."));
+      return;
+    }
+  m_submittedGeneration = m_window->liveAudioTestPublishedDecoderGeneration ();
+  m_submittedCycle = m_window->liveAudioTestDecodeCycleGeneration ();
+  auto const previousEpoch = m_window->liveAudioTestReceiveEpoch ();
+  m_preRolloverEpoch = previousEpoch;
+  if (!m_submittedGeneration || !m_window->decoderBusy ())
+    {
+      fail (tr ("FT8 final invocation has no committed decoder publication."));
+      return;
+    }
+
+  struct Acknowledgement
+  {
+    std::mutex mutex;
+    std::condition_variable ready;
+    bool complete {false};
+    QString error;
+  };
+  auto acknowledgement = std::make_shared<Acknowledgement> ();
+  auto * fixture = m_fixture;
+  if (!QMetaObject::invokeMethod (fixture, [fixture, acknowledgement] {
+        auto const error = fixture->emitFt8RolloverPrefix ();
+        {
+          std::lock_guard<std::mutex> lock {acknowledgement->mutex};
+          acknowledgement->error = error;
+          acknowledgement->complete = true;
+        }
+        acknowledgement->ready.notify_one ();
+      }, Qt::QueuedConnection))
+    {
+      fail (tr ("Unable to queue the FT8 rollover prefix."));
+      return;
+    }
+  {
+    std::unique_lock<std::mutex> lock {acknowledgement->mutex};
+    if (!acknowledgement->ready.wait_for (lock, std::chrono::seconds {10},
+          [&] {return acknowledgement->complete;}))
+      {
+        lock.unlock ();
+        fail (tr ("Timed out awaiting FT8 rollover: generation=%1 previous_epoch=%2.")
+              .arg (m_submittedGeneration).arg (previousEpoch));
+        return;
+      }
+    auto const error = acknowledgement->error;
+    lock.unlock ();
+    if (!error.isEmpty ())
+      {
+        fail (error);
+        return;
+      }
+  }
+  // Deliver Detector's queued blocks while decoder readiness events remain pending.
+  QCoreApplication::sendPostedEvents (m_window, QEvent::MetaCall);
+  if (m_finished) return;
+  auto const lastSample = m_rolloverSamples.empty () ? 0 : m_rolloverSamples.back ();
+  m_rolloverVerified = m_rolloverAcceptedBlocks > 0
+    && m_rolloverEpoch > previousEpoch
+    && m_rolloverSamples.size () == FixtureAudioInput::ft8RolloverFrames ()
+    && lastSample < 0
+    && m_rolloverAcceptedEnd == FixtureAudioInput::ft8RolloverFrames ()
+    && m_window->liveAudioTestPublishedDecoderGeneration () == m_submittedGeneration
+    && m_window->decoderBusy () && !m_submittedCompletions;
+  if (!m_rolloverVerified)
+    {
+      fail (tr ("FT8 rollover did not preserve active publication: epoch=%1 accepted=%2 end=%3 rejected=%4 generation=%5 active=%6.")
+            .arg (m_rolloverEpoch).arg (m_rolloverAcceptedBlocks)
+            .arg (m_rolloverAcceptedEnd).arg (m_rolloverRejectedBlocks)
+            .arg (m_submittedGeneration)
+            .arg (m_window->liveAudioTestPublishedDecoderGeneration ()));
+    }
 }
 
 void LiveAudioTestController::begin ()
@@ -538,6 +680,12 @@ void LiveAudioTestController::maybeFinishFt8 ()
             << " raw_early=" << m_earlyRaw.size ()
             << " raw_mtd=" << m_multithreadedRaw.size ()
             << " frames=" << m_emittedFrames
+            << " rollover_epoch=" << m_rolloverEpoch
+            << " rollover_end=" << m_rolloverAcceptedEnd
+            << " rollover_accepted=" << m_rolloverAcceptedBlocks
+            << " rollover_rejected=" << m_rolloverRejectedBlocks
+            << " submitted_generation=" << m_submittedGeneration
+            << " submitted_completions=" << m_submittedCompletions
             << " decode_cycles=" << m_completedCycles << std::endl;
   m_window->close ();
   QCoreApplication::exit (EXIT_SUCCESS);
@@ -627,6 +775,13 @@ void LiveAudioTestController::fail (QString const& reason)
             << " decode_cycles=" << m_completedCycles << std::endl;
   if (Mode::Ft8 == m_mode)
     {
+      std::cerr << "WSJT-X live audio test: submitted rollover epoch=" << m_rolloverEpoch
+                << " accepted=" << m_rolloverAcceptedBlocks
+                << " end=" << m_rolloverAcceptedEnd
+                << " rejected=" << m_rolloverRejectedBlocks
+                << " generation=" << m_submittedGeneration
+                << " active_generation=" << m_window->liveAudioTestPublishedDecoderGeneration ()
+                << " completions=" << m_submittedCompletions << std::endl;
       std::cerr << "WSJT-X live audio test: FT8 backpressure: "
                 << m_window->liveAudioTestFt8BackpressureDiagnostics ().toStdString ()
                 << std::endl;

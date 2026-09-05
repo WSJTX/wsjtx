@@ -228,6 +228,16 @@ public:
   bool configureLiveAudioTestDecodeRange ();
   bool prepareLiveAudioTestFt8InputCompletion ();
   QString completeLiveAudioTestFt8Input (qint64 frames);
+  bool configureLiveAudioTestHandoff ();
+  quint64 liveAudioTestPublishedDecoderGeneration () const
+  {
+    return m_automated_test && DecodeOwner::Jt9 == m_decodeOwner
+      && m_activeJt9Decode.generation == m_nextDecoderGeneration
+      ? m_activeJt9Decode.generation : 0;
+  }
+  quint64 liveAudioTestDecodeCycleGeneration () const {return m_decodeCycleGeneration;}
+  quint64 liveAudioTestReceiveEpoch () const {return m_receiveConsumer.epoch ();}
+  bool liveAudioTestReceivingAudio () const {return m_receivingAudio;}
   LiveAudioTestFt8TransmitRequest startLiveAudioTestFt8Transmit (
     qint64 targetPeriodStartMs);
 #endif

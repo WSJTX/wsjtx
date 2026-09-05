@@ -1,6 +1,7 @@
 #include "Audio/FixtureAudioInput.hpp"
 
 #include "Audio/BWFFile.hpp"
+#include "Detector/Detector.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -68,8 +69,8 @@ void FixtureAudioInput::start (QAudioDeviceInfo const&, int, AudioDevice * sink,
       constexpr qint64 periodFrames = 15 * detectorSampleRate;
       m_pcm.resize (static_cast<int> (2 * periodFrames * bytesPerFrame));
       auto * samples = reinterpret_cast<qint16 *> (m_pcm.data ());
-      std::fill_n (samples, periodFrames, qint16 {1234});
-      std::fill_n (samples + periodFrames, periodFrames, qint16 {5678});
+      for (qint64 frame = 0; frame < 2 * periodFrames; ++frame)
+        samples[frame] = handoffSample (frame / periodFrames, frame % periodFrames);
       m_sink = sink;
       m_inputSampleRate = detectorSampleRate;
       m_chunkFrames = {3456};
@@ -259,6 +260,83 @@ void FixtureAudioInput::acknowledgeJttyFrames (qint64 detectorFrames)
     }
 }
 
+void FixtureAudioInput::advanceHandoff (qint64 captureFrames, bool fresh, bool flush)
+{
+  if (m_profile != Profile::ReceiveHandoff || !m_started || !m_sink
+      || captureFrames < 0 || captureFrames > totalFrames ())
+    {
+      fail (tr ("Invalid receive handoff checkpoint %1.").arg (captureFrames));
+      return;
+    }
+  if (!m_emitting)
+    {
+      m_armed = true;
+      m_suspended = false;
+      maybeSchedule ();
+    }
+  if (fresh)
+    {
+      m_framesEmitted = 0;
+      m_chunkIndex = 0;
+      m_periodStartMs += 45000;
+      publishCaptureAnchor (0);
+    }
+  if (captureFrames < m_framesEmitted)
+    {
+      fail (tr ("Receive handoff capture moved backwards: %1 to %2.")
+            .arg (m_framesEmitted).arg (captureFrames));
+      return;
+    }
+  constexpr qint64 periodFrames = 15 * detectorSampleRate;
+  while (m_framesEmitted < captureFrames)
+    {
+      auto const frames = std::min ({qint64 {3456}, captureFrames - m_framesEmitted,
+                                    periodFrames - m_framesEmitted % periodFrames});
+      auto const bytes = frames * bytesPerFrame;
+      if (m_sink->write (m_pcm.constData () + m_framesEmitted * bytesPerFrame, bytes)
+          != bytes)
+        {
+          fail (tr ("Detector did not accept handoff audio at %1.")
+                .arg (m_framesEmitted));
+          return;
+        }
+      m_framesEmitted += frames;
+    }
+  if (flush)
+    {
+      auto * detector = qobject_cast<Detector *> (m_sink.data ());
+      if (!detector)
+        {
+          fail (tr ("Receive handoff sink is not a Detector."));
+          return;
+        }
+      detector->flushBufferedFrames (captureFrames % periodFrames);
+    }
+  Q_EMIT handoffCheckpoint (m_framesEmitted);
+}
+
+QString FixtureAudioInput::emitFt8RolloverPrefix ()
+{
+  if (Profile::Ft8 != m_profile || !m_sink || m_emitting
+      || m_framesEmitted != 15 * m_inputSampleRate)
+    {
+      return tr ("FT8 rollover requires exhausted period A: frames=%1 emitting=%2.")
+        .arg (m_framesEmitted).arg (m_emitting);
+    }
+  auto const frames = ft8RolloverFrames () * m_inputSampleRate / detectorSampleRate;
+  QByteArray prefix (frames * bytesPerFrame, '\0');
+  std::fill_n (reinterpret_cast<qint16 *> (prefix.data ()), frames,
+               ft8RolloverSample ());
+  auto const written = m_sink->write (prefix.constData (), prefix.size ());
+  if (written != prefix.size ())
+    {
+      return tr ("FT8 rollover accepted %1 of %2 bytes.")
+        .arg (written).arg (prefix.size ());
+    }
+  m_framesEmitted += frames;
+  return {};
+}
+
 void FixtureAudioInput::fail (QString const& message)
 {
   stop ();
@@ -289,6 +367,7 @@ void FixtureAudioInput::maybeSchedule ()
     }
   m_emitting = true;
   publishCaptureAnchor (m_framesEmitted);
+  if (Profile::ReceiveHandoff == m_profile) return;
   auto const delay = Profile::ReceiveHandoff == m_profile ? qint64 {0}
     : std::max<qint64> (0, m_periodStartMs - now);
   m_timer->start (static_cast<int> (delay));

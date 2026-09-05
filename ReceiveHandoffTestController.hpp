@@ -2,6 +2,7 @@
 #define RECEIVE_HANDOFF_TEST_CONTROLLER_HPP
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 
 #include <QObject>
@@ -10,9 +11,7 @@
 class FixtureAudioInput;
 class MainWindow;
 
-// Test-only controller for the full MainWindow receive boundary.  It withholds
-// GUI event processing until the audio-thread fixture has produced and reused
-// two complete periods, then validates the first queued notification.
+// Drives capture checkpoints while controlling delivery to the real GUI consumer.
 class ReceiveHandoffTestController final : public QObject
 {
   Q_OBJECT
@@ -26,18 +25,40 @@ public:
 
 private:
   void prepare ();
+  bool advance (qint64 frames, bool fresh = false, bool flush = false);
+  bool drain ();
+  bool require (bool condition, QString const& message);
+  void resetScenario (QString const& name);
+  void observe (quint64 epoch, int start, int end, bool accepted);
+  QString diagnostics () const;
   void finish (bool success, QString const& message);
 
   MainWindow * window_;
   FixtureAudioInput * fixture_;
   QTimer retry_;
   QTimer timeout_;
-  std::mutex producer_mutex_;
-  std::condition_variable producer_changed_;
-  QString producer_error_;
-  bool producer_finished_ {false};
-  bool callback_observed_ {false};
+  struct ProducerAcknowledgement
+  {
+    std::mutex mutex;
+    std::condition_variable changed;
+    QString error;
+    bool finished {false};
+    qint64 frames {-1};
+  };
+  std::shared_ptr<ProducerAcknowledgement> producer_ {
+    std::make_shared<ProducerAcknowledgement> ()};
+  qint64 capture_ {0};
+  QString scenario_;
+  QString scenario_error_;
+  quint64 epoch_ {0};
+  quint64 obsolete_epoch_ {0};
+  qint64 sample_period_ {0};
+  int accepted_ = 0;
   int rejected_ = 0;
+  int committed_ = 0;
+  int rejected_end_ = 0;
+  int final_submissions_ = 0;
+  quint64 decoder_generation_ = 0;
   bool finished_ {false};
   bool succeeded_ {false};
 };
