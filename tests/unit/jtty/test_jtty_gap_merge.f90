@@ -14,13 +14,19 @@ program test_jtty_gap_merge
   implicit none
 
   character(len=*), parameter :: msg='THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG.'
-  integer :: failures
+  integer, parameter :: nsps=384
+  integer, parameter :: frame_symbols=size(is13)+TOTAL_K
+  integer :: failures,total_samples,nframes
+  integer(int16), allocatable :: reference_pcm(:)
+  character(len=80) :: full_text
 
   failures=0
 
-  call run_dropped_frame_case(msg,1,failures)
-  call run_dropped_frame_case(msg,2,failures)
-  call run_beyond_max_gap_case(msg,failures)
+  call build_message_pcm(msg,reference_pcm,total_samples,nframes)
+  call run_baseline_case(msg,reference_pcm,total_samples,full_text,failures)
+  call run_dropped_frame_case(full_text,reference_pcm,total_samples,nframes,1,failures)
+  call run_dropped_frame_case(full_text,reference_pcm,total_samples,nframes,2,failures)
+  call run_beyond_max_gap_case(reference_pcm,total_samples,nframes,failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_gap_merge: failures=',failures
@@ -30,47 +36,61 @@ program test_jtty_gap_merge
 
 contains
 
-  ! Drops n_dropped consecutive frames starting at the message's middle
-  ! frame and confirms the message still merges into one slot with a
-  ! matching run of n_dropped*5 tildes marking the gap.
-  subroutine run_dropped_frame_case(message,n_dropped,count)
+  subroutine build_message_pcm(message,pcm,total_samples,nframes)
     character(len=*), intent(in) :: message
-    integer, intent(in) :: n_dropped
-    integer, intent(inout) :: count
-    integer, parameter :: nsps=384
-    integer, parameter :: frame_symbols=size(is13)+TOTAL_K
+    integer(int16), allocatable, intent(out) :: pcm(:)
+    integer, intent(out) :: total_samples,nframes
     integer :: tones(MAX_FRAMES*frame_symbols)
-    integer :: nsymbols,nframes,idrop,total_samples
-    integer :: drop_start,drop_end
-    integer(int16), allocatable :: pcm(:)
+    integer :: nsymbols
     real, allocatable :: wave(:)
     complex, allocatable :: complex_wave(:)
-    character(len=80) :: input,full_text,before,after
-    character(len=200) :: description
-    integer :: gap_pos
+    character(len=80) :: input
 
     input=message
     call genjtty(input,tones,nsymbols)
     nframes=nsymbols/frame_symbols
-    ! Drop consecutive frames starting mid-message, leaving real content on
-    ! both sides.
-    idrop=nframes/2
-
     total_samples=(nsymbols+frame_symbols)*nsps
     allocate(wave(nsymbols*nsps),complex_wave(nsymbols*nsps),pcm(total_samples))
-
     call gen_jttywave(tones,nsymbols,nsps,2.0,12000.0,1500.0, &
          complex_wave,wave,0,nsymbols*nsps)
     pcm=0_int16
     pcm(1:nsymbols*nsps)=int(nint(30000.0*wave),int16)
+  end subroutine build_message_pcm
 
-    ! Baseline: full, uncorrupted message decodes as today (one slot,
-    ! exact text).
+  subroutine run_baseline_case(message,reference_pcm,total_samples,full_text,count)
+    character(len=*), intent(in) :: message
+    integer(int16), intent(in) :: reference_pcm(:)
+    integer, intent(in) :: total_samples
+    character(len=80), intent(out) :: full_text
+    integer, intent(inout) :: count
+    integer(int16), allocatable :: pcm(:)
+
+    pcm=reference_pcm
     call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
     call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
     full_text=trim(normalized(slot(1)%decoded))
     call expect(nslots.eq.1 .and. full_text.eq.trim(message), &
          'uncorrupted baseline decodes to the original message',count)
+  end subroutine run_baseline_case
+
+  ! Drops n_dropped consecutive frames starting at the message's middle
+  ! frame and confirms the message still merges into one slot with a
+  ! matching run of n_dropped*5 tildes marking the gap.
+  subroutine run_dropped_frame_case(full_text,reference_pcm, &
+       total_samples,nframes,n_dropped,count)
+    character(len=*), intent(in) :: full_text
+    integer(int16), intent(in) :: reference_pcm(:)
+    integer, intent(in) :: total_samples,nframes,n_dropped
+    integer, intent(inout) :: count
+    integer :: idrop
+    integer :: drop_start,drop_end
+    integer(int16), allocatable :: pcm(:)
+    character(len=80) :: before,after
+    character(len=200) :: description
+    integer :: gap_pos
+
+    pcm=reference_pcm
+    idrop=nframes/2
 
     ! Zero out idrop..idrop+n_dropped-1's audio so those frames can't sync.
     drop_start=(idrop-1)*frame_symbols*nsps+1
@@ -104,39 +124,22 @@ contains
          full_text(len_trim(full_text)-len_trim(after)+1:len_trim(full_text)) &
          .eq.trim(after), &
          trim(description),count)
-
-    deallocate(pcm,wave,complex_wave)
   end subroutine run_dropped_frame_case
 
   ! A gap wider than MAX_GAP (3 frame-periods, i.e. 3+ consecutive missed
   ! frames) must NOT be bridged -- confirms the fallback to two separate
   ! slots (today's behavior) still holds beyond the deliberately-bounded
   ! gap tolerance, so unrelated signals don't get false-merged.
-  subroutine run_beyond_max_gap_case(message,count)
-    character(len=*), intent(in) :: message
+  subroutine run_beyond_max_gap_case(reference_pcm,total_samples,nframes,count)
+    integer(int16), intent(in) :: reference_pcm(:)
+    integer, intent(in) :: total_samples,nframes
     integer, intent(inout) :: count
-    integer, parameter :: nsps=384
-    integer, parameter :: frame_symbols=size(is13)+TOTAL_K
-    integer :: tones(MAX_FRAMES*frame_symbols)
-    integer :: nsymbols,nframes,idrop,total_samples
-    integer :: drop_start,drop_end,n_dropped
+    integer :: idrop,drop_start,drop_end,n_dropped
     integer(int16), allocatable :: pcm(:)
-    real, allocatable :: wave(:)
-    complex, allocatable :: complex_wave(:)
-    character(len=80) :: input
 
     n_dropped=3   ! beyond MAX_GAP=3 (which bridges at most 2 dropped frames)
-    input=message
-    call genjtty(input,tones,nsymbols)
-    nframes=nsymbols/frame_symbols
+    pcm=reference_pcm
     idrop=nframes/2
-
-    total_samples=(nsymbols+frame_symbols)*nsps
-    allocate(wave(nsymbols*nsps),complex_wave(nsymbols*nsps),pcm(total_samples))
-    call gen_jttywave(tones,nsymbols,nsps,2.0,12000.0,1500.0, &
-         complex_wave,wave,0,nsymbols*nsps)
-    pcm=0_int16
-    pcm(1:nsymbols*nsps)=int(nint(30000.0*wave),int16)
 
     drop_start=(idrop-1)*frame_symbols*nsps+1
     drop_end=(idrop+n_dropped-1)*frame_symbols*nsps
@@ -148,8 +151,6 @@ contains
     call expect(nslots.ge.2, &
          'dropping 3 consecutive frames (beyond MAX_GAP) does not merge', &
          count)
-
-    deallocate(pcm,wave,complex_wave)
   end subroutine run_beyond_max_gap_case
 
   function normalized(value) result(result_value)
