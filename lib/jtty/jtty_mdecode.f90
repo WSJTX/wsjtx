@@ -549,6 +549,9 @@ contains
       real                  :: best_dupe_df
 
       decoded_ok=.false.
+      ! Refinement can place the final symbol beyond the available samples.
+      zsym=0.0
+      irxchan=-1
       pow(:,:)=0.0
       do j=1,NCHAN_SYM                  ! find tone powers for 46 symbols
          i0=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss + (j-1)*nss

@@ -16,9 +16,13 @@ program test_jtty_overlap_decode
 
   character(len=*), parameter :: msg_a='MAYBE YOU SHOULD HELP'
   character(len=*), parameter :: msg_b='CLAUDE CO 3 MIN TRANSITION'
-  integer :: failures
+  integer :: failures,nsps
+  character(len=16) :: rate_arg
   integer :: failures_before_overlap
 
+  nsps=384
+  call get_command_argument(1,rate_arg)
+  if(len_trim(rate_arg).gt.0) read(rate_arg,*) nsps
   failures=0
 
   call expect_complete_pair('isolated first message',msg_a,1500.0,0.2, &
@@ -67,7 +71,6 @@ contains
        second_hz,second_dt,ftol)
     character(len=*), intent(in) :: first_message,second_message
     real, intent(in) :: first_hz,first_dt,second_hz,second_dt,ftol
-    integer, parameter :: nsps=384
     integer, parameter :: frame_symbols=size(is13)+TOTAL_K
     integer :: first_tones(MAX_FRAMES*frame_symbols)
     integer :: second_tones(MAX_FRAMES*frame_symbols)

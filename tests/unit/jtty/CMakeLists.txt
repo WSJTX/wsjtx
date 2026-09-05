@@ -64,6 +64,12 @@ set_tests_properties (test_jtty_overlap_decode PROPERTIES
   TIMEOUT 60
 )
 
+add_test (NAME test_jtty_overlap_decode_480 COMMAND test_jtty_overlap_decode 480)
+set_tests_properties (test_jtty_overlap_decode_480 PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_overlap_decode: all checks passed"
+  TIMEOUT 60
+)
+
 add_executable (test_jtty_sticky_retry test_jtty_sticky_retry.f90)
 target_include_directories (test_jtty_sticky_retry PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_sticky_retry)
