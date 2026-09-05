@@ -878,10 +878,10 @@ if (WIN32)
     message (STATUS "Using OmniRig type library: ${AXSERVERSRCS}")
   else ()
     # Normal local build: query the COM registry for the type library.
-    find_program (DUMPCPP dumpcpp)
-    if (DUMPCPP-NOTFOUND)
+    find_program (DUMPCPP NAMES dumpcpp-qt5 dumpcpp)
+    if (NOT DUMPCPP)
       message (FATAL_ERROR "dumpcpp tool not found")
-    endif (DUMPCPP-NOTFOUND)
+    endif ()
     execute_process (
       COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
       OUTPUT_VARIABLE AXSERVER

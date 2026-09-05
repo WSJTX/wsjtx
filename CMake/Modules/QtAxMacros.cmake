@@ -5,7 +5,10 @@
 if (WIN32)
   include (CMakeParseArguments)
 
-  find_program (DUMPCPP_Executable dumpcpp.exe)
+  find_program (DUMPCPP_Executable NAMES dumpcpp-qt5 dumpcpp)
+  if (NOT DUMPCPP_Executable)
+    message (FATAL_ERROR "dumpcpp tool not found")
+  endif ()
 
   # wrap_ax_server (outfiles inputfile ...)
 

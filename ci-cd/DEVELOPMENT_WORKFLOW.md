@@ -274,7 +274,9 @@ git push origin master
 ### What external contributors should know
 
 - **Response time varies.** The core developers are volunteers with day jobs and other commitments. PRs may take days or weeks to review.
-- **Build instructions** are in the CONTRIBUTING.md file. Build locally before submitting.
+- **Build instructions** are in the
+  [source-build guide](../doc/user_guide/en/install-from-source.adoc). Build
+  locally before submitting.
 - **One logical change per PR.** Don't bundle unrelated fixes.
 - **Test on your platform.** Mention which OS and architecture you tested on.
 - **License.** All contributions must be GPL-3.0 compatible. By submitting a PR, you agree to license your code under GPL-3.0.
@@ -794,7 +796,7 @@ They now have the v3.0.1 code and can branch from it for future contributions.
 | Submit a fix | Create a branch, push to your fork, open PR to `WSJTX/wsjtx` `master` |
 | Update my fork | `git fetch upstream && git merge upstream/master` |
 | Report a bug | Open an issue on `WSJTX/wsjtx` using the bug report template |
-| Build from source | See the CONTRIBUTING.md file for platform-specific instructions |
+| Build from source | Follow the [source-build guide](../doc/user_guide/en/install-from-source.adoc) |
 
 ### Key URLs
 

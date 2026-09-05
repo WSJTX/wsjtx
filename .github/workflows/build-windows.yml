@@ -214,10 +214,6 @@ jobs:
           if (-not $omnirig) { throw "OmniRig install failed — OmniRig.exe not found" }
           echo "OMNIRIG_PATH=$($omnirig.FullName)" >> $env:GITHUB_ENV
 
-      - name: Fix dumpcpp name (MSYS2 ships dumpcpp-qt5, CMake expects dumpcpp)
-        run: |
-          ln -sf /mingw64/bin/dumpcpp-qt5.exe /mingw64/bin/dumpcpp.exe
-
       - name: Configure build and tests
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")

@@ -1,154 +1,91 @@
 # Contributing to WSJT-X
 
-## Overview
+WSJT-X, MAP65, and QMAP are open-source applications for weak-signal amateur
+radio communication. Contributions to the programs and their documentation are
+welcome.
 
-**WSJT-X** and its sister programs **MAP65** and **QMAP** are open-source applications designed to facilitate weak-signsl ham radio communication. The project was started in 2001 and became an open-source effort in 2005. Our core development team has grown slowly over time, and in May 2026 consists of seven members. 
+## Choose the correct repository
 
-We welcome contributions to these programs from outside the core development team. This document provides a brief summary of how the WSJT-X GitHub repositories are organized, how the development team operates, and how outside contributions can be made.
+WSJT-X development uses two repositories with different purposes:
 
-## Repository Structure
+- The public [WSJTX/wsjtx](https://github.com/WSJTX/wsjtx) repository is
+  updated when a general-availability release is published. External
+  contributors should fork this repository and base pull requests on its
+  `master` branch.
+- The core team develops and tests future releases in a private repository.
+  Its current source can be newer than the public repository and is not yet
+  distributed or supported as a release.
 
-We use two GitHub repositories. Public site https://github.com/WSJTX/wsjtx receives updated code whenever a general availability (GA) program version is released. Anyone can submit  [Issues](https://github.com/WSJTX/wsjtx/issues) to be raised and discussed, as well as Bug Reports and [Pull Requests](https://github.com/WSJTX/wsjtx/pulls). External contributors should fork the public repo and submit pull requests based on that code.
+A public clone therefore contains the latest published source, not a live copy
+of the private development branch. A core team member will port an accepted
+external contribution into the private repository for integration and CI
+testing.
 
-Development work by team members, including acceptance testing of outside pull requests, takes place in a private repository. At any particular time team members may be developing or experimenting with program features that are not yet ready for distribution or general use.
+## Build and test your change
 
-## Building from Source
-Source code for WSJT-X, MAP65, and QMAP together amounts to more than 130,000 lines of C++, 75,000 lines of Fortran, and 18,000 lines of C. User interfaces use the Qt framework and are mostly written in C++, while signal processing and message encoding/decoding are done in Fortran. Required external libraries include FFTW3, Boost, libUSB, and Hamlib. The applications and related utility programs are multi-platform and can be built and used on the Windows, macOS, and Linux. We use CMake and Qt5, and we build Hamlib locally before building WSJT-X.
+Read the [source-build guide](doc/user_guide/en/install-from-source.adoc) before
+setting up a toolchain. It is the maintained source for dependencies and build
+commands; build recipes are intentionally not duplicated here.
 
-### Prerequisites
-
-**All platforms:**
-- CMake 3.12 or later
-- Qt 5.12+ (Core, Widgets, Multimedia, SerialPort, Network, Sql, LinguistTools)
-- FFTW 3 (single precision — `libfftw3f`)
-- Boost C++ libraries
-- A C++ compiler with C++17 support
-- A Fortran compiler, typically gfortran
-- Git
-
-**Linux (Debian/Ubuntu):**
-```
-sudo apt install build-essential cmake gfortran \
-  qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
-  libfftw3-dev libboost-all-dev libusb-1.0-0-dev libudev-dev \
-  autoconf automake libtool pkg-config texinfo
-```
-
-**macOS:**
-```
-brew install cmake gcc qt@5 fftw boost libusb autoconf automake libtool pkg-config texinfo
-```
-Xcode command-line tools are also required (`xcode-select --install`).
-
-**Windows:**
-Windows builds use the [Hamlib SDK](https://sourceforge.net/projects/hamlib-sdk/), which provides all prerequisite libraries and MinGW tooling. See the INSTALL file for detailed Windows instructions.
-
-### First Step: Build Hamlib
-
-WSJT-X builds against the Hamlib revision pinned by CI. Check the current
-`hamlib_branch` value in `.github/workflows/ci.yml` and use the same revision
-for a local build.
+WSJT-X is a mixed C++, C, and Fortran project built with CMake and Qt 5. A
+normal developer cycle uses an out-of-source build directory:
 
 ```bash
-# Replace <HAMLIB_BRANCH> with the current hamlib_branch value from
-# .github/workflows/ci.yml.
-HAMLIB_BRANCH="<HAMLIB_BRANCH>"
-
-mkdir -p ~/hamlib-prefix/build
-cd ~/hamlib-prefix
-git clone https://github.com/Hamlib/Hamlib src
-cd src
-git checkout $HAMLIB_BRANCH
-./bootstrap
-mkdir ../build && cd ../build
-../src/configure --prefix=$HOME/hamlib-prefix \
-  --disable-shared --enable-static \
-  --without-cxx-binding --disable-winradio \
-  CFLAGS="-g -O2 -fdata-sections -ffunction-sections" \
-  LDFLAGS="-Wl,--gc-sections"
-make
-make install-strip
+cmake -S . -B build  # Add the options from the platform guide.
+cmake --build build
+ctest --test-dir build --output-on-failure
 ```
 
-### Building WSJT-X
+Reconfigure after changing CMake files or pulling changes that affect
+dependencies. Use a fresh build directory after changing compiler, Qt
+installation, MSYS2 runtime, or other foundational toolchain components;
+CMake intentionally caches those choices.
 
-Fork the public repo:
-```bash
-git clone https://github.com/YOUR_USERNAME/wsjtx.git ~/wsjtx-prefix/src
-cd ~/wsjtx-prefix/src
-git remote add upstream https://github.com/WSJTX/wsjtx.git
-```
+A local developer build shows whether a change compiles and passes tests on
+your machine.
 
-Then build:
-```bash
-mkdir -p ~/wsjtx-prefix/build && cd ~/wsjtx-prefix/build
-cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix" ../src
-cmake --build .
-```
+## Report a bug
 
-CMake selects the project's C++17 language standard automatically; an
-additional `-std=` option is normally not needed. After pulling changes to
-the build configuration or compiler requirements, rerun the CMake configure
-step. If an existing build directory reports cached compiler or configuration
-errors, configure a fresh build directory.
+File public bug reports in the
+[issue tracker](https://github.com/WSJTX/wsjtx/issues). Include:
 
-On macOS, add Qt5 and other Homebrew paths to `CMAKE_PREFIX_PATH`:
-```bash
-cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix;$(brew --prefix qt@5);$(brew --prefix fftw);$(brew --prefix boost)" \
-  -DCMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran ../src
-```
-Homebrew-linked macOS builds are for local development and testing, not release artifact validation. The legacy install-time BundleUtilities path is opt-in with `-DWSJT_MACOS_INSTALL_TIME_FIXUP=ON`; deployable macOS packages use the controlled dependency deploy and verification path in CI.
+- the WSJT-X version, operating system, and architecture;
+- exact steps to reproduce the problem;
+- expected and actual behavior;
+- relevant logs or screenshots; and
+- whether the problem occurs in an installed build or only in a build tree.
 
-### Updating and Rebuilding
+A team member will move the investigation into the private repository when it
+requires unreleased development work.
 
-```bash
-# Update Hamlib
-cd ~/hamlib-prefix/src && git pull
-cd ~/hamlib-prefix/build && make && make install-strip
+## Submit a pull request
 
-# Update WSJT-X
-cd ~/wsjtx-prefix/src && git pull
-cd ~/wsjtx-prefix/build && cmake --build .
-```
-## Bug Reports
+1. Fork `WSJTX/wsjtx` and create a branch from public `master`.
+2. Make one logical change and test it on the affected platform.
+3. Push the branch to your fork and open a pull request against
+   `WSJTX/wsjtx:master`.
+4. Explain what the change does, why it is needed, which platforms and tests
+   you used, and any related issue numbers.
 
-Users and external contributors should file bug reports as Issues on the [public repo](https://github.com/WSJTX/wsjtx/issues). A team member will forward the Issue to `wsjtx-internal` if triage reveals development work to be done.
+Merging an external contribution directly into public `master` would put the
+public release snapshot out of sync with internal development. Instead, the
+team reviews it publicly, integrates it privately, and publishes it with a
+subsequent release.
 
-When filing an Issue, please include:
+## Follow project conventions
 
-- WSJT-X version and operating system
-- Steps to reproduce
-- Expected vs. actual behavior
-- Relevant log output or screenshots
+- Match the naming and formatting already used in the files you change.
+- C++ code generally uses two-space indentation, `PascalCase` class names, and
+  `camelCase` method names. Preserve local conventions when a file differs.
+- Preserve the established Fortran style in the signal-processing and codec
+  libraries.
+- Write comments for non-obvious constraints or behavior, not to narrate code
+  that is already clear from its names and structure.
+- Add the appropriate GPL-3.0 license header to new source files.
 
-## Pull Requests
+## Keep changes reviewable
 
-### Basic steps for external contributors
-
-1. Fork `WSJTX/wsjtx` on GitHub.
-
-2. Create a branch, make your changes, push to your fork.
-
-3. Open a PR from your fork to `WSJTX/wsjtx` targeting `master`.
-
-4. A team member reviews the PR. If accepted, they port the change to wsjtx-internal where it enters the normal development flow and CI validation.
-
-5. The change reaches the public repo at the next tagged release.
-
-This indirection exists because the public repo only receives code at release time. Merging directly to `master` would put it out of sync with internal development.
-
-### General guidelines
-
-- **One PR per logical change.** Don't bundle unrelated fixes.
-- **Test your changes.** Build on your platform and verify the application runs. If your change affects decoding, test with known `.wav` files.
-- **Include in the PR description:** what the change does, why, which platforms you tested on, and related issue numbers.
-- **Be patient.** The core developers are volunteers with other commitments. PRs may take days or weeks to review.
-
-### Coding Conventions
-
-- **C++:** Qt-style naming. Classes use `PascalCase`, methods use `camelCase`. Header guards use `FILENAME_HPP_` format.
-- **Fortran:** Traditional Fortran style. Signal processing and codec code lives in `lib/`.
-- **Indentation:** 2 spaces in C++, standard Fortran indentation in `.f90` files.
-- **Comments:** Descriptive block comments above classes and functions. Inline comments where logic is non-obvious.
-- **License:** All source files are GPL-3.0. New files should include the appropriate license header.
-
+- Keep each pull request to one logical change.
+- Add or update tests when behavior changes.
+- Test decoding changes with known sample files and report the cases used.
+- Avoid broad formatting or cleanup mixed with a functional change.

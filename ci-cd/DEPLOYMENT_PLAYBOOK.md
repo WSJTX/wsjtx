@@ -624,33 +624,15 @@ The macOS installer package copies this into `/Library/LaunchDaemons/` to config
 ls -la Darwin/com.wsjtx.sysctl.plist
 ```
 
-### `CMakeLists.txt` OmniRig Change (Optional)
+### OmniRig type-library input
 
-The Windows CI passes `-DOMNIRIG_TYPE_LIB=<path>` to CMake. This requires a small change to `CMakeLists.txt` (around line 940) that adds an `if (OMNIRIG_TYPE_LIB)` branch. The change is backward-compatible — existing local builds without `-DOMNIRIG_TYPE_LIB` work exactly as before.
+Windows CI passes `-DOMNIRIG_TYPE_LIB=<path>` to CMake because the workflow
+already knows the location of the installed OmniRig executable. The build
+supports this input directly. Local Windows builds can omit it and allow
+`dumpcpp` to query the registered OmniRig type library instead.
 
-If the official repo doesn't have this change, include it in the PR. The relevant section:
-
-```cmake
-if (WIN32)
-  find_program (DUMPCPP dumpcpp)
-  if (DUMPCPP-NOTFOUND)
-    message (FATAL_ERROR "dumpcpp tool not found")
-  endif (DUMPCPP-NOTFOUND)
-
-  if (OMNIRIG_TYPE_LIB)
-    # CI/headless: type library path provided directly
-    file (TO_CMAKE_PATH "${OMNIRIG_TYPE_LIB}" AXSERVERSRCS)
-    message (STATUS "Using OmniRig type library: ${AXSERVERSRCS}")
-  else ()
-    # Normal build: query COM registry for type library location
-    execute_process (
-      COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
-      OUTPUT_VARIABLE AXSERVER
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-      )
-    # ... existing registry-query code ...
-  endif ()
-```
+MSYS2 installs the tool as `dumpcpp-qt5`; the build discovers both that name
+and the unversioned `dumpcpp` name. Do not create an alias in the workflow.
 
 ---
 
@@ -1123,7 +1105,6 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal
 | `.github/workflows/hamlib-upstream-check.yml` | Scheduled (weekly cron + `workflow_dispatch`) poll of Hamlib upstream tags; files a tracking issue when a newer 4.x release is available. No platform builds; self-contained. | None |
 | `entitlements.plist` | macOS app entitlements | None (if not already in repo) |
 | `Darwin/com.wsjtx.sysctl.plist` | macOS shared memory config | None (if not already in repo) |
-| `CMakeLists.txt` | OmniRig type library variable | Add `OMNIRIG_TYPE_LIB` conditional (optional, can be separate PR) |
 
 ### Secrets Required on `wsjtx-internal`
 
@@ -1136,14 +1117,8 @@ Use the canonical inventory and setup procedure in [Phase 3](#5-phase-3-create-r
 | Hamlib 4.7.2 | `https://github.com/Hamlib/Hamlib.git` | All five platforms |
 | OmniRig | `https://www.dxatlas.com/OmniRig/Files/OmniRig.zip` | Windows only |
 
-### Build-Time Patches Applied in CI
+### Build-Time Source Patches
 
-These are `sed` patches applied during the build, not committed to the repo. They work around upstream issues:
-
-| Patch | File | Platform | Why |
-|-------|------|----------|-----|
-| Comment out MAP65 | `CMakeLists.txt` | Windows | GCC 15 rejects legacy Fortran in `decode0.f90` |
-| Fix FFTW3 threads | `CMake/Modules/FindFFTW3.cmake` | Windows | MSYS2 splits FFTW threads into separate lib |
-| Symlink dumpcpp | `/mingw64/bin/` | Windows | MSYS2 ships `dumpcpp-qt5`, CMake expects `dumpcpp` |
-
-These patches are candidates for future upstream PRs but are not required for the CI deployment itself.
+The current workflows do not patch the WSJT-X source tree during a build.
+Windows support for MAP65, the MSYS2 FFTW threads library, and the
+`dumpcpp-qt5` executable is implemented in the repository and exercised by CI.

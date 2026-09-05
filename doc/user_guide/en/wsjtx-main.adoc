@@ -62,8 +62,7 @@ include::install-linux.adoc[]
 include::install-mac.adoc[]
 
 [[SRC_CODE]]
-=== Source Code
-include::install-from-source.adoc[]
+include::install-from-source.adoc[leveloffset=+2]
 
 [[MENUS]]
 == Menus

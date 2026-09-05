@@ -24,6 +24,14 @@ They can be built and used on Windows, macOS, and Linux.
 
 The [WSJT-X User Guide](https://wsjtx.github.io/wsjtx/guide-full.html) documents operating procedures, mode details, configuration, and platform installation.
 
+## Building from source
+
+The [source-build guide](doc/user_guide/en/install-from-source.adoc) is the
+maintained reference for developer builds, including the supported Windows
+MSYS2 environment, required dependencies, tests, installation, and common
+failures. Contributors should also read [CONTRIBUTING.md](CONTRIBUTING.md) for
+the public and private repository workflow.
+
 ## Support and contributing
 
 The [project website](https://wsjtx.github.io/wsjtx/) provides release downloads
