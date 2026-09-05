@@ -7,19 +7,25 @@ subroutine jtty_peakup(c0,c1,csync,nchunk,nss,xdt0,f0,xdt,f1,snr)
    complex             :: c(0:13*nss-1)                          !Lengh of Barker sequence
    complex             :: z
    complex             :: zcur(0:12), zbest(0:12), ztot
+   complex             :: qstep(0:12)
    real                :: a(3)
    real                :: fsample, dt, pmax, fpk, xdtpk, xnorm, p
    real                :: phase(0:12), uw(0:12)
    real                :: dphi, xm, ym, sxy, sxx, slope, intercept
    real                :: resid, resid_rms, dfhz, tsym
    integer, intent(in) :: nchunk, nss
-   integer             :: i, i0, ia, ib, idf, istart, iend, npsync
+   integer             :: i, i0, ia, ib, idf, istart, iend, npsync, r
+   integer, parameter  :: hop=4
    real, intent(in)    :: xdt0, f0
    real, intent(out)   :: xdt, f1, snr
    real, parameter     :: TWOPI = 6.283185307179586
    real, parameter     :: PI = 3.141592653589793
 
    npsync=13*nss        ! size of the sync waveform array
+   do i=0,12
+      istart=i*nss
+      qstep(i)=csync(istart+hop)*conjg(csync(istart))
+   enddo
    fsample=6000.0
    dt=1.0/fsample
    ia=max(0,nint((xdt0-0.004)/dt))
@@ -36,25 +42,47 @@ subroutine jtty_peakup(c0,c1,csync,nchunk,nss,xdt0,f0,xdt,f1,snr)
       a=0.
       a(1)=-f0 + 0.5*idf                     !Shift assumed peak to zero frequency
       call twkfreq(c0,c1,ib+npsync,fsample,a)
-      do i0=ia,ib,4                          !Search over xdt for sync pattern
-         xdt=i0*dt
-         c(0:npsync-1)=conjg(csync)*c1(i0:i0+npsync-1)
-! Coherent only within a symbol (32ms) here; this locates the sync
-! instant. Stage 2 below refines f1 with a coherent combination across
-! all 13 symbols once that instant is known.
-         p=0
+      if(ia.le.ib) then
+         c(0:npsync-1)=conjg(csync)*c1(ia:ia+npsync-1)
          do i=0,12
             istart=i*nss
             iend=istart+nss-1
-            z=sum( c( istart:iend ) )
-            zcur(i)=z
-            p=p+real(z)**2+aimag(z)**2
+            zcur(i)=sum(c(istart:iend))
          enddo
-         if(p.gt.pmax) then
-            pmax=p
-            fpk=-a(1)
-            xdtpk=i0*dt
-            zbest=zcur
+      endif
+      do i0=ia,ib,hop                          !Search over xdt for sync pattern
+         xdt=i0*dt
+         if(ia.le.ib) then
+! Coherent only within a symbol (32ms) here; this locates the sync
+! instant. Stage 2 below refines f1 with a coherent combination across
+! all 13 symbols once that instant is known.
+            p=0
+            do i=0,12
+               z=zcur(i)
+               p=p+real(z)**2+aimag(z)**2
+            enddo
+            if(p.gt.pmax) then
+               pmax=p
+               fpk=-a(1)
+               xdtpk=i0*dt
+               zbest=zcur
+            endif
+            if(i0+hop.le.ib) then
+               do i=0,12
+                  istart=i*nss
+                  z=cmplx(0.,0.)
+                  do r=0,hop-1
+                     z=z+conjg(csync(istart+r))*c1(i0+istart+r)
+                  enddo
+                  zcur(i)=qstep(i)*(zcur(i)-z)
+                  z=cmplx(0.,0.)
+                  do r=0,hop-1
+                     z=z+conjg(csync(istart+nss-hop+r))* &
+                          c1(i0+istart+nss+r)
+                  enddo
+                  zcur(i)=zcur(i)+z
+               enddo
+            endif
          endif
       enddo
    enddo
