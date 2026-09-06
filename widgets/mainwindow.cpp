@@ -9160,7 +9160,10 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
      ui->decodedTextBrowser2->erase ();
      ui->EraseButton->clearFocus();
   }
-  if(ui->txFirstCheckBox->isVisible() && ui->txFirstCheckBox->hasFocus() && (event->button() & Qt::RightButton)) {
+  if(ui->txFirstCheckBox->isVisible() && (event->button() & Qt::RightButton) &&
+     ui->txFirstCheckBox->rect().contains(ui->txFirstCheckBox->mapFromGlobal(event->globalPos()))) {
+      // hasFocus() would miss this once disabled: a disabled widget cannot
+      // hold focus, so a focus-gated check can never re-enable it again.
       ui->txFirstCheckBox->setEnabled(!ui->txFirstCheckBox->isEnabled());  // toggle enabled/disabled
       ui->txFirstCheckBox->clearFocus();
   }
