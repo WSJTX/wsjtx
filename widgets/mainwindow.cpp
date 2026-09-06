@@ -9161,13 +9161,8 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
      ui->EraseButton->clearFocus();
   }
   if(ui->txFirstCheckBox->isVisible() && ui->txFirstCheckBox->hasFocus() && (event->button() & Qt::RightButton)) {
-      ui->txFirstCheckBox->setEnabled(false);  // freeze txFirstCheckBox
+      ui->txFirstCheckBox->setEnabled(!ui->txFirstCheckBox->isEnabled());  // toggle enabled/disabled
       ui->txFirstCheckBox->clearFocus();
-  }
-  if(ui->msk144Button->hasFocus() && (event->button() & Qt::RightButton)) {
-      ui->txFirstCheckBox->setEnabled(true);  // unfreeze txFirstCheckBox
-      ui->ft8Button->clearFocus();
-      ui->msk144Button->clearFocus();
   }
   if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {       // switch to Q65_Pileup mode
       m_config.setSpecial_Q65_Pileup();
