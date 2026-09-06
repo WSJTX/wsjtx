@@ -15,7 +15,7 @@ module q65_decode
 
   abstract interface
      subroutine q65_decode_callback (this,nutc,snr1,nsnr,dt,freq,    &
-          decoded,idec,nused,ntrperiod)
+          decoded,idec,nused,ntrperiod,iflagdec)
        import q65_decoder
        implicit none
        class(q65_decoder), intent(inout) :: this
@@ -28,6 +28,7 @@ module q65_decode
        integer, intent(in) :: idec
        integer, intent(in) :: nused
        integer, intent(in) :: ntrperiod
+       integer, intent(in) :: iflagdec  !Recovered spare 78th bit (see genq65/q65_ap)
      end subroutine q65_decode_callback
   end interface
 
@@ -84,6 +85,7 @@ contains
     integer nqf(20)
     integer stageno                       !Added by W3SZ
     integer time
+    integer iflagdec                      !Recovered spare 78th bit
     logical lclearave,lnewdat0,lapcqonly,unpk77_success
     logical single_decode,lagain
     complex c00(0:3600000)                !Analytic signal, 6000 Sa/s
@@ -315,6 +317,7 @@ contains
 !  3:  Decode with AP for "MyCall DxCall ?"
 
 ! Unpack decoded message for display to user
+       iflagdec=iand(dat4(13),1)     !Recover the spare 78th bit before it's shifted away
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
        call unpack77(c77,1,decoded,unpk77_success) !Unpack to get decoded
@@ -330,7 +333,7 @@ contains
           call q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
           nsnr=nint(snr2)
           call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
-               idec,nused,ntrperiod)
+               idec,nused,ntrperiod,iflagdec)
           if(ncontest.eq.1) then
              call q65_hist2(nint(f0dec),decoded,callers,nhist2)
           else
@@ -429,6 +432,7 @@ contains
 200    decoded='                                     '
        if(idec.ge.0) then
 ! Unpack decoded message for display to user
+          iflagdec=iand(dat4(13),1)  !Recover the spare 78th bit before it's shifted away
           write(c77,1000) dat4(1:12),dat4(13)/2
           call unpack77(c77,1,decoded,unpk77_success) !Unpack to get decoded
           idupe=0
@@ -442,7 +446,7 @@ contains
              call q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
              nsnr=nint(snr2)
              call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
-                  idec,nused,ntrperiod)
+                  idec,nused,ntrperiod,iflagdec)
              if(ncontest.eq.1) then
                 call q65_hist2(nint(f0dec),decoded,callers,nhist2)
              else

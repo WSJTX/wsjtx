@@ -120,25 +120,30 @@ subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
      endif
   endif
 
-  if(iaptype.eq.3) then ! MyCall,DxCall,??? 
+  if(iaptype.eq.3) then ! MyCall,DxCall,???
      apmask=0
+! Bit 78 (the last of the type-discriminator bits 75-78) is left unmasked
+! here rather than fixed at 0: it now carries the "copied last Tx" flag
+! (see genq65/q65_decode), so it must be determined blindly rather than
+! assumed. Bits 75-77 remain fixed -- they are the genuine i3-type
+! discriminator and must stay known for AP decoding to work correctly.
      if(ncontest.eq.0.or.ncontest.eq.1.or.ncontest.eq.2.or.ncontest.eq.5.or.ncontest.eq.7) then
-        apmask(1:58)=1  
+        apmask(1:58)=1
         apsymbols(1:58)=apsym0
-        apmask(75:78)=1
-        apsymbols(75:78)=(/0,0,1,0/)
+        apmask(75:77)=1
+        apsymbols(75:77)=(/0,0,1/)
      else if(ncontest.eq.3) then ! Field Day
-        apmask(1:56)=1  
+        apmask(1:56)=1
         apsymbols(1:28)=apsym0(1:28)
         apsymbols(29:56)=apsym0(30:57)
-        apmask(72:78)=1 
-        apsymbols(75:78)=0
-     else if(ncontest.eq.4) then 
-        apmask(2:57)=1  
+        apmask(72:77)=1
+        apsymbols(75:77)=0
+     else if(ncontest.eq.4) then
+        apmask(2:57)=1
         apsymbols(2:29)=apsym0(1:28)
         apsymbols(30:57)=apsym0(30:57)
-        apmask(75:78)=1 
-        apsymbols(75:78)=(/0,0,1,0/)
+        apmask(75:77)=1
+        apsymbols(75:77)=(/0,0,1/)
      endif
   endif
 

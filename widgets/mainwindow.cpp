@@ -354,7 +354,7 @@ extern "C" {
   void gen_cw_wave_(char const * msg, int* ifreq, float wave[], fortran_charlen_t);
 
   void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
-              int* i3, int* n3, fortran_charlen_t, fortran_charlen_t);
+              int* i3, int* n3, int* iflag, fortran_charlen_t, fortran_charlen_t);
 
   void genwspr_(char* msg, char* msgsent, int itone[], fortran_charlen_t, fortran_charlen_t);
 
@@ -4705,6 +4705,9 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
     dec_data.params.nutc=dec_data.params.nutc/100;
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
+    if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP) {
+      m_q65PileupCopiedLastRx = false;  // starting a decode pass over fresh audio
+    }
     m_dateTimeSeqStart = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
     auto t = m_dateTimeSeqStart.time ();
     dec_data.params.nutc = t.hour () * 100 + t.minute ();
@@ -6350,6 +6353,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
     DecodedText const& decodedtext {prepared.logicMessage};
     Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
+    if (m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
+      auto const fields = parseDecodedMessage (decodedtext.message ());
+      if (fields.sender == Radio::base_callsign (ui->dxCallEntry->text ())) {
+        m_q65PileupCopiedLastRx = true;
+      }
+    }
+
     {
     bool const bAvgMsg = prepared.averaged;
 
@@ -7158,7 +7168,10 @@ void MainWindow::guiUpdate()
         if(m_mode=="Q65") {
           int i3=-1;
           int n3=-1;
-          genq65_(message, &ichk,msgsent, const_cast<int *>(itone), &i3, &n3, (FCL)37, (FCL)37);
+          int iflag=0;
+          if(m_specOp==SpecOp::Q65_PILEUP && m_q65PileupCopiedLastRx) iflag=1;
+          m_q65PileupCopiedLastRx=false;  // single-consume: don't let a stale match ride a later Tx
+          genq65_(message, &ichk,msgsent, const_cast<int *>(itone), &i3, &n3, &iflag, (FCL)37, (FCL)37);
           if (!should_block_generated_transmit (QString::fromLatin1 (msgsent), m_tune)) {
             int nsps=1800;
             if(m_TRperiod==30) nsps=3600;

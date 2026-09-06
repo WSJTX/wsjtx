@@ -6,6 +6,7 @@ module q65_pipeline_callback
   integer :: callback_count
   integer :: callback_idec,callback_nused,callback_ntrperiod
   integer :: callback_nutc,callback_nsnr
+  integer :: callback_iflagdec
   real :: callback_snr1,callback_dt,callback_freq
   character(len=37) :: callback_message
 
@@ -13,9 +14,9 @@ contains
 
 
   subroutine capture_callback(this,nutc,snr1,nsnr,dt,freq,decoded,idec, &
-       nused,ntrperiod)
+       nused,ntrperiod,iflagdec)
     class(q65_decoder), intent(inout) :: this
-    integer, intent(in) :: nutc,nsnr,idec,nused,ntrperiod
+    integer, intent(in) :: nutc,nsnr,idec,nused,ntrperiod,iflagdec
     real, intent(in) :: snr1,dt,freq
     character(len=37), intent(in) :: decoded
 
@@ -29,6 +30,7 @@ contains
     callback_idec=idec
     callback_nused=nused
     callback_ntrperiod=ntrperiod
+    callback_iflagdec=iflagdec
   end subroutine capture_callback
 
 end module q65_pipeline_callback
@@ -66,7 +68,7 @@ program test_q65_decode_pipeline
 
   do nsubmode=0,4
      call make_q65_wave(iwave,nsubmode)
-     call run_direct_decode(decoder,iwave,nsubmode,1)
+     call run_direct_decode(decoder,iwave,nsubmode,1,want_iflagdec=0)
   enddo
 
   iwave=0_int16
@@ -84,10 +86,11 @@ program test_q65_decode_pipeline
 
 contains
 
-  subroutine run_direct_decode(decoder,samples,nsubmode,want_callback)
+  subroutine run_direct_decode(decoder,samples,nsubmode,want_callback,want_iflagdec)
     type(q65_decoder), intent(inout) :: decoder
     integer(int16), intent(in) :: samples(:)
     integer, intent(in) :: nsubmode,want_callback
+    integer, intent(in), optional :: want_iflagdec
     logical :: want_success
 
     callback_count=0
@@ -100,6 +103,7 @@ contains
     callback_snr1=0.0
     callback_dt=0.0
     callback_freq=0.0
+    callback_iflagdec=-1
     want_success=want_callback.ne.0
     call decoder%decode(capture_callback,samples,1,100,q65_ntrperiod,nsubmode, &
          1000,150,3,850,1150,lclearave,single_decode,lagain,0,lnewdat,2.5, &
@@ -114,6 +118,11 @@ contains
        endif
        if(abs(callback_freq-1000.0).gt.8.0) error stop 'direct Q65 frequency changed'
        if(abs(callback_dt).gt.0.15) error stop 'direct Q65 timing changed'
+       if(present(want_iflagdec)) then
+          if(callback_iflagdec.ne.want_iflagdec) then
+             error stop 'direct Q65 decode did not recover the expected flag bit'
+          endif
+       endif
     else
        if(callback_count.ne.0) error stop 'silent Q65 input produced a callback'
     endif

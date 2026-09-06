@@ -63,7 +63,7 @@ subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
 end subroutine map65_mmdec
 
 subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,   &
-     nused,ntrperiod)
+     nused,ntrperiod,iflagdec)
 
   implicit none
 
@@ -77,8 +77,9 @@ subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,   &
   integer, intent(in) :: idec
   integer, intent(in) :: nused
   integer, intent(in) :: ntrperiod
+  integer, intent(in) :: iflagdec  !Not used by MAP65's q65b path; see WSJT-X's q65_decoded
 
-  if(nutc+snr1+nsnr+dt+freq+idec+nused+ntrperiod.eq.-999) stop
+  if(nutc+snr1+nsnr+dt+freq+idec+nused+ntrperiod+iflagdec.eq.-999) stop
   if(decoded.eq.'-999') stop
 
   cq0='q  '

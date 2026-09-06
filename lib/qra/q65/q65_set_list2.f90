@@ -49,7 +49,7 @@ subroutine q65_set_list2(mycall,hiscall,hisgrid,callers,nhist2,codewords,ncw)
         if(k.eq.3) msg(j0:j0+3)=' RRR'
         if(k.eq.4) msg(j0:j0+4)=' RR73'
         if(k.eq.5) msg(j0:j0+2)=' 73'
-        call genq65(msg,0,msgsent,itone,i3,n3)
+        call genq65(msg,0,msgsent,itone,i3,n3,0)
         i0=1
         jj=0
         do kk=1,85
