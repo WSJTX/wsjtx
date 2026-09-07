@@ -61,7 +61,6 @@
 #include "helper_functions.h"
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
-#include "TxInhibit/TxInhibitLogic.hpp" // default_gate_port for the inhibit badge
 #include "Network/NetworkAccessManager.hpp"
 #include "Audio/soundout.h"
 #include "Audio/soundin.h"
@@ -4402,32 +4401,22 @@ void MainWindow::update_inhibit_status ()
             "The rig may be closed, PTT method may not be RTS/DTR, or the bind failed.\n"
             "This station is NOT protected."));
     }
-  else if (TxInhibit::default_gate_port == port)
-    {
-      tx_status_label.setToolTip (
-        tr ("TX Inhibit: listening for KEY-agent holds on UDP port %1.").arg (port));
-    }
   else
     {
       tx_status_label.setToolTip (
-        tr ("TX Inhibit: port %1 was busy, so an ephemeral port (%2) is in use.\n"
-            "A KEY agent aimed at %1 will NOT reach this station.")
-        .arg (TxInhibit::default_gate_port).arg (port));
+        tr ("TX Inhibit: listening for KEY-agent holds on UDP port %1.\n"
+            "Controllers learn this port from InhibitStatus (type 17) on the UDP Server stream.")
+        .arg (port));
     }
 
-  // Unreachable == enabled but not bound to the well-known port. Warn once per
-  // transition rather than on every refresh.
-  bool const unreachable = !port || TxInhibit::default_gate_port != port;
-  if (unreachable && (!m_tx_inhibit_warned || m_tx_inhibit_warned_port != port))
+  // Warn once when enabled but unbound (bind failure / rig closed).
+  bool const unbound = !port;
+  if (unbound && (!m_tx_inhibit_warned || m_tx_inhibit_warned_port != port))
     {
-      showStatusMessage (port
-                         ? tr ("TX Inhibit: listening on %1, not %2 — a KEY agent aimed"
-                               " at %2 will not reach this station")
-                           .arg (port).arg (TxInhibit::default_gate_port)
-                         : tr ("TX Inhibit is enabled but no UDP port is bound —"
-                               " this station is NOT protected"));
+      showStatusMessage (tr ("TX Inhibit is enabled but no UDP port is bound —"
+                             " this station is NOT protected"));
     }
-  m_tx_inhibit_warned = unreachable;
+  m_tx_inhibit_warned = unbound;
   m_tx_inhibit_warned_port = port;
 
   // Keep capability/port announcements alive while the feature is enabled so

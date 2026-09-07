@@ -109,8 +109,10 @@ SSB/CW station and the KEY agent host.
 - **Equation:** `assert PTT ⇔ want_tx and not hold`.
 - **hold** is active while an unexpired **hold timeout** is set (KEY agent or
   test tool).
-- Default listen port: **22372** (IPv4). If busy, an **ephemeral** port is
-  used (status-bar tooltip / `InhibitStatus`). Prefer free 22372. Total bind
+- Inhibit listen port: **always ephemeral** (OS-assigned IPv4). Announced in
+  status-bar tooltip and in **InhibitStatus** (type 17) on the UDP Server
+  stream. Controllers (WIMS KEY agent, or a discovery-capable agent) learn
+  `host:port` from type 17 — there is no fixed well-known port. Total bind
   failure is **non-fatal**: CAT/PTT continue; hold requests are not received.
 - Status bar (red): `TX INHIBITED` or `TX INHIBITED — held by <station>`.
 
@@ -123,7 +125,8 @@ SSB/CW station and the KEY agent host.
    proxy only — Hamlib still needs a real device name for RTS/DTR.
 4. Wire RTS/DTR → radio PTT/SEND (or USB SEND / PC KEYING). Radio **VOX** off
    for clean tests.
-5. Point the KEY agent at this WSJT-X station host:port (usually `22372`).
+5. Point the KEY agent at this WSJT-X station **host:port from InhibitStatus**
+   (tooltip / type 17), not a fixed port number.
 
 ### Shared USB CAT + RTS/DTR
 
@@ -374,12 +377,13 @@ Debounce and **hang** (anti-chatter) live in the agent. The WSJT-X station appli
 ### 3.8 Targets
 
 ```text
-host:port   e.g.  192.168.1.40:22372
+host:port   e.g.  192.168.1.40:51432   (port from InhibitStatus type 17)
 ```
 
-Unicast UDP is enough for small multi-op. Each WSJT-X station parses independently.
-WIMS (or the operator) chooses the short destination list — typically ≤3 digi seats
-on the same band. The gate does not know about bands or fleets.
+Unicast UDP is enough for small multi-op. Each WSJT-X station binds its own
+ephemeral inhibit port and parses independently. WIMS builds the short
+destination list (typically ≤3 digi seats on the same band) from type 17.
+The gate does not know about bands or fleets.
 
 Multiple agents → same WSJT-X station: **one lease per Controller ID**, combined with
 logical **OR**. A release clears **only that controller’s** lease.
@@ -389,22 +393,22 @@ logical **OR**. A release clears **only that controller’s** lease.
 ## 4. UDP protocol (WSJT-X station ↔ agent)
 
 **Transport:** UDP, `NetworkMessage` / `QDataStream` (schema 3), max **512** bytes.  
-**Port:** **22372** (WSJT-X station listens; agent sends).  
-**Type:** `NetworkMessage::TxInhibit` = **18** (inbound). Outbound telemetry remains
+**Port:** **ephemeral** (WSJT-X station binds; agent sends to the port from type 17).  
+**Type:** `NetworkMessage::TxInhibit` = **18** (inbound). Outbound announce/telemetry is
 `InhibitStatus` = **17** on the normal UDP Server path (unicast or multicast).
 
 **InhibitStatus cadence:** type **17** is sent when hold/badge/counters change,
 when the inhibit listen port binds or clears (Enable TX Inhibit apply / rig
 close), and **periodically every `NetworkMessage::pulse` seconds (15 s)** while
-TX Inhibit stays enabled — so a late-joining WIMS / list builder learns
-`inhibit_port` without waiting for a KEY hold. This is inventory/telemetry, not
-the KEY safety path (holds still go to `host:22372`).
+TX Inhibit stays enabled. With an always-ephemeral listen port, type 17 is how
+controllers learn `inhibit_port`. Holds still go **unicast** to that
+`host:port` — type 17 is discovery and triage, not the hold path.
 
 Common header (all NetworkMessage types): magic `0xadbccbda`, schema, type, Id (utf8).
 
 | Field | Type | Required | Meaning |
 |-------|------|----------|---------|
-| Id (target) | utf8 | yes (may be empty) | Target WSJT-X instance key. On dedicated port **22372** this is **parsed but not used for matching** — addressing is by unicast `host:port`. |
+| Id (target) | utf8 | yes (may be empty) | Target WSJT-X instance key. **Empty** = any instance at this UDP address/port. **Non-empty** must match this instance’s Id or the datagram is ignored. |
 | Controller ID | utf8 | yes, **non-empty** | Lease key. Sender may only refresh/release this row. |
 | TTL ms | quint32 | yes | Lease lifetime from receipt, or **0** = release **this** controller. Non-zero: 100…30000. Not agent hang. |
 | Station | utf8 | recommended | Badge (`held by …`); human-readable. |
@@ -432,9 +436,10 @@ error: **ignored** (counted as invalid). Legacy JSON is not accepted.
 
 ### 4.1 Trust model — read this before exposing the port
 
-**There is no authentication.** The station binds `0.0.0.0:22372` and accepts a hold
-from any host that can reach it. That is deliberate for a small trusted multi-op LAN,
-where the alternative (keys, pairing, config) buys nothing against the actual threat.
+**There is no authentication.** The station binds `0.0.0.0:<ephemeral>` and accepts a
+hold from any host that can reach that port. That is deliberate for a small trusted
+multi-op LAN, where the alternative (keys, pairing, config) buys nothing against the
+actual threat.
 
 **What an attacker can do:** stop you transmitting. Sustained suppression needs
 sustained packets — a single lease lasts at most its TTL (30 s ceiling, ~600 ms in
@@ -450,13 +455,12 @@ that matters for an unattended transmitter.
 | Situation | Do |
 |---|---|
 | Agent on the same PC | Nothing. Loopback is not reachable from outside. |
-| Agent on your LAN | Allow UDP 22372 inbound on the **private** profile only. |
-| Station reachable from the internet | **Firewall the port.** Do not forward 22372. |
+| Agent on your LAN | Allow inbound UDP to the announced inhibit ports on the **private** profile only (ports change per launch). |
+| Station reachable from the internet | **Do not forward** the inhibit listen ports. |
 | Shared or untrusted network | Treat "someone can stop my TX" as a real possibility. |
 
-**Not addressed today:** a sender allowlist, and Id-based filtering on 22372 (useful if
-two instances share a host). Targeting is by unicast destination list managed outside
-the gate (WIMS or local config).
+**Id filtering:** non-empty type-18 Id must match this instance. Targeting is still by
+unicast destination list managed outside the gate (WIMS from type 17, or local config).
 
 ---
 
@@ -473,18 +477,26 @@ Until CTS is opt-in and safe: KEY agent → UDP.
 
 ## 6. Testing locally
 
-Enable TX Inhibit, RTS/DTR on a real serial port, then send the same UDP a KEY
-agent would (default **127.0.0.1:22372**). Expect red **TX INHIBITED**; WSJT-X station
+Enable TX Inhibit, RTS/DTR on a real serial port, read the bound port from the
+status-bar tooltip (or InhibitStatus type 17), then send the same UDP a KEY
+agent would to that **host:port**. Expect red **TX INHIBITED**; WSJT-X station
 does not **assert PTT** while hold is active.
 
 ### KEY agent (`inhibit-agent` / `inhibit-agent-gui`)
 
 Standalone KEY agent so TX Inhibit works **without WIMS**. USB-serial CTS
-in, dest `host:port` out. Design: [INHIBIT_AGENT.md](INHIBIT_AGENT.md).
+in, dest `host:port` out (port from type 17 / tooltip). Design:
+[INHIBIT_AGENT.md](INHIBIT_AGENT.md).
+
+| Binary | Tree | Notes |
+|--------|------|--------|
+| **`inhibit-agent`** | this repo | Standalone CLI. CTS KEY `--port` + dest `--addr host:port`. |
+| **`inhibit-agent-gui`** | this repo | CTS KEY; dest `host:port` in the window. |
+| **`wims-key-agent`** | WIMS | Destinations from WIMS discovery (type 17). Not shipped here. |
 
 ```text
-inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:22372
-inhibit-agent COM7 192.168.1.40:22372
+inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:51432
+inhibit-agent COM7 192.168.1.40:51432
 inhibit-agent-gui
 ```
 

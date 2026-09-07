@@ -1,7 +1,8 @@
 // inhibit-agent — CLI (scripting). Requires serial port + dest addr.
 //
-//   inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:22372
-//   inhibit-agent COM7 192.168.1.40:22372
+//   inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:51432
+//   inhibit-agent COM7 192.168.1.40:51432
+// Dest port comes from WSJT-X InhibitStatus (type 17) / status-bar tooltip.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -133,8 +134,9 @@ int main (int argc, char * argv[])
   if (port.isEmpty () || addr.isEmpty ())
     {
       err << "inhibit-agent: CLI requires a USB-serial port and dest addr.\n"
-          << "  inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:22372\n"
-          << "  inhibit-agent COM7 192.168.1.40:22372\n"
+          << "  Dest host:port must match InhibitStatus (type 17) / tooltip.\n"
+          << "  inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:51432\n"
+          << "  inhibit-agent COM7 192.168.1.40:51432\n"
           << "  inhibit-agent --list-ports\n"
           << "GUI (no args): inhibit-agent-gui\n";
       return 2;

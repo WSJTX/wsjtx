@@ -1,5 +1,5 @@
 // inhibit-agent-gui — CTS KEY in, dest host:port out.
-// Gate address is editable (default 127.0.0.1:22372). Serial KEY is
+// Gate address is editable (host:port from InhibitStatus type 17). Serial KEY is
 // auto-picked (Keyline / only USB-serial) unless --port is given.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -53,7 +53,7 @@ int main (int argc, char * argv[])
   parser.setApplicationDescription (
       QStringLiteral (
           "SSB/CW KEY (USB-serial CTS) -> TX Inhibit hold.\n"
-          "Set dest host:port in the window (default 127.0.0.1:22372)."));
+          "Set dest host:port from InhibitStatus (type 17) / status-bar tooltip."));
   parser.addHelpOption ();
   parser.addVersionOption ();
   QCommandLineOption portOpt {
@@ -107,9 +107,13 @@ int main (int argc, char * argv[])
   state->setMinimumHeight (88);
   state->setStyleSheet (state_stylesheet (AgentState::Open));
 
-  auto * dest_edit = new QLineEdit (
-      cfg.dest_host + QLatin1Char (':') + QString::number (cfg.dest_port));
-  dest_edit->setPlaceholderText (QStringLiteral ("127.0.0.1:22372"));
+  auto * dest_edit = new QLineEdit;
+  if (cfg.dest_port != 0)
+    {
+      dest_edit->setText (cfg.dest_host + QLatin1Char (':')
+                          + QString::number (cfg.dest_port));
+    }
+  dest_edit->setPlaceholderText (QStringLiteral ("127.0.0.1:<port from type 17>"));
   dest_edit->setClearButtonEnabled (true);
   auto * dest_apply = new QPushButton (QStringLiteral ("Apply"));
   dest_apply->setToolTip (QStringLiteral ("Send holds to this WSJT-X gate"));

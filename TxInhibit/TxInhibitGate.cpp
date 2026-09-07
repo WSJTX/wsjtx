@@ -12,6 +12,11 @@ TxInhibitGate::TxInhibitGate (QObject * parent)
   uptime_.start ();
 }
 
+void TxInhibitGate::set_instance_id (QString const& id)
+{
+  logic_.set_instance_id (id);
+}
+
 TxInhibitGate::~TxInhibitGate ()
 {
   // Never emit physicalPtt from the destructor — Hamlib may already be closed.
@@ -55,22 +60,17 @@ bool TxInhibitGate::ensure_udp ()
       return false;
     }
   udp_ = new QUdpSocket (this);
-  // Prefer well-known port 22372 so KEY agents can use a fixed default.
-  // ShareAddress|ReuseAddressHint lets multiple local WSJT-X stations share 22372;
-  // which process receives a given datagram is OS-dependent — one WSJT-X station per
-  // host (or exclusive bind) is preferred for multi-op.
+  // Bind an ephemeral port (OS-assigned). Controllers learn the port from
+  // InhibitStatus (type 17) on the UDP Server stream. Each instance on a
+  // host gets its own port.
   QHostAddress const any4 {QHostAddress::AnyIPv4};
-  if (!udp_->bind (any4, TxInhibit::default_gate_port,
-                   QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint))
+  if (!udp_->bind (any4, quint16 (0)))
     {
-      if (!udp_->bind (any4, quint16 (0)))
-        {
-          QString const err = udp_->errorString ();
-          udp_->deleteLater ();
-          udp_ = nullptr;
-          Q_EMIT lineError (QStringLiteral ("TX Inhibit: UDP bind failed: %1").arg (err));
-          return false;
-        }
+      QString const err = udp_->errorString ();
+      udp_->deleteLater ();
+      udp_ = nullptr;
+      Q_EMIT lineError (QStringLiteral ("TX Inhibit: UDP bind failed: %1").arg (err));
+      return false;
     }
   bound_port_ = udp_->localPort ();
   QObject::connect (udp_, &QUdpSocket::readyRead, this, &TxInhibitGate::on_udp_ready);

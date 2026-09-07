@@ -46,17 +46,18 @@ Give **SSB/CW KEY priority over WSJT-X transmit** on a dual-radio station:
 | Form | Binary | Who | Required inputs |
 |------|--------|-----|-----------------|
 | **CLI** | `inhibit-agent` | Scripts, SSH, startup files | USB-serial **CTS** port and dest `host:port` |
-| **GUI** | `inhibit-agent-gui` | Operators | Dest **host:port** in the window (default `127.0.0.1:22372`). CTS port auto-picked or `--port`. |
+| **GUI** | `inhibit-agent-gui` | Operators | Dest **host:port** in the window (port from InhibitStatus type 17 / tooltip). CTS port auto-picked or `--port`. |
 
 ---
 
 ## 3. CLI (scripting)
 
 ```text
-inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:22372
-inhibit-agent --port COM7 --addr 192.168.1.40:22372
-inhibit-agent COM7 192.168.1.40:22372
-inhibit-agent --port COM7 --addr 127.0.0.1:22372 --invert
+inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:51432
+inhibit-agent --port COM7 --addr 192.168.1.40:51432
+inhibit-agent COM7 192.168.1.40:51432
+inhibit-agent --port COM7 --addr 127.0.0.1:51432 --invert
+# Dest port = InhibitStatus (type 17) / WSJT-X status-bar tooltip (ephemeral).
 inhibit-agent --list-ports
 ```
 
@@ -82,7 +83,7 @@ Double-click `inhibit-agent-gui` (Windows) or run it from the install `bin/`
 
 1. Prefers a serial device whose USB strings look like **Keyline** / **WA1HCO**.
 2. Else uses the only non-builtin USB-serial port.
-3. **Gate** field is dest `host:port`, default **`127.0.0.1:22372`**. Apply to change.
+3. **Gate** field is dest `host:port` from InhibitStatus (type 17) / tooltip. Apply to change.
 4. Shows **OPEN** / **INHIBITING** / **HANG** / **SENSE FAULT** in a large badge.
 
 Usual same-PC seat: leave Gate at localhost; only the CTS port is auto-picked.
@@ -106,7 +107,7 @@ Hang exists only so WSJT-X PTT does not follow CW dits.
 |-------|---------|
 | Controller ID | `inhibit-agent` (override with `--controller-id`) |
 | Station | same as Controller ID (override with `--station`) |
-| Id (target) | empty (ignored on dedicated port 22372) |
+| Id (target) | empty = any instance at this port; non-empty must match instance Id |
 
 Controller ID is the lease key: another agent’s release cannot clear this agent’s
 hold. Station is badge text only. See [TX_INHIBIT.md](TX_INHIBIT.md) §4.

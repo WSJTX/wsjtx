@@ -10,7 +10,7 @@ Grave/backtick ` is KEY *level* (not Space). Windows: VK_OEM_3; Linux: KEY_GRAVE
   python3 tools/send_inhibit_hold.py --ttl-ms 3000 --station TEST
   python3 tools/send_inhibit_hold.py --ttl-ms 0
 
-Default UDP port is 22372.
+UDP port must match the station InhibitStatus / status-bar tooltip (ephemeral).
 """
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ import struct
 import sys
 import time
 
-DEFAULT_PORT = 22372
 DEFAULT_TTL_MS = 600  # hold_timeout_ms (safety), not hang
 KEEPALIVE_S = 0.2
 # Hang = 1.5 × word gap = 10.5 × dit (docs/TX_INHIBIT.md §3.4); WPM ~10..40
@@ -280,7 +279,12 @@ def main() -> None:
         description="Send TX Inhibit hold/release UDP datagrams to wsjtx-inhibit"
     )
     p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--port", type=int, default=DEFAULT_PORT)
+    p.add_argument(
+        "--port",
+        type=int,
+        required=True,
+        help="Inhibit UDP port from InhibitStatus / tooltip",
+    )
     p.add_argument(
         "--ttl-ms",
         type=int,
@@ -300,7 +304,7 @@ def main() -> None:
     p.add_argument(
         "--target-id",
         default="",
-        help="NetworkMessage Id (ignored by gate on 22372; default empty)",
+        help="NetworkMessage Id (empty=any; non-empty must match instance Id)",
     )
     p.add_argument("--seq", type=int, default=1)
     p.add_argument(

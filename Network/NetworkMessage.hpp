@@ -549,11 +549,11 @@
  *      for a hold transition. Travels on the configured UDP Server path
  *      (unicast or multicast).
  *
- *      Inhibit port: UDP listen port for KEY-agent holds (usually 22372;
- *      may be ephemeral). Inhibited: any per-controller lease active.
- *      Source station: badge text (may list multiple holders). Four
- *      quint32 counters: hold packets received, explicit release hold,
- *      hold timeout expiries (incl. after a deadman), invalid datagrams.
+ *      Inhibit port: OS-assigned ephemeral UDP listen port for KEY-agent
+ *      holds. Inhibited: any per-controller lease active. Source station:
+ *      badge text (may list multiple holders). Four quint32 counters:
+ *      hold packets received, explicit release hold, hold timeout
+ *      expiries (incl. after a deadman), invalid datagrams.
  *
  * TxInhibit      In       18
  *                         Id (target unique key) utf8
@@ -565,9 +565,10 @@
  *      refreshes that controller's lease; zero TTL releases only that
  *      controller's lease. Hold is the logical OR of live leases.
  *      Controller ID must be non-empty. Station is human badge text.
- *      On the dedicated inhibit port (default 22372) the target Id is
- *      parsed but not used for matching — addressing is by unicast
- *      host:port. See docs/TX_INHIBIT.md.
+ *      Empty Id matches any instance at this UDP address/port; a
+ *      non-empty Id must equal this instance's NetworkMessage Id or
+ *      the datagram is ignored. Controllers learn the listen port from
+ *      InhibitStatus (type 17). See docs/TX_INHIBIT.md.
  *
  *      Unknown types are ignored; schema number unchanged.
  */

@@ -58,6 +58,41 @@ private slots:
     QCOMPARE (g.release_rx (), 1u);
   }
 
+  void targetIdEmptyMatchesAny ()
+  {
+    TxInhibit::GateLogic g;
+    g.set_instance_id (QStringLiteral ("WSJT-X - 144"));
+    qint64 t = 2800000;
+    // empty Id in hold() helper
+    QVERIFY (g.on_datagram (hold ("A", 500, "SSB"), t));
+    QVERIFY (g.line_inhibited (t));
+  }
+
+  void targetIdMismatchIgnored ()
+  {
+    TxInhibit::GateLogic g;
+    g.set_instance_id (QStringLiteral ("WSJT-X - 144"));
+    qint64 t = 2900000;
+    auto pkt = TxInhibit::build_datagram (QStringLiteral ("A"), 500
+                                          , QStringLiteral ("SSB")
+                                          , QStringLiteral ("WSJT-X - 50"));
+    QVERIFY (!g.on_datagram (pkt, t));
+    QVERIFY (!g.line_inhibited (t));
+    QCOMPARE (g.invalid (), 1u);
+  }
+
+  void targetIdMatchAccepted ()
+  {
+    TxInhibit::GateLogic g;
+    g.set_instance_id (QStringLiteral ("WSJT-X - 144"));
+    qint64 t = 3000000;
+    auto pkt = TxInhibit::build_datagram (QStringLiteral ("A"), 500
+                                          , QStringLiteral ("SSB")
+                                          , QStringLiteral ("WSJT-X - 144"));
+    QVERIFY (g.on_datagram (pkt, t));
+    QVERIFY (g.line_inhibited (t));
+  }
+
   void multiControllerOr ()
   {
     TxInhibit::GateLogic g;

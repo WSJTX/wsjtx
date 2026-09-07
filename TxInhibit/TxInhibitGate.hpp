@@ -38,6 +38,10 @@ public:
   explicit TxInhibitGate (QObject * parent = nullptr);
   ~TxInhibitGate () override;
 
+  // NetworkMessage Id for this station (usually QApplication::applicationName()).
+  // Type-18 datagrams with a non-empty target Id must match; empty Id = any.
+  void set_instance_id (QString const& id);
+
 public slots:
   // Bind UDP + start hold-timeout poll timer (once on transceiver thread).
   void start_listening ();
@@ -61,7 +65,7 @@ signals:
                        , quint32 hold_rx, quint32 release_rx
                        , quint32 expiries, quint32 invalid);
 
-  // Bound UDP port (22372 or ephemeral).
+  // Bound UDP inhibit listen port (always ephemeral / OS-assigned).
   void portBound (quint16 port);
 
   // Non-fatal operator-visible problems (e.g. total UDP bind failure).
@@ -78,7 +82,7 @@ private slots:
   void tick ();
 
 private:
-  // Returns true if UDP is listening (preferred or ephemeral port).
+  // Returns true if UDP is listening (ephemeral OS-assigned port).
   bool ensure_udp ();
   void apply_line ();
   // Emits physicalPtt with exceptions contained. The slot on the other end

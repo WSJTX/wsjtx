@@ -5,6 +5,7 @@
 #include <cmath>
 #include <tuple>
 #include <QByteArray>
+#include <QCoreApplication>
 #include <QString>
 #include <QStandardPaths>
 #include <QFile>
@@ -928,8 +929,10 @@ void HamlibTransceiver::start_tx_inhibit_gate ()
              CAT_TRACE (msg);
              Q_EMIT failure (msg);
            });
+  // Same Id MessageClient puts on Heartbeat / InhibitStatus (type 17).
+  inhibit_gate_->set_instance_id (QCoreApplication::applicationName ());
   inhibit_gate_->start_listening ();
-  CAT_TRACE ("TX Inhibit gate listening (pin filter on do_ptt)");
+  CAT_TRACE ("TX Inhibit gate listening (ephemeral port; pin filter on do_ptt)");
 }
 
 void HamlibTransceiver::stop_tx_inhibit_gate ()

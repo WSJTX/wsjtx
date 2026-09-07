@@ -31,7 +31,8 @@ public:
   {
     QString serial_port;
     QString dest_host {QStringLiteral ("127.0.0.1")};
-    quint16 dest_port {22372};
+    // 0 = unset; must be set from InhibitStatus / operator.
+    quint16 dest_port {0};
     bool invert {false};
     int hold_timeout_ms {600};
     int keepalive_ms {200};

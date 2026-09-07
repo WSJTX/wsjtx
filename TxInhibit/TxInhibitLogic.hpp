@@ -30,9 +30,6 @@
 namespace TxInhibit {
 
 // Project builds with --std=gnu++11 (-Werror); keep this header C++11-clean.
-// Well-known WSJT-X station listen / agent send port (IPv4). Ephemeral fallback
-// is handled by TxInhibitGate if bind fails.
-static constexpr quint16 default_gate_port = 22372;
 // Non-zero TTL ms must land in this range (0 is reserved for release hold).
 static constexpr int hold_timeout_ms_min = 100;
 static constexpr int hold_timeout_ms_max = 30000;
@@ -44,7 +41,7 @@ static constexpr int max_datagram_bytes = 512;
 // valid == false means "ignore this packet; do not change hold state."
 struct Datagram
 {
-  QString target_id;      // NetworkMessage Id; ignored for matching on 22372
+  QString target_id;      // NetworkMessage Id; empty = any instance at this port
   QString controller_id;  // lease key; required non-empty when valid
   // Wire TTL ms; meaning hold_timeout_ms (>0) or 0 = release this controller.
   int ttl_ms {0};
@@ -52,7 +49,7 @@ struct Datagram
   bool valid {false};
 };
 
-// Build one type-18 datagram (agents / tests). target_id may be empty on 22372.
+// Build one type-18 datagram (agents / tests). Empty target_id = any instance.
 inline QByteArray build_datagram (QString const& controller_id
                                   , quint32 ttl_ms
                                   , QString const& station = QString {}
@@ -122,16 +119,27 @@ inline Datagram parse_datagram (QByteArray const& data)
 class GateLogic
 {
 public:
+  // NetworkMessage Id of this WSJT-X instance. Non-empty target Id on a
+  // type-18 datagram must match; empty target Id is accepted (any instance
+  // at this UDP address/port).
+  void set_instance_id (QString const& id) { instance_id_ = id; }
+  QString instance_id () const { return instance_id_; }
+
   // Apply one hold/release packet to the lease map.
   //
   // Return value:
   //   true  = the hold *level* flipped (free↔held)
-  //   false = level unchanged — keepalives, invalid packets, redundant
-  //           releases, or another controller still holding.
+  //   false = level unchanged — keepalives, invalid packets, Id mismatch,
+  //           redundant releases, or another controller still holding.
   bool on_datagram (QByteArray const& data, qint64 now_ms)
   {
     auto msg = parse_datagram (data);
     if (!msg.valid)
+      {
+        ++invalid_;
+        return false;
+      }
+    if (!msg.target_id.isEmpty () && msg.target_id != instance_id_)
       {
         ++invalid_;
         return false;
@@ -235,6 +243,7 @@ private:
       }
   }
 
+  QString instance_id_;
   QMap<QString, Lease> leases_;
   quint32 hold_rx_ {0};
   quint32 release_rx_ {0};
