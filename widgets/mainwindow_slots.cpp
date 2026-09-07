@@ -137,6 +137,10 @@ void MainWindow::on_autoButton_clicked (bool checked)
       m_muted = false;
       m_autoRespondScores.reset();
   }
+  if (m_mode=="WSPR" || m_mode=="FST4W")
+    {
+      m_beaconTxController.setAutoEnabled (checked);
+    }
   bool const enableTxChanged = m_autoRespondPeriodState.setEnableTx(checked);
   if (checked && enableTxChanged && m_autoRespondPeriodState.armCurrentReceivePeriod(
         pendingCqAutoRespondIntent(), autoRespondPolicy())) {
@@ -574,6 +578,11 @@ void MainWindow::on_tuneButton_clicked (bool checked)
   }
   m_config.transceiver_tune (false);  // reset rig tuning
   if (blocked) return;
+  if (checked && (m_mode=="WSPR" || m_mode=="FST4W")
+      && m_beaconTxController.tuneKind () == BeaconTx::TuneKind::None)
+    {
+      processBeaconActions (m_beaconTxController.tuneStarted (BeaconTx::TuneKind::Manual));
+    }
   if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W")) ui->autoButton->click();   // stop any other transmission
   stopWRTimer.stop();           // stop any Wait & Reply timeout
   stopWCTimer.stop();           // stop any Wait & Call timeout
@@ -642,8 +651,21 @@ void MainWindow::reset_transmit_controls_after_stop ()
 void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
 {
   noteTxStopReason (TxEvidence::TxStopReason::UserHalt);
+  if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::Decided
+      || m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::StartRequested)
+    {
+      m_tx_when_ready = false;
+      ptt1Timer.stop ();
+      processBeaconActions (m_beaconTxController.transmitWindowEnded ());
+      if (g_iptt == 1 || m_transmitting) stopTx ();
+      else g_iptt = 0;
+    }
+  if (m_beaconTxController.active ())
+    {
+      m_beaconTxController.setAutoEnabled (false);
+    }
   if (m_tune) stop_tuning ();
-  if (m_auto and !m_tuneup) auto_tx_mode (false);
+  if (m_auto) auto_tx_mode (false);
   reset_transmit_controls_after_stop ();
 }
 
@@ -706,6 +728,24 @@ void MainWindow::on_cbFast9_clicked(bool b)
 
 void MainWindow::on_pbTxNext_clicked(bool b)
 {
+  if (m_mode=="WSPR" || m_mode=="FST4W")
+    {
+      auto const pendingStart = m_beaconTxController.txLifecycle ()
+        == BeaconTx::TxLifecycle::StartRequested;
+      auto const planId = m_beaconTxController.txPlanId ();
+      processBeaconActions (m_beaconTxController.setTxNext (b));
+      if (!b && pendingStart && !m_beaconTxController.transmitWindow ())
+        {
+          m_tx_when_ready = false;
+          ptt1Timer.stop ();
+          if (m_transmitting) stopTx ();
+          else
+            {
+              g_iptt = 0;
+              processBeaconActions (m_beaconTxController.txStopped (planId));
+            }
+        }
+    }
   if (b && !ui->autoButton->isChecked ())
     {
       ui->autoButton->click (); // make sure Tx is possible

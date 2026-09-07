@@ -1,4 +1,5 @@
 #include "Modulator.hpp"
+#include <cstdint>
 #include <limits>
 #include <qmath.h>
 #include <QDateTime>
@@ -171,13 +172,19 @@ void Modulator::start (TxEvidence::TxRequest request, SoundOutput * stream)
       // start at the nominal time "delay_ms" into the Tx sequence.
       if (request.synchronize)
         {
-          if(delay_ms > mstr) m_silentFrames = (delay_ms - mstr) * m_frameRate / 1000;
+          if(delay_ms > mstr) {
+            m_silentFrames =
+              std::uint64_t {delay_ms - mstr} * m_frameRate / 1000;
+          }
         }
  
       // adjust for late starts
       if(!m_silentFrames && mstr >= delay_ms)
         {
-          m_ic = (mstr - delay_ms) * m_frameRate / 1000;
+          auto const initialFrame =
+            std::uint64_t {mstr - delay_ms} * m_frameRate / 1000;
+          Q_ASSERT (initialFrame <= std::numeric_limits<unsigned>::max ());
+          m_ic = static_cast<unsigned> (initialFrame);
         }
     }
   if(request.mode=="Echo" or request.mode=="JTTY") m_ic=0;

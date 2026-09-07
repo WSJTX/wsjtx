@@ -538,7 +538,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_logBook {&m_config},
   m_cloudlog {&m_config, &m_network_manager},
   m_WSPR_band_hopping {m_settings, &m_config, this},
-  m_WSPR_tx_next {false},
   m_rigErrorMessageBox {MessageBox::Critical, tr ("Rig Control Error")
       , MessageBox::Cancel | MessageBox::Ok | MessageBox::Retry},
   m_wideGraph (new WideGraph(m_settings)),
@@ -588,7 +587,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_sec0 {-1},
   m_RxLog {1},      //Write Date and Time to RxLog
   m_nutc0 {999999},
-  m_ntr {0},
   m_tx {0},
   m_mslastMon {0},
   m_delay {0},
@@ -635,9 +633,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_bShMsgs {false},
   m_bSWL {false},
   m_grid6 {false},
-  m_tuneup {false},
   m_bTxTime {false},
-  m_rxDone {true},
   m_bSimplex {false},
   m_bEchoTxOK {false},
   m_bTransmittedEcho {false},
@@ -2412,7 +2408,10 @@ void MainWindow::dataSink(qint64 frames)
           p1Timer.start(1000);
         }
     }
-    m_rxDone=true;
+    if (!m_diskData && m_beaconTxController.active ())
+      {
+        processBeaconActions (m_beaconTxController.receiveCompleted ());
+      }
   }
 }
 
@@ -6781,21 +6780,7 @@ void MainWindow::guiUpdate()
   }
 
   if(m_mode=="WSPR" or m_mode=="FST4W") {
-    if(nseq==0 and m_ntr==0) {                   //Decide whether to Tx or Rx
-      m_tuneup=false;                              //This is not an ATU tuneup
-      bool btx = m_auto && m_WSPR_tx_next;         // To Tx, we need m_auto and
-                                                   // scheduled transmit
-      m_WSPR_tx_next = false;
-      if(btx) {
-        m_ntr=-1;                                  //This says we will have transmitted
-        ui->pbTxNext->setChecked (false);
-        m_bTxTime=true;                            //Start a WSPR or FST4W Tx sequence
-      } else {
-        // This will be a WSPR or FST4W Rx sequence.
-        m_ntr=1;                                   //This says we will have received
-        m_bTxTime=false;                           //Start a WSPR or FST4W Rx sequence
-      }
-    }
+    processBeaconActions (m_beaconTxController.observeUtc (nowUtc.toMSecsSinceEpoch ()));
 
   } else {
     // For all modes other than WSPR and FST4W
@@ -6888,6 +6873,10 @@ void MainWindow::guiUpdate()
       m_autoRespondPeriodState.close();
       icw[0]=m_ncw;
       g_iptt = 1;
+      if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::Decided)
+        {
+          processBeaconActions (m_beaconTxController.txStartRequested ());
+        }
       reapplyCurrentRigFrequencyCorrection ();
       if(m_mode=="FT8") {
         if (SpecOp::FOX == m_specOp) {
@@ -6939,21 +6928,12 @@ void MainWindow::guiUpdate()
     if(!m_bTxTime and !m_tune and (m_mode != "JTTY")) m_btxok=false;       //Time to stop transmitting
   }
 
-  if((m_mode=="WSPR" or m_mode=="FST4W") and
-     ((m_ntr==1 and m_rxDone) or (m_ntr==-1 and nseq>tx2))) {
-    if(m_monitoring) {
-      m_rxDone=false;
-    }
-    if(m_transmitting) {
-      WSPR_history(m_freqNominal,-1);
-      m_bTxTime=false;                        //Time to stop a WSPR or FST4W transmission
+  if ((m_mode=="WSPR" or m_mode=="FST4W")
+      && m_beaconTxController.transmitWindow () && nseq > tx2)
+    {
+      processBeaconActions (m_beaconTxController.transmitWindowEnded ());
       m_btxok=false;
     }
-    else if (m_ntr != -1) {
-      WSPR_scheduling ();
-      m_ntr=0;                                //This WSPR or FST4W Rx sequence is complete
-    }
-  }
 
 
   // Calculate Tx tones when needed
@@ -7149,7 +7129,13 @@ void MainWindow::guiUpdate()
       m_btxok = false;
       m_bTxTime = false;
       m_restart = false;
-      if ((m_mode=="WSPR" or m_mode=="FST4W") and m_ntr==-1) m_ntr=0;
+      if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::StartRequested)
+        {
+          auto const failedPlanId = m_beaconTxController.txPlanId ();
+          processBeaconActions (m_beaconTxController.txStartResult (
+            failedPlanId, false));
+          processBeaconActions (m_beaconTxController.txStopped (failedPlanId));
+        }
       show_generated_message_error ();
       if (m_auto) auto_tx_mode (false);
       if (m_transmitting) {
@@ -7719,7 +7705,14 @@ bool MainWindow::startTx2()
       ui->cbAutoSeq->setChecked(true);
       ui->respondComboBox->setCurrentIndex(1);
     }
+    auto const beaconPlanId = m_beaconTxController.txPlanId ();
+    auto const beaconMessage = !m_tune
+      && m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::StartRequested;
     transmit (snr);
+    if (beaconMessage)
+      {
+        processBeaconActions (m_beaconTxController.txStartResult (beaconPlanId, true));
+      }
     ui->signal_meter_widget->setValue(0,0);
     if(m_mode=="Echo" and !m_tune) m_bTransmittedEcho=true;
 
@@ -7735,6 +7728,12 @@ bool MainWindow::startTx2()
     }
     return true;
   }
+  if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::StartRequested)
+    {
+      processBeaconActions (m_beaconTxController.txStartResult (
+        m_beaconTxController.txPlanId (), false));
+      if (m_transmitting) stopTx ();
+    }
   return false;
 }
 
@@ -7788,6 +7787,13 @@ void MainWindow::recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapsh
                                              snapshot.target_known,
                                              snapshot.diagnostic);
     }
+  if ((snapshot.mode == "WSPR" || snapshot.mode == "FST4W")
+      && snapshot.session_id == m_txEvidenceSourceSession
+      && snapshot.generation == m_txEvidenceGeneration)
+    {
+      processBeaconActions (m_beaconTxController.messageStarted (
+        m_beaconTxController.txPlanId ()));
+    }
   LOG_INFO (QString ("TX playout evidence source commit session=%1 generation=%2\n%3")
             .arg (snapshot.session_id.value ()).arg (snapshot.generation.value ())
             .arg (m_txPlaybackDiagnostics.diagnosticDump ()));
@@ -7814,6 +7820,10 @@ void MainWindow::noteTxStopReason (TxEvidence::TxStopReason reason)
 void MainWindow::noteTxModeChange (QString const& mode)
 {
   if (mode != m_mode) cancelPendingFt8Decode ("mode changed");
+  if (mode != m_mode && m_beaconTxController.active ())
+    {
+      processBeaconActions (m_beaconTxController.exitMode ());
+    }
   if (mode != m_mode && (m_transmitting || g_iptt == 1 || m_jttyTxActive))
     {
       noteTxStopReason (TxEvidence::TxStopReason::ModeChange);
@@ -7898,6 +7908,10 @@ void MainWindow::stopTx()
 
 void MainWindow::stopTx2()
 {
+  // Preserve the originating plan IDs for delayed PTT-off completion; the live
+  // mode may no longer be the mode that started Tx or Tune.
+  auto const beaconTxPlanId = m_beaconTxController.txPlanId ();
+  auto const beaconTunePlanId = m_beaconTxController.tunePlanId ();
   bool const tciAudio = (m_mode == "JTTY") ? m_jttyTxUsesTciAudio : m_tci_audio;
   if (tciAudio) {
       Q_EMIT m_config.transceiver_ptt (false);      //Lower PTT
@@ -7912,11 +7926,11 @@ void MainWindow::stopTx2()
     on_stopTxButton_clicked ();
     m_nTx73 = 0;
   }
-  if(((m_mode=="WSPR" or m_mode=="FST4W") and m_ntr==-1) and !m_tuneup) {
-    m_wideGraph->setWSPRtransmitted();
-    WSPR_scheduling ();
-    m_ntr=0;
-  }
+  processBeaconActions (m_beaconTxController.txStopped (beaconTxPlanId));
+  if (m_beaconTxController.tuneKind () != BeaconTx::TuneKind::None)
+    {
+      processBeaconActions (m_beaconTxController.tuneCompleted (beaconTunePlanId));
+    }
   keep_last_tx_label = true;
   last_tx_label.setText(tr ("Last Tx: %1").arg (m_currentMessage.trimmed()));
 }
@@ -9092,6 +9106,7 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
 void MainWindow::on_RoundRobin_currentTextChanged(QString text)
 {
   ui->sbTxPercent->setEnabled (text == tr ("Random"));
+  m_beaconTxController.setRoundRobinPolicy (beaconRoundRobinPolicy ());
 }
 
 
@@ -10802,6 +10817,7 @@ void MainWindow::on_actionWSPR_triggered()
   //                       012345678901234567890123456789012345678
   displayWidgets(nWidgets("000000000000000001010000000000000000000"));
   fast_config(false);
+  enterBeaconMode ();
   statusChanged();
 }
 
@@ -11561,7 +11577,15 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 void MainWindow::end_tuning ()
 {
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
-  on_stopTxButton_clicked ();
+  if (m_mode == "WSPR" || m_mode == "FST4W")
+    {
+      if (m_tune) stop_tuning ();
+      reset_transmit_controls_after_stop ();
+    }
+  else
+    {
+      on_stopTxButton_clicked ();
+    }
   // we're turning off so remember our Tune pwr setting and reset to Tx pwr
   if (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory()) {
     auto const& curBand = ui->bandComboBox->currentText();
@@ -11857,6 +11881,19 @@ void MainWindow::handle_transceiver_closing (bool failed)
 void MainWindow::handle_transceiver_failure (QString const& reason)
 {
   noteTxStopReason (TxEvidence::TxStopReason::Error);
+  m_beaconTxController.setAutoEnabled (false);
+  if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::Decided
+      || m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::StartRequested)
+    {
+      m_tx_when_ready = false;
+      ptt1Timer.stop ();
+      processBeaconActions (m_beaconTxController.transmitWindowEnded ());
+    }
+  if (m_beaconTxController.tuneKind () != BeaconTx::TuneKind::None)
+    {
+      processBeaconActions (m_beaconTxController.tuneCompleted (
+        m_beaconTxController.tunePlanId ()));
+    }
   update_dynamic_property (ui->readFreq, "state", "error");
   ui->readFreq->setEnabled (true);
   // tune carrier isn't gated by m_btxok, so stop it explicitly; messages self-stop via guiUpdate
@@ -12415,6 +12452,18 @@ void MainWindow::on_sbTR_valueChanged(int value)
 void MainWindow::on_sbTR_FST4W_valueChanged(int value)
 {
   on_sbTR_valueChanged(value);
+  if (m_mode == "FST4W")
+    {
+      if (m_beaconTxController.active ())
+        {
+          processBeaconActions (m_beaconTxController.setPeriod (
+            qRound64 (1000.0 * m_TRperiod)));
+        }
+      else
+        {
+          enterBeaconMode ();
+        }
+    }
 }
 
 QChar MainWindow::current_submode () const
@@ -12926,99 +12975,133 @@ void MainWindow::on_sbFST4W_FTol_valueChanged(int n)
 }
 
 
-void MainWindow::WSPR_scheduling ()
+BeaconTx::RoundRobinPolicy MainWindow::beaconRoundRobinPolicy () const
 {
-  if (ui->pbTxNext->isEnabled () && ui->pbTxNext->isChecked ())
-    {
-      // Tx Next button overrides all scheduling
-      m_WSPR_tx_next = true;
-      return;
-    }
-  QString t=ui->RoundRobin->currentText();
-  if(m_mode=="FST4W" and t != tr ("Random")) {
-    bool ok;
-    int i=t.left (1).toInt (&ok) - 1;
-    if (!ok) return;
-    int n=t.right (1).toInt (&ok);
-    if (!ok || 0 == n) return;
+  if (m_mode != "FST4W") return BeaconTx::RoundRobinPolicy::random ();
 
-    qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
-    int nsec=ms/1000;
-    int ntr=m_TRperiod;
-    int j=((nsec+ntr-1) % (n*ntr))/ntr;
-    m_WSPR_tx_next = i == j;
-    return;
-  }
-  m_WSPR_tx_next = false;
-  if (!ui->sbTxPercent->isEnabled ())
+  auto const text = ui->RoundRobin->currentText ();
+  if (text == tr ("Random")) return BeaconTx::RoundRobinPolicy::random ();
+
+  auto const parts = text.split ('/');
+  if (parts.size () != 2) return BeaconTx::RoundRobinPolicy::random ();
+  bool selectedOk;
+  bool countOk;
+  auto const selected = parts[0].toInt (&selectedOk) - 1;
+  auto const count = parts[1].toInt (&countOk);
+  if (!selectedOk || !countOk || count <= 0 || selected < 0 || selected >= count)
     {
-      return;                   // don't schedule if %age disabled
+      return BeaconTx::RoundRobinPolicy::random ();
     }
-  if (m_config.is_transceiver_online () // need working rig control for hopping
-      && !m_config.is_dummy_rig ()
-      && ui->band_hopping_group_box->isChecked ()) {
-    auto hop_data = m_WSPR_band_hopping.next_hop (m_auto);
-    qDebug () << "hop data: period:" << hop_data.period_name_
-              << "frequencies index:" << hop_data.frequencies_index_
-              << "tune:" << hop_data.tune_required_
-              << "tx:" << hop_data.tx_next_;
-    m_WSPR_tx_next = hop_data.tx_next_;
-    if (hop_data.frequencies_index_ >= 0) { // new band
-      if (!nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic))
-        {
-          m_WSPR_tx_next = false;
-          band_hopping_label.setText (hop_data.period_name_);
-          return;
-        }
-      Frequency frequency;
-      if (!workingFrequencyAt (hop_data.frequencies_index_, frequency))
-        {
-          m_WSPR_tx_next = false;
-          return;
-        }
-      ui->bandComboBox->setCurrentIndex (hop_data.frequencies_index_);
-      if (!requestBandChange (frequency, FrequencyRequestOrigin::Automatic))
-        {
-          m_WSPR_tx_next = false;
-          return;
-        }
-      setXIT (ui->TxFreqSpinBox->value ());
-      m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
-      // Execute user's hardware controller
-      auto band = m_config.bands ()->find (m_freqNominal).remove ('m');
+  return BeaconTx::RoundRobinPolicy::fixed (selected, count);
+}
+
+void MainWindow::enterBeaconMode ()
+{
+  processBeaconActions (m_beaconTxController.enterMode (
+    qRound64 (1000.0 * m_TRperiod), beaconRoundRobinPolicy ()));
+  m_beaconTxController.setAutoEnabled (m_auto, false);
+  processBeaconActions (m_beaconTxController.setTxNext (
+    ui->pbTxNext->isEnabled () && ui->pbTxNext->isChecked ()));
+}
+
+BeaconTx::ScheduleProposal MainWindow::beaconScheduleProposal ()
+{
+  auto const bandHopping = m_config.is_transceiver_online ()
+    && !m_config.is_dummy_rig () && ui->band_hopping_group_box->isChecked ();
+  if (bandHopping)
+    {
+      BeaconTx::ScheduleProposal proposal;
+      auto const hop = m_WSPR_band_hopping.next_hop (m_auto);
+      proposal.disposition = hop.tx_next_
+        ? BeaconTx::Disposition::Transmit : BeaconTx::Disposition::Receive;
+      proposal.source = BeaconTx::PlanSource::BandHop;
+      proposal.hasHoppingProposal = true;
+      proposal.hopping.frequenciesIndex = hop.frequencies_index_;
+      proposal.hopping.tuneRequired = hop.tune_required_;
+      proposal.hopping.periodName = hop.period_name_.toStdString ();
+      return proposal;
+    }
+  BeaconTx::ScheduleProposal proposal;
+  proposal.disposition = m_WSPR_band_hopping.next_is_tx (m_mode=="FST4W")
+    ? BeaconTx::Disposition::Transmit : BeaconTx::Disposition::Receive;
+  proposal.source = BeaconTx::PlanSource::Percentage;
+  return proposal;
+}
+
+bool MainWindow::applyBeaconBandChange (BeaconTx::HoppingProposal const& proposal)
+{
+  band_hopping_label.setText (QString::fromStdString (proposal.periodName));
+  if (proposal.frequenciesIndex < 0) return true;
+  if (!nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic)) return false;
+
+  Frequency frequency;
+  if (!workingFrequencyAt (proposal.frequenciesIndex, frequency)) return false;
+  ui->bandComboBox->setCurrentIndex (proposal.frequenciesIndex);
+  if (!requestBandChange (frequency, FrequencyRequestOrigin::Automatic)) return false;
+
+  setXIT (ui->TxFreqSpinBox->value ());
+  m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
+  auto band = m_config.bands ()->find (m_freqNominal).remove ('m');
 #if defined(Q_OS_WIN)
-      // On  windows   we  use  CMD.EXE   to  find  and   execute  the
-      // user_hardware executable. This means  that the first matching
-      // file extension  on the PATHEXT environment  variable found on
-      // the PATH  environment variable  path list. This  give maximum
-      // flexibility  for  users  to   write  user_hardware  in  their
-      // language of choice,  and place the file anywhere  on the PATH
-      // environment  variable.  Equivalent  to  typing  user_hardware
-      // without any path or extension at the CMD.EXE prompt.
-      p3.start("CMD", QStringList {"/C", "user_hardware", band});
+  p3.start("CMD", QStringList {"/C", "user_hardware", band});
 #else
-      // On non-Windows systems we expect the user_hardware executable
-      // to be anywhere in the paths specified in the PATH environment
-      // variable  path list,  and  executable.  Equivalent to  typing
-      // user_hardware without any path at the shell prompt.
-      p3.start("/bin/sh", QStringList {"-c", "user_hardware \"$1\"", "sh", band});
+  p3.start("/bin/sh", QStringList {"-c", "user_hardware \"$1\"", "sh", band});
 #endif
+  return true;
+}
 
-      // Produce a short tuneup signal
-      m_tuneup = false;
-      if (hop_data.tune_required_) {
-        m_tuneup = true;
-        on_tuneButton_clicked (true);
-        tuneATU_Timer.start (2500);
-      }
+// Applies controller intents at the UI/rig boundary. Follow-up actions are
+// appended so each external result re-enters the controller before another
+// effect is applied.
+void MainWindow::processBeaconActions (BeaconTx::Controller::Actions actions)
+{
+  for (std::size_t index = 0; index < actions.size (); ++index)
+    {
+      auto const action = actions[index];
+      BeaconTx::Controller::Actions followup;
+      switch (action.kind)
+        {
+        case BeaconTx::ActionKind::SetTransmitWindow:
+          m_bTxTime = action.enabled;
+          break;
+        case BeaconTx::ActionKind::RequestScheduleProposal:
+          followup = m_beaconTxController.proposalDelivered (
+            action.planId, beaconScheduleProposal ());
+          break;
+        case BeaconTx::ActionKind::ApplyBandChange:
+          followup = m_beaconTxController.bandChangeOutcome (
+            action.planId, applyBeaconBandChange (action.hopping));
+          break;
+        case BeaconTx::ActionKind::StartAutomaticTune:
+          followup = m_beaconTxController.tuneStarted (
+            BeaconTx::TuneKind::Automatic, action.planId);
+          if (m_beaconTxController.tuneKind () == BeaconTx::TuneKind::Automatic
+              && m_beaconTxController.tunePlanId () == action.planId)
+            {
+              on_tuneButton_clicked (true);
+              tuneATU_Timer.start (2500);
+            }
+          break;
+        case BeaconTx::ActionKind::RestoreAuto:
+          {
+            QSignalBlocker const blocker {ui->autoButton};
+            ui->autoButton->setChecked (true);
+            m_auto = true;
+          }
+          break;
+        case BeaconTx::ActionKind::ClearTxNextUi:
+          {
+            QSignalBlocker const blocker {ui->pbTxNext};
+            ui->pbTxNext->setChecked (false);
+          }
+          break;
+        case BeaconTx::ActionKind::RecordBeaconTransmission:
+          WSPR_history (m_freqNominal, -1);
+          m_wideGraph->setWSPRtransmitted ();
+          break;
+        }
+      actions.insert (actions.end (), followup.begin (), followup.end ());
     }
-
-    // Display grayline status
-    band_hopping_label.setText (hop_data.period_name_);
-  }
-  else {
-    m_WSPR_tx_next = m_WSPR_band_hopping.next_is_tx(m_mode=="FST4W");
-  }
 }
 
 void MainWindow::astroUpdate ()

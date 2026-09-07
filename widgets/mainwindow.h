@@ -74,6 +74,7 @@
 #include "DecoderOutputFramer.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
+#include "BeaconTxController.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -861,7 +862,7 @@ private:
   LogBook m_logBook;            // must be after Configuration construction
   Cloudlog m_cloudlog;
   WSPRBandHopping m_WSPR_band_hopping;
-  bool m_WSPR_tx_next;
+  BeaconTx::Controller m_beaconTxController;
   MessageBox m_rigErrorMessageBox;
   QScopedPointer<SampleDownloader> m_sampleDownloader;
   QScopedPointer<EqualizationToolsDialog> m_equalizationToolsDialog;
@@ -960,7 +961,6 @@ private:
   qint32  m_sec0;
   qint32  m_RxLog;
   qint32  m_nutc0;
-  qint32  m_ntr;
   qint32  m_tx;
   quint64  m_mslastMon;
   int     m_addtx;
@@ -1099,9 +1099,7 @@ private:
   bool    m_bSWL;
   bool    m_uploadWSPRSpots;
   bool    m_grid6;
-  bool    m_tuneup;
   bool    m_bTxTime;
-  bool    m_rxDone;
   bool    m_bSimplex; // not using split even if it is available
   bool    m_bEchoTxOK;
   bool    m_bTransmittedEcho;
@@ -1482,7 +1480,11 @@ private:
   void enable_DXCC_entity (bool on);
   void switch_mode (Mode);
   bool hasMsk144BaseFrequency () const {return m_msk144basefreq > 0;}
-  void WSPR_scheduling ();
+  BeaconTx::RoundRobinPolicy beaconRoundRobinPolicy () const;
+  void enterBeaconMode ();
+  void processBeaconActions (BeaconTx::Controller::Actions actions);
+  BeaconTx::ScheduleProposal beaconScheduleProposal ();
+  bool applyBeaconBandChange (BeaconTx::HoppingProposal const& proposal);
   void freqCalStep();
   RigFrequencyChangePolicy::Activity rigFrequencyActivity () const;
   RigFrequencyChangePolicy::Decision rigFrequencyChangeDecision (

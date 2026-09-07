@@ -173,6 +173,7 @@ set (wsjtx_CXXSRCS
   widgets/activeStations.cpp
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
+  BeaconTxController.cpp
   AutoRespondPeriod.cpp
   AutoRespondSelectionLatch.cpp
   HighlightingRules.cpp
