@@ -1,7 +1,7 @@
 subroutine q65_set_list2(mycall,hiscall,hisgrid,callers,nhist2,codewords,ncw)
 
   use types
-  parameter (MAX_NCW=206)
+  parameter (MAX_NCW=401)     !1 + MAX_CALLERS(here, 40)*5 message kinds*2 flag values
   parameter (MAX_CALLERS=50)  !For multiple q3 decodes in NA VHF Contest mode
   character*12 mycall,hiscall
   character*6 hisgrid,c6
@@ -41,7 +41,6 @@ subroutine q65_set_list2(mycall,hiscall,hisgrid,callers,nhist2,codewords,ncw)
         g4=hisgrid(1:4)
      endif
      do k=1,5
-        i=i+1
         msg=trim(mycall)//' '//trim(c6)
         j0=len(trim(msg))+1
         if(k.eq.1) msg=msg(1:j0)//g4
@@ -49,19 +48,26 @@ subroutine q65_set_list2(mycall,hiscall,hisgrid,callers,nhist2,codewords,ncw)
         if(k.eq.3) msg(j0:j0+3)=' RRR'
         if(k.eq.4) msg(j0:j0+4)=' RR73'
         if(k.eq.5) msg(j0:j0+2)=' 73'
-        call genq65(msg,0,msgsent,itone,i3,n3,0)
-        i0=1
-        jj=0
-        do kk=1,85
-           if(kk.eq.isync(i0)) then
-              i0=i0+1
-              cycle
-           endif
-           jj=jj+1
-           codewords(jj,i)=itone(kk) - 1
+        ! Generate both flag values: a caller may or may not have set
+        ! bit78 (copied our last transmission), and both must be
+        ! present as exact candidates for the full-AP list match to
+        ! recognize either with full sensitivity.
+        do iflag=0,1
+           i=i+1
+           call genq65(msg,0,msgsent,itone,i3,n3,iflag)
+           i0=1
+           jj=0
+           do kk=1,85
+              if(kk.eq.isync(i0)) then
+                 i0=i0+1
+                 cycle
+              endif
+              jj=jj+1
+              codewords(jj,i)=itone(kk) - 1
+           enddo
+!          write(71,3001) i,j,k,iflag,codewords(1:13,i),trim(msg)
+!3001      format(4i3,2x,13i3,2x,a)
         enddo
-!        write(71,3001) i,j,k,codewords(1:13,i),trim(msg)
-!3001    format(3i3,2x,13i3,2x,a)
      enddo
   enddo
   ncw=i
