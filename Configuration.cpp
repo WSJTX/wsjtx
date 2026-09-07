@@ -1982,6 +1982,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   fill_port_combo_box (ui_->PTT_port_combo_box);
   ui_->PTT_port_combo_box->addItem ("CAT");
   ui_->PTT_port_combo_box->setItemData (ui_->PTT_port_combo_box->count () - 1, "Delegate to proxy CAT service", Qt::ToolTipRole);
+  // Typing a custom device path must update Enable TX Inhibit enablement.
+  connect (ui_->PTT_port_combo_box, &QComboBox::editTextChanged,
+           this, [this] (QString const&) { set_rig_invariants (); });
 
   //
   // setup hooks to keep audio channels aligned with devices
@@ -3036,8 +3039,24 @@ void Configuration::impl::set_rig_invariants ()
   auto enable_ptt_port = TransceiverFactory::PTT_method_CAT != ptt_method && TransceiverFactory::PTT_method_VOX != ptt_method;
   ui_->PTT_port_combo_box->setEnabled (enable_ptt_port);
   ui_->PTT_port_label->setEnabled (enable_ptt_port);
-  // TX Inhibit only applies to RTS/DTR pin keying.
-  ui_->tx_inhibit_check_box->setEnabled (enable_ptt_port && !is_tci_);
+  // TX Inhibit needs RTS/DTR and a real Port string (typed path or list item).
+  bool ptt_port_ok = enable_ptt_port && !ptt_port.trimmed ().isEmpty ();
+  if (ptt_port_ok)
+    {
+      int const idx = ui_->PTT_port_combo_box->findText (ptt_port);
+      if (idx >= 0
+          && combo_box_item_disabled
+             == ui_->PTT_port_combo_box->itemData (idx, Qt::UserRole - 1))
+        {
+          ptt_port_ok = false;
+        }
+    }
+  ui_->tx_inhibit_check_box->setEnabled (ptt_port_ok && !is_tci_);
+  if (!ui_->tx_inhibit_check_box->isEnabled ()
+      && ui_->tx_inhibit_check_box->isChecked ())
+    {
+      ui_->tx_inhibit_check_box->setChecked (false);
+    }
 
   if (CAT_indirect_serial_PTT)
     {

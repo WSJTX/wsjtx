@@ -200,6 +200,12 @@ QString InhibitAgent::list_serial_ports ()
 bool InhibitAgent::start ()
 {
   fault_.clear ();
+  if (cfg_.dest_port == 0 || cfg_.dest_host.isEmpty ())
+    {
+      enter_fault (QStringLiteral (
+          "gate host:port required (from InhibitStatus / status-bar tooltip)"));
+      return false;
+    }
   dest_addr_ = QHostAddress (cfg_.dest_host);
   if (dest_addr_.isNull ())
     {
@@ -472,6 +478,10 @@ void InhibitAgent::send_packet (int ttl_ms, bool is_keepalive,
                                char const * release_reason)
 {
   if (is_keepalive && !hold_active_)
+    {
+      return;
+    }
+  if (cfg_.dest_port == 0 || dest_addr_.isNull ())
     {
       return;
     }

@@ -183,8 +183,22 @@ int main (int argc, char * argv[])
   };
   hook_agent ();
 
+  auto show_need_gate = [&] () {
+    state->setText (QStringLiteral ("NEED GATE"));
+    state->setStyleSheet (
+        QStringLiteral ("QLabel{background:#666;color:#fff;padding:8px;}"));
+    refresh_info ();
+  };
+
   auto start_agent = [&] () {
     refresh_info ();
+    if (cfg.dest_port == 0 || cfg.dest_host.isEmpty ())
+      {
+        show_need_gate ();
+        append_log (QStringLiteral (
+            "set Gate host:port from InhibitStatus / tooltip, then Apply"));
+        return;
+      }
     if (cfg.serial_port.isEmpty ())
       {
         state->setText (QStringLiteral ("SENSE FAULT"));
@@ -213,9 +227,13 @@ int main (int argc, char * argv[])
     QString host;
     quint16 port = 0;
     if (!InhibitAgent::parse_dest_addr (dest_edit->text ().trimmed (),
-                                        &host, &port, &err))
+                                        &host, &port, &err)
+        || port == 0)
       {
-        append_log (err);
+        append_log (err.isEmpty ()
+                    ? QStringLiteral ("gate addr must be host:port with non-zero port")
+                    : err);
+        show_need_gate ();
         return;
       }
     cfg.dest_host = host;
@@ -234,6 +252,7 @@ int main (int argc, char * argv[])
   QObject::connect (&app, &QCoreApplication::aboutToQuit, &win,
                     [&] () { agent->stop (); });
 
+  // Do not arm KEY→hold until Gate host:port is set (ephemeral port from type 17).
   start_agent ();
   win.show ();
   return app.exec ();
