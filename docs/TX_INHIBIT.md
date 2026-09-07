@@ -18,18 +18,21 @@ Design authority for this repository: how **wsjtx-inhibit** implements
 | **`wims-key-agent`** | WIMS KEY agent (WIMS tree, not this repo). Destinations come from WIMS discovery. Same protocol. |
 | **TX Inhibit** | Product / feature name (Settings, badge, this build). |
 | **want_tx** | Software wants to transmit (FT8 sequence, “Enable Tx”, audio path). |
-| **hold** | KEY agent has told WSJT-X stations not to transmit (UDP timed request active). |
+| **hold** | One or more **leases** are live: KEY agent(s) have told this WSJT-X station not to transmit. |
+| **lease** | Per-**Controller ID** expiring hold row. Hold = logical **OR** of live leases. |
+| **Controller ID** | Stable machine-readable lease owner (wire field). A sender may only refresh/release its own row. |
 | **assert PTT** / **release PTT** | Physical PTT line active / inactive (RTS/DTR as configured). Same pattern for KEY: **assert KEY** / **release KEY**. |
-| **release hold** | Explicit end of the hold: UDP packet with `ttl_ms: 0`. Current algorithm ends holds this way (not by waiting for WSJT-X station hold timeout alone). |
+| **release hold** | Explicit end of **this controller’s** lease: type-18 packet with TTL ms `0`. Normal end after agent hang. |
 | **hang** / anti-chatter (KEY agent only) | After last KEY open, how long break-in CW keeps renewing hold before **release hold**. **1.5 × word gap** at measured WPM (≥ 10 WPM). Non-break-in CW / SSB: hang **0** (release on KEY open). Not in the WSJT-X station; no wire field. |
-| **hold timeout** / `hold_timeout_ms` (WSJT-X station / TX Inhibit) | **Safety** timer only: how long the station keeps a hold without a new packet. Wire `ttl_ms` (~500–600 ms); keepalives ~200 ms. Not hang; not CW speed. |
-| **deadman** | Agent stops without finishing hang and **release hold** (crash, kill, path loss). The WSJT-X station **hold timeout** then ends the hold. |
+| **hold timeout** / lease TTL | **Safety** timer per lease: how long the station keeps that controller’s row without a refresh. Wire TTL ms (~500–600 ms); keepalives ~200 ms. Not hang; not CW speed. |
+| **deadman** | Agent stops without finishing hang and **release hold** (crash, kill, path loss). That controller’s lease then expires; hold ends when no leases remain. |
 | **TxInhibit module** | Code under `TxInhibit/` plus the pin filter in `HamlibTransceiver`. |
 
 **Core equation**
 
 ```text
 assert PTT  ⇔  want_tx  and  not hold
+hold        ⇔  any live per-controller lease
 ```
 
 The KEY agent **tells WSJT-X stations not to transmit**; while a hold is active, the
@@ -40,20 +43,21 @@ WSJT-X station will not **assert PTT** even if `want_tx` is true.
 | Timer | Where | Purpose | Typical scale |
 |-------|--------|---------|----------------|
 | **Hang** (anti-chatter) | KEY agent (KEYing monitor) | Break-in CW: keep hold across gaps; EOT after KEY open **&gt; 1.5× word gap**. Non-break-in / SSB: hang 0, EOT on KEY open. | **1.5 × 7 dits** at measured WPM (see §3.4). |
-| **Hold timeout** | WSJT-X station only | Survive **loss of hold messages**. | **`hold_timeout_ms` ≈ 500–600 ms**; renew **~200 ms**. Independent of WPM. |
+| **Lease TTL** | WSJT-X station only | Survive **loss of hold messages** for that controller. | **TTL ≈ 500–600 ms**; renew **~200 ms**. Independent of WPM. |
 
-These are not interchangeable. Hang is CW/operator policy. Hold timeout is
+These are not interchangeable. Hang is CW/operator policy. Lease TTL is
 UDP reliability / fail-open safety.
 
-**History vs current algorithm.** Early designs leaned on timers alone to drop
-the hold. The **current** algorithm **explicitly ends** the hold with
-**release hold** (`ttl_ms: 0`) when agent hang finishes. Station
-`hold_timeout_ms` is only the safety path (including deadman).
+**History vs current algorithm.** Early designs used one global hold (any
+release cleared everyone). The **current** algorithm keeps **per-controller
+leases** OR’d, and **explicitly ends** a controller’s lease with TTL `0`
+when agent hang finishes. Station lease TTL is only the safety path
+(including deadman).
 
 **Not the same as radio “TX Inhibit” menus.** Many rigs latch inhibit until
 PTT drops. Sequencing continues (unlike **Halt Tx**).
 
-Wire format: JSON fields `tx_inhibit`, `ttl_ms`, … (§4). No hang field.
+Wire format: `NetworkMessage::TxInhibit` type **18** (§4). No hang field.
 
 ---
 
@@ -374,53 +378,57 @@ host:port   e.g.  192.168.1.40:22372
 ```
 
 Unicast UDP is enough for small multi-op. Each WSJT-X station parses independently.
-Multiple agents → same WSJT-X station: **one** hold timeout (last valid hold wins; any valid
-release clears).
+WIMS (or the operator) chooses the short destination list — typically ≤3 digi seats
+on the same band. The gate does not know about bands or fleets.
+
+Multiple agents → same WSJT-X station: **one lease per Controller ID**, combined with
+logical **OR**. A release clears **only that controller’s** lease.
 
 ---
 
 ## 4. UDP protocol (WSJT-X station ↔ agent)
 
-**Transport:** UDP, UTF-8 JSON, max **512** bytes.  
-**Port:** **22372** (WSJT-X station listens; agent sends).
+**Transport:** UDP, `NetworkMessage` / `QDataStream` (schema 3), max **512** bytes.  
+**Port:** **22372** (WSJT-X station listens; agent sends).  
+**Type:** `NetworkMessage::TxInhibit` = **18** (inbound). Outbound telemetry remains
+`InhibitStatus` = **17** on the normal UDP Server path (unicast or multicast).
+
+**InhibitStatus cadence:** type **17** is sent when hold/badge/counters change,
+when the inhibit listen port binds or clears (Enable TX Inhibit apply / rig
+close), and **periodically every `NetworkMessage::pulse` seconds (15 s)** while
+TX Inhibit stays enabled — so a late-joining WIMS / list builder learns
+`inhibit_port` without waiting for a KEY hold. This is inventory/telemetry, not
+the KEY safety path (holds still go to `host:22372`).
+
+Common header (all NetworkMessage types): magic `0xadbccbda`, schema, type, Id (utf8).
 
 | Field | Type | Required | Meaning |
 |-------|------|----------|---------|
-| `tx_inhibit` | int | yes | Protocol id; must be **1** |
-| `ttl_ms` | int | yes | **hold_timeout_ms**: hold lifetime from receipt, or **0** = **release hold**. Non-zero: 100…30000. Not agent hang. |
-| `station` | string | recommended | Badge (`held by …`) |
-| `band` | string | optional | Informational (not filtered today) |
-| `seq` | number | optional | Informational |
+| Id (target) | utf8 | yes (may be empty) | Target WSJT-X instance key. On dedicated port **22372** this is **parsed but not used for matching** — addressing is by unicast `host:port`. |
+| Controller ID | utf8 | yes, **non-empty** | Lease key. Sender may only refresh/release this row. |
+| TTL ms | quint32 | yes | Lease lifetime from receipt, or **0** = release **this** controller. Non-zero: 100…30000. Not agent hang. |
+| Station | utf8 | recommended | Badge (`held by …`); human-readable. |
 
 ### Hold (and keepalive — same shape)
 
-```json
-{"tx_inhibit":1,"ttl_ms":600,"station":"ROY-222-SSB","band":"222","seq":1}
-```
-
-Re-arms the WSJT-X station **hold timeout** to `now + ttl_ms` (last packet wins).
-Keepalives are the same shape; they refresh the hold timeout while KEY is asserted
-or agent hang is still running.
+Nonzero TTL upserts that Controller ID’s lease to `now + TTL`. Keepalives are the
+same message; they refresh the lease while KEY is asserted or agent hang is running.
 
 ### Release hold (normal end)
 
-```json
-{"tx_inhibit":1,"ttl_ms":0,"station":"ROY-222-SSB","band":"222","seq":2}
-```
+TTL **0** deletes **only that** Controller ID’s lease. Sent when agent hang finishes
+after **release KEY** (or on operator quit). **This is how a healthy agent ends its
+lease.** Do not rely on station timeout as the normal path.
 
-Sent when agent hang finishes after **release KEY** (or on operator quit).
-**This is how a healthy agent ends the hold.** Do not rely on WSJT-X station timeout as
-the normal path.
+### Hold / deadman
 
-### Hold timeout (WSJT-X station) and deadman
-
-If no hold packet arrives before the **hold timeout**, the WSJT-X station ends the hold
-anyway. That is the **hold timeout** path for a **deadman** (hang not managed)
-or other silence — not the preferred end of a normal transmission.
+If no refresh arrives before a lease’s TTL, that row expires. Hold ends when **no**
+leases remain. That is the deadman path for agent crash / path loss.
 
 ### Invalid packets
 
-Malformed JSON, wrong `tx_inhibit`, bad `ttl_ms`, oversized: **ignored**.
+Bad magic/schema, wrong type, empty Controller ID, bad TTL, short/oversize, stream
+error: **ignored** (counted as invalid). Legacy JSON is not accepted.
 
 ### 4.1 Trust model — read this before exposing the port
 
@@ -429,7 +437,7 @@ from any host that can reach it. That is deliberate for a small trusted multi-op
 where the alternative (keys, pairing, config) buys nothing against the actual threat.
 
 **What an attacker can do:** stop you transmitting. Sustained suppression needs
-sustained packets — a single hold lasts at most `ttl_ms` (30 s ceiling, ~600 ms in
+sustained packets — a single lease lasts at most its TTL (30 s ceiling, ~600 ms in
 practice), so the effect decays as soon as the packets stop.
 
 **What an attacker cannot do: make you transmit.** The protocol has no packet that
@@ -446,9 +454,9 @@ that matters for an unattended transmitter.
 | Station reachable from the internet | **Firewall the port.** Do not forward 22372. |
 | Shared or untrusted network | Treat "someone can stop my TX" as a real possibility. |
 
-**Not addressed today:** a sender allowlist, and per-station addressing (any valid hold
-holds every station that receives it). Both are straightforward to add if a deployment
-needs them; neither is implemented, so do not assume either.
+**Not addressed today:** a sender allowlist, and Id-based filtering on 22372 (useful if
+two instances share a host). Targeting is by unicast destination list managed outside
+the gate (WIMS or local config).
 
 ---
 

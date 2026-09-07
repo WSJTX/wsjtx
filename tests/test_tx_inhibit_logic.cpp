@@ -2,6 +2,16 @@
 
 #include "TxInhibit/TxInhibitLogic.hpp"
 
+namespace
+{
+  QByteArray hold (char const * controller, int ttl_ms, char const * station = "")
+  {
+    return TxInhibit::build_datagram (QString::fromUtf8 (controller)
+                                      , static_cast<quint32> (ttl_ms)
+                                      , QString::fromUtf8 (station));
+  }
+}
+
 class TestTxInhibitLogic : public QObject
 {
   Q_OBJECT
@@ -14,51 +24,86 @@ private slots:
     QVERIFY (g.radiate (true, t));
     QVERIFY (!g.radiate (false, t));
 
-    // Hold for 500 ms
-    QByteArray hold = R"({"tx_inhibit":1,"ttl_ms":500,"station":"TEST","seq":1})";
-    QVERIFY (g.on_datagram (hold, t));
+    QVERIFY (g.on_datagram (hold ("A", 500, "TEST"), t));
     QVERIFY (g.line_inhibited (t));
     QVERIFY (!g.radiate (true, t));
     QVERIFY (!g.radiate (false, t));
 
-    // After hold timeout: free again
     QVERIFY (!g.line_inhibited (t + 501));
     QVERIFY (g.radiate (true, t + 501));
     QCOMPARE (g.expiries (), 1u);
   }
 
-  void releaseClearsHold ()
+  void releaseClearsOwnHold ()
   {
     TxInhibit::GateLogic g;
     qint64 t = 2000000;
-    QByteArray hold = R"({"tx_inhibit":1,"ttl_ms":1000,"station":"KEY","seq":2})";
-    QVERIFY (g.on_datagram (hold, t));
+    QVERIFY (g.on_datagram (hold ("KEY", 1000, "KEY"), t));
     QVERIFY (!g.radiate (true, t));
 
-    QByteArray rel = R"({"tx_inhibit":1,"ttl_ms":0,"station":"KEY","seq":3})";
-    QVERIFY (g.on_datagram (rel, t + 10));
+    QVERIFY (g.on_datagram (hold ("KEY", 0, "KEY"), t + 10));
     QVERIFY (g.radiate (true, t + 10));
     QCOMPARE (g.hold_rx (), 1u);
     QCOMPARE (g.release_rx (), 1u);
   }
 
-  void invalidProtocolVersionIgnored ()
+  void otherControllerCannotRelease ()
+  {
+    TxInhibit::GateLogic g;
+    qint64 t = 2500000;
+    QVERIFY (g.on_datagram (hold ("A", 1000, "SSB"), t));
+    QVERIFY (!g.on_datagram (hold ("B", 0, "CW"), t + 1)); // still held by A
+    QVERIFY (g.line_inhibited (t + 1));
+    QCOMPARE (g.lease_count (t + 1), 1);
+    QCOMPARE (g.release_rx (), 1u);
+  }
+
+  void multiControllerOr ()
+  {
+    TxInhibit::GateLogic g;
+    qint64 t = 2600000;
+    QVERIFY (g.on_datagram (hold ("A", 1000, "SSB"), t));
+    QVERIFY (!g.on_datagram (hold ("B", 1000, "CW"), t + 1)); // still held
+    QCOMPARE (g.lease_count (t + 1), 2);
+    QVERIFY (!g.on_datagram (hold ("A", 0), t + 2)); // B still holding
+    QVERIFY (g.line_inhibited (t + 2));
+    QCOMPARE (g.lease_count (t + 2), 1);
+    QVERIFY (g.on_datagram (hold ("B", 0), t + 3));
+    QVERIFY (!g.line_inhibited (t + 3));
+  }
+
+  void perRowDeadman ()
+  {
+    TxInhibit::GateLogic g;
+    qint64 t = 2700000;
+    QVERIFY (g.on_datagram (hold ("A", 500, "A"), t));
+    QVERIFY (!g.on_datagram (hold ("B", 2000, "B"), t));
+    QVERIFY (g.line_inhibited (t + 501)); // A expired, B live
+    QCOMPARE (g.lease_count (t + 501), 1);
+    QCOMPARE (g.expiries (), 1u);
+    QVERIFY (!g.line_inhibited (t + 2001));
+    QCOMPARE (g.expiries (), 2u);
+  }
+
+  void emptyControllerRejected ()
   {
     TxInhibit::GateLogic g;
     qint64 t = 3000000;
-    QByteArray bad = R"({"tx_inhibit":2,"ttl_ms":500,"station":"X"})";
+    QByteArray bad = TxInhibit::build_datagram (QString {}, 500, QStringLiteral ("X"));
     QVERIFY (!g.on_datagram (bad, t));
     QVERIFY (g.radiate (true, t));
     QCOMPARE (g.invalid (), 1u);
   }
 
-  void missingTtlIgnored ()
+  void wrongMessageTypeIgnored ()
   {
     TxInhibit::GateLogic g;
-    qint64 t = 4000000;
-    QByteArray bad = R"({"tx_inhibit":1,"station":"X"})";
-    QVERIFY (!g.on_datagram (bad, t));
-    QVERIFY (g.radiate (true, t));
+    qint64 t = 3100000;
+    QByteArray message;
+    NetworkMessage::Builder out {&message, NetworkMessage::HaltTx, QString {}
+                                 , NetworkMessage::Builder::schema_number};
+    out << false;
+    QVERIFY (!g.on_datagram (message, t));
     QCOMPARE (g.invalid (), 1u);
   }
 
@@ -66,10 +111,8 @@ private slots:
   {
     TxInhibit::GateLogic g;
     qint64 t = 5000000;
-    // Below min (100)
-    QVERIFY (!g.on_datagram (R"({"tx_inhibit":1,"ttl_ms":50})", t));
-    // Above max (30000)
-    QVERIFY (!g.on_datagram (R"({"tx_inhibit":1,"ttl_ms":30001})", t));
+    QVERIFY (!g.on_datagram (hold ("A", 50), t));
+    QVERIFY (!g.on_datagram (hold ("A", 30001), t));
     QVERIFY (g.radiate (true, t));
     QCOMPARE (g.invalid (), 2u);
   }
@@ -87,10 +130,8 @@ private slots:
   {
     TxInhibit::GateLogic g;
     qint64 t = 7000000;
-    QByteArray hold = R"({"tx_inhibit":1,"ttl_ms":500,"station":"A","seq":1})";
-    QVERIFY (g.on_datagram (hold, t));          // free → held
-    QByteArray keep = R"({"tx_inhibit":1,"ttl_ms":500,"station":"A","seq":2})";
-    QVERIFY (!g.on_datagram (keep, t + 100));   // still held
+    QVERIFY (g.on_datagram (hold ("A", 500, "A"), t));
+    QVERIFY (!g.on_datagram (hold ("A", 500, "A"), t + 100));
     QVERIFY (g.line_inhibited (t + 100));
     QCOMPARE (g.hold_rx (), 2u);
   }
@@ -99,33 +140,35 @@ private slots:
   {
     TxInhibit::GateLogic g;
     qint64 t = 8000000;
-    QByteArray rel = R"({"tx_inhibit":1,"ttl_ms":0})";
-    QVERIFY (!g.on_datagram (rel, t)); // already free
+    QVERIFY (!g.on_datagram (hold ("A", 0), t));
     QVERIFY (g.radiate (true, t));
     QCOMPARE (g.release_rx (), 1u);
   }
 
-  void badgeTextWithAndWithoutStation ()
+  void badgeTextWithMultipleHolders ()
   {
     TxInhibit::GateLogic g;
     qint64 t = 9000000;
     QCOMPARE (g.badge_text (t), QString {});
 
-    QVERIFY (g.on_datagram (R"({"tx_inhibit":1,"ttl_ms":500})", t));
+    QVERIFY (g.on_datagram (hold ("A", 500), t));
     QCOMPARE (g.badge_text (t), QStringLiteral ("TX INHIBITED"));
 
-    // Keepalive / refresh may not flip hold level (returns false) but updates station.
-    (void) g.on_datagram (R"({"tx_inhibit":1,"ttl_ms":500,"station":"W1AW"})", t + 1);
+    (void) g.on_datagram (hold ("A", 500, "W1AW"), t + 1);
     QCOMPARE (g.badge_text (t + 1), QStringLiteral ("TX INHIBITED — held by W1AW"));
+
+    (void) g.on_datagram (hold ("B", 500, "W2SZ"), t + 2);
+    QCOMPARE (g.badge_text (t + 2), QStringLiteral ("TX INHIBITED — held by W1AW, W2SZ"));
   }
 
-  void stringTtlAccepted ()
+  void jsonNoLongerAccepted ()
   {
     TxInhibit::GateLogic g;
     qint64 t = 10000000;
-    // Interop: ttl_ms as string digits
-    QVERIFY (g.on_datagram (R"({"tx_inhibit":1,"ttl_ms":"400","station":"S"})", t));
-    QVERIFY (g.line_inhibited (t));
+    QByteArray json = R"({"tx_inhibit":1,"ttl_ms":400,"station":"S"})";
+    QVERIFY (!g.on_datagram (json, t));
+    QVERIFY (g.radiate (true, t));
+    QCOMPARE (g.invalid (), 1u);
   }
 };
 

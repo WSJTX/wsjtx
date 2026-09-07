@@ -15,10 +15,10 @@ Default UDP port is 22372.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import select
 import socket
+import struct
 import sys
 import time
 
@@ -31,18 +31,32 @@ HANG_MAX_S = 1.260
 HANG_DIT_MULT = 10.5
 CONTINUOUS_MARK_S = 0.5  # non-break-in / SSB → hang 0
 
+# NetworkMessage framing (schema 3 / Qt_5_4, big-endian).
+_NM_MAGIC = 0xADBCCBDA
+_NM_SCHEMA = 3
+_NM_TX_INHIBIT = 18  # NetworkMessage::TxInhibit
 
-def encode(station: str, band: str, seq: int, ttl_ms: int) -> bytes:
-    return json.dumps(
-        {
-            "tx_inhibit": 1,
-            "ttl_ms": int(ttl_ms),
-            "station": station,
-            "band": band,
-            "seq": int(seq),
-        },
-        separators=(",", ":"),
-    ).encode()
+
+def _qbytearray(data: bytes) -> bytes:
+    """QDataStream QByteArray: quint32 length + bytes (empty length 0)."""
+    return struct.pack(">I", len(data)) + data
+
+
+def encode(
+    controller_id: str,
+    ttl_ms: int,
+    station: str = "",
+    target_id: str = "",
+) -> bytes:
+    """Build NetworkMessage::TxInhibit (type 18) for the dedicated inhibit port."""
+    if not controller_id:
+        raise ValueError("controller_id must be non-empty")
+    body = struct.pack(">III", _NM_MAGIC, _NM_SCHEMA, _NM_TX_INHIBIT)
+    body += _qbytearray(target_id.encode("utf-8"))
+    body += _qbytearray(controller_id.encode("utf-8"))
+    body += struct.pack(">I", int(ttl_ms) & 0xFFFFFFFF)
+    body += _qbytearray(station.encode("utf-8"))
+    return body
 
 
 def send_to(sock: socket.socket, host: str, port: int, payload: bytes) -> None:
@@ -50,10 +64,13 @@ def send_to(sock: socket.socket, host: str, port: int, payload: bytes) -> None:
 
 
 def one_shot(args: argparse.Namespace) -> None:
-    msg = encode(args.station, args.band, args.seq, args.ttl_ms)
+    msg = encode(args.controller_id, args.ttl_ms, args.station, args.target_id)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     send_to(sock, args.host, args.port, msg)
-    print(f"sent {msg!r} -> {args.host}:{args.port}")
+    print(
+        f"sent type-18 controller={args.controller_id!r} ttl_ms={args.ttl_ms} "
+        f"({len(msg)} bytes) -> {args.host}:{args.port}"
+    )
 
 
 class HangPolicy:
@@ -176,13 +193,15 @@ def interactive(args: argparse.Namespace) -> None:
 
     def emit(ttl_ms: int) -> None:
         nonlocal seq
-        payload = encode(args.station, args.band, seq, ttl_ms)
+        payload = encode(
+            args.controller_id, ttl_ms, args.station, args.target_id
+        )
         send_to(sock, args.host, args.port, payload)
         seq += 1
         action = "HOLD" if ttl_ms else "RELEASE"
         print(
             f"{time.strftime('%H:%M:%S')}  {action}  ttl_ms={ttl_ms}  "
-            f"-> {args.host}:{args.port}",
+            f"controller={args.controller_id!r} -> {args.host}:{args.port}",
             flush=True,
         )
 
@@ -200,7 +219,8 @@ def interactive(args: argparse.Namespace) -> None:
         f"  grave/`  = KEY level (press = hold, release = hang then free)\n"
         f"  (not Space — typing won't false-trigger)\n"
         f"  Ctrl-C    = quit\n"
-        f"  station={args.station!r}  ttl_ms={args.ttl_ms}  "
+        f"  controller={args.controller_id!r}  station={args.station!r}  "
+        f"ttl_ms={args.ttl_ms}  "
         f"hang={'fixed '+str(fixed_hang)+'ms' if use_fixed else 'adaptive'}\n",
         flush=True,
     )
@@ -267,8 +287,21 @@ def main() -> None:
         default=DEFAULT_TTL_MS,
         help="Hold TTL ms; 0 = release (one-shot). Interactive: keepalive TTL.",
     )
-    p.add_argument("--station", default="TEST-SSB")
-    p.add_argument("--band", default="144")
+    p.add_argument(
+        "--controller-id",
+        default="TEST-SSB",
+        help="Lease Controller ID (required non-empty on the wire)",
+    )
+    p.add_argument(
+        "--station",
+        default=None,
+        help="Badge station text (default: controller-id)",
+    )
+    p.add_argument(
+        "--target-id",
+        default="",
+        help="NetworkMessage Id (ignored by gate on 22372; default empty)",
+    )
     p.add_argument("--seq", type=int, default=1)
     p.add_argument(
         "-i",
@@ -283,6 +316,10 @@ def main() -> None:
         help="Interactive: fixed hang after KEY up instead of adaptive",
     )
     args = p.parse_args()
+    if not args.controller_id:
+        p.error("controller-id must be non-empty")
+    if args.station is None:
+        args.station = args.controller_id
     if args.interactive:
         interactive(args)
     else:

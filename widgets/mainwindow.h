@@ -791,8 +791,15 @@ private:
   // physical PTT state rather than the sequencer's intent. See docs/TX_INHIBIT.md.
   bool m_tx_inhibited {false};
   QString m_tx_inhibit_holder;     // station named in the current hold, if any
+  quint32 m_tx_inhibit_hold_rx {0};
+  quint32 m_tx_inhibit_release_rx {0};
+  quint32 m_tx_inhibit_expiries {0};
+  quint32 m_tx_inhibit_invalid {0};
   bool m_tx_inhibit_warned {false};      // "not reachable" already reported?
   quint16 m_tx_inhibit_warned_port {0};  // port that warning referred to
+  // Periodic InhibitStatus (type 17) on the UDP Server path so late joiners
+  // learn inhibit port/capability without waiting for a hold transition.
+  QTimer m_tx_inhibit_announce_timer;
   QLabel config_label;
   QLabel mode_label;
   QLabel last_tx_label;
@@ -990,6 +997,8 @@ private:
   void writeSettings();
   void createStatusBar();
   void update_inhibit_status ();
+  // Emit NetworkMessage::InhibitStatus (type 17) with the cached gate picture.
+  void send_inhibit_status_announce ();
   void updateStatusBar();
   void genStdMsgs(QString rpt, bool unconditional = false);
   void genCQMsg();

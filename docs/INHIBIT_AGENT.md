@@ -22,7 +22,7 @@ usable on a station that is not a WIMS station.
 | **wims-key-agent** | WIMS KEY agent (WIMS tree, not this program). Same protocol. |
 | **`tools/send_inhibit_hold.py`** | Lab / bench: scripted hold / release, no KEY dongle. |
 
-All speak the same `tx_inhibit` datagrams.
+All speak the same `NetworkMessage::TxInhibit` (type **18**) datagrams.
 
 **Name:** `inhibit-agent` (CLI) and `inhibit-agent-gui` (GUI). Linux and Windows.
 
@@ -65,7 +65,9 @@ inhibit-agent --list-ports
 | `--port` / first positional | **required** | COM / tty device (CTS = KEY) |
 | `--addr` / second positional | **required** | `host:port` of the WSJT-X gate |
 | `--invert` | false | CTS polarity |
-| `--ttl-ms` | `600` | Wire hold timeout (not hang) |
+| `--ttl-ms` | `600` | Wire lease TTL (not hang) |
+| `--controller-id` | `inhibit-agent` | Lease key (must be non-empty; unique per KEY source) |
+| `--station` | same as controller-id | Badge text |
 
 Stdout is timestamped `STATE` / `HOLD` / `RELEASE` / `SENSE FAULT` lines. Ctrl-C
 sends release then exits (fail-safe: if the process dies, gate deadman also
@@ -100,12 +102,14 @@ Hang exists only so WSJT-X PTT does not follow CW dits.
 
 ## 6. Wire identity
 
-| Field | Value |
-|-------|--------|
-| `station` | `inhibit-agent` |
-| `band` | `local` |
+| Field | Default |
+|-------|---------|
+| Controller ID | `inhibit-agent` (override with `--controller-id`) |
+| Station | same as Controller ID (override with `--station`) |
+| Id (target) | empty (ignored on dedicated port 22372) |
 
-Not used for routing. Diagnostics / badge only.
+Controller ID is the lease key: another agent’s release cannot clear this agent’s
+hold. Station is badge text only. See [TX_INHIBIT.md](TX_INHIBIT.md) §4.
 
 ---
 

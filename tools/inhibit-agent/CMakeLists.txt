@@ -5,6 +5,7 @@ set (INHIBIT_AGENT_CORE
   agent.cpp
   agent.hpp
   keying_monitor.hpp
+  ${CMAKE_SOURCE_DIR}/Network/NetworkMessage.cpp
   )
 
 add_executable (inhibit-agent

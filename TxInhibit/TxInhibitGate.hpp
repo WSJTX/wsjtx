@@ -7,9 +7,9 @@
 //   assert PTT  ⇔  want_tx  and  not hold
 //
 // • want_tx arrives from HamlibTransceiver::do_ptt() via set_intent().
-// • Hold is private (UDP keepalives + hold_timeout_ms safety timeout).
+// • Hold is private (per-controller leases OR'd + lease TTL deadman).
 //   CW anti-chatter hang lives only in the KEY agent; normal end is
-//   release hold (ttl_ms: 0). See docs/TX_INHIBIT.md §3.
+//   release of that controller's lease (TTL 0). See docs/TX_INHIBIT.md §3.
 // • No serial I/O here. Hamlib owns CAT and RTS/DTR; this only decides
 //   whether to assert PTT or release PTT on the pin.
 // • WSJT-X station = this WSJT-X station (app + PC + radio + antenna).

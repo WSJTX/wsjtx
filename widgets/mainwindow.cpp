@@ -87,6 +87,7 @@
 #include "models/StationList.hpp"
 #include "validators/LiveFrequencyValidator.hpp"
 #include "Network/MessageClient.hpp"
+#include "Network/NetworkMessage.hpp" // InhibitStatus pulse cadence
 #include "Network/FoxVerifier.hpp"
 #include "Network/wsprnet.h"
 #include "signalmeter.h"
@@ -4378,6 +4379,7 @@ void MainWindow::update_inhibit_status ()
       tx_status_label.setToolTip ({});
       m_tx_inhibit_warned_port = 0;
       m_tx_inhibit_warned = false;
+      m_tx_inhibit_announce_timer.stop ();
       return;
     }
 
@@ -4427,6 +4429,40 @@ void MainWindow::update_inhibit_status ()
     }
   m_tx_inhibit_warned = unreachable;
   m_tx_inhibit_warned_port = port;
+
+  // Keep capability/port announcements alive while the feature is enabled so
+  // WIMS / KEY-list builders that join after startup still see type 17.
+  if (!m_tx_inhibit_announce_timer.isActive ())
+    {
+      m_tx_inhibit_announce_timer.start ();
+    }
+}
+
+void MainWindow::send_inhibit_status_announce ()
+{
+  if (!m_messageClient)
+    {
+      return;
+    }
+  // Always publish the current picture when enabled (or a final port-0 clear
+  // after disable). UDP Server may be unicast or multicast — same path as
+  // Heartbeat/Status.
+  if (!m_config.enable_tx_inhibit () && 0 == m_config.tx_inhibit_port ())
+    {
+      m_messageClient->inhibit_status (
+        0, false, QString {},
+        m_tx_inhibit_hold_rx, m_tx_inhibit_release_rx,
+        m_tx_inhibit_expiries, m_tx_inhibit_invalid);
+      return;
+    }
+  if (!m_config.enable_tx_inhibit ())
+    {
+      return;
+    }
+  m_messageClient->inhibit_status (
+    m_config.tx_inhibit_port (), m_tx_inhibited, m_tx_inhibit_holder,
+    m_tx_inhibit_hold_rx, m_tx_inhibit_release_rx,
+    m_tx_inhibit_expiries, m_tx_inhibit_invalid);
 }
 
 void MainWindow::createStatusBar()                           //createStatusBar
@@ -4437,23 +4473,33 @@ void MainWindow::createStatusBar()                           //createStatusBar
   tx_status_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&tx_status_label);
 
+  // Same cadence as NetworkMessage::pulse (Heartbeat). Late joiners learn the
+  // inhibit port within one pulse without depending on a hold transition.
+  m_tx_inhibit_announce_timer.setInterval (
+    static_cast<int> (NetworkMessage::pulse) * 1000);
+  connect (&m_tx_inhibit_announce_timer, &QTimer::timeout, this,
+           &MainWindow::send_inhibit_status_announce);
+
   connect (&m_config, &Configuration::tx_inhibit_changed, this,
            [this] (bool inhibited, QString const& source
                    , quint32 hold_rx, quint32 release_rx
                    , quint32 expiries, quint32 invalid) {
              m_tx_inhibited = inhibited;
              m_tx_inhibit_holder = inhibited ? source : QString {};
+             m_tx_inhibit_hold_rx = hold_rx;
+             m_tx_inhibit_release_rx = release_rx;
+             m_tx_inhibit_expiries = expiries;
+             m_tx_inhibit_invalid = invalid;
              update_inhibit_status ();
-             if (m_messageClient)
-               {
-                 m_messageClient->inhibit_status (
-                   m_config.tx_inhibit_port (), inhibited, source,
-                   hold_rx, release_rx, expiries, invalid);
-               }
+             send_inhibit_status_announce ();
            });
   connect (&m_config, &Configuration::tx_inhibit_port_changed, this,
            [this] (quint16) {
+             // Enable on → bind emits port only (no hold change). That used to
+             // update the tooltip and never send type 17 — late listeners saw
+             // nothing after a settings toggle. Announce immediately.
              update_inhibit_status ();
+             send_inhibit_status_announce ();
            });
   update_inhibit_status ();
 

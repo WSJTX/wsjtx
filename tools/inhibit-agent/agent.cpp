@@ -2,6 +2,8 @@
 
 #include "agent.hpp"
 
+#include "TxInhibit/TxInhibitLogic.hpp"
+
 #include <QDateTime>
 #include <QFile>
 #include <QHostInfo>
@@ -17,22 +19,6 @@
 #endif
 
 namespace {
-
-QByteArray encode_hold (QString const& station, QString const& band,
-                        qint64 seq, int ttl_ms)
-{
-  QByteArray body;
-  body += "{\"tx_inhibit\":1,\"ttl_ms\":";
-  body += QByteArray::number (ttl_ms);
-  body += ",\"station\":\"";
-  body += station.toUtf8 ();
-  body += "\",\"band\":\"";
-  body += band.toUtf8 ();
-  body += "\",\"seq\":";
-  body += QByteArray::number (seq);
-  body += '}';
-  return body;
-}
 
 bool looks_like_keyline (QSerialPortInfo const& info)
 {
@@ -489,7 +475,9 @@ void InhibitAgent::send_packet (int ttl_ms, bool is_keepalive,
     {
       return;
     }
-  QByteArray payload = encode_hold (cfg_.station, cfg_.band, seq_++, ttl_ms);
+  QByteArray payload = TxInhibit::build_datagram (
+      cfg_.controller_id, static_cast<quint32> (ttl_ms), cfg_.station);
+  ++seq_;
   qint64 n = sock_.writeDatagram (payload, dest_addr_, cfg_.dest_port);
   if (ttl_ms == 0)
     {

@@ -541,15 +541,33 @@
  *                         Expiries               quint32
  *                         Invalid                quint32
  *
- *      Optional telemetry when TX Inhibit is enabled (Settings → Radio)
- *      and the WSJT-X station block level or badge text changes. KEY-agent UDP
- *      protocol is separate; see docs/TX_INHIBIT.md.
+ *      Optional telemetry when TX Inhibit is enabled (Settings → Radio).
+ *      Emitted on hold/badge/counter changes, when the inhibit listen port
+ *      binds or clears, and periodically every NetworkMessage::pulse
+ *      seconds while the feature remains enabled (same cadence as
+ *      Heartbeat) so late joiners learn the inhibit port without waiting
+ *      for a hold transition. Travels on the configured UDP Server path
+ *      (unicast or multicast).
  *
- *      Inhibit port: UDP listen port for KEY-agent blocks (usually 22372;
- *      may be ephemeral). Inhibited: block active. Source station: badge
- *      text (may be empty). Four quint32 counters: hold packets received,
- *      explicit release hold, hold timeout expiries (incl. after a deadman),
- *      invalid datagrams (field names hold_rx etc. are historical wire labels).
+ *      Inhibit port: UDP listen port for KEY-agent holds (usually 22372;
+ *      may be ephemeral). Inhibited: any per-controller lease active.
+ *      Source station: badge text (may list multiple holders). Four
+ *      quint32 counters: hold packets received, explicit release hold,
+ *      hold timeout expiries (incl. after a deadman), invalid datagrams.
+ *
+ * TxInhibit      In       18
+ *                         Id (target unique key) utf8
+ *                         Controller ID          utf8
+ *                         TTL ms                 quint32
+ *                         Station                utf8
+ *
+ *      KEY-agent / controller hold command. Nonzero TTL creates or
+ *      refreshes that controller's lease; zero TTL releases only that
+ *      controller's lease. Hold is the logical OR of live leases.
+ *      Controller ID must be non-empty. Station is human badge text.
+ *      On the dedicated inhibit port (default 22372) the target Id is
+ *      parsed but not used for matching — addressing is by unicast
+ *      host:port. See docs/TX_INHIBIT.md.
  *
  *      Unknown types are ignored; schema number unchanged.
  */
@@ -585,6 +603,7 @@ namespace NetworkMessage
       Configure,
       AnnotationInfo,
       InhibitStatus,            // Out 17 — see protocol comment above
+      TxInhibit,                // In  18 — see protocol comment above
       maximum_message_type_     // ONLY add new message types
                                 // immediately before here
     };

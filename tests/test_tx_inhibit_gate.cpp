@@ -23,11 +23,12 @@
 
 namespace
 {
-  QByteArray hold_packet (int ttl_ms, char const * station = "TEST")
+  QByteArray hold_packet (int ttl_ms, char const * station = "TEST"
+                          , char const * controller = "test-agent")
   {
-    return QByteArray {"{\"tx_inhibit\":1,\"ttl_ms\":"}
-      + QByteArray::number (ttl_ms)
-      + ",\"station\":\"" + station + "\"}";
+    return TxInhibit::build_datagram (QString::fromUtf8 (controller)
+                                      , static_cast<quint32> (ttl_ms)
+                                      , QString::fromUtf8 (station));
   }
 }
 

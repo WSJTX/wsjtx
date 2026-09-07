@@ -35,8 +35,10 @@ public:
     bool invert {false};
     int hold_timeout_ms {600};
     int keepalive_ms {200};
+    // Lease key on the gate (NetworkMessage::TxInhibit Controller ID).
+    QString controller_id {QStringLiteral ("inhibit-agent")};
+    // Human badge text ("held by …"); may match controller_id.
     QString station {QStringLiteral ("inhibit-agent")};
-    QString band {QStringLiteral ("local")};
   };
 
   explicit InhibitAgent (Config const& cfg, QObject * parent = nullptr);

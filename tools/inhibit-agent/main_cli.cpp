@@ -83,11 +83,22 @@ int main (int argc, char * argv[])
     QStringLiteral ("hold_timeout_ms on hold/keepalive (default 600)"),
     QStringLiteral ("ms"),
     QStringLiteral ("600")};
+  QCommandLineOption controllerOpt {
+    QStringList () << "controller-id",
+    QStringLiteral ("Lease Controller ID (default inhibit-agent)"),
+    QStringLiteral ("id"),
+    QStringLiteral ("inhibit-agent")};
+  QCommandLineOption stationOpt {
+    QStringList () << "station",
+    QStringLiteral ("Badge station text (default: controller-id)"),
+    QStringLiteral ("name")};
   parser.addOption (portOpt);
   parser.addOption (addrOpt);
   parser.addOption (invertOpt);
   parser.addOption (listOpt);
   parser.addOption (ttlOpt);
+  parser.addOption (controllerOpt);
+  parser.addOption (stationOpt);
   parser.process (app);
 
   QTextStream out (stdout);
@@ -151,6 +162,14 @@ int main (int argc, char * argv[])
   cfg.dest_port = dest_port;
   cfg.invert = parser.isSet (invertOpt);
   cfg.hold_timeout_ms = ttl;
+  cfg.controller_id = parser.value (controllerOpt);
+  if (cfg.controller_id.isEmpty ())
+    {
+      err << "controller-id must be non-empty\n";
+      return 2;
+    }
+  cfg.station = parser.isSet (stationOpt) ? parser.value (stationOpt)
+                                          : cfg.controller_id;
 
   InhibitAgent agent (cfg);
   QObject::connect (&agent, &InhibitAgent::stateChanged, &app,
