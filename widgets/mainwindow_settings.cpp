@@ -151,7 +151,7 @@ void MainWindow::writeSettings()
   if(m_mode=="MSK144" && hasMsk144BaseFrequency ()) {
     m_settings->setValue ("DialFreq", QVariant::fromValue(m_msk144basefreq));  // MSK144 QSY
   } else {
-    m_settings->setValue ("DialFreq", QVariant::fromValue(m_lastMonitoredFrequency));
+    m_settings->setValue ("DialFreq", QVariant::fromValue(m_operatingFrequency.remembered ()));
   }
   m_settings->setValue("SkedFreq",m_skedFreq);
   m_settings->setValue("OutAttenuation", ui->outAttenuation->value ());
@@ -499,11 +499,11 @@ void MainWindow::readSettings()
   m_bFastMode=m_settings->value("FastMode",false).toBool();
   ui->sbMaxDrift->setValue (m_settings->value ("MaxDrift",0).toInt());
   ui->sbTR_FST4W->setValue (m_settings->value ("TRPeriod_FST4W", 15).toInt());
-  m_lastMonitoredFrequency = m_settings->value ("DialFreq",
-    QVariant::fromValue<Frequency> (default_frequency)).value<Frequency> ();
+  m_operatingFrequency.loadRemembered (m_settings->value ("DialFreq",
+    QVariant::fromValue<Frequency> (default_frequency)).value<Frequency> ());
   m_skedFreq=m_settings->value("SkedFreq",1296.065).toDouble();
   QTimer::singleShot (1000, [=] {if (m_astroWidget) m_astroWidget->setSkedFreq(m_skedFreq);});
-  if(m_mode=="MSK144") m_msk144basefreq = m_lastMonitoredFrequency;  // MSK144 QSY
+  if(m_mode=="MSK144") m_msk144basefreq = m_operatingFrequency.remembered ();  // MSK144 QSY
   ui->WSPRfreqSpinBox->setValue(0); // ensure a change is signaled
   ui->WSPRfreqSpinBox->setValue(m_settings->value("WSPRfreq",1500).toInt());
   ui->TxFreqSpinBox->setValue(0); // ensure a change is signaled

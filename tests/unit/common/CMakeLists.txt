@@ -287,3 +287,11 @@ add_test (NAME test_configuration_dialog_layout_scaled COMMAND test_configuratio
 set_tests_properties (test_configuration_dialog_layout_scaled PROPERTIES
   ENVIRONMENT "QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
 )
+
+add_executable (test_operating_frequency
+  test_operating_frequency.cpp
+  ${CMAKE_SOURCE_DIR}/OperatingFrequency.cpp
+)
+target_include_directories (test_operating_frequency PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_operating_frequency Qt5::Test)
+add_test (NAME test_operating_frequency COMMAND test_operating_frequency)

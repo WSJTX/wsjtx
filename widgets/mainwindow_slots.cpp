@@ -89,7 +89,7 @@ void MainWindow::on_monitorButton_clicked (bool checked)
       if (m_config.monitor_last_used () && m_mode!="Echo") {
         // put rig back where it was when last in control
         if (requestNominalFrequencyChange (
-              m_lastMonitoredFrequency, FrequencyRequestOrigin::User))
+              m_operatingFrequency.remembered (), FrequencyRequestOrigin::User))
           {
             setXIT (ui->TxFreqSpinBox->value ());
           }
@@ -542,7 +542,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
     }
 
   m_logDlg->initLogQSO (m_hisCall, grid, m_mode, m_rptSent, m_rptRcvd,
-                        m_dateTimeQSOOn, dateTimeQSOOff, m_freqNominal +
+                        m_dateTimeQSOOn, dateTimeQSOOff, m_operatingFrequency.rx () +
                         ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
   m_inQSOwith="";
   if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {

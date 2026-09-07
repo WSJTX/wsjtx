@@ -47,6 +47,7 @@
 #include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
 #include "Radio.hpp"
+#include "OperatingFrequency.hpp"
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
@@ -910,9 +911,8 @@ private:
   qint64  m_fullFoxCallTime;
   qint64  m_msEchoTxStart=0;
 
-  Frequency m_freqNominal;
+  OperatingFrequency m_operatingFrequency;
   Frequency m_freqNominalPeriod;
-  Frequency m_freqTxNominal;
   Frequency m_msk144basefreq {0};
   quint64  m_mslastTX;   //ft8md
   qint32  m_nlasttx;     //ft8md
@@ -1404,7 +1404,6 @@ private:
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;
-  Frequency m_lastMonitoredFrequency;
   double m_toneSpacing;
   QTimer m_heartbeat;
   MessageClient * m_messageClient;

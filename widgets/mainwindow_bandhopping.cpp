@@ -202,7 +202,7 @@ void MainWindow::bandHopping(bool user_requested)
       return;
     }
 
-  auto const previous_frequency = m_freqNominal;
+  auto const previous_frequency = m_operatingFrequency.rx ();
   if (!RigFrequencyChangePolicy::requestWhileMonitoring (
         m_monitoring,
         [this] (bool state) {monitor (state);},

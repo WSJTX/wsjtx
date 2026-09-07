@@ -183,6 +183,7 @@ set (wsjtx_CXXSRCS
   SuperFoxTxPlanner.cpp
   DecoderIpc.cpp
   Ft8MtdDecodeScheduler.cpp
+  OperatingFrequency.cpp
   Ft8MtdDecodeCoordinator.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
