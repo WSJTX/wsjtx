@@ -3409,8 +3409,10 @@ void MainWindow::bumpFqso(int n)                                 //bumpFqso()
 void MainWindow::displayDialFrequency ()
 {
   if (ui->actionUse_Dark_Style->isChecked()) ui->bandComboBox->setStyleSheet("QLineEdit {background-color: #31363b}");  // initialize dark style at startup
-  Frequency dial_frequency {m_rigState.ptt () && m_rigState.split () ?
-      m_rigState.tx_frequency () : m_rigState.frequency ()};
+  Frequency dial_frequency {m_rigState.ptt () ?
+      (m_rigState.split () ? m_operatingFrequency.correctedTx (m_astroCorrection.tx)
+                          : m_operatingFrequency.tx ()) :
+      m_operatingFrequency.correctedRx (m_astroCorrection.rx)};
 
   // lookup band
   auto const& band_name = m_config.bands ()->find (dial_frequency);
@@ -9178,8 +9180,10 @@ void MainWindow::on_RoundRobin_currentTextChanged(QString)
 void MainWindow::wheelEvent(QWheelEvent *event)         // mouse wheel events
 {
   if(ui->labDialFreq->hasFocus()) {                         // kHz + or -
-    Frequency dial_frequency {m_rigState.ptt () && m_rigState.split () ?
-        m_rigState.tx_frequency () : m_rigState.frequency ()};
+    Frequency dial_frequency {m_rigState.ptt () ?
+        (m_rigState.split () ? m_operatingFrequency.correctedTx (m_astroCorrection.tx)
+                            : m_operatingFrequency.tx ()) :
+        m_operatingFrequency.correctedRx (m_astroCorrection.rx)};
     if (event->angleDelta().x() > 2 or event->angleDelta().y() > 2) {
       dial_frequency = dial_frequency + 1000;
     } else if (event->angleDelta().x() < -2 or event->angleDelta().y() < -2) {
@@ -11789,6 +11793,32 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
   }
 }
 
+void MainWindow::applyOperatingFrequencyTransition (OperatingFrequency::Transition const& transition)
+{
+  if (transition.before.rx != transition.after.rx)
+    {
+      cancelPendingFt8Decode ("dial frequency changed");
+      genCQMsg ();
+    }
+  if (m_lastDialFreq != transition.after.rx && transition.after.rx
+      && (m_mode != "MSK144"
+          || !(ui->cbCQTx->isEnabled () && ui->cbCQTx->isVisible () && ui->cbCQTx->isChecked ())))
+    {
+      if (m_ActiveStationsWidget)
+        {
+          m_recentCall.clear ();
+          if (m_mode != "Q65") m_ActiveStationsWidget->erase ();
+        }
+      m_lastDialFreq = transition.after.rx;
+      m_secBandChanged = QDateTime::currentMSecsSinceEpoch () / 1000;
+      statusChanged ();
+      m_wideGraph->setDialFreq (transition.after.rx / 1.e6);
+    }
+  if (m_astroWidget)
+    m_astroWidget->nominal_frequency (transition.after.rx, transition.after.tx);
+  displayDialFrequency ();
+}
+
 void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const& s)
 {
   if (!m_startup_rig_reported)
@@ -11854,50 +11884,24 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   }
 
   m_rigState = s;
-  auto old_freqNominal = m_operatingFrequency.rx ();
-  if (!old_freqNominal)
+  auto const transition = m_operatingFrequency.reconcile (
+    {old_state.online (), old_state.ptt (), m_splitMode, old_state.frequency (), old_state.tx_frequency ()},
+    {s.online (), s.ptt (), s.split (), s.frequency (), s.tx_frequency ()},
+    operatingFrequencyContext (), [this] (Frequency corrected) {
+      return dispatchNominalFrequency (corrected, FrequencyRequestOrigin::User, true);
+    });
+  m_splitMode = s.split ();
+  applyOperatingFrequencyTransition (transition);
+  if (transition.monitor)
     {
-      // always take initial rig frequency to avoid start up problems
-      // with bogus Tx frequencies
-      m_operatingFrequency.initialize (s.frequency ());
+      applyMonitorEffects (*transition.monitor, transition.restorationAccepted);
     }
-  if (old_state.online () == false && s.online () == true)
+  else if (!old_state.online () && s.online ())
     {
-      // initializing
-      on_monitorButton_clicked (!(m_config.monitor_off_at_startup() or m_mode=="Echo"));
+      ui->monitorButton->setChecked (false);
     }
-  if (s.frequency () != old_state.frequency () || s.split () != m_splitMode)
-    {
-      m_splitMode = s.split ();
-      m_operatingFrequency.observe ({s.online (), s.ptt (), s.split (), s.frequency (), s.tx_frequency ()},
-                                    m_monitoring, m_astroCorrection.rx, m_astroCorrection.tx, old_freqNominal);
-      if (!s.ptt ())
-        {
-          if (old_freqNominal != m_operatingFrequency.rx ())
-            {
-              cancelPendingFt8Decode ("dial frequency changed");
-              genCQMsg ();
-            }
-
-          if (m_lastDialFreq != m_operatingFrequency.rx () &&
-              (m_mode != "MSK144"
-               || !(ui->cbCQTx->isEnabled () && ui->cbCQTx->isVisible () && ui->cbCQTx->isChecked()))) {
-
-            if (m_lastDialFreq != m_operatingFrequency.rx () and m_ActiveStationsWidget != NULL) {
-              m_recentCall.clear();
-              if(m_mode!="Q65") m_ActiveStationsWidget->erase();
-            }
-
-            m_lastDialFreq = m_operatingFrequency.rx ();
-            m_secBandChanged=QDateTime::currentMSecsSinceEpoch()/1000;
-//            pskSetLocal ();  // better be done after a band change
-            statusChanged();
-            m_wideGraph->setDialFreq(m_operatingFrequency.rx () / 1.e6);
-          }
-      }
-      if (m_astroWidget) m_astroWidget->nominal_frequency (m_operatingFrequency.rx (), m_operatingFrequency.tx ());
-  }
-  if (!s.ptt () && s.frequency () != old_state.frequency ())
+  if (s.online () && s.frequency () && !s.ptt ()
+      && s.frequency () != old_state.frequency () && !transition.restorationAccepted)
     {
       setXIT (ui->TxFreqSpinBox->value ());
     }
@@ -11907,7 +11911,6 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       reapplyCurrentRigFrequencyCorrection ();
     }
 
-  displayDialFrequency ();
   update_dynamic_property (ui->readFreq, "state", "ok");
   ui->readFreq->setEnabled (false);
   ui->readFreq->setText (s.split () ? "S" : "");
@@ -13087,6 +13090,7 @@ bool MainWindow::applyBeaconBandChange (BeaconTx::HoppingProposal const& proposa
 
   setXIT (ui->TxFreqSpinBox->value ());
   m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
+  auto band = m_config.bands ()->find (m_operatingFrequency.rx ()).remove ('m');
 #if defined(Q_OS_WIN)
   p3.start("CMD", QStringList {"/C", "user_hardware", band});
 #else
@@ -13255,21 +13259,35 @@ bool MainWindow::nominalFrequencyChangeAllowed (FrequencyRequestOrigin origin)
   return decision.allowed;
 }
 
+OperatingFrequency::Context MainWindow::operatingFrequencyContext () const
+{
+  return {m_monitoring, !m_transmitting && !m_wav_load_coordinator.isLoading (),
+          !m_config.monitor_off_at_startup (), m_config.monitor_last_used (), m_mode == "Echo",
+          m_astroCorrection.rx, m_astroCorrection.tx};
+}
+
+bool MainWindow::dispatchNominalFrequency (Frequency corrected,
+                                           FrequencyRequestOrigin origin,
+                                           bool monitoring)
+{
+  if (!nominalFrequencyChangeAllowed (origin)) return false;
+  auto const accepted = !((monitoring || m_transmitting) && m_config.transceiver_online ())
+    || m_config.transceiver_frequency (
+      corrected, RigFrequencyChangePolicy::ChangeKind::NominalQsy);
+  if (!accepted && origin == FrequencyRequestOrigin::User)
+    {
+      statusBar ()->showMessage (
+        tr ("Stop transmitting or tuning before changing the dial frequency."), 5000);
+    }
+  return accepted;
+}
+
 bool MainWindow::requestNominalFrequencyChange (Frequency frequency,
                                                 FrequencyRequestOrigin origin)
 {
   if (!m_operatingFrequency.requestNominal (frequency, m_astroCorrection.rx,
         [this, origin] (Frequency corrected) {
-          if (!nominalFrequencyChangeAllowed (origin)) return false;
-          auto const accepted = !((m_monitoring || m_transmitting) && m_config.transceiver_online ())
-            || m_config.transceiver_frequency (
-              corrected, RigFrequencyChangePolicy::ChangeKind::NominalQsy);
-          if (!accepted && origin == FrequencyRequestOrigin::User)
-            {
-              statusBar ()->showMessage (
-                tr ("Stop transmitting or tuning before changing the dial frequency."), 5000);
-            }
-          return accepted;
+          return dispatchNominalFrequency (corrected, origin, m_monitoring);
         })) return false;
 
   genCQMsg ();

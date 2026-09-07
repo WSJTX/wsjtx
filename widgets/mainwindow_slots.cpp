@@ -83,31 +83,41 @@ void MainWindow::on_monitorButton_clicked (bool checked)
   }
 
   if (!m_transmitting) {
-    auto prior = m_monitoring;
-    monitor (checked);
-    if (checked && !prior) {
-      if (m_config.monitor_last_used () && m_mode!="Echo") {
-        // put rig back where it was when last in control
-        if (requestNominalFrequencyChange (
-              m_operatingFrequency.remembered (), FrequencyRequestOrigin::User))
-          {
-            setXIT (ui->TxFreqSpinBox->value ());
-          }
+    if (checked)
+      {
+        auto const transition = m_operatingFrequency.enableMonitor (
+          operatingFrequencyContext (), [this] (Frequency corrected) {
+            return dispatchNominalFrequency (corrected, FrequencyRequestOrigin::User, true);
+          });
+        applyOperatingFrequencyTransition (transition);
+        applyMonitorEffects (true, transition.restorationAccepted);
       }
-          // ensure FreqCal triggers
-      if(m_mode=="FST4W") {
-        on_sbFST4W_RxFreq_valueChanged(ui->sbFST4W_RxFreq->value());
-      } else {
-        on_RxFreqSpinBox_valueChanged (ui->RxFreqSpinBox->value ());
+    else
+      {
+        applyMonitorEffects (false, false);
       }
-    }
-    //Get Configuration in/out of strict split and mode checking
-    m_config.sync_transceiver (true, checked);
   } else {
     ui->monitorButton->setChecked (false); // disallow
   }
   if(m_mode=="Echo") m_echoRunning=false;
   check_button_color();
+}
+
+void MainWindow::applyMonitorEffects (bool checked, bool restored)
+{
+  auto const prior = m_monitoring;
+  monitor (checked);
+  if (restored) setXIT (ui->TxFreqSpinBox->value ());
+  if (checked && !prior)
+    {
+      if (m_mode == "FST4W")
+        on_sbFST4W_RxFreq_valueChanged (ui->sbFST4W_RxFreq->value ());
+      else
+        on_RxFreqSpinBox_valueChanged (ui->RxFreqSpinBox->value ());
+    }
+  m_config.sync_transceiver (true, checked);
+  if (m_mode == "Echo") m_echoRunning = false;
+  check_button_color ();
 }
 
 void MainWindow::on_autoButton_clicked (bool checked)

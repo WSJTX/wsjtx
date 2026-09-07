@@ -571,6 +571,9 @@ private slots:
   void on_actionShort_list_of_add_on_prefixes_and_suffixes_triggered();
   void band_changed (Frequency);
   void monitor (bool);
+  void applyMonitorEffects (bool checked, bool restored);
+  void applyOperatingFrequencyTransition (OperatingFrequency::Transition const&);
+  OperatingFrequency::Context operatingFrequencyContext () const;
   void end_tuning ();
   void stop_tuning ();
   void stopTuneATU();
@@ -1497,6 +1500,7 @@ private:
     RigFrequencyChangePolicy::ChangeKind) const;
   bool nominalFrequencyChangeAllowed (FrequencyRequestOrigin);
   bool requestNominalFrequencyChange (Frequency, FrequencyRequestOrigin);
+  bool dispatchNominalFrequency (Frequency corrected, FrequencyRequestOrigin, bool monitoring);
   bool requestBandChange (Frequency, FrequencyRequestOrigin);
   bool workingFrequencyAt (int row, Frequency&) const;
   void applyBandChange (Frequency, Frequency previous_frequency);
