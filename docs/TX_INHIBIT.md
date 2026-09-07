@@ -18,7 +18,7 @@ Design authority for this repository: how **wsjtx-inhibit** implements
 | **`wims-key-agent`** | WIMS KEY agent (WIMS tree, not this repo). Destinations come from WIMS discovery. Same protocol. |
 | **TX Inhibit** | Product / feature name (Settings, badge, this build). |
 | **want_tx** | Software wants to transmit (FT8 sequence, “Enable Tx”, audio path). |
-| **hold** | One or more **leases** are live: KEY agent(s) have told this WSJT-X station not to transmit. |
+| **hold** | One or more **leases** are live: KEY agent(s) have told this WSJT-X station to inhibit transmit. |
 | **lease** | Per-**Controller ID** expiring hold row. Hold = logical **OR** of live leases. |
 | **Controller ID** | Stable machine-readable lease owner (wire field). A sender may only refresh/release its own row. |
 | **assert PTT** / **release PTT** | Physical PTT line active / inactive (RTS/DTR as configured). Same pattern for KEY: **assert KEY** / **release KEY**. |
@@ -35,7 +35,7 @@ assert PTT  ⇔  want_tx  and  not hold
 hold        ⇔  any live per-controller lease
 ```
 
-The KEY agent **tells WSJT-X stations not to transmit**; while a hold is active, the
+The KEY agent **tells WSJT-X stations to inhibit transmit**; while a hold is active, the
 WSJT-X station will not **assert PTT** even if `want_tx` is true.
 
 **Two different timers — different purpose, different time scale**
@@ -81,7 +81,7 @@ agent so a dual-radio seat works **without WIMS**:
   Priority radio
        │ KEY sense
        ▼
-  ┌───────────┐     “don’t transmit” / keepalive / release hold (UDP)
+  ┌───────────┐     “inhibit transmit” / keepalive / release hold (UDP)
   │ KEY agent │ ────────────────────────────────────────────────────┐
   └───────────┘                                                     │
                                                                     ▼
@@ -105,7 +105,7 @@ SSB/CW station and the KEY agent host.
 - **Opt-in.** Settings → Radio → **Enable TX Inhibit**. Default **off**
   (stock WSJT-X PTT). Requires **PTT method** = RTS or DTR.
 - **Sequencing and audio stay the same.** TX Inhibit only decides whether the
-  WSJT-X station may **assert PTT** when the KEY agent has said not to transmit.
+  WSJT-X station may **assert PTT** when the KEY agent has said inhibit transmit.
 - **Equation:** `assert PTT ⇔ want_tx and not hold`.
 - **hold** is active while an unexpired **hold timeout** is set (KEY agent or
   test tool).
@@ -114,19 +114,23 @@ SSB/CW station and the KEY agent host.
   stream. Controllers (WIMS KEY agent, or a discovery-capable agent) learn
   `host:port` from type 17 — there is no fixed well-known port. Total bind
   failure is **non-fatal**: CAT/PTT continue; hold requests are not received.
-- Status bar (red): `TX INHIBITED` or `TX INHIBITED — held by <station>`.
+- Status bar (red): **`INHIBIT`**. Tooltip may show holder / UDP listen port.
 
 ### Setup summary
 
 1. **PTT method** = **RTS** or **DTR**.
-2. **Enable TX Inhibit** = checked.
-3. **PTT port** = real serial device (`COMx` / `/dev/ttyUSBx`), same COM as
+2. **PTT port** = real serial device (`COMx` / `/dev/ttyUSBx`), same COM as
    CAT if shared, or a separate PTT adapter. List value **CAT** is OmniRig-style
-   proxy only — Hamlib still needs a real device name for RTS/DTR.
-4. Wire RTS/DTR → radio PTT/SEND (or USB SEND / PC KEYING). Radio **VOX** off
-   for clean tests.
-5. Point the KEY agent at this WSJT-X station **host:port from InhibitStatus**
-   (tooltip / type 17), not a fixed port number.
+   proxy only — Hamlib still needs a real device name for RTS/DTR.  
+   If the device is missing from the list, type the full path. Set the port
+   **before** Enable.
+3. **Enable TX Inhibit** = checked. Available only when RTS/DTR is selected
+   **and** PTT port is set. Clear the port and Enable clears too.
+4. Wire RTS/DTR → radio PTT/SEND (or USB SEND / PC KEYING).
+5. **WARNING — turn radio VOX off.** TX Inhibit only gates the RTS/DTR PTT line.
+   If VOX is on, audio can still key the radio while the badge says **INHIBIT**.
+6. Point the KEY agent at this WSJT-X station **host:port from InhibitStatus**
+   (tooltip / type 17).
 
 ### Shared USB CAT + RTS/DTR
 
@@ -179,8 +183,8 @@ path when several apps share the station.
 1. Handshake **None**.  
 2. Radio: line = USB SEND / PC KEYING / PTT, not flow control.  
 3. **PTT method** = RTS or DTR.  
-4. **Enable TX Inhibit** checked.  
-5. **PTT port** = same real COM as CAT (not list value “CAT”).  
+4. **PTT port** = same real COM as CAT (not list value “CAT”).  
+5. **Enable TX Inhibit** checked (only after port is set).  
 6. One program owns the modem lines.  
 7. Confirm with **Test PTT** and RF/ALC, not only “CAT green.”
 
@@ -479,7 +483,7 @@ Until CTS is opt-in and safe: KEY agent → UDP.
 
 Enable TX Inhibit, RTS/DTR on a real serial port, read the bound port from the
 status-bar tooltip (or InhibitStatus type 17), then send the same UDP a KEY
-agent would to that **host:port**. Expect red **TX INHIBITED**; WSJT-X station
+agent would to that **host:port**. Expect red **INHIBIT**; WSJT-X station
 does not **assert PTT** while hold is active.
 
 ### KEY agent (`inhibit-agent` / `inhibit-agent-gui`)
