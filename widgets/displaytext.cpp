@@ -50,7 +50,9 @@ namespace
 {
   QRegularExpression const message_73_regexp {"^(73|RR73)$"};
   QRegularExpression const grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
-  QRegularExpression const ap_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9*]?)$)"};
+  // Trailing #? matches Q65's "copied last Tx" flag marker (e.g. "q3#"),
+  // appended after the usual AP-type/averaging-count qualifier.
+  QRegularExpression const ap_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9*]?#?)$)"};
 }
 
 using SpecOp = Configuration::SpecialOperatingActivity;
