@@ -2,6 +2,7 @@
 #define DECODEOUTPUTPLAN_HPP
 
 #include "Decoder/decodedtext.h"
+#include "AutoRespondPolicy.hpp"
 #include "SpecialOperatingActivity.hpp"
 
 #include <QByteArray>
@@ -91,7 +92,7 @@ namespace DecodeOutputPlan
     bool waitAndPounceOnly {false};
     bool bypass {false};
     bool pounce {false};
-    QString respondSelection;
+    AutoRespondPolicy respondPolicy {AutoRespondPolicy::None};
   };
 
   struct KeywordFilterDecision

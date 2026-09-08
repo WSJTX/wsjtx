@@ -339,7 +339,7 @@ namespace
       }
       bool const suppressCallChange = cleanMessage.contains(" " + snapshot.myCall + " ")
         && cleanMessage.mid(22).contains(" 73")
-        && snapshot.respondSelection == "CQ: Max dB";
+        && snapshot.respondPolicy == AutoRespondPolicy::MaxSignal;
       if (!suppressCallChange) {
         appendTextEffect(plan, QsoReactionEffect::Kind::SetDxCall, analysis.hisCall);
       }

@@ -73,6 +73,26 @@ private slots:
         QVERIFY(!result.filtered);
         QVERIFY(!result.shouldReturn);
     }
+
+    void testScoringPounceResetsScores()
+    {
+        MessageFilterLogic::FilterContext ctx;
+        ctx.filtersForWord2 = true;
+        ctx.filtersForWaitAndPounceOnly = true;
+        ctx.blacklisted = true;
+        ctx.blacklistKeywords = QStringList() << "K1ABC";
+        ctx.pounce = true;
+        ctx.respondPolicy = AutoRespondPolicy::MaxDistance;
+
+        auto result = MessageFilterRules::evaluateMSK144Text(
+          "060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+        QVERIFY(result.resetPoints);
+
+        ctx.respondPolicy = AutoRespondPolicy::First;
+        result = MessageFilterRules::evaluateMSK144Text(
+          "060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+        QVERIFY(!result.resetPoints);
+    }
 };
 
 QTEST_MAIN(TestMSK144FilterRules)

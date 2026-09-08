@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "RoundRobinSelection.hpp"
 #include "ui_mainwindow.h"
 #include "widegraph.h"
 #include "commons.h"
@@ -78,7 +79,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("QSYMessageCreatorDisplayed", m_QSYMessageCreatorWidget && m_QSYMessageCreatorWidget->isVisible ());
   m_settings->setValue("ShowQSYMessages", ui->actionEnable_QSY_Popups->isChecked());
   m_settings->setValue("QSYMonitorDisplayed", m_qsymonitorWidget && m_qsymonitorWidget->isVisible ());
-  m_settings->setValue("RespondCQ",ui->respondComboBox->currentIndex());
+  m_settings->setValue("RespondCQ",static_cast<int> (autoRespondPolicy ()));
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
   m_settings->setValue("FoxNslots",m_Nslots0);
@@ -161,7 +162,8 @@ void MainWindow::writeSettings()
   m_settings->setValue ("CQonly", ui->cbCQonly->isChecked ());
   m_settings->setValue ("BypassFilters", ui->cbBypass->isChecked ());
   m_settings->setValue("PctTx", ui->sbTxPercent->value ());
-  m_settings->setValue("RoundRobin",ui->RoundRobin->currentText());
+  m_settings->setValue(
+    "RoundRobin", QString::fromStdString (BeaconTx::formatRoundRobinPolicy (configuredRoundRobinPolicy ())));
   m_settings->setValue("dBm",m_dBm);
   m_settings->setValue("RR73",m_send_RR73);
   m_settings->setValue ("WSPRPreferType1", ui->WSPR_prefer_type_1_check_box->isChecked ());
@@ -302,7 +304,10 @@ void MainWindow::readSettings()
   bool displayQSYMessageCreator = m_settings->value ("QSYMessageCreatorDisplayed", false).toBool ();
   bool displayQSYMonitor = m_settings->value("QSYMonitorDisplayed", false).toBool ();
   bool enableQSYpopups = m_settings->value("ShowQSYMessages", true).toBool ();
-  ui->respondComboBox->setCurrentIndex(m_settings->value("RespondCQ",0).toInt());
+  auto const respondPolicy = m_settings->value(
+    "RespondCQ", static_cast<int> (AutoRespondPolicy::None)).toInt();
+  auto const respondIndex = ui->respondComboBox->findData (respondPolicy);
+  ui->respondComboBox->setCurrentIndex (respondIndex >= 0 ? respondIndex : 0);
   ui->comboBoxHoundSort->setCurrentIndex(m_settings->value("HoundSort",3).toInt());
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
   m_Nslots=m_settings->value("FoxNslots",3).toInt();
@@ -562,7 +567,9 @@ void MainWindow::readSettings()
 
   ui->sbTxPercent->setValue (m_settings->value ("PctTx", 20).toInt ());
   on_sbTxPercent_valueChanged (ui->sbTxPercent->value ());
-  ui->RoundRobin->setCurrentText(m_settings->value("RoundRobin",tr("Random")).toString());
+  auto const roundRobinPolicy = BeaconTx::parseRoundRobinPolicy (
+    m_settings->value("RoundRobin", "random").toString ().toStdString ());
+  RoundRobinSelection::setPolicy (*ui->RoundRobin, roundRobinPolicy);
   m_dBm=m_settings->value("dBm",37).toInt();
   m_send_RR73=m_settings->value("RR73",false).toBool();
   m_score=m_settings->value("Score",0).toInt();

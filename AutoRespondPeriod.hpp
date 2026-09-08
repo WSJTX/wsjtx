@@ -4,16 +4,9 @@
 #include <QDateTime>
 #include <QString>
 
-class DecodedText;
+#include "AutoRespondPolicy.hpp"
 
-enum class AutoRespondPolicy
-{
-  None,
-  First,
-  MaxDistance,
-  MaxSignal,
-  MinSignal
-};
+class DecodedText;
 
 bool isDirectAutoRespondCandidate(DecodedText const& message, QString const& myCall);
 

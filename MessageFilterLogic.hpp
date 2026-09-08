@@ -3,6 +3,8 @@
 
 #include <QString>
 #include <QStringList>
+
+#include "AutoRespondPolicy.hpp"
 #include "SpecialOperatingActivity.hpp"
 
 class DecodedText;
@@ -46,7 +48,7 @@ public:
         QString mode;
 
         bool pounce {false};
-        QString respondMode;
+        AutoRespondPolicy respondPolicy {AutoRespondPolicy::None};
     };
 
     struct FilterResult {

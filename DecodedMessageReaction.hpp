@@ -4,6 +4,7 @@
 #include "QsoProgress.hpp"
 #include "Radio.hpp"
 #include "SpecialOperatingActivity.hpp"
+#include "AutoRespondPolicy.hpp"
 
 #include <functional>
 #include <QString>
@@ -64,7 +65,7 @@ namespace DecodedMessageReaction
     QString dxCall;
     QString hisCall;
     QString hisGrid;
-    QString respondSelection;
+    AutoRespondPolicy respondPolicy {AutoRespondPolicy::None};
     double trPeriod {60.0};
     Radio::Frequency nominalFrequency {0u};
     int rxFrequency {0};

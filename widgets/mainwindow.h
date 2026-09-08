@@ -638,7 +638,7 @@ private slots:
   void on_comboBoxHoundSort_activated (int index);
   void checkMSK144ContestType();
   void on_pbBestSP_clicked();
-  void on_RoundRobin_currentTextChanged(QString text);
+  void on_RoundRobin_currentTextChanged(QString);
   void setTxMsg(int n);
   bool stdCall(QString const& w);
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
@@ -1487,6 +1487,7 @@ private:
   void switch_mode (Mode);
   bool hasMsk144BaseFrequency () const {return m_msk144basefreq > 0;}
   BeaconTx::RoundRobinPolicy beaconRoundRobinPolicy () const;
+  BeaconTx::RoundRobinPolicy configuredRoundRobinPolicy () const;
   void enterBeaconMode ();
   void processBeaconActions (BeaconTx::Controller::Actions actions);
   BeaconTx::ScheduleProposal beaconScheduleProposal ();

@@ -367,6 +367,18 @@ private slots:
     QVERIFY(clearGrid >= 0);
     QVERIFY(setCall > clearGrid);
   }
+
+  void maxSignalSignoffKeepsSelectedCall()
+  {
+    auto context = baseContext();
+    context.respondPolicy = AutoRespondPolicy::MaxSignal;
+    DecodedText message {"0605 -10  0.3 0815 ~  K1ABC W1AW/R 73"};
+
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
+
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::Reacted);
+    QVERIFY(!hasEffect(decision, Effect::Kind::SetDxCall));
+  }
 };
 
 QTEST_MAIN(TestDecodedMessageReaction)

@@ -95,6 +95,15 @@ add_executable (test_beacon_tx_controller
 target_link_libraries (test_beacon_tx_controller Qt5::Test)
 add_test (NAME test_beacon_tx_controller COMMAND test_beacon_tx_controller)
 
+add_executable (test_round_robin_selection
+  test_round_robin_selection.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/RoundRobinSelection.cpp
+  ${CMAKE_SOURCE_DIR}/BeaconTxController.cpp
+)
+target_link_libraries (test_round_robin_selection Qt5::Test Qt5::Widgets)
+add_test (NAME test_round_robin_selection COMMAND test_round_robin_selection)
+set_tests_properties (test_round_robin_selection PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable (test_rig_frequency_change_policy
   test_rig_frequency_change_policy.cpp
 )

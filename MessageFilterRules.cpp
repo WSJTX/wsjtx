@@ -54,7 +54,7 @@ MessageFilterRules::Evaluation MessageFilterRules::evaluateMSK144Text(QString te
       evaluation.result.shouldReturn = true;
       return evaluation;
     }
-    if (ctx.pounce && (ctx.respondMode == "CQ: Max Dist" || ctx.respondMode == "CQ: Max dB" || ctx.respondMode == "CQ: Min dB")) {
+    if (ctx.pounce && isScoringAutoRespondPolicy (ctx.respondPolicy)) {
       evaluation.result.resetPoints = true;
     }
   } else if (SpecOp::NONE == ctx.specOp && ctx.whitelisted && !containsFilterMatch(filterText, ctx.whitelistKeywords, startsWith)) {
@@ -63,7 +63,7 @@ MessageFilterRules::Evaluation MessageFilterRules::evaluateMSK144Text(QString te
       evaluation.result.shouldReturn = true;
       return evaluation;
     }
-    if (ctx.pounce && (ctx.respondMode == "CQ: Max Dist" || ctx.respondMode == "CQ: Max dB" || ctx.respondMode == "CQ: Min dB")) {
+    if (ctx.pounce && isScoringAutoRespondPolicy (ctx.respondPolicy)) {
       evaluation.result.resetPoints = true;
     }
   }

@@ -94,6 +94,7 @@ class TestBeaconTxController final : public QObject
   Q_OBJECT
 
 private slots:
+  void roundRobinPolicyCodec ();
   void delayedAdjacentPeriodAndDuplicateObservation ();
   void resyncReceivesPartialSlotAndPreparesAtCompletion ();
   void receiveCompletionPreparesOnce ();
@@ -125,6 +126,28 @@ private slots:
   void backwardClockStepResynchronizesToReceive ();
   void oneProposalRequestAndApplicationPerPlanId ();
 };
+
+void TestBeaconTxController::roundRobinPolicyCodec ()
+{
+  auto policy = parseRoundRobinPolicy ("2/4");
+  QCOMPARE (policy.kind, RoundRobinPolicy::Kind::Fixed);
+  QCOMPARE (policy.selectedSlot, 1);
+  QCOMPARE (policy.slotCount, 4);
+  QVERIFY (formatRoundRobinPolicy (policy) == "2/4");
+
+  policy = parseRoundRobinPolicy ("7/12");
+  QCOMPARE (policy.kind, RoundRobinPolicy::Kind::Fixed);
+  QCOMPARE (policy.selectedSlot, 6);
+  QCOMPARE (policy.slotCount, 12);
+
+  QVERIFY (formatRoundRobinPolicy (parseRoundRobinPolicy ("  +2 / 4 \t")) == "2/4");
+  for (auto const& text : {"random", "Random", "randomized", "0/4", "5/4", "2/4x",
+                           "2/4/6", "2/", "/4", "2/99999999999999999999", "-1/4"})
+    {
+      QCOMPARE (parseRoundRobinPolicy (text).kind, RoundRobinPolicy::Kind::Random);
+    }
+  QVERIFY (formatRoundRobinPolicy (RoundRobinPolicy::random ()) == "random");
+}
 
 void TestBeaconTxController::delayedAdjacentPeriodAndDuplicateObservation ()
 {

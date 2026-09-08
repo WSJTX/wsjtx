@@ -54,6 +54,9 @@ namespace BeaconTx
     }
   };
 
+  RoundRobinPolicy parseRoundRobinPolicy (std::string const& text);
+  std::string formatRoundRobinPolicy (RoundRobinPolicy const& policy);
+
   struct HoppingProposal
   {
     int frequenciesIndex {-1};

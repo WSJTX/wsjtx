@@ -193,6 +193,7 @@ set (wsjtx_CXXSRCS
   widgets/mainwindow_arrl_digi.cpp
   widgets/mainwindow_bandhopping.cpp
   widgets/mainwindow_slots.cpp
+  widgets/RoundRobinSelection.cpp
   main.cpp
   Network/wsprnet.cpp
   WSPR/WSPRBandHopping.cpp
