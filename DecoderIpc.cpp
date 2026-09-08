@@ -2,11 +2,31 @@
 
 #include "lib/decoder_ipc_control.h"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 
 namespace
 {
+  int sampleCountToCopy (int period)
+  {
+    switch (period)
+      {
+      case 7: // FT4's 7.5-second period is stored as an integer.
+      case 15:
+      case 30:
+      case 60:
+      case 120:
+      case 300:
+      case 900:
+      case 1800:
+        // Legacy decoders read fixed windows beyond the received sample count.
+        return std::min (NTMAX, std::max (60, period)) * RX_SAMPLE_RATE;
+      default:
+        return NTMAX * RX_SAMPLE_RATE;
+      }
+  }
+
   bool hasCurrentProtocol (shared_dec_data_t const& shared)
   {
     return DECODER_IPC_VERSION == DecoderIpc::protocolVersion (shared);
@@ -101,13 +121,28 @@ bool DecoderIpc::publish (shared_dec_data_t& shared, dec_data_t const& payload,
       return false;
     }
 
+  // A different mode or period must not reuse an incomplete sample snapshot.
+  bool const contextChanged = !copySamples
+    && (shared.payload.params.nmode != payload.params.nmode
+        || shared.payload.params.ntrperiod != payload.params.ntrperiod);
+  copySamples = copySamples || contextChanged;
   if (copySamples)
     {
-      shared.payload = payload;
+      std::memcpy (shared.payload.ss, payload.ss, sizeof payload.ss);
+      std::memcpy (shared.payload.savg, payload.savg, sizeof payload.savg);
+      std::memcpy (shared.payload.sred, payload.sred, sizeof payload.sred);
+      std::memcpy (shared.payload.d2, payload.d2,
+                   sampleCountToCopy (payload.params.ntrperiod) * sizeof payload.d2[0]);
+      shared.payload.params = payload.params;
     }
   else
     {
       shared.payload.params = payload.params;
+    }
+  if (contextChanged)
+    {
+      shared.payload.params.newdat = true;
+      shared.payload.params.nagain = false;
     }
   return decoder_ipc_control_publish (&shared.control.generation,
                                       &shared.control.state,
