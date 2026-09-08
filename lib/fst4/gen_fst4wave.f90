@@ -7,7 +7,7 @@ subroutine gen_fst4wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
    complex cwave(nwave),ctab(0:NTAB-1)
    character(len=1) :: cvalue 
    real, allocatable, save :: pulse(:)
-   real, allocatable :: dphi(:)
+   real, allocatable :: dphi(:), scaled_pulse(:)
    integer hmod
    integer itone(nsym)
    logical first, lshape
@@ -40,34 +40,36 @@ subroutine gen_fst4wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
       nsps0=nsps
    endif
 
-! Compute the smoothed frequency waveform.
-! Length = (nsym+2)*nsps samples, zero-padded
-   allocate( dphi(0:(nsym+2)*nsps-1) )
+! Generate one symbol at a time, retaining phase across symbol boundaries.
+   allocate(dphi(0:nsps-1))
    dphi_peak=twopi*hmod/real(nsps)
-   dphi=0.0
-   do j=1,nsym
-      ib=(j-1)*nsps
-      ie=ib+3*nsps-1
-      dphi(ib:ie) = dphi(ib:ie) + dphi_peak*pulse(1:3*nsps)*itone(j)
-   enddo
-
-! Calculate and insert the audio waveform
+   allocate(scaled_pulse(3*nsps))
+   scaled_pulse=dphi_peak*pulse
+   carrier=twopi*(f0-1.5*hmod/tsym)*dt
+   if(icmplx.eq.0) wave(nsym*nsps+1:nwave)=0.
+   if(icmplx.eq.1) cwave(nsym*nsps+1:nwave)=0.
    phi=0.0
-   dphi = dphi + twopi*(f0-1.5*hmod/tsym)*dt       !Shift frequency up by f0
-   if(icmplx.eq.0) wave=0.
-   if(icmplx.eq.1) cwave=0.
    k=0
-   do j=nsps,(nsym+1)*nsps-1
-      k=k+1
-      i=phi*float(NTAB)/twopi
-      i=iand(i,NTAB-1)
-      if(icmplx.eq.0) then
-         wave(k)=aimag(ctab(i))
-      else
-         cwave(k)=ctab(i)
-      endif
-      phi=phi+dphi(j)
-      if(phi.gt.twopi) phi=phi-twopi
+   do iblock=1,nsym
+      dphi=0.0
+! Accumulate overlapping pulses in tone order to preserve phase rounding.
+      do j=max(1,iblock-1),min(nsym,iblock+1)
+         ip=(iblock-j+1)*nsps+1
+         dphi=dphi+scaled_pulse(ip:ip+nsps-1)*itone(j)
+      enddo
+      dphi=dphi+carrier
+      do j=0,nsps-1
+         k=k+1
+         i=phi*float(NTAB)/twopi
+         i=iand(i,NTAB-1)
+         if(icmplx.eq.0) then
+            wave(k)=aimag(ctab(i))
+         else
+            cwave(k)=ctab(i)
+         endif
+         phi=phi+dphi(j)
+         if(phi.gt.twopi) phi=phi-twopi
+      enddo
    enddo
 
 ! Compute the ramp-up and ramp-down symbols
