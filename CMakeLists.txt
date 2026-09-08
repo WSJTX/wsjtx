@@ -545,6 +545,7 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 set (LANGUAGES
   ca				# Catalan
   da				# Danish
+  de				# German
   en				# English (we need this to stop
 				# translation loaders loading the
 				# second preference UI languge, it
@@ -555,6 +556,7 @@ set (LANGUAGES
   it				# Italian
   ja				# Japanese
   #no				# Norwegian
+  pl				# Polish
   #pt				# Portuguese
   ru				# Russian
   #sv				# Swedish
