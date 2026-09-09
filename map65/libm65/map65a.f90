@@ -15,6 +15,7 @@ contains
       use wideband_sync
       use timer_module, only: timer
       use debug_log, only: dbg, itoa, rtoa
+      use sec_midn_mod, only: sec_midn
       use q65b_mod
       use decode1a_mod
       use ccf65_legacy_mod
@@ -152,6 +153,13 @@ contains
       dphi = idphi/57.2957795
       foffset = 0.001*(1270 + nfcal)
       iloop = 0
+
+      ! qphi is "save"d across calls (blanket SAVE above) but only gets
+      ! written for a trial (iloop=1..12) that actually decodes something;
+      ! without this reset, a trial that finds nothing leaves behind
+      ! whatever unrelated value qphi(iloop) held from an earlier Find-dPhi
+      ! run, silently mixing stale data into getdphi's best-fit calculation.
+      if (ndphi .eq. 1) qphi = 0.0
 
 2     if (ndphi .eq. 1) dphi = 30*iloop/57.2957795
 
@@ -490,6 +498,13 @@ contains
 ! WIDEBAND CODE RESUMES HERE
 !------------------------------------------------------------
 
+! km is "save"d across calls, but this point runs once per Find-dPhi trial
+! (iloop 0..12 via "go to 2" below) as well as once for a normal decode.
+! Without resetting it here, each later trial's "do k=1,km" write-out loop
+! replays every earlier trial's decode(s) again verbatim -- the repeated,
+! made-up-looking decodes seen with Find Delta Phi.
+km = 0
+
 ftol = 0.010
 fqso = mousefqso + foffset - 0.5*(nfa + nfb) + nfshift
 nkhz_center = nint(1000.0*(fcenter - int(fcenter)))
@@ -517,17 +532,29 @@ if (nagain .eq. 0) then
    call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa, mfb, nts_jt65, nts_q65, cand, ncand)
    call timer('get_cand', 1)
    candec = .false.
+   ! TEMP diagnostic 2026-09-09 for the missing-upper-Q65-decode investigation.
+   call dbg('map65a: get_candidates done at t=' // rtoa(sec_midn()) // &
+            ' ncand=' // itoa(ncand) // ' n_q65cand=' // itoa(count(cand(1:max(ncand,0))%iflip == 0)) // &
+            ' bq65=' // itoa(merge(1,0,bq65)) // ' xpol=' // itoa(merge(1,0,xpol)) // &
+            ' nhsym=' // itoa(nhsym) // ' manualDecodeFlag_initial=' // itoa(manualDecodeFlag_initial))
 endif
 
-      do nqd = 1, 0, -1         
-         
+      do nqd = 1, 0, -1
+
          call system_clock(t_now, t_rate)
+         call dbg('map65a: nqd loop top at t=' // rtoa(sec_midn()) // &
+                  ' nqd=' // itoa(nqd) // ' elapsed=' // rtoa(real(t_now - t_start)/real(t_rate)) // &
+                  ' manualDecodeFlag_initial=' // itoa(manualDecodeFlag_initial))
          if (real(t_now - t_start)/real(t_rate) > 40.0) then
             abort_decode = .true.
+            call dbg('map65a: ABORT (40s budget exceeded) at t=' // rtoa(sec_midn()) // ' nqd=' // itoa(nqd))
             go to 700
          endif
 
-         if (manualDecodeFlag_initial == 1 .and. nqd == 0) cycle
+         if (manualDecodeFlag_initial == 1 .and. nqd == 0) then
+            call dbg('map65a: nqd=0 CYCLE-skipped (manualDecodeFlag_initial=1) at t=' // rtoa(sec_midn()))
+            cycle
+         endif
 
 
          if (nqd .eq. 1) then                     !Quick decode, at fQSO
@@ -560,6 +587,11 @@ endif
          short = 0.                                 !Zero the whole short array
          jpz = 1
          if (xpol) jpz = 4
+
+         ! TEMP diagnostic 2026-09-09 for the missing-other-JT65-signal investigation.
+         call dbg('map65a: JT65 sweep window at t=' // rtoa(sec_midn()) // &
+                  ' nqd=' // itoa(nqd) // ' fa=' // rtoa(fa) // ' fb=' // rtoa(fb) // &
+                  ' ia=' // itoa(ia) // ' ib=' // itoa(ib) // ' km_entering=' // itoa(km))
 
          do i = ia, ib                               !Search over freq range
 
@@ -724,7 +756,12 @@ endif
                                    ndphi, nutc, ikHz, idf, ipol, ntol, sync2, &
                                    a, dt, pol, nkv, nhist, nsum, nsave, qual, decoded)
                      call timer('decode1a', 1)
-                     
+
+                     call dbg('map65a: decode1a result at t=' // rtoa(sec_midn()) // &
+                              ' nqd=' // itoa(nqd) // ' i=' // itoa(i) // ' freq=' // rtoa(freq) // &
+                              ' sync1=' // rtoa(sync1) // ' initialization_only=' // itoa(merge(1,0,initialization_only)) // &
+                              ' decoded="' // trim(decoded) // '"')
+
                      if (mode65 .ne. 0 .and. .not. initialization_only) then
                         if (km .lt. MAXMSG) km = km + 1
                         sig(km, 1) = nfile
@@ -754,7 +791,10 @@ endif
                endif
             endif
          enddo  !i=ia,ib
-         
+
+         call dbg('map65a: JT65 sweep done at t=' // rtoa(sec_midn()) // &
+                  ' nqd=' // itoa(nqd) // ' km_exiting=' // itoa(km) // ' ntry=' // itoa(ntry))
+
          if (nqd .eq. 1) then
             nwrite = 0
             if (mode65 .eq. 0) km = 0
@@ -835,7 +875,20 @@ endif
 
                   call timer('q65b    ', 1)
 
-                  if (idec .ge. 0) candec(icand) = .true.
+                  ! 2026-09-09: was "if (idec .ge. 0)". idec is not a
+                  ! trustworthy success flag here -- q65b derives it from
+                  ! cq0(2:2), which is not reset on a failed/no-op attempt,
+                  ! so back-to-back candidates in this same loop (e.g. two
+                  ! Q65 signals both within Ftol of the QSO marker) can have
+                  ! a later candidate's idec falsely read back an earlier
+                  ! candidate's leftover cq0 digit. That marks candec(icand)
+                  ! true for a candidate that was never actually decoded,
+                  ! silently dropping it from both this display and the
+                  ! nqd=0 fallback loop below (which skips candec==.true.).
+                  ! nsnr0 is reset to -99 at the top of every q65b() call
+                  ! (see q65b.F90) and is what the manual-decode path already
+                  ! uses for exactly this reason -- use it here too.
+                  if (nsnr0 .gt. -99) candec(icand) = .true.
                enddo
                if (.not. q65b_called) then
                   freq = mousefqso + 0.001*mousedf
@@ -876,8 +929,17 @@ endif
             close (16)
          endif
          call sec0(1, tsec0)
-         if (nhsym .eq. nhsym1 .and. tsec0 .gt. 3.0) go to 700
-         if (nqd .eq. 1 .and. nagain .eq. 1) go to 900
+         call dbg('map65a: end of nqd=' // itoa(nqd) // ' body at t=' // rtoa(sec_midn()) // &
+                  ' tsec0=' // rtoa(tsec0) // ' nhsym=' // itoa(nhsym) // ' nagain=' // itoa(nagain))
+         if (nhsym .eq. nhsym1 .and. tsec0 .gt. 3.0) then
+            call dbg('map65a: ABORT (early-pass 3s budget) at t=' // rtoa(sec_midn()) // &
+                     ' tsec0=' // rtoa(tsec0) // ' -- nqd=0 will NOT run this pass')
+            go to 700
+         endif
+         if (nqd .eq. 1 .and. nagain .eq. 1) then
+            call dbg('map65a: SKIP nqd=0 (nagain=1, manual repeat) at t=' // rtoa(sec_midn()))
+            go to 900
+         endif
 
          if (nqd .eq. 0 .and. bq65) then
 ! Do the wideband Q65 decode
@@ -897,7 +959,10 @@ endif
 
                call timer('q65b    ', 1)
 
-               if (idec .ge. 0) candec(icand) = .true.
+               ! 2026-09-09: see the matching note on the nqd==1 candidate
+               ! loop above -- idec is unreliable across back-to-back q65b()
+               ! calls in the same loop; use nsnr0 instead.
+               if (nsnr0 .gt. -99) candec(icand) = .true.
                if (abort_decode) go to 700
             enddo  ! icand
          endif         
@@ -912,8 +977,14 @@ endif
 
       enddo  ! nqd
 
-700   continue   
+700   continue
+      ! TEMP diagnostic 2026-09-09 for the missing-other-signals-in-Messages investigation.
+      call dbg('map65a: reached label 700 at t=' // rtoa(sec_midn()) // &
+               ' km=' // itoa(km) // ' abort_decode=' // itoa(merge(1,0,abort_decode)) // &
+               ' nhsym=' // itoa(nhsym))
       call select_unique_decodes(sig, msg, km, ftol, RESULT_DT_TOLERANCE, indx, nz)
+      call dbg('map65a: select_unique_decodes done at t=' // rtoa(sec_midn()) // &
+               ' km=' // itoa(km) // ' nz=' // itoa(nz))
 
       do n = 1, nz
          i = indx(n)

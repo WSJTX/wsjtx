@@ -677,16 +677,29 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
     if (t.indexOf("<DecodeFinished>") >= 0) {
         ++m_decodeFinishedCount;
 
-          decodeBusy(false); 
+          decodeBusy(false);
 //      qDebug().noquote() << QDateTime::currentMSecsSinceEpoch() << "decodeBusy(false)";
       if (m_diskData) onDiskDecodeFinished();
 
         int ndecodes = t.mid(40,5).toInt();
         lab8->setText(QString::number(ndecodes));
-        m_map65RxLog   = 0;        
-    }
+        m_map65RxLog   = 0;
 
-    ui->DecodeButton->setStyleSheet("");
+        // 2026-09-10: moved here from unconditionally after this whole
+        // <EarlyFinished>/<DecodeFinished> block. It used to fire on
+        // <EarlyFinished> too, clearing the button's blue "busy" color as
+        // soon as the early (nhsym1, ~52s) pass finished -- well before
+        // decodeBusy(false) actually ran, since that's gated on
+        // <DecodeFinished> alone. The two rarely diverged noticeably before
+        // the nhsym snapshot fix (see decode0.f90), since the final pass's
+        // own trigger was usually silently absorbed by a still-running
+        // early pass and contributed nothing further; now that the final
+        // pass reliably runs to completion on its own, it can take many
+        // seconds longer than the early pass, during which the button was
+        // misleadingly showing "idle" while a real decode was still in
+        // progress and more decodes were still about to arrive.
+        ui->DecodeButton->setStyleSheet("");
+    }
     return;
 }
 
@@ -2192,7 +2205,20 @@ QString hgrid = (ui->dxGridEntry->text() + "      ").mid(0, 6);
   setJunk1(1234);
   setJunk2(5678);
 
-  setNagain(0); //added 12-30-25 to agree with legacy
+  // 2026-09-08: removed the unconditional setNagain(0) that was here ("added
+  // 12-30-25 to agree with legacy"). In legacy, datcom_.nagain=0 ran AFTER
+  // the memcpy that actually shipped nagain's value to the separate m65
+  // process, so it was a harmless "reset for next time" and never affected
+  // the decode it was called for. Here, decode() writes directly into the
+  // same live Fortran variable the decoder reads, so this line was clobbering
+  // nagain=1 -- the signal on_DecodeButton_clicked()/Find-Delta-Phi rely on
+  // to tell decode0.f90 this is a manual repeat, not a fresh accumulation
+  // cycle -- before the decoder ever saw it (see decode0.f90's dd_old
+  // refresh guard). The automatic per-minute trigger in dataSink() already
+  // calls setNagain(0) itself before invoking decode(), so removing this is
+  // a no-op for normal automatic decoding. Do NOT reintroduce this line
+  // without also reworking decode0.f90's guard -- see the "2026-09-08" note
+  // there for why newdat itself must stay forced to 1 for both call paths.
   if (!m_diskData) setNdiskdat(0);  //added 12-30-25 to agree with legacy
   setDecoderReady(1);
   m_map65RxLog=0;

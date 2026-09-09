@@ -49,6 +49,7 @@
       use map65_mmdec_mod
       use npar_ptrs_mod, only: nrate_active, nfft_big_active, nfft_active, t_start, abort_decode, &
                                manualDecodeFlag, ndepth
+      use sec_midn_mod, only: sec_midn
 
       implicit none
 
@@ -148,25 +149,57 @@
       ! active runtime rate and FFT length.
       df3 = real(nrate_active)/real(nfft_active)
       ifreq = nint((1000.0*f0)/df3)
-      ia = nint(ifreq - ntol/df3)
-      ib = nint(ifreq + ntol/df3)
 
-    if (ia >= 1 .and. ia <= nfft_active .and. ib >= 1 .and. ib <= nfft_active) then
-         ipk1 = maxloc(sync(ia:ib)%ccfmax)
+      ! 2026-09-09: for a wideband candidate (not a manual click), f0 is
+      ! already a precise, sub-bin frequency estimate from wb_sync --
+      ! searching +/-ntol (the GUI's Ftol, which can be very wide, e.g.
+      ! 1000 Hz) around it for the "orange sync curve" peak lets a stronger
+      ! NEARBY signal's peak dominate the search. With several closely-
+      ! spaced Q65 candidates and a wide Ftol, a genuinely different
+      ! candidate can resolve to that same dominant bin and get silently
+      ! skipped by the ldecoded(ipk) check below as "already decoded", even
+      ! though it's a distinct signal at a different frequency. Use ifreq
+      ! directly instead, the same way k0 does a few lines down for this
+      ! exact reason. Originally this also excluded nagain=1 (Decode button
+      ! / Find Delta Phi repeat), but that path runs the same per-candidate
+      ! loop over real wb_sync candidates as automatic decoding -- f0 is
+      ! precise there too, so it needs the same fix, not the wide search.
+      ! Only an actual manual click (manualDecodeFlag/=0), where the target
+      ! itself is an imprecise mousefqso-driven guess, still needs it.
+      if (manualDecodeFlag .ne. 0) then
+         ia = nint(ifreq - ntol/df3)
+         ib = nint(ifreq + ntol/df3)
+         if (ia >= 1 .and. ia <= nfft_active .and. ib >= 1 .and. ib <= nfft_active) then
+            ipk1 = maxloc(sync(ia:ib)%ccfmax)
+         else
+            go to 901
+         endif
+         ipk = ia + ipk1(1) - 1
       else
-         go to 901
+         if (ifreq >= 1 .and. ifreq <= nfft_active) then
+            ipk = ifreq
+         else
+            go to 901
+         endif
       endif
-
-      ipk = ia + ipk1(1) - 1
       snr1 = sync(ipk)%ccfmax
 
-      ipk = ia + ipk1(1) - 1
+      ! TEMP diagnostic 2026-09-09 for the two-close-Q65-signals investigation.
+      call dbg('q65b: ipk check at t=' // rtoa(sec_midn()) // &
+               ' nqd=' // itoa(nqd) // ' f0=' // rtoa(real(f0)) // ' ntol=' // itoa(ntol) // &
+               ' ifreq=' // itoa(ifreq) // ' ipk=' // itoa(ipk) // &
+               ' ldecoded(ipk)=' // itoa(merge(1,0,ldecoded(ipk))) // &
+               ' manualDecodeFlag=' // itoa(manualDecodeFlag) // ' nagain=' // itoa(nagain))
       ! ldecoded(ipk) exists to keep the wideband scan from repeatedly
       ! re-decoding a bin it already got a result from. A manual click is a
       ! deliberate, targeted request to decode at this exact bin, so it must
       ! not be skipped just because an earlier wideband pass happened to
       ! visit the same bin first.
-      if (ldecoded(ipk) .and. manualDecodeFlag .eq. 0) go to 900
+      if (ldecoded(ipk) .and. manualDecodeFlag .eq. 0) then
+         call dbg('q65b: SKIPPED (ldecoded already set) at t=' // rtoa(sec_midn()) // &
+                  ' ipk=' // itoa(ipk))
+         go to 900
+      endif
       snr1 = sync(ipk)%ccfmax
       ! ipol was never declared and its value is never used
       ipol = 1
@@ -213,9 +246,18 @@
       ! signal, because that curve doesn't score Q65 signals the same way.
       ! A manual click already tells us exactly where to look, so center
       ! the analysis window on the actual clicked frequency (f_mouse, which
-      ! properly includes mousedf) instead of trusting that curve -- same
-      ! as the existing nagain=1 ("decode again") path already does.
-      if (nagain .eq. 1 .or. manualDecodeFlag .ne. 0) k0 = nint((f_mouse - 1000.0)/df)
+      ! properly includes mousedf) instead of trusting that curve.
+      ! 2026-09-09: dropped "nagain .eq. 1 .or." -- nagain=1 (Decode button
+      ! / Find Delta Phi repeat) still runs the same per-candidate loop over
+      ! real, precise wb_sync candidates that automatic decoding does; f0 is
+      ! not an imprecise mousefqso click there, so forcing k0 to f_mouse
+      ! made every candidate in that loop decode the SAME narrow window
+      ! near the cursor instead of its own frequency. The one nagain=1 case
+      ! where f0 genuinely comes from mousefqso (the "no candidate found"
+      ! fallback in map65a.f90) already sets f0 = mousefqso + mousedf
+      ! directly, so the default (unoverridden) k0 below lands on the same
+      ! point anyway -- this override was redundant there, not needed.
+      if (manualDecodeFlag .ne. 0) k0 = nint((f_mouse - 1000.0)/df)
 
       if (k0 .lt. nh .or. k0 .gt. nfft1 - nfft2 + 1) go to 900
       ! Likewise, snr1 is the sync-curve strength at ipk, which for a manual
@@ -278,11 +320,15 @@
       nsubmode = mode_q65 - 1
       nfa = 990                   !Tight limits around ipk for the wideband decode
       nfb = 1010
-      if (nagain .eq. 1 .or. manualDecodeFlag .ne. 0) then
-         ! For nagain=1 or a manual click, search +/- ntol around the target
-         ! (k0, set above) rather than the tight default -- ntol here is the
-         ! GUI's ftol, so this is what makes "decode everything within ftol
-         ! of the click, nothing outside it" hold for Q65.
+      ! 2026-09-09: dropped "nagain .eq. 1 .or." -- see the matching note on
+      ! k0 above. A real wideband candidate (nagain=0 or 1) already has a
+      ! precise k0/target; widening the search to +/-ntol only makes sense
+      ! for an actual manual click, where the target itself is imprecise.
+      if (manualDecodeFlag .ne. 0) then
+         ! For a manual click, search +/- ntol around the target (k0, set
+         ! above) rather than the tight default -- ntol here is the GUI's
+         ! ftol, so this is what makes "decode everything within ftol of
+         ! the click, nothing outside it" hold for Q65.
          nfa = max(100, 1000 - ntol)
          nfb = min(2500, 1000 + ntol)
       endif
@@ -299,6 +345,10 @@
 
       MHz = fcenter
       freq0 = MHz + 0.001d0*ikhz
+
+      call dbg('q65b: map65_mmdec result at t=' // rtoa(sec_midn()) // &
+               ' nqd=' // itoa(nqd) // ' f0=' // rtoa(real(f0)) // ' ipk=' // itoa(ipk) // &
+               ' nsnr0=' // itoa(nsnr0))
 
       if (nsnr0 .gt. -99) then
          ldecoded(ipk) = .true.

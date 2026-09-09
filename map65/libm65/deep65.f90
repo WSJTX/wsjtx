@@ -4,9 +4,10 @@ contains
 
 subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mrs2)
 
-  use timer_module, only: timer  
+  use timer_module, only: timer
   use decodes_mod, only: mcall3a
   use encode65_mod
+  use debug_log, only: dbg, itoa
   implicit none
 
   real,          intent(in)    :: s3(64,63)
@@ -19,18 +20,29 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mr
   integer,       intent(in)    :: mrs(63), mrs2(63)
 
   
-  integer,parameter :: MAXCALLS=10000,MAXRPT=63
+  ! 2026-09-10: MAXCALLS used to be a fixed parameter (10000), sized long
+  ! before real-world CALL3.TXT files grew past that. The read loop below
+  ! stops after MAXCALLS lines regardless of how much of the (alphabetically
+  ! sorted) file is left -- with a 132000+-line file that silently cut the
+  ! candidate list off partway through the "C" callsigns, making Deep
+  ! Search permanently blind to every callsign later in the alphabet, with
+  ! no warning to anyone. Size the candidate arrays from the actual file's
+  ! line count instead, so they can never silently truncate it again.
+  integer,parameter :: MAXRPT=63
+  integer :: MAXCALLS, narr, nlines_in_file, ios
   character callsign*12,grid*4,message*22,c*1,ceme*3
   character(len=22) bestmsg
-  character(len=22) testmsg(2*MAXCALLS + 2 + MAXRPT)
-  character(len=15) callgrid(MAXCALLS)
+  character(len=22), allocatable :: testmsg(:)
+  character(len=15), allocatable :: callgrid(:)
   character(len=180) line
   character(len=4) rpt(MAXRPT)
-  integer ncode(63,2*MAXCALLS + 2 + MAXRPT)
+  integer, allocatable :: ncode(:,:)
   integer i,i1,i2,i3,icall,ip1,k,j,j1,j2,j3,j4,m
   integer mz,n,ntot
   real bias,p,p1,p2,ref,ref0,sum
-  real pp(2*MAXCALLS + 2 + MAXRPT)
+  real, allocatable :: pp(:)
+  integer :: n_g4swx, n_dg2ycb
+  data ntot/0/
   data rpt/'-01','-02','-03','-04','-05',          &
            '-06','-07','-08','-09','-10',          &
            '-11','-12','-13','-14','-15',          &
@@ -46,14 +58,49 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mr
            'RO','RRR','73'/
   save
 
-  if(mcall3a.eq.0) go to 30
+  ! TEMP diagnostic 2026-09-10 for the false-JT65-decode / stale-CALL3.TXT investigation.
+  call dbg('deep65: entry, mcall3a=' // itoa(mcall3a) // ' cached ntot=' // itoa(ntot))
+
+  ! Force a (re)build the first time this is ever called too, even if
+  ! mcall3a happens to read 0 -- otherwise the arrays below are never
+  ! allocated at all and the scoring loop later has nothing to work with.
+  if(mcall3a.eq.0 .and. allocated(testmsg)) go to 30
   k = 0
   ntot = 0
   ip1 = 1 ! Default safety
 
   call timer('deep65a ',0)
   mcall3a=0
+
+  ! Count actual lines in CALL3.TXT so the candidate-list arrays can be
+  ! sized to fit the whole file (see note above), then size arrays large
+  ! enough for every line to become a real candidate, generously covering
+  ! the n=1 (hiscall) special case that can expand into up to MAXRPT+1
+  ! report-message variants.
   rewind 23
+  nlines_in_file = 0
+  do
+     read(23, '(A)', iostat=ios) line
+     if (ios /= 0) exit
+     nlines_in_file = nlines_in_file + 1
+  end do
+  rewind 23
+
+  MAXCALLS = max(nlines_in_file + 1, 100)   ! +1 for the n=1 hiscall slot
+  narr = 2*(MAXCALLS + MAXRPT + 1)
+
+  if (allocated(testmsg))  deallocate(testmsg)
+  if (allocated(ncode))    deallocate(ncode)
+  if (allocated(callgrid)) deallocate(callgrid)
+  if (allocated(pp))       deallocate(pp)
+  allocate(testmsg(narr))
+  allocate(ncode(63,narr))
+  allocate(callgrid(MAXCALLS))
+  allocate(pp(narr))
+
+  call dbg('deep65: rebuilding candidate list, nlines_in_file=' // itoa(nlines_in_file) // &
+           ' MAXCALLS=' // itoa(MAXCALLS))
+
   k=0
   icall=0
   do n=1,MAXCALLS
@@ -122,6 +169,18 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mr
   call timer('deep65a ',1)
 
 30 continue
+  ! TEMP diagnostic 2026-09-10: confirm whether the currently-loaded candidate
+  ! list (whether just rebuilt or reused from cache) actually contains the
+  ! callsigns known to be in CALL3.TXT right now.
+  n_g4swx = 0
+  n_dg2ycb = 0
+  do k = 1, ntot
+     if (index(testmsg(k), 'G4SWX') > 0) n_g4swx = n_g4swx + 1
+     if (index(testmsg(k), 'DG2YCB') > 0) n_dg2ycb = n_dg2ycb + 1
+  end do
+  call dbg('deep65: about to score, ntot=' // itoa(ntot) // &
+           ' n_g4swx_in_list=' // itoa(n_g4swx) // &
+           ' n_dg2ycb_in_list=' // itoa(n_dg2ycb))
   call timer('deep65b ',0)
   ref0=0.
   do j=1,63
@@ -179,6 +238,11 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mr
      qual=0.
   endif
   decoded(22:22)=c
+
+  ! TEMP diagnostic 2026-09-10.
+  call dbg('deep65: result ip1=' // itoa(ip1) // ' p1=' // itoa(nint(100*p1)) // &
+           ' p2=' // itoa(nint(100*p2)) // ' bias=' // itoa(nint(100*bias)) // &
+           ' qual=' // itoa(nint(qual)) // ' bestmsg="' // trim(testmsg(max(ip1,1))) // '"')
 
 ! Make sure everything is upper case.
   do i=1,22
