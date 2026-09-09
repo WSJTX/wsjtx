@@ -19,7 +19,6 @@
 #include <QTimer>
 #include <QDebug>
 #include <QMessageBox>
-#include <QAudioOutput>
 
 extern dec_data_t& dec_data;
 extern int outBufSize;
@@ -628,22 +627,4 @@ void MainWindow::readSettings()
   if (displayQSYMessageCreator) on_actionQSYMessage_Creator_triggered();
   if (displayQSYMonitor) on_actionQSY_Monitor_triggered();
 
-#ifdef WIN32
-  if (m_config.alert_Enabled()) {  // testing and initializing the default audio device for playing audible alerts
-      QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString audioPath = m_config.voice_directory ().absolutePath ();
-      QAudioFormat format;
-      format.setCodec("audio/pcm");
-      format.setSampleRate (48000);
-      format.setChannelCount (1);
-      format.setSampleSize (16);
-      format.setSampleType(QAudioFormat::SignedInt);
-      QAudioOutput* audio;
-      audio = new QAudioOutput(format, this);
-      QFile *effect = new QFile(this);
-      effect->setFileName(QString("%1/%2").arg(audioPath, "Testing123.wav"));
-      effect->open(QIODevice::ReadOnly);
-      audio->start(effect);
-  }
-#endif
 }
