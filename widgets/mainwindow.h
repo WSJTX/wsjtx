@@ -710,7 +710,7 @@ private:
   bool pendingCqAutoRespondIntent() const;
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
-  void processSuperHoundVerification(const DecodedText& dt, bool& verified);
+  void processSuperHoundVerification(const DecodedText& dt);
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
@@ -1126,6 +1126,7 @@ private:
   bool    m_bOK_to_chk=false;
   bool    m_bSentReport=false;
   bool    m_discard_decoded_hounds_this_cycle=false;     // if something changes, like frequency, discard decoded messages that may be in-flight.
+  bool    m_houndVerified=false;
 
   SpecOp  m_specOp;
 
@@ -1212,7 +1213,6 @@ private:
   QString m_palette;
   QString m_dateTime;
   QString m_mode;
-  QString m_modeTx;//ft8md
   QString m_fnameWE;            // save path without extension
   QString m_rpt;
   QString m_nextRpt;
@@ -1522,6 +1522,10 @@ private:
   void subProcessError (QProcess *, QProcess::ProcessError);
   void statusUpdate () const;
   void update_watchdog_label ();
+  bool normalWatchdogWarningActive () const;
+  bool isHoundOperation () const;
+  bool isSuperHoundOperation () const;
+  void updateHoundVerificationStyle ();
   void invalidate_frequencies_filter ();
   void on_the_minute ();
   void add_child_to_event_filter (QObject *);

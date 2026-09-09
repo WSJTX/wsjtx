@@ -7,7 +7,7 @@
 
 namespace SpecOpLabel
 {
-  QString label (SpecialOperatingActivity specialOperation, bool ncccSprint);
+  QString label (SpecialOperatingActivity specialOperation, bool ncccSprint, bool superFox = false);
 }
 
 #endif

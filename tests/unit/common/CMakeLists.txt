@@ -222,6 +222,17 @@ add_executable (test_spec_op_label
 target_link_libraries (test_spec_op_label Qt5::Test)
 add_test (NAME test_spec_op_label COMMAND test_spec_op_label)
 
+qt5_wrap_ui (test_active_stations_UIS ${CMAKE_SOURCE_DIR}/widgets/activeStations.ui)
+add_executable (test_active_stations
+  test_active_stations.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/activeStations.cpp
+  ${test_active_stations_UIS}
+)
+target_include_directories (test_active_stations PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries (test_active_stations wsjt_qt Qt5::Test Qt5::Widgets)
+add_test (NAME test_active_stations COMMAND test_active_stations)
+set_tests_properties (test_active_stations PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 if (WSJT_ENABLE_TSAN)
   # These tests exercise Qt GUI classes but do not test the window-system
   # integration. Offscreen QPA avoids Arch xcb/DBus startup reports while

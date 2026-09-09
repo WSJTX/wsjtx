@@ -22,7 +22,7 @@ ActiveStations::ActiveStations(QSettings * settings, QFont const& font, QWidget 
   ui->RecentStationsPlainTextEdit->setReadOnly (true);
   changeFont (font);
   read_settings ();
-  ui->header_label2->setText("  N   Call    Grid   Az  S/N  Freq Tx Age Pts");
+  setupUi(DisplayMode::Standard);
   connect(ui->cbReadyOnly, SIGNAL(toggled(bool)), this, SLOT(on_cbReadyOnly_toggled(bool)));
   connect(ui->cbWantedOnly, SIGNAL(toggled(bool)), this, SLOT(on_cbWantedOnly_toggled(bool)));
   connect(ui->RecentStationsPlainTextEdit, SIGNAL(cursorPositionChanged()), this, SLOT(on_textEdit_clicked()));
@@ -57,7 +57,7 @@ void ActiveStations::addLine(QString line) {
     m_textbuffer.append(i.value());
     ++i;
   }
-  this->displayRecentStations(m_mode, m_textbuffer);
+  this->displayRecentStations(m_displayMode, m_textbuffer);
 }
 
 void ActiveStations::read_settings ()
@@ -80,44 +80,39 @@ void ActiveStations::write_settings ()
   settings_->setValue("WantedOnly",ui->cbWantedOnly->isChecked());
 }
 
-void ActiveStations::setupUi(QString mode) {
-  if(mode!=m_mode) {
-    m_mode=mode;
-    ui->cbReadyOnly->setText(" Ready only");
-    if(m_mode=="Q65") {
-      ui->header_label2->setText("  N    Frx   Fsked  S/N  Q65  Call     Grid  Tx  Age");
-      ui->label->setText("QSOs:");
-      ui->cbReadyOnly->setText("* CQ only");
-    } else if(m_mode=="Q65-pileup") {
-      ui->header_label2->setText("  N   Freq  Call    Grid   El   Age(h)");
-      ui->cbWantedOnly->setText(QCoreApplication::translate("ActiveStations", "Wanted only", nullptr));
-    } else if(m_mode=="Fox Mode" || m_mode=="SuperFox Mode" ) {
-      ui->header_label2->setText("  UTC   dB   DT Freq    " + tr("Message"));
-      ui->cbWantedOnly->setText(QCoreApplication::translate("ActiveStations", "My call only", nullptr));
-      this->setClickOK(true);
-    } else {
-      ui->header_label2->setText("  N   Call    Grid   Az  S/N  Freq Tx Age Pts");
-      ui->label->setText("Rate:");
-      ui->cbWantedOnly->setText(QCoreApplication::translate("ActiveStations", "Wanted only", nullptr));
-    }
-    bool b=(m_mode.left(3)=="Q65");
-    bool is_fox_mode =(m_mode=="Fox Mode");
-    ui->bandChanges->setVisible(!b && !is_fox_mode);
-    ui->cbReadyOnly->setVisible(m_mode != "Q65-pileup" && !is_fox_mode);
-    ui->cbWantedOnly->setVisible(m_mode != "Q65-pileup"); // this is used for "My call only" in Fox mode
-    ui->label_2->setVisible(!b && !is_fox_mode);
-    ui->label_3->setVisible(!b && !is_fox_mode);
-    ui->score->setVisible(!b && !is_fox_mode);
-    ui->sbMaxRecent->setVisible(!b && !is_fox_mode);
-
-    b=(m_mode!="Q65-pileup" && !is_fox_mode);
-    ui->sbMaxAge->setVisible(b);
-    ui->label->setVisible(b);
-    ui->rate->setVisible(b);
+void ActiveStations::setupUi(DisplayMode mode) {
+  if (mode != m_displayMode && mode == DisplayMode::Fox) setClickOK(true);
+  m_displayMode=mode;
+  ui->cbReadyOnly->setText(" Ready only");
+  ui->cbWantedOnly->setText(tr("Wanted only"));
+  ui->label->setText("Rate:");
+  if(mode==DisplayMode::Q65) {
+    ui->header_label2->setText("  N    Frx   Fsked  S/N  Q65  Call     Grid  Tx  Age");
+    ui->label->setText("QSOs:");
+    ui->cbReadyOnly->setText("* CQ only");
+  } else if(mode==DisplayMode::Q65Pileup) {
+    ui->header_label2->setText("  N   Freq  Call    Grid   El   Age(h)");
+  } else if(mode==DisplayMode::Fox) {
+    ui->header_label2->setText("  UTC   dB   DT Freq    " + tr("Message"));
+    ui->cbWantedOnly->setText(tr("My call only"));
+  } else {
+    ui->header_label2->setText("  N   Call    Grid   Az  S/N  Freq Tx Age Pts");
   }
+  bool const standard = mode == DisplayMode::Standard;
+  bool const numbered = standard || mode == DisplayMode::Q65;
+  ui->bandChanges->setVisible(standard);
+  ui->cbReadyOnly->setVisible(numbered);
+  ui->cbWantedOnly->setVisible(mode != DisplayMode::Q65Pileup);
+  ui->label_2->setVisible(standard);
+  ui->label_3->setVisible(standard);
+  ui->score->setVisible(standard);
+  ui->sbMaxRecent->setVisible(standard);
+  ui->sbMaxAge->setVisible(numbered);
+  ui->label->setVisible(numbered);
+  ui->rate->setVisible(numbered);
 }
 
-void ActiveStations::displayRecentStations(QString mode, QString const& t)
+void ActiveStations::displayRecentStations(DisplayMode mode, QString const& t)
 {
   setupUi(mode);
 
@@ -181,7 +176,7 @@ void ActiveStations::on_textEdit_clicked()
     if(text!="") {
       int nline=text.left(2).toInt();
       if(QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) nline=-nline;
-      if ("Fox Mode" != m_mode && "SuperFox Mode" != m_mode)
+      if (DisplayMode::Fox != m_displayMode)
         emit callSandP(nline);
       else
         emit queueActiveWindowHound(text);

@@ -90,7 +90,7 @@ void MainWindow::ARRL_Digi_Display()
     readWidebandDecodes();
     return;
   }
-  if (m_mode == "Fox Mode") { // ARRL_Digi_Display can be shown for other modes
+  if (m_mode == "FT8" && m_specOp == SpecOp::FOX) {
     if (m_ActiveStationsWidget != NULL) {
       m_ActiveStationsWidget->setClickOK(true);
     }
@@ -155,7 +155,6 @@ void MainWindow::ARRL_Digi_Display()
     if(i + 1<10) t1=" " + t1;
     t += (t1 + rows[i].text + "\n");
   }
-  bool is_fox_mode = (m_mode=="FT8" && m_specOp == SpecOp::FOX);
-  if(m_ActiveStationsWidget!=NULL && !is_fox_mode) m_ActiveStationsWidget->displayRecentStations(m_mode,t);
+  if(m_ActiveStationsWidget!=NULL) m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Standard,t);
   m_ActiveStationsWidget->setClickOK(true);
 }

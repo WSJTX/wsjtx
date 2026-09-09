@@ -31,7 +31,6 @@ extern int outBufSize;
 extern int rc;
 extern qint32 g_iptt;
 extern QVector<QColor> g_ColorTbl;
-extern bool verified;
 extern bool blocked;
 extern bool m_displayBand;
 extern bool wait_and_call;

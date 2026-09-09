@@ -427,7 +427,6 @@ QVector<QColor> g_ColorTbl;
 
 using SpecOp = Configuration::SpecialOperatingActivity;
 
-bool verified = false;
 bool blocked = false;
 bool m_displayBand = false;
 bool wait_and_call = false;
@@ -663,7 +662,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_cqStr {""},
   m_palette {"Linrad"},
   m_mode {"FT8"},
-  m_modeTx {"FT8"},
   m_rpt {"-15"},
   m_pfx {Radio::PrefixSuffix::type1Prefixes()},
   m_sfx {Radio::PrefixSuffix::type1Suffixes()},
@@ -1662,8 +1660,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       QTimer::singleShot (50, this, [=] {ui->houndButton->click();});
   }
 
-  ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
-  ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
+  auto const activityLabel = specOpLabel();
+  ui->labDXped->setText(activityLabel);
+  ui->labDXped->setVisible(!activityLabel.isEmpty());
+  updateHoundVerificationStyle ();
   ui->pbBestSP->setVisible(m_mode=="FT4");
 
   update_foxLogWindow_rate(); // update the rate on the window
@@ -1762,9 +1762,8 @@ void MainWindow::on_the_minute ()
     tx_watchdog (false);
   }
   update_foxLogWindow_rate(); // update the rate on the window
-  if ((!verified && ui->labDXped->isVisible()) or !ui->labDXped->text().contains("Hound"))
-    ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
-  verified = false;
+  updateHoundVerificationStyle ();
+  m_houndVerified = false;
   if(!m_transmitting && m_mode=="FT8" && (QDateTime::currentMSecsSinceEpoch()-m_mslastTX) > 120000) m_lapmyc=0;
 }
 
@@ -3362,9 +3361,9 @@ void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QSt
     QString msg = FoxVerifier::formatDecodeMessage(ts, callsign, hz, response);
       if (msg.length() > 0) {
         // Hound label
-        if ((ui->labDXped->text().contains("Hound") && msg.contains(" verified"))) {
-          verified = true;
-          ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
+        if (isHoundOperation () && msg.contains(" verified")) {
+          m_houndVerified = true;
+          updateHoundVerificationStyle ();
         }
         ui->decodedTextBrowser->displayDecodedText(DecodedText{msg}, m_config.my_callsign(), m_mode, m_config.DXCC(),
                                                    m_logBook, m_currentBand, m_config.ppfx(), false, false, 0.0, false, -99, "", true);
@@ -4307,9 +4306,6 @@ void MainWindow::on_actionActiveStations_triggered()
   connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()));
   m_ActiveStationsWidget->setScore(m_score);
   if(m_mode=="Q65") m_ActiveStationsWidget->setRate(m_score);
-  QString as_mode = m_mode;
-  if(m_mode=="FT8" && SpecOp::FOX==m_specOp) as_mode="Fox Mode"; // TODO - active stations for hound mode?
-  m_ActiveStationsWidget->setupUi(as_mode);
 }
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
@@ -5866,7 +5862,7 @@ void MainWindow::refreshPileupList()
         t+=t0;
       }
       m_ActiveStationsWidget->setClickOK(false);
-      m_ActiveStationsWidget->displayRecentStations("Q65-pileup",t);
+      m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65Pileup,t);
       m_ActiveStationsWidget->setClickOK(true);
 }
 
@@ -6353,7 +6349,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           ui->decodedTextBrowser->new_period ();
           if (m_specOp == SpecOp::FOX and m_ActiveStationsWidget != NULL && m_config.insert_blank ()) { // clear the ActiveStations window
             m_ActiveStationsWidget->clearStations();
-            m_ActiveStationsWidget->displayRecentStations("Fox Mode", "");
+            m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Fox, "");
           }
           if (SpecOp::FOX != m_specOp && (!filtered or m_config.filters_for_Wait_and_Pounce_only()) && m_config.insert_blank ()) {
             QString band;
@@ -6388,7 +6384,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
 
         // SuperHound label
-        processSuperHoundVerification(decodedtext0, verified);
+        processSuperHoundVerification(decodedtext0);
 
         // show distance and bearing
         if (DecodeOutputPlan::shouldDisplayLeft(bAvgMsg, decodeContext.mode,
@@ -7476,7 +7472,7 @@ void MainWindow::guiUpdate()
       qint32 tHound=QDateTime::currentMSecsSinceEpoch()/1000 - m_tAutoOn;
       //To keep calling Fox, Hound must reactivate Enable Tx at least once every 2 minutes
       if(m_ntx==1 and m_auto) {
-        if(tHound >= 180 and tHound < 240 and watchdog_label.text() != " WD:1m ") {
+        if(tHound >= 180 and tHound < 240 and !normalWatchdogWarningActive ()) {
           watchdog_label.setText (" HWD:2m ");
         }
         if(tHound >= 240 and tHound < 300) {
@@ -9204,7 +9200,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       });
       on_actionFT8_triggered();
       ui->houndButton->clearFocus();
-      ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
       QTimer::singleShot (250, this, [=] {keep_frequency = false;});
   }
   // Search callsign on qrz.com, qrzcq.com or hamqth.com
@@ -9291,8 +9286,8 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
           "Fox-and-Hound operation is available only in FT8 mode.\nGo back and change your selection.");
       }
       ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
-      if ((!verified && ui->labDXped->isVisible()) or ui->labDXped->text()!="Super Hound")
-        ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
+      if (!isSuperHoundOperation ()) m_houndVerified = false;
+      updateHoundVerificationStyle ();
       set_mode(m_mode);
       configActiveStations();
       check_button_color();
@@ -9682,7 +9677,9 @@ void MainWindow::displayWidgets(qint64 n)
 
 QString MainWindow::specOpLabel() const
 {
-  return SpecOpLabel::label (m_specOp, m_config.NCCC_Sprint ());
+  if (m_mode == "MSK144" && m_specOp != SpecOp::EU_VHF
+      && !(m_specOp == SpecOp::NA_VHF && !m_config.NCCC_Sprint ())) return {};
+  return SpecOpLabel::label (m_specOp, m_config.NCCC_Sprint (), m_config.superFox ());
 }
 
 void MainWindow::initializeFFT(int nsps)
@@ -10299,11 +10296,7 @@ void MainWindow::on_actionFT8_triggered()
   //                         012345678901234567890123456789012345678
     displayWidgets(nWidgets("111010000100111000010000000000110000001"));
     ui->cbRxAll->setText(tr("Show Already Worked"));
-    if(m_config.superFox()) {
-      ui->labDXped->setText(tr ("Super Fox"));
-    } else {
-      ui->labDXped->setText(tr ("Fox"));
-    }
+    ui->labDXped->setText(specOpLabel());
     on_fox_log_action_triggered();
     if (m_ActiveStationsWidget) m_ActiveStationsWidget->setClickOK(true); // allow clicks
   }
@@ -10320,7 +10313,6 @@ void MainWindow::on_actionFT8_triggered()
     if(m_config.superFox()) {
       //                       012345678901234567890123456789012345678
       displayWidgets(nWidgets("111110000100110000010000000000110000000"));
-      ui->labDXped->setText(tr ("Super Hound"));
       ui->cbRxAll->setEnabled(false);
       m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
       m_wideGraph->setTol(ui->sbFtol->value());
@@ -10331,11 +10323,11 @@ void MainWindow::on_actionFT8_triggered()
     } else {
       //                       012345678901234567890123456789012345678
       displayWidgets(nWidgets("111010000100110000010000000000110000000"));
-      ui->labDXped->setText(tr ("Hound"));
       ui->cbRxAll->setEnabled(true);
       m_wideGraph->setSuperHound(false);
       ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     }
+    ui->labDXped->setText(specOpLabel());
     ui->txrb1->setChecked(true);
     setTxButtonsEnabled(false);
     if (m_ActiveStationsWidget) m_ActiveStationsWidget->setClickOK(false);
@@ -10368,7 +10360,8 @@ void MainWindow::on_actionFT8_triggered()
        "the *Settings | Radio* tab.)", errorMsg);
     m_bWarnedSplit=true;
   }
-  if (ui->labDXped->isVisible()) ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
+  m_houndVerified = false;
+  updateHoundVerificationStyle ();
   statusChanged();
   configActiveStations();
 }
@@ -10772,8 +10765,6 @@ void MainWindow::on_actionMSK144_triggered()
   statusChanged();
 
   QString t0 = specOpLabel();
-  // MSK144 only supports NA_VHF and EU_VHF contests
-  if(t0 != "NA VHF" && t0 != "EU VHF") t0 = "";
   if(t0.isEmpty()) {
     ui->labDXped->setVisible(false);
   } else {
@@ -11697,7 +11688,7 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
 {
   if (m_mode=="Q65" && ui->actionDisable_clicks_on_waterfall->isVisible() && ui->actionDisable_clicks_on_waterfall->isChecked()
       && !(Qt::AltModifier & QApplication::keyboardModifiers ())) return;
-  if (m_mode=="ECHO") return; // we do not adjust rx/tx for echo mode -- always 1500Hz
+  if (m_mode == Modes::name(Modes::Echo)) return; // Echo uses a fixed 1500 Hz audio frequency.
   bool const vhf_dial_adjustment = !ui->TxFreqSpinBox->isEnabled ()
     && m_config.enable_VHF_features ()
     && (Qt::ControlModifier & QApplication::keyboardModifiers ());
@@ -13499,7 +13490,7 @@ void MainWindow::update_watchdog_label ()
       watchdog_label.setText (tr (" WD:%1m ").arg (m_config.watchdog () - m_idleMinutes));
       watchdog_label.setVisible (true);
       // Highlight watchdog label yellow when there is less than one minute left
-      if ((m_config.watchdog() - m_idleMinutes == 1) && (m_auto or m_tune))
+      if (normalWatchdogWarningActive ())
         watchdog_label.setStyleSheet ("QLabel{color: #000000; background-color: #ffff00}");
       if (m_config.watchdog() - m_idleMinutes > 1) watchdog_label.setStyleSheet ("");
     }
@@ -13507,6 +13498,34 @@ void MainWindow::update_watchdog_label ()
     {
       watchdog_label.setText (QString {});
       watchdog_label.setVisible (false);
+    }
+}
+
+bool MainWindow::normalWatchdogWarningActive () const
+{
+  return m_config.watchdog () && m_mode != "WSPR" && m_mode != "FST4W"
+    && m_config.watchdog () - m_idleMinutes == 1 && (m_auto || m_tune);
+}
+
+bool MainWindow::isHoundOperation () const
+{
+  return SpecOp::HOUND == m_specOp;
+}
+
+bool MainWindow::isSuperHoundOperation () const
+{
+  return isHoundOperation () && m_config.superFox ();
+}
+
+void MainWindow::updateHoundVerificationStyle ()
+{
+  if (isHoundOperation () && m_houndVerified)
+    {
+      ui->labDXped->setStyleSheet ("QLabel {background-color: #00ff00; color: black;}");
+    }
+  else
+    {
+      ui->labDXped->setStyleSheet ("QLabel {background-color: red; color: white;}");
     }
 }
 
@@ -13674,7 +13693,7 @@ void MainWindow::readWidebandDecodes()
 
   if(m_ActiveStationsWidget != NULL) {
     m_ActiveStationsWidget->erase();
-    m_ActiveStationsWidget->displayRecentStations(m_mode,t);
+    m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65,t);
     m_ActiveStationsWidget->setClickOK(true);
   }
 }
@@ -14872,7 +14891,9 @@ void MainWindow::write_all(QString txRx, QString message,
     } else if (message.size () > 19 && message[19]=='@') {
       mode_string="JT9   ";
     } else if(mode=="Q65") {
-      mode_string=mode_label.text();
+      auto const period = context ? context->trPeriod : m_TRperiod;
+      auto const submode = context ? context->submode : m_nSubMode;
+      mode_string = "Q65-" + QString::number(period) + QChar('A' + submode);
     } else {
       mode_string=mode.leftJustified(6,' ');
     }
@@ -14993,18 +15014,15 @@ void MainWindow::set_mode (QString const& mode)
 
 void MainWindow::configActiveStations()
 {
-  if (m_ActiveStationsWidget != NULL and (m_mode == "Q65" or m_mode == "FT4" or m_mode == "FT8")) {
-    if (m_specOp == SpecOp::Q65_PILEUP) {
-      m_ActiveStationsWidget->displayRecentStations("Q65-pileup", "");
-    } else {
-      if (m_specOp == SpecOp::FOX)
-        if (m_config.superFox())
-          m_ActiveStationsWidget->displayRecentStations("SuperFox Mode", "");
-        else
-          m_ActiveStationsWidget->displayRecentStations("Fox Mode", "");
-      else
-        m_ActiveStationsWidget->displayRecentStations(m_mode, "");
+  if (m_ActiveStationsWidget) {
+    auto displayMode = ActiveStations::DisplayMode::Standard;
+    if (m_mode == "Q65") {
+      displayMode = m_specOp == SpecOp::Q65_PILEUP
+        ? ActiveStations::DisplayMode::Q65Pileup : ActiveStations::DisplayMode::Q65;
+    } else if (m_mode == "FT8" && m_specOp == SpecOp::FOX) {
+      displayMode = ActiveStations::DisplayMode::Fox;
     }
+    m_ActiveStationsWidget->displayRecentStations(displayMode, "");
   }
 }
 
@@ -16651,19 +16669,17 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
   }
 }
 
-void MainWindow::processSuperHoundVerification(const DecodedText& decodedtext0, bool& verified)
+void MainWindow::processSuperHoundVerification(const DecodedText& decodedtext0)
 {
-  if (ui->labDXped->text().contains("Hound") && decodedtext0.mid(3,18).contains(" verified")) {
-    verified = true;
+  if (isHoundOperation () && decodedtext0.mid(3,18).contains(" verified")) {
+    m_houndVerified = true;
     write_all("Vf",decodedtext0.string());
-    ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
   } else {
 #ifndef FOX_OTP
-    if (m_specOp==SpecOp::HOUND && m_config.superFox() && (decodedtext0.mid(4,2).contains("00") or decodedtext0.mid(4,2).contains("30"))) verified = false;
+    if (isSuperHoundOperation () && (decodedtext0.mid(4,2).contains("00") or decodedtext0.mid(4,2).contains("30"))) m_houndVerified = false;
 #endif
   }
-  if ((!verified && ui->labDXped->isVisible()) or !ui->labDXped->text().contains("Hound"))
-    ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
+  updateHoundVerificationStyle ();
 }
 
 QString MainWindow::calculateDistanceAndBearing(const DecodedText& decodedtext)

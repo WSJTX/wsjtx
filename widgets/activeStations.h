@@ -18,10 +18,12 @@ class ActiveStations
   Q_OBJECT
 
 public:
+  enum class DisplayMode { Standard, Q65, Q65Pileup, Fox };
+
   explicit ActiveStations(QSettings *, QFont const&, QWidget * parent = 0);
   ~ActiveStations();
-  void displayRecentStations(QString mode, QString const&);
-  void setupUi(QString display_mode);
+  void displayRecentStations(DisplayMode, QString const&);
+  void setupUi(DisplayMode);
   void changeFont (QFont const&);
   int  maxRecent();
   int  maxAge();
@@ -51,7 +53,7 @@ private:
   Q_SLOT void on_cbWantedOnly_toggled(bool b);
   Q_SLOT void on_textEdit_clicked();
 
-  QString m_mode="";
+  DisplayMode m_displayMode = DisplayMode::Standard;
   QSettings * settings_;
   QString m_textbuffer="";                      // F/H mode band decodes
   QMap<int, QString> m_decodes_by_frequency;    // store decodes for F/H band awareness by frequency

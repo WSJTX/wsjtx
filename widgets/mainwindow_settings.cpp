@@ -183,7 +183,6 @@ void MainWindow::writeSettings()
   m_settings->setValue("SplitterState",ui->decodes_splitter->saveState());
   m_settings->setValue("Blanker",ui->sbNB->value());
   m_settings->setValue("Score",m_score);
-  m_settings->setValue("labDXpedText",ui->labDXped->text());
   m_settings->setValue("EchoAvg",ui->sbEchoAvg->value());
   {
     QList<QVariant> coeffs;     // suitable for QSettings
@@ -431,7 +430,6 @@ void MainWindow::readSettings()
   ui->actionReduce_false_decodes->setChecked(m_settings->value("reduceFalseDecodes", false).toBool());
   ui->actionHide_AP_info->setChecked(m_settings->value("HideAPInfo", false).toBool());
   ui->actionFull_Duplex_Mode->setChecked(m_settings->value("FullDuplexMode", false).toBool());
-  ui->labDXped->setText(m_settings->value("labDXpedText",QString {}).toString ());
   ui->actionDon_t_split_ALL_TXT->setChecked(m_settings->value("actionDontSplitALLTXT", true).toBool());
   ui->actionSplit_ALL_TXT_yearly->setChecked(m_settings->value("splitAllTxtYearly", false).toBool());
   ui->actionSplit_ALL_TXT_monthly->setChecked(m_settings->value("splitAllTxtMonthly", false).toBool());
