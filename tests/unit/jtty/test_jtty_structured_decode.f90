@@ -2,7 +2,8 @@ program test_jtty_structured_decode
 
   use iso_c_binding, only: c_int,c_null_char,c_sizeof
   use iso_fortran_env, only: int16,int32
-  use jtty_fec, only: is13,PAYLOAD_BITS,TOTAL_K,JTTY_WAVA_NU,tbcc_init,tbcc_encode
+  use jtty_fec, only: is13,PAYLOAD_BITS,TOTAL_K,tbcc_encode
+  use jtty_tbcc_code_profiles
   use jtty_mdec, only: npending,pending_updates,nactive,discard_pending_updates
   use jtty_mod, only: jtty_source_atom,jtty_source_atom_c,jtty_call_atom, &
        jtty_exch_num_atom,unpack_jtty,MAX_FRAMES,JTTY_CALL_CALL,JTTY_ROLE_FULL, &
@@ -16,7 +17,12 @@ program test_jtty_structured_decode
 
   integer, parameter :: nsps=384
   integer, parameter :: frame_symbols=size(is13)+TOTAL_K
-  integer :: failures
+  integer :: failures,profile_index
+  logical :: accepted
+  type(jtty_tbcc_code_profile) :: active_profile
+  type(jtty_tbcc_code_profile), parameter :: profiles(3)=[ &
+       JTTY_TBCC_PROFILE_1167_1545_80F,JTTY_TBCC_PROFILE_1123_1475_22B, &
+       JTTY_TBCC_PROFILE_5363_6455_269]
 
   interface
      function jtty_cpp_n1mm_smoke(tones,nsym) result(status) bind(C)
@@ -43,10 +49,15 @@ program test_jtty_structured_decode
 
   failures=0
   call reject_reserved_struct_family(failures)
-  call decode_native_call_and_serial(failures)
-  call decode_c_adapter_atoms(failures)
-  call reject_invalid_c_descriptors(failures)
-  call decode_cpp_compiled_n1mm(failures)
+  do profile_index=1,size(profiles)
+    call jtty_tbcc_set_code_profile(profiles(profile_index),accepted)
+    if(.not.accepted) error stop 'profile selection failed'
+    call decode_native_call_and_serial(failures)
+    call decode_c_adapter_atoms(failures)
+    call reject_invalid_c_descriptors(failures)
+    call decode_cpp_compiled_n1mm(failures)
+  enddo
+  call jtty_tbcc_reset_code_profile()
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_structured_decode: failures=',failures
@@ -198,8 +209,8 @@ contains
          'source-invalid frame cannot report EOM',count)
 
     read(frame,'(34i1)') payload
-    call tbcc_init(JTTY_WAVA_NU)
-    call tbcc_encode(payload,encoded)
+    call jtty_tbcc_get_code_profile(active_profile)
+    call tbcc_encode(payload,encoded,active_profile)
     tones(1:size(is13))=is13
     tones(size(is13)+1:frame_symbols)=encoded
     call decode_waveform(tones,frame_symbols)

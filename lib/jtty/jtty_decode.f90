@@ -4,6 +4,9 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 !
    use jtty_mod
    use jtty_fec
+   use jtty_tbcc_decoder, only: jtty_tbcc_decode
+   use jtty_payload_correlators, only: jtty_payload_correlator, &
+        jtty_payload_correlator_prepare, jtty_correlate_payload_symbols
    implicit none
    character*80, intent(out) :: decoded
    character*34              :: c32(MAX_FRAMES)
@@ -15,7 +18,9 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    integer                   :: nframe6       !size of frame at 6000 Sa/s
    integer, save             :: nsps0=-999
    integer, save             :: nfft,nh2,nss
-   integer, save             :: nu0=-999
+   type(jtty_tbcc_code_profile) :: code_profile
+   type(jtty_payload_correlator), save :: payload_correlator
+   complex :: zsym(0:3,TOTAL_K),zhalf(0:3,TOTAL_K)
    integer                   :: iloc(1)
    integer                   :: irxsync(13)
    integer, intent(out)      :: nharderrors,nsync
@@ -24,7 +29,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    real                      :: fbest,xdtbest,sbest
    real, allocatable         :: s(:), sm(:), s0(:)
    real                      :: a(3)
-   real                      :: tone_energies(0:3,46), pow(0:3)
+   real                      :: pow(0:3)
    real, save                :: twopi,baud,dt
    real                      :: phi,dphi,df2
    real                      :: ssnr,db
@@ -42,12 +47,13 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    logical                   :: source_valid
 
    success=.false.
+   decoded=' '
+   nharderrors=-1
+   nsync=0
+   dmin=0.0
    if(sum(abs(iwave)).eq.0) return
 
-   if(nu0.ne.JTTY_WAVA_NU) then
-      nu0=JTTY_WAVA_NU
-      call tbcc_init(JTTY_WAVA_NU)
-   endif
+   call jtty_tbcc_get_code_profile(code_profile)
 
    if(nsps.ne.nsps0) then
       nsps0=nsps
@@ -172,23 +178,10 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 10 synced=.true.
 
 
-   do j=1,46                                ! find tone powers for 46 symbols
-      i0=nint(xdt/dt) + 13*nss + (j-1)*nss
-      if(i0+nss .gt. nchunk6) exit
-
-      do i=0,3
-         c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
-         z=sum(c(0:nss-1))
-         tone_energies(i,j)=abs(z)**2
-      enddo
-   enddo
-
-   dmin=0.0
-   call tbcc_wava_fsk_decode(tone_energies, JTTY_WAVA_L, JTTY_WAVA_ITERS,             &
-        final_payload, success, reserved_zero_bit=JTTY_RESERVED_BIT)
-   if(success) then
-      if(all(final_payload.eq.0)) success=.false.  ! reject the all-zero message
-   endif
+   call jtty_payload_correlator_prepare(payload_correlator,nss)
+   call jtty_correlate_payload_symbols(payload_correlator,c1, &
+        nint(xdt/dt)+13*nss,zsym,zhalf)
+   call jtty_tbcc_decode(zsym,zhalf,final_payload,success,code_profile=code_profile)
    nharderrors=-1
    if(success) nharderrors=0
 

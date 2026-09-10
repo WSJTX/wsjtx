@@ -46,7 +46,7 @@ contains
 
     do iblk = 2, 4, 2
        call jtty_block_pow(z, TOTAL_K, iblk, pow_block)
-       call tbcc_wava_fsk_decode(pow_block, JTTY_WAVA_L, JTTY_WAVA_ITERS, &
+       call tbcc_wava_fsk_decode(pow_block, 4, 2, &
             decoded, success, reserved_zero_bit=JTTY_RESERVED_BIT)
        if (.not. success) then
           print *, 'test_jtty_block_pow: noiseless block decode failed, iblock=', iblk

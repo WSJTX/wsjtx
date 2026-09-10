@@ -4,20 +4,22 @@ module tbcc
     ! mode (lib/jtty/jtty_fec_mod.f90 and callers) and by the standalone
     ! research tools under lib/jtty/wava/.
     use, intrinsic :: iso_fortran_env, only: real32, int32, int16
+    use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile, &
+         jtty_tbcc_code_profile_is_supported, &
+         PROFILE_PAYLOAD_BITS => JTTY_TBCC_PAYLOAD_BITS, &
+         PROFILE_OUTER_CHECK_BITS => JTTY_TBCC_OUTER_CHECK_BITS, &
+         PROFILE_INFORMATION_BITS => JTTY_TBCC_INFORMATION_BITS
     !$ use omp_lib
     implicit none
 
     ! Fixed frame parameters, shared with every caller.
-    integer(int32), parameter :: PAYLOAD_BITS = 34
-    integer(int32), parameter :: CRC_BITS     = 12
-    integer(int32), parameter :: TOTAL_K      = PAYLOAD_BITS + CRC_BITS ! 46 bits
-    integer(int32), parameter :: CRC_POLY     = int(Z"80F", int32)
+    integer(int32), parameter :: PAYLOAD_BITS = PROFILE_PAYLOAD_BITS
+    integer(int32), parameter :: CRC_BITS     = PROFILE_OUTER_CHECK_BITS
+    integer(int32), parameter :: TOTAL_K      = PROFILE_INFORMATION_BITS
+    integer(int32), parameter :: TBCC_OUTER_POLYNOMIAL_80F = int(Z"80F", int32)
 
-    ! Code parameters that depend on the chosen constraint length. These are
-    ! plain module variables, not PARAMETERs, because memory_nu is a
-    ! runtime choice (see select_generator_polynomials()): set once by
-    ! tbcc_init(), after which every module procedure reads them but never
-    ! modifies them.
+    ! Standalone simulation tools retain runtime nu selection through tbcc_init.
+    ! JTTY production callers pass a complete selected profile instead.
     integer(int32) :: memory_nu, num_states, g0_poly, g1_poly, reg_mask
 
     integer(int32), allocatable, protected :: incoming_tones(:,:)
@@ -46,54 +48,53 @@ contains
         ! chosen constraint length K = nu+1. Call once, before any
         ! encode/decode.
         integer(int32), intent(in) :: nu
-        integer(int32) :: s, dropped_bit, register_value, out_b0, out_b1
-        integer(int32), parameter :: gray_tones(0:3) = [0, 1, 3, 2]
-
         memory_nu  = nu
         num_states = 2**nu
         call select_generator_polynomials(nu, g0_poly, g1_poly)
         reg_mask = 2**(nu + 1) - 1
         if (allocated(incoming_tones)) deallocate(incoming_tones)
         allocate(incoming_tones(0:1, 0:num_states-1))
-        do s = 0, num_states-1
-            do dropped_bit = 0, 1
-                register_value = ior(s, ishft(dropped_bit, memory_nu))
-                out_b0 = parity(iand(register_value, g0_poly))
-                out_b1 = parity(iand(register_value, g1_poly))
-                incoming_tones(dropped_bit, s) = gray_tones(2*out_b0 + out_b1)
-            end do
-        end do
+        call build_incoming_tones(memory_nu, num_states, g0_poly, g1_poly, incoming_tones)
     end subroutine tbcc_init
 
-    subroutine tbcc_encode(payload, tone_symbols)
+    subroutine tbcc_encode(payload, tone_symbols, code_profile, encoded_bits)
         ! Encodes a PAYLOAD_BITS-bit payload into a TOTAL_K-symbol 4-FSK
         ! tone sequence: CRC-12 append, then tail-biting rate-1/2
         ! convolutional encode with a Gray-coded 2-bit-per-symbol tone
-        ! mapping (00/01/11/10 -> 0/1/2/3). Requires tbcc_init() to have
-        ! been called first.
+        ! mapping (00/01/11/10 -> 0/1/2/3). A caller that omits code_profile
+        ! must first initialize the standalone simulation code with tbcc_init().
         integer(int32), intent(in)  :: payload(PAYLOAD_BITS)
         integer(int32), intent(out) :: tone_symbols(TOTAL_K)
+        type(jtty_tbcc_code_profile), intent(in), optional :: code_profile
+        integer(int32), intent(out), optional :: encoded_bits(2, TOTAL_K)
         integer(int32) :: info_bits(2, TOTAL_K)
         integer(int32) :: state, t, bit, g0_out, out_b0, out_b1
+        integer(int32) :: selected_nu, selected_state_count, selected_g0, selected_g1
+        integer(int32) :: selected_register_mask, outer_polynomial, outer_check_bits
+        integer(int32) :: outer_top_bit_mask, outer_register_mask
 
-        call encode_crc12(payload, info_bits)  ! info_bits(1,1:TOTAL_K) = payload+CRC
+        call resolve_code_definition(code_profile, selected_nu, selected_state_count, &
+             selected_g0, selected_g1, selected_register_mask, outer_polynomial, &
+             outer_check_bits, outer_top_bit_mask, outer_register_mask)
+        call encode_crc12(payload, info_bits, code_profile)
 
         ! Tail-biting initialization: preload the shift register with the
-        ! message's own last memory_nu bits, so the encoder's starting
+        ! message's own last nu bits, so the encoder's starting
         ! state equals what it would be after wrapping around the circular
         ! frame.
         state = 0
-        do t = 0, memory_nu - 1
-            bit = info_bits(1, TOTAL_K - (memory_nu - 1) + t)
-            state = iand(ior(ishft(state, 1), bit), num_states-1)
+        do t = 0, selected_nu - 1
+            bit = info_bits(1, TOTAL_K - (selected_nu - 1) + t)
+            state = iand(ior(ishft(state, 1), bit), selected_state_count-1)
         end do
 
         do t = 1, TOTAL_K
             bit = info_bits(1, t)
-            g0_out = iand(ior(ishft(state, 1), bit), reg_mask)
-            out_b0 = parity(iand(g0_out, g0_poly))
-            out_b1 = parity(iand(g0_out, g1_poly))
-            state = iand(ior(ishft(state, 1), bit), num_states-1)
+            g0_out = iand(ior(ishft(state, 1), bit), selected_register_mask)
+            out_b0 = parity(iand(g0_out, selected_g0))
+            out_b1 = parity(iand(g0_out, selected_g1))
+            state = iand(ior(ishft(state, 1), bit), selected_state_count-1)
+            if (present(encoded_bits)) encoded_bits(:, t) = [out_b0, out_b1]
 
             if (out_b0 == 0 .and. out_b1 == 0) tone_symbols(t) = 0
             if (out_b0 == 0 .and. out_b1 == 1) tone_symbols(t) = 1
@@ -103,7 +104,7 @@ contains
     end subroutine tbcc_encode
 
     subroutine tbcc_wava_fsk_decode(tone_energies, list_size, max_wava_iters,            &
-        final_payload, success, reserved_zero_bit)
+        final_payload, success, reserved_zero_bit, code_profile)
         real(real32), intent(in)     :: tone_energies(0:3, TOTAL_K)
         integer(int32), intent(in)   :: list_size
         integer(int32), intent(in)   :: max_wava_iters
@@ -119,16 +120,24 @@ contains
         ! chance. Absent (the default) reproduces the original CRC-only
         ! behavior exactly.
         integer(int32), intent(in), optional :: reserved_zero_bit
+        type(jtty_tbcc_code_profile), intent(in), optional :: code_profile
 
         real(real32), allocatable    :: prev_m(:), curr_m(:)
         integer(int16), allocatable  :: traceback_table(:,:)
         type(candidate_t), allocatable :: sorted_list(:)
         integer(int32) :: iter, t, s, bit_in, prev_s, curr_s, l, crc_reg, i
+        integer(int32), allocatable :: profile_tones(:,:)
+        integer(int32) :: selected_nu, selected_state_count, selected_g0, selected_g1
+        integer(int32) :: selected_register_mask, outer_polynomial, outer_check_bits
+        integer(int32) :: outer_top_bit_mask, outer_register_mask
         real(real32)   :: m0, m1
         integer(int32) :: tmp_bits(TOTAL_K)
 
         final_payload = 0_int32
         success = .false.
+        call resolve_code_definition(code_profile, selected_nu, selected_state_count, &
+             selected_g0, selected_g1, selected_register_mask, outer_polynomial, &
+             outer_check_bits, outer_top_bit_mask, outer_register_mask)
         ! Zero iterations means the WAVA loop below never runs, leaving
         ! curr_m/traceback_table unread-by-design -- but the traceback and
         ! list-selection code after the loop unconditionally reads them
@@ -139,9 +148,16 @@ contains
         ! #337, who confirmed it otherwise returns success=.true. with an
         ! all-zero payload).
         if (max_wava_iters < 1) return
-        allocate(prev_m(0:num_states-1), curr_m(0:num_states-1))
-        allocate(traceback_table(0:num_states-1, TOTAL_K), sorted_list(list_size))
+        allocate(prev_m(0:selected_state_count-1), curr_m(0:selected_state_count-1))
+        allocate(traceback_table(0:selected_state_count-1, TOTAL_K), sorted_list(list_size))
 
+        allocate(profile_tones(0:1,0:selected_state_count-1))
+        if (present(code_profile)) then
+            call build_incoming_tones(selected_nu, selected_state_count, &
+                 selected_g0, selected_g1, profile_tones)
+        else
+            profile_tones = incoming_tones
+        end if
         prev_m = 0.0_real32
 
         do l = 1, list_size
@@ -152,16 +168,16 @@ contains
         do iter = 1, max_wava_iters
             do t = 1, TOTAL_K
                 curr_m = -1.0e30_real32
-                do s = 0, num_states-1
+                do s = 0, selected_state_count-1
                     ! For a destination state 's' at time 't' under a left-shift model,
                     ! the two possible predecessor states at time 't-1' are determined
                     ! by shifting 's' right and checking both options for the bit that
                     ! left the window.
-                    prev_s = iand(ishft(s, -1), num_states-1)
+                    prev_s = iand(ishft(s, -1), selected_state_count-1)
 
-                    m0 = prev_m(prev_s) + tone_energies(incoming_tones(0, s), t)
-                    prev_s = ior(prev_s, ishft(1, memory_nu-1))
-                    m1 = prev_m(prev_s) + tone_energies(incoming_tones(1, s), t)
+                    m0 = prev_m(prev_s) + tone_energies(profile_tones(0, s), t)
+                    prev_s = ior(prev_s, ishft(1, selected_nu-1))
+                    m1 = prev_m(prev_s) + tone_energies(profile_tones(1, s), t)
 
                     ! Select and record maximum likelihood trajectory decision
                     if (m0 > m1) then
@@ -179,7 +195,7 @@ contains
         end do
 
         ! REVISED TRACEBACK ALIGNMENT
-        do s = 0, num_states-1
+        do s = 0, selected_state_count-1
             curr_s = s
             do t = TOTAL_K, 1, -1
                 ! The input bit that caused the transition into 'curr_s' is its LSB (bit 0)
@@ -187,9 +203,9 @@ contains
                 tmp_bits(t) = bit_in
 
                 ! Recover the parent state index using the recorded history bit flag
-                prev_s = iand(ishft(curr_s, -1), num_states-1)
+                prev_s = iand(ishft(curr_s, -1), selected_state_count-1)
                 if (traceback_table(curr_s, t) == 1_int16) then
-                    prev_s = ior(prev_s, ishft(1, memory_nu-1))
+                    prev_s = ior(prev_s, ishft(1, selected_nu-1))
                 end if
                 curr_s = prev_s
             end do
@@ -217,13 +233,14 @@ contains
             end if
             crc_reg = 0
             do i = 1, TOTAL_K
-                crc_reg = ieor(crc_reg, ishft(sorted_list(l)%bits(i), 11))
-                if (iand(crc_reg, Z"800") /= 0) then
-                    crc_reg = ieor(ishft(crc_reg, 1), CRC_POLY)
+                crc_reg = ieor(crc_reg, ishft(sorted_list(l)%bits(i), &
+                     outer_check_bits - 1))
+                if (iand(crc_reg, outer_top_bit_mask) /= 0) then
+                    crc_reg = ieor(ishft(crc_reg, 1), outer_polynomial)
                 else
                     crc_reg = ishft(crc_reg, 1)
                 end if
-                crc_reg = iand(crc_reg, Z"FFF")
+                crc_reg = iand(crc_reg, outer_register_mask)
             end do
 
             if (crc_reg == 0) then
@@ -236,25 +253,84 @@ contains
         deallocate(prev_m, curr_m, traceback_table, sorted_list)
     end subroutine tbcc_wava_fsk_decode
 
-    subroutine encode_crc12(payload, out_buf)
+    subroutine encode_crc12(payload, out_buf, code_profile)
         integer(int32), intent(in)  :: payload(PAYLOAD_BITS)
         integer(int32), intent(out) :: out_buf(2, TOTAL_K)
+        type(jtty_tbcc_code_profile), intent(in), optional :: code_profile
         integer(int32) :: crc_reg, i
+        integer(int32) :: selected_nu, selected_state_count, selected_g0, selected_g1
+        integer(int32) :: selected_register_mask, outer_polynomial, outer_check_bits
+        integer(int32) :: outer_top_bit_mask, outer_register_mask
+
+        call resolve_code_definition(code_profile, selected_nu, selected_state_count, &
+             selected_g0, selected_g1, selected_register_mask, outer_polynomial, &
+             outer_check_bits, outer_top_bit_mask, outer_register_mask)
         out_buf(1, 1:PAYLOAD_BITS) = payload
         crc_reg = 0
         do i = 1, PAYLOAD_BITS
-            crc_reg = ieor(crc_reg, ishft(payload(i), 11))
-            if (iand(crc_reg, Z"800") /= 0) then
-                crc_reg = ieor(ishft(crc_reg, 1), CRC_POLY)
+            crc_reg = ieor(crc_reg, ishft(payload(i), outer_check_bits - 1))
+            if (iand(crc_reg, outer_top_bit_mask) /= 0) then
+                crc_reg = ieor(ishft(crc_reg, 1), outer_polynomial)
             else
                 crc_reg = ishft(crc_reg, 1)
             end if
-            crc_reg = iand(crc_reg, Z"FFF")
+            crc_reg = iand(crc_reg, outer_register_mask)
         end do
-        do i = 1, 12
-            out_buf(1, PAYLOAD_BITS + i) = iand(ishft(crc_reg, -(12 - i)), 1)
+        do i = 1, outer_check_bits
+            out_buf(1, PAYLOAD_BITS + i) = &
+                 iand(ishft(crc_reg, -(outer_check_bits - i)), 1)
         end do
     end subroutine encode_crc12
+
+    subroutine resolve_code_definition(code_profile, selected_nu, selected_state_count, &
+        selected_g0, selected_g1, selected_register_mask, outer_polynomial, &
+        outer_check_bits, outer_top_bit_mask, outer_register_mask)
+        type(jtty_tbcc_code_profile), intent(in), optional :: code_profile
+        integer(int32), intent(out) :: selected_nu, selected_state_count
+        integer(int32), intent(out) :: selected_g0, selected_g1, selected_register_mask
+        integer(int32), intent(out) :: outer_polynomial, outer_check_bits
+        integer(int32), intent(out) :: outer_top_bit_mask, outer_register_mask
+
+        if (present(code_profile)) then
+            if (.not.jtty_tbcc_code_profile_is_supported(code_profile)) &
+                 error stop 'unsupported JTTY TBCC code profile'
+            selected_nu = code_profile%memory_nu
+            selected_state_count = code_profile%state_count
+            selected_g0 = code_profile%generator_0
+            selected_g1 = code_profile%generator_1
+            selected_register_mask = code_profile%register_mask
+            outer_polynomial = code_profile%outer_polynomial
+            outer_check_bits = code_profile%outer_check_bits
+            outer_top_bit_mask = code_profile%outer_top_bit_mask
+            outer_register_mask = code_profile%outer_register_mask
+        else
+            selected_nu = memory_nu
+            selected_state_count = num_states
+            selected_g0 = g0_poly
+            selected_g1 = g1_poly
+            selected_register_mask = reg_mask
+            outer_polynomial = TBCC_OUTER_POLYNOMIAL_80F
+            outer_check_bits = CRC_BITS
+            outer_top_bit_mask = shiftl(1_int32, CRC_BITS - 1_int32)
+            outer_register_mask = shiftl(1_int32, CRC_BITS) - 1_int32
+        end if
+    end subroutine resolve_code_definition
+
+    subroutine build_incoming_tones(nu, state_count, g0, g1, tones)
+        integer(int32), intent(in) :: nu, state_count, g0, g1
+        integer(int32), intent(out) :: tones(0:1,0:state_count-1)
+        integer(int32) :: state, dropped_bit, register_value, b0, b1
+        integer(int32), parameter :: gray_tones(0:3) = [0, 1, 3, 2]
+
+        do state = 0, state_count-1
+            do dropped_bit = 0, 1
+                register_value = ior(state, ishft(dropped_bit, nu))
+                b0 = parity(iand(register_value, g0))
+                b1 = parity(iand(register_value, g1))
+                tones(dropped_bit, state) = gray_tones(2*b0+b1)
+            end do
+        end do
+    end subroutine build_incoming_tones
 
     subroutine box_muller(rand_normal)
         real(real32), intent(out) :: rand_normal

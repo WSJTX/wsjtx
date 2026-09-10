@@ -296,7 +296,11 @@ set (wsjt_FSRCS
   lib/ft8var/ft8_decodevar.f90
   lib/jtty/jtty_source_codec.f90
   lib/jtty/jtty_mod.f90
+  lib/jtty/jtty_tbcc_code_profile.f90
+  lib/jtty/jtty_tbcc_list_decoder.f90
   lib/jtty/tbcc.f90
+  lib/jtty/jtty_tbcc_decoder.f90
+  lib/jtty/jtty_payload_correlators.f90
   lib/jtty/jtty_fec_mod.f90
   lib/jtty/jttycom.f90
   lib/jtty/jtty_mdecode.f90

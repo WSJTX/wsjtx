@@ -29,7 +29,8 @@ program sjtty
   integer itone(MAX_TONES)          !Array of tone frequencies for this message
   integer*2, allocatable :: iwave(:) !Data written to the *.wav file
   integer payload(PAYLOAD_BITS)
-  integer tone_symbols(46)
+  integer tone_symbols(TOTAL_K)
+  type(jtty_tbcc_code_profile) :: code_profile
   logical itu_model                 !True if fdop, delay are from an ITU model
 
   nargs=iargc()
@@ -129,12 +130,12 @@ program sjtty
   bw=4.0*baud                      !Signal bandwidth
   hmod=1.0                         !Modulation index
 
-  call tbcc_init(JTTY_WAVA_NU)
+  call jtty_tbcc_get_code_profile(code_profile)
   call pack_jtty(umsg,c32,nframes)
   nsym=0
   do i=1,nframes
     read(c32(i),'(34i1)') payload
-    call tbcc_encode(payload,tone_symbols)
+    call tbcc_encode(payload,tone_symbols,code_profile)
     ib=(i-1)*59+1   ! 59 tones per frame
     itone(ib:ib+12)=is13
     itone(ib+13:ib+58)=tone_symbols

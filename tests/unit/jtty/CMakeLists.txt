@@ -161,3 +161,19 @@ target_link_libraries (test_mmttyif Qt5::Test Qt5::Network)
 add_test (NAME test_mmttyif COMMAND test_mmttyif)
 # Connection setup may retry for several seconds on slow Windows runners.
 set_tests_properties (test_mmttyif PROPERTIES TIMEOUT 30)
+
+add_executable (test_jtty_tbcc_list_decoder test_jtty_tbcc_list_decoder.f90)
+wsjt_link_common_fortran (test_jtty_tbcc_list_decoder)
+add_test (NAME test_jtty_tbcc_list_decoder COMMAND test_jtty_tbcc_list_decoder)
+
+add_executable (test_jtty_tbcc_decoder test_jtty_tbcc_decoder.f90)
+wsjt_link_common_fortran (test_jtty_tbcc_decoder)
+add_test (NAME test_jtty_tbcc_decoder COMMAND test_jtty_tbcc_decoder)
+
+add_executable (test_jtty_tbcc_code_profile test_jtty_tbcc_code_profile.f90)
+wsjt_link_common_fortran (test_jtty_tbcc_code_profile)
+add_test (NAME test_jtty_tbcc_code_profile COMMAND test_jtty_tbcc_code_profile)
+
+add_executable (test_jtty_payload_correlators test_jtty_payload_correlators.f90)
+wsjt_link_common_fortran (test_jtty_payload_correlators)
+add_test (NAME test_jtty_payload_correlators COMMAND test_jtty_payload_correlators)

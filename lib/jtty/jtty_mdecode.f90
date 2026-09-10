@@ -1,8 +1,12 @@
 module jtty_mdec
 
   use iso_fortran_env, only: int64
-  use jtty_fec, only: PAYLOAD_BITS
   use jtty_mod, only: MAX_FRAMES
+  use jtty_fec, only: PAYLOAD_BITS, TOTAL_K, tbcc_encode
+  use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile
+  use jtty_tbcc_decoder, only: jtty_tbcc_decode
+  use jtty_payload_correlators, only: jtty_payload_correlator, &
+       jtty_payload_correlator_prepare, jtty_correlate_payload_symbols
 
   type :: decode
      real :: f1    = 0.0              !Synced audio frequency
@@ -64,6 +68,7 @@ module jtty_mdec
   real                      :: interferer_f1 = 0.0
   real                      :: interferer_tsync = 0.0
   integer                   :: interferer_payload(PAYLOAD_BITS) = 0
+  type(jtty_tbcc_code_profile) :: interferer_code_profile
   integer                   :: nsubtracted = 0
   real                      :: subtracted_f1(MAX_SUBTRACTED) = 0.0
   real                      :: subtracted_tsync(MAX_SUBTRACTED) = 0.0
@@ -71,6 +76,7 @@ module jtty_mdec
   complex, allocatable, private :: sync_chirp_weights(:),sync_chirp_kernel(:)
   integer, private :: sync_chirp_samples=0,sync_chirp_first_bin=-1
   integer, private :: sync_chirp_output_count=0
+  type(jtty_tbcc_code_profile) :: subtracted_code_profile(MAX_SUBTRACTED)
 
 contains
 
@@ -288,6 +294,14 @@ contains
          endif
       enddo
   end subroutine prune_receive_state
+  subroutine jtty_tbcc_reencode_for_subtraction(payload, code_profile, tones)
+      integer, intent(in) :: payload(PAYLOAD_BITS)
+      type(jtty_tbcc_code_profile), intent(in) :: code_profile
+      integer, intent(out) :: tones(TOTAL_K)
+
+      ! Queued subtraction uses the profile that admitted the payload.
+      call tbcc_encode(payload, tones, code_profile)
+  end subroutine jtty_tbcc_reencode_for_subtraction
 
   pure subroutine jtty_search_window(fc,fwid,nfa,nfb,constrain_to_graph,df, &
        first_bin,last_bin,ja,jb,usable)
@@ -389,7 +403,8 @@ contains
       integer                        :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
       integer, save                  :: nframe6       !size of frame at 6000 Sa/s
       integer, save                  :: nsps0=-999
-      integer, save                  :: nu0=-999
+      type(jtty_tbcc_code_profile)   :: code_profile
+      type(jtty_payload_correlator), save :: payload_correlator
       integer, save                  :: nfft,nh2,nss
       integer                        :: iloc(1)
       integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
@@ -434,6 +449,7 @@ contains
       logical                        :: use_interferer
       real                            :: use_interferer_f1, use_interferer_tsync
       integer                         :: use_interferer_payload(PAYLOAD_BITS)
+      type(jtty_tbcc_code_profile) :: use_interferer_code_profile
 
 ! Capture and clear the retro-resweep interferer request (if any) as the
 ! very first thing this call does, before any possible early return below
@@ -442,15 +458,13 @@ contains
       use_interferer_f1=interferer_f1
       use_interferer_tsync=interferer_tsync
       use_interferer_payload=interferer_payload
+      use_interferer_code_profile=interferer_code_profile
       interferer_pending=.false.
       nsubtracted=0
 
       nsync=0
 
-      if(nu0.ne.JTTY_WAVA_NU) then
-         nu0=JTTY_WAVA_NU
-         call tbcc_init(JTTY_WAVA_NU)
-      endif
+      call jtty_tbcc_get_code_profile(code_profile)
 
       if(istart.eq.istart0 .and. .not.use_interferer) then
          ndecodes=0
@@ -504,6 +518,8 @@ contains
          enddo
       endif
 
+      call jtty_payload_correlator_prepare(payload_correlator,nss)
+
 !  convert integer samples at 12K Sa/s to complex analytic signal at 6K Sa/s
       call ana64a(iwave,nchunk,c0,nana)
       c0(nchunk6:)=0.
@@ -517,7 +533,8 @@ contains
          ! window never itself searched for that signal's own sync. See
          ! jtty_mdecode_step.
          tone_symbols_full(1:NSYNC_SYM)=is13
-         call tbcc_encode(use_interferer_payload, tone_symbols_chk)
+         call jtty_tbcc_reencode_for_subtraction(use_interferer_payload, &
+              use_interferer_code_profile, tone_symbols_chk)
          tone_symbols_full(NSYNC_SYM+1:NFRAME_SYM)=tone_symbols_chk
          call subtract_jtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM, &
               nss, use_interferer_f1, use_interferer_tsync-(istart-1)/12000.0)
@@ -897,8 +914,8 @@ contains
       integer, intent(in)  :: ic_label
       logical, intent(out) :: decoded_ok
       complex               :: zsym(0:3,NCHAN_SYM)
-      real                  :: pow_try(0:3,NCHAN_SYM)
-      integer               :: itry, iblk
+      complex               :: zhalf(0:3,NCHAN_SYM)
+      integer               :: payload_start
       integer               :: best_cont
       real                  :: best_df,dfabs
       logical               :: have_win,accepted,source_valid
@@ -906,45 +923,15 @@ contains
       type(message_assembly) :: accepted_message
 
       decoded_ok=.false.
-      ! Refinement can place the final symbol beyond the available samples.
-      zsym=0.0
-      irxchan=-1
-      pow(:,:)=0.0
-      do j=1,NCHAN_SYM                  ! find tone powers for 46 symbols
-         i0=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss + (j-1)*nss
-         if(i0+nss .gt. nchunk6) exit
-
-         do i=0,3
-            z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
-            zsym(i,j)=z          ! retained for block detection -- no extra dot_product cost
-            pow(i,j)=real(z*conjg(z))
-         enddo
-
+      payload_start=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss
+      call jtty_correlate_payload_symbols(payload_correlator,c1,payload_start,zsym,zhalf)
+      call jtty_tbcc_decode(zsym,zhalf,final_payload,success_dec,code_profile=code_profile)
+      ! Half-symbol off-tone leakage is not a noise estimate; diagnostics use M1.
+      pow=abs(zsym)**2
+      do j=1,NCHAN_SYM
          iloc=maxloc(pow(:,j))-1
-         irxchan(j)=iloc(1)   ! hard decision received channel symbols
+         irxchan(j)=iloc(1)
       enddo
-
-      ! Block detection: blocksize-1 (today's pow, unchanged) first; on
-      ! failure, retry with coherent 2- and then 4-symbol block detection
-      ! (jtty_block_pow.f90), reusing zsym so no symbol is ever re-correlated
-      ! against c1. Every reference to `pow` below this point (nsymerrs/SNR
-      ! diagnostic) must keep reading the original blocksize-1 values, never
-      ! pow_try -- block-refined magnitudes are on a different scale.
-      success_dec=.false.
-      do itry=1,3
-         if(itry.eq.1) then
-            pow_try=pow
-         else
-            iblk=merge(2,4,itry.eq.2)
-            call jtty_block_pow(zsym, NCHAN_SYM, iblk, pow_try)
-         endif
-         call tbcc_wava_fsk_decode(pow_try, JTTY_WAVA_L, JTTY_WAVA_ITERS,      &
-              final_payload, success_dec, reserved_zero_bit=JTTY_RESERVED_BIT)
-         if(success_dec) exit
-      enddo
-      if(success_dec) then
-         if(all(final_payload.eq.0)) success_dec=.false. ! reject all-zero
-      endif
       cand(ncand)%decoded=' '
       if( .not. success_dec ) return
 
@@ -958,7 +945,7 @@ contains
       ! per symbol, for the symbol-error-count/SNR diagnostic below
       ! (mirrors what the old LDPC path got for free from its own
       ! codeword bits).
-      call tbcc_encode(final_payload, tone_symbols_chk)
+      call jtty_tbcc_reencode_for_subtraction(final_payload, code_profile, tone_symbols_chk)
       nsymerrs=13-nsync
       do j = 1, NCHAN_SYM
          is=tone_symbols_chk(j)
@@ -1008,6 +995,7 @@ contains
          subtracted_f1(nsubtracted)=cand(ncand)%f1
          subtracted_tsync(nsubtracted)=cand(ncand)%tsync
          subtracted_payload(:,nsubtracted)=final_payload
+         subtracted_code_profile(nsubtracted)=code_profile
       endif
 
       dec=cand(ncand)
@@ -1096,6 +1084,7 @@ contains
       real                       :: f1_local(MAX_SUBTRACTED)
       real                       :: tsync_local(MAX_SUBTRACTED)
       integer                    :: payload_local(PAYLOAD_BITS,MAX_SUBTRACTED)
+      type(jtty_tbcc_code_profile) :: code_profile_local(MAX_SUBTRACTED)
 
       nframe=59*nsps
       step=nframe/4
@@ -1112,6 +1101,7 @@ contains
          f1_local(1:n_local)=subtracted_f1(1:n_local)
          tsync_local(1:n_local)=subtracted_tsync(1:n_local)
          payload_local(:,1:n_local)=subtracted_payload(:,1:n_local)
+         code_profile_local(1:n_local)=subtracted_code_profile(1:n_local)
       endif
 
       do i=1,n_local
@@ -1122,6 +1112,7 @@ contains
             interferer_f1=f1_local(i)
             interferer_tsync=tsync_local(i)
             interferer_payload=payload_local(:,i)
+            interferer_code_profile=code_profile_local(i)
             call jtty_mdecode(istart_prev,istart0,iwave(istart_prev),nchunk,nsps, &
                  ndebug,nfa,nfb,f0,ftol,smin)
          enddo

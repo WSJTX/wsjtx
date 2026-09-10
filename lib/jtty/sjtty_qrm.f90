@@ -43,7 +43,8 @@ program sjtty_qrm
   integer itone(MAX_TONES)          !Array of tone frequencies for this message
   integer*2 iwave(NMAX)             !Data written to the *.wav file
   integer payload(PAYLOAD_BITS)
-  integer tone_symbols(46)
+  integer tone_symbols(TOTAL_K)
+  type(jtty_tbcc_code_profile) :: code_profile
   data flags/'!@#$%^&*()'/
   data idum/-1/
 
@@ -134,7 +135,7 @@ program sjtty_qrm
   baud=fsample/nsps                !Symbol rate
   bw=4.0*baud                      !Signal bandwidth
   hmod=1.0                         !Modulation index
-  call tbcc_init(JTTY_WAVA_NU)
+  call jtty_tbcc_get_code_profile(code_profile)
 
   npts=131072
   do ifile=1,nfiles
@@ -193,7 +194,7 @@ program sjtty_qrm
         nsym=0
         do i=1,nframes
            read(c32(i),'(34i1)') payload
-           call tbcc_encode(payload,tone_symbols)
+           call tbcc_encode(payload,tone_symbols,code_profile)
            ib=(i-1)*59+1   ! 59 tones per frame
            itone(ib:ib+12)=is13
            itone(ib+13:ib+58)=tone_symbols
