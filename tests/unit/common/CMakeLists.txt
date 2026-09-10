@@ -160,6 +160,7 @@ add_executable (test_tx_inhibit_transceiver
   ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
   ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
 )
+target_include_directories (test_tx_inhibit_transceiver PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_tx_inhibit_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_tx_inhibit_transceiver COMMAND test_tx_inhibit_transceiver)
 
