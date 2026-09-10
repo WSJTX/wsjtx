@@ -114,9 +114,7 @@ namespace
 
   bool shouldResetScores(DecodeOutputPlan::KeywordFilterContext const& context)
   {
-    return context.pounce && (context.respondSelection == "CQ: Max Dist"
-                              || context.respondSelection == "CQ: Max dB"
-                              || context.respondSelection == "CQ: Min dB");
+    return context.pounce && isScoringAutoRespondPolicy (context.respondPolicy);
   }
 
   bool hiddenByGeographyOrWorkedBefore(

@@ -312,11 +312,12 @@ private Q_SLOTS:
 
     sendDecode (*client, true, 25);
 
-    QTRY_COMPARE (new_receiver.datagrams ().size (), 1);
+    QTRY_COMPARE (new_receiver.datagrams ().size (), 2);
     QTest::qWait (50);
     QCOMPARE (original_receiver.datagrams ().size (), delivered_after_cancel);
-    QCOMPARE (messageType (new_receiver.datagrams ().front ()), NetworkMessage::Decode);
-    QVERIFY (decodeIsNew (new_receiver.datagrams ().front ()));
+    QCOMPARE (messageType (new_receiver.datagrams ().front ()), NetworkMessage::Heartbeat);
+    QCOMPARE (messageType (new_receiver.datagrams ().back ()), NetworkMessage::Decode);
+    QVERIFY (decodeIsNew (new_receiver.datagrams ().back ()));
   }
 };
 

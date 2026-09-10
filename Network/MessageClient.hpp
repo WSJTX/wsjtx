@@ -38,6 +38,7 @@ public:
                  QString const& server_name, port_type server_port,
                  QStringList const& network_interface_names,
                  int TTL, QObject * parent = nullptr);
+  ~MessageClient () override;
 
   // query server details
   QHostAddress server_address () const;
@@ -56,6 +57,9 @@ public:
 
   // enable incoming messages
   Q_SLOT void enable (bool);
+
+  Q_SIGNAL void tx_inhibit_command (QString const& controller, quint32 ttl_ms, QString const& station);
+  Q_SIGNAL void tx_inhibit_invalid (quint64 count);
 
   // bracket serialization of a paced replay transaction
   bool begin_replay ();
@@ -88,6 +92,10 @@ public:
   // ADIF_record argument should be valid ADIF excluding any <EOR> end
   // of record marker
   Q_SLOT void logged_ADIF (QByteArray const& ADIF_record);
+  Q_SLOT void inhibit_status (bool supported, bool inhibited,
+                              QString const& source_station,
+                              quint32 hold_rx, quint32 release_rx,
+                              quint32 expiries, quint32 invalid);
 
   // this signal is emitted if the server has requested a decode
   // window clear action

@@ -638,7 +638,7 @@ private slots:
   void on_comboBoxHoundSort_activated (int index);
   void checkMSK144ContestType();
   void on_pbBestSP_clicked();
-  void on_RoundRobin_currentTextChanged(QString text);
+  void on_RoundRobin_currentTextChanged(QString);
   void setTxMsg(int n);
   bool stdCall(QString const& w);
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
@@ -1156,6 +1156,7 @@ private:
 
   // labels in status bar
   QLabel tx_status_label;
+  bool m_tx_inhibited {false};
   QLabel config_label;
   QLabel mode_label;
   QLabel last_tx_label;
@@ -1191,6 +1192,7 @@ private:
   QTimer logQSOTimer;
   QTimer killFileTimer;
   QTimer tuneButtonTimer;
+  QTimer rigTuneTimer;
   QTimer uploadTimer;
   QTimer tuneATU_Timer;
   QTimer TxAgainTimer;
@@ -1421,6 +1423,10 @@ private:
   void setDecodedTextFont (QFont const&);
   void writeSettings();
   void createStatusBar();
+  void handleTxInhibitStatus (bool supported, bool inhibited, QString const& holder,
+                              quint32 hold_rx, quint32 release_rx,
+                              quint32 expiries, quint32 invalid);
+  void startTxAudioAfterPttDelay ();
   void updateStatusBar();
   void updateMainWindowAccessibility();
   void registerMainWindowFocusControls();
@@ -1481,6 +1487,7 @@ private:
   void switch_mode (Mode);
   bool hasMsk144BaseFrequency () const {return m_msk144basefreq > 0;}
   BeaconTx::RoundRobinPolicy beaconRoundRobinPolicy () const;
+  BeaconTx::RoundRobinPolicy configuredRoundRobinPolicy () const;
   void enterBeaconMode ();
   void processBeaconActions (BeaconTx::Controller::Actions actions);
   BeaconTx::ScheduleProposal beaconScheduleProposal ();

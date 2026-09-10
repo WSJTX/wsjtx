@@ -1,5 +1,6 @@
 //---------------------------------------------------------- MainWindow
 #include "mainwindow.h"
+#include "RoundRobinSelection.hpp"
 
 #include <array>
 #include <QAudio>
@@ -891,6 +892,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // Network message handlers
   m_messageClient->enable (m_config.accept_udp_requests ());
+  connect (m_messageClient, &MessageClient::tx_inhibit_command,
+           &m_config, &Configuration::tx_inhibit_command);
+  connect (m_messageClient, &MessageClient::tx_inhibit_invalid,
+           &m_config, &Configuration::tx_inhibit_invalid);
   connect (m_messageClient, &MessageClient::clear_decodes, [this] (quint8 window) {
       ++window;
       if (window & 1)
@@ -1395,6 +1400,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   tuneButtonTimer.setSingleShot(true);
   connect(&tuneButtonTimer, &QTimer::timeout, this, &MainWindow::end_tuning);
 
+  rigTuneTimer.setSingleShot (true);
+  connect (&rigTuneTimer, &QTimer::timeout, this, [this] {
+      m_config.transceiver_tune (false);
+      ui->tuneButton->setChecked (false);
+      ui->tuneButton->setText ("Tune");
+    });
+
   tuneATU_Timer.setSingleShot(true);
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
 
@@ -1420,11 +1432,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     auto dBm = int ((10. * i / 3.) + .5);
     ui->TxPowerComboBox->addItem (QString {"%1 dBm  %2"}.arg (dBm).arg (power[i]), dBm);
   }
-  ui->respondComboBox->addItem("CQ: None");
-  ui->respondComboBox->addItem("CQ: First");
-  ui->respondComboBox->addItem("CQ: Max Dist");
-  ui->respondComboBox->addItem("CQ: Max dB");
-  ui->respondComboBox->addItem("CQ: Min dB");
+  ui->respondComboBox->addItem(tr ("CQ: None"), static_cast<int> (AutoRespondPolicy::None));
+  ui->respondComboBox->addItem(tr ("CQ: First"), static_cast<int> (AutoRespondPolicy::First));
+  ui->respondComboBox->addItem(tr ("CQ: Max Dist"), static_cast<int> (AutoRespondPolicy::MaxDistance));
+  ui->respondComboBox->addItem(tr ("CQ: Max dB"), static_cast<int> (AutoRespondPolicy::MaxSignal));
+  ui->respondComboBox->addItem(tr ("CQ: Min dB"), static_cast<int> (AutoRespondPolicy::MinSignal));
+
+  RoundRobinSelection::initialize (*ui->RoundRobin, tr ("Random"));
 
   m_dateTimeRcvdRR73=QDateTime::currentDateTimeUtc();
   m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
@@ -1438,8 +1452,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   readSettings();            //Restore user's setup parameters
   settings_restore.finish ();
   PerformanceTrace::Phase runtime_initialize {m_startup_trace_run, "mainwindow.runtime_initialize"};
-  connect (ui->respondComboBox, &QComboBox::currentTextChanged, this,
-           [this] (QString const&) {
+  connect (ui->respondComboBox, QOverload<int>::of (&QComboBox::currentIndexChanged), this,
+           [this] (int) {
              if (AutoRespondPolicy::None == autoRespondPolicy()) {
                m_autoRespondPeriodState.disarm();
              }
@@ -2529,7 +2543,7 @@ void MainWindow::fastSink(qint64 frames)
     ctx.currentBand = m_currentBand;
     ctx.mode = m_mode;
     ctx.pounce = pounce;
-    ctx.respondMode = ui->respondComboBox->currentText();
+    ctx.respondPolicy = autoRespondPolicy ();
 
     auto filterResult = MessageFilterLogic::evaluateMSK144(decodedtext, ctx, &m_logBook);
     if (filterResult.filtered) filtered = true;
@@ -3702,6 +3716,8 @@ void MainWindow::createStatusBar()                           //createStatusBar
   tx_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #00ff00}");
   tx_status_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&tx_status_label);
+  connect (&m_config, &Configuration::tx_inhibit_status_changed,
+           this, &MainWindow::handleTxInhibitStatus);
 
   config_label.setAlignment (Qt::AlignHCenter);
   config_label.setMinimumSize (QSize {80, 18});
@@ -3747,6 +3763,45 @@ void MainWindow::createStatusBar()                           //createStatusBar
   progressBar.setAccessibleName (tr ("Decode progress"));
   progressBar.setAccessibleDescription (tr ("Progress for the current decode operation."));
   watchdog_label.setAccessibleName (tr ("Transmit watchdog"));
+}
+
+void MainWindow::handleTxInhibitStatus (bool supported, bool inhibited,
+                                        QString const& holder, quint32 hold_rx,
+                                        quint32 release_rx, quint32 expiries,
+                                        quint32 invalid)
+{
+  m_tx_inhibited = inhibited;
+
+  if (!inhibited)
+    {
+      tx_status_label.setToolTip ({});
+      tx_status_label.setAccessibleDescription ({});
+    }
+  else
+    {
+      auto const description = holder.isEmpty ()
+        ? tr ("TX is inhibited by an external interlock controller.")
+        : tr ("TX is inhibited by %1.").arg (holder);
+      tx_status_label.setToolTip (description);
+      tx_status_label.setAccessibleDescription (description);
+    }
+
+  if (inhibited) startTxAudioAfterPttDelay ();
+  if (m_messageClient)
+    {
+      m_messageClient->inhibit_status (supported, inhibited, holder, hold_rx,
+                                       release_rx, expiries, invalid);
+    }
+}
+
+void MainWindow::startTxAudioAfterPttDelay ()
+{
+  if (!m_tx_when_ready || !g_iptt) return;
+
+  auto delay_ms = static_cast<int> (1000 * m_config.txDelay ());
+  if (m_mode == "FT4") delay_ms = 20;
+  ptt1Timer.start (delay_ms);
+  m_tx_when_ready = false;
 }
 
 void MainWindow::show_generated_message_error ()
@@ -4092,11 +4147,19 @@ QString MainWindow::selectedTxMessage() const
 
 AutoRespondPolicy MainWindow::autoRespondPolicy() const
 {
-  auto const selection = ui->respondComboBox->currentText();
-  if (selection == "CQ: First") return AutoRespondPolicy::First;
-  if (selection == "CQ: Max Dist") return AutoRespondPolicy::MaxDistance;
-  if (selection == "CQ: Max dB") return AutoRespondPolicy::MaxSignal;
-  if (selection == "CQ: Min dB") return AutoRespondPolicy::MinSignal;
+  bool ok;
+  auto const value = ui->respondComboBox->currentData ().toInt (&ok);
+  if (!ok) return AutoRespondPolicy::None;
+
+  switch (static_cast<AutoRespondPolicy> (value))
+    {
+    case AutoRespondPolicy::None:
+    case AutoRespondPolicy::First:
+    case AutoRespondPolicy::MaxDistance:
+    case AutoRespondPolicy::MaxSignal:
+    case AutoRespondPolicy::MinSignal:
+      return static_cast<AutoRespondPolicy> (value);
+    }
   return AutoRespondPolicy::None;
 }
 
@@ -6463,7 +6526,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       // Reply also to averaged messages that are only displayed in the right window
       if(m_bCallingCQ && !m_bAutoReply && for_us && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND
           && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) {
-        bool bProcessMsgNormally=ui->respondComboBox->currentText()!="CQ: None" or
+        bool bProcessMsgNormally=autoRespondPolicy () != AutoRespondPolicy::None or
                                    (m_ActiveStationsWidget!=NULL and !m_ActiveStationsWidget->isVisible());
         if (decodedtext.messageWords().length() >= 3) {
           QString t=decodedtext.messageWords()[2];
@@ -7178,6 +7241,7 @@ void MainWindow::guiUpdate()
         }
       m_config.transceiver_ptt (true);
       m_tx_when_ready = true;
+      if (m_tx_inhibited) startTxAudioAfterPttDelay ();
     }
 
     m_bCallingCQ = 6 == m_ntx
@@ -7631,6 +7695,11 @@ void MainWindow::guiUpdate()
       tx_status_label.setStyleSheet("");
       tx_status_label.setText("");
     }
+    if (m_tx_inhibited && !m_tx_watchdog && !m_generated_message_error) {
+      tx_status_label.setStyleSheet (
+        "QLabel{color: #ffffff; background-color: #cc0000; font-weight: bold}");
+      tx_status_label.setText (tr ("TX inhibited"));
+    }
 
     QDateTime t = QDateTime::currentDateTimeUtc();
     QString utc = t.date().toString("yyyy MMM dd") + "\n " +
@@ -7697,9 +7766,10 @@ bool MainWindow::startTx2()
     if(t.mid(0,1)=="#") snr=t.mid(1,5).toDouble();
     if(snr>0.0 or snr < -50.0) snr=99.0;
     if((m_ntx==6 or m_ntx==7) and m_config.force_call_1st() and
-       ui->respondComboBox->currentIndex()==0) {
+       autoRespondPolicy () == AutoRespondPolicy::None) {
       ui->cbAutoSeq->setChecked(true);
-      ui->respondComboBox->setCurrentIndex(1);
+      ui->respondComboBox->setCurrentIndex (
+        ui->respondComboBox->findData (static_cast<int> (AutoRespondPolicy::First)));
     }
     auto const beaconPlanId = m_beaconTxController.txPlanId ();
     auto const beaconMessage = !m_tune
@@ -8251,7 +8321,7 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
   snapshot.dxCall = ui->dxCallEntry->text();
   snapshot.hisCall = m_hisCall;
   snapshot.hisGrid = m_hisGrid;
-  snapshot.respondSelection = ui->respondComboBox->currentText();
+  snapshot.respondPolicy = autoRespondPolicy ();
   snapshot.trPeriod = m_TRperiod;
   snapshot.nominalFrequency = m_freqNominal;
   snapshot.rxFrequency = ui->RxFreqSpinBox->value();
@@ -9099,9 +9169,10 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
   if (m_ntx==6) clear_generated_message_error ();
 }
 
-void MainWindow::on_RoundRobin_currentTextChanged(QString text)
+void MainWindow::on_RoundRobin_currentTextChanged(QString)
 {
-  ui->sbTxPercent->setEnabled (text == tr ("Random"));
+  ui->sbTxPercent->setEnabled (
+    configuredRoundRobinPolicy ().kind == BeaconTx::RoundRobinPolicy::Kind::Random);
   m_beaconTxController.setRoundRobinPolicy (beaconRoundRobinPolicy ());
 }
 
@@ -9140,21 +9211,19 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->labDialFreq->clearFocus();
   }
   if(ui->tuneButton->hasFocus() && (event->button() & Qt::RightButton)) {      // Tune button
-    m_config.transceiver_tune (false);       // reset any prior rig tuning
-    blocked=true;
-    m_config.transceiver_tune (true);        // toggle rig tuning
-    blocked=false;
-    if(ui->tuneButton->text()=="Tuning") {   // reset Tune button by another right-click
+    if (rigTuneTimer.isActive ()) {
+      rigTuneTimer.stop ();
       ui->tuneButton->setChecked(false);
       ui->tuneButton->setText("Tune");
       m_config.transceiver_tune (false);     // reset rig tuning
     } else {
+      m_config.transceiver_tune (false);     // reset any prior rig tuning
+      blocked=true;
+      m_config.transceiver_tune (true);
+      blocked=false;
       ui->tuneButton->setChecked(true);
       ui->tuneButton->setText("Tuning");
-      QTimer::singleShot (6000, this, [=] {        // reset Tune button after 6 seconds
-        ui->tuneButton->setChecked(false);
-        ui->tuneButton->setText("Tune");
-      });
+      rigTuneTimer.start (6000);
     }
     ui->tuneButton->clearFocus();
   }
@@ -9220,7 +9289,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   }
   // Wait & Pounce
   if(ui->autoButton->hasFocus() && (event->button() & Qt::RightButton)) {
-    if (!pounce && ui->respondComboBox->currentText()=="CQ: None") {
+    if (!pounce && autoRespondPolicy () == AutoRespondPolicy::None) {
       auto const message = tr ("Wait & Pounce requires a CQ response mode.\n"
                                "Change CQ: None to another option.");
       ui->respondComboBox->setFocus(Qt::OtherFocusReason);
@@ -10976,7 +11045,8 @@ void MainWindow::WSPR_config(bool b)
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
   bool bFST4W=(m_mode=="FST4W");
-  ui->sbTxPercent->setEnabled(!bFST4W or (tr("Random") == ui->RoundRobin->currentText()));
+  ui->sbTxPercent->setEnabled(!bFST4W
+                              or configuredRoundRobinPolicy ().kind == BeaconTx::RoundRobinPolicy::Kind::Random);
   ui->band_hopping_group_box->setVisible(true);
   ui->RoundRobin->setVisible(bFST4W);
   ui->sbFST4W_RxFreq->setVisible(bFST4W);
@@ -11735,12 +11805,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   if (s.ptt () // && !m_rigState.ptt ()
       ) { // safe to start audio
                                         // (caveat - DX Lab Suite Commander)
-    if (m_tx_when_ready && g_iptt) {    // waiting to Tx and still needed
-      int ms_delay=1000*m_config.txDelay();
-      if(m_mode=="FT4") ms_delay=20;
-      ptt1Timer.start(ms_delay); //Start-of-transmission sequencer delay
-      m_tx_when_ready = false;
-    }
+    startTxAudioAfterPttDelay ();
   }
 
   // Display PWR and SWR
@@ -11951,6 +12016,13 @@ void MainWindow::dispatchTxRequest (TxEvidence::TxRequest const& request)
     ? m_jttyTxUsesTciAudio : m_tci_audio;
   if (useTciAudio)
     {
+      if (!request.tuning && rigTuneTimer.isActive ())
+        {
+          rigTuneTimer.stop ();
+          m_config.transceiver_tune (false);
+          ui->tuneButton->setChecked (false);
+          ui->tuneButton->setText ("Tune");
+        }
       Q_EMIT m_config.transceiver_modulator_start (request);
     }
   else if (request.mode == QStringLiteral ("JTTY") && !request.tuning)
@@ -12969,21 +13041,12 @@ void MainWindow::on_sbFST4W_FTol_valueChanged(int n)
 BeaconTx::RoundRobinPolicy MainWindow::beaconRoundRobinPolicy () const
 {
   if (m_mode != "FST4W") return BeaconTx::RoundRobinPolicy::random ();
+  return configuredRoundRobinPolicy ();
+}
 
-  auto const text = ui->RoundRobin->currentText ();
-  if (text == tr ("Random")) return BeaconTx::RoundRobinPolicy::random ();
-
-  auto const parts = text.split ('/');
-  if (parts.size () != 2) return BeaconTx::RoundRobinPolicy::random ();
-  bool selectedOk;
-  bool countOk;
-  auto const selected = parts[0].toInt (&selectedOk) - 1;
-  auto const count = parts[1].toInt (&countOk);
-  if (!selectedOk || !countOk || count <= 0 || selected < 0 || selected >= count)
-    {
-      return BeaconTx::RoundRobinPolicy::random ();
-    }
-  return BeaconTx::RoundRobinPolicy::fixed (selected, count);
+BeaconTx::RoundRobinPolicy MainWindow::configuredRoundRobinPolicy () const
+{
+  return RoundRobinSelection::policy (*ui->RoundRobin);
 }
 
 void MainWindow::enterBeaconMode ()
@@ -15431,6 +15494,7 @@ void MainWindow::check_button_color()
     }
 
     auto const respondMode = ui->respondComboBox->currentText();
+    auto const respondPolicy = autoRespondPolicy ();
     if (m_config.Wait_features_enabled()) {
         if (waitAndCallEligible) {
             ui->DX_Call_Button->setToolTip("Toggle Wait & Call On/Off.\n"
@@ -15468,7 +15532,7 @@ void MainWindow::check_button_color()
         autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
                             "Wait & Reply can enable Auto-Tx when the selected station replies.";
     } else if (m_config.Wait_features_enabled()) {
-        if (respondMode=="CQ: None") {
+        if (respondPolicy == AutoRespondPolicy::None) {
             autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
                                 "Wait & Pounce requires a CQ response mode.\n"
                                 "Change CQ: None to another option.";
@@ -16317,7 +16381,7 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
   keywordContext.waitAndPounceOnly = m_config.filters_for_Wait_and_Pounce_only();
   keywordContext.bypass = ui->cbBypass->isChecked();
   keywordContext.pounce = pounce;
-  keywordContext.respondSelection = ui->respondComboBox->currentText();
+  keywordContext.respondPolicy = autoRespondPolicy ();
   auto const keywordDecision = DecodeOutputPlan::decideKeywordFilter(decodedtext, keywordContext);
   filtered = keywordDecision.filtered;
   if (keywordDecision.resetPounceScores) m_autoRespondScores.reset();
@@ -16556,6 +16620,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && m_autoRespondPeriodState.accepts(decodePeriodStart)
     && isDirectAutoRespondCandidate(decodedtext, m_config.my_callsign());
   auto const periodPolicy = m_autoRespondPeriodState.policy();
+  auto const pouncePolicy = autoRespondPolicy ();
   bool const pounceCq = pounce
     && text.contains(" CQ ")
     && m_config.Wait_features_enabled();
@@ -16566,7 +16631,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && !fullDuplexBlocked
     && !m_autoRespondSelectionLatch.isSelected()
     && ui->respondComboBox->isVisible()
-    && ui->respondComboBox->currentText() == "CQ: First";
+    && pouncePolicy == AutoRespondPolicy::First;
   bool const selectCurrentFirst = currentPeriodCaller
     && AutoRespondPolicy::First == periodPolicy
     && m_autoRespondPeriodState.claimFirst(decodePeriodStart);
@@ -16591,7 +16656,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && !txLog.contains(deCall)
     && deGrid.contains(MainWindow::grid_regexp)
     && ui->respondComboBox->isVisible()
-    && ui->respondComboBox->currentText() == "CQ: Max Dist";
+    && pouncePolicy == AutoRespondPolicy::MaxDistance;
   bool const selectCurrentDistance = currentPeriodCaller
     && AutoRespondPolicy::MaxDistance == periodPolicy;
   if (selectPounceDistance || selectCurrentDistance) {
@@ -16624,7 +16689,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && !fullDuplexBlocked
     && !txLog.contains(deCall)
     && ui->respondComboBox->isVisible()
-    && ui->respondComboBox->currentText() == "CQ: Max dB";
+    && pouncePolicy == AutoRespondPolicy::MaxSignal;
   bool const selectCurrentMaximum = currentPeriodCaller
     && AutoRespondPolicy::MaxSignal == periodPolicy;
   if ((selectPounceMaximum || selectCurrentMaximum)
@@ -16649,7 +16714,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && !fullDuplexBlocked
     && !txLog.contains(deCall)
     && ui->respondComboBox->isVisible()
-    && ui->respondComboBox->currentText() == "CQ: Min dB";
+    && pouncePolicy == AutoRespondPolicy::MinSignal;
   bool const selectCurrentMinimum = currentPeriodCaller
     && AutoRespondPolicy::MinSignal == periodPolicy;
   if ((selectPounceMinimum || selectCurrentMinimum)

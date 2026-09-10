@@ -42,6 +42,12 @@ add_executable (test_message_client_replay
 target_link_libraries (test_message_client_replay wsjt_qt Qt5::Test Qt5::Network)
 add_test (NAME test_message_client_replay COMMAND test_message_client_replay)
 
+add_executable (test_message_client_inhibit_status
+  test_message_client_inhibit_status.cpp
+  )
+target_link_libraries (test_message_client_inhibit_status wsjt_qt Qt5::Test Qt5::Network)
+add_test (NAME test_message_client_inhibit_status COMMAND test_message_client_inhibit_status)
+
 add_executable (test_message_server
   test_message_server.cpp
   )

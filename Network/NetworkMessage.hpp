@@ -540,6 +540,54 @@
  *      ffffffff will remove the sort-order value from the internal table.
  *      Callsigns without a sort order will be valued at zero for sorting purposes
  *      in the hound display.
+ *
+ * InhibitStatus  Out      17
+ *                         Id (unique key)        utf8
+ *                         Supported              bool
+ *                         Inhibited              bool
+ *                         Source station         utf8
+ *                         Hold rx                quint32
+ *                         Release rx             quint32
+ *                         Expiries               quint32
+ *                         Invalid                quint32
+ *
+ *      Supported means the active transceiver uses DTR or RTS PTT and can
+ *      apply inhibit commands. Inhibited means at least one hold is active.
+ *      Source station summarizes active holders. Counters are cumulative for
+ *      the current transceiver lifetime.
+ *
+ * TxInhibit      In       18
+ *                         Id (target unique key) utf8
+ *                         Controller ID          utf8
+ *                         TTL milliseconds       quint32
+ *                         Station                utf8
+ *
+ *      Send commands to the source address and ephemeral source port learned
+ *      from ordinary WSJT-X traffic, using its exact Id and schema (2 or 3).
+ *      Refresh the endpoint on subsequent traffic. Multicast allows multiple
+ *      observers; unicast requires the controller to receive or relay the stream.
+ *
+ *      Accept UDP requests authorizes this command. DTR or RTS PTT is required
+ *      to apply holds. Disabling requests does not clear existing holds; they
+ *      remain active until their leases expire.
+ *
+ *      Controller ID is a stable, nonempty UTF-8 identity of at most 128 bytes,
+ *      with no whitespace or nonprinting characters. Station is descriptive
+ *      UTF-8 text of at most 128 bytes, without nonprinting characters; send an
+ *      empty or null string when no label is needed. Both fields must be present.
+ *
+ *      A zero TTL releases only this controller. A positive TTL from 100 through
+ *      30000 milliseconds creates or refreshes its hold. All unexpired holds
+ *      combine with logical OR. Controller identity, not source port or Station,
+ *      owns a hold. Id is required to match exactly.
+ *
+ *      Up to 64 controllers are tracked individually. Additional identities
+ *      extend an aggregate hold until its longest lease expires; releases
+ *      cannot clear that aggregate. Its expiry counts as one expiry.
+ *
+ *      Datagrams are limited to 4096 bytes and the target Id to 1024 bytes.
+ *      Malformed commands are ignored and counted; other target IDs are ignored.
+ *      Unknown trailing fields within the datagram limit are ignored as usual.
  */
 
 #include <QDataStream>
@@ -572,9 +620,15 @@ namespace NetworkMessage
       SwitchConfiguration,
       Configure,
       AnnotationInfo,
+      InhibitStatus = 17,
+      TxInhibit = 18,
       maximum_message_type_     // ONLY add new message types
                                 // immediately before here
     };
+
+  static_assert (InhibitStatus == 17, "TX-inhibit protocol type must remain 17");
+
+  static_assert (TxInhibit == 18, "TX-inhibit command type must remain 18");
 
   quint32 constexpr pulse {15}; // seconds
 

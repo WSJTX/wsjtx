@@ -1,7 +1,35 @@
 #include "BeaconTxController.hpp"
 
+#include <locale>
+#include <sstream>
+
 namespace BeaconTx
 {
+  // Non-fixed text falls back to Random for compatibility with previously
+  // persisted translated Random labels.
+  RoundRobinPolicy parseRoundRobinPolicy (std::string const& text)
+  {
+    std::istringstream input {text};
+    input.imbue (std::locale::classic ());
+    int selected;
+    int count;
+    char separator;
+    if (!(input >> selected >> separator >> count) || separator != '/'
+        || selected <= 0 || count <= 0 || selected > count)
+      {
+        return RoundRobinPolicy::random ();
+      }
+    input >> std::ws;
+    if (!input.eof ()) return RoundRobinPolicy::random ();
+    return RoundRobinPolicy::fixed (selected - 1, count);
+  }
+
+  std::string formatRoundRobinPolicy (RoundRobinPolicy const& policy)
+  {
+    if (policy.kind == RoundRobinPolicy::Kind::Random) return "random";
+    return std::to_string (policy.selectedSlot + 1) + "/" + std::to_string (policy.slotCount);
+  }
+
   Action Action::setTransmitWindow (PlanId id, bool enabled)
   {
     Action result;

@@ -146,7 +146,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
     m_autoRespondScores.reset();
   }
   m_maxPoints=-1;
-  if (checked && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None"
+  if (checked && ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None
       && CALLING == m_QSOProgress) {
       m_bAutoReply = false;         // ready for next
   }
@@ -175,7 +175,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   stopWCTimer.stop();           // Stop any Wait & Call timeout
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
-  if (ui->respondComboBox->isVisible() and ui->respondComboBox->currentIndex()!=0 and !m_diskData) {
+  if (ui->respondComboBox->isVisible() and autoRespondPolicy () != AutoRespondPolicy::None and !m_diskData) {
     m_autoRespondScores.reset();
     if (!(m_mode=="Q65" or m_mode=="JT65")) {
       clearDX();                                   // clear dxCallEntry
@@ -545,7 +545,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
                         m_dateTimeQSOOn, dateTimeQSOOff, m_freqNominal +
                         ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
   m_inQSOwith="";
-  if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
+  if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {
         m_autoRespondScores.reset();
   }
   QTimer::singleShot (2000, [=] {
@@ -564,6 +564,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
   if (checked) m_autoRespondPeriodState.disarm();
+  rigTuneTimer.stop ();
   ui->pbBandHopping->setChecked(false); // disable band hopping
   // prevent tuning on top of a SuperFox message
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_tune) {
@@ -632,7 +633,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
-  if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
+  if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {
       m_autoRespondScores.reset();
   }
   pounce = false;

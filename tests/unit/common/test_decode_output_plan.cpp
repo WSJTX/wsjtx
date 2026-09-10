@@ -663,7 +663,7 @@ private slots:
 
     context.waitAndPounceOnly = true;
     context.pounce = true;
-    context.respondSelection = "CQ: Max Dist";
+    context.respondPolicy = AutoRespondPolicy::MaxDistance;
     decision = DecodeOutputPlan::decideKeywordFilter(message, context);
     QVERIFY(decision.filtered);
     QVERIFY(decision.continueProcessing);
@@ -732,7 +732,8 @@ private slots:
     keywordContext.bypass = options & Bypass;
     keywordContext.waitAndPounceOnly = options & WaitAndPounceOnly;
     keywordContext.pounce = options & (ScoringPounce | NonScoringPounce);
-    keywordContext.respondSelection = options & ScoringPounce ? "CQ: Max Dist" : "CQ: First";
+    keywordContext.respondPolicy = options & ScoringPounce
+      ? AutoRespondPolicy::MaxDistance : AutoRespondPolicy::First;
 
     auto const keywordDecision = DecodeOutputPlan::decideKeywordFilter(message, keywordContext);
     bool finalFiltered = keywordDecision.filtered;
