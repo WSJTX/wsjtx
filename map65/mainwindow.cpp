@@ -30,6 +30,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDateTime>
+#include <QTime>
 #include <QFile>
 #include <QTextStream>
 #include <QString>
@@ -114,6 +115,31 @@ MainWindow::DecoderContext::DecoderContext()
 MainWindow::DecoderContext::~DecoderContext()
 {
     delete stdoutChan;
+}
+
+// TEMP diagnostic 2026-09-10 for the "decode reaches map65_rx.log but not the
+// Messages window, only on the first decode cycle after MAP65 starts" report.
+// 2026-09-10 correction: this originally wrote into the SAME w3sz_debug.log
+// the Fortran-side dbg() calls use. That's fine for correlating timestamps,
+// but Fortran's dbg() (debug_log.f90) and this function open/write the file
+// from two different processes/threads with NO shared lock -- confirmed in
+// testing to produce torn, interleaved lines (a C++ write landing mid-way
+// through an in-progress Fortran write, corrupting both). Write to a SEPARATE
+// file instead; timestamps still use the same sec_midn()-style local
+// h*3600+m*60+s+ms/1000 format, so the two logs can still be correlated by
+// eye without either one corrupting the other. Strip both files' worth of
+// logging before merge.
+static void cppDbg(const QString &msg)
+{
+    double const t = [] {
+        QTime const now = QTime::currentTime();
+        return now.hour() * 3600.0 + now.minute() * 60.0 + now.second() + now.msec() / 1000.0;
+    }();
+    QFile f("w3sz_debug_cpp.log");
+    if (f.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&f);
+        out << "mainwindow: " << msg << " at t=" << QString::number(t, 'f', 3) << "\n";
+    }
 }
 
 //-------------------------------------------------- MainWindow constructor
@@ -386,6 +412,36 @@ MainWindow::MainWindow(QWidget *parent) :
   fftwf_import_wisdom_from_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
 
   readSettings();		             //Restore user's setup params
+
+  // 2026-09-10: push mycall/mygrid/hiscall/hisgrid/neme to the Fortran side
+  // here, right after settings load, instead of waiting for the first
+  // MainWindow::decode() call to do it (decode() already pushes these on
+  // every cycle further down; this just makes the values available
+  // sooner). run_m65.f90 now builds the deep65 CALL3.TXT candidate list
+  // eagerly, before its decode loop starts (see build_call3_candidates()
+  // in deep65.f90), specifically to move that ~3.5s one-time cost off the
+  // decoder thread during the first live decode cycle. Without this, that
+  // eager build ran against Fortran's still-default/blank mycall/hiscall
+  // (decode() hadn't run yet), and decode0.f90's genuine mycall-changed
+  // check then forced a SECOND, redundant rebuild on the very first real
+  // decode -- right back into the real-time-audio-starving window the
+  // eager build was meant to avoid. Confirmed via w3sz_debug.log: the
+  // eager build's candidate count (264156) didn't match the redundant
+  // rebuild's (264030), a ~126-entry gap matching exactly the hiscall
+  // "report variants" expansion in deep65.f90's n=1 special case.
+  {
+     QString mcall = (m_myCall + "            ").mid(0, 12);
+     QString mgrid = (m_myGrid + "            ").mid(0, 6);
+     QString hcall = (ui->dxCallEntry->text() + "            ").mid(0, 12);
+     QString hgrid = (ui->dxGridEntry->text() + "      ").mid(0, 6);
+     setMyCall(mcall);
+     setMyGrid(mgrid);
+     setHisCall(hcall);
+     setHisGrid(hgrid);
+     setNeme(0);
+     if (ui->actionOnly_EME_calls->isChecked()) setNeme(1);
+  }
+
   PaError paerr=Pa_Initialize();                    //Initialize Portaudio
   if(paerr!=paNoError) {
     msgBox("Unable to initialize PortAudio.");
@@ -598,6 +654,16 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
           readIndex = 0;
       region->header.readIndex = readIndex;
 
+      // TEMP diagnostic 2026-09-10: h0.writeIndex should always be 0 here --
+      // StdoutSharedMemory's constructor unconditionally zeroes writeIndex/
+      // readIndex right after mapping (see stdout_shared_memory.cpp), and
+      // that happens synchronously on the main thread before this reader
+      // thread is even spawned. If this ever logs a nonzero value, that
+      // assumption is wrong and this "start from current writeIndex" line
+      // is silently skipping over real data written before this point.
+      cppDbg(QString("stdout reader INIT readIndex=%1 (h0.writeIndex=%2) bufSize=%3")
+                 .arg(readIndex).arg(h0.writeIndex).arg(bufSize));
+
       std::string lineBuffer;
 
       while (!stdoutReaderStop.load()) {
@@ -641,9 +707,18 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
 }
 
 void MainWindow::processStdOut(QString t)
-{  
- 
+{
+
 //  qDebug().noquote() << QDateTime::currentMSecsSinceEpoch() << "PROCESS STDOUT:" << t;
+
+  // TEMP diagnostic 2026-09-10: confirms whether a decode line that made it
+  // into map65_rx.log (written Fortran-side, independent of this whole
+  // path) ever actually arrived here on the GUI thread. If a "!"-prefixed
+  // line is missing from this log around the time of a report-vs-rx.log
+  // mismatch, the loss is upstream (shared-memory ring buffer / reader
+  // thread); if it IS here but never appended to the Messages window, the
+  // loss is in handleControlLine/shouldDisplay below.
+  cppDbg(QString("processStdOut RECV \"%1\"").arg(t.trimmed()));
 
   if (m_decodeDisplayFilter.handleControlLine(t)) return;
 
@@ -713,10 +788,28 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 #ifdef WIN32
         m = 3;
 #endif
-        const QString decode_line = t.mid(1, n - m);
+        // 2026-09-10: the m=2/m=3 trim above is calibrated for a normal
+        // decode line's fixed layout, whose last field is a
+        // padding/polarization character -- losing an extra byte or two
+        // there is invisible. Find Delta Phi's "!Best-fit Dphi = NNN deg"
+        // summary line is short and ends on real content (the "g" of
+        // "deg"), so the same trim chops it to "...de". This path only
+        // started actually carrying real data once getdphi's output got
+        // routed through write_stdout (see getdphi.f90) -- never exercised
+        // with live data before, so this truncation was never visible.
+        // Just trim the real line terminator for this one instead.
+        const QString decode_line = (t.indexOf("Best-fit") >= 0)
+            ? t.mid(1).trimmed()
+            : t.mid(1, n - m);
 
         if (n >= 30 || t.indexOf("Best-fit") >= 0) {
-          if (m_decodeDisplayFilter.shouldDisplay(decode_line))
+          bool const display = m_decodeDisplayFilter.shouldDisplay(decode_line);
+          // TEMP diagnostic 2026-09-10 -- see the matching note at the top
+          // of processStdOut(). If display=false here for a line that has
+          // no legitimate earlier-pass duplicate, the display filter itself
+          // (map65_decode_display_filter.cpp) is the culprit.
+          cppDbg(QString("shouldDisplay=%1 for \"%2\"").arg(display ? "true" : "false").arg(decode_line));
+          if (display)
             ui->decodedTextBrowser->append(decode_line);
         }
         

@@ -27,8 +27,10 @@ contains
       integer :: newdat0
       character(len=128) :: line
       character mycall0*12, hiscall0*12, hisgrid0*6
+      logical :: first_mcall3b_check
 
-      data neme0/-99/, mcall3b/1/, mycall0/'            '/, hiscall0/'            '/, hisgrid0/'      '/
+      data neme0/-99/, mcall3b/0/, mycall0/'            '/, hiscall0/'            '/, hisgrid0/'      '/
+      data first_mcall3b_check/.true./
 
       save
 
@@ -134,6 +136,27 @@ contains
       endif
       ndphi = 0
       if (iand(nrxlog, 8) .ne. 0) ndphi = 1
+
+      ! 2026-09-10: mcall3b used to default to 1 (forcing a rebuild) AND
+      ! mycall0/hiscall0/hisgrid0 started blank, guaranteeing the mismatch
+      ! check below fired "changed" on the very first call regardless --
+      ! together they made sure the very first decode always rebuilt the
+      ! deep65 CALL3.TXT candidate list. That's now redundant: run_m65.f90
+      ! builds it once, eagerly, before the decode loop ever starts (see
+      ! build_call3_candidates() in deep65.f90). Left as-is, this first-call
+      ! forced mismatch was clobbering that already-built cache with a
+      ! second, needless ~3.5s rebuild on the very first live decode --
+      ! exactly the real-time-audio-starving cost the eager build was meant
+      ! to move out of the way. Seed mycall0/hiscall0/hisgrid0/neme0 from
+      ! the real values on the first call instead of comparing against
+      ! blank sentinels, so this only fires on a GENUINE later change.
+      if (first_mcall3b_check) then
+         mycall0 = mycall
+         hiscall0 = hiscall
+         hisgrid0 = hisgrid
+         neme0 = neme
+         first_mcall3b_check = .false.
+      endif
 
       if (mycall .ne. mycall0 .or. hiscall .ne. hiscall0 .or. &
           hisgrid .ne. hisgrid0 .or. mcall3 .ne. 0 .or. neme .ne. neme0) mcall3b = 1

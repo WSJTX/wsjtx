@@ -9,9 +9,11 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   use timer_impl, only: init_timer, fini_timer
   use debug_log
   use m65a_mod
-  use npar_ptrs_mod, only: newdat, stop_m65, decoder_ready, t_start, nhsym
+  use npar_ptrs_mod, only: newdat, stop_m65, decoder_ready, t_start, nhsym, &
+                            mycall, hiscall, hisgrid, neme
   use stdout_channel_mod, only: write_stdout
   use decodes_mod, only: nhsym1,nhsym2
+  use deep65_mod, only: build_call3_candidates
   use sleep_msec_mod
   use sec_midn_mod, only: sec_midn
 
@@ -69,6 +71,26 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   !flush(6)
 
   call init_timer()
+
+  ! 2026-09-10: build the Deep Search CALL3.TXT candidate list here, before
+  ! the decode loop below ever runs, instead of letting it happen lazily
+  ! inside the first real deep65() call. That first build is a genuine
+  ! once-per-process cost -- confirmed by direct timing to take ~3.7
+  ! seconds against the real ~132,000-line CALL3.TXT (encode65() runs
+  ! ~264,000 times) -- and running it synchronously on this thread during
+  ! an actual decode cycle was found to starve real-time audio capture on
+  ! the GUI/audio thread for that whole span, degrading or losing decodes
+  ! specifically on whichever cycle first triggered it. See
+  ! build_call3_candidates()'s own header comment in deep65.f90 for the
+  ! full evidence. Doing it here instead means the cost lands before any
+  ! live decoding is happening. build_call3_candidates() still gets called
+  ! again on demand from inside deep65() -- if mycall/hiscall/hisgrid/neme
+  ! aren't set to their final values yet at this point, or the user edits
+  ! CALL3.TXT later, that existing on-demand path (gated on mcall3a; see
+  ! decode0.f90) still catches it, exactly as before.
+  call dbg('run_m65: eager build_call3_candidates() STARTING at t=' // rtoa(sec_midn()))
+  call build_call3_candidates(mycall, hiscall, hisgrid, neme)
+  call dbg('run_m65: eager build_call3_candidates() DONE at t=' // rtoa(sec_midn()))
 
   !print *, 'IN RUN_M65, just passed init_timer'
   ! TEMP diagnostic 2026-09-10 for the missing-final-pass / stuck-button

@@ -90,6 +90,12 @@
       integer(int16) :: iwave(300*12000)
       complex   :: cx(0:MAXFFT2-1), cy(0:MAXFFT2-1), cz(0:MAXFFT2)
       integer   :: ipk1(1)
+      ! 2026-09-10: small, fixed bin radius for the automatic-candidate ipk
+      ! search (see the note below at "for a wideband candidate"). Deliberately
+      ! independent of the GUI's Ftol (ntol) -- this only needs to absorb
+      ! wb_sync's own low-SNR bin-selection noise, not accommodate arbitrary
+      ! user-configured search widths.
+      integer, parameter :: IPK_LOCAL_BINS = 5
       integer   :: i, ia, ib, ifreq, ikhz1, ipk, ipol
       integer   :: j, ja, jb, k0, mhz, ndf, nfft1, nfft2
       integer   :: npol, nq65df, nsubmode, ntxpol, nutc00, nh
@@ -159,13 +165,34 @@
       ! candidate can resolve to that same dominant bin and get silently
       ! skipped by the ldecoded(ipk) check below as "already decoded", even
       ! though it's a distinct signal at a different frequency. Use ifreq
-      ! directly instead, the same way k0 does a few lines down for this
-      ! exact reason. Originally this also excluded nagain=1 (Decode button
-      ! / Find Delta Phi repeat), but that path runs the same per-candidate
-      ! loop over real wb_sync candidates as automatic decoding -- f0 is
-      ! precise there too, so it needs the same fix, not the wide search.
-      ! Only an actual manual click (manualDecodeFlag/=0), where the target
-      ! itself is an imprecise mousefqso-driven guess, still needs it.
+      ! as the search CENTER instead of trusting it as the exact bin -- see
+      ! IPK_LOCAL_BINS below. Originally this also excluded nagain=1 (Decode
+      ! button / Find Delta Phi repeat), but that path runs the same
+      ! per-candidate loop over real wb_sync candidates as automatic
+      ! decoding -- f0 is precise there too, so it needs the same fix, not
+      ! the wide search. Only an actual manual click (manualDecodeFlag/=0),
+      ! where the target itself is an imprecise mousefqso-driven guess,
+      ! still needs the full +/-ntol search.
+      !
+      ! 2026-09-10 correction: the first version of this fix went all the
+      ! way to ipk=ifreq -- zero search radius, trusting wb_sync's raw bin
+      ! index exactly. That reintroduced a different problem: f0 (and hence
+      ! ifreq) has no sub-bin refinement at all (see wideband_sync.f90 --
+      ! f0 = 0.001*(n-1)*df3 for a raw integer bin n), so at low SNR, noise
+      ! perturbs the sync curve enough that the true peak can sit a few
+      ! bins away from wherever wb_sync's own coarse search happened to
+      ! land. The old +/-ntol search's side effect of re-finding that true
+      ! nearby peak was, apparently, doing real work -- a paired 1000-file
+      ! statistical retest at SNR -24 dB (Roger, 2026-09-10) showed Q65
+      ! true-positive rate dropping from 31.39% (pre-this-session) to
+      ! 18.42% with ipk=ifreq, most of the way back down to legacy 3.0.1's
+      ! 17.74%. Split the difference: search a small, FIXED bin radius
+      ! (IPK_LOCAL_BINS, independent of the GUI's Ftol) around ifreq. At
+      ! ~2.9 Hz/bin this is roughly +/-15 Hz -- enough to absorb ordinary
+      ! low-SNR bin-selection noise, but far too narrow to ever reach a
+      ! different signal's peak the way the original +/-ntol (up to +/-1000
+      ! Hz) search could. Needs retesting to confirm this recovers the lost
+      ! sensitivity without reopening the two-signal-collision bug.
       if (manualDecodeFlag .ne. 0) then
          ia = nint(ifreq - ntol/df3)
          ib = nint(ifreq + ntol/df3)
@@ -176,8 +203,11 @@
          endif
          ipk = ia + ipk1(1) - 1
       else
-         if (ifreq >= 1 .and. ifreq <= nfft_active) then
-            ipk = ifreq
+         ia = max(1, ifreq - IPK_LOCAL_BINS)
+         ib = min(nfft_active, ifreq + IPK_LOCAL_BINS)
+         if (ifreq >= 1 .and. ifreq <= nfft_active .and. ib >= ia) then
+            ipk1 = maxloc(sync(ia:ib)%ccfmax)
+            ipk = ia + ipk1(1) - 1
          else
             go to 901
          endif

@@ -21,7 +21,7 @@ contains
       use ccf65_legacy_mod
       use pctile_mod
       use stdout_channel_mod, only: write_stdout
-      use decodes_mod, only: nhsym1, ldecoded, ndecodes, mcall3a, decodes_init
+      use decodes_mod, only: nhsym1, ldecoded, ljt65decoded, ndecodes, mcall3a, decodes_init
       use display_mod
       use timf2_mod
       use getdphi_mod
@@ -34,6 +34,13 @@ contains
 
       integer, parameter :: MAXMSG = 1000
       real, parameter :: RESULT_DT_TOLERANCE = 0.2
+      ! 2026-09-10: neighborhood radius (in symspec FFT bins) for
+      ! ljt65decoded's cross-call "already decoded" check/mark -- see the
+      ! note at its use below. At df ~= 2.9 Hz/bin this is ~+/-15 Hz,
+      ! comfortably covering the couple-of-Hz, couple-of-bin spread
+      ! observed between adjacent-bin candidates for the same real JT65
+      ! signal across separate automatic calls.
+      integer, parameter :: JT65_LOCAL_BINS = 5
       real, intent(in) :: dd(4, nsmax_active)
       integer, intent(inout) :: newdat
       integer, intent(inout) :: nutc
@@ -88,15 +95,18 @@ contains
       logical :: abort_saved
       integer :: icenter
       logical :: initialization_only, shorthand_detected, jt65_success, q65_success
+      logical :: already_decoded_nearby
       real :: best_sync1, best_dt, best_flipk, best_syncshort, best_snr2, best_dt2
       integer :: best_i, best_ipol2
       real :: sync1_tmp, dt_tmp, flipk_tmp, syncshort_tmp, snr2_tmp, dt2_tmp
       integer :: ipol_tmp, ipol2_tmp,ftol_bins, manualDecodeFlag_initial
       real :: freq_q65
+      integer :: nhsym_prev_call
 
       data blank/'                      '/, cm/'#'/
       data shmsg0/'ATT','RO ','RRR','73 '/
       data nfile/0/, nutc0/-999/, nid/0/, ip000/1/, ip001/1/, mousefqso0/-999/
+      data nhsym_prev_call/-1/
       save
 
       real(c_float), pointer :: ss_dec(:,:,:)
@@ -129,9 +139,41 @@ contains
 !------------------------------------------------------------
 ! BASIC DECODE SETUP (shared by manual + wideband)
 !------------------------------------------------------------
-      if (nhsym .eq. nhsym1 .or. nagain .ne. 0) ldecoded = .false.
-      if (ndiskdat .eq. 1) ldecoded = .false.
-      
+      ! 2026-09-10: was "if (nhsym .eq. nhsym1 .or. nagain .ne. 0)". That
+      ! fires on EVERY call that happens to see the early-pass symbol count,
+      ! not just the first one for this minute's accumulation -- and
+      ! run_m65 legitimately re-fires map65a() several times back-to-back
+      ! at the SAME nhsym1 value whenever new audio keeps re-arming newdat
+      ! before nhsym itself has advanced to the next threshold (observed:
+      ! 4 automatic calls, ~1.1s apart, all still at nhsym=280). Wiping
+      ! ldecoded on every one of those repeat calls throws away the
+      ! "already reported this bin" memory from the immediately preceding
+      ! call at the same nhsym1, so a candidate that resolves the same way
+      ! every time -- e.g. Q65's fixed quick-check at fQSO, which isn't a
+      ! noise-dependent candidate search -- gets rediscovered and
+      ! rereported on every repeat (seen as the same "CQ K1JT FN20" line
+      ! appearing 4 times in the Messages window for one real decode).
+      ! Track the previous call's nhsym and only reset when this is
+      ! genuinely the first time this cycle has reached nhsym1, not a
+      ! repeat of a value already processed. nagain/=0 (manual repeat) is
+      ! untouched -- each manual click is a deliberate, one-off request,
+      ! not a polling repeat, so it should always get a fresh ledger.
+      if ((nhsym .eq. nhsym1 .and. nhsym_prev_call .ne. nhsym1) .or. nagain .ne. 0) then
+         ldecoded = .false.
+         ljt65decoded = .false.
+         call dbg('map65a: ldecoded/ljt65decoded RESET at t=' // rtoa(sec_midn()) // &
+                  ' nhsym=' // itoa(nhsym) // ' nhsym_prev_call=' // itoa(nhsym_prev_call) // &
+                  ' nagain=' // itoa(nagain))
+      else if (nhsym .eq. nhsym1) then
+         call dbg('map65a: ldecoded/ljt65decoded NOT reset (repeat call at nhsym1) at t=' // rtoa(sec_midn()) // &
+                  ' nhsym=' // itoa(nhsym))
+      endif
+      nhsym_prev_call = nhsym
+      if (ndiskdat .eq. 1) then
+         ldecoded = .false.
+         ljt65decoded = .false.
+      endif
+
       df = real(nrate_active)/real(nfft_active)
       if (nfsample .eq. 95238) df = 95238.1/real(nfft_active)
 
@@ -720,7 +762,49 @@ endif
                   sync1 = thresh1 + 1.0
                   noffset = 0
                endif
+               ! 2026-09-10: computed once per candidate, BEFORE the "keep
+               ! only best within ftol" collapse logic just below -- see the
+               ! full explanation at the SKIPPED branch right after. Must be
+               ! false whenever initialization_only is true: that probe
+               ! doesn't accumulate anything regardless (guarded separately
+               ! below), but still needs decode1a() called once per sweep
+               ! for its own internal state, so it must not be intercepted
+               ! here.
+               already_decoded_nearby = (.not. initialization_only) .and. &
+                    any(ljt65decoded(max(1,i-JT65_LOCAL_BINS):min(nfft_active,i+JT65_LOCAL_BINS)))
+
                if (sync1 .gt. thresh1 .and. abs(noffset) .le. ntol) then
+                  if (already_decoded_nearby) then
+                     ! 2026-09-10: skip a candidate whose bin (or a nearby
+                     ! one -- JT65_LOCAL_BINS) already produced a real decode
+                     ! earlier THIS SAME accumulation cycle, mirroring Q65's
+                     ! ldecoded(ipk) (see decodes_mod.f90). Without this, a
+                     ! repeat automatic call (run_m65 legitimately re-firing
+                     ! map65a() before nhsym has advanced) re-discovers and
+                     ! re-emits the same JT65 decode via its own independent
+                     ! write_stdout("!"...) call -- confirmed in live UDP
+                     ! testing as a duplicate Messages-window line for the
+                     ! same signal, sometimes landing on a different but
+                     ! adjacent bin (JT65's own sync/spectral spread), which
+                     ! is why this checks a neighborhood, not just bin i.
+                     !
+                     ! This check MUST run before the "keep only best within
+                     ! ftol" collapse logic below, not after: the first
+                     ! version of this fix checked/marked only at
+                     ! accumulation time, inside the "if (mode65...)" block
+                     ! below -- but the collapse logic's "km=km-1" runs
+                     ! unconditionally before that block, on the assumption
+                     ! that accumulation will always follow with a matching
+                     ! "km=km+1". A candidate intercepted and skipped AFTER
+                     ! that decrement never supplied the matching increment,
+                     ! silently driving km negative (confirmed in testing:
+                     ! km_exiting=-2), which then hid the whole signal from
+                     ! this pass's output. Skipping before the collapse
+                     ! logic even runs avoids touching km/freq0/sync10 at
+                     ! all for an already-decoded candidate.
+                     call dbg('map65a: JT65 i=' // itoa(i) // &
+                              ' SKIPPED (already decoded nearby this cycle) at t=' // rtoa(sec_midn()))
+                  else
 !  Keep only the best candidate within ftol.
 !  (Am I deleting any good decodes by doing this?)
               if(freq-freq0.le.ftol .and. sync1.gt.sync10 .and.       &
@@ -786,7 +870,12 @@ endif
                         freq0 = freq
                         sync10 = sync1
                         nkm = 1
+                        ! Mark the same neighborhood checked at
+                        ! already_decoded_nearby above -- see that note.
+                        if (decoded .ne. '                      ') &
+                           ljt65decoded(max(1,i-JT65_LOCAL_BINS):min(nfft_active,i+JT65_LOCAL_BINS)) = .true.
                      endif
+                  endif
                   endif
                endif
             endif
