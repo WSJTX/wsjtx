@@ -681,18 +681,28 @@ contains
        if (streaming_emit_enabled()) then
           call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded)
        else
-          write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
+          if(len_trim(cflags).gt.3) then
+             write(*,1005) nutc,nsnr,dt,nint(freq),decoded,cflags
+          else
+             write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
+          endif
        end if
-1001   format(i6.6,i4,f5.1,i5,' : ',1x,a37,1x,a4)
+1001   format(i6.6,i4,f5.1,i5,' : ',1x,a37,1x,a3)
+1005   format(i6.6,i4,f5.1,i5,' : ',1x,a37,1x,a4)
        if(context_ios13.eq.0) write(13,1002) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     else
        if (streaming_emit_enabled()) then
           call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded)
        else
-          write(*,1003) nutc,nsnr,dt,nint(freq),decoded,cflags
+          if(len_trim(cflags).gt.3) then
+             write(*,1006) nutc,nsnr,dt,nint(freq),decoded,cflags
+          else
+             write(*,1003) nutc,nsnr,dt,nint(freq),decoded,cflags
+          endif
        end if
-1003   format(i4.4,i4,f5.1,i5,' : ',1x,a37,1x,a4)
+1003   format(i4.4,i4,f5.1,i5,' : ',1x,a37,1x,a3)
+1006   format(i4.4,i4,f5.1,i5,' : ',1x,a37,1x,a4)
        if(context_ios13.eq.0) write(13,1004) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     endif
