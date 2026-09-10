@@ -1068,7 +1068,7 @@ int main(int argc, char *argv[])
             maxdrift=4;
             minsync2=0.12;
         }
-        if(ipass == 2 ) {
+        else {
             nblocksize=4;  // try 3 blocksizes plus bitbybit normalization
             maxdrift=0;    // no drift for smaller frequency estimator variance
             minsync2=0.10;

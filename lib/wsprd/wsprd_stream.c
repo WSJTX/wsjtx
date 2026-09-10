@@ -470,13 +470,6 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
         if (rc > 0) break;  // EOF without halt — treat as drain-and-decode
 
         if (type == FRAME_CONTROL) {
-            if ((size_t)len > SIZE_MAX - 1) {
-                free(body);
-                free(pcm);
-                wsprd_stream_emit_error_code("frame_too_large",
-                                             "control frame cannot be terminated safely");
-                return 1;
-            }
             char *json = malloc((size_t)len + 1);
             if (!json) {
                 free(body);

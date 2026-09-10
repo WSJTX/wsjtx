@@ -91,8 +91,8 @@ contains
         do t = 1, TOTAL_K
             bit = info_bits(1, t)
             g0_out = iand(ior(ishft(state, 1), bit), selected_register_mask)
-            out_b0 = parity(iand(g0_out, selected_g0))
-            out_b1 = parity(iand(g0_out, selected_g1))
+            out_b0 = parity_bit(iand(g0_out, selected_g0))
+            out_b1 = parity_bit(iand(g0_out, selected_g1))
             state = iand(ior(ishft(state, 1), bit), selected_state_count-1)
             if (present(encoded_bits)) encoded_bits(:, t) = [out_b0, out_b1]
 
@@ -325,8 +325,8 @@ contains
         do state = 0, state_count-1
             do dropped_bit = 0, 1
                 register_value = ior(state, ishft(dropped_bit, nu))
-                b0 = parity(iand(register_value, g0))
-                b1 = parity(iand(register_value, g1))
+                b0 = parity_bit(iand(register_value, g0))
+                b1 = parity_bit(iand(register_value, g1))
                 tones(dropped_bit, state) = gray_tones(2*b0+b1)
             end do
         end do
@@ -392,7 +392,7 @@ contains
         end select
     end subroutine select_generator_polynomials
 
-    pure integer(int32) function parity(val)
+    pure integer(int32) function parity_bit(val)
         integer(int32), intent(in) :: val
         integer(int32) :: temp, p
         temp = val; p = 0
@@ -400,8 +400,8 @@ contains
             if (iand(temp, 1) /= 0) p = ieor(p, 1)
             temp = ishft(temp, -1)
         end do
-        parity = p
-    end function parity
+        parity_bit = p
+    end function parity_bit
 
     subroutine seed_random_generator()
         ! Give every OpenMP thread its own distinct, deterministic, nonzero
