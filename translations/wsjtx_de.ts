@@ -1753,7 +1753,7 @@ Fehler: %2 - %3</translation>
         <message>
             <location filename="../Configuration.cpp" line="329" />
             <source>S&amp;tart:</source>
-            <translation>&amp;S&amp;tart:</translation>
+            <translation>S&amp;tart:</translation>
         </message>
         <message>
             <location filename="../Configuration.cpp" line="330" />
