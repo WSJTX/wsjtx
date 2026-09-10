@@ -3743,7 +3743,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="828"/>
         <source>Log &amp;QSO</source>
-        <translation>Guardar QSO</translation>
+        <translation>Guardar QSO (&amp;Q)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="841"/>
@@ -3753,7 +3753,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="844"/>
         <source>&amp;Stop</source>
-        <translation>Detener</translation>
+        <translation>Detener (&amp;S)</translation>
     </message>
     <message>
         <source>Toggle monitoring On/Off</source>
@@ -3762,7 +3762,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="872"/>
         <source>&amp;Monitor</source>
-        <translation>Monitor</translation>
+        <translation>Monitor (&amp;M)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="894"/>
@@ -3777,7 +3777,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="900"/>
         <source>&amp;Erase</source>
-        <translation>Borrar</translation>
+        <translation>Borrar (&amp;E)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="916"/>
@@ -3807,7 +3807,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="972"/>
         <source>&amp;Decode</source>
-        <translation>Decodifica</translation>
+        <translation>Decodifica (&amp;D)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="991"/>
@@ -3822,7 +3822,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1009"/>
         <source>E&amp;nable Tx</source>
-        <translation>Activar TX</translation>
+        <translation>Activar TX (&amp;N)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1025"/>
@@ -3832,7 +3832,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1028"/>
         <source>&amp;Halt Tx</source>
-        <translation>Detener TX</translation>
+        <translation>Detener TX (&amp;H)</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -3846,7 +3846,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1062"/>
         <source>&amp;Tune</source>
-        <translation>TX Tono</translation>
+        <translation>TX Tono (&amp;T)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1072"/>
@@ -10809,7 +10809,7 @@ período de silencio cuando se ha realizado la decodificación.</translation>
     <message>
         <location filename="../Configuration.ui" line="451"/>
         <source> seconds</source>
-        <translation>segundos</translation>
+        <translation> segundos</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="480"/>
@@ -12676,7 +12676,7 @@ Clic derecho para insertar y eliminar opciones.</translation>
     <message>
         <location filename="../Configuration.ui" line="4179"/>
         <source>https://www.9dx.cc</source>
-        <translation>https://www.9dx.c</translation>
+        <translation>https://www.9dx.cc</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="4200"/>
