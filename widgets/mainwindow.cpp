@@ -704,6 +704,17 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   qApp->setFont (m_config.text_font ());
   ui->setupUi(this);
   configureModeControlsLayout ();
+  connect (ui->Tx_Message, &QLineEdit::textChanged, this,
+           [this] { m_jttyDraftAcceptanceTracker.noteDraftChanged (); });
+  connect (this, &MainWindow::jttyTextAccepted, this, [this] (qint64 requestId) {
+    if (m_jttyDraftAcceptanceTracker.accept (requestId)) {
+      ui->Tx_Message->clear ();
+    }
+  });
+  connect (this, &MainWindow::jttyTextRejected, this,
+            [this] (qint64 requestId, JttyTxRejectReason) {
+              m_jttyDraftAcceptanceTracker.reject (requestId);
+            });
   m_tx_message_button_group = new QButtonGroup {this};
   m_tx_message_button_group->addButton (ui->txrb1, 1);
   m_tx_message_button_group->addButton (ui->txrb2, 2);

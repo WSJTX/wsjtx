@@ -75,6 +75,7 @@ class QHBoxLayout;
 #include "AutoRespondScoring.hpp"
 #include "AutoRespondPeriod.hpp"
 #include "HoundTransmissionPolicy.hpp"
+#include "JttyDraftAcceptanceTracker.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
 #include "DecoderOutputFramer.hpp"
@@ -795,6 +796,7 @@ private:
   void abortSuperFoxTxStart();
   void displayFoxTxMsgs();
   void jtty_tx(QString message);
+  void submitJttyDraft(QString message);
 #ifdef WIN32
   void handleMmttyTxString(QString message);
   void handleMmttyStartTx();
@@ -1418,6 +1420,7 @@ private:
     qint64 endSample;
   };
   QVector<AcceptedJttyTxRequest> m_acceptedJttyTxRequests;
+  JttyDraftAcceptanceTracker m_jttyDraftAcceptanceTracker;
   qint64 m_jttyTxRequestId;
   qint64 m_jttyTciEnqueueId;
   struct JttyQsoLine

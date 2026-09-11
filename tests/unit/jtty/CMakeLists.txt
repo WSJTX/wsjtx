@@ -151,6 +151,10 @@ add_executable (test_jtty_messages test_jtty_messages.cpp)
 target_link_libraries (test_jtty_messages Qt5::Test)
 add_test (NAME test_jtty_messages COMMAND test_jtty_messages)
 
+add_executable (test_jtty_draft_acceptance test_jtty_draft_acceptance.cpp)
+target_link_libraries (test_jtty_draft_acceptance Qt5::Test)
+add_test (NAME test_jtty_draft_acceptance COMMAND test_jtty_draft_acceptance)
+
 add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
 target_link_libraries (test_jtty_n1mm Qt5::Test)
 add_test (NAME test_jtty_n1mm COMMAND test_jtty_n1mm)

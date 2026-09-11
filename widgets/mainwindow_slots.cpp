@@ -1042,11 +1042,7 @@ void MainWindow::on_pb24G_clicked()
 
 void MainWindow::on_pbSendMessage_clicked()
 {
-  jtty_tx(ui->Tx_Message->text().toUpper());
-  // Clear immediately (not on completion) so several messages can be
-  // typed and queued in succession without waiting for each one to
-  // finish transmitting -- JTTY TX chains queued messages gaplessly.
-  ui->Tx_Message->clear();
+  submitJttyDraft (ui->Tx_Message->text ().toUpper ());
 }
 
 void MainWindow::on_Tx_Message_returnPressed()

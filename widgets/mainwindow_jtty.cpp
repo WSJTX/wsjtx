@@ -388,6 +388,13 @@ qint64 MainWindow::submitJttyText(QString message)
   return requestId;
 }
 
+void MainWindow::submitJttyDraft(QString message)
+{
+  qint64 const requestId = ++m_jttyTxRequestId;
+  m_jttyDraftAcceptanceTracker.trackSubmission (requestId);
+  execute_jtty_tx (requestId, message);
+}
+
 void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
 {
   int itone[944];
