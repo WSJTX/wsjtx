@@ -816,7 +816,7 @@ namespace Jtty
     int start = 0;
     while (text.size () - start > maxWidth) {
       int breakAt = -1;
-      for (int i = maxWidth; i >= 0; --i) {
+      for (int i = maxWidth; i > 0; --i) {
         if (text.at (start + i) == QLatin1Char {' '}) {
           breakAt = i;
           break;

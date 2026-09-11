@@ -742,6 +742,10 @@ private slots:
         << QString (50, QLatin1Char {'A'})
         << (QString (40, QLatin1Char {'A'}) + QString {"\n  "}
             + QString (10, QLatin1Char {'A'}));
+    QTest::newRow ("leading-space-does-not-create-empty-line")
+        << (QString {" "} + QString (79, QLatin1Char {'A'}))
+        << (QString {" "} + QString (39, QLatin1Char {'A'}) + QString {"\n  "}
+            + QString (40, QLatin1Char {'A'}));
     QTest::newRow ("multiple-wrap-points")
         << QString {"AAAAAAAAAA BBBBBBBBBB CCCCCCCCCC DDDDDDDDDD EEEEEEEEEE FFFFFFFFFF GGGGGGGGGG"}
         << QString {"AAAAAAAAAA BBBBBBBBBB CCCCCCCCCC\n  DDDDDDDDDD EEEEEEEEEE FFFFFFFFFF\n  GGGGGGGGGG"};

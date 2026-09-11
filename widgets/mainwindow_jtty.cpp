@@ -563,7 +563,7 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   QTextCharFormat format = cursor.charFormat();
   format.setBackground(QBrush(QColor(Qt::yellow)));
   cursor.setCharFormat(format);
-  cursor.insertText(message);
+  cursor.insertText(Jtty::wrapMessage(message));
   format.setBackground(QBrush(QColor(Qt::white)));
   cursor.setCharFormat(format);
 
