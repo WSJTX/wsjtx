@@ -4045,7 +4045,7 @@ Double-click to reset to the standard 73 message</string>
                   </size>
                  </property>
                  <property name="toolTip">
-                  <string>Click to transmit a message.</string>
+                  <string>Send and clear the message. Press Enter in the field.</string>
                  </property>
                  <property name="text">
                   <string>Send message</string>
@@ -4077,7 +4077,7 @@ Double-click to reset to the standard 73 message</string>
                <item row="1" column="1" colspan="4">
                 <widget class="QLineEdit" name="Tx_Message">
                  <property name="toolTip">
-                  <string>Message to be transmitted</string>
+                  <string>Press Enter to send and clear the message.</string>
                  </property>
                 </widget>
                </item>
