@@ -123,6 +123,10 @@ program sjtty_qrm
   read(arg,*) nfiles
   call getarg(7,arg)
   read(arg,*) snrdb
+  if(nfa.lt.0 .or. nfb.lt.0) then
+     print*,'Frequency range endpoints must be nonnegative.'
+     stop 1
+  endif
   msg_override=' '
   if(nargs.eq.8) call getarg(8,msg_override)
 

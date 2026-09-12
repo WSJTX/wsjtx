@@ -83,10 +83,10 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
      if(icmplx.eq.0) then
         wave(k)=sin(phi)
      else
-        i=phi*float(NTAB)/twopi
+        i=min(NTAB-1,int(phi*float(NTAB)/twopi))
         cwave(k)=ctab(i)
      endif
-     phi=mod(phi+dphi(j),twopi)
+     phi=modulo(phi+dphi(j),twopi)
   enddo
 
 ! Apply envelope shaping to the first and last symbols
