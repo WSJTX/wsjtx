@@ -1248,11 +1248,9 @@ private:
   QString m_freeTextMsg0;
   std::array<QString, MaxActiveStationRows> m_ready2call;
   std::array<QString, MaxQ65PileupCallers> m_callers;
-  // Q65 Pileup mode: true once, since the last Tx, a decode arrived whose
-  // second word (sender) matched the current DX Call -- consumed (and
-  // cleared) the next time we generate a Q65 Tx message, to set the
-  // "copied last transmission" flag bit (see genq65_/genq65.f90).
-  bool m_q65PileupCopiedLastRx = false;
+  // Q65 Pileup mode: selected DX call whose last Tx was copied by a decode.
+  // The value is consumed by the next matching Q65 Tx message.
+  QString m_q65PileupCopiedLastRxCall;
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;

@@ -3484,7 +3484,9 @@ void MainWindow::stopWCTimeout()
 
 void MainWindow::statusChanged()
 {
+  auto const prior_spec_op = m_specOp;
   m_specOp=m_config.special_op_id();  // update m_specOp
+  if (m_specOp != prior_spec_op) m_q65PileupCopiedLastRxCall.clear();
   if (m_specOp==SpecOp::Q65_PILEUP && m_mode != "Q65") on_actionQ65_triggered();
   QTimer::singleShot (50, this, [=] {
       WaitFeatureContext const waitContext {
@@ -4708,7 +4710,7 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
     if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP) {
-      m_q65PileupCopiedLastRx = false;  // starting a decode pass over fresh audio
+      m_q65PileupCopiedLastRxCall.clear();  // starting a decode pass over fresh audio
     }
     m_dateTimeSeqStart = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
     auto t = m_dateTimeSeqStart.time ();
@@ -6360,8 +6362,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
     if (m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       auto const fields = parseDecodedMessage (decodedtext.message ());
-      if (fields.sender == Radio::base_callsign (ui->dxCallEntry->text ())) {
-        m_q65PileupCopiedLastRx = true;
+      auto const dx_base_call = Radio::base_callsign (ui->dxCallEntry->text ());
+      if (!dx_base_call.isEmpty () && fields.sender == dx_base_call) {
+        m_q65PileupCopiedLastRxCall = dx_base_call;
       }
     }
 
@@ -7174,8 +7177,11 @@ void MainWindow::guiUpdate()
           int i3=-1;
           int n3=-1;
           int iflag=0;
-          if(m_specOp==SpecOp::Q65_PILEUP && m_q65PileupCopiedLastRx) iflag=1;
-          m_q65PileupCopiedLastRx=false;  // single-consume: don't let a stale match ride a later Tx
+          if(m_specOp==SpecOp::Q65_PILEUP && !m_q65PileupCopiedLastRxCall.isEmpty () &&
+             m_q65PileupCopiedLastRxCall == Radio::base_callsign (ui->dxCallEntry->text ())) {
+            iflag=1;
+          }
+          m_q65PileupCopiedLastRxCall.clear();  // single-consume: don't let a stale match ride a later Tx
           genq65_(message, &ichk,msgsent, const_cast<int *>(itone), &i3, &n3, &iflag, (FCL)37, (FCL)37);
           if (!should_block_generated_transmit (QString::fromLatin1 (msgsent), m_tune)) {
             int nsps=1800;
@@ -9498,6 +9504,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
+  m_q65PileupCopiedLastRxCall.clear();
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !(m_bDoubleClicked or (m_hisCall0 != ""
        && (call.left(6).contains(m_hisCall0) or call.right(6).contains(m_hisCall0))))
        && !ui->DX_Call_Button->isChecked()) {  // allow Wait & Call
@@ -10997,6 +11004,7 @@ void MainWindow::on_actionFreqCal_triggered()
 void MainWindow::switch_mode (Mode mode)
 {
   clear_generated_message_error ();
+  if (m_mode != "Q65" || mode != Modes::Q65) m_q65PileupCopiedLastRxCall.clear();
   // Sit just under the decoded-text panes, outside the per-mode
   // displayWidgets()/ModeUiControl mechanism -- only meaningful for JTTY.
   bool const jtty = m_mode=="JTTY";
