@@ -839,6 +839,8 @@ private:
   // unwindowed, matching the original behavior exactly. Returns true when
   // this call delivers a completed message admitted to the QSO history.
   bool jtty_decode(int k, int istart0 = -1, int istop = -1);
+  void renderJttyAllFreqLines();
+  void renderJttyQsoLines();
   void jtty_again();
   void flushJttyDecodeLines();
   QString jtty_msg_expand(QString msg);
@@ -1418,10 +1420,12 @@ private:
     float frequency {0.f};
     QString text;
     float sequenceStart {0.f};
+    QDateTime messageStartUtc;
   };
   QVector<JttyQsoLine> m_jttyQsoLines;
   QTextBlock m_jttyQsoGroupStart;
   QTextBlock m_jttyQsoGroupEnd;
+  int m_jttyQsoGroupEndPosition {-1};
   bool m_jttyQsoRenderedLowerCase {false};
   bool m_jttyQsoRenderedIncludeTime {false};
   struct JttyDecodeLine
@@ -1430,6 +1434,7 @@ private:
     float frequency {0.f};
     QString text;
     float sequenceStart {0.f};
+    QDateTime messageStartUtc;
     bool complete {false};
     bool written {false};
     DecodeOperatingContext context;

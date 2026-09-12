@@ -671,6 +671,24 @@ private slots:
     QCOMPARE (Jtty::jttyLineTimeLabel (diskDateTime, utcDiskRaw, tsyncSeconds), expected);
   }
 
+  void jttyLineStartTimeUtc ()
+  {
+    QDateTime const diskDateTime {QDate {2026, 8, 28}, QTime {23, 59, 58}, Qt::UTC};
+    QDateTime const expectedMidnight {QDate {2026, 8, 29}, QTime {0, 0, 3}, Qt::UTC};
+    QDateTime const expectedFallback {QDate {2000, 1, 1}, QTime {0, 0, 7}, Qt::UTC};
+    QCOMPARE (Jtty::jttyLineStartTimeUtc (diskDateTime, 235958, 5.0f), expectedMidnight);
+    QCOMPARE (Jtty::jttyLineStartTimeUtc (QDateTime {}, 2, 5.0f), expectedFallback);
+    QVERIFY (!Jtty::jttyLineStartTimeUtc (QDateTime {}, 999999, 0.0f).isValid ());
+  }
+
+  void jttyLineTimeLabelForStoredTimestamp ()
+  {
+    QCOMPARE (Jtty::jttyLineTimeLabel (
+                QDateTime {QDate {2026, 8, 28}, QTime {19, 45, 7}, Qt::UTC}),
+              QString {"194507"});
+    QCOMPARE (Jtty::jttyLineTimeLabel (QDateTime {}), QString {});
+  }
+
   void parseDecodeLine_data ()
   {
     QTest::addColumn<QString> ("line");

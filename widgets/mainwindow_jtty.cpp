@@ -134,7 +134,86 @@ void MainWindow::updateJttyDecodeHeadings()
 
 void MainWindow::on_cbIncludeTime_toggled(bool)
 {
-  if (m_mode == "JTTY") updateJttyDecodeHeadings();
+  if (m_mode == "JTTY") {
+    updateJttyDecodeHeadings();
+    renderJttyAllFreqLines();
+    renderJttyQsoLines();
+  }
+}
+
+void MainWindow::renderJttyAllFreqLines()
+{
+  if (m_jttyAllFreqLines.isEmpty()) return;
+
+  QStringList displayLines;
+  for (auto const& line : m_jttyAllFreqLines) {
+    QString displayLine = formatJttyDecodeLine (
+      line.frequency, Jtty::wrapMessage (line.text));
+    if (ui->cbLowerCase->isChecked ()) displayLine = displayLine.toLower ();
+    if (ui->cbIncludeTime->isChecked ()) {
+      QString const time = Jtty::jttyLineTimeLabel (line.messageStartUtc);
+      if (!time.isEmpty ()) displayLine = time + " " + displayLine;
+    }
+    displayLines.append (displayLine);
+  }
+
+  QTextCharFormat format;
+  format.setFont (ui->decodedTextBrowser->contentFont ());
+
+  QTextCursor cursor = ui->decodedTextBrowser->textCursor ();
+  if (m_jttyAllFreqsGroupStart.isValid ()) {
+    cursor.setPosition (m_jttyAllFreqsGroupStart.position ());
+    cursor.movePosition (QTextCursor::End, QTextCursor::KeepAnchor);
+    cursor.removeSelectedText ();
+  } else {
+    cursor.movePosition (QTextCursor::End);
+    if (cursor.position () > 0) cursor.insertBlock ();
+  }
+  m_jttyAllFreqsGroupStart = cursor.block ();
+  cursor.insertText (displayLines.join (QChar {'\n'}), format);
+  ui->decodedTextBrowser->setTextCursor (cursor);
+  ui->decodedTextBrowser->ensureCursorVisible ();
+}
+
+void MainWindow::renderJttyQsoLines()
+{
+  if (m_jttyQsoLines.isEmpty ()) {
+    m_jttyQsoRenderedLowerCase = ui->cbLowerCase->isChecked ();
+    m_jttyQsoRenderedIncludeTime = ui->cbIncludeTime->isChecked ();
+    return;
+  }
+
+  QTextCursor cursor = ui->decodedTextBrowser2->textCursor ();
+  if (m_jttyQsoGroupStart.isValid () && m_jttyQsoGroupEnd.isValid ()
+      && m_jttyQsoGroupEndPosition >= m_jttyQsoGroupStart.position ()) {
+    cursor.setPosition (m_jttyQsoGroupStart.position ());
+    cursor.setPosition (m_jttyQsoGroupEndPosition, QTextCursor::KeepAnchor);
+    cursor.removeSelectedText ();
+  } else {
+    cursor.movePosition (QTextCursor::End);
+    if (cursor.position () > 0) cursor.insertBlock ();
+  }
+
+  QTextCharFormat format;
+  format.setFont (ui->decodedTextBrowser2->contentFont ());
+  m_jttyQsoGroupStart = cursor.block ();
+  QStringList renderedLines;
+  for (auto const& line : m_jttyQsoLines) {
+    QString display = formatJttyDecodeLine (
+      line.frequency, Jtty::wrapMessage (line.text));
+    if (ui->cbLowerCase->isChecked ()) display = display.toLower ();
+    if (ui->cbIncludeTime->isChecked ()) {
+      QString const time = Jtty::jttyLineTimeLabel (line.messageStartUtc);
+      if (!time.isEmpty ()) display = time + " " + display;
+    }
+    renderedLines.append (display);
+  }
+  cursor.insertText (renderedLines.join (QChar {'\n'}), format);
+  m_jttyQsoGroupEnd = cursor.block ();
+  m_jttyQsoGroupEndPosition = cursor.position ();
+  ui->decodedTextBrowser2->setTextCursor (cursor);
+  m_jttyQsoRenderedLowerCase = ui->cbLowerCase->isChecked ();
+  m_jttyQsoRenderedIncludeTime = ui->cbIncludeTime->isChecked ();
 }
 
 bool MainWindow::jtty_decode(int k, int istart0, int istop)
@@ -146,9 +225,11 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
     double const elapsed = qMax(0.0, double(k) / 12000.0 - double(tsync));
     return QDateTime::currentDateTimeUtc().addMSecs(-qRound64(1000.0 * elapsed));
   };
-  auto jttyLineTimeUtc = [this] (float tsync) -> QString {
-    if (!m_diskData) return {};
-    return Jtty::jttyLineTimeLabel(m_UTCdiskDateTime, m_UTCdisk, tsync);
+  auto jttyLineDisplayDateTimeUtc = [this, &jttyLineDateTimeUtc] (float tsync) -> QDateTime {
+    if (m_diskData) {
+      return Jtty::jttyLineStartTimeUtc (m_UTCdiskDateTime, m_UTCdisk, tsync);
+    }
+    return jttyLineDateTimeUtc (tsync);
   };
   int nsps=384;
   // A non-advancing sample position starts a distinct displayed decode session.
@@ -159,6 +240,7 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
       m_jttyAllFreqsGroupStart = QTextBlock();
       m_jttyQsoGroupStart = QTextBlock();
       m_jttyQsoGroupEnd = QTextBlock();
+      m_jttyQsoGroupEndPosition = -1;
       m_jttyQsoLines.clear();
       m_jttyAllFreqLines.clear();
       m_bDecoded = false;
@@ -197,50 +279,20 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 
   bool const allHistoryChanged = Jtty::mergeMessageUpdates(
       m_jttyAllFreqLines, updates,
-      [this, &jttyLineDateTimeUtc] (Jtty::MessageUpdate const& update) {
+      [this, &jttyLineDateTimeUtc, &jttyLineDisplayDateTimeUtc] (Jtty::MessageUpdate const& update) {
           JttyDecodeLine decodeLine;
           decodeLine.messageId = update.messageId;
           decodeLine.frequency = update.frequency;
           decodeLine.text = update.text;
           decodeLine.sequenceStart = update.sequenceStart;
+          decodeLine.messageStartUtc = jttyLineDisplayDateTimeUtc (update.sequenceStart);
           decodeLine.complete = update.complete;
           decodeLine.context = currentDecodeOperatingContext();
           decodeLine.context.sequenceStart = jttyLineDateTimeUtc(update.sequenceStart);
           return decodeLine;
       });
 
-  if (allHistoryChanged && !m_jttyAllFreqLines.isEmpty()) {
-      QStringList displayLines;
-      for (auto const& line : m_jttyAllFreqLines) {
-          QString displayLine = formatJttyDecodeLine(
-              line.frequency, Jtty::wrapMessage(line.text));
-          if (ui->cbLowerCase->isChecked()) displayLine = displayLine.toLower();
-          if (ui->cbIncludeTime->isChecked()) {
-              QString const t = jttyLineTimeUtc(line.sequenceStart);
-              if (!t.isEmpty()) displayLine = t + " " + displayLine;
-          }
-          displayLines.append(displayLine);
-      }
-
-      QTextCharFormat format;
-      format.setFont(ui->decodedTextBrowser->contentFont());
-
-      QTextCursor cursor = ui->decodedTextBrowser->textCursor();
-      if (m_jttyAllFreqsGroupStart.isValid()) {
-          cursor.setPosition(m_jttyAllFreqsGroupStart.position());
-          cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
-          cursor.removeSelectedText();
-      } else {
-          cursor.movePosition(QTextCursor::End);
-          if (cursor.position() > 0) {
-              cursor.insertBlock();
-          }
-      }
-      m_jttyAllFreqsGroupStart = cursor.block();
-      cursor.insertText(displayLines.join(QChar('\n')), format);
-      ui->decodedTextBrowser->setTextCursor(cursor);
-      ui->decodedTextBrowser->ensureCursorVisible();
-  }
+  if (allHistoryChanged) renderJttyAllFreqLines ();
 
   for (auto& known : m_jttyAllFreqLines) {
       if (known.complete && !known.written) {
@@ -248,17 +300,6 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
           known.written = true;
       }
   }
-
-  auto wrappedDisplayFor = [this, &jttyLineTimeUtc] (JttyQsoLine const& line) {
-      QString display = formatJttyDecodeLine(
-          line.frequency, Jtty::wrapMessage(line.text));
-      if (ui->cbLowerCase->isChecked()) display = display.toLower();
-      if (ui->cbIncludeTime->isChecked()) {
-          QString const t = jttyLineTimeUtc(line.sequenceStart);
-          if (!t.isEmpty()) display = t + " " + display;
-      }
-      return display;
-  };
 
   bool const qsoDisplayOptionsChanged = !m_jttyQsoLines.isEmpty()
       && (m_jttyQsoRenderedLowerCase != ui->cbLowerCase->isChecked()
@@ -305,8 +346,16 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
           startNew = true;
 #endif
           delta = update.text;
+          auto const allLine = std::find_if (
+            m_jttyAllFreqLines.cbegin (), m_jttyAllFreqLines.cend (),
+            [&update] (JttyDecodeLine const& line) {
+              return line.messageId == update.messageId;
+            });
+          QDateTime const messageStartUtc = allLine != m_jttyAllFreqLines.cend ()
+            ? allLine->messageStartUtc
+            : jttyLineDisplayDateTimeUtc (update.sequenceStart);
           m_jttyQsoLines.append({update.messageId, update.frequency, update.text,
-                                 update.sequenceStart});
+                                 update.sequenceStart, messageStartUtc});
       }
       anyLineChanged = true;
       m_bDecoded = true;
@@ -321,31 +370,7 @@ bool MainWindow::jtty_decode(int k, int istart0, int istop)
 #endif
   }
 
-  if (anyLineChanged || qsoDisplayOptionsChanged) {
-      QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
-      if (m_jttyQsoGroupStart.isValid() && m_jttyQsoGroupEnd.isValid()) {
-          cursor.setPosition(m_jttyQsoGroupStart.position());
-          QTextCursor endCursor(m_jttyQsoGroupEnd);
-          endCursor.movePosition(QTextCursor::EndOfBlock);
-          cursor.setPosition(endCursor.position(), QTextCursor::KeepAnchor);
-          cursor.removeSelectedText();
-      } else {
-          cursor.movePosition(QTextCursor::End);
-          if (cursor.position() > 0) cursor.insertBlock();
-      }
-      QTextCharFormat format;
-      format.setFont(ui->decodedTextBrowser2->contentFont());
-      m_jttyQsoGroupStart = cursor.block();
-      QStringList renderedLines;
-      for (auto const& line : m_jttyQsoLines) {
-          renderedLines.append(wrappedDisplayFor(line));
-      }
-      cursor.insertText(renderedLines.join(QChar('\n')), format);
-      m_jttyQsoGroupEnd = cursor.block();
-      ui->decodedTextBrowser2->setTextCursor(cursor);
-  }
-  m_jttyQsoRenderedLowerCase = ui->cbLowerCase->isChecked();
-  m_jttyQsoRenderedIncludeTime = ui->cbIncludeTime->isChecked();
+  if (anyLineChanged || qsoDisplayOptionsChanged) renderJttyQsoLines ();
   return anyEom;
 }
 

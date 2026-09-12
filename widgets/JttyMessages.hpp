@@ -755,9 +755,9 @@ namespace Jtty
     return compileNativeMacro (macroTemplate, context);
   }
 
-  // "Include Time" label; falls back to utcDiskRaw as a bare time-of-day when diskDateTime doesn't parse (e.g. sjtty's dummy-date filenames).
-  inline QString jttyLineTimeLabel (QDateTime const& diskDateTime,
-                                     qint32 utcDiskRaw, float tsyncSeconds)
+  // Resolve a JTTY message start from the WAV anchor, preserving the raw-time fallback for test-generated files.
+  inline QDateTime jttyLineStartTimeUtc (QDateTime const& diskDateTime,
+                                         qint32 utcDiskRaw, float tsyncSeconds)
   {
     QDateTime anchor = diskDateTime;
     if (!anchor.isValid ()) {
@@ -766,7 +766,21 @@ namespace Jtty
       if (!t.isValid ()) return {};
       anchor = QDateTime {QDate {2000, 1, 1}, t, Qt::UTC};
     }
-    return anchor.addMSecs (qRound64 (1000.0 * tsyncSeconds)).toUTC ().toString ("hhmmss");
+    return anchor.addMSecs (qRound64 (1000.0 * tsyncSeconds)).toUTC ();
+  }
+
+  inline QString jttyLineTimeLabel (QDateTime const& timestampUtc)
+  {
+    return timestampUtc.isValid ()
+      ? timestampUtc.toUTC ().toString ("hhmmss") : QString {};
+  }
+
+  // "Include Time" label; falls back to utcDiskRaw as a bare time-of-day when diskDateTime doesn't parse (e.g. sjtty's dummy-date filenames).
+  inline QString jttyLineTimeLabel (QDateTime const& diskDateTime,
+                                     qint32 utcDiskRaw, float tsyncSeconds)
+  {
+    return jttyLineTimeLabel (jttyLineStartTimeUtc (diskDateTime, utcDiskRaw,
+                                                    tsyncSeconds));
   }
 
   inline ParsedDecodeLine parseDecodeLine (QString const& line)

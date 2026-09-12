@@ -7254,6 +7254,7 @@ void MainWindow::rx_frequency_activity_cleared ()
   // decodedTextBrowser2's document just lost every block; drop our cached
   // JTTY per-transmission QTextBlock handles along with it.
   m_jttyQsoLines.clear();
+  m_jttyQsoGroupEndPosition = -1;
 }
 
 //------------------------------------------------------------- //guiUpdate()
