@@ -42,13 +42,6 @@
             <height>16777215</height>
            </size>
           </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-            <weight>50</weight>
-            <bold>false</bold>
-           </font>
-          </property>
           <property name="accessibleName">
            <string>Band Activity decode pane title</string>
           </property>
@@ -204,13 +197,6 @@
         </property>
         <item>
          <widget class="QLabel" name="rh_decodes_title_label">
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-            <weight>50</weight>
-            <bold>false</bold>
-           </font>
-          </property>
           <property name="accessibleName">
            <string>Rx Frequency decode pane title</string>
           </property>
@@ -353,12 +339,6 @@
      <layout class="QHBoxLayout" name="horizontalLayout_decodeOptions">
       <item>
        <widget class="QCheckBox" name="cbLowerCase">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
         <property name="toolTip">
          <string>Check to display received messages in lower case.</string>
         </property>
@@ -792,27 +772,7 @@
         </layout>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,2,2,2,2,2,0,2,2,2,2,1">
-         <item>
-          <widget class="QCheckBox" name="cbCQonly">
-           <property name="toolTip">
-            <string>CQ messages only.</string>
-           </property>
-           <property name="text">
-            <string>CQ only</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="cbBypass">
-           <property name="toolTip">
-            <string>Bypass Filters toggled via Settings or the Filters menu.</string>
-           </property>
-           <property name="text">
-            <string>BP</string>
-           </property>
-          </widget>
-         </item>
+        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="2,2,2,2,2,0,2,2,2,2,1">
          <item>
           <widget class="QPushButton" name="logQSOButton">
            <property name="minimumSize">
@@ -864,7 +824,6 @@
 	border-width: 1px;
 	border-radius: 5px;
     border-color: black;
-	min-width: 5em;
 	padding: 3px;
 }</string>
            </property>
@@ -964,7 +923,6 @@
 	border-width: 1px;
 	border-radius: 5px;
 	border-color: black;
-	min-width: 5em;
 	padding: 3px;
 }</string>
            </property>
@@ -1001,7 +959,6 @@
 	border-width: 1px;
 	border-radius: 5px;
 	border-color: black;
-	min-width: 5em;
 	padding: 3px;
 }</string>
            </property>
@@ -1054,7 +1011,6 @@
 	border-width: 1px;
 	border-radius: 5px;
 	border-color: black;
-	min-width: 5em;
 	padding: 3px;
 }</string>
            </property>
@@ -1416,7 +1372,7 @@ Yellow when too low</string>
           </layout>
          </item>
          <item row="0" column="6" rowspan="3">
-          <widget class="QStackedWidget" name="controls_stack_widget">
+          <widget class="CurrentPageHeightStackedWidget" name="controls_stack_widget">
            <property name="sizePolicy">
             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
              <horstretch>0</horstretch>
@@ -1569,7 +1525,6 @@ Not available to nonstandard callsign holders.</string>
 	border-width: 1px;
 	border-radius: 5px;
 	border-color: black;
-	min-width: 5em;
 	padding: 3px;
 }</string>
                       </property>
@@ -2225,6 +2180,12 @@ When not checked you can view the calibration results.</string>
                     <string>1</string>
                    </attribute>
                    <layout class="QGridLayout" name="gridLayout_7">
+                    <property name="leftMargin">
+                     <number>4</number>
+                    </property>
+                    <property name="rightMargin">
+                     <number>4</number>
+                    </property>
                     <item row="0" column="0">
                      <layout class="QGridLayout" name="gridLayout_6" columnstretch="1,0,0">
                       <item row="6" column="1">
@@ -2331,9 +2292,6 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                         <property name="accessibleDescription">
                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;p&gt;Right-click to retain Tx5 free text&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
-                        <property name="styleSheet">
-                         <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
-                        </property>
                         <property name="text">
                          <string>Tx &amp;5</string>
                         </property>
@@ -2346,9 +2304,6 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                        <widget class="QPushButton" name="txb2">
                         <property name="toolTip">
                          <string>Switch to this Tx message NOW</string>
-                        </property>
-                        <property name="styleSheet">
-                         <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
                         </property>
                         <property name="text">
                          <string>Tx &amp;2</string>
@@ -2432,9 +2387,6 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                         <property name="toolTip">
                          <string>Switch to this Tx message NOW</string>
                         </property>
-                        <property name="styleSheet">
-                         <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
-                        </property>
                         <property name="text">
                          <string>Tx &amp;3</string>
                         </property>
@@ -2452,9 +2404,6 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                          <string>Switch to this Tx message NOW
 Double-click to toggle between RRR and RR73 messages in Tx4 when supported by the current mode
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</string>
-                        </property>
-                        <property name="styleSheet">
-                         <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
                         </property>
                         <property name="text">
                          <string>Tx &amp;4</string>
@@ -2476,9 +2425,6 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                         <property name="layoutDirection">
                          <enum>Qt::LeftToRight</enum>
                         </property>
-                        <property name="styleSheet">
-                         <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
-                        </property>
                         <property name="text">
                          <string>Tx &amp;1</string>
                         </property>
@@ -2491,9 +2437,6 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                        <widget class="QPushButton" name="txb6">
                         <property name="toolTip">
                          <string>Switch to this Tx message NOW</string>
-                        </property>
-                        <property name="styleSheet">
-                         <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
                         </property>
                         <property name="text">
                          <string>Tx &amp;6</string>
@@ -2709,11 +2652,6 @@ Double-click to reset to the standard 73 message</string>
                       </item>
                       <item row="0" column="0">
                        <widget class="QLabel" name="label_queue">
-                        <property name="font">
-                         <font>
-                          <pointsize>9</pointsize>
-                         </font>
-                        </property>
                         <property name="text">
                          <string>Queue</string>
                         </property>
@@ -3040,7 +2978,6 @@ Double-click to reset to the standard 73 message</string>
 	border-width: 1px;
 	border-radius: 5px;
 	border-color: black;
-	min-width: 5em;
 	padding: 3px;
 }</string>
                            </property>
@@ -3714,12 +3651,6 @@ Double-click to reset to the standard 73 message</string>
                  <verstretch>0</verstretch>
                 </sizepolicy>
                </property>
-               <property name="maximumSize">
-                <size>
-                 <width>170</width>
-                 <height>16777215</height>
-                </size>
-               </property>
                <layout class="QGridLayout" name="gridLayout_14">
                 <item row="0" column="0" colspan="4">
                  <widget class="QSpinBox" name="TxFreqSpinBox_2">
@@ -3759,12 +3690,6 @@ Double-click to reset to the standard 73 message</string>
                     <horstretch>0</horstretch>
                     <verstretch>0</verstretch>
                    </sizepolicy>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>140</width>
-                    <height>16777215</height>
-                   </size>
                   </property>
                   <property name="toolTip">
                    <string>Frequency tolerance (Hz)</string>
@@ -4125,12 +4050,6 @@ Double-click to reset to the standard 73 message</string>
                    <height>0</height>
                   </size>
                  </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>100</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
                  <property name="toolTip">
                   <string>Click to transmit a message.</string>
                  </property>
@@ -4170,12 +4089,6 @@ Double-click to reset to the standard 73 message</string>
                </item>
                <item row="3" column="0">
                 <widget class="QLabel" name="label_6">
-                 <property name="maximumSize">
-                  <size>
-                   <width>100</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
                  <property name="text">
                   <string>Serial Number </string>
                  </property>
@@ -4485,7 +4398,6 @@ Double-click to reset to the standard 73 message</string>
 	border-width: 1px;
 	border-radius: 5px;
 	border-color: black;
-	min-width: 5em;
 	padding: 3px;
 }</string>
                              </property>
@@ -4764,8 +4676,6 @@ Double-click to reset to the standard 73 message</string>
            </property>
            <property name="styleSheet">
             <string notr="true">QLabel {
-  font-family: MS Shell Dlg 2;
-  font-size: 16pt;
    color : yellow;
    background-color : black;
 }
@@ -4978,8 +4888,6 @@ QLabel[oob=&quot;true&quot;] {
            </property>
            <property name="styleSheet">
             <string notr="true">QLabel {
-  font-family: MS Shell Dlg 2;
-  font-size: 16pt;
   background-color : black;
   color : yellow;
 }</string>
@@ -5008,7 +4916,77 @@ QLabel[oob=&quot;true&quot;] {
           </widget>
          </item>
          <item row="0" column="2" colspan="2">
-          <layout class="QHBoxLayout" name="horizontalLayout_16" stretch="1,0">
+          <widget class="QWidget" name="band_controls_widget">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <layout class="QVBoxLayout" name="band_controls_layout">
+            <property name="spacing">
+             <number>2</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QHBoxLayout" name="decode_filter_layout">
+              <property name="spacing">
+               <number>12</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <item>
+               <widget class="QCheckBox" name="cbCQonly">
+                <property name="toolTip">
+                 <string>CQ messages only.</string>
+                </property>
+                <property name="text">
+                 <string>CQ only</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="cbBypass">
+                <property name="toolTip">
+                 <string>Bypass Filters toggled via Settings or the Filters menu.</string>
+                </property>
+                <property name="text">
+                 <string>BP</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="decode_filter_spacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Expanding</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_16" stretch="1,0">
            <item>
             <widget class="BandComboBox" name="bandComboBox">
              <property name="sizePolicy">
@@ -5094,7 +5072,10 @@ QPushButton[state=&quot;ok&quot;] {
              </property>
             </widget>
            </item>
-          </layout>
+             </layout>
+            </item>
+           </layout>
+          </widget>
          </item>
         </layout>
        </item>
@@ -6538,6 +6519,12 @@ QPushButton[state=&quot;ok&quot;] {
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
+ <customwidget>
+   <class>CurrentPageHeightStackedWidget</class>
+   <extends>QStackedWidget</extends>
+   <header>widgets/CurrentPageHeightStackedWidget.hpp</header>
+   <container>1</container>
+  </customwidget>
   <customwidget>
    <class>DisplayText</class>
    <extends>QTextBrowser</extends>
@@ -6583,8 +6570,6 @@ QPushButton[state=&quot;ok&quot;] {
  <tabstops>
   <tabstop>decodedTextBrowser</tabstop>
   <tabstop>decodedTextBrowser2</tabstop>
-  <tabstop>cbCQonly</tabstop>
-  <tabstop>cbBypass</tabstop>
   <tabstop>logQSOButton</tabstop>
   <tabstop>stopButton</tabstop>
   <tabstop>monitorButton</tabstop>
@@ -6595,6 +6580,8 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>stopTxButton</tabstop>
   <tabstop>tuneButton</tabstop>
   <tabstop>cbMenus</tabstop>
+  <tabstop>cbCQonly</tabstop>
+  <tabstop>cbBypass</tabstop>
   <tabstop>sbNB</tabstop>
   <tabstop>bandComboBox</tabstop>
   <tabstop>pb160</tabstop>
@@ -6638,17 +6625,19 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>addButton</tabstop>
   <tabstop>ignoreButton</tabstop>
   <tabstop>txFirstCheckBox</tabstop>
+  <tabstop>cbHoldTxFreq</tabstop>
   <tabstop>TxFreqSpinBox</tabstop>
+  <tabstop>sbSubmode</tabstop>
   <tabstop>pbR2T</tabstop>
   <tabstop>sbFtol</tabstop>
   <tabstop>pbT2R</tabstop>
+  <tabstop>sbMaxDrift</tabstop>
   <tabstop>RxFreqSpinBox</tabstop>
   <tabstop>rptSpinBox</tabstop>
-  <tabstop>sbTR</tabstop>
-  <tabstop>cbHoldTxFreq</tabstop>
+  <tabstop>sbSerialNumber</tabstop>
   <tabstop>sbF_Low</tabstop>
   <tabstop>sbF_High</tabstop>
-  <tabstop>sbSubmode</tabstop>
+  <tabstop>sbTR</tabstop>
   <tabstop>syncSpinBox</tabstop>
   <tabstop>sbCQTxFreq</tabstop>
   <tabstop>cbCQTx</tabstop>
@@ -6745,7 +6734,6 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>pbTxNext</tabstop>
   <tabstop>TxPowerComboBox</tabstop>
   <tabstop>outAttenuation</tabstop>
-  <tabstop>sbSerialNumber</tabstop>
  </tabstops>
  <resources/>
  <connections/>

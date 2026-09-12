@@ -296,3 +296,15 @@ add_executable (test_operating_frequency
 target_include_directories (test_operating_frequency PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_operating_frequency Qt5::Test)
 add_test (NAME test_operating_frequency COMMAND test_operating_frequency)
+
+add_executable (test_mainwindow_compact_controls
+  test_mainwindow_compact_controls.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/TxDriveSlider.cpp
+)
+target_include_directories (test_mainwindow_compact_controls PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_mainwindow_compact_controls Qt5::Test Qt5::Widgets)
+add_test (NAME test_mainwindow_compact_controls COMMAND test_mainwindow_compact_controls)
+add_test (NAME test_mainwindow_compact_controls_scaled COMMAND test_mainwindow_compact_controls)
+set_tests_properties (test_mainwindow_compact_controls_scaled PROPERTIES
+  ENVIRONMENT "QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
+)

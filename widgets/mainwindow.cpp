@@ -55,6 +55,9 @@
 #include <QActionGroup>
 #include <QSignalBlocker>
 #include <QMetaMethod>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QSplashScreen>
 #include <QUdpSocket>
 #include <QAbstractItemView>
@@ -74,6 +77,7 @@
 #include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
+#include "CompactButtonSize.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "Network/DecodedTime.hpp"
 #include "Audio/soundout.h"
@@ -474,7 +478,6 @@ namespace
 {
   Radio::Frequency constexpr default_frequency {14074000};
   auto quint32_max = std::numeric_limits<quint32>::max ();
-  constexpr int N_WIDGETS {39};
   constexpr int standard_messages_tab_index {0};
   constexpr int fox_queue_tab_index {1};
   constexpr int default_rx_audio_buffer_frames {-1}; // lets Qt decide
@@ -696,7 +699,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   PerformanceTrace::milestone (m_startup_trace_run, "mainwindow.members_ready");
   PerformanceTrace::Phase ui_initialize {m_startup_trace_run, "mainwindow.ui_initialize"};
   programStart = true;
+  qApp->setFont (m_config.text_font ());
   ui->setupUi(this);
+  configureModeControlsLayout ();
   m_tx_message_button_group = new QButtonGroup {this};
   m_tx_message_button_group->addButton (ui->txrb1, 1);
   m_tx_message_button_group->addButton (ui->txrb2, 2);
@@ -1135,10 +1140,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (ui->decodedTextBrowser2, &DisplayText::erased, this, &MainWindow::rx_frequency_activity_cleared);
   connect (ui->decodedTextBrowser->horizontalScrollBar(),SIGNAL(sliderMoved(int)),SLOT(ScrollBarPosition(int)));
 
-  // initialize decoded text font and hook up font change signals
-  // defer initialization until after construction otherwise menu fonts do not get set
-  // with 50 ms delay we are on the safe side
-  QTimer::singleShot (50, this, SLOT (initialize_fonts ()));
+  // Native menu fonts require a refresh after main window construction.
+  QTimer::singleShot (0, this, SLOT (initialize_fonts ()));
   connect (&m_config, &Configuration::text_font_changed, [this] (QFont const& font) {
       set_application_font (font);
     });
@@ -1880,6 +1883,198 @@ MainWindow::~MainWindow()
   if(stdmsg_(const_cast <char *> (t.toLatin1().constData()),(FCL)37)) return;
 }
 
+void MainWindow::configureModeControlsLayout()
+{
+  ui->lower_panel_widget->setSizePolicy (QSizePolicy::Preferred, QSizePolicy::Maximum);
+  ui->horizontalLayout_6->setStretch (0, 0);
+  ui->horizontalLayout_6->setStretch (1, 1);
+  ui->tabWidget->setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+  QPushButton * compactButtons[] = {
+    ui->lookupButton, ui->addButton, ui->ignoreButton,
+    ui->txb1, ui->txb2, ui->txb3, ui->txb4, ui->txb5, ui->txb6
+  };
+  for (auto * button : compactButtons) button->setProperty ("wsjtxCompact", true);
+
+  // A designer minimum of 32 overrides the font/style minimumSizeHint and
+  // clips FT8/JT65 at larger fonts. Let the layout use the real label hints.
+  for (auto * button : {ui->houndButton, ui->ft8Button, ui->ft4Button,
+                        ui->msk144Button, ui->q65Button, ui->jt65Button})
+    button->setMinimumWidth (0);
+
+  ui->horizontalLayout_2->setSpacing (2);
+  ui->gridLayout_5->removeWidget (ui->label);
+  ui->gridLayout_5->removeWidget (ui->outAttenuation);
+  auto * driveLayout = new QVBoxLayout;
+  driveLayout->setContentsMargins (0, 0, 0, 0);
+  driveLayout->addWidget (ui->label, 0, Qt::AlignHCenter);
+  driveLayout->addWidget (ui->outAttenuation, 1);
+  ui->gridLayout_5->addLayout (driveLayout, 0, 7, 3, 1);
+  for (auto * widget : {static_cast<QWidget *> (ui->logQSOButton),
+                        static_cast<QWidget *> (ui->stopButton),
+                        static_cast<QWidget *> (ui->monitorButton),
+                        static_cast<QWidget *> (ui->EraseButton),
+                        static_cast<QWidget *> (ui->ClrAvgButton),
+                        static_cast<QWidget *> (ui->sbEchoAvg),
+                        static_cast<QWidget *> (ui->DecodeButton),
+                        static_cast<QWidget *> (ui->autoButton),
+                        static_cast<QWidget *> (ui->stopTxButton),
+                        static_cast<QWidget *> (ui->tuneButton),
+                        static_cast<QWidget *> (ui->cbMenus)})
+    {
+      ui->horizontalLayout_2->setAlignment (widget, Qt::AlignVCenter);
+    }
+
+  ui->gridLayout_3->removeItem (ui->verticalLayout_14);
+  ui->gridLayout_3->removeItem (ui->verticalLayout_13);
+
+  ui->verticalLayout_14->removeWidget (ui->txFirstCheckBox);
+  ui->verticalLayout_14->removeWidget (ui->TxFreqSpinBox);
+  ui->verticalLayout_14->removeItem (ui->horizontalLayout_4);
+  ui->verticalLayout_14->removeWidget (ui->RxFreqSpinBox);
+  ui->verticalLayout_14->removeWidget (ui->rptSpinBox);
+  ui->verticalLayout_14->removeWidget (ui->sbTR);
+
+  ui->verticalLayout_13->removeItem (ui->submode_gridLayout);
+  ui->verticalLayout_13->removeWidget (ui->cbHoldTxFreq);
+  ui->verticalLayout_13->removeWidget (ui->opt_controls_stack);
+  ui->verticalLayout_13->removeWidget (ui->sbSubmode);
+  ui->verticalLayout_13->removeWidget (ui->syncSpinBox);
+  ui->verticalLayout_13->removeWidget (ui->sbMaxDrift);
+
+  auto * panel = new QWidget {ui->QSO_controls_widget};
+  panel->setObjectName (QStringLiteral ("modeParameterPanel"));
+  panel->setSizePolicy (QSizePolicy::Minimum, QSizePolicy::Preferred);
+  auto * panelLayout = new QVBoxLayout {panel};
+  panelLayout->setContentsMargins (0, 0, 0, 0);
+
+  auto * checkboxRow = m_modeCheckboxRow = new QHBoxLayout;
+  checkboxRow->setContentsMargins (0, 0, 0, 0);
+  checkboxRow->setSpacing (12);
+  checkboxRow->addWidget (ui->txFirstCheckBox);
+  checkboxRow->addWidget (ui->cbHoldTxFreq);
+  checkboxRow->addStretch (1);
+
+  auto * formPanel = new QWidget {panel};
+  formPanel->setSizePolicy (QSizePolicy::Maximum, QSizePolicy::Preferred);
+  auto * form = new QGridLayout {formPanel};
+  form->setContentsMargins (0, 0, 0, 0);
+  auto makeLabel = [panel] (QString const& text, QWidget * buddy, char const * objectName)
+    {
+      auto * label = new QLabel {text, panel};
+      label->setObjectName (QString::fromLatin1 (objectName));
+      label->setAlignment (Qt::AlignLeft | Qt::AlignVCenter);
+      label->setBuddy (buddy);
+      return label;
+    };
+
+  m_txFrequencyLabel = makeLabel (
+    tr ("Tx  ").trimmed (), ui->TxFreqSpinBox, "txFrequencyLabel");
+  m_frequencyToleranceLabel = makeLabel (
+    tr ("F Tol  ").trimmed (), ui->sbFtol, "frequencyToleranceLabel");
+  m_rxFrequencyLabel = makeLabel (
+    tr ("Rx  ").trimmed (), ui->RxFreqSpinBox, "rxFrequencyLabel");
+  m_reportLabel = makeLabel (
+    tr (" Report ").trimmed (), ui->rptSpinBox, "reportLabel");
+  m_trPeriodLabel = makeLabel (
+    tr ("T/R  ").trimmed (), ui->sbTR, "trPeriodLabel");
+  m_submodeLabel = makeLabel (
+    tr ("Submode ").trimmed (), ui->sbSubmode, "submodeLabel");
+  m_maxDriftLabel = makeLabel (
+    tr ("Max Drift  ").trimmed (), ui->sbMaxDrift, "maxDriftLabel");
+
+  auto makeControlRow = [] (QWidget * label, QWidget * control)
+    {
+      auto * row = new QHBoxLayout;
+      row->setContentsMargins (0, 0, 0, 0);
+      row->setSpacing (4);
+      row->addWidget (label);
+      row->addWidget (control);
+      return row;
+    };
+
+  m_frequencyToleranceRow = new QHBoxLayout;
+  m_frequencyToleranceRow->setContentsMargins (0, 0, 0, 0);
+  m_frequencyToleranceRow->setSpacing (4);
+  m_frequencyToleranceRow->addWidget (m_frequencyToleranceLabel);
+  m_frequencyToleranceRow->addLayout (ui->horizontalLayout_4);
+  m_frequencyToleranceRow->addStretch (1);
+
+  ui->TxFreqSpinBox->setPrefix ({});
+  ui->TxFreqSpinBox->setSuffix (tr (" Hz"));
+  ui->RxFreqSpinBox->setPrefix ({});
+  ui->RxFreqSpinBox->setSuffix (tr (" Hz"));
+  ui->sbFtol->setPrefix ({});
+  ui->rptSpinBox->setPrefix ({});
+  ui->sbTR->setPrefix ({});
+  ui->sbTR->setSuffix (tr (" s"));
+  ui->sbSubmode->setPrefix ({});
+  ui->sbMaxDrift->setPrefix ({});
+
+  for (auto * spinBox : {
+       static_cast<QWidget *> (ui->TxFreqSpinBox),
+       static_cast<QWidget *> (ui->sbFtol),
+       static_cast<QWidget *> (ui->RxFreqSpinBox),
+       static_cast<QWidget *> (ui->rptSpinBox),
+       static_cast<QWidget *> (ui->sbTR),
+       static_cast<QWidget *> (ui->sbSubmode),
+       static_cast<QWidget *> (ui->sbMaxDrift)})
+    {
+      spinBox->setSizePolicy (QSizePolicy::Fixed, QSizePolicy::Fixed);
+    }
+
+  form->addLayout (makeControlRow (m_txFrequencyLabel, ui->TxFreqSpinBox), 0, 0, Qt::AlignLeft);
+  form->addLayout (makeControlRow (m_submodeLabel, ui->sbSubmode), 0, 1, Qt::AlignLeft);
+  form->addLayout (m_frequencyToleranceRow, 1, 0, 1, 2, Qt::AlignLeft);
+  form->addLayout (makeControlRow (m_maxDriftLabel, ui->sbMaxDrift), 2, 1, Qt::AlignLeft);
+  form->addLayout (makeControlRow (m_rxFrequencyLabel, ui->RxFreqSpinBox), 2, 0, Qt::AlignLeft);
+  form->addLayout (makeControlRow (m_reportLabel, ui->rptSpinBox), 3, 0, Qt::AlignLeft);
+  form->addWidget (ui->opt_controls_stack, 3, 1, Qt::AlignLeft);
+  form->addLayout (makeControlRow (m_trPeriodLabel, ui->sbTR), 4, 0, Qt::AlignLeft);
+  form->addWidget (ui->syncSpinBox, 4, 1, Qt::AlignLeft);
+  form->setAlignment (Qt::AlignLeft | Qt::AlignTop);
+
+  panelLayout->addLayout (checkboxRow);
+  panelLayout->addWidget (formPanel, 0, Qt::AlignLeft);
+  panelLayout->addLayout (ui->submode_gridLayout);
+  panelLayout->addStretch (1);
+  ui->gridLayout_3->addWidget (panel, 0, 0, 1, 2);
+
+  ui->gridLayout_3->removeItem (ui->horizontalLayout_5);
+  ui->horizontalLayout_5->removeWidget (ui->respondComboBox);
+  auto * sequencingLayout = new QVBoxLayout;
+  sequencingLayout->setContentsMargins (0, 0, 0, 0);
+  sequencingLayout->addLayout (ui->horizontalLayout_5);
+  ui->respondComboBox->setSizeAdjustPolicy (QComboBox::AdjustToContents);
+  sequencingLayout->addWidget (ui->respondComboBox, 0, Qt::AlignLeft);
+  ui->gridLayout_3->addLayout (sequencingLayout, 2, 0, 1, 2);
+
+  for (auto * button : {ui->pb15A, ui->pb15C, ui->pb30B, ui->pb60C, ui->pb60D, ui->pb60E})
+    {
+      button->setMinimumWidth (0);
+      button->setSizePolicy (QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    }
+}
+
+void MainWindow::updateModeControlsLayout ()
+{
+  if (!m_modeCheckboxRow || ui->tabWidget->currentIndex () != 0) return;
+  auto const bothVisible = !ui->txFirstCheckBox->isHidden () && !ui->cbHoldTxFreq->isHidden ();
+  auto const checkboxWidth = ui->txFirstCheckBox->sizeHint ().width ()
+    + ui->cbHoldTxFreq->sizeHint ().width () + m_modeCheckboxRow->spacing ();
+  // Preserve the message editor's preferred width before reserving a single
+  // checkbox row. The remaining width includes tabs, Next/Now and native buttons.
+  auto const messageChrome = qMax (0, ui->tabWidget->width () - ui->tx1->width ());
+  auto const requiredWidth = checkboxWidth + ui->horizontalLayout_6->spacing ()
+    + messageChrome + ui->tx1->sizeHint ().width ();
+  auto const availableCheckboxWidth = m_modeCheckboxRow->parentWidget ()->contentsRect ().width ();
+  auto const direction = bothVisible && (ui->QSO_controls_widget->width () < requiredWidth
+                                        || availableCheckboxWidth < checkboxWidth)
+    ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight;
+  if (m_modeCheckboxRow->direction () != direction)
+    m_modeCheckboxRow->setDirection (direction);
+}
+
 bool MainWindow::decoderBackendRunning () const
 {
   return proc_jt9.state () == QProcess::Running;
@@ -1978,49 +2173,193 @@ void MainWindow::checkMSK144ContestType()
 
 void MainWindow::set_application_font (QFont const& font)
 {
-  // check if dark style is enabled, this check is also effective during the program start
-  if (ui->actionUse_Dark_Style->isChecked()) {
-      QFile f(":qdarkstyle/style.qss");
-      if (!f.exists())   {
-          printf("Unable to set stylesheet, file not found\n");
-      } else {
-          f.open(QFile::ReadOnly | QFile::Text);
-          QTextStream ts(&f);
-          auto const style_sheet = application_style_sheet (
-            m_base_style_sheet, ts.readAll (), true, font);
-          if (qApp->font () != font) qApp->setFont (font);
-          if (qApp->styleSheet () != style_sheet) qApp->setStyleSheet (style_sheet);
-          m_useDarkStyle = true;
-          m_wideGraph->setDarkStyle(m_useDarkStyle);
-          check_button_color();
-          ui->tabWidget->setTabShape(QTabWidget::Rounded);
-      }
-   } else {
-      m_useDarkStyle = false;
-      m_wideGraph->setDarkStyle(m_useDarkStyle);
-      check_button_color();
-      ui->tabWidget->setTabShape(QTabWidget::Triangular);
-      auto const style_sheet = application_style_sheet (
-        m_base_style_sheet, {}, false, font);
-      if (qApp->font () != font) qApp->setFont (font);
-      if (qApp->styleSheet () != style_sheet) qApp->setStyleSheet (style_sheet);
-  }
-
-  // ensure a balanced layout
+  applyApplicationStyle (font, ui->actionUse_Dark_Style->isChecked ());
   qreal pointSize = m_config.text_font().pointSizeF();
   if (m_config.PWR_and_SWR()) {
       ui->label->setMinimumWidth (2.8*pointSize + 8);
       ui->label->setAlignment(Qt::AlignCenter);
       ui->outAttenuation->setMinimumWidth (2.8*pointSize + 8);
   }
-  auto const compactModeButtons = pointSize < 11
-    && !ui->actionUse_Dark_Style->isChecked ();
-  ui->modeButtonsWidget->setFixedWidth (compactModeButtons ? 40 : 50);
-  if (m_config.largerTabWidget()) ui->tabWidget->setMaximumHeight(1000);
-  for (auto& widget : qApp->topLevelWidgets ())
+}
+
+void MainWindow::applyApplicationStyle (QFont const& font, bool dark)
+{
+  QString darkStyleSheet;
+  if (dark)
     {
-      widget->updateGeometry ();
+      QFile file {":qdarkstyle/style.qss"};
+      if (!file.open (QFile::ReadOnly | QFile::Text))
+        {
+          qWarning () << "Unable to load dark stylesheet";
+          return;
+        }
+      QTextStream stream {&file};
+      darkStyleSheet = stream.readAll ();
     }
+
+  QFont prominentFont {font};
+  if (font.pointSizeF () > 0.) prominentFont.setPointSizeF (font.pointSizeF () * 1.6);
+  else if (font.pixelSize () > 0) prominentFont.setPixelSize (qRound (font.pixelSize () * 1.6));
+  auto styleSheet = application_style_sheet (
+    m_base_style_sheet, darkStyleSheet, dark, font)
+    + "\nQLabel#labDialFreq, QLabel#labUTC {" + font_as_stylesheet (prominentFont) + '}';
+#ifdef Q_OS_MAC
+  if (!dark)
+    {
+      styleSheet += "\nQPushButton[wsjtxCompact=\"true\"] {"
+        "border: 1px solid palette(mid); border-radius: 4px; padding: 3px 6px; "
+        "background-color: palette(button); color: palette(button-text);}"
+        "\nQPushButton[wsjtxCompact=\"true\"]:focus {border-color: palette(highlight);}"
+        "\nQPushButton[wsjtxCompact=\"true\"]:pressed {background-color: palette(midlight);}"
+        "\nQPushButton[wsjtxCompact=\"true\"]:disabled {color: palette(mid);}";
+    }
+#endif
+  if (qApp->font () != font) qApp->setFont (font);
+  if (qApp->styleSheet () != styleSheet) qApp->setStyleSheet (styleSheet);
+  m_useDarkStyle = dark;
+  m_wideGraph->setDarkStyle (dark);
+  ui->tabWidget->setTabShape (dark ? QTabWidget::Rounded : QTabWidget::Triangular);
+  check_button_color ();
+  updateMainWindowControlSizes ();
+  for (auto * widget : qApp->topLevelWidgets ()) widget->updateGeometry ();
+}
+
+void MainWindow::updateMainWindowControlSizes()
+{
+  auto setMinimumHintWidth = [] (QWidget * widget)
+    {
+      widget->setMinimumWidth (0);
+      widget->ensurePolished ();
+      widget->setMinimumWidth (widget->minimumSizeHint ().width ());
+    };
+  for (auto * widget : {static_cast<QWidget *> (ui->cbCQonly),
+                        static_cast<QWidget *> (ui->cbBypass),
+                        static_cast<QWidget *> (ui->lookupButton),
+                        static_cast<QWidget *> (ui->addButton),
+                        static_cast<QWidget *> (ui->ignoreButton),
+                        static_cast<QWidget *> (ui->genStdMsgsPushButton)})
+    {
+      setMinimumHintWidth (widget);
+    }
+
+  ui->sbFtol_2->setMinimumWidth (0);
+  ui->sbFtol_2->setMaximumWidth (QWIDGETSIZE_MAX);
+  ui->sbFtol_2->ensurePolished ();
+  auto const toleranceText = ui->sbFtol_2->prefix ()
+    + QString::number (ui->sbFtol_2->maximum ()) + ui->sbFtol_2->suffix ();
+  auto const toleranceChrome = ui->sbFtol_2->style ()->pixelMetric (
+    QStyle::PM_ScrollBarExtent, nullptr, ui->sbFtol_2)
+    + 2 * ui->sbFtol_2->style ()->pixelMetric (
+      QStyle::PM_SpinBoxFrameWidth, nullptr, ui->sbFtol_2) + 4;
+  ui->sbFtol_2->setMinimumWidth (qMax (
+    ui->sbFtol_2->sizeHint ().width (),
+    ui->sbFtol_2->fontMetrics ().horizontalAdvance (toleranceText) + toleranceChrome));
+
+#if defined (Q_OS_WIN) || defined (Q_OS_LINUX)
+  // These short action labels are not dialog confirmation buttons. Keep their
+  // native decoration, but give the message editors the otherwise reserved space.
+  for (auto * button : {static_cast<QPushButton *> (ui->lookupButton),
+                        static_cast<QPushButton *> (ui->addButton),
+                        static_cast<QPushButton *> (ui->ignoreButton)})
+    {
+      button->ensurePolished ();
+      // Share the callsign row without imposing the style's dialog-button size
+      // hint on its parent or reserving space from the message editors.
+      button->setMinimumWidth (compactButtonSize (button).width ());
+      button->setMaximumWidth (QWIDGETSIZE_MAX);
+      button->setSizePolicy (QSizePolicy::Ignored, button->sizePolicy ().verticalPolicy ());
+      ui->lookup_control_layout->setStretchFactor (button, 1);
+    }
+#endif
+  for (auto * button : {static_cast<QPushButton *> (ui->txb1),
+                        static_cast<QPushButton *> (ui->txb2),
+                        static_cast<QPushButton *> (ui->txb3),
+                        static_cast<QPushButton *> (ui->txb4),
+                        static_cast<QPushButton *> (ui->txb5),
+                        static_cast<QPushButton *> (ui->txb6)})
+    {
+      button->ensurePolished ();
+      button->setFixedWidth (compactButtonSize (button).width ());
+    }
+
+  for (auto * button : {ui->monitorButton, ui->autoButton})
+    {
+      button->setMinimumWidth (0);
+      button->ensurePolished ();
+      auto text = button->text ();
+      text.remove (QLatin1Char ('&'));
+      auto const horizontalRoom = 4 * button->fontMetrics ().horizontalAdvance (QStringLiteral ("M"));
+      button->setMinimumWidth (qMax (button->minimumSizeHint ().width (),
+                                    button->fontMetrics ().horizontalAdvance (text) + horizontalRoom));
+    }
+
+  auto const actionTextHeight = ui->DecodeButton->fontMetrics ().height ();
+  auto const compactActionHeight = actionTextHeight + actionTextHeight / 2;
+  auto const prominentActionHeight = compactActionHeight + actionTextHeight / 4;
+  auto setActionHeight = [] (QWidget * button, int preferredHeight)
+    {
+      button->setMinimumHeight (0);
+      button->setMaximumHeight (QWIDGETSIZE_MAX);
+      button->ensurePolished ();
+      button->setMinimumHeight (preferredHeight);
+    };
+  for (auto * button : {ui->logQSOButton, ui->stopButton, ui->EraseButton,
+                        ui->ClrAvgButton, ui->DecodeButton, ui->stopTxButton,
+                        ui->tuneButton})
+    {
+      setActionHeight (button, compactActionHeight);
+    }
+  for (auto * button : {ui->monitorButton, ui->autoButton})
+    {
+      setActionHeight (button, prominentActionHeight);
+    }
+
+  ui->cbHoldTxFreq->setMinimumWidth (0);
+  ui->cbHoldTxFreq->setMinimumHeight (0);
+  ui->cbHoldTxFreq->ensurePolished ();
+  ui->cbHoldTxFreq->setMinimumWidth (
+    ui->cbHoldTxFreq->minimumSizeHint ().width ());
+  ui->cbHoldTxFreq->setMinimumHeight (ui->cbHoldTxFreq->minimumSizeHint ().height ());
+
+  constexpr int formControlSpacing = 4;
+  struct FormRow
+  {
+    QLabel * label;
+    QWidget * control;
+    int extraWidth;
+  };
+  FormRow rows[] = {
+    {m_txFrequencyLabel, ui->TxFreqSpinBox, 0},
+    {m_rxFrequencyLabel, ui->RxFreqSpinBox, 0},
+    {m_reportLabel, ui->rptSpinBox,
+     ui->rptSpinBox->fontMetrics ().horizontalAdvance (QStringLiteral ("M"))},
+    {m_trPeriodLabel, ui->sbTR, 0}
+  };
+
+  int commonRowWidth = 0;
+  for (auto const& row : rows)
+    {
+      row.label->ensurePolished ();
+      row.control->setMinimumWidth (0);
+      row.control->setMaximumWidth (QWIDGETSIZE_MAX);
+      row.control->ensurePolished ();
+      commonRowWidth = qMax (commonRowWidth,
+                             row.label->sizeHint ().width () + formControlSpacing
+                             + row.control->minimumSizeHint ().width () + row.extraWidth);
+    }
+  for (auto const& row : rows)
+    {
+      row.control->setFixedWidth (commonRowWidth - row.label->sizeHint ().width ()
+                                  - formControlSpacing);
+    }
+  updateFrequencyToleranceRowAlignment ();
+}
+
+void MainWindow::updateFrequencyToleranceRowAlignment()
+{
+  auto const leftMargin = m_frequencyToleranceLabel->isHidden ()
+    ? m_txFrequencyLabel->sizeHint ().width () + 4 : 0;
+  m_frequencyToleranceRow->setContentsMargins (leftMargin, 0, 0, 0);
 }
 
 void MainWindow::setDecodedTextFont (QFont const& font)
@@ -3704,6 +4043,11 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
       return QObject::eventFilter (object, event);
     }
 
+  if ((object == ui->QSO_controls_widget
+       || (m_modeCheckboxRow && object == m_modeCheckboxRow->parentWidget ()))
+      && (event->type () == QEvent::Resize || event->type () == QEvent::LayoutRequest))
+    QTimer::singleShot (0, this, &MainWindow::updateModeControlsLayout);
+
   switch (event->type())
     {
     case QEvent::FocusIn:
@@ -4276,11 +4620,34 @@ void MainWindow::on_actionSWL_Mode_triggered (bool checked)
   select_geometry (checked ? 1 : ui->cbMenus->isChecked () ? 0 : 2);
 }
 
-// This allows the window to shrink by removing certain things
-// and reducing space used by controls
 void MainWindow::trim_view (bool checked)
 {
-  int spacing = checked ? 1 : 6;
+  auto const spacing = checked ? 1 : 6;
+  std::array<QLayout *, 19> const compactLayouts {{
+    ui->gridLayout_5,
+    ui->horizontalLayout_2,
+    ui->horizontalLayout_5,
+    ui->horizontalLayout_6,
+    ui->horizontalLayout_7,
+    ui->horizontalLayout_8,
+    ui->horizontalLayout_9,
+    ui->horizontalLayout_10,
+    ui->horizontalLayout_11,
+    ui->horizontalLayout_12,
+    ui->horizontalLayout_13,
+    ui->horizontalLayout_14,
+    ui->rh_decodes_widget->layout (),
+    ui->verticalLayout_2,
+    ui->verticalLayout_3,
+    ui->verticalLayout_5,
+    ui->verticalLayout_7,
+    ui->verticalLayout_8,
+    ui->tab->layout ()
+  }};
+  for (auto * layout : compactLayouts) layout->setSpacing (spacing);
+  ui->horizontalLayout_5->setSpacing (qMax (spacing, 4));
+  if (!checked) ui->horizontalLayout_2->setSpacing (2);
+
   if (checked) {
       statusBar ()->removeWidget (&auto_tx_label);
   } else {
@@ -4292,25 +4659,6 @@ void MainWindow::trim_view (bool checked)
   }
   ui->lh_decodes_headings_label->setVisible(!checked);
   ui->rh_decodes_headings_label->setVisible(!checked);
-  ui->gridLayout_5->layout()->setSpacing(spacing);
-  ui->horizontalLayout_2->layout()->setSpacing(spacing);
-  ui->horizontalLayout_5->layout()->setSpacing(spacing);
-  ui->horizontalLayout_6->layout()->setSpacing(spacing);
-  ui->horizontalLayout_7->layout()->setSpacing(spacing);
-  ui->horizontalLayout_8->layout()->setSpacing(spacing);
-  ui->horizontalLayout_9->layout()->setSpacing(spacing);
-  ui->horizontalLayout_10->layout()->setSpacing(spacing);
-  ui->horizontalLayout_11->layout()->setSpacing(spacing);
-  ui->horizontalLayout_12->layout()->setSpacing(spacing);
-  ui->horizontalLayout_13->layout()->setSpacing(spacing);
-  ui->horizontalLayout_14->layout()->setSpacing(spacing);
-  ui->rh_decodes_widget->layout()->setSpacing(spacing);
-  ui->verticalLayout_2->layout()->setSpacing(spacing);
-  ui->verticalLayout_3->layout()->setSpacing(spacing);
-  ui->verticalLayout_5->layout()->setSpacing(spacing);
-  ui->verticalLayout_7->layout()->setSpacing(spacing);
-  ui->verticalLayout_8->layout()->setSpacing(spacing);
-  ui->tab->layout()->setSpacing(spacing);
 }
 
 void MainWindow::on_actionAstronomical_data_toggled (bool checked)
@@ -7824,11 +8172,15 @@ void MainWindow::guiUpdate()
       Q_EMIT m_config.transceiver_volume(m_config.volume());
   }
 
+  QString const cqOnlyText = m_config.highlight_73() ? QStringLiteral ("CQ/73") : QStringLiteral ("CQ only");
+  if (ui->cbCQonly->text () != cqOnlyText)
+    {
+      ui->cbCQonly->setText (cqOnlyText);
+      updateMainWindowControlSizes ();
+    }
   if (m_config.highlight_73()) {
-      ui->cbCQonly->setText("CQ/73");
       ui->cbCQonly->setToolTip("CQ or 73 messages only.");
   } else {
-      ui->cbCQonly->setText("CQ only");
       ui->cbCQonly->setToolTip("CQ messages only.");
   }
   check_button_color();
@@ -9762,79 +10114,75 @@ void MainWindow::updateRate()
   m_ActiveStationsWidget->setBandChanges(nbc);
 }
 
-qint64 MainWindow::nWidgets(QString t)
+void MainWindow::applyModeUiState(ModeUiState state)
 {
-  Q_ASSERT(t.length()==N_WIDGETS);
-  qint64 n=0;
-  for(int i=0; i<N_WIDGETS; i++) {
-    n=n + n + t.mid(i,1).toInt();
-  }
-  return n;
-}
+  auto visible = [state] (ModeUiControl control) {
+    return std::find(state.begin(), state.end(), control) != state.end();
+  };
+  auto setLabeledControlVisible = [&visible] (ModeUiControl control, QWidget * widget, QLabel * label) {
+    auto const show = visible(control);
+    widget->setVisible(show);
+    label->setVisible(show);
+  };
 
-void MainWindow::displayWidgets(qint64 n)
-{
-  /* See text file "displayWidgets.txt" for widget numbers */
-  qint64 j=qint64(1)<<(N_WIDGETS-1);
-  bool b;
-  for(int i=0; i<N_WIDGETS; i++) {
-    b=(n&j) != 0;
-    if(i==0) ui->txFirstCheckBox->setVisible(b);
-    if(i==1) ui->TxFreqSpinBox->setVisible(b);
-    if(i==2) ui->RxFreqSpinBox->setVisible(b);
-    if(i==3) ui->sbFtol->setVisible(b);
-    if(i==4) ui->rptSpinBox->setVisible(b);
-    if(i==5) ui->sbTR->setVisible(b);
-    if(i==6) {
-      ui->sbCQTxFreq->setVisible (b);
-      ui->cbCQTx->setVisible (b);
-      auto is_compound = m_config.my_callsign () != m_baseCall;
-      ui->cbCQTx->setEnabled (b && (!is_compound || shortList (m_config.my_callsign ())));
-    }
-    if(i==7) ui->cbShMsgs->setVisible(b);
-    if(i==8) ui->cbFast9->setVisible(b);
-    if(i==9) ui->cbAutoSeq->setVisible(b);
-    if(i==10) ui->cbTx6->setVisible(b);
-    // if(i==11) ui->pbTxMode->setVisible(b);
-    if(i==12) ui->pbR2T->setVisible(b);
-    if(i==13) ui->pbT2R->setVisible(b);
-    if(i==14) ui->cbHoldTxFreq->setVisible(b);
-    if(i==15) ui->sbSubmode->setVisible(b);
-    if(i==16) ui->syncSpinBox->setVisible(b);
-    if(i==17) ui->WSPR_controls_widget->setVisible(b);
-    if(i==18) ui->ClrAvgButton->setVisible(b);
-    if(i==19) ui->actionQuickDecode->setEnabled(b);
-    if(i==19) ui->actionMediumDecode->setEnabled(b);
-    if(i==19) ui->actionDeepestDecode->setEnabled(b);
-    if(i==20) ui->actionInclude_averaging->setVisible (b);
-    if(i==21) ui->actionInclude_correlation->setVisible (b);
-    if(i==22) {
-      if(!b && m_echoGraph->isVisible())  m_echoGraph->hide();
-    }
-    if(i==23) ui->cbSWL->setVisible(b);
-    if(i==24) ui->actionEnable_AP_FT8->setVisible (b);
-    if(i==24) ui->actionHide_AP_info->setVisible (b);
-    if(i==25) ui->actionEnable_AP_JT65->setVisible (b);
-    if(i==26) ui->actionEnable_AP_DXcall->setVisible (b);
-    if(i==27) ui->respondComboBox->setVisible(b);
-    if(i==29) ui->measure_check_box->setVisible(b);
-    if(i==30) ui->labDXped->setVisible(b);
-    if(i==31) ui->cbRxAll->setVisible(b);
-    if(i==32) ui->cbCQonly->setVisible(b);
-    if(i==33) ui->sbTR_FST4W->setVisible(b);
-    if (34 == i)                // adjust the stacked widget
-      {
-        ui->opt_controls_stack->setCurrentIndex (b ? 1 : 0);
-        ui->sbF_Low->setVisible(b);
-      }
-    if(i==35) ui->sbF_High->setVisible(b);
-    if(i==36) ui->actionAuto_Clear_Avg->setVisible (b);
-    if(i==37) ui->sbMaxDrift->setVisible(b);
-    if(i==38 && b) ui->tabWidget->setCurrentIndex(fox_queue_tab_index);  // Fox: select visible tab 2
-    j=j>>1;
-  }
+  ui->txFirstCheckBox->setVisible(visible(ModeUiControl::TxFirst));
+  setLabeledControlVisible(ModeUiControl::TxFrequency, ui->TxFreqSpinBox, m_txFrequencyLabel);
+  setLabeledControlVisible(ModeUiControl::RxFrequency, ui->RxFreqSpinBox, m_rxFrequencyLabel);
+  setLabeledControlVisible(ModeUiControl::FrequencyTolerance, ui->sbFtol, m_frequencyToleranceLabel);
+  updateFrequencyToleranceRowAlignment ();
+  setLabeledControlVisible(ModeUiControl::Report, ui->rptSpinBox, m_reportLabel);
+  setTrPeriodVisible(visible(ModeUiControl::TrPeriod));
+
+  auto const showCqTxFrequency = visible(ModeUiControl::CqTxFrequency);
+  ui->sbCQTxFreq->setVisible(showCqTxFrequency);
+  ui->cbCQTx->setVisible(showCqTxFrequency);
+  auto const isCompoundCall = m_config.my_callsign() != m_baseCall;
+  ui->cbCQTx->setEnabled(showCqTxFrequency && (!isCompoundCall || shortList(m_config.my_callsign())));
+
+  ui->cbShMsgs->setVisible(visible(ModeUiControl::ShortMessages));
+  ui->cbFast9->setVisible(visible(ModeUiControl::Fast9));
+  ui->cbAutoSeq->setVisible(visible(ModeUiControl::AutoSequence));
+  ui->cbTx6->setVisible(visible(ModeUiControl::Tx6));
+  ui->pbR2T->setVisible(visible(ModeUiControl::CopyRxToTx));
+  ui->pbT2R->setVisible(visible(ModeUiControl::CopyTxToRx));
+  ui->cbHoldTxFreq->setVisible(visible(ModeUiControl::HoldTxFrequency));
+  setLabeledControlVisible(ModeUiControl::Submode, ui->sbSubmode, m_submodeLabel);
+  ui->syncSpinBox->setVisible(visible(ModeUiControl::Sync));
+  ui->WSPR_controls_widget->setVisible(visible(ModeUiControl::WsprControls));
+  ui->ClrAvgButton->setVisible(visible(ModeUiControl::ClearAverage));
+
+  auto const decodeDepthEnabled = visible(ModeUiControl::DecodeDepth);
+  ui->actionQuickDecode->setEnabled(decodeDepthEnabled);
+  ui->actionMediumDecode->setEnabled(decodeDepthEnabled);
+  ui->actionDeepestDecode->setEnabled(decodeDepthEnabled);
+  ui->actionInclude_averaging->setVisible(visible(ModeUiControl::IncludeAveraging));
+  ui->actionInclude_correlation->setVisible(visible(ModeUiControl::IncludeCorrelation));
+  if (!visible(ModeUiControl::EchoGraph) && m_echoGraph->isVisible()) m_echoGraph->hide();
+  ui->cbSWL->setVisible(visible(ModeUiControl::Swl));
+
+  auto const showFt8Ap = visible(ModeUiControl::ApFt8);
+  ui->actionEnable_AP_FT8->setVisible(showFt8Ap);
+  ui->actionHide_AP_info->setVisible(showFt8Ap);
+  ui->actionEnable_AP_JT65->setVisible(visible(ModeUiControl::ApJt65));
+  ui->actionEnable_AP_DXcall->setVisible(visible(ModeUiControl::ApDxCall));
+  ui->respondComboBox->setVisible(visible(ModeUiControl::Respond));
+  ui->measure_check_box->setVisible(visible(ModeUiControl::Measure));
+  ui->labDXped->setVisible(visible(ModeUiControl::DxpedLabel));
+  ui->cbRxAll->setVisible(visible(ModeUiControl::RxAll));
+  ui->cbCQonly->setVisible(visible(ModeUiControl::CqOnly));
+  ui->sbTR_FST4W->setVisible(visible(ModeUiControl::Fst4wTrPeriod));
+
+  auto const showLowFrequency = visible(ModeUiControl::LowFrequency);
+  auto const showHighFrequency = visible(ModeUiControl::HighFrequency);
+  ui->opt_controls_stack->setCurrentIndex(showLowFrequency ? 1 : 0);
+  ui->sbF_Low->setVisible(showLowFrequency);
+  ui->sbF_High->setVisible(showHighFrequency);
+  ui->actionAuto_Clear_Avg->setVisible(visible(ModeUiControl::AutoClearAverage));
+  setLabeledControlVisible(ModeUiControl::MaxDrift, ui->sbMaxDrift, m_maxDriftLabel);
+  if (visible(ModeUiControl::FoxQueueTab)) ui->tabWidget->setCurrentIndex(fox_queue_tab_index);
+
   ui->pbBestSP->setVisible(m_mode=="FT4");
-  b=false;
+  bool b=false;
   if(m_mode=="FT4" or m_mode=="FT8" || "Q65" == m_mode) {
   b=SpecOp::EU_VHF==m_specOp or
     ( SpecOp::RTTY==m_specOp and
@@ -9844,6 +10192,7 @@ void MainWindow::displayWidgets(qint64 n)
   ui->sbEchoAvg->setVisible(m_mode=="Echo");
   ui->sbSerialNumber->setMaximum(SpecOp::EU_VHF==m_specOp ? eu_vhf_type5_serial_max : default_serial_number_max);
   ui->sbSerialNumber->setVisible(b);
+  ui->opt_controls_stack->setVisible (b || showLowFrequency || showHighFrequency);
   m_lastCallsign.clear ();     // ensures Tx5 is updated for new modes
   b=m_mode.startsWith("FST4");
   ui->sbNB->setVisible(b);
@@ -9914,7 +10263,11 @@ void MainWindow::updateMainWindowAccessibility()
   ui->respondComboBox->setAccessibleDescription (tr ("Selects a station automatically from replies to your pending CQ after Enable Tx is armed in the current receive period, or from CQ messages for Wait & Pounce."));
   ui->TxFreqSpinBox->setAccessibleName (tr ("Transmit audio frequency"));
   ui->RxFreqSpinBox->setAccessibleName (tr ("Receive audio frequency"));
+  ui->sbFtol->setAccessibleName (tr ("Frequency tolerance"));
   ui->rptSpinBox->setAccessibleName (tr ("Signal report"));
+  ui->sbTR->setAccessibleName (tr ("Transmit and receive period"));
+  ui->sbSubmode->setAccessibleName (tr ("Submode"));
+  ui->sbMaxDrift->setAccessibleName (tr ("Maximum drift"));
   ui->bandComboBox->setAccessibleName (tr ("Operating band"));
   if (ui->bandComboBox->lineEdit ()) ui->bandComboBox->lineEdit ()->setAccessibleName (tr ("Operating band text"));
   ui->outAttenuation->setAccessibleName (tr ("Transmit power attenuation"));
@@ -10023,10 +10376,11 @@ void MainWindow::registerMainWindowFocusControls()
     ui->houndButton, ui->ft8Button, ui->ft4Button, ui->msk144Button,
     ui->q65Button, ui->jt65Button, ui->dxCallEntry, ui->dxGridEntry,
     ui->DX_Call_Button, ui->lookupButton, ui->addButton, ui->ignoreButton,
-    ui->txFirstCheckBox, ui->TxFreqSpinBox, ui->pbR2T, ui->sbFtol,
-    ui->pbT2R, ui->RxFreqSpinBox, ui->rptSpinBox, ui->sbTR,
-    ui->cbHoldTxFreq, ui->sbF_Low, ui->sbF_High, ui->sbSubmode,
-    ui->syncSpinBox, ui->sbCQTxFreq, ui->cbCQTx, ui->cbRxAll,
+    ui->txFirstCheckBox, ui->cbHoldTxFreq, ui->TxFreqSpinBox, ui->sbSubmode,
+    ui->pbR2T, ui->sbFtol, ui->pbT2R, ui->sbMaxDrift,
+    ui->RxFreqSpinBox, ui->rptSpinBox, ui->sbSerialNumber,
+    ui->sbF_Low, ui->sbF_High, ui->sbTR, ui->syncSpinBox,
+    ui->sbCQTxFreq, ui->cbCQTx, ui->cbRxAll,
     ui->cbShMsgs, ui->cbFast9, ui->cbAutoSeq, ui->respondComboBox,
     ui->cbTx6, ui->cbSWL, ui->pbBestSP, ui->measure_check_box,
     ui->tabWidget->tabBar (),
@@ -10047,7 +10401,7 @@ void MainWindow::registerMainWindowFocusControls()
     ui->RoundRobin, ui->sbTxPercent, ui->sbTR_FST4W,
     ui->band_hopping_group_box, ui->band_hopping_schedule_push_button,
     ui->cbUploadWSPR_Spots, ui->WSPR_prefer_type_1_check_box, ui->cbNoOwnCall,
-    ui->pbTxNext, ui->TxPowerComboBox, ui->outAttenuation, ui->sbSerialNumber
+    ui->pbTxNext, ui->TxPowerComboBox, ui->outAttenuation
   };
 
   for (auto *widget : tab_controls)
@@ -10275,11 +10629,21 @@ void MainWindow::on_actionFST4_triggered()
   setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   WSPR_config(false);
   if(m_config.single_decode()) {
-//                           012345678901234567890123456789012345678
-    displayWidgets(nWidgets("111111000100111000010000000100000000000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                      ModeUiControl::Report, ModeUiControl::TrPeriod,
+                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
+                      ModeUiControl::DecodeDepth, ModeUiControl::Respond});
     m_wideGraph->setSingleDecode(true);
   } else {
-    displayWidgets(nWidgets("111011000100111000010000000100000011000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::Report,
+                      ModeUiControl::TrPeriod, ModeUiControl::AutoSequence,
+                      ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
+                      ModeUiControl::HoldTxFrequency, ModeUiControl::DecodeDepth,
+                      ModeUiControl::Respond, ModeUiControl::LowFrequency,
+                      ModeUiControl::HighFrequency});
     m_wideGraph->setSingleDecode(false);
     ui->sbFtol->setValue(20);
   }
@@ -10320,8 +10684,8 @@ void MainWindow::on_actionFST4W_triggered()
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   initializeFFT(6912);
   WSPR_config(true);
-//                         012345678901234567890123456789012345678
-  displayWidgets(nWidgets("000000000000000001010000000000000100000"));
+  applyModeUiState({ModeUiControl::WsprControls, ModeUiControl::DecodeDepth,
+                    ModeUiControl::Fst4wTrPeriod});
   setup_status_bar(false);
   ui->band_hopping_group_box->setChecked(false);
   ui->band_hopping_group_box->setVisible(false);
@@ -10379,8 +10743,12 @@ void MainWindow::on_actionFT4_triggered()
   }
   setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   setDecodeHeadings("  UTC   dB   DT Freq    " + tr ("Message"), "  UTC   dB   DT Freq    " + tr ("Message"));
-//                         012345678901234567890123456789012345678
-  displayWidgets(nWidgets("111010000100111000010000000110001000000"));
+  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                    ModeUiControl::RxFrequency, ModeUiControl::Report,
+                    ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                    ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
+                    ModeUiControl::DecodeDepth, ModeUiControl::Respond,
+                    ModeUiControl::CqOnly});
   setTxButtonsEnabled(true);
   ui->txFirstCheckBox->setEnabled(true);
   chkFT4();
@@ -10453,8 +10821,12 @@ void MainWindow::on_actionFT8_triggered()
     ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
 
-//                         012345678901234567890123456789012345678
-  displayWidgets(nWidgets("111010000100111000010000100110001000000"));
+  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                    ModeUiControl::RxFrequency, ModeUiControl::Report,
+                    ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                    ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
+                    ModeUiControl::DecodeDepth, ModeUiControl::ApFt8,
+                    ModeUiControl::Respond, ModeUiControl::CqOnly});
   setTxButtonsEnabled(true);
   ui->txFirstCheckBox->setEnabled(true);
   ui->cbAutoSeq->setEnabled(true);
@@ -10470,8 +10842,12 @@ void MainWindow::on_actionFT8_triggered()
     } else {
       ui->TxFreqSpinBox->setValue(500);
     }
-  //                         012345678901234567890123456789012345678
-    displayWidgets(nWidgets("111010000100111000010000000000110000001"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::Report,
+                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
+                      ModeUiControl::DecodeDepth, ModeUiControl::DxpedLabel,
+                      ModeUiControl::RxAll, ModeUiControl::FoxQueueTab});
     ui->cbRxAll->setText(tr("Show Already Worked"));
     ui->labDXped->setText(specOpLabel());
     on_fox_log_action_triggered();
@@ -10488,8 +10864,12 @@ void MainWindow::on_actionFT8_triggered()
     ui->cbHoldTxFreq->setChecked(true);
     m_wideGraph->setSuperHound(false);
     if(m_config.superFox()) {
-      //                       012345678901234567890123456789012345678
-      displayWidgets(nWidgets("111110000100110000010000000000110000000"));
+      applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                        ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                        ModeUiControl::Report, ModeUiControl::AutoSequence,
+                        ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
+                        ModeUiControl::DecodeDepth, ModeUiControl::DxpedLabel,
+                        ModeUiControl::RxAll});
       ui->cbRxAll->setEnabled(false);
       m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
       m_wideGraph->setTol(ui->sbFtol->value());
@@ -10498,8 +10878,11 @@ void MainWindow::on_actionFT8_triggered()
       if(ui->RxFreqSpinBox->value() < 700 or ui->RxFreqSpinBox->value() > 800)
         ui->RxFreqSpinBox->setValue(750);
     } else {
-      //                       012345678901234567890123456789012345678
-      displayWidgets(nWidgets("111010000100110000010000000000110000000"));
+      applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                        ModeUiControl::RxFrequency, ModeUiControl::Report,
+                        ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                        ModeUiControl::CopyTxToRx, ModeUiControl::DecodeDepth,
+                        ModeUiControl::DxpedLabel, ModeUiControl::RxAll});
       ui->cbRxAll->setEnabled(true);
       m_wideGraph->setSuperHound(false);
       ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
@@ -10590,10 +10973,21 @@ void MainWindow::on_actionJT4_triggered()
     ui->sbSubmode->setValue(0);
   }
   if(bVHF) {
-    //                       012345678901234567890123456789012345678
-    displayWidgets(nWidgets("111110010110110110111100000100000000000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                      ModeUiControl::Report, ModeUiControl::ShortMessages,
+                      ModeUiControl::AutoSequence, ModeUiControl::Tx6,
+                      ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
+                      ModeUiControl::Submode, ModeUiControl::Sync,
+                      ModeUiControl::ClearAverage, ModeUiControl::DecodeDepth,
+                      ModeUiControl::IncludeAveraging,
+                      ModeUiControl::IncludeCorrelation, ModeUiControl::Respond});
   } else {
-    displayWidgets(nWidgets("111010000100110000110000000100000000000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::Report,
+                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                      ModeUiControl::CopyTxToRx, ModeUiControl::ClearAverage,
+                      ModeUiControl::DecodeDepth, ModeUiControl::Respond});
   }
   fast_config(false);
   ui->txFirstCheckBox->setEnabled(true);
@@ -10667,10 +11061,21 @@ void MainWindow::on_actionJT9_triggered()
   }
   setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   if(bVHF) {
-    //                       012345678901234567890123456789012345678
-    displayWidgets(nWidgets("111110101100111110010000000100000000000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                      ModeUiControl::Report, ModeUiControl::CqTxFrequency,
+                      ModeUiControl::Fast9, ModeUiControl::AutoSequence,
+                      ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
+                      ModeUiControl::HoldTxFrequency, ModeUiControl::Submode,
+                      ModeUiControl::Sync, ModeUiControl::DecodeDepth,
+                      ModeUiControl::Respond});
   } else {
-    displayWidgets(nWidgets("111010000100111000010000000100001000000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::Report,
+                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
+                      ModeUiControl::DecodeDepth, ModeUiControl::Respond,
+                      ModeUiControl::CqOnly});
   }
   fast_config(m_bFastMode);
 //  ui->cbAutoSeq->setVisible(m_bFast9);
@@ -10730,10 +11135,22 @@ void MainWindow::on_actionJT65_triggered()
     setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   }
   if(bVHF) {
-    //                       012345678901234567890123456789012345678
-    displayWidgets(nWidgets("111110010100110110101100010100000000000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                      ModeUiControl::Report, ModeUiControl::ShortMessages,
+                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                      ModeUiControl::CopyTxToRx, ModeUiControl::Submode,
+                      ModeUiControl::Sync, ModeUiControl::ClearAverage,
+                      ModeUiControl::IncludeAveraging,
+                      ModeUiControl::IncludeCorrelation, ModeUiControl::ApJt65,
+                      ModeUiControl::Respond});
   } else {
-    displayWidgets(nWidgets("111010000100111000010000000100001000000"));
+    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                      ModeUiControl::RxFrequency, ModeUiControl::Report,
+                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
+                      ModeUiControl::DecodeDepth, ModeUiControl::Respond,
+                      ModeUiControl::CqOnly});
   }
   fast_config(false);
 //  if(ui->cbShMsgs->isChecked()) {
@@ -10789,8 +11206,16 @@ void MainWindow::on_actionQ65_triggered()
   m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
   m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
   switch_mode (Modes::Q65);
-//                         012345678901234567890123456789012345678
-  displayWidgets(nWidgets("111111010110110100111000000100000000110"));
+  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                    ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                    ModeUiControl::Report, ModeUiControl::TrPeriod,
+                    ModeUiControl::ShortMessages, ModeUiControl::AutoSequence,
+                    ModeUiControl::Tx6, ModeUiControl::CopyRxToTx,
+                    ModeUiControl::CopyTxToRx, ModeUiControl::Submode,
+                    ModeUiControl::ClearAverage, ModeUiControl::DecodeDepth,
+                    ModeUiControl::IncludeAveraging,
+                    ModeUiControl::Respond, ModeUiControl::AutoClearAverage,
+                    ModeUiControl::MaxDrift});
   setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
   if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
     Q_EMIT m_config.transceiver_period(m_TRperiod);
@@ -10852,8 +11277,12 @@ void MainWindow::on_actionJTTY_triggered()
   setDecodeHeadings("", "");
   updateJttyDecodeHeadings();
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
-//                           012345678901234567890123456789012345678
-    displayWidgets(nWidgets("111111000100111000010000000100000000000"));
+  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
+                    ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                    ModeUiControl::Report, ModeUiControl::TrPeriod,
+                    ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
+                    ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
+                    ModeUiControl::DecodeDepth, ModeUiControl::Respond});
   // JTTY's decoder has no Fast/Deep behavior to select -- force Normal and
   // disable the other two rather than offer a choice that does nothing.
   ui->actionMediumDecode->setChecked(true);
@@ -10936,8 +11365,12 @@ void MainWindow::on_actionMSK144_triggered()
   ui->rptSpinBox->setValue(0);
   ui->rptSpinBox->setSingleStep(1);
   ui->sbFtol->values ({20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
-  //                       012345678901234567890123456789012345678
-  displayWidgets(nWidgets("101111110100000000010001000110000000000"));
+  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::RxFrequency,
+                    ModeUiControl::FrequencyTolerance, ModeUiControl::Report,
+                    ModeUiControl::TrPeriod, ModeUiControl::CqTxFrequency,
+                    ModeUiControl::ShortMessages, ModeUiControl::AutoSequence,
+                    ModeUiControl::DecodeDepth, ModeUiControl::Swl,
+                    ModeUiControl::Respond});
   fast_config(m_bFastMode);
   statusChanged();
 
@@ -10982,8 +11415,7 @@ void MainWindow::on_actionWSPR_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   ui->TxFreqSpinBox->setValue(ui->WSPRfreqSpinBox->value());
-  //                       012345678901234567890123456789012345678
-  displayWidgets(nWidgets("000000000000000001010000000000000000000"));
+  applyModeUiState({ModeUiControl::WsprControls, ModeUiControl::DecodeDepth});
   fast_config(false);
   enterBeaconMode ();
   statusChanged();
@@ -11028,8 +11460,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFast9=false;
   WSPR_config(true);
   ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width  Dgrd     N     Q     DF    SNR   dBerr   TS  EchoMsg");
-  //                       012345678901234567890123456789012345678
-  displayWidgets(nWidgets("000000000000000000100010000000000000000"));
+  applyModeUiState({ModeUiControl::ClearAverage, ModeUiControl::EchoGraph});
   fast_config(false);
   ui->sbEchoAvg->values ({1, 2, 5, 10, 20, 50, 100});
   statusChanged();
@@ -11077,8 +11508,8 @@ void MainWindow::on_actionFreqCal_triggered()
 //                               18:15:47      0  1  1500  1550.349     0.100    3.5   10.2
   ui->lh_decodes_headings_label->setText("  UTC      Freq CAL Offset  fMeas       DF     Level   S/N");
   ui->measure_check_box->setChecked (false);
-  //                       012345678901234567890123456789012345678
-  displayWidgets(nWidgets("001101000000000000000000000001000000000"));
+  applyModeUiState({ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
+                    ModeUiControl::TrPeriod, ModeUiControl::Measure});
   statusChanged();
 }
 
@@ -11148,7 +11579,6 @@ void MainWindow::WSPR_config(bool b)
   if(m_mode=="JTTY") ui->controls_stack_widget->setCurrentIndex(1);
   ui->QSO_controls_widget->setVisible (!b);
   ui->DX_controls_widget->setVisible (!b or (m_mode=="Echo"));
-  ui->WSPR_controls_widget->setVisible (b);
   ui->lh_decodes_title_label->setVisible(!b and ui->cbMenus->isChecked());
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
@@ -11181,7 +11611,7 @@ void MainWindow::fast_config(bool b)
 {
   m_bFastMode=b;
   ui->TxFreqSpinBox->setEnabled(!b);
-  ui->sbTR->setVisible(b);
+  setTrPeriodVisible(b);
   if(b and (m_bFast9 or m_mode=="MSK144")) {
     m_wideGraph->hide();
     m_fastGraph->showNormal();
@@ -11189,6 +11619,12 @@ void MainWindow::fast_config(bool b)
     m_wideGraph->showNormal();
     m_fastGraph->hide();
   }
+}
+
+void MainWindow::setTrPeriodVisible(bool visible)
+{
+  ui->sbTR->setVisible(visible);
+  m_trPeriodLabel->setVisible(visible);
 }
 
 void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
@@ -12671,12 +13107,12 @@ void MainWindow::on_sbSubmode_valueChanged(int n)
       ui->cbFast9->setChecked(false);
       on_cbFast9_clicked(false);
       ui->cbFast9->setEnabled(false);
-      ui->sbTR->setVisible(false);
+      setTrPeriodVisible(false);
       m_TRperiod=60.0;
     } else {
       if(!blocked) ui->cbFast9->setEnabled(true);
     }
-    ui->sbTR->setVisible(m_bFast9);
+    setTrPeriodVisible(m_bFast9);
     if(m_bFast9) ui->TxFreqSpinBox->setValue(700);
   }
   if(m_transmitting and m_bFast9 and m_nSubMode>=4) transmit (99.0);
@@ -15487,56 +15923,7 @@ void MainWindow::on_actionDisable_event_logging_triggered()
 
 void MainWindow::on_actionUse_Dark_Style_triggered (bool checked)
 {
-    QFont font = m_config.text_font();
-    if (checked) {
-        QFile f(":qdarkstyle/style.qss");
-        if (!f.exists())   {
-            printf("Unable to set stylesheet, file not found\n");
-        } else {
-            qApp->setFont (font);
-            QString ss;
-            f.open(QFile::ReadOnly | QFile::Text);
-            QTextStream ts(&f);
-            qApp->setStyleSheet(ts.readAll() + "* {" + font_as_stylesheet (font) + '}');
-            m_useDarkStyle = true;
-            m_wideGraph->setDarkStyle(m_useDarkStyle);
-            check_button_color();
-            ui->tabWidget->setTabShape(QTabWidget::Rounded);
-        }
-    } else {
-        m_useDarkStyle = false;
-        m_wideGraph->setDarkStyle(m_useDarkStyle);
-        check_button_color();
-        ui->tabWidget->setTabShape(QTabWidget::Triangular);
-        qApp->setFont (font);
-        QString ss;
-        if (qApp->styleSheet ().size ()) {
-           auto sheet = qApp->styleSheet ();
-           sheet.remove ("file:///");
-           QFile sf {sheet};
-           if (sf.open (QFile::ReadOnly | QFile::Text)) ss = sf.readAll () + ss;
-        }
-        qApp->setStyleSheet (ss + "* {" + font_as_stylesheet (font) + '}');
-    }
-    // ensure a balanced layout
-    qreal pointSize = m_config.text_font().pointSizeF();
-//    if (pointSize < 9) ui->controls_stack_widget->setMaximumWidth(180);     // UR for AL
-//    if (pointSize == 9) ui->controls_stack_widget->setMaximumWidth(200);    // UR for AL
-//    if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220);   // UR for AL
-//    if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);    // UR for AL
-    if (pointSize < 11) {
-//        ui->tabWidget->setMaximumHeight(210);                               // UR for AL
-//        ui->controls_stack_widget->setMaximumHeight(200);                   // UR for AL
-        if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
-    } else {
-//        ui->tabWidget->setMaximumHeight(255);                               // UR for AL
-//        ui->controls_stack_widget->setMaximumHeight(225);                   // UR for AL
-        ui->tabWidget->setMaximumHeight(500);                               // UR for normal + widescreen
-    }
-    for (auto& widget : qApp->topLevelWidgets ())
-      {
-        widget->updateGeometry ();
-      }
+    applyApplicationStyle (m_config.text_font (), checked);
     statusChanged();
     guiUpdate();
 }
@@ -15599,13 +15986,13 @@ void MainWindow::check_button_color()
     }
 
     if (m_auto) {
-      set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+      set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
     } else if (EnableTxWarning::NONE != enableTxWarning) {
-      set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none; min-width: 5em;}");
+      set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none;}");
     } else if (m_useDarkStyle) {
-      set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+      set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 5px; padding: 3px; outline: none;}");
     } else {
-      set_style_sheet_if_changed(ui->autoButton, "QPushButton {min-width: 5em;}");
+      set_style_sheet_if_changed(ui->autoButton, "");
     }
 
     auto const respondMode = ui->respondComboBox->currentText();
@@ -15677,7 +16064,7 @@ void MainWindow::check_button_color()
                                     "Double-click to erase both windows.");
     }
     if (pounce && !m_auto) {
-        set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #ff7a05; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+        set_style_sheet_if_changed(ui->autoButton, "QPushButton {background-color: #ff7a05; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
         ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
     }
     if (m_config.Territory1()=="") {
@@ -16183,21 +16570,25 @@ void MainWindow::check_button_color()
       ui->pb10G->setVisible(false);
       ui->pb24G->setVisible(false);
     }
-    if (ui->monitorButton->isChecked()) {
-      if (m_saveAll or m_saveDecoded) {
-        set_style_sheet_if_changed(ui->monitorButton, "QPushButton {background-color: #ffff00; color: #000000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
-      } else {
-        set_style_sheet_if_changed(ui->monitorButton, "QPushButton {background-color: #00ff00; color: #000000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
-      }
-    } else {
-      set_style_sheet_if_changed(ui->monitorButton, "");
-    }
+    static QString const monitor_button_style {
+      "QPushButton {border: 1px solid palette(mid); border-radius: 5px; padding: 3px; "
+      "background-color: palette(button); color: palette(button-text);}"
+      "QPushButton[wsjtxState=\"active\"] {background-color: #00ff00; color: #000000; border-color: black;}"
+      "QPushButton[wsjtxState=\"saving\"] {background-color: #ffff00; color: #000000; border-color: black;}"
+      "QPushButton[wsjtxState=\"dark\"] {background-color: #505F69; color: #F0F0F0; border-color: #32414B;}"
+      "QPushButton:focus {border-color: palette(highlight);}"
+      "QPushButton:pressed {background-color: palette(midlight);}"
+      "QPushButton:disabled {color: palette(mid);}"};
+    set_style_sheet_if_changed(ui->monitorButton, monitor_button_style);
+    set_button_style_state_if_changed(ui->monitorButton,
+      ui->monitorButton->isChecked() ? (m_saveAll or m_saveDecoded ? "saving" : "active")
+                                     : (m_useDarkStyle ? "dark" : "idle"));
     if (ui->pbBandHopping->isChecked()) {
       keep_last_tx_label = false;
-      set_style_sheet_if_changed(ui->pbBandHopping, "QPushButton {background-color: #ff0000; color: #ffffff; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
+      set_style_sheet_if_changed(ui->pbBandHopping, "QPushButton {background-color: #ff0000; color: #ffffff; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; padding: 3px;}");
       last_tx_label.setText(" Band Hopping On ");
       set_style_sheet_if_changed(last_tx_label, "QLabel{color: #ffffff; background-color: #ff0000}");
-      set_style_sheet_if_changed(ui->genStdMsgsPushButton, "QPushButton {background-color: #ffff00; color: #000000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
+      set_style_sheet_if_changed(ui->genStdMsgsPushButton, "QPushButton {background-color: #ffff00; color: #000000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; padding: 3px;}");
     } else {
       set_style_sheet_if_changed(ui->pbBandHopping, "");
       if (!keep_last_tx_label) last_tx_label.setText ("");

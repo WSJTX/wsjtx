@@ -35,7 +35,10 @@
 #include <QFutureWatcher>
 #include <QDateTime>
 #include <array>
+#include <initializer_list>
 #include <memory>
+
+class QHBoxLayout;
 
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
@@ -1187,6 +1190,15 @@ private:
   QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
+  QLabel * m_txFrequencyLabel {};
+  QLabel * m_frequencyToleranceLabel {};
+  QLabel * m_rxFrequencyLabel {};
+  QLabel * m_reportLabel {};
+  QLabel * m_trPeriodLabel {};
+  QLabel * m_submodeLabel {};
+  QLabel * m_maxDriftLabel {};
+  QHBoxLayout * m_frequencyToleranceRow {};
+  QHBoxLayout * m_modeCheckboxRow {};
   WavLoadCoordinator m_wav_load_coordinator;
   QFutureWatcher<FastDecodeResult> watcher3;
   bool m_fastDecodePending = false;
@@ -1446,7 +1458,13 @@ private:
 
   //---------------------------------------------------- private functions
   void readSettings();
+  void configureModeControlsLayout();
+  void updateModeControlsLayout();
+  void applyApplicationStyle(QFont const&, bool dark);
+  void setTrPeriodVisible(bool);
   void set_application_font (QFont const&);
+  void updateMainWindowControlSizes();
+  void updateFrequencyToleranceRowAlignment();
   void setDecodedTextFont (QFont const&);
   void writeSettings();
   void createStatusBar();
@@ -1567,8 +1585,48 @@ private:
   void remove_child_from_event_filter (QObject *);
   void setup_status_bar (bool vhf);
   void tx_watchdog (bool triggered);
-  qint64  nWidgets(QString t);
-  void displayWidgets(qint64 n);
+  enum class ModeUiControl
+  {
+    TxFirst,
+    TxFrequency,
+    RxFrequency,
+    FrequencyTolerance,
+    Report,
+    TrPeriod,
+    CqTxFrequency,
+    ShortMessages,
+    Fast9,
+    AutoSequence,
+    Tx6,
+    CopyRxToTx,
+    CopyTxToRx,
+    HoldTxFrequency,
+    Submode,
+    Sync,
+    WsprControls,
+    ClearAverage,
+    DecodeDepth,
+    IncludeAveraging,
+    IncludeCorrelation,
+    EchoGraph,
+    Swl,
+    ApFt8,
+    ApJt65,
+    ApDxCall,
+    Respond,
+    Measure,
+    DxpedLabel,
+    RxAll,
+    CqOnly,
+    Fst4wTrPeriod,
+    LowFrequency,
+    HighFrequency,
+    AutoClearAverage,
+    MaxDrift,
+    FoxQueueTab
+  };
+  using ModeUiState = std::initializer_list<ModeUiControl>;
+  void applyModeUiState(ModeUiState);
   QChar current_submode () const; // returns QChar {0} if submode is not appropriate
   void write_transmit_entry (QString const& file_name);
   void selectHound(QString t, bool bTopQueue);
