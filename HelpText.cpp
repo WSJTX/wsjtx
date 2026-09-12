@@ -121,7 +121,8 @@ QString HelpText::specialMouseCommands()
   </tr>
   <tr>
     <td align="right">Tx Even/1st:</td>
-    <td><b>Right-click</b> to toggle the checkbox enabled/disabled.
+    <td><b>Right-click</b> to toggle the checkbox enabled/disabled.<br/>
+        Fox and Hound modes lock the required sequence.
     </td>
   </tr>
   <tr>

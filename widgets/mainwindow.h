@@ -880,6 +880,8 @@ private:
   QFocusFrame * m_main_window_focus_frame {nullptr};
   QFrame * m_message_selector_focus_frame {nullptr};
   bool m_keyboard_focus_active {false};
+  bool m_tx_first_user_enabled {true};
+  bool m_tx_first_mode_enabled {true};
 
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
@@ -1485,6 +1487,8 @@ private:
   void showMainWindowFocusIndicator(QWidget *widget);
   void hideMainWindowFocusIndicators();
   void updateTxNextFocusPolicies();
+  void updateTxFirstEnabledState();
+  void setTxFirstModeEnabled(bool enabled);
   bool switchTxNextMessage(QKeyEvent const *key_event);
   bool switchMainWindowTab(QKeyEvent const *key_event);
   void genStdMsgs(QString rpt, bool unconditional = false);

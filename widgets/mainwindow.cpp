@@ -4045,12 +4045,13 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
   if (object == ui->txFirstCheckBox && event->type () == QEvent::MouseButtonPress
       && (static_cast<QMouseEvent *> (event)->button () & Qt::RightButton))
     {
-      // Clear focus *before* disabling: disabling a still-focused widget
-      // makes Qt auto-advance focus to the next widget in tab order
-      // (TxFreqSpinBox here), which is a distracting side effect no one
-      // wants from a right-click meant only to toggle this checkbox.
-      ui->txFirstCheckBox->clearFocus ();
-      ui->txFirstCheckBox->setEnabled (!ui->txFirstCheckBox->isEnabled ());
+      if (m_tx_first_mode_enabled)
+        {
+          // Disabling a focused widget advances focus to the next widget.
+          ui->txFirstCheckBox->clearFocus ();
+          m_tx_first_user_enabled = !m_tx_first_user_enabled;
+          updateTxFirstEnabledState ();
+        }
       return true;
     }
 
@@ -9783,10 +9784,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->DecodeButton->clearFocus();
   }
   if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // Switch contest mode on/off
-      // set_mode() below re-enters the current mode's full setup, which
-      // unconditionally re-enables txFirstCheckBox as a side effect; this
-      // button has no business touching that checkbox at all.
-      bool const txFirstWasEnabled=ui->txFirstCheckBox->isEnabled();
       keep_frequency = true;
       not_erase = true;  // prevent erasing the decodedTextBrowser
       QTimer::singleShot (350, this, [=] {not_erase = false;});
@@ -9830,7 +9827,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       if (!isSuperHoundOperation ()) m_houndVerified = false;
       updateHoundVerificationStyle ();
       set_mode(m_mode);
-      ui->txFirstCheckBox->setEnabled(txFirstWasEnabled);
       configActiveStations();
       check_button_color();
       ui->ft8Button->clearFocus();
@@ -10550,6 +10546,17 @@ void MainWindow::updateTxNextFocusPolicies()
     }
 }
 
+void MainWindow::updateTxFirstEnabledState()
+{
+  ui->txFirstCheckBox->setEnabled (m_tx_first_user_enabled && m_tx_first_mode_enabled);
+}
+
+void MainWindow::setTxFirstModeEnabled(bool enabled)
+{
+  m_tx_first_mode_enabled = enabled;
+  updateTxFirstEnabledState ();
+}
+
 bool MainWindow::switchTxNextMessage(QKeyEvent const *key_event)
 {
   auto const buttons = txNextButtons ();
@@ -10679,7 +10686,7 @@ void MainWindow::on_actionFST4_triggered()
   ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
   ui->sbTR->setValue (m_settings->value ("TRPeriod_FST4", 60).toInt());    // remember sbTR settings by mode
   QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   statusChanged();
   m_bOK_to_chk=true;
   chk_FST4_freq_range();
@@ -10768,7 +10775,7 @@ void MainWindow::on_actionFT4_triggered()
                     ModeUiControl::DecodeDepth, ModeUiControl::Respond,
                     ModeUiControl::CqOnly});
   setTxButtonsEnabled(true);
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   chkFT4();
   statusChanged();
 }
@@ -10846,11 +10853,11 @@ void MainWindow::on_actionFT8_triggered()
                     ModeUiControl::DecodeDepth, ModeUiControl::ApFt8,
                     ModeUiControl::Respond, ModeUiControl::CqOnly});
   setTxButtonsEnabled(true);
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   ui->cbAutoSeq->setEnabled(true);
   if(SpecOp::FOX==m_specOp) {
     ui->txFirstCheckBox->setChecked(true);
-    ui->txFirstCheckBox->setEnabled(false);
+    setTxFirstModeEnabled (false);
     ui->cbHoldTxFreq->setChecked(true);
     ui->cbAutoSeq->setEnabled(false);
     m_wideGraph->setSuperFox(false);
@@ -10874,7 +10881,7 @@ void MainWindow::on_actionFT8_triggered()
   if(SpecOp::HOUND == m_specOp) {
     ui->houndButton->setChecked(true);
     ui->txFirstCheckBox->setChecked(false);
-    ui->txFirstCheckBox->setEnabled(false);
+    setTxFirstModeEnabled (false);
     ui->cbAutoSeq->setEnabled(false);
     if(ui->tabWidget->currentIndex() == fox_queue_tab_index) {
       ui->tabWidget->setCurrentIndex(standard_messages_tab_index);
@@ -11008,7 +11015,7 @@ void MainWindow::on_actionJT4_triggered()
                       ModeUiControl::DecodeDepth, ModeUiControl::Respond});
   }
   fast_config(false);
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   statusChanged();
 }
 
@@ -11097,7 +11104,7 @@ void MainWindow::on_actionJT9_triggered()
   }
   fast_config(m_bFastMode);
 //  ui->cbAutoSeq->setVisible(m_bFast9);
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   statusChanged();
 }
 
@@ -11177,7 +11184,7 @@ void MainWindow::on_actionJT65_triggered()
 //  }
   if (m_config.decode_at_52s() && m_config.auto_astro() && !ui->actionAstronomical_data->isChecked())
     ui->actionAstronomical_data->setChecked (true);
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   statusChanged();
 }
 
@@ -11257,7 +11264,7 @@ void MainWindow::on_actionQ65_triggered()
   }
   if (m_config.decode_at_52s() && m_config.auto_astro() && !ui->actionAstronomical_data->isChecked())
     ui->actionAstronomical_data->setChecked (true);
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   statusChanged();
 }
 
@@ -11356,7 +11363,7 @@ void MainWindow::on_actionMSK144_triggered()
     else if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_msk144_tr6);
     else ui->sbTR->setValue (m_msk144_tr);
   }
-  ui->txFirstCheckBox->setEnabled(true);
+  setTxFirstModeEnabled (true);
   QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
   ui->sbFtol->setValue (m_settings->value ("Ftol_MSK144", 50).toInt());   // restore last used parameter
   m_bShMsgs=m_settings->value("ShMsgs_MSK144",false).toBool();
