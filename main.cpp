@@ -80,6 +80,7 @@
 extern "C" {
   // Fortran procedures we need
   void four2a_(_Complex float *, int * nfft, int * ndim, int * isign, int * iform, int len);
+  void jtty_release_fft_resources();
 }
 
 namespace
@@ -1030,6 +1031,7 @@ int main(int argc, char *argv[])
       while (!multi_settings.exit () && !result && !automated_test);
 
       // clean up lazily initialized resources
+      jtty_release_fft_resources ();
       {
         int nfft {-1};
         int ndim {1};

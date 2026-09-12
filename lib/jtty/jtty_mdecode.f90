@@ -1,6 +1,8 @@
 module jtty_mdec
 
   use iso_fortran_env, only: int64
+  use iso_c_binding, only: c_ptr,c_null_ptr,c_associated,c_f_pointer, &
+       c_float_complex,c_size_t
   use jtty_mod, only: MAX_FRAMES
   use jtty_fec, only: PAYLOAD_BITS, TOTAL_K, tbcc_encode
   use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile
@@ -76,9 +78,146 @@ module jtty_mdec
   complex, allocatable, private :: sync_chirp_weights(:),sync_chirp_kernel(:)
   integer, private :: sync_chirp_samples=0,sync_chirp_first_bin=-1
   integer, private :: sync_chirp_output_count=0
+  type, private :: sync_fft_cache
+     type(c_ptr) :: forward=c_null_ptr
+     type(c_ptr) :: backward=c_null_ptr
+     type(c_ptr) :: input_storage=c_null_ptr
+     type(c_ptr) :: spectrum_storage=c_null_ptr
+     type(c_ptr) :: inverse_storage=c_null_ptr
+     complex(c_float_complex), pointer, contiguous :: input(:)=>null()
+     complex(c_float_complex), pointer, contiguous :: spectrum(:)=>null()
+     complex(c_float_complex), pointer, contiguous :: inverse(:)=>null()
+  end type sync_fft_cache
+  integer, parameter, private :: MIN_SYNC_FFT_ORDER=11,MAX_SYNC_FFT_ORDER=13
+  type(sync_fft_cache), private :: sync_fft_caches(MIN_SYNC_FFT_ORDER:MAX_SYNC_FFT_ORDER)
   type(jtty_tbcc_code_profile) :: subtracted_code_profile(MAX_SUBTRACTED)
 
 contains
+
+  subroutine release_sync_fft_cache(cache)
+      use fftw3, only: fftwf_destroy_plan,fftwf_free
+      type(sync_fft_cache), intent(inout) :: cache
+
+      !$omp critical(fftw)
+      if(c_associated(cache%forward)) call fftwf_destroy_plan(cache%forward)
+      if(c_associated(cache%backward)) call fftwf_destroy_plan(cache%backward)
+      !$omp end critical(fftw)
+      cache%forward=c_null_ptr
+      cache%backward=c_null_ptr
+      nullify(cache%input,cache%spectrum,cache%inverse)
+      if(c_associated(cache%input_storage)) call fftwf_free(cache%input_storage)
+      if(c_associated(cache%spectrum_storage)) call fftwf_free(cache%spectrum_storage)
+      if(c_associated(cache%inverse_storage)) call fftwf_free(cache%inverse_storage)
+      cache%input_storage=c_null_ptr
+      cache%spectrum_storage=c_null_ptr
+      cache%inverse_storage=c_null_ptr
+  end subroutine release_sync_fft_cache
+
+  logical function allocate_sync_fft_buffer(nfft,storage,buffer)
+      use fftw3, only: fftwf_alloc_complex
+      integer, intent(in) :: nfft
+      type(c_ptr), intent(out) :: storage
+      complex(c_float_complex), pointer, contiguous, intent(out) :: buffer(:)
+      complex(c_float_complex), pointer, contiguous :: one_based_buffer(:)
+
+      storage=fftwf_alloc_complex(int(nfft,c_size_t))
+      allocate_sync_fft_buffer=c_associated(storage)
+      if(.not.allocate_sync_fft_buffer) return
+      call c_f_pointer(storage,one_based_buffer,[nfft])
+      buffer(0:nfft-1)=>one_based_buffer
+  end function allocate_sync_fft_buffer
+
+  logical function ensure_sync_fft_cache(nfft,needs_backward,fft_order)
+      use fftw3, only: fftwf_plan_dft_1d,FFTW_FORWARD,FFTW_BACKWARD, &
+           FFTW_MEASURE,FFTW_PRESERVE_INPUT,fftwf_free
+      integer, intent(in) :: nfft
+      logical, intent(in) :: needs_backward
+      integer, intent(out) :: fft_order
+
+      ensure_sync_fft_cache=.false.
+      fft_order=0
+      if(nfft.le.0) return
+      fft_order=trailz(nfft)
+      if(fft_order.lt.MIN_SYNC_FFT_ORDER .or. &
+           fft_order.gt.MAX_SYNC_FFT_ORDER) then
+         fft_order=0
+         return
+      endif
+      if(2**fft_order.ne.nfft) then
+         fft_order=0
+         return
+      endif
+
+      if(.not.c_associated(sync_fft_caches(fft_order)%forward)) then
+         if(.not.allocate_sync_fft_buffer(nfft, &
+              sync_fft_caches(fft_order)%input_storage, &
+              sync_fft_caches(fft_order)%input)) then
+            fft_order=0
+            return
+         endif
+         if(.not.allocate_sync_fft_buffer(nfft, &
+              sync_fft_caches(fft_order)%spectrum_storage, &
+              sync_fft_caches(fft_order)%spectrum)) then
+            call release_sync_fft_cache(sync_fft_caches(fft_order))
+            fft_order=0
+            return
+         endif
+         !$omp critical(fftw)
+         sync_fft_caches(fft_order)%forward=fftwf_plan_dft_1d(nfft, &
+              sync_fft_caches(fft_order)%input, &
+              sync_fft_caches(fft_order)%spectrum,FFTW_FORWARD, &
+              ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
+         !$omp end critical(fftw)
+         if(.not.c_associated(sync_fft_caches(fft_order)%forward)) then
+            call release_sync_fft_cache(sync_fft_caches(fft_order))
+            fft_order=0
+            return
+         endif
+      endif
+
+      if(needs_backward .and. &
+           .not.c_associated(sync_fft_caches(fft_order)%backward)) then
+         if(.not.allocate_sync_fft_buffer(nfft, &
+              sync_fft_caches(fft_order)%inverse_storage, &
+              sync_fft_caches(fft_order)%inverse)) then
+            fft_order=0
+            return
+         endif
+         !$omp critical(fftw)
+         sync_fft_caches(fft_order)%backward=fftwf_plan_dft_1d(nfft, &
+              sync_fft_caches(fft_order)%spectrum, &
+              sync_fft_caches(fft_order)%inverse,FFTW_BACKWARD,FFTW_MEASURE)
+         !$omp end critical(fftw)
+         if(.not.c_associated(sync_fft_caches(fft_order)%backward)) then
+            nullify(sync_fft_caches(fft_order)%inverse)
+            call fftwf_free(sync_fft_caches(fft_order)%inverse_storage)
+            sync_fft_caches(fft_order)%inverse_storage=c_null_ptr
+            fft_order=0
+            return
+         endif
+      endif
+
+      ensure_sync_fft_cache=c_associated(sync_fft_caches(fft_order)%forward)
+      if(needs_backward) ensure_sync_fft_cache=ensure_sync_fft_cache .and. &
+           c_associated(sync_fft_caches(fft_order)%backward)
+      if(.not.ensure_sync_fft_cache) then
+         call release_sync_fft_cache(sync_fft_caches(fft_order))
+         fft_order=0
+      endif
+  end function ensure_sync_fft_cache
+
+  subroutine jtty_release_fft_resources() bind(C,name='jtty_release_fft_resources')
+      integer :: index
+
+      do index=MIN_SYNC_FFT_ORDER,MAX_SYNC_FFT_ORDER
+         call release_sync_fft_cache(sync_fft_caches(index))
+      enddo
+      if(allocated(sync_chirp_weights)) deallocate(sync_chirp_weights)
+      if(allocated(sync_chirp_kernel)) deallocate(sync_chirp_kernel)
+      sync_chirp_samples=0
+      sync_chirp_first_bin=-1
+      sync_chirp_output_count=0
+  end subroutine jtty_release_fft_resources
 
   subroutine reset_decode_search_state()
       nactive=0
@@ -428,7 +567,7 @@ contains
       real, intent(in)               :: f0,ftol,smin
       real                           :: snrdb, xdt
       real                           :: xdt1, f11, snr0
-      complex, allocatable,save      :: c(:)
+      complex, allocatable,save,target :: c(:)
       complex, allocatable,save      :: c0(:)
       complex, allocatable,save      :: c1(:)
       complex, allocatable,save      :: csync(:)    !Waveform for sync at 6000 s^-1 sample rate
@@ -591,25 +730,18 @@ contains
    contains
 
    subroutine build_s0()
-      use fftw3, only: c_ptr,c_null_ptr,c_associated,fftwf_plan_dft_1d, &
-           fftwf_execute_dft,fftwf_destroy_plan,FFTW_FORWARD,FFTW_BACKWARD, &
-           FFTW_ESTIMATE,FFTW_MEASURE,FFTW_PRESERVE_INPUT
+      use fftw3, only: fftwf_execute_dft
       real(8), parameter :: CHIRP_TWOPI=6.2831853071795864769d0
       real(8) :: phase
       real :: p0,p1,p2,p3,p4,chirp_scale
-      complex :: fft_input(0:nfft-1)
-      complex :: chirp_output(0:nfft/2-1),cz
-      type(c_ptr) :: fft_plan,chirp_forward,chirp_backward,kernel_plan
-      integer :: npatience,nthreads,chirp_nfft,output_count,convolution_length
+      integer :: chirp_nfft,output_count,convolution_length
+      integer :: sync_fft_order
       integer :: index,distance,first_output_bin
-      logical :: use_chirp
-      common/patience/npatience,nthreads
+      complex :: cz
+      complex, pointer :: fft_output(:)
+      logical :: use_chirp,full_fft_available
       ! Rebuild s0, the FFT-correlation sync-search surface, from the
       ! current c0 (may already reflect earlier-phase subtractions).
-      fft_plan=c_null_ptr
-      chirp_forward=c_null_ptr
-      chirp_backward=c_null_ptr
-      kernel_plan=c_null_ptr
       first_output_bin=first_sync_bin-2
       output_count=last_sync_bin-first_sync_bin+5
       convolution_length=NSYNC_SYM*nss+output_count-1
@@ -617,9 +749,11 @@ contains
       do while(chirp_nfft.lt.convolution_length)
          chirp_nfft=2*chirp_nfft
       enddo
-      use_chirp=output_count.gt.0 .and. npatience.eq.0 .and. &
+      use_chirp=output_count.gt.0 .and. &
            chirp_nfft.lt.nfft .and. chirp_nfft.le.nfft/2
 
+      if(use_chirp) &
+           use_chirp=ensure_sync_fft_cache(chirp_nfft,.true.,sync_fft_order)
       if(use_chirp .and. (sync_chirp_samples.ne.NSYNC_SYM*nss .or. &
            sync_chirp_first_bin.ne.first_output_bin .or. &
            sync_chirp_output_count.ne.output_count)) then
@@ -633,77 +767,68 @@ contains
             sync_chirp_weights(index)=conjg(csync(index))* &
                  cmplx(cos(phase),sin(phase))
          enddo
-         fft_input(0:chirp_nfft-1)=0.
+         sync_fft_caches(sync_fft_order)%input=0.
          do distance=0,max(NSYNC_SYM*nss,output_count)-1
             phase=0.5d0*CHIRP_TWOPI*dble(distance)*dble(distance)/dble(nfft)
             if(distance.lt.output_count) &
-                 fft_input(distance)=cmplx(cos(phase),sin(phase))
+                 sync_fft_caches(sync_fft_order)%input(distance)= &
+                 cmplx(cos(phase),sin(phase))
             if(distance.gt.0 .and. distance.lt.NSYNC_SYM*nss) &
-                 fft_input(chirp_nfft-distance)=cmplx(cos(phase),sin(phase))
+                 sync_fft_caches(sync_fft_order)%input(chirp_nfft-distance)= &
+                 cmplx(cos(phase),sin(phase))
          enddo
-         !$omp critical(fftw)
-         kernel_plan=fftwf_plan_dft_1d(chirp_nfft,fft_input,c, &
-              FFTW_FORWARD,FFTW_ESTIMATE)
-         !$omp end critical(fftw)
-         if(c_associated(kernel_plan)) then
-            call fftwf_execute_dft(kernel_plan,fft_input,c)
-            sync_chirp_kernel=c(0:chirp_nfft-1)
-            !$omp critical(fftw)
-            call fftwf_destroy_plan(kernel_plan)
-            !$omp end critical(fftw)
-            sync_chirp_samples=NSYNC_SYM*nss
-            sync_chirp_first_bin=first_output_bin
-            sync_chirp_output_count=output_count
-         else
-            use_chirp=.false.
-         endif
+         call fftwf_execute_dft(sync_fft_caches(sync_fft_order)%forward, &
+              sync_fft_caches(sync_fft_order)%input, &
+              sync_fft_caches(sync_fft_order)%spectrum)
+         sync_chirp_kernel=sync_fft_caches(sync_fft_order)%spectrum
+         sync_chirp_samples=NSYNC_SYM*nss
+         sync_chirp_first_bin=first_output_bin
+         sync_chirp_output_count=output_count
       endif
 
+      ! Wider searches retain the full FFT path.
+      full_fft_available=.false.
+      if(.not.use_chirp) &
+           full_fft_available=ensure_sync_fft_cache(nfft,.false.,sync_fft_order)
       if(use_chirp) then
-         !$omp critical(fftw)
-         chirp_forward=fftwf_plan_dft_1d(chirp_nfft,fft_input,c, &
-              FFTW_FORWARD,ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
-         chirp_backward=fftwf_plan_dft_1d(chirp_nfft,c,chirp_output, &
-              FFTW_BACKWARD,FFTW_MEASURE)
-         !$omp end critical(fftw)
-         use_chirp=c_associated(chirp_forward) .and. &
-              c_associated(chirp_backward)
-      endif
-
-      ! Explicit planner settings and wider searches retain the full FFT path.
-      if(npatience.eq.0 .and. .not.use_chirp) then
-         !$omp critical(fftw)
-         fft_plan=fftwf_plan_dft_1d(nfft,fft_input,c,FFTW_FORWARD, &
-              ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
-         !$omp end critical(fftw)
-      endif
-      if(use_chirp) then
-         fft_input(NSYNC_SYM*nss:chirp_nfft-1)=0.
+         sync_fft_caches(sync_fft_order)%input(NSYNC_SYM*nss:)=0.
          chirp_scale=1.0/real(chirp_nfft)
-      else
+      else if(full_fft_available) then
          ! Preserving the input keeps this padding intact for every time column.
-         fft_input(NSYNC_SYM*nss:)=0.
+         sync_fft_caches(sync_fft_order)%input(NSYNC_SYM*nss:)=0.
+      endif
+      if(full_fft_available) then
+         fft_output=>sync_fft_caches(sync_fft_order)%spectrum
+      else
+         fft_output=>c
       endif
       istep=0
       do i0=0,ntstep,12                     !Search over quarter-frame segment
          xdt=i0*dt
          if(use_chirp) then
-            fft_input(0:NSYNC_SYM*nss-1)=sync_chirp_weights* &
+            sync_fft_caches(sync_fft_order)%input(0:NSYNC_SYM*nss-1)= &
+                 sync_chirp_weights* &
                  c0(i0:i0+NSYNC_SYM*nss-1)
-            call fftwf_execute_dft(chirp_forward,fft_input,c)
-            c(0:chirp_nfft-1)=c(0:chirp_nfft-1)*sync_chirp_kernel
-            call fftwf_execute_dft(chirp_backward,c,chirp_output)
+            call fftwf_execute_dft(sync_fft_caches(sync_fft_order)%forward, &
+                 sync_fft_caches(sync_fft_order)%input, &
+                 sync_fft_caches(sync_fft_order)%spectrum)
+            sync_fft_caches(sync_fft_order)%spectrum= &
+                 sync_fft_caches(sync_fft_order)%spectrum*sync_chirp_kernel
+            call fftwf_execute_dft(sync_fft_caches(sync_fft_order)%backward, &
+                 sync_fft_caches(sync_fft_order)%spectrum, &
+                 sync_fft_caches(sync_fft_order)%inverse)
             ! Bluestein's omitted output chirp has unit magnitude.
-            cz=chirp_output(0)*chirp_scale
+            cz=sync_fft_caches(sync_fft_order)%inverse(0)*chirp_scale
             p0=real(cz)**2+aimag(cz)**2
-            cz=chirp_output(1)*chirp_scale
+            cz=sync_fft_caches(sync_fft_order)%inverse(1)*chirp_scale
             p1=real(cz)**2+aimag(cz)**2
-            cz=chirp_output(2)*chirp_scale
+            cz=sync_fft_caches(sync_fft_order)%inverse(2)*chirp_scale
             p2=real(cz)**2+aimag(cz)**2
-            cz=chirp_output(3)*chirp_scale
+            cz=sync_fft_caches(sync_fft_order)%inverse(3)*chirp_scale
             p3=real(cz)**2+aimag(cz)**2
             do j=first_sync_bin,last_sync_bin
-               cz=chirp_output(j-first_sync_bin+4)*chirp_scale
+               cz=sync_fft_caches(sync_fft_order)%inverse( &
+                    j-first_sync_bin+4)*chirp_scale
                p4=real(cz)**2+aimag(cz)**2
                s0(j,istep)=p0+2*p1+3*p2+2*p3+p4
                p0=p1
@@ -712,21 +837,29 @@ contains
                p3=p4
             enddo
          else
-            fft_input(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))* &
-                 c0(i0:i0+NSYNC_SYM*nss-1)
-            if(c_associated(fft_plan)) then
-               call fftwf_execute_dft(fft_plan,fft_input,c)
+            if(full_fft_available) then
+               sync_fft_caches(sync_fft_order)%input(0:NSYNC_SYM*nss-1)= &
+                    conjg(csync(0:NSYNC_SYM*nss-1))*c0(i0:i0+NSYNC_SYM*nss-1)
+               call fftwf_execute_dft(sync_fft_caches(sync_fft_order)%forward, &
+                    sync_fft_caches(sync_fft_order)%input, &
+                    sync_fft_caches(sync_fft_order)%spectrum)
             else
-               c=fft_input
+               c=0.
+               c(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))* &
+                    c0(i0:i0+NSYNC_SYM*nss-1)
                call four2a(c,nfft,1,-1,1)
             endif
             ! Keep the two-bin halo while advancing the five-bin smoothing kernel.
-            p0=real(c(first_sync_bin-2))**2 + aimag(c(first_sync_bin-2))**2
-            p1=real(c(first_sync_bin-1))**2 + aimag(c(first_sync_bin-1))**2
-            p2=real(c(first_sync_bin))**2 + aimag(c(first_sync_bin))**2
-            p3=real(c(first_sync_bin+1))**2 + aimag(c(first_sync_bin+1))**2
+            p0=real(fft_output(first_sync_bin-2))**2+ &
+                 aimag(fft_output(first_sync_bin-2))**2
+            p1=real(fft_output(first_sync_bin-1))**2+ &
+                 aimag(fft_output(first_sync_bin-1))**2
+            p2=real(fft_output(first_sync_bin))**2+ &
+                 aimag(fft_output(first_sync_bin))**2
+            p3=real(fft_output(first_sync_bin+1))**2+ &
+                 aimag(fft_output(first_sync_bin+1))**2
             do j=first_sync_bin,last_sync_bin
-               p4=real(c(j+2))**2 + aimag(c(j+2))**2
+               p4=real(fft_output(j+2))**2+aimag(fft_output(j+2))**2
                s0(j,istep)=p0+2*p1+3*p2+2*p3+p4
                p0=p1
                p1=p2
@@ -736,21 +869,6 @@ contains
          endif
          istep=istep+1
       enddo
-      if(c_associated(chirp_forward)) then
-         !$omp critical(fftw)
-         call fftwf_destroy_plan(chirp_forward)
-         !$omp end critical(fftw)
-      endif
-      if(c_associated(chirp_backward)) then
-         !$omp critical(fftw)
-         call fftwf_destroy_plan(chirp_backward)
-         !$omp end critical(fftw)
-      endif
-      if(c_associated(fft_plan)) then
-         !$omp critical(fftw)
-         call fftwf_destroy_plan(fft_plan)
-         !$omp end critical(fftw)
-      endif
       nstep_search=istep-1
       s0_valid=.true.
    end subroutine build_s0
