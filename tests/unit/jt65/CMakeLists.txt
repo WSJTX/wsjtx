@@ -16,6 +16,8 @@ add_test (NAME test_jt65_source_encoding COMMAND test_jt65_source_encoding)
 add_executable (test_jt65_decode_pipeline
   jt65_test_fixture.f90
   test_jt65_decode_pipeline.f90)
+set_source_files_properties (test_jt65_decode_pipeline.f90 PROPERTIES
+  COMPILE_FLAGS "-Wno-unused-dummy-argument")
 wsjt_link_common_fortran (test_jt65_decode_pipeline)
 target_link_libraries (test_jt65_decode_pipeline PRIVATE jt65_test_vectors)
 

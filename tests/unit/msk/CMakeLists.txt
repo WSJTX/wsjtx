@@ -3,6 +3,8 @@ wsjt_link_common_fortran (test_msk_spectrum_edges)
 add_test (NAME test_msk_spectrum_edges COMMAND test_msk_spectrum_edges)
 
 add_executable (test_hspec_committed_boundary test_hspec_committed_boundary.f90)
+set_source_files_properties (test_hspec_committed_boundary.f90 PROPERTIES
+  COMPILE_FLAGS "-Wno-unused-dummy-argument")
 wsjt_link_common_fortran (test_hspec_committed_boundary)
 add_test (NAME test_hspec_committed_boundary COMMAND test_hspec_committed_boundary)
 set_tests_properties (test_hspec_committed_boundary PROPERTIES
