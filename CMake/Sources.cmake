@@ -162,6 +162,7 @@ set (wsjtx_CXXSRCS
   Audio/soundin.cpp
   widgets/meterwidget.cpp
   widgets/signalmeter.cpp
+  widgets/TxDriveSlider.cpp
   widgets/plotter.cpp
   widgets/widegraph.cpp
   widgets/echograph.cpp

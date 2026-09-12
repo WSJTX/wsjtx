@@ -2215,6 +2215,7 @@ void MainWindow::applyApplicationStyle (QFont const& font, bool dark)
     }
 #endif
   if (qApp->font () != font) qApp->setFont (font);
+  ui->outAttenuation->setProperty ("wsjtxDarkStyle", dark);
   if (qApp->styleSheet () != styleSheet) qApp->setStyleSheet (styleSheet);
   m_useDarkStyle = dark;
   m_wideGraph->setDarkStyle (dark);
@@ -10271,7 +10272,7 @@ void MainWindow::updateMainWindowAccessibility()
   ui->bandComboBox->setAccessibleName (tr ("Operating band"));
   if (ui->bandComboBox->lineEdit ()) ui->bandComboBox->lineEdit ()->setAccessibleName (tr ("Operating band text"));
   ui->outAttenuation->setAccessibleName (tr ("Transmit power attenuation"));
-  ui->outAttenuation->setAccessibleDescription (tr ("Adjust Tx audio level attenuation."));
+  ui->outAttenuation->setAccessibleDescription (tr ("Adjust transmit drive attenuation."));
   ui->cbMenus->setAccessibleName (tr ("Menus"));
   ui->cbMenus->setAccessibleDescription (tr ("Show or hide the menu bar."));
   ui->readFreq->setAccessibleName (tr ("Rig control status"));
@@ -12394,7 +12395,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
         ui->outAttenuation->setMinimumWidth (2.8*pointSize + 16);
       }
     } else {
-      ui->label->setText("Pwr");
+      ui->label->setText(tr ("Pwr"));
     }
     if (m_rigState.swr() != s.swr()) {
       static bool s_alreadyShowingSWRAlert = false;
@@ -12834,13 +12835,13 @@ void MainWindow::transmit (double snr)
 void MainWindow::on_outAttenuation_valueChanged (int a)
 {
   QString tt_str;
-  qreal dBAttn {a / 10.};       // slider interpreted as dB / 100
+  qreal dBAttn {a / 10.};
   if (m_tune && m_config.pwrBandTuneMemory()) {
-    tt_str = tr ("Tune digital gain ");
+    tt_str = tr ("Tune drive ");
   } else {
-    tt_str = tr ("Transmit digital gain ");
+    tt_str = tr ("Transmit drive ");
   }
-  tt_str += (a ? QString::number (-dBAttn, 'f', 1) : "0") + "dB";
+  tt_str += (a ? QString::number (-dBAttn, 'f', 1) : "0.0") + " dB";
   if (ui->outAttenuation->hasFocus() && !m_block_pwr_tooltip) {
     QToolTip::showText (QCursor::pos (), tt_str, ui->outAttenuation);
   }

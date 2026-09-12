@@ -1236,9 +1236,9 @@
           </widget>
          </item>
          <item row="1" column="7" rowspan="2">
-          <widget class="QSlider" name="outAttenuation">
+          <widget class="TxDriveSlider" name="outAttenuation">
            <property name="toolTip">
-            <string>Adjust Tx audio level</string>
+            <string>Adjust transmit drive level</string>
            </property>
            <property name="maximum">
             <number>450</number>
@@ -1254,12 +1254,6 @@
            </property>
            <property name="invertedControls">
             <bool>true</bool>
-           </property>
-           <property name="tickPosition">
-            <enum>QSlider::TicksBelow</enum>
-           </property>
-           <property name="tickInterval">
-            <number>50</number>
            </property>
           </widget>
          </item>
@@ -6540,6 +6534,11 @@ QPushButton[state=&quot;ok&quot;] {
    <extends>QFrame</extends>
    <header>widgets/signalmeter.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>TxDriveSlider</class>
+   <extends>QSlider</extends>
+   <header>widgets/TxDriveSlider.hpp</header>
   </customwidget>
   <customwidget>
    <class>HintedSpinBox</class>
