@@ -31,7 +31,7 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   nhsym1=280
   nhsym2=302
 
-  dbg_enabled = .true.   ! TEMP diagnostic 2026-09-09 for the two-close-Q65-signals investigation; flip back to .false. when done
+  dbg_enabled = .false.   ! TEMP diagnostic 2026-09-09 for the two-close-Q65-signals investigation; flip back to .false. when done
 
   if (sample_rate_96000 /=0) then
      sample_rate = 96000

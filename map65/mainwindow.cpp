@@ -129,8 +129,14 @@ MainWindow::DecoderContext::~DecoderContext()
 // h*3600+m*60+s+ms/1000 format, so the two logs can still be correlated by
 // eye without either one corrupting the other. Strip both files' worth of
 // logging before merge.
+// 2026-09-13: mirrors run_m65.f90's dbg_enabled flag -- flip to true to
+// re-enable this log without touching any of the cppDbg(...) call sites
+// scattered through this file.
+static bool const cppDbgEnabled = false;
+
 static void cppDbg(const QString &msg)
 {
+    if (!cppDbgEnabled) return;
     double const t = [] {
         QTime const now = QTime::currentTime();
         return now.hour() * 3600.0 + now.minute() * 60.0 + now.second() + now.msec() / 1000.0;
