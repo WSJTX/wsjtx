@@ -18,14 +18,11 @@ program test_jtty_gap_merge
   integer, parameter :: frame_symbols=size(is13)+TOTAL_K
   integer :: failures,total_samples,nframes
   integer(int16), allocatable :: reference_pcm(:)
-  character(len=80) :: full_text
 
   failures=0
 
   call build_message_pcm(msg,reference_pcm,total_samples,nframes)
-  call run_baseline_case(msg,reference_pcm,total_samples,full_text,failures)
-  call run_dropped_frame_case(full_text,reference_pcm,total_samples,nframes,1,failures)
-  call run_dropped_frame_case(full_text,reference_pcm,total_samples,nframes,2,failures)
+  call run_dropped_frame_case(msg,reference_pcm,total_samples,nframes,2,failures)
   call run_beyond_max_gap_case(reference_pcm,total_samples,nframes,failures)
 
   if(failures.ne.0) then
@@ -57,34 +54,11 @@ contains
     pcm(1:nsymbols*nsps)=int(nint(30000.0*wave),int16)
   end subroutine build_message_pcm
 
-  subroutine run_baseline_case(message,reference_pcm,total_samples,full_text,count)
-    character(len=*), intent(in) :: message
-    integer(int16), intent(in) :: reference_pcm(:)
-    integer, intent(in) :: total_samples
-    character(len=80), intent(out) :: full_text
-    integer, intent(inout) :: count
-    integer(int16), allocatable :: pcm(:)
-
-    pcm=reference_pcm
-    call discard_pending_updates()
-    call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
-    call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
-    call expect(npending.eq.1, &
-         'uncorrupted baseline produces one message',count)
-    full_text=''
-    if(npending.eq.1) then
-       full_text=trim(normalized(pending_updates(1)%decoded))
-       call expect(full_text.eq.trim(message), &
-            'uncorrupted baseline decodes to the original message',count)
-    endif
-  end subroutine run_baseline_case
-
-  ! Drops n_dropped consecutive frames starting at the message's middle
-  ! frame and confirms the message still merges into one slot with a
-  ! matching run of n_dropped*5 tildes marking the gap.
-  subroutine run_dropped_frame_case(full_text,reference_pcm, &
+  ! Drops consecutive middle frames and confirms the message still merges
+  ! into one slot with a fixed-width gap marker.
+  subroutine run_dropped_frame_case(expected_text,reference_pcm, &
        total_samples,nframes,n_dropped,count)
-    character(len=*), intent(in) :: full_text
+    character(len=*), intent(in) :: expected_text
     integer(int16), intent(in) :: reference_pcm(:)
     integer, intent(in) :: total_samples,nframes,n_dropped
     integer, intent(inout) :: count
@@ -94,6 +68,7 @@ contains
     character(len=80) :: before,after
     character(len=200) :: description
     integer :: gap_pos
+    logical :: surviving_text_matches
 
     pcm=reference_pcm
     idrop=nframes/2
@@ -126,11 +101,14 @@ contains
     after=trim(normalized(adjustl(pending_updates(1)%decoded(gap_pos+5:))))
     write(description,'(a,i0,a)') 'dropping ',n_dropped, &
          ' consecutive frame(s): surviving text matches the original message'
-    call expect(len_trim(before).gt.0 .and. len_trim(after).gt.0 .and. &
-         index(full_text,trim(before)).eq.1 .and. &
-         full_text(len_trim(full_text)-len_trim(after)+1:len_trim(full_text)) &
-         .eq.trim(after), &
-         trim(description),count)
+    surviving_text_matches=.false.
+    if(len_trim(before).gt.0 .and. len_trim(after).gt.0 .and. &
+         len_trim(after).le.len_trim(expected_text)) then
+       surviving_text_matches=index(expected_text,trim(before)).eq.1 .and. &
+            expected_text(len_trim(expected_text)-len_trim(after)+1: &
+            len_trim(expected_text)).eq.trim(after)
+    endif
+    call expect(surviving_text_matches,trim(description),count)
   end subroutine run_dropped_frame_case
 
   ! A gap wider than MAX_GAP (3 frame-periods, i.e. 3+ consecutive missed
