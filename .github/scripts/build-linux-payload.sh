@@ -143,7 +143,7 @@ file "$DEB"
 # head's early close — same defensive pattern as the composite action
 # (Learning #205, S137).
 dpkg-deb --info "$DEB" | sed -n '1,20p'
-DEB_FILES=$(dpkg-deb -c "$DEB")
+DEB_FILES=$(dpkg-deb --fsys-tarfile "$DEB" | tar -tf -)
 require_deb_path() {
   local path="$1"
   case $'\n'"$DEB_FILES"$'\n' in

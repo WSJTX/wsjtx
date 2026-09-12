@@ -280,7 +280,7 @@ runs:
         # head's early close — interacts badly with `bash -o pipefail` under
         # Bookworm's dpkg-deb (observed exit 141 on first container run).
         dpkg-deb --info "$DEB" | sed -n '1,20p'
-        FILES=$(dpkg-deb -c "$DEB")
+        FILES=$(dpkg-deb --fsys-tarfile "$DEB" | tar -tf -)
         require_package_path() {
           local path="$1"
           case $'\n'"$FILES"$'\n' in
