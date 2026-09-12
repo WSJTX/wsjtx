@@ -4039,22 +4039,6 @@ void MainWindow::statusChanged()
 
 bool MainWindow::eventFilter (QObject * object, QEvent * event)
 {
-  // A disabled widget's mouse-press event is swallowed by Qt at the widget
-  // itself and never reaches any ancestor's mousePressEvent() override, so
-  // this right-click toggle must live here rather than in mousePressEvent().
-  if (object == ui->txFirstCheckBox && event->type () == QEvent::MouseButtonPress
-      && (static_cast<QMouseEvent *> (event)->button () & Qt::RightButton))
-    {
-      if (m_tx_first_mode_enabled)
-        {
-          // Disabling a focused widget advances focus to the next widget.
-          ui->txFirstCheckBox->clearFocus ();
-          m_tx_first_user_enabled = !m_tx_first_user_enabled;
-          updateTxFirstEnabledState ();
-        }
-      return true;
-    }
-
   if (!m_event_filter_ready)
     {
       return QObject::eventFilter (object, event);
@@ -4145,6 +4129,18 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
       hideMainWindowFocusIndicators ();
       // reset the Tx watchdog
       tx_watchdog (false);
+      if (object == ui->txFirstCheckBox
+          && static_cast<QMouseEvent *> (event)->button () == Qt::RightButton)
+        {
+          if (m_tx_first_mode_enabled)
+            {
+              // Disabling a focused widget advances focus to the next widget.
+              ui->txFirstCheckBox->clearFocus ();
+              m_tx_first_user_enabled = !m_tx_first_user_enabled;
+              updateTxFirstEnabledState ();
+            }
+          return true;
+        }
       break;
 
     case QEvent::ChildAdded:
