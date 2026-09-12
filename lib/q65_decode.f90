@@ -322,7 +322,11 @@ contains
        do i=1,ndecodes
           if(decodes(i).eq.decoded) idupe=1
        enddo
-       if(idupe.eq.0) then
+       ! 2026-09-12: unpk77_success was captured but never checked -- a
+       ! failed unpack (unpack77/unpack28_core substituting the "QU1RK"
+       ! placeholder callsign, see packjt77.f90) was displayed as a real
+       ! decode. Gate acceptance on it, same as the idupe check.
+       if(idupe.eq.0 .and. unpk77_success) then
           ndecodes=min(ndecodes+1,100)
           decodes(ndecodes)=decoded
           f0decodes(ndecodes)=f0dec
@@ -435,7 +439,9 @@ contains
           do i=1,ndecodes
              if(decodes(i).eq.decoded) idupe=1
           enddo
-          if(idupe.eq.0) then
+          ! 2026-09-12: same fix as the other unpack77 call site above --
+          ! gate acceptance on unpk77_success, not just idupe.
+          if(idupe.eq.0 .and. unpk77_success) then
              ndecodes=min(ndecodes+1,100)
              decodes(ndecodes)=decoded
              f0decodes(ndecodes)=f0dec
