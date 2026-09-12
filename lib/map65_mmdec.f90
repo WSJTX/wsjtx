@@ -54,7 +54,8 @@ subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
   call timer('dec_q65 ',0)
   call my_q65%decode(q65_decoded,id2,nqd,nutc,ntrperiod,nsubmode,nfqso,       &
        ntol,ndepth,nfa,nfb,lclearave,single_decode,lagain,max_drift,lnewdat,  &
-       emedelay,mycall,hiscall,hisgrid,nQSOProgress,ncontest,lapcqonly,navg0,nqf)
+       emedelay,mycall,hiscall,hisgrid,nQSOProgress,ncontest,.false.,      &
+       lapcqonly,navg0,nqf)
   call timer('dec_q65 ',1)
 
   return

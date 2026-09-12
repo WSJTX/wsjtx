@@ -160,6 +160,8 @@ extern "C" {
 
 namespace {
   int const ReferenceSpectrumMeasureSeconds = 7;
+  // Bit 7 is unused by the legacy nexp_decode contest packing.
+  int constexpr q65PileupDecodeFlag = 1 << 7;
 
   QString decodeHeadingText(QString const& headings)
   {
@@ -4806,6 +4808,9 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(dec_data.params.nexp_decode==5) dec_data.params.nexp_decode=1;  //NA VHF, WW Digi, ARRL Digi contests
   if(dec_data.params.nexp_decode==8) dec_data.params.nexp_decode=1;  //and Q65 Pileup all use 4-character
   if(dec_data.params.nexp_decode==9) dec_data.params.nexp_decode=1;  //grid exchange
+  if(m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
+    dec_data.params.nexp_decode |= q65PileupDecodeFlag;
+  }
   if(m_config.single_decode()) dec_data.params.nexp_decode += 32;
   if(m_config.enable_VHF_features()) dec_data.params.nexp_decode += 64;
   if(m_mode.startsWith("FST4")) dec_data.params.nexp_decode += 256*(ui->sbNB->value()+3);

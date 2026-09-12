@@ -37,7 +37,7 @@ contains
   subroutine decode(this,callback,iwave,nqd0,nutc,ntrperiod,nsubmode,nfqso,  &
        ntol,ndepth,nfa0,nfb0,lclearave,single_decode,lagain,max_drift0,      &
        lnewdat0,emedelay,mycall,hiscall,hisgrid,nQSOprogress,ncontest,       &
-       lapcqonly,navg0,nqf)
+       lq65pileup,lapcqonly,navg0,nqf)
 
 ! Top-level routine that organizes the decoding of Q65 signals
 ! Input:  iwave            Raw data, i*2
@@ -51,6 +51,7 @@ contains
 !         emedelay         Sync search extended to cover EME delays
 !         nQSOprogress     Auto-sequencing state for the present QSO
 !         ncontest         Supported contest type
+!         lq65pileup       Q65 Pileup AP flag policy
 !         lapcqonly        Flag to use AP only for CQ calls
 ! Output: sent to the callback routine for display to user
 
@@ -86,7 +87,7 @@ contains
     integer stageno                       !Added by W3SZ
     integer time
     integer iflagdec                      !Recovered spare 78th bit
-    logical lclearave,lnewdat0,lapcqonly,unpk77_success
+    logical lclearave,lnewdat0,lq65pileup,lapcqonly,unpk77_success
     logical single_decode,lagain
     complex c00(0:3600000)                !Analytic signal, 6000 Sa/s
     type(q3list) callers(MAX_CALLERS)
@@ -238,7 +239,7 @@ contains
        apsymbols=0
        if(ipass.ge.1) then
           ! Subsequent passes use AP information appropiate for nQSOprogress
-          call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+          call q65_ap(nQSOprogress,ipass,ncontest,lq65pileup,lapcqonly,iaptype, &
                apsym0,apmask1,apsymbols1)
           write(c78,1050) apmask1
 1050      format(78i1)
@@ -409,7 +410,7 @@ contains
           apsymbols=0
           if(ipass.ge.1) then
           ! Subsequent passes use AP information appropiate for nQSOprogress
-             call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+             call q65_ap(nQSOprogress,ipass,ncontest,lq65pileup,lapcqonly,iaptype, &
                   apsym0,apmask1,apsymbols1)
              write(c78,1050) apmask1
              read(c78,1060) apmask

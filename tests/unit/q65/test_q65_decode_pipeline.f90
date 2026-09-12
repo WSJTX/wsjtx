@@ -43,6 +43,7 @@ program test_q65_decode_pipeline
   use prog_args, only: data_dir,temp_dir
   use q65_decode, only: q65_decoder,cq0,msg0,nsnr0,nfreq0,xdt0
   use q65_test_fixture, only: make_q65_wave,q65_nsamples,q65_ntrperiod
+  use types, only: q3list
   implicit none
 
   integer(int16), allocatable :: iwave(:)
@@ -64,6 +65,7 @@ program test_q65_decode_pipeline
   lagain=.false.
   lnewdat=.false.
   lapcqonly=.false.
+  call check_q65_ap_flag_masks()
   allocate(iwave(q65_nsamples))
 
   do nsubmode=0,4
@@ -86,6 +88,35 @@ program test_q65_decode_pipeline
 
 contains
 
+  subroutine check_q65_ap_flag_masks()
+    integer :: apsym0(58),apmask(78),apsymbols(78),iaptype
+    integer :: codewords(63,411),ncw,j
+    character(len=12) :: list_mycall,list_hiscall
+    character(len=6) :: list_hisgrid
+    type(q3list) :: callers(50)
+
+    apsym0=0
+    call q65_ap(5,1,0,.false.,.false.,iaptype,apsym0,apmask,apsymbols)
+    if(iaptype.ne.3 .or. apmask(78).ne.1 .or. apsymbols(78).ne.0) then
+       error stop 'ordinary Q65 AP decoding changed bit 78 policy'
+    endif
+
+    call q65_ap(5,1,1,.true.,.false.,iaptype,apsym0,apmask,apsymbols)
+    if(iaptype.ne.3 .or. apmask(78).ne.0) then
+       error stop 'Q65 Pileup AP decoding fixed bit 78 for call/grid messages'
+    endif
+
+    list_mycall='K1ABC'
+    list_hiscall='W9XYZ'
+    list_hisgrid='FN42'
+    do j=1,40
+       write(callers(j)%call,'(a2,i4.4)') 'K1',j
+       callers(j)%grid='FN42'
+    enddo
+    call q65_set_list2(list_mycall,list_hiscall,list_hisgrid,callers,40,codewords,ncw)
+    if(ncw.ne.411) error stop 'Q65 Pileup full AP list truncated at 40 callers'
+  end subroutine check_q65_ap_flag_masks
+
   subroutine run_direct_decode(decoder,samples,nsubmode,want_callback,want_iflagdec)
     type(q65_decoder), intent(inout) :: decoder
     integer(int16), intent(in) :: samples(:)
@@ -107,7 +138,7 @@ contains
     want_success=want_callback.ne.0
     call decoder%decode(capture_callback,samples,1,100,q65_ntrperiod,nsubmode, &
          1000,150,3,850,1150,lclearave,single_decode,lagain,0,lnewdat,2.5, &
-         mycall,hiscall,hisgrid,0,0,lapcqonly,navg0,nqf)
+         mycall,hiscall,hisgrid,0,0,.false.,lapcqonly,navg0,nqf)
     if(want_success) then
        if(callback_count.ne.1) error stop 'direct Q65 decode callback count changed'
        if(trim(callback_message).ne.'K1ABC W9XYZ FN42') then

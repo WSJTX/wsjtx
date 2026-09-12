@@ -367,7 +367,7 @@ subroutine q65_dec_q012(s3,LL,snr2,dat4,idec,decoded)
      apsymbols=0
      if(ipass.ge.1) then
         ! Subsequent passes use AP information appropiate for nQSOprogress
-        call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+        call q65_ap(nQSOprogress,ipass,ncontest,.false.,lapcqonly,iaptype, &
              apsym0,apmask1,apsymbols1)
         write(c78,1050) apmask1
 1050    format(78i1)
