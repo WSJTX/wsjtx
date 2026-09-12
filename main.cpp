@@ -49,7 +49,6 @@
 #include "Logger.hpp"
 #include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
-#include "HighDpiScaling.hpp"
 #include "MetaDataRegistry.hpp"
 #include "qt_helpers.hpp"
 #include "L10nLoader.hpp"
@@ -261,6 +260,15 @@ namespace
       }
     return LockFileAction::Stop;
   }
+
+  bool test_mode_requested (int argc, char * argv[])
+  {
+    for (int i = 1; i < argc; ++i)
+      {
+        if (QByteArray {argv[i]} == QByteArrayLiteral ("--test-mode")) return true;
+      }
+    return false;
+  }
 }
 
 int main(int argc, char *argv[])
@@ -276,10 +284,8 @@ int main(int argc, char *argv[])
   // Multiple instances communicate with jt9 via this
   QSharedMemory mem_jt9;
 
-  if (HighDpiScaling::wsjtxEnabled (argc, argv))
-    {
-      QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
-    }
+  if (test_mode_requested (argc, argv)) QStandardPaths::setTestModeEnabled (true);
+  QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
 
   auto const env = QProcessEnvironment::systemEnvironment ();
 

@@ -11,7 +11,6 @@
 #include <QDebug>
 #include <QStandardPaths>
 
-#include "HighDpiScaling.hpp"
 #include "revision_utils.hpp"
 #include "mainwindow.h"
 #include "runtime_paths.h"
@@ -35,10 +34,7 @@ int main(int argc, char *argv[])
       dataDir = QDir::home ().absoluteFilePath (".qmap");
     }
 
-  if (HighDpiScaling::qmapEnabled (QDir {dataDir}.absoluteFilePath ("qmap.ini")))
-    {
-      QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
-    }
+  QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
 
   QApplication a {argc, argv};
 

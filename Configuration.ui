@@ -3859,35 +3859,6 @@ Right click for insert and delete options.</string>
          </layout>
         </widget>
        </item>
-       <item row="1" column="0">
-        <widget class="QGroupBox" name="groupBox_8">
-         <property name="title">
-          <string>GUI tweaks for high-resolution monitors</string>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_26">
-          <item row="0" column="0">
-           <widget class="QCheckBox" name="cbHighDPI">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;HighDPI scaling enables a larger and more proportionally correct display of the controls on 4K monitors (if supported by the OS).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>HighDPI scaling (restart required)</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="cbLargerTabWidget">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increased height of some control elements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Increased height of the tab widget (restart required)</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
        <item row="2" column="0" colspan="2">
         <widget class="QGroupBox" name="gbSpecialOpActivity">
          <property name="title">
@@ -5366,8 +5337,6 @@ Right click for insert and delete options.</string>
   <tabstop>cbx4ToneSpacing</tabstop>
   <tabstop>rbLowSidelobes</tabstop>
   <tabstop>rbMaxSensitivity</tabstop>
-  <tabstop>cbHighDPI</tabstop>
-  <tabstop>cbLargerTabWidget</tabstop>
   <tabstop>cbSpecialOpActivity</tabstop>
   <tabstop>rbFox</tabstop>
   <tabstop>cbSuperFox</tabstop>

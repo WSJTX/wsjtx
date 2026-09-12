@@ -990,8 +990,6 @@ private:
   bool auto_astro_;
   bool single_decode_;
   bool twoPass_;
-  bool highDPI_;
-  bool largerTabWidget_;
   bool bSuperFox_;
   bool Individual_Contest_Name_;
   bool NCCC_Sprint_;
@@ -1166,8 +1164,6 @@ bool Configuration::repeat_Tx () const {return m_->repeat_Tx_;}
 bool Configuration::auto_astro () const {return m_->auto_astro_;}
 bool Configuration::single_decode () const {return m_->single_decode_;}
 bool Configuration::twoPass() const {return m_->twoPass_;}
-bool Configuration::highDPI() const {return m_->highDPI_;}
-bool Configuration::largerTabWidget() const {return m_->largerTabWidget_;}
 bool Configuration::superFox() const {return m_->bSuperFox_;}
 bool Configuration::Individual_Contest_Name() const {return m_->Individual_Contest_Name_;}
 bool Configuration::NCCC_Sprint() const {return m_->NCCC_Sprint_;}
@@ -2408,8 +2404,6 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->cbx4ToneSpacing,
     ui_->rbLowSidelobes,
     ui_->rbMaxSensitivity,
-    ui_->cbHighDPI,
-    ui_->cbLargerTabWidget,
     ui_->cbSpecialOpActivity,
     ui_->rbFox,
     ui_->cbSuperFox,
@@ -2949,8 +2943,6 @@ void Configuration::impl::initialize_models ()
   ui_->auto_astro_check_box->setChecked(auto_astro_);
   ui_->single_decode_check_box->setChecked(single_decode_);
   ui_->cbTwoPass->setChecked(twoPass_);
-  ui_->cbHighDPI->setChecked(highDPI_);
-  ui_->cbLargerTabWidget->setChecked(largerTabWidget_);
   ui_->cbSuperFox->setChecked(bSuperFox_);
   ui_->cbContestName->setChecked(Individual_Contest_Name_);
   ui_->cb_NCCC_Sprint->setChecked(NCCC_Sprint_);
@@ -3398,8 +3390,6 @@ void Configuration::impl::read_settings ()
   auto_astro_ = settings_->value("AutoAstroWindow",false).toBool ();
   single_decode_ = settings_->value("SingleDecode",false).toBool ();
   twoPass_ = settings_->value("TwoPass",true).toBool ();
-  highDPI_ = settings_->value("HighDPI",true).toBool ();
-  largerTabWidget_ = settings_->value("LargerTabWidget",false).toBool ();
   bSuperFox_ = settings_->value("SuperFox",true).toBool ();
   Individual_Contest_Name_ = settings_->value("Individual_Contest_Name",false).toBool ();
   NCCC_Sprint_ = settings_->value("NCCC_Sprint",false).toBool ();
@@ -3671,8 +3661,6 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("AutoAstroWindow", auto_astro_);
   settings_->setValue ("SingleDecode", single_decode_);
   settings_->setValue ("TwoPass", twoPass_);
-  settings_->setValue ("HighDPI", highDPI_);
-  settings_->setValue ("LargerTabWidget", largerTabWidget_);
   settings_->setValue ("SuperFox", bSuperFox_);
   settings_->setValue ("Individual_Contest_Name", Individual_Contest_Name_);
   settings_->setValue ("NCCC_Sprint", NCCC_Sprint_);
@@ -4271,8 +4259,6 @@ void Configuration::impl::accept ()
   auto_astro_ = ui_->auto_astro_check_box->isChecked ();
   single_decode_ = ui_->single_decode_check_box->isChecked ();
   twoPass_ = ui_->cbTwoPass->isChecked ();
-  highDPI_ = ui_->cbHighDPI->isChecked ();
-  largerTabWidget_ = ui_->cbLargerTabWidget->isChecked ();
   bSuperFox_ = ui_->cbSuperFox->isChecked ();
   Individual_Contest_Name_ = ui_->cbContestName->isChecked ();
   NCCC_Sprint_ = ui_->cb_NCCC_Sprint->isChecked ();

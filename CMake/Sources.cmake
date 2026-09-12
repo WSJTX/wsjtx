@@ -19,7 +19,6 @@ set (wsjt_qt_CXXSRCS
   Network/DecodedTime.cpp
   revision_utils.cpp
   L10nLoader.cpp
-  HighDpiScaling.cpp
   WFPalette.cpp
   Radio.cpp
   RadioMetaType.cpp
