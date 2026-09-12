@@ -4039,6 +4039,21 @@ void MainWindow::statusChanged()
 
 bool MainWindow::eventFilter (QObject * object, QEvent * event)
 {
+  // A disabled widget's mouse-press event is swallowed by Qt at the widget
+  // itself and never reaches any ancestor's mousePressEvent() override, so
+  // this right-click toggle must live here rather than in mousePressEvent().
+  if (object == ui->txFirstCheckBox && event->type () == QEvent::MouseButtonPress
+      && (static_cast<QMouseEvent *> (event)->button () & Qt::RightButton))
+    {
+      // Clear focus *before* disabling: disabling a still-focused widget
+      // makes Qt auto-advance focus to the next widget in tab order
+      // (TxFreqSpinBox here), which is a distracting side effect no one
+      // wants from a right-click meant only to toggle this checkbox.
+      ui->txFirstCheckBox->clearFocus ();
+      ui->txFirstCheckBox->setEnabled (!ui->txFirstCheckBox->isEnabled ());
+      return true;
+    }
+
   if (!m_event_filter_ready)
     {
       return QObject::eventFilter (object, event);
@@ -9702,15 +9717,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
      ui->decodedTextBrowser2->erase ();
      ui->EraseButton->clearFocus();
   }
-  if(ui->txFirstCheckBox->isVisible() && ui->txFirstCheckBox->hasFocus() && (event->button() & Qt::RightButton)) {
-      ui->txFirstCheckBox->setEnabled(false);  // freeze txFirstCheckBox
-      ui->txFirstCheckBox->clearFocus();
-  }
-  if(ui->msk144Button->hasFocus() && (event->button() & Qt::RightButton)) {
-      ui->txFirstCheckBox->setEnabled(true);  // unfreeze txFirstCheckBox
-      ui->ft8Button->clearFocus();
-      ui->msk144Button->clearFocus();
-  }
   if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {       // switch to Q65_Pileup mode
       m_config.setSpecial_Q65_Pileup();
       m_specOp=m_config.special_op_id();
@@ -9777,6 +9783,10 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->DecodeButton->clearFocus();
   }
   if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // Switch contest mode on/off
+      // set_mode() below re-enters the current mode's full setup, which
+      // unconditionally re-enables txFirstCheckBox as a side effect; this
+      // button has no business touching that checkbox at all.
+      bool const txFirstWasEnabled=ui->txFirstCheckBox->isEnabled();
       keep_frequency = true;
       not_erase = true;  // prevent erasing the decodedTextBrowser
       QTimer::singleShot (350, this, [=] {not_erase = false;});
@@ -9820,6 +9830,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       if (!isSuperHoundOperation ()) m_houndVerified = false;
       updateHoundVerificationStyle ();
       set_mode(m_mode);
+      ui->txFirstCheckBox->setEnabled(txFirstWasEnabled);
       configActiveStations();
       check_button_color();
       ui->ft8Button->clearFocus();
@@ -10416,6 +10427,11 @@ void MainWindow::registerMainWindowFocusControls()
     {
       widget->installEventFilter (this);
     }
+
+  // A disabled widget never gets its mouse-press event propagated to any
+  // ancestor's mousePressEvent() -- Qt swallows it at the widget itself, so
+  // this can only be caught by a filter installed directly on the checkbox.
+  ui->txFirstCheckBox->installEventFilter (this);
 
   for (auto *button : txNextButtons ())
     {

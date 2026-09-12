@@ -121,8 +121,7 @@ QString HelpText::specialMouseCommands()
   </tr>
   <tr>
     <td align="right">Tx Even/1st:</td>
-    <td><b>Right-click</b> to freeze the state of the checkbox.<br/>
-        <b>Right-click on the FT8 Button</b> to unfreeze.
+    <td><b>Right-click</b> to toggle the checkbox enabled/disabled.
     </td>
   </tr>
   <tr>
