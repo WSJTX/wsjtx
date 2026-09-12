@@ -843,6 +843,19 @@ if (WSJT_ENABLE_TESTS)
       samples/JT4/JT4F/OK1KIR_141105_175700.WAV
       test/fixtures/jt4_OK1KIR_141105_175700.expected.txt
       --jt4 -b F -f 1200 -d 3)
+    if (TARGET jt4sim)
+      set (jt4_read_extent_work_dir
+        "${CMAKE_BINARY_DIR}/Testing/JT4/test_jt4_12000_read_extent")
+      add_test (NAME test_jt4_12000_read_extent
+        COMMAND ${CMAKE_COMMAND}
+          -DJT9=$<TARGET_FILE:jt9>
+          -DJT4SIM=$<TARGET_FILE:jt4sim>
+          -DWORK_DIR=${jt4_read_extent_work_dir}
+          -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_jt4_12000_read_extent.cmake)
+      set_tests_properties (test_jt4_12000_read_extent PROPERTIES
+        LABELS "decoder;jt4;integration"
+        TIMEOUT 120)
+    endif ()
 
     # WSPR decodes via the standalone wsprd binary, not jt9. -a isolates its
     # writable side files (wspr_wisdom.dat, ALL_WSPR.TXT, wspr_spots.txt,

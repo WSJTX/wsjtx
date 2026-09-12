@@ -401,14 +401,17 @@ program jt9
         call timer('jt9     ',0)
      endif
      shared_data%id2=0          !??? Why is this necessary ???
-     if(mode.eq.4) npts=165*3456
+     if(mode.eq.4) npts=52*nfsample
      if(mode.eq.5) npts=21*3456
      if(mode.eq.66) npts=TRperiod*12000
-     do iblk=1,npts/kstep
-        k=iblk*kstep
+     nblocks=npts/kstep
+     if(mode.eq.4) nblocks=(npts+kstep-1)/kstep
+     do iblk=1,nblocks
+        k0=(iblk-1)*kstep
+        k=min(iblk*kstep,npts)
         if(mode.eq.8 .and. k.gt.179712) exit
         call timer('read_wav',0)
-        call wav%read_samples(shared_data%id2(k-kstep+1:k), samples_read, &
+        call wav%read_samples(shared_data%id2(k0+1:k), samples_read, &
              wav_status, optarg)
         call timer('read_wav',1)
         if (wav_status /= 0) then
@@ -436,7 +439,7 @@ program jt9
            if(nhsym.ge.181 .and. mode.ne.240 .and. mode.ne.241 .and. &
               mode.ne.242 .and. mode.ne.66) exit
         endif
-        if (samples_read < kstep) then
+        if (samples_read < k-k0) then
            print*,'EOF on input file ',trim(infile)
            exit
         end if
