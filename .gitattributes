@@ -1,4 +1,5 @@
 .gitattributes	export-ignore
+/release-state.txt	export-subst
 /samples	export-ignore
 /lib/fsk4hf	export-ignore
 /lib/fsk4hf	export-ignore

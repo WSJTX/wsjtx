@@ -1,5 +1,23 @@
 find_package (Qt5Test 5 REQUIRED)
 
+add_test (
+  NAME test_release_state
+  COMMAND ${CMAKE_COMMAND}
+    -D SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/release-state
+    -P ${CMAKE_SOURCE_DIR}/tests/release/test_release_state.cmake)
+
+find_package (Git QUIET)
+if (GIT_FOUND)
+  add_test (
+    NAME test_release_git_archive
+    COMMAND ${CMAKE_COMMAND}
+      -D SOURCE_DIR=${CMAKE_SOURCE_DIR}
+      -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/release-git-archive
+      -D GIT_EXECUTABLE=${GIT_EXECUTABLE}
+      -P ${CMAKE_SOURCE_DIR}/tests/release/test_git_archive.cmake)
+endif ()
+
 add_compile_options ("$<$<COMPILE_LANGUAGE:Fortran>:-Wall;-Wno-conversion;-fno-second-underscore;-fno-f2c>")
 add_compile_options ("$<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-fbounds-check>")
 add_compile_options ("$<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<NOT:$<CONFIG:Debug>>>:-funroll-all-loops>")

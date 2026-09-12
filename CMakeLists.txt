@@ -75,8 +75,16 @@ if (POLICY CMP0075)
   cmake_policy (SET CMP0075 NEW) # honour CMAKE_REQUIRED_LIBRARIES in config checks
 endif ()
 
+include ("${CMAKE_CURRENT_LIST_DIR}/CMake/Modules/read_release_state.cmake")
+wsjt_read_release_state (
+  "${CMAKE_CURRENT_LIST_DIR}/release-state.txt"
+  WSJT_SOURCE_VERSION
+  WSJT_SOURCE_RELEASE_CHANNEL
+  WSJT_SOURCE_RC_NUMBER
+  WSJT_ARCHIVE_SOURCE_REVISION)
+
 project (wsjtx
-  VERSION 3.2.0.0
+  VERSION ${WSJT_SOURCE_VERSION}.0
   LANGUAGES C CXX Fortran
   )
 
@@ -133,7 +141,8 @@ message (STATUS "Building for for: ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}"
 message (STATUS "******************************************************")
 
 include (set_build_type)
-# Default is a development build; release jobs pass RC or GA explicitly.
+wsjt_set_source_default_cache (WSJT_RELEASE_CHANNEL "${WSJT_SOURCE_RELEASE_CHANNEL}" "Build release channel: DEVEL, RC, or GA.")
+wsjt_set_source_default_cache (WSJT_RC_NUMBER "${WSJT_SOURCE_RC_NUMBER}" "Release candidate number used when WSJT_RELEASE_CHANNEL is RC.")
 set_build_type ()
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
@@ -176,7 +185,16 @@ include (CMakeDependentOption)
 OPTION (BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 # Set the LIB_TYPE variable to STATIC
 SET (LIB_TYPE STATIC)
-set (WSJT_SOURCE_REVISION "" CACHE STRING "Source revision associated with this build")
+wsjt_set_source_default_cache (WSJT_SOURCE_REVISION "${WSJT_ARCHIVE_SOURCE_REVISION}" "Source revision associated with this build")
+if (WSJT_SOURCE_REVISION)
+  string (LENGTH "${WSJT_SOURCE_REVISION}" _WSJT_SOURCE_REVISION_LENGTH)
+  if (NOT WSJT_SOURCE_REVISION MATCHES "^[0-9a-fA-F]+$"
+      OR (NOT _WSJT_SOURCE_REVISION_LENGTH EQUAL 40
+          AND NOT _WSJT_SOURCE_REVISION_LENGTH EQUAL 64))
+    message (FATAL_ERROR "WSJT_SOURCE_REVISION must be a full Git object ID")
+  endif ()
+  string (TOLOWER "${WSJT_SOURCE_REVISION}" WSJT_SOURCE_REVISION)
+endif ()
 if (BUILD_SHARED_LIBS)
   # User wants to build Dynamic Libraries, so change the LIB_TYPE variable to CMake keyword 'SHARED'
   set (LIB_TYPE SHARED)
@@ -1326,6 +1344,7 @@ add_custom_target (revisiontag
   -D SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
   -D BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
   -D OUTPUT_DIR=${PROJECT_BINARY_DIR}
+  -D SOURCE_REVISION=${WSJT_SOURCE_REVISION}
   -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake/getsvn.cmake
   VERBATIM
   BYPRODUCTS scs_version.h
