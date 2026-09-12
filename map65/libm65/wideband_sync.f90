@@ -49,9 +49,11 @@ contains
 
 
 ! Search symbol spectra ss() over frequency range nfa to nfb (in kHz) for
-! JT65 and Q65 sync patterns. The nts_* variables are the submode tone
-! spacings: 1 2 4 8 16 for A B C D E.  Birdies are detected and
-! excised.  Candidates are returned in the structure array cand().
+! sync candidates. A valid generalized Q65 score replaces the legacy mixed-mode
+! surface, so that path returns Q65 candidates only; MAP65 discovers JT65
+! independently through ccf65(). Legacy paths may retain JT65 candidates.
+! The nts_* variables are the submode tone spacings: 1 2 4 8 16 for A B C D E.
+! Birdies are detected and excised. Candidates are returned in cand().
 
       integer, parameter :: MAX_PEAKS = 100
       real pavg(-20:20)
