@@ -471,8 +471,7 @@ int TCITransceiver::do_start ()
   _power_ = false;
   CAT_TRACE ("TCITransceiver entered TCI do_start and url " + url_.toString() + " rig_power:" + QString::number(rig_power_) + " rig_power_off:" + QString::number(rig_power_off_) + " tci_audio:" + QString::number(tci_audio_) + " do_snr:" + QString::number(do_snr_) + " do_pwr:" + QString::number(do_pwr_) + '\n');
   commander_->open (url_);
-  tci_done6();
-  mysleep6(2000);
+  mysleep7(2000);
   busy_split_ = true;
   const QString cmd = CmdSplitEnable + SmDP + "false" + SmTZ;
   sendTextMessage(cmd);
@@ -482,7 +481,7 @@ int TCITransceiver::do_start ()
     if (!_power_) {
       if (rig_power_) {
         rig_power(true);
-        mysleep6(1000);
+        mysleep7(1000);
         if(!_power_) throw error {tr ("TCI SDR could not be switched on")};
       } else {
         tci_Ready = false;
@@ -498,7 +497,7 @@ int TCITransceiver::do_start ()
     }
     if (tci_audio_) {
       stream_audio (true);
-      mysleep6(500);
+      mysleep7(500);
       if (!stream_audio_) {
         tci_Ready = false;
         throw error {tr ("TCI Audio could not be switched on")};
@@ -536,7 +535,7 @@ void TCITransceiver::do_stop ()
   if (!commander_) return;
   if (stream_audio_ && tci_Ready && inConnected && _power_) {
     stream_audio (false);
-    mysleep1(500);
+    mysleep7(500);
     CAT_TRACE ("TCI audio closed\n");
   }
   if (tci_Ready && inConnected && _power_) {
@@ -544,7 +543,7 @@ void TCITransceiver::do_stop ()
     busy_split_ = true;
     const QString cmd = CmdSplitEnable + SmDP + "false" + SmTZ;
     sendTextMessage(cmd);
-    mysleep1(500);
+    mysleep5(500);
     busy_split_ = false;
     requested_split_ = false;
     rig_split();
