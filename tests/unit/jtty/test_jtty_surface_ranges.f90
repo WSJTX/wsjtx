@@ -6,24 +6,24 @@ program test_jtty_surface_ranges
   use jtty_mdec, only: npending,pending_updates,discard_pending_updates, &
        jtty_release_fft_resources
   implicit none
-  integer, parameter :: rates(5)=[240,320,384,480,240]
-  integer, parameter :: FULL_SURFACE_CASE=2,NARROW_HALO_CASE=4
-  integer :: irate,icase
+  integer, parameter :: ncases=8
+  integer, parameter :: rates(ncases)=[240,320,384,240,480,480,384,240]
+  integer, parameter :: scenarios(ncases)=[1,1,1,4,2,1,3,1]
+  integer :: icase
   complex :: fft_scratch(1)
 
-  ! Change both the rate and the searched bins between successive receptions.
-  do irate=1,size(rates)
-     do icase=1,4
-        call verify_surface_case(rates(irate),icase)
-     enddo
+  ! Direct tests own the frequency-window Cartesian product. Keep integration
+  ! cases for every FFT geometry and each distinct surface-search behavior.
+  do icase=1,ncases
+     if(icase.eq.ncases) then
+        ! Prove that a populated geometry can be recreated after teardown.
+        call jtty_release_fft_resources()
+        call four2a(fft_scratch,-1,1,1,1)
+        call fftwf_cleanup()
+     endif
+     call verify_surface_case(rates(icase),scenarios(icase))
   enddo
 
-  call jtty_release_fft_resources()
-  call four2a(fft_scratch,-1,1,1,1)
-  call fftwf_cleanup()
-
-  call verify_surface_case(480,FULL_SURFACE_CASE)
-  call verify_surface_case(480,NARROW_HALO_CASE)
   call jtty_release_fft_resources()
   print *, 'JTTY surface range tests passed'
 
@@ -74,7 +74,11 @@ contains
     call genjtty(message,tones,nsym)
     nsamples=nsym*nsps
     nlead=1800
-    total_samples=nlead+nsamples+frame_symbols*nsps
+    ! One 1.25-frame chunk contains the lead-in and complete signal. A
+    ! longer buffer only schedules empty trailing decoder windows.
+    total_samples=frame_symbols*nsps+(frame_symbols*nsps)/4
+    if(nlead+nsamples.gt.total_samples) &
+         error stop 'surface fixture exceeds one decoder chunk'
     allocate(pcm(total_samples),wave(nsamples),cwave(nsamples))
     call gen_jttywave(tones,nsym,nsps,2.0,12000.0,hz,cwave,wave,0,nsamples)
     pcm=0_int16

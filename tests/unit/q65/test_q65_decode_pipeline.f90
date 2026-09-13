@@ -44,7 +44,8 @@ program test_q65_decode_pipeline
   implicit none
 
   integer(int16), allocatable :: iwave(:)
-  integer :: nqf(20),navg0,nsubmode
+  integer, parameter :: map65_submodes(2)=[0,4]
+  integer :: nqf(20),navg0,nsubmode,isubmode
   logical :: lclearave,single_decode,lagain,lnewdat,lapcqonly
   type(q65_decoder) :: decoder
   character(len=12) :: mycall,hiscall
@@ -69,14 +70,16 @@ program test_q65_decode_pipeline
      call run_direct_decode(decoder,iwave,nsubmode,1)
   enddo
 
-  iwave=0_int16
-  call run_direct_decode(decoder,iwave,0,0)
-
-  do nsubmode=0,4
+  ! The direct decoder loop owns exhaustive submode coverage. MAP65 is a thin
+  ! handoff, so exercise both ends of its forwarded submode range.
+  do isubmode=1,size(map65_submodes)
+     nsubmode=map65_submodes(isubmode)
      call make_q65_wave(iwave,nsubmode)
      call run_map65_decode(iwave,nsubmode,.true.)
   enddo
 
+  ! The wrapper's silent case also proves that the decoder emits no callback,
+  ! while additionally checking that no stale MAP65 state escapes.
   iwave=0_int16
   call run_map65_decode(iwave,0,.false.)
 

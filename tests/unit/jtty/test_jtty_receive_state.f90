@@ -4,15 +4,16 @@ program test_jtty_receive_state
        nactive,active_messages, &
        nrecent,npending,pending_updates,reset_decode_search_state, &
        discard_pending_updates,start_message,append_active_message, &
-       remove_active_message,is_recent_frame,remember_recent_frame,prune_receive_state
+       remove_active_message,is_recent_frame,remember_recent_frame, &
+       prune_receive_state,classify_active_candidate
   implicit none
 
   real, parameter :: frame_period=2.0
   type(decode) :: candidate,oldest_candidate
-  type(message_assembly) :: accepted_message
+  type(message_assembly) :: accepted_message,classification_existing
   integer(int64) :: first_id,last_id
-  integer :: i,index,nrecent_before,npending_before
-  logical :: accepted
+  integer :: i,index,nrecent_before,npending_before,nframes_gap,nmissing
+  logical :: accepted,match,is_window_dupe
 
   call reset_all()
 
@@ -35,6 +36,36 @@ program test_jtty_receive_state
        pending_updates(1)%complete .and. &
        trim(pending_updates(1)%decoded).eq.'FIRST FRAME COMPLETE', &
        'completion coalesces the final state by logical identity')
+
+  call reset_all()
+  candidate=make_candidate(1500.0,10.0,'BEFORE',.false.)
+  call start_message(candidate,accepted_message,accepted)
+  first_id=active_messages(1)%message_id
+  candidate=make_candidate(1500.0,16.0,'~AFTER',.true.)
+  call append_active_message(1,candidate,3,accepted_message,accepted)
+  call expect(accepted .and. nactive.eq.0 .and. npending.eq.1, &
+       'a maximum in-range gap completes one logical message')
+  call expect(pending_updates(1)%message_id.eq.first_id .and. &
+       pending_updates(1)%complete .and. &
+       trim(pending_updates(1)%decoded).eq.'BEFORE~~~~~AFTER', &
+       'gap assembly inserts one sentinel and strips continuation filler')
+
+  do nmissing=1,3
+     classification_existing%f1=1500.0
+     classification_existing%tsync=10.0
+     candidate=make_candidate(1500.0,10.0+real(nmissing+1)*frame_period, &
+          'AFTER',.true.)
+     call classify_active_candidate(classification_existing,candidate,frame_period, &
+          match,is_window_dupe,nframes_gap)
+     if(nmissing.le.2) then
+        call expect(match .and. .not.is_window_dupe .and. &
+             nframes_gap.eq.nmissing+1, &
+             'classification accepts an in-range missing-frame gap')
+     else
+        call expect(.not.match, &
+             'classification rejects a gap beyond the merge limit')
+     endif
+  enddo
 
   call reset_decode_search_state()
   call expect(nactive.eq.0 .and. nrecent.eq.0 .and. npending.eq.1, &

@@ -46,9 +46,11 @@ add_executable (test_jtty_adjacent_decode test_jtty_adjacent_decode.f90)
 target_include_directories (test_jtty_adjacent_decode PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_adjacent_decode)
 add_test (NAME test_jtty_adjacent_decode COMMAND test_jtty_adjacent_decode)
+# These decoder tests are compute-heavy under ARM emulation. Their timeouts
+# include headroom for hosted-runner variability.
 set_tests_properties (test_jtty_adjacent_decode PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_adjacent_decode: all checks passed"
-  TIMEOUT 60
+  TIMEOUT 180
 )
 
 add_executable (test_jtty_structured_decode
@@ -60,7 +62,7 @@ target_link_libraries (test_jtty_structured_decode PRIVATE Qt5::Core)
 add_test (NAME test_jtty_structured_decode COMMAND test_jtty_structured_decode)
 set_tests_properties (test_jtty_structured_decode PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_structured_decode: all checks passed"
-  TIMEOUT 60
+  TIMEOUT 240
 )
 
 add_executable (test_jtty_overlap_decode test_jtty_overlap_decode.f90)
@@ -69,13 +71,13 @@ wsjt_link_common_fortran (test_jtty_overlap_decode)
 add_test (NAME test_jtty_overlap_decode COMMAND test_jtty_overlap_decode)
 set_tests_properties (test_jtty_overlap_decode PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_overlap_decode: all checks passed"
-  TIMEOUT 60
+  TIMEOUT 180
 )
 
 add_test (NAME test_jtty_overlap_decode_480 COMMAND test_jtty_overlap_decode 480)
 set_tests_properties (test_jtty_overlap_decode_480 PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_overlap_decode: all checks passed"
-  TIMEOUT 60
+  TIMEOUT 240
 )
 
 add_executable (test_jtty_sticky_retry test_jtty_sticky_retry.f90)
@@ -93,7 +95,7 @@ wsjt_link_common_fortran (test_jtty_windowed_decode)
 add_test (NAME test_jtty_windowed_decode COMMAND test_jtty_windowed_decode)
 set_tests_properties (test_jtty_windowed_decode PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_windowed_decode: all checks passed"
-  TIMEOUT 60
+  TIMEOUT 180
 )
 
 add_executable (test_jtty_gap_merge test_jtty_gap_merge.f90)
@@ -102,7 +104,7 @@ wsjt_link_common_fortran (test_jtty_gap_merge)
 add_test (NAME test_jtty_gap_merge COMMAND test_jtty_gap_merge)
 set_tests_properties (test_jtty_gap_merge PROPERTIES
   PASS_REGULAR_EXPRESSION "test_jtty_gap_merge: all checks passed"
-  TIMEOUT 60
+  TIMEOUT 180
 )
 
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
@@ -120,7 +122,7 @@ add_test (NAME test_jtty_frequency_window COMMAND test_jtty_frequency_window)
 add_executable (test_jtty_surface_ranges test_jtty_surface_ranges.f90)
 wsjt_link_common_fortran (test_jtty_surface_ranges)
 add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
-set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 60)
+set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 180)
 
 add_executable (test_jtty_get_updates test_jtty_get_updates.f90)
 target_include_directories (test_jtty_get_updates PRIVATE ${CMAKE_BINARY_DIR})

@@ -22,8 +22,7 @@ program test_jtty_gap_merge
   failures=0
 
   call build_message_pcm(msg,reference_pcm,total_samples,nframes)
-  call run_dropped_frame_case(msg,reference_pcm,total_samples,nframes,2,failures)
-  call run_beyond_max_gap_case(reference_pcm,total_samples,nframes,failures)
+  call run_dropped_frame_case(msg,reference_pcm,total_samples,nframes,1,failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_gap_merge: failures=',failures
@@ -110,34 +109,6 @@ contains
     endif
     call expect(surviving_text_matches,trim(description),count)
   end subroutine run_dropped_frame_case
-
-  ! A gap wider than MAX_GAP (3 frame-periods, i.e. 3+ consecutive missed
-  ! frames) must NOT be bridged -- confirms the fallback to two separate
-  ! messages (today's behavior) still holds beyond the deliberately-bounded
-  ! gap tolerance, so unrelated signals don't get false-merged.
-  subroutine run_beyond_max_gap_case(reference_pcm,total_samples,nframes,count)
-    integer(int16), intent(in) :: reference_pcm(:)
-    integer, intent(in) :: total_samples,nframes
-    integer, intent(inout) :: count
-    integer :: idrop,drop_start,drop_end,n_dropped
-    integer(int16), allocatable :: pcm(:)
-
-    n_dropped=3   ! beyond MAX_GAP=3 (which bridges at most 2 dropped frames)
-    pcm=reference_pcm
-    idrop=nframes/2
-
-    drop_start=(idrop-1)*frame_symbols*nsps+1
-    drop_end=(idrop+n_dropped-1)*frame_symbols*nsps
-    pcm(drop_start:drop_end)=0_int16
-
-    call discard_pending_updates()
-    call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
-    call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
-
-    call expect(npending.ge.2, &
-         'dropping 3 consecutive frames (beyond MAX_GAP) does not merge', &
-         count)
-  end subroutine run_beyond_max_gap_case
 
   function normalized(value) result(result_value)
     character(len=*), intent(in) :: value

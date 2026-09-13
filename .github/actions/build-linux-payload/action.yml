@@ -8,7 +8,7 @@ description: >-
 
 inputs:
   arch:
-    description: "Linux target architecture: x86_64, aarch64, or armhf"
+    description: "Native Linux target architecture: x86_64 or aarch64"
     required: true
   version:
     description: "WSJT-X version string"
@@ -346,9 +346,6 @@ runs:
           aarch64)
             LINUXDEPLOY_SHA256="620095110d693282b8ebeb244a95b5e911cf8f65f76c88b4b47d16ae6346fcff"
             ;;
-          armhf)
-            LINUXDEPLOY_SHA256="e359161979fa4bee50b92ce7102fb510299caebf34f711d983fba7a8f4bb1c2e"
-            ;;
           *)       echo "::error::Unknown linuxdeploy arch: $ARCH"; exit 1 ;;
         esac
 
@@ -394,10 +391,8 @@ runs:
         validate_linux_application_tree squashfs-root appimage "$ARCH"
         rm -rf squashfs-root
 
-    # The ARMHF payload script calls the same startup-smoke helper under QEMU.
     - name: Runtime-smoke-test AppImage
       id: appimage_runtime_smoke
-      if: inputs.arch != 'armhf'
       shell: bash
       env:
         VERSION: ${{ inputs.version }}

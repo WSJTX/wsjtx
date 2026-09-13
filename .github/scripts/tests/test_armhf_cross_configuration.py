@@ -90,13 +90,39 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
 
     def test_hybrid_is_the_only_armhf_build_implementation(self):
         workflow = self.read(".github/workflows/build-linux.yml")
+        native_action = self.read(
+            ".github/actions/build-linux-payload/action.yml"
+        )
         self.assertFalse(
             (ROOT / ".github/scripts/build-linux-payload.sh").exists()
         )
         self.assertNotIn("build-linux-payload.sh", workflow)
         self.assertEqual(workflow.count("build-linux-armhf-cross.sh"), 1)
         self.assertIn("docker run --rm --platform linux/amd64", workflow)
+        self.assertNotIn("inputs.arch != 'armhf'", native_action)
+        self.assertNotIn("linuxdeploy-armhf", native_action)
 
+    def test_slow_decoder_timeouts_are_at_most_four_minutes(self):
+        jtty = self.read("tests/unit/jtty/CMakeLists.txt")
+        for test_name, timeout in (
+            ("test_jtty_adjacent_decode", 180),
+            ("test_jtty_structured_decode", 240),
+            ("test_jtty_overlap_decode", 180),
+            ("test_jtty_overlap_decode_480", 240),
+            ("test_jtty_windowed_decode", 180),
+            ("test_jtty_gap_merge", 180),
+            ("test_jtty_surface_ranges", 180),
+        ):
+            properties = jtty.split(
+                f"set_tests_properties ({test_name}", 1
+            )[1].split(")", 1)[0]
+            self.assertIn(f"TIMEOUT {timeout}", properties)
+
+        q65 = self.read("tests/unit/q65/CMakeLists.txt")
+        properties = q65.split(
+            "set_tests_properties (test_q65_decode_pipeline", 1
+        )[1].split(")", 1)[0]
+        self.assertIn("TIMEOUT 180", properties)
 
 if __name__ == "__main__":
     unittest.main()
