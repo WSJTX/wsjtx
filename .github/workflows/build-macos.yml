@@ -1,5 +1,8 @@
 name: Build macOS
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -44,6 +47,48 @@ on:
         required: false
         type: string
         default: ""
+      signing_mode:
+        description: "Package signing policy: validation or distribution"
+        required: false
+        type: string
+        default: "validation"
+      apple_team_id:
+        description: "Expected Apple Developer Team ID for distribution signing"
+        required: false
+        type: string
+        default: ""
+      application_certificate_sha1:
+        description: "Expected Developer ID Application certificate SHA-1"
+        required: false
+        type: string
+        default: ""
+      installer_certificate_sha1:
+        description: "Expected Developer ID Installer certificate SHA-1"
+        required: false
+        type: string
+        default: ""
+    secrets:
+      DEVELOPER_ID_CERTIFICATE_P12:
+        description: "Base64-encoded Developer ID Application PKCS#12"
+        required: false
+      DEVELOPER_ID_CERTIFICATE_PASSWORD:
+        description: "Password for the Application PKCS#12"
+        required: false
+      DEVELOPER_ID_INSTALLER_P12:
+        description: "Base64-encoded Developer ID Installer PKCS#12"
+        required: false
+      DEVELOPER_ID_INSTALLER_PASSWORD:
+        description: "Password for the Installer PKCS#12"
+        required: false
+      APP_STORE_CONNECT_KEY_ID:
+        description: "App Store Connect API key ID"
+        required: false
+      APP_STORE_CONNECT_ISSUER_ID:
+        description: "App Store Connect API issuer ID"
+        required: false
+      APP_STORE_CONNECT_PRIVATE_KEY_P8_BASE64:
+        description: "Base64-encoded App Store Connect API private key"
+        required: false
   # Standalone dispatch builds one architecture. Derive its runner and deployment
   # target from that architecture so unsupported tuples cannot be selected.
   workflow_dispatch:
@@ -90,6 +135,29 @@ on:
         required: false
         type: string
         default: ""
+      signing_mode:
+        description: "Package signing policy"
+        required: false
+        type: choice
+        options:
+          - validation
+          - distribution
+        default: validation
+      apple_team_id:
+        description: "Expected Apple Developer Team ID (distribution only)"
+        required: false
+        type: string
+        default: ""
+      application_certificate_sha1:
+        description: "Expected Developer ID Application certificate SHA-1"
+        required: false
+        type: string
+        default: ""
+      installer_certificate_sha1:
+        description: "Expected Developer ID Installer certificate SHA-1"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -104,6 +172,7 @@ jobs:
       HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
       WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
       WSJT_RC_NUMBER: ${{ inputs.rc_number }}
+      SIGNING_MODE: ${{ inputs.signing_mode }}
       ARCH: ${{ inputs.arch }}
       BOOST_VERSION: 1.85.0
       BOOST_SOURCE_SHA256: 7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617
@@ -128,17 +197,20 @@ jobs:
               ;;
           esac
 
-      - name: Check signing secrets
-        id: check_secrets
-        env:
-          APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+      - name: Validate signing policy
         run: |
-          if [ -n "$APP_P12" ]; then
-            echo "signing_enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "signing_enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::macOS signing skipped — secrets unavailable (Dependabot or fork PR context). Compile + tests + dylib bundling still validated."
-          fi
+          case "$SIGNING_MODE" in
+            validation)
+              echo "macOS signing mode: validation (ad-hoc app signature and explicitly unsigned package)"
+              ;;
+            distribution)
+              echo "macOS signing mode: distribution (build job remains secretless; a fresh job performs signing)"
+              ;;
+            *)
+              echo "::error::signing_mode must be validation or distribution, got: ${SIGNING_MODE}"
+              exit 1
+              ;;
+          esac
 
       - name: Set Homebrew prefix
         run: echo "HOMEBREW_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
@@ -685,65 +757,31 @@ jobs:
             --arch "${{ inputs.arch }}" \
             "$STAGE"
 
-      - name: Import application signing certificate
-        if: steps.check_secrets.outputs.signing_enabled == 'true'
-        id: app_keychain
-        env:
-          APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
-          APP_P12_PW: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-        run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          echo "$APP_P12" | base64 --decode > "$RUNNER_TEMP/app.p12"
-          security import "$RUNNER_TEMP/app.p12" -P "$APP_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          rm -f "$RUNNER_TEMP/app.p12"
-
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
-
-          APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
-          echo "App identity: $APP_IDENTITY"
-          echo "identity=$APP_IDENTITY" >> "$GITHUB_OUTPUT"
-
-      # The fallback signature has no Apple trust chain; its package is unsigned
-      # and is suitable only for build validation.
-      - name: Code sign binaries
+      - name: Ad-hoc sign binaries for build validation
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
           ASSETS="${{ steps.collect.outputs.assets_dir }}"
           APP="${STAGE}/wsjtx.app"
           ENTITLEMENTS="${GITHUB_WORKSPACE}/entitlements.plist"
 
-          if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
-            IDENTITY="${{ steps.app_keychain.outputs.identity }}"
-            TS="--timestamp"
-            echo "Code signing mode: Developer ID (real)"
-          else
-            IDENTITY="-"
-            TS=""
-            echo "Code signing mode: ad-hoc (no Apple trust chain; pkg will be unsigned)"
-          fi
+          IDENTITY="-"
+          echo "Code signing mode: ad-hoc (no Apple trust chain; pkg will be unsigned)"
 
           # Sign nested code before the containing bundle. Executable
           # entitlements are defined in the repository-root plist.
           find "${APP}/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) \
-            -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
+            -exec codesign --force --options runtime --sign "$IDENTITY" {} \;
           find "${APP}/Contents/Frameworks" -name "*.framework" -type d | while read -r fw; do
-            codesign --force --options runtime $TS --sign "$IDENTITY" "$fw"
+            codesign --force --options runtime --sign "$IDENTITY" "$fw"
           done
           find "${APP}/Contents/PlugIns" -type f -name "*.dylib" \
-            -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \; 2>/dev/null || true
+            -exec codesign --force --options runtime --sign "$IDENTITY" {} \; 2>/dev/null || true
 
           find "${APP}/Contents/MacOS" -type f -perm +111 \
-            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
+            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" {} \;
           # Bundle signing re-signs the main executable, so it must receive the
           # entitlement file again.
-          codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" "${APP}"
+          codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "${APP}"
           codesign --verify --deep --strict --verbose=2 "${APP}"
 
           # codesign --verify validates the signature, not required entitlement
@@ -765,24 +803,13 @@ jobs:
 
           for dir in "${STAGE}" "${ASSETS}"; do
             find "${dir}" -maxdepth 1 -type f -perm +111 \
-              -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
+              -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" {} \;
           done
 
           for dir in "${STAGE}/lib" "${ASSETS}/lib"; do
             [ -d "$dir" ] && find "$dir" -type f \
-              -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
+              -exec codesign --force --options runtime --sign "$IDENTITY" {} \;
           done
-
-      - name: Remove application signing credentials
-        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
-        run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-          rm -f "$RUNNER_TEMP/app.p12"
-          if [ "${{ steps.app_keychain.outcome }}" = "success" ]; then
-            security delete-keychain "$KEYCHAIN_PATH"
-          else
-            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
-          fi
 
       - name: Prepare installer package
         run: |
@@ -829,60 +856,20 @@ jobs:
             --install-location / \
             "$RUNNER_TEMP/wsjtx-component.pkg"
 
-      - name: Import installer signing certificate
-        if: steps.check_secrets.outputs.signing_enabled == 'true'
-        id: installer_keychain
-        env:
-          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
-          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
+      - name: Build unsigned validation package
+        if: inputs.signing_mode == 'validation'
+        id: package
         run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/installer-signing.keychain-db"
-          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS-unsigned.pkg"
+          productbuild \
+            --package "$RUNNER_TEMP/wsjtx-component.pkg" \
+            "$PKG_OUT"
+          echo "path=$PKG_OUT" >> "$GITHUB_OUTPUT"
 
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          echo "$INST_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
-          security import "$RUNNER_TEMP/installer.p12" -P "$INST_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          rm -f "$RUNNER_TEMP/installer.p12"
-
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
-
-          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
-          echo "Installer identity: $INST_IDENTITY"
-          echo "identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
-
-      - name: Build installer pkg
+      - name: Verify unsigned validation package
+        if: inputs.signing_mode == 'validation'
         run: |
-          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
-          if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
-            INST_IDENTITY="${{ steps.installer_keychain.outputs.identity }}"
-            productbuild \
-              --package "$RUNNER_TEMP/wsjtx-component.pkg" \
-              --sign "$INST_IDENTITY" \
-              "$PKG_OUT"
-          else
-            productbuild \
-              --package "$RUNNER_TEMP/wsjtx-component.pkg" \
-              "$PKG_OUT"
-          fi
-
-      - name: Remove installer signing credentials
-        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
-        run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/installer-signing.keychain-db"
-          rm -f "$RUNNER_TEMP/installer.p12"
-          if [ "${{ steps.installer_keychain.outcome }}" = "success" ]; then
-            security delete-keychain "$KEYCHAIN_PATH"
-          else
-            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
-          fi
-
-      - name: Verify installer pkg
-        run: |
-          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
+          PKG_OUT="${{ steps.package.outputs.path }}"
           CHECK_PAYLOAD="$RUNNER_TEMP/pkg-check"
           pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
           [ "$(/usr/libexec/PlistBuddy -c "Print :0:BundleIsRelocatable" "$RUNNER_TEMP/components.plist")" = "false" ]
@@ -913,77 +900,54 @@ jobs:
             --arch "${{ inputs.arch }}" \
             "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload"
 
-      - name: Notarize pkg
-        if: steps.check_secrets.outputs.signing_enabled == 'true'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Stage distribution signing input
+        if: inputs.signing_mode == 'distribution'
         run: |
-          notarize_and_staple() {
-            local file="$1"
-            echo "Notarizing: $file"
-            xcrun notarytool submit "$file" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_ID_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" \
-              --wait 2>&1 | tee notarize.log
+          mkdir -p distribution-signing-input
+          cp "${{ runner.temp }}/wsjtx-component.pkg" distribution-signing-input/
+          cp "${{ runner.temp }}/components.plist" distribution-signing-input/
+          cp entitlements.plist distribution-signing-input/
 
-            if grep -q "status: Invalid" notarize.log; then
-              SUBMISSION_ID=$(awk '/id:/ {print $2; exit}' notarize.log)
-              xcrun notarytool log "$SUBMISSION_ID" \
-                --apple-id "$APPLE_ID" \
-                --password "$APPLE_ID_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID" || true
-              exit 1
-            fi
-
-            xcrun stapler staple "$file"
-          }
-
-          notarize_and_staple "wsjtx-${VERSION}-${ARCH}-macOS.pkg"
-
-      - name: Notarize CLI tools
-        if: steps.check_secrets.outputs.signing_enabled == 'true'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          ASSETS="${{ steps.collect.outputs.assets_dir }}"
-          zip -r cli-tools.zip "${ASSETS}"/
-          xcrun notarytool submit cli-tools.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait 2>&1 | tee notarize-cli.log
-
-          if grep -q "status: Invalid" notarize-cli.log; then
-            SUBMISSION_ID=$(awk '/id:/ {print $2; exit}' notarize-cli.log)
-            xcrun notarytool log "$SUBMISSION_ID" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_ID_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" || true
-            exit 1
-          fi
-          rm cli-tools.zip
-
-      - name: Ensure signing credentials are removed
-        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
-        run: |
-          rm -f "$RUNNER_TEMP/app.p12" "$RUNNER_TEMP/installer.p12"
-          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true
-          security delete-keychain "$RUNNER_TEMP/installer-signing.keychain-db" 2>/dev/null || true
-          test ! -e "$RUNNER_TEMP/app.p12"
-          test ! -e "$RUNNER_TEMP/installer.p12"
-          test ! -e "$RUNNER_TEMP/app-signing.keychain-db"
-          test ! -e "$RUNNER_TEMP/installer-signing.keychain-db"
-
-      - name: Upload pkg
+      - name: Upload distribution signing input
+        if: inputs.signing_mode == 'distribution'
         uses: actions/upload-artifact@v7
         with:
-          name: wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg
-          path: wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg
+          name: macos-signing-input-${{ inputs.version }}-${{ inputs.arch }}
+          path: distribution-signing-input
+          retention-days: 1
+
+      - name: Write validation signing report
+        if: inputs.signing_mode == 'validation'
+        run: |
+          PKG_OUT="${{ steps.package.outputs.path }}"
+          PKG_SIGNATURE=$(pkgutil --check-signature "$PKG_OUT" 2>&1 || true)
+          printf '%s\n' "$PKG_SIGNATURE"
+          if [[ "$PKG_SIGNATURE" != *"Status: no signature"* ]]; then
+            echo "::error::Validation package did not report the expected unsigned status."
+            exit 1
+          fi
+          SHA256=$(shasum -a 256 "$PKG_OUT" | awk '{print $1}')
+          jq -n \
+            --arg mode validation \
+            --arg artifact "$PKG_OUT" \
+            --arg sha256 "$SHA256" \
+            --arg git_sha "$GITHUB_SHA" \
+            '{schema_version: 1, mode: $mode, artifact: $artifact, sha256: $sha256, git_sha: $git_sha, signed: false, notarized: false, publishable: false}' \
+            > macos-signing-report.json
+
+      - name: Upload pkg
+        if: inputs.signing_mode == 'validation'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.path }}
+          path: ${{ steps.package.outputs.path }}
+
+      - name: Upload signing report
+        if: inputs.signing_mode == 'validation'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-signing-report-${{ inputs.version }}-${{ inputs.arch }}
+          path: macos-signing-report.json
 
       - name: Package individual binaries
         run: |
@@ -1049,3 +1013,220 @@ jobs:
           path: wsjtx-build/deployed-startup-smoke-diagnostics
           if-no-files-found: ignore
           retention-days: 7
+
+  sign_distribution:
+    if: inputs.signing_mode == 'distribution'
+    needs: build
+    runs-on: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
+    timeout-minutes: 30
+    environment: apple-release-signing
+    env:
+      VERSION: ${{ inputs.version }}
+      ARCH: ${{ inputs.arch }}
+      APPLE_TEAM_ID: ${{ inputs.apple_team_id || vars.APPLE_TEAM_ID }}
+      APP_CERT_SHA1: ${{ inputs.application_certificate_sha1 || vars.APPLE_APPLICATION_CERTIFICATE_SHA1 }}
+      INST_CERT_SHA1: ${{ inputs.installer_certificate_sha1 || vars.APPLE_INSTALLER_CERTIFICATE_SHA1 }}
+    steps:
+      - name: Validate distribution credentials
+        env:
+          APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          APP_P12_PW: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_PRIVATE_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_P8_BASE64 }}
+        run: |
+          missing=()
+          for name in APP_P12 APP_P12_PW INST_P12 INST_P12_PW ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY_P8_BASE64 APPLE_TEAM_ID APP_CERT_SHA1 INST_CERT_SHA1; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            printf '::error::Distribution signing is missing required credentials or identity configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+      - name: Download unsigned component package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: macos-signing-input-${{ inputs.version }}-${{ inputs.arch }}
+          path: signing-input
+
+      - name: Expand signing input without executing it
+        run: |
+          pkgutil --expand-full signing-input/wsjtx-component.pkg "$RUNNER_TEMP/expanded-component"
+          test -d "$RUNNER_TEMP/expanded-component/Payload/Applications/wsjtx.app"
+          test -d "$RUNNER_TEMP/expanded-component/Payload/usr/local/wsjtx"
+
+      - name: Import and verify Developer ID identities
+        id: identities
+        env:
+          APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          APP_P12_PW: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/release-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 1800 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          printf '%s' "$APP_P12" | base64 --decode > "$RUNNER_TEMP/app.p12"
+          printf '%s' "$INST_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+          security import "$RUNNER_TEMP/app.p12" -P "$APP_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/installer.p12" -P "$INST_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          rm -f "$RUNNER_TEMP/app.p12" "$RUNNER_TEMP/installer.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
+          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
+          [ -n "$APP_IDENTITY" ] || { echo "::error::No Developer ID Application identity was imported."; exit 1; }
+          [ -n "$INST_IDENTITY" ] || { echo "::error::No Developer ID Installer identity was imported."; exit 1; }
+          [[ "$APP_IDENTITY" == *"(${APPLE_TEAM_ID})"* ]] || { echo "::error::Application identity is not owned by the expected team."; exit 1; }
+          [[ "$INST_IDENTITY" == *"(${APPLE_TEAM_ID})"* ]] || { echo "::error::Installer identity is not owned by the expected team."; exit 1; }
+
+          app_actual=$(security find-certificate -c "$APP_IDENTITY" -Z "$KEYCHAIN_PATH" | awk '/SHA-1 hash:/ {print toupper($3); exit}')
+          inst_actual=$(security find-certificate -c "$INST_IDENTITY" -Z "$KEYCHAIN_PATH" | awk '/SHA-1 hash:/ {print toupper($3); exit}')
+          app_expected=$(printf '%s' "$APP_CERT_SHA1" | tr -d ': ' | tr '[:lower:]' '[:upper:]')
+          inst_expected=$(printf '%s' "$INST_CERT_SHA1" | tr -d ': ' | tr '[:lower:]' '[:upper:]')
+          [ "$app_actual" = "$app_expected" ] || { echo "::error::Application certificate fingerprint mismatch."; exit 1; }
+          [ "$inst_actual" = "$inst_expected" ] || { echo "::error::Installer certificate fingerprint mismatch."; exit 1; }
+          echo "application=$APP_IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "installer=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
+
+      - name: Sign staged application and command-line tools
+        env:
+          APP_IDENTITY: ${{ steps.identities.outputs.application }}
+        run: |
+          PAYLOAD="$RUNNER_TEMP/expanded-component/Payload"
+          APP="$PAYLOAD/Applications/wsjtx.app"
+          ENTITLEMENTS="$GITHUB_WORKSPACE/signing-input/entitlements.plist"
+          test -f "$ENTITLEMENTS"
+
+          find "$APP/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) \
+            -exec codesign --force --options runtime --timestamp --sign "$APP_IDENTITY" {} \;
+          find "$APP/Contents/Frameworks" -name "*.framework" -type d | while read -r framework; do
+            codesign --force --options runtime --timestamp --sign "$APP_IDENTITY" "$framework"
+          done
+          find "$APP/Contents/PlugIns" -type f -name "*.dylib" \
+            -exec codesign --force --options runtime --timestamp --sign "$APP_IDENTITY" {} \;
+          find "$APP/Contents/MacOS" -type f -perm +111 \
+            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$APP_IDENTITY" {} \;
+          codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$APP_IDENTITY" "$APP"
+
+          find "$PAYLOAD/usr/local/wsjtx" -maxdepth 1 -type f -perm +111 \
+            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$APP_IDENTITY" {} \;
+          [ ! -d "$PAYLOAD/usr/local/wsjtx/lib" ] || find "$PAYLOAD/usr/local/wsjtx/lib" -type f \
+            -exec codesign --force --options runtime --timestamp --sign "$APP_IDENTITY" {} \;
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Build signed distribution package
+        id: package
+        env:
+          INST_IDENTITY: ${{ steps.identities.outputs.installer }}
+        run: |
+          COMPONENT="$RUNNER_TEMP/wsjtx-signed-component.pkg"
+          pkgbuild \
+            --root "$RUNNER_TEMP/expanded-component/Payload" \
+            --scripts "$RUNNER_TEMP/expanded-component/Scripts" \
+            --component-plist "$GITHUB_WORKSPACE/signing-input/components.plist" \
+            --identifier "org.k1jt.wsjtx.${ARCH}" \
+            --version "$VERSION" \
+            --install-location / \
+            "$COMPONENT"
+          pkgutil --payload-files "$COMPONENT" >/dev/null
+          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
+          productbuild \
+            --package "$COMPONENT" \
+            --sign "$INST_IDENTITY" \
+            "$PKG_OUT"
+          echo "path=$PKG_OUT" >> "$GITHUB_OUTPUT"
+
+      - name: Verify rebuilt distribution package
+        run: |
+          PKG_OUT="${{ steps.package.outputs.path }}"
+          CHECK_PACKAGE="$RUNNER_TEMP/signed-package-check"
+          pkgutil --expand-full "$PKG_OUT" "$CHECK_PACKAGE"
+          COMPONENT="$CHECK_PACKAGE/wsjtx-signed-component.pkg"
+          PAYLOAD="$COMPONENT/Payload"
+          APP="$PAYLOAD/Applications/wsjtx.app"
+          test -x "$APP/Contents/MacOS/qmap"
+          test -x "$APP/Contents/MacOS/map65"
+          test -x "$COMPONENT/Scripts/postinstall"
+          test -d "$PAYLOAD/usr/local/wsjtx"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Notarize and staple distribution package
+        id: notarize
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_PRIVATE_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_P8_BASE64 }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s' "$ASC_PRIVATE_KEY_P8_BASE64" | base64 --decode > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          xcrun notarytool submit "${{ steps.package.outputs.path }}" \
+            --key "$KEY_PATH" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait --output-format json > notarization.json
+          SUBMISSION_ID=$(jq -r '.id // empty' notarization.json)
+          STATUS=$(jq -r '.status // empty' notarization.json)
+          if [ "$STATUS" != "Accepted" ] || [ -z "$SUBMISSION_ID" ]; then
+            echo "::error::Apple notarization did not return Accepted (status=${STATUS:-missing})."
+            [ -n "$SUBMISSION_ID" ] && xcrun notarytool log "$SUBMISSION_ID" \
+              --key "$KEY_PATH" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" || true
+            exit 1
+          fi
+          xcrun stapler staple "${{ steps.package.outputs.path }}"
+          xcrun stapler validate "${{ steps.package.outputs.path }}"
+          echo "submission_id=$SUBMISSION_ID" >> "$GITHUB_OUTPUT"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          rm -f "$KEY_PATH"
+
+      - name: Verify distribution trust and write signing report
+        run: |
+          PKG_OUT="${{ steps.package.outputs.path }}"
+          COMPONENT="$RUNNER_TEMP/signed-package-check/wsjtx-signed-component.pkg"
+          APP="$COMPONENT/Payload/Applications/wsjtx.app"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=4 "$APP" 2> codesign-details.txt
+          grep -F "TeamIdentifier=${APPLE_TEAM_ID}" codesign-details.txt
+          pkgutil --check-signature "$PKG_OUT" | tee pkg-signature.txt
+          grep -F "Developer ID Installer:" pkg-signature.txt
+          grep -F "(${APPLE_TEAM_ID})" pkg-signature.txt
+          xcrun stapler validate "$PKG_OUT"
+          spctl --assess --type install --verbose=4 "$PKG_OUT"
+          SHA256=$(shasum -a 256 "$PKG_OUT" | awk '{print $1}')
+          jq -n \
+            --arg mode distribution \
+            --arg artifact "$PKG_OUT" \
+            --arg sha256 "$SHA256" \
+            --arg git_sha "$GITHUB_SHA" \
+            --arg team_id "$APPLE_TEAM_ID" \
+            --arg app_certificate_sha1 "$(printf '%s' "$APP_CERT_SHA1" | tr -d ': ' | tr '[:lower:]' '[:upper:]')" \
+            --arg installer_certificate_sha1 "$(printf '%s' "$INST_CERT_SHA1" | tr -d ': ' | tr '[:lower:]' '[:upper:]')" \
+            --arg notarization_id "${{ steps.notarize.outputs.submission_id }}" \
+            --arg notarization_status "${{ steps.notarize.outputs.status }}" \
+            '{schema_version: 1, mode: $mode, artifact: $artifact, sha256: $sha256, git_sha: $git_sha, team_id: $team_id, application_certificate_sha1: $app_certificate_sha1, installer_certificate_sha1: $installer_certificate_sha1, notarization: {id: $notarization_id, status: $notarization_status}, stapled: true, gatekeeper_accepted: true, isolated_signing_job: true}' \
+            > macos-signing-report.json
+
+      - name: Remove signing credentials
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/app.p12" "$RUNNER_TEMP/installer.p12" "$RUNNER_TEMP"/AuthKey_*.p8
+          security delete-keychain "$RUNNER_TEMP/release-signing.keychain-db" 2>/dev/null || true
+
+      - name: Upload signed distribution package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.package.outputs.path }}
+          path: ${{ steps.package.outputs.path }}
+
+      - name: Upload distribution signing report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: macos-signing-report-${{ inputs.version }}-${{ inputs.arch }}
+          path: macos-signing-report.json
