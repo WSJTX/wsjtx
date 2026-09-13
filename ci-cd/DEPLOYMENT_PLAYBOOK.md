@@ -41,8 +41,7 @@ Before starting, confirm every item on this list. Missing any one of them will b
 |------------|-----------------|--------|
 | Apple Developer ID Application certificate (.p12) | Export from the Apple Developer account holder's keychain | PKCS12 file + password |
 | Apple Developer ID Installer certificate (.p12) | Export from the Apple Developer account holder's keychain | PKCS12 file + password |
-| Apple ID email (for notarization) | The email address of the Apple Developer account | Plain text |
-| App-specific password | appleid.apple.com → Sign-In and Security → App-Specific Passwords | 16-char token like `xxxx-xxxx-xxxx-xxxx` |
+| App Store Connect API key (for notarization) | A team-owned key created by the Apple Developer Account Holder | `.p8` private key, key ID, and issuer ID |
 | Apple Team ID | Apple Developer portal → Membership Details | 10-char alphanumeric like `ABCDE12345` |
 | GitHub fine-grained PAT | github.com → Settings → Developer settings → Fine-grained tokens | `github_pat_...` token string |
 
@@ -58,23 +57,22 @@ Before starting, confirm every item on this list. Missing any one of them will b
 
 Understanding the architecture will help you debug issues during deployment.
 
-> **Trigger-tag convention.** The sandbox release pipeline triggers on the `build/v*` tag prefix (`release.yml:5`). All tag examples in this document use that convention. If the team adopts a bare `v*` trigger during replication (decision #1 in the adoption email), `release.yml:5` and the examples in this playbook will need to be updated in lockstep.
+> **Tag convention.** Internal `build/v*` tags identify immutable candidates. Only manual promotion creates the corresponding public `v*` tag; public distribution builds start from that public tag.
 
 ### Workflow Structure
 
 ```
 .github/workflows/
-├── ci.yml                       ← Orchestrator. Triggers on push/PR to develop.
-│                                    Calls the three reusable build workflows below
-│                                    (via `workflow_call`), producing five platform
-│                                    jobs in total (matrix parameters).
+├── ci.yml                       ← Orchestrator. Triggers on develop and release/**.
+│                                    Linux x86_64 is the default path; full-ci or a
+│                                    manual run selects broader platform coverage.
 │
 ├── build-macos.yml              ← Reusable workflow (workflow_call).
 │                                    macOS build (arm64 or x86_64); Developer ID
 │                                    signing and notarization require credentials.
 │
 ├── build-linux.yml              ← Reusable workflow (workflow_call).
-│                                    Linux build (x86_64 or aarch64, parameterized),
+│                                    Linux build (x86_64, aarch64, or armhf),
 │                                    unsigned.
 │
 ├── build-windows.yml            ← Reusable workflow (workflow_call).
@@ -84,10 +82,10 @@ Understanding the architecture will help you debug issues during deployment.
 │                                    none (GA — SignPath signs downstream, §5.4).
 │
 ├── sign-windows-release.yml     ← Public repo (WSJTX/wsjtx) only; triggered by
-│                                    the v* tag release.yml's mirror step pushes.
+│                                    promoted v* tags for both RC and GA.
 │                                    Rebuilds the installer from public source,
 │                                    SignPath authenticode-signs it, verifies the
-│                                    chain with signtool /pa (hard-fail on GA).
+│                                    chain and expected signer (hard-fail for RC/GA).
 │
 ├── signpath-smoke.yml           ← workflow_dispatch; public repo.
 │                                    ~2-minute SignPath round-trip check
@@ -98,42 +96,34 @@ Understanding the architecture will help you debug issues during deployment.
 │                                    GitHub issue when a newer 4.x release is available.
 │                                    No platform builds; self-contained.
 │
-└── release.yml                  ← Triggers on `build/v*` tags.
-                                     Calls all five platform builds (5-platform matrix
-                                     post-S74 +Linux aarch64), creates a GitHub Release
-                                     with artifacts, syncs source to the public repo.
+├── release.yml                  ← Internal `build/v*` candidate builds only.
+│                                    Uploads validation artifacts; never publishes.
+│
+└── promote-release.yml          ← Manual candidate validation and public tag promotion.
 ```
 
 ### How It Flows
 
-**On every push to `develop`:**
+**On pushes and pull requests to `develop` or `release/**`:**
 ```
-Push to develop
+Push or pull request
   └─→ ci.yml triggers
-       ├─→ build-macos.yml [arm64]    (parallel)
-       ├─→ build-macos.yml [x86_64]   (parallel)
-       ├─→ build-linux.yml  [x86_64]  (parallel)
-       ├─→ build-linux.yml  [aarch64] (parallel)
-       └─→ build-windows.yml          (parallel)
-            └─→ All five upload artifacts
+       ├─→ validate workflow policy and release-state.txt
+       └─→ build/test Linux x86_64 by default
+            └─→ full-ci or manual selection adds other platforms
 ```
 
-**On a `build/v*` tag:**
+**For an RC or GA release:**
 ```
-Push tag build/v3.0.1
-  └─→ release.yml triggers
-       ├─→ prepare  (derives version from tag; tag ↔ CMakeLists.txt parity check)
-       ├─→ build-macos.yml [arm64]    (parallel)
-       ├─→ build-macos.yml [x86_64]   (parallel)
-       ├─→ build-linux.yml  [x86_64]  (parallel)
-       ├─→ build-linux.yml  [aarch64] (parallel)
-       └─→ build-windows.yml          (parallel)
-       └─→ release job (after all builds)
-            ├─→ Download all artifacts
-            ├─→ all-platforms-ready gate: enforce 5 installer-grade artifacts
-            ├─→ Create GitHub Release with artifacts attached
-            └─→ Push source + tag to public repo (WSJTX/wsjtx)
+release/X.Y metadata commit
+  └─→ Prepare Release Candidate validates/creates build/vX.Y.Z[-rcN]
+       └─→ release.yml builds the private candidate
+            └─→ release manager validates/promotes that candidate
+                 └─→ public vX.Y.Z[-rcN] builds and signs all distributions
+                      └─→ public-release approval publishes the release
 ```
+
+The two approvals answer different questions: source promotion approves disclosure of the reviewed candidate, while `public-release` approves the exact signed artifacts after they exist. An RC publishes a public tag without moving `master`; GA also advances `master` to the promoted commit.
 
 ### Build Strategy
 
@@ -154,18 +144,22 @@ Caches invalidate when the Hamlib branch changes or the workflow file changes. T
 
 ### What the Release Produces
 
-Each successful `build/v*` tag yields one installer per platform plus a source tarball, all attached to the GitHub Release and (post-release-job) mirrored to the public repo:
+Each approved public `v*` tag yields one installer per target plus a source tarball on the public GitHub Release:
 
 | Artifact | Produced by | Format |
 |----------|-------------|--------|
-| `wsjtx-<ver>-arm64-macOS.pkg` | `build-macos.yml` (arm64 leg) | `.pkg`; Developer ID signed, notarized, and stapled when credentials are available |
-| `wsjtx-<ver>-x86_64-macOS.pkg` | `build-macos.yml` (x86_64 leg) | `.pkg`; Developer ID signed, notarized, and stapled when credentials are available |
+| `wsjtx-<ver>-arm64-macOS.pkg` | `build-macos.yml` (arm64 leg) | Developer ID signed, notarized, and stapled; required for publication |
+| `wsjtx-<ver>-x86_64-macOS.pkg` | `build-macos.yml` (x86_64 leg) | Developer ID signed, notarized, and stapled; required for publication |
 | `wsjtx-<ver>-linux-x86_64.AppImage` | `build-linux.yml` (x86_64 leg) | Portable AppImage |
 | `wsjtx-<ver>-linux-aarch64.AppImage` | `build-linux.yml` (aarch64 leg) | Portable AppImage |
-| `wsjtx-<ver>-win64.exe` | `build-windows.yml` | NSIS installer (GA: SignPath Foundation Authenticode via `sign-windows-release.yml` on the public repo; RC/DEVEL: per-run ephemeral self-signed osslsigncode — see §5.4) |
-| `wsjtx-<ver>-src.tar.gz` | `release.yml:113-126` (`git archive`) | Source tarball |
+| `wsjtx-<ver>-linux-armhf.AppImage` | `build-linux.yml` (armhf leg) | Portable AppImage |
+| Linux x86_64 `.deb` and `.rpm` | `build-linux.yml` (x86_64 leg) | Distribution packages |
+| Linux aarch64 `.deb` and `.rpm` | `build-linux.yml` (aarch64 leg) | Distribution packages |
+| Linux armhf `.deb` and `.rpm` | `build-linux.yml` (armhf leg) | Distribution packages |
+| `wsjtx-<ver>-win64.exe` | `build-windows.yml` | SignPath Foundation Authenticode for both public RC and GA |
+| `wsjtx-<ver>-src.tar.gz` | Public release workflow | Source tarball from the public tag |
 
-The source tarball is assembled from the pushed `build/v*` tag with `git archive --format=tar.gz --prefix="wsjtx-<ver>/"` and is published with every release — no per-release step or decision. This repo has no git submodules, so `git archive`'s default single-tree output captures the full source; if submodules are ever added, the step must be revisited (`git archive` does not recurse into submodules on its own).
+The project-created source tarball is assembled from the public tag. GitHub also generates its own zip and tar.gz source archives for that tag; they contain the tagged tree but may have different compressed hashes. `SHA256SUMS` covers the uploaded payload assets; the checksum file and release manifest are the metadata describing that set. The manifest also records the tag, source commit, workflow run, and builder provenance. Checksums detect changed bytes; platform signatures establish signer identity and must be verified separately.
 
 ### All-Platforms-Ready Gate
 
@@ -179,13 +173,13 @@ The gate checks for one installer per platform:
 | macOS x86_64 | `artifacts/wsjtx-<ver>-x86_64-macOS.pkg/*.pkg` |
 | Linux x86_64 | `artifacts/wsjtx-<ver>-linux-x86_64-AppImage/*.AppImage` |
 | Linux aarch64 | `artifacts/wsjtx-<ver>-linux-aarch64-AppImage/*.AppImage` |
-| Windows x86_64 | `artifacts/wsjtx-<ver>-windows-x86_64-installer/*.exe` |
+| Linux armhf | `artifacts/wsjtx-<ver>-linux-armhf-AppImage/*.AppImage` |
+| Linux packages | One non-empty `.deb` and `.rpm` under each architecture's artifact directory |
+| Windows x86_64 | `artifacts/wsjtx-<ver>-windows-x86_64-installer-signed/*.exe` |
 
 If any pattern matches zero files, the release job stops before publishing.
 
-The gate verifies artifact presence only. It does not establish that a macOS package is Developer ID signed, notarized, stapled, accepted by Gatekeeper, or correct at runtime. Release verification must check those properties separately.
-
-Release policy currently requires all five platform installers. If that policy changes, update the all-platforms-ready gate in `release.yml`.
+Presence alone is insufficient. The publication gate also requires the expected production filenames and signing reports, and verifies that their hashes, public tag, and source SHA agree. A separate installed-runtime smoke test remains necessary because cryptographic verification does not establish application behavior.
 
 ---
 
@@ -207,14 +201,14 @@ Under **Actions permissions**, select one of:
 - **"Allow all actions and reusable workflows"** — simplest, allows everything
 - **"Allow WSJTX, and select non-WSJTX, actions and reusable workflows"** — more restrictive
 
-If you choose the restrictive option, you must explicitly allow these third-party actions at the exact major versions the sandbox workflows pin:
+If you choose the restrictive option, explicitly allow the third-party actions used by the workflows:
 - `actions/checkout@v6`
 - `actions/cache@v5`
 - `actions/upload-artifact@v7`
 - `actions/download-artifact@v8`
 - `msys2/setup-msys2@v2`
 
-**Important:** pinning the allowlist to an older major (e.g., `@v4`) will block the sandbox workflows from running — GitHub's allowlist matches the exact major version string used in the workflow `uses:` line. Re-run the following after any Dependabot bump to stay aligned:
+**Important:** GitHub's allowlist must match each workflow `uses:` entry. Re-run the following after any Dependabot bump to stay aligned:
 
 ```bash
 grep -rE 'uses: (actions/|msys2/)' .github/workflows/ | sort -u
@@ -241,116 +235,43 @@ If `enabled` returns `false`, Actions is still disabled. Double-check the org se
 
 ---
 
-## 4. Phase 2: Adapt Workflow Files
+## 4. Phase 2: Install the Release Workflows
 
-Copy all six workflow files from the prototype (`ci.yml`, `release.yml`, `build-macos.yml`, `build-linux.yml`, `build-windows.yml`, `hamlib-upstream-check.yml`) and make the changes below. Every change is listed with the exact file, line, and what to change. The three `build-*.yml` workflows and `hamlib-upstream-check.yml` have no org-specific references — they're copied as-is.
+The workflows in this repository are already configured for private trunk `develop`, release branches `release/**`, public branch `master`, and public repository `WSJTX/wsjtx`. Copying an older prototype or changing repository names inside `release.yml` would restore the obsolete behavior where an internal build published and synchronized source in one step.
 
-### 4a. Changes to `ci.yml`
+The release-related files have distinct responsibilities:
 
-**Branch name** (lines 4-7): If the official repo uses `master` instead of `develop`:
+| File | Responsibility |
+|------|----------------|
+| `release-state.txt` | Tracked numeric version, channel, RC number, and archive revision placeholder |
+| `release-tag-helper.yml` | Validate the release-branch tip and CI, create an immutable private candidate tag, then call the candidate build |
+| `release.yml` | Build private validation artifacts only; never publish or copy source |
+| `promote-release.yml` | Validate the candidate run and manually copy its exact commit to the public tag; update public `master` only for GA |
+| `public-release.yml` | Rebuild from public source, sign RC/GA installers, assemble an inspectable bundle, and publish after approval |
 
-```yaml
-# BEFORE (prototype):
-on:
-  push:
-    branches: [develop]
-  pull_request:
-    branches: [develop]
+`release-state.txt` is the version source of truth. Keep `revision=$Format:%H$` literal in Git; Git expands it in exported archives. The workflows reject a tag whose version/channel does not match the tracked state.
 
-# AFTER (if official repo uses master):
-on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
-```
-
-If the official repo already uses `develop`, no change needed.
-
-**Version string:** no change needed. The release version is derived from the pushed `build/v*` tag (release.yml:20-21) and from `CMakeLists.txt` VERSION (release.yml:32-45 parity check, Issue #35). There is no hardcoded version string in `ci.yml` or `release.yml` to update per-release. `ci.yml:23` reads the version from `CMakeLists.txt` as a single source of truth.
-
-**Hamlib branch**: The Hamlib version is pinned per-job. If the team moves to a different Hamlib version, update `hamlib_branch: "4.7.2"` at:
-
-- `ci.yml` lines 36, 47, 58, 67, 76 (5 call sites — macOS arm64, macOS x86_64, Linux x86_64, Linux aarch64, Windows x86_64)
-- `release.yml` lines 53, 64, 75, 84, 93 (5 call sites — same five)
+The Hamlib version remains pinned on reusable-workflow calls. To audit all pin sites before changing it:
 
 ```bash
-# List all Hamlib pin sites:
-grep -n 'hamlib_branch:' .github/workflows/ci.yml .github/workflows/release.yml
+rg -n 'hamlib_branch:' .github/workflows
 ```
-
-The scheduled `hamlib-upstream-check.yml` reads the pinned version from `ci.yml` (its single source of truth) and files a tracking issue when a newer 4.x release is available; no per-release edit is needed there.
-
-### 4b. Changes to `release.yml`
-
-**Public repo URL** (the `git remote add public` line — around `release.yml:249` as of this writing): This is the most critical change. The sandbox uses `KJ5HST-LABS/wsjtx.git`; production must point at `WSJTX/wsjtx`:
-
-```yaml
-# Replace the sandbox URL with the official public repo:
-git remote add public "https://x-access-token:${TOKEN}@github.com/WSJTX/wsjtx.git" || true
-```
-
-**Public repo branch** (the `git push public HEAD:...` line — around `release.yml:266` as of this writing): If the public repo's default branch is `master`:
-
-```yaml
-# BEFORE (prototype pushes to main):
-git push public HEAD:main --force
-
-# AFTER (if public repo uses master):
-git push public HEAD:master --force
-```
-
-The subsequent `git push public "$GITHUB_REF_NAME"` line (around `release.yml:267`) pushes the tag itself and does not need a branch-name change.
-
-```bash
-# Find the current line numbers in your checkout (they drift with workflow edits):
-grep -n 'remote add public\|git push public' .github/workflows/release.yml
-```
-
-**Hamlib branch:** same 5 call sites as described in §4a above (`release.yml:53, 64, 75, 84, 93`). No hardcoded version string to update — version is derived from the pushed tag.
-
-### 4c. Changes to `build-macos.yml`
-
-The workflow receives the version, Hamlib branch, architecture, runner, and deployment target as inputs. It discovers signing identities from temporary keychains populated by the secrets in Phase 3.
-
-Keep these repository inputs available:
-
-- `entitlements.plist`, used by the **Code sign binaries** step;
-- `Darwin/com.wsjtx.sysctl.plist`, copied by the **Prepare installer package** step.
-
-### 4d. Changes to `build-linux.yml`
-
-**No changes required.** The Linux workflow has no org-specific references.
-
-### 4e. Changes to `build-windows.yml`
-
-**No changes required.** The Windows workflow has no org-specific references.
-
-### Summary of All Changes
-
-| File | Change | Why |
-|------|--------|-----|
-| `ci.yml` branch-name block (`lines 5, 7` as of this writing) | `develop` → `master` if the official repo uses `master` | Match official branch name |
-| `release.yml` public-remote block (`grep -n 'remote add public\|git push public' .github/workflows/release.yml` — currently `release.yml:249, 266, 267`) | (a) change remote URL to `https://...@github.com/WSJTX/wsjtx.git`; (b) change `git push public HEAD:main` → `HEAD:master` if the public repo uses `master`; the tag-push line (`release.yml:267`) does not need a branch-name change | Point sync at the official public repo on the right default branch |
-| `ci.yml` + `release.yml` `hamlib_branch:` (10 call sites — `grep -n 'hamlib_branch:' .github/workflows/ci.yml .github/workflows/release.yml`) | Update only if the team is pinning a different Hamlib version — otherwise no edit per release | Hamlib version pin (single source: the `hamlib_branch:` input on each reusable-workflow call) |
-
-No version-string row. The release version is derived from the pushed `build/v*` tag (`release.yml:20-21`) and cross-checked against `CMakeLists.txt` VERSION (`release.yml:32-45`, Issue #35); `ci.yml:23` reads the same source. There is no hardcoded version string to bump per release.
-
-That's it — a small number of adaptations, all confined to `ci.yml` and `release.yml` (public repo URL, branch name, and Hamlib branch if the team is using a different Hamlib pin). The three `build-*.yml` workflows and `hamlib-upstream-check.yml` have no org-specific references. (The line-number references in the summary table above are as of this writing and will drift with workflow edits — `grep -n` against your checkout before editing.)
 
 ---
 
 ## 5. Phase 3: Create Repository Secrets
 
-Store secrets at the **repository** level on `wsjtx-internal`. GitHub masks registered secret values in logs, but workflows must still avoid printing credentials or derived sensitive values.
+Use environments to keep credentials out of ordinary build jobs. On the private repository, `candidate-tagging` and `source-promotion` permit protected `release/*` branches; only `source-promotion` contains the cross-repository token. On the public repository, signing environments permit `v*` release tags. Only `public-release` needs a required reviewer; the other environments scope credentials and refs without adding approval prompts.
+
+Configure and restrict these environments before merging workflow code that can reference their credentials. Copy each existing repository-level release secret into its designated environment, verify the environment copy, and then delete the repository-level secret before the workflows become reachable. GitHub can otherwise fall back to a same-named repository secret when a job references `secrets.NAME`, defeating the intended ref restriction. In particular, remove any repository-level `CROSS_REPO_TOKEN` and `SIGNPATH_API_TOKEN`; keep Apple credentials environment-only from the outset.
 
 ### Navigate to Secrets Settings
 
 ```
-https://github.com/WSJTX/wsjtx-internal/settings/secrets/actions
+https://github.com/WSJTX/wsjtx-internal/settings/environments
 ```
 
-Or: Repo → Settings → Secrets and variables → Actions → "New repository secret"
+Or: Repo → Settings → Environments. Create `candidate-tagging` and `source-promotion`, restrict both to protected `release/*` branches, and put the token below only in `source-promotion`.
 
 ### 5.1 Secret 1: `CROSS_REPO_TOKEN`
 
@@ -377,14 +298,14 @@ Or: Repo → Settings → Secrets and variables → Actions → "New repository 
 **Set the secret:**
 ```bash
 # Paste the token when prompted (it won't echo to the terminal):
-gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal
+gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal --env source-promotion
 ```
 
 **Why not a deploy key?** Deploy keys cannot push `.github/workflows/` files. This is a GitHub platform restriction. The error message ("refusing to allow an OAuth App to create or update workflow") is misleading — it applies to any non-PAT credential, including deploy keys over SSH.
 
-### 5.2 Secrets 2-5: macOS Code Signing Certificates
+### 5.2 macOS Code Signing Environment
 
-These four secrets provide the distinct Developer ID identities used for application code and installer packages.
+Create the `apple-release-signing` environment on `WSJTX/wsjtx`, restrict it to release tags, and grant access only to release maintainers. These four secrets provide the distinct Developer ID identities used for application code and installer packages. Prefer fresh, CI-specific certificates rather than transferring a maintainer's long-lived personal export.
 
 #### Credential responsibilities
 
@@ -397,7 +318,7 @@ The workflow uses two identities with different responsibilities:
 - **Developer ID Application** signs application executables, frameworks, plug-ins, and command-line tools.
 - **Developer ID Installer** signs the outer `.pkg` installer.
 
-Notarization uses the Apple account credentials in §5.3 rather than either certificate password. Rotate a certificate's `.p12` and password together. Rotate notarization secrets when the Apple account, app-specific password, or team changes.
+Notarization uses the App Store Connect API key in §5.3 rather than either certificate password. Rotate a certificate's `.p12` and password together. Rotate the notarization key on the team's schedule, when access changes, or after suspected exposure.
 
 #### Preparing the .p12 files
 
@@ -437,17 +358,17 @@ base64 -w0 installer.p12 > installer.p12.b64
 
 ```bash
 # Application signing certificate (base64-encoded .p12):
-gh secret set DEVELOPER_ID_CERTIFICATE_P12 --repo WSJTX/wsjtx-internal < app.p12.b64
+gh secret set DEVELOPER_ID_CERTIFICATE_P12 --repo WSJTX/wsjtx --env apple-release-signing < app.p12.b64
 
 # Password for the application certificate:
-gh secret set DEVELOPER_ID_CERTIFICATE_PASSWORD --repo WSJTX/wsjtx-internal
+gh secret set DEVELOPER_ID_CERTIFICATE_PASSWORD --repo WSJTX/wsjtx --env apple-release-signing
 # (paste the password you chose when exporting, press Enter)
 
 # Installer signing certificate (base64-encoded .p12):
-gh secret set DEVELOPER_ID_INSTALLER_P12 --repo WSJTX/wsjtx-internal < installer.p12.b64
+gh secret set DEVELOPER_ID_INSTALLER_P12 --repo WSJTX/wsjtx --env apple-release-signing < installer.p12.b64
 
 # Password for the installer certificate:
-gh secret set DEVELOPER_ID_INSTALLER_PASSWORD --repo WSJTX/wsjtx-internal
+gh secret set DEVELOPER_ID_INSTALLER_PASSWORD --repo WSJTX/wsjtx --env apple-release-signing
 # (paste the password you chose when exporting, press Enter)
 ```
 
@@ -457,87 +378,60 @@ gh secret set DEVELOPER_ID_INSTALLER_PASSWORD --repo WSJTX/wsjtx-internal
 rm app.p12 installer.p12 app.p12.b64 installer.p12.b64
 ```
 
-### 5.3 Secrets 6-8: Apple Notarization
+### 5.3 Apple Notarization API Key
 
 Notarization submits the signed package to Apple's service for automated security checks. An accepted submission is then stapled to the package so the ticket can be validated without contacting Apple. Notarization is distinct from Developer ID signing and does not by itself verify Gatekeeper acceptance or application behavior.
 
-#### `APPLE_ID`
+Have the Account Holder create a team-owned App Store Connect API key scoped for notarization. Store its key ID as `APP_STORE_CONNECT_KEY_ID`, issuer ID as `APP_STORE_CONNECT_ISSUER_ID`, and base64-encoded `.p8` as `APP_STORE_CONNECT_PRIVATE_KEY_P8_BASE64`, all as `apple-release-signing` environment secrets.
 
-The email address used by the Apple Developer account responsible for notarization.
-
-```bash
-gh secret set APPLE_ID --repo WSJTX/wsjtx-internal
-# Paste: developer@example.com
-```
-
-#### `APPLE_APP_SPECIFIC_PASSWORD`
-
-Apple requires an app-specific password for automated notarization (not your regular Apple ID password).
-
-**To generate one:**
-
-1. Go to https://appleid.apple.com
-2. Sign in with the Apple Developer account
-3. Go to **Sign-In and Security** → **App-Specific Passwords**
-4. Click **"Generate an app-specific password"**
-5. Label it `wsjtx-ci-notarize` (or similar)
-6. Copy the generated password (format: `xxxx-xxxx-xxxx-xxxx`)
+Configure these non-secret variables in the same environment: `APPLE_TEAM_ID`, `APPLE_APPLICATION_CERTIFICATE_SHA1`, and `APPLE_INSTALLER_CERTIFICATE_SHA1`. The SHA-1 values are the full certificate fingerprints without relying on certificate-name matching. Keeping expected identities separate lets the job reject a valid but unintended certificate.
 
 ```bash
-gh secret set APPLE_APP_SPECIFIC_PASSWORD --repo WSJTX/wsjtx-internal
-# Paste: xxxx-xxxx-xxxx-xxxx
+gh secret set APP_STORE_CONNECT_KEY_ID --repo WSJTX/wsjtx --env apple-release-signing
+gh secret set APP_STORE_CONNECT_ISSUER_ID --repo WSJTX/wsjtx --env apple-release-signing
+gh secret set APP_STORE_CONNECT_PRIVATE_KEY_P8_BASE64 --repo WSJTX/wsjtx --env apple-release-signing
+gh variable set APPLE_TEAM_ID --repo WSJTX/wsjtx --env apple-release-signing --body '<team-id>'
+gh variable set APPLE_APPLICATION_CERTIFICATE_SHA1 --repo WSJTX/wsjtx --env apple-release-signing --body '<40-hex-fingerprint>'
+gh variable set APPLE_INSTALLER_CERTIFICATE_SHA1 --repo WSJTX/wsjtx --env apple-release-signing --body '<40-hex-fingerprint>'
 ```
 
-#### `APPLE_TEAM_ID`
-
-Your Apple Developer team identifier:
-
-1. Go to https://developer.apple.com/account
-2. Scroll down to **Membership Details**
-3. Copy the **Team ID** (10-character alphanumeric string)
-
-```bash
-gh secret set APPLE_TEAM_ID --repo WSJTX/wsjtx-internal
-# Paste: ABCDE12345
-```
+Do not use a maintainer's Apple ID password or app-specific password. The API key is independently revocable and does not tie unattended releases to one person's login.
 
 ### Verification: Confirm All Secrets Are Set
 
 ```bash
-gh secret list --repo WSJTX/wsjtx-internal
+gh secret list --repo WSJTX/wsjtx --env apple-release-signing
 ```
 
-The inventory must contain the cross-repository token and the complete seven-secret Apple credential set:
+The environment inventory must contain both certificate identities and the API-key notarization credential set declared by `build-macos.yml`: `DEVELOPER_ID_CERTIFICATE_P12`, `DEVELOPER_ID_CERTIFICATE_PASSWORD`, `DEVELOPER_ID_INSTALLER_P12`, `DEVELOPER_ID_INSTALLER_PASSWORD`, `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and `APP_STORE_CONNECT_PRIVATE_KEY_P8_BASE64`. Separately confirm `CROSS_REPO_TOKEN` in private environment `source-promotion`.
 
-```
-APPLE_APP_SPECIFIC_PASSWORD
-APPLE_ID
-APPLE_TEAM_ID
-CROSS_REPO_TOKEN
-DEVELOPER_ID_CERTIFICATE_P12
-DEVELOPER_ID_CERTIFICATE_PASSWORD
-DEVELOPER_ID_INSTALLER_P12
-DEVELOPER_ID_INSTALLER_PASSWORD
-```
+Also configure the public workflow's non-secret expected Apple Team ID and SHA-1 fingerprints for the Application and Installer certificates. These are identifiers, not private-key material; the distribution job uses them to reject a valid but unintended identity.
 
-The workflow selects Developer ID signing from the presence of `DEVELOPER_ID_CERTIFICATE_P12`. If it is absent, the workflow ad-hoc signs application code, creates an unsigned package, skips notarization, and still uploads build artifacts. If it is present, all remaining Apple secrets must also be configured correctly or a later signing or notarization step will fail.
+Set repository variable `MACOS_DISTRIBUTION_SIGNING_ENABLED=false` until the full environment is configured and tested. In that state the workflow may create clearly named unsigned validation artifacts, but the publication gate rejects them. Set it to `true` only after both architectures complete signing, notarization, stapling, identity, entitlement, and Gatekeeper verification. Distribution mode fails closed if any credential is absent.
 
-> **About Windows signing.** GA installers are Authenticode-signed by SignPath Foundation on the **public** repo — see §5.4. No Windows signing secrets exist on `wsjtx-internal`; the only signing-related secret is `SIGNPATH_API_TOKEN` on `WSJTX/wsjtx`, and the certificate's private key never leaves SignPath's HSM. CI/DEVEL/RC builds use a per-run ephemeral self-signed osslsigncode certificate (no stored secret).
+> **About Windows signing.** RC and GA installers are Authenticode-signed by SignPath Foundation on the **public** repo — see §5.4. No Windows certificate private key exists in GitHub; it remains in SignPath's HSM. Ordinary CI builds may use a per-run ephemeral self-signed certificate.
 
 ### 5.4 Windows Authenticode Signing via SignPath Foundation
 
-> **How it works.** SignPath Foundation signs OSS artifacts **built from the public repository only** — the signature attests provenance, not just identity. `release.yml` therefore mirrors source + tag to `WSJTX/wsjtx` *before* publishing anything; the tag push triggers `sign-windows-release.yml` on the public repo, which rebuilds the installer (`build-windows.yml` with `sign_mode=none`), submits it via `signpath/github-action-submit-signing-request@v2` (org `4c211821-e011-48a2-8a84-2cc29a76a8bf`, project `wsjtx`, policy `release-signing` for GA-shaped tags), verifies the chain with `signtool verify /pa`, and uploads a `…-installer-signed` artifact. The internal release job waits for that run, swaps the signed exe in, and only then publishes both releases. A failed or rejected signing run fails the release — no unsigned GA ships. The certificate's private key lives in SignPath's HSM; there is no `.pfx` to export, store, or protect.
+> **How it works.** SignPath Foundation signs OSS artifacts built from the public repository, so the signature attests public-source provenance as well as identity. A promoted `vX.Y.Z` or `vX.Y.Z-rcN` tag triggers the public build, submits the unsigned installer under the `release-signing` policy, verifies the returned Authenticode signature and timestamp, and makes that verified installer eligible for publication. A failed or rejected request blocks the release. The certificate's private key lives in SignPath's HSM; there is no `.pfx` to export or store in GitHub.
 
 #### The one secret
 
-Set on the **public** repo (not `wsjtx-internal`):
+Create public environment `windows-release-signing`, restrict it to protected `master` and `v*` release tags, and set the token there (not on `wsjtx-internal`). `master` access permits the explicit smoke-test workflow; production signing still accepts only a public RC or GA tag.
 
 ```bash
-gh secret set SIGNPATH_API_TOKEN --repo WSJTX/wsjtx
+gh secret set SIGNPATH_API_TOKEN --repo WSJTX/wsjtx --env windows-release-signing
 # (paste the SignPath CI user's API token, press Enter)
 ```
 
-The SignPath CI user must be a **submitter** on the signing policies (`release-signing`, `test-signing`). Additionally, `CROSS_REPO_TOKEN` needs **Actions:read** on `WSJTX/wsjtx` (on top of its baseline Contents:write) so the internal release job can poll the sign run and download the signed artifact.
+Set `WINDOWS_SIGNER_SUBJECT` and comma-separated `WINDOWS_SIGNER_THUMBPRINTS` as variables in that environment. The thumbprint list permits an explicit certificate rollover window; remove the old value after rollover.
+
+```bash
+gh variable set WINDOWS_SIGNER_SUBJECT --repo WSJTX/wsjtx --env windows-release-signing --body '<exact certificate subject>'
+gh variable set WINDOWS_SIGNER_THUMBPRINTS --repo WSJTX/wsjtx --env windows-release-signing --body '<thumbprint>[,<rollover-thumbprint>]'
+```
+
+The SignPath CI user must be a **submitter** on the signing policies (`release-signing`, `test-signing`). The public workflow consumes its own signed result; the internal promotion token does not need access to SignPath credentials.
 
 #### SignPath dashboard configuration
 
@@ -562,38 +456,15 @@ The SignPath CI user must be a **submitter** on the signing policies (`release-s
 
 #### RC/DEVEL builds
 
-CI, DEVEL, and RC builds use a per-run ephemeral self-signed certificate (the `osslsigncode` step in `build-windows.yml`, skipped when the caller passes `sign_mode=none`). GA release builds pass `sign_mode=none` on both repos — the internal installer is an unsigned placeholder until the signing gate swaps in the SignPath-signed exe. RC source stays internal by policy, and Foundation cannot sign non-public builds, so RC installers use the ephemeral cert and its `|| true`-guarded verify.
+DEVEL and private candidate builds may use a per-run ephemeral self-signed certificate. Public RC source is intentionally promoted before its distribution build, so RC installers use the same SignPath `release-signing` policy and hard verification as GA.
 
 ### 5.5 Linux Signing (Optional)
 
 Linux binary signing is less critical — Linux users don't encounter SmartScreen-style warnings when downloading binaries. However, GPG-signing release tarballs is good practice if the team distributes `.tar.gz` or `.deb` packages. This would require one additional secret (`GPG_SIGNING_KEY`) and a small step in the release workflow.
 
-### Verification: All Secrets
+### Verification: Credential Boundaries
 
-`wsjtx-internal` stays at the 8 baseline secrets; Windows signing adds exactly one secret, on the public repo:
-
-```bash
-gh secret list --repo WSJTX/wsjtx-internal
-```
-
-```
-APPLE_APP_SPECIFIC_PASSWORD       Updated 2026-...
-APPLE_ID                          Updated 2026-...
-APPLE_TEAM_ID                     Updated 2026-...
-CROSS_REPO_TOKEN                  Updated 2026-...
-DEVELOPER_ID_CERTIFICATE_P12      Updated 2026-...
-DEVELOPER_ID_CERTIFICATE_PASSWORD Updated 2026-...
-DEVELOPER_ID_INSTALLER_P12        Updated 2026-...
-DEVELOPER_ID_INSTALLER_PASSWORD   Updated 2026-...
-```
-
-```bash
-gh secret list --repo WSJTX/wsjtx
-```
-
-```
-SIGNPATH_API_TOKEN                Updated 2026-...
-```
+Confirm `CROSS_REPO_TOKEN` exists only in private environment `source-promotion`; Apple material only in public environment `apple-release-signing`; and `SIGNPATH_API_TOKEN` only in public environment `windows-release-signing`. The `public-release` environment is an approval boundary and contains no signing-key material.
 
 ---
 
@@ -640,37 +511,7 @@ and the unversioned `dumpcpp` name. Do not create an alias in the workflow.
 
 ### Option A: PR from a Branch
 
-If you have write access to `WSJTX/wsjtx-internal`:
-
-```bash
-# Clone the official repo (if you haven't already):
-git clone git@github.com:WSJTX/wsjtx-internal.git
-cd wsjtx-internal
-
-# Create a feature branch:
-git checkout -b ci/github-actions
-
-# Copy workflow files from the prototype:
-# (adjust paths to wherever you have the prototype checked out)
-cp /path/to/prototype/.github/workflows/*.yml .github/workflows/
-
-# Make the changes from Phase 2 (branch names, repo URL, versions)
-# ... edit ci.yml and release.yml ...
-
-# Copy supporting files if needed:
-cp /path/to/prototype/entitlements.plist .
-cp -r /path/to/prototype/Darwin .
-
-# Commit:
-git add .github/workflows/ entitlements.plist Darwin/
-git commit -m "feat: add GitHub Actions CI/CD for five-platform builds"
-
-# Push and create PR:
-git push -u origin ci/github-actions
-gh pr create \
-  --title "Add GitHub Actions CI/CD" \
-  --body "Five-platform CI (macOS arm64, macOS x86_64, Linux x86_64, Linux aarch64, Windows x86_64) with tag-triggered releases (\`build/v*\`)."
-```
+If you have write access to `WSJTX/wsjtx-internal`, create a feature branch from `develop`, commit the workflow and supporting-file changes together, push it, and open a PR. Do not copy older prototype workflows over the current files: the candidate, promotion, signing, and publication boundaries must be reviewed as one system.
 
 ### Option B: PR from a Fork
 
@@ -723,9 +564,9 @@ gh run watch --repo WSJTX/wsjtx-internal
 gh run list --repo WSJTX/wsjtx-internal --limit 5
 ```
 
-### Step 3: Check Each Platform
+### Step 3: Check the Selected Platforms
 
-All five builds should complete. Expected times (first run, no cache):
+An ordinary push runs the default Linux x86_64 check. Before a candidate, apply the `full-ci` label to a PR or manually dispatch full CI and confirm all six target builds. Expected times (first run, no cache):
 
 | Platform | First Run | Cached Run |
 |----------|-----------|------------|
@@ -752,7 +593,7 @@ Common first-run failures:
 |---------|-------|-----|
 | "Resource not accessible by integration" | Workflow permissions too restrictive | Org Settings → Actions → Workflow permissions → "Read and write" |
 | macOS signing fails with empty identity | Application P12 is present, but the credential set is incomplete or invalid | Verify the application P12, its password, and the imported identity |
-| macOS notarization fails | Missing or wrong `APPLE_ID` / password / team ID | Verify all three notarization secrets |
+| macOS notarization fails | Missing, revoked, or mismatched App Store Connect API credential | Verify the API key, key ID, issuer ID, and expected Team ID in `apple-release-signing` |
 | Windows build timeout (>60 min) | MSYS2 cache miss + slow package install | Re-run — the cache will be populated for next time |
 | "refusing to allow an OAuth App to create or update workflow" | This error can appear at PR merge time if the branch contains workflow files and was pushed with a deploy key | Push the branch using a PAT or via the GitHub web UI instead |
 
@@ -767,47 +608,27 @@ git push
 
 ## 9. Phase 7: Test the Release Pipeline
 
-Only do this after CI is green on all five platforms.
+Only do this after CI is green on all six targets.
 
-### Step 1: Choose a Test Version
+### Step 1: Prepare Release Metadata
 
-Pick a version number that's clearly a test. Convention: append a patch number to the current version. The tag **must** start with `build/v` — the sandbox release pipeline triggers on `build/v*` only (`release.yml:5`). A bare `v3.0.0.1-test` tag will not trigger the release workflow.
+On `release/X.Y`, commit the numeric version and matching `DEVEL`, `RC n`, or `GA` state in `release-state.txt`. For `3.2.0-rc1`, use `version=3.2.0`, `channel=RC`, and `rc=1`. Leave its `$Format:%H$` revision placeholder intact so Git substitutes the source SHA when exporting an archive. Wait for branch CI before tagging. This metadata commit is required even when GA application source is otherwise identical to the last RC, because it makes builds from GitHub's source archives identify themselves correctly.
 
-```bash
-# If current version is 3.0.0:
-TEST_TAG="build/v3.0.0.1-test"
-```
+### Step 2: Build the Private Candidate
 
-### Step 2: Create and Push the Tag
+Run **Prepare Release Candidate** from the `release/X.Y` branch at the expected SHA. Supply the version and full SHA with `operation=validate`; review its summary, then repeat with `operation=create`. The latter creates immutable `build/v...` and calls `release.yml` inside the same workflow run. That run uploads private validation artifacts without publishing or copying source.
 
-```bash
-git tag "$TEST_TAG"
-git push origin "$TEST_TAG"
-```
+### Step 3: Approve Public Source Promotion
 
-### Step 3: Monitor the Release Run
+Inspect the successful Prepare Release Candidate run and record its run ID. From the same `release/X.Y` branch and SHA, run **Promote Release Source** with that run ID, version, and `operation=validate`; after reviewing the checks, repeat with `operation=promote`. The workflow creates public `v...` at the same SHA and starts the public distribution builds. RC promotion leaves public `master` unchanged; GA promotion advances it with a guarded, fast-forward-only update.
 
-```bash
-gh run watch --repo WSJTX/wsjtx-internal
-```
+### Step 4: Review and Approve Publication
 
-The release workflow will:
-1. Build all five platforms (same as CI)
-2. Create a GitHub Release with downloadable artifacts
-3. Push source and the tag to the public repo
+Confirm every public target build and signing report is green. Windows RC and GA installers must be SignPath release-signed. macOS RC and GA packages must be Developer ID-signed, notarized, stapled, and Gatekeeper-accepted.
 
-### Step 4: Verify the Release
+If `MACOS_DISTRIBUTION_SIGNING_ENABLED` is false, inspect the unsigned validation artifacts to exercise packaging, but stop: the workflow intentionally cannot publish them. After the `apple-release-signing` environment is fully populated, enable the variable and rerun the same immutable public tag.
 
-```bash
-# Check that the release was created:
-gh release view "$TEST_TAG" --repo WSJTX/wsjtx-internal
-
-# Check that the public repo received the code:
-gh api repos/WSJTX/wsjtx/tags --jq '.[].name' | head -5
-
-# Check that the public repo received the tag:
-gh api repos/WSJTX/wsjtx/git/refs/tags/"$TEST_TAG" --jq '.ref'
-```
+Download the `release-bundle-<version>` workflow artifact, then approve the waiting `public-release` environment only after its manifest, asset hashes, source SHA, and signing reports agree. Verify that an RC is marked prerelease and does not move `master`; verify that GA is the latest release and does move `master`.
 
 ### Step 5: Verify the Artifacts
 
@@ -815,8 +636,7 @@ Download the release artifacts to a new directory:
 
 ```bash
 RELEASE_DIR="$(mktemp -d)"
-gh release download "$TEST_TAG" --repo WSJTX/wsjtx-internal --dir "$RELEASE_DIR"
-VERSION="${TEST_TAG#build/v}"
+gh release download "v$VERSION" --repo WSJTX/wsjtx --dir "$RELEASE_DIR"
 PKG="$RELEASE_DIR/wsjtx-${VERSION}-arm64-macOS.pkg"
 ```
 
@@ -846,21 +666,9 @@ Signature verification must succeed, and both inspected executables must contain
 
 Finally, install the package on a disposable or release-test macOS system and launch the installed app through Finder. Confirm that macOS grants audio input after the usage prompt, the receive level responds to live input, and `jt9` completes a decode cycle without a hardened-runtime or dynamic-loader failure. A successful signing or notarization check does not establish these runtime properties.
 
-### Step 6: Clean Up the Test Release
+### Step 6: Recover Safely
 
-```bash
-# Delete the release:
-gh release delete "$TEST_TAG" --repo WSJTX/wsjtx-internal --yes
-
-# Delete the tag from wsjtx-internal:
-gh api -X DELETE repos/WSJTX/wsjtx-internal/git/refs/tags/"$TEST_TAG"
-
-# Delete the tag from wsjtx (public):
-gh api -X DELETE repos/WSJTX/wsjtx/git/refs/tags/"$TEST_TAG"
-
-# Delete local tag:
-git tag -d "$TEST_TAG"
-```
+Rerun jobs against the immutable tag for transient signing, notarization, or service failures. If source or metadata changes, make a new commit and cut the next RC. Do not clean up a failed attempt by moving or recreating either tag; retaining the original identity preserves the audit trail and prevents an already downloaded release name from silently changing meaning.
 
 ---
 
@@ -870,18 +678,18 @@ git tag -d "$TEST_TAG"
 
 | Secret | Rotation Schedule | How to Rotate |
 |--------|-------------------|---------------|
-| `CROSS_REPO_TOKEN` | Before expiry (check token settings at github.com) | Generate new PAT → `gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal` |
-| `APPLE_APP_SPECIFIC_PASSWORD` | When Apple revokes it or account password changes | Generate new app-specific password → update secret |
+| `CROSS_REPO_TOKEN` | Before expiry (check token settings at github.com) | Generate new PAT → update private environment `source-promotion` |
+| App Store Connect API key | On team schedule, personnel change, or suspected exposure | Revoke the old key, create a team-owned replacement, and update `apple-release-signing` |
 | macOS signing certificates (.p12) | When certificate expires (typically 5 years) | Export new cert from Keychain → base64-encode → update both P12 and PASSWORD secrets |
-| Windows signing certificate (.pfx) | When certificate expires (typically 1-3 years for OV) | Obtain renewed cert from CA → base64-encode → update PFX and PASSWORD secrets |
+| SignPath API token | On SignPath schedule, submitter change, or suspected exposure | Replace the public-repo token; the signing key remains in SignPath's HSM |
 
 ### Version Bumps
 
-When releasing a new version, update the `version` input in both `ci.yml` and `release.yml`. Each file has three places where the version appears (one per platform call):
+Before creating an RC or GA candidate, commit the numeric version and matching release channel/RC number in `release-state.txt`. Workflows derive their build inputs from that tracked state and reject a mismatched tag; do not maintain duplicate per-platform version literals.
 
 ```bash
-# Find all version references:
-grep -n 'version:' .github/workflows/ci.yml .github/workflows/release.yml
+# Review the tracked release identity before running Prepare Release Candidate:
+git diff HEAD^ -- release-state.txt
 ```
 
 ### Hamlib Updates
@@ -909,75 +717,14 @@ When modifying workflow files, keep in mind:
 - Changes to `ci.yml` or `release.yml` do **not** invalidate caches (they're just orchestrators).
 - Reusable workflows (`workflow_call`) cannot be tested from fork PRs — they must be on the same repo.
 
-### Branch Protection and Admin Bypass (A6 — sandbox vs. production)
+### Branch, Tag, and Environment Protection
 
-The sandbox repo (`KJ5HST-LABS/wsjtx-internal`) and the production repo
-(`WSJTX/wsjtx-internal`) have deliberately different branch-protection
-postures. The difference is documented here so that replication doesn't
-silently carry sandbox laxness into production.
+Protect `develop` and `release/*` from force-push and deletion, and apply the team's normal CI/review policy. The two manual helper workflows must be run from the current protected `release/X.Y` tip; they reject any other workflow ref or SHA.
 
-**Current sandbox state** on `KJ5HST-LABS/wsjtx-internal`, branch `develop`:
+On the public repository, add a tag ruleset for `v*` that blocks update and deletion and limits creation to the source-promotion identity. Protect `master` from force-push and deletion. `promote-release.yml` additionally requires GA to advance the prior public `master` and updates the branch and new tag atomically.
 
-| Setting | Sandbox value | Verify |
-|---------|---------------|--------|
-| `required_status_checks` | `macos / build`, `macos-intel / build`, `linux / build`, `linux-arm / build`, `windows / build` — all five must pass; strict (branch must be up-to-date with base). (**Note:** the sandbox list currently also carries a stale `windows-x86 / build` context left over from the removed Win32 path — scheduled for removal; does not block CI because no job publishes that context.) | `gh api repos/KJ5HST-LABS/wsjtx-internal/branches/develop/protection --jq '.required_status_checks.contexts'` |
-| `required_pull_request_reviews` | **none** | `gh api .../branches/develop/protection --jq '.required_pull_request_reviews'` returns `null` |
-| `enforce_admins` | **`false`** — admins can bypass required checks and direct-push | `gh api .../branches/develop/protection --jq '.enforce_admins.enabled'` returns `false` |
-| `allow_force_pushes` | `false` | same endpoint, `.allow_force_pushes.enabled` |
-| `allow_deletions` | `false` | same endpoint, `.allow_deletions.enabled` |
-| `restrictions` (push allowlist) | `null` (everyone with write can push when other checks pass) | `.restrictions` |
+Restrict `candidate-tagging` and `source-promotion` to protected private `release/*` branches, `apple-release-signing` to public `v*` tags, and `windows-release-signing` to protected public `master` plus `v*` tags. Restrict `public-release` to public `v*` tags and require a reviewer there. These restrictions keep modified workflow code on an arbitrary branch from receiving a release credential. Do not add reviewers to the signing environments unless the team intentionally wants extra approvals; keep the required artifact-publication approval on `public-release`.
 
-**Why the sandbox keeps admin bypass on:**
-
-1. The sandbox has a **single admin** (the project lead during bring-up). If
-   `enforce_admins: true` were set, every routine SESSION_NOTES commit and
-   every emergency hotfix would need to round-trip through a PR — but there
-   is nobody else to review the PR. The protection becomes self-blocking.
-2. During bring-up, workflow iteration frequently requires direct pushes to
-   `develop` to unstick a half-working workflow that can only be validated
-   on the real runner. Forcing every iteration through a PR adds 5-20
-   minutes of cycle time per attempt with no added safety (the reviewer
-   would be the same person pushing).
-3. The sandbox does not ship to external users as a primary distribution
-   channel — its purpose is (a) to prove the machinery works, and (b) to
-   feed the arm64 macOS `.pkg` to the one downstream consumer. Blast
-   radius from a bad direct-push is small.
-
-**Production requirement** (MUST change before replicating to
-`WSJTX/wsjtx-internal`):
-
-1. Set `enforce_admins: true` so that **no one** — including org owners —
-   can bypass the required status checks. Command:
-   ```bash
-   gh api -X POST repos/WSJTX/wsjtx-internal/branches/develop/protection/enforce_admins
-   ```
-2. Add `required_pull_request_reviews` with at least one required reviewer
-   and `dismiss_stale_reviews: true`. Team size on the production repo is
-   large enough that self-review is avoidable.
-3. Consider adding `required_signatures: true` if the team's contributors
-   all use signed commits, or leaving it off if signing adoption is not
-   universal (the required checks still block unreviewed code).
-4. Remove `--force` from the release-time public-mirror sync (around
-   `release.yml:249`) before setting `enforce_admins: true` — the
-   `--force` step currently relies on admin bypass during sandbox
-   bring-up and must be retired in lockstep with enforcing admin
-   protections.
-
-**Verification of the production state** — after replication, this query
-should return `true` on production and `false` on sandbox:
-
-```bash
-gh api repos/WSJTX/wsjtx-internal/branches/develop/protection/enforce_admins --jq '.enabled'
-# → true (production)
-
-gh api repos/KJ5HST-LABS/wsjtx-internal/branches/develop/protection/enforce_admins --jq '.enabled'
-# → false (sandbox; intentional)
-```
-
-If the sandbox ever changes (e.g., a second maintainer joins the project
-and PR-based review becomes viable), update this section with the new
-state and open a tracking issue to tighten `enforce_admins` on the sandbox
-as well.
 ### Dependabot & Auto-merge Policy
 
 **Repo feature — enable everywhere this machinery lives:**
@@ -1021,16 +768,16 @@ Dependabot auto-rebases its PRs when the base branch moves, CI re-runs, and GitH
 
 **Context:** The signing step can't find a Developer ID certificate in the keychain.
 
-**Root cause:** Developer ID mode was selected because `DEVELOPER_ID_CERTIFICATE_P12` is present, but the imported file, password, or certificate contents do not yield a Developer ID Application identity.
+**Root cause:** Distribution mode was selected, but the imported file, password, or certificate contents do not yield the expected Developer ID Application identity.
 
 **Diagnosis:**
 ```bash
 # Check that the secret exists:
-gh secret list --repo WSJTX/wsjtx-internal | grep DEVELOPER_ID
+gh secret list --repo WSJTX/wsjtx --env apple-release-signing | rg DEVELOPER_ID
 
 # Re-encode and re-set:
 base64 -i app.p12 -o app.p12.b64
-gh secret set DEVELOPER_ID_CERTIFICATE_P12 --repo WSJTX/wsjtx-internal < app.p12.b64
+gh secret set DEVELOPER_ID_CERTIFICATE_P12 --repo WSJTX/wsjtx --env apple-release-signing < app.p12.b64
 ```
 
 ### Problem: Notarization fails with "Invalid" status
@@ -1053,19 +800,19 @@ gh secret set DEVELOPER_ID_CERTIFICATE_P12 --repo WSJTX/wsjtx-internal < app.p12
 
 **Fix:** Re-run the job. If persistent, download OmniRig manually, add the `.exe` to the repo as a build dependency, and update the workflow to use the local copy.
 
-### Problem: CROSS_REPO_TOKEN sync silently skips
+### Problem: Public source promotion reports a missing token
 
-**Context:** The release job succeeds but the public repo doesn't get updated. No error in logs — just a warning: "CROSS_REPO_TOKEN not set — skipping public repo sync."
+**Context:** Promote Release Source stops before it inspects or creates the public tag.
 
 **Root cause:** The secret is not set, or it's set on the wrong repo, or it's empty.
 
 **Fix:**
 ```bash
 # Verify the secret exists:
-gh secret list --repo WSJTX/wsjtx-internal | grep CROSS_REPO
+gh secret list --repo WSJTX/wsjtx-internal --env source-promotion | rg CROSS_REPO
 
 # Re-set it:
-gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal
+gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal --env source-promotion
 # Paste the token value
 ```
 
@@ -1097,24 +844,30 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal
 
 | File | Purpose | Changes Needed |
 |------|---------|----------------|
-| `.github/workflows/ci.yml` | CI orchestrator | Branch name |
-| `.github/workflows/release.yml` | Release pipeline | Public repo URL, branch name |
+| `.github/workflows/ci.yml` | CI orchestrator for `develop` and `release/**` | None |
+| `.github/workflows/release.yml` | Reusable private candidate build | None |
+| `.github/workflows/release-tag-helper.yml` | Validate/create immutable internal candidates | None |
+| `.github/workflows/promote-release.yml` | Validate/promote exact source to the public repo | None |
+| `.github/workflows/public-release.yml` | Public signed build, bundle, approval, and GitHub Release | None |
+| `.github/workflows/sign-windows-release.yml` | Public SignPath build/sign/verification | SignPath project and policy identifiers |
 | `.github/workflows/build-macos.yml` | macOS build (parameterized arm64/x86_64) | None |
-| `.github/workflows/build-linux.yml` | Linux build (parameterized x86_64/aarch64) | None |
+| `.github/workflows/build-linux.yml` | Linux build (parameterized x86_64/aarch64/armhf) | None |
 | `.github/workflows/build-windows.yml` | Windows x86_64 build | None |
 | `.github/workflows/hamlib-upstream-check.yml` | Scheduled (weekly cron + `workflow_dispatch`) poll of Hamlib upstream tags; files a tracking issue when a newer 4.x release is available. No platform builds; self-contained. | None |
 | `entitlements.plist` | macOS app entitlements | None (if not already in repo) |
 | `Darwin/com.wsjtx.sysctl.plist` | macOS shared memory config | None (if not already in repo) |
+| `release-state.txt` | Tracked version, channel, RC number, and archival revision | Set before each candidate |
+| `.github/scripts/release-policy.py` | Release identity, asset, archive, signing-report, and manifest gates | None |
 
 ### Secrets Required on `wsjtx-internal`
 
-Use the canonical inventory and setup procedure in [Phase 3](#5-phase-3-create-repository-secrets). `CROSS_REPO_TOKEN` additionally needs Actions:read on `WSJTX/wsjtx` for release signing-run polling. The public repository's Windows SignPath workflows use `SIGNPATH_API_TOKEN`; no SignPath private key is stored in either repository.
+Use the canonical inventory and setup procedure in [Phase 3](#5-phase-3-create-repository-secrets). Keep `CROSS_REPO_TOKEN` in private environment `source-promotion`, Apple material in public environment `apple-release-signing`, and `SIGNPATH_API_TOKEN` in public environment `windows-release-signing`. No SignPath private key is stored in either repository.
 
 ### External Dependencies (Downloaded at Build Time)
 
 | Dependency | URL | Used By |
 |------------|-----|---------|
-| Hamlib 4.7.2 | `https://github.com/Hamlib/Hamlib.git` | All five platforms |
+| Hamlib 4.7.2 | `https://github.com/Hamlib/Hamlib.git` | All supported platforms |
 | OmniRig | `https://www.dxatlas.com/OmniRig/Files/OmniRig.zip` | Windows only |
 
 ### Build-Time Source Patches

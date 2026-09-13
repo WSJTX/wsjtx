@@ -4,7 +4,7 @@ How the WSJT-X project uses its two-repo model, how team members and external co
 
 **Audience:** Public-facing. Current team members, prospective contributors, and anyone evaluating the project's development practices.
 
-*This document describes the post-adoption target state — how development on `WSJTX/*` would operate once the team adopts the proposed CI/CD machinery. The CI/CD segments described run today in the `KJ5HST-LABS/wsjtx-internal` sandbox, not yet on `WSJTX/*`. Read this as reference material for the shape of the workflow, not as a current-state description of `WSJTX/*`.*
+This document describes the WSJTX GitHub development and release workflow. Repository settings and signing credentials must be configured as described in the Deployment Playbook before the protected release paths can run.
 
 ---
 
@@ -45,7 +45,7 @@ WSJTX/wsjtx-internal  (private)     WSJTX/wsjtx  (public)
 
 - **wsjtx-internal** is where all development happens. It's private so the team can work without external pressure during development cycles. This is the repo team members push to, open PRs against, and file issues in.
 
-- **wsjtx** is the public face of the project. It receives code only at release time — when a version is tagged in wsjtx-internal, the release pipeline automatically syncs the source and tag to the public repo. External contributors fork this repo.
+- **wsjtx** is the public face of the project. It receives an exact release commit and tag only after a release manager approves promotion of a successful internal candidate. External contributors fork this repo.
 
 ### How they stay in sync
 
@@ -57,11 +57,13 @@ wsjtx-internal  ──→  wsjtx
                  sync
 ```
 
-When a version tag (e.g., `build/v3.0.1`) is pushed to wsjtx-internal:
-1. The release workflow builds all five platforms
-2. It creates a GitHub Release on wsjtx-internal with downloadable binaries
-3. It pushes the current source to `master` on wsjtx
-4. It pushes the version tag to wsjtx
+For a version such as `3.2.0-rc1`:
+1. `build/v3.2.0-rc1` identifies an immutable internal candidate and builds validation artifacts
+2. A release manager inspects that run and manually promotes its exact commit as public tag `v3.2.0-rc1`
+3. The public repository builds and signs the distribution artifacts from that tag
+4. A final `public-release` approval publishes the GitHub prerelease or release
+
+An RC promotion publishes only its tag, so public `master` remains the latest GA source. GA promotion also advances public `master` to the same commit. This keeps public source, signed binaries, and the release page bound to one reviewed revision.
 
 The public repo never pushes back to internal. Changes from external contributors are manually cherry-picked or merged by a team member (see [Section 4](#4-contributing-from-outside-the-team)).
 
@@ -93,7 +95,7 @@ External contributors have **read access** to the public repo (wsjtx). They can:
 - Open pull requests from their fork to wsjtx
 - File issues on wsjtx
 
-They **cannot** directly access wsjtx-internal, push branches to either org repo, or trigger workflows. CI/CD runs entirely on wsjtx-internal — the public repo receives only source + tags + GitHub Release artifacts at release time. External PRs are triaged by a team member, who brings accepted changes into wsjtx-internal where the pipeline builds and tests them.
+They **cannot** directly access wsjtx-internal, push branches to either org repo, or trigger protected release operations. Candidate CI runs internally; promoted RC and GA source tags and their distribution builds are public. External PRs are triaged by a team member, who brings accepted changes into wsjtx-internal where the pipeline builds and tests them.
 
 ### Access Summary
 
@@ -178,15 +180,16 @@ Or use the GitHub web UI: go to the repo, click "Compare & pull request" on the 
 
 #### 6. CI runs automatically
 
-When the PR is opened (and on every subsequent push to the PR branch), CI builds the code on all five platforms:
+When the PR is opened (and on every subsequent push), the default CI path runs the Linux x86_64 build. Apply the `full-ci` label or dispatch CI manually when all supported targets should run:
 
 - **macOS ARM64** — builds; Developer ID signing and notarization require credentials
 - **macOS Intel x86_64** — builds; Developer ID signing and notarization require credentials
 - **Linux x86_64** — builds
 - **Linux aarch64** — builds (ARM Linux, via `ubuntu-24.04-arm`)
+- **Linux armhf** — builds in the armhf container
 - **Windows x86_64** — builds and signs via MSYS2/MinGW
 
-Green checks mean it compiles everywhere. A red X means something broke — click the check to see which platform failed and view the logs.
+Green checks cover the jobs selected for that run. A red X means something broke — click the check to see which platform failed and view the logs. The private release candidate always runs the complete six-target matrix before source can be promoted.
 
 #### 7. Review and merge
 
@@ -254,7 +257,7 @@ A team member reviews the PR on the public repo. If the change is accepted:
 1. The team member checks out the PR locally or cherry-picks the commits
 2. They apply the change to a branch on wsjtx-internal
 3. They open an internal PR against `develop`
-4. CI validates the change on all five platforms
+4. Default CI validates the change on Linux x86_64; `full-ci`, manual CI, and release candidates provide all-target coverage
 5. The change merges to `develop`
 6. At the next release, the change flows back to the public repo automatically
 
@@ -292,25 +295,24 @@ CI/CD serves two purposes: **quality gates** (does it compile?) and **release au
 ```
                     ┌─────────────────────────────────────────────────────────┐
   Push to develop   │                       ci.yml                            │
-  or open a PR  ──> │  ┌────────┐ ┌────────┐ ┌───────┐ ┌─────────┐ ┌────────┐ │
-                    │  │ macOS  │ │ macOS  │ │ Linux │ │  Linux  │ │  Win   │ │
-                    │  │ ARM64  │ │ Intel  │ │ x86   │ │ aarch64 │ │  x86   │ │
-                    │  └───┬────┘ └───┬────┘ └───┬───┘ └────┬────┘ └───┬────┘ │
-                    │      │          │          │          │          │      │
-                    │      v          v          v          v          v      │
-                    │   Green ✓    Green ✓    Green ✓    Green ✓    Green ✓   │
+  or open a PR  ──> │ Linux x86_64 by default                               │
+                    │                                                        │
+  full-ci/manual ──>│ macOS arm64 + Intel, Linux x86_64 + aarch64 + armhf,  │
+                    │ and Windows x86_64                                     │
+                    │                                                        │
+                    │ Selected jobs must all be green                        │
                     └─────────────────────────────────────────────────────────┘
 ```
 
 **What triggers CI:**
-- Every push to `develop`
-- Every pull request targeting `develop`
+- Every push to `develop` or `release/**`
+- Every pull request targeting `develop` or `release/**`
 - Manual trigger via the Actions UI (workflow_dispatch)
 
 **What CI checks:**
-- The code compiles on all five platforms (macOS ARM64, macOS Intel x86_64, Linux x86_64, Linux aarch64, Windows x86_64)
-- On macOS: application code is signed for build validation; Developer ID signing and notarization require credentials
-- On Windows: the NSIS installer is signed — GA releases via SignPath Foundation (rebuilt and signed from the public repo by `sign-windows-release.yml`), CI/DEVEL/RC builds via a per-run ephemeral self-signed cert with `osslsigncode` (no stored secret).
+- Default PR and branch CI compiles and tests Linux x86_64; `full-ci`, manual CI, and release candidates provide broader coverage
+- On macOS, ordinary CI uses ad-hoc signing for validation. Public RC and GA packages require Developer ID signing, notarization, and stapling.
+- On Windows, public RC and GA installers are Authenticode-signed through SignPath. Ordinary CI may use a per-run ephemeral self-signed certificate.
 - Build artifacts are uploaded for inspection
 - **Tests pass on every platform** (Qt helpers, decoder smoke tests, pFUnit Fortran unit tests — registered via ctest). See [Test Failure Policy](#test-failure-policy) below.
 
@@ -320,13 +322,13 @@ CI/CD serves two purposes: **quality gates** (does it compile?) and **release au
 
 **How to read CI results:**
 - On a PR, scroll to the bottom to see the status checks
-- Green check = all platforms built successfully
-- Red X = at least one platform failed. Click to see which one and read the logs.
+- Green check = all selected jobs completed successfully
+- Red X = at least one selected job failed. Click it to read the logs.
 - Yellow circle = builds still running
 
 ### Release: Build and Publish
 
-The release pipeline is separate from CI. It only runs when a version tag is pushed. See [Section 6](#6-the-release-process).
+The release pipeline is separate from CI. An internal candidate tag builds without publishing; manual source promotion starts public distribution builds, and a second approval publishes them. See [Section 6](#6-the-release-process).
 
 ### Where CI runs
 
@@ -338,9 +340,10 @@ CI runs on GitHub-hosted runners:
 | macOS Intel | `macos-15-intel` | x86_64 | 10x multiplier on Actions minutes |
 | Linux | `ubuntu-24.04` | x86_64 | 1x (baseline) |
 | Linux aarch64 | `ubuntu-24.04-arm` | aarch64 | 1x (baseline) |
+| Linux armhf | `ubuntu-24.04` + container | armhf | 1x (baseline) |
 | Windows | `windows-latest` + MSYS2 | x86_64 | 2x multiplier |
 
-**Free tier:** GitHub provides 2,000 free Actions minutes/month for private repos (with multipliers applied). A single CI run across all five platforms uses roughly 45 minutes of real time but ~120 minutes of billed time due to the macOS 10x multiplier (applied to both macOS jobs); the added Linux aarch64 job contributes ~10 minutes at the 1x rate.
+**Free tier:** GitHub provides 2,000 free Actions minutes/month for private repos (with multipliers applied). macOS jobs dominate billed time because both use the 10x multiplier; Linux targets run at the baseline rate.
 
 **Caching:** Hamlib builds and MSYS2 packages are cached to reduce build times. First-run builds are slower; subsequent builds use the cache.
 
@@ -350,7 +353,7 @@ Tests run via ctest at the end of each platform's build job, after compilation s
 
 - Any test failure fails the platform's build job
 - A failed build job fails the entire CI run (red X on the PR or push)
-- A failed build job also blocks `release.yml` — the release job in `release.yml` declares `needs: [prepare, macos, macos-intel, linux, linux-arm, windows]`, so a tag-triggered release cannot publish unless every platform's tests pass
+- A failed candidate build blocks `release.yml`'s `candidate-ready` job, which requires macOS arm64 and Intel, Linux x86_64, aarch64, and armhf, plus Windows x86_64. Candidate builds do not publish.
 
 This is the simplest possible policy for v1. If a flaky test emerges, the team can add `continue-on-error: true` to the offending test's platform as a targeted soft-warn, file an issue to triage the flake, and remove the exception once fixed. No blanket soft-warn policy on `develop`.
 
@@ -364,102 +367,55 @@ This is the simplest possible policy for v1. If a flaky test emerges, the team c
 
 ## 6. The Release Process
 
-Releases are tag-driven. The entire process from tag to published release is automated.
-
-> *Sandbox triggers on the `build/v*` tag prefix (release.yml:5). The examples in this section use the current sandbox convention. Upstream adoption may switch to bare `v*` — that change is tracked separately (decision #1 in the adoption email).*
+Releases are tag-defined but approval-driven. The internal `build/v...` tag fixes the candidate revision; it does not publish source or binaries. A release manager separately approves copying that exact revision to the public `v...` tag, and the public release waits for one final approval after its signed artifacts are available for inspection.
 
 ### Overview
 
 ```
-Team decides to release v3.0.1
-         │
-         v
-  Tag build/v3.0.1 on v3.0.0_test (wsjtx-internal)
-         │
-         v
-  ┌───────────────────────────────────────────────┐
-  │              release.yml                      │
-  │                                               │
-  │  1. Build macOS ARM64                          │
-  │  2. Build macOS Intel x86_64                   │
-  │  3. Build Linux x86_64                        │
-  │  4. Build Linux aarch64                       │
-  │  5. Build Windows x86_64 (signed — sandbox:   │
-  │     self-signed, production: Authenticode)    │
-  │                                               │
-  │  6. Create GitHub Release on wsjtx-internal   │
-  │     with all platform binaries attached       │
-  │                                               │
-  │  7. Sync source to WSJTX/wsjtx (public)       │
-  │     - Push code to master                     │
-  │     - Push tag build/v3.0.1                   │
-  └───────────────────────────────────────────────┘
-         │
-         v
-  Public repo updated. External contributors
-  can now see the new code.
+release/3.2 metadata commit
+  └─→ internal build/v3.2.0-rc1 candidate and validation artifacts
+        └─→ manual source promotion
+              └─→ public v3.2.0-rc1 tag
+                    └─→ public all-platform builds and signing
+                          └─→ public-release approval
+                                └─→ public GitHub prerelease
 ```
 
 ### Step by step
 
-#### 1. Prepare the release
+#### 1. Prepare tracked release metadata
 
-Ensure `develop` is in a releasable state:
-- All planned changes are merged
-- CI is green on `develop`
-- Version string in `CMakeLists.txt` is correct (the single source of truth; `release.yml`'s prepare job enforces tag↔CMakeLists parity before any platform build runs)
-- Release notes or changelog are updated
+Cut `release/3.2` from a green `develop`, then make a small metadata commit before every RC or GA candidate. `release-state.txt` records the numeric version, `DEVEL`, `RC` plus its positive RC number, or `GA`; its export-substituted revision also preserves the source SHA outside Git. This makes a build from GitHub's automatic source archive identify itself correctly even though that archive has no `.git` directory.
 
-#### 2. Tag the release
+Do not put an RC or GA tag on a `DEVEL` commit. The helper rejects disagreement among the requested version, tag, and tracked release state; CMake derives its version from that same state.
 
-Tag the release on the appropriate **release branch** (`v*_test`), **not on `develop`**. The `develop` branch is the integration trunk and may contain work in progress — for example, **until the team decides whether `v3.0.0_test` merges to `develop` (decision #2 in the adoption email), v3.0.1 is cut from `v3.0.0_test`** because `develop` carries JTTY work that should not ship in a v3.0.1 patch release. If decision #2 flips (i.e., `v3.0.0_test` is merged to `develop`), v3.0.1 would instead be cut from the merged trunk.
+#### 2. Create the internal candidate
 
-```bash
-# Check out the release branch the tag should live on.
-# For v3.0.1, that's the v3.0.0_test branch (patches of the 3.0 line).
-git checkout v3.0.0_test
-git pull origin v3.0.0_test
-git tag build/v3.0.1
-git push origin build/v3.0.1
-```
+Run **Prepare Release Candidate** from `release/3.2` at the intended SHA. First use `operation=validate`, then `operation=create`, supplying the version (`3.2.0-rc1`, for example) and the full SHA. Creation makes immutable tag `build/v3.2.0-rc1`; the same workflow run calls `release.yml` to build all internal validation artifacts but publishes nothing.
 
-The `build/v*` tag pattern triggers `release.yml` (release.yml:5).
+Inspect the candidate run and installable validation artifacts. Record its run ID for promotion.
 
-See [Branch Strategy](#7-branch-strategy) for the `v*_test` release-branch convention.
+#### 3. Promote the exact source
 
-#### 3. Monitor the release
+From the same release branch and SHA, run **Promote Release Source** with the same version, the candidate run ID, and `operation=validate`. After reviewing its summary, rerun with `operation=promote`. The workflow verifies the immutable tag, commit, release metadata, current release-branch tip, candidate run, and artifacts before creating public tag `v3.2.0-rc1` at the same commit.
 
-```bash
-gh run watch --repo WSJTX/wsjtx-internal
-```
+The public tag exposes the corresponding source required for public distribution and triggers fresh public distribution builds. RC promotion does not move public `master`; GA promotion advances `master` to the same commit with a guarded update.
 
-The release workflow takes roughly 20-45 minutes depending on cache state. It builds all five platforms in parallel, then runs the release job sequentially.
+#### 4. Review signed builds and approve publication
 
-#### 4. Verify
+The public workflow builds all supported targets. Both RC and GA Windows installers use SignPath production signing. Both RC and GA macOS installers must be Developer ID-signed, notarized, stapled, and verified.
 
-After the workflow completes:
+While Apple credentials are being provisioned, `MACOS_DISTRIBUTION_SIGNING_ENABLED=false` permits clearly named unsigned validation artifacts but blocks publication. It never converts an unsigned validation package into an official release asset. After `apple-release-signing` is configured, enable the variable and rerun the immutable public tag workflow.
 
-```bash
-# Check the release was created:
-gh release view build/v3.0.1 --repo WSJTX/wsjtx-internal
+Download and review `release-bundle-<version>`, including its checksums, manifest, and signing reports. Approve the waiting `public-release` environment only when they all correspond to the public tag and expected SHA. This final approval publishes an RC as a GitHub prerelease or GA as the latest release.
 
-# Check the public repo received the sync:
-gh api repos/WSJTX/wsjtx/tags --jq '.[0].name'
-# Should show: build/v3.0.1
-```
+#### 5. Recover without moving tags
 
-#### 5. Post-release
-
-- Announce the release through normal channels (email, website)
-- Upload artifacts to SourceForge if that's still the primary distribution channel
-- External contributors can now `git pull upstream master` to get the new code
+Rerun a failed workflow against the existing immutable tag after fixing transient credentials or service configuration. If source or tracked release metadata must change, commit the fix and cut the next RC. Never delete, recreate, or force-move a candidate or public release tag; immutable tags keep reviews, source, signatures, and downloaded artifacts attributable to one commit.
 
 ### Release candidates
 
-Before cutting a final release, cut one or more release candidates (RCs) and let the team exercise them. The workflow is identical to a final release, with two exceptions:
-
-1. **The tag uses a SemVer pre-release suffix** — `v3.0.1-rc1`, `v3.0.1-rc2`, etc. (The hyphen is the distinguishing feature.)
-2. **`release.yml` marks the resulting GitHub Release as a pre-release.** Any tag containing a hyphen is passed through with `gh release create --prerelease`, so the RC does not appear as "latest" on the releases page.
+Before a final release, cut one or more RCs and let the team exercise the same public, signed distribution path. An RC uses a SemVer suffix such as `3.2.0-rc1` and is published as a GitHub prerelease, so it does not replace the latest GA release.
 
 #### When to cut an RC
 
@@ -467,58 +423,41 @@ Cut an RC whenever a release contains more than a trivial change — any feature
 
 #### Tagging an RC
 
-RCs are tagged on the **same release branch** that the final release will be tagged on — never on `develop`. For a v3.0.1 patch release that, for example, cuts from `v3.0.0_test`:
-
-```bash
-git checkout v3.0.0_test
-git pull origin v3.0.0_test
-git tag build/v3.0.1-rc1
-git push origin build/v3.0.1-rc1
-```
-
-This triggers a full pipeline run. Because the tag contains a hyphen, the resulting GitHub Release on wsjtx-internal is flagged `prerelease: true`.
+RCs and GA are prepared on the same `release/X.Y` branch, never directly on `develop`. Make and merge the matching `RC n` metadata commit before asking Prepare Release Candidate to create the candidate tag.
 
 #### Testing an RC
 
 Before promoting an RC to GA, confirm:
 
-- All five platform jobs in the `Release` workflow ran green
+- All six target jobs in the public release workflow ran green
 - The macOS `.pkg` passes the signing, staple, Gatekeeper, entitlement, and installed-runtime checks in the Deployment Playbook
 - At least one volunteer on each supported platform (macOS ARM64, macOS Intel x86_64, Linux x86_64, Linux aarch64, Windows x86_64) has installed the RC and exercised the workflow they care about
 - No critical issue has been filed against the RC for a reasonable soak period (typically 48 hours after the platform volunteers confirm)
 
-If an RC fails testing, push a fix to the release branch and tag `-rc2`, `-rc3`, etc. Each RC is an independent pipeline run and an independent GitHub Release — the earlier RCs remain in the release history as pre-releases for reference.
+If an RC fails testing, push a fix to the release branch, update the metadata to the next RC number, and create `-rc2`, `-rc3`, etc. Each RC remains an independent public prerelease for reference.
 
 #### Promoting an RC to GA
 
-Once an RC has been exercised and is ready to ship, tag the final release on the same release branch:
-
-```bash
-git checkout v3.0.0_test
-git pull origin v3.0.0_test
-git tag build/v3.0.1
-git push origin build/v3.0.1
-```
-
-There is no separate "promote the RC" command — the `build/v3.0.1` tag triggers a new full pipeline run, which re-builds from the same source (the same commit the last RC built from, assuming no changes landed on the release branch after the last RC). The new GitHub Release is created without the pre-release flag, so it becomes the "latest" release. Earlier RCs remain in the release history.
-
-If new changes landed on the release branch between the last RC and the GA tag, consider cutting one more RC first — the GA build should be bit-for-bit the same as an RC that the team has already exercised.
+Change the tracked state from `RC n` to `GA` in a metadata-only commit, wait for CI, and create a new `3.2.0` candidate through the same validate/create/promote/approve sequence. Even when application source is unchanged, the GA commit is intentionally distinct so ordinary builds from its GitHub source archive report GA rather than RC.
 
 ### What the release produces
 
 | Artifact | Platform | Signed | Notes |
 |----------|----------|--------|-------|
-| `wsjtx-3.0.1-arm64-macOS.pkg` | macOS ARM64 | With credentials | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
-| `wsjtx-3.0.1-x86_64-macOS.pkg` | macOS Intel x86_64 | With credentials | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
-| `wsjtx-3.0.1-linux-x86_64.AppImage` | Linux x86_64 | No | GPG signing can be added |
-| `wsjtx-3.0.1-linux-aarch64.AppImage` | Linux aarch64 | No | GPG signing can be added |
-| `wsjtx-3.0.1-win64.exe` | Windows x86_64 | Yes (GA: SignPath Foundation Authenticode; RC/DEVEL: ephemeral self-signed via `osslsigncode`) | NSIS installer |
-| Individual binary `.tar.gz` archives | macOS ARM64, macOS Intel | With credentials | Contain Developer ID-signed binaries submitted for notarization; archives are not stapled |
-| `wsjtx-3.0.1-src.tar.gz` | Source | N/A | `git archive` of the tagged commit; top-level repo only (no submodules) |
+| `wsjtx-3.2.0-rc1-arm64-macOS.pkg` | macOS ARM64 | Yes | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
+| `wsjtx-3.2.0-rc1-x86_64-macOS.pkg` | macOS Intel x86_64 | Yes | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
+| `wsjtx-3.2.0-rc1-linux-x86_64.AppImage` | Linux x86_64 | No | Published with matching `.deb` and `.rpm` packages |
+| `wsjtx-3.2.0-rc1-linux-aarch64.AppImage` | Linux aarch64 | No | Published with matching `.deb` and `.rpm` packages |
+| `wsjtx-3.2.0-rc1-linux-armhf.AppImage` | Linux armhf | No | Published with matching `.deb` and `.rpm` packages |
+| `wsjtx-3.2.0-rc1-win64.exe` | Windows x86_64 | Yes | SignPath Foundation Authenticode for RC and GA |
+| `wsjtx-3.2.0-rc1-src.tar.gz` | Source | N/A | Project-created archive of the public tagged commit |
+| `SHA256SUMS` and release manifest | All uploaded assets | N/A | Bind uploaded bytes to their public tag, commit, and build provenance |
+
+GitHub also adds automatic **Source code (zip)** and **Source code (tar.gz)** links from the public tag. They represent the same tagged source but are generated and compressed by GitHub, so their archive hashes need not equal the project-created `.tar.gz`. `SHA256SUMS` covers the assets the project uploads; a checksum detects changed bytes but is not a substitute for the platform signatures or the tag-to-commit checks.
 
 ### Who can trigger a release?
 
-Anyone with push access to wsjtx-internal can create a tag and trigger a release. In practice, releases should be coordinated with the team — don't tag a release unilaterally.
+Team members can run candidate validation. Creating the candidate, promoting its source, and approving the `public-release` environment are explicit release-manager actions; repository protection and environment access determine who can perform each one.
 
 ---
 
@@ -531,7 +470,7 @@ Anyone with push access to wsjtx-internal can create a tag and trigger a release
 | `feat-*` | New feature | `develop` | `develop` via PR | Until merged |
 | `fix-*` | Bug fix | `develop` | `develop` via PR | Until merged |
 | `<issue#>-*` | Issue-linked work | `develop` | `develop` via PR | Until merged |
-| `v*_test` | Release candidate | `develop` | `master` (public) at release | Until release ships |
+| `release/X.Y` | RC and GA stabilization | `develop` | Public release tags; `master` only at GA | Maintained for patch releases |
 | `develop` | Main development trunk | — | — | Permanent |
 | `master` | Public releases (on wsjtx) | — | — | Permanent |
 
@@ -665,7 +604,7 @@ gh pr create --base develop --title "fix: handle /P suffix in FT8 decoder" \
 Tested with the WA6BEV.wav reference file on macOS ARM64."
 ```
 
-CI runs. All five platforms build green.
+CI runs. All six targets build green.
 
 ### 5. Review and merge
 
@@ -679,98 +618,71 @@ When the team decides to release the next version, this fix is included automati
 
 ## 11. End-to-End Example: A New Release
 
-Here's the complete flow for releasing version 3.0.1.
+Here's the complete flow for releasing `3.2.0-rc1`.
 
 ### 1. Release decision
 
-The team agrees (via email) that the `v3.0.0_test` release branch is ready for a point release — all backported fixes are in, and CI is green on the branch. (For a patch release like v3.0.1, the base is the existing release branch — **not `develop`**, which may contain later features, e.g., JTTY, that aren't part of this release.)
+The team cuts `release/3.2` from a green `develop`. Later `3.2.x` patches use that existing release branch so unrelated work on `develop` is not included.
 
 ### 2. Version preparation
 
-If version strings need updating:
+Update the numeric version and tracked release state, then commit them before creating any tag:
 
 ```bash
-git checkout v3.0.0_test
-git pull origin v3.0.0_test
-# Update version in CMakeLists.txt (the VERSION field on the project() call).
-git commit -m "chore: bump version to 3.0.1"
-git push origin v3.0.0_test
+git switch release/3.2
+git pull origin release/3.2
+# Set release-state.txt to version 3.2.0, channel RC, and rc 1.
+git commit -m "chore(release): prepare 3.2.0-rc1"
+git push origin release/3.2
 ```
 
 Wait for CI to go green on this commit.
 
-### 3. Tag and push
+### 3. Validate and create the candidate
 
-```bash
-# Still on v3.0.0_test after the version bump.
-git tag build/v3.0.1
-git push origin build/v3.0.1
-```
+From `release/3.2` at the metadata commit, run **Prepare Release Candidate** twice with version `3.2.0-rc1` and the full SHA: first `operation=validate`, then `operation=create`. Do not create or move the tag locally. The helper creates immutable `build/v3.2.0-rc1` only after its checks pass.
 
 ### 4. Automated pipeline runs
 
-The `release.yml` workflow triggers automatically:
+The Prepare Release Candidate run calls internal `release.yml` to build validation artifacts from the candidate tag, but does not publish a release or copy source. Inspect that run and retain its run ID.
 
 ```
-  build/v3.0.1 tag pushed
-    │
-    ├─→ macOS ARM64 build (8 min, cached)
-    │     └─→ .pkg + individual binaries
-    │
-    ├─→ macOS Intel x86_64 build (10 min, cached)
-    │     └─→ .pkg + individual binaries
-    │
-    ├─→ Linux x86_64 build (7 min, cached)
-    │     └─→ AppImage + individual binaries
-    │
-    ├─→ Linux aarch64 build (7 min, cached)
-    │     └─→ AppImage + individual binaries
-    │
-    ├─→ Windows x86_64 build (15 min, cached)
-    │     └─→ NSIS installer (GA: unsigned here, SignPath signs the
-    │         public-repo rebuild; RC/DEVEL: ephemeral self-signed)
-    │
-    └─→ Release job (after all builds complete)
-          ├─→ Pushes source to WSJTX/wsjtx master
-          ├─→ Pushes tag v3.0.1 to WSJTX/wsjtx
-          │     └─→ triggers sign-windows-release.yml there:
-          │         rebuild from public source → SignPath signs →
-          │         signtool verifies chain
-          ├─→ Waits for the signed installer, swaps it in
-          └─→ Creates GitHub Releases (internal + public) with
-                all installer-grade artifacts, Windows exe signed
+  build/v3.2.0-rc1
+    └─→ private validation builds
+          └─→ Promote Release Source validate, then promote
+                └─→ public v3.2.0-rc1
+                      └─→ public Linux, macOS, and Windows builds
+                            └─→ signing and provenance checks
+                                  └─→ public-release approval
+                                        └─→ public prerelease
 ```
 
-### 5. Verify
+### 5. Promote, verify, and approve
 
 ```bash
-# Release on internal repo:
-gh release view build/v3.0.1 --repo WSJTX/wsjtx-internal
+# After running Promote Release Source with validate and then promote:
+gh api repos/WSJTX/wsjtx/git/ref/tags/v3.2.0-rc1 --jq .object.sha
 
-# Tag on public repo:
-gh api repos/WSJTX/wsjtx/tags --jq '.[0].name'
-
-# Download and spot-check an artifact:
-gh release download build/v3.0.1 --repo WSJTX/wsjtx-internal --pattern '*.pkg' --dir /tmp
-pkgutil --check-signature /tmp/wsjtx-3.0.1-arm64-macOS.pkg
+# After reviewing the public signing reports and approving public-release:
+gh release view v3.2.0-rc1 --repo WSJTX/wsjtx
 ```
 
 ### 6. Distribute
 
-- Post the GitHub Release link to the mailing list
+- Post the public GitHub Release link to the mailing list
 - Upload artifacts to SourceForge (if still used as distribution channel)
 - Update the website (wsjtx.github.io/wsjtx) if applicable
 
 ### 7. External contributors sync
 
-External contributors update their forks:
+For an RC, external contributors can fetch the public tag while `master` remains at the latest GA:
 
 ```bash
 git fetch upstream
-git merge upstream/master
+git switch --detach v3.2.0-rc1
 ```
 
-They now have the v3.0.1 code and can branch from it for future contributions.
+After GA promotion, public `master` advances to the GA commit and normal fork synchronization resumes.
 
 ---
 
@@ -783,7 +695,7 @@ They now have the v3.0.1 code and can branch from it for future contributions.
 | Start new work | `git checkout develop && git pull && git checkout -b feat-my-feature` |
 | Submit my changes | `git push -u origin feat-my-feature` then `gh pr create --base develop` |
 | Check CI status | Look at the PR's status checks, or `gh run list` |
-| Trigger a release | On the `v*_test` release branch (not `develop`): `git tag build/v3.0.1 && git push origin build/v3.0.1`. See [§6](#6-the-release-process). |
+| Trigger a release | Commit matching metadata on `release/X.Y`; run Prepare Release Candidate validate/create, inspect the candidate, then run Promote Release Source validate/promote. See [§6](#6-the-release-process). |
 | See build logs | `gh run view <RUN_ID> --log` |
 | Re-run a failed build | `gh run rerun <RUN_ID>` |
 | Manually trigger CI | `gh workflow run ci.yml --ref develop` |
