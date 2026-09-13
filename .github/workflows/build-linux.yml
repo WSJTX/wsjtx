@@ -334,6 +334,7 @@ jobs:
             ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-
 
       - name: Build inside arm/v7 Bookworm GCC image
+        id: armhf-build
         env:
           ARCH: armhf
           BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
@@ -360,6 +361,22 @@ jobs:
             "${ccache_args[@]}" \
             "$BUILDER_IMAGE" \
             bash .github/scripts/build-linux-payload.sh
+
+      - name: Publish armhf test summary
+        if: always()
+        run: >-
+          python3 .github/scripts/publish-ctest-summary.py
+          "Linux armhf" wsjtx-build/ctest-results.xml
+          >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload armhf AppImage startup diagnostics
+        if: failure() && steps.armhf-build.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-startup-smoke-linux-armhf
+          path: wsjtx-build/appimage-startup-smoke.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       # Artifacts produced inside the container land in $GITHUB_WORKSPACE
       # via the bind-mount. Upload from the host where actions/upload-

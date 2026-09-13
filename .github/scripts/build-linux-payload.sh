@@ -49,6 +49,8 @@ WSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL:-DEVEL}"
 WSJT_RC_NUMBER="${WSJT_RC_NUMBER:-}"
 
 cd /work
+# shellcheck source=.github/scripts/linux-artifact-validation.sh
+source .github/scripts/linux-artifact-validation.sh
 
 # ── 1. Verify the baked dependency environment ──────────────────────
 .github/scripts/verify-linux-ci-image.sh normal "$ARCH" "$HAMLIB_BRANCH"
@@ -100,7 +102,7 @@ cmake --build wsjtx-build -j"$(nproc)"
 ccache --show-stats
 echo "::endgroup::"
 
-# ── 5. Run tests ─────────────────────────────────────────────────────
+# ── 3. Run tests ─────────────────────────────────────────────────────
 echo "::group::wsjtx ctest"
 (
   cd wsjtx-build
@@ -109,22 +111,10 @@ echo "::group::wsjtx ctest"
 )
 echo "::endgroup::"
 
-# ── 6. Verify binary is the right arch ───────────────────────────────
-# Defensive — catches a cross-arch leak where (e.g.) host toolchain
-# slipped through QEMU. armhf must be 32-bit ARM EABI5 hard-float.
-FILE_OUT=$(file wsjtx-build/jt9)
-echo "$FILE_OUT"
-case "$ARCH" in
-  armhf)
-    echo "$FILE_OUT" | grep -q "ELF 32-bit"
-    echo "$FILE_OUT" | grep -q "ARM, EABI5"
-    ;;
-  *)
-    echo "$FILE_OUT" | grep -q "ELF 64-bit"
-    ;;
-esac
+# ── 4. Verify built executables ──────────────────────────────────────
+validate_linux_build_executables wsjtx-build "$ARCH"
 
-# ── 7. Package .deb ──────────────────────────────────────────────────
+# ── 5. Package .deb ──────────────────────────────────────────────────
 echo "::group::Package .deb"
 (
   cd wsjtx-build
@@ -143,97 +133,31 @@ file "$DEB"
 # head's early close — same defensive pattern as the composite action
 # (Learning #205, S137).
 dpkg-deb --info "$DEB" | sed -n '1,20p'
-DEB_FILES=$(dpkg-deb --fsys-tarfile "$DEB" | tar -tf -)
-require_deb_path() {
-  local path="$1"
-  case $'\n'"$DEB_FILES"$'\n' in
-    *"$path"$'\n'*) ;;
-    *)
-      echo "::error::Expected package path is missing: $path"
-      exit 1
-      ;;
-  esac
-}
-reject_deb_path() {
-  local path="$1"
-  case $'\n'"$DEB_FILES"$'\n' in
-    *"$path"$'\n'* | *"$path/"*)
-      echo "::error::Unexpected package path is present: $path"
-      exit 1
-      ;;
-  esac
-}
-require_deb_path "/usr/share/wsjtx/ALLCALL7.TXT"
-require_deb_path "/usr/share/wsjtx/CALL3.TXT"
-require_deb_path "/usr/share/wsjtx/sounds/Message.wav"
-require_deb_path "/usr/share/wsjtx/sounds/Testing123.wav"
-reject_deb_path "/usr/bin/sounds"
+validate_deb_package "$DEB"
 echo "::endgroup::"
 
-# ── 8. Package RPM ───────────────────────────────────────────────────
+# ── 6. Package RPM ───────────────────────────────────────────────────
 echo "::group::Package RPM"
 (
   cd wsjtx-build
   cpack -G RPM
 )
 ls -lh wsjtx-build/*.rpm
-RPM=$(ls wsjtx-build/*.rpm | sed -n '1p')
+rpms=(wsjtx-build/*.rpm)
+RPM=${rpms[0]}
 echo "Querying $RPM"
 rpm -qpi "$RPM"
 rpm -qpR "$RPM"
-RPM_FILES=$(rpm -qpl "$RPM")
-echo "$RPM_FILES" | sed -n '1,40p'
-require_rpm_path() {
-  local path="$1"
-  case $'\n'"$RPM_FILES"$'\n' in
-    *$'\n'"$path"$'\n'*) ;;
-    *)
-      echo "::error::Expected package path is missing: $path"
-      exit 1
-      ;;
-  esac
-}
-reject_rpm_path() {
-  local path="$1"
-  case $'\n'"$RPM_FILES"$'\n' in
-    *"$path"$'\n'* | *"$path/"*)
-      echo "::error::Unexpected package path is present: $path"
-      exit 1
-      ;;
-  esac
-}
-require_rpm_path "/usr/bin/wsjtx"
-require_rpm_path "/usr/bin/jt9"
-require_rpm_path "/usr/bin/qmap"
-require_rpm_path "/usr/bin/map65"
-require_rpm_path "/usr/share/wsjtx/ALLCALL7.TXT"
-require_rpm_path "/usr/share/wsjtx/CALL3.TXT"
-require_rpm_path "/usr/share/wsjtx/sounds/Message.wav"
-require_rpm_path "/usr/share/wsjtx/sounds/Testing123.wav"
-reject_rpm_path "/usr/bin/sounds"
+validate_rpm_package "$RPM"
 echo "::endgroup::"
 
-# ── 9. Install to AppDir for AppImage packaging ──────────────────────
+# ── 7. Install to AppDir for AppImage packaging ──────────────────────
 echo "::group::Install to AppDir"
 cmake --install wsjtx-build --prefix "${PWD}/AppDir/usr"
-test -x AppDir/usr/bin/wsjtx
-test -x AppDir/usr/bin/jt9
-test -x AppDir/usr/bin/qmap
-test -x AppDir/usr/bin/map65
-test -x AppDir/usr/bin/ft8code
-test -f AppDir/usr/share/applications/wsjtx.desktop
-test -f AppDir/usr/share/pixmaps/wsjtx_icon.png
-test -f AppDir/usr/share/wsjtx/ALLCALL7.TXT
-test -f AppDir/usr/share/wsjtx/CALL3.TXT
-test -f AppDir/usr/share/wsjtx/sounds/Message.wav
-test -f AppDir/usr/share/wsjtx/sounds/Testing123.wav
-if [ -e AppDir/usr/bin/sounds ] || [ -L AppDir/usr/bin/sounds ]; then
-  echo "::error::Unexpected executable-adjacent sounds path is present: AppDir/usr/bin/sounds"
-  exit 1
-fi
+validate_linux_application_tree AppDir appdir "$ARCH"
 echo "::endgroup::"
 
-# ── 10. Package AppImage ─────────────────────────────────────────────
+# ── 8. Package AppImage ──────────────────────────────────────────────
 echo "::group::Package AppImage"
 LINUXDEPLOY_TAG="1-alpha-20251107-1"
 curl_flags=(--fail --show-error --silent --location --retry 5 --retry-delay 5)
@@ -292,48 +216,18 @@ ls -lh "$OUTPUT"
 file "$OUTPUT"
 echo "::endgroup::"
 
-# ── 11. Smoke-test AppImage payload ──────────────────────────────────
+# ── 9. Validate AppImage payload ─────────────────────────────────────
 echo "::group::Smoke-test AppImage payload"
 ./"$OUTPUT" --appimage-extract >/dev/null
-test -x squashfs-root/usr/bin/wsjtx
-test -x squashfs-root/usr/bin/jt9
-test -x squashfs-root/usr/bin/qmap
-test -x squashfs-root/usr/bin/map65
-test -x squashfs-root/usr/bin/ft8code
-test -x squashfs-root/usr/bin/wsprd
-test -f squashfs-root/usr/share/wsjtx/ALLCALL7.TXT
-test -f squashfs-root/usr/share/wsjtx/CALL3.TXT
-test -f squashfs-root/usr/share/wsjtx/sounds/Message.wav
-test -f squashfs-root/usr/share/wsjtx/sounds/Testing123.wav
-if [ -e squashfs-root/usr/bin/sounds ] || [ -L squashfs-root/usr/bin/sounds ]; then
-  echo "::error::Unexpected executable-adjacent sounds path is present: squashfs-root/usr/bin/sounds"
-  exit 1
-fi
-FILE_OUT=$(file squashfs-root/usr/bin/wsjtx)
-case "$ARCH" in
-  armhf)
-    echo "$FILE_OUT" | grep -q "ELF 32-bit"
-    echo "$FILE_OUT" | grep -q "ARM, EABI5"
-    ;;
-  *)
-    echo "$FILE_OUT" | grep -q "ELF 64-bit"
-    ;;
-esac
-LIBS=$(ls squashfs-root/usr/lib/)
-echo "$LIBS" | grep -q "^libQt5Core\.so"
-echo "$LIBS" | grep -q "^libQt5Widgets\.so"
-echo "$LIBS" | grep -q "^libQt5Multimedia\.so"
-audio_plugins=$(find squashfs-root -path '*/plugins/audio/*.so' 2>/dev/null || true)
-if [ -z "$audio_plugins" ]; then
-  echo "::error::No Qt audio backend plugins (qtaudio_alsa/qtaudio_pulse) bundled in AppImage."
-  echo "::error::Install libqt5multimedia5-plugins on the build host so linuxdeploy-plugin-qt can find them."
-  echo "AppImage plugin tree:"
-  find squashfs-root -path '*/plugins/*' -name '*.so' 2>/dev/null | sed -n '1,20p'
-  exit 1
-fi
-echo "Qt audio plugins bundled:"
-echo "$audio_plugins"
+validate_linux_application_tree squashfs-root appimage "$ARCH"
 rm -rf squashfs-root
+echo "::endgroup::"
+
+# ── 10. Run the packaged AppImage ────────────────────────────────────
+echo "::group::AppImage startup smoke"
+run_packaged_appimage_startup_smoke \
+  "./$OUTPUT" \
+  wsjtx-build/appimage-startup-smoke.log
 echo "::endgroup::"
 
 echo "Build payload complete for arch=${ARCH}, version=${VERSION}"

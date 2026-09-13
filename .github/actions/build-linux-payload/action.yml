@@ -225,32 +225,8 @@ runs:
       env:
         ARCH: ${{ inputs.arch }}
       run: |
-        # Capture once and re-use to avoid SIGPIPE on `file ... | grep -q`
-        # under pipefail (file's output is small but the same defensive
-        # pattern as the rest of this action — predictable diagnostic).
-        FILE_OUT=$(file wsjtx-build/jt9)
-        echo "$FILE_OUT"
-        # ELF class is arch-dependent: armhf is 32-bit ARM EABI5, the rest
-        # are 64-bit. Conditionalize the assertion so a cross-arch mismatch
-        # (e.g. host toolchain leaking through QEMU) fails fast here.
-        case "$ARCH" in
-          armhf)
-            [[ "$FILE_OUT" == *"ELF 32-bit"* ]]
-            [[ "$FILE_OUT" == *"ARM, EABI5"* ]]
-            ;;
-          x86_64)
-            [[ "$FILE_OUT" == *"ELF 64-bit"* ]]
-            [[ "$FILE_OUT" == *"x86-64"* ]]
-            ;;
-          aarch64)
-            [[ "$FILE_OUT" == *"ELF 64-bit"* ]]
-            [[ "$FILE_OUT" == *"ARM aarch64"* ]]
-            ;;
-          *)
-            echo "::error::Unsupported architecture: $ARCH"
-            exit 2
-            ;;
-        esac
+        source .github/scripts/linux-artifact-validation.sh
+        validate_linux_build_executables wsjtx-build "$ARCH"
 
     # CMakeLists.txt:1989-2012 enables CPack's DEB generator when
     # dpkg-buildpackage is on the path (provided by dpkg-dev, installed
@@ -280,33 +256,8 @@ runs:
         # head's early close — interacts badly with `bash -o pipefail` under
         # Bookworm's dpkg-deb (observed exit 141 on first container run).
         dpkg-deb --info "$DEB" | sed -n '1,20p'
-        FILES=$(dpkg-deb --fsys-tarfile "$DEB" | tar -tf -)
-        require_package_path() {
-          local path="$1"
-          case $'\n'"$FILES"$'\n' in
-            *"$path"$'\n'*) ;;
-            *)
-              echo "::error::Expected package path is missing: $path"
-              exit 1
-              ;;
-          esac
-        }
-        reject_package_path() {
-          local path="$1"
-          case $'\n'"$FILES"$'\n' in
-            *"$path"$'\n'* | *"$path/"*)
-              echo "::error::Unexpected package path is present: $path"
-              exit 1
-              ;;
-          esac
-        }
-        require_package_path "/usr/bin/qmap"
-        require_package_path "/usr/bin/map65"
-        require_package_path "/usr/share/wsjtx/ALLCALL7.TXT"
-        require_package_path "/usr/share/wsjtx/CALL3.TXT"
-        require_package_path "/usr/share/wsjtx/sounds/Message.wav"
-        require_package_path "/usr/share/wsjtx/sounds/Testing123.wav"
-        reject_package_path "/usr/bin/sounds"
+        source ../.github/scripts/linux-artifact-validation.sh
+        validate_deb_package "$DEB"
 
     - name: Upload .deb
       uses: actions/upload-artifact@v7
@@ -332,43 +283,13 @@ runs:
       shell: bash
       working-directory: wsjtx-build
       run: |
-        # Capture rpm -qpl once to avoid SIGPIPE on `| head` / `| grep -q`
-        # under `bash -o pipefail` (the same pattern that broke dpkg-deb on
-        # the Bookworm aarch64 leg). One rpm invocation, three queries.
-        RPM=$(ls *.rpm | sed -n '1p')
+        rpms=(*.rpm)
+        RPM=${rpms[0]}
         echo "Querying $RPM"
         rpm -qpi "$RPM"
         rpm -qpR "$RPM"
-        FILES=$(rpm -qpl "$RPM")
-        echo "$FILES" | sed -n '1,40p'
-        require_package_path() {
-          local path="$1"
-          case $'\n'"$FILES"$'\n' in
-            *"$path"$'\n'*) ;;
-            *)
-              echo "::error::Expected package path is missing: $path"
-              exit 1
-              ;;
-          esac
-        }
-        reject_package_path() {
-          local path="$1"
-          case $'\n'"$FILES"$'\n' in
-            *"$path"$'\n'* | *"$path/"*)
-              echo "::error::Unexpected package path is present: $path"
-              exit 1
-              ;;
-          esac
-        }
-        require_package_path "/usr/bin/wsjtx"
-        require_package_path "/usr/bin/jt9"
-        require_package_path "/usr/bin/qmap"
-        require_package_path "/usr/bin/map65"
-        require_package_path "/usr/share/wsjtx/ALLCALL7.TXT"
-        require_package_path "/usr/share/wsjtx/CALL3.TXT"
-        require_package_path "/usr/share/wsjtx/sounds/Message.wav"
-        require_package_path "/usr/share/wsjtx/sounds/Testing123.wav"
-        reject_package_path "/usr/bin/sounds"
+        source ../.github/scripts/linux-artifact-validation.sh
+        validate_rpm_package "$RPM"
 
     - name: Upload RPM
       uses: actions/upload-artifact@v7
@@ -379,24 +300,12 @@ runs:
 
     - name: Install to AppDir
       shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
       run: |
         cmake --install wsjtx-build --prefix "${GITHUB_WORKSPACE}/AppDir/usr"
-        # linuxdeploy's desktop/icon integration needs these exact paths.
-        test -x AppDir/usr/bin/wsjtx
-        test -x AppDir/usr/bin/jt9
-        test -x AppDir/usr/bin/qmap
-        test -x AppDir/usr/bin/map65
-        test -x AppDir/usr/bin/ft8code
-        test -f AppDir/usr/share/applications/wsjtx.desktop
-        test -f AppDir/usr/share/pixmaps/wsjtx_icon.png
-        test -f AppDir/usr/share/wsjtx/ALLCALL7.TXT
-        test -f AppDir/usr/share/wsjtx/CALL3.TXT
-        test -f AppDir/usr/share/wsjtx/sounds/Message.wav
-        test -f AppDir/usr/share/wsjtx/sounds/Testing123.wav
-        if [ -e AppDir/usr/bin/sounds ] || [ -L AppDir/usr/bin/sounds ]; then
-          echo "::error::Unexpected executable-adjacent sounds path is present: AppDir/usr/bin/sounds"
-          exit 1
-        fi
+        source .github/scripts/linux-artifact-validation.sh
+        validate_linux_application_tree AppDir appdir "$ARCH"
 
     - name: Package AppImage
       shell: bash
@@ -481,75 +390,11 @@ runs:
       run: |
         APPIMAGE="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
         ./"$APPIMAGE" --appimage-extract >/dev/null
-        test -x squashfs-root/usr/bin/wsjtx
-        test -x squashfs-root/usr/bin/jt9
-        test -x squashfs-root/usr/bin/qmap
-        test -x squashfs-root/usr/bin/map65
-        test -x squashfs-root/usr/bin/ft8code
-        test -x squashfs-root/usr/bin/wsprd
-        test -f squashfs-root/usr/share/wsjtx/ALLCALL7.TXT
-        test -f squashfs-root/usr/share/wsjtx/CALL3.TXT
-        test -f squashfs-root/usr/share/wsjtx/sounds/Message.wav
-        test -f squashfs-root/usr/share/wsjtx/sounds/Testing123.wav
-        if [ -e squashfs-root/usr/bin/sounds ] || [ -L squashfs-root/usr/bin/sounds ]; then
-          echo "::error::Unexpected executable-adjacent sounds path is present: squashfs-root/usr/bin/sounds"
-          exit 1
-        fi
-        # Capture before grep to avoid SIGPIPE on grep -q under pipefail.
-        # Same arch-conditional ELF class check as the standalone Verify
-        # binary step above — armhf is 32-bit ARM EABI5, the rest are 64-bit.
-        FILE_OUT=$(file squashfs-root/usr/bin/wsjtx)
-        case "$ARCH" in
-          armhf)
-            [[ "$FILE_OUT" == *"ELF 32-bit"* ]]
-            [[ "$FILE_OUT" == *"ARM, EABI5"* ]]
-            ;;
-          *)
-            [[ "$FILE_OUT" == *"ELF 64-bit"* ]]
-            ;;
-        esac
-        # Qt5 libs should have been bundled by linuxdeploy-plugin-qt.
-        LIBS=$(ls squashfs-root/usr/lib/)
-        case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Core.so*) ;; *) exit 1 ;; esac
-        case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Widgets.so*) ;; *) exit 1 ;; esac
-        case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Multimedia.so*) ;; *) exit 1 ;; esac
-        for required_file in \
-          squashfs-root/usr/bin/qt.conf \
-          squashfs-root/usr/plugins/platforms/libqxcb.so \
-          squashfs-root/usr/plugins/sqldrivers/libqsqlite.so; do
-          if [ ! -f "$required_file" ]; then
-            echo "::error::Required AppImage payload file is missing: ${required_file}"
-            exit 1
-          fi
-        done
-        if ! grep -Eq '^[[:space:]]*Plugins[[:space:]]*=[[:space:]]*plugins[[:space:]]*$' \
-          squashfs-root/usr/bin/qt.conf; then
-          echo "::error::AppImage qt.conf must set Plugins = plugins"
-          echo "AppImage qt.conf contents:"
-          cat squashfs-root/usr/bin/qt.conf
-          exit 1
-        fi
-        # Verify Qt audio backend plugins were bundled. Without them,
-        # QAudioDeviceInfo::availableDevices() returns empty at runtime
-        # and the user sees "no audio devices" — observed in v3.0.1 on
-        # Linux Lite. linuxdeploy-plugin-qt only WARNS when these are
-        # absent on the build host, it doesn't fail.
-        # Linux shared objects are conventionally `lib*.so` so the
-        # bundled plugins are libqtaudio_alsa.so and libqtmedia_pulse.so.
-        audio_plugins=$(find squashfs-root -path '*/plugins/audio/*.so' 2>/dev/null)
-        if [ -z "$audio_plugins" ]; then
-          echo "::error::No Qt audio backend plugins (qtaudio_alsa/qtaudio_pulse) bundled in AppImage."
-          echo "::error::Install libqt5multimedia5-plugins on the build host so linuxdeploy-plugin-qt can find them."
-          echo "AppImage plugin tree:"
-          find squashfs-root -path '*/plugins/*' -name '*.so' 2>/dev/null | sed -n '1,20p'
-          exit 1
-        fi
-        echo "Qt audio plugins bundled:"
-        echo "$audio_plugins"
+        source .github/scripts/linux-artifact-validation.sh
+        validate_linux_application_tree squashfs-root appimage "$ARCH"
         rm -rf squashfs-root
 
-    # armhf uses a separate QEMU payload script and intentionally remains
-    # structural-only; this runtime launch covers native x86_64 and aarch64.
+    # The ARMHF payload script calls the same startup-smoke helper under QEMU.
     - name: Runtime-smoke-test AppImage
       id: appimage_runtime_smoke
       if: inputs.arch != 'armhf'
@@ -560,41 +405,8 @@ runs:
       run: |
         APPIMAGE="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
         LOG="wsjtx-build/appimage-startup-smoke.log"
-
-        set +e
-        env \
-          -u LD_LIBRARY_PATH \
-          -u LD_PRELOAD \
-          -u LD_AUDIT \
-          -u QT_PLUGIN_PATH \
-          -u QT_QPA_PLATFORM_PLUGIN_PATH \
-          -u QML_IMPORT_PATH \
-          -u QML2_IMPORT_PATH \
-          APPIMAGE_EXTRACT_AND_RUN=1 \
-          QT_QPA_PLATFORM=xcb \
-          timeout --kill-after=5s 45s \
-            xvfb-run -a -s "-screen 0 1280x1024x24" \
-            "./$APPIMAGE" \
-            --startup-smoke-test \
-            --rig-name CI-APPIMAGE-STARTUP \
-            >"$LOG" 2>&1
-        status=$?
-        set -e
-
-        cat "$LOG"
-
-        if [ "$status" -eq 124 ]; then
-          echo "::error::AppImage startup smoke test timed out after 45 seconds"
-          exit 1
-        fi
-        if [ "$status" -ne 0 ]; then
-          echo "::error::AppImage startup smoke test exited with status $status"
-          exit 1
-        fi
-        if ! grep -Fq "WSJT-X startup smoke test passed" "$LOG"; then
-          echo "::error::AppImage exited successfully without the startup-smoke success marker"
-          exit 1
-        fi
+        source .github/scripts/linux-artifact-validation.sh
+        run_packaged_appimage_startup_smoke "./$APPIMAGE" "$LOG"
 
     - name: Upload AppImage startup diagnostics
       if: failure() && steps.appimage_runtime_smoke.outcome == 'failure'
