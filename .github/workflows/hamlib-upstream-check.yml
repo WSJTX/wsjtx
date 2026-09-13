@@ -93,14 +93,14 @@ jobs:
 
           Update \`hamlib_branch\` in:
 
-          - \`.github/workflows/ci.yml\` (five jobs)
-          - \`.github/workflows/release.yml\` (five jobs)
+          - \`.github/workflows/ci.yml\` (six target jobs)
+          - \`.github/workflows/release.yml\` (six target jobs)
           - \`.github/scripts/linux-ci-image-config.sh\`
           - \`.github/scripts/tsan-linux-deps-config.sh\`
 
           Update both exact commits, publish and validate a candidate Linux
           image generation, update the remaining platform pins, then let CI run
-          on all five platforms.
+          on all six targets.
 
           ## Notes
 

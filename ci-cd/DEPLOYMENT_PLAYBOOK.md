@@ -202,8 +202,9 @@ Under **Actions permissions**, select one of:
 - **"Allow WSJTX, and select non-WSJTX, actions and reusable workflows"** — more restrictive
 
 If you choose the restrictive option, explicitly allow the third-party actions used by the workflows:
-- `actions/checkout@v6`
-- `actions/cache@v5`
+- `actions/checkout@v7`
+- `actions/cache/restore@v5` and `actions/cache/save@v5`
+- `actions/cache/restore@v6` and `actions/cache/save@v6`
 - `actions/upload-artifact@v7`
 - `actions/download-artifact@v8`
 - `msys2/setup-msys2@v2`
