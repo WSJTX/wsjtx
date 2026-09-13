@@ -13,6 +13,10 @@ execute_process (
           -t "${WORK_DIR}"
           -r "${SOURCE_DIR}"
           -8
+          -d 1
+          -x b
+          -L 1000
+          -H 1400
           "${SAMPLE}"
   WORKING_DIRECTORY "${WORK_DIR}"
   RESULT_VARIABLE decoder_result
