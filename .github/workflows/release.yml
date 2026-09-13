@@ -1,75 +1,63 @@
-name: Release
+name: Build Release Candidate
 
 on:
-  push:
-    tags: ["build/v*"]
+  workflow_call:
+    inputs:
+      candidate_tag:
+        description: "Immutable internal tag (build/vX.Y.Z or build/vX.Y.Z-rcN)"
+        required: true
+        type: string
+      expected_sha:
+        description: "Full commit SHA selected by the release tag helper"
+        required: true
+        type: string
 
 permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: release-candidate-${{ inputs.candidate_tag }}
+  cancel-in-progress: false
+
 jobs:
-  # ── Derive the version string once from the pushed tag ────────────
-  # Strips the "build/v" prefix so artifacts are named "wsjtx-3.0.1-rc1-*"
-  # rather than "wsjtx-build/v3.0.1-rc1-*". RC/beta suffixes (e.g.
-  # build/v3.0.1-rc1 → 3.0.1-rc1) are preserved so pre-release artifacts
-  # are distinguishable from GA. All downstream jobs consume this
-  # single output so the six platform artifacts cannot disagree.
   prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      version: ${{ steps.v.outputs.version }}
-      release_channel: ${{ steps.v.outputs.release_channel }}
-      rc_number: ${{ steps.v.outputs.rc_number }}
+      version: ${{ steps.identity.outputs.version }}
+      release_channel: ${{ steps.identity.outputs.channel }}
+      rc_number: ${{ steps.identity.outputs.rc_number }}
       linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
       armhf_image_tag: ${{ steps.armhf-image.outputs.image_tag }}
+    env:
+      CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
     steps:
       - uses: actions/checkout@v7
-      - id: v
+        with:
+          fetch-depth: 0
+          ref: ${{ env.CANDIDATE_TAG }}
+      - name: Verify immutable candidate identity
+        id: identity
         run: |
-          VERSION="${GITHUB_REF_NAME#build/v}"
-          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            RELEASE_CHANNEL=GA
-            RC_NUMBER=""
-          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc([1-9][0-9]*)$ ]]; then
-            RELEASE_CHANNEL=RC
-            RC_NUMBER="${BASH_REMATCH[1]}"
-          else
-            echo "::error::Unsupported release tag version: $VERSION"
-            echo "::error::Supported release tags are build/vX.Y.Z and build/vX.Y.Z-rcN."
+          set -euo pipefail
+          if [[ ! "$CANDIDATE_TAG" =~ ^build/v(.+)$ ]]; then
+            echo "::error::Expected build/vX.Y.Z or build/vX.Y.Z-rcN, got $CANDIDATE_TAG"
             exit 1
           fi
-
+          ACTUAL_SHA=$(git rev-parse HEAD)
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Candidate tag resolves to $ACTUAL_SHA, expected $EXPECTED_SHA"
+            exit 1
+          fi
+          VERSION="${CANDIDATE_TAG#build/v}"
+          IDENTITY=$(python3 .github/scripts/release-policy.py validate-source "$VERSION")
           {
-            echo "version=$VERSION"
-            echo "release_channel=$RELEASE_CHANNEL"
-            echo "rc_number=$RC_NUMBER"
+            echo "version=$(jq -r .version <<<"$IDENTITY")"
+            echo "channel=$(jq -r .channel <<<"$IDENTITY")"
+            echo "rc_number=$(jq -r .rc_number <<<"$IDENTITY")"
           } >> "$GITHUB_OUTPUT"
-
-      # Enforce that the pushed tag's numeric version base
-      # matches CMakeLists.txt:55 VERSION (first 3 components). CMake's
-      # VERSION field is numeric-only and cannot carry pre-release
-      # suffixes like -rc1 or -beta1, so this check compares the tag
-      # version stripped of any `-<suffix>` against the first three
-      # dotted components of CMakeLists.txt VERSION. Mismatch means the
-      # release commit forgot to bump CMakeLists.txt in lockstep with
-      # the tag; fail fast here before six platform builds burn ~30
-      # minutes of CI.
-      - name: Verify tag ↔ CMakeLists.txt version parity
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#build/v}"
-          TAG_NUMERIC="${TAG_VERSION%%-*}"
-          CMAKE_VERSION=$(sed -nE 's/^[[:space:]]*VERSION[[:space:]]+([0-9][0-9.]*).*/\1/p' CMakeLists.txt | head -1)
-          CMAKE_NUMERIC=$(echo "$CMAKE_VERSION" | awk -F. '{printf "%s.%s.%s", $1, $2, $3}')
-          echo "Tag version:        $TAG_VERSION (numeric base: $TAG_NUMERIC)"
-          echo "CMakeLists.txt VER: $CMAKE_VERSION (first 3 components: $CMAKE_NUMERIC)"
-          if [ "$TAG_NUMERIC" != "$CMAKE_NUMERIC" ]; then
-            echo "::error::Tag numeric base ($TAG_NUMERIC) != CMakeLists.txt VERSION first 3 components ($CMAKE_NUMERIC)."
-            echo "::error::Bump CMakeLists.txt:55 VERSION in the same commit that gets tagged, then retry."
-            exit 1
-          fi
-          echo "Parity check PASSED."
       - id: linux-image
         name: Resolve Linux CI image generation
         env:
@@ -82,19 +70,18 @@ jobs:
           RESOLVE_ARMHF: true
         run: .github/scripts/resolve-linux-ci-image-tag.py
 
-  # ── Build all six platforms ────────────────────────────────────────
   macos:
     needs: prepare
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
-      arch: "arm64"
-      runner: "macos-15"
+      arch: arm64
+      runner: macos-15
       deployment_target: "11.0"
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
-    secrets: inherit
+      signing_mode: validation
 
   macos-intel:
     needs: prepare
@@ -102,12 +89,12 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
-      arch: "x86_64"
-      runner: "macos-15-intel"
+      arch: x86_64
+      runner: macos-15-intel
       deployment_target: "10.13"
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
-    secrets: inherit
+      signing_mode: validation
 
   linux:
     needs: prepare
@@ -115,13 +102,12 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
-      arch: "x86_64"
+      arch: x86_64
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       save_ccache: true
       build_packages: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
-    secrets: inherit
 
   linux-arm:
     needs: prepare
@@ -129,34 +115,28 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
-      arch: "aarch64"
+      arch: aarch64
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       save_ccache: true
       build_packages: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
-    secrets: inherit
 
-  # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Hamlib and
-  # WSJT-X compile with a native x86_64 cross-toolchain; ARMv7 QEMU remains for
-  # target tests, packaging, and AppImage startup validation. This expensive
-  # leg joins opt-in full-ci but remains excluded from default PR CI.
+  # Cross-compile on x86_64, then run target tests, packaging, and AppImage
+  # validation in the paired ARMv7 runtime image under QEMU.
   linux-armhf:
     needs: prepare
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
-      arch: "armhf"
+      arch: armhf
       image_tag: ${{ needs.prepare.outputs.armhf_image_tag }}
-      # armhf images are promoted separately from routine Linux recipe refreshes.
-      # Retained images remain fully verified, and stale recipes cannot save ccache.
       allow_stale_image: true
       save_ccache: true
       build_packages: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
-    secrets: inherit
 
   windows:
     needs: prepare
@@ -166,316 +146,37 @@ jobs:
       hamlib_branch: "4.7.2"
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
-      # GA: unsigned placeholder, replaced by the SignPath-signed exe at
-      # the signing gate below. RC/DEVEL: ephemeral self-signed cert.
-      sign_mode: ${{ needs.prepare.outputs.release_channel == 'GA' && 'none' || 'ephemeral' }}
-    secrets: inherit
+      sign_mode: ephemeral
 
-  # ── Publish release + sync to public repo ──────────────────────────
-  release:
+  candidate-ready:
     needs: [prepare, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
     runs-on: ubuntu-latest
-    timeout-minutes: 150
-    permissions:
-      contents: write
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
-
-      # Source tarball is published on GA releases only, not on RC (-rc*,
-      # -beta*, etc.) pre-releases. Rationale: RCs may carry code for features
-      # that are not yet intended for open source distribution (limited-access
-      # field testing). GA releases always include a source tarball per the
-      # CI/CD adoption decision on platform-matrix assets.
-      - name: Build source tarball (GA only)
-        if: ${{ !contains(github.ref_name, '-') }}
+      - name: Verify all candidate artifacts
+        run: python3 .github/scripts/release-policy.py verify-assets "${{ needs.prepare.outputs.version }}" artifacts
+      - name: Record candidate provenance
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          CANDIDATE_SHA: ${{ inputs.expected_sha }}
         run: |
-          # This repo has no git submodules, so git archive's default
-          # single-tree output captures the full source. If submodules
-          # are ever added, this step must be revisited — git archive
-          # does not recurse into submodules on its own.
-          git archive \
-            --format=tar.gz \
-            --prefix="wsjtx-${VERSION}/" \
-            -o "artifacts/wsjtx-${VERSION}-src.tar.gz" \
-            "${GITHUB_REF_NAME}"
-          ls -lh "artifacts/wsjtx-${VERSION}-src.tar.gz"
-
-      - name: List artifacts
-        run: find artifacts -type f | sort
-
-      # ── All-platforms-ready gate ───────────────────────────────────────
-      # Refuse to publish unless every platform produced an installer-grade
-      # artifact. The release job's `needs:` already enforces structural
-      # success (all 6 builds ran and exited 0), but a build can exit 0
-      # without actually packaging — e.g. a packaging step behind an `if:`
-      # that evaluated false, or an upload-artifact step that silently
-      # matched zero files. This gate fails the release job BEFORE any
-      # asset upload so partial releases never reach GitHub Releases or
-      # the public mirror.
-      #
-      # Expected artifact layout (one installer per platform, per the
-      # six build-*.yml upload-artifact steps):
-      #   artifacts/wsjtx-<ver>-arm64-macOS.pkg/*.pkg
-      #   artifacts/wsjtx-<ver>-x86_64-macOS.pkg/*.pkg
-      #   artifacts/wsjtx-<ver>-linux-x86_64-AppImage/*.AppImage
-      #   artifacts/wsjtx-<ver>-linux-aarch64-AppImage/*.AppImage
-      #   artifacts/wsjtx-<ver>-linux-armhf-AppImage/*.AppImage
-      #   artifacts/wsjtx-<ver>-windows-x86_64-installer/*.exe
-      #
-      # Policy: publish only when all six platforms have produced an
-      # installer-grade artifact. Adjust or remove this step if the
-      # policy evolves (e.g. to publish any-platform-ready).
-      - name: Verify installer-grade artifacts (all-platforms-ready gate)
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          shopt -s nullglob
-          labels=(
-            "macOS arm64 .pkg"
-            "macOS x86_64 .pkg"
-            "Linux x86_64 .AppImage"
-            "Linux aarch64 .AppImage"
-            "Linux armhf .AppImage"
-            "Windows x86_64 .exe"
-          )
-          patterns=(
-            "artifacts/wsjtx-${VERSION}-arm64-macOS.pkg/*.pkg"
-            "artifacts/wsjtx-${VERSION}-x86_64-macOS.pkg/*.pkg"
-            "artifacts/wsjtx-${VERSION}-linux-x86_64-AppImage/*.AppImage"
-            "artifacts/wsjtx-${VERSION}-linux-aarch64-AppImage/*.AppImage"
-            "artifacts/wsjtx-${VERSION}-linux-armhf-AppImage/*.AppImage"
-            "artifacts/wsjtx-${VERSION}-windows-x86_64-installer/*.exe"
-          )
-          missing=0
-          echo "Installer-grade artifact gate — checking 6 platforms…"
-          for i in "${!labels[@]}"; do
-            # shellcheck disable=SC2206 # word-split is intentional; nullglob makes it safe.
-            matches=( ${patterns[$i]} )
-            if [ ${#matches[@]} -eq 0 ]; then
-              echo "::error::MISSING  ${labels[$i]} — no match for ${patterns[$i]}"
-              missing=$((missing + 1))
-            else
-              size=$(stat --printf '%s' "${matches[0]}")
-              printf '  ok  %-22s %s (%s bytes)\n' "${labels[$i]}" "${matches[0]}" "$size"
-            fi
-          done
-          if [ "$missing" -gt 0 ]; then
-            echo "::error::All-platforms-ready gate FAILED — $missing of 6 platform(s) missing installer-grade artifact."
-            echo "::error::Refusing to publish a partial release. Fix the failing build job(s) and retry the tag."
-            exit 1
-          fi
-          echo "All-platforms-ready gate PASSED — all 6 installer-grade artifacts present. Proceeding to publish."
-
-      # ── Public mirror (GA only) ────────────────────────────────────────
-      # RC/beta tags (any tag carrying a '-' in the version, e.g.
-      # build/v3.0.1-rc1) stay internal — the public WSJTX/wsjtx repo is
-      # for stable releases only. The Build source tarball step above
-      # uses the same predicate; mirror logic must too.
-      #
-      # Invariant: mirror source and tag before creating any release, so
-      # the public SignPath workflow (triggered by the tag push; SignPath
-      # Foundation signs only public-source builds) can produce the
-      # signed installer that the wait step below swaps in before any
-      # asset is uploaded.
-
-      # Defense-in-depth: the workflow trigger already constrains
-      # github.ref_name to tags matching build/v*, but if this job
-      # ever runs outside that trigger (workflow_dispatch, manual
-      # re-run with a fork ref, misconfiguration) the force-push
-      # below would overwrite WSJTX/wsjtx:master with arbitrary content.
-      # Abort here if the ref doesn't match the expected release-tag
-      # shape.
-      - name: Verify release tag format (GA only)
-        if: ${{ !contains(github.ref_name, '-') }}
-        run: |
-          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != build/v* ]]; then
-            echo "::error::Refusing to sync — expected tag build/v*, got $GITHUB_REF_TYPE:$GITHUB_REF_NAME"
-            exit 1
-          fi
-
-      - name: Push to public repo (GA only)
-        if: ${{ !contains(github.ref_name, '-') }}
-        env:
-          TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-        run: |
-          # A "successful" release that silently skips the mirror sync is
-          # the worst failure mode — it looks green in Actions but leaves
-          # users unable to download. Fail loud instead.
-          if [ -z "$TOKEN" ]; then
-            echo "::error::CROSS_REPO_TOKEN not set — refusing to publish without public-mirror sync"
-            exit 1
-          fi
-          # Use CROSS_REPO_TOKEN (PAT with Contents:write on WSJTX/wsjtx)
-          # over HTTPS. Idempotent: on job re-run the remote already exists,
-          # so skip add.
-          if ! git remote get-url public >/dev/null 2>&1; then
-            git remote add public "https://x-access-token:${TOKEN}@github.com/WSJTX/wsjtx.git"
-          fi
-
-          # Strip "build/" prefix per public release convention. Public
-          # users search for "v3.0.1", not "build/v3.0.1". Internal tag
-          # stays as-is for the wsjtx-internal release.
-          PUBLIC_TAG="${GITHUB_REF_NAME#build/}"
-
-          # Derive the bare-prefix tag locally so the workflow doesn't
-          # depend on the team having pushed both tag forms. -f overwrites
-          # any pre-existing local tag at a stale SHA.
-          git tag -f "$PUBLIC_TAG" "$GITHUB_REF_NAME"
-
-          # Human-auditable record of what the force-push is overwriting.
-          # If public master doesn't exist yet, ls-remote returns empty —
-          # still safe, just logs "no prior SHA".
-          PRIOR_SHA=$(git ls-remote public master | awk '{print $1}')
-          LOCAL_SHA=$(git rev-parse HEAD)
-          echo "Public mirror force-push audit:"
-          echo "  internal tag: $GITHUB_REF_NAME"
-          echo "  public tag:   $PUBLIC_TAG"
-          echo "  prior SHA:    ${PRIOR_SHA:-<none>}"
-          echo "  new SHA:      $LOCAL_SHA"
-
-          # --force retained per CI/CD adoption decision #3 (option a):
-          # automate the existing sync pattern. The v3.0.0 tag SHAs already
-          # match on both repos, so the force-push aligns history rather
-          # than rewrites it in the normal release case.
-          git push public HEAD:master --force
-          # PAT-authenticated, so the tag push triggers workflows on the
-          # public repo (a GITHUB_TOKEN push would not).
-          git push public "refs/tags/${PUBLIC_TAG}:refs/tags/${PUBLIC_TAG}"
-
-      # ── SignPath signing gate (GA only) ────────────────────────────────
-      # Swap the SignPath-signed installer in before any asset upload; a
-      # failed sign run fails the release. CROSS_REPO_TOKEN needs
-      # Actions:read on WSJTX/wsjtx.
-      - name: Wait for SignPath-signed Windows installer (GA only)
-        if: ${{ !contains(github.ref_name, '-') }}
-        env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          PUBLIC_TAG="${GITHUB_REF_NAME#build/}"
-          # Windows rebuild + possible manual approval in SignPath.
-          DEADLINE=$((SECONDS + 7200))
-
-          RUN_ID=""
-          while [ -z "$RUN_ID" ]; do
-            if [ "$SECONDS" -gt "$DEADLINE" ]; then
-              echo "::error::Timed out waiting for the sign run to appear on WSJTX/wsjtx for tag ${PUBLIC_TAG}"
-              exit 1
-            fi
-            sleep 20
-            # Tag-triggered runs report the tag name as head_branch, and
-            # the list endpoint's "branch" filter matches on it. The
-            # default shell here is bash -e, so without "|| true" a
-            # transient gh/API failure (printed to stderr, leaving
-            # RUN_ID empty) would kill the step instead of retrying.
-            RUN_ID=$(gh api "repos/WSJTX/wsjtx/actions/workflows/sign-windows-release.yml/runs?branch=${PUBLIC_TAG}&per_page=1" \
-              --jq '.workflow_runs[0].id // empty' || true)
-          done
-          echo "Sign run: https://github.com/WSJTX/wsjtx/actions/runs/${RUN_ID}"
-
-          while :; do
-            if [ "$SECONDS" -gt "$DEADLINE" ]; then
-              echo "::error::Timed out waiting for the sign run to finish (signing approval pending in SignPath?)"
-              exit 1
-            fi
-            STATUS=$(gh api "repos/WSJTX/wsjtx/actions/runs/${RUN_ID}" --jq '.status')
-            [ "$STATUS" = "completed" ] && break
-            sleep 60
-          done
-          CONCLUSION=$(gh api "repos/WSJTX/wsjtx/actions/runs/${RUN_ID}" --jq '.conclusion')
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::Sign run concluded '${CONCLUSION}' — refusing to publish an unsigned GA release"
-            exit 1
-          fi
-
-          ART_ID=$(gh api "repos/WSJTX/wsjtx/actions/runs/${RUN_ID}/artifacts" \
-            --jq ".artifacts[] | select(.name==\"wsjtx-${VERSION}-windows-x86_64-installer-signed\") | .id")
-          if [ -z "$ART_ID" ]; then
-            echo "::error::Signed installer artifact not found on sign run ${RUN_ID}"
-            exit 1
-          fi
-          gh api "repos/WSJTX/wsjtx/actions/artifacts/${ART_ID}/zip" > signed-installer.zip
-          rm -f "artifacts/wsjtx-${VERSION}-windows-x86_64-installer/"*.exe
-          unzip -o signed-installer.zip -d "artifacts/wsjtx-${VERSION}-windows-x86_64-installer/"
-          echo "Swapped in SignPath-signed installer:"
-          ls -la "artifacts/wsjtx-${VERSION}-windows-x86_64-installer/"
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          # Publish installers, distribution packages, and the GA source
-          # archive. Individual macOS tool archives and raw Windows build
-          # executables remain CI artifacts, not end-user release downloads.
-          mapfile -t FILES < <(.github/scripts/list-release-assets.sh artifacts "$VERSION")
-          if [ "${#FILES[@]}" -eq 0 ]; then
-            echo "::error::No release assets found for ${VERSION}"
-            exit 1
-          fi
-          # SemVer pre-release tags contain a hyphen after the version
-          # (e.g., v3.0.1-rc1, v3.0.1-rc2, v3.0.1-beta1). Flag those as
-          # GitHub pre-releases so they don't appear as the latest stable.
-          PRERELEASE_FLAG=()
-          if [[ "$TAG" == *-* ]]; then
-            PRERELEASE_FLAG=(--prerelease)
-          fi
-          gh release create "$TAG" \
-            --title "WSJT-X ${{ needs.prepare.outputs.version }}" \
-            --generate-notes \
-            "${PRERELEASE_FLAG[@]}" \
-            "${FILES[@]}"
-
-      # Create the public-side GitHub Release with installer assets
-      # attached. Without this step, public-side Releases page is empty
-      # after a mirror push (source + tag, no downloadables) and end users
-      # can't find the artifacts.
-      - name: Create public GitHub Release (GA only)
-        if: ${{ !contains(github.ref_name, '-') }}
-        env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          PUBLIC_TAG="${GITHUB_REF_NAME#build/}"
-          # Match the internal release exactly. Individual macOS tool archives
-          # and raw Windows build executables remain CI artifacts rather than
-          # public release downloads.
-          mapfile -t FILES < <(.github/scripts/list-release-assets.sh artifacts "$VERSION")
-          if [ "${#FILES[@]}" -eq 0 ]; then
-            echo "::error::No release assets found for ${VERSION}"
-            exit 1
-          fi
-          gh release create "$PUBLIC_TAG" \
-            -R WSJTX/wsjtx \
-            --title "WSJT-X ${VERSION}" \
-            --generate-notes \
-            "${FILES[@]}"
-
-          # Prepend a curated, per-platform "Quick Downloads" picker to the
-          # auto-generated notes, so end users aren't left scanning the full
-          # assets list (installers among utilities, raw binaries, source).
-          # The picker is asset-driven — it reads the same FILES set — so new
-          # build variants (e.g. an added Linux arch) appear automatically.
-          # Best-effort: the release is already published above, so a picker
-          # failure must not fail the release; log and continue.
-          QUICK_DOWNLOADS="$(python3 .github/scripts/generate-quick-downloads.py WSJTX/wsjtx "$PUBLIC_TAG" "${FILES[@]}" || true)"
-          if [ -n "$QUICK_DOWNLOADS" ]; then
-            GENERATED_NOTES="$(gh release view "$PUBLIC_TAG" -R WSJTX/wsjtx --json body --jq .body)"
-            printf '%s\n\n---\n\n%s\n' "$QUICK_DOWNLOADS" "$GENERATED_NOTES" \
-              > "$RUNNER_TEMP/public-release-notes.md"
-            gh release edit "$PUBLIC_TAG" -R WSJTX/wsjtx \
-              --notes-file "$RUNNER_TEMP/public-release-notes.md"
-          else
-            echo "::warning::Quick Downloads picker was empty (no installer-grade assets matched); left auto-generated notes in place."
-          fi
+          jq -n \
+            --arg version "$VERSION" \
+            --arg tag "$CANDIDATE_TAG" \
+            --arg commit "$CANDIDATE_SHA" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            '{schema: 1, version: $version, tag: $tag, commit: $commit, repository: $repository, workflow_run: $run_id}' \
+            > artifacts/candidate-provenance.json
+      - name: Upload complete candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-${{ needs.prepare.outputs.version }}
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 30

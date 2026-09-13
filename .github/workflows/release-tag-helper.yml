@@ -1,301 +1,138 @@
-name: Release Tag Helper
-
-# Operator-dispatched workflow that validates a candidate release SHA and
-# (when not in dry-run mode) force-moves the v<VERSION> and build/v<VERSION>
-# tags to that SHA. Pushing build/v<VERSION> re-fires release.yml.
-#
-# Preflight is the AND of two checks against the candidate SHA:
-#   (a) the SHA's most recent ci.yml run had conclusion == "success", and
-#   (b) the union of artifacts produced by all non-expired runs on the SHA
-#       contains all 5 installer-grade artifact buckets that release.yml's
-#       all-platforms-ready gate looks for.
-# A SHA that fails either check is rejected.
-#
-# Dry-run defaults to true. The retag step only runs when dry_run == false
-# AND preflight passes. Tags are force-pushed (release-tag movement is
-# inherently destructive); the prior tag SHAs are recorded in the step
-# summary for an audit trail.
+name: Prepare Release Candidate
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version, no leading v (e.g., 3.0.1, 3.0.1-rc1)'
+        description: "Version without v (X.Y.Z or X.Y.Z-rcN)"
         required: true
         type: string
-      target_sha:
-        description: 'Full or short SHA to tag. If empty, tip of source_branch is used.'
-        required: false
-        type: string
-        default: ''
-      source_branch:
-        description: 'Branch to resolve to (used only when target_sha is empty)'
-        required: false
-        type: string
-        default: 'v3.0.0_test'
-      dry_run:
-        description: 'If true, validate only — do not move tags'
+      expected_sha:
+        description: "Full SHA at the tip of release/X.Y"
         required: true
-        type: boolean
-        default: true
+        type: string
+      operation:
+        description: "Validate only, or create the immutable candidate tag and start its build"
+        required: true
+        type: choice
+        options: [validate, create]
+        default: validate
 
 permissions:
+  actions: read
   contents: write
-  # write needed to dispatch release.yml after retag (push events from
-  # GITHUB_TOKEN don't auto-trigger workflows by anti-recursion rule;
-  # workflow_dispatch is the documented exception).
-  actions: write
 
 jobs:
-  helper:
+  prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    environment: candidate-tagging
+    outputs:
+      candidate_tag: ${{ steps.validate.outputs.candidate_tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: Fetch all branches and tags
-        run: git fetch origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
-
-      - name: Validate version input
+      - name: Fetch release branches and tags
+        run: git fetch origin '+refs/heads/release/*:refs/remotes/origin/release/*' '+refs/tags/*:refs/tags/*'
+      - name: Validate release commit
+        id: validate
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-            echo "::error::Invalid version '$VERSION'. Expected forms like 3.0.1 or 3.0.1-rc1."
+          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::expected_sha must be a full 40-character lowercase commit SHA"
             exit 1
           fi
+          IDENTITY=$(python3 .github/scripts/release-policy.py classify "$VERSION")
+          BRANCH=$(jq -r .release_branch <<<"$IDENTITY")
+          if [ "$GITHUB_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Run this workflow from $BRANCH at $EXPECTED_SHA"
+            exit 1
+          fi
+          BRANCH_SHA=$(git rev-parse "origin/$BRANCH^{commit}" 2>/dev/null || true)
+          if [ "$BRANCH_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::$BRANCH tip is ${BRANCH_SHA:-missing}, expected $EXPECTED_SHA"
+            exit 1
+          fi
+          git checkout --detach "$EXPECTED_SHA"
+          python3 .github/scripts/release-policy.py validate-source "$VERSION"
 
-      - name: Resolve target SHA
-        id: resolve
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INPUT_SHA: ${{ inputs.target_sha }}
-          INPUT_BRANCH: ${{ inputs.source_branch }}
-        run: |
-          set -uo pipefail
-          if [ -n "$INPUT_SHA" ]; then
-            ref="$INPUT_SHA"
-            source="explicit input ($INPUT_SHA)"
-          else
-            ref="$INPUT_BRANCH"
-            source="tip of $INPUT_BRANCH"
+          CI_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$EXPECTED_SHA&status=completed&per_page=20" \
+            --jq '.workflow_runs | sort_by(.created_at) | reverse | .[0]')
+          if [ -z "$CI_RUN" ] || [ "$CI_RUN" = null ]; then
+            echo "::error::No completed ci.yml run found for $EXPECTED_SHA"
+            exit 1
           fi
-          # GitHub API resolves any ref the repo can see (full SHA, short SHA,
-          # branch, tag) regardless of local fetch state. Avoids git rev-parse
-          # exit-128 noise on SHAs that exist in the repo's network but
-          # haven't been fetched into the runner's clone.
-          # Note: `gh api --jq` lets the error body through to stdout when
-          # the HTTP call fails, so check the exit code explicitly and run
-          # jq separately on the success body.
-          if response=$(gh api "repos/${GITHUB_REPOSITORY}/commits/$ref" 2>/dev/null); then
-            sha=$(echo "$response" | jq -r '.sha')
-          else
-            sha=""
-          fi
-          source_delimiter="release_tag_helper_source_$(uuidgen)"
-          if [ -z "$sha" ] || [ "$sha" = "null" ]; then
-            echo "::error::Could not resolve '$ref' to a commit in ${GITHUB_REPOSITORY}. Verify the SHA, branch, or tag exists in this repo."
-            {
-              echo "sha="
-              echo "source<<$source_delimiter"
-              printf '%s\n' "$source (UNRESOLVED)"
-              echo "$source_delimiter"
-            } >> "$GITHUB_OUTPUT"
+          CI_ID=$(jq -r .id <<<"$CI_RUN")
+          CI_CONCLUSION=$(jq -r .conclusion <<<"$CI_RUN")
+          if [ "$CI_CONCLUSION" != success ]; then
+            echo "::error::Latest ci.yml run $CI_ID concluded $CI_CONCLUSION"
             exit 1
           fi
           {
-            echo "sha=$sha"
-            echo "source<<$source_delimiter"
-            printf '%s\n' "$source"
-            echo "$source_delimiter"
+            echo "branch=$BRANCH"
+            echo "ci_run_id=$CI_ID"
+            echo "candidate_tag=build/v$VERSION"
           } >> "$GITHUB_OUTPUT"
-          echo "Resolved target: $sha ($source)"
 
-      - name: Check (a) — most recent ci.yml run on SHA succeeded
-        id: ci_check
+      - name: Verify candidate tag is create-only
+        id: tag
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ steps.resolve.outputs.sha }}
+          VERSION: ${{ inputs.version }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
           set -euo pipefail
-          run=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=$SHA&per_page=50" \
-            --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml")] | sort_by(.created_at) | reverse | .[0]')
-          if [ -z "$run" ] || [ "$run" = "null" ]; then
-            echo "::error::No ci.yml run found for SHA $SHA"
-            {
-              echo "ci_passed=false"
-              echo "ci_run_id="
-              echo "ci_conclusion=missing"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
+          TAG="build/v$VERSION"
+          CURRENT=$(git rev-parse "$TAG^{commit}" 2>/dev/null || true)
+          if [ -n "$CURRENT" ] && [ "$CURRENT" != "$EXPECTED_SHA" ]; then
+            echo "::error::$TAG already exists at $CURRENT; release tags are never moved"
+            exit 1
           fi
-          conclusion=$(echo "$run" | jq -r '.conclusion')
-          run_id=$(echo "$run" | jq -r '.id')
+          if [ "$CURRENT" = "$EXPECTED_SHA" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "$TAG already identifies $EXPECTED_SHA; creation is idempotently satisfied."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create candidate tag
+        if: inputs.operation == 'create' && steps.tag.outputs.exists != 'true'
+        env:
+          VERSION: ${{ inputs.version }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          git tag "build/v$VERSION" "$EXPECTED_SHA"
+          git push origin "refs/tags/build/v$VERSION:refs/tags/build/v$VERSION"
+
+      - name: Summarize candidate preparation
+        env:
+          VERSION: ${{ inputs.version }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          OPERATION: ${{ inputs.operation }}
+          BRANCH: ${{ steps.validate.outputs.branch }}
+          CI_RUN_ID: ${{ steps.validate.outputs.ci_run_id }}
+        run: |
           {
-            echo "ci_run_id=$run_id"
-            echo "ci_conclusion=$conclusion"
-          } >> "$GITHUB_OUTPUT"
-          if [ "$conclusion" = "success" ]; then
-            echo "ci_passed=true" >> "$GITHUB_OUTPUT"
-            echo "ci.yml run $run_id: success"
-          else
-            echo "ci_passed=false" >> "$GITHUB_OUTPUT"
-            echo "::error::ci.yml run $run_id conclusion=$conclusion (need success)"
-          fi
-
-      - name: Check (b) — all 5 installer-grade artifacts present on SHA
-        id: artifact_check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ steps.resolve.outputs.sha }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          patterns=(
-            "wsjtx-${VERSION}-arm64-macOS.pkg"
-            "wsjtx-${VERSION}-x86_64-macOS.pkg"
-            "wsjtx-${VERSION}-linux-x86_64-AppImage"
-            "wsjtx-${VERSION}-linux-aarch64-AppImage"
-            "wsjtx-${VERSION}-windows-x86_64-installer"
-          )
-          run_ids=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=$SHA&per_page=50" --jq '.workflow_runs[].id')
-          all_names=""
-          for id in $run_ids; do
-            names=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/$id/artifacts?per_page=100" \
-              --jq '.artifacts[] | select(.expired == false) | .name' 2>/dev/null || true)
-            all_names="${all_names}${names}"$'\n'
-          done
-          all_names=$(echo "$all_names" | sort -u)
-          echo "Artifact gate — checking 5 installer-grade buckets on SHA $SHA:"
-          missing=0
-          for p in "${patterns[@]}"; do
-            if echo "$all_names" | grep -Fxq "$p"; then
-              echo "  ok       $p"
-            else
-              echo "::error::MISSING  $p"
-              missing=$((missing + 1))
-            fi
-          done
-          if [ "$missing" -eq 0 ]; then
-            echo "artifacts_passed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "artifacts_passed=false" >> "$GITHUB_OUTPUT"
-            echo "::error::Artifact gate FAILED — $missing of 5 missing."
-          fi
-
-      - name: Combined verdict (preflight = ci AND artifacts)
-        id: verdict
-        run: |
-          set -uo pipefail
-          ci='${{ steps.ci_check.outputs.ci_passed }}'
-          art='${{ steps.artifact_check.outputs.artifacts_passed }}'
-          if [ "$ci" = "true" ] && [ "$art" = "true" ]; then
-            echo "passed=true" >> "$GITHUB_OUTPUT"
-            echo "Preflight PASSED."
-          else
-            echo "passed=false" >> "$GITHUB_OUTPUT"
-            echo "::error::Preflight FAILED — ci.yml gate=$ci, artifacts gate=$art"
-          fi
-
-      - name: Snapshot current tag SHAs (audit)
-        id: current_tags
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -uo pipefail
-          old_v=$(gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/v$VERSION" --jq '.object.sha' 2>/dev/null || echo "(none)")
-          old_b=$(gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/build/v$VERSION" --jq '.object.sha' 2>/dev/null || echo "(none)")
-          echo "old_v_sha=$old_v" >> "$GITHUB_OUTPUT"
-          echo "old_build_sha=$old_b" >> "$GITHUB_OUTPUT"
-          echo "Current v$VERSION       → $old_v"
-          echo "Current build/v$VERSION → $old_b"
-
-      - name: Step summary
-        if: always()
-        env:
-          VERSION: ${{ inputs.version }}
-          TARGET_SHA: ${{ steps.resolve.outputs.sha }}
-          SHA_SOURCE: ${{ steps.resolve.outputs.source }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          CI_RUN_ID: ${{ steps.ci_check.outputs.ci_run_id }}
-          CI_CONCLUSION: ${{ steps.ci_check.outputs.ci_conclusion }}
-          OLD_V_SHA: ${{ steps.current_tags.outputs.old_v_sha }}
-          OLD_BUILD_SHA: ${{ steps.current_tags.outputs.old_build_sha }}
-          SERVER_URL: ${{ github.server_url }}
-          REPOSITORY: ${{ github.repository }}
-          CI_OK: ${{ steps.ci_check.outputs.ci_passed }}
-          ART_OK: ${{ steps.artifact_check.outputs.artifacts_passed }}
-          VERDICT: ${{ steps.verdict.outputs.passed }}
-        run: |
-          ci_emoji='❌'; [ "$CI_OK" = 'true' ] && ci_emoji='✅'
-          art_emoji='❌'; [ "$ART_OK" = 'true' ] && art_emoji='✅'
-          verdict_label='❌ FAIL'; [ "$VERDICT" = 'true' ] && verdict_label='✅ PASS'
-          {
-            echo "## Release Tag Helper — preflight"
-            echo ""
-            echo "| Field | Value |"
-            echo "|---|---|"
-            echo "| Version | \`$VERSION\` |"
-            echo "| Target SHA | \`$TARGET_SHA\` |"
-            echo "| SHA source | $SHA_SOURCE |"
-            echo "| Dry run | \`$DRY_RUN\` |"
-            echo "| ci.yml run | [$CI_RUN_ID]($SERVER_URL/$REPOSITORY/actions/runs/$CI_RUN_ID) |"
-            echo "| ci.yml conclusion | \`$CI_CONCLUSION\` |"
-            echo "| ci.yml gate (a) | $ci_emoji |"
-            echo "| Artifact gate (b) | $art_emoji |"
-            echo "| Preflight verdict | $verdict_label |"
-            echo "| Current \`v$VERSION\` | \`$OLD_V_SHA\` |"
-            echo "| Current \`build/v$VERSION\` | \`$OLD_BUILD_SHA\` |"
+            echo "## Release candidate preparation"
+            echo
+            echo "- Version: \`$VERSION\`"
+            echo "- Commit: \`$EXPECTED_SHA\`"
+            echo "- Release branch: \`$BRANCH\`"
+            echo "- CI run: [\`$CI_RUN_ID\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID)"
+            echo "- Operation: \`$OPERATION\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Halt if preflight failed
-        if: steps.verdict.outputs.passed != 'true'
-        run: |
-          echo "::error::Preflight failed — refusing to proceed."
-          exit 1
-
-      - name: Retag (only when preflight passes and dry_run == false)
-        if: ${{ inputs.dry_run == false }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ steps.resolve.outputs.sha }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "v$VERSION" "$SHA"
-          git tag -f "build/v$VERSION" "$SHA"
-          git push --force origin "v$VERSION" "build/v$VERSION"
-          echo "Tags moved:"
-          echo "  v$VERSION       → $SHA"
-          echo "  build/v$VERSION → $SHA"
-
-          # Pushes via GITHUB_TOKEN do NOT auto-trigger workflows
-          # (anti-recursion rule). Explicitly dispatch release.yml
-          # with --ref pointing at the just-moved tag, so
-          # GITHUB_REF_NAME inside release.yml matches the push-on-tag
-          # case and existing logic works unchanged. workflow_dispatch
-          # is the documented exception to the anti-recursion rule.
-          echo ""
-          echo "Dispatching release.yml on tag build/v$VERSION..."
-          gh workflow run release.yml --repo "${GITHUB_REPOSITORY}" --ref "build/v$VERSION"
-          echo "release.yml dispatched."
-
-          {
-            echo ""
-            echo "### ✅ Tags moved + release.yml dispatched"
-            echo ""
-            echo "| Tag | New SHA |"
-            echo "|---|---|"
-            echo "| \`v$VERSION\` | \`$SHA\` |"
-            echo "| \`build/v$VERSION\` | \`$SHA\` |"
-            echo ""
-            echo "Watch the resulting release run:"
-            echo ""
-            echo "    gh run list --repo ${{ github.repository }} --workflow release.yml --limit 5"
-          } >> "$GITHUB_STEP_SUMMARY"
+  candidate:
+    if: inputs.operation == 'create'
+    needs: prepare
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/release.yml
+    with:
+      candidate_tag: ${{ needs.prepare.outputs.candidate_tag }}
+      expected_sha: ${{ inputs.expected_sha }}

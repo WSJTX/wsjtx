@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, "release/**"]
   pull_request:
-    branches: [develop]
+    branches: [develop, "release/**"]
     # `labeled` is added to the defaults (opened/synchronize/reopened) so
     # that applying `full-ci`, `sanitizers`, or `thread-sanitizer` to an
     # already-open PR triggers
@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   # Single source of truth for the project version string: read it from
-  # CMakeLists.txt so CI and release.yml cannot disagree. Strip the
+  # release-state.txt so CI and release builds cannot disagree. Strip the
   # optional fourth tweak segment (3.0.0.0 → 3.0.0) to match the 3-part
   # shape release.yml derives from build/v<X.Y.Z> tags.
   prepare:
@@ -46,6 +46,8 @@ jobs:
     timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
+      release_channel: ${{ steps.v.outputs.release_channel }}
+      rc_number: ${{ steps.v.outputs.rc_number }}
       linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
       armhf_image_tag: ${{ steps.armhf-image.outputs.image_tag }}
       save_linux_ccache: ${{ steps.ccache-policy.outputs.save_ccache }}
@@ -66,13 +68,16 @@ jobs:
           python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
       - id: v
         run: |
-          VERSION=$(grep -E '^\s*VERSION\s+[0-9]' CMakeLists.txt | head -1 | awk '{print $2}' | cut -d. -f1-3)
-          if [ -z "$VERSION" ]; then
-            echo "::error::Could not derive VERSION from CMakeLists.txt"
-            exit 1
-          fi
-          echo "Derived version from CMakeLists.txt: $VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          STATE=$(python3 .github/scripts/release-policy.py read-state)
+          VERSION=$(jq -r .version <<<"$STATE")
+          CHANNEL=$(jq -r .channel <<<"$STATE")
+          RC_NUMBER=$(jq -r .rc <<<"$STATE")
+          echo "Derived version from release-state.txt: $VERSION"
+          {
+            echo "version=$VERSION"
+            echo "release_channel=$CHANNEL"
+            echo "rc_number=$RC_NUMBER"
+          } >> "$GITHUB_OUTPUT"
       # PRs can consume develop caches, so only trusted develop executions may
       # publish the Linux cache shared with later pull-request builds.
       - id: ccache-policy
@@ -140,7 +145,8 @@ jobs:
       runner: "macos-15"
       deployment_target: "11.0"
       recache: ${{ inputs.recache || false }}
-    secrets: inherit
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
 
   macos-intel:
     needs: [prepare, linux]
@@ -156,7 +162,8 @@ jobs:
       runner: "macos-15-intel"
       deployment_target: "10.13"
       recache: ${{ inputs.recache || false }}
-    secrets: inherit
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
 
   linux:
     needs: [prepare]
@@ -171,6 +178,8 @@ jobs:
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       validate_fortran_fallback: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
       build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   linux-sanitizers:
@@ -187,7 +196,6 @@ jobs:
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}
       advisory: true
-    secrets: inherit
 
   linux-tsan:
     name: Linux x86_64 TSan
@@ -199,7 +207,6 @@ jobs:
       sanitizer: tsan
       recache: ${{ inputs.recache || false }}
       advisory: true
-    secrets: inherit
 
   linux-arm:
     needs: [prepare, linux]
@@ -217,6 +224,8 @@ jobs:
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   linux-armhf:
@@ -235,6 +244,8 @@ jobs:
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   windows:
@@ -248,4 +259,5 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       recache: ${{ inputs.recache || false }}
-    secrets: inherit
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}

@@ -1,0 +1,190 @@
+name: Promote Release Source
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without v (X.Y.Z or X.Y.Z-rcN)"
+        required: true
+        type: string
+      candidate_run_id:
+        description: "Successful Prepare Release Candidate workflow run"
+        required: true
+        type: string
+      operation:
+        description: "Validate only, or copy the exact source tag to the public repository"
+        required: true
+        type: choice
+        options: [validate, promote]
+        default: validate
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.candidate.outputs.sha }}
+      public_tag: ${{ steps.candidate.outputs.public_tag }}
+      channel: ${{ steps.candidate.outputs.channel }}
+      prior_master: ${{ steps.public.outputs.prior_master }}
+      tag_exists: ${{ steps.public.outputs.tag_exists }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate candidate run and immutable tag
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::candidate_run_id must be numeric"
+            exit 1
+          fi
+          IDENTITY=$(python3 .github/scripts/release-policy.py classify "$VERSION")
+          BRANCH=$(jq -r .release_branch <<<"$IDENTITY")
+          CHANNEL=$(jq -r .channel <<<"$IDENTITY")
+          TAG="build/v$VERSION"
+
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          if [ "$(jq -r .path <<<"$RUN")" != ".github/workflows/release-tag-helper.yml" ] || \
+             [ "$(jq -r .conclusion <<<"$RUN")" != success ]; then
+            echo "::error::Run $RUN_ID must be a successful release-tag-helper.yml run"
+            exit 1
+          fi
+          RUN_SHA=$(jq -r .head_sha <<<"$RUN")
+          git fetch origin "+refs/tags/$TAG:refs/tags/$TAG" "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+          TAG_SHA=$(git rev-parse "$TAG^{commit}")
+          if [ "$GITHUB_SHA" != "$TAG_SHA" ]; then
+            echo "::error::Run this workflow from $BRANCH at $TAG_SHA"
+            exit 1
+          fi
+          if [ "$TAG_SHA" != "$RUN_SHA" ]; then
+            echo "::error::$TAG resolves to $TAG_SHA but run $RUN_ID built $RUN_SHA"
+            exit 1
+          fi
+          BRANCH_SHA=$(git rev-parse "origin/$BRANCH^{commit}")
+          if [ "$TAG_SHA" != "$BRANCH_SHA" ]; then
+            echo "::error::$TAG is $TAG_SHA but the current $BRANCH tip is $BRANCH_SHA"
+            exit 1
+          fi
+          git checkout --detach "$TAG_SHA"
+          python3 .github/scripts/release-policy.py validate-source "$VERSION"
+
+          CANDIDATE_DIR="$RUNNER_TEMP/release-candidate"
+          gh run download "$RUN_ID" --name "release-candidate-$VERSION" --dir "$CANDIDATE_DIR"
+          PROVENANCE=$(find "$CANDIDATE_DIR" -name candidate-provenance.json -type f -print -quit)
+          if [ -z "$PROVENANCE" ]; then
+            echo "::error::Candidate provenance was not found in run $RUN_ID"
+            exit 1
+          fi
+          test "$(jq -r .tag "$PROVENANCE")" = "$TAG"
+          test "$(jq -r .commit "$PROVENANCE")" = "$TAG_SHA"
+          test "$(jq -r .version "$PROVENANCE")" = "$VERSION"
+          {
+            echo "sha=$TAG_SHA"
+            echo "tag=$TAG"
+            echo "public_tag=v$VERSION"
+            echo "branch=$BRANCH"
+            echo "channel=$CHANNEL"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate public ref state
+        id: public
+        env:
+          PUBLIC_TAG: ${{ steps.candidate.outputs.public_tag }}
+          SHA: ${{ steps.candidate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git remote add public https://github.com/WSJTX/wsjtx.git
+          PUBLIC_TAG_SHA=$(git ls-remote public "refs/tags/$PUBLIC_TAG^{}" | awk '{print $1}')
+          if [ -z "$PUBLIC_TAG_SHA" ]; then
+            PUBLIC_TAG_SHA=$(git ls-remote public "refs/tags/$PUBLIC_TAG" | awk '{print $1}')
+          fi
+          if [ -n "$PUBLIC_TAG_SHA" ] && [ "$PUBLIC_TAG_SHA" != "$SHA" ]; then
+            echo "::error::Public $PUBLIC_TAG already exists at $PUBLIC_TAG_SHA; tags are never moved"
+            exit 1
+          fi
+          PRIOR_MASTER=$(git ls-remote public refs/heads/master | awk '{print $1}')
+          echo "tag_exists=$([ "$PUBLIC_TAG_SHA" = "$SHA" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "prior_master=$PRIOR_MASTER" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize validation
+        env:
+          VERSION: ${{ inputs.version }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          SHA: ${{ steps.candidate.outputs.sha }}
+          CHANNEL: ${{ steps.candidate.outputs.channel }}
+          PRIOR_MASTER: ${{ steps.public.outputs.prior_master }}
+        run: |
+          {
+            echo "## Public source validation"
+            echo
+            echo "- Version: \`$VERSION\` ($CHANNEL)"
+            echo "- Candidate run: [\`$RUN_ID\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)"
+            echo "- Exact commit: \`$SHA\`"
+            echo "- Public tag: \`v$VERSION\`"
+            echo "- Prior public master: \`${PRIOR_MASTER:-<none>}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    if: inputs.operation == 'promote'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: source-promotion
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.validate.outputs.sha }}
+          persist-credentials: false
+      - name: Promote exact source commit
+        env:
+          TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+          PUBLIC_TAG: ${{ needs.validate.outputs.public_tag }}
+          SHA: ${{ needs.validate.outputs.sha }}
+          CHANNEL: ${{ needs.validate.outputs.channel }}
+          PRIOR_MASTER: ${{ needs.validate.outputs.prior_master }}
+          TAG_EXISTS: ${{ needs.validate.outputs.tag_exists }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TOKEN" ]; then
+            echo "::error::CROSS_REPO_TOKEN is required for source promotion"
+            exit 1
+          fi
+          git remote add public "https://x-access-token:${TOKEN}@github.com/WSJTX/wsjtx.git"
+          CURRENT_TAG=$(git ls-remote public "refs/tags/$PUBLIC_TAG" | awk '{print $1}')
+          CURRENT_MASTER=$(git ls-remote public refs/heads/master | awk '{print $1}')
+          test "$CURRENT_MASTER" = "$PRIOR_MASTER"
+          if [ -n "$CURRENT_TAG" ] && [ "$CURRENT_TAG" != "$SHA" ]; then
+            echo "::error::$PUBLIC_TAG was created at a different commit after validation"
+            exit 1
+          fi
+          if [ "$CHANNEL" = GA ] && [ -n "$PRIOR_MASTER" ]; then
+            git cat-file -e "$PRIOR_MASTER^{commit}" 2>/dev/null || git fetch public master
+            git merge-base --is-ancestor "$PRIOR_MASTER" "$SHA" || {
+              echo "::error::GA promotion must advance public master"
+              exit 1
+            }
+          fi
+          if [ "$CHANNEL" = GA ] && [ -z "$CURRENT_TAG" ]; then
+            git push --atomic public \
+              "$SHA:refs/heads/master" "$SHA:refs/tags/$PUBLIC_TAG" \
+              --force-with-lease="refs/heads/master:$PRIOR_MASTER"
+          elif [ "$CHANNEL" = GA ]; then
+            git push public "$SHA:refs/heads/master" \
+              --force-with-lease="refs/heads/master:$PRIOR_MASTER"
+          elif [ -z "$CURRENT_TAG" ]; then
+            git push public "$SHA:refs/tags/$PUBLIC_TAG"
+          else
+            echo "$PUBLIC_TAG already points to $SHA; promotion is idempotently satisfied."
+          fi

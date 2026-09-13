@@ -1,0 +1,377 @@
+name: Build and Publish Public Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'WSJTX/wsjtx'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      release_channel: ${{ steps.identity.outputs.channel }}
+      rc_number: ${{ steps.identity.outputs.rc_number }}
+      macos_sign_mode: ${{ steps.identity.outputs.macos_sign_mode }}
+      macos_signing_enabled: ${{ steps.identity.outputs.macos_signing_enabled }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Validate public release tag and source identity
+        id: identity
+        env:
+          MACOS_DISTRIBUTION_SIGNING_ENABLED: ${{ vars.MACOS_DISTRIBUTION_SIGNING_ENABLED }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v(.+)$ ]]; then
+            echo "::error::Expected vX.Y.Z or vX.Y.Z-rcN"
+            exit 1
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          IDENTITY=$(python3 .github/scripts/release-policy.py validate-source "$VERSION")
+          {
+            echo "version=$(jq -r .version <<<"$IDENTITY")"
+            echo "channel=$(jq -r .channel <<<"$IDENTITY")"
+            echo "rc_number=$(jq -r .rc_number <<<"$IDENTITY")"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$MACOS_DISTRIBUTION_SIGNING_ENABLED" = true ]; then
+            echo "macos_sign_mode=distribution" >> "$GITHUB_OUTPUT"
+            echo "macos_signing_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "macos_sign_mode=validation" >> "$GITHUB_OUTPUT"
+            echo "macos_signing_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::macOS distribution signing is disabled. Builds will be retained, but no GitHub Release can be published."
+          fi
+
+  linux-images:
+    needs: prepare
+    uses: ./.github/workflows/publish-linux-ci-images.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      publication_target: public-release
+      mode: refresh
+      promote: false
+      image_set: normal
+      include_armhf: true
+
+  macos:
+    needs: prepare
+    uses: ./.github/workflows/build-macos.yml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      arch: arm64
+      runner: macos-15
+      deployment_target: "11.0"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
+      signing_mode: ${{ needs.prepare.outputs.macos_sign_mode }}
+
+  macos-intel:
+    needs: prepare
+    uses: ./.github/workflows/build-macos.yml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      arch: x86_64
+      runner: macos-15-intel
+      deployment_target: "10.13"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
+      signing_mode: ${{ needs.prepare.outputs.macos_sign_mode }}
+
+  linux:
+    needs: [prepare, linux-images]
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      arch: x86_64
+      image_source: public-release
+      image_tag: ${{ needs.linux-images.outputs.image_tag }}
+      image_digest: ${{ needs.linux-images.outputs.x86_64_digest }}
+      build_packages: true
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
+
+  linux-arm:
+    needs: [prepare, linux-images]
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      arch: aarch64
+      image_source: public-release
+      image_tag: ${{ needs.linux-images.outputs.image_tag }}
+      image_digest: ${{ needs.linux-images.outputs.aarch64_digest }}
+      build_packages: true
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
+
+  linux-armhf:
+    needs: [prepare, linux-images]
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      arch: armhf
+      image_source: public-release
+      image_tag: ${{ needs.linux-images.outputs.image_tag }}
+      image_digest: ${{ needs.linux-images.outputs.armhf_digest }}
+      armhf_cross_image_digest: ${{ needs.linux-images.outputs.armhf_cross_digest }}
+      build_packages: true
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
+
+  windows:
+    needs: prepare
+    uses: ./.github/workflows/sign-windows-release.yml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
+
+  validation-ready:
+    if: needs.prepare.outputs.macos_signing_enabled != 'true'
+    needs: [prepare, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+      - name: Verify validation-only build
+        run: python3 .github/scripts/release-policy.py verify-assets "${{ needs.prepare.outputs.version }}" artifacts
+      - name: Explain publication block
+        run: |
+          echo "::notice::All validation artifacts are available. Set MACOS_DISTRIBUTION_SIGNING_ENABLED=true only after Apple credentials are configured and tested, then rerun this tag workflow."
+
+  assemble:
+    if: needs.prepare.outputs.macos_signing_enabled == 'true'
+    needs: [prepare, linux-images, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+      - name: Build corresponding source archive
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          git archive --format=tar --prefix="wsjtx-$VERSION/" "$GITHUB_SHA" |
+            gzip -n > "artifacts/wsjtx-$VERSION-src.tar.gz"
+          test -s "artifacts/wsjtx-$VERSION-src.tar.gz"
+          python3 .github/scripts/release-policy.py validate-archive "$VERSION" \
+            "artifacts/wsjtx-$VERSION-src.tar.gz" --commit "$GITHUB_SHA"
+      - name: Verify GitHub automatic source archives
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/archive/refs/tags/$GITHUB_REF_NAME.tar.gz" \
+            --output "$RUNNER_TEMP/github-source.tar.gz"
+          curl --fail --location --retry 3 \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/archive/refs/tags/$GITHUB_REF_NAME.zip" \
+            --output "$RUNNER_TEMP/github-source.zip"
+          python3 .github/scripts/release-policy.py validate-archive "$VERSION" \
+            "$RUNNER_TEMP/github-source.tar.gz" --commit "$GITHUB_SHA"
+          python3 .github/scripts/release-policy.py validate-archive "$VERSION" \
+            "$RUNNER_TEMP/github-source.zip" --commit "$GITHUB_SHA"
+      - name: Verify signed distribution artifacts and reports
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/release-policy.py verify-assets "$VERSION" artifacts --distribution
+          python3 .github/scripts/release-policy.py verify-signing-reports "$VERSION" artifacts \
+            --commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME"
+      - name: Generate checksums and release manifest
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          python3 .github/scripts/release-policy.py write-manifest "$VERSION" artifacts \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --linux-x86-64-digest "${{ needs.linux-images.outputs.x86_64_digest }}" \
+            --linux-aarch64-digest "${{ needs.linux-images.outputs.aarch64_digest }}" \
+            --linux-armhf-cross-digest "${{ needs.linux-images.outputs.armhf_cross_digest }}" \
+            --linux-armhf-digest "${{ needs.linux-images.outputs.armhf_digest }}"
+      - name: Assemble exact publication bundle
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-bundle/verification
+          while IFS= read -r file; do
+            cp "$file" release-bundle/
+          done < <(python3 .github/scripts/release-policy.py release-files "$VERSION" artifacts)
+          cp artifacts/SHA256SUMS artifacts/release-manifest.json release-bundle/
+          cp -R artifacts/macos-signing-report-* \
+            artifacts/wsjtx-*-windows-signing-request \
+            artifacts/wsjtx-*-windows-signing-verification \
+            release-bundle/verification/
+      - name: Upload publication bundle for approval
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-bundle-${{ needs.prepare.outputs.version }}
+          path: release-bundle
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: [prepare, assemble]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: public-release
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-bundle-${{ needs.prepare.outputs.version }}
+          path: release-bundle
+      - name: Recheck bundle and immutable public tag
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          (cd release-bundle && sha256sum --check SHA256SUMS)
+          test "$(jq -r .repository release-bundle/release-manifest.json)" = "$GITHUB_REPOSITORY"
+          test "$(jq -r .tag release-bundle/release-manifest.json)" = "$GITHUB_REF_NAME"
+          test "$(jq -r .commit release-bundle/release-manifest.json)" = "$GITHUB_SHA"
+          test "$(jq -r '.assets | length' release-bundle/release-manifest.json)" -gt 0
+          python3 .github/scripts/release-policy.py classify "$VERSION" >/dev/null
+          TAG_SHA=$(git ls-remote origin "refs/tags/$GITHUB_REF_NAME" | awk '{print $1}')
+          if [ "$TAG_SHA" != "$GITHUB_SHA" ]; then
+            echo "::error::$GITHUB_REF_NAME now resolves to ${TAG_SHA:-missing}, expected $GITHUB_SHA"
+            exit 1
+          fi
+      - name: Publish public GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          CHANNEL: ${{ needs.prepare.outputs.release_channel }}
+        run: |
+          set -euo pipefail
+          mapfile -t FILES < <(find release-bundle -maxdepth 1 -type f -print | sort)
+          mapfile -t EXPECTED_NAMES < <(printf '%s\n' "${FILES[@]}" | xargs -n1 basename | sort)
+          CREATED=false
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            RELEASE=$(gh release view "$GITHUB_REF_NAME" --json isDraft,isPrerelease,assets)
+            if [ "$(jq -r .isDraft <<<"$RELEASE")" != false ]; then
+              echo "::error::Existing release $GITHUB_REF_NAME is unexpectedly a draft."
+              exit 1
+            fi
+            EXPECTED_PRERELEASE=false
+            if [ "$CHANNEL" = RC ]; then
+              EXPECTED_PRERELEASE=true
+            fi
+            if [ "$(jq -r .isPrerelease <<<"$RELEASE")" != "$EXPECTED_PRERELEASE" ]; then
+              echo "::error::Existing release $GITHUB_REF_NAME has the wrong prerelease state."
+              exit 1
+            fi
+            mapfile -t ACTUAL_NAMES < <(jq -r '.assets[].name' <<<"$RELEASE" | sort)
+            EXTRA=$(comm -13 \
+              <(printf '%s\n' "${EXPECTED_NAMES[@]}") \
+              <(printf '%s\n' "${ACTUAL_NAMES[@]}") || true)
+            if [ -n "$EXTRA" ]; then
+              echo "::error::Existing release contains assets outside the immutable publication bundle:"
+              printf '%s\n' "$EXTRA"
+              exit 1
+            fi
+            mkdir -p "$RUNNER_TEMP/existing-assets"
+            MISSING=()
+            for file in "${FILES[@]}"; do
+              name=$(basename "$file")
+              if gh release download "$GITHUB_REF_NAME" --pattern "$name" --dir "$RUNNER_TEMP/existing-assets"; then
+                cmp "$file" "$RUNNER_TEMP/existing-assets/$name" || {
+                  echo "::error::Published asset $name differs; automatic replacement is forbidden."
+                  exit 1
+                }
+              else
+                MISSING+=("$file")
+              fi
+            done
+            if [ "${#MISSING[@]}" -gt 0 ]; then
+              gh release upload "$GITHUB_REF_NAME" "${MISSING[@]}"
+            fi
+            mapfile -t FINAL_NAMES < <(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' | sort)
+            if ! diff -u \
+              <(printf '%s\n' "${EXPECTED_NAMES[@]}") \
+              <(printf '%s\n' "${FINAL_NAMES[@]}"); then
+              echo "::error::Published asset set does not match the immutable publication bundle."
+              exit 1
+            fi
+            echo "Existing assets match the immutable publication bundle."
+          else
+            FLAGS=()
+            if [ "$CHANNEL" = RC ]; then
+              FLAGS+=(--prerelease)
+            fi
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "WSJT-X $VERSION" \
+              --generate-notes \
+              "${FLAGS[@]}" \
+              "${FILES[@]}"
+            CREATED=true
+          fi
+          if [ "$CREATED" = true ]; then
+            QUICK_DOWNLOADS=$(python3 .github/scripts/generate-quick-downloads.py \
+              "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "${FILES[@]}" || true)
+            if [ -n "$QUICK_DOWNLOADS" ]; then
+              GENERATED_NOTES=$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)
+              printf '%s\n\n---\n\n%s\n' "$QUICK_DOWNLOADS" "$GENERATED_NOTES" > "$RUNNER_TEMP/release-notes.md"
+              gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md"
+            else
+              echo "::warning::Quick Downloads picker was empty; generated notes were left unchanged."
+            fi
+          fi

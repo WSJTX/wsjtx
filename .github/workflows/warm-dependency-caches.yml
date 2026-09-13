@@ -248,9 +248,9 @@ jobs:
             linux_images=true
           fi
 
-          VERSION=$(grep -E '^\s*VERSION\s+[0-9]' CMakeLists.txt | head -1 | awk '{print $2}' | cut -d. -f1-3)
-          if [ -z "$VERSION" ]; then
-            echo "::error::Could not derive VERSION from CMakeLists.txt"
+          VERSION=$(awk -F= '$1 == "version" {print $2; exit}' release-state.txt)
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Could not derive VERSION from release-state.txt"
             exit 1
           fi
 
@@ -292,7 +292,6 @@ jobs:
       promote: true
       include_armhf: true
       image_set: ${{ needs.detect.outputs.image_set }}
-    secrets: inherit
 
   retain-linux-images:
     needs: [detect, refresh-linux-images]
@@ -348,7 +347,6 @@ jobs:
       hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
       arch: aarch64
       save_ccache: true
-    secrets: inherit
 
   warm-windows-x86_64-deps:
     needs: detect
@@ -391,7 +389,6 @@ jobs:
       version: ${{ needs.detect.outputs.version }}
       hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
       save_ccache: true
-    secrets: inherit
 
   warm-macos-arm64-deps:
     needs: detect
@@ -432,7 +429,6 @@ jobs:
       runner: macos-15
       deployment_target: "11.0"
       save_ccache: true
-    secrets: inherit
 
   warm-macos-x86_64-ccache:
     needs: [detect, warm-macos-x86_64-deps]
@@ -445,4 +441,3 @@ jobs:
       runner: macos-15-intel
       deployment_target: "10.13"
       save_ccache: true
-    secrets: inherit
