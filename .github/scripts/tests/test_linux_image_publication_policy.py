@@ -39,6 +39,9 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
         self.assertIn("expect_image_set tsan ", CLASSIFIER)
         self.assertIn("expect_image_set normal-and-tsan ", CLASSIFIER)
         self.assertIn('expect_image_set none "CMake/Sources.cmake"', CLASSIFIER)
+        self.assertIn("armhf-cross-bookworm", CLASSIFIER)
+        self.assertIn("armhf-runtime-bookworm", CLASSIFIER)
+        self.assertIn('include_armhf: true', WARM)
 
     def test_candidate_warm_uses_exact_tag_and_publishes_without_recache(self):
         warm = job("warm-normal-ccache")
@@ -69,6 +72,8 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
 
         self.assertIn("platforms: linux/amd64", cross)
         self.assertIn("Dockerfile.armhf-cross", cross)
+        self.assertIn("/usr/local/lib/android /usr/share/dotnet /opt/ghc", cross)
+        self.assertNotIn("/usr/local/lib/android", job("build-normal"))
         self.assertIn("- build-armhf-cross", runtime)
         self.assertIn("platforms: linux/arm/v7", runtime)
         self.assertIn("Dockerfile.armhf-runtime", runtime)

@@ -40,13 +40,13 @@ and `linux-noble:stable` moves last within that cohort. Consumers resolve that
 pointer to its immutable `build-*` tag and use the same generation for every
 normal Linux leg.
 
-The armhf image pair remains available for explicit validation with
-`include_armhf: true`. It is excluded from routine weekly/monthly refreshes
-because its image construction and QEMU validation cost is disproportionate to
-current use. The pair is built, promoted, and rolled back as one generation.
-Release and standalone armhf builds resolve the last promoted runtime
-generation once and require the matching cross-builder tag; a missing member
-fails explicitly.
+The armhf image pair is published explicitly with `include_armhf: true`. It is
+excluded from routine weekly/monthly refreshes because toolchain construction
+is expensive. The pair is built, promoted, and rolled back as one generation.
+Opt-in full-ci, release, and standalone armhf builds resolve the last promoted
+runtime generation once and require the matching cross-builder tag; a missing
+member fails explicitly. Manual full-ci can instead name an immutable candidate
+generation for pre-promotion acceptance testing.
 
 The TSan workflow resolves `linux-tsan-noble:stable` independently when its
 optional label is used. A missing TSan generation fails explicitly instead of

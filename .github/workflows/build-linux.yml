@@ -55,11 +55,11 @@ on:
   # Also runnable on its own ("Run workflow" / gh workflow run) to build a single
   # Linux arch without dispatching the full ci.yml matrix. GitHub only exposes
   # workflow_dispatch when the trigger is on the default branch (develop), so this
-  # must be merged before it can be dispatched. The primary use case is the armhf
-  # leg, which is intentionally NOT in ci.yml's PR matrix because target execution
-  # under QEMU remains expensive — dispatch it on demand. Inputs mirror workflow_call
-  # with standalone defaults: hamlib_branch matches what ci.yml / release.yml pass
-  # (4.7.2), and version is overridable via `-f version=...`.
+  # must be merged before it can be dispatched. This entry point supports focused
+  # single-architecture diagnosis and candidate-image validation; ARMHF also joins
+  # ci.yml's opt-in full-ci matrix. Inputs mirror workflow_call with standalone
+  # defaults: hamlib_branch matches what ci.yml / release.yml pass (4.7.2), and
+  # version is overridable via `-f version=...`.
   workflow_dispatch:
     inputs:
       version:
@@ -121,8 +121,9 @@ on:
         type: string
         default: ""
 
-# Three jobs gated on `inputs.arch`. Each call from ci.yml / release.yml passes
-# a single `arch:` value, so exactly one job runs per call. Splitting on arch
+# Architecture jobs are gated on `inputs.arch`. Each call from ci.yml /
+# release.yml passes a single target, so exactly one build job runs per call.
+# Splitting on arch
 # keeps the per-arch runtime profile explicit at the job level:
 #
 #   x86_64 — validated Noble container on ubuntu-24.04.
@@ -261,6 +262,7 @@ jobs:
       # qemu-arm-static.
       - uses: docker/setup-qemu-action@v4
         with:
+          image: tonistiigi/binfmt:qemu-v10.2.3-68@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
           platforms: linux/arm/v7
       - uses: actions/checkout@v7
       - name: Validate workflow inputs
@@ -327,11 +329,19 @@ jobs:
           if [ "$cross_recipe_match" = true ] && [ "$runtime_recipe_match" = true ]; then
             recipe_match=true
           fi
+          ccache_compatibility_id=$(awk -F= '$1 == "cross_ccache_compatibility_id" { print $2 }' "$output_file")
+          ccache_compiler_check=$(awk -F= '$1 == "cross_ccache_compiler_check" { print $2 }' "$output_file")
+          # Empty manifest values could coalesce caches from incompatible
+          # toolchains, so reject them before constructing any cache key.
+          if [ -z "$ccache_compatibility_id" ] || [ -z "$ccache_compiler_check" ]; then
+            echo "ARMHF image verification returned incomplete ccache identity" >&2
+            exit 1
+          fi
           {
             echo "generation=$cross_generation"
             echo "recipe_match=$recipe_match"
-            echo "ccache_compatibility_id=$(awk -F= '$1 == \"cross_ccache_compatibility_id\" { print $2 }' "$output_file")"
-            echo "ccache_compiler_check=$(awk -F= '$1 == \"cross_ccache_compiler_check\" { print $2 }' "$output_file")"
+            echo "ccache_compatibility_id=$ccache_compatibility_id"
+            echo "ccache_compiler_check=$ccache_compiler_check"
           } >> "$GITHUB_OUTPUT"
 
       - name: Select armhf ccache key

@@ -31,6 +31,7 @@ on:
       - ".github/actions/build-windows-deps/**"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
+      - ".github/scripts/*armhf*"
       - ".github/scripts/install-*-macos*.sh"
       - ".github/scripts/macos-qt-cache-key.sh"
       - ".github/scripts/verify-macos-*.sh"
@@ -286,7 +287,10 @@ jobs:
       contents: read
       packages: write
     with:
+      # ARMHF is part of the normal Linux image cohort. The reusable publisher
+      # validates and promotes its paired images before dependent builds resolve them.
       promote: true
+      include_armhf: true
       image_set: ${{ needs.detect.outputs.image_set }}
     secrets: inherit
 

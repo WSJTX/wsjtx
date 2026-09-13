@@ -49,7 +49,12 @@ RUN --mount=type=cache,id=wsjtx-armhf-ctng-downloads,target=/var/cache/wsjtx-ctn
     cd /tmp/wsjtx-ctng-build; \
     cp /usr/local/share/wsjtx-ci/armhf-cross-toolchain.config .config; \
     ct-ng olddefconfig; \
-    ct-ng build
+    # crosstool-NG prints only a summary on failure; expose the detailed compiler \
+    # tail so hosted image failures can be diagnosed without reproducing locally. \
+    if ! ct-ng build; then \
+      tail -n 300 build.log >&2; \
+      exit 1; \
+    fi
 
 USER root
 COPY .github/scripts/linux-ccache-compiler-signature.sh \

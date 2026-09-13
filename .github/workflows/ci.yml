@@ -18,10 +18,15 @@ on:
         type: boolean
         default: false
       save_ccache:
-        description: "Persist Linux x64 ccache objects without forcing recompilation on develop"
+        description: "Persist Linux ccache objects without forcing recompilation on develop"
         required: false
         type: boolean
         default: false
+      armhf_image_tag:
+        description: "Immutable paired ARMHF image tag; empty resolves the promoted generation"
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
@@ -42,6 +47,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
+      armhf_image_tag: ${{ steps.armhf-image.outputs.image_tag }}
       save_linux_ccache: ${{ steps.ccache-policy.outputs.save_ccache }}
     steps:
       - uses: actions/checkout@v7
@@ -79,6 +85,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .github/scripts/resolve-linux-ci-image-tag.py
+      - id: armhf-image
+        name: Resolve ARMHF CI image generation
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          contains(github.event.pull_request.labels.*.name, 'full-ci')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_TAG: ${{ inputs.armhf_image_tag || '' }}
+        run: |
+          if [[ -n "$REQUESTED_TAG" ]]; then
+            echo "Using requested ARMHF CI image generation: $REQUESTED_TAG"
+            echo "image_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          else
+            RESOLVE_ARMHF=true .github/scripts/resolve-linux-ci-image-tag.py
+          fi
 
   # Two-tier CI to conserve Actions minutes. The default path runs one Linux
   # x86_64 smoke leg; sanitizer and broader platform coverage are opt-in.
@@ -86,7 +107,7 @@ jobs:
   #   * Default (every push / PR to develop): Linux x86_64 only -- `linux`.
   #   * ASan + UBSan: runs on PRs carrying `sanitizers` or `full-ci`.
   #   * TSan: runs only on PRs carrying `thread-sanitizer`.
-  #   * Opt-in matrix (`linux-arm`, macos, macos-intel, windows): runs when a
+  #   * Opt-in matrix (`linux-arm`, `linux-armhf`, macos, macos-intel, windows): runs when a
   #     PR carries the `full-ci` label, or when the workflow is started manually
   #     ("Run workflow" / workflow_dispatch). Release builds are unaffected --
   #     they run the full matrix via release.yml on build/v* tags.
@@ -181,6 +202,23 @@ jobs:
       hamlib_branch: "4.7.2"
       arch: "aarch64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
+      recache: ${{ inputs.recache || false }}
+      save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
+    secrets: inherit
+
+  linux-armhf:
+    needs: [prepare, linux]
+    # Opt-in only -- target tests and runtime validation execute under QEMU.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci')
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      arch: "armhf"
+      image_tag: ${{ needs.prepare.outputs.armhf_image_tag }}
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}

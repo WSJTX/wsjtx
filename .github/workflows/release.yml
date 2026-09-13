@@ -138,7 +138,7 @@ jobs:
   # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Hamlib and
   # WSJT-X compile with a native x86_64 cross-toolchain; ARMv7 QEMU remains for
   # target tests, packaging, and AppImage startup validation. This expensive
-  # leg remains excluded from the routine PR matrix.
+  # leg joins opt-in full-ci but remains excluded from default PR CI.
   linux-armhf:
     needs: prepare
     uses: ./.github/workflows/build-linux.yml

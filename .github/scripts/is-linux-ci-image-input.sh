@@ -26,7 +26,9 @@ linux_ci_image_set_for_inputs() {
 
   for path in "$@"; do
     if is_linux_ci_image_input normal-noble "$path" ||
-       is_linux_ci_image_input normal-bookworm "$path"; then
+       is_linux_ci_image_input normal-bookworm "$path" ||
+       is_linux_ci_image_input armhf-cross-bookworm "$path" ||
+       is_linux_ci_image_input armhf-runtime-bookworm "$path"; then
       normal=true
     fi
     if is_linux_ci_image_input tsan-noble "$path"; then
