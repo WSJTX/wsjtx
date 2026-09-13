@@ -27,6 +27,21 @@ on:
         required: false
         type: string
         default: ""
+      image_source:
+        description: "Builder image source: internal or public-release"
+        required: false
+        type: string
+        default: "internal"
+      image_digest:
+        description: "Required sha256 digest for a public-release builder image"
+        required: false
+        type: string
+        default: ""
+      armhf_cross_image_digest:
+        description: "Required sha256 digest for the public-release ARMHF cross-builder"
+        required: false
+        type: string
+        default: ""
       allow_stale_image:
         description: "Allow a previously promoted image when a dependency refresh changed the recipe"
         required: false
@@ -96,6 +111,24 @@ on:
         required: false
         type: string
         default: ""
+      image_source:
+        description: "Builder image source"
+        required: false
+        type: choice
+        options:
+          - internal
+          - public-release
+        default: internal
+      image_digest:
+        description: "sha256 digest required with public-release image source"
+        required: false
+        type: string
+        default: ""
+      armhf_cross_image_digest:
+        description: "sha256 digest required for the public-release ARMHF cross-builder"
+        required: false
+        type: string
+        default: ""
       allow_stale_image:
         description: "Allow a previously promoted image when a dependency refresh changed the recipe"
         required: false
@@ -158,6 +191,8 @@ jobs:
     timeout-minutes: 10
     outputs:
       image_tag: ${{ steps.resolve.outputs.image_tag }}
+      image_reference: ${{ steps.resolve.outputs.image_reference }}
+      cross_image_reference: ${{ steps.resolve.outputs.cross_image_reference }}
     steps:
       - uses: actions/checkout@v7
       - id: resolve
@@ -165,8 +200,61 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REQUESTED_TAG: ${{ inputs.image_tag }}
           ARMHF_BUILD: ${{ inputs.arch == 'armhf' }}
+          ARCH: ${{ inputs.arch }}
+          IMAGE_SOURCE: ${{ inputs.image_source }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          ARMHF_CROSS_IMAGE_DIGEST: ${{ inputs.armhf_cross_image_digest }}
+          REQUEST_REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
+          case "$ARCH" in
+            x86_64) package=linux-noble; cross_package= ;;
+            aarch64) package=linux-arm64-bookworm; cross_package= ;;
+            armhf) package=linux-armv7-bookworm; cross_package=linux-armhf-cross-bookworm ;;
+            *)
+              echo "::error::Unsupported Linux architecture: $ARCH"
+              exit 2
+              ;;
+          esac
+
+          case "$IMAGE_SOURCE" in
+            internal)
+              if [ -n "$IMAGE_DIGEST" ] || [ -n "$ARMHF_CROSS_IMAGE_DIGEST" ]; then
+                echo "::error::image digests are valid only for public-release images"
+                exit 2
+              fi
+              package_root=ghcr.io/wsjtx/wsjtx-internal
+              ;;
+            public-release)
+              if [ "$REQUEST_REPOSITORY" != WSJTX/wsjtx ]; then
+                echo "::error::Public release images may only be used by WSJTX/wsjtx"
+                exit 2
+              fi
+              if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "::error::public-release images require an immutable sha256 digest"
+                exit 2
+              fi
+              if [ "$ARCH" = armhf ]; then
+                if [[ ! "$ARMHF_CROSS_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                  echo "::error::public-release ARMHF builds require an immutable cross-builder sha256 digest"
+                  exit 2
+                fi
+              elif [ -n "$ARMHF_CROSS_IMAGE_DIGEST" ]; then
+                echo "::error::armhf_cross_image_digest is valid only for ARMHF builds"
+                exit 2
+              fi
+              if [ -z "$REQUESTED_TAG" ]; then
+                echo "::error::public-release images require their release-specific image_tag"
+                exit 2
+              fi
+              package_root=ghcr.io/wsjtx/wsjtx
+              ;;
+            *)
+              echo "::error::Unsupported image_source: $IMAGE_SOURCE"
+              exit 2
+              ;;
+          esac
+
           if [ -n "$REQUESTED_TAG" ]; then
             IMAGE_TAG="$REQUESTED_TAG" .github/scripts/validate-ci-inputs.sh
             echo "image_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
@@ -176,13 +264,26 @@ jobs:
             .github/scripts/resolve-linux-ci-image-tag.py
           fi
 
+          if [ "$IMAGE_SOURCE" = public-release ]; then
+            echo "image_reference=${package_root}/${package}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+            if [ "$ARCH" = armhf ]; then
+              echo "cross_image_reference=${package_root}/${cross_package}@${ARMHF_CROSS_IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            image_tag="$(awk -F= '$1 == "image_tag" { print $2 }' "$GITHUB_OUTPUT" | tail -n 1)"
+            echo "image_reference=${package_root}/${package}:${image_tag}" >> "$GITHUB_OUTPUT"
+            if [ "$ARCH" = armhf ]; then
+              echo "cross_image_reference=${package_root}/${cross_package}:${image_tag}" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
   build-x86_64:
     needs: resolve-image
     if: inputs.arch == 'x86_64'
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     container:
-      image: ghcr.io/wsjtx/wsjtx-internal/linux-noble:${{ needs.resolve-image.outputs.image_tag }}
+      image: ${{ needs.resolve-image.outputs.image_reference }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -220,7 +321,7 @@ jobs:
     # The official GCC image adds GCC 13.4 without moving off the Bookworm
     # glibc 2.36 and pre-t64 runtime baseline (issue #49).
     container:
-      image: ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+      image: ${{ needs.resolve-image.outputs.image_reference }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -297,8 +398,8 @@ jobs:
       - name: Inspect ARMHF image pair
         id: image
         env:
-          CROSS_BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.resolve-image.outputs.image_tag }}
-          RUNTIME_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          CROSS_BUILDER_IMAGE: ${{ needs.resolve-image.outputs.cross_image_reference }}
+          RUNTIME_IMAGE: ${{ needs.resolve-image.outputs.image_reference }}
           ALLOW_STALE_IMAGE: ${{ inputs.allow_stale_image }}
           HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
         run: |
@@ -375,7 +476,7 @@ jobs:
       - name: Cross-build ARMHF binaries
         env:
           ARCH: armhf
-          CROSS_BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          CROSS_BUILDER_IMAGE: ${{ needs.resolve-image.outputs.cross_image_reference }}
           RECACHE: ${{ inputs.recache }}
           CCACHE_COMPILERCHECK: ${{ steps.image.outputs.ccache_compiler_check }}
           WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
@@ -403,7 +504,7 @@ jobs:
         id: armhf-runtime
         env:
           ARCH: armhf
-          RUNTIME_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          RUNTIME_IMAGE: ${{ needs.resolve-image.outputs.image_reference }}
           WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
           ARMHF_RUNTIME_PHASE: ${{ inputs.build_packages && 'all' || 'test' }}
         run: |

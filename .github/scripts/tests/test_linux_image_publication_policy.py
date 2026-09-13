@@ -5,6 +5,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 PUBLISH = (ROOT / ".github/workflows/publish-linux-ci-images.yml").read_text()
+BUILD = (ROOT / ".github/workflows/build-linux.yml").read_text()
 WARM = (ROOT / ".github/workflows/warm-dependency-caches.yml").read_text()
 CLASSIFIER = (ROOT / ".github/scripts/is-linux-ci-image-input.sh").read_text()
 
@@ -21,6 +22,66 @@ def job(name: str) -> str:
 
 
 class LinuxImagePublicationPolicyTests(unittest.TestCase):
+    def test_public_release_publication_is_tag_scoped_and_complete(self):
+        validate = job("validate-inputs")
+        self.assertIn('[ "$REQUEST_REPOSITORY" != WSJTX/wsjtx ]', validate)
+        self.assertIn("^refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+", validate)
+        self.assertIn('[ "$PROMOTE" != false ]', validate)
+        self.assertIn('[ "$IMAGE_SET" != normal ]', validate)
+        self.assertIn('[ "$INCLUDE_ARMHF" != true ]', validate)
+
+    def test_public_release_images_use_release_tag_and_public_package_root(self):
+        metadata = job("metadata")
+        public_block = re.search(
+            r'if \[ "\$PUBLICATION_TARGET" = public-release \]; then(?P<body>.*?)else',
+            metadata,
+            re.DOTALL,
+        ).group("body")
+        self.assertIn(
+            'release-${GITHUB_REF_NAME}-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}',
+            public_block,
+        )
+        self.assertIn("package_root=ghcr.io/wsjtx/wsjtx", public_block)
+        self.assertNotIn(":stable", public_block)
+        self.assertIn("type=gha", public_block)
+        self.assertEqual(
+            PUBLISH.count(
+                "labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}"
+            ),
+            5,
+        )
+
+    def test_reusable_publisher_exports_all_release_image_digests(self):
+        self.assertIn("x86_64_digest:", PUBLISH)
+        self.assertIn("value: ${{ jobs.build-normal.outputs.digest }}", PUBLISH)
+        self.assertIn("aarch64_digest:", PUBLISH)
+        self.assertIn("value: ${{ jobs.build-arm64.outputs.digest }}", PUBLISH)
+        self.assertIn("armhf_digest:", PUBLISH)
+        self.assertIn("value: ${{ jobs.build-armhf-runtime.outputs.digest }}", PUBLISH)
+        self.assertIn("armhf_cross_digest:", PUBLISH)
+        self.assertIn("value: ${{ jobs.build-armhf-cross.outputs.digest }}", PUBLISH)
+
+    def test_public_release_builds_require_and_consume_digest_references(self):
+        self.assertIn("^sha256:[0-9a-f]{64}$", BUILD)
+        self.assertIn("public-release images require an immutable sha256 digest", BUILD)
+        self.assertIn(
+            'image_reference=${package_root}/${package}@${IMAGE_DIGEST}', BUILD
+        )
+        self.assertIn(
+            'cross_image_reference=${package_root}/${cross_package}@${ARMHF_CROSS_IMAGE_DIGEST}',
+            BUILD,
+        )
+        self.assertEqual(
+            BUILD.count("image: ${{ needs.resolve-image.outputs.image_reference }}"), 2
+        )
+        self.assertIn(
+            "CROSS_BUILDER_IMAGE: ${{ needs.resolve-image.outputs.cross_image_reference }}",
+            BUILD,
+        )
+        self.assertIn(
+            "RUNTIME_IMAGE: ${{ needs.resolve-image.outputs.image_reference }}", BUILD
+        )
+
     def test_manual_target_mapping_keeps_tsan_independent(self):
         self.assertRegex(WARM, r"linux\|linux-images\)\n\s+normal_images=true")
         self.assertRegex(WARM, r"linux-tsan\)\n\s+tsan_images=true")
@@ -78,7 +139,7 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
         self.assertIn("platforms: linux/arm/v7", runtime)
         self.assertIn("Dockerfile.armhf-runtime", runtime)
         self.assertIn(
-            "CROSS_BUILDER_IMAGE=ghcr.io/wsjtx/wsjtx-internal/"
+            "CROSS_BUILDER_IMAGE=${{ needs.metadata.outputs.package_root }}/"
             "linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}",
             runtime,
         )

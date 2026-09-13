@@ -3,6 +3,11 @@ name: Publish Linux CI Images
 on:
   workflow_call:
     inputs:
+      publication_target:
+        description: "Image destination: internal or public-release"
+        required: false
+        type: string
+        default: "internal"
       mode:
         description: "Refresh or rollback"
         required: false
@@ -28,6 +33,22 @@ on:
         required: false
         type: string
         default: "normal"
+    outputs:
+      image_tag:
+        description: "Immutable tag shared by the published image cohort"
+        value: ${{ jobs.metadata.outputs.build_tag }}
+      x86_64_digest:
+        description: "Digest of the linux-noble release image"
+        value: ${{ jobs.build-normal.outputs.digest }}
+      aarch64_digest:
+        description: "Digest of the linux-arm64-bookworm release image"
+        value: ${{ jobs.build-arm64.outputs.digest }}
+      armhf_digest:
+        description: "Digest of the linux-armv7-bookworm release image"
+        value: ${{ jobs.build-armhf-runtime.outputs.digest }}
+      armhf_cross_digest:
+        description: "Digest of the linux-armhf-cross-bookworm release image"
+        value: ${{ jobs.build-armhf-cross.outputs.digest }}
   workflow_dispatch:
     inputs:
       mode:
@@ -62,6 +83,14 @@ on:
           - tsan
           - normal-and-tsan
         default: normal
+      publication_target:
+        description: "Image destination"
+        required: true
+        type: choice
+        options:
+          - internal
+          - public-release
+        default: internal
 
 permissions:
   contents: read
@@ -84,6 +113,8 @@ jobs:
           INCLUDE_ARMHF: ${{ inputs.include_armhf }}
           PROMOTE: ${{ inputs.promote }}
           REQUEST_REF: ${{ github.ref }}
+          REQUEST_REPOSITORY: ${{ github.repository }}
+          PUBLICATION_TARGET: ${{ inputs.publication_target }}
         shell: bash
         run: |
           case "$MODE" in
@@ -109,6 +140,29 @@ jobs:
             normal|tsan|normal-and-tsan) ;;
             *)
               echo "::error::Unsupported image_set: $IMAGE_SET"
+              exit 2
+              ;;
+          esac
+
+          case "$PUBLICATION_TARGET" in
+            internal) ;;
+            public-release)
+              if [ "$REQUEST_REPOSITORY" != WSJTX/wsjtx ]; then
+                echo "::error::Public release images may only be published by WSJTX/wsjtx"
+                exit 2
+              fi
+              if [[ ! "$REQUEST_REF" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]; then
+                echo "::error::Public release images require an exact vX.Y.Z or vX.Y.Z-rcN tag"
+                exit 2
+              fi
+              if [ "$MODE" != refresh ] || [ "$PROMOTE" != false ] || \
+                 [ "$IMAGE_SET" != normal ] || [ "$INCLUDE_ARMHF" != true ]; then
+                echo "::error::Public release images require refresh, promote=false, image_set=normal, and include_armhf=true"
+                exit 2
+              fi
+              ;;
+            *)
+              echo "::error::Unsupported publication_target: $PUBLICATION_TARGET"
               exit 2
               ;;
           esac
@@ -142,19 +196,45 @@ jobs:
       armhf_runtime_recipe: ${{ steps.metadata.outputs.armhf_runtime_recipe }}
       tsan_noble_recipe: ${{ steps.metadata.outputs.tsan_noble_recipe }}
       refresh_epoch: ${{ steps.metadata.outputs.refresh_epoch }}
+      package_root: ${{ steps.metadata.outputs.package_root }}
+      normal_cache_from: ${{ steps.metadata.outputs.normal_cache_from }}
+      arm64_cache_from: ${{ steps.metadata.outputs.arm64_cache_from }}
+      armhf_cross_cache_from: ${{ steps.metadata.outputs.armhf_cross_cache_from }}
+      armhf_cache_from: ${{ steps.metadata.outputs.armhf_cache_from }}
     steps:
       - uses: actions/checkout@v7
       - id: metadata
         env:
           IMAGE_SET: ${{ inputs.image_set }}
+          PUBLICATION_TARGET: ${{ inputs.publication_target }}
         shell: bash
         run: |
           created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           date_tag="$(date -u +%Y%m%d)"
-          version="$(awk '/^[[:space:]]*VERSION[[:space:]]+[0-9]/{print $2; exit}' CMakeLists.txt | cut -d. -f1-3)"
+          version="$(awk -F= '$1 == "version" {print $2; exit}' release-state.txt)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Could not derive a numeric version from release-state.txt"
+            exit 1
+          fi
           {
-            echo "build_tag=build-${date_tag}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            echo "candidate_tag=candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            if [ "$PUBLICATION_TARGET" = public-release ]; then
+              release_tag="release-${GITHUB_REF_NAME}-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              echo "build_tag=$release_tag"
+              echo "candidate_tag=candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              echo "package_root=ghcr.io/wsjtx/wsjtx"
+              echo "normal_cache_from=type=gha,scope=public-release-linux-noble"
+              echo "arm64_cache_from=type=gha,scope=public-release-linux-arm64-bookworm"
+              echo "armhf_cross_cache_from=type=gha,scope=public-release-linux-armhf-cross-bookworm"
+              echo "armhf_cache_from=type=gha,scope=public-release-linux-armv7-bookworm"
+            else
+              echo "build_tag=build-${date_tag}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              echo "candidate_tag=candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              echo "package_root=ghcr.io/wsjtx/wsjtx-internal"
+              echo "normal_cache_from=type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-noble:stable"
+              echo "arm64_cache_from=type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:stable"
+              echo "armhf_cross_cache_from=type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:stable"
+              echo "armhf_cache_from=type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable"
+            fi
             echo "created=$created"
             echo "version=$version"
             echo "refresh_epoch=$(date -u +%Y-%m)"
@@ -198,16 +278,17 @@ jobs:
           push: true
           provenance: false
           sbom: false
+          labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}
           tags: |
-            ghcr.io/wsjtx/wsjtx-internal/linux-noble:${{ needs.metadata.outputs.candidate_tag }}
-            ghcr.io/wsjtx/wsjtx-internal/linux-noble:${{ needs.metadata.outputs.build_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-noble:${{ needs.metadata.outputs.candidate_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-noble:${{ needs.metadata.outputs.build_tag }}
           build-args: |
             IMAGE_CREATED=${{ needs.metadata.outputs.created }}
             IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
             IMAGE_REVISION=${{ github.sha }}
             IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_noble_recipe }}
             IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
-          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-noble:stable
+          cache-from: ${{ needs.metadata.outputs.normal_cache_from }}
           cache-to: type=inline
 
   build-tsan:
@@ -235,6 +316,7 @@ jobs:
           push: true
           provenance: false
           sbom: false
+          labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}
           tags: |
             ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${{ needs.metadata.outputs.candidate_tag }}
             ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:${{ needs.metadata.outputs.build_tag }}
@@ -271,9 +353,10 @@ jobs:
           push: true
           provenance: false
           sbom: false
+          labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}
           tags: |
-            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${{ needs.metadata.outputs.candidate_tag }}
-            ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${{ needs.metadata.outputs.build_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-arm64-bookworm:${{ needs.metadata.outputs.candidate_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-arm64-bookworm:${{ needs.metadata.outputs.build_tag }}
           build-args: |
             IMAGE_ARCH=aarch64
             IMAGE_CREATED=${{ needs.metadata.outputs.created }}
@@ -281,7 +364,7 @@ jobs:
             IMAGE_REVISION=${{ github.sha }}
             IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_bookworm_recipe }}
             IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
-          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:stable
+          cache-from: ${{ needs.metadata.outputs.arm64_cache_from }}
           cache-to: type=inline
 
   build-armhf-cross:
@@ -317,16 +400,17 @@ jobs:
           push: true
           provenance: false
           sbom: false
+          labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}
           tags: |
-            ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.candidate_tag }}
-            ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.candidate_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}
           build-args: |
             IMAGE_CREATED=${{ needs.metadata.outputs.created }}
             IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
             IMAGE_REVISION=${{ github.sha }}
             IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.armhf_cross_recipe }}
             IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
-          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:stable
+          cache-from: ${{ needs.metadata.outputs.armhf_cross_cache_from }}
           cache-to: type=inline
 
   build-armhf-runtime:
@@ -361,17 +445,18 @@ jobs:
           push: true
           provenance: false
           sbom: false
+          labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}
           tags: |
-            ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.metadata.outputs.candidate_tag }}
-            ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.metadata.outputs.build_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-armv7-bookworm:${{ needs.metadata.outputs.candidate_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-armv7-bookworm:${{ needs.metadata.outputs.build_tag }}
           build-args: |
-            CROSS_BUILDER_IMAGE=ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}
+            CROSS_BUILDER_IMAGE=${{ needs.metadata.outputs.package_root }}/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}
             IMAGE_CREATED=${{ needs.metadata.outputs.created }}
             IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
             IMAGE_REVISION=${{ github.sha }}
             IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.armhf_runtime_recipe }}
             IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
-          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable
+          cache-from: ${{ needs.metadata.outputs.armhf_cache_from }}
           cache-to: type=inline
 
   warm-normal-ccache:
@@ -393,7 +478,6 @@ jobs:
       allow_stale_image: false
       recache: false
       save_ccache: true
-    secrets: inherit
 
   warm-arm64-ccache:
     if: >-
@@ -414,7 +498,6 @@ jobs:
       allow_stale_image: false
       recache: false
       save_ccache: true
-    secrets: inherit
 
   promote:
     if: >-

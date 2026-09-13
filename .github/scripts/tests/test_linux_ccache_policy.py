@@ -64,7 +64,16 @@ class LinuxCcachePolicyTests(unittest.TestCase):
             "verify-armhf-ci-image.sh cross-builder armhf", workflow
         )
         self.assertIn("verify-armhf-ci-image.sh runtime armhf", workflow)
-        self.assertIn("linux-armhf-cross-bookworm:", workflow)
+        self.assertIn(
+            "CROSS_BUILDER_IMAGE: ${{ needs.resolve-image.outputs.cross_image_reference }}",
+            workflow,
+        )
+        self.assertEqual(
+            workflow.count(
+                "RUNTIME_IMAGE: ${{ needs.resolve-image.outputs.image_reference }}"
+            ),
+            2,
+        )
         self.assertIn("build-linux-armhf-cross.sh", workflow)
         self.assertIn("validate-linux-armhf-runtime.sh", workflow)
         self.assertIn("HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}", workflow)
