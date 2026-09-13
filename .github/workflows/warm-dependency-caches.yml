@@ -320,6 +320,7 @@ jobs:
             --package wsjtx-internal/linux-noble
             --package wsjtx-internal/linux-tsan-noble
             --package wsjtx-internal/linux-arm64-bookworm
+            --package wsjtx-internal/linux-armhf-cross-bookworm
             --package wsjtx-internal/linux-armv7-bookworm
           )
           if [ "$APPLY" = true ]; then

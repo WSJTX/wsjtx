@@ -29,6 +29,34 @@ linux_ci_image_inputs() {
         .github/scripts/build-pfunit-linux.sh \
         .github/scripts/build-hamlib-linux.sh
       ;;
+    armhf-cross-bookworm)
+      printf '%s\n' \
+        .github/images/linux-ci/Dockerfile.armhf-cross \
+        .github/images/linux-ci/armhf-cross-toolchain.config \
+        .github/scripts/armhf-ci-image-config.sh \
+        .github/scripts/build-armhf-toolchain-smoke.sh \
+        .github/scripts/build-hamlib-armhf-cross.sh \
+        .github/scripts/linux-ccache-compiler-signature.sh \
+        .github/scripts/linux-ci-image-config.sh \
+        .github/scripts/linux-ci-image-fingerprint.sh \
+        .github/scripts/linux-ci-image-inputs.sh \
+        .github/scripts/normalize-armhf-sysroot-symlinks.sh \
+        .github/scripts/run-apt-get.sh \
+        .github/scripts/verify-armhf-ci-image.sh \
+        .github/scripts/write-armhf-ci-manifest.sh
+      ;;
+    armhf-runtime-bookworm)
+      printf '%s\n' \
+        .github/images/linux-ci/Dockerfile.armhf-runtime \
+        .github/images/linux-ci/install-armhf-runtime-packages.sh \
+        .github/scripts/armhf-ci-image-config.sh \
+        .github/scripts/linux-ci-image-config.sh \
+        .github/scripts/linux-ci-image-fingerprint.sh \
+        .github/scripts/linux-ci-image-inputs.sh \
+        .github/scripts/run-apt-get.sh \
+        .github/scripts/verify-armhf-ci-image.sh \
+        .github/scripts/write-armhf-ci-manifest.sh
+      ;;
     tsan-noble)
       printf '%s\n' \
         "${common[@]}" \

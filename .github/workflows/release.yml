@@ -135,12 +135,10 @@ jobs:
       rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
-  # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Built via
-  # QEMU user-mode emulation in a debian:bookworm-slim arm/v7 container on
-  # ubuntu-24.04-arm. Wall-clock budget is about 105 min vs ~10 min native — the
-  # cost is justified once-per-release here, NOT once-per-PR (ci.yml
-  # intentionally does NOT include this leg). See build-linux.yml's
-  # build-armhf job for the QEMU + --platform recipe.
+  # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Hamlib and
+  # WSJT-X compile with a native x86_64 cross-toolchain; ARMv7 QEMU remains for
+  # target tests, packaging, and AppImage startup validation. This expensive
+  # leg remains excluded from the routine PR matrix.
   linux-armhf:
     needs: prepare
     uses: ./.github/workflows/build-linux.yml
@@ -215,7 +213,7 @@ jobs:
       # ── All-platforms-ready gate ───────────────────────────────────────
       # Refuse to publish unless every platform produced an installer-grade
       # artifact. The release job's `needs:` already enforces structural
-      # success (all 5 builds ran and exited 0), but a build can exit 0
+      # success (all 6 builds ran and exited 0), but a build can exit 0
       # without actually packaging — e.g. a packaging step behind an `if:`
       # that evaluated false, or an upload-artifact step that silently
       # matched zero files. This gate fails the release job BEFORE any

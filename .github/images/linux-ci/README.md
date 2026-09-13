@@ -1,18 +1,21 @@
 # Linux CI images
 
-WSJT-X publishes four private, single-platform build environments to GHCR:
+WSJT-X publishes five private, single-platform build environments to GHCR:
 
 | Package | Platform | CI consumers |
 | --- | --- | --- |
 | `wsjtx-internal/linux-noble` | `linux/amd64` | Normal and ASan/UBSan |
 | `wsjtx-internal/linux-tsan-noble` | `linux/amd64` | TSan |
 | `wsjtx-internal/linux-arm64-bookworm` | `linux/arm64` | aarch64 |
-| `wsjtx-internal/linux-armv7-bookworm` | `linux/arm/v7` | armhf under QEMU |
+| `wsjtx-internal/linux-armhf-cross-bookworm` | `linux/amd64` | Native armhf cross-build |
+| `wsjtx-internal/linux-armv7-bookworm` | `linux/arm/v7` | armhf tests and packaging under QEMU |
 
-The images contain the compiler, development and packaging closure, and the
-slow-moving pFUnit and Hamlib prefixes. The TSan image instead contains the
-pinned, instrumented Qt, Boost, and Hamlib tuple. WSJT-X objects and binaries
-are never baked into these images.
+The normal images contain the compiler, development and packaging closure, and
+the slow-moving pFUnit and Hamlib prefixes. The TSan image instead contains the
+pinned, instrumented Qt, Boost, and Hamlib tuple. The armhf cross-builder pairs
+a native x86-64 GCC 13.4 cross-toolchain with a Debian Bookworm armhf sysroot;
+its runtime partner contains only the target execution and packaging closure.
+WSJT-X objects and binaries are never baked into these images.
 
 The Ubuntu and GCC base tags intentionally follow their maintained upstream
 security updates. Each published generation records the resolved package set,
@@ -37,11 +40,13 @@ and `linux-noble:stable` moves last within that cohort. Consumers resolve that
 pointer to its immutable `build-*` tag and use the same generation for every
 normal Linux leg.
 
-The armhf image remains available for explicit validation with
+The armhf image pair remains available for explicit validation with
 `include_armhf: true`. It is excluded from routine weekly/monthly refreshes
-because its QEMU build and validation cost is disproportionate to current use.
-Release and standalone armhf builds resolve the last promoted armhf generation
-once and use that immutable tag; a missing armhf generation fails explicitly.
+because its image construction and QEMU validation cost is disproportionate to
+current use. The pair is built, promoted, and rolled back as one generation.
+Release and standalone armhf builds resolve the last promoted runtime
+generation once and require the matching cross-builder tag; a missing member
+fails explicitly.
 
 The TSan workflow resolves `linux-tsan-noble:stable` independently when its
 optional label is used. A missing TSan generation fails explicitly instead of

@@ -14,6 +14,9 @@ case "$(basename "$c_compiler")" in
   gcc-*)
     cxx_compiler="g++-${c_compiler##*-}"
     ;;
+  *-gcc)
+    cxx_compiler="${c_compiler%-gcc}-g++"
+    ;;
   *)
     echo "Unsupported C compiler for Linux ccache identity: $c_compiler" >&2
     exit 2

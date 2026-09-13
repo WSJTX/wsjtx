@@ -56,8 +56,8 @@ on:
   # Linux arch without dispatching the full ci.yml matrix. GitHub only exposes
   # workflow_dispatch when the trigger is on the default branch (develop), so this
   # must be merged before it can be dispatched. The primary use case is the armhf
-  # leg, which is intentionally NOT in ci.yml's PR matrix (~50–80 min QEMU wall-
-  # clock is too high per-PR) — dispatch it on demand. Inputs mirror workflow_call
+  # leg, which is intentionally NOT in ci.yml's PR matrix because target execution
+  # under QEMU remains expensive — dispatch it on demand. Inputs mirror workflow_call
   # with standalone defaults: hamlib_branch matches what ci.yml / release.yml pass
   # (4.7.2), and version is overridable via `-f version=...`.
   workflow_dispatch:
@@ -129,13 +129,13 @@ on:
 #   aarch64 — validated GCC 13.4 Bookworm container on ubuntu-24.04-arm. This keeps the
 #            Bookworm glibc 2.36 + pre-t64 library baseline while using GCC 13
 #            (issue #49).
-#   armhf  — validated GCC 13.4 Bookworm arm/v7 container via QEMU
-#            user-mode emulation (issue #51). DigiPi / Pi Zero 2W class.
-#            See the build-armhf job below for the QEMU + --platform recipe.
+#   armhf  — native x86_64-to-ARMHF GCC 13.4 cross-build followed by target
+#            tests and packaging in a Bookworm arm/v7 container under QEMU
+#            (issue #51). DigiPi / Pi Zero 2W class.
 #
-# All three jobs share a single composite action (`.github/actions/build-linux-
-# payload`) so the build pipeline lives in one place; the only diff between
-# jobs is architecture + (for armhf) the QEMU bootstrap.
+# The native jobs use the build-linux-payload composite action. ARMHF needs
+# separate host-build and target-runtime phases, but shares their artifact
+# validators and external artifact contracts.
 
 permissions:
   contents: read
@@ -240,32 +240,14 @@ jobs:
   build-armhf:
     needs: resolve-image
     if: inputs.arch == 'armhf'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-24.04
     timeout-minutes: 160
-    # 32-bit ARM (armhf) runtime for DigiPi / Raspberry Pi Zero 2W class
-    # (issue #51). Builds inside the validated GCC Bookworm arm/v7 image on the aarch64
-    # ubuntu-24.04-arm runner via QEMU user-mode emulation.
+    # Compile natively on x86_64 with a pinned GCC 13.4 cross-toolchain, then
+    # execute target tests and packaging in a clean Bookworm ARMv7 runtime.
     #
-    # NOTE on architecture (different from x86_64/aarch64): this job does
-    # NOT use a job-level `container:` directive. Why: GHA mounts its
-    # actions runtime (an aarch64 node binary at /__e/node20/bin/node)
-    # into the job container, and inside an arm/v7 container the aarch64
-    # dynamic loader (/lib/ld-linux-aarch64.so.1) is absent — every JS
-    # action (setup-qemu-action, actions/checkout, actions/cache, upload-
-    # artifact, AND a `uses:` invocation of the composite action itself)
-    # fails with `exec /__e/node20/bin/node: no such file or directory`.
-    # See run 25449706167 for the empirical confirmation. The fix: run
-    # the JOB on the host (where JS actions work natively against the
-    # aarch64 host node) and explicitly `docker run --platform linux/arm/v7`
-    # the build payload as a single bash script. Composite action remains
-    # source-of-truth for x86_64+aarch64; .github/scripts/build-linux-
-    # payload.sh mirrors its bash bodies for the armhf path. Documenting
-    # so the diff vs build-aarch64 (which DOES use `container:`) doesn't
-    # read as inconsistent.
-    #
-    # Wall-clock budget: about 105 min observed under QEMU vs ~10 min native. Asymmetric
-    # CI gating (NOT in PR matrix; tags + workflow_dispatch only) — see
-    # release.yml for the production wiring.
+    # Keep JavaScript actions on the host: the runner's x86_64 Node runtime
+    # cannot execute in the ARMv7 container. Both explicit containers mount
+    # the checkout at /work so CTest paths remain stable across phases.
     env:
       VERSION: ${{ inputs.version }}
       HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
@@ -298,24 +280,59 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Inspect armhf image
+      - name: Inspect ARMHF image pair
         id: image
         env:
-          BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          CROSS_BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          RUNTIME_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
           ALLOW_STALE_IMAGE: ${{ inputs.allow_stale_image }}
           HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
         run: |
-          docker pull --platform linux/arm/v7 "$BUILDER_IMAGE"
+          docker pull --platform linux/amd64 "$CROSS_BUILDER_IMAGE"
+          docker pull --platform linux/arm/v7 "$RUNTIME_IMAGE"
           output_file=.armhf-image-verification-output
           trap 'rm -f "$output_file"' EXIT
+          docker run --rm --platform linux/amd64 \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            -e GITHUB_OUTPUT=/work/$output_file \
+            -e WSJTX_CI_OUTPUT_PREFIX=cross_ \
+            -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$ALLOW_STALE_IMAGE" \
+            "$CROSS_BUILDER_IMAGE" \
+            bash .github/scripts/verify-armhf-ci-image.sh cross-builder armhf "$HAMLIB_BRANCH"
           docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             -e GITHUB_OUTPUT=/work/$output_file \
+            -e WSJTX_CI_OUTPUT_PREFIX=runtime_ \
             -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$ALLOW_STALE_IMAGE" \
-            "$BUILDER_IMAGE" \
-            bash .github/scripts/verify-linux-ci-image.sh normal armhf "$HAMLIB_BRANCH"
-          cat "$output_file" >> "$GITHUB_OUTPUT"
+            "$RUNTIME_IMAGE" \
+            bash .github/scripts/verify-armhf-ci-image.sh runtime armhf "$HAMLIB_BRANCH"
+
+          cross_generation=$(awk -F= '$1 == "cross_generation" { print $2 }' "$output_file")
+          runtime_generation=$(awk -F= '$1 == "runtime_generation" { print $2 }' "$output_file")
+          cross_toolchain_id=$(awk -F= '$1 == "cross_toolchain_id" { print $2 }' "$output_file")
+          runtime_toolchain_id=$(awk -F= '$1 == "runtime_toolchain_id" { print $2 }' "$output_file")
+          if [ "$cross_generation" != "$runtime_generation" ]; then
+            echo "ARMHF image generation mismatch: $cross_generation != $runtime_generation" >&2
+            exit 1
+          fi
+          if [ "$cross_toolchain_id" != "$runtime_toolchain_id" ]; then
+            echo "ARMHF toolchain identity mismatch: $cross_toolchain_id != $runtime_toolchain_id" >&2
+            exit 1
+          fi
+          cross_recipe_match=$(awk -F= '$1 == "cross_recipe_match" { print $2 }' "$output_file")
+          runtime_recipe_match=$(awk -F= '$1 == "runtime_recipe_match" { print $2 }' "$output_file")
+          recipe_match=false
+          if [ "$cross_recipe_match" = true ] && [ "$runtime_recipe_match" = true ]; then
+            recipe_match=true
+          fi
+          {
+            echo "generation=$cross_generation"
+            echo "recipe_match=$recipe_match"
+            echo "ccache_compatibility_id=$(awk -F= '$1 == \"cross_ccache_compatibility_id\" { print $2 }' "$output_file")"
+            echo "ccache_compiler_check=$(awk -F= '$1 == \"cross_ccache_compiler_check\" { print $2 }' "$output_file")"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Select armhf ccache key
         id: ccache-key
@@ -333,11 +350,10 @@ jobs:
             ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
             ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-
 
-      - name: Build inside arm/v7 Bookworm GCC image
-        id: armhf-build
+      - name: Cross-build ARMHF binaries
         env:
           ARCH: armhf
-          BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          CROSS_BUILDER_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.resolve-image.outputs.image_tag }}
           RECACHE: ${{ inputs.recache }}
           CCACHE_COMPILERCHECK: ${{ steps.image.outputs.ccache_compiler_check }}
           WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
@@ -346,6 +362,28 @@ jobs:
           if [ "$RECACHE" = true ]; then
             ccache_args=(-e CCACHE_RECACHE=1)
           fi
+          docker run --rm --platform linux/amd64 \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            -e VERSION \
+            -e HAMLIB_BRANCH \
+            -e ARCH \
+            -e WSJT_RELEASE_CHANNEL \
+            -e WSJT_RC_NUMBER \
+            -e CCACHE_DIR=/work/.ccache-armhf \
+            -e CCACHE_COMPILERCHECK \
+            -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH \
+            "${ccache_args[@]}" \
+            "$CROSS_BUILDER_IMAGE" \
+            bash .github/scripts/build-linux-armhf-cross.sh
+
+      - name: Test and package under ARMv7 QEMU
+        id: armhf-runtime
+        env:
+          ARCH: armhf
+          RUNTIME_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
+          WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
+        run: |
           GITHUB_TOKEN="${{ github.token }}" docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
@@ -355,12 +393,9 @@ jobs:
             -e WSJT_RELEASE_CHANNEL \
             -e WSJT_RC_NUMBER \
             -e GITHUB_TOKEN \
-            -e CCACHE_DIR=/work/.ccache-armhf \
-            -e CCACHE_COMPILERCHECK \
             -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH \
-            "${ccache_args[@]}" \
-            "$BUILDER_IMAGE" \
-            bash .github/scripts/build-linux-payload.sh
+            "$RUNTIME_IMAGE" \
+            bash .github/scripts/validate-linux-armhf-runtime.sh
 
       - name: Publish armhf test summary
         if: always()
@@ -370,7 +405,7 @@ jobs:
           >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload armhf AppImage startup diagnostics
-        if: failure() && steps.armhf-build.outcome == 'failure'
+        if: failure() && steps.armhf-runtime.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-startup-smoke-linux-armhf

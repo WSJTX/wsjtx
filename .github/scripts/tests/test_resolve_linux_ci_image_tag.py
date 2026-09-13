@@ -44,7 +44,12 @@ class ResolveTests(unittest.TestCase):
                 )
             ]
             for index, package in enumerate(
-                (MODULE.NORMAL_PACKAGE, *MODULE.ROUTINE_PACKAGES, MODULE.ARMHF_PACKAGE),
+                (
+                    MODULE.NORMAL_PACKAGE,
+                    *MODULE.ROUTINE_PACKAGES,
+                    MODULE.ARMHF_PACKAGE,
+                    MODULE.ARMHF_CROSS_PACKAGE,
+                ),
                 start=1,
             )
         }
@@ -78,6 +83,12 @@ class ResolveTests(unittest.TestCase):
         _, packages = self.coherent()
         packages[MODULE.ARMHF_PACKAGE] = []
         with self.assertRaisesRegex(RuntimeError, "armhf.*stable is missing"):
+            MODULE.resolve_armhf(FakeClient(packages))
+
+    def test_armhf_resolution_requires_matching_cross_builder(self):
+        _, packages = self.coherent()
+        packages[MODULE.ARMHF_CROSS_PACKAGE] = []
+        with self.assertRaisesRegex(RuntimeError, "linux-armhf-cross-bookworm"):
             MODULE.resolve_armhf(FakeClient(packages))
 
     def test_tsan_resolution_uses_tsan_stable_pointer(self):

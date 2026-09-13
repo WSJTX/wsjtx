@@ -256,19 +256,27 @@ get_filename_component (qt_plugin_type_dir_ "${qt_plugin_file_}" DIRECTORY)
 get_filename_component (QT_PLUGINS_DIR "${qt_plugin_type_dir_}" DIRECTORY)
 message (STATUS "Qt plugins directory: ${QT_PLUGINS_DIR}")
 
-# Qt 5's qtpaths does not expose the translations directory, whose layout
-# varies across platforms and distribution packages.
-get_target_property (QMAKE_EXECUTABLE Qt5::qmake LOCATION)
-execute_process (
-  COMMAND "${QMAKE_EXECUTABLE}" -query QT_INSTALL_TRANSLATIONS
-  RESULT_VARIABLE qt_translations_query_result_
-  OUTPUT_VARIABLE QT_TRANSLATIONS_DIR
-  ERROR_VARIABLE qt_translations_query_error_
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-if (NOT "${qt_translations_query_result_}" STREQUAL "0" OR NOT QT_TRANSLATIONS_DIR)
-  message (FATAL_ERROR
-    "Unable to determine the Qt translations directory: ${qt_translations_query_error_}")
+# A native qmake reports native paths, so the target location is explicit
+# when cross-compiling. Native builds continue querying their own qmake.
+if (CMAKE_CROSSCOMPILING)
+  if (NOT WSJT_QT_TARGET_TRANSLATIONS_DIR)
+    message (FATAL_ERROR
+      "WSJT_QT_TARGET_TRANSLATIONS_DIR is required when cross-compiling")
+  endif ()
+  set (QT_TRANSLATIONS_DIR "${WSJT_QT_TARGET_TRANSLATIONS_DIR}")
+else ()
+  get_target_property (QMAKE_EXECUTABLE Qt5::qmake LOCATION)
+  execute_process (
+    COMMAND "${QMAKE_EXECUTABLE}" -query QT_INSTALL_TRANSLATIONS
+    RESULT_VARIABLE qt_translations_query_result_
+    OUTPUT_VARIABLE QT_TRANSLATIONS_DIR
+    ERROR_VARIABLE qt_translations_query_error_
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+  if (NOT "${qt_translations_query_result_}" STREQUAL "0" OR NOT QT_TRANSLATIONS_DIR)
+    message (FATAL_ERROR
+      "Unable to determine the Qt translations directory: ${qt_translations_query_error_}")
+  endif ()
 endif ()
 file (TO_CMAKE_PATH "${QT_TRANSLATIONS_DIR}" QT_TRANSLATIONS_DIR)
 message (STATUS "Qt translations directory: ${QT_TRANSLATIONS_DIR}")

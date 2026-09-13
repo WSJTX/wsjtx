@@ -32,6 +32,8 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 printf 'libcompiler-runtime.so => %s/libexec/libcompiler-runtime.so (0x00000000)\n' "$root"
 EOF
 chmod +x "$fixture/bin/gcc-99" "$fixture/bin/g++-99" "$fixture/bin/ldd"
+cp "$fixture/bin/gcc-99" "$fixture/bin/arm-linux-gnueabihf-gcc"
+cp "$fixture/bin/gcc-99" "$fixture/bin/arm-linux-gnueabihf-g++"
 
 signature() {
   PATH="$fixture/bin:$PATH" \
@@ -45,6 +47,17 @@ test "$target" = x86_64-fixture-linux-gnu
 test "$compatibility_id" = gcc99-v2
 [[ "$driver_sha" =~ ^[0-9a-f]{64}$ ]]
 [[ "$signature_sha" =~ ^[0-9a-f]{64}$ ]]
+
+cross_signature="$(
+  PATH="$fixture/bin:$PATH" \
+    .github/scripts/linux-ccache-compiler-signature.sh \
+      "$fixture/bin/arm-linux-gnueabihf-gcc"
+)"
+IFS=$'\t' read -r cross_version cross_target _ cross_compatibility_id _ \
+  <<< "$cross_signature"
+test "$cross_version" = 99.1.0
+test "$cross_target" = x86_64-fixture-linux-gnu
+test "$cross_compatibility_id" = gcc99-v2
 
 touch "$fixture/bin/gcc-99" "$fixture/libexec/cc1"
 test "$(signature)" = "$first"

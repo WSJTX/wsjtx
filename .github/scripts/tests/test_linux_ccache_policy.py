@@ -60,11 +60,19 @@ class LinuxCcachePolicyTests(unittest.TestCase):
     def test_armhf_verifies_and_forwards_cache_identity(self):
         workflow = self.read(".github/workflows/build-linux.yml")
         self.assert_cache_tiers(workflow, "ccache-linux-armhf-")
-        self.assertIn("verify-linux-ci-image.sh normal armhf", workflow)
+        self.assertIn(
+            "verify-armhf-ci-image.sh cross-builder armhf", workflow
+        )
+        self.assertIn("verify-armhf-ci-image.sh runtime armhf", workflow)
+        self.assertIn("linux-armhf-cross-bookworm:", workflow)
+        self.assertIn("build-linux-armhf-cross.sh", workflow)
+        self.assertIn("validate-linux-armhf-runtime.sh", workflow)
         self.assertIn("HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}", workflow)
         self.assertIn("CCACHE_COMPILERCHECK: ${{ steps.image.outputs.ccache_compiler_check }}", workflow)
         self.assertIn("-e CCACHE_COMPILERCHECK", workflow)
         self.assertIn("-e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH", workflow)
+        self.assertIn("cross_recipe_match", workflow)
+        self.assertIn("runtime_recipe_match", workflow)
         self.assertIn(
             "if: inputs.save_ccache && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'",
             workflow,

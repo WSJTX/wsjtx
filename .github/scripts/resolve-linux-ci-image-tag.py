@@ -18,6 +18,7 @@ NORMAL_PACKAGE = "wsjtx-internal/linux-noble"
 TSAN_PACKAGE = "wsjtx-internal/linux-tsan-noble"
 ARM64_PACKAGE = "wsjtx-internal/linux-arm64-bookworm"
 ARMHF_PACKAGE = "wsjtx-internal/linux-armv7-bookworm"
+ARMHF_CROSS_PACKAGE = "wsjtx-internal/linux-armhf-cross-bookworm"
 ROUTINE_PACKAGES = (ARM64_PACKAGE,)
 BUILD_TAG = re.compile(r"^build-\d{8}-\d+-\d+$")
 
@@ -66,7 +67,13 @@ def resolve_armhf(client: GitHubPackagesClient) -> str:
             "linux-armv7-bookworm:stable must share a version with exactly "
             "one immutable build tag"
         )
-    return build_tags[0]
+    generation = build_tags[0]
+    if not any(
+        generation in version.tags
+        for version in client.list_versions(OWNER, ARMHF_CROSS_PACKAGE)
+    ):
+        raise RuntimeError(f"{ARMHF_CROSS_PACKAGE}:{generation} does not exist")
+    return generation
 
 
 def resolve_tsan(client: GitHubPackagesClient) -> str:

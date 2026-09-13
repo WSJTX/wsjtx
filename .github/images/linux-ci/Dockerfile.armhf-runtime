@@ -1,0 +1,48 @@
+ARG CROSS_BUILDER_IMAGE=wsjtx-armhf-cross:missing-build-arg
+ARG CROSS_BUILDER_PLATFORM=linux/amd64
+FROM --platform=${CROSS_BUILDER_PLATFORM} ${CROSS_BUILDER_IMAGE} AS cross_builder
+
+FROM arm32v7/debian:bookworm
+
+ARG IMAGE_REFRESH_EPOCH
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
+COPY .github/images/linux-ci/install-armhf-runtime-packages.sh \
+     /usr/local/bin/install-armhf-runtime-packages
+RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-armhf-runtime-packages \
+    && test -n "$IMAGE_REFRESH_EPOCH" \
+    && /usr/local/bin/install-armhf-runtime-packages
+
+COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/armhf-ci-image-config.sh \
+     .github/scripts/write-armhf-ci-manifest.sh \
+     .github/scripts/verify-armhf-ci-image.sh \
+     /usr/local/share/wsjtx-ci/
+COPY --from=cross_builder /opt/wsjtx/armhf-runtime /opt/wsjtx/armhf-runtime
+COPY --from=cross_builder /opt/wsjtx-ci/toolchain-smoke /opt/wsjtx-ci/toolchain-smoke
+COPY --from=cross_builder /opt/wsjtx-ci/image.env \
+     /usr/local/share/wsjtx-ci/cross-builder.env
+COPY --from=cross_builder /usr/bin/qemu-arm-static /usr/local/bin/qemu-arm-static
+
+ARG IMAGE_CREATED
+ARG IMAGE_GENERATION=local
+ARG IMAGE_REVISION
+ARG IMAGE_RECIPE_SHA256
+LABEL org.opencontainers.image.created="${IMAGE_CREATED}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/WSJTX/wsjtx-internal" \
+      org.opencontainers.image.title="WSJT-X ARMHF runtime validator" \
+      org.opencontainers.image.description="Debian Bookworm ARMv7 packaging and runtime validation under QEMU"
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN set -eux; \
+    chmod +x /usr/local/share/wsjtx-ci/*.sh; \
+    . /usr/local/share/wsjtx-ci/armhf-ci-image-config.sh; \
+    /usr/local/share/wsjtx-ci/write-armhf-ci-manifest.sh \
+      runtime armhf "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
+    IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-armhf-ci-image.sh \
+        runtime armhf "$LINUX_HAMLIB_REF"
+
+WORKDIR /work

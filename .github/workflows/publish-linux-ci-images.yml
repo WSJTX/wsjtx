@@ -19,7 +19,7 @@ on:
         type: string
         default: ""
       include_armhf:
-        description: "Build and validate the expensive armhf QEMU image during refresh"
+        description: "Build and validate the ARMHF cross-builder/runtime pair"
         required: false
         type: boolean
         default: false
@@ -49,7 +49,7 @@ on:
         type: string
         default: ""
       include_armhf:
-        description: "Build and validate the expensive armhf QEMU image during refresh"
+        description: "Build and validate the ARMHF cross-builder/runtime pair"
         required: false
         type: boolean
         default: false
@@ -138,6 +138,8 @@ jobs:
       tsan_hamlib_ref: ${{ steps.metadata.outputs.tsan_hamlib_ref }}
       normal_noble_recipe: ${{ steps.metadata.outputs.normal_noble_recipe }}
       normal_bookworm_recipe: ${{ steps.metadata.outputs.normal_bookworm_recipe }}
+      armhf_cross_recipe: ${{ steps.metadata.outputs.armhf_cross_recipe }}
+      armhf_runtime_recipe: ${{ steps.metadata.outputs.armhf_runtime_recipe }}
       tsan_noble_recipe: ${{ steps.metadata.outputs.tsan_noble_recipe }}
       refresh_epoch: ${{ steps.metadata.outputs.refresh_epoch }}
     steps:
@@ -161,6 +163,8 @@ jobs:
               echo "normal_hamlib_ref=$LINUX_HAMLIB_REF"
               echo "normal_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-noble)"
               echo "normal_bookworm_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-bookworm)"
+              echo "armhf_cross_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh armhf-cross-bookworm)"
+              echo "armhf_runtime_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh armhf-runtime-bookworm)"
             fi
             if [ "$IMAGE_SET" != normal ]; then
               . .github/scripts/tsan-linux-deps-config.sh
@@ -280,11 +284,51 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:stable
           cache-to: type=inline
 
-  build-armv7:
+  build-armhf-cross:
     if: >-
       inputs.include_armhf &&
       (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/images/linux-ci/Dockerfile.armhf-cross
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.candidate_tag }}
+            ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}
+          build-args: |
+            IMAGE_CREATED=${{ needs.metadata.outputs.created }}
+            IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
+            IMAGE_REVISION=${{ github.sha }}
+            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.armhf_cross_recipe }}
+            IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
+          cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:stable
+          cache-to: type=inline
+
+  build-armhf-runtime:
+    if: >-
+      inputs.include_armhf &&
+      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+    needs:
+      - metadata
+      - build-armhf-cross
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     outputs:
@@ -304,7 +348,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: .github/images/linux-ci/Dockerfile.bookworm
+          file: .github/images/linux-ci/Dockerfile.armhf-runtime
           platforms: linux/arm/v7
           push: true
           provenance: false
@@ -313,11 +357,11 @@ jobs:
             ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.metadata.outputs.candidate_tag }}
             ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.metadata.outputs.build_tag }}
           build-args: |
-            IMAGE_ARCH=armhf
+            CROSS_BUILDER_IMAGE=ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}
             IMAGE_CREATED=${{ needs.metadata.outputs.created }}
             IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
             IMAGE_REVISION=${{ github.sha }}
-            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_bookworm_recipe }}
+            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.armhf_runtime_recipe }}
             IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
           cache-from: type=registry,ref=ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable
           cache-to: type=inline
@@ -372,14 +416,16 @@ jobs:
         needs.build-arm64.result == 'success' &&
         needs.warm-normal-ccache.result == 'success' &&
         needs.warm-arm64-ccache.result == 'success' &&
-        (inputs.include_armhf == false || needs.build-armv7.result == 'success'))) &&
+        (inputs.include_armhf == false ||
+         (needs.build-armhf-cross.result == 'success' && needs.build-armhf-runtime.result == 'success')))) &&
       (inputs.image_set == 'normal' || needs.build-tsan.result == 'success')
     needs:
       - metadata
       - build-normal
       - build-tsan
       - build-arm64
-      - build-armv7
+      - build-armhf-cross
+      - build-armhf-runtime
       - warm-normal-ccache
       - warm-arm64-ccache
     runs-on: ubuntu-24.04
@@ -407,8 +453,11 @@ jobs:
               ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
             if [ "$INCLUDE_ARMHF" = true ]; then
               docker buildx imagetools create --prefer-index=false \
+                --tag "ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:${VALIDATED_TAG}" \
+                ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm@${{ needs.build-armhf-cross.outputs.digest }}
+              docker buildx imagetools create --prefer-index=false \
                 --tag "ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${VALIDATED_TAG}" \
-                ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
+                ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armhf-runtime.outputs.digest }}
             fi
           fi
           if [ "$IMAGE_SET" != normal ]; then
@@ -428,8 +477,11 @@ jobs:
               ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
             if [ "$INCLUDE_ARMHF" = true ]; then
               docker buildx imagetools create --prefer-index=false \
+                --tag ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm:stable \
+                ghcr.io/wsjtx/wsjtx-internal/linux-armhf-cross-bookworm@${{ needs.build-armhf-cross.outputs.digest }}
+              docker buildx imagetools create --prefer-index=false \
                 --tag ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable \
-                ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armv7.outputs.digest }}
+                ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armhf-runtime.outputs.digest }}
             fi
             # linux-noble:stable moves last within the normal image cohort.
             docker buildx imagetools create --prefer-index=false \
@@ -462,8 +514,8 @@ jobs:
             packages+=(linux-noble linux-arm64-bookworm)
             stable_packages+=(linux-arm64-bookworm)
             if [ "$INCLUDE_ARMHF" = true ]; then
-              packages+=(linux-armv7-bookworm)
-              stable_packages+=(linux-armv7-bookworm)
+              packages+=(linux-armhf-cross-bookworm linux-armv7-bookworm)
+              stable_packages+=(linux-armhf-cross-bookworm linux-armv7-bookworm)
             fi
             # linux-noble:stable moves last within the normal image cohort.
             stable_packages+=(linux-noble)

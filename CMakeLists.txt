@@ -1388,16 +1388,18 @@ else ()
     # Derive the correct filename for a Debian package because the DEB
     # generator doesn't do this correctly at present.
     #
-    find_program (DPKG_PROGRAM dpkg DOC "dpkg program of Debian-based systems")
-    if (DPKG_PROGRAM)
-      execute_process (
-	COMMAND ${DPKG_PROGRAM} --print-architecture
-	OUTPUT_VARIABLE CPACK_DEBIAN_PACKAGE_ARCHITECTURE
-	OUTPUT_STRIP_TRAILING_WHITESPACE
-	)
-    else (DPKG_PROGRAM)
-      set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE noarch)
-    endif (DPKG_PROGRAM)
+    if (NOT CPACK_DEBIAN_PACKAGE_ARCHITECTURE)
+      find_program (DPKG_PROGRAM dpkg DOC "dpkg program of Debian-based systems")
+      if (DPKG_PROGRAM)
+        execute_process (
+	  COMMAND ${DPKG_PROGRAM} --print-architecture
+	  OUTPUT_VARIABLE CPACK_DEBIAN_PACKAGE_ARCHITECTURE
+	  OUTPUT_STRIP_TRAILING_WHITESPACE
+	  )
+      else (DPKG_PROGRAM)
+        set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE noarch)
+      endif (DPKG_PROGRAM)
+    endif ()
 
     list (APPEND CPACK_GENERATOR "DEB")
   endif (DPKG_BUILDER)
@@ -1423,7 +1425,9 @@ set (CPACK_DEBIAN_PACKAGE_REPLACES "wsjtx-improved, wsjtx-data, wsjtx-doc, wsjtx
 set (CPACK_DEBIAN_PACKAGE_BREAKS "wsjtx-improved, wsjtx-improved-data, wsjtx-improved-doc")
 set (CPACK_DEBIAN_PACKAGE_CONFLICTS "wsjtx-data (<< ${wsjtx_VERSION}), wsjtx-doc (<< ${wsjtx_VERSION})")
 
-set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
+if (NOT CPACK_RPM_PACKAGE_ARCHITECTURE)
+  set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
+endif ()
 set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtwebsockets >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3, boost-log >= 1.62")
 set (CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/pixmaps /usr/share/applications /usr/share/man /usr/share/man1)
 

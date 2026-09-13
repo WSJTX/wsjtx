@@ -1,0 +1,116 @@
+FROM debian:bookworm
+
+ARG IMAGE_REFRESH_EPOCH
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
+RUN chmod +x /usr/local/bin/run-apt-get \
+    && test -n "$IMAGE_REFRESH_EPOCH" \
+    && run-apt-get update \
+    && run-apt-get install -y --no-install-recommends \
+      asciidoctor autoconf automake binutils bison build-essential \
+      ca-certificates ccache cmake curl dpkg-dev file flex gawk git gperf \
+      help2man libncurses-dev libtool libtool-bin mmdebstrap patch pkg-config \
+      python3 python3-dev qt5-qmake-bin qtbase5-dev-tools qttools5-dev-tools \
+      qemu-user-static rsync texinfo unzip wget xz-utils \
+    && run-apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/armhf-ci-image-config.sh \
+     /usr/local/share/wsjtx-ci/
+COPY .github/images/linux-ci/armhf-cross-toolchain.config \
+     /usr/local/share/wsjtx-ci/armhf-cross-toolchain.config
+
+RUN set -eux; \
+    . /usr/local/share/wsjtx-ci/armhf-ci-image-config.sh; \
+    curl --fail --show-error --silent --location --retry 5 \
+      -o /tmp/crosstool-ng.tar.xz "$ARMHF_CROSSTOOL_NG_URL"; \
+    echo "$ARMHF_CROSSTOOL_NG_SHA256  /tmp/crosstool-ng.tar.xz" | sha256sum -c -; \
+    mkdir /tmp/crosstool-ng; \
+    tar -xf /tmp/crosstool-ng.tar.xz -C /tmp/crosstool-ng --strip-components=1; \
+    cd /tmp/crosstool-ng; \
+    ./configure --prefix=/usr/local; \
+    make -j"$(nproc)"; \
+    make install; \
+    cd /; \
+    rm -rf /tmp/crosstool-ng /tmp/crosstool-ng.tar.xz; \
+    useradd --create-home --shell /bin/bash wsjtx; \
+    mkdir -p /tmp/wsjtx-ctng-build /var/cache/wsjtx-ctng /opt/wsjtx; \
+    chown -R wsjtx:wsjtx /tmp/wsjtx-ctng-build /var/cache/wsjtx-ctng /opt/wsjtx
+
+ARG IMAGE_RECIPE_SHA256
+USER wsjtx
+RUN --mount=type=cache,id=wsjtx-armhf-ctng-downloads,target=/var/cache/wsjtx-ctng,uid=1000,gid=1000 \
+    --mount=type=cache,id=wsjtx-armhf-ctng-build-${IMAGE_RECIPE_SHA256},target=/tmp/wsjtx-ctng-build,uid=1000,gid=1000 \
+    set -eux; \
+    cd /tmp/wsjtx-ctng-build; \
+    cp /usr/local/share/wsjtx-ci/armhf-cross-toolchain.config .config; \
+    ct-ng olddefconfig; \
+    ct-ng build
+
+USER root
+COPY .github/scripts/linux-ccache-compiler-signature.sh \
+     .github/scripts/build-hamlib-armhf-cross.sh \
+     .github/scripts/build-armhf-toolchain-smoke.sh \
+     .github/scripts/normalize-armhf-sysroot-symlinks.sh \
+     .github/scripts/write-armhf-ci-manifest.sh \
+     .github/scripts/verify-armhf-ci-image.sh \
+     /usr/local/share/wsjtx-ci/
+RUN set -eux; \
+    chmod +x /usr/local/share/wsjtx-ci/*.sh; \
+    . /usr/local/share/wsjtx-ci/armhf-ci-image-config.sh; \
+    test "$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -dumpfullversion -dumpversion)" = "$ARMHF_GCC_VERSION"; \
+    test "$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -dumpmachine)" = "$ARMHF_TARGET_TRIPLET"; \
+    package_csv="$(IFS=,; echo "${ARMHF_SYSROOT_PACKAGES[*]}")"; \
+    mmdebstrap --variant=extract --architectures=armhf \
+      --include="$package_csv" --skip=cleanup/apt/cache \
+      bookworm "$ARMHF_SYSROOT" http://deb.debian.org/debian; \
+    /usr/local/share/wsjtx-ci/normalize-armhf-sysroot-symlinks.sh \
+      "$ARMHF_SYSROOT"; \
+    mkdir -p /opt/wsjtx-ci; \
+    : > /opt/wsjtx-ci/armhf-sysroot-packages.unsorted; \
+    while IFS= read -r -d '' package; do \
+      dpkg-deb -f "$package" '${binary:Package}=${Version}\n' \
+        >> /opt/wsjtx-ci/armhf-sysroot-packages.unsorted; \
+    done < <(find "$ARMHF_SYSROOT/var/cache/apt/archives" -type f -name '*.deb' -print0); \
+    LC_ALL=C sort -u /opt/wsjtx-ci/armhf-sysroot-packages.unsorted \
+      > /opt/wsjtx-ci/armhf-sysroot-packages.txt; \
+    rm /opt/wsjtx-ci/armhf-sysroot-packages.unsorted; \
+    rm -rf "$ARMHF_SYSROOT/var/cache/apt/archives" \
+      "$ARMHF_SYSROOT/var/lib/apt/lists"; \
+    mkdir -p /tmp/wsjtx-hamlib-build; \
+    cd /tmp/wsjtx-hamlib-build; \
+    /usr/local/share/wsjtx-ci/build-hamlib-armhf-cross.sh \
+      "$LINUX_HAMLIB_COMMIT" "$ARMHF_SYSROOT" "$ARMHF_TOOLCHAIN_PREFIX"; \
+    mkdir -p "$ARMHF_RUNTIME_PREFIX"; \
+    for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do \
+      source_path="$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name="$library")"; \
+      test "$source_path" != "$library"; \
+      cp -L "$source_path" "$ARMHF_RUNTIME_PREFIX/$library"; \
+    done; \
+    test "$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name=libquadmath.so.0)" = libquadmath.so.0; \
+    /usr/local/share/wsjtx-ci/build-armhf-toolchain-smoke.sh \
+      "$ARMHF_TOOLCHAIN_PREFIX" "$ARMHF_SYSROOT" /opt/wsjtx-ci/toolchain-smoke; \
+    rm -rf /tmp/wsjtx-hamlib-build /home/wsjtx
+
+ARG IMAGE_CREATED
+ARG IMAGE_GENERATION=local
+ARG IMAGE_REVISION
+LABEL org.opencontainers.image.created="${IMAGE_CREATED}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/WSJTX/wsjtx-internal" \
+      org.opencontainers.image.title="WSJT-X ARMHF cross-builder" \
+      org.opencontainers.image.description="Native x86_64 GCC 13.4 cross-builder with a Debian Bookworm ARMHF sysroot"
+RUN set -eux; \
+    . /usr/local/share/wsjtx-ci/armhf-ci-image-config.sh; \
+    /usr/local/share/wsjtx-ci/write-armhf-ci-manifest.sh \
+      cross-builder armhf "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
+    IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-armhf-ci-image.sh \
+        cross-builder armhf "$LINUX_HAMLIB_REF"
+
+ENV PATH="/opt/wsjtx/armhf-toolchain/bin:${PATH}"
+WORKDIR /work

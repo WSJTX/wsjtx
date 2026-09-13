@@ -57,8 +57,30 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
         metadata = job("metadata")
         self.assertIn('if [ "$IMAGE_SET" != tsan ]; then', metadata)
         self.assertIn(". .github/scripts/linux-ci-image-config.sh", metadata)
+        self.assertIn("linux-ci-image-fingerprint.sh armhf-cross-bookworm", metadata)
+        self.assertIn("linux-ci-image-fingerprint.sh armhf-runtime-bookworm", metadata)
         self.assertIn('if [ "$IMAGE_SET" != normal ]; then', metadata)
         self.assertIn(". .github/scripts/tsan-linux-deps-config.sh", metadata)
+
+    def test_armhf_images_are_built_and_promoted_as_one_generation(self):
+        cross = job("build-armhf-cross")
+        runtime = job("build-armhf-runtime")
+        promote = job("promote")
+
+        self.assertIn("platforms: linux/amd64", cross)
+        self.assertIn("Dockerfile.armhf-cross", cross)
+        self.assertIn("- build-armhf-cross", runtime)
+        self.assertIn("platforms: linux/arm/v7", runtime)
+        self.assertIn("Dockerfile.armhf-runtime", runtime)
+        self.assertIn(
+            "CROSS_BUILDER_IMAGE=ghcr.io/wsjtx/wsjtx-internal/"
+            "linux-armhf-cross-bookworm:${{ needs.metadata.outputs.build_tag }}",
+            runtime,
+        )
+        self.assertIn("linux-armhf-cross-bookworm:${VALIDATED_TAG}", promote)
+        self.assertIn("linux-armv7-bookworm:${VALIDATED_TAG}", promote)
+        self.assertIn("linux-armhf-cross-bookworm:stable", promote)
+        self.assertIn("linux-armv7-bookworm:stable", promote)
 
     def test_publication_mutations_require_develop(self):
         validate = job("validate-inputs")
@@ -81,6 +103,10 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
         self.assertNotIn("tsan_available", rollback)
         self.assertNotIn("armhf_available", rollback)
         self.assertIn("packages+=(linux-noble linux-arm64-bookworm)", rollback)
+        self.assertIn(
+            "packages+=(linux-armhf-cross-bookworm linux-armv7-bookworm)",
+            rollback,
+        )
         self.assertIn("packages+=(linux-tsan-noble)", rollback)
         self.assertIn("stable_packages+=(linux-noble)", rollback)
 

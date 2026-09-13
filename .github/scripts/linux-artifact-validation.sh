@@ -246,6 +246,10 @@ run_packaged_appimage_startup_smoke() {
   local appimage="$1"
   local log="$2"
   local status
+  local runner=()
+  if [ -n "${LINUX_APPIMAGE_RUNNER:-}" ]; then
+    runner=("$LINUX_APPIMAGE_RUNNER")
+  fi
 
   mkdir -p "$(dirname "$log")"
   if env \
@@ -260,6 +264,7 @@ run_packaged_appimage_startup_smoke() {
     QT_QPA_PLATFORM=xcb \
     timeout --kill-after=5s 45s \
       xvfb-run -a -s "-screen 0 1280x1024x24" \
+      "${runner[@]}" \
       "$appimage" \
       --startup-smoke-test \
       --rig-name CI-APPIMAGE-STARTUP \

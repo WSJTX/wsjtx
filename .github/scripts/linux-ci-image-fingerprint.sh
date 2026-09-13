@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: linux-ci-image-fingerprint.sh normal-noble|normal-bookworm|tsan-noble" >&2
+  echo "Usage: linux-ci-image-fingerprint.sh normal-noble|normal-bookworm|tsan-noble|armhf-cross-bookworm|armhf-runtime-bookworm" >&2
   exit 2
 fi
 
