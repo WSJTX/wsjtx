@@ -146,8 +146,14 @@ private slots:
     if (!QFile::link(writable, writableAlias)) {
       QSKIP("Directory links are unavailable");
     }
-    QVERIFY(writeFile(QDir {writable}.absoluteFilePath("unique-runtime-data.txt"),
-                       "stale copy"));
+    QString const stale = QDir {writable}.absoluteFilePath("unique-runtime-data.txt");
+    QVERIFY(writeFile(stale, "stale copy"));
+    QString const aliasedStale =
+      QDir {writableAlias}.absoluteFilePath("unique-runtime-data.txt");
+    if (QFileInfo {aliasedStale}.canonicalFilePath()
+        != QFileInfo {stale}.canonicalFilePath()) {
+      QSKIP("Traversable directory links are unavailable");
+    }
     CurrentDirectoryGuard cwd {writable};
     QVERIFY(cwd.changed());
 
