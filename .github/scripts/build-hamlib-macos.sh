@@ -22,6 +22,6 @@ cd hamlib-src
   PKG_CONFIG_PATH="${libusb_prefix}/lib/pkgconfig" \
   CPPFLAGS="-I${libusb_prefix}/include" \
   CFLAGS="-mmacosx-version-min=${deployment_target}" \
-  LDFLAGS="-L${libusb_prefix}/lib -mmacosx-version-min=${deployment_target}"
+  LDFLAGS="-L${libusb_prefix}/lib -mmacosx-version-min=${deployment_target} -Wl,-headerpad_max_install_names"
 make -j"$(sysctl -n hw.ncpu)"
 make install
