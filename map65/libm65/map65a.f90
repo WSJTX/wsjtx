@@ -34,12 +34,10 @@ contains
 
       integer, parameter :: MAXMSG = 1000
       real, parameter :: RESULT_DT_TOLERANCE = 0.2
-      ! 2026-09-10: neighborhood radius (in symspec FFT bins) for
-      ! ljt65decoded's cross-call "already decoded" check/mark -- see the
-      ! note at its use below. At df ~= 2.9 Hz/bin this is ~+/-15 Hz,
-      ! comfortably covering the couple-of-Hz, couple-of-bin spread
-      ! observed between adjacent-bin candidates for the same real JT65
-      ! signal across separate automatic calls.
+      ! Neighborhood radius (in symspec FFT bins) for ljt65decoded's
+      ! cross-call "already decoded" check/mark, below. At df ~= 2.9 Hz/bin
+      ! this is ~+/-15 Hz, covering the couple-of-bin spread a single real
+      ! JT65 signal can show across separate automatic calls.
       integer, parameter :: JT65_LOCAL_BINS = 5
       real, intent(in) :: dd(4, nsmax_active)
       integer, intent(inout) :: newdat
@@ -139,25 +137,13 @@ contains
 !------------------------------------------------------------
 ! BASIC DECODE SETUP (shared by manual + wideband)
 !------------------------------------------------------------
-      ! 2026-09-10: was "if (nhsym .eq. nhsym1 .or. nagain .ne. 0)". That
-      ! fires on EVERY call that happens to see the early-pass symbol count,
-      ! not just the first one for this minute's accumulation -- and
-      ! run_m65 legitimately re-fires map65a() several times back-to-back
-      ! at the SAME nhsym1 value whenever new audio keeps re-arming newdat
-      ! before nhsym itself has advanced to the next threshold (observed:
-      ! 4 automatic calls, ~1.1s apart, all still at nhsym=280). Wiping
-      ! ldecoded on every one of those repeat calls throws away the
-      ! "already reported this bin" memory from the immediately preceding
-      ! call at the same nhsym1, so a candidate that resolves the same way
-      ! every time -- e.g. Q65's fixed quick-check at fQSO, which isn't a
-      ! noise-dependent candidate search -- gets rediscovered and
-      ! rereported on every repeat (seen as the same "CQ K1JT FN20" line
-      ! appearing 4 times in the Messages window for one real decode).
-      ! Track the previous call's nhsym and only reset when this is
-      ! genuinely the first time this cycle has reached nhsym1, not a
-      ! repeat of a value already processed. nagain/=0 (manual repeat) is
-      ! untouched -- each manual click is a deliberate, one-off request,
-      ! not a polling repeat, so it should always get a fresh ledger.
+      ! run_m65 can legitimately re-fire map65a() several times back-to-back
+      ! at the same nhsym1 value before nhsym itself advances. Reset
+      ! ldecoded/ljt65decoded only on a genuinely new cycle at nhsym1, not a
+      ! repeat call already at that value, so a repeat doesn't throw away
+      ! "already reported this bin" memory from moments earlier and
+      ! rediscover/re-report the same decode. A manual click (nagain/=0) is
+      ! always a deliberate one-off request and always gets a fresh ledger.
       if ((nhsym .eq. nhsym1 .and. nhsym_prev_call .ne. nhsym1) .or. nagain .ne. 0) then
          ldecoded = .false.
          ljt65decoded = .false.
@@ -547,6 +533,21 @@ contains
 ! made-up-looking decodes seen with Find Delta Phi.
 km = 0
 
+! ljt65decoded/ldecoded mark a bin as already decoded for the rest of this
+! accumulation cycle (see the reset near subroutine entry, and their use
+! below) -- correct for suppressing a genuinely repeated automatic call,
+! but wrong for a Find Delta Phi trial: each of the 13 trials (iloop 0..12,
+! via "go to 2" below) is a deliberate, fresh re-probe of the same
+! frequency at a different phase hypothesis, not a repeat of the same
+! request. Without resetting here too, trial 0's decode marks the bin, and
+! every later trial then sees it as "already decoded" and never calls
+! decode1a() again, leaving qphi(iloop) unpopulated for the rest of the
+! sweep.
+if (ndphi .eq. 1) then
+   ldecoded = .false.
+   ljt65decoded = .false.
+endif
+
 ftol = 0.010
 fqso = mousefqso + foffset - 0.5*(nfa + nfb) + nfshift
 nkhz_center = nint(1000.0*(fcenter - int(fcenter)))
@@ -771,46 +772,32 @@ endif
                   sync1 = thresh1 + 1.0
                   noffset = 0
                endif
-               ! 2026-09-10: computed once per candidate, BEFORE the "keep
-               ! only best within ftol" collapse logic just below -- see the
-               ! full explanation at the SKIPPED branch right after. Must be
+               ! Computed once per candidate, before the "keep only best
+               ! within ftol" collapse logic just below -- see the SKIPPED
+               ! branch right after for why the ordering matters. Must be
                ! false whenever initialization_only is true: that probe
-               ! doesn't accumulate anything regardless (guarded separately
-               ! below), but still needs decode1a() called once per sweep
-               ! for its own internal state, so it must not be intercepted
-               ! here.
+               ! doesn't accumulate anything regardless, but still needs
+               ! decode1a() called once per sweep for its own internal
+               ! state, so it must not be intercepted here.
                already_decoded_nearby = (.not. initialization_only) .and. &
                     any(ljt65decoded(max(1,i-JT65_LOCAL_BINS):min(nfft_active,i+JT65_LOCAL_BINS)))
 
                if (sync1 .gt. thresh1 .and. abs(noffset) .le. ntol) then
                   if (already_decoded_nearby) then
-                     ! 2026-09-10: skip a candidate whose bin (or a nearby
-                     ! one -- JT65_LOCAL_BINS) already produced a real decode
-                     ! earlier THIS SAME accumulation cycle, mirroring Q65's
-                     ! ldecoded(ipk) (see decodes_mod.f90). Without this, a
-                     ! repeat automatic call (run_m65 legitimately re-firing
-                     ! map65a() before nhsym has advanced) re-discovers and
-                     ! re-emits the same JT65 decode via its own independent
-                     ! write_stdout("!"...) call -- confirmed in live UDP
-                     ! testing as a duplicate Messages-window line for the
-                     ! same signal, sometimes landing on a different but
-                     ! adjacent bin (JT65's own sync/spectral spread), which
-                     ! is why this checks a neighborhood, not just bin i.
+                     ! Skip a candidate whose bin (or a nearby one, within
+                     ! JT65_LOCAL_BINS) already produced a real decode
+                     ! earlier this same accumulation cycle, mirroring
+                     ! Q65's ldecoded(ipk) (decodes_mod.f90) -- otherwise a
+                     ! repeat automatic call re-discovers and re-emits the
+                     ! same JT65 decode.
                      !
-                     ! This check MUST run before the "keep only best within
-                     ! ftol" collapse logic below, not after: the first
-                     ! version of this fix checked/marked only at
-                     ! accumulation time, inside the "if (mode65...)" block
-                     ! below -- but the collapse logic's "km=km-1" runs
-                     ! unconditionally before that block, on the assumption
-                     ! that accumulation will always follow with a matching
-                     ! "km=km+1". A candidate intercepted and skipped AFTER
-                     ! that decrement never supplied the matching increment,
-                     ! silently driving km negative (confirmed in testing:
-                     ! km_exiting=-2), which then hid the whole signal from
-                     ! this pass's output. Skipping before the collapse
-                     ! logic even runs avoids touching km/freq0/sync10 at
-                     ! all for an already-decoded candidate.
+                     ! Must run before the "keep only best within ftol"
+                     ! collapse logic below, not after: that logic's
+                     ! "km=km-1" runs unconditionally, on the assumption
+                     ! that accumulation always follows with a matching
+                     ! "km=km+1" -- skipping AFTER that decrement leaves it
+                     ! unmatched and silently drives km negative, hiding
+                     ! the whole signal from this pass's output.
                      call dbg('map65a: JT65 i=' // itoa(i) // &
                               ' SKIPPED (already decoded nearby this cycle) at t=' // rtoa(sec_midn()))
                   else
@@ -987,19 +974,13 @@ endif
 
                   call timer('q65b    ', 1)
 
-                  ! 2026-09-09: was "if (idec .ge. 0)". idec is not a
-                  ! trustworthy success flag here -- q65b derives it from
-                  ! cq0(2:2), which is not reset on a failed/no-op attempt,
-                  ! so back-to-back candidates in this same loop (e.g. two
-                  ! Q65 signals both within Ftol of the QSO marker) can have
-                  ! a later candidate's idec falsely read back an earlier
-                  ! candidate's leftover cq0 digit. That marks candec(icand)
-                  ! true for a candidate that was never actually decoded,
-                  ! silently dropping it from both this display and the
-                  ! nqd=0 fallback loop below (which skips candec==.true.).
-                  ! nsnr0 is reset to -99 at the top of every q65b() call
-                  ! (see q65b.F90) and is what the manual-decode path already
-                  ! uses for exactly this reason -- use it here too.
+                  ! idec is not a trustworthy success flag here -- q65b
+                  ! derives it from cq0(2:2), which is not reset on a
+                  ! failed/no-op attempt, so a later candidate in this same
+                  ! loop can falsely read back an earlier candidate's
+                  ! leftover cq0 digit. nsnr0 is reset to -99 at the top of
+                  ! every q65b() call (q65b.F90) and can't carry state
+                  ! across candidates this way.
                   if (nsnr0 .gt. -99) candec(icand) = .true.
                enddo
                if (.not. q65b_called) then
@@ -1071,9 +1052,9 @@ endif
 
                call timer('q65b    ', 1)
 
-               ! 2026-09-09: see the matching note on the nqd==1 candidate
-               ! loop above -- idec is unreliable across back-to-back q65b()
-               ! calls in the same loop; use nsnr0 instead.
+               ! See the matching note on the nqd==1 candidate loop above --
+               ! idec is unreliable across back-to-back q65b() calls in the
+               ! same loop; use nsnr0 instead.
                if (nsnr0 .gt. -99) candec(icand) = .true.
                if (abort_decode) go to 700
             enddo  ! icand

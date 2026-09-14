@@ -1,14 +1,11 @@
 module deep65_mod
   implicit none
 
-  ! 2026-09-10: MAXCALLS/testmsg/ncode/callgrid/pp/ntot used to be local
-  ! variables of deep65() with a blanket SAVE, which works fine for
-  ! persisting them across calls but only lets deep65() itself trigger a
-  ! (re)build. Promoted to module scope so a separate subroutine --
-  ! build_call3_candidates(), called once eagerly from run_m65.f90 at
-  ! startup -- can build the SAME cached candidate list before the decoder
-  ! ever needs it, instead of the first real decode paying for it. See the
-  ! evidence/reasoning in build_call3_candidates()'s header comment below.
+  ! MAXCALLS/testmsg/ncode/callgrid/pp/ntot are module-scoped so that a
+  ! separate subroutine, build_call3_candidates() below, can be called once
+  ! eagerly from run_m65.f90 at startup and build the same cached candidate
+  ! list before the decoder ever needs it, instead of the first real decode
+  ! paying for it.
   integer, parameter :: MAXRPT = 63
   integer, save :: MAXCALLS = 0, narr = 0, ntot = 0
   character(len=22), allocatable, save :: testmsg(:)
@@ -22,28 +19,13 @@ contains
   ! the module-level testmsg/ncode/callgrid/pp/ntot arrays above. A no-op if
   ! the list is already built and mcall3a (see decodes_mod) hasn't been set
   ! since -- mcall3a is set whenever the user edits CALL3.TXT from the GUI,
-  ! or whenever mycall/hiscall/hisgrid/neme change (see decode0.f90), so
-  ! this still gets refreshed correctly whenever it needs to be; only the
-  ! very FIRST build's timing is what changed by extracting this.
+  ! or whenever mycall/hiscall/hisgrid/neme change (see decode0.f90).
   !
-  ! 2026-09-10 for the "first decode cycle after startup shows degraded or
-  ! missing decodes" investigation: this whole routine runs synchronously
-  ! on the decoder thread and, for the real ~132,000-line CALL3.TXT, calls
-  ! encode65() roughly 264,000 times -- confirmed by direct timing to take
-  ! ~3.7 seconds. Before today's MAXCALLS fix (see git history), this only
-  ! ever processed the first 10,000 lines of CALL3.TXT (~20,000 encode65()
-  ! calls), fast enough that this cost was never noticed. Correctly
-  ! processing the whole file made the one-time cost ~13x larger -- long
-  ! enough, per direct measurement, to overlap the real-time audio capture
-  ! window between the automatic early (280-symbol) and final (302-symbol)
-  ! passes on whichever decode cycle first triggers it. Every signal's sync
-  ! strength measured in that window was found to be degraded by a similar
-  ! proportion (consistent with real-time audio capture being starved of
-  ! CPU while this runs single-threaded on the decoder thread), and weaker
-  ! signals failed to decode at all. Calling this once from run_m65.f90
-  ! before the decode loop starts moves the entire cost to before any
-  ! live decoding is happening, so it can no longer compete with real-time
-  ! audio capture for CPU during an actual decode cycle.
+  ! For the real ~132,000-line CALL3.TXT this calls encode65() roughly
+  ! 264,000 times, taking several seconds. Called once from run_m65.f90
+  ! before the decode loop starts -- not lazily, on the decoder thread
+  ! during a live cycle -- so that cost can never compete with real-time
+  ! audio capture for CPU during an actual decode.
   subroutine build_call3_candidates(mycall, hiscall, hisgrid, neme)
     use decodes_mod, only: mcall3a
     use encode65_mod

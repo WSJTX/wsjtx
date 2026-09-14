@@ -119,19 +119,16 @@ MainWindow::DecoderContext::~DecoderContext()
 
 // TEMP diagnostic 2026-09-10 for the "decode reaches map65_rx.log but not the
 // Messages window, only on the first decode cycle after MAP65 starts" report.
-// 2026-09-10 correction: this originally wrote into the SAME w3sz_debug.log
-// the Fortran-side dbg() calls use. That's fine for correlating timestamps,
-// but Fortran's dbg() (debug_log.f90) and this function open/write the file
-// from two different processes/threads with NO shared lock -- confirmed in
-// testing to produce torn, interleaved lines (a C++ write landing mid-way
-// through an in-progress Fortran write, corrupting both). Write to a SEPARATE
-// file instead; timestamps still use the same sec_midn()-style local
-// h*3600+m*60+s+ms/1000 format, so the two logs can still be correlated by
-// eye without either one corrupting the other. Strip both files' worth of
-// logging before merge.
-// 2026-09-13: mirrors run_m65.f90's dbg_enabled flag -- flip to true to
-// re-enable this log without touching any of the cppDbg(...) call sites
-// scattered through this file.
+// Writes to its own separate log file rather than the shared w3sz_debug.log
+// Fortran's dbg() uses -- the two processes/threads have no lock between
+// them, and sharing a file produces torn, interleaved lines. Timestamps use
+// the same sec_midn()-style local h*3600+m*60+s+ms/1000 format as the
+// Fortran log, so the two can still be correlated by eye. Strip both files'
+// worth of logging before merge.
+//
+// Mirrors run_m65.f90's dbg_enabled flag -- flip to true to re-enable this
+// log without touching any of the cppDbg(...) call sites scattered through
+// this file.
 static bool const cppDbgEnabled = false;
 
 static void cppDbg(const QString &msg)
@@ -419,22 +416,15 @@ MainWindow::MainWindow(QWidget *parent) :
 
   readSettings();		             //Restore user's setup params
 
-  // 2026-09-10: push mycall/mygrid/hiscall/hisgrid/neme to the Fortran side
-  // here, right after settings load, instead of waiting for the first
-  // MainWindow::decode() call to do it (decode() already pushes these on
+  // Push mycall/mygrid/hiscall/hisgrid/neme to the Fortran side here, right
+  // after settings load, instead of waiting for the first
+  // MainWindow::decode() call to do it (decode() still pushes these on
   // every cycle further down; this just makes the values available
-  // sooner). run_m65.f90 now builds the deep65 CALL3.TXT candidate list
-  // eagerly, before its decode loop starts (see build_call3_candidates()
-  // in deep65.f90), specifically to move that ~3.5s one-time cost off the
-  // decoder thread during the first live decode cycle. Without this, that
-  // eager build ran against Fortran's still-default/blank mycall/hiscall
-  // (decode() hadn't run yet), and decode0.f90's genuine mycall-changed
-  // check then forced a SECOND, redundant rebuild on the very first real
-  // decode -- right back into the real-time-audio-starving window the
-  // eager build was meant to avoid. Confirmed via w3sz_debug.log: the
-  // eager build's candidate count (264156) didn't match the redundant
-  // rebuild's (264030), a ~126-entry gap matching exactly the hiscall
-  // "report variants" expansion in deep65.f90's n=1 special case.
+  // sooner). run_m65.f90 builds the deep65 CALL3.TXT candidate list eagerly
+  // before its decode loop starts (build_call3_candidates() in deep65.f90);
+  // without this, that eager build ran against Fortran's still-default/
+  // blank mycall/hiscall, and decode0.f90's genuine mycall-changed check
+  // then forced a second, redundant rebuild on the first real decode.
   {
      QString mcall = (m_myCall + "            ").mid(0, 12);
      QString mgrid = (m_myGrid + "            ").mid(0, 6);
@@ -766,19 +756,11 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
         lab8->setText(QString::number(ndecodes));
         m_map65RxLog   = 0;
 
-        // 2026-09-10: moved here from unconditionally after this whole
-        // <EarlyFinished>/<DecodeFinished> block. It used to fire on
-        // <EarlyFinished> too, clearing the button's blue "busy" color as
-        // soon as the early (nhsym1, ~52s) pass finished -- well before
-        // decodeBusy(false) actually ran, since that's gated on
-        // <DecodeFinished> alone. The two rarely diverged noticeably before
-        // the nhsym snapshot fix (see decode0.f90), since the final pass's
-        // own trigger was usually silently absorbed by a still-running
-        // early pass and contributed nothing further; now that the final
-        // pass reliably runs to completion on its own, it can take many
-        // seconds longer than the early pass, during which the button was
-        // misleadingly showing "idle" while a real decode was still in
-        // progress and more decodes were still about to arrive.
+        // Only clear the button's "busy" styling on <DecodeFinished>, not
+        // <EarlyFinished> -- decodeBusy(false) is likewise gated on
+        // <DecodeFinished> alone, and the final pass can legitimately take
+        // many seconds longer than the early pass, during which the button
+        // must keep showing busy while more decodes are still arriving.
         ui->DecodeButton->setStyleSheet("");
     }
     return;
@@ -794,16 +776,11 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 #ifdef WIN32
         m = 3;
 #endif
-        // 2026-09-10: the m=2/m=3 trim above is calibrated for a normal
-        // decode line's fixed layout, whose last field is a
-        // padding/polarization character -- losing an extra byte or two
-        // there is invisible. Find Delta Phi's "!Best-fit Dphi = NNN deg"
-        // summary line is short and ends on real content (the "g" of
-        // "deg"), so the same trim chops it to "...de". This path only
-        // started actually carrying real data once getdphi's output got
-        // routed through write_stdout (see getdphi.f90) -- never exercised
-        // with live data before, so this truncation was never visible.
-        // Just trim the real line terminator for this one instead.
+        // The m=2/m=3 trim above assumes a normal decode line's fixed
+        // layout, whose last field is disposable padding/polarization --
+        // Find Delta Phi's "!Best-fit Dphi = NNN deg" summary line ends on
+        // real content instead (the "g" of "deg"), so the same trim chops
+        // it to "...de". Just trim the line terminator for this one case.
         const QString decode_line = (t.indexOf("Best-fit") >= 0)
             ? t.mid(1).trimmed()
             : t.mid(1, n - m);
@@ -2304,20 +2281,16 @@ QString hgrid = (ui->dxGridEntry->text() + "      ").mid(0, 6);
   setJunk1(1234);
   setJunk2(5678);
 
-  // 2026-09-08: removed the unconditional setNagain(0) that was here ("added
-  // 12-30-25 to agree with legacy"). In legacy, datcom_.nagain=0 ran AFTER
-  // the memcpy that actually shipped nagain's value to the separate m65
-  // process, so it was a harmless "reset for next time" and never affected
-  // the decode it was called for. Here, decode() writes directly into the
-  // same live Fortran variable the decoder reads, so this line was clobbering
+  // decode() writes directly into the same live Fortran variable the
+  // decoder reads, so an unconditional setNagain(0) here would clobber
   // nagain=1 -- the signal on_DecodeButton_clicked()/Find-Delta-Phi rely on
   // to tell decode0.f90 this is a manual repeat, not a fresh accumulation
   // cycle -- before the decoder ever saw it (see decode0.f90's dd_old
   // refresh guard). The automatic per-minute trigger in dataSink() already
-  // calls setNagain(0) itself before invoking decode(), so removing this is
-  // a no-op for normal automatic decoding. Do NOT reintroduce this line
-  // without also reworking decode0.f90's guard -- see the "2026-09-08" note
-  // there for why newdat itself must stay forced to 1 for both call paths.
+  // calls setNagain(0) itself before invoking decode(), so omitting it here
+  // is a no-op for normal automatic decoding. Do NOT add setNagain(0) here
+  // without also reworking decode0.f90's guard -- newdat itself must stay
+  // forced to 1 for both call paths.
   if (!m_diskData) setNdiskdat(0);  //added 12-30-25 to agree with legacy
   setDecoderReady(1);
   m_map65RxLog=0;

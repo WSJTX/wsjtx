@@ -75,48 +75,14 @@ subroutine decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,  &
      if(ndepth.lt.2 .and. qual.lt.6.0) qual=0.0
   endif
 
-  ! =====================================================================
-  ! 2026-09-10 CHANGE -- read this before touching the line below again.
-  !
-  ! WHAT CHANGED: this override used to require nkv.eq.0 (extract()'s hard
-  ! Reed-Solomon decode having explicitly FAILED) before an AP/Deep Search
-  ! result was allowed to replace it. That condition has been removed --
-  ! decoded/nkv now get overwritten by the AP result whenever qual.ge.1.0,
-  ! regardless of what extract() reported.
-  !
-  ! WHY: extract() reporting "success" (ncount>=0, hence nkv=1 above) does
-  ! NOT guarantee the decoded text is a real message. JT65's RS code has a
-  ! nonzero false-positive rate: noise can coincidentally form a string
-  ! that still passes as a "valid" codeword. When that happened with
-  ! nkv==1, the old code trusted it unconditionally and never even
-  ! compared it to what Deep Search found for the same data -- so a false,
-  ! garbled "success" always won, even against a Deep Search match that
-  ! was overwhelmingly more likely to be correct.
-  !
-  ! EVIDENCE (2026-09-10 debug session, w3sz_debug.log): every confirmed
-  ! FALSE decode observed had qual come back as exactly 0.0 (Deep Search's
-  ! own scoring -- see deep65.f90 -- already zeroes qual whenever a
-  ! candidate doesn't clear its internal acceptance margin, and the
-  ! nqd/ndepth checks just above zero it further). Every confirmed TRUE
-  ! decode Deep Search found scored qual in the THOUSANDS (e.g. 3251,
-  ! 4329, 4342) for the exact same signal. There was no example seen of a
-  ! marginal qual value between "confidently 0" and "confidently right" --
-  ! so qual.ge.1.0 (the same acceptance bar already used elsewhere in this
-  ! routine) is being used as the single cutoff here too, rather than
-  ! inventing a second, separate threshold.
-  !
-  ! RISK / WHAT TO WATCH FOR: this has only been validated against the
-  ! specific false-decode cases from that session (strong, ~-9 to -10 dB
-  ! synthetic JT65 signals). If real-world testing later turns up a
-  ! genuinely correct extract() decode being wrongly replaced by a
-  ! qual.ge.1.0-but-actually-wrong Deep Search guess, that means a
-  ! marginal-qual false positive DOES exist and this simple cutoff is too
-  ! permissive -- the fix then is to raise the bar (a distinct, larger
-  ! threshold applied only when nkv was 1) rather than reverting to the
-  ! old "never override a hard success" behavior, which is what let this
-  ! whole class of false decode through in the first place. Roger/W3SZ,
-  ! 2026-09-10.
-  ! =====================================================================
+  ! Deep Search's AP guess overrides extract()'s hard decode whenever
+  ! qual.ge.1.0, regardless of nkv (whether extract() itself reported
+  ! success). A "successful" hard Reed-Solomon decode doesn't guarantee a
+  ! real message -- JT65's RS code has a nonzero false-positive rate, and a
+  ! qual.ge.1.0 Deep Search match is far more likely to be correct than a
+  ! false RS accept. This cutoff is not immune to a low-but-nonzero
+  ! marginal-qual false accept of its own; see the PR's false-decode-rate
+  ! discussion for known residual cases.
   if (qual.ge.1.0) then
      decoded=deepmsg
      nkv=0

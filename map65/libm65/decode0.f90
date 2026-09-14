@@ -34,41 +34,18 @@ contains
 
       save
 
-      ! 2026-09-09: nhsym is a plain module variable (npar_ptrs_mod) written
-      ! directly by the GUI/audio thread's automatic per-minute trigger and
-      ! read directly by this decoder-thread call, with no locking. A single
-      ! decode0()/map65a() call can run for several seconds (e.g. a slow Q65
-      ! decode attempt), long enough for the NEXT automatic trigger to fire
-      ! and overwrite nhsym out from under this still-running call. Without
-      ! a private snapshot, this call's own later logic (the nhsym1/nhsym2
-      ! completion checks below, and map65a's identical checks -- nhsym is
-      ! passed to map65a by reference and was the SAME live memory) can see
-      ! a different value than it started with, causing an early pass to
-      ! mistake itself for the final pass, prematurely clear newdat, and
-      ! silently consume the real final pass's trigger -- so the final pass
-      ! never runs as its own independent call at all. Snapshot nhsym here,
-      ! as the first thing this call does, and use nhsym0 (not nhsym) for
-      ! every decision and every value passed to map65a() from this point on.
+      ! nhsym (npar_ptrs_mod) is written by the GUI/audio thread's automatic
+      ! per-minute trigger with no locking and can change mid-call; snapshot
+      ! it here and use nhsym0, not the live nhsym, for every decision made
+      ! in this call and everything passed down into map65a().
       nhsym0 = nhsym
 
-      ! 2026-09-10: newdat is ALSO consumed internally by filbig() (see
-      ! filbig.f90) as a one-shot "rebuild the cached big FFT" flag -- the
-      ! FIRST decode1a() call in a JT65 sweep sees newdat/=0, rebuilds the
-      ! (expensive) big FFT once, and sets the shared newdat back to 0 so
-      ! later candidates in the SAME sweep reuse the cache instead of
-      ! recomputing it. But that reset hits the exact same module variable
-      ! run_m65's trigger loop and the GUI's automatic per-minute trigger
-      ! depend on. If the NEXT automatic trigger's own setNewdat(1) lands
-      ! (from the other thread) before this call's first filbig() call
-      ! consumes it, that incoming trigger gets silently erased -- run_m65
-      ! never fires again until some LATER, unrelated trigger happens to
-      ! come along (observed: a "final" pass trigger swallowed this way,
-      ! with nothing running again until the NEXT MINUTE's own early-pass
-      ! trigger, 40+ seconds later). Give this call its own private copy,
-      ! same idea as nhsym0 above: use newdat0 for every internal decision
-      ! and everything passed down into map65a() (and therefore decode1a()/
-      ! filbig()), and only ever write to the real, shared newdat at the
-      ! two explicit completion points below, exactly as before.
+      ! newdat is also consumed internally by filbig() (see filbig.f90) as a
+      ! one-shot "rebuild the cached FFT" flag. Give this call its own
+      ! private copy, same idea as nhsym0 above, so that internal reset
+      ! can't race with a genuinely new trigger landing on the shared
+      ! newdat from the other thread. Only write the real, shared newdat at
+      ! the two explicit completion points below.
       newdat0 = newdat
 
       ! TEMP diagnostic 2026-09-10 for the missing-final-pass / incomplete-
@@ -78,15 +55,11 @@ contains
                ' manualDecodeFlag=' // itoa(manualDecodeFlag) // &
                ' nagain=' // itoa(nagain) // ' ndiskdat=' // itoa(ndiskdat))
 
-      ! 2026-09-08: added ".and. nagain == 0" -- newdat is forced to 1 by
-      ! decode() for EVERY call (manual or automatic) because run_m65's own
-      ! trigger loop requires newdat/=0 to fire a decode at all; it does NOT
-      ! mean "the live buffers just finished a fresh accumulation." A manual
-      ! repeat decode (Decode button / Find Delta Phi) sets nagain=1 for
-      ! exactly this case (legacy: "nagain=1 ==> decode only at fQSO +/-
-      ! Tol") -- use that to tell a real fresh-data cycle (nagain=0, set by
-      ! the automatic dataSink trigger) apart from a manual repeat, instead
-      ! of refreshing dd_old from a live buffer that may still be mid-fill.
+      ! newdat is forced to 1 by decode() for every call (manual or
+      ! automatic); it does not by itself mean "the live buffers just
+      ! finished a fresh accumulation." nagain=1 marks a manual repeat
+      ! (Decode button / Find Delta Phi), which must not refresh dd_old
+      ! from a live buffer that may still be mid-fill.
       if (newdat0 /= 0 .and. manualDecodeFlag == 0 .and. nagain == 0) then
          dd_old   = dd
          ss_old   = ss
@@ -137,19 +110,9 @@ contains
       ndphi = 0
       if (iand(nrxlog, 8) .ne. 0) ndphi = 1
 
-      ! 2026-09-10: mcall3b used to default to 1 (forcing a rebuild) AND
-      ! mycall0/hiscall0/hisgrid0 started blank, guaranteeing the mismatch
-      ! check below fired "changed" on the very first call regardless --
-      ! together they made sure the very first decode always rebuilt the
-      ! deep65 CALL3.TXT candidate list. That's now redundant: run_m65.f90
-      ! builds it once, eagerly, before the decode loop ever starts (see
-      ! build_call3_candidates() in deep65.f90). Left as-is, this first-call
-      ! forced mismatch was clobbering that already-built cache with a
-      ! second, needless ~3.5s rebuild on the very first live decode --
-      ! exactly the real-time-audio-starving cost the eager build was meant
-      ! to move out of the way. Seed mycall0/hiscall0/hisgrid0/neme0 from
-      ! the real values on the first call instead of comparing against
-      ! blank sentinels, so this only fires on a GENUINE later change.
+      ! Seed mycall0/hiscall0/hisgrid0/neme0 from the real values on the
+      ! first call instead of blank sentinels, so the mismatch check below
+      ! only fires on a genuine later change, not on startup.
       if (first_mcall3b_check) then
          mycall0 = mycall
          hiscall0 = hiscall
@@ -229,19 +192,18 @@ contains
          write (line, '("<EarlyFinished>",3I4,I6,F6.2)') &
             nsum, nsave, nstandalone, nhsym0, tdec
          call write_stdout(trim(line)//new_line('a'))
+         ! Clear the shared newdat here too, not just at final/manual
+         ! completion below -- filbig() only ever consumes the private
+         ! newdat0 copy above, so without this the shared flag stays set
+         ! for the whole gap until the final trigger, and run_m65's poll
+         ! loop keeps re-firing this same early pass in a tight loop.
+         newdat = 0
       end if
 
-      ! 2026-09-09: added ".or. nagain /= 0". A manual repeat decode
-      ! (Decode button / Find Delta Phi) is always a single, complete
-      ! request from the GUI's point of view, regardless of what nhsym
-      ! happens to be -- nhsym only reflects the automatic per-minute
-      ! accumulation cycle and, if no automatic decode has ever run yet
-      ! this session, is stuck at its startup default and can never equal
-      ! nhsym2. Without this, such a manual click never clears newdat
-      ! (leaving run_m65's trigger loop to re-fire m65a() every ~50ms
-      ! forever) and never sends the GUI <DecodeFinished> (leaving
-      ! m_decoderBusy/the Decode button stuck on) -- see the
-      ! manualDecodeFlag branch above, which already always does both.
+      ! A manual repeat decode (Decode button / Find Delta Phi) is always a
+      ! single, complete request regardless of nhsym, which only reflects
+      ! the automatic per-minute cycle and may never equal nhsym2 if no
+      ! automatic decode has run yet this session.
       if (nhsym0 == nhsym2 .or. nagain /= 0) then
          write (line, '("<DecodeFinished>",3I4,I6,F6.2,I5)') &
             nsum, nsave, nstandalone, nhsym0, tdec, ndecodes

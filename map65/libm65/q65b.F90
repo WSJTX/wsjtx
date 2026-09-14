@@ -90,8 +90,8 @@
       integer(int16) :: iwave(300*12000)
       complex   :: cx(0:MAXFFT2-1), cy(0:MAXFFT2-1), cz(0:MAXFFT2)
       integer   :: ipk1(1)
-      ! 2026-09-10: small, fixed bin radius for the automatic-candidate ipk
-      ! search (see the note below at "for a wideband candidate"). Deliberately
+      ! Small, fixed bin radius for the automatic-candidate ipk search (see
+      ! the note below at "for a wideband candidate"). Deliberately
       ! independent of the GUI's Ftol (ntol) -- this only needs to absorb
       ! wb_sync's own low-SNR bin-selection noise, not accommodate arbitrary
       ! user-configured search widths.
@@ -156,43 +156,27 @@
       df3 = real(nrate_active)/real(nfft_active)
       ifreq = nint((1000.0*f0)/df3)
 
-      ! 2026-09-09: for a wideband candidate (not a manual click), f0 is
-      ! already a precise, sub-bin frequency estimate from wb_sync --
-      ! searching +/-ntol (the GUI's Ftol, which can be very wide, e.g.
-      ! 1000 Hz) around it for the "orange sync curve" peak lets a stronger
-      ! NEARBY signal's peak dominate the search. With several closely-
-      ! spaced Q65 candidates and a wide Ftol, a genuinely different
-      ! candidate can resolve to that same dominant bin and get silently
-      ! skipped by the ldecoded(ipk) check below as "already decoded", even
-      ! though it's a distinct signal at a different frequency. Use ifreq
-      ! as the search CENTER instead of trusting it as the exact bin -- see
-      ! IPK_LOCAL_BINS below. Originally this also excluded nagain=1 (Decode
-      ! button / Find Delta Phi repeat), but that path runs the same
-      ! per-candidate loop over real wb_sync candidates as automatic
-      ! decoding -- f0 is precise there too, so it needs the same fix, not
-      ! the wide search. Only an actual manual click (manualDecodeFlag/=0),
-      ! where the target itself is an imprecise mousefqso-driven guess,
-      ! still needs the full +/-ntol search.
+      ! For a wideband candidate (not a manual click), f0 is already a
+      ! precise, sub-bin frequency estimate from wb_sync -- searching
+      ! +/-ntol (the GUI's Ftol, which can be very wide) around it for the
+      ! "orange sync curve" peak lets a stronger nearby signal's peak
+      ! dominate the search, so a genuinely different candidate can resolve
+      ! to that same bin and get silently skipped by the ldecoded(ipk)
+      ! check below as "already decoded". nagain=1 (Decode button / Find
+      ! Delta Phi repeat) runs the same per-candidate loop over real
+      ! wb_sync candidates as automatic decoding, so it needs the same
+      ! narrow search too; only an actual manual click
+      ! (manualDecodeFlag/=0), where the target itself is an imprecise
+      ! mousefqso-driven guess, needs the full +/-ntol search.
       !
-      ! 2026-09-10 correction: the first version of this fix went all the
-      ! way to ipk=ifreq -- zero search radius, trusting wb_sync's raw bin
-      ! index exactly. That reintroduced a different problem: f0 (and hence
-      ! ifreq) has no sub-bin refinement at all (see wideband_sync.f90 --
-      ! f0 = 0.001*(n-1)*df3 for a raw integer bin n), so at low SNR, noise
-      ! perturbs the sync curve enough that the true peak can sit a few
-      ! bins away from wherever wb_sync's own coarse search happened to
-      ! land. The old +/-ntol search's side effect of re-finding that true
-      ! nearby peak was, apparently, doing real work -- a paired 1000-file
-      ! statistical retest at SNR -24 dB (Roger, 2026-09-10) showed Q65
-      ! true-positive rate dropping from 31.39% (pre-this-session) to
-      ! 18.42% with ipk=ifreq, most of the way back down to legacy 3.0.1's
-      ! 17.74%. Split the difference: search a small, FIXED bin radius
-      ! (IPK_LOCAL_BINS, independent of the GUI's Ftol) around ifreq. At
-      ! ~2.9 Hz/bin this is roughly +/-15 Hz -- enough to absorb ordinary
-      ! low-SNR bin-selection noise, but far too narrow to ever reach a
-      ! different signal's peak the way the original +/-ntol (up to +/-1000
-      ! Hz) search could. Needs retesting to confirm this recovers the lost
-      ! sensitivity without reopening the two-signal-collision bug.
+      ! f0 (and hence ifreq) has no sub-bin refinement at all (see
+      ! wideband_sync.f90 -- f0 = 0.001*(n-1)*df3 for a raw integer bin n),
+      ! so at low SNR the true sync peak can sit a few bins away from
+      ! wherever wb_sync's own coarse search landed. Search a small, fixed
+      ! bin radius (IPK_LOCAL_BINS, independent of the GUI's Ftol) around
+      ! ifreq instead of trusting it as the exact bin -- enough to absorb
+      ! that bin-selection noise, but far too narrow to ever reach a
+      ! different signal's peak the way the full +/-ntol search could.
       if (manualDecodeFlag .ne. 0) then
          ia = nint(ifreq - ntol/df3)
          ib = nint(ifreq + ntol/df3)
@@ -277,16 +261,15 @@
       ! A manual click already tells us exactly where to look, so center
       ! the analysis window on the actual clicked frequency (f_mouse, which
       ! properly includes mousedf) instead of trusting that curve.
-      ! 2026-09-09: dropped "nagain .eq. 1 .or." -- nagain=1 (Decode button
-      ! / Find Delta Phi repeat) still runs the same per-candidate loop over
-      ! real, precise wb_sync candidates that automatic decoding does; f0 is
-      ! not an imprecise mousefqso click there, so forcing k0 to f_mouse
-      ! made every candidate in that loop decode the SAME narrow window
-      ! near the cursor instead of its own frequency. The one nagain=1 case
-      ! where f0 genuinely comes from mousefqso (the "no candidate found"
-      ! fallback in map65a.f90) already sets f0 = mousefqso + mousedf
-      ! directly, so the default (unoverridden) k0 below lands on the same
-      ! point anyway -- this override was redundant there, not needed.
+      ! nagain=1 (Decode button / Find Delta Phi repeat) runs the same
+      ! per-candidate loop over real, precise wb_sync candidates that
+      ! automatic decoding does -- f0 is not an imprecise mousefqso click
+      ! there, so forcing k0 to f_mouse would make every candidate in that
+      ! loop decode the same narrow window near the cursor instead of its
+      ! own frequency. The one nagain=1 case where f0 genuinely comes from
+      ! mousefqso (the "no candidate found" fallback in map65a.f90) already
+      ! sets f0 = mousefqso + mousedf directly, so the default k0 below
+      ! lands on the same point anyway.
       if (manualDecodeFlag .ne. 0) k0 = nint((f_mouse - 1000.0)/df)
 
       if (k0 .lt. nh .or. k0 .gt. nfft1 - nfft2 + 1) go to 900
@@ -351,10 +334,10 @@
       nsubmode = mode_q65 - 1
       nfa = 990                   !Tight limits around ipk for the wideband decode
       nfb = 1010
-      ! 2026-09-09: dropped "nagain .eq. 1 .or." -- see the matching note on
-      ! k0 above. A real wideband candidate (nagain=0 or 1) already has a
-      ! precise k0/target; widening the search to +/-ntol only makes sense
-      ! for an actual manual click, where the target itself is imprecise.
+      ! See the matching note on k0 above. A real wideband candidate
+      ! (nagain=0 or 1) already has a precise k0/target; widening the
+      ! search to +/-ntol only makes sense for an actual manual click,
+      ! where the target itself is imprecise.
       if (manualDecodeFlag .ne. 0) then
          ! For a manual click, search +/- ntol around the target (k0, set
          ! above) rather than the tight default -- ntol here is the GUI's

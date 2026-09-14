@@ -13,8 +13,8 @@ subroutine m65c() bind(C)
   use debug_log, only: dbg, itoa, rtoa
   use sec_midn_mod, only: sec_midn
   integer :: npatience, nstandalone
-  ! 2026-09-12: mirrors map65a.f90's nhsym_prev_call pattern for
-  ! ldecoded/ljt65decoded resets -- see the fix note below.
+  ! Mirrors map65a.f90's nhsym_prev_call pattern for ldecoded/ljt65decoded
+  ! resets -- see the note below.
   integer, save :: nhsym_prev_m65c = -1
 
   npatience=1
@@ -38,19 +38,12 @@ subroutine m65c() bind(C)
      ! repositioning first, so backspace right away to land back on that
      ! marker, ready for the next append.
      !
-     ! 2026-09-12 fix: only truncate on a genuinely NEW early-pass cycle
-     ! (nhsym_prev_m65c.ne.nhsym1), not on every repeat automatic firing at
-     ! the same nhsym1 -- confirmed via live-UDP instrumentation that
      ! nrxlog bit 4 (set once by "Erase Band Map and Messages") can still
-     ! read as set across several internal repeat firings within the same
-     ! cycle (mainwindow.cpp only clears it on the NEXT EarlyFinished/
-     ! DecodeFinished, which can be several firings later), causing this
-     ! branch to re-truncate unit 26 mid-cycle repeatedly. That wiped out
-     ! an already-written Q65 decode (correctly never rewritten thanks to
-     ! ldecoded) before the cycle's final consolidated display() call could
-     ! show it -- observed as a Q65 signal decoding correctly, appearing
-     ! briefly, then permanently vanishing from the Messages window despite
-     ! being correctly present in map65_rx.log the whole time.
+     ! read as set across several internal repeat automatic firings within
+     ! the same cycle (mainwindow.cpp only clears it on the next
+     ! EarlyFinished/DecodeFinished, which can be several firings later),
+     ! so only truncate on a genuinely new early-pass cycle
+     ! (nhsym_prev_m65c.ne.nhsym1), not on every one of those repeats.
      if(nhsym.eq.nhsym1 .and. nhsym_prev_m65c.ne.nhsym1) then
         call dbg('m65c: UNIT26 TRUNCATED (endfile) at t=' // rtoa(sec_midn()) // &
                  ' nhsym=' // itoa(nhsym) // ' nrxlog=' // itoa(nrxlog))

@@ -7,17 +7,14 @@ module decodes_mod
   integer :: ndecodes = 0
   integer :: nhsym1 = 0, nhsym2 = 0
   logical, allocatable :: ldecoded(:)
-  ! 2026-09-10: JT65's analog of ldecoded above. ldecoded tracks which bins
-  ! Q65 has already decoded THIS accumulation cycle, so a repeat automatic
+  ! JT65's analog of ldecoded above -- tracks which bins have already
+  ! produced a real decode this accumulation cycle, so a repeat automatic
   ! call (run_m65 legitimately re-firing map65a() before nhsym itself has
   ! advanced -- see map65a.f90's nhsym_prev_call handling) doesn't
-  ! re-discover and re-report the same signal. JT65 candidates never had an
-  ! equivalent: their only dedup is select_unique_decodes(), which only
-  ! looks WITHIN one map65a() call's own accumulated candidates, blind to
-  ! what an earlier, separate call already emitted. Confirmed in testing:
-  ! live UDP streaming's repeat early-pass firings duplicate a JT65 decode
-  ! ("!" write_stdout line, hence a duplicate in the Messages window) the
-  ! same way ldecoded was protecting Q65 from before this fix.
+  ! re-discover and re-report the same signal. select_unique_decodes()
+  ! alone isn't enough for this: it only looks within one map65a() call's
+  ! own accumulated candidates, blind to what an earlier, separate call
+  ! already emitted.
   logical, allocatable :: ljt65decoded(:)
   integer :: mcall3a = 0
 
