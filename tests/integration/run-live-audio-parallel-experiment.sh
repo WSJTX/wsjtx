@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Local soak for overlapping GUI live-audio smokes. Not used by CI.
+# Local soak for overlapping GUI/audio smokes and non-GUI canaries.
+# Not used by CI.
 #
 # --smoke checks the harness only (no GUI tests). Use that before a long soak.
 set -u
@@ -21,7 +22,19 @@ phase="all"
 repeats_soak=20
 repeats_pair=10
 smoke=0
-live_re='test_wsjtx_live_audio_ft8|test_wsjtx_live_audio_jtty|test_wsjtx_jtty_tx_loopback'
+audio_re='test_wsjtx_live_audio_ft8|test_wsjtx_live_audio_jtty|test_wsjtx_jtty_tx_loopback|test_wsjtx_ft8_tx_loopback'
+gui_audio_re="test_wsjtx_startup|${audio_re}"
+canary_re='test_q65_decode_pipeline|test_tci_transceiver_characterization'
+experiment_re="${gui_audio_re}|${canary_re}"
+experiment_tests=(
+  test_wsjtx_startup
+  test_wsjtx_live_audio_ft8
+  test_wsjtx_live_audio_jtty
+  test_wsjtx_jtty_tx_loopback
+  test_wsjtx_ft8_tx_loopback
+  test_q65_decode_pipeline
+  test_tci_transceiver_characterization
+)
 xvfb=(xvfb-run -a -s '-screen 0 1280x1024x24')
 failures=0
 ran=0
@@ -53,10 +66,17 @@ if ! command -v ctest >/dev/null 2>&1; then
   exit 2
 fi
 
-listed=$(ctest --test-dir "${build_dir}" -N -R "${live_re}" | awk '/Test #/{print $3}')
-expected=$'test_wsjtx_live_audio_ft8\ntest_wsjtx_live_audio_jtty\ntest_wsjtx_jtty_tx_loopback'
-if [[ "${listed}" != "${expected}" ]]; then
-  echo "ctest did not list the three live-audio tests:" >&2
+listed=$(ctest --test-dir "${build_dir}" -N -R "${experiment_re}" | awk '/Test #/{print $3}')
+for expected in "${experiment_tests[@]}"; do
+  if [[ $'\n'"${listed}"$'\n' != *$'\n'"${expected}"$'\n'* ]]; then
+    echo "ctest did not list ${expected}:" >&2
+    echo "${listed}" >&2
+    exit 2
+  fi
+done
+listed_count=$(printf '%s\n' "${listed}" | awk 'NF { count++ } END { print count + 0 }')
+if [[ "${listed_count}" -ne "${#experiment_tests[@]}" ]]; then
+  echo "ctest listed unexpected experiment tests:" >&2
   echo "${listed}" >&2
   exit 2
 fi
@@ -64,7 +84,7 @@ fi
 if [[ "${smoke}" -eq 1 ]]; then
   echo "smoke: xvfb-run and ctest listing ok"
   echo "smoke: tests:"
-  printf '  %s\n' ${listed}
+  printf '  %s\n' "${experiment_tests[@]}"
   echo "smoke: would run phase=${phase} soak=${repeats_soak} pair=${repeats_pair}"
   echo "======== 3 load start/stop ========"
   pids=()
@@ -109,9 +129,9 @@ run_suite_repeats () {
 
 phase1 () {
   run_suite_repeats "1 serial" "${repeats_soak}" \
-    -R "${live_re}" --output-on-failure
+    -R "${experiment_re}" --output-on-failure
   run_suite_repeats "1 parallel -j3" "${repeats_soak}" \
-    -j3 -R "${live_re}" --output-on-failure
+    -j3 -R "${experiment_re}" --output-on-failure
 }
 
 phase2 () {
@@ -124,8 +144,22 @@ phase2 () {
   run_suite_repeats "2 JTTY live || JTTY TX loopback" "${repeats_pair}" \
     -j2 -R 'test_wsjtx_live_audio_jtty|test_wsjtx_jtty_tx_loopback' \
     --output-on-failure
-  run_suite_repeats "2 all three -j3" "${repeats_pair}" \
-    -j3 -R "${live_re}" --output-on-failure
+  run_suite_repeats "2 FT8 TX || FT8 live" "${repeats_pair}" \
+    -j3 -R 'test_wsjtx_ft8_tx_loopback|test_wsjtx_live_audio_ft8' \
+    --output-on-failure
+  run_suite_repeats "2 FT8 TX || JTTY live" "${repeats_pair}" \
+    -j3 -R 'test_wsjtx_ft8_tx_loopback|test_wsjtx_live_audio_jtty' \
+    --output-on-failure
+  run_suite_repeats "2 FT8 TX || JTTY TX loopback" "${repeats_pair}" \
+    -j3 -R 'test_wsjtx_ft8_tx_loopback|test_wsjtx_jtty_tx_loopback' \
+    --output-on-failure
+  run_suite_repeats "2 FT8 TX || canaries" "${repeats_pair}" \
+    -j3 -R "test_wsjtx_ft8_tx_loopback|${canary_re}" \
+    --output-on-failure
+  run_suite_repeats "2 startup || audio tests -j3" "${repeats_pair}" \
+    -j3 -R "${gui_audio_re}" --output-on-failure
+  run_suite_repeats "2 all four audio tests -j3" "${repeats_pair}" \
+    -j3 -R "${audio_re}" --output-on-failure
 }
 
 phase3 () {
@@ -138,7 +172,7 @@ phase3 () {
     pids+=($!)
   done
   run_suite_repeats "3 parallel -j3 under load" "${repeats_pair}" \
-    -j3 -R "${live_re}" --output-on-failure
+    -j3 -R "${experiment_re}" --output-on-failure
   kill "${pids[@]}" 2>/dev/null || true
   wait "${pids[@]}" 2>/dev/null || true
 }

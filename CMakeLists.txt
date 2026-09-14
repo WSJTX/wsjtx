@@ -1064,6 +1064,22 @@ if (WSJT_ENABLE_TSAN)
 endif ()
 
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
+  set (wsjtx_startup_test_root
+    "${CMAKE_BINARY_DIR}/Testing/Startup/test_wsjtx_startup")
+  file (MAKE_DIRECTORY
+    "${wsjtx_startup_test_root}/config"
+    "${wsjtx_startup_test_root}/data"
+    "${wsjtx_startup_test_root}/cache"
+    "${wsjtx_startup_test_root}/tmp")
+  set (wsjtx_startup_test_environment
+    "XDG_CONFIG_HOME=${wsjtx_startup_test_root}/config"
+    "XDG_DATA_HOME=${wsjtx_startup_test_root}/data"
+    "XDG_CACHE_HOME=${wsjtx_startup_test_root}/cache"
+    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_startup")
+  if (NOT APPLE)
+    list (APPEND wsjtx_startup_test_environment
+      "TMPDIR=${wsjtx_startup_test_root}/tmp")
+  endif ()
   if (APPLE)
     add_test (
       NAME test_wsjtx_startup
@@ -1080,7 +1096,8 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
     set (wsjtx_startup_test_timeout 20)
   endif ()
   set_tests_properties (test_wsjtx_startup PROPERTIES
-    RUN_SERIAL TRUE
+    ENVIRONMENT "${wsjtx_startup_test_environment}"
+    PROCESSORS 1
     TIMEOUT ${wsjtx_startup_test_timeout}
   )
   if (WSJT_ENABLE_TSAN)
@@ -1095,6 +1112,10 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       (CMAKE_SYSTEM_NAME STREQUAL "Linux"
         AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")))
   add_dependencies (wsjtx sjtty)
+
+  # Each full WSJT-X process allocates about 48 MiB of System V shared memory.
+  # The macOS CI pool is sized for three concurrent instances, so keep GUI
+  # process concurrency at three unless that limit is raised as well.
 
   set (wsjtx_live_audio_test_root
     "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_ft8")
@@ -1208,7 +1229,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
   set_tests_properties (test_wsjtx_ft8_tx_loopback PROPERTIES
     COST 43
     LABELS "gui;audio;decoder;ft8;integration"
-    RUN_SERIAL TRUE
+    PROCESSORS 2
     TIMEOUT 150)
   if (WSJT_ENABLE_TSAN)
     set_tests_properties (
