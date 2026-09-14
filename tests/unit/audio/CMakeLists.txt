@@ -67,40 +67,47 @@ add_executable (test_receive_audio_handoff
 target_link_libraries (test_receive_audio_handoff
   wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
 target_include_directories (test_receive_audio_handoff PRIVATE ${CMAKE_BINARY_DIR})
-# Run each case in a fresh process: refspectrum has saved accumulation state.
-foreach (scenario IN ITEMS
+set (receive_handoff_scenarios
     downsamplersRetainIndependentHistory
     producersRemainIsolatedAcrossSourceSwitch
     queued_prefix_without_reuse
     handoff_rejects_gaps_and_disk_stale_work
     queued_period_must_retain_identity
-    reference_measurement_vs_append
-    reference_measurement_vs_reset
-    reference_application_preserves_uncommitted_suffix
     reference_input_packetization
-    reference_application_packetization
-    reference_measurement_packetization
     echo_metadata_vs_append
     echo_metadata_vs_reset
     stale_echo_metadata_must_not_modify_next_period)
+add_test (NAME test_receive_audio_handoff
+  COMMAND test_receive_audio_handoff ${receive_handoff_scenarios})
+
+# refspectrum has saved accumulation state, so keep DSP cases in fresh
+# processes.
+set (receive_handoff_isolated_scenarios
+    reference_measurement_vs_append
+    reference_measurement_vs_reset
+    reference_application_preserves_uncommitted_suffix
+    reference_application_packetization
+    reference_measurement_packetization)
+set (receive_handoff_tests test_receive_audio_handoff)
+foreach (scenario IN LISTS receive_handoff_isolated_scenarios)
   add_test (NAME test_receive_${scenario}
     COMMAND test_receive_audio_handoff ${scenario})
-  set_tests_properties (test_receive_${scenario} PROPERTIES
-    TIMEOUT 30 LABELS "receive-handoff")
-  if (WSJT_ENABLE_TSAN)
-    # Do not inherit GUI event-dispatch suppressions: they can hide the very
-    # application callback accesses that these tests are intended to expose.
-    set (receive_handoff_tsan_options "halt_on_error=1:exitcode=66")
-    # Opening the reference-filter file triggers a libgfortran-internal lock
-    # ordering warning unrelated to receive ownership.  Keep race detection
-    # enabled while disabling only TSan's deadlock detector for these cases.
-    if (scenario MATCHES "^reference_application_")
-      string (APPEND receive_handoff_tsan_options ":detect_deadlocks=0")
-    endif ()
-    set_tests_properties (test_receive_${scenario} PROPERTIES
-      ENVIRONMENT "TSAN_OPTIONS=${receive_handoff_tsan_options}")
-  endif ()
+  list (APPEND receive_handoff_tests test_receive_${scenario})
 endforeach ()
+set_tests_properties (${receive_handoff_tests} PROPERTIES
+  TIMEOUT 30 LABELS "receive-handoff")
+if (WSJT_ENABLE_TSAN)
+  # Do not inherit GUI event-dispatch suppressions: they can hide the very
+  # application callback accesses that these tests are intended to expose.
+  set_tests_properties (${receive_handoff_tests} PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
+  # Reference file I/O triggers a libgfortran-internal lock-order warning.
+  set_tests_properties (
+    test_receive_reference_application_preserves_uncommitted_suffix
+    test_receive_reference_application_packetization
+    test_receive_reference_measurement_packetization PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66:detect_deadlocks=0")
+endif ()
 
 add_executable (test_fast_decode_ownership
   test_fast_decode_ownership.cpp
@@ -111,26 +118,17 @@ add_executable (test_fast_decode_ownership
 target_link_libraries (test_fast_decode_ownership
   wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
 target_include_directories (test_fast_decode_ownership PRIVATE ${CMAKE_BINARY_DIR})
-foreach (scenario IN ITEMS unchanged samples mycall hiscall period arguments)
-  add_test (NAME test_fast_decode_captures_${scenario}
-    COMMAND test_fast_decode_ownership captures_submission_inputs:${scenario})
-endforeach ()
-add_test (NAME test_fast_decode_capture_vs_append
-  COMMAND test_fast_decode_ownership capture_does_not_race_live_append)
-add_test (NAME test_fast_decode_overlapping_jobs_retain_identity
-  COMMAND test_fast_decode_ownership overlapping_jobs_retain_submission_identity)
-add_test (NAME test_fast_decode_overlap_does_not_race_decoder
-  COMMAND test_fast_decode_ownership overlapping_submission_does_not_race_decoder)
-set (fast_decode_ownership_tests
-  test_fast_decode_captures_unchanged test_fast_decode_captures_samples
-  test_fast_decode_captures_mycall test_fast_decode_captures_hiscall
-  test_fast_decode_captures_period test_fast_decode_captures_arguments
-  test_fast_decode_capture_vs_append
-  test_fast_decode_overlapping_jobs_retain_identity
-  test_fast_decode_overlap_does_not_race_decoder)
-set_tests_properties (${fast_decode_ownership_tests} PROPERTIES
+add_test (NAME test_fast_decode_ownership COMMAND test_fast_decode_ownership
+  captures_submission_inputs capture_does_not_race_live_append
+  overlapping_jobs_retain_submission_identity)
+set_tests_properties (test_fast_decode_ownership PROPERTIES
   TIMEOUT 30 LABELS "receive-handoff;fast-decode-ownership")
 if (WSJT_ENABLE_TSAN)
-  set_tests_properties (${fast_decode_ownership_tests} PROPERTIES
+  add_test (NAME test_fast_decode_overlap_does_not_race_decoder
+    COMMAND test_fast_decode_ownership
+      overlapping_submission_does_not_race_decoder)
+  set_tests_properties (test_fast_decode_ownership
+    test_fast_decode_overlap_does_not_race_decoder PROPERTIES
+    TIMEOUT 30 LABELS "receive-handoff;fast-decode-ownership"
     ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
 endif ()

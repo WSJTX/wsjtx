@@ -185,14 +185,10 @@ add_executable (test_jtty_replay_ownership
   ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp)
 target_link_libraries (test_jtty_replay_ownership
   Qt5::Core Qt5::Test)
-foreach (scenario IN ITEMS fixed_range end_of_message_stops_replay
-    picked_stop_processed_once replay_is_bounded_at_start replay_bound_read_vs_append)
-  add_test (NAME test_jtty_${scenario}
-    COMMAND test_jtty_replay_ownership ${scenario})
-  set_tests_properties (test_jtty_${scenario} PROPERTIES
-    TIMEOUT 30 LABELS "receive-handoff;jtty-replay")
-  if (WSJT_ENABLE_TSAN)
-    set_tests_properties (test_jtty_${scenario} PROPERTIES
-      ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
-  endif ()
-endforeach ()
+add_test (NAME test_jtty_replay_ownership COMMAND test_jtty_replay_ownership)
+set_tests_properties (test_jtty_replay_ownership PROPERTIES
+  TIMEOUT 30 LABELS "receive-handoff;jtty-replay")
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_jtty_replay_ownership PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
+endif ()

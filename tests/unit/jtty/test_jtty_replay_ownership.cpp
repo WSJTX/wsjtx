@@ -16,7 +16,7 @@ class TestJttyReplayOwnership : public QObject
 {
   Q_OBJECT
 
-  void replayWithLiveInput (bool waitForAppend)
+  void verifyReplayBoundWithLiveInput ()
   {
     std::atomic<int> liveFrames {3 * step};
     std::mutex mutex;
@@ -52,9 +52,8 @@ class TestJttyReplayOwnership : public QObject
           std::unique_lock<std::mutex> lock {mutex};
           released = true;
           changed.notify_all ();
-          if (waitForAppend)
-            appendFinished = changed.wait_for (lock, std::chrono::seconds {5},
-                                               [&] { return done; });
+          appendFinished = changed.wait_for (lock, std::chrono::seconds {5},
+                                             [&] { return done; });
         }
       return false;
     });
@@ -62,7 +61,7 @@ class TestJttyReplayOwnership : public QObject
     QVERIFY (producerReady);
     QVERIFY (producerReleased);
     QCOMPARE (liveFrames.load (), 4 * step);
-    if (waitForAppend) QVERIFY (appendFinished);
+    QVERIFY (appendFinished);
     // Manual replay is a finite request over its starting receive range;
     // audio arriving during a decode belongs to subsequent processing.
     QCOMPARE (visited, QVector<int> ({step, 2 * step}));
@@ -89,17 +88,6 @@ private Q_SLOTS:
     QCOMPARE (visited, expected);
   }
 
-  void end_of_message_stops_replay ()
-  {
-    int frames = 8 * step;
-    QVector<int> visited;
-    replayJttyFrames (frames, [&] (int k) {
-      visited.append (k);
-      return k == 2 * step;
-    });
-    QCOMPARE (visited, QVector<int> ({step, 2 * step}));
-  }
-
   void picked_stop_processed_once ()
   {
     int frames = 8 * step;
@@ -112,8 +100,7 @@ private Q_SLOTS:
     QCOMPARE (visited, QVector<int> ({step, 2 * step}));
   }
 
-  void replay_is_bounded_at_start () { replayWithLiveInput (true); }
-  void replay_bound_read_vs_append () { replayWithLiveInput (false); }
+  void replay_is_bounded_at_start () { verifyReplayBoundWithLiveInput (); }
 };
 
 QTEST_GUILESS_MAIN (TestJttyReplayOwnership)

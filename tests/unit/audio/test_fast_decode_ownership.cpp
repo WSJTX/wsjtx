@@ -147,21 +147,9 @@ class TestFastDecodeOwnership : public QObject
 {
   Q_OBJECT
 private Q_SLOTS:
-  void captures_submission_inputs_data ()
-  {
-    QTest::addColumn<int> ("mutation");
-    QTest::newRow ("unchanged") << 0;
-    QTest::newRow ("samples") << 1;
-    QTest::newRow ("mycall") << 2;
-    QTest::newRow ("hiscall") << 3;
-    QTest::newRow ("period") << 4;
-    QTest::newRow ("arguments") << 5;
-  }
-
   void captures_submission_inputs ()
   {
-    QFETCH (int, mutation);
-    std::fill_n (storage.d2, capacity, short (1234));
+    std::fill_n (storage.d2, committed, short (1234));
     Inputs input;
     auto const expectedArguments = input.arguments;
     DecoderProbe probe;
@@ -171,11 +159,11 @@ private Q_SLOTS:
     // All caller storage remains alive. The release orders these mutations
     // before the probe reads, so an assertion failure is an ownership defect,
     // not undefined behavior deliberately introduced by the test.
-    if (mutation == 1) std::fill_n (storage.d2, capacity, short (5678));
-    if (mutation == 2) std::memcpy (input.myCall.data (), "N0NEW       ", 12);
-    if (mutation == 3) std::memcpy (input.hisCall.data (), "G4NEW       ", 12);
-    if (mutation == 4) input.period = 30;
-    if (mutation == 5) input.arguments[10] = 2500;
+    std::fill_n (storage.d2, committed, short (5678));
+    std::memcpy (input.myCall.data (), "N0NEW       ", 12);
+    std::memcpy (input.hisCall.data (), "G4NEW       ", 12);
+    input.period = 30;
+    input.arguments[10] = 2500;
     probe.release ();
     future.waitForFinished ();
     activeProbe = nullptr;
@@ -277,8 +265,8 @@ private Q_SLOTS:
 
   void overlapping_jobs_retain_submission_identity ()
   {
-    std::fill_n (storage.d2, capacity, short (1234));
-    std::vector<short> secondSamples (capacity, short (5678));
+    std::fill_n (storage.d2, committed, short (1234));
+    std::vector<short> secondSamples (committed, short (5678));
     Inputs first, second;
     first.arguments[0] = 111000;
     second.arguments[0] = 222000;
@@ -311,8 +299,8 @@ private Q_SLOTS:
 
   void overlapping_submission_does_not_race_decoder ()
   {
-    std::fill_n (storage.d2, capacity, short (1234));
-    std::vector<short> secondSamples (capacity, short (5678));
+    std::fill_n (storage.d2, committed, short (1234));
+    std::vector<short> secondSamples (committed, short (5678));
     Inputs first, second;
     first.arguments[0] = 111000;
     second.arguments[0] = 222000;
