@@ -108,7 +108,7 @@
     <message>
         <location filename="../widgets/activeStations.ui" line="207"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click on a line to call that station. &lt;/p&gt;&lt;p&gt;When using QMAP, single click to transfer QSO data and sked frequency to WSJT-X, and double click to call that station.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Клікніть на рядку, щоб викликати цю станцію.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Клікніть на рядку, щоб викликати цю станцію.&lt;/p&gt;&lt;p&gt;Під час роботи з QMAP одинарний клік передає дані QSO та домовлену частоту до WSJT-X, а подвійний клік викликає цю станцію.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/activeStations.cpp" line="21"/>
@@ -142,7 +142,7 @@
     <message>
         <location filename="../widgets/astro.ui" line="55"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;One station does all Doppler shift correction, their QSO partner receives and transmits on the sked frequency.&lt;/p&gt;&lt;p&gt;If the rig does not accept CAT QSY commands while transmitting a single correction is applied for the whole transmit period.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Одна станція виконує всю поправку на доплерівський зсув, і її сигнал чути на власній частоті зв&apos;язку.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Одна станція виконує всю поправку на доплерівський зсув, і її сигнал чути на власній частоті зв&apos;язку.&lt;/p&gt;&lt;p&gt;Якщо трансивер не приймає команди CAT QSY під час передачі, одну поправку застосовують на весь період передачі.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="58"/>
@@ -152,7 +152,7 @@
     <message>
         <location filename="../widgets/astro.ui" line="68"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit takes place on sked frequency and receive frequency is  corrected for own echoes. &lt;/p&gt;&lt;p&gt;This mode can be used for calling CQ, or when using Echo mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Передача йде на домовленій частоті, а частота прийому виправляється на доплерівський зсув.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Передача йде на домовленій частоті, а частота прийому виправляється на доплерівський зсув.&lt;/p&gt;&lt;p&gt;Цей режим можна використовувати для виклику CQ або в режимі Echo.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="71"/>
@@ -162,7 +162,7 @@
     <message>
         <location filename="../widgets/astro.ui" line="78"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Both stations correct for Doppler shift such that they would be heard on the moon at the sked frequency.&lt;/p&gt;&lt;p&gt;If the rig does not accept CAT QSY commands while transmitting a single correction is applied for the whole transmit period.&lt;/p&gt;&lt;p&gt;Use this option also for Echo mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Обидві станції виправляють доплерівський зсув так, щоб їхні сигнали приходили на Місяць на сталій частоті.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Обидві станції виправляють доплерівський зсув так, щоб їхні сигнали приходили на Місяць на сталій частоті.&lt;/p&gt;&lt;p&gt;Якщо трансивер не приймає команди CAT QSY під час передачі, одну поправку застосовують на весь період передачі.&lt;/p&gt;&lt;p&gt;Цей варіант також використовуйте для режиму Echo.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="81"/>
@@ -172,7 +172,7 @@
     <message>
         <location filename="../widgets/astro.ui" line="91"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DX station announces their TX Freq, which is entered as the Sked Freq. Correction applied to RX and TX so you appear on the DX&apos;s station&apos;s own echo Freq.&lt;/p&gt;&lt;p&gt;If the rig does not accept CAT QSY commands while transmitting a single correction is applied for the whole transmit period.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Станція DX оголошує свою частоту передачі, яку вводять як домовлену.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Станція DX оголошує свою частоту передачі, яку вводять як домовлену.&lt;/p&gt;&lt;p&gt;Якщо трансивер не приймає команди CAT QSY під час передачі, одну поправку застосовують на весь період передачі.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="94"/>
@@ -182,7 +182,7 @@
     <message>
         <location filename="../widgets/astro.ui" line="104"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tune radio manually and select this mode to put your echo on the same frequency.&lt;/p&gt;&lt;p&gt;If the rig does not accept CAT QSY commands while transmitting a single correction is applied for the whole transmit period.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Налаштуйте трансивер вручну й оберіть цей режим, щоб ваше відлуння лишалося на сталій частоті.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Налаштуйте трансивер вручну й оберіть цей режим, щоб ваше відлуння лишалося на сталій частоті.&lt;/p&gt;&lt;p&gt;Якщо трансивер не приймає команди CAT QSY під час передачі, одну поправку застосовують на весь період передачі.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="107"/>
@@ -347,7 +347,7 @@
     <message>
         <location filename="../models/CabrilloLog.cpp" line="95"/>
         <source>Date &amp; Time(UTC)</source>
-        <translation>Дата й час (UTC)</translation>
+        <translation>Дата й &amp;час (UTC)</translation>
     </message>
     <message>
         <location filename="../models/CabrilloLog.cpp" line="96"/>
@@ -2221,7 +2221,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../models/FoxLog.cpp" line="147"/>
         <source>Date &amp; Time(UTC)</source>
-        <translation>Дата й час (UTC)</translation>
+        <translation>Дата й &amp;час (UTC)</translation>
     </message>
     <message>
         <location filename="../models/FoxLog.cpp" line="148"/>
@@ -4306,13 +4306,14 @@ Yellow when too low</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1449"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to call CQ on the &amp;quot;Tx CQ&amp;quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.&lt;/p&gt;&lt;p&gt;Not available to nonstandard callsign holders.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Позначте, щоб викликати CQ на частоті «Tx CQ». Прийом лишатиметься на поточній частоті, а повідомлення CQ міститиме частоту прийому.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Позначте, щоб викликати CQ на частоті «Tx CQ». Прийом лишатиметься на поточній частоті, а повідомлення CQ міститиме частоту прийому.&lt;/p&gt;&lt;p&gt;Недоступно для власників нестандартних позивних.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1452"/>
         <source>Check this to call CQ on the &quot;Tx CQ&quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.
 Not available to nonstandard callsign holders.</source>
-        <translation>Позначте, щоб викликати CQ на частоті «Tx CQ». Прийом лишатиметься на поточній частоті, а повідомлення CQ міститиме частоту прийому.</translation>
+        <translation>Позначте, щоб викликати CQ на частоті «Tx CQ». Прийом лишатиметься на поточній частоті, а повідомлення CQ міститиме частоту прийому.
+Недоступно для власників нестандартних позивних.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1463"/>
@@ -4743,7 +4744,7 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
         <location filename="../widgets/mainwindow.ui" line="2284"/>
         <location filename="../widgets/mainwindow.ui" line="2287"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;p&gt;Right-click to retain Tx5 free text&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Перемкнутися на це повідомлення ЗАРАЗ&lt;/p&gt;&lt;p&gt;Подвійний клік повертає типове повідомлення.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Перемкнутися на це повідомлення ЗАРАЗ&lt;/p&gt;&lt;p&gt;Подвійний клік повертає типове повідомлення.&lt;/p&gt;&lt;p&gt;Клік правою кнопкою зберігає вільний текст Tx5.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2290"/>
@@ -10779,7 +10780,7 @@ comments field.</source>
     <message>
         <location filename="../Configuration.ui" line="2482"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional hostname of network service to receive decodes.&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable the broadcasting of UDP status updates.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Необов&apos;язкове ім&apos;я вузла мережевої служби, яка прийматиме декоди.&lt;/p&gt;&lt;p&gt;Формати:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Необов&apos;язкове ім&apos;я вузла мережевої служби, яка прийматиме декоди.&lt;/p&gt;&lt;p&gt;Допустимі формати: ім&apos;я вузла, адреса IPv4, адреса IPv6, групова адреса IPv4 multicast або групова адреса IPv6 multicast.&lt;/p&gt;&lt;p&gt;Очищення цього поля вимикає трансляцію оновлень стану UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2492"/>
@@ -10799,7 +10800,7 @@ comments field.</source>
     <message>
         <location filename="../Configuration.ui" line="2522"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Надсилаючи оновлення на групову (multicast) адресу, потрібно вказати, через які мережеві інтерфейси їх передавати. Якщо петльовий інтерфейс підтримує multicast, оберіть принаймні його.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Надсилаючи оновлення на групову (multicast) адресу, потрібно вказати, через які мережеві інтерфейси їх передавати. Якщо петльовий інтерфейс підтримує multicast, оберіть принаймні його.&lt;/p&gt;&lt;p&gt;Для більшості користувачів достатньо петльового інтерфейсу: це дає змогу кільком іншим програмам на тому самому комп&apos;ютері взаємодіяти з WSJT-X. Якщо оновлення стану мають отримувати програми на інших вузлах, слід використовувати відповідний мережевий інтерфейс.&lt;/p&gt;&lt;p&gt;У деяких системах Linux може знадобитися увімкнути multicast на петльовому мережевому інтерфейсі.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2529"/>
@@ -10864,7 +10865,7 @@ comments field.</source>
     <message>
         <location filename="../Configuration.ui" line="2617"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional host name of N1MM Logger+ program to receive ADIF UDP broadcasts. This is usually &apos;localhost&apos; or ip address 127.0.0.1&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable broadcasting of ADIF information via UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Необов&apos;язкове ім&apos;я вузла програми N1MM Logger+, яка прийматиме розсилку ADIF по UDP. Зазвичай це «localhost» або адреса 127.0.0.1.&lt;/p&gt;&lt;p&gt;Формати:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Необов&apos;язкове ім&apos;я вузла програми N1MM Logger+, яка прийматиме розсилку ADIF по UDP. Зазвичай це «localhost» або адреса 127.0.0.1.&lt;/p&gt;&lt;p&gt;Допустимі формати: ім&apos;я вузла, адреса IPv4, адреса IPv6, групова адреса IPv4 multicast або групова адреса IPv6 multicast.&lt;/p&gt;&lt;p&gt;Очищення цього поля вимикає трансляцію даних ADIF через UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2624"/>
@@ -11030,7 +11031,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="3077"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Вмикайте й вимикайте прапорцями; правий клік на рядку змінює або скидає колір тексту чи тла та повертає типові значення. Перетягуванням змінюється пріоритет.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Вмикайте й вимикайте прапорцями; правий клік на рядку змінює або скидає колір тексту чи тла та повертає типові значення. Перетягуванням змінюється пріоритет.&lt;/p&gt;&lt;p&gt;Колір тексту й колір тла можна окремо встановити або скасувати; скасування означає, що для цього типу елемента колір не призначено й може застосовуватися колір елементів з нижчим пріоритетом.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="3104"/>
@@ -12035,7 +12036,7 @@ Click, SHIFT+Click and, CTRL+Click to select items</source>
     <message>
         <location filename="../Configuration.ui" line="5220"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Discard (Cancel) or apply (OK) configuration changes including&lt;/p&gt;&lt;p&gt;resetting the radio interface and applying any soundcard changes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Скасувати («Скасувати») або застосувати («Гаразд») зміни налаштувань, зокрема&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Скасувати («Скасувати») або застосувати («Гаразд») зміни налаштувань, зокрема&lt;/p&gt;&lt;p&gt;скидання інтерфейсу трансивера та застосування будь-яких змін звукової карти.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -12163,7 +12164,7 @@ Choose Retry after closing the other instance.</source>
     <message>
         <location filename="../wf_palette_design_dialog.ui" line="23"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Double click a color to edit it.&lt;/p&gt;&lt;p&gt;Right click to insert or delete colors.&lt;/p&gt;&lt;p&gt;Colors at the top represent weak signals&lt;/p&gt;&lt;p&gt;and colors at the bottom represent strong&lt;/p&gt;&lt;p&gt;signals. You can have up to 256 colors.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Подвійний клік на кольорі — редагувати його.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Подвійний клік на кольорі — редагувати його.&lt;/p&gt;&lt;p&gt;Клік правою кнопкою вставляє або видаляє кольори.&lt;/p&gt;&lt;p&gt;Кольори вгорі позначають слабкі сигнали,&lt;/p&gt;&lt;p&gt;а кольори внизу — сильні.&lt;/p&gt;&lt;p&gt;Можна використати до 256 кольорів.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 </TS>
