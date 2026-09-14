@@ -1079,20 +1079,12 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
     // the floor until the next period starts
   }
 
-  // block below adjusts receive audio attenuation
-  quint64 i = 0;
-  float * data1 = (float*)malloc(maxSize * sizeof(float));
-  for(i=0;i<(quint64)maxSize;i++) {
-    data1[i] = ((float)(pow(10, 0.05*rxAtten) * data[i]));
-  }
+  double const receiveGain = std::pow (10.0, 0.05 * rxAtten);
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
     auto& producer = m_receiveAudioProducer.data ();
-    if (dec_data_input_blocked ()) {
-      free(data1);
-      return maxSize;
-    }
+    if (dec_data_input_blocked ()) return maxSize;
 
     if(mstr < m_lastPeriodOffsetMs/2) { //When mstr has wrapped around to 0, restart the buffer
       clear ();
@@ -1119,8 +1111,8 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
                                        m_downSampleFactor - m_bufferPos, remaining));
 
       if(m_downSampleFactor > 1) {
-        store (&data1[(framesAccepted - remaining) * rxChannels],
-              numFramesProcessed, &m_buffer[m_bufferPos]);
+        store (&data[(framesAccepted - remaining) * rxChannels],
+              numFramesProcessed, &m_buffer[m_bufferPos], receiveGain);
         m_bufferPos += numFramesProcessed;
 
         if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
@@ -1143,8 +1135,9 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
         }
 
       } else {
-        store (&data1[(framesAccepted - remaining) * rxChannels],
-              numFramesProcessed, &producer.d2[m_receiveAudioProducer.frames ()]);
+        store (&data[(framesAccepted - remaining) * rxChannels],
+              numFramesProcessed, &producer.d2[m_receiveAudioProducer.frames ()],
+              receiveGain);
         m_bufferPos += numFramesProcessed;
         m_receiveAudioProducer.setFrames (m_receiveAudioProducer.frames () + numFramesProcessed);
         if (m_bufferPos == static_cast<unsigned> (m_samplesPerFFT)) {
@@ -1162,7 +1155,6 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
   }
   for (auto const& block : audio) Q_EMIT receiveAudio (block);
 
-  free(data1);
   return maxSize;    // we drop any data past the end of the buffer on
   // the floor until the next period starts
 }

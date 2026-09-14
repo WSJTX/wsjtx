@@ -170,12 +170,12 @@ protected:
     return static_cast<qint16> (K * sample);
   }
 
-  void store (float * source, size_t numFrames, qint16 * dest)
+  void store (float const * source, size_t numFrames, qint16 * dest,
+              double gain)
   {
     for (size_t i {0}; i < numFrames; ++i) {
-       dest[i] = tci_audio_sample_to_int16 (source[i*2]);
+      dest[i] = tci_audio_sample_to_int16 (gain * source[i * 2]);
     }
-
   }
 
   float * load (qint16 sample, quint32 channels, float * dest)
