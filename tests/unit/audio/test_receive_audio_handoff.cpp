@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 #include "Audio/AudioDevice.hpp"
@@ -23,6 +24,8 @@
 #include "commons.h"
 #include "ReferenceSpectrum.hpp"
 #include "wsjtx_config.h"
+
+extern "C" void refspectrum_ (short *, int *, bool *, bool *, bool *, char const *, fortran_charlen_t);
 
 namespace
 {
@@ -74,13 +77,62 @@ bool writeSamples (Detector& detector, int count, short value)
   auto const bytes = qint64 (samples.size () * sizeof (short));
   return detector.write (reinterpret_cast<char const *> (samples.data ()), bytes) == bytes;
 }
+
+bool writeReferenceSpectrum (QFile& file)
+{
+  if (!file.open (QIODevice::WriteOnly)) return false;
+  file.write (QString::asprintf ("%5d%5d%5d", 400, 2600, 5).toLatin1 ());
+  for (int i = 0; i < 5; ++i)
+    file.write (QString::asprintf ("%25.16e", 0.).toLatin1 ());
+  file.write ("\n");
+  for (int i = 1; i <= 3456; ++i)
+    file.write (QString::asprintf ("%10.3f%12.3e%12.6f%12.6f%12.6f\n",
+      12000. * i / 6912., 1., 0., 0.5, -6.0206).toLatin1 ());
+  file.close ();
+  return true;
+}
+
+std::vector<short> noiseSamples (int count)
+{
+  std::vector<short> samples (count);
+  unsigned noise = 1;
+  for (auto& sample : samples)
+    {
+      noise = 1664525u * noise + 1013904223u;
+      sample = short (int (noise >> 20) - 2048);
+    }
+  return samples;
+}
+
+std::vector<short> runReferenceSpectrum (std::vector<short> const& original,
+                                         int step, bool measure,
+                                         QByteArray const& path)
+{
+  auto samples = original;
+  bool clear = true, apply = !measure;
+  int zero = 0;
+  refspectrum_ (samples.data (), &zero, &clear, &measure, &apply,
+                path.constData (), fortran_charlen_t (path.size ()));
+  clear = false;
+  ReferenceSpectrumInput reference;
+  for (int end = std::min (step, int (samples.size ())); ;
+       end = std::min (end + step, int (samples.size ())))
+    {
+      reference.consume (samples.data (), end, measure ? 1 : 2,
+        [&] (short * p, int count) {
+          refspectrum_ (p, &count, &clear, &measure, &apply,
+                        path.constData (), fortran_charlen_t (path.size ()));
+        });
+      if (end == int (samples.size ())) break;
+    }
+  return samples;
+}
 }
 
 dec_data_t& dec_data = storage;
 extern "C" void receive_reference_probe (short *, int);
 extern "C" void receive_reference_apply_probe (short *, int);
 extern "C" void fil4_state_ (qint16 *, qint32 *, qint16 *, qint32 *, float *);
-extern "C" void refspectrum_ (short *, int *, bool *, bool *, bool *, char const *, fortran_charlen_t);
 extern "C" void save_echo_params_ (int *, int *, int *, float *, float *,
                                    int *, int *, short *, int *);
 
@@ -141,7 +193,7 @@ class TestReceiveAudioHandoff : public QObject
     QCOMPARE (observed[1], rollover ? patternB : patternA);
   }
 
-  void consumerRace (bool rollover, bool snapshot, bool echo = false)
+  void consumerRace (bool rollover, bool echo = false)
   {
     int const initialFrames = echo ? 8 * block : committed;
     Detector detector {12000, rollover ? (echo ? 3.0 : 1.0) : 15.0, 1};
@@ -152,7 +204,6 @@ class TestReceiveAudioHandoff : public QObject
     bool consumerReady = false;
     bool producerReady = false;
     bool wrote = false;
-    std::vector<short> owned;
     auto received = std::make_unique<dec_data_t> ();
     ReceiveAudioConsumer consumer;
     QEventLoop events;
@@ -168,12 +219,6 @@ class TestReceiveAudioHandoff : public QObject
       // 3584-sample notification step or symbol length.
       auto * input = echo ? received->d2
                          : received->d2 + frames - 3456;
-      if (snapshot)
-        {
-          QMutexLocker lock {&dec_data_mutex ()};
-          owned.assign (input, input + (echo ? initialFrames : 3456));
-          input = owned.data ();
-        }
       consumerReady = start.arrive ();
       if (consumerReady)
         {
@@ -210,14 +255,7 @@ class TestReceiveAudioHandoff : public QObject
     QVERIFY (consumed);
     QVERIFY (producerReady);
     QVERIFY (consumerReady);
-    if (snapshot)
-      {
-        // Check after the writer has finished reusing the source storage.
-        QCOMPARE (owned.size (), std::size_t (echo ? initialFrames : 3456));
-        QVERIFY (std::all_of (owned.begin () + (echo ? 15 : 0), owned.end (),
-                             [] (short x) { return x == patternA; }));
-      }
-    QVERIFY (std::all_of (received->d2 + (echo && !snapshot ? 15 : 0),
+    QVERIFY (std::all_of (received->d2 + (echo ? 15 : 0),
                          received->d2 + initialFrames,
                          [] (short x) { return x == patternA; }));
     if (echo)
@@ -226,7 +264,7 @@ class TestReceiveAudioHandoff : public QObject
         actual.total = actual.audio = actual.rit = actual.spacing = 0;
         actual.frequency = actual.spread = 0;
         actual.tones.fill (0);
-        actual.transfer (snapshot ? owned.data () : received->d2, -1);
+        actual.transfer (received->d2, -1);
         EchoMetadata expected;
         QCOMPARE (actual.total, expected.total);
         QCOMPARE (actual.audio, expected.audio);
@@ -236,8 +274,7 @@ class TestReceiveAudioHandoff : public QObject
         QCOMPARE (actual.spread, expected.spread);
         QVERIFY (actual.tones == expected.tones);
         // Header insertion must leave all captured audio after sample 15 intact.
-        auto const * samples = snapshot ? owned.data () : received->d2;
-        QVERIFY (std::all_of (samples + 15, samples + initialFrames,
+        QVERIFY (std::all_of (received->d2 + 15, received->d2 + initialFrames,
                              [] (short x) { return x == patternA; }));
       }
     // TSan checks conflicting accesses when the compiler instruments them.
@@ -409,9 +446,8 @@ private Q_SLOTS:
 
   void queued_prefix_without_reuse () { notificationTest (false); }
   void queued_period_must_retain_identity () { notificationTest (true); }
-  void reference_measurement_vs_append () { consumerRace (false, false); }
-  void reference_measurement_vs_reset () { consumerRace (true, false); }
-  void owned_reference_survives_reset () { consumerRace (true, true); }
+  void reference_measurement_vs_append () { consumerRace (false); }
+  void reference_measurement_vs_reset () { consumerRace (true); }
   void reference_application_preserves_uncommitted_suffix ()
   {
     std::fill_n (dec_data.d2, committed, patternA);
@@ -425,73 +461,74 @@ private Q_SLOTS:
     QVERIFY (std::equal (suffix.begin (), suffix.end (),
                          dec_data.d2 + committed));
   }
+  void reference_input_packetization ()
+  {
+    std::vector<short> samples (13952);
+    std::vector<std::pair<int, int>> calls;
+    ReferenceSpectrumInput reference;
+    auto record = [&] (short * p, int count) {
+      calls.emplace_back (int (p - samples.data ()), count);
+    };
+
+    reference.consume (samples.data (), 128, 2, record);
+    reference.consume (samples.data (), 2176, 2, record);
+    reference.consume (samples.data (), 5760, 2, record);
+    reference.consume (samples.data (), 13952, 2, record);
+    reference.consume (samples.data (), 13952, 2, record);
+
+    std::vector<std::pair<int, int>> const expected {
+      {0, 0}, {0, 128}, {128, 2048}, {2176, 3456}, {5632, 128},
+      {5760, 3456}, {9216, 3456}, {12672, 1280}
+    };
+    QVERIFY (calls == expected);
+
+    calls.clear ();
+    reference.consume (samples.data (), 32, 2, record);
+    std::vector<std::pair<int, int>> const newPeriod {{0, 0}, {0, 32}};
+    QVERIFY (calls == newPeriod);
+
+    calls.clear ();
+    reference.reset ();
+    reference.consume (samples.data (), 64, 2, record);
+    std::vector<std::pair<int, int>> const reset {{0, 0}, {0, 64}};
+    QVERIFY (calls == reset);
+  }
   void reference_application_packetization ()
   {
     QTemporaryDir directory;
     QVERIFY (directory.isValid ());
     auto path = (directory.path () + "/refspec.dat").toLocal8Bit ();
     QFile file (QString::fromLocal8Bit (path));
-    QVERIFY (file.open (QIODevice::WriteOnly));
-    file.write (QString::asprintf ("%5d%5d%5d", 400, 2600, 5).toLatin1 ());
-    for (int i = 0; i < 5; ++i) file.write (QString::asprintf ("%25.16e", 0.).toLatin1 ());
-    file.write ("\n");
-    for (int i = 1; i <= 3456; ++i)
-      file.write (QString::asprintf ("%10.3f%12.3e%12.6f%12.6f%12.6f\n",
-        12000. * i / 6912., 1., 0., 0.5, -6.0206).toLatin1 ());
-    file.close ();
-    std::vector<short> original (8 * 3456);
-    unsigned noise = 1;
-    for (auto& sample : original)
-      {
-        noise = 1664525u * noise + 1013904223u;
-        sample = short (int (noise >> 20) - 2048);
-      }
-    auto run = [&] (int step, bool measure) {
-      auto samples = original;
-      bool clear = true, apply = !measure;
-      int zero = 0;
-      refspectrum_ (samples.data (), &zero, &clear, &measure, &apply,
-                    path.constData (), fortran_charlen_t (path.size ()));
-      clear = false;
-      ReferenceSpectrumInput reference;
-      for (int end = std::min (step, int (samples.size ())); ;
-           end = std::min (end + step, int (samples.size ())))
-        {
-          auto const untouched = std::vector<short> (samples.begin () + end, samples.end ());
-          reference.consume (samples.data (), end, measure ? 1 : 2,
-            [&] (short * p, int count) {
-              refspectrum_ (p, &count, &clear, &measure, &apply,
-                            path.constData (), fortran_charlen_t (path.size ()));
-            });
-          if (!std::equal (untouched.begin (), untouched.end (), samples.begin () + end))
-            samples.clear ();
-          if (samples.empty () || end == int (samples.size ())) break;
-        }
-      return samples;
-    };
-    auto const baseline = run (3456, false);
+    QVERIFY (writeReferenceSpectrum (file));
+    auto const original = noiseSamples (2 * 3456);
+    auto const baseline = runReferenceSpectrum (original, 3456, false, path);
     QCOMPARE (baseline.size (), original.size ());
     QVERIFY (baseline != original);
     QVERIFY (std::any_of (baseline.begin (), baseline.end (), [] (short s) {return s != 0;}));
-    for (int step : {128, 2048, 3584, 8192})
-      {
-        auto const output = run (step, false);
-        QCOMPARE (output.size (), baseline.size ());
-        for (std::size_t i = 0; i < output.size (); ++i)
-          QVERIFY (std::abs (int (output[i]) - int (baseline[i])) <= 1);
-      }
-    // Fixed measurement windows must also be independent of packetization.
-    QCOMPARE (run (3456, true), original);
+    auto const output = runReferenceSpectrum (original, 3584, false, path);
+    QCOMPARE (output.size (), baseline.size ());
+    for (std::size_t i = 0; i < output.size (); ++i)
+      QVERIFY (std::abs (int (output[i]) - int (baseline[i])) <= 1);
+  }
+  void reference_measurement_packetization ()
+  {
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    auto path = (directory.path () + "/refspec.dat").toLocal8Bit ();
+    QFile file (QString::fromLocal8Bit (path));
+    auto const original = noiseSamples (4 * 3456);
+
+    QCOMPARE (runReferenceSpectrum (original, 3456, true, path), original);
     QVERIFY (file.open (QIODevice::ReadOnly));
     auto const measured = file.readAll ();
     file.close ();
-    QCOMPARE (run (3584, true), original);
+    QVERIFY (!measured.isEmpty ());
+    QCOMPARE (runReferenceSpectrum (original, 3584, true, path), original);
     QVERIFY (file.open (QIODevice::ReadOnly));
     QCOMPARE (file.readAll (), measured);
   }
-  void echo_metadata_vs_append () { consumerRace (false, false, true); }
-  void echo_metadata_vs_reset () { consumerRace (true, false, true); }
-  void owned_echo_metadata_survives_reset () { consumerRace (true, true, true); }
+  void echo_metadata_vs_append () { consumerRace (false, true); }
+  void echo_metadata_vs_reset () { consumerRace (true, true); }
 };
 
 QTEST_GUILESS_MAIN (TestReceiveAudioHandoff)

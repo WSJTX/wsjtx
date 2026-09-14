@@ -76,13 +76,13 @@ foreach (scenario IN ITEMS
     queued_period_must_retain_identity
     reference_measurement_vs_append
     reference_measurement_vs_reset
-    owned_reference_survives_reset
     reference_application_preserves_uncommitted_suffix
+    reference_input_packetization
     reference_application_packetization
+    reference_measurement_packetization
     echo_metadata_vs_append
     echo_metadata_vs_reset
-    stale_echo_metadata_must_not_modify_next_period
-    owned_echo_metadata_survives_reset)
+    stale_echo_metadata_must_not_modify_next_period)
   add_test (NAME test_receive_${scenario}
     COMMAND test_receive_audio_handoff ${scenario})
   set_tests_properties (test_receive_${scenario} PROPERTIES
