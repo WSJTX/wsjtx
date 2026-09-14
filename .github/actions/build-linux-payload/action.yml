@@ -269,6 +269,7 @@ runs:
         name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-deb
         path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}.deb
         if-no-files-found: error
+        compression-level: 0
 
     # RPM builds via the same CPack scaffolding the .deb step above
     # uses. CMakeLists.txt:2014-2026 already auto-detects rpmbuild and
@@ -304,6 +305,7 @@ runs:
         name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-rpm
         path: wsjtx-build/*.rpm
         if-no-files-found: error
+        compression-level: 0
 
     - name: Install to AppDir
       if: inputs.build_packages == 'true'
@@ -430,6 +432,7 @@ runs:
         name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-AppImage
         path: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}.AppImage
         if-no-files-found: error
+        compression-level: 0
 
     - name: Upload build artifacts
       if: inputs.build_packages == 'true'

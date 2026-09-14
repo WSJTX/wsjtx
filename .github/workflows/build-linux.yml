@@ -449,6 +449,7 @@ jobs:
           name: wsjtx-${{ inputs.version }}-linux-armhf-deb
           path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-armhf.deb
           if-no-files-found: error
+          compression-level: 0
       - name: Upload RPM
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
@@ -456,6 +457,7 @@ jobs:
           name: wsjtx-${{ inputs.version }}-linux-armhf-rpm
           path: wsjtx-build/*.rpm
           if-no-files-found: error
+          compression-level: 0
       - name: Upload AppImage
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
@@ -463,6 +465,7 @@ jobs:
           name: wsjtx-${{ inputs.version }}-linux-armhf-AppImage
           path: wsjtx-${{ inputs.version }}-linux-armhf.AppImage
           if-no-files-found: error
+          compression-level: 0
       - name: Upload build artifacts
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
