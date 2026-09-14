@@ -937,7 +937,7 @@ endif
                      if (iloop .ge. 1) qphi(iloop) = sig(k, 10)
 
                      write (line, '("!",I3,I5,I4,I6.4,F5.1,I5,1X,A1,1X,A22,I2,I5,I5,1X,A1)') &
-                        nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, 30*iloop
+                        nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, 30*iloop, '-'
                      call write_stdout(trim(line)//new_line('a'))
                      write (27, 1011) 30*iloop, nkHz, ndf, npol, nutc, &
                         dt, sync2, nkv, nqual, cm, decoded
