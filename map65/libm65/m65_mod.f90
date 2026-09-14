@@ -19,7 +19,12 @@ subroutine m65c() bind(C)
      flush(21)
   endif
   ! rewind alone doesn't truncate; endfile does, but backspace is needed after it to allow further appends.
-  if(iand(nrxlog,2).ne.0) then
+  ! Guarded to nhsym1, same as unit 26 below: nrxlog stays set for the whole
+  ! nhsym1..nhsym2 window (it's only cleared on the next C++ decode() call),
+  ! and m65c() fires once per hsym in that window, so an unguarded truncate
+  ! here would also wipe out decode records map65a.f90/q65b.F90 write to
+  ! unit 21 later in the same window.
+  if(nhsym.eq.nhsym1 .and. iand(nrxlog,2).ne.0) then
      rewind(21)
      endfile(21)
      backspace(21)
