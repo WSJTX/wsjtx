@@ -19,7 +19,7 @@ wsjt_link_common_fortran (test_q65_decode_pipeline)
 
 add_test (NAME test_q65_decode_pipeline COMMAND test_q65_decode_pipeline)
 set_tests_properties (test_q65_decode_pipeline PROPERTIES
-  COST 28
+  COST 10
   # Allow for hosted ARM emulation without leaving the test unbounded.
   TIMEOUT 180)
 if (WSJT_ENABLE_TSAN)
