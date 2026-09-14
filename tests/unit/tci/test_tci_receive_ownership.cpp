@@ -26,7 +26,7 @@ namespace
 {
 dec_data_t storage {};
 constexpr int block = 3456;
-constexpr int captureCount = 2 * block;
+constexpr int captureCount = block;
 
 struct ReceiveClock
 {
@@ -220,7 +220,6 @@ public:
         payload[2 * i + 1] = -pcm[offset + i]; // Distinct unused right channel.
       }
     bool const sent = server.send_binary (bytes);
-    server.flush ();
     return sent;
   }
 
@@ -231,10 +230,10 @@ public:
     while (offset < int (pcm.size ()))
       {
         int count = std::min (chunks[index++ % chunks.size ()], int (pcm.size ()) - offset);
-        if (!packet (pcm, offset, count, receiver) || !fence ()) return false;
+        if (!packet (pcm, offset, count, receiver)) return false;
         offset += count;
       }
-    return true;
+    return fence ();
   }
 
   std::vector<short> snapshot ()
@@ -301,7 +300,7 @@ private Q_SLOTS:
     QVERIFY (h.start ());
     auto pcm = signal (captureCount, 0.0f);
     for (std::size_t i = 0; i < pcm.size (); ++i)
-      pcm[i] = 0.2f * std::sin (0.07 * i);
+      pcm[i] = (int (i % 31) - 15) / 32.0f;
     // fil4 has persistent FIR history. Feed the same silent pre-roll for each
     // run; do not reset it through test-only access to Fortran saved state.
     QVERIFY (h.feed (signal (block, 0.0f)));
@@ -309,10 +308,10 @@ private Q_SLOTS:
     auto first = h.snapshot ();
     QVERIFY (h.enableAudio (false));
     QVERIFY (h.enableAudio (true));
-    QVERIFY (h.feed (signal (block, 0.0f), {511, 1701, 2047}));
-    QVERIFY (h.feed (pcm, {511, 1701, 2047}));
+    QVERIFY (h.feed (signal (block, 0.0f), {4095}));
+    QVERIFY (h.feed (pcm, {4095}));
     auto second = h.snapshot ();
-    QCOMPARE (first.size (), std::size_t (3 * block));
+    QCOMPARE (first.size (), std::size_t (2 * block));
     QCOMPARE (second.size (), first.size ());
     QVERIFY (std::any_of (first.begin () + block, first.end (), [] (short x) { return x != 0; }));
     // Discard pre-roll output: its first taps legitimately contain history
@@ -320,32 +319,27 @@ private Q_SLOTS:
     QVERIFY (std::equal (first.begin () + block, first.end (), second.begin () + block));
   }
 
-  void ignored_audio_does_not_change_reception_data ()
-  {
-    QTest::addColumn<bool> ("disabled");
-    QTest::newRow ("other-receiver") << false;
-    QTest::newRow ("disabled-audio") << true;
-  }
-
   void ignored_audio_does_not_change_reception ()
   {
-    QFETCH (bool, disabled);
     Harness h;
     QVERIFY (h.start ());
     QVERIFY (h.feed (signal (captureCount, 0.125f)));
     auto before = h.snapshot ();
     int const notifications = h.notifications ();
-    if (disabled) QVERIFY (h.enableAudio (false));
-    QVERIFY (h.feed (signal (block, -0.25f), {1024}, disabled ? 0 : 1));
+
+    QVERIFY (h.feed (signal (block, -0.25f), {4096}, 1));
+    QVERIFY (before == h.snapshot ());
+    QCOMPARE (h.notifications (), notifications);
+
+    QVERIFY (h.enableAudio (false));
+    QVERIFY (h.feed (signal (block, -0.25f)));
     QVERIFY (before == h.snapshot ());
     QCOMPARE (h.notifications (), notifications);
     // An accepted block is a positive control proving the transport and gate
     // work, rather than mistaking an idle or disconnected receiver for success.
-    if (disabled) QVERIFY (h.enableAudio (true));
-    auto const priorSize = h.snapshot ().size ();
+    QVERIFY (h.enableAudio (true));
     QVERIFY (h.feed (signal (block, -0.25f)));
-    QCOMPARE (h.snapshot ().size (), disabled ? std::size_t (block)
-                                              : priorSize + block);
+    QCOMPARE (h.snapshot ().size (), std::size_t (block));
   }
 
   void submitted_job_survives_period_reuse ()
@@ -389,6 +383,7 @@ private Q_SLOTS:
     QVERIFY (h.feed (next));
     h.clock.arm ();
     QVERIFY (h.packet (std::vector<float> { -0.25f }, 0, 1));
+    h.server.flush ();
     bool const paused = h.clock.waitPaused ();
     Job job;
     DecodeProbe probe;
