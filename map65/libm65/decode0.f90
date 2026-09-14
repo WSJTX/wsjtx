@@ -192,12 +192,6 @@ contains
          write (line, '("<EarlyFinished>",3I4,I6,F6.2)') &
             nsum, nsave, nstandalone, nhsym0, tdec
          call write_stdout(trim(line)//new_line('a'))
-         ! Clear the shared newdat here too, not just at final/manual
-         ! completion below -- filbig() only ever consumes the private
-         ! newdat0 copy above, so without this the shared flag stays set
-         ! for the whole gap until the final trigger, and run_m65's poll
-         ! loop keeps re-firing this same early pass in a tight loop.
-         newdat = 0
       end if
 
       ! A manual repeat decode (Decode button / Find Delta Phi) is always a
