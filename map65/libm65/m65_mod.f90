@@ -18,12 +18,7 @@ subroutine m65c() bind(C)
 1000 format(/'UTC Date: ', a17, /78('-'))
      flush(21)
   endif
-  ! rewind alone doesn't truncate; endfile does, but backspace is needed after it to allow further appends.
-  ! Guarded to nhsym1, same as unit 26 below: nrxlog stays set for the whole
-  ! nhsym1..nhsym2 window (it's only cleared on the next C++ decode() call),
-  ! and m65c() fires once per hsym in that window, so an unguarded truncate
-  ! here would also wipe out decode records map65a.f90/q65b.F90 write to
-  ! unit 21 later in the same window.
+  ! rewind alone doesn't truncate; endfile+backspace does, guarded to nhsym1 like unit 26 below so repeat calls in the same window don't wipe out later decode writes.
   if(nhsym.eq.nhsym1 .and. iand(nrxlog,2).ne.0) then
      rewind(21)
      endfile(21)
