@@ -413,17 +413,17 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           TAG="${GITHUB_REF_NAME}"
-          # Filter to user-facing release assets. `find artifacts -type f`
-          # without filtering pulls in 5× ctest-results.xml (one per
-          # platform) and per-binary tarballs from individual-binaries-*
-          # that collide on basename across architectures — `gh release
-          # create` uses basenames as asset names and duplicates cause
-          # upload failures.
-          mapfile -t FILES < <(find artifacts -maxdepth 2 -type f \
-            \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
-               -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.rpm" \))
+          # Publish installers, distribution packages, and the GA source
+          # archive. Individual macOS tool archives and raw Windows build
+          # executables remain CI artifacts, not end-user release downloads.
+          mapfile -t FILES < <(.github/scripts/list-release-assets.sh artifacts "$VERSION")
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error::No release assets found for ${VERSION}"
+            exit 1
+          fi
           # SemVer pre-release tags contain a hyphen after the version
           # (e.g., v3.0.1-rc1, v3.0.1-rc2, v3.0.1-beta1). Flag those as
           # GitHub pre-releases so they don't appear as the latest stable.
@@ -448,12 +448,14 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           PUBLIC_TAG="${GITHUB_REF_NAME#build/}"
-          # Same asset filter as the internal release. Re-find rather than
-          # carrying a list — keeps the all-platforms-ready gate, internal
-          # release, and public release mechanically aligned on one filter.
-          mapfile -t FILES < <(find artifacts -maxdepth 2 -type f \
-            \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
-               -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.rpm" \))
+          # Match the internal release exactly. Individual macOS tool archives
+          # and raw Windows build executables remain CI artifacts rather than
+          # public release downloads.
+          mapfile -t FILES < <(.github/scripts/list-release-assets.sh artifacts "$VERSION")
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error::No release assets found for ${VERSION}"
+            exit 1
+          fi
           gh release create "$PUBLIC_TAG" \
             -R WSJTX/wsjtx \
             --title "WSJT-X ${VERSION}" \
