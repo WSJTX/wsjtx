@@ -31,7 +31,7 @@
       write(unit) datasize
    end subroutine write_wav_header
 
-      subroutine q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, ntol, xpol, &
+      subroutine q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, ntol, xpol, configured_dphi_deg, &
                   mycall0, mygrid, hiscall0, hisgrid, mode_q65, f0, fqso, newdat, nagain, &
                   max_drift, ndop00, idec)
 
@@ -64,6 +64,7 @@
       integer,      intent(in)    :: mousedf
       integer,      intent(in)    :: ntol
       logical,      intent(in)    :: xpol
+      integer,      intent(in)    :: configured_dphi_deg
       character(len=12), intent(in)    :: mycall0
       character(len=6),  intent(in)    :: mygrid
       character(len=12), intent(in)    :: hiscall0
@@ -101,7 +102,7 @@
       integer   :: npol, nq65df, nsubmode, ntxpol, nutc00, nh
       integer   :: nfa, nfb
       integer   :: k0_click, mousedf_gate
-      real      :: df, df3, f_ipk, f_mouse, fac
+      real      :: df, df3, dphi, f_ipk, f_mouse, fac
       real      :: combine_poldeg, freq1_00, frx, fsked, poldeg, r, snr1
       real(real64)    :: freq0, freq1
       character(len=12) :: mycall, hiscall
@@ -285,6 +286,11 @@
       if (xpol) then
          cy(0:nfft2 - 1) = cb(k0:k0 + nfft2 - 1)
          cy = fac*cy
+         if (configured_dphi_deg .ne. 0) then
+            dphi = configured_dphi_deg/RAD
+            ! The sync weights describe the phase-corrected basis from symspec.
+            cy(0:nfft2 - 1) = cmplx(cos(dphi), sin(dphi))*cy(0:nfft2 - 1)
+         endif
       endif
 
 ! Here cx and cy (if xpol) are frequency-domain data around the selected

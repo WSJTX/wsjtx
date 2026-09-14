@@ -421,7 +421,7 @@ contains
 
             call timer('q65b    ', 0)
             call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                      ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                      ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                       newdat, nagain, max_drift, ndop00, idec)
             call timer('q65b    ', 1)
 
@@ -960,7 +960,7 @@ endif
                   call timer('q65b    ', 0)                  
 
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                           ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                           ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                            newdat, nagain, max_drift, ndop00, idec)
 
                   call timer('q65b    ', 1)
@@ -981,7 +981,7 @@ endif
                   call timer('q65b    ', 0)
                  
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                        ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                        ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                         newdat, nagain, max_drift, ndop00, idec)
 
                   call timer('q65b    ', 1)
@@ -1038,7 +1038,7 @@ endif
                call timer('q65b    ', 0)
 
                call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                        ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                        ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                         newdat, nagain, max_drift, ndop00, idec)
 
                call timer('q65b    ', 1)
