@@ -9,6 +9,10 @@ checked on the *File | Settings | General* tab and a callsign is
 present in the *DX Call* box, the *DX Call* button turns yellow to
 warn that your station is primed to transmit.
 
+When operating as a Hound, double-click a potential Fox decoded at
+`:00` or `:30`. Stations decoded at `:15` or `:45` use the Hound
+transmit slot and cannot be selected.
+
 //.Misc Controls Left
 image::misc-main-ui.png[align="center",alt="Misc Menu Items"]
 
