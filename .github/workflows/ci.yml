@@ -49,6 +49,7 @@ jobs:
       linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
       armhf_image_tag: ${{ steps.armhf-image.outputs.image_tag }}
       save_linux_ccache: ${{ steps.ccache-policy.outputs.save_ccache }}
+      build_linux_packages: ${{ steps.packaging-policy.outputs.build_packages }}
     steps:
       - uses: actions/checkout@v7
       - name: Validate workflow job timeouts
@@ -59,6 +60,7 @@ jobs:
           .github/scripts/is-linux-ci-image-input.sh --self-test
           .github/scripts/select-ccache-key-suffix.sh --self-test
           .github/scripts/select-linux-ccache-save.sh --self-test
+          .github/scripts/select-linux-packaging.sh --self-test
           .github/scripts/test-linux-ccache-compiler-signature.sh
           .github/scripts/test-verify-linux-ci-image.sh
           python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
@@ -80,6 +82,14 @@ jobs:
           REQUEST_SAVE_CCACHE: ${{ inputs.save_ccache || false }}
           RECACHE: ${{ inputs.recache || false }}
         run: .github/scripts/select-linux-ccache-save.sh
+      - id: packaging-policy
+        name: Select Linux packaging policy
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CURRENT_SHA: ${{ github.sha }}
+          FULL_CI: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+        run: .github/scripts/select-linux-packaging.sh
       - id: linux-image
         name: Resolve Linux CI image generation
         env:
@@ -160,6 +170,7 @@ jobs:
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       validate_fortran_fallback: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+      build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
     secrets: inherit
 
   linux-sanitizers:
@@ -205,6 +216,7 @@ jobs:
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
+      build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
     secrets: inherit
 
   linux-armhf:
@@ -222,6 +234,7 @@ jobs:
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
+      build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
     secrets: inherit
 
   windows:

@@ -1,9 +1,7 @@
 name: "Build Linux payload"
 description: >-
-  Build, test, and package wsjtx for one Linux architecture. Encapsulates the
-  full payload — cmake build + ctest + .deb + RPM + AppImage —
-  so build-linux.yml can call it once per arch from a validated GHCR build
-  environment. The caller decides job-container versus explicit Docker
+  Build and test wsjtx for one Linux architecture, with optional package and
+  artifact production. The caller decides job-container versus explicit Docker
   execution; this action runs the shared native pipeline.
 
 inputs:
@@ -33,6 +31,10 @@ inputs:
     description: "Build the x86_64 non-OpenMP common-library sentinel graph"
     required: false
     default: "false"
+  build_packages:
+    description: "Build, validate, and upload Linux packages and executable artifacts"
+    required: false
+    default: "true"
   release_channel:
     description: "Build release channel: DEVEL, RC, or GA"
     required: false
@@ -236,6 +238,7 @@ runs:
     # align the filename with the AppImage/installer naming used by
     # the rest of the pipeline.
     - name: Package .deb
+      if: inputs.build_packages == 'true'
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
@@ -260,6 +263,7 @@ runs:
         validate_deb_package "$DEB"
 
     - name: Upload .deb
+      if: inputs.build_packages == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-deb
@@ -273,6 +277,7 @@ runs:
     # missing. `-G RPM` is explicit so this step doesn't accidentally
     # rebuild the .deb already produced above.
     - name: Package RPM
+      if: inputs.build_packages == 'true'
       shell: bash
       working-directory: wsjtx-build
       run: |
@@ -280,6 +285,7 @@ runs:
         ls -lh *.rpm
 
     - name: Smoke-test RPM
+      if: inputs.build_packages == 'true'
       shell: bash
       working-directory: wsjtx-build
       run: |
@@ -292,6 +298,7 @@ runs:
         validate_rpm_package "$RPM"
 
     - name: Upload RPM
+      if: inputs.build_packages == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-rpm
@@ -299,6 +306,7 @@ runs:
         if-no-files-found: error
 
     - name: Install to AppDir
+      if: inputs.build_packages == 'true'
       shell: bash
       env:
         ARCH: ${{ inputs.arch }}
@@ -308,6 +316,7 @@ runs:
         validate_linux_application_tree AppDir appdir "$ARCH"
 
     - name: Package AppImage
+      if: inputs.build_packages == 'true'
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
@@ -380,6 +389,7 @@ runs:
         file "$OUTPUT"
 
     - name: Smoke-test AppImage payload
+      if: inputs.build_packages == 'true'
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
@@ -392,6 +402,7 @@ runs:
         rm -rf squashfs-root
 
     - name: Runtime-smoke-test AppImage
+      if: inputs.build_packages == 'true'
       id: appimage_runtime_smoke
       shell: bash
       env:
@@ -404,7 +415,7 @@ runs:
         run_packaged_appimage_startup_smoke "./$APPIMAGE" "$LOG"
 
     - name: Upload AppImage startup diagnostics
-      if: failure() && steps.appimage_runtime_smoke.outcome == 'failure'
+      if: inputs.build_packages == 'true' && failure() && steps.appimage_runtime_smoke.outcome == 'failure'
       uses: actions/upload-artifact@v7
       with:
         name: wsjtx-startup-smoke-linux-${{ inputs.arch }}
@@ -413,6 +424,7 @@ runs:
         retention-days: 7
 
     - name: Upload AppImage
+      if: inputs.build_packages == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-AppImage
@@ -420,6 +432,7 @@ runs:
         if-no-files-found: error
 
     - name: Upload build artifacts
+      if: inputs.build_packages == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}

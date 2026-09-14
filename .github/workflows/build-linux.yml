@@ -42,6 +42,11 @@ on:
         required: false
         type: boolean
         default: false
+      build_packages:
+        description: "Build, validate, and upload Linux packages and executable artifacts"
+        required: false
+        type: boolean
+        default: true
       release_channel:
         description: "Build release channel: DEVEL, RC, or GA"
         required: false
@@ -106,6 +111,11 @@ on:
         required: false
         type: boolean
         default: false
+      build_packages:
+        description: "Build, validate, and upload Linux packages and executable artifacts"
+        required: false
+        type: boolean
+        default: true
       release_channel:
         description: "Build release channel"
         required: false
@@ -197,6 +207,7 @@ jobs:
           recache: ${{ inputs.recache }}
           save_ccache: ${{ inputs.save_ccache }}
           validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}
+          build_packages: ${{ inputs.build_packages }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
           allow_stale_image: ${{ inputs.allow_stale_image }}
@@ -234,6 +245,7 @@ jobs:
           recache: ${{ inputs.recache }}
           save_ccache: ${{ inputs.save_ccache }}
           validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}
+          build_packages: ${{ inputs.build_packages }}
           release_channel: ${{ inputs.release_channel }}
           rc_number: ${{ inputs.rc_number }}
           allow_stale_image: ${{ inputs.allow_stale_image }}
@@ -393,6 +405,7 @@ jobs:
           ARCH: armhf
           RUNTIME_IMAGE: ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:${{ needs.resolve-image.outputs.image_tag }}
           WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
+          ARMHF_RUNTIME_PHASE: ${{ inputs.build_packages && 'all' || 'test' }}
         run: |
           GITHUB_TOKEN="${{ github.token }}" docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
@@ -403,6 +416,7 @@ jobs:
             -e WSJT_RELEASE_CHANNEL \
             -e WSJT_RC_NUMBER \
             -e GITHUB_TOKEN \
+            -e ARMHF_RUNTIME_PHASE \
             -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH \
             "$RUNTIME_IMAGE" \
             bash .github/scripts/validate-linux-armhf-runtime.sh
@@ -415,7 +429,7 @@ jobs:
           >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload armhf AppImage startup diagnostics
-        if: failure() && steps.armhf-runtime.outcome == 'failure'
+        if: inputs.build_packages && failure() && steps.armhf-runtime.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-startup-smoke-linux-armhf
@@ -429,24 +443,28 @@ jobs:
       # action's uploads so release.yml's all-platforms-ready gate
       # pattern works unchanged.
       - name: Upload .deb
+        if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-${{ inputs.version }}-linux-armhf-deb
           path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-armhf.deb
           if-no-files-found: error
       - name: Upload RPM
+        if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-${{ inputs.version }}-linux-armhf-rpm
           path: wsjtx-build/*.rpm
           if-no-files-found: error
       - name: Upload AppImage
+        if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-${{ inputs.version }}-linux-armhf-AppImage
           path: wsjtx-${{ inputs.version }}-linux-armhf.AppImage
           if-no-files-found: error
       - name: Upload build artifacts
+        if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-${{ inputs.version }}-linux-armhf

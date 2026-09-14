@@ -118,6 +118,7 @@ jobs:
       arch: "x86_64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       save_ccache: true
+      build_packages: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
@@ -131,6 +132,7 @@ jobs:
       arch: "aarch64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
       save_ccache: true
+      build_packages: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
@@ -151,6 +153,7 @@ jobs:
       # Retained images remain fully verified, and stale recipes cannot save ccache.
       allow_stale_image: true
       save_ccache: true
+      build_packages: true
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
