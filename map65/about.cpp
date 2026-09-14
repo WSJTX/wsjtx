@@ -7,13 +7,13 @@ CAboutDlg::CAboutDlg(QWidget *parent) :
   ui(new Ui::CAboutDlg)
 {
   ui->setupUi(this);
-  ui->labelTxt->setText("<html><h2>" + QString {"MAP65 v"
+  ui->labelTxt->setText("<html><h2>" + QString {"MAP65™ v"
                 + QCoreApplication::applicationVersion ()
                 + " " + revision ()}.simplified () + "</h2><br />"
-    "MAP65 implements a wideband polarization-matching receiver <br />"
+    "MAP65™ implements a wideband polarization-matching receiver <br />"
     "for the JT65 and Q65 protocols, with a matching transmitting <br />"
     "facility. It is primarily intended for amateur radio EME communication. <br /><br />"
-    "Copyright 2001-2026 by Joe Taylor, K1JT, and the WSJT <br/>"
+    "Copyright 2001-2026 by Joe Taylor, K1JT, and the WSJT™ <br/>"
     "Develolpment Group.");
 }
 

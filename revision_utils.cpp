@@ -107,7 +107,8 @@ QString version (bool include_patch)
 
 QString program_title (QString const& revision)
 {
-  QString id {QCoreApplication::applicationName () + "   v" + QCoreApplication::applicationVersion ()};
+  // applicationName() itself must stay plain ASCII -- it also names the jt9 shared-memory key and settings/lock/temp paths.
+  QString id {QCoreApplication::applicationName () + "™   v" + QCoreApplication::applicationVersion ()};
   return id + " " + revision ;
 }
 
@@ -121,4 +122,24 @@ QString http_user_agent ()
     + QString {"rv:%1"}.arg (QSysInfo::kernelVersion ()) + ")"};
 
   return QString {"WSJT-X/" + version () + "_" + revision ()}.simplified () + " " + platform;
+}
+
+QString copyright_notice_text ()
+{
+  return QCoreApplication::translate (
+    "main",
+    "If you make fair use of any part of WSJT-X, MAP65, QMAP, or our "
+    "associated utility programs under terms of the GNU General Public "
+    "License, you must display the following copyright notice prominently "
+    "in your derivative work:\n\n"
+    "\"The algorithms, source code, look-and-feel of WSJT-X, MAP65, QMAP, "
+    "and related programs, and protocol specifications for the modes "
+    "FSK441, FST4, FST4W, FT4, FT8, ISCAT, JT4, JT6M, JT9, JT65, JTMS, "
+    "JTTY, MSK144, QRA64, Q65, and WSPR are Copyright (C) 2001-2026 by one "
+    "or more of the following authors: Joseph Taylor, K1JT; Bill "
+    "Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg "
+    "Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, "
+    "KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; Roger Rehr, W3SZ; John "
+    "Nelson, G4KLA; Charlie Suckling, DL3WDG; Terrell Deppe, KJ5HST; David "
+    "Christle, KD0BTO; and other members of the WSJT™ Development Team.\"");
 }

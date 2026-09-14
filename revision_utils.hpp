@@ -8,5 +8,6 @@ QString display_revision ();
 QString version (bool include_patch = true);
 QString program_title (QString const& revision = QString {});
 QString http_user_agent ();
+QString copyright_notice_text ();
 
 #endif

@@ -20,7 +20,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>About QMAP</string>
+   <string>About QMAP™</string>
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <item>

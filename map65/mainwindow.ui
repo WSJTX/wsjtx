@@ -1404,6 +1404,10 @@ p, li { white-space: pre-wrap; }
     <addaction name="actionKeyboard_shortcuts"/>
     <addaction name="actionSpecial_mouse_commands"/>
     <addaction name="actionAvailable_suffixes_and_add_on_prefixes"/>
+    <addaction name="separator"/>
+    <addaction name="actionCopyright_Notice"/>
+    <addaction name="actionTrademark_Policy"/>
+    <addaction name="separator"/>
     <addaction name="actionAbout"/>
    </widget>
    <widget class="QMenu" name="menuMode">
@@ -1454,10 +1458,20 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionAbout">
    <property name="text">
-    <string>About MAP65</string>
+    <string>About MAP65™</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+F1</string>
+   </property>
+  </action>
+  <action name="actionCopyright_Notice">
+   <property name="text">
+    <string>Copyright notice</string>
+   </property>
+  </action>
+  <action name="actionTrademark_Policy">
+   <property name="text">
+    <string>Trademark policy</string>
    </property>
   </action>
   <action name="actionAstro_Data">

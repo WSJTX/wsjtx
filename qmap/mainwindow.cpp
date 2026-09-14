@@ -1472,6 +1472,16 @@ void MainWindow::on_actionQuick_Start_Guide_to_Q65_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Q65_Quick_Start.pdf"});
 }
 
+void MainWindow::on_actionCopyright_Notice_triggered()
+{
+  MessageBox::warning_message (this, copyright_notice_text ());
+}
+
+void MainWindow::on_actionTrademark_Policy_triggered()
+{
+  QDesktopServices::openUrl (QUrl {"https://wsjtx.github.io/wsjtx/trademark.html"});
+}
+
 void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
 {
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf"});
