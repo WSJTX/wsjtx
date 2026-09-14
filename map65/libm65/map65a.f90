@@ -999,7 +999,7 @@ endif
             go to 2
          endif
 
-         if (ndphi .eq. 1 .and. iloop .eq. 12) call getdphi(qphi)
+         if (ndphi .eq. 1 .and. iloop .eq. 12 .and. nqd .eq. 1) call getdphi(qphi)
          if (nqd .eq. 1) then
             call sec0(1, tdec)
             write (line, '("<QuickDecodeDone>",3I4,I6,F6.2)') &
