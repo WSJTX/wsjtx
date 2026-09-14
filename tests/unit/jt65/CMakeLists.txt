@@ -23,6 +23,7 @@ target_link_libraries (test_jt65_decode_pipeline PRIVATE jt65_test_vectors)
 
 add_test (NAME test_jt65_decode_pipeline COMMAND test_jt65_decode_pipeline)
 set_tests_properties (test_jt65_decode_pipeline PROPERTIES
+  COST 18
   TIMEOUT 180)
 
 add_executable (test_jt65_xcor_silence

@@ -257,6 +257,10 @@ if (WSJT_ENABLE_TESTS)
      message (STATUS "Including tests")
  endif()
 
+# Fresh build trees have no timing history. Give stable tests taking roughly
+# 10 seconds or longer a representative COST so parallel CTest runs start them
+# early; relative ordering matters more than an exact duration.
+
 if (WSJT_ENABLE_TSAN)
   # A CTest ENVIRONMENT assignment replaces the inherited TSAN_OPTIONS. Build
   # complete per-family suppression files from the cross-cutting baseline so
@@ -808,6 +812,8 @@ if (WSJT_ENABLE_TESTS)
       samples/Q65/300A_Optical_Scatter/201210_0505.wav
       test/fixtures/q65_300a_201210_0505.expected.txt
       --q65 -p 300 -f 1000 -d 3)
+    set_tests_properties (test_jt9_golden_q65_300a_201210_0505 PROPERTIES
+      COST 18)
     wsjt_add_jt9_golden_test (
       test_jt9_golden_q65_60d_201212_1838
       samples/Q65/60D_EME_10GHz/201212_1838.wav
@@ -1121,6 +1127,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       "${CMAKE_SOURCE_DIR}"
       --rig-name CTEST-LIVE-AUDIO)
   set_tests_properties (test_wsjtx_live_audio_ft8 PROPERTIES
+    COST 25
     ENVIRONMENT "${wsjtx_live_audio_test_environment}"
     LABELS "gui;audio;decoder;integration"
     PROCESSORS 1
@@ -1168,6 +1175,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/jtty/live_audio.expected.txt"
       -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_live_audio.cmake)
   set_tests_properties (test_wsjtx_live_audio_jtty PROPERTIES
+    COST 21
     LABELS "gui;audio;jtty;integration"
     PROCESSORS 1
     TIMEOUT 120)
@@ -1182,6 +1190,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       "-DEXPECTED=${CMAKE_SOURCE_DIR}/tests/integration/jtty/tx_loopback.expected.txt"
       -P ${CMAKE_SOURCE_DIR}/tests/integration/jtty/run_tx_loopback.cmake)
   set_tests_properties (test_wsjtx_jtty_tx_loopback PROPERTIES
+    COST 37
     LABELS "gui;audio;jtty;integration"
     PROCESSORS 1
     TIMEOUT 180)
@@ -1197,6 +1206,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       "-DDATA_DIR=${CMAKE_SOURCE_DIR}"
       -P ${CMAKE_SOURCE_DIR}/tests/integration/ft8/run_tx_loopback.cmake)
   set_tests_properties (test_wsjtx_ft8_tx_loopback PROPERTIES
+    COST 43
     LABELS "gui;audio;decoder;ft8;integration"
     RUN_SERIAL TRUE
     TIMEOUT 150)
