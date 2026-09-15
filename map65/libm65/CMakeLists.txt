@@ -210,6 +210,15 @@ if (WSJT_ENABLE_TESTS)
   add_subdirectory (${CMAKE_SOURCE_DIR}/tests/unit/map65/decode_history
     ${CMAKE_CURRENT_BINARY_DIR}/decode_history)
 
+  add_executable (test_map65_deep_search_cache
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_deep_search_cache.f90)
+  target_include_directories (test_map65_deep_search_cache PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_deep_search_cache PRIVATE m65impl)
+  file (MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/deep_search_cache)
+  add_test (NAME test_map65_deep_search_cache COMMAND test_map65_deep_search_cache)
+  set_tests_properties (test_map65_deep_search_cache PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/deep_search_cache TIMEOUT 30)
+
   add_executable (test_map65_decode_requests
     ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_decode_requests.f90)
   target_include_directories (test_map65_decode_requests PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
