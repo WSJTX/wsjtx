@@ -972,7 +972,7 @@ endif
                  
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
                         ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
-                        newdat, nagain, max_drift, ndop00, idec)
+                        newdat, nagain, max_drift, ndop00, idec, cursor_fallback=.true.)
 
                   call timer('q65b    ', 1)
                endif

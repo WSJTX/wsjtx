@@ -33,7 +33,7 @@
 
       subroutine q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, ntol, xpol, &
                   mycall0, mygrid, hiscall0, hisgrid, mode_q65, f0, fqso, newdat, nagain, &
-                  max_drift, ndop00, idec)
+                  max_drift, ndop00, idec, cursor_fallback)
 
       use iso_c_binding
       use q65_decode
@@ -76,6 +76,7 @@
       integer,      intent(in)    :: max_drift
       integer,      intent(in)    :: ndop00
       integer,      intent(out)   :: idec
+      logical, optional, intent(in) :: cursor_fallback
 
       !==== Local parameters ====================================================
       ! MAXFFT1/2 are *max* sizes; actual runtime sizes are derived below.
@@ -112,6 +113,7 @@
       character(len=256) :: linenew
 
       integer :: t_now, t_rate
+      logical :: search_cursor
 
       ! From q65_decode / wideband_sync / globals:
       !   real    :: xdt0
@@ -131,6 +133,8 @@
       cq0 = '   '
       xdt0 = 0.0
       nfreq0 = 0
+      search_cursor = manualDecodeFlag .ne. 0
+      if (present(cursor_fallback)) search_cursor = search_cursor .or. cursor_fallback
 
       call system_clock(t_now, t_rate)
     if (real(t_now - t_start)/real(t_rate) > 40.0) then
@@ -156,28 +160,11 @@
       df3 = real(nrate_active)/real(nfft_active)
       ifreq = nint((1000.0*f0)/df3)
 
-      ! For a wideband candidate (not a manual click), f0 is already a
-      ! precise, sub-bin frequency estimate from wb_sync -- searching
-      ! +/-ntol (the GUI's Ftol, which can be very wide) around it for the
-      ! "orange sync curve" peak lets a stronger nearby signal's peak
-      ! dominate the search, so a genuinely different candidate can resolve
-      ! to that same bin and get silently skipped by the ldecoded(ipk)
-      ! check below as "already decoded". nagain=1 (Decode button / Find
-      ! Delta Phi repeat) runs the same per-candidate loop over real
-      ! wb_sync candidates as automatic decoding, so it needs the same
-      ! narrow search too; only an actual manual click
-      ! (manualDecodeFlag/=0), where the target itself is an imprecise
-      ! mousefqso-driven guess, needs the full +/-ntol search.
-      !
-      ! f0 (and hence ifreq) has no sub-bin refinement at all (see
-      ! wideband_sync.f90 -- f0 = 0.001*(n-1)*df3 for a raw integer bin n),
-      ! so at low SNR the true sync peak can sit a few bins away from
-      ! wherever wb_sync's own coarse search landed. Search a small, fixed
-      ! bin radius (IPK_LOCAL_BINS, independent of the GUI's Ftol) around
-      ! ifreq instead of trusting it as the exact bin -- enough to absorb
-      ! that bin-selection noise, but far too narrow to ever reach a
-      ! different signal's peak the way the full +/-ntol search could.
-      if (manualDecodeFlag .ne. 0) then
+      ! Candidate frequencies need only local bin refinement. Cursor
+      ! targets, including the no-candidate fallback, need the selected Ftol.
+      ! Bin-quantized weak-signal candidates can miss the true sync peak;
+      ! retain the local five-bin search rather than testing one exact bin.
+      if (search_cursor) then
          ia = nint(ifreq - ntol/df3)
          ib = nint(ifreq + ntol/df3)
          if (ia >= 1 .and. ia <= nfft_active .and. ib >= 1 .and. ib <= nfft_active) then
@@ -334,15 +321,7 @@
       nsubmode = mode_q65 - 1
       nfa = 990                   !Tight limits around ipk for the wideband decode
       nfb = 1010
-      ! See the matching note on k0 above. A real wideband candidate
-      ! (nagain=0 or 1) already has a precise k0/target; widening the
-      ! search to +/-ntol only makes sense for an actual manual click,
-      ! where the target itself is imprecise.
-      if (manualDecodeFlag .ne. 0) then
-         ! For a manual click, search +/- ntol around the target (k0, set
-         ! above) rather than the tight default -- ntol here is the GUI's
-         ! ftol, so this is what makes "decode everything within ftol of
-         ! the click, nothing outside it" hold for Q65.
+      if (search_cursor) then
          nfa = max(100, 1000 - ntol)
          nfb = min(2500, 1000 + ntol)
       endif
