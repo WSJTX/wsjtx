@@ -187,7 +187,7 @@ p { margin: 0; }
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 1.4rem; box-shadow: var(--shadow); text-align: center;
 }
-.mark-card img { width: 96px; height: 96px; border-radius: 18px; }
+.mark-card img { width: 96px; height: 96px; border-radius: 18px; margin: 0 auto; }
 .mark-card h3 { margin-top: .9rem; font-size: 1.05rem; }
 
 /* outcomes strip ("what operators do with it") */
