@@ -12,20 +12,14 @@ module deep65_mod
   character(len=15), allocatable, save :: callgrid(:)
   integer, allocatable, save :: ncode(:,:)
   real, allocatable, save :: pp(:)
+  character(len=12), save :: cached_mycall = '', cached_hiscall = ''
+  character(len=6), save :: cached_hisgrid = ''
+  integer, save :: cached_neme = 0
 
 contains
 
-  ! Builds (or rebuilds) the Deep Search candidate list from CALL3.TXT into
-  ! the module-level testmsg/ncode/callgrid/pp/ntot arrays above. A no-op if
-  ! the list is already built and mcall3a (see decodes_mod) hasn't been set
-  ! since -- mcall3a is set whenever the user edits CALL3.TXT from the GUI,
-  ! or whenever mycall/hiscall/hisgrid/neme change (see decode0.f90).
-  !
-  ! For the real ~132,000-line CALL3.TXT this calls encode65() roughly
-  ! 264,000 times, taking several seconds. Called once from run_m65.f90
-  ! before the decode loop starts -- not lazily, on the decoder thread
-  ! during a live cycle -- so that cost can never compete with real-time
-  ! audio capture for CPU during an actual decode.
+  ! Encoding the full CALL3.TXT list is expensive. Reuse candidates only
+  ! while the file and their station settings match.
   subroutine build_call3_candidates(mycall, hiscall, hisgrid, neme)
     use decodes_mod, only: mcall3a
     use encode65_mod
@@ -61,10 +55,9 @@ contains
 
     call dbg('build_call3_candidates: entry, mcall3a=' // itoa(mcall3a) // ' cached ntot=' // itoa(ntot))
 
-    ! Force a (re)build the first time this is ever called too, even if
-    ! mcall3a happens to read 0 -- otherwise the arrays below are never
-    ! allocated at all and deep65()'s scoring loop has nothing to work with.
-    if (mcall3a.eq.0 .and. allocated(testmsg)) return
+    if (mcall3a.eq.0 .and. allocated(testmsg) .and. &
+        mycall.eq.cached_mycall .and. hiscall.eq.cached_hiscall .and. &
+        hisgrid.eq.cached_hisgrid .and. neme.eq.cached_neme) return
 
     k = 0
     ntot = 0
@@ -175,6 +168,10 @@ contains
 
 20  continue
     ntot=k
+    cached_mycall=mycall
+    cached_hiscall=hiscall
+    cached_hisgrid=hisgrid
+    cached_neme=neme
     call timer('deep65a ',1)
     call dbg('build_call3_candidates: candidate-encoding loop DONE at t=' // rtoa(sec_midn()) // ' ntot=' // itoa(ntot))
   end subroutine build_call3_candidates
