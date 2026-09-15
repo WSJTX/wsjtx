@@ -207,6 +207,9 @@ target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
 wsjt_link_common_fortran (m65impl)
 
 if (WSJT_ENABLE_TESTS)
+  add_subdirectory (${CMAKE_SOURCE_DIR}/tests/unit/map65/decode_history
+    ${CMAKE_CURRENT_BINARY_DIR}/decode_history)
+
   add_executable (test_map65_decode_requests
     ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_decode_requests.f90)
   target_include_directories (test_map65_decode_requests PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
