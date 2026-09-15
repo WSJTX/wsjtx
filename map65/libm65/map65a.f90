@@ -871,10 +871,10 @@ endif
                         freq0 = freq
                         sync10 = sync1
                         nkm = 1
-                        ! Mark the same neighborhood checked at
-                        ! already_decoded_nearby above -- see that note.
+                        ! The lookup supplies the neighborhood radius;
+                        ! marking it here too would double the exclusion.
                         if (decoded .ne. '                      ') &
-                           ljt65decoded(max(1,i-JT65_LOCAL_BINS):min(nfft_active,i+JT65_LOCAL_BINS)) = .true.
+                           ljt65decoded(i) = .true.
                      endif
                   endif
                   endif
