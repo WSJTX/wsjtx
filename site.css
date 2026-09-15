@@ -182,6 +182,14 @@ p { margin: 0; }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-4 { grid-template-columns: repeat(4, 1fr); }
 
+/* trademark policy: the marks this policy covers */
+.mark-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 1.4rem; box-shadow: var(--shadow); text-align: center;
+}
+.mark-card img { width: 96px; height: 96px; border-radius: 18px; }
+.mark-card h3 { margin-top: .9rem; font-size: 1.05rem; }
+
 /* outcomes strip ("what operators do with it") */
 .outcome { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--sig, var(--cyan));
   border-radius: var(--radius); padding: 1.3rem; box-shadow: var(--shadow); }
