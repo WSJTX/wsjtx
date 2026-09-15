@@ -9,6 +9,7 @@ subroutine decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,  &
   use extract_mod
   use pr_mod
   use setup65_mod
+  use debug_log, only: dbg, itoa
 
   real,          intent(in)    :: s2(66,126)
   real,          intent(out)   :: s3(64,63), sy(63)
@@ -61,13 +62,33 @@ subroutine decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,  &
      decoded='                      '
   endif
 
+  ! TEMP diagnostic 2026-09-10 for the false-JT65-decode investigation.
+  call dbg('decode65b: extract() done, ncount=' // itoa(ncount) // ' nkv=' // itoa(nkv) // &
+           ' hard_decoded="' // trim(decoded) // '" nqd=' // itoa(nqd) // ' flip=' // itoa(nint(flip)) // &
+           ' ndepth=' // itoa(ndepth) // &
+           ' will_run_deep65=' // itoa(merge(1,0, ndepth.ge.1 .and. (nqd.eq.1 .or. flip.eq.1.0))))
+
   qual=0.
   if(ndepth.ge.1 .and. (nqd.eq.1 .or. flip.eq.1.0)) then
      call deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,deepmsg,qual,mrs,mrs2)
      if(nqd.ne.1 .and. qual.lt.10.0) qual=0.0
      if(ndepth.lt.2 .and. qual.lt.6.0) qual=0.0
   endif
-  if(nkv.eq.0 .and. qual.ge.1.0) decoded=deepmsg
+
+  ! Deep Search's AP guess overrides extract()'s hard decode whenever
+  ! qual.ge.1.0, regardless of nkv (whether extract() itself reported
+  ! success). A "successful" hard Reed-Solomon decode doesn't guarantee a
+  ! real message -- JT65's RS code has a nonzero false-positive rate, and a
+  ! qual.ge.1.0 Deep Search match is far more likely to be correct than a
+  ! false RS accept. This cutoff is not immune to a low-but-nonzero
+  ! marginal-qual false accept of its own; see the PR's false-decode-rate
+  ! discussion for known residual cases.
+  if (qual.ge.1.0) then
+     decoded=deepmsg
+     nkv=0
+  endif
+
+  call dbg('decode65b: final decoded="' // trim(decoded) // '" nkv=' // itoa(nkv) // ' qual=' // itoa(nint(qual)))
 
   return
 end subroutine decode65b
