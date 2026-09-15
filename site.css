@@ -93,7 +93,7 @@ p { margin: 0; }
 }
 .brand { display: flex; align-items: center; gap: .6rem; font-family: var(--display); font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
 .brand:hover { text-decoration: none; }
-.brand img { width: 34px; height: 34px; border-radius: 8px; }
+.brand img { width: 52px; height: 52px; border-radius: 12px; }
 .brand .tag {
   font-family: var(--mono); font-weight: 500; font-size: .62rem; letter-spacing: .16em;
   text-transform: uppercase; color: var(--accent-ink);
