@@ -718,6 +718,17 @@ void MainWindow::processStdOut(QString t)
 
   if (m_decodeDisplayFilter.handleControlLine(t)) return;
 
+  if (t.startsWith("<DecodeSkipped>")) {
+    bool validRequestId = false;
+    auto requestId = t.trimmed().section(' ', -1).toLongLong(&validRequestId);
+    if (validRequestId && is_current_decode_request(requestId)) {
+      m_decodeDisplayFilter.completeCycle();
+      decodeBusy(false);
+      ui->DecodeButton->setStyleSheet("");
+    }
+    return;
+  }
+
   //qDebug() << "in processStdOut STDOUT:" << t;
 if (t.indexOf("<QuickDecodeDone>") >= 0) {
 
@@ -732,6 +743,12 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 
     // --- <EarlyFinished> / <DecodeFinished> ---
   if (t.indexOf("<EarlyFinished>") >= 0 || t.indexOf("<DecodeFinished>") >= 0) {
+
+    if (t.indexOf("<DecodeFinished>") >= 0) {
+        bool validRequestId = false;
+        auto requestId = t.trimmed().section(' ', -1).toLongLong(&validRequestId);
+        if (!validRequestId || !is_current_decode_request(requestId)) return;
+    }
 
     if (t.indexOf("<EarlyFinished>") >= 0)
         m_decodeDisplayFilter.completeEarlyPass();
@@ -1335,7 +1352,7 @@ void MainWindow::dataSink(int k)
     setDecoderReady(0);
     setNewdat(1);
     setNagain(0);
-    setNhsym(ihsym);
+    setNhsym(280);
     QDateTime t = QDateTime::currentDateTimeUtc();
     m_dateTime=t.toString("yyyy-MMM-dd hh:mm");
     decode();                                           //Start the decoder
@@ -1347,7 +1364,7 @@ void MainWindow::dataSink(int k)
     setDecoderReady(0);
     setNewdat(1);
     setNagain(0);
-    setNhsym(ihsym);
+    setNhsym(302);
     QDateTime t = QDateTime::currentDateTimeUtc();
     m_dateTime=t.toString("yyyy-MMM-dd hh:mm");
     decode();                                           //Start the decoder
@@ -1436,7 +1453,7 @@ void MainWindow::savetf2(QString fname, bool xpol)
 
 void MainWindow::getfile(QString fname, bool xpol, int dbDgrd)
 {
-    setDecoderReady(0);
+    cancel_pending_decode_requests();
     int npts = 2 * 56 * g_sampleRate;
     if (xpol) npts = 2 * npts;
 
@@ -2281,18 +2298,8 @@ QString hgrid = (ui->dxGridEntry->text() + "      ").mid(0, 6);
   setJunk1(1234);
   setJunk2(5678);
 
-  // decode() writes directly into the same live Fortran variable the
-  // decoder reads, so an unconditional setNagain(0) here would clobber
-  // nagain=1 -- the signal on_DecodeButton_clicked()/Find-Delta-Phi rely on
-  // to tell decode0.f90 this is a manual repeat, not a fresh accumulation
-  // cycle -- before the decoder ever saw it (see decode0.f90's dd_old
-  // refresh guard). The automatic per-minute trigger in dataSink() already
-  // calls setNagain(0) itself before invoking decode(), so omitting it here
-  // is a no-op for normal automatic decoding. Do NOT add setNagain(0) here
-  // without also reworking decode0.f90's guard -- newdat itself must stay
-  // forced to 1 for both call paths.
   if (!m_diskData) setNdiskdat(0);  //added 12-30-25 to agree with legacy
-  setDecoderReady(1);
+  publish_decode_request();
   m_map65RxLog=0;
   m_call3Modified=false;
 //  qDebug() << QDateTime::currentMSecsSinceEpoch()  << "finished MainWindow::decode()";

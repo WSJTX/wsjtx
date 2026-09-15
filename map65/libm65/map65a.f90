@@ -26,7 +26,8 @@ contains
       use timf2_mod
       use getdphi_mod
       use datcom_ptrs_mod, only: ss_old, savg_old
-      use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, manualDecodeFlag
+      use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, &
+                               manualDecodeFlag, active_input_generation
       use sec0_mod, only: sec0
       use q65_decode, only: nsnr0
 
@@ -100,6 +101,7 @@ contains
       integer :: ipol_tmp, ipol2_tmp,ftol_bins, manualDecodeFlag_initial
       real :: freq_q65
       integer :: nhsym_prev_call
+      integer(c_int64_t) :: previous_input_generation = -1
 
       data blank/'                      '/, cm/'#'/
       data shmsg0/'ATT','RO ','RRR','73 '/
@@ -137,14 +139,10 @@ contains
 !------------------------------------------------------------
 ! BASIC DECODE SETUP (shared by manual + wideband)
 !------------------------------------------------------------
-      ! run_m65 can legitimately re-fire map65a() several times back-to-back
-      ! at the same nhsym1 value before nhsym itself advances. Reset
-      ! ldecoded/ljt65decoded only on a genuinely new cycle at nhsym1, not a
-      ! repeat call already at that value, so a repeat doesn't throw away
-      ! "already reported this bin" memory from moments earlier and
-      ! rediscover/re-report the same decode. A manual click (nagain/=0) is
-      ! always a deliberate one-off request and always gets a fresh ledger.
-      if ((nhsym .eq. nhsym1 .and. nhsym_prev_call .ne. nhsym1) .or. nagain .ne. 0) then
+      ! Share the ledger across early/final passes, but start a new cycle
+      ! even when the preceding final request expired before execution.
+      if ((nhsym .eq. nhsym1 .and. (nhsym_prev_call .ne. nhsym1 .or. &
+           previous_input_generation .ne. active_input_generation)) .or. nagain .ne. 0) then
          ldecoded = .false.
          ljt65decoded = .false.
          call dbg('map65a: ldecoded/ljt65decoded RESET at t=' // rtoa(sec_midn()) // &
@@ -155,6 +153,8 @@ contains
                   ' nhsym=' // itoa(nhsym))
       endif
       nhsym_prev_call = nhsym
+      if (nagain .eq. 0 .and. ndiskdat .eq. 0 .and. manualDecodeFlag .eq. 0) &
+         previous_input_generation = active_input_generation
       if (ndiskdat .eq. 1) then
          ldecoded = .false.
          ljt65decoded = .false.

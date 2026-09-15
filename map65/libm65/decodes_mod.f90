@@ -7,14 +7,9 @@ module decodes_mod
   integer :: ndecodes = 0
   integer :: nhsym1 = 0, nhsym2 = 0
   logical, allocatable :: ldecoded(:)
-  ! JT65's analog of ldecoded above -- tracks which bins have already
-  ! produced a real decode this accumulation cycle, so a repeat automatic
-  ! call (run_m65 legitimately re-firing map65a() before nhsym itself has
-  ! advanced -- see map65a.f90's nhsym_prev_call handling) doesn't
-  ! re-discover and re-report the same signal. select_unique_decodes()
-  ! alone isn't enough for this: it only looks within one map65a() call's
-  ! own accumulated candidates, blind to what an earlier, separate call
-  ! already emitted.
+  ! JT65 bins already decoded in this accumulation cycle. Retaining them
+  ! across early/final calls avoids reporting the same signal twice;
+  ! select_unique_decodes() only compares results within one call.
   logical, allocatable :: ljt65decoded(:)
   integer :: mcall3a = 0
 

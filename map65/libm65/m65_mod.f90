@@ -1,6 +1,6 @@
 module m65_mod
 
-use iso_c_binding, only: c_int8_t,c_int,c_loc, c_ptr
+use iso_c_binding, only: c_int8_t,c_int,c_loc,c_ptr,c_int64_t
 use decodes_mod, only: nhsym1,nhsym2,ldecoded
 
 implicit none
@@ -9,13 +9,12 @@ contains
 
 subroutine m65c() bind(C)
   use decode0_mod
-  use npar_ptrs_mod, only: nhsym, nrxlog, datetime
+  use npar_ptrs_mod, only: nhsym, nrxlog, datetime, active_input_generation, nagain, ndiskdat, manualDecodeFlag
   use debug_log, only: dbg, itoa, rtoa
   use sec_midn_mod, only: sec_midn
   integer :: npatience, nstandalone
-  ! Mirrors map65a.f90's nhsym_prev_call pattern for ldecoded/ljt65decoded
-  ! resets -- see the note below.
   integer, save :: nhsym_prev_m65c = -1
+  integer(c_int64_t), save :: previous_input_generation = -1
 
   npatience=1
   call dbg('m65c: ENTRY at t=' // rtoa(sec_midn()) // ' nhsym=' // itoa(nhsym) // &
@@ -38,13 +37,9 @@ subroutine m65c() bind(C)
      ! repositioning first, so backspace right away to land back on that
      ! marker, ready for the next append.
      !
-     ! nrxlog bit 4 (set once by "Erase Band Map and Messages") can still
-     ! read as set across several internal repeat automatic firings within
-     ! the same cycle (mainwindow.cpp only clears it on the next
-     ! EarlyFinished/DecodeFinished, which can be several firings later),
-     ! so only truncate on a genuinely new early-pass cycle
-     ! (nhsym_prev_m65c.ne.nhsym1), not on every one of those repeats.
-     if(nhsym.eq.nhsym1 .and. nhsym_prev_m65c.ne.nhsym1) then
+     ! An expired final request must not hide the next accumulation cycle.
+     if(nhsym.eq.nhsym1 .and. (nhsym_prev_m65c.ne.nhsym1 .or. &
+        previous_input_generation.ne.active_input_generation)) then
         call dbg('m65c: UNIT26 TRUNCATED (endfile) at t=' // rtoa(sec_midn()) // &
                  ' nhsym=' // itoa(nhsym) // ' nrxlog=' // itoa(nrxlog))
         rewind(26)
@@ -57,6 +52,8 @@ subroutine m65c() bind(C)
      if(nhsym.eq.nhsym2) backspace(26)
   endif
   nhsym_prev_m65c = nhsym
+  if(nagain.eq.0 .and. ndiskdat.eq.0 .and. manualDecodeFlag.eq.0) &
+     previous_input_generation = active_input_generation
 
   nstandalone=0
 

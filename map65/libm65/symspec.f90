@@ -8,7 +8,7 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,    &
 
   use iso_c_binding
   use datcom_ptrs_mod
-  use npar_ptrs_mod,  only: fcenter, nrate_active, nfft_active, nsmax_active
+  use npar_ptrs_mod,  only: get_fcenter, nrate_active, nfft_active, nsmax_active
   use four2a_mod
   use timf2_mod
   use iqcal_mod
@@ -44,6 +44,7 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,    &
   complex,      allocatable :: cx(:), cy(:), cx00(:), cy00(:)
 
   complex :: z, zfac, zsumx, zsumy
+  real(c_double) :: fcenter
   complex :: cx0(0:1023), cx1(0:1023), cy0(0:1023), cy1(0:1023)
  
   data rms/999.0/, k0/99999999/, k1/0/, nadjx/0/, nadjy/0/
@@ -260,6 +261,7 @@ k0 = k
      endif
   endif
 
+  fcenter=get_fcenter()
   nkhz=nint(1000.d0*(fcenter-int(fcenter)))
   if(fcenter.eq.0.d0) nkhz=125
 

@@ -7,6 +7,7 @@
 
 
 #include <QString>
+#include <cstdint>
 
 // This header defines the C++ interface to the Fortran datcom_ptrs_mod module.
 // It replaces the legacy common block interface with explicit setter/getter functions.
@@ -141,6 +142,10 @@ extern struct {                     //This is "common/datcom/..." in Fortran
   void run_m65_(int* pol, int* sample_rate); 
   void set_stop_m65(int val);
   void set_decoder_ready(int val);
+  std::int64_t publish_decode_request();
+  void cancel_pending_decode_requests();
+  void advance_live_input_generation();
+  bool is_current_decode_request(std::int64_t request_id);
   void set_wsjtx_dir_(const char* path, int path_len);
   void set_stdout_channel(void* buf_ptr,
                             void* hdr_ptr,

@@ -113,6 +113,7 @@ set (libm65_ka9q_CSRCS
 set_source_files_properties (${libm65_ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (libm65_CSRCS
+  decode_request_mutex.cpp
   ${libm65_ka9q_CSRCS}
   ftrsd2.c
 #  gran.c
@@ -206,6 +207,12 @@ target_link_libraries (m65impl PRIVATE wsjt_fortran_openmp)
 wsjt_link_common_fortran (m65impl)
 
 if (WSJT_ENABLE_TESTS)
+  add_executable (test_map65_decode_requests
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_decode_requests.f90)
+  target_include_directories (test_map65_decode_requests PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_decode_requests PRIVATE m65impl)
+  add_test (NAME test_map65_decode_requests COMMAND test_map65_decode_requests)
+
   add_executable (test_map65_astro
     ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_astro.f90)
   target_include_directories (test_map65_astro PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
