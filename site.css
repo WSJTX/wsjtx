@@ -189,6 +189,7 @@ p { margin: 0; }
 }
 .mark-card img { width: 96px; height: 96px; border-radius: 18px; margin: 0 auto; }
 .mark-card h3 { margin-top: .9rem; font-size: 1.05rem; }
+.mark-card h3 .tm { margin-right: -0.28em; }
 
 /* outcomes strip ("what operators do with it") */
 .outcome { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--sig, var(--cyan));
