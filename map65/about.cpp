@@ -14,7 +14,7 @@ CAboutDlg::CAboutDlg(QWidget *parent) :
     "for the JT65 and Q65 protocols, with a matching transmitting <br />"
     "facility. It is primarily intended for amateur radio EME communication. <br /><br />"
     "Copyright 2001-2026 by Joe Taylor, K1JT, and the WSJT <br/>"
-    "Develolpment Group.<br /><br />"
+    "Development Team.<br /><br />"
     "MAP65 is licensed under the terms of Version 3 <br />"
     "of the GNU General Public License (GPL) <br /><br />"
     "<a href=" TO_STRING__ (PROJECT_HOMEPAGE) ">"

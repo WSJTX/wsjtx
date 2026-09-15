@@ -14,7 +14,7 @@ CAboutDlg::CAboutDlg(QWidget *parent) :
     "primarily for amateur radio EME communication.  It works<br/>"
     "in close cooperation with WSJT-X versions 2.7.0 and later.<br/><br/>"
     "Copyright 2001-2026 by Joe Taylor, K1JT., and the WSJT <br/>"
-    "Development Group. <br/><br/>"
+    "Development Team. <br/><br/>"
     "QMAP is licensed under the terms of Version 3 <br />"
     "of the GNU General Public License (GPL) <br /><br />"
     "<a href=" TO_STRING__ (PROJECT_HOMEPAGE) ">"
