@@ -524,18 +524,8 @@ contains
 ! made-up-looking decodes seen with Find Delta Phi.
 km = 0
 
-! ljt65decoded/ldecoded mark a bin as already decoded for the rest of this
-! accumulation cycle (see the reset near subroutine entry, and their use
-! below) -- correct for suppressing a genuinely repeated automatic call,
-! but wrong for a Find Delta Phi trial: each of the 13 trials (iloop 0..12,
-! via "go to 2" below) is a deliberate, fresh re-probe of the same
-! frequency at a different phase hypothesis, not a repeat of the same
-! request. Without resetting here too, trial 0's decode marks the bin, and
-! every later trial then sees it as "already decoded" and never calls
-! decode1a() again, leaving qphi(iloop) unpopulated for the rest of the
-! sweep.
+! Only JT65 applies the trial phase; Q65 keeps the same input each time.
 if (ndphi .eq. 1) then
-   ldecoded = .false.
    ljt65decoded = .false.
 endif
 
