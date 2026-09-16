@@ -453,6 +453,7 @@ private slots:
   void on_actionSpecial_mouse_commands_triggered();
   void on_actionSolve_FreqCal_triggered();
   void on_actionCopyright_Notice_triggered();
+  void on_actionTrademark_Policy_triggered();
   void on_actionSWL_Mode_triggered (bool checked);
   void on_DecodeButton_clicked (bool);
   void decode();

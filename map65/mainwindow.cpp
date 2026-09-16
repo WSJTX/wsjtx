@@ -347,7 +347,7 @@ MainWindow::MainWindow(QWidget *parent) :
             wg, [wg]{ wg->setDecodeLabelPosition(DecodeLabelPosition::Bottom); });
   }
 
-  setWindowTitle (program_title ());
+  setWindowTitle (branded_program_title ());
   qDebug() << "MAINWINDOW about to start soundInThread SIGNAL/SLOT connections";
 
   connect(&soundInThread, SIGNAL(readyForFFT(int)),
@@ -941,7 +941,7 @@ void MainWindow::onRunM65Finished() {
 void MainWindow::onDiskDecodeFinished()
 {
     if (!m_path.isEmpty())
-        setWindowTitle("MAP65  -  " + QFileInfo(m_path).fileName());
+        setWindowTitle("MAP65™  -  " + QFileInfo(m_path).fileName());
 
     if (m_loopall)
         on_actionOpen_next_in_directory_triggered();
@@ -1908,6 +1908,16 @@ void MainWindow::on_actionQSG_MAP65_v3_triggered()
 void MainWindow::on_actionQ65_Sensitivity_in_MAP65_3_0_triggered()
 {
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Q65_Sensitivity_in_MAP65.pdf"});
+}
+
+void MainWindow::on_actionCopyright_Notice_triggered()
+{
+  MessageBox::warning_message (this, copyright_notice_text ());
+}
+
+void MainWindow::on_actionTrademark_Policy_triggered()
+{
+  QDesktopServices::openUrl (QUrl {"https://wsjtx.github.io/wsjtx/trademark.html"});
 }
 
 void MainWindow::on_actionAstro_Data_triggered()             //Display Astro

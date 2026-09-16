@@ -1151,7 +1151,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       setDecodedTextFont (font);
     });
 
-  setWindowTitle (program_title ());
+  setWindowTitle (branded_program_title ());
 
   connect(&proc_jt9, &QProcess::started, this, [this] {
       if (!m_startup_decoder_reported)
@@ -4539,19 +4539,12 @@ void MainWindow::on_actionSolve_FreqCal_triggered()
 
 void MainWindow::on_actionCopyright_Notice_triggered()
 {
-  auto const& message = tr("If you make fair use of any part of WSJT-X under terms of the GNU "
-                           "General Public License, you must display the following copyright "
-                           "notice prominently in your derivative work:\n\n"
-                           "\"The algorithms, source code, look-and-feel of WSJT-X and related "
-                           "programs, and protocol specifications for the modes FSK441, FST4, FT8, "
-                           "JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) "
-                           "2001-2026 by one or more of the following authors: Joseph Taylor, "
-                           "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
-                           "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
-                           "Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; Roger Rehr, "
-                           "W3SZ; John Nelson, G4KLA; Charlie Suckling, DL3WDG; Terrell Deppe, "
-                           "KJ5HST; and other members of the WSJT Development Group.\"");
-  MessageBox::warning_message(this, message);
+  MessageBox::warning_message (this, copyright_notice_text ());
+}
+
+void MainWindow::on_actionTrademark_Policy_triggered()
+{
+  QDesktopServices::openUrl (QUrl {"https://wsjtx.github.io/wsjtx/trademark.html"});
 }
 
 // Implement the MultiGeometryWidget::change_layout() operation.

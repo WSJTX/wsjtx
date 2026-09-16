@@ -32,7 +32,7 @@ SplashScreen::SplashScreen ()
   setLayout (&m_->main_layout_);
 
   setObjectName ("SplashScreen");
-  setWindowTitle (QCoreApplication::translate ("SplashScreen", "WSJT-X — Welcome"));
+  setWindowTitle (QCoreApplication::translate ("SplashScreen", "WSJT-X™ — Welcome"));
   setAccessibleName (windowTitle ());
   setAccessibleDescription (
     QCoreApplication::translate ("SplashScreen",
@@ -47,7 +47,7 @@ SplashScreen::SplashScreen ()
   // path that the mouse-only click-to-dismiss does not.
   QCoreApplication::instance ()->installEventFilter (this);
 
-  showMessage ("<h2>" + QString {"WSJT-X v" +
+  showMessage ("<h2>" + QString {"WSJT-X™ v" +
         QCoreApplication::applicationVersion() + " " +
         revision ()}.simplified () + "</h2>"
     "Send issue reports to https://wsjtx.groups.io, and be sure to save .wav<br />"
