@@ -45,6 +45,13 @@ program test_q65_source_encoding
         2,0,54,49,54,0,42,10,0,30,21,35,19,0,17,0,58,20,46,14, &
         59,56,3,36,0])
 
+  call expect_legacy_vector_flagged('K1ABC W9XYZ FN42', &
+       [0,3,28,56,36,21,7,6,0,10,56,0,0,1,0,41,26,36,29,10, &
+        43,0,0,63,34,0,0,45,45,57,53,56,0,5,0,14,4,0,17,43, &
+        43,63,27,13,37,0,52,54,53,0,48,13,51,33,0,18,11,20,37,0, &
+        37,0,17,22,17,0,24,56,0,14,59,13,13,0,15,0,36,10,56,24, &
+        33,30,41,10,0])
+
   call expect_invalid_shared_message()
   call expect_invalid_legacy_message()
 
@@ -100,12 +107,37 @@ contains
     itone=-1
     i3=-1
     n3=-1
-    call genq65(msg37,0,msgsent,itone,i3,n3)
+    call genq65(msg37,0,msgsent,itone,i3,n3,0)
     if(i3.lt.0 .or. n3.lt.0) error stop 'legacy Q65 encoder rejected a vector'
     call assert_message('legacy Q65 encoder',msgsent,want_msg)
     call assert_vector('legacy Q65 tones',itone,want_tones)
     ntests=ntests+1
   end subroutine expect_legacy_vector
+
+  subroutine expect_legacy_vector_flagged(input,want_tones)
+    ! Same as expect_legacy_vector, but with iflag=1 (the spare 78th bit
+    ! set) -- verifies the bit actually reaches the transmitted symbols,
+    ! and that it's the *only* difference from the unflagged encoding
+    ! (bar the accumulator's cascade through later symbols, expected of
+    ! a repeat-accumulate code).
+    character(len=*), intent(in) :: input
+    integer, intent(in) :: want_tones(85)
+    character(len=37) :: msg37,msgsent,want_msg
+    integer :: itone(85),i3,n3
+
+    msg37=' '
+    msg37=input
+    want_msg=' '
+    want_msg=input
+    itone=-1
+    i3=-1
+    n3=-1
+    call genq65(msg37,0,msgsent,itone,i3,n3,1)
+    if(i3.lt.0 .or. n3.lt.0) error stop 'flagged Q65 encoder rejected a vector'
+    call assert_message('flagged Q65 encoder',msgsent,want_msg)
+    call assert_vector('flagged Q65 tones',itone,want_tones)
+    ntests=ntests+1
+  end subroutine expect_legacy_vector_flagged
 
   subroutine expect_invalid_shared_message()
     character(len=37) :: msg37,msgsent
@@ -128,7 +160,7 @@ contains
     integer :: itone(85),i3,n3
 
     msg37='HELLO@WORLD'
-    call genq65(msg37,0,msgsent,itone,i3,n3)
+    call genq65(msg37,0,msgsent,itone,i3,n3,0)
     if(i3.ne.-1 .or. n3.ne.-1) error stop 'legacy Q65 encoder accepted invalid input'
     call assert_message('legacy Q65 invalid message',msgsent, &
          '*** bad message ***                  ')

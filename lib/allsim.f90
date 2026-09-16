@@ -106,7 +106,7 @@ program allsim
   endif
 
   if(isig.eq.0 .or. isig.eq.9) then
-     call genq65(msg37,0,msgsent37,itone,i3,n3)
+     call genq65(msg37,0,msgsent37,itone,i3,n3,0)
      call addit(itone,12000,85,7200,2000,sig,dat)      !9 Q65
   endif
 

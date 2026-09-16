@@ -65,7 +65,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   data firstsd/.true./ !ft8md
   data lhoundprev/.false./ !ft8md
   real ss(184,NSMAX)
-  logical baddata,newdat65,newdat9,single_decode,bVHF,bad0,newdat,ex
+  logical baddata,newdat65,newdat9,single_decode,bVHF,q65_pileup,bad0,newdat,ex
   logical lprinthash22
   integer*2 id2(NTMAX*12000)
   integer nqf(20)
@@ -140,6 +140,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   ncontest=iand(params%nexp_decode,7)
   single_decode=iand(params%nexp_decode,32).ne.0
   bVHF=iand(params%nexp_decode,64).ne.0
+  q65_pileup=iand(params%nexp_decode,128).ne.0  ! bit 7 is reserved for Q65 Pileup
   if(mod(params%nranera,2).eq.0) ntrials=10**(params%nranera/2)
   if(mod(params%nranera,2).eq.1) ntrials=3*10**(params%nranera/2)
   if(params%nranera.eq.0) ntrials=0
@@ -556,7 +557,8 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
           params%nfa,params%nfb,logical(params%nclearave),               &
           single_decode,logical(params%nagain),params%max_drift,         &
           logical(params%newdat),params%emedelay,mycall,hiscall,hisgrid, &
-          params%nQSOProgress,ncontest,logical(params%lapcqonly),navg0,nqf)
+          params%nQSOProgress,ncontest,q65_pileup,logical(params%lapcqonly),  &
+          navg0,nqf)
      params%nclearave=.false.
 
      if(.not.params%nagain) then
@@ -573,8 +575,8 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
                 params%nfa,params%nfb,logical(params%nclearave),             &
                 .true.,.true.,params%max_drift,                              &
                 .false.,params%emedelay,mycall,hiscall,hisgrid,              &
-                params%nQSOProgress,ncontest,logical(params%lapcqonly),      &
-                navg0,nqf)
+                params%nQSOProgress,ncontest,q65_pileup,                       &
+                logical(params%lapcqonly),navg0,nqf)
         enddo
      endif
 
