@@ -58,12 +58,19 @@ add_subdirectory (libm65)
 # UI generation
 qt5_wrap_ui (map65_GENUISRCS ${map65_UISRCS})
 
+# windres doesn't track a .rc file's ICON directive as a dependency, so an icon-only edit needs this to trigger a rebuild.
+set_property (SOURCE map65.rc APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/wsjt.ico)
+
+# Resource generation (About dialog logo + GPL logo)
+qt5_add_resources (map65_RESOURCES_RCC about.qrc)
+
 # Executable: only the .rc file is Windows-only
 if (WIN32)
   add_executable(map65
       ${map65_CXXSRCS}
       ${map65_CSRCS}
       ${map65_GENUISRCS}
+      ${map65_RESOURCES_RCC}
       map65.rc
   )
 else()
@@ -71,6 +78,7 @@ else()
       ${map65_CXXSRCS}
       ${map65_CSRCS}
       ${map65_GENUISRCS}
+      ${map65_RESOURCES_RCC}
   )
 endif()
 

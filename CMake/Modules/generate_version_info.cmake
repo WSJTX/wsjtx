@@ -174,6 +174,9 @@ if(WIN32)
     @ONLY
   )
   file(TO_CMAKE_PATH "${CMAKE_CURRENT_BINARY_DIR}/${_RC_SHORT}" _RC_FWD)
+  # windres doesn't track the ICON directive configure_file wrote into this .rc as a dependency, so an icon-only edit needs this to trigger a rebuild.
+  get_filename_component(_PRODUCT_ICON_ABS "${PRODUCT_ICON}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+  set_source_files_properties("${_RC_FWD}" PROPERTIES OBJECT_DEPENDS "${_PRODUCT_ICON_ABS}")
   set(${outfiles} "${_RC_FWD}" PARENT_SCOPE)
 else()
   set(${outfiles} "" PARENT_SCOPE)
