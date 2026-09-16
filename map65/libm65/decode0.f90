@@ -34,18 +34,8 @@ contains
 
       save
 
-      ! nhsym (npar_ptrs_mod) is written by the GUI/audio thread's automatic
-      ! per-minute trigger with no locking and can change mid-call; snapshot
-      ! it here and use nhsym0, not the live nhsym, for every decision made
-      ! in this call and everything passed down into map65a().
+      ! The decoder owns the claimed parameters until this call returns.
       nhsym0 = nhsym
-
-      ! newdat is also consumed internally by filbig() (see filbig.f90) as a
-      ! one-shot "rebuild the cached FFT" flag. Give this call its own
-      ! private copy, same idea as nhsym0 above, so that internal reset
-      ! can't race with a genuinely new trigger landing on the shared
-      ! newdat from the other thread. Only write the real, shared newdat at
-      ! the two explicit completion points below.
       newdat0 = newdat
 
       ! TEMP diagnostic 2026-09-10 for the missing-final-pass / incomplete-
@@ -145,13 +135,11 @@ contains
 
          call sec0(1, tdec)
 
-         write (line, '("<DecodeFinished>",3I4,I6,F6.2,I5)') &
-            nsum, nsave, nstandalone, nhsym0, tdec, ndecodes
+         write (line, '("<DecodeFinished>",3I4,I6,F6.2,I5,1X,I0)') &
+            nsum, nsave, nstandalone, nhsym0, tdec, ndecodes, active_request_id
          call write_stdout(trim(line)//new_line('a'))
-         newdat = 0
-         manualDecodeFlag = 0   ! <<< add this
 
-         call dbg('decode0: MANUAL path RETURNING at t=' // rtoa(sec_midn()) // ' newdat now 0')
+         call dbg('decode0: MANUAL path RETURNING at t=' // rtoa(sec_midn()))
 
          return
 
@@ -178,16 +166,6 @@ contains
 
       call sec0(1, tdec)
 
-      ! TEMP diagnostic 2026-09-10: proves the snapshot fix by comparing the
-      ! private nhsym0 this call has used throughout against whatever the
-      ! live, shared nhsym reads right now -- if they differ, another
-      ! automatic trigger overwrote nhsym while this call was still running,
-      ! exactly the race this fix protects against.
-      if (nhsym0 /= nhsym) then
-         call dbg('decode0: nhsym RACE DETECTED (protected by snapshot) -- ' // &
-                  'nhsym0(used)=' // itoa(nhsym0) // ' live nhsym now=' // itoa(nhsym))
-      endif
-
       if (nhsym0 == nhsym1) then
          write (line, '("<EarlyFinished>",3I4,I6,F6.2)') &
             nsum, nsave, nstandalone, nhsym0, tdec
@@ -199,15 +177,12 @@ contains
       ! the automatic per-minute cycle and may never equal nhsym2 if no
       ! automatic decode has run yet this session.
       if (nhsym0 == nhsym2 .or. nagain /= 0) then
-         write (line, '("<DecodeFinished>",3I4,I6,F6.2,I5)') &
-            nsum, nsave, nstandalone, nhsym0, tdec, ndecodes
+         write (line, '("<DecodeFinished>",3I4,I6,F6.2,I5,1X,I0)') &
+            nsum, nsave, nstandalone, nhsym0, tdec, ndecodes, active_request_id
          call write_stdout(trim(line)//new_line('a'))
-         newdat = 0  !change 20260723
       end if
 
-      call dbg('decode0: WIDEBAND path RETURNING at t=' // rtoa(sec_midn()) // &
-               ' nhsym0=' // itoa(nhsym0) // ' newdat0(consumed by filbig)=' // itoa(newdat0) // &
-               ' live_newdat(real, shared)=' // itoa(newdat) // ' decoder_ready=' // itoa(decoder_ready))
+      call dbg('decode0: WIDEBAND path RETURNING at t=' // rtoa(sec_midn()))
 
       return
    end if

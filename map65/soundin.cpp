@@ -49,6 +49,7 @@ extern "C" int a2dCallback(const void* inputBuffer, void* outputBuffer,
     }
 
     if (udata->bzero) {           // Start of a new minute
+        advance_live_input_generation();
         udata->kin   = 0;         // Reset buffer pointer
         udata->bzero = false;
     }
@@ -397,6 +398,7 @@ void SoundInThread::inputUDP()
 
 // Reset buffer pointer and symbol number at start of minute
       if(ntr < ntr0 or !m_monitoring or m_TRperiod!=m_TRperiod0) {
+        advance_live_input_generation();
         k=0;
         spectrumScheduler.reset ();
         m_TRperiod0=m_TRperiod;
