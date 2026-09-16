@@ -4369,7 +4369,7 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
 //   * the tooltip on tx_status_label always describes the current state,
 //     including the bound port and who is holding;
 //   * a one-shot status message warns when the operator has opted in but the
-//     station is NOT reachable — the fail-open/fail-silent hole in C4. It fires
+//     station is NOT reachable (enabled, no UDP inhibit port). It fires
 //     only on a change, so it cannot nag.
 void MainWindow::update_inhibit_status ()
 {
@@ -4382,9 +4382,8 @@ void MainWindow::update_inhibit_status ()
       return;
     }
 
-  // Read the port from Configuration every time rather than caching it:
-  // close_rig() zeroes it without emitting, and a stale copy would describe a
-  // station as protected when nothing is listening.
+  // Always read the UDP inhibit port from Configuration.
+  // A cached copy can disagree after bind/clear.
   auto const port = m_config.tx_inhibit_port ();
 
   if (m_tx_inhibited)

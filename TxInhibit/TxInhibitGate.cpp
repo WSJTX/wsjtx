@@ -90,7 +90,6 @@ qint64 TxInhibitGate::now_ms () const
   // Not hypothetical for this audience: WSJT-X operators run Meinberg NTP,
   // Dimension4, BktTimeSync and similar, all of which step the system clock,
   // often repeatedly. QElapsedTimer is unaffected by clock changes.
-  // See docs/REVIEW-rc2.md C1.
   return uptime_.isValid () ? uptime_.elapsed () : 0;
 }
 

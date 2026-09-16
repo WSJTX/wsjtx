@@ -1759,6 +1759,10 @@ else ()
   endif ()
 endif ()
 target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+if (WIN32)
+  # Static wsjt_qt does not always propagate ws2_32 to the final MinGW link.
+  target_link_libraries (wsjtx ws2_32)
+endif (WIN32)
 
 # make a library for WSJT-X UDP servers
 # add_library (wsjtx_udp SHARED ${UDP_library_CXXSRCS})
