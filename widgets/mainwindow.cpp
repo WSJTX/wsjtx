@@ -1151,7 +1151,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       setDecodedTextFont (font);
     });
 
-  setWindowTitle (program_title ());
+  setWindowTitle (branded_program_title ());
 
   connect(&proc_jt9, &QProcess::started, this, [this] {
       if (!m_startup_decoder_reported)

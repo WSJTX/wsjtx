@@ -83,7 +83,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionSave_all->setActionGroup(saveGroup);
   ui->actionSave_decoded->setActionGroup(saveGroup);
 
-  setWindowTitle (program_title ());
+  setWindowTitle (branded_program_title ());
 
   connect(&soundInThread, SIGNAL(readyForFFT(int)), this, SLOT(dataSink(int)));
   connect(&soundInThread, SIGNAL(error(QString)), this, SLOT(showSoundInError(QString)));

@@ -347,7 +347,7 @@ MainWindow::MainWindow(QWidget *parent) :
             wg, [wg]{ wg->setDecodeLabelPosition(DecodeLabelPosition::Bottom); });
   }
 
-  setWindowTitle (program_title ());
+  setWindowTitle (branded_program_title ());
   qDebug() << "MAINWINDOW about to start soundInThread SIGNAL/SLOT connections";
 
   connect(&soundInThread, SIGNAL(readyForFFT(int)),

@@ -107,6 +107,12 @@ QString version (bool include_patch)
 
 QString program_title (QString const& revision)
 {
+  QString id {QCoreApplication::applicationName () + "   v" + QCoreApplication::applicationVersion ()};
+  return id + " " + revision ;
+}
+
+QString branded_program_title (QString const& revision)
+{
   // applicationName() itself must stay plain ASCII -- it also names the jt9 shared-memory key and settings/lock/temp paths.
   QString id {QCoreApplication::applicationName () + "™   v" + QCoreApplication::applicationVersion ()};
   return id + " " + revision ;
