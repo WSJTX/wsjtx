@@ -4420,7 +4420,7 @@ void MainWindow::update_inhibit_status ()
   m_tx_inhibit_warned_port = port;
 
   // Keep capability/port announcements alive while the feature is enabled so
-  // WIMS / KEY-list builders that join after startup still see type 17.
+  // controllers that join after startup still see type 17.
   if (!m_tx_inhibit_announce_timer.isActive ())
     {
       m_tx_inhibit_announce_timer.start ();
@@ -4437,7 +4437,7 @@ void MainWindow::send_inhibit_status_announce ()
   // after disable. UDP Server may be unicast or multicast — same path as
   // Heartbeat/Status.
   //
-  // Never send a live type 17 with port 0. WIMS rejects port 0, so an
+  // Never send a live type 17 with port 0. Controllers reject port 0, so an
   // announce during Hamlib open (gate binds after rig_open) empties the
   // KEY-agent target list. Port 0 is only the disable/clear value.
   if (!m_config.enable_tx_inhibit ())

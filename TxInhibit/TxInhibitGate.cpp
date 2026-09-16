@@ -18,7 +18,7 @@
 namespace
 {
   // Qt 5 can return true from QUdpSocket::bind(port 0) while localPort()
-  // is still 0. WIMS rejects InhibitStatus type 17 with port 0, so a
+  // is still 0. Controllers reject InhibitStatus type 17 with port 0, so a
   // portBound(0) leaves the KEY-agent target list empty.
   quint16 native_udp_local_port (QUdpSocket * udp)
   {
@@ -140,7 +140,7 @@ bool TxInhibitGate::ensure_udp ()
   if (0 == bound_port_)
     {
       // bind() succeeded but the OS-assigned port is not visible.
-      // Do not emit portBound(0): WIMS drops type 17 with port 0.
+      // Do not emit portBound(0): controllers drop type 17 with port 0.
       return fail_bind (QStringLiteral ("ephemeral port is 0 after bind"));
     }
   QObject::connect (udp_, &QUdpSocket::readyRead, this, &TxInhibitGate::on_udp_ready);

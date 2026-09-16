@@ -1,16 +1,15 @@
 # inhibit-agent — standalone KEY agent
 
-**Audience:** operators who use TX Inhibit on a dual-radio seat **without WIMS**.  
+**Audience:** operators who use TX Inhibit on a dual-radio seat.  
 **Scope:** this program only. Gate internals live in [TX_INHIBIT.md](TX_INHIBIT.md).
 
 **KEY agent** is the role. This program is the standalone KEY agent: the
-operator supplies the serial port and dest `host:port`. A WIMS
-deployment can instead use **`wims-key-agent`** (destinations from WIMS
-discovery). Same UDP protocol either way.
+operator supplies the serial port and dest `host:port`. Any other program
+that speaks the same UDP protocol is also a valid KEY agent.
 
 Without a KEY agent the gate only accepts hold datagrams — it cannot
 see the SSB/CW KEY. Shipping this program is what makes TX Inhibit
-usable on a station that is not a WIMS station.
+usable on a dual-radio seat with only WSJT-X.
 
 ---
 
@@ -19,7 +18,6 @@ usable on a station that is not a WIMS station.
 | Program | Role |
 |---------|------|
 | **inhibit-agent** | **This program.** USB-serial **CTS** → hold. Operator setup. |
-| **wims-key-agent** | WIMS KEY agent (WIMS tree, not this program). Same protocol. |
 | **`tools/send_inhibit_hold.py`** | Lab / bench: scripted hold / release, no KEY dongle. |
 
 All speak the same `NetworkMessage::TxInhibit` (type **18**) datagrams.
@@ -123,7 +121,7 @@ Wrong or missing COM is **SENSE FAULT**, never silent protection.
 
 **RTS/DTR stay idle.** This program only reads **CTS**. It never keys or
 inhibits via RTS. USB-serial drivers (and Qt) assert RTS+DTR on open, and
-restoring termios on close can leave RTS high with **no WSJT-X or WIMS
+restoring termios on close can leave RTS high with **no WSJT-X
 running** — that keys a radio on Keyline J3. The agent forces RTS+DTR off
 immediately after open, keeps them off, disables hangup-on-close, and does
 not restore the driver’s default lines when it exits.

@@ -1800,7 +1800,7 @@ add_executable (wsjtx_app_version AppVersion/AppVersion.cpp ${wsjtx_app_version_
 target_link_libraries (wsjtx_app_version wsjt_qt)
 
 # Standalone KEY agent: USB-serial CTS -> UDP hold. CLI + GUI.
-# Makes TX Inhibit usable without WIMS (wims-key-agent).
+# Standalone KEY agent so TX Inhibit works on a dual-radio seat.
 add_subdirectory (tools/inhibit-agent)
 
 generate_version_info (message_aggregator_VERSION_RESOURCES

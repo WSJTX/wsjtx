@@ -39,7 +39,7 @@ class TestTxInhibitGate final
 
 private slots:
 
-  // bind(0) must never advertise port 0. WIMS drops type-17 port 0, so
+  // bind(0) must never advertise port 0. Controllers drop type-17 port 0, so
   // portBound(0) leaves the KEY-agent target list empty.
   void bindNeverAnnouncesPortZero ()
   {

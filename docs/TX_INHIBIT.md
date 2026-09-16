@@ -14,8 +14,7 @@ Design authority for this repository: how **wsjtx-inhibit** implements
 |------|---------|
 | **WSJT-X station** | One digi position: this app + PC + network + radio + antenna (CAT/PTT). Multi-op has several. May be an unattended go-box, remote from the priority SSB/CW station and the KEY agent. |
 | **KEY agent** | Role: any process that sees the priority KEY and sends hold / keepalive / **release hold**. Not a binary name. |
-| **`inhibit-agent`** | Standalone KEY agent in this tree. Operator supplies the serial port and dest `host:port`. [INHIBIT_AGENT.md](INHIBIT_AGENT.md). Makes TX Inhibit usable **without WIMS**. |
-| **`wims-key-agent`** | WIMS KEY agent (WIMS tree, not this repo). Destinations come from WIMS discovery. Same protocol. |
+| **`inhibit-agent`** | Standalone KEY agent in this tree. Operator supplies the serial port and dest `host:port`. [INHIBIT_AGENT.md](INHIBIT_AGENT.md). Makes TX Inhibit usable on a dual-radio seat with only WSJT-X. |
 | **TX Inhibit** | Product / feature name (Settings, badge, this build). |
 | **want_tx** | Software wants to transmit (FT8 sequence, “Enable Tx”, audio path). |
 | **hold** | One or more **leases** are live: KEY agent(s) have told this WSJT-X station to inhibit transmit. |
@@ -69,12 +68,11 @@ Wire format: `NetworkMessage::TxInhibit` type **18** (§4). No hang field.
 | **KEY agent** | Process that sees the priority radio’s KEY | While KEY is asserted (and during agent **hang** after **release KEY**), sends hold keepalives; when hang finishes, **releases hold** (`ttl_ms: 0`). |
 
 Any program that speaks §4 is a valid KEY agent. This tree ships a standalone
-agent so a dual-radio seat works **without WIMS**:
+agent so a dual-radio seat works with only WSJT-X:
 
 | Program | Tree | Setup |
 |---------|------|--------|
 | **`inhibit-agent`** / **`inhibit-agent-gui`** | this tree | Operator supplies USB-serial CTS and dest `host:port`. [INHIBIT_AGENT.md](INHIBIT_AGENT.md). |
-| **`wims-key-agent`** | WIMS | Same role; destinations from WIMS discovery. Not shipped here. |
 | **`send_inhibit_hold.py`** | this tree | Scripted bench hold / release. |
 
 ```text
@@ -111,9 +109,9 @@ SSB/CW station and the KEY agent host.
   test tool).
 - Inhibit listen port: **always ephemeral** (OS-assigned IPv4). Announced in
   status-bar tooltip and in **InhibitStatus** (type 17) on the UDP Server
-  stream. Controllers (WIMS KEY agent, or a discovery-capable agent) learn
-  `host:port` from type 17 — there is no fixed well-known port. Total bind
-  failure is **non-fatal**: CAT/PTT continue; hold requests are not received.
+  stream. Controllers learn `host:port` from type 17 — there is no fixed
+  well-known port. Total bind failure is **non-fatal**: CAT/PTT continue;
+  hold requests are not received.
 - Status bar (red): **`INHIBIT`**. Tooltip may show holder / UDP listen port.
 
 ### Setup summary
@@ -161,7 +159,7 @@ path when several apps share the station.
 |---------|--------|-----|
 | Flaky CAT / stuck TX | RTS used as handshake | Handshake **None**; radio SEND not flow control |
 | Keys on port open | Polarity / forced DTR-RTS | Check logger forced lines; try other modem line |
-| Keys with no WSJT-X / WIMS | USB-serial default RTS (open/close or ModemManager) | `inhibit-agent` now forces RTS+DTR idle; Linux udev: `tools/inhibit-agent/99-keyline-not-modem.rules` |
+| Keys with no WSJT-X running | USB-serial default RTS (open/close or ModemManager) | `inhibit-agent` now forces RTS+DTR idle; Linux udev: `tools/inhibit-agent/99-keyline-not-modem.rules` |
 | “Worked yesterday” | Another app owns COM | One owner; restart after other apps close |
 | Test PTT OK, no RF | Often audio/mode | DATA mode, levels, power meter |
 | CW key instead of PTT | Icom USB Keying vs USB SEND | PTT → **USB SEND** |
@@ -385,7 +383,7 @@ host:port   e.g.  192.168.1.40:51432   (port from InhibitStatus type 17)
 ```
 
 Unicast UDP is enough for small multi-op. Each WSJT-X station binds its own
-ephemeral inhibit port and parses independently. WIMS builds the short
+ephemeral inhibit port and parses independently. Controllers build the short
 destination list (typically ≤3 digi seats on the same band) from type 17.
 The gate does not know about bands or fleets.
 
@@ -464,7 +462,7 @@ that matters for an unattended transmitter.
 | Shared or untrusted network | Treat "someone can stop my TX" as a real possibility. |
 
 **Id filtering:** non-empty type-18 Id must match this instance. Targeting is still by
-unicast destination list managed outside the gate (WIMS from type 17, or local config).
+unicast destination list managed outside the gate (from type 17, or local config).
 
 ---
 
@@ -488,15 +486,14 @@ does not **assert PTT** while hold is active.
 
 ### KEY agent (`inhibit-agent` / `inhibit-agent-gui`)
 
-Standalone KEY agent so TX Inhibit works **without WIMS**. USB-serial CTS
-in, dest `host:port` out (port from type 17 / tooltip). Design:
-[INHIBIT_AGENT.md](INHIBIT_AGENT.md).
+Standalone KEY agent so TX Inhibit works on a dual-radio seat with only
+WSJT-X. USB-serial CTS in, dest `host:port` out (port from type 17 / tooltip).
+Design: [INHIBIT_AGENT.md](INHIBIT_AGENT.md).
 
 | Binary | Tree | Notes |
 |--------|------|--------|
 | **`inhibit-agent`** | this repo | Standalone CLI. CTS KEY `--port` + dest `--addr host:port`. |
 | **`inhibit-agent-gui`** | this repo | CTS KEY; dest `host:port` in the window. |
-| **`wims-key-agent`** | WIMS | Destinations from WIMS discovery (type 17). Not shipped here. |
 
 ```text
 inhibit-agent --port /dev/ttyUSB0 --addr 127.0.0.1:51432
@@ -542,7 +539,7 @@ python3 tools/send_inhibit_hold.py --ttl-ms 0
 - Agent **hang** is not implemented in the WSJT-X station; WSJT-X station only has **hold timeout**.
 - UDP bind failure is logged and non-fatal; stock PTT continues.
 - Bind that yields port 0 is treated as failure. Type 17 never publishes
-  port 0 as a live KEY-agent target (WIMS rejects port 0). Port 0 in type 17
-  is only the disable/clear announce.
+  port 0 as a live KEY-agent target (controllers reject port 0). Port 0 in
+  type 17 is only the disable/clear announce.
 - Identifier names in code may still say gate/hold/block/intent; align in a
   later code pass. This document is the language target.
