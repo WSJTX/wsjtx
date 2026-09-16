@@ -6,6 +6,8 @@ subroutine display(nkeep, ftol)
   use stdout_channel_mod, only: write_stdout
   use iso_fortran_env, only: real64
   use indexx_mod, only: indexx
+  use debug_log, only: dbg, itoa, rtoa
+  use sec_midn_mod, only: sec_midn
   implicit none
 
   ! Arguments
@@ -51,6 +53,12 @@ subroutine display(nkeep, ftol)
   callsign0 = ' '
   freqcall  = '            '
 
+  ! TEMP diagnostic 2026-09-10 for the "decode reaches map65_rx.log but not
+  ! the Messages window" investigation -- this is the entry point for the
+  ! ENTIRE "@"/"&" (Messages/Band Map window) pipeline; nothing gets to
+  ! those windows except through here.
+  call dbg('display: ENTRY at t=' // rtoa(sec_midn()) // ' nkeep=' // itoa(nkeep))
+
   !------------------ Read and filter valid lines ---------------------
   rewind(26)
   nz = 0
@@ -66,12 +74,16 @@ subroutine display(nkeep, ftol)
      utc(i)     = 60*nh + nm
      freqkHz(i) = 1000.d0*(f0 - 144.d0) + 0.001d0*ndf
   enddo
-  
+
 10 backspace(26)
   nz = i -1
-  utcz = utc(nz)
+  call dbg('display: read from unit 26, raw record count nz=' // itoa(nz))
+  if (nz >= 1) utcz = utc(nz)
   nz=nz-1
-  if (nz < 1) return
+  if (nz < 1) then
+     call dbg('display: EARLY RETURN, nz<1 after decrement -- no records to emit')
+     return
+  endif
   nquad = max(nkeep/4, 3)
   do i = 1, nz
      nage = utcz - utc(i)
@@ -179,6 +191,7 @@ subroutine display(nkeep, ftol)
   cfreq0='   '
   nc = 0
   callsign0='      '
+  call dbg('display: about to walk k3=' // itoa(k3) // ' sorted records for "@" emission')
   do k = 1, k3
      out = line3(k)(1:13)//line3(k)(28:31)//line3(k)(39:45)// &
            line3(k)(35:38)//line3(k)(46:80)
@@ -192,7 +205,14 @@ subroutine display(nkeep, ftol)
            livecq3 = out(1:61)//' '//livecq2(23:27)//' '//livecq2(79:83)
            write(linenew,'("@",A)') trim(livecq3)
            call write_stdout(trim(linenew)//new_line('a'))
+           call dbg('display: k=' // itoa(k) // ' "@" EMITTED freq=' // out(6:8) // &
+                    ' utc=' // out(19:22) // ' msg="' // trim(out(31:55)) // '"')
            out0 = out
+        else
+           call dbg('display: k=' // itoa(k) // ' "@" SUPPRESSED (matches out0) freq=' // out(6:8) // &
+                    ' utc=' // out(19:22) // ' msg="' // trim(out(31:55)) // &
+                    '" -- out0 was freq=' // out0(6:8) // ' utc=' // out0(19:22) // &
+                    ' msg="' // trim(out0(31:55)) // '"')
         endif
 
         i1 = index(out(31:), ' ')
@@ -213,8 +233,11 @@ subroutine display(nkeep, ftol)
               freqcall(nc) = cfreq0//line3(k)(9:13)//' '//callsign//line3(k)(79:80)
            endif
         endif
+     else
+        call dbg('display: k=' // itoa(k) // ' SKIPPED entirely (out(6:8) blank -- not a frequency record)')
      endif
   enddo
+  call dbg('display: done, nc(bandmap entries)=' // itoa(nc))
 
 if(nc.lt.MAXCALLS) nc=nc+1
 freqcall(nc)='            '

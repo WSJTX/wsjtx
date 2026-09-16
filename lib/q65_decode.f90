@@ -15,7 +15,7 @@ module q65_decode
 
   abstract interface
      subroutine q65_decode_callback (this,nutc,snr1,nsnr,dt,freq,    &
-          decoded,idec,nused,ntrperiod)
+          decoded,idec,nused,ntrperiod,iflagdec)
        import q65_decoder
        implicit none
        class(q65_decoder), intent(inout) :: this
@@ -28,6 +28,7 @@ module q65_decode
        integer, intent(in) :: idec
        integer, intent(in) :: nused
        integer, intent(in) :: ntrperiod
+       integer, intent(in) :: iflagdec  !Recovered spare 78th bit (see genq65/q65_ap)
      end subroutine q65_decode_callback
   end interface
 
@@ -36,7 +37,7 @@ contains
   subroutine decode(this,callback,iwave,nqd0,nutc,ntrperiod,nsubmode,nfqso,  &
        ntol,ndepth,nfa0,nfb0,lclearave,single_decode,lagain,max_drift0,      &
        lnewdat0,emedelay,mycall,hiscall,hisgrid,nQSOprogress,ncontest,       &
-       lapcqonly,navg0,nqf)
+       lq65pileup,lapcqonly,navg0,nqf)
 
 ! Top-level routine that organizes the decoding of Q65 signals
 ! Input:  iwave            Raw data, i*2
@@ -50,6 +51,7 @@ contains
 !         emedelay         Sync search extended to cover EME delays
 !         nQSOprogress     Auto-sequencing state for the present QSO
 !         ncontest         Supported contest type
+!         lq65pileup       Q65 Pileup AP flag policy
 !         lapcqonly        Flag to use AP only for CQ calls
 ! Output: sent to the callback routine for display to user
 
@@ -84,7 +86,8 @@ contains
     integer nqf(20)
     integer stageno                       !Added by W3SZ
     integer time
-    logical lclearave,lnewdat0,lapcqonly,unpk77_success
+    integer iflagdec                      !Recovered spare 78th bit
+    logical lclearave,lnewdat0,lq65pileup,lapcqonly,unpk77_success
     logical single_decode,lagain
     complex c00(0:3600000)                !Analytic signal, 6000 Sa/s
     type(q3list) callers(MAX_CALLERS)
@@ -236,7 +239,7 @@ contains
        apsymbols=0
        if(ipass.ge.1) then
           ! Subsequent passes use AP information appropiate for nQSOprogress
-          call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+          call q65_ap(nQSOprogress,ipass,ncontest,lq65pileup,lapcqonly,iaptype, &
                apsym0,apmask1,apsymbols1)
           write(c78,1050) apmask1
 1050      format(78i1)
@@ -315,6 +318,7 @@ contains
 !  3:  Decode with AP for "MyCall DxCall ?"
 
 ! Unpack decoded message for display to user
+       iflagdec=iand(dat4(13),1)     !Recover the spare 78th bit before it's shifted away
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
        call unpack77(c77,1,decoded,unpk77_success) !Unpack to get decoded
@@ -322,7 +326,7 @@ contains
        do i=1,ndecodes
           if(decodes(i).eq.decoded) idupe=1
        enddo
-       if(idupe.eq.0) then
+       if(idupe.eq.0 .and. unpk77_success) then
           ndecodes=min(ndecodes+1,100)
           decodes(ndecodes)=decoded
           f0decodes(ndecodes)=f0dec
@@ -330,7 +334,7 @@ contains
           call q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
           nsnr=nint(snr2)
           call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
-               idec,nused,ntrperiod)
+               idec,nused,ntrperiod,iflagdec)
           if(ncontest.eq.1) then
              call q65_hist2(nint(f0dec),decoded,callers,nhist2)
           else
@@ -406,7 +410,7 @@ contains
           apsymbols=0
           if(ipass.ge.1) then
           ! Subsequent passes use AP information appropiate for nQSOprogress
-             call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+             call q65_ap(nQSOprogress,ipass,ncontest,lq65pileup,lapcqonly,iaptype, &
                   apsym0,apmask1,apsymbols1)
              write(c78,1050) apmask1
              read(c78,1060) apmask
@@ -429,20 +433,21 @@ contains
 200    decoded='                                     '
        if(idec.ge.0) then
 ! Unpack decoded message for display to user
+          iflagdec=iand(dat4(13),1)  !Recover the spare 78th bit before it's shifted away
           write(c77,1000) dat4(1:12),dat4(13)/2
           call unpack77(c77,1,decoded,unpk77_success) !Unpack to get decoded
           idupe=0
           do i=1,ndecodes
              if(decodes(i).eq.decoded) idupe=1
           enddo
-          if(idupe.eq.0) then
+          if(idupe.eq.0 .and. unpk77_success) then
              ndecodes=min(ndecodes+1,100)
              decodes(ndecodes)=decoded
              f0decodes(ndecodes)=f0dec
              call q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
              nsnr=nint(snr2)
              call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
-                  idec,nused,ntrperiod)
+                  idec,nused,ntrperiod,iflagdec)
              if(ncontest.eq.1) then
                 call q65_hist2(nint(f0dec),decoded,callers,nhist2)
              else

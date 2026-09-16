@@ -15,8 +15,12 @@ highlighted in green for Receiving, yellow for Tx, red for Tune, and
 light blue for a file name.  When transmitting, the Tx message is
 displayed exactly as it will be decoded by receiving stations.  The
 second label (as shown above) will be absent if you are using the
-*Default* setting on the *Configurations* menu.  A progress bar shows
-the elapsed fraction of a Tx or Rx sequence.  Finally, if the Watchdog
+*Default* setting on the *Configurations* menu. In most modes, the next
+label shows the number of messages decoded in the most recent receive
+sequence. In Q65 it instead shows the number of receive sequences
+accumulated for message averaging in the even and odd time slots. A
+progress bar shows the elapsed fraction of a Tx or Rx sequence. Finally,
+if the Watchdog
 (WD) timer was enabled on the *Files | Settings | General* tab, a label in the
 lower right-hand corner displays the number of minutes remaining
 before timeout.

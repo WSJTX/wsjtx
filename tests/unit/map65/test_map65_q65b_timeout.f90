@@ -17,7 +17,7 @@ program test_map65_q65b_timeout
   xdt0 = 2.5
   nfreq0 = 1000
 
-  call q65b(1, 0, 0, 144.125_real64, 0, 96000, 125, 0, 100, .false., &
+  call q65b(1, 0, 0, 144.125_real64, 0, 96000, 125, 0, 100, .false., 0, &
             'K1ABC       ', 'FN42  ', 'W9XYZ       ', 'EN50  ', 2, 1000.0_real64, 125.0, &
             1, 0, 0, 0, idec)
 

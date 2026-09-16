@@ -30,6 +30,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDateTime>
+#include <QTime>
 #include <QFile>
 #include <QTextStream>
 #include <QString>
@@ -114,6 +115,34 @@ MainWindow::DecoderContext::DecoderContext()
 MainWindow::DecoderContext::~DecoderContext()
 {
     delete stdoutChan;
+}
+
+// TEMP diagnostic 2026-09-10 for the "decode reaches map65_rx.log but not the
+// Messages window, only on the first decode cycle after MAP65 starts" report.
+// Writes to its own separate log file rather than the shared w3sz_debug.log
+// Fortran's dbg() uses -- the two processes/threads have no lock between
+// them, and sharing a file produces torn, interleaved lines. Timestamps use
+// the same sec_midn()-style local h*3600+m*60+s+ms/1000 format as the
+// Fortran log, so the two can still be correlated by eye. Strip both files'
+// worth of logging before merge.
+//
+// Mirrors run_m65.f90's dbg_enabled flag -- flip to true to re-enable this
+// log without touching any of the cppDbg(...) call sites scattered through
+// this file.
+static bool const cppDbgEnabled = false;
+
+static void cppDbg(const QString &msg)
+{
+    if (!cppDbgEnabled) return;
+    double const t = [] {
+        QTime const now = QTime::currentTime();
+        return now.hour() * 3600.0 + now.minute() * 60.0 + now.second() + now.msec() / 1000.0;
+    }();
+    QFile f("w3sz_debug_cpp.log");
+    if (f.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&f);
+        out << "mainwindow: " << msg << " at t=" << QString::number(t, 'f', 3) << "\n";
+    }
 }
 
 //-------------------------------------------------- MainWindow constructor
@@ -386,6 +415,29 @@ MainWindow::MainWindow(QWidget *parent) :
   fftwf_import_wisdom_from_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
 
   readSettings();		             //Restore user's setup params
+
+  // Push mycall/mygrid/hiscall/hisgrid/neme to the Fortran side here, right
+  // after settings load, instead of waiting for the first
+  // MainWindow::decode() call to do it (decode() still pushes these on
+  // every cycle further down; this just makes the values available
+  // sooner). run_m65.f90 builds the deep65 CALL3.TXT candidate list eagerly
+  // before its decode loop starts (build_call3_candidates() in deep65.f90);
+  // without this, that eager build ran against Fortran's still-default/
+  // blank mycall/hiscall, and decode0.f90's genuine mycall-changed check
+  // then forced a second, redundant rebuild on the first real decode.
+  {
+     QString mcall = (m_myCall + "            ").mid(0, 12);
+     QString mgrid = (m_myGrid + "            ").mid(0, 6);
+     QString hcall = (ui->dxCallEntry->text() + "            ").mid(0, 12);
+     QString hgrid = (ui->dxGridEntry->text() + "      ").mid(0, 6);
+     setMyCall(mcall);
+     setMyGrid(mgrid);
+     setHisCall(hcall);
+     setHisGrid(hgrid);
+     setNeme(0);
+     if (ui->actionOnly_EME_calls->isChecked()) setNeme(1);
+  }
+
   PaError paerr=Pa_Initialize();                    //Initialize Portaudio
   if(paerr!=paNoError) {
     msgBox("Unable to initialize PortAudio.");
@@ -598,6 +650,16 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
           readIndex = 0;
       region->header.readIndex = readIndex;
 
+      // TEMP diagnostic 2026-09-10: h0.writeIndex should always be 0 here --
+      // StdoutSharedMemory's constructor unconditionally zeroes writeIndex/
+      // readIndex right after mapping (see stdout_shared_memory.cpp), and
+      // that happens synchronously on the main thread before this reader
+      // thread is even spawned. If this ever logs a nonzero value, that
+      // assumption is wrong and this "start from current writeIndex" line
+      // is silently skipping over real data written before this point.
+      cppDbg(QString("stdout reader INIT readIndex=%1 (h0.writeIndex=%2) bufSize=%3")
+                 .arg(readIndex).arg(h0.writeIndex).arg(bufSize));
+
       std::string lineBuffer;
 
       while (!stdoutReaderStop.load()) {
@@ -641,9 +703,18 @@ void MainWindow::startSharedMemoryStdoutReader(DecoderContext* ctx)
 }
 
 void MainWindow::processStdOut(QString t)
-{  
- 
+{
+
 //  qDebug().noquote() << QDateTime::currentMSecsSinceEpoch() << "PROCESS STDOUT:" << t;
+
+  // TEMP diagnostic 2026-09-10: confirms whether a decode line that made it
+  // into map65_rx.log (written Fortran-side, independent of this whole
+  // path) ever actually arrived here on the GUI thread. If a "!"-prefixed
+  // line is missing from this log around the time of a report-vs-rx.log
+  // mismatch, the loss is upstream (shared-memory ring buffer / reader
+  // thread); if it IS here but never appended to the Messages window, the
+  // loss is in handleControlLine/shouldDisplay below.
+  cppDbg(QString("processStdOut RECV \"%1\"").arg(t.trimmed()));
 
   if (m_decodeDisplayFilter.handleControlLine(t)) return;
 
@@ -677,16 +748,21 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
     if (t.indexOf("<DecodeFinished>") >= 0) {
         ++m_decodeFinishedCount;
 
-          decodeBusy(false); 
+          decodeBusy(false);
 //      qDebug().noquote() << QDateTime::currentMSecsSinceEpoch() << "decodeBusy(false)";
       if (m_diskData) onDiskDecodeFinished();
 
         int ndecodes = t.mid(40,5).toInt();
         lab8->setText(QString::number(ndecodes));
-        m_map65RxLog   = 0;        
-    }
+        m_map65RxLog   = 0;
 
-    ui->DecodeButton->setStyleSheet("");
+        // Only clear the button's "busy" styling on <DecodeFinished>, not
+        // <EarlyFinished> -- decodeBusy(false) is likewise gated on
+        // <DecodeFinished> alone, and the final pass can legitimately take
+        // many seconds longer than the early pass, during which the button
+        // must keep showing busy while more decodes are still arriving.
+        ui->DecodeButton->setStyleSheet("");
+    }
     return;
 }
 
@@ -700,10 +776,23 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 #ifdef WIN32
         m = 3;
 #endif
-        const QString decode_line = t.mid(1, n - m);
+        // The m=2/m=3 trim above assumes a normal decode line's fixed
+        // layout, whose last field is disposable padding/polarization --
+        // Find Delta Phi's "!Best-fit Dphi = NNN deg" summary line ends on
+        // real content instead (the "g" of "deg"), so the same trim chops
+        // it to "...de". Just trim the line terminator for this one case.
+        const QString decode_line = (t.indexOf("Best-fit") >= 0)
+            ? t.mid(1).trimmed()
+            : t.mid(1, n - m);
 
         if (n >= 30 || t.indexOf("Best-fit") >= 0) {
-          if (m_decodeDisplayFilter.shouldDisplay(decode_line))
+          bool const display = m_decodeDisplayFilter.shouldDisplay(decode_line);
+          // TEMP diagnostic 2026-09-10 -- see the matching note at the top
+          // of processStdOut(). If display=false here for a line that has
+          // no legitimate earlier-pass duplicate, the display filter itself
+          // (map65_decode_display_filter.cpp) is the culprit.
+          cppDbg(QString("shouldDisplay=%1 for \"%2\"").arg(display ? "true" : "false").arg(decode_line));
+          if (display)
             ui->decodedTextBrowser->append(decode_line);
         }
         
@@ -2202,7 +2291,16 @@ QString hgrid = (ui->dxGridEntry->text() + "      ").mid(0, 6);
   setJunk1(1234);
   setJunk2(5678);
 
-  setNagain(0); //added 12-30-25 to agree with legacy
+  // decode() writes directly into the same live Fortran variable the
+  // decoder reads, so an unconditional setNagain(0) here would clobber
+  // nagain=1 -- the signal on_DecodeButton_clicked()/Find-Delta-Phi rely on
+  // to tell decode0.f90 this is a manual repeat, not a fresh accumulation
+  // cycle -- before the decoder ever saw it (see decode0.f90's dd_old
+  // refresh guard). The automatic per-minute trigger in dataSink() already
+  // calls setNagain(0) itself before invoking decode(), so omitting it here
+  // is a no-op for normal automatic decoding. Do NOT add setNagain(0) here
+  // without also reworking decode0.f90's guard -- newdat itself must stay
+  // forced to 1 for both call paths.
   if (!m_diskData) setNdiskdat(0);  //added 12-30-25 to agree with legacy
   setDecoderReady(1);
   m_map65RxLog=0;

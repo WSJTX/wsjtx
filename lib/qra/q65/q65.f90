@@ -9,7 +9,7 @@ module q65
   integer apmask(13),apsymbols(13)
   integer,dimension(22) ::  isync = (/1,9,12,13,15,22,23,26,27,33,35,   &
                                      38,46,50,55,60,62,66,69,74,76,85/)
-  integer codewords(63,206)
+  integer codewords(63,411)   !See MAX_NCW in q65_set_list2.f90
   integer ibwa,ibwb,ncw,nsps,mode_q65,nfa,nfb,nqd
   integer idfbest,idtbest,ibw,ndistbest,maxiters,max_drift
   integer istep,nsmo,lag1,lag2,npasses,iseq,ncand,nrc
@@ -367,7 +367,7 @@ subroutine q65_dec_q012(s3,LL,snr2,dat4,idec,decoded)
      apsymbols=0
      if(ipass.ge.1) then
         ! Subsequent passes use AP information appropiate for nQSOprogress
-        call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+        call q65_ap(nQSOprogress,ipass,ncontest,.false.,lapcqonly,iaptype, &
              apsym0,apmask1,apsymbols1)
         write(c78,1050) apmask1
 1050    format(78i1)

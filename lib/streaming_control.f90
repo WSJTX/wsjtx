@@ -1525,7 +1525,7 @@ contains
   ! (the legacy-depth-vs-unpacked conflict is inherently cross-key). Pack rule
   ! (RFC §6.1/§6.2):
   !   ndepth      = depth_level(bits0-2) | use_avg<<4 | deep_ap<<5 | autoclr<<7
-  !   nexp_decode = ncontest(bits0-2) | single<<5 | vhf<<6 | (nb+3)<<8
+  !   nexp_decode = ncontest(bits0-2) | single<<5 | vhf<<6 | q65_pileup<<7 | (nb+3)<<8
   ! depth_level is masked to 3 bits and q65_maxiters to 2, the NB byte clamped to
   ! [0,255], so an out-of-range producer value cannot corrupt a sibling bit (none
   ! of these reaches a raw array index, so no decode crash). The

@@ -324,16 +324,10 @@
          <item>
           <widget class="QGroupBox" name="antennaGroupBox">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>55</height>
-            </size>
            </property>
            <property name="title">
             <string>Antennas:</string>
@@ -946,104 +940,39 @@
           </widget>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_17">
-           <item>
-            <spacer name="horizontalSpacer_17">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Policy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>80</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
+          <layout class="QGridLayout" name="colorsGridLayout">
+           <item row="0" column="1">
             <widget class="QLabel" name="label_20">
              <property name="text">
               <string>Red</string>
              </property>
+             <property name="alignment">
+              <set>Qt::AlignmentFlag::AlignCenter</set>
+             </property>
             </widget>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_19">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Policy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>31</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
+           <item row="0" column="2">
             <widget class="QLabel" name="label_21">
              <property name="text">
               <string>Green</string>
              </property>
+             <property name="alignment">
+              <set>Qt::AlignmentFlag::AlignCenter</set>
+             </property>
             </widget>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_20">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Policy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>34</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
+           <item row="0" column="3">
             <widget class="QLabel" name="label_22">
              <property name="text">
               <string>Blue</string>
              </property>
+             <property name="alignment">
+              <set>Qt::AlignmentFlag::AlignCenter</set>
+             </property>
             </widget>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_18">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Policy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>80</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_11">
-           <item>
+           <item row="1" column="0">
             <widget class="QLabel" name="label_15">
-             <property name="maximumSize">
-              <size>
-               <width>60</width>
-               <height>16777215</height>
-              </size>
-             </property>
              <property name="text">
               <string>Background</string>
              </property>
@@ -1052,21 +981,21 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="1" column="1">
             <widget class="QSpinBox" name="sbBackgroundRed">
              <property name="maximum">
               <number>255</number>
              </property>
             </widget>
            </item>
-           <item>
+           <item row="1" column="2">
             <widget class="QSpinBox" name="sbBackgroundGreen">
              <property name="maximum">
               <number>255</number>
              </property>
             </widget>
            </item>
-           <item>
+           <item row="1" column="3">
             <widget class="QSpinBox" name="sbBackgroundBlue">
              <property name="maximum">
               <number>255</number>
@@ -1076,34 +1005,8 @@
              </property>
             </widget>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_14">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Policy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>55</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_12">
-           <item>
+           <item row="2" column="0">
             <widget class="QLabel" name="label_16">
-             <property name="maximumSize">
-              <size>
-               <width>60</width>
-               <height>16777215</height>
-              </size>
-             </property>
              <property name="text">
               <string>Newest</string>
              </property>
@@ -1112,7 +1015,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="2" column="1">
             <widget class="QSpinBox" name="sbRed0">
              <property name="maximum">
               <number>255</number>
@@ -1122,33 +1025,27 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="2" column="2">
             <widget class="QSpinBox" name="sbGreen0">
              <property name="maximum">
               <number>255</number>
              </property>
             </widget>
            </item>
-           <item>
+           <item row="2" column="3">
             <widget class="QSpinBox" name="sbBlue0">
              <property name="maximum">
               <number>255</number>
              </property>
             </widget>
            </item>
-           <item>
+           <item row="2" column="4">
             <widget class="QLabel" name="lab0">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>50</width>
-               <height>16777215</height>
-              </size>
              </property>
              <property name="font">
               <font>
@@ -1161,18 +1058,8 @@
              </property>
             </widget>
            </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_13">
-           <item>
+           <item row="3" column="0">
             <widget class="QLabel" name="label_17">
-             <property name="maximumSize">
-              <size>
-               <width>60</width>
-               <height>16777215</height>
-              </size>
-             </property>
              <property name="text">
               <string>2nd</string>
              </property>
@@ -1181,7 +1068,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="3" column="1">
             <widget class="QSpinBox" name="sbRed1">
              <property name="maximum">
               <number>255</number>
@@ -1191,7 +1078,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="3" column="2">
             <widget class="QSpinBox" name="sbGreen1">
              <property name="maximum">
               <number>255</number>
@@ -1201,26 +1088,20 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="3" column="3">
             <widget class="QSpinBox" name="sbBlue1">
              <property name="maximum">
               <number>255</number>
              </property>
             </widget>
            </item>
-           <item>
+           <item row="3" column="4">
             <widget class="QLabel" name="lab1">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>50</width>
-               <height>16777215</height>
-              </size>
              </property>
              <property name="font">
               <font>
@@ -1233,18 +1114,8 @@
              </property>
             </widget>
            </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_14">
-           <item>
+           <item row="4" column="0">
             <widget class="QLabel" name="label_18">
-             <property name="maximumSize">
-              <size>
-               <width>60</width>
-               <height>16777215</height>
-              </size>
-             </property>
              <property name="text">
               <string>3rd</string>
              </property>
@@ -1253,7 +1124,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="4" column="1">
             <widget class="QSpinBox" name="sbRed2">
              <property name="maximum">
               <number>255</number>
@@ -1263,7 +1134,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="4" column="2">
             <widget class="QSpinBox" name="sbGreen2">
              <property name="maximum">
               <number>255</number>
@@ -1273,7 +1144,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="4" column="3">
             <widget class="QSpinBox" name="sbBlue2">
              <property name="maximum">
               <number>255</number>
@@ -1283,19 +1154,13 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="4" column="4">
             <widget class="QLabel" name="lab2">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>50</width>
-               <height>16777215</height>
-              </size>
              </property>
              <property name="font">
               <font>
@@ -1308,18 +1173,8 @@
              </property>
             </widget>
            </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_15">
-           <item>
+           <item row="5" column="0">
             <widget class="QLabel" name="label_19">
-             <property name="maximumSize">
-              <size>
-               <width>60</width>
-               <height>16777215</height>
-              </size>
-             </property>
              <property name="text">
               <string>Oldest</string>
              </property>
@@ -1328,7 +1183,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="5" column="1">
             <widget class="QSpinBox" name="sbRed3">
              <property name="maximum">
               <number>255</number>
@@ -1338,7 +1193,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="5" column="2">
             <widget class="QSpinBox" name="sbGreen3">
              <property name="maximum">
               <number>255</number>
@@ -1348,7 +1203,7 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="5" column="3">
             <widget class="QSpinBox" name="sbBlue3">
              <property name="maximum">
               <number>255</number>
@@ -1358,19 +1213,13 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="5" column="4">
             <widget class="QLabel" name="lab3">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>50</width>
-               <height>16777215</height>
-              </size>
              </property>
              <property name="font">
               <font>

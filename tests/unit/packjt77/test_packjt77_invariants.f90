@@ -72,7 +72,7 @@ contains
          'ABCDEFGHIJKLM',msgsent)
     call assert_true('MSK144 legacy fallback tones',any(itone144.ne.0))
 
-    call genq65(input,0,msgsent,itone85,i3,n3)
+    call genq65(input,0,msgsent,itone85,i3,n3,0)
     call assert_int('Q65 legacy fallback i3',0,i3)
     call assert_int('Q65 legacy fallback n3',0,n3)
     call assert_text_equal('Q65 legacy fallback message', &
@@ -137,7 +137,7 @@ contains
     n3=0
     msgsent='                                     '
     itone85=1
-    call genq65(input,0,msgsent,itone85,i3,n3)
+    call genq65(input,0,msgsent,itone85,i3,n3,0)
     call assert_int('Q65 invalid fallback i3',-1,i3)
     call assert_int('Q65 invalid fallback n3',-1,n3)
     call assert_text_equal('Q65 invalid fallback message', &

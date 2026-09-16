@@ -641,7 +641,7 @@ contains
   end subroutine fst4_decoded
 
   subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,   &
-       nused,ntrperiod)
+       nused,ntrperiod,iflagdec)
 
     implicit none
 
@@ -655,7 +655,8 @@ contains
     integer, intent(in) :: idec
     integer, intent(in) :: nused
     integer, intent(in) :: ntrperiod
-    character*3 cflags
+    integer, intent(in) :: iflagdec  !Recovered spare 78th bit (see genq65/q65_ap)
+    character*4 cflags
     integer context_ios13
 
     select type (typed_this => this)
@@ -665,29 +666,43 @@ contains
        return
     end select
 
-    cflags='   '
+    cflags='    '
     if(idec.ge.0) then
-       cflags='q  '
+       cflags='q   '
        write(cflags(2:2),'(i1)') idec
        if(nused.ge.2) write(cflags(3:3),'(i1)') nused
+       ! Append '#' (e.g. "q0#", "q3#") when the sender flagged bit78=1,
+       ! copying our last transmission -- leave the qualifier unchanged
+       ! ("q0", "q3", ...) otherwise.
+       if(iflagdec.eq.1) cflags=trim(cflags)//'#'
     endif
 
     if(ntrperiod.lt.60) then
        if (streaming_emit_enabled()) then
           call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded)
        else
-          write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
+          if(len_trim(cflags).gt.3) then
+             write(*,1005) nutc,nsnr,dt,nint(freq),decoded,cflags
+          else
+             write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
+          endif
        end if
 1001   format(i6.6,i4,f5.1,i5,' : ',1x,a37,1x,a3)
+1005   format(i6.6,i4,f5.1,i5,' : ',1x,a37,1x,a4)
        if(context_ios13.eq.0) write(13,1002) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     else
        if (streaming_emit_enabled()) then
           call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded)
        else
-          write(*,1003) nutc,nsnr,dt,nint(freq),decoded,cflags
+          if(len_trim(cflags).gt.3) then
+             write(*,1006) nutc,nsnr,dt,nint(freq),decoded,cflags
+          else
+             write(*,1003) nutc,nsnr,dt,nint(freq),decoded,cflags
+          endif
        end if
 1003   format(i4.4,i4,f5.1,i5,' : ',1x,a37,1x,a3)
+1006   format(i4.4,i4,f5.1,i5,' : ',1x,a37,1x,a4)
        if(context_ios13.eq.0) write(13,1004) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     endif

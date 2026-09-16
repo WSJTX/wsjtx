@@ -22,6 +22,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   use fil6521_mod
   use twkfreq_xy_mod
   use npar_ptrs_mod, only: nsmax_active
+  use sec_midn_mod, only: sec_midn
   
   implicit none
   
@@ -113,6 +114,26 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   endif
   nz=n6+1-i0
 
+  ! 2026-09-12: instrumentation for the "identical anomalous dtbest despite
+  ! identical, legitimate dt00" investigation. dt00 itself is now confirmed
+  ! correct and consistent between working (nqd=1) and failing (nqd=0)
+  ! decodes of the same signal (traced to ccf65's lagpk, a genuine
+  ! correlation-peak lag, not a fallback constant) -- so the actual sample
+  ! window afc65b searches (c5x/c5y from i0 to i0+nz-1) is the next place to
+  ! look. Logging i0/nz and a cheap fingerprint (sum of magnitudes) of that
+  ! exact window so a live capture can show directly whether the underlying
+  ! data itself differs between a working and failing case.
+  if (nz .ge. 1 .and. i0 .ge. 1 .and. i0 + nz - 1 .le. nsmax_active/256) then
+     call dbg('decode1a: pre-afc65b at t=' // rtoa(sec_midn()) // &
+              ' i0=' // itoa(i0) // ' nz=' // itoa(nz) // ' n5=' // itoa(n5) // &
+              ' n6=' // itoa(n6) // ' dt00=' // rtoa(dt00) // &
+              ' c5x_sum_abs=' // rtoa(sum(abs(c5x(i0:i0+nz-1)))) // &
+              ' c5x_i0=' // rtoa(real(c5x(i0))) // ',' // rtoa(aimag(c5x(i0))))
+  else
+     call dbg('decode1a: pre-afc65b at t=' // rtoa(sec_midn()) // &
+              ' i0=' // itoa(i0) // ' nz=' // itoa(nz) // ' (OUT OF RANGE, skipping fingerprint)')
+  endif
+
 ! We're looking only at sync tone here... so why not downsample by another
 ! factor of 1/8, say?  Should be a significant execution speed-up.
 ! Best fit for DF, f1, f2, pol
@@ -123,6 +144,13 @@ call afc65b(c5x(i0), c5y(i0), nz, fsample, nflip, ipol, xpol, ndphi, a, ccfbest,
   bb=sin(pol)
   sq0=aa*aa*sqa + bb*bb*sqb
   sync2=3.7*ccfbest/sq0
+
+  ! TEMP diagnostic 2026-09-10 for the freq/time-sync-vs-false-decode investigation.
+  call dbg('decode1a: afc65b fit at t=' // rtoa(sec_midn()) // &
+           ' f0=' // rtoa(real(f0)) // ' dt00=' // rtoa(dt00) // ' dtbest=' // rtoa(dtbest) // &
+           ' ccfbest=' // rtoa(ccfbest) // ' a1(df)=' // rtoa(a(1)) // ' a2=' // rtoa(a(2)) // &
+           ' a3=' // rtoa(a(3)) // ' a4(pol_deg)=' // rtoa(a(4)) // ' sync2=' // rtoa(sync2) // &
+           ' nflip=' // itoa(nflip) // ' ipol=' // itoa(ipol))
   
 ! Apply AFC corrections to the time-domain signal
 ! Now we are back to using the 1378.125 Hz sample rate, enough to 

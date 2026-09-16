@@ -54,7 +54,8 @@ subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
   call timer('dec_q65 ',0)
   call my_q65%decode(q65_decoded,id2,nqd,nutc,ntrperiod,nsubmode,nfqso,       &
        ntol,ndepth,nfa,nfb,lclearave,single_decode,lagain,max_drift,lnewdat,  &
-       emedelay,mycall,hiscall,hisgrid,nQSOProgress,ncontest,lapcqonly,navg0,nqf)
+       emedelay,mycall,hiscall,hisgrid,nQSOProgress,ncontest,.false.,      &
+       lapcqonly,navg0,nqf)
   call timer('dec_q65 ',1)
 
   return
@@ -63,7 +64,7 @@ subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
 end subroutine map65_mmdec
 
 subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,   &
-     nused,ntrperiod)
+     nused,ntrperiod,iflagdec)
 
   implicit none
 
@@ -77,8 +78,9 @@ subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,   &
   integer, intent(in) :: idec
   integer, intent(in) :: nused
   integer, intent(in) :: ntrperiod
+  integer, intent(in) :: iflagdec  !Not used by MAP65's q65b path; see WSJT-X's q65_decoded
 
-  if(nutc+snr1+nsnr+dt+freq+idec+nused+ntrperiod.eq.-999) stop
+  if(nutc+snr1+nsnr+dt+freq+idec+nused+ntrperiod+iflagdec.eq.-999) stop
   if(decoded.eq.'-999') stop
 
   cq0='q  '
