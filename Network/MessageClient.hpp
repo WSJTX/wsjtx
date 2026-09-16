@@ -85,6 +85,12 @@ public:
   // of record marker
   Q_SLOT void logged_ADIF (QByteArray const& ADIF_record);
 
+  // TX Inhibit status (NetworkMessage::InhibitStatus) — WSJT-X station telemetry for agents/tools.
+  Q_SLOT void inhibit_status (quint16 inhibit_port, bool inhibited
+                              , QString const& source_station
+                              , quint32 hold_rx, quint32 release_rx
+                              , quint32 expiries, quint32 invalid);
+
   // this signal is emitted if the server has requested a decode
   // window clear action
   Q_SIGNAL void clear_decodes (quint8 window);

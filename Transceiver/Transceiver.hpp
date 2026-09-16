@@ -250,6 +250,13 @@ public:
   // something went wrong - not recoverable, start new instance
   Q_SIGNAL void failure (QString const& reason) const;
 
+  // Optional TX Inhibit (RTS/DTR + Settings enabled). Default: never emitted.
+  // Decorators (e.g. EmulateSplit) must forward these from the wrapped rig.
+  Q_SIGNAL void tx_inhibit_changed (bool inhibited, QString const& source
+                                    , quint32 hold_rx, quint32 release_rx
+                                    , quint32 expiries, quint32 invalid) const;
+  Q_SIGNAL void tx_inhibit_port_bound (quint16 port) const;
+
   // Ready to be destroyed.
   Q_SIGNAL void finished () const;
 

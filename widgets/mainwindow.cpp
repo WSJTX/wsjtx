@@ -86,6 +86,7 @@
 #include "models/StationList.hpp"
 #include "validators/LiveFrequencyValidator.hpp"
 #include "Network/MessageClient.hpp"
+#include "Network/NetworkMessage.hpp" // InhibitStatus pulse cadence
 #include "Network/FoxVerifier.hpp"
 #include "Network/wsprnet.h"
 #include "signalmeter.h"
@@ -4360,6 +4361,105 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
   return QObject::eventFilter(object, event);
 }
 
+// TX Inhibit has no status-bar widget of its own: the operator-visible signal
+// is tx_status_label turning red and reading INHIBIT (see guiUpdate), and a
+// second box merely disrupted the spacing of the whole line.
+//
+// Everything else lives here, costing no layout space:
+//   * the tooltip on tx_status_label always describes the current state,
+//     including the bound port and who is holding;
+//   * a one-shot status message warns when the operator has opted in but the
+//     station is NOT reachable (enabled, no UDP inhibit port). It fires
+//     only on a change, so it cannot nag.
+void MainWindow::update_inhibit_status ()
+{
+  if (!m_config.enable_tx_inhibit ())
+    {
+      tx_status_label.setToolTip ({});
+      m_tx_inhibit_warned_port = 0;
+      m_tx_inhibit_warned = false;
+      m_tx_inhibit_announce_timer.stop ();
+      return;
+    }
+
+  // Always read the UDP inhibit port from Configuration.
+  // A cached copy can disagree after bind/clear.
+  auto const port = m_config.tx_inhibit_port ();
+
+  if (m_tx_inhibited)
+    {
+      tx_status_label.setToolTip (
+        m_tx_inhibit_holder.isEmpty ()
+        ? tr ("TX Inhibit: a KEY agent is holding PTT off (UDP port %1).").arg (port)
+        : tr ("TX Inhibit: held by %1 (UDP port %2).").arg (m_tx_inhibit_holder).arg (port));
+    }
+  else if (!port)
+    {
+      tx_status_label.setToolTip (
+        tr ("TX Inhibit is enabled but NOT listening: no UDP port is bound.\n"
+            "The rig may be closed, PTT method may not be RTS/DTR, or the bind failed.\n"
+            "This station is NOT protected."));
+    }
+  else
+    {
+      tx_status_label.setToolTip (
+        tr ("TX Inhibit: listening for KEY-agent holds on UDP port %1.\n"
+            "Controllers learn this port from InhibitStatus (type 17) on the UDP Server stream.")
+        .arg (port));
+    }
+
+  // Warn once when enabled but unbound (bind failure / rig closed).
+  bool const unbound = !port;
+  if (unbound && (!m_tx_inhibit_warned || m_tx_inhibit_warned_port != port))
+    {
+      showStatusMessage (tr ("TX Inhibit is enabled but no UDP port is bound —"
+                             " this station is NOT protected"));
+    }
+  m_tx_inhibit_warned = unbound;
+  m_tx_inhibit_warned_port = port;
+
+  // Keep capability/port announcements alive while the feature is enabled so
+  // controllers that join after startup still see type 17.
+  if (!m_tx_inhibit_announce_timer.isActive ())
+    {
+      m_tx_inhibit_announce_timer.start ();
+    }
+}
+
+void MainWindow::send_inhibit_status_announce ()
+{
+  if (!m_messageClient)
+    {
+      return;
+    }
+  // Publish the current picture when enabled, or a final port-0 clear
+  // after disable. UDP Server may be unicast or multicast — same path as
+  // Heartbeat/Status.
+  //
+  // Never send a live type 17 with port 0. Controllers reject port 0, so an
+  // announce during Hamlib open (gate binds after rig_open) empties the
+  // KEY-agent target list. Port 0 is only the disable/clear value.
+  if (!m_config.enable_tx_inhibit ())
+    {
+      if (0 == m_config.tx_inhibit_port ())
+        {
+          m_messageClient->inhibit_status (
+            0, false, QString {},
+            m_tx_inhibit_hold_rx, m_tx_inhibit_release_rx,
+            m_tx_inhibit_expiries, m_tx_inhibit_invalid);
+        }
+      return;
+    }
+  if (0 == m_config.tx_inhibit_port ())
+    {
+      return;
+    }
+  m_messageClient->inhibit_status (
+    m_config.tx_inhibit_port (), m_tx_inhibited, m_tx_inhibit_holder,
+    m_tx_inhibit_hold_rx, m_tx_inhibit_release_rx,
+    m_tx_inhibit_expiries, m_tx_inhibit_invalid);
+}
+
 void MainWindow::createStatusBar()                           //createStatusBar
 {
   tx_status_label.setAlignment (Qt::AlignHCenter);
@@ -4367,6 +4467,36 @@ void MainWindow::createStatusBar()                           //createStatusBar
   tx_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #00ff00}");
   tx_status_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&tx_status_label);
+
+  // Same cadence as NetworkMessage::pulse (Heartbeat). Late joiners learn the
+  // inhibit port within one pulse without depending on a hold transition.
+  m_tx_inhibit_announce_timer.setInterval (
+    static_cast<int> (NetworkMessage::pulse) * 1000);
+  connect (&m_tx_inhibit_announce_timer, &QTimer::timeout, this,
+           &MainWindow::send_inhibit_status_announce);
+
+  connect (&m_config, &Configuration::tx_inhibit_changed, this,
+           [this] (bool inhibited, QString const& source
+                   , quint32 hold_rx, quint32 release_rx
+                   , quint32 expiries, quint32 invalid) {
+             m_tx_inhibited = inhibited;
+             m_tx_inhibit_holder = inhibited ? source : QString {};
+             m_tx_inhibit_hold_rx = hold_rx;
+             m_tx_inhibit_release_rx = release_rx;
+             m_tx_inhibit_expiries = expiries;
+             m_tx_inhibit_invalid = invalid;
+             update_inhibit_status ();
+             send_inhibit_status_announce ();
+           });
+  connect (&m_config, &Configuration::tx_inhibit_port_changed, this,
+           [this] (quint16) {
+             // Enable on → bind emits port only (no hold change). That used to
+             // update the tooltip and never send type 17 — late listeners saw
+             // nothing after a settings toggle. Announce immediately.
+             update_inhibit_status ();
+             send_inhibit_status_announce ();
+           });
+  update_inhibit_status ();
 
   config_label.setAlignment (Qt::AlignHCenter);
   config_label.setMinimumSize (QSize {80, 18});
@@ -5156,7 +5286,7 @@ void MainWindow::on_actionKeyboard_shortcuts_triggered()
   <tr><td><b>Esc      </b></td><td>Stop Tx, abort QSO, clear next-call queue</td></tr>
   <tr><td><b>F1       </b></td><td>Online User's Guide (Alt: transmit Tx6)</td></tr>
   <tr><td><b>Shift+F1  </b></td><td>Copyright Notice</td></tr>
-  <tr><td><b>Ctrl+F1  </b></td><td>About WSJT-X</td></tr>
+  <tr><td><b>Ctrl+F1  </b></td><td>About wsjtx-inhibit</td></tr>
   <tr><td><b>F2       </b></td><td>Open settings window (Alt: transmit Tx2)</td></tr>
   <tr><td><b>F3       </b></td><td>Display keyboard shortcuts (Alt: transmit Tx3)</td></tr>
   <tr><td><b>F4       </b></td><td>Clear DX Call, DX Grid, Tx messages 1-4 (Alt: transmit Tx4)</td></tr>
@@ -8437,6 +8567,15 @@ void MainWindow::guiUpdate()
           tx_status_label.setText(t.trimmed());
         }
       }
+      // Transmit intent, but a KEY agent is holding PTT off. m_transmitting is
+      // set by the sequencer (not from the PTT line), so without this the label
+      // reads "Tx: <message>" in transmit-yellow while the radio is silent.
+      // Covers Tune too, which also runs through this branch.
+      // Last, so it overrides every style/text chosen above.
+      if (m_tx_inhibited) {
+        tx_status_label.setStyleSheet("QLabel{color: #ffffff; background-color: #cc0000; font-weight: bold}");
+        tx_status_label.setText (tr ("INHIBIT"));
+      }
     } else if(m_monitoring) {
       if (!m_tx_watchdog) {
         tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #00ff00}");
@@ -8473,6 +8612,13 @@ void MainWindow::guiUpdate()
           t += QString {"   %1%"}.arg (npct, 2);
         }
         tx_status_label.setText (t);
+        // Receiving with a hold active: nothing is being prevented right now,
+        // so this is ambient status rather than an alarm. Staying in the green
+        // family keeps the escalation to red (transmit branch) as the signal.
+        if (m_tx_inhibited) {
+          tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #b3ffb3}");
+          tx_status_label.setText (tr ("INHIBIT"));
+        }
       }
       transmitDisplay(false);
     } else if (!m_diskData && !m_tx_watchdog) {

@@ -255,6 +255,7 @@ set (wsjt_qt_CXXSRCS
   Transceiver/HRDMessage.cpp
   Transceiver/HRDTransceiver.cpp
   Transceiver/DXLabSuiteCommanderTransceiver.cpp
+  TxInhibit/TxInhibitGate.cpp
   Network/NetworkMessage.cpp
   Network/MessageClient.cpp
   widgets/LettersSpinBox.cpp
@@ -1615,9 +1616,10 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
-target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql Qt5::WebSockets)
+target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql Qt5::WebSockets Qt5::SerialPort)
 if (WIN32)
-  target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
+  # TxInhibitGate uses getsockname/ntohs after bind(0) when Qt localPort() is 0.
+  target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase ws2_32)
 endif (WIN32)
 
 # build a library of package Qt functionality used in Fortran utilities
@@ -1757,6 +1759,10 @@ else ()
   endif ()
 endif ()
 target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+if (WIN32)
+  # Static wsjt_qt does not always propagate ws2_32 to the final MinGW link.
+  target_link_libraries (wsjtx ws2_32)
+endif (WIN32)
 
 # make a library for WSJT-X UDP servers
 # add_library (wsjtx_udp SHARED ${UDP_library_CXXSRCS})
@@ -1796,6 +1802,10 @@ generate_version_info (wsjtx_app_version_VERSION_RESOURCES
   )
 add_executable (wsjtx_app_version AppVersion/AppVersion.cpp ${wsjtx_app_version_VERSION_RESOURCES})
 target_link_libraries (wsjtx_app_version wsjt_qt)
+
+# Standalone KEY agent: USB-serial CTS -> UDP hold. CLI + GUI.
+# Standalone KEY agent so TX Inhibit works on a dual-radio seat.
+add_subdirectory (tools/inhibit-agent)
 
 generate_version_info (message_aggregator_VERSION_RESOURCES
   NAME message_aggregator

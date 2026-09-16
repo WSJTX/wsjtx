@@ -617,6 +617,23 @@ void MessageClient::decode (bool is_new, QTime time, qint32 snr, float delta_tim
     }
 }
 
+void MessageClient::inhibit_status (quint16 inhibit_port, bool inhibited
+                                    , QString const& source_station
+                                    , quint32 hold_rx, quint32 release_rx
+                                    , quint32 expiries, quint32 invalid)
+{
+  if (m_->server_port_ && !m_->server_.isNull ())
+    {
+      QByteArray message;
+      NetworkMessage::Builder out {&message, NetworkMessage::InhibitStatus, m_->id_, m_->schema_};
+      out << inhibit_port << inhibited << source_station.toUtf8 ()
+          << hold_rx << release_rx << expiries << invalid;
+      TRACE_UDP ("inhibit_port:" << inhibit_port << "inhibited:" << inhibited
+                 << "source:" << source_station);
+      m_->send_message (out, message);
+    }
+}
+
 void MessageClient::WSPR_decode (bool is_new, QTime time, qint32 snr, float delta_time, Frequency frequency
                                  , qint32 drift, QString const& callsign, QString const& grid, qint32 power
                                  , bool off_air)
