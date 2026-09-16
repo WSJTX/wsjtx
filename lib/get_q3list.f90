@@ -13,7 +13,7 @@ subroutine get_q3list(fname,bDiskData,nlist,list)
 
   parameter (MAX_CALLERS=50)
   character*(*) fname
-  character*36 list(MAX_CALLERS)
+  character*37 list(MAX_CALLERS)
   character*8 grid6
   logical*1 bDiskData
   integer time
@@ -71,7 +71,7 @@ subroutine get_q3list(fname,bDiskData,nlist,list)
      age=(now - callers(j)%nsec)/3600.0
      write(list(i),1000) i,callers(j)%nfreq,callers(j)%call,    &
           callers(j)%grid,callers(j)%moonel,age,char(0)
-1000 format(i2,'.',i6,2x,a6,2x,a4,i5,f7.1,a1)
+1000 format(i2,'.',i6,2x,a6,2x,a4,i5,f7.1,1x,a1)
 
 !     h1=mod(now,86400)/3600.0
 !     h2=mod(callers(i)%nsec,86400)/3600.0

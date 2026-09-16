@@ -3918,7 +3918,10 @@ void MainWindow::statusChanged()
 {
   auto const prior_spec_op = m_specOp;
   m_specOp=m_config.special_op_id();  // update m_specOp
-  if (m_specOp != prior_spec_op) m_q65PileupCopiedLastRxCall.clear();
+  if (m_specOp != prior_spec_op) {
+    m_q65PileupCopiedLastRxCall.clear();
+    m_q65PileupCopiedCallers.clear();
+  }
   if (m_specOp==SpecOp::Q65_PILEUP && m_mode != "Q65") on_actionQ65_triggered();
   QTimer::singleShot (50, this, [=] {
       WaitFeatureContext const waitContext {
@@ -6380,7 +6383,7 @@ void MainWindow::refreshPileupList()
   // Update the ActiveStations display for Q65 pileup situation...
       int nlist=0;
       char list[2000];
-      char line[36];
+      char line[37];
       list[0]=0;
       auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("tsil.3q"))};
       get_q3list_(const_cast<char *> (fname.toLatin1().constData()), &m_diskData, &nlist,
@@ -6389,7 +6392,14 @@ void MainWindow::refreshPileupList()
       QString t0="";
       std::fill(m_callers.begin(), m_callers.end(), QString {});
       for(int i=0; i<qMin(nlist, MaxQ65PileupCallers); i++) {
-        memcpy(line,&list[36*i],36);
+        memcpy(line,&list[37*i],37);
+
+        // Callsign is at offset 11 (6 chars); the final byte is the otherwise-unused terminating char(0), repurposed here for '#'.
+        QString const call = QString::fromLatin1(line + 11, 6).trimmed ();
+        if (m_q65PileupCopiedCallers.contains (call)) {
+          line[36] = '#';
+        }
+
         t0=QString::fromLatin1(line, sizeof line)+"\n";
         m_callers[i]=t0;
         t+=t0;
@@ -6822,6 +6832,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
     if (m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       auto const fields = parseDecodedMessage (decodedtext.message ());
+
+      // Keep the Active Stations '#' indication current: a later decode from the same caller without '#' removes it.
+      if (!fields.sender.isEmpty ()) {
+        if (raw_line.trimmed ().endsWith ('#')) {
+          m_q65PileupCopiedCallers.insert (fields.sender);
+        } else {
+          m_q65PileupCopiedCallers.remove (fields.sender);
+        }
+      }
+
       auto const dx_base_call = Radio::base_callsign (ui->dxCallEntry->text ());
       if (!dx_base_call.isEmpty () && fields.sender == dx_base_call) {
         m_q65PileupCopiedLastRxCall = dx_base_call;
@@ -11558,7 +11578,10 @@ void MainWindow::on_actionFreqCal_triggered()
 void MainWindow::switch_mode (Mode mode)
 {
   clear_generated_message_error ();
-  if (m_mode != "Q65" || mode != Modes::Q65) m_q65PileupCopiedLastRxCall.clear();
+  if (m_mode != "Q65" || mode != Modes::Q65) {
+    m_q65PileupCopiedLastRxCall.clear();
+    m_q65PileupCopiedCallers.clear();
+  }
   // Sit just under the decoded-text panes, outside the per-mode
   // displayWidgets()/ModeUiControl mechanism -- only meaningful for JTTY.
   bool const jtty = m_mode=="JTTY";

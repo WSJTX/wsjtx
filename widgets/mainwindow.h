@@ -1293,6 +1293,8 @@ private:
   // Q65 Pileup mode: selected DX call whose last Tx was copied by a decode.
   // The value is consumed by the next matching Q65 Tx message.
   QString m_q65PileupCopiedLastRxCall;
+  // Q65 Pileup mode: callers whose latest decode carried the copied flag ('#'); a standing display annotation, cleared only on leaving the Pileup context, not per decode pass.
+  QSet<QString> m_q65PileupCopiedCallers;
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;
