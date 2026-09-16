@@ -23,8 +23,8 @@ program q65sim
   character*37 msg,msgsent,imsg(10)
   
   nargs=iargc()
-  if(nargs.ne.11) then
-     print*,'Usage:   q65sim         "msg"     A-F freq fDop DT  f1 Stp TRp Nsig Nfile SNR'
+  if(nargs.ne.11 .and. nargs.ne.12) then
+     print*,'Usage:   q65sim         "msg"     A-F freq fDop DT  f1 Stp TRp Nsig Nfile SNR [Flag]'
      print*,'Example: q65sim "K1ABC W9XYZ EN37" A  1500 0.0 0.0 0.0  1   60   1    1   -26'
      print*,'Example: q65sim "ST" A  1500 0.0 0.0 0.0  1   60   1   -26'
      print*,'         fDop = Doppler spread'
@@ -32,6 +32,7 @@ program q65sim
      print*,'         Stp  = Step size (Hz)'
      print*,'         Stp  = 0 implies no Doppler tracking'
      print*,'         Nsig = number of generated signals, 1 - 10'
+     print*,'         Flag = optional, sets the spare 78th bit (0 or 1); default 0'
      print*,'         Creates filenames which increment to permit averaging in first period'
      print*,'         If msg = ST program produces a single tone at freq'
      go to 999
@@ -57,6 +58,11 @@ program q65sim
   read(arg,*) nfiles
   call getarg(11,arg)
   read(arg,*) snrdb
+  iflag=0
+  if(nargs.eq.12) then
+     call getarg(12,arg)
+     read(arg,*) iflag
+  endif
 
   if(ntrperiod.eq.15) then
      nsps=1800
@@ -97,7 +103,7 @@ program q65sim
   ichk=0
   do i=1,nsig
      msg=imsg(i)
-     call genq65(msg,ichk,msgsent,itone,i3,n3)
+     call genq65(msg,ichk,msgsent,itone,i3,n3,iflag)
      ntone(:,i)=itone
   enddo
 

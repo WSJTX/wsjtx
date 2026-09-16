@@ -24,7 +24,13 @@ subroutine m65c() bind(C)
 1000 format(/'UTC Date: ', a17, /78('-'))
      flush(21)
   endif
-  if(iand(nrxlog,2).ne.0) rewind(21)
+  ! Consume the erase request once, independent of the decode pass.
+  if(iand(nrxlog,2).ne.0) then
+     rewind(21)
+     endfile(21)
+     backspace(21)
+     nrxlog = ibclr(nrxlog,1)
+  endif
   if(iand(nrxlog,4).ne.0) then
      ! rewind alone only repositions to record 1 for writing; it does not
      ! shrink the file, so old history beyond whatever gets written this

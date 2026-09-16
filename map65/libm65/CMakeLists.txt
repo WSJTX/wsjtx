@@ -302,6 +302,18 @@ if (WSJT_ENABLE_TESTS)
   add_test (NAME test_map65_q65b_timeout COMMAND test_map65_q65b_timeout)
   set_tests_properties (test_map65_q65b_timeout PROPERTIES TIMEOUT 180)
 
+  add_executable (test_map65_q65_dphi
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_q65_dphi.f90)
+  target_include_directories (test_map65_q65_dphi PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_q65_dphi PRIVATE m65impl)
+  file (MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test-map65-q65-dphi)
+  add_test (NAME test_map65_q65_dphi COMMAND test_map65_q65_dphi)
+  set_tests_properties (test_map65_q65_dphi PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test-map65-q65-dphi
+    ENVIRONMENT "OMP_NUM_THREADS=1"
+    RUN_SERIAL TRUE
+    TIMEOUT 180)
+
 endif ()
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)

@@ -45,7 +45,7 @@ subroutine q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
         endif
      endif
 
-     call genq65(msg,0,msgsent,itone,i3,n3)
+     call genq65(msg,0,msgsent,itone,i3,n3,0)
      i0=1
      j=0
      do k=1,85

@@ -44,7 +44,13 @@ add_subdirectory (libqmap)
 # UI generation
 qt5_wrap_ui (qmap_GENUISRCS ${qmap_UISRCS})
 
-add_executable (qmap ${qmap_CXXSRCS} ${qmap_CSRCS} ${qmap_GENUISRCS} qmap.rc)
+# windres doesn't track a .rc file's ICON directive as a dependency, so an icon-only edit needs this to trigger a rebuild.
+set_property (SOURCE qmap.rc APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/wsjt.ico)
+
+# Resource generation (About dialog logo + GPL logo)
+qt5_add_resources (qmap_RESOURCES_RCC about.qrc)
+
+add_executable (qmap ${qmap_CXXSRCS} ${qmap_CSRCS} ${qmap_GENUISRCS} ${qmap_RESOURCES_RCC} qmap.rc)
 target_include_directories (qmap PRIVATE ${CMAKE_SOURCE_DIR} ${FFTW3_INCLUDE_DIRS})
 target_link_libraries (qmap wsjt_qt qmap_impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Network Usb::Usb)
 

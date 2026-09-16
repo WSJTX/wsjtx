@@ -83,7 +83,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionSave_all->setActionGroup(saveGroup);
   ui->actionSave_decoded->setActionGroup(saveGroup);
 
-  setWindowTitle (program_title ());
+  setWindowTitle (branded_program_title ());
 
   connect(&soundInThread, SIGNAL(readyForFFT(int)), this, SLOT(dataSink(int)));
   connect(&soundInThread, SIGNAL(error(QString)), this, SLOT(showSoundInError(QString)));
@@ -1470,6 +1470,16 @@ bool MainWindow::isGrid4(QString g)
 void MainWindow::on_actionQuick_Start_Guide_to_Q65_triggered()
 {
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Q65_Quick_Start.pdf"});
+}
+
+void MainWindow::on_actionCopyright_Notice_triggered()
+{
+  MessageBox::warning_message (this, copyright_notice_text ());
+}
+
+void MainWindow::on_actionTrademark_Policy_triggered()
+{
+  QDesktopServices::openUrl (QUrl {"https://wsjtx.github.io/wsjtx/trademark.html"});
 }
 
 void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()

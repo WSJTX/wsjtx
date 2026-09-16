@@ -166,6 +166,8 @@ extern "C" {
 
 namespace {
   int const ReferenceSpectrumMeasureSeconds = 7;
+  // Bit 7 is unused by the legacy nexp_decode contest packing.
+  int constexpr q65PileupDecodeFlag = 1 << 7;
 
   QString decodeHeadingText(QString const& headings)
   {
@@ -360,7 +362,7 @@ extern "C" {
   void gen_cw_wave_(char const * msg, int* ifreq, float wave[], fortran_charlen_t);
 
   void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
-              int* i3, int* n3, fortran_charlen_t, fortran_charlen_t);
+              int* i3, int* n3, int* iflag, fortran_charlen_t, fortran_charlen_t);
 
   void genwspr_(char* msg, char* msgsent, int itone[], fortran_charlen_t, fortran_charlen_t);
 
@@ -1149,7 +1151,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       setDecodedTextFont (font);
     });
 
-  setWindowTitle (program_title ());
+  setWindowTitle (branded_program_title ());
 
   connect(&proc_jt9, &QProcess::started, this, [this] {
       if (!m_startup_decoder_reported)
@@ -3914,7 +3916,9 @@ void MainWindow::stopWCTimeout()
 
 void MainWindow::statusChanged()
 {
+  auto const prior_spec_op = m_specOp;
   m_specOp=m_config.special_op_id();  // update m_specOp
+  if (m_specOp != prior_spec_op) m_q65PileupCopiedLastRxCall.clear();
   if (m_specOp==SpecOp::Q65_PILEUP && m_mode != "Q65") on_actionQ65_triggered();
   QTimer::singleShot (50, this, [=] {
       WaitFeatureContext const waitContext {
@@ -4535,19 +4539,12 @@ void MainWindow::on_actionSolve_FreqCal_triggered()
 
 void MainWindow::on_actionCopyright_Notice_triggered()
 {
-  auto const& message = tr("If you make fair use of any part of WSJT-X under terms of the GNU "
-                           "General Public License, you must display the following copyright "
-                           "notice prominently in your derivative work:\n\n"
-                           "\"The algorithms, source code, look-and-feel of WSJT-X and related "
-                           "programs, and protocol specifications for the modes FSK441, FST4, FT8, "
-                           "JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) "
-                           "2001-2026 by one or more of the following authors: Joseph Taylor, "
-                           "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
-                           "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
-                           "Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; Roger Rehr, "
-                           "W3SZ; John Nelson, G4KLA; Charlie Suckling, DL3WDG; Terrell Deppe, "
-                           "KJ5HST; and other members of the WSJT Development Group.\"");
-  MessageBox::warning_message(this, message);
+  MessageBox::warning_message (this, copyright_notice_text ());
+}
+
+void MainWindow::on_actionTrademark_Policy_triggered()
+{
+  QDesktopServices::openUrl (QUrl {"https://wsjtx.github.io/wsjtx/trademark.html"});
 }
 
 // Implement the MultiGeometryWidget::change_layout() operation.
@@ -5160,6 +5157,9 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
     dec_data.params.nutc=dec_data.params.nutc/100;
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
+    if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP) {
+      m_q65PileupCopiedLastRxCall.clear();  // starting a decode pass over fresh audio
+    }
     m_dateTimeSeqStart = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
     auto t = m_dateTimeSeqStart.time ();
     dec_data.params.nutc = t.hour () * 100 + t.minute ();
@@ -5258,6 +5258,9 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(dec_data.params.nexp_decode==5) dec_data.params.nexp_decode=1;  //NA VHF, WW Digi, ARRL Digi contests
   if(dec_data.params.nexp_decode==8) dec_data.params.nexp_decode=1;  //and Q65 Pileup all use 4-character
   if(dec_data.params.nexp_decode==9) dec_data.params.nexp_decode=1;  //grid exchange
+  if(m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
+    dec_data.params.nexp_decode |= q65PileupDecodeFlag;
+  }
   if(m_config.single_decode()) dec_data.params.nexp_decode += 32;
   if(m_config.enable_VHF_features()) dec_data.params.nexp_decode += 64;
   if(m_mode.startsWith("FST4")) dec_data.params.nexp_decode += 256*(ui->sbNB->value()+3);
@@ -6817,6 +6820,14 @@ void MainWindow::readFromStdout()                             //readFromStdout
     DecodedText const& decodedtext {prepared.logicMessage};
     Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
+    if (m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
+      auto const fields = parseDecodedMessage (decodedtext.message ());
+      auto const dx_base_call = Radio::base_callsign (ui->dxCallEntry->text ());
+      if (!dx_base_call.isEmpty () && fields.sender == dx_base_call) {
+        m_q65PileupCopiedLastRxCall = dx_base_call;
+      }
+    }
+
     {
     bool const bAvgMsg = prepared.averaged;
 
@@ -7626,7 +7637,13 @@ void MainWindow::guiUpdate()
         if(m_mode=="Q65") {
           int i3=-1;
           int n3=-1;
-          genq65_(message, &ichk,msgsent, const_cast<int *>(itone), &i3, &n3, (FCL)37, (FCL)37);
+          int iflag=0;
+          if(m_specOp==SpecOp::Q65_PILEUP && !m_q65PileupCopiedLastRxCall.isEmpty () &&
+             m_q65PileupCopiedLastRxCall == Radio::base_callsign (ui->dxCallEntry->text ())) {
+            iflag=1;
+          }
+          m_q65PileupCopiedLastRxCall.clear();  // single-consume: don't let a stale match ride a later Tx
+          genq65_(message, &ichk,msgsent, const_cast<int *>(itone), &i3, &n3, &iflag, (FCL)37, (FCL)37);
           if (!should_block_generated_transmit (QString::fromLatin1 (msgsent), m_tune)) {
             int nsps=1800;
             if(m_TRperiod==30) nsps=3600;
@@ -9946,6 +9963,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
+  m_q65PileupCopiedLastRxCall.clear();
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !(m_bDoubleClicked or (m_hisCall0 != ""
        && (call.left(6).contains(m_hisCall0) or call.right(6).contains(m_hisCall0))))
        && !ui->DX_Call_Button->isChecked()) {  // allow Wait & Call
@@ -11540,6 +11558,7 @@ void MainWindow::on_actionFreqCal_triggered()
 void MainWindow::switch_mode (Mode mode)
 {
   clear_generated_message_error ();
+  if (m_mode != "Q65" || mode != Modes::Q65) m_q65PileupCopiedLastRxCall.clear();
   // Sit just under the decoded-text panes, outside the per-mode
   // displayWidgets()/ModeUiControl mechanism -- only meaningful for JTTY.
   bool const jtty = m_mode=="JTTY";

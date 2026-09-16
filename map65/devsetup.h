@@ -16,6 +16,7 @@ public:
   ~DevSetup();
 
   void initDlg();
+
   qint32  m_inDevList[1024];
   qint32  m_outDevList[1024];
   bool    m_restartSoundIn;
@@ -28,6 +29,7 @@ signals:
 
 public slots:
   void accept();
+  void done(int r) override;
   void onButtonClicked();
 
 private slots:

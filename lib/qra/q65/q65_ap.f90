@@ -1,4 +1,4 @@
-subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+subroutine q65_ap(nQSOprogress,ipass,ncontest,lq65pileup,lapcqonly,iaptype, &
      apsym0,apmask,apsymbols)
 
   integer apsym0(58),aph10(10)
@@ -6,7 +6,7 @@ subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
   integer naptypes(0:5,4) ! (nQSOProgress, ipass)  maximum of 4 passes for now
   integer mcqru(29),mcqfd(29),mcqtest(29),mcqww(29)
   integer mcq(29),mrrr(19),m73(19),mrr73(19)
-  logical lapcqonly,first
+  logical lq65pileup,lapcqonly,first
   data     mcq/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0/
   data   mcqru/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,0,0,1,1,0,0/
   data   mcqfd/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,0/
@@ -120,25 +120,31 @@ subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
      endif
   endif
 
-  if(iaptype.eq.3) then ! MyCall,DxCall,??? 
+  if(iaptype.eq.3) then ! MyCall,DxCall,???
      apmask=0
+! Q65 Pileup uses bit 78 for the copied-last-transmission indication.
+! Other Q65 AP decodes retain the normal known-zero bit.
      if(ncontest.eq.0.or.ncontest.eq.1.or.ncontest.eq.2.or.ncontest.eq.5.or.ncontest.eq.7) then
-        apmask(1:58)=1  
+        apmask(1:58)=1
         apsymbols(1:58)=apsym0
-        apmask(75:78)=1
-        apsymbols(75:78)=(/0,0,1,0/)
+        apmask(75:77)=1
+        apsymbols(75:77)=(/0,0,1/)
+        if(.not.lq65pileup) then
+           apmask(78)=1
+           apsymbols(78)=0
+        endif
      else if(ncontest.eq.3) then ! Field Day
-        apmask(1:56)=1  
+        apmask(1:56)=1
         apsymbols(1:28)=apsym0(1:28)
         apsymbols(29:56)=apsym0(30:57)
-        apmask(72:78)=1 
-        apsymbols(75:78)=0
-     else if(ncontest.eq.4) then 
-        apmask(2:57)=1  
+        apmask(72:77)=1
+        apsymbols(75:77)=0
+     else if(ncontest.eq.4) then
+        apmask(2:57)=1
         apsymbols(2:29)=apsym0(1:28)
         apsymbols(30:57)=apsym0(30:57)
-        apmask(75:78)=1 
-        apsymbols(75:78)=(/0,0,1,0/)
+        apmask(75:77)=1
+        apsymbols(75:77)=(/0,0,1/)
      endif
   endif
 

@@ -453,6 +453,7 @@ private slots:
   void on_actionSpecial_mouse_commands_triggered();
   void on_actionSolve_FreqCal_triggered();
   void on_actionCopyright_Notice_triggered();
+  void on_actionTrademark_Policy_triggered();
   void on_actionSWL_Mode_triggered (bool checked);
   void on_DecodeButton_clicked (bool);
   void decode();
@@ -1289,6 +1290,9 @@ private:
   QString m_freeTextMsg0;
   std::array<QString, MaxActiveStationRows> m_ready2call;
   std::array<QString, MaxQ65PileupCallers> m_callers;
+  // Q65 Pileup mode: selected DX call whose last Tx was copied by a decode.
+  // The value is consumed by the next matching Q65 Tx message.
+  QString m_q65PileupCopiedLastRxCall;
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;
