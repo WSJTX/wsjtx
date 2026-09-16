@@ -39,6 +39,29 @@ class TestTxInhibitGate final
 
 private slots:
 
+  // bind(0) must never advertise port 0. WIMS drops type-17 port 0, so
+  // portBound(0) leaves the KEY-agent target list empty.
+  void bindNeverAnnouncesPortZero ()
+  {
+    TxInhibitGate gate;
+    QSignalSpy bound {&gate, &TxInhibitGate::portBound};
+    QSignalSpy err {&gate, &TxInhibitGate::lineError};
+
+    gate.start_listening ();
+    if (bound.count () == 1)
+      {
+        auto const port = bound.at (0).at (0).value<quint16> ();
+        QVERIFY2 (port != 0, "portBound must not advertise port 0");
+        QCOMPARE (err.count (), 0);
+      }
+    else
+      {
+        QCOMPARE (bound.count (), 0);
+        QCOMPARE (err.count (), 1);
+      }
+    gate.shutdown (false);
+  }
+
   // The core equation, end to end: assert PTT <=> want_tx and not hold.
   // Crucially, want_tx never changes here -- only the hold does. That is the
   // whole point of the feature, and the thing a careless refactor breaks.

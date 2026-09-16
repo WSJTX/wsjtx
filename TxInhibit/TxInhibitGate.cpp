@@ -6,6 +6,59 @@
 #include <QTimer>
 #include <QUdpSocket>
 
+#ifdef Q_OS_WIN
+# include <winsock2.h>
+# include <ws2tcpip.h>
+#else
+# include <arpa/inet.h>
+# include <netinet/in.h>
+# include <sys/socket.h>
+#endif
+
+namespace
+{
+  // Qt 5 can return true from QUdpSocket::bind(port 0) while localPort()
+  // is still 0. WIMS rejects InhibitStatus type 17 with port 0, so a
+  // portBound(0) leaves the KEY-agent target list empty.
+  quint16 native_udp_local_port (QUdpSocket * udp)
+  {
+    if (!udp)
+      {
+        return 0;
+      }
+    qintptr const fd = udp->socketDescriptor ();
+    if (fd < 0)
+      {
+        return 0;
+      }
+    sockaddr_storage ss {};
+#ifdef Q_OS_WIN
+    int len = sizeof ss;
+    SOCKET const s = static_cast<SOCKET> (fd);
+    if (::getsockname (s, reinterpret_cast<sockaddr *> (&ss), &len) != 0)
+      {
+        return 0;
+      }
+#else
+    socklen_t len = sizeof ss;
+    if (::getsockname (static_cast<int> (fd), reinterpret_cast<sockaddr *> (&ss),
+                       &len) != 0)
+      {
+        return 0;
+      }
+#endif
+    if (ss.ss_family == AF_INET)
+      {
+        return ntohs (reinterpret_cast<sockaddr_in *> (&ss)->sin_port);
+      }
+    if (ss.ss_family == AF_INET6)
+      {
+        return ntohs (reinterpret_cast<sockaddr_in6 *> (&ss)->sin6_port);
+      }
+    return 0;
+  }
+}
+
 TxInhibitGate::TxInhibitGate (QObject * parent)
   : QObject {parent}
 {
@@ -64,15 +117,32 @@ bool TxInhibitGate::ensure_udp ()
   // InhibitStatus (type 17) on the UDP Server stream. Each instance on a
   // host gets its own port.
   QHostAddress const any4 {QHostAddress::AnyIPv4};
+  auto fail_bind = [this] (QString const& err) {
+    if (udp_)
+      {
+        udp_->close ();
+        udp_->deleteLater ();
+        udp_ = nullptr;
+      }
+    bound_port_ = 0;
+    Q_EMIT lineError (QStringLiteral ("TX Inhibit: UDP bind failed: %1").arg (err));
+    return false;
+  };
   if (!udp_->bind (any4, quint16 (0)))
     {
-      QString const err = udp_->errorString ();
-      udp_->deleteLater ();
-      udp_ = nullptr;
-      Q_EMIT lineError (QStringLiteral ("TX Inhibit: UDP bind failed: %1").arg (err));
-      return false;
+      return fail_bind (udp_->errorString ());
     }
   bound_port_ = udp_->localPort ();
+  if (0 == bound_port_)
+    {
+      bound_port_ = native_udp_local_port (udp_);
+    }
+  if (0 == bound_port_)
+    {
+      // bind() succeeded but the OS-assigned port is not visible.
+      // Do not emit portBound(0): WIMS drops type 17 with port 0.
+      return fail_bind (QStringLiteral ("ephemeral port is 0 after bind"));
+    }
   QObject::connect (udp_, &QUdpSocket::readyRead, this, &TxInhibitGate::on_udp_ready);
   Q_EMIT portBound (bound_port_);
 

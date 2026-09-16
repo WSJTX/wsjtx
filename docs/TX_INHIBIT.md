@@ -541,5 +541,8 @@ python3 tools/send_inhibit_hold.py --ttl-ms 0
   Fail-open: a **deadman** still ends via the WSJT-X station **hold timeout**.
 - Agent **hang** is not implemented in the WSJT-X station; WSJT-X station only has **hold timeout**.
 - UDP bind failure is logged and non-fatal; stock PTT continues.
+- Bind that yields port 0 is treated as failure. Type 17 never publishes
+  port 0 as a live KEY-agent target (WIMS rejects port 0). Port 0 in type 17
+  is only the disable/clear announce.
 - Identifier names in code may still say gate/hold/block/intent; align in a
   later code pass. This document is the language target.

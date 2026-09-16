@@ -550,10 +550,12 @@
  *      (unicast or multicast).
  *
  *      Inhibit port: OS-assigned ephemeral UDP listen port for KEY-agent
- *      holds. Inhibited: any per-controller lease active. Source station:
- *      badge text (may list multiple holders). Four quint32 counters:
- *      hold packets received, explicit release hold, hold timeout
- *      expiries (incl. after a deadman), invalid datagrams.
+ *      holds. Zero means not listening (disable/clear only). A live
+ *      announce never uses 0; controllers must ignore port 0 as a
+ *      target. Inhibited: any per-controller lease active. Source
+ *      station: badge text (may list multiple holders). Four quint32
+ *      counters: hold packets received, explicit release hold, hold
+ *      timeout expiries (incl. after a deadman), invalid datagrams.
  *
  * TxInhibit      In       18
  *                         Id (target unique key) utf8

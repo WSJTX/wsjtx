@@ -4433,18 +4433,25 @@ void MainWindow::send_inhibit_status_announce ()
     {
       return;
     }
-  // Always publish the current picture when enabled (or a final port-0 clear
-  // after disable). UDP Server may be unicast or multicast — same path as
+  // Publish the current picture when enabled, or a final port-0 clear
+  // after disable. UDP Server may be unicast or multicast — same path as
   // Heartbeat/Status.
-  if (!m_config.enable_tx_inhibit () && 0 == m_config.tx_inhibit_port ())
+  //
+  // Never send a live type 17 with port 0. WIMS rejects port 0, so an
+  // announce during Hamlib open (gate binds after rig_open) empties the
+  // KEY-agent target list. Port 0 is only the disable/clear value.
+  if (!m_config.enable_tx_inhibit ())
     {
-      m_messageClient->inhibit_status (
-        0, false, QString {},
-        m_tx_inhibit_hold_rx, m_tx_inhibit_release_rx,
-        m_tx_inhibit_expiries, m_tx_inhibit_invalid);
+      if (0 == m_config.tx_inhibit_port ())
+        {
+          m_messageClient->inhibit_status (
+            0, false, QString {},
+            m_tx_inhibit_hold_rx, m_tx_inhibit_release_rx,
+            m_tx_inhibit_expiries, m_tx_inhibit_invalid);
+        }
       return;
     }
-  if (!m_config.enable_tx_inhibit ())
+  if (0 == m_config.tx_inhibit_port ())
     {
       return;
     }

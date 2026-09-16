@@ -66,6 +66,7 @@ signals:
                        , quint32 expiries, quint32 invalid);
 
   // Bound UDP inhibit listen port (always ephemeral / OS-assigned).
+  // Never emitted with port 0: that is not a usable KEY-agent target.
   void portBound (quint16 port);
 
   // Non-fatal operator-visible problems (e.g. total UDP bind failure).

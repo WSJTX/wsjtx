@@ -5130,6 +5130,13 @@ bool Configuration::impl::open_rig (bool force)
                                        });
           rig_connections_ << connect (rig.get (), &Transceiver::tx_inhibit_port_bound,
                                        this, [this] (quint16 port) {
+                                         // Port 0 is "not listening". close_rig()
+                                         // clears that explicitly. Do not latch 0
+                                         // from a bind that has not assigned a port.
+                                         if (0 == port)
+                                           {
+                                             return;
+                                           }
                                          tx_inhibit_port_ = port;
                                          Q_EMIT self_->tx_inhibit_port_changed (port);
                                        });
