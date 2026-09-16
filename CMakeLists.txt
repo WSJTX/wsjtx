@@ -1618,7 +1618,8 @@ add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS}
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
 target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql Qt5::WebSockets Qt5::SerialPort)
 if (WIN32)
-  target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
+  # TxInhibitGate uses getsockname/ntohs after bind(0) when Qt localPort() is 0.
+  target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase ws2_32)
 endif (WIN32)
 
 # build a library of package Qt functionality used in Fortran utilities
