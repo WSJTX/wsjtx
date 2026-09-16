@@ -11,7 +11,6 @@ subroutine m65c() bind(C)
   use decode0_mod
   use npar_ptrs_mod, only: nhsym, nrxlog, datetime
   integer :: npatience, nstandalone
-  integer, save :: nhsym_prev_rxlog = -1
 
   npatience=1
   if(nhsym.eq.nhsym1 .and. iand(nrxlog,1).ne.0) then
@@ -19,13 +18,13 @@ subroutine m65c() bind(C)
 1000 format(/'UTC Date: ', a17, /78('-'))
      flush(21)
   endif
-  ! rewind alone doesn't truncate; endfile+backspace does, guarded against repeat m65c() firings at the same nhsym1 (m65c() can fire more than once before nhsym advances).
-  if(nhsym.eq.nhsym1 .and. nhsym_prev_rxlog.ne.nhsym1 .and. iand(nrxlog,2).ne.0) then
+  ! Consume the erase request once, independent of the decode pass.
+  if(iand(nrxlog,2).ne.0) then
      rewind(21)
      endfile(21)
      backspace(21)
+     nrxlog = ibclr(nrxlog,1)
   endif
-  nhsym_prev_rxlog = nhsym
   if(iand(nrxlog,4).ne.0) then
      if(nhsym.eq.nhsym1) then
         rewind(26)
