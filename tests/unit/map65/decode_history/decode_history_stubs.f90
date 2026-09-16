@@ -113,12 +113,12 @@ module q65b_mod
   use decode_history_observations
   implicit none
 contains
-  subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
+  subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,configured_dphi_deg, &
                  mycall,mygrid,hiscall,hisgrid,mode_q65,f0,fqso,newdat,nagain,max_drift,ndop00,idec,cursor_fallback)
     use decodes_mod, only: ldecoded
     use q65_decode, only: nsnr0
     integer, intent(in) :: nutc,nqd,nxant,nfcal,nfsample,ikhz,mousedf,ntol,mode_q65
-    integer, intent(in) :: newdat,nagain,max_drift,ndop00
+    integer, intent(in) :: newdat,nagain,max_drift,ndop00,configured_dphi_deg
     real(real64), intent(in) :: fcenter,f0
     real, intent(in) :: fqso
     logical, intent(in) :: xpol
