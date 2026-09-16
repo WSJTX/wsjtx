@@ -1,8 +1,8 @@
 # Trademark Policy
 
-**WSJT™**, **WSJT-X™**, **MAP65™**, and **QMAP™** are trademarks of the WSJT Development Team, asserted under common law through our long-standing, continuous public distribution of software with these names.
+**WSJT™**, **WSJT-X™**, **MAP65™**, and **QMAP™** are trademarks of the WSJT Development Team, asserted under common law through our long-standing, continuous public distribution of software with these names. The program icons are covered by the same assertion.
 
-This policy is separate from, and independent of, our software license. The source code is licensed under the GNU General Public License v3.0 (see [COPYING](COPYING)), and nothing here changes or restricts your rights under that license. You may use, study, modify, and redistribute our code freely. What this policy restricts is use of our *names*.  Trademark law, not copyright law, governs such use, and the GPL does not restrict or otherwise affect trademark rights.
+This policy is separate from, and independent of, our software license. The source code is licensed under the GNU General Public License v3.0 (see [COPYING](COPYING)), and nothing here changes or restricts your rights under that license. You may use, study, modify, and redistribute our code freely. What this policy restricts is use of our *names and program icons*. Trademark law, not copyright law, governs such use, and the GPL does not restrict or otherwise affect trademark rights.
 
 ## Why we care
 
@@ -17,11 +17,11 @@ A modified program build that behaves differently but is still called "WSJT-X" �
 
 ## Forbidden without renaming
 
-- Distributing a version with functional changes — new features, changed behavior, or altered protocol handling — under our names ("WSJT-X", "MAP65", "QMAP") or any confusingly similar variant of them (e.g. "WSJT-X Improved", "WSJT-X Plus").
+- Distributing a version with functional changes — new features, changed behavior, or altered protocol handling — under our names ("WSJT-X", "MAP65", "QMAP") or any confusingly similar variant of them (e.g. "WSJT-X by XYZ", "WSJT-X Plus").
 - Assigning your own version number within our numbering sequence, e.g. calling a modified fork "MAP65 4.0" or "QMAP 1.0" when we have not released any such version. This applies regardless of whether the underlying code changed.
 - Using our names, or names confusingly similar to them, for a differently-behaving program in a way that could lead users, on the air or in software listings, to believe it is our software or is endorsed by us.
 
-If you've made functional changes, please pick a distinct name — you're welcome to describe your project as "based on WSJT-X code" or "a fork of QMAP."
+If you've made functional changes, please pick a name that is completely distinct and does not include "WSJT," "WSJT-X," "MAP65," or "QMAP" as part of the primary title — for example, "Bob's FT8 Tool" is fine, but "WSJT-X Ultra" is not. You're welcome to describe your project as "based on WSJT-X code" or "a fork of QMAP." If your program posts spots to an online server, be sure to identify their origin with your program's name.
 
 ## Questions or concerns
 
