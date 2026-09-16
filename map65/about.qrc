@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/">
+    <file alias="icon_128x128.png">about_icon.png</file>
+    <file alias="gpl-v3-logo.svg">../contrib/gpl-v3-logo.svg</file>
+  </qresource>
+</RCC>

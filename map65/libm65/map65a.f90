@@ -15,12 +15,13 @@ contains
       use wideband_sync
       use timer_module, only: timer
       use debug_log, only: dbg, itoa, rtoa
+      use sec_midn_mod, only: sec_midn
       use q65b_mod
       use decode1a_mod
       use ccf65_legacy_mod
       use pctile_mod
       use stdout_channel_mod, only: write_stdout
-      use decodes_mod, only: nhsym1, ldecoded, ndecodes, mcall3a, decodes_init
+      use decodes_mod, only: nhsym1, ldecoded, ljt65decoded, ndecodes, mcall3a, decodes_init
       use display_mod
       use timf2_mod
       use getdphi_mod
@@ -33,6 +34,11 @@ contains
 
       integer, parameter :: MAXMSG = 1000
       real, parameter :: RESULT_DT_TOLERANCE = 0.2
+      ! Neighborhood radius (in symspec FFT bins) for ljt65decoded's
+      ! cross-call "already decoded" check/mark, below. At df ~= 2.9 Hz/bin
+      ! this is ~+/-15 Hz, covering the couple-of-bin spread a single real
+      ! JT65 signal can show across separate automatic calls.
+      integer, parameter :: JT65_LOCAL_BINS = 5
       real, intent(in) :: dd(4, nsmax_active)
       integer, intent(inout) :: newdat
       integer, intent(inout) :: nutc
@@ -87,15 +93,18 @@ contains
       logical :: abort_saved
       integer :: icenter
       logical :: initialization_only, shorthand_detected, jt65_success, q65_success
+      logical :: already_decoded_nearby
       real :: best_sync1, best_dt, best_flipk, best_syncshort, best_snr2, best_dt2
       integer :: best_i, best_ipol2
       real :: sync1_tmp, dt_tmp, flipk_tmp, syncshort_tmp, snr2_tmp, dt2_tmp
       integer :: ipol_tmp, ipol2_tmp,ftol_bins, manualDecodeFlag_initial
       real :: freq_q65
+      integer :: nhsym_prev_call
 
       data blank/'                      '/, cm/'#'/
       data shmsg0/'ATT','RO ','RRR','73 '/
       data nfile/0/, nutc0/-999/, nid/0/, ip000/1/, ip001/1/, mousefqso0/-999/
+      data nhsym_prev_call/-1/
       save
 
       real(c_float), pointer :: ss_dec(:,:,:)
@@ -128,9 +137,29 @@ contains
 !------------------------------------------------------------
 ! BASIC DECODE SETUP (shared by manual + wideband)
 !------------------------------------------------------------
-      if (nhsym .eq. nhsym1 .or. nagain .ne. 0) ldecoded = .false.
-      if (ndiskdat .eq. 1) ldecoded = .false.
-      
+      ! run_m65 can legitimately re-fire map65a() several times back-to-back
+      ! at the same nhsym1 value before nhsym itself advances. Reset
+      ! ldecoded/ljt65decoded only on a genuinely new cycle at nhsym1, not a
+      ! repeat call already at that value, so a repeat doesn't throw away
+      ! "already reported this bin" memory from moments earlier and
+      ! rediscover/re-report the same decode. A manual click (nagain/=0) is
+      ! always a deliberate one-off request and always gets a fresh ledger.
+      if ((nhsym .eq. nhsym1 .and. nhsym_prev_call .ne. nhsym1) .or. nagain .ne. 0) then
+         ldecoded = .false.
+         ljt65decoded = .false.
+         call dbg('map65a: ldecoded/ljt65decoded RESET at t=' // rtoa(sec_midn()) // &
+                  ' nhsym=' // itoa(nhsym) // ' nhsym_prev_call=' // itoa(nhsym_prev_call) // &
+                  ' nagain=' // itoa(nagain))
+      else if (nhsym .eq. nhsym1) then
+         call dbg('map65a: ldecoded/ljt65decoded NOT reset (repeat call at nhsym1) at t=' // rtoa(sec_midn()) // &
+                  ' nhsym=' // itoa(nhsym))
+      endif
+      nhsym_prev_call = nhsym
+      if (ndiskdat .eq. 1) then
+         ldecoded = .false.
+         ljt65decoded = .false.
+      endif
+
       df = real(nrate_active)/real(nfft_active)
       if (nfsample .eq. 95238) df = 95238.1/real(nfft_active)
 
@@ -152,6 +181,13 @@ contains
       dphi = idphi/57.2957795
       foffset = 0.001*(1270 + nfcal)
       iloop = 0
+
+      ! qphi is "save"d across calls (blanket SAVE above) but only gets
+      ! written for a trial (iloop=1..12) that actually decodes something;
+      ! without this reset, a trial that finds nothing leaves behind
+      ! whatever unrelated value qphi(iloop) held from an earlier Find-dPhi
+      ! run, silently mixing stale data into getdphi's best-fit calculation.
+      if (ndphi .eq. 1) qphi = 0.0
 
 2     if (ndphi .eq. 1) dphi = 30*iloop/57.2957795
 
@@ -385,7 +421,7 @@ contains
 
             call timer('q65b    ', 0)
             call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                      ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                      ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                       newdat, nagain, max_drift, ndop00, idec)
             call timer('q65b    ', 1)
 
@@ -454,18 +490,9 @@ contains
 
                   call txpol(xpol, decoded, mygrid, npol, nxant, ntxpol, cp)
 
-                  if (ndphi .eq. 0) then
-                     write (line, '("!",I3,I5,I4,I6.4,F5.1,I5,1X,A1,1X,A22,I2,I5,I5,1X,A1)') &
-                        nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, ntxpol, cp
-                     call write_stdout(trim(line)//new_line('a'))
-                  else
-                     if (iloop .ge. 1) qphi(iloop) = sig(k,10)
-                     write (line, '("!",I3,I5,I4,I6.4,F5.1,I5,1X,A1,1X,A22,I2,I5,I5,1X,A1)') &
-                        nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, 30*iloop
-                     call write_stdout(trim(line)//new_line('a'))
-                     write (27, 1011) 30*iloop, nkHz, ndf, npol, nutc, &
-                        dt, sync2, nkv, nqual, cm, decoded
-                  endif
+                  write (line, '("!",I3,I5,I4,I6.4,F5.1,I5,1X,A1,1X,A22,I2,I5,I5,1X,A1)') &
+                     nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, ntxpol, cp
+                  call write_stdout(trim(line)//new_line('a'))
                endif
             enddo  ! k=1,km
 
@@ -489,6 +516,28 @@ contains
 !------------------------------------------------------------
 ! WIDEBAND CODE RESUMES HERE
 !------------------------------------------------------------
+
+! km is "save"d across calls, but this point runs once per Find-dPhi trial
+! (iloop 0..12 via "go to 2" below) as well as once for a normal decode.
+! Without resetting it here, each later trial's "do k=1,km" write-out loop
+! replays every earlier trial's decode(s) again verbatim -- the repeated,
+! made-up-looking decodes seen with Find Delta Phi.
+km = 0
+
+! ljt65decoded/ldecoded mark a bin as already decoded for the rest of this
+! accumulation cycle (see the reset near subroutine entry, and their use
+! below) -- correct for suppressing a genuinely repeated automatic call,
+! but wrong for a Find Delta Phi trial: each of the 13 trials (iloop 0..12,
+! via "go to 2" below) is a deliberate, fresh re-probe of the same
+! frequency at a different phase hypothesis, not a repeat of the same
+! request. Without resetting here too, trial 0's decode marks the bin, and
+! every later trial then sees it as "already decoded" and never calls
+! decode1a() again, leaving qphi(iloop) unpopulated for the rest of the
+! sweep.
+if (ndphi .eq. 1) then
+   ldecoded = .false.
+   ljt65decoded = .false.
+endif
 
 ftol = 0.010
 fqso = mousefqso + foffset - 0.5*(nfa + nfb) + nfshift
@@ -517,17 +566,29 @@ if (nagain .eq. 0) then
    call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa, mfb, nts_jt65, nts_q65, cand, ncand)
    call timer('get_cand', 1)
    candec = .false.
+   ! TEMP diagnostic 2026-09-09 for the missing-upper-Q65-decode investigation.
+   call dbg('map65a: get_candidates done at t=' // rtoa(sec_midn()) // &
+            ' ncand=' // itoa(ncand) // ' n_q65cand=' // itoa(count(cand(1:max(ncand,0))%iflip == 0)) // &
+            ' bq65=' // itoa(merge(1,0,bq65)) // ' xpol=' // itoa(merge(1,0,xpol)) // &
+            ' nhsym=' // itoa(nhsym) // ' manualDecodeFlag_initial=' // itoa(manualDecodeFlag_initial))
 endif
 
-      do nqd = 1, 0, -1         
-         
+      do nqd = 1, 0, -1
+
          call system_clock(t_now, t_rate)
+         call dbg('map65a: nqd loop top at t=' // rtoa(sec_midn()) // &
+                  ' nqd=' // itoa(nqd) // ' elapsed=' // rtoa(real(t_now - t_start)/real(t_rate)) // &
+                  ' manualDecodeFlag_initial=' // itoa(manualDecodeFlag_initial))
          if (real(t_now - t_start)/real(t_rate) > 40.0) then
             abort_decode = .true.
+            call dbg('map65a: ABORT (40s budget exceeded) at t=' // rtoa(sec_midn()) // ' nqd=' // itoa(nqd))
             go to 700
          endif
 
-         if (manualDecodeFlag_initial == 1 .and. nqd == 0) cycle
+         if (manualDecodeFlag_initial == 1 .and. nqd == 0) then
+            call dbg('map65a: nqd=0 CYCLE-skipped (manualDecodeFlag_initial=1) at t=' // rtoa(sec_midn()))
+            cycle
+         endif
 
 
          if (nqd .eq. 1) then                     !Quick decode, at fQSO
@@ -560,6 +621,11 @@ endif
          short = 0.                                 !Zero the whole short array
          jpz = 1
          if (xpol) jpz = 4
+
+         ! TEMP diagnostic 2026-09-09 for the missing-other-JT65-signal investigation.
+         call dbg('map65a: JT65 sweep window at t=' // rtoa(sec_midn()) // &
+                  ' nqd=' // itoa(nqd) // ' fa=' // rtoa(fa) // ' fb=' // rtoa(fb) // &
+                  ' ia=' // itoa(ia) // ' ib=' // itoa(ib) // ' km_entering=' // itoa(km))
 
          do i = ia, ib                               !Search over freq range
 
@@ -614,6 +680,15 @@ endif
                call ccf65(ss_dec(:,:,i), nhsym, ssmax, sync1, ipol, jpz, dt, flipk, &
                   syncshort, snr2, ipol2, dt2)
                call timer('ccf65   ', 1)
+               ! 2026-09-12: instrumentation for the "identical anomalous
+               ! dtbest across several consecutive nqd=0 candidates" investigation.
+               ! Logging ccf65's own per-candidate dt (the value that becomes
+               ! decode1a's dt00 input) so a live capture can show directly
+               ! whether the staleness/repetition already exists at THIS
+               ! input, before decode1a/afc65b ever runs.
+               call dbg('map65a: ccf65 result at t=' // rtoa(sec_midn()) // &
+                        ' nqd=' // itoa(nqd) // ' i=' // itoa(i) // ' dt=' // rtoa(dt) // &
+                        ' sync1=' // rtoa(sync1) // ' ntry=' // itoa(ntry))
                if (mode65 .eq. 0) syncshort = -99.0     !If "No JT65", don't waste time
 
 ! ########################### Search for Shorthand Messages #################
@@ -688,7 +763,35 @@ endif
                   sync1 = thresh1 + 1.0
                   noffset = 0
                endif
+               ! Computed once per candidate, before the "keep only best
+               ! within ftol" collapse logic just below -- see the SKIPPED
+               ! branch right after for why the ordering matters. Must be
+               ! false whenever initialization_only is true: that probe
+               ! doesn't accumulate anything regardless, but still needs
+               ! decode1a() called once per sweep for its own internal
+               ! state, so it must not be intercepted here.
+               already_decoded_nearby = (.not. initialization_only) .and. &
+                    any(ljt65decoded(max(1,i-JT65_LOCAL_BINS):min(nfft_active,i+JT65_LOCAL_BINS)))
+
                if (sync1 .gt. thresh1 .and. abs(noffset) .le. ntol) then
+                  if (already_decoded_nearby) then
+                     ! Skip a candidate whose bin (or a nearby one, within
+                     ! JT65_LOCAL_BINS) already produced a real decode
+                     ! earlier this same accumulation cycle, mirroring
+                     ! Q65's ldecoded(ipk) (decodes_mod.f90) -- otherwise a
+                     ! repeat automatic call re-discovers and re-emits the
+                     ! same JT65 decode.
+                     !
+                     ! Must run before the "keep only best within ftol"
+                     ! collapse logic below, not after: that logic's
+                     ! "km=km-1" runs unconditionally, on the assumption
+                     ! that accumulation always follows with a matching
+                     ! "km=km+1" -- skipping AFTER that decrement leaves it
+                     ! unmatched and silently drives km negative, hiding
+                     ! the whole signal from this pass's output.
+                     call dbg('map65a: JT65 i=' // itoa(i) // &
+                              ' SKIPPED (already decoded nearby this cycle) at t=' // rtoa(sec_midn()))
+                  else
 !  Keep only the best candidate within ftol.
 !  (Am I deleting any good decodes by doing this?)
               if(freq-freq0.le.ftol .and. sync1.gt.sync10 .and.       &
@@ -724,7 +827,26 @@ endif
                                    ndphi, nutc, ikHz, idf, ipol, ntol, sync2, &
                                    a, dt, pol, nkv, nhist, nsum, nsave, qual, decoded)
                      call timer('decode1a', 1)
-                     
+                     ! 2026-09-12: paired with the ccf65 instrumentation above --
+                     ! logs decode1a's OUTPUT dt (dt00+dtbest+1.7, so this
+                     ! encodes dtbest even though dtbest itself isn't passed
+                     ! back to this scope), the running real-candidate count
+                     ! this pass (ntry, already used for the "signal too
+                     ! strong" abort check), and elapsed wall-clock time, so a
+                     ! live capture can show whether the anomaly correlates
+                     ! with how many real candidates/how much time this pass
+                     ! has already chewed through before reaching this one.
+                     call dbg('map65a: decode1a call ' // itoa(ntry) // ' this pass at t=' // &
+                              rtoa(sec_midn()) // ' nqd=' // itoa(nqd) // ' i=' // itoa(i) // &
+                              ' f00=' // rtoa(real(f00)) // ' dt_out=' // rtoa(dt) // &
+                              ' initialization_only=' // itoa(merge(1,0,initialization_only)) // &
+                              ' decoded="' // trim(decoded) // '"')
+
+                     call dbg('map65a: decode1a result at t=' // rtoa(sec_midn()) // &
+                              ' nqd=' // itoa(nqd) // ' i=' // itoa(i) // ' freq=' // rtoa(freq) // &
+                              ' sync1=' // rtoa(sync1) // ' initialization_only=' // itoa(merge(1,0,initialization_only)) // &
+                              ' decoded="' // trim(decoded) // '"')
+
                      if (mode65 .ne. 0 .and. .not. initialization_only) then
                         if (km .lt. MAXMSG) km = km + 1
                         sig(km, 1) = nfile
@@ -749,12 +871,20 @@ endif
                         freq0 = freq
                         sync10 = sync1
                         nkm = 1
+                        ! Mark the same neighborhood checked at
+                        ! already_decoded_nearby above -- see that note.
+                        if (decoded .ne. '                      ') &
+                           ljt65decoded(max(1,i-JT65_LOCAL_BINS):min(nfft_active,i+JT65_LOCAL_BINS)) = .true.
                      endif
+                  endif
                   endif
                endif
             endif
          enddo  !i=ia,ib
-         
+
+         call dbg('map65a: JT65 sweep done at t=' // rtoa(sec_midn()) // &
+                  ' nqd=' // itoa(nqd) // ' km_exiting=' // itoa(km) // ' ntry=' // itoa(ntry))
+
          if (nqd .eq. 1) then
             nwrite = 0
             if (mode65 .eq. 0) km = 0
@@ -805,9 +935,9 @@ endif
                      call write_stdout(trim(line)//new_line('a'))
                   else
                      if (iloop .ge. 1) qphi(iloop) = sig(k, 10)
-                                          
+
                      write (line, '("!",I3,I5,I4,I6.4,F5.1,I5,1X,A1,1X,A22,I2,I5,I5,1X,A1)') &
-                        nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, 30*iloop
+                        nkHz, ndf, npol, nutc, dt, nsync2, cm, decoded, nkv, nqual, 30*iloop, '-'
                      call write_stdout(trim(line)//new_line('a'))
                      write (27, 1011) 30*iloop, nkHz, ndf, npol, nutc, &
                         dt, sync2, nkv, nqual, cm, decoded
@@ -830,12 +960,19 @@ endif
                   call timer('q65b    ', 0)                  
 
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                           ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                           ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                            newdat, nagain, max_drift, ndop00, idec)
 
                   call timer('q65b    ', 1)
 
-                  if (idec .ge. 0) candec(icand) = .true.
+                  ! idec is not a trustworthy success flag here -- q65b
+                  ! derives it from cq0(2:2), which is not reset on a
+                  ! failed/no-op attempt, so a later candidate in this same
+                  ! loop can falsely read back an earlier candidate's
+                  ! leftover cq0 digit. nsnr0 is reset to -99 at the top of
+                  ! every q65b() call (q65b.F90) and can't carry state
+                  ! across candidates this way.
+                  if (nsnr0 .gt. -99) candec(icand) = .true.
                enddo
                if (.not. q65b_called) then
                   freq = mousefqso + 0.001*mousedf
@@ -844,7 +981,7 @@ endif
                   call timer('q65b    ', 0)
                  
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                        ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                        ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                         newdat, nagain, max_drift, ndop00, idec)
 
                   call timer('q65b    ', 1)
@@ -862,7 +999,7 @@ endif
             go to 2
          endif
 
-         if (ndphi .eq. 1 .and. iloop .eq. 12) call getdphi(qphi)
+         if (ndphi .eq. 1 .and. iloop .eq. 12 .and. nqd .eq. 1) call getdphi(qphi)
          if (nqd .eq. 1) then
             call sec0(1, tdec)
             write (line, '("<QuickDecodeDone>",3I4,I6,F6.2)') &
@@ -876,8 +1013,17 @@ endif
             close (16)
          endif
          call sec0(1, tsec0)
-         if (nhsym .eq. nhsym1 .and. tsec0 .gt. 3.0) go to 700
-         if (nqd .eq. 1 .and. nagain .eq. 1) go to 900
+         call dbg('map65a: end of nqd=' // itoa(nqd) // ' body at t=' // rtoa(sec_midn()) // &
+                  ' tsec0=' // rtoa(tsec0) // ' nhsym=' // itoa(nhsym) // ' nagain=' // itoa(nagain))
+         if (nhsym .eq. nhsym1 .and. tsec0 .gt. 3.0) then
+            call dbg('map65a: ABORT (early-pass 3s budget) at t=' // rtoa(sec_midn()) // &
+                     ' tsec0=' // rtoa(tsec0) // ' -- nqd=0 will NOT run this pass')
+            go to 700
+         endif
+         if (nqd .eq. 1 .and. nagain .eq. 1) then
+            call dbg('map65a: SKIP nqd=0 (nagain=1, manual repeat) at t=' // rtoa(sec_midn()))
+            go to 900
+         endif
 
          if (nqd .eq. 0 .and. bq65) then
 ! Do the wideband Q65 decode
@@ -892,12 +1038,15 @@ endif
                call timer('q65b    ', 0)
 
                call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
-                        ntol, xpol, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
+                        ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                         newdat, nagain, max_drift, ndop00, idec)
 
                call timer('q65b    ', 1)
 
-               if (idec .ge. 0) candec(icand) = .true.
+               ! See the matching note on the nqd==1 candidate loop above --
+               ! idec is unreliable across back-to-back q65b() calls in the
+               ! same loop; use nsnr0 instead.
+               if (nsnr0 .gt. -99) candec(icand) = .true.
                if (abort_decode) go to 700
             enddo  ! icand
          endif         
@@ -912,8 +1061,14 @@ endif
 
       enddo  ! nqd
 
-700   continue   
+700   continue
+      ! TEMP diagnostic 2026-09-09 for the missing-other-signals-in-Messages investigation.
+      call dbg('map65a: reached label 700 at t=' // rtoa(sec_midn()) // &
+               ' km=' // itoa(km) // ' abort_decode=' // itoa(merge(1,0,abort_decode)) // &
+               ' nhsym=' // itoa(nhsym))
       call select_unique_decodes(sig, msg, km, ftol, RESULT_DT_TOLERANCE, indx, nz)
+      call dbg('map65a: select_unique_decodes done at t=' // rtoa(sec_midn()) // &
+               ' km=' // itoa(km) // ' nz=' // itoa(nz))
 
       do n = 1, nz
          i = indx(n)

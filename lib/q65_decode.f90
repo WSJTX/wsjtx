@@ -322,7 +322,7 @@ contains
        do i=1,ndecodes
           if(decodes(i).eq.decoded) idupe=1
        enddo
-       if(idupe.eq.0) then
+       if(idupe.eq.0 .and. unpk77_success) then
           ndecodes=min(ndecodes+1,100)
           decodes(ndecodes)=decoded
           f0decodes(ndecodes)=f0dec
@@ -435,7 +435,7 @@ contains
           do i=1,ndecodes
              if(decodes(i).eq.decoded) idupe=1
           enddo
-          if(idupe.eq.0) then
+          if(idupe.eq.0 .and. unpk77_success) then
              ndecodes=min(ndecodes+1,100)
              decodes(ndecodes)=decoded
              f0decodes(ndecodes)=f0dec

@@ -7,6 +7,7 @@ module filbig_mod
   use npar_ptrs_mod,  only: nrate_active, nfft_big_active
   use fftw3_constants
   use fftw3_f77_interfaces
+  use sec_midn_mod, only: sec_midn
   implicit none
   
   integer, parameter :: MAXFFT1 = 56*192000
@@ -77,6 +78,20 @@ contains
     endif
 
     if (filbig_first) then
+       ! TEMP diagnostic 2026-09-10 for the "first decode cycle after
+       ! startup is degraded/missing" investigation. filbig_first is a
+       ! module-SAVEd flag -- true exactly once, for the life of the
+       ! process -- so this whole block runs on the very first filbig()
+       ! call and never again. That happens to line up exactly with when
+       ! the anomaly has been observed. FFTW plan creation (even the cheap
+       ! ESTIMATE_PATIENT mode used below) still does real work for a
+       ! multi-million-point transform; if it takes long enough to run
+       ! synchronously on this thread, it could delay real-time audio
+       ! capture on the GUI/audio thread for that whole span. Time it
+       ! directly rather than assuming either way.
+       call dbg('filbig: FIRST-EVER CALL, starting FFTW plan creation at t=' // rtoa(sec_midn()) // &
+                ' nfft1=' // itoa(nfft1) // ' nfft2=' // itoa(nfft2))
+
        nflags = FFTW_ESTIMATE
        if (npatience .eq. 1) nflags = FFTW_ESTIMATE_PATIENT
        if (npatience .eq. 2) nflags = FFTW_MEASURE
@@ -91,6 +106,7 @@ contains
        call sfftw_plan_dft_1d(plan4, nfft2, c4b_buf,  c4b_buf,  FFTW_FORWARD,  nflags)
        call sfftw_plan_dft_1d(plan5, nfft2, cfilt_buf,cfilt_buf,FFTW_BACKWARD, nflags)
        call timer('FFTplans', 1)
+       call dbg('filbig: FFTW plan creation DONE at t=' // rtoa(sec_midn()))
 
   ! Convert impulse response to filter function
        do i = 1, nfft2
@@ -111,6 +127,7 @@ contains
        df = dble(nrate_active)/dble(nfft1)
        if (nfsample .eq. 95238) df = 95238.1d0/dble(nfft1)
        filbig_first = .false.
+       call dbg('filbig: entire one-time init (plans + filter) DONE at t=' // rtoa(sec_midn()))
     endif
 
   ! When new data comes along, we need to compute a new "big FFT"

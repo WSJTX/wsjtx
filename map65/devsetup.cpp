@@ -10,6 +10,8 @@
 #include <QSerialPortInfo>
 #include <QRegularExpression>
 #include <QSignalBlocker>
+#include <QSettings>
+#include "SettingsGroup.hpp"
 
 #if !defined(Q_OS_WIN)
 extern "C" {
@@ -55,6 +57,13 @@ DevSetup::DevSetup(MainWindow *parent)
       mw(parent)
 {
   ui.setupUi(this);	//setup the dialog form
+
+  {
+    QSettings settings(mw->m_settings_filename, QSettings::IniFormat);
+    SettingsGroup g {&settings, "DevSetup"};
+    restoreGeometry(settings.value("geometry").toByteArray());
+  }
+
   m_restartSoundIn=false;
   m_restartSoundOut=false;
   m_restartRequired=false;
@@ -75,6 +84,18 @@ connect(buttonGroup,
 
 DevSetup::~DevSetup()
 {
+}
+
+void DevSetup::done(int r)
+{
+  // accept()/reject() (OK, Cancel, and the title-bar close button, which
+  // triggers reject() internally) all funnel through here -- unlike
+  // closeEvent(), which only fires for the title-bar close button, not
+  // for accept()/reject() called directly from button clicks.
+  QSettings settings(mw->m_settings_filename, QSettings::IniFormat);
+  SettingsGroup g {&settings, "DevSetup"};
+  settings.setValue("geometry", saveGeometry());
+  QDialog::done(r);
 }
 
 void DevSetup::initDlg()
