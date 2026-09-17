@@ -123,7 +123,7 @@ release/X.Y metadata commit
                       └─→ public-release approval publishes the release
 ```
 
-The two approvals answer different questions: source promotion approves disclosure of the reviewed candidate, while `public-release` approves the exact signed artifacts after they exist. An RC publishes a public tag without moving `master`; GA also advances `master` to the promoted commit.
+The two approvals answer different questions: source promotion approves disclosure of the reviewed candidate, while `public-release` approves the exact publication artifacts after they exist. An RC publishes a public tag without moving `master`; GA also advances `master` to the promoted commit.
 
 ### Build Strategy
 
@@ -148,8 +148,8 @@ Each approved public `v*` tag yields one installer per target plus a source tarb
 
 | Artifact | Produced by | Format |
 |----------|-------------|--------|
-| `wsjtx-<ver>-arm64-macOS.pkg` | `build-macos.yml` (arm64 leg) | Developer ID signed, notarized, and stapled; required for publication |
-| `wsjtx-<ver>-x86_64-macOS.pkg` | `build-macos.yml` (x86_64 leg) | Developer ID signed, notarized, and stapled; required for publication |
+| `wsjtx-<ver>-arm64-macOS.pkg` | `build-macos.yml` (arm64 leg) | Hosted Developer ID signing, or a validated package for manual replacement |
+| `wsjtx-<ver>-x86_64-macOS.pkg` | `build-macos.yml` (x86_64 leg) | Hosted Developer ID signing, or a validated package for manual replacement |
 | `wsjtx-<ver>-linux-x86_64.AppImage` | `build-linux.yml` (x86_64 leg) | Portable AppImage |
 | `wsjtx-<ver>-linux-aarch64.AppImage` | `build-linux.yml` (aarch64 leg) | Portable AppImage |
 | `wsjtx-<ver>-linux-armhf.AppImage` | `build-linux.yml` (armhf leg) | Portable AppImage |
@@ -159,7 +159,7 @@ Each approved public `v*` tag yields one installer per target plus a source tarb
 | `wsjtx-<ver>-win64.exe` | `build-windows.yml` | SignPath Foundation Authenticode for both public RC and GA |
 | `wsjtx-<ver>-src.tar.gz` | Public release workflow | Source tarball from the public tag |
 
-The project-created source tarball is assembled from the public tag. GitHub also generates its own zip and tar.gz source archives for that tag; they contain the tagged tree but may have different compressed hashes. `SHA256SUMS` covers the uploaded payload assets; the checksum file and release manifest are the metadata describing that set. The manifest also records the tag, source commit, workflow run, and builder provenance. Checksums detect changed bytes; platform signatures establish signer identity and must be verified separately.
+The project-created source tarball is assembled from the public tag. GitHub also generates its own zip and tar.gz source archives for that tag; they contain the tagged tree but may have different compressed hashes. `SHA256SUMS` covers immutable payload assets uploaded by the workflow. In manual macOS signing mode it excludes the two replaceable `.pkg` files, which the release manifest identifies separately. The manifest also records the tag, source commit, workflow run, and builder provenance. Checksums detect changed bytes; platform signatures establish signer identity and must be verified separately.
 
 ### All-Platforms-Ready Gate
 
@@ -169,8 +169,8 @@ The gate checks for one installer per platform:
 
 | Platform | Expected artifact pattern |
 |----------|---------------------------|
-| macOS arm64 | `artifacts/wsjtx-<ver>-arm64-macOS.pkg/*.pkg` |
-| macOS x86_64 | `artifacts/wsjtx-<ver>-x86_64-macOS.pkg/*.pkg` |
+| macOS arm64 | Hosted-signing artifact, or `artifacts/wsjtx-<ver>-arm64-macOS-unsigned.pkg/*.pkg` in manual mode |
+| macOS x86_64 | Hosted-signing artifact, or `artifacts/wsjtx-<ver>-x86_64-macOS-unsigned.pkg/*.pkg` in manual mode |
 | Linux x86_64 | `artifacts/wsjtx-<ver>-linux-x86_64-AppImage/*.AppImage` |
 | Linux aarch64 | `artifacts/wsjtx-<ver>-linux-aarch64-AppImage/*.AppImage` |
 | Linux armhf | `artifacts/wsjtx-<ver>-linux-armhf-AppImage/*.AppImage` |
@@ -179,7 +179,7 @@ The gate checks for one installer per platform:
 
 If any pattern matches zero files, the release job stops before publishing.
 
-Presence alone is insufficient. The publication gate also requires the expected production filenames and signing reports, and verifies that their hashes, public tag, and source SHA agree. A separate installed-runtime smoke test remains necessary because cryptographic verification does not establish application behavior.
+Presence alone is insufficient. The publication gate also requires the expected production filenames and reports, and verifies that their hashes, public tag, and source SHA agree. In manual macOS signing mode the reports prove that the unsigned packages came from the expected validation builds; their final signatures are verified after manual replacement. A separate installed-runtime smoke test remains necessary because cryptographic verification does not establish application behavior.
 
 ---
 
@@ -408,7 +408,7 @@ The environment inventory must contain both certificate identities and the API-k
 
 Also configure the public workflow's non-secret expected Apple Team ID and SHA-1 fingerprints for the Application and Installer certificates. These are identifiers, not private-key material; the distribution job uses them to reject a valid but unintended identity.
 
-Set repository variable `MACOS_DISTRIBUTION_SIGNING_ENABLED=false` until the full environment is configured and tested. In that state the workflow may create clearly named unsigned validation artifacts, but the publication gate rejects them. Set it to `true` only after both architectures complete signing, notarization, stapling, identity, entitlement, and Gatekeeper verification. Distribution mode fails closed if any credential is absent.
+Set repository variable `MACOS_DISTRIBUTION_SIGNING_ENABLED=false` until the full environment is configured and tested. In that state the workflow publishes validated unsigned packages under the stable release filenames so a release manager can replace them manually. The manifest identifies those two packages as replaceable and excludes them from immutable hashes; workflow reruns preserve existing packages by name. Set the variable to `true` only after both architectures complete signing, notarization, stapling, identity, entitlement, and Gatekeeper verification. Distribution mode fails closed if any credential is absent.
 
 > **About Windows signing.** RC and GA installers are Authenticode-signed by SignPath Foundation on the **public** repo — see §5.4. No Windows certificate private key exists in GitHub; it remains in SignPath's HSM. Ordinary CI builds may use a per-run ephemeral self-signed certificate.
 
@@ -625,9 +625,9 @@ Inspect the successful Prepare Release Candidate run and record its run ID. From
 
 ### Step 4: Review and Approve Publication
 
-Confirm every public target build and signing report is green. Windows RC and GA installers must be SignPath release-signed. macOS RC and GA packages must be Developer ID-signed, notarized, stapled, and Gatekeeper-accepted.
+Confirm every public target build and report is green. Windows RC and GA installers must be SignPath release-signed. In hosted-signing mode, macOS RC and GA packages must be Developer ID-signed, notarized, stapled, and Gatekeeper-accepted before publication.
 
-If `MACOS_DISTRIBUTION_SIGNING_ENABLED` is false, inspect the unsigned validation artifacts to exercise packaging, but stop: the workflow intentionally cannot publish them. After the `apple-release-signing` environment is fully populated, enable the variable and rerun the same immutable public tag.
+If `MACOS_DISTRIBUTION_SIGNING_ENABLED` is false, inspect and approve the validated unsigned packages for publication. After publication, download both `.pkg` assets, sign and notarize them outside GitHub, verify their signatures and installed behavior, then replace the release assets without changing their filenames. They are intentionally absent from `SHA256SUMS`; the manifest records them as manually replaceable. After the `apple-release-signing` environment is fully populated, enable the variable for future tags.
 
 Download the `release-bundle-<version>` workflow artifact, then approve the waiting `public-release` environment only after its manifest, asset hashes, source SHA, and signing reports agree. Verify that an RC is marked prerelease and does not move `master`; verify that GA is the latest release and does move `master`.
 

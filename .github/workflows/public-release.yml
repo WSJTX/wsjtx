@@ -21,7 +21,6 @@ jobs:
       release_channel: ${{ steps.identity.outputs.channel }}
       rc_number: ${{ steps.identity.outputs.rc_number }}
       macos_sign_mode: ${{ steps.identity.outputs.macos_sign_mode }}
-      macos_signing_enabled: ${{ steps.identity.outputs.macos_signing_enabled }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -45,11 +44,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           if [ "$MACOS_DISTRIBUTION_SIGNING_ENABLED" = true ]; then
             echo "macos_sign_mode=distribution" >> "$GITHUB_OUTPUT"
-            echo "macos_signing_enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "macos_sign_mode=validation" >> "$GITHUB_OUTPUT"
-            echo "macos_signing_enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::macOS distribution signing is disabled. Builds will be retained, but no GitHub Release can be published."
+            echo "::notice::macOS distribution signing is disabled. Validated packages will be published for manual replacement."
           fi
 
   linux-images:
@@ -163,24 +160,7 @@ jobs:
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
 
-  validation-ready:
-    if: needs.prepare.outputs.macos_signing_enabled != 'true'
-    needs: [prepare, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-      - name: Verify validation-only build
-        run: python3 .github/scripts/release-policy.py verify-assets "${{ needs.prepare.outputs.version }}" artifacts
-      - name: Explain publication block
-        run: |
-          echo "::notice::All validation artifacts are available. Set MACOS_DISTRIBUTION_SIGNING_ENABLED=true only after Apple credentials are configured and tested, then rerun this tag workflow."
-
   assemble:
-    if: needs.prepare.outputs.macos_signing_enabled == 'true'
     needs: [prepare, linux-images, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -220,17 +200,20 @@ jobs:
             "$RUNNER_TEMP/github-source.tar.gz" --commit "$GITHUB_SHA"
           python3 .github/scripts/release-policy.py validate-archive "$VERSION" \
             "$RUNNER_TEMP/github-source.zip" --commit "$GITHUB_SHA"
-      - name: Verify signed distribution artifacts and reports
+      - name: Verify public artifacts and signing reports
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
         run: |
           set -euo pipefail
-          python3 .github/scripts/release-policy.py verify-assets "$VERSION" artifacts --distribution
+          python3 .github/scripts/release-policy.py verify-assets "$VERSION" artifacts \
+            --macos-mode "$MACOS_MODE"
           python3 .github/scripts/release-policy.py verify-signing-reports "$VERSION" artifacts \
-            --commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME"
+            --commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME" --macos-mode "$MACOS_MODE"
       - name: Generate checksums and release manifest
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
         run: |
           python3 .github/scripts/release-policy.py write-manifest "$VERSION" artifacts \
             --repository "$GITHUB_REPOSITORY" \
@@ -239,16 +222,19 @@ jobs:
             --linux-x86-64-digest "${{ needs.linux-images.outputs.x86_64_digest }}" \
             --linux-aarch64-digest "${{ needs.linux-images.outputs.aarch64_digest }}" \
             --linux-armhf-cross-digest "${{ needs.linux-images.outputs.armhf_cross_digest }}" \
-            --linux-armhf-digest "${{ needs.linux-images.outputs.armhf_digest }}"
-      - name: Assemble exact publication bundle
+            --linux-armhf-digest "${{ needs.linux-images.outputs.armhf_digest }}" \
+            --macos-mode "$MACOS_MODE"
+      - name: Assemble publication bundle
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
         run: |
           set -euo pipefail
           mkdir -p release-bundle/verification
           while IFS= read -r file; do
             cp "$file" release-bundle/
-          done < <(python3 .github/scripts/release-policy.py release-files "$VERSION" artifacts)
+          done < <(python3 .github/scripts/release-policy.py release-files "$VERSION" artifacts \
+            --macos-mode "$MACOS_MODE")
           cp artifacts/SHA256SUMS artifacts/release-manifest.json release-bundle/
           cp -R artifacts/macos-signing-report-* \
             artifacts/wsjtx-*-windows-signing-request \
@@ -281,6 +267,7 @@ jobs:
       - name: Recheck bundle and immutable public tag
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
         run: |
           set -euo pipefail
           (cd release-bundle && sha256sum --check SHA256SUMS)
@@ -288,6 +275,11 @@ jobs:
           test "$(jq -r .tag release-bundle/release-manifest.json)" = "$GITHUB_REF_NAME"
           test "$(jq -r .commit release-bundle/release-manifest.json)" = "$GITHUB_SHA"
           test "$(jq -r '.assets | length' release-bundle/release-manifest.json)" -gt 0
+          EXPECTED_MACOS_MODE=distribution
+          if [ "$MACOS_MODE" = validation ]; then
+            EXPECTED_MACOS_MODE=manual
+          fi
+          test "$(jq -r .macos_signing.mode release-bundle/release-manifest.json)" = "$EXPECTED_MACOS_MODE"
           python3 .github/scripts/release-policy.py classify "$VERSION" >/dev/null
           TAG_SHA=$(git ls-remote origin "refs/tags/$GITHUB_REF_NAME" | awk '{print $1}')
           if [ "$TAG_SHA" != "$GITHUB_SHA" ]; then
@@ -299,6 +291,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.prepare.outputs.version }}
           CHANNEL: ${{ needs.prepare.outputs.release_channel }}
+          MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
         run: |
           set -euo pipefail
           mapfile -t FILES < <(find release-bundle -maxdepth 1 -type f -print | sort)
@@ -323,7 +316,7 @@ jobs:
               <(printf '%s\n' "${EXPECTED_NAMES[@]}") \
               <(printf '%s\n' "${ACTUAL_NAMES[@]}") || true)
             if [ -n "$EXTRA" ]; then
-              echo "::error::Existing release contains assets outside the immutable publication bundle:"
+              echo "::error::Existing release contains assets outside the publication bundle:"
               printf '%s\n' "$EXTRA"
               exit 1
             fi
@@ -331,6 +324,14 @@ jobs:
             MISSING=()
             for file in "${FILES[@]}"; do
               name=$(basename "$file")
+              if [ "$MACOS_MODE" = validation ] && [[ "$name" == wsjtx-*-macOS.pkg ]]; then
+                if printf '%s\n' "${ACTUAL_NAMES[@]}" | grep -Fxq "$name"; then
+                  echo "Preserving manually replaceable macOS asset: $name"
+                else
+                  MISSING+=("$file")
+                fi
+                continue
+              fi
               if gh release download "$GITHUB_REF_NAME" --pattern "$name" --dir "$RUNNER_TEMP/existing-assets"; then
                 cmp "$file" "$RUNNER_TEMP/existing-assets/$name" || {
                   echo "::error::Published asset $name differs; automatic replacement is forbidden."
@@ -347,10 +348,10 @@ jobs:
             if ! diff -u \
               <(printf '%s\n' "${EXPECTED_NAMES[@]}") \
               <(printf '%s\n' "${FINAL_NAMES[@]}"); then
-              echo "::error::Published asset set does not match the immutable publication bundle."
+              echo "::error::Published asset set does not match the publication bundle."
               exit 1
             fi
-            echo "Existing assets match the immutable publication bundle."
+            echo "Existing assets satisfy the publication bundle policy."
           else
             FLAGS=()
             if [ "$CHANNEL" = RC ]; then

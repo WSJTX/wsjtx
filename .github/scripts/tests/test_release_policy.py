@@ -142,6 +142,7 @@ class ReleasePolicyTest(unittest.TestCase):
                 "linux_aarch64_digest": "sha256:" + "2" * 64,
                 "linux_armhf_cross_digest": "sha256:" + "3" * 64,
                 "linux_armhf_digest": "sha256:" + "4" * 64,
+                "macos_mode": "distribution",
             })()
             release_policy.write_manifest(args)
             manifest = json.loads((root / "release-manifest.json").read_text())
@@ -149,7 +150,59 @@ class ReleasePolicyTest(unittest.TestCase):
             self.assertEqual(manifest["commit"], "a" * 40)
             self.assertEqual(manifest["linux_builders"]["armhf_cross"], "sha256:" + "3" * 64)
             self.assertEqual(manifest["linux_builders"]["armhf_runtime"], "sha256:" + "4" * 64)
+            self.assertEqual(manifest["macos_signing"]["mode"], "distribution")
+            self.assertEqual(manifest["macos_signing"]["replaceable_assets"], [])
             self.assertEqual(len(manifest["assets"]), 13)
+
+    def test_manual_macos_assets_keep_release_names_without_immutable_hashes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            version = "3.2.0"
+            for name in release_policy.public_expected_assets(version, "validation"):
+                target = root / name
+                target.mkdir()
+                if "macOS" in name:
+                    filename = name.replace("-unsigned", "")
+                elif "linux" in name:
+                    filename = f"{name}.AppImage"
+                else:
+                    filename = "wsjtx-win64.exe"
+                (target / filename).write_bytes(name.encode())
+            for arch in ("x86_64", "aarch64", "armhf"):
+                for package_type in ("deb", "rpm"):
+                    target = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
+                    target.mkdir()
+                    (target / f"wsjtx-{arch}.{package_type}").write_bytes(arch.encode())
+            (root / f"wsjtx-{version}-src.tar.gz").write_bytes(b"source")
+            args = type("Args", (), {
+                "artifacts": str(root), "version": version, "repository": "WSJTX/wsjtx",
+                "commit": "a" * 40, "run_id": "123",
+                "linux_x86_64_digest": "sha256:" + "1" * 64,
+                "linux_aarch64_digest": "sha256:" + "2" * 64,
+                "linux_armhf_cross_digest": "sha256:" + "3" * 64,
+                "linux_armhf_digest": "sha256:" + "4" * 64,
+                "macos_mode": "validation",
+            })()
+
+            release_policy.write_manifest(args)
+
+            manifest = json.loads((root / "release-manifest.json").read_text())
+            replaceable = {
+                f"wsjtx-{version}-arm64-macOS.pkg",
+                f"wsjtx-{version}-x86_64-macOS.pkg",
+            }
+            release_names = {path.name for path in release_policy.release_files(root, version, "validation")}
+            immutable_names = {entry["name"] for entry in manifest["assets"]}
+            checksum_names = {
+                line.split("  ", 1)[1]
+                for line in (root / "SHA256SUMS").read_text().splitlines()
+            }
+            self.assertEqual(manifest["macos_signing"]["mode"], "manual")
+            self.assertEqual(set(manifest["macos_signing"]["replaceable_assets"]), replaceable)
+            self.assertTrue(replaceable <= release_names)
+            self.assertTrue(replaceable.isdisjoint(immutable_names))
+            self.assertTrue(replaceable.isdisjoint(checksum_names))
+            self.assertIn("wsjtx-win64.exe", immutable_names)
 
     def test_signing_reports_bind_hashes_and_source(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -192,6 +245,54 @@ class ReleasePolicyTest(unittest.TestCase):
             (verification_dir / "verification.json").write_text("{}")
             with self.assertRaisesRegex(ValueError, "release ref"):
                 release_policy.verify_signing_reports(root, version, commit, tag)
+
+    def test_validation_reports_allow_unsigned_macos_with_signed_windows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            version = "3.2.0-rc1"
+            commit = "b" * 40
+            tag = f"v{version}"
+            for arch in ("arm64", "x86_64"):
+                package_dir = root / f"wsjtx-{version}-{arch}-macOS-unsigned.pkg"
+                package_dir.mkdir()
+                package = package_dir / f"wsjtx-{version}-{arch}-macOS.pkg"
+                package.write_bytes(arch.encode())
+                report_dir = root / f"macos-signing-report-{version}-{arch}"
+                report_dir.mkdir()
+                (report_dir / "macos-signing-report.json").write_text(json.dumps({
+                    "mode": "validation", "git_sha": commit, "artifact": package.name,
+                    "sha256": release_policy.hash_file(package), "signed": False,
+                    "notarized": False, "publishable": False,
+                }))
+            installer_dir = root / f"wsjtx-{version}-windows-x86_64-installer-signed"
+            installer_dir.mkdir()
+            installer = installer_dir / "wsjtx.exe"
+            installer.write_bytes(b"windows")
+            request_dir = root / f"wsjtx-{version}-windows-signing-request"
+            request_dir.mkdir()
+            (request_dir / "request.json").write_text(json.dumps({
+                "policy": "release-signing", "commit": commit, "tag": tag,
+            }))
+            verification_dir = root / f"wsjtx-{version}-windows-signing-verification"
+            verification_dir.mkdir()
+            (verification_dir / "verification.json").write_text(json.dumps({
+                "commit": commit, "tag": tag, "artifact": installer.name,
+                "sha256": release_policy.hash_file(installer), "status": "Valid",
+                "timestamp_thumbprint": "1234", "signer_subject": "WSJT-X",
+                "signer_thumbprint": "5678", "identity_verified": True,
+            }))
+
+            release_policy.verify_signing_reports(root, version, commit, tag, "validation")
+
+            report = json.loads(
+                (root / f"macos-signing-report-{version}-arm64" / "macos-signing-report.json").read_text()
+            )
+            report["signed"] = True
+            (root / f"macos-signing-report-{version}-arm64" / "macos-signing-report.json").write_text(
+                json.dumps(report)
+            )
+            with self.assertRaisesRegex(ValueError, "unsigned package"):
+                release_policy.verify_signing_reports(root, version, commit, tag, "validation")
 
 
 if __name__ == "__main__":

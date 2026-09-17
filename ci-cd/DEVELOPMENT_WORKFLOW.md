@@ -311,7 +311,7 @@ CI/CD serves two purposes: **quality gates** (does it compile?) and **release au
 
 **What CI checks:**
 - Default PR and branch CI compiles and tests Linux x86_64; `full-ci`, manual CI, and release candidates provide broader coverage
-- On macOS, ordinary CI uses ad-hoc signing for validation. Public RC and GA packages require Developer ID signing, notarization, and stapling.
+- On macOS, ordinary CI uses ad-hoc signing for validation. Public RC and GA packages use hosted Developer ID signing when it is enabled; otherwise a release manager replaces the validated packages with manually signed packages.
 - On Windows, public RC and GA installers are Authenticode-signed through SignPath. Ordinary CI may use a per-run ephemeral self-signed certificate.
 - Build artifacts are uploaded for inspection
 - **Tests pass on every platform** (Qt helpers, decoder smoke tests, pFUnit Fortran unit tests — registered via ctest). See [Test Failure Policy](#test-failure-policy) below.
@@ -367,7 +367,7 @@ This is the simplest possible policy for v1. If a flaky test emerges, the team c
 
 ## 6. The Release Process
 
-Releases are tag-defined but approval-driven. The internal `build/v...` tag fixes the candidate revision; it does not publish source or binaries. A release manager separately approves copying that exact revision to the public `v...` tag, and the public release waits for one final approval after its signed artifacts are available for inspection.
+Releases are tag-defined but approval-driven. The internal `build/v...` tag fixes the candidate revision; it does not publish source or binaries. A release manager separately approves copying that exact revision to the public `v...` tag, and the public release waits for one final approval after its publication artifacts are available for inspection.
 
 ### Overview
 
@@ -401,11 +401,11 @@ From the same release branch and SHA, run **Promote Release Source** with the sa
 
 The public tag exposes the corresponding source required for public distribution and triggers fresh public distribution builds. RC promotion does not move public `master`; GA promotion advances `master` to the same commit with a guarded update.
 
-#### 4. Review signed builds and approve publication
+#### 4. Review builds and approve publication
 
-The public workflow builds all supported targets. Both RC and GA Windows installers use SignPath production signing. Both RC and GA macOS installers must be Developer ID-signed, notarized, stapled, and verified.
+The public workflow builds all supported targets. Both RC and GA Windows installers use SignPath production signing. When hosted Apple signing is enabled, both RC and GA macOS installers are Developer ID-signed, notarized, stapled, and verified before publication.
 
-While Apple credentials are being provisioned, `MACOS_DISTRIBUTION_SIGNING_ENABLED=false` permits clearly named unsigned validation artifacts but blocks publication. It never converts an unsigned validation package into an official release asset. After `apple-release-signing` is configured, enable the variable and rerun the immutable public tag workflow.
+With `MACOS_DISTRIBUTION_SIGNING_ENABLED=false`, the workflow publishes validated unsigned macOS packages under their final release filenames. Those two packages are marked as manually replaceable, excluded from `SHA256SUMS` and the manifest's immutable asset list, and preserved rather than compared on workflow reruns. A release manager must replace both with Developer ID-signed, notarized, and stapled packages. Enable the variable after `apple-release-signing` is configured to restore fully automated macOS signing and immutable package hashes.
 
 Download and review `release-bundle-<version>`, including its checksums, manifest, and signing reports. Approve the waiting `public-release` environment only when they all correspond to the public tag and expected SHA. This final approval publishes an RC as a GitHub prerelease or GA as the latest release.
 
@@ -444,16 +444,16 @@ Change the tracked state from `RC n` to `GA` in a metadata-only commit, wait for
 
 | Artifact | Platform | Signed | Notes |
 |----------|----------|--------|-------|
-| `wsjtx-3.2.0-rc1-arm64-macOS.pkg` | macOS ARM64 | Yes | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
-| `wsjtx-3.2.0-rc1-x86_64-macOS.pkg` | macOS Intel x86_64 | Yes | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
+| `wsjtx-3.2.0-rc1-arm64-macOS.pkg` | macOS ARM64 | After hosted or manual signing | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
+| `wsjtx-3.2.0-rc1-x86_64-macOS.pkg` | macOS Intel x86_64 | After hosted or manual signing | Developer ID signed, notarized, and stapled; verify per the Deployment Playbook |
 | `wsjtx-3.2.0-rc1-linux-x86_64.AppImage` | Linux x86_64 | No | Published with matching `.deb` and `.rpm` packages |
 | `wsjtx-3.2.0-rc1-linux-aarch64.AppImage` | Linux aarch64 | No | Published with matching `.deb` and `.rpm` packages |
 | `wsjtx-3.2.0-rc1-linux-armhf.AppImage` | Linux armhf | No | Published with matching `.deb` and `.rpm` packages |
 | `wsjtx-3.2.0-rc1-win64.exe` | Windows x86_64 | Yes | SignPath Foundation Authenticode for RC and GA |
 | `wsjtx-3.2.0-rc1-src.tar.gz` | Source | N/A | Project-created archive of the public tagged commit |
-| `SHA256SUMS` and release manifest | All uploaded assets | N/A | Bind uploaded bytes to their public tag, commit, and build provenance |
+| `SHA256SUMS` and release manifest | CI-managed assets | N/A | Bind immutable uploaded bytes to their public tag, commit, and build provenance |
 
-GitHub also adds automatic **Source code (zip)** and **Source code (tar.gz)** links from the public tag. They represent the same tagged source but are generated and compressed by GitHub, so their archive hashes need not equal the project-created `.tar.gz`. `SHA256SUMS` covers the assets the project uploads; a checksum detects changed bytes but is not a substitute for the platform signatures or the tag-to-commit checks.
+GitHub also adds automatic **Source code (zip)** and **Source code (tar.gz)** links from the public tag. They represent the same tagged source but are generated and compressed by GitHub, so their archive hashes need not equal the project-created `.tar.gz`. `SHA256SUMS` covers immutable assets uploaded by the project. In manual macOS signing mode it excludes the two replaceable `.pkg` files, which the manifest identifies separately. A checksum detects changed bytes but is not a substitute for platform signatures or tag-to-commit checks.
 
 ### Who can trigger a release?
 

@@ -14,6 +14,7 @@ from pathlib import Path
 
 
 VERSION_RE = re.compile(r"^(?P<numeric>\d+\.\d+\.\d+)(?:-rc(?P<rc>[1-9]\d*))?$")
+MACOS_MODES = ("validation", "distribution")
 
 
 def classify(version: str) -> dict[str, str]:
@@ -120,8 +121,21 @@ def expected_assets(version: str, distribution: bool) -> list[str]:
     ]
 
 
-def find_asset_files(root: Path, version: str, distribution: bool) -> list[Path]:
-    expected = expected_assets(version, distribution)
+def public_expected_assets(version: str, macos_mode: str) -> list[str]:
+    if macos_mode not in MACOS_MODES:
+        raise ValueError(f"unsupported macOS release mode: {macos_mode}")
+    mac_suffix = "macOS.pkg" if macos_mode == "distribution" else "macOS-unsigned.pkg"
+    return [
+        f"wsjtx-{version}-arm64-{mac_suffix}",
+        f"wsjtx-{version}-x86_64-{mac_suffix}",
+        f"wsjtx-{version}-linux-x86_64-AppImage",
+        f"wsjtx-{version}-linux-aarch64-AppImage",
+        f"wsjtx-{version}-linux-armhf-AppImage",
+        f"wsjtx-{version}-windows-x86_64-installer-signed",
+    ]
+
+
+def collect_asset_files(root: Path, expected: list[str]) -> list[Path]:
     files: list[Path] = []
     for artifact in expected:
         directory = root / artifact
@@ -134,6 +148,11 @@ def find_asset_files(root: Path, version: str, distribution: bool) -> list[Path]
         if matches[0].stat().st_size == 0:
             raise ValueError(f"artifact is empty: {matches[0]}")
         files.append(matches[0])
+    return files
+
+
+def find_asset_files(root: Path, version: str, distribution: bool) -> list[Path]:
+    files = collect_asset_files(root, expected_assets(version, distribution))
     if distribution:
         unsigned = sorted(root.rglob("*-unsigned.pkg"))
         if unsigned:
@@ -141,8 +160,17 @@ def find_asset_files(root: Path, version: str, distribution: bool) -> list[Path]
     return files
 
 
-def release_files(root: Path, version: str) -> list[Path]:
-    files = find_asset_files(root, version, distribution=True)
+def find_public_asset_files(root: Path, version: str, macos_mode: str) -> list[Path]:
+    files = collect_asset_files(root, public_expected_assets(version, macos_mode))
+    if macos_mode == "distribution":
+        unsigned = sorted(root.rglob("*-unsigned.pkg"))
+        if unsigned:
+            raise ValueError(f"unsigned macOS packages cannot be published: {unsigned[0]}")
+    return files
+
+
+def release_files(root: Path, version: str, macos_mode: str = "distribution") -> list[Path]:
+    files = find_public_asset_files(root, version, macos_mode)
     for arch in ("x86_64", "aarch64", "armhf"):
         for package_type, suffix in (("deb", ".deb"), ("rpm", ".rpm")):
             directory = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
@@ -177,21 +205,31 @@ def read_single_json(directory: Path) -> dict:
     return json.loads(matches[0].read_text(encoding="utf-8"))
 
 
-def verify_signing_reports(root: Path, version: str, commit: str, tag: str) -> None:
+def verify_signing_reports(
+    root: Path, version: str, commit: str, tag: str, macos_mode: str = "distribution"
+) -> None:
+    if macos_mode not in MACOS_MODES:
+        raise ValueError(f"unsupported macOS release mode: {macos_mode}")
     for arch in ("arm64", "x86_64"):
         report = read_single_json(root / f"macos-signing-report-{version}-{arch}")
-        if report.get("mode") != "distribution" or report.get("git_sha") != commit:
-            raise ValueError(f"macOS {arch} report does not bind distribution signing to {commit}")
-        if report.get("notarization", {}).get("status") != "Accepted":
-            raise ValueError(f"macOS {arch} notarization was not accepted")
-        if report.get("stapled") is not True or report.get("gatekeeper_accepted") is not True:
-            raise ValueError(f"macOS {arch} trust verification is incomplete")
-        if not re.fullmatch(r"[A-Z0-9]{10}", report.get("team_id", "")):
-            raise ValueError(f"macOS {arch} report has no verified Apple Team ID")
-        for field in ("application_certificate_sha1", "installer_certificate_sha1"):
-            if not re.fullmatch(r"[0-9A-F]{40}", report.get(field, "")):
-                raise ValueError(f"macOS {arch} report has no verified {field}")
-        package = root / f"wsjtx-{version}-{arch}-macOS.pkg" / report.get("artifact", "")
+        if report.get("mode") != macos_mode or report.get("git_sha") != commit:
+            raise ValueError(f"macOS {arch} report does not bind {macos_mode} packaging to {commit}")
+        if macos_mode == "distribution":
+            if report.get("notarization", {}).get("status") != "Accepted":
+                raise ValueError(f"macOS {arch} notarization was not accepted")
+            if report.get("stapled") is not True or report.get("gatekeeper_accepted") is not True:
+                raise ValueError(f"macOS {arch} trust verification is incomplete")
+            if not re.fullmatch(r"[A-Z0-9]{10}", report.get("team_id", "")):
+                raise ValueError(f"macOS {arch} report has no verified Apple Team ID")
+            for field in ("application_certificate_sha1", "installer_certificate_sha1"):
+                if not re.fullmatch(r"[0-9A-F]{40}", report.get(field, "")):
+                    raise ValueError(f"macOS {arch} report has no verified {field}")
+            artifact_dir = f"wsjtx-{version}-{arch}-macOS.pkg"
+        else:
+            if any(report.get(field) is not False for field in ("signed", "notarized", "publishable")):
+                raise ValueError(f"macOS {arch} validation report does not describe an unsigned package")
+            artifact_dir = f"wsjtx-{version}-{arch}-macOS-unsigned.pkg"
+        package = root / artifact_dir / report.get("artifact", "")
         if not package.is_file() or report.get("sha256") != hash_file(package):
             raise ValueError(f"macOS {arch} report hash does not match its package")
 
@@ -225,10 +263,16 @@ def write_manifest(args: argparse.Namespace) -> None:
     for arch, digest in digests.items():
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
             raise ValueError(f"Linux {arch} builder digest is not an immutable sha256 digest")
-    files = release_files(root, args.version)
+    files = release_files(root, args.version, args.macos_mode)
+    replaceable_macos = (
+        {f"wsjtx-{args.version}-{arch}-macOS.pkg" for arch in ("arm64", "x86_64")}
+        if args.macos_mode == "validation"
+        else set()
+    )
     entries = [
         {"name": path.name, "sha256": hash_file(path), "size": path.stat().st_size}
         for path in sorted(files, key=lambda item: item.name)
+        if path.name not in replaceable_macos
     ]
     manifest = {
         "schema": 1,
@@ -237,6 +281,10 @@ def write_manifest(args: argparse.Namespace) -> None:
         "commit": args.commit,
         "workflow_run": args.run_id,
         "linux_builders": digests,
+        "macos_signing": {
+            "mode": "manual" if args.macos_mode == "validation" else "distribution",
+            "replaceable_assets": sorted(replaceable_macos),
+        },
         "assets": entries,
     }
     output = root / "release-manifest.json"
@@ -266,14 +314,17 @@ def main() -> int:
     assets_parser.add_argument("version")
     assets_parser.add_argument("artifacts")
     assets_parser.add_argument("--distribution", action="store_true")
+    assets_parser.add_argument("--macos-mode", choices=MACOS_MODES)
     files_parser = subparsers.add_parser("release-files")
     files_parser.add_argument("version")
     files_parser.add_argument("artifacts")
+    files_parser.add_argument("--macos-mode", choices=MACOS_MODES, default="distribution")
     reports_parser = subparsers.add_parser("verify-signing-reports")
     reports_parser.add_argument("version")
     reports_parser.add_argument("artifacts")
     reports_parser.add_argument("--commit", required=True)
     reports_parser.add_argument("--tag", required=True)
+    reports_parser.add_argument("--macos-mode", choices=MACOS_MODES, default="distribution")
     manifest_parser = subparsers.add_parser("write-manifest")
     manifest_parser.add_argument("version")
     manifest_parser.add_argument("artifacts")
@@ -284,6 +335,7 @@ def main() -> int:
     manifest_parser.add_argument("--linux-aarch64-digest", required=True)
     manifest_parser.add_argument("--linux-armhf-cross-digest", required=True)
     manifest_parser.add_argument("--linux-armhf-digest", required=True)
+    manifest_parser.add_argument("--macos-mode", choices=MACOS_MODES, default="distribution")
     args = parser.parse_args()
     try:
         if args.command == "classify":
@@ -295,13 +347,20 @@ def main() -> int:
         elif args.command == "validate-archive":
             validate_archive(Path(args.archive), args.version, args.commit)
         elif args.command == "verify-assets":
-            for path in find_asset_files(Path(args.artifacts), args.version, args.distribution):
+            files = (
+                find_public_asset_files(Path(args.artifacts), args.version, args.macos_mode)
+                if args.macos_mode
+                else find_asset_files(Path(args.artifacts), args.version, args.distribution)
+            )
+            for path in files:
                 print(path)
         elif args.command == "release-files":
-            for path in release_files(Path(args.artifacts), args.version):
+            for path in release_files(Path(args.artifacts), args.version, args.macos_mode):
                 print(path)
         elif args.command == "verify-signing-reports":
-            verify_signing_reports(Path(args.artifacts), args.version, args.commit, args.tag)
+            verify_signing_reports(
+                Path(args.artifacts), args.version, args.commit, args.tag, args.macos_mode
+            )
         else:
             write_manifest(args)
     except (OSError, ValueError, tarfile.TarError, zipfile.BadZipFile) as error:

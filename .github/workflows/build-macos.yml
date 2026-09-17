@@ -860,11 +860,12 @@ jobs:
         if: inputs.signing_mode == 'validation'
         id: package
         run: |
-          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS-unsigned.pkg"
+          PKG_OUT="wsjtx-${VERSION}-${ARCH}-macOS.pkg"
           productbuild \
             --package "$RUNNER_TEMP/wsjtx-component.pkg" \
             "$PKG_OUT"
           echo "path=$PKG_OUT" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=wsjtx-${VERSION}-${ARCH}-macOS-unsigned.pkg" >> "$GITHUB_OUTPUT"
 
       - name: Verify unsigned validation package
         if: inputs.signing_mode == 'validation'
@@ -939,7 +940,7 @@ jobs:
         if: inputs.signing_mode == 'validation'
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.package.outputs.path }}
+          name: ${{ steps.package.outputs.artifact_name }}
           path: ${{ steps.package.outputs.path }}
 
       - name: Upload signing report
