@@ -133,8 +133,6 @@ QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds);
 // truncate a QDateTime to an integral interval of milliseconds
 QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds);
 
-QString app_sounds_directory (QString const& subdirectory = QString {});
-
 template <class T>
 class VPtr
 {
