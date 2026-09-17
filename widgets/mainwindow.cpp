@@ -3450,6 +3450,8 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     }
     m_specOp=m_config.special_op_id();
     if(m_specOp!=nContest0) {
+      m_q65PileupCopiedLastRxCall.clear();
+      m_q65PileupCopiedCallers.clear();
       ui->tx1->setEnabled(true);
       ui->txb1->setEnabled(true);
       set_mode(m_mode);
@@ -9755,6 +9757,10 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
      ui->EraseButton->clearFocus();
   }
   if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {       // switch to Q65_Pileup mode
+      if (m_specOp != SpecOp::Q65_PILEUP) {
+        m_q65PileupCopiedLastRxCall.clear();
+        m_q65PileupCopiedCallers.clear();
+      }
       m_config.setSpecial_Q65_Pileup();
       m_specOp=m_config.special_op_id();
       on_actionQ65_triggered();

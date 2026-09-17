@@ -856,6 +856,8 @@ void MainWindow::on_msk144Button_clicked()
 void MainWindow::on_q65Button_clicked()
 {
     if (m_specOp==SpecOp::Q65_PILEUP) {
+      m_q65PileupCopiedLastRxCall.clear();
+      m_q65PileupCopiedCallers.clear();
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
     }
