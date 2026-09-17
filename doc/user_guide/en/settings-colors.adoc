@@ -15,6 +15,12 @@ image::colors.png[align="center",alt="Colors Screen"]
 * Press the *Reset Highlighting* button to reset all of the color
   settings to default values.
 
+* Press the *Apply Accessibility Palette* button to choose a
+  colorblind or low-vision friendly color preset: *Red-Green safe
+  (Deuteranopia/Protanopia)*, *Blue-Yellow safe (Tritanopia)*, or
+  *High contrast*. Like *Reset Highlighting*, this replaces all
+  current color settings after you confirm the change.
+
 * Check *Highlight by Mode* if you wish worked-before status to be per
   <<INTRO,mode>>.
 
