@@ -16,6 +16,21 @@ public:
     submissions_.insert (requestId, revision_);
   }
 
+  bool hasPendingSubmissionForCurrentDraft () const
+  {
+    for (auto it = submissions_.cbegin (); it != submissions_.cend (); ++it) {
+      if (it.value () == revision_) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool isPending (qint64 requestId) const
+  {
+    return submissions_.contains (requestId);
+  }
+
   bool accept (qint64 requestId)
   {
     auto const it = submissions_.find (requestId);

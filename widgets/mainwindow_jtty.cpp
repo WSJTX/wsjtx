@@ -390,9 +390,17 @@ qint64 MainWindow::submitJttyText(QString message)
 
 void MainWindow::submitJttyDraft(QString message)
 {
+  if (m_jttyDraftAcceptanceTracker.hasPendingSubmissionForCurrentDraft ()) {
+    ui->Tx_Message->selectAll ();
+    return;
+  }
+
   qint64 const requestId = ++m_jttyTxRequestId;
   m_jttyDraftAcceptanceTracker.trackSubmission (requestId);
   execute_jtty_tx (requestId, message);
+  if (m_jttyDraftAcceptanceTracker.isPending (requestId)) {
+    ui->Tx_Message->selectAll ();
+  }
 }
 
 void MainWindow::execute_jtty_tx(qint64 requestId, QString message)

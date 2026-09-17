@@ -51,6 +51,54 @@ private slots:
     QVERIFY (!tracker.accept (1));
   }
 
+  void currentDraftReportsPendingSubmission ()
+  {
+    JttyDraftAcceptanceTracker tracker;
+    tracker.trackSubmission (1);
+
+    QVERIFY (tracker.hasPendingSubmissionForCurrentDraft ());
+    QVERIFY (tracker.isPending (1));
+    QVERIFY (!tracker.isPending (2));
+  }
+
+  void rejectedCurrentDraftCanBeRetried ()
+  {
+    JttyDraftAcceptanceTracker tracker;
+    tracker.trackSubmission (1);
+    tracker.reject (1);
+
+    QVERIFY (!tracker.hasPendingSubmissionForCurrentDraft ());
+    QVERIFY (!tracker.isPending (1));
+
+    tracker.trackSubmission (2);
+    QVERIFY (tracker.hasPendingSubmissionForCurrentDraft ());
+    QVERIFY (tracker.isPending (2));
+  }
+
+  void newerDraftCanBeSubmittedWhileOlderDraftIsPending ()
+  {
+    JttyDraftAcceptanceTracker tracker;
+    tracker.trackSubmission (1);
+    tracker.noteDraftChanged ();
+
+    QVERIFY (!tracker.hasPendingSubmissionForCurrentDraft ());
+
+    tracker.trackSubmission (2);
+    QVERIFY (tracker.hasPendingSubmissionForCurrentDraft ());
+    QVERIFY (tracker.isPending (1));
+    QVERIFY (tracker.isPending (2));
+  }
+
+  void acceptedRequestIsNoLongerPending ()
+  {
+    JttyDraftAcceptanceTracker tracker;
+    tracker.trackSubmission (1);
+
+    QVERIFY (tracker.accept (1));
+    QVERIFY (!tracker.hasPendingSubmissionForCurrentDraft ());
+    QVERIFY (!tracker.isPending (1));
+  }
+
   void successiveAcceptedDraftsCanClear ()
   {
     JttyDraftAcceptanceTracker tracker;
