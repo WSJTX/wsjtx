@@ -28,7 +28,7 @@ signals:
   void sampleRateChanged(int newRate);
 
 public slots:
-  void accept();
+  void accept() override;
   void done(int r) override;
   void onButtonClicked();
 
