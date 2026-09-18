@@ -422,13 +422,13 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
     return;
   }
 
-  message = Jtty::withChainedSpacing(message, isChainedMessage);
+  // Keep message as the logical text; the chained leading space is only
+  // transport spacing and must not leak into logging, display, or the contest
+  // serial check in completeJttyTxEnqueue.
+  QString const transmitFrame = Jtty::transmitFrame(message, isChainedMessage);
 
-  int n=message.length();
-  QString t = " ";
-  t = message + t.repeated(80-n);
   int nsym=0;
-  genjtty_(t.toLatin1().constData(), &itone[0], &nsym, (FCL)80);
+  genjtty_(transmitFrame.toLatin1().constData(), &itone[0], &nsym, (FCL)80);
   if (nsym <= 0) {
     LOG_WARN("JTTY transmit message could not be encoded");
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);

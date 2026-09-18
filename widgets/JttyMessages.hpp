@@ -222,6 +222,15 @@ namespace Jtty
     return (QLatin1Char {' '} + message).left (maxTransmitLength);
   }
 
+  // Builds the fixed-width frame passed to genjtty_. The chained leading space
+  // is transport-only spacing, so it belongs here rather than in the logical
+  // message that is logged, displayed, and checked for contest serials.
+  inline QString transmitFrame (QString const& message, bool isChained)
+  {
+    QString const spaced = withChainedSpacing (message, isChained);
+    return spaced + QString (maxTransmitLength - spaced.size (), QLatin1Char {' '});
+  }
+
   inline QString formatSerialNumber (int serialNumber)
   {
     return QString {"%1"}.arg (serialNumber, 3, 10, QLatin1Char {'0'});

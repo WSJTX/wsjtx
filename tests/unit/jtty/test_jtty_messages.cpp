@@ -616,6 +616,39 @@ private slots:
     QCOMPARE (Jtty::withChainedSpacing (message, isChained), expected);
   }
 
+  void transmitFrame_data ()
+  {
+    QTest::addColumn<QString> ("message");
+    QTest::addColumn<bool> ("isChained");
+    QTest::addColumn<QString> ("expected");
+
+    auto const padded = [] (QString const& text) {
+      return text + QString (Jtty::maxTransmitLength - text.size (), QLatin1Char {' '});
+    };
+
+    QTest::newRow ("not-chained-padded-to-width")
+        << QString {"CQ KA1ABC CQ"} << false << padded (QString {"CQ KA1ABC CQ"});
+    QTest::newRow ("chained-prefixed-and-padded")
+        << QString {"TU K1ABC CQ"} << true << padded (QString {" TU K1ABC CQ"});
+    QTest::newRow ("chained-at-max-length-stays-exact")
+        << QString (Jtty::maxTransmitLength, QLatin1Char {'A'}) << true
+        << (QString {" "} + QString (Jtty::maxTransmitLength - 1, QLatin1Char {'A'}));
+    QTest::newRow ("empty-not-chained-all-spaces")
+        << QString {} << false << QString (Jtty::maxTransmitLength, QLatin1Char {' '});
+  }
+
+  void transmitFrame ()
+  {
+    QFETCH (QString, message);
+    QFETCH (bool, isChained);
+    QFETCH (QString, expected);
+
+    QString const frame = Jtty::transmitFrame (message, isChained);
+
+    QCOMPARE (frame, expected);
+    QCOMPARE (frame.size (), Jtty::maxTransmitLength);
+  }
+
   void formatSerialNumber_data ()
   {
     QTest::addColumn<int> ("serialNumber");
