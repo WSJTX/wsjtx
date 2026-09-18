@@ -108,6 +108,9 @@ static QString append_separator(QString message) {
 
 void MainWindow::jtty_save_wav()
 {
+  // Reject callers that arrive before a real JTTY capture exists; m_k0 is
+  // still the initial sentinel, or is stale from an earlier interval.
+  if (!Jtty::wavCaptureValid (m_k0)) return;
   if (m_k0 == m_jttyLastSavedWavK0) return;  //Guard against re-saving same audio under a new timestamp
   m_jttyLastSavedWavK0 = m_k0;
 
@@ -593,7 +596,7 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
 
   monitor(false);
-  if(!m_diskData && (m_saveAll || m_saveDecoded) && (m_k0 > 59*384) && (m_k0 < 9999999)) {
+  if(!m_diskData && (m_saveAll || m_saveDecoded) && Jtty::wavCaptureValid (m_k0)) {
     jtty_save_wav();
   }
 

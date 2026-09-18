@@ -649,6 +649,30 @@ private slots:
     QCOMPARE (frame.size (), Jtty::maxTransmitLength);
   }
 
+  void wavCaptureValid_data ()
+  {
+    QTest::addColumn<qint32> ("k0");
+    QTest::addColumn<bool> ("expected");
+
+    QTest::newRow ("zero") << qint32 {0} << false;
+    QTest::newRow ("negative") << qint32 {-1} << false;
+    QTest::newRow ("below-one-frame") << qint32 {Jtty::jttyFrameSamples - 1} << false;
+    QTest::newRow ("exactly-one-frame") << qint32 {Jtty::jttyFrameSamples} << false;
+    QTest::newRow ("just-over-one-frame") << qint32 {Jtty::jttyFrameSamples + 1} << true;
+    QTest::newRow ("typical-interval") << qint32 {1000000} << true;
+    QTest::newRow ("sentinel-minus-one") << qint32 {Jtty::invalidCaptureSamples - 1} << true;
+    QTest::newRow ("sentinel") << qint32 {Jtty::invalidCaptureSamples} << false;
+    QTest::newRow ("sentinel-plus-one") << qint32 {Jtty::invalidCaptureSamples + 1} << false;
+  }
+
+  void wavCaptureValid ()
+  {
+    QFETCH (qint32, k0);
+    QFETCH (bool, expected);
+
+    QCOMPARE (Jtty::wavCaptureValid (k0), expected);
+  }
+
   void formatSerialNumber_data ()
   {
     QTest::addColumn<int> ("serialNumber");
