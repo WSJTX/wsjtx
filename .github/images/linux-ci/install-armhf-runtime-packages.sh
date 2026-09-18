@@ -2,7 +2,7 @@
 set -euo pipefail
 
 packages=(
-  ca-certificates curl file python3 xz-utils
+  ca-certificates curl file git python3 xz-utils
   binutils cmake dpkg-dev rpm
   libatomic1 libstdc++6 libgfortran5 libgomp1
   libfftw3-single3
