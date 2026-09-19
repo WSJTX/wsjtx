@@ -246,13 +246,13 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: fftw-prefix
-          key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-3.3.10-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
+          key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-3.3.11-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
 
       - name: Build FFTW
         if: steps.fftw-cache.outputs.cache-hit != 'true'
         run: |
           .github/scripts/build-fftw-macos.sh \
-            3.3.10 \
+            3.3.11 \
             "${{ inputs.deployment_target }}" \
             "${GITHUB_WORKSPACE}/fftw-prefix"
 
@@ -262,7 +262,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: fftw-prefix
-          key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-3.3.10-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
+          key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-3.3.11-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
 
       - name: Cache Boost
         id: boost-cache
