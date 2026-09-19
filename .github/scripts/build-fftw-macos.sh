@@ -25,7 +25,7 @@ fi
   $SIMD_PARAMS \
   --enable-threads \
   --enable-shared --disable-static \
-  CFLAGS="-mmacosx-version-min=${deployment_target}" \
+  CFLAGS="-O3 -fomit-frame-pointer -mtune=native -fstrict-aliasing -mmacosx-version-min=${deployment_target}" \
   LDFLAGS="-mmacosx-version-min=${deployment_target}"
 make -j"$(sysctl -n hw.ncpu)"
 make install
