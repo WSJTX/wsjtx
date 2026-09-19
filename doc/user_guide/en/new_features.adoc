@@ -1,100 +1,76 @@
 [[NEW_FEATURES]]
 //=== New in Version {VERSION_MAJOR}.{VERSION_MINOR}
   
-=== New in Version 3.0
+=== New in Version 3.2
 
-_WSJT-X 3.0_ incorporates all developments successfully tested in
-experimental versions and a number of new items. The list below
-summarizes important new features. For more details you should
-carefully read the sections in this guide linked in the following notes.
+- *JTTY* is an entirely new digital mode designed for fast RTTY-like
+contest exchanges and other keyboard-to-keyboard communication. Its
+operational feel is similar to standard RTTY, but it has much better
+weak-signal performance and far lower error rate. JTTY transmissions
+can start at any time and typically last a few seconds. Error-free
+throughput is approximately 30 WPM for arbitrary text and 60 WPM for
+the short, fixed-format messages generally used in RTTY-style
+contesting.
 
-- *Band Buttons* can be enabled and displayed from the *View*
-menu. Two sets of buttons are available: an HF-oriented set for 160 m
-through 70 cm bands, and a VHF-and-up set for 8 m through 24 GHz. See
-the <<BAND_BUTTONS,Band Buttons>> section for more details.
+- *_MAP65_* adds support for 192 kHz sample rate, a new *Full Deep
+Search* mode for JT65, generally improved decoding for Q65 and JT65 in
+single and dual polarization modes, and a number of smaller
+improvements and bug fixes.
 
-- *FT8 Decoding* includes an option for <<DECODE_MENU,parallel
-processing>> with up to a dozen concurrent threads, yielding improved
-performance.
+- *_QMAP_* displays decoded callsigns on its standard horizontal
+waterfall. An optional left-scrolling vertical waterfall displays
+callsigns to the right, without obscuring the signal traces. Clicking
+a callsign in either waterfall sets up (and double-clicking starts) a
+QSO with that station, with the QSO subsequently conducted in a
+co-running copy of _WSJT-X_. A new *Stop* button ends a *Shift+F6*
+file sequence, as in _WSJT-X_ and _MAP65_.
 
-- *Filters* can be used to suppress display of certain categories of
-decodes. For example, you can hide, ignore, or highlight stations
-worked before on the current band, or worked today or
-yesterday. Categories are defined on the *File | Settings | Filters*
-<<FILTERS,tab>>, and options to turn categories on or off are found on
-the <<FILTERS_MENU,*Filters*>> menu.
- 
-- *Wait and Reply*, *Wait and Call*, and *Wait and Pounce* are options
-to help you make QSOs under difficult propagation conditions while
-minimizing useless transmissions. See <<WAIT_FEATURES,Wait Features>>
-for details.
+- *Q65 Pileup Mode:* a previously unused message bit now indicates
+whether the station being called was copied in the previous Rx
+interval. Decodes with this bit set are flagged with "#" in the
+decoded text window and in the Active Stations window. Everything
+needed is exchanged over the air; no internet connection is required.
 
-- *Audible Alerts* can play an audio sound to alert you to reception of
-a message with specified content. Activating this feature requires
-access to at least two audio output devices. See <<ALERTS,Audible Alerts>>
-for details.
+- *Raspberry Pi* and other ARM-based computers: pre-built 32-bit
+(armhf) as well as 64-bit (aarch64) packages are available. Projects
+such as DigiPi, which runs _WSJT-X_ on the Pi Zero 2 W, can install
+the current release without building from source.
 
-- *Auto-Sequencing*, *Filters*, *Reply-to-CQ*, and *Wait* features are
-now available for all _WSJT-X_ QSO modes: the 72-bit modes JT4, JT9,
-and JT65, as well as the 77-bit modes FST4, FT4, FT8, MSK144, and
-Q65. 
+- *Decoded text panes* now keep their scroll position while you review
+earlier decodes. New decodes will continue to accumulate below, and
+the pane returns to live output when you scroll back to the end.
 
-- *Full Duplex Mode* allows _WSJT-X_ to transmit and receive at the
-same time. This feature can be useful for satellite operation, where
-the audio source is normally set to the transponder downlink, and for
-monitoring your own transmitted signal by using a webSDR as the audio
-input source. 
+- *Highlight orange* and *Highlight blue* prefix lists now accept
+wildcards (*) and exclusions (!).
 
-- *Transceiver Control Interface (TCI)*, a software layer allowing control,
-data transfer, and synchronization between a wide variety of hardware
-devices and software applications, is supported by _WSJT-X_ for
-both rig control and audio input/output.
+- *TX Inhibit* for multi-op contesting: with a UDP connection, an
+external controller can block _WSJT-X_ from transmitting when another
+transmitter is active on the same band.
 
-- *SuperHound* operators can activate *Wait and Call* for a *SuperFox*
-callsign, even if SuperFox has not yet been decoded. However, blind
-calling of SuperFox is prevented. Fox operators receive a warning
-message if another Fox appears to be on the same frequency, and
-_WSJT-X_ will prevent inadvertent Fox transmissions from falling
-within a conventional WSPR sub-band.
+- *WSPR* and *FST4W* now upload spots to `wsprnet.eu` as a backup.
+Queued spots are preserved across retries when WSPRnet is slow or
+unavailable.
 
-- *Transmitted Power and SWR* can be displayed (as reported by the
-radio) in a Status Bar label. Transmission can be stopped
-automatically if SWR exceeds 2.5 -- for example, if you accidentally
-select the wrong antenna. These features work with most modern radios
-controlled via _Hamlib_ or _FLRig_.
+- *CloudLog* and *Wavelog* integration has been improved, and *eQSL*
+uploads now use a secure protocol to protect your login credentials.
 
-- *Right-click of Tune Button* can be used to initiate ATU tuning in
-some rig models. This feature requires the radio to be equipped with
-an internal ATU and controlled via _Hamlib_.
+- *Band Activity* shows `U.S.A.` and the correct state for a K-family
+callsign operating portable from a different state, instead of the
+DXCC entity of the callsign's home area.
 
-- *Band Hopping* checkboxes for FT8, FT4 and MSK144 can activate
-sequential reception intervals on the main sub-bands, or on up to eight 
-specified dial frequencies.  The latter can be useful for contests and
-other situations with frequencies of special interest.
+- *Settings* dialogs are more accessible, and keyboard navigation and
+focus handling are improved. Dialogs are laid out responsively rather
+than clipping controls on constrained window sizes or large
+accessibility fonts. Decode panes and the startup splash screen are
+properly named for use with assistive technology.
 
-- *Saved Audio Files* can be scheduled for automatic deletion after 30
-days. This feature can be used to keep disk usage for saved files
-within reasonable limits, while still preserving important information
-that might prove useful for later analysis. 
- 
-- *CALL3.TXT files* for either terrestrial or EME use can be
-downloaded by clicking a button on the *File | Settings | Colors*
-tab.
+- *German*, *Polish*, and *Ukrainian* translations of the user
+interface have been added, and the *Spanish* translation updated.
 
-- *New EME Features* include easier ways to select dial frequencies
-within an EME sub-band and to offset your Tx frequency by an integer
-number of MHz from the Rx frequency, to accommodate different regulatory
-frequency allocations. New buttons are provided for quick access to
-Echo mode and six popular Q65 sub-modes. For experimental purposes,
-the sub-modes 15A, 15B and 15C can be decoded with EME delay.
- 
-- *QSO Logging* supports the ADIF field type for satellite QSOs, and
-*the Log automatically* option is available when not in contest
-mode. New checkboxes on the *File | Settings | Reporting* tab provide
-new support for certain contests.
+- *Copyright notice* and *Trademark policy* selections have been added
+to the *Help* menus for _WSJT-X_, _MAP65_, and _QMAP_, and new icons
+are used for all three programs.
 
-- *OpenSSL* runtime DLLs are now installed automatically with _WSJT-X_
-on Windows.
-
-- *High Resolution Monitors* are supported with better scaling of
-fonts and widget sizes.
+- *Many* other smaller improvements and bug fixes. See
+https://wsjtx.github.io/wsjtx/Release_Notes.txt[Release Notes] for
+details.

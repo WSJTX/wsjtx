@@ -1,5 +1,7 @@
 // Status=review
 
+image:wsjtx_icon.png[WSJT-X icon,100,role=appicon] image:map65_icon.png[MAP65 icon,100,role=appicon] image:qmap_icon.png[QMAP icon,100,role=appicon]
+
 *_WSJT-X_* is an open source computer program designed to facilitate
 basic amateur radio communication using very weak signals. The first
 four letters in the program name stand for "`**W**eak **S**ignal
@@ -23,17 +25,6 @@ Doppler tracking for Earth-Moon-Earth (EME) QSOs and lunar-Echo
 testing.  The program analyzes received passbands up to 5 kHz wide and
 runs equally well on Windows, Macintosh, and Linux systems.
 
-*Version Numbers* for our programs have major, minor, and patch
-numbers separated by periods: for example, _WSJT-X 3.0.0_. Temporary
-release candidates are sometimes made in advance of a new
-general-availability (GA) release, in order to obtain user
-feedback. Release candidates are given version labels such as
-3.0.0-rc1, 3.0.0-rc2, etc., leading up to the general availability
-(GA) release of version 3.0.0. Release candidates should be used only
-during a defined testing period, and they carry an implicit obligation
-to provide feedback to the program developers. Release candidates
-should not be used on the air after a GA release with the same number.
-
 *_MAP65_* and *_QMAP_* are companion programs originally written by K1JT to
 facilitate Earth-Moon-Earth (EME, or "Moonbounce") communication with
 digital protocols developed for _WSJT_ and _WSJT-X_. When used with
@@ -44,8 +35,18 @@ kHz sub-band. _QMAP_ uses a single polarization channel and only the
 Q65 mode, also covering a 90 kHz sub-band. It works cooperatively with
 _WSJT-X_ to provide automatic Doppler compensation and other features
 important for EME, especially on 1296 MHz and higher amateur bands.
-These programs are installed automatically along with _WSJT-X_
-(but _MAP65_ only on the Windows platform).
+These programs are installed automatically along with _WSJT-X_.
+
+*Version Numbers* for our programs have major, minor, and patch
+numbers separated by periods: for example, _WSJT-X 3.0.0_. Temporary
+release candidates are sometimes made in advance of a new
+general-availability (GA) release, in order to obtain user
+feedback. Release candidates are given version labels such as
+3.0.0-rc1, 3.0.0-rc2, etc., leading up to the general availability
+(GA) release of version 3.0.0. Release candidates should be used only
+during a defined testing period, and they carry an implicit obligation
+to provide feedback to the program developers. Release candidates
+should not be used on the air after a GA release with the same number.
 
 *_Hamlib_* is an independent, open-source software library that
 provides a consistent Application Programming Interface (API) for

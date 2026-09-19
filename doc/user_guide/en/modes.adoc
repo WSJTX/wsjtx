@@ -1,6 +1,6 @@
-_WSJT-X_ offers eleven
+_WSJT-X_ offers twelve
 different protocols or modes: *FST4*, *FT4*, *FT8*, *JT4*, *JT9*,
-*JT65*, *Q65*, *MSK144*, *WSPR*, *FST4W*, and *Echo*.  The first eight
+*JT65*, *Q65*, *MSK144*, *JTTY*, *WSPR*, *FST4W*, and *Echo*.  The first eight
 are designed for making reliable QSOs under weak-signal
 conditions. They use nearly identical message structure and source
 encoding.  JT65 was designed for EME ("`moonbounce`") on VHF and
@@ -42,6 +42,12 @@ lengths as short the fast modes.  "`Slow`" in this sense implies
 message frames being sent only once per transmission.  The fast modes
 in _WSJT-X_ send their message frames repeatedly, as many times as
 will fit into the Tx sequence length.
+
+*JTTY* is designed for fast radio contest exchanges and other
+keyboard-to-keyboard communication. Its operational feel is similar to
+standard RTTY, but it has much better weak-signal performance and far
+lower error rate. JTTY transmissions are not timed or synchronized
+with UTC; they can start at any time and typically last a few seconds.
 
 *WSPR* (pronounced "`whisper`") stands for **W**eak **S**ignal
 **P**ropagation **R**eporter.  The WSPR protocol was designed for
