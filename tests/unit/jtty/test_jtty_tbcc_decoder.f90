@@ -44,13 +44,24 @@ program test_jtty_tbcc_decoder
     payload(33) = 1_int32
     call tbcc_encode(payload, tones, code_profile)
     call make_noiseless_correlations(tones, correlations)
+    decoded = huge(0_int32)
     call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
-    call require(success, 'coherence ladder rejected reserved bit one')
-    call require(all(decoded == payload), &
-         'coherence ladder changed a reserved-bit-one payload')
+    call require(.not.success, 'coherence ladder accepted reserved bit one')
+    call require(all(decoded == 0_int32), &
+         'reserved-bit rejection left a stale payload')
 
     halves = correlations
     correlations = cmplx(0.0_real32, 0.0_real32, real32)
+    decoded = huge(0_int32)
+    call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
+    call require(.not.success, 'half-symbol fallback accepted reserved bit one')
+    call require(all(decoded == 0_int32), &
+         'half-symbol reserved-bit rejection left a stale payload')
+
+    payload(33) = 0_int32
+    call tbcc_encode(payload, tones, code_profile)
+    call make_noiseless_correlations(tones, halves)
+    decoded = huge(0_int32)
     call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
     call require(success .and. all(decoded == payload), 'half-symbol fallback failed to rescue payload')
     call require(result%used_half_symbol_observation .and. result%coherent_block_length == 1, &
@@ -78,14 +89,16 @@ program test_jtty_tbcc_decoder
 
   end do
 
-  call expect_coherent_rescues()
+  call expect_coherent_decodes()
 
   print *, 'test_jtty_tbcc_decoder: all checks passed'
 
 contains
 
-  subroutine expect_coherent_rescues()
-    integer(int32), parameter :: seeds(2) = [2,6], lengths(2) = [2,4], ranks(2) = [2,1]
+  subroutine expect_coherent_decodes()
+    ! Seed 6 verifies that reserved-bit pruning retains the valid L1 path.
+    integer(int32), parameter :: seeds(2) = [2,6], lengths(2) = [2,1], &
+         ranks(2) = [2,1], evaluated_rungs(2) = [2,1]
     integer(int64) :: state
     integer :: fixture, symbol, tone, bit
     real(real32) :: in_phase, quadrature
@@ -111,14 +124,14 @@ contains
              cmplx(0.55_real32,0.0_real32,real32)
       end do
       call jtty_tbcc_decode(correlations,halves,decoded,success,result,code_profile)
-      call require(success .and. all(decoded == payload),'coherent rung failed to rescue fixed payload')
-      call require(result%coherent_block_length == lengths(fixture), 'coherent rescue used wrong rung')
-      call require(result%accepted_hypothesis_rank == ranks(fixture), 'coherent rescue candidate rank changed')
-      call require(result%evaluated_rung_count == fixture+1, &
+      call require(success .and. all(decoded == payload),'coherent rung failed to decode fixed payload')
+      call require(result%coherent_block_length == lengths(fixture), 'coherent decode used wrong rung')
+      call require(result%accepted_hypothesis_rank == ranks(fixture), 'coherent decode candidate rank changed')
+      call require(result%evaluated_rung_count == evaluated_rungs(fixture), &
            'accepted candidate triggered unnecessary confirmation or fallback')
-      call require(.not.result%used_half_symbol_observation, 'coherent rescue fell through to M2')
+      call require(.not.result%used_half_symbol_observation, 'coherent decode fell through to M2')
     end do
-  end subroutine expect_coherent_rescues
+  end subroutine expect_coherent_decodes
 
   subroutine make_noiseless_correlations(symbols, values)
     integer(int32), intent(in) :: symbols(TOTAL_K)

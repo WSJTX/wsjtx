@@ -13,8 +13,8 @@ module jtty_fec
    integer :: is13(13) = [0,2,2,3,0,0,3,2,1,3,1,2,0]
 
 ! Bit 33 of the 34-bit payload (see jtty_mod.f90's pack_jtty/unpack_jtty) is
-! currently transmitted as 0, but receivers accept either value so the field
-! can be assigned later. Bit 34 is the "last frame of this message" flag.
+! reserved-zero in the current protocol. Assigning it requires a coordinated
+! protocol revision. Bit 34 is the "last frame of this message" flag.
    integer, parameter :: JTTY_RESERVED_BIT   = 33
 
 end module jtty_fec
