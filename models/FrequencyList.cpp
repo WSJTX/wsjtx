@@ -108,7 +108,7 @@ namespace
       {3568600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // needs guard marker and lock out
       {3575000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},  // provisional
       {3568000, Modes::FT4, IARURegions::R3, "","", QDateTime(), QDateTime(), false},   // provisional
-      {3590000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
+      {3575000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // stays under R3's narrow DM segment (documented above as ending at 3575-3580) even with the 1500 Hz audio offset added
 
       {5357000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
       {5357000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
@@ -273,7 +273,7 @@ namespace
       {18104000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
       {18104600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {18104600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
-      {18110000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
+      {18100000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY frequency; +10 kHz would put the 1500 Hz-offset signal past the US data segment's 18110 kHz edge (and onto the NCDXF beacon frequency)
 
       {21074000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
       {21091000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // DXpedition
@@ -291,7 +291,7 @@ namespace
       {24919000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
       {24924600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {24924600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
-      {24930000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
+      {24920000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY frequency; the US narrow data segment (24920-24925) leaves no room for the usual +10 kHz nudge once the 1500 Hz audio offset is added
 
       {28074000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
       {28091000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // DXpedition
