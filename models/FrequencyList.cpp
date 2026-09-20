@@ -71,6 +71,7 @@ namespace
       {1839000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {1839000, Modes::FST4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {1840000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {1838000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY frequency
 
       // Band plans (all USB dial unless stated otherwise)
       //
@@ -107,6 +108,7 @@ namespace
       {3568600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // needs guard marker and lock out
       {3575000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},  // provisional
       {3568000, Modes::FT4, IARURegions::R3, "","", QDateTime(), QDateTime(), false},   // provisional
+      {3590000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
       {5357000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
       {5357000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
@@ -153,6 +155,7 @@ namespace
       {7047500, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional - moved
                                                // up 500Hz to clear
                                                // W1AW code practice QRG
+      {7090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
       // Band plans (all USB dial unless stated otherwise)
       //
@@ -187,6 +190,7 @@ namespace
       {10138700, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {10140000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {10140000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
+      {10140000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY frequency; band's upper edge (10150) leaves no room for the usual +10 kHz nudge
 
       // Band plans (all USB dial unless stated otherwise)
       //
@@ -232,6 +236,7 @@ namespace
       {14076000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {14078000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {14080000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
+      {14090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
 
       // Band plans (all USB dial unless stated otherwise)
@@ -268,6 +273,7 @@ namespace
       {18104000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
       {18104600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {18104600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
+      {18110000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
       {21074000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
       {21091000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // DXpedition
@@ -276,6 +282,7 @@ namespace
       {21094600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {21094600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {21140000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {21090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
       {24911000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // DXpedition
       {24915000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
@@ -284,6 +291,7 @@ namespace
       {24919000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
       {24924600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {24924600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
+      {24930000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
       {28074000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
       {28091000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // DXpedition
@@ -292,6 +300,7 @@ namespace
       {28124600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {28124600, Modes::FST4W, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {28180000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {28090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
       {50200000, Modes::Echo, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {50211000, Modes::Q65, IARURegions::ALL, "EME","", QDateTime(), QDateTime(), false},
