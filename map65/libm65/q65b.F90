@@ -260,7 +260,12 @@
       ! lands on the same point anyway.
       if (manualDecodeFlag .ne. 0) k0 = nint((f_mouse - 1000.0)/df)
 
-      if (k0 .lt. nh .or. k0 .gt. nfft1 - nfft2 + 1) go to 900
+      if (k0 .lt. nh .or. k0 .gt. nfft1 - nfft2 + 1) then
+         if (manualDecodeFlag .ne. 0) &
+            call dbg('q65b manual: NOT ATTEMPTED, k0=' // itoa(k0) // ' outside ' // &
+                  itoa(nh) // '..' // itoa(nfft1 - nfft2 + 1))
+         go to 900
+      endif
       ! Likewise, snr1 is the sync-curve strength at ipk, which for a manual
       ! click may be the wrong bin entirely (see above) -- don't let it gate
       ! a manual decode attempt. Let q65_decode's own Q65-native search
@@ -375,6 +380,12 @@
          if (ndf .gt. 500) ikhz1 = ikhz + (nq65df + 500)/1000
          if (ndf .lt. -500) ikhz1 = ikhz + (nq65df - 500)/1000
          ndf = nq65df - 1000*(ikhz1 - ikhz)
+
+         if (manualDecodeFlag .ne. 0) &
+            call dbg('q65b manual: decoded nq65df=' // itoa(nq65df) // ' mousedf_gate=' // &
+                  itoa(mousedf_gate) // ' ntol=' // itoa(ntol) // ' nqd=' // itoa(nqd) // &
+                  ' display gate ' // merge('PASSED', 'FAILED', &
+                  nqd .eq. 1 .and. abs(nq65df - mousedf_gate) .lt. ntol))
 
          if (nqd .eq. 1 .and. abs(nq65df - mousedf_gate) .lt. ntol) then
 
