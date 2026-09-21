@@ -122,6 +122,7 @@ set (UG_IMGS
   images/JT4F.png
   images/JT65B.png
   images/jtalert.png
+  images/jtty.png
   images/keyboard-shortcuts.png
   images/letter-s.png
   images/log-qso.png
@@ -144,6 +145,7 @@ set (UG_IMGS
   images/psk-reporter.png
   images/Q65-60A_EME_6m.png
   images/Q65_6m_ionoscatter.png
+  images/qmap_all.png
   images/r3666-config-screen-80.png
   images/r3666-main-ui-80.png
   images/r4148-txmac-ui.png

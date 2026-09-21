@@ -2,9 +2,9 @@ Select *JTTY* from the *Mode* menu and use *File | Open* to select the
 sample file +...\save\samples\JTTY\260807_134110.wav+.
 
 A weak JTTY signal should appear on the waterfall and decode as shown
-in the screen shot below. You may need to set of adjust certain
-waterfall controls to see the isgnal clearly. If you're an experienced
-RTTY operator, you might want also to listen to this WAV file by
+in the screen shot below. You may need to set or adjust certain
+waterfall controls to see the signal clearly. If you're an experienced
+RTTY operator, you might also want to listen to this WAV file by
 opening it in your favorite media player. This JTTY signal is weak
 enough that if it were standard 45.45 baud RTTY instead of JTTY,
 decoding would be marginal and error-prone. Decoding from a WAV file
@@ -12,17 +12,16 @@ may seem nearly instantaneous, but in live operation you would see the
 message accumulating sequentially, as it arrives.
 
 
-image::jtty.png[align="center"]
+image::jtty.png[align="center",alt=JTTY decoding of weak signal]
 
 Remember that unlike other WSJT modes, JTTY does not use timed T/R
-sequences. Transmissions can start at any time, and otherwise _WSJT-X_
-will be in receive or *Monitor* mode.
+sequences. Transmissions can start at any time; otherwise _WSJT-X_
+simply stays in receive or *Monitor* mode.
 
 Enter a message into the field at bottom right and click *Send
-Message* to start a transmission. You mihght want to listen to its
+message* to start a transmission. You might want to listen to its
 sound on your computer's speaker. Messages used for contesting can be
 sent by clicking one of the buttons F1-F8 or using the corresponding
 keyboard keys. The corresponding entry fields can be configured to
 send pre-formatted contest messages. Macros are defined for normal
 contesting purposes.
-

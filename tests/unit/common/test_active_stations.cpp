@@ -38,7 +38,7 @@ void TestActiveStations::transitions()
       bool const pileup = mode == Mode::Q65Pileup;
       QCOMPARE(ready->isHidden(), fox || pileup);
       QCOMPARE(wanted->isHidden(), pileup);
-      QCOMPARE(wanted->text(), fox ? QString("My call only") : QString("Wanted only"));
+      QCOMPARE(wanted->text(), fox ? QString("My call only") : QString("# Wanted only"));
       QCOMPARE(label->isHidden(), fox || pileup);
       QCOMPARE(label->text(), mode == Mode::Q65 ? QString("QSOs:") : QString("Rate:"));
       QCOMPARE(widget.findChild<QWidget *>("score")->isHidden(), mode != Mode::Standard);
