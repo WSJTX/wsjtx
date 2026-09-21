@@ -162,6 +162,10 @@ include::tutorial-example5.adoc[]
 === FST4W
 include::tutorial-example6.adoc[]
 
+[[JTTY]]
+=== JTTY
+include::jtty.adoc[]
+
 [[QMAP]]
 === QMAP
 include::qmap.adoc[]
