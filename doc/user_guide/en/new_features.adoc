@@ -10,21 +10,23 @@ throughput is about 30 words per minute for arbitrary text and 60 WPM
 for the short, fixed-format messages generally used in RTTY-style
 contesting.
 
-- *_MAP65_* adds support for 192 kHz sample rate, a new *Full Deep
-Search* mode for JT65, improved decoding for Q65 and JT65 in both
-single and dual polarization modes, and a number of smaller
-improvements and bug fixes. (The
+- *_MAP65_* adds support for 192 kHz sample rate and a new JT65 *Full
+Deep Search* mode. JT65 false decodes are substantially reduced, and
+Q65 decoding sensitivity significantly improved for both single and
+dual polarization signals. A number of smaller improvements and bug
+fixes are present. We note that the
 https://wsjt.sourceforge.io/MAP65_Users_Guide.pdf[_MAP65_ User's
-Guide] is out-of-date in some places, but still useful. It is being
-thoroughly revised, and we hope to make a new version available soon.)
+Guide] is out-of-date, but still useful. This document is being
+thoroughly revised, and we hope to make a new version available soon.
 
-- *_QMAP_* now displays decoded callsigns on its standard horizontal
-waterfall. A vertical left-scrolling waterfall displays callsigns to
-the right, without obscuring the signal traces. Clicking a callsign in
+- *_QMAP_* now displays decoded callsigns superimposed on its
+waterfall. An optional vertical waterfall displays callsigns to its
+right, without obscuring the signal traces. Clicking a callsign in
 either waterfall sets up (and double-clicking starts) a QSO with that
 station, with the QSO subsequently conducted in a co-running copy of
 _WSJT-X_. A new *Stop* button ends a *Shift+F6* file sequence, as in
-_WSJT-X_ and _MAP65_. See <<QMAP,_QMAP_>> for more details.
+_WSJT-X_ and _MAP65_. See <<QMAP,_QMAP_>> in this guide for more
+details.
 
 - *Q65 Pileup Mode:* a previously unused message bit now indicates
 whether the station being called was copied in the previous Rx
