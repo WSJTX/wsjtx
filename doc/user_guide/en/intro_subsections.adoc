@@ -31,7 +31,7 @@ particular classes of users.
 IMPORTANT: *Warnings* about usage that could lead to undesired
 consequences.
 
-=== User Interface in Other Languages
+=== Other Languages
 
 The _WSJT-X_ user interface (UI) is now available in many languages.
 When a translated UI is available for the computer's default System
@@ -52,7 +52,7 @@ image::Main_Window_es.png[align="center"]
 
 image::Main_Window_ja.png[align="center"]
 
-=== How You Can Contribute
+=== Contributing
 
 _WSJT-X_ is part of an open-source project released under the
 {gnu_gpl} (GPLv3). If you have programming or documentation skills or
@@ -70,5 +70,6 @@ must join the group in order to post messages to the email list.
 
 === License
 
+*WSJT* is an open-source project hosted at https://... [GitHub]
 Before using _WSJT-X_, please read our licensing terms
 <<LICENSE,here>>.

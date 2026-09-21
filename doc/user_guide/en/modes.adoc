@@ -38,7 +38,7 @@ structured messages as the slow modes and optionally an abbreviated
 format with hashed callsigns.  
 
 Note that some of the modes classified as slow can have T/R sequence
-lengths as short the fast modes.  "`Slow`" in this sense implies
+lengths as short as the fast modes.  "`Slow`" in this sense implies
 message frames being sent only once per transmission.  The fast modes
 in _WSJT-X_ send their message frames repeatedly, as many times as
 will fit into the Tx sequence length.
@@ -47,7 +47,8 @@ will fit into the Tx sequence length.
 keyboard-to-keyboard communication. Its operational feel is similar to
 standard RTTY, but it has much better weak-signal performance and far
 lower error rate. JTTY transmissions are not timed or synchronized
-with UTC; they can start at any time and typically last a few seconds.
+with UTC; they can start at any time and have any duration, but
+typically last for a few seconds.
 
 *WSPR* (pronounced "`whisper`") stands for **W**eak **S**ignal
 **P**ropagation **R**eporter.  The WSPR protocol was designed for

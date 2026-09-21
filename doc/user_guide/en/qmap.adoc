@@ -1,0 +1,5 @@
+_QMAP_ runs cooperatively with _WSJT-X_ and provides wideband
+single-polarization reception of Q65 signals with both 30 s and 60 s
+sequence lengths. The combination makes a very convenient setup for
+EME, especially on UHF and microwave bands. You can see and decode all
+the EME activity in a sub-band 90 kHz wide.

@@ -40,6 +40,7 @@ set (UG_SRCS
   new_features.adoc
   platform-dependencies.adoc
   protocols.adoc
+  qmap.adoc
   settings-advanced.adoc
   settings-alerts.adoc
   settings-audio.adoc
