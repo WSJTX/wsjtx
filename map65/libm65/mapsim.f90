@@ -224,13 +224,7 @@ program mapsim
      call noisegen(d4,npts)                      !Generate Gaussuian noise
 
      if(msg0(1:4).ne.'list') then
-        if(bq65) then
-              call gen_q65_cwave(message,ntxfreq,ntone_spacing,fsample,     &
-              msgsent,cwave,nwave)
-        else
-           call cgen65(message(1:22),ntone_spacing,samfac,nsendingsh,   &
-           msgsent(1:22),cwave,nwave)
-        endif
+        call generate_cwave(message,msgsent,cwave,nwave)
      endif
 
      if(fdop.gt.0.0) call dopspread(cwave,npts,fsample,fdop)
@@ -240,13 +234,7 @@ program mapsim
         if(msg0(1:4).eq.'list') then
            ilist=ilist+1
            message=msg_list(ilist)
-           if(bq65) then
-              call gen_q65_cwave(message,ntxfreq,ntone_spacing,fsample,     &
-              msgsent,cwave,nwave)
-           else
-              call cgen65(message,ntone_spacing,samfac,nsendingsh,msgsent,  &
-                   cwave,nwave)
-           endif
+           call generate_cwave(message,msgsent,cwave,nwave)
         endif
 
         if(npol.lt.0) pol=(isig-1)*180.0/nsigs
@@ -305,4 +293,24 @@ program mapsim
   deallocate(id2)
   deallocate(cwave)
 
-999 end program mapsim
+999 continue
+contains
+
+  subroutine generate_cwave(message,msgsent,cwave,nwave)
+    character(len=*),intent(inout) :: message
+    character(len=*),intent(out)   :: msgsent
+    complex,         intent(out) :: cwave(:)
+    integer,         intent(out) :: nwave
+
+    ! cgen65 defines only 22 characters; blank-fill so the a24 output is fully defined
+    msgsent = ' '
+    if(bq65) then
+       call gen_q65_cwave(message,ntxfreq,ntone_spacing,fsample,msgsent, &
+            cwave,nwave)
+    else
+       call cgen65(message,ntone_spacing,samfac,nsendingsh,msgsent, &
+            cwave,nwave)
+    endif
+  end subroutine generate_cwave
+
+end program mapsim

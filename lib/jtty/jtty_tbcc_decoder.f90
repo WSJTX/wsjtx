@@ -129,7 +129,7 @@ contains
     call jtty_tbcc_list_wava_optimized(plans(coherent_index), &
          workspaces(coherent_index), correlations, rung%candidates, rung%identities, &
          rung%clean_metrics, path_metrics, start_states, rung%crc_valid, &
-         candidate_count, pool_count, prune_reserved_zero=.false.)
+         candidate_count, pool_count, prune_reserved_zero=.true.)
 
     rung%result = jtty_tbcc_decode_result( &
          exported_candidate_count=candidate_count, &
@@ -137,6 +137,7 @@ contains
          coherent_block_length=COHERENT_LENGTHS(coherent_index))
     do rank = 1, candidate_count
       if (.not.rung%crc_valid(rank)) cycle
+      ! Do not expand the fixed false-accept budget past the all-zero sentinel.
       if (all(rung%candidates(1:PAYLOAD_BITS, rank) == 0_int32)) exit
       rung%accepted = .true.
       rung%result%accepted_hypothesis_rank = rank

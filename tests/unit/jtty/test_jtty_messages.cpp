@@ -616,6 +616,63 @@ private slots:
     QCOMPARE (Jtty::withChainedSpacing (message, isChained), expected);
   }
 
+  void transmitFrame_data ()
+  {
+    QTest::addColumn<QString> ("message");
+    QTest::addColumn<bool> ("isChained");
+    QTest::addColumn<QString> ("expected");
+
+    auto const padded = [] (QString const& text) {
+      return text + QString (Jtty::maxTransmitLength - text.size (), QLatin1Char {' '});
+    };
+
+    QTest::newRow ("not-chained-padded-to-width")
+        << QString {"CQ KA1ABC CQ"} << false << padded (QString {"CQ KA1ABC CQ"});
+    QTest::newRow ("chained-prefixed-and-padded")
+        << QString {"TU K1ABC CQ"} << true << padded (QString {" TU K1ABC CQ"});
+    QTest::newRow ("chained-at-max-length-stays-exact")
+        << QString (Jtty::maxTransmitLength, QLatin1Char {'A'}) << true
+        << (QString {" "} + QString (Jtty::maxTransmitLength - 1, QLatin1Char {'A'}));
+    QTest::newRow ("empty-not-chained-all-spaces")
+        << QString {} << false << QString (Jtty::maxTransmitLength, QLatin1Char {' '});
+  }
+
+  void transmitFrame ()
+  {
+    QFETCH (QString, message);
+    QFETCH (bool, isChained);
+    QFETCH (QString, expected);
+
+    QString const frame = Jtty::transmitFrame (message, isChained);
+
+    QCOMPARE (frame, expected);
+    QCOMPARE (frame.size (), Jtty::maxTransmitLength);
+  }
+
+  void wavCaptureValid_data ()
+  {
+    QTest::addColumn<qint32> ("k0");
+    QTest::addColumn<bool> ("expected");
+
+    QTest::newRow ("zero") << qint32 {0} << false;
+    QTest::newRow ("negative") << qint32 {-1} << false;
+    QTest::newRow ("below-one-frame") << qint32 {Jtty::jttyFrameSamples - 1} << false;
+    QTest::newRow ("exactly-one-frame") << qint32 {Jtty::jttyFrameSamples} << false;
+    QTest::newRow ("just-over-one-frame") << qint32 {Jtty::jttyFrameSamples + 1} << true;
+    QTest::newRow ("typical-interval") << qint32 {1000000} << true;
+    QTest::newRow ("sentinel-minus-one") << qint32 {Jtty::invalidCaptureSamples - 1} << true;
+    QTest::newRow ("sentinel") << qint32 {Jtty::invalidCaptureSamples} << false;
+    QTest::newRow ("sentinel-plus-one") << qint32 {Jtty::invalidCaptureSamples + 1} << false;
+  }
+
+  void wavCaptureValid ()
+  {
+    QFETCH (qint32, k0);
+    QFETCH (bool, expected);
+
+    QCOMPARE (Jtty::wavCaptureValid (k0), expected);
+  }
+
   void formatSerialNumber_data ()
   {
     QTest::addColumn<int> ("serialNumber");

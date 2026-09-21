@@ -222,6 +222,30 @@ namespace Jtty
     return (QLatin1Char {' '} + message).left (maxTransmitLength);
   }
 
+  // Builds the fixed-width frame passed to genjtty_. The chained leading space
+  // is transport-only spacing, so it belongs here rather than in the logical
+  // message that is logged, displayed, and checked for contest serials.
+  inline QString transmitFrame (QString const& message, bool isChained)
+  {
+    QString const spaced = withChainedSpacing (message, isChained);
+    return spaced + QString (maxTransmitLength - spaced.size (), QLatin1Char {' '});
+  }
+
+  // Number of receive samples in one complete JTTY frame: 59 symbols of 384
+  // samples (lib/jtty/jtty.f90). Anything shorter is not a decodable interval.
+  inline constexpr qint32 jttyFrameSamples = 59 * 384;
+
+  // m_k0 starts at this sentinel and is only replaced once fastSink has real
+  // audio, so it marks "nothing captured yet".
+  inline constexpr qint32 invalidCaptureSamples = 9999999;
+
+  // True when k0 describes a captured JTTY receive buffer worth saving: at
+  // least one full frame, and not the uninitialised sentinel.
+  inline bool wavCaptureValid (qint32 k0)
+  {
+    return k0 > jttyFrameSamples && k0 < invalidCaptureSamples;
+  }
+
   inline QString formatSerialNumber (int serialNumber)
   {
     return QString {"%1"}.arg (serialNumber, 3, 10, QLatin1Char {'0'});

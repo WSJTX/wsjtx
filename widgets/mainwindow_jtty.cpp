@@ -108,6 +108,9 @@ static QString append_separator(QString message) {
 
 void MainWindow::jtty_save_wav()
 {
+  // Reject callers that arrive before a real JTTY capture exists; m_k0 is
+  // still the initial sentinel, or is stale from an earlier interval.
+  if (!Jtty::wavCaptureValid (m_k0)) return;
   if (m_k0 == m_jttyLastSavedWavK0) return;  //Guard against re-saving same audio under a new timestamp
   m_jttyLastSavedWavK0 = m_k0;
 
@@ -422,13 +425,13 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
     return;
   }
 
-  message = Jtty::withChainedSpacing(message, isChainedMessage);
+  // Keep message as the logical text; the chained leading space is only
+  // transport spacing and must not leak into logging, display, or the contest
+  // serial check in completeJttyTxEnqueue.
+  QString const transmitFrame = Jtty::transmitFrame(message, isChainedMessage);
 
-  int n=message.length();
-  QString t = " ";
-  t = message + t.repeated(80-n);
   int nsym=0;
-  genjtty_(t.toLatin1().constData(), &itone[0], &nsym, (FCL)80);
+  genjtty_(transmitFrame.toLatin1().constData(), &itone[0], &nsym, (FCL)80);
   if (nsym <= 0) {
     LOG_WARN("JTTY transmit message could not be encoded");
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
@@ -593,7 +596,7 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
 
   monitor(false);
-  if(!m_diskData && (m_saveAll || m_saveDecoded) && (m_k0 > 59*384) && (m_k0 < 9999999)) {
+  if(!m_diskData && (m_saveAll || m_saveDecoded) && Jtty::wavCaptureValid (m_k0)) {
     jtty_save_wav();
   }
 

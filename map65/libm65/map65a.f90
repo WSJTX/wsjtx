@@ -29,7 +29,7 @@ contains
       use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, &
                                manualDecodeFlag, active_input_generation
       use sec0_mod, only: sec0
-      use q65_decode, only: nsnr0
+      use q65_decode, only: nsnr0, msg0, xdt0, nfreq0
 
       implicit none
 
@@ -269,8 +269,17 @@ contains
          ipol2     = best_ipol2
          dt2       = best_dt2
 
+         ! Match the 3.0.1 double-click ("quick decode", nqd=1) rule: use a
+         ! lower sync threshold at the clicked frequency when ftol <= 100 Hz.
+         ! A fixed 1.0 here gates the click exactly like the wideband pass,
+         ! so a signal the wideband pass missed could never be decoded.
          thresh1 = 1.0
+         if (ntol .le. 100) thresh1 = 0.
          nflip   = nint(flipk)
+         call dbg('map65a manual: click nutc=' // itoa(nutc) // ' mousefqso=' // itoa(mousefqso) // &
+                  ' mousedf=' // itoa(mousedf) // ' ntol=' // itoa(ntol) // &
+                  ' best sync1=' // rtoa(sync1) // ' thresh1=' // rtoa(thresh1) // &
+                  ' syncshort=' // rtoa(syncshort) // ' mode65=' // itoa(mode65))
 
          !===========================
          ! SHORTHAND DETECTION (JT65)
@@ -366,6 +375,17 @@ contains
             call timer('decode1a',1)
 
             abort_decode = abort_saved
+            ! Fit and averaging details, to tell a normal decode from a strange one
+            ! (e.g. an odd DT). dt_in is the DT decode1a was given (from ccf65 at the
+            ! best bin), dt_out the DT it returned. nsum > 0 means the single-period
+            ! decode failed and decode1a went on to try averaging saved spectra;
+            ! nkv >= 2 with a decode means the message came from that average.
+            call dbg('map65a manual: decode1a called, decoded=[' // trim(decoded_jt65) // ']' // &
+                     ' dt_in=' // rtoa(best_dt) // ' dt_out=' // rtoa(dt) // &
+                     ' sync2=' // rtoa(sync2) // ' a1_df=' // rtoa(a(1)) // &
+                     ' nkv=' // itoa(nkv) // ' nsum=' // itoa(nsum) // ' nsave=' // itoa(nsave) // &
+                     ' nhist=' // itoa(nhist) // ' qual=' // rtoa(qual) // &
+                     ' nflip=' // itoa(nflip) // ' f00=' // rtoa(real(f00)))
 
             if (decoded_jt65 /= '                      ') then
                jt65_success = .true.
@@ -419,11 +439,20 @@ contains
             ! itself instead, from f0 (already unambiguous), leaving this
             ! mousedf untouched for f_mouse/k0 to keep working correctly.
 
+            call dbg('map65a manual: Q65 call nutc=' // itoa(nutc) // ' nqd=' // itoa(nqd) // &
+                     ' ikhz=' // itoa(ikhz) // ' mousedf=' // itoa(mousedf) // ' ntol=' // itoa(ntol) // &
+                     ' mode_q65=' // itoa(mode_q65) // ' f0=' // rtoa(real(f0)) // &
+                     ' newdat=' // itoa(newdat) // ' nagain=' // itoa(nagain) // &
+                     ' ndepth=' // itoa(ndepth) // ' max_drift=' // itoa(max_drift))
+
             call timer('q65b    ', 0)
             call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
                       ntol, xpol, idphi, mycall, mygrid, hiscall, hisgrid, mode_q65, f0, fqso, &
                       newdat, nagain, max_drift, ndop00, idec)
             call timer('q65b    ', 1)
+
+            call dbg('map65a manual: Q65 result idec=' // itoa(idec) // ' nsnr0=' // itoa(nsnr0) // &
+                     ' nfreq0=' // itoa(nfreq0) // ' xdt0=' // rtoa(xdt0) // ' msg0=[' // trim(msg0) // ']')
 
             ! NB: idec, as returned by q65b, is not a trustworthy success flag:
             ! q65b derives it by parsing cq0(2:2) (see q65b.F90, label 900), and
