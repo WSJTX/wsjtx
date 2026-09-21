@@ -5,7 +5,7 @@
 # The leading [[JTTY:ACTION]] marker opts into native Call8/STRUCT30 encoding.
 # Remove the marker to send the expanded N1MM text literally with TEXT5.
 #
-# S&P F1 calls CQ and automatically places the program in RU
+# S&P F1 calls CQ and automatically places the program in RUN Mode
 # F2 F3 F4 F5 use "!" macro for his callsign
 # Exchange actions use the active JTTY profile; do not hardcode 599.
 # Run F11 remains spare until N1MM call-stack TXTEXT ordering is validated.
