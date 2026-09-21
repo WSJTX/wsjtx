@@ -72,6 +72,6 @@ interface have been added, and the *Spanish* translation updated.
 to the *Help* menus for _WSJT-X_, _MAP65_, and _QMAP_, and new icons
 are used for all three programs.
 
-- *Many* other smaller improvements and bug fixes. See
+- *Many* other smaller improvements and bug fixes. See the
 https://wsjtx.github.io/wsjtx/Release_Notes.txt[Release Notes] for
 details.

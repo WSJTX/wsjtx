@@ -162,6 +162,10 @@ include::tutorial-example5.adoc[]
 === FST4W
 include::tutorial-example6.adoc[]
 
+[[QMAP]]
+=== QMAP
+include::qmap.adoc[]
+
 [[MAKE_QSOS]]
 == Making QSOs
 include::make-qso.adoc[]
@@ -173,10 +177,6 @@ include::logging.adoc[]
 [[VHF_AND_UP]]
 == VHF+ Features
 include::vhf-features.adoc[]
-
-[[QMAP]]
-== _QMAP_
-include::qmap.adoc[]
 
 [[WSPR]]
 == WSPR Mode
