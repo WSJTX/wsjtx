@@ -1,46 +1,49 @@
 *_QMAP_* is a companion program installed automatically alongside
-_WSJT-X_ and running cooperatively to provide wideband,
-single-polarization reception of Q65 signals. _QMAP_ automatically
-decodes both 30 s and 60 s sequence lengths. While _WSJT-X_ decodes a
-passband up to 5 kHz wide, _QMAP_ monitors an entire 90 kHz
-sub-band. The combination makes a very convenient setup for EME,
-especially on UHF and microwave bands. You can see and decode all the
-EME activity in the sub-band while conducting your own QSOs with
-_WSJT-X_.
+_WSJT-X_ and running cooperatively with it to provide wideband,
+single-polarization reception of Q65 signals. While _WSJT-X_ decodes a
+passband up to 5 kHz wide and a single speficied T/R sequence length,
+_QMAP_ monitors an entire 90 kHz sub-band and automatically decodes
+both 30 s and 60 s sequences. The combination makes a very convenient
+setup for EME, especially on the UHF and microwave bands. You can see
+and decode all the EME activity in the sub-band while conducting your
+own QSOs with _WSJT-X_.
 
-Start _QMAP_, open the Vertical Waterfall from the View menu, and
-resize and position the windows conveniently -- perhaps something like
-the screen shot below. Set *Span* to 60 kHz on the Horizontal
-Waterfall. Then use *File | Open* to select the file
-`...\save\samples\QMAP\221112_0438.qm` which you will have downloaded
-already from the _WSJT-X_ *Help | Download samples* menu item.
+To gain some familiarity with _QMAP_, start the program and open its
+*Vertical Waterfall* from the *View* menu. Resize and position the
+windows for convenience, perhaps as in the screen shot below. Set
+*Span* to 90 kHz on the *Horizontal Waterfall*. Then use *File | Open*
+to select the sample file ...\save\samples\QMAP\221112_0438.qm.
+
+_QMAP_ decodes the file's full 90 kHz sub-band and for each signal
+displays the *UTC* time, received frequency *Frx*, and suggested
+calling frequency *Fsked*, time offset *DT*, SNR *dB*, submode
+*Q65-x*, and decoded message. Transmissions in a 30 s submode are
+highlighted in yellow. Callsigns of transmitting stations are
+displayed on the waterfall windows, close to the received frequencies.
 
 image::qmap_all.png[align="center",alt="QMAP main window"]
 
-_QMAP_ will decode the file's full 90 kHz sub-band, for each decode
-showing the time, received frequency *Frx*, suggested calling
-frequency *Fsked*, *DT*, *dB*, the Q65 submode, and message text. The
-decoded callsigns are displayed directly on the waterfalls.
+If _WSJT-X_ is also active and in Q65 mode, information from _QMAP_
+decodes will appear in the _WSJT-X_ *Active Stations* window sorted
+by received frequency:
 
-If you have _WSJT-X_ also running and in Q65 mode, information on
-_QMAP_ decodes will appear in its *Active Stations* window, sorted by
-received frequency:
+image::active_stations_QMAP.png[align="center",width=50%,alt="Active Stations"]
 
-image::active_stations_QMAP.png[align="center",width=50%,alt="Active Stations, fed by QMAP"]
+Click a callsign on either of _QMAP_'s waterfalls, or in the *Active
+Stations* window, to set up a QSO with that station in _WSJT-X_.
+_WSJT-X_ will generate the appropriate messages and set the dial
+frequency to that station's suggested calling frequency,
+*Fsked*. Double-clicking will also activate *Enable Tx* so you can
+call the station right away.
 
-Rows decoded in a 30 s Q65 submode are highlighted in yellow, to
-distinguish them from 60 s decodes at a glance. The symbol `#` after
-*Age* marks a station not yet present in `wsjtx.log`, and an asterisk
-`*` marks one whose most recent transmission contained `CQ`, `RR73`,
-or `73`, and whose operator is presumably ready to start another
-QSO. Use the *Wanted only* and *CQ only* checkboxes, and the *Max Age*
-spinner, to narrow the list as desired. You can clear it and start
-over bt pressing *Alt+A* with focus on the _WSJT-X_ main window.
-Click a callsign on either of _QMAP_'s waterfalls to set up a QSO with
-that station in _WSJT-X_; double-clicking will also arm *Enable Tx* to
-call the station right away. _WSJT-X_ will generate the appropriate
-messages and set the dial frequency to that station's suggested
-calling frequency, *Fsked*.
+The symbol *#* at the right edge of *Active Stations* marks a callsign
+not yet present in `wsjtx.log`. This is a convenience for tracking EME
+initials or contest QSOs. An asterisk +*+ marks a station whose most
+recent transmission contains `CQ`, `RR73`, or `73`, so the sender is
+presumably ready to start another QSO. Use the *Wanted only* and *CQ
+only* checkboxes and *Max Age* spinner to narrow the list of stations
+as desired. With focus on the _WSJT-X_ main window you can press
+*Alt+A* to clear *Active Stations* and start over.
 
 ////
 Ideas that might be used later, elsewhere:
