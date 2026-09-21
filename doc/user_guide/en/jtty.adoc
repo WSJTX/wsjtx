@@ -19,10 +19,16 @@ sequences. Transmissions can start at any time, and otherwise _WSJT-X_
 will be in receive or *Monitor* mode.
 
 Enter a message into the field at bottom right and click *Send
-Message* to start a transmission. You mihght want to listen to its
+Message* to start a transmission. You might want to listen to its
 sound on your computer's speaker. Messages used for contesting can be
 sent by clicking one of the buttons F1-F8 or using the corresponding
 keyboard keys. The corresponding entry fields can be configured to
 send pre-formatted contest messages. Macros are defined for normal
 contesting purposes.
+
+JTTY mode will work with recent N1MM Logger+ versions, using N1MM's
+digital window to send messages, just like RTTY. You *can* send any
+text as a message, HOWEVER, to take advantage of JTTY's support for
+special message sequences, your N1MM macro messages should be the
+following:
 

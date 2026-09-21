@@ -1,0 +1,95 @@
+==== Summary
+
+_WSJT-X_ in JTTY mode will work with N1MM Logger+ in a similar way to how
+other RTTY codecs do. Once configured, you can type "JTTY" in the callsign
+field in N1MM Logger+ to start _WSJT-X_ in JTTY mode. N1MM Logger+ macros
+will work with JTTY, HOWEVER you will want to optimize your N1MM message macros
+for JTTY.
+
+==== Setup
+
+* Set up N1MM Logger+ (version number _TBD_ or after) with _WSJT-X_ as you
+would for the FT8 mode; there are a number of great resources showing how
+to do this, for example see
+https://www.rttycontesting.com/tutorials/n1mm/operating-ww-digi-with-n1mm/[Operating WW Digi with N1MM and WSJT-X]
+* Make sure your configuration is working in FT8 mode before attempting to
+use JTTY, including radio control, PTT, etc. (note that this requires
+https://www.rttycontesting.com/tutorials/n1mm/operating-ww-digi-with-n1mm/#startingfirsttime[configuring the "forEW1" configuration])
+* Enter JTTY mode by typing "JTTY" in the callsign field in N1MM Logger+
+and pressing enter. This will launch _WSJT-X_ in JTTY mode.
+* Verify that the _WSJT-X_ window is showing "JTTY" in the footer, and
+that the _WSJT-X_ window title contains "forEW1"
+* Put your radio in test mode, turn the output power to zero, or use a
+dummy load
+* Verify that pressing *F1* in the _WSJT-X_ window, the message "CQ <your
+callsign> CQ" is being sent by your radio
+* Verify that pressing *F1* in the N1MM Logger+ window sends the contents
+of your F1 macro (JTTY uses the "Digital Function Keys" file)
+* https://n1mmwp.hamdocs.com/setup/function-keys/#the-function-key-message-editor[Customize the N1MM Digital Function Keys file]
+for JTTY operation. Remember to save your old one! See the discussion
+below for best practices for these messages.
+
+==== Best Practices for N1MM Logger+ Digital Function Keys
+
+JTTY can send any message specified for an N1MM Logger+ Digital Function
+key, within the character set supported by JTTY. HOWEVER, JTTY has
+special provisions to send certain messages very efficiently.
+
+[source,bash]
+----
+type	message
+0.0	CQ K1ABC CQ                    
+0.1   	K1ABC                          
+0.2   	TU K1ABC CQ                    
+0.3   	K1ABC TU
+1.0   	K1ABC AGN?                     
+1.1   	TU NOW K1ABC 
+----
+
+For example, you could send "CQ TEST DE N9ADG N9ADG TEST". You can see
+how long it would take to send that message, using the `sjtty` program
+included in the wsjtx directory:
+
+[source,bash]
+----
+./sjtty "CQ TEST DE N9ADG N9ADG TEST"
+Message after pack/unpack : CQ TEST DE N9ADG N9ADG TEST
+   6 frames, Transmission length 10.18 seconds
+----
+
+sending "CQ N9ADG" will only take 3 frames, and will be sent in 5.08 seconds:
+
+[source,bash]
+----
+./sjtty "CQ N9ADG"
+Message after pack/unpack : CQ N9ADG
+   2 frames, Transmission length  3.39 seconds
+----
+
+But we can do better! If you send "CQ N9ADG CQ", you'll only use 1 frame!
+
+[source,bash]
+----
+./sjtty "CQ N9ADG CQ"
+Message after pack/unpack : CQ N9ADG CQ
+   1 frame, Transmission length  1.70 seconds
+----
+
+The name of the contesting game is to send information as quickly as
+possible, so use `"CQ <callsign> CQ"` for your CQ message.
+
+You should TEST your messages using the `sjtty` utility to see how many
+frames they will take to send, and how long it will take to send them.
+The fewer frames, the faster the message will be sent. This is potentially error
+prone, however, since an extra space, or unanticipated macro substitution can cause
+your message to take longer to send.
+
+As an alternative, you can
+use the this example file (`JTTY Messages.mc`) that tells
+WSJT-X to use the special compact messages built-in to WSJT-X.
+
+JTTY Messages.mc:
+[source,bash]
+----
+include::../../../lib/jtty/JTTY Messages.mc[]
+----
