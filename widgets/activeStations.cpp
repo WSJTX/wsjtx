@@ -67,7 +67,7 @@ void ActiveStations::read_settings ()
   ui->sbMaxRecent->setValue(settings_->value("MaxRecent",10).toInt());
   ui->sbMaxAge->setValue(settings_->value("MaxAge",10).toInt());
   ui->cbReadyOnly->setChecked(settings_->value("ReadyOnly",false).toBool());
-  ui->cbWantedOnly->setChecked(settings_->value("# WantedOnly",false).toBool());
+  ui->cbWantedOnly->setChecked(settings_->value("WantedOnly",false).toBool());
 }
 
 void ActiveStations::write_settings ()
@@ -84,7 +84,7 @@ void ActiveStations::setupUi(DisplayMode mode) {
   if (mode != m_displayMode && mode == DisplayMode::Fox) setClickOK(true);
   m_displayMode=mode;
   ui->cbReadyOnly->setText(" Ready only");
-  ui->cbWantedOnly->setText(tr("Wanted only"));
+  ui->cbWantedOnly->setText(tr("# Wanted only"));
   ui->label->setText("Rate:");
   if(mode==DisplayMode::Q65) {
     ui->header_label2->setText("  N    Frx   Fsked  S/N  Q65  Call     Grid  Tx  Age");
