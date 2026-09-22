@@ -1,35 +1,43 @@
-==== Summary
-
-_WSJT-X_ in JTTY mode will work with N1MM Logger+ in a similar way to how
-other RTTY codecs do. Once configured, you can type "JTTY" in the callsign
-field in N1MM Logger+ to start _WSJT-X_ in JTTY mode. N1MM Logger+ macros
-will work with JTTY, HOWEVER you will want to optimize your N1MM message macros
-for JTTY.
+_WSJT-X_ in JTTY mode will work with N1MM Logger+ in a similar way to
+how other RTTY codecs do. Once configured, you can type "JTTY" in the
+callsign field in N1MM Logger+ to start _WSJT-X_ in JTTY mode. N1MM
+Logger+ macros will work, but be sure to optimize the macros for JTTY,
+as outlined below.
 
 ==== Setup
 
-* Set up N1MM Logger+ (version number _TBD_ or after) with _WSJT-X_ as you
-would for the FT8 mode; there are a number of great resources showing how
-to do this, for example see
-https://www.rttycontesting.com/tutorials/n1mm/operating-ww-digi-with-n1mm/[Operating WW Digi with N1MM and WSJT-X]
-* Make sure your configuration is working in FT8 mode before attempting to
-use JTTY, including radio control, PTT, etc. (note that this requires
-https://www.rttycontesting.com/tutorials/n1mm/operating-ww-digi-with-n1mm/#startingfirsttime[configuring the "forEW1" configuration])
-* Enter JTTY mode by typing "JTTY" in the callsign field in N1MM Logger+
-and pressing enter. This will launch _WSJT-X_ in JTTY mode.
-* Verify that the _WSJT-X_ window is showing "JTTY" in the footer, and
-that the _WSJT-X_ window title contains "forEW1"
-* Put your radio in test mode, turn the output power to zero, or use a
-dummy load
-* Verify that pressing *F1* in the _WSJT-X_ window, the message "CQ <your
-callsign> CQ" is being sent by your radio
-* Verify that pressing *F1* in the N1MM Logger+ window sends the contents
-of your F1 macro (JTTY uses the "Digital Function Keys" file)
-* https://n1mmwp.hamdocs.com/setup/function-keys/#the-function-key-message-editor[Customize the N1MM Digital Function Keys file]
-for JTTY operation. Remember to save your old one! See the discussion
-below for best practices for these messages.
+* Set up N1MM Logger+ (version number xxx.yyy or after) with _WSJT-X_
+as you would for the FT8 mode. See, for example,
+https://www.rttycontesting.com/tutorials/n1mm/operating-ww-digi-with-n1mm/[Operating
+WW Digi with N1MM and WSJT-X].
 
-==== Best Practices for N1MM Logger+ Digital Function Keys
+* Make sure your configuration is working in FT8 mode before
+attempting to use JTTY, including radio control and PTT. This requires
+configuring the
+https://www.rttycontesting.com/tutorials/n1mm/operating-ww-digi-with-n1mm/#startingfirsttime[forEW1] configuration.
+
+* Enter JTTY mode by typing "JTTY" in the callsign field in N1MM Logger+
+and pressing enter.
+
+* Verify that the _WSJT-X_ window is showing "JTTY" in the footer, and
+that the _WSJT-X_ window title contains "forEW1".
+
+* Put your radio in test mode, turn the output power to zero, or use a
+dummy load.
+
+* Verify that pressing *F1* in the _WSJT-X_ window, the message "CQ <your
+callsign> CQ" is being sent by your radio.
+
+* Verify that pressing *F1* in the N1MM Logger+ window sends the contents
+of your F1 macro.
+
+* Customize the
+https://n1mmwp.hamdocs.com/setup/function-keys/#the-function-key-message-editor[N1MM
+Digital Function Keys] file for JTTY operation. Remember to save your
+old one! See the discussion below for best practices for these
+messages.
+
+==== JTTY Contest Messages
 
 JTTY can send any message specified for an N1MM Logger+ Digital Function
 key, within the character set supported by JTTY. However, JTTY has
@@ -37,13 +45,13 @@ special provisions to send certain messages very efficiently.
 
 [source,bash]
 ----
-type	message
-0.0	CQ K1ABC CQ                    
-0.1   	K1ABC                          
-0.2   	TU K1ABC CQ                    
-0.3   	K1ABC TU
-1.0   	K1ABC AGN?                     
-1.1   	TU NOW K1ABC 
+type    message
+0.0     CQ K1ABC CQ
+0.1     K1ABC
+0.2     TU K1ABC CQ
+0.3     K1ABC TU
+1.0     K1ABC AGN?
+1.1     TU NOW K1ABC
 ----
 
 For example, you could send "CQ TEST DE N9ADG N9ADG TEST". You can see

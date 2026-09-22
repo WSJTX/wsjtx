@@ -23,8 +23,41 @@ message* to start a transmission. You might want to listen to its
 sound on your computer's speaker. Messages used for contesting can be
 sent by clicking one of the buttons F1-F8 or using the corresponding
 keyboard keys. The corresponding entry fields can be configured to
-send pre-formatted contest messages. Macros are defined for normal
-contesting purposes.
+send pre-formatted messages. 
+
+.JTTY Messages for Contesting
+
+Special message formats let you send JTTY contest-style messages very
+efficiently. Function keys F1-F8 (or on-screen buttons with those
+labels) can be pre-programmed to send such messages, using entry
+fields below the F1-F8 buttons. Use macros %M and %H to stand for
+MyCall and HisCall. , and a formatted contest exchange. In the following
+examples,
+
+[source]
+----
+F-Key  Macro Format     Transmitted message
+F1     CQ %M CQ         CQ K1ABC CQ
+F2     %H %E            W9XYZ 599 107
+F3     %H TU CQ %M CQ   W9XYZ TU CQ K1ABC CQ
+F4     %M               K1ABC
+F5     %H               W9XYZ
+F6     TU NOW %Q %E     TU NOW W0UVW 599 108
+F7     %H AGN?          W9XYZ AGN?
+----
+
+source
+----
+CQ <call> CQ
+<call>
+TU <call> CQ
+<call> TU
+<call> AGN?
+TU NOW <call>
+----
+
+
+
 
 JTTY mode will work with recent N1MM Logger+ versions, using N1MM's
 digital window to send messages, just like RTTY. You *can* send any

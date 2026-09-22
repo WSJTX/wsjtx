@@ -32,6 +32,7 @@ set (UG_SRCS
   introduction.adoc
   intro_subsections.adoc
   jtty.adoc
+  jtty_n1mm_integration.adoc
   keyboard_mouse.adoc
   logging.adoc
   make-qso.adoc
