@@ -1,6 +1,6 @@
 program test_jtty_structured_decode
 
-  use iso_c_binding, only: c_int,c_null_char,c_sizeof
+  use iso_c_binding, only: c_int,c_char,c_null_char,c_sizeof
   use iso_fortran_env, only: int16,int32
   use jtty_fec, only: is13,PAYLOAD_BITS,TOTAL_K,tbcc_encode
   use jtty_tbcc_code_profiles
@@ -25,6 +25,13 @@ program test_jtty_structured_decode
        integer(c_int), intent(out) :: tones(*),nsym
        integer(c_int) :: status
      end function jtty_cpp_n1mm_smoke
+     function jtty_cpp_cq_smoke(tones,nsym,text,chained) result(status) bind(C)
+       import :: c_int,c_char
+       integer(c_int), intent(out) :: tones(*),nsym
+       character(kind=c_char), intent(out) :: text(*)
+       integer(c_int), value :: chained
+       integer(c_int) :: status
+     end function jtty_cpp_cq_smoke
      subroutine genjtty_atoms(atoms,natoms,itone,nsym)
        use jtty_mod, only: jtty_source_atom
        type(jtty_source_atom), intent(in) :: atoms(:)
@@ -48,6 +55,7 @@ program test_jtty_structured_decode
   call decode_c_adapter_atoms(failures)
   call reject_invalid_c_descriptors(failures)
   call decode_cpp_compiled_n1mm(failures)
+  call decode_compact_text(failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_structured_decode: failures=',failures
@@ -56,6 +64,48 @@ program test_jtty_structured_decode
   write(*,'(a)') 'test_jtty_structured_decode: all checks passed'
 
 contains
+
+  subroutine decode_compact_text(count)
+    integer, intent(inout) :: count
+    integer(c_int) :: native_tones(MAX_FRAMES*frame_symbols),native_nsymbols,status
+    character(kind=c_char) :: c_text(80)
+    character(len=80) :: text
+    integer :: tones(MAX_FRAMES*frame_symbols),nsymbols,chained,i
+
+    do chained=0,1
+       status=jtty_cpp_cq_smoke(native_tones,native_nsymbols,c_text,int(chained,c_int))
+       call expect(status.eq.JTTY_ENCODE_OK .and. native_nsymbols.eq.frame_symbols, &
+            'native F1 generates one frame',count)
+       if(status.ne.JTTY_ENCODE_OK .or. native_nsymbols.ne.frame_symbols) return
+       do i=1,len(text)
+          text(i:i)=c_text(i)
+       enddo
+       call genjtty(text,tones,nsymbols)
+       call expect(nsymbols.eq.native_nsymbols,'GUI CQ text generates one frame',count)
+       if(nsymbols.ne.native_nsymbols) return
+       call expect(all(tones(1:nsymbols).eq.native_tones(1:nsymbols)), &
+            'GUI CQ text and native F1 generate identical channel symbols',count)
+    enddo
+    call decode_waveform(tones,nsymbols)
+    call expect(npending.eq.1,'compact CQ produces one update',count)
+    if(npending.eq.1) then
+       call expect(trim(normalized(pending_updates(1)%decoded)).eq.'CQ K1ABC CQ' .and. &
+            pending_updates(1)%complete .and. nactive.eq.0, &
+            'compact CQ preserves text and completes',count)
+    endif
+
+    text='TEST WB9XYZ 599 123 QSL TU'
+    call genjtty(text,tones,nsymbols)
+    call expect(nsymbols.eq.4*frame_symbols,'mixed text generates four frames',count)
+    if(nsymbols.ne.4*frame_symbols) return
+    call decode_waveform(tones,nsymbols,10.0)
+    call expect(npending.eq.1,'mixed text produces one update on the transmitted channel',count)
+    if(npending.eq.1) then
+       call expect(trim(normalized(pending_updates(1)%decoded)).eq.trim(text) .and. &
+            pending_updates(1)%complete .and. nactive.eq.0, &
+            'mixed TEXT5/call/exchange/control preserves spacing and EOM',count)
+    endif
+  end subroutine decode_compact_text
 
   subroutine decode_cpp_compiled_n1mm(count)
     integer, intent(inout) :: count
@@ -207,9 +257,11 @@ contains
          'CRC/FEC-valid source-invalid frame creates no message or update',count)
   end subroutine reject_reserved_struct_family
 
-  subroutine decode_waveform(tones,nsymbols)
+  subroutine decode_waveform(tones,nsymbols,channel_width)
     integer, intent(in) :: tones(:),nsymbols
-    integer :: nsamples,total_samples
+    real, intent(in), optional :: channel_width
+    integer :: nsamples,total_samples,nfa,nfb
+    real :: tolerance
     integer(int16), allocatable :: pcm(:)
     real, allocatable :: wave(:)
     complex, allocatable :: complex_wave(:)
@@ -222,9 +274,15 @@ contains
     pcm=0_int16
     pcm(1:nsamples)=int(nint(30000.0*wave),int16)
 
+    nfa=200; nfb=2800; tolerance=50.0
+    if(present(channel_width)) then
+       tolerance=channel_width
+       nfa=ceiling(1500.0-tolerance)
+       nfb=floor(1500.0+tolerance)
+    endif
     call discard_pending_updates()
-    call rjtty_sub(pcm,1,nsps,200,2800,1500.0,50.0)
-    call rjtty_sub(pcm,total_samples,nsps,200,2800,1500.0,50.0)
+    call rjtty_sub(pcm,1,nsps,nfa,nfb,1500.0,tolerance)
+    call rjtty_sub(pcm,total_samples,nsps,nfa,nfb,1500.0,tolerance)
 
     deallocate(pcm,wave,complex_wave)
   end subroutine decode_waveform

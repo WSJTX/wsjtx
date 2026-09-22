@@ -55,25 +55,64 @@ program test_jtty_pack
 1100 format(/'Total messages:',i3,'   Number of errors:',i3)
   if(nerr.ne.expected_errors) error stop 1
 
-  ! Call-like and exchange-like operator text is never promoted into native
-  ! atoms. Exact whole-message control phrases are the narrow exception.
-  call expect_pack('CQ KA1ABC CQ',3,3,-1,3,-1)
-  call expect_pack('WB9XYZ',2,3,-1,3,-1)
-  call expect_pack('599 MA',2,3,-1,3,-1)
+  call expect_pack('CQ KA1ABC CQ',1,0,0,-1,-1)
+  call expect_pack('CQ K1ABC CQ',1,0,0,-1,-1)
+  call expect_pack('K1A',1,0,1,-1,-1)
+  call expect_pack('WB9XYZ',1,0,1,-1,-1)
+  call expect_pack('TU WB9XYZ CQ',1,0,2,-1,-1)
+  call expect_pack('WB9XYZ TU',1,0,3,-1,-1)
+  call expect_pack('WB9XYZ AGN?',1,1,0,-1,-1)
+  call expect_pack('TU NOW WB9XYZ',1,1,1,-1,-1)
+  call expect_pack('WB9XYZ TU CQ KA1ABC CQ',2,0,3,0,0)
+  call expect_pack('K1ABC TU NOW W1XYZ',2,0,1,1,1)
+  call expect_pack('WB9XYZ 599 123',2,0,1,2,-1)
+  call expect_pack('599 MA',1,2,-1,-1,-1)
+  call expect_pack('599 FN42',1,2,-1,-1,-1)
+  call expect_pack('FN42',1,2,-1,-1,-1)
+  call expect_pack('1D EMA',1,2,-1,-1,-1)
+  call expect_pack('32F EMA',1,2,-1,-1,-1)
+  call expect_pack('0',1,2,-1,-1,-1)
+  call expect_pack('131071',1,2,-1,-1,-1)
+  call expect_pack('599 131071',1,2,-1,-1,-1)
+  call expect_pack('599 001',2,-1,-1,-1,-1)
+  call expect_pack('599 05',2,-1,-1,-1,-1)
+  call expect_pack('599 BRUCE',2,-1,-1,-1,-1)
+  call expect_pack('131072',2,3,-1,3,-1)
+  call expect_pack('000001',2,3,-1,3,-1)
+  call expect_pack('01D EMA',2,3,-1,3,-1)
+  call expect_pack('33D EMA',2,3,-1,3,-1)
+  call expect_pack('1G EMA',2,3,-1,3,-1)
+  call expect_pack('1D ZZZ',2,3,-1,3,-1)
+  call expect_pack('599 SA00',2,-1,-1,-1,-1)
+  call expect_pack('599 A!',2,-1,-1,-1,-1)
+  call expect_pack('599 XYZ',1,2,-1,-1,-1)
+  call expect_pack('599 0AB',2,-1,-1,-1,-1)
+  call expect_pack('CQ K1ABC CQ!',3,-1,-1,-1,-1)
+  call expect_pack('TEST WB9XYZ',2,3,-1,0,1)
+  call expect_pack('HI WB9XYZ',2,3,-1,3,-1)
+  call expect_pack('K1ABC HELLO',2,0,1,3,-1)
+  call expect_pack('TEST AGN NR',2,3,-1,2,-1)
+  call expect_pack(repeat('A',80),16,3,-1,3,-1)
+  call expect_pack('',0,-1,-1,-1,-1)
+  call expect_pack('   ',0,-1,-1,-1,-1)
   call expect_pack('599 A',1,3,-1,-1,-1)
-  call expect_pack('599 BRUCE F',3,3,-1,3,-1)
+  call expect_pack('599 BRUCE F',3,-1,-1,-1,-1)
   call expect_pack('A599 MA',2,3,-1,3,-1)
   call expect_pack('VP2/KF2GHI',2,3,-1,3,-1)
   call expect_pack('VP2/KA1ABC',2,3,-1,3,-1)
   call expect_pack('QU1RK',1,3,-1,-1,-1)
-  call expect_pack('TU QU1RKP CQ',3,3,-1,3,-1)
+  call expect_pack('TU QU1RKP CQ',3,2,-1,3,-1)
   call expect_pack('WB9XYZABC',2,3,-1,3,-1)
   call expect_pack('K1A A',1,3,-1,-1,-1)
-  call expect_pack('PSE AGN NR',2,3,-1,3,-1)
-  call expect_pack('AGN NR PSE',2,3,-1,3,-1)
+  call expect_pack('PSE AGN NR',2,-1,-1,-1,-1)
+  call expect_pack('AGN NR PSE',2,2,-1,3,-1)
   call expect_control_phrase_literals()
+  call expect_atom('599 123',jtty_exch_num_atom(JTTY_ROLE_FULL,JTTY_NUM_GENERIC,123))
+  call expect_atom('123',jtty_exch_num_atom(JTTY_ROLE_FIELD_ONLY,JTTY_NUM_GENERIC,123))
+  call expect_atom('599 MA',jtty_exch_loc_atom(JTTY_ROLE_FULL,JTTY_LOC_QTH,'MA'))
+  call expect_atom('599 FN42',jtty_grid4_atom(JTTY_ROLE_FULL,'FN42'))
   ! Normalization is part of the round-trip contract for operator input.
-  call expect_pack('cq  ka1abc   cq',3,3,-1,3,-1)
+  call expect_pack('cq  ka1abc   cq',1,0,0,-1,-1)
   call expect_pack('  vp2/kf2ghi  ',2,3,-1,3,-1)
   call expect_pack('A'//char(0)//'B',1,3,-1,-1,-1)
   call expect_pack('A~B',1,3,-1,-1,-1)
@@ -88,6 +127,23 @@ program test_jtty_pack
   call expect_last_frame_flag()
 
 contains
+
+  subroutine expect_atom(text,atom)
+    character(len=*), intent(in) :: text
+    type(jtty_source_atom), intent(in) :: atom
+    character(len=80) :: input
+    character(len=34) :: frames(MAX_FRAMES),expected_frame
+    integer :: nframes
+    logical :: valid
+
+    input=text
+    call pack_jtty(input,frames,nframes)
+    call pack_jtty_atom(atom,expected_frame,.true.,valid)
+    if(.not.valid .or. nframes.ne.1 .or. frames(1).ne.expected_frame) then
+       write(*,'(a)') 'Unexpected inferred atom for "'//text//'"'
+       error stop 1
+    endif
+  end subroutine expect_atom
 
   subroutine expect_control_phrase_literals()
     type(jtty_source_atom) atom
@@ -138,10 +194,11 @@ contains
 
   subroutine expect_pack(text,want_nf,want_i2a,want_n2a,want_i2b,want_n2b)
     character*(*) text
-    character*80 input,decoded,want_decoded
-    character*34 frames(MAX_FRAMES)
+    character*80 input,decoded,want_decoded,part,incremental
+    character*34 frames(MAX_FRAMES),single(MAX_FRAMES)
     integer want_nf,want_i2a,want_n2a,want_i2b,want_n2b
-    integer got_nf,got_i2a,got_n2a,got_i2b,got_n2b
+    integer got_nf,got_i2a,got_n2a,got_i2b,got_n2b,iframe
+    logical trailing_sep,is_last,valid
 
     input=''
     input=text
@@ -166,8 +223,21 @@ contains
 1210   format('Frame-count failure for "',a,'"; wanted ',i0,' got ',i0)
        error stop 1
     endif
+    incremental=''
+    do iframe=1,got_nf
+       single=''
+       single(1)=frames(iframe)
+       call unpack_jtty(single,1,part,trailing_sep,is_last,valid)
+       if(.not.valid .or. (is_last.neqv.(iframe.eq.got_nf))) error stop 'Invalid incremental frame'
+       incremental=trim(incremental)//trim(part)
+       if(trailing_sep .and. iframe.lt.got_nf) incremental=trim(incremental)//'~'
+       if(frames(iframe)(33:33).ne.'0') error stop 'Nonzero reserved bit'
+    enddo
+    call display_jtty_message(incremental)
+    if(incremental.ne.want_decoded) error stop 'Incremental text differs from whole-message text'
+    if(got_nf.eq.0) return
     read(frames(1),'(28x,2b2)') got_n2a,got_i2a
-    if(got_i2a.ne.want_i2a) then
+    if(want_i2a.ge.0 .and. got_i2a.ne.want_i2a) then
        write(*,1220) trim(input),want_i2a,got_i2a
 1220   format('First-frame i2 failure for "',a,'"; wanted ',i0,' got ',i0)
        error stop 1

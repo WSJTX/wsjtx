@@ -9,8 +9,8 @@ program test_jtty_adjacent_decode
   integer :: failures
 
   failures=0
-  call run_case('CQ KA1ABC CQ','WB9XYZ TU',3,2,failures)
-  call run_case('WB9XYZ 599 0123','WB9XYZ TU CQ KA1ABC CQ',3,5,failures)
+  call run_case('CQ KA1ABC CQ','WB9XYZ TU',1,1,failures)
+  call run_case('WB9XYZ 599 0123','WB9XYZ TU CQ KA1ABC CQ',3,2,failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_adjacent_decode: failures=',failures

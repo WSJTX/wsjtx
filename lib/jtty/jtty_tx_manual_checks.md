@@ -17,10 +17,17 @@ FIFO unit-test boundary.
 - Native macros: make a recognized template's runtime call or serial invalid
   and verify transmission is rejected rather than sent as literal text.
 - Literal fallback: customize a function-key template so it no longer matches
-  a native form and verify its expanded text uses only TEXT5 frames.
-- External text: send call-looking and `599`-prefixed strings from N1MM/MMTTY
-  and verify they remain literal TEXT5 messages. Send a complete registered
-  control phrase and verify it uses one CONTROL frame.
+  a native form and verify its expanded text is preserved by automatic packing.
+- Free entry: with MyCall K1ABC, compare F1 with typing `CQ K1ABC CQ` and
+  selecting Send message; verify the same text and one frame. Repeat with
+  `CQ K1ABC CQ CQ K1ABC CQ`, verifying two frames and unchanged spacing.
+- External text: send `CQ K1ABC CQ`, `599 123`, `599 MA`, `599 FN42`, and
+  `1D EMA` from N1MM/MMTTY; verify each uses one frame and preserves the text.
+  Send `599 001`, `599 05`, and `599 BRUCE`; verify each uses two frames and
+  preserves the text regardless of the selected contest profile.
+- Mixed text: send `HI WB9XYZ`, `TEST WB9XYZ`, and `K1ABC HELLO`; verify no
+  spaces are inserted or lost where TEXT5 and compact atoms meet. Send a
+  registered control phrase alone and embedded in a longer message.
 - Queueing: queue two native messages and verify no visible or transmitted
   TEXT5 spacing frame is inserted between them.
 - Profile exchange: exercise `%E` with default serial, FIELD_DAY class/section,

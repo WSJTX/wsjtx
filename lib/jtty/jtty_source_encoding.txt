@@ -180,20 +180,51 @@ renders "599 <GRID4>" and role=0 renders only the four-character grid.
 
 Canonical atom sequences
 
-Atoms are rendered independently, then joined with one implicit space. The
-receiver truncates the accumulated display at 80 characters. A native sender
+Structured atoms are rendered independently and supply one implicit trailing
+space; TEXT5 characters are appended verbatim. The final trailing space or
+TEXT5 padding is not part of the displayed message. The receiver truncates
+the accumulated display at 80 characters. A sender
 sets bit 33 to zero on every atom and bit 34 only on the last atom. Queuing a
 second native message does not add a TEXT5 spacing atom.
 
 Ordinary keyboard text, externally queued strings, and N1MM/MMTTY strings use
 the literal source interface. They are normalized to uppercase, leading,
 trailing, and repeated ASCII spaces are removed, and unsupported characters
-become '#'. A complete normalized message that exactly matches a registered
-CONTROL phrase is emitted as that atom. All other literal input uses TEXT5;
-call-looking text and text beginning with 599 are not silently converted to
-call or exchange atoms. The literal wrapper accepts an 80-character input
-field, so longer caller strings are truncated before normalization. The result
-is therefore at most sixteen TEXT5 frames.
+become '#'. The literal wrapper accepts an 80-character input field, so longer
+caller strings are truncated before normalization. Automatic packing minimizes
+the frame count while preserving this normalized text exactly. The result is
+at most sixteen frames because TEXT5 is always available as a fallback.
+
+Candidates at complete token boundaries are:
+
+  * All six call forms, with an exact standard-call codec round trip.
+  * Registered CONTROL phrases, including inside longer messages.
+  * Canonical unsigned decimal 0-131071 as GENERIC_NUMERIC, field-only or
+    preceded by "599 ". Leading zeros are not canonical except for "0".
+  * "599 " followed by a valid two- or three-character base-36 token
+    containing at least one letter, as full-role GENERIC_QTH. Canonical
+    base-36 length rules apply; numeric-only tokens cannot use this path.
+  * Valid GRID4, field-only or preceded by "599 ".
+  * Canonical CLASS_SECTION using the count, class, and section rules above.
+
+Every candidate must pass codec pack/unpack validation and render exactly as
+the source span. No contest profile is consulted. SERIAL, CQ_ZONE, ITU_ZONE,
+AGE, POWER, CHECK, FIRST_LICENSE_YEAR, specific location kinds, ZONE_LOC3, and
+EXCH_NUM_TIME are not inferred from ordinary text.
+
+A dynamic program over source-character offsets selects a minimum-frame
+sequence of candidates and TEXT5. An interior TEXT5 atom consumes exactly five
+characters; only the final TEXT5 atom may be padded. A structured candidate
+consumes its rendering plus one source space when another token follows,
+matching the receiver's implicit separator. Equal-cost choices prefer a
+structured atom, then the longest consumed span, then ascending atom
+kind/subtype/role. This minimizes frames under the recognition policy, not
+under hypothetical knowledge of the contest exchange's meaning.
+
+For example, "CQ K1ABC CQ", "599 123", "599 MA", "599 FN42", and "1D EMA"
+each use one frame. "599 001" and "599 05" need two frames because their
+leading zeros cannot be preserved with GENERIC_NUMERIC. "599 BRUCE" also
+needs two: STRUCT30 has no generic five-character exchange atom.
 
 The eight shipped JTTY function-key templates are a separate NativeMacro
 contract. Current templates and control phrases match after case folding and
@@ -222,9 +253,9 @@ semantic placeholders, not text substitution followed by source inference.
 
 The exact former defaults "%H 599 %N", "TU NOW %Q 599 %N", and "599 %N"
 remain recognized during migration and are replaced by their %E forms when
-still unchanged in saved settings. Edited variants are neither migrated nor
-inferred. An unrecognized customized template falls back unchanged to strict
-literal TEXT5 after normal placeholder expansion. A recognized native template
+still unchanged in saved settings. Edited variants are not migrated or matched
+as native templates. An unrecognized customized template uses automatic text
+packing after normal placeholder expansion. A recognized native template
 whose required runtime call, exchange, or grid is invalid is rejected; it
 never changes meaning by falling back to literal transmission.
 
@@ -233,9 +264,10 @@ Practical transmit subset
 The wire codec defines and validates every atom in this document. The current
 WSJT-X macro and tagged-N1MM compilers intentionally generate a smaller
 operator-facing subset: the six Call8 actions, SERIAL, RTTY STATE_PROVINCE,
-CLASS_SECTION, GRID4, and registered CONTROL phrases. Other number and location
-kinds, ZONE_LOC3, and EXCH_NUM_TIME have canonical receive rendering and remain
-available to explicit native codec callers, but are not inferred from literal
+CLASS_SECTION, GRID4, and registered CONTROL phrases. The automatic text packer
+also generates GENERIC_NUMERIC and GENERIC_QTH. Other number and location kinds,
+ZONE_LOC3, and EXCH_NUM_TIME have canonical receive rendering and remain
+available to explicit native codec callers, but are not inferred from ordinary
 text or exposed as general-purpose transmit macros in this version.
 
 Tagged N1MM TXTEXT
@@ -273,8 +305,8 @@ do not apply. It contains the exchange value only: the action supplies CQ, TU,
 TU NOW, and canonical full-exchange report text where applicable. GRID requires
 a valid four-character Maidenhead locator. CONTROL requires one exact
 registered phrase from the CONTROL table above. An untagged N1MM message uses
-the literal source interface, including the exact whole-message CONTROL
-recognition described above. A tag-shaped substring later in a message has no
+the literal source interface with automatic packing described above.
+A tag-shaped substring later in a message has no
 special meaning. An unknown or malformed leading JTTY tag, an unsupported
 action, invalid payload, or profile mismatch is rejected rather than put on
 the air as literal bracket text.
@@ -310,5 +342,6 @@ discriminator: an old receiver will render new STRUCT30 payload bits as
 arbitrary text following "599 ", while some old i2=2 frames happen to satisfy
 the new STRUCT30 structural rules and will be accepted with a different
 meaning by a new receiver. JTTY is unreleased, so this incompatibility is
-intentional and no legacy decoder mode is retained. Literal "599 ..." remains
-available through TEXT5.
+intentional and no legacy decoder mode is retained. Automatic text packing
+uses only the current grammar; unrecognized "599 ..." text remains available
+through TEXT5.

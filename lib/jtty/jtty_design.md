@@ -12,13 +12,30 @@ The receiver verifies FEC, CRC, the universal reserved-zero bit, and the complet
 
 ## Source contracts
 
-JTTY separates general operator text from typed native actions. Exact registered control phrases are the narrow case whose type is self-identifying.
+JTTY separates text-preserving automatic packing from typed native actions.
 
-Ordinary keyboard text, externally queued strings, and untagged N1MM/MMTTY text use the literal source interface. Text is folded to uppercase, whitespace is normalized, and unsupported characters become `#`. If the complete normalized message exactly matches one of the registered control phrases, it uses the corresponding CONTROL atom; all other literal input uses five-character TEXT5 frames. A call-looking string or a string beginning with `599` is still literal. The encoder does not infer contest semantics from its spelling.
+Ordinary keyboard text, `sjtty` input, externally queued strings, and untagged N1MM/MMTTY text use the literal source interface. Text is folded to uppercase, spaces are normalized, and unsupported characters become `#`. The encoder chooses the minimum-frame combination of recognized compact atoms and five-character TEXT5 frames that preserves the normalized text exactly. "Literal" describes the text contract, not a requirement to use TEXT5.
 
-The eight shipped JTTY function-key templates use a NativeMacro contract. When a default template is selected, it is compiled to typed call and exchange atoms before placeholder expansion. Native atoms provide compact transmission and unambiguous fields for future logger integration. A customized template that does not match a native form falls back unchanged to literal TEXT5. A recognized native template with invalid runtime data is rejected rather than silently transmitted with different semantics.
+The eight shipped JTTY function-key templates use a NativeMacro contract. When a default template is selected, it is compiled to typed call and exchange atoms before placeholder expansion. Native atoms provide compact transmission and unambiguous fields for future logger integration. A customized template that does not match a native form falls back to automatic text packing after normal placeholder expansion. A recognized native template with invalid runtime data is rejected rather than silently transmitted with different semantics.
 
-This boundary preserves operator intent: type literal text when typography matters, and select a native function-key action when the semantic exchange is intended.
+Earlier JTTY packing minimized frames using compact calls, a generic `599 ` plus five-character format, and TEXT5. STRUCT30 replaced that generic exchange format with richer typed atoms. Restricting ordinary input to TEXT5 avoided guessing whether `05` meant a serial, zone, or check, but also lost unambiguous callsign compaction. Automatic packing retains the minimum-frame algorithm while limiting recognition to lossless forms that need no contest profile.
+
+## Automatic text packing
+
+At complete token boundaries, the packer considers the six callsign forms below, registered control phrases (including within longer messages), and these STRUCT30 forms:
+
+| Text form | Automatic atom |
+| --- | --- |
+| Canonical unsigned decimal, optionally preceded by `599` | GENERIC_NUMERIC, 0-131071, with no leading zeros except `0` |
+| `599 <location>` | GENERIC_QTH, exactly two or three base-36 characters including at least one letter |
+| Valid four-character Maidenhead locator, optionally preceded by `599` | GRID4 |
+| `<count><class> <section>` | CLASS_SECTION, count 1-32, class A-F, registered ARRL/RAC section |
+
+Every candidate must pass the existing codec validation and render exactly as its source span. Calls must round-trip through the standard callsign codec; QTH tokens must obey the wire format's canonical length rules. Automatic packing does not infer serials, zones, checks, ages, power, license years, specific location categories, zone/location pairs, or serial/time pairs. A contest setting is not consulted.
+
+A dynamic program over character offsets selects the fewest frames under this recognition policy, rather than greedily taking the first compact form. TEXT5 consumes exactly five characters except at the end; an interior short fragment cannot be padded to reach a compact candidate because that would change the text. Structured atoms supply an implicit single space when followed by another token. Equal-cost alternatives prefer a structured atom, then the longest consumed span, then atom kind/subtype/role order.
+
+The result need not match the theoretical minimum with perfect knowledge of exchange semantics. For example, `599 001` retains its leading zeros without assuming a serial; a native serial macro can send that exchange in one frame. `599 05` also remains two frames in ordinary text. An explicit codec caller can encode it as a CQ zone in one frame, but the current GUI macros do not expose that numeric kind.
 
 ## Source grammar
 
@@ -51,7 +68,7 @@ STRUCT30 places a 27-bit family body before a three-bit family selector:
 
 The assigned fields cover serials, zones, ages, power, checks, four-digit first-license years, generic numbers, two- or three-character locations, zone/location pairs, Field Day class/section pairs, serial/time pairs, GRID4, and 18 common control phrases. Native values render canonically: serials use at least three digits, zones and checks at least two, UTC time exactly four, and license years exactly four. A full exchange adds `599`; a field-only atom omits it. Decimal width, separator style, `5NN` spelling, and visible repetition do not consume wire bits.
 
-The former `i2=2` meaning, literal `599 ` followed by five characters, has been intentionally replaced by STRUCT30. There is no discriminator: old receivers display new STRUCT30 bits as `599` text, and some old type-2 frames are valid new STRUCT30 words with different meanings. JTTY is unreleased, so there is no legacy decoder mode. Literal `599 ...` text remains available through TEXT5.
+The former `i2=2` meaning, literal `599 ` followed by five characters, has been intentionally replaced by STRUCT30. There is no discriminator: old receivers display new STRUCT30 bits as `599` text, and some old type-2 frames are valid new STRUCT30 words with different meanings. JTTY is unreleased, so there is no legacy decoder mode. Automatic packing uses only the current grammar; unrecognized `599 ...` text remains available through TEXT5.
 
 ## Native function keys
 
@@ -75,7 +92,7 @@ Keyboard shortcuts and the clickable F1-F8 buttons select the same actions. Nati
 
 `%E` parses the selected contest profile: the default is a decimal serial, FIELD_DAY is exactly `<count><class> <section>`, and RTTY is a decimal serial or canonical two- or three-character state/province. `%G` is a field-only GRID4; the exact `599 %G` template selects its full-exchange role. The exact old F2, F6, and F8 defaults using `599 %N` remain recognized during migration and are replaced only when unchanged in saved settings. Edited variants remain literal.
 
-The practical GUI and N1MM transmit subset covers Call8, serial or RTTY state/province exchanges, Field Day class/section, GRID4, and registered control phrases. The remaining normative STRUCT30 types are decoded, validated, and rendered canonically but are not inferred from text or exposed as general-purpose macros yet.
+The practical native GUI and N1MM transmit subset covers Call8, serial or RTTY state/province exchanges, Field Day class/section, GRID4, and registered control phrases. Automatic text packing additionally uses GENERIC_NUMERIC and GENERIC_QTH without assigning contest-specific meanings. Other normative STRUCT30 types are decoded, validated, and rendered canonically but are not inferred from text or exposed as general-purpose macros yet.
 
 ## Tagged N1MM actions
 
@@ -100,4 +117,19 @@ The native defaults keep the usual run sequence compact while retaining explicit
 | | `599 292` | 1 |
 | `TU KA1ABC CQ` | | 1 |
 
-Typed exchanges such as `599 05 NWT`, `599 156 1749`, and `1D EMA` fit one STRUCT30 frame. Literal input with the same visible characters uses TEXT5 and may take more frames. Strong FEC makes repeated visible fields unnecessary; when RF redundancy is desired, repeating the protected atom provides another independent synchronization, FEC, and CRC opportunity.
+Typed exchanges such as `599 05 NWT`, `599 156 1749`, and `1D EMA` fit one STRUCT30 frame. Automatic text packing recognizes `1D EMA`, but does not infer the zone/location or serial/time meanings of the other two examples. Strong FEC makes repeated visible fields unnecessary; when RF redundancy is desired, repeating the protected atom provides another independent synchronization, FEC, and CRC opportunity.
+
+These frame counts apply to ordinary text, without a native template or contest profile:
+
+| Input | Frames | Reason |
+| --- | ---: | --- |
+| `CQ K1ABC CQ` or `CQ KA1ABC CQ` | 1 | CQ call atom |
+| `WB9XYZ` | 1 | Call atom |
+| `WB9XYZ TU CQ KA1ABC CQ` | 2 | Two call atoms |
+| `WB9XYZ 599 123` | 2 | Call and generic numeric exchange |
+| `599 123` | 1 | Generic numeric exchange |
+| `599 MA` | 1 | Generic QTH exchange |
+| `599 FN42` | 1 | Full-role GRID4 |
+| `1D EMA` | 1 | Class/section pair |
+| `599 001` or `599 05` | 2 | No numeric kind is inferred to preserve leading zeros |
+| `599 BRUCE` | 2 | No current generic five-character exchange atom |

@@ -23,19 +23,74 @@ subtraction.
 
 SOURCE CONTRACTS
 
-Ordinary keyboard text, externally queued strings, and untagged N1MM/MMTTY
-text use the literal source interface. After the existing uppercase and
-whitespace normalization, a complete message that exactly matches a registered
-control phrase uses its CONTROL atom; all other literal input uses only TEXT5
-frames. Call-looking text and text beginning with "599" are not silently
-compressed or reinterpreted.
+Ordinary keyboard text, sjtty input, externally queued strings, and untagged
+N1MM/MMTTY text use the literal source interface. After uppercase and space
+normalization and replacement of unsupported characters with '#', automatic
+packing selects the minimum-frame combination of recognized compact atoms
+and TEXT5 that preserves the normalized text exactly. "Literal" describes
+the text contract, not a requirement to use TEXT5.
 
 The eight shipped JTTY function-key templates are explicit native actions.
 Their call, profile-exchange, and grid placeholders compile to typed atoms. A
-customized template that does not match a native form falls back unchanged to
-literal TEXT5. If a recognized native template has invalid runtime data,
+customized template that does not match a native form uses automatic text
+packing after normal placeholder expansion. If a recognized native template
+has invalid runtime data,
 transmission is rejected instead of changing meaning through a literal
 fallback.
+
+Earlier JTTY packing minimized frames using compact calls, a generic "599 "
+plus five-character format, and TEXT5. STRUCT30 replaced that exchange format
+with richer typed atoms. Restricting ordinary input to TEXT5 avoided guessing
+whether "05" meant a serial, zone, or check, but also lost unambiguous call
+compaction. Automatic packing retains the minimum-frame algorithm with
+lossless recognition that needs no contest profile.
+
+AUTOMATIC TEXT PACKING
+
+At complete token boundaries the packer considers:
+
+  * The six call forms below, with an exact standard-call codec round trip.
+  * Registered CONTROL phrases, including inside longer messages.
+  * Canonical unsigned decimal 0-131071 as GENERIC_NUMERIC, field-only or
+    preceded by "599 ". Leading zeros are not canonical except for "0".
+  * "599 " plus a canonical two- or three-character base-36 token containing
+    at least one letter, as GENERIC_QTH. The wire length rules apply.
+  * Valid four-character Maidenhead GRID4, field-only or preceded by "599 ".
+  * CLASS_SECTION: count 1-32, class A-F, registered ARRL/RAC section.
+
+Every candidate must pass codec pack/unpack validation and render exactly as
+its source span. No contest setting is consulted. Serial, zone, check, age,
+power, license-year, specific location, zone/location, and serial/time meanings
+are not inferred. Native actions retain explicit typed exchange semantics.
+
+A dynamic program over source-character offsets chooses the minimum number
+of frames under this recognition policy, rather than a greedy sequence.
+TEXT5 consumes exactly five characters except at the end. Interior padding
+cannot be used to reach a compact candidate because it would change the text.
+Structured candidates consume one source space after their rendered span
+when another token follows, matching the receiver's implicit separator.
+Equal-cost choices prefer a structured atom, then the longest consumed span,
+then ascending atom kind/subtype/role.
+
+This minimum need not equal the theoretical minimum with perfect knowledge
+of contest semantics. Examples for ordinary text, without a native action:
+
+--------------------------------------------------------------------------------
+Text                              Frames  Encoding or limitation
+--------------------------------------------------------------------------------
+CQ K1ABC CQ                           1    CQ call
+CQ KA1ABC CQ                          1    CQ call
+WB9XYZ                               1    Call
+WB9XYZ TU CQ KA1ABC CQ                2    Two call atoms
+WB9XYZ 599 123                        2    Call plus generic number
+599 123                              1    Generic numeric exchange
+599 MA                               1    Generic QTH exchange
+599 FN42                             1    Full-role GRID4
+1D EMA                               1    Class/section pair
+599 001                              2    Leading zeros must be preserved
+599 05                               2    No numeric kind is inferred
+599 BRUCE                            2    No generic five-character exchange
+--------------------------------------------------------------------------------
 
 SOURCE GRAMMAR
 
@@ -80,9 +135,10 @@ MISC subtypes are CONTROL and GRID4. All other IDs are invalid.
 
 Full-role fields render with a "599 " prefix; field-only fields omit it.
 Serials use at least three digits, zones and checks at least two, UTC time
-exactly four, and first-license year exactly four. Atom boundaries render
-as one implicit space. Formatting choices and visible repetitions are not
-encoded.
+exactly four, and first-license year exactly four. Structured atoms supply
+one implicit trailing space; TEXT5 characters are appended verbatim. Final
+trailing spaces and TEXT5 padding are not displayed. Formatting choices and
+visible repetitions are not encoded in typed fields.
 
 NATIVE FUNCTION KEYS
 
@@ -116,15 +172,16 @@ when unchanged in saved settings; edited variants remain literal.
 N1MM can opt into native encoding with a leading [[JTTY:<ACTION>]] marker in
 TXTEXT. Actions are CQ, CALL_EXCH, CALL_TU_CQ, MYCALL, HISCALL, TU_NOW_EXCH,
 CALL_MY, CALL_TU_MY, EXCH, GRID, and CONTROL. Untagged N1MM strings use the
-literal source interface, including exact whole-message CONTROL recognition.
+literal source interface with automatic text packing.
 Invalid or unknown tagged requests are rejected, not transmitted as bracket
 text. See jtty_source_encoding.txt and jtty_n1mm_integration.md for the payload
 grammar.
 
-The practical transmit subset is Call8, serial and RTTY state/province,
-Field Day class/section, GRID4, and registered controls. Other normative atoms
-have canonical receive decoding and rendering but are not inferred from text
-or exposed as general-purpose macros in this version.
+The practical native transmit subset is Call8, serial and RTTY state/province,
+Field Day class/section, GRID4, and registered controls. Automatic text packing
+also generates GENERIC_NUMERIC and GENERIC_QTH. Other normative atoms have
+canonical receive decoding and rendering but are not inferred from text or
+exposed as general-purpose macros in this version.
 
 The complete normative source definition, field ranges, enum assignments,
 validation rules, and binary/hex vectors are in jtty_source_encoding.txt.
@@ -134,5 +191,6 @@ COMPATIBILITY
 The old i2=2 form is intentionally incompatible with STRUCT30. There is no
 version discriminator: old receivers display new STRUCT30 bits as "599" text,
 and some old type-2 frames are valid new STRUCT30 words with different
-meanings. JTTY is unreleased, so no legacy decoder mode is retained. Exact
-literal text, including "599 ...", remains available through TEXT5.
+meanings. JTTY is unreleased, so no legacy decoder mode is retained. Automatic
+packing uses only the current grammar; unrecognized "599 ..." text remains
+available through TEXT5.

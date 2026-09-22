@@ -3,7 +3,7 @@
 # 
 # See the discussion in the accompanying jtty_n1mm_integration.md file
 # The leading [[JTTY:ACTION]] marker opts into native Call8/STRUCT30 encoding.
-# Remove the marker to send the expanded N1MM text literally with TEXT5.
+# Untagged expanded N1MM text uses text-preserving automatic compact packing.
 #
 # S&P F1 calls CQ and automatically places the program in RUN Mode
 # F2 F3 F4 F5 use "!" macro for his callsign
