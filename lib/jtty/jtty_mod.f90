@@ -4,10 +4,11 @@ module jtty_mod
 
   parameter (MAX_FRAMES=16)             !Max frames for the encoded message
   character(len=*), parameter :: JTTY_ALPHABET = ALPHABET
+  integer, parameter :: JTTY_EXCHANGE_UNKNOWN=0,JTTY_EXCHANGE_FIELD_DAY=1,JTTY_EXCHANGE_RTTY=2
 
 contains
 
-subroutine pack_jtty(message,c32,nframes)
+subroutine pack_jtty(message,c32,nframes,exchange_profile)
 
 ! Input:   character*80   message     !JTTY message, as it appears to a user
 ! Output:  character*34   c32         !34-bit payload: 32 bits of existing
@@ -19,22 +20,37 @@ subroutine pack_jtty(message,c32,nframes)
 !                                      !the CRC.
 !          integer        nframes     !Frames in this message (max = 16)
 !
-! Minimize frames without changing normalized text or guessing contest types.
+! Minimize frames after alphabet and exchange-profile normalization.
 
   use packjt77_grammar, only: pack77_arrl_section_index
   implicit none
   character*80 message,msg
   character*34 c32(MAX_FRAMES)
+  integer, intent(in), optional :: exchange_profile
   integer, parameter :: INF=999
   type(jtty_source_atom) :: choice(80),atoms(MAX_FRAMES)
-  integer :: dp(81),successor(80),n,ipos,inext,natoms,nframes
+  integer :: dp(81),successor(80),n,ipos,inext,natoms,nframes,profile
   logical valid
 
   call normalize_jtty_message(message,msg)
   message=msg
-  n=len_trim(msg)
   nframes=0
   c32=''
+  profile=JTTY_EXCHANGE_UNKNOWN
+  if(present(exchange_profile)) profile=exchange_profile
+  if(profile.lt.JTTY_EXCHANGE_UNKNOWN .or. profile.gt.JTTY_EXCHANGE_RTTY) then
+     nframes=-1
+     return
+  endif
+  if(profile.eq.JTTY_EXCHANGE_RTTY) then
+     call normalize_serials(valid)
+     if(.not.valid) then
+        nframes=-1
+        return
+     endif
+  endif
+  message=msg
+  n=len_trim(msg)
   if(n.le.0) return
 
   ! dp(i) is the minimum frame count for msg(i:n).
@@ -68,6 +84,54 @@ subroutine pack_jtty(message,c32,nframes)
   endif
 
 contains
+
+  subroutine normalize_serials(ok)
+    logical, intent(out) :: ok
+    character(len=160) :: result
+    character(len=80) :: rendered
+    integer :: first,last,next,last_field,value,length
+    logical :: numeric
+
+    result=''
+    first=1
+    length=len_trim(msg)
+    do while(first.le.length)
+       last=index(msg(first:length),' ')
+       if(last.eq.0) then
+          last=length
+       else
+          last=first+last-2
+       endif
+       rendered=msg(first:last)
+       next=last+2
+       if(rendered.eq.'599' .and. next.le.length) then
+          last_field=index(msg(next:length),' ')
+          if(last_field.eq.0) then
+             last_field=length
+          else
+             last_field=next+last_field-2
+          endif
+          call decimal_value(msg(next:last_field),value,numeric)
+          if(numeric) then
+             call render_jtty_atom(jtty_exch_num_atom(JTTY_ROLE_FULL,JTTY_NUM_SERIAL,value),rendered,ok)
+             if(.not.ok) return
+             next=last_field+2
+          endif
+       endif
+       if(first.eq.1) then
+          result=trim(rendered)
+       else
+          result=trim(result)//' '//trim(rendered)
+       endif
+       if(len_trim(result).gt.len(msg)) then
+          ok=.false.
+          return
+       endif
+       first=next
+    enddo
+    msg=result
+    ok=.true.
+  end subroutine normalize_serials
 
   subroutine consider(atom,next)
     type(jtty_source_atom), intent(in) :: atom
@@ -160,10 +224,14 @@ contains
        length=len_trim(words(field))
        call decimal_value(trim(words(field)),value,numeric)
        if(numeric) call offer(jtty_exch_num_atom(role,JTTY_NUM_GENERIC,value))
+       if(numeric .and. role.eq.JTTY_ROLE_FULL .and. profile.eq.JTTY_EXCHANGE_RTTY) &
+            call offer(jtty_exch_num_atom(role,JTTY_NUM_SERIAL,value))
        if(length.eq.4) call offer(jtty_grid4_atom(role,words(field)(1:4)))
        if(role.ne.JTTY_ROLE_FULL .or. length.lt.2 .or. length.gt.3) cycle
        if(scan(trim(words(field)),'ABCDEFGHIJKLMNOPQRSTUVWXYZ').eq.0) cycle
        call offer(jtty_exch_loc_atom(role,JTTY_LOC_QTH,trim(words(field))))
+       if(profile.eq.JTTY_EXCHANGE_RTTY) &
+            call offer(jtty_exch_loc_atom(role,JTTY_LOC_STATE_PROVINCE,trim(words(field))))
     enddo
 
     length=len_trim(words(1))

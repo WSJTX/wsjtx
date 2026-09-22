@@ -2,7 +2,7 @@
 
 ## Summary
 
-N1MM Logger+ can send either literal JTTY text or an explicit native action. Ordinary TXTEXT uses automatic minimum-frame packing that preserves its normalized text exactly, combining recognized compact forms with TEXT5. Explicit typed exchanges use a leading `[[JTTY:<ACTION>]]` marker in the transmitted text. The marker is consumed by WSJT-X and is never put on the air.
+N1MM Logger+ can send either literal JTTY text or an explicit native action. Ordinary TXTEXT uses automatic minimum-frame packing after text and exchange-profile normalization, combining recognized compact forms with TEXT5. Explicit typed exchanges use a leading `[[JTTY:<ACTION>]]` marker in the transmitted text. The marker is consumed by WSJT-X and is never put on the air.
 
 The bundled `JTTY Messages.mc` uses tagged actions for its common Run and S&P messages. This provides compact Call8 and STRUCT30 transmission without asking WSJT-X to infer meaning from visible logger text.
 
@@ -24,10 +24,15 @@ N1MM expands logger macros before passing TXTEXT to WSJT-X. An untagged result u
 - lowercase letters become uppercase;
 - leading, trailing, and repeated spaces are removed;
 - unsupported characters become `#`;
+- explicit RTTY Roundup canonicalizes eligible report-prefixed decimal serials;
 - recognized calls, control phrases, generic numbers, full generic QTH exchanges, grids, and class/section pairs compete with TEXT5 for the minimum frame count;
 - every compact candidate must preserve its source text exactly after normalization.
 
-`CQ N9ADG CQ`, `N9ADG`, `599 123`, `599 MA`, `599 FN42`, and `1D EMA` each use one frame without a tag. Recognition works at token boundaries inside longer messages as well. It does not infer contest-specific meanings: `599 05` and `599 001` retain their leading zeros and take two frames. Tagged exchanges can be more compact when their type is explicitly supplied. The full recognition policy and spacing constraints are in [`jtty_design.md`](jtty_design.md).
+`CQ N9ADG CQ`, `N9ADG`, `599 123`, `599 MA`, `599 FN42`, and `1D EMA` each use one frame without a tag. Recognition works at token boundaries inside longer messages as well. The existing special operating activity supplies a profile captured when each message is submitted. No activity selects Unknown, even though native macros default to serials. Field Day uses the same context-free candidates as Unknown.
+
+RTTY Roundup additionally recognizes full `599 <number>` SERIAL and full `599 <location>` STATE_PROVINCE exchanges under the native rules; locations must contain a letter. Before packing, decimal tokens following a complete `599` token are normalized as serials: `599 05` becomes `599 005`, and `599 0123` becomes `599 123`, each in one frame. Eligible tokens have one to six digits and value 0-131071. Unsupported tokens keep their spelling for normal fallback. `599 001` takes one frame in RTTY Roundup and two otherwise, and `K1ABC 599 001` takes two in RTTY Roundup.
+
+Bare digits and all Unknown or Field Day input retain their spelling after ordinary text normalization. Every compact candidate must exactly match the resulting normalized text. The canonical message is returned to the GUI for display and logging; expansion beyond 80 characters is rejected rather than truncated. Tagged exchanges retain explicit type semantics. The full recognition policy and spacing constraints are in [`jtty_design.md`](jtty_design.md).
 
 The former `i2=2` shortcut for literal `599 ` plus five characters has been replaced by STRUCT30. There is no compatibility discriminator: an old receiver displays new STRUCT30 bits as `599` text, and some old type-2 frames are valid new STRUCT30 words with a different meaning. JTTY is unreleased, so no legacy decoder mode is retained.
 
@@ -74,7 +79,7 @@ local WSJT-X RTTY `%E` configuration.
 
 `GRID` accepts exactly one valid four-character Maidenhead locator. `CONTROL` accepts exactly one of the 18 registered phrases, including spaces and punctuation where shown in `jtty_source_encoding.txt`.
 
-An unknown or malformed leading JTTY marker, unsupported action, missing field, invalid call, invalid profile exchange, invalid grid, or unregistered control phrase is rejected. It never falls back to literal transmission. Untagged messages, including customized N1MM macros, use automatic text packing without consulting the contest profile. A tag-shaped substring later in the text is just literal text.
+An unknown or malformed leading JTTY marker, unsupported action, missing field, invalid call, invalid profile exchange, invalid grid, or unregistered control phrase is rejected. It never falls back to literal transmission. Untagged messages, including customized N1MM macros, use automatic text packing with the exchange profile captured at submission. A tag-shaped substring later in the text is just literal text.
 
 An all-rejected transaction receives `OUTPUTCOMPLETE` at `XMIT OFF`. When a transaction also contains accepted or pending audio, completion waits until that audio has drained. `ABORT` clears the transaction without reporting a successful output completion.
 

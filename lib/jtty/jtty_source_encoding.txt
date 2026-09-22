@@ -192,7 +192,8 @@ the literal source interface. They are normalized to uppercase, leading,
 trailing, and repeated ASCII spaces are removed, and unsupported characters
 become '#'. The literal wrapper accepts an 80-character input field, so longer
 caller strings are truncated before normalization. Automatic packing minimizes
-the frame count while preserving this normalized text exactly. The result is
+the frame count while preserving this text exactly after any explicit RTTY
+Roundup serial normalization described below. The result is
 at most sixteen frames because TEXT5 is always available as a fallback.
 
 Candidates at complete token boundaries are:
@@ -208,9 +209,30 @@ Candidates at complete token boundaries are:
   * Canonical CLASS_SECTION using the count, class, and section rules above.
 
 Every candidate must pass codec pack/unpack validation and render exactly as
-the source span. No contest profile is consulted. SERIAL, CQ_ZONE, ITU_ZONE,
-AGE, POWER, CHECK, FIRST_LICENSE_YEAR, specific location kinds, ZONE_LOC3, and
-EXCH_NUM_TIME are not inferred from ordinary text.
+its span in the normalized text. These context-free candidates remain
+available under every
+exchange profile. The GUI captures Unknown, Field Day, or RTTY Roundup from
+the existing special operating activity when a message is submitted. No
+activity means Unknown; the native macro default of SERIAL does not apply to
+automatic text recognition. Field Day adds no candidates because CLASS_SECTION
+is already self-identifying.
+
+RTTY Roundup additionally considers full "599 <number>" as SERIAL and full
+"599 <location>" as STATE_PROVINCE under the existing native exchange rules.
+Location tokens must contain at least one letter. Before the shared packing
+algorithm, explicit RTTY Roundup canonicalizes decimal tokens following a
+complete "599" token to the SERIAL spelling (at least three digits). Eligible
+tokens have one to six digits and value 0-131071. Unsupported tokens keep their
+spelling and use normal fallback. Bare digits and Unknown or Field Day input
+retain their spelling after ordinary text normalization. The canonical message
+is returned to the GUI for display and logging. A canonical result exceeding
+80 characters is rejected rather than truncated.
+
+The exact-render requirement applies to this profile-normalized text, and no
+bare number is inferred as SERIAL. CQ_ZONE, ITU_ZONE,
+AGE, POWER, CHECK, FIRST_LICENSE_YEAR, other specific location kinds,
+ZONE_LOC3, and EXCH_NUM_TIME are not inferred from ordinary text. The profile
+is per-message encoder context, not a new configuration or wire field.
 
 A dynamic program over source-character offsets selects a minimum-frame
 sequence of candidates and TEXT5. An interior TEXT5 atom consumes exactly five
@@ -218,13 +240,24 @@ characters; only the final TEXT5 atom may be padded. A structured candidate
 consumes its rendering plus one source space when another token follows,
 matching the receiver's implicit separator. Equal-cost choices prefer a
 structured atom, then the longest consumed span, then ascending atom
-kind/subtype/role. This minimizes frames under the recognition policy, not
+kind/subtype/role. Thus equally compact SERIAL and STATE_PROVINCE candidates
+win over their generic equivalents under RTTY Roundup. This minimizes frames
+under the recognition policy, not
 under hypothetical knowledge of the contest exchange's meaning.
 
 For example, "CQ K1ABC CQ", "599 123", "599 MA", "599 FN42", and "1D EMA"
-each use one frame. "599 001" and "599 05" need two frames because their
-leading zeros cannot be preserved with GENERIC_NUMERIC. "599 BRUCE" also
-needs two: STRUCT30 has no generic five-character exchange atom.
+each use one frame. Under Unknown or Field Day, "599 001" and "599 05" need
+two frames because their leading zeros cannot be preserved with GENERIC_NUMERIC.
+Under RTTY Roundup, "599 001" uses one SERIAL frame and "K1ABC 599 001" uses
+two frames. Under RTTY Roundup, "599 05" becomes "599 005" and "599 0123"
+becomes "599 123", each using one SERIAL frame. Under Unknown or Field Day
+they retain their spelling and use two frames. "599 BRUCE" also needs two:
+STRUCT30 has no generic five-character exchange atom.
+
+sjtty defaults to Unknown. The optional leading argument
+--exchange-profile=unknown|field-day|rtty-roundup applies to both its
+one-message packing and eight-argument waveform invocations. An invalid
+profile value is an error.
 
 The eight shipped JTTY function-key templates are a separate NativeMacro
 contract. Current templates and control phrases match after case folding and

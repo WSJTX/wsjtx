@@ -17,14 +17,29 @@ FIFO unit-test boundary.
 - Native macros: make a recognized template's runtime call or serial invalid
   and verify transmission is rejected rather than sent as literal text.
 - Literal fallback: customize a function-key template so it no longer matches
-  a native form and verify its expanded text is preserved by automatic packing.
+  a native form and verify automatic packing preserves its expanded text after
+  the selected profile's normalization.
 - Free entry: with MyCall K1ABC, compare F1 with typing `CQ K1ABC CQ` and
   selecting Send message; verify the same text and one frame. Repeat with
   `CQ K1ABC CQ CQ K1ABC CQ`, verifying two frames and unchanged spacing.
 - External text: send `CQ K1ABC CQ`, `599 123`, `599 MA`, `599 FN42`, and
   `1D EMA` from N1MM/MMTTY; verify each uses one frame and preserves the text.
-  Send `599 001`, `599 05`, and `599 BRUCE`; verify each uses two frames and
-  preserves the text regardless of the selected contest profile.
+  With no special activity or with Field Day, send `599 001`, `599 05`, and
+  `599 BRUCE`; verify each uses two frames and preserves the text.
+- Automatic profile: select RTTY Roundup and send `599 001` and
+  `K1ABC 599 001`; verify one and two frames respectively. Verify `599 123`
+  and `599 MA` use SERIAL and STATE_PROVINCE rather than generic atoms.
+  Verify `599 05` and `599 0123` become `599 005` and `599 123`, each in one
+  frame, with the canonical text shown and logged. Verify bare `001` retains
+  its spelling and is not inferred as SERIAL. Verify unsupported serial
+  tokens (over six digits or above 131071) retain their spelling. Verify a
+  message whose serial normalization expands beyond 80 characters is rejected
+  rather than truncated. Submit a message, change activity
+  before it plays, and verify the submitted message retains its captured
+  profile. Repeat through untagged N1MM/MMTTY and customized macro fallback.
+- sjtty: compare default and leading `--exchange-profile=rtty-roundup` with
+  `599 001`; verify two and one frames. Exercise `unknown` and `field-day`,
+  the eight-argument waveform invocation, and rejection of an invalid value.
 - Mixed text: send `HI WB9XYZ`, `TEST WB9XYZ`, and `K1ABC HELLO`; verify no
   spaces are inserted or lost where TEXT5 and compact atoms meet. Send a
   registered control phrase alone and embedded in a longer message.

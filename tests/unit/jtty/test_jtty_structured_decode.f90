@@ -4,7 +4,7 @@ program test_jtty_structured_decode
   use iso_fortran_env, only: int16,int32
   use jtty_fec, only: is13,PAYLOAD_BITS,TOTAL_K,tbcc_encode
   use jtty_tbcc_code_profiles
-  use jtty_mdec, only: npending,pending_updates,nactive,discard_pending_updates
+  use jtty_mdec, only: npending,pending_updates,nactive,discard_pending_updates,display_message_text
   use jtty_mod, only: jtty_source_atom,jtty_source_atom_c,jtty_call_atom, &
        jtty_exch_num_atom,unpack_jtty,MAX_FRAMES,JTTY_CALL_CALL,JTTY_ROLE_FULL, &
        JTTY_NUM_SERIAL,JTTY_ATOM_CALL,JTTY_ATOM_EXCH_NUM,JTTY_ATOM_EXCH_LOC, &
@@ -32,6 +32,11 @@ program test_jtty_structured_decode
        integer(c_int), value :: chained
        integer(c_int) :: status
      end function jtty_cpp_cq_smoke
+     function jtty_cpp_rtty_smoke(tones,nsym) result(status) bind(C)
+       import :: c_int
+       integer(c_int), intent(out) :: tones(*),nsym
+       integer(c_int) :: status
+     end function jtty_cpp_rtty_smoke
      subroutine genjtty_atoms(atoms,natoms,itone,nsym)
        use jtty_mod, only: jtty_source_atom
        type(jtty_source_atom), intent(in) :: atoms(:)
@@ -56,6 +61,7 @@ program test_jtty_structured_decode
   call reject_invalid_c_descriptors(failures)
   call decode_cpp_compiled_n1mm(failures)
   call decode_compact_text(failures)
+  call decode_profile_text(failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_structured_decode: failures=',failures
@@ -64,6 +70,23 @@ program test_jtty_structured_decode
   write(*,'(a)') 'test_jtty_structured_decode: all checks passed'
 
 contains
+
+  subroutine decode_profile_text(count)
+    integer, intent(inout) :: count
+    integer(c_int) :: tones(MAX_FRAMES*frame_symbols),nsymbols,status
+
+    status=jtty_cpp_rtty_smoke(tones,nsymbols)
+    call expect(status.eq.JTTY_ENCODE_OK .and. nsymbols.eq.frame_symbols, &
+         'C++ RTTY profile text matches native F8 while unknown text uses two frames',count)
+    if(status.ne.JTTY_ENCODE_OK .or. nsymbols.ne.frame_symbols) return
+    call decode_waveform(tones,int(nsymbols))
+    call expect(npending.eq.1,'RTTY serial text produces one update',count)
+    if(npending.eq.1) then
+       call expect(trim(normalized(pending_updates(1)%decoded)).eq.'599 123' .and. &
+            pending_updates(1)%complete .and. nactive.eq.0, &
+            'RTTY serial text uses canonical rendering and completes',count)
+    endif
+  end subroutine decode_profile_text
 
   subroutine decode_compact_text(count)
     integer, intent(inout) :: count
@@ -290,12 +313,7 @@ contains
   function normalized(value) result(result_value)
     character(len=*), intent(in) :: value
     character(len=80) :: result_value
-    integer :: i
-
-    result_value=adjustl(value)
-    do i=1,len_trim(result_value)
-       if(result_value(i:i).eq.'~') result_value(i:i)=' '
-    enddo
+    result_value=display_message_text(value)
   end function normalized
 
   subroutine expect(condition,description,count)

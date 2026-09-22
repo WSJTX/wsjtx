@@ -19,6 +19,8 @@ program sjtty
   character*12 arg                  !Command line argument
   character*2 arg4                  !The 4th command-line argument
   character*80 umsg                 !User-formatted message
+  character(len=80) :: profile_option
+  integer :: exchange_profile,arg_offset
   character*40 fname                !Output file name
   character*34 c32(16)
   complex, allocatable :: cwave(:)  !Complex generated waveform (12000 Hz)
@@ -33,9 +35,30 @@ program sjtty
   logical itu_model                 !True if fdop, delay are from an ITU model
 
   nargs=iargc()
+  exchange_profile=JTTY_EXCHANGE_UNKNOWN
+  arg_offset=0
+  if(nargs.gt.0) then
+     call getarg(1,profile_option)
+     if(index(profile_option,'--exchange-profile=').eq.1) then
+        select case(trim(profile_option(20:)))
+        case('unknown'); exchange_profile=JTTY_EXCHANGE_UNKNOWN
+        case('field-day'); exchange_profile=JTTY_EXCHANGE_FIELD_DAY
+        case('rtty-roundup'); exchange_profile=JTTY_EXCHANGE_RTTY
+        case default
+           print*,'Invalid exchange profile: use unknown, field-day, or rtty-roundup'
+           stop 1
+        end select
+        arg_offset=1
+        nargs=nargs-1
+     endif
+  endif
   if(nargs.eq.1) then
-    call getarg(1,umsg)
-    call pack_jtty(umsg,c32,nframes)
+    call getarg(1+arg_offset,umsg)
+    call pack_jtty(umsg,c32,nframes,exchange_profile)
+    if(nframes.lt.0) then
+       print*,'Message exceeds JTTY encoding limits after exchange normalization'
+       stop 1
+    endif
     call unpack_jtty(c32,nframes,umsg)
     do while (index(umsg,'~') .ne. 0) 
       i1=index(umsg,'~')
@@ -57,17 +80,18 @@ program sjtty
      print*,'or'
      print*,'Usage:     sjtty       message     f0   DT fdop del nsps  nfiles SNR'
      print*,'Example:   sjtty    "CQ K1ABC CQ" 1500 0.0  0.5  1   384    10   -10'
+     print*,'Optional first argument: --exchange-profile=unknown|field-day|rtty-roundup'
      print*,'ITU propagation models: set fdop to AW LQ LM LD MQ MM MD HQ HM HD'
      print*,'nsps: 240, 320, 384, or 480'
      go to 999
   endif
 
-  call getarg(1,umsg)                    !User message
-  call getarg(2,arg)
+  call getarg(1+arg_offset,umsg)          !User message
+  call getarg(2+arg_offset,arg)
   read(arg,*) f0                         !Frequency of lowest tone
-  call getarg(3,arg)
+  call getarg(3+arg_offset,arg)
   read(arg,*) xdt                        !Time offset (positive only)
-  call getarg(4,arg)
+  call getarg(4+arg_offset,arg)
   itu_model=.true.
   arg4=arg(1:2)
   if(arg(1:2).eq.'LQ') then              !ITU params for Low Latitude Quiet
@@ -103,18 +127,18 @@ program sjtty
   else
      itu_model=.false.
      read(arg,*) fspread                 !Watterson frequency spread (Hz)
-     call getarg(5,arg)
+     call getarg(5+arg_offset,arg)
      read(arg,*) delay                   !Watterson delay (ms)
   endif
-  call getarg(6,arg)
+  call getarg(6+arg_offset,arg)
   read(arg,*) nsps                     !Number of files
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) then
      print*,'nsps: 240, 320, 384, or 480'
      stop
   endif
-  call getarg(7,arg)
+  call getarg(7+arg_offset,arg)
   read(arg,*) nfiles                     !Number of files
-  call getarg(8,arg)
+  call getarg(8+arg_offset,arg)
   read(arg,*) snrdb                      !SNR in 2500 Hz bandwidth
 
   fsample=12000.0
@@ -129,7 +153,11 @@ program sjtty
   bw=4.0*baud                      !Signal bandwidth
   hmod=1.0                         !Modulation index
 
-  call pack_jtty(umsg,c32,nframes)
+  call pack_jtty(umsg,c32,nframes,exchange_profile)
+  if(nframes.lt.0) then
+     print*,'Message exceeds JTTY encoding limits after exchange normalization'
+     stop 1
+  endif
   nsym=0
   do i=1,nframes
     read(c32(i),'(34i1)') payload

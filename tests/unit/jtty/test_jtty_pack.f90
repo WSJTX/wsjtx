@@ -111,6 +111,7 @@ program test_jtty_pack
   call expect_atom('123',jtty_exch_num_atom(JTTY_ROLE_FIELD_ONLY,JTTY_NUM_GENERIC,123))
   call expect_atom('599 MA',jtty_exch_loc_atom(JTTY_ROLE_FULL,JTTY_LOC_QTH,'MA'))
   call expect_atom('599 FN42',jtty_grid4_atom(JTTY_ROLE_FULL,'FN42'))
+  call expect_exchange_profiles()
   ! Normalization is part of the round-trip contract for operator input.
   call expect_pack('cq  ka1abc   cq',1,0,0,-1,-1)
   call expect_pack('  vp2/kf2ghi  ',2,3,-1,3,-1)
@@ -128,22 +129,87 @@ program test_jtty_pack
 
 contains
 
-  subroutine expect_atom(text,atom)
+  subroutine expect_atom(text,atom,exchange_profile)
     character(len=*), intent(in) :: text
     type(jtty_source_atom), intent(in) :: atom
+    integer, intent(in), optional :: exchange_profile
     character(len=80) :: input
     character(len=34) :: frames(MAX_FRAMES),expected_frame
     integer :: nframes
     logical :: valid
 
     input=text
-    call pack_jtty(input,frames,nframes)
+    call pack_jtty(input,frames,nframes,exchange_profile)
     call pack_jtty_atom(atom,expected_frame,.true.,valid)
     if(.not.valid .or. nframes.ne.1 .or. frames(1).ne.expected_frame) then
        write(*,'(a)') 'Unexpected inferred atom for "'//text//'"'
        error stop 1
     endif
   end subroutine expect_atom
+
+  subroutine expect_exchange_profiles()
+    character(len=80), parameter :: examples(*)=[character(len=80) :: &
+         '599 001','K1ABC 599 001','599 05','599 0123','001','599 123', &
+         '599 MA','599 131071','599 0AB','1D EMA','CQ K1ABC CQ','K1A A']
+    character(len=80) :: input,decoded
+    character(len=34) :: baseline(MAX_FRAMES),frames(MAX_FRAMES)
+    integer :: i,profile,baseline_nf,nframes
+
+    call expect_pack('599 001',1,2,-1,-1,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('K1ABC 599 001',2,0,1,2,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('K1ABC 599 001',3,0,1,-1,-1,JTTY_EXCHANGE_UNKNOWN)
+    call expect_pack('599 05',1,2,-1,-1,-1,JTTY_EXCHANGE_RTTY,'599 005')
+    call expect_pack('599 0123',1,2,-1,-1,-1,JTTY_EXCHANGE_RTTY,'599 123')
+    call expect_pack('K1ABC 599 05 QSL TU',3,0,1,2,-1,JTTY_EXCHANGE_RTTY,'K1ABC 599 005 QSL TU')
+    call expect_pack('599 05 599 0123',2,2,-1,2,-1,JTTY_EXCHANGE_RTTY,'599 005 599 123')
+    call expect_pack('599 000005',1,2,-1,-1,-1,JTTY_EXCHANGE_RTTY,'599 005')
+    call expect_pack('599 0',1,2,-1,-1,-1,JTTY_EXCHANGE_RTTY,'599 000')
+    call expect_pack('599 0000005',3,-1,-1,-1,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('599 131072',2,-1,-1,-1,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('599 05A',2,-1,-1,-1,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('A599 05',2,3,-1,3,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('599 05!',2,-1,-1,-1,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('05',1,3,-1,-1,-1,JTTY_EXCHANGE_RTTY)
+    call expect_pack('599 05',2,-1,-1,-1,-1,JTTY_EXCHANGE_FIELD_DAY)
+    call expect_pack(repeat('A',72)//' 599 05',16,3,-1,3,-1,JTTY_EXCHANGE_RTTY, &
+         repeat('A',72)//' 599 005')
+    call expect_pack(repeat('A',64)//' 599 05 599 0123',15,3,-1,3,-1,JTTY_EXCHANGE_RTTY, &
+         repeat('A',64)//' 599 005 599 123')
+    call expect_pack('001',1,3,-1,-1,-1,JTTY_EXCHANGE_RTTY)
+    call expect_atom('599 001',jtty_exch_num_atom(JTTY_ROLE_FULL,JTTY_NUM_SERIAL,1),JTTY_EXCHANGE_RTTY)
+    call expect_atom('599 123',jtty_exch_num_atom(JTTY_ROLE_FULL,JTTY_NUM_SERIAL,123),JTTY_EXCHANGE_RTTY)
+    call expect_atom('599 MA',jtty_exch_loc_atom(JTTY_ROLE_FULL,JTTY_LOC_STATE_PROVINCE,'MA'),JTTY_EXCHANGE_RTTY)
+    call expect_atom('123',jtty_exch_num_atom(JTTY_ROLE_FIELD_ONLY,JTTY_NUM_GENERIC,123),JTTY_EXCHANGE_RTTY)
+    call expect_atom('599 123',jtty_exch_num_atom(JTTY_ROLE_FULL,JTTY_NUM_GENERIC,123),JTTY_EXCHANGE_FIELD_DAY)
+    call expect_atom('599 MA',jtty_exch_loc_atom(JTTY_ROLE_FULL,JTTY_LOC_QTH,'MA'),JTTY_EXCHANGE_FIELD_DAY)
+
+    do i=1,size(examples)
+       input=examples(i)
+       call pack_jtty(input,baseline,baseline_nf)
+       do profile=JTTY_EXCHANGE_UNKNOWN,JTTY_EXCHANGE_RTTY
+          input=examples(i)
+          call pack_jtty(input,frames,nframes,profile)
+          if(nframes.lt.1 .or. nframes.gt.baseline_nf) error stop 'Profile worsened frame count'
+          if(profile.ne.JTTY_EXCHANGE_RTTY) then
+             if(nframes.ne.baseline_nf .or. any(frames.ne.baseline)) error stop 'Unexpected non-RTTY inference'
+          endif
+          call unpack_jtty(frames,nframes,decoded)
+          call display_jtty_message(decoded)
+          if(decoded.ne.input) error stop 'Profile changed rendered text'
+       enddo
+       input=examples(i)
+       call pack_jtty(input,frames,nframes)
+       if(nframes.ne.baseline_nf .or. any(frames.ne.baseline)) error stop 'Profile leaked between calls'
+    enddo
+    input='599 001'
+    call pack_jtty(input,frames,nframes,-1)
+    if(nframes.ne.-1 .or. any(frames.ne.'')) error stop 'Accepted invalid negative profile'
+    call pack_jtty(input,frames,nframes,JTTY_EXCHANGE_RTTY+1)
+    if(nframes.ne.-1 .or. any(frames.ne.'')) error stop 'Accepted unknown profile'
+    input=repeat('A',73)//' 599 05'
+    call pack_jtty(input,frames,nframes,JTTY_EXCHANGE_RTTY)
+    if(nframes.ne.-1 .or. any(frames.ne.'')) error stop 'Accepted canonical text exceeding 80 characters'
+  end subroutine expect_exchange_profiles
 
   subroutine expect_control_phrase_literals()
     type(jtty_source_atom) atom
@@ -192,19 +258,23 @@ contains
     enddo
   end subroutine display_jtty_message
 
-  subroutine expect_pack(text,want_nf,want_i2a,want_n2a,want_i2b,want_n2b)
+  subroutine expect_pack(text,want_nf,want_i2a,want_n2a,want_i2b,want_n2b,exchange_profile,canonical_text)
     character*(*) text
     character*80 input,decoded,want_decoded,part,incremental
     character*34 frames(MAX_FRAMES),single(MAX_FRAMES)
     integer want_nf,want_i2a,want_n2a,want_i2b,want_n2b
+    integer, intent(in), optional :: exchange_profile
+    character(len=*), intent(in), optional :: canonical_text
     integer got_nf,got_i2a,got_n2a,got_i2b,got_n2b,iframe
     logical trailing_sep,is_last,valid
 
     input=''
     input=text
     call normalize_jtty_message(input,want_decoded)
+    if(present(canonical_text)) want_decoded=canonical_text
     frames=''
-    call pack_jtty(input,frames,got_nf)
+    call pack_jtty(input,frames,got_nf,exchange_profile)
+    if(input.ne.want_decoded) error stop 'Returned message differs from canonical text'
     if(got_nf.lt.0) then
        write(*,1195) trim(input)
 1195   format('Unexpected pack failure for "',a,'"')

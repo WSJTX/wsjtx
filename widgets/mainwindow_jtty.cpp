@@ -24,6 +24,18 @@ extern qint32 g_iptt;
 
 namespace
 {
+  Jtty::NativeExchangeProfile jttyExchangeProfile(Configuration const& configuration)
+  {
+    switch (configuration.special_op_id()) {
+    case Configuration::SpecialOperatingActivity::FIELD_DAY:
+      return Jtty::NativeExchangeProfile::FieldDay;
+    case Configuration::SpecialOperatingActivity::RTTY:
+      return Jtty::NativeExchangeProfile::RttyRoundup;
+    default:
+      return Jtty::NativeExchangeProfile::None;
+    }
+  }
+
   Jtty::NativeMacroContext jttyNativeMacroContext(
       Configuration const& configuration, QString const& hisCall, int serialNumber)
   {
@@ -32,15 +44,14 @@ namespace
     context.hisCall = hisCall;
     context.serialNumber = serialNumber;
     context.grid = configuration.my_grid();
+    context.exchangeProfile = jttyExchangeProfile(configuration);
 
-    switch (configuration.special_op_id()) {
-    case Configuration::SpecialOperatingActivity::FIELD_DAY:
-      context.exchangeProfile = Jtty::NativeExchangeProfile::FieldDay;
+    switch (context.exchangeProfile) {
+    case Jtty::NativeExchangeProfile::FieldDay:
       context.configuredExchange = Jtty::normalizedFieldDayExchange(
         configuration.Field_Day_Exchange());
       break;
-    case Configuration::SpecialOperatingActivity::RTTY:
-      context.exchangeProfile = Jtty::NativeExchangeProfile::RttyRoundup;
+    case Jtty::NativeExchangeProfile::RttyRoundup:
       context.configuredExchange = configuration.RTTY_Exchange();
       break;
     default:
@@ -86,7 +97,8 @@ extern "C" {
                          float frequencies[], float start_tsync[], bool eom[],
                          int* count, fortran_charlen_t);
 
-  void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
+  void genjtty_profile_(char * msg, int const* exchange_profile,
+                       int itone[], int* nsym, fortran_charlen_t);
   void genjtty_atoms_c(Jtty::NativeAtomDescriptor const atoms[], int natoms,
                        int itone[], int* nsym, int* status);
 
@@ -428,16 +440,19 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
   // Keep message as the logical text; the chained leading space is only
   // transport spacing and must not leak into logging, display, or the contest
   // serial check in completeJttyTxEnqueue.
-  QString const transmitFrame = Jtty::transmitFrame(message, isChainedMessage);
+  auto transmitFrame = Jtty::transmitFrame(message, isChainedMessage).toLatin1();
 
   int nsym=0;
-  genjtty_(transmitFrame.toLatin1().constData(), &itone[0], &nsym, (FCL)80);
+  int const exchangeProfile = static_cast<int>(jttyExchangeProfile(m_config));
+  genjtty_profile_(transmitFrame.data(), &exchangeProfile,
+                   &itone[0], &nsym, (FCL)80);
   if (nsym <= 0) {
     LOG_WARN("JTTY transmit message could not be encoded");
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
     return;
   }
 
+  message = QString::fromLatin1(transmitFrame).trimmed();
   execute_jtty_tones(requestId, message, itone, nsym);
 }
 

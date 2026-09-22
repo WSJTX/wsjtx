@@ -93,9 +93,10 @@ namespace Jtty
 
   enum class NativeExchangeProfile
   {
-    None,
-    FieldDay,
-    RttyRoundup
+    // Shared with the Fortran text packer; None leaves text inference unprofiled.
+    None = 0,
+    FieldDay = 1,
+    RttyRoundup = 2
   };
 
   struct NativeAtomDescriptor

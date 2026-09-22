@@ -12,13 +12,13 @@ The receiver verifies FEC, CRC, the universal reserved-zero bit, and the complet
 
 ## Source contracts
 
-JTTY separates text-preserving automatic packing from typed native actions.
+JTTY separates automatic text packing from typed native actions.
 
-Ordinary keyboard text, `sjtty` input, externally queued strings, and untagged N1MM/MMTTY text use the literal source interface. Text is folded to uppercase, spaces are normalized, and unsupported characters become `#`. The encoder chooses the minimum-frame combination of recognized compact atoms and five-character TEXT5 frames that preserves the normalized text exactly. "Literal" describes the text contract, not a requirement to use TEXT5.
+Ordinary keyboard text, `sjtty` input, externally queued strings, and untagged N1MM/MMTTY text use the literal source interface. Text is folded to uppercase, spaces are normalized, and unsupported characters become `#`. The explicit RTTY Roundup profile also canonicalizes report-prefixed serials as described below. The encoder chooses the minimum-frame combination of recognized compact atoms and five-character TEXT5 frames that preserves the resulting normalized text exactly. "Literal" identifies the text interface, not a requirement to use TEXT5 or bypass profile normalization.
 
 The eight shipped JTTY function-key templates use a NativeMacro contract. When a default template is selected, it is compiled to typed call and exchange atoms before placeholder expansion. Native atoms provide compact transmission and unambiguous fields for future logger integration. A customized template that does not match a native form falls back to automatic text packing after normal placeholder expansion. A recognized native template with invalid runtime data is rejected rather than silently transmitted with different semantics.
 
-Earlier JTTY packing minimized frames using compact calls, a generic `599 ` plus five-character format, and TEXT5. STRUCT30 replaced that generic exchange format with richer typed atoms. Restricting ordinary input to TEXT5 avoided guessing whether `05` meant a serial, zone, or check, but also lost unambiguous callsign compaction. Automatic packing retains the minimum-frame algorithm while limiting recognition to lossless forms that need no contest profile.
+Earlier JTTY packing minimized frames using compact calls, a generic `599 ` plus five-character format, and TEXT5. STRUCT30 replaced that generic exchange format with richer typed atoms. Restricting ordinary input to TEXT5 avoided guessing whether `05` meant a serial, zone, or check, but also lost unambiguous callsign compaction. Automatic packing retains the minimum-frame algorithm, with context-free recognition and an explicit exchange profile that can normalize serials and enable additional typed candidates.
 
 ## Automatic text packing
 
@@ -31,11 +31,19 @@ At complete token boundaries, the packer considers the six callsign forms below,
 | Valid four-character Maidenhead locator, optionally preceded by `599` | GRID4 |
 | `<count><class> <section>` | CLASS_SECTION, count 1-32, class A-F, registered ARRL/RAC section |
 
-Every candidate must pass the existing codec validation and render exactly as its source span. Calls must round-trip through the standard callsign codec; QTH tokens must obey the wire format's canonical length rules. Automatic packing does not infer serials, zones, checks, ages, power, license years, specific location categories, zone/location pairs, or serial/time pairs. A contest setting is not consulted.
+Every candidate must pass the existing codec validation and render exactly as its span in the normalized text. Calls must round-trip through the standard callsign codec; QTH tokens must obey the wire format's canonical length rules.
+
+The GUI captures an exchange profile from the existing special operating activity when each message is submitted: Unknown, Field Day, or RTTY Roundup. No activity means Unknown even though native macros default to serial exchanges. All profiles retain the context-free candidates above. Only RTTY Roundup adds candidates: full `599 <number>` as SERIAL and full `599 <location>` as STATE_PROVINCE, using the native exchange rules and requiring a location token to contain a letter. Bare numbers are never inferred as serials. Field Day adds no candidates because class/section syntax is already self-identifying. No new configuration or wire format is needed.
+
+Zones, checks, ages, power, license years, other specific location categories, zone/location pairs, and serial/time pairs are not inferred. Under RTTY Roundup, equally compact serial or state/province candidates take precedence over their generic equivalents through the subtype ordering below.
 
 A dynamic program over character offsets selects the fewest frames under this recognition policy, rather than greedily taking the first compact form. TEXT5 consumes exactly five characters except at the end; an interior short fragment cannot be padded to reach a compact candidate because that would change the text. Structured atoms supply an implicit single space when followed by another token. Equal-cost alternatives prefer a structured atom, then the longest consumed span, then atom kind/subtype/role order.
 
-The result need not match the theoretical minimum with perfect knowledge of exchange semantics. For example, `599 001` retains its leading zeros without assuming a serial; a native serial macro can send that exchange in one frame. `599 05` also remains two frames in ordinary text. An explicit codec caller can encode it as a CQ zone in one frame, but the current GUI macros do not expose that numeric kind.
+Before packing, the explicit RTTY Roundup profile canonicalizes a decimal token following a complete `599` token as a serial: `599 05` becomes `599 005`, and `599 0123` becomes `599 123`. Both use one SERIAL frame. Eligible tokens contain one to six digits with value 0-131071; unsupported tokens retain their spelling and use the normal fallback. Bare digits and all text under Unknown or Field Day retain their spelling after ordinary normalization. The canonical message is returned to the GUI for display and logging. If serial normalization expands the message beyond 80 characters, submission is rejected rather than truncating it.
+
+The result need not match the theoretical minimum with perfect knowledge of exchange semantics. Under Unknown or Field Day, `599 001` and `599 05` still take two frames. An explicit codec caller can encode `599 05` as a CQ zone in one frame, but the current GUI macros do not expose that numeric kind; RTTY Roundup explicitly selects serial meaning instead.
+
+`sjtty` defaults to Unknown. An optional leading `--exchange-profile=unknown|field-day|rtty-roundup` selects the profile for either its one-message packing invocation or its eight-argument waveform invocation. Invalid profile values are errors. For example, `sjtty --exchange-profile=rtty-roundup "599 001"` selects the one-frame serial interpretation.
 
 ## Source grammar
 
@@ -133,3 +141,5 @@ These frame counts apply to ordinary text, without a native template or contest 
 | `1D EMA` | 1 | Class/section pair |
 | `599 001` or `599 05` | 2 | No numeric kind is inferred to preserve leading zeros |
 | `599 BRUCE` | 2 | No current generic five-character exchange atom |
+
+With the RTTY Roundup profile, `599 001` takes one frame and `K1ABC 599 001` takes two. `599 05` becomes `599 005` in one frame. The other examples retain their frame counts, although `599 123` and `599 MA` use typed SERIAL and STATE_PROVINCE atoms instead of generic atoms.
