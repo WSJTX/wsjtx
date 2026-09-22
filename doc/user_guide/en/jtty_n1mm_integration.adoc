@@ -6,7 +6,7 @@ macros so they will send JTTY's contest-style messages.
 
 .Setup
 
-* Set up N1MM Logger+ (version number xxx.yyy or later) with _WSJT-X_
+* Set up N1MM Logger+ (version number 1.0.11449 released September 22, 2026 or later) with _WSJT-X_
 as you would for the FT8 mode. Follow the instructions in
 https://www.rttycontesting.com/tutorials/n1mm/operating-ww-digi-with-n1mm/[Operating WW Digi with N1MM and WSJT-X].
 
