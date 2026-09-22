@@ -1,93 +1,83 @@
 program test_jtty_tbcc_decoder
   use, intrinsic :: iso_fortran_env, only: int32, int64, real32
-  use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile, &
-       JTTY_TBCC_PROFILE_1167_1545_80F, &
-       JTTY_TBCC_PROFILE_1123_1475_22B, JTTY_TBCC_PROFILE_5363_6455_269
+  use jtty_tbcc_code_profiles, only: JTTY_TBCC_PROFILE_1167_1545_80F
   use jtty_tbcc_decoder, only: jtty_tbcc_decode, jtty_tbcc_decode_result
   use tbcc, only: PAYLOAD_BITS, TOTAL_K, tbcc_encode
   implicit none
 
   complex(real32) :: correlations(0:3, TOTAL_K), halves(0:3, TOTAL_K)
-  type(jtty_tbcc_code_profile), parameter :: profiles(3) = [ &
-       JTTY_TBCC_PROFILE_1167_1545_80F, JTTY_TBCC_PROFILE_1123_1475_22B, &
-       JTTY_TBCC_PROFILE_5363_6455_269]
   integer(int32) :: payload(PAYLOAD_BITS), decoded(PAYLOAD_BITS), tones(TOTAL_K)
   type(jtty_tbcc_decode_result) :: result
-  type(jtty_tbcc_code_profile) :: code_profile
   logical :: success
-  integer(int32) :: bit_index, profile_index
+  integer(int32) :: bit_index
 
-  do profile_index = 1, size(profiles)
-    do bit_index = 1, PAYLOAD_BITS
-      payload(bit_index) = modulo(bit_index + bit_index/3, 2)
-    end do
-    payload(33) = 0_int32
-    code_profile = profiles(profile_index)
-    halves = cmplx(0.0_real32, 0.0_real32, real32)
-    call tbcc_encode(payload, tones, code_profile)
-    call make_noiseless_correlations(tones, correlations)
-
-    call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
-    call require(success, 'coherence ladder rejected a noiseless payload')
-    call require(all(decoded == payload), 'coherence ladder changed the payload')
-    call require(result%accepted_hypothesis_rank == 1_int32, &
-         'noiseless payload was not the first hypothesis')
-    call require(result%coherent_block_length == 1_int32, &
-         'noiseless payload did not stop at one-symbol coherence')
-    call require(result%evaluated_rung_count == 1_int32, &
-         'noiseless payload evaluated unnecessary coherence rungs')
-    call require(.not.result%used_half_symbol_observation, &
-         'rank-one payload unexpectedly evaluated half-symbol fallback')
-    call require(result%exported_candidate_count <= 4_int32, &
-         'coherence ladder exposed more than four hypotheses per rung')
-
-    payload(33) = 1_int32
-    call tbcc_encode(payload, tones, code_profile)
-    call make_noiseless_correlations(tones, correlations)
-    decoded = huge(0_int32)
-    call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
-    call require(.not.success, 'coherence ladder accepted reserved bit one')
-    call require(all(decoded == 0_int32), &
-         'reserved-bit rejection left a stale payload')
-
-    halves = correlations
-    correlations = cmplx(0.0_real32, 0.0_real32, real32)
-    decoded = huge(0_int32)
-    call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
-    call require(.not.success, 'half-symbol fallback accepted reserved bit one')
-    call require(all(decoded == 0_int32), &
-         'half-symbol reserved-bit rejection left a stale payload')
-
-    payload(33) = 0_int32
-    call tbcc_encode(payload, tones, code_profile)
-    call make_noiseless_correlations(tones, halves)
-    decoded = huge(0_int32)
-    call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
-    call require(success .and. all(decoded == payload), 'half-symbol fallback failed to rescue payload')
-    call require(result%used_half_symbol_observation .and. result%coherent_block_length == 1, &
-         'half-symbol fallback used the wrong observation or coherence')
-    call require(result%evaluated_rung_count == 4, 'fallback skipped an M1 rung')
-    halves = cmplx(0.0_real32, 0.0_real32, real32)
-
-    payload = 0_int32
-    call tbcc_encode(payload, tones, code_profile)
-    call make_noiseless_correlations(tones, correlations)
-    decoded = huge(0_int32)
-    call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
-    call require(.not.success, 'coherence ladder accepted the all-zero payload')
-    call require(all(decoded == 0_int32), 'failed ladder decode left stale payload')
-    call require(result%evaluated_rung_count == 4_int32, &
-         'failed decode did not report all evaluated rungs')
-
-    correlations = cmplx(0.0_real32, 0.0_real32, real32)
-    decoded = huge(0_int32)
-    call jtty_tbcc_decode(correlations, halves, decoded, success, result, code_profile)
-    call require(.not.success, 'coherence ladder accepted flat correlations')
-    call require(all(decoded == 0_int32), 'flat-correlation decode left stale payload')
-    call require(result%evaluated_rung_count == 4_int32, &
-         'flat-correlation decode did not report all evaluated rungs')
-
+  do bit_index = 1, PAYLOAD_BITS
+    payload(bit_index) = modulo(bit_index + bit_index/3, 2)
   end do
+  payload(33) = 0_int32
+  halves = cmplx(0.0_real32, 0.0_real32, real32)
+  call tbcc_encode(payload, tones, JTTY_TBCC_PROFILE_1167_1545_80F)
+  call make_noiseless_correlations(tones, correlations)
+
+  call jtty_tbcc_decode(correlations, halves, decoded, success, result)
+  call require(success, 'coherence ladder rejected a noiseless payload')
+  call require(all(decoded == payload), 'coherence ladder changed the payload')
+  call require(result%accepted_hypothesis_rank == 1_int32, &
+       'noiseless payload was not the first hypothesis')
+  call require(result%coherent_block_length == 1_int32, &
+       'noiseless payload did not stop at one-symbol coherence')
+  call require(result%evaluated_rung_count == 1_int32, &
+       'noiseless payload evaluated unnecessary coherence rungs')
+  call require(.not.result%used_half_symbol_observation, &
+       'rank-one payload unexpectedly evaluated half-symbol fallback')
+  call require(result%exported_candidate_count <= 4_int32, &
+       'coherence ladder exposed more than four hypotheses per rung')
+
+  payload(33) = 1_int32
+  call tbcc_encode(payload, tones, JTTY_TBCC_PROFILE_1167_1545_80F)
+  call make_noiseless_correlations(tones, correlations)
+  decoded = huge(0_int32)
+  call jtty_tbcc_decode(correlations, halves, decoded, success, result)
+  call require(.not.success, 'coherence ladder accepted reserved bit one')
+  call require(all(decoded == 0_int32), &
+       'reserved-bit rejection left a stale payload')
+
+  halves = correlations
+  correlations = cmplx(0.0_real32, 0.0_real32, real32)
+  decoded = huge(0_int32)
+  call jtty_tbcc_decode(correlations, halves, decoded, success, result)
+  call require(.not.success, 'half-symbol fallback accepted reserved bit one')
+  call require(all(decoded == 0_int32), &
+       'half-symbol reserved-bit rejection left a stale payload')
+
+  payload(33) = 0_int32
+  call tbcc_encode(payload, tones, JTTY_TBCC_PROFILE_1167_1545_80F)
+  call make_noiseless_correlations(tones, halves)
+  decoded = huge(0_int32)
+  call jtty_tbcc_decode(correlations, halves, decoded, success, result)
+  call require(success .and. all(decoded == payload), 'half-symbol fallback failed to rescue payload')
+  call require(result%used_half_symbol_observation .and. result%coherent_block_length == 1, &
+       'half-symbol fallback used the wrong observation or coherence')
+  call require(result%evaluated_rung_count == 4, 'fallback skipped an M1 rung')
+  halves = cmplx(0.0_real32, 0.0_real32, real32)
+
+  payload = 0_int32
+  call tbcc_encode(payload, tones, JTTY_TBCC_PROFILE_1167_1545_80F)
+  call make_noiseless_correlations(tones, correlations)
+  decoded = huge(0_int32)
+  call jtty_tbcc_decode(correlations, halves, decoded, success, result)
+  call require(.not.success, 'coherence ladder accepted the all-zero payload')
+  call require(all(decoded == 0_int32), 'failed ladder decode left stale payload')
+  call require(result%evaluated_rung_count == 4_int32, &
+       'failed decode did not report all evaluated rungs')
+
+  correlations = cmplx(0.0_real32, 0.0_real32, real32)
+  decoded = huge(0_int32)
+  call jtty_tbcc_decode(correlations, halves, decoded, success, result)
+  call require(.not.success, 'coherence ladder accepted flat correlations')
+  call require(all(decoded == 0_int32), 'flat-correlation decode left stale payload')
+  call require(result%evaluated_rung_count == 4_int32, &
+       'flat-correlation decode did not report all evaluated rungs')
 
   call expect_coherent_decodes()
 
@@ -107,8 +97,7 @@ contains
       payload(bit) = modulo(bit + bit/3,2)
     end do
     payload(33) = 0
-    code_profile = JTTY_TBCC_PROFILE_1167_1545_80F
-    call tbcc_encode(payload,tones,code_profile)
+    call tbcc_encode(payload,tones,JTTY_TBCC_PROFILE_1167_1545_80F)
     halves = cmplx(0.0_real32,0.0_real32,real32)
     do fixture = 1, size(seeds)
       state = seeds(fixture)
@@ -123,7 +112,7 @@ contains
         correlations(tones(symbol),symbol) = correlations(tones(symbol),symbol) + &
              cmplx(0.55_real32,0.0_real32,real32)
       end do
-      call jtty_tbcc_decode(correlations,halves,decoded,success,result,code_profile)
+      call jtty_tbcc_decode(correlations,halves,decoded,success,result)
       call require(success .and. all(decoded == payload),'coherent rung failed to decode fixed payload')
       call require(result%coherent_block_length == lengths(fixture), 'coherent decode used wrong rung')
       call require(result%accepted_hypothesis_rank == ranks(fixture), 'coherent decode candidate rank changed')

@@ -1,8 +1,7 @@
 program test_jtty_tbcc_list_decoder
   use, intrinsic :: iso_fortran_env, only: int32, int64, real32, real64
   use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile, &
-       JTTY_TBCC_PROFILE_1167_1545_80F, JTTY_TBCC_PROFILE_1123_1475_22B, &
-       JTTY_TBCC_PROFILE_5363_6455_269
+       JTTY_TBCC_PROFILE_1167_1545_80F
   use tbcc, only: tbcc_encode, encode_crc12
   use jtty_tbcc_list_decoder
   implicit none
@@ -20,13 +19,10 @@ contains
   subroutine expect_optimized_reference_parity()
     integer(int32), parameter :: coherent_lengths(3) = [1_int32, 2_int32, 4_int32]
     integer(int32), parameter :: survivor_widths(2) = [1_int32, 4_int32]
-    type(jtty_tbcc_code_profile), parameter :: codes(3) = [ &
-         JTTY_TBCC_PROFILE_1167_1545_80F, JTTY_TBCC_PROFILE_1123_1475_22B, &
-         JTTY_TBCC_PROFILE_5363_6455_269]
     type(jtty_tbcc_decoder_plan) :: plan
     type(jtty_tbcc_decoder_workspace) :: workspace
     complex(real32) :: correlations(0:3, JTTY_TBCC_INFORMATION_BITS)
-    integer(int32) :: coherent_index, width_index, symbol, tone, profile, wraps
+    integer(int32) :: coherent_index, width_index, symbol, tone, wraps
 
     do symbol = 1, JTTY_TBCC_INFORMATION_BITS
       do tone = 0, 3
@@ -37,32 +33,29 @@ contains
       end do
     end do
 
-    do profile = 1, size(codes)
-      do wraps = 1, 2
-        do coherent_index = 1, size(coherent_lengths)
-          do width_index = 1, size(survivor_widths)
-            call jtty_tbcc_init_decoder_plan(plan, codes(profile), coherent_lengths(coherent_index), &
-                 survivor_widths(width_index), wraps, JTTY_TBCC_MAX_HYPOTHESES)
-            call jtty_tbcc_init_decoder_workspace(workspace, plan)
-            call expect_decode_parity(codes(profile), plan, workspace, correlations, &
-                 coherent_lengths(coherent_index), survivor_widths(width_index), wraps, .false.)
-            call expect_decode_parity(codes(profile), plan, workspace, correlations, &
-                 coherent_lengths(coherent_index), survivor_widths(width_index), wraps, .true.)
-          end do
+    do wraps = 1, 2
+      do coherent_index = 1, size(coherent_lengths)
+        do width_index = 1, size(survivor_widths)
+          call jtty_tbcc_init_decoder_plan(plan, JTTY_TBCC_PROFILE_1167_1545_80F, &
+               coherent_lengths(coherent_index), survivor_widths(width_index), wraps, &
+               JTTY_TBCC_MAX_HYPOTHESES)
+          call jtty_tbcc_init_decoder_workspace(workspace, plan)
+          call expect_decode_parity(JTTY_TBCC_PROFILE_1167_1545_80F, plan, workspace, correlations, &
+               coherent_lengths(coherent_index), survivor_widths(width_index), wraps, .false.)
+          call expect_decode_parity(JTTY_TBCC_PROFILE_1167_1545_80F, plan, workspace, correlations, &
+               coherent_lengths(coherent_index), survivor_widths(width_index), wraps, .true.)
         end do
       end do
     end do
 
     ! Equal branch energies exercise deterministic ties and wrap deduplication.
     correlations = cmplx(0.0_real32, 0.0_real32, real32)
-    do profile = 1, size(codes)
-      do width_index = 1, 4
-        call jtty_tbcc_init_decoder_plan(plan, codes(profile), 4_int32, &
-             width_index, 2_int32, JTTY_TBCC_MAX_HYPOTHESES)
-        call jtty_tbcc_init_decoder_workspace(workspace, plan)
-        call expect_decode_parity(codes(profile), plan, workspace, correlations, &
-             4_int32, width_index, 2_int32, .false.)
-      end do
+    do width_index = 1, 4
+      call jtty_tbcc_init_decoder_plan(plan, JTTY_TBCC_PROFILE_1167_1545_80F, 4_int32, &
+           width_index, 2_int32, JTTY_TBCC_MAX_HYPOTHESES)
+      call jtty_tbcc_init_decoder_workspace(workspace, plan)
+      call expect_decode_parity(JTTY_TBCC_PROFILE_1167_1545_80F, plan, workspace, correlations, &
+           4_int32, width_index, 2_int32, .false.)
     end do
 
     ! A common large branch collapses distinct accumulated metrics into ties.
@@ -74,14 +67,12 @@ contains
       end do
     end do
     correlations(:, 13) = cmplx(scale(1.0_real32, 20), 0.0_real32, real32)
-    do profile = 1, size(codes)
-      do coherent_index = 1, size(coherent_lengths)
-        call jtty_tbcc_init_decoder_plan(plan, codes(profile), coherent_lengths(coherent_index), &
-             4_int32, 2_int32, JTTY_TBCC_MAX_HYPOTHESES)
-        call jtty_tbcc_init_decoder_workspace(workspace, plan)
-        call expect_decode_parity(codes(profile), plan, workspace, correlations, &
-             coherent_lengths(coherent_index), 4_int32, 2_int32, .false.)
-      end do
+    do coherent_index = 1, size(coherent_lengths)
+      call jtty_tbcc_init_decoder_plan(plan, JTTY_TBCC_PROFILE_1167_1545_80F, &
+           coherent_lengths(coherent_index), 4_int32, 2_int32, JTTY_TBCC_MAX_HYPOTHESES)
+      call jtty_tbcc_init_decoder_workspace(workspace, plan)
+      call expect_decode_parity(JTTY_TBCC_PROFILE_1167_1545_80F, plan, workspace, correlations, &
+           coherent_lengths(coherent_index), 4_int32, 2_int32, .false.)
     end do
   end subroutine expect_optimized_reference_parity
 

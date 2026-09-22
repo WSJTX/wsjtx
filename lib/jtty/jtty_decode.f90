@@ -18,7 +18,6 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    integer                   :: nframe6       !size of frame at 6000 Sa/s
    integer, save             :: nsps0=-999
    integer, save             :: nfft,nh2,nss
-   type(jtty_tbcc_code_profile) :: code_profile
    type(jtty_payload_correlator), save :: payload_correlator
    complex :: zsym(0:3,TOTAL_K),zhalf(0:3,TOTAL_K)
    integer                   :: iloc(1)
@@ -52,8 +51,6 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    nsync=0
    dmin=0.0
    if(sum(abs(iwave)).eq.0) return
-
-   call jtty_tbcc_get_code_profile(code_profile)
 
    if(nsps.ne.nsps0) then
       nsps0=nsps
@@ -181,7 +178,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    call jtty_payload_correlator_prepare(payload_correlator,nss)
    call jtty_correlate_payload_symbols(payload_correlator,c1, &
         nint(xdt/dt)+13*nss,zsym,zhalf)
-   call jtty_tbcc_decode(zsym,zhalf,final_payload,success,code_profile=code_profile)
+   call jtty_tbcc_decode(zsym,zhalf,final_payload,success)
    nharderrors=-1
    if(success) nharderrors=0
 

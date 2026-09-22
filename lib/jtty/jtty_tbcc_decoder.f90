@@ -1,8 +1,6 @@
 module jtty_tbcc_decoder
   use, intrinsic :: iso_fortran_env, only: int32, int64, real32, real64
-  use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile, &
-       jtty_tbcc_get_code_profile, jtty_tbcc_code_profile_is_supported, &
-       jtty_tbcc_code_profiles_equal
+  use jtty_tbcc_code_profiles, only: JTTY_TBCC_PROFILE_1167_1545_80F
   use jtty_tbcc_list_decoder, only: jtty_tbcc_decoder_plan, &
        jtty_tbcc_decoder_workspace, jtty_tbcc_init_decoder_plan, &
        jtty_tbcc_init_decoder_workspace, jtty_tbcc_list_wava_optimized, &
@@ -37,7 +35,6 @@ module jtty_tbcc_decoder
   end type jtty_tbcc_rung_result
 
   logical, save :: decoders_initialized = .false.
-  type(jtty_tbcc_code_profile), save :: initialized_code_profile
   type(jtty_tbcc_decoder_plan), save :: plans(3)
   type(jtty_tbcc_decoder_workspace), save :: workspaces(3)
 
@@ -45,47 +42,34 @@ module jtty_tbcc_decoder
 
 contains
 
-  subroutine jtty_tbcc_decode(correlations, half_correlations, payload, success, result, code_profile)
+  subroutine jtty_tbcc_decode(correlations, half_correlations, payload, success, result)
     complex(real32), intent(in) :: correlations(0:3, JTTY_TBCC_INFORMATION_BITS)
     complex(real32), intent(in) :: half_correlations(0:3, JTTY_TBCC_INFORMATION_BITS)
     integer(int32), intent(out) :: payload(PAYLOAD_BITS)
     logical, intent(out) :: success
     type(jtty_tbcc_decode_result), intent(out), optional :: result
-    type(jtty_tbcc_code_profile), intent(in), optional :: code_profile
     type(jtty_tbcc_decode_result) :: local_result
-    type(jtty_tbcc_code_profile) :: selected_profile
-
-    if (present(code_profile)) then
-      selected_profile = code_profile
-    else
-      call jtty_tbcc_get_code_profile(selected_profile)
-    end if
-    if (.not.jtty_tbcc_code_profile_is_supported(selected_profile)) &
-         error stop 'unsupported JTTY TBCC code profile'
 
     !$omp critical(jtty_tbcc_decoder)
-    call initialize_decoders(selected_profile)
+    call initialize_decoders()
     call decode_ladder(correlations, half_correlations, payload, success, local_result)
     !$omp end critical(jtty_tbcc_decoder)
     if (present(result)) result = local_result
   end subroutine jtty_tbcc_decode
 
-  subroutine initialize_decoders(code_profile)
-    type(jtty_tbcc_code_profile), intent(in) :: code_profile
+  subroutine initialize_decoders()
     integer :: coherent_index
 
-    if (decoders_initialized) then
-      if (jtty_tbcc_code_profiles_equal(code_profile, initialized_code_profile)) return
-    end if
+    if (decoders_initialized) return
 
     do coherent_index = 1, size(COHERENT_LENGTHS)
-      call jtty_tbcc_init_decoder_plan(plans(coherent_index), code_profile, &
+      call jtty_tbcc_init_decoder_plan(plans(coherent_index), &
+           JTTY_TBCC_PROFILE_1167_1545_80F, &
            COHERENT_LENGTHS(coherent_index), 4_int32, CIRCULAR_PASSES, &
            JTTY_TBCC_MAX_HYPOTHESES)
       call jtty_tbcc_init_decoder_workspace(workspaces(coherent_index), &
            plans(coherent_index))
     end do
-    initialized_code_profile = code_profile
     decoders_initialized = .true.
   end subroutine initialize_decoders
 

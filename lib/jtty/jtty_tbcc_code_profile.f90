@@ -44,68 +44,10 @@ module jtty_tbcc_code_profiles
        outer_check_bits=JTTY_TBCC_OUTER_CHECK_BITS, &
        information_bits=JTTY_TBCC_INFORMATION_BITS)
 
-  type(jtty_tbcc_code_profile), parameter, public :: &
-       JTTY_TBCC_PROFILE_1123_1475_22B = jtty_tbcc_code_profile( &
-       profile_id=2_int32, memory_nu=9_int32, constraint_length=10_int32, &
-       state_count=512_int32, state_mask=int(z'1FF', int32), &
-       register_mask=int(z'3FF', int32), &
-       generator_0=int(o'1123', int32), generator_1=int(o'1475', int32), &
-       outer_polynomial=int(z'22B', int32), &
-       outer_top_bit_mask=int(z'800', int32), &
-       outer_register_mask=int(z'FFF', int32), &
-       payload_bits=JTTY_TBCC_PAYLOAD_BITS, &
-       outer_check_bits=JTTY_TBCC_OUTER_CHECK_BITS, &
-       information_bits=JTTY_TBCC_INFORMATION_BITS)
-
-  type(jtty_tbcc_code_profile), parameter, public :: &
-       JTTY_TBCC_PROFILE_5363_6455_269 = jtty_tbcc_code_profile( &
-       profile_id=3_int32, memory_nu=11_int32, constraint_length=12_int32, &
-       state_count=2048_int32, state_mask=int(z'7FF', int32), &
-       register_mask=int(z'FFF', int32), &
-       generator_0=int(o'5363', int32), generator_1=int(o'6455', int32), &
-       outer_polynomial=int(z'269', int32), &
-       outer_top_bit_mask=int(z'800', int32), &
-       outer_register_mask=int(z'FFF', int32), &
-       payload_bits=JTTY_TBCC_PAYLOAD_BITS, &
-       outer_check_bits=JTTY_TBCC_OUTER_CHECK_BITS, &
-       information_bits=JTTY_TBCC_INFORMATION_BITS)
-
-  type(jtty_tbcc_code_profile), save :: active_profile = &
-       JTTY_TBCC_PROFILE_1167_1545_80F
-
-  public :: jtty_tbcc_set_code_profile
-  public :: jtty_tbcc_get_code_profile
-  public :: jtty_tbcc_reset_code_profile
   public :: jtty_tbcc_code_profile_is_valid
   public :: jtty_tbcc_code_profile_is_supported
-  public :: jtty_tbcc_code_profiles_equal
 
 contains
-
-  subroutine jtty_tbcc_set_code_profile(profile, accepted)
-    type(jtty_tbcc_code_profile), intent(in) :: profile
-    logical, intent(out) :: accepted
-
-    accepted = jtty_tbcc_code_profile_is_supported(profile)
-    if (.not.accepted) return
-    !$omp critical(jtty_tbcc_code_profile_selection)
-    active_profile = profile
-    !$omp end critical(jtty_tbcc_code_profile_selection)
-  end subroutine jtty_tbcc_set_code_profile
-
-  subroutine jtty_tbcc_get_code_profile(profile)
-    type(jtty_tbcc_code_profile), intent(out) :: profile
-
-    !$omp critical(jtty_tbcc_code_profile_selection)
-    profile = active_profile
-    !$omp end critical(jtty_tbcc_code_profile_selection)
-  end subroutine jtty_tbcc_get_code_profile
-
-  subroutine jtty_tbcc_reset_code_profile()
-    !$omp critical(jtty_tbcc_code_profile_selection)
-    active_profile = JTTY_TBCC_PROFILE_1167_1545_80F
-    !$omp end critical(jtty_tbcc_code_profile_selection)
-  end subroutine jtty_tbcc_reset_code_profile
 
   pure logical function jtty_tbcc_code_profile_is_valid(profile) result(valid)
     type(jtty_tbcc_code_profile), intent(in) :: profile
@@ -138,10 +80,8 @@ contains
   pure logical function jtty_tbcc_code_profile_is_supported(profile) result(supported)
     type(jtty_tbcc_code_profile), intent(in) :: profile
 
-    supported = jtty_tbcc_code_profile_is_valid(profile) .and. ( &
-         jtty_tbcc_code_profiles_equal(profile, JTTY_TBCC_PROFILE_1167_1545_80F) .or. &
-         jtty_tbcc_code_profiles_equal(profile, JTTY_TBCC_PROFILE_1123_1475_22B) .or. &
-         jtty_tbcc_code_profiles_equal(profile, JTTY_TBCC_PROFILE_5363_6455_269))
+    supported = jtty_tbcc_code_profile_is_valid(profile) .and. &
+         jtty_tbcc_code_profiles_equal(profile, JTTY_TBCC_PROFILE_1167_1545_80F)
   end function jtty_tbcc_code_profile_is_supported
 
   pure logical function jtty_tbcc_code_profiles_equal(left, right) result(equal)

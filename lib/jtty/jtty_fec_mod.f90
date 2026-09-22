@@ -1,8 +1,7 @@
 module jtty_fec
 
 ! JTTY's forward-error-correction configuration: the 13-symbol 4-FSK sync
-! sequence and TBCC receiver policy. The selected TBCC/outer-check profile is
-! shared by the transmitter, receiver, and subtraction re-encoder.
+! sequence and established TBCC/outer-check code.
 ! The profile and codec APIs are re-exported so JTTY callers need one module.
 
   use jtty_tbcc_code_profiles

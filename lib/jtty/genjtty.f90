@@ -35,19 +35,17 @@ end subroutine genjtty_atoms
 subroutine genjtty_frames(frames,nframes,itone,nsym)
 
   use jtty_fec, only: PAYLOAD_BITS,tbcc_encode,is13
-  use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile,jtty_tbcc_get_code_profile
+  use jtty_tbcc_code_profiles, only: JTTY_TBCC_PROFILE_1167_1545_80F
   implicit none
   character(len=34), intent(in) :: frames(*)
   integer, intent(in) :: nframes
   integer, intent(out) :: itone(*),nsym
   integer :: payload(PAYLOAD_BITS),tone_symbols(46),i,ib
-  type(jtty_tbcc_code_profile) :: code_profile
 
   nsym=0
-  call jtty_tbcc_get_code_profile(code_profile)
   do i=1,nframes
      read(frames(i),'(34i1)') payload
-     call tbcc_encode(payload,tone_symbols,code_profile)
+     call tbcc_encode(payload,tone_symbols,JTTY_TBCC_PROFILE_1167_1545_80F)
      ib=(i-1)*59+1
      itone(ib:ib+12)=is13
      itone(ib+13:ib+58)=tone_symbols

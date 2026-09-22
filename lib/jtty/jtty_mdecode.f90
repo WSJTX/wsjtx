@@ -5,7 +5,7 @@ module jtty_mdec
        c_float_complex,c_size_t
   use jtty_mod, only: MAX_FRAMES
   use jtty_fec, only: PAYLOAD_BITS, TOTAL_K, tbcc_encode
-  use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile
+  use jtty_tbcc_code_profiles, only: JTTY_TBCC_PROFILE_1167_1545_80F
   use jtty_tbcc_decoder, only: jtty_tbcc_decode
   use jtty_payload_correlators, only: jtty_payload_correlator, &
        jtty_payload_correlator_prepare, jtty_correlate_payload_symbols
@@ -70,7 +70,6 @@ module jtty_mdec
   real                      :: interferer_f1 = 0.0
   real                      :: interferer_tsync = 0.0
   integer                   :: interferer_payload(PAYLOAD_BITS) = 0
-  type(jtty_tbcc_code_profile) :: interferer_code_profile
   integer                   :: nsubtracted = 0
   real                      :: subtracted_f1(MAX_SUBTRACTED) = 0.0
   real                      :: subtracted_tsync(MAX_SUBTRACTED) = 0.0
@@ -90,7 +89,6 @@ module jtty_mdec
   end type sync_fft_cache
   integer, parameter, private :: MIN_SYNC_FFT_ORDER=11,MAX_SYNC_FFT_ORDER=13
   type(sync_fft_cache), private :: sync_fft_caches(MIN_SYNC_FFT_ORDER:MAX_SYNC_FFT_ORDER)
-  type(jtty_tbcc_code_profile) :: subtracted_code_profile(MAX_SUBTRACTED)
 
 contains
 
@@ -433,13 +431,11 @@ contains
          endif
       enddo
   end subroutine prune_receive_state
-  subroutine jtty_tbcc_reencode_for_subtraction(payload, code_profile, tones)
+  subroutine jtty_tbcc_reencode_for_subtraction(payload, tones)
       integer, intent(in) :: payload(PAYLOAD_BITS)
-      type(jtty_tbcc_code_profile), intent(in) :: code_profile
       integer, intent(out) :: tones(TOTAL_K)
 
-      ! Queued subtraction uses the profile that admitted the payload.
-      call tbcc_encode(payload, tones, code_profile)
+      call tbcc_encode(payload, tones, JTTY_TBCC_PROFILE_1167_1545_80F)
   end subroutine jtty_tbcc_reencode_for_subtraction
 
   pure subroutine jtty_search_window(fc,fwid,nfa,nfb,constrain_to_graph,df, &
@@ -542,7 +538,6 @@ contains
       integer                        :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
       integer, save                  :: nframe6       !size of frame at 6000 Sa/s
       integer, save                  :: nsps0=-999
-      type(jtty_tbcc_code_profile)   :: code_profile
       type(jtty_payload_correlator), save :: payload_correlator
       integer, save                  :: nfft,nh2,nss
       integer                        :: iloc(1)
@@ -588,7 +583,6 @@ contains
       logical                        :: use_interferer
       real                            :: use_interferer_f1, use_interferer_tsync
       integer                         :: use_interferer_payload(PAYLOAD_BITS)
-      type(jtty_tbcc_code_profile) :: use_interferer_code_profile
 
 ! Capture and clear the retro-resweep interferer request (if any) as the
 ! very first thing this call does, before any possible early return below
@@ -597,13 +591,10 @@ contains
       use_interferer_f1=interferer_f1
       use_interferer_tsync=interferer_tsync
       use_interferer_payload=interferer_payload
-      use_interferer_code_profile=interferer_code_profile
       interferer_pending=.false.
       nsubtracted=0
 
       nsync=0
-
-      call jtty_tbcc_get_code_profile(code_profile)
 
       if(istart.eq.istart0 .and. .not.use_interferer) then
          ndecodes=0
@@ -672,8 +663,7 @@ contains
          ! window never itself searched for that signal's own sync. See
          ! jtty_mdecode_step.
          tone_symbols_full(1:NSYNC_SYM)=is13
-         call jtty_tbcc_reencode_for_subtraction(use_interferer_payload, &
-              use_interferer_code_profile, tone_symbols_chk)
+         call jtty_tbcc_reencode_for_subtraction(use_interferer_payload, tone_symbols_chk)
          tone_symbols_full(NSYNC_SYM+1:NFRAME_SYM)=tone_symbols_chk
          call subtract_jtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM, &
               nss, use_interferer_f1, use_interferer_tsync-(istart-1)/12000.0)
@@ -1043,7 +1033,7 @@ contains
       decoded_ok=.false.
       payload_start=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss
       call jtty_correlate_payload_symbols(payload_correlator,c1,payload_start,zsym,zhalf)
-      call jtty_tbcc_decode(zsym,zhalf,final_payload,success_dec,code_profile=code_profile)
+      call jtty_tbcc_decode(zsym,zhalf,final_payload,success_dec)
       ! Half-symbol off-tone leakage is not a noise estimate; diagnostics use M1.
       pow=abs(zsym)**2
       do j=1,NCHAN_SYM
@@ -1063,7 +1053,7 @@ contains
       ! per symbol, for the symbol-error-count/SNR diagnostic below
       ! (mirrors what the old LDPC path got for free from its own
       ! codeword bits).
-      call jtty_tbcc_reencode_for_subtraction(final_payload, code_profile, tone_symbols_chk)
+      call jtty_tbcc_reencode_for_subtraction(final_payload, tone_symbols_chk)
       nsymerrs=13-nsync
       do j = 1, NCHAN_SYM
          is=tone_symbols_chk(j)
@@ -1113,7 +1103,6 @@ contains
          subtracted_f1(nsubtracted)=cand(ncand)%f1
          subtracted_tsync(nsubtracted)=cand(ncand)%tsync
          subtracted_payload(:,nsubtracted)=final_payload
-         subtracted_code_profile(nsubtracted)=code_profile
       endif
 
       dec=cand(ncand)
@@ -1202,7 +1191,6 @@ contains
       real                       :: f1_local(MAX_SUBTRACTED)
       real                       :: tsync_local(MAX_SUBTRACTED)
       integer                    :: payload_local(PAYLOAD_BITS,MAX_SUBTRACTED)
-      type(jtty_tbcc_code_profile) :: code_profile_local(MAX_SUBTRACTED)
 
       nframe=59*nsps
       step=nframe/4
@@ -1219,7 +1207,6 @@ contains
          f1_local(1:n_local)=subtracted_f1(1:n_local)
          tsync_local(1:n_local)=subtracted_tsync(1:n_local)
          payload_local(:,1:n_local)=subtracted_payload(:,1:n_local)
-         code_profile_local(1:n_local)=subtracted_code_profile(1:n_local)
       endif
 
       do i=1,n_local
@@ -1230,7 +1217,6 @@ contains
             interferer_f1=f1_local(i)
             interferer_tsync=tsync_local(i)
             interferer_payload=payload_local(:,i)
-            interferer_code_profile=code_profile_local(i)
             call jtty_mdecode(istart_prev,istart0,iwave(istart_prev),nchunk,nsps, &
                  ndebug,nfa,nfb,f0,ftol,smin)
          enddo

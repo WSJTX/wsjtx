@@ -17,12 +17,7 @@ program test_jtty_structured_decode
 
   integer, parameter :: nsps=384
   integer, parameter :: frame_symbols=size(is13)+TOTAL_K
-  integer :: failures,profile_index
-  logical :: accepted
-  type(jtty_tbcc_code_profile) :: active_profile
-  type(jtty_tbcc_code_profile), parameter :: profiles(3)=[ &
-       JTTY_TBCC_PROFILE_1167_1545_80F,JTTY_TBCC_PROFILE_1123_1475_22B, &
-       JTTY_TBCC_PROFILE_5363_6455_269]
+  integer :: failures
 
   interface
      function jtty_cpp_n1mm_smoke(tones,nsym) result(status) bind(C)
@@ -49,15 +44,10 @@ program test_jtty_structured_decode
 
   failures=0
   call reject_reserved_struct_family(failures)
-  do profile_index=1,size(profiles)
-    call jtty_tbcc_set_code_profile(profiles(profile_index),accepted)
-    if(.not.accepted) error stop 'profile selection failed'
-    call decode_native_call_and_serial(failures)
-    call decode_c_adapter_atoms(failures)
-    call reject_invalid_c_descriptors(failures)
-    call decode_cpp_compiled_n1mm(failures)
-  enddo
-  call jtty_tbcc_reset_code_profile()
+  call decode_native_call_and_serial(failures)
+  call decode_c_adapter_atoms(failures)
+  call reject_invalid_c_descriptors(failures)
+  call decode_cpp_compiled_n1mm(failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_structured_decode: failures=',failures
@@ -209,8 +199,7 @@ contains
          'source-invalid frame cannot report EOM',count)
 
     read(frame,'(34i1)') payload
-    call jtty_tbcc_get_code_profile(active_profile)
-    call tbcc_encode(payload,encoded,active_profile)
+    call tbcc_encode(payload,encoded,JTTY_TBCC_PROFILE_1167_1545_80F)
     tones(1:size(is13))=is13
     tones(size(is13)+1:frame_symbols)=encoded
     call decode_waveform(tones,frame_symbols)
