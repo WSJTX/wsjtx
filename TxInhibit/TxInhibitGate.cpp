@@ -2,6 +2,7 @@
 
 #include <exception>
 
+#include <QByteArray>
 #include <QHostAddress>
 #include <QTimer>
 #include <QUdpSocket>
@@ -127,6 +128,12 @@ bool TxInhibitGate::ensure_udp ()
     Q_EMIT lineError (QStringLiteral ("TX Inhibit: UDP bind failed: %1").arg (err));
     return false;
   };
+  // Test hook: WSJTX_TX_INHIBIT_FORCE_BIND_FAIL=1 forces arming failure
+  // (no listen port, lineError, no portBound).
+  if (qgetenv ("WSJTX_TX_INHIBIT_FORCE_BIND_FAIL") == QByteArray {"1"})
+    {
+      return fail_bind (QStringLiteral ("forced bind failure (WSJTX_TX_INHIBIT_FORCE_BIND_FAIL=1)"));
+    }
   if (!udp_->bind (any4, quint16 (0)))
     {
       return fail_bind (udp_->errorString ());

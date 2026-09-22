@@ -64,6 +64,8 @@ DXLabSuiteCommanderTransceiver::DXLabSuiteCommanderTransceiver (logger_type * lo
                this, &Transceiver::tx_inhibit_changed);
       connect (wrapped_.get (), &Transceiver::tx_inhibit_port_bound,
                this, &Transceiver::tx_inhibit_port_bound);
+      connect (wrapped_.get (), &Transceiver::tx_inhibit_error,
+               this, &Transceiver::tx_inhibit_error);
     }
 }
 

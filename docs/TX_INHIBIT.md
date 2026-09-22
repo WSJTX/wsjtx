@@ -110,9 +110,15 @@ SSB/CW station and the KEY agent host.
 - Inhibit listen port: **always ephemeral** (OS-assigned IPv4). Announced in
   status-bar tooltip and in **InhibitStatus** (type 17) on the UDP Server
   stream. Controllers learn `host:port` from type 17 — there is no fixed
-  well-known port. Total bind failure is **non-fatal**: CAT/PTT continue;
-  hold requests are not received.
-- Status bar (red): **`INHIBIT`**. Tooltip may show holder / UDP listen port.
+  well-known port.
+- **UDP inhibit endpoint** = that `host:<udp-port>` for type-18 holds.
+  **PTT serial device** = Settings → Radio → Port for RTS/DTR.
+- **Arming.** After Enable and a successful bind, the Settings checkbox label
+  shows **TX Inhibit enabled**. If bind cannot publish a non-zero port,
+  **TX Inhibit has failed to arm**: the checkbox shows
+  **TX Inhibit failed (no port)**, a status message appears, and live type 17
+  is not sent with port 0. Digi CAT/PTT continue; KEY holds are not received.
+- Status bar (red): **`INHIBIT`**. Tooltip may show holder / UDP inhibit endpoint.
 
 ### Setup summary
 
@@ -122,13 +128,15 @@ SSB/CW station and the KEY agent host.
    proxy only — Hamlib still needs a real device name for RTS/DTR.  
    If the device is missing from the list, type the full path. Set the port
    **before** Enable.
-3. **Enable TX Inhibit** = checked. Available only when RTS/DTR is selected
+3. Check **Enable TX Inhibit**. Available only when RTS/DTR is selected
    **and** PTT port is set. Clear the port and Enable clears too.
+   After the rig opens, confirm the label becomes **TX Inhibit enabled**
+   (not **TX Inhibit failed (no port)**).
 4. Wire RTS/DTR → radio PTT/SEND (or USB SEND / PC KEYING).
 5. **WARNING — turn radio VOX off.** TX Inhibit only gates the RTS/DTR PTT line.
    If VOX is on, audio can still key the radio while the badge says **INHIBIT**.
-6. Point the KEY agent at this WSJT-X station **host:port from InhibitStatus**
-   (tooltip / type 17).
+6. Point the KEY agent at this WSJT-X station **UDP inhibit endpoint**
+   (tooltip / InhibitStatus type 17). Port must be non-zero.
 
 ### Shared USB CAT + RTS/DTR
 
@@ -166,6 +174,7 @@ path when several apps share the station.
 | Port-open TX blip | Driver toggles DTR/RTS | Known with some USB-serial chips |
 | Multi-app contest mess | Two apps key same lines | Logger digi / port-handoff rules |
 | “TX Inhibit never stops PTT” | CAT-only PTT, or feature off | **Enable TX Inhibit** + RTS/DTR |
+| Checkbox **TX Inhibit failed (no port)** | Bind / port discovery failed | Fix PTT path; reopen rig; check status message |
 
 #### WSJT-X station options
 
@@ -402,9 +411,16 @@ logical **OR**. A release clears **only that controller’s** lease.
 **InhibitStatus cadence:** type **17** is sent when hold/badge/counters change,
 when the inhibit listen port binds or clears (Enable TX Inhibit apply / rig
 close), and **periodically every `NetworkMessage::pulse` seconds (15 s)** while
-TX Inhibit stays enabled. With an always-ephemeral listen port, type 17 is how
+TX Inhibit stays enabled. That pulse helps late joiners learn the
+**UDP inhibit endpoint**. With an always-ephemeral listen port, type 17 is how
 controllers learn `inhibit_port`. Holds still go **unicast** to that
 `host:port` — type 17 is discovery and triage, not the hold path.
+
+**Port 0 rules:** a live type 17 never carries port 0 as a KEY-agent target.
+Port 0 is only the disable/clear announce (feature off or rig closed).
+After `QUdpSocket::bind(0)`, if Qt `localPort()` is still 0, the gate reads
+the OS port with `getsockname` once. If the port is still 0, arming fails
+(`lineError`, no `portBound(0)`). Windows links `ws2_32` for that path.
 
 Common header (all NetworkMessage types): magic `0xadbccbda`, schema, type, Id (utf8).
 
@@ -523,7 +539,7 @@ python3 tools/send_inhibit_hold.py --ttl-ms 0
 | Parse, hold timeout, badge, counters (pure) | `TxInhibit/TxInhibitLogic.hpp` |
 | UDP listen, hold timeout, want_tx mix | `TxInhibit/TxInhibitGate.{hpp,cpp}` (no serial) |
 | Pin filter: `do_ptt` → want_tx → assert PTT / release PTT | `Transceiver/HamlibTransceiver.cpp` |
-| Settings **Enable TX Inhibit** + signals | `Configuration.{hpp,cpp,ui}` |
+| Settings **Enable TX Inhibit** (checkbox labels + arm fail) + signals | `Configuration.{hpp,cpp,ui}` |
 | Status badge + `InhibitStatus` | `widgets/mainwindow.cpp` |
 | MessageClient type 17 | `Network/NetworkMessage.hpp`, `MessageClient` |
 | Standalone KEY agent | **`inhibit-agent`** / **`inhibit-agent-gui`** (`tools/inhibit-agent/`); `send_inhibit_hold.py` |
@@ -537,9 +553,12 @@ python3 tools/send_inhibit_hold.py --ttl-ms 0
 - Normal hold end is **release hold** (`ttl_ms: 0`) after agent hang.
   Fail-open: a **deadman** still ends via the WSJT-X station **hold timeout**.
 - Agent **hang** is not implemented in the WSJT-X station; WSJT-X station only has **hold timeout**.
-- UDP bind failure is logged and non-fatal; stock PTT continues.
-- Bind that yields port 0 is treated as failure. Type 17 never publishes
-  port 0 as a live KEY-agent target (controllers reject port 0). Port 0 in
-  type 17 is only the disable/clear announce.
+- UDP bind / port discovery failure **fails Inhibit arming**. Digi CAT/PTT
+  continue. Settings label **TX Inhibit failed (no port)**; status message
+  from `lineError`. Controllers that reject port 0 never get a usable target
+  from a live type 17.
+- Bind recovery: `localPort()` after `bind(0)`; if 0, one `getsockname`; if
+  still 0, fail arm (no delayed retry). Never emit `portBound(0)`.
+- Test hook: `WSJTX_TX_INHIBIT_FORCE_BIND_FAIL=1` forces arming failure.
 - Identifier names in code may still say gate/hold/block/intent; align in a
   later code pass. This document is the language target.

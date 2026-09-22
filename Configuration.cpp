@@ -591,6 +591,8 @@ private:
   Q_SLOT void on_add_macro_push_button_clicked (bool = false);
   Q_SLOT void on_delete_macro_push_button_clicked (bool = false);
   Q_SLOT void on_PTT_method_button_group_buttonClicked (int);
+  Q_SLOT void on_tx_inhibit_check_box_toggled (bool);
+  void update_tx_inhibit_check_box_text ();
   Q_SLOT void on_add_macro_line_edit_editingFinished ();
   Q_SLOT void delete_macro ();
   void delete_selected_macros (QModelIndexList);
@@ -714,6 +716,7 @@ private:
   // TX Inhibit: pin filter lives inside HamlibTransceiver (do_ptt). See docs/TX_INHIBIT.md.
   bool enable_tx_inhibit_ {false};
   quint16 tx_inhibit_port_ {0};
+  bool tx_inhibit_arm_failed_ {false};
 
   TransceiverFactory transceiver_factory_;
   QList<QMetaObject::Connection> rig_connections_;
@@ -2162,6 +2165,7 @@ void Configuration::impl::initialize_models ()
   ui_->tci_audio_check_box->setChecked (tci_audio_);
   ui_->PTT_method_button_group->button (rig_params_.ptt_type)->setChecked (true);
   ui_->tx_inhibit_check_box->setChecked (enable_tx_inhibit_);
+  update_tx_inhibit_check_box_text ();
   ui_->PWR_and_SWR_check_box->setChecked (PWR_and_SWR_);
   ui_->check_SWR_check_box->setChecked (check_SWR_);
   if (!ui_->PWR_and_SWR_check_box->isChecked()) ui_->check_SWR_check_box->setEnabled (false);
@@ -3057,6 +3061,7 @@ void Configuration::impl::set_rig_invariants ()
     {
       ui_->tx_inhibit_check_box->setChecked (false);
     }
+  update_tx_inhibit_check_box_text ();
 
   if (CAT_indirect_serial_PTT)
     {
@@ -4035,6 +4040,40 @@ void Configuration::impl::on_DXCC_check_box_clicked(bool checked)
 void Configuration::impl::on_PTT_port_combo_box_activated (int /* index */)
 {
   set_rig_invariants ();
+}
+
+void Configuration::impl::on_tx_inhibit_check_box_toggled (bool)
+{
+  if (!ui_->tx_inhibit_check_box->isChecked ())
+    {
+      tx_inhibit_arm_failed_ = false;
+    }
+  update_tx_inhibit_check_box_text ();
+}
+
+void Configuration::impl::update_tx_inhibit_check_box_text ()
+{
+  if (!ui_ || !ui_->tx_inhibit_check_box)
+    {
+      return;
+    }
+  if (!ui_->tx_inhibit_check_box->isChecked ())
+    {
+      ui_->tx_inhibit_check_box->setText (tr ("Enable TX &Inhibit"));
+      return;
+    }
+  if (0 != tx_inhibit_port_)
+    {
+      ui_->tx_inhibit_check_box->setText (tr ("TX Inhibit enabled"));
+      return;
+    }
+  if (tx_inhibit_arm_failed_)
+    {
+      ui_->tx_inhibit_check_box->setText (tr ("TX Inhibit failed (no port)"));
+      return;
+    }
+  // Checked, bind not finished or rig closed: keep the arming label.
+  ui_->tx_inhibit_check_box->setText (tr ("Enable TX &Inhibit"));
 }
 
 void Configuration::impl::on_CAT_port_combo_box_activated (int /* index */)
@@ -5137,8 +5176,17 @@ bool Configuration::impl::open_rig (bool force)
                                            {
                                              return;
                                            }
+                                         tx_inhibit_arm_failed_ = false;
                                          tx_inhibit_port_ = port;
+                                         update_tx_inhibit_check_box_text ();
                                          Q_EMIT self_->tx_inhibit_port_changed (port);
+                                       });
+          rig_connections_ << connect (rig.get (), &Transceiver::tx_inhibit_error,
+                                       this, [this] (QString const& message) {
+                                         tx_inhibit_arm_failed_ = true;
+                                         tx_inhibit_port_ = 0;
+                                         update_tx_inhibit_check_box_text ();
+                                         Q_EMIT self_->tx_inhibit_error (message);
                                        });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
@@ -5528,6 +5576,8 @@ void Configuration::impl::close_rig ()
   // state. Port alone was zeroed before without emitting, so MainWindow's
   // m_tx_inhibited (display-only) could stick on "Inhibit" after rig close.
   tx_inhibit_port_ = 0;
+  tx_inhibit_arm_failed_ = false;
+  update_tx_inhibit_check_box_text ();
   Q_EMIT self_->tx_inhibit_port_changed (0);
   Q_EMIT self_->tx_inhibit_changed (false, QString {}, 0, 0, 0, 0);
 }

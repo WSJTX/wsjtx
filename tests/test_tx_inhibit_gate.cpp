@@ -14,6 +14,7 @@
 
 #include <QtTest>
 
+#include <QByteArray>
 #include <QHostAddress>
 #include <QSignalSpy>
 #include <QUdpSocket>
@@ -65,7 +66,23 @@ private slots:
   // The core equation, end to end: assert PTT <=> want_tx and not hold.
   // Crucially, want_tx never changes here -- only the hold does. That is the
   // whole point of the feature, and the thing a careless refactor breaks.
-  void pinFollowsHoldWhileIntentStaysOn ()
+    // Operator test hook: force arming failure without a real OS bind fault.
+  void forceBindFailEmitsLineErrorOnly ()
+  {
+    qputenv ("WSJTX_TX_INHIBIT_FORCE_BIND_FAIL", QByteArray {"1"});
+    TxInhibitGate gate;
+    QSignalSpy bound {&gate, &TxInhibitGate::portBound};
+    QSignalSpy err {&gate, &TxInhibitGate::lineError};
+
+    gate.start_listening ();
+    QCOMPARE (bound.count (), 0);
+    QCOMPARE (err.count (), 1);
+    QVERIFY (err.at (0).at (0).toString ().contains (QStringLiteral ("forced bind failure")));
+    gate.shutdown (false);
+    qunsetenv ("WSJTX_TX_INHIBIT_FORCE_BIND_FAIL");
+  }
+
+void pinFollowsHoldWhileIntentStaysOn ()
   {
     TxInhibitGate gate;
     QSignalSpy pin {&gate, &TxInhibitGate::physicalPtt};

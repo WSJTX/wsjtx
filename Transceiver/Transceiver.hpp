@@ -256,6 +256,8 @@ public:
                                     , quint32 hold_rx, quint32 release_rx
                                     , quint32 expiries, quint32 invalid) const;
   Q_SIGNAL void tx_inhibit_port_bound (quint16 port) const;
+  // Bind / listen arming failed (e.g. ephemeral port stayed 0). Not a CAT fault.
+  Q_SIGNAL void tx_inhibit_error (QString const& message) const;
 
   // Ready to be destroyed.
   Q_SIGNAL void finished () const;

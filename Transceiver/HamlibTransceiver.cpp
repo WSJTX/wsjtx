@@ -917,10 +917,12 @@ void HamlibTransceiver::start_tx_inhibit_gate ()
            this, &Transceiver::tx_inhibit_changed);
   connect (inhibit_gate_, &TxInhibitGate::portBound,
            this, &Transceiver::tx_inhibit_port_bound);
-  // UDP bind problems are non-fatal: keep stock intent→pin path, log only.
+  // UDP bind problems are non-fatal for CAT/PTT: keep stock intent→pin path.
+  // Surface to the UI so Enable-on with no listen port is visible.
   connect (inhibit_gate_, &TxInhibitGate::lineError,
            this, [this] (QString const& msg) {
              CAT_TRACE (msg);
+             Q_EMIT tx_inhibit_error (msg);
            });
   // Pin apply failure: same visibility as stock rig_set_ptt throw path.
   // Exception is already contained in the gate (no qFatal from timer slots).

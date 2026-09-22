@@ -489,6 +489,8 @@ public:
                                     , quint32 hold_rx, quint32 release_rx
                                     , quint32 expiries, quint32 invalid) const;
   Q_SIGNAL void tx_inhibit_port_changed (quint16 port) const;
+  // UDP inhibit listen failed to arm (no port). Settings checkbox label updates.
+  Q_SIGNAL void tx_inhibit_error (QString const& message) const;
 
   // signal announces audio devices are being enumerated
   //

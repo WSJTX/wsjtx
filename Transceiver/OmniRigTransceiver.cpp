@@ -121,6 +121,8 @@ OmniRigTransceiver::OmniRigTransceiver (logger_type * the_logger,
                this, &Transceiver::tx_inhibit_changed);
       connect (wrapped_.get (), &Transceiver::tx_inhibit_port_bound,
                this, &Transceiver::tx_inhibit_port_bound);
+      connect (wrapped_.get (), &Transceiver::tx_inhibit_error,
+               this, &Transceiver::tx_inhibit_error);
     }
   CAT_TRACE ("constructed");
 }

@@ -4496,6 +4496,13 @@ void MainWindow::createStatusBar()                           //createStatusBar
              update_inhibit_status ();
              send_inhibit_status_announce ();
            });
+  connect (&m_config, &Configuration::tx_inhibit_error, this,
+           [this] (QString const& message) {
+             update_inhibit_status ();
+             showStatusMessage (message.isEmpty ()
+                               ? tr ("TX Inhibit failed (no port) — this station is NOT protected")
+                               : message);
+           });
   update_inhibit_status ();
 
   config_label.setAlignment (Qt::AlignHCenter);
