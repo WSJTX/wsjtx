@@ -768,6 +768,8 @@ set (wsjt_CSRCS
   lib/init_random_seed.c
   lib/ldpc32_table.c
   lib/wsprd/nhash.c
+  lib/wsprd/fano.c
+  lib/pi4d/pi4_spec.c
   lib/tab.c
   lib/tmoonsub.c
   lib/usleep.c
@@ -811,6 +813,15 @@ set (wsprd_CSRCS
   lib/wsprd/tab.c
   lib/wsprd/nhash.c
   lib/init_random_seed.c
+  )
+
+set (pi4d_CSRCS
+  lib/pi4d/pi4d.c
+  lib/pi4d/pi4_spec.c
+  lib/pi4d/pi4_demod.c
+  lib/pi4d/pi4_decode.c
+  lib/wsprd/fano.c
+  lib/wsprd/tab.c
   )
 
 set (wsjtx_UISRCS
@@ -1494,6 +1505,23 @@ endif()
 target_include_directories (wsprd PRIVATE ${FFTW3_INCLUDE_DIRS})
 target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
+# build the pi4d PI4 (Next Generation Beacon) mode decoder driver
+generate_version_info (pi4d_VERSION_RESOURCES
+  NAME pi4d
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "PI4 mode decoder"
+)
+
+add_executable(pi4d ${pi4d_CSRCS})
+
+if(WIN32)
+  target_sources(pi4d PRIVATE ${pi4d_VERSION_RESOURCES})
+endif()
+
+target_include_directories (pi4d PRIVATE ${FFTW3_INCLUDE_DIRS} lib/wsprd)
+target_link_libraries (pi4d ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+
 # Tell CMake to run moc when necessary
 set (CMAKE_AUTOMOC ON)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
@@ -1861,7 +1889,7 @@ install (TARGETS udp_daemon message_aggregator wsjtx_app_version
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
 
-install (TARGETS jt9 wsprd fmtave fcal fmeasure
+install (TARGETS jt9 wsprd pi4d fmtave fcal fmeasure
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
@@ -2017,6 +2045,7 @@ add_custom_target (revisiontag
 add_dependencies (wsjt_qt revisiontag)
 add_dependencies (jt9 revisiontag)
 add_dependencies (wsprd revisiontag)
+add_dependencies (pi4d revisiontag)
 
 
 #

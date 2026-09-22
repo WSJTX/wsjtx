@@ -16,6 +16,7 @@ double tx_duration(QString mode, double trPeriod, int nsps, bool bFast9)
     if(trPeriod==300) txt=1.0 + 85*41472/12000.0;
   }
   if(mode=="WSPR") txt=2.0 + 162*8192/12000.0;     // WSPR
+  if(mode=="PI4")  txt=2.0 + 146*2000/12000.0;     // PI4
   if(mode=="FST4" or mode=="FST4W") {               //FST4, FST4W
     if(trPeriod==15)  txt=1.0 + 160*720/12000.0;
     if(trPeriod==30)  txt=1.0 + 160*1680/12000.0;

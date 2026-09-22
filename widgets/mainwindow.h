@@ -54,6 +54,7 @@
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
 #define NUM_JT9_SYMBOLS 85                 //69 data + 16 sync
 #define NUM_WSPR_SYMBOLS 162               //(50+31)*2, embedded sync
+#define NUM_PI4_SYMBOLS 146                //(42+31)*2, embedded sync
 #define NUM_MSK144_SYMBOLS 144             //s8 + d48 + s8 + d80
 #define NUM_Q65_SYMBOLS 85                 //63 data + 22 sync
 #define NUM_FT8_SYMBOLS 79
@@ -142,6 +143,7 @@ public slots:
   void doubleClickOnFoxInProgress(Qt::KeyboardModifiers modifiers);
   void readFromStdout();
   void p1ReadFromStdout();
+  void pi4ReadFromStdout();
   void setXIT(int n, Frequency base = 0u);
   void setFreq4(int rxFreq, int txFreq);
   void msgAvgDecode2();
@@ -348,6 +350,7 @@ private slots:
   void on_actionExport_Cabrillo_log_triggered();
   void startTx2();
   void startP1();
+  void startPi4();
   void stopTx();
   void stopTx2();
   void on_rptSpinBox_valueChanged(int n);
@@ -407,6 +410,7 @@ private slots:
   void networkError (QString const&);
   void on_ClrAvgButton_clicked();
   void on_actionWSPR_triggered();
+  void on_actionPI4_triggered();
   void on_syncSpinBox_valueChanged(int n);
   void on_TxPowerComboBox_currentIndexChanged(int);
   void on_sbTxPercent_valueChanged(int n);
@@ -804,6 +808,7 @@ private:
   NonInheritingProcess proc_jt9;
   NonInheritingProcess p1;
   NonInheritingProcess p3;
+  NonInheritingProcess p_pi4;
 
   QProcess p2;
   QProcess p4;
@@ -825,6 +830,7 @@ private:
   QTimer minuteTimer;
   QTimer splashTimer;
   QTimer p1Timer;
+  QTimer p_pi4Timer;
 
   QString m_path;
   QString m_baseCall;
@@ -844,6 +850,7 @@ private:
   QString m_qsoStart;
   QString m_qsoStop;
   QStringList m_cmndP1;
+  QStringList m_cmndPi4;
   QString m_msgSent0;
   QString m_calls;
   QString m_CQtype;
@@ -1014,6 +1021,7 @@ private:
   void WSPR_history(Frequency dialFreq, int ndecodes);
   QString beacon_start_time (int n = 0);
   QString WSPR_message();
+  QString PI4_message();
   void fast_config(bool b);
   void CQTxFreq();
   void useNextCall();

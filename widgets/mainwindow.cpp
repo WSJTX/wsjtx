@@ -168,6 +168,11 @@ extern "C" {
 
   void genwspr_(char* msg, char* msgsent, int itone[], fortran_charlen_t, fortran_charlen_t);
 
+  // PI4's own K=32 rate-1/2 encoder (lib/pi4d/pi4_spec.c), reused directly
+  // for Tx rather than re-implemented in Fortran - see pi4_spec.h.
+  int pi4_pack_message (char const * text, quint64 * n_out);
+  void pi4_encode_symbols_for (quint64 n, unsigned char symbols[]);
+
   void azdist_(char* MyGrid, char* HisGrid, double* utch, int* nAz, int* nEl,
                int* nDmiles, int* nDkm, int* nHotAz, int* nHotABetter,
                fortran_charlen_t, fortran_charlen_t);
@@ -730,6 +735,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionJT65->setActionGroup(modeGroup);
   ui->actionJT4->setActionGroup(modeGroup);
   ui->actionWSPR->setActionGroup(modeGroup);
+  ui->actionPI4->setActionGroup(modeGroup);
   ui->actionEcho->setActionGroup(modeGroup);
   ui->actionMSK144->setActionGroup(modeGroup);
   ui->actionQ65->setActionGroup(modeGroup);
@@ -891,6 +897,30 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
               }
           });
 
+  connect(&p_pi4, &QProcess::started, [this] () {
+                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p_pi4.program ()).arg (p_pi4.arguments ().join ("\" \"")));
+                                   });
+  connect(&p_pi4, &QProcess::readyReadStandardOutput, this, &MainWindow::pi4ReadFromStdout);
+#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
+  connect(&p_pi4, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
+          [this] (QProcess::ProcessError error) {
+            subProcessError (&p_pi4, error);
+          });
+#else
+  connect(&p_pi4, &QProcess::errorOccurred, [this] (QProcess::ProcessError error) {
+                                           subProcessError (&p_pi4, error);
+                                         });
+#endif
+  connect(&p_pi4, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
+          [this] (int exitCode, QProcess::ExitStatus status) {
+            if (subProcessFailed (&p_pi4, exitCode, status))
+              {
+                m_valid = false;          // ensures exit if still
+                                          // constructing
+                QTimer::singleShot (0, this, SLOT (close ()));
+              }
+          });
+
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&p3, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
@@ -1024,6 +1054,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   p1Timer.setSingleShot(true);
   connect(&p1Timer, &QTimer::timeout, this, &MainWindow::startP1);
+
+  p_pi4Timer.setSingleShot(true);
+  connect(&p_pi4Timer, &QTimer::timeout, this, &MainWindow::startPi4);
 
   logQSOTimer.setSingleShot(true);
   connect(&logQSOTimer, &QTimer::timeout, this, &MainWindow::on_logQSOButton_clicked);
@@ -2185,6 +2218,8 @@ void MainWindow::fixStop()
   m_hsymStop=179;
   if(m_mode=="WSPR") {
     m_hsymStop=396;
+  } else if(m_mode=="PI4") {
+    m_hsymStop=196;                                 // 56.4 s of PI4's 60 s period
   } else if(m_mode=="Echo") {
     m_hsymStop=9;
   } else if (m_mode=="JT4"){
@@ -2481,7 +2516,7 @@ void MainWindow::dataSink(qint64 frames)
     if(m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData && !(m_multithreadFT8 && m_ft8DecoderStart!=1)) dec_data.params.nzhsym=m_earlyDecode2;
     QDateTime now {QDateTime::currentDateTimeUtc ()};
     m_dateTime = now.toString ("yyyy-MMM-dd hh:mm");
-    if(m_mode!="WSPR") {
+    if(m_mode!="WSPR" && m_mode!="PI4") {
       if (m_mode=="FT8" && m_multithreadFT8 && m_ihsym>47) last=now;  // ft8md
       decode(); //Start decoder
     }
@@ -2491,7 +2526,7 @@ void MainWindow::dataSink(qint64 frames)
       {
         if (!(m_mode=="FT8" && m_multithreadFT8)) Q_EMIT reset_audio_input_stream (true); // reports dropped samples
       }
-    if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR")) {
+    if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR" or m_mode=="PI4")) {
       //Always save unless "Save None"; may delete later
       if(m_TRperiod < 60) {
         int n=fmod(double(now.time().second()),m_TRperiod);
@@ -2542,6 +2577,14 @@ void MainWindow::dataSink(qint64 frames)
       m_decoderBusy = true;
       statusUpdate ();
     }
+    if(m_mode=="PI4") {
+      m_cmndPi4.clear ();
+      m_cmndPi4 << (m_diskData ? m_path : m_fnameWE + ".wav");
+      if (ui) ui->DecodeButton->setChecked (true);
+      p_pi4Timer.start(1000);
+      m_decoderBusy = true;
+      statusUpdate ();
+    }
     m_rxDone=true;
   }
 }
@@ -2549,6 +2592,11 @@ void MainWindow::dataSink(qint64 frames)
 void MainWindow::startP1()
 {
   p1.start (QDir::toNativeSeparators (QDir {QApplication::applicationDirPath ()}.absoluteFilePath ("wsprd")), m_cmndP1);
+}
+
+void MainWindow::startPi4()
+{
+  p_pi4.start (QDir::toNativeSeparators (QDir {QApplication::applicationDirPath ()}.absoluteFilePath ("pi4d")), m_cmndPi4);
 }
 
 QString MainWindow::save_wave_file (QString const& name, short const * data, int samples,
@@ -3775,7 +3823,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
 {
   if (ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
   m_config.transceiver_tune (false);  // reset rig tuning
-  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return; // not allowed while tuning
+  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W" || m_mode=="PI4")) return; // not allowed while tuning
   stopWRTimer.stop();                                       // stop any Wait & Reply timeout
   if (!checked && ui->DX_Call_Button->isChecked()) {
       stopWCTimer.stop();                                   // stop any Wait & Call timeout
@@ -4126,7 +4174,7 @@ void MainWindow::bumpFqso(int n)                                 //bumpFqso()
   if (ui->RxFreqSpinBox->isEnabled ()) {
     ui->RxFreqSpinBox->setValue (i);
   }
-  if(ctrl and m_mode=="WSPR") {
+  if(ctrl and (m_mode=="WSPR" or m_mode=="PI4")) {
     ui->WSPRfreqSpinBox->setValue(i);
   } else {
     if(ctrl and bTrackTx) {
@@ -4212,7 +4260,7 @@ void MainWindow::statusChanged()
   m_specOp=m_config.special_op_id();  // update m_specOp
   if (m_specOp==SpecOp::Q65_PILEUP && m_mode != "Q65") on_actionQ65_triggered();
   QTimer::singleShot (50, [=] {       // only allow Wait & Call where it is appropriate
-      if((m_mode.startsWith("JT") or m_mode=="WSPR" or m_mode=="Echo" or m_mode=="FST4W"
+      if((m_mode.startsWith("JT") or m_mode=="WSPR" or m_mode=="Echo" or m_mode=="FST4W" or m_mode=="PI4"
          or (m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::HOUND)
          or !ui->cbAutoSeq->isChecked() or m_hisCall=="") && ui->DX_Call_Button->isChecked())
           ui->DX_Call_Button->click ();
@@ -4433,6 +4481,8 @@ void MainWindow::setup_status_bar (bool vhf)
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #6699ff}");
   } else if ("FreqCal" == m_mode) {
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff9933}");
+  } else if ("PI4" == m_mode) {
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ffcc66}");
   }
   keep_last_tx_label = true;
   last_tx_label.setText (QString {});
@@ -7673,7 +7723,7 @@ void MainWindow::guiUpdate()
   if(m_mode=="FT8" or m_mode=="FT4") icw[0]=0;              //No CW ID in FT4 or FT8 mode
   if((icw[0]>0) and (!m_bFast9)) tx2 += icw[0]*2560.0/48000.0;  //Full length including CW ID
   if(tx2>m_TRperiod) tx2=m_TRperiod;
-  if(!m_txFirst and m_mode!="WSPR" and m_mode!="FST4W") {
+  if(!m_txFirst and m_mode!="WSPR" and m_mode!="FST4W" and m_mode!="PI4") {
     tx1 += m_TRperiod;
     tx2 += m_TRperiod;
   }
@@ -7693,7 +7743,7 @@ void MainWindow::guiUpdate()
     if(m_transmitting) m_bEchoTxed=true;
   }
 
-  if(m_mode=="WSPR" or m_mode=="FST4W") {
+  if(m_mode=="WSPR" or m_mode=="FST4W" or m_mode=="PI4") {
     if(nseq==0 and m_ntr==0) {                   //Decide whether to Tx or Rx
       m_tuneup=false;                              //This is not an ATU tuneup
       bool btx = m_auto && m_WSPR_tx_next;         // To Tx, we need m_auto and
@@ -7702,11 +7752,11 @@ void MainWindow::guiUpdate()
       if(btx) {
         m_ntr=-1;                                  //This says we will have transmitted
         ui->pbTxNext->setChecked (false);
-        m_bTxTime=true;                            //Start a WSPR or FST4W Tx sequence
+        m_bTxTime=true;                            //Start a WSPR, FST4W, or PI4 Tx sequence
       } else {
-        // This will be a WSPR or FST4W Rx sequence.
+        // This will be a WSPR, FST4W, or PI4 Rx sequence.
         m_ntr=1;                                   //This says we will have received
-        m_bTxTime=false;                           //Start a WSPR or FST4W Rx sequence
+        m_bTxTime=false;                           //Start a WSPR, FST4W, or PI4 Rx sequence
       }
     }
 
@@ -7785,7 +7835,7 @@ void MainWindow::guiUpdate()
       }
     }
 
-    if (m_config.watchdog() && m_mode!="WSPR" && m_mode!="FST4W"
+    if (m_config.watchdog() && m_mode!="WSPR" && m_mode!="FST4W" && m_mode!="PI4"
         && m_idleMinutes >= m_config.watchdog ()) {
       tx_watchdog (true);       // disable transmit
     }
@@ -7859,7 +7909,7 @@ void MainWindow::guiUpdate()
     if(!m_bTxTime and !m_tune) m_btxok=false;       //Time to stop transmitting
   }
 
-  if((m_mode=="WSPR" or m_mode=="FST4W") and
+  if((m_mode=="WSPR" or m_mode=="FST4W" or m_mode=="PI4") and
      ((m_ntr==1 and m_rxDone) or (m_ntr==-1 and nseq>tx2))) {
     if(m_monitoring) {
       m_rxDone=false;
@@ -7884,6 +7934,8 @@ void MainWindow::guiUpdate()
 
     if(m_mode=="WSPR") {
       ba=WSPR_message().toLatin1();
+    } else if(m_mode=="PI4") {
+      ba=PI4_message().toLatin1();
     } else {
         if(SpecOp::HOUND == m_specOp and m_ntx!=3) {   //Hound transmits only Tx1 or Tx3
         m_ntx=1;
@@ -7930,6 +7982,21 @@ void MainWindow::guiUpdate()
                                   &m_currentMessageType);
       if(m_mode=="WSPR") genwspr_(message, msgsent, const_cast<int *> (itone),
                                     (FCL)22, (FCL)22);
+      if(m_mode=="PI4") {
+        QByteArray cs = PI4_message().toLatin1();
+        quint64 n;
+        if (pi4_pack_message (cs.constData (), &n) == 0) {
+          unsigned char symbols[NUM_PI4_SYMBOLS];
+          pi4_encode_symbols_for (n, symbols);
+          for (int i = 0; i < NUM_PI4_SYMBOLS; i++) itone[i] = symbols[i];
+        } else {
+          MessageBox::warning_message (this, tr ("PI4"),
+            tr ("Callsign \"%1\" cannot be sent as a PI4 message: it must be at "
+                "most 8 characters from 0-9, A-Z, space, and /.").arg (cs.constData ()));
+          for (int i = 0; i < NUM_PI4_SYMBOLS; i++) itone[i] = 0;
+        }
+        qstrncpy (msgsent, cs.constData (), 38);
+      }
       if(m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4"
          or m_mode=="FST4" or m_mode=="FST4W" || "Q65" == m_mode) {
         if(m_mode=="MSK144") {
@@ -8303,7 +8370,7 @@ void MainWindow::guiUpdate()
       }
     }
 
-    if (m_tune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+    if (m_tune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W" || m_mode=="PI4")) {
         QString remtime;
         remtime = QString::asprintf("%.0f s",tuneATU_Timer.remainingTime()/1000.0);
         ui->tuneButton->setText(remtime);  // display Tune watchdog countdog
@@ -8548,7 +8615,7 @@ void MainWindow::startTx2()
     ui->signal_meter_widget->setValue(0,0);
     if(m_mode=="Echo" and !m_tune) m_bTransmittedEcho=true;
 
-    if((m_mode=="WSPR" or m_mode=="FST4W") and !m_tune) {
+    if((m_mode=="WSPR" or m_mode=="FST4W" or m_mode=="PI4") and !m_tune) {
       if (m_config.TX_messages ()) {
         t = " Transmitting " + m_mode + " ----------------------- " +
           m_config.bands ()->find (m_freqNominal);
@@ -8596,7 +8663,7 @@ void MainWindow::stopTx2()
     on_stopTxButton_clicked ();
     m_nTx73 = 0;
   }
-  if(((m_mode=="WSPR" or m_mode=="FST4W") and m_ntr==-1) and !m_tuneup) {
+  if(((m_mode=="WSPR" or m_mode=="FST4W" or m_mode=="PI4") and m_ntr==-1) and !m_tuneup) {
     m_wideGraph->setWSPRtransmitted();
     WSPR_scheduling ();
     m_ntr=0;
@@ -11567,6 +11634,44 @@ void MainWindow::on_actionWSPR_triggered()
   statusChanged();
 }
 
+void MainWindow::on_actionPI4_triggered()
+{
+  m_mode="PI4";
+  if(m_specOp==SpecOp::HOUND) {
+    m_config.setSpecial_None();
+    m_specOp=m_config.special_op_id();
+  }
+  WSPR_config(true);
+  switch_mode (Modes::PI4);
+  m_TRperiod=60.0;                // PI4's own one-minute mixed-mode beacon sequence
+  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
+    Q_EMIT m_config.transceiver_period(m_TRperiod);
+  if (!m_tci_audio) {
+    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
+    m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
+  }
+  m_nsps=6912;                   //For symspec only
+  m_FFTSize = m_nsps / 2;
+  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
+  else Q_EMIT FFTSize (m_FFTSize);
+  m_hsymStop=196;
+  m_toneSpacing=234.375;          // PI4's own (not PI4-80/96/120) tone spacing; cosmetic (waterfall overlay) only - pi4d itself always searches all four variants
+  setup_status_bar (false);
+  ui->actionPI4->setChecked(true);
+  VHF_features_enabled(false);
+  ui->WSPRfreqSpinBox->setMinimum(300);
+  ui->WSPRfreqSpinBox->setMaximum(3000);   // widest PI4 variant (PI4-120) spans nearly 3 tone-spacings * 703 Hz
+  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
+  m_wideGraph->setMode(m_mode);
+  m_bFastMode=false;
+  m_bFast9=false;
+  ui->TxFreqSpinBox->setValue(ui->WSPRfreqSpinBox->value());
+  //                       01234567890123456789012345678901234567
+  displayWidgets(nWidgets("00000000000000000101000000000000000000"));
+  fast_config(false);
+  statusChanged();
+}
+
 void MainWindow::on_actionEcho_triggered()
 {
   int nd=int(m_ndepth&3);
@@ -11720,15 +11825,29 @@ void MainWindow::WSPR_config(bool b)
   ui->DecodeButton->setEnabled(!b);
   bool bFST4W=(m_mode=="FST4W");
   ui->sbTxPercent->setEnabled(!bFST4W or (tr("Random") == ui->RoundRobin->currentText()));
-  ui->band_hopping_group_box->setVisible(true);
+  ui->band_hopping_group_box->setVisible(m_mode!="PI4");   // PI4 beacons don't band-hop
+  // These three have no bearing on PI4 (no dBm/grid message field, and
+  // spots go to PSKReporter unconditionally rather than an opt-in
+  // WSPRNet upload) - unlike every other control here they aren't part
+  // of the shared displayWidgets() bitmask, so they need hiding directly.
+  ui->TxPowerComboBox->setVisible(m_mode!="PI4");
+  ui->cbUploadWSPR_Spots->setVisible(m_mode!="PI4");
+  ui->WSPR_prefer_type_1_check_box->setVisible(m_mode!="PI4");
   ui->RoundRobin->setVisible(bFST4W);
   ui->sbFST4W_RxFreq->setVisible(bFST4W);
   ui->sbFST4W_FTol->setVisible(bFST4W);
   ui->RoundRobin->lineEdit()->setAlignment(Qt::AlignCenter);
   if(b and m_mode!="Echo" and m_mode!="FST4W") {
-    QString t="UTC    dB   DT     Freq     Drift  Call          Grid    dBm    ";
-    if(m_config.miles()) t += " mi";
-    if(!m_config.miles()) t += " km";
+    QString t;
+    if (m_mode=="PI4") {
+      // No grid/report/dBm fields exist for this mode - just the fixed
+      // 'p' mode character (see pi4ReadFromStdout) and a free-text message.
+      t="UTC    dB   DT     Freq      Message";
+    } else {
+      t="UTC    dB   DT     Freq     Drift  Call          Grid    dBm    ";
+      if(m_config.miles()) t += " mi";
+      if(!m_config.miles()) t += " km";
+    }
     ui->lh_decodes_headings_label->setText(t);
     if (m_config.is_transceiver_online ()) {
       m_config.transceiver_tx_frequency (0); // turn off split
@@ -12220,10 +12339,10 @@ void MainWindow::on_tuneButton_clicked (bool checked)
   }
   m_config.transceiver_tune (false);  // reset rig tuning
   if (blocked) return;
-  if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W")) ui->autoButton->click();   // stop any other transmission
+  if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W" || m_mode=="PI4")) ui->autoButton->click();   // stop any other transmission
   stopWRTimer.stop();           // stop any Wait & Reply timeout
   stopWCTimer.stop();           // stop any Wait & Call timeout
-  if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+  if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W" || m_mode=="PI4")) {
       tuneATU_Timer.start (m_config.tune_watchdog_time()*1000); // tune watchdog
   }
   if (!checked) {
@@ -12409,7 +12528,7 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
   if (m_mode=="ECHO") return; // we do not adjust rx/tx for echo mode -- always 1500Hz
   if (ui->RxFreqSpinBox->isEnabled () && !(SpecOp::HOUND==m_specOp && m_config.superFox() &&
       (rxFreq < 700 or rxFreq > 800))) ui->RxFreqSpinBox->setValue(rxFreq);
-  if(m_mode=="WSPR" or m_mode=="FST4W") {
+  if(m_mode=="WSPR" or m_mode=="FST4W" or m_mode=="PI4") {
     ui->WSPRfreqSpinBox->setValue(txFreq);
   } else {
     if (ui->TxFreqSpinBox->isEnabled ()) {
@@ -12814,6 +12933,23 @@ void MainWindow::transmit (double snr)
       Q_EMIT sendMessage (m_mode, NUM_WSPR_SYMBOLS, 8192.0,
                           ui->TxFreqSpinBox->value() - 1.5 * 12000 / 8192,
                           m_toneSpacing*nToneSpacing, m_soundOutput,
+                          m_config.audio_output_channel(),true, false, snr,
+                          m_TRperiod);
+    }
+  }
+
+  if (m_mode=="PI4") {
+    // PI4_SYMBOL_SAMPLES (lib/pi4d/pi4_demod.h): 166.667 ms/symbol at
+    // 12 kHz = 2000 samples/symbol.
+    if (m_tci_audio) {
+      Q_EMIT m_config.transceiver_modulator_start(m_mode, NUM_PI4_SYMBOLS,2000.0,
+             ui->TxFreqSpinBox->value() - 1.5 * m_toneSpacing,
+             m_toneSpacing,true,false,snr,
+             m_TRperiod);
+    } else {
+      Q_EMIT sendMessage (m_mode, NUM_PI4_SYMBOLS, 2000.0,
+                          ui->TxFreqSpinBox->value() - 1.5 * m_toneSpacing,
+                          m_toneSpacing, m_soundOutput,
                           m_config.audio_output_channel(),true, false, snr,
                           m_TRperiod);
     }
@@ -13574,6 +13710,64 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
   }
 }
 
+void MainWindow::pi4ReadFromStdout()
+{
+  while (p_pi4.canReadLine()) {
+    QString t (p_pi4.readLine());
+    if (t.indexOf ("<DecodeFinished>") >= 0) {
+      ui->DecodeButton->setChecked (false);
+      m_decoderBusy = false;
+      if (!m_diskData) killFileTimer.start (45*1000); // clean up the .wav in 45s, as WSPR does
+      m_psk_Reporter.sendReport ();
+      statusUpdate ();
+      continue;
+    }
+    // <SNR> <DT> <AudioFreqHz> <Variant> <Message...> - see lib/pi4d/pi4d.c.
+    // The message is free text (up to 8 characters from PI4's own alphabet,
+    // which includes space) so anything from the 5th token on is rejoined
+    // rather than assumed to be a single word.
+    QStringList f = t.trimmed ().split (QRegExp ("\\s+"));
+    if (f.count () < 5) continue;
+    double snr = f.at (0).toDouble ();
+    double dt = f.at (1).toDouble ();
+    int audioFreq = f.at (2).toInt ();
+    QString variant = f.at (3);
+    QString msg = QStringList (f.mid (4)).join (' ');
+    if (ui->cbNoOwnCall->isChecked () && msg == m_config.my_callsign ().toUpper ()) continue;
+    Frequency frequency = m_freqNominalPeriod + audioFreq;
+
+    // A single fixed mode-identifying character, the same convention
+    // JT9 ('@', lib/jt9w.f90) and JT65/JT4/shared modes ('#'/'*'/'$',
+    // lib/decoder.f90) use in this column - 'p' is unused by any
+    // existing mode. Constant across all four channel-spacing variants
+    // (unlike Q65's own per-submode letter) since the variant isn't
+    // what identifies a decode as PI4 here.
+    Q_UNUSED (variant);
+    QString rxLine = QString ("%1 %2 %3 %4  p  %5")
+                        .arg (m_dateTime.right (5))
+                        .arg (snr, 4, 'f', 0)
+                        .arg (dt, 5, 'f', 1)
+                        .arg (audioFreq, 5)
+                        .arg (msg);
+    ui->decodedTextBrowser->insertText (rxLine);
+
+    if (!(ui->actionDisable_writing_of_ALL_TXT->isChecked())) {
+      QFile file {QDir::toNativeSeparators (m_config.writeable_data_dir ().absoluteFilePath ("ALL_PI4.TXT"))};
+      if (file.open (QIODevice::Text | QIODevice::Append)) {
+        QTextStream out (&file);
+        out << m_dateTime << ' ' << rxLine << '\n';
+      }
+    }
+
+    // No grid exists for this mode (see Modes/pi4_spec.h) - PSKReporter's
+    // API and wire format both tolerate an empty one.
+    if (!m_psk_Reporter.addRemoteStation (msg, QString {}, frequency, "PI4",
+                                          qRound (snr), QDateTime::currentDateTimeUtc ())) {
+      showStatusMessage (tr ("Spotting to PSK Reporter unavailable"));
+    }
+  }
+}
+
 QString MainWindow::beacon_start_time (int n)
 {
   auto bt = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc ().addSecs (n), m_TRperiod * 1.e3);
@@ -13730,7 +13924,8 @@ void MainWindow::WSPR_scheduling ()
     {
       return;                   // don't schedule if %age disabled
     }
-  if (m_config.is_transceiver_online () // need working rig control for hopping
+  if (m_mode != "PI4" // PI4 beacons run on fixed assigned frequencies, not a hopping schedule
+      && m_config.is_transceiver_online () // need working rig control for hopping
       && !m_config.is_dummy_rig ()
       && ui->band_hopping_group_box->isChecked ()) {
     auto hop_data = m_WSPR_band_hopping.next_hop (m_auto);
@@ -15350,6 +15545,7 @@ void MainWindow::set_mode (QString const& mode)
     else if ("FreqCal" == mode) on_actionFreqCal_triggered ();
     else if ("MSK144" == mode) on_actionMSK144_triggered ();
     else if ("WSPR" == mode) on_actionWSPR_triggered ();
+    else if ("PI4" == mode) on_actionPI4_triggered ();
     else if ("Echo" == mode) on_actionEcho_triggered ();
 }
 
@@ -15477,6 +15673,14 @@ QString MainWindow::WSPR_message()
     msg2=m_config.my_callsign() + " " + m_config.my_grid().mid(0,4) + sdBm; // Normal WSPR message
   }
   return msg2;
+}
+
+// PI4 carries no grid or power field - only a callsign (up to 8
+// characters from PI4's own alphabet: 0-9, A-Z, space, and /), unlike
+// WSPR_message() above.
+QString MainWindow::PI4_message()
+{
+  return m_config.my_callsign().toUpper();
 }
 
 void MainWindow::on_houndButton_clicked (bool checked)
