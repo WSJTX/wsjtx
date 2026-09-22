@@ -160,6 +160,112 @@ private Q_SLOTS:
     QCOMPARE (closed.size (), 0);
   }
 
+  void advertisementTracksRequestAuthorization ()
+  {
+    QUdpSocket receiver;
+    QVERIFY (receiver.bind (QHostAddress {QHostAddress::LocalHost}, 0));
+    MessageClient client {"test-client", "version", "revision", "127.0.0.1",
+                          receiver.localPort (), {}, 1};
+    QTRY_VERIFY (receiver.hasPendingDatagrams ());
+    while (receiver.hasPendingDatagrams ()) receiver.receiveDatagram ();
+
+    client.inhibit_status (true, true, QStringLiteral ("W2SZ"), 11, 12, 13, 14);
+    QTest::qWait (50);
+    QVERIFY (!receiver.hasPendingDatagrams ());
+
+    client.enable (true);
+    QTRY_VERIFY (receiver.hasPendingDatagrams ());
+    NetworkMessage::Reader available {receiver.receiveDatagram ().data ()};
+    bool supported {false};
+    bool inhibited {false};
+    QByteArray source;
+    quint32 hold_rx {0};
+    quint32 release_rx {0};
+    quint32 expiries {0};
+    quint32 invalid {0};
+    available >> supported >> inhibited >> source >> hold_rx >> release_rx
+              >> expiries >> invalid;
+    QCOMPARE (available.type (), NetworkMessage::InhibitStatus);
+    QVERIFY (supported);
+    QVERIFY (inhibited);
+    QCOMPARE (source, QByteArrayLiteral ("W2SZ"));
+
+    client.enable (false);
+    QTRY_VERIFY (receiver.hasPendingDatagrams ());
+    NetworkMessage::Reader withdrawn {receiver.receiveDatagram ().data ()};
+    withdrawn >> supported >> inhibited >> source >> hold_rx >> release_rx
+              >> expiries >> invalid;
+    QCOMPARE (withdrawn.type (), NetworkMessage::InhibitStatus);
+    QVERIFY (!supported);
+    QVERIFY (inhibited);
+    QCOMPARE (source, QByteArrayLiteral ("W2SZ"));
+    QCOMPARE (hold_rx, 11u);
+    QCOMPARE (release_rx, 12u);
+    QCOMPARE (expiries, 13u);
+    QCOMPARE (invalid, 14u);
+
+    client.inhibit_status (true, false, QString {}, 15, 16, 17, 18);
+    QTest::qWait (50);
+    QVERIFY (!receiver.hasPendingDatagrams ());
+  }
+
+  void heartbeatRefreshesAvailableStatus ()
+  {
+    QUdpSocket original_receiver;
+    QVERIFY (original_receiver.bind (QHostAddress {QHostAddress::LocalHost}, 0));
+    MessageClient client {"test-client", "version", "revision", "127.0.0.1",
+                          original_receiver.localPort (), {}, 1};
+    client.enable (true);
+    client.inhibit_status (true, false, QString {}, 1, 2, 3, 4);
+    QTRY_VERIFY (original_receiver.hasPendingDatagrams ());
+    QTest::qWait (25);
+    while (original_receiver.hasPendingDatagrams ()) original_receiver.receiveDatagram ();
+
+    QUdpSocket refreshed_receiver;
+    QVERIFY (refreshed_receiver.bind (QHostAddress {QHostAddress::LocalHost}, 0));
+    client.set_server_port (refreshed_receiver.localPort ());
+    QTRY_VERIFY (refreshed_receiver.hasPendingDatagrams ());
+    NetworkMessage::Reader heartbeat {refreshed_receiver.receiveDatagram ().data ()};
+    QCOMPARE (heartbeat.type (), NetworkMessage::Heartbeat);
+    QTRY_VERIFY (refreshed_receiver.hasPendingDatagrams ());
+    NetworkMessage::Reader refreshed {refreshed_receiver.receiveDatagram ().data ()};
+    QCOMPARE (refreshed.type (), NetworkMessage::InhibitStatus);
+    bool supported {false};
+    bool inhibited {true};
+    QByteArray source;
+    quint32 hold_rx {0};
+    quint32 release_rx {0};
+    quint32 expiries {0};
+    quint32 invalid {0};
+    refreshed >> supported >> inhibited >> source >> hold_rx >> release_rx
+              >> expiries >> invalid;
+    QVERIFY (supported);
+    QVERIFY (!inhibited);
+    QVERIFY (source.isEmpty ());
+    QCOMPARE (hold_rx, 1u);
+    QCOMPARE (release_rx, 2u);
+    QCOMPARE (expiries, 3u);
+    QCOMPARE (invalid, 4u);
+
+    client.inhibit_status (false, false, QString {}, 0, 0, 0, 0);
+    QTRY_VERIFY (refreshed_receiver.hasPendingDatagrams ());
+    NetworkMessage::Reader withdrawn {refreshed_receiver.receiveDatagram ().data ()};
+    supported = true;
+    withdrawn >> supported;
+    QCOMPARE (withdrawn.type (), NetworkMessage::InhibitStatus);
+    QVERIFY (!supported);
+
+    QUdpSocket unsupported_receiver;
+    QVERIFY (unsupported_receiver.bind (QHostAddress {QHostAddress::LocalHost}, 0));
+    client.set_server_port (unsupported_receiver.localPort ());
+    QTRY_VERIFY (unsupported_receiver.hasPendingDatagrams ());
+    NetworkMessage::Reader unsupported_heartbeat {
+      unsupported_receiver.receiveDatagram ().data ()};
+    QCOMPARE (unsupported_heartbeat.type (), NetworkMessage::Heartbeat);
+    QTest::qWait (50);
+    QVERIFY (!unsupported_receiver.hasPendingDatagrams ());
+  }
+
   void preservesType17FieldOrder ()
   {
     QUdpSocket receiver;
@@ -174,6 +280,7 @@ private Q_SLOTS:
         receiver.receiveDatagram ();
       }
 
+    client->enable (true);
     client->inhibit_status (true, true, QStringLiteral ("W2SZ"), 11, 12, 13, 14);
     QTRY_VERIFY (receiver.hasPendingDatagrams ());
     auto const datagram = receiver.receiveDatagram ().data ();

@@ -119,6 +119,18 @@ public:
     std::size_t next_interface;
   };
 
+  struct InhibitStatusSnapshot
+  {
+    bool valid {false};
+    bool supported {false};
+    bool inhibited {false};
+    QString source_station;
+    quint32 hold_rx {0};
+    quint32 release_rx {0};
+    quint32 expiries {0};
+    quint32 invalid {0};
+  };
+
   struct DecodeIdentity
   {
     QTime time;
@@ -146,6 +158,13 @@ public:
   void pending_datagrams ();
   void heartbeat ();
   void closedown ();
+  bool inhibit_available () const;
+  void set_enabled (bool);
+  void update_inhibit_status (bool supported, bool inhibited,
+                              QString const& source_station,
+                              quint32 hold_rx, quint32 release_rx,
+                              quint32 expiries, quint32 invalid);
+  void send_inhibit_status (bool supported);
   bool begin_replay ();
   void end_replay ();
   void cancel_replay ();
@@ -192,6 +211,7 @@ public:
   QQueue<PendingMessage> replay_messages_;
   QQueue<DecodeIdentity> decode_history_;
   QByteArray last_message_;
+  InhibitStatusSnapshot inhibit_status_;
 };
 
 #include "MessageClient.moc"
@@ -634,7 +654,65 @@ void MessageClient::impl::heartbeat ()
           << version_.toUtf8 () << revision_.toUtf8 ();
       TRACE_UDP ("schema:" << schema_ << "max schema:" << NetworkMessage::Builder::schema_number << "version:" << version_ << "revision:" << revision_);
       send_message (out, message, false, true);
+      if (inhibit_available ()) send_inhibit_status (true);
     }
+}
+
+bool MessageClient::impl::inhibit_available () const
+{
+  return enabled_ && inhibit_status_.valid && inhibit_status_.supported;
+}
+
+void MessageClient::impl::set_enabled (bool enabled)
+{
+  if (enabled_ == enabled) return;
+
+  auto const was_available = inhibit_available ();
+  enabled_ = enabled;
+  if (inhibit_available ())
+    {
+      send_inhibit_status (true);
+    }
+  else if (was_available)
+    {
+      send_inhibit_status (false);
+    }
+}
+
+void MessageClient::impl::update_inhibit_status (
+  bool supported, bool inhibited, QString const& source_station,
+  quint32 hold_rx, quint32 release_rx, quint32 expiries, quint32 invalid)
+{
+  auto const was_available = inhibit_available ();
+  inhibit_status_ = {
+    true, supported, inhibited, source_station,
+    hold_rx, release_rx, expiries, invalid
+  };
+  if (inhibit_available ())
+    {
+      send_inhibit_status (true);
+    }
+  else if (was_available)
+    {
+      send_inhibit_status (false);
+    }
+}
+
+void MessageClient::impl::send_inhibit_status (bool supported)
+{
+  if (!inhibit_status_.valid || !server_port_ || server_.isNull ()) return;
+
+  QByteArray message;
+  NetworkMessage::Builder out {&message, NetworkMessage::InhibitStatus,
+                               id_, schema_};
+  out << supported << inhibit_status_.inhibited
+      << inhibit_status_.source_station.toUtf8 ()
+      << inhibit_status_.hold_rx << inhibit_status_.release_rx
+      << inhibit_status_.expiries << inhibit_status_.invalid;
+  TRACE_UDP ("supported:" << supported
+             << "inhibited:" << inhibit_status_.inhibited
+             << "source:" << inhibit_status_.source_station);
+  send_message (out, message, false, true);
 }
 
 void MessageClient::impl::closedown ()
@@ -894,7 +972,7 @@ void MessageClient::set_TTL (int TTL)
 
 void MessageClient::enable (bool flag)
 {
-  m_->enabled_ = flag;
+  m_->set_enabled (flag);
 }
 
 bool MessageClient::begin_replay ()
@@ -956,17 +1034,8 @@ void MessageClient::inhibit_status (bool supported, bool inhibited,
                                     quint32 hold_rx, quint32 release_rx,
                                     quint32 expiries, quint32 invalid)
 {
-  if (m_->server_port_ && !m_->server_.isNull ())
-    {
-      QByteArray message;
-      NetworkMessage::Builder out {&message, NetworkMessage::InhibitStatus,
-                                   m_->id_, m_->schema_};
-      out << supported << inhibited << source_station.toUtf8 ()
-          << hold_rx << release_rx << expiries << invalid;
-      TRACE_UDP ("supported:" << supported << "inhibited:" << inhibited
-                 << "source:" << source_station);
-      m_->send_message (out, message);
-    }
+  m_->update_inhibit_status (supported, inhibited, source_station,
+                             hold_rx, release_rx, expiries, invalid);
 }
 
 void MessageClient::WSPR_decode (bool is_new, QTime time, qint32 snr, float delta_time, Frequency frequency

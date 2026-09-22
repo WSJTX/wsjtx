@@ -68,8 +68,9 @@ NOTE: CAT interfaces that require handshaking will be non-responsive
 With *DTR* or *RTS* PTT, an external controller can hold off PTT and rig
 Tune while _WSJT-X_ continues its transmit sequence and audio. Enable
 *Accept UDP requests* on the *Reporting* tab to accept these TX Inhibit
-commands. Transmission resumes when all holds clear, provided the
-transmit sequence is still active.
+commands. While enabled, _WSJT-X_ periodically advertises TX Inhibit
+availability on the configured UDP reporting stream. Transmission resumes
+when all holds clear, provided the transmit sequence is still active.
 
 +
 
@@ -84,7 +85,8 @@ receiver or receive the messages through a relay.
 Each controller refreshes its hold while needed, then releases it. Holds
 also expire if refreshes stop. With multiple controllers, PTT remains
 off until every hold has cleared. Turning off *Accept UDP requests*
-stops accepting commands; existing holds remain until they expire.
+withdraws TX Inhibit availability and stops accepting commands; existing
+holds remain until they expire.
 
 +
 

@@ -551,10 +551,15 @@
  *                         Expiries               quint32
  *                         Invalid                quint32
  *
- *      Supported means the active transceiver uses DTR or RTS PTT and can
- *      apply inhibit commands. Inhibited means at least one hold is active.
- *      Source station summarizes active holders. Counters are cumulative for
- *      the current transceiver lifetime.
+ *      Supported means the active transceiver uses DTR or RTS PTT and Accept
+ *      UDP requests is enabled, so the instance can apply inhibit commands.
+ *      A supported snapshot is sent on state changes and after each Heartbeat.
+ *      A final unsupported snapshot withdraws availability; controllers should
+ *      expire an advertisement after three missing Heartbeat intervals.
+ *      Inhibited means at least one hold is active and may remain true in a
+ *      withdrawal until existing leases expire. Source station summarizes
+ *      active holders. Counters are cumulative for the current transceiver
+ *      lifetime.
  *
  * TxInhibit      In       18
  *                         Id (target unique key) utf8
