@@ -167,7 +167,7 @@ include::tutorial-example6.adoc[]
 include::jtty.adoc[]
 
 [[JTTY_N1MM]]
-=== JTTY and N1MM Logger+ Integration
+=== JTTY and N1MM Logger+
 include::jtty_n1mm_integration.adoc[]
 
 [[QMAP]]

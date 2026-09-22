@@ -338,7 +338,7 @@ comparable to tone spacing.
 |===
 
 [[FAST_MODES]]
-=== Fast Modes
+=== Fast Modes and JTTY
 
 ==== JT9
 
@@ -387,6 +387,13 @@ adjusted to provide the flattest possible response over the range
 300Hz to 2700Hz. The maximum permissible frequency offset between you
 and your QSO partner ± 200 Hz.
 
+[[JTTYPRO]]
+==== JTTY
+
+As an untimed mode, in the present context JTTY is neither a "`Fast`"
+nor a "`Slow`" mode. Somewhat arbitrarily, then, we summarize
+parameters of its protocol here. (... more to be added ...)
+
 ==== Summary
 
 .Parameters of Fast Modes
@@ -399,5 +406,6 @@ and your QSO partner ± 200 Hz.
 |JT9G     |K=32, r=1/2|(206,72)| 8| 9-FSK|100.0 |  900  | 0.19| 0.850 
 |JT9H     |K=32, r=1/2|(206,72)| 8| 9-FSK|200.0 | 1800  | 0.19| 0.425 
 |MSK144   |LDPC       |(128,90)| 2| OQPSK| 2000 | 2400  | 0.11| 0.072 
-|MSK144 Sh|LDPC       |(32,16) | 2| OQPSK| 2000 | 2400  | 0.20| 0.020 
+|MSK144 Sh|LDPC       |(32,16) | 2| OQPSK| 2000 | 2400  | 0.20| 0.020
+|JTTY     |K=10, r=1/2|(92,46) | 4|4-GFSK| 31.25|  125  | 0.22| 1.888
 |===

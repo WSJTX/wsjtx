@@ -14,20 +14,39 @@ message accumulating sequentially, as it arrives.
 
 image::jtty.png[align="center",alt=JTTY decoding of weak signal]
 
-Remember that unlike other WSJT modes, JTTY does not use timed T/R
-sequences. Transmissions can start at any time; otherwise _WSJT-X_
-simply stays in receive or *Monitor* mode.
+To test transmitting, enter a message into the field at bottom right,
+click *Send message*, and listen to the JTTY waveform's sound on your
+computer's speaker. Remember that unlike other WSJT modes, JTTY does
+not use timed T/R sequences. Transmissions can start at any time;
+otherwise _WSJT-X_ simply stays in receive or *Monitor* mode.
 
-Enter a message into the field at bottom right and click *Send
-message* to start a transmission. You might want to listen to its
-sound on your computer's speaker. Messages used for contesting can be
-sent by clicking one of the buttons F1-F8 or using the corresponding
-keyboard keys. The corresponding entry fields can be configured to
-send pre-formatted contest messages. Macros are defined for normal
-contesting purposes.
+.JTTY Frames and Contest Messages
 
-JTTY mode will work with recent N1MM Logger+ versions, using N1MM's
-digital window to send messages, just like RTTY. You *can* send any
-text as a message, HOWEVER, to take advantage of JTTY's support for
-special message sequences, your N1MM macro messages should be the
-following:
+Each JTTY transmission consists of one or more "`frames`". A frame has
+space for up to 5 arbitrary characters, but it can also convey many
+more characters by using the defined formats for special contest-style
+messages. Function keys F1-F8 (and the on-screen buttons with those
+same labels) can be programmed to send messages based on the entry
+fields below the buttons. Use the macros %M and %H as stand-ins for
+MyCall and HisCall, %E for the contest exchange (currently defined as
+"599 nnn", where nnn is the number in the "Serial Number" spinbox),
+and %Q for a queued callsign that woould be your next-in-line
+contact. For best efficiency, use the exact message forms outlined in
+the table below. As explicit examples the table uses K1ABC for MyCall,
+W9XYZ for HisCall, W7UVW for a queued callsign, and 107 for Serial
+Number. The final table column shows the number of JTTY frames that
+required for each example message.
+
+[source]
+----
+F-Key  Macro Format     Transmitted message     Frames
+------------------------------------------------------
+F1     CQ %M CQ         CQ K1ABC CQ                1
+F2     %H %E            W9XYZ 599 107              2
+F3     %H TU CQ %M CQ   W9XYZ TU CQ K1ABC CQ       2
+F4     %M               K1ABC                      1
+F5     %H               W9XYZ                      1
+F6     TU NOW %Q %E     TU NOW W7UVW 599 108       2
+F7     %H AGN?          W9XYZ AGN?                 1
+F8     %E               599 107                    1
+----

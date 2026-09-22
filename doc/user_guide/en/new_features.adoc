@@ -31,9 +31,8 @@ details.
 - *Q65 Pileup Mode:* a previously unused message bit now indicates
 whether the station being called was copied in the previous Rx
 interval. Decodes with this bit set are flagged with "#" in the
-decoded text window and in the Q65 Pileup Mode's Active Stations
-window. Everything needed is exchanged over the air; no internet
-connection is required.
+decoded text window and in the Active Stations window. Everything
+needed is exchanged over the air; no internet connection is required.
 
 - *Raspberry Pi* and other ARM-based computers: pre-built 32-bit
 (armhf) as well as 64-bit (aarch64) packages are available. Projects
