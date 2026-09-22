@@ -32,7 +32,7 @@ below for best practices for these messages.
 ==== Best Practices for N1MM Logger+ Digital Function Keys
 
 JTTY can send any message specified for an N1MM Logger+ Digital Function
-key, within the character set supported by JTTY. HOWEVER, JTTY has
+key, within the character set supported by JTTY. However, JTTY has
 special provisions to send certain messages very efficiently.
 
 [source,bash]
@@ -66,15 +66,6 @@ Message after pack/unpack : CQ N9ADG
    2 frames, Transmission length  3.39 seconds
 ----
 
-But we can do better! If you send "CQ N9ADG CQ", you'll only use 1 frame!
-
-[source,bash]
-----
-./sjtty "CQ N9ADG CQ"
-Message after pack/unpack : CQ N9ADG CQ
-   1 frame, Transmission length  1.70 seconds
-----
-
 The name of the contesting game is to send information as quickly as
 possible, so use `"CQ <callsign> CQ"` for your CQ message.
 
@@ -86,7 +77,10 @@ your message to take longer to send.
 
 As an alternative, you can
 use the this example file (`JTTY Messages.mc`) that tells
-WSJT-X to use the special compact messages built-in to WSJT-X.
+WSJT-X to use the special message formats for fastest transmission time. More
+information on these messages, see the file lib/jtty/jtty_source_encoding.txt
+in the WSJT-X source code
+(https://github.com/WSJTX/wsjtx/blob/master/lib/jtty/jtty_source_encoding.txt)
 
 JTTY Messages.mc:
 [source,bash]
