@@ -8,8 +8,276 @@
 | $$$    \$$$ \$$    $$ \$$    $$   | $$       | $$  | $$
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
                                                          
-
 Copyright 2001 - 2026 by Joe Taylor, K1JT, and the WSJT Development Team
+
+                      Release: WSJT-X 3.2.0-rc1
+                          September 23, 2026
+                      -------------------------
+
+WSJT-X 3.2.0 introduces a new mode, JTTY, along with new capabilities
+in Q65, MAP65, and QMAP and a large number of improvements and bug
+fixes. Release Candidates give advanced users an opportunity to
+exercise new features and provide feedback to developers. If you use
+this Release Candidate, please send related comments or questions to
+one of our user forums or open an Issue at our public repository
+https://github.com/WSJTX/wsjtx. We also welcome explicit pull requests
+against our public master branch there.
+
+Installation packages for Windows, Linux, and macOS include user
+applications WSJT-X, MAP65, and QMAP and many utility programs useful
+to advanced users and co-developers. Linux packages are provided for
+x86_64, aarch64, and armhf.
+
+Among the more important enhancements since version 3.0.2 are the
+following:
+
+ - JTTY, a new digital mode for fast RTTY-style contest exchanges and
+   other keyboard-to-keyboard communication. JTTY has an operational
+   feel similar to RTTY but far better weak-signal performance and
+   a very low error rate. It can transmit at any time rather than in
+   fixed T/R periods. Its 4-tone GFSK waveform uses 1.888-second
+   frames and about 127 Hz of bandwidth. Function keys F1-F8 provide
+   contest-style exchanges, and messages can be queued while
+   transmitting. Signal subtraction and adaptive decoding help recover
+   overlapping or fading signals. Received and transmitted text is
+   recorded in ALL.TXT, and an MMTTY-compatible interface connects to
+   N1MM Logger+ version 1.0.11449 or later.
+
+ - MAP65 adds support for 192 kHz sample rates, together with extensive
+   corrections to JT65 and Q65 decoding, scheduling, averaging, and
+   polarization handling.
+
+ - QMAP overlays decoded callsigns in its standard waterfall. An
+   optional Vertical Waterfall displays callsigns without obscuring
+   signal traces. Clicking a callsign in either waterfall sets up, or
+   double-clicking starts, a QSO in a co-running WSJT-X.
+
+ - Q65 Pileup mode can indicate that the station being called copied
+   the previous transmission. Such decodes are marked with "#" in the
+   decoded text and Active Stations windows. Everything needed is
+   exchanged over the air; no internet connection is required.
+
+ - The Settings dialog can be resized and its pages scroll when
+   necessary. Main-window controls adapt to the selected font, mode,
+   and available width. Keyboard navigation and assistive-technology
+   support have been improved in Settings and the decode panes.
+
+ - Decoded text panes keep their scroll position while earlier decodes
+   are being reviewed. New decodes continue to accumulate below, and
+   the pane returns to live output when scrolled back to the end.
+
+ - Raspberry Pi and other ARM single-board computers: 32-bit (armhf)
+   Linux packages (.deb, .rpm, and AppImage) are again available
+   alongside 64-bit aarch64 packages. Both are built and tested on
+   Debian Bookworm. Projects such as DigiPi can install the current
+   release without building from source.
+
+ - TX Inhibit through the WSJT-X UDP network protocol allows an
+   external controller to hold off PTT while another station on a
+   shared band is transmitting. PTT can resume if the hold ends while
+   transmission is still requested.
+
+Further features and fixes since version 3.0.2:
+
+MAP65, QMAP, and Q65:
+
+ - MAP65 live decoding no longer uses incomplete received data, which
+   could produce spurious candidates or miss real signals. Early and
+   final decode requests are handled independently so a long-running
+   pass is less likely to prevent the next one from running.
+
+ - For dual-polarization Q65 reception, MAP65 searches across
+   polarization angles and accounts for unequal or correlated receiver
+   noise. Paired Q65B simulations measured an average sensitivity gain
+   of about 0.1 dB. Applying the configured Dphi correction when
+   combining channels also recovers signals weakened by a receiver
+   phase offset.
+
+ - MAP65 fixes cases where closely spaced signals or a JT65 sweep
+   could prevent another JT65 or Q65 signal from being decoded. JT65
+   averaging now uses each candidate's measured timing, and
+   intermittent single-polarization JT65 failures have been corrected.
+
+ - MAP65 now offers Full Deep Search for Q65. JT65 Deep Search reads
+   complete CALL3.TXT files and refreshes its candidates when the
+   calls, grid, or EME filter changes.
+
+ - Specific spurious results from strong JT65 signals and invalid Q65
+   callsigns have been corrected.
+
+ - Manual JT65 decoding again uses the lower sync threshold at narrow
+   frequency tolerances, while manual Q65 decoding honors the selected
+   Ftol. Find Delta Phi displays its current result rather than stale
+   output from an earlier calibration.
+
+ - QMAP callsign labels follow decode timestamps during live reception
+   and file playback. Both waterfalls remember their size and open
+   state, resizing preserves their history, and a separate Stop button
+   ends monitoring or a sequence of saved-file decodes.
+
+Decoding, sequencing, and transmit controls:
+
+ - Multithreaded (MTD) FT8 decoding is more reliable under load. Fixes
+   prevent stalls when fewer decoder workers are available than
+   requested, occasional loss of weak messages during concurrent
+   signal subtraction, and fields from different decodes being mixed.
+
+ - SuperFox rejects invalid callsigns, reports, and free text before
+   transmission. Its queue, counters, and logs stay consistent when a
+   message is rejected, and free text can again accompany four Hounds.
+
+ - WSPR and FST4W beacon scheduling works with 900- and 1800-second
+   periods after Tune, with Tx Next, and with fixed Round Robin
+   selections.
+
+ - Echo mode rejects invalid CW text and handles silent input and
+   averaging correctly.
+
+ - Generated messages that cannot be represented by the selected
+   over-the-air format are rejected before PTT. This prevents a
+   callsign, prefix, suffix, serial number, or contest field from being
+   changed silently.
+
+ - CQ: First and CQ: Max dB continue considering eligible callers
+   after a decode is rejected or filtered. An eligible station calling
+   directly can replace a pending CQ or QRZ according to the selected
+   response policy.
+
+ - Q65 stops automatic transmission after final logging when repeat
+   transmission is disabled. RR73 is offered only by message formats
+   that support it; legacy and shorthand exchanges retain RRR.
+
+ - Tx even/1st locking works independently of mode while preserving
+   Fox and Hound requirements. TX1 preferences survive temporary mode
+   restrictions, and Wait & Reply and Wait & Pounce provide accurate
+   state indications and prerequisite messages.
+
+ - The former automatic transmit-frequency adjustment for UK
+   callsigns on 60 m has been removed. Operators remain responsible
+   for keeping their transmitted spectrum within permitted
+   allocations.
+
+Rig control and TCI:
+
+ - On radios with multiple DATA profiles, WSJT-X preserves an
+   operator-selected DATA2 or DATA3 profile when Data/Pkt is selected.
+   Previously, frequency changes or Fake It split operation could
+   switch the radio to generic DATA (DATA1 on the TS-990S).
+
+ - Rig Split preserves receive and transmit VFO roles during PTT.
+   Changes to the transmit audio offset keep the split transmit dial
+   synchronized, including with TCI and custom-frequency band hops.
+
+ - A saved transverter RF frequency is no longer replaced by an
+   initial IF report.
+
+ - Band and nominal-frequency changes are blocked while transmitting
+   or tuning, without losing the previous selection or monitoring
+   state.
+
+ - Invalid frequencies and station offsets are rejected rather than
+   becoming zero or overflowing. After a rig failure, pending PTT,
+   Tune, and Stop TX commands are discarded.
+
+ - TCI applies the correct audio period after startup or restart,
+   frames transmit audio correctly, reapplies the configured power
+   setting during rig synchronization, and validates frequencies
+   across the full supported range.
+
+Main window, Settings, and accessibility:
+
+ - Double-clicking a decode selects the row under the initial click
+   even if another message arrives during the gesture.
+
+ - Rx Frequency mirrors worked, wanted, ignored, territory, and
+   current-DX highlighting from Band Activity. Highlight prefix lists
+   accept "*" wildcards and "!" exclusions, and directional lists
+   match consistently regardless of spacing or letter case.
+
+ - For a U.S. callsign operating portable from a grid in another
+   state, the displayed entity and state reflect the current location.
+   Worked-before and DXCC-credit tracking remain unchanged (reported by
+   Steve, K5DOG).
+
+ - Settings tables and lists have keyboard-accessible Actions buttons.
+   Tx Macros and highlighting priorities can be reordered from the
+   keyboard, validation selects the relevant page and field, and
+   additional accessible names identify operating controls and decode
+   panes. High-DPI scaling is now enabled automatically; the obsolete
+   HighDPI and enlarged-tab options have been removed.
+
+ - Switching configurations restarts the decoder cleanly and preserves
+   the dial frequency and waterfall state.
+
+ - A stale lock-file dialog shows the file and process details and
+   offers explicit Remove Lock File, Retry, and No actions.
+
+Wide Graph:
+
+ - Resizing Wide Graph preserves waterfall and spectrum history.
+   Spectrum flattening uses the visible frequency range so off-screen
+   signals do not shift the displayed baseline.
+
+Networking, logging, and integrations:
+
+ - Large UDP Replay responses are sent in paced batches, reducing
+   dropped records and Network Error dialogs while keeping the
+   interface responsive.
+
+ - UDP clients can reply to decodes hidden by display filters, and the
+   reference UDP server follows a restarted WSJT-X client's new port.
+
+ - PSK Reporter uses smaller UDP packets on links with restricted
+   packet sizes. Spots received around midnight carry the correct
+   date. ALL.TXT and PSK Reporter also retain the band and frequency
+   of each receive period when the operator changes band or mode.
+
+ - Cloudlog and Wavelog: Check Connection now verifies the API layout,
+   write access, and selected station profile. The station selector is
+   populated from the server, so a misconfigured connection is caught
+   before the first QSO is logged.
+
+ - eQSL ADIF uploads use HTTPS so credentials are not sent in clear
+   text. ADIF export preserves contest exchanges including Field Day,
+   RTTY/FT Roundup, serial numbers, and EU VHF exchanges.
+
+Windows, macOS, and Linux:
+
+ - Windows builds no longer depend on newer synchronization functions
+   that are unavailable on older systems. jt9.exe is terminated if
+   WSJT-X exits unexpectedly, high-numbered COM ports are handled, and
+   startup no longer plays an unsolicited Testing123 announcement.
+
+ - The macOS installer replaces an existing application when
+   reinstalling the same version.
+
+ - Linux data and alert-sound locations follow the installation
+   prefix consistently. Logs and writable cty.dat and CALL3.TXT
+   overrides use the configured data directory, including separate
+   locations selected with --rig-name.
+
+ - Debian packages are classified as hamradio and prevent mixed
+   installations of official WSJT-X and conflicting fork packages.
+
+Documentation and translations:
+
+ - German, Polish, and Ukrainian translations have been added, the
+   Hungarian translation is enabled, and the Spanish translation has
+   been updated. Untranslated text continues to appear in English.
+
+ - The User Guide adds JTTY and QMAP sections and sample recordings.
+   WSJT-X, MAP65, and QMAP have new icons.
+
+We thank the contributors and reporters whose work is part of this
+release, including Matt Manjos (W5MMW); Arek Czak (SP1AKU), Petro Ostapuk
+(UR3PKI), and Cedric (EA4AC) for translations; Jeff Millar (WA1HCO)
+for the original TX Inhibit proposal and field reports; and
+Carl-Johan Kjellander, Jaroslav Škarvada, Laurence Howell (KL7L),
+Tony (EI7BMB), Gary (N8CQ), Marco Calistri (PY1ZRJ), Mike (KK7ER),
+Hasan (N0AN), Leigh (KG7WED), Jim (K1JH), Michael (W9IP), and
+Glenn (AF8C) for reports and testing.
+We also thank the many other operators who helped test corrections
+through the WSJT-X mailing lists and user forums.
 
                         Release: WSJT-X 3.0.2
                             June 19, 2026
