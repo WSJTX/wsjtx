@@ -53,7 +53,7 @@ jobs:
             echo "::error::Run this workflow from $BRANCH at $EXPECTED_SHA"
             exit 1
           fi
-          BRANCH_SHA=$(git rev-parse "origin/$BRANCH^{commit}" 2>/dev/null || true)
+          BRANCH_SHA=$(git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH^{commit}" || true)
           if [ "$BRANCH_SHA" != "$EXPECTED_SHA" ]; then
             echo "::error::$BRANCH tip is ${BRANCH_SHA:-missing}, expected $EXPECTED_SHA"
             exit 1
@@ -85,19 +85,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
-          set -euo pipefail
-          TAG="build/v$VERSION"
-          CURRENT=$(git rev-parse "$TAG^{commit}" 2>/dev/null || true)
-          if [ -n "$CURRENT" ] && [ "$CURRENT" != "$EXPECTED_SHA" ]; then
-            echo "::error::$TAG already exists at $CURRENT; release tags are never moved"
-            exit 1
-          fi
-          if [ "$CURRENT" = "$EXPECTED_SHA" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "$TAG already identifies $EXPECTED_SHA; creation is idempotently satisfied."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          .github/scripts/check-candidate-tag.sh "build/v$VERSION" "$EXPECTED_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Create candidate tag
         if: inputs.operation == 'create' && steps.tag.outputs.exists != 'true'
