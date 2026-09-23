@@ -4482,7 +4482,7 @@ void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
 
 void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/wsjtx-doc/wsjtx-main_en.html"});
+  QDesktopServices::openUrl (QUrl {"https://wsjtx.github.io/wsjtx/guide-full.html"});
 
 }
 
