@@ -208,6 +208,8 @@ p { margin: 0; }
 
 /* link cards (get started) */
 .linkcard { display: block; }
+.linkcard[hidden] { display: none; } /* .linkcard{display:block} would otherwise
+  outrank the UA [hidden] rule on source order, since both have equal specificity */
 .linkcard:hover { text-decoration: none; }
 .linkcard .k { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-ink); }
 .linkcard h3 { margin-top: .35rem; font-size: 1.15rem; color: var(--ink); }
