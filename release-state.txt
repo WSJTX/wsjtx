@@ -1,4 +1,4 @@
 version=3.2.0
-channel=DEVEL
-rc=
+channel=RC
+rc=1
 revision=$Format:%H$
