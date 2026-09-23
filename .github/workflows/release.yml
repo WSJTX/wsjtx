@@ -28,6 +28,7 @@ jobs:
       version: ${{ steps.identity.outputs.version }}
       release_channel: ${{ steps.identity.outputs.channel }}
       rc_number: ${{ steps.identity.outputs.rc_number }}
+      windows_signing: ${{ steps.identity.outputs.windows_signing }}
       linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
       armhf_image_tag: ${{ steps.armhf-image.outputs.image_tag }}
     env:
@@ -57,6 +58,7 @@ jobs:
             echo "version=$(jq -r .version <<<"$IDENTITY")"
             echo "channel=$(jq -r .channel <<<"$IDENTITY")"
             echo "rc_number=$(jq -r .rc_number <<<"$IDENTITY")"
+            echo "windows_signing=$(jq -r .windows_signing <<<"$IDENTITY")"
           } >> "$GITHUB_OUTPUT"
       - id: linux-image
         name: Resolve Linux CI image generation
@@ -146,7 +148,6 @@ jobs:
       hamlib_branch: "4.7.2"
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
-      sign_mode: ephemeral
 
   candidate-ready:
     needs: [prepare, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
@@ -159,11 +160,18 @@ jobs:
           path: artifacts
       - name: Verify all candidate artifacts
         run: python3 .github/scripts/release-policy.py verify-assets "${{ needs.prepare.outputs.version }}" artifacts
+      - name: Verify candidate packaging reports
+        run: |
+          python3 .github/scripts/release-policy.py verify-signing-reports \
+            "${{ needs.prepare.outputs.version }}" artifacts \
+            --commit "${{ inputs.expected_sha }}" --tag "${{ inputs.candidate_tag }}" \
+            --macos-mode validation --windows-mode unsigned
       - name: Record candidate provenance
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           CANDIDATE_TAG: ${{ inputs.candidate_tag }}
           CANDIDATE_SHA: ${{ inputs.expected_sha }}
+          WINDOWS_RELEASE_MODE: ${{ needs.prepare.outputs.windows_signing }}
         run: |
           jq -n \
             --arg version "$VERSION" \
@@ -171,7 +179,8 @@ jobs:
             --arg commit "$CANDIDATE_SHA" \
             --arg repository "$GITHUB_REPOSITORY" \
             --arg run_id "$GITHUB_RUN_ID" \
-            '{schema: 1, version: $version, tag: $tag, commit: $commit, repository: $repository, workflow_run: $run_id}' \
+            --arg windows_release_mode "$WINDOWS_RELEASE_MODE" \
+            '{schema: 1, version: $version, tag: $tag, commit: $commit, repository: $repository, workflow_run: $run_id, windows_release_signing: $windows_release_mode, candidate_signing: {windows: "unsigned", macos: "validation"}}' \
             > artifacts/candidate-provenance.json
       - name: Upload complete candidate
         uses: actions/upload-artifact@v7

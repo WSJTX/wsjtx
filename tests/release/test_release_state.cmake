@@ -53,6 +53,14 @@ assert_equal ("${channel}" "RC" "RC channel")
 assert_equal ("${rc}" "7" "RC number")
 assert_equal ("${revision}" "0123456789abcdef0123456789abcdef01234567" "expanded revision")
 
+file (WRITE "${_fixture_dir}/unsigned.txt"
+  "version=3.2.0\nchannel=RC\nrc=1\nrevision=$Format:%H$\nwindows_signing=unsigned\n")
+wsjt_read_release_state (
+  "${_fixture_dir}/unsigned.txt"
+  version channel rc revision)
+assert_equal ("${channel}" "RC" "unsigned release channel")
+assert_equal ("${rc}" "1" "unsigned release number")
+
 file (WRITE "${_fixture_dir}/ga.txt"
   "version=3.2.0\nchannel=GA\nrc=\nrevision=$Format:%H$\n")
 wsjt_read_release_state (
@@ -71,6 +79,10 @@ expect_invalid (invalid_revision
   "version=3.2.0\nchannel=DEVEL\nrc=\nrevision=not-a-git-object-id\n")
 expect_invalid (unknown_key
   "version=3.2.0\nchannel=DEVEL\nrc=\ncommit=$Format:%H$\n")
+expect_invalid (invalid_windows_signing
+  "version=3.2.0\nchannel=RC\nrc=1\nrevision=$Format:%H$\nwindows_signing=ephemeral\n")
+expect_invalid (duplicate_windows_signing
+  "version=3.2.0\nchannel=RC\nrc=1\nrevision=$Format:%H$\nwindows_signing=unsigned\nwindows_signing=unsigned\n")
 
 set (_cache_source "${_fixture_dir}/cache-source")
 set (_cache_build "${_fixture_dir}/cache-build")

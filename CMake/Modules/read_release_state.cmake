@@ -5,11 +5,13 @@ function (wsjt_read_release_state state_file version_out channel_out rc_out revi
 
   file (STRINGS "${state_file}" _wsjt_release_state_lines ENCODING UTF-8)
   list (LENGTH _wsjt_release_state_lines _wsjt_release_state_line_count)
-  if (NOT _wsjt_release_state_line_count EQUAL 4)
-    message (FATAL_ERROR "${state_file} must contain exactly four metadata lines")
+  if (NOT _wsjt_release_state_line_count EQUAL 4
+      AND NOT _wsjt_release_state_line_count EQUAL 5)
+    message (FATAL_ERROR "${state_file} must contain four or five metadata lines")
   endif ()
 
   set (_wsjt_release_state_keys version channel rc revision)
+  set (_wsjt_release_state_allowed_keys ${_wsjt_release_state_keys} windows_signing)
   foreach (_wsjt_release_state_line IN LISTS _wsjt_release_state_lines)
     if (NOT _wsjt_release_state_line MATCHES "^([a-z_]+)=(.*)$")
       message (FATAL_ERROR "Invalid release metadata line: ${_wsjt_release_state_line}")
@@ -17,7 +19,7 @@ function (wsjt_read_release_state state_file version_out channel_out rc_out revi
 
     set (_wsjt_release_state_key "${CMAKE_MATCH_1}")
     set (_wsjt_release_state_value "${CMAKE_MATCH_2}")
-    if (NOT _wsjt_release_state_key IN_LIST _wsjt_release_state_keys)
+    if (NOT _wsjt_release_state_key IN_LIST _wsjt_release_state_allowed_keys)
       message (FATAL_ERROR "Unknown release metadata key: ${_wsjt_release_state_key}")
     endif ()
     if (DEFINED _wsjt_release_state_${_wsjt_release_state_key})
@@ -25,6 +27,11 @@ function (wsjt_read_release_state state_file version_out channel_out rc_out revi
     endif ()
     set (_wsjt_release_state_${_wsjt_release_state_key} "${_wsjt_release_state_value}")
   endforeach ()
+
+  if (DEFINED _wsjt_release_state_windows_signing
+      AND NOT _wsjt_release_state_windows_signing MATCHES "^(signpath|unsigned)$")
+    message (FATAL_ERROR "Windows signing mode must be signpath or unsigned")
+  endif ()
 
   foreach (_wsjt_release_state_key IN LISTS _wsjt_release_state_keys)
     if (NOT DEFINED _wsjt_release_state_${_wsjt_release_state_key})

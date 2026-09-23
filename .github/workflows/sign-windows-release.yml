@@ -13,6 +13,10 @@ on:
         required: false
         type: string
         default: ""
+      windows_signing:
+        required: false
+        type: string
+        default: signpath
 permissions:
   actions: read
   contents: read
@@ -25,9 +29,9 @@ jobs:
       hamlib_branch: "4.7.2"
       release_channel: ${{ inputs.release_channel }}
       rc_number: ${{ inputs.rc_number }}
-      sign_mode: none
 
   sign:
+    if: inputs.windows_signing != 'unsigned'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 90

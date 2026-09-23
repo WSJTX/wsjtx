@@ -32,13 +32,6 @@ on:
         required: false
         type: string
         default: ""
-      sign_mode:
-        description: >-
-          "ephemeral" (default) self-signs the installer; "none" leaves
-          it unsigned for downstream SignPath signing.
-        required: false
-        type: string
-        default: "ephemeral"
     outputs:
       installer-artifact-id:
         description: "Installer artifact id, for the SignPath submit step"
@@ -150,7 +143,6 @@ jobs:
             mingw-w64-x86_64-portaudio
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-nsis
-            mingw-w64-x86_64-osslsigncode
             mingw-w64-x86_64-ruby
             autoconf automake libtool
 
@@ -376,42 +368,14 @@ jobs:
           cpack "${cpack_args[@]}"
           ls -la *.exe
 
-      # Ephemeral cert for CI/DEVEL/RC builds; does not chain to a
-      # trusted root. GA installers are SignPath-signed on the public
-      # repo instead (sign_mode=none skips this step).
-      - name: Sign installer with self-signed ephemeral cert
-        if: inputs.sign_mode != 'none'
+      - name: Verify installer has no Authenticode signature
+        shell: pwsh
         run: |
-          cd wsjtx-build
-          INSTALLER=$(ls wsjtx-${VERSION}-*.exe | head -1)
-          if [ -z "$INSTALLER" ]; then
-            echo "ERROR: no NSIS installer produced by cpack"
-            ls -la
-            exit 1
-          fi
-          echo "Unsigned installer: $INSTALLER"
-          # MSYS2 auto-converts arguments starting with '/' into Windows paths
-          # (e.g., '/CN=...' becomes 'D:/a/_temp/msys64/CN=...').
-          # MSYS2_ARG_CONV_EXCL="*" disables that conversion for this command.
-          MSYS2_ARG_CONV_EXCL="*" openssl req -x509 -newkey rsa:2048 \
-            -keyout ephemeral-key.pem -out ephemeral-cert.pem \
-            -days 365 -nodes \
-            -subj "/CN=WSJT-X Ephemeral Dev Signing/O=WSJTX/C=US"
-          SIGNED="${INSTALLER%.exe}-signed.exe"
-          osslsigncode sign \
-            -certs ephemeral-cert.pem -key ephemeral-key.pem \
-            -n "WSJT-X Installer" \
-            -i "https://github.com/WSJTX/wsjtx-internal" \
-            -h sha256 \
-            -in "$INSTALLER" -out "$SIGNED"
-          mv "$SIGNED" "$INSTALLER"
-          rm -f ephemeral-key.pem ephemeral-cert.pem
-          echo "Signed installer: $INSTALLER"
-          osslsigncode verify "$INSTALLER" || true
-          # Exit 0: osslsigncode verify returns non-zero on CA-untrust even
-          # when the signature itself is structurally valid. The ephemeral
-          # cert is self-signed by design; the "|| true" keeps CI green.
-          # Structural presence is proven by the sign step succeeding above.
+          $installer = Get-Item "wsjtx-build/wsjtx-${{ inputs.version }}-win64.exe"
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if ($signature.Status -ne 'NotSigned') {
+            throw "Installer Authenticode status is $($signature.Status), expected NotSigned"
+          }
 
       - name: Upload installer artifact
         id: upload_installer

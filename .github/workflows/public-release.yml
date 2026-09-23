@@ -21,6 +21,7 @@ jobs:
       release_channel: ${{ steps.identity.outputs.channel }}
       rc_number: ${{ steps.identity.outputs.rc_number }}
       macos_sign_mode: ${{ steps.identity.outputs.macos_sign_mode }}
+      windows_signing: ${{ steps.identity.outputs.windows_signing }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -41,6 +42,7 @@ jobs:
             echo "version=$(jq -r .version <<<"$IDENTITY")"
             echo "channel=$(jq -r .channel <<<"$IDENTITY")"
             echo "rc_number=$(jq -r .rc_number <<<"$IDENTITY")"
+            echo "windows_signing=$(jq -r .windows_signing <<<"$IDENTITY")"
           } >> "$GITHUB_OUTPUT"
           if [ "$MACOS_DISTRIBUTION_SIGNING_ENABLED" = true ]; then
             echo "macos_sign_mode=distribution" >> "$GITHUB_OUTPUT"
@@ -159,6 +161,7 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       release_channel: ${{ needs.prepare.outputs.release_channel }}
       rc_number: ${{ needs.prepare.outputs.rc_number }}
+      windows_signing: ${{ needs.prepare.outputs.windows_signing }}
 
   assemble:
     needs: [prepare, linux-images, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
@@ -204,16 +207,19 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
+          WINDOWS_MODE: ${{ needs.prepare.outputs.windows_signing }}
         run: |
           set -euo pipefail
           python3 .github/scripts/release-policy.py verify-assets "$VERSION" artifacts \
-            --macos-mode "$MACOS_MODE"
+            --macos-mode "$MACOS_MODE" --windows-mode "$WINDOWS_MODE"
           python3 .github/scripts/release-policy.py verify-signing-reports "$VERSION" artifacts \
-            --commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME" --macos-mode "$MACOS_MODE"
+            --commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME" \
+            --macos-mode "$MACOS_MODE" --windows-mode "$WINDOWS_MODE"
       - name: Generate checksums and release manifest
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
+          WINDOWS_MODE: ${{ needs.prepare.outputs.windows_signing }}
         run: |
           python3 .github/scripts/release-policy.py write-manifest "$VERSION" artifacts \
             --repository "$GITHUB_REPOSITORY" \
@@ -223,23 +229,26 @@ jobs:
             --linux-aarch64-digest "${{ needs.linux-images.outputs.aarch64_digest }}" \
             --linux-armhf-cross-digest "${{ needs.linux-images.outputs.armhf_cross_digest }}" \
             --linux-armhf-digest "${{ needs.linux-images.outputs.armhf_digest }}" \
-            --macos-mode "$MACOS_MODE"
+            --macos-mode "$MACOS_MODE" --windows-mode "$WINDOWS_MODE"
       - name: Assemble publication bundle
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
+          WINDOWS_MODE: ${{ needs.prepare.outputs.windows_signing }}
         run: |
           set -euo pipefail
           mkdir -p release-bundle/verification
           while IFS= read -r file; do
             cp "$file" release-bundle/
           done < <(python3 .github/scripts/release-policy.py release-files "$VERSION" artifacts \
-            --macos-mode "$MACOS_MODE")
+            --macos-mode "$MACOS_MODE" --windows-mode "$WINDOWS_MODE")
           cp artifacts/SHA256SUMS artifacts/release-manifest.json release-bundle/
-          cp -R artifacts/macos-signing-report-* \
-            artifacts/wsjtx-*-windows-signing-request \
-            artifacts/wsjtx-*-windows-signing-verification \
-            release-bundle/verification/
+          cp -R artifacts/macos-signing-report-* release-bundle/verification/
+          if [ "$WINDOWS_MODE" = signpath ]; then
+            cp -R artifacts/wsjtx-*-windows-signing-request \
+              artifacts/wsjtx-*-windows-signing-verification \
+              release-bundle/verification/
+          fi
       - name: Upload publication bundle for approval
         uses: actions/upload-artifact@v7
         with:
@@ -268,6 +277,7 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           MACOS_MODE: ${{ needs.prepare.outputs.macos_sign_mode }}
+          WINDOWS_MODE: ${{ needs.prepare.outputs.windows_signing }}
         run: |
           set -euo pipefail
           (cd release-bundle && sha256sum --check SHA256SUMS)
@@ -280,6 +290,7 @@ jobs:
             EXPECTED_MACOS_MODE=manual
           fi
           test "$(jq -r .macos_signing.mode release-bundle/release-manifest.json)" = "$EXPECTED_MACOS_MODE"
+          test "$(jq -r .windows_signing.mode release-bundle/release-manifest.json)" = "$WINDOWS_MODE"
           python3 .github/scripts/release-policy.py classify "$VERSION" >/dev/null
           TAG_SHA=$(git ls-remote origin "refs/tags/$GITHUB_REF_NAME" | awk '{print $1}')
           if [ "$TAG_SHA" != "$GITHUB_SHA" ]; then

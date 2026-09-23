@@ -15,6 +15,7 @@ from pathlib import Path
 
 VERSION_RE = re.compile(r"^(?P<numeric>\d+\.\d+\.\d+)(?:-rc(?P<rc>[1-9]\d*))?$")
 MACOS_MODES = ("validation", "distribution")
+WINDOWS_MODES = ("signpath", "unsigned")
 
 
 def classify(version: str) -> dict[str, str]:
@@ -40,8 +41,12 @@ def parse_state(contents: str, *, expected_revision: str | None = None) -> dict[
         if not separator or key in state:
             raise ValueError("release-state.txt must contain unique key=value lines")
         state[key] = value
-    if set(state) != {"version", "channel", "rc", "revision"}:
-        raise ValueError("release-state.txt must define exactly version, channel, rc, and revision")
+    required_keys = {"version", "channel", "rc", "revision"}
+    if not required_keys <= set(state) or set(state) - required_keys - {"windows_signing"}:
+        raise ValueError("release-state.txt must define version, channel, rc, revision, and optionally windows_signing")
+    state.setdefault("windows_signing", "signpath")
+    if state["windows_signing"] not in WINDOWS_MODES:
+        raise ValueError("release-state.txt windows_signing must be signpath or unsigned")
     if state["channel"] not in {"DEVEL", "RC", "GA"}:
         raise ValueError("release-state.txt channel must be DEVEL, RC, or GA")
     if not re.fullmatch(r"\d+\.\d+\.\d+", state["version"]):
@@ -76,6 +81,7 @@ def validate_source(root: Path, version: str) -> dict[str, str]:
         errors.append(f"RC number {state['rc'] or '<empty>'} does not match {identity['rc_number'] or '<empty>'}")
     if errors:
         raise ValueError("; ".join(errors))
+    identity["windows_signing"] = state["windows_signing"]
     return identity
 
 
@@ -121,9 +127,11 @@ def expected_assets(version: str, distribution: bool) -> list[str]:
     ]
 
 
-def public_expected_assets(version: str, macos_mode: str) -> list[str]:
+def public_expected_assets(version: str, macos_mode: str, windows_mode: str = "signpath") -> list[str]:
     if macos_mode not in MACOS_MODES:
         raise ValueError(f"unsupported macOS release mode: {macos_mode}")
+    if windows_mode not in WINDOWS_MODES:
+        raise ValueError(f"unsupported Windows release mode: {windows_mode}")
     mac_suffix = "macOS.pkg" if macos_mode == "distribution" else "macOS-unsigned.pkg"
     return [
         f"wsjtx-{version}-arm64-{mac_suffix}",
@@ -131,7 +139,7 @@ def public_expected_assets(version: str, macos_mode: str) -> list[str]:
         f"wsjtx-{version}-linux-x86_64-AppImage",
         f"wsjtx-{version}-linux-aarch64-AppImage",
         f"wsjtx-{version}-linux-armhf-AppImage",
-        f"wsjtx-{version}-windows-x86_64-installer-signed",
+        f"wsjtx-{version}-windows-x86_64-installer{'-signed' if windows_mode == 'signpath' else ''}",
     ]
 
 
@@ -160,17 +168,27 @@ def find_asset_files(root: Path, version: str, distribution: bool) -> list[Path]
     return files
 
 
-def find_public_asset_files(root: Path, version: str, macos_mode: str) -> list[Path]:
-    files = collect_asset_files(root, public_expected_assets(version, macos_mode))
+def find_public_asset_files(
+    root: Path, version: str, macos_mode: str, windows_mode: str = "signpath"
+) -> list[Path]:
+    files = collect_asset_files(root, public_expected_assets(version, macos_mode, windows_mode))
     if macos_mode == "distribution":
         unsigned = sorted(root.rglob("*-unsigned.pkg"))
         if unsigned:
             raise ValueError(f"unsigned macOS packages cannot be published: {unsigned[0]}")
+    if windows_mode == "unsigned":
+        installer = files[-1]
+        if installer.name != f"wsjtx-{version}-win64.exe":
+            raise ValueError(f"unexpected unsigned Windows installer: {installer.name}")
+        if (root / f"wsjtx-{version}-windows-x86_64-installer-signed").exists():
+            raise ValueError("signed Windows installer cannot accompany unsigned release")
     return files
 
 
-def release_files(root: Path, version: str, macos_mode: str = "distribution") -> list[Path]:
-    files = find_public_asset_files(root, version, macos_mode)
+def release_files(
+    root: Path, version: str, macos_mode: str = "distribution", windows_mode: str = "signpath"
+) -> list[Path]:
+    files = find_public_asset_files(root, version, macos_mode, windows_mode)
     for arch in ("x86_64", "aarch64", "armhf"):
         for package_type, suffix in (("deb", ".deb"), ("rpm", ".rpm")):
             directory = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
@@ -206,10 +224,13 @@ def read_single_json(directory: Path) -> dict:
 
 
 def verify_signing_reports(
-    root: Path, version: str, commit: str, tag: str, macos_mode: str = "distribution"
+    root: Path, version: str, commit: str, tag: str, macos_mode: str = "distribution",
+    windows_mode: str = "signpath",
 ) -> None:
     if macos_mode not in MACOS_MODES:
         raise ValueError(f"unsupported macOS release mode: {macos_mode}")
+    if windows_mode not in WINDOWS_MODES:
+        raise ValueError(f"unsupported Windows release mode: {windows_mode}")
     for arch in ("arm64", "x86_64"):
         report = read_single_json(root / f"macos-signing-report-{version}-{arch}")
         if report.get("mode") != macos_mode or report.get("git_sha") != commit:
@@ -232,6 +253,12 @@ def verify_signing_reports(
         package = root / artifact_dir / report.get("artifact", "")
         if not package.is_file() or report.get("sha256") != hash_file(package):
             raise ValueError(f"macOS {arch} report hash does not match its package")
+
+    if windows_mode == "unsigned":
+        for suffix in ("windows-signing-request", "windows-signing-verification"):
+            if (root / f"wsjtx-{version}-{suffix}").exists():
+                raise ValueError(f"Windows signing report cannot accompany unsigned release: {suffix}")
+        return
 
     request = read_single_json(root / f"wsjtx-{version}-windows-signing-request")
     verification = read_single_json(root / f"wsjtx-{version}-windows-signing-verification")
@@ -263,7 +290,7 @@ def write_manifest(args: argparse.Namespace) -> None:
     for arch, digest in digests.items():
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
             raise ValueError(f"Linux {arch} builder digest is not an immutable sha256 digest")
-    files = release_files(root, args.version, args.macos_mode)
+    files = release_files(root, args.version, args.macos_mode, args.windows_mode)
     replaceable_macos = (
         {f"wsjtx-{args.version}-{arch}-macOS.pkg" for arch in ("arm64", "x86_64")}
         if args.macos_mode == "validation"
@@ -285,6 +312,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "mode": "manual" if args.macos_mode == "validation" else "distribution",
             "replaceable_assets": sorted(replaceable_macos),
         },
+        "windows_signing": {"mode": args.windows_mode},
         "assets": entries,
     }
     output = root / "release-manifest.json"
@@ -315,16 +343,19 @@ def main() -> int:
     assets_parser.add_argument("artifacts")
     assets_parser.add_argument("--distribution", action="store_true")
     assets_parser.add_argument("--macos-mode", choices=MACOS_MODES)
+    assets_parser.add_argument("--windows-mode", choices=WINDOWS_MODES, default="signpath")
     files_parser = subparsers.add_parser("release-files")
     files_parser.add_argument("version")
     files_parser.add_argument("artifacts")
     files_parser.add_argument("--macos-mode", choices=MACOS_MODES, default="distribution")
+    files_parser.add_argument("--windows-mode", choices=WINDOWS_MODES, default="signpath")
     reports_parser = subparsers.add_parser("verify-signing-reports")
     reports_parser.add_argument("version")
     reports_parser.add_argument("artifacts")
     reports_parser.add_argument("--commit", required=True)
     reports_parser.add_argument("--tag", required=True)
     reports_parser.add_argument("--macos-mode", choices=MACOS_MODES, default="distribution")
+    reports_parser.add_argument("--windows-mode", choices=WINDOWS_MODES, default="signpath")
     manifest_parser = subparsers.add_parser("write-manifest")
     manifest_parser.add_argument("version")
     manifest_parser.add_argument("artifacts")
@@ -336,6 +367,7 @@ def main() -> int:
     manifest_parser.add_argument("--linux-armhf-cross-digest", required=True)
     manifest_parser.add_argument("--linux-armhf-digest", required=True)
     manifest_parser.add_argument("--macos-mode", choices=MACOS_MODES, default="distribution")
+    manifest_parser.add_argument("--windows-mode", choices=WINDOWS_MODES, default="signpath")
     args = parser.parse_args()
     try:
         if args.command == "classify":
@@ -348,18 +380,19 @@ def main() -> int:
             validate_archive(Path(args.archive), args.version, args.commit)
         elif args.command == "verify-assets":
             files = (
-                find_public_asset_files(Path(args.artifacts), args.version, args.macos_mode)
+                find_public_asset_files(Path(args.artifacts), args.version, args.macos_mode, args.windows_mode)
                 if args.macos_mode
                 else find_asset_files(Path(args.artifacts), args.version, args.distribution)
             )
             for path in files:
                 print(path)
         elif args.command == "release-files":
-            for path in release_files(Path(args.artifacts), args.version, args.macos_mode):
+            for path in release_files(Path(args.artifacts), args.version, args.macos_mode, args.windows_mode):
                 print(path)
         elif args.command == "verify-signing-reports":
             verify_signing_reports(
-                Path(args.artifacts), args.version, args.commit, args.tag, args.macos_mode
+                Path(args.artifacts), args.version, args.commit, args.tag, args.macos_mode,
+                args.windows_mode,
             )
         else:
             write_manifest(args)

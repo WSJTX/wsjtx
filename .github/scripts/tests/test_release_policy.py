@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import io
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -41,6 +42,7 @@ class ReleasePolicyTest(unittest.TestCase):
             )
             identity = release_policy.validate_source(root, "3.2.0-rc1")
             self.assertEqual(identity["channel"], "RC")
+            self.assertEqual(identity["windows_signing"], "signpath")
             with self.assertRaisesRegex(ValueError, "release channel"):
                 release_policy.validate_source(root, "3.2.0")
             (root / "release-state.txt").write_text(
@@ -71,6 +73,7 @@ class ReleasePolicyTest(unittest.TestCase):
                     "channel": "RC",
                     "rc": "1",
                     "revision": "$Format:%H$",
+                    "windows_signing": "signpath",
                 },
             )
 
@@ -87,6 +90,29 @@ class ReleasePolicyTest(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("positive RC number", result.stderr)
+
+    def test_source_pins_unsigned_mode_and_rejects_unknown_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = (
+                "version=3.2.0\nchannel=RC\nrc=1\n"
+                "revision=$Format:%H$\nwindows_signing=unsigned\n"
+            )
+            (root / "release-state.txt").write_text(state)
+            self.assertEqual(
+                release_policy.validate_source(root, "3.2.0-rc1")["windows_signing"],
+                "unsigned",
+            )
+            archive = root / "source.zip"
+            commit = "c" * 40
+            with zipfile.ZipFile(archive, "w") as output:
+                output.writestr(
+                    "wsjtx-3.2.0-rc1/release-state.txt",
+                    state.replace("$Format:%H$", commit),
+                )
+            release_policy.validate_archive(archive, "3.2.0-rc1", commit)
+            with self.assertRaisesRegex(ValueError, "windows_signing"):
+                release_policy.parse_state(state.replace("unsigned", "ephemeral"))
 
     def test_validates_exported_tar_and_zip_identity(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -143,6 +169,7 @@ class ReleasePolicyTest(unittest.TestCase):
                 "linux_armhf_cross_digest": "sha256:" + "3" * 64,
                 "linux_armhf_digest": "sha256:" + "4" * 64,
                 "macos_mode": "distribution",
+                "windows_mode": "signpath",
             })()
             release_policy.write_manifest(args)
             manifest = json.loads((root / "release-manifest.json").read_text())
@@ -152,6 +179,7 @@ class ReleasePolicyTest(unittest.TestCase):
             self.assertEqual(manifest["linux_builders"]["armhf_runtime"], "sha256:" + "4" * 64)
             self.assertEqual(manifest["macos_signing"]["mode"], "distribution")
             self.assertEqual(manifest["macos_signing"]["replaceable_assets"], [])
+            self.assertEqual(manifest["windows_signing"]["mode"], "signpath")
             self.assertEqual(len(manifest["assets"]), 13)
 
     def test_manual_macos_assets_keep_release_names_without_immutable_hashes(self):
@@ -182,6 +210,7 @@ class ReleasePolicyTest(unittest.TestCase):
                 "linux_armhf_cross_digest": "sha256:" + "3" * 64,
                 "linux_armhf_digest": "sha256:" + "4" * 64,
                 "macos_mode": "validation",
+                "windows_mode": "signpath",
             })()
 
             release_policy.write_manifest(args)
@@ -203,6 +232,51 @@ class ReleasePolicyTest(unittest.TestCase):
             self.assertTrue(replaceable.isdisjoint(immutable_names))
             self.assertTrue(replaceable.isdisjoint(checksum_names))
             self.assertIn("wsjtx-win64.exe", immutable_names)
+
+    def test_unsigned_windows_manifest_selects_and_hashes_installer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            version = "3.2.0-rc1"
+            for name in release_policy.public_expected_assets(version, "validation", "unsigned"):
+                target = root / name
+                target.mkdir()
+                if "macOS" in name:
+                    filename = name.replace("-unsigned", "")
+                elif "linux" in name:
+                    filename = f"{name}.AppImage"
+                else:
+                    filename = f"wsjtx-{version}-win64.exe"
+                (target / filename).write_bytes(name.encode())
+            for arch in ("x86_64", "aarch64", "armhf"):
+                for package_type in ("deb", "rpm"):
+                    target = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
+                    target.mkdir()
+                    (target / f"wsjtx-{arch}.{package_type}").write_bytes(arch.encode())
+            (root / f"wsjtx-{version}-src.tar.gz").write_bytes(b"source")
+            args = type("Args", (), {
+                "artifacts": str(root), "version": version, "repository": "WSJTX/wsjtx",
+                "commit": "a" * 40, "run_id": "123",
+                "linux_x86_64_digest": "sha256:" + "1" * 64,
+                "linux_aarch64_digest": "sha256:" + "2" * 64,
+                "linux_armhf_cross_digest": "sha256:" + "3" * 64,
+                "linux_armhf_digest": "sha256:" + "4" * 64,
+                "macos_mode": "validation", "windows_mode": "unsigned",
+            })()
+            release_policy.write_manifest(args)
+            manifest = json.loads((root / "release-manifest.json").read_text())
+            installer = f"wsjtx-{version}-win64.exe"
+            self.assertEqual(manifest["windows_signing"]["mode"], "unsigned")
+            self.assertIn(installer, {entry["name"] for entry in manifest["assets"]})
+            self.assertIn(installer, (root / "SHA256SUMS").read_text())
+            installer_path = root / f"wsjtx-{version}-windows-x86_64-installer" / installer
+            installer_path.rename(installer_path.with_name("unexpected.exe"))
+            with self.assertRaisesRegex(ValueError, "unexpected unsigned Windows installer"):
+                release_policy.find_public_asset_files(root, version, "validation", "unsigned")
+            installer_path.with_name("unexpected.exe").rename(installer_path)
+            signed_dir = root / f"wsjtx-{version}-windows-x86_64-installer-signed"
+            signed_dir.mkdir()
+            with self.assertRaisesRegex(ValueError, "signed Windows installer"):
+                release_policy.find_public_asset_files(root, version, "validation", "unsigned")
 
     def test_signing_reports_bind_hashes_and_source(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -293,6 +367,16 @@ class ReleasePolicyTest(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "unsigned package"):
                 release_policy.verify_signing_reports(root, version, commit, tag, "validation")
+
+            report["signed"] = False
+            (root / f"macos-signing-report-{version}-arm64" / "macos-signing-report.json").write_text(
+                json.dumps(report)
+            )
+            with self.assertRaisesRegex(ValueError, "Windows signing report"):
+                release_policy.verify_signing_reports(root, version, commit, tag, "validation", "unsigned")
+            shutil.rmtree(request_dir)
+            shutil.rmtree(verification_dir)
+            release_policy.verify_signing_reports(root, version, commit, tag, "validation", "unsigned")
 
 
 if __name__ == "__main__":

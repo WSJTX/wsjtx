@@ -119,20 +119,11 @@ validate_inputs() {
         ;;
     esac
   fi
-
-  if [ -n "${SIGN_MODE+x}" ]; then
-    case "$SIGN_MODE" in
-      ephemeral|none) ;;
-      *)
-        fail "Invalid sign_mode '${SIGN_MODE}': use ephemeral or none"
-        ;;
-    esac
-  fi
 }
 
 run_isolated() {
   env -u WSJTX_VERSION -u HAMLIB_BRANCH -u WSJT_RELEASE_CHANNEL \
-    -u WSJT_RC_NUMBER -u ARCH -u IMAGE_TAG -u DEPLOYMENT_TARGET -u RUNNER -u SIGN_MODE \
+    -u WSJT_RC_NUMBER -u ARCH -u IMAGE_TAG -u DEPLOYMENT_TARGET -u RUNNER \
     -u VALIDATE_FORTRAN_FALLBACK \
     "$@" "$0"
 }
@@ -155,7 +146,7 @@ if [ "${1:-}" = "--self-test" ]; then
     env WSJTX_VERSION="3.0.1-rc1" HAMLIB_BRANCH="4.7.2" \
         WSJT_RELEASE_CHANNEL="RC" WSJT_RC_NUMBER="1" \
         ARCH="x86_64" DEPLOYMENT_TARGET="10.13" RUNNER="macos-15-intel" \
-        SIGN_MODE="ephemeral" IMAGE_TAG="candidate-123-1" \
+        IMAGE_TAG="candidate-123-1" \
         VALIDATE_FORTRAN_FALLBACK="true" \
     >/dev/null
   run_isolated env HAMLIB_BRANCH="integration/4.7" VALIDATE_FORTRAN_FALLBACK="false" >/dev/null
