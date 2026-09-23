@@ -5,6 +5,7 @@
 #include <QSize>
 
 class QScrollArea;
+class QDialog;
 class QWidget;
 
 namespace Ui
@@ -16,6 +17,7 @@ namespace SettingsDialogLayout
 {
   void install (Ui::configuration_dialog const& ui);
   QScrollArea * pageScrollArea (QWidget * page);
+  QSize preferredWindowSize (QDialog& dialog, Ui::configuration_dialog const& ui);
   QSize boundedWindowSize (QSize requested, QSize available, QMargins frame_margins);
 }
 

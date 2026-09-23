@@ -126,26 +126,6 @@ namespace
       .arg (scroll_area->verticalScrollBar ()->maximum ());
   }
 
-  QSize styleDerivedNaturalSize (DialogFixture& fixture)
-  {
-    auto& dialog = fixture.dialog;
-    auto& ui = fixture.ui;
-    auto required_size = dialog.sizeHint ();
-    showDialog (dialog, required_size);
-
-    for (auto * page : scrollablePages (ui))
-      {
-        ui.configuration_tabs->setCurrentWidget (page);
-        settleLayouts ();
-        auto * scroll_area = SettingsDialogLayout::pageScrollArea (page);
-        auto const chrome_size = dialog.size () - scroll_area->viewport ()->size ();
-        required_size = required_size.expandedTo (
-          scroll_area->widget ()->minimumSizeHint () + chrome_size);
-      }
-
-    return required_size;
-  }
-
   void sendWheelEvent (QWidget * target, QPoint angle_delta)
   {
     auto const local_position = QPointF {target->rect ().center ()};
@@ -169,8 +149,8 @@ private Q_SLOTS:
   void compactControlsKeepNaturalGeometry ();
   void constrainedDialogKeepsNavigationAndActionsReachable_data ();
   void constrainedDialogKeepsNavigationAndActionsReachable ();
-  void naturalDialogSizeAvoidsUnnecessaryScrollBars_data ();
-  void naturalDialogSizeAvoidsUnnecessaryScrollBars ();
+  void preferredDialogSizeKeepsPagesUsable_data ();
+  void preferredDialogSizeKeepsPagesUsable ();
   void keyboardFocusRevealsOffscreenControls ();
   void wheelEventsScrollThePage ();
   void colorsPageOwnsVerticalScrolling ();
@@ -385,14 +365,14 @@ void TestConfigurationDialogLayout::constrainedDialogKeepsNavigationAndActionsRe
     }
 }
 
-void TestConfigurationDialogLayout::naturalDialogSizeAvoidsUnnecessaryScrollBars_data ()
+void TestConfigurationDialogLayout::preferredDialogSizeKeepsPagesUsable_data ()
 {
   QTest::addColumn<int> ("font_delta");
   QTest::newRow ("default-font") << 0;
   QTest::newRow ("larger-accessibility-font") << 4;
 }
 
-void TestConfigurationDialogLayout::naturalDialogSizeAvoidsUnnecessaryScrollBars ()
+void TestConfigurationDialogLayout::preferredDialogSizeKeepsPagesUsable ()
 {
   QFETCH (int, font_delta);
 
@@ -402,9 +382,13 @@ void TestConfigurationDialogLayout::naturalDialogSizeAvoidsUnnecessaryScrollBars
   auto& ui = fixture.ui;
   dialog.setParent (&host, Qt::Widget);
   host.show ();
-  auto const natural_size = styleDerivedNaturalSize (fixture);
-  showDialog (dialog, natural_size);
+  showDialog (dialog, {827, 705});
+  auto const preferred_size = SettingsDialogLayout::preferredWindowSize (dialog, ui);
+  QVERIFY (preferred_size.width () >= dialog.sizeHint ().width ());
+  QVERIFY (preferred_size.height () >= dialog.sizeHint ().height ());
+  showDialog (dialog, preferred_size);
 
+  int vertically_scrolling_pages = 0;
   for (auto * page : scrollablePages (ui))
     {
       ui.configuration_tabs->setCurrentWidget (page);
@@ -413,7 +397,26 @@ void TestConfigurationDialogLayout::naturalDialogSizeAvoidsUnnecessaryScrollBars
       auto const message = scrollDiagnostics (page, dialog, scroll_area);
       QVERIFY2 (scroll_area->horizontalScrollBar ()->maximum () == 0,
                 qPrintable (message));
-      QVERIFY2 (scroll_area->verticalScrollBar ()->maximum () == 0,
+      if (scroll_area->verticalScrollBar ()->maximum () > 0)
+        {
+          ++vertically_scrolling_pages;
+        }
+    }
+  QVERIFY (vertically_scrolling_pages <= 1);
+
+  ui.configuration_tabs->setCurrentWidget (ui.general_tab);
+  settleLayouts ();
+  QVERIFY (ui.station_group_box->height () <= ui.station_group_box->sizeHint ().height () + 2);
+
+  dialog.resize (preferred_size.width (), qMax (480, preferred_size.height () - 200));
+  settleLayouts ();
+  for (auto * page : scrollablePages (ui))
+    {
+      ui.configuration_tabs->setCurrentWidget (page);
+      settleLayouts ();
+      auto * scroll_area = SettingsDialogLayout::pageScrollArea (page);
+      auto const message = scrollDiagnostics (page, dialog, scroll_area);
+      QVERIFY2 (scroll_area->horizontalScrollBar ()->maximum () == 0,
                 qPrintable (message));
     }
 }

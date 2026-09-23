@@ -1,6 +1,7 @@
 #include "SettingsDialogLayout.hpp"
 
 #include <QApplication>
+#include <QDialog>
 #include <QEvent>
 #include <QFrame>
 #include <QHeaderView>
@@ -204,6 +205,52 @@ void SettingsDialogLayout::install (Ui::configuration_dialog const& ui)
 QScrollArea * SettingsDialogLayout::pageScrollArea (QWidget * page)
 {
   return findPageScrollArea (page);
+}
+
+QSize SettingsDialogLayout::preferredWindowSize (QDialog& dialog,
+                                                 Ui::configuration_dialog const& ui)
+{
+  dialog.ensurePolished ();
+  dialog.layout ()->activate ();
+  auto required_size = dialog.sizeHint ();
+  auto * selected_page = ui.configuration_tabs->currentWidget ();
+  int tallest_page = 0;
+  int next_tallest_page = 0;
+
+  for (auto * page : {
+       ui.general_tab,
+       ui.radio_tab,
+       ui.audio_tab,
+       ui.reporting_tab,
+       ui.colors_tab,
+       ui.advanced_tab,
+       ui.alerts_tab,
+       ui.filters_tab,
+       })
+    {
+      ui.configuration_tabs->setCurrentWidget (page);
+      dialog.layout ()->activate ();
+      auto * scroll_area = findPageScrollArea (page);
+      auto const chrome_size = dialog.size () - scroll_area->viewport ()->size ();
+      auto const page_size = scroll_area->widget ()->minimumSizeHint () + chrome_size;
+      required_size.setWidth (qMax (required_size.width (),
+                                    page_size.width ()
+                                    + scroll_area->verticalScrollBar ()->sizeHint ().width ()));
+      if (page_size.height () > tallest_page)
+        {
+          next_tallest_page = tallest_page;
+          tallest_page = page_size.height ();
+        }
+      else
+        {
+          next_tallest_page = qMax (next_tallest_page, page_size.height ());
+        }
+    }
+
+  ui.configuration_tabs->setCurrentWidget (selected_page);
+  // The tallest page can scroll without making every other tab waste that height.
+  required_size.setHeight (qMax (required_size.height (), next_tallest_page));
+  return required_size;
 }
 
 QSize SettingsDialogLayout::boundedWindowSize (QSize requested, QSize available,

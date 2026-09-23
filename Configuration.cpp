@@ -785,6 +785,7 @@ private:
 
   QNetworkAccessManager * network_manager_;
   QSettings * settings_;
+  bool use_default_geometry_ {false};
   LogBook * logbook_;
 
   QDir doc_dir_;
@@ -1918,8 +1919,11 @@ void Configuration::impl::showEvent (QShowEvent * event)
       return;
     }
 
+  auto const requested_size = use_default_geometry_
+    ? SettingsDialogLayout::preferredWindowSize (*this, *ui_) : size ();
+  use_default_geometry_ = false;
   auto const bounded_size = SettingsDialogLayout::boundedWindowSize (
-    size (), screen->availableGeometry ().size (),
+    requested_size, screen->availableGeometry ().size (),
     window ? window->frameMargins () : QMargins {});
   if (bounded_size != size ())
     {
@@ -3095,7 +3099,11 @@ void Configuration::impl::read_settings ()
   LOG_INFO(QString{"Configuration Settings (%1)"}.arg(settings_->fileName()));
   QStringList keys = settings_->allKeys();
 
-  restoreGeometry (settings_->value ("window/geometry").toByteArray ());
+  use_default_geometry_ = !settings_->contains ("window/geometry");
+  if (!use_default_geometry_)
+    {
+      restoreGeometry (settings_->value ("window/geometry").toByteArray ());
+    }
 
   my_callsign_ = settings_->value ("MyCall", QString {}).toString ();
   my_grid_ = settings_->value ("MyGrid", QString {}).toString ();
