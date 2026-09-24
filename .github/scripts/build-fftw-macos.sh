@@ -14,12 +14,18 @@ curl -L --fail --retry 5 --retry-delay 10 -o fftw.tar.gz "https://www.fftw.org/f
 tar -xzf fftw.tar.gz
 cd "fftw-${version}"
 
+SIMD_PARAMS="--enable-neon --enable-armv8-cntvct-el0"
+if [[ $(uname -m) == "x86_64" ]]; then
+  SIMD_PARAMS="--enable-sse2 --enable-avx --enable-avx2"
+fi
+
 ./configure \
   --prefix="$prefix" \
   --enable-single \
+  $SIMD_PARAMS \
   --enable-threads \
   --enable-shared --disable-static \
-  CFLAGS="-mmacosx-version-min=${deployment_target}" \
+  CFLAGS="-O3 -fomit-frame-pointer -mtune=native -fstrict-aliasing -mmacosx-version-min=${deployment_target}" \
   LDFLAGS="-mmacosx-version-min=${deployment_target}"
 make -j"$(sysctl -n hw.ncpu)"
 make install
