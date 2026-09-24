@@ -40,6 +40,9 @@ public:
   // access to raw items nd default items
   static HighlightItems const& default_items ();
   static HighlightItems const& default_items2 ();
+  static HighlightItems const& default_items_deuteranopia ();
+  static HighlightItems const& default_items_tritanopia ();
+  static HighlightItems const& default_items_high_contrast ();
   HighlightItems const& items () const;
   void items (HighlightItems const&);
 

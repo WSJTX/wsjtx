@@ -27,6 +27,9 @@ public:
 
   HighlightItems static const defaults_;
   HighlightItems static const defaults2_;
+  HighlightItems static const deuteranopia_;
+  HighlightItems static const tritanopia_;
+  HighlightItems static const high_contrast_;
   HighlightItems data_;
   QFont font_;
 };
@@ -67,6 +70,74 @@ QList<DecodeHighlightingModel::HighlightInfo> const DecodeHighlightingModel::imp
   , {Highlight::CallBand, true, {{0xaa, 0x00, 0x00}}, {{0xb4, 0xff, 0xb4}}}
   , {Highlight::CQ, true, {{0xaa, 0x00, 0x00}}, {{0xc3, 0xc3, 0xc3}}}
   , {Highlight::Tx, true, {Qt::black}, {{0xff, 0xa5, 0xc6}}}
+};
+
+// Backgrounds drawn from the Okabe-Ito categorical palette, the
+// standard reference palette for deuteranopia/protanopia
+// accessibility. Foreground is black or white, whichever contrasts
+// more with that item's background.
+QList<DecodeHighlightingModel::HighlightInfo> const DecodeHighlightingModel::impl::deuteranopia_ = {
+  {Highlight::MyCall, true, {Qt::white}, {{0xd5, 0x5e, 0x00}}}
+  , {Highlight::Continent, true, {Qt::white}, {{0x00, 0x72, 0xb2}}}
+  , {Highlight::ContinentBand, true, {Qt::black}, {{0xa8, 0xcc, 0xe3}}}
+  , {Highlight::CQZone, true, {Qt::black}, {{0xe6, 0x9f, 0x00}}}
+  , {Highlight::CQZoneBand, true, {Qt::black}, {{0xf5, 0xd9, 0x99}}}
+  , {Highlight::ITUZone, false, {Qt::black}, {{0x56, 0xb4, 0xe9}}}
+  , {Highlight::ITUZoneBand, false, {Qt::black}, {{0xbe, 0xe3, 0xf5}}}
+  , {Highlight::DXCC, true, {Qt::black}, {{0xcc, 0x79, 0xa7}}}
+  , {Highlight::DXCCBand, true, {Qt::black}, {{0xe8, 0xbf, 0xd6}}}
+  , {Highlight::Grid, false, {Qt::white}, {Qt::black}}
+  , {Highlight::GridBand, false, {Qt::black}, {{0xcc, 0xcc, 0xcc}}}
+  , {Highlight::Call, false, {Qt::black}, {{0x99, 0x99, 0x99}}}
+  , {Highlight::CallBand, false, {Qt::black}, {{0xdd, 0xdd, 0xdd}}}
+  , {Highlight::LotW, false, {{0x00, 0x55, 0x44}}, {}}
+  , {Highlight::CQ, true, {Qt::white}, {{0x00, 0x9e, 0x73}}}
+  , {Highlight::Tx, true, {Qt::black}, {{0xf0, 0xe4, 0x42}}}
+};
+
+// Backgrounds drawn from the red/green/orange/purple axis, which
+// tritanopia does not impair, avoiding blue vs. yellow as a
+// differentiator between categories.
+QList<DecodeHighlightingModel::HighlightInfo> const DecodeHighlightingModel::impl::tritanopia_ = {
+  {Highlight::MyCall, true, {Qt::white}, {{0xe4, 0x1a, 0x1c}}}
+  , {Highlight::Continent, true, {Qt::black}, {{0xf7, 0x81, 0xbf}}}
+  , {Highlight::ContinentBand, true, {Qt::black}, {{0xfc, 0xe0, 0xef}}}
+  , {Highlight::CQZone, true, {Qt::white}, {{0xa6, 0x56, 0x28}}}
+  , {Highlight::CQZoneBand, true, {Qt::black}, {{0xe3, 0xc6, 0xb3}}}
+  , {Highlight::ITUZone, false, {Qt::white}, {{0xb0, 0x30, 0x60}}}
+  , {Highlight::ITUZoneBand, false, {Qt::black}, {{0xe8, 0xb9, 0xc7}}}
+  , {Highlight::DXCC, true, {Qt::white}, {{0x98, 0x4e, 0xa3}}}
+  , {Highlight::DXCCBand, true, {Qt::black}, {{0xe0, 0xc6, 0xe6}}}
+  , {Highlight::Grid, false, {Qt::black}, {{0x99, 0x99, 0x99}}}
+  , {Highlight::GridBand, false, {Qt::black}, {{0xdd, 0xdd, 0xdd}}}
+  , {Highlight::Call, false, {Qt::black}, {{0xfd, 0xbf, 0x6f}}}
+  , {Highlight::CallBand, false, {Qt::black}, {{0xfd, 0xe9, 0xd0}}}
+  , {Highlight::LotW, false, {{0x6e, 0x14, 0x23}}, {}}
+  , {Highlight::CQ, true, {Qt::black}, {{0x4d, 0xaf, 0x4a}}}
+  , {Highlight::Tx, true, {Qt::black}, {{0xff, 0x7f, 0x00}}}
+};
+
+// Strongly saturated, high-luminance-difference colors. "Band"
+// variants use a darker/desaturated shade of the base category's
+// hue rather than a pale tint, since pale tints wash out for low
+// vision.
+QList<DecodeHighlightingModel::HighlightInfo> const DecodeHighlightingModel::impl::high_contrast_ = {
+  {Highlight::MyCall, true, {Qt::white}, {{0xff, 0x00, 0x00}}}
+  , {Highlight::Continent, true, {Qt::black}, {{0xff, 0x80, 0x00}}}
+  , {Highlight::ContinentBand, true, {Qt::white}, {{0x99, 0x50, 0x00}}}
+  , {Highlight::CQZone, true, {Qt::white}, {{0x00, 0x40, 0xff}}}
+  , {Highlight::CQZoneBand, true, {Qt::white}, {{0x00, 0x29, 0x66}}}
+  , {Highlight::ITUZone, false, {Qt::white}, {{0x00, 0x80, 0x80}}}
+  , {Highlight::ITUZoneBand, false, {Qt::white}, {{0x00, 0x4d, 0x4d}}}
+  , {Highlight::DXCC, true, {Qt::white}, {{0xcc, 0x00, 0xcc}}}
+  , {Highlight::DXCCBand, true, {Qt::white}, {{0x7a, 0x00, 0x7a}}}
+  , {Highlight::Grid, false, {Qt::white}, {{0x66, 0x66, 0x66}}}
+  , {Highlight::GridBand, false, {Qt::white}, {{0x33, 0x33, 0x33}}}
+  , {Highlight::Call, false, {Qt::white}, {{0xd6, 0x00, 0x6d}}}
+  , {Highlight::CallBand, false, {Qt::white}, {{0x80, 0x00, 0x41}}}
+  , {Highlight::LotW, false, {{0x00, 0x1a, 0x66}}, {}}
+  , {Highlight::CQ, true, {Qt::white}, {{0x00, 0xa0, 0x00}}}
+  , {Highlight::Tx, true, {Qt::black}, {{0xff, 0xff, 0x00}}}
 };
 
 bool operator == (DecodeHighlightingModel::HighlightInfo const& lhs, DecodeHighlightingModel::HighlightInfo const& rhs)
@@ -157,6 +228,21 @@ auto DecodeHighlightingModel::default_items () -> HighlightItems const&
 auto DecodeHighlightingModel::default_items2 () -> HighlightItems const&
 {
   return impl::defaults2_;
+}
+
+auto DecodeHighlightingModel::default_items_deuteranopia () -> HighlightItems const&
+{
+  return impl::deuteranopia_;
+}
+
+auto DecodeHighlightingModel::default_items_tritanopia () -> HighlightItems const&
+{
+  return impl::tritanopia_;
+}
+
+auto DecodeHighlightingModel::default_items_high_contrast () -> HighlightItems const&
+{
+  return impl::high_contrast_;
 }
 
 auto DecodeHighlightingModel::items () const -> HighlightItems const&
