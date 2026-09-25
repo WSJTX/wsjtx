@@ -7,6 +7,7 @@
 #include <QVariant>
 #include <QDateTime>
 #include <QCoreApplication>
+#include <QStandardPaths>   // add this with the other includes
 #include <QDir>
 
 QString font_as_stylesheet (QFont const& font)
@@ -56,7 +57,18 @@ QString app_sounds_directory (QString const& subdirectory)
 #if defined (__APPLE__)
   QString root {QCoreApplication::applicationDirPath () + "/../Resources/sounds"};
 #else
-  QString root {QCoreApplication::applicationDirPath () + "/sounds"};
+  // Try Qt's standard data locations first (respects application name)
+  QString root = QStandardPaths::locate (QStandardPaths::AppDataLocation,
+                                         "sounds",
+                                         QStandardPaths::LocateDirectory);
+  // Common packaging layout (lowercase project name)
+  if (root.isEmpty ())
+    root = QStandardPaths::locate (QStandardPaths::GenericDataLocation,
+                                   "wsjtx/sounds",
+                                   QStandardPaths::LocateDirectory);
+  // Windows-style layout next to the binary
+  if (root.isEmpty ())
+    root = QCoreApplication::applicationDirPath () + "/sounds";
 #endif
   auto child = subdirectory;
   while (child.startsWith (QChar {'/'}))
