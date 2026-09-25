@@ -60,10 +60,13 @@ int rigOpen(int verbose, rig_model_t my_model, const char* rig_file,
   }
 
   if (rig_file)
-    strncpy(my_rig->state.rigport.pathname, rig_file, FILPATHLEN - 1);
+    rig_set_conf(my_rig, rig_token_lookup(my_rig, "rig_pathname"), rig_file);
 
-  if (serial_rate!=0)
-    my_rig->state.rigport.parm.serial.rate = serial_rate;
+  if (serial_rate!=0 && my_rig->caps.port_type == RIG_PORT_SERIAL) {
+    char speed_string[12];
+    snprintf(speed_string, sizeof(speed_string), "%d", serial_rate);
+    rig_set_conf(my_rig, rig_token_lookup(my_rig, "serial_speed"), speed_string);
+  }
 
   if (civaddr)
     rig_set_conf(my_rig, rig_token_lookup(my_rig, "civaddr"), civaddr);
