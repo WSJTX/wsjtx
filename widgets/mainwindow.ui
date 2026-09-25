@@ -4924,6 +4924,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="separator"/>
     <addaction name="actionFST4W"/>
     <addaction name="actionWSPR"/>
+    <addaction name="actionPI4"/>
     <addaction name="separator"/>
     <addaction name="actionEcho"/>
     <addaction name="separator"/>
@@ -5199,6 +5200,14 @@ QPushButton[state=&quot;ok&quot;] {
    </property>
    <property name="text">
     <string>WSPR</string>
+   </property>
+  </action>
+  <action name="actionPI4">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>PI4</string>
    </property>
   </action>
   <action name="actionEcho_Graph">

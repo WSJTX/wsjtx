@@ -1,6 +1,6 @@
-_WSJT-X_ offers eleven
+_WSJT-X_ offers twelve
 different protocols or modes: *FST4*, *FT4*, *FT8*, *JT4*, *JT9*,
-*JT65*, *Q65*, *MSK144*, *WSPR*, *FST4W*, and *Echo*.  The first eight
+*JT65*, *Q65*, *MSK144*, *WSPR*, *FST4W*, *PI4*, and *Echo*.  The first eight
 are designed for making reliable QSOs under weak-signal
 conditions. They use nearly identical message structure and source
 encoding.  JT65 was designed for EME ("`moonbounce`") on VHF and
@@ -57,6 +57,15 @@ with internet access can automatically upload WSPR and FST4W
 reception reports to a central database called {wsprnet} that
 provides a mapping facility, archival storage, and many other
 features.
+
+*PI4* is a receive-only decoder for the 4-FSK propagation beacons
+transmitted by the IARU Region 1 VHF Committee's "Next Generation
+Beacon" network. A PI4 transmission carries up to eight characters —
+ordinarily a beacon's callsign — using a rate-1/2 K=32 convolutional
+code, the same family WSPR and JT9 use. Four channel-spacing variants
+(PI4, PI4-80, PI4-96, and PI4-120) are searched for automatically;
+there is no PI4 transmitter in _WSJT-X_, and because a PI4 message
+carries no grid locator, decodes are not placed on a map.
 
 *Echo* mode allows you to detect and measure your own station's echoes
 from the moon and to make other measurements useful for optimizing

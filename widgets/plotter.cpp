@@ -581,6 +581,14 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     x2=XfromFreq(1600);
     painter0.drawLine(x1,26,x2,26);
   }
+  if(m_mode=="PI4") {
+    // Approximate span of the "PI4" and "PI4-80" variants around the
+    // network's own 800 Hz CW-identification convention (pi4d itself
+    // always searches all four variants regardless of this marker).
+    x1=XfromFreq(500);
+    x2=XfromFreq(1600);
+    painter0.drawLine(x1,26,x2,26);
+  }
 
   if(m_mode=="FST4W") {
     x1=XfromFreq(m_rxFreq-m_tol);
