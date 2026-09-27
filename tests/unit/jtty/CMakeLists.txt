@@ -298,6 +298,10 @@ add_executable (test_jtty_tbcc_code_profile test_jtty_tbcc_code_profile.f90)
 wsjt_link_common_fortran (test_jtty_tbcc_code_profile)
 add_test (NAME test_jtty_tbcc_code_profile COMMAND test_jtty_tbcc_code_profile)
 
+add_executable (test_jtty_frequency_mixer test_jtty_frequency_mixer.f90)
+wsjt_link_common_fortran (test_jtty_frequency_mixer)
+add_test (NAME test_jtty_frequency_mixer COMMAND test_jtty_frequency_mixer)
+
 add_executable (test_jtty_payload_correlators test_jtty_payload_correlators.f90)
 wsjt_link_common_fortran (test_jtty_payload_correlators)
 add_test (NAME test_jtty_payload_correlators COMMAND test_jtty_payload_correlators)

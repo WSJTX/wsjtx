@@ -10,6 +10,8 @@ module jtty_mdec
   use jtty_payload_correlators, only: jtty_payload_correlator, &
        jtty_payload_correlator_prepare, jtty_correlate_payload_symbols
 
+  use jtty_frequency_mixer, only: jtty_mixer_state, jtty_mixer_start, jtty_mix_samples
+
   type :: decode
      real :: f1    = 0.0              !Synced audio frequency
      real :: xdt   = 0.0              !Synced DT (0 to 0.5 s)
@@ -759,6 +761,8 @@ contains
       real, allocatable, save        :: s0(:,:)
       logical, allocatable, save     :: mask0(:,:)
       real                           :: a(3)
+      type(jtty_mixer_state)          :: candidate_mixer
+      integer                        :: candidate_mixed_until
       real                           :: pow(0:3,NCHAN_SYM)
       real, save                     :: baud,dt,df2
       real                           :: phi,dphi
@@ -1134,9 +1138,8 @@ contains
          cand(ncand)%xdt=xdtbest
          cand(ncand)%f1=fbest
 
-         a=0.
-         a(1)=-cand(ncand)%f1                                !Shift peak to zero frequency
-         call twkfreq(c0,c1,nchunk6,6000.0,a)
+         candidate_mixed_until=-1
+         call mix_candidate_symbols(nint(cand(ncand)%xdt/dt),NSYNC_SYM)
 
          pt=0.
          pa=0.
@@ -1191,14 +1194,7 @@ contains
             ncand=ncand+1
             cand(ncand)%xdt=xdt_retry
             cand(ncand)%f1=active_messages(ir)%f1
-            ! decode_and_merge reads tone powers from c1, which is only
-            ! valid for whichever frequency the blind-candidate loop
-            ! above last shifted it to -- re-shift it for this retry's
-            ! own frequency, or it silently correlates against the wrong
-            ! signal (dchristle, PR #337).
-            a=0.
-            a(1)=-cand(ncand)%f1
-            call twkfreq(c0,c1,nchunk6,6000.0,a)
+            candidate_mixed_until=-1
             nsync=-1   ! not meaningful for a sticky-sync retry; flags it in ndebug output
             call decode_and_merge(-1, decoded_ok)
             if(decoded_ok) call record_ch0_success()
@@ -1207,6 +1203,26 @@ contains
          enddo
       endif
    end subroutine process_channel
+
+   subroutine mix_candidate_symbols(first,symbol_count)
+      integer, intent(in) :: first,symbol_count
+      integer :: last,available_symbols
+
+      if(first.lt.0) then
+         a=0.
+         a(1)=-cand(ncand)%f1
+         call twkfreq(c0,c1,nchunk6,FSAMPLE,a)
+         candidate_mixed_until=-1
+         return
+      endif
+      if(first.ge.nchunk6) return
+      available_symbols=min(symbol_count,(nchunk6-first)/nss)
+      last=first+available_symbols*nss
+      if(candidate_mixed_until.ne.first) &
+           call jtty_mixer_start(candidate_mixer,-cand(ncand)%f1,FSAMPLE,first)
+      call jtty_mix_samples(candidate_mixer,c0(first:last-1),c1(first:last-1))
+      candidate_mixed_until=last
+   end subroutine mix_candidate_symbols
 
    subroutine record_ch0_success()
       ! Record channel 0's successful-decode neighborhood so Phase B can
@@ -1237,6 +1253,7 @@ contains
 
       decoded_ok=.false.
       payload_start=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss
+      call mix_candidate_symbols(payload_start,NCHAN_SYM)
       call jtty_correlate_payload_symbols(payload_correlator,c1,payload_start,zsym,zhalf)
       call jtty_tbcc_decode(zsym,zhalf,final_payload,success_dec)
       ! Half-symbol off-tone leakage is not a noise estimate; diagnostics use M1.
