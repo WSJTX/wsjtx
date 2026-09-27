@@ -823,7 +823,7 @@ contains
     integer(int32) :: rank, width
     integer(int64) :: branch_identity
     real(real64) :: branch_metric, metric
-    logical :: prune_block
+    logical :: prune_block, merged
 
     width = plan%per_state_width
     branch_count = plan%branch_counts(block_index)
@@ -835,32 +835,85 @@ contains
       branch_word = iand(end_state, branch_count - 1_int32)
       branch_identity = plan%branch_identities(branch_word, block_index)
       if (.not.(prune_block .and. btest(branch_identity, JTTY_TBCC_INFORMATION_BITS - JTTY_TBCC_RESERVED_BIT))) then
-        ! The low L destination bits are the input word; the discarded high
-        ! L source bits enumerate every predecessor in the original order.
-        do state = end_state / branch_count, plan%state_count - 1, state_stride
-          branch_metric = energies(plan%branch_sequence_indices(state, branch_word, block_index))
-          do rank = 1, width
-            if (.not.btest(previous(state, rank)%key, PACKED_VALID_BIT)) cycle
-            metric = previous(state, rank)%metric + branch_metric
-            if (btest(selected(width)%key, PACKED_VALID_BIT)) then
-              if (metric < selected(width)%metric) then
-                ! Lower ranks receive the same branch metric and cannot recover.
-                if (ordered_metrics) exit
-                cycle
+        merged = .false.
+        if (block_index > 1 .and. width > 1 .and. branch_count == 2 .and. ordered_metrics) &
+             call merge_two_predecessors(plan, block_index, end_state, energies, previous, selected, merged)
+        if (.not.merged) then
+          ! The low L destination bits are the input word; the discarded high
+          ! L source bits enumerate every predecessor in the original order.
+          do state = end_state / branch_count, plan%state_count - 1, state_stride
+            branch_metric = energies(plan%branch_sequence_indices(state, branch_word, block_index))
+            do rank = 1, width
+              if (.not.btest(previous(state, rank)%key, PACKED_VALID_BIT)) cycle
+              metric = previous(state, rank)%metric + branch_metric
+              if (btest(selected(width)%key, PACKED_VALID_BIT)) then
+                if (metric < selected(width)%metric) then
+                  ! Lower ranks receive the same branch metric and cannot recover.
+                  if (ordered_metrics) exit
+                  cycle
+                end if
               end if
-            end if
-            extension = previous(state, rank)
-            extension%metric = metric
-            extension%key = ior(extension%key, branch_identity)
-            call insert_packed_survivor(selected, width, extension, block_index == 1)
+              extension = previous(state, rank)
+              extension%metric = metric
+              extension%key = ior(extension%key, branch_identity)
+              call insert_packed_survivor(selected, width, extension, block_index == 1)
+            end do
           end do
-        end do
+        end if
       end if
       do rank = 1, width
         current(end_state, rank) = selected(rank)
       end do
     end do
   end subroutine advance_packed_survivors
+
+  subroutine merge_two_predecessors(plan, block_index, end_state, energies, previous, selected, merged)
+    type(jtty_tbcc_decoder_plan), intent(in) :: plan
+    integer(int32), intent(in) :: block_index, end_state
+    real(real64), intent(in) :: energies(:)
+    type(packed_survivor_t), intent(in) :: previous(0:, :)
+    type(packed_survivor_t), intent(inout) :: selected(4)
+    logical, intent(out) :: merged
+    type(packed_survivor_t) :: left(4), right(4)
+    integer(int32) :: left_state, right_state, width, branch_word, rank, left_head, right_head
+    integer(int64) :: branch_identity
+    real(real64) :: left_metric, right_metric
+
+    merged = .false.
+    width = plan%per_state_width
+    left_state = end_state / 2
+    right_state = left_state + plan%state_count / 2
+    branch_word = iand(end_state, 1_int32)
+    branch_identity = plan%branch_identities(branch_word, block_index)
+    left_metric = energies(plan%branch_sequence_indices(left_state, branch_word, block_index))
+    right_metric = energies(plan%branch_sequence_indices(right_state, branch_word, block_index))
+    do rank = 1, width
+      if (.not.btest(previous(left_state, rank)%key, PACKED_VALID_BIT)) return
+      if (.not.btest(previous(right_state, rank)%key, PACKED_VALID_BIT)) return
+      left(rank)%metric = previous(left_state, rank)%metric + left_metric
+      right(rank)%metric = previous(right_state, rank)%metric + right_metric
+      left(rank)%key = ior(previous(left_state, rank)%key, branch_identity)
+      right(rank)%key = ior(previous(right_state, rank)%key, branch_identity)
+      if (.not.ieee_is_finite(left(rank)%metric) .or. .not.ieee_is_finite(right(rank)%metric)) return
+      ! Rounded sums can tie in the opposite key order.
+      if (rank > 1) then
+        if (packed_survivor_precedes(left(rank), left(rank - 1))) return
+        if (packed_survivor_precedes(right(rank), right(rank - 1))) return
+      end if
+    end do
+    left_head = 1
+    right_head = 1
+    do rank = 1, width
+      if (packed_survivor_precedes(right(right_head), left(left_head))) then
+        selected(rank) = right(right_head)
+        right_head = right_head + 1
+      else
+        selected(rank) = left(left_head)
+        left_head = left_head + 1
+      end if
+    end do
+    merged = .true.
+  end subroutine merge_two_predecessors
 
   subroutine insert_packed_survivor(survivors, width, candidate, deduplicate)
     type(packed_survivor_t), intent(inout) :: survivors(4)
