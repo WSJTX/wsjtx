@@ -85,6 +85,7 @@ public:
   QDir doc_dir () const;
   QDir data_dir () const;
   QDir writeable_data_dir () const;
+  QDir voice_dir () const;
 
   QAudioDeviceInfo const& audio_input_device () const;
   AudioDevice::Channel audio_input_channel () const;
@@ -146,7 +147,6 @@ public:
   QString Territory4() const;
   QString highlight_orange_callsigns() const;
   QString highlight_blue_callsigns() const;
-  QString voicesPath() const;
   bool PWR_and_SWR() const;
   bool check_SWR() const;
 
