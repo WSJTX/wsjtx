@@ -1,5 +1,4 @@
 #include <QtTest>
-#include <QCryptographicHash>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -25,15 +24,6 @@ std::vector<qint16> fixture (int count)
   return result;
 }
 
-QByteArray fingerprint (JttySpectrumFrame const& frame)
-{
-  QCryptographicHash hash {QCryptographicHash::Sha256};
-  for (auto const * values : {&frame.bins, &frame.cumulative, &frame.linearAverage}) {
-    hash.addData (reinterpret_cast<char const *> (values->data ()), sizeof (*values));
-  }
-  return hash.result ();
-}
-
 constexpr float spectrumToleranceScale = 5.e-4f;
 
 float spectrumTolerance (float actual, float expected)
@@ -44,7 +34,8 @@ float spectrumTolerance (float actual, float expected)
 
 bool spectrumNearlyEqual (float actual, float expected)
 {
-  return std::abs (actual - expected) <= spectrumTolerance (actual, expected);
+  return std::isfinite (actual) && std::isfinite (expected)
+      && std::abs (actual - expected) <= spectrumTolerance (actual, expected);
 }
 
 QString spectrumMismatch (char const * series, int bin, float actual, float expected)
@@ -54,6 +45,25 @@ QString spectrumMismatch (char const * series, int bin, float actual, float expe
     .arg (actual, 0, 'g', 9).arg (expected, 0, 'g', 9)
     .arg (std::abs (actual - expected), 0, 'g', 9)
     .arg (spectrumTolerance (actual, expected), 0, 'g', 9);
+}
+
+QString spectrumFrameMismatch (JttySpectrumFrame const& actual, JttySpectrumFrame const& expected)
+{
+  auto const actualSeries = {&actual.bins, &actual.cumulative, &actual.linearAverage};
+  auto const expectedSeries = {&expected.bins, &expected.cumulative, &expected.linearAverage};
+  char const * names[] = {"bins", "cumulative", "linearAverage"};
+  auto reference = expectedSeries.begin ();
+  int series = 0;
+  for (auto const * values : actualSeries) {
+    for (int bin = 0; bin < JttySpectrumFrame::BinCount; ++bin) {
+      if (!spectrumNearlyEqual ((*values)[bin], (**reference)[bin])) {
+        return spectrumMismatch (names[series], bin, (*values)[bin], (**reference)[bin]);
+      }
+    }
+    ++reference;
+    ++series;
+  }
+  return {};
 }
 }
 
@@ -116,16 +126,19 @@ private slots:
     JttySpectrum packets;
     whole.begin (7, origin, utc);
     packets.begin (7, origin, utc);
-    QVector<QByteArray> expected;
+    QVector<JttySpectrumFrame> expected;
+    expected.reserve (int (pcm.size ()) / JttySpectrum::Hop);
     QVERIFY (whole.process (origin, pcm.data (), int (pcm.size ()), 0, true, 1,
-        [&] (JttySpectrumFrame const& frame) { expected.append (fingerprint (frame)); }));
+        [&] (JttySpectrumFrame const& frame) { expected.append (frame); }));
     int frameIndex = 0;
     int offset = 0;
     while (offset < int (pcm.size ())) {
       int const size = std::min (1 + (offset * 17LL % 4001), qint64 (pcm.size () - offset));
       QVERIFY (packets.process (origin + offset, pcm.data () + offset, size, 0, true, 1,
           [&] (JttySpectrumFrame const& frame) {
-        QCOMPARE (fingerprint (frame), expected.at (frameIndex));
+        QVERIFY (frameIndex < expected.size ());
+        auto const mismatch = spectrumFrameMismatch (frame, expected.at (frameIndex));
+        QVERIFY2 (mismatch.isEmpty (), qPrintable (mismatch));
         QCOMPARE (frame.row.reception, quint64 (7));
         QCOMPARE (frame.row.beginSample, origin + qint64 (frameIndex) * JttySpectrum::Hop);
         QCOMPARE (frame.row.utcEndMs, utc + qint64 (frameIndex + 1) * JttySpectrum::Hop / 12);
@@ -147,12 +160,17 @@ private slots:
     reused.begin (2, 999, 15000);
     JttySpectrum fresh;
     fresh.begin (2, 999, 15000);
-    QVector<QByteArray> expected;
+    QVector<JttySpectrumFrame> expected;
+    expected.reserve (int (pcm.size ()) / JttySpectrum::Hop);
     QVERIFY (fresh.process (999, pcm.data (), int (pcm.size ()), 0, true, 1,
-        [&] (JttySpectrumFrame const& frame) { expected.append (fingerprint (frame)); }));
+        [&] (JttySpectrumFrame const& frame) { expected.append (frame); }));
     int index = 0;
     QVERIFY (reused.process (999, pcm.data (), int (pcm.size ()), 0, true, 1,
-        [&] (JttySpectrumFrame const& frame) { QCOMPARE (fingerprint (frame), expected.at (index++)); }));
+        [&] (JttySpectrumFrame const& frame) {
+      QVERIFY (index < expected.size ());
+      auto const mismatch = spectrumFrameMismatch (frame, expected.at (index++));
+      QVERIFY2 (mismatch.isEmpty (), qPrintable (mismatch));
+    }));
     QCOMPARE (index, expected.size ());
   }
 
