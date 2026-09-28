@@ -4,6 +4,14 @@
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>English</string>
+    <!-- Let macOS resolve the process locale from the user's language
+         settings instead of collapsing it to the development region.
+         The bundle ships no .lproj localizations (UI translations are
+         embedded Qt .qm resources), so without this key macOS forces
+         the app language to English and Qt never sees the user's
+         locale, leaving the UI untranslated. -->
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
     <key>CFBundleExecutable</key>
     <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
     <key>CFBundleGetInfoString</key>
