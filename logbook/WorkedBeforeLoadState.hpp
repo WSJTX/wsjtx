@@ -55,6 +55,11 @@ public:
     return Phase::Idle != phase_;
   }
 
+  bool reload_pending () const
+  {
+    return reload_pending_;
+  }
+
 private:
   enum class Phase
   {

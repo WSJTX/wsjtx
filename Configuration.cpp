@@ -156,6 +156,15 @@
 #include <QTabBar>
 #include <QWindow>
 #include <QFileDialog>
+#include <QDesktopServices>
+#include <QFileInfo>
+#include <QListWidget>
+#include <QTextEdit>
+#include <QLabel>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QScrollArea>
+#include <QUrl>
 #include <QDir>
 #include <QTemporaryFile>
 #include <QFormLayout>
@@ -834,6 +843,7 @@ private:
   Q_SLOT void on_move_highlighting_up_push_button_clicked (bool = false);
   Q_SLOT void on_move_highlighting_down_push_button_clicked (bool = false);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
+  Q_SLOT void on_history_sources_push_button_clicked (bool);
   Q_SLOT void on_CTY_download_button_clicked (bool);
   Q_SLOT void on_CALL3_download_button_clicked (bool);
   Q_SLOT void on_CALL3_EME_download_button_clicked (bool);
@@ -996,6 +1006,10 @@ private:
   DecodeHighlightingModel decode_highlighing_model_;
   DecodeHighlightingModel next_decode_highlighing_model_;
   bool highlight_by_mode_;
+  QStringList supplemental_history_files_;
+  QStringList next_supplemental_history_files_;
+  QString worked_before_status_;
+  QString worked_before_errors_;
   bool highlight_only_fields_;
   bool include_WAE_entities_;
   bool highlight_73_;
@@ -1379,6 +1393,16 @@ bool Configuration::pwrBandTuneMemory () const {return m_->pwrBandTuneMemory_;}
 LotWUsers const& Configuration::lotw_users () const {return m_->lotw_users_;}
 DecodeHighlightingModel const& Configuration::decode_highlighting () const {return m_->decode_highlighing_model_;}
 bool Configuration::highlight_by_mode () const {return m_->highlight_by_mode_;}
+QStringList const& Configuration::supplemental_history_files () const {return m_->supplemental_history_files_;}
+void Configuration::set_worked_before_status (QString const& status, QString const& errors)
+{
+  m_->worked_before_status_ = status;
+  m_->worked_before_errors_ = errors;
+  m_->ui_->worked_before_status_line_edit->setText (status);
+  m_->ui_->worked_before_status_line_edit->setCursorPosition (0);
+  m_->ui_->worked_before_status_line_edit->setToolTip (errors.isEmpty () ? status : status + '\n' + errors);
+  Q_EMIT worked_before_status_changed ();
+}
 bool Configuration::highlight_only_fields () const {return m_->highlight_only_fields_;}
 bool Configuration::include_WAE_entities () const {return m_->include_WAE_entities_;}
 bool Configuration::highlight_73 () const {return m_->highlight_73_;}
@@ -2501,6 +2525,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->reset_highlighting_tool_button->setAccessibleDescription (tr ("Restore colors, enabled rules, and priority order to a complete default configuration."));
   ui_->highlight_orange_callsigns->setAccessibleName (tr ("Orange highlight callsigns and grids"));
   ui_->highlight_blue_callsigns->setAccessibleName (tr ("Blue highlight callsigns and grids"));
+  ui_->history_sources_push_button->setAccessibleName (tr ("Manage worked-before history sources"));
+  ui_->worked_before_status_line_edit->setAccessibleName (tr ("Worked-before history loading status"));
+  ui_->worked_before_status_line_edit->setAccessibleDescription (tr ("Last scan result. Open History sources for source paths and error details."));
 
   register_settings_focus_page (ui_->general_tab, {
     ui_->callsign_line_edit,
@@ -2664,7 +2691,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->move_highlighting_down_push_button,
     ui_->color_presets_tool_button,
     ui_->reset_highlighting_tool_button,
+    ui_->history_sources_push_button,
     ui_->rescan_log_push_button,
+    ui_->worked_before_status_line_edit,
     ui_->highlight_by_mode_check_box,
     ui_->highlight_orange_check_box,
     ui_->highlight_orange_callsigns,
@@ -3435,6 +3464,7 @@ void Configuration::impl::initialize_models ()
 
   next_decode_highlighing_model_.items (decode_highlighing_model_.items ());
   ui_->highlight_by_mode_check_box->setChecked (highlight_by_mode_);
+  next_supplemental_history_files_ = supplemental_history_files_;
   ui_->only_fields_check_box->setChecked (highlight_only_fields_);
   ui_->include_WAE_check_box->setChecked (include_WAE_entities_);
   ui_->highlight_73_check_box->setChecked (highlight_73_);
@@ -3730,6 +3760,9 @@ void Configuration::impl::read_settings ()
   if (!highlight_items.size ()) highlight_items = DecodeHighlightingModel::default_items ();
   decode_highlighing_model_.items (highlight_items);
   highlight_by_mode_ = settings_->value("HighlightByMode", false).toBool ();
+  supplemental_history_files_ = WorkedBefore::normalize_history_files (
+    settings_->value ("SupplementalHistoryFiles").toStringList (),
+    writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
   highlight_only_fields_ = settings_->value("OnlyFieldsSought", false).toBool ();
   include_WAE_entities_ = settings_->value("IncludeWAEEntities", false).toBool ();
   highlight_73_ = settings_->value("Highlight73", true).toBool ();
@@ -4029,6 +4062,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("FrequenciesForRegionModes_v2", QVariant::fromValue (frequencies_.frequency_list ()));
   settings_->setValue ("DecodeHighlighting", QVariant::fromValue (decode_highlighing_model_.items ()));
   settings_->setValue ("HighlightByMode", highlight_by_mode_);
+  settings_->setValue ("SupplementalHistoryFiles", supplemental_history_files_);
   settings_->setValue ("OnlyFieldsSought", highlight_only_fields_);
   settings_->setValue ("IncludeWAEEntities", include_WAE_entities_);
   settings_->setValue ("Highlight73", highlight_73_);
@@ -4941,7 +4975,13 @@ void Configuration::impl::accept ()
       Q_EMIT self_->ui_language_preference_changed (language);
     }
 
+  auto history_files = WorkedBefore::normalize_history_files (
+    next_supplemental_history_files_, writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
+  bool history_changed = history_files != supplemental_history_files_;
+  supplemental_history_files_ = history_files;
+  next_supplemental_history_files_ = history_files;
   write_settings ();		// make visible to all
+  if (history_changed) Q_EMIT self_->supplemental_history_files_changed ();
   if (previous_decodes_from_top != decodes_from_top_)
     {
       Q_EMIT self_->decodes_from_top_changed (decodes_from_top_);
@@ -5020,6 +5060,170 @@ void Configuration::impl::on_rescan_log_push_button_clicked (bool /*clicked*/)
   if (logbook_) {
     logbook_->rescan ();
   }
+}
+
+void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked*/)
+{
+  QDialog dialog {this};
+  dialog.setWindowTitle (tr ("Worked-before history sources"));
+  auto outer_layout = new QVBoxLayout {&dialog};
+  auto scroll = new QScrollArea {&dialog};
+  scroll->setWidgetResizable (true);
+  scroll->setFrameShape (QFrame::NoFrame);
+  auto content = new QWidget;
+  auto layout = new QVBoxLayout {content};
+  scroll->setWidget (content);
+  outer_layout->addWidget (scroll);
+  auto explanation = new QLabel {tr ("The WSJT-X log receives new QSOs. Additional ADIF files supply read-only "
+                                    "worked-before history; contacts are not copied into the WSJT-X log. "
+                                    "Aliases of the primary log refer to the same writable file. "
+                                    "Source changes take effect after Settings OK."), &dialog};
+  explanation->setWordWrap (true);
+  layout->addWidget (explanation);
+
+  auto const primary_path = logbook_ ? logbook_->path ()
+    : writable_file_path (writeable_data_dir_, "wsjtx_log.adi");
+  auto primary_label = new QLabel {tr ("WSJT-X log (new QSOs are saved here):"), &dialog};
+  primary_label->setWordWrap (true);
+  layout->addWidget (primary_label);
+  auto primary = new QLineEdit {QDir::toNativeSeparators (primary_path), &dialog};
+  primary->setReadOnly (true);
+  primary->setAccessibleName (tr ("Writable WSJT-X ADIF log"));
+  primary_label->setBuddy (primary);
+  auto primary_layout = new QHBoxLayout;
+  primary_layout->addWidget (primary);
+  auto primary_folder = new QPushButton {tr ("Open folder"), &dialog};
+  primary_folder->setAutoDefault (false);
+  primary_folder->setFocusPolicy (Qt::StrongFocus);
+  primary_folder->setAccessibleName (tr ("Open writable log folder"));
+  primary_layout->addWidget (primary_folder);
+  layout->addLayout (primary_layout);
+  connect (primary_folder, &QPushButton::clicked, &dialog, [primary_path] {
+      QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {primary_path}.absolutePath ()));
+    });
+
+  auto sources_label = new QLabel {tr ("Additional ADIF &history files (read-only):"), &dialog};
+  sources_label->setWordWrap (true);
+  layout->addWidget (sources_label);
+  auto sources = new QListWidget {&dialog};
+  sources->setAccessibleName (tr ("Additional read-only ADIF history files"));
+  sources->setAccessibleDescription (tr ("Full file paths. Removing an item does not delete its file."));
+  sources->setSelectionMode (QAbstractItemView::ExtendedSelection);
+  sources->setTextElideMode (Qt::ElideNone);
+  sources->setHorizontalScrollBarPolicy (Qt::ScrollBarAsNeeded);
+  sources_label->setBuddy (sources);
+  auto populate = [sources, primary_path] (QStringList const& paths) {
+      sources->clear ();
+      auto const primary_canonical = QFileInfo {primary_path}.canonicalFilePath ();
+      for (auto const& path : paths)
+        {
+          auto label = QDir::toNativeSeparators (path);
+          auto const canonical = QFileInfo {path}.canonicalFilePath ();
+#ifdef Q_OS_WIN
+          bool const same_primary = !primary_canonical.isEmpty ()
+            && canonical.compare (primary_canonical, Qt::CaseInsensitive) == 0;
+#else
+          bool const same_primary = !primary_canonical.isEmpty () && canonical == primary_canonical;
+#endif
+          if (same_primary) label += " — " + tr ("Same file as primary log");
+          auto item = new QListWidgetItem {label, sources};
+          item->setData (Qt::UserRole, path);
+          item->setData (Qt::AccessibleTextRole, label);
+          item->setToolTip (label);
+        }
+    };
+  auto selected_paths = [sources] {
+      QStringList paths;
+      for (int row = 0; row != sources->count (); ++row)
+        paths.append (sources->item (row)->data (Qt::UserRole).toString ());
+      return paths;
+    };
+  populate (next_supplemental_history_files_);
+  layout->addWidget (sources);
+  auto actions = new QHBoxLayout;
+  auto add = new QPushButton {tr ("&Add..."), &dialog};
+  auto remove = new QPushButton {tr ("&Remove"), &dialog};
+  auto folder = new QPushButton {tr ("Open &folder"), &dialog};
+  add->setAccessibleName (tr ("Add read-only ADIF history files"));
+  remove->setAccessibleName (tr ("Remove selected history sources"));
+  folder->setAccessibleName (tr ("Open selected history source folder"));
+  for (auto button : {add, remove, folder})
+    {
+      button->setAutoDefault (false);
+      button->setFocusPolicy (Qt::StrongFocus);
+      actions->addWidget (button);
+    }
+  actions->addStretch ();
+  layout->addLayout (actions);
+  auto hint = new QLabel {&dialog};
+  hint->setWordWrap (true);
+  layout->addWidget (hint);
+  auto update_actions = [sources, remove, folder] {
+      remove->setEnabled (!sources->selectedItems ().isEmpty ());
+      folder->setEnabled (sources->selectedItems ().size () == 1);
+    };
+  connect (sources, &QListWidget::itemSelectionChanged, &dialog, update_actions);
+  update_actions ();
+  connect (add, &QPushButton::clicked, &dialog, [&dialog, sources, hint, populate, selected_paths, primary_path] {
+      auto paths = QFileDialog::getOpenFileNames (&dialog, tr ("Add read-only ADIF history"),
+                                                 QFileInfo {primary_path}.absolutePath (),
+                                                 tr ("ADIF files (*.adi *.adif);;All files (*)"));
+      if (paths.isEmpty ()) return;
+      auto const proposed = selected_paths () + paths;
+      auto const normalized = WorkedBefore::normalize_history_files (proposed, primary_path);
+      populate (normalized);
+      hint->setText (normalized.size () < proposed.size ()
+        ? tr ("Already selected files and the writable WSJT-X log were skipped.") : QString {});
+      if (sources->count ()) sources->setCurrentRow (sources->count () - 1);
+      sources->setFocus ();
+    });
+  connect (remove, &QPushButton::clicked, &dialog, [sources, hint] {
+      for (auto item : sources->selectedItems ()) delete item;
+      hint->setText (tr ("Removed from this selection. The files have not been deleted."));
+      sources->setFocus ();
+    });
+  connect (folder, &QPushButton::clicked, &dialog, [sources] {
+      auto const selected = sources->selectedItems ();
+      if (selected.size () == 1)
+        QDesktopServices::openUrl (QUrl::fromLocalFile (
+          QFileInfo {selected.first ()->data (Qt::UserRole).toString ()}.absolutePath ()));
+    });
+
+  auto status_label = new QLabel {tr ("Last scan of saved sources:"), &dialog};
+  status_label->setWordWrap (true);
+  layout->addWidget (status_label);
+  auto status = new QTextEdit {&dialog};
+  status->setReadOnly (true);
+  status->setMaximumHeight (130);
+  status->setAccessibleName (tr ("Worked-before scan result and source errors"));
+  status_label->setBuddy (status);
+  auto update_status = [this, status] {
+      auto summary = worked_before_status_.isEmpty () ? tr ("Worked-before history has not been scanned.") : worked_before_status_;
+      status->setPlainText (summary + (worked_before_errors_.isEmpty () ? QString {} : "\n\n" + worked_before_errors_));
+    };
+  update_status ();
+  connect (self_, &Configuration::worked_before_status_changed, &dialog, update_status);
+  layout->addWidget (status);
+  auto rescan = new QPushButton {tr ("Rescan saved sources"), &dialog};
+  rescan->setAutoDefault (false);
+  rescan->setFocusPolicy (Qt::StrongFocus);
+  rescan->setEnabled (logbook_);
+  rescan->setToolTip (tr ("Scan the currently saved sources. This dialog's source changes take effect after Settings OK."));
+  connect (rescan, &QPushButton::clicked, &dialog, [this] { on_rescan_log_push_button_clicked (false); });
+  layout->addWidget (rescan);
+  auto buttons = new QDialogButtonBox {QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog};
+  buttons->button (QDialogButtonBox::Ok)->setFocusPolicy (Qt::StrongFocus);
+  buttons->button (QDialogButtonBox::Cancel)->setFocusPolicy (Qt::StrongFocus);
+  connect (buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect (buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  outer_layout->addWidget (buttons);
+  dialog.resize (650, 580);
+  auto screen = windowHandle () ? windowHandle ()->screen () : QGuiApplication::primaryScreen ();
+  if (screen) dialog.resize (dialog.size ().boundedTo (screen->availableGeometry ().size () - QSize {40, 60}));
+  primary->setCursorPosition (0);
+  sources->setFocus ();
+  if (dialog.exec () == QDialog::Accepted)
+    next_supplemental_history_files_ = selected_paths ();
 }
 
 void Configuration::impl::on_CTY_download_button_clicked (bool /*clicked*/)

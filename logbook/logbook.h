@@ -28,6 +28,8 @@ public:
   LogBook (Configuration const *);
   ~LogBook ();
   QString const& path () const {return worked_before_.path ();}
+  QString const& load_status () const {return worked_before_.load_status ();}
+  QString const& load_errors () const {return worked_before_.load_errors ();}
   bool add (QString const& call
             , QString const& grid
             , QString const& band
@@ -50,6 +52,7 @@ public:
   QString const cty_version() const;
 
   Q_SIGNAL void finished_loading (int worked_before_record_count, QString const cty_version, QString const& error) const;
+  Q_SIGNAL void loading_started () const;
 
   CabrilloLog * contest_log ();
   Multiplier const * multiplier () const;

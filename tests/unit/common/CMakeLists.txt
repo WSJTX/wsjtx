@@ -52,6 +52,17 @@ if (WSJT_ENABLE_TSAN)
     "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
 endif ()
 
+add_test (NAME test_configuration_history_sources_fusion
+  COMMAND test_configuration_radio historySourceDialogKeepsControlsReachable)
+set_tests_properties (test_configuration_history_sources_fusion PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_STYLE_OVERRIDE=Fusion"
+  TIMEOUT 60)
+add_test (NAME test_configuration_history_sources_scaled
+  COMMAND test_configuration_radio historySourceDialogKeepsControlsReachable)
+set_tests_properties (test_configuration_history_sources_scaled PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
+  TIMEOUT 60)
+
 add_executable (test_callsign_validator
   test_callsign_validator.cpp
   ${CMAKE_SOURCE_DIR}/validators/CallsignValidator.cpp

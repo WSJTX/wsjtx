@@ -287,6 +287,8 @@ public:
   Cloudlog const& cloudlog () const;
   DecodeHighlightingModel const& decode_highlighting () const;
   bool highlight_by_mode () const;
+  QStringList const& supplemental_history_files () const;
+  void set_worked_before_status (QString const& status, QString const& errors);
   bool highlight_only_fields () const;
   bool include_WAE_entities () const;
   bool highlight_73 () const;
@@ -493,6 +495,8 @@ public:
   // signal updates to decode highlighting
   Q_SIGNAL void decode_highlighting_changed (DecodeHighlightingModel const&) const;
   Q_SIGNAL void decodes_from_top_changed (bool enabled) const;
+  Q_SIGNAL void supplemental_history_files_changed () const;
+  Q_SIGNAL void worked_before_status_changed () const;
 
   //
   // These signals are emitted and reflect transceiver state changes

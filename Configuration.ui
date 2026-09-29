@@ -3223,16 +3223,6 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
-             <widget class="QPushButton" name="rescan_log_push_button">
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Rescan ADIF Log</string>
-              </property>
-             </widget>
-            </item>
             <item>
              <spacer name="highlighting_global_actions_spacer">
               <property name="orientation">
@@ -3289,6 +3279,59 @@ Right click for insert and delete options.</string>
            </widget>
           </item>
           <item row="3" column="0" colspan="2">
+           <layout class="QHBoxLayout" name="worked_before_actions_layout">
+            <item>
+             <widget class="QPushButton" name="history_sources_push_button">
+              <property name="toolTip">
+               <string>Select additional ADIF files to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
+              </property>
+              <property name="text">
+               <string>History sources...</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="rescan_log_push_button">
+              <property name="toolTip">
+               <string>Reload the writable ADIF log and saved supplemental history sources. Pending source changes take effect after Settings OK.</string>
+              </property>
+              <property name="text">
+               <string>Rescan ADIF Log</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="worked_before_actions_spacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item row="4" column="0" colspan="2">
+           <widget class="QLineEdit" name="worked_before_status_line_edit">
+            <property name="text">
+             <string>Worked-before history has not been scanned.</string>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0" colspan="2">
            <layout class="QGridLayout" name="gridLayout_23">
             <item row="1" column="0">
              <widget class="QCheckBox" name="only_fields_check_box">

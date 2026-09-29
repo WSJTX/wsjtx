@@ -990,6 +990,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::finished, m_logDlg.data (), &LogQSO::close);
 
   // hook up the log book
+  auto update_history_status = [this] {
+    m_config.set_worked_before_status (m_logBook.load_status (), m_logBook.load_errors ());
+  };
+  connect (&m_logBook, &LogBook::loading_started, this, update_history_status);
+  update_history_status ();
   connect (&m_logBook, &LogBook::finished_loading, [this] (int record_count, QString cty_version, QString const& error) {
       if (!m_startup_logbook_reported)
         {
@@ -999,15 +1004,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
             QString {"status=%1 unique_entries=%2"}
               .arg (error.isEmpty () ? "ok" : "error").arg (record_count));
         }
-      if (error.size ())
-        {
-          MessageBox::warning_message (this, tr ("Error Scanning ADIF Log"), error);
-        }
-      else
-        {
-          m_config.set_CTY_DAT_version(cty_version);
-          showStatusMessage (tr ("Scanned ADIF log, %1 worked-before records created. CTY: %2").arg (record_count).arg (cty_version));
-        }
+      m_config.set_CTY_DAT_version (cty_version);
+      m_config.set_worked_before_status (m_logBook.load_status (), error);
+      showStatusMessage (m_logBook.load_status ());
     });
 
   // Network message handlers

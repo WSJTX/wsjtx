@@ -25,11 +25,50 @@ image::colors.png[align="center",alt="Colors Screen"]
 * Check *Include extra WAE entities* if you are interested in the
   extra entities defined for DARC WAE and CQ Marathon awards.
 
-* Worked-before status is determined from file `wsjtx_log.adi` in your
-log directory. You can replace ADIF log file with one exported from
-your station logging application. Clicking *Rescan ADIF Log* will
-rebuild the _WSJT-X_ worked-before index from the current ADIF log
-file.
+* Worked-before status includes `wsjtx_log.adi` in your log directory.
+This is the writable primary log: new contacts logged in _WSJT-X_ are
+appended here. You can still replace this file with an ADIF export
+from your station logging application and click *Rescan ADIF Log*.
+
+* Click *History sources...* to select additional ADIF files as
+read-only history. These files contribute to worked-before highlighting
+without copying their contacts into the primary log. _WSJT-X_ does not
+append to, rewrite, or erase these files. Removing a source from the
+list does not delete it.
+
+* Source changes take effect when you accept *Settings* with *OK*;
+*Cancel* discards them. Loading then runs in the background. Click
+*Rescan ADIF Log* after updating an external file; Rescan uses the saved
+sources, including the primary log, rather than unaccepted changes.
+
+* Scan results appear briefly in the main window status bar and remain
+visible on *Colors*. Scan failures do not open a warning dialog, including
+at startup. *History sources...* shows the source paths and error details.
+
+* If the primary log ends with an incomplete or invalid record, completed
+records before the error remain available and the scan reports incomplete
+history. The file is not repaired or rewritten. A supplemental source
+with an unrecoverable error contributes no records. The result distinguishes
+files loaded completely, primary files partially recovered, and failed files.
+Empty files and files containing only whitespace supply empty history.
+
+* Previous file history remains in use only until the new load completes.
+If no file supplies usable history, previous file history is cleared.
+Contacts logged while loading remain available. Correct or remove a
+failed supplemental source, or correct the primary log, and rescan to
+restore complete history. An absent primary log is normal before the
+first contact is logged. Counts refer to unique worked-before entries,
+which may be fewer than the number of contacts.
+
+* An additional path that resolves to the primary log is marked *Same file
+as primary log*. It is scanned only once; new contacts still change that
+file through the primary log path. Stored paths are preserved so aliases
+can be retargeted and unavailable files can be restored.
+
+* ADI files normally contain ASCII text. For compatibility with other
+logging applications, UTF-8 exports using byte-counted or character-counted
+field lengths are also accepted. Byte-counted lengths take precedence when
+both interpretations are valid.
 
 .Logbook of The World User Validation
 
