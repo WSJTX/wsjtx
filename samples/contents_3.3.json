@@ -1,0 +1,294 @@
+[
+  {
+    "type": "directory",
+    "name":  "FST4+FST4W",
+    "entries": [
+        {
+          "type": "file",
+          "name": "201230_0300.wav"
+        },
+        {
+          "type": "file",
+          "name": "210115_0058.wav"
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "FT4",
+    "entries": [
+        {
+          "type": "file",
+          "name": "000000_000002.wav"
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "FT8",
+    "entries": [
+        {
+          "type": "file",
+          "name": "210703_133430.wav"
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "ISCAT",
+    "entries": [
+        {
+          "type": "directory",
+          "name":  "ISCAT-A",
+          "entries": [
+              {
+                "type": "file",
+                "name": "VK7MO_110401_235515.wav"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "ISCAT-B",
+          "entries": [
+              {
+                "type": "file",
+                "name": "K0AWU_100714_115000.wav"
+              }
+            ]
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "JT4",
+    "entries": [
+        {
+          "type": "directory",
+          "name":  "JT4A",
+          "entries": [
+              {
+                "type": "file",
+                "name": "DF2ZC_070926_040700.WAV"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "JT4F",
+          "entries": [
+              {
+                "type": "file",
+                "name": "OK1KIR_141105_175700.WAV"
+              }
+            ]
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "JT65",
+    "entries": [
+        {
+          "type": "directory",
+          "name":  "JT65B",
+          "entries": [
+              {
+                "type": "file",
+                "name": "000000_0001.wav"
+              },
+              {
+                "type": "file",
+                "name": "000000_0002.wav"
+              },
+              {
+                "type": "file",
+                "name": "000000_0003.wav"
+              },
+              {
+                "type": "file",
+                "name": "000000_0004.wav"
+              },
+              {
+                "type": "file",
+                "name": "000000_0005.wav"
+              },
+              {
+                "type": "file",
+                "name": "000000_0006.wav"
+              },
+              {
+                "type": "file",
+                "name": "000000_0007.wav"
+              },
+              {
+                "type": "file",
+                "name": "DL7UAE_040308_002400.wav"
+              }
+            ]
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "JT9",
+    "entries": [
+        {
+          "type": "file",
+          "name": "130418_1742.wav"
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "JTTY",
+    "entries": [
+        {
+          "type": "file",
+          "name": "260807_134110.wav"
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "MSK144",
+    "entries": [
+        {
+          "type": "file",
+          "name": "181211_120500.wav"
+        },
+        {
+          "type": "file",
+          "name": "181211_120500.wav"
+        },
+        {
+          "type": "file",
+          "name": "181211_120800.wav"
+        },
+        {
+          "type": "file",
+          "name": "181211_120800.wav"
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "Q65",
+    "entries": [
+        {
+          "type": "directory",
+          "name":  "120D_Rainscatter_10_GHz",
+          "entries": [
+              {
+                "type": "file",
+                "name": "210117_0920.wav"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "120E_Ionoscatter_6m",
+          "entries": [
+              {
+                "type": "file",
+                "name": "210130_1438.wav"
+              },
+              {
+                "type": "file",
+                "name": "210130_1442.wav"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "300A_Optical_Scatter",
+          "entries": [
+              {
+                "type": "file",
+                "name": "201210_0505.wav"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "30A_Ionoscatter_6m",
+          "entries": [
+              {
+                "type": "file",
+                "name": "201203_022700.wav"
+              },
+              {
+                "type": "file",
+                "name": "201203_022800.wav"
+              },
+              {
+                "type": "file",
+                "name": "201203_022900.wav"
+              },
+              {
+                "type": "file",
+                "name": "201203_024000.wav"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "60A_EME_6m",
+          "entries": [
+              {
+                "type": "file",
+                "name": "210106_1621.wav"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "60B_1296_Troposcatter",
+          "entries": [
+              {
+                "type": "file",
+                "name": "210109_0007.wav"
+              },
+              {
+                "type": "file",
+                "name": "210109_0147.wav"
+              },
+              {
+                "type": "file",
+                "name": "210109_0151.wav"
+              }
+            ]
+        },
+        {
+          "type": "directory",
+          "name":  "60D_EME_10GHz",
+          "entries": [
+              {
+                "type": "file",
+                "name": "201212_1838.wav"
+              }
+            ]
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "QMAP",
+    "entries": [
+        {
+          "type": "file",
+          "name": "241019_0403.qm"
+        }
+      ]
+  },
+  {
+    "type": "directory",
+    "name":  "WSPR",
+    "entries": [
+        {
+          "type": "file",
+          "name": "150426_0918.wav"
+        }
+      ]
+  }
+]
