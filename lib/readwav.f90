@@ -50,15 +50,18 @@ contains
     character(len=*), intent(in) :: filename
 
     integer :: filepos
+    integer :: ios
     type(riff_descriptor) :: desc
     character(len=4) :: riff_type
 
     this%lun=26
     open (unit=this%lun, file=filename, access='stream',status='old')
-    read (unit=this%lun) desc,riff_type
+    read (unit=this%lun, iostat=ios) desc,riff_type
+    if (ios .ne. 0) stop 'readwav: error reading RIFF header (truncated or invalid WAV file)'
     inquire (unit=this%lun, pos=filepos)
     do
-       read (unit=this%lun, pos=filepos) desc
+       read (unit=this%lun, pos=filepos, iostat=ios) desc
+       if (ios .ne. 0) stop 'readwav: no data chunk found (truncated or malformed WAV file)'
        inquire (unit=this%lun, pos=filepos)
        if (desc%id .eq. 'fmt ') then
           read (unit=this%lun) this%audio_format
@@ -66,7 +69,9 @@ contains
           this%data_size = desc%size
           exit
        end if
+       if (desc%size .lt. 0) stop 'readwav: invalid (negative) chunk size in WAV file'
        filepos = filepos + (desc%size + 1) / 2 * 2 ! pad to even alignment
+       if (filepos .lt. 1) stop 'readwav: invalid chunk size in WAV file'
     end do
     return
   end subroutine read
