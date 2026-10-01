@@ -902,23 +902,12 @@ int main(int argc, char *argv[])
     }
     
     FILE *fp_fftwf_wisdom_file, *fall_wspr, *fwsprd, *fhash, *ftimer;
-    strcpy(wisdom_fname,".");
-    strcpy(all_fname,".");
-    strcpy(spots_fname,".");
-    strcpy(timer_fname,".");
-    strcpy(hash_fname,".");
-    if(data_dir != NULL) {
-      strncpy(wisdom_fname,data_dir, sizeof wisdom_fname);
-      strncpy(all_fname,data_dir, sizeof all_fname);
-      strncpy(spots_fname,data_dir, sizeof spots_fname);
-      strncpy(timer_fname,data_dir, sizeof timer_fname);
-      strncpy(hash_fname,data_dir, sizeof hash_fname);
-    }
-    strncat(wisdom_fname,"/wspr_wisdom.dat",20);
-    strncat(all_fname,"/ALL_WSPR.TXT",20);
-    strncat(spots_fname,"/wspr_spots.txt",20);
-    strncat(timer_fname,"/wspr_timer.out",20);
-    strncat(hash_fname,"/hashtable.txt",20);
+    const char *dd = (data_dir != NULL) ? data_dir : ".";
+    snprintf(wisdom_fname, sizeof(wisdom_fname), "%s/wspr_wisdom.dat", dd);
+    snprintf(all_fname,    sizeof(all_fname),    "%s/ALL_WSPR.TXT",    dd);
+    snprintf(spots_fname,  sizeof(spots_fname),  "%s/wspr_spots.txt",  dd);
+    snprintf(timer_fname,  sizeof(timer_fname),  "%s/wspr_timer.out",  dd);
+    snprintf(hash_fname,   sizeof(hash_fname),   "%s/hashtable.txt",   dd);
     if ((fp_fftwf_wisdom_file = fopen(wisdom_fname, "r"))) {  //Open FFTW wisdom
         fftwf_import_wisdom_from_file(fp_fftwf_wisdom_file);
         fclose(fp_fftwf_wisdom_file);
