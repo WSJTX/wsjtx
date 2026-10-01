@@ -286,9 +286,9 @@ program jt9
      i1=index(infile,'.wav')
      if(i1.lt.1) i1=index(infile,'.WAV')
      if(infile(i1-5:i1-5).eq.'_') then
-        read(infile(i1-4:i1-1),*,err=1) nutc
+        read(infile(i1-4:i1-1),*,err=1,end=1) nutc
      else
-        read(infile(i1-6:i1-1),*,err=1) nutc
+        read(infile(i1-6:i1-1),*,err=1,end=1) nutc
      endif
      go to 2
 1    nutc=0
