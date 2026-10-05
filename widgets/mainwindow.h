@@ -687,6 +687,7 @@ private slots:
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
                          , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
                          , QString const& dx_grid, bool generate_messages);
+  void annotate_callsign (QString const& callsign, bool sort_order_provided, quint32 sort_order);
   void callSandP2(int nline);
   void qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick);
   void refreshHoundQueueDisplay();
