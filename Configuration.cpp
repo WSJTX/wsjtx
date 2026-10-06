@@ -604,6 +604,7 @@ private:
   Q_SLOT void on_udp_server_line_edit_editingFinished ();
   Q_SLOT void on_save_path_select_push_button_clicked (bool);
   Q_SLOT void on_azel_path_select_push_button_clicked (bool);
+  Q_SLOT void on_extra_adi_path_select_push_button_clicked (bool);
   Q_SLOT void on_calibration_intercept_spin_box_valueChanged (double);
   Q_SLOT void handle_leavingSettings ();
   Q_SLOT void on_calibration_slope_ppm_spin_box_valueChanged (double);
@@ -727,6 +728,7 @@ private:
   QDir save_directory_;
   QDir default_azel_directory_;
   QDir azel_directory_;
+  QString extra_adi_directory_;
 
   QFont font_;
   QFont next_font_;
@@ -1133,6 +1135,7 @@ QStringListModel * Configuration::macros () {return &m_->macros_;}
 QStringListModel const * Configuration::macros () const {return &m_->macros_;}
 QDir Configuration::save_directory () const {return m_->save_directory_;}
 QDir Configuration::azel_directory () const {return m_->azel_directory_;}
+QString Configuration::extra_adi_directory () const {return m_->extra_adi_directory_;}
 QString Configuration::rig_name () const {return m_->rig_params_.rig_name;}
 bool Configuration::AzElExtraLines () const {return m_->AzElExtraLines_;}
 bool Configuration::pwrBandTxMemory () const {return m_->pwrBandTxMemory_;}
@@ -2148,6 +2151,7 @@ void Configuration::impl::initialize_models ()
   if (!ui_->PWR_and_SWR_check_box->isChecked()) ui_->check_SWR_check_box->setEnabled (false);
   ui_->save_path_display_label->setText (save_directory_.absolutePath ());
   ui_->azel_path_display_label->setText (azel_directory_.absolutePath ());
+  ui_->extra_adi_path_display_label->setText (extra_adi_directory_);
   ui_->CW_id_after_73_check_box->setChecked (id_after_73_);
   ui_->tx_QSY_check_box->setChecked (tx_QSY_allowed_);
   ui_->progress_bar_check_box->setChecked (progressBar_red_);
@@ -2488,6 +2492,7 @@ void Configuration::impl::read_settings ()
   RxBandwidth_ = settings_->value ("RxBandwidth", 2500).toInt ();
   save_directory_.setPath (settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ());
   azel_directory_.setPath (settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ());
+  extra_adi_directory_ = settings_->value ("ExtraADIDir", QString {}).toString ();
 
   tci_audio_ = settings_->value ("TCIAudio", tci_audio_).toBool ();
 
@@ -2818,6 +2823,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("PTTport", rig_params_.ptt_port);
   settings_->setValue ("SaveDir", save_directory_.absolutePath ());
   settings_->setValue ("AzElDir", azel_directory_.absolutePath ());
+  settings_->setValue ("ExtraADIDir", extra_adi_directory_);
   if (!audio_input_device_.isNull ()) {
       settings_->setValue ("SoundInName", audio_input_device_.deviceName ());
       settings_->setValue ("AudioInputChannel", AudioDevice::toString (audio_input_channel_));
@@ -3487,6 +3493,11 @@ void Configuration::impl::accept ()
   bLowSidelobes_ = ui_->rbLowSidelobes->isChecked();
   save_directory_.setPath (ui_->save_path_display_label->text ());
   azel_directory_.setPath (ui_->azel_path_display_label->text ());
+  auto const prev_extra_adi = extra_adi_directory_;
+  extra_adi_directory_ = ui_->extra_adi_path_display_label->text ();
+  if (logbook_ && extra_adi_directory_ != prev_extra_adi) {
+    logbook_->rescan ();
+  }
   enable_VHF_features_ = ui_->enable_VHF_features_check_box->isChecked ();
   decode_at_52s_ = ui_->decode_at_52s_check_box->isChecked ();
   kHz_without_k_ = ui_->kHz_without_k_check_box->isChecked ();
@@ -4529,6 +4540,18 @@ void Configuration::impl::on_azel_path_select_push_button_clicked (bool /* check
   if (fd.exec ()) {
     if (fd.selectedFiles ().size ()) {
       ui_->azel_path_display_label->setText(fd.selectedFiles().at(0));
+    }
+  }
+}
+
+void Configuration::impl::on_extra_adi_path_select_push_button_clicked (bool /* checked */)
+{
+  QFileDialog fd {this, tr ("Additional ADIF Directory"), ui_->extra_adi_path_display_label->text ()};
+  fd.setFileMode (QFileDialog::Directory);
+  fd.setOption (QFileDialog::ShowDirsOnly);
+  if (fd.exec ()) {
+    if (fd.selectedFiles ().size ()) {
+      ui_->extra_adi_path_display_label->setText (fd.selectedFiles ().at (0));
     }
   }
 }
