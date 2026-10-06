@@ -480,6 +480,7 @@ public:
 
   // signal updates to decode highlighting
   Q_SIGNAL void decode_highlighting_changed (DecodeHighlightingModel const&) const;
+  Q_SIGNAL void decodes_from_top_changed (bool enabled) const;
 
   //
   // These signals are emitted and reflect transceiver state changes

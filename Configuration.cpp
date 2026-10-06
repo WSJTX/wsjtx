@@ -4608,6 +4608,8 @@ void Configuration::impl::accept ()
 
   read_voice_directory ();
 
+  auto const previous_decodes_from_top = decodes_from_top_;
+
   spot_to_psk_reporter_ = ui_->psk_reporter_check_box->isChecked ();
   psk_reporter_tcpip_ = ui_->psk_reporter_tcpip_check_box->isChecked ();
   eqsl_username_ = ui_->eqsluser_edit->text ();
@@ -4810,6 +4812,10 @@ void Configuration::impl::accept ()
   alert_Enabled_ = ui_->pbAlerts->isChecked();
 
   write_settings ();		// make visible to all
+  if (previous_decodes_from_top != decodes_from_top_)
+    {
+      Q_EMIT self_->decodes_from_top_changed (decodes_from_top_);
+    }
   if (suggestion_notice_state_.commit (FrequencyList_v2_101::default_items (),
                                        frequencies_.frequency_list ()))
     persist_seen_suggestions ();

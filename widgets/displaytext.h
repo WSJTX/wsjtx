@@ -61,6 +61,7 @@ private:
   void resizeEvent (QResizeEvent *) override;
 
   bool decodesFromTop () const;
+  bool stickyScrollEnabled () const;
   void extend_vertical_scrollbar (int min, int max);
   void scrollRangeChanged (int minimum, int maximum);
   void userScrolledTo (int position);
@@ -93,6 +94,7 @@ private:
   bool sticky_scroll_enabled_;
   bool following_live_activity_;
   QMetaObject::Connection vertical_scroll_connection_;
+  QMetaObject::Connection configuration_connection_;
   long long modified_vertical_scrollbar_max_;
   QToolButton * return_to_live_button_;
   int live_scroll_position_;

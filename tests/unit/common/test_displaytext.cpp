@@ -1,12 +1,27 @@
 #include <QApplication>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QCoreApplication>
+#include <QDialog>
+#include <QDir>
 #include <QMouseEvent>
+#include <QMessageBox>
+#include <QNetworkAccessManager>
 #include <QScrollBar>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QToolButton>
 
+#include <memory>
+
 #include "commons.h"
+#include "Configuration.hpp"
+#include "MetaDataRegistry.hpp"
 #include "widgets/displaytext.h"
 
 namespace
@@ -29,6 +44,11 @@ class TestDisplayText final
   : public QObject
 {
   Q_OBJECT
+
+  QTemporaryDir directory_;
+  QNetworkAccessManager network_;
+  std::unique_ptr<QSettings> settings_;
+  std::unique_ptr<Configuration> configuration_;
 
 private:
   static QPoint positionWithin (DisplayText const& display, QString const& text)
@@ -75,7 +95,84 @@ private:
     return display.cursorForPosition (QPoint {1, 1}).block ().text ();
   }
 
+  static QString topVisibleDecode (DisplayText const& display)
+  {
+    return display.cursorForPosition (QPoint {1, 6}).block ().text ();
+  }
+
+  static void addPeriod (DisplayText& display, QString const& period, int count)
+  {
+    display.new_period ();
+    for (int i = 0; i < count; ++i)
+      {
+        display.insertText (QString {"%1 decode %2"}.arg (period).arg (i, 2, 10, QLatin1Char {'0'}));
+      }
+    QApplication::processEvents ();
+  }
+
+  void createConfiguration (bool decodes_from_top)
+  {
+    configuration_.reset ();
+    settings_.reset (new QSettings {directory_.filePath ("settings.ini"), QSettings::IniFormat});
+    settings_->clear ();
+    settings_->setValue ("Configuration/DecodesFromTop", decodes_from_top);
+    settings_->sync ();
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+  }
+
+  bool enableDecodesFromTopInSettings ()
+  {
+    QDialog * dialog {};
+    for (auto * widget : QApplication::topLevelWidgets ())
+      {
+        auto * candidate = qobject_cast<QDialog *> (widget);
+        if (candidate && candidate->findChild<QCheckBox *> ("decodes_from_top_check_box"))
+          {
+            dialog = candidate;
+            break;
+          }
+      }
+    if (!dialog) return false;
+
+    auto * checkbox = dialog->findChild<QCheckBox *> ("decodes_from_top_check_box");
+    checkbox->setChecked (true);
+    auto ensure_option = [dialog] (char const * object_name, char const * option) {
+      if (auto * combo = dialog->findChild<QComboBox *> (object_name);
+          combo && combo->currentIndex () < 0)
+        {
+          combo->addItem (option);
+        }
+    };
+    ensure_option ("sound_input_combo_box", "Test input");
+    ensure_option ("sound_input_channel_combo_box", "Mono");
+    ensure_option ("sound_output_combo_box", "Test output");
+
+    QTimer dismiss_message;
+    dismiss_message.setSingleShot (true);
+    connect (&dismiss_message, &QTimer::timeout, [] {
+      for (auto * widget : QApplication::topLevelWidgets ())
+        {
+          if (auto * message = qobject_cast<QMessageBox *> (widget))
+            {
+              message->accept ();
+            }
+        }
+    });
+    dismiss_message.start (1000);
+    auto const invoked = QMetaObject::invokeMethod (dialog, "accept", Qt::DirectConnection);
+    dismiss_message.stop ();
+    return invoked && configuration_->decodes_from_top ();
+  }
+
 private slots:
+  void initTestCase ()
+  {
+    register_types ();
+    QStandardPaths::setTestModeEnabled (true);
+    QCoreApplication::setApplicationName ("test_displaytext");
+    QVERIFY (directory_.isValid ());
+  }
+
   void insertionDoesNotRetargetDoubleClick ()
   {
     DisplayText display;
@@ -389,6 +486,89 @@ private slots:
 
     QCOMPARE (topVisibleLine (display), parked_line);
     QVERIFY (return_button->isVisible ());
+  }
+
+  void decodesFromTopKeepsFollowingAcrossPeriods ()
+  {
+    createConfiguration (true);
+    QVERIFY (configuration_->decodes_from_top ());
+
+    DisplayText display;
+    display.set_configuration (configuration_.get (), true);
+    display.resize (360, 140);
+    display.show ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+
+    addPeriod (display, "P0", 30);
+    addPeriod (display, "P1", 30);
+    addPeriod (display, "P2", 30);
+    QCOMPARE (topVisibleDecode (display), QString {"P2 decode 00"});
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    auto const live_position = scroll_bar->value ();
+    scroll_bar->triggerAction (QAbstractSlider::SliderSingleStepAdd);
+    QApplication::processEvents ();
+
+    QVERIFY (scroll_bar->value () > live_position);
+    QVERIFY (topVisibleDecode (display).startsWith ("P2"));
+    QVERIFY (!return_button->isVisible ());
+
+    addPeriod (display, "P3", 10);
+
+    QCOMPARE (topVisibleDecode (display), QString {"P3 decode 00"});
+    QVERIFY (!return_button->isVisible ());
+  }
+
+  void rxFrequencyKeepsStickyScrollingWithDecodesFromTopSetting ()
+  {
+    createConfiguration (true);
+
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    display.resize (360, 140);
+    display.show ();
+    populateForScrolling (display);
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+    scroll_bar->triggerAction (QAbstractSlider::SliderPageStepSub);
+    QApplication::processEvents ();
+    QVERIFY (return_button->isVisible ());
+    auto const parked_line = topVisibleLine (display);
+
+    display.insertText ("new live decode");
+    QApplication::processEvents ();
+
+    QCOMPARE (topVisibleLine (display), parked_line);
+    QVERIFY (return_button->isVisible ());
+  }
+
+  void enablingDecodesFromTopResumesFollowing ()
+  {
+    createConfiguration (false);
+
+    DisplayText display;
+    display.set_configuration (configuration_.get (), true);
+    display.resize (360, 140);
+    display.show ();
+    auto * return_button = display.findChild<QToolButton *> ("returnToLiveActivityButton");
+    QVERIFY (return_button);
+
+    addPeriod (display, "P0", 30);
+    addPeriod (display, "P1", 30);
+
+    auto * scroll_bar = display.verticalScrollBar ();
+    scroll_bar->triggerAction (QAbstractSlider::SliderPageStepSub);
+    QApplication::processEvents ();
+    QVERIFY (return_button->isVisible ());
+
+    QVERIFY (enableDecodesFromTopInSettings ());
+
+    QVERIFY (!return_button->isVisible ());
+    addPeriod (display, "P2", 10);
+    QCOMPARE (topVisibleDecode (display), QString {"P2 decode 00"});
   }
 };
 
