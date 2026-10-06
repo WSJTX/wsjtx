@@ -150,6 +150,11 @@ contains
 
     ! FST4 60s period uses a larger sample window (jt9.f90:485 in WAV path).
     if (mode .eq. 240) params%kin = 720000
+    if(mode==4) then
+       params%kin=624000
+       params%minw=0
+       params%minsync=0
+    endif
 
     ! JT9 with explicit -S<HZ>: remap nfa to fsplit (jt9.f90:386, :560).
     if (mode .eq. 9 .and. args%fsplit .ne. 2700) params%nfa = args%fsplit
@@ -185,6 +190,7 @@ contains
     params%nftx            = args%nrxfreq
 
     params%minw            = 1
+    if(params%nmode==4.and.params%nsubmode==0) params%minw=0
     params%minsync         = 0
     params%nlist           = 0
     params%max_drift       = 0

@@ -171,11 +171,12 @@ subroutine jt9a()
     ! MSK144
      call decode_msk144_core(shared_memory%payload%id2, local_params, data_dir, &
           completion)
-  elseif(local_params%nmode.eq.8.or.local_params%nmode.eq.5.or.local_params%nmode.eq.9.or. &
+  elseif(local_params%nmode.eq.4.or.local_params%nmode.eq.8.or.local_params%nmode.eq.5.or. &
+       local_params%nmode.eq.9.or. &
        local_params%nmode.eq.65.or.local_params%nmode.eq.66.or. &
        local_params%nmode.eq.240.or.local_params%nmode.eq.241.or.local_params%nmode.eq.242) then
      pass_valid_samples=min(shared_memory%metadata%valid_samples,180000)
-     if(local_params%nmode.eq.9.or.local_params%nmode.eq.65) &
+     if(local_params%nmode.eq.4.or.local_params%nmode.eq.9.or.local_params%nmode.eq.65) &
           pass_valid_samples=min(shared_memory%metadata%valid_samples,720000)
      if(local_params%nmode.eq.66.or.local_params%nmode.eq.240.or. &
           local_params%nmode.eq.241.or.local_params%nmode.eq.242) &

@@ -238,6 +238,52 @@ class TestStreamingConsumers final : public QObject
   Q_OBJECT
 
 private slots:
+  void jt4DecodesWaveform_data ()
+  {
+    QTest::addColumn<QJsonObject> ("timeFields");
+    QTest::addColumn<QString> ("expected");
+    QTest::newRow ("afternoon") << QJsonObject {{"utc", "12:34:00"}} << QString {"123400"};
+    QTest::newRow ("legacy-numeric") << QJsonObject {{"nutc", 1234}} << QString {"123400"};
+    QTest::newRow ("early-hour-iso-precedence")
+      << QJsonObject {{"nutc", 1234}, {"utc", "00:12:34"}} << QString {"001234"};
+  }
+
+  void jt4DecodesWaveform ()
+  {
+    QFETCH (QJsonObject, timeFields);
+    QFETCH (QString, expected);
+    QFile recording {QString::fromUtf8 (JT4_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const wav = recording.readAll ();
+    QCOMPARE (wav.size (), 44 + 60 * 12000 * 2);
+    QCOMPARE (wav.left (4), QByteArray {"RIFF"});
+    QCOMPARE (wav.mid (36, 4), QByteArray {"data"});
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    QJsonObject configuration {{"t", "configure"}, {"mode", "JT4"}, {"trperiod", 60},
+      {"submode", 0}, {"depth_level", 1}, {"rxfreq", 1000}, {"ntol", 50}};
+    for (auto it = timeFields.constBegin (); it != timeFields.constEnd (); ++it)
+      {
+        configuration.insert (it.key (), it.value ());
+      }
+    auto const input = sessionHeader () + controlFrame (
+      QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) +
+      frame (0x01u, wav.mid (44)) + controlFrame (R"({"t":"halt"})");
+    auto const result = runProcess (QString::fromUtf8 (JT9_EXECUTABLE),
+      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    auto const decodes = eventsMatching (events.values, "decode");
+    QCOMPARE (decodes.size (), 1);
+    QCOMPARE (decodes.first ().value ("mode").toString (), QString {"JT4"});
+    QCOMPARE (decodes.first ().value ("time").toString (), expected);
+    QCOMPARE (decodes.first ().value ("message").toString ().trimmed (), QString {"K1ABC W9XYZ FN42"});
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("period_end").toString (), expected);
+  }
+
   void fst4DecodesWaveform_data ()
   {
     QTest::addColumn<QString> ("mode");

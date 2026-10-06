@@ -26,7 +26,6 @@ module jt4_decode
   end type
   type :: jt4_decoder
      procedure(jt4_decode_callback), pointer :: decode_callback => null ()
-     procedure(jt4_average_callback), pointer :: average_callback => null ()
      procedure(jt4_diagnostic_callback), pointer, nopass :: diagnostic_callback => null ()
      integer :: iutc(MAXAVE)=-1,nfsave(MAXAVE)=0,nsave=0,average_count=0
      real :: dtsave(MAXAVE)=0.,syncsave(MAXAVE)=0.,flipsave(MAXAVE)=0.
@@ -45,7 +44,7 @@ module jt4_decode
      logical, private :: templates_valid=.false.,prepared=.false.
      integer, private :: ntot=0,kernel_status=0
    contains
-     procedure :: decode,decode_pcm,set_calls,get_averages,clear_averages,release_input,reset,set_fft_flags
+     procedure :: decode_pcm,set_calls,get_averages,clear_averages,release_input,reset,set_fft_flags
      procedure :: save_average,select_average
      procedure, private :: wsjt4,avg4,decode4,deep4,sync4,lpf1,ps4,getsnr,prepare_workspace,destroy_plans
      final :: finalize_jt4
@@ -76,47 +75,8 @@ module jt4_decode
      end subroutine jt4_decode_callback
   end interface
 
-  abstract interface
-     subroutine jt4_average_callback (this, used, utc, sync, dt, freq, flip)
-       import jt4_decoder
-       implicit none
-       class(jt4_decoder), intent(inout) :: this
-       logical, intent(in) :: used
-       integer, intent(in) :: utc
-       real, intent(in) :: sync
-       real, intent(in) :: dt
-       integer, intent(in) :: freq
-       logical, intent(in) :: flip
-     end subroutine jt4_average_callback
-  end interface
 
 contains
-
-  subroutine decode(this,decode_callback,dd,jz,nutc,nfqso,ntol0,emedelay, &
-       dttol,nagain,ndepth,nclearave,minsync,minw,nsubmode,mycall,hiscall, &
-       hisgrid,nlist0,listutc0,average_callback)
-    class(jt4_decoder),intent(inout) :: this
-    procedure(jt4_decode_callback) :: decode_callback
-    procedure(jt4_average_callback),optional :: average_callback
-    integer,intent(in) :: jz,nutc,nfqso,ntol0,ndepth,minsync,minw,nsubmode,nlist0,listutc0(10)
-    real,intent(in) :: dd(jz),emedelay,dttol
-    logical,intent(in) :: nagain,nclearave
-    character(len=12),intent(in) :: mycall,hiscall
-    character(len=6),intent(in) :: hisgrid
-    integer :: status,jz2
-    call this%prepare_workspace(status)
-    if(status/=0) return
-    this%decode_callback=>decode_callback
-    nullify(this%average_callback)
-    if(present(average_callback)) this%average_callback=>average_callback
-    if(nclearave.or.this%current_submode/=nsubmode.or.this%current_minimum_profile/=minw) &
-         call this%clear_averages()
-    this%current_submode=nsubmode
-    this%current_minimum_profile=minw
-    call this%lpf1(dd,min(jz,52*11025),this%dat,jz2)
-    call this%wsjt4(this%dat,jz2,nutc*100,minsync,ntol0,nch(nsubmode+1), &
-         minw,mycall,hiscall,hisgrid,nfqso,ndepth)
-  end subroutine decode
 
   subroutine wsjt4(this,dat,npts,nutc,minsync,ntol,mode4,minw,mycall,hiscall,hisgrid,nfqso,ndepth)
 
@@ -296,11 +256,6 @@ contains
     deepbest=' '
     qave=0.
     ichbest=-1
-    do i=1,MAXAVE
-       if(this%iutc(i)<0) cycle
-       if(associated(this%average_callback)) call this%average_callback(this%average_used(i),this%iutc(i)/100, &
-            this%syncsave(i),this%dtsave(i),this%nfsave(i),this%flipsave(i)<0.)
-    enddo
     if(nsum==0) return
     kbest=this%ich1
     do k=this%ich1,this%ich2
@@ -840,7 +795,7 @@ end subroutine ps4
     call this%prepare_workspace(status,sample_rate_hz==12000)
     if(status/=0) return
     this%decode_callback=>decode_callback
-    nullify(this%average_callback,this%diagnostic_callback)
+    nullify(this%diagnostic_callback)
     if(present(diagnostic_callback)) this%diagnostic_callback=>diagnostic_callback
     if(this%current_submode/=options%submode.or.this%current_minimum_profile/=options%minimum_width_profile) &
          call this%clear_averages()
@@ -978,7 +933,7 @@ end subroutine ps4
     class(jt4_decoder),intent(inout) :: this
     this%prepared=.false.
     this%sync_strength=0.
-    nullify(this%decode_callback,this%average_callback,this%diagnostic_callback)
+    nullify(this%decode_callback,this%diagnostic_callback)
   end subroutine
 
   subroutine reset(this)

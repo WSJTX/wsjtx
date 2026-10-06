@@ -382,7 +382,7 @@ contains
        shared_data%params%nzhsym = 181
     end if
     shared_data%params%kin    = 64800
-    if (mode .eq. 5 .or. mode .eq. 9 .or. mode .eq. 65 .or. mode .eq. 66 .or. &
+    if (mode .eq. 4 .or. mode .eq. 5 .or. mode .eq. 9 .or. mode .eq. 65 .or. mode .eq. 66 .or. &
          mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) &
          shared_data%params%kin = period%k
 

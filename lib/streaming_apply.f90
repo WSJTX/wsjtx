@@ -68,6 +68,9 @@ contains
     end if
     if (in_cfg%depth_set)  params%ndepth   = in_cfg%depth
     if (in_cfg%submode_set) params%nsubmode = in_cfg%submode
+    if ((in_cfg%mode_set.or.in_cfg%submode_set).and..not.in_cfg%min_width_set) then
+       if(params%nmode==4.and.params%nsubmode==0) params%minw=0
+    endif
     if (in_cfg%rxfreq_set) then
        params%nfqso = in_cfg%rxfreq
        params%nftx  = in_cfg%rxfreq
@@ -287,8 +290,8 @@ contains
        if ((io_mode.eq.240.or.io_mode.eq.241.or.io_mode.eq.242).and.io_TRperiod.ge.60.and. &
             params%nutc.le.2359) &
             params%nutc=100*params%nutc
-       ! Legacy numeric Q65 times may be HHMM.
-       if (io_mode.eq.66.and.io_TRperiod.ge.60.and.params%nutc.le.2359) &
+       ! Legacy numeric JT4 and Q65 times may be HHMM.
+       if ((io_mode.eq.4.or.io_mode.eq.66).and.io_TRperiod.ge.60.and.params%nutc.le.2359) &
             params%nutc=100*params%nutc
     endif
     ! Phase 8 (RFC v1 §6.3/§4.1): utc (ISO "HH:MM:SS") is a SECOND route to nutc,

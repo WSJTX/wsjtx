@@ -224,8 +224,55 @@ if (TARGET wsjt_fort_omp)
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2;OMP_STACKSIZE=1M")
 endif ()
 
+add_library (test_decoder_engine_jt4_signal STATIC jt4_engine_signal.f90)
+wsjt_link_common_fortran (test_decoder_engine_jt4_signal)
+add_executable (test_decoder_engine_jt4 test_decoder_engine_jt4.c)
+set_target_properties (test_decoder_engine_jt4 PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories (test_decoder_engine_jt4 PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_decoder_engine_jt4 PRIVATE test_decoder_engine_jt4_signal Threads::Threads)
+add_test (NAME test_decoder_engine_jt4 COMMAND test_decoder_engine_jt4 --small-stack)
+set_tests_properties (test_decoder_engine_jt4 PROPERTIES TIMEOUT 180
+  ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=1;OMP_THREAD_LIMIT=1;OMP_STACKSIZE=1M")
 add_executable (test_decoder_engine_jt4_state test_decoder_engine_jt4_state.f90)
 set_target_properties (test_decoder_engine_jt4_state PROPERTIES LINKER_LANGUAGE CXX)
 wsjt_link_common_fortran (test_decoder_engine_jt4_state)
 add_test (NAME test_decoder_engine_jt4_state COMMAND test_decoder_engine_jt4_state)
 set_tests_properties (test_decoder_engine_jt4_state PROPERTIES TIMEOUT 30)
+add_test (NAME prepare_jt4_engine_wav COMMAND test_decoder_engine_jt4
+  --write-wav ${CMAKE_CURRENT_BINARY_DIR}/jt4-engine.wav)
+set_tests_properties (prepare_jt4_engine_wav PROPERTIES FIXTURES_SETUP jt4_engine_wav TIMEOUT 15)
+if (TARGET wsjt_fort_omp AND TARGET wsjt_fort)
+  add_library (test_decoder_engine_jt4_signal_omp STATIC jt4_engine_signal.f90)
+  target_link_libraries (test_decoder_engine_jt4_signal_omp PUBLIC wsjt_fort_omp wsjt_fortran_openmp)
+  add_executable (test_decoder_engine_jt4_omp test_decoder_engine_jt4.c)
+  set_target_properties (test_decoder_engine_jt4_omp PROPERTIES LINKER_LANGUAGE CXX)
+  target_include_directories (test_decoder_engine_jt4_omp PRIVATE ${CMAKE_SOURCE_DIR})
+  target_link_libraries (test_decoder_engine_jt4_omp PRIVATE test_decoder_engine_jt4_signal_omp Threads::Threads)
+  add_test (NAME test_decoder_engine_jt4_omp COMMAND test_decoder_engine_jt4_omp --smoke)
+  set_tests_properties (test_decoder_engine_jt4_omp PROPERTIES TIMEOUT 90
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=1;OMP_THREAD_LIMIT=1;OMP_STACKSIZE=1M")
+endif ()
+
+add_test (NAME test_jt4_engine_cli COMMAND ${CMAKE_COMMAND}
+  "-DJT9_EXECUTABLE=$<TARGET_FILE:jt9>"
+  "-DJT4_WAV=${CMAKE_CURRENT_BINARY_DIR}/jt4-engine.wav"
+  "-DTEST_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/jt4-cli"
+  -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_jt4_engine.cmake)
+set_tests_properties (test_jt4_engine_cli PROPERTIES FIXTURES_REQUIRED jt4_engine_wav TIMEOUT 60)
+
+add_executable (test_decoder_engine_jt4_host test_decoder_engine_jt4_host.f90)
+set_target_properties (test_decoder_engine_jt4_host PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries (test_decoder_engine_jt4_host PRIVATE test_decoder_engine_jt4_signal)
+wsjt_link_common_fortran (test_decoder_engine_jt4_host)
+file (MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/jt4-host)
+add_test (NAME test_decoder_engine_jt4_host COMMAND test_decoder_engine_jt4_host)
+set_tests_properties (test_decoder_engine_jt4_host PROPERTIES
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/jt4-host TIMEOUT 90)
+
+add_test (NAME test_jt4_12000_read_extent COMMAND ${CMAKE_COMMAND}
+  "-DJT9=$<TARGET_FILE:jt9>"
+  "-DJT4_WAV=${CMAKE_CURRENT_BINARY_DIR}/jt4-engine.wav"
+  "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/jt4-read-extent"
+  -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_jt4_12000_read_extent.cmake)
+set_tests_properties (test_jt4_12000_read_extent PROPERTIES
+  FIXTURES_REQUIRED jt4_engine_wav LABELS "decoder;jt4;integration" TIMEOUT 60)

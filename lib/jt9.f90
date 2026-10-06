@@ -394,6 +394,7 @@ program jt9
         stop 2
      end if
      call parse_wav_filename_nutc(infile, nutc, wav_utc_has_seconds)
+     if(mode.eq.4.and.wav_utc_has_seconds) nutc=nutc/100
      if((mode.eq.66.or.mode.eq.240.or.mode.eq.241.or.mode.eq.242).and..not.wav_utc_has_seconds) &
           nutc=100*nutc
      nsps=6912
@@ -574,7 +575,7 @@ program jt9
      endif
 
 ! Normal decoding pass
-     if(mode.eq.8.or.mode.eq.9.or.mode.eq.65.or.mode.eq.66.or. &
+     if(mode.eq.4.or.mode.eq.8.or.mode.eq.9.or.mode.eq.65.or.mode.eq.66.or. &
           mode.eq.240.or.mode.eq.241.or.mode.eq.242) then
         call run_engine_wav(shared_data%id2,engine_valid_samples)
      else if(mode.eq.5) then

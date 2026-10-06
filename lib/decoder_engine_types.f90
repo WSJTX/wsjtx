@@ -3,14 +3,14 @@ module decoder_engine_types
   implicit none
   private
   public :: ft8_signal_evidence, ft4_signal_evidence, superfox_evidence, superfox_observation
-  public :: jt9_result,jt65_result,q65_result,fst4_result
+  public :: jt9_result,jt65_result,q65_result,fst4_result,jt4_result,engine_jt4_options
   public :: engine_payload_none,engine_payload_decoded,engine_payload_hypothesis
   public :: sf_kind_cq,sf_kind_exchange,sf_kind_free_text,sf_kind_verification
   public :: engine_observation, engine_observation_sink, engine_superfox_sink
   public :: engine_abi,engine_mode_ft8,engine_mode_ft4,engine_mode_jt9,engine_mode_jt65,engine_mode_q65
   public :: engine_support_ft8,engine_support_ft4,engine_support_jt9,engine_support_jt65,engine_support_q65
 
-  integer(c_int), parameter :: engine_abi=7,engine_mode_ft8=8,engine_mode_ft4=5,engine_mode_jt9=9,engine_mode_jt65=65
+  integer(c_int), parameter :: engine_abi=8,engine_mode_ft8=8,engine_mode_ft4=5,engine_mode_jt9=9,engine_mode_jt65=65
   integer(c_int), parameter :: engine_support_ft8=1,engine_support_ft4=2,engine_support_jt9=4,engine_support_jt65=8
 
   integer(c_int), parameter :: engine_mode_q65=66,engine_support_q65=16
@@ -18,6 +18,19 @@ module decoder_engine_types
   public :: engine_mode_fst4,engine_mode_fst4w,engine_support_fst4,engine_support_fst4w
   integer(c_int), parameter :: engine_mode_fst4=240,engine_mode_fst4w=241
   integer(c_int), parameter :: engine_support_fst4=32,engine_support_fst4w=64
+
+  public :: engine_mode_jt4,engine_support_jt4
+  integer(c_int), parameter :: engine_mode_jt4=4,engine_support_jt4=128
+
+  type, bind(C) :: engine_jt4_options
+     integer(c_int) :: utc=0,submode=0,receive_frequency_hz=1500,tolerance_hz=100,depth=1,min_sync=0
+     integer(c_int) :: minimum_width_profile=0,averaging=0,deep_search=0
+     character(c_char) :: mycall(12)=' ',hiscall(12)=' ',hisgrid(6)=' '
+  end type
+
+  type, bind(C) :: jt4_result
+     integer(c_int) :: kind=0,method=0,average_count=0,sync_polarity=0,width_profile=0
+  end type
 
   integer, parameter :: engine_payload_none=0,engine_payload_decoded=1,engine_payload_hypothesis=2
   integer, parameter :: sf_kind_cq=1,sf_kind_exchange=2,sf_kind_free_text=3,sf_kind_verification=4
@@ -82,6 +95,7 @@ module decoder_engine_types
      type(jt65_result) :: jt65
      type(q65_result) :: q65
      type(fst4_result) :: fst4
+     type(jt4_result) :: jt4
   end type
 
   abstract interface

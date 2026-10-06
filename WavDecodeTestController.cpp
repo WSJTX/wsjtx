@@ -23,7 +23,8 @@ WavDecodeTestController::WavDecodeTestController (
   , m_window {window}
   , m_mode {mode}
   , m_period {mode == Mode::Fst4 ? 15 : mode == Mode::Fst4w ? 120 : 60}
-  , m_modeName {mode == Mode::Jt9 ? QStringLiteral ("JT9")
+  , m_modeName {mode == Mode::Jt4 ? QStringLiteral ("JT4")
+                : mode == Mode::Jt9 ? QStringLiteral ("JT9")
                 : mode == Mode::Jt65 ? QStringLiteral ("JT65")
                 : mode == Mode::Q65 ? QStringLiteral ("Q65")
                 : mode == Mode::Fst4 ? QStringLiteral ("FST4") : QStringLiteral ("FST4W")}
@@ -72,9 +73,11 @@ WavDecodeTestController::WavDecodeTestController (
         finish (tr ("A short silent %1 WAV displayed a stale decode: %2").arg (m_modeName, message));
         return;
       }
-    if (m_activeGeneration && message.simplified () == m_expectedMessage)
+    auto const expectedDisplayedMessage = m_mode == Mode::Jt4
+      ? m_expectedMessage + QStringLiteral (" f") : m_expectedMessage;
+    if (m_activeGeneration && message.simplified () == expectedDisplayedMessage)
       {
-        if (m_mode != Mode::Jt9 && m_mode != Mode::Jt65)
+        if (m_mode != Mode::Jt4 && m_mode != Mode::Jt9 && m_mode != Mode::Jt65)
           {
             auto * display = m_window->findChild<QTextEdit *> ("decodedTextBrowser");
             bool found = false;
@@ -125,6 +128,7 @@ void WavDecodeTestController::prepareWhenReady ()
   auto * fast = m_window->findChild<QAbstractButton *> ("cbFast9");
   auto * cqOnly = m_window->findChild<QAbstractButton *> ("cbCQonly");
   auto * frequency = m_window->findChild<QSpinBox *> ("RxFreqSpinBox");
+  auto const fixtureFrequency = m_mode == Mode::Jt4 ? 1000 : 1500;
   auto * decode = m_window->findChild<QAbstractButton *> ("DecodeButton");
   auto * rigStatus = m_window->findChild<QAbstractButton *> ("readFreq");
   auto * period = m_window->findChild<QSpinBox *> (m_mode == Mode::Fst4w ? "sbTR_FST4W" : "sbTR");
@@ -147,10 +151,9 @@ void WavDecodeTestController::prepareWhenReady ()
       mode->trigger ();
       quick->trigger ();
       submode->setValue (0);
-      if (m_mode != Mode::Jt9 && m_mode != Mode::Jt65) period->setValue (m_period);
+      if (m_mode != Mode::Jt4 && m_mode != Mode::Jt9 && m_mode != Mode::Jt65) period->setValue (m_period);
       if (fast->isChecked ()) fast->click ();
       cqOnly->setChecked (false);
-      frequency->setValue (1500);
       if (m_mode == Mode::Fst4 || m_mode == Mode::Fst4w)
         {
           auto * blanker = m_window->findChild<QSpinBox *> ("sbNB");
@@ -169,7 +172,7 @@ void WavDecodeTestController::prepareWhenReady ()
         {
           auto * receive = m_window->findChild<QSpinBox *> ("sbFST4W_RxFreq");
           if (!receive) { finish (tr ("The FST4W frequency control was not found.")); return; }
-          receive->setValue (1500);
+          receive->setValue (fixtureFrequency);
         }
       m_configured = true;
       m_prepareTimer.start (100);
@@ -177,12 +180,13 @@ void WavDecodeTestController::prepareWhenReady ()
     }
   if (!mode->isChecked () || !quick->isChecked ()
       || submode->value () != 0 || fast->isChecked ()
-      || (m_mode != Mode::Jt9 && m_mode != Mode::Jt65 && period->value () != m_period)
+      || (m_mode != Mode::Jt4 && m_mode != Mode::Jt9 && m_mode != Mode::Jt65 && period->value () != m_period)
       || !m_window->configureLiveAudioTestDecodeRange ())
     {
       finish (tr ("Unable to configure ordinary %1A decoding.").arg (m_modeName));
       return;
     }
+  frequency->setValue (fixtureFrequency);
   m_started = true;
   loadShortWav ();
 }
@@ -310,7 +314,7 @@ void WavDecodeTestController::completeCycle (quint64 generation)
       }
     if (m_stage == Stage::Repeat)
       {
-        m_stage = m_mode == Mode::Jt9 || m_mode == Mode::Jt65
+        m_stage = m_mode == Mode::Jt4 || m_mode == Mode::Jt9 || m_mode == Mode::Jt65
           ? Stage::ShortReplacement : Stage::ShortBeforeMonitoring;
         loadShortWav ();
         return;
@@ -328,7 +332,7 @@ void WavDecodeTestController::completeCycle (quint64 generation)
         finish ();
         return;
       }
-    if (m_mode != Mode::Jt9 && m_mode != Mode::Jt65)
+    if (m_mode != Mode::Jt4 && m_mode != Mode::Jt9 && m_mode != Mode::Jt65)
       {
         auto * period = m_window->findChild<QSpinBox *> (m_mode == Mode::Fst4w ? "sbTR_FST4W" : "sbTR");
         period->setValue (m_mode == Mode::Fst4w ? 300 : m_period == 15 ? 30 : 15);
