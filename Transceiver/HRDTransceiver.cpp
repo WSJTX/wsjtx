@@ -567,6 +567,12 @@ void HRDTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
     {
       send_simple_command ("set frequency-hz " + QString::number (f));
     }
+  if (UNK != m)
+    {
+      // set the mode again as some rigs (e.g. Alinco DX-SR8) switch to
+      // a band default mode like LSB when the frequency changes
+      do_mode (m);
+    }
   update_rx_frequency (f);
 }
 

@@ -923,8 +923,12 @@ void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
           m_->error_check (rig_get_mode (m_->rig_.data (), target_vfo, &current_mode, &current_width), tr ("getting current VFO mode"));
           CAT_TRACE ("rig_get_mode mode=" << rig_strrmode (current_mode) << " bw=" << current_width);
 
-          if (new_mode != current_mode)
-            {
+          // always (re)send the mode after a frequency change, some rigs
+          // (e.g. Alinco DX-SR8) switch to a band default mode like LSB
+          // on QSY and the mode read back straight after rig_set_freq
+          // may be stale (hamlib cache or rig latency) so we cannot
+          // rely on it to skip the mode setting
+          {
               CAT_TRACE ("rig_set_mode mode=" << rig_strrmode (new_mode));
               m_->error_check (rig_set_mode (m_->rig_.data (), target_vfo, new_mode, RIG_PASSBAND_NOCHANGE), tr ("setting current VFO mode"));
 
