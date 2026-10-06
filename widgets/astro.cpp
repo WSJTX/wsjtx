@@ -8,6 +8,7 @@
 #include <QTimeZone>
 #include <QDir>
 #include <QCloseEvent>
+#include <QScreen>
 #include <QDebug>
 #include <math.h>
 
@@ -107,6 +108,46 @@ void Astro::write_settings ()
   settings_->setValue ("EnableShift", ui_->cbEnableShift->isChecked());
   settings_->setValue ("ShiftValue",ui_->sbibShift->value());
   settings_->setValue ("LockSkedFreq",ui_->cbLockSkedFreq->isChecked());
+}
+
+void Astro::showEvent (QShowEvent * event)
+{
+  QDialog::showEvent (event);
+  ensure_visible ();
+}
+
+void Astro::resizeEvent (QResizeEvent * event)
+{
+  QDialog::resizeEvent (event);
+  if (isVisible ()) ensure_visible ();
+}
+
+void Astro::ensure_visible ()
+{
+  auto const frame = frameGeometry ();
+  auto screen = QGuiApplication::primaryScreen ();
+  int largest_overlap = 0;
+  for (auto candidate : QGuiApplication::screens ())
+    {
+      auto const available = candidate->availableGeometry ();
+      if (available.contains (frame)) return;
+      auto const overlap = frame.intersected (available);
+      auto const area = overlap.width () * overlap.height ();
+      if (area > largest_overlap)
+        {
+          screen = candidate;
+          largest_overlap = area;
+        }
+    }
+  if (!screen) return;
+
+  auto const available = screen->availableGeometry ();
+  // Oversized fixed layouts stay anchored at the top so the title bar is reachable.
+  auto const x = qBound (available.left (), frame.left (),
+                        qMax (available.left (), available.right () - frame.width () + 1));
+  auto const y = qBound (available.top (), frame.top (),
+                        qMax (available.top (), available.bottom () - frame.height () + 1));
+  move (pos () + QPoint {x, y} - frame.topLeft ());
 }
 
 auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const& hisgrid,

@@ -1,3 +1,14 @@
+qt5_wrap_ui (test_astro_UIS ${CMAKE_SOURCE_DIR}/widgets/astro.ui)
+add_executable (test_astro
+  test_astro.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/astro.cpp
+  ${test_astro_UIS}
+)
+target_include_directories (test_astro PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries (test_astro wsjt_qt wsjt_fort_common Qt5::Test Qt5::Widgets)
+add_test (NAME test_astro COMMAND test_astro)
+set_tests_properties (test_astro PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable (test_radio_callsign test_radio_callsign.cpp)
 target_link_libraries (test_radio_callsign wsjt_qt Qt5::Test)
 add_test (NAME test_radio_callsign COMMAND test_radio_callsign)
