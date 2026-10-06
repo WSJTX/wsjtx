@@ -8,11 +8,13 @@ program test_ccf65_correlator
   integer, parameter :: nhsym = 254
   real, parameter :: expected_sync = 25.8397
   real :: ss(4,322)
+  real :: ccf_signal(3000), ccfbest, xlagpk, dx, flat_ccf(65)
   integer :: i
   real :: sync1, dt, flipk, syncshort, snr2, dt2
   integer :: ipol1, ipol2
 
   call test_fft_roundtrip()
+  call test_ccf2_degenerate_inputs()
 
   call make_sync_plane(ss, 1.0)
   call ccf65(ss, nhsym, 1.0e30, sync1, ipol1, 1, dt, flipk, syncshort, snr2, ipol2, dt2)
@@ -80,6 +82,28 @@ contains
     call require(maxval(abs(output/JT65_NFFT - input)) < 1.0e-5, &
          'legacy packed FFT round trip preserves real samples')
   end subroutine test_fft_roundtrip
+
+  subroutine test_ccf2_degenerate_inputs()
+    ccf_signal = 0.0
+    ccf_signal(1) = 1.0
+    call ccf2(ccf_signal, size(ccf_signal), 1, ccfbest, xlagpk)
+    call require(ccfbest > 0.0, 'JT65 correlation finds a positive peak')
+    call require(ieee_is_finite(xlagpk), 'JT65 correlation peak lag is finite')
+
+    ccf_signal = 0.0
+    call ccf2(ccf_signal, size(ccf_signal), 1, ccfbest, xlagpk)
+    call require(ccfbest == 0.0 .and. xlagpk == 0.0, &
+         'silence returns neutral JT65 correlation outputs after a positive peak')
+    call require(ieee_is_finite(ccfbest) .and. ieee_is_finite(xlagpk), &
+         'silence returns finite JT65 correlation outputs')
+
+    call peakup(1.0, 1.0, 1.0, dx)
+    call require(dx == 0.0, 'flat correlation peak has no fractional lag offset')
+
+    flat_ccf = 0.0
+    call slope(flat_ccf, size(flat_ccf), 33.0)
+    call require(all(flat_ccf == 0.0), 'flat correlation curve normalizes to zero')
+  end subroutine test_ccf2_degenerate_inputs
 
   logical function all_finite(v1, v2, v3, v4, v5, v6)
     real, intent(in) :: v1, v2, v3, v4, v5, v6

@@ -15,9 +15,11 @@ subroutine ccf2(ss,nz,nflip,ccfbest,xlagpk)
       1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1, &
       0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1, &
       1,1,1,1,1,1/
-  save
+  save npr
 
   ccfbest=0.
+  lagpk=0
+  xlagpk=0.
   lag1=LAGMIN
   lag2=LAGMAX
   do lag=lag1,lag2
@@ -41,7 +43,7 @@ subroutine ccf2(ss,nz,nflip,ccfbest,xlagpk)
         xlagpk=lagpk
      endif
   enddo
-  if( lagpk.gt.LAGMIN .and. lagpk.lt.LAGMAX) then
+  if(ccfbest.gt.0.0 .and. lagpk.gt.LAGMIN .and. lagpk.lt.LAGMAX) then
      call peakup(ccf(lagpk-1),ccf(lagpk),ccf(lagpk+1),dx)
      xlagpk=lagpk+dx
   endif
