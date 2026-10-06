@@ -216,6 +216,7 @@ add_test (NAME test_tx_inhibit_transceiver COMMAND test_tx_inhibit_transceiver)
 add_executable (test_hamlib_mode
   test_hamlib_mode.cpp
 )
+target_include_directories (test_hamlib_mode PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_hamlib_mode wsjt_qt Qt5::Test)
 add_test (NAME test_hamlib_mode COMMAND test_hamlib_mode)
 

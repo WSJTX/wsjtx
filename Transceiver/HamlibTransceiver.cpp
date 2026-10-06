@@ -882,7 +882,7 @@ void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
           rmode_t current_mode;
           pbwidth_t current_width;
           auto new_mode = HamlibMode::to_hamlib (m);
-          m_->error_check (rig_get_mode (m_->rig_.data (), target_vfo, &current_mode, &current_width), tr ("getting current VFO mode"));
+          m_->error_check (HamlibMode::get_uncached_mode (m_->rig_.data (), target_vfo, &current_mode, &current_width), tr ("getting current VFO mode"));
           CAT_TRACE ("rig_get_mode mode=" << rig_strrmode (current_mode) << " bw=" << current_width);
 
           if (HamlibMode::change_required (m, current_mode))

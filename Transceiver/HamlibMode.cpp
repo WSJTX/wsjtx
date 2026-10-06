@@ -106,4 +106,27 @@ namespace HamlibMode
     return Transceiver::UNK != requested
       && !satisfies_request (to_hamlib (requested), current);
   }
+
+  int get_uncached_mode (RIG * rig, vfo_t vfo, rmode_t * mode, pbwidth_t * width)
+  {
+#if HAVE_HAMLIB_CACHING || HAVE_HAMLIB_OLD_CACHING
+#if HAVE_HAMLIB_OLD_CACHING
+    auto const cache_selection = CACHE_ALL;
+#else
+    auto const cache_selection = HAMLIB_CACHE_ALL;
+#endif
+    // A frequency change can recall a different mode without invalidating Hamlib's cache.
+    auto const timeout = rig_get_cache_timeout_ms (rig, cache_selection);
+    auto const rc = rig_set_cache_timeout_ms (rig, cache_selection, 0);
+    if (RIG_OK != rc)
+      {
+        return rc;
+      }
+    auto const result = rig_get_mode (rig, vfo, mode, width);
+    rig_set_cache_timeout_ms (rig, cache_selection, timeout);
+    return result;
+#else
+    return rig_get_mode (rig, vfo, mode, width);
+#endif
+  }
 }
