@@ -941,6 +941,16 @@ subroutine pack77_parse_type12_source(msg,source,ok)
   endif
 
   tail=w(tail_start)
+  if(.not.source%call_1%is_cq) then
+     itail=pack77_qso_tail_index(tail)
+     if(itail.ge.1) then
+        source%ir=0
+        source%igrid4=PACK77_MAXGRID4+pack77_type12_irpt_from_tail(itail)
+        ok=.true.
+        return
+     endif
+  endif
+
   tail_is_grid=.false.
   if(len_trim(tail).eq.4) tail_is_grid=pack77_is_grid4(tail)
   if(tail_is_grid) then
@@ -950,7 +960,6 @@ subroutine pack77_parse_type12_source(msg,source,ok)
      return
   endif
   if(source%call_1%is_cq) return
-
   if(tail(1:1).eq.'+' .or. tail(1:1).eq.'-') then
      call pack77_parse_signed_report(tail,isnr,ok)
      if(.not.ok) return
@@ -977,12 +986,6 @@ subroutine pack77_parse_type12_source(msg,source,ok)
      ok=.true.
      return
   endif
-
-  itail=pack77_qso_tail_index(tail)
-  if(itail.lt.1) return
-  source%ir=0
-  source%igrid4=PACK77_MAXGRID4+pack77_type12_irpt_from_tail(itail)
-  ok=.true.
 end subroutine pack77_parse_type12_source
 logical function pack77_valid_c28_call_slot(token) result(ok)
   character(len=*), intent(in) :: token
