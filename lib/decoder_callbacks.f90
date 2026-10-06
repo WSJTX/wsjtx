@@ -110,7 +110,6 @@ contains
        return
     end select
 
-    if(ich.eq.-99) stop
     if (have_sync) then
        decoded=decoded0
        cflags='   '

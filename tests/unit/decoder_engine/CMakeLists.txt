@@ -223,3 +223,9 @@ if (TARGET wsjt_fort_omp)
   set_tests_properties (test_decoder_engine_fst4_omp PROPERTIES TIMEOUT 360 PROCESSORS 2
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2;OMP_STACKSIZE=1M")
 endif ()
+
+add_executable (test_decoder_engine_jt4_state test_decoder_engine_jt4_state.f90)
+set_target_properties (test_decoder_engine_jt4_state PROPERTIES LINKER_LANGUAGE CXX)
+wsjt_link_common_fortran (test_decoder_engine_jt4_state)
+add_test (NAME test_decoder_engine_jt4_state COMMAND test_decoder_engine_jt4_state)
+set_tests_properties (test_decoder_engine_jt4_state PROPERTIES TIMEOUT 30)

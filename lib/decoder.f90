@@ -4,6 +4,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   use prog_args
   use timer_module, only: timer
   use jt4_decode
+  use jt4_host_support, only: prepare_jt4_host,load_jt4_calls,write_jt4_averages,write_jt4_diagnostic
   use jt65_decode
   use jt65_host_support, only: load_jt65_calls
   use jt9_decode
@@ -162,11 +163,15 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
      else
         jz=52*11025
      endif
+     call prepare_jt4_host(my_jt4)
+     if(iand(params%ndepth,32)/=0) call load_jt4_calls(my_jt4)
+     my_jt4%diagnostic_callback=>write_jt4_diagnostic
      call my_jt4%decode(jt4_decoded,dd,jz,params%nutc,params%nfqso,         &
           params%ntol,params%emedelay,params%dttol,logical(params%nagain),  &
           params%ndepth,logical(params%nclearave),params%minsync,           &
           params%minw,params%nsubmode,mycall,hiscall,         &
           hisgrid,params%nlist,params%listutc,jt4_average)
+     call write_jt4_averages(my_jt4,14)
      go to 800
   endif
 
