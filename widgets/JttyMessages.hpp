@@ -45,6 +45,18 @@ namespace Jtty
     return collapseJttyFillerRuns (text).simplified ();
   }
 
+  inline QString trimJttyChatPunctuation (QString token)
+  {
+    auto isChatPunctuation = [] (QChar character) {
+      return QStringLiteral (",;:.!?()[]{}<>\"'").contains (character);
+    };
+    int start = 0;
+    int end = token.size ();
+    while (start < end && isChatPunctuation (token.at (start))) ++start;
+    while (end > start && isChatPunctuation (token.at (end - 1))) --end;
+    return token.mid (start, end - start);
+  }
+
   struct ParsedDecodeLine
   {
     int frequency {0};

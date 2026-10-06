@@ -390,6 +390,15 @@ private slots:
     QCOMPARE (h.controller.snrForSelectedWord ("EVICT", Pane::All), -10);
     QCOMPARE (h.controller.snrForSelectedWord ("FILLER", Pane::All), 499);
   }
+
+  void snrLookupMatchesSlashedCallWithAttachedPunctuation ()
+  {
+    Harness h;
+    h.apply ({update (1, "CQ (N0LL/P),: 599", Terminal::Complete, 1500, -11)});
+
+    QCOMPARE (h.controller.snrForSelectedWord ("N0LL/P", Pane::All), -11);
+    QCOMPARE (h.controller.snrForSelectedWord ("(N0LL/P),:", Pane::All), -11);
+  }
 };
 
 QTEST_MAIN (TestJttyReceiveResults)

@@ -310,8 +310,10 @@ public:
   void diskDat();
   void freezeDecode(int n);
   void guiUpdate();
-  void doubleClickOnCall (QString const& line, QString const& word, Qt::KeyboardModifiers);
-  void doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnCall (QString const& line, QString const& word, Qt::KeyboardModifiers,
+                          QString const& clicked_token);
+  void doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers,
+                          QString const& clicked_token);
   void doubleClickOnFoxQueue(QString const& line, QString const& word, Qt::KeyboardModifiers);
   void doubleClickOnFoxInProgress(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers);
   void readFromStdout();
@@ -1582,9 +1584,9 @@ private:
                DecodeOperatingContext const& context);
   void displayDialFrequency ();
   void transmitDisplay (bool);
-  void handleDecodeSelection(QString const& line, QString const& word,
-                             Qt::KeyboardModifiers modifiers,
-                             DecodedMessageReaction::SelectionOrigin selection_origin);
+  void handleDecodeSelection(QString const& line, Qt::KeyboardModifiers modifiers,
+                             DecodedMessageReaction::SelectionOrigin selection_origin,
+                             QString const& clicked_token);
   void processMessage(DecodedText const& message, Qt::KeyboardModifiers modifiers,
                       DecodedMessageReaction::SelectionOrigin selection_origin);
   void processSyntheticMessage(DecodedText const& message);

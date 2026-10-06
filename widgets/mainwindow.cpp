@@ -3641,7 +3641,8 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       case Qt::Key_Return:
       case Qt::Key_Enter:
         doubleClickOnCall2(ui->decodedTextBrowser->document()->firstBlock().text(), QString {},
-                           Qt::KeyboardModifier(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier));
+                           Qt::KeyboardModifier(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier),
+                           QString {});
         return;
       case Qt::Key_Backspace:
         qDebug() << "Key Backspace";
@@ -9024,21 +9025,29 @@ void MainWindow::on_txb5_doubleClicked()
 }
 
 
-void MainWindow::doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnCall2(QString const& line, QString const& word,
+                                    Qt::KeyboardModifiers modifiers,
+                                    QString const& clicked_token)
 {
-  handleDecodeSelection(line, word, modifiers,
-                        DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
+  Q_UNUSED (word);
+  handleDecodeSelection(line, modifiers,
+                        DecodedMessageReaction::SelectionOrigin::ManualLeftPane,
+                        clicked_token);
 }
 
-void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnCall(QString const& line, QString const& word,
+                                   Qt::KeyboardModifiers modifiers,
+                                   QString const& clicked_token)
 {
-  handleDecodeSelection(line, word, modifiers,
-                        DecodedMessageReaction::SelectionOrigin::ManualRightPane);
+  Q_UNUSED (word);
+  handleDecodeSelection(line, modifiers,
+                        DecodedMessageReaction::SelectionOrigin::ManualRightPane,
+                        clicked_token);
 }
 
 void MainWindow::handleDecodeSelection(
-  QString const& line, QString const& word, Qt::KeyboardModifiers modifiers,
-  DecodedMessageReaction::SelectionOrigin selection_origin)
+  QString const& line, Qt::KeyboardModifiers modifiers,
+  DecodedMessageReaction::SelectionOrigin selection_origin, QString const& clicked_token)
 {
   m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
@@ -9049,11 +9058,11 @@ void MainWindow::handleDecodeSelection(
     return;
   }
   if(m_mode=="JTTY") {
-    m_deCall = word;
+    m_deCall = Jtty::trimJttyChatPunctuation (clicked_token);
     ui->dxCallEntry->setText(m_deCall);  // clears m_jttyHisCallSnr via on_dxCallEntry_textChanged
     // Capture the SNR of the decode actually selected, not whichever decoded last.
     m_jttyHisCallSnr = jttySnrForSelectedWord(
-      word, selection_origin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
+      m_deCall, selection_origin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
     return;
   }
   DecodedText message {line.trimmed().left(61).remove("TU; ")};

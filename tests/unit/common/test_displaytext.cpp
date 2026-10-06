@@ -23,6 +23,7 @@
 #include "Configuration.hpp"
 #include "MetaDataRegistry.hpp"
 #include "JttyReceiveLine.hpp"
+#include "widgets/JttyMessages.hpp"
 #include "widgets/displaytext.h"
 
 namespace
@@ -56,6 +57,15 @@ private:
   {
     auto cursor = display.document ()->find (text);
     cursor.setPosition (cursor.selectionStart () + text.size () / 2);
+    return display.cursorRect (cursor).center ();
+  }
+
+  static QPoint positionWithinPart (DisplayText const& display, QString const& token,
+                                    QString const& part)
+  {
+    auto cursor = display.document ()->find (token);
+    auto const position = cursor.selectionStart () + token.indexOf (part) + part.size () / 2;
+    cursor.setPosition (position);
     return display.cursorRect (cursor).center ();
   }
 
@@ -301,6 +311,99 @@ private slots:
 
     QCOMPARE (selected_line, QString {"N0CALL direct target"});
     QCOMPARE (selected_word, QString {"N0CALL"});
+  }
+
+  void doubleClickSelectsQtWordsWithinSlashedCallsigns ()
+  {
+    DisplayText display;
+    display.resize (640, 240);
+    display.insertText ("N0LL/P\nVE3/W1AW\nW1AW/QRP\nN0LL/P N0LL/M");
+    display.show ();
+    QApplication::processEvents ();
+
+    QString selected_word;
+    QString clicked_token;
+    connect (&display, &DisplayText::selectCallsign,
+             [&] (QString const&, QString const& word, Qt::KeyboardModifiers,
+                  QString const& token) {
+               selected_word = word;
+               clicked_token = token;
+             });
+
+    sendDoubleClick (display, positionWithinPart (display, "N0LL/P", "N0LL"));
+    QCOMPARE (selected_word, QString {"N0LL"});
+    QCOMPARE (clicked_token, QString {"N0LL/P"});
+    sendDoubleClick (display, positionWithinPart (display, "N0LL/P", "P"));
+    QCOMPARE (selected_word, QString {"P"});
+    QCOMPARE (clicked_token, QString {"N0LL/P"});
+
+    sendDoubleClick (display, positionWithinPart (display, "VE3/W1AW", "VE3"));
+    QCOMPARE (selected_word, QString {"VE3"});
+    QCOMPARE (clicked_token, QString {"VE3/W1AW"});
+    sendDoubleClick (display, positionWithinPart (display, "VE3/W1AW", "W1AW"));
+    QCOMPARE (selected_word, QString {"W1AW"});
+    QCOMPARE (clicked_token, QString {"VE3/W1AW"});
+
+    sendDoubleClick (display, positionWithinPart (display, "W1AW/QRP", "W1AW"));
+    QCOMPARE (selected_word, QString {"W1AW"});
+    QCOMPARE (clicked_token, QString {"W1AW/QRP"});
+    sendDoubleClick (display, positionWithinPart (display, "W1AW/QRP", "QRP"));
+    QCOMPARE (selected_word, QString {"QRP"});
+    QCOMPARE (clicked_token, QString {"W1AW/QRP"});
+
+    sendDoubleClick (display, positionWithinPart (display, "N0LL/M", "N0LL"));
+    QCOMPARE (selected_word, QString {"N0LL"});
+    QCOMPARE (clicked_token, QString {"N0LL/M"});
+  }
+
+  void jttyClickTrimsAttachedChatPunctuation ()
+  {
+    DisplayText display;
+    display.resize (640, 240);
+    display.insertText ("(N0LL/P),: VE3/W1AW; W1AW/QRP. K1ABC, W9XYZ");
+    display.show ();
+    QApplication::processEvents ();
+
+    QString clicked_token;
+    connect (&display, &DisplayText::selectCallsign,
+             [&] (QString const&, QString const&, Qt::KeyboardModifiers,
+                  QString const& token) { clicked_token = token; });
+
+    sendDoubleClick (display, positionWithinPart (display, "(N0LL/P),:", "N0LL"));
+    QCOMPARE (clicked_token, QString {"(N0LL/P),:"});
+    QCOMPARE (Jtty::trimJttyChatPunctuation (clicked_token), QString {"N0LL/P"});
+
+    sendDoubleClick (display, positionWithinPart (display, "VE3/W1AW;", "VE3"));
+    QCOMPARE (Jtty::trimJttyChatPunctuation (clicked_token), QString {"VE3/W1AW"});
+
+    sendDoubleClick (display, positionWithinPart (display, "W1AW/QRP.", "QRP"));
+    QCOMPARE (Jtty::trimJttyChatPunctuation (clicked_token), QString {"W1AW/QRP"});
+
+    sendDoubleClick (display, positionWithinPart (display, "K1ABC,", "K1ABC"));
+    QCOMPARE (Jtty::trimJttyChatPunctuation (clicked_token), QString {"K1ABC"});
+
+    sendDoubleClick (display, positionWithin (display, "W9XYZ"));
+    QCOMPARE (clicked_token, QString {"W9XYZ"});
+    QCOMPARE (Jtty::trimJttyChatPunctuation (clicked_token), QString {"W9XYZ"});
+  }
+
+  void standardDecodeClickKeepsExistingWordSelection ()
+  {
+    DisplayText display;
+    display.resize (640, 240);
+    display.insertText ("CQ K1ABC FN42");
+    display.show ();
+    QApplication::processEvents ();
+
+    QString selected_word;
+    connect (&display, &DisplayText::selectCallsign,
+             [&] (QString const&, QString const& word, Qt::KeyboardModifiers) {
+               selected_word = word;
+             });
+
+    sendDoubleClick (display, positionWithin (display, "K1ABC"));
+
+    QCOMPARE (selected_word, QString {"K1ABC"});
   }
 
   void eraseCancelsCapturedTarget ()

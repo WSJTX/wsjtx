@@ -102,9 +102,13 @@ void ReceiveResultController::resetReplay()
 
 int ReceiveResultController::snrForSelectedWord(QString const& word, Pane pane) const
 {
+  auto const selectedToken = trimJttyChatPunctuation (word);
+  if (selectedToken.isEmpty ()) return -10;
   for (auto it = snrHistory_.crbegin(); it != snrHistory_.crend(); ++it) {
     if (pane == Pane::Qso && !it->admitted) continue;
-    if (it->text.split(QChar{' '}, Qt::SkipEmptyParts).contains(word)) return it->snr;
+    for (auto const& token : it->text.split(QChar{' '}, Qt::SkipEmptyParts)) {
+      if (trimJttyChatPunctuation (token) == selectedToken) return it->snr;
+    }
   }
   return -10;
 }

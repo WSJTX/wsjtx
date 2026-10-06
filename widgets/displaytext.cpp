@@ -278,8 +278,20 @@ void DisplayText::captureClick (QMouseEvent const * event)
 {
   auto cursor = cursorForPosition (event->pos ());
   pressed_line_ = cursor.block ().text ();
+  auto const click_position = cursor.position () - cursor.block ().position ();
   cursor.select (QTextCursor::WordUnderCursor);
   pressed_word_ = cursor.selectedText ();
+  auto token_start = click_position;
+  auto token_end = click_position;
+  while (token_start > 0 && !pressed_line_.at (token_start - 1).isSpace ())
+    {
+      --token_start;
+    }
+  while (token_end < pressed_line_.size () && !pressed_line_.at (token_end).isSpace ())
+    {
+      ++token_end;
+    }
+  pressed_token_ = pressed_line_.mid (token_start, token_end - token_start);
   pressed_button_ = event->button ();
   click_state_ = ClickState::Captured;
 }
@@ -308,7 +320,8 @@ void DisplayText::mouseDoubleClickEvent (QMouseEvent * event)
   auto const word = pressed_word_;
   pressed_button_ = Qt::NoButton;
   click_state_ = ClickState::None;
-  Q_EMIT selectCallsign (line, word, event->modifiers ());
+  auto const token = pressed_token_;
+  Q_EMIT selectCallsign (line, word, event->modifiers (), token);
 }
 
 void DisplayText::insertLineSpacer(QString const& line)
