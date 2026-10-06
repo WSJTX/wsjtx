@@ -44,6 +44,7 @@
 #include <QCursor>
 #include <QToolTip>
 #include <QAction>
+#include <QMenu>
 #include <QButtonGroup>
 #include <QActionGroup>
 #include <QSplashScreen>
@@ -429,6 +430,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_multInst {false}, //ft8md
   m_saveDecoded {false},
   m_saveAll {false},
+  m_saveByModeMenu {nullptr},
+  m_saveByModeAll {nullptr},
   m_widebandDecode {false},
   m_dataAvailable {false},
   m_decodedText2 {false},
@@ -739,6 +742,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionNone->setActionGroup(saveGroup);
   ui->actionSave_decoded->setActionGroup(saveGroup);
   ui->actionSave_all->setActionGroup(saveGroup);
+
+  setupSaveByModeMenu();     //Save -> Save By Mode, filters the modes saved
 
   QActionGroup* alltxtGroup = new QActionGroup(this);
   ui->actionDon_t_split_ALL_TXT->setActionGroup(alltxtGroup);
@@ -1502,6 +1507,13 @@ void MainWindow::writeSettings()
   m_settings->setValue("SaveNone",ui->actionNone->isChecked());
   m_settings->setValue("SaveDecoded",ui->actionSave_decoded->isChecked());
   m_settings->setValue("SaveAll",ui->actionSave_all->isChecked());
+  QStringList saveByMode;
+  for(auto it=m_saveByModeActions.cbegin(); it!=m_saveByModeActions.cend(); ++it) {
+    if(it.value()->isChecked()) saveByMode << it.key();
+  }
+  saveByMode.sort();                        //Stable order in WSJT-X.ini
+  m_settings->setValue("SaveByModeAll",m_saveByModeAll->isChecked());
+  m_settings->setValue("SaveByMode",saveByMode);
   m_settings->setValue("RemoveAudioFiles",ui->actionRemove_after_30days->isChecked());
   m_settings->setValue("NDepth",m_ndepth);
 
@@ -1867,6 +1879,15 @@ void MainWindow::readSettings()
   ui->actionNone->setChecked(m_settings->value("SaveNone",true).toBool());
   ui->actionSave_decoded->setChecked(m_settings->value("SaveDecoded",false).toBool());
   ui->actionSave_all->setChecked(m_settings->value("SaveAll",false).toBool());
+  if(m_settings->contains("SaveByMode")) {
+    //A missing key means a first run with this menu: leave every mode ticked.
+    auto const& saveByMode=m_settings->value("SaveByMode").toStringList();
+    for(auto it=m_saveByModeActions.cbegin(); it!=m_saveByModeActions.cend(); ++it) {
+      it.value()->setChecked(saveByMode.contains(it.key()));
+    }
+  }
+  //Set "All" last: its handler enables or disables the per-mode entries.
+  m_saveByModeAll->setChecked(m_settings->value("SaveByModeAll",true).toBool());
   ui->actionRemove_after_30days->setChecked(m_settings->value("RemoveAudioFiles",false).toBool());
   ui->RxFreqSpinBox->setValue(0); // ensure a change is signaled
   ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq",1500).toInt());
@@ -2491,7 +2512,13 @@ void MainWindow::dataSink(qint64 frames)
       {
         if (!(m_mode=="FT8" && m_multithreadFT8)) Q_EMIT reset_audio_input_stream (true); // reports dropped samples
       }
-    if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR")) {
+    //Modes not ticked in Save -> Save By Mode are never written, so drop any
+    //file name left from an earlier period: killFile() must not remove a file
+    //that was saved while a different mode was in use.
+    if(!m_diskData and !saveModeSelected(m_mode)) m_fnameWE.clear();
+    //WSPR always needs a .wav on disk for wsprd; killFile() removes it again
+    //when the mode is not one of those selected in Save -> Save By Mode.
+    if(!m_diskData and ((saveModeSelected(m_mode) and (m_saveAll or m_saveDecoded)) or m_mode=="WSPR")) {
       //Always save unless "Save None"; may delete later
       if(m_TRperiod < 60) {
         int n=fmod(double(now.time().second()),m_TRperiod);
@@ -3448,7 +3475,8 @@ void MainWindow::fastSink(qint64 frames)
   }
 
   if(decodeNow or m_bFastDone) {
-    if(!m_diskData and (m_saveAll or m_saveDecoded)) {
+    if(!m_diskData and !saveModeSelected(m_mode)) m_fnameWE.clear();
+    if(!m_diskData and saveModeSelected(m_mode) and (m_saveAll or m_saveDecoded)) {
       QDateTime now {QDateTime::currentDateTimeUtc()};
       int n=fmod(double(now.time().second()),m_TRperiod);
       if(n<(m_TRperiod/2)) n=n+m_TRperiod;
@@ -5142,6 +5170,58 @@ void MainWindow::on_actionSave_all_triggered()                //Save All
   m_saveDecoded=false;
   m_saveAll=true;
   ui->actionSave_all->setChecked(true);
+}
+
+//
+// Build the "Save By Mode" submenu of the Save menu. It holds "All" and "None"
+// entries plus one independent checkbox per mode, and restricts "Save decoded"
+// and "Save all" to the ticked modes. The mode list is read from the Mode menu
+// at run time so that any mode added there also appears here.
+//
+void MainWindow::setupSaveByModeMenu()
+{
+  m_saveByModeMenu=new QMenu(tr("Save By Mode"),ui->menuSave);
+  m_saveByModeAll=m_saveByModeMenu->addAction(tr("All"));
+  m_saveByModeAll->setCheckable(true);
+  m_saveByModeAll->setChecked(true);
+  //"None" is a one-shot command rather than a state: it clears "All" and every
+  //per-mode tick, so nothing is saved until a mode is ticked again.
+  auto noneAction=m_saveByModeMenu->addAction(tr("None"));
+  connect(noneAction,&QAction::triggered,this,[this] () {
+    m_saveByModeAll->setChecked(false);
+    for(auto action: m_saveByModeActions) action->setChecked(false);
+  });
+  m_saveByModeMenu->addSeparator();
+  for(auto action: ui->menuMode->actions()) {
+    if(action->isSeparator() or action->text().isEmpty()) continue;
+    //The Mode menu labels are the mode names used in m_mode, e.g. "FT8".
+    auto modeAction=m_saveByModeMenu->addAction(action->text());
+    modeAction->setCheckable(true);
+    modeAction->setChecked(true);
+    m_saveByModeActions.insert(action->text(),modeAction);
+  }
+  //"All" is a master switch, so grey out the per-mode entries while it is
+  //checked rather than leave them looking effective.
+  connect(m_saveByModeAll,&QAction::toggled,this,[this] (bool checked) {
+    for(auto action: m_saveByModeActions) action->setEnabled(!checked);
+  });
+  for(auto action: m_saveByModeActions) action->setEnabled(!m_saveByModeAll->isChecked());
+  //Keep the submenu next to the other audio file settings. An unknown "before"
+  //action simply appends, so this also survives changes to the Save menu.
+  ui->menuSave->insertMenu(ui->actionRemove_after_30days,m_saveByModeMenu);
+}
+
+//
+// True if .wav files may be kept for the given mode. Modes that are not in the
+// submenu at all - for instance one added upstream with a label that does not
+// match m_mode - are saved, so that the filter can never silently discard
+// recordings the user expected to get.
+//
+bool MainWindow::saveModeSelected(QString const& mode) const
+{
+  if(m_saveByModeAll==nullptr or m_saveByModeAll->isChecked()) return true;
+  auto action=m_saveByModeActions.value(mode);
+  return action==nullptr or action->isChecked();
 }
 
 void MainWindow::on_actionKeyboard_shortcuts_triggered()
@@ -7599,7 +7679,7 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
 
 void MainWindow::killFile ()
 {
-  if (m_fnameWE.size () && !(m_saveAll || (m_saveDecoded && m_bDecoded))) {
+  if (m_fnameWE.size () && !(saveModeSelected(m_mode) && (m_saveAll || (m_saveDecoded && m_bDecoded)))) {
     QFile f1 {m_fnameWE + ".wav"};
     if(f1.exists()) f1.remove();
     if(m_mode=="WSPR" or m_mode=="FST4W") {
@@ -16786,7 +16866,7 @@ void MainWindow::check_button_color()
       ui->pb24G->setVisible(false);
     }
     if (ui->monitorButton->isChecked()) {
-      if (m_saveAll or m_saveDecoded) {
+      if ((m_saveAll or m_saveDecoded) and saveModeSelected(m_mode)) {
         ui->monitorButton->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
       } else {
         ui->monitorButton->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
