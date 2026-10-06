@@ -11658,6 +11658,7 @@ void MainWindow::on_actionQ65_triggered()
 void MainWindow::on_actionJTTY_triggered()
 {
   if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
+  bool const enteringJtty = m_mode != "JTTY";
   noteTxModeChange (QStringLiteral ("JTTY"));
   on_stopButton_clicked();
   m_mode = "JTTY";
@@ -11678,13 +11679,14 @@ void MainWindow::on_actionJTTY_triggered()
   m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  ui->TxFreqSpinBox_2->setValue(1500);
-  ui->RxFreqSpinBox_2->setValue(1500);
+  if (enteringJtty)
+    {
+      ui->TxFreqSpinBox_2->setValue(1500);
+      ui->RxFreqSpinBox_2->setValue(1500);
+    }
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({2, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
-  // setValue() above is a no-op (no valueChanged signal) if the spinbox
-  // already held this value from a prior JTTY session, so set the plotter
-  // state directly rather than relying on that signal to reach it.
+  // Reapply the marker because setting the spinbox to its existing value emits no change.
   m_wideGraph->setRxFreq(ui->RxFreqSpinBox_2->value());
   m_wideGraph->setTol(ui->sbFtol_2->value());
   m_fastGraph->hide();
