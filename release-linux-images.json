@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "generation": "validated-build-20261003-37141863074-1",
+  "images": {
+    "x86_64": {
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-noble@sha256:2addae5c2b738bfc96b3c4a218db0802d0f35ce93ff639dd49917fd5009b59a8",
+      "recipe_sha256": "ed73f2e726be16232003242572c121d03d0452b6697efb094f83641aa5e41215"
+    },
+    "aarch64": {
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-arm64-bookworm@sha256:3d9c049a77aef27d52755d331e10e5554170effcfedace44520800aa3e51a9b0",
+      "recipe_sha256": "b20b6288cfe060a49cf72baad7f68928f4f217279b1219931932169f9411818d"
+    },
+    "armhf_cross": {
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-armhf-cross-bookworm@sha256:016d196dc09fc401dcdfb1ab5190dad997af4319873a0562c7dcb25b79a7d673",
+      "recipe_sha256": "0c42614a87f2e6c091ee5e2a049a442fe9baa95bbc393d0b56520919f888a55c"
+    },
+    "armhf_runtime": {
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-armv7-bookworm@sha256:00d353d2f5008c9f374c716f02da760ea83167725eb28123d52d30be7e83887a",
+      "recipe_sha256": "bb8f510d635939020a26dfbd3d6167a3196c2a518dfc08f28e543eeafd199474"
+    }
+  }
+}
