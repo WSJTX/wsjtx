@@ -35,3 +35,17 @@ add_test (test_emulate_split_transceiver test_emulate_split_transceiver)
 add_executable (test_bwf_file test_bwf_file.cpp)
 target_link_libraries (test_bwf_file wsjt_qt wsjt_qtmm Qt5::Test Qt5::Multimedia)
 add_test (test_bwf_file test_bwf_file)
+
+# Observe the real application through Qt in isolated Linux fixture processes.
+# The preload probe is a test target only; WSJT-X contains no test hooks.
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  find_package (Python3 COMPONENTS Interpreter)
+  if (Python3_Interpreter_FOUND)
+    add_library (submode_startup_probe MODULE submode_startup_probe.cpp)
+    target_link_libraries (submode_startup_probe Qt5::Widgets ${CMAKE_DL_LIBS})
+    add_test (NAME test_submode_startup
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_submode_startup.py
+        --application $<TARGET_FILE:wsjtx> --probe $<TARGET_FILE:submode_startup_probe>)
+    set_tests_properties (test_submode_startup PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
+  endif ()
+endif ()
