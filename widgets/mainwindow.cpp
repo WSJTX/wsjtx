@@ -13019,7 +13019,7 @@ void MainWindow::rigFailure (QString const& reason)
 
 void MainWindow::dispatchTxRequest (TxEvidence::TxRequest const& request)
 {
-  bool const useTciAudio = request.mode == QStringLiteral ("JTTY")
+  bool const useTciAudio = request.mode == QStringLiteral ("JTTY") && !request.tuning
     ? m_jttyTxLifecycle.backend () == JttyTxLifecycle::Backend::Tci
     : m_tci_audio;
   if (useTciAudio)
