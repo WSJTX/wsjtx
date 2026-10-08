@@ -52,6 +52,7 @@ module jtty_mdec
   integer, parameter        :: MAX_RECENT_FRAMES = MAX_ACTIVE_MESSAGES*MAX_FRAMES
   integer, parameter        :: MAX_CONTINUATION_GAP = 3
   integer, parameter        :: MAX_RETRO_STEPS = 3
+  integer, parameter        :: MAX_DISPLAY_GAPS = 16   ! 80 characters / 5 per '~~~~~' sentinel
   real, parameter           :: FRAME_HISTORY_TIME_TOLERANCE = 0.05
   real, parameter           :: FRAME_HISTORY_FREQ_TOLERANCE = 3.0
   real, parameter           :: NEAR_SIMULTANEOUS_FREQ_TOLERANCE = 12.0
@@ -268,17 +269,41 @@ contains
   pure function display_message_text(decoded) result(msg)
       character(len=*), intent(in) :: decoded
       character(len=80) :: msg
+      integer :: gaps(MAX_DISPLAY_GAPS),ngaps
+
+      call display_message_layout(decoded,msg,gaps,ngaps)
+  end function display_message_text
+
+! display_message_text's rendering of decoded, and gaps(1:ngaps): the 0-based
+! offset in msg of the first '.' of each '...' that stands for missed frames
+! (append_active_message's '~~~~~' sentinel), never of typed dots. Markers
+! beyond size(gaps) are rendered but not reported.
+  pure subroutine display_message_layout(decoded,msg,gaps,ngaps)
+      character(len=*), intent(in) :: decoded
+      character(len=80), intent(out) :: msg
+      integer, intent(out) :: gaps(:)
+      integer, intent(out) :: ngaps
       integer :: i
 
       msg=decoded
+      ngaps=0
       do i=1,len_trim(msg)-4
-         if(msg(i:i+4).eq.'~~~~~') msg(i:i+4)=' ... '
+         if(msg(i:i+4).eq.'~~~~~') then
+            msg(i:i+4)=' ... '
+            if(ngaps.lt.size(gaps)) then
+               ngaps=ngaps+1
+               gaps(ngaps)=i
+            endif
+         endif
       enddo
       do i=1,len_trim(msg)
          if(msg(i:i).eq.'~') msg(i:i)=' '
       enddo
-      if(msg(1:1).eq.' ') msg=trim(msg(2:))
-  end function display_message_text
+      if(msg(1:1).eq.' ') then
+         msg=trim(msg(2:))
+         gaps(1:ngaps)=gaps(1:ngaps)-1
+      endif
+  end subroutine display_message_layout
 
   logical function is_recent_frame(candidate)
       type(decode), intent(in) :: candidate

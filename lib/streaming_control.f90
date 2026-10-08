@@ -7,9 +7,10 @@
 !                    "mycall":"KJ5HST","mygrid":"EM18","trperiod":15}
 !   {"t":"halt"}
 !   {"t":"discontinuity"}   the next audio sample does not follow the last
-!                           one. wsjt-codec --stream ignores it: its periods are
-!                           counted from its first sample, so a producer
-!                           must still send wsjt-codec every sample.
+!                           one. It ends a JTTY session; wsjt-codec --stream
+!                           otherwise ignores it: its periods are counted
+!                           from its first sample, so a producer must
+!                           still send wsjt-codec every sample.
 !
 ! Hand-rolled flat-JSON parser. Callers should treat unknown "t" values
 ! as forward-compat extensions (mirrors the consumer-ignores-unknown
@@ -33,6 +34,9 @@ module streaming_control
   integer, parameter, public :: CTRL_HALT      = 2
   integer, parameter, public :: CTRL_PARSE_ERR = 3
   integer, parameter, public :: CTRL_DISCONTINUITY = 4
+  ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
+  ! rejects it and "mode":<int> cannot select it.
+  integer, parameter, public :: MODE_JTTY = 1000
   ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
   integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
   integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
@@ -439,6 +443,7 @@ contains
        call get_string_(buf, '"mode"', str_val, ok)
        if (ok) then
           int_val = mode_string_to_int(trim(str_val))
+          if (upper_(trim(str_val)) .eq. 'JTTY') int_val = MODE_JTTY
           if (int_val .ge. 0) then
              cfg%mode_set = .true.
              cfg%mode     = int_val

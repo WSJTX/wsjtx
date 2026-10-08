@@ -21,7 +21,7 @@ constexpr int Jt9ChunkSamples = 4096;
 constexpr int Jt9DrainBytes = 4096;
 
 constexpr char ReadyLine[] =
-  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144"],"protocol":1})";
+  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"protocol":1})";
 constexpr char OddAudioFrameLine[] =
   R"({"v":1,"t":"error","code":"odd_audio_frame","detail":"audio frame length must contain whole int16 samples"})";
 constexpr char ControlFrameTooLargeLine[] =
@@ -769,8 +769,8 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
   }
 
-  // wsjt-codec does not act on discontinuity: its periods are counted from its
-  // first sample whatever controls arrive between the audio frames.
+  // The period modes do not act on discontinuity: their periods are counted
+  // from the first sample whatever controls arrive between the audio frames.
   void wsjtCodecIgnoresDiscontinuity ()
   {
     auto const third = silentAudioFrame (Ft4PeriodSamples / 3);
