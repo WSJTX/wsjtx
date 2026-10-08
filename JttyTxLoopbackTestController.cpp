@@ -2,6 +2,7 @@
 
 #include "Audio/BWFFile.hpp"
 #include "Audio/FixtureSoundOutput.hpp"
+#include "lib/jtty/JttyTransmit.hpp"
 #include "widgets/mainwindow.h"
 #include "wsjtx_config.h"
 
@@ -26,9 +27,6 @@
 #include <QWidget>
 
 #include "moc_JttyTxLoopbackTestController.cpp"
-
-extern "C" void genjtty_ (char const * message, int tones[], int * symbols,
-                            fortran_charlen_t);
 
 namespace
 {
@@ -238,7 +236,12 @@ qint64 JttyTxLoopbackTestController::encodedSampleFrames (QString const& message
   auto const bytes = message.toLatin1 ();
   if (bytes.size () > field.size ()) return 0;
   std::copy (bytes.cbegin (), bytes.cend (), field.begin ());
-  genjtty_ (field.constData (), tones, &symbols, 80);
+  char frames[Jtty::maxTransmitFrames * Jtty::transmitFrameBits];
+  int frameStarts[Jtty::maxTransmitFrames];
+  int nframes {0};
+  int status {0};
+  genjtty_text_c (field.data (), static_cast<int> (Jtty::NativeExchangeProfile::None), 1, tones,
+                  &symbols, frames, &nframes, frameStarts, &status);
   return qint64 (symbols) * 384 * 4;
 }
 

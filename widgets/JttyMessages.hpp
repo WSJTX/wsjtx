@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <optional>
+#include <string>
 #include <type_traits>
 
 #include <QByteArray>
@@ -15,6 +15,8 @@
 #include <QStringList>
 #include <QTime>
 #include <QVector>
+
+#include "lib/jtty/JttyTransmit.hpp"
 
 namespace Jtty
 {
@@ -115,14 +117,6 @@ namespace Jtty
     ClassSection = 1
   };
 
-  enum class NativeExchangeProfile
-  {
-    // Shared with the Fortran text packer; None leaves text inference unprofiled.
-    None = 0,
-    FieldDay = 1,
-    RttyRoundup = 2
-  };
-
   struct NativeAtomDescriptor
   {
     qint8 kind {};
@@ -142,13 +136,6 @@ namespace Jtty
   static_assert (offsetof (NativeAtomDescriptor, value) == 4, "atom ABI mismatch");
   static_assert (offsetof (NativeAtomDescriptor, text) == 8, "atom ABI mismatch");
   static_assert (sizeof (NativeAtomDescriptor) == 20, "atom ABI mismatch");
-
-  enum class NativeEncodeStatus
-  {
-    Ok = 0,
-    InvalidDescriptor = 1,
-    UnknownSection = 2
-  };
 
   enum class NativeMacroStatus
   {
@@ -196,44 +183,22 @@ namespace Jtty
     }
   };
 
-  inline QString sourceAlphabet ()
+  // The transmit encoder's strings are the UTF-16 units of the GUI's.
+  inline std::u16string toEncoder (QString const& text)
   {
-    // Keep in sync with ALPHABET in lib/jtty/jtty_source_codec.f90.
-    return QStringLiteral ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!\"#$%,&*()_'=[]{}<>|:;");
+    return text.toStdU16String ();
   }
 
-  inline bool isSourceCharacter (QChar c)
+  // Not QString::fromStdU16String, which reads a leading U+FEFF or U+FFFE as a byte order mark.
+  inline QString fromEncoder (std::u16string const& text)
   {
-    return sourceAlphabet ().contains (c)
-        || (c >= QLatin1Char {'a'} && c <= QLatin1Char {'z'});
+    return QString (reinterpret_cast<QChar const *> (text.data ()), static_cast<int> (text.size ()));
   }
-
-  // Fixed width of a JTTY transmit frame; genjtty_ (lib/jtty/genjtty.f90)
-  // expects exactly this many characters.
-  inline constexpr int maxMessageLength = 80;
-  inline constexpr int maxTransmitLength = maxMessageLength;
 
   inline PreparedTransmitText prepareTransmitText (QString const& message)
   {
-    PreparedTransmitText result;
-    result.text.reserve (message.size ());
-
-    for (QChar c : message) {
-      if (c == QChar::Null || c == QLatin1Char {'~'}) {
-        result.text.append (QLatin1Char {' '});
-        result.substituted = true;
-      } else if (c == QLatin1Char {'\n'} || c == QLatin1Char {'\r'}) {
-        // A forced segment boundary, not a character; execute_jtty_tx splits on it.
-        result.text.append (QLatin1Char {'\n'});
-      } else if (isSourceCharacter (c)) {
-        result.text.append (c);
-      } else {
-        result.text.append (QLatin1Char {'#'});
-        result.substituted = true;
-      }
-    }
-
-    return result;
+    auto const prepared = Encoder::prepareTransmitText (toEncoder (message));
+    return {fromEncoder (prepared.text), prepared.substituted};
   }
 
   struct TransmitTextSegment
@@ -243,47 +208,16 @@ namespace Jtty
     QString text;
   };
 
-  // Source spans include separator spaces so every submitted character is accounted for.
   inline TransmitTextSegment nextTransmitTextSegment (
       QString const& message, int offset, int maximumLength = maxTransmitLength)
   {
-    if (offset < 0 || offset >= message.size () || maximumLength <= 0) return {};
-
-    int length = std::min ({message.size () - offset, maximumLength, maxTransmitLength});
-    if (offset + length < message.size ()
-        && message.at (offset + length) != QLatin1Char {' '}) {
-      for (int i = length - 1; i > 0; --i) {
-        if (message.at (offset + i) == QLatin1Char {' '}
-            && !message.mid (offset, i).trimmed ().isEmpty ()) {
-          length = i + 1;
-          break;
-        }
-      }
-    }
-    return {offset, length, message.mid (offset, length)};
+    auto const segment = Encoder::nextTransmitTextSegment (toEncoder (message), offset, maximumLength);
+    return {segment.offset, segment.length, fromEncoder (segment.text)};
   }
 
-  // A segment that does not encode refuses the line rather than being cut shorter: the rest would continue the receiver's 80-column message.
-  template <typename Encode>
-  std::optional<QVector<TransmitTextSegment>> encodeTransmitLine (QString const& line, Encode&& encode)
-  {
-    QVector<TransmitTextSegment> segments;
-    for (int offset = 0; offset < line.size ();) {
-      auto const source = nextTransmitTextSegment (line, offset);
-      if (!source.text.trimmed ().isEmpty ()) {
-        if (!encode (source.text)) return std::nullopt;
-        segments.append (source);
-      }
-      offset += source.length;
-    }
-    return segments;
-  }
-
-  // An empty result rejects oversized text before it reaches the fixed-width codec.
   inline QString transmitFrame (QString const& message)
   {
-    if (message.size () > maxTransmitLength) return {};
-    return message + QString (maxTransmitLength - message.size (), QLatin1Char {' '});
+    return fromEncoder (Encoder::transmitFrame (toEncoder (message)));
   }
 
   // Number of receive samples in one complete JTTY frame: 59 symbols of 384
