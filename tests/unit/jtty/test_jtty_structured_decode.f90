@@ -37,6 +37,15 @@ program test_jtty_structured_decode
        integer(c_int), intent(out) :: tones(*),nsym
        integer(c_int) :: status
      end function jtty_cpp_rtty_smoke
+     function jtty_cpp_rtty_line_refused() result(refused) bind(C)
+       import :: c_int
+       integer(c_int) :: refused
+     end function jtty_cpp_rtty_line_refused
+     function jtty_cpp_rtty_line_tones(tones,nsym) result(planned) bind(C)
+       import :: c_int
+       integer(c_int), intent(out) :: tones(*),nsym
+       integer(c_int) :: planned
+     end function jtty_cpp_rtty_line_tones
      subroutine genjtty_atoms(atoms,natoms,itone,nsym)
        use jtty_mod, only: jtty_source_atom
        type(jtty_source_atom), intent(in) :: atoms(:)
@@ -63,6 +72,9 @@ program test_jtty_structured_decode
   call decode_cpp_compiled_n1mm(failures)
   call decode_compact_text(failures)
   call decode_profile_text(failures)
+  call expect(jtty_cpp_rtty_line_refused().eq.1, &
+       'an RTTY line whose serial does not fit is refused, not split',failures)
+  call decode_accepted_rtty_line(failures)
 
   if(failures.ne.0) then
      write(*,'(a,i0)') 'test_jtty_structured_decode: failures=',failures
@@ -350,6 +362,23 @@ contains
 
     deallocate(pcm,wave,complex_wave)
   end subroutine decode_waveform
+
+  subroutine decode_accepted_rtty_line(count)
+    integer, intent(inout) :: count
+    integer(c_int) :: tones(MAX_FRAMES*frame_symbols),nsymbols
+    character(len=80) :: expected
+
+    expected=repeat('A',72)//' 599 005'
+    call expect(jtty_cpp_rtty_line_tones(tones,nsymbols).eq.1, &
+         'the longest RTTY line that fits is one segment',count)
+    if(nsymbols.le.0) return
+    call decode_waveform(tones,int(nsymbols))
+    call expect(npending.ge.1,'the accepted RTTY line produces updates',count)
+    if(npending.lt.1) return
+    call expect(trim(normalized(pending_updates(npending)%decoded)).eq.trim(expected) .and. &
+         pending_updates(npending)%complete .and. nactive.eq.0, &
+         'the accepted RTTY line arrives whole, serial included',count)
+  end subroutine decode_accepted_rtty_line
 
   function normalized(value) result(result_value)
     character(len=*), intent(in) :: value
