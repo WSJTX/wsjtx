@@ -223,7 +223,6 @@ option (WSJT_ENABLE_GUI_SMOKE_TESTS
   "Register GUI-driven smoke tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
 option (WSJT_ENABLE_TSAN "Instrument in-tree code with ThreadSanitizer." OFF)
-option (WSJT_BUILD_JT9STREAM "Build the Qt-free streaming decoder jt9stream alongside jt9 (uses the jt9a stub)." ON)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")
 set_property (CACHE WSJT_FORTRAN_LIBRARY_VARIANTS PROPERTY STRINGS
@@ -696,7 +695,7 @@ target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 
 if (TARGET test_streaming_consumers)
-  add_dependencies (test_streaming_consumers jt9 wsprd)
+  add_dependencies (test_streaming_consumers wsjt-codec wsprd)
 endif ()
 
 if (WSJT_BUILD_UTILS)
@@ -706,21 +705,27 @@ if (WSJT_BUILD_UTILS)
 endif ()
 
 if (WSJT_ENABLE_TESTS)
-  add_test (NAME test_jt9_version COMMAND $<TARGET_FILE:jt9> --version)
   string (REPLACE "." "\\." wsjtx_version_pattern "${wsjtx_VERSION}")
-  set_tests_properties (test_jt9_version PROPERTIES
-    PASS_REGULAR_EXPRESSION "^jt9 ${wsjtx_version_pattern} \\(revision ([0-9a-f]+(-dirty)?|unavailable)\\)"
-    )
+  foreach (program jt9 wsjt-codec)
+    add_test (NAME test_${program}_version COMMAND $<TARGET_FILE:${program}> --version)
+    set_tests_properties (test_${program}_version PROPERTIES
+      PASS_REGULAR_EXPRESSION "^${program} ${wsjtx_version_pattern} \\(revision ([0-9a-f]+(-dirty)?|unavailable)\\)"
+      )
+  endforeach ()
   add_test (NAME test_jt9_cli_validation
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9>
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_cli_validation.cmake)
+  add_test (NAME test_jt9_stream_option
+    COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
+            -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/StreamOption
+            -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_stream_option.cmake)
 
   find_package (Python3 COMPONENTS Interpreter QUIET)
   if (Python3_Interpreter_FOUND)
     add_test (NAME test_jt65_stream
       COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_SOURCE_DIR}/tests/integration/jt65/check_stream.py
-        $<TARGET_FILE:jt9>
+        $<TARGET_FILE:wsjt-codec>
         ${CMAKE_SOURCE_DIR}/test/wav_to_stream_harness.py
         ${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt65-engine.wav
         ${CMAKE_BINARY_DIR}/Testing/Jt65Stream)
@@ -958,31 +963,29 @@ else ()
   target_link_libraries (jt9 wsjt_fort wsjt_cxx)
 endif ()
 
-# Build jt9stream with shared-memory worker mode disabled.
-if (WSJT_BUILD_JT9STREAM)
-  generate_version_info (jt9stream_VERSION_RESOURCES
-    NAME jt9stream
-    BUNDLE ${PROJECT_BUNDLE_NAME}
-    ICON ${WSJTX_ICON_FILE}
-    FILE_DESCRIPTION "jt9stream - WSJT-X Qt-free streaming decoder"
-    )
-  add_executable (jt9stream ${jt9stream_FSRCS} ${jt9stream_VERSION_RESOURCES})
-  target_compile_definitions (jt9stream PRIVATE JT9_PROGRAM_NAME=\"jt9stream\")
-  # jt9stream shares jt9's Fortran module directory (fortran_modules_omp) so it
-  # can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
-  # is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
-  # target emits no .mod of its own — sharing the dir is collision-free.
-  if (WSJT_BUILD_FORTRAN_OPENMP)
-    wsjt_link_fortran_openmp (jt9stream)
-    if (WIN32)
-      set_property (TARGET jt9stream APPEND_STRING PROPERTY
-        LINK_FLAGS " -Wl,--stack,16777216")
-    endif ()
-    target_link_libraries (jt9stream wsjt_cxx)
-  else ()
-    target_link_libraries (jt9stream wsjt_fort wsjt_cxx)
+# Build wsjt-codec with shared-memory worker mode disabled.
+generate_version_info (wsjt_codec_VERSION_RESOURCES
+  NAME wsjt-codec
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "wsjt-codec - WSJT-X Qt-free streaming decoder"
+  )
+add_executable (wsjt-codec ${wsjt_codec_FSRCS} ${wsjt_codec_VERSION_RESOURCES})
+target_compile_definitions (wsjt-codec PRIVATE JT9_PROGRAM_NAME=\"wsjt-codec\")
+# wsjt-codec shares jt9's Fortran module directory (fortran_modules_omp) so it
+# can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
+# is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
+# target emits no .mod of its own — sharing the dir is collision-free.
+if (WSJT_BUILD_FORTRAN_OPENMP)
+  wsjt_link_fortran_openmp (wsjt-codec)
+  if (WIN32)
+    set_property (TARGET wsjt-codec APPEND_STRING PROPERTY
+      LINK_FLAGS " -Wl,--stack,16777216")
   endif ()
-endif (WSJT_BUILD_JT9STREAM)
+  target_link_libraries (wsjt-codec wsjt_cxx)
+else ()
+  target_link_libraries (wsjt-codec wsjt_fort wsjt_cxx)
+endif ()
 
 if (WSJT_ENABLE_TESTS AND (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
   if (APPLE)
@@ -994,7 +997,7 @@ if (WSJT_ENABLE_TESTS AND (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
   if (NOT wsjt_library_lister)
     message (FATAL_ERROR "otool or readelf is required to verify the libraries programs load")
   endif ()
-  foreach (program jt9stream ft4sim)
+  foreach (program wsjt-codec ft4sim)
     if (TARGET ${program})
       add_test (NAME test_${program}_loads_only_used_libraries
         COMMAND ${CMAKE_COMMAND}
@@ -1496,6 +1499,7 @@ add_custom_target (revisiontag
 add_dependencies (wsjt_qt revisiontag)
 add_dependencies (wsjtx revisiontag)
 add_dependencies (jt9 revisiontag)
+add_dependencies (wsjt-codec revisiontag)
 add_dependencies (wsprd revisiontag)
 
 

@@ -1,7 +1,7 @@
 ! Reject shared-memory worker mode in the streaming-only executable.
 subroutine jt9a()
   use, intrinsic :: iso_fortran_env, only: error_unit
-  write(error_unit,'(a)') 'jt9: GUI shared-memory worker mode is not available '// &
-       'in the headless build. Use `jt9 --stream` or `jt9 <file.wav>`.'
+  write(error_unit,'(a)') 'wsjt-codec: GUI shared-memory worker mode is not available '// &
+       'in the headless build. Use `wsjt-codec --stream` or `wsjt-codec <file.wav>`.'
   stop 2
 end subroutine jt9a

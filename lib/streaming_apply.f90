@@ -134,7 +134,7 @@ contains
     ! ===== Phase 6: FT8/FT4 specifics cluster (RFC v1 §2) ===================
     ! Flat 1:1, no per-mode-policy interaction (none of these 24 are touched by
     ! apply_per_mode_policy / the nfa-nfb-restore / ntol blocks below). 21 of 24
-    ! are INERT on the jt9 --stream FT8/JT9 fixtures (read only inside the
+    ! are INERT on the wsjt-codec --stream FT8/JT9 fixtures (read only inside the
     ! multithreaded-FT8 block decoder.f90:192, which streaming forces off via
     ! lmultift8=.false.; jt65_ap_on is JT65-only; superfox_mode/even_sequence are
     ! superfox-path-only (ncontest==7 / sfrx_sub); ft8_decoder_start is non-stream
@@ -188,7 +188,7 @@ contains
     ! ===== Phase 7: diagnostic / sequencing fields (RFC v1 §2) ==============
     ! No per-mode-policy interaction (none of these 6 are touched by
     ! apply_per_mode_policy / the nfa-nfb-restore / ntol blocks below). 5 of the 6
-    ! are flat pass-throughs and INERT on the jt9 --stream FT8/JT9 fixtures:
+    ! are flat pass-throughs and INERT on the wsjt-codec --stream FT8/JT9 fixtures:
     ! currently_txing/mode_changed/sec_band_changed/delay_units/
     ! last_tx_seconds_ago are read ONLY inside the multithreaded-FT8 block
     ! (decoder.f90:192..1148, which streaming forces off via lmultift8=.false.), so
@@ -205,7 +205,7 @@ contains
     ! lft8apon=.true. / lapcqonly=.false. path. An out-of-range producer value
     ! (<0 or >5) faults the decoder (an -fbounds-check abort -> a one-frame DoS;
     ! silent memory corruption without the flag) -- a qso_progress_state=99
-    ! crashes jt9 --stream. The valid range is [0,5] universally (every decoder
+    ! crashes wsjt-codec --stream. The valid range is [0,5] universally (every decoder
     ! dimensions naptypes(0:5,4)/nappasses(0:5); QsoProgress.hpp defines the
     ! C++ producer values as 0..5). So, exactly like the Phase 6
     ! multithreaded_ft8 guard

@@ -964,7 +964,7 @@ class ReleasePolicyTest(unittest.TestCase):
                     suffix = "macOS.pkg" if distribution else "macOS-unsigned.pkg"
                     required = [f"wsjtx-{version}-x86_64-{suffix}"] + [
                         f"wsjtx-{version}-x86_64-macOS-{group}"
-                        for group in ("jt9", "jt9stream", "wsprd", "utilities")
+                        for group in ("jt9", "codec", "wsprd", "utilities")
                     ]
                     for name in required:
                         artifact = root / name
@@ -1119,7 +1119,7 @@ class ReleasePolicyTest(unittest.TestCase):
             installer = f"wsjtx-{version}-win64.exe"
             self.assertEqual(manifest["windows_signing"]["mode"], "unsigned")
             self.assertIn(installer, {entry["name"] for entry in manifest["assets"]})
-            for group in ("jt9", "jt9stream", "wsprd", "utilities"):
+            for group in ("jt9", "codec", "wsprd", "utilities"):
                 self.assertIn(
                     f"wsjtx-{version}-windows-x86_64-{group}.tar.gz", {entry["name"] for entry in manifest["assets"]}
                 )
@@ -1142,7 +1142,7 @@ class ReleasePolicyTest(unittest.TestCase):
             [
                 f"wsjtx-{version}-{target}-{group}"
                 for target in ("arm64-macOS", "x86_64-macOS", "linux-x86_64", "linux-aarch64", "linux-armhf", "windows-x86_64")
-                for group in ("jt9", "jt9stream", "wsprd", "utilities")
+                for group in ("jt9", "codec", "wsprd", "utilities")
             ],
         )
         self.assertEqual([release_policy.asset_suffix(name) for name in tools], [".tar.gz"] * 24)
@@ -1168,9 +1168,9 @@ class ReleasePolicyTest(unittest.TestCase):
                 sorted(path.name for path in files if path.name.endswith(".tar.gz")),
                 sorted(f"{name}.tar.gz" for name in tools),
             )
-            armhf = root / f"wsjtx-{version}-linux-armhf-jt9stream"
+            armhf = root / f"wsjtx-{version}-linux-armhf-codec"
             (armhf / f"{armhf.name}.tar.gz").unlink()
-            with self.assertRaisesRegex(ValueError, "linux-armhf-jt9stream must contain exactly one .tar.gz"):
+            with self.assertRaisesRegex(ValueError, "linux-armhf-codec must contain exactly one .tar.gz"):
                 release_policy.find_asset_files(root, version, False)
 
     def test_release_tarball_uploads_agree_with_the_group_file_and_the_policy(self):
@@ -1214,15 +1214,15 @@ class ReleasePolicyTest(unittest.TestCase):
         self.assertEqual(targets, set(release_policy.RELEASE_TARGETS))
 
     def test_tarball_groups_come_from_the_group_file(self):
-        self.assertEqual(release_policy.tarball_groups(), ["jt9", "jt9stream", "wsprd", "utilities"])
+        self.assertEqual(release_policy.tarball_groups(), ["jt9", "codec", "wsprd", "utilities"])
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "release-tarballs.txt"
-            path.write_bytes(b"# comment\r\njt9 jt9\r\n\r\nengine jt9stream wsprd\r\n")
+            path.write_bytes(b"# comment\r\njt9 jt9\r\n\r\nengine wsjt-codec wsprd\r\n")
             self.assertEqual(release_policy.tarball_groups(path), ["jt9", "engine"])
             for contents, message in (
                 ("", "must name each release tarball once"),
                 ("# only a comment\n", "must name each release tarball once"),
-                ("jt9 jt9\njt9 jt9stream\n", "must name each release tarball once"),
+                ("jt9 jt9\njt9 wsjt-codec\n", "must name each release tarball once"),
                 ("jt9 jt9\nutilities\n", "release tarball utilities names no programs"),
                 ("jt9 jt9\ninstaller wsprd\n", "release tarball name installer cannot name a release asset"),
                 ("jt9 jt9\nsrc wsprd\n", "release tarball name src cannot name a release asset"),

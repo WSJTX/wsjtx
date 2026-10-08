@@ -532,7 +532,7 @@ contains
   ! Frame QSO-GUARD: qso_progress_state apply guard. nQSOProgress
   ! reaches the single-pass FT8 decoder where ft8b.f90:274/299 index
   ! nappasses(0:5)/naptypes(0:5,4) -> an out-of-range value crashes the decoder
-  ! (verified: qso_progress_state=99 crashes jt9 --stream). The apply IGNORES an
+  ! (verified: qso_progress_state=99 crashes wsjt-codec --stream). The apply IGNORES an
   ! out-of-range value (valid [0,5] pass through unchanged) -- like the
   ! multithreaded_ft8 guard. Negative-controlled: plant a sentinel (2) != asserted,
   ! so a straight pass-through regression (which would write 99 / -1) fails the

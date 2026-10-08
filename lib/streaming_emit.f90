@@ -14,11 +14,12 @@
 !   error (type)      {"v":1,"t":"error","code":"configure_type_error",
 !                      "key":"depth","expected":"int","got":"string"}
 !
-! Activation: program jt9 calls streaming_emit_set_enabled(.true.) when
-! --stream is parsed. Decoder per-mode sites in lib/decoder.f90 query
-! streaming_emit_enabled() and call streaming_emit_decode() instead of
-! the legacy write(*,...) text format. When disabled, every routine in
-! this module is a no-op so non-streaming jt9 (WAV / shmem) is unchanged.
+! Activation: lib/jt9.f90 calls streaming_emit_set_enabled(.true.) when
+! --stream is parsed; only wsjt-codec runs the stream. Decoder per-mode sites
+! in lib/decoder.f90 query streaming_emit_enabled() and call
+! streaming_emit_decode() instead of the legacy write(*,...) text format.
+! When disabled, every routine in this module is a no-op so WAV and
+! shared-memory decoding are unchanged.
 
 module streaming_emit
   use, intrinsic :: iso_fortran_env, only: int64, output_unit

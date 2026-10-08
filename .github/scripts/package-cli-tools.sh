@@ -393,12 +393,12 @@ describe() {
   local writes="writes working files to its data directory (-a) and its temporary directory (-t), both the current directory by default; run it where it can write, or point -a and -t at writable directories."
   case "$1" in
     jt9)
-      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files, and framed PCM audio on standard input (--stream). jt9stream, in its own tarball, is the same decoder without Qt or shared memory."
+      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the same decoder without the shared-memory worker, and decodes framed PCM audio on standard input (--stream)."
       echo "jt9 ${writes}"
       ;;
-    jt9stream)
-      echo "jt9stream is the decoder of jt9 without Qt or shared memory: it decodes WAV files, and framed PCM audio on standard input (--stream). Its usage text names jt9 and lists -s, which jt9stream does not support."
-      echo "jt9stream ${writes}"
+    codec)
+      echo "wsjt-codec is the decoder of jt9 without the shared-memory worker: it decodes WAV files, and framed PCM audio on standard input (--stream)."
+      echo "wsjt-codec ${writes}"
       ;;
     wsprd)
       echo "wsprd decodes WSPR from WAV files, and from framed PCM audio on standard input (-0)."

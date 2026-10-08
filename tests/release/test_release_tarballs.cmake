@@ -31,14 +31,14 @@ function (expect_invalid name contents)
 endfunction ()
 
 assert_programs ("${SOURCE_DIR}/CMake/release-tarballs.txt"
-  "jt9;jt9stream;wsprd;wsprcode;encode77;ft4sim;jt4sim;jt65sim;cwsim;sfoxsim"
+  "jt9;wsjt-codec;wsprd;wsprcode;encode77;ft4sim;jt4sim;jt65sim;cwsim;sfoxsim"
   "committed list")
 
 file (WRITE "${TEST_BINARY_DIR}/forms.txt"
-  "# comment\r\n\r\n   \r\n  # indented comment\r\nengine\tjt9  jt9stream\r\nwsprd wsprd")
-assert_programs ("${TEST_BINARY_DIR}/forms.txt" "jt9;jt9stream;wsprd"
+  "# comment\r\n\r\n   \r\n  # indented comment\r\nengine\tjt9  wsjt-codec\r\nwsprd wsprd")
+assert_programs ("${TEST_BINARY_DIR}/forms.txt" "jt9;wsjt-codec;wsprd"
   "blank, comment, tab and CRLF lines")
 
 expect_invalid (no_programs "jt9 jt9\ntesting\n")
-expect_invalid (named_twice "jt9 jt9\njt9 jt9stream\n")
+expect_invalid (named_twice "jt9 jt9\njt9 wsjt-codec\n")
 expect_invalid (only_comments "# comment\n\n")

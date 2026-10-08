@@ -20,11 +20,11 @@ set -euo pipefail
 
 BUILD_DIR="${1:-build}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-JT9="$REPO_ROOT/$BUILD_DIR/jt9"
+JT9="$REPO_ROOT/$BUILD_DIR/wsjt-codec"
 HARNESS="$REPO_ROOT/test/wav_to_stream_harness.py"
 
 if [[ ! -x "$JT9" ]]; then
-  echo "ERROR: jt9 binary not found or not executable: $JT9" >&2
+  echo "ERROR: wsjt-codec binary not found or not executable: $JT9" >&2
   exit 2
 fi
 if [[ ! -f "$HARNESS" ]]; then
@@ -33,7 +33,7 @@ if [[ ! -f "$HARNESS" ]]; then
 fi
 
 echo "Configure-protocol regression (nutc + nfa/nfb + ntol)"
-echo "  jt9:       $JT9"
+echo "  wsjt-codec:  $JT9"
 echo "  harness:   $HARNESS"
 
 fail=0

@@ -2,9 +2,9 @@
 """
 wav-to-stream validation harness — no-configure-frame variant.
 
-Pipes a 12 kHz mono int16 WAV file through `jt9 --stream` using the
+Pipes a 12 kHz mono int16 WAV file through `wsjt-codec --stream` using the
 streaming protocol, but does NOT send a configure frame.
-Decode parameters come from jt9's CLI args (-F/-f/-L/-H/-d) instead.
+Decode parameters come from wsjt-codec's CLI args (-F/-f/-L/-H/-d) instead.
 
 This exercises the CLI-arg threading path through init_default_params.
 Earlier, streaming_io.f90 silently overrode the CLI
@@ -12,12 +12,12 @@ args with FT8-baseline hardcoded defaults — so a no-configure invocation
 produced 0 decodes regardless of what the user passed on the CLI.
 
 Usage:
-    test/wav_to_stream_no_configure.py <jt9-binary> <wav-file>
+    test/wav_to_stream_no_configure.py <wsjt-codec-binary> <wav-file>
         [--mode-flag MODE_FLAG] [--ntol NTOL] [--nrxfreq HZ]
         [--flow HZ] [--fhigh HZ] [--ndepth N]
 
 NDJSON lines and stderr are printed to stdout (consumers MUST drain
-stderr). Exit code is jt9's exit code.
+stderr). Exit code is wsjt-codec's exit code.
 """
 from __future__ import annotations
 
@@ -47,10 +47,10 @@ def halt_json() -> bytes:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("jt9", type=Path)
+    p.add_argument("wsjt_codec", metavar="wsjt-codec", type=Path)
     p.add_argument("wav", type=Path)
     p.add_argument("--mode-flag", default="-8",
-                   help="jt9 mode flag (-8 FT8, -9 JT9, etc.)")
+                   help="wsjt-codec mode flag (-8 FT8, -9 JT9, etc.)")
     p.add_argument("--ntol", type=int, default=1000)
     p.add_argument("--nrxfreq", type=int, default=1500)
     p.add_argument("--flow", type=int, default=200)
@@ -60,8 +60,8 @@ def main() -> int:
                    help="Suppress non-JSON stderr lines.")
     args = p.parse_args()
 
-    if not args.jt9.is_file():
-        print(f"ERROR: jt9 binary not found: {args.jt9}", file=sys.stderr)
+    if not args.wsjt_codec.is_file():
+        print(f"ERROR: wsjt-codec binary not found: {args.wsjt_codec}", file=sys.stderr)
         return 2
     if not args.wav.is_file():
         print(f"ERROR: WAV file not found: {args.wav}", file=sys.stderr)
@@ -74,7 +74,7 @@ def main() -> int:
         audio = w.readframes(w.getnframes())
 
     cmd = [
-        str(args.jt9), "--stream", args.mode_flag,
+        str(args.wsjt_codec), "--stream", args.mode_flag,
         "-F", str(args.ntol), "-f", str(args.nrxfreq),
         "-L", str(args.flow), "-H", str(args.fhigh),
         "-d", str(args.ndepth),

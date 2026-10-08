@@ -145,7 +145,7 @@ set -euo pipefail
 
 BUILD_DIR="${1:-build}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-JT9="$REPO_ROOT/$BUILD_DIR/jt9"
+JT9="$REPO_ROOT/$BUILD_DIR/wsjt-codec"
 HARNESS="$REPO_ROOT/test/wav_to_stream_harness.py"
 WAV="$REPO_ROOT/samples/FT8/210703_133430.wav"
 JT9_WAV="$REPO_ROOT/samples/JT9/130418_1742.wav"
@@ -153,7 +153,7 @@ FT8_FLOOR=14
 JT9_FLOOR=6
 
 if [[ ! -x "$JT9" ]]; then
-  echo "ERROR: jt9 binary not found or not executable: $JT9" >&2
+  echo "ERROR: wsjt-codec binary not found or not executable: $JT9" >&2
   exit 2
 fi
 if [[ ! -f "$HARNESS" ]]; then
@@ -162,7 +162,7 @@ if [[ ! -f "$HARNESS" ]]; then
 fi
 
 echo "Streaming schema-v1 regression (Phase 1: versioning + structured errors)"
-echo "  jt9:       $JT9"
+echo "  wsjt-codec:  $JT9"
 echo "  harness:   $HARNESS"
 
 fail=0
@@ -508,7 +508,7 @@ echo "Gate 18 — qso_progress_state=99 (out of range) still decodes (apply igno
 # nQSOProgress reaches the single-pass FT8 decoder (decoder.f90:1141), where
 # ft8b.f90:274/299 use it as a raw index into nappasses(0:5)/naptypes(0:5,4) on the
 # default lft8apon=.true. path. An out-of-range value faults the decoder under
-# -fbounds-check (qso_progress_state=99 crashes jt9 --stream). The
+# -fbounds-check (qso_progress_state=99 crashes wsjt-codec --stream). The
 # apply IGNORES an out-of-range value (valid [0,5] only), so FT8 must STILL decode
 # >= floor. A straight-pass-through regression would crash and collapse FT8 to 0.
 # Both-sides-healthy: baseline >= floor AND with-key >= floor.

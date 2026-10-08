@@ -127,14 +127,12 @@ set (jt9_FSRCS
   lib/shmem.cpp
   lib/decoder_ipc_layout.f90
   lib/jt9a.f90
-  lib/streaming_io.f90
-  lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
-  lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
+  lib/jt9_stream_stub.f90
   lib/jt9_version.c
   )
 
-# jt9stream uses the same main as jt9 with shared-memory worker mode disabled.
-set (jt9stream_FSRCS
+# wsjt-codec uses the same main as jt9 with shared-memory worker mode disabled.
+set (wsjt_codec_FSRCS
   lib/jt9.f90
   lib/jt9a_stub.f90
   lib/streaming_io.f90

@@ -40,10 +40,7 @@ install (TARGETS udp_daemon message_aggregator wsjtx_app_version
 # tarballs from cli-tools.txt. cli-tools.txt also lists every program in
 # CMake/release-tarballs.txt whatever the build options, so a macOS release
 # build that lacks one fails naming it.
-set (wsjt_installed_cli_tools jt9 wsprd fmtave fcal fmeasure)
-if (WSJT_BUILD_JT9STREAM)
-  list (APPEND wsjt_installed_cli_tools jt9stream)
-endif ()
+set (wsjt_installed_cli_tools jt9 wsprd fmtave fcal fmeasure wsjt-codec)
 if (WSJT_BUILD_UTILS)
   list (APPEND wsjt_installed_cli_tools
     ft8code jt65code jt9code jt4code msk144code q65code fst4sim ft8sim q65sim

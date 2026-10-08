@@ -16,7 +16,7 @@ constexpr quint32 WsprdAudioCapacityBytes = 8u * 114u * 12000u * 2u;
 // FT4's 7.5 s period at 12 kHz.
 constexpr int Ft4PeriodSamples = 90000;
 constexpr int Jt9TenSecondPeriodSamples = 10 * 12000;
-// jt9 reads audio 4,096 samples at a time and skips frames 4,096 bytes at a time.
+// wsjt-codec reads audio 4,096 samples at a time and skips frames 4,096 bytes at a time.
 constexpr int Jt9ChunkSamples = 4096;
 constexpr int Jt9DrainBytes = 4096;
 
@@ -207,7 +207,7 @@ ProcessResult runJt9 (QByteArray const& input, QStringList options = {})
   options << "-a" << directory.path ()
           << "-t" << directory.path ()
           << "--stream";
-  return runProcess (QString::fromUtf8 (JT9_EXECUTABLE), options, input,
+  return runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), options, input,
                      directory.path ());
 }
 
@@ -306,7 +306,7 @@ private slots:
     auto const input = sessionHeader () + controlFrame (
       QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) +
       frame (0x01u, wav.mid (44)) + controlFrame (R"({"t":"halt"})");
-    auto const result = runProcess (QString::fromUtf8 (JT9_EXECUTABLE),
+    auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
       {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
@@ -352,7 +352,7 @@ private slots:
     QVERIFY (directory.isValid ());
     auto const input = sessionHeader () + controlFrame (
       QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) + frame (0x01u, wav.mid (44));
-    auto const result = runProcess (QString::fromUtf8 (JT9_EXECUTABLE),
+    auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
       {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path (), 360000);
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
@@ -374,7 +374,7 @@ private slots:
     auto const input = sessionHeader () + controlFrame (
       R"({"t":"configure","mode":"FST4W","trperiod":120,"depth_level":1,"nutc":15})") +
       silentAudioFrame (12001);
-    auto const result = runProcess (QString::fromUtf8 (JT9_EXECUTABLE),
+    auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
       {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
@@ -407,7 +407,7 @@ private slots:
     auto const input = sessionHeader () + controlFrame (
       R"({"t":"configure","mode":"Q65","trperiod":15,"submode":0,"depth_level":1,"nfa":1300,"nfb":1700,"rxfreq":1500,"utc":"00:15:00"})") +
       frame (0x01u, wav.mid (44)) + controlFrame (R"({"t":"halt"})");
-    auto const result = runProcess (QString::fromUtf8 (JT9_EXECUTABLE),
+    auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
       {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
@@ -443,14 +443,14 @@ private slots:
       }
   }
 
-  void jt9RejectsOversizedFrames_data ()
+  void wsjtCodecRejectsOversizedFrames_data ()
   {
     QTest::addColumn<quint32> ("declaredLength");
     QTest::newRow ("over capacity") << Jt9AudioCapacityBytes + 2u;
     QTest::newRow ("uint32 max") << std::numeric_limits<quint32>::max ();
   }
 
-  void jt9RejectsOversizedFrames ()
+  void wsjtCodecRejectsOversizedFrames ()
   {
     QFETCH (quint32, declaredLength);
     auto const result = runJt9 (sessionHeader () +
@@ -461,7 +461,7 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
   }
 
-  void jt9RejectsUnknownMode_data ()
+  void wsjtCodecRejectsUnknownMode_data ()
   {
     QTest::addColumn<QByteArray> ("configure");
     QTest::newRow ("string")
@@ -470,7 +470,7 @@ private slots:
       << QByteArray {R"({"t":"configure","mode":999,"trperiod":1})"};
   }
 
-  void jt9RejectsUnknownMode ()
+  void wsjtCodecRejectsUnknownMode ()
   {
     QFETCH (QByteArray, configure);
     auto const input = sessionHeader () + controlFrame (configure) +
@@ -483,7 +483,7 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
   }
 
-  void jt9RejectsOutOfRangeTrperiod_data ()
+  void wsjtCodecRejectsOutOfRangeTrperiod_data ()
   {
     QTest::addColumn<QByteArray> ("configure");
     QTest::newRow ("zero")
@@ -492,7 +492,7 @@ private slots:
       << QByteArray {R"({"t":"configure","trperiod":1801})"};
   }
 
-  void jt9RejectsOutOfRangeTrperiod ()
+  void wsjtCodecRejectsOutOfRangeTrperiod ()
   {
     QFETCH (QByteArray, configure);
     auto const result = runJt9 (sessionHeader () + controlFrame (configure) +
@@ -503,7 +503,7 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
   }
 
-  void jt9WritesTheReadyLine ()
+  void wsjtCodecWritesTheReadyLine ()
   {
     auto const result = runJt9 (sessionHeader ());
     verifyCompleted (result, 0);
@@ -511,7 +511,7 @@ private slots:
   }
 
   // The header is checked in field order, before the ready line.
-  void jt9RejectsBadSessionHeaders_data ()
+  void wsjtCodecRejectsBadSessionHeaders_data ()
   {
     QTest::addColumn<QByteArray> ("header");
     QTest::addColumn<QByteArray> ("line");
@@ -536,7 +536,7 @@ private slots:
     QTest::newRow ("channels before rate") << QByteArray {"WSJT\x00\x02\x30\x00", 8} << badChannels;
   }
 
-  void jt9RejectsBadSessionHeaders ()
+  void wsjtCodecRejectsBadSessionHeaders ()
   {
     QFETCH (QByteArray, header);
     QFETCH (QByteArray, line);
@@ -547,14 +547,14 @@ private slots:
 
   // An odd-length audio frame is reported and skipped whole: the audio
   // around it decodes as if it were absent.
-  void jt9SkipsOddLengthAudioFrames_data ()
+  void wsjtCodecSkipsOddLengthAudioFrames_data ()
   {
     QTest::addColumn<int> ("length");
     QTest::newRow ("one byte") << 1;
     QTest::newRow ("over two drain blocks") << 2 * Jt9DrainBytes + 1;
   }
 
-  void jt9SkipsOddLengthAudioFrames ()
+  void wsjtCodecSkipsOddLengthAudioFrames ()
   {
     QFETCH (int, length);
     QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
@@ -578,7 +578,7 @@ private slots:
 
   // A short read at end of input drops the chunk in flight, up to 4,095
   // samples; the samples before it are decoded.
-  void jt9DropsTheChunkInFlightAtEndOfInput_data ()
+  void wsjtCodecDropsTheChunkInFlightAtEndOfInput_data ()
   {
     QTest::addColumn<int> ("delivered");
     QTest::addColumn<int> ("kept");
@@ -589,7 +589,7 @@ private slots:
       << Ft4PeriodSamples + Jt9ChunkSamples - 1 << Ft4PeriodSamples << 1;
   }
 
-  void jt9DropsTheChunkInFlightAtEndOfInput ()
+  void wsjtCodecDropsTheChunkInFlightAtEndOfInput ()
   {
     QFETCH (int, delivered);
     QFETCH (int, kept);
@@ -606,7 +606,7 @@ private slots:
   }
 
   // A control frame over 1,024 bytes is reported and skipped whole.
-  void jt9SkipsOversizedControlFrames_data ()
+  void wsjtCodecSkipsOversizedControlFrames_data ()
   {
     QTest::addColumn<int> ("length");
     QTest::addColumn<QByteArray> ("line");
@@ -615,7 +615,7 @@ private slots:
     QTest::newRow ("over three drain blocks") << 3 * Jt9DrainBytes + 1 << QByteArray {ControlFrameTooLargeLine};
   }
 
-  void jt9SkipsOversizedControlFrames ()
+  void wsjtCodecSkipsOversizedControlFrames ()
   {
     QFETCH (int, length);
     QFETCH (QByteArray, line);
@@ -630,7 +630,7 @@ private slots:
 
   // A frame longer than the sample buffer is fatal whatever its type; the
   // capacity itself is accepted.
-  void jt9StopsOnFramesOverTheSampleBuffer_data ()
+  void wsjtCodecStopsOnFramesOverTheSampleBuffer_data ()
   {
     QTest::addColumn<quint8> ("type");
     QTest::addColumn<quint32> ("length");
@@ -647,7 +647,7 @@ private slots:
       << quint8 {0x07u} << Jt9AudioCapacityBytes + 1u << ndjson ({FrameTooLargeLine}) << 1;
   }
 
-  void jt9StopsOnFramesOverTheSampleBuffer ()
+  void wsjtCodecStopsOnFramesOverTheSampleBuffer ()
   {
     QFETCH (quint8, type);
     QFETCH (quint32, length);
@@ -659,7 +659,7 @@ private slots:
   }
 
   // halt decodes the period in flight once and reads nothing after it.
-  void jt9HaltsAfterThePeriodInFlight ()
+  void wsjtCodecHaltsAfterThePeriodInFlight ()
   {
     auto const third = silentAudioFrame (Ft4PeriodSamples / 3);
     auto const halted = runJt9 (sessionHeader () + third + controlFrame (R"({"t":"halt"})") +
@@ -672,7 +672,7 @@ private slots:
   }
 
   // A declined configure is one coded error line: version first, then key types, then the mode.
-  void jt9DeclinesBadConfigureFrames_data ()
+  void wsjtCodecDeclinesBadConfigureFrames_data ()
   {
     QTest::addColumn<QByteArray> ("configure");
     QTest::addColumn<QByteArray> ("line");
@@ -688,7 +688,7 @@ private slots:
       << QByteArray {R"({"t":"configure","mode":"BOGUS","version":2,"depth":"abc"})"} << badVersion;
   }
 
-  void jt9DeclinesBadConfigureFrames ()
+  void wsjtCodecDeclinesBadConfigureFrames ()
   {
     QFETCH (QByteArray, configure);
     QFETCH (QByteArray, line);
@@ -698,14 +698,14 @@ private slots:
   }
 
   // A frame of an unknown type is skipped whole.
-  void jt9SkipsUnknownFrameTypes_data ()
+  void wsjtCodecSkipsUnknownFrameTypes_data ()
   {
     QTest::addColumn<int> ("length");
     QTest::newRow ("one byte") << 1;
     QTest::newRow ("over three drain blocks") << 3 * Jt9DrainBytes + 1;
   }
 
-  void jt9SkipsUnknownFrameTypes ()
+  void wsjtCodecSkipsUnknownFrameTypes ()
   {
     QFETCH (int, length);
     auto const result = runJt9 (sessionHeader () + frame (0x07u, QByteArray (length, '\x02')) +
@@ -715,7 +715,7 @@ private slots:
   }
 
   // A straddling frame carries its remainder into the next period.
-  void jt9CarriesStraddlingFrameIntoNextPeriod ()
+  void wsjtCodecCarriesStraddlingFrameIntoNextPeriod ()
   {
     auto const exact = runJt9 (sessionHeader () +
                                silentAudioFrame (Ft4PeriodSamples), {"--ft4"});
@@ -739,7 +739,7 @@ private slots:
 
   // A configure that changes the period starts a new one; nothing of the
   // old period drains at the new length.
-  void jt9StartsANewPeriodOnATrperiodChange ()
+  void wsjtCodecStartsANewPeriodOnATrperiodChange ()
   {
     // Half a 10 s period, a change to 20 s, then exactly one 20 s period.
     auto const result = runJt9 (
@@ -754,7 +754,7 @@ private slots:
   }
 
   // Repeating the current configuration mid-period leaves the period alone.
-  void jt9KeepsThePeriodOnAnUnchangedConfigure ()
+  void wsjtCodecKeepsThePeriodOnAnUnchangedConfigure ()
   {
     // Half a 10 s period, the same configuration again, then the other half
     // plus two samples: one full period, and the two samples open the next.
@@ -769,9 +769,9 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
   }
 
-  // jt9 does not act on discontinuity: its periods are counted from its
+  // wsjt-codec does not act on discontinuity: its periods are counted from its
   // first sample whatever controls arrive between the audio frames.
-  void jt9IgnoresDiscontinuity ()
+  void wsjtCodecIgnoresDiscontinuity ()
   {
     auto const third = silentAudioFrame (Ft4PeriodSamples / 3);
     auto const period = silentAudioFrame (Ft4PeriodSamples);
@@ -788,7 +788,7 @@ private slots:
   }
 
   // A period's label is the producer's UTC, whichever key and frame carried it.
-  void jt9LabelsPeriodsWithTheProducersUtc_data ()
+  void wsjtCodecLabelsPeriodsWithTheProducersUtc_data ()
   {
     QTest::addColumn<QByteArray> ("configure");
     QTest::addColumn<int> ("samples");
@@ -853,7 +853,7 @@ private slots:
       << QString {"051100"};
   }
 
-  void jt9LabelsPeriodsWithTheProducersUtc ()
+  void wsjtCodecLabelsPeriodsWithTheProducersUtc ()
   {
     QFETCH (QByteArray, configure);
     QFETCH (int, samples);
