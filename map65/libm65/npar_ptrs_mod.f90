@@ -60,9 +60,13 @@ module npar_ptrs_mod
   !                            newdat = 1 in that copy) and clears
   !                            draft%manualDecodeFlag
   !   claim_decode_request()   copies the oldest request into active; an
-  !                            automatic live request whose input generation
-  !                            is out of date is marked expired, and run_m65
-  !                            skips it (<DecodeSkipped>)
+  !                            automatic request is marked expired, and run_m65
+  !                            skips it (<DecodeSkipped>), when the data
+  !                            snapshot it was published with has been
+  !                            overwritten or never filled (or, for requests
+  !                            without a snapshot, when its input generation
+  !                            is out of date). A request whose snapshot is
+  !                            intact still runs after the minute rolls over.
   !   initialize_decode_parameters() copies draft into active once, at startup
   !   The decoder then sees a consistent snapshot for the whole pass, even if
   !   the GUI changes draft meanwhile.
@@ -96,6 +100,8 @@ module npar_ptrs_mod
     type(decode_parameters) :: parameters
     integer(c_int64_t) :: id
     integer(c_int64_t) :: input_generation
+    integer(c_int) :: snap_idx = 0            ! snapshot slot (1 = nhsym1, 2 = nhsym2); 0 = none
+    integer(c_int64_t) :: snap_seq = 0        ! fill number of that slot when published
     type(decode_request), pointer :: next => null()
   end type
   type(decode_request), pointer, save :: pending_head => null(), pending_tail => null()
@@ -104,6 +110,19 @@ module npar_ptrs_mod
   integer(c_int64_t), save :: live_input_generation = 0
   integer(c_int64_t), save :: active_input_generation = 0
   logical, save :: active_request_expired = .false.
+
+  ! Decoder data snapshots (see datcom_ptrs_mod). All of this state is
+  ! protected by lock_decode_requests().
+  !   snap_seq(i)       fill number, bumped each time slot i is (re)filled
+  !   snap_valid_seq(i) fill number whose contents are intact; 0 while a fill
+  !                     is in progress or after a fill was skipped
+  !   snap_busy(i)      slot i is being read by the running decode pass; a fill
+  !                     is skipped rather than overwrite it
+  integer(c_int64_t), save :: snap_seq(2) = 0
+  integer(c_int64_t), save :: snap_valid_seq(2) = 0
+  logical, save :: snap_busy(2) = .false.
+  integer(c_int), save :: snap_latest_idx = 0   ! most recently completed fill
+  integer(c_int), save :: active_snap_idx = 0   ! slot read by the active pass
 
   real(c_double), pointer :: fcenter => active%fcenter
   real(c_double), pointer :: ftol_nb => active%ftol_nb
@@ -781,6 +800,16 @@ end subroutine
     request%input_generation = live_input_generation
     request%parameters = draft
     request%parameters%newdat = 1
+    ! Automatic passes (nhsym1/nhsym2) were just snapshotted by dataSink();
+    ! remember which slot and fill they own. Manual repeats use the latest.
+    if (draft%manualDecodeFlag == 0 .and. draft%nagain == 0 .and. &
+        (draft%nhsym == 280 .or. draft%nhsym == 302)) then
+      request%snap_idx = merge(1, 2, draft%nhsym == 280)
+      request%snap_seq = snap_seq(request%snap_idx)
+      ! No fill has ever happened for this slot (no snapshot support in the
+      ! caller): fall back to the input-generation rule.
+      if (request%snap_seq == 0) request%snap_idx = 0
+    endif
     if (associated(pending_tail)) then
       pending_tail%next => request
     else
@@ -804,8 +833,26 @@ end subroutine
       active = request%parameters
       active_request_id = request%id
       active_input_generation = request%input_generation
-      active_request_expired = active%ndiskdat == 0 .and. active%nagain == 0 .and. &
-        active%manualDecodeFlag == 0 .and. request%input_generation /= live_input_generation
+      active_snap_idx = 0
+      if (request%snap_idx > 0) then
+        ! Automatic pass: valid while its snapshot is intact, even if the
+        ! minute has rolled over. A live request more than one generation old
+        ! (monitoring stopped, period changed) is still dropped.
+        active_request_expired = snap_valid_seq(request%snap_idx) /= request%snap_seq
+        if (active%ndiskdat == 0 .and. &
+            live_input_generation - request%input_generation >= 2) active_request_expired = .true.
+        if (.not. active_request_expired) then
+          active_snap_idx = request%snap_idx
+          snap_busy(active_snap_idx) = .true.
+        endif
+      else
+        active_request_expired = active%ndiskdat == 0 .and. active%nagain == 0 .and. &
+          active%manualDecodeFlag == 0 .and. request%input_generation /= live_input_generation
+        if (.not. active_request_expired .and. snap_latest_idx > 0) then
+          active_snap_idx = snap_latest_idx            ! manual repeat: latest snapshot
+          snap_busy(active_snap_idx) = .true.
+        endif
+      endif
       deallocate(request)
     endif
     call unlock_decode_requests()
@@ -814,6 +861,34 @@ end subroutine
   subroutine initialize_decode_parameters()
     call lock_decode_requests()
     active = draft
+    call unlock_decode_requests()
+  end subroutine
+
+  ! A snapshot fill starts: invalidate the slot's contents and say whether the
+  ! copy may proceed (ok = .false. when the running pass is still reading it).
+  subroutine snapshot_fill_begin(idx, ok)
+    integer, intent(in) :: idx
+    logical, intent(out) :: ok
+    call lock_decode_requests()
+    snap_seq(idx) = snap_seq(idx) + 1
+    snap_valid_seq(idx) = 0
+    ok = .not. snap_busy(idx)
+    call unlock_decode_requests()
+  end subroutine
+
+  subroutine snapshot_fill_end(idx)
+    integer, intent(in) :: idx
+    call lock_decode_requests()
+    snap_valid_seq(idx) = snap_seq(idx)
+    snap_latest_idx = idx
+    call unlock_decode_requests()
+  end subroutine
+
+  ! The active pass is finished with its snapshot slot.
+  subroutine snapshot_release()
+    call lock_decode_requests()
+    if (active_snap_idx > 0) snap_busy(active_snap_idx) = .false.
+    active_snap_idx = 0
     call unlock_decode_requests()
   end subroutine
 
