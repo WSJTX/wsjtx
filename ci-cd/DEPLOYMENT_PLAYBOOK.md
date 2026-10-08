@@ -1001,7 +1001,7 @@ A patch release on an existing line never uses `BETA` state. It uses `RC N` meta
 
 ### Starting a release line
 
-Cut `release/X.Y` from a green `develop`. Then land the line-start commit, a reviewed commit that changes only `release-state.txt` and `release-linux-images.json`. The state is `BETA 1` for the line's version (`channel=BETA`, `prerelease=1`, `windows_signing=unsigned`), and the selection is the one prepared as [Prepared Linux release images](#prepared-linux-release-images) describes. For that preparation, choose a `validated-build-YYYYMMDD-RUN-ATTEMPT` generation that all four `ghcr.io/wsjtx/wsjtx-internal/<package>` images carry, from a Refresh Build Caches or Publish Linux CI Images run on `develop` built for the line's recipes. List a package's tags with a token that has the `read:packages` scope:
+Cut `release/X.Y` from a green `develop`. Then land the line-start commit, which changes only `release-state.txt` and `release-linux-images.json`. The state is `BETA 1` for the line's version (`channel=BETA`, `prerelease=1`, `windows_signing=unsigned`), and the selection is the one prepared as [Prepared Linux release images](#prepared-linux-release-images) describes. For that preparation, choose a `validated-build-YYYYMMDD-RUN-ATTEMPT` generation that all four `ghcr.io/wsjtx/wsjtx-internal/<package>` images carry, from a Refresh Build Caches or Publish Linux CI Images run on `develop` built for the line's recipes. List a package's tags with a token that has the `read:packages` scope:
 
 ```bash
 # Tags of one internal image package, here linux-noble:
