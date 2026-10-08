@@ -211,7 +211,65 @@ module ft8_mod1
   end type oddqso_struct
   type(oddqso_struct) oddqso(1,nmaxthreads)
 
+  interface
+     subroutine wsjt_tsan_acquire_ft8_find_dupes() bind(C)
+     end subroutine wsjt_tsan_acquire_ft8_find_dupes
+     subroutine wsjt_tsan_release_ft8_find_dupes() bind(C)
+     end subroutine wsjt_tsan_release_ft8_find_dupes
+  end interface
+
 contains
+
+  logical function ft8_message_seen(message,frequency) result(seen)
+    implicit none
+    character(len=*), intent(in) :: message
+    real, intent(in) :: frequency
+    integer :: i
+
+    seen=.false.
+!$omp critical(find_dupes)
+    call wsjt_tsan_acquire_ft8_find_dupes()
+    do i=1,ndecodes
+       if(allmessages(i).eq.message .and. abs(allfreq(i)-frequency).lt.45.0) then
+          seen=.true.
+          exit
+       endif
+    enddo
+    call wsjt_tsan_release_ft8_find_dupes()
+!$omp end critical(find_dupes)
+  end function ft8_message_seen
+
+  subroutine ft8_lookup_call_dt(call,even_interval,odd_interval,found,dt)
+    implicit none
+    character(len=*), intent(in) :: call
+    logical, intent(in) :: even_interval,odd_interval
+    logical, intent(out) :: found
+    real, intent(inout) :: dt
+    integer :: i
+
+    found=.false.
+!$omp critical(find_dupes)
+    call wsjt_tsan_acquire_ft8_find_dupes()
+    if(even_interval) then
+       do i=1,size(calldteven)
+          if(trim(calldteven(i)%call2).eq.trim(call)) then
+             dt=calldteven(i)%dt
+             found=.true.
+             exit
+          endif
+       enddo
+    else if(odd_interval) then
+       do i=1,size(calldtodd)
+          if(trim(calldtodd(i)%call2).eq.trim(call)) then
+             dt=calldtodd(i)%dt
+             found=.true.
+             exit
+          endif
+       enddo
+    endif
+    call wsjt_tsan_release_ft8_find_dupes()
+!$omp end critical(find_dupes)
+  end subroutine ft8_lookup_call_dt
 
   subroutine reset_ft8_mod1()
     dd8=0.

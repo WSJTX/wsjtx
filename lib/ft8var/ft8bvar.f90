@@ -16,10 +16,10 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   use ft8_mtd_residual, only : mtd_commit_subtraction,mtd_mark_spectrum_current, &
        mtd_refresh_candidate
   use decode_completion_module, only : write_decode_progress
-  use ft8_mod1, only : allmessages,ndecodes,apsym,mcq,m73,mrr73,mrrr,icos7,       &
-       naptypes,nhaptypes,one,graymap,oddcopy,evencopy,lastrxmsg,lasthcall,       &
-       nlasttx,calldteven,calldtodd,lqsomsgdcd,mycalllen1,msgroot,msgrootlen,     &
-       allfreq,idtone25,idtone25_valid,lapmyc,idtonemyc,mycall,hiscall,lhound,apsymsp, &
+  use ft8_mod1, only : ft8_message_seen,ft8_lookup_call_dt,apsym,mcq,m73,       &
+       mrr73,mrrr,icos7,naptypes,nhaptypes,one,graymap,oddcopy,evencopy,       &
+       lastrxmsg,lasthcall,nlasttx,lqsomsgdcd,mycalllen1,msgroot,msgrootlen,   &
+       idtone25,idtone25_valid,lapmyc,idtonemyc,mycall,hiscall,lhound,apsymsp, &
        ndxnsaptypes,apsymdxns1,apsymdxnsrrr,lenabledxcsearch,lwidedxcsearch,      &
        apcqsym,apsymdxnsrr73,apsymdxns73,mybcall,hisbcall,lskiptx1,nft8cycles,    &
        ctwkw,ctwkn,nincallthr,msgincall,xdtincall,maskincallthr,ctwk256,numcqsig, &
@@ -65,7 +65,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   type(pack77_state), pointer :: codec
   type(ft8_signal_evidence), optional, intent(out) :: evidence
   character(len=37) :: decoded_payload_message
-  logical :: has_decoded_payload
+  logical :: has_decoded_payload,history_found
 
   type(tmpcqdec_struct) tmpcqdec(numdeccq)
   type(tmpcqsig_struct) tmpcqsig(numcqsig) ! 20 sigs 24 threads
@@ -129,24 +129,11 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                  lvirtual2=.true.
               endif
               if(.not.lastrxmsg(1)%lstate) then
-                 if(levenint) then
-                    do i=1,150
-                       if(trim(calldteven(i)%call2).eq.trim(hiscall)) then
-                          xdt0=calldteven(i)%dt
-                          nqso=3
-                          lvirtual2=.true.
-                          exit
-                       endif
-                    enddo
-                 else if(loddint) then 
-                    do i=1,150
-                       if(trim(calldtodd(i)%call2).eq.trim(hiscall)) then
-                          xdt0=calldtodd(i)%dt
-                          nqso=3
-                          lvirtual2=.true.
-                          exit
-                       endif
-                    enddo
+                 call ft8_lookup_call_dt(hiscall,logical(levenint), &
+                      logical(loddint),history_found,xdt0)
+                 if(history_found) then
+                    nqso=3
+                    lvirtual2=.true.
                  endif
               endif
            endif
@@ -159,24 +146,11 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                  lvirtual3=.true.
               endif
               if(.not.lastrxmsg(1)%lstate) then
-                 if(levenint) then
-                    do i=1,150
-                       if(trim(calldteven(i)%call2).eq.trim(hiscall)) then
-                          xdt0=calldteven(i)%dt
-                          nqso=3
-                          lvirtual3=.true.
-                          exit
-                       endif
-                    enddo
-                 else if(loddint) then
-                    do i=1,150
-                       if(trim(calldtodd(i)%call2).eq.trim(hiscall)) then
-                          xdt0=calldtodd(i)%dt
-                          nqso=3
-                          lvirtual3=.true.
-                          exit
-                       endif
-                    enddo
+                 call ft8_lookup_call_dt(hiscall,logical(levenint), &
+                      logical(loddint),history_found,xdt0)
+                 if(history_found) then
+                    nqso=3
+                    lvirtual3=.true.
                  endif
               endif
            endif
@@ -2776,14 +2750,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
 4    continue
 !### Possibly call ft8_a8d() here ??? ###
 
-     ldupemsg=.false.
-     if(ndecodes.gt.0) then
-        do i=1,ndecodes
-           if(allmessages(i).eq.msg37 .and. abs(allfreq(i)-f1).lt.45.0) then
-              ldupemsg=.true.
-           endif
-        enddo
-     endif
+     ldupemsg=ft8_message_seen(msg37,f1)
 
      if(.not.ldupemsg .and. dfqso.lt.2.0 .and. ((i3.eq.1 .and. .not.lft8s) .or. &
           lft8s)) then
