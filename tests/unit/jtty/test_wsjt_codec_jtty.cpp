@@ -41,6 +41,7 @@ namespace
 constexpr int SampleRate = 12000;
 constexpr int FrameSamples = 59 * 384;    // one JTTY frame at nsps 384
 constexpr int LeadSamples = 6000;         // silence before each synthesized transmission
+constexpr int ControlCapacityBytes = 262144;    // the longest control frame wsjt-codec reads
 constexpr int ProcessTimeoutMs = 60000;
 // A process that measures JTTY's FFT plans: about a minute on ARM Linux.
 constexpr int PlanningTimeoutMs = 240000;
@@ -793,9 +794,9 @@ private Q_SLOTS:
   {
     auto const hide = QByteArray {R"("rxfreq":2500,"nfa":1600)"};
     QByteArray oversized {R"({"t":"configure",)" + hide + "}"};
-    oversized += QByteArray (1025 - oversized.size (), ' ');
+    oversized += QByteArray (ControlCapacityBytes + 1 - oversized.size (), ' ');
     QByteArray largest {R"({"t":"configure","ntol":20})"};
-    largest += QByteArray (1024 - largest.size (), ' ');
+    largest += QByteArray (ControlCapacityBytes - largest.size (), ' ');
     auto const run = runCodec (
       header () + control (R"({"t":"configure","mode":"FT8"})")
       + control (R"({"t":"configure","mode":"JTTY","rxfreq":0,"ntol":6000,"nfa":0,"nfb":6000})")

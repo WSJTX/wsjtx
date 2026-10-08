@@ -19,6 +19,7 @@ constexpr int Jt9TenSecondPeriodSamples = 10 * 12000;
 // wsjt-codec reads audio 4,096 samples at a time and skips frames 4,096 bytes at a time.
 constexpr int Jt9ChunkSamples = 4096;
 constexpr int Jt9DrainBytes = 4096;
+constexpr int Jt9ControlCapacityBytes = 262144;
 
 constexpr char ReadyLine[] =
   R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"protocol":1})";
@@ -605,14 +606,15 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), periods);
   }
 
-  // A control frame over 1,024 bytes is reported and skipped whole.
+  // A control frame over 262,144 bytes is reported and skipped whole.
   void wsjtCodecSkipsOversizedControlFrames_data ()
   {
     QTest::addColumn<int> ("length");
     QTest::addColumn<QByteArray> ("line");
-    QTest::newRow ("1024 bytes") << 1024 << QByteArray {InvalidTrperiodLine};
-    QTest::newRow ("1025 bytes") << 1025 << QByteArray {ControlFrameTooLargeLine};
-    QTest::newRow ("over three drain blocks") << 3 * Jt9DrainBytes + 1 << QByteArray {ControlFrameTooLargeLine};
+    QTest::newRow ("262144 bytes") << Jt9ControlCapacityBytes << QByteArray {InvalidTrperiodLine};
+    QTest::newRow ("262145 bytes") << Jt9ControlCapacityBytes + 1 << QByteArray {ControlFrameTooLargeLine};
+    QTest::newRow ("three drain blocks past the limit")
+      << Jt9ControlCapacityBytes + 3 * Jt9DrainBytes + 1 << QByteArray {ControlFrameTooLargeLine};
   }
 
   void wsjtCodecSkipsOversizedControlFrames ()
