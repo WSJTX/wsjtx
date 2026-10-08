@@ -133,6 +133,15 @@ set_tests_properties (test_jtty_display_layout PROPERTIES
   TIMEOUT 120
 )
 
+add_executable (test_jtty_final_window test_jtty_final_window.f90)
+target_include_directories (test_jtty_final_window PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_final_window)
+add_test (NAME test_jtty_final_window COMMAND test_jtty_final_window)
+set_tests_properties (test_jtty_final_window PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_final_window: all checks passed"
+  TIMEOUT 180
+)
+
 add_executable (test_jtty_get_updates test_jtty_get_updates.f90)
 target_include_directories (test_jtty_get_updates PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_get_updates)

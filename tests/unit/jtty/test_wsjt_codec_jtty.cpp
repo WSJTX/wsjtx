@@ -52,6 +52,7 @@ QString const Quick {"THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG."};
 QString const Quoted {"HE SAID \"73\" OK"};
 QString const Gapped {"HI ... THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG."};
 QString const Padded {"HELLO BOB <<<<< <<<<< <<<<< <<<<< HOW ARE YOU"};    // live entry pausing
+QString const OneFrame {"TNX"};
 
 struct Run
 {
@@ -498,7 +499,7 @@ private Q_SLOTS:
     QVERIFY2 (sample_.size () > 30 * SampleRate * 2, "the JTTY sample WAV is readable");
     ft8_ = wavData (wavFile (QString::fromUtf8 (FT8_ENGINE_WAV)));
     QCOMPARE (ft8_.size (), 15 * SampleRate * 2);
-    for (auto const& message : {Quick, Quoted, Gapped, Padded, QString {"<<<<< <<<<<"}})
+    for (auto const& message : {Quick, Quoted, Gapped, Padded, OneFrame, QString {"<<<<< <<<<<"}})
       {
         auto const pcm = synthesize (message);
         QVERIFY2 (!pcm.isEmpty (), qPrintable ("the encoder synthesizes " + message));
@@ -622,7 +623,8 @@ private Q_SLOTS:
   }
 
   // The GUI's live receive gives the same updates from the same audio and
-  // settings, field for field.
+  // settings, field for field. The codec also searches the window past a
+  // session's last sample, which finds nothing more in these inputs.
   void decodesAsTheGuiDoes_data ()
   {
     QTest::addColumn<QByteArray> ("pcm");
@@ -998,6 +1000,94 @@ private Q_SLOTS:
     CHECK_RUN (eof, 0);
     QVERIFY2 (endsInFlight (eof), "end of input ends the message in flight");
     QCOMPARE (eof.events, halted.events);
+  }
+
+  // When a session ends, the window that extends past its last sample is
+  // searched too, with the session's own settings, so a last frame that ends
+  // shortly before halt, end of input, a discontinuity, an odd-length frame or
+  // a change of mode decodes. A full search window reaches the last frame here
+  // only when 5328 more samples follow it. The change of mode would hide
+  // 1500 Hz from a message that begins in that window, as a one-frame message
+  // does.
+  void lastFrameDecodesAtSessionEnd_data ()
+  {
+    QTest::addColumn<QString> ("message");
+    QTest::addColumn<int> ("extra");
+    QTest::addColumn<QByteArray> ("ending");
+    auto const modeChange = control (R"({"t":"configure","mode":"FT8","rxfreq":2500,"ntol":10,"nfa":1600,"nfb":3000})")
+      + silence (1000);
+    QTest::newRow ("halt +0") << Quick << 0 << control (R"({"t":"halt"})");
+    QTest::newRow ("eof +2000") << Quick << 2000 << QByteArray {};
+    QTest::newRow ("discontinuity +5000")
+      << Quick << 5000 << control (R"({"t":"discontinuity"})") + silence (1000);
+    QTest::newRow ("mode change +1000") << Quick << 1000 << modeChange;
+    QTest::newRow ("mode change, one frame +1000") << OneFrame << 1000 << modeChange;
+    QTest::newRow ("odd frame +3000") << Quick << 3000 << frame (0x01u, QByteArray (1, 'Z'));
+  }
+
+  void lastFrameDecodesAtSessionEnd ()
+  {
+    QFETCH (QString, message);
+    QFETCH (int, extra);
+    QFETCH (QByteArray, ending);
+    auto const& pcm = transmission (message);
+    int const frames = (int (pcm.size () / 2) - LeadSamples) / FrameSamples - 1;
+    int const end = LeadSamples + frames * FrameSamples;    // the last frame's end
+    QVERIFY (end + extra <= pcm.size () / 2);
+    auto const run = runCodec (header () + jtty () + audio (pcm, 4096, 0, end + extra) + ending);
+    CHECK_RUN (run, 0);
+
+    auto const updates = updatesFor (run.events, messageNear (run.events, 1500.0));
+    QVERIFY (!updates.isEmpty ());
+    QCOMPARE (updates.last ().value ("state").toString (), QString {"complete"});
+    QCOMPARE (updates.last ().value ("text").toString (), message);
+    auto const sessions = ofType (run.events, "session");
+    QCOMPARE (sessions.size (), ending.contains ("discontinuity") ? 2 : 1);
+    if (sessions.size () == 2)
+      {
+        QCOMPARE (sessions[1].value ("origin").toInt (), end + extra);
+        QVERIFY (run.events.indexOf (updates.last ()) < run.events.indexOf (sessions[1]));
+      }
+    auto const finished = ofType (run.events, "decode_finished");
+    QCOMPARE (finished.size (), ending.contains ("FT8") ? 1 : 0);
+    if (!finished.isEmpty ())
+      QVERIFY (run.events.indexOf (updates.last ()) < run.events.indexOf (finished.first ()));
+  }
+
+  // End of input in the middle of an audio frame drops the chunk being read,
+  // up to 4,095 samples, as in every mode: the events are those of the input
+  // without it. The frame begins 8192 samples before the last frame's end.
+  void truncatedFrameAtEndOfInput_data ()
+  {
+    QTest::addColumn<int> ("declared");
+    QTest::addColumn<int> ("delivered");
+    QTest::addColumn<int> ("kept");
+    QTest::addColumn<bool> ("lastFrame");    // the input keeps the whole last frame
+    QTest::newRow ("within the first chunk") << 8192 << 4050 << 0 << false;
+    QTest::newRow ("after a chunk") << 8192 << 4096 + 2000 << 4096 << false;
+    QTest::newRow ("after the last frame") << 12288 << 8192 + 3000 << 8192 << true;
+  }
+
+  void truncatedFrameAtEndOfInput ()
+  {
+    QFETCH (int, declared);
+    QFETCH (int, delivered);
+    QFETCH (int, kept);
+    QFETCH (bool, lastFrame);
+    auto const& pcm = transmission (Quick);
+    int const start = LeadSamples + 9 * FrameSamples - 8192;
+    auto const prefix = header () + jtty () + audio (pcm, 4096, 0, start);
+    auto const truncated = runCodec (prefix + frame (0x01u, pcm.mid (2 * start, 2 * declared))
+                                     .left (5 + 2 * delivered + 1));
+    CHECK_RUN (truncated, 0);
+    auto const complete = runCodec (prefix + (kept > 0 ? frame (0x01u, pcm.mid (2 * start, 2 * kept))
+                                                       : QByteArray {}));
+    CHECK_RUN (complete, 0);
+    QVERIFY (!ofType (complete.events, "jtty_update").isEmpty ());
+    QCOMPARE (truncated.events, complete.events);
+    if (lastFrame)
+      QCOMPARE (updatesFor (truncated.events, messageNear (truncated.events, 1500.0)).last ().value ("state").toString (),
+                QString {"complete"});
   }
 
   // A change to JTTY in the middle of an FT8 period discards the period, as
