@@ -263,6 +263,92 @@ private Q_SLOTS:
     QCOMPARE (audio.size (), tones.size () * nsps);
     QVERIFY (audio == expected);
   }
+
+  void macroContextTakesTheProfilesExchange ()
+  {
+    auto const fieldDay = Jtty::nativeMacroContext ("K1ABC", "W9XYZ", 7, "FN42", -3, FieldDay, "1d  ema");
+    QCOMPARE (fieldDay.myCall, QString {"K1ABC"});
+    QCOMPARE (fieldDay.hisCall, QString {"W9XYZ"});
+    QCOMPARE (fieldDay.serialNumber, 7);
+    QCOMPARE (fieldDay.grid, QString {"FN42"});
+    QCOMPARE (fieldDay.snr, -3);
+    QCOMPARE (fieldDay.exchangeProfile, FieldDay);
+    QCOMPARE (fieldDay.configuredExchange, QString {"1D EMA"});
+    QCOMPARE (Jtty::nativeMacroContext ({}, {}, 1, {}, -10, FieldDay, "32a ema").configuredExchange,
+              QString {"32A EMA"});
+    QCOMPARE (Jtty::nativeMacroContext ({}, {}, 1, {}, -10, RttyRoundup, "ca").configuredExchange,
+              QString {"ca"});
+    QCOMPARE (Jtty::nativeMacroContext ({}, {}, 1, {}, -10, None, "CA").configuredExchange, QString {});
+  }
+
+  void encodesNativeAtoms ()
+  {
+    auto const context = Jtty::nativeMacroContext ("K1ABC", "W9XYZ", 107, "FN42", -10, None, {});
+    auto const compiled = Jtty::compileNativeMacro (Jtty::nativeMacroTemplate (2), context);
+    QVERIFY (compiled.isNative ());
+    auto const encoded = Jtty::encodeNativeAtoms (compiled.atoms);
+    QCOMPARE (encoded.tones.size (), 2 * Jtty::transmitFrameSymbols);
+    QVERIFY (encoded.error.isEmpty ());
+
+    auto const unknownSection = Jtty::Encoder::nativeClassSectionAtom (1, u'D', u"ZZZ");
+    auto const unknown = Jtty::encodeNativeAtoms ({unknownSection});
+    QVERIFY (unknown.tones.isEmpty ());
+    QCOMPARE (unknown.error, QString {"Field Day section is not registered in the ARRL/RAC table"});
+    auto const none = Jtty::encodeNativeAtoms ({});
+    QVERIFY (none.tones.isEmpty ());
+    QCOMPARE (none.error, QString {"native atom encoding failed"});
+  }
+
+  // A function key sends the tones genjtty_atoms_c gives its atoms, with a
+  // frame per atom whose last ends the message.
+  void nativeAtomsAreSentAsGenjttyAtoms_data ()
+  {
+    QTest::addColumn<QString> ("macro");
+    QTest::addColumn<int> ("profile");
+    QTest::addColumn<QString> ("exchange");
+    for (int key = 1; key <= 8; ++key) {
+      QTest::newRow (qPrintable (Jtty::nativeMacroTemplate (key))) << Jtty::nativeMacroTemplate (key) << 0 << QString {};
+    }
+    for (int key : {2, 6, 8}) {
+      QTest::newRow (qPrintable (Jtty::legacyNativeMacroTemplate (key)))
+        << Jtty::legacyNativeMacroTemplate (key) << 0 << QString {};
+    }
+    QTest::newRow ("%H %G") << "%H %G" << 0 << QString {};
+    QTest::newRow ("TU NOW %Q %G") << "TU NOW %Q %G" << 0 << QString {};
+    QTest::newRow ("%G") << "%G" << 0 << QString {};
+    QTest::newRow ("599 %G") << "599 %G" << 0 << QString {};
+    QTest::newRow ("field day") << "%H %E" << 1 << "2D EMA";
+    QTest::newRow ("rtty state") << "TU NOW %Q %E" << 2 << "CA";
+    QTest::newRow ("control") << "QSO B4" << 0 << QString {};
+  }
+
+  void nativeAtomsAreSentAsGenjttyAtoms ()
+  {
+    QFETCH (QString, macro);
+    QFETCH (int, profile);
+    QFETCH (QString, exchange);
+    auto const context = Jtty::nativeMacroContext ("K1ABC", "W9XYZ", 107, "FN42", -10,
+                                                   static_cast<Jtty::NativeExchangeProfile> (profile),
+                                                   exchange);
+    auto const compiled = Jtty::compileNativeMacro (macro, context);
+    QVERIFY (compiled.isNative ());
+
+    int tones[Jtty::maxTransmitFrames * Jtty::transmitFrameSymbols];
+    int nsym = 0;
+    int status = -1;
+    genjtty_atoms_c (compiled.atoms.constData (), compiled.atoms.size (), tones, &nsym, &status);
+    QCOMPARE (status, 0);
+    auto const encoded = Jtty::encodeNativeAtoms (compiled.atoms);
+    QCOMPARE (encoded.tones, QVector<int> (tones, tones + nsym));
+
+    std::vector<Jtty::NativeAtomDescriptor> const atoms (compiled.atoms.cbegin (), compiled.atoms.cend ());
+    auto const withFrames = Jtty::Encoder::encodeNativeAtoms (atoms);
+    QCOMPARE (int (withFrames.frames.size ()), compiled.atoms.size ());
+    QCOMPARE (int (withFrames.tones.size ()), nsym);
+    for (std::size_t i = 0; i < withFrames.frames.size (); ++i) {
+      QCOMPARE (withFrames.frames[i].back (), i + 1 == withFrames.frames.size () ? '1' : '0');
+    }
+  }
 };
 
 QTEST_GUILESS_MAIN (TestJttyTransmitText);

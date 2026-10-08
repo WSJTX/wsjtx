@@ -4,9 +4,6 @@
 #include <algorithm>
 #include <array>
 
-extern "C" void genjtty_atoms_c (Jtty::NativeAtomDescriptor const atoms[], int natoms,
-                                 int tones[], int* nsym, int* status);
-
 extern "C" int jtty_cpp_n1mm_smoke (int tones[], int* nsym)
 {
   auto const compiled = Jtty::compileN1mmMessage (

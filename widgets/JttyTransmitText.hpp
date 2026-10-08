@@ -49,6 +49,21 @@ namespace Jtty
     return result;
   }
 
+  struct NativeAtomEncoding
+  {
+    QVector<int> tones;         // empty when the atoms do not encode
+    QString error;
+  };
+
+  inline NativeAtomEncoding encodeNativeAtoms (QVector<NativeAtomDescriptor> const& atoms)
+  {
+    auto const encoded = Encoder::encodeNativeAtoms ({atoms.cbegin (), atoms.cend ()});
+    NativeAtomEncoding result;
+    for (int const tone : encoded.tones) result.tones.append (tone);
+    result.error = fromEncoder (encoded.error);
+    return result;
+  }
+
   inline QVector<qint16> renderTransmitTones (int const tones[], int nsym, int sampleRate, float f0)
   {
     auto const audio = Encoder::renderTransmitTones (tones, nsym, sampleRate, f0);
