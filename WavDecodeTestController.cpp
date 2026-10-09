@@ -36,6 +36,8 @@ WavDecodeTestController::WavDecodeTestController (
   connect (&m_timeout, &QTimer::timeout, this, [this] {
     finish (tr ("Timed out waiting for %1 WAV decoding.").arg (m_modeName));
   });
+  // Windows dispatches coarse timers separately from the mode restore's precise timers.
+  m_prepareTimer.setTimerType (Qt::PreciseTimer);
   m_prepareTimer.setSingleShot (true);
   connect (&m_prepareTimer, &QTimer::timeout,
            this, &WavDecodeTestController::prepareWhenReady);
