@@ -80,3 +80,40 @@ extern "C" int jtty_cpp_rtty_smoke (int tones[], int* nsym)
   }
   return status;
 }
+
+extern "C" int jtty_cpp_rtty_line_refused ()
+{
+  // 80 characters; RTTY Roundup writes the serial as 005, which makes it 81.
+  QString const line = QString (73, QLatin1Char {'A'}) + QStringLiteral (" 599 05");
+  auto encodesWith = [] (Jtty::NativeExchangeProfile exchange) {
+    return [profile = static_cast<int> (exchange)] (QString const& text) {
+      auto frame = Jtty::transmitFrame (text).toLatin1 ();
+      std::array<int, 16 * 59> tones {};
+      std::array<int, 16> frameStarts {};
+      int symbols {};
+      int const isFinal = 0;
+      genjtty_profile_ (frame.data (), &profile, tones.data (), &symbols,
+                        frameStarts.data (), &isFinal, frame.size ());
+      return symbols > 0;
+    };
+  };
+  auto const rtty = Jtty::encodeTransmitLine (line, encodesWith (Jtty::NativeExchangeProfile::RttyRoundup));
+  auto const none = Jtty::encodeTransmitLine (line, encodesWith (Jtty::NativeExchangeProfile::None));
+  return !rtty && none && none->size () == 1;
+}
+
+extern "C" int jtty_cpp_rtty_line_tones (int tones[], int* nsym)
+{
+  // 79 characters; with the serial written as 005 it is exactly 80.
+  QString const line = QString (72, QLatin1Char {'A'}) + QStringLiteral (" 599 05");
+  int const profile = static_cast<int> (Jtty::NativeExchangeProfile::RttyRoundup);
+  auto encode = [&] (QString const& text, int isFinal) {
+    auto frame = Jtty::transmitFrame (text).toLatin1 ();
+    std::array<int, 16> frameStarts {};
+    *nsym = 0;
+    genjtty_profile_ (frame.data (), &profile, tones, nsym, frameStarts.data (), &isFinal, frame.size ());
+    return *nsym > 0;
+  };
+  auto const segments = Jtty::encodeTransmitLine (line, [&] (QString const& text) { return encode (text, 0); });
+  return segments && segments->size () == 1 && encode (segments->front ().text, 1);
+}

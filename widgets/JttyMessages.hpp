@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <type_traits>
 
 #include <QByteArray>
@@ -260,6 +261,22 @@ namespace Jtty
       }
     }
     return {offset, length, message.mid (offset, length)};
+  }
+
+  // A segment that does not encode refuses the line rather than being cut shorter: the rest would continue the receiver's 80-column message.
+  template <typename Encode>
+  std::optional<QVector<TransmitTextSegment>> encodeTransmitLine (QString const& line, Encode&& encode)
+  {
+    QVector<TransmitTextSegment> segments;
+    for (int offset = 0; offset < line.size ();) {
+      auto const source = nextTransmitTextSegment (line, offset);
+      if (!source.text.trimmed ().isEmpty ()) {
+        if (!encode (source.text)) return std::nullopt;
+        segments.append (source);
+      }
+      offset += source.length;
+    }
+    return segments;
   }
 
   // An empty result rejects oversized text before it reaches the fixed-width codec.

@@ -2,6 +2,16 @@
 
 #include "widgets/JttyMessages.hpp"
 
+namespace
+{
+  // 121 characters: two transmit segments.
+  QString longLine ()
+  {
+    return QStringLiteral ("THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG AND KEEPS RUNNING ACROSS THE FIELD"
+                           " UNTIL IT REACHES THE OLD BARN BY THE RIVER");
+  }
+}
+
 class TestJttyMessages final
   : public QObject
 {
@@ -688,6 +698,44 @@ private slots:
     QVERIFY (Jtty::nextTransmitTextSegment (QString {"ABC"}, 0, 0).text.isEmpty ());
     QCOMPARE (Jtty::nextTransmitTextSegment (QString (100, QLatin1Char {'A'}), 0, 100).length,
               Jtty::maxTransmitLength);
+  }
+
+  void encodeTransmitLineRefusesRatherThanShortens ()
+  {
+    QString const line = QString (73, QLatin1Char {'A'}) + QStringLiteral (" 599 05");
+    QStringList attempts;
+    auto const encoded = Jtty::encodeTransmitLine (line, [&] (QString const& text) {
+      attempts << text;
+      return text.size () < line.size ();
+    });
+    QVERIFY (!encoded);
+    QCOMPARE (attempts, QStringList {line});
+
+    QStringList cuts;
+    auto const laterSegmentFails = Jtty::encodeTransmitLine (longLine (), [&] (QString const& text) {
+      cuts << text;
+      return cuts.size () < 2;
+    });
+    QVERIFY (!laterSegmentFails);
+    QCOMPARE (cuts.size (), 2);
+    QCOMPARE (cuts.join (QString {}), longLine ());
+  }
+
+  void encodeTransmitLineKeepsTheSegmentCuts ()
+  {
+    QString const line = longLine ();
+    QStringList attempts;
+    auto const encoded = Jtty::encodeTransmitLine (line, [&] (QString const& text) {
+      attempts << text;
+      return true;
+    });
+    QVERIFY (encoded);
+    QCOMPARE (encoded->size (), 2);
+    QCOMPARE (attempts, (QStringList {encoded->at (0).text, encoded->at (1).text}));
+    QCOMPARE (encoded->at (0).text + encoded->at (1).text, line);
+    auto const blank = Jtty::encodeTransmitLine (QString (5, QLatin1Char {' '}),
+                                                 [] (QString const&) { return false; });
+    QVERIFY (blank && blank->isEmpty ());
   }
 
   void wavCaptureValid_data ()
