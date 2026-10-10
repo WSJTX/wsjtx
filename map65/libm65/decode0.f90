@@ -7,7 +7,7 @@ contains
       use iso_c_binding, only: c_int
       use timer_module, only: timer
       use npar_ptrs_mod
-      use datcom_ptrs_mod, only: NFFT, dd, dd_old, dd_use, ss, ss_old, savg, savg_old, ss_use, savg_use
+      use datcom_ptrs_mod, only: NFFT, dd_old, dd_use, ss_old, savg_old, ss_use, savg_use, snap
       use debug_log, only: dbg, itoa, rtoa
       use sec_midn_mod, only: sec_midn
       use map65a_mod
@@ -25,6 +25,7 @@ contains
       integer nz
       integer :: nhsym0
       integer :: newdat0
+      integer :: isnap
       character(len=128) :: line
       character mycall0*12, hiscall0*12, hisgrid0*6
       logical :: first_mcall3b_check
@@ -47,25 +48,29 @@ contains
 
       ! newdat is forced to 1 by decode() for every call (manual or
       ! automatic); it does not by itself mean "the live buffers just
-      ! finished a fresh accumulation." nagain=1 marks a manual repeat
-      ! (Decode button / Find Delta Phi), which must not refresh dd_old
-      ! from a live buffer that may still be mid-fill.
-      if (newdat0 /= 0 .and. manualDecodeFlag == 0 .and. nagain == 0) then
-         dd_old   = dd
-         ss_old   = ss
-         savg_old = savg
-         call dbg('decode0: dd_old REFRESHED from live dd at t=' // rtoa(sec_midn()) // ' nhsym0=' // itoa(nhsym0))
-      else
-         call dbg('decode0: dd_old NOT refreshed (reusing prior snapshot) at t=' // rtoa(sec_midn()) // &
-                  ' nhsym0=' // itoa(nhsym0) // ' nagain=' // itoa(nagain))
-      endif
+      ! finished a fresh accumulation."
+      !
+      ! Each automatic pass decodes its own snapshot, taken by dataSink() at
+      ! the instant the pass was triggered (snap(1) at nhsym1, snap(2) at
+      ! nhsym2). decode0 never copies from the live buffers, so a pass that
+      ! starts late (queued behind a still-running pass) cannot see data the
+      ! audio thread has already reset for the next cycle. Manual repeats
+      ! (nagain=1, Decode button / Find Delta Phi) reuse the most recently
+      ! filled snapshot.
+      isnap = active_snap_idx             ! slot claimed with this request
+      if (isnap < 1) isnap = 2
+      call dbg('decode0: using snapshot ' // itoa(isnap) // ' at t=' // rtoa(sec_midn()) // &
+               ' nhsym0=' // itoa(nhsym0) // ' nagain=' // itoa(nagain))
+      dd_old   => snap(isnap)%dd
+      ss_old   => snap(isnap)%ss
+      savg_old => snap(isnap)%savg
 
       nkeep = min(max(ntimeout, 10), 40)
 
       call sec0(0, tquick)
       call timer('decode0 ', 0)
       
-      ! Always decode from the snapshot (dd_old/ss_old/savg_old) taken above,
+      ! Always decode from the snapshot selected above (dd_old/ss_old/savg_old),
       ! never the live dd/ss/savg. The nhsym2 pass routinely runs past the
       ! minute boundary (several seconds), and symspec_() on the GUI thread
       ! resets/overwrites the live buffers for the next cycle unconditionally
