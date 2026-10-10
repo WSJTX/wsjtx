@@ -12,8 +12,8 @@ subroutine q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
 
   ncw=0
   if(hiscall(1:1).eq. ' ') return
-  call stdcall(mycall,my_std)
-  call stdcall(hiscall,his_std)
+  call q65_stdcall(mycall,my_std)
+  call q65_stdcall(hiscall,his_std)
   
   ncw=MAX_NCW
   do i=1,ncw
@@ -62,6 +62,25 @@ subroutine q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
 
   return
 end subroutine q65_set_list
+
+subroutine q65_stdcall(callsign,std)
+
+! Like stdcall, but a trailing /R or /P does not make a standard callsign
+! nonstandard: such a call is still sent as a Type 1 message with the
+! ipa/ipb flag set, so the candidate messages must use the plain form.
+
+  character*12 callsign,c12
+  logical std
+
+  c12=callsign
+  n=len_trim(c12)
+  if(n.gt.3) then
+     if(c12(n-1:n).eq.'/R' .or. c12(n-1:n).eq.'/P') c12(n-1:n)='  '
+  endif
+  call stdcall(c12,std)
+
+  return
+end subroutine q65_stdcall
 
 subroutine stdcall(callsign,std)
 

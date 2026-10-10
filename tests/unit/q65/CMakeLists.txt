@@ -41,3 +41,7 @@ add_test (NAME test_q65_callers COMMAND test_q65_callers)
 add_executable (test_q65_caller_display test_q65_caller_display.f90)
 wsjt_link_common_fortran (test_q65_caller_display)
 add_test (NAME test_q65_caller_display COMMAND test_q65_caller_display)
+
+add_executable (test_q65_set_list_suffix test_q65_set_list_suffix.f90)
+wsjt_link_common_fortran (test_q65_set_list_suffix)
+add_test (NAME test_q65_set_list_suffix COMMAND test_q65_set_list_suffix)
