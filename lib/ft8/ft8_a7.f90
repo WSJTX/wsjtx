@@ -416,8 +416,46 @@ subroutine getmsg(i,mycall,hiscall,hisgrid,msg)
   character*37 msg
   logical my_std,his_std
 
-  call stdcall(mycall,my_std)
-  call stdcall(hiscall,his_std)
+  call stdcall_suffix(mycall,my_std)
+  call stdcall_suffix(hiscall,his_std)
+
+! Candidates 207-411 keep what the former nonstandard-call path produced for
+! a /R or /P station: a CQ without a grid (207); when MyCall is standard,
+! <MyCall> HisCall with nothing, RRR, RR73 or 73 (208-211); and
+! MyCall <HisCall> with a report or R-report (212-411, the same sequence as
+! 7-206).  Blank for every other call.
+  if(i.ge.207) then
+     msg=''
+     n=len_trim(hiscall)
+     if(his_std .and. n.gt.3) then
+        if(hiscall(n-1:n).eq.'/R' .or. hiscall(n-1:n).eq.'/P') then
+           if(i.eq.207) msg='CQ '//trim(hiscall)
+           if(i.ge.208 .and. i.le.211 .and. my_std) then
+              msg='<'//trim(mycall)//'> '//trim(hiscall)
+              j0=len(trim(msg))+2
+              if(i.eq.209) msg(j0:j0+2)='RRR'
+              if(i.eq.210) msg(j0:j0+3)='RR73'
+              if(i.eq.211) msg(j0:j0+1)='73'
+           endif
+           if(i.ge.212 .and. my_std) then
+              msg=trim(mycall)//' <'//trim(hiscall)//'>'
+              j0=len(trim(msg))+2
+              j=i-205
+              isnr = -50 + (j-7)/2
+              if(abs(isnr).gt.30) then
+                 msg=''
+              else if(iand(j,1).eq.1) then
+                 write(msg(j0:j0+2),'(i3.2)') isnr
+                 if(msg(j0:j0).eq.' ') msg(j0:j0)='+'
+              else
+                 write(msg(j0:j0+3),'("R",i3.2)') isnr
+                 if(msg(j0+1:j0+1).eq.' ') msg(j0+1:j0+1)='+'
+              endif
+           endif
+        endif
+     endif
+     return
+  endif
 
   isnr=0
   msg=trim(mycall)//' '//trim(hiscall)
