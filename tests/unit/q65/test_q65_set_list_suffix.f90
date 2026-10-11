@@ -6,7 +6,7 @@ program test_q65_set_list_suffix
 
   implicit none
   external :: genq65,q65_set_list,q65_stdcall
-  integer, parameter :: MAX_NCW=206
+  integer, parameter :: MAX_NCW=411
   integer :: codewords(63,MAX_NCW)
   integer :: ncw,nfail
   logical :: std
@@ -51,7 +51,8 @@ contains
     character(len=12) :: mycall,hiscall
     character(len=6) :: hisgrid
     character(len=37) :: msg(8)
-    integer :: k
+    logical :: has_sfx
+    integer :: k,n
     mycall='K1JT'
     hiscall=dxcall
     hisgrid='JN68'
@@ -67,6 +68,37 @@ contains
     do k=1,8
        call expect_in_list(msg(k))
     enddo
+! A suffixed call also gets the no-grid CQ the old nonstandard path built;
+! a plain call keeps the original 206 candidates.
+    n=len_trim(dxcall)
+    has_sfx=n.gt.3 .and. (dxcall(n-1:n).eq.'/R' .or. dxcall(n-1:n).eq.'/P')
+    if(has_sfx) then
+       msg(1)='CQ '//trim(dxcall)
+       call expect_in_list(msg(1))
+       msg(1)='<K1JT> '//trim(dxcall)
+       call expect_in_list(msg(1))
+       msg(1)='<K1JT> '//trim(dxcall)//' RRR'
+       call expect_in_list(msg(1))
+       msg(1)='<K1JT> '//trim(dxcall)//' RR73'
+       call expect_in_list(msg(1))
+       msg(1)='<K1JT> '//trim(dxcall)//' 73'
+       call expect_in_list(msg(1))
+       msg(1)='K1JT <'//trim(dxcall)//'> -10'
+       call expect_in_list(msg(1))
+       msg(1)='K1JT <'//trim(dxcall)//'> R-10'
+       call expect_in_list(msg(1))
+       msg(1)='K1JT <'//trim(dxcall)//'> -50'
+       call expect_in_list(msg(1))
+       msg(1)='K1JT <'//trim(dxcall)//'> R+49'
+       call expect_in_list(msg(1))
+       if(ncw.ne.411) then
+          print *, 'ncw =',ncw,' expected 411 for ',trim(dxcall)
+          nfail=nfail+1
+       endif
+    else if(ncw.ne.206) then
+       print *, 'ncw =',ncw,' expected 206 for ',trim(dxcall)
+       nfail=nfail+1
+    endif
   end subroutine check_list
 
   subroutine expect_in_list(msg)
