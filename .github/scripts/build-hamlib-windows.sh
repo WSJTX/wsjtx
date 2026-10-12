@@ -8,9 +8,13 @@ fi
 
 branch="$1"
 prefix="$2"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 git clone --depth 1 --branch "$branch" \
   https://github.com/Hamlib/Hamlib.git hamlib-src
+git -C hamlib-src apply --check "$script_dir/../patches/hamlib-funcube-windows-hid.patch"
+git -C hamlib-src apply "$script_dir/../patches/hamlib-funcube-windows-hid.patch"
+python3 "$script_dir/tests/test_hamlib_funcube_patch.py" hamlib-src
 cd hamlib-src
 ./bootstrap
 ./configure \

@@ -36,6 +36,8 @@ on:
       - ".github/workflows/build-windows.yml"
       - ".github/actions/warm-macos-deps/**"
       - ".github/actions/build-windows-deps/**"
+      - ".github/patches/hamlib-funcube-windows-hid.patch"
+      - ".github/scripts/tests/test_hamlib_funcube_patch.py"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
       - ".github/scripts/*armhf*"
@@ -238,7 +240,7 @@ jobs:
                   .github/workflows/build-linux-sanitizers.yml|.github/actions/build-linux-sanitizers/*|.github/scripts/verify-sanitizer-instrumentation.py)
                     linux_asan_ubsan=true
                     ;;
-                  .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh)
+                  .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/scripts/tests/test_hamlib_funcube_patch.py)
                     windows=true
                     ;;
                   .github/workflows/build-macos.yml|.github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh|.github/scripts/verify-macos-*.sh)

@@ -1,0 +1,110 @@
+diff --git a/rigs/kit/funcube.c b/rigs/kit/funcube.c
+--- a/rigs/kit/funcube.c
++++ b/rigs/kit/funcube.c
+@@ -27,6 +27,7 @@
+
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <string.h>
+ #include "hamlib/rig.h"
+
+ #define BACKEND_VER "20210830"
+@@ -310,6 +311,44 @@
+     return buf;
+ }
+
++static int funcube_read_report(libusb_device_handle *udh, unsigned char *data,
++                               int length, int *actual_length, int timeout)
++{
++    unsigned char report[65] = { 0 };
++    int ret;
++
++    *actual_length = 0;
++    if (length <= 0 || (size_t)length >= sizeof(report))
++    {
++        return LIBUSB_ERROR_INVALID_PARAM;
++    }
++
++    /* Windows HID may copy and count an extra report-ID byte.
++     * Keep the USB request unchanged while accommodating that extra write.
++     * Remove the workaround after adopting the fix in
++     * https://github.com/libusb/libusb/pull/1965.
++     */
++    ret = libusb_interrupt_transfer(udh, INPUT_ENDPOINT, report, length,
++                                    actual_length, timeout);
++#ifdef _WIN32
++    if (ret == 0 && *actual_length == length + 1)
++    {
++        --*actual_length;
++    }
++#endif
++    if (ret < 0)
++    {
++        return ret;
++    }
++    if (*actual_length != length)
++    {
++        return LIBUSB_ERROR_IO;
++    }
++
++    memcpy(data, report, length);
++    return 0;
++}
++
+ int set_freq_v0(libusb_device_handle *udh, unsigned int f, int timeout)
+ {
+     int ret;
+@@ -340,7 +379,7 @@
+         return -RIG_EIO;
+     }
+
+-    ret = libusb_interrupt_transfer(udh, INPUT_ENDPOINT, au8BufIn, sizeof(au8BufIn),
++    ret = funcube_read_report(udh, au8BufIn, sizeof(au8BufIn),
+                                     &actual_length, timeout);
+
+     if (ret < 0 || actual_length != sizeof(au8BufIn))
+@@ -393,7 +432,7 @@
+         return -RIG_EIO;
+     }
+
+-    ret = libusb_interrupt_transfer(udh, INPUT_ENDPOINT, au8BufIn, sizeof(au8BufIn),
++    ret = funcube_read_report(udh, au8BufIn, sizeof(au8BufIn),
+                                     &actual_length, timeout);
+
+     if (ret < 0 || actual_length != sizeof(au8BufIn))
+@@ -482,7 +521,7 @@
+                   libusb_error_name(ret));
+     }
+
+-    ret = libusb_interrupt_transfer(udh, INPUT_ENDPOINT, au8BufIn, sizeof(au8BufIn),
++    ret = funcube_read_report(udh, au8BufIn, sizeof(au8BufIn),
+                                     &actual_length, rp->timeout);
+
+     if (ret < 0 || actual_length != sizeof(au8BufIn))
+@@ -609,7 +648,7 @@
+                   libusb_error_name(ret));
+     }
+
+-    ret = libusb_interrupt_transfer(udh, INPUT_ENDPOINT, au8BufIn, sizeof(au8BufIn),
++    ret = funcube_read_report(udh, au8BufIn, sizeof(au8BufIn),
+                                     &actual_length, rp->timeout);
+
+     if (ret < 0 || actual_length != sizeof(au8BufIn))
+@@ -672,7 +711,7 @@
+                   libusb_error_name(ret));
+     }
+
+-    ret = libusb_interrupt_transfer(udh, INPUT_ENDPOINT, au8BufIn, sizeof(au8BufIn),
++    ret = funcube_read_report(udh, au8BufIn, sizeof(au8BufIn),
+                                     &actual_length, rp->timeout);
+
+     if (ret < 0 || actual_length != sizeof(au8BufIn))
+@@ -778,7 +817,7 @@
+                   libusb_error_name(ret));
+     }
+
+-    ret = libusb_interrupt_transfer(udh, INPUT_ENDPOINT, au8BufIn, inputSize,
++    ret = funcube_read_report(udh, au8BufIn, inputSize,
+                                     &actual_length, rp->timeout);
+
+     if (ret < 0 || actual_length != inputSize)
