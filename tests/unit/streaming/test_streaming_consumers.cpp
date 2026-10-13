@@ -238,6 +238,52 @@ class TestStreamingConsumers final : public QObject
   Q_OBJECT
 
 private slots:
+  void jt4DecodesWaveform_data ()
+  {
+    QTest::addColumn<QJsonObject> ("timeFields");
+    QTest::addColumn<QString> ("expected");
+    QTest::newRow ("afternoon") << QJsonObject {{"utc", "12:34:00"}} << QString {"123400"};
+    QTest::newRow ("legacy-numeric") << QJsonObject {{"nutc", 1234}} << QString {"123400"};
+    QTest::newRow ("early-hour-iso-precedence")
+      << QJsonObject {{"nutc", 1234}, {"utc", "00:12:34"}} << QString {"001234"};
+  }
+
+  void jt4DecodesWaveform ()
+  {
+    QFETCH (QJsonObject, timeFields);
+    QFETCH (QString, expected);
+    QFile recording {QString::fromUtf8 (JT4_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const wav = recording.readAll ();
+    QCOMPARE (wav.size (), 44 + 60 * 12000 * 2);
+    QCOMPARE (wav.left (4), QByteArray {"RIFF"});
+    QCOMPARE (wav.mid (36, 4), QByteArray {"data"});
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    QJsonObject configuration {{"t", "configure"}, {"mode", "JT4"}, {"trperiod", 60},
+      {"submode", 0}, {"depth_level", 1}, {"rxfreq", 1000}, {"ntol", 50}};
+    for (auto it = timeFields.constBegin (); it != timeFields.constEnd (); ++it)
+      {
+        configuration.insert (it.key (), it.value ());
+      }
+    auto const input = sessionHeader () + controlFrame (
+      QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) +
+      frame (0x01u, wav.mid (44)) + controlFrame (R"({"t":"halt"})");
+    auto const result = runProcess (QString::fromUtf8 (JT9_EXECUTABLE),
+      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    auto const decodes = eventsMatching (events.values, "decode");
+    QCOMPARE (decodes.size (), 1);
+    QCOMPARE (decodes.first ().value ("mode").toString (), QString {"JT4"});
+    QCOMPARE (decodes.first ().value ("time").toString (), expected);
+    QCOMPARE (decodes.first ().value ("message").toString ().trimmed (), QString {"K1ABC W9XYZ FN42"});
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("period_end").toString (), expected);
+  }
+
   void fst4DecodesWaveform_data ()
   {
     QTest::addColumn<QString> ("mode");
@@ -277,7 +323,7 @@ private slots:
     bool found = false;
     for (auto const& decode : eventsMatching (events.values, "decode"))
       {
-        QCOMPARE (decode.value ("mode").toString (), QString {"FST4"});
+        QCOMPARE (decode.value ("mode").toString (), mode);
         found |= decode.value ("message").toString ().trimmed () == message;
       }
     QVERIFY2 (found, result.standardOutput.constData ());
@@ -473,6 +519,120 @@ private slots:
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
+  }
+
+  // A period's label is the producer's UTC, whichever key and frame carried it.
+  void jt9LabelsPeriodsWithTheProducersUtc_data ()
+  {
+    QTest::addColumn<QByteArray> ("configure");
+    QTest::addColumn<int> ("samples");
+    QTest::addColumn<QString> ("periodEnd");
+    QTest::newRow ("FT8 05:11:15")
+      << controlFrame (R"({"t":"configure","mode":"FT8","utc":"05:11:15"})") << 15 * 12000 << QString {"051115"};
+    QTest::newRow ("FT8 00:45:15")
+      << controlFrame (R"({"t":"configure","mode":"FT8","utc":"00:45:15"})") << 15 * 12000 << QString {"004515"};
+    QTest::newRow ("JT9, utc, then FT8")
+      << controlFrame (R"({"t":"configure","mode":"JT9"})") + controlFrame (R"({"t":"configure","utc":"05:11:15"})")
+         + controlFrame (R"({"t":"configure","mode":"FT8"})")
+      << 15 * 12000 << QString {"051115"};
+    QTest::newRow ("FT8 nutc")
+      << controlFrame (R"({"t":"configure","mode":"FT8","nutc":51115})") << 15 * 12000 << QString {"051115"};
+    QTest::newRow ("JT9, nutc 1530, then FT8")
+      << controlFrame (R"({"t":"configure","mode":"JT9"})") + controlFrame (R"({"t":"configure","nutc":1530})")
+         + controlFrame (R"({"t":"configure","mode":"FT8"})")
+      << 15 * 12000 << QString {"001530"};
+    QTest::newRow ("FT8 negative nutc")
+      << controlFrame (R"({"t":"configure","mode":"FT8","nutc":-1})") << 15 * 12000 << QString {"000000"};
+    QTest::newRow ("FT4 05:11:15")
+      << controlFrame (R"({"t":"configure","mode":"FT4","utc":"05:11:15"})") << Ft4PeriodSamples << QString {"051115"};
+    QTest::newRow ("MSK144 05:11:15")
+      << controlFrame (R"({"t":"configure","mode":"MSK144","trperiod":15,"utc":"05:11:15"})") << 15 * 12000
+      << QString {"051115"};
+    QTest::newRow ("FST4-15 05:11:15")
+      << controlFrame (R"({"t":"configure","mode":"FST4","trperiod":15,"utc":"05:11:15"})") << 15 * 12000
+      << QString {"051115"};
+    QTest::newRow ("JT9 05:11:00")
+      << controlFrame (R"({"t":"configure","mode":"JT9","utc":"05:11:00"})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT9 nutc HHMM")
+      << controlFrame (R"({"t":"configure","mode":"JT9","nutc":511})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT9 nutc HHMMSS")
+      << controlFrame (R"({"t":"configure","mode":"JT9","nutc":51100})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT9 nutc 4515")
+      << controlFrame (R"({"t":"configure","mode":"JT9","nutc":4515})") << 60 * 12000 << QString {"004515"};
+    QTest::newRow ("JT9 utc and nutc in one frame")
+      << controlFrame (R"({"t":"configure","mode":"JT9","utc":"00:15:00","nutc":1530})") << 60 * 12000
+      << QString {"001500"};
+    QTest::newRow ("utc 00:15:00, then JT9")
+      << controlFrame (R"({"t":"configure","utc":"00:15:00"})") + controlFrame (R"({"t":"configure","mode":"JT9"})")
+      << 60 * 12000 << QString {"001500"};
+    QTest::newRow ("nutc HHMM, then JT9")
+      << controlFrame (R"({"t":"configure","nutc":511})") + controlFrame (R"({"t":"configure","mode":"JT9"})")
+      << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT9 utc, then nutc")
+      << controlFrame (R"({"t":"configure","mode":"JT9","utc":"05:11:00"})")
+         + controlFrame (R"({"t":"configure","nutc":512})")
+      << 60 * 12000 << QString {"051200"};
+    QTest::newRow ("JT65 05:11:00")
+      << controlFrame (R"({"t":"configure","mode":"JT65","utc":"05:11:00"})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT4 05:11:00")
+      << controlFrame (R"({"t":"configure","mode":"JT4","utc":"05:11:00"})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("FST4-60 05:11:00")
+      << controlFrame (R"({"t":"configure","mode":"FST4","trperiod":60,"utc":"05:11:00"})") << 60 * 12000
+      << QString {"051100"};
+    QTest::newRow ("FST4W-120 05:12:00")
+      << controlFrame (R"({"t":"configure","mode":"FST4W","trperiod":120,"utc":"05:12:00"})") << 120 * 12000
+      << QString {"051200"};
+    QTest::newRow ("Q65-60 05:11:00")
+      << controlFrame (R"({"t":"configure","mode":"Q65","trperiod":60,"utc":"05:11:00"})") << 60 * 12000
+      << QString {"051100"};
+  }
+
+  void jt9LabelsPeriodsWithTheProducersUtc ()
+  {
+    QFETCH (QByteArray, configure);
+    QFETCH (int, samples);
+    QFETCH (QString, periodEnd);
+    auto const result = runJt9 (sessionHeader () + configure + silentAudioFrame (samples));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("period_end").toString (), periodEnd);
+  }
+
+  void ft8DecodeCarriesTheProducersUtc_data ()
+  {
+    QTest::addColumn<QString> ("utc");
+    QTest::addColumn<QString> ("label");
+    QTest::newRow ("05:11:15") << QString {"05:11:15"} << QString {"051115"};
+    QTest::newRow ("00:45:15") << QString {"00:45:15"} << QString {"004515"};
+  }
+
+  void ft8DecodeCarriesTheProducersUtc ()
+  {
+    QFETCH (QString, utc);
+    QFETCH (QString, label);
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const wav = recording.readAll ();
+    QCOMPARE (wav.size (), 44 + 15 * 12000 * 2);
+    QJsonObject configuration {{"t", "configure"}, {"mode", "FT8"}, {"utc", utc}};
+    auto const result = runJt9 (sessionHeader () + controlFrame (
+      QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) + frame (0x01u, wav.mid (44)));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    bool found = false;
+    for (auto const& decode : eventsMatching (events.values, "decode"))
+      {
+        QCOMPARE (decode.value ("time").toString (), label);
+        found |= decode.value ("message").toString ().trimmed () == "CQ K1JT FN20";
+      }
+    QVERIFY2 (found, result.standardOutput.constData ());
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("period_end").toString (), label);
   }
 
   void wsprdRejectsOversizedFrames_data ()

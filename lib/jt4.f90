@@ -1,29 +1,13 @@
 module jt4
-  parameter (MAXAVE=64)
-  integer iutc(MAXAVE)
-  integer nfsave(MAXAVE)
-  integer listutc(10)
-  real    ppsave(207,7,MAXAVE)           !Accumulated data for message averaging
-  real    rsymbol(207,7)                 
-  real    dtsave(MAXAVE)
-  real    syncsave(MAXAVE)
-  real    flipsave(MAXAVE)
-  real    zz(1260,65,7)
-
-  integer nsave,nlist,ich1,ich2
-  integer nch(7)
-  integer npr(207)
-  data rsymbol/1449*0.0/
-  data nch/1,2,4,9,18,36,72/
-  data npr/                                                         &
+  implicit none
+  integer, parameter :: MAXAVE=64
+  integer, parameter :: nch(7)=[1,2,4,9,18,36,72]
+  integer, parameter :: npr(207)=[ &
        0,0,0,0,1,1,0,0,0,1,1,0,1,1,0,0,1,0,1,0,0,0,0,0,0,0,1,1,0,0, &
        0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,0,0, &
        1,0,0,1,0,0,1,1,1,1,1,0,0,0,1,0,1,0,0,0,1,1,1,1,0,1,1,0,0,1, &
        0,0,0,1,1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,0,1,0,1, &
        0,1,1,1,0,0,1,0,1,1,0,1,1,1,1,0,0,0,0,1,1,0,1,1,0,0,0,1,1,1, &
        0,1,1,1,0,1,1,1,0,0,1,0,0,0,1,1,0,1,1,0,0,1,0,0,0,1,1,1,1,1, &
-       1,0,0,1,1,0,0,0,0,1,1,0,0,0,1,0,1,1,0,1,1,1,1,0,1,0,1/
-
-  save ppsave,zz
-  
+       1,0,0,1,1,0,0,0,0,1,1,0,0,0,1,0,1,1,0,1,1,1,1,0,1,0,1 ]
 end module jt4

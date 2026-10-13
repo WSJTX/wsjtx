@@ -61,7 +61,8 @@ module streaming_control
      integer                :: nfa          = 0
      logical                :: nfb_set      = .false.
      integer                :: nfb          = 0
-     ! Per-period UTC as HHMMSS integer. Threaded into
+     ! Per-period UTC as HHMMSS integer; in periods of a minute or more a
+     ! value up to 2359 is read as HHMM. Threaded into
      ! params%nutc so streaming_emit_decode can format the time field
      ! correctly. Producer should send a fresh nutc in each period's
      ! configure frame (mirrors WAV-path filename-derived per-invocation

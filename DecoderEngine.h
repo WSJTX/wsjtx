@@ -6,11 +6,11 @@ extern "C" {
 #endif
 
 typedef void *decoder_engine_handle;
-enum { DECODER_ENGINE_ABI = 7, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
+enum { DECODER_ENGINE_ABI = 8, DECODER_MODE_JT4 = 4, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
        DECODER_MODE_JT9 = 9, DECODER_MODE_JT65 = 65, DECODER_MODE_Q65 = 66,
        DECODER_MODE_FST4 = 240, DECODER_MODE_FST4W = 241 };
 enum { DECODER_SUPPORT_FT8 = 1, DECODER_SUPPORT_FT4 = 2, DECODER_SUPPORT_JT9 = 4,
-       DECODER_SUPPORT_JT65 = 8, DECODER_SUPPORT_Q65 = 16, DECODER_SUPPORT_FST4 = 32, DECODER_SUPPORT_FST4W = 64 };
+       DECODER_SUPPORT_JT65 = 8, DECODER_SUPPORT_Q65 = 16, DECODER_SUPPORT_FST4 = 32, DECODER_SUPPORT_FST4W = 64, DECODER_SUPPORT_JT4 = 128 };
 enum { DECODER_JT65_SYNC = 0, DECODER_JT65_MESSAGE = 1 };
 enum { DECODER_JT65_METHOD_NONE = 0, DECODER_JT65_METHOD_FEC = 1,
        DECODER_JT65_METHOD_DEEP_SEARCH = 2 };
@@ -102,6 +102,25 @@ typedef struct {
   char hiscall[12];
 } decoder_ft4_options;
 
+/* JT4A-G use one-minute periods. UTC is HHMMSS; submode 0..6 selects A..G.
+   One signal is searched within receive_frequency_hz +/- tolerance_hz.
+   minimum_width_profile is 0..submode; depth is effort 1..3. */
+typedef struct {
+  int32_t utc, submode, receive_frequency_hz, tolerance_hz, depth, min_sync;
+  int32_t minimum_width_profile, averaging, deep_search;
+  char mycall[12], hiscall[12], hisgrid[6];
+} decoder_jt4_options;
+
+enum { DECODER_JT4_NO_SYNC = 0, DECODER_JT4_SYNC = 1, DECODER_JT4_MESSAGE = 2 };
+enum { DECODER_JT4_METHOD_NONE = 0, DECODER_JT4_METHOD_FANO = 1,
+       DECODER_JT4_METHOD_DEEP_SEARCH = 2 };
+enum { DECODER_JT4_AVERAGE_CAPACITY = 64, DECODER_JT4_CALL_CAPACITY = 6999 };
+typedef struct { char call[12], grid[4]; } decoder_jt4_call;
+typedef struct {
+  int32_t utc, frequency_hz, polarity, used;
+  float sync, dt_seconds;
+} decoder_jt4_average_entry;
+
 /* Slow JT9A-H use one-minute periods; submode 0..7 selects A..H.
    Decoding spectra are prepared internally, independently of display settings. */
 typedef struct {
@@ -189,11 +208,14 @@ typedef struct {
   decoder_jt65_options jt65;
   decoder_q65_options q65;
   decoder_fst4_options fst4;
+  decoder_jt4_options jt4;
 } decoder_attempt_request;
 
 /* Borrowed read-only mono signed PCM. Only sample_count samples are read.
    All modes accept 12000 Hz. FT8 accepts 1..180000 samples;
    FT4 accepts 1..72576 samples (its analysis window within a 7.5-second period).
+   JT4 accepts 11025 or 12000 Hz and 1..sample_rate_hz * 60 samples,
+   analyzing the first 52 seconds. Its PCM, rate and extent stay fixed until release.
    Slow JT9 and JT65 accept 1..720000 samples (a one-minute period).
    JT65 analyzes up to 52 seconds and retains its silence-block rejection;
    short or gapped input may complete without observations.
@@ -250,6 +272,13 @@ typedef struct {
   float drift_hz_per_minute;
 } decoder_jt9_result;
 
+/* No-sync and synchronization-only observations have no message. width_profile
+   is a zero-based profile index, meaningful for decoded messages only.
+   average_count is zero for individual messages. */
+typedef struct {
+  int32_t kind, method, average_count, sync_polarity, width_profile;
+} decoder_jt4_result;
+
 /* Synchronization-only observations have no message. Width is available only
    for VHF processing. Drift describes the estimated frequency change across
    the AFC input span, not a waveform reconstruction parameter. */
@@ -278,6 +307,7 @@ typedef struct {
 /* dt_seconds retains the mode's operator-facing DT convention. Use the
    evidence's waveform_start_seconds for reconstruction when available.
    mode and variant select the result record; inactive records are zero.
+   JT4 variant is its submode (0..6 for A..G); JT4 has no waveform evidence.
    JT9 variant is its submode (0..7 for A..H); JT9 has no 77-bit evidence.
    JT65 variant is its submode (0..2 for A..C); JT65 has no waveform evidence.
    Q65 variant is its submode (0..5 for A..F); Q65 has no waveform evidence.
@@ -296,10 +326,11 @@ typedef struct {
   decoder_jt65_result jt65;
   decoder_q65_result q65;
   decoder_fst4_result fst4;
+  decoder_jt4_result jt4;
 } decoder_observation;
 
 typedef struct {
-  /* Includes synchronization-only JT65 observations. */
+  /* Includes JT4 no-sync/synchronization-only and JT65 synchronization observations. */
   int32_t status, observation_count, retained_count, evidence_dropped;
 } decoder_attempt_outcome;
 
@@ -314,12 +345,19 @@ int32_t decoder_engine_decode(decoder_engine_handle, const decoder_attempt_reque
                              const decoder_audio_view *, decoder_observation_callback,
                              void *, decoder_attempt_outcome *);
 /* Released input IDs may be reused for a new reception.
-   Release retains JT65/Q65 averages and caller knowledge, including FST4W
+   Release retains JT4/JT65/Q65 averages and caller knowledge, including FST4W
    call/grid history. Reset clears reception history while
    retaining reusable capacity and plans. Incompatible mode configuration clears
    averages. Hosts clear JT65 averages when changing band or operating context. */
 int32_t decoder_engine_release_input(decoder_engine_handle, int64_t input_id);
 int32_t decoder_engine_reset_session(decoder_engine_handle);
+/* Replaces the copied JT4 deep-search call/grid list; count zero clears it. */
+int32_t decoder_engine_set_jt4_calls(decoder_engine_handle, const decoder_jt4_call *, int32_t count);
+/* Uses the capacity/query convention of decoder_engine_get_jt65_averages. */
+int32_t decoder_engine_get_jt4_averages(decoder_engine_handle, decoder_jt4_average_entry *,
+                                     int32_t capacity, int32_t *count);
+/* Clear allows the retained reception to contribute again on its next attempt. */
+int32_t decoder_engine_clear_jt4_averages(decoder_engine_handle);
 /* Replaces the copied deep-search list; count zero clears it. */
 int32_t decoder_engine_set_jt65_calls(decoder_engine_handle, const decoder_jt65_call *, int32_t count);
 /* Returns the total count, copying up to capacity entries. Insufficient nonzero

@@ -57,9 +57,6 @@ extern struct {                     //This is "common/datcom/..." in Fortran
   extern float* dd;
   extern float* ss;
   extern float* savg;
-  extern float* dd_old;
-  extern float* ss_old;
-  extern float* savg_old;
   extern int manualDecodeFlag ;
   double get_fcenter();
   void get_mycall(char*);
@@ -100,9 +97,7 @@ extern struct {                     //This is "common/datcom/..." in Fortran
   void set_dd_ptr(void* ptr, int dim1, int dim2);
   void set_ss_ptr(void* ptr, int dim1, int dim2, int dim3);
   void set_savg_ptr(void* ptr, int dim1, int dim2);
-  void set_dd_old_ptr(void* ptr, int dim1, int dim2);
-  void set_ss_old_ptr(void* ptr, int dim1, int dim2, int dim3);
-  void set_savg_old_ptr(void* ptr, int dim1, int dim2);
+  void set_snap_ptr(int idx, void* dd_ptr, void* ss_ptr, void* savg_ptr, int ndd, int nfft);
   void set_fcenter(double);
   void set_map65RxLog(int);
   void set_nutc(int);
@@ -152,7 +147,7 @@ extern struct {                     //This is "common/datcom/..." in Fortran
                             int   buf_size,
                             intptr_t event_handle);
   void set_manual_decode_flag(int);
-  void snapshot_buffers();
+  void snapshot_buffers(int idx, int ksamp, int nhsym_snap);
 }
 
 extern QStringList allDecodes2;

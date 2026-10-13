@@ -885,19 +885,6 @@ if (WSJT_ENABLE_TESTS)
       samples/JT4/JT4F/OK1KIR_141105_175700.WAV
       test/fixtures/jt4_OK1KIR_141105_175700.expected.txt
       --jt4 -b F -f 1200 -d 3)
-    if (TARGET jt4sim)
-      set (jt4_read_extent_work_dir
-        "${CMAKE_BINARY_DIR}/Testing/JT4/test_jt4_12000_read_extent")
-      add_test (NAME test_jt4_12000_read_extent
-        COMMAND ${CMAKE_COMMAND}
-          -DJT9=$<TARGET_FILE:jt9>
-          -DJT4SIM=$<TARGET_FILE:jt4sim>
-          -DWORK_DIR=${jt4_read_extent_work_dir}
-          -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_jt4_12000_read_extent.cmake)
-      set_tests_properties (test_jt4_12000_read_extent PROPERTIES
-        LABELS "decoder;jt4;integration"
-        TIMEOUT 120)
-    endif ()
 
     # WSPR decodes via the standalone wsprd binary, not jt9. -a isolates its
     # writable side files (wspr_wisdom.dat, ALL_WSPR.TXT, wspr_spots.txt,
@@ -1281,6 +1268,20 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     PROCESSORS 1
     TIMEOUT 90)
   add_test (
+    NAME test_wsjtx_jt4_wav
+    COMMAND ${CMAKE_COMMAND}
+      "-DWSJTX=$<TARGET_FILE:wsjtx>"
+      "-DMODE=JT4"
+      "-DSAMPLE=${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt4-engine.wav"
+      "-DEXPECTED_MESSAGE=K1ABC W9XYZ FN42"
+      "-DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/Jt4Wav"
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/decoder_engine/run_wav_gui.cmake)
+  set_tests_properties (test_wsjtx_jt4_wav PROPERTIES
+    FIXTURES_REQUIRED jt4_engine_wav
+    LABELS "gui;decoder;jt4;integration"
+    PROCESSORS 1
+    TIMEOUT 90)
+  add_test (
     NAME test_wsjtx_jt65_wav
     COMMAND ${CMAKE_COMMAND}
       "-DWSJTX=$<TARGET_FILE:wsjtx>"
@@ -1331,7 +1332,7 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
       TIMEOUT 390)
   endforeach ()
   if (WSJT_ENABLE_TSAN)
-    set_tests_properties (test_wsjtx_jt9_wav test_wsjtx_jt65_wav test_wsjtx_q65_wav
+    set_tests_properties (test_wsjtx_jt4_wav test_wsjtx_jt9_wav test_wsjtx_jt65_wav test_wsjtx_q65_wav
       test_wsjtx_fst4_wav test_wsjtx_fst4w_wav PROPERTIES
       ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
   endif ()

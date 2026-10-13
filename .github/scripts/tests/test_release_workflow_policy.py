@@ -150,6 +150,22 @@ class ReleaseWorkflowPolicyTests(unittest.TestCase):
         self.assertEqual(len(re.findall(r"^\s+continue$", publish, re.M)), 1)
         self.assertEqual(publish.count('cmp "$file"'), 1)
 
+    def test_a_new_release_body_carries_the_change_list_or_keeps_the_generated_notes(self):
+        self.assertIn("fetch-depth: 0", job(PUBLIC, "publish"))
+        publish = step(PUBLIC, "Publish public GitHub Release")
+        self.assertIn("--generate-notes", publish)
+        notes = publish[publish.index('if [ "$CREATED" = true ]; then'):]
+        self.assertIn('CHANGES=$(python3 .github/scripts/generate-change-list.py \\\n'
+                      '              "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" || true)', notes)
+        self.assertRegex(notes, r'if \[ -z "\$CHANGES" \]; then\s+echo "::warning::[^"]*"\s+'
+                                r'CHANGES=\$\(gh release view "\$GITHUB_REF_NAME" --json body --jq \.body \|\| true\)')
+        # Notes never fail a publication, and a body without changes never replaces GitHub's notes.
+        edit = notes.index("gh release edit")
+        self.assertRegex(notes[:edit], r'if \[ -z "\$CHANGES" \]; then\s+echo "::warning::[^"]*"\s+else\s+NOTES=\$CHANGES\s')
+        self.assertRegex(notes[edit:], r'^gh release edit "\$GITHUB_REF_NAME" --notes-file "\$RUNNER_TEMP/release-notes.md" \\\n'
+                                       r'\s+\|\| echo "::warning::[^"]*"\n\s+fi\n')
+        self.assertEqual(notes.count("gh release edit"), 1)
+
     def test_windows_signing_guard_admits_only_rc_and_ga(self):
         guard = step(SIGN, "Require a public RC or GA invocation")
         self.assertIn('test "$(jq -r .channel <<<"$IDENTITY")" = "$CHANNEL"', guard)

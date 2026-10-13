@@ -244,6 +244,8 @@ git add -A
 git commit -m "fix: resolve audio dropout on macOS Sequoia"
 ```
 
+Commit subjects typed `feat`, `fix`, or `perf` become lines in the public release notes with the author's name, unless their scopes are all among `release`, `ci`, `test`, and `tests`; other subjects are only counted ([What the Release Produces](DEPLOYMENT_PLAYBOOK.md#what-the-release-produces)).
+
 #### 4. Push and open a PR
 
 ```bash

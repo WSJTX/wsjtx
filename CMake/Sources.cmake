@@ -273,6 +273,7 @@ set (wsjt_FSRCS
   lib/streaming_apply.f90
   lib/jt4.f90
   lib/jt4_decode.f90
+  lib/jt4_host_support.f90
   lib/jt65_decode.f90
   lib/jt65_host_support.f90
   lib/jt65_mod.f90
@@ -356,7 +357,6 @@ set (wsjt_FSRCS
   lib/ft8/compress.f90
   lib/coord.f90
   lib/db.f90
-  lib/decode4.f90
   lib/decode65a.f90
   lib/decode65b.f90
   lib/decode9w.f90
@@ -369,7 +369,6 @@ set (wsjt_FSRCS
   lib/decoder_engine.f90
   lib/decoder.f90
   lib/env_module.f90
-  lib/deep4.f90
   lib/deg2grid.f90
   lib/degrade_snr.f90
   lib/demod64a.f90
@@ -461,7 +460,6 @@ set (wsjt_FSRCS
   lib/libration.f90
   lib/lorentzian.f90
   lib/fst4/lorentzian_fading.f90
-  lib/lpf1.f90
   lib/map65_mmdec.f90
   lib/mixlpf.f90
   lib/makepings.f90
@@ -497,7 +495,6 @@ set (wsjt_FSRCS
   lib/pltanh.f90
   lib/polyfit.f90
   lib/prog_args.f90
-  lib/ps4.f90
   lib/qra/q65/q65_ap.f90
   lib/qra/q65/q65_loops.f90
   lib/qra/q65/q65_set_list.f90
@@ -529,7 +526,6 @@ set (wsjt_FSRCS
   lib/symspec.f90
   lib/symspec2.f90
   lib/symspec65.f90
-  lib/sync4.f90
   lib/sync65.f90
   lib/ft4/getcandidates4.f90
   lib/ft4/get_ft4_bitmetrics.f90

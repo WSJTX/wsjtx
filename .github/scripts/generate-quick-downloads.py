@@ -4,8 +4,7 @@
 The release workflow attaches every build artifact to the Release, which makes
 the assets list long and hard for an end user to navigate (installers sit among
 the command-line program tarballs, checksums, the manifest, and source). This emits a
-short, curated per-platform installer picker to prepend to the auto-generated
-release notes.
+short, curated per-platform installer picker to put above the change list.
 
 It is *asset-driven*: platforms and architectures are derived from the asset
 filenames passed in, not hard-coded. New build variants (for example an added
@@ -13,7 +12,7 @@ Linux architecture such as armhf) therefore appear in Quick Downloads
 automatically, with no edit to this script.
 
 The block is emitted on stdout, ending at the last platform line (no trailing
-separator); the caller joins it to the auto-generated notes.
+separator); the caller joins it to the change list.
 
 Usage:
     generate-quick-downloads.py <owner/repo> <tag> <asset-path-or-name>...
@@ -108,8 +107,8 @@ def main(argv):
     if source:
         out += ["", "### Source", f"- [{source}]({url(source)})"]
 
-    # If nothing matched (no installer-grade assets), emit nothing so the
-    # caller leaves the auto-generated notes untouched.
+    # If nothing matched (no installer-grade assets), emit nothing; the caller
+    # then publishes the change list alone.
     if len(out) == 4:
         return 0
 

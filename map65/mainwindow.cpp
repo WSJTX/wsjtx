@@ -157,12 +157,14 @@ MainWindow::MainWindow(QWidget *parent) :
   std::cout << "ss pointer set to: " << ss << std::endl;
   set_savg_ptr(savg, 4, active_nfft); 
   std::cout << "savg pointer set to: " << savg << std::endl; 
-  dd_old = new float[ddSize];
-  set_dd_old_ptr(dd_old, channels, pairsWorst);
-  ss_old = new float[4 * 322 * active_nfft]; 
-  savg_old = new float[4 * active_nfft];
-  set_ss_old_ptr(ss_old, 4, 322, active_nfft);   
-  set_savg_old_ptr(savg_old, 4, active_nfft); 
+  // Two snapshot sets, one per automatic decode pass (1 = nhsym 280, 2 = nhsym 302).
+  // They are filled in dataSink() at each trigger; see snapshot_buffers().
+  for (int idx = 1; idx <= 2; idx++) {
+    float* sdd   = new float[ddSize]();
+    float* sss   = new float[4 * 322 * active_nfft]();
+    float* ssavg = new float[4 * active_nfft]();
+    set_snap_ptr(idx, sdd, sss, ssavg, pairsWorst, active_nfft);
+  }
 
   qDebug() << "MAINWINDOW created dd ss savg ";
 
@@ -1302,6 +1304,7 @@ void MainWindow::dataSink(int k)
     setNewdat(1);
     setNagain(0);
     setNhsym(280);
+    snapshot_buffers(1, k, 280);                        //Freeze this pass's data now
     QDateTime t = QDateTime::currentDateTimeUtc();
     m_dateTime=t.toString("yyyy-MMM-dd hh:mm");
     decode();                                           //Start the decoder
@@ -1314,6 +1317,7 @@ void MainWindow::dataSink(int k)
     setNewdat(1);
     setNagain(0);
     setNhsym(302);
+    snapshot_buffers(2, k, 302);                        //Freeze this pass's data now
     QDateTime t = QDateTime::currentDateTimeUtc();
     m_dateTime=t.toString("yyyy-MMM-dd hh:mm");
     decode();                                           //Start the decoder

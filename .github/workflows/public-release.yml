@@ -455,11 +455,23 @@ jobs:
           if [ "$CREATED" = true ]; then
             QUICK_DOWNLOADS=$(python3 .github/scripts/generate-quick-downloads.py \
               "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "${FILES[@]}" || true)
-            if [ -n "$QUICK_DOWNLOADS" ]; then
-              GENERATED_NOTES=$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)
-              printf '%s\n\n---\n\n%s\n' "$QUICK_DOWNLOADS" "$GENERATED_NOTES" > "$RUNNER_TEMP/release-notes.md"
-              gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md"
+            CHANGES=$(python3 .github/scripts/generate-change-list.py \
+              "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" || true)
+            if [ -z "$CHANGES" ]; then
+              echo "::warning::No change list was generated; keeping GitHub's generated notes."
+              CHANGES=$(gh release view "$GITHUB_REF_NAME" --json body --jq .body || true)
+            fi
+            if [ -z "$CHANGES" ]; then
+              echo "::warning::The release notes could not be read; the release body was left unchanged."
             else
-              echo "::warning::Quick Downloads picker was empty; generated notes were left unchanged."
+              NOTES=$CHANGES
+              if [ -n "$QUICK_DOWNLOADS" ]; then
+                NOTES=$(printf '%s\n\n---\n\n%s' "$QUICK_DOWNLOADS" "$CHANGES")
+              else
+                echo "::warning::Quick Downloads picker was empty."
+              fi
+              printf '%s\n' "$NOTES" > "$RUNNER_TEMP/release-notes.md"
+              gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md" \
+                || echo "::warning::The release notes could not be updated."
             fi
           fi

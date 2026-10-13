@@ -252,6 +252,8 @@ Each published public `v*` tag yields, on the public GitHub Release, one install
 
 The project-created source tarball is assembled from the public tag. GitHub also generates its own zip and tar.gz source archives for that tag; they contain the tagged tree but may have different compressed hashes. `SHA256SUMS` covers immutable payload assets uploaded by the workflow. For an RC or GA in manual macOS signing mode it excludes each macOS package, which the release manifest identifies as replaceable; a beta's macOS packages are not replaceable, so `SHA256SUMS` covers them. The manifest also records the tag, source commit, workflow run, builder provenance, and both signing modes. Checksums detect changed bytes; platform signatures establish signer identity and must be verified separately.
 
+The release body is a Quick Downloads list of the installers and the source tarball, then the change list that `generate-change-list.py` builds from the promoted commit subjects. It lists features, fixes, and performance changes by their Conventional Commits type, each with its author, except those whose scopes are all among `release`, `ci`, `test`, and `tests`; it counts the other commits and links the full comparison. A beta or RC lists the changes since the newest earlier public tag on its `X.Y` line, or, for a line's first release, since the newest earlier public tag of any line. A GA lists the changes since the newest earlier GA. Commits that an earlier public release already contains are left out, and so are commits whose patch matches one in an earlier release of the same line or the line before it; for a GA, only earlier GAs count. A trailing pull request number in a subject is dropped, and any other `#` or `@` reference is shown as code: the numbers belong to the private repository, and an `@` name would notify that account. If the script fails, or prints nothing because no earlier public tag exists, the publish step warns and keeps GitHub's generated notes, which hold only a comparison link because release commits merge in the private repository. Only the run that creates a release writes its body.
+
 ### All-Platforms-Ready Gate
 
 Before publishing, the release workflow requires each platform build to produce its expected installer and release tarball artifacts. This prevents a structurally successful build job from creating a partial release.
@@ -915,7 +917,7 @@ Rerun jobs against the immutable tag for transient signing, notarization, or ser
 
 ## 10. Scheduled Beta Releases
 
-Betas are unattended weekly prereleases of `develop`, published from the single `release/X.Y` in `BETA` state. The beta scheduler is two workflows. `beta-cut.yml` (Scheduled Beta Cut) applies the [state machine](#state-machine); each of its runs is a cut. `beta-continue.yml` (Scheduled Beta Continue) is the continuation, which chains the runs that follow. A beta's GitHub Release body holds GitHub's generated release notes, preceded by a Quick Downloads list. The channel model is in [Release channels](#release-channels).
+Betas are unattended weekly prereleases of `develop`, published from the single `release/X.Y` in `BETA` state. The beta scheduler is two workflows. `beta-cut.yml` (Scheduled Beta Cut) applies the [state machine](#state-machine); each of its runs is a cut. `beta-continue.yml` (Scheduled Beta Continue) is the continuation, which chains the runs that follow. A beta's GitHub Release body is the one [What the Release Produces](#what-the-release-produces) describes. The channel model is in [Release channels](#release-channels).
 
 > **Unattended publication.** No person reviews a beta before it is public. Each beta carries the newest green `develop`, including its workflow changes, which the release-bot App merges onto the release line.
 
@@ -999,7 +1001,7 @@ A patch release on an existing line never uses `BETA` state. It uses `RC N` meta
 
 ### Starting a release line
 
-Cut `release/X.Y` from a green `develop`. Then land the line-start commit, a reviewed commit that changes only `release-state.txt` and `release-linux-images.json`. The state is `BETA 1` for the line's version (`channel=BETA`, `prerelease=1`, `windows_signing=unsigned`), and the selection is the one prepared as [Prepared Linux release images](#prepared-linux-release-images) describes. For that preparation, choose a `validated-build-YYYYMMDD-RUN-ATTEMPT` generation that all four `ghcr.io/wsjtx/wsjtx-internal/<package>` images carry, from a Refresh Build Caches or Publish Linux CI Images run on `develop` built for the line's recipes. List a package's tags with a token that has the `read:packages` scope:
+Cut `release/X.Y` from a green `develop`. Then land the line-start commit, which changes only `release-state.txt` and `release-linux-images.json`. The state is `BETA 1` for the line's version (`channel=BETA`, `prerelease=1`, `windows_signing=unsigned`), and the selection is the one prepared as [Prepared Linux release images](#prepared-linux-release-images) describes. For that preparation, choose a `validated-build-YYYYMMDD-RUN-ATTEMPT` generation that all four `ghcr.io/wsjtx/wsjtx-internal/<package>` images carry, from a Refresh Build Caches or Publish Linux CI Images run on `develop` built for the line's recipes. List a package's tags with a token that has the `read:packages` scope:
 
 ```bash
 # Tags of one internal image package, here linux-noble:
@@ -1225,6 +1227,7 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal --env source-promotio
 | `.github/scripts/beta-scheduler.py` | Beta scheduler state machine, dispatches, and failure alerts | None |
 | `.github/scripts/release-linux-images.py` | Linux image selection preparation, validation, and provenance | None |
 | `.github/scripts/generate-quick-downloads.py` | Quick Downloads list in the GitHub Release body | None |
+| `.github/scripts/generate-change-list.py` | Change list in the GitHub Release body | None |
 
 ### Secrets Required on `wsjtx-internal`
 

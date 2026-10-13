@@ -11,7 +11,7 @@ class MainWindow;
 class WavDecodeTestController final : public QObject
 {
 public:
-  enum class Mode {Jt9, Jt65, Q65, Fst4, Fst4w};
+  enum class Mode {Jt4, Jt9, Jt65, Q65, Fst4, Fst4w};
 
   WavDecodeTestController (MainWindow * window, QString wavPath,
                            QString expectedMessage, Mode mode, QObject * parent = nullptr);

@@ -26,8 +26,11 @@ module streaming_emit
   private
 
   logical, save :: enabled_ = .false.
+  logical, save :: utc_from_iso_ = .false.
+  real(8), save :: trperiod_ = 60.d0
 
   public :: streaming_emit_set_enabled
+  public :: streaming_emit_set_time_form
   public :: streaming_emit_enabled
   public :: streaming_emit_ready
   public :: streaming_emit_decode
@@ -43,6 +46,20 @@ contains
     logical, intent(in) :: flag
     enabled_ = flag
   end subroutine streaming_emit_set_enabled
+
+  ! Called after each applied configure. An ISO utc is HHMMSS; a numeric nutc
+  ! is HHMMSS when the period is under a minute or the value exceeds 2359,
+  ! and HHMM otherwise.
+  subroutine streaming_emit_set_time_form(utc_set, nutc_set, trperiod)
+    logical, intent(in) :: utc_set, nutc_set
+    real(8), intent(in) :: trperiod
+    if (utc_set) then
+       utc_from_iso_ = .true.
+    else if (nutc_set) then
+       utc_from_iso_ = .false.
+    end if
+    trperiod_ = trperiod
+  end subroutine streaming_emit_set_time_form
 
   pure function streaming_emit_enabled() result(v)
     logical :: v
@@ -193,15 +210,17 @@ contains
     logical, optional, intent(in) :: utc_is_hhmmss
     integer :: hh, mm, ss
     logical :: full_time
-    full_time=.false.
-    if(present(utc_is_hhmmss)) full_time=utc_is_hhmmss
+    full_time=utc_from_iso_.or.trperiod_.lt.60.d0.or.nutc.gt.2359
+    if(present(utc_is_hhmmss)) full_time=full_time.or.utc_is_hhmmss
     str = '000000'
-    if (full_time.or.nutc.ge.100000) then
+    if (nutc .lt. 0) then
+       return
+    else if (full_time) then
        hh = nutc / 10000
        mm = mod(nutc/100, 100)
        ss = mod(nutc, 100)
        write(str, '(i2.2,i2.2,i2.2)') hh, mm, ss
-    else if (nutc .ge. 0) then
+    else
        hh = nutc / 100
        mm = mod(nutc, 100)
        write(str, '(i2.2,i2.2,a2)') hh, mm, '00'

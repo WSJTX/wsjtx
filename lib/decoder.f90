@@ -3,14 +3,12 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
 !$ use omp_lib
   use prog_args
   use timer_module, only: timer
-  use jt4_decode
   use jt65_decode
   use jt65_host_support, only: load_jt65_calls
   use jt9_decode
   use decoder_callbacks, only: decoder_callback_context,                     &
-       counting_jt4_decoder, counting_jt65_decoder, counting_jt9_decoder,    &
-       jt4_decoded,                       &
-       jt4_average, jt65_decoded, jt9_decoded
+       counting_jt65_decoder, counting_jt9_decoder,                      &
+       jt65_decoded, jt9_decoded
   use streaming_emit, only: streaming_emit_enabled,                       &
        streaming_emit_decode
   use decode_completion_module, only: decode_completion_result,          &
@@ -48,15 +46,16 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   character(len=4), allocatable :: jt65_grids(:)
   data ntr0/-1/
   save
-  type(counting_jt4_decoder) :: my_jt4
   type(counting_jt65_decoder) :: my_jt65
   type(counting_jt9_decoder) :: my_jt9
 
-  if(params%nmode.eq.8.or.params%nmode.eq.5.or.params%nmode.eq.9.or.params%nmode.eq.65.or. &
+  if(params%nmode.eq.4.or.params%nmode.eq.8.or.params%nmode.eq.5.or.params%nmode.eq.9.or. &
+       params%nmode.eq.65.or. &
        params%nmode.eq.66.or.params%nmode.eq.240.or.params%nmode.eq.241.or.params%nmode.eq.242) then
      call run_decoder_engine(id2,params,nfsample,completion,progress_generation, &
           0_c_int64_t,0_c_int64_t,0_c_int, &
-          merge(params%kin,0_c_int,params%nmode==5.or.params%nmode==9.or.params%nmode==65.or.params%nmode==66.or. &
+          merge(params%kin,0_c_int,params%nmode==4.or.params%nmode==5.or.params%nmode==9.or. &
+               params%nmode==65.or.params%nmode==66.or. &
                params%nmode==240.or.params%nmode==241.or.params%nmode==242))
      return
   endif
@@ -64,7 +63,6 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   call reset_decode_completion(completion)
   active_progress_generation=progress_generation
 
-  my_jt4%decoded = 0
   my_jt65%decoded = 0
   my_jt9%decoded = 0
   nsynced=0
@@ -125,7 +123,6 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   callback_context%bVHF = bVHF
   callback_context%b_superfox = params%b_superfox
   callback_context%mycall = mycall
-  my_jt4%context = callback_context
   my_jt65%context = callback_context
   my_jt9%context = callback_context
 
@@ -149,25 +146,6 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   if(bad0) then
      nz=min(NTMAX*12000,kbad+100)
               !     id2(1:nz)=0                ! temporarily disabled as it can breaak the JT9 decoder, maybe others
-  endif
-
-  if(params%nmode.eq.4) open(14,file=trim(temp_dir)// &
-       '/avemsg.txt',status='unknown')
-
-  if(params%nmode.eq.4) then
-     jz=52*nfsample
-     if(params%newdat) then
-        if(nfsample.eq.12000) call wav11(id2,jz,dd)
-        if(nfsample.eq.11025) dd(1:jz)=id2(1:jz)
-     else
-        jz=52*11025
-     endif
-     call my_jt4%decode(jt4_decoded,dd,jz,params%nutc,params%nfqso,         &
-          params%ntol,params%emedelay,params%dttol,logical(params%nagain),  &
-          params%ndepth,logical(params%nclearave),params%minsync,           &
-          params%minw,params%nsubmode,mycall,hiscall,         &
-          hisgrid,params%nlist,params%listutc,jt4_average)
-     go to 800
   endif
 
   npts65=52*12000
@@ -239,11 +217,10 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
 
 
 ! JT65 is not yet producing info for nsynced, ndecoded.
-800 ndecoded = my_jt4%decoded + my_jt65%decoded + my_jt9%decoded
+800 ndecoded = my_jt65%decoded + my_jt9%decoded
   call set_decode_completion(completion,nsynced,ndecoded,navg0)
   call write_decode_progress(active_progress_generation)
   close(13)
-  if(params%nmode.eq.4) close(14)
   return
 end subroutine multimode_decoder_core
 
@@ -265,7 +242,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   if (.not. completion%available) return
 
   if (streaming_emit_enabled()) then
-     call streaming_emit_decode_finished(params%nutc,params%nmode==66.or.params%nmode==240.or. &
+     call streaming_emit_decode_finished(params%nutc,params%nmode==4.or.params%nmode==66.or. &
+          params%nmode==240.or. &
           params%nmode==241.or.params%nmode==242)
   else if (.not. lquiet) then
      call write_decode_completion(completion)

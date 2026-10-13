@@ -1,40 +1,22 @@
 subroutine xcor4(s2,ipk,nsteps,nsym,lag1,lag2,ich,mode4,ccf,ccf0,   &
      lagpk,flip)
 
-! Computes ccf of the 4_FSK spectral array s2 and the pseudo-random 
-! array pr2.  Returns peak of CCF and the lag at which peak occurs.  
+! Computes ccf of the 4_FSK spectral array s2 and the pseudo-random
+! array pr2.  Returns peak of CCF and the lag at which peak occurs.
 ! The CCF peak may be either positive or negative, with negative
 ! implying the "OOO" message.
 
+  use jt4, only: nch,npr
   parameter (NHMAX=1260)           !Max length of power spectra
   parameter (NSMAX=525)            !Max number of half-symbol steps
   real s2(NHMAX,NSMAX)             !2d spectrum, stepped by half-symbols
   real a(NSMAX)
   real ccf(-5:540)
-  integer nch(7)
-  integer npr2(207)
   real pr2(207)
-  logical first
-  data lagmin/0/                    !Silence compiler warning
-  data first/.true./
-  data npr2/                                                        &
-       0,0,0,0,1,1,0,0,0,1,1,0,1,1,0,0,1,0,1,0,0,0,0,0,0,0,1,1,0,0, &
-       0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,0,0, &
-       1,0,0,1,0,0,1,1,1,1,1,0,0,0,1,0,1,0,0,0,1,1,1,1,0,1,1,0,0,1, &
-       0,0,0,1,1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,0,1,0,1, &
-       0,1,1,1,0,0,1,0,1,1,0,1,1,1,1,0,0,0,0,1,1,0,1,1,0,0,0,1,1,1, &
-       0,1,1,1,0,1,1,1,0,0,1,0,0,0,1,1,0,1,1,0,0,1,0,0,0,1,1,1,1,1, &
-       1,0,0,1,1,0,0,0,0,1,1,0,0,0,1,0,1,1,0,1,1,1,1,0,1,0,1/
-  data nch/1,2,4,9,18,36,72/
-  save
+  pr2=2*npr-1
 
-  if(first) then
-     do i=1,207
-        pr2(i)=2*npr2(i)-1
-     enddo
-     first=.false.
-  endif
-
+  lagpk=lag1
+  lagmin=lag1
   ccfmax=0.
   ccfmin=0.
   nw=nch(min(max(ich,1),7))

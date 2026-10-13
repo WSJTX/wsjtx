@@ -5630,7 +5630,8 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
 bool MainWindow::startWavDecodeTest (QString const& path)
 {
-  auto const fixtureMode = ((m_mode == QStringLiteral ("JT9")
+  auto const fixtureMode = ((m_mode == QStringLiteral ("JT4")
+                            || m_mode == QStringLiteral ("JT9")
                             || m_mode == QStringLiteral ("JT65")
                             || m_mode == QStringLiteral ("Q65")) && m_TRperiod == 60.0)
     || (m_mode == QStringLiteral ("FST4") && m_TRperiod == 15.0)

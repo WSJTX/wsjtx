@@ -99,69 +99,79 @@ contains
     logical, intent(in) :: is_average
     integer, intent(in) :: ave
 
-    character*22 decoded
-    character*3 cflags
-    integer context_nutc
+    character(len=22) :: decoded
+    character(len=3) :: cflags
+    type(decoder_callback_context) :: context
+    type(engine_observation) :: observation
+    integer :: i,display_utc
 
     select type (typed_this => this)
     type is (counting_jt4_decoder)
-       context_nutc = typed_this%context%nutc
+       context=typed_this%context
     class default
        return
     end select
 
-    if(ich.eq.-99) stop
-    if (have_sync) then
-       decoded=decoded0
-       cflags='   '
-       if(decoded.ne.'                      ') then
-          cflags='f  '
-          if(is_deep) then
-             cflags='d  '
-             write(cflags(2:2),'(i1)') min(int(qual),9)
-             if(qual.ge.10.0) cflags(2:2)='*'
-             if(qual.lt.3.0) decoded(22:22)='?'
-          endif
-          if(is_average) then
-             write(cflags(3:3),'(i1)') min(ave,9)
-             if(ave.ge.10) cflags(3:3)='*'
-             if(cflags(1:1).eq.'f') cflags=cflags(1:1)//cflags(3:3)//' '
-          endif
+    observation=engine_observation()
+    observation%mode=engine_mode_jt4
+    observation%variant=context%submode
+    observation%snr_db=snr
+    observation%frequency_hz=real(freq)
+    observation%dt_seconds=dt
+    observation%sync=this%sync_strength
+    observation%quality=qual
+    if(have_sync) then
+       observation%jt4%kind=1
+       observation%jt4%sync_polarity=merge(-1,1,sync=='#')
+       if(len_trim(decoded0)>0) then
+          observation%jt4%kind=2
+          observation%jt4%method=merge(2,1,is_deep)
+          observation%jt4%width_profile=max(0,ich-1)
+          if(is_average) observation%jt4%average_count=ave
+          do i=1,len_trim(decoded0)
+             observation%message(i)=decoded0(i:i)
+          enddo
        endif
-       if (streaming_emit_enabled()) then
-          call streaming_emit_decode("JT4", context_nutc, snr, dt, freq, decoded)
+    endif
+    if(associated(context%sink)) call context%sink(context%sink_user,observation)
+
+    display_utc=context%nutc
+    if(context%utc_is_hhmmss) display_utc=display_utc/100
+    if(context%render_legacy) then
+       if(have_sync) then
+          decoded=decoded0
+          cflags='   '
+          if(len_trim(decoded)>0) then
+             cflags='f  '
+             if(is_deep) then
+                cflags='d  '
+                write(cflags(2:2),'(i1)') min(int(qual),9)
+                if(qual>=10.0) cflags(2:2)='*'
+                if(qual<3.0) decoded(22:22)='?'
+             endif
+             if(is_average) then
+                write(cflags(3:3),'(i1)') min(ave,9)
+                if(ave>=10) cflags(3:3)='*'
+                if(cflags(1:1)=='f') cflags=cflags(1:1)//cflags(3:3)//' '
+             endif
+          endif
+          if(streaming_emit_enabled()) then
+             call streaming_emit_decode('JT4',context%nutc,snr,dt,freq,decoded,context%utc_is_hhmmss)
+          else
+             write(*,1000) display_utc,snr,dt,freq,sync,decoded,cflags
+          endif
        else
-          write(*,1000) context_nutc,snr,dt,freq,sync,decoded,cflags
-       end if
-    else
-       if (.not. streaming_emit_enabled()) write(*,1000) context_nutc,snr,dt,freq
-    end if
-1000 format(i4.4,i4,f5.1,i5,1x,'$',a1,1x,a22,1x,a3)
+          if(.not.streaming_emit_enabled()) write(*,1000) display_utc,snr,dt,freq
+       endif
+1000   format(i4.4,i4,f5.1,i5,1x,'$',a1,1x,a22,1x,a3)
+    endif
 
     select type (typed_this => this)
     type is (counting_jt4_decoder)
-       typed_this%decoded = typed_this%decoded + 1
+       if(observation%jt4%kind==2) typed_this%decoded=typed_this%decoded+1
     end select
   end subroutine jt4_decoded
 
-  subroutine jt4_average (this, used, utc, sync, dt, freq, flip)
-    implicit none
-    class(jt4_decoder), intent(inout) :: this
-    logical, intent(in) :: used
-    integer, intent(in) :: utc
-    real, intent(in) :: sync
-    real, intent(in) :: dt
-    integer, intent(in) :: freq
-    logical, intent(in) :: flip
-    character(len=1) :: cused, csync
-
-    cused = '.'
-    csync = '*'
-    if (used) cused = '$'
-    if (flip) csync = '$'
-    write(14,1000) cused,utc,sync,dt,freq,csync
-1000 format(a1,i5.4,f6.1,f6.2,i6,1x,a1)
-  end subroutine jt4_average
 
   subroutine jt65_decoded(this,sync,snr,dt,freq,drift,nflip,width,     &
        decoded0,ft,qual,nsmo,nsum,minsync)
@@ -788,7 +798,8 @@ contains
     endif
 
     if (streaming_emit_enabled()) then
-       call streaming_emit_decode("FST4", nutc, nsnr, dt, nint(freq), decoded0,context%utc_is_hhmmss)
+       call streaming_emit_decode(merge('FST4W','FST4 ',context%mode==engine_mode_fst4w), &
+            nutc, nsnr, dt, nint(freq), decoded0,context%utc_is_hhmmss)
     else
        write(*,1005) line
     end if

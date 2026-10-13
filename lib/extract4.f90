@@ -14,20 +14,22 @@ subroutine extract4(sym0,ncount,decoded)
   data first/.true./
   save first,mettab,ndelta
 
+  ncount=-1
+  decoded=' '
+  ave0=sum(sym0)/207.0
+  sym=sym0-ave0
+  sq=dot_product(sym,sym)
+  rms0=sqrt(sq/206.0)
+  if(rms0<=tiny(rms0)) return
+  sym=sym/rms0
+
   if(first) then
      call getmet4(mettab,ndelta)
      first=.false.
   endif
 
-!### Optimize these params: ...
   amp=30.0
   limit=10000
-
-  ave0=sum(sym0)/207.0
-  sym=sym0-ave0
-  sq=dot_product(sym,sym)
-  rms0=sqrt(sq/206.0)
-  sym=sym/rms0
 
   do j=1,207
      n=nint(amp*sym(j))
@@ -38,8 +40,6 @@ subroutine extract4(sym0,ncount,decoded)
 
   nbits=72
   ncycles=0
-  ncount=-1
-  decoded='                      '
   call interleave4(symbol(2),-1)          !Remove the interleaving
   call fano232(symbol(2),nbits+31,mettab,ndelta,limit,data1,     &
        ncycles,metric,ncount)
