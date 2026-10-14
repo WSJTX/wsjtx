@@ -470,12 +470,12 @@ void MainWindow::on_DX_Call_Button_clicked (bool checked)
 void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
-  genStdMsgs(m_rpt);
+  genStdMsgsForSelection(m_rpt);
   if (!m_bDoubleClicked && m_hisCall!="") {
       if (ui->tx1->isEnabled ()) {
-          QTimer::singleShot (0, ui->txrb1, SLOT (click ()));   // Go to Tx1
+          QTimer::singleShot (0, this, [this] {selectTxNextMessage(1);});
       } else {
-          QTimer::singleShot (0, ui->txrb2, SLOT (click ()));   // Go to Tx2 if Tx1 is disabled
+          QTimer::singleShot (0, this, [this] {selectTxNextMessage(2);});
       }
       m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
       m_bHisCallStd=stdCall(m_hisCall); //ft8md

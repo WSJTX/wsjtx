@@ -78,11 +78,6 @@ void AutoRespondPeriodState::disarm()
   m_firstClaimed = false;
 }
 
-void AutoRespondPeriodState::close()
-{
-  disarm();
-}
-
 bool AutoRespondPeriodState::accepts(QDateTime const& decodePeriodStart) const
 {
   return m_open && decodePeriodStart.isValid() && decodePeriodStart == m_receivePeriod;

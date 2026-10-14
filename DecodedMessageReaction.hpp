@@ -46,6 +46,7 @@ namespace DecodedMessageReaction
     ManualLeftPane,
     ManualRightPane,
     Synthetic,
+    AutomaticSelection,
     Udp
   };
 
@@ -123,6 +124,7 @@ namespace DecodedMessageReaction
     {
       SetRxFrequency,
       SetTxFrequency,
+      DisarmAutoRespondSelection,
       ApplyFastCqQsy,
       RejectNominalQsy,
       SetTxFirst,
@@ -172,7 +174,8 @@ namespace DecodedMessageReaction
       ScheduleNoLoggingReset,
       ScheduleAutoFlagOff,
       QueueContestHint,
-      ProcessSyntheticMessageNow
+      ProcessSyntheticMessageNow,
+      ProcessAutomaticSelectionNow
     };
 
     Kind kind;

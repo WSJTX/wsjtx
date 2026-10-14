@@ -234,6 +234,7 @@ set_tests_properties (test_frequency_suggestions PROPERTIES ENVIRONMENT "QT_QPA_
 
 add_executable (test_decoded_message_reaction
   test_decoded_message_reaction.cpp
+  ${CMAKE_SOURCE_DIR}/AutoRespondPeriod.cpp
 )
 target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)

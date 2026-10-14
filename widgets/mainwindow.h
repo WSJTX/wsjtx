@@ -1557,6 +1557,8 @@ private:
   bool switchTxNextMessage(QKeyEvent const *key_event);
   bool switchMainWindowTab(QKeyEvent const *key_event);
   void genStdMsgs(QString rpt, bool unconditional = false);
+  void genStdMsgsForSelection(QString const& rpt, bool unconditional = false);
+  void selectTxNextMessage(int n);
   void genCQMsg();
   void clearDX ();
   void lookup();
@@ -1586,6 +1588,8 @@ private:
   void processMessage(DecodedText const& message, Qt::KeyboardModifiers modifiers,
                       DecodedMessageReaction::SelectionOrigin selection_origin);
   void processSyntheticMessage(DecodedText const& message);
+  void processSyntheticMessage(DecodedText const& message,
+                               DecodedMessageReaction::SelectionOrigin origin);
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
     Qt::KeyboardModifiers modifiers = Qt::NoModifier) const;
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(

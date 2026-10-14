@@ -91,16 +91,19 @@ private slots:
     QVERIFY(state.accepts(nextReceivePeriod));
   }
 
-  void transmitPeriodKeepsDecodeWindowOpenUntilActualTransmit()
+  void lateDecodesRemainEligibleThroughFollowingTransmitPeriod()
   {
     auto const receivePeriod = utc("2026-08-03T12:00:15.000Z");
     auto state = armedState(receivePeriod);
 
     state.observePeriod(receivePeriod.addSecs(15), false, true, AutoRespondPolicy::First);
     QVERIFY(state.accepts(receivePeriod));
+    QVERIFY(state.claimFirst(receivePeriod));
 
-    state.close();
+    auto const nextReceivePeriod = receivePeriod.addSecs(30);
+    QVERIFY(!state.observePeriod(nextReceivePeriod, true, false, AutoRespondPolicy::First));
     QVERIFY(!state.accepts(receivePeriod));
+    QVERIFY(!state.accepts(nextReceivePeriod));
   }
 
   void firstPolicyClaimsOnlyOneCallerPerPeriod()

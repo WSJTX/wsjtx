@@ -473,11 +473,10 @@ private slots:
       decode("K1ABC W1AW -10"), snapshot,
       DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
     int const watchdog = effectIndex(plan, Effect::Kind::ResetWatchdog);
-    int const selection = effectIndex(plan, Effect::Kind::SetDoubleClicked, watchdog + 1);
-    int const process = effectIndex(plan, Effect::Kind::ProcessSyntheticMessageNow, selection + 1);
+    int const process = effectIndex(plan, Effect::Kind::ProcessAutomaticSelectionNow, watchdog + 1);
     int const enableAuto = effectIndex(plan, Effect::Kind::SetAutoEnabled, process + 1);
     int const timer = effectIndex(plan, Effect::Kind::StartWaitReplyTimer, enableAuto + 1);
-    QVERIFY(watchdog >= 0 && selection > watchdog && process > selection
+    QVERIFY(watchdog >= 0 && process > watchdog
             && enableAuto > process && timer > enableAuto);
     QCOMPARE(plan.effects[timer].intValue, 120000);
   }
@@ -491,20 +490,53 @@ private slots:
     auto const plan = DecodedMessageReaction::planWaitReplyCall(
       decode("K1ABC W1AW CQ W1AW"), snapshot,
       DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
-    QCOMPARE(effectCount(plan, Effect::Kind::ProcessSyntheticMessageNow), 2);
-    int const replySelection = effectIndex(plan, Effect::Kind::SetDoubleClicked);
-    int const replyProcess = effectIndex(
-      plan, Effect::Kind::ProcessSyntheticMessageNow, replySelection + 1);
+    QCOMPARE(effectCount(plan, Effect::Kind::ProcessAutomaticSelectionNow), 2);
+    int const replyProcess = effectIndex(plan, Effect::Kind::ProcessAutomaticSelectionNow);
     int const replyAuto = effectIndex(plan, Effect::Kind::SetAutoEnabled, replyProcess + 1);
-    int const callSelection = effectIndex(plan, Effect::Kind::SetDoubleClicked, replyAuto + 1);
     int const callProcess = effectIndex(
-      plan, Effect::Kind::ProcessSyntheticMessageNow, callSelection + 1);
+      plan, Effect::Kind::ProcessAutomaticSelectionNow, replyAuto + 1);
     int const callAuto = effectIndex(plan, Effect::Kind::SetAutoEnabled, callProcess + 1);
-    QCOMPARE(replyProcess, replySelection + 1);
+    QVERIFY(replyProcess >= 0);
     QCOMPARE(replyAuto, replyProcess + 1);
-    QCOMPARE(callProcess, callSelection + 1);
+    QVERIFY(callProcess > replyAuto);
     QCOMPARE(callAuto, callProcess + 1);
     QCOMPARE(intEffect(plan, Effect::Kind::StartWaitCallTimer), 93000);
+  }
+
+  void waitSelectionStartsTheRequestedExchange_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<bool>("waitAndCall");
+    QTest::addColumn<int>("txMessage");
+    QTest::addColumn<int>("progress");
+    QTest::newRow("reply") << "K1ABC W1AW -10" << false << 3 << int(QsoProgress::RogerReport);
+    QTest::newRow("call") << "CQ W1AW FN31" << true << 1 << int(QsoProgress::Replying);
+  }
+
+  void waitSelectionStartsTheRequestedExchange()
+  {
+    QFETCH(QString, payload);
+    QFETCH(bool, waitAndCall);
+    QFETCH(int, txMessage);
+    QFETCH(int, progress);
+    auto snapshot = baseSnapshot();
+    snapshot.waitFeaturesEnabled = true;
+    snapshot.waitAndCall = waitAndCall;
+    snapshot.autoSequenceChecked = snapshot.autoSequenceEnabled = true;
+    auto const message = decode(payload);
+    QVERIFY(message.isStandardMessage());
+    auto const waitPlan = DecodedMessageReaction::planWaitReplyCall(
+      message, snapshot, DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
+    QVERIFY(hasEffect(waitPlan, Effect::Kind::ProcessAutomaticSelectionNow));
+
+    snapshot.selectionOrigin = DecodedMessageReaction::SelectionOrigin::AutomaticSelection;
+    snapshot.doubleClicked = true;
+    auto const reaction = DecodedMessageReaction::planProcessMessage(message, snapshot);
+    auto const result = finalState(reaction, snapshot);
+    QCOMPARE(result.txMessage, txMessage);
+    QCOMPARE(int(result.progress), progress);
+    QVERIFY(!hasEffect(reaction, Effect::Kind::DisarmAutoRespondSelection));
+    QVERIFY(!hasEffect(reaction, Effect::Kind::SetDxCall));
   }
 
   void slowHoundWrongSlotIgnoresDecode()
@@ -540,7 +572,7 @@ private slots:
     auto blocked = DecodedMessageReaction::planWaitReplyCall(
       decode("K1ABC W1AW -10", "&", "060522"), snapshot,
       DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
-    QVERIFY(effectIndex(blocked, Effect::Kind::ProcessSyntheticMessageNow) < 0);
+    QVERIFY(effectIndex(blocked, Effect::Kind::ProcessAutomaticSelectionNow) < 0);
 
     snapshot.fullDuplexEnabled = false;
     snapshot.txing = false;
@@ -570,7 +602,7 @@ private slots:
     QCOMPARE(slowPlan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
     QVERIFY(!hasEffect(slowPlan, Effect::Kind::StopWaitCallTimer));
     QVERIFY(!hasEffect(slowPlan, Effect::Kind::DisableWaitAndCallControl));
-    QVERIFY(!hasEffect(slowPlan, Effect::Kind::ProcessSyntheticMessageNow));
+    QVERIFY(!hasEffect(slowPlan, Effect::Kind::ProcessAutomaticSelectionNow));
     QVERIFY(!hasEffect(slowPlan, Effect::Kind::SetAutoEnabled));
     QVERIFY(!hasEffect(slowPlan, Effect::Kind::StartWaitReplyTimer));
     QVERIFY(!hasEffect(slowPlan, Effect::Kind::StartWaitCallTimer));
@@ -579,7 +611,7 @@ private slots:
       message, snapshot, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
     QVERIFY(hasEffect(fastPlan, Effect::Kind::StopWaitCallTimer));
     QVERIFY(hasEffect(fastPlan, Effect::Kind::DisableWaitAndCallControl));
-    QVERIFY(hasEffect(fastPlan, Effect::Kind::ProcessSyntheticMessageNow));
+    QVERIFY(hasEffect(fastPlan, Effect::Kind::ProcessAutomaticSelectionNow));
     QVERIFY(hasEffect(fastPlan, Effect::Kind::SetAutoEnabled));
     QCOMPARE(intEffect(fastPlan, Effect::Kind::StartWaitReplyTimer), 180000);
     QVERIFY(!hasEffect(fastPlan, Effect::Kind::StartWaitCallTimer));
@@ -601,7 +633,7 @@ private slots:
     auto const fastPlan = DecodedMessageReaction::planWaitReplyCall(
       decode("CQ W1AW FN31", "&", "060522"), fastSnapshot,
       DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
-    QVERIFY(hasEffect(fastPlan, Effect::Kind::ProcessSyntheticMessageNow));
+    QVERIFY(hasEffect(fastPlan, Effect::Kind::ProcessAutomaticSelectionNow));
     QVERIFY(!hasEffect(fastPlan, Effect::Kind::SetBlockRightDisplay));
     QCOMPARE(intEffect(fastPlan, Effect::Kind::StartWaitCallTimer), 93000);
   }
@@ -619,7 +651,7 @@ private slots:
     QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQso), 1);
     QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQsoUnlessSuppressed), 1);
     QCOMPARE(intEffect(plan, Effect::Kind::ScheduleStopTx), 500);
-    QVERIFY(effectIndex(plan, Effect::Kind::ProcessSyntheticMessageNow) >= 0);
+    QVERIFY(effectIndex(plan, Effect::Kind::ProcessAutomaticSelectionNow) >= 0);
   }
 
   void ncccReplyDefersLoggingSuppressionCheck()
@@ -636,7 +668,7 @@ private slots:
     QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
     QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQso), 0);
     QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQsoUnlessSuppressed), 1);
-    QVERIFY(effectIndex(plan, Effect::Kind::ProcessSyntheticMessageNow)
+    QVERIFY(effectIndex(plan, Effect::Kind::ProcessAutomaticSelectionNow)
             < effectIndex(plan, Effect::Kind::RequestLogQsoUnlessSuppressed));
 
     snapshot.loggingEnabled = false;
