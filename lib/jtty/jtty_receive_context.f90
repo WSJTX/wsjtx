@@ -32,7 +32,7 @@ module jtty_receive_context
   integer, parameter :: MAX_CONTEXTS=8
   type(receive_context), save :: contexts(MAX_CONTEXTS)
 
-  public :: jtty_rx_create, jtty_rx_destroy, jtty_rx_begin, jtty_rx_process
+  public :: jtty_rx_create, jtty_rx_destroy, jtty_rx_begin, jtty_rx_process, jtty_rx_process_final
   public :: jtty_rx_next_required_sample, jtty_rx_next_search_sample
   public :: jtty_rx_take_updates, jtty_rx_take_updates_with_gaps, jtty_rx_end
 
@@ -232,6 +232,40 @@ contains
     first_search_sample=old_first_search
     explicit_receive_context=old_explicit
   end function jtty_rx_process
+
+  ! jtty_rx_process for Fortran callers whose reception ends at stop_sample:
+  ! the search window that first extends past it is also searched, as if
+  ! zeros followed the audio, unless less than half a frame of the audio
+  ! falls in it (only in a reception shorter than half a frame: a later
+  ! final window holds at least a frame of audio). That window is searched
+  ! once however often this is called.
+  integer(c_int) function jtty_rx_process_final(handle,pcm,count,first_sample,stop_sample, &
+       max_steps,nfa,nfb,f0,ftol)
+    integer(c_int), intent(in) :: handle,count,max_steps,nfa,nfb
+    integer(c_int16_t), intent(in) :: pcm(*)
+    integer(c_int64_t), intent(in) :: first_sample,stop_sample
+    real(c_float), intent(in) :: f0,ftol
+    integer(c_int16_t), allocatable :: padded(:)
+    integer(int64) :: last,step,final_search,window_end
+    integer :: nframe,nchunk
+
+    jtty_rx_process_final=-1
+    if(.not.valid_handle(handle)) return
+    if(.not.contexts(handle)%running .or. count.lt.0) return
+    nframe=59*contexts(handle)%nsps
+    nchunk=nframe+nframe/4
+    step=int(nframe/4,int64)
+    last=min(stop_sample,first_sample+int(count,int64))
+    final_search=contexts(handle)%first_search+step* &
+         ((max(last-nchunk+1-contexts(handle)%first_search,0_int64)+step-1)/step)
+    window_end=final_search+nchunk
+    if(last-final_search.lt.nframe/2) window_end=last
+    allocate(padded(max(window_end-first_sample,0_int64)))
+    padded=0
+    padded(1:last-first_sample)=pcm(1:last-first_sample)
+    jtty_rx_process_final=jtty_rx_process(handle,padded,int(size(padded),c_int),first_sample, &
+         window_end,max_steps,nfa,nfb,f0,ftol)
+  end function jtty_rx_process_final
 
   subroutine jtty_rx_end(handle,reason) bind(C,name='jtty_rx_end')
     integer(c_int), value :: handle,reason

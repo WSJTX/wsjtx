@@ -37,6 +37,10 @@
 ! which typed dots never are. A freq, start or latest that is not finite is
 ! null.
 !
+! Unlike the GUI, ending a session also searches the window that extends past
+! its last sample (jtty_rx_process_final), so a last frame that ends shortly
+! before the session does still decodes.
+!
 ! The decoder searches rxfreq +/- ntol, and two 300 Hz channels centred on
 ! 1350 and 1650 Hz, each centre first moved into nfa..nfb and the channel
 ! clipped to it (neither when nfa > nfb); with the default nfa and nfb, 1200
@@ -60,8 +64,9 @@ module streaming_jtty
        error_unit
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use jtty_receive_context, only: jtty_rx_create, jtty_rx_destroy,             &
-       jtty_rx_begin, jtty_rx_process, jtty_rx_next_required_sample,           &
-       jtty_rx_next_search_sample, jtty_rx_take_updates_with_gaps, jtty_rx_end
+       jtty_rx_begin, jtty_rx_process, jtty_rx_process_final,                  &
+       jtty_rx_next_required_sample, jtty_rx_next_search_sample,               &
+       jtty_rx_take_updates_with_gaps, jtty_rx_end
   use jtty_mdec, only: UPDATE_GROWING, UPDATE_COMPLETE, UPDATE_EXPIRED,        &
        UPDATE_RECEPTION_ENDED, MAX_DISPLAY_GAPS, jtty_release_fft_resources
   use jtty_filler, only: strip_filler_text
@@ -98,11 +103,14 @@ contains
     if (size(samples) .eq. 0) return
     if (.not. session_open_) call begin_session_(first_sample)
     call append_samples_(samples)
-    call decode_available_(params)
+    call decode_available_(params, .false.)
   end subroutine jtty_audio
 
-  subroutine jtty_end()
+  ! params are the settings the session decoded with.
+  subroutine jtty_end(params)
+    type(params_block), intent(in) :: params
     if (.not. session_open_) return
+    call decode_available_(params, .true.)
     call jtty_rx_end(handle_, UPDATE_RECEPTION_ENDED)
     call emit_updates_()
     session_open_ = .false.
@@ -184,23 +192,33 @@ contains
   end subroutine append_samples_
 
   ! As the GUI does: one decoder step at a time while a search window is
-  ! available, taking the updates after each step.
-  subroutine decode_available_(params)
+  ! available, taking the updates after each step. When the session ends
+  ! (final), also the window that extends past its last sample.
+  subroutine decode_available_(params, final)
     type(params_block), intent(in) :: params
+    logical,            intent(in) :: final
     integer(int64) :: required, available_end
     integer(c_int) :: processed
     integer :: first
     do
        available_end = pcm_base_ + pcm_count_
-       if (jtty_rx_next_search_sample(handle_) + WINDOW .gt. available_end) return
+       if (.not. final .and.                                                 &
+            jtty_rx_next_search_sample(handle_) + WINDOW .gt. available_end) return
        required = jtty_rx_next_required_sample(handle_)
        if (required .lt. pcm_base_)                                         &
             call fatal_('required receive audio is no longer retained')
        first = int(required - pcm_base_) + 1
-       processed = jtty_rx_process(handle_, pcm_(first:pcm_count_),         &
-            int(pcm_count_ - first + 1, c_int), required, available_end, 1,  &
-            params%nfa, params%nfb, real(params%nfqso, c_float),             &
-            real(params%ntol, c_float))
+       if (final) then
+          processed = jtty_rx_process_final(handle_, pcm_(first:pcm_count_), &
+               int(pcm_count_ - first + 1, c_int), required, available_end, 1, &
+               params%nfa, params%nfb, real(params%nfqso, c_float),          &
+               real(params%ntol, c_float))
+       else
+          processed = jtty_rx_process(handle_, pcm_(first:pcm_count_),      &
+               int(pcm_count_ - first + 1, c_int), required, available_end, 1, &
+               params%nfa, params%nfb, real(params%nfqso, c_float),          &
+               real(params%ntol, c_float))
+       end if
        call emit_updates_()
        if (processed .lt. 0) call fatal_('required receive audio is unavailable')
        if (processed .eq. 0) return

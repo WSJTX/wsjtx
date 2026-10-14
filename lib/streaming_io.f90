@@ -268,7 +268,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               call streaming_emit_error_code('odd_audio_frame',                &
                    'audio frame length must contain whole int16 samples')
               ! The skipped samples are a hole in the JTTY session.
-              if (mode .eq. MODE_JTTY) call jtty_end()
+              if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
               body_left = frame_len
               do while (body_left .gt. 0)
                  take_bytes = min(body_left, size(byte_sink))
@@ -364,7 +364,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     cycle
                  end if
               end if
-              if (mode .eq. MODE_JTTY .and. next_mode .ne. MODE_JTTY) call jtty_end()
+              if (mode .eq. MODE_JTTY .and. next_mode .ne. MODE_JTTY)       &
+                   call jtty_end(shared_data%params)
               prev_mode          = mode
               prev_TRperiod      = TRperiod
               mode               = next_mode
@@ -382,7 +383,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  decoded = .false.
               end if
            case (CTRL_DISCONTINUITY)
-              if (mode .eq. MODE_JTTY) call jtty_end()
+              if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
            case (CTRL_PARSE_ERR)
               call streaming_emit_error_code('configure_parse_error',          &
                    'malformed control frame (missing or invalid t field)')
@@ -407,7 +408,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      if (.not. decoded .and. period%k .gt. 0) call run_period_decode()
 
      if (halt_req .or. eof_period) then
-        if (mode .eq. MODE_JTTY) call jtty_end()
+        if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
         call jtty_release()
         return
      end if
