@@ -69,12 +69,6 @@ extern QString m_hisCall0;
 extern QString earlyDecodes;
 
 
-extern "C" {
-  void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
-  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
-                    float xjunk[], float wave[], int* icmplx, int* nwave);
-}
-
 void MainWindow::on_monitorButton_clicked (bool checked)
 {
   if (m_wav_load_coordinator.isLoading ()) {

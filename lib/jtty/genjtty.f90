@@ -81,6 +81,53 @@ subroutine genjtty_frames(frames,nframes,itone,nsym)
   enddo
 end subroutine genjtty_frames
 
+! The tones genjtty_profile transmits for an 80-character message, with
+! what lies behind them: msg is rewritten as the text the frames carry,
+! frames holds each 34-bit frame as '0'/'1' characters (frame i at
+! frames(34*(i-1)+1:34*i)) and frame_starts each frame's 1-based column in
+! msg. is_final 0 leaves the end-of-message flag clear. status is
+! JTTY_ENCODE_UNENCODABLE, with nsym and nframes 0, when the message holds no
+! text, does not fit in MAX_FRAMES frames under its exchange profile, or the
+! exchange profile is not one pack_jtty knows.
+subroutine genjtty_text_c(msg,exchange_profile,is_final,itone,nsym,frames,nframes, &
+     frame_starts,status) bind(C,name='genjtty_text_c')
+
+  use iso_c_binding, only: c_char,c_int
+  use jtty_mod, only: pack_jtty,MAX_FRAMES,JTTY_ENCODE_OK,JTTY_ENCODE_UNENCODABLE
+  implicit none
+  character(kind=c_char), intent(inout) :: msg(80)
+  integer(c_int), value, intent(in) :: exchange_profile,is_final
+  integer(c_int), intent(out) :: itone(59*MAX_FRAMES),nsym
+  character(kind=c_char), intent(out) :: frames(34*MAX_FRAMES)
+  integer(c_int), intent(out) :: nframes,frame_starts(MAX_FRAMES),status
+  character(len=80) :: text
+  character(len=34) :: packed(MAX_FRAMES)
+  integer :: starts(MAX_FRAMES),tones(59*MAX_FRAMES),i,j,n,symbols
+
+  do i=1,80
+     text(i:i)=msg(i)
+  enddo
+  starts=0
+  call pack_jtty(text,packed,n,int(exchange_profile),starts,int(is_final))
+  do i=1,80
+     msg(i)=text(i:i)
+  enddo
+  itone=0; nsym=0; frames=' '; nframes=0; frame_starts=0
+  status=JTTY_ENCODE_UNENCODABLE
+  if(n.le.0) return
+  call genjtty_frames(packed,n,tones,symbols)
+  itone(1:symbols)=tones(1:symbols)
+  nsym=symbols
+  do i=1,n
+     do j=1,34
+        frames(34*(i-1)+j)=packed(i)(j:j)
+     enddo
+  enddo
+  nframes=n
+  frame_starts(1:n)=starts(1:n)
+  status=JTTY_ENCODE_OK
+end subroutine genjtty_text_c
+
 subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym,status) bind(C,name='genjtty_atoms_c')
 
   use iso_c_binding, only: c_char,c_int,c_null_char

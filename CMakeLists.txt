@@ -442,7 +442,7 @@ endif ()
 if (WSJT_BUILD_FORTRAN_NON_OPENMP)
   set (WSJT_FORTRAN_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR})
-  add_library (wsjt_fort STATIC ${wsjt_FSRCS})
+  add_library (wsjt_fort STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
   set_target_properties (wsjt_fort
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR}
@@ -455,7 +455,7 @@ endif ()
 if (WSJT_BUILD_FORTRAN_OPENMP)
   set (WSJT_FORTRAN_OPENMP_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules_omp)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
-  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS})
+  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
   set_target_properties (wsjt_fort_omp
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR}

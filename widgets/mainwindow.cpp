@@ -321,11 +321,6 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
-  void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
-
-  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
-                    float xjunk[], float wave[], int* icmplx, int* nwave);
-
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
 
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],

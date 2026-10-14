@@ -232,6 +232,13 @@ set (wsjt_CXXSRCS
   lib/crc14.cpp
   ${wsjt_fox_CXXSRCS}
   )
+
+# The JTTY transmit encoder calls the Fortran codec, so it is archived with it.
+set (wsjt_jtty_CXXSRCS
+  lib/jtty/JttyTransmit.cpp
+  lib/jtty/JttyUnicode.cpp
+  )
+
 # deal with a GCC v6 UB error message
 set_source_files_properties (
   lib/crc10.cpp

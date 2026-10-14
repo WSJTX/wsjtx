@@ -2,6 +2,27 @@ add_executable (test_jtty_pack test_jtty_pack.f90)
 target_include_directories (test_jtty_pack PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_pack)
 
+add_executable (test_jtty_genjtty_text test_jtty_genjtty_text.f90)
+target_include_directories (test_jtty_genjtty_text PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_genjtty_text)
+add_test (NAME test_jtty_genjtty_text COMMAND test_jtty_genjtty_text)
+set_tests_properties (test_jtty_genjtty_text PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_genjtty_text: all checks passed"
+  TIMEOUT 60
+)
+
+add_executable (test_jtty_transmit_text test_jtty_transmit_text.cpp)
+target_link_libraries (test_jtty_transmit_text PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_transmit_text)
+add_test (NAME test_jtty_transmit_text COMMAND test_jtty_transmit_text)
+set_tests_properties (test_jtty_transmit_text PROPERTIES TIMEOUT 60)
+
+add_executable (test_jtty_transmit_encoder test_jtty_transmit_encoder.cpp)
+target_link_libraries (test_jtty_transmit_encoder PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_transmit_encoder)
+add_test (NAME test_jtty_transmit_encoder COMMAND test_jtty_transmit_encoder)
+set_tests_properties (test_jtty_transmit_encoder PROPERTIES TIMEOUT 120)
+
 add_executable (test_jtty_source_codec test_jtty_source_codec.f90)
 target_include_directories (test_jtty_source_codec PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_source_codec)
@@ -148,7 +169,8 @@ if (WSJT_ENABLE_TSAN)
 endif ()
 
 add_executable (test_jtty_messages test_jtty_messages.cpp)
-target_link_libraries (test_jtty_messages Qt5::Test)
+target_link_libraries (test_jtty_messages PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_messages)
 add_test (NAME test_jtty_messages COMMAND test_jtty_messages)
 
 add_executable (test_jtty_continuous_decode test_jtty_continuous_decode.f90)
@@ -207,7 +229,8 @@ target_link_libraries (test_jtty_transmit_queue Qt5::Test)
 add_test (NAME test_jtty_transmit_queue COMMAND test_jtty_transmit_queue)
 
 add_executable (test_jtty_live_entry test_jtty_live_entry.cpp)
-target_link_libraries (test_jtty_live_entry Qt5::Test)
+target_link_libraries (test_jtty_live_entry PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_live_entry)
 add_test (NAME test_jtty_live_entry COMMAND test_jtty_live_entry)
 
 add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
