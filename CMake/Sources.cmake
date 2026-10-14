@@ -327,6 +327,8 @@ set (wsjt_FSRCS
   lib/jtty/jttycom.f90
   lib/jtty/jtty_mdecode.f90
   lib/jtty/jtty_receive_context.f90
+  lib/jtty/jtty_filler.f90
+  lib/streaming_jtty.f90
 
   # remaining non-module sources
   lib/addit.f90

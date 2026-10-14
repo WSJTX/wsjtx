@@ -145,6 +145,15 @@ wsjt_link_common_fortran (test_jtty_surface_ranges)
 add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
 set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 180)
 
+add_executable (test_jtty_display_layout test_jtty_display_layout.f90)
+target_include_directories (test_jtty_display_layout PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_display_layout)
+add_test (NAME test_jtty_display_layout COMMAND test_jtty_display_layout)
+set_tests_properties (test_jtty_display_layout PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_display_layout: all checks passed"
+  TIMEOUT 120
+)
+
 add_executable (test_jtty_get_updates test_jtty_get_updates.f90)
 target_include_directories (test_jtty_get_updates PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_get_updates)
@@ -172,6 +181,12 @@ add_executable (test_jtty_messages test_jtty_messages.cpp)
 target_link_libraries (test_jtty_messages PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_messages)
 add_test (NAME test_jtty_messages COMMAND test_jtty_messages)
+
+add_executable (test_jtty_filler test_jtty_filler.cpp)
+target_link_libraries (test_jtty_filler PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_filler)
+add_test (NAME test_jtty_filler COMMAND test_jtty_filler)
+set_tests_properties (test_jtty_filler PROPERTIES TIMEOUT 60)
 
 add_executable (test_jtty_continuous_decode test_jtty_continuous_decode.f90)
 target_include_directories (test_jtty_continuous_decode PRIVATE ${CMAKE_BINARY_DIR})
@@ -274,4 +289,34 @@ set_tests_properties (test_jtty_replay_ownership PROPERTIES
 if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_jtty_replay_ownership PROPERTIES
     ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
+endif ()
+
+# The codec's JTTY receive end to end through QProcess. The test
+# synthesizes its transmissions with the common Fortran library; rjtty, when
+# built, is the reference for the in-tree sample.
+add_executable (test_wsjt_codec_jtty test_wsjt_codec_jtty.cpp)
+target_include_directories (test_wsjt_codec_jtty PRIVATE ${CMAKE_BINARY_DIR} ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (test_wsjt_codec_jtty PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_wsjt_codec_jtty)
+target_compile_definitions (test_wsjt_codec_jtty PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav"
+  JTTY_SAMPLE_WAV="${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
+add_dependencies (test_wsjt_codec_jtty wsjt-codec test_decoder_engine)
+if (WSJT_BUILD_UTILS)
+  target_compile_definitions (test_wsjt_codec_jtty PRIVATE RJTTY_EXECUTABLE="$<TARGET_FILE:rjtty>")
+  add_dependencies (test_wsjt_codec_jtty rjtty)
+endif ()
+add_test (NAME test_wsjt_codec_jtty COMMAND test_wsjt_codec_jtty)
+set_tests_properties (test_wsjt_codec_jtty PROPERTIES
+  LABELS "streaming;jtty;runtime"
+  TIMEOUT 600
+  FIXTURES_REQUIRED ft8_engine_wav)
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_wsjt_codec_jtty PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+# It decodes the in-tree sample, which source archives omit.
+if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
+  set_tests_properties (test_wsjt_codec_jtty PROPERTIES DISABLED TRUE)
 endif ()

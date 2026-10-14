@@ -40,6 +40,7 @@ module streaming_emit
   public :: streaming_emit_error_code
   public :: streaming_emit_error_version
   public :: streaming_emit_error_type
+  public :: streaming_emit_json_escape
 
 contains
 
@@ -70,10 +71,10 @@ contains
   subroutine streaming_emit_ready()
     if (.not. enabled_) return
     ! Full jt9-internal mode support (FT8/FT4/JT9/JT65/JT4/FST4/
-    ! FST4W/Q65/MSK144). Modes outside this set (e.g., wsprd C2 streaming,
-    ! map65 I/Q) may extend this list later.
+    ! FST4W/Q65/MSK144) and JTTY. Modes outside this set (e.g., wsprd C2
+    ! streaming, map65 I/Q) may extend this list later.
     write(output_unit, '(a)') &
-       '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144"],"protocol":1}'
+       '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"protocol":1}'
     flush(output_unit)
   end subroutine streaming_emit_ready
 
@@ -102,7 +103,7 @@ contains
     if (.not. enabled_) return
 
     call format_utc_(nutc, time_str, utc_is_hhmmss)
-    call json_escape_(msg, msg_escaped, msg_len)
+    call streaming_emit_json_escape(msg, msg_escaped, msg_len)
     call format_dt_(dt, dt_str)
 
     write(output_unit, '(5a,i0,3a,i0,3a)')                                 &
@@ -133,7 +134,7 @@ contains
     character(len=320)           :: msg_escaped
     integer                      :: msg_len
     if (.not. enabled_) return
-    call json_escape_(msg, msg_escaped, msg_len)
+    call streaming_emit_json_escape(msg, msg_escaped, msg_len)
     write(output_unit, '(3a)')                                             &
          '{"v":1,"t":"error","msg":"', msg_escaped(1:msg_len), '"}'
     flush(output_unit)
@@ -148,7 +149,7 @@ contains
     character(len=320)           :: d_escaped
     integer                      :: d_len
     if (.not. enabled_) return
-    call json_escape_(detail, d_escaped, d_len)
+    call streaming_emit_json_escape(detail, d_escaped, d_len)
     write(output_unit, '(5a)')                                             &
          '{"v":1,"t":"error","code":"', trim(code),                        &
          '","detail":"', d_escaped(1:d_len), '"}'
@@ -239,7 +240,7 @@ contains
   ! Trailing trim: the input is silently trimmed to its non-blank length
   ! before escaping (decoder messages are right-padded fixed-width strings).
   ! Output buffer must be large enough for worst case 6x input len.
-  subroutine json_escape_(in_str, out_str, out_len)
+  subroutine streaming_emit_json_escape(in_str, out_str, out_len)
     character(len=*), intent(in)  :: in_str
     character(len=*), intent(out) :: out_str
     integer,          intent(out) :: out_len
@@ -276,7 +277,7 @@ contains
           out_str(out_len:out_len) = c
        end select
     end do
-  end subroutine json_escape_
+  end subroutine streaming_emit_json_escape
 
   subroutine append_pair_(a, b, buf, idx)
     character,        intent(in)    :: a, b

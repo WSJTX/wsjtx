@@ -14,20 +14,34 @@
 ! Other types are skipped (forward-compat: consumers ignore unknown
 ! frame types just as NDJSON consumers ignore unknown "t" values).
 !
-! Control frames recognized today: {"t":"configure",...}, {"t":"halt"}.
-! See lib/streaming_control.f90 for the parser + schema.
+! Control frames recognized today: {"t":"configure",...}, {"t":"halt"},
+! {"t":"discontinuity"}. See lib/streaming_control.f90 for the parser + schema.
 !
 ! Apply policy:
 !   configure : applied at receive. A change of mode or period starts a
 !               new period; what was in flight is discarded. Producers
 !               send `configure` first; audio is interpreted under the
-!               most recent one.
+!               most recent one. A declined configure applies none of
+!               its keys.
 !   halt      : drain the current period (decode if it has samples), exit.
 !
 ! A period is TRperiod * 12 kHz samples (lib/streaming_period.f90). Keep a
 ! frame remainder for the next period; retain only the first npts samples
 ! for decoding. The reader's phase is that of the first audio after
 ! `configure`; send every sample.
+!
+! JTTY ({"mode":"JTTY"}; no integer code or command-line flag selects it) has
+! no periods: its audio goes to lib/streaming_jtty.f90, which states its
+! output. A JTTY session ends at a discontinuity, an odd-length audio frame, a
+! configure that leaves JTTY, halt and end of input; the period modes ignore
+! discontinuity. Entering JTTY, rxfreq carries over, ntol becomes 20 and nfa
+! and nfb their values at the start of the stream (-L and -H, 200 and 4000 Hz
+! by default; with -9 and an -S other than 2700, nfa is -S) unless the frame
+! sets them. Any configure that carries mode or trperiod and stays in JTTY
+! keeps the session but resets in the same way whichever of nfa, nfb and ntol
+! it does not set. trperiod is validated and unused. A configure that would
+! leave rxfreq, ntol, nfa or nfb outside 0 to 6000 Hz in JTTY is declined
+! (configure_range_error).
 !
 ! Format support: fmt=0x00 (int16 PCM) only. Other formats may be
 ! added later.
@@ -54,8 +68,11 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        streaming_emit_error_code, streaming_emit_error_version,            &
        streaming_emit_error_type, streaming_emit_set_time_form
   use streaming_control, only: parse_control_frame, configure_fields,      &
-       control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR
+       control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
+       CTRL_DISCONTINUITY, MODE_JTTY
   use streaming_apply, only: apply_configure_fields
+  use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
+       jtty_emit_range_error, jtty_release
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready
 
@@ -99,8 +116,12 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer(int16), save :: id2a(180000)  !Keep this big array off the stack
   character(len=CTL_BUF_LEN) :: ctl_buf
   integer(int8)  :: ctl_bytes(CTL_BUF_LEN)
-  integer :: i_ctl, prev_mode
-  real(8) :: prev_TRperiod
+  integer :: i_ctl, prev_mode, next_mode
+  real(8) :: prev_TRperiod, next_TRperiod
+  type(params_block) :: next_params
+  character(len=:), allocatable :: range_key
+  ! Audio samples consumed in any mode; JTTY's origin and times count them.
+  integer(int64) :: stream_samples
   ! Session-baseline nfa/nfb stashed after jt9.f90's init_streaming_extra_fields
   ! returned. apply_configure_fields restores these on mode change with no
   ! explicit consumer override; passed in as dummy args.
@@ -200,6 +221,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   call streaming_emit_ready()
   max_audio_frame_bytes = 2_int64 * int(size(shared_data%id2), int64)
   body_left = 0
+  stream_samples = 0
 
   ! ===== Outer period loop ===========================================
   do
@@ -245,6 +267,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            if (mod(frame_len, 2) /= 0) then
               call streaming_emit_error_code('odd_audio_frame',                &
                    'audio frame length must contain whole int16 samples')
+              ! The skipped samples are a hole in the JTTY session.
+              if (mode .eq. MODE_JTTY) call jtty_end()
               body_left = frame_len
               do while (body_left .gt. 0)
                  take_bytes = min(body_left, size(byte_sink))
@@ -257,8 +281,12 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               cycle
            end if
            body_left = frame_len
-           call consume_audio_body()
-           if (.not. decoded .and. period_ready(period)) call run_period_decode()
+           if (mode .eq. MODE_JTTY) then
+              call consume_jtty_body()
+           else
+              call consume_audio_body()
+              if (.not. decoded .and. period_ready(period)) call run_period_decode()
+           end if
 
         else if (iand(int(type_byte(1)), 255) .eq. FRAME_CONTROL) then
            ! Read JSON body into char buffer (cap at CTL_BUF_LEN)
@@ -323,10 +351,25 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                       'trperiod must be finite and between 0 and 1800 seconds')
                  cycle
               end if
-              prev_mode     = mode
-              prev_TRperiod = TRperiod
-              call apply_configure_fields(cfg, mode, TRperiod,             &
-                   shared_data%params, baseline_nfa, baseline_nfb)
+              ! Applied to a copy, so that a declined frame changes nothing.
+              next_mode     = mode
+              next_TRperiod = TRperiod
+              next_params   = shared_data%params
+              call apply_configure_fields(cfg, next_mode, next_TRperiod,   &
+                   next_params, baseline_nfa, baseline_nfb)
+              if (next_mode .eq. MODE_JTTY) then
+                 range_key = jtty_range_key(next_params)
+                 if (len(range_key) .gt. 0) then
+                    call jtty_emit_range_error(range_key)
+                    cycle
+                 end if
+              end if
+              if (mode .eq. MODE_JTTY .and. next_mode .ne. MODE_JTTY) call jtty_end()
+              prev_mode          = mode
+              prev_TRperiod      = TRperiod
+              mode               = next_mode
+              TRperiod           = next_TRperiod
+              shared_data%params = next_params
               call streaming_emit_set_time_form(cfg%utc_set, cfg%nutc_set, TRperiod)
               ! A configure that changes the applied mode or period starts a
               ! new period; what was in flight is discarded. Repeating the
@@ -338,6 +381,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  nhsym0  = 0
                  decoded = .false.
               end if
+           case (CTRL_DISCONTINUITY)
+              if (mode .eq. MODE_JTTY) call jtty_end()
            case (CTRL_PARSE_ERR)
               call streaming_emit_error_code('configure_parse_error',          &
                    'malformed control frame (missing or invalid t field)')
@@ -361,7 +406,11 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      ! decodes what it has — once.
      if (.not. decoded .and. period%k .gt. 0) call run_period_decode()
 
-     if (halt_req .or. eof_period) return
+     if (halt_req .or. eof_period) then
+        if (mode .eq. MODE_JTTY) call jtty_end()
+        call jtty_release()
+        return
+     end if
   end do
 
 contains
@@ -427,6 +476,7 @@ contains
           eof_period = .true.; return
        end if
        body_left = body_left - take_bytes
+       stream_samples = stream_samples + take_samples
        k0 = period%k
        call period_take(period, take_samples, nacc)
        if (nacc .gt. 0) then
@@ -449,6 +499,21 @@ contains
        end if
     end do
   end subroutine consume_audio_body
+
+  ! JTTY has no periods: the whole frame goes to the session.
+  subroutine consume_jtty_body()
+    do while (body_left .gt. 0)
+       take_samples = min(body_left / 2, size(chunk))
+       take_bytes   = 2 * take_samples
+       call stdin_read(chunk, take_bytes, ios)
+       if (ios /= 0) then
+          eof_period = .true.; return
+       end if
+       body_left = body_left - take_bytes
+       call jtty_audio(chunk(1:take_samples), stream_samples, shared_data%params)
+       stream_samples = stream_samples + take_samples
+    end do
+  end subroutine consume_jtty_body
 
   ! Read exactly nbytes from stdin via the C helper; ios=0 on success,
   ! ios=1 on end-of-stream (short delivery — the producer closed the

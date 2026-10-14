@@ -21,7 +21,7 @@
 
 module streaming_apply
   use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
-       NPTS_C0_ARRAY_MAX
+       NPTS_C0_ARRAY_MAX, MODE_JTTY
   use jt9_params_init,   only: apply_per_mode_policy
 
   include 'jt9com.f90'
@@ -322,6 +322,7 @@ contains
           case (241, 242);   params%ntol = 100      ! FST4/FST4W
           case (65 + 9);     params%ntol = 20       ! JT65+JT9 hard
           case (66);         params%ntol = 10       ! Q65 hard
+          case (MODE_JTTY);  params%ntol = 20       ! the GUI's JTTY F Tol
           case default;      params%ntol = 1000     ! FT8/FT4/etc
           end select
        else
@@ -331,6 +332,7 @@ contains
           case (241, 242);   params%ntol = min(params%ntol, 100)
           case (66);         params%ntol = 10
           case (65 + 9);     params%ntol = 20
+          case (MODE_JTTY)   ! the stream's 0..6000 Hz range check limits it
           case default;      params%ntol = min(params%ntol, 1000)
           end select
        end if
