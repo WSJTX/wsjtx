@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QCloseEvent>
 #include <QScreen>
+#include <QRegion>
 #include <QDebug>
 #include <math.h>
 
@@ -131,6 +132,10 @@ void Astro::ensure_visible ()
     {
       auto const available = candidate->availableGeometry ();
       if (available.contains (frame)) return;
+      QRegion uncovered {frame};
+      for (auto sibling : candidate->virtualSiblings ())
+        uncovered -= QRegion {sibling->availableGeometry ()};
+      if (uncovered.isEmpty ()) return;
       auto const overlap = frame.intersected (available);
       auto const area = overlap.width () * overlap.height ();
       if (area > largest_overlap)
