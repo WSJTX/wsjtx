@@ -1,11 +1,15 @@
 ! Streaming control-frame parser.
 !
 ! Parses control JSON frames received on stdin via the streaming
-! framing. Two frame types are recognized today:
+! framing. Three frame types are recognized today:
 !
 !   {"t":"configure","mode":"FT8","depth":3,"rxfreq":1500,
 !                    "mycall":"KJ5HST","mygrid":"EM18","trperiod":15}
 !   {"t":"halt"}
+!   {"t":"discontinuity"}   the next audio sample does not follow the last
+!                           one. jt9 --stream ignores it: its periods are
+!                           counted from its first sample, so a producer
+!                           must still send jt9 every sample.
 !
 ! Hand-rolled flat-JSON parser. Callers should treat unknown "t" values
 ! as forward-compat extensions (mirrors the consumer-ignores-unknown
@@ -28,6 +32,7 @@ module streaming_control
   integer, parameter, public :: CTRL_CONFIGURE = 1
   integer, parameter, public :: CTRL_HALT      = 2
   integer, parameter, public :: CTRL_PARSE_ERR = 3
+  integer, parameter, public :: CTRL_DISCONTINUITY = 4
   ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
   integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
   integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
@@ -413,6 +418,11 @@ contains
 
     if (trim(t_value) .eq. 'halt') then
        action = CTRL_HALT
+       return
+    end if
+
+    if (trim(t_value) .eq. 'discontinuity') then
+       action = CTRL_DISCONTINUITY
        return
     end if
 
