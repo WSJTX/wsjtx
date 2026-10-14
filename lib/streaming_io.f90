@@ -9,7 +9,9 @@
 !
 ! Frame types:
 !   0x01  audio chunk     body = N samples in declared format
-!   0x02  control JSON    body = UTF-8 JSON line (no trailing newline)
+!   0x02  control JSON    body = UTF-8 JSON line (no trailing newline) of at
+!                         most 262,144 bytes; a longer one is reported
+!                         (control_frame_too_large) and skipped
 !
 ! Other types are skipped (forward-compat: consumers ignore unknown
 ! frame types just as NDJSON consumers ignore unknown "t" values).
@@ -86,7 +88,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer, parameter :: NFSAMPLE = 12000
   integer, parameter :: FRAME_AUDIO   = 1
   integer, parameter :: FRAME_CONTROL = 2
-  integer, parameter :: CTL_BUF_LEN = 1024
+  integer, parameter :: CTL_BUF_LEN = 262144
   ! 4-byte session magic "WSJT" (W=0x57 S=0x53 J=0x4A T=0x54)
   integer(int8), parameter :: MAGIC(4) = [                                 &
        int(z'57', int8), int(z'53', int8),                                 &
@@ -114,8 +116,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! mirror the WAV path's 41/47/50 call cadence with a working copy zeroed
   ! past the per-call sample boundary.
   integer(int16), save :: id2a(180000)  !Keep this big array off the stack
-  character(len=CTL_BUF_LEN) :: ctl_buf
-  integer(int8)  :: ctl_bytes(CTL_BUF_LEN)
+  character(len=CTL_BUF_LEN), save :: ctl_buf     !Off the stack, as id2a
+  integer(int8), save :: ctl_bytes(CTL_BUF_LEN)
   integer :: i_ctl, prev_mode, next_mode
   real(8) :: prev_TRperiod, next_TRperiod
   type(params_block) :: next_params

@@ -19,9 +19,11 @@
 ! Restrictions (deliberate scope):
 !   - Flat objects only; no nested objects, no arrays.
 !   - Numeric values must be plain decimal (no scientific notation).
-!   - String values must NOT contain escape sequences. Callsigns, grids,
-!     and mode names are alphanumeric ASCII per WSJT-X conventions, so
-!     this is a safe simplification today; it can be extended if needed.
+!   - String values are JSON strings: \" \\ \/ \b \f \n \r \t and \uXXXX
+!     (a surrogate pair for a character above U+FFFF) decode to UTF-8. A
+!     string with a malformed escape, a lone surrogate or no closing quote
+!     is unreadable: a configure key is left unset (not a type error), and
+!     an unreadable "t" is a parse error.
 
 module streaming_control
   use, intrinsic :: iso_fortran_env, only: error_unit
@@ -1343,8 +1345,9 @@ contains
     character(len=*), intent(in)  :: buf, key
     character(len=*), intent(out) :: val
     logical,          intent(out) :: ok
-    integer :: vstart, vend, blen
+    integer :: vstart, blen
     logical :: found
+    character(len=:), allocatable :: decoded
 
     val = ' '
     ok  = .false.
@@ -1352,12 +1355,119 @@ contains
     if (.not. found) return
     if (vstart .gt. blen) return
     if (buf(vstart:vstart) .ne. '"') return
-    vstart = vstart + 1
-    vend = index(buf(vstart:blen), '"')
-    if (vend .le. 0) return
-    val = buf(vstart : vstart + vend - 2)
-    ok  = .true.
+    call json_string_(buf(vstart + 1:blen), decoded, ok)
+    if (ok) val = decoded
   end subroutine get_string_
+
+  ! The JSON string whose body starts at s(1:1), up to its closing quote,
+  ! decoded to UTF-8. ok=.false. on a malformed escape, a lone surrogate or
+  ! no closing quote. A string without a backslash is returned as it stands.
+  subroutine json_string_(s, val, ok)
+    character(len=*),              intent(in)  :: s
+    character(len=:), allocatable, intent(out) :: val
+    logical,                       intent(out) :: ok
+    character(len=:), allocatable :: out
+    integer :: i, n, code, low
+    ! UTF-16 surrogates: a high one (U+D800-DBFF) must be followed by a low one.
+    integer, parameter :: HIGH_FIRST = int(z'D800'), HIGH_LAST = int(z'DBFF')
+    integer, parameter :: LOW_FIRST  = int(z'DC00'), LOW_LAST  = int(z'DFFF')
+
+    ok = .false.
+    val = ''
+    ! No escape decodes to more bytes than it spells.
+    allocate(character(len=len(s)) :: out)
+    n = 0
+    i = 1
+    do while (i .le. len(s))
+       select case (s(i:i))
+       case ('"')
+          val = out(1:n)
+          ok  = .true.
+          return
+       case ('\')
+          if (i .eq. len(s)) return
+          i = i + 1
+          select case (s(i:i))
+          case ('"', '\', '/')
+             n = n + 1; out(n:n) = s(i:i)
+          case ('b')
+             n = n + 1; out(n:n) = achar(8)
+          case ('f')
+             n = n + 1; out(n:n) = achar(12)
+          case ('n')
+             n = n + 1; out(n:n) = achar(10)
+          case ('r')
+             n = n + 1; out(n:n) = achar(13)
+          case ('t')
+             n = n + 1; out(n:n) = achar(9)
+          case ('u')
+             if (.not. hex4_(s, i + 1, code)) return
+             i = i + 4
+             if (code .ge. LOW_FIRST .and. code .le. LOW_LAST) return
+             if (code .ge. HIGH_FIRST .and. code .le. HIGH_LAST) then
+                if (i + 2 .gt. len(s)) return
+                if (s(i + 1:i + 2) .ne. '\u') return
+                if (.not. hex4_(s, i + 3, low)) return
+                if (low .lt. LOW_FIRST .or. low .gt. LOW_LAST) return
+                code = 65536 + (code - HIGH_FIRST) * 1024 + (low - LOW_FIRST)
+                i = i + 6
+             end if
+             call put_utf8_(code, out, n)
+          case default
+             return
+          end select
+       case default
+          n = n + 1; out(n:n) = s(i:i)
+       end select
+       i = i + 1
+    end do
+  end subroutine json_string_
+
+  ! The four hex digits s(at:at+3) as code; .false. unless all four are.
+  logical function hex4_(s, at, code)
+    character(len=*), intent(in)  :: s
+    integer,          intent(in)  :: at
+    integer,          intent(out) :: code
+    integer :: k, d
+
+    hex4_ = .false.
+    code  = 0
+    if (at + 3 .gt. len(s)) return
+    do k = at, at + 3
+       d = index('0123456789abcdef', s(k:k))
+       if (d .eq. 0) d = index('0123456789ABCDEF', s(k:k))
+       if (d .eq. 0) return
+       code = 16 * code + d - 1
+    end do
+    hex4_ = .true.
+  end function hex4_
+
+  ! Append code point code to out(1:n) as UTF-8.
+  subroutine put_utf8_(code, out, n)
+    integer,          intent(in)    :: code
+    character(len=*), intent(inout) :: out
+    integer,          intent(inout) :: n
+
+    if (code .lt. 128) then
+       out(n + 1:n + 1) = char(code)
+       n = n + 1
+    else if (code .lt. 2048) then
+       out(n + 1:n + 1) = char(192 + code / 64)
+       out(n + 2:n + 2) = char(128 + iand(code, 63))
+       n = n + 2
+    else if (code .lt. 65536) then
+       out(n + 1:n + 1) = char(224 + code / 4096)
+       out(n + 2:n + 2) = char(128 + iand(code / 64, 63))
+       out(n + 3:n + 3) = char(128 + iand(code, 63))
+       n = n + 3
+    else
+       out(n + 1:n + 1) = char(240 + code / 262144)
+       out(n + 2:n + 2) = char(128 + iand(code / 4096, 63))
+       out(n + 3:n + 3) = char(128 + iand(code / 64, 63))
+       out(n + 4:n + 4) = char(128 + iand(code, 63))
+       n = n + 4
+    end if
+  end subroutine put_utf8_
 
   ! Find an integer value in a flat JSON: looks for `key:NNN`, value is
   ! decimal integer with optional sign. ok=.false. on miss or non-int.
