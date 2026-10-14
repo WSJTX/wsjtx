@@ -56,13 +56,15 @@ for exe in "$@"; do
     echo "(none)"
   fi
 
-  if [ "$(basename "$exe" | tr '[:upper:]' '[:lower:]')" = jt9.exe ]; then
-    qt_imports=$(printf '%s\n' "$imports" | awk 'tolower($0) ~ /^qt.*\.dll$/')
-    if [ -n "$qt_imports" ]; then
-      echo "::error::$exe must not depend on Qt: $qt_imports"
-      fail=1
-    fi
-  fi
+  case "$(basename "$exe" | tr '[:upper:]' '[:lower:]')" in
+    jt9.exe|wsjt-codec.exe)
+      qt_imports=$(printf '%s\n' "$imports" | awk 'tolower($0) ~ /^qt.*\.dll$/')
+      if [ -n "$qt_imports" ]; then
+        echo "::error::$exe must not depend on Qt: $qt_imports"
+        fail=1
+      fi
+      ;;
+  esac
 
   win7_blocked_imports=$(
     printf '%s\n' "$import_metadata" |

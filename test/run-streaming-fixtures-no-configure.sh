@@ -2,13 +2,13 @@
 # Streaming-fixture regression harness — no-configure-frame variant.
 #
 # Exercises the CLI-arg threading path through init_default_params.
-# Sends WSJT header + audio frames + halt to jt9 --stream
-# WITHOUT a configure frame; jt9 reads its decode parameters from the
+# Sends WSJT header + audio frames + halt to wsjt-codec --stream
+# WITHOUT a configure frame; wsjt-codec reads its decode parameters from the
 # CLI flags supplied to the binary directly.
 #
 # Earlier, streaming_io.f90's bulk init silently overrode CLI-supplied
 # values like -F (ntol), -f (rxfreq), -L (flow), -H (fhigh), -d (ndepth)
-# with FT8-baseline hardcoded defaults. A jt9 invocation without a
+# with FT8-baseline hardcoded defaults. A wsjt-codec invocation without a
 # configure frame produced 0 decodes for any non-default CLI args — the
 # CLI args were lost. This harness locks in the fix.
 #
@@ -19,11 +19,11 @@ set -euo pipefail
 
 BUILD_DIR="${1:-build}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-JT9="$REPO_ROOT/$BUILD_DIR/jt9"
+JT9="$REPO_ROOT/$BUILD_DIR/wsjt-codec"
 HARNESS="$REPO_ROOT/test/wav_to_stream_no_configure.py"
 
 if [[ ! -x "$JT9" ]]; then
-  echo "ERROR: jt9 binary not found or not executable: $JT9" >&2
+  echo "ERROR: wsjt-codec binary not found or not executable: $JT9" >&2
   exit 2
 fi
 if [[ ! -f "$HARNESS" ]]; then
@@ -32,7 +32,7 @@ if [[ ! -f "$HARNESS" ]]; then
 fi
 
 echo "Streaming-fixture regression (no-configure-frame variant)"
-echo "  jt9:       $JT9"
+echo "  wsjt-codec:  $JT9"
 echo "  harness:   $HARNESS"
 
 fail=0

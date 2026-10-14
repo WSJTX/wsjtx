@@ -2,16 +2,16 @@
 """
 wav-to-stream validation harness.
 
-Pipes a 12 kHz mono int16 WAV file through `jt9 --stream` using the
+Pipes a 12 kHz mono int16 WAV file through `wsjt-codec --stream` using the
 streaming protocol, then prints the resulting NDJSON decodes.
 Used to verify that streaming-mode decode results match the WAV-mode
 ground truth (cross-mode validation).
 
 Usage:
-    test/wav_to_stream_harness.py <jt9-binary> <wav-file> [--mode FT8]
+    test/wav_to_stream_harness.py <wsjt-codec-binary> <wav-file> [--mode FT8]
 
-Exit code is jt9's exit code. NDJSON lines are written to stdout, one
-per `{"v":1,"t":"...",...}` event from jt9. Diagnostic stderr from jt9
+Exit code is wsjt-codec's exit code. NDJSON lines are written to stdout, one
+per `{"v":1,"t":"...",...}` event from wsjt-codec. Diagnostic stderr from wsjt-codec
 is merged into stdout (consumers MUST drain stderr; this harness uses
 redirect_error_stream=true).
 """
@@ -471,7 +471,7 @@ def run_parity(golden_path: Path, stream_lines: list[str], jt9_rc: int,
         d_snr = (best["snr"] if best["snr"] is not None else 0) - g["snr"]
         d_dt = (best["dt"] if best["dt"] is not None else 0.0) - g["dt"]
         # int() casts guard the :d format codes against a spec-drift float
-        # freq/snr in the NDJSON (jt9 emits both as integers today).
+        # freq/snr in the NDJSON (wsjt-codec emits both as integers today).
         print(f"  {'OK':<8}{g['message']:<24}"
               f"{int(d_freq):>7d}{int(d_snr):>6d}{d_dt:>+7.2f}")
 
@@ -491,7 +491,7 @@ def run_parity(golden_path: Path, stream_lines: list[str], jt9_rc: int,
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("jt9", type=Path)
+    p.add_argument("wsjt_codec", metavar="wsjt-codec", type=Path)
     p.add_argument("wav", type=Path)
     p.add_argument("--mode", default="FT8")
     p.add_argument("--mycall", default="KJ5HST",
@@ -760,8 +760,8 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    if not args.jt9.is_file():
-        print(f"ERROR: jt9 binary not found: {args.jt9}", file=sys.stderr)
+    if not args.wsjt_codec.is_file():
+        print(f"ERROR: wsjt-codec binary not found: {args.wsjt_codec}", file=sys.stderr)
         return 2
     if not args.wav.is_file():
         print(f"ERROR: WAV file not found: {args.wav}", file=sys.stderr)
@@ -792,7 +792,7 @@ def main() -> int:
         audio = w.readframes(w.getnframes())
 
     proc = subprocess.Popen(
-        [str(args.jt9), "--stream"],
+        [str(args.wsjt_codec), "--stream"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,  # mandatory: consumers must drain stderr

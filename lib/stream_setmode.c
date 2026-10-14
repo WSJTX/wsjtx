@@ -1,6 +1,6 @@
 /* stream_setmode.c — put stdin into binary mode on Windows.
  *
- * jt9 --stream / jt9stream read a framed binary byte stream (PCM audio +
+ * wsjt-codec --stream reads a framed binary byte stream (PCM audio +
  * control frames) from stdin. On Windows, stdin defaults to text mode, which
  * translates CR/LF and stops at a 0x1A (^Z) byte — both corrupt binary data.
  * This helper forces binary mode once, before the stream is opened.

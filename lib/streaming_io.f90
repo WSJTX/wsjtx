@@ -137,13 +137,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   call stdin_read(hdr, HDR_LEN, ios)
   if (ios /= 0) then
      call streaming_emit_error('short header (need 8 bytes)')
-     write(error_unit, '(a)') 'jt9 --stream: short header (need 8 bytes)'
+     write(error_unit, '(a)') 'wsjt-codec --stream: short header (need 8 bytes)'
      stop 1
   end if
 
   if (any(hdr(1:4) /= MAGIC)) then
      call streaming_emit_error('bad magic (expected ''WSJT'')')
-     write(error_unit, '(a)') 'jt9 --stream: bad magic (expected ''WSJT'')'
+     write(error_unit, '(a)') 'wsjt-codec --stream: bad magic (expected ''WSJT'')'
      stop 1
   end if
 
@@ -154,26 +154,26 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   if (fmt /= 0) then
      call streaming_emit_error('unsupported format (only fmt=0 int16 PCM supported)')
      write(error_unit, '(a,i0,a)')                                         &
-          'jt9 --stream: unsupported fmt=', fmt, ' (only int16 PCM supported)'
+          'wsjt-codec --stream: unsupported fmt=', fmt, ' (only int16 PCM supported)'
      stop 1
   end if
 
   if (ch /= 1) then
      call streaming_emit_error('unsupported channel count (only mono supported)')
      write(error_unit, '(a,i0,a)')                                         &
-          'jt9 --stream: unsupported channels=', ch, ' (only mono supported)'
+          'wsjt-codec --stream: unsupported channels=', ch, ' (only mono supported)'
      stop 1
   end if
 
   if (rate_khz /= 12) then
      call streaming_emit_error('unsupported sample rate (only 12 kHz supported)')
      write(error_unit, '(a,i0,a)')                                         &
-          'jt9 --stream: unsupported rate=', rate_khz, ' kHz (only 12 kHz supported)'
+          'wsjt-codec --stream: unsupported rate=', rate_khz, ' kHz (only 12 kHz supported)'
      stop 1
   end if
 
   write(error_unit, '(a,i0,a,i0,a,i0,a)')                                  &
-       'jt9 --stream: header ok (fmt=', fmt, ' ch=', ch,                   &
+       'wsjt-codec --stream: header ok (fmt=', fmt, ' ch=', ch,            &
        ' rate=', rate_khz, ' kHz)'
 
   nsps  = 6912
@@ -235,7 +235,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         if (frame_len_wide .gt. max_audio_frame_bytes) then
            call streaming_emit_error_code('frame_too_large',                    &
                 'frame length exceeds the streaming sample-buffer capacity')
-           write(error_unit, '(a,i0,a,i0)') 'jt9 --stream: frame length ',      &
+           write(error_unit, '(a,i0,a,i0)') 'wsjt-codec --stream: frame length ', &
                 frame_len_wide, ' exceeds capacity ', max_audio_frame_bytes
            stop 1
         end if
@@ -464,3 +464,7 @@ contains
   end subroutine stdin_read
 
 end subroutine jt9_stream
+
+logical function jt9_stream_available()
+  jt9_stream_available = .true.
+end function jt9_stream_available

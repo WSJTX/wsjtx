@@ -7,9 +7,9 @@
 !                    "mycall":"KJ5HST","mygrid":"EM18","trperiod":15}
 !   {"t":"halt"}
 !   {"t":"discontinuity"}   the next audio sample does not follow the last
-!                           one. jt9 --stream ignores it: its periods are
+!                           one. wsjt-codec --stream ignores it: its periods are
 !                           counted from its first sample, so a producer
-!                           must still send jt9 every sample.
+!                           must still send wsjt-codec every sample.
 !
 ! Hand-rolled flat-JSON parser. Callers should treat unknown "t" values
 ! as forward-compat extensions (mirrors the consumer-ignores-unknown
@@ -117,7 +117,7 @@ module streaming_control
      ! nrobust/nagain/nclearave (reuse the Phase 4 get_bool_/accept_bool path).
      ! tx_mode is an enum (JT9->9 / JT65->65, or a raw int) -> ntxmode, mirroring
      ! the "mode" parse. OBSERVABILITY (read-site map): on the
-     ! jt9 --stream FT8/JT9 fixtures kin_samples(kin)+nzhsym_per_period(nzhsym)
+     ! wsjt-codec --stream FT8/JT9 fixtures kin_samples(kin)+nzhsym_per_period(nzhsym)
      ! are OVERWRITTEN every period by the streaming period-prep block
      ! (streaming_io.f90 ~:331/:339); dttol/minw/minsync/n2pass/nrobust/nclearave
      ! are JT4/JT65/Q65-only; emedelay is forced to 0 by apply_per_mode_policy on
@@ -150,7 +150,7 @@ module streaming_control
      logical                :: clear_average            = .false.
      ! Phase 6 (RFC v1 §2): FT8/FT4 specifics cluster — 19 bools + 5 ints, flat
      ! 1:1 onto params_block. OBSERVABILITY (read-site map + binary
-     ! probe): 21 of 24 are INERT on the jt9 --stream FT8/JT9 fixtures — most are
+     ! probe): 21 of 24 are INERT on the wsjt-codec --stream FT8/JT9 fixtures — most are
      ! read ONLY inside the multithreaded-FT8 block (guard
      ! if(params%lmultift8 .and. nmode==8), decoder.f90:192), which streaming
      ! forces off (lmultift8=.false. constructed at jt9.f90:316); jt65_ap_on is
@@ -214,7 +214,7 @@ module streaming_control
      logical                :: hint_mode                 = .false.
      ! Phase 7 (RFC v1 §2): diagnostic / sequencing fields — 2 bools + 4 ints,
      ! flat 1:1 onto params_block. OBSERVABILITY (read-site map):
-     ! ALL 6 are INERT on the jt9 --stream FT8/JT9 fixtures. Five are read ONLY
+     ! ALL 6 are INERT on the wsjt-codec --stream FT8/JT9 fixtures. Five are read ONLY
      ! inside the multithreaded-FT8 block (guard
      ! if(params%lmultift8 .and. nmode==8), decoder.f90:192..1148, which streaming
      ! forces off via lmultift8=.false.): currently_txing (ltxing, decoder.f90:228),

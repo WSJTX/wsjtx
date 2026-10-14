@@ -3,7 +3,7 @@ add_dependencies (test_streaming_consumers test_decoder_engine test_decoder_engi
 target_link_libraries (test_streaming_consumers Qt5::Test)
 target_compile_definitions (test_streaming_consumers PRIVATE
   JT4_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt4-engine.wav"
-  JT9_EXECUTABLE="$<TARGET_FILE:jt9>"
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
   WSPRD_EXECUTABLE="$<TARGET_FILE:wsprd>"
   FST4_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/fst4-engine.wav"
   FST4W_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/fst4w-engine.wav"
