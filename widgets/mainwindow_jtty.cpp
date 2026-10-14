@@ -41,34 +41,11 @@ namespace
       Configuration const& configuration, QString const& hisCall, int serialNumber,
       int snr)
   {
-    Jtty::NativeMacroContext context;
-    context.myCall = configuration.my_callsign();
-    context.hisCall = hisCall;
-    context.serialNumber = serialNumber;
-    context.grid = configuration.my_grid();
-    context.snr = snr;
-    context.exchangeProfile = jttyExchangeProfile(configuration);
-
-    switch (context.exchangeProfile) {
-    case Jtty::NativeExchangeProfile::FieldDay:
-      context.configuredExchange = Jtty::normalizedFieldDayExchange(
-        configuration.Field_Day_Exchange());
-      break;
-    case Jtty::NativeExchangeProfile::RttyRoundup:
-      context.configuredExchange = configuration.RTTY_Exchange();
-      break;
-    default:
-      break;
-    }
-    return context;
-  }
-
-  QString jttyNativeEncodeError(int status)
-  {
-    if (status == static_cast<int>(Jtty::NativeEncodeStatus::UnknownSection)) {
-      return QStringLiteral("Field Day section is not registered in the ARRL/RAC table");
-    }
-    return QStringLiteral("native atom encoding failed");
+    auto const profile = jttyExchangeProfile(configuration);
+    return Jtty::nativeMacroContext(
+      configuration.my_callsign(), hisCall, serialNumber, configuration.my_grid(), snr,
+      profile, profile == Jtty::NativeExchangeProfile::FieldDay
+        ? configuration.Field_Day_Exchange() : configuration.RTTY_Exchange());
   }
 }
 
@@ -77,11 +54,6 @@ constexpr int kJttyAutoAdvanceBatchWords = 5;
 
 // A typing pause this long, with anything safely committable pending, flushes it rather than waiting for kJttyAutoAdvanceBatchWords to fill up.
 constexpr int kJttyAutoAdvanceIdleMs = 1500;
-
-extern "C" {
-  void genjtty_atoms_c(Jtty::NativeAtomDescriptor const atoms[], int natoms,
-                       int itone[], int* nsym, int* status);
-}
 
 #ifdef WIN32
 static QString append_separator(QString message) {
@@ -1030,18 +1002,14 @@ bool MainWindow::sendJttyFunctionKey(int index)
     return true;
   }
 
-  int itone[944];
-  int nsym=0;
-  int encodeStatus=static_cast<int>(Jtty::NativeEncodeStatus::InvalidDescriptor);
-  genjtty_atoms_c(compiled.atoms.constData(),compiled.atoms.size(),itone,&nsym,
-                  &encodeStatus);
-  if(nsym <= 0) {
-    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1")
-             .arg(jttyNativeEncodeError(encodeStatus)));
+  auto const encoded=Jtty::encodeNativeAtoms(compiled.atoms);
+  if(encoded.tones.isEmpty()) {
+    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1").arg(encoded.error));
     Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
     return true;
   }
-  enqueueJttyToneSegment(requestId, compiled.text, itone, nsym);
+  enqueueJttyToneSegment(requestId, compiled.text, encoded.tones.constData(),
+                         encoded.tones.size());
   return true;
 }
 
@@ -1145,22 +1113,15 @@ void MainWindow::handleMmttyTxString(QString message)
     execute_jtty_tx (requestId, transmitText);
     return;
   }
-  int itone[944] {};
-  int nsym = 0;
-  int encodeStatus = static_cast<int>(Jtty::NativeEncodeStatus::InvalidDescriptor);
-  genjtty_atoms_c(compiled.atoms.constData(), compiled.atoms.size(), itone, &nsym,
-                  &encodeStatus);
-  if (nsym <= 0) {
+  auto const encoded = Jtty::encodeNativeAtoms (compiled.atoms);
+  if (encoded.tones.isEmpty ()) {
     logText(QStringLiteral("MMTTY/N1MM tagged JTTY request %1 rejected: %2")
             .arg(requestId)
-            .arg(jttyNativeEncodeError(encodeStatus)));
+            .arg(encoded.error));
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
     return;
   }
-
-  QVector<int> tones;
-  tones.reserve (nsym);
-  for (int i = 0; i < nsym; ++i) tones.append (itone[i]);
+  auto const& tones = encoded.tones;
 
   if (mmttyNeedsHandoff ()) {
     if (!m_mmttyHandoff.queue (requestId)) {
