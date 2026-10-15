@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "MessageBox.hpp"
+#include "TxOutputFaultPolicy.hpp"
 #include <QProcess>
 #include <QStringList>
 #include <QSplashScreen>
@@ -14,10 +15,19 @@ void MainWindow::showSoundInError(const QString& errorMsg)
 
 void MainWindow::showSoundOutError(TxEvidence::TxOutputError const& error)
 {
+  TxEvidence::TxPlaybackContext active;
+  if (m_txEvidenceSession == m_txEvidenceSourceSession)
+    active = {m_txEvidenceSession, m_txEvidenceGeneration};
+  bool const jtty = m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ();
+  auto const action = TxOutputFaultPolicy::decide (error, active, jtty);
+  if (action == TxOutputFaultPolicy::Action::Ignore) return;
+
   auto const& errorMsg = error.message;
   noteTxStopReason (TxEvidence::TxStopReason::Error);
-  if (m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ()) {
-    stopTx ();
+  m_config.invalidate_audio_output_device (errorMsg);
+  if (action == TxOutputFaultPolicy::Action::Stop)
+    requestTxStop (TxEvidence::TxStopReason::Error);
+  if (jtty) {
     m_jttyQueueNotice = errorMsg;
     updateJttySendButton ();
   }

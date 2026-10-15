@@ -65,6 +65,11 @@
 #include <QInputDialog>
 #include <QSound> // TCI
 #include <QtMath> // TCI
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+#include <QEventLoop>
+#include <QMessageBox>
+#include "Audio/FixtureSoundOutput.hpp"
+#endif
 #if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
 #include <QRandomGenerator>
 #endif
@@ -817,10 +822,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // hook up sound output stream slots & signals and disposal
   connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &AudioOutputSink::setFormat);
   connect (m_soundOutput, &AudioOutputSink::error, this, &MainWindow::showSoundOutError);
-  connect (m_soundOutput, &AudioOutputSink::error, &m_config,
-           [this] (TxEvidence::TxOutputError const& error) {
-             m_config.invalidate_audio_output_device (error.message);
-           });
   // connect (m_soundOutput, &AudioOutputSink::status, this, &MainWindow::showStatusMessage);
   connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &AudioOutputSink::setAttenuation);
   connect (&m_audioThread, &QThread::finished, m_soundOutput, &QObject::deleteLater);
@@ -5733,6 +5734,204 @@ QString MainWindow::completeLiveAudioTestFt8Input (qint64 frames)
   return {};
 }
 
+QString MainWindow::checkLiveAudioTestOutputFaults ()
+{
+  if (!m_automated_test || !qobject_cast<FixtureSoundOutput *> (m_soundOutput)
+      || m_transmitting || m_tune || m_auto || m_tx_when_ready
+      || ptt0Timer.isActive () || ptt1Timer.isActive ())
+    return tr ("Output fault checks require an idle synthetic output.");
+
+  bool const guiTimerActive = m_guiTimer.isActive ();
+  m_guiTimer.stop ();
+  auto const savedBeacon = m_beaconTxController;
+  QObject scope;
+  connect (&scope, &QObject::destroyed, this, [this, guiTimerActive, savedBeacon] {
+    m_beaconTxController = savedBeacon;
+    m_tx_when_ready = false;
+    m_transmitting = false;
+    m_tune = false;
+    m_auto = false;
+    g_iptt = 0;
+    ptt1Timer.stop ();
+    ptt0Timer.stop ();
+    tuneATU_Timer.stop ();
+    tuneButtonTimer.stop ();
+    m_txEvidenceSession = {};
+    m_pendingTxStopReason = TxEvidence::TxStopReason::NormalEnd;
+    ui->autoButton->setChecked (false);
+    ui->tuneButton->setChecked (false);
+    if (guiTimerActive) m_guiTimer.start (100);
+  });
+  int stopRequests {0};
+  int pttReleaseCallbacks {0};
+  connect (this, &MainWindow::endTransmitMessage, &scope,
+           [&stopRequests] {++stopRequests;});
+  connect (&ptt0Timer, &QTimer::timeout, &scope,
+           [&pttReleaseCallbacks] {++pttReleaseCallbacks;});
+
+  auto deliver = [this] (TxEvidence::TxOutputError const& fault,
+                         bool expectDialog, bool expectStopped) -> QString {
+    QEventLoop loop;
+    QTimer dialogPoll;
+    QTimer deadline;
+    deadline.setSingleShot (true);
+    QString failure;
+    bool delivered {false};
+    bool sawDialog {false};
+    auto checkDialog = [&] {
+      auto * box = qobject_cast<QMessageBox *> (QApplication::activeModalWidget ());
+      if (!box || box->informativeText () != fault.message) return;
+      sawDialog = true;
+      if (!expectDialog)
+        failure = tr ("A stale output fault opened a dialog.");
+      else if (expectStopped
+               && (m_transmitting || m_tune || m_auto || m_tx_when_ready
+                   || ptt1Timer.isActive () || tuneATU_Timer.isActive ()
+                   || m_txEvidenceSession.isValid () || g_iptt != 0))
+        failure = tr ("Output fault cleanup did not precede its dialog.");
+      else if (!expectStopped && !m_transmitting)
+        failure = tr ("A timed output underrun stopped transmission.");
+      box->accept ();
+      loop.quit ();
+    };
+    connect (&dialogPoll, &QTimer::timeout, &loop, checkDialog);
+    connect (&deadline, &QTimer::timeout, &loop, [&] {
+      failure = tr ("Timed out while delivering an output fault.");
+      checkDialog ();
+      if (QApplication::activeModalWidget ()) QCoreApplication::exit (1);
+      loop.quit ();
+    });
+    connect (m_soundOutput, &AudioOutputSink::error, &loop,
+             [&] (TxEvidence::TxOutputError const& received) {
+      if (received.message != fault.message) return;
+      delivered = true;
+      if (!expectDialog) loop.quit ();
+    }, Qt::QueuedConnection);
+    auto * output = m_soundOutput;
+    QMetaObject::invokeMethod (output, [output, fault] {
+      Q_EMIT output->error (fault);
+    }, Qt::QueuedConnection);
+    dialogPoll.start (5);
+    deadline.start (2000);
+    loop.exec ();
+    if (failure.isEmpty () && (!delivered || sawDialog != expectDialog))
+      failure = tr ("Output fault notification did not follow its expected route.");
+    return failure;
+  };
+
+  for (auto const& scenario : {QStringLiteral ("pending"), QStringLiteral ("timed"),
+                               QStringLiteral ("tune")})
+    {
+      beginTxEvidenceSession ();
+      beginTxEvidenceGeneration ();
+      TxEvidence::TxPlaybackContext const context {
+        m_txEvidenceSourceSession, m_txEvidenceGeneration};
+      m_transmitting = scenario != "pending";
+      m_tx_when_ready = scenario == "pending";
+      m_tune = scenario == "tune";
+      m_auto = !m_tune;
+      ui->autoButton->setChecked (m_auto);
+      ui->tuneButton->setChecked (m_tune);
+      g_iptt = 1;
+      if (m_tx_when_ready) ptt1Timer.start (10000);
+      if (m_tune) tuneATU_Timer.start (10000);
+      auto const stopsBefore = stopRequests;
+      auto const releasesBefore = pttReleaseCallbacks;
+      TxEvidence::TxOutputError const fault {
+        context, TxEvidence::TxBackendError::Fatal,
+        QStringLiteral ("Synthetic output fault preflight: ") + scenario};
+      auto error = deliver (fault, true, true);
+      if (!error.isEmpty ()) return error;
+      if (stopRequests != stopsBefore + 1)
+        return tr ("A terminal output fault did not request exactly one source stop.");
+      error = deliver (fault, false, true);
+      if (!error.isEmpty ()) return error;
+      if (ptt0Timer.isActive ())
+        {
+          QEventLoop wait;
+          connect (&ptt0Timer, &QTimer::timeout, &wait, &QEventLoop::quit);
+          QTimer::singleShot (2000, &wait, &QEventLoop::quit);
+          wait.exec ();
+        }
+      if (stopRequests != stopsBefore + 1 || pttReleaseCallbacks != releasesBefore + 1
+          || ptt0Timer.isActive ())
+        return tr ("A duplicate output fault repeated or prevented PTT release.");
+    }
+
+  beginTxEvidenceSession ();
+  beginTxEvidenceGeneration ();
+  m_transmitting = true;
+  g_iptt = 1;
+  TxEvidence::TxPlaybackContext const current {
+    m_txEvidenceSourceSession, m_txEvidenceGeneration};
+  auto const stopsBefore = stopRequests;
+  TxEvidence::TxOutputError fault {current, TxEvidence::TxBackendError::Fatal,
+                                  QStringLiteral ("Synthetic stale output fault preflight")};
+  fault.context.generation = TxEvidence::TxGeneration {current.generation.value () - 1};
+  auto error = deliver (fault, false, false);
+  if (!error.isEmpty ()) return error;
+  if (!m_transmitting || stopRequests != stopsBefore)
+    return tr ("A stale output fault affected the current transmission.");
+  fault = {current, TxEvidence::TxBackendError::Underrun,
+           QStringLiteral ("Synthetic timed underrun preflight")};
+  error = deliver (fault, true, false);
+  if (!error.isEmpty ()) return error;
+  if (!m_transmitting || stopRequests != stopsBefore)
+    return tr ("A timed underrun requested source cancellation.");
+  fault = {current, TxEvidence::TxBackendError::Open,
+           QStringLiteral ("Synthetic startup output fault preflight")};
+  error = deliver (fault, true, true);
+  if (!error.isEmpty ()) return error;
+
+  // A delayed source commit may outlive its session while a beacon plan awaits
+  // source acceptance; it must remain diagnostic evidence only.
+  m_beaconTxController.enterMode (1000);
+  m_beaconTxController.setAutoEnabled (true);
+  m_beaconTxController.observeUtc (100);
+  for (auto const& action : m_beaconTxController.receiveCompleted ())
+    if (action.kind == BeaconTx::ActionKind::RequestScheduleProposal)
+      {
+        BeaconTx::ScheduleProposal proposal;
+        proposal.disposition = BeaconTx::Disposition::Transmit;
+        m_beaconTxController.proposalDelivered (action.planId, proposal);
+      }
+  m_beaconTxController.observeUtc (1100);
+  m_beaconTxController.txStartRequested ();
+  m_beaconTxController.txStartResult (m_beaconTxController.txPlanId (), true);
+  if (m_beaconTxController.txLifecycle () != BeaconTx::TxLifecycle::StartRequested)
+    return tr ("Unable to stage a pending beacon source commit.");
+  TxEvidence::TxStartSnapshot snapshot;
+  snapshot.session_id = current.session_id;
+  snapshot.generation = current.generation;
+  snapshot.mode = QStringLiteral ("WSPR");
+  snapshot.sample_rate_hz = TX_SAMPLE_RATE;
+  recordTxSourceCommit (snapshot);
+  if (m_beaconTxController.txLifecycle () != BeaconTx::TxLifecycle::StartRequested)
+    return tr ("A stopped source commit marked a beacon transmission as started.");
+  m_beaconTxController = savedBeacon;
+
+  QEventLoop drained;
+  QPointer<QEventLoop> drainGuard {&drained};
+  QMetaObject::invokeMethod (m_soundOutput, [drainGuard] {
+    if (drainGuard) QMetaObject::invokeMethod (drainGuard, "quit", Qt::QueuedConnection);
+  }, Qt::QueuedConnection);
+  QTimer deadline;
+  deadline.setSingleShot (true);
+  connect (&deadline, &QTimer::timeout, &drained, &QEventLoop::quit);
+  deadline.start (2000);
+  drained.exec ();
+  if (!deadline.isActive ()) return tr ("Timed out draining synthetic output stop requests.");
+  if (ptt0Timer.isActive ())
+    {
+      QEventLoop wait;
+      connect (&ptt0Timer, &QTimer::timeout, &wait, &QEventLoop::quit);
+      QTimer::singleShot (2000, &wait, &QEventLoop::quit);
+      wait.exec ();
+      if (ptt0Timer.isActive ()) return tr ("Timed out releasing synthetic PTT.");
+    }
+  return {};
+}
+
 MainWindow::LiveAudioTestFt8TransmitRequest
 MainWindow::startLiveAudioTestFt8Transmit (qint64 targetPeriodStartMs)
 {
@@ -8612,6 +8811,7 @@ void MainWindow::recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapsh
                                              snapshot.diagnostic);
     }
   if ((snapshot.mode == "WSPR" || snapshot.mode == "FST4W")
+      && snapshot.session_id == m_txEvidenceSession
       && snapshot.session_id == m_txEvidenceSourceSession
       && snapshot.generation == m_txEvidenceGeneration)
     {

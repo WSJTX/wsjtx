@@ -13,6 +13,10 @@ add_executable (test_radio_callsign test_radio_callsign.cpp)
 target_link_libraries (test_radio_callsign wsjt_qt Qt5::Test)
 add_test (NAME test_radio_callsign COMMAND test_radio_callsign)
 
+add_executable (test_tx_output_fault_policy test_tx_output_fault_policy.cpp)
+target_link_libraries (test_tx_output_fault_policy Qt5::Core Qt5::Test)
+add_test (NAME test_tx_output_fault_policy COMMAND test_tx_output_fault_policy)
+
 add_executable (test_frequency_list
   test_frequency_list.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp

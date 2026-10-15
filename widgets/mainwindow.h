@@ -253,6 +253,7 @@ public:
   bool startLiveAudioTestJttyWav(QString const& path);
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
+  QString checkLiveAudioTestOutputFaults ();
   bool liveAudioTestJttyStreamActive () const
   {
     return m_jttyTxStream && m_jttyTxStream->isActive ();

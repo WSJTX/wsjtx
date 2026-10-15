@@ -151,6 +151,21 @@ void Ft8TxLoopbackTestController::prepareWhenReady ()
       return;
     }
   if (autoButton->isChecked ()) autoButton->click ();
+
+  if (!m_outputFaultsChecked)
+    {
+      m_modalTimer.stop ();
+      auto const error = m_window->checkLiveAudioTestOutputFaults ();
+      m_modalTimer.start ();
+      if (!error.isEmpty ())
+        {
+          fail (error);
+          return;
+        }
+      m_outputFaultsChecked = true;
+      std::cerr << "WSJT-X FT8 TX loopback: output fault preflight passed." << std::endl;
+    }
+
   txFrequency->setValue (1500);
   tx6->setText (QStringLiteral ("CQ KA1ABC FN42"));
   QMetaObject::invokeMethod (tx6, "editingFinished", Qt::DirectConnection);
@@ -170,7 +185,9 @@ void Ft8TxLoopbackTestController::prepareWhenReady ()
   if (!autoButton->isChecked () || txFrequency->value () != 1500
       || tx6->text () != QStringLiteral ("CQ KA1ABC FN42"))
     {
-      fail (tr ("Unable to configure the requested FT8 transmission."));
+      fail (tr ("Unable to configure the requested FT8 transmission: Auto=%1 enabled=%2 frequency=%3 message=%4.")
+            .arg (autoButton->isChecked ()).arg (autoButton->isEnabled ())
+            .arg (txFrequency->value ()).arg (tx6->text ()));
       return;
     }
 
