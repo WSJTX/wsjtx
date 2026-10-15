@@ -9,7 +9,7 @@
 #include <thread>
 
 #include "Audio/AudioDevice.hpp"
-#include "Audio/soundout.h"
+#include "Audio/AudioOutputSink.hpp"
 #include "Audio/TxAudioQueue.hpp"
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
@@ -43,6 +43,11 @@ private slots:
   void fifoEpochBoundaryAfterNaturalDrainResetsTotal ();
   void unplayedBufferBytesDefaultsToBufferSize ();
   void drainGuardUsesUnplayedBufferBytes ();
+  void drainGuardBoundary_data ();
+  void drainGuardBoundary ();
+  void synchronousRestartCannotDrain_data ();
+  void synchronousRestartCannotDrain ();
+  void restartReplacesDrainGuard ();
   void drainedPredicate ();
   void readDoesNotEmitDrainedDirectly ();
   void timerEmitsDrainedEdge ();
@@ -62,27 +67,33 @@ private slots:
 
 namespace
 {
-  class BufferSizeSoundOutput : public SoundOutput
+  class BufferSizeSink : public AudioOutputSink
   {
   public:
-    explicit BufferSizeSoundOutput (int bufferSize)
+    explicit BufferSizeSink (int bufferSize)
       : m_bufferSize {bufferSize}
     {
     }
 
     int bufferSize () const override { return m_bufferSize; }
+    void setFormat (QAudioDeviceInfo const&, unsigned, int) override {}
     void restart (QIODevice *) override {}
     void stop () override {}
+    void reset () override {}
+    void suspend () override {}
+    void resume () override {}
+    void setAttenuation (qreal) override {}
+    void resetAttenuation () override {}
 
   private:
     int m_bufferSize;
   };
 
-  class EstimatedTailSoundOutput : public BufferSizeSoundOutput
+  class EstimatedTailSink : public BufferSizeSink
   {
   public:
-    EstimatedTailSoundOutput (int bufferSize, int unplayedBufferBytes)
-      : BufferSizeSoundOutput {bufferSize}
+    EstimatedTailSink (int bufferSize, int unplayedBufferBytes)
+      : BufferSizeSink {bufferSize}
       , m_unplayedBufferBytes {unplayedBufferBytes}
     {
     }
@@ -404,7 +415,7 @@ void TestJttyTxStream::fifoEpochBoundaryAfterNaturalDrainResetsTotal ()
 
 void TestJttyTxStream::unplayedBufferBytesDefaultsToBufferSize ()
 {
-  BufferSizeSoundOutput sink {123456};
+  BufferSizeSink sink {123456};
   QCOMPARE (sink.unplayedBufferBytes (), sink.bufferSize ());
 }
 
@@ -415,13 +426,111 @@ void TestJttyTxStream::drainGuardUsesUnplayedBufferBytes ()
   queue.clear (epoch);
   QVERIFY (queue.enqueue (QVector<qint16> {7}, epoch).accepted);
 
-  EstimatedTailSoundOutput sink {100000, 0};
+  EstimatedTailSink sink {100000, 0};
   JttyTxStream stream {queue};
   stream.start (jttyRequest (23, 1), &sink);
 
   (void) readFrames (stream, 1 + DEFAULT_GUARD + 4800);
   QVERIFY (queue.takeDrainReady ().ready);
   stream.stop ();
+}
+
+void TestJttyTxStream::drainGuardBoundary_data ()
+{
+  QTest::addColumn<AudioDevice::Channel> ("channel");
+  QTest::newRow ("mono") << AudioDevice::Mono;
+  QTest::newRow ("left") << AudioDevice::Left;
+  QTest::newRow ("right") << AudioDevice::Right;
+  QTest::newRow ("both") << AudioDevice::Both;
+}
+
+void TestJttyTxStream::drainGuardBoundary ()
+{
+  QFETCH (AudioDevice::Channel, channel);
+  int const channels = channel == AudioDevice::Mono ? 1 : 2;
+  TxAudioQueue queue;
+  queue.clear (queueEpoch (23));
+  QVERIFY (queue.enqueue (QVector<qint16> {7}, queueEpoch (23)).accepted);
+  EstimatedTailSink sink {1000000, 24000 * channels * 2};
+  JttyTxStream stream {queue};
+  auto request = jttyRequest (23, 1);
+  request.channel = channel;
+  stream.start (request, &sink);
+  auto const first = readFrames (stream, channels);
+  auto const expected = channel == AudioDevice::Mono ? QVector<qint16> {7}
+    : channel == AudioDevice::Left ? QVector<qint16> {7, 0}
+    : channel == AudioDevice::Right ? QVector<qint16> {0, 7}
+    : QVector<qint16> {7, 7};
+  QCOMPARE (first, expected);
+  (void) readFrames (stream, (24000 + 4800 - 1) * channels);
+  QVERIFY (!queue.takeDrainReady ().ready);
+  (void) readFrames (stream, channels);
+  QVERIFY (queue.takeDrainReady ().ready);
+  (void) readFrames (stream, 100 * channels);
+  QVERIFY (!queue.takeDrainReady ().ready);
+  stream.stop ();
+}
+
+void TestJttyTxStream::synchronousRestartCannotDrain_data ()
+{
+  QTest::addColumn<int> ("prefillFrames");
+  QTest::newRow ("old-default") << 1 + DEFAULT_GUARD;
+  QTest::newRow ("full-tail") << 1 + 24000 + 4800;
+}
+
+void TestJttyTxStream::synchronousRestartCannotDrain ()
+{
+  QFETCH (int, prefillFrames);
+  TxAudioQueue queue;
+  queue.clear (queueEpoch (23));
+  QVERIFY (queue.enqueue (QVector<qint16> {7}, queueEpoch (23)).accepted);
+  class PullingSink : public EstimatedTailSink
+  {
+  public:
+    PullingSink (TxAudioQueue& queue, int frames)
+      : EstimatedTailSink {100000, 48000}, queue {queue}, frames {frames} {}
+    void restart (QIODevice * source) override
+    {
+      source->read (frames * 2);
+      drainedDuringRestart = queue.takeDrainReady ().ready;
+    }
+    TxAudioQueue& queue;
+    int frames;
+    bool drainedDuringRestart {false};
+  } sink {queue, prefillFrames};
+  JttyTxStream stream {queue};
+  stream.start (jttyRequest (23, 1), &sink);
+  QVERIFY (!sink.drainedDuringRestart);
+  QVERIFY (!queue.takeDrainReady ().ready);
+  (void) readFrames (stream, qMax (1, 1 + 24000 + 4800 - prefillFrames));
+  QVERIFY (queue.takeDrainReady ().ready);
+  (void) readFrames (stream, 1);
+  QVERIFY (!queue.takeDrainReady ().ready);
+  stream.stop ();
+}
+
+void TestJttyTxStream::restartReplacesDrainGuard ()
+{
+  TxAudioQueue queue;
+  JttyTxStream stream {queue};
+  EstimatedTailSink large {100000, 48000};
+  EstimatedTailSink small {100000, 0};
+  QVector<AudioOutputSink *> sinks {&large, &small, nullptr};
+  QVector<int> guards {28800, 14400, DEFAULT_GUARD};
+  for (int index = 0; index != sinks.size (); ++index)
+    {
+      auto const epoch = queueEpoch (24 + index);
+      queue.clear (epoch);
+      QVERIFY (queue.enqueue (QVector<qint16> {7}, epoch).accepted);
+      stream.start (jttyRequest (epoch.value (), index + 1), sinks[index]);
+      (void) readFrames (stream, guards[index]);
+      QVERIFY (!queue.takeDrainReady ().ready);
+      (void) readFrames (stream, 1);
+      auto const drain = queue.takeDrainReady ();
+      QVERIFY (drain.ready);
+      QCOMPARE (drain.epoch, epoch);
+      stream.stop ();
+    }
 }
 
 void TestJttyTxStream::drainedPredicate ()

@@ -3,6 +3,7 @@
 #include "Audio/AudioOutputSink.hpp"
 #include "Logger.hpp"
 #include <QSemaphore>
+#include <limits>
 
 #include "moc_JttyTxStream.cpp"
 
@@ -72,6 +73,9 @@ void JttyTxStream::start (TxEvidence::TxRequest request, AudioOutputSink * strea
   m_lastProgress = {};
   m_active = true;
   m_stream = stream;
+  // Restart may pull immediately, before the new backend tail is available.
+  m_drainGuard.store (std::numeric_limits<qint64>::max (),
+                      std::memory_order_release);
   if (m_stream)
     {
       m_stream->restart (this);
@@ -82,6 +86,10 @@ void JttyTxStream::start (TxEvidence::TxRequest request, AudioOutputSink * strea
       m_drainGuard.store (
         qMax (tailFrames, DEFAULT_DRAIN_GUARD) + DRAIN_GUARD_MARGIN,
         std::memory_order_release);
+    }
+  else
+    {
+      m_drainGuard.store (DEFAULT_DRAIN_GUARD, std::memory_order_release);
     }
   if (!m_drainTimer->isActive ()) m_drainTimer->start ();
   Q_EMIT txSourceCommitted (makeJttyTxStartSnapshot (
