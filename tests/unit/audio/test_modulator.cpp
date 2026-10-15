@@ -13,7 +13,14 @@ namespace
   {
   public:
     void setFormat (QAudioDeviceInfo const&, unsigned, int) override {}
-    void restart (QIODevice * source) override { m_source = source; }
+    void restart (QIODevice * source) override
+    {
+      m_source = source;
+      if (startupReadBytes)
+        {
+          startupPcm = source->read (startupReadBytes);
+        }
+    }
     void suspend () override {}
     void resume () override {}
     void reset () override { m_source = nullptr; }
@@ -23,6 +30,8 @@ namespace
     int bufferSize () const override { return 0; }
 
     QIODevice * m_source {nullptr};
+    qint64 startupReadBytes {0};
+    QByteArray startupPcm;
   };
 
   TxEvidence::TxRequest cwRequest ()
@@ -128,6 +137,52 @@ private slots:
     auto const cleanPcm = readFrames (clean, 64);
     QCOMPARE (restartedPcm.size (), 128);
     QCOMPARE (restartedPcm, cleanPcm);
+  }
+
+  void sourceCommitIgnoresSynchronousStartupReads_data ()
+  {
+    QTest::addColumn<qint64> ("startMs");
+    QTest::addColumn<qint64> ("expectedTarget");
+    QTest::newRow ("leading-silence") << qint64 {0} << qint64 {630720};
+    QTest::newRow ("late-offset") << qint64 {750} << qint64 {594720};
+  }
+
+  void sourceCommitIgnoresSynchronousStartupReads ()
+  {
+    QFETCH (qint64, startMs);
+    QFETCH (qint64, expectedTarget);
+    TxEvidence::TxRequest request;
+    request.session_id = TxEvidence::TxSessionId {42};
+    request.generation = TxEvidence::TxGeneration {3};
+    request.tone_spacing = 0;
+    request.tr_period_s = 15;
+
+    QVector<TxEvidence::TxStartSnapshot> snapshots;
+    for (auto startupReadBytes : {0, 2048})
+      {
+        ScriptedOutput output;
+        output.startupReadBytes = startupReadBytes;
+        Modulator modulator {48000, 15};
+        connect (&modulator, &Modulator::txSourceCommitted, this,
+                 [&] (TxEvidence::TxStartSnapshot snapshot)
+                 {
+                   QCOMPARE (output.m_source, static_cast<QIODevice *> (&modulator));
+                   QCOMPARE (output.startupPcm.size (), startupReadBytes);
+                   snapshots.append (snapshot);
+                 });
+        modulator.startAt (request, &output, startMs);
+      }
+
+    QCOMPARE (snapshots.size (), 2);
+    for (auto const& snapshot : snapshots)
+      {
+        QVERIFY (snapshot.target_known);
+        QCOMPARE (snapshot.committed_end_sample, expectedTarget);
+        QCOMPARE (snapshot.session_id.value (), request.session_id.value ());
+        QCOMPARE (snapshot.generation.value (), request.generation.value ());
+        QCOMPARE (snapshot.mode, request.mode);
+        QCOMPARE (snapshot.sample_rate_hz, 48000);
+      }
   }
 };
 

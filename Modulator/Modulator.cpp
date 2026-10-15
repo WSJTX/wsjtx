@@ -203,6 +203,11 @@ void Modulator::startAt (TxEvidence::TxRequest request, AudioOutputSink * stream
 //  qDebug() << "delay_ms:" << delay_ms << "mstr:" << mstr << "m_silentFrames:"
 //           << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state << synchronize;
 
+  auto const committedStart = txStartSnapshot (request.session_id, request.generation,
+                                               m_mode, m_frameRate,
+                                               m_silentFrames, m_ic, m_tuning, m_bFastMode,
+                                               !m_cwId.isEmpty (),
+                                               m_symbolsLength, m_nsps, m_TRperiod);
   m_stream = stream;
   if (m_stream)
     {
@@ -212,11 +217,7 @@ void Modulator::startAt (TxEvidence::TxRequest request, AudioOutputSink * stream
     {
       qDebug () << "Modulator::start: no audio output stream assigned";
     }
-  Q_EMIT txSourceCommitted (txStartSnapshot (request.session_id, request.generation,
-                                             m_mode, m_frameRate,
-                                             m_silentFrames, m_ic, m_tuning, m_bFastMode,
-                                             !m_cwId.isEmpty (),
-                                             m_symbolsLength, m_nsps, m_TRperiod));
+  Q_EMIT txSourceCommitted (committedStart);
   if (constrained)
     {
       Q_EMIT constrainedStartDecided (request.session_id.value (),
