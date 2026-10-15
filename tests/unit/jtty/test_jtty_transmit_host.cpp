@@ -231,6 +231,25 @@ private Q_SLOTS:
     QCOMPARE (refused.detail, std::string {"DX callsign is not a native Call8 callsign"});
   }
 
+  void renderIsTheEncodersAudio ()
+  {
+    auto const encoded = encodeTransmitText (u"CQ K1ABC CQ", Jtty::NativeExchangeProfile::None, true);
+    auto const& tones = encoded.segments.at (0).transmit.tones;
+    std::vector<std::int32_t> symbols (tones.cbegin (), tones.cend ());
+    for (int const rate : {12000, 48000}) {
+      auto const expected = renderTransmitTones (tones.data (), int (tones.size ()), rate, 1234.5f);
+      std::vector<std::int16_t> samples (expected.size ());
+      QCOMPARE (jtty_tx_render (symbols.data (), std::int32_t (symbols.size ()), rate, 1234.5f, samples.data (),
+                                std::int32_t (samples.size ())),
+                std::int32_t (expected.size ()));
+      QVERIFY (samples == expected);
+      QCOMPARE (jtty_tx_render (symbols.data (), std::int32_t (symbols.size ()), rate, 1234.5f, samples.data (),
+                                std::int32_t (samples.size ()) - 1), 0);
+      QCOMPARE (jtty_tx_render (symbols.data (), std::int32_t (symbols.size ()), rate, 1234.5f, samples.data (), -1), 0);
+    }
+    QCOMPARE (jtty_tx_render (symbols.data (), 0, 12000, 1500.f, nullptr, 0), 0);
+  }
+
   void lengthsAreBounded ()
   {
     QCOMPARE (encode (text (std::string (32767, 'A'))).segments.size (), std::size_t (410));

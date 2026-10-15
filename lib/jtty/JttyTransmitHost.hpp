@@ -60,6 +60,10 @@ extern "C" {
                                 char * canonical, std::int32_t * canonical_length,
                                 std::int32_t * is_final, std::int32_t * substituted) noexcept;
   void jtty_tx_destroy (std::int32_t handle) noexcept;
+  // renderTransmitTones into samples; returns the sample count, or 0 when it
+  // exceeds capacity or capacity is negative.
+  std::int32_t jtty_tx_render (std::int32_t const * tones, std::int32_t nsym, std::int32_t sample_rate,
+                               float f0, std::int16_t * samples, std::int32_t capacity) noexcept;
 }
 
 #endif

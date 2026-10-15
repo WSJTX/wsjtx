@@ -19,8 +19,8 @@
 ! 12 kHz), is fatal: error frame_too_large, then exit 1.
 !
 ! Control frames recognized today: {"t":"configure",...}, {"t":"halt"},
-! {"t":"discontinuity"}, and the JTTY encode request {"t":"pack",...}
-! (lib/streaming_jtty.f90), answered in any mode. See
+! {"t":"discontinuity"}, and the JTTY encode requests {"t":"pack",...} and
+! {"t":"render",...} (lib/streaming_jtty.f90), answered in any mode. See
 ! lib/streaming_control.f90 for the parser + schema.
 !
 ! Apply policy:
@@ -84,7 +84,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        streaming_emit_error_range, streaming_emit_mode_name
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
-       CTRL_DISCONTINUITY, CTRL_PACK, MODE_JTTY
+       CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, MODE_JTTY
   use streaming_apply, only: apply_configure_fields, engine_range_key
   use decoder_engine, only: engine_params_problem, option_problem
   use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
@@ -461,8 +461,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               end if
            case (CTRL_DISCONTINUITY)
               if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
-           case (CTRL_PACK)
-              call jtty_encode(ctl_buf(1:frame_len))
+           case (CTRL_PACK, CTRL_RENDER)
+              call jtty_encode(ctl_buf(1:frame_len), action .eq. CTRL_RENDER)
            case (CTRL_PARSE_ERR)
               call streaming_emit_error_code('configure_parse_error',          &
                    'malformed control frame (missing or invalid t field)')

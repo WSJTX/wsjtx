@@ -2,8 +2,8 @@
 program test_streaming_control
   use streaming_control, only: parse_control_frame, configure_fields,       &
        control_type_error, CTRL_UNKNOWN, CTRL_CONFIGURE, CTRL_HALT,         &
-       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, MODE_JTTY,            &
-       encode_request, parse_encode_request
+       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER,          &
+       MODE_JTTY, encode_request, parse_encode_request, parse_render_request
   implicit none
 
   integer :: nfail = 0
@@ -116,6 +116,7 @@ program test_streaming_control
 
   ! Encode requests: the verbs, then each key's rule.
   call expect_action('{"t":"pack"}', CTRL_PACK)
+  call expect_action('{"t":"render"}', CTRL_RENDER)
   call expect_action('{"t":"packs"}', CTRL_UNKNOWN)
   call expect_defaults('{"t":"pack","id":1,"text":"x"}')
   call expect_id('{"t":"pack","id":-2147483648,"text":"x"}', -2147483647 - 1)
@@ -148,6 +149,33 @@ program test_streaming_control
   call expect_problem('{"t":"pack","id":1,"text":"x","exchange":false}', 'exchange')
   call expect_context('{"t":"pack","id":1,"text":"x","his_call":"W9XYZ",' // &
        '"exchange":"1D EMA","serial":-131072,"report":-7}', 'W9XYZ', '1D EMA', -131072, -7)
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":44100}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":12000.0}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":"12000"}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":"1500"}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":199.99}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":5000.01}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":NaN}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":Infinity}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"rate":12000,"freq":1500}', 'text')
+  call expect_render_problem('{"t":"render","id":1,"freq":1500}', 'text')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":1500.}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":.5e4}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":3*1500}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":+1500}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":01500}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":1500e}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":+12000}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":012000}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":/}', 'rate')
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":1.5e3}', 12000, 1500.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":1234.5E0}', 12000, 1234.5d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":15e+2}', 12000, 1500.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":200}', 12000, 200.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":5000}', 48000, 5000.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":1234.5}', 48000, 1234.5d0)
   call expect_accepted('{"t":"pack","id":1,"text":"x","rate":44100,"freq":"x"}')
   ! A request is one flat object; strings may hold any character.
   ! Request integers are JSON integers, which the list-directed reader alone is not.
@@ -437,5 +465,22 @@ contains
          req%serial .eq. serial .and. req%report_given .and. req%report .eq. report_value, &
          'context')
   end subroutine expect_context
+
+  subroutine expect_render_problem(frame, key)
+    character(len=*), intent(in) :: frame, key
+    type(encode_request) :: req
+    call parse_render_request(frame, req)
+    call report_problem(frame, req, key)
+  end subroutine expect_render_problem
+
+  subroutine expect_render(frame, rate, freq)
+    character(len=*), intent(in) :: frame
+    integer,          intent(in) :: rate
+    real(8),          intent(in) :: freq
+    type(encode_request) :: req
+    call parse_render_request(frame, req)
+    call report(frame, req%id_ok .and. len(req%problem) .eq. 0 .and. req%rate .eq. rate .and. &
+         req%freq .eq. freq, 'render')
+  end subroutine expect_render
 
 end program test_streaming_control

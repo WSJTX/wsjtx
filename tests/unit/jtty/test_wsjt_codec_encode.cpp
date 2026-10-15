@@ -26,6 +26,8 @@ namespace
 constexpr int Nsps = 384;
 constexpr int FrameSymbols = 59;
 constexpr int FrameSamples = FrameSymbols * Nsps;    // one frame at 12 kHz
+constexpr int PcmLineSamples = 16384;
+constexpr int LeadSamples = 6000;                   // silence before a transmission sent back
 constexpr int ProcessTimeoutMs = 120000;
 
 using Profile = Jtty::NativeExchangeProfile;
@@ -118,6 +120,14 @@ QJsonObject key (qint64 id, QString const& value, QJsonObject const& members = {
   return pack (id, "template", value, members);
 }
 
+QJsonObject render (QJsonObject request, int rate, double freq)
+{
+  request.insert ("t", "render");
+  request.insert ("rate", rate);
+  request.insert ("freq", freq);
+  return request;
+}
+
 // A JSON string escape of one UTF-16 unit, as a request may spell a character.
 QByteArray escape (ushort unit)
 {
@@ -130,6 +140,11 @@ QByteArray audio (QByteArray const& pcm)
   QByteArray bytes;
   for (int offset = 0; offset < pcm.size (); offset += 2 * 4096) bytes += frame (0x01u, pcm.mid (offset, 2 * 4096));
   return bytes;
+}
+
+QByteArray silence (int samples)
+{
+  return audio (QByteArray (2 * samples, '\0'));
 }
 
 QByteArray wavData (QString const& path)
@@ -153,12 +168,35 @@ Jtty::NativeMacroContext gui (QString const& hisCall = "W9XYZ", int serial = 107
   return Jtty::nativeMacroContext ("K1ABC", hisCall, serial, "FN42", -7, Profile::None, {});
 }
 
+// The tones a function key sends: a native form's atoms, else its text.
+QVector<int> keyTones (QString const& form, Jtty::NativeMacroContext const& context)
+{
+  auto const compiled = Jtty::compileNativeMacro (form, context);
+  if (compiled.isNative ()) return Jtty::encodeNativeAtoms (compiled.atoms).tones;
+  return Jtty::encodeTransmitText (compiled.text, Profile::None, true).segments.value (0).transmit.tones;
+}
+
+QVector<int> textTones (QString const& message)
+{
+  return Jtty::encodeTransmitText (message, Profile::None, true).segments.value (0).transmit.tones;
+}
+
+QByteArray guiAudio (QVector<int> const& tones, int rate, double freq)
+{
+  auto const samples = Jtty::renderTransmitTones (tones.constData (), tones.size (), rate, float (freq));
+  QByteArray bytes (2 * samples.size (), '\0');
+  for (int i = 0; i < samples.size (); ++i)
+    qToLittleEndian<qint16> (samples[i], reinterpret_cast<uchar *> (bytes.data ()) + 2 * i);
+  return bytes;
+}
+
 // --- output -----------------------------------------------------------------
 
 struct Reply
 {
   QList<QJsonObject> segments;
-  QJsonObject terminal;           // packed or rejected
+  QList<QByteArray> pcm;          // each segment's audio, decoded
+  QJsonObject terminal;           // packed, rendered or rejected
   QList<QByteArray> lines;        // as written
 };
 
@@ -186,12 +224,14 @@ QList<QByteArray> outputLines (QByteArray const& output)
 
 bool isReplyLine (QString const& type)
 {
-  return type == "segment" || type == "packed" || type == "rejected";
+  return type == "segment" || type == "pcm" || type == "packed" || type == "rendered" || type == "rejected";
 }
 
 QString segmentProblem (QJsonObject const& segment, int index)
 {
-  if (segment.keys () != QStringList {"canonical", "final", "frames", "id", "seconds", "seg", "substituted", "t", "text", "v"})
+  auto keys = segment.keys ();
+  keys.removeOne ("samples");
+  if (keys != QStringList {"canonical", "final", "frames", "id", "seconds", "seg", "substituted", "t", "text", "v"})
     return "a segment's members are not the documented ones";
   if (segment.value ("seg").toInt (-1) != index) return "segments are not numbered 0, 1, 2 ...";
   if (!segment.value ("text").isString () || !segment.value ("canonical").isString ()
@@ -212,6 +252,12 @@ QString segmentProblem (QJsonObject const& segment, int index)
     return "the frame texts do not spell the canonical text";
   if (std::abs (segment.value ("seconds").toDouble () - frames.size () * FrameSamples / 12000.) > 1e-9)
     return "seconds is not the frames' time on air";
+  if (segment.contains ("samples"))
+    {
+      auto const samples = qint64 (segment.value ("samples").toDouble ());
+      if (samples != qint64 (frames.size ()) * FrameSamples && samples != qint64 (frames.size ()) * FrameSamples * 4)
+        return "samples is not the frames' audio at 12 or 48 kHz";
+    }
   return {};
 }
 
@@ -232,6 +278,7 @@ void checkProtocol (Run& run)
   QSet<qint64> answered;
   bool open {false};
   qint64 openId {0};
+  qint64 pending {0};             // the open segment's samples not yet sent
   for (int i = 0; i < run.lines.size () && run.error.isEmpty (); ++i)
     {
       auto const& line = run.lines[i];
@@ -274,12 +321,40 @@ void checkProtocol (Run& run)
             }
           else if (type == "segment")
             {
-              problem = segmentProblem (event, reply.segments.size ());
+              if (pending) problem = "a segment's audio is incomplete";
+              else problem = segmentProblem (event, reply.segments.size ());
               reply.segments.append (event);
+              reply.pcm.append (QByteArray {});
+              pending = qint64 (event.value ("samples").toDouble ());
+            }
+          else if (type == "pcm")
+            {
+              auto const data = event.value ("data").toString ().toLatin1 ();
+              auto const decoded = QByteArray::fromBase64Encoding (data, QByteArray::AbortOnBase64DecodingErrors);
+              int const lines = reply.pcm.isEmpty () ? 0 : int (reply.pcm.last ().size () / (2 * PcmLineSamples));
+              if (event.keys () != QStringList {"data", "id", "seg", "seq", "t", "v"})
+                problem = "a pcm line's members are not the documented ones";
+              else if (reply.segments.isEmpty () || event.value ("seg").toInt (-1) != reply.segments.size () - 1)
+                problem = "pcm that does not follow its segment";
+              else if (event.value ("seq").toInt (-1) != lines)
+                problem = "pcm lines are not numbered 0, 1, 2 ...";
+              else if (!decoded || decoded.decoded.toBase64 () != data)
+                problem = "pcm data is not canonical base64";
+              else if (decoded.decoded.isEmpty () || decoded.decoded.size () % 2
+                       || decoded.decoded.size () > 2 * PcmLineSamples)
+                problem = "a pcm line holds no whole samples or more than 16384";
+              else
+                {
+                  pending -= decoded.decoded.size () / 2;
+                  if (pending < 0 || (pending > 0 && decoded.decoded.size () != 2 * PcmLineSamples))
+                    problem = "a segment's pcm lines do not hold its samples";
+                  reply.pcm.last () += decoded.decoded;
+                }
             }
           else
             {
-              if (type == "rejected")
+              if (pending) problem = "a segment's audio is incomplete";
+              else if (type == "rejected")
                 {
                   auto keys = event.keys ();
                   keys.removeOne ("key");
@@ -294,11 +369,14 @@ void checkProtocol (Run& run)
                 }
               else
                 {
+                  bool const rendered = type == "rendered";
                   if (event.keys () != QStringList {"id", "segments", "substituted", "t", "v"}
                       || !event.value ("substituted").isBool ())
                     problem = type + "'s members are not the documented ones";
                   else if (event.value ("segments").toInt (-1) != reply.segments.size () || reply.segments.isEmpty ())
                     problem = type + " counts other than the segments sent";
+                  for (auto const& segment : reply.segments)
+                    if (segment.contains ("samples") != rendered) problem = "samples in a pack, or none in a render";
                 }
               reply.terminal = event;
               answered.insert (id);
@@ -310,6 +388,15 @@ void checkProtocol (Run& run)
   if (run.error.isEmpty () && open) run.error = "the output ends inside a reply";
 }
 
+QByteArray allPcm (Reply const& reply)
+{
+  QByteArray pcm;
+  for (auto const& segment : reply.pcm) pcm += segment;
+  return pcm;
+}
+
+// Every row shares one data directory, so the FFTW wisdom the warm-up saves
+// spares the JTTY rows JTTY's measured planning.
 QTemporaryDir& dataDirectory ()
 {
   static QTemporaryDir directory;
@@ -354,6 +441,49 @@ Run runCodec (QByteArray const& input, QStringList const& options = {})
   return run;
 }
 
+// requests, then the audio of the render whose id is renderId sent back as
+// audio, with LeadSamples of silence before it and a frame after, then halt.
+Run roundTrip (QByteArray const& requests, qint64 renderId)
+{
+  Run run;
+  if (!dataDirectory ().isValid ()) return run;
+  QProcess process;
+  startCodec (process);
+  run.started = process.waitForStarted (5000);
+  if (!run.started) return run;
+  process.write (header () + requests);
+  QByteArray output;
+  QByteArray pcm;
+  for (bool done = false; !done;)
+    {
+      if (!process.waitForReadyRead (ProcessTimeoutMs))
+        {
+          run.timedOut = true;
+          process.kill ();
+          process.waitForFinished (5000);
+          return run;
+        }
+      output += process.readAllStandardOutput ();
+      Run sent;
+      sent.lines = outputLines (output.left (output.lastIndexOf ('\n') + 1));
+      checkProtocol (sent);
+      if (!sent.error.isEmpty () && !sent.error.startsWith ("the output ends inside a reply"))
+        {
+          process.kill ();
+          process.waitForFinished (5000);
+          run.error = sent.error;
+          return run;
+        }
+      auto const reply = sent.replies.value (renderId);
+      done = !reply.terminal.isEmpty ();
+      if (done) pcm = allPcm (reply);
+    }
+  process.write (silence (LeadSamples) + audio (pcm) + silence (FrameSamples) + control (R"({"t":"halt"})"));
+  process.closeWriteChannel ();
+  finish (process, run, output);
+  return run;
+}
+
 QList<QJsonObject> ofType (QList<QJsonObject> const& events, QString const& type)
 {
   QList<QJsonObject> matching;
@@ -389,7 +519,7 @@ QJsonObject codedError (QString const& code, QString const& detail)
 }
 
 QJsonObject const InvalidRequestId {codedError ("invalid_request_id",
-                                                "pack needs an integer id from -2147483648 to 2147483647")};
+                                                "pack and render need an integer id from -2147483648 to 2147483647")};
 
 #define CHECK_RUN(run)                                                  \
   do {                                                                  \
@@ -420,6 +550,14 @@ private Q_SLOTS:
   void initTestCase ()
   {
     QVERIFY (dataDirectory ().isValid ());
+    // A decode of a transmission (silence plans nothing), whose clean exit
+    // saves JTTY's FFTW wisdom for every later row.
+    auto const transmission = guiAudio (textTones ("CQ"), 12000, 1500);
+    QVERIFY (!transmission.isEmpty ());
+    auto const warm = runCodec (control (R"({"t":"configure","mode":"JTTY"})") + silence (LeadSamples)
+                                + audio (transmission) + silence (FrameSamples) + control (R"({"t":"halt"})"));
+    CHECK_RUN (warm);
+    QVERIFY (!ofType (warm.events, "jtty_update").isEmpty ());
   }
 
   // doc/user_guide/en/jtty.adoc's function-key table: K1ABC, W9XYZ, W7UVW
@@ -454,7 +592,7 @@ private Q_SLOTS:
       }
   }
 
-  // Each published form is sent natively, as the GUI compiles it, and the
+  // Each published form is sent natively, as the GUI sends it, and the
   // encoder has no native form the list lacks.
   void everyPublishedFormIsNative ()
   {
@@ -469,7 +607,7 @@ private Q_SLOTS:
     auto const forms = nativeForms + controlPhrases;
     QByteArray input = control (Station);
     for (int i = 0; i < forms.size (); ++i)
-      input += request (key (i + 1, forms[i], {{"his_call", "W9XYZ"}, {"serial", 107}}));
+      input += request (render (key (i + 1, forms[i], {{"his_call", "W9XYZ"}, {"serial", 107}}), 12000, 1500));
     auto const run = runCodec (input);
     CHECK_RUN (run);
     for (int i = 0; i < forms.size (); ++i)
@@ -477,27 +615,163 @@ private Q_SLOTS:
         auto const compiled = Jtty::compileNativeMacro (forms[i], gui ());
         QVERIFY2 (compiled.isNative (), qPrintable (forms[i]));
         auto const reply = run.replies.value (i + 1);
-        QCOMPARE (reply.terminal.value ("t").toString (), QString {"packed"});
+        QCOMPARE (reply.terminal.value ("t").toString (), QString {"rendered"});
         QCOMPARE (reply.segments.size (), 1);
         QCOMPARE (reply.segments[0].value ("canonical").toString (), compiled.text);
-        QCOMPARE (reply.segments[0].value ("frames").toArray ().size () * FrameSymbols,
-                  Jtty::encodeNativeAtoms (compiled.atoms).tones.size ());
+        QVERIFY2 (allPcm (reply) == guiAudio (Jtty::encodeNativeAtoms (compiled.atoms).tones, 12000, 1500),
+                  qPrintable (forms[i]));
       }
+  }
+
+  // A native form puts other bits on the air than the same text typed.
+  void nativeFormsAreNotTheirText ()
+  {
+    struct Pair {QString form; QString typed; QString hisCall; int serial; bool identical;};
+    QList<Pair> const pairs {{"CQ %M CQ", "CQ K1ABC CQ", "W9XYZ", 107, true},
+                             {"%H %E", "W9XYZ 599 107", "W9XYZ", 107, false},
+                             {"TU NOW %Q %E", "TU NOW W7UVW 599 108", "W7UVW", 108, false}};
+    QByteArray input = control (Station);
+    for (int i = 0; i < pairs.size (); ++i)
+      {
+        QJsonObject const context {{"his_call", pairs[i].hisCall}, {"serial", pairs[i].serial}};
+        input += request (render (key (2 * i + 1, pairs[i].form, context), 12000, 1500));
+        input += request (render (text (2 * i + 2, pairs[i].typed, context), 12000, 1500));
+      }
+    auto const run = runCodec (input);
+    CHECK_RUN (run);
+    for (int i = 0; i < pairs.size (); ++i)
+      {
+        auto const native = allPcm (run.replies.value (2 * i + 1));
+        auto const typed = allPcm (run.replies.value (2 * i + 2));
+        QCOMPARE (native == typed, pairs[i].identical);
+        QVERIFY (native == guiAudio (keyTones (pairs[i].form, gui (pairs[i].hisCall, pairs[i].serial)), 12000, 1500));
+        QVERIFY (typed == guiAudio (textTones (pairs[i].typed), 12000, 1500));
+      }
+  }
+
+  void renderIsTheGuisAudio_data ()
+  {
+    QTest::addColumn<bool> ("native");
+    QTest::addColumn<int> ("rate");
+    QTest::addColumn<double> ("freq");
+    QTest::newRow ("text 12 kHz") << false << 12000 << 1500.0;
+    QTest::newRow ("text 48 kHz") << false << 48000 << 1234.5;
+    QTest::newRow ("F2 12 kHz") << true << 12000 << 1234.5;
+    QTest::newRow ("F2 48 kHz") << true << 48000 << 1500.0;
+  }
+
+  void renderIsTheGuisAudio ()
+  {
+    QFETCH (bool, native);
+    QFETCH (int, rate);
+    QFETCH (double, freq);
+    QString const typed {"CQ K1ABC CQ 599 FN42 HE SAID \"HI\""};
+    auto const tones = native ? keyTones ("%H %E", gui ()) : textTones (typed);
+    QCOMPARE (tones.size (), (native ? 2 : 5) * FrameSymbols);
+    auto const object = native ? key (5, "%H %E", {{"his_call", "W9XYZ"}, {"serial", 107}}) : text (5, typed);
+    auto const run = runCodec (control (Station) + request (render (object, rate, freq)));
+    CHECK_RUN (run);
+    auto const reply = run.replies.value (5);
+    QCOMPARE (qint64 (reply.lines.size ()),
+              2 + (qint64 (tones.size ()) * Nsps * rate / 12000 + PcmLineSamples - 1) / PcmLineSamples);
+    QCOMPARE (reply.segments[0].value ("canonical").toString (), native ? QString {"W9XYZ 599 107"} : typed);
+    QCOMPARE (qint64 (reply.segments[0].value ("samples").toDouble ()), qint64 (tones.size ()) * Nsps * rate / 12000);
+    QVERIFY2 (allPcm (reply) == guiAudio (tones, rate, freq), "the PCM differs from the GUI's rendering");
+    QCOMPARE (reply.terminal, (QJsonObject {{"v", 1}, {"t", "rendered"}, {"id", 5}, {"segments", 1},
+                                            {"substituted", false}}));
+  }
+
+  // 16384 samples a line but the last; base64 padding as each line's byte
+  // count gives it.
+  void pcmLinesAreChunked ()
+  {
+    auto const run = runCodec (control (Station)
+                               + request (render (text (1, "CQ K1ABC CQ 599 FN42 HE SAID \"HI\""), 12000, 1500))
+                               + request (render (key (2, "%H %E", {{"his_call", "W9XYZ"}, {"serial", 107}}), 12000, 1500))
+                               + request (render (key (3, "CQ %M CQ"), 12000, 1500)));
+    CHECK_RUN (run);
+    auto const lines = run.replies.value (1).lines;
+    QCOMPARE (lines.size (), 1 + 7 + 1);           // 113,280 samples
+    for (int seq = 0; seq < 7; ++seq)
+      {
+        auto const pcm = QJsonDocument::fromJson (lines[1 + seq]).object ();
+        QCOMPARE (pcm.value ("seq").toInt (), seq);
+        auto const data = pcm.value ("data").toString ();
+        // 32,768 bytes leave two in the last group; the last line's 29,952 none.
+        QCOMPARE (data.size (), seq < 6 ? 43692 : 39936);
+        QCOMPARE (data.endsWith ("=") && !data.endsWith ("=="), seq < 6);
+      }
+    auto padding = [&run] (qint64 id) {
+      auto const lines = run.replies.value (id).lines;
+      auto const data = QJsonDocument::fromJson (lines[lines.size () - 2]).object ().value ("data").toString ();
+      return data.size () - QString {data}.remove ('=').size ();
+    };
+    QCOMPARE (padding (2), 1);                     // 25,088 bytes
+    QCOMPARE (padding (3), 2);                     // 12,544 bytes
+  }
+
+  void renderSendsEverySegment ()
+  {
+    auto const run = runCodec (request (render (text (1, longLine), 48000, 1500)));
+    CHECK_RUN (run);
+    auto const reply = run.replies.value (1);
+    QCOMPARE (member (reply, "canonical"), longLineCanonicals);
+    QList<int> const frames {16, 16, 9};
+    for (int i = 0; i < 3; ++i)
+      {
+        QCOMPARE (reply.segments[i].value ("frames").toArray ().size (), frames[i]);
+        QCOMPARE (reply.pcm[i].size (), 2 * frames[i] * FrameSamples * 4);
+      }
+    QCOMPARE (reply.terminal.value ("substituted").toBool (), true);
+  }
+
+  // A render holds at most 600 s of audio; a longer one sends none.
+  void renderIsCapped ()
+  {
+    auto const fits = QString (80 * 19, 'A') + " " + QString (64, 'B');    // 304 + 13 frames, 598.496 s
+    auto const run = runCodec (request (render (text (1, fits), 12000, 1500))
+                               + request (render (text (2, fits + "BBBBB"), 12000, 1500))
+                               + request (render (text (3, QString (400, 'A')), 48000, 1500)));    // 80 frames
+    CHECK_RUN (run);
+    QCOMPARE (run.replies.value (1).terminal.value ("t").toString (), QString {"rendered"});
+    QCOMPARE (allPcm (run.replies.value (1)).size (), 2 * 317 * FrameSamples);
+    // The cap is in seconds at either rate: 151.04 s at 48 kHz renders.
+    QCOMPARE (run.replies.value (3).terminal.value ("t").toString (), QString {"rendered"});
+    QCOMPARE (allPcm (run.replies.value (3)).size (), 2 * 80 * FrameSamples * 4);
+    auto const over = run.replies.value (2);
+    QCOMPARE (over.lines.size (), 1);
+    QCOMPARE (over.terminal, rejected (2, "too_long", {}, "the audio is longer than 600 s"));
   }
 
   void idsAreEchoedExactly ()
   {
     QList<qint64> const ids {-2147483647LL - 1, 0, 2147483647};
     QByteArray input;
-    for (auto const id : ids) input += request (text (id, "HI"));
+    for (auto const id : ids) input += request (render (text (id, "HI"), 48000, 1500));
     auto const run = runCodec (input);
     CHECK_RUN (run);
     for (auto const id : ids)
       {
         auto const reply = run.replies.value (id);
-        QCOMPARE (reply.terminal.value ("t").toString (), QString {"packed"});
-        QCOMPARE (reply.lines.size (), 2);
+        QCOMPARE (reply.terminal.value ("t").toString (), QString {"rendered"});
+        QVERIFY (reply.lines.size () >= 3);
         for (auto const& line : reply.lines) QVERIFY (line.contains (",\"id\":" + QByteArray::number (id) + ","));
+      }
+  }
+
+  // The waveform cache holds one pulse per rate, so rates may alternate.
+  void ratesAlternate ()
+  {
+    QList<int> const rates {12000, 48000, 12000};
+    QByteArray input;
+    for (int i = 0; i < rates.size (); ++i) input += request (render (text (i + 1, "CQ CQ"), rates[i], 1500));
+    auto const run = runCodec (input);
+    CHECK_RUN (run);
+    for (int i = 0; i < rates.size (); ++i)
+      {
+        auto const alone = runCodec (request (render (text (1, "CQ CQ"), rates[i], 1500)));
+        CHECK_RUN (alone);
+        QVERIFY (allPcm (run.replies.value (i + 1)) == allPcm (alone.replies.value (1)));
       }
   }
 
@@ -620,7 +894,8 @@ private Q_SLOTS:
                                + request (key (2, "%H %E", {{"his_call", "W9XYZ"}, {"serial", 107}}))
                                + request (text (3, "HI", {{"final", false}}))
                                + request (text (4, "HI"))
-                               + request (text (6, "HI\nHO", {{"final", false}})));
+                               + request (text (6, "HI\nHO", {{"final", false}}))
+                               + request (render (text (5, "HI", {{"final", false}}), 12000, 1500)));
     CHECK_RUN (run);
     QCOMPARE (frameTexts (run.replies.value (1).segments.value (0)),
               (QStringList {"TEST ", "1", "2 3 H", "ELLO ", "WORLD"}));
@@ -629,6 +904,7 @@ private Q_SLOTS:
     // five columns before whatever continues the message.
     QCOMPARE (frameTexts (run.replies.value (3).segments.value (0)), QStringList {"HI   "});
     QCOMPARE (frameTexts (run.replies.value (4).segments.value (0)), QStringList {"HI"});
+    QCOMPARE (frameTexts (run.replies.value (5).segments.value (0)), QStringList {"HI   "});
     QCOMPARE (member (run.replies.value (6), "final"), (QStringList {"true", "false"}));
     QCOMPARE (frameTexts (run.replies.value (6).segments.value (0)), QStringList {"HI"});
     QCOMPARE (frameTexts (run.replies.value (6).segments.value (1)), QStringList {"HO   "});
@@ -763,6 +1039,7 @@ private Q_SLOTS:
       + control (R"({"t":"pack","id":1.5,"text":"HI"})")
       + control (R"({"t":"pack","id":/,"text":"HI"})")
       + control (R"({"t":"pack","id":5,"text":"%N","serial":1*})")
+      + control (R"({"t":"render","id":1.5,"text":"HI","rate":12000,"freq":1500})")
       + control (R"({"t":"transmit","id":8})")
       + control (largest + ' ')
       + control (R"({"t":"pack","id":3,"text":"HI","context":{"his_call":"W9XYZ"}})")
@@ -777,7 +1054,7 @@ private Q_SLOTS:
       + request (text (9, "HI")));
     CHECK_RUN (run);
     QList<QJsonObject> const errors {
-      InvalidRequestId, InvalidRequestId, InvalidRequestId, InvalidRequestId,
+      InvalidRequestId, InvalidRequestId, InvalidRequestId, InvalidRequestId, InvalidRequestId,
       codedError ("control_frame_too_large", "control frame exceeds the configured buffer capacity"),
       InvalidRequestId};
     QCOMPARE (ofType (run.events, "error"), errors);
@@ -809,7 +1086,7 @@ private Q_SLOTS:
     auto const configure = control (R"({"t":"configure","mode":"FT8","utc":"05:11:15"})") + control (Station);
     auto const alone = runCodec (configure + audio (ft8));
     auto const interleaved = runCodec (configure + audio (ft8.left (ft8.size () / 2))
-                                       + request (text (1, "CQ %M"))
+                                       + request (render (text (1, "CQ %M"), 12000, 1500))
                                        + audio (ft8.mid (ft8.size () / 2)));
     CHECK_RUN (alone);
     CHECK_RUN (interleaved);
@@ -822,10 +1099,44 @@ private Q_SLOTS:
     QVERIFY (!ofType (alone.events, "decode").isEmpty ());
     QCOMPARE (decodes (interleaved), decodes (alone));
     auto const reply = interleaved.replies.value (1);
-    QCOMPARE (reply.terminal.value ("t").toString (), QString {"packed"});
+    QCOMPARE (reply.terminal.value ("t").toString (), QString {"rendered"});
     QCOMPARE (interleaved.lines.indexOf (reply.lines.last ()) + 1, interleaved.lines.indexOf (decodes (alone).first ()));
   }
 
+  // Rendered audio, sent back to the same process in JTTY, decodes as sent.
+  void renderDecodesAsSent_data ()
+  {
+    QTest::addColumn<QJsonObject> ("object");
+    QTest::addColumn<QStringList> ("complete");
+    QTest::addColumn<QString> ("seen");
+    QTest::newRow ("text") << text (1, "cq cq de %M k") << QStringList {"CQ CQ DE K1ABC K"} << QString {};
+    QTest::newRow ("F2") << key (1, "%H %E", {{"his_call", "W9XYZ"}, {"serial", 107}})
+                         << QStringList {"W9XYZ 599 107"} << QString {};
+    // The receiver keeps at most 80 characters of a message, and the 200
+    // characters are one message.
+    QTest::newRow ("200 characters") << text (1, longLine) << QStringList {longLineCanonicals[0]} << QString {};
+    QTest::newRow ("open message") << text (1, "HELLO\nWORLD", {{"final", false}}) << QStringList {"HELLO"}
+                                   << QString {"WORLD"};
+  }
+
+  void renderDecodesAsSent ()
+  {
+    QFETCH (QJsonObject, object);
+    QFETCH (QStringList, complete);
+    QFETCH (QString, seen);
+    auto const run = roundTrip (control (R"({"t":"configure","mode":"JTTY","mycall":"K1ABC"})")
+                                + request (render (object, 12000, 1500)), 1);
+    CHECK_RUN (run);
+    QCOMPARE (run.replies.value (1).terminal.value ("t").toString (), QString {"rendered"});
+    QStringList completed, texts;
+    for (auto const& update : ofType (run.events, "jtty_update"))
+      {
+        texts << update.value ("text").toString ();
+        if (update.value ("state").toString () == "complete") completed << update.value ("text").toString ();
+      }
+    QCOMPARE (completed, complete);
+    if (!seen.isEmpty ()) QVERIFY2 (texts.contains (seen), qPrintable (texts.join ('|')));
+  }
 };
 
 QTEST_GUILESS_MAIN (TestWsjtCodecEncode);

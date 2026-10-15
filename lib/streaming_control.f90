@@ -8,9 +8,9 @@
 !   {"t":"halt"}
 !   {"t":"discontinuity"}   the next audio sample does not follow the last
 !                           one; lib/streaming_io.f90 states what it ends.
-!   {"t":"pack",...}        a JTTY encode request, read by
-!                           parse_encode_request; lib/streaming_jtty.f90
-!                           states it.
+!   {"t":"pack",...}, {"t":"render",...}   JTTY encode requests, read by
+!                           parse_encode_request and parse_render_request;
+!                           lib/streaming_jtty.f90 states them.
 !
 ! Hand-rolled flat-JSON parser. Callers should treat unknown "t" values
 ! as forward-compat extensions (mirrors the consumer-ignores-unknown
@@ -19,9 +19,10 @@
 ! Restrictions (deliberate scope):
 !   - Flat objects only; no nested objects, no arrays.
 !   - Numeric values must be plain decimal (no scientific notation),
-!     except where a key's rule says otherwise. Configure's integer keys
-!     must be plain JSON integers: a fraction, an exponent or another form
-!     is not reported as an error, and is ignored or misread.
+!     except where a key's rule says otherwise (render's freq is a JSON
+!     number). Configure's integer keys must be plain JSON integers: a
+!     fraction, an exponent or another form is not reported as an error,
+!     and is ignored or misread.
 !   - String values are JSON strings: \" \\ \/ \b \f \n \r \t and \uXXXX
 !     (a surrogate pair for a character above U+FFFF) decode to UTF-8. A
 !     string with a malformed escape, a lone surrogate or no closing quote
@@ -41,6 +42,7 @@ module streaming_control
   integer, parameter, public :: CTRL_PARSE_ERR = 3
   integer, parameter, public :: CTRL_DISCONTINUITY = 4
   integer, parameter, public :: CTRL_PACK      = 5
+  integer, parameter, public :: CTRL_RENDER    = 6
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
@@ -371,12 +373,15 @@ module streaming_control
      integer :: serial       = 0
      logical :: report_given = .false.
      integer :: report       = 0
+     real(8) :: freq         = 0.d0             ! render only
+     integer :: rate         = 0                ! render only
      character(len=:), allocatable :: problem, problem_key
   end type encode_request
 
   public :: parse_control_frame
   public :: mode_string_to_int
   public :: parse_encode_request
+  public :: parse_render_request
 
 contains
 
@@ -428,6 +433,11 @@ contains
 
     if (trim(t_value) .eq. 'pack') then
        action = CTRL_PACK
+       return
+    end if
+
+    if (trim(t_value) .eq. 'render') then
+       action = CTRL_RENDER
        return
     end if
 
@@ -2022,6 +2032,36 @@ contains
 
   end subroutine parse_encode_request
 
+  ! Read a render request: a pack request's keys, then freq and rate.
+  subroutine parse_render_request(buf, req)
+    character(len=*),     intent(in)  :: buf
+    type(encode_request), intent(out) :: req
+    character(len=8) :: cat
+    integer :: vstart, blen
+    logical :: present, ok
+
+    call parse_encode_request(buf, req)
+    if (.not. req%id_ok .or. len(req%problem) .gt. 0) return
+    call request_int_(buf, '"rate"', req%rate, present, ok)
+    if (.not. (present .and. ok .and. (req%rate .eq. 12000 .or. req%rate .eq. 48000))) then
+       req%problem_key = 'rate'
+       req%problem = 'rate must be 12000 or 48000'
+       return
+    end if
+    call value_category_(buf, '"freq"', cat)
+    ok = trim(cat) .eq. 'number'
+    if (ok) then
+       call find_key_(buf, '"freq"', vstart, blen, present)
+       ok = json_number_(buf(vstart:blen), .true.)
+    end if
+    if (ok) call get_real_(buf, '"freq"', req%freq, ok)
+    ! Written so that a NaN fails it.
+    if (.not. (ok .and. req%freq .ge. 200.d0 .and. req%freq .le. 5000.d0)) then
+       req%problem_key = 'freq'
+       req%problem = 'freq must be a number of Hz from 200 to 5000'
+    end if
+  end subroutine parse_render_request
+
   ! The string value of key. present is .false. when the key is absent; ok
   ! is .false. when it is present but not a JSON string that decodes.
   subroutine request_string_(buf, key, val, present, ok)
@@ -2081,34 +2121,63 @@ contains
     ok = .not. present
     if (trim(cat) .ne. 'number') return
     call find_key_(buf, key, vstart, blen, found)
-    ok = json_integer_(buf(vstart:blen))
+    ok = json_number_(buf(vstart:blen), .false.)
     if (ok) call get_int_(buf, key, val, ok)
   end subroutine request_int_
 
-  ! Whether s starts with a JSON integer, -?(0|[1-9][0-9]*), ending at ',',
-  ! '}', white space or the end of s. get_int_ reads more: its list-directed
-  ! read takes '/', repeat counts and forms like '+5' and '05'.
-  logical function json_integer_(s)
+  ! Whether s starts with a JSON number, -?(0|[1-9][0-9]*), followed when
+  ! fraction is .true. by (\.[0-9]+)?([eE][+-]?[0-9]+)?, ending at ',', '}',
+  ! white space or the end of s. get_int_ and get_real_ read more: their
+  ! list-directed reads take '/', repeat counts and forms like '+5', '05' and
+  ! '1500.'.
+  logical function json_number_(s, fraction)
     character(len=*), intent(in) :: s
+    logical,          intent(in) :: fraction
     integer :: i, start
 
-    json_integer_ = .false.
+    json_number_ = .false.
     i = 1
     if (i .le. len(s)) then
        if (s(i:i) .eq. '-') i = i + 1
     end if
     start = i
-    do while (i .le. len(s))
-       if (index('0123456789', s(i:i)) .eq. 0) exit
-       i = i + 1
-    end do
-    if (i .eq. start) return
+    if (.not. digits_(i)) return
     if (s(start:start) .eq. '0' .and. i - start .gt. 1) return
+    if (fraction .and. i .le. len(s)) then
+       if (s(i:i) .eq. '.') then
+          i = i + 1
+          if (.not. digits_(i)) return
+       end if
+    end if
+    if (fraction .and. i .le. len(s)) then
+       if (s(i:i) .eq. 'e' .or. s(i:i) .eq. 'E') then
+          i = i + 1
+          if (i .le. len(s)) then
+             if (s(i:i) .eq. '+' .or. s(i:i) .eq. '-') i = i + 1
+          end if
+          if (.not. digits_(i)) return
+       end if
+    end if
     if (i .le. len(s)) then
        if (index(',}', s(i:i)) .eq. 0 .and. iachar(s(i:i)) .gt. 32) return
     end if
-    json_integer_ = .true.
-  end function json_integer_
+    json_number_ = .true.
+
+  contains
+
+    ! Skip the digits of s from i; .false. when there are none.
+    logical function digits_(i)
+      integer, intent(inout) :: i
+      integer :: first
+      first = i
+      do while (i .le. len(s))
+         if (index('0123456789', s(i:i)) .eq. 0) exit
+         i = i + 1
+      end do
+      digits_ = i .gt. first
+    end function digits_
+
+  end function json_number_
 
   ! Whether buf holds an array, or an object besides the outermost one,
   ! outside its strings.

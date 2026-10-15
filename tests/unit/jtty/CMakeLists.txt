@@ -337,7 +337,8 @@ if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
 endif ()
 
 # The codec's JTTY encode end to end through QProcess, against the GUI's
-# transmit encoding.
+# transmit encoding. Its rows run in one process, in order, sharing the data
+# directory whose FFTW wisdom the first row saves.
 add_executable (test_wsjt_codec_encode test_wsjt_codec_encode.cpp)
 target_include_directories (test_wsjt_codec_encode PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_wsjt_codec_encode PRIVATE Qt5::Test)
@@ -349,7 +350,7 @@ add_dependencies (test_wsjt_codec_encode wsjt-codec test_decoder_engine)
 add_test (NAME test_wsjt_codec_encode COMMAND test_wsjt_codec_encode)
 set_tests_properties (test_wsjt_codec_encode PROPERTIES
   LABELS "streaming;jtty;runtime"
-  TIMEOUT 120
+  TIMEOUT 300
   FIXTURES_REQUIRED ft8_engine_wav)
 if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_wsjt_codec_encode PROPERTIES

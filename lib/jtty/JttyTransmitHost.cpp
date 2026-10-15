@@ -407,4 +407,19 @@ extern "C" {
     } catch (...) {
     }
   }
+
+  std::int32_t jtty_tx_render (std::int32_t const * tones, std::int32_t nsym, std::int32_t sample_rate,
+                               float f0, std::int16_t * samples, std::int32_t capacity) noexcept
+  {
+    try {
+      if (nsym <= 0 || nsym > Jtty::maxTransmitFrames * Jtty::transmitFrameSymbols) return 0;
+      std::vector<int> symbols (tones, tones + nsym);
+      auto const audio = renderTransmitTones (symbols.data (), nsym, sample_rate, f0);
+      if (capacity < 0 || audio.empty () || audio.size () > static_cast<std::size_t> (capacity)) return 0;
+      std::copy (audio.cbegin (), audio.cend (), samples);
+      return static_cast<std::int32_t> (audio.size ());
+    } catch (...) {
+      return 0;
+    }
+  }
 }
