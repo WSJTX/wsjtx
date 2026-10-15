@@ -68,6 +68,7 @@ program test_q65_decode_pipeline
   lnewdat=.false.
   lapcqonly=.false.
   call check_q65_ap_flag_masks()
+  call check_q65_rr73_ap_payload()
   allocate(iwave(q65_nsamples))
 
   do nsubmode=0,4
@@ -150,6 +151,30 @@ contains
     call q65_select(previous_state)
     lclearave=.true.
   end subroutine check_q65_drift_compensation
+
+  subroutine check_q65_rr73_ap_payload()
+    use packjt77, only: pack77_state,pack77_for_state
+    type(pack77_state) :: knowledge
+    character(len=37) :: message
+    character(len=77) :: packed
+    integer :: bits(77),apmask(78),apsymbols(78),iaptype,i3,n3
+
+    message='K1ABC W9XYZ RR73'
+    i3=-1
+    n3=-1
+    call pack77_for_state(knowledge,message,i3,n3,packed)
+    if(i3.ne.1) error stop 'Q65 RR73 AP fixture is not a standard message'
+    read(packed,'(77i1)') bits
+    call q65_ap(3,4,0,.false.,.false.,iaptype,bits(1:58),apmask,apsymbols)
+    if(iaptype.ne.6) error stop 'Q65 RR73 AP pass was not selected'
+    if(any(apmask(1:71).ne.1).or.any(apmask(72:74).ne.0).or.any(apmask(75:78).ne.1)) then
+       error stop 'Q65 RR73 AP mask changed'
+    endif
+    if(any(apmask(1:77).eq.1.and.apsymbols(1:77).ne.bits)) then
+       error stop 'Q65 RR73 AP hypothesis disagrees with the packed payload'
+    endif
+    if(apsymbols(78).ne.0) error stop 'Q65 RR73 AP changed bit 78 policy'
+  end subroutine check_q65_rr73_ap_payload
 
   subroutine check_q65_ap_flag_masks()
     integer :: apsym0(58),apmask(78),apsymbols(78),iaptype

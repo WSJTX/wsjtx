@@ -1,6 +1,7 @@
 program test_packjt77_protocol_vectors
 
   use packjt77
+  use packjt77_schema, only: PACK77_TYPE1_RR73_TAIL
   use packjt77_test_helpers
   implicit none
 
@@ -27,6 +28,7 @@ program test_packjt77_protocol_vectors
   call expect_pack_bits('W1AW K1ABC RR73', 1, 0, -1, -1, &
        '00001011111111101010110100010000010011011110111100011010100111111010010011001', &
        'W1AW K1ABC RR73')
+  call check_rr73_ap_tail()
   call expect_pack_bits('<PJ4/K1ABC> W9XYZ RR73', 1, 0, -1, -1, &
        '00000011010100101011000010100000011000010100100111011100000111111010010011001')
   call expect_pack_bits('K1ABC RR73; W9XYZ <KH1/KH7Z> -12', 0, 1, -1, -1, &
@@ -63,6 +65,17 @@ program test_packjt77_protocol_vectors
 1000 format('packjt77 protocol vector tests passed: ',i0)
 
 contains
+
+  subroutine check_rr73_ap_tail()
+    character(len=77) :: packed
+    integer :: bits(19),i3,n3
+
+    call pack_standard('W1AW K1ABC RR73',-1,-1,i3,n3,packed)
+    call assert_message_type('RR73 AP tail','W1AW K1ABC RR73',1,0,i3,n3)
+    read(packed(59:77),'(19i1)') bits
+    call assert_true('RR73 AP tail matches the packed payload',all(bits.eq.PACK77_TYPE1_RR73_TAIL))
+    ntests=ntests+1
+  end subroutine check_rr73_ap_tail
 
   subroutine expect_hash_vector(callsign,want10,want12,want22)
     character(len=*), intent(in) :: callsign

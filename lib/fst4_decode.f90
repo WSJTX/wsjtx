@@ -308,7 +308,6 @@ contains
          2*mod([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0]+rvec(1:29),2)-1
       integer, parameter :: mrrr(19)=2*mod([0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1]+rvec(59:77),2)-1
       integer, parameter :: m73(19)=2*mod([0,1,1,1,1,1,1,0,1,0,0,1,0,1,0,0,0,0,1]+rvec(59:77),2)-1
-      integer, parameter :: mrr73(19)=2*mod([0,1,1,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,1]+rvec(59:77),2)-1
       data hmod/1/
 
 
@@ -716,7 +715,7 @@ contains
                         llr(1:58)=apmag*this%apbits(1:58)
                         if(iaptype.eq.4) llr(59:77)=apmag*mrrr(1:19)
                         if(iaptype.eq.5) llr(59:77)=apmag*m73(1:19)
-                        if(iaptype.eq.6) llr(59:77)=apmag*mrr73(1:19)
+                        if(iaptype.eq.6) llr(59:77)=apmag*this%apbits(59:77)
                      endif
                   endif
 

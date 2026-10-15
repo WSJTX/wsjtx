@@ -127,6 +127,9 @@ module packjt77_schema
        bit_field('i3',75,3,0_int64,0_int64,.false.), &
        NO_FIELD,NO_FIELD /))
 
+  ! Standard RR73 bits 59:77 encode ir=0, acknowledgment 32403, and i3=1.
+  integer, parameter :: PACK77_TYPE1_RR73_TAIL(19)=[0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,1,0,0,1]
+
   type(message_schema), parameter :: PACK77_SCHEMA_TYPE1=message_schema( &
        1,0,'type 1 standard',7,(/ &
        bit_field('n28a',1,28,0_int64,268435455_int64,.false.), &

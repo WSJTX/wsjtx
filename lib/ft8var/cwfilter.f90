@@ -4,7 +4,7 @@ subroutine cwfilter(first,knowledge,render_legacy)
   use ft8_codec_context, only: get_ft8_codec_state
   use ft8var_codec_context, only: genft8sdvar_for_state
 
-  use ft8_mod1, only : cw,windowc1,windowx,pivalue,facx,mcq,m73,mrr73,mrrr,one,twopi,facc1,dt,csync,idtone25,csynccq, &
+  use ft8_mod1, only : cw,windowc1,windowx,pivalue,facx,mcq,m73,mrrr,one,twopi,facc1,dt,csync,idtone25,csynccq, &
                        idtone25_valid, &
                        NFILT1,NFILT2,endcorr,ctwkw,ctwkn,ctwk256
   use jt65_mod9 ! callsign DB to memory
@@ -97,7 +97,6 @@ subroutine cwfilter(first,knowledge,render_legacy)
       mcq=2*mcq-1
       mrrr=2*mrrr-1
       m73=2*m73-1
-      mrr73=2*mrr73-1
     endif
 
     one=.false.

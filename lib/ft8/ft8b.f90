@@ -6,6 +6,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   use crc
   use timer_module, only: timer
   use packjt77
+  use packjt77_schema, only: PACK77_TYPE1_RR73_TAIL
   use ft8_codec_context, only: get_ft8_codec_state
   use decoder_engine_types, only: ft8_signal_evidence,engine_payload_decoded
   include 'ft8_params.f90'
@@ -24,7 +25,8 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   integer*1 message77(77),message91(91),apmask(174),cw(174)
   integer apsym(58),aph10(10)
   integer mcq(29),mcqru(29),mcqfd(29),mcqtest(29),mcqww(29)
-  integer mrrr(19),m73(19),mrr73(19)
+  integer mrrr(19),m73(19)
+  integer, parameter :: mrr73(19)=2*PACK77_TYPE1_RR73_TAIL-1
   integer itone(NN)
   type(pack77_state), target, optional, intent(inout) :: knowledge
   type(pack77_state), pointer :: codec
@@ -49,7 +51,6 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   data   mcqww/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,1,1,1,1,0/
   data    mrrr/0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1/
   data     m73/0,1,1,1,1,1,1,0,1,0,0,1,0,1,0,0,0,0,1/
-  data   mrr73/0,1,1,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,1/
   data first/.true./
   data ncontest0/-1/
   data graymap/0,1,3,2,5,6,4,7/
@@ -68,7 +69,6 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
         mcqww=2*mcqww-1
         mrrr=2*mrrr-1
         m73=2*m73-1
-        mrr73=2*mrr73-1
      endif
      nappasses(0)=2
      nappasses(1)=2

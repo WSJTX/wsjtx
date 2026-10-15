@@ -1,5 +1,7 @@
 module ft8_mod1
 
+  use packjt77_schema, only: PACK77_TYPE1_RR73_TAIL
+
   save
 
   parameter (NPS=180000,NFR=151680,NFILT1=4000,NFILT2=3400,numcqsig=20,   &
@@ -17,7 +19,7 @@ module ft8_mod1
        facc1,dt,sumxdtt(24),avexdt,xdtincall(174)
   integer itone76(76,79),idtone76(76,58),itone56(56,79),idtone56(56,58),  &
        idtone25(25,58),allsnrs(200),apsym(58),idtonemyc(58),mcq(29),      &
-       mrrr(19),m73(19),mrr73(19),naptypes(0:5,27),icos7(0:6),            &
+       mrrr(19),m73(19),naptypes(0:5,27),icos7(0:6),                    &
        graymap(0:7),nappasses(0:5),nmsg,ndecodes,nlasttx,mycalllen1,      &
        msgrootlen,nfawide,nfbwide,nhaptypes(0:5,27),apsymsp(66),          &
        apsymdxns1(58),apsymdxnsrrr(77),ndxnsaptypes(0:5,27),apcqsym(77),  &
@@ -27,6 +29,7 @@ module ft8_mod1
        nmycnsaptypes(0:5,27),apsymdxstd(58),apsymdxnsr73(77),             &
        apsymdxns732(77),apsymmynsrrr(77),idtonedxcns73(58),               &
        idtonefox73(58),idtonespec(58),nintcount
+  integer, parameter :: mrr73(19)=2*PACK77_TYPE1_RR73_TAIL-1
   integer*1 gen(91,174)
   logical one(0:511,0:8),lqsomsgdcd,first_osd
   logical(1) lapmyc,lagcc,lagccbail,lhound,lenabledxcsearch,              &
@@ -38,7 +41,6 @@ module ft8_mod1
   data     mcq/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0/
   data    mrrr/0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1/
   data     m73/0,1,1,1,1,1,1,0,1,0,0,1,0,1,0,0,0,0,1/
-  data   mrr73/0,1,1,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,1/
   data   icos7/3,1,4,0,6,5,2/
   data graymap/0,1,3,2,5,6,4,7/
   data mycall12_0/'dummy'/
