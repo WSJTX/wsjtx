@@ -46,6 +46,8 @@ public Q_SLOTS:
   void resetAttenuation () override;
 
 private:
+  friend class TestSoundOutput;
+
   bool checkStream () const;
   TxEvidence::TxRawPlayoutSnapshot makeRawTxPlayoutSnapshot (bool startEvent = false) const;
   void publishRawTxPlayoutSnapshot (bool startEvent = false) const;

@@ -85,8 +85,13 @@ void SoundOutput::setFormat (QAudioDeviceInfo const& device, unsigned channels, 
 
 void SoundOutput::restart (QIODevice * source)
 {
+  if (m_stream)
+    {
+      disconnect (m_stream.data (), nullptr, this, nullptr);
+      m_stream.reset ();
+    }
   ++m_backendStartSequence;
-  bool failed {false};
+  QString failure;
   if (!m_device.isNull ())
     {
       QAudioFormat format (m_device.preferredFormat ());
@@ -99,13 +104,11 @@ void SoundOutput::restart (QIODevice * source)
       format.setByteOrder (QAudioFormat::Endian (QSysInfo::ByteOrder));
       if (!format.isValid ())
         {
-          Q_EMIT error (tr ("Requested output audio format is not valid."));
-          failed = true;
+          failure = tr ("Requested output audio format is not valid.");
         }
       else if (!m_device.isFormatSupported (format))
         {
-          Q_EMIT error (tr ("Requested output audio format is not supported on device."));
-          failed = true;
+          failure = tr ("Requested output audio format is not supported on device.");
         }
       else
         {
@@ -117,7 +120,7 @@ void SoundOutput::restart (QIODevice * source)
           error_ = false;
 
           connect (m_stream.data(), &QAudioOutput::stateChanged, this, &SoundOutput::handleStateChanged);
-          connect (m_stream.data(), &QAudioOutput::notify, [this] () {
+          connect (m_stream.data(), &QAudioOutput::notify, this, [this] () {
               checkStream ();
               publishRawTxPlayoutSnapshot ();
             });
@@ -127,29 +130,19 @@ void SoundOutput::restart (QIODevice * source)
     }
   else
     {
-      failed = true;
+      failure = tr ("No audio output device configured.");
     }
-  if (failed)
+  if (!failure.isEmpty ())
     {
-      publishUnavailableTxPlayoutSnapshot (true, tr ("Audio output restart attempt failed."));
-    }
-  if (!m_stream)
-    {
-      if (!error_)
+      publishUnavailableTxPlayoutSnapshot (true, failure);
+      if (!m_device.isNull () || !error_)
         {
-          error_ = true;        // only signal error once
-          Q_EMIT error (tr ("No audio output device configured."));
-        }
-      if (!failed)
-        {
-          publishUnavailableTxPlayoutSnapshot (true, tr ("No audio output device configured."));
+          error_ = true;
+          Q_EMIT error (failure);
         }
       return;
     }
-  else
-    {
-      error_ = false;
-    }
+  error_ = false;
 
   // we have to set this before every start on the stream because the
   // Windows implementation seems to forget the buffer size after a

@@ -77,6 +77,13 @@ target_link_libraries (test_fixture_audio_output
   wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia)
 add_test (NAME test_fixture_audio_output COMMAND test_fixture_audio_output)
 
+add_executable (test_sound_output
+  test_sound_output.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp
+  ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
+target_link_libraries (test_sound_output wsjt_qt Qt5::Test Qt5::Multimedia)
+add_test (NAME test_sound_output COMMAND test_sound_output)
+
 add_executable (test_receive_audio_handoff
   test_receive_audio_handoff.cpp
   receive_reference_probe.f90
