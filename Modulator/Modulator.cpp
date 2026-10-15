@@ -98,6 +98,7 @@ Modulator::Modulator (unsigned frameRate, double periodLengthInSeconds,
   , m_toneSpacing {0.0}
   , m_fSpread {0.0}
   , m_period {periodLengthInSeconds}
+  , m_ramp {0}
   , m_frameRate {frameRate}
   , m_state {Idle}
   , m_tuning {false}
@@ -109,13 +110,17 @@ Modulator::Modulator (unsigned frameRate, double periodLengthInSeconds,
 
 void Modulator::start (TxEvidence::TxRequest request, AudioOutputSink * stream)
 {
+  startAt (request, stream, QDateTime::currentMSecsSinceEpoch ());
+}
+
+void Modulator::startAt (TxEvidence::TxRequest request, AudioOutputSink * stream,
+                         qint64 actualStartMs)
+{
 //  qDebug () << request.mode << request.symbols_length << request.frames_per_symbol
 //            << request.frequency_hz << request.tone_spacing << request.channel
 //            << request.synchronize << request.fast_mode << request.snr_db
 //            << request.tr_period_s;
   Q_ASSERT (stream);
-// Time according to this computer which becomes our base time
-  auto const actualStartMs = QDateTime::currentMSecsSinceEpoch ();
   qint64 ms0 = actualStartMs % 86400000;
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
 
@@ -148,6 +153,9 @@ void Modulator::start (TxEvidence::TxRequest request, AudioOutputSink * stream)
   m_TRperiod=request.tr_period_s;
   m_tuning=request.tuning;
   m_cwId=request.cw_id;
+  m_cwLevel = false;
+  m_fastCwActive = false;
+  m_ramp = 0;
   m_icmin=4294967295;
   m_icmax=0;
   unsigned delay_ms=1000;
@@ -253,6 +261,11 @@ void Modulator::close ()
 
 qint64 Modulator::readData (char * data, qint64 maxSize)
 {
+  return readDataAt (data, maxSize, QDateTime::currentMSecsSinceEpoch ());
+}
+
+qint64 Modulator::readDataAt (char * data, qint64 maxSize, qint64 utcMs)
+{
   double toneFrequency=1500.0;
   if(m_nsps==6) {
     toneFrequency=1000.0;
@@ -287,8 +300,6 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
             }
         }
 
-        m_cwLevel = false;
-        m_ramp = 0;		// prepare for CW wave shaping
       }
       // fall through
 
@@ -300,16 +311,14 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
         bool slowCwId=((isym >= m_symbolsLength) && !m_cwId.isEmpty ()) && (!m_bFastMode);
         if(m_TRperiod==3.0) slowCwId=false;
         bool fastCwId=false;
-        static bool bCwId=false;
-        qint64 ms = QDateTime::currentMSecsSinceEpoch();
-        float tsec=0.001*(ms % int(1000*m_TRperiod));
+        float tsec=0.001*(utcMs % int(1000*m_TRperiod));
         if(m_bFastMode and !m_cwId.isEmpty () and (tsec > (m_TRperiod-5.0))) fastCwId=true;
         if(!m_bFastMode) m_nspd=2560;                 // 22.5 WPM
 
 
         if(slowCwId or fastCwId) {     // Transmit CW ID?
           m_dphi = m_twoPi*m_frequency/m_frameRate;
-          if(m_bFastMode and !bCwId) {
+          if(m_bFastMode and !m_fastCwActive) {
             m_frequency=1500;          // Set params for CW ID
             m_dphi = m_twoPi*m_frequency/m_frameRate;
             m_symbolsLength=126;
@@ -318,7 +327,7 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
             m_nspd=2560;               // 22.5 WPM
             if(m_cwId.size ()*m_nspd/48000.0 > 4.0) m_nspd=4.0*48000.0/m_cwId.size ();  //Faster CW for long calls
           }
-          bCwId=true;
+          m_fastCwActive=m_bFastMode;
           unsigned ic0 = m_symbolsLength * 4 * m_nsps;
           unsigned j(0);
 
@@ -360,7 +369,7 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
           }
           return framesGenerated * bytesPerFrame ();
         } else {
-          bCwId=false;
+          m_fastCwActive=false;
         } //End of code for CW ID
 
         double const baud (12000.0 / m_nsps);

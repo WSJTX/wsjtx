@@ -56,6 +56,10 @@ protected:
   }
 
 private:
+  friend class TestModulator;
+
+  void startAt (TxEvidence::TxRequest request, AudioOutputSink *, qint64 actualStartMs);
+  qint64 readDataAt (char * data, qint64 maxSize, qint64 utcMs);
   qint16 postProcessSample (qint16 sample) const;
 
   QPointer<AudioOutputSink> m_stream;
@@ -93,6 +97,7 @@ private:
   bool m_bFastMode;
 
   bool m_cwLevel;
+  bool m_fastCwActive {false};
   QVector<int> m_cwId;
   unsigned m_ic;
   unsigned m_icmin;

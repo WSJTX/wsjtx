@@ -84,6 +84,15 @@ add_executable (test_sound_output
 target_link_libraries (test_sound_output wsjt_qt Qt5::Test Qt5::Multimedia)
 add_test (NAME test_sound_output COMMAND test_sound_output)
 
+add_executable (test_modulator
+  test_modulator.cpp
+  ${CMAKE_SOURCE_DIR}/Modulator/Modulator.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp)
+target_link_libraries (test_modulator
+  wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
+add_test (NAME test_modulator COMMAND test_modulator)
+
 add_executable (test_receive_audio_handoff
   test_receive_audio_handoff.cpp
   receive_reference_probe.f90
