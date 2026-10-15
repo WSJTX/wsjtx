@@ -13,13 +13,14 @@
 #include <QSysInfo>
 #include <QTimer>
 #include <QtEndian>
+#include <QtMath>
 
 #include "moc_FixtureSoundOutput.cpp"
 
 FixtureSoundOutput::FixtureSoundOutput (QString capturePath, Profile profile,
                                         unsigned pacingSpeed,
                                         QObject * parent)
-  : SoundOutput {parent}
+  : AudioOutputSink {parent}
   , m_capturePath {std::move (capturePath)}
   , m_profile {profile}
   , m_pacingSpeed {pacingSpeed}
@@ -62,8 +63,10 @@ void FixtureSoundOutput::restart (QIODevice * source)
 
 void FixtureSoundOutput::restart (QIODevice * source, qint64 periodOffsetMs)
 {
+  auto const revision = ++m_revision;
   ++m_restartCount;
   finishCapture ();
+  if (revision != m_revision) return;
 
   if (m_pacingSpeed > 1 && m_configuredAudioFrames <= 0)
     {
@@ -134,6 +137,8 @@ void FixtureSoundOutput::restart (QIODevice * source, qint64 periodOffsetMs)
   m_silentFrames = 0;
   m_nonSilentAudioSeen = false;
   m_active = true;
+  m_suspended = false;
+  m_pausedDurationMs = 0;
   m_elapsed.start ();
   if (Profile::Ft8Period == m_profile)
     {
@@ -146,32 +151,70 @@ void FixtureSoundOutput::restart (QIODevice * source, qint64 periodOffsetMs)
       m_scheduleOriginFrame = prefixFrames;
     }
   Q_EMIT captureStarted (m_capturePath);
+  if (revision != m_revision || !m_active) return;
   Q_EMIT audioOutputActive ();
-  m_timer->start (Profile::JttyStrict == m_profile ? 1 : 0);
+  if (revision == m_revision && m_active && !m_suspended)
+    m_timer->start (Profile::JttyStrict == m_profile ? 1 : 0);
+}
+
+void FixtureSoundOutput::suspend ()
+{
+  if (!m_active || m_suspended) return;
+  m_suspended = true;
+  m_pauseStartedMs = m_elapsed.elapsed ();
+  m_timer->stop ();
+}
+
+void FixtureSoundOutput::resume ()
+{
+  if (!m_active || !m_suspended) return;
+  m_pausedDurationMs += m_elapsed.elapsed () - m_pauseStartedMs;
+  m_suspended = false;
+  scheduleNextPull ();
+}
+
+void FixtureSoundOutput::reset ()
+{
+  ++m_revision;
+  m_configuredAudioFrames = 0;
+  finishCapture ();
+}
+
+void FixtureSoundOutput::setAttenuation (qreal attenuation)
+{
+  Q_ASSERT (0. <= attenuation && attenuation <= 999.);
+  m_volume = qPow (10., -attenuation / 20.);
+}
+
+void FixtureSoundOutput::resetAttenuation ()
+{
+  m_volume = 1.;
 }
 
 void FixtureSoundOutput::stop ()
 {
+  ++m_revision;
   m_configuredAudioFrames = 0;
   if (!m_active)
     {
       return;
     }
   ++m_stopCount;
-  finishCapture ();
+  finishCapture (true);
 }
 
-void FixtureSoundOutput::finishCapture ()
+void FixtureSoundOutput::finishCapture (bool padPeriod)
 {
-  if (!m_active)
+  if (!m_active && !m_capture)
     {
       return;
     }
 
   m_active = false;
+  m_suspended = false;
   m_timer->stop ();
   m_source.clear ();
-  if (Profile::Ft8Period == m_profile && m_capture
+  if (padPeriod && Profile::Ft8Period == m_profile && m_capture
       && m_capturedFrames.load () < ft8PeriodFrames)
     {
       if (!appendSilence (ft8PeriodFrames - m_capturedFrames.load ())) return;
@@ -185,8 +228,9 @@ void FixtureSoundOutput::finishCapture ()
   auto const frames = m_capturedFrames.load ();
   m_checkpointFrame = -1;
   m_expectedAudioFrames = 0;
+  auto const revision = m_revision;
   Q_EMIT audioOutputIdle ();
-  Q_EMIT captureStopped (m_capturePath, frames);
+  if (revision == m_revision) Q_EMIT captureStopped (m_capturePath, frames);
 }
 
 bool FixtureSoundOutput::appendCapturedPcm (QByteArray const& pcm)
@@ -230,14 +274,17 @@ bool FixtureSoundOutput::appendSilence (qint64 frames)
 
 void FixtureSoundOutput::fail (QString const& message)
 {
+  auto const revision = ++m_revision;
   m_configuredAudioFrames = 0;
-  Q_EMIT captureFailed (message);
-  Q_EMIT error (message);
   finishCapture ();
+  if (revision != m_revision) return;
+  Q_EMIT captureFailed (message);
+  if (revision == m_revision) Q_EMIT error (message);
 }
 
 void FixtureSoundOutput::scheduleNextPull ()
 {
+  if (!m_active || m_suspended) return;
   if (Profile::JttyStrict == m_profile)
     {
       if (!m_realtimeTail && m_expectedAudioFrames > 0
@@ -247,27 +294,31 @@ void FixtureSoundOutput::scheduleNextPull ()
           m_realtimeTail = true;
           m_scheduleOriginFrame = m_framesPulled;
           m_elapsed.restart ();
+          m_pausedDurationMs = 0;
         }
       auto const speed = m_realtimeTail ? 1u : m_pacingSpeed;
       auto const targetMs = (m_framesPulled - m_scheduleOriginFrame) * 1000
         / (sampleRate * speed);
-      auto const delayMs = targetMs - m_elapsed.elapsed ();
+      auto const delayMs = targetMs - (m_elapsed.elapsed () - m_pausedDurationMs);
       if (delayMs < 0)
         {
           m_scheduleOriginFrame = m_framesPulled;
           m_elapsed.restart ();
+          m_pausedDurationMs = 0;
         }
       m_timer->start (static_cast<int> (std::max<qint64> (1, delayMs)));
       return;
     }
   auto const targetMs = (m_framesPulled - m_scheduleOriginFrame) * 1000
     / sampleRate;
-  auto const delayMs = std::max<qint64> (0, targetMs - m_elapsed.elapsed ());
+  auto const delayMs = std::max<qint64> (
+    0, targetMs - (m_elapsed.elapsed () - m_pausedDurationMs));
   m_timer->start (static_cast<int> (delayMs));
 }
 
 void FixtureSoundOutput::pullAudio ()
 {
+  if (m_suspended) return;
   if (!m_active || !m_source || !m_capture)
     {
       if (m_active)
@@ -291,7 +342,9 @@ void FixtureSoundOutput::pullAudio ()
         frames, ft8PeriodFrames - m_capturedFrames.load ()));
     }
   auto const requestedBytes = qint64 (frames) * m_sourceBytesPerFrame;
+  auto const revision = m_revision;
   auto const sourcePcm = m_source->read (requestedBytes);
+  if (revision != m_revision || !m_active) return;
   if (Profile::JttyStrict == m_profile && sourcePcm.size () != requestedBytes)
     {
       fail (tr ("Synthetic audio output received %1 of %2 source bytes.")
@@ -322,6 +375,7 @@ void FixtureSoundOutput::pullAudio ()
           m_nonSilentAudioSeen = true;
           m_checkpointFrame = m_framesPulled + frame + 72000;
           Q_EMIT nonSilentAudioStarted (m_framesPulled + frame);
+          if (revision != m_revision || !m_active) return;
         }
       if (sample)
         {
@@ -336,7 +390,8 @@ void FixtureSoundOutput::pullAudio ()
         {
           ++m_silentFrames;
         }
-      auto const littleEndianSample = qToLittleEndian (sample);
+      auto const littleEndianSample = qToLittleEndian (
+        static_cast<qint16> (qRound (sample * m_volume)));
       std::memcpy (capturedPcm.data () + frame * bytesPerCapturedFrame,
                    &littleEndianSample, sizeof littleEndianSample);
     }
@@ -350,6 +405,7 @@ void FixtureSoundOutput::pullAudio ()
     {
       m_checkpointFrame = -1;
       Q_EMIT playbackCheckpoint (m_restartCount.load (), m_framesPulled);
+      if (revision != m_revision || !m_active) return;
     }
   scheduleNextPull ();
 }

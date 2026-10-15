@@ -2,7 +2,7 @@
 #ifndef FIXTURE_SOUND_OUTPUT_HPP__
 #define FIXTURE_SOUND_OUTPUT_HPP__
 
-#include "Audio/soundout.h"
+#include "Audio/AudioOutputSink.hpp"
 
 #include <atomic>
 #include <memory>
@@ -18,7 +18,7 @@ class QIODevice;
 class QTimer;
 
 class FixtureSoundOutput final
-  : public SoundOutput
+  : public AudioOutputSink
 {
   Q_OBJECT
 
@@ -49,7 +49,12 @@ public Q_SLOTS:
   void setFormat (QAudioDeviceInfo const&, unsigned, int = 0) override;
   void restart (QIODevice * source) override;
   void restart (QIODevice * source, qint64 periodOffsetMs) override;
+  void suspend () override;
+  void resume () override;
+  void reset () override;
   void stop () override;
+  void setAttenuation (qreal attenuation) override;
+  void resetAttenuation () override;
   void configureJttyCapture (qint64 expectedAudioFrames);
 
 Q_SIGNALS:
@@ -62,7 +67,7 @@ Q_SIGNALS:
 private:
   bool appendCapturedPcm (QByteArray const& pcm);
   bool appendSilence (qint64 frames);
-  void finishCapture ();
+  void finishCapture (bool padPeriod = false);
   void fail (QString const& message);
   void scheduleNextPull ();
   Q_SLOT void pullAudio ();
@@ -79,6 +84,10 @@ private:
   std::unique_ptr<BWFFile> m_capture;
   QTimer * m_timer;
   QElapsedTimer m_elapsed;
+  qint64 m_pauseStartedMs {0};
+  qint64 m_pausedDurationMs {0};
+  quint64 m_revision {0};
+  qreal m_volume {1.};
   QVector<int> m_chunkFrames {257, 509, 1021, 2039};
   qint64 m_framesPulled {0};
   qint64 m_scheduleOriginFrame {0};
@@ -95,6 +104,7 @@ private:
   int m_sourceSampleOffset {0};
   qint64 m_silentFrames {0};
   bool m_active {false};
+  bool m_suspended {false};
   bool m_nonSilentAudioSeen {false};
 };
 
