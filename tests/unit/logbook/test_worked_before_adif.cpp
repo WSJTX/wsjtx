@@ -25,12 +25,12 @@ private Q_SLOTS:
   void cleanupTestCase ();
   void init ();
   void cleanup ();
-  void imports_records_independently_of_line_layout_data ();
-  void imports_records_independently_of_line_layout ();
+  void imports_records_across_layouts_and_length_errors_data ();
+  void imports_records_across_layouts_and_length_errors ();
 
 private:
   QString data_directory () const;
-  bool wait_for_load (WorkedBefore& worked_before, QString& error);
+  bool wait_for_load (WorkedBefore& worked_before, int& record_count, QString& error);
 };
 
 QString TestWorkedBeforeAdif::data_directory () const
@@ -72,7 +72,7 @@ void TestWorkedBeforeAdif::cleanup ()
   settings_.reset ();
 }
 
-void TestWorkedBeforeAdif::imports_records_independently_of_line_layout_data ()
+void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data ()
 {
   QTest::addColumn<QByteArray> ("adif");
   QTest::addColumn<QStringList> ("expected_calls");
@@ -110,9 +110,68 @@ void TestWorkedBeforeAdif::imports_records_independently_of_line_layout_data ()
   QTest::newRow ("eor-text-inside-length-delimited-field")
     << QByteArray {"<CALL:5>K1ABC<COMMENT:8:M>a\r\n<EOR><BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>\n"}
     << QStringList {"K1ABC"};
+
+  auto oversize_record = QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:9999>oops<EOR>\r\n"};
+  QTest::newRow ("oversize-length-first-record")
+    << (oversize_record + record ("W1XYZ").toUtf8 ()) << QStringList {"K1ABC", "W1XYZ"};
+  QTest::newRow ("oversize-length-middle-record")
+    << (record ("N2AAA").toUtf8 () + oversize_record + record ("W1XYZ").toUtf8 ())
+    << QStringList {"N2AAA", "K1ABC", "W1XYZ"};
+
+  auto slightly_long_record = QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:30>oops<EOR>\r\n"
+                                          "<CALL:5>W1XYZ<BAND:3>20M<MODE:3>FT8<EOR>\r\n"};
+  QTest::newRow ("slightly-long-length")
+    << (slightly_long_record + record ("N2AAA").toUtf8 ()) << QStringList {"K1ABC", "W1XYZ", "N2AAA"};
+
+  QTest::newRow ("suspect-endpoint-at-tag-closing-bracket")
+    << (QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:8>oops<EOR>"} + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
+
+  auto name = QString {"Jos"} + QChar {0x00e9};
+  auto name_record = QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<NAME:%1>%2<EOR>"};
+  auto utf8_bom = QByteArray::fromHex ("efbbbf");
+  QTest::newRow ("utf8-byte-counted-name")
+    << (utf8_bom + name_record.arg (name.toUtf8 ().size ()).arg (name).toUtf8 () + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
+  QTest::newRow ("utf8-character-counted-name")
+    << (utf8_bom + name_record.arg (name.size ()).arg (name).toUtf8 () + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
+
+  QTest::newRow ("embedded-eor-with-text-between-fields")
+    << QByteArray {"<CALL:5>K1ABC<COMMENT:5><EOR>padding<BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>"}
+    << QStringList {"K1ABC"};
+  QTest::newRow ("valid-endpoint-inside-non-tag-text")
+    << QByteArray {"<CALL:5>K1ABC<COMMENT:9><EOR>abc<literal>padding<BAND:3>20M<MODE:3>FT8<EOR>"}
+    << QStringList {"K1ABC"};
+  QTest::newRow ("embedded-eoh-with-text-between-fields")
+    << (QByteArray {"ADIF Export<PROGRAMID:5><EOH>padding<EOH>"} + record ("K1ABC").toUtf8 ())
+    << QStringList {"K1ABC"};
+  QTest::newRow ("oversize-length-header-field")
+    << (QByteArray {"ADIF Export<PROGRAMID:9999>oops<EOH>"} + record ("K1ABC").toUtf8 ())
+    << QStringList {"K1ABC"};
+
+  constexpr int chunk_size {64 * 1024};
+  auto split_endpoint_tag = [] (QByteArray const& adif, int field_length) {
+    auto data_start = adif.indexOf ('>', adif.indexOf ("<COMMENT:")) + 1;
+    return QByteArray (chunk_size - data_start - field_length - 1, ' ') + adif;
+  };
+  auto typed_tag_record = slightly_long_record;
+  typed_tag_record.replace ("<BAND:3>", "<BAND:3:S>");
+  QTest::newRow ("suspect-endpoint-in-split-field-tag")
+    << split_endpoint_tag (typed_tag_record, 30) << QStringList {"K1ABC", "W1XYZ"};
+  auto short_record = QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:5>oops<eOr>"};
+  QTest::newRow ("suspect-endpoint-in-split-eor")
+    << split_endpoint_tag (short_record + record ("W1XYZ").toUtf8 (), 5)
+    << QStringList {"K1ABC", "W1XYZ"};
+
+  auto long_value = QByteArray {"<EOR>"} + QByteArray (chunk_size + 17, 'x') + "<EOR>";
+  QTest::newRow ("valid-field-longer-than-chunk")
+    << (QByteArray {"<CALL:5>K1ABC<COMMENT:"} + QByteArray::number (long_value.size ()) + ">" + long_value
+        + "padding<BAND:3>20M<MODE:3>FT8<EOR>" + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
 }
 
-bool TestWorkedBeforeAdif::wait_for_load (WorkedBefore& worked_before, QString& error)
+bool TestWorkedBeforeAdif::wait_for_load (WorkedBefore& worked_before, int& record_count, QString& error)
 {
   QSignalSpy loaded {&worked_before, &WorkedBefore::finished_loading};
   if (!loaded.wait (5000))
@@ -120,11 +179,13 @@ bool TestWorkedBeforeAdif::wait_for_load (WorkedBefore& worked_before, QString& 
       error = QStringLiteral ("Timed out waiting for ADIF load");
       return false;
     }
-  error = loaded.takeFirst ().at (2).toString ();
+  auto result = loaded.takeFirst ();
+  record_count = result.at (0).toInt ();
+  error = result.at (2).toString ();
   return error.isEmpty ();
 }
 
-void TestWorkedBeforeAdif::imports_records_independently_of_line_layout ()
+void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors ()
 {
   QFETCH (QByteArray, adif);
   QFETCH (QStringList, expected_calls);
@@ -136,8 +197,10 @@ void TestWorkedBeforeAdif::imports_records_independently_of_line_layout ()
   initial_log.close ();
 
   WorkedBefore worked_before {configuration_.get ()};
+  int record_count {0};
   QString error;
-  QVERIFY2 (wait_for_load (worked_before, error), qPrintable (error));
+  QVERIFY2 (wait_for_load (worked_before, record_count, error), qPrintable (error));
+  QCOMPARE (record_count, expected_calls.size ());
 
   for (auto const& call : expected_calls)
     {
