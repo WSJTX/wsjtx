@@ -51,6 +51,48 @@ class TestFixtureAudioOutput final : public QObject
   Q_OBJECT
 
 private Q_SLOTS:
+  void failureRetainsIdentityDuringCleanup_data ()
+  {
+    QTest::addColumn<QString> ("callback");
+    for (auto name : {"idle-reset", "stopped-restart", "failed-restart"})
+      QTest::newRow (name) << QString::fromLatin1 (name);
+  }
+
+  void failureRetainsIdentityDuringCleanup ()
+  {
+    QFETCH (QString, callback);
+    QTemporaryDir directory;
+    FixtureSoundOutput output {directory.filePath ("capture.wav")};
+    PcmSource source;
+    TxEvidence::TxPlaybackContext const original {
+      TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}};
+    TxEvidence::TxPlaybackContext const replacement {
+      TxEvidence::TxSessionId {2}, TxEvidence::TxGeneration {2}};
+    output.restart (&source, original);
+    QVector<TxEvidence::TxOutputError> errors;
+    connect (&output, &AudioOutputSink::error, this,
+             [&errors] (TxEvidence::TxOutputError error) {errors.append (error);});
+    QSignalSpy failed {&output, &FixtureSoundOutput::captureFailed};
+    QMetaObject::Connection callbackConnection;
+    auto restart = [&] {output.restart (&source, replacement);};
+    if (callback == "idle-reset")
+      callbackConnection = connect (&output, &AudioOutputSink::audioOutputIdle,
+                                    &output, &FixtureSoundOutput::reset);
+    else if (callback == "stopped-restart")
+      callbackConnection = connect (&output, &FixtureSoundOutput::captureStopped,
+                                    &output, restart);
+    else
+      callbackConnection = connect (&output, &FixtureSoundOutput::captureFailed,
+                                    &output, restart);
+    output.configureJttyCapture (1);
+    disconnect (callbackConnection);
+    QCOMPARE (failed.size (), 1);
+    QCOMPARE (errors.size (), 1);
+    QCOMPARE (errors.front ().context, original);
+    QCOMPARE (errors.front ().error, TxEvidence::TxBackendError::Io);
+    output.reset ();
+  }
+
   void resetCancelsReadsAndCannotBeResumed ()
   {
     QTemporaryDir directory;
@@ -59,7 +101,7 @@ private Q_SLOTS:
     AudioOutputSink * sink = &output;
     PcmSource source;
     QSignalSpy stopped {&output, &FixtureSoundOutput::captureStopped};
-    sink->restart (&source);
+    sink->restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}});
     QVERIFY (pull (output));
     QCOMPARE (source.framesRead, qint64 {257});
     sink->reset ();
@@ -79,7 +121,7 @@ private Q_SLOTS:
     FixtureSoundOutput output {directory.filePath ("capture.wav")};
     AudioOutputSink * sink = &output;
     PcmSource source;
-    sink->restart (&source);
+    sink->restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}});
     QVERIFY (pull (output));
     sink->suspend ();
     sink->suspend ();
@@ -110,7 +152,7 @@ private Q_SLOTS:
       acceleratedTail ? 4u : 1u};
     if (acceleratedTail) output.configureJttyCapture (257);
     PcmSource source;
-    output.restart (&source, 0);
+    output.restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}}, 0);
     for (int i = 0; i < 16; ++i) QVERIFY (pull (output));
     auto timer = output.findChild<QTimer *> ();
     QVERIFY (timer);
@@ -140,7 +182,7 @@ private Q_SLOTS:
       path, FixtureSoundOutput::Profile::Ft8Period);
     PcmSource source;
     QSignalSpy stopped {output.get (), &FixtureSoundOutput::captureStopped};
-    output->restart (&source, 0);
+    output->restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}}, 0);
     QVERIFY (pull (*output));
     if (action == "stop")
       {
@@ -149,7 +191,7 @@ private Q_SLOTS:
         QCOMPARE (output->stopCount (), 1);
       }
     else if (action == "reset") output->reset ();
-    else if (action == "replace") output->restart (&source, 0);
+    else if (action == "replace") output->restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}}, 0);
     else if (action == "failure") output->configureJttyCapture (1);
     else output.reset ();
     QCOMPARE (stopped.size (), 1);
@@ -169,7 +211,7 @@ private Q_SLOTS:
     for (int capture = 0; capture < 3; ++capture)
       {
         if (capture == 2) sink->resetAttenuation ();
-        sink->restart (&source);
+        sink->restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}});
         QVERIFY (pull (output));
         sink->stop ();
         auto const pcm = capturedPcm (output.capturePath ());
@@ -207,7 +249,7 @@ private Q_SLOTS:
       connect (&output, &FixtureSoundOutput::playbackCheckpoint,
                &output, &FixtureSoundOutput::reset);
     QSignalSpy stopped {&output, &FixtureSoundOutput::captureStopped};
-    output.restart (&source);
+    output.restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}});
     for (int i = 0; i < 100 && stopped.empty (); ++i) QVERIFY (pull (output));
     QCOMPARE (stopped.size (), 1);
     auto const frames = source.framesRead;

@@ -13,8 +13,9 @@ namespace
   {
   public:
     void setFormat (QAudioDeviceInfo const&, unsigned, int) override {}
-    void restart (QIODevice * source) override
+    void restart (QIODevice * source, TxEvidence::TxPlaybackContext context, qint64 = -1) override
     {
+      m_context = context;
       m_source = source;
       if (startupReadBytes)
         {
@@ -29,6 +30,7 @@ namespace
     void resetAttenuation () override {}
     int bufferSize () const override { return 0; }
 
+    TxEvidence::TxPlaybackContext m_context;
     QIODevice * m_source {nullptr};
     qint64 startupReadBytes {0};
     QByteArray startupPcm;
@@ -37,6 +39,8 @@ namespace
   TxEvidence::TxRequest cwRequest ()
   {
     TxEvidence::TxRequest request;
+    request.session_id = TxEvidence::TxSessionId {1};
+    request.generation = TxEvidence::TxGeneration {1};
     request.mode = QStringLiteral ("JT9");
     request.symbols_length = 1;
     request.frames_per_symbol = 1;
@@ -168,6 +172,8 @@ private slots:
                  {
                    QCOMPARE (output.m_source, static_cast<QIODevice *> (&modulator));
                    QCOMPARE (output.startupPcm.size (), startupReadBytes);
+                   QCOMPARE (output.m_context.session_id, request.session_id);
+                   QCOMPARE (output.m_context.generation, request.generation);
                    snapshots.append (snapshot);
                  });
         modulator.startAt (request, &output, startMs);

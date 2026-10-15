@@ -12,8 +12,9 @@ void MainWindow::showSoundInError(const QString& errorMsg)
   MessageBox::critical_message (this, tr ("Error in Sound Input"), errorMsg);
 }
 
-void MainWindow::showSoundOutError(const QString& errorMsg)
+void MainWindow::showSoundOutError(TxEvidence::TxOutputError const& error)
 {
+  auto const& errorMsg = error.message;
   noteTxStopReason (TxEvidence::TxStopReason::Error);
   if (m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ()) {
     stopTx ();

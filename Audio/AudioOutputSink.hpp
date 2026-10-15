@@ -26,12 +26,8 @@ public:
 
   Q_SLOT virtual void setFormat (QAudioDeviceInfo const&, unsigned channels,
                                   int frames_buffered = 0) = 0;
-  Q_SLOT virtual void restart (QIODevice *) = 0;
-  Q_SLOT virtual void restart (QIODevice * source, qint64 period_offset_ms)
-  {
-    Q_UNUSED (period_offset_ms);
-    restart (source);
-  }
+  Q_SLOT virtual void restart (QIODevice *, TxEvidence::TxPlaybackContext,
+                              qint64 period_offset_ms = -1) = 0;
   Q_SLOT virtual void suspend () = 0;
   Q_SLOT virtual void resume () = 0;
   Q_SLOT virtual void reset () = 0;
@@ -45,7 +41,7 @@ public:
   // capacity when the sink cannot report a more accurate value.
   virtual int unplayedBufferBytes () const { return bufferSize (); }
 
-  Q_SIGNAL void error (QString message) const;
+  Q_SIGNAL void error (TxEvidence::TxOutputError error) const;
   Q_SIGNAL void status (QString message) const;
   Q_SIGNAL void audioOutputActive () const;
   Q_SIGNAL void audioOutputIdle () const;

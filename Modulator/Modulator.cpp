@@ -211,7 +211,7 @@ void Modulator::startAt (TxEvidence::TxRequest request, AudioOutputSink * stream
   m_stream = stream;
   if (m_stream)
     {
-      m_stream->restart (this, mstr);
+      m_stream->restart (this, {request.session_id, request.generation}, mstr);
     }
   else
     {

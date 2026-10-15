@@ -985,6 +985,65 @@ private slots:
               qPrintable (harness.diagnostics ()));
   }
 
+  void queued_playout_snapshots_preserve_source_identity_across_restarts ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+
+    QVector<TxEvidence::TxStartSnapshot> commitments;
+    QVector<TxEvidence::TxRawPlayoutSnapshot> snapshots;
+    QObject receiver;
+    qRegisterMetaType<TxEvidence::TxRawPlayoutSnapshot> ();
+    connect (&harness.rig (), &Transceiver::txSourceCommitted, &receiver,
+             [&] (TxEvidence::TxStartSnapshot const& snapshot) {
+               commitments.append (snapshot);
+             });
+    connect (&harness.rig (), &Transceiver::rawTxPlayoutSnapshot, &receiver,
+             [&] (TxEvidence::TxRawPlayoutSnapshot const& snapshot) {
+               snapshots.append (snapshot);
+             }, Qt::QueuedConnection);
+
+    auto requested = state_from (harness);
+    requested.period (15.0);
+    requested.synchronize (false);
+    requested.tx_session_id (TxEvidence::TxSessionId {101});
+    requested.tx_generation (TxEvidence::TxGeneration {201});
+    requested.tx_audio (true);
+    harness.set_now (requested, 80);
+    requested.tx_audio (false);
+    requested.quick (true);
+    harness.set_now (requested, 81);
+    requested.tx_session_id (TxEvidence::TxSessionId {102});
+    requested.tx_generation (TxEvidence::TxGeneration {202});
+    requested.tx_audio (true);
+    harness.set_now (requested, 82);
+    requested.tx_audio (false);
+    harness.set_now (requested, 83);
+
+    QCOMPARE (commitments.size (), 2);
+    QVERIFY (harness.server ().wait_for ([&] {return snapshots.size () >= 4;}, 1000));
+    QCOMPARE (snapshots.size (), 4);
+    for (int index = 0; index != 4; ++index)
+      {
+        auto const& snapshot = snapshots.at (index);
+        auto const& commitment = commitments.at (index / 2);
+        QCOMPARE (snapshot.context.session_id, commitment.session_id);
+        QCOMPARE (snapshot.context.generation, commitment.generation);
+        QVERIFY (snapshot.context.isValid ());
+        QCOMPARE (snapshot.start_event, index % 2 == 0);
+        QCOMPARE (snapshot.state, index % 2 == 0
+                  ? TxEvidence::TxBackendState::Active : TxEvidence::TxBackendState::Idle);
+        QCOMPARE (snapshot.tier, TxEvidence::TxPlayoutTier::DeadReckoning);
+      }
+    QCOMPARE (snapshots.at (0).context.session_id, TxEvidence::TxSessionId {101});
+    QCOMPARE (snapshots.at (2).context.session_id, TxEvidence::TxSessionId {102});
+    QCOMPARE (snapshots.at (0).backend_start_sequence, snapshots.at (1).backend_start_sequence);
+    QCOMPARE (snapshots.at (2).backend_start_sequence, snapshots.at (3).backend_start_sequence);
+    QVERIFY (snapshots.at (2).backend_start_sequence > snapshots.at (0).backend_start_sequence);
+    QCOMPARE (harness.failure_count (), 0);
+  }
+
   void rx_vfo_acknowledgement_precedes_dependent_mode ()
   {
     RigHarness harness;

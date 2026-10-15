@@ -68,6 +68,13 @@ namespace TxEvidence
     ModeChange
   };
 
+  struct TxOutputError
+  {
+    TxPlaybackContext context;
+    TxBackendError error {TxBackendError::Unknown};
+    QString message;
+  };
+
   struct TxStartSnapshot
   {
     TxSessionId session_id;
@@ -81,6 +88,7 @@ namespace TxEvidence
 
   struct TxRawPlayoutSnapshot
   {
+    TxPlaybackContext context;
     TxPlayoutTier tier {TxPlayoutTier::Unavailable};
     qint64 backend_start_sequence {0};
     bool start_event {false};
@@ -140,5 +148,6 @@ namespace TxEvidence
 
 Q_DECLARE_METATYPE (TxEvidence::TxStartSnapshot)
 Q_DECLARE_METATYPE (TxEvidence::TxRawPlayoutSnapshot)
+Q_DECLARE_METATYPE (TxEvidence::TxOutputError)
 
 #endif

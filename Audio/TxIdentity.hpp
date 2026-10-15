@@ -91,9 +91,31 @@ namespace TxEvidence
   {
     return !(lhs < rhs);
   }
+
+  struct TxPlaybackContext
+  {
+    TxSessionId session_id;
+    TxGeneration generation;
+
+    constexpr bool isValid () const noexcept
+    {
+      return session_id.isValid () && generation.isValid ();
+    }
+  };
+
+  inline constexpr bool operator == (TxPlaybackContext lhs, TxPlaybackContext rhs) noexcept
+  {
+    return lhs.session_id == rhs.session_id && lhs.generation == rhs.generation;
+  }
+
+  inline constexpr bool operator != (TxPlaybackContext lhs, TxPlaybackContext rhs) noexcept
+  {
+    return !(lhs == rhs);
+  }
 }
 
 Q_DECLARE_METATYPE (TxEvidence::TxSessionId)
 Q_DECLARE_METATYPE (TxEvidence::TxGeneration)
+Q_DECLARE_METATYPE (TxEvidence::TxPlaybackContext)
 
 #endif

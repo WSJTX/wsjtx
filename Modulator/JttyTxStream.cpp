@@ -78,7 +78,7 @@ void JttyTxStream::start (TxEvidence::TxRequest request, AudioOutputSink * strea
                       std::memory_order_release);
   if (m_stream)
     {
-      m_stream->restart (this);
+      m_stream->restart (this, {request.session_id, request.generation});
       // Include the sink's unplayed tail estimate and a safety margin.
       qint64 const tailFrames = bytesPerFrame ()
         ? qint64 (m_stream->unplayedBufferBytes ()) / qint64 (bytesPerFrame ())

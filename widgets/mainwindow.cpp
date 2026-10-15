@@ -817,7 +817,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // hook up sound output stream slots & signals and disposal
   connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &AudioOutputSink::setFormat);
   connect (m_soundOutput, &AudioOutputSink::error, this, &MainWindow::showSoundOutError);
-  connect (m_soundOutput, &AudioOutputSink::error, &m_config, &Configuration::invalidate_audio_output_device);
+  connect (m_soundOutput, &AudioOutputSink::error, &m_config,
+           [this] (TxEvidence::TxOutputError const& error) {
+             m_config.invalidate_audio_output_device (error.message);
+           });
   // connect (m_soundOutput, &AudioOutputSink::status, this, &MainWindow::showStatusMessage);
   connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &AudioOutputSink::setAttenuation);
   connect (&m_audioThread, &QThread::finished, m_soundOutput, &QObject::deleteLater);
@@ -8622,11 +8625,7 @@ void MainWindow::recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapsh
 
 void MainWindow::recordRawTxPlayout (TxEvidence::TxRawPlayoutSnapshot const& snapshot)
 {
-  if (m_txEvidenceSourceSession.isValid () && m_txEvidenceGeneration.isValid ())
-    {
-      m_txPlaybackDiagnostics.observe (m_txEvidenceSourceSession,
-                                       m_txEvidenceGeneration, snapshot);
-    }
+  m_txPlaybackDiagnostics.observe (snapshot);
 }
 
 void MainWindow::noteTxStopReason (TxEvidence::TxStopReason reason)

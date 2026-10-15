@@ -47,8 +47,8 @@ public:
 
 public Q_SLOTS:
   void setFormat (QAudioDeviceInfo const&, unsigned, int = 0) override;
-  void restart (QIODevice * source) override;
-  void restart (QIODevice * source, qint64 periodOffsetMs) override;
+  void restart (QIODevice * source, TxEvidence::TxPlaybackContext,
+                qint64 periodOffsetMs = -1) override;
   void suspend () override;
   void resume () override;
   void reset () override;
@@ -78,6 +78,7 @@ private:
   static constexpr int simulatedBufferBytes = 9600;
 
   QString m_capturePath;
+  TxEvidence::TxPlaybackContext m_context;
   Profile m_profile;
   unsigned const m_pacingSpeed;
   QPointer<QIODevice> m_source;

@@ -208,10 +208,11 @@ namespace TxEvidence
     return true;
   }
 
-  bool TxPlaybackDiagnostics::observe (TxSessionId sessionId,
-                                        TxGeneration generation,
-                                        TxRawPlayoutSnapshot const& raw)
+  bool TxPlaybackDiagnostics::observe (TxRawPlayoutSnapshot const& raw)
   {
+    auto const sessionId = raw.context.session_id;
+    auto const generation = raw.context.generation;
+    if (!raw.context.isValid ()) return false;
     auto * active = findActive (sessionId, generation);
     if (!active)
       {

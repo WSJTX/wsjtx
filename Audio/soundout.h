@@ -23,7 +23,6 @@ public:
     : AudioOutputSink {parent}
     , m_framesBuffered {0}
     , m_volume {1.0}
-    , error_ {false}
     , m_backendStartSequence {0}
   {
   }
@@ -37,7 +36,8 @@ public:
 public Q_SLOTS:
   void setFormat (QAudioDeviceInfo const& device, unsigned channels,
                   int frames_buffered = 0) override;
-  void restart (QIODevice *) override;
+  void restart (QIODevice *, TxEvidence::TxPlaybackContext,
+                qint64 period_offset_ms = -1) override;
   void suspend () override;
   void resume () override;
   void reset () override;
@@ -53,8 +53,8 @@ private:
   void publishRawTxPlayoutSnapshot (bool startEvent = false) const;
   void publishUnavailableTxPlayoutSnapshot (bool startEvent, QString const& diagnostic) const;
 
-private Q_SLOTS:
-  void handleStateChanged (QAudio::State);
+  void handleStateChanged (QAudio::State, TxEvidence::TxPlaybackContext,
+                           qint64 backendStartSequence);
 
 private:
   QAudioDeviceInfo m_device;
@@ -62,7 +62,7 @@ private:
   QScopedPointer<QAudioOutput> m_stream;
   int m_framesBuffered;
   qreal m_volume;
-  bool error_;
+  TxEvidence::TxPlaybackContext m_context;
   qint64 m_backendStartSequence;
 };
 

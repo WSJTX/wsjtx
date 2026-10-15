@@ -77,7 +77,9 @@ namespace
 
     int bufferSize () const override { return m_bufferSize; }
     void setFormat (QAudioDeviceInfo const&, unsigned, int) override {}
-    void restart (QIODevice *) override {}
+    void restart (QIODevice *, TxEvidence::TxPlaybackContext context, qint64 = -1) override
+    { lastContext = context; }
+    TxEvidence::TxPlaybackContext lastContext;
     void stop () override {}
     void reset () override {}
     void suspend () override {}
@@ -429,6 +431,8 @@ void TestJttyTxStream::drainGuardUsesUnplayedBufferBytes ()
   EstimatedTailSink sink {100000, 0};
   JttyTxStream stream {queue};
   stream.start (jttyRequest (23, 1), &sink);
+  QCOMPARE (sink.lastContext.session_id, TxEvidence::TxSessionId {23});
+  QCOMPARE (sink.lastContext.generation, TxEvidence::TxGeneration {1});
 
   (void) readFrames (stream, 1 + DEFAULT_GUARD + 4800);
   QVERIFY (queue.takeDrainReady ().ready);
@@ -489,8 +493,9 @@ void TestJttyTxStream::synchronousRestartCannotDrain ()
   public:
     PullingSink (TxAudioQueue& queue, int frames)
       : EstimatedTailSink {100000, 48000}, queue {queue}, frames {frames} {}
-    void restart (QIODevice * source) override
+    void restart (QIODevice * source, TxEvidence::TxPlaybackContext context, qint64 offset = -1) override
     {
+      EstimatedTailSink::restart (source, context, offset);
       source->read (frames * 2);
       drainedDuringRestart = queue.takeDrainReady ().ready;
     }
@@ -500,6 +505,8 @@ void TestJttyTxStream::synchronousRestartCannotDrain ()
   } sink {queue, prefillFrames};
   JttyTxStream stream {queue};
   stream.start (jttyRequest (23, 1), &sink);
+  QCOMPARE (sink.lastContext.session_id, TxEvidence::TxSessionId {23});
+  QCOMPARE (sink.lastContext.generation, TxEvidence::TxGeneration {1});
   QVERIFY (!sink.drainedDuringRestart);
   QVERIFY (!queue.takeDrainReady ().ready);
   (void) readFrames (stream, qMax (1, 1 + 24000 + 4800 - prefillFrames));

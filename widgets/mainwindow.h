@@ -295,7 +295,7 @@ public:
 
   public slots:
   void showSoundInError(const QString& errorMsg);
-  void showSoundOutError(const QString& errorMsg);
+  void showSoundOutError(TxEvidence::TxOutputError const& error);
   void showStatusMessage(const QString& statusMsg);
   // JTTY text submission is asynchronous. The returned request id is completed
   // by accepted/rejected signals; accepted means queued for backend transmit,

@@ -56,17 +56,15 @@ void FixtureSoundOutput::configureJttyCapture (qint64 expectedAudioFrames)
   m_configuredAudioFrames = expectedAudioFrames;
 }
 
-void FixtureSoundOutput::restart (QIODevice * source)
-{
-  restart (source, -1);
-}
-
-void FixtureSoundOutput::restart (QIODevice * source, qint64 periodOffsetMs)
+void FixtureSoundOutput::restart (QIODevice * source,
+                                  TxEvidence::TxPlaybackContext context,
+                                  qint64 periodOffsetMs)
 {
   auto const revision = ++m_revision;
   ++m_restartCount;
   finishCapture ();
   if (revision != m_revision) return;
+  m_context = context;
 
   if (m_pacingSpeed > 1 && m_configuredAudioFrames <= 0)
     {
@@ -274,12 +272,12 @@ bool FixtureSoundOutput::appendSilence (qint64 frames)
 
 void FixtureSoundOutput::fail (QString const& message)
 {
-  auto const revision = ++m_revision;
+  auto const context = m_context;
+  ++m_revision;
   m_configuredAudioFrames = 0;
   finishCapture ();
-  if (revision != m_revision) return;
   Q_EMIT captureFailed (message);
-  if (revision == m_revision) Q_EMIT error (message);
+  Q_EMIT error ({context, TxEvidence::TxBackendError::Io, message});
 }
 
 void FixtureSoundOutput::scheduleNextPull ()

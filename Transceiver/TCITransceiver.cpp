@@ -1838,6 +1838,7 @@ void TCITransceiver::emit_tci_playout_snapshot (bool start_event, bool force)
   if (final && m_tciFinalSnapshotEmitted) return;
 
   TxEvidence::TxRawPlayoutSnapshot snapshot;
+  snapshot.context = {m_txStartSnapshot.session_id, m_txStartSnapshot.generation};
   snapshot.tier = TxEvidence::TxPlayoutTier::DeadReckoning;
   snapshot.backend_start_sequence = m_tciBackendStartSequence;
   snapshot.start_event = start_event;
