@@ -3,6 +3,12 @@
 #include <QDateTime>
 #include <QStringList>
 
+QString AdifQso::base_mode (QString const& mode)
+{
+  return mode == "FT4" || mode == "FST4" || mode == "Q65" || mode == "JTTY"
+    ? QString {"MFSK"} : mode;
+}
+
 QByteArray AdifQso::to_adif (QString const& hisCall, QString const& hisGrid, QString const& mode,
                              QString const& rptSent, QString const& rptRcvd, QDateTime const& dateTimeOn,
                              QDateTime const& dateTimeOff, QString const& band, QString const& comments,
@@ -43,13 +49,10 @@ QByteArray AdifQso::to_adif (QString const& hisCall, QString const& hisGrid, QSt
   };
   append_field ("call", hisCall);
   append_field ("gridsquare", hisGrid); // emitted even when empty for consistency
-  if (mode != "FT4" && mode != "FST4" && mode != "Q65")
+  auto const adif_mode = base_mode (mode);
+  append_field ("mode", adif_mode);
+  if (adif_mode != mode)
     {
-      append_field ("mode", mode);
-    }
-  else
-    {
-      append_field ("mode", "MFSK");
       append_field ("submode", mode);
     }
   append_field ("rst_sent", rptSent);

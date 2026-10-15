@@ -619,7 +619,7 @@ bool WorkedBefore::add (QString const& call
               out <<            // new file
                 QString {
                   "ADIF Export\n"
-                  "<adif_ver:5>3.1.1\n"
+                  "<adif_ver:5>3.1.8\n"
                   "<created_timestamp:15>%0\n"
                   "<programid:6>WSJT-X\n"
                   "<programversion:%1>%2\n"

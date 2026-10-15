@@ -11,6 +11,9 @@ namespace AdifQso
   //! Contest-exchange handling required by the ADIF formatter.
   enum class Contest { None, FieldDay, Rtty };
 
+  //! Return the ADIF parent mode for a WSJT-X operating mode.
+  QString base_mode (QString const& mode);
+
   //! Format a single QSO as an ADIF (.adi) record.
   //!
   //! The returned record has no <eor> terminator; callers append their own.

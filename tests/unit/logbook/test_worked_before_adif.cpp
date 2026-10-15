@@ -6,6 +6,7 @@
 
 #include "Configuration.cpp"
 #include "logbook/WorkedBefore.hpp"
+#include "logbook/AdifQso.hpp"
 #include "widgets/itoneAndicw.h"
 
 int volatile itone[MAX_NUM_SYMBOLS] {};
@@ -25,6 +26,7 @@ private Q_SLOTS:
   void cleanupTestCase ();
   void init ();
   void cleanup ();
+  void jtty_round_trips_with_current_header ();
   void imports_records_across_layouts_and_length_errors_data ();
   void imports_records_across_layouts_and_length_errors ();
 
@@ -70,6 +72,37 @@ void TestWorkedBeforeAdif::cleanup ()
 {
   configuration_.reset ();
   settings_.reset ();
+}
+
+void TestWorkedBeforeAdif::jtty_round_trips_with_current_header ()
+{
+  auto const path = configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi");
+  if (QFile::exists (path)) QVERIFY (QFile::remove (path));
+  WorkedBefore worked_before {configuration_.get ()};
+  int record_count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (worked_before, record_count, error), qPrintable (error));
+  QCOMPARE (record_count, 0);
+
+  auto const time = QDateTime {QDate {2026, 10, 15}, QTime {12, 0}, Qt::UTC};
+  auto const record = AdifQso::to_adif ("K1ABC", "FN42", "JTTY", "-10", "-12", time, time,
+                                      "20m", {}, {}, "14.080000", "W1AW", "FN31", {}, {},
+                                      {}, {}, {}, {}, {}, {}, AdifQso::Contest::None);
+  QVERIFY (worked_before.add ("K1ABC", "FN42", "20m", "JTTY", record));
+  QVERIFY (worked_before.call_worked ("K1ABC", "JTTY", "20M"));
+
+  QFile log {path};
+  QVERIFY (log.open (QIODevice::ReadOnly));
+  auto const adif = log.readAll ();
+  QVERIFY (adif.contains ("<adif_ver:5>3.1.8"));
+  QVERIFY (adif.contains ("<mode:4>MFSK <submode:4>JTTY"));
+  log.close ();
+
+  worked_before.reload ();
+  QVERIFY2 (wait_for_load (worked_before, record_count, error), qPrintable (error));
+  QCOMPARE (record_count, 1);
+  QVERIFY (worked_before.call_worked ("K1ABC", "JTTY", "20M"));
+  QVERIFY (!worked_before.call_worked ("K1ABC", "MFSK", "20M"));
 }
 
 void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data ()

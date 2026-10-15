@@ -444,7 +444,7 @@
  *
  *          <magic-number><schema-number><type><id><32-bit-count>  # binary encoded fields
  *          # the remainder is the contents of the ADIF text field
- *          <adif_ver:5>3.0.7
+ *          <adif_ver:5>3.1.8
  *          <programid:6>WSJT-X
  *          <EOH>
  *          ADIF log data fields ...<EOR>

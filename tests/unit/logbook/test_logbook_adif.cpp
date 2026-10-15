@@ -88,6 +88,20 @@ private slots:
     VERIFY_HAS (run (q), "<mode:4>MFSK <submode:4>FST4");
     q.mode = "Q65";
     VERIFY_HAS (run (q), "<mode:4>MFSK <submode:3>Q65");
+    q.mode = "JTTY";
+    VERIFY_HAS (run (q), "<mode:4>MFSK <submode:4>JTTY");
+  }
+
+  void standalone_modes_omit_submode ()
+  {
+    Qso q;
+    for (auto const& mode : {"FT8", "JT9", "JT65", "MSK144", "RTTY"})
+      {
+        q.mode = mode;
+        auto const record = run (q);
+        VERIFY_HAS (record, QString {"<mode:%1>%2"}.arg (q.mode.size ()).arg (q.mode).toLatin1 ());
+        VERIFY_LACKS (record, "<submode:");
+      }
   }
 
   void empty_gridsquare_still_emitted ()
