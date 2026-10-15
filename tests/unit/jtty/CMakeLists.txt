@@ -23,6 +23,12 @@ wsjt_link_common_fortran (test_jtty_transmit_encoder)
 add_test (NAME test_jtty_transmit_encoder COMMAND test_jtty_transmit_encoder)
 set_tests_properties (test_jtty_transmit_encoder PROPERTIES TIMEOUT 120)
 
+add_executable (test_jtty_transmit_host test_jtty_transmit_host.cpp)
+target_link_libraries (test_jtty_transmit_host PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_transmit_host)
+add_test (NAME test_jtty_transmit_host COMMAND test_jtty_transmit_host)
+set_tests_properties (test_jtty_transmit_host PROPERTIES TIMEOUT 60)
+
 add_executable (test_jtty_source_codec test_jtty_source_codec.f90)
 target_include_directories (test_jtty_source_codec PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_source_codec)
@@ -328,4 +334,24 @@ endif ()
 # It decodes the in-tree sample, which source archives omit.
 if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
   set_tests_properties (test_wsjt_codec_jtty PROPERTIES DISABLED TRUE)
+endif ()
+
+# The codec's JTTY encode end to end through QProcess, against the GUI's
+# transmit encoding.
+add_executable (test_wsjt_codec_encode test_wsjt_codec_encode.cpp)
+target_include_directories (test_wsjt_codec_encode PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_wsjt_codec_encode PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_wsjt_codec_encode)
+target_compile_definitions (test_wsjt_codec_encode PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav")
+add_dependencies (test_wsjt_codec_encode wsjt-codec test_decoder_engine)
+add_test (NAME test_wsjt_codec_encode COMMAND test_wsjt_codec_encode)
+set_tests_properties (test_wsjt_codec_encode PROPERTIES
+  LABELS "streaming;jtty;runtime"
+  TIMEOUT 120
+  FIXTURES_REQUIRED ft8_engine_wav)
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_wsjt_codec_encode PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()

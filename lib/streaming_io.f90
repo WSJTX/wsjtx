@@ -14,21 +14,28 @@
 !                         (control_frame_too_large) and skipped
 !
 ! Other types are skipped (forward-compat: consumers ignore unknown
-! frame types just as NDJSON consumers ignore unknown "t" values).
+! frame types just as NDJSON consumers ignore unknown "t" values). A frame
+! of any type longer than 43,200,000 bytes, the sample buffer (1800 s at
+! 12 kHz), is fatal: error frame_too_large, then exit 1.
 !
 ! Control frames recognized today: {"t":"configure",...}, {"t":"halt"},
-! {"t":"discontinuity"}. See lib/streaming_control.f90 for the parser + schema.
+! {"t":"discontinuity"}, and the JTTY encode request {"t":"pack",...}
+! (lib/streaming_jtty.f90), answered in any mode. See
+! lib/streaming_control.f90 for the parser + schema.
 !
 ! Apply policy:
 !   configure : applied at receive. A change of mode or period starts a
 !               new period; what was in flight is discarded. Producers
 !               send `configure` first; audio is interpreted under the
 !               most recent one. A declined configure applies none of
-!               its keys. One the decoder would refuse in its mode is
-!               declined with configure_range_error (the engine's checks,
-!               lib/decoder_engine.f90); values it carries from earlier
-!               frames are checked against a new mode too. The command-line
-!               starting values are checked once, after ready.
+!               its keys. A configure whose trperiod is not a finite
+!               number above 0 and at most 1800 s is declined, with
+!               error invalid_trperiod. One the decoder would refuse in
+!               its mode is declined with configure_range_error (the
+!               engine's checks, lib/decoder_engine.f90); values it
+!               carries from earlier frames are checked against a new
+!               mode too. The command-line starting values are checked
+!               once, after ready.
 !   halt      : drain the current period (decode if it has samples), exit.
 !
 ! A period is TRperiod * 12 kHz samples (lib/streaming_period.f90). Keep a
@@ -45,8 +52,8 @@
 ! by default; with -9 and an -S other than 2700, nfa is -S) unless the frame
 ! sets them. Any configure that carries mode or trperiod and stays in JTTY
 ! keeps the session but resets in the same way whichever of nfa, nfb and ntol
-! it does not set. trperiod is validated and unused. A configure that would
-! leave rxfreq, ntol, nfa or nfb outside 0 to 6000 Hz in JTTY is declined
+! it does not set. trperiod is validated and unused. lib/streaming_jtty.f90
+! states which frequency values a configure in JTTY is declined for
 ! (configure_range_error).
 !
 ! Format support: fmt=0x00 (int16 PCM) only. Other formats may be
@@ -77,11 +84,11 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        streaming_emit_error_range, streaming_emit_mode_name
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
-       CTRL_DISCONTINUITY, MODE_JTTY
+       CTRL_DISCONTINUITY, CTRL_PACK, MODE_JTTY
   use streaming_apply, only: apply_configure_fields, engine_range_key
   use decoder_engine, only: engine_params_problem, option_problem
   use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
-       jtty_emit_range_error, jtty_release
+       jtty_emit_range_error, jtty_release, jtty_note_station, jtty_encode
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready, period_set_stop,           &
        gui_hsym_stop, HSYM_SAMPLES
@@ -411,6 +418,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               mode               = next_mode
               TRperiod           = next_TRperiod
               shared_data%params = next_params
+              call jtty_note_station(cfg)
               call streaming_emit_set_time_form(cfg%utc_set, cfg%nutc_set, TRperiod)
               eme_delay_on = next_eme_on
               if (cfg%live_audio_set) live_audio = cfg%live_audio
@@ -453,6 +461,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               end if
            case (CTRL_DISCONTINUITY)
               if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
+           case (CTRL_PACK)
+              call jtty_encode(ctl_buf(1:frame_len))
            case (CTRL_PARSE_ERR)
               call streaming_emit_error_code('configure_parse_error',          &
                    'malformed control frame (missing or invalid t field)')

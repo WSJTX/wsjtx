@@ -236,6 +236,7 @@ set (wsjt_CXXSRCS
 # The JTTY transmit encoder calls the Fortran codec, so it is archived with it.
 set (wsjt_jtty_CXXSRCS
   lib/jtty/JttyTransmit.cpp
+  lib/jtty/JttyTransmitHost.cpp
   lib/jtty/JttyUnicode.cpp
   )
 

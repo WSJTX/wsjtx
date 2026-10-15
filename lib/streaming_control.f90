@@ -1,16 +1,16 @@
 ! Streaming control-frame parser.
 !
 ! Parses control JSON frames received on stdin via the streaming
-! framing. Three frame types are recognized today:
+! framing. These frame types are recognized:
 !
 !   {"t":"configure","mode":"FT8","depth":3,"rxfreq":1500,
 !                    "mycall":"KJ5HST","mygrid":"EM18","trperiod":15}
 !   {"t":"halt"}
 !   {"t":"discontinuity"}   the next audio sample does not follow the last
-!                           one. It ends a JTTY session; wsjt-codec --stream
-!                           otherwise ignores it: its periods are counted
-!                           from its first sample, so a producer must
-!                           still send wsjt-codec every sample.
+!                           one; lib/streaming_io.f90 states what it ends.
+!   {"t":"pack",...}        a JTTY encode request, read by
+!                           parse_encode_request; lib/streaming_jtty.f90
+!                           states it.
 !
 ! Hand-rolled flat-JSON parser. Callers should treat unknown "t" values
 ! as forward-compat extensions (mirrors the consumer-ignores-unknown
@@ -18,12 +18,16 @@
 !
 ! Restrictions (deliberate scope):
 !   - Flat objects only; no nested objects, no arrays.
-!   - Numeric values must be plain decimal (no scientific notation).
+!   - Numeric values must be plain decimal (no scientific notation),
+!     except where a key's rule says otherwise. Configure's integer keys
+!     must be plain JSON integers: a fraction, an exponent or another form
+!     is not reported as an error, and is ignored or misread.
 !   - String values are JSON strings: \" \\ \/ \b \f \n \r \t and \uXXXX
 !     (a surrogate pair for a character above U+FFFF) decode to UTF-8. A
 !     string with a malformed escape, a lone surrogate or no closing quote
-!     is unreadable: a configure key is left unset (not a type error), and
-!     an unreadable "t" is a parse error.
+!     is unreadable: a configure key is left unset (not a type error; an
+!     unreadable "mode" is unknown_mode), and an unreadable "t" is a parse
+!     error.
 
 module streaming_control
   use, intrinsic :: iso_fortran_env, only: error_unit
@@ -36,6 +40,7 @@ module streaming_control
   integer, parameter, public :: CTRL_HALT      = 2
   integer, parameter, public :: CTRL_PARSE_ERR = 3
   integer, parameter, public :: CTRL_DISCONTINUITY = 4
+  integer, parameter, public :: CTRL_PACK      = 5
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
@@ -61,6 +66,17 @@ module streaming_control
      character(len=12)      :: mycall       = ' '
      logical                :: mygrid_set   = .false.
      character(len=6)       :: mygrid       = ' '
+     ! The same two values for the transmitter, which sends them whole
+     ! (mycall and mygrid keep the decoder's widths). *_tx_long: the value
+     ! is longer than 64 characters, so no transmission may use it.
+     ! *_unreadable: the key is a string that does not decode, which leaves
+     ! the key unset but must stop the transmitter using the earlier value.
+     character(len=64)      :: mycall_tx      = ' '
+     logical                :: mycall_tx_long = .false.
+     logical                :: mycall_unreadable = .false.
+     character(len=64)      :: mygrid_tx      = ' '
+     logical                :: mygrid_tx_long = .false.
+     logical                :: mygrid_unreadable = .false.
      ! Decode-bandwidth fields. Without these, the streaming
      ! default ntol=20 confines decoding to ±20 Hz around audio offset 0,
      ! missing the entire FT8 200-3000 Hz passband. Apply BEFORE the per-mode
@@ -338,8 +354,29 @@ module streaming_control
      character(len=8)   :: got      = ' '   ! "string"/"number"/"bool"/"null"
   end type control_type_error
 
+  ! An encode request. id_ok is .false. unless "id" is an integer
+  ! from -2147483648 to 2147483647. problem is '' for a well-formed request,
+  ! else why it is not, with the key at fault in problem_key ('' for none).
+  ! serial and report have no default: *_given says whether the request
+  ! carries them.
+  type, public :: encode_request
+     logical :: id_ok        = .false.
+     integer :: id           = 0
+     logical :: is_template  = .false.
+     character(len=:), allocatable :: text      ! text or template, UTF-8
+     logical :: final        = .true.
+     integer :: profile      = 0                ! none 0, field_day 1, rtty 2
+     character(len=:), allocatable :: his_call, exchange
+     logical :: serial_given = .false.
+     integer :: serial       = 0
+     logical :: report_given = .false.
+     integer :: report       = 0
+     character(len=:), allocatable :: problem, problem_key
+  end type encode_request
+
   public :: parse_control_frame
   public :: mode_string_to_int
+  public :: parse_encode_request
 
 contains
 
@@ -361,6 +398,7 @@ contains
 
     character(len=64)  :: t_value
     character(len=128) :: str_val
+    character(len=8)   :: category
     integer            :: int_val, mode_value_start, mode_buffer_length
     real(8)            :: real_val
     logical            :: lval
@@ -385,6 +423,11 @@ contains
 
     if (trim(t_value) .eq. 'discontinuity') then
        action = CTRL_DISCONTINUITY
+       return
+    end if
+
+    if (trim(t_value) .eq. 'pack') then
+       action = CTRL_PACK
        return
     end if
 
@@ -473,6 +516,10 @@ contains
        if (ok) then
           cfg%mycall_set = .true.
           cfg%mycall     = str_val(:min(len(str_val), 12))
+          call station_value_(buf, '"mycall"', cfg%mycall_tx, cfg%mycall_tx_long)
+       else
+          call value_category_(buf, '"mycall"', category)
+          cfg%mycall_unreadable = trim(category) .eq. 'string'
        end if
     end if
 
@@ -482,6 +529,10 @@ contains
        if (ok) then
           cfg%mygrid_set = .true.
           cfg%mygrid     = str_val(:min(len(str_val), 6))
+          call station_value_(buf, '"mygrid"', cfg%mygrid_tx, cfg%mygrid_tx_long)
+       else
+          call value_category_(buf, '"mygrid"', category)
+          cfg%mygrid_unreadable = trim(category) .eq. 'string'
        end if
     end if
 
@@ -1866,6 +1917,268 @@ contains
     proceed = .false.
     call set_type_error_(terr, keyname, expected, cat)
   end subroutine check_type_
+
+  ! ===== encode requests =================================================
+
+  ! Read a pack request. Unknown keys are ignored.
+  subroutine parse_encode_request(buf, req)
+    character(len=*),     intent(in)  :: buf
+    type(encode_request), intent(out) :: req
+    character(len=:), allocatable :: text, template, word
+    character(len=8) :: cat
+    logical :: has_text, has_template, present, ok
+
+    req%text = ''
+    req%his_call = ''
+    req%exchange = ''
+    req%problem = ''
+    req%problem_key = ''
+
+    ! The key locator would read a key of a nested object as the request's, so
+    ! the id is read with every nested object and array blanked.
+    call request_int_(top_level_(buf), '"id"', req%id, present, req%id_ok)
+    req%id_ok = present .and. req%id_ok
+    if (.not. req%id_ok) return
+
+    if (nested_(buf)) then
+       call refuse_('', 'a request is a flat JSON object')
+       return
+    end if
+
+    call request_string_(buf, '"text"', text, has_text, ok)
+    if (.not. ok) then
+       call refuse_('text', 'text must be a JSON string')
+       return
+    end if
+    call request_string_(buf, '"template"', template, has_template, ok)
+    if (.not. ok) then
+       call refuse_('template', 'template must be a JSON string')
+       return
+    end if
+    if (has_text .and. has_template) then
+       call refuse_('template', 'a request has text or template, not both')
+       return
+    end if
+    if (.not. (has_text .or. has_template)) then
+       call refuse_('text', 'a request needs text or template')
+       return
+    end if
+    req%is_template = has_template
+    if (has_template) then
+       req%text = template
+    else
+       req%text = text
+    end if
+
+    call value_category_(buf, '"final"', cat)
+    if (trim(cat) .eq. 'bool') then
+       call get_bool_(buf, '"final"', req%final, ok)
+    else if (trim(cat) .ne. 'absent') then
+       call refuse_('final', 'final must be true or false')
+       return
+    end if
+
+    call request_string_(buf, '"profile"', word, present, ok)
+    if (present) then
+       ok = ok .and. (word .eq. 'none' .or. word .eq. 'field_day' .or. word .eq. 'rtty')
+       ok = ok .and. len(word) .eq. len_trim(word)
+       if (.not. ok) then
+          call refuse_('profile', 'profile must be none, field_day or rtty')
+          return
+       end if
+       if (word .eq. 'field_day') req%profile = 1
+       if (word .eq. 'rtty') req%profile = 2
+    end if
+
+    call request_string_(buf, '"his_call"', req%his_call, present, ok)
+    if (.not. ok) then
+       call refuse_('his_call', 'his_call must be a JSON string')
+       return
+    end if
+    call request_string_(buf, '"exchange"', req%exchange, present, ok)
+    if (.not. ok) then
+       call refuse_('exchange', 'exchange must be a JSON string')
+       return
+    end if
+
+    call request_int_(buf, '"serial"', req%serial, req%serial_given, ok)
+    if (.not. ok) then
+       call refuse_('serial', 'serial must be an integer from -2147483648 to 2147483647')
+       return
+    end if
+    call request_int_(buf, '"report"', req%report, req%report_given, ok)
+    if (.not. ok) then
+       call refuse_('report', 'report must be an integer from -2147483648 to 2147483647')
+       return
+    end if
+
+  contains
+
+    subroutine refuse_(key, detail)
+      character(len=*), intent(in) :: key, detail
+      req%problem_key = key
+      req%problem = detail
+    end subroutine refuse_
+
+  end subroutine parse_encode_request
+
+  ! The string value of key. present is .false. when the key is absent; ok
+  ! is .false. when it is present but not a JSON string that decodes.
+  subroutine request_string_(buf, key, val, present, ok)
+    character(len=*),              intent(in)  :: buf, key
+    character(len=:), allocatable, intent(out) :: val
+    logical,                       intent(out) :: present, ok
+    character(len=8) :: cat
+    integer :: vstart, blen
+
+    val = ''
+    call value_category_(buf, key, cat)
+    present = trim(cat) .ne. 'absent'
+    ok = .not. present
+    if (trim(cat) .ne. 'string') return
+    call find_key_(buf, key, vstart, blen, present)
+    call json_string_(buf(vstart + 1:blen), val, ok)
+  end subroutine request_string_
+
+  ! The transmitter's copy of the configure string value of key, which
+  ! decodes: the whole string less ASCII white space at either end. long is
+  ! .true. when it has more characters than val has bytes.
+  subroutine station_value_(buf, key, val, long)
+    character(len=*), intent(in)  :: buf, key
+    character(len=*), intent(out) :: val
+    logical,          intent(out) :: long
+    character(len=*), parameter :: WHITE = ' ' // achar(9) // achar(10) //   &
+         achar(11) // achar(12) // achar(13)
+    character(len=:), allocatable :: s
+    logical :: present, ok
+    integer :: first, last, i
+
+    call request_string_(buf, key, s, present, ok)
+    val = ' '
+    long = .false.
+    first = verify(s, WHITE)
+    if (first .eq. 0) return
+    last = verify(s, WHITE, back=.true.)
+    val = s(first:min(last, first + len(val) - 1))
+    ! A UTF-8 continuation byte, 10xxxxxx, is part of the character before it.
+    long = count([(iand(ichar(s(i:i)), 192) .ne. 128, i = first, last)]) .gt. len(val)
+  end subroutine station_value_
+
+  ! The integer value of key: a JSON integer that get_int_ reads. present is
+  ! .false. when the key is absent; ok is .false. when it is present but no
+  ! such integer.
+  subroutine request_int_(buf, key, val, present, ok)
+    character(len=*), intent(in)  :: buf, key
+    integer,          intent(out) :: val
+    logical,          intent(out) :: present, ok
+    character(len=8) :: cat
+    integer :: vstart, blen
+    logical :: found
+
+    val = 0
+    call value_category_(buf, key, cat)
+    present = trim(cat) .ne. 'absent'
+    ok = .not. present
+    if (trim(cat) .ne. 'number') return
+    call find_key_(buf, key, vstart, blen, found)
+    ok = json_integer_(buf(vstart:blen))
+    if (ok) call get_int_(buf, key, val, ok)
+  end subroutine request_int_
+
+  ! Whether s starts with a JSON integer, -?(0|[1-9][0-9]*), ending at ',',
+  ! '}', white space or the end of s. get_int_ reads more: its list-directed
+  ! read takes '/', repeat counts and forms like '+5' and '05'.
+  logical function json_integer_(s)
+    character(len=*), intent(in) :: s
+    integer :: i, start
+
+    json_integer_ = .false.
+    i = 1
+    if (i .le. len(s)) then
+       if (s(i:i) .eq. '-') i = i + 1
+    end if
+    start = i
+    do while (i .le. len(s))
+       if (index('0123456789', s(i:i)) .eq. 0) exit
+       i = i + 1
+    end do
+    if (i .eq. start) return
+    if (s(start:start) .eq. '0' .and. i - start .gt. 1) return
+    if (i .le. len(s)) then
+       if (index(',}', s(i:i)) .eq. 0 .and. iachar(s(i:i)) .gt. 32) return
+    end if
+    json_integer_ = .true.
+  end function json_integer_
+
+  ! Whether buf holds an array, or an object besides the outermost one,
+  ! outside its strings.
+  logical function nested_(buf)
+    character(len=*), intent(in) :: buf
+    integer :: i, objects
+    logical :: in_string
+
+    nested_ = .false.
+    objects = 0
+    in_string = .false.
+    i = 1
+    do while (i .le. len(buf))
+       if (in_string) then
+          if (buf(i:i) .eq. '\') then
+             i = i + 1
+          else if (buf(i:i) .eq. '"') then
+             in_string = .false.
+          end if
+       else if (buf(i:i) .eq. '"') then
+          in_string = .true.
+       else if (buf(i:i) .eq. '[') then
+          nested_ = .true.
+          return
+       else if (buf(i:i) .eq. '{') then
+          objects = objects + 1
+          if (objects .gt. 1) then
+             nested_ = .true.
+             return
+          end if
+       end if
+       i = i + 1
+    end do
+  end function nested_
+
+  ! buf with every character of a nested object or array blanked, strings
+  ! inside them included, so that only the outermost object's keys remain.
+  function top_level_(buf) result(top)
+    character(len=*), intent(in) :: buf
+    character(len=len(buf)) :: top
+    integer :: i, depth
+    logical :: in_string, escaped
+    character :: c
+
+    top = buf
+    depth = 0
+    in_string = .false.
+    escaped = .false.
+    do i = 1, len(buf)
+       c = buf(i:i)
+       if (in_string) then
+          if (escaped) then
+             escaped = .false.
+          else if (c .eq. '\') then
+             escaped = .true.
+          else if (c .eq. '"') then
+             in_string = .false.
+          end if
+       else if (c .eq. '"') then
+          in_string = .true.
+       else if (c .eq. '{' .or. c .eq. '[') then
+          depth = depth + 1
+       else if (c .eq. '}' .or. c .eq. ']') then
+          if (depth .ge. 2) top(i:i) = ' '
+          depth = max(depth - 1, 0)
+          cycle
+       end if
+       if (depth .ge. 2) top(i:i) = ' '
+    end do
+  end function top_level_
 
   ! Record the FIRST per-key type error of a frame (subsequent ones are ignored;
   ! the whole frame is declined regardless).
