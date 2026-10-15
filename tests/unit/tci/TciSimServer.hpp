@@ -86,6 +86,7 @@ signals:
   void client_arrived (int connection_generation);
   void client_gone (int connection_generation);
   void text_received (QString const& raw, int connection_generation);
+  void binary_received (QByteArray const& data, int connection_generation);
 
 private slots:
   void on_new_connection ();
