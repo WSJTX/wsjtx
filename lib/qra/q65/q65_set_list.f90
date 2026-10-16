@@ -1,6 +1,6 @@
 subroutine q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
 
-  parameter (MAX_NCW=206)
+  parameter (MAX_NCW=411)
   character*12 mycall,hiscall
   character*6 hisgrid
   character*37 msg,msgsent
@@ -12,10 +12,21 @@ subroutine q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
 
   ncw=0
   if(hiscall(1:1).eq. ' ') return
-  call stdcall(mycall,my_std)
-  call stdcall(hiscall,his_std)
+  call q65_stdcall(mycall,my_std)
+  call q65_stdcall(hiscall,his_std)
   
-  ncw=MAX_NCW
+  ncw=206
+! A standard call with a /R or /P suffix keeps the candidates the former
+! nonstandard-call path produced: a CQ without a grid (207) and, when MyCall
+! is standard, <MyCall> HisCall with nothing, RRR, RR73 or 73 (208-211) and
+! MyCall <HisCall> with a report or R-report (212-411, as 7-206).
+  n=len_trim(hiscall)
+  if(his_std .and. n.gt.3) then
+     if(hiscall(n-1:n).eq.'/R' .or. hiscall(n-1:n).eq.'/P') then
+        ncw=207
+        if(my_std) ncw=MAX_NCW
+     endif
+  endif
   do i=1,ncw
      msg=trim(mycall)//' '//trim(hiscall)
      if(.not.my_std) then
@@ -45,6 +56,26 @@ subroutine q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
         endif
      endif
 
+     if(i.eq.207) msg='CQ '//trim(hiscall)
+     if(i.ge.208 .and. i.le.211) then
+        msg='<'//trim(mycall)//'> '//trim(hiscall)
+        j0=len(trim(msg))+2
+        if(i.eq.209) msg(j0:j0+2)='RRR'
+        if(i.eq.210) msg(j0:j0+3)='RR73'
+        if(i.eq.211) msg(j0:j0+1)='73'
+     endif
+     if(i.ge.212) then
+        msg=trim(mycall)//' <'//trim(hiscall)//'>'
+        j0=len(trim(msg))+2
+        isnr = -50 + (i-205-7)/2
+        if(iand(i-205,1).eq.1) then
+           write(msg(j0:j0+2),'(i3.2)') isnr
+           if(msg(j0:j0).eq.' ') msg(j0:j0)='+'
+        else
+           write(msg(j0:j0+3),'("R",i3.2)') isnr
+           if(msg(j0+1:j0+1).eq.' ') msg(j0+1:j0+1)='+'
+        endif
+     endif
      call genq65(msg,0,msgsent,itone,i3,n3,0)
      i0=1
      j=0
@@ -62,6 +93,25 @@ subroutine q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
 
   return
 end subroutine q65_set_list
+
+subroutine q65_stdcall(callsign,std)
+
+! Like stdcall, but a trailing /R or /P does not make a standard callsign
+! nonstandard: such a call is still sent as a Type 1 message with the
+! ipa/ipb flag set, so the candidate messages must use the plain form.
+
+  character*12 callsign,c12
+  logical std
+
+  c12=callsign
+  n=len_trim(c12)
+  if(n.gt.3) then
+     if(c12(n-1:n).eq.'/R' .or. c12(n-1:n).eq.'/P') c12(n-1:n)='  '
+  endif
+  call stdcall(c12,std)
+
+  return
+end subroutine q65_stdcall
 
 subroutine stdcall(callsign,std)
 
