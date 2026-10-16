@@ -22,6 +22,7 @@
 #include "commons.h"
 #include "Configuration.hpp"
 #include "MetaDataRegistry.hpp"
+#include "JttyReceiveLine.hpp"
 #include "widgets/displaytext.h"
 
 namespace
@@ -171,6 +172,45 @@ private slots:
     QStandardPaths::setTestModeEnabled (true);
     QCoreApplication::setApplicationName ("test_displaytext");
     QVERIFY (directory_.isValid ());
+  }
+
+  void jttyTransmitHighlightDoesNotLeakIntoNewLines_data ()
+  {
+    QTest::addColumn<QString> ("message");
+    QTest::newRow ("single line") << QString {"CQ TEST"};
+    QTest::newRow ("multiple lines") << QString {"CQ TEST\nSECOND LINE"};
+    QTest::newRow ("wrapped line") << QString (90, QLatin1Char {'A'});
+  }
+
+  void jttyTransmitHighlightDoesNotLeakIntoNewLines ()
+  {
+    QFETCH (QString, message);
+    DisplayText display;
+    JttyReceiveLine sent;
+    JttyReceiveLine::Presentation const presentation {
+      0, 1, QDateTime {}, 0.0, 1500, message, -10, true, Qt::yellow, Qt::black};
+    auto const cursor = sent.render (*display.document (), presentation, {}, display.contentFont ());
+    QVERIFY (!cursor.isNull ());
+    display.setTextCursor (cursor);
+    auto const transmitted = display.document ()->toPlainText ();
+
+    display.insertText ("FT8 received message", Qt::green);
+    auto received = display.document ()->lastBlock ();
+    QCOMPARE (received.blockFormat ().background (), QBrush {Qt::green});
+    QCOMPARE (received.charFormat ().background ().style (), Qt::NoBrush);
+    for (auto fragment = received.begin (); !fragment.atEnd (); ++fragment)
+      {
+        QCOMPARE (fragment.fragment ().charFormat ().background ().style (), Qt::NoBrush);
+      }
+
+    display.insertText ("Another FT8 received message");
+    received = display.document ()->lastBlock ();
+    QCOMPARE (received.blockFormat ().background ().style (), Qt::NoBrush);
+    QCOMPARE (received.charFormat ().background ().style (), Qt::NoBrush);
+    QVERIFY (display.toPlainText ().startsWith (transmitted + '\n'));
+    QTextCursor sent_text {display.document ()};
+    sent_text.movePosition (QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+    QCOMPARE (sent_text.charFormat ().background (), QBrush {Qt::yellow});
   }
 
   void insertionDoesNotRetargetDoubleClick ()
