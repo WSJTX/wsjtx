@@ -11941,13 +11941,7 @@ void MainWindow::switch_mode (Mode mode)
     m_q65PileupCopiedLastRxCall.clear();
     m_q65PileupCopiedCallers.clear();
   }
-  // Sit just under the decoded-text panes, outside the per-mode
-  // displayWidgets()/ModeUiControl mechanism -- only meaningful for JTTY.
-  bool const jtty = m_mode=="JTTY";
-  updateJttyReceivePolicy(jtty);
-  progressBar.setVisible(!jtty);
-  ui->cbLowerCase->setVisible(jtty);
-  ui->cbIncludeTime->setVisible(jtty);
+  updateJttyReceivePolicy(m_mode == "JTTY");
   if (mode != Modes::MSK144) m_msk144basefreq = 0;
   no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
   msk144qsy = false;     // MSK144 QSY
@@ -11993,13 +11987,18 @@ void MainWindow::switch_mode (Mode mode)
         && ui->actionAstronomical_data->isChecked () && m_config.auto_astro()) ui->actionAstronomical_data->setChecked (false);
   });
   check_button_color();
-  ui->autoButton->setEnabled(m_mode != "JTTY");
-  ui->autoButton->setVisible(m_mode != "JTTY");
   updateDecodeControls ();
 }
 
 void MainWindow::WSPR_config(bool b)
 {
+  // Hound mode skips switch_mode() to preserve the operating frequency.
+  bool const jtty = m_mode == "JTTY";
+  progressBar.setVisible(!jtty);
+  ui->cbLowerCase->setVisible(jtty);
+  ui->cbIncludeTime->setVisible(jtty);
+  ui->autoButton->setEnabled(!jtty);
+  ui->autoButton->setVisible(!jtty);
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version
   ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 2 : 0);
   if(m_mode=="Echo") ui->controls_stack_widget->setCurrentIndex(3);
