@@ -40,6 +40,101 @@ class TestDecodedMessageReaction final
   Q_OBJECT
 
 private slots:
+  void unresolvedRecipientSelectionStartsContact_data()
+  {
+    QTest::addColumn<int>("origin");
+    QTest::addColumn<bool>("tx1Enabled");
+    QTest::addColumn<QString>("previousPartner");
+    QTest::addColumn<bool>("sendingRogerReport");
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    for (auto origin : {Origin::ManualLeftPane, Origin::ManualRightPane}) {
+      for (bool tx1Enabled : {false, true}) {
+        for (QString const& partner : {QString {}, QString {"W1AW"}, QString {"V5/HB9SHD"}}) {
+          for (bool sendingRogerReport : {false, true}) {
+            auto const name = QString {"%1-tx%2-%3-%4"}
+              .arg(origin == Origin::ManualLeftPane ? "left" : "right")
+              .arg(tx1Enabled ? 1 : 2).arg(partner.isEmpty() ? "empty" : partner)
+              .arg(sendingRogerReport ? "tx3" : "idle").toLatin1();
+            QTest::newRow(name.constData())
+              << int(origin) << tx1Enabled << partner << sendingRogerReport;
+          }
+        }
+      }
+    }
+  }
+
+  void unresolvedRecipientSelectionStartsContact()
+  {
+    QFETCH(int, origin);
+    QFETCH(bool, tx1Enabled);
+    QFETCH(QString, previousPartner);
+    QFETCH(bool, sendingRogerReport);
+    auto context = baseContext();
+    context.myCall = context.baseCall = "AF8C";
+    context.dxCall = context.hisCall = previousPartner;
+    context.tx1Enabled = tx1Enabled;
+    context.selectionOrigin = static_cast<DecodedMessageReaction::SelectionOrigin>(origin);
+    context.doubleClicked = true;
+    context.autoEnabled = context.autoSequenceEnabled = true;
+    context.loggingEnabled = true;
+    context.selectedTxMessage = sendingRogerReport ? 3 : 6;
+    context.qsoProgress = sendingRogerReport ? QsoProgress::RogerReport : QsoProgress::Calling;
+    DecodedText const message {"122445 -16  0.3 0719 ~  <...> V5/HB9SHD RR73 "};
+    QVERIFY(message.isStandardMessage());
+    QVERIFY(message.string().contains("73 "));
+
+    for (int click = 0; click < 2; ++click) {
+      auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+
+      QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+      QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessageIndex), tx1Enabled ? 1 : 2);
+      QCOMPARE(intEffect(plan, Effect::Kind::CheckTxMessage), tx1Enabled ? 1 : 2);
+      QVERIFY(!hasEffect(plan, Effect::Kind::RequestLogQso));
+      QVERIFY(!hasEffect(plan, Effect::Kind::CeaseAutoTx));
+      for (auto const& effect : plan.effects) {
+        if (effect.kind == Effect::Kind::SetQsoProgress) {
+          QCOMPARE(effect.progress, tx1Enabled ? QsoProgress::Replying : QsoProgress::Report);
+          context.qsoProgress = effect.progress;
+        }
+        if (effect.kind == Effect::Kind::SetDxCall) {
+          QCOMPARE(effect.text, QString {"V5/HB9SHD"});
+          context.dxCall = context.hisCall = effect.text;
+        }
+      }
+      QCOMPARE(context.dxCall, QString {"V5/HB9SHD"});
+      QVERIFY(hasEffect(plan, Effect::Kind::GenerateStandardMessages));
+      context.selectedTxMessage = tx1Enabled ? 1 : 2;
+    }
+  }
+
+  void unresolvedSenderCannotSelectPartner_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::newRow("standard-call") << "K1ABC <...> RR73";
+    QTest::newRow("compound-call") << "V5/HB9SHD <...> RR73";
+    QTest::newRow("both-unresolved") << "<...> <...> RR73";
+  }
+
+  void unresolvedSenderCannotSelectPartner()
+  {
+    QFETCH(QString, payload);
+    auto context = baseContext();
+    context.doubleClicked = true;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::ManualLeftPane;
+    context.qsoProgress = QsoProgress::RogerReport;
+    context.loggingEnabled = true;
+    auto const message = decode(payload);
+    QVERIFY(message.isStandardMessage());
+
+    auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
+    QVERIFY(!hasEffect(plan, Effect::Kind::SetDxCall));
+    QVERIFY(!hasEffect(plan, Effect::Kind::SetQsoProgress));
+    QVERIFY(!hasEffect(plan, Effect::Kind::GenerateStandardMessages));
+    QVERIFY(!hasEffect(plan, Effect::Kind::RequestLogQso));
+  }
+
   void classifiesLegacy72Messages_data()
   {
     QTest::addColumn<QString>("mode");

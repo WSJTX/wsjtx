@@ -140,6 +140,18 @@ namespace
     return messageWords.contains(call) || messageWords.contains(Radio::base_callsign(call));
   }
 
+  bool isExplicitStationSelection(DecodedMessageReaction::SelectionOrigin origin)
+  {
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    return origin == Origin::ManualLeftPane || origin == Origin::ManualRightPane
+      || origin == Origin::Udp;
+  }
+
+  bool hasUnresolvedQsoCall(DecodedText const& message, QStringList const& words)
+  {
+    return message.isStandardMessage() && (words.value(2) == "..." || words.value(3) == "...");
+  }
+
   bool isSignoffForCurrentQso(DecodedText const& message, QsoReactionSnapshot const& snapshot)
   {
     QStringList const messageWords = message.messageWords();
@@ -246,6 +258,10 @@ namespace
     }
 
     message.deCallAndGrid(analysis.hisCall, analysis.hisGrid);
+    if (message.isStandardMessage() && analysis.hisCall == "...") {
+      analysis.reason = "structured message has unresolved sender";
+      return analysis;
+    }
     if (snapshot.doubleClicked && analysis.hisCall == snapshot.baseCall) {
       analysis.reason = "double-click would start QSO with own base call";
       return analysis;
@@ -292,6 +308,12 @@ namespace
     }
 
     analysis.firstCall = message.call();
+    if (message.isStandardMessage() && analysis.firstCall == "..."
+        && !isExplicitStationSelection(snapshot.selectionOrigin)
+        && !sameStation(analysis.messageWords.value(1), snapshot.baseCall)) {
+      analysis.reason = "structured message has unresolved recipient";
+      return analysis;
+    }
     if (analysis.firstCall.length() >= 4 && analysis.firstCall.mid(0, 3) == "CQ ") {
       analysis.firstCall = "CQ";
     }
@@ -671,7 +693,8 @@ namespace DecodedMessageReaction
         selectMessageWithProgressBetween(plan, progress, 2, QsoProgress::Report);
       }
       reacted = true;
-    } else if (!(snapshot.autoEnabled && snapshot.selectedTxMessage == 3
+    } else if (isExplicitStationSelection(snapshot.selectionOrigin)
+               || !(snapshot.autoEnabled && snapshot.selectedTxMessage == 3
                  && message.string().contains("73 "))) {
       if (snapshot.tx1Enabled) {
         selectMessageWithProgressBetween(plan, progress, 1, QsoProgress::Replying);
@@ -690,9 +713,7 @@ namespace DecodedMessageReaction
     plan.disposition = ReactionDisposition::Reacted;
     plan.reason = "message advances QSO reaction";
     appendReactedTail(message, snapshot, analysis, progress, plan);
-    if (snapshot.selectionOrigin == SelectionOrigin::ManualLeftPane
-        || snapshot.selectionOrigin == SelectionOrigin::ManualRightPane
-        || snapshot.selectionOrigin == SelectionOrigin::Udp) {
+    if (isExplicitStationSelection(snapshot.selectionOrigin)) {
       QsoReactionEffect effect;
       effect.kind = QsoReactionEffect::Kind::DisarmAutoRespondSelection;
       plan.effects.prepend(effect);
@@ -735,7 +756,6 @@ namespace DecodedMessageReaction
       plan.reason = "message is not an auto-sequence candidate";
       return plan;
     }
-
     int const frequency = message.frequencyOffset();
     bool const withinTolerance = static_cast<unsigned>(qAbs(snapshot.rxFrequency - frequency)) <= startTolerance
       || static_cast<unsigned>(qAbs(snapshot.txFrequency - frequency)) <= startTolerance;
@@ -768,6 +788,12 @@ namespace DecodedMessageReaction
       appendEffect(plan, QsoReactionEffect::Kind::LogStopped);
       plan.disposition = ReactionDisposition::Reacted;
       plan.reason = "reply from QSO partner appears directed to another caller";
+      return plan;
+    }
+
+    if (hasUnresolvedQsoCall(message, messageWords)
+        && !sameStation(messageWords.value(1), snapshot.baseCall)) {
+      plan.reason = "structured message has unresolved QSO calls";
       return plan;
     }
 

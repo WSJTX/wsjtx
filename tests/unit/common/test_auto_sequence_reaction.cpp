@@ -26,18 +26,130 @@ class TestAutoSequenceReaction final
   Q_OBJECT
 
 private slots:
-  void stopsToAvoidQrmWhenPartnerRepliesNearOurTxFrequencyToAnotherCaller()
+  void unresolvedCallsCannotAdvanceExchange_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<QString>("partner");
+    QTest::addColumn<int>("progress");
+    for (auto progress : {QsoProgress::RogerReport, QsoProgress::Rogers}) {
+      auto const prefix = QByteArray::number(int(progress)) + '-';
+      QTest::newRow((prefix + "namibia").constData())
+        << "<...> V5/HB9SHD RR73" << "V5/HB9SHD" << int(progress);
+      QTest::newRow((prefix + "unresolved-recipient").constData())
+        << "<...> W1AW 73" << "W1AW" << int(progress);
+      QTest::newRow((prefix + "unresolved-sender").constData())
+        << "K1ABC <...> RR73" << "W1AW" << int(progress);
+      QTest::newRow((prefix + "both-unresolved").constData())
+        << "<...> <...> RR73" << "W1AW" << int(progress);
+    }
+  }
+
+  void unresolvedCallsCannotAdvanceExchange()
+  {
+    QFETCH(QString, payload);
+    QFETCH(QString, partner);
+    QFETCH(int, progress);
+    auto snapshot = baseSnapshot();
+    snapshot.dxCall = snapshot.hisCall = partner;
+    snapshot.qsoProgress = static_cast<QsoProgress>(progress);
+    snapshot.loggingEnabled = true;
+    auto const message = decode(payload);
+    QVERIFY(message.isStandardMessage());
+
+    auto const admission = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+    QVERIFY(!hasEffect(admission, Effect::Kind::ProcessSyntheticMessageNow));
+
+    snapshot.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Synthetic;
+    auto const reaction = DecodedMessageReaction::planProcessMessage(message, snapshot);
+    QCOMPARE(reaction.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
+    QVERIFY(!hasEffect(reaction, Effect::Kind::SetTxMessageIndex));
+    QVERIFY(!hasEffect(reaction, Effect::Kind::SetQsoProgress));
+    QVERIFY(!hasEffect(reaction, Effect::Kind::RequestLogQso));
+    QVERIFY(!hasEffect(reaction, Effect::Kind::SetDxCall));
+  }
+
+  void explicitDualReplyWithUnresolvedSenderStillAdmitted()
   {
     auto snapshot = baseSnapshot();
-    snapshot.qsoProgress = QsoProgress::Replying;
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.loggingEnabled = true;
+    auto const message = decode("K1ABC RR73; W2XX <...> -10");
+    QVERIFY(message.isStandardMessage());
+
+    auto const admission = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+    QVERIFY(hasEffect(admission, Effect::Kind::ProcessSyntheticMessageNow));
+
+    snapshot.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Synthetic;
+    auto const reaction = DecodedMessageReaction::planProcessMessage(message, snapshot);
+    QVERIFY(!hasEffect(reaction, Effect::Kind::SetDxCall));
+    QVERIFY(!hasEffect(reaction, Effect::Kind::RequestLogQso));
+  }
+
+  void explicitDualReportIgnoresUnresolvedSignoffRecipient()
+  {
+    auto snapshot = baseSnapshot();
+    snapshot.qsoProgress = QsoProgress::Report;
+    snapshot.loggingEnabled = true;
+    auto const message = decode("<...> RR73; K1ABC <W1AW> -10");
+    QVERIFY(message.isStandardMessage());
+
+    auto const admission = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+    QVERIFY(hasEffect(admission, Effect::Kind::ProcessSyntheticMessageNow));
+
+    snapshot.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Synthetic;
+    auto const reaction = DecodedMessageReaction::planProcessMessage(message, snapshot);
+    QCOMPARE(reaction.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QCOMPARE(intEffect(reaction, Effect::Kind::SetTxMessage), 3);
+    auto const progress = effectIndex(reaction, Effect::Kind::SetQsoProgress);
+    QVERIFY(progress >= 0);
+    QCOMPARE(reaction.effects.at(progress).progress, QsoProgress::RogerReport);
+    QVERIFY(!hasEffect(reaction, Effect::Kind::SetDxCall));
+    QVERIFY(!hasEffect(reaction, Effect::Kind::RequestLogQso));
+    QVERIFY(!hasEffect(reaction, Effect::Kind::CeaseAutoTx));
+  }
+
+  void stopsToAvoidQrmWhenPartnerRepliesNearOurTxFrequencyToAnotherCaller_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<int>("progress");
+    QTest::addColumn<bool>("stops");
+    for (auto progress : {QsoProgress::Replying, QsoProgress::Report}) {
+      auto const prefix = QByteArray::number(int(progress)) + '-';
+      QTest::newRow((prefix + "known-recipient").constData())
+        << "K9XYZ W1AW -10" << int(progress) << true;
+      QTest::newRow((prefix + "unresolved-recipient").constData())
+        << "<...> W1AW RR73" << int(progress) << true;
+      QTest::newRow((prefix + "unresolved-sender").constData())
+        << "K9XYZ <...> RR73" << int(progress) << false;
+      QTest::newRow((prefix + "both-unresolved").constData())
+        << "<...> <...> RR73" << int(progress) << false;
+    }
+  }
+
+  void stopsToAvoidQrmWhenPartnerRepliesNearOurTxFrequencyToAnotherCaller()
+  {
+    QFETCH(QString, payload);
+    QFETCH(int, progress);
+    QFETCH(bool, stops);
+    auto snapshot = baseSnapshot();
+    snapshot.qsoProgress = static_cast<QsoProgress>(progress);
+    snapshot.tx1Enabled = snapshot.qsoProgress != QsoProgress::Report;
     snapshot.txFrequency = 815;
-    DecodedText message {"0605 -10  0.3 0815 ~  K9XYZ W1AW -10"};
+    snapshot.loggingEnabled = true;
+    auto const message = decode(payload, "~", "0605", 815);
+    QVERIFY(message.isStandardMessage());
 
     auto const plan = DecodedMessageReaction::planAutoSequence(
       message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
-    QVERIFY(hasEffect(plan, Effect::Kind::ClickStopTx));
+    QCOMPARE(plan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted, stops);
+    QCOMPARE(hasEffect(plan, Effect::Kind::ClickStopTx), stops);
+    QCOMPARE(hasEffect(plan, Effect::Kind::LogStopped), stops);
+    QVERIFY(!hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow));
+    QVERIFY(!hasEffect(plan, Effect::Kind::RequestLogQso));
   }
 
   void msk144StopTolerance_data()
