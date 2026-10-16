@@ -6,4 +6,7 @@
   <message><source>Hungarian only</source><translation>Hungarian fallback</translation></message>
   <message><source>Base only</source><translation>Hungarian base</translation></message>
 </context>
+<context><name>WideGraph</name>
+  <message><source>User Defined</source><translation>Hungarian custom palette</translation></message>
+</context>
 </TS>

@@ -1208,6 +1208,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (ui->decodedTextBrowser2, &DisplayText::erased, this, &MainWindow::rx_frequency_activity_cleared);
   connect (ui->decodedTextBrowser->horizontalScrollBar(),SIGNAL(sliderMoved(int)),SLOT(ScrollBarPosition(int)));
 
+  m_config.set_ui_language_preference (m_multi_settings->common_value ("UiLanguage").toString ());
+  connect (&m_config, &Configuration::ui_language_preference_changed, this, [this] (QString const& language) {
+      m_multi_settings->set_common_value ("UiLanguage", language);
+      m_settings->sync ();
+    });
+
   // Native menu fonts require a refresh after main window construction.
   QTimer::singleShot (0, this, SLOT (initialize_fonts ()));
   connect (&m_config, &Configuration::text_font_changed, [this] (QFont const& font) {

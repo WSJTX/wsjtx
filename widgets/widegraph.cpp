@@ -5,6 +5,7 @@
 #include <QSettings>
 #include <QDateTime>
 #include <QKeyEvent>
+#include <QTranslator>
 #include <math.h>
 #include "ui_widegraph.h"
 #include "commons.h"
@@ -14,6 +15,26 @@
 #include "PerformanceTrace.hpp"
 #include "moc_widegraph.cpp"
 
+namespace
+{
+  QString const user_defined_palette_id {QStringLiteral ("User Defined")};
+
+  bool is_legacy_user_palette (QString const& name)
+  {
+    QDir const translations {":/Translations"};
+    for (auto const& catalog : translations.entryList ({"wsjtx_*.qm"}, QDir::Files))
+      {
+        QTranslator translator;
+        if (translator.load (catalog, translations.path ()))
+          {
+            auto const label = translator.translate ("WideGraph", "User Defined");
+            if (!label.isEmpty () && label == name) return true;
+          }
+      }
+    return false;
+  }
+}
+
 WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
   QDialog(parent),
   ui(new Ui::WideGraph),
@@ -21,8 +42,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
   m_palettes_path {":/Palettes"},
   m_tr0 {0.0},
   m_n {0},
-  m_bHaveTransmitted {false},
-  m_user_defined {tr ("User Defined")}
+  m_bHaveTransmitted {false}
 {
   PerformanceTrace::Phase construction {"widegraph.construct"};
   ui->setupUi(this);
@@ -107,19 +127,24 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->cbControls->setChecked(!m_settings->value("HideControls",false).toBool());
   }
 
-  int index=0;
   for (QString const& file:
          m_palettes_path.entryList(QDir::NoDotAndDotDot |
                                    QDir::System | QDir::Hidden |
                                    QDir::AllDirs | QDir::Files,
                                    QDir::DirsFirst)) {
     QString t=file.mid(0,file.length()-4);
-    ui->paletteComboBox->addItem(t);
-    if(t==m_waterfallPalette) ui->paletteComboBox->setCurrentIndex(index);
-    index++;
+    ui->paletteComboBox->addItem(t, t);
   }
-  ui->paletteComboBox->addItem (m_user_defined);
-  if (m_user_defined == m_waterfallPalette) ui->paletteComboBox->setCurrentIndex(index);
+  ui->paletteComboBox->addItem (tr ("User Defined"), user_defined_palette_id);
+  auto index = ui->paletteComboBox->findData (m_waterfallPalette);
+  if (index < 0 && (m_waterfallPalette == tr ("User Defined")
+                    || is_legacy_user_palette (m_waterfallPalette)))
+    {
+      // Legacy settings can identify the custom palette by any bundled translation.
+      m_waterfallPalette = user_defined_palette_id;
+      index = ui->paletteComboBox->findData (m_waterfallPalette);
+    }
+  if (index >= 0) ui->paletteComboBox->setCurrentIndex (index);
   readPalette ();
 }
 
@@ -464,7 +489,7 @@ void WideGraph::readPalette ()                                   //readPalette
 {
   try
     {
-      if (m_user_defined == m_waterfallPalette)
+      if (user_defined_palette_id == m_waterfallPalette)
         {
           ui->widePlot->setColours (WFPalette {m_userPalette}.interpolate ());
         }
@@ -479,9 +504,9 @@ void WideGraph::readPalette ()                                   //readPalette
     }
 }
 
-void WideGraph::on_paletteComboBox_activated (QString const& palette)    //palette selector
+void WideGraph::on_paletteComboBox_activated (int index)    //palette selector
 {
-  m_waterfallPalette = palette;
+  m_waterfallPalette = ui->paletteComboBox->itemData (index).toString ();
   readPalette();
   replot();
 }
@@ -535,8 +560,8 @@ void WideGraph::on_adjust_palette_push_button_clicked (bool)   //Adjust Palette
     {
       if (m_userPalette.design ())
         {
-          m_waterfallPalette = m_user_defined;
-          ui->paletteComboBox->setCurrentText (m_waterfallPalette);
+          m_waterfallPalette = user_defined_palette_id;
+          ui->paletteComboBox->setCurrentIndex (ui->paletteComboBox->findData (m_waterfallPalette));
           readPalette ();
         }
     }

@@ -5,4 +5,7 @@
   <message><source>Shared message</source><translation>German interface</translation></message>
   <message><source>Base only</source><translation>German base</translation></message>
 </context>
+<context><name>WideGraph</name>
+  <message><source>User Defined</source><translation>German custom palette</translation></message>
+</context>
 </TS>

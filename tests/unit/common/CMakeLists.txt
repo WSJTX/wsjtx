@@ -390,3 +390,34 @@ add_executable (test_l10n_loader
 target_link_libraries (test_l10n_loader Boost::log_setup Qt5::Test Qt5::Widgets Qt5::Network)
 add_test (NAME test_l10n_loader COMMAND test_l10n_loader)
 set_tests_properties (test_l10n_loader PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable (test_configuration_language test_configuration_language.cpp)
+target_link_libraries (test_configuration_language wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test)
+add_test (NAME test_configuration_language COMMAND test_configuration_language)
+set_tests_properties (test_configuration_language PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 60)
+
+set (test_widegraph_palette_RESOURCES "<RCC><qresource prefix=\"/Palettes\">")
+foreach (palette Default Digipan)
+  string (APPEND test_widegraph_palette_RESOURCES
+    "<file alias=\"${palette}.pal\">${CMAKE_SOURCE_DIR}/Palettes/${palette}.pal</file>")
+endforeach ()
+string (APPEND test_widegraph_palette_RESOURCES "</qresource></RCC>")
+file (WRITE ${CMAKE_CURRENT_BINARY_DIR}/test_widegraph_palette.qrc "${test_widegraph_palette_RESOURCES}")
+qt5_add_resources (test_widegraph_palette_RCC ${CMAKE_CURRENT_BINARY_DIR}/test_widegraph_palette.qrc)
+qt5_wrap_ui (test_widegraph_palette_UIS ${CMAKE_SOURCE_DIR}/widgets/widegraph.ui)
+add_executable (test_widegraph_palette test_widegraph_palette.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/widegraph.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/plotter.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/JttySpectrum.cpp
+  ${test_widegraph_palette_UIS}
+  ${test_l10n_QM_FILES} ${test_l10n_RCC} ${test_widegraph_palette_RCC})
+target_include_directories (test_widegraph_palette PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries (test_widegraph_palette wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test)
+add_test (NAME test_widegraph_palette COMMAND test_widegraph_palette)
+set_tests_properties (test_widegraph_palette PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 30)

@@ -200,6 +200,7 @@
 
 #include "pimpl_impl.hpp"
 #include "Logger.hpp"
+#include "L10nLoader.hpp"
 #include "PerformanceTrace.hpp"
 #include "Transceiver/TxInhibitTransceiver.hpp"
 #include "qt_helpers.hpp"
@@ -906,6 +907,7 @@ private:
 
   QNetworkAccessManager * network_manager_;
   QSettings * settings_;
+  QString ui_language_preference_;
   bool use_default_geometry_ {false};
   LogBook * logbook_;
 
@@ -1214,6 +1216,13 @@ QDir Configuration::doc_dir () const {return m_->doc_dir_;}
 QDir Configuration::data_dir () const {return m_->data_dir_;}
 QDir Configuration::writeable_data_dir () const {return m_->writeable_data_dir_;}
 QDir Configuration::temp_dir () const {return m_->temp_dir_;}
+
+void Configuration::set_ui_language_preference (QString const& language)
+{
+  auto const index = m_->ui_->language_combo_box->findData (language);
+  m_->ui_language_preference_ = index < 0 ? QString {} : language;
+  m_->ui_->language_combo_box->setCurrentIndex (index < 0 ? 0 : index);
+}
 
 void Configuration::select_tab (int index) {m_->ui_->configuration_tabs->setCurrentIndex (index);}
 int Configuration::exec () {return m_->exec ();}
@@ -2272,6 +2281,23 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->setupUi (this);
   }
 
+  ui_->language_combo_box->addItem (tr ("System default"), QString {});
+  ui_->language_combo_box->addItem (tr ("English"), QStringLiteral ("en"));
+  QList<QPair<QString, QString>> languages;
+  for (auto const& language : L10nLoader::available_languages ())
+    {
+      if (language == "en") continue;
+      QLocale const locale {language};
+      auto name = locale.nativeLanguageName ();
+      if (language.contains ('_')) name += " (" + locale.nativeCountryName () + ')';
+      languages.append ({name, language});
+    }
+  std::sort (languages.begin (), languages.end (), [] (auto const& left, auto const& right) {
+      return QString::localeAwareCompare (left.first, right.first) < 0;
+    });
+  for (auto const& language : languages)
+    ui_->language_combo_box->addItem (language.first, language.second);
+
   SettingsDialogLayout::install (*ui_);
 
   installEventFilter (this);
@@ -2442,6 +2468,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->DXCC_check_box,
     ui_->ppfx_check_box,
     ui_->show_country_names_check_box,
+    ui_->language_combo_box,
     ui_->monitor_off_check_box,
     ui_->enable_VHF_features_check_box,
     ui_->repeat_Tx_check_box,
@@ -3155,6 +3182,7 @@ void Configuration::impl::initialize_models ()
 {
   QScopedValueRollback<bool> initializing_models {initializing_models_, true};
 
+  ui_->language_combo_box->setCurrentIndex (ui_->language_combo_box->findData (ui_language_preference_));
   next_audio_input_device_ = audio_input_device_;
   next_audio_input_channel_ = audio_input_channel_;
   next_audio_output_device_ = audio_output_device_;
@@ -4810,6 +4838,13 @@ void Configuration::impl::accept ()
   alert_Wanted_ = ui_->cbWanted->isChecked();
   alert_QSYmessage_ = ui_->cbQSYmessage->isChecked();
   alert_Enabled_ = ui_->pbAlerts->isChecked();
+
+  auto const language = ui_->language_combo_box->currentData ().toString ();
+  if (language != ui_language_preference_)
+    {
+      ui_language_preference_ = language;
+      Q_EMIT self_->ui_language_preference_changed (language);
+    }
 
   write_settings ();		// make visible to all
   if (previous_decodes_from_top != decodes_from_top_)

@@ -90,6 +90,9 @@ public:
                           LogBook * logbook, QWidget * parent = nullptr);
   ~Configuration ();
 
+  void set_ui_language_preference (QString const&);
+  Q_SIGNAL void ui_language_preference_changed (QString const&) const;
+
   void select_tab (int);
   int exec ();
   bool is_active () const;

@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QDialog>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFrame>
 #include <QGroupBox>
@@ -144,6 +145,7 @@ class TestConfigurationDialogLayout final
 
 private Q_SLOTS:
   void pagesRetainIdentityAndScrollingPolicy ();
+  void languageControlHasLabelAndRemainsReachable ();
   void windowSizeIsBoundedByAvailableGeometry ();
   void compactControlsKeepNaturalGeometry_data ();
   void compactControlsKeepNaturalGeometry ();
@@ -155,6 +157,29 @@ private Q_SLOTS:
   void wheelEventsScrollThePage ();
   void colorsPageOwnsVerticalScrolling ();
 };
+
+void TestConfigurationDialogLayout::languageControlHasLabelAndRemainsReachable ()
+{
+  DialogFixture fixture;
+  auto& ui = fixture.ui;
+  QCOMPARE (ui.language_label->buddy (), ui.language_combo_box);
+  QVERIFY (!ui.language_combo_box->accessibleName ().isEmpty ());
+  QVERIFY (!ui.language_combo_box->accessibleDescription ().isEmpty ());
+  ui.configuration_tabs->setCurrentWidget (ui.general_tab);
+  showDialog (fixture.dialog, {700, 650});
+  auto * scroll_area = SettingsDialogLayout::pageScrollArea (ui.general_tab);
+  auto const horizontal_range = scroll_area->horizontalScrollBar ()->maximum ();
+  ui.language_combo_box->addItem (QString (60, QChar {'W'}));
+  scroll_area->ensureWidgetVisible (ui.language_combo_box);
+  settleLayouts ();
+  QVERIFY2 (isFullyVisible (ui.language_combo_box, scroll_area),
+            qPrintable (scrollDiagnostics (ui.general_tab, fixture.dialog, scroll_area)
+                        + QString {" control=%1,%2 %3x%4"}
+                          .arg (geometryIn (ui.language_combo_box, scroll_area->viewport ()).x ())
+                          .arg (geometryIn (ui.language_combo_box, scroll_area->viewport ()).y ())
+                          .arg (ui.language_combo_box->width ()).arg (ui.language_combo_box->height ())));
+  QCOMPARE (scroll_area->horizontalScrollBar ()->maximum (), horizontal_range);
+}
 
 void TestConfigurationDialogLayout::pagesRetainIdentityAndScrollingPolicy ()
 {
