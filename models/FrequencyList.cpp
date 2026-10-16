@@ -47,11 +47,8 @@ namespace
       {1210000, Modes::FreqCal, IARURegions::R2, "","", QDateTime(), QDateTime(), false},
       
       {2500000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
-      {3330000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {5000000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
-      {7850000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {10000000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
-      {14670000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {15000000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {20000000, Modes::FreqCal, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       
