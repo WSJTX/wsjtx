@@ -29,8 +29,8 @@
 # windows: --source is the CMake build directory, --dll-dir the staged bin/
 #          after DLL fixup and --system-dir the Windows system directory. Each
 #          tarball gets its .exe files and the transitive closure of the DLLs
-#          they import from --dll-dir; an import found in neither directory
-#          fails the run.
+#          they import from --dll-dir; an import found in neither directory,
+#          other than the Universal C Runtime's API sets, fails the run.
 set -euo pipefail
 
 PLATFORM=""; VERSION=""; ARCH=""; GROUPS_FILE=""; SOURCE=""; OUT=""; DLL_DIR=""; SYSTEM_DIR=""; LINUXDEPLOY=""
@@ -223,6 +223,9 @@ windows_closure() {
     imports=$(objdump -p "$bin") || fail "objdump failed on ${bin##*/}"
     while read -r dep; do
       lower=$(printf '%s' "$dep" | tr '[:upper:]' '[:lower:]')
+      # The Universal C Runtime's API sets are names the Windows 10 loader
+      # maps; no file by that name need exist in the system directory.
+      case "$lower" in api-ms-win-crt-*) continue ;; esac
       src=$(awk -F '\t' -v k="$lower" '$1 == k { print $2; exit }' "$have")
       if [ -z "$src" ]; then
         grep -qxF "$lower" "$system" || unresolved+=("${dep}(${bin##*/})")
@@ -447,6 +450,8 @@ write_readme() {
         ;;
       windows)
         echo "Layout: the programs and the DLLs they load are in this directory. Keep them together."
+        echo
+        echo "The programs use the Universal C Runtime, part of Windows 10 and later."
         echo
         echo "The programs and DLLs carry no Authenticode signature."
         ;;

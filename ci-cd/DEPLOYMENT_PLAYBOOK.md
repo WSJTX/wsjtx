@@ -112,7 +112,7 @@ Every promotion, beta included, creates or fast-forwards public `release/X.Y`, s
 │                                    unsigned.
 │
 ├── build-windows.yml            ← Reusable workflow (workflow_call).
-│                                    Windows x86_64 via MSYS2/MinGW64. Builds
+│                                    Windows x86_64 via MSYS2 UCRT64. Builds
 │                                    the installer unsigned and verifies
 │                                    NotSigned.
 │

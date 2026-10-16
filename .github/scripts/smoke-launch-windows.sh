@@ -6,7 +6,7 @@
 # runtime DLL (libgomp-1.dll, libportaudio-2.dll, libgfortran-5.dll, ...) makes
 # the process exit at load time, before main(), with exit code 0xC0000135. A
 # build that links and packages correctly survives a launch from a clean PATH;
-# one that relies on the dev shell's /mingw64/bin does not.
+# one that relies on the dev shell's /ucrt64/bin (or /mingw64/bin) does not.
 #
 # The launched command must exit on its own. A bounded timeout turns a hung
 # process or modal startup error into a test failure.
@@ -30,8 +30,8 @@ fi
 
 # Strip the MinGW runtime dir from PATH so only DLLs the build/packaging step
 # placed beside the exe (or in still-present system dirs) can resolve.
-cleaned_path=$(echo "$PATH" | tr ':' '\n' | grep -ivE '(^|/)mingw64/bin/?$' | paste -sd: -)
-echo "smoke-launch: $exe $* (PATH cleaned of /mingw64/bin)"
+cleaned_path=$(echo "$PATH" | tr ':' '\n' | grep -ivE '(^|/)(ucrt64|mingw64)/bin/?$' | paste -sd: -)
+echo "smoke-launch: $exe $* (PATH cleaned of /ucrt64/bin and /mingw64/bin)"
 
 # timeout returns 124 when it had to kill the process.
 PATH="$cleaned_path" timeout "${TIMEOUT_SECS}s" "$exe" "$@" >launch.out 2>&1
