@@ -68,7 +68,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use streaming_emit, only: streaming_emit_ready,                          &
        streaming_emit_decode_finished, streaming_emit_error,               &
        streaming_emit_error_code, streaming_emit_error_version,            &
-       streaming_emit_error_type, streaming_emit_set_time_form
+       streaming_emit_error_type, streaming_emit_set_time_form,            &
+       streaming_emit_utc_from_iso
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
        CTRL_DISCONTINUITY, MODE_JTTY
@@ -116,6 +117,12 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! mirror the WAV path's 41/47/50 call cadence with a working copy zeroed
   ! past the per-call sample boundary.
   integer(int16), save :: id2a(180000)  !Keep this big array off the stack
+  ! The last decoded period, for a decode-again request (again_k = 0: none),
+  ! and the period in flight while that runs.
+  integer(int16), allocatable, save :: again_id2(:), held_id2(:)
+  real, allocatable, save :: again_ss(:,:), held_ss(:,:)
+  integer, save :: again_k = 0, again_nzhsym = 0, again_kin = 0, again_nutc = 0
+  logical, save :: again_even = .false., again_iso = .false.
   character(len=CTL_BUF_LEN), save :: ctl_buf     !Off the stack, as id2a
   integer(int8), save :: ctl_bytes(CTL_BUF_LEN)
   integer :: i_ctl, prev_mode, next_mode
@@ -383,7 +390,19 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  nhsym   = 0
                  nhsym0  = 0
                  decoded = .false.
+                 again_k = 0
               end if
+              ! nagain_flag asks once for the last decoded period again.
+              if (cfg%nagain_flag_set .and. cfg%nagain_flag) then
+                 if (again_k .gt. 0) then
+                    call decode_again()
+                 else
+                    call streaming_emit_error_code('decode_again_unavailable', &
+                         'no decoded period to decode again (none yet or since a ' // &
+                         'mode or period change; MSK144 and JTTY keep none)')
+                 end if
+              end if
+              shared_data%params%nagain = .false.
            case (CTRL_DISCONTINUITY)
               if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
            case (CTRL_PARSE_ERR)
@@ -440,11 +459,8 @@ contains
          mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) &
          shared_data%params%kin = period%k
 
-    ! SuperFox Hound decodes single-threaded, as the GUI does.
     requested = shared_data%params%lmultift8
-    multithreaded = requested .and. .not.                                  &
-         (iand(shared_data%params%nexp_decode, 7) .eq. 7 .and.              &
-          shared_data%params%b_superfox)
+    multithreaded = requested .and. .not. superfox_hound()
     if (mode .eq. 144) then
        call decode_msk144(shared_data%id2, shared_data%params, data_dir)
     else if (mode .eq. 8 .and. .not. multithreaded) then
@@ -482,7 +498,81 @@ contains
             shared_data%params, NFSAMPLE)
     end if
     if(mode==66) shared_data%params%nclearave=.false.
+    if (mode .eq. 144 .or. mode .eq. MODE_JTTY) then
+       again_k = 0
+    else
+       call keep(again_id2, shared_data%id2, period%k)
+       ! Of the stream's modes only JT65+JT9 decodes from the spectra.
+       if (mode .eq. 74) then
+          if (.not. allocated(again_ss)) allocate(again_ss(184,NSMAX))
+          again_ss  = shared_data%ss
+       end if
+       again_k      = period%k
+       again_nzhsym = shared_data%params%nzhsym
+       again_kin    = shared_data%params%kin
+       again_nutc   = shared_data%params%nutc
+       again_even   = shared_data%params%b_even_seq
+       again_iso    = streaming_emit_utc_from_iso()
+    end if
   end subroutine run_period_decode
+
+  ! The GUI's Decode button: one pass with nagain over the last decoded
+  ! period, with its time and sequence, the period in flight set aside meanwhile.
+  subroutine decode_again()
+    integer :: k_now, nutc_now
+    logical :: requested, even_now, iso_now
+    k_now    = period%k
+    nutc_now = shared_data%params%nutc
+    even_now = shared_data%params%b_even_seq
+    iso_now  = streaming_emit_utc_from_iso()
+    requested = shared_data%params%lmultift8
+    call keep(held_id2, shared_data%id2, k_now)
+    if (mode .eq. 74) then
+       if (.not. allocated(held_ss)) allocate(held_ss(184,NSMAX))
+       held_ss = shared_data%ss
+       shared_data%ss = again_ss
+    end if
+    shared_data%id2(1:k_now) = 0
+    shared_data%id2(1:again_k) = again_id2(1:again_k)
+    shared_data%params%nagain = .true.
+    shared_data%params%newdat = .false.
+    shared_data%params%nzhsym = again_nzhsym
+    shared_data%params%kin    = again_kin
+    shared_data%params%nutc   = again_nutc
+    shared_data%params%b_even_seq = again_even
+    call streaming_emit_set_time_form(again_iso, .not. again_iso, TRperiod)
+    if (superfox_hound()) shared_data%params%lmultift8 = .false.
+    ! The single-threaded FT8 decoder decodes again only on the hsym-50 pass.
+    if (mode .eq. 8 .and. .not. shared_data%params%lmultift8)              &
+         shared_data%params%nzhsym = 50
+    call multimode_decoder(shared_data%ss, shared_data%id2, shared_data%params, NFSAMPLE)
+    if (mode .eq. 66) shared_data%params%nclearave = .false.
+    shared_data%params%lmultift8 = requested
+    shared_data%params%nutc   = nutc_now
+    shared_data%params%b_even_seq = even_now
+    call streaming_emit_set_time_form(iso_now, .not. iso_now, TRperiod)
+    shared_data%id2(1:again_k) = 0
+    shared_data%id2(1:k_now) = held_id2(1:k_now)
+    if (mode .eq. 74) shared_data%ss = held_ss
+  end subroutine decode_again
+
+  ! SuperFox Hound decodes single-threaded, as the GUI does.
+  logical function superfox_hound()
+    superfox_hound = iand(shared_data%params%nexp_decode, 7) .eq. 7 .and.   &
+         shared_data%params%b_superfox
+  end function superfox_hound
+
+  ! copy(1:n) = source(1:n), growing copy as needed.
+  subroutine keep(copy, source, n)
+    integer(int16), allocatable, intent(inout) :: copy(:)
+    integer(int16), intent(in) :: source(:)
+    integer, intent(in) :: n
+    if (allocated(copy)) then
+       if (size(copy) .lt. n) deallocate(copy)
+    end if
+    if (.not. allocated(copy)) allocate(copy(max(n, 1)))
+    copy(1:n) = source(1:n)
+  end subroutine keep
 
   ! One FT8 pass over the first nz half-symbols, the rest zeroed.
   subroutine ft8_window_pass(nz)

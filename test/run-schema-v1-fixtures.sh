@@ -56,11 +56,9 @@
 #      "configure_type_error","key":"dt_tolerance_seconds","expected":"real",
 #      "got":"string"} and the whole frame is declined (mode JT65 not applied,
 #      FT8 >= floor). Proves Phase 5 type checks are wired into atomic-decline.
-#  11. (Phase 5 — APPLY ROUTING) nagain_flag=true changes the FT8 decode
-#      message-set vs the no-key baseline (empirically 21 -> 16). nagain is
-#      the ONLY Phase 5 key that reaches the FT8 decoder, so an observable change
-#      proves nagain_flag was applied to an FT8-affecting param — a partial
-#      apply-routing guard the inert Phase 4 fields could not have.
+#  11. (Phase 5) nagain_flag=true asks to decode the last period again; sent
+#      before any period, it gets exactly one decode_again_unavailable error and
+#      the period decodes the same message set as the no-key baseline.
 #  12. (Phase 5 — APPLY ROUTING) npts_c0_array=60000 changes the JT9 decode
 #      message-set vs the no-key baseline (empirically 7 -> 6). npts8 is
 #      the Phase 5 key that reaches the JT9 decoder, so an observable change
@@ -345,27 +343,21 @@ else
   fail=1
 fi
 
-# --- Gate 11: Phase 5 APPLY ROUTING — nagain_flag observably changes FT8 ------
+# --- Gate 11: Phase 5 — nagain_flag before any period is refused ------------
 echo ""
-echo "Gate 11 — nagain_flag=true changes the FT8 decode set (apply-routing proof)"
-# nagain is the only Phase 5 key reaching the FT8 decoder (ft8_decode.f90 final
-# pass). Baseline (no key) vs --nagain-flag must DIFFER, proving apply routed
-# nagain_flag to an FT8-affecting param. Baseline computed fresh (robust to
-# count drift); guard against a vacuous pass by requiring a non-empty baseline.
+echo "Gate 11 — nagain_flag=true with no decoded period is refused"
+# A decode again needs a decoded period: the refusal is one coded error, and the
+# period that follows decodes as without the key. Baseline computed fresh.
 base=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --quiet 2>/dev/null \
        | grep '"t":"decode"' | grep -oE '"message":"[^"]*"' | sort || true)
-withk=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --nagain-flag --quiet 2>/dev/null \
-        | grep '"t":"decode"' | grep -oE '"message":"[^"]*"' | sort || true)
+out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --nagain-flag --quiet 2>/dev/null || true)
+withk=$(printf '%s\n' "$out" | grep '"t":"decode"' | grep -oE '"message":"[^"]*"' | sort || true)
+refused=$(printf '%s\n' "$out" | grep -c '"code":"decode_again_unavailable"' || true)
 nbase=$(printf '%s\n' "$base" | grep -c '"message"' || true)
-nwith=$(printf '%s\n' "$withk" | grep -c '"message"' || true)
-# Guard BOTH sides: a crash / shmem-collision that emits nothing yields withk=""
-# which "differs" from a healthy baseline and would FALSELY pass. Require the
-# with-key run to be a healthy decode (>= 1 msg) too — only then does "differs"
-# prove the key reached the decoder (not that one side died). (guards a vacuous pass)
-if [[ -n "$base" && "$nbase" -ge "$FT8_FLOOR" && "$nwith" -ge 1 && "$base" != "$withk" ]]; then
-  echo "  PASS: nagain_flag observably changed FT8 decode set (baseline $nbase msgs != with-key $nwith msgs)"
+if [[ -n "$base" && "$nbase" -ge "$FT8_FLOOR" && "$refused" -eq 1 && "$base" == "$withk" ]]; then
+  echo "  PASS: nagain_flag refused once; FT8 decodes the baseline set ($nbase msgs)"
 else
-  echo "  FAIL: nagain_flag effect unproven (baseline=$nbase >= $FT8_FLOOR?, with-key=$nwith >= 1?, sets differ=$([[ "$base" != "$withk" ]] && echo yes || echo no))"
+  echo "  FAIL: nagain_flag refusal (baseline=$nbase >= $FT8_FLOOR?, refusals=$refused, sets equal=$([[ "$base" == "$withk" ]] && echo yes || echo no))"
   fail=1
 fi
 

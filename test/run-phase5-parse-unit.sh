@@ -14,8 +14,9 @@
 # JT4/JT65/Q65-only; emedelay is forced to 0 on a mode-setting frame; ntxmode is
 # read only in mode 65+9), so no decode-output gate can assert those values
 # landed. This unit driver is the parse->pack assert for them.
-# The two observable keys (nagain_flag -> FT8, npts_c0_array -> JT9) ALSO get a
-# decode-effect gate in run-schema-v1-fixtures.sh (Gates 11/12).
+# npts_c0_array has a decode-effect gate in run-schema-v1-fixtures.sh (Gate 12, on
+# JT9 alone, which decodes without npts8 in the engine, so the gate fails);
+# nagain_flag, a decode-again request, gets a refusal gate (Gate 11).
 #
 # SCOPE: this guards JSON -> configure_fields PARSE only (the module-public entry
 # point). The configure_fields -> params APPLY routing now lives in the module-

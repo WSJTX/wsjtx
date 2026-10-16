@@ -263,6 +263,31 @@ QByteArray streamOutput (ProcessResult const& result)
   return QByteArray {result.standardOutput}.replace ("\r\n", "\n");
 }
 
+// The events of each decode, split at its decode_finished.
+QList<QList<QJsonObject>> decodesByPeriod (QList<QJsonObject> const& events)
+{
+  QList<QList<QJsonObject>> periods {QList<QJsonObject> {}};
+  for (auto const& event : events)
+    {
+      if (event.value ("t").toString () == "decode")
+        {
+          periods.last ().append (event);
+        }
+      else if (event.value ("t").toString () == "decode_finished")
+        {
+          periods.append (QList<QJsonObject> {});
+        }
+    }
+  periods.removeLast ();
+  return periods;
+}
+
+QByteArray configureFrame (QJsonObject keys)
+{
+  keys.insert ("t", "configure");
+  return controlFrame (QJsonDocument {keys}.toJson (QJsonDocument::Compact));
+}
+
 // jt9's WAV-mode FT8 line carries the 37-column message after " ~  ".
 QStringList wavModeFt8Messages (QByteArray const& output)
 {
@@ -1163,6 +1188,231 @@ private slots:
     auto const expected = wavModeFt8Messages (wavMode.standardOutput);
     QVERIFY2 (!expected.isEmpty (), wavMode.standardOutput.constData ());
     QCOMPARE (streamed, expected);
+  }
+
+  void decodeAgainDecodesAtTheRxFrequency_data ()
+  {
+    QTest::addColumn<QJsonObject> ("first");
+    QTest::addColumn<QJsonObject> ("again");
+    QTest::addColumn<bool> ("found");
+    // The single-threaded decode again searches 20 Hz either side; the signal is at 1500 Hz.
+    QTest::newRow ("at the signal") << QJsonObject {} << QJsonObject {{"rxfreq", 1500}} << true;
+    QTest::newRow ("away from the signal") << QJsonObject {} << QJsonObject {{"rxfreq", 1000}} << false;
+    QTest::newRow ("single-threaded after a multithreaded period")
+      << QJsonObject {{"multithreaded_ft8", true}, {"ft8_threads", 2}}
+      << QJsonObject {{"multithreaded_ft8", false}, {"rxfreq", 1500}} << true;
+  }
+
+  // nagain_flag decodes the last period once more, as the GUI's Decode button does.
+  void decodeAgainDecodesAtTheRxFrequency ()
+  {
+    QFETCH (QJsonObject, first);
+    QFETCH (QJsonObject, again);
+    QFETCH (bool, found);
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    first.insert ("mode", "FT8");
+    first.insert ("utc", "05:11:15");
+    again.insert ("nagain_flag", true);
+    auto const result = runJt9 (sessionHeader () + configureFrame (first) +
+      frame (0x01u, recording.readAll ().mid (44)) + configureFrame (again));
+    verifyCompleted (result, 0);
+    auto const periods = decodesByPeriod (verifyEvents (result).values);
+    QCOMPARE (periods.size (), 2);
+    QCOMPARE (periods.first ().size (), 1);
+    QCOMPARE (periods.last ().size (), found ? 1 : 0);
+    for (auto const& decode : periods.last ())
+      {
+        QCOMPARE (decode.value ("message").toString ().trimmed (), QString {"CQ K1JT FN20"});
+        QCOMPARE (decode.value ("time").toString (), QString {"051115"});
+      }
+  }
+
+  void decodeAgainNeedsADecodedPeriod_data ()
+  {
+    QTest::addColumn<QByteArray> ("before");
+    QByteArray const period = sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}});
+    QTest::newRow ("no period yet") << period;
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    // A mode change discards the decoded period with the one in flight.
+    QTest::newRow ("after a mode change") << period + frame (0x01u, recording.readAll ().mid (44)) +
+      configureFrame ({{"mode", "FT4"}}) + configureFrame ({{"mode", "FT8"}});
+  }
+
+  // Without a decoded period nagain_flag is refused, and it never carries into the next decode.
+  void decodeAgainNeedsADecodedPeriod ()
+  {
+    QFETCH (QByteArray, before);
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const audio = frame (0x01u, recording.readAll ().mid (44));
+    auto const reference = runJt9 (sessionHeader () +
+      configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}}) + audio);
+    verifyCompleted (reference, 0);
+    auto const expected = decodesByPeriod (verifyEvents (reference).values);
+    QCOMPARE (expected.size (), 1);
+    auto const result = runJt9 (before + configureFrame ({{"nagain_flag", true}}) + audio);
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error", "decode_again_unavailable").size (), 1);
+    auto const periods = decodesByPeriod (events.values);
+    QVERIFY (!periods.isEmpty ());
+    QCOMPARE (periods.last (), expected.first ());
+  }
+
+  // MSK144 decodes in its own pass and keeps no period to decode again.
+  void decodeAgainKeepsNoMsk144Period ()
+  {
+    auto const result = runJt9 (sessionHeader () + configureFrame ({{"mode", "MSK144"}, {"trperiod", 15}}) +
+      silentAudioFrame (15 * 12000) + configureFrame ({{"nagain_flag", true}}));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result).values;
+    QCOMPARE (eventsMatching (events, "decode_finished").size (), 1);
+    QCOMPARE (eventsMatching (events, "error", "decode_again_unavailable").size (), 1);
+  }
+
+  // The decode again keeps the decoded period's sequence: SuperFox Hound decodes
+  // only even sequences, and the request comes in the next, odd, period, which
+  // stays odd.
+  void decodeAgainKeepsTheSuperFoxSequence ()
+  {
+#ifndef SUPERFOX_WAV
+    QSKIP ("sfoxsim is built only with WSJT_BUILD_UTILS");
+#else
+    QFile recording {QString::fromUtf8 (SUPERFOX_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const audio = frame (0x01u, recording.readAll ().mid (44));
+    auto const result = runJt9 (sessionHeader () +
+      configureFrame ({{"mode", "FT8"}, {"utc", "00:00:30"}, {"contest_type", "hound"},
+                       {"superfox_mode", true}, {"even_sequence", true}, {"rxfreq", 750}}) + audio +
+      configureFrame ({{"utc", "00:00:45"}, {"even_sequence", false}, {"nagain_flag", true}}) + audio);
+    verifyCompleted (result, 0);
+    auto const periods = decodesByPeriod (verifyEvents (result).values);
+    QCOMPARE (periods.size (), 3);
+    QCOMPARE (periods.at (0).size (), 7);
+    QCOMPARE (periods.at (1).size (), 7);
+    for (auto const& decode : periods.at (1))
+      {
+        QCOMPARE (decode.value ("time").toString (), QString {"000030"});
+      }
+    QCOMPARE (periods.at (2).size (), 0);
+#endif
+  }
+
+  void decodeAgainKeepsTheTimeForm_data ()
+  {
+    QTest::addColumn<QJsonObject> ("kept");
+    QTest::addColumn<QJsonObject> ("request");
+    QTest::addColumn<QStringList> ("labels");
+    // A numeric nutc under 2400 is HHMM in a 60 s mode, an ISO utc HHMMSS.
+    QTest::newRow ("numeric kept, ISO request") << QJsonObject {{"nutc", 1234}}
+      << QJsonObject {{"utc", "00:12:00"}} << QStringList {"123400", "123400", "001200"};
+    QTest::newRow ("ISO kept, numeric request") << QJsonObject {{"utc", "00:12:00"}}
+      << QJsonObject {{"nutc", 13}} << QStringList {"001200", "001200", "001300"};
+  }
+
+  // The decode again labels with the decoded period's time form, though the
+  // request carries the other one; the next period takes the request's form.
+  void decodeAgainKeepsTheTimeForm ()
+  {
+    QFETCH (QJsonObject, kept);
+    QFETCH (QJsonObject, request);
+    QFETCH (QStringList, labels);
+    auto const silence = silentAudioFrame (60 * 12000);
+    kept.insert ("mode", "JT65");
+    kept.insert ("trperiod", 60);
+    request.insert ("nagain_flag", true);
+    auto const result = runJt9 (sessionHeader () + configureFrame (kept) + silence +
+                                configureFrame (request) + silence);
+    verifyCompleted (result, 0);
+    QStringList found;
+    for (auto const& event : eventsMatching (verifyEvents (result).values, "decode_finished"))
+      {
+        found << event.value ("period_end").toString ();
+      }
+    QCOMPARE (found, labels);
+  }
+
+  // SuperFox switched on with the request decodes the multithreaded Hound
+  // period again single-threaded, on the hsym-50 pass SuperFox needs.
+  void decodeAgainTurnsSuperFoxOn ()
+  {
+#ifndef SUPERFOX_WAV
+    QSKIP ("sfoxsim is built only with WSJT_BUILD_UTILS");
+#else
+    QFile recording {QString::fromUtf8 (SUPERFOX_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const result = runJt9 (sessionHeader () +
+      configureFrame ({{"mode", "FT8"}, {"utc", "00:00:30"}, {"contest_type", "hound"},
+                       {"even_sequence", true}, {"rxfreq", 750},
+                       {"multithreaded_ft8", true}, {"ft8_threads", 2}}) +
+      frame (0x01u, recording.readAll ().mid (44)) +
+      configureFrame ({{"superfox_mode", true}, {"nagain_flag", true}}));
+    verifyCompleted (result, 0);
+    auto const periods = decodesByPeriod (verifyEvents (result).values);
+    QCOMPARE (periods.size (), 2);
+    QCOMPARE (periods.last ().size (), 7);
+#endif
+  }
+
+  // A SuperFox Hound decode again stays single-threaded, so it searches only at
+  // rxfreq, and multithreading comes back after Hound.
+  void decodeAgainKeepsSuperFoxHoundSingleThreaded ()
+  {
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const audio = frame (0x01u, recording.readAll ().mid (44));
+    auto const result = runJt9 (sessionHeader () +
+      configureFrame ({{"mode", "FT8"}, {"utc", "00:00:45"}, {"contest_type", "hound"},
+                       {"superfox_mode", true}, {"even_sequence", false},
+                       {"multithreaded_ft8", true}, {"ft8_threads", 2}}) + audio +
+      configureFrame ({{"rxfreq", 1000}, {"nagain_flag", true}}) +
+      configureFrame ({{"contest_type", "none"}}) + audio);
+    verifyCompleted (result, 0);
+    auto const periods = decodesByPeriod (verifyEvents (result).values);
+    QCOMPARE (periods.size (), 3);
+    QCOMPARE (periods.at (1).size (), 0);
+    // Only the multithreaded decoder warns of the missing ALLCALL7.TXT.
+    QVERIFY2 (result.standardError.contains ("ALLCALL7.TXT is too short or broken?"),
+              result.standardError.constData ());
+  }
+
+  void decodeAgainLeavesThePeriodInFlight_data ()
+  {
+    QTest::addColumn<bool> ("rest");
+    QTest::newRow ("rest of the period") << true;
+    // The input ends after the request: the six seconds in flight are decoded alone.
+    QTest::newRow ("end of input") << false;
+  }
+
+  // A decode again during a period sets that period's audio aside and puts it back.
+  void decodeAgainLeavesThePeriodInFlight ()
+  {
+    QFETCH (bool, rest);
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const samples = recording.readAll ().mid (44);
+    // The period in flight carries the same signal half a second later.
+    auto const split = 6 * 12000 * 2;
+    auto const later = (QByteArray (6000 * 2, '\0') + samples).left (samples.size ());
+    auto const inFlight = rest ? later : later.left (split);
+    auto const reference = runJt9 (sessionHeader () +
+      configureFrame ({{"mode", "FT8"}, {"utc", "05:11:30"}}) + frame (0x01u, inFlight));
+    verifyCompleted (reference, 0);
+    auto const expected = decodesByPeriod (verifyEvents (reference).values);
+    QCOMPARE (expected.size (), 1);
+    auto const result = runJt9 (sessionHeader () +
+      configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}}) + frame (0x01u, samples) +
+      frame (0x01u, later.left (split)) +
+      configureFrame ({{"utc", "05:11:30"}, {"nagain_flag", true}}) +
+      (rest ? frame (0x01u, later.mid (split)) : QByteArray {}));
+    verifyCompleted (result, 0);
+    auto const periods = decodesByPeriod (verifyEvents (result).values);
+    QCOMPARE (periods.size (), 3);
+    QCOMPARE (periods.at (1).size (), 1);
+    QCOMPARE (periods.at (1).first ().value ("time").toString (), QString {"051115"});
+    QCOMPARE (periods.at (2), expected.first ());
   }
 
   void wsprdRejectsOversizedFrames_data ()

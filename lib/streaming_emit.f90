@@ -33,6 +33,7 @@ module streaming_emit
   public :: streaming_emit_set_enabled
   public :: streaming_emit_set_time_form
   public :: streaming_emit_enabled
+  public :: streaming_emit_utc_from_iso
   public :: streaming_emit_ready
   public :: streaming_emit_decode
   public :: streaming_emit_decode_finished
@@ -62,6 +63,11 @@ contains
     end if
     trperiod_ = trperiod
   end subroutine streaming_emit_set_time_form
+
+  ! Whether times are labelled from an ISO utc (else from a numeric nutc).
+  logical function streaming_emit_utc_from_iso()
+    streaming_emit_utc_from_iso = utc_from_iso_
+  end function streaming_emit_utc_from_iso
 
   pure function streaming_emit_enabled() result(v)
     logical :: v
