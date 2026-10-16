@@ -72,7 +72,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: boost-prefix
-        key: boost-windows-windows-latest-mingw64-${{ inputs.boost_version }}-${{ inputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
+        key: boost-windows-windows-latest-ucrt64-${{ inputs.boost_version }}-${{ inputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
 
     - name: Build Boost
       id: boost-build
@@ -118,7 +118,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: pfunit-prefix
-        key: pfunit-windows-windows-latest-mingw64-v4.14.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
+        key: pfunit-windows-windows-latest-ucrt64-v4.14.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
 
     - name: Build pFUnit
       id: pfunit-build
@@ -155,7 +155,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: hamlib-prefix
-        key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch2-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
+        key: hamlib-windows-windows-latest-ucrt64-${{ inputs.hamlib_branch }}-epoch2-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
 
     - name: Build Hamlib
       id: hamlib-build

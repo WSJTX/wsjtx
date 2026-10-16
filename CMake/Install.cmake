@@ -191,9 +191,11 @@ if (WIN32)
 
   if (NOT "$ENV{JTSDK_TOOLS}" STREQUAL "")
     file (TO_CMAKE_PATH "$ENV{JTSDK_TOOLS}" _jtsdk_tools_path)
+    _add_openssl_runtime_dir ("${_jtsdk_tools_path}/msys64/ucrt64/bin")
     _add_openssl_runtime_dir ("${_jtsdk_tools_path}/msys64/mingw64/bin")
   endif ()
 
+  _add_openssl_runtime_dir ("/ucrt64/bin")
   _add_openssl_runtime_dir ("/mingw64/bin")
 
   set (_openssl_runtime_dlls)
@@ -229,9 +231,9 @@ if (WIN32)
       "OpenSSL DLLs.\n"
       "Searched: ${_openssl_runtime_dirs}\n"
       "Install the MinGW OpenSSL package, for example:\n"
-      "  pacman -S mingw-w64-x86_64-openssl\n"
+      "  pacman -S mingw-w64-ucrt-x86_64-openssl\n"
       "Or point CMake at the DLL directory:\n"
-      "  -DWSJT_OPENSSL_RUNTIME_DIR=/path/to/mingw64/bin\n"
+      "  -DWSJT_OPENSSL_RUNTIME_DIR=/path/to/ucrt64/bin\n"
       "To build without bundling TLS runtime DLLs:\n"
       "  -DWSJT_ALLOW_MISSING_OPENSSL_RUNTIME_DLLS=ON"
     )

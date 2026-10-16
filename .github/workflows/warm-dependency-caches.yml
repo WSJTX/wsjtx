@@ -449,16 +449,16 @@ jobs:
       # and Boost.Atomic patch stay pinned; do not install MSYS2 Boost here.
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           cache: true
           install: >-
             git make tar curl
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-gcc-fortran
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-python
-            mingw-w64-x86_64-pkg-config
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-gcc-fortran
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-pkg-config
             autoconf automake libtool
 
       - uses: ./.github/actions/build-windows-deps

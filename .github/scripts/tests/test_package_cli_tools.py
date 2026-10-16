@@ -397,6 +397,34 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertEqual(notices.count("  Linked statically into the programs"), 1)
         self.assertNotIn("libquadmath", notices)
 
+    def test_windows_ucrt_api_set_imports_are_part_of_windows(self):
+        (self.root / "system").mkdir()
+        self.fixture("objdump.encode77.exe", ["\tDLL Name: api-ms-win-crt-runtime-l1-1-0.dll", "\tDLL Name: API-MS-WIN-CRT-HEAP-L1-1-0.dll"])
+        self.files(self.source, ["jt9.exe", "encode77.exe"])
+        self.files(self.root / "dlls", [])
+        self.fixture("objdump.jt9.exe", [])
+        result = self.package(
+            "windows", ["jt9 jt9", "utilities encode77"],
+            "--dll-dir", str(self.root / "dlls"), "--system-dir", str(self.root / "system"),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.members("wsjtx-9.9.9-windows-x86_64-utilities"), ["COPYING", "README.txt", "THIRD-PARTY.txt", "encode77.exe"]
+        )
+        self.assertIn("Universal C Runtime, part of Windows 10 and later", self.text("wsjtx-9.9.9-windows-x86_64-utilities", "README.txt"))
+
+    def test_windows_other_api_set_imports_need_a_file(self):
+        (self.root / "system").mkdir()
+        self.fixture("objdump.encode77.exe", ["\tDLL Name: api-ms-win-core-synch-l1-2-0.dll", "\tDLL Name: ext-ms-win-ntuser-window-l1-1-0.dll"])
+        self.files(self.source, ["jt9.exe", "encode77.exe"])
+        self.files(self.root / "dlls", [])
+        self.fixture("objdump.jt9.exe", [])
+        result = self.package(
+            "windows", ["jt9 jt9", "utilities encode77"],
+            "--dll-dir", str(self.root / "dlls"), "--system-dir", str(self.root / "system"),
+        )
+        self.assert_failed(result, "api-ms-win-core-synch-l1-2-0.dll(encode77.exe)", "ext-ms-win-ntuser-window-l1-1-0.dll(encode77.exe)")
+
     def test_windows_import_outside_dll_and_system_dirs_fails(self):
         (self.root / "system").mkdir()
         self.fixture("objdump.encode77.exe", ["\tDLL Name: libmissing.dll"])
