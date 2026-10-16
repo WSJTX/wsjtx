@@ -24,6 +24,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QMutexLocker>
 #include <QTimer>
 #include <QVector>
@@ -472,6 +473,8 @@ int TCITransceiver::do_start ()
   stream_audio_ = false;
   _power_ = false;
   CAT_TRACE ("TCITransceiver entered TCI do_start and url " + url_.toString() + " rig_power:" + QString::number(rig_power_) + " rig_power_off:" + QString::number(rig_power_off_) + " tci_audio:" + QString::number(tci_audio_) + " do_snr:" + QString::number(do_snr_) + " do_pwr:" + QString::number(do_pwr_) + '\n');
+  QElapsedTimer startup_elapsed;
+  startup_elapsed.start ();
   commander_->open (url_);
   mysleep7(2000);
   busy_split_ = true;
@@ -481,15 +484,29 @@ int TCITransceiver::do_start ()
   if (error_.isEmpty()) {
     tci_Ready = true;
     if (!_power_) {
+      qint64 power_deadline_ms = 2000;
       if (rig_power_) {
         rig_power(true);
-        mysleep7(1000);
-        if(!_power_) throw error {tr ("TCI SDR could not be switched on")};
-      } else {
+        power_deadline_ms = startup_elapsed.elapsed () + 1000;
+      }
+      // Readiness can precede power state in a later WebSocket message.
+      while (!_power_ && inConnected && error_.isEmpty ()) {
+        auto const remaining_ms = power_deadline_ms - startup_elapsed.elapsed ();
+        if (remaining_ms <= 0) break;
+        mysleep7 (static_cast<int> (remaining_ms));
+      }
+      if (!inConnected || !error_.isEmpty ()) {
         tci_Ready = false;
-        throw error {tr ("TCI SDR is not switched on")};
+        throw error {error_.isEmpty ()
+          ? tr ("TCI connection closed during startup") : error_};
+      }
+      if (!_power_) {
+        tci_Ready = false;
+        throw error {rig_power_ ? tr ("TCI SDR could not be switched on")
+                               : tr ("TCI SDR is not switched on")};
       }
     }
+    tci_Ready = true;
     if (rx_ == "1" && !rx2_) {
       rx2_enable (true);
       if (!rx2_) {

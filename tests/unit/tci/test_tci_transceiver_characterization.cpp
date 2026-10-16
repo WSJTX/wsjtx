@@ -32,13 +32,13 @@ namespace
   using RigFactory = std::function<std::unique_ptr<Transceiver> (
     Transceiver::logger_type *, QString const&)>;
 
-  RigFactory legacy_rig_factory ()
+  RigFactory legacy_rig_factory (int poll_interval = 0)
   {
-    return [] (Transceiver::logger_type * logger, QString const& address)
+    return [poll_interval] (Transceiver::logger_type * logger, QString const& address)
       {
         return std::unique_ptr<Transceiver> {
           new TCITransceiver {logger, {}, QStringLiteral ("0"), address,
-                              true, 0}};
+                              true, poll_interval}};
       };
   }
 
@@ -77,7 +77,8 @@ namespace
       QObject::connect (&server_, &TciSimServer::client_arrived, &server_,
                         [this] (int)
                         {
-                          server_.send_text (startup_greeting ());
+                          if (startup_handler_) startup_handler_ (server_);
+                          else server_.send_text (startup_greeting ());
                         });
       QObject::connect (&server_, &TciSimServer::text_received, &server_,
                         [this] (QString const& text, int generation)
@@ -104,6 +105,7 @@ namespace
     bool start (unsigned sequence_number = 1)
     {
       auto const update_cursor = observations_.size ();
+      auto const failure_cursor = failures_.size ();
       auto const previous_generation = server_.connection_generation ();
       auto * rig = rig_.get ();
       QTimer::singleShot (0, rig,
@@ -112,15 +114,17 @@ namespace
                             rig->start (sequence_number);
                           });
       auto const completed = server_.wait_for (
-        [this, update_cursor, previous_generation, sequence_number]
+        [this, update_cursor, failure_cursor, previous_generation, sequence_number]
         {
-          return server_.client_connected ()
+          return failures_.size () > failure_cursor
+            || (server_.client_connected ()
             && server_.connection_generation () > previous_generation
             && observed_state_since (
               update_cursor, sequence_number,
-              [] (State const& state) {return state.online ();});
+              [] (State const& state) {return state.online ();}));
         }, 7000);
-      return completed && server_.client_connected ()
+      return completed && failures_.size () == failure_cursor
+        && server_.client_connected ()
         && server_.connection_generation () > previous_generation
         && observed_state_since (
           update_cursor, sequence_number,
@@ -181,6 +185,11 @@ namespace
     void set_command_handler (CommandHandler handler)
     {
       command_handler_ = std::move (handler);
+    }
+
+    void set_startup_handler (std::function<void (TciSimServer&)> handler)
+    {
+      startup_handler_ = std::move (handler);
     }
 
     TciSimServer& server () {return server_;}
@@ -363,6 +372,7 @@ namespace
     RigFactory factory_;
     std::unique_ptr<Transceiver> rig_;
     CommandHandler command_handler_;
+    std::function<void (TciSimServer&)> startup_handler_;
     QVector<StateObservation> observations_;
     QStringList failures_;
     State state_;
@@ -843,6 +853,101 @@ private slots:
     QVERIFY (!audio.active);
     QCOMPARE (audio.playout.state, TxEvidence::TxBackendState::Idle);
     QCOMPARE (audio.rms (1023), 0.0);
+  }
+
+  void startup_waits_for_power_after_ready_data ()
+  {
+    QTest::addColumn<QString> ("greeting_end");
+    QTest::addColumn<int> ("start_delay_ms");
+    QTest::addColumn<QString> ("interim_message");
+    QTest::newRow ("start-before-ready") << QStringLiteral ("start;ready;") << -1 << QString {};
+    QTest::newRow ("ready-before-start-same-frame") << QStringLiteral ("ready;start;") << -1 << QString {};
+    QTest::newRow ("ready-before-start-separate-frames") << QStringLiteral ("ready;") << 50 << QString {};
+    QTest::newRow ("repeated-ready-before-start") << QStringLiteral ("ready;") << 50 << QStringLiteral ("ready;");
+    QTest::newRow ("stop-before-start") << QStringLiteral ("ready;") << 50 << QStringLiteral ("stop;");
+    QTest::newRow ("start-without-ready") << QStringLiteral ("start;") << -1 << QString {};
+  }
+
+  void startup_waits_for_power_after_ready ()
+  {
+    QFETCH (QString, greeting_end);
+    QFETCH (int, start_delay_ms);
+    QFETCH (QString, interim_message);
+    auto greeting = TciSimScript::greeting_messages (TciSimGreeting::Thetis);
+    greeting.removeAll (QStringLiteral ("start"));
+    greeting.removeAll (QStringLiteral ("ready"));
+    auto const initial_frame = greeting.join (';') + ';' + greeting_end;
+    RigHarness harness;
+    harness.set_startup_handler (
+      [initial_frame, start_delay_ms, interim_message] (TciSimServer& server)
+      {
+        server.send_text (initial_frame);
+        if (!interim_message.isEmpty ())
+          server.send_text_later (interim_message, 10);
+        if (start_delay_ms >= 0)
+          server.send_text_later (QStringLiteral ("start;"), start_delay_ms);
+      });
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY (harness.state ().online ());
+    QCOMPARE (harness.failure_count (), 0);
+  }
+
+  void startup_without_power_remains_offline ()
+  {
+    RigHarness harness;
+    harness.set_startup_handler ([] (TciSimServer& server)
+      {
+        server.send_text (QStringLiteral ("protocol:Thetis,1.6;ready;"));
+        server.send_text_later (QStringLiteral ("ready;"), 20);
+      });
+    QVERIFY (harness.listen ());
+    QElapsedTimer elapsed;
+    elapsed.start ();
+    QVERIFY (!harness.start ());
+    QVERIFY2 (harness.diagnostics ().contains ("failure=TCI SDR is not switched on"),
+              qPrintable (harness.diagnostics ()));
+    QVERIFY (!harness.state ().online ());
+    QCOMPARE (harness.server ().count (Direction::ClientToServer, "start"), 0);
+    QVERIFY (elapsed.elapsed () < 4000);
+  }
+
+  void startup_can_request_power_after_ready ()
+  {
+    RigHarness harness {legacy_rig_factory (rig__power)};
+    harness.set_startup_handler ([] (TciSimServer& server)
+      {
+        auto greeting = TciSimScript::greeting_messages (TciSimGreeting::Thetis);
+        greeting.removeAll (QStringLiteral ("start"));
+        server.send_text (greeting.join (';') + ';');
+      });
+    harness.set_command_handler ([&harness] (QString const& verb, QStringList const&, int)
+      {
+        if (verb != "start") return false;
+        harness.server ().send_text (QStringLiteral ("ready;"));
+        harness.server ().send_text_later (QStringLiteral ("start;"), 50);
+        return true;
+      });
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY (harness.state ().online ());
+    QCOMPARE (harness.failure_count (), 0);
+    QCOMPARE (harness.server ().count (Direction::ClientToServer, "start"), 1);
+  }
+
+  void startup_disconnect_before_power_remains_offline ()
+  {
+    RigHarness harness;
+    harness.set_startup_handler ([] (TciSimServer& server)
+      {
+        server.send_text (QStringLiteral ("protocol:Thetis,1.6;ready;"));
+        QTimer::singleShot (20, &server, [&server] {server.close_client ();});
+      });
+    QVERIFY (harness.listen ());
+    QVERIFY (!harness.start ());
+    QVERIFY (!harness.state ().online ());
+    QVERIFY2 (harness.diagnostics ().contains ("failure=TCI connection closed during startup"),
+              qPrintable (harness.diagnostics ()));
   }
 
   void startup_adopts_greeting_and_preserves_framing ()
