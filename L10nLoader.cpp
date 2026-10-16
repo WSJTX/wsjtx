@@ -7,7 +7,7 @@
 #include <QLocale>
 #include <QTranslator>
 #include <QRegularExpression>
-#include <QDebug>
+#include <QDir>
 
 #include "qt_helpers.hpp"
 #include "Logger.hpp"
@@ -69,153 +69,46 @@ L10nLoader::L10nLoader (QApplication * app, QLocale const& locale, QString const
      .arg (QLocale::countryToString (locale.country ()))
      .arg (locale.uiLanguages ().join (", ")));
 
-  // we  don't load  translators  if the  language  override is  'en',
-  // 'en_US', or 'en-US'. In these cases  we assume the user is trying
-  // to disable translations loaded because of their locale. We cannot
-  // load any locale based translations in this case.
-  auto skip_locale = language_override.contains (QRegularExpression {"^(?:en|en[-_]US)$"});
-
-  //
-  // Enable base i18n
-  //
-  QString translations_dir {":/Translations"};
-  if (!skip_locale)
+  // Explicit source English must also bypass local catalogs used by translators.
+  if (language_override.contains (QRegularExpression {"^(?:en|en[-_]US)$"}))
     {
-      LOG_TRACE ("Looking for locale based Qt translations in resources filesystem");
-      if (m_->load_translator (locale, "qt", "_", translations_dir))
-        {
-          LOG_INFO ("Loaded Qt translations for current locale from resources");
-        }
-
-      // Default translations for releases  use translations stored in
-      // the   resources   file    system   under   the   Translations
-      // directory. These are built by the CMake build system from .ts
-      // files in the translations source directory. New languages are
-      // added by  enabling the  UPDATE_TRANSLATIONS CMake  option and
-      // building with the  new language added to  the LANGUAGES CMake
-      // list  variable.  UPDATE_TRANSLATIONS  will preserve  existing
-      // translations  but   should  only  be  set   when  adding  new
-      // languages.  The  resulting .ts  files should be  checked info
-      // source control for translators to access and update.
-
-      // try and load the base translation
-      LOG_TRACE ("Looking for WSJT-X translations based on UI languages in the resources filesystem");
-      for (QString locale_name : locale.uiLanguages ())
-        {
-          auto language = locale_name.left (2);
-          if (locale.uiLanguages ().front ().left (2) == language)
-            {
-              LOG_TRACE (QString {"Trying %1"}.arg (language));
-              if (m_->load_translator ("wsjtx_" + language, translations_dir))
-                {
-                  LOG_INFO (QString {"Loaded WSJT-X base translation file from %1 based on language %2"}
-                     .arg (translations_dir)
-                     .arg (language));
-                  break;
-                }
-            }
-        }
-      // now try and load the most specific translations (may be a
-      // duplicate but we shouldn't care)
-      LOG_TRACE ("Looking for WSJT-X translations based on locale in the resources filesystem");
-      if (m_->load_translator (locale, "wsjtx", "_", translations_dir))
-        {
-          LOG_INFO ("Loaded WSJT-X translations for current locale from resources");
-        }
-    }
-  
-  // Load  any matching  translation  from  the current  directory
-  // using the command line  option language override. This allows
-  // translators to  easily test  their translations  by releasing
-  // (lrelease)  a .qm  file  into the  current  directory with  a
-  // suitable name  (e.g.  wsjtx_en_GB.qm), then running  wsjtx to
-  // view the  results.
-  if (language_override.size ())
-    {
-      auto language = language_override;
-      language.replace ('-', '_');
-      // try and load the base translation
-      auto base_language = language.left (2);
-      LOG_TRACE ("Looking for WSJT-X translations based on command line region override in the resources filesystem");
-      if (m_->load_translator ("wsjtx_" + base_language, translations_dir))
-        {
-          LOG_INFO (QString {"Loaded base translation file from %1 based on language %2"}
-             .arg (translations_dir)
-             .arg (base_language));
-        }
-      // now load the requested translations (may be a duplicate
-      // but we shouldn't care)
-      LOG_TRACE ("Looking for WSJT-X translations based on command line override country in the resources filesystem");
-      if (m_->load_translator ("wsjtx_" + language, translations_dir))
-        {
-          LOG_INFO (QString {"Loaded translation file from %1 based on language %2"}
-              .arg (translations_dir)
-             .arg (language));
-        }
+      return;
     }
 
-  // Load any  matching translation  from the current  directory using
-  // the current locale. This allows  translators to easily test their
-  // translations by releasing (lrelease) a  .qm file into the current
-  // directory  with  a  suitable name  (e.g.   wsjtx_en_GB.qm),  then
-  // running wsjtx to view the results. The system locale setting will
-  // be used to select the translation file which can be overridden by
-  // the LANG environment variable on non-Windows system.
+  // System locales retain the OS preference list; explicit choices use one language.
+  QLocale const selected_locale {language_override.isEmpty () ? locale : QLocale {language_override}};
+  auto const ui_languages = selected_locale.uiLanguages ();
+  auto const primary_locale = ui_languages.isEmpty () ? selected_locale : QLocale {ui_languages.front ()};
+  auto const base_language = primary_locale.name ().section ('_', 0, 0);
+  QString const translations_dir {":/Translations"};
 
-  // try and load the base translation
-  LOG_TRACE ("Looking for WSJT-X translations based on command line override country in the current directory");
-  for (QString locale_name : locale.uiLanguages ())
+  LOG_INFO (QString {"Selected interface language: %1"}.arg (selected_locale.name ()));
+  if (m_->load_translator (selected_locale, "qt", "_", translations_dir))
     {
-      auto language = locale_name.left (2);
-      if (locale.uiLanguages ().front ().left (2) == language)
-        {
-          LOG_TRACE (QString {"Trying %1"}.arg (language));
-          if (m_->load_translator ("wsjtx_" + language))
-            {
-              LOG_INFO (QString {"Loaded base translation file from $cwd based on language %1"}.arg (language));
-              break;
-            }
-        }
+      LOG_INFO ("Loaded Qt translations for selected language from resources");
     }
 
-  if (!skip_locale)
-    {
-      // now try  and load  the most specific  translations (may  be a
-      // duplicate but we shouldn't care)
-      LOG_TRACE ("Looking for WSJT-X translations based on locale in the resources filesystem");
-      if (m_->load_translator (locale, "wsjtx", "_"))
-        {
-          LOG_INFO ("loaded translations for current locale from a file");
-        }
-    }
+  // Install base catalogs first so regional catalogs can override individual strings.
+  m_->load_translator ("wsjtx_" + base_language, translations_dir);
+  m_->load_translator (selected_locale, "wsjtx", "_", translations_dir);
 
-  // Load any  matching translation  from the current  directory using
-  // the   command  line   option  language   override.  This   allows
-  // translators  to  easily test  their  translations  on Windows  by
-  // releasing (lrelease) a .qm file into the current directory with a
-  // suitable name (e.g.  wsjtx_en_GB.qm),  then running wsjtx to view
-  // the results.
-  if (language_override.size ())
-    {
-      auto language = language_override;
-      language.replace ('-', '_');
-      // try and load the base translation
-      auto base_language = language.left (2);
-      LOG_TRACE ("Looking for WSJT-X translations based on command line override country in the current directory");
-      if (m_->load_translator ("wsjtx_" + base_language))
-        {
-          LOG_INFO (QString {"Loaded base translation file from $cwd based on language %1"}.arg (base_language));
-        }
-      // now load the requested translations (may be a duplicate
-      // but we shouldn't care)
-      LOG_TRACE ("Looking for WSJT-X translations based on command line region in the current directory");
-      if (m_->load_translator ("wsjtx_" + language))
-        {
-          LOG_INFO (QString {"loaded translation file from $cwd based on language %1"}.arg (language));
-        }
-    }
+  // Local catalogs let translators preview only the selected interface language.
+  m_->load_translator ("wsjtx_" + base_language);
+  m_->load_translator (selected_locale, "wsjtx", "_");
 }
 
 L10nLoader::~L10nLoader ()
 {
+}
+
+QStringList L10nLoader::available_languages ()
+{
+  QStringList languages {"en"};
+  for (auto const& filename : QDir {":/Translations"}.entryList ({"wsjtx_*.qm"}, QDir::Files))
+    {
+      languages.append (filename.mid (6, filename.size () - 9));
+    }
+  languages.removeDuplicates ();
+  languages.sort ();
+  return languages;
 }

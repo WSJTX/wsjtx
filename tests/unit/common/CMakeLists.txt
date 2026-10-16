@@ -362,3 +362,31 @@ add_test (NAME test_mainwindow_compact_controls_scaled COMMAND test_mainwindow_c
 set_tests_properties (test_mainwindow_compact_controls_scaled PROPERTIES
   ENVIRONMENT "QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
 )
+
+qt5_add_translation (test_l10n_QM_FILES
+  l10n/wsjtx_hu.ts
+  l10n/wsjtx_de.ts
+  l10n/wsjtx_de_AT.ts
+  l10n/wsjtx_en_GB.ts
+  l10n/qt_hu.ts
+  l10n/qt_de.ts
+  l10n/local_de.ts
+)
+set (test_l10n_RESOURCES "<RCC><qresource prefix=\"/Translations\">")
+foreach (catalog ${test_l10n_QM_FILES})
+  get_filename_component (catalog_name ${catalog} NAME)
+  string (APPEND test_l10n_RESOURCES "<file alias=\"${catalog_name}\">${catalog}</file>")
+endforeach ()
+string (APPEND test_l10n_RESOURCES "</qresource></RCC>")
+file (WRITE ${CMAKE_CURRENT_BINARY_DIR}/test_l10n.qrc "${test_l10n_RESOURCES}")
+qt5_add_resources (test_l10n_RCC ${CMAKE_CURRENT_BINARY_DIR}/test_l10n.qrc)
+add_executable (test_l10n_loader
+  test_l10n_loader.cpp
+  ${CMAKE_SOURCE_DIR}/L10nLoader.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
+  ${test_l10n_QM_FILES}
+  ${test_l10n_RCC}
+)
+target_link_libraries (test_l10n_loader Boost::log_setup Qt5::Test Qt5::Widgets Qt5::Network)
+add_test (NAME test_l10n_loader COMMAND test_l10n_loader)
+set_tests_properties (test_l10n_loader PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
