@@ -273,6 +273,7 @@ set (wsjt_FSRCS
   lib/iso_c_utilities.f90
   lib/streaming_period.f90
   lib/streaming_emit.f90
+  lib/stdcall_suffix.f90
   lib/streaming_control.f90
   lib/jt9_params_init.f90
   lib/streaming_apply.f90

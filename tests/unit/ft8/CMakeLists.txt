@@ -66,3 +66,8 @@ if (TARGET wsjt_fort_omp)
       ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
   endif ()
 endif ()
+
+add_executable (test_ft8_a7_suffix_calls test_ft8_a7_suffix_calls.f90)
+target_include_directories (test_ft8_a7_suffix_calls PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_ft8_a7_suffix_calls)
+add_test (NAME test_ft8_a7_suffix_calls COMMAND test_ft8_a7_suffix_calls)
