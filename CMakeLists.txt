@@ -1111,6 +1111,10 @@ if (WSJT_ENABLE_TSAN)
   target_compile_definitions (wsjtx PRIVATE WSJT_TSAN_TEST_PROFILE)
 endif ()
 
+if (APPLE AND WSJT_ENABLE_TESTS)
+  add_subdirectory (tests/macos)
+endif ()
+
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
   set (wsjtx_startup_test_root
     "${CMAKE_BINARY_DIR}/Testing/Startup/test_wsjtx_startup")
