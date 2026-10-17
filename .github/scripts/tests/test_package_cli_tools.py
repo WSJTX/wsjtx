@@ -26,8 +26,16 @@ if [ -f "$fixture" ]; then cat "$fixture"; fi
 """
 
 READELF_STUB = """#!/bin/sh
-case "$1" in -dW) kind=d ;; -VW) kind=V ;; *) exit 2 ;; esac
-fixture="$STUB_FIXTURES/readelf.$kind.$(basename "$2")"
+case "$1" in
+  -dW) kind=d ;;
+  -VW) kind=V ;;
+  -hW) printf '%s\\n' 'Class: ELF32' 'Machine: ARM' 'Flags: Version5 EABI, hard-float ABI'; exit 0 ;;
+  -lW) echo '/lib/ld-linux-armhf.so.3'; exit 0 ;;
+  *) exit 2 ;;
+esac
+shift
+[ "$1" != -- ] || shift
+fixture="$STUB_FIXTURES/readelf.$kind.$(basename "$1")"
 if [ -f "$fixture" ]; then cat "$fixture"; fi
 """
 
@@ -480,6 +488,43 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertTrue(log[0].startswith("--appimage-extract-and-run --appdir "), log[0])
         self.assertTrue(log[0].endswith(f"--executable {self.source}/jt9"), log[0])
         self.assertEqual(log[1:3], ["token=unset", "extract=1"])
+
+    def test_armhf_distro_tarballs_have_distinct_names_and_top_directories(self):
+        self.linux_build()
+        (self.bin / "file").write_text(
+            "#!/bin/sh\necho 'ELF 32-bit LSB shared object, ARM, EABI5 version 1'\n",
+            encoding="utf-8",
+        )
+        (self.bin / "file").chmod(0o755)
+        (self.bin / "dpkg").write_text(
+            "#!/bin/sh\npython3 -c 'import sys; sys.exit(not (tuple(map(int, sys.argv[1].split(\".\"))) > tuple(map(int, sys.argv[2].split(\".\")))))' \"$2\" \"$4\"\n",
+            encoding="utf-8",
+        )
+        (self.bin / "dpkg").chmod(0o755)
+        for distro in ("bookworm", "trixie"):
+            with self.subTest(distro=distro):
+                result = self.package(
+                    "linux", ["codec wsjt-codec"], "--arch", "armhf",
+                    "--distro", distro, "--linuxdeploy", str(self.bin / "linuxdeploy"),
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                name = f"wsjtx-9.9.9-linux-armhf-{distro}-codec"
+                self.assertIn("bin/wsjt-codec", self.members(name))
+                self.assertIn(f"for linux-armhf-{distro}", self.text(name, "README.txt"))
+        self.assertEqual(len(list(self.out.glob("*.tar.gz"))), 2)
+
+    def test_distro_is_restricted_to_supported_armhf_linux_targets(self):
+        for platform, arch, distro in (
+            ("linux", "x86_64", "bookworm"),
+            ("macos", "armhf", "bookworm"),
+            ("linux", "armhf", "sid"),
+        ):
+            with self.subTest(platform=platform, arch=arch, distro=distro):
+                result = self.package(
+                    platform, ["codec wsjt-codec"], "--arch", arch, "--distro", distro,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("--distro requires linux armhf", result.stderr)
 
     def test_linux_library_neither_bundled_nor_excluded_fails(self):
         self.linux_build()

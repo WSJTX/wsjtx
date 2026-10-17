@@ -4,7 +4,7 @@
 #
 #   package-cli-tools.sh --platform macos|linux|windows --version V --arch A \
 #       --groups FILE --source DIR --out DIR \
-#       [--dll-dir DIR --system-dir DIR] [--linuxdeploy COMMAND]
+#       [--dll-dir DIR --system-dir DIR] [--linuxdeploy COMMAND] [--distro bookworm|trixie]
 #
 # wsjtx-V-<target>-<tarball>.tar.gz holds one directory of the same name: the
 # tarball's programs, every library they load beyond the operating system's,
@@ -34,11 +34,13 @@
 set -euo pipefail
 
 PLATFORM=""; VERSION=""; ARCH=""; GROUPS_FILE=""; SOURCE=""; OUT=""; DLL_DIR=""; SYSTEM_DIR=""; LINUXDEPLOY=""
+DISTRO=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --platform) PLATFORM="$2"; shift 2 ;;
     --version) VERSION="$2"; shift 2 ;;
     --arch) ARCH="$2"; shift 2 ;;
+    --distro) DISTRO="$2"; shift 2 ;;
     --groups) GROUPS_FILE="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
@@ -48,6 +50,12 @@ while [ "$#" -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+if [ -n "$DISTRO" ]; then
+  case "$PLATFORM:$ARCH:$DISTRO" in
+    linux:armhf:bookworm|linux:armhf:trixie) ;;
+    *) echo "--distro requires linux armhf and bookworm or trixie" >&2; exit 2 ;;
+  esac
+fi
 for option in PLATFORM VERSION ARCH GROUPS_FILE SOURCE OUT; do
   if [ -z "${!option}" ]; then echo "missing --$(echo "${option%_FILE}" | tr '[:upper:]' '[:lower:]')" >&2; exit 2; fi
 done
@@ -57,12 +65,16 @@ COPYING="${SCRIPTS}/../../COPYING"
 NOTICES_TABLE="${SCRIPTS}/third-party-libraries.tsv"
 EXCLUDELIST="${SCRIPTS}/linuxdeploy-excludelist.txt"
 LICENSE_PAGE="${SCRIPTS}/../../doc/common/license.adoc"
+if [ -n "$DISTRO" ]; then
+  # shellcheck source=.github/scripts/linux-artifact-validation.sh
+  source "${SCRIPTS}/linux-artifact-validation.sh"
+fi
 
 fail() { echo "::error::$*" >&2; exit 1; }
 
 case "$PLATFORM" in
   macos) TARGET="${ARCH}-macOS"; EXT="" ;;
-  linux) TARGET="linux-${ARCH}"; EXT=""
+  linux) TARGET="linux-${ARCH}${DISTRO:+-${DISTRO}}"; EXT=""
     [ -n "$LINUXDEPLOY" ] || { echo "::error::--linuxdeploy is required for linux" >&2; exit 2; } ;;
   windows) TARGET="windows-${ARCH}"; EXT=".exe"
     [ -n "$DLL_DIR" ] && [ -d "$DLL_DIR" ] || { echo "::error::--dll-dir is required for windows" >&2; exit 2; }
@@ -484,6 +496,9 @@ for index in "${!GROUP_NAMES[@]}"; do
     linux)
       linux_deploy "$group" $programs
       linux_check
+      if [ -n "$DISTRO" ]; then
+        validate_armhf_elf_tree "$DEST" "$DISTRO"
+      fi
       ;;
     windows)
       for program in $programs; do cp "${SOURCE}/${program}.exe" "${DEST}/"; done

@@ -15,17 +15,18 @@ cd /work
 source .github/scripts/armhf-ci-image-config.sh
 # shellcheck source=.github/scripts/linux-artifact-validation.sh
 source .github/scripts/linux-artifact-validation.sh
+TARGET="linux-${ARCH}-${ARMHF_DISTRO:-bookworm}"
 export LD_LIBRARY_PATH="$ARMHF_RUNTIME_PREFIX"
 
 echo "::group::Package .deb"
 (
   cd wsjtx-build
   cpack -G DEB \
-    -D "CPACK_DEBIAN_FILE_NAME=wsjtx-${VERSION}-linux-${ARCH}.deb" \
+    -D "CPACK_DEBIAN_FILE_NAME=wsjtx-${VERSION}-${TARGET}.deb" \
     -D "CPACK_INSTALL_CMAKE_PROJECTS=" \
     -D "CPACK_INSTALLED_DIRECTORIES=/work/AppDir;/"
 )
-DEB="wsjtx-build/wsjtx-${VERSION}-linux-${ARCH}.deb"
+DEB="wsjtx-build/wsjtx-${VERSION}-${TARGET}.deb"
 if [ ! -f "$DEB" ]; then
   echo "::error::cpack -G DEB produced no package at $DEB"
   exit 1
@@ -43,15 +44,15 @@ echo "::group::Package RPM"
 (
   cd wsjtx-build
   cpack -G RPM \
+    -D "CPACK_RPM_FILE_NAME=wsjtx-${VERSION}-${TARGET}.rpm" \
     -D "CPACK_INSTALL_CMAKE_PROJECTS=" \
     -D "CPACK_INSTALLED_DIRECTORIES=/work/AppDir;/"
 )
-rpms=(wsjtx-build/*.rpm)
-if [ ! -f "${rpms[0]}" ]; then
+RPM="wsjtx-build/wsjtx-${VERSION}-${TARGET}.rpm"
+if [ ! -f "$RPM" ]; then
   echo "::error::cpack -G RPM produced no package"
   exit 1
 fi
-RPM=${rpms[0]}
 rpm_arch="$(rpm -qp --qf '%{ARCH}' "$RPM")"
 case "$rpm_arch" in
   armv7hl|armv7l) ;;
@@ -64,6 +65,7 @@ echo "::endgroup::"
 
 echo "::group::Validate AppDir"
 validate_linux_application_tree AppDir appdir "$ARCH"
+validate_armhf_elf_tree AppDir "${ARMHF_DISTRO:-bookworm}"
 echo "::endgroup::"
 
 echo "::group::Package AppImage"
@@ -103,7 +105,7 @@ for target in AppDir/usr/bin/wsjtx AppDir/usr/bin/jt9 AppDir/usr/bin/qmap \
 done
 
 export APPIMAGE_EXTRACT_AND_RUN=1
-export OUTPUT="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
+export OUTPUT="wsjtx-${VERSION}-${TARGET}.AppImage"
 env -u GITHUB_TOKEN PATH="/work/wsjtx-build/appimage-tools:$PATH" \
   ./linuxdeploy.AppImage --appimage-extract-and-run \
   --appdir AppDir \
@@ -117,6 +119,7 @@ echo "::endgroup::"
 echo "::group::Validate AppImage payload"
 ./"$OUTPUT" --appimage-extract >/dev/null
 validate_linux_application_tree squashfs-root appimage "$ARCH"
+validate_armhf_elf_tree squashfs-root "${ARMHF_DISTRO:-bookworm}"
 rm -rf /work/squashfs-root
 echo "::endgroup::"
 
@@ -130,6 +133,7 @@ PATH="/work/wsjtx-build/appimage-tools:$PATH" .github/scripts/package-cli-tools.
   --platform linux \
   --version "$VERSION" \
   --arch "$ARCH" \
+  --distro "${ARMHF_DISTRO:-bookworm}" \
   --groups CMake/release-tarballs.txt \
   --source wsjtx-build \
   --linuxdeploy /work/linuxdeploy.AppImage \
@@ -142,9 +146,9 @@ echo "::group::Smoke-test release tarballs"
 .github/scripts/smoke-release-tarballs.sh \
   --platform linux \
   --version "$VERSION" \
-  --target "linux-$ARCH" \
+  --target "$TARGET" \
   --groups CMake/release-tarballs.txt \
   --dir release-tarballs
 echo "::endgroup::"
 
-echo "ARMHF package phase complete for version=$VERSION"
+echo "ARMHF package phase complete for version=$VERSION target=$TARGET"
