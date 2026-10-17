@@ -72,6 +72,15 @@ program test_streaming_control
   call expect_call('{"t":"configure","mycall":"ABC}', '')
   call expect_call('{"t":"configure","mycall":"' // repeat('K', 200) // '"}', repeat('K', 12))
 
+  ! The GUI's "Decode after EME delay" and its live audio; both are booleans.
+  call expect_flags('{"t":"configure","decode_after_eme_delay":true,"live_audio":false}', &
+       .true., .true., .true., .false., '')
+  call expect_flags('{"t":"configure","live_audio":true}', .false., .false., .true., .true., '')
+  call expect_flags('{"t":"configure","decode_after_eme_delay":"yes"}', .false., .false., &
+       .false., .false., 'decode_after_eme_delay')
+  call expect_flags('{"t":"configure","live_audio":1}', .false., .false., .false., .false., &
+       'live_audio')
+
   if (nfail .eq. 0) then
      print '(a)', 'ALL STREAMING CONTROL CHECKS PASSED'
   else
@@ -117,6 +126,33 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_mode
+
+  ! The two flags as parsed, or the key a type error names.
+  subroutine expect_flags(frame, eme_set, eme, live_set, live, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    logical,          intent(in) :: eme_set, eme, live_set, live
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            (cfg%decode_after_eme_delay_set .eqv. eme_set) .and.             &
+            (cfg%live_audio_set .eqv. live_set) .and.                         &
+            (.not. eme_set .or. (cfg%decode_after_eme_delay .eqv. eme)) .and. &
+            (.not. live_set .or. (cfg%live_audio .eqv. live))
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_flags
 
   subroutine expect_tx_mode_unset(frame)
     character(len=*), intent(in) :: frame
