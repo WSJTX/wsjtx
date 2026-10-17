@@ -14,6 +14,8 @@ git clone --depth 1 --branch "$branch" \
   https://github.com/Hamlib/Hamlib.git hamlib-src
 git -C hamlib-src apply --check "$script_dir/../patches/hamlib-funcube-windows-hid.patch"
 git -C hamlib-src apply "$script_dir/../patches/hamlib-funcube-windows-hid.patch"
+git -C hamlib-src apply --check "$script_dir/../patches/hamlib-windows-precise-time.patch"
+git -C hamlib-src apply "$script_dir/../patches/hamlib-windows-precise-time.patch"
 python3 "$script_dir/tests/test_hamlib_funcube_patch.py" hamlib-src
 cd hamlib-src
 ./bootstrap
@@ -24,5 +26,9 @@ cd hamlib-src
   --without-readline \
   CFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections" \
   LDFLAGS="-Wl,--gc-sections"
+gcc -DNDEBUG -Iinclude lib/precise_time.c \
+  "$script_dir/tests/test_hamlib_precise_time.c" \
+  -lwinpthread -o test-hamlib-precise-time.exe
+./test-hamlib-precise-time.exe
 make -j"$(nproc)"
 make install-strip

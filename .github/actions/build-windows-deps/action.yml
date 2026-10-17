@@ -155,7 +155,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: hamlib-prefix
-        key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch2-${{ hashFiles('.github/scripts/build-hamlib-windows.sh', '.github/patches/hamlib-funcube-windows-hid.patch', '.github/scripts/tests/test_hamlib_funcube_patch.py') }}
+        key: hamlib-windows-windows-latest-ucrt64-${{ inputs.hamlib_branch }}-epoch2-${{ hashFiles('.github/scripts/build-hamlib-windows.sh', '.github/patches/hamlib-funcube-windows-hid.patch', '.github/patches/hamlib-windows-precise-time.patch', '.github/scripts/tests/test_hamlib_funcube_patch.py', '.github/scripts/tests/test_hamlib_precise_time.c') }}
 
     - name: Build Hamlib
       id: hamlib-build
