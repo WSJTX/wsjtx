@@ -62,8 +62,12 @@ module jtty_mdec
   ! permissive channel-0 sync gate and still yield a TBCC codeword, producing a
   ! plausible but false frame such as "IG4QXF TU". Such aliases overlap a
   ! recent frame in time, lie within ALIAS_FREQ_TONES tone spacings of it, are
-  ! not frame-aligned with it, and have weak sync.
+  ! not frame-aligned with it, and have weak sync. Because an alias is the
+  ! same transmitter seen through a shifted window, its offset from that frame
+  ! is (nearly) a whole number of symbols; an independent station overlapping
+  ! at a fractional-symbol offset is left alone.
   real, parameter           :: ALIAS_FREQ_TONES = 1.5
+  real, parameter           :: ALIAS_MAX_SYMBOL_FRACTION = 0.25
   integer, parameter        :: ALIAS_MAX_NSYNC = 9
   ! pn leaks ~SNR_LEAKAGE_K*pt of signal power; corrected ratio still asymptotes near (1-k)/k for very strong signals.
   real, parameter           :: SNR_LEAKAGE_K = 0.048
@@ -278,7 +282,7 @@ contains
       real, intent(in) :: f1,tone_spacing,frame_period
       real(real64), intent(in) :: tsync
       integer, intent(in) :: nsync
-      real(real64) :: dt,resid
+      real(real64) :: dt,resid,nsym
       integer :: i
 
       is_frame_alias=.false.
@@ -287,6 +291,8 @@ contains
          if(abs(f1-recent_frames(i)%f1).ge.ALIAS_FREQ_TONES*tone_spacing) cycle
          dt=tsync-recent_frames(i)%tsync
          if(abs(dt).ge.frame_period) cycle
+         nsym=dt*tone_spacing          ! offset in symbols (tone spacing = baud)
+         if(abs(nsym-anint(nsym)).gt.ALIAS_MAX_SYMBOL_FRACTION) cycle
          resid=min(abs(dt),frame_period-abs(dt))
          if(resid.lt.CONTINUATION_TIME_TOLERANCE .and. &
               abs(f1-recent_frames(i)%f1).lt.NEAR_SIMULTANEOUS_FREQ_TOLERANCE) cycle
