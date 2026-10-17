@@ -53,6 +53,8 @@ case "$role" in
     toolchain_id="gcc${compiler_version}-${arch}-${identity_sha256:0:20}"
     {
       printf 'schema=%s\n' "$ARMHF_CI_IMAGE_SCHEMA"
+      printf 'distro=%s\n' "$ARMHF_DISTRO"
+      printf 'time_bits=%s\n' "$ARMHF_TIME_BITS"
       printf 'role=%s\n' "$role"
       printf 'architecture=%s\n' "$arch"
       printf 'generation=%s\n' "$generation"
@@ -71,9 +73,11 @@ case "$role" in
       printf 'hamlib_commit=%s\n' "$LINUX_HAMLIB_COMMIT"
       printf 'hamlib_sha256=%s\n' "$hamlib_sha256"
       printf 'glibc_version=%s\n' "$ARMHF_GLIBC_VERSION"
-      printf 'binutils_version=%s\n' "$ARMHF_BINUTILS_VERSION"
-      printf 'linux_headers_version=%s\n' "$ARMHF_LINUX_HEADERS_VERSION"
-      printf 'minimum_kernel_version=%s\n' "$ARMHF_MIN_KERNEL_VERSION"
+      if [ "$ARMHF_DISTRO" = bookworm ]; then
+        printf 'binutils_version=%s\n' "$ARMHF_BINUTILS_VERSION"
+        printf 'linux_headers_version=%s\n' "$ARMHF_LINUX_HEADERS_VERSION"
+        printf 'minimum_kernel_version=%s\n' "$ARMHF_MIN_KERNEL_VERSION"
+      fi
       printf 'quadmath_runtime=%s\n' unavailable-on-arm
     } > "$manifest_dir/image.env"
     ;;
@@ -85,6 +89,12 @@ case "$role" in
     fi
     # shellcheck disable=SC1090
     . "$cross_manifest"
+    if [ "${distro:-}" != "$ARMHF_DISTRO" ] ||
+       [ "${time_bits:-}" != "$ARMHF_TIME_BITS" ] ||
+       [ "${glibc_version:-}" != "$ARMHF_GLIBC_VERSION" ]; then
+      echo "Cross-builder and runtime ARMHF ABI profiles differ" >&2
+      exit 1
+    fi
     cross_generation=$generation
     cross_recipe_sha256=$recipe_sha256
     cross_toolchain_id=$toolchain_id
@@ -99,6 +109,11 @@ case "$role" in
     fi
     {
       printf 'schema=%s\n' "$ARMHF_CI_IMAGE_SCHEMA"
+      printf 'distro=%s\n' "$ARMHF_DISTRO"
+      printf 'time_bits=%s\n' "$ARMHF_TIME_BITS"
+      printf 'compiler_version=%s\n' "$compiler_version"
+      printf 'compiler_target=%s\n' "$compiler_target"
+      printf 'sysroot_package_sha256=%s\n' "$sysroot_package_sha256"
       printf 'role=%s\n' "$requested_role"
       printf 'architecture=%s\n' "$requested_arch"
       printf 'generation=%s\n' "$requested_generation"

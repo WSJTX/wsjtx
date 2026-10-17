@@ -1,10 +1,18 @@
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR armv7l)
+set(WSJT_ARMHF_DISTRO "$ENV{ARMHF_DISTRO}" CACHE STRING "ARMHF Debian baseline")
+if(WSJT_ARMHF_DISTRO STREQUAL "")
+  set(WSJT_ARMHF_DISTRO bookworm CACHE STRING "ARMHF Debian baseline" FORCE)
+endif()
+if(NOT WSJT_ARMHF_DISTRO MATCHES "^(bookworm|trixie)$")
+  message(FATAL_ERROR "Unsupported ARMHF Debian baseline: ${WSJT_ARMHF_DISTRO}")
+endif()
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES WSJT_ARMHF_DISTRO)
 
 set(WSJT_ARMHF_TOOLCHAIN_PREFIX "/opt/wsjtx/armhf-toolchain"
     CACHE PATH "ARMHF cross-toolchain prefix")
 set(WSJT_ARMHF_SYSROOT "/opt/wsjtx/armhf-sysroot"
-    CACHE PATH "Debian Bookworm ARMHF sysroot")
+    CACHE PATH "Debian ARMHF sysroot")
 set(WSJT_QT_HOST_PATH "/usr/lib/qt5/bin"
     CACHE PATH "Native Qt 5 tools used while cross-compiling")
 set(WSJT_QT_TARGET_TRANSLATIONS_DIR
@@ -41,6 +49,10 @@ set(_wsjt_armhf_lib "${WSJT_ARMHF_SYSROOT}/usr/lib/${_wsjt_armhf_triplet}")
 set(_wsjt_armhf_base_lib "${WSJT_ARMHF_SYSROOT}/lib/${_wsjt_armhf_triplet}")
 set(CMAKE_C_FLAGS_INIT "-isystem ${_wsjt_armhf_include}")
 set(CMAKE_CXX_FLAGS_INIT "-isystem ${_wsjt_armhf_include}")
+if(WSJT_ARMHF_DISTRO STREQUAL "trixie")
+  string(APPEND CMAKE_C_FLAGS_INIT " -D_TIME_BITS=64 -D_FILE_OFFSET_BITS=64")
+  string(APPEND CMAKE_CXX_FLAGS_INIT " -D_TIME_BITS=64 -D_FILE_OFFSET_BITS=64")
+endif()
 set(_wsjt_armhf_link_flags
     "-B${_wsjt_armhf_lib}/ -L${_wsjt_armhf_lib} -Wl,-rpath-link,${_wsjt_armhf_lib} -Wl,-rpath-link,${_wsjt_armhf_base_lib}")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "${_wsjt_armhf_link_flags}")

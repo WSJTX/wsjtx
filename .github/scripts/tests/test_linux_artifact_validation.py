@@ -225,6 +225,41 @@ class LinuxArtifactValidationTests(unittest.TestCase):
                 )
                 self.assertNotEqual(result.returncode, 0)
 
+    def test_armhf_bundle_checks_required_glibc_versions_in_libraries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            library = Path(directory) / "libdependency.so.1"
+            library.touch()
+            command = r'''
+file() { printf '%s\n' 'ELF 32-bit LSB shared object, ARM, EABI5 version 1, dynamically linked'; }
+readelf() {
+  case "$1" in
+    -hW) printf '%s\n' 'Class: ELF32' 'Machine: ARM' 'Flags: Version5 EABI, hard-float ABI' ;;
+    -VW) printf '%s\n' "$VERSIONS" ;;
+  esac
+}
+dpkg() { python3 -c 'import sys; sys.exit(not (tuple(map(int, sys.argv[1].split("."))) > tuple(map(int, sys.argv[2].split(".")))))' "$2" "$4"; }
+validate_armhf_elf_tree "$TREE" "$DISTRO"
+'''
+            for distro, version, success in (
+                ("bookworm", "2.36", True),
+                ("bookworm", "2.38", False),
+                ("trixie", "2.38", True),
+                ("trixie", "2.42", False),
+                ("bookworm", "PRIVATE", False),
+            ):
+                with self.subTest(distro=distro, version=version):
+                    result = self.run_helper(
+                        command, TREE=directory, DISTRO=distro,
+                        VERSIONS=(
+                            "Version symbols section '.gnu.version':\n GLIBC_9.99\n"
+                            "Version needs section '.gnu.version_r':\n"
+                            f" Name: GLIBC_{version}\n"
+                        ),
+                    )
+                    self.assertEqual(result.returncode == 0, success, result.stderr)
+                    if not success:
+                        self.assertIn(str(library), result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

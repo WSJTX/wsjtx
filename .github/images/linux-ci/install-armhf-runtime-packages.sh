@@ -6,15 +6,30 @@ packages=(
   binutils cmake dpkg-dev rpm
   libatomic1 libstdc++6 libgfortran5 libgomp1
   libfftw3-single3
-  libboost-atomic1.74.0 libboost-chrono1.74.0 libboost-filesystem1.74.0
-  libboost-log1.74.0 libboost-regex1.74.0 libboost-thread1.74.0
-  libqt5widgets5 libqt5network5 libqt5multimedia5 libqt5printsupport5 libqt5test5
-  libqt5concurrent5
+  libqt5multimedia5
   libqt5multimedia5-plugins libqt5serialport5 libqt5sql5-sqlite
   libqt5websockets5 qt5-qmake-bin qtbase5-dev-tools
   libusb-1.0-0 libudev1 libportaudio2
   xauth xvfb
 )
+
+case "${ARMHF_DISTRO:-bookworm}" in
+  bookworm)
+    boost_version=1.74.0
+    qt_suffix=
+    ;;
+  trixie)
+    boost_version=1.83.0
+    qt_suffix=t64
+    ;;
+  *) echo "Unsupported ARMHF_DISTRO: $ARMHF_DISTRO" >&2; exit 2 ;;
+esac
+for library in atomic chrono filesystem log regex thread; do
+  packages+=("libboost-$library$boost_version")
+done
+for library in widgets network printsupport test concurrent; do
+  packages+=("libqt5${library}5$qt_suffix")
+done
 
 /usr/local/bin/run-apt-get update
 /usr/local/bin/run-apt-get install -y --no-install-recommends "${packages[@]}"

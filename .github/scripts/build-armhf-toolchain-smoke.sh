@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=.github/scripts/armhf-toolchain-config.sh
+. "$(dirname "${BASH_SOURCE[0]}")/armhf-toolchain-config.sh"
+
 if [ "$#" -ne 3 ]; then
   echo "Usage: build-armhf-toolchain-smoke.sh TOOLCHAIN_PREFIX SYSROOT OUTPUT_DIR" >&2
   exit 2
@@ -30,7 +33,11 @@ trap 'rm -rf "$source_dir"' EXIT
 cat > "$source_dir/c.c" <<'EOF'
 #include <stdatomic.h>
 #include <stdio.h>
+#include <time.h>
+_Static_assert(sizeof(time_t) * 8 == WSJT_TIME_BITS, "Unexpected time_t ABI");
 int main(void) {
+  struct timespec now;
+  if (clock_gettime(CLOCK_REALTIME, &now) != 0 || now.tv_sec <= 0) return 1;
   _Atomic long long value = 41;
   printf("c atomic: %lld\n", atomic_fetch_add(&value, 1) + 1);
   return 0;
@@ -40,7 +47,10 @@ cat > "$source_dir/cxx.cpp" <<'EOF'
 #include <iostream>
 #include <numeric>
 #include <vector>
+#include <ctime>
+static_assert(sizeof(time_t) * 8 == WSJT_TIME_BITS, "Unexpected time_t ABI");
 int main() {
+  if (std::time(nullptr) <= 0) return 1;
   std::vector<int> values{1, 2, 3, 4};
   std::cout << "c++ standard library: "
             << std::accumulate(values.begin(), values.end(), 0) << '\n';
@@ -62,9 +72,9 @@ program fortran_smoke
 end program fortran_smoke
 EOF
 
-"${compiler_prefix}-gcc" "${common_flags[@]}" "$source_dir/c.c" -latomic \
+"${compiler_prefix}-gcc" "${common_flags[@]}" "${ARMHF_ABI_FLAGS[@]}" -DWSJT_TIME_BITS="$ARMHF_TIME_BITS" "$source_dir/c.c" -latomic \
   -o "$output_dir/c-smoke"
-"${compiler_prefix}-g++" "${common_flags[@]}" "$source_dir/cxx.cpp" \
+"${compiler_prefix}-g++" "${common_flags[@]}" "${ARMHF_ABI_FLAGS[@]}" -DWSJT_TIME_BITS="$ARMHF_TIME_BITS" "$source_dir/cxx.cpp" \
   -o "$output_dir/cxx-smoke"
 "${compiler_prefix}-gfortran" "${common_flags[@]}" -fopenmp \
   "$source_dir/fortran.f90" -o "$output_dir/fortran-smoke"

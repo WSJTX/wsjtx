@@ -39,7 +39,7 @@ validate_elf_metadata() {
         linux_validation_error "$path does not use the ARM hard-float ABI"
         return 1
       }
-      if [[ "$file_output" == *"dynamically linked"* ]] &&
+      if [[ "$file_output" == *"executable"*"dynamically linked"* ]] &&
         [[ "$program_output" != *"/lib/ld-linux-armhf.so.3"* ]]; then
         linux_validation_error "$path does not request /lib/ld-linux-armhf.so.3"
         return 1
@@ -88,6 +88,51 @@ validate_elf_executable() {
       linux_validation_error "$path must not depend on Qt"
       return 1
     fi
+  fi
+}
+
+validate_armhf_elf_tree() {
+  local root="$1" distro="$2" ceiling path metadata header program dynamic versions version
+  local readelf_command="${READELF:-readelf}" elf_count=0
+  case "$distro" in
+    bookworm) ceiling=2.36 ;;
+    trixie) ceiling=2.41 ;;
+    *) linux_validation_error "Unknown ARMHF distro: $distro"; return 2 ;;
+  esac
+  while IFS= read -r -d '' path; do
+    metadata=$(file -- "$path") || return
+    [[ "$metadata" == *ELF* ]] || continue
+    [[ "$metadata" != *relocatable* ]] || continue
+    header=$("$readelf_command" -hW -- "$path") || return
+    program=$("$readelf_command" -lW -- "$path") || return
+    validate_elf_metadata armhf "$path" "$metadata" "$header" "$program" || return
+    dynamic=$("$readelf_command" -dW -- "$path") || return
+    if [[ "$dynamic" == *"Shared library: [libquadmath.so"* ]]; then
+      linux_validation_error "$path unexpectedly depends on libquadmath"
+      return 1
+    fi
+    versions=$("$readelf_command" -VW -- "$path" | awk '
+      /^Version needs section/ { needs = 1; next }
+      /^Version (definition|symbols) section/ { needs = 0 }
+      needs { print }
+    ') || return
+    if [[ "$versions" == *GLIBC_PRIVATE* ]]; then
+      linux_validation_error "$path requires a private glibc symbol"
+      return 1
+    fi
+    while [[ "$versions" =~ GLIBC_([0-9]+\.[0-9]+(\.[0-9]+)?) ]]; do
+      version=${BASH_REMATCH[1]}
+      versions=${versions#*"${BASH_REMATCH[0]}"}
+      if dpkg --compare-versions "$version" gt "$ceiling"; then
+        linux_validation_error "$path requires GLIBC_$version, above $distro ceiling $ceiling"
+        return 1
+      fi
+    done
+    elf_count=$((elf_count + 1))
+  done < <(find "$root" -type f -print0)
+  if [ "$elf_count" -eq 0 ]; then
+    linux_validation_error "No ELF executables or shared libraries found below $root"
+    return 1
   fi
 }
 

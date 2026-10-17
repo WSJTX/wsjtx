@@ -22,6 +22,7 @@ if [ ! -f "$manifest" ]; then
   exit 1
 fi
 declare schema='' role='' architecture='' generation='' recipe_sha256=''
+declare distro='' time_bits=''
 declare compiler_version='' compiler_target='' compiler_sha256=''
 declare compiler_signature_sha256='' ccache_compatibility_id='' toolchain_id=''
 declare host_dpkg_arch='' package_sha256='' sysroot_package_sha256='' runtime_sha256=''
@@ -99,7 +100,7 @@ verify_glibc_ceiling() {
     ' <<< "$versions"
   )"
   if dpkg --compare-versions "$maximum" gt "$ARMHF_GLIBC_VERSION"; then
-    echo "$path requires GLIBC_$maximum, newer than Bookworm GLIBC_$ARMHF_GLIBC_VERSION" >&2
+    echo "$path requires GLIBC_$maximum, newer than $ARMHF_DISTRO GLIBC_$ARMHF_GLIBC_VERSION" >&2
     exit 1
   fi
 }
@@ -123,6 +124,11 @@ reject_private_glibc_dependency() {
 }
 
 require_equal schema "$ARMHF_CI_IMAGE_SCHEMA" "${schema:-}"
+require_equal distro "$ARMHF_DISTRO" "$distro"
+require_equal time_bits "$ARMHF_TIME_BITS" "$time_bits"
+# shellcheck source=/dev/null
+. /etc/os-release
+require_equal distribution "$ARMHF_DISTRO" "${VERSION_CODENAME:-}"
 require_equal role "$expected_role" "${role:-}"
 require_equal architecture "$expected_arch" "${architecture:-}"
 require_equal hamlib_ref "$expected_hamlib_ref" "${hamlib_ref:-}"
@@ -132,9 +138,9 @@ require_sha256 recipe_sha256 "${recipe_sha256:-}"
 require_sha256 package_sha256 "${package_sha256:-}"
 require_sha256 runtime_sha256 "${runtime_sha256:-}"
 
-profile=armhf-cross-bookworm
+profile=armhf-cross-$ARMHF_DISTRO
 if [ "$expected_role" = runtime ]; then
-  profile=armhf-runtime-bookworm
+  profile=armhf-runtime-$ARMHF_DISTRO
 fi
 if [ -n "${IMAGE_RECIPE_SHA256:-}" ]; then
   expected_recipe=$IMAGE_RECIPE_SHA256
@@ -164,11 +170,16 @@ case "$expected_role" in
   cross-builder)
     compiler="$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc"
     require_equal host_dpkg_arch amd64 "${host_dpkg_arch:-}"
-    require_equal compiler_version "$ARMHF_GCC_VERSION" "${compiler_version:-}"
+    if ! armhf_gcc_version_matches "$compiler_version"; then
+      echo "Unexpected $ARMHF_DISTRO compiler version: $compiler_version" >&2
+      exit 1
+    fi
     require_equal compiler_target "$ARMHF_TARGET_TRIPLET" "${compiler_target:-}"
-    require_equal binutils_version "$ARMHF_BINUTILS_VERSION" "${binutils_version:-}"
-    require_equal linux_headers_version "$ARMHF_LINUX_HEADERS_VERSION" "${linux_headers_version:-}"
-    require_equal minimum_kernel_version "$ARMHF_MIN_KERNEL_VERSION" "${minimum_kernel_version:-}"
+    if [ "$ARMHF_DISTRO" = bookworm ]; then
+      require_equal binutils_version "$ARMHF_BINUTILS_VERSION" "${binutils_version:-}"
+      require_equal linux_headers_version "$ARMHF_LINUX_HEADERS_VERSION" "${linux_headers_version:-}"
+      require_equal minimum_kernel_version "$ARMHF_MIN_KERNEL_VERSION" "${minimum_kernel_version:-}"
+    fi
     require_equal compiler_version "$compiler_version" "$($compiler -dumpfullversion -dumpversion)"
     require_equal compiler_target "$compiler_target" "$($compiler -dumpmachine)"
     compiler_metadata="$(file -L "$compiler")"
@@ -196,11 +207,13 @@ case "$expected_role" in
       "$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET/libQt5Core.so.5" \
       "$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET/qt5/plugins/platforms/libqxcb.so"; do
       require_armhf_elf "$target_file"
+      verify_glibc_ceiling "$target_file"
       reject_quadmath_dependency "$target_file"
       reject_private_glibc_dependency "$target_file"
     done
     for smoke in /opt/wsjtx-ci/toolchain-smoke/*-smoke; do
       require_armhf_elf "$smoke"
+      verify_glibc_ceiling "$smoke"
       reject_quadmath_dependency "$smoke"
       reject_private_glibc_dependency "$smoke"
     done

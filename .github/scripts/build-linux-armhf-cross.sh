@@ -29,7 +29,7 @@ export CXX="$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-g++"
 export FC="$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gfortran"
 for compiler in "$CC" "$CXX" "$FC"; do
   version="$("$compiler" -dumpfullversion -dumpversion)"
-  if [ "$version" != "$ARMHF_GCC_VERSION" ]; then
+  if ! armhf_gcc_version_matches "$version"; then
     echo "Expected GCC $ARMHF_GCC_VERSION, found $version at $compiler" >&2
     exit 1
   fi
@@ -40,6 +40,7 @@ mkdir -p "$CCACHE_DIR"
 ccache --zero-stats
 started="$(date +%s)"
 cmake -S . -B wsjtx-build \
+  -DWSJT_ARMHF_DISTRO="$ARMHF_DISTRO" \
   -DCMAKE_TOOLCHAIN_FILE=/work/.github/cmake/armhf-toolchain.cmake \
   -DCMAKE_C_COMPILER_LAUNCHER=ccache \
   -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
