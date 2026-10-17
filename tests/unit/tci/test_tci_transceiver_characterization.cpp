@@ -946,8 +946,11 @@ private slots:
     QVERIFY (harness.listen ());
     QVERIFY (!harness.start ());
     QVERIFY (!harness.state ().online ());
-    QVERIFY2 (harness.diagnostics ().contains ("failure=TCI connection closed during startup"),
-              qPrintable (harness.diagnostics ()));
+    QCOMPARE (harness.failure_count (), 1);
+    auto const diagnostics = harness.diagnostics ();
+    QVERIFY2 (diagnostics.contains ("failure=TCI connection closed during startup")
+              || diagnostics.contains ("failure=TCI websocket error: RemoteHostClosed"),
+              qPrintable (diagnostics));
   }
 
   void startup_adopts_greeting_and_preserves_framing ()
