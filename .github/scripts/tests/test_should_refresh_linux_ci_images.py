@@ -3,6 +3,8 @@
 import importlib.util
 import sys
 import unittest
+from unittest.mock import Mock
+from urllib.error import HTTPError
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -35,6 +37,33 @@ class RefreshDecisionTests(unittest.TestCase):
         )
         self.assertFalse(refresh)
         self.assertEqual(age_days, 29)
+
+    def test_incomplete_cohort_refreshes_even_when_stable_is_recent(self):
+        versions = [version(1, 1, ("stable", "build-20260801-1-1"), self.now)]
+        for missing in MODULE.COHORT_PACKAGES:
+            client = Mock()
+            client.list_versions.side_effect = lambda owner, package: [] if package == missing else versions
+            with self.subTest(missing=missing):
+                self.assertTrue(MODULE.cohort_incomplete(client, versions))
+        client.list_versions.side_effect = lambda owner, package: versions
+        self.assertFalse(MODULE.cohort_incomplete(client, versions))
+
+    def test_missing_stable_bootstraps_the_cohort(self):
+        self.assertTrue(MODULE.cohort_incomplete(Mock(), []))
+
+    def test_unpublished_package_refreshes_but_other_registry_errors_fail(self):
+        versions = [version(1, 1, ("stable", "build-20260801-1-1"), self.now)]
+        for status in (404, 403, 500):
+            error = RuntimeError("registry error")
+            error.__cause__ = HTTPError("https://example.invalid", status, "error", {}, None)
+            client = Mock()
+            client.list_versions.side_effect = error
+            with self.subTest(status=status):
+                if status == 404:
+                    self.assertTrue(MODULE.cohort_incomplete(client, versions))
+                else:
+                    with self.assertRaises(RuntimeError):
+                        MODULE.cohort_incomplete(client, versions)
 
     def test_refreshes_old_stable_image(self):
         refresh, age_days = MODULE.should_refresh(

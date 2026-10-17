@@ -22,7 +22,8 @@ MACOS_MODES = ("validation", "distribution")
 WINDOWS_MODES = ("signpath", "unsigned")
 CHANNEL_RANK = {"BETA": 0, "RC": 1, "GA": 2}
 BETA_TAG_PATTERN = "v*-beta*"
-RELEASE_TARGETS = ("arm64-macOS", "x86_64-macOS", "linux-x86_64", "linux-aarch64", "linux-armhf", "windows-x86_64")
+ARMHF_TARGETS = ("linux-armhf-bookworm", "linux-armhf-trixie")
+RELEASE_TARGETS = ("arm64-macOS", "x86_64-macOS", "linux-x86_64", "linux-aarch64", *ARMHF_TARGETS, "windows-x86_64")
 RELEASE_TARBALLS_FILE = Path(__file__).resolve().parents[2] / "CMake" / "release-tarballs.txt"
 # Artifact name endings that already mean another kind of release asset.
 RESERVED_ASSET_KINDS = ("deb", "rpm", "installer", "signed", "unsigned", "src")
@@ -492,9 +493,10 @@ def expected_assets(version: str, distribution: bool) -> list[str]:
         f"wsjtx-{version}-x86_64-{mac_suffix}",
         f"wsjtx-{version}-linux-x86_64-AppImage",
         f"wsjtx-{version}-linux-aarch64-AppImage",
-        f"wsjtx-{version}-linux-armhf-AppImage",
+        *(f"wsjtx-{version}-{target}-AppImage" for target in ARMHF_TARGETS),
         f"wsjtx-{version}-windows-x86_64-installer-signed" if distribution else f"wsjtx-{version}-windows-x86_64-installer",
         *release_tarballs(version),
+        *(f"wsjtx-{version}-{target}-{kind}" for target in ARMHF_TARGETS for kind in ("deb", "rpm")),
     ]
 
 
@@ -509,14 +511,18 @@ def public_expected_assets(version: str, macos_mode: str, windows_mode: str = "s
         f"wsjtx-{version}-x86_64-{mac_suffix}",
         f"wsjtx-{version}-linux-x86_64-AppImage",
         f"wsjtx-{version}-linux-aarch64-AppImage",
-        f"wsjtx-{version}-linux-armhf-AppImage",
+        *(f"wsjtx-{version}-{target}-AppImage" for target in ARMHF_TARGETS),
         f"wsjtx-{version}-windows-x86_64-installer{'-signed' if windows_mode == 'signpath' else ''}",
         *release_tarballs(version),
+        *(f"wsjtx-{version}-{target}-{kind}" for target in ARMHF_TARGETS for kind in ("deb", "rpm")),
     ]
 
 
 def asset_suffix(artifact: str) -> str:
-    if artifact.rsplit("-", 1)[-1] in tarball_groups():
+    kind = artifact.rsplit("-", 1)[-1]
+    if kind in ("deb", "rpm"):
+        return f".{kind}"
+    if kind in tarball_groups():
         return ".tar.gz"
     return ".pkg" if "macOS" in artifact else ".AppImage" if "linux" in artifact else ".exe"
 
@@ -533,11 +539,27 @@ def collect_asset_files(root: Path, expected: list[str]) -> list[Path]:
             raise ValueError(f"{artifact} must contain exactly one {suffix} file; found {len(matches)}")
         if matches[0].stat().st_size == 0:
             raise ValueError(f"artifact is empty: {matches[0]}")
+        if any(f"-{target}-" in artifact for target in ARMHF_TARGETS):
+            filename = artifact if suffix == ".tar.gz" else artifact.rsplit("-", 1)[0]
+            if matches[0].name != f"{filename}{suffix}":
+                raise ValueError(f"unexpected ARMHF asset filename: {matches[0].name}; expected {filename}{suffix}")
         files.append(matches[0])
+    if len({path.name for path in files}) != len(files):
+        raise ValueError("release assets must have unique filenames")
     return files
 
 
+def reject_unqualified_armhf_assets(root: Path, version: str) -> None:
+    for path in root.rglob(f"wsjtx-{version}-linux-armhf*"):
+        suffix = path.name.removeprefix(f"wsjtx-{version}-linux-armhf")
+        if path.is_dir() and suffix in ("-bookworm", "-trixie"):
+            continue
+        if not suffix.startswith(("-bookworm-", "-bookworm.", "-trixie-", "-trixie.")):
+            raise ValueError(f"ARMHF release assets must identify Bookworm or Trixie: {path.name}")
+
+
 def find_asset_files(root: Path, version: str, distribution: bool) -> list[Path]:
+    reject_unqualified_armhf_assets(root, version)
     files = collect_asset_files(root, expected_assets(version, distribution))
     if distribution:
         unsigned = sorted(root.rglob("*-unsigned.pkg"))
@@ -549,6 +571,7 @@ def find_asset_files(root: Path, version: str, distribution: bool) -> list[Path]
 def find_public_asset_files(
     root: Path, version: str, macos_mode: str, windows_mode: str = "signpath"
 ) -> list[Path]:
+    reject_unqualified_armhf_assets(root, version)
     expected = public_expected_assets(version, macos_mode, windows_mode)
     files = collect_asset_files(root, expected)
     if macos_mode == "distribution":
@@ -568,7 +591,7 @@ def release_files(
     root: Path, version: str, macos_mode: str = "distribution", windows_mode: str = "signpath"
 ) -> list[Path]:
     files = find_public_asset_files(root, version, macos_mode, windows_mode)
-    for arch in ("x86_64", "aarch64", "armhf"):
+    for arch in ("x86_64", "aarch64"):
         for package_type, suffix in (("deb", ".deb"), ("rpm", ".rpm")):
             directory = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
             if not directory.is_dir():
@@ -665,6 +688,8 @@ def write_manifest(args: argparse.Namespace) -> None:
         "aarch64": args.linux_aarch64_digest,
         "armhf_cross": args.linux_armhf_cross_digest,
         "armhf_runtime": args.linux_armhf_digest,
+        "armhf_trixie_cross": args.linux_armhf_trixie_cross_digest,
+        "armhf_trixie_runtime": args.linux_armhf_trixie_digest,
     }
     for arch, digest in digests.items():
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
@@ -684,7 +709,7 @@ def write_manifest(args: argparse.Namespace) -> None:
         if path.name not in replaceable_macos
     ]
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "repository": args.repository,
         "tag": f"v{args.version}",
         "commit": args.commit,
@@ -764,6 +789,8 @@ def main() -> int:
     manifest_parser.add_argument("--linux-aarch64-digest", required=True)
     manifest_parser.add_argument("--linux-armhf-cross-digest", required=True)
     manifest_parser.add_argument("--linux-armhf-digest", required=True)
+    manifest_parser.add_argument("--linux-armhf-trixie-cross-digest", required=True)
+    manifest_parser.add_argument("--linux-armhf-trixie-digest", required=True)
     manifest_parser.add_argument("--macos-mode", choices=MACOS_MODES, default="distribution")
     manifest_parser.add_argument("--windows-mode", choices=WINDOWS_MODES, default="signpath")
     args = parser.parse_args()

@@ -112,6 +112,7 @@ jobs:
         name: Select cache warmers
         shell: bash
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
           BEFORE_SHA: ${{ github.event.before }}
@@ -369,6 +370,8 @@ jobs:
             --package wsjtx-internal/linux-arm64-bookworm
             --package wsjtx-internal/linux-armhf-cross-bookworm
             --package wsjtx-internal/linux-armv7-bookworm
+            --package wsjtx-internal/linux-armhf-cross-trixie
+            --package wsjtx-internal/linux-armv7-trixie
           )
           if [ "$APPLY" = true ]; then
             args+=(--apply)
@@ -399,17 +402,22 @@ jobs:
       needs.detect.outputs.linux_armhf == 'true' &&
       needs.detect.outputs.image_set != 'normal' &&
       needs.detect.outputs.image_set != 'normal-and-tsan'
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [bookworm, trixie]
     uses: ./.github/workflows/build-linux.yml
     permissions:
       contents: read
       packages: read
     concurrency:
-      group: armhf-ccache-develop
+      group: armhf-ccache-develop-${{ matrix.distro }}
       cancel-in-progress: false
     with:
       version: ${{ needs.detect.outputs.version }}
       hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
       arch: armhf
+      armhf_distro: ${{ matrix.distro }}
       armhf_build_only: true
       allow_stale_image: false
       recache: false

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Release dependency selection and registry-copy regression checks."""
 import hashlib
+import io
 import importlib.util
 import json
 from pathlib import Path
@@ -18,7 +19,7 @@ RECIPE = "b" * 64
 
 
 def selection():
-    return {"schema": 1, "generation": GENERATION, "images": {
+    return {"schema": 2, "generation": GENERATION, "images": {
         key: {"reference": f"{images.PUBLIC}/{spec[0]}@{DIGEST}", "recipe_sha256": RECIPE}
         for key, spec in images.IMAGES.items()
     }}
@@ -29,7 +30,9 @@ def manifests():
               "toolchain_id": "gcc13-armhf-abc", "runtime_sha256": "c" * 64}
     runtime = dict(common)
     runtime.update({"cross_" + key: common[key] for key in ("generation", "recipe_sha256", "toolchain_id")})
-    return [dict(common), dict(common), dict(common), runtime]
+    return [dict(common), dict(common),
+            dict(common, distro="bookworm", time_bits="32"), dict(runtime, distro="bookworm", time_bits="32"),
+            dict(common, distro="trixie", time_bits="64"), dict(runtime, distro="trixie", time_bits="64")]
 
 
 class SelectionTests(unittest.TestCase):
@@ -41,11 +44,13 @@ class SelectionTests(unittest.TestCase):
     def test_complete_selection_and_anonymous_reads(self):
         with patch.object(images, "anonymous_digest", return_value=DIGEST) as remote:
             self.assertEqual(images.validate(selection(), True), selection())
-            self.assertEqual(remote.call_count, 4)
+            self.assertEqual(remote.call_count, 6)
 
     def test_missing_malformed_and_untrusted_selection(self):
         cases = []
         lock = selection(); del lock["images"]["armhf_cross"]; cases.append(lock)
+        lock = selection(); del lock["images"]["armhf_trixie_runtime"]; cases.append(lock)
+        lock = selection(); lock["schema"] = 1; cases.append(lock)
         lock = selection(); lock["images"]["x86_64"] = None; cases.append(lock)
         lock = selection(); lock["generation"] = "stable"; cases.append(lock)
         lock = selection(); lock["images"]["x86_64"]["reference"] = f"{images.PRIVATE}/linux-noble@{DIGEST}"; cases.append(lock)
@@ -59,7 +64,7 @@ class SelectionTests(unittest.TestCase):
         with patch.object(images, "anonymous_digest", return_value="sha256:" + "c" * 64), self.assertRaisesRegex(ValueError, "digest mismatch"):
             images.validate(selection(), True)
 
-    def test_provenance_binds_exact_lock_bytes_and_four_builders(self):
+    def test_provenance_binds_exact_lock_bytes_and_six_builders(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "lock.json"
             path.write_text(json.dumps(selection()))
@@ -67,6 +72,28 @@ class SelectionTests(unittest.TestCase):
             self.assertEqual(first["builders"], dict.fromkeys(images.IMAGES, DIGEST))
             path.write_text(json.dumps(selection(), indent=2))
             self.assertNotEqual(first["lock_sha256"], images.provenance(path)["lock_sha256"])
+
+    def test_workflow_outputs_bind_each_distro_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lock = Path(directory) / "lock.json"
+            output = Path(directory) / "output"
+            selected = selection()
+            selected["images"]["armhf_trixie_runtime"]["reference"] = f"{images.PUBLIC}/linux-armv7-trixie@sha256:{'c' * 64}"
+            lock.write_text(json.dumps(selected))
+            with patch("sys.argv", ["helper", "validate", str(lock), "--github-output", str(output)]), \
+                 patch("sys.stdout", new_callable=io.StringIO):
+                images.main()
+            outputs = dict(line.split("=", 1) for line in output.read_text().splitlines())
+            self.assertEqual(outputs["armhf_digest"], DIGEST)
+            self.assertEqual(outputs["armhf_cross_digest"], DIGEST)
+            self.assertEqual(outputs["armhf_trixie_digest"], "sha256:" + "c" * 64)
+            self.assertEqual(outputs["armhf_trixie_cross_digest"], DIGEST)
+
+    def test_image_validation_selects_the_matching_distro(self):
+        for key, distro in (("armhf_runtime", "bookworm"), ("armhf_trixie_runtime", "trixie")):
+            with patch.object(images, "run", side_effect=["4.7.2", "", "generation=" + GENERATION.removeprefix("validated-")]) as command:
+                images.image_manifest("image@" + DIGEST, images.IMAGES[key], RECIPE, GENERATION)
+            self.assertIn("ARMHF_DISTRO=" + distro, command.call_args_list[1].args[0])
 
     def test_candidate_provenance_mismatch_fails(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -103,7 +130,7 @@ class SelectionTests(unittest.TestCase):
     def test_copy_preserves_all_manifests_and_digest(self):
         (lock, _), commands = self.prepare()
         self.assertEqual(lock, selection())
-        self.assertEqual(len(commands), 4)
+        self.assertEqual(len(commands), 6)
         for call in commands:
             args = call.args[0]
             self.assertEqual(args[:4], ["skopeo", "copy", "--all", "--preserve-digests"])
@@ -119,11 +146,12 @@ class SelectionTests(unittest.TestCase):
             self.prepare(existing="sha256:" + "c" * 64)
 
     def test_mixed_armhf_pair_fails_before_copy(self):
-        for field in ("cross_generation", "cross_recipe_sha256", "cross_toolchain_id", "runtime_sha256"):
-            values = manifests()
-            values[-1][field] = "wrong"
-            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "pair mismatch"):
-                self.prepare(manifest_values=values)
+        for index in (3, 5):
+            for field in ("cross_generation", "cross_recipe_sha256", "cross_toolchain_id", "runtime_sha256", "distro", "time_bits"):
+                values = manifests()
+                values[index][field] = "wrong"
+                with self.subTest(index=index, field=field), self.assertRaisesRegex(ValueError, "pair mismatch"):
+                    self.prepare(manifest_values=values)
 
     def test_partial_copy_failure_emits_no_selection(self):
         with tempfile.TemporaryDirectory() as directory:

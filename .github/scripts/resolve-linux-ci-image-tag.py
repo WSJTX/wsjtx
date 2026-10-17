@@ -19,6 +19,9 @@ TSAN_PACKAGE = "wsjtx-internal/linux-tsan-noble"
 ARM64_PACKAGE = "wsjtx-internal/linux-arm64-bookworm"
 ARMHF_PACKAGE = "wsjtx-internal/linux-armv7-bookworm"
 ARMHF_CROSS_PACKAGE = "wsjtx-internal/linux-armhf-cross-bookworm"
+ARMHF_TRIXIE_PACKAGE = "wsjtx-internal/linux-armv7-trixie"
+ARMHF_TRIXIE_CROSS_PACKAGE = "wsjtx-internal/linux-armhf-cross-trixie"
+ARMHF_PACKAGES = (ARMHF_CROSS_PACKAGE, ARMHF_PACKAGE, ARMHF_TRIXIE_CROSS_PACKAGE, ARMHF_TRIXIE_PACKAGE)
 ROUTINE_PACKAGES = (ARM64_PACKAGE,)
 BUILD_TAG = re.compile(r"^build-\d{8}-\d+-\d+$")
 
@@ -40,14 +43,17 @@ def resolve(client: GitHubPackagesClient, *, require_armhf: bool = False) -> str
             "linux-noble:stable must share a version with exactly one immutable build tag"
         )
     generation = build_tags[0]
-    required_packages = ROUTINE_PACKAGES + ((ARMHF_PACKAGE,) if require_armhf else ())
+    required_packages = ROUTINE_PACKAGES + (ARMHF_PACKAGES if require_armhf else ())
     for package in required_packages:
         if not any(generation in version.tags for version in client.list_versions(OWNER, package)):
             raise RuntimeError(f"{package}:{generation} does not exist")
     return generation
 
 
-def resolve_armhf(client: GitHubPackagesClient) -> str:
+def resolve_armhf(client: GitHubPackagesClient, distro: str = "bookworm") -> str:
+    if distro not in ("bookworm", "trixie"):
+        raise ValueError(f"Unsupported ARMHF distro: {distro}")
+    # Both variants resolve from one pointer so simultaneous builds select one cohort.
     versions = client.list_versions(OWNER, ARMHF_PACKAGE)
     stable = [version for version in versions if "stable" in version.tags]
     if not stable:
@@ -68,11 +74,9 @@ def resolve_armhf(client: GitHubPackagesClient) -> str:
             "one immutable build tag"
         )
     generation = build_tags[0]
-    if not any(
-        generation in version.tags
-        for version in client.list_versions(OWNER, ARMHF_CROSS_PACKAGE)
-    ):
-        raise RuntimeError(f"{ARMHF_CROSS_PACKAGE}:{generation} does not exist")
+    for package in ARMHF_PACKAGES:
+        if not any(generation in version.tags for version in client.list_versions(OWNER, package)):
+            raise RuntimeError(f"{package}:{generation} does not exist")
     return generation
 
 
@@ -106,7 +110,7 @@ def main() -> int:
         return 2
     client = GitHubPackagesClient(token)
     if os.environ.get("RESOLVE_ARMHF") == "true":
-        generation = resolve_armhf(client)
+        generation = resolve_armhf(client, os.environ.get("ARMHF_DISTRO", "bookworm"))
     elif os.environ.get("RESOLVE_TSAN") == "true":
         generation = resolve_tsan(client)
     else:

@@ -218,6 +218,10 @@ jobs:
 
   linux-armhf:
     needs: [prepare, linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        armhf_distro: [bookworm, trixie]
     # Opt-in only, like the other targets beyond Linux x86_64.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -227,6 +231,7 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: "armhf"
+      armhf_distro: ${{ matrix.armhf_distro }}
       image_tag: ${{ needs.prepare.outputs.armhf_image_tag }}
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}

@@ -47,6 +47,8 @@ IMAGE_PACKAGES = (
     image_tags.ARM64_PACKAGE,
     image_tags.ARMHF_CROSS_PACKAGE,
     image_tags.ARMHF_PACKAGE,
+    image_tags.ARMHF_TRIXIE_CROSS_PACKAGE,
+    image_tags.ARMHF_TRIXIE_PACKAGE,
 )
 CI = "ci.yml"
 CANDIDATE = "release-tag-helper.yml"
@@ -137,7 +139,12 @@ def git_identity(name: str, email: str) -> dict[str, str]:
 
 def lock_recipes(lock: bytes | None) -> dict[str, str] | None:
     try:
-        selected = json.loads(lock)["images"]
+        parsed = json.loads(lock)
+        if not isinstance(parsed, dict) or parsed.get("schema") != 2:
+            return None
+        selected = parsed["images"]
+        if set(selected) != set(images.IMAGES):
+            return None
         return {key: selected[key]["recipe_sha256"] for key in images.IMAGES}
     except (TypeError, ValueError, KeyError):
         return None
@@ -339,6 +346,9 @@ class Scheduler:
         wanted = self.recipes(target)
         if wanted is None:
             raise RuntimeError(f"develop commit {target} is missing from the checkout")
+        if set(wanted) != set(images.IMAGES):
+            raise Skip(f"Newest green develop commit {target} predates dual-distro ARMHF images; "
+                       "wait for CI to pass on a commit with Bookworm and Trixie support.")
         current = self.repository.read(line.tip, LOCK_FILE)
         if current is not None and lock_recipes(current) == wanted:
             self.notes.append(f"Linux image lock: kept; develop's recipe fingerprints match {line.branch}'s lock.")
@@ -351,7 +361,13 @@ class Scheduler:
     def published_generations(self) -> dict[int, str]:
         shared: set[str] | None = None
         for package in IMAGE_PACKAGES:
-            tags = {tag for version in self.packages.list_versions(image_tags.OWNER, package)
+            try:
+                versions = self.packages.list_versions(image_tags.OWNER, package)
+            except RuntimeError as error:
+                if isinstance(error.__cause__, urllib.error.HTTPError) and error.__cause__.code == 404:
+                    return {}
+                raise
+            tags = {tag for version in versions
                     for tag in version.tags if GENERATION_TAG.fullmatch(tag)}
             shared = tags if shared is None else shared & tags
         generations: dict[int, str] = {}
@@ -385,7 +401,7 @@ class Scheduler:
                 return job.get("conclusion") != "skipped"
             if name == IMAGE_REFRESH_JOB:
                 return job.get("status") != "completed"
-        # The run has not yet decided whether it builds the four normal images.
+        # The run has not yet decided whether it builds the normal images.
         return True
 
     def prepared_lock(self, generation: str, wanted: dict[str, str]) -> tuple[bytes, dict]:
@@ -575,10 +591,13 @@ class Repository:
         archive = self.git("archive", "--format=tar", commit, ".github").stdout
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run(["tar", "-x", "-f", "-", "-C", directory], input=archive, check=True, capture_output=True)
+            profiles = images.IMAGES
+            if not (Path(directory) / ".github/images/linux-ci/Dockerfile.armhf-cross-trixie").exists():
+                profiles = {key: spec for key, spec in profiles.items() if not key.startswith("armhf_trixie")}
             return {
                 key: subprocess.run(["bash", ".github/scripts/linux-ci-image-fingerprint.sh", profile], cwd=directory,
                                     check=True, capture_output=True, text=True).stdout.strip()
-                for key, (_package, profile, *_rest) in images.IMAGES.items()
+                for key, (_package, profile, *_rest) in profiles.items()
             }
 
     def start_merge(self, tip: str, commit: str, name: str, email: str) -> tuple[Path, list[str]]:

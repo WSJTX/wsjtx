@@ -49,6 +49,8 @@ class ResolveTests(unittest.TestCase):
                     *MODULE.ROUTINE_PACKAGES,
                     MODULE.ARMHF_PACKAGE,
                     MODULE.ARMHF_CROSS_PACKAGE,
+                    MODULE.ARMHF_TRIXIE_PACKAGE,
+                    MODULE.ARMHF_TRIXIE_CROSS_PACKAGE,
                 ),
                 start=1,
             )
@@ -78,6 +80,22 @@ class ResolveTests(unittest.TestCase):
     def test_armhf_resolution_uses_armhf_stable_pointer(self):
         tag, packages = self.coherent()
         self.assertEqual(MODULE.resolve_armhf(FakeClient(packages)), tag)
+        self.assertEqual(MODULE.resolve_armhf(FakeClient(packages), "trixie"), tag)
+
+    def test_armhf_resolution_requires_both_distro_pairs(self):
+        for package in MODULE.ARMHF_PACKAGES:
+            tag, packages = self.coherent()
+            if package == MODULE.ARMHF_PACKAGE:
+                packages[package] = [version(4, (tag,))]
+            else:
+                packages[package] = []
+            with self.subTest(package=package), self.assertRaises(RuntimeError):
+                MODULE.resolve_armhf(FakeClient(packages), "trixie")
+
+    def test_armhf_resolution_rejects_unknown_distro(self):
+        _, packages = self.coherent()
+        with self.assertRaisesRegex(ValueError, "Unsupported ARMHF distro"):
+            MODULE.resolve_armhf(FakeClient(packages), "unknown")
 
     def test_armhf_resolution_requires_armhf_stable_pointer(self):
         _, packages = self.coherent()

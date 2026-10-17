@@ -18,6 +18,8 @@ IMAGES = {
     "aarch64": ("linux-arm64-bookworm", "normal-bookworm", "linux/arm64", "normal", "aarch64"),
     "armhf_cross": ("linux-armhf-cross-bookworm", "armhf-cross-bookworm", "linux/amd64", "cross-builder", "armhf"),
     "armhf_runtime": ("linux-armv7-bookworm", "armhf-runtime-bookworm", "linux/arm/v7", "runtime", "armhf"),
+    "armhf_trixie_cross": ("linux-armhf-cross-trixie", "armhf-cross-trixie", "linux/amd64", "cross-builder", "armhf"),
+    "armhf_trixie_runtime": ("linux-armv7-trixie", "armhf-runtime-trixie", "linux/arm/v7", "runtime", "armhf"),
 }
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 GENERATION = re.compile(r"validated-build-[0-9]{8}-[0-9]+-[0-9]+\Z")
@@ -63,12 +65,12 @@ def anonymous_digest(reference):
 
 
 def validate(lock, check_remote=False):
-    if not isinstance(lock, dict) or lock.get("schema") != 1:
+    if not isinstance(lock, dict) or lock.get("schema") != 2:
         raise ValueError("Unsupported Linux image selection schema")
     if not isinstance(lock.get("generation"), str) or not GENERATION.fullmatch(lock["generation"]):
         raise ValueError("Select an explicit validated-build generation")
     if not isinstance(lock.get("images"), dict) or set(lock["images"]) != set(IMAGES):
-        raise ValueError("Linux image selection must contain all four release images")
+        raise ValueError("Linux image selection must contain all six release images")
     for key, (package, profile, *_rest) in IMAGES.items():
         image = lock["images"][key]
         if not isinstance(image, dict):
@@ -93,13 +95,16 @@ def provenance(lock_path):
 
 
 def image_manifest(reference, spec, recipe, generation):
-    _package, _profile, platform, role, arch = spec
+    _package, profile, platform, role, arch = spec
     root = str(Path.cwd())
     helper = "verify-linux-ci-image.sh" if role == "normal" else "verify-armhf-ci-image.sh"
     hamlib = run(["bash", "-c", '. .github/scripts/linux-ci-image-config.sh; printf "%s" "$LINUX_HAMLIB_REF"'])
     command = ["docker", "run", "--rm", "--platform", platform, "--network", "none",
                "--mount", f"type=bind,source={root},target=/source,readonly", "--workdir", "/source",
-               "-e", f"IMAGE_RECIPE_SHA256={recipe}", reference]
+               "-e", f"IMAGE_RECIPE_SHA256={recipe}"]
+    if arch == "armhf":
+        command += ["-e", f"ARMHF_DISTRO={profile.rsplit('-', 1)[1]}"]
+    command.append(reference)
     run(command + ["bash", f".github/scripts/{helper}", role, arch, hamlib])
     raw = run(command + ["cat", "/opt/wsjtx-ci/image.env"])
     manifest = dict(line.split("=", 1) for line in raw.splitlines() if "=" in line)
@@ -111,7 +116,7 @@ def image_manifest(reference, spec, recipe, generation):
 def prepare(generation):
     if not GENERATION.fullmatch(generation):
         raise ValueError("Select an explicit validated-build generation")
-    lock = {"schema": 1, "generation": generation, "images": {}}
+    lock = {"schema": 2, "generation": generation, "images": {}}
     sources = {}
     manifests = {}
     # Freeze the entire cohort before downloading or copying any image.
@@ -123,12 +128,16 @@ def prepare(generation):
         lock["images"][key] = {"reference": f"{PUBLIC}/{package}@{digest}", "recipe_sha256": fingerprint(profile)}
     for key, spec in IMAGES.items():
         manifests[key] = image_manifest(sources[key], spec, lock["images"][key]["recipe_sha256"], generation)
-    cross, runtime = manifests["armhf_cross"], manifests["armhf_runtime"]
-    for field in ("generation", "recipe_sha256", "toolchain_id"):
-        if not cross.get(field) or runtime.get("cross_" + field) != cross[field]:
-            raise ValueError(f"ARMHF image pair mismatch: {field}")
-    if not cross.get("runtime_sha256") or runtime.get("runtime_sha256") != cross["runtime_sha256"]:
-        raise ValueError("ARMHF image pair mismatch: runtime_sha256")
+    for prefix, distro, time_bits in (("armhf", "bookworm", "32"), ("armhf_trixie", "trixie", "64")):
+        cross, runtime = manifests[prefix + "_cross"], manifests[prefix + "_runtime"]
+        for field in ("generation", "recipe_sha256", "toolchain_id"):
+            if not cross.get(field) or runtime.get("cross_" + field) != cross[field]:
+                raise ValueError(f"ARMHF {distro} image pair mismatch: {field}")
+        for field, expected in (("distro", distro), ("time_bits", time_bits)):
+            if cross.get(field) != expected or runtime.get(field) != expected:
+                raise ValueError(f"ARMHF {distro} image pair mismatch: {field}")
+        if not cross.get("runtime_sha256") or runtime.get("runtime_sha256") != cross["runtime_sha256"]:
+            raise ValueError(f"ARMHF {distro} image pair mismatch: runtime_sha256")
     for key, spec in IMAGES.items():
         destination = f"{PUBLIC}/{spec[0]}:release-deps-{generation}"
         digest = sources[key].split("@", 1)[1]
@@ -178,7 +187,7 @@ def main():
         bound = provenance(args.lock)
         outputs = {"image_tag": lock["generation"], "lock_sha256": bound["lock_sha256"]}
         for key, digest in bound["builders"].items():
-            outputs[("armhf" if key == "armhf_runtime" else key) + "_digest"] = digest
+            outputs[key.removesuffix("_runtime") + "_digest"] = digest
         if args.github_output:
             with open(args.github_output, "a") as target:
                 target.write("".join(f"{key}={value}\n" for key, value in outputs.items()))

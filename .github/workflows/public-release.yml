@@ -30,6 +30,8 @@ jobs:
       aarch64_digest: ${{ steps.linux-images.outputs.aarch64_digest }}
       armhf_digest: ${{ steps.linux-images.outputs.armhf_digest }}
       armhf_cross_digest: ${{ steps.linux-images.outputs.armhf_cross_digest }}
+      armhf_trixie_digest: ${{ steps.linux-images.outputs.armhf_trixie_digest }}
+      armhf_trixie_cross_digest: ${{ steps.linux-images.outputs.armhf_trixie_cross_digest }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -164,6 +166,10 @@ jobs:
       build_packages: true
 
   linux-armhf:
+    strategy:
+      fail-fast: false
+      matrix:
+        armhf_distro: [bookworm, trixie]
     needs: prepare
     uses: ./.github/workflows/build-linux.yml
     permissions:
@@ -174,10 +180,11 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: armhf
+      armhf_distro: ${{ matrix.armhf_distro }}
       image_source: public-release
       image_tag: ${{ needs.prepare.outputs.image_tag }}
-      image_digest: ${{ needs.prepare.outputs.armhf_digest }}
-      armhf_cross_image_digest: ${{ needs.prepare.outputs.armhf_cross_digest }}
+      image_digest: ${{ matrix.armhf_distro == 'trixie' && needs.prepare.outputs.armhf_trixie_digest || needs.prepare.outputs.armhf_digest }}
+      armhf_cross_image_digest: ${{ matrix.armhf_distro == 'trixie' && needs.prepare.outputs.armhf_trixie_cross_digest || needs.prepare.outputs.armhf_cross_digest }}
       build_packages: true
 
   windows:
@@ -209,7 +216,7 @@ jobs:
           path: artifacts
       # build-linux.yml hands this tree between its ARMHF jobs; it is no asset.
       - name: Drop the ARMHF build tree
-        run: rm -rf artifacts/armhf-build-tree
+        run: rm -rf artifacts/armhf-build-tree-bookworm artifacts/armhf-build-tree-trixie
       - name: Build corresponding source archive
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -261,6 +268,8 @@ jobs:
             --linux-aarch64-digest "${{ needs.prepare.outputs.aarch64_digest }}" \
             --linux-armhf-cross-digest "${{ needs.prepare.outputs.armhf_cross_digest }}" \
             --linux-armhf-digest "${{ needs.prepare.outputs.armhf_digest }}" \
+            --linux-armhf-trixie-cross-digest "${{ needs.prepare.outputs.armhf_trixie_cross_digest }}" \
+            --linux-armhf-trixie-digest "${{ needs.prepare.outputs.armhf_trixie_digest }}" \
             --macos-mode "$MACOS_MODE" --windows-mode "$WINDOWS_MODE"
       - name: Assemble publication bundle
         env:

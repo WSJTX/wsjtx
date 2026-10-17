@@ -50,7 +50,7 @@ OLD_CONTRACT = b"version=3.2.0\nchannel=RC\nrc=1\nrevision=$Format:%H$\nwindows_
 
 
 def lock(recipes=RECIPES, generation="validated-build-20260929-600-1"):
-    return (json.dumps({"schema": 1, "generation": generation, "images": {
+    return (json.dumps({"schema": 2, "generation": generation, "images": {
         key: {"reference": f"{beta.images.PUBLIC}/{spec[0]}@sha256:{'a' * 64}", "recipe_sha256": recipes[key]}
         for key, spec in beta.images.IMAGES.items()
     }}, indent=2) + "\n").encode()
@@ -613,6 +613,20 @@ class ImageLockTest(SchedulerTestCase):
         self.assertEqual(self.packages.calls, [])
         self.assertNotIn(beta.WARMER, self.internal.queries)
         self.assertNotIn(beta.PREPARATION, self.internal.queries)
+
+    def test_green_commit_before_dual_distro_support_defers_without_mutation(self):
+        self.repo.recipes[GREEN] = {key: value for key, value in RECIPES.items()
+                                    if not key.startswith("armhf_trixie")}
+        with self.assertRaisesRegex(beta.Skip, "predates dual-distro ARMHF"):
+            self.cut()
+        self.assertEqual(self.packages.calls, [])
+        self.assertEqual(self.internal.dispatches, [])
+        self.assertEqual(self.repo.pushed, [])
+
+    def test_schema_one_lock_is_not_reused_for_dual_distro_source(self):
+        old = json.loads(lock())
+        old["schema"] = 1
+        self.assertIsNone(beta.lock_recipes(json.dumps(old).encode()))
 
     def test_recipe_drift_prepares_the_newest_generation_built_for_those_recipes(self):
         self.publish_generation(702, "a2" * 20, DRIFTED, created="2026-10-01T00:00:00Z")
@@ -1279,7 +1293,7 @@ class RepositoryTest(unittest.TestCase):
 
     def test_lock_validation_runs_the_merged_trees_validator(self):
         shutil.copytree(ROOT / ".github", self.work / ".github")
-        (self.work / LOCK).write_text('{"schema": 2}\n')
+        (self.work / LOCK).write_text('{"schema": 3}\n')
         self.commit("add the pipeline")
         with self.assertRaisesRegex(RuntimeError, "Unsupported Linux image selection schema"):
             self.repository.validate_lock(self.work)

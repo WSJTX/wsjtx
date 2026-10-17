@@ -27,6 +27,7 @@ import sys
 
 # Architectures listed first, in this order; any others are appended sorted.
 ARCH_ORDER = ["x86_64", "aarch64", "armhf", "armv7l", "arm64", "i686"]
+LINUX_ASSET_RE = re.compile(r"-linux-([A-Za-z0-9_]+)(?:-(bookworm|trixie))?\.(deb|rpm|AppImage)$")
 
 
 def main(argv):
@@ -58,23 +59,24 @@ def main(argv):
             windows["64-bit"] = n
         elif n.endswith("-src.tar.gz"):
             source = n
-        elif (m := re.search(r"-linux-([A-Za-z0-9_]+)\.deb$", n)):
-            deb[m.group(1)] = n
-        elif (m := re.search(r"-linux-([A-Za-z0-9_]+)\.AppImage$", n)):
-            appimage[m.group(1)] = n
+        elif (m := LINUX_ASSET_RE.search(n)):
+            arch, distro, kind = m.groups()
+            {"deb": deb, "rpm": rpm, "AppImage": appimage}[kind][arch, distro or ""] = n
         elif (m := re.search(r"\.([A-Za-z0-9_]+)\.rpm$", n)):
-            rpm[m.group(1)] = n
+            rpm[m.group(1), ""] = n
         # Anything else (program tarballs, checksums, the manifest) is
         # intentionally excluded; it stays in the full assets list.
 
     def arches(d):
-        known = [a for a in ARCH_ORDER if a in d]
-        extra = sorted(a for a in d if a not in ARCH_ORDER)
-        return known + extra
+        return sorted(d, key=lambda item: (
+            ARCH_ORDER.index(item[0]) if item[0] in ARCH_ORDER else len(ARCH_ORDER),
+            item[0], item[1],
+        ))
 
     def arch_line(label, d):
         return f"- {label}: " + " · ".join(
-            f"[{a}]({url(d[a])})" for a in arches(d)
+            f"[{arch}{' (' + distro.title() + ')' if distro else ''}]({url(d[arch, distro])})"
+            for arch, distro in arches(d)
         )
 
     out = [
@@ -100,9 +102,14 @@ def main(argv):
         if deb:
             out.append(arch_line("Debian / Ubuntu (.deb)", deb))
         if rpm:
-            out.append(arch_line("Fedora / RHEL (.rpm)", rpm))
+            out.append(arch_line("RPM packages (.rpm)", rpm))
         if appimage:
-            out.append(arch_line("AppImage (universal)", appimage))
+            out.append(arch_line("AppImage", appimage))
+        if any(distro for assets in (deb, rpm, appimage) for _, distro in assets):
+            out += ["", "For 32-bit ARM (armhf), choose Bookworm for Debian/Raspberry Pi OS 12",
+                    "or Trixie for Debian/Raspberry Pi OS 13. These labels identify the build",
+                    "baseline for every format; RPM compatibility depends on the target",
+                    "distribution's libraries. Use .deb packages on Debian-based systems."]
 
     if source:
         out += ["", "### Source", f"- [{source}]({url(source)})"]
