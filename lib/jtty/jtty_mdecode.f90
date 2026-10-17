@@ -57,6 +57,14 @@ module jtty_mdec
   real, parameter           :: FRAME_HISTORY_FREQ_TOLERANCE = 3.0
   real, parameter           :: NEAR_SIMULTANEOUS_FREQ_TOLERANCE = 12.0
   real, parameter           :: CONTINUATION_TIME_TOLERANCE = 0.1
+  ! A misaligned candidate on an already-decoded signal (sync search landing
+  ! inside that signal's frame, or one tone spacing away from it) can pass the
+  ! permissive channel-0 sync gate and still yield a TBCC codeword, producing a
+  ! plausible but false frame such as "IG4QXF TU". Such aliases overlap a
+  ! recent frame in time, lie within ALIAS_FREQ_TONES tone spacings of it, are
+  ! not frame-aligned with it, and have weak sync.
+  real, parameter           :: ALIAS_FREQ_TONES = 1.5
+  integer, parameter        :: ALIAS_MAX_NSYNC = 9
   ! pn leaks ~SNR_LEAKAGE_K*pt of signal power; corrected ratio still asymptotes near (1-k)/k for very strong signals.
   real, parameter           :: SNR_LEAKAGE_K = 0.048
   real, parameter           :: SNR_FLOOR_DB = -17.0  ! weaker than the weakest sometimes-decodable JTTY signal
@@ -265,6 +273,27 @@ contains
       same_recent_frame=abs(f1_a-f1_b).lt.NEAR_SIMULTANEOUS_FREQ_TOLERANCE .and. &
            abs(tsync_a-tsync_b).lt.FRAME_HISTORY_TIME_TOLERANCE
   end function same_recent_frame
+
+  logical function is_frame_alias(f1,tsync,nsync,tone_spacing,frame_period)
+      real, intent(in) :: f1,tone_spacing,frame_period
+      real(real64), intent(in) :: tsync
+      integer, intent(in) :: nsync
+      real(real64) :: dt,resid
+      integer :: i
+
+      is_frame_alias=.false.
+      if(nsync.gt.ALIAS_MAX_NSYNC) return
+      do i=1,nrecent
+         if(abs(f1-recent_frames(i)%f1).ge.ALIAS_FREQ_TONES*tone_spacing) cycle
+         dt=tsync-recent_frames(i)%tsync
+         if(abs(dt).ge.frame_period) cycle
+         resid=min(abs(dt),frame_period-abs(dt))
+         if(resid.lt.CONTINUATION_TIME_TOLERANCE .and. &
+              abs(f1-recent_frames(i)%f1).lt.NEAR_SIMULTANEOUS_FREQ_TOLERANCE) cycle
+         is_frame_alias=.true.
+         return
+      enddo
+  end function is_frame_alias
 
   pure function display_message_text(decoded) result(msg)
       character(len=*), intent(in) :: decoded
@@ -1117,6 +1146,8 @@ contains
       call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep,   &
            cand(ncand)%is_last_frame,source_valid)
       if(.not.source_valid) return
+      if(is_frame_alias(cand(ncand)%f1,sample_time(istart)+ &
+           real(cand(ncand)%xdt,real64),nsync,baud,nframe6/6000.0)) return
 
       ndecodes=ndecodes+1
       ! Re-encode the decoded payload to recover the expected tone
