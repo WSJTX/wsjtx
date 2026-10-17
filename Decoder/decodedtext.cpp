@@ -1,4 +1,5 @@
 #include "decodedtext.h"
+#include "DecoderAnnotations.hpp"
 
 #include <QStringList>
 #include <QRegularExpression>
@@ -45,7 +46,7 @@ namespace
   )?
 )"
                                , QRegularExpression::ExtendedPatternSyntaxOption};
-  QRegularExpression const ap_suffix_re {R"(^(.*?)(?:\?\s)?[aq][0-9].*$)"};
+  QRegularExpression const ap_suffix_re {"^(.*?)" + DecoderAnnotations::ap_suffix_pattern () + ".*$"};
   QRegularExpression const angle_bracket_re {"[<>]"};
   QRegularExpression const cq_qrz_re {"^(CQ|QRZ)\\s"};
   QRegularExpression const grid_re {R"(^(?!RR73$)[A-R]{2}[0-9]{2}(?:[A-X]{2})?$)"};

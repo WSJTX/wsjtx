@@ -8,12 +8,54 @@
 #include <QVector>
 
 #include <memory>
+#include <sstream>
 
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/sync_frontend.hpp>
+#include <boost/log/sinks/text_ostream_backend.hpp>
+#include <boost/make_shared.hpp>
+
+#include "Logger.hpp"
 #include "Network/MessageClient.hpp"
 #include "Network/NetworkMessage.hpp"
 
 namespace
 {
+  class CapturedLog final
+  {
+  public:
+    CapturedLog ()
+      : stream_ {boost::make_shared<std::ostringstream> ()}
+      , sink_ {boost::make_shared<Sink> ()}
+    {
+      sink_->locked_backend ()->add_stream (stream_);
+      sink_->set_formatter (boost::log::expressions::stream
+                            << boost::log::trivial::severity << ": " << boost::log::expressions::smessage);
+      setSeverity (boost::log::trivial::error);
+      boost::log::core::get ()->add_sink (sink_);
+      boost::log::core::get ()->set_logging_enabled (true);
+    }
+
+    ~CapturedLog ()
+    {
+      boost::log::core::get ()->set_logging_enabled (false);
+      boost::log::core::get ()->remove_sink (sink_);
+    }
+
+    void setSeverity (boost::log::trivial::severity_level severity)
+    {
+      sink_->set_filter (boost::log::trivial::severity >= severity);
+    }
+
+    QString text () const {return QString::fromStdString (stream_->str ());}
+
+  private:
+    using Sink = boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>;
+    boost::shared_ptr<std::ostringstream> stream_;
+    boost::shared_ptr<Sink> sink_;
+  };
+
   class DatagramReceiver final
   {
   public:
@@ -115,12 +157,12 @@ namespace
 
   void sendReply (DatagramReceiver& receiver, QTime time, qint32 snr, float delta_time,
                   quint32 delta_frequency, QString const& mode, QString const& message,
-                  bool low_confidence = false)
+                  bool low_confidence = false, quint8 modifiers = 0)
   {
     QByteArray datagram;
     NetworkMessage::Builder out {&datagram, NetworkMessage::Reply, "test-client", 2};
     out << time << snr << delta_time << delta_frequency << mode.toUtf8 () << message.toUtf8 ()
-        << low_confidence << quint8 {0};
+        << low_confidence << modifiers;
     QCOMPARE (receiver.socket ()->writeDatagram (datagram, receiver.senderAddress (),
                                                   receiver.senderPort ()),
               static_cast<qint64> (datagram.size ()));
@@ -146,6 +188,206 @@ class TestMessageClientReplay final
   Q_OBJECT
 
 private Q_SLOTS:
+  void initTestCase ()
+  {
+    Logger::disable ();
+  }
+
+  void replyNormalizesDecoderMetadata_data ()
+  {
+    QTest::addColumn<QString> ("sent");
+    QTest::addColumn<QString> ("reply");
+    QTest::addColumn<bool> ("sent_low_confidence");
+    QTest::addColumn<bool> ("reply_low_confidence");
+    QString const text {"CQ JA2XYZ PM95"};
+    auto const padded = text.leftJustified (37, ' ');
+    auto const annotated = padded + " a1";
+    QTest::newRow ("annotation-echo") << annotated << annotated << false << false;
+    QTest::newRow ("annotation-stripped") << annotated << padded << false << false;
+    QTest::newRow ("padding-trimmed") << annotated << text << false << false;
+    QTest::newRow ("padding-trimmed-with-annotation") << annotated << text + " a1" << false << false;
+    QTest::newRow ("padding-after-annotation") << annotated << annotated + "  " << false << false;
+    QTest::newRow ("annotation-added") << text << annotated << false << false;
+    QTest::newRow ("q65-annotation") << padded + " q12" << text << false << false;
+    QTest::newRow ("q65-annotation-echo") << padded + " q12" << padded + " q12" << false << false;
+    auto const low = QString {"CQ W1AW FN31"}.leftJustified (36, ' ') + "? a1";
+    QTest::newRow ("low-confidence-toggled") << low << low << true << false;
+    QTest::newRow ("low-confidence-stripped") << low << QString {"CQ W1AW FN31"} << true << false;
+    QTest::newRow ("bare-confidence-marker") << low << low.left (37) << true << false;
+    QTest::newRow ("low-confidence-added") << annotated << annotated << false << true;
+    QTest::newRow ("bare-free-text-question") << QString {"X?"} << QString {"X"} << false << false;
+    QTest::newRow ("bare-question-added") << QString {"X"} << QString {"X?"} << false << false;
+  }
+
+  void replyNormalizesDecoderMetadata ()
+  {
+    QFETCH (QString, sent);
+    QFETCH (QString, reply);
+    QFETCH (bool, sent_low_confidence);
+    QFETCH (bool, reply_low_confidence);
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QTime const time {12, 34, 45};
+    client->decode (true, time, -12, -0.0f, 1425, "~", sent, sent_low_confidence, false);
+    QTRY_COMPARE (receiver.datagrams ().size (), 1);
+
+    sendReply (receiver, time, -12, 0.0f, 1425, "~", reply, reply_low_confidence, 0x02);
+    QTRY_COMPARE (replies.size (), 1);
+    QCOMPARE (replies.front ().at (5).toString (), sent);
+    QCOMPARE (replies.front ().at (6).toBool (), sent_low_confidence);
+    QCOMPARE (replies.front ().at (7).value<quint8> (), quint8 {0x02});
+  }
+
+  void replyRequiresMatchingContentAndFields_data ()
+  {
+    QTest::addColumn<QString> ("field");
+    for (auto const field : {"message", "time", "snr", "dt", "df", "mode", "internal-padding",
+                             "uppercase-annotation", "annotation-followed-by-content", "embedded-question"})
+      QTest::newRow (field) << QString {field};
+  }
+
+  void replyRequiresMatchingContentAndFields ()
+  {
+    QFETCH (QString, field);
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QTime const time {12, 34, 45};
+    QString const text {"CQ JA2XYZ PM95"};
+    QString const sent = text.leftJustified (37, ' ') + " a1";
+    client->decode (true, time, -12, 0.2f, 1425, "~", sent, false, false);
+    QTRY_COMPARE (receiver.datagrams ().size (), 1);
+    QString reply = text;
+    if (field == "message") reply = "CQ JA2XYZ PM96";
+    if (field == "internal-padding") reply = "CQ  JA2XYZ PM95";
+    if (field == "uppercase-annotation") reply += " A1";
+    if (field == "annotation-followed-by-content") reply += " a1 EXTRA";
+    if (field == "embedded-question") reply = "CQ JA2XYZ? PM95";
+    sendReply (receiver, field == "time" ? time.addSecs (15) : time,
+               field == "snr" ? -11 : -12, field == "dt" ? 0.3f : 0.2f,
+               field == "df" ? 1426 : 1425, field == "mode" ? "+" : "~", reply);
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", sent);
+    QTRY_COMPARE (replies.size (), 1);
+    QCOMPARE (replies.front ().at (5).toString (), sent);
+  }
+
+  void refusedReplyLogsOnlyAtDebug ()
+  {
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QTime const time {12, 34, 45};
+    client->decode (true, time, -12, 0.2f, 1425, "~", "CQ JA2XYZ PM95", false, false);
+    QTRY_COMPARE (receiver.datagrams ().size (), 1);
+    CapturedLog log;
+    for (int attempt = 1; attempt <= 2; ++attempt)
+      {
+        sendReply (receiver, time, -13, 0.2f, 1425, "~", "CQ W1AW FN31", true, 0x02);
+        sendReply (receiver, time, -12, 0.2f, 1425, "~", "CQ JA2XYZ PM95");
+        QTRY_COMPARE (replies.size (), attempt);
+        if (attempt == 1)
+          {
+            QVERIFY (log.text ().isEmpty ());
+            log.setSeverity (boost::log::trivial::debug);
+          }
+      }
+    QCOMPARE (log.text ().count ("UDP Reply refused:"), 1);
+    QVERIFY (log.text ().contains ("debug: UDP Reply refused: decode not found;"));
+    for (auto const field : {"time: 12:34:45.000", "snr: -13", "dt: 0.2", "df: 1425", "mode: ~",
+                             "message: \"CQ W1AW FN31\"", "low confidence: true", "modifiers: 2"})
+      QVERIFY2 (log.text ().contains (field), qPrintable (log.text ()));
+  }
+
+  void replyHistoryHonorsInboundClear_data ()
+  {
+    QTest::addColumn<int> ("window");
+    QTest::newRow ("band-activity") << 0;
+    QTest::newRow ("rx-frequency") << 1;
+    QTest::newRow ("both") << 2;
+  }
+
+  void replyHistoryHonorsInboundClear ()
+  {
+    QFETCH (int, window);
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QSignalSpy clears {client.get (), &MessageClient::clear_decodes};
+    QTime const time {12, 34, 45};
+    QString const text = QString {"CQ JA2XYZ PM95"}.leftJustified (37, ' ') + " a1";
+    client->decode (true, time, -12, 0.2f, 1425, "~", text, false, false);
+    QTRY_COMPARE (receiver.datagrams ().size (), 1);
+    QByteArray datagram;
+    NetworkMessage::Builder out {&datagram, NetworkMessage::Clear, "test-client", 2};
+    out << quint8 (window);
+    QCOMPARE (receiver.socket ()->writeDatagram (datagram, receiver.senderAddress (), receiver.senderPort ()),
+              qint64 (datagram.size ()));
+    QTRY_COMPARE (clears.size (), 1);
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", "CQ JA2XYZ PM95");
+    client->decode (true, time, -12, 0.2f, 1500, "~", text, false, false);
+    sendReply (receiver, time, -12, 0.2f, 1500, "~", text);
+    QTRY_COMPARE (replies.size (), window == 1 ? 2 : 1);
+    QCOMPARE (replies.back ().at (3).toUInt (), quint32 {1500});
+  }
+
+  void replayRecordsDecodeForReply ()
+  {
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QTime const time {12, 34, 45};
+    QString const text = QString {"CQ JA2XYZ PM95"}.leftJustified (37, ' ') + " a1";
+    QVERIFY (client->begin_replay ());
+    client->decode (false, time, -12, 0.2f, 1425, "~", text, false, false);
+    client->end_replay ();
+    QTRY_COMPARE (receiver.datagrams ().size (), 1);
+    QVERIFY (!decodeIsNew (receiver.datagrams ().front ()));
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", "CQ JA2XYZ PM95");
+    QTRY_COMPARE (replies.size (), 1);
+  }
+
+  void replyHistoryEvictsOldestDecode ()
+  {
+    DatagramReceiver receiver;
+    QVERIFY (receiver.bind ());
+    auto client = makeClient (receiver.port ());
+    client->enable (true);
+    discardInitialHeartbeat (receiver);
+    QSignalSpy replies {client.get (), &MessageClient::reply};
+    QTime const time {12, 34, 45};
+    QString const text = QString {"CQ JA2XYZ PM95"}.leftJustified (37, ' ') + " a1";
+    for (quint32 df = 1000; df < 6000; ++df)
+      {
+        client->decode (true, time, -12, 0.2f, df, "~", text, false, false);
+        if (df % 100 == 0) QCoreApplication::processEvents ();
+      }
+    sendReply (receiver, time, -12, 0.2f, 1000, "~", "CQ JA2XYZ PM95");
+    QTRY_COMPARE (replies.size (), 1);
+    client->decode (true, time, -12, 0.2f, 6000, "~", text, false, false);
+    sendReply (receiver, time, -12, 0.2f, 1000, "~", "CQ JA2XYZ PM95");
+    sendReply (receiver, time, -12, 0.2f, 1001, "~", "CQ JA2XYZ PM95");
+    sendReply (receiver, time, -12, 0.2f, 6000, "~", "CQ JA2XYZ PM95");
+    QTRY_COMPARE (replies.size (), 3);
+    QCOMPARE (replies.at (1).at (3).toUInt (), quint32 {1001});
+    QCOMPARE (replies.at (2).at (3).toUInt (), quint32 {6000});
+  }
+
   void replyMatchesSentDecodeIndependentlyOfDisplay ()
   {
     DatagramReceiver receiver;

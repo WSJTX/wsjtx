@@ -13727,7 +13727,7 @@ void MainWindow::on_leEchoMessage_textChanged()
 // Takes a decoded CQ line and sets it up for reply
 void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 delta_frequency
                             , QString const& mode, QString const& message_text
-                            , bool /*low_confidence*/, quint8 modifiers)
+                            , bool low_confidence, quint8 modifiers)
 {
   QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, false};
   auto const& time_string = time.toString ("~" == mode || "&" == mode || "+" == mode
@@ -13758,7 +13758,17 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
     }
   DecodedText message {message_line};
   Qt::KeyboardModifiers kbmod {modifiers << 24};
-  processMessage (message, kbmod, DecodedMessageReaction::SelectionOrigin::Udp);
+  auto const snapshot = qsoReactionSnapshot (kbmod, DecodedMessageReaction::SelectionOrigin::Udp);
+  auto const plan = DecodedMessageReaction::planProcessMessage (message, snapshot);
+  if (plan.disposition != DecodedMessageReaction::ReactionDisposition::Reacted)
+    {
+      LOG_DEBUG ("UDP Reply refused: " << plan.reason
+                 << " time: " << time.toString ("hh:mm:ss.zzz") << " snr: " << snr
+                 << " dt: " << delta_time << " df: " << delta_frequency
+                 << " mode: " << mode << " message: \"" << message_text << '"'
+                 << " low confidence: " << low_confidence << " modifiers: " << unsigned (modifiers));
+    }
+  applyQsoReactionPlan (plan, message);
   tx_watchdog (false);
   QApplication::alert (this);
 }
