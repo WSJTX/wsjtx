@@ -1,6 +1,8 @@
 module ft8_engine_kernel
 !$ use omp_lib
   use prog_args, only: temp_dir
+  use streaming_emit, only: streaming_emit_enabled
+  use, intrinsic :: iso_fortran_env, only: error_unit
   use timer_module, only: timer
   use packjt77, only: pack77_state
   use decoder_engine_types, only: ft8_signal_evidence
@@ -344,8 +346,13 @@ contains
 
            if(params%nagainfil) then
               if(nfqso.lt.nfa .or. nfqso.gt.nfb) then
-                 if(context%render_legacy) write(*,64) nutc,'nfqso is out of bandwidth','d'
-64               format(i6.6,2x,a25,16x,a1)
+                 ! The stream's stdout carries only JSON events.
+                 if(context%render_legacy .and. streaming_emit_enabled()) then
+                    write(error_unit,'(a)') 'nfqso is out of bandwidth'
+                 else if(context%render_legacy) then
+                    write(*,64) nutc,'nfqso is out of bandwidth','d'
+64                  format(i6.6,2x,a25,16x,a1)
+                 endif
                  go to 800
               endif
               nfa=max(nfa,nfqso-25) ! 50Hz bandwidth for decode via double click

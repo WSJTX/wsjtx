@@ -70,19 +70,16 @@
 #      >= floor. 23 of 24 are inert on the FT8 fixture (read only in the
 #      multithread-FT8 block / JT65 / superfox-Q65 / WAV path; or AP keys that
 #      this fixture has no AP-only decodes for); the 24th,
-#      multithreaded_ft8, is sent TRUE here and only stays >= floor BECAUSE the
-#      apply ignores the non-false value (Gate 15). So this proves the parse->apply
+#      multithreaded_ft8, is sent FALSE here, because with it on nagain_filter
+#      narrows the decode to rxfreq +-25 Hz (Gate 15 decodes multithreaded). So this proves the parse->apply
 #      PATH; per-key routing is guarded by the parse-unit + apply-routing units.
 #  14. (Phase 6) A wrong-typed Phase 6 key (ft8_ap_on as a NUMBER) on a frame that
 #      also sets mode=JT65 emits exactly one {"code":"configure_type_error",
 #      "key":"ft8_ap_on","expected":"bool","got":"number"} and the whole frame is
 #      declined (mode JT65 not applied, FT8 >= floor). Wires Phase 6 type checks
 #      into atomic-decline.
-#  15. (Phase 6 — CORRECTNESS GUARD) multithreaded_ft8=true must STILL decode FT8
-#      >= floor. Setting lmultift8=.true. would take the decoder.f90:192 multithread
-#      branch, which yields 0 FT8 decodes on the stream path; the apply IGNORES
-#      the non-false value (the receiver ignores a non-false value). A regression
-#      to a straight pass-through would collapse FT8 to 0 and fail here.
+#  15. (Phase 6) multithreaded_ft8=true decodes FT8 >= floor through the
+#      multithreaded decoder.
 #  16. (Phase 7) All 6 diagnostic / sequencing keys (last_tx_seconds_ago/
 #      qso_progress_state/sec_band_changed/delay_units ints, currently_txing/
 #      mode_changed bools) present with correct types are ACCEPTED end-to-end:
@@ -402,13 +399,13 @@ echo ""
 echo "Gate 13 — Phase 6 FT8/FT4-specifics keys accepted (24 keys: 19 bools + 5 ints)"
 # All 24 keys present with correct types and benign values. 23 are inert on the
 # FT8 fixture (multithread-block / JT65 / superfox / WAV-path / AP-no-effect).
-# multithreaded_ft8 is sent TRUE and only stays >= floor because
-# the apply ignores the non-false value (Gate 15). Assertion: ZERO type errors
+# multithreaded_ft8 is sent FALSE: with it on, nagain_filter narrows the decode
+# to rxfreq +-25 Hz (Gate 15 decodes multithreaded). Assertion: ZERO type errors
 # (every key accepted) AND FT8 still decodes >= floor (apply ran without
 # corrupting params). Per-key routing is guarded by run-phase6-parse-unit.sh +
 # run-apply-routing-unit.sh (no Phase 6 key is decode-observable in a healthy way).
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 \
-      --multithreaded-ft8 --ft8-cycles 3 --ft8-rxf-sensitivity 3 --ft8-threads 0 \
+      --no-multithreaded-ft8 --ft8-cycles 3 --ft8-rxf-sensitivity 3 --ft8-threads 0 \
       --ft8-decoder-start 3 --ft8-low-threshold --ft8-subpass --ft8-ap-on \
       --ap-cq-only --ap-my-call --jt65-ap-on --ap-width-hz 150 \
       --hide-ft8-duplicates --common-ft8b --enable-dxc-search --wide-dxc-search \
@@ -442,22 +439,18 @@ else
   fail=1
 fi
 
-# --- Gate 15: Phase 6 CORRECTNESS GUARD — multithreaded_ft8 ignore-non-false ---
+# --- Gate 15: Phase 6 — multithreaded_ft8 decodes ---
 echo ""
-echo "Gate 15 — multithreaded_ft8=true still decodes (apply ignores non-false)"
-# lmultift8=.true. takes the decoder.f90:192 multithread branch, which yields 0
-# FT8 decodes on the stream path. The apply IGNORES a non-false
-# multithreaded_ft8, so FT8 must STILL decode >= floor. A straight
-# pass-through regression would collapse FT8 to 0 and fail here. Compare against a
-# fresh baseline to keep the assertion meaningful (both runs healthy).
+echo "Gate 15 — multithreaded_ft8=true decodes FT8"
+# Compare against a fresh baseline to keep the assertion meaningful (both runs healthy).
 base=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --quiet 2>/dev/null \
        | grep -c '"t":"decode"' || true)
 mt=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --multithreaded-ft8 --quiet 2>/dev/null \
      | grep -c '"t":"decode"' || true)
 if [[ "$base" -ge "$FT8_FLOOR" && "$mt" -ge "$FT8_FLOOR" ]]; then
-  echo "  PASS: multithreaded_ft8=true ignored; FT8 still decodes ($mt >= $FT8_FLOOR, baseline $base)"
+  echo "  PASS: multithreaded_ft8=true decodes FT8 ($mt >= $FT8_FLOOR, baseline $base)"
 else
-  echo "  FAIL: guard broken — multithreaded_ft8=true collapsed FT8 (with-key=$mt, baseline=$base, floor=$FT8_FLOOR)"
+  echo "  FAIL: multithreaded_ft8=true decoded below the floor (with-key=$mt, baseline=$base, floor=$FT8_FLOOR)"
   fail=1
 fi
 
@@ -571,7 +564,7 @@ echo ""
 echo "Gate 21 — n_trials=500 (invalid value) declines the frame"
 # n_trials is type-correct (a number) but VALUE-invalid (not 10^N or 3*10^N), so the
 # receiver emits configure_type_error (a bad nranera would silently corrupt ntrials,
-# decoder.f90:143-145). The frame also sets mode=JT65; atomic decline of the WHOLE
+# decoder.f90:100-102). The frame also sets mode=JT65; atomic decline of the WHOLE
 # frame -> JT65 must NOT apply, so the FT8 audio decodes under the FT8 init default.
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode JT65 --n-trials 500 --quiet 2>/dev/null || true)
 te=$(printf '%s\n' "$out" | grep -c '"code":"configure_type_error"' || true)

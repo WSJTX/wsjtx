@@ -12,7 +12,7 @@
 !
 ! SCOPE: this guards the JSON -> configure_fields PARSE. The configure_fields ->
 ! params APPLY routing (incl. the utc-wins precedence, the /100 scaling, and the
-! flat date/n_trials pass-throughs) lives in streaming_apply::apply_configure_fields
+! date pass-through and the n_trials guard) lives in streaming_apply::apply_configure_fields
 ! and is asserted by run-apply-routing-unit.sh. Four of the five keys
 ! are inert on the FT8/JT9 fixtures (date superfox-only, n_trials JT65-only,
 ! candthin/dtcenter multithread-variant-only), so this parse-unit +

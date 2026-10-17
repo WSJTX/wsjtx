@@ -80,7 +80,9 @@ endfunction ()
 
 check_help ("${JT9}"
   OFFERS "Usage: jt9 \\[OPTIONS\\]" "jt9 -s <key>" "\n -s NAME" "\n --shmem NAME" "\n --ipc-lock PATH"
+         "\n -r PATH" "\n --share-path PATH"
   OMITS "--stream" "wsjt-codec")
 check_help ("${WSJT_CODEC}"
   OFFERS "Usage: wsjt-codec \\[OPTIONS\\]" "wsjt-codec --stream" "\n --stream"
+         "\n -r PATH" "\n --share-path PATH"
   OMITS "Usage: jt9 " "-s <key>" "\n -s NAME" "--shmem" "--ipc-lock")

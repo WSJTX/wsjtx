@@ -1517,10 +1517,12 @@ contains
   end subroutine
 
   subroutine report_host_rejection(status,request,operation)
+    use, intrinsic :: iso_fortran_env, only: error_unit, output_unit
     integer(c_int), intent(in) :: status
     type(attempt_request), intent(in) :: request
     character(len=*), intent(in) :: operation
     character(len=12) :: status_name
+    integer :: unit
     select case(status)
     case(invalid)
        status_name='invalid'
@@ -1531,10 +1533,13 @@ contains
     case default
        write(status_name,'(i0)') status
     end select
-    write(*,'(a,a,a,a,4(a,i0))') '<DecodeRejected> status=',trim(status_name), &
+    ! The stream's stdout carries only JSON events.
+    unit=output_unit
+    if(streaming_emit_enabled()) unit=error_unit
+    write(unit,'(a,a,a,a,4(a,i0))') '<DecodeRejected> status=',trim(status_name), &
          ' operation=',operation,' mode=',request%mode,' input=',request%input_id, &
          ' analysis=',request%analysis_id,' attempt=',request%attempt_no
-    flush(6)
+    flush(unit)
   end subroutine report_host_rejection
 end module decoder_engine
 

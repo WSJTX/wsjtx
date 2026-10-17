@@ -51,7 +51,7 @@ program jt9
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.,      &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
-  type (option) :: long_options(44) = [                                      &
+  type (option) :: long_options(45) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use native shared memory for sample data','NAME'), &
@@ -68,6 +68,9 @@ program jt9
         'Location of writeable data files, default PATH="."', 'PATH'),       &
     option ('temp-path', .true., 't',                                        &
         'Temporary files path, default PATH="."', 'PATH'),                   &
+    option ('share-path', .true., 'r',                                       &
+        'Location of read-only data files (ALLCALL7.TXT), default PATH="."', &
+        'PATH'),                                                             &
     option ('lowest', .true., 'L',                                           &
         'Lowest frequency decoded (JT65), default HERTZ=200', 'HERTZ'),      &
     option ('highest', .true., 'H',                                          &
@@ -202,6 +205,9 @@ program jt9
            call require_integer('R', optarg(:arglen), nft8rxfsens)
         case ('N')
            call require_integer('N', optarg(:arglen), nmt)
+           if (nmt < 0 .or. nmt > 24) then
+              call invalid_option('N', optarg(:arglen), 'must be between 0 and 24')
+           end if
         case ('E')
            call require_integer('E', optarg(:arglen), nmtft8decsens)
         case ('D')
@@ -362,7 +368,8 @@ program jt9
 
         ! Streaming-side overrides post-init.
         ! (mode=9 nfa=fsplit handled by init_default_params per-mode adjustment.)
-        ! (single-pass FT8 only in stream — already enforced via args.multift8=.false.)
+        ! (configure switches multithreaded FT8 on; -M/-U/-E do not apply, and
+        !  -N/-D/-C/-R/-Z only set starting values.)
 
         call jt9_stream(shared_data, mode, TRperiod)
      else

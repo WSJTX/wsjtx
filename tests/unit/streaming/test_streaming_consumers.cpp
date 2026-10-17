@@ -263,6 +263,22 @@ QByteArray streamOutput (ProcessResult const& result)
   return QByteArray {result.standardOutput}.replace ("\r\n", "\n");
 }
 
+// jt9's WAV-mode FT8 line carries the 37-column message after " ~  ".
+QStringList wavModeFt8Messages (QByteArray const& output)
+{
+  QStringList messages;
+  for (auto const& line : QByteArray {output}.replace ("\r\n", "\n").split ('\n'))
+    {
+      auto const marker = line.indexOf (" ~ ");
+      if (marker >= 0)
+        {
+          messages << QString::fromLatin1 (line.mid (marker + 4, 37)).trimmed ();
+        }
+    }
+  messages.sort ();
+  return messages;
+}
+
 QByteArray sessionHeaderWith (int index, char value)
 {
   auto bytes = sessionHeader ();
@@ -901,6 +917,243 @@ private slots:
     auto const completions = eventsMatching (events.values, "decode_finished");
     QCOMPARE (completions.size (), 1);
     QCOMPARE (completions.first ().value ("period_end").toString (), label);
+  }
+
+  void wsjtCodecIgnoresValuesTheEngineRefuses_data ()
+  {
+    QTest::addColumn<QString> ("recording");
+    QTest::addColumn<QJsonObject> ("keys");
+    QTest::addColumn<QString> ("message");
+    QTest::addColumn<QString> ("time");
+    QString const ft8 {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QTest::newRow ("ft8_threads 25") << ft8
+      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"ft8_threads", 25}}
+      << QString {"CQ K1JT FN20"} << QString {"051115"};
+    QTest::newRow ("ft8_threads -1") << ft8
+      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"ft8_threads", -1}}
+      << QString {"CQ K1JT FN20"} << QString {"051115"};
+    QTest::newRow ("n_trials 3000000") << QString::fromUtf8 (JT65_ENGINE_WAV)
+      << QJsonObject {{"mode", "JT65"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300},
+                      {"nfb", 1700}, {"n_trials", 3000000}}
+      << QString {"K1ABC W9XYZ FN42"} << QString {};
+  }
+
+  // A value the engine would refuse leaves the previous one, so the period
+  // still decodes with the rest of the frame applied and stdout stays JSON.
+  void wsjtCodecIgnoresValuesTheEngineRefuses ()
+  {
+    QFETCH (QString, recording);
+    QFETCH (QJsonObject, keys);
+    QFETCH (QString, message);
+    QFETCH (QString, time);
+    QFile wav {recording};
+    QVERIFY2 (wav.open (QIODevice::ReadOnly), qPrintable (wav.errorString ()));
+    auto const pcm = wav.readAll ().mid (44);
+    keys.insert ("t", "configure");
+    auto input = sessionHeader () + controlFrame (QJsonDocument {keys}.toJson (QJsonDocument::Compact));
+    for (int offset = 0; offset < pcm.size (); offset += 24000)
+      {
+        input += frame (0x01u, pcm.mid (offset, 24000));
+      }
+    auto const result = runJt9 (input);
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    bool found = false;
+    for (auto const& decode : eventsMatching (events.values, "decode"))
+      {
+        if (decode.value ("message").toString ().trimmed () == message)
+          {
+            found = true;
+            if (!time.isEmpty ())
+              {
+                QCOMPARE (decode.value ("time").toString (), time);
+              }
+          }
+      }
+    QVERIFY2 (found, result.standardOutput.constData ());
+  }
+
+  // A decode the engine refuses is reported on stderr; stdout stays JSON.
+  void wsjtCodecReportsEngineRefusalsOnStderr ()
+  {
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const result = runJt9 (sessionHeader () + controlFrame (
+      R"({"t":"configure","mode":"FT8","utc":"05:11:15","nfb":7000})") + frame (0x01u, recording.readAll ().mid (44)));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
+    QVERIFY2 (result.standardError.contains ("<DecodeRejected> status=invalid"), result.standardError.constData ());
+  }
+
+  void wsjtCodecKeepsStdoutJsonWithMultithreadedFt8_data ()
+  {
+    QTest::addColumn<QJsonObject> ("keys");
+    QTest::addColumn<QByteArray> ("warning");
+    QTest::addColumn<bool> ("decodes");
+    // The working directory has no ALLCALL7.TXT.
+    QTest::newRow ("no call database") << QJsonObject {}
+      << QByteArray {"ALLCALL7.TXT is too short or broken?"} << true;
+    QTest::newRow ("partial period") << QJsonObject {{"delay_units", 2}}
+      << QByteArray {"partial loss of data"} << true;
+    QTest::newRow ("rx frequency outside the band")
+      << QJsonObject {{"nagain_filter", true}, {"rxfreq", 4500}}
+      << QByteArray {"nfqso is out of bandwidth"} << false;
+  }
+
+  // The multithreaded decoder's warnings go to stderr, not into the event stream.
+  void wsjtCodecKeepsStdoutJsonWithMultithreadedFt8 ()
+  {
+    QFETCH (QJsonObject, keys);
+    QFETCH (QByteArray, warning);
+    QFETCH (bool, decodes);
+    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const wav = recording.readAll ();
+    QJsonObject configuration {{"t", "configure"}, {"mode", "FT8"}, {"utc", "05:11:15"},
+                               {"multithreaded_ft8", true}, {"ft8_threads", 2}};
+    for (auto key = keys.begin (); key != keys.end (); ++key)
+      {
+        configuration.insert (key.key (), key.value ());
+      }
+    auto const result = runJt9 (sessionHeader () + controlFrame (
+      QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) + frame (0x01u, wav.mid (44)));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    bool found = false;
+    for (auto const& decode : eventsMatching (events.values, "decode"))
+      {
+        found |= decode.value ("message").toString ().trimmed () == "CQ K1JT FN20";
+      }
+    QVERIFY2 (found == decodes, result.standardOutput.constData ());
+    QVERIFY2 (result.standardError.contains (warning), result.standardError.constData ());
+  }
+
+  // SuperFox Hound decodes single-threaded, as the GUI does, whatever multithreaded_ft8 says.
+  void superFoxHoundIgnoresMultithreadedFt8 ()
+  {
+#ifndef SUPERFOX_WAV
+    QSKIP ("sfoxsim is built only with WSJT_BUILD_UTILS");
+#else
+    QFile recording {QString::fromUtf8 (SUPERFOX_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const audio = frame (0x01u, recording.readAll ().mid (44));
+    QJsonObject hound {{"t", "configure"}, {"mode", "FT8"}, {"utc", "00:00:00"},
+                       {"contest_type", "hound"}, {"superfox_mode", true},
+                       {"even_sequence", true}, {"rxfreq", 750}};
+    auto const single = runJt9 (sessionHeader () + controlFrame (
+      QJsonDocument {hound}.toJson (QJsonDocument::Compact)) + audio);
+    hound.insert ("multithreaded_ft8", true);
+    hound.insert ("ft8_threads", 2);
+    auto const multi = runJt9 (sessionHeader () + controlFrame (
+      QJsonDocument {hound}.toJson (QJsonDocument::Compact)) + audio);
+    verifyCompleted (single, 0);
+    verifyCompleted (multi, 0);
+    QVERIFY2 (streamOutput (single).contains ("K1JT RR73"), single.standardOutput.constData ());
+    QCOMPARE (streamOutput (multi), streamOutput (single));
+#endif
+  }
+
+  void multithreadedFt8SkipsOnlySuperFoxHound_data ()
+  {
+    QTest::addColumn<QList<QJsonObject>> ("periods");
+    QTest::addColumn<bool> ("multithreaded");
+    QJsonObject const hound {{"contest_type", "hound"}, {"superfox_mode", true}, {"even_sequence", true}};
+    QTest::newRow ("SuperFox Hound") << QList<QJsonObject> {hound} << false;
+    QTest::newRow ("SuperFox Fox") << QList<QJsonObject> {
+      {{"contest_type", "fox"}, {"superfox_mode", true}, {"even_sequence", true}}} << true;
+    QTest::newRow ("Hound without SuperFox") << QList<QJsonObject> {{{"contest_type", "hound"}}} << true;
+    QTest::newRow ("after SuperFox Hound") << QList<QJsonObject> {
+      hound, {{"contest_type", "none"}}} << true;
+  }
+
+  // Only SuperFox Hound sets multithreading aside; the multithreaded decoder's
+  // missing-ALLCALL7.TXT warning shows whether it ran.
+  void multithreadedFt8SkipsOnlySuperFoxHound ()
+  {
+#ifndef SUPERFOX_WAV
+    QSKIP ("sfoxsim is built only with WSJT_BUILD_UTILS");
+#else
+    QFETCH (QList<QJsonObject>, periods);
+    QFETCH (bool, multithreaded);
+    QFile recording {QString::fromUtf8 (SUPERFOX_WAV)};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const audio = frame (0x01u, recording.readAll ().mid (44));
+    QByteArray input = sessionHeader () + controlFrame (R"({"t":"configure","mode":"FT8","utc":"00:00:00","rxfreq":750,"multithreaded_ft8":true,"ft8_threads":2})");
+    for (auto keys : periods)
+      {
+        keys.insert ("t", "configure");
+        input += controlFrame (QJsonDocument {keys}.toJson (QJsonDocument::Compact)) + audio;
+      }
+    auto const result = runJt9 (input);
+    verifyCompleted (result, 0);
+    QCOMPARE (result.standardError.contains ("ALLCALL7.TXT is too short or broken?"), multithreaded);
+#endif
+  }
+
+  void multithreadedFt8MatchesWavMode_data ()
+  {
+    QTest::addColumn<int> ("decoderStart");
+    QTest::addColumn<int> ("depth");
+    QTest::addColumn<int> ("delayMs");
+    // Settings 0 and 1 run single-threaded passes first; at depth 3 those decode too.
+    QTest::newRow ("start 0, depth 3") << 0 << 3 << 0;
+    QTest::newRow ("start 1, depth 3") << 1 << 3 << 0;
+    // With a one-second delay an hsym-48 final pass loses a message that passes at 49 and 50 keep.
+    QTest::newRow ("start 2, delayed") << 2 << 1 << 1000;
+    QTest::newRow ("start 3") << 3 << 1 << 0;
+    QTest::newRow ("start 3, delayed") << 3 << 1 << 1000;
+    QTest::newRow ("start 4, delayed") << 4 << 1 << 1000;
+  }
+
+  // The stream's multithreaded FT8 decodes what jt9 decodes from the same WAV.
+  void multithreadedFt8MatchesWavMode ()
+  {
+    auto const sample = qEnvironmentVariable ("WSJT_FT8_SAMPLE_WAV");
+    if (sample.isEmpty ())
+      {
+        QSKIP ("run by test_streaming_mtd_parity");
+      }
+    QFETCH (int, decoderStart);
+    QFETCH (int, depth);
+    QFETCH (int, delayMs);
+    QFile recording {sample};
+    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
+    auto const wav = recording.readAll ();
+    auto const pcm = wav.mid (44);
+    auto const delayed = (QByteArray (delayMs * 12 * 2, '\0') + pcm).left (pcm.size ());
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    QFile input {directory.filePath ("210703_133430.wav")};
+    QVERIFY (input.open (QIODevice::WriteOnly));
+    input.write (wav.left (44) + delayed);
+    input.close ();
+    QStringList const paths {"-a", directory.path (), "-t", directory.path (),
+                             "-r", qEnvironmentVariable ("WSJT_SHARE_DIR")};
+    auto const wavMode = runProcess (QString::fromUtf8 (JT9_EXECUTABLE),
+      paths + QStringList {"-8", "-d", QString::number (depth), "-M", "-N", "4",
+                           "-D", QString::number (decoderStart), input.fileName ()},
+      {}, directory.path (), 120000);
+    verifyCompleted (wavMode, 0);
+    QJsonObject configuration {{"t", "configure"}, {"mode", "FT8"}, {"utc", "13:34:30"},
+                               {"depth", depth}, {"multithreaded_ft8", true},
+                               {"ft8_threads", 4}, {"ft8_decoder_start", decoderStart}};
+    auto const stream = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+      paths + QStringList {"--stream"},
+      sessionHeader () + controlFrame (QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) +
+        frame (0x01u, delayed),
+      directory.path (), 120000);
+    verifyCompleted (stream, 0);
+    auto const events = verifyEvents (stream);
+    QStringList streamed;
+    for (auto const& decode : eventsMatching (events.values, "decode"))
+      {
+        streamed << decode.value ("message").toString ().trimmed ();
+      }
+    streamed.sort ();
+    auto const expected = wavModeFt8Messages (wavMode.standardOutput);
+    QVERIFY2 (!expected.isEmpty (), wavMode.standardOutput.constData ());
+    QCOMPARE (streamed, expected);
   }
 
   void wsprdRejectsOversizedFrames_data ()

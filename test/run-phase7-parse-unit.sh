@@ -9,8 +9,8 @@
 # aliasing guard.
 #
 # WHY a Fortran unit driver (not only a fixture through jt9): all 6 Phase 7 keys
-# are INERT on the FT8/JT9 fixtures (five are read only inside
-# the multithreaded-FT8 block decoder.f90:192..1148 which streaming forces off;
+# are INERT on the FT8/JT9 fixtures without multithreaded_ft8 (five are read only
+# inside the multithreaded-FT8 block in ft8_engine_kernel.f90;
 # qso_progress_state reaches the single-pass FT8 decoder but only steers AP
 # decoding passes and the fixture has no AP-only decodes), so no decode-output
 # gate can assert those values landed. This unit driver is the

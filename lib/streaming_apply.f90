@@ -132,38 +132,32 @@ contains
     if (in_cfg%clear_average_set)     params%nclearave = in_cfg%clear_average
 
     ! ===== Phase 6: FT8/FT4 specifics cluster (RFC v1 §2) ===================
-    ! Flat 1:1, no per-mode-policy interaction (none of these 24 are touched by
-    ! apply_per_mode_policy / the nfa-nfb-restore / ntol blocks below). 21 of 24
-    ! are INERT on the wsjt-codec --stream FT8/JT9 fixtures (read only inside the
-    ! multithreaded-FT8 block decoder.f90:192, which streaming forces off via
-    ! lmultift8=.false.; jt65_ap_on is JT65-only; superfox_mode/even_sequence are
-    ! superfox-path-only (ncontest==7 / sfrx_sub); ft8_decoder_start is non-stream
-    ! (WAV/shmem) path; hint_mode unread anywhere) —
-    ! parse-unit + apply-routing-unit + no-regression guard them. Only ft8_ap_on
-    ! -> lft8apon, ap_cq_only -> lapcqonly, ap_width_hz -> napwid reach the
-    ! single-pass FT8 decoder (decoder.f90:1141-1146), but they are EMPIRICALLY
-    ! inert on the FT8 fixture in the FLIP direction too (ft8_ap_on=false / AP off,
-    ! ap_cq_only=true, ap_width_hz=5000 each yield byte-identical 21 decodes vs
-    ! baseline across 6 clean paired trials — the fixture has no AP-only
-    ! decodes), so no decode-effect gate is possible. ap_width_hz stores the RAW
-    ! wire int (the decoder halves it at lib/ft8var/ft8bvar.f90:1040 for the lapmyc
-    ! AP path, §3 napwid note) — do NOT pre-scale here. nagain_filter/stop_hint/hint_mode
-    ! assign logical -> logical(c_bool) nagainfil/nstophint/nhint (n-prefix, but
-    ! bool-typed in the struct).
-    ! multithreaded_ft8: the receiver IGNORES a non-false value.
-    ! Streaming has NO multithreaded-FT8 support — lmultift8=.true. takes the
-    ! decoder.f90:192 multithread branch, which yields 0 FT8 decodes on the stream
-    ! path (deterministic: 0 vs a 21-decode baseline, every trial).
-    ! So apply ONLY a false value (a no-op given the init-forced false), keeping the
-    ! forced-false invariant; a true is dropped so a producer can never enable the
-    ! broken path. Re-enable a straight pass-through if/when multithread streaming
-    ! lands. (The other 23 keys are flat pass-throughs — inert on the FT8/JT9
-    ! fixtures; verified byte-identical at probe values.)
-    if (in_cfg%multithreaded_ft8_set .and. .not. in_cfg%multithreaded_ft8)      &
-         params%lmultift8 = .false.
+    ! Flat 1:1; the per-mode policy and the ntol/nfa/nfb blocks below touch
+    ! none of these. multithreaded_ft8 selects the multithreaded FT8 decoder
+    ! (ft8_engine_kernel.f90), the only reader of ft8_cycles,
+    ! ft8_rxf_sensitivity, ft8_threads, ft8_low_threshold, ft8_subpass,
+    ! ap_my_call, hide_ft8_duplicates, enable_dxc_search, wide_dxc_search,
+    ! hound_mode, multi_instance, skip_tx1, nagain_filter and stop_hint. The
+    ! engine refuses every FT8 decode, single-threaded too, while ft8_threads is
+    ! outside [0,24] (decoder_engine.f90), so the apply ignores such a value and
+    ! keeps the one it had; the kernel runs 13 to 24 on one thread
+    ! (ft8_engine_kernel.f90). ft8_ap_on and ap_width_hz reach both FT8
+    ! decoders; in the multithreaded one ft8_ap_on gates only the a8 pass.
+    ! ap_cq_only reaches the single-threaded FT8 decoder, FT4, FST4 and Q65.
+    ! ft8_decoder_start sets the multithreaded pass schedule (streaming_io.f90);
+    ! superfox_mode and even_sequence drive SuperFox decoding
+    ! (ft8_engine_kernel.f90, streaming_io.f90); jt65_ap_on is JT65's; no
+    ! decoder reads common_ft8b or hint_mode. ap_width_hz is in Hz
+    ! and is not pre-scaled: the decoders compare frequency offsets with it, or
+    ! with half of it in one multithreaded AP pass (ft8var/ft8bvar.f90).
+    ! nagain_filter/stop_hint/hint_mode assign logical -> logical(c_bool)
+    ! nagainfil/nstophint/nhint (n-prefix, but bool-typed in the struct).
+    if (in_cfg%multithreaded_ft8_set) params%lmultift8 = in_cfg%multithreaded_ft8
     if (in_cfg%ft8_cycles_set)          params%nft8cycles      = in_cfg%ft8_cycles
     if (in_cfg%ft8_rxf_sensitivity_set) params%nft8rxfsens     = in_cfg%ft8_rxf_sensitivity
-    if (in_cfg%ft8_threads_set)         params%nmt             = in_cfg%ft8_threads
+    if (in_cfg%ft8_threads_set .and. in_cfg%ft8_threads >= 0                     &
+         .and. in_cfg%ft8_threads <= 24)                                         &
+         params%nmt = in_cfg%ft8_threads
     if (in_cfg%ft8_decoder_start_set)   params%ndecoderstart   = in_cfg%ft8_decoder_start
     if (in_cfg%ft8_low_threshold_set)   params%lft8lowth       = in_cfg%ft8_low_threshold
     if (in_cfg%ft8_subpass_set)         params%lft8subpass     = in_cfg%ft8_subpass
@@ -186,38 +180,20 @@ contains
     if (in_cfg%hint_mode_set)           params%nhint           = in_cfg%hint_mode
 
     ! ===== Phase 7: diagnostic / sequencing fields (RFC v1 §2) ==============
-    ! No per-mode-policy interaction (none of these 6 are touched by
-    ! apply_per_mode_policy / the nfa-nfb-restore / ntol blocks below). 5 of the 6
-    ! are flat pass-throughs and INERT on the wsjt-codec --stream FT8/JT9 fixtures:
-    ! currently_txing/mode_changed/sec_band_changed/delay_units/
-    ! last_tx_seconds_ago are read ONLY inside the multithreaded-FT8 block
-    ! (decoder.f90:192..1148, which streaming forces off via lmultift8=.false.), so
-    ! no decode-output gate is possible -> the parse-unit (run-phase7-parse-unit.sh)
-    ! + the apply-routing unit (run-apply-routing-unit.sh, sentinel-opposite slot
-    ! asserts) + no-regression are their coverage (like Phase 4).
+    ! Flat 1:1, outside the per-mode policy. last_tx_seconds_ago,
+    ! currently_txing, mode_changed, sec_band_changed and delay_units are read
+    ! only by the multithreaded FT8 decoder (ft8_engine_kernel.f90).
     ! currently_txing/mode_changed assign logical -> logical(c_bool)
-    ! ltxing/lmodechanged. OMITTED wire keys (utc_list*/nlist_count/datetime/
-    ! from_wav_file/new_data_flag) are documented in streaming_control.f90.
+    ! ltxing/lmodechanged. The keys left off the wire (utc_list*/nlist_count/
+    ! datetime/from_wav_file/new_data_flag) are listed in streaming_control.f90.
     !
-    ! qso_progress_state -> nQSOProgress is the EXCEPTION: it reaches the
-    ! single-pass FT8 decoder (decoder.f90:1141), where ft8b.f90:274/299 use it as a
-    ! RAW index into nappasses(0:5) / naptypes(0:5,4) on the default
-    ! lft8apon=.true. / lapcqonly=.false. path. An out-of-range producer value
-    ! (<0 or >5) faults the decoder (an -fbounds-check abort -> a one-frame DoS;
-    ! silent memory corruption without the flag) -- a qso_progress_state=99
-    ! crashes wsjt-codec --stream. The valid range is [0,5] universally (every decoder
-    ! dimensions naptypes(0:5,4)/nappasses(0:5); QsoProgress.hpp defines the
-    ! C++ producer values as 0..5). So, exactly like the Phase 6
-    ! multithreaded_ft8 guard
-    ! (the receiver IGNORES a value that would break the decode path), the apply
-    ! IGNORES an out-of-range value, keeping the safe default. Valid [0,5] pass
-    ! through UNCHANGED -> wire-parity preserved for every value the CLI -Q path
-    ! accepts (the CLI's identical out-of-range crash, jt9.f90:191, is a pre-existing
-    ! latent bug the streaming wire contract declines to inherit). On the FT8/JT9
-    ! fixtures an in-range qso_progress_state is empirically INERT (it only steers AP
-    ! passes and the fixture has no AP-only decodes -> qso=5 gives a
-    ! byte-identical 21-decode set), so the in-range routing is guarded by the
-    ! apply-routing unit; a survival fixture guards the out-of-range case (negative-controlled).
+    ! qso_progress_state reaches both FT8 decoders, FT4, JT65, JT65+JT9, FST4
+    ! and Q65, which index AP tables dimensioned (0:5,...) with it (ft8/ft8b.f90,
+    ! ft8var/ft8bvar.f90, ft4_decode.f90, extract.f90, fst4_decode.f90,
+    ! qra/q65/q65_ap.f90). The engine refuses FT4, JT65, FST4 and Q65 requests
+    ! outside [0,5] but not FT8's, and JT65+JT9 does not go through it, so the
+    ! apply ignores such a value and keeps the one it had; the CLI's -Q refuses
+    ! one (jt9.f90).
     if (in_cfg%last_tx_seconds_ago_set) params%nlasttx         = in_cfg%last_tx_seconds_ago
     if (in_cfg%currently_txing_set)     params%ltxing          = in_cfg%currently_txing
     if (in_cfg%mode_changed_set)        params%lmodechanged    = in_cfg%mode_changed
@@ -228,26 +204,20 @@ contains
     if (in_cfg%delay_units_set)         params%ndelay          = in_cfg%delay_units
 
     ! ===== Phase 8: string & scaled / derived fields (RFC v1 §2/§6) =========
-    ! No per-mode-policy interaction. The cfg members already hold the DERIVED
-    ! legacy ints (utc_nutc / date_yymmdd / n_trials_nranera — computed at parse,
-    ! streaming_control.f90), so date/n_trials are flat pass-throughs here; only
-    ! candthin_threshold/dt_center_seconds scale at apply (real(8) wire -> int /100,
-    ! §6.5). INERT on the FT8/JT9 stream fixtures except utc (read-site map+probe):
-    ! ncandthin/ndtcenter are read ONLY by the multithread FT8-variant decoder
-    ! my_ft8var%decodevar (every such call — first at decoder.f90:348 — scales /100
-    ! into the variant sync thresholds sync8var.f90:17-18), and every such call lives
-    ! inside the if(lmultift8 .and. nmode==8) block (opens decoder.f90:192, else at
-    ! :1140) that streaming forces off — the single-pass FT8 decoder
-    ! (my_ft8%decode, :1141) is NOT passed them (probed inert: 5.0 / 2.0 s gave the
-    ! byte-identical 21-decode set). n_trials->nranera->ntrials is JT65-deep-search-only
-    ! (ntrials computed decoder.f90:143-145, consumed :1338/:1365, unused on FT8/JT9);
-    ! date->yymmdd is superfox-only (sfrx_sub.f90). So those four are guarded by
-    ! parse-unit + apply-routing-unit + no-regression; utc is decode-observable
-    ! (round-trip fixtures). NONE is an array index, so unlike qso_progress_state no
-    ! out-of-range apply guard is needed (read-site check: nranera<=18
-    ! keeps 10**(nranera/2) within int32; ncandthin/ndtcenter become real thresholds).
+    ! No per-mode-policy interaction. utc, date and n_trials arrive as the
+    ! legacy ints computed at parse (streaming_control.f90); candthin_threshold
+    ! and dt_center_seconds scale here to hundredths, which their only reader,
+    ! the multithreaded FT8 decoder, divides back (ft8var/sync8var.f90). utc
+    ! sets the decode time, and date reaches only the SuperFox decoder. n_trials
+    ! is the trial count of JT65's soft-decision Reed-Solomon decoder
+    ! (extract.f90 ftrsdap), used with VHF features on and for averaged decodes.
+    ! The engine refuses a JT65 decode above 1,000,000 trials, nranera 12, the
+    ! most the GUI offers in any mode, so the apply ignores a larger n_trials,
+    ! JT65+JT9's included, and keeps the one it had. None of these indexes an
+    ! array.
     if (in_cfg%date_set)     params%yymmdd  = in_cfg%date_yymmdd
-    if (in_cfg%n_trials_set) params%nranera = in_cfg%n_trials_nranera
+    if (in_cfg%n_trials_set .and. in_cfg%n_trials_nranera <= 12)               &
+         params%nranera = in_cfg%n_trials_nranera
     if (in_cfg%candthin_threshold_set)                                          &
          params%ncandthin = nint(in_cfg%candthin_threshold * 100.d0)
     if (in_cfg%dt_center_seconds_set)                                           &

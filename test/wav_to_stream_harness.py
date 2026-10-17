@@ -587,8 +587,10 @@ def main() -> int:
     # send an explicit false where a gate needs it (ft8_ap_on defaults true).
     p.add_argument("--multithreaded-ft8", dest="multithreaded_ft8",
                    action="store_true", default=None,
-                   help="Phase 6: multithreaded_ft8=true (-> lmultift8; "
-                        "receiver-ignored on the single-pass stream path).")
+                   help="Phase 6: multithreaded_ft8=true (-> lmultift8).")
+    p.add_argument("--no-multithreaded-ft8", dest="multithreaded_ft8",
+                   action="store_false", default=None,
+                   help="Phase 6: send an explicit multithreaded_ft8=false.")
     p.add_argument("--ft8-cycles", dest="ft8_cycles", type=int, default=None,
                    help="Phase 6: ft8_cycles (-> nft8cycles).")
     p.add_argument("--ft8-rxf-sensitivity", dest="ft8_rxf_sensitivity", type=int,
