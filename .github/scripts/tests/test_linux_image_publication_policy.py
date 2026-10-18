@@ -27,6 +27,20 @@ def job(name: str, workflow: str = PUBLISH) -> str:
 
 
 class LinuxImagePublicationPolicyTests(unittest.TestCase):
+    def test_armhf_image_builds_register_emulation_before_buildx(self):
+        for name in ("build-armhf-cross", "build-armhf-runtime",
+                     "build-armhf-trixie-cross", "build-armhf-trixie-runtime"):
+            with self.subTest(job=name):
+                build = job(name)
+                self.assertIn("docker/setup-qemu-action@v4", build)
+                self.assertIn(
+                    "tonistiigi/binfmt:qemu-v10.2.3-68@sha256:"
+                    "400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0",
+                    build,
+                )
+                self.assertLess(build.index("docker/setup-qemu-action@v4"),
+                                build.index("docker/setup-buildx-action@v4"))
+
     def test_armhf_cross_cache_import_and_export_share_registry_destination(self):
         metadata = job("metadata")
         for package_root in ("ghcr.io/wsjtx/wsjtx", "ghcr.io/wsjtx/wsjtx-internal"):
