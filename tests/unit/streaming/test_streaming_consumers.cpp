@@ -1029,7 +1029,7 @@ private slots:
     QVERIFY2 (result.standardError.contains (warning), result.standardError.constData ());
   }
 
-  // SuperFox Hound decodes single-threaded, as the GUI does, whatever multithreaded_ft8 says.
+  // SuperFox Hound decodes are decode events, and single-threaded whatever multithreaded_ft8 says.
   void superFoxHoundIgnoresMultithreadedFt8 ()
   {
 #ifndef SUPERFOX_WAV
@@ -1038,7 +1038,7 @@ private slots:
     QFile recording {QString::fromUtf8 (SUPERFOX_WAV)};
     QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
     auto const audio = frame (0x01u, recording.readAll ().mid (44));
-    QJsonObject hound {{"t", "configure"}, {"mode", "FT8"}, {"utc", "00:00:00"},
+    QJsonObject hound {{"t", "configure"}, {"mode", "FT8"}, {"utc", "00:00:30"},
                        {"contest_type", "hound"}, {"superfox_mode", true},
                        {"even_sequence", true}, {"rxfreq", 750}};
     auto const single = runJt9 (sessionHeader () + controlFrame (
@@ -1049,7 +1049,16 @@ private slots:
       QJsonDocument {hound}.toJson (QJsonDocument::Compact)) + audio);
     verifyCompleted (single, 0);
     verifyCompleted (multi, 0);
-    QVERIFY2 (streamOutput (single).contains ("K1JT RR73"), single.standardOutput.constData ());
+    QStringList messages;
+    for (auto const& decode : eventsMatching (verifyEvents (single).values, "decode"))
+      {
+        QCOMPARE (decode.value ("time").toString (), QString {"000030"});
+        messages << decode.value ("message").toString ().trimmed ();
+      }
+    messages.sort ();
+    QCOMPARE (messages, (QStringList {"$VERIFY$ K1JT 000000", "W0AAA K1JT RR73", "W1BBB K1JT RR73",
+                                      "W2CCC K1JT RR73", "W3DDD K1JT RR73", "W4EEE K1JT RR73",
+                                      "W5FFF K1JT -18"}));
     QCOMPARE (streamOutput (multi), streamOutput (single));
 #endif
   }

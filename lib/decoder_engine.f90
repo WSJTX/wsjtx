@@ -22,7 +22,7 @@ module decoder_engine
   use decode_completion_module, only: decode_completion_result,set_decode_completion,write_decode_progress
   use prog_args, only: temp_dir
   use timer_module, only: timer
-  use streaming_emit, only: streaming_emit_enabled
+  use streaming_emit, only: streaming_emit_enabled, streaming_emit_decode
   implicit none
   private
   public :: engine_host_decode
@@ -1138,8 +1138,13 @@ contains
     enddo
     call collect_observation(user,record)
     if(session%render_legacy.and.observation%legacy_line_length>0) then
-       write(*,'(a)') observation%legacy_line(:observation%legacy_line_length)
-       flush(6)
+       if(streaming_emit_enabled()) then
+          call streaming_emit_decode("FT8",session%request%ft8%utc,observation%snr_db, &
+               observation%dt_seconds,nint(observation%frequency_hz),observation%message)
+       else
+          write(*,'(a)') observation%legacy_line(:observation%legacy_line_length)
+          flush(6)
+       endif
     endif
   end subroutine
 
