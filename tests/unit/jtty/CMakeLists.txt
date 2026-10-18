@@ -160,6 +160,11 @@ wsjt_link_common_fortran (test_jtty_surface_ranges)
 add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
 set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 180)
 
+add_executable (test_jtty_surface_cache test_jtty_surface_cache.f90)
+wsjt_link_common_fortran (test_jtty_surface_cache)
+add_test (NAME test_jtty_surface_cache COMMAND test_jtty_surface_cache)
+set_tests_properties (test_jtty_surface_cache PROPERTIES TIMEOUT 180)
+
 add_executable (test_jtty_display_layout test_jtty_display_layout.f90)
 target_include_directories (test_jtty_display_layout PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_display_layout)
