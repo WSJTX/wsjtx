@@ -122,14 +122,15 @@ module streaming_control
      ! robust_mode/nagain_flag/clear_average are BOOLEANS -> logical(c_bool)
      ! nrobust/nagain/nclearave (reuse the Phase 4 get_bool_/accept_bool path).
      ! tx_mode is an enum (JT9->9 / JT65->65, or a raw int) -> ntxmode, mirroring
-     ! the "mode" parse. OBSERVABILITY (read-site map): on the
-     ! wsjt-codec --stream FT8/JT9 fixtures kin_samples(kin)+nzhsym_per_period(nzhsym)
-     ! are OVERWRITTEN every period by the streaming period-prep block
-     ! (streaming_io.f90 ~:331/:339); dttol/minw/minsync/n2pass/nrobust/nclearave
-     ! are JT4/JT65/Q65-only; emedelay is forced to 0 by apply_per_mode_policy on
-     ! a mode-setting frame; ntxmode is read only in mode 65+9 — so 10 of 12 are
-     ! inert here (parse-unit + no-regression guard them). Only npts_c0_array(npts8)
-     ! and nagain_flag(nagain) reach the FT8/JT9 decoders.
+     ! the "mode" parse. The stream host sets kin and nzhsym before each decode
+     ! (streaming_io.f90), so kin_samples/nzhsym_per_period do not reach the
+     ! decoder, and a frame that sets the mode or TR period resets emedelay
+     ! (apply_per_mode_policy: 2.5 for Q65 at 60 s, else 0). min_width is JT4's;
+     ! min_sync JT4's, JT65's and JT65+JT9's; n_2pass JT65's and JT65+JT9's;
+     ! clear_average JT4's, JT65's, JT65+JT9's and Q65's; robust_mode, tx_mode
+     ! and npts_c0_array reach only JT65+JT9; no decoder reads
+     ! dt_tolerance_seconds. nagain_flag asks once to decode the last period
+     ! again (streaming_io.f90).
      logical                :: dt_tolerance_seconds_set = .false.
      real(8)                :: dt_tolerance_seconds     = 0.d0
      logical                :: eme_delay_seconds_set    = .false.

@@ -103,16 +103,14 @@ contains
     ! ===== Phase 5: decoder-tuning basic fields (RFC v1 §2) =================
     ! Flat 1:1. dt_tolerance_seconds/eme_delay_seconds narrow real(8) ->
     ! real(c_float) via the target's kind() (§4 — document the narrowing).
-    ! eme_delay_seconds is applied HERE, before the apply_per_mode_policy
-    ! call below: a frame that ALSO sets mode/trperiod re-runs that policy, which
-    ! OVERWRITES emedelay (0.0 non-Q65-60s, 2.5 Q65-60s) — so a producer
-    ! eme_delay_seconds survives only on a frame with NO mode/trperiod change
-    ! (matches RFC §2.4). kin_samples/nzhsym_per_period are honored at apply, but
-    ! the streaming period-prep block (~:331/:339) RECOMPUTES kin/nzhsym from the
-    ! accumulated sample count before each decode, so they are inert on this path
-    ! (documented; verified byte-identical). robust_mode/nagain_flag/
-    ! clear_average -> logical(c_bool). tx_mode (enum) -> ntxmode (read only in
-    ! the 65+9 dual-decode dispatch; inert for FT8/pure-JT9 fixtures).
+    ! eme_delay_seconds is applied before the apply_per_mode_policy call below,
+    ! which a frame that also sets mode/trperiod re-runs (emedelay 2.5 for Q65
+    ! at 60 s, else 0), so it holds only on a frame that sets neither. The
+    ! stream host sets kin and nzhsym before each decode, so
+    ! kin_samples/nzhsym_per_period do not reach the decoder.
+    ! robust_mode/nagain_flag/clear_average -> logical(c_bool); nagain holds
+    ! only for the decode again nagain_flag asks for (streaming_io.f90).
+    ! tx_mode (enum) -> ntxmode, read only by JT65+JT9.
     if (in_cfg%dt_tolerance_seconds_set)                                       &
          params%dttol    = real(in_cfg%dt_tolerance_seconds, kind(params%dttol))
     if (in_cfg%eme_delay_seconds_set)                                          &
