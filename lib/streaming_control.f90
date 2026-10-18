@@ -155,21 +155,11 @@ module streaming_control
      logical                :: clear_average_set        = .false.
      logical                :: clear_average            = .false.
      ! Phase 6 (RFC v1 §2): FT8/FT4 specifics cluster — 19 bools + 5 ints, flat
-     ! 1:1 onto params_block. OBSERVABILITY (read-site map + binary
-     ! probe): 21 of 24 are INERT on the wsjt-codec --stream FT8/JT9 fixtures — most are
-     ! read ONLY inside the multithreaded-FT8 block (guard
-     ! if(params%lmultift8 .and. nmode==8), decoder.f90:192), which streaming
-     ! forces off (lmultift8=.false. constructed at jt9.f90:316); jt65_ap_on is
-     ! JT65-only; superfox_mode/even_sequence are superfox-path-only;
-     ! ft8_decoder_start is non-stream (WAV/shmem) path; hint_mode is never read. Only
-     ! ft8_ap_on/ap_cq_only/ap_width_hz reach the single-pass FT8 decoder
-     ! (decoder.f90:1141-1146, the lmultift8=.false. branch). ap_width_hz stores
-     ! the RAW int (decode halves it at lib/ft8var/ft8bvar.f90:1040; §3 napwid
-     ! note) — do NOT pre-scale. nagain_filter/stop_hint/hint_mode map to logical(c_bool)
-     ! nagainfil/nstophint/nhint despite the n-prefix. Bools reuse the Phase 4/5
-     ! get_bool_/accept_bool path; the 5 ints use get_int_. multithreaded_ft8 is
-     ! PARSED faithfully but APPLY ignores a non-false value (a true re-enables the
-     ! broken multithread branch -> 0 decodes; see streaming_apply.f90).
+     ! 1:1 onto params_block; apply_configure_fields (streaming_apply.f90) says
+     ! which decoder reads each. The parse checks types only; the apply drops an
+     ! ft8_threads outside [0,24]. nagain_filter/stop_hint/hint_mode map to
+     ! logical(c_bool) nagainfil/nstophint/nhint despite the n-prefix. Bools
+     ! reuse the Phase 4/5 get_bool_/accept_bool path; the 5 ints use get_int_.
      logical                :: multithreaded_ft8_set     = .false.
      logical                :: multithreaded_ft8         = .false.
      logical                :: ft8_cycles_set            = .false.
@@ -219,36 +209,17 @@ module streaming_control
      logical                :: hint_mode_set             = .false.
      logical                :: hint_mode                 = .false.
      ! Phase 7 (RFC v1 §2): diagnostic / sequencing fields — 2 bools + 4 ints,
-     ! flat 1:1 onto params_block. OBSERVABILITY (read-site map):
-     ! ALL 6 are INERT on the wsjt-codec --stream FT8/JT9 fixtures. Five are read ONLY
-     ! inside the multithreaded-FT8 block (guard
-     ! if(params%lmultift8 .and. nmode==8), decoder.f90:192..1148, which streaming
-     ! forces off via lmultift8=.false.): currently_txing (ltxing, decoder.f90:228),
-     ! mode_changed (lmodechanged, :193), sec_band_changed (nsecbandchanged,
-     ! :208), delay_units (ndelay, :201/:1077), last_tx_seconds_ago (nlasttx,
-     ! :337, consumed only by the multithread FT8-variant decoder ft8bvar/ft8svar).
-     ! qso_progress_state (nQSOProgress) DOES reach the single-pass FT8 decoder
-     ! (decoder.f90:1141) but only steers AP decoding passes; the FT8 fixture has
-     ! no AP-only decodes, so an IN-RANGE value is empirically inert (probed:
-     ! qso=5 gives a byte-identical 21-decode set). It is the one Phase 7 key the
-     ! apply GUARDS (streaming_apply.f90): an OUT-OF-range value (<0 or >5) is a raw
-     ! index into nappasses(0:5)/naptypes(0:5,4) at ft8b.f90:274/299 -> a decoder
-     ! crash, so the apply ignores it (valid [0,5] pass through; see the apply
-     ! comment). Parse stays a plain get_int_ (no parse-time range check -- v1 does
-     ! type validation only, not range validation). No decode-output gate is
-     ! possible for the inert in-range values -> parse-unit + apply-routing-unit +
-     ! no-regression are the coverage (like Phase 4); the out-of-range guard is
-     ! covered by a survival fixture + an apply-routing assert. The 4 ints use
-     ! get_int_; the 2 bools (currently_txing/mode_changed, logical(c_bool) in
-     ! jt9com.f90) reuse the get_bool_/accept_bool path.
+     ! flat 1:1 onto params_block; apply_configure_fields (streaming_apply.f90)
+     ! says which decoder reads each. The parse checks types only; the apply
+     ! drops a qso_progress_state outside [0,5]. The 4 ints use get_int_; the 2
+     ! bools (currently_txing/mode_changed, logical(c_bool) in jt9com.f90) reuse
+     ! the get_bool_/accept_bool path.
      !
      ! OMITTED Phase 7 wire keys (intentionally NOT exposed in v1):
-     !   utc_list / utc_list_0..9 / nlist_count — map to listutc, which is read
-     !     ONLY by the JT4 averaging path (decoder.f90:1310, the nmode==4 block) and
-     !     has no writer in the decode core — dead for the FT8/JT9/FT4/Q65 stream
-     !     paths. Exposing it would be a no-op there.
-     !   datetime — read into a dead local at decoder.f90:99 (assigned, never used);
-     !     no decode effect. Only date->yymmdd carries time (Phase 8, §6.1).
+     !   utc_list / utc_list_0..9 / nlist_count — map to listutc/nlist, which
+     !     no decoder reads.
+     !   datetime — the decoder copies it into a local it never uses; only
+     !     date->yymmdd carries time (Phase 8, §6.1).
      !   from_wav_file (ndiskdat) / new_data_flag (newdat) — receiver-managed
      !     invariants (§6.1/§9): the receiver hard-sets both, and a producer
      !     override would break the one-shot decode contract. Not producer-settable.
@@ -276,7 +247,7 @@ module streaming_control
      ! bad mode name — type validation only, §4.1). TWO keys carry a PARSE-TIME
      ! VALUE check that emits configure_type_error (the schema's first value-domain
      ! errors, both RFC-mandated): n_trials NOT in {10^N, 3*10^N} (§6.6 — else a
-     ! bad nranera silently corrupts ntrials at decoder.f90:143-145) and date with
+     ! bad nranera silently corrupts ntrials at decoder.f90:100-102) and date with
      ! year >= 2100 (§6.4 — the 2000+offset YYMMDD encoding caps at 2099).
      !
      ! PRECEDENCE (§4.1): utc is a SECOND route to nutc alongside the legacy int
@@ -285,31 +256,9 @@ module streaming_control
      ! frame carries both (richer ISO form). Order-independent at apply (the apply
      ! sequence encodes precedence, not the parse order).
      !
-     ! OBSERVABILITY (read-site map + binary probe): utc->nutc
-     ! round-trips through the decode "time" field (DECODE-OBSERVABLE via the
-     ! nutc round-trip fixtures). The other four are INERT on the FT8/JT9 stream
-     ! fixtures:
-     !   - candthin_threshold->ncandthin / dt_center_seconds->ndtcenter are read
-     !     ONLY by the multithread FT8-variant decoder my_ft8var%decodevar (all such
-     !     calls — first at decoder.f90:348 — scale /100 into the variant's sync
-     !     thresholds at lib/ft8var/sync8var.f90:17-18), and EVERY my_ft8var%decodevar
-     !     call lives inside the if(lmultift8 .and. nmode==8) block (opens
-     !     decoder.f90:192, else-arm at :1140) which streaming forces off — same class
-     !     as the Phase 6/7 multithread keys. The single-pass FT8 decoder
-     !     (my_ft8%decode, :1141) is NOT passed them. Probed inert: ncandthin
-     !     scaled to 5.0 and ndtcenter to a 2.0 s shift each gave the byte-identical
-     !     21-decode FT8 set.
-     !   - n_trials->nranera->ntrials reaches only the JT65 deep-search decoder
-     !     (ntrials computed at decoder.f90:143-145, consumed at :1338/:1365), unused
-     !     on FT8/JT9.
-     !   - date->yymmdd's only param read site is decoder.f90:182 (guarded by
-     !     if(ncontest==7 .and. b_superfox .and. b_even_seq) -> superfox-only),
-     !     decoded into yr/mo/day at lib/superfox/sfrx_sub.f90:21,25-27.
-     ! None is an array index (array-bound check: nranera<=18 keeps the
-     ! decode-site 10**(nranera/2) within int32 for any parseable valid n_trials;
-     ! ncandthin/ndtcenter become real thresholds), so no out-of-range apply guard is
-     ! needed (unlike qso_progress_state). The four inert keys are guarded by
-     ! parse-unit + apply-routing-unit + no-regression (like Phase 4/6/7).
+     ! apply_configure_fields (streaming_apply.f90) says which decoder reads
+     ! each, and drops an n_trials above 1,000,000 in every mode, which the
+     ! engine refuses for JT65. None is an array index.
      ! candthin_threshold/dt_center_seconds are real(8) members scaled at apply
      ! (§4 — declare real(8), nint(wire*100), do NOT pre-store as int).
      logical                :: utc_set                   = .false.
@@ -1039,8 +988,8 @@ contains
 
     ! ===== Phase 7: diagnostic / sequencing fields (RFC v1 §2) =============
     ! 2 bools + 4 ints, flat 1:1. Bools reuse the get_bool_/accept_bool path;
-    ! ints use get_int_. All inert on the stream path (multithread-block-only /
-    ! AP-only) — see the configure_fields Phase 7 comment for read sites + OMITs.
+    ! ints use get_int_. The configure_fields Phase 7 comment lists the keys
+    ! left off the wire.
     call check_type_(buf, '"last_tx_seconds_ago"', 'last_tx_seconds_ago',      &
          'int', .false., .true., terr, proceed)
     if (proceed) then
@@ -1145,7 +1094,7 @@ contains
     ! n_trials: plain int on the wire -> encoded nranera (§6.6). The value MUST be
     ! one of {10^N, 3*10^N}; anything else is a configure_type_error (§6.6 — a
     ! non-conforming value would integer-divide into a silently-wrong ntrials at
-    ! decoder.f90:143-145). The check is a VALUE check (the JSON type is int), so it
+    ! decoder.f90:100-102). The check is a VALUE check (the JSON type is int), so it
     ! runs AFTER the int parse and reuses the same configure_type_error envelope.
     call check_type_(buf, '"n_trials"', 'n_trials', 'int', .false., .true., terr, proceed)
     if (proceed) then
@@ -1612,19 +1561,20 @@ contains
   end subroutine parse_iso_date_
 
   ! Encode a desired trial count n_trials into the legacy nranera index (§6.6):
-  !   nranera even -> ntrials = 10**(nranera/2)    (decoder.f90:143)
-  !   nranera odd  -> ntrials = 3*10**(nranera/2)  (decoder.f90:144)
+  !   nranera even -> ntrials = 10**(nranera/2)    (decoder.f90:100)
+  !   nranera odd  -> ntrials = 3*10**(nranera/2)  (decoder.f90:101)
   ! so n_trials must be 10^k or 3*10^k. ok=.false. for any other value (the caller
   ! then emits configure_type_error). Strip trailing factors of 10; the residual
   ! must be 1 (pure power of 10 -> nranera=2k) or 3 (3x -> nranera=2k+1). This is
   ! functionally equivalent to the RFC §6.6 reference algorithm (a log10-based form;
   ! same {10^N,3*10^N} acceptance set and same mapping), which likewise returns
   ! nranera=0 for n_trials=1; note
-  ! decoder.f90:145 then special-cases nranera=0 -> ntrials=0 (a legacy-encoding
+  ! decoder.f90:102 then special-cases nranera=0 -> ntrials=0 (a legacy-encoding
   ! quirk a producer hits only by sending the degenerate n_trials=1 — documented,
   ! not "fixed", per the wire-parity scope guardrail). nranera stays <= 18 for any
   ! n_trials that fits int32 (10^9), so the decode-site 10**(nranera/2) cannot
-  ! overflow (read-site bound check — no out-of-range guard needed).
+  ! overflow; the apply drops nranera above 12 (10^6 trials), which the engine
+  ! refuses for JT65.
   subroutine ntrials_to_nranera_(n_trials, nranera, ok)
     integer, intent(in)  :: n_trials
     integer, intent(out) :: nranera

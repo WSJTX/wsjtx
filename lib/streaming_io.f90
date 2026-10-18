@@ -422,6 +422,8 @@ contains
   ! period: when the decoder's share is in, or from the drain when the
   ! period ends short of it.
   subroutine run_period_decode()
+    integer :: nearly
+    logical :: requested, multithreaded
     decoded = .true.
     shared_data%params%newdat = .true.
     shared_data%params%ntr = int(TRperiod)
@@ -438,34 +440,58 @@ contains
          mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) &
          shared_data%params%kin = period%k
 
+    ! SuperFox Hound decodes single-threaded, as the GUI does.
+    requested = shared_data%params%lmultift8
+    multithreaded = requested .and. .not.                                  &
+         (iand(shared_data%params%nexp_decode, 7) .eq. 7 .and.              &
+          shared_data%params%b_superfox)
     if (mode .eq. 144) then
        call decode_msk144(shared_data%id2, shared_data%params, data_dir)
-    else if (mode .eq. 8 .and. .not. shared_data%params%lmultift8) then
-       ! FT8 progressive 41/47/50 sequence (mirrors jt9.f90:562-581).
+    else if (mode .eq. 8 .and. .not. multithreaded) then
+       ! FT8 progressive 41/47/50 sequence (mirrors jt9.f90's WAV passes).
        ! Without the early calls, ft8_decode.f90's saved `dd` array stays
        ! unset and the final nzhsym=50 call decodes silence. With the
        ! sequence, dd is populated on the nzhsym=41/47 passes and the
        ! nzhsym=50 final pass produces real decodes.
-       shared_data%params%nzhsym = 41
-       id2a(1:41*3456) = shared_data%id2(1:41*3456)
-       id2a(41*3456+1:) = 0
-       call multimode_decoder(shared_data%ss, id2a, shared_data%params, NFSAMPLE)
-
-       shared_data%params%nzhsym = 47
-       id2a(1:47*3456) = shared_data%id2(1:47*3456)
-       id2a(47*3456+1:) = 0
-       call multimode_decoder(shared_data%ss, id2a, shared_data%params, NFSAMPLE)
-
-       shared_data%params%nzhsym = 50
-       id2a(1:50*3456) = shared_data%id2(1:50*3456)
-       id2a(50*3456+1:) = 0
-       call multimode_decoder(shared_data%ss, id2a, shared_data%params, NFSAMPLE)
+       shared_data%params%lmultift8 = .false.
+       call ft8_window_pass(41)
+       call ft8_window_pass(47)
+       call ft8_window_pass(50)
+       shared_data%params%lmultift8 = requested
+    else if (mode .eq. 8) then
+       ! Multithreaded FT8 takes jt9.f90's and jt9a.f90's schedule for
+       ! ft8_decoder_start: below 2, single-threaded passes at 41 and 46 first.
+       nearly = 50
+       if (shared_data%params%ndecoderstart .lt. 2) then
+          shared_data%params%lmultift8 = .false.
+          call ft8_window_pass(41)
+          call ft8_window_pass(46)
+          shared_data%params%lmultift8 = .true.
+          nearly = 46
+          if (shared_data%params%ndecoderstart .eq. 0) nearly = 49
+          if (shared_data%params%ndecoderstart .eq. 1) nearly = 50
+       else
+          if (shared_data%params%ndecoderstart .eq. 2) nearly = 48
+          if (shared_data%params%ndecoderstart .eq. 3) nearly = 49
+       end if
+       shared_data%params%nzhsym = nearly
+       call multimode_decoder(shared_data%ss, shared_data%id2,         &
+            shared_data%params, NFSAMPLE)
     else
        call multimode_decoder(shared_data%ss, shared_data%id2,         &
             shared_data%params, NFSAMPLE)
     end if
     if(mode==66) shared_data%params%nclearave=.false.
   end subroutine run_period_decode
+
+  ! One FT8 pass over the first nz half-symbols, the rest zeroed.
+  subroutine ft8_window_pass(nz)
+    integer, intent(in) :: nz
+    shared_data%params%nzhsym = nz
+    id2a(1:nz*3456) = shared_data%id2(1:nz*3456)
+    id2a(nz*3456+1:) = 0
+    call multimode_decoder(shared_data%ss, id2a, shared_data%params, NFSAMPLE)
+  end subroutine ft8_window_pass
 
   ! Stop at the period boundary; body_left carries the remaining frame
   ! forward.

@@ -1,8 +1,10 @@
 add_executable (test_streaming_consumers test_streaming_consumers.cpp)
-add_dependencies (test_streaming_consumers test_decoder_engine test_decoder_engine_q65 test_decoder_engine_fst4 test_decoder_engine_jt4)
+add_dependencies (test_streaming_consumers jt9 test_decoder_engine test_decoder_engine_q65 test_decoder_engine_fst4 test_decoder_engine_jt4 test_decoder_engine_jt65)
 target_link_libraries (test_streaming_consumers Qt5::Test)
 target_compile_definitions (test_streaming_consumers PRIVATE
   JT4_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt4-engine.wav"
+  JT65_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt65-engine.wav"
+  JT9_EXECUTABLE="$<TARGET_FILE:jt9>"
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
   WSPRD_EXECUTABLE="$<TARGET_FILE:wsprd>"
   FST4_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/fst4-engine.wav"
@@ -10,16 +12,58 @@ target_compile_definitions (test_streaming_consumers PRIVATE
   FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav"
   Q65_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/q65-engine.wav"
 )
+set (streaming_consumer_fixtures ft8_engine_wav jt4_engine_wav q65_engine_wav fst4_engine_wav fst4w_engine_wav jt65_engine_wav)
+if (WSJT_BUILD_UTILS)
+  # sfoxsim writes 000000_000000.wav into its working directory.
+  target_compile_definitions (test_streaming_consumers PRIVATE
+    SUPERFOX_WAV="${CMAKE_CURRENT_BINARY_DIR}/superfox/000000_000000.wav")
+  add_dependencies (test_streaming_consumers sfoxsim)
+  file (MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/superfox")
+  add_test (NAME prepare_superfox_wav
+    COMMAND sfoxsim 750 0.0 AW K1JT 5 1 0 0 1 -5
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/superfox")
+  set_tests_properties (prepare_superfox_wav PROPERTIES FIXTURES_SETUP superfox_wav TIMEOUT 30)
+  list (APPEND streaming_consumer_fixtures superfox_wav)
+endif ()
 
 add_test (NAME test_streaming_consumers COMMAND test_streaming_consumers)
 set_tests_properties (test_streaming_consumers PROPERTIES
   LABELS "streaming;runtime"
   TIMEOUT 360
-  FIXTURES_REQUIRED "ft8_engine_wav;jt4_engine_wav;q65_engine_wav;fst4_engine_wav;fst4w_engine_wav"
+  FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
 )
 if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_streaming_consumers PROPERTIES
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+
+# Source archives omit samples/.
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+  set (streaming_mtd_environment
+    "WSJT_FT8_SAMPLE_WAV=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
+    "WSJT_SHARE_DIR=${CMAKE_SOURCE_DIR}"
+    "OMP_STACKSIZE=16M")
+  # Multithreaded FT8 runs about 6 times slower under ASan and 15 times under TSan,
+  # so sanitizer builds run two depth-1 rows and raise QtTest's 300 s function limit.
+  set (streaming_mtd_rows multithreadedFt8MatchesWavMode)
+  set (streaming_mtd_timeout 300)
+  if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+    set (streaming_mtd_rows
+      "multithreadedFt8MatchesWavMode:start 2, delayed"
+      "multithreadedFt8MatchesWavMode:start 3")
+    set (streaming_mtd_timeout 1200)
+    list (APPEND streaming_mtd_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+  endif ()
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND streaming_mtd_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+  endif ()
+  add_test (NAME test_streaming_mtd_parity
+    COMMAND test_streaming_consumers ${streaming_mtd_rows})
+  set_tests_properties (test_streaming_mtd_parity PROPERTIES
+    LABELS "streaming;runtime;mtd"
+    ENVIRONMENT "${streaming_mtd_environment}"
+    PROCESSORS 4
+    TIMEOUT ${streaming_mtd_timeout})
 endif ()
 
 add_executable (test_streaming_period test_streaming_period.f90)
