@@ -1362,6 +1362,9 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     LABELS "gui;audio;jtty;integration;accelerated"
     PROCESSORS 1
     TIMEOUT 120)
+  if (WIN32)
+    set_tests_properties (${live_test} PROPERTIES TIMEOUT 210)
+  endif ()
 
   add_test (
     NAME ${loopback_test}

@@ -16,19 +16,20 @@ packages=(
 case "${ARMHF_DISTRO:-bookworm}" in
   bookworm)
     boost_version=1.74.0
-    qt_suffix=
+    time64_suffix=
     ;;
   trixie)
     boost_version=1.83.0
-    qt_suffix=t64
+    time64_suffix=t64
     ;;
   *) echo "Unsupported ARMHF_DISTRO: $ARMHF_DISTRO" >&2; exit 2 ;;
 esac
-for library in atomic chrono filesystem log regex thread; do
+for library in atomic filesystem log regex thread; do
   packages+=("libboost-$library$boost_version")
 done
+packages+=("libboost-chrono$boost_version$time64_suffix")
 for library in widgets network printsupport test concurrent; do
-  packages+=("libqt5${library}5$qt_suffix")
+  packages+=("libqt5${library}5$time64_suffix")
 done
 
 /usr/local/bin/run-apt-get update

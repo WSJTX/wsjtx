@@ -66,7 +66,7 @@ RUN chmod +x /usr/local/bin/run-apt-get \
     && test -n "$IMAGE_REFRESH_EPOCH" \
     && run-apt-get update \
     && run-apt-get install -y --no-install-recommends \
-      asciidoctor autoconf automake binutils bison build-essential \
+      arch-test asciidoctor autoconf automake binutils bison build-essential \
       ca-certificates ccache cmake curl dpkg-dev file flex gawk git gperf \
       help2man libncurses-dev libtool libtool-bin mmdebstrap patch pkg-config \
       python3 python3-dev qt5-qmake-bin qtbase5-dev-tools qttools5-dev-tools \

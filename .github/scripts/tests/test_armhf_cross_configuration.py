@@ -82,6 +82,35 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
         self.assertIn('WSJT_ARMHF_DISTRO STREQUAL "trixie"', toolchain)
         self.assertEqual(toolchain.count("-D_TIME_BITS=64 -D_FILE_OFFSET_BITS=64"), 2)
 
+    def test_cross_builders_install_foreign_architecture_probe(self):
+        for name in ("Dockerfile.armhf-cross", "Dockerfile.armhf-cross-trixie"):
+            with self.subTest(dockerfile=name):
+                builder = self.read(f".github/images/linux-ci/{name}")
+                image = builder.split("AS cross_builder", 1)[1]
+                install = image.split("run-apt-get install", 1)[1].split("&&", 1)[0]
+                self.assertIn("arch-test", install.split())
+                self.assertIn("qemu-user-static", install.split())
+
+    def test_runtime_package_names_match_each_distro_time_abi(self):
+        installer = self.read(".github/images/linux-ci/install-armhf-runtime-packages.sh")
+        selection = installer.split("/usr/local/bin/run-apt-get update", 1)[0]
+        for distro, version, suffix in (("bookworm", "1.74.0", ""),
+                                        ("trixie", "1.83.0", "t64")):
+            with self.subTest(distro=distro):
+                result = subprocess.run(
+                    ["bash", "-c", selection + '\nprintf "%s\\n" "${packages[@]}"'],
+                    cwd=ROOT, env={**os.environ, "ARMHF_DISTRO": distro},
+                    capture_output=True, text=True, check=True,
+                )
+                packages = result.stdout.splitlines()
+                expected_boost = {f"libboost-{name}{version}" for name in
+                                  ("atomic", "filesystem", "log", "regex", "thread")}
+                expected_boost.add(f"libboost-chrono{version}{suffix}")
+                self.assertEqual({name for name in packages if name.startswith("libboost-")},
+                                 expected_boost)
+                for name in ("widgets", "network", "printsupport", "test", "concurrent"):
+                    self.assertIn(f"libqt5{name}5{suffix}", packages)
+
     def test_toolchain_stage_is_independent_of_image_refresh_inputs(self):
         builder = self.read(".github/images/linux-ci/Dockerfile.armhf-cross")
         toolchain, image = builder.split("FROM debian:bookworm AS cross_builder", 1)

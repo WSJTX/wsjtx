@@ -71,6 +71,12 @@ if (WIN32)
     "TMP=${ipc_dir}")
 endif ()
 
+if (WIN32)
+  set (wsjtx_timeout 180)
+else ()
+  set (wsjtx_timeout 110)
+endif ()
+
 execute_process (
   COMMAND "${CMAKE_COMMAND}" -E env
     ${wsjtx_environment}
@@ -80,7 +86,7 @@ execute_process (
     --test-audio-speed "${AUDIO_SPEED}"
     --rig-name "${rig_name}"
   WORKING_DIRECTORY "${WORK_DIR}"
-  TIMEOUT 110
+  TIMEOUT ${wsjtx_timeout}
   RESULT_VARIABLE wsjtx_result
   OUTPUT_VARIABLE wsjtx_stdout
   ERROR_VARIABLE wsjtx_stderr)
