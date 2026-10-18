@@ -91,13 +91,10 @@
 #      "configure_type_error","key":"last_tx_seconds_ago","expected":"int",
 #      "got":"string"} and the whole frame is declined (mode JT65 not applied,
 #      FT8 >= floor). Wires Phase 7 type checks into atomic-decline.
-#  18. (Phase 7 — CORRECTNESS GUARD) qso_progress_state OUT OF RANGE must STILL
-#      decode FT8 >= floor. nQSOProgress reaches the single-pass FT8 decoder
-#      (decoder.f90:1141), where ft8b.f90:274/299 use it as a raw index into
-#      nappasses(0:5)/naptypes(0:5,4); an out-of-range value (here 99) faults the
-#      decoder under -fbounds-check (0 decodes). The apply IGNORES
-#      an out-of-range value (valid [0,5] only), so FT8 must STILL decode >= floor.
-#      A regression to a straight pass-through would crash and fail here.
+#  18. (Phase 7 — CORRECTNESS GUARD) qso_progress_state OUT OF RANGE (here 99)
+#      declines the frame with one configure_range_error, and FT8 still decodes
+#      >= floor. The decoders index their AP tables with nQSOProgress, so an
+#      unchecked value faults them; a regression to a pass-through fails here.
 #  19. (Phase 8 — APPLY ROUTING) All 5 string/scaled/derived keys (utc/date/
 #      n_trials/candthin_threshold/dt_center_seconds) accepted with 0 type errors,
 #      AND utc:"13:34:30" -> nutc 133430 is reflected in EVERY decode's "time"
@@ -489,22 +486,21 @@ fi
 
 # --- Gate 18: Phase 7 CORRECTNESS GUARD — qso_progress_state out-of-range ------
 echo ""
-echo "Gate 18 — qso_progress_state=99 (out of range) still decodes (apply ignores it)"
-# nQSOProgress reaches the single-pass FT8 decoder (decoder.f90:1141), where
-# ft8b.f90:274/299 use it as a raw index into nappasses(0:5)/naptypes(0:5,4) on the
-# default lft8apon=.true. path. An out-of-range value faults the decoder under
-# -fbounds-check (qso_progress_state=99 crashes wsjt-codec --stream). The
-# apply IGNORES an out-of-range value (valid [0,5] only), so FT8 must STILL decode
-# >= floor. A straight-pass-through regression would crash and collapse FT8 to 0.
-# Both-sides-healthy: baseline >= floor AND with-key >= floor.
+echo "Gate 18 — qso_progress_state=99 (out of range) declines the frame"
+# The decoders index their AP tables with nQSOProgress, so the stream declines a
+# configure with it outside [0,5] with configure_range_error, and FT8 decodes
+# under the configure before it (here the init default). A pass-through would
+# crash the decoder or collapse FT8 to 0. Both sides healthy: baseline >= floor
+# AND with-key >= floor.
 base=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --quiet 2>/dev/null \
        | grep -c '"t":"decode"' || true)
-oor=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --qso-progress-state 99 --quiet 2>/dev/null \
-      | grep -c '"t":"decode"' || true)
-if [[ "$base" -ge "$FT8_FLOOR" && "$oor" -ge "$FT8_FLOOR" ]]; then
-  echo "  PASS: qso_progress_state=99 ignored; FT8 still decodes ($oor >= $FT8_FLOOR, baseline $base)"
+out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --qso-progress-state 99 --quiet 2>/dev/null || true)
+oor=$(printf '%s\n' "$out" | grep -c '"t":"decode"' || true)
+re=$(printf '%s\n' "$out" | grep -c '"code":"configure_range_error","key":"qso_progress_state"' || true)
+if [[ "$base" -ge "$FT8_FLOOR" && "$oor" -ge "$FT8_FLOOR" && "$re" -eq 1 ]]; then
+  echo "  PASS: qso_progress_state=99 declined (one configure_range_error); FT8 still decodes ($oor >= $FT8_FLOOR, baseline $base)"
 else
-  echo "  FAIL: guard broken — out-of-range qso_progress_state collapsed FT8 (with-key=$oor, baseline=$base, floor=$FT8_FLOOR)"
+  echo "  FAIL: range_err=$re (want 1), with-key=$oor, baseline=$base (want both >= $FT8_FLOOR)"
   fail=1
 fi
 

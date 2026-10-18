@@ -27,7 +27,7 @@ module streaming_apply
   include 'jt9com.f90'
 
   private
-  public :: apply_configure_fields
+  public :: apply_configure_fields, engine_range_key
   ! Re-export the include'd struct so a standalone unit driver can declare a
   ! params_block to assert apply routing against (test/apply_routing_test.f90)
   ! without itself including jt9com.f90. Same bind(C) type as everywhere else
@@ -139,9 +139,8 @@ contains
     ! ap_my_call, hide_ft8_duplicates, enable_dxc_search, wide_dxc_search,
     ! hound_mode, multi_instance, skip_tx1, nagain_filter and stop_hint. The
     ! engine refuses every FT8 decode, single-threaded too, while ft8_threads is
-    ! outside [0,24] (decoder_engine.f90), so the apply ignores such a value and
-    ! keeps the one it had; the kernel runs 13 to 24 on one thread
-    ! (ft8_engine_kernel.f90). ft8_ap_on and ap_width_hz reach both FT8
+    ! outside [0,24] (decoder_engine.f90); the kernel runs 13 to 24 on one
+    ! thread (ft8_engine_kernel.f90). ft8_ap_on and ap_width_hz reach both FT8
     ! decoders; in the multithreaded one ft8_ap_on gates only the a8 pass.
     ! ap_cq_only reaches the single-threaded FT8 decoder, FT4, FST4 and Q65.
     ! ft8_decoder_start sets the multithreaded pass schedule (streaming_io.f90);
@@ -155,9 +154,7 @@ contains
     if (in_cfg%multithreaded_ft8_set) params%lmultift8 = in_cfg%multithreaded_ft8
     if (in_cfg%ft8_cycles_set)          params%nft8cycles      = in_cfg%ft8_cycles
     if (in_cfg%ft8_rxf_sensitivity_set) params%nft8rxfsens     = in_cfg%ft8_rxf_sensitivity
-    if (in_cfg%ft8_threads_set .and. in_cfg%ft8_threads >= 0                     &
-         .and. in_cfg%ft8_threads <= 24)                                         &
-         params%nmt = in_cfg%ft8_threads
+    if (in_cfg%ft8_threads_set)         params%nmt             = in_cfg%ft8_threads
     if (in_cfg%ft8_decoder_start_set)   params%ndecoderstart   = in_cfg%ft8_decoder_start
     if (in_cfg%ft8_low_threshold_set)   params%lft8lowth       = in_cfg%ft8_low_threshold
     if (in_cfg%ft8_subpass_set)         params%lft8subpass     = in_cfg%ft8_subpass
@@ -190,16 +187,13 @@ contains
     ! qso_progress_state reaches both FT8 decoders, FT4, JT65, JT65+JT9, FST4
     ! and Q65, which index AP tables dimensioned (0:5,...) with it (ft8/ft8b.f90,
     ! ft8var/ft8bvar.f90, ft4_decode.f90, extract.f90, fst4_decode.f90,
-    ! qra/q65/q65_ap.f90). The engine refuses FT4, JT65, FST4 and Q65 requests
-    ! outside [0,5] but not FT8's, and JT65+JT9 does not go through it, so the
-    ! apply ignores such a value and keeps the one it had; the CLI's -Q refuses
-    ! one (jt9.f90).
+    ! qra/q65/q65_ap.f90). The engine refuses a request with it outside [0,5]
+    ! (decoder_engine.f90), the stream declines a configure that would leave
+    ! one where a decoder reads it, and the CLI's -Q refuses one (jt9.f90).
     if (in_cfg%last_tx_seconds_ago_set) params%nlasttx         = in_cfg%last_tx_seconds_ago
     if (in_cfg%currently_txing_set)     params%ltxing          = in_cfg%currently_txing
     if (in_cfg%mode_changed_set)        params%lmodechanged    = in_cfg%mode_changed
-    if (in_cfg%qso_progress_state_set .and. in_cfg%qso_progress_state >= 0        &
-         .and. in_cfg%qso_progress_state <= 5)                                    &
-         params%nQSOProgress = in_cfg%qso_progress_state
+    if (in_cfg%qso_progress_state_set)  params%nQSOProgress    = in_cfg%qso_progress_state
     if (in_cfg%sec_band_changed_set)    params%nsecbandchanged = in_cfg%sec_band_changed
     if (in_cfg%delay_units_set)         params%ndelay          = in_cfg%delay_units
 
@@ -212,12 +206,9 @@ contains
     ! is the trial count of JT65's soft-decision Reed-Solomon decoder
     ! (extract.f90 ftrsdap), used with VHF features on and for averaged decodes.
     ! The engine refuses a JT65 decode above 1,000,000 trials, nranera 12, the
-    ! most the GUI offers in any mode, so the apply ignores a larger n_trials,
-    ! JT65+JT9's included, and keeps the one it had. None of these indexes an
-    ! array.
+    ! most the GUI offers in any mode. None of these indexes an array.
     if (in_cfg%date_set)     params%yymmdd  = in_cfg%date_yymmdd
-    if (in_cfg%n_trials_set .and. in_cfg%n_trials_nranera <= 12)               &
-         params%nranera = in_cfg%n_trials_nranera
+    if (in_cfg%n_trials_set) params%nranera = in_cfg%n_trials_nranera
     if (in_cfg%candthin_threshold_set)                                          &
          params%ncandthin = nint(in_cfg%candthin_threshold * 100.d0)
     if (in_cfg%dt_center_seconds_set)                                           &
@@ -308,5 +299,68 @@ contains
        end if
     end if
   end subroutine apply_configure_fields
+
+  ! The configure key behind an option field engine_params_problem names: the
+  ! key this frame set, else the one whose earlier value the field carries
+  ! (carried). The unpacked depth keys replace the whole depth, so a depth they
+  ! leave at 0 names depth_level.
+  function engine_range_key(field, in_cfg, carried) result(key)
+    character(len=*),       intent(in)            :: field
+    type(configure_fields), intent(in)            :: in_cfg
+    logical,                intent(out), optional :: carried
+    character(len=32)                             :: key
+    logical                                       :: set
+    select case (trim(field))
+    case ('search_low_hz')
+       key = 'nfa'; set = in_cfg%nfa_set
+    case ('search_high_hz')
+       key = 'nfb'; set = in_cfg%nfb_set
+    case ('search_range')
+       key = 'nfa'
+       if (in_cfg%nfb_set .and. .not. in_cfg%nfa_set) key = 'nfb'
+       set = in_cfg%nfa_set .or. in_cfg%nfb_set
+    case ('receive_frequency_hz')
+       key = 'rxfreq'; set = in_cfg%rxfreq_set
+    case ('tolerance_hz')
+       key = 'ntol'; set = in_cfg%ntol_set
+    case ('depth')
+       key = 'depth'
+       if (in_cfg%ndepth_packed_set) key = 'depth_level'
+       set = in_cfg%depth_set .or. in_cfg%ndepth_packed_set
+    case ('submode')
+       key = 'submode'; set = in_cfg%submode_set
+    case ('minimum_width')
+       key = 'min_width'; set = in_cfg%min_width_set
+    case ('trials')
+       key = 'n_trials'; set = in_cfg%n_trials_set
+    case ('qso_progress')
+       key = 'qso_progress_state'; set = in_cfg%qso_progress_state_set
+    case ('threads')
+       key = 'ft8_threads'; set = in_cfg%ft8_threads_set
+    case ('period_seconds')
+       key = 'trperiod'; set = in_cfg%trperiod_set .or. in_cfg%mode_set
+    case ('eme_delay_seconds')
+       key = 'eme_delay_seconds'
+       if (in_cfg%decode_after_eme_delay_set .and. .not. in_cfg%eme_delay_seconds_set) &
+            key = 'decode_after_eme_delay'
+       set = in_cfg%eme_delay_seconds_set .or. in_cfg%decode_after_eme_delay_set .or. &
+            in_cfg%mode_set .or. in_cfg%trperiod_set
+    case ('blanker_mode', 'blanker_percent')
+       key = 'noise_blanker_level'; set = in_cfg%noise_blanker_level_set
+    case ('max_drift')
+       key = 'max_drift_hz'; set = in_cfg%max_drift_hz_set
+    case ('utc')
+       key = 'nutc'
+       if (in_cfg%utc_set) key = 'utc'
+       set = in_cfg%utc_set .or. in_cfg%nutc_set
+    case ('contest')
+       key = 'contest_type'; set = in_cfg%contest_type_set
+    case default
+       ! flags, passes and aggressiveness: no configure key sets a value the
+       ! engine refuses (the conversion makes them 0/1, clamps or fixes them).
+       key = field; set = .true.
+    end select
+    if (present(carried)) carried = .not. set
+  end function engine_range_key
 
 end module streaming_apply

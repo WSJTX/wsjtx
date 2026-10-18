@@ -355,6 +355,12 @@ int main(int argc, char **argv)
     CHECK(decoder_engine_decode(engine, &request, &audio, observe, &context, &outcome) == DECODER_INVALID);
   }
   request.ft8.half_symbol_stage = 50;
+  int32_t const progress = request.ft8.qso_progress;
+  for (int value = -1; value <= 6; value += 7) {
+    request.ft8.qso_progress = value;
+    CHECK(decoder_engine_decode(engine, &request, &audio, observe, &context, &outcome) == DECODER_INVALID);
+  }
+  request.ft8.qso_progress = progress;
   CHECK(context.count == 0);
 
   CHECK(decoder_engine_decode(engine, &request, &audio, observe, &context, &outcome) == DECODER_OK);

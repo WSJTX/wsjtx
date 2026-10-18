@@ -425,6 +425,36 @@ bool scheduleTests ()
   return !qEnvironmentVariableIsEmpty ("WSJT_STREAM_SCHEDULE_TESTS");
 }
 
+bool rangeTests ()
+{
+  return !qEnvironmentVariableIsEmpty ("WSJT_STREAM_RANGE_TESTS");
+}
+
+// The session: frames, then a recording's audio in one-second frames.
+ProcessResult runRecording (QString const& path, QByteArray const& frames,
+                            QStringList options = {})
+{
+  QFile wav {path};
+  if (!wav.open (QIODevice::ReadOnly))
+    {
+      return {};
+    }
+  auto const pcm = wav.readAll ().mid (44);
+  auto input = sessionHeader () + frames;
+  for (int offset = 0; offset < pcm.size (); offset += 24000)
+    {
+      input += frame (0x01u, pcm.mid (offset, 24000));
+    }
+  QTemporaryDir directory;
+  if (!directory.isValid ())
+    {
+      return {};
+    }
+  options << "-a" << directory.path () << "-t" << directory.path () << "--stream";
+  return runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), options, input,
+                     directory.path (), 120000);
+}
+
 QJsonObject with (QJsonObject keys, QJsonObject const& more)
 {
   for (auto it = more.constBegin (); it != more.constEnd (); ++it) keys.insert (it.key (), it.value ());
@@ -1064,70 +1094,244 @@ private slots:
     QCOMPARE (completions.first ().value ("period_end").toString (), label);
   }
 
-  void wsjtCodecIgnoresValuesTheEngineRefuses_data ()
+  void wsjtCodecDeclinesValuesTheEngineRefuses_data ()
   {
     QTest::addColumn<QString> ("recording");
-    QTest::addColumn<QJsonObject> ("keys");
+    QTest::addColumn<QJsonObject> ("accepted");
+    QTest::addColumn<QJsonObject> ("refused");
+    QTest::addColumn<QString> ("key");
+    QTest::addColumn<QString> ("mode");
+    QTest::addColumn<QString> ("detail");
     QTest::addColumn<QString> ("message");
-    QTest::addColumn<QString> ("time");
+    QTest::addColumn<QStringList> ("options");
     QString const ft8 {QString::fromUtf8 (FT8_ENGINE_WAV)};
-    QTest::newRow ("ft8_threads 25") << ft8
-      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"ft8_threads", 25}}
-      << QString {"CQ K1JT FN20"} << QString {"051115"};
-    QTest::newRow ("ft8_threads -1") << ft8
-      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"ft8_threads", -1}}
-      << QString {"CQ K1JT FN20"} << QString {"051115"};
-    QTest::newRow ("n_trials 3000000") << QString::fromUtf8 (JT65_ENGINE_WAV)
-      << QJsonObject {{"mode", "JT65"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300},
-                      {"nfb", 1700}, {"n_trials", 3000000}}
-      << QString {"K1ABC W9XYZ FN42"} << QString {};
+    QString const jt65 {QString::fromUtf8 (JT65_ENGINE_WAV)};
+    QString const fst4 {QString::fromUtf8 (FST4_ENGINE_WAV)};
+    QString const jt4 {QString::fromUtf8 (JT4_ENGINE_WAV)};
+    QString const q65 {QString::fromUtf8 (Q65_ENGINE_WAV)};
+    QJsonObject const q65Keys {{"mode", "Q65"}, {"trperiod", 15}, {"submode", 0}, {"depth_level", 1}, {"nfa", 1300},
+                               {"nfb", 1700}, {"rxfreq", 1500}, {"utc", "00:15:00"}};
+    QJsonObject const ft8Keys {{"mode", "FT8"}, {"utc", "05:11:15"}};
+    QJsonObject const jt65Keys {{"mode", "JT65"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300},
+                                {"nfb", 1700}};
+    QJsonObject const fst4Keys {{"mode", "FST4"}, {"trperiod", 15}, {"depth_level", 1}, {"nfa", 1300},
+                                {"nfb", 1700}, {"rxfreq", 1500}, {"noise_blanker_level", 0},
+                                {"utc", "00:15:00"}};
+    QJsonObject const jt4Keys {{"mode", "JT4"}, {"trperiod", 60}, {"submode", 0}, {"depth_level", 1},
+                               {"rxfreq", 1000}, {"ntol", 50}, {"utc", "12:34:00"}};
+    QString const cq {"CQ K1JT FN20"};
+    QString const k1abc {"K1ABC W9XYZ FN42"};
+    QTest::newRow ("FT8 nfb 7000") << ft8 << ft8Keys << QJsonObject {{"nfb", 7000}}
+      << QString {"nfb"} << QString {"FT8"} << QString {"nfb must be at most 6000 Hz in FT8"} << cq << QStringList {};
+    QTest::newRow ("FT8 nfa above nfb") << ft8 << ft8Keys << QJsonObject {{"nfa", 3000}, {"nfb", 2000}}
+      << QString {"nfa"} << QString {"FT8"} << QString {"nfa must not be above nfb in FT8"} << cq << QStringList {};
+    QTest::newRow ("FT8 ft8_threads 25") << ft8 << ft8Keys << QJsonObject {{"ft8_threads", 25}}
+      << QString {"ft8_threads"} << QString {"FT8"} << QString {"ft8_threads must be from 0 to 24 in FT8"} << cq << QStringList {};
+    QTest::newRow ("FT8 qso_progress_state 99") << ft8 << ft8Keys << QJsonObject {{"qso_progress_state", 99}}
+      << QString {"qso_progress_state"} << QString {"FT8"}
+      << QString {"qso_progress_state must be from 0 to 5 in FT8"} << cq << QStringList {};
+    QTest::newRow ("FT4 depth_level 4") << ft8 << ft8Keys << QJsonObject {{"mode", "FT4"}, {"depth_level", 4}}
+      << QString {"depth_level"} << QString {"FT4"} << QString {"depth_level must be from 1 to 3 in FT4"} << cq << QStringList {};
+    QTest::newRow ("JT9 rxfreq 6000") << ft8 << ft8Keys
+      << QJsonObject {{"mode", "JT9"}, {"trperiod", 60}, {"rxfreq", 6000}}
+      << QString {"rxfreq"} << QString {"JT9"} << QString {"rxfreq must be from 0 to 5000 Hz in JT9"} << cq << QStringList {};
+    QTest::newRow ("JT65 n_trials 3000000") << jt65 << jt65Keys << QJsonObject {{"n_trials", 3000000}}
+      << QString {"n_trials"} << QString {"JT65"} << QString {"n_trials must be at most 1000000 in JT65"} << k1abc << QStringList {};
+    QTest::newRow ("JT65 rxfreq 6000") << jt65 << jt65Keys << QJsonObject {{"rxfreq", 6000}}
+      << QString {"rxfreq"} << QString {"JT65"} << QString {"rxfreq must be from 0 to 5000 Hz in JT65"} << k1abc << QStringList {};
+    QTest::newRow ("JT65 submode 3") << jt65 << jt65Keys << QJsonObject {{"submode", 3}}
+      << QString {"submode"} << QString {"JT65"} << QString {"submode must be from 0 to 2 in JT65"} << k1abc << QStringList {};
+    // An unpacked depth key alone leaves the depth level at 0.
+    QTest::newRow ("JT65 use_averaging alone") << jt65 << jt65Keys << QJsonObject {{"use_averaging", true}}
+      << QString {"depth_level"} << QString {"JT65"} << QString {"depth_level must be from 1 to 3 in JT65"}
+      << k1abc << QStringList {};
+    QTest::newRow ("JT65 after FT8's rxfreq") << ft8
+      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"rxfreq", 5500}} << jt65Keys
+      << QString {"rxfreq"} << QString {"JT65"}
+      << QString {"rxfreq must be from 0 to 5000 Hz in JT65; it was set before this frame"} << cq << QStringList {};
+    // JT65+JT9 runs JT65 when the transmit mode is JT9.
+    QTest::newRow ("JT65+JT9 n_trials 3000000") << jt65
+      << QJsonObject {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"trperiod", 60}, {"depth_level", 1},
+                      {"nfa", 1300}, {"nfb", 1700}}
+      << QJsonObject {{"n_trials", 3000000}} << QString {"n_trials"} << QString {"JT65+JT9"}
+      << QString {"n_trials must be at most 1000000 in JT65+JT9"} << k1abc << QStringList {};
+    QTest::newRow ("Q65 trperiod 45") << q65 << q65Keys << QJsonObject {{"trperiod", 45}} << QString {"trperiod"} << QString {"Q65"}
+      << QString {"trperiod must be one of 15, 30, 60, 120 or 300 s in Q65"} << k1abc << QStringList {};
+    QTest::newRow ("FST4 noise_blanker_level 30") << fst4 << fst4Keys << QJsonObject {{"noise_blanker_level", 30}}
+      << QString {"noise_blanker_level"} << QString {"FST4"}
+      << QString {"noise_blanker_level must be at most 25 in FST4"} << k1abc << QStringList {};
+    // With trperiod in the frame, the mode policy resets the delay and eme_delay_seconds wins.
+    QTest::newRow ("FST4 eme_delay_seconds 20.5") << fst4 << fst4Keys
+      << QJsonObject {{"trperiod", 15}, {"eme_delay_seconds", 20.5}} << QString {"eme_delay_seconds"}
+      << QString {"FST4"} << QString {"eme_delay_seconds must be from 0 s to the TR period in FST4"} << k1abc << QStringList {};
+    QTest::newRow ("JT4 min_width 1") << jt4 << jt4Keys << QJsonObject {{"min_width", 1}}
+      << QString {"min_width"} << QString {"JT4"} << QString {"min_width must be from 0 to the submode in JT4"}
+      << k1abc << QStringList {};
+    QTest::newRow ("JT4 nutc 2360") << jt4 << jt4Keys << QJsonObject {{"nutc", 2360}}
+      << QString {"nutc"} << QString {"JT4"} << QString {"nutc must be a valid time of day in JT4"} << k1abc << QStringList {};
+    QTest::newRow ("JT4 after FT8's nutc") << ft8 << QJsonObject {{"mode", "FT8"}, {"nutc", 2360}}
+      << QJsonObject {{"mode", "JT4"}, {"trperiod", 60}} << QString {"nutc"} << QString {"JT4"}
+      << QString {"nutc must be a valid time of day in JT4; it was set before this frame"} << cq << QStringList {};
+      // FST4 and Q65 clip nfb to 5000 Hz.
+    QTest::newRow ("Q65 nfa above 5000") << q65 << q65Keys << QJsonObject {{"nfa", 5100}, {"nfb", 5500}}
+      << QString {"nfa"} << QString {"Q65"} << QString {"nfa must be below nfb and below 5000 Hz in Q65"} << k1abc
+      << QStringList {};
+    // A change of mode restores nfa and nfb from the command line.
+    QTest::newRow ("JT65 after the command line's nfb") << ft8 << ft8Keys
+      << QJsonObject {{"mode", "JT65"}, {"trperiod", 60}} << QString {"nfb"} << QString {"JT65"}
+      << QString {"nfb must be at most 5000 Hz in JT65; a change of mode or period restores it from the command line"}
+      << cq << QStringList {"-H", "5500"};
   }
 
-  // A value the engine would refuse leaves the previous one, so the period
-  // still decodes with the rest of the frame applied and stdout stays JSON.
-  void wsjtCodecIgnoresValuesTheEngineRefuses ()
+  // A configure the decoder would refuse is declined with the key that set
+  // the value; the configure before it still decodes.
+  void wsjtCodecDeclinesValuesTheEngineRefuses ()
   {
+    if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
     QFETCH (QString, recording);
-    QFETCH (QJsonObject, keys);
+    QFETCH (QJsonObject, accepted);
+    QFETCH (QJsonObject, refused);
+    QFETCH (QString, key);
+    QFETCH (QString, mode);
+    QFETCH (QString, detail);
     QFETCH (QString, message);
-    QFETCH (QString, time);
-    QFile wav {recording};
-    QVERIFY2 (wav.open (QIODevice::ReadOnly), qPrintable (wav.errorString ()));
-    auto const pcm = wav.readAll ().mid (44);
-    keys.insert ("t", "configure");
-    auto input = sessionHeader () + controlFrame (QJsonDocument {keys}.toJson (QJsonDocument::Compact));
-    for (int offset = 0; offset < pcm.size (); offset += 24000)
-      {
-        input += frame (0x01u, pcm.mid (offset, 24000));
-      }
-    auto const result = runJt9 (input);
+    QFETCH (QStringList, options);
+    accepted.insert ("t", "configure");
+    refused.insert ("t", "configure");
+    auto const result = runRecording (recording, controlFrame (
+      QJsonDocument {accepted}.toJson (QJsonDocument::Compact)) + controlFrame (
+      QJsonDocument {refused}.toJson (QJsonDocument::Compact)), options);
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
+    auto const errors = eventsMatching (events.values, "error");
+    QCOMPARE (errors.size (), 1);
+    QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
+    QCOMPARE (errors.first ().value ("key").toString (), key);
+    QCOMPARE (errors.first ().value ("mode").toString (), mode);
+    QCOMPARE (errors.first ().value ("detail").toString (), detail);
     bool found = false;
     for (auto const& decode : eventsMatching (events.values, "decode"))
       {
-        if (decode.value ("message").toString ().trimmed () == message)
-          {
-            found = true;
-            if (!time.isEmpty ())
-              {
-                QCOMPARE (decode.value ("time").toString (), time);
-              }
-          }
+        found |= decode.value ("message").toString ().trimmed () == message;
       }
     QVERIFY2 (found, result.standardOutput.constData ());
   }
 
-  // A decode the engine refuses is reported on stderr; stdout stays JSON.
-  void wsjtCodecReportsEngineRefusalsOnStderr ()
+  void wsjtCodecAcceptsValuesAtTheEngineLimits_data ()
   {
-    QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
-    QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
-    auto const result = runJt9 (sessionHeader () + controlFrame (
-      R"({"t":"configure","mode":"FT8","utc":"05:11:15","nfb":7000})") + frame (0x01u, recording.readAll ().mid (44)));
+    QTest::addColumn<QString> ("recording");
+    QTest::addColumn<QJsonObject> ("keys");
+    QTest::addColumn<QString> ("message");
+    QString const fst4 {QString::fromUtf8 (FST4_ENGINE_WAV)};
+    QJsonObject fst4Keys {{"mode", "FST4"}, {"trperiod", 15}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
+                          {"rxfreq", 1500}, {"utc", "00:15:00"}};
+    QTest::newRow ("FT8") << QString::fromUtf8 (FT8_ENGINE_WAV)
+      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"nfb", 6000}, {"ft8_threads", 24},
+                      {"qso_progress_state", 5}}
+      << QString {"CQ K1JT FN20"};
+    QTest::newRow ("JT65") << QString::fromUtf8 (JT65_ENGINE_WAV)
+      << QJsonObject {{"mode", "JT65"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
+                      {"n_trials", 1000000}}
+      << QString {"K1ABC W9XYZ FN42"};
+    // The rows below need no decode: the recording does not suit the setting.
+    auto blanker = fst4Keys;
+    blanker.insert ("noise_blanker_level", 25);
+    QTest::newRow ("FST4 noise_blanker_level 25") << fst4 << blanker << QString {};
+    auto delay = fst4Keys;
+    delay.insert ("eme_delay_seconds", 15.0);
+    QTest::newRow ("FST4 eme_delay_seconds 15") << fst4 << delay << QString {};
+    // JT65+JT9 runs only JT9 unless the transmit mode is JT9, and JT9 takes no trials.
+    QTest::newRow ("JT65+JT9 n_trials 3000000") << QString::fromUtf8 (JT65_ENGINE_WAV)
+      << QJsonObject {{"mode", "JT65+JT9"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
+                      {"n_trials", 3000000}}
+      << QString {};
+    QTest::newRow ("JT9 rxfreq 5000") << QString::fromUtf8 (FT8_ENGINE_WAV)
+      << QJsonObject {{"mode", "JT9"}, {"trperiod", 60}, {"rxfreq", 5000}} << QString {};
+    QTest::newRow ("Q65 trperiod 60") << QString::fromUtf8 (Q65_ENGINE_WAV)
+      << QJsonObject {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 0}, {"depth_level", 1}, {"nfa", 1300},
+                      {"nfb", 1700}, {"rxfreq", 1500}, {"utc", "00:15:00"}}
+      << QString {};
+    QTest::newRow ("Q65 trperiod 300") << QString::fromUtf8 (Q65_ENGINE_WAV)
+      << QJsonObject {{"mode", "Q65"}, {"trperiod", 300}, {"submode", 0}, {"depth_level", 1}, {"nfa", 1300},
+                      {"nfb", 1700}, {"rxfreq", 1500}, {"utc", "00:15:00"}}
+      << QString {};
+  }
+
+  void wsjtCodecAcceptsValuesAtTheEngineLimits ()
+  {
+    if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
+    QFETCH (QString, recording);
+    QFETCH (QJsonObject, keys);
+    QFETCH (QString, message);
+    keys.insert ("t", "configure");
+    auto const result = runRecording (recording, controlFrame (
+      QJsonDocument {keys}.toJson (QJsonDocument::Compact)));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    if (message.isEmpty ())
+      {
+        return;
+      }
+    bool found = false;
+    for (auto const& decode : eventsMatching (events.values, "decode"))
+      {
+        found |= decode.value ("message").toString ().trimmed () == message;
+      }
+    QVERIFY2 (found, result.standardOutput.constData ());
+  }
+
+  void wsjtCodecReportsRefusedDecodes_data ()
+  {
+    QTest::addColumn<QString> ("recording");
+    QTest::addColumn<QStringList> ("options");
+    QTest::addColumn<QString> ("key");
+    QTest::addColumn<QString> ("mode");
+    QTest::addColumn<QString> ("detail");
+    QTest::addColumn<QString> ("field");
+    QTest::addColumn<QString> ("rule");
+    QTest::newRow ("JT65 at -d 4") << QString::fromUtf8 (JT65_ENGINE_WAV) << QStringList {"-6", "-d", "4"}
+      << QString {"depth"} << QString {"JT65"}
+      << QString {"depth must hold a decoding depth from 1 to 3 in JT65; the command line set it"}
+      << QString {"depth"} << QString {"depth must be from 1 to 3"};
+    QTest::newRow ("FT8 at -L 3000 -H 2000") << QString::fromUtf8 (FT8_ENGINE_WAV)
+      << QStringList {"-L", "3000", "-H", "2000"} << QString {"nfa"} << QString {"FT8"}
+      << QString {"nfa must not be above nfb in FT8; the command line set it"}
+      << QString {"search_range"} << QString {"nfa must not be above nfb"};
+  }
+
+  // A command-line starting value the decoder refuses is reported at the
+  // start, and each decode it refuses is an error event on stdout and a line
+  // on stderr.
+  void wsjtCodecReportsRefusedDecodes ()
+  {
+    if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
+    QFETCH (QString, recording);
+    QFETCH (QStringList, options);
+    QFETCH (QString, key);
+    QFETCH (QString, mode);
+    QFETCH (QString, detail);
+    QFETCH (QString, field);
+    QFETCH (QString, rule);
+    auto const result = runRecording (recording, {}, options);
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
+    auto const errors = eventsMatching (events.values, "error");
+    QVERIFY2 (errors.size () >= 2, result.standardOutput.constData ());
+    QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
+    QCOMPARE (errors.first ().value ("key").toString (), key);
+    QCOMPARE (errors.first ().value ("mode").toString (), mode);
+    QCOMPARE (errors.first ().value ("detail").toString (), detail);
+    for (int i = 1; i < errors.size (); ++i)
+      {
+        QCOMPARE (errors[i].value ("code").toString (), QString {"decode_rejected"});
+        QCOMPARE (errors[i].value ("operation").toString (), QString {"decode"});
+        QCOMPARE (errors[i].value ("status").toString (), QString {"invalid"});
+        QCOMPARE (errors[i].value ("mode").toString (), mode);
+        QCOMPARE (errors[i].value ("field").toString (), field);
+        QCOMPARE (errors[i].value ("detail").toString (), rule);
+      }
     QVERIFY2 (result.standardError.contains ("<DecodeRejected> status=invalid"), result.standardError.constData ());
   }
 

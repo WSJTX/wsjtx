@@ -22,12 +22,20 @@ module decoder_engine
   use decode_completion_module, only: decode_completion_result,set_decode_completion,write_decode_progress
   use prog_args, only: temp_dir
   use timer_module, only: timer
-  use streaming_emit, only: streaming_emit_enabled, streaming_emit_decode
+  use streaming_emit, only: streaming_emit_enabled, streaming_emit_decode, &
+       streaming_emit_decode_rejected
   implicit none
   private
-  public :: engine_host_decode
+  public :: engine_host_decode,engine_params_problem
   integer(c_int), parameter :: ok=0,invalid=1,busy=2,unsupported=3,capacity=4,internal_error=5
   integer, parameter :: evidence_capacity=1024
+
+  ! An option the engine refuses and the range it takes; field is blank when
+  ! there is none.
+  type, public :: option_problem
+     character(len=24) :: field=' '
+     character(len=48) :: limit=' '
+  end type
 
   type, bind(C) :: engine_options
      integer(c_int) :: abi_version
@@ -303,6 +311,7 @@ contains
     integer(c_short), allocatable :: grown_audio(:)
     type(params_block) :: params
     type(decoder_callback_context) :: context
+    type(option_problem) :: problem
     outcome=attempt_outcome()
     status=invalid
     if(.not.valid_handle(handle)) go to 900
@@ -327,41 +336,14 @@ contains
     endif
     if(audio%sample_count<1.or.audio%sample_count>analysis_samples) go to 900
     if(.not.c_associated(audio%samples)) go to 900
-    if(request%mode==engine_mode_jt4) then
-       if(request%phase==1) go to 900
-       if(.not.valid_jt4_options(request%jt4)) go to 900
-    else if(request%mode==engine_mode_ft4) then
-       if(request%phase==1) go to 900
-       if(request%ft4%search_low_hz<0.or.request%ft4%search_high_hz>6000.or. &
-            request%ft4%search_low_hz>request%ft4%search_high_hz) go to 900
-       if(request%ft4%depth<1.or.request%ft4%depth>3) go to 900
-       if(request%ft4%qso_progress<0.or.request%ft4%qso_progress>5) go to 900
-       if(request%ft4%contest<0.or.request%ft4%contest>7) go to 900
-       if(request%ft4%cq_only<0.or.request%ft4%cq_only>1) go to 900
-    else if(request%mode==engine_mode_jt9) then
-       if(request%phase==1) go to 900
-       if(request%jt9%search_low_hz<0.or.request%jt9%search_high_hz>5000.or. &
-            request%jt9%search_low_hz>request%jt9%search_high_hz) go to 900
-       if(request%jt9%receive_frequency_hz<0.or.request%jt9%receive_frequency_hz>5000) go to 900
-       if(request%jt9%tolerance_hz<0.or.request%jt9%tolerance_hz>5000) go to 900
-       if(request%jt9%depth<1.or.request%jt9%depth>3) go to 900
-       if(request%jt9%submode<0.or.request%jt9%submode>7) go to 900
-    else if(request%mode==engine_mode_jt65) then
-       if(request%phase==1) go to 900
-       if(.not.valid_jt65_options(request%jt65)) go to 900
-    else if(request%mode==engine_mode_q65) then
-       if(request%phase==1) go to 900
-       if(.not.valid_q65_options(request%q65)) go to 900
-    else if(request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w) then
-       if(request%phase==1) go to 900
-       if(.not.valid_fst4_options(request%fst4)) go to 900
-    else
-       if(request%ft8%search_low_hz<0.or.request%ft8%search_high_hz>6000.or. &
-            request%ft8%search_low_hz>request%ft8%search_high_hz) go to 900
+    if(request%mode==engine_mode_ft8) then
        if(request%ft8%half_symbol_stage<41.or.request%ft8%half_symbol_stage>50) go to 900
        if(request%ft8%reuse_spectrum<0.or.request%ft8%reuse_spectrum>1) go to 900
-       if(request%ft8%threads<0.or.request%ft8%threads>24) go to 900
+    else
+       if(request%phase==1) go to 900
     endif
+    problem=request_option_problem(request,.true.)
+    if(problem%field/=' ') go to 900
     if(session%input_id/=0.and.session%input_id/=request%input_id) go to 900
     if(session%input_id/=0.and.session%input_mode/=request%mode) go to 900
     if(request%mode==engine_mode_jt4.and.session%input_id/=0) then
@@ -505,17 +487,113 @@ contains
     valid=utc>=0.and.utc<=235959.and.mod(utc/100,100)<=59.and.mod(utc,100)<=59
   end function
 
-  logical function valid_jt4_options(options) result(valid)
+  ! The first option of a request the engine refuses, with the range it
+  ! takes, or a blank field. The host-set fields (ids, phase, samples, the FT8
+  ! pass) are decode_attempt's.
+  function request_option_problem(request,check_utc) result(problem)
+    type(attempt_request), intent(in) :: request
+    logical, intent(in) :: check_utc
+    type(option_problem) :: problem
+    select case(request%mode)
+    case(engine_mode_jt4)
+       problem=jt4_option_problem(request%jt4,check_utc)
+    case(engine_mode_ft4)
+       problem=ft4_option_problem(request%ft4)
+    case(engine_mode_jt9)
+       problem=jt9_option_problem(request%jt9)
+    case(engine_mode_jt65)
+       problem=jt65_option_problem(request%jt65)
+    case(engine_mode_q65)
+       problem=q65_option_problem(request%q65,check_utc)
+    case(engine_mode_fst4,engine_mode_fst4w)
+       problem=fst4_option_problem(request%fst4,check_utc)
+    case default
+       problem=ft8_option_problem(request%ft8)
+    end select
+  end function
+
+  ! The search range when the low edge may equal the high one.
+  function search_problem(low,high,limit) result(problem)
+    integer(c_int), intent(in) :: low,high
+    integer, intent(in) :: limit
+    type(option_problem) :: problem
+    character(len=8) :: hz
+    problem=option_problem()
+    write(hz,'(i0)') limit
+    if(low<0) then
+       problem=option_problem('search_low_hz','at least 0 Hz')
+    else if(high>limit) then
+       problem=option_problem('search_high_hz','at most '//trim(hz)//' Hz')
+    else if(low>high) then
+       problem=option_problem('search_range','nfa must not be above nfb')
+    endif
+  end function
+
+  function ft8_option_problem(options) result(problem)
+    type(ft8_options), intent(in) :: options
+    type(option_problem) :: problem
+    problem=search_problem(options%search_low_hz,options%search_high_hz,6000)
+    if(problem%field/=' ') return
+    ! The decoders index their AP tables with it.
+    if(options%qso_progress<0.or.options%qso_progress>5) then
+       problem=option_problem('qso_progress','from 0 to 5')
+    else if(options%threads<0.or.options%threads>24) then
+       problem=option_problem('threads','from 0 to 24')
+    endif
+  end function
+
+  function ft4_option_problem(options) result(problem)
+    type(ft4_options), intent(in) :: options
+    type(option_problem) :: problem
+    problem=search_problem(options%search_low_hz,options%search_high_hz,6000)
+    if(problem%field/=' ') return
+    if(options%depth<1.or.options%depth>3) then
+       problem=option_problem('depth','from 1 to 3')
+    else if(options%qso_progress<0.or.options%qso_progress>5) then
+       problem=option_problem('qso_progress','from 0 to 5')
+    else if(options%contest<0.or.options%contest>7) then
+       problem=option_problem('contest','from 0 to 7')
+    else if(options%cq_only<0.or.options%cq_only>1) then
+       problem=option_problem('flags','0 or 1')
+    endif
+  end function
+
+  function jt9_option_problem(options) result(problem)
+    type(jt9_options), intent(in) :: options
+    type(option_problem) :: problem
+    problem=search_problem(options%search_low_hz,options%search_high_hz,5000)
+    if(problem%field/=' ') return
+    if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) then
+       problem=option_problem('receive_frequency_hz','from 0 to 5000 Hz')
+    else if(options%tolerance_hz<0.or.options%tolerance_hz>5000) then
+       problem=option_problem('tolerance_hz','from 0 to 5000 Hz')
+    else if(options%depth<1.or.options%depth>3) then
+       problem=option_problem('depth','from 1 to 3')
+    else if(options%submode<0.or.options%submode>7) then
+       problem=option_problem('submode','from 0 to 7')
+    endif
+  end function
+
+  function jt4_option_problem(options,check_utc) result(problem)
     type(engine_jt4_options), intent(in) :: options
-    valid=.false.
-    if(.not.valid_hhmmss(options%utc)) return
-    if(options%submode<0.or.options%submode>6) return
-    if(options%minimum_width_profile<0.or.options%minimum_width_profile>options%submode) return
-    if(options%depth<1.or.options%depth>3) return
-    if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) return
-    if(options%tolerance_hz<0.or.options%tolerance_hz>5000) return
-    if(any([options%averaging,options%deep_search]<0).or.any([options%averaging,options%deep_search]>1)) return
-    valid=.true.
+    logical, intent(in) :: check_utc
+    type(option_problem) :: problem
+    problem=option_problem()
+    if(check_utc.and..not.valid_hhmmss(options%utc)) then
+       problem=option_problem('utc','a valid time of day')
+    else if(options%submode<0.or.options%submode>6) then
+       problem=option_problem('submode','from 0 to 6')
+    else if(options%minimum_width_profile<0.or.options%minimum_width_profile>options%submode) then
+       problem=option_problem('minimum_width','from 0 to the submode')
+    else if(options%depth<1.or.options%depth>3) then
+       problem=option_problem('depth','from 1 to 3')
+    else if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) then
+       problem=option_problem('receive_frequency_hz','from 0 to 5000 Hz')
+    else if(options%tolerance_hz<0.or.options%tolerance_hz>5000) then
+       problem=option_problem('tolerance_hz','from 0 to 5000 Hz')
+    else if(any([options%averaging,options%deep_search]<0).or.any([options%averaging,options%deep_search]>1)) then
+       problem=option_problem('flags','0 or 1')
+    endif
   end function
 
   subroutine run_jt4_attempt(options,phase,sample_count,sample_rate,callback_context,progress,status)
@@ -645,23 +723,33 @@ contains
     status=ok
   end function
 
-  logical function valid_jt65_options(options) result(valid)
+  function jt65_option_problem(options) result(problem)
     type(engine_jt65_options), intent(in) :: options
-    valid=.false.
-    if(options%search_low_hz<0.or.options%search_high_hz>5000.or. &
-         options%search_low_hz>options%search_high_hz) return
-    if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) return
-    if(options%tolerance_hz<0.or.options%tolerance_hz>5000) return
-    if(options%depth<1.or.options%depth>3.or.options%submode<0.or.options%submode>2) return
-    if(options%passes<1.or.options%passes>2) return
-    if(options%trials<0.or.options%trials>1000000) return
-    if(options%aggressiveness<0.or.options%aggressiveness>11) return
-    if(options%qso_progress<0.or.options%qso_progress>5) return
-    if(any([options%single_decode,options%vhf,options%averaging,options%auto_clear, &
-         options%deep_search,options%ap_enabled]<0)) return
-    if(any([options%single_decode,options%vhf,options%averaging,options%auto_clear, &
-         options%deep_search,options%ap_enabled]>1)) return
-    valid=.true.
+    type(option_problem) :: problem
+    problem=search_problem(options%search_low_hz,options%search_high_hz,5000)
+    if(problem%field/=' ') return
+    if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) then
+       problem=option_problem('receive_frequency_hz','from 0 to 5000 Hz')
+    else if(options%tolerance_hz<0.or.options%tolerance_hz>5000) then
+       problem=option_problem('tolerance_hz','from 0 to 5000 Hz')
+    else if(options%depth<1.or.options%depth>3) then
+       problem=option_problem('depth','from 1 to 3')
+    else if(options%submode<0.or.options%submode>2) then
+       problem=option_problem('submode','from 0 to 2')
+    else if(options%passes<1.or.options%passes>2) then
+       problem=option_problem('passes','1 or 2')
+    else if(options%trials<0.or.options%trials>1000000) then
+       problem=option_problem('trials','at most 1000000')
+    else if(options%aggressiveness<0.or.options%aggressiveness>11) then
+       problem=option_problem('aggressiveness','from 0 to 11')
+    else if(options%qso_progress<0.or.options%qso_progress>5) then
+       problem=option_problem('qso_progress','from 0 to 5')
+    else if(any([options%single_decode,options%vhf,options%averaging,options%auto_clear, &
+         options%deep_search,options%ap_enabled]<0).or. &
+         any([options%single_decode,options%vhf,options%averaging,options%auto_clear, &
+         options%deep_search,options%ap_enabled]>1)) then
+       problem=option_problem('flags','0 or 1')
+    endif
   end function
 
   subroutine run_jt65_attempt(options,phase,sample_count,callback_context,progress)
@@ -792,24 +880,41 @@ contains
     status=ok
   end function
 
-  logical function valid_fst4_options(options) result(valid)
+  function fst4_option_problem(options,check_utc) result(problem)
     type(engine_fst4_options), intent(in) :: options
-    valid=.false.
-    if(analysis_extent(engine_mode_fst4,options%period_seconds)==0) return
-    if(options%depth<1.or.options%depth>3) return
-    if(options%qso_progress<0.or.options%qso_progress>5) return
-    if(options%search_low_hz<0.or.options%search_high_hz>5000.or. &
-         options%search_low_hz>=options%search_high_hz) return
-    if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) return
-    if(options%tolerance_hz<0.or.options%tolerance_hz>5000) return
-    if(.not.any(options%blanker_mode==[0,1,2,5])) return
-    if(options%blanker_percent<0.or.options%blanker_percent>25) return
-    if(.not.ieee_is_finite(options%eme_delay_seconds)) return
-    if(options%eme_delay_seconds<0.or.options%eme_delay_seconds>real(options%period_seconds)) return
-    if(any([options%single_decode,options%ap_cq_only,options%measure_doppler]<0)) return
-    if(any([options%single_decode,options%ap_cq_only,options%measure_doppler]>1)) return
-    if(.not.valid_hhmmss(options%utc)) return
-    valid=.true.
+    logical, intent(in) :: check_utc
+    type(option_problem) :: problem
+    problem=option_problem()
+    if(analysis_extent(engine_mode_fst4,options%period_seconds)==0) then
+       problem=option_problem('period_seconds','one of 15, 30, 60, 120, 300, 900 or 1800 s')
+    else if(options%depth<1.or.options%depth>3) then
+       problem=option_problem('depth','from 1 to 3')
+    else if(options%qso_progress<0.or.options%qso_progress>5) then
+       problem=option_problem('qso_progress','from 0 to 5')
+    else if(options%search_low_hz<0) then
+       problem=option_problem('search_low_hz','at least 0 Hz')
+    else if(options%search_high_hz>5000) then
+       problem=option_problem('search_high_hz','at most 5000 Hz')
+    else if(options%search_low_hz>=options%search_high_hz) then
+       problem=option_problem('search_range','nfa must be below nfb and below 5000 Hz')
+    else if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) then
+       problem=option_problem('receive_frequency_hz','from 0 to 5000 Hz')
+    else if(options%tolerance_hz<0.or.options%tolerance_hz>5000) then
+       problem=option_problem('tolerance_hz','from 0 to 5000 Hz')
+    else if(.not.any(options%blanker_mode==[0,1,2,5])) then
+       problem=option_problem('blanker_mode','at most 25')
+    else if(options%blanker_percent<0.or.options%blanker_percent>25) then
+       problem=option_problem('blanker_percent','at most 25')
+    else if(.not.ieee_is_finite(options%eme_delay_seconds)) then
+       problem=option_problem('eme_delay_seconds','from 0 s to the TR period')
+    else if(options%eme_delay_seconds<0.or.options%eme_delay_seconds>real(options%period_seconds)) then
+       problem=option_problem('eme_delay_seconds','from 0 s to the TR period')
+    else if(any([options%single_decode,options%ap_cq_only,options%measure_doppler]<0).or. &
+         any([options%single_decode,options%ap_cq_only,options%measure_doppler]>1)) then
+       problem=option_problem('flags','0 or 1')
+    else if(check_utc.and..not.valid_hhmmss(options%utc)) then
+       problem=option_problem('utc','a valid time of day')
+    endif
   end function
 
   subroutine run_fst4_attempt(options,mode,phase,callback_context,progress,status)
@@ -917,25 +1022,41 @@ contains
   end function
 
 
-  logical function valid_q65_options(options) result(valid)
+  function q65_option_problem(options,check_utc) result(problem)
     type(engine_q65_options), intent(in) :: options
-    valid=.false.
-    if(.not.any(options%period_seconds==[15,30,60,120,300])) return
-    if(options%submode<0.or.options%submode>5) return
-    if(options%depth<1.or.options%depth>3) return
-    if(options%max_drift_symbol_rates<0.or.options%max_drift_symbol_rates>50) return
-    if(options%search_low_hz<0.or.options%search_high_hz>5000.or. &
-         options%search_low_hz>=options%search_high_hz) return
-    if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) return
-    if(options%tolerance_hz<0.or.options%tolerance_hz>5000) return
-    if(options%qso_progress<0.or.options%qso_progress>5) return
-    if(options%contest<0.or.options%contest>7) return
-    if(any([options%averaging,options%auto_clear,options%single_decode,options%extended_eme_search, &
-         options%pileup,options%ap_cq_only]<0)) return
-    if(any([options%averaging,options%auto_clear,options%single_decode,options%extended_eme_search, &
-         options%pileup,options%ap_cq_only]>1)) return
-    if(.not.valid_hhmmss(options%utc)) return
-    valid=.true.
+    logical, intent(in) :: check_utc
+    type(option_problem) :: problem
+    problem=option_problem()
+    if(.not.any(options%period_seconds==[15,30,60,120,300])) then
+       problem=option_problem('period_seconds','one of 15, 30, 60, 120 or 300 s')
+    else if(options%submode<0.or.options%submode>5) then
+       problem=option_problem('submode','from 0 to 5')
+    else if(options%depth<1.or.options%depth>3) then
+       problem=option_problem('depth','from 1 to 3')
+    else if(options%max_drift_symbol_rates<0.or.options%max_drift_symbol_rates>50) then
+       problem=option_problem('max_drift','from 0 to 50')
+    else if(options%search_low_hz<0) then
+       problem=option_problem('search_low_hz','at least 0 Hz')
+    else if(options%search_high_hz>5000) then
+       problem=option_problem('search_high_hz','at most 5000 Hz')
+    else if(options%search_low_hz>=options%search_high_hz) then
+       problem=option_problem('search_range','nfa must be below nfb and below 5000 Hz')
+    else if(options%receive_frequency_hz<0.or.options%receive_frequency_hz>5000) then
+       problem=option_problem('receive_frequency_hz','from 0 to 5000 Hz')
+    else if(options%tolerance_hz<0.or.options%tolerance_hz>5000) then
+       problem=option_problem('tolerance_hz','from 0 to 5000 Hz')
+    else if(options%qso_progress<0.or.options%qso_progress>5) then
+       problem=option_problem('qso_progress','from 0 to 5')
+    else if(options%contest<0.or.options%contest>7) then
+       problem=option_problem('contest','from 0 to 7')
+    else if(any([options%averaging,options%auto_clear,options%single_decode,options%extended_eme_search, &
+         options%pileup,options%ap_cq_only]<0).or. &
+         any([options%averaging,options%auto_clear,options%single_decode,options%extended_eme_search, &
+         options%pileup,options%ap_cq_only]>1)) then
+       problem=option_problem('flags','0 or 1')
+    else if(check_utc.and..not.valid_hhmmss(options%utc)) then
+       problem=option_problem('utc','a valid time of day')
+    endif
   end function
 
   subroutine run_q65_attempt(options,phase,sample_count,callback_context,progress,status)
@@ -1276,6 +1397,183 @@ contains
     params%hisgrid=request%ft8%hisgrid
   end subroutine
 
+  ! The engine request a decode with these params makes, without the session
+  ! work (call lists, averages, history); the caller sets request%mode.
+  subroutine params_to_request(params,request)
+    type(params_block), intent(in) :: params
+    type(attempt_request), intent(inout) :: request
+    integer :: time,blanker
+    if(request%mode==engine_mode_jt4) then
+       call convert_jt4_host_options(params,request%jt4,streaming_emit_enabled())
+    else if(request%mode==engine_mode_ft4) then
+       request%ft4%utc=params%nutc
+       request%ft4%qso_progress=params%nQSOProgress
+       request%ft4%receive_frequency_hz=params%nfqso
+       request%ft4%search_low_hz=params%nfa
+       request%ft4%search_high_hz=params%nfb
+       request%ft4%depth=iand(params%ndepth,7)
+       request%ft4%cq_only=merge(1,0,params%lapcqonly)
+       request%ft4%contest=iand(params%nexp_decode,7)
+       request%ft4%mycall=params%mycall
+       request%ft4%hiscall=params%hiscall
+    else if(request%mode==engine_mode_jt9) then
+       request%jt9%utc=params%nutc
+       request%jt9%receive_frequency_hz=params%nfqso
+       request%jt9%search_low_hz=params%nfa
+       request%jt9%search_high_hz=params%nfb
+       request%jt9%tolerance_hz=params%ntol
+       request%jt9%depth=iand(params%ndepth,7)
+       request%jt9%submode=params%nsubmode
+    else if(request%mode==engine_mode_jt65) then
+       request%jt65%utc=params%nutc
+       request%jt65%qso_progress=params%nQSOProgress
+       request%jt65%receive_frequency_hz=params%nfqso
+       request%jt65%search_low_hz=params%nfa
+       request%jt65%search_high_hz=params%nfb
+       request%jt65%tolerance_hz=params%ntol
+       request%jt65%depth=iand(params%ndepth,7)
+       request%jt65%submode=params%nsubmode
+       request%jt65%min_sync=params%minsync
+       request%jt65%passes=max(1,min(2,params%n2pass))
+       request%jt65%trials=10**(params%nranera/2)
+       if(mod(params%nranera,2)==1) request%jt65%trials=3*request%jt65%trials
+       if(params%nranera==0) request%jt65%trials=0
+       request%jt65%aggressiveness=params%naggressive
+       request%jt65%single_decode=merge(1,0,iand(params%nexp_decode,32)/=0)
+       request%jt65%vhf=merge(1,0,iand(params%nexp_decode,64)/=0)
+       request%jt65%averaging=merge(1,0,iand(params%ndepth,16)/=0)
+       request%jt65%auto_clear=merge(1,0,iand(params%ndepth,128)/=0)
+       request%jt65%deep_search=merge(1,0,iand(params%ndepth,32)/=0)
+       request%jt65%ap_enabled=merge(1,0,params%ljt65apon)
+       request%jt65%mycall=params%mycall
+       request%jt65%hiscall=params%hiscall
+       request%jt65%hisgrid=params%hisgrid
+    else if(request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w) then
+       request%fst4%utc=params%nutc
+       request%fst4%period_seconds=params%ntr
+       request%fst4%receive_frequency_hz=params%nfqso
+       request%fst4%search_low_hz=max(0,params%nfa)
+       request%fst4%search_high_hz=min(params%nfb,5000)
+       request%fst4%tolerance_hz=params%ntol
+       request%fst4%depth=iand(params%ndepth,3)
+       request%fst4%qso_progress=params%nQSOProgress
+       request%fst4%single_decode=merge(1,0,iand(params%nexp_decode,32)/=0)
+       request%fst4%ap_cq_only=merge(1,0,params%lapcqonly)
+       blanker=params%nexp_decode/256-3
+       if(blanker>=0) then
+          request%fst4%blanker_percent=blanker
+       else
+          select case(blanker)
+          case(-1); request%fst4%blanker_mode=5
+          case(-2); request%fst4%blanker_mode=2
+          case(-3); request%fst4%blanker_mode=1
+          end select
+       endif
+       request%fst4%eme_delay_seconds=params%emedelay
+       request%fst4%mycall=params%mycall
+       request%fst4%hiscall=params%hiscall
+    else if(request%mode==engine_mode_q65) then
+       request%q65%utc=params%nutc
+       request%q65%period_seconds=params%ntr
+       request%q65%submode=params%nsubmode
+       request%q65%receive_frequency_hz=params%nfqso
+       request%q65%tolerance_hz=params%ntol
+       request%q65%search_low_hz=params%nfa
+       request%q65%search_high_hz=min(params%nfb,5000)
+       request%q65%depth=iand(params%ndepth,3)
+       request%q65%max_drift_symbol_rates=params%max_drift
+       request%q65%qso_progress=params%nQSOProgress
+       request%q65%contest=iand(params%nexp_decode,7)
+       request%q65%averaging=merge(1,0,iand(params%ndepth,16)/=0)
+       request%q65%auto_clear=merge(1,0,iand(params%ndepth,128)/=0)
+       request%q65%single_decode=merge(1,0,iand(params%nexp_decode,32)/=0)
+       request%q65%extended_eme_search=merge(1,0,params%emedelay>0)
+       request%q65%pileup=merge(1,0,iand(params%nexp_decode,128)/=0)
+       request%q65%ap_cq_only=merge(1,0,params%lapcqonly)
+       request%q65%now_seconds=time()
+       request%q65%mycall=params%mycall
+       request%q65%hiscall=params%hiscall
+       request%q65%hisgrid=params%hisgrid
+    else
+       request%ft8%reuse_spectrum=merge(0,1,params%newdat)
+       request%ft8%half_symbol_stage=params%nzhsym
+       request%ft8%utc=params%nutc
+       request%ft8%qso_progress=params%nQSOProgress
+       request%ft8%receive_frequency_hz=params%nfqso
+       request%ft8%transmit_frequency_hz=params%nftx
+       request%ft8%search_low_hz=params%nfa
+       request%ft8%search_high_hz=params%nfb
+       request%ft8%tolerance_hz=params%ntol
+       request%ft8%depth=params%ndepth
+       request%ft8%ap_width_hz=params%napwid
+       request%ft8%contest=params%nexp_decode
+       request%ft8%candidate_thinning=params%ncandthin
+       request%ft8%time_center=params%ndtcenter
+       request%ft8%cycles=params%nft8cycles
+       request%ft8%trials=params%nranera
+       request%ft8%last_transmit=params%nlasttx
+       request%ft8%delay=params%ndelay
+       request%ft8%threads=params%nmt
+       request%ft8%receive_sensitivity=params%nft8rxfsens
+       request%ft8%discard_leading_seconds=params%nsecbandchanged
+       request%ft8%date=params%yymmdd
+       request%ft8%ap_enabled=merge(1,0,params%lft8apon)
+       request%ft8%cq_only=merge(1,0,params%lapcqonly)
+       request%ft8%even_sequence=merge(1,0,params%b_even_seq)
+       request%ft8%superfox=merge(1,0,params%b_superfox)
+       request%ft8%filtered_retry=merge(1,0,params%nagainfil)
+       request%ft8%stop_hint=merge(1,0,params%nstophint)
+       request%ft8%mtd=merge(1,0,params%lmultift8)
+       request%ft8%low_threshold=merge(1,0,params%lft8lowth)
+       request%ft8%subtract_pass=merge(1,0,params%lft8subpass)
+       request%ft8%transmitting=merge(1,0,params%ltxing)
+       request%ft8%hide_duplicates=merge(1,0,params%lhideft8dupes)
+       request%ft8%hound=merge(1,0,params%lhound)
+       request%ft8%standard_mycall=merge(1,0,params%lmycallstd)
+       request%ft8%standard_hiscall=merge(1,0,params%lhiscallstd)
+       request%ft8%ap_mycall=merge(1,0,params%lapmyc)
+       request%ft8%mode_changed=merge(1,0,params%lmodechanged)
+       request%ft8%band_changed=merge(1,0,params%lbandchanged)
+       request%ft8%dx_search=merge(1,0,params%lenabledxcsearch)
+       request%ft8%wide_dx_search=merge(1,0,params%lwidedxcsearch)
+       request%ft8%multiple_instances=merge(1,0,params%lmultinst)
+       request%ft8%skip_first_message=merge(1,0,params%lskiptx1)
+       request%ft8%eme_delay_seconds=params%emedelay
+       request%ft8%mycall=params%mycall
+       request%ft8%my_base_call=params%mybcall
+       request%ft8%hiscall=params%hiscall
+       request%ft8%his_base_call=params%hisbcall
+       request%ft8%mygrid=params%mygrid
+       request%ft8%hisgrid=params%hisgrid
+    endif
+  end subroutine params_to_request
+
+  ! The engine option a decode with these params would be refused for, with
+  ! its range, or a blank field. JT65+JT9 decodes outside the engine
+  ! (decoder.f90); its JT65 decoder, which runs when the transmit mode is JT9,
+  ! is held to the engine's JT65 checks. Other modes are not the engine's.
+  function engine_params_problem(params,check_utc) result(problem)
+    type(params_block), intent(in) :: params
+    logical, intent(in) :: check_utc
+    type(option_problem) :: problem
+    type(attempt_request) :: request
+    problem=option_problem()
+    select case(params%nmode)
+    case(65+9)
+       if(params%ntxmode/=9) return
+       request%mode=engine_mode_jt65
+    case(engine_mode_ft8,engine_mode_ft4,engine_mode_jt4,engine_mode_jt9,engine_mode_jt65, &
+         engine_mode_q65,engine_mode_fst4,engine_mode_fst4w)
+       request%mode=params%nmode
+    case(242)
+       request%mode=engine_mode_fst4w
+    case default
+       return
+    end select
+    call params_to_request(params,request)
+    problem=request_option_problem(request,check_utc)
+  end function engine_params_problem
+
   subroutine engine_host_decode(id2,params,nfsample,completion,progress,input_id,analysis_id,attempt_no,valid_samples)
     integer(c_short), target, intent(in) :: id2(*)
     type(params_block), intent(in) :: params
@@ -1287,7 +1585,7 @@ contains
     type(attempt_outcome) :: outcome
     type(engine_options) :: options
     integer(c_int) :: status
-    integer :: time,history_status,blanker,period_samples,gate_samples
+    integer :: history_status,period_samples,gate_samples
     character(len=12), allocatable :: calls(:)
     character(len=4), allocatable :: grids(:)
     options%abi_version=engine_abi
@@ -1342,158 +1640,21 @@ contains
     if(params%nmode==engine_mode_ft8.and.params%nzhsym<50) request%phase=1
     if(params%nagain) request%phase=3
     request%source=merge(1,0,params%ndiskdat)
+    call params_to_request(params,request)
     if(request%mode==engine_mode_jt4) then
-       call convert_jt4_host_options(params,request%jt4,streaming_emit_enabled())
        if(request%jt4%deep_search/=0) call load_jt4_calls(session%jt4)
-    else if(request%mode==engine_mode_ft4) then
-       request%ft4%utc=params%nutc
-       request%ft4%qso_progress=params%nQSOProgress
-       request%ft4%receive_frequency_hz=params%nfqso
-       request%ft4%search_low_hz=params%nfa
-       request%ft4%search_high_hz=params%nfb
-       request%ft4%depth=iand(params%ndepth,7)
-       request%ft4%cq_only=merge(1,0,params%lapcqonly)
-       request%ft4%contest=iand(params%nexp_decode,7)
-       request%ft4%mycall=params%mycall
-       request%ft4%hiscall=params%hiscall
-    else if(request%mode==engine_mode_jt9) then
-       request%jt9%utc=params%nutc
-       request%jt9%receive_frequency_hz=params%nfqso
-       request%jt9%search_low_hz=params%nfa
-       request%jt9%search_high_hz=params%nfb
-       request%jt9%tolerance_hz=params%ntol
-       request%jt9%depth=iand(params%ndepth,7)
-       request%jt9%submode=params%nsubmode
     else if(request%mode==engine_mode_jt65) then
-       request%jt65%utc=params%nutc
-       request%jt65%qso_progress=params%nQSOProgress
-       request%jt65%receive_frequency_hz=params%nfqso
-       request%jt65%search_low_hz=params%nfa
-       request%jt65%search_high_hz=params%nfb
-       request%jt65%tolerance_hz=params%ntol
-       request%jt65%depth=iand(params%ndepth,7)
-       request%jt65%submode=params%nsubmode
-       request%jt65%min_sync=params%minsync
-       request%jt65%passes=max(1,min(2,params%n2pass))
-       request%jt65%trials=10**(params%nranera/2)
-       if(mod(params%nranera,2)==1) request%jt65%trials=3*request%jt65%trials
-       if(params%nranera==0) request%jt65%trials=0
-       request%jt65%aggressiveness=params%naggressive
-       request%jt65%single_decode=merge(1,0,iand(params%nexp_decode,32)/=0)
-       request%jt65%vhf=merge(1,0,iand(params%nexp_decode,64)/=0)
-       request%jt65%averaging=merge(1,0,iand(params%ndepth,16)/=0)
-       request%jt65%auto_clear=merge(1,0,iand(params%ndepth,128)/=0)
-       request%jt65%deep_search=merge(1,0,iand(params%ndepth,32)/=0)
-       request%jt65%ap_enabled=merge(1,0,params%ljt65apon)
-       request%jt65%mycall=params%mycall
-       request%jt65%hiscall=params%hiscall
-       request%jt65%hisgrid=params%hisgrid
        if(params%nclearave) call session%jt65%clear_averages()
        if(request%jt65%deep_search/=0) then
           call load_jt65_calls(calls,grids)
           call session%jt65%set_calls(calls,grids)
        endif
     else if(request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w) then
-       request%fst4%utc=params%nutc
-       request%fst4%period_seconds=params%ntr
-       request%fst4%receive_frequency_hz=params%nfqso
-       request%fst4%search_low_hz=max(0,params%nfa)
-       request%fst4%search_high_hz=min(params%nfb,5000)
-       request%fst4%tolerance_hz=params%ntol
-       request%fst4%depth=iand(params%ndepth,3)
-       request%fst4%qso_progress=params%nQSOProgress
-       request%fst4%single_decode=merge(1,0,iand(params%nexp_decode,32)/=0)
-       request%fst4%ap_cq_only=merge(1,0,params%lapcqonly)
-       blanker=params%nexp_decode/256-3
-       if(blanker>=0) then
-          request%fst4%blanker_percent=blanker
-       else
-          select case(blanker)
-          case(-1); request%fst4%blanker_mode=5
-          case(-2); request%fst4%blanker_mode=2
-          case(-3); request%fst4%blanker_mode=1
-          end select
-       endif
        session%fst4%print_hash22=params%nmode==242
-       request%fst4%eme_delay_seconds=params%emedelay
-       request%fst4%mycall=params%mycall
-       request%fst4%hiscall=params%hiscall
     else if(request%mode==engine_mode_q65) then
-       request%q65%utc=params%nutc
-       request%q65%period_seconds=params%ntr
-       request%q65%submode=params%nsubmode
-       request%q65%receive_frequency_hz=params%nfqso
-       request%q65%tolerance_hz=params%ntol
-       request%q65%search_low_hz=params%nfa
-       request%q65%search_high_hz=min(params%nfb,5000)
-       request%q65%depth=iand(params%ndepth,3)
-       request%q65%max_drift_symbol_rates=params%max_drift
-       request%q65%qso_progress=params%nQSOProgress
-       request%q65%contest=iand(params%nexp_decode,7)
-       request%q65%averaging=merge(1,0,iand(params%ndepth,16)/=0)
-       request%q65%auto_clear=merge(1,0,iand(params%ndepth,128)/=0)
-       request%q65%single_decode=merge(1,0,iand(params%nexp_decode,32)/=0)
-       request%q65%extended_eme_search=merge(1,0,params%emedelay>0)
-       request%q65%pileup=merge(1,0,iand(params%nexp_decode,128)/=0)
-       request%q65%ap_cq_only=merge(1,0,params%lapcqonly)
-       request%q65%now_seconds=time()
-       request%q65%mycall=params%mycall
-       request%q65%hiscall=params%hiscall
-       request%q65%hisgrid=params%hisgrid
        if(params%nclearave) call session%q65%clear_averages()
        history_status=0
        if(request%q65%contest==1) call load_q65_history(session%q65,history_status)
-    else
-       request%ft8%reuse_spectrum=merge(0,1,params%newdat)
-       request%ft8%half_symbol_stage=params%nzhsym
-       request%ft8%utc=params%nutc
-       request%ft8%qso_progress=params%nQSOProgress
-       request%ft8%receive_frequency_hz=params%nfqso
-       request%ft8%transmit_frequency_hz=params%nftx
-       request%ft8%search_low_hz=params%nfa
-       request%ft8%search_high_hz=params%nfb
-       request%ft8%tolerance_hz=params%ntol
-       request%ft8%depth=params%ndepth
-       request%ft8%ap_width_hz=params%napwid
-       request%ft8%contest=params%nexp_decode
-       request%ft8%candidate_thinning=params%ncandthin
-       request%ft8%time_center=params%ndtcenter
-       request%ft8%cycles=params%nft8cycles
-       request%ft8%trials=params%nranera
-       request%ft8%last_transmit=params%nlasttx
-       request%ft8%delay=params%ndelay
-       request%ft8%threads=params%nmt
-       request%ft8%receive_sensitivity=params%nft8rxfsens
-       request%ft8%discard_leading_seconds=params%nsecbandchanged
-       request%ft8%date=params%yymmdd
-       request%ft8%ap_enabled=merge(1,0,params%lft8apon)
-       request%ft8%cq_only=merge(1,0,params%lapcqonly)
-       request%ft8%even_sequence=merge(1,0,params%b_even_seq)
-       request%ft8%superfox=merge(1,0,params%b_superfox)
-       request%ft8%filtered_retry=merge(1,0,params%nagainfil)
-       request%ft8%stop_hint=merge(1,0,params%nstophint)
-       request%ft8%mtd=merge(1,0,params%lmultift8)
-       request%ft8%low_threshold=merge(1,0,params%lft8lowth)
-       request%ft8%subtract_pass=merge(1,0,params%lft8subpass)
-       request%ft8%transmitting=merge(1,0,params%ltxing)
-       request%ft8%hide_duplicates=merge(1,0,params%lhideft8dupes)
-       request%ft8%hound=merge(1,0,params%lhound)
-       request%ft8%standard_mycall=merge(1,0,params%lmycallstd)
-       request%ft8%standard_hiscall=merge(1,0,params%lhiscallstd)
-       request%ft8%ap_mycall=merge(1,0,params%lapmyc)
-       request%ft8%mode_changed=merge(1,0,params%lmodechanged)
-       request%ft8%band_changed=merge(1,0,params%lbandchanged)
-       request%ft8%dx_search=merge(1,0,params%lenabledxcsearch)
-       request%ft8%wide_dx_search=merge(1,0,params%lwidedxcsearch)
-       request%ft8%multiple_instances=merge(1,0,params%lmultinst)
-       request%ft8%skip_first_message=merge(1,0,params%lskiptx1)
-       request%ft8%eme_delay_seconds=params%emedelay
-       request%ft8%mycall=params%mycall
-       request%ft8%my_base_call=params%mybcall
-       request%ft8%hiscall=params%hiscall
-       request%ft8%his_base_call=params%hisbcall
-       request%ft8%mygrid=params%mygrid
-       request%ft8%hisgrid=params%hisgrid
     endif
     audio%samples=c_loc(id2(1))
     period_samples=analysis_extent(request%mode,request%q65%period_seconds,nfsample)
@@ -1528,6 +1689,7 @@ contains
     character(len=*), intent(in) :: operation
     character(len=12) :: status_name
     integer :: unit
+    type(option_problem) :: problem
     select case(status)
     case(invalid)
        status_name='invalid'
@@ -1535,6 +1697,10 @@ contains
        status_name='busy'
     case(unsupported)
        status_name='unsupported'
+    case(capacity)
+       status_name='capacity'
+    case(internal_error)
+       status_name='internal_error'
     case default
        write(status_name,'(i0)') status
     end select
@@ -1545,6 +1711,12 @@ contains
          ' operation=',operation,' mode=',request%mode,' input=',request%input_id, &
          ' analysis=',request%analysis_id,' attempt=',request%attempt_no
     flush(unit)
+    if(streaming_emit_enabled()) then
+       problem=option_problem()
+       if(status==invalid.and.operation=='decode') problem=request_option_problem(request,.true.)
+       call streaming_emit_decode_rejected(operation,trim(status_name),request%mode, &
+            trim(problem%field),trim(problem%limit))
+    endif
   end subroutine report_host_rejection
 end module decoder_engine
 

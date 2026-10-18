@@ -164,8 +164,9 @@ module streaming_control
      logical                :: live_audio               = .false.
      ! Phase 6 (RFC v1 §2): FT8/FT4 specifics cluster — 19 bools + 5 ints, flat
      ! 1:1 onto params_block; apply_configure_fields (streaming_apply.f90) says
-     ! which decoder reads each. The parse checks types only; the apply drops an
-     ! ft8_threads outside [0,24]. nagain_filter/stop_hint/hint_mode map to
+     ! which decoder reads each. The parse checks types only; the stream
+     ! declines a configure the decoder would refuse (streaming_io.f90).
+     ! nagain_filter/stop_hint/hint_mode map to
      ! logical(c_bool) nagainfil/nstophint/nhint despite the n-prefix. Bools
      ! reuse the Phase 4/5 get_bool_/accept_bool path; the 5 ints use get_int_.
      logical                :: multithreaded_ft8_set     = .false.
@@ -218,10 +219,10 @@ module streaming_control
      logical                :: hint_mode                 = .false.
      ! Phase 7 (RFC v1 §2): diagnostic / sequencing fields — 2 bools + 4 ints,
      ! flat 1:1 onto params_block; apply_configure_fields (streaming_apply.f90)
-     ! says which decoder reads each. The parse checks types only; the apply
-     ! drops a qso_progress_state outside [0,5]. The 4 ints use get_int_; the 2
-     ! bools (currently_txing/mode_changed, logical(c_bool) in jt9com.f90) reuse
-     ! the get_bool_/accept_bool path.
+     ! says which decoder reads each. The parse checks types only; the stream
+     ! declines a configure the decoder would refuse (streaming_io.f90). The 4
+     ! ints use get_int_; the 2 bools (currently_txing/mode_changed,
+     ! logical(c_bool) in jt9com.f90) reuse the get_bool_/accept_bool path.
      !
      ! OMITTED Phase 7 wire keys (intentionally NOT exposed in v1):
      !   utc_list / utc_list_0..9 / nlist_count — map to listutc/nlist, which
@@ -264,8 +265,7 @@ module streaming_control
      ! sequence encodes precedence, not the parse order).
      !
      ! apply_configure_fields (streaming_apply.f90) says which decoder reads
-     ! each, and drops an n_trials above 1,000,000 in every mode, which the
-     ! engine refuses for JT65. None is an array index.
+     ! each. None is an array index.
      ! candthin_threshold/dt_center_seconds are real(8) members scaled at apply
      ! (§4 — declare real(8), nint(wire*100), do NOT pre-store as int).
      logical                :: utc_set                   = .false.
@@ -1600,8 +1600,8 @@ contains
   ! quirk a producer hits only by sending the degenerate n_trials=1 — documented,
   ! not "fixed", per the wire-parity scope guardrail). nranera stays <= 18 for any
   ! n_trials that fits int32 (10^9), so the decode-site 10**(nranera/2) cannot
-  ! overflow; the apply drops nranera above 12 (10^6 trials), which the engine
-  ! refuses for JT65.
+  ! overflow. A configure with nranera above 12 (10^6 trials), which the
+  ! engine refuses for JT65, is declined where JT65 runs.
   subroutine ntrials_to_nranera_(n_trials, nranera, ok)
     integer, intent(in)  :: n_trials
     integer, intent(out) :: nranera

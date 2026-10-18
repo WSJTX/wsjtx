@@ -58,6 +58,25 @@ set_tests_properties (test_streaming_gui_schedule PROPERTIES
   FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
   TIMEOUT ${streaming_schedule_timeout})
 
+# Configures the decoder would refuse, one decode each.
+set (streaming_range_environment "WSJT_STREAM_RANGE_TESTS=1")
+set (streaming_range_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_range_timeout 1200)
+  list (APPEND streaming_range_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_range_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+add_test (NAME test_streaming_configure_ranges
+  COMMAND test_streaming_consumers wsjtCodecDeclinesValuesTheEngineRefuses
+    wsjtCodecAcceptsValuesAtTheEngineLimits wsjtCodecReportsRefusedDecodes)
+set_tests_properties (test_streaming_configure_ranges PROPERTIES
+  LABELS "streaming;runtime"
+  ENVIRONMENT "${streaming_range_environment}"
+  FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
+  TIMEOUT ${streaming_range_timeout})
+
 # Source archives omit samples/.
 if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
   set (streaming_mtd_environment
