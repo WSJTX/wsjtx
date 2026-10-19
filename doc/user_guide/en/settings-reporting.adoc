@@ -6,12 +6,13 @@ image::reporting.png[align="center",alt="Reporting Screen"]
 a multi-operator station may wish to enter their home callsign as *Op
 Call*.
 
-- _Network Services_: Check *Enable PSK Reporter Spotting* to send
-reception reports to the {pskreporter} mapping facility.
+- _PSK Reporter spotting_: Check *Enable PSK Reporter Spotting* to send
+reception reports to the {pskreporter} mapping facility. WSJT-X connects
+to PSK Reporter automatically; no server address is required.
 
-- _UDP Server_: This group of options controls the network name or
-address and port number used to exchange information with a third
-party application that inter-operates with _WSJT-X_.  Exchanged
+- _Application connections (WSJT-X UDP)_: This group of options controls
+the network name or address and port number used to exchange information
+with a third party application that inter-operates with _WSJT-X_. Exchanged
 information includes decoded messages, general program status, QSOs
 logged, highlighting of callsigns in the *Band Activity* window, and
 limited facilities to initiate QSOs in response to CQ or QRZ
@@ -21,9 +22,30 @@ https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp
 
 NOTE: The *Outgoing interfaces* and *Multicast TTL* fields are only
       present when a multicast group IP address has been entered in
-      the *UDP Server* field.
+      the *Application address* field.
 
-Companion programs like _JTAlert_ use the _UDP Server_ feature to
-exchange information with _WSJT-X_.  If you are using _JTAlert_ to
-send requests to _WSJT-X_, be sure to check the box *Accept UDP
-requests*.
+Companion applications use this connection to exchange information with
+_WSJT-X_. If your companion application needs to send requests to
+_WSJT-X_, check *Accept UDP requests*.
+
+- _ADIF output (UDP)_: Check *Enable ADIF output* to
+send a plain ADIF record over UDP whenever you log a QSO. Enter the
+receiving logging application's IP address and port. This feed sends
+logged contacts only; it does not send decodes or status updates, and it
+does not use the WSJT-X UDP message format described above.
+
+If a companion application receives logged contacts through the WSJT-X
+connection and forwards them to a separate logger, configure that
+forwarding in the companion application. ADIF output is not required for
+that path; enable it only when a receiving application is configured to
+use the separate plain ADIF feed.
+
+Earlier versions called the application connection _UDP Server_ and the
+ADIF feed _Secondary UDP Server (deprecated)_. These are different feeds,
+not two destinations for the same messages.
+
+Neither application address configures PSK Reporter. Leave an address
+blank to disable that feed. Recognized PSK Reporter destinations show an
+explanation as you type and cannot be saved in these fields. Existing
+mistaken destinations are cleared automatically when their configuration
+is loaded.

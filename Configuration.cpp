@@ -150,6 +150,7 @@
 #include <QAction>
 #include <QKeyEvent>
 #include <QScreen>
+#include <QScrollArea>
 #include <QShowEvent>
 #include <QTabBar>
 #include <QWindow>
@@ -240,6 +241,18 @@
 
 namespace
 {
+  bool is_psk_reporter_destination (QString host)
+  {
+    host = host.trimmed ();
+    if (host.endsWith ('.')) host.chop (1);
+    if (host.compare ("pskreporter.info", Qt::CaseInsensitive) == 0
+        || host.endsWith (".pskreporter.info", Qt::CaseInsensitive)) return true;
+
+    // The collector address is intentionally separate from the website's shared hosting.
+    QHostAddress const collector {QStringLiteral ("15.204.212.142")};
+    return QHostAddress {host}.isEqual (collector, QHostAddress::ConvertV4MappedToIPv4);
+  }
+
   class LocationLineEditEnterFilter final : public QObject
   {
   public:
@@ -710,6 +723,7 @@ private:
   QStringList get_selected_network_interfaces (CheckableItemComboBox *);
   Q_SLOT void host_info_results (QHostInfo);
   void check_multicast (QHostAddress const&);
+  bool update_udp_destination_error (QLineEdit *, QLabel *);
 
   void find_tab (QWidget *);
 
@@ -2300,6 +2314,13 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   SettingsDialogLayout::install (*ui_);
 
+  connect (ui_->n1mm_server_name_line_edit, &QLineEdit::editingFinished, this, [this] {
+      update_udp_destination_error (ui_->n1mm_server_name_line_edit, ui_->n1mm_server_error_label);
+    });
+  connect (ui_->n1mm_server_name_line_edit, &QLineEdit::textChanged, this, [this] {
+      update_udp_destination_error (ui_->n1mm_server_name_line_edit, ui_->n1mm_server_error_label);
+    });
+
   installEventFilter (this);
   ui_->configuration_tabs->setFocusPolicy (Qt::StrongFocus);
   ui_->configuration_tabs->installEventFilter (this);
@@ -3345,6 +3366,7 @@ void Configuration::impl::initialize_models ()
   ui_->udp_TTL_spin_box->setValue (udp_TTL_);
   ui_->accept_udp_requests_check_box->setChecked (accept_udp_requests_);
   ui_->n1mm_server_name_line_edit->setText (n1mm_server_name_);
+  update_udp_destination_error (ui_->n1mm_server_name_line_edit, ui_->n1mm_server_error_label);
   ui_->n1mm_server_port_spin_box->setValue (n1mm_server_port_);
   ui_->enable_n1mm_broadcast_check_box->setChecked (broadcast_to_n1mm_);
   ui_->udpWindowToFront->setChecked(udpWindowToFront_);
@@ -3766,6 +3788,16 @@ void Configuration::impl::read_settings ()
   udp_TTL_ = settings_->value ("UDPTTL", 1).toInt ();
   udp_server_port_ = settings_->value ("UDPServerPort", 2237).toUInt ();
   n1mm_server_name_ = settings_->value ("N1MMServer", "127.0.0.1").toString ();
+  auto clear_psk_reporter_destination = [this] (QString& host, char const * key) {
+      if (is_psk_reporter_destination (host))
+        {
+          host.clear ();
+          // A missing key would restore localhost rather than disable the feed.
+          settings_->setValue (key, host);
+        }
+    };
+  clear_psk_reporter_destination (udp_server_name_, "UDPServer");
+  clear_psk_reporter_destination (n1mm_server_name_, "N1MMServer");
   n1mm_server_port_ = settings_->value ("N1MMServerPort", 2333).toUInt ();
   broadcast_to_n1mm_ = settings_->value ("BroadcastToN1MM", false).toBool ();
   accept_udp_requests_ = settings_->value ("AcceptUDPRequests", false).toBool ();
@@ -4282,6 +4314,21 @@ auto Configuration::impl::validate_radio_settings () -> RadioValidationError
 
 bool Configuration::impl::validate ()
 {
+  auto const primary_invalid = update_udp_destination_error (ui_->udp_server_line_edit, ui_->udp_server_error_label);
+  auto const adif_invalid = update_udp_destination_error (ui_->n1mm_server_name_line_edit, ui_->n1mm_server_error_label);
+  if (primary_invalid || adif_invalid)
+    {
+      find_tab (primary_invalid ? ui_->udp_server_line_edit : ui_->n1mm_server_name_line_edit);
+      auto error = primary_invalid ? ui_->udp_server_error_label : ui_->n1mm_server_error_label;
+      // Focus scrolling and the expanded layout must settle before revealing the explanation.
+      QTimer::singleShot (0, this, [this, error] {
+          if (error->isVisible ())
+            if (auto scroll = SettingsDialogLayout::pageScrollArea (ui_->reporting_tab))
+              scroll->ensureWidgetVisible (error);
+        });
+      return false;
+    }
+
   auto const radio_error = validate_radio_settings ();
 
   // Latitude/longitude are conventional signed decimal degrees.  Allow both
@@ -5699,31 +5746,26 @@ void Configuration::impl::on_add_macro_push_button_clicked (bool /* checked */)
 void Configuration::impl::on_udp_server_line_edit_textChanged (QString const&)
 {
   udp_server_name_edited_ = true;
+  if (dns_lookup_id_ > -1)
+    {
+      QHostInfo::abortHostLookup (dns_lookup_id_);
+      dns_lookup_id_ = -1;
+    }
+  update_udp_destination_error (ui_->udp_server_line_edit, ui_->udp_server_error_label);
+}
+
+bool Configuration::impl::update_udp_destination_error (QLineEdit * edit, QLabel * error)
+{
+  auto const invalid = is_psk_reporter_destination (edit->text ());
+  error->setVisible (invalid);
+  edit->setAccessibleDescription (invalid ? error->text () : QString {});
+  return invalid;
 }
 
 void Configuration::impl::on_udp_server_line_edit_editingFinished ()
 {
-  if (this->isVisible())
-  {
-    int q1,q2,q3,q4;
-    char tmpbuf[2];
-    int n = sscanf(ui_->udp_server_line_edit->text ().trimmed ().toLatin1(), "%d.%d.%d.%d.%1s", &q1, &q2, &q3, &q4, tmpbuf);
-    const char *iperr;
-    switch(n)
-    {
-      case 0: iperr = "Error before first number";break;
-      case 1: iperr = "Error between first and second number";break;
-      case 2: iperr = "Error between second and third number";break;
-      case 3: iperr = "Error between third and fourth number";break;
-      case 4: iperr = ""; break;
-      case 5: iperr = "Invalid characters after IP address"; break;
-      default: iperr = "Unknown error parsing network address";
-    }
-    if (n != 4)
-    {
-       MessageBox::warning_message (this, tr ("Error in network address"), tr (iperr));
-       return;
-    }
+  if (update_udp_destination_error (ui_->udp_server_line_edit, ui_->udp_server_error_label)) return;
+  if (!isVisible ()) return;
 
   if (udp_server_name_edited_)
     {
@@ -5744,7 +5786,6 @@ void Configuration::impl::on_udp_server_line_edit_editingFinished ()
           check_multicast (ha);
         }
     }
-  }
 }
 
 void Configuration::impl::host_info_results (QHostInfo host_info)

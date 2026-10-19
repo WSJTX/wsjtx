@@ -404,6 +404,14 @@ set_tests_properties (test_configuration_language PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
 
+add_executable (test_configuration_udp_destinations test_configuration_udp_destinations.cpp)
+target_link_libraries (test_configuration_udp_destinations wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test)
+add_test (NAME test_configuration_udp_destinations COMMAND test_configuration_udp_destinations)
+set_tests_properties (test_configuration_udp_destinations PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 60)
+
 set (test_widegraph_palette_RESOURCES "<RCC><qresource prefix=\"/Palettes\">")
 foreach (palette Default Digipan)
   string (APPEND test_widegraph_palette_RESOURCES
