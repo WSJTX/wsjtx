@@ -29,6 +29,8 @@ module streaming_emit
   logical, save :: enabled_ = .false.
   logical, save :: utc_from_iso_ = .false.
   real(8), save :: trperiod_ = 60.d0
+  ! decode_finished ends a period's decode; passes before the last hold it.
+  logical, save :: finished_held_ = .false.
 
   public :: streaming_emit_set_enabled
   public :: streaming_emit_set_time_form
@@ -37,6 +39,7 @@ module streaming_emit
   public :: streaming_emit_ready
   public :: streaming_emit_decode
   public :: streaming_emit_decode_finished
+  public :: streaming_emit_hold_finished
   public :: streaming_emit_error
   public :: streaming_emit_error_code
   public :: streaming_emit_error_version
@@ -123,11 +126,16 @@ contains
     flush(output_unit)
   end subroutine streaming_emit_decode
 
+  subroutine streaming_emit_hold_finished(hold)
+    logical, intent(in) :: hold
+    finished_held_ = hold
+  end subroutine streaming_emit_hold_finished
+
   subroutine streaming_emit_decode_finished(nutc, utc_is_hhmmss)
     integer, intent(in) :: nutc
     logical, optional, intent(in) :: utc_is_hhmmss
     character(len=8)    :: time_str
-    if (.not. enabled_) return
+    if (.not. enabled_ .or. finished_held_) return
     call format_utc_(nutc, time_str, utc_is_hhmmss)
     write(output_unit, '(3a)')                                             &
          '{"v":1,"t":"decode_finished","period_end":"', trim(time_str),    &

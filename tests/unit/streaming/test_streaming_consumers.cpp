@@ -1,10 +1,14 @@
-#include <limits>
 #include <cmath>
+#include <functional>
+#include <limits>
 
+#include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QJsonDocument>
 #include <QFile>
 #include <QJsonObject>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QtTest>
 #include <QtEndian>
@@ -198,7 +202,8 @@ QList<QJsonObject> eventsMatching (QList<QJsonObject> const& events,
   return matching;
 }
 
-ProcessResult runJt9 (QByteArray const& input, QStringList options = {})
+ProcessResult runJt9 (QByteArray const& input, QStringList options = {},
+                      int timeoutMs = 30000)
 {
   QTemporaryDir directory;
   if (!directory.isValid ())
@@ -209,7 +214,7 @@ ProcessResult runJt9 (QByteArray const& input, QStringList options = {})
           << "-t" << directory.path ()
           << "--stream";
   return runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), options, input,
-                     directory.path ());
+                     directory.path (), timeoutMs);
 }
 
 ProcessResult runWsprd (QByteArray const& input, int timeoutMs = 30000,
@@ -309,6 +314,121 @@ QByteArray sessionHeaderWith (int index, char value)
   auto bytes = sessionHeader ();
   bytes[index] = value;
   return bytes;
+}
+
+// A session whose input stays open until `done` holds for what it has said
+// (or waitMs passes): what it reported then, and everything once it closes.
+struct OpenSession
+{
+  QByteArray openOutput;
+  QByteArray openError;
+  ProcessResult result;
+};
+
+using SessionDone = std::function<bool (QByteArray const&, QByteArray const&)>;
+
+OpenSession runOpenSession (QByteArray const& input, int waitMs, SessionDone done,
+                            QStringList const& options = {})
+{
+  OpenSession session;
+  QTemporaryDir directory;
+  if (!directory.isValid ()) return session;
+  QProcess process;
+  process.setProcessChannelMode (QProcess::SeparateChannels);
+  process.setWorkingDirectory (directory.path ());
+  process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+                 options + QStringList {"-a", directory.path (), "-t", directory.path (), "--stream"});
+  session.result.started = process.waitForStarted (5000);
+  if (!session.result.started) return session;
+  process.write (input);
+  QElapsedTimer timer;
+  timer.start ();
+  while (timer.elapsed () < waitMs && process.state () == QProcess::Running)
+    {
+      if (process.bytesToWrite () > 0) process.waitForBytesWritten (20);
+      process.waitForReadyRead (20);
+      // Qt 5 on Windows returns on stdout's data with stderr's readyRead still queued.
+      QCoreApplication::processEvents ();
+      session.openOutput += process.readAllStandardOutput ();
+      session.openError += process.readAllStandardError ();
+      if (done (session.openOutput, session.openError)) break;
+    }
+  if (process.state () == QProcess::Running)
+    {
+      process.closeWriteChannel ();
+      if (!process.waitForFinished (120000))
+        {
+          session.result.timedOut = true;
+          process.kill ();
+          process.waitForFinished (5000);
+        }
+    }
+  session.result.exitCode = process.exitCode ();
+  session.result.exitStatus = process.exitStatus ();
+  session.result.standardOutput = session.openOutput + process.readAllStandardOutput ();
+  session.result.standardError = session.openError + process.readAllStandardError ();
+  return session;
+}
+
+// A declined configure: its error shows the frames before it were all read.
+QByteArray consumedMarker ()
+{
+  return controlFrame (R"({"t":"configure","mode":"NOT-A-MODE"})");
+}
+
+bool consumed (QByteArray const& output)
+{
+  return output.contains (R"("code":"unknown_mode")");
+}
+
+// The stream's "pass" lines on stderr.
+struct Pass
+{
+  int nzhsym;
+  int samples;
+  int depth;
+  int cycles;
+  bool multithreaded;
+  bool live;
+  bool again;
+  double emedelay;
+};
+
+QList<Pass> passes (QByteArray const& error)
+{
+  QRegularExpression const line {
+    R"(pass nzhsym=(\d+) samples=(\d+) depth=(\d+) cycles=(\d+) multithreaded=([TF]) live=([TF]) again=([TF]) emedelay=(-?[0-9.]+)\r?$)",
+    QRegularExpression::MultilineOption};
+  QList<Pass> found;
+  auto matches = line.globalMatch (QString::fromUtf8 (error));
+  while (matches.hasNext ())
+    {
+      auto const m = matches.next ();
+      found.append ({m.captured (1).toInt (), m.captured (2).toInt (), m.captured (3).toInt (),
+                     m.captured (4).toInt (), m.captured (5) == "T", m.captured (6) == "T",
+                     m.captured (7) == "T", m.captured (8).toDouble ()});
+    }
+  return found;
+}
+
+QByteArray wavSamples (QString const& path, int samples)
+{
+  QFile recording {path};
+  if (!recording.open (QIODevice::ReadOnly)) return {};
+  return recording.readAll ().mid (44, 2 * samples);
+}
+
+// The decode-schedule functions run by test_streaming_gui_schedule, apart from
+// the rest of this binary, so that their sessions fit the sanitizer budgets.
+bool scheduleTests ()
+{
+  return !qEnvironmentVariableIsEmpty ("WSJT_STREAM_SCHEDULE_TESTS");
+}
+
+QJsonObject with (QJsonObject keys, QJsonObject const& more)
+{
+  for (auto it = more.constBegin (); it != more.constEnd (); ++it) keys.insert (it.key (), it.value ());
+  return keys;
 }
 }
 
@@ -1094,8 +1214,9 @@ private slots:
     QTest::addColumn<bool> ("multithreaded");
     QJsonObject const hound {{"contest_type", "hound"}, {"superfox_mode", true}, {"even_sequence", true}};
     QTest::newRow ("SuperFox Hound") << QList<QJsonObject> {hound} << false;
+    // On its even sequence the GUI's SuperFox Fox decodes nothing before half-symbol 50.
     QTest::newRow ("SuperFox Fox") << QList<QJsonObject> {
-      {{"contest_type", "fox"}, {"superfox_mode", true}, {"even_sequence", true}}} << true;
+      {{"contest_type", "fox"}, {"superfox_mode", true}, {"even_sequence", false}}} << true;
     QTest::newRow ("Hound without SuperFox") << QList<QJsonObject> {{{"contest_type", "hound"}}} << true;
     QTest::newRow ("after SuperFox Hound") << QList<QJsonObject> {
       hound, {{"contest_type", "none"}}} << true;
@@ -1381,38 +1502,81 @@ private slots:
   void decodeAgainLeavesThePeriodInFlight_data ()
   {
     QTest::addColumn<bool> ("rest");
-    QTest::newRow ("rest of the period") << true;
+    QTest::addColumn<int> ("seconds");     // audio in flight before the request
+    QTest::addColumn<bool> ("shifted");
+    QTest::addColumn<bool> ("againFirst");
+    QTest::addColumn<QJsonObject> ("settings");
+    QTest::addColumn<bool> ("next");       // a further period with no configure
+    QTest::addColumn<int> ("requests");
+    QTest::newRow ("rest of the period") << true << 6 << true << true << QJsonObject {} << false << 1;
     // The input ends after the request: the six seconds in flight are decoded alone.
-    QTest::newRow ("end of input") << false;
+    QTest::newRow ("end of input") << false << 6 << true << true << QJsonObject {} << false << 1;
+    // Between the period's FT8 passes the request waits for the last one, with
+    // the period's time sent at its start; the next period decodes as new audio
+    // (a decode again left in force would search only around the Rx frequency).
+    QTest::newRow ("between FT8 passes") << true << 13 << false << false
+      << QJsonObject {{"depth", 3}, {"rxfreq", 400}} << true << 1;
+    QTest::newRow ("two requests between FT8 passes") << true << 13 << false << false
+      << QJsonObject {{"depth", 3}, {"rxfreq", 400}} << false << 2;
   }
 
   // A decode again during a period sets that period's audio aside and puts it back.
   void decodeAgainLeavesThePeriodInFlight ()
   {
     QFETCH (bool, rest);
+    QFETCH (int, seconds);
+    QFETCH (bool, shifted);
+    QFETCH (bool, againFirst);
+    QFETCH (QJsonObject, settings);
+    QFETCH (bool, next);
+    QFETCH (int, requests);
+    // The depth-3 rows between FT8 passes run under test_streaming_gui_schedule.
+    if (!againFirst && !scheduleTests ()) QSKIP ("run by test_streaming_gui_schedule");
+    if (againFirst && scheduleTests ()) QSKIP ("run by test_streaming_consumers");
     QFile recording {QString::fromUtf8 (FT8_ENGINE_WAV)};
     QVERIFY2 (recording.open (QIODevice::ReadOnly), qPrintable (recording.errorString ()));
     auto const samples = recording.readAll ().mid (44);
-    // The period in flight carries the same signal half a second later.
-    auto const split = 6 * 12000 * 2;
-    auto const later = (QByteArray (6000 * 2, '\0') + samples).left (samples.size ());
+    // The period in flight carries the same signal, half a second later when shifted.
+    auto const split = seconds * 12000 * 2;
+    auto const later = shifted ? (QByteArray (6000 * 2, '\0') + samples).left (samples.size ()) : samples;
     auto const inFlight = rest ? later : later.left (split);
     auto const reference = runJt9 (sessionHeader () +
-      configureFrame ({{"mode", "FT8"}, {"utc", "05:11:30"}}) + frame (0x01u, inFlight));
+      configureFrame (with (settings, {{"mode", "FT8"}, {"utc", "05:11:30"}})) + frame (0x01u, inFlight),
+      {}, 120000);
     verifyCompleted (reference, 0);
     auto const expected = decodesByPeriod (verifyEvents (reference).values);
     QCOMPARE (expected.size (), 1);
+    auto const timeFirst = !againFirst;
+    QByteArray extra;
+    for (int i = 1; i < requests; ++i) extra += configureFrame ({{"nagain_flag", true}});
     auto const result = runJt9 (sessionHeader () +
-      configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}}) + frame (0x01u, samples) +
+      configureFrame (with (settings, {{"mode", "FT8"}, {"utc", "05:11:15"}})) + frame (0x01u, samples) +
+      (timeFirst ? configureFrame ({{"utc", "05:11:30"}}) : QByteArray {}) +
       frame (0x01u, later.left (split)) +
-      configureFrame ({{"utc", "05:11:30"}, {"nagain_flag", true}}) +
-      (rest ? frame (0x01u, later.mid (split)) : QByteArray {}));
+      configureFrame (timeFirst ? QJsonObject {{"nagain_flag", true}}
+                                : QJsonObject {{"utc", "05:11:30"}, {"nagain_flag", true}}) + extra +
+      (rest ? frame (0x01u, later.mid (split)) : QByteArray {}) +
+      (next ? frame (0x01u, samples) : QByteArray {}), {}, 120000);
     verifyCompleted (result, 0);
     auto const periods = decodesByPeriod (verifyEvents (result).values);
-    QCOMPARE (periods.size (), 3);
-    QCOMPARE (periods.at (1).size (), 1);
-    QCOMPARE (periods.at (1).first ().value ("time").toString (), QString {"051115"});
-    QCOMPARE (periods.at (2), expected.first ());
+    // Each request runs; a second one over the same period finds nothing new.
+    QCOMPARE (periods.size (), 2 + requests + (next ? 1 : 0));
+    // Only the decode-again passes run as one.
+    int againPasses = 0;
+    for (auto const& pass : passes (result.standardError)) againPasses += pass.again ? 1 : 0;
+    QCOMPARE (againPasses, requests);
+    auto const again = periods.at (againFirst ? 1 : 2);
+    QCOMPARE (again.size (), 1);
+    QCOMPARE (again.first ().value ("time").toString (), QString {"051115"});
+    QCOMPARE (periods.at (againFirst ? 2 : 1), expected.first ());
+    if (next)
+      {
+        QStringList first, last;
+        for (auto const& decode : periods.at (0)) first << decode.value ("message").toString ();
+        for (auto const& decode : periods.last ()) last << decode.value ("message").toString ();
+        QVERIFY (!first.isEmpty ());
+        for (auto const& message : first) QVERIFY2 (last.contains (message), qPrintable (message));
+      }
   }
 
   void wsprdRejectsOversizedFrames_data ()
@@ -1443,6 +1607,338 @@ private slots:
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "error", "insufficient_audio").size (), 1);
     QCOMPARE (eventsMatching (events.values, "error", "missing_configure").size (), 0);
+  }
+
+  // Live, the GUI decodes these modes when its half-symbol count reaches the
+  // stop point (MainWindow::fixStop), on the audio up to it; from a file it
+  // decodes at the stop on the whole period it read.
+  void decodesAtTheGuiStopPoint_data ()
+  {
+    QTest::addColumn<QJsonObject> ("settings");
+    QTest::addColumn<QString> ("path");
+    QTest::addColumn<int> ("samples");
+    QTest::addColumn<bool> ("decodes");
+    QTest::addColumn<int> ("decodedAt");
+    QTest::addColumn<int> ("nzhsym");
+    QJsonObject const jt4 {{"mode", "JT4"}, {"trperiod", 60}, {"submode", 0}, {"depth_level", 1},
+                           {"rxfreq", 1000}, {"ntol", 50}};
+    QJsonObject const q65 {{"mode", "Q65"}, {"trperiod", 15}, {"submode", 0}, {"depth_level", 1},
+                           {"nfa", 1300}, {"nfb", 1700}, {"rxfreq", 1500}};
+    QJsonObject const fst4 {{"mode", "FST4"}, {"trperiod", 15}, {"depth_level", 1}, {"nfa", 1300},
+                            {"nfb", 1700}, {"rxfreq", 1500}, {"noise_blanker_level", 0}};
+    QJsonObject const live {{"live_audio", true}};
+    QJsonObject const eme {{"live_audio", true}, {"decode_after_eme_delay", true}};
+    auto const jt4Wav = QString::fromUtf8 (JT4_ENGINE_WAV);
+    auto const q65Wav = QString::fromUtf8 (Q65_ENGINE_WAV);
+    auto const fst4Wav = QString::fromUtf8 (FST4_ENGINE_WAV);
+    QTest::newRow ("JT4 live at 176") << with (jt4, live) << jt4Wav << 176 * 3456 << true << 176 * 3456 << 176;
+    QTest::newRow ("JT4 live, one sample short") << with (jt4, live) << jt4Wav << 176 * 3456 - 1
+      << false << 0 << 0;
+    QTest::newRow ("JT4 live after EME delay, short of 179") << with (jt4, eme) << jt4Wav << 179 * 3456 - 1
+      << false << 0 << 0;
+    QTest::newRow ("JT4 live after EME delay at 179") << with (jt4, eme) << jt4Wav << 179 * 3456
+      << true << 179 * 3456 << 179;
+    QTest::newRow ("Q65-15 live at 48") << with (q65, live) << q65Wav << 48 * 3456 << true << 48 * 3456 << 48;
+    QTest::newRow ("Q65-15 live, one sample short") << with (q65, live) << q65Wav << 48 * 3456 - 1
+      << false << 0 << 0;
+    QTest::newRow ("FST4-15 live at 39") << with (fst4, live) << fst4Wav << 39 * 3456 << true << 39 * 3456 << 39;
+    QTest::newRow ("FST4-15 live, one sample short") << with (fst4, live) << fst4Wav << 39 * 3456 - 1
+      << false << 0 << 0;
+    QTest::newRow ("JT4 from a file, past 176") << jt4 << jt4Wav << 177 * 3456 << false << 0 << 0;
+    QTest::newRow ("JT4 from a file, the whole period") << jt4 << jt4Wav << 60 * 12000
+      << true << 60 * 12000 << 176;
+    QTest::newRow ("Q65-15 from a file, the whole period") << q65 << q65Wav << 15 * 12000
+      << true << 15 * 12000 << 48;
+    QTest::newRow ("FST4-15 from a file, the whole period") << fst4 << fst4Wav << 15 * 12000
+      << true << 15 * 12000 << 39;
+  }
+
+  void decodesAtTheGuiStopPoint ()
+  {
+    if (!scheduleTests ()) QSKIP ("run by test_streaming_gui_schedule");
+    QFETCH (QJsonObject, settings);
+    QFETCH (QString, path);
+    QFETCH (int, samples);
+    QFETCH (bool, decodes);
+    QFETCH (int, decodedAt);
+    QFETCH (int, nzhsym);
+    auto const audio = wavSamples (path, samples);
+    QCOMPARE (audio.size (), 2 * samples);
+    auto const session = runOpenSession (sessionHeader () + configureFrame (settings) + frame (0x01u, audio)
+      + consumedMarker (), 120000, [decodes] (QByteArray const& output, QByteArray const&) {
+        return decodes ? output.contains (R"("t":"decode_finished")") : consumed (output);
+      });
+    verifyCompleted (session.result, 0);
+    auto const open = parseEvents (session.openOutput);
+    QVERIFY2 (open.error.isEmpty (), qPrintable (open.error));
+    auto const ran = passes (session.openError);
+    if (decodes)
+      {
+        QCOMPARE (eventsMatching (open.values, "decode_finished").size (), 1);
+        bool found = false;
+        for (auto const& decode : eventsMatching (open.values, "decode"))
+          {
+            found |= decode.value ("message").toString ().trimmed () == "K1ABC W9XYZ FN42";
+          }
+        QVERIFY2 (found, session.openOutput.constData ());
+        QCOMPARE (ran.size (), 1);
+        QCOMPARE (ran.first ().samples, decodedAt);
+        QCOMPARE (ran.first ().nzhsym, nzhsym);
+      }
+    else
+      {
+        QCOMPARE (eventsMatching (open.values, "decode_finished").size (), 0);
+        QVERIFY (ran.isEmpty ());
+      }
+    // A period cut short still decodes once when the input ends.
+    auto const all = verifyEvents (session.result);
+    QCOMPARE (eventsMatching (all.values, "decode_finished").size (), 1);
+  }
+
+  // From a file a period decodes once the engine's share of it is in: FT4's
+  // 72576 samples, multithreaded FT8's stop, the whole period otherwise.
+  void fileSharesFollowTheEngine_data ()
+  {
+    QTest::addColumn<QJsonObject> ("settings");
+    QTest::addColumn<int> ("samples");
+    QTest::addColumn<int> ("decodedAt");
+    QTest::newRow ("FT4") << QJsonObject {{"mode", "FT4"}} << 90000 << 21 * 3456;
+    QTest::newRow ("FT8 multithreaded, start 3")
+      << QJsonObject {{"mode", "FT8"}, {"multithreaded_ft8", true}, {"ft8_threads", 2}, {"ft8_decoder_start", 3}}
+      << 180000 << 49 * 3456;
+    QTest::newRow ("FT8") << QJsonObject {{"mode", "FT8"}} << 180000 << 180000;
+    QTest::newRow ("JT65") << QJsonObject {{"mode", "JT65"}} << 720000 << 720000;
+  }
+
+  void fileSharesFollowTheEngine ()
+  {
+    if (!scheduleTests ()) QSKIP ("run by test_streaming_gui_schedule");
+    QFETCH (QJsonObject, settings);
+    QFETCH (int, samples);
+    QFETCH (int, decodedAt);
+    auto const session = runOpenSession (sessionHeader () + configureFrame (settings) + silentAudioFrame (samples)
+      + consumedMarker (), 120000, [] (QByteArray const& output, QByteArray const&) { return consumed (output); });
+    verifyCompleted (session.result, 0);
+    auto const ran = passes (session.openError);
+    QVERIFY (!ran.isEmpty ());
+    QCOMPARE (ran.last ().samples, decodedAt);
+    QVERIFY (!ran.last ().live);
+  }
+
+  // A frame that runs past the stop point decodes there, before the rest of it arrives.
+  void decodesInsideALongFrame ()
+  {
+    if (!scheduleTests ()) QSKIP ("run by test_streaming_gui_schedule");
+    QJsonObject const jt4 {{"mode", "JT4"}, {"trperiod", 60}, {"submode", 0}, {"depth_level", 1},
+                           {"rxfreq", 1000}, {"ntol", 50}, {"live_audio", true}};
+    auto const audio = wavSamples (QString::fromUtf8 (JT4_ENGINE_WAV), 176 * 3456);
+    auto const session = runOpenSession (sessionHeader () + configureFrame (jt4)
+      + declaredFrame (0x01u, quint32 (2 * 60 * 12000)) + audio, 120000,
+      [] (QByteArray const& output, QByteArray const&) {
+        return output.contains (R"("t":"decode_finished")");
+      });
+    auto const open = parseEvents (session.openOutput);
+    QVERIFY2 (open.error.isEmpty (), qPrintable (open.error));
+    QCOMPARE (eventsMatching (open.values, "decode_finished").size (), 1);
+    auto const ran = passes (session.openError);
+    QCOMPARE (ran.size (), 1);
+    QCOMPARE (ran.first ().samples, 176 * 3456);
+  }
+
+  // A configure in mid-period moves the stop point of the period in flight:
+  // later, so the period waits; or earlier than the audio already in, so it
+  // decodes at once on the samples up to the new stop. The GUI's triggers are
+  // equalities, so a stop already passed would never decode there; the stream
+  // decodes the period rather than drop it.
+  void aConfigureMovesTheStopPoint_data ()
+  {
+    QTest::addColumn<bool> ("emeFirst");
+    QTest::addColumn<int> ("before");     // samples before the second configure
+    QTest::addColumn<int> ("after");      // samples in all
+    QTest::addColumn<bool> ("decodes");
+    QTest::addColumn<int> ("decodedAt");
+    QTest::newRow ("EME delay turned on at 175, audio to 177") << false << 175 * 3456 << 177 * 3456
+      << false << 0;
+    QTest::newRow ("EME delay turned off at 177") << true << 177 * 3456 << 177 * 3456 << true << 176 * 3456;
+  }
+
+  void aConfigureMovesTheStopPoint ()
+  {
+    if (!scheduleTests ()) QSKIP ("run by test_streaming_gui_schedule");
+    QFETCH (bool, emeFirst);
+    QFETCH (int, before);
+    QFETCH (int, after);
+    QFETCH (bool, decodes);
+    QFETCH (int, decodedAt);
+    QJsonObject const jt4 {{"mode", "JT4"}, {"trperiod", 60}, {"submode", 0}, {"depth_level", 1},
+                           {"rxfreq", 1000}, {"ntol", 50}, {"live_audio", true},
+                           {"decode_after_eme_delay", emeFirst}};
+    auto const audio = wavSamples (QString::fromUtf8 (JT4_ENGINE_WAV), after);
+    QCOMPARE (audio.size (), 2 * after);
+    auto input = sessionHeader () + configureFrame (jt4) + frame (0x01u, audio.left (2 * before))
+      + configureFrame ({{"decode_after_eme_delay", !emeFirst}});
+    if (after > before) input += frame (0x01u, audio.mid (2 * before));
+    auto const session = runOpenSession (input + consumedMarker (), 120000,
+      [decodes] (QByteArray const& output, QByteArray const&) {
+        return decodes ? output.contains (R"("t":"decode_finished")") : consumed (output);
+      });
+    verifyCompleted (session.result, 0);
+    auto const open = parseEvents (session.openOutput);
+    QVERIFY2 (open.error.isEmpty (), qPrintable (open.error));
+    auto const ran = passes (session.openError);
+    if (decodes)
+      {
+        QCOMPARE (eventsMatching (open.values, "decode_finished").size (), 1);
+        QCOMPARE (ran.size (), 1);
+        QCOMPARE (ran.first ().samples, decodedAt);
+        QCOMPARE (ran.first ().nzhsym, decodedAt / 3456);
+      }
+    else
+      {
+        QCOMPARE (eventsMatching (open.values, "decode_finished").size (), 0);
+        QVERIFY (ran.isEmpty ());
+      }
+  }
+
+  // FT8 passes run as their audio arrives, on the GUI's schedule: live audio
+  // takes its live stages, a file jt9a's (widgets/mainwindow.cpp dataSink and
+  // decode(), lib/jt9a.f90).
+  void ft8PassesFollowTheGui_data ()
+  {
+    QTest::addColumn<QJsonObject> ("settings");
+    QTest::addColumn<int> ("samples");
+    QTest::addColumn<QString> ("expected");   // nzhsym:depth:cycles:multithreaded, space separated
+    QTest::addColumn<bool> ("live");
+    QTest::addColumn<int> ("finalSamples");   // the last pass's samples, when it is the period's whole
+    QTest::addColumn<int> ("finished");
+    QJsonObject const standard {{"mode", "FT8"}, {"depth", 1}, {"ft8_cycles", 3}};
+    auto const mtd = with (standard, {{"multithreaded_ft8", true}, {"ft8_threads", 2}});
+    QJsonObject const live {{"live_audio", true}};
+    auto const liveMtd = with (mtd, live);
+    QJsonObject const hound {{"contest_type", "hound"}, {"superfox_mode", true}, {"even_sequence", false}};
+    QTest::newRow ("standard, 41 in") << standard << 41 * 3456 << "41:1:3:F" << false << 0 << 1;
+    QTest::newRow ("standard, 47 in") << standard << 47 * 3456 << "41:1:3:F 47:1:3:F" << false << 0 << 1;
+    QTest::newRow ("standard from a file") << standard << 15 * 12000
+      << "41:1:3:F 47:1:3:F 50:1:3:F" << false << 15 * 12000 << 1;
+    QTest::newRow ("standard live") << with (standard, live) << 50 * 3456
+      << "41:1:3:F 47:1:3:F 50:1:3:F" << true << 0 << 1;
+    QTest::newRow ("standard live, SuperFox Hound's even sequence")
+      << with (standard, {{"live_audio", true}, {"contest_type", "hound"}, {"superfox_mode", true},
+                          {"even_sequence", true}})
+      << 50 * 3456 << "50:1:3:F" << true << 0 << 1;
+    QTest::newRow ("multithreaded live, start 0") << with (liveMtd, {{"ft8_decoder_start", 0}}) << 50 * 3456
+      << "41:1:2:F 49:1:3:T" << true << 0 << 1;
+    QTest::newRow ("multithreaded live, start 1") << with (liveMtd, {{"ft8_decoder_start", 1}}) << 50 * 3456
+      << "41:1:2:F 46:2:2:F 50:1:3:T" << true << 0 << 1;
+    QTest::newRow ("multithreaded live, start 2") << with (liveMtd, {{"ft8_decoder_start", 2}}) << 50 * 3456
+      << "48:1:3:T" << true << 0 << 1;
+    QTest::newRow ("multithreaded from a file, start 0") << with (mtd, {{"ft8_decoder_start", 0}}) << 15 * 12000
+      << "41:1:3:F 46:1:3:F 49:1:3:T" << false << 0 << 1;
+    QTest::newRow ("SuperFox Fox from a file, even sequence")
+      << with (standard, {{"contest_type", "fox"}, {"superfox_mode", true}, {"even_sequence", true}})
+      << 15 * 12000 << "41:1:3:F 47:1:3:F 50:1:3:F" << false << 15 * 12000 << 1;
+    QTest::newRow ("SuperFox Fox multithreaded from a file, even sequence: nothing")
+      << with (mtd, {{"contest_type", "fox"}, {"superfox_mode", true}, {"even_sequence", true},
+                     {"ft8_decoder_start", 3}})
+      << 15 * 12000 << "" << false << 0 << 0;
+    QTest::newRow ("SuperFox Hound, multithreaded live, start 0")
+      << with (with (liveMtd, hound), {{"ft8_decoder_start", 0}}) << 50 * 3456
+      << "41:1:2:F 50:1:3:F" << true << 0 << 1;
+    QTest::newRow ("SuperFox Hound, multithreaded live, start 1")
+      << with (with (liveMtd, hound), {{"ft8_decoder_start", 1}}) << 50 * 3456
+      << "41:1:2:F 46:2:2:F 50:1:3:F" << true << 0 << 1;
+    QTest::newRow ("SuperFox Hound, multithreaded live, start 2")
+      << with (with (liveMtd, hound), {{"ft8_decoder_start", 2}}) << 50 * 3456
+      << "50:1:3:F" << true << 0 << 1;
+    QTest::newRow ("SuperFox Fox, multithreaded live, even sequence: nothing")
+      << with (liveMtd, {{"contest_type", "fox"}, {"superfox_mode", true}, {"even_sequence", true},
+                         {"ft8_decoder_start", 0}})
+      << 50 * 3456 << "" << true << 0 << 0;
+  }
+
+  void ft8PassesFollowTheGui ()
+  {
+    if (!scheduleTests ()) QSKIP ("run by test_streaming_gui_schedule");
+    QFETCH (QJsonObject, settings);
+    QFETCH (int, samples);
+    QFETCH (QString, expected);
+    QFETCH (bool, live);
+    QFETCH (int, finalSamples);
+    QFETCH (int, finished);
+    auto const audio = wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), samples);
+    QCOMPARE (audio.size (), 2 * samples);
+    auto const session = runOpenSession (sessionHeader () + configureFrame (settings) + frame (0x01u, audio)
+      + consumedMarker (), 120000, [] (QByteArray const& output, QByteArray const&) {
+        return consumed (output);
+      });
+    verifyCompleted (session.result, 0);
+    auto const ran = passes (session.openError);
+    QStringList got;
+    for (int i = 0; i < ran.size (); ++i)
+      {
+        auto const& pass = ran.at (i);
+        got << QString {"%1:%2:%3:%4"}.arg (pass.nzhsym).arg (pass.depth).arg (pass.cycles)
+          .arg (pass.multithreaded ? "T" : "F");
+        QCOMPARE (pass.live, live);
+        if (finalSamples > 0 && i == ran.size () - 1)
+          {
+            QCOMPARE (pass.samples, finalSamples);
+          }
+        else
+          {
+            // Each pass runs within a read of the audio it covers.
+            QVERIFY2 (pass.samples >= pass.nzhsym * 3456 && pass.samples < pass.nzhsym * 3456 + 4096,
+                      qPrintable (QString {"pass %1 ran at %2 samples"}.arg (pass.nzhsym).arg (pass.samples)));
+          }
+      }
+    QCOMPARE (got.join (' '), expected);
+    // One decode_finished for a decoded period, live or not.
+    auto const all = verifyEvents (session.result);
+    QCOMPARE (eventsMatching (all.values, "decode_finished").size (), finished);
+  }
+
+  // The GUI's EME delay is 2.5 s with "Decode after EME delay", in every mode,
+  // and 0 otherwise; eme_delay_seconds, when sent, wins.
+  void decodeAfterEmeDelaySetsTheDelay_data ()
+  {
+    QTest::addColumn<QStringList> ("options");
+    QTest::addColumn<QJsonObject> ("settings");
+    QTest::addColumn<int> ("frames");
+    QTest::addColumn<int> ("samples");
+    QTest::addColumn<double> ("emedelay");
+    QJsonObject const q65_60 {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 0}, {"live_audio", true}};
+    QTest::newRow ("Q65-60 by default") << QStringList {} << q65_60 << 1 << 196 * 3456 << 0.0;
+    QTest::newRow ("Q65-60 configured twice") << QStringList {} << q65_60 << 2 << 196 * 3456 << 0.0;
+    QTest::newRow ("Q65-60 from the command line") << QStringList {"--q65", "-p", "60"}
+      << QJsonObject {{"live_audio", true}} << 1 << 196 * 3456 << 0.0;
+    QTest::newRow ("Q65-60 after EME delay") << QStringList {}
+      << with (q65_60, {{"decode_after_eme_delay", true}}) << 1 << 196 * 3456 << 2.5;
+    QTest::newRow ("JT65 after EME delay") << QStringList {}
+      << QJsonObject {{"mode", "JT65"}, {"decode_after_eme_delay", true}, {"live_audio", true}}
+      << 1 << 179 * 3456 << 2.5;
+    QTest::newRow ("explicit eme_delay_seconds") << QStringList {}
+      << with (q65_60, {{"decode_after_eme_delay", true}, {"eme_delay_seconds", 12.0}}) << 1 << 196 * 3456 << 12.0;
+  }
+
+  void decodeAfterEmeDelaySetsTheDelay ()
+  {
+    if (!scheduleTests ()) QSKIP ("run by test_streaming_gui_schedule");
+    QFETCH (QStringList, options);
+    QFETCH (QJsonObject, settings);
+    QFETCH (int, frames);
+    QFETCH (int, samples);
+    QFETCH (double, emedelay);
+    QByteArray configures;
+    for (int i = 0; i < frames; ++i) configures += configureFrame (settings);
+    auto const session = runOpenSession (sessionHeader () + configures + silentAudioFrame (samples)
+      + consumedMarker (), 120000, [] (QByteArray const& output, QByteArray const&) {
+        return consumed (output);
+      }, options);
+    verifyCompleted (session.result, 0);
+    auto const ran = passes (session.openError);
+    QCOMPARE (ran.size (), 1);
+    QCOMPARE (ran.first ().samples, samples);
+    QCOMPARE (ran.first ().emedelay, emedelay);
   }
 
   void wsprdRejectsInvalidWsprType ()

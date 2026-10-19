@@ -105,9 +105,11 @@ contains
     ! real(c_float) via the target's kind() (§4 — document the narrowing).
     ! eme_delay_seconds is applied before the apply_per_mode_policy call below,
     ! which a frame that also sets mode/trperiod re-runs (emedelay 2.5 for Q65
-    ! at 60 s, else 0), so it holds only on a frame that sets neither. The
-    ! stream host sets kin and nzhsym before each decode, so
-    ! kin_samples/nzhsym_per_period do not reach the decoder.
+    ! at 60 s, else 0). The stream host sets emedelay as the GUI does (2.5 with
+    ! decode_after_eme_delay, else 0): 0 at start, and again on a frame that
+    ! sets the mode, the TR period or that key, where an eme_delay_seconds in
+    ! the frame wins (streaming_io.f90). The host also sets kin and nzhsym before
+    ! each decode, so kin_samples/nzhsym_per_period do not reach the decoder.
     ! robust_mode/nagain_flag/clear_average -> logical(c_bool); nagain holds
     ! only for the decode again nagain_flag asks for (streaming_io.f90).
     ! tx_mode (enum) -> ntxmode, read only by JT65+JT9.

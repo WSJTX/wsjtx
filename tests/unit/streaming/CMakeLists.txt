@@ -37,6 +37,27 @@ if (WSJT_ENABLE_TSAN)
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 
+# The GUI's decode schedule, apart from the rest of the binary: its sessions
+# wait for the decoder, which the sanitizers slow several times over.
+set (streaming_schedule_environment "WSJT_STREAM_SCHEDULE_TESTS=1")
+set (streaming_schedule_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_schedule_timeout 1200)
+  list (APPEND streaming_schedule_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_schedule_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+add_test (NAME test_streaming_gui_schedule
+  COMMAND test_streaming_consumers decodesAtTheGuiStopPoint fileSharesFollowTheEngine decodesInsideALongFrame
+    aConfigureMovesTheStopPoint ft8PassesFollowTheGui decodeAfterEmeDelaySetsTheDelay
+    decodeAgainLeavesThePeriodInFlight)
+set_tests_properties (test_streaming_gui_schedule PROPERTIES
+  LABELS "streaming;runtime"
+  ENVIRONMENT "${streaming_schedule_environment}"
+  FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
+  TIMEOUT ${streaming_schedule_timeout})
+
 # Source archives omit samples/.
 if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
   set (streaming_mtd_environment

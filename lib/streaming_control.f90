@@ -124,13 +124,14 @@ module streaming_control
      ! tx_mode is an enum (JT9->9 / JT65->65, or a raw int) -> ntxmode, mirroring
      ! the "mode" parse. The stream host sets kin and nzhsym before each decode
      ! (streaming_io.f90), so kin_samples/nzhsym_per_period do not reach the
-     ! decoder, and a frame that sets the mode or TR period resets emedelay
-     ! (apply_per_mode_policy: 2.5 for Q65 at 60 s, else 0). min_width is JT4's;
-     ! min_sync JT4's, JT65's and JT65+JT9's; n_2pass JT65's and JT65+JT9's;
-     ! clear_average JT4's, JT65's, JT65+JT9's and Q65's; robust_mode, tx_mode
-     ! and npts_c0_array reach only JT65+JT9; no decoder reads
-     ! dt_tolerance_seconds. nagain_flag asks once to decode the last period
-     ! again (streaming_io.f90).
+     ! decoder. The host sets emedelay as the GUI does (2.5 with
+     ! decode_after_eme_delay, else 0): 0 at start, and again when a frame sets
+     ! the mode, the TR period or that key, unless the frame gives
+     ! eme_delay_seconds. min_width is JT4's; min_sync JT4's, JT65's and
+     ! JT65+JT9's; n_2pass JT65's and JT65+JT9's; clear_average JT4's, JT65's,
+     ! JT65+JT9's and Q65's; robust_mode, tx_mode and npts_c0_array reach only
+     ! JT65+JT9; no decoder reads dt_tolerance_seconds. nagain_flag asks once to
+     ! decode the last period again (streaming_io.f90).
      logical                :: dt_tolerance_seconds_set = .false.
      real(8)                :: dt_tolerance_seconds     = 0.d0
      logical                :: eme_delay_seconds_set    = .false.
@@ -155,6 +156,12 @@ module streaming_control
      integer                :: tx_mode                  = 0
      logical                :: clear_average_set        = .false.
      logical                :: clear_average            = .false.
+     ! The GUI's "Decode after EME delay" (later stop points, 2.5 s EME delay)
+     ! and its live-audio/WAV-file distinction; the stream host keeps both.
+     logical                :: decode_after_eme_delay_set = .false.
+     logical                :: decode_after_eme_delay     = .false.
+     logical                :: live_audio_set           = .false.
+     logical                :: live_audio               = .false.
      ! Phase 6 (RFC v1 §2): FT8/FT4 specifics cluster — 19 bools + 5 ints, flat
      ! 1:1 onto params_block; apply_configure_fields (streaming_apply.f90) says
      ! which decoder reads each. The parse checks types only; the apply drops an
@@ -221,9 +228,8 @@ module streaming_control
      !     no decoder reads.
      !   datetime — the decoder copies it into a local it never uses; only
      !     date->yymmdd carries time (Phase 8, §6.1).
-     !   from_wav_file (ndiskdat) / new_data_flag (newdat) — receiver-managed
-     !     invariants (§6.1/§9): the receiver hard-sets both, and a producer
-     !     override would break the one-shot decode contract. Not producer-settable.
+     !   from_wav_file (ndiskdat) / new_data_flag (newdat) — receiver-managed:
+     !     the receiver sets newdat per pass, and ndiskdat from live_audio.
      logical                :: last_tx_seconds_ago_set   = .false.
      integer                :: last_tx_seconds_ago       = 0
      logical                :: currently_txing_set       = .false.
@@ -719,6 +725,26 @@ contains
        if (ok) then
           cfg%clear_average_set = .true.
           cfg%clear_average     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"decode_after_eme_delay"', 'decode_after_eme_delay', 'bool', &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"decode_after_eme_delay"', lval, ok)
+       if (ok) then
+          cfg%decode_after_eme_delay_set = .true.
+          cfg%decode_after_eme_delay     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"live_audio"', 'live_audio', 'bool',                  &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"live_audio"', lval, ok)
+       if (ok) then
+          cfg%live_audio_set = .true.
+          cfg%live_audio     = lval
        end if
     end if
 
