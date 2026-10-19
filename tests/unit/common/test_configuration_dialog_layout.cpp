@@ -165,11 +165,15 @@ void TestConfigurationDialogLayout::languageControlHasLabelAndRemainsReachable (
   QCOMPARE (ui.language_label->buddy (), ui.language_combo_box);
   QVERIFY (!ui.language_combo_box->accessibleName ().isEmpty ());
   QVERIFY (!ui.language_combo_box->accessibleDescription ().isEmpty ());
+  ui.language_combo_box->addItem (QStringLiteral ("System default"));
   ui.configuration_tabs->setCurrentWidget (ui.general_tab);
   showDialog (fixture.dialog, {700, 650});
   auto * scroll_area = SettingsDialogLayout::pageScrollArea (ui.general_tab);
-  auto const horizontal_range = scroll_area->horizontalScrollBar ()->maximum ();
+  auto const selector_width = ui.language_combo_box->sizeHint ().width ();
+  auto const content_minimum_width = scroll_area->widget ()->minimumSizeHint ().width ();
   ui.language_combo_box->addItem (QString (60, QChar {'W'}));
+  ui.language_combo_box->setCurrentIndex (ui.language_combo_box->count () - 1);
+  settleLayouts ();
   scroll_area->ensureWidgetVisible (ui.language_combo_box);
   settleLayouts ();
   QVERIFY2 (isFullyVisible (ui.language_combo_box, scroll_area),
@@ -178,7 +182,8 @@ void TestConfigurationDialogLayout::languageControlHasLabelAndRemainsReachable (
                           .arg (geometryIn (ui.language_combo_box, scroll_area->viewport ()).x ())
                           .arg (geometryIn (ui.language_combo_box, scroll_area->viewport ()).y ())
                           .arg (ui.language_combo_box->width ()).arg (ui.language_combo_box->height ())));
-  QCOMPARE (scroll_area->horizontalScrollBar ()->maximum (), horizontal_range);
+  QCOMPARE (ui.language_combo_box->sizeHint ().width (), selector_width);
+  QCOMPARE (scroll_area->widget ()->minimumSizeHint ().width (), content_minimum_width);
 }
 
 void TestConfigurationDialogLayout::pagesRetainIdentityAndScrollingPolicy ()
