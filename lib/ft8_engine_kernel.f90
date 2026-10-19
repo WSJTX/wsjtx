@@ -15,13 +15,13 @@ module ft8_engine_kernel
   use decode_completion_module, only: decode_completion_result,reset_decode_completion, &
        set_decode_completion,write_decode_progress
   use sfrx_engine, only: sfrx_decode
-  use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,mycall12_0,         &
+  use ft8_mod1, only : mycall12_0,         &
        mycall12_00,hiscall12_0,nmsg,odd,even,prepare_ft8_hint_history,nlasttx,          &
        begin_ft8_qso_attempt,suppress_ft8_qso_hints,mycalllen1,msgroot,msgrootlen,lapmyc,sumxdtt,avexdt,          &
        nfawide,nfbwide,mycall,hiscall,lhound,mybcall,hisbcall,lenabledxcsearch, &
        lwidedxcsearch,hisgrid4,lmultinst,dd8,nft8cycles,lskiptx1,ncandallthr,   &
        nincallthr,incall,msgincall,xdtincall,maskincallthr,ltxing,hisgrid,      &
-       prepare_ft8_qso_history
+       prepare_ft8_qso_history,begin_ft8_result_attempt,report_ft8_result_overflow
   include 'jt9com.f90'
 
   private
@@ -305,10 +305,7 @@ contains
               mycall12_00=mycall
            endif
 
-           ndecodes=0            !Initialize arrays for multi-threaded decoding
-           allmessages=""
-           allsnrs=0
-           allfreq=0.
+           call begin_ft8_result_attempt()
            numcores=1
 !$         numcores=omp_get_num_procs()
            nuserthr=params%nmt
@@ -416,6 +413,7 @@ contains
                 mtd_worker_spectrum(:,nthr))
 !$omp end parallel
 
+           call report_ft8_result_overflow()
            call write_decode_progress(active_progress_generation)
            call mtd_finish(dd8)
            state%mtd_residual_ready=.true.

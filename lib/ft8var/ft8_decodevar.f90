@@ -67,7 +67,8 @@ contains
     use ft8_mtd_residual, only : mtd_publish_worker,mtd_transform_phase
     use decode_completion_module, only : write_decode_progress
 
-    use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
+    use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg, &
+         ft8_store_decoded_message_locked,    &
          calldteven,calldtodd, &
          avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
@@ -278,13 +279,8 @@ contains
                 endif
                 
                 if(.not.ldupe) then
+                   if(.not.ft8_store_decoded_message_locked(msg37,nsnr,f1)) cycle
                    if(.not.lFreeText .and. k.eq.1) call extract_callvar(msg37,call2)
-!!!$omp critical(update_arrays)
-                   ndecodes=ndecodes+1
-                   allmessages(ndecodes)=msg37
-                   allsnrs(ndecodes)=nsnr
-                   allfreq(ndecodes)=f1
-
                    if(.not.lhidemsg) then
  ! simulated wav tests affected, structure contains data for at least previous and current even|odd intervals
                       if(levenint) then
@@ -297,7 +293,6 @@ contains
                          calldtodd(1)%dt=xdt
                       endif
                    endif
-!!!$omp end critical(update_arrays)
 
                    if(.not.lhidemsg) then
                       msg26=msg37(1:37) !ft8md was 1:26

@@ -84,6 +84,7 @@ class QHBoxLayout;
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
 #include "DecoderOutputFramer.hpp"
+#include "DecoderDiagnostics.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
 #include "BeaconTxController.hpp"
@@ -1148,6 +1149,7 @@ private:
   bool    m_startAnother;
   ActiveJt9Decode m_activeJt9Decode;
   DecoderOutputFramer m_decoderOutputFramer;
+  DecoderDiagnostics m_decoderDiagnostics {logDecoderDiagnostic};
   Ft8MtdDecodeCoordinator m_ft8MtdDecodeCoordinator;
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   qint64 m_liveAudioTestPendingFt8FinalPeriod {-1};
@@ -1747,6 +1749,8 @@ private:
   bool activeDecodeOperatingContextMatchesCurrent() const;
   bool initializeDecoderSharedMemory();
   void startDecoderProcess();
+  void drainDecoderStderr(bool final = false);
+  QString decoderFailureDetail(QString const& reason);
   void failDecoderStartup(QString const& reason);
   bool beginDecode(
       DecodeOwner owner, decoder_params_t const * diagnosticParams = nullptr,

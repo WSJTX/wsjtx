@@ -73,3 +73,11 @@ target_compile_definitions (test_decoder_ipc_handshake PRIVATE
 add_dependencies (test_decoder_ipc_handshake jt9)
 add_test (NAME test_decoder_ipc_handshake COMMAND test_decoder_ipc_handshake)
 set_tests_properties (test_decoder_ipc_handshake PROPERTIES TIMEOUT 90)
+
+add_executable (test_decoder_diagnostics
+  test_decoder_diagnostics.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderDiagnostics.cpp
+)
+target_include_directories (test_decoder_diagnostics PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_decoder_diagnostics wsjt_cxx Qt5::Test)
+add_test (NAME test_decoder_diagnostics COMMAND test_decoder_diagnostics)

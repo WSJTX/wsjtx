@@ -44,6 +44,9 @@ bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::
 {
   if (m_valid && (exit_code || QProcess::NormalExit != status))
     {
+      if (process == &proc_jt9) drainDecoderStderr (true);
+      auto const standardError = process == &proc_jt9 ? m_decoderDiagnostics.tail ()
+                                                     : process->readAllStandardError ();
       QStringList arguments;
       for (auto argument: process->arguments ())
         {
@@ -56,7 +59,7 @@ bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::
                                     .arg (exit_code)
                                     , tr ("Running: %1\n%2")
                                     .arg (process->program () + ' ' + arguments.join (' '))
-                                    .arg (QString {process->readAllStandardError()}));
+                                    .arg (QString {standardError}));
       return true;
     }
   return false;
@@ -76,7 +79,8 @@ void MainWindow::subProcessError (QProcess * process, QProcess::ProcessError)
       MessageBox::critical_message (this, tr ("Subprocess error")
                                     , tr ("Running: %1\n%2")
                                     .arg (process->program () + ' ' + arguments.join (' '))
-                                    .arg (process->errorString ()));
+                                    .arg (process == &proc_jt9 ? decoderFailureDetail (process->errorString ())
+                                                              : process->errorString ()));
       m_valid = false;              // ensures exit if still constructing
       QTimer::singleShot (0, this, SLOT (close ()));
     }

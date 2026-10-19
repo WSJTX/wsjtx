@@ -1,5 +1,7 @@
 module ft8_mod1
 
+  use, intrinsic :: iso_fortran_env, only: error_unit
+
   use packjt77_schema, only: PACK77_TYPE1_RR73_TAIL
 
   save
@@ -34,6 +36,7 @@ module ft8_mod1
   integer*1 gen(91,174)
   logical one(0:511,0:8),first_osd
   logical, private :: lqsomsgdcd=.false.
+  logical, private :: result_overflow=.false.
   logical(1) lapmyc,lagcc,lagccbail,lhound,lenabledxcsearch,              &
        lwidedxcsearch,lmultinst,lskiptx1,ltxing
   logical(1) idtone25_valid(25),idtone56_valid(56),idtone76_valid(76)
@@ -470,6 +473,60 @@ contains
 !$omp end critical(ft8_hint_state)
   end subroutine retire_ft8_period_hint
 
+  ! Result storage is reset before workers start and observed after they join.
+  subroutine begin_ft8_result_attempt()
+!$omp critical(find_dupes)
+    call wsjt_tsan_acquire_ft8_find_dupes()
+    ndecodes=0
+    allmessages=''
+    allsnrs=0
+    allfreq=0.
+    result_overflow=.false.
+    call wsjt_tsan_release_ft8_find_dupes()
+!$omp end critical(find_dupes)
+  end subroutine begin_ft8_result_attempt
+
+  ! The caller holds find_dupes across duplicate checks, insertion and publication.
+  logical function ft8_store_decoded_message_locked(message,snr,frequency) result(stored)
+    character(len=*), intent(in) :: message
+    integer, intent(in) :: snr
+    real, intent(in) :: frequency
+
+    stored=.false.
+    if(ndecodes.ge.size(allmessages)) then
+       result_overflow=.true.
+       return
+    endif
+    ndecodes=ndecodes+1
+    allmessages(ndecodes)=message
+    allsnrs(ndecodes)=snr
+    allfreq(ndecodes)=frequency
+    stored=.true.
+  end function ft8_store_decoded_message_locked
+
+  logical function get_ft8_result_overflow() result(overflow)
+!$omp critical(find_dupes)
+    call wsjt_tsan_acquire_ft8_find_dupes()
+    overflow=result_overflow
+    call wsjt_tsan_release_ft8_find_dupes()
+!$omp end critical(find_dupes)
+  end function get_ft8_result_overflow
+
+  subroutine report_ft8_result_overflow()
+    logical :: overflow
+
+!$omp critical(find_dupes)
+    call wsjt_tsan_acquire_ft8_find_dupes()
+    overflow=result_overflow
+    result_overflow=.false.
+    call wsjt_tsan_release_ft8_find_dupes()
+!$omp end critical(find_dupes)
+    if(.not.overflow) return
+    write(error_unit,'(a,i0,a)') 'Warning: FT8 MTD result capacity exceeded (', &
+         size(allmessages),'); additional results were dropped.'
+    flush(error_unit)
+  end subroutine report_ft8_result_overflow
+
   logical function ft8_message_seen(message,frequency) result(seen)
     implicit none
     character(len=*), intent(in) :: message
@@ -523,10 +580,7 @@ contains
 
   subroutine reset_ft8_mod1()
     dd8=0.
-    allmessages=''
-    allfreq=0.
-    allsnrs=0
-    ndecodes=0
+    call begin_ft8_result_attempt()
     nmsg=0
     nintcount=0
     nft8cycles=0

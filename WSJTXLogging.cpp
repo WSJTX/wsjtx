@@ -153,13 +153,7 @@ namespace
        );
     sys_sink->locked_backend ()->scan_for_files ();
 
-    // Per channel severity level filter
-    using min_severity_filter = expr::channel_severity_filter_actor<std::string, trivial::severity_level>;
-    min_severity_filter min_severity = expr::channel_severity_filter (channel, severity);
-    min_severity["SYSLOG"] = trivial::error;
-    min_severity["RIGCTRL"] = trivial::warning;
-    min_severity["DATALOG"] = trivial::error;
-    sys_sink->set_filter (min_severity || severity >= trivial::fatal);
+    sys_sink->set_filter (WSJTXLogging::default_filter ());
 
     sys_sink->set_formatter
       (

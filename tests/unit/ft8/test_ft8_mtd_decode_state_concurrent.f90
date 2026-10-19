@@ -4,20 +4,24 @@ module ft8_decode_state_test_controls
   ! Direct global controls avoid libgomp's captured stack environment in TSan tests.
   integer, save :: started,reader_ready,checkpoint,checkpoint_seen,finished, &
        reader_finished,reads
+  integer, save :: accepted_results(2)
   logical, save :: torn_pair,torn_history,qso_failure,torn_hint,torn_qso
 end module ft8_decode_state_test_controls
 
 program test_ft8_mtd_decode_state_concurrent
   use omp_lib
   use ft8_decode_state_test_controls
-  use ft8_mod1, only : allmessages,allfreq,ndecodes,ft8_message_seen, &
+  use ft8_mod1, only : allmessages,allfreq,allsnrs,ndecodes,ft8_message_seen, &
        calldteven,calldtodd,ft8_lookup_call_dt,begin_ft8_qso_attempt, &
        ft8_qso_hints_suppressed,suppress_ft8_qso_hints,even,odd,ft8_period_hint, &
        get_ft8_period_hint,get_ft8_bootstrap_hint,retire_ft8_period_hint, &
        prepare_ft8_hint_history,clear_ft8_hint_history,ft8_qso_snapshot, &
        get_ft8_qso_hint_state,publish_ft8_qso_message,seed_ft8_qso_message, &
-       reset_ft8_qso_state,invalidate_ft8_qso_partner,prepare_ft8_qso_history,incall
+       reset_ft8_qso_state,invalidate_ft8_qso_partner,prepare_ft8_qso_history,incall, &
+       begin_ft8_result_attempt,ft8_store_decoded_message_locked, &
+       get_ft8_result_overflow,report_ft8_result_overflow
   implicit none
+  character(len=32) :: test_mode
 
   interface
      subroutine wsjt_tsan_acquire_ft8_find_dupes() bind(C)
@@ -26,19 +30,26 @@ program test_ft8_mtd_decode_state_concurrent
      end subroutine wsjt_tsan_release_ft8_find_dupes
   end interface
 
-  if(omp_get_max_threads().lt.2) error stop 'two OpenMP workers are required'
-  call test_duplicate_queries()
-  call test_coherent_duplicate_queries()
-  call test_history_queries()
-  call test_coherent_history_queries()
-  call test_qso_suppression()
-  call test_concurrent_qso_suppression()
-  call test_period_hints()
-  call test_bootstrap_hints()
-  call test_concurrent_hint_retirement()
-  call test_qso_message_state()
-  call test_qso_history_preparation()
-  call test_concurrent_qso_publication()
+  call get_command_argument(1,test_mode)
+  if(trim(test_mode).eq.'--result-warning') then
+     call test_result_warning()
+  else
+    if(omp_get_max_threads().lt.2) error stop 'two OpenMP workers are required'
+    call test_duplicate_queries()
+    call test_coherent_duplicate_queries()
+    call test_history_queries()
+    call test_coherent_history_queries()
+    call test_qso_suppression()
+    call test_concurrent_qso_suppression()
+    call test_period_hints()
+    call test_bootstrap_hints()
+    call test_concurrent_hint_retirement()
+    call test_qso_message_state()
+    call test_qso_history_preparation()
+    call test_concurrent_qso_publication()
+    call test_result_capacity()
+    call test_concurrent_result_capacity()
+  endif
 
 contains
 
@@ -877,5 +888,174 @@ contains
        torn_qso=.true.
     endif
   end subroutine check_qso_tuple
+
+  logical function store_test_result(message,snr,frequency) result(stored)
+    character(len=*), intent(in) :: message
+    integer, intent(in) :: snr
+    real, intent(in) :: frequency
+
+!$omp critical(find_dupes)
+    call wsjt_tsan_acquire_ft8_find_dupes()
+    stored=ft8_store_decoded_message_locked(message,snr,frequency)
+    call wsjt_tsan_release_ft8_find_dupes()
+!$omp end critical(find_dupes)
+  end function store_test_result
+
+  subroutine make_result(entry,message,snr,frequency)
+    integer, intent(in) :: entry
+    character(len=37), intent(out) :: message
+    integer, intent(out) :: snr
+    real, intent(out) :: frequency
+
+    write(message,'(a,i4)') 'RESULT ',entry
+    snr=-entry
+    frequency=1000.+real(entry)/8.
+  end subroutine make_result
+
+  subroutine fill_result_prefix(count)
+    integer, intent(in) :: count
+    integer :: entry,snr
+    character(len=37) :: message
+    real :: frequency
+
+    do entry=1,count
+       call make_result(entry,message,snr,frequency)
+       if(.not.store_test_result(message,snr,frequency)) error stop &
+            'a result was rejected before capacity'
+    enddo
+  end subroutine fill_result_prefix
+
+  subroutine assert_result(entry,expected_entry)
+    integer, intent(in) :: entry,expected_entry
+    integer :: snr
+    character(len=37) :: message
+    real :: frequency
+
+    call make_result(expected_entry,message,snr,frequency)
+    if(allmessages(entry).ne.message.or.allsnrs(entry).ne.snr.or.allfreq(entry).ne.frequency) &
+         error stop 'a retained result message/SNR/frequency tuple was overwritten or torn'
+  end subroutine assert_result
+
+  subroutine test_result_capacity()
+    integer :: entry,snr
+    character(len=37) :: message
+    real :: frequency
+
+    call begin_ft8_result_attempt()
+    call fill_result_prefix(199)
+    if(ndecodes.ne.199.or.get_ft8_result_overflow()) error stop 'result capacity was reached early'
+    do entry=1,199
+       call assert_result(entry,entry)
+    enddo
+    if(allmessages(200).ne.''.or.allsnrs(200).ne.0.or.allfreq(200).ne.0.) error stop &
+         'the unused result slot was modified'
+    call make_result(200,message,snr,frequency)
+    if(.not.store_test_result(message,snr,frequency)) error stop 'the final result slot was rejected'
+    if(ndecodes.ne.200.or.get_ft8_result_overflow()) error stop 'the final result slot was not retained'
+    call make_result(100,message,snr,frequency)
+    if(.not.ft8_message_seen(message,frequency)) error stop 'a full result list lost a known duplicate'
+    if(get_ft8_result_overflow()) error stop 'a duplicate query incorrectly reported capacity overflow'
+    call make_result(201,message,snr,frequency)
+    if(store_test_result(message,snr,frequency)) error stop 'a result beyond capacity was accepted'
+    if(ndecodes.ne.200.or..not.get_ft8_result_overflow()) error stop &
+         'a full result list did not retain its count and report overflow'
+    do entry=1,200
+       call assert_result(entry,entry)
+    enddo
+    call begin_ft8_result_attempt()
+    if(ndecodes.ne.0.or.get_ft8_result_overflow()) error stop 'a new attempt retained result overflow'
+    if(any(allmessages.ne.'').or.any(allsnrs.ne.0).or.any(allfreq.ne.0.)) error stop &
+         'a new attempt retained previous results'
+    call fill_result_prefix(1)
+    call assert_result(1,1)
+    if(ndecodes.ne.1.or.get_ft8_result_overflow()) error stop 'a new attempt could not retain results'
+  end subroutine test_result_capacity
+
+  subroutine test_concurrent_result_capacity()
+    integer :: worker,iteration,status,entry,snr,accepted,read_status
+    character(len=37) :: message
+    real :: frequency
+
+    call begin_ft8_result_attempt()
+    call fill_result_prefix(198)
+!$omp atomic write seq_cst
+    started=0
+!$omp atomic write seq_cst
+    reader_ready=0
+!$omp atomic write seq_cst
+    reader_finished=0
+    accepted_results=0
+
+!$omp parallel num_threads(2) private(worker,iteration,status,entry,snr,accepted,message,frequency)
+    if(omp_get_num_threads().ne.2) error stop 'two OpenMP workers are required for result capacity'
+    worker=omp_get_thread_num()
+    if(worker.eq.0) then
+!$omp atomic write seq_cst
+       started=1
+       do
+!$omp atomic read seq_cst
+          status=reader_ready
+          if(status.eq.1) exit
+       enddo
+    else
+       do
+!$omp atomic read seq_cst
+          status=started
+          if(status.eq.1) exit
+       enddo
+!$omp atomic write seq_cst
+       reader_ready=1
+    endif
+    accepted=0
+    do iteration=1,32
+       entry=1000*(worker+1)+iteration
+       call make_result(entry,message,snr,frequency)
+       if(store_test_result(message,snr,frequency)) accepted=accepted+1
+    enddo
+    accepted_results(worker+1)=accepted
+    if(worker.eq.0) then
+       do
+!$omp atomic read seq_cst
+          status=reader_finished
+          if(status.eq.1) exit
+       enddo
+    else
+!$omp atomic write seq_cst
+       reader_finished=1
+    endif
+!$omp end parallel
+
+    if(ndecodes.ne.200.or.sum(accepted_results).ne.2.or..not.get_ft8_result_overflow()) error stop &
+         'competing workers did not retain exactly the remaining result capacity'
+    do entry=1,198
+       call assert_result(entry,entry)
+    enddo
+    do entry=199,200
+       read(allmessages(entry),'(7x,i4)',iostat=read_status) snr
+       if(read_status.ne.0) error stop 'a competing result message was malformed'
+       if(.not.((snr.ge.1001.and.snr.le.1032).or.(snr.ge.2001.and.snr.le.2032))) error stop &
+            'a result outside the competing workers was retained'
+       call assert_result(entry,snr)
+    enddo
+    if(allmessages(199).eq.allmessages(200)) error stop 'a competing result was retained twice'
+    call begin_ft8_result_attempt()
+    if(ndecodes.ne.0.or.get_ft8_result_overflow()) error stop 'concurrent overflow leaked into a new attempt'
+  end subroutine test_concurrent_result_capacity
+
+  subroutine test_result_warning()
+    integer :: entry
+
+    call begin_ft8_result_attempt()
+    call fill_result_prefix(200)
+    do entry=201,208
+       if(store_test_result('DROPPED RESULT',-10,2000.)) error stop 'a full result list accepted a message'
+    enddo
+    if(.not.get_ft8_result_overflow()) error stop 'result overflow was not available for reporting'
+    call report_ft8_result_overflow()
+    if(get_ft8_result_overflow()) error stop 'reporting did not consume the overflow warning'
+    call report_ft8_result_overflow()
+    call begin_ft8_result_attempt()
+    call report_ft8_result_overflow()
+  end subroutine test_result_warning
 
 end program test_ft8_mtd_decode_state_concurrent

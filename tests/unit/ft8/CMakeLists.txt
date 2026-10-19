@@ -61,8 +61,16 @@ if (TARGET wsjt_fort_omp)
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2"
     PROCESSORS 2
     TIMEOUT 30)
+  add_test (NAME test_ft8_mtd_result_warning
+    COMMAND ${CMAKE_COMMAND}
+      "-DTEST_EXECUTABLE=$<TARGET_FILE:test_ft8_mtd_decode_state_concurrent>"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ft8_result_warning.cmake)
+  set_tests_properties (test_ft8_mtd_result_warning PROPERTIES
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2"
+    PROCESSORS 1
+    TIMEOUT 30)
   if (WSJT_ENABLE_TSAN)
-    set_property (TEST test_ft8_mtd_decode_state_concurrent APPEND PROPERTY
+    set_property (TEST test_ft8_mtd_decode_state_concurrent test_ft8_mtd_result_warning APPEND PROPERTY
       ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
   endif ()
 endif ()

@@ -1237,6 +1237,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         }
     });
   connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
+  connect(&proc_jt9, &QProcess::readyReadStandardError, this, [this] {
+      drainDecoderStderr ();
+    });
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
@@ -1251,7 +1254,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                  || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
                  || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
                 && QProcess::Crashed == error) return;
-            Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
+            Q_EMIT decoderBackendFailed (decoderFailureDetail (proc_jt9.errorString ()));
             subProcessError (&proc_jt9, error);
           });
 #else
@@ -1267,12 +1270,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                                                       || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
                                                       || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
                                                      && QProcess::Crashed == error) return;
-                                                 Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
+                                                 Q_EMIT decoderBackendFailed (decoderFailureDetail (proc_jt9.errorString ()));
                                                  subProcessError (&proc_jt9, error);
                                                });
 #endif
   connect(&proc_jt9, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
+            drainDecoderStderr (true);
             if (m_closing || !m_valid) return;
             if (Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
                 || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase)
@@ -1289,7 +1293,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                 m_decoderKillTimer.stop ();
                 m_decoderStartTimer.stop ();
                 proc_jt9.readAllStandardOutput ();
-                proc_jt9.readAllStandardError ();
                 if (!initializeDecoderSharedMemory ())
                   {
                     m_valid = false;
@@ -6054,6 +6057,7 @@ void MainWindow::startDecoderProcess ()
   m_activeJt9Decode = {};
   m_decoderOutputFramer.reset ();
   m_decoderSession.beginStartup ();
+  m_decoderDiagnostics.reset ();
   QStringList jt9Args {
     "-s", m_decoderSession.name (),
     "--ipc-lock", m_decoderSession.workerLockPath (),
@@ -6081,6 +6085,19 @@ void MainWindow::startDecoderProcess ()
   updateDecodeControls ();
 }
 
+void MainWindow::drainDecoderStderr (bool final)
+{
+  m_decoderDiagnostics.append (proc_jt9.readAllStandardError ());
+  if (final) m_decoderDiagnostics.finish ();
+}
+
+QString MainWindow::decoderFailureDetail (QString const& reason)
+{
+  drainDecoderStderr (true);
+  auto const& diagnostic = m_decoderDiagnostics.tail ();
+  return diagnostic.isEmpty () ? reason : reason + "\n\n" + QString::fromLocal8Bit (diagnostic);
+}
+
 void MainWindow::failDecoderStartup (QString const& reason)
 {
   if (m_closing || Jt9ProcessPhase::Failed == m_jt9ProcessPhase) return;
@@ -6089,11 +6106,12 @@ void MainWindow::failDecoderStartup (QString const& reason)
   m_decoderSession.beginStartup ();
   m_valid = false;
   updateDecodeControls ();
-  qCritical () << "Decoder startup failed:" << reason;
-  Q_EMIT decoderBackendFailed (reason);
+  auto const detail = decoderFailureDetail (reason);
+  qCritical () << "Decoder startup failed:" << detail;
+  Q_EMIT decoderBackendFailed (detail);
   QTimer::singleShot (0, this, SLOT (close ()));
   if (!m_automated_test)
-    MessageBox::critical_message (this, tr ("Decoder Error"), reason);
+    MessageBox::critical_message (this, tr ("Decoder Error"), detail);
 }
 
 bool MainWindow::initializeDecoderSharedMemory ()
