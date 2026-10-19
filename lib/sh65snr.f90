@@ -9,7 +9,6 @@ subroutine sh65snr(x,nz,snr)
         ipk=i
         smax=x(i)
      endif
-     s=s+x(i)
   enddo
 
   s=0.
