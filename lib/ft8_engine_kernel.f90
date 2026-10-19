@@ -17,7 +17,7 @@ module ft8_engine_kernel
   use sfrx_engine, only: sfrx_decode
   use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,mycall12_0,         &
        mycall12_00,hiscall12_0,nmsg,odd,even,oddcopy,evencopy,nlasttx,          &
-       lqsomsgdcd,mycalllen1,msgroot,msgrootlen,lapmyc,sumxdtt,avexdt,          &
+       begin_ft8_qso_attempt,suppress_ft8_qso_hints,mycalllen1,msgroot,msgrootlen,lapmyc,sumxdtt,avexdt,          &
        nfawide,nfbwide,mycall,hiscall,lhound,mybcall,hisbcall,lenabledxcsearch, &
        lwidedxcsearch,hisgrid4,lmultinst,dd8,nft8cycles,lskiptx1,ncandallthr,   &
        nincallthr,incall,msgincall,xdtincall,maskincallthr,ltxing,hisgrid,      &
@@ -253,10 +253,10 @@ contains
            endif ! avexdt fast track in FT8 after mode change
 
            if(.not.params%nagain) ndelay=params%ndelay
-           lqsomsgdcd=.false.
+           call begin_ft8_qso_attempt(.false.)
            if(ndelay.gt.0) then ! received incomplete interval
               call partintft8(ndelay,params%nutc,context%render_legacy)
-              lqsomsgdcd=.true.
+              call suppress_ft8_qso_hints()
            endif
            ntrials=params%nranera
            if(params%nsecbandchanged.gt.0) then

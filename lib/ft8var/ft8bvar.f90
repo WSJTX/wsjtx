@@ -18,7 +18,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   use decode_completion_module, only : write_decode_progress
   use ft8_mod1, only : ft8_message_seen,ft8_lookup_call_dt,apsym,mcq,m73,       &
        mrr73,mrrr,icos7,naptypes,nhaptypes,one,graymap,oddcopy,evencopy,       &
-       lastrxmsg,lasthcall,nlasttx,lqsomsgdcd,mycalllen1,msgroot,msgrootlen,   &
+       lastrxmsg,lasthcall,nlasttx,ft8_qso_hints_suppressed,suppress_ft8_qso_hints, &
+       mycalllen1,msgroot,msgrootlen,   &
        idtone25,idtone25_valid,lapmyc,idtonemyc,mycall,hiscall,lhound,apsymsp, &
        ndxnsaptypes,apsymdxns1,apsymdxnsrrr,lenabledxcsearch,lwidedxcsearch,      &
        apcqsym,apsymdxnsrr73,apsymdxns73,mybcall,hisbcall,lskiptx1,nft8cycles,    &
@@ -102,7 +103,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   f10=f1
 ! apply last freq f1 and last DT criteria here  
   nqso=1
-  if(lqsothread .and. .not. lft8sdec .and. .not.lqsomsgdcd .and. .not.stophint &
+  if(lqsothread .and. .not. lft8sdec .and. .not.ft8_qso_hints_suppressed() .and. .not.stophint &
        .and. nlasttx.ge.1 .and. nlasttx.le.4 .and. abs(f10-nfqso).lt.2.51) then
      if(lastrxmsg(1)%lstate .and. abs(lastrxmsg(1)%xdt-xdt).lt.0.18) then
         nqso=2
@@ -114,7 +115,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   lvirtual2=.false.
   lvirtual3=.false.
   maxlasttx=4
-  if(lqsothread .and. .not. lft8sdec .and. .not.lqsomsgdcd) then
+  if(lqsothread .and. .not. lft8sdec .and. .not.ft8_qso_hints_suppressed()) then
      if(len_trim(hiscall).gt.2) then
         if(xdt.gt.4.9 .or. xdt.lt.-4.9) then
            if(lastrxmsg(1)%lstate .and. trim(lastrxmsg(1)%lastmsg).eq.trim(msgroot)//&
@@ -772,7 +773,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
 ! -24            1.94
 
 8    if(iqso.gt.1 .and. iqso.lt.4) then
-        if(.not.lqsomsgdcd .and. .not.(.not.lmycallstd .and. .not.lhiscallstd)) then
+        if(.not.ft8_qso_hints_suppressed() .and. .not.(.not.lmycallstd .and. .not.lhiscallstd)) then
            if(.not.lft8sdec .and. dfqso.lt.2.0) then
               if(lvirtual2 .or. lvirtual3) srr=0.0
               call ft8svar(s82,srr,itone,msg37,lft8s,nft8rxfsens,stophint,codec)
@@ -819,7 +820,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
      lqso73=.false.
      lqsorr73=.false.
      lqsorrr=.false. ! 73/rr73/rrr for std/nonstd callsigns
-     if(.not.lqsomsgdcd .and. (dfqso.lt.napwid .or. abs(nftx-f1).lt.napwid) .and. &
+     if(.not.ft8_qso_hints_suppressed() .and. (dfqso.lt.napwid .or. abs(nftx-f1).lt.napwid) .and. &
           lapmyc .and. len_trim(hiscall).gt.2) then
         nqsot=0
         if(idtone56_valid(1)) then
@@ -964,7 +965,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
 
      lsubptxfreq=.false.
      if(lapmyc .and. abs(f1-nftx).lt.2.0 .and. .not.lhound .and. .not.lft8sdec     &
-          .and. .not.lqsomsgdcd .and. ((.not.lskiptx1 .and. nlasttx.eq.1) .or.     &
+          .and. .not.ft8_qso_hints_suppressed() .and. ((.not.lskiptx1 .and. nlasttx.eq.1) .or.     &
           (lskiptx1 .and. nlasttx.eq.2))) lsubptxfreq=.true.
 
      nweak=1
@@ -1015,7 +1016,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         endif
      endif
      lqsocandave=.false.
-     if(lapmyc .and. ndxt.gt.2 .and. nmic.gt.2 .and. .not.lqsomsgdcd .and.        &
+     if(lapmyc .and. ndxt.gt.2 .and. nmic.gt.2 .and. .not.ft8_qso_hints_suppressed() .and.        &
           lmycallstd .and. lhiscallstd .and. dfqso.lt.napwid/2.0) then
         lqsocandave=.true.
         nsubpasses=9
@@ -1305,7 +1306,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
            if(isubp1.gt.2 .and. isubp2.lt.5) cycle ! skip regular decoding for extra subpasses
            if(lqsocandave) then
               if(isubp1.gt.2 .and. isubp1.lt.9) cycle ! skip other extra subpasses if QSO signal, highest priority
-              if(lqsomsgdcd) cycle
+              if(ft8_qso_hints_suppressed()) cycle
            else if(lmycsignal .and. lmycallstd) then
               if(isubp1.gt.2 .and. isubp1.lt.6) cycle ! skip CQ signal extra subpasses if MyCall signal
            endif           
@@ -1336,7 +1337,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                     iaptype2=iaptype
             !  print*,'line 1357 iaptype,isubp1,isubp2 = ',iaptype,isubp1,isubp2
                     if(iaptype.eq.0) cycle
-                    if(lqsomsgdcd .and. iaptype.gt.2 .and. iaptype.lt.31) cycle ! QSO message already decoded
+                    if(ft8_qso_hints_suppressed() .and. iaptype.gt.2 .and. iaptype.lt.31) cycle ! QSO message already decoded
                     if(iaptype.eq.2) then
                        if(.not.lapmyc .or. lapcqonly) cycle ! skip AP for 'mycall ???? ????' in 2..3 minutes after last TX
                        if(nQSOProgress.ne.0 .and. nmic.lt.2) cycle ! reduce CPU load at QSO
@@ -1520,7 +1521,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                     if(iaptype.eq.0) cycle
                     if(iaptype.eq.2 .and. lapcqonly) cycle ! skip weak CQ signals
                     if(.not.stophint .and. iaptype.gt.30) cycle ! no DXCall searching at QSO, reduce Lag
-                    if((lqsomsgdcd .or. .not.lapmyc) .and. iaptype.gt.1 .and. iaptype.lt.15) cycle ! skip AP for mycall in 2..3 minutes after last TX
+                    if((ft8_qso_hints_suppressed() .or. .not.lapmyc) .and. iaptype.gt.1 .and. iaptype.lt.15) cycle ! skip AP for mycall in 2..3 minutes after last TX
                     if(iaptype.eq.12 .and. .not.lqsorrr) cycle ! not RRR signal
                     if(iaptype.eq.13 .and. .not.lqso73) cycle ! not 73 signal
                     if(iaptype.eq.14 .and. .not.lqsorr73) cycle ! not RR73 signal
@@ -1763,7 +1764,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                     if(isubp1.eq.2 .and. nweak.eq.1) cycle
                     if(isubp1.gt.5) cycle ! so far CQ averaging only
                     if(iaptype.eq.40 .and. lapcqonly) cycle ! skip weak CQ signals
-                    if(iaptype.gt.40 .and. iaptype.lt.45 .and. lqsomsgdcd) cycle ! already decoded
+                    if(iaptype.gt.40 .and. iaptype.lt.45 .and. ft8_qso_hints_suppressed()) cycle ! already decoded
                     if(iaptype.eq.42 .and. .not.lqsorrr) cycle ! not RRR signal
                     if(iaptype.eq.43 .and. .not.lqso73) cycle ! not 73 signal
                     if(iaptype.eq.44 .and. .not.lqsorr73) cycle ! not RR73 signal
@@ -1896,7 +1897,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                  if(iaptype.eq.0) cycle
                  if(lnomycall .and. iaptype.gt.1 .and. iaptype.lt.31) cycle ! skip AP if mycall is missed in config
                  if(lhiscallstd .and. iaptype.eq.31 .and. .not.lcqsignal) cycle ! not CQ signal, skip CQ DXCall DXgrid mask
-                 if(lqsomsgdcd .and. iaptype.gt.0 .and. iaptype.lt.25) cycle ! QSO message already decoded
+                 if(ft8_qso_hints_suppressed() .and. iaptype.gt.0 .and. iaptype.lt.25) cycle ! QSO message already decoded
                  if(.not.stophint .and. (iaptype.eq.31 .or. iaptype.eq.36)) cycle ! CQ and RR73 decoding not needed if TX is on
                  if(nQSOProgress.eq.1) then
                     if(lfoxspecrpt) then
@@ -2065,7 +2066,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
               if(lqsosig .or. lmycsignal) then
                  if((dfqso.lt.napwid .or. (abs(nftx-f1).lt.napwid .and. lapmyc))  &
                       .and. .not.nagainfil) ndeep=4
-                 if(lapmyc .and. lqsomsgdcd .or. iaptype.eq.0) ndeep=3 ! deep is not needed, reduce number of CPU cycles
+                 if(lapmyc .and. ft8_qso_hints_suppressed() .or. iaptype.eq.0) ndeep=3 ! deep is not needed, reduce CPU cycles
                  if(.not.stophint .and. len_trim(hiscall).gt.2) ndeep=3 ! unload CPU, let ft8svar pick up QSO message
               endif
               if(ldxcsig .and. stophint .and. dfqso.lt.napwid) ndeep=4 ! DXCall search inside RX napwid
@@ -2136,7 +2137,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
               ! print*,'line 2150 did not cycle'
               if(lqsothread .and. (.not.lhound .and. iaptype.ge.3 .or. lhound     &
                    .and. (iaptype.eq.21 .or. iaptype.eq.23)) .and. .not.lsdone) then
-                 if(.not.lqsomsgdcd .and. .not.(.not.lmycallstd .and.             &
+                 if(.not.ft8_qso_hints_suppressed() .and. .not.(.not.lmycallstd .and.             &
                       .not.lhiscallstd)) then
                     if(.not.lft8sdec .and. .not.stophint .and. dfqso.lt.2.0) then
                        call ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint,codec)
@@ -2243,7 +2244,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
            if(.not.unpk77_successvar) then
               if(lqsothread .and. (.not.lhound .and. iaptype.ge.3 .or. lhound .and. &
                    (iaptype.eq.21 .or. iaptype.eq.23)) .and. .not.lsdone) then
-                 if(.not.lqsomsgdcd .and. .not.(.not.lmycallstd .and.             &
+                 if(.not.ft8_qso_hints_suppressed() .and. .not.(.not.lmycallstd .and.             &
                       .not.lhiscallstd)) then
                     if(.not.lft8sdec .and. .not.stophint .and. dfqso.lt.2.0) then
                        call ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint,codec)
@@ -2315,7 +2316,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         lspecial=.true.  !only in ft8var
 
 !protection against a false FT8Svar decode in Hound mode 
-        if(lhound .and. dfqso.lt.2.0) lqsomsgdcd=.true. !$OMP FLUSH (lqsomsgdcd)
+        if(lhound .and. dfqso.lt.2.0) call suppress_ft8_qso_hints()
      endif
      qual=1.0-(nharderrors+dmin)/60.0
      xsnr=0.001
@@ -2759,8 +2760,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
            lastrxmsg(1)%lastmsg=msg37
            lastrxmsg(1)%xdt=xdt-0.5
            lastrxmsg(1)%lstate=.true.
-           lqsomsgdcd=.true.
-!$OMP FLUSH (lqsomsgdcd)
+           call suppress_ft8_qso_hints()
         else if(.not.lft8s .and. mycalllen1.gt.2) then
            if(msg37(1:mycalllen1).ne.trim(mycall)//' ' .and.                    &
                 index(msg37,' '//trim(hiscall)//' ').gt.0) then
@@ -2769,10 +2769,9 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         endif
      endif
 
-     if(len_trim(hiscall).gt.3 .and. .not.lqsomsgdcd) then
+     if(len_trim(hiscall).gt.3 .and. .not.ft8_qso_hints_suppressed()) then
         if(msg37(1:msgrootlen+1).eq.trim(msgroot)//' ') then
-           lqsomsgdcd=.true.
-!$OMP FLUSH (lqsomsgdcd)
+           call suppress_ft8_qso_hints()
         endif
      endif
      

@@ -4,14 +4,15 @@ module ft8_decode_state_test_controls
   ! Direct global controls avoid libgomp's captured stack environment in TSan tests.
   integer, save :: started,reader_ready,checkpoint,checkpoint_seen,finished, &
        reader_finished,reads
-  logical, save :: torn_pair,torn_history
+  logical, save :: torn_pair,torn_history,qso_failure
 end module ft8_decode_state_test_controls
 
 program test_ft8_mtd_decode_state_concurrent
   use omp_lib
   use ft8_decode_state_test_controls
   use ft8_mod1, only : allmessages,allfreq,ndecodes,ft8_message_seen, &
-       calldteven,calldtodd,ft8_lookup_call_dt
+       calldteven,calldtodd,ft8_lookup_call_dt,begin_ft8_qso_attempt, &
+       ft8_qso_hints_suppressed,suppress_ft8_qso_hints
   implicit none
 
   interface
@@ -26,6 +27,8 @@ program test_ft8_mtd_decode_state_concurrent
   call test_coherent_duplicate_queries()
   call test_history_queries()
   call test_coherent_history_queries()
+  call test_qso_suppression()
+  call test_concurrent_qso_suppression()
 
 contains
 
@@ -332,5 +335,102 @@ contains
     call wsjt_tsan_release_ft8_find_dupes()
 !$omp end critical(find_dupes)
   end subroutine publish_history
+
+  subroutine test_qso_suppression()
+    call begin_ft8_qso_attempt(.false.)
+    if(ft8_qso_hints_suppressed()) error stop 'a new QSO attempt was suppressed'
+    call suppress_ft8_qso_hints()
+    if(.not.ft8_qso_hints_suppressed()) error stop 'QSO suppression was not retained'
+    call suppress_ft8_qso_hints()
+    if(.not.ft8_qso_hints_suppressed()) error stop 'repeated QSO suppression cleared the flag'
+    call begin_ft8_qso_attempt(.false.)
+    if(ft8_qso_hints_suppressed()) error stop 'a new QSO attempt retained old suppression'
+    call begin_ft8_qso_attempt(.true.)
+    if(.not.ft8_qso_hints_suppressed()) error stop 'initial QSO suppression was lost'
+  end subroutine test_qso_suppression
+
+  subroutine test_concurrent_qso_suppression()
+    integer, parameter :: writer_iterations=20000,minimum_reads=40000
+    integer :: worker,iteration,status,checkpoint_status
+
+    call begin_ft8_qso_attempt(.false.)
+!$omp atomic write seq_cst
+    started=0
+!$omp atomic write seq_cst
+    reader_ready=0
+!$omp atomic write seq_cst
+    checkpoint=0
+!$omp atomic write seq_cst
+    checkpoint_seen=0
+!$omp atomic write seq_cst
+    finished=0
+!$omp atomic write seq_cst
+    reader_finished=0
+    reads=0
+    qso_failure=.false.
+
+!$omp parallel num_threads(2) private(worker,iteration,status,checkpoint_status)
+    if(omp_get_num_threads().ne.2) error stop 'two OpenMP workers are required for QSO state'
+    worker=omp_get_thread_num()
+    if(worker.eq.0) then
+       do
+!$omp atomic read seq_cst
+          status=reader_ready
+          if(status.eq.1) exit
+       enddo
+       call suppress_ft8_qso_hints()
+!$omp atomic write seq_cst
+       started=1
+       do iteration=1,writer_iterations
+          call suppress_ft8_qso_hints()
+          if(iteration.eq.writer_iterations/2) then
+!$omp atomic write seq_cst
+             checkpoint=1
+             do
+!$omp atomic read seq_cst
+                status=checkpoint_seen
+                if(status.eq.1) exit
+             enddo
+          endif
+       enddo
+!$omp atomic write seq_cst
+       finished=1
+       do
+!$omp atomic read seq_cst
+          status=reader_finished
+          if(status.eq.1) exit
+       enddo
+    else
+       if(ft8_qso_hints_suppressed()) qso_failure=.true.
+!$omp atomic write seq_cst
+       reader_ready=1
+       do
+!$omp atomic read seq_cst
+          status=started
+          if(status.eq.1) exit
+       enddo
+       do
+!$omp atomic read seq_cst
+          checkpoint_status=checkpoint
+          if(.not.ft8_qso_hints_suppressed()) qso_failure=.true.
+          reads=reads+1
+          if(checkpoint_status.eq.1) then
+!$omp atomic write seq_cst
+             checkpoint_seen=1
+          endif
+!$omp atomic read seq_cst
+          status=finished
+          if(status.eq.1.and.reads.ge.minimum_reads) exit
+       enddo
+!$omp atomic write seq_cst
+       reader_finished=1
+    endif
+!$omp end parallel
+
+    if(qso_failure) error stop 'QSO reader observed an incorrect suppression state'
+    if(checkpoint_seen.ne.1) error stop 'QSO reader did not overlap suppression'
+    if(reads.lt.minimum_reads) error stop 'QSO suppression reader did not finish'
+    if(.not.ft8_qso_hints_suppressed()) error stop 'QSO suppression was lost after workers joined'
+  end subroutine test_concurrent_qso_suppression
 
 end program test_ft8_mtd_decode_state_concurrent

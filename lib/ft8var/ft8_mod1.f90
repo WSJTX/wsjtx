@@ -31,7 +31,8 @@ module ft8_mod1
        idtonefox73(58),idtonespec(58),nintcount
   integer, parameter :: mrr73(19)=2*PACK77_TYPE1_RR73_TAIL-1
   integer*1 gen(91,174)
-  logical one(0:511,0:8),lqsomsgdcd,first_osd
+  logical one(0:511,0:8),first_osd
+  logical, private :: lqsomsgdcd=.false.
   logical(1) lapmyc,lagcc,lagccbail,lhound,lenabledxcsearch,              &
        lwidedxcsearch,lmultinst,lskiptx1,ltxing
   logical(1) idtone25_valid(25),idtone56_valid(56),idtone76_valid(76)
@@ -212,6 +213,10 @@ module ft8_mod1
   type(oddqso_struct) oddqso(1,nmaxthreads)
 
   interface
+     subroutine wsjt_tsan_acquire_ft8_qso_state() bind(C)
+     end subroutine wsjt_tsan_acquire_ft8_qso_state
+     subroutine wsjt_tsan_release_ft8_qso_state() bind(C)
+     end subroutine wsjt_tsan_release_ft8_qso_state
      subroutine wsjt_tsan_acquire_ft8_find_dupes() bind(C)
      end subroutine wsjt_tsan_acquire_ft8_find_dupes
      subroutine wsjt_tsan_release_ft8_find_dupes() bind(C)
@@ -219,6 +224,33 @@ module ft8_mod1
   end interface
 
 contains
+
+  ! Attempt initialization and reset run only while workers are stopped.
+  subroutine begin_ft8_qso_attempt(suppressed)
+    logical, intent(in) :: suppressed
+
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    lqsomsgdcd=suppressed
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end subroutine begin_ft8_qso_attempt
+
+  logical function ft8_qso_hints_suppressed() result(suppressed)
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    suppressed=lqsomsgdcd
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end function ft8_qso_hints_suppressed
+
+  subroutine suppress_ft8_qso_hints()
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    lqsomsgdcd=.true.
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end subroutine suppress_ft8_qso_hints
 
   logical function ft8_message_seen(message,frequency) result(seen)
     implicit none
@@ -311,7 +343,7 @@ contains
     csyncsd_valid=.false.
     csyncsdcq_valid=.false.
     first_osd=.true.
-    lqsomsgdcd=.false.
+    call begin_ft8_qso_attempt(.false.)
     lapmyc=.false.
     lasthcall=''
     mycall12_0='dummy'

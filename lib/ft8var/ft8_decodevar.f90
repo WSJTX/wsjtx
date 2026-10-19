@@ -71,7 +71,7 @@ contains
          lastrxmsg,calldteven,calldtodd,incall,oddcopy,evencopy,                &
          avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
-         evenqso,oddqso,lqsomsgdcd,hisgrid4
+         evenqso,oddqso,ft8_qso_hints_suppressed,hisgrid4
 
     interface
        subroutine wsjt_tsan_acquire_ft8_find_dupes() bind(C)
@@ -436,7 +436,7 @@ contains
           do ik=1,nmycsignal
              evenmyc(ik,nthr)%cs=tmpmycsig(ik)%cs
           enddo
-          if(.not.lqsomsgdcd .and. tmpqsosig(1)%freq.lt.5001.) then
+          if(.not.ft8_qso_hints_suppressed() .and. tmpqsosig(1)%freq.lt.5001.) then
              evenqso(1,nthr)%freq=tmpqsosig(1)%freq
              evenqso(1,nthr)%xdt=tmpqsosig(1)%xdt
              evenqso(1,nthr)%cs=tmpqsosig(1)%cs
@@ -454,7 +454,7 @@ contains
           do ik=1,nmycsignal
              oddmyc(ik,nthr)%cs=tmpmycsig(ik)%cs
           enddo
-          if(.not.lqsomsgdcd .and. tmpqsosig(1)%freq.lt.5001.) then
+          if(.not.ft8_qso_hints_suppressed() .and. tmpqsosig(1)%freq.lt.5001.) then
              oddqso(1,nthr)%freq=tmpqsosig(1)%freq
              oddqso(1,nthr)%xdt=tmpqsosig(1)%xdt
              oddqso(1,nthr)%cs=tmpqsosig(1)%cs
