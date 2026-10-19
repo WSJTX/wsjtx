@@ -24,7 +24,11 @@
 !               new period; what was in flight is discarded. Producers
 !               send `configure` first; audio is interpreted under the
 !               most recent one. A declined configure applies none of
-!               its keys.
+!               its keys. One the decoder would refuse in its mode is
+!               declined with configure_range_error (the engine's checks,
+!               lib/decoder_engine.f90); values it carries from earlier
+!               frames are checked against a new mode too. The command-line
+!               starting values are checked once, after ready.
 !   halt      : drain the current period (decode if it has samples), exit.
 !
 ! A period is TRperiod * 12 kHz samples (lib/streaming_period.f90). Keep a
@@ -69,11 +73,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        streaming_emit_decode_finished, streaming_emit_error,               &
        streaming_emit_error_code, streaming_emit_error_version,            &
        streaming_emit_error_type, streaming_emit_set_time_form,            &
-       streaming_emit_utc_from_iso, streaming_emit_hold_finished
+       streaming_emit_utc_from_iso, streaming_emit_hold_finished,          &
+       streaming_emit_error_range, streaming_emit_mode_name
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
        CTRL_DISCONTINUITY, MODE_JTTY
-  use streaming_apply, only: apply_configure_fields
+  use streaming_apply, only: apply_configure_fields, engine_range_key
+  use decoder_engine, only: engine_params_problem, option_problem
   use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
        jtty_emit_range_error, jtty_release
   use streaming_period, only: period_state, period_begin, period_room,   &
@@ -137,6 +143,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   real(8) :: prev_TRperiod, next_TRperiod
   type(params_block) :: next_params
   character(len=:), allocatable :: range_key
+  type(option_problem) :: problem
+  type(configure_fields) :: no_keys
+  logical :: next_eme_on
   ! Audio samples consumed in any mode; JTTY's origin and times count them.
   integer(int64) :: stream_samples
   ! Session-baseline nfa/nfb stashed after jt9.f90's init_streaming_extra_fields
@@ -238,6 +247,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   baseline_nfb = shared_data%params%nfb
 
   call streaming_emit_ready()
+  ! Command-line starting values are checked once; the session still runs.
+  problem = engine_params_problem(shared_data%params, .true.)
+  if (problem%field .ne. ' ') call emit_range_error(problem, no_keys, mode, .true.)
   max_audio_frame_bytes = 2_int64 * int(size(shared_data%id2), int64)
   body_left = 0
   stream_samples = 0
@@ -368,10 +380,27 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               next_params   = shared_data%params
               call apply_configure_fields(cfg, next_mode, next_TRperiod,   &
                    next_params, baseline_nfa, baseline_nfb)
+              ! The GUI's EME delay goes with "Decode after EME delay", in every
+              ! mode, over the mode policy a mode or trperiod key reapplies;
+              ! eme_delay_seconds, when sent, wins.
+              next_eme_on = eme_delay_on
+              if (cfg%decode_after_eme_delay_set) next_eme_on = cfg%decode_after_eme_delay
+              if (cfg%mode_set .or. cfg%trperiod_set .or.                     &
+                   cfg%decode_after_eme_delay_set)                             &
+                   next_params%emedelay = merge(2.5, 0.0, next_eme_on)
+              if (cfg%eme_delay_seconds_set) next_params%emedelay =           &
+                   real(cfg%eme_delay_seconds, kind(next_params%emedelay))
               if (next_mode .eq. MODE_JTTY) then
                  range_key = jtty_range_key(next_params)
                  if (len(range_key) .gt. 0) then
                     call jtty_emit_range_error(range_key)
+                    cycle
+                 end if
+              else
+                 ! A frame that would leave the decoder refusing its decodes.
+                 problem = engine_params_problem(next_params, .true.)
+                 if (problem%field .ne. ' ') then
+                    call emit_range_error(problem, cfg, next_mode, .false.)
                     cycle
                  end if
               end if
@@ -383,17 +412,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               TRperiod           = next_TRperiod
               shared_data%params = next_params
               call streaming_emit_set_time_form(cfg%utc_set, cfg%nutc_set, TRperiod)
-              if (cfg%decode_after_eme_delay_set) eme_delay_on = cfg%decode_after_eme_delay
+              eme_delay_on = next_eme_on
               if (cfg%live_audio_set) live_audio = cfg%live_audio
               shared_data%params%ndiskdat = .not. live_audio
-              ! The GUI's EME delay goes with "Decode after EME delay", in every
-              ! mode, over the mode policy a mode or trperiod key reapplies;
-              ! eme_delay_seconds, when sent, wins.
-              if (cfg%mode_set .or. cfg%trperiod_set .or.                     &
-                   cfg%decode_after_eme_delay_set)                             &
-                   shared_data%params%emedelay = merge(2.5, 0.0, eme_delay_on)
-              if (cfg%eme_delay_seconds_set) shared_data%params%emedelay =    &
-                   real(cfg%eme_delay_seconds, kind(shared_data%params%emedelay))
               ! A configure that changes the applied mode or period starts a
               ! new period; what was in flight is discarded. Otherwise the
               ! period in flight decodes at the stop point the new settings give.
@@ -758,6 +779,37 @@ contains
     if (.not. allocated(copy)) allocate(copy(max(n, 1)))
     copy(1:n) = source(1:n)
   end subroutine keep
+
+  ! configure_range_error for a refused engine option: the key, the range in
+  ! the mode, and where a value this frame did not set came from. A change
+  ! of mode or period restores nfa and nfb from the command line.
+  subroutine emit_range_error(problem, frame, in_mode, at_start)
+    type(option_problem),   intent(in) :: problem
+    type(configure_fields), intent(in) :: frame
+    integer,                intent(in) :: in_mode
+    logical,                intent(in) :: at_start
+    character(len=:), allocatable :: key, name, detail
+    logical :: carried
+    key = trim(engine_range_key(problem%field, frame, carried))
+    name = trim(streaming_emit_mode_name(in_mode))
+    if (problem%field .eq. 'search_range') then
+       detail = trim(problem%limit) // ' in ' // name
+    else if (key .eq. 'depth') then
+       ! The decoders read only the depth's low bits.
+       detail = 'depth must hold a decoding depth ' // trim(problem%limit) // ' in ' // name
+    else
+       detail = key // ' must be ' // trim(problem%limit) // ' in ' // name
+    end if
+    if (at_start) then
+       detail = detail // '; the command line set it'
+    else if (carried .and. (key .eq. 'nfa' .or. key .eq. 'nfb') .and.            &
+         (frame%mode_set .or. frame%trperiod_set)) then
+       detail = detail // '; a change of mode or period restores it from the command line'
+    else if (carried) then
+       detail = detail // '; it was set before this frame'
+    end if
+    call streaming_emit_error_range(key, name, detail)
+  end subroutine emit_range_error
 
   ! One FT8 pass over the first nz half-symbols, the rest zeroed.
   subroutine ft8_window_pass(nz)

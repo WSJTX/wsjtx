@@ -35,7 +35,8 @@ typedef struct {
 
 /* Option records use fixed-width, space-padded calls and grids. Booleans are 0 or 1.
    half_symbol_stage is the FT8 processing stage (41..50), independent of repeat
-   intent and the number of available audio samples. */
+   intent and the number of available audio samples. qso_progress is 0..5
+   wherever it appears. */
 typedef struct {
   int32_t half_symbol_stage;
   int32_t reuse_spectrum;
