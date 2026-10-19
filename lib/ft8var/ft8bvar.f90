@@ -17,7 +17,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
        mtd_refresh_candidate
   use decode_completion_module, only : write_decode_progress
   use ft8_mod1, only : ft8_message_seen,ft8_lookup_call_dt,apsym,mcq,m73,       &
-       mrr73,mrrr,icos7,naptypes,nhaptypes,one,graymap,oddcopy,evencopy,       &
+       mrr73,mrrr,icos7,naptypes,nhaptypes,one,graymap, &
+       ft8_period_hint,get_ft8_period_hint,retire_ft8_period_hint,       &
        lastrxmsg,lasthcall,nlasttx,ft8_qso_hints_suppressed,suppress_ft8_qso_hints, &
        mycalllen1,msgroot,msgrootlen,   &
        idtone25,idtone25_valid,lapmyc,idtonemyc,mycall,hiscall,lhound,apsymsp, &
@@ -68,6 +69,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   character(len=37) :: decoded_payload_message
   logical :: has_decoded_payload,history_found
 
+  type(ft8_period_hint) :: period_hint
   type(tmpcqdec_struct) tmpcqdec(numdeccq)
   type(tmpcqsig_struct) tmpcqsig(numcqsig) ! 20 sigs 24 threads
   type(tmpmyc_struct) tmpmyc(numdecmyc)
@@ -164,32 +166,10 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
        lhighsens)   !Mix f1 to baseband and downsample
   if(rebuild_spectrum) call mtd_mark_spectrum_current(nthr)
 
-  lsd=.false.
-  isd=1
-  lcq=.false.
-  if(levenint) then
-     do i=1,130
-        if(.not.evencopy(i)%lstate) cycle
-        if(abs(evencopy(i)%freq-f1).lt.3.0 .and. abs(evencopy(i)%dt-xdt).lt.0.19) then
-           msgd=evencopy(i)%msg
-           lsd=.true.
-           isd=i
-           if(msgd(1:3).eq.'CQ ' .or. msgd(1:3).eq.'DE ' .or.                &
-                msgd(1:4).eq.'QRZ ') lcq=.true.
-        endif
-     enddo
-  elseif(loddint) then
-     do i=1,130
-        if(.not.oddcopy(i)%lstate) cycle
-        if(abs(oddcopy(i)%freq-f1).lt.3.0 .and. abs(oddcopy(i)%dt-xdt).lt.0.19) then
-           msgd=oddcopy(i)%msg
-           lsd=.true.
-           isd=i
-           if(msgd(1:3).eq.'CQ ' .or. msgd(1:3).eq.'DE ' .or.                &
-                msgd(1:4).eq.'QRZ ') lcq=.true.
-        endif
-     enddo
-  endif
+  call get_ft8_period_hint(logical(levenint),logical(loddint),f1,xdt,period_hint)
+  lsd=period_hint%valid
+  lcq=period_hint%cq
+  msgd=period_hint%message
 
   if(lsd .and. nqso.eq.1) nqso=4
 
@@ -698,11 +678,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         if(iqso.eq.4 .and. .not.ldeepsync) go to 64
         call ft8sd1var(s8,itone,msgd,msg37,lft8sd,lcq,codec)
         if(lft8sd) then
-           if(levenint) then
-              evencopy(isd)%lstate=.false.
-           elseif(loddint) then
-              oddcopy(isd)%lstate=.false.
-           endif
+           call retire_ft8_period_hint(period_hint)
            i3=1
            n3=1
            iaptype2=iaptype
@@ -716,11 +692,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
            if(.not.lcq) then
               call ft8mf1var(s8,itone,msgd,msg37,lft8sd)
               if(lft8sd) then
-                 if(levenint) then
-                    evencopy(isd)%lstate=.false.
-                 elseif(loddint) then
-                    oddcopy(isd)%lstate=.false.
-                 endif
+                 call retire_ft8_period_hint(period_hint)
                  i3=1
                  n3=1
                  iaptype2=iaptype
@@ -732,11 +704,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
            else
               call ft8mfcqvar(s8,itone,msgd,msg37,lft8sd,codec)
               if(lft8sd) then
-                 if(levenint) then
-                    evencopy(isd)%lstate=.false.
-                 elseif(loddint) then
-                    oddcopy(isd)%lstate=.false.
-                 endif
+                 call retire_ft8_period_hint(period_hint)
                  i3=1
                  n3=1
                  iaptype2=iaptype
@@ -2161,11 +2129,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
               if(lsd .and. isubp2.eq.3 .and. nbadcrc.eq.1 .and. srr.lt.7.0) then ! low DR setups shall not try FT8SDvar for strong signals
                  call ft8sdvar(s8,srr,itone,msgd,msg37,lft8sd,lcq,codec)
                  if(lft8sd) then
-                    if(levenint) then
-                       evencopy(isd)%lstate=.false.
-                    elseif(loddint) then
-                       oddcopy(isd)%lstate=.false.
-                    endif
+                    call retire_ft8_period_hint(period_hint)
                     i3=1
                     n3=1
                     iaptype2=iaptype

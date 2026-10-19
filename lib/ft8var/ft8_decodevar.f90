@@ -68,7 +68,7 @@ contains
     use decode_completion_module, only : write_decode_progress
 
     use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
-         lastrxmsg,calldteven,calldtodd,incall,oddcopy,evencopy,                &
+         lastrxmsg,calldteven,calldtodd,incall,ft8_period_hint,get_ft8_bootstrap_hint,                &
          avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
          evenqso,oddqso,ft8_qso_hints_suppressed,hisgrid4
@@ -104,6 +104,7 @@ contains
     character*37 msgsrcvd(130)
     integer nsnr
     type(pack77_state), pointer :: codec
+    type(ft8_period_hint) :: bootstrap_hint
     type(ft8_signal_evidence) :: evidence
 
     type oddtmp_struct
@@ -182,27 +183,11 @@ contains
 
        if(.not.lastrxmsg(1)%lstate) then
 ! calling someone, lastrxmsg still not valid
-          if(levenint) then
-             do i=1,130
-                if(.not.evencopy(i)%lstate) cycle
-                if(index(evencopy(i)%msg,' '//trim(hiscall)//' ').gt.1) then
-                   lastrxmsg(1)%lastmsg=evencopy(i)%msg
-                   lastrxmsg(1)%xdt=evencopy(i)%dt
-                   lastrxmsg(1)%lstate=.true.
-                   exit
-                endif
-             enddo
-
-          elseif(loddint) then
-             do i=1,130
-                if(.not.oddcopy(i)%lstate) cycle
-                if(index(oddcopy(i)%msg,' '//trim(hiscall)//' ').gt.1) then
-                   lastrxmsg(1)%lastmsg=oddcopy(i)%msg
-                   lastrxmsg(1)%xdt=oddcopy(i)%dt
-                   lastrxmsg(1)%lstate=.true.
-                   exit
-                endif
-             enddo
+          call get_ft8_bootstrap_hint(hiscall,logical(levenint),logical(loddint),bootstrap_hint)
+          if(bootstrap_hint%valid) then
+             lastrxmsg(1)%lastmsg=bootstrap_hint%message
+             lastrxmsg(1)%xdt=bootstrap_hint%dt
+             lastrxmsg(1)%lstate=.true.
           endif
        endif
     endif

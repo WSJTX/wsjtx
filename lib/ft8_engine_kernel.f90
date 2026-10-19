@@ -16,7 +16,7 @@ module ft8_engine_kernel
        set_decode_completion,write_decode_progress
   use sfrx_engine, only: sfrx_decode
   use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,mycall12_0,         &
-       mycall12_00,hiscall12_0,nmsg,odd,even,oddcopy,evencopy,nlasttx,          &
+       mycall12_00,hiscall12_0,nmsg,odd,even,prepare_ft8_hint_history,nlasttx,          &
        begin_ft8_qso_attempt,suppress_ft8_qso_hints,mycalllen1,msgroot,msgrootlen,lapmyc,sumxdtt,avexdt,          &
        nfawide,nfbwide,mycall,hiscall,lhound,mybcall,hisbcall,lenabledxcsearch, &
        lwidedxcsearch,hisgrid4,lmultinst,dd8,nft8cycles,lskiptx1,ncandallthr,   &
@@ -372,35 +372,13 @@ contains
 
            nsec=mod(nutc,100)
            nmsg=0
-           if(nsec.ne.0 .and. nsec.ne.15 .and. nsec.ne.30 .and. nsec.ne.45) then
-! Reading simulated wav file
-              odd%lstate=.false.
-              even%lstate=.false.
-              oddcopy%lstate=.false.
-              evencopy%lstate=.false.
-           endif
-
            if(firstsd) then
               odd%lstate=.false.
               even%lstate=.false.
               firstsd=.false.
            endif
 
-           if(nsec.eq.0 .or. nsec.eq.30) then
-              evencopy%msg=even%msg
-              evencopy%freq=even%freq
-              evencopy%dt=even%dt
-              evencopy%lstate=even%lstate
-              even%lstate=.false.
-           endif
-
-           if(nsec.eq.15 .or. nsec.eq.45) then
-              oddcopy%msg=odd%msg
-              oddcopy%freq=odd%freq
-              oddcopy%dt=odd%dt
-              oddcopy%lstate=odd%lstate
-              odd%lstate=.false.
-           endif
+           call prepare_ft8_hint_history(nsec)
 
            nlasttx=params%nlasttx
            lapmyc=params%lapmyc

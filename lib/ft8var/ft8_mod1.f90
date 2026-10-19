@@ -128,22 +128,20 @@ module ft8_mod1
   end type even_struct
   type(even_struct) even(130)
 
-  type oddcopy_struct
-     real freq
-     real dt
-     logical lstate
-     character*37 msg
-  end type oddcopy_struct
-  type(oddcopy_struct) oddcopy(130)
+  type, private :: ft8_hint_record
+     real :: freq=0.,dt=0.
+     logical :: lstate=.false.
+     character(len=37) :: msg=''
+  end type ft8_hint_record
+  type(ft8_hint_record), private, target :: oddcopy(130),evencopy(130)
 
-  type evencopy_struct
-     real freq
-     real dt
-     logical lstate
-     character*37 msg
-  end type evencopy_struct
-  type(evencopy_struct) evencopy(130)
-  
+  type ft8_period_hint
+     logical :: valid=.false.,cq=.false.
+     integer :: parity=0,index=0
+     real :: frequency=0.,dt=0.
+     character(len=37) :: message=''
+  end type ft8_period_hint
+
   type lastrxmsg_struct
      real xdt
      logical lstate
@@ -213,6 +211,10 @@ module ft8_mod1
   type(oddqso_struct) oddqso(1,nmaxthreads)
 
   interface
+     subroutine wsjt_tsan_acquire_ft8_hint_state() bind(C)
+     end subroutine wsjt_tsan_acquire_ft8_hint_state
+     subroutine wsjt_tsan_release_ft8_hint_state() bind(C)
+     end subroutine wsjt_tsan_release_ft8_hint_state
      subroutine wsjt_tsan_acquire_ft8_qso_state() bind(C)
      end subroutine wsjt_tsan_acquire_ft8_qso_state
      subroutine wsjt_tsan_release_ft8_qso_state() bind(C)
@@ -251,6 +253,126 @@ contains
     call wsjt_tsan_release_ft8_qso_state()
 !$omp end critical(ft8_qso_state)
   end subroutine suppress_ft8_qso_hints
+
+  subroutine clear_ft8_hint_history()
+!$omp critical(ft8_hint_state)
+    call wsjt_tsan_acquire_ft8_hint_state()
+    evencopy=ft8_hint_record()
+    oddcopy=ft8_hint_record()
+    call wsjt_tsan_release_ft8_hint_state()
+!$omp end critical(ft8_hint_state)
+  end subroutine clear_ft8_hint_history
+
+  ! Period rollover runs before workers start; copied records then stay immutable.
+  subroutine prepare_ft8_hint_history(nsec)
+    integer, intent(in) :: nsec
+
+!$omp critical(ft8_hint_state)
+    call wsjt_tsan_acquire_ft8_hint_state()
+    select case(nsec)
+    case(0,30)
+       evencopy%msg=even%msg
+       evencopy%freq=even%freq
+       evencopy%dt=even%dt
+       evencopy%lstate=even%lstate
+       even%lstate=.false.
+    case(15,45)
+       oddcopy%msg=odd%msg
+       oddcopy%freq=odd%freq
+       oddcopy%dt=odd%dt
+       oddcopy%lstate=odd%lstate
+       odd%lstate=.false.
+    case default
+       even%lstate=.false.
+       odd%lstate=.false.
+       evencopy%lstate=.false.
+       oddcopy%lstate=.false.
+    end select
+    call wsjt_tsan_release_ft8_hint_state()
+!$omp end critical(ft8_hint_state)
+  end subroutine prepare_ft8_hint_history
+
+  subroutine get_ft8_period_hint(even_interval,odd_interval,frequency,dt,hint)
+    logical, intent(in) :: even_interval,odd_interval
+    real, intent(in) :: frequency,dt
+    type(ft8_period_hint), intent(out) :: hint
+    type(ft8_hint_record), pointer :: history(:)
+    integer :: i,parity
+
+    hint=ft8_period_hint()
+    if(even_interval) then
+       history=>evencopy
+       parity=1
+    else if(odd_interval) then
+       history=>oddcopy
+       parity=2
+    else
+       return
+    endif
+!$omp critical(ft8_hint_state)
+    call wsjt_tsan_acquire_ft8_hint_state()
+    do i=1,size(history)
+       if(.not.history(i)%lstate) cycle
+       if(.not.(abs(history(i)%freq-frequency).lt.3.0 .and. abs(history(i)%dt-dt).lt.0.19)) cycle
+       hint%valid=.true.
+       hint%parity=parity
+       hint%index=i
+       hint%message=history(i)%msg
+       hint%frequency=history(i)%freq
+       hint%dt=history(i)%dt
+       if(hint%message(1:3).eq.'CQ ' .or. hint%message(1:3).eq.'DE ' .or. &
+            hint%message(1:4).eq.'QRZ ') hint%cq=.true.
+    enddo
+    call wsjt_tsan_release_ft8_hint_state()
+!$omp end critical(ft8_hint_state)
+  end subroutine get_ft8_period_hint
+
+  subroutine get_ft8_bootstrap_hint(partner,even_interval,odd_interval,hint)
+    character(len=*), intent(in) :: partner
+    logical, intent(in) :: even_interval,odd_interval
+    type(ft8_period_hint), intent(out) :: hint
+    type(ft8_hint_record), pointer :: history(:)
+    integer :: i,parity
+
+    hint=ft8_period_hint()
+    if(even_interval) then
+       history=>evencopy
+       parity=1
+    else if(odd_interval) then
+       history=>oddcopy
+       parity=2
+    else
+       return
+    endif
+!$omp critical(ft8_hint_state)
+    call wsjt_tsan_acquire_ft8_hint_state()
+    do i=1,size(history)
+       if(.not.history(i)%lstate) cycle
+       if(index(history(i)%msg,' '//trim(partner)//' ').le.1) cycle
+       hint%valid=.true.
+       hint%parity=parity
+       hint%index=i
+       hint%message=history(i)%msg
+       hint%frequency=history(i)%freq
+       hint%dt=history(i)%dt
+       exit
+    enddo
+    call wsjt_tsan_release_ft8_hint_state()
+!$omp end critical(ft8_hint_state)
+  end subroutine get_ft8_bootstrap_hint
+
+  ! Retiring eligibility does not cancel trials that already captured this hint.
+  subroutine retire_ft8_period_hint(hint)
+    type(ft8_period_hint), intent(in) :: hint
+
+    if(.not.hint%valid .or. hint%index.lt.1 .or. hint%index.gt.size(evencopy)) return
+!$omp critical(ft8_hint_state)
+    call wsjt_tsan_acquire_ft8_hint_state()
+    if(hint%parity.eq.1) evencopy(hint%index)%lstate=.false.
+    if(hint%parity.eq.2) oddcopy(hint%index)%lstate=.false.
+    call wsjt_tsan_release_ft8_hint_state()
+!$omp end critical(ft8_hint_state)
+  end subroutine retire_ft8_period_hint
 
   logical function ft8_message_seen(message,frequency) result(seen)
     implicit none
@@ -320,12 +442,9 @@ contains
     lastrxmsg%xdt=0.
     odd%lstate=.false.
     even%lstate=.false.
-    oddcopy%lstate=.false.
-    evencopy%lstate=.false.
+    call clear_ft8_hint_history()
     odd%msg=''
     even%msg=''
-    oddcopy%msg=''
-    evencopy%msg=''
     calldteven%call2=''
     calldtodd%call2=''
     calldteven%dt=0.

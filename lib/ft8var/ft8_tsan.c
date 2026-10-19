@@ -30,3 +30,4 @@ WSJT_TSAN_SYNC(decoder_section_secondary)
 WSJT_TSAN_SYNC(msk40_sync)
 
 WSJT_TSAN_SYNC(ft8_qso_state)
+WSJT_TSAN_SYNC(ft8_hint_state)

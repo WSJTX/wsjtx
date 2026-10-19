@@ -4,7 +4,7 @@ module ft8_decode_state_test_controls
   ! Direct global controls avoid libgomp's captured stack environment in TSan tests.
   integer, save :: started,reader_ready,checkpoint,checkpoint_seen,finished, &
        reader_finished,reads
-  logical, save :: torn_pair,torn_history,qso_failure
+  logical, save :: torn_pair,torn_history,qso_failure,torn_hint
 end module ft8_decode_state_test_controls
 
 program test_ft8_mtd_decode_state_concurrent
@@ -12,7 +12,9 @@ program test_ft8_mtd_decode_state_concurrent
   use ft8_decode_state_test_controls
   use ft8_mod1, only : allmessages,allfreq,ndecodes,ft8_message_seen, &
        calldteven,calldtodd,ft8_lookup_call_dt,begin_ft8_qso_attempt, &
-       ft8_qso_hints_suppressed,suppress_ft8_qso_hints
+       ft8_qso_hints_suppressed,suppress_ft8_qso_hints,even,odd,ft8_period_hint, &
+       get_ft8_period_hint,get_ft8_bootstrap_hint,retire_ft8_period_hint, &
+       prepare_ft8_hint_history,clear_ft8_hint_history
   implicit none
 
   interface
@@ -29,6 +31,9 @@ program test_ft8_mtd_decode_state_concurrent
   call test_coherent_history_queries()
   call test_qso_suppression()
   call test_concurrent_qso_suppression()
+  call test_period_hints()
+  call test_bootstrap_hints()
+  call test_concurrent_hint_retirement()
 
 contains
 
@@ -432,5 +437,245 @@ contains
     if(reads.lt.minimum_reads) error stop 'QSO suppression reader did not finish'
     if(.not.ft8_qso_hints_suppressed()) error stop 'QSO suppression was lost after workers joined'
   end subroutine test_concurrent_qso_suppression
+
+  subroutine seed_period_hint(parity,entry,message,frequency,dt)
+    integer, intent(in) :: parity,entry
+    character(len=*), intent(in) :: message
+    real, intent(in) :: frequency,dt
+
+    if(parity.eq.1) then
+       even(entry)%msg=message
+       even(entry)%freq=frequency
+       even(entry)%dt=dt
+       even(entry)%lstate=.true.
+    else
+       odd(entry)%msg=message
+       odd(entry)%freq=frequency
+       odd(entry)%dt=dt
+       odd(entry)%lstate=.true.
+    endif
+  end subroutine seed_period_hint
+
+  subroutine test_period_hints()
+    type(ft8_period_hint) :: hint,captured
+    integer :: parity
+
+    call clear_ft8_hint_history()
+    call get_ft8_period_hint(.true.,.false.,1000.,0.,hint)
+    if(hint%valid) error stop 'empty period history returned a hint'
+    do parity=1,2
+       even%lstate=.false.
+       odd%lstate=.false.
+       call seed_period_hint(parity,1,'CQ K1JT FN20',1000.,0.)
+       call seed_period_hint(parity,2,'DE W1ABC FN42',1000.,0.)
+       call seed_period_hint(parity,3,'QRZ W9XYZ EN37',1000.,0.)
+       call seed_period_hint(parity,4,'K1ABC W9XYZ -10',1002.,0.125)
+       call prepare_ft8_hint_history(15*(parity-1))
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1000.,0.,hint)
+       if(.not.hint%valid.or.hint%index.ne.4.or.hint%parity.ne.parity) error stop &
+            'period lookup did not select the last eligible match'
+       if(hint%message.ne.'K1ABC W9XYZ -10'.or.hint%frequency.ne.1002..or. &
+            hint%dt.ne.0.125.or..not.hint%cq) error stop &
+            'period lookup lost the selected tuple or accumulated CQ classification'
+       captured=hint
+       call retire_ft8_period_hint(hint)
+       call retire_ft8_period_hint(hint)
+       if(.not.captured%valid.or.captured%message.ne.'K1ABC W9XYZ -10') error stop &
+            'retirement changed a previously captured hint'
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1000.,0.,hint)
+       if(.not.hint%valid.or.hint%index.ne.3.or..not.hint%cq) error stop &
+            'retirement did not expose the preceding eligible hint'
+       call retire_ft8_period_hint(hint)
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1000.,0.,hint)
+       if(.not.hint%valid.or.hint%index.ne.2.or..not.hint%cq) error stop 'DE hint was missed'
+       call retire_ft8_period_hint(hint)
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1000.,0.,hint)
+       if(.not.hint%valid.or.hint%index.ne.1.or..not.hint%cq) error stop 'CQ hint was missed'
+       call retire_ft8_period_hint(hint)
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1000.,0.,hint)
+       if(hint%valid) error stop 'retired history still returned a hint'
+
+       call seed_period_hint(parity,1,'K1ABC W9XYZ -10',1000.,0.)
+       call prepare_ft8_hint_history(15*(parity-1))
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1002.875,0.1875,hint)
+       if(.not.hint%valid.or.hint%cq) error stop 'an eligible non-CQ hint was missed'
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1003.,0.,hint)
+       if(hint%valid) error stop 'the upper 3 Hz period boundary was included'
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,997.,0.,hint)
+       if(hint%valid) error stop 'the lower 3 Hz period boundary was included'
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1000.,0.19,hint)
+       if(hint%valid) error stop 'the upper period DT boundary was included'
+       call get_ft8_period_hint(parity.eq.1,parity.eq.2,1000.,-0.19,hint)
+       if(hint%valid) error stop 'the lower period DT boundary was included'
+    enddo
+
+    call clear_ft8_hint_history()
+    call seed_period_hint(1,1,'CQ K1JT FN20',1000.,0.)
+    call seed_period_hint(2,1,'CQ W9XYZ EN37',1000.,0.)
+    call prepare_ft8_hint_history(0)
+    call prepare_ft8_hint_history(15)
+    call get_ft8_period_hint(.true.,.true.,1000.,0.,hint)
+    if(.not.hint%valid.or.hint%parity.ne.1) error stop 'even period precedence was lost'
+    call retire_ft8_period_hint(hint)
+    call get_ft8_period_hint(.true.,.true.,1000.,0.,hint)
+    if(hint%valid) error stop 'an even-period miss incorrectly fell back to odd history'
+    call get_ft8_period_hint(.false.,.false.,1000.,0.,hint)
+    if(hint%valid) error stop 'a hint was returned without an active period'
+    call prepare_ft8_hint_history(-1)
+    call get_ft8_period_hint(.false.,.true.,1000.,0.,hint)
+    if(hint%valid) error stop 'an invalid period retained copied hints'
+    if(any(even%lstate).or.any(odd%lstate)) error stop 'an invalid period retained source hints'
+  end subroutine test_period_hints
+
+  subroutine test_bootstrap_hints()
+    type(ft8_period_hint) :: hint
+    integer :: parity
+
+    call clear_ft8_hint_history()
+    do parity=1,2
+       even%lstate=.false.
+       odd%lstate=.false.
+       call seed_period_hint(parity,1,' W9XYZ -10',900.,-0.25)
+       call seed_period_hint(parity,2,'K1ABC W9XYZ -10',1000.,0.25)
+       call seed_period_hint(parity,3,'K1ABC W9XYZ R-10',1100.,0.5)
+       call prepare_ft8_hint_history(15*(parity-1))
+       call get_ft8_bootstrap_hint('W9XYZ',parity.eq.1,parity.eq.2,hint)
+       if(.not.hint%valid.or.hint%index.ne.2.or.hint%frequency.ne.1000..or. &
+            hint%dt.ne.0.25.or.hint%message.ne.'K1ABC W9XYZ -10') error stop &
+            'bootstrap did not select the first eligible interior callsign match'
+       call retire_ft8_period_hint(hint)
+       call get_ft8_bootstrap_hint('W9XYZ',parity.eq.1,parity.eq.2,hint)
+       if(.not.hint%valid.or.hint%index.ne.3) error stop 'bootstrap reused a retired hint'
+       call get_ft8_bootstrap_hint('W9XY',parity.eq.1,parity.eq.2,hint)
+       if(hint%valid) error stop 'bootstrap accepted a partial callsign'
+       call seed_period_hint(parity,1,'CQ W9XYZ EN37',900.,-0.25)
+       call prepare_ft8_hint_history(15*(parity-1))
+       call get_ft8_bootstrap_hint('W9XYZ',parity.eq.1,parity.eq.2,hint)
+       if(.not.hint%valid.or.hint%index.ne.1) error stop 'bootstrap excluded the first history entry'
+    enddo
+    call clear_ft8_hint_history()
+    call get_ft8_bootstrap_hint('W9XYZ',.true.,.false.,hint)
+    if(hint%valid) error stop 'cleared history retained a bootstrap hint'
+  end subroutine test_bootstrap_hints
+
+  subroutine test_concurrent_hint_retirement()
+    integer, parameter :: writer_iterations=20000,minimum_reads=40000
+    integer :: worker,iteration,status,checkpoint_status,entry
+    character(len=37) :: message
+    type(ft8_period_hint) :: hint
+
+    call clear_ft8_hint_history()
+    even%lstate=.false.
+    odd%lstate=.false.
+    call seed_period_hint(1,1,'CQ K1JT FN20',1000.+1./1024.,1./1024.)
+    do entry=2,130
+       write(message,'(a,i3)') 'K1ABC W9XYZ ',entry
+       call seed_period_hint(1,entry,message,1000.+real(entry)/1024.,real(entry)/1024.)
+    enddo
+    call prepare_ft8_hint_history(0)
+!$omp atomic write seq_cst
+    started=0
+!$omp atomic write seq_cst
+    reader_ready=0
+!$omp atomic write seq_cst
+    checkpoint=0
+!$omp atomic write seq_cst
+    checkpoint_seen=0
+!$omp atomic write seq_cst
+    finished=0
+!$omp atomic write seq_cst
+    reader_finished=0
+    reads=0
+    torn_hint=.false.
+
+!$omp parallel num_threads(2) private(worker,iteration,status,checkpoint_status,hint)
+    if(omp_get_num_threads().ne.2) error stop 'two OpenMP workers are required for period hints'
+    worker=omp_get_thread_num()
+    if(worker.eq.0) then
+!$omp atomic write seq_cst
+       started=1
+       do
+!$omp atomic read seq_cst
+          status=reader_ready
+          if(status.eq.1) exit
+       enddo
+       call get_ft8_period_hint(.true.,.false.,1000.,0.,hint)
+       do iteration=1,writer_iterations
+          hint%index=130-mod(iteration-1,129)
+          call retire_ft8_period_hint(hint)
+          if(iteration.eq.writer_iterations/2) then
+!$omp atomic write seq_cst
+             checkpoint=1
+             do
+!$omp atomic read seq_cst
+                status=checkpoint_seen
+                if(status.eq.1) exit
+             enddo
+          endif
+       enddo
+!$omp atomic write seq_cst
+       finished=1
+       do
+!$omp atomic read seq_cst
+          status=reader_finished
+          if(status.eq.1) exit
+       enddo
+    else
+       do
+!$omp atomic read seq_cst
+          status=started
+          if(status.eq.1) exit
+       enddo
+       call check_period_hint(torn_hint)
+       reads=reads+1
+!$omp atomic write seq_cst
+       reader_ready=1
+       do
+!$omp atomic read seq_cst
+          checkpoint_status=checkpoint
+          call check_period_hint(torn_hint)
+          reads=reads+1
+          if(checkpoint_status.eq.1) then
+!$omp atomic write seq_cst
+             checkpoint_seen=1
+          endif
+!$omp atomic read seq_cst
+          status=finished
+          if(status.eq.1.and.reads.ge.minimum_reads) exit
+       enddo
+!$omp atomic write seq_cst
+       reader_finished=1
+    endif
+!$omp end parallel
+
+    if(torn_hint) error stop 'period reader observed an inconsistent captured hint'
+    if(checkpoint_seen.ne.1) error stop 'period reader did not overlap retirement'
+    if(reads.lt.minimum_reads) error stop 'period hint reader did not finish'
+    call get_ft8_period_hint(.true.,.false.,1000.,0.,hint)
+    if(.not.hint%valid.or.hint%index.ne.1) error stop 'retirement lost the remaining hint'
+    call retire_ft8_period_hint(hint)
+    call get_ft8_period_hint(.true.,.false.,1000.,0.,hint)
+    if(hint%valid) error stop 'the final retired hint remained eligible'
+  end subroutine test_concurrent_hint_retirement
+
+  subroutine check_period_hint(torn_hint)
+    logical, intent(inout) :: torn_hint
+    type(ft8_period_hint) :: hint
+    character(len=37) :: expected_message
+
+    call get_ft8_period_hint(.true.,.false.,1000.,0.,hint)
+    if(.not.hint%valid.or.hint%parity.ne.1.or.hint%index.lt.1.or.hint%index.gt.130) then
+       torn_hint=.true.
+       return
+    endif
+    if(hint%index.eq.1) then
+       expected_message='CQ K1JT FN20'
+    else
+       write(expected_message,'(a,i3)') 'K1ABC W9XYZ ',hint%index
+    endif
+    if(hint%message.ne.expected_message.or..not.hint%cq.or. &
+         hint%frequency.ne.1000.+real(hint%index)/1024..or.hint%dt.ne.real(hint%index)/1024.) &
+         torn_hint=.true.
+  end subroutine check_period_hint
 
 end program test_ft8_mtd_decode_state_concurrent
