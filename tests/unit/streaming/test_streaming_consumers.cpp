@@ -430,6 +430,11 @@ bool rangeTests ()
   return !qEnvironmentVariableIsEmpty ("WSJT_STREAM_RANGE_TESTS");
 }
 
+bool readTests ()
+{
+  return !qEnvironmentVariableIsEmpty ("WSJT_STREAM_READ_TESTS");
+}
+
 // The session: frames, then a recording's audio in one-second frames.
 ProcessResult runRecording (QString const& path, QByteArray const& frames,
                             QStringList options = {})
@@ -849,6 +854,27 @@ private slots:
     auto const result = runJt9 (sessionHeader () + declaredFrame (type, length));
     verifyCompleted (result, exitCode);
     QCOMPARE (streamOutput (result), ndjson ({ReadyLine}) + lines);
+  }
+
+  void wsjtCodecExitsWithItsInputOpen_data ()
+  {
+    QTest::addColumn<QByteArray> ("input");
+    QTest::addColumn<int> ("exitCode");
+    QTest::newRow ("halt") << QByteArray {sessionHeader () + controlFrame (R"({"t":"halt"})")} << 0;
+    QTest::newRow ("frame too large")
+      << QByteArray {sessionHeader () + declaredFrame (0x01u, Jt9AudioCapacityBytes + 2u)} << 1;
+  }
+
+  // The stream exits while its reader waits on input the producer holds open.
+  void wsjtCodecExitsWithItsInputOpen ()
+  {
+    QFETCH (QByteArray, input);
+    QFETCH (int, exitCode);
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path (), 10000, false);
+    verifyCompleted (result, exitCode);
   }
 
   // halt decodes the period in flight once and reads nothing after it.
@@ -1515,6 +1541,33 @@ private slots:
     QCOMPARE (streamed, expected);
   }
 
+  // Each period is a new decoder input, as in the GUI: a period whose only FT8
+  // pass is its final decodes its own audio, not what the last one left, also
+  // when the producer sends the time only once.
+  void aFinalAloneDecodesItsOwnPeriod ()
+  {
+    auto const samples = wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 15 * 12000);
+    QCOMPARE (samples.size (), 2 * 15 * 12000);
+    auto const audio = frame (0x01u, samples);
+    auto const result = runJt9 (sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"},
+        {"depth", 3}, {"contest_type", "fox"}, {"superfox_mode", true}, {"even_sequence", false},
+        {"live_audio", true}}) + audio
+      // Live, SuperFox's even sequence runs only the final.
+      + configureFrame ({{"even_sequence", true}}) + audio, {}, 120000);
+    verifyCompleted (result, 0);
+    QStringList ran;
+    for (auto const& pass : passes (result.standardError)) ran << QString::number (pass.nzhsym);
+    QCOMPARE (ran.join (' '), QString {"41 47 50 50"});
+    auto const periods = decodesByPeriod (verifyEvents (result).values);
+    QCOMPARE (periods.size (), 2);
+    for (auto const& decodes : periods)
+      {
+        QCOMPARE (decodes.size (), 1);
+        QCOMPARE (decodes.first ().value ("message").toString ().trimmed (), QString {"CQ K1JT FN20"});
+        QCOMPARE (decodes.first ().value ("time").toString (), QString {"051115"});
+      }
+  }
+
   void decodeAgainDecodesAtTheRxFrequency_data ()
   {
     QTest::addColumn<QJsonObject> ("first");
@@ -2099,6 +2152,61 @@ private slots:
     // One decode_finished for a decoded period, live or not.
     auto const all = verifyEvents (session.result);
     QCOMPARE (eventsMatching (all.values, "decode_finished").size (), finished);
+  }
+
+  // A producer's writes drain while a long decode runs.
+  void wsjtCodecReadsWhileItDecodes ()
+  {
+    if (!readTests ()) QSKIP ("run by test_streaming_reads_while_decoding");
+    auto const audio = wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 15 * 12000);
+    QCOMPARE (audio.size (), 2 * 15 * 12000);
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    QProcess process;
+    process.setProcessChannelMode (QProcess::SeparateChannels);
+    process.setWorkingDirectory (directory.path ());
+    process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+                   {"-a", directory.path (), "-t", directory.path (), "--stream"});
+    QVERIFY (process.waitForStarted (5000));
+    process.write (sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}, {"depth", 3},
+      {"multithreaded_ft8", true}, {"ft8_threads", 2}, {"ft8_decoder_start", 1}}) + frame (0x01u, audio));
+    QByteArray output, error;
+    auto const finished = [&output] { return output.contains (R"("t":"decode_finished")"); };
+    // Sanitizer builds raise QtTest's limit for their slower decodes.
+    auto const limitMs = qEnvironmentVariableIsSet ("QTEST_FUNCTION_TIMEOUT")
+      ? qEnvironmentVariableIntValue ("QTEST_FUNCTION_TIMEOUT") : 120000;
+    QElapsedTimer timer;
+    timer.start ();
+    while (!error.contains ("multithreaded=T") && timer.elapsed () < limitMs
+           && process.state () == QProcess::Running)
+      {
+        if (process.bytesToWrite () > 0) process.waitForBytesWritten (20);
+        process.waitForReadyRead (20);
+        QCoreApplication::processEvents ();
+        output += process.readAllStandardOutput ();
+        error += process.readAllStandardError ();
+      }
+    QVERIFY2 (error.contains ("multithreaded=T"), error.constData ());
+    QVERIFY2 (!finished (), output.constData ());
+    // The multithreaded final is running: 4 MiB in a frame the stream skips.
+    process.write (frame (0x7fu, QByteArray (4 << 20, '\0')));
+    bool drained = false;
+    while (!finished () && timer.elapsed () < limitMs && process.state () == QProcess::Running)
+      {
+        if (process.bytesToWrite () > 0) process.waitForBytesWritten (20);
+        else process.waitForReadyRead (20);
+        drained = drained || process.bytesToWrite () == 0;
+        QCoreApplication::processEvents ();
+        output += process.readAllStandardOutput ();
+        error += process.readAllStandardError ();
+      }
+    QVERIFY2 (finished (), error.constData ());
+    QVERIFY2 (drained, qPrintable (QString {"%1 bytes still to write when the decode finished"}
+                                   .arg (process.bytesToWrite ())));
+    process.closeWriteChannel ();
+    QVERIFY (process.waitForFinished (limitMs));
+    QCOMPARE (process.exitStatus (), QProcess::NormalExit);
+    QCOMPARE (process.exitCode (), 0);
   }
 
   // The GUI's EME delay is 2.5 s with "Decode after EME delay", in every mode,

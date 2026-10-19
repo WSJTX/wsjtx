@@ -77,6 +77,42 @@ set_tests_properties (test_streaming_configure_ranges PROPERTIES
   FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
   TIMEOUT ${streaming_range_timeout})
 
+# A producer's writes while a multithreaded decode runs.
+set (streaming_read_environment "WSJT_STREAM_READ_TESTS=1")
+set (streaming_read_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_read_timeout 1200)
+  list (APPEND streaming_read_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_read_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+add_test (NAME test_streaming_reads_while_decoding
+  COMMAND test_streaming_consumers wsjtCodecReadsWhileItDecodes)
+set_tests_properties (test_streaming_reads_while_decoding PROPERTIES
+  LABELS "streaming;runtime"
+  ENVIRONMENT "${streaming_read_environment}"
+  FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
+  PROCESSORS 2
+  TIMEOUT ${streaming_read_timeout})
+
+# The codec's stdin reader over a pipe on fd 0, which these platforms redirect in-process.
+if (UNIX)
+  find_package (Threads REQUIRED)
+  add_executable (test_stream_stdin test_stream_stdin.c ${CMAKE_SOURCE_DIR}/lib/stream_stdin.c)
+  target_link_libraries (test_stream_stdin Threads::Threads)
+  add_test (NAME test_stream_stdin COMMAND test_stream_stdin)
+  set_tests_properties (test_stream_stdin PROPERTIES LABELS "streaming" TIMEOUT 60)
+  # The reader with its allocations or its thread start failing.
+  add_executable (test_stream_stdin_failures test_stream_stdin_failures.c)
+  target_include_directories (test_stream_stdin_failures PRIVATE ${CMAKE_SOURCE_DIR}/lib)
+  target_link_libraries (test_stream_stdin_failures Threads::Threads)
+  foreach (failure memory thread drained)
+    add_test (NAME test_stream_stdin_${failure} COMMAND test_stream_stdin_failures ${failure})
+    set_tests_properties (test_stream_stdin_${failure} PROPERTIES LABELS "streaming" TIMEOUT 60)
+  endforeach ()
+endif ()
+
 # Source archives omit samples/.
 if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
   set (streaming_mtd_environment
@@ -104,6 +140,61 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
     ENVIRONMENT "${streaming_mtd_environment}"
     PROCESSORS 4
     TIMEOUT ${streaming_mtd_timeout})
+endif ()
+
+# Live audio that falls behind: each row stalls until its audio is late (the
+# longest row runs about 110 s), then sends audio while a decode runs, and
+# checks the passes against the GUI: its scheduler for multithreaded FT8, its
+# drop for the other modes, and no refusal for MSK144.
+add_executable (test_streaming_backlog test_streaming_backlog.cpp
+  ${CMAKE_SOURCE_DIR}/Ft8MtdDecodeScheduler.cpp)
+target_include_directories (test_streaming_backlog PRIVATE ${CMAKE_SOURCE_DIR})
+add_dependencies (test_streaming_backlog wsjt-codec test_decoder_engine)
+target_link_libraries (test_streaming_backlog Qt5::Test)
+target_compile_definitions (test_streaming_backlog PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>")
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
+    AND EXISTS "${CMAKE_SOURCE_DIR}/samples/FT4/000000_000002.wav"
+    AND EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav")
+  set (streaming_backlog_environment
+    "WSJT_FT8_SAMPLE_WAV=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
+    "WSJT_FT8_ENGINE_WAV=${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav"
+    "WSJT_FT4_SAMPLE_WAV=${CMAKE_SOURCE_DIR}/samples/FT4/000000_000002.wav"
+    "WSJT_MSK144_SAMPLE_WAV=${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav"
+    "OMP_STACKSIZE=16M")
+  set (streaming_backlog_rows
+    mtdBehindOnePeriodSkipsAndDefers mtdRunsEveryPassWhenFree mtdFromAFileNeverSkips
+    mtdBehindTwoPeriodsReplacesTheFinal mtdFinalDuringItsProbeBacksOff mtdRecoveryRestartsTheBackoff
+    mtdCancelDropsTheDeferredFinal houndDropsTheFinalWhileBusy
+    standardFt8DropsPassesWhileBusy standardFt8RunsPassesWhenFree
+    ft4DropsTheDecodeWhileBusy ft4DecodesWhenFree
+    decodeAgainRefusedWhileBusy decodeAgainRunsWhenFree msk144NeverRefused)
+  set (streaming_backlog_timeout 300)
+  # The rows wait in real time; sanitizer builds, with slower decodes, run one row (ASan) or two (TSan).
+  if (WSJT_ENABLE_TSAN)
+    set (streaming_backlog_rows ft4DropsTheDecodeWhileBusy mtdBehindTwoPeriodsReplacesTheFinal)
+  elseif (WSJT_ENABLE_ASAN_UBSAN)
+    set (streaming_backlog_rows ft4DropsTheDecodeWhileBusy)
+  endif ()
+  if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+    set (streaming_backlog_timeout 1200)
+    list (APPEND streaming_backlog_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+  endif ()
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND streaming_backlog_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+  endif ()
+  foreach (row IN LISTS streaming_backlog_rows)
+    add_test (NAME test_streaming_backlog_${row} COMMAND test_streaming_backlog ${row})
+    set_tests_properties (test_streaming_backlog_${row} PROPERTIES
+      LABELS "streaming;runtime"
+      ENVIRONMENT "${streaming_backlog_environment}"
+      FIXTURES_REQUIRED ft8_engine_wav
+      TIMEOUT ${streaming_backlog_timeout})
+    # The multithreaded decoder runs two threads.
+    if (row MATCHES "^mtd")
+      set_tests_properties (test_streaming_backlog_${row} PROPERTIES PROCESSORS 2)
+    endif ()
+  endforeach ()
 endif ()
 
 add_executable (test_streaming_period test_streaming_period.f90)

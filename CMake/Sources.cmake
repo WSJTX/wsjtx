@@ -138,6 +138,7 @@ set (wsjt_codec_FSRCS
   lib/streaming_io.f90
   lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
   lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
+  lib/stream_ft8_backpressure.cpp # the stream's calls into the GUI's FT8 decode scheduler
   lib/jt9_version.c
   )
 
@@ -182,7 +183,6 @@ set (wsjtx_CXXSRCS
   HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
   DecoderIpc.cpp
-  Ft8MtdDecodeScheduler.cpp
   OperatingFrequency.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
@@ -224,6 +224,7 @@ endif ()
 
 set (wsjt_CXXSRCS
   Logger.cpp
+  Ft8MtdDecodeScheduler.cpp
   lib/decoder_ipc_control.cpp
   lib/decoder_ipc_layout.cpp
   lib/NativeSharedMemory.cpp

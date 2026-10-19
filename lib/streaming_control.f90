@@ -149,7 +149,10 @@ module streaming_control
      ! JT65+JT9's; n_2pass JT65's and JT65+JT9's; clear_average JT4's, JT65's,
      ! JT65+JT9's and Q65's; robust_mode, tx_mode and npts_c0_array reach only
      ! JT65+JT9; no decoder reads dt_tolerance_seconds. nagain_flag asks once to
-     ! decode the last period again (streaming_io.f90).
+     ! decode the last period again (streaming_io.f90). With live audio it is
+     ! refused while the decoder is busy (decode_again_unavailable, detail "the
+     ! decoder is busy"), as the GUI's Decode button is; send it again after a
+     ! decode_finished.
      logical                :: dt_tolerance_seconds_set = .false.
      real(8)                :: dt_tolerance_seconds     = 0.d0
      logical                :: eme_delay_seconds_set    = .false.
@@ -176,6 +179,10 @@ module streaming_control
      logical                :: clear_average            = .false.
      ! The GUI's "Decode after EME delay" (later stop points, 2.5 s EME delay)
      ! and its live-audio/WAV-file distinction; the stream host keeps both.
+     ! Live audio also skips the passes the GUI's busy decoder would
+     ! (pass_skipped, lib/streaming_emit.f90); a file never does. A live
+     ! producer must send live_audio: without it every pass runs, however far
+     ! behind, and up to 16 MiB of input is buffered.
      logical                :: decode_after_eme_delay_set = .false.
      logical                :: decode_after_eme_delay     = .false.
      logical                :: live_audio_set           = .false.

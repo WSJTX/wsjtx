@@ -26,7 +26,7 @@ module decoder_engine
        streaming_emit_decode_rejected
   implicit none
   private
-  public :: engine_host_decode,engine_params_problem
+  public :: engine_host_decode,engine_params_problem,engine_begin_input
   integer(c_int), parameter :: ok=0,invalid=1,busy=2,unsupported=3,capacity=4,internal_error=5
   integer, parameter :: evidence_capacity=1024
 
@@ -212,6 +212,8 @@ module decoder_engine
   type(c_ptr), save :: host_handle=c_null_ptr
   integer(c_int64_t), save :: fallback_input=0,fallback_analysis=0
   integer, save :: fallback_utc=-1
+  ! Set by engine_begin_input; the next decode without ids that is not a decode again takes a new input.
+  logical, save :: fallback_begin=.false.
 
 contains
 
@@ -1574,6 +1576,11 @@ contains
     problem=request_option_problem(request,check_utc)
   end function engine_params_problem
 
+  ! For a caller without input ids: new audio starts, as the GUI's beginDecoderInput.
+  subroutine engine_begin_input()
+    fallback_begin=.true.
+  end subroutine engine_begin_input
+
   subroutine engine_host_decode(id2,params,nfsample,completion,progress,input_id,analysis_id,attempt_no,valid_samples)
     integer(c_short), target, intent(in) :: id2(*)
     type(params_block), intent(in) :: params
@@ -1618,7 +1625,7 @@ contains
             ((params%nmode==engine_mode_jt4.or.params%nmode==engine_mode_ft4.or.params%nmode==engine_mode_jt9.or. &
             params%nmode==engine_mode_jt65.or.params%nmode==engine_mode_q65.or. &
             request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w).and..not.params%nagain).or. &
-            (params%nzhsym==41.and..not.params%nagain)) then
+            ((params%nzhsym==41.or.fallback_begin).and..not.params%nagain)) then
           fallback_input=fallback_input+1
           fallback_analysis=fallback_analysis+1
        else if(params%nagain) then
@@ -1628,6 +1635,7 @@ contains
        request%analysis_id=max(1_c_int64_t,fallback_analysis)
        request%attempt_no=session%last_attempt+1
        fallback_utc=params%nutc
+       if(.not.params%nagain) fallback_begin=.false.
     endif
     if(session%input_id/=0.and.(session%input_id/=request%input_id.or.session%input_mode/=request%mode)) then
        status=engine_release_input(host_handle,session%input_id)

@@ -28,6 +28,7 @@ module streaming_apply
 
   private
   public :: apply_configure_fields, engine_range_key
+  public :: ft8_settings_change, ft8_identity_change
   ! Re-export the include'd struct so a standalone unit driver can declare a
   ! params_block to assert apply routing against (test/apply_routing_test.f90)
   ! without itself including jt9com.f90. Same bind(C) type as everywhere else
@@ -362,5 +363,37 @@ contains
     end select
     if (present(carried)) carried = .not. set
   end function engine_range_key
+
+  ! A change the GUI cancels its multithreaded FT8 backpressure on
+  ! (cancelPendingFt8Decode, widgets/mainwindow.cpp): its FT8 decoder menus
+  ! and Settings (my call and grid, SuperFox, special operating activity and
+  ! Hound, single decode, VHF features, trials, decode after EME delay).
+  pure logical function ft8_settings_change(was, now)
+    type(params_block), intent(in) :: was, now
+    ft8_settings_change = was%ndepth .ne. now%ndepth .or.                  &
+         (was%lmultift8 .neqv. now%lmultift8) .or. was%nmt .ne. now%nmt .or. &
+         was%ndecoderstart .ne. now%ndecoderstart .or.                     &
+         was%nft8cycles .ne. now%nft8cycles .or.                           &
+         was%nft8rxfsens .ne. now%nft8rxfsens .or.                         &
+         (was%lft8lowth .neqv. now%lft8lowth) .or.                         &
+         (was%lft8subpass .neqv. now%lft8subpass) .or.                     &
+         (was%lwidedxcsearch .neqv. now%lwidedxcsearch) .or.               &
+         (was%lhideft8dupes .neqv. now%lhideft8dupes) .or.                 &
+         (was%lft8apon .neqv. now%lft8apon) .or.                           &
+         any(was%mycall .ne. now%mycall) .or. any(was%mygrid .ne. now%mygrid) .or. &
+         (was%b_superfox .neqv. now%b_superfox) .or.                       &
+         (was%lhound .neqv. now%lhound) .or.                               &
+         iand(was%nexp_decode, 255) .ne. iand(now%nexp_decode, 255) .or.   &
+         was%nranera .ne. now%nranera .or. was%emedelay .ne. now%emedelay
+  end function ft8_settings_change
+
+  ! The rest of the GUI's pending-final identity, which it checks
+  ! only when it takes the final up (DecodeOperatingContext.hpp
+  ! hasSameFt8PendingIdentity, widgets/mainwindow.cpp publishPendingFt8Decode).
+  pure logical function ft8_identity_change(was, now)
+    type(params_block), intent(in) :: was, now
+    ft8_identity_change = was%nfa .ne. now%nfa .or. was%nfb .ne. now%nfb .or. &
+         was%nsubmode .ne. now%nsubmode
+  end function ft8_identity_change
 
 end module streaming_apply
