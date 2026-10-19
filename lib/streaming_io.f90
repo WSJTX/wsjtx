@@ -43,6 +43,15 @@
 ! for decoding. The reader's phase is that of the first audio after
 ! `configure`; send every sample.
 !
+! MSK144 decodes each 3584-sample block of a period as soon as it is read,
+! as the GUI does (lib/decode_msk144.f90), and only in the period's first 30 s,
+! the GUI's longest MSK144 period. The period's end, or a halt or the end of
+! input within it, sends its decode_finished; a partial block is never
+! decoded. Each decode carries the label (utc or nutc) in force when its block
+! is decoded, so a period's label belongs before its first 7,168 samples; a
+! label changed within the period resets the decoder's duplicate memory and
+! may send that period's pings again.
+!
 ! JTTY ({"mode":"JTTY"}; no integer code or command-line flag selects it) has
 ! no periods: its audio goes to lib/streaming_jtty.f90, which states its
 ! output. A JTTY session ends at a discontinuity, an odd-length audio frame, a
@@ -97,7 +106,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        period_take, period_full, period_ready, period_set_stop,           &
        gui_hsym_stop, HSYM_SAMPLES, trigger_fire_time, read_passes_busy_end, &
        clock_start
-  use streaming_apply, only: ft8_settings_change, ft8_identity_change
+  use streaming_apply, only: ft8_settings_change, ft8_identity_change,     &
+       apply_msk144_fields
+  use msk144_stream, only: msk144_settings, msk144_window, MSK144_BLOCK
 
   include 'jt9com.f90'
 
@@ -155,7 +166,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer :: i_ctl, prev_mode, next_mode
   real(8) :: prev_TRperiod, next_TRperiod
   type(params_block) :: next_params
-  character(len=:), allocatable :: range_key
+  character(len=:), allocatable :: range_key, range_mode
   type(option_problem) :: problem
   type(configure_fields) :: no_keys
   logical :: next_eme_on, next_live
@@ -195,6 +206,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! lib/stream_ft8_backpressure.cpp's stages and decisions.
   integer, parameter :: EARLY_ONE = 1, EARLY_TWO = 2, FINAL_STAGE = 3
   integer, parameter :: ACTION_PUBLISH = 0, ACTION_DEFER = 2, ACTION_REPLACE = 3
+  ! MSK144's receive options and calls, as accepted configures set them.
+  type(msk144_settings) :: msk144
 
   ! C stdin helpers. stream_set_stdin_binary (lib/stream_setmode.c) is a
   ! no-op on POSIX; stream_stdin_read_fully (lib/stream_stdin.c) is the
@@ -444,6 +457,11 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  call streaming_emit_error_version(cfg%version)
                  cycle
               end if
+              if (cfg%phase_eq_malformed) then
+                 call streaming_emit_error_code('configure_parse_error',          &
+                      'phase_eq is not well-formed JSON')
+                 cycle
+              end if
               if (terr%present) then
                  ! RFC v1 §4.1: a key's JSON value type mismatched the schema.
                  ! Decline the ENTIRE frame — no field is applied (the apply
@@ -473,6 +491,15 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               next_params   = shared_data%params
               call apply_configure_fields(cfg, next_mode, next_TRperiod,   &
                    next_params, baseline_nfa, baseline_nfb)
+              if (cfg%phase_eq_out_of_range) then
+                 ! JTTY's range errors carry no mode.
+                 range_mode = ''
+                 if (next_mode .ne. MODE_JTTY)                                   &
+                      range_mode = trim(streaming_emit_mode_name(next_mode))
+                 call streaming_emit_error_range('phase_eq', range_mode,          &
+                      'phase_eq must be five finite numbers')
+                 cycle
+              end if
               ! The GUI's EME delay goes with "Decode after EME delay", in every
               ! mode, over the mode policy a mode or trperiod key reapplies;
               ! eme_delay_seconds, when sent, wins.
@@ -522,6 +549,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               eme_delay_on = next_eme_on
               if (cfg%live_audio_set) live_audio = cfg%live_audio
               shared_data%params%ndiskdat = .not. live_audio
+              call apply_msk144_fields(cfg, msk144)
               ! A configure that changes the applied mode or period starts a
               ! new period; what was in flight is discarded. Otherwise the
               ! period in flight decodes at the stop point the new settings give.
@@ -698,6 +726,8 @@ contains
     integer :: h(2), n, i
     logical :: depth2
     next_pass_samples = period%npts
+    if (mode .eq. 144) next_pass_samples = min(period%npts,                 &
+         (period%k / MSK144_BLOCK + 1) * MSK144_BLOCK)
     if (mode .ne. 8) return
     call ft8_early_schedule(h, n, depth2)
     do i = 1, n
@@ -811,8 +841,9 @@ contains
     call begin_engine_input(period_number)
     finished_before = streaming_emit_finished_at()
     if (mode .eq. 144) then
+       ! Its blocks decoded as they came in (consume_audio_body).
        call report_pass(period%k)
-       call decode_msk144(shared_data%id2, shared_data%params, data_dir)
+       call streaming_emit_decode_finished(shared_data%params%nutc)
     else if (mode .eq. 8 .and. .not. multithreaded) then
        ! The final pass of the standard decoder's sequence: it goes on from
        ! the audio this period's early passes saved in ft8_decode.f90, or
@@ -1032,6 +1063,11 @@ contains
           end do
           ! The GUI's early FT8 passes run as soon as their audio is in.
           if (mode .eq. 8) call run_early_ft8(.false.)
+          ! As does each MSK144 block, never refused for a busy decoder.
+          if (mode .eq. 144) call msk144_window(shared_data%id2, period%k,   &
+               shared_data%params%nutc, shared_data%params%ntol,              &
+               shared_data%params%nfqso, shared_data%params%ndepth, msk144,   &
+               data_dir)
        end if
     end do
   end subroutine consume_audio_body

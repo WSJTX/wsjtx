@@ -17,12 +17,13 @@
 ! discipline from the ready handshake).
 !
 ! Restrictions (deliberate scope):
-!   - Flat objects only; no nested objects, no arrays.
+!   - Flat objects only; no nested objects, and no arrays except
+!     configure's phase_eq.
 !   - Numeric values must be plain decimal (no scientific notation),
-!     except where a key's rule says otherwise (render's freq is a JSON
-!     number). Configure's integer keys must be plain JSON integers: a
-!     fraction, an exponent or another form is not reported as an error,
-!     and is ignored or misread.
+!     except where a key's rule says otherwise (render's freq and each
+!     phase_eq element are JSON numbers). Configure's integer keys must be
+!     plain JSON integers: a fraction, an exponent or another form is not
+!     reported as an error, and is ignored or misread.
 !   - String values are JSON strings: \" \\ \/ \b \f \n \r \t and \uXXXX
 !     (a surrogate pair for a character above U+FFFF) decode to UTF-8. A
 !     string with a malformed escape, a lone surrogate or no closing quote
@@ -95,7 +96,9 @@ module streaming_control
      ! params%nutc so streaming_emit_decode can format the time field
      ! correctly. Producer should send a fresh nutc in each period's
      ! configure frame (mirrors WAV-path filename-derived per-invocation
-     ! UTC).
+     ! UTC). MSK144 labels each decode when its block is decoded, so its
+     ! period's label belongs before the period's first 7,168 samples
+     ! (lib/streaming_io.f90).
      logical                :: nutc_set     = .false.
      integer                :: nutc         = 0
      ! Body schema version (RFC v1 §3). Absent => default 1 (forward-compat
@@ -187,6 +190,28 @@ module streaming_control
      logical                :: decode_after_eme_delay     = .false.
      logical                :: live_audio_set           = .false.
      logical                :: live_audio               = .false.
+     ! MSK144's receive options, in every mode, each in force until another
+     ! configure sets it: the GUI's "Sh" (short_messages) and "SWL" check
+     ! boxes, each independent of the other, its "Measure phase response"
+     ! (train; the decoder sets it false when training completes,
+     ! msk144_trained in lib/streaming_emit.f90), and the phase-equalization
+     ! coefficients its Equalization Tools apply (phase_eq: an array of exactly
+     ! five finite JSON numbers, exponents allowed; all zeros, the default, is
+     ! no equalization). A phase_eq that is not JSON's grammar declines the
+     ! frame with configure_parse_error, one that is not an array of numbers
+     ! with configure_type_error (expected "array of numbers"), and an array of
+     ! another length or with a number too large to hold with
+     ! configure_range_error. lib/decode_msk144.f90 states the decode.
+     logical                :: short_messages_set       = .false.
+     logical                :: short_messages           = .false.
+     logical                :: swl_set                  = .false.
+     logical                :: swl                      = .false.
+     logical                :: train_set                = .false.
+     logical                :: train                    = .false.
+     logical                :: phase_eq_set             = .false.
+     real(8)                :: phase_eq(5)              = 0.d0
+     logical                :: phase_eq_malformed       = .false.
+     logical                :: phase_eq_out_of_range    = .false.
      ! Phase 6 (RFC v1 §2): FT8/FT4 specifics cluster — 19 bools + 5 ints, flat
      ! 1:1 onto params_block; apply_configure_fields (streaming_apply.f90) says
      ! which decoder reads each. The parse checks types only; the stream
@@ -417,6 +442,8 @@ contains
     logical            :: ok, proceed, mode_present
     integer            :: hh, mm, ss, yr, mo, dy, enc   ! Phase 8 ISO/encode temps
     logical            :: vok                           ! Phase 8 value-parse ok
+    character(len=8)   :: numbers_got
+    character(len=5)   :: numbers_problem
 
     action       = CTRL_UNKNOWN
     terr%present = .false.
@@ -815,6 +842,43 @@ contains
           cfg%live_audio     = lval
        end if
     end if
+
+    call check_type_(buf, '"short_messages"', 'short_messages', 'bool',          &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"short_messages"', lval, ok)
+       if (ok) then
+          cfg%short_messages_set = .true.
+          cfg%short_messages     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"swl"', 'swl', 'bool',                                &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"swl"', lval, ok)
+       if (ok) then
+          cfg%swl_set = .true.
+          cfg%swl     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"train"', 'train', 'bool',                            &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"train"', lval, ok)
+       if (ok) then
+          cfg%train_set = .true.
+          cfg%train     = lval
+       end if
+    end if
+
+    call get_numbers_(buf, '"phase_eq"', cfg%phase_eq, cfg%phase_eq_set,         &
+         numbers_problem, numbers_got)
+    cfg%phase_eq_malformed = numbers_problem .eq. 'text'
+    cfg%phase_eq_out_of_range = numbers_problem .eq. 'range'
+    if (numbers_problem .eq. 'type')                                             &
+         call set_type_error_(terr, 'phase_eq', 'array of numbers', numbers_got)
 
     ! tx_mode: enum string ("JT9"/"JT65") or int (9/65) -> ntxmode. Mirrors the
     ! "mode" block (string|int via mode_string_to_int). A negative map (unknown
@@ -1591,6 +1655,132 @@ contains
        val = .false.; ok = .true.
     end if
   end subroutine get_bool_
+
+  ! The array value of key as exactly size(vals) finite numbers in JSON's
+  ! grammar (set), or the value's first problem: 'text' where it is not JSON's
+  ! grammar; 'type' where it, or one of its elements, is not a number, with got
+  ! its category by its first character (value_category_'s, 'array' or 'object');
+  ! 'range' for a well-formed array of another length or with a number too
+  ! large to hold. problem is blank when the key is absent.
+  subroutine get_numbers_(buf, key, vals, set, problem, got)
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    character(len=*), intent(in)  :: buf, key
+    real(8),          intent(out) :: vals(:)
+    logical,          intent(out) :: set
+    character(len=*), intent(out) :: problem, got
+    real(8) :: v(size(vals)), x
+    integer :: vstart, blen, p, n, width, ios
+    logical :: found, finite, empty
+
+    vals = 0.d0
+    set = .false.
+    problem = ' '
+    call value_category_(buf, key, got)
+    if (trim(got) .eq. 'absent') return
+    call find_key_(buf, key, vstart, blen, found)
+    problem = 'type'
+    if (buf(vstart:vstart) .eq. '{') got = 'object'
+    if (buf(vstart:vstart) .ne. '[') return
+    n = 0
+    finite = .true.
+    p = after_space_(vstart + 1)
+    empty = p .le. blen
+    if (empty) empty = buf(p:p) .eq. ']'
+    do while (.not. empty)
+       problem = 'text'
+       if (p .gt. blen) return
+       problem = 'type'
+       select case (buf(p:p))
+       case ('"');      got = 'string'; return
+       case ('t', 'f'); got = 'bool';   return
+       case ('n');      got = 'null';   return
+       case ('[');      got = 'array';  return
+       case ('{');      got = 'object'; return
+       end select
+       problem = 'text'
+       width = json_number_width_(buf(p:blen))
+       if (width .eq. 0) return
+       n = n + 1
+       read(buf(p:p + width - 1), *, iostat=ios) x
+       if (ios .ne. 0) then
+          finite = .false.
+       else if (.not. ieee_is_finite(x)) then
+          finite = .false.
+       else if (n .le. size(v)) then
+          v(n) = x
+       end if
+       p = after_space_(p + width)
+       if (p .gt. blen) return
+       if (buf(p:p) .eq. ']') exit
+       if (buf(p:p) .ne. ',') return
+       p = after_space_(p + 1)
+    end do
+    problem = 'range'
+    if (.not. finite .or. n .ne. size(v)) return
+    vals = v
+    set = .true.
+    problem = ' '
+
+  contains
+
+    ! The first position from q on that is not JSON white space.
+    integer function after_space_(q)
+      integer, intent(in) :: q
+      after_space_ = q
+      do while (after_space_ .le. blen)
+         if (index(' ' // achar(9) // achar(10) // achar(13), buf(after_space_:after_space_)) &
+              .eq. 0) exit
+         after_space_ = after_space_ + 1
+      end do
+    end function after_space_
+
+  end subroutine get_numbers_
+
+  ! The length of the JSON number, -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?,
+  ! at the start of s; 0 when s does not start with one.
+  integer function json_number_width_(s)
+    character(len=*), intent(in) :: s
+    integer :: i, first
+
+    json_number_width_ = 0
+    i = 1
+    if (i .le. len(s)) then
+       if (s(i:i) .eq. '-') i = i + 1
+    end if
+    first = i
+    if (.not. digits_()) return
+    if (s(first:first) .eq. '0' .and. i - first .gt. 1) return
+    if (i .le. len(s)) then
+       if (s(i:i) .eq. '.') then
+          i = i + 1
+          if (.not. digits_()) return
+       end if
+    end if
+    if (i .le. len(s)) then
+       if (s(i:i) .eq. 'e' .or. s(i:i) .eq. 'E') then
+          i = i + 1
+          if (i .le. len(s)) then
+             if (s(i:i) .eq. '+' .or. s(i:i) .eq. '-') i = i + 1
+          end if
+          if (.not. digits_()) return
+       end if
+    end if
+    json_number_width_ = i - 1
+
+  contains
+
+    ! Skip the digits from i; .false. when there are none.
+    logical function digits_()
+      integer :: start
+      start = i
+      do while (i .le. len(s))
+         if (index('0123456789', s(i:i)) .eq. 0) exit
+         i = i + 1
+      end do
+      digits_ = i .gt. start
+    end function digits_
+
+  end function json_number_width_
 
   ! ===== Phase 8 derivations (ISO parsers + nranera encoder) ===============
 

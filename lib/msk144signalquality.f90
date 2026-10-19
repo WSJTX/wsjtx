@@ -1,7 +1,23 @@
+! The last training msk144signalquality completed: how many it has completed,
+! the phase-response file it wrote (blank when it could not create one), the
+! DX call it trained on, and its five coefficients as the file's 5e25.16
+! header holds them.
+module msk144_training
+  implicit none
+  integer, save :: trainings_done = 0
+  character(len=512), save :: trained_file = ' '
+  character(len=12), save :: trained_call = ' '
+  real(8), save :: trained_terms(5) = 0.d0
+end module msk144_training
+
 subroutine msk144signalquality(cframe,snr,freq,t0,softbits,msg,dxcall,       &
    btrain,datadir,nbiterrors,eyeopening,pcoeffs)
 
+  use msk144_training, only: trainings_done,trained_file,trained_call,trained_terms
+
   character*37 msg,msgsent
+  character*125 terms_text
+  integer ios
   character*12 dxcall
   character*12 training_dxcall
   character*12 trained_dxcall
@@ -193,15 +209,25 @@ subroutine msk144signalquality(cframe,snr,freq,t0,softbits,msg,dxcall,       &
         pcoeff_filename=trim(trained_dxcall)//"_"//trim(pcoeff_filename)//".pcoeff"
         pcoeff_filename=datadir//'/'//trim(pcoeff_filename)
 !write(*,*) 'trained - writing coefficients to: ',pcoeff_filename
-        open(17,file=pcoeff_filename,status='new')
-        write(17,'(i4,2f10.2,3i5,5e25.16)') navg,sqrt(chisqr),rmsdiff,NFREQLOW,NFREQHIGH,nterms,a
-        do i=1, 145
-          write(17,*) x(i),pp(i),y(i),sigmay(i)
-        enddo
-        do i=1,864
-          write(17,*) i,real(cframe(i)),imag(cframe(i)),real(cross_avg(i)),imag(cross_avg(i))
-        enddo
-        close(17)
+! A file that cannot be created (a call with '/', an unwritable data
+! directory, one already written this second) is skipped, not fatal.
+        open(17,file=pcoeff_filename,status='new',iostat=ios)
+        if(ios.eq.0) then
+          write(17,'(i4,2f10.2,3i5,5e25.16)') navg,sqrt(chisqr),rmsdiff,NFREQLOW,NFREQHIGH,nterms,a
+          do i=1, 145
+            write(17,*) x(i),pp(i),y(i),sigmay(i)
+          enddo
+          do i=1,864
+            write(17,*) i,real(cframe(i)),imag(cframe(i)),real(cross_avg(i)),imag(cross_avg(i))
+          enddo
+          close(17)
+        endif
+        write(terms_text,'(5e25.16)') a
+        read(terms_text,'(5e25.16)') trained_terms
+        trained_file=' '
+        if(ios.eq.0) trained_file=pcoeff_filename
+        trained_call=trained_dxcall
+        trainings_done=trainings_done+1
         training_dxcall(1:12)=' '
         currently_training=.false.
         btrain=.false.

@@ -527,8 +527,9 @@ Row decodeAgainDuringADecode ()
   return due (row);
 }
 
-// MSK144 decodes each period at its end and is never refused (MainWindow::dataSink
-// decodes it on its own path, without a busy check).
+// MSK144 decodes each block as it comes in and is never refused (MainWindow::dataSink
+// decodes it on its own path, without a busy check); its pass line ends each period,
+// with no decode left to run, so the burst after it finds none running.
 Row msk144BehindOnePeriod ()
 {
   auto row = rowOf ("MSK144", {{"trperiod", 5}}, samples ("WSJT_MSK144_SAMPLE_WAV", Msk144PeriodSamples), true);
@@ -1103,8 +1104,9 @@ void check (Row const& row)
                     qPrintable (QString {"the final of %1 decoded nothing"}.arg (seen.finished.at (i))));
         }
     }
-  // A burst the stream had run past before it was in tests nothing live.
-  if (row.live) QVERIFY2 (got.late.isEmpty (), qPrintable (got.late.join ("; ")));
+  // A burst the stream had run past before it was in tests nothing live, where
+  // the decoder's busy state decides the passes.
+  if (row.live && row.checked) QVERIFY2 (got.late.isEmpty (), qPrintable (got.late.join ("; ")));
   qInfo ().noquote () << QString {"%1 s; bursts: %2"}.arg (got.elapsedMs / 1000.0, 0, 'f', 1)
     .arg (got.bursts.join ("; "));
 }
