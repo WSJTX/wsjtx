@@ -435,8 +435,7 @@ contains
            if(nsec.eq.15 .or. nsec.eq.45) odd(nmsg+1:130)%lstate=.false.
 
            if(params%ndelay.eq.0) then
-              nFT8decd=my_ft8var%decodedvar
-              dtmed=0.
+              call my_ft8var%timing_summary(nFT8decd,sumxdt)
 !            if(params%lforcesync) then; nintcount=3 ! fast track after Sync
 !            elseif(nintcount.gt.0) then; nintcount=nintcount-1
               if(nintcount.gt.0) then
@@ -447,31 +446,6 @@ contains
                  avexdt=forcedt
               else
                  if(nFT8decd.gt.2) then
-                    do i=1,nFT8decd
-                       if(i.lt.nFT8decd-1) then
-                          if((my_ft8var%xdtt(i).gt.my_ft8var%xdtt(i+1) .and.   &
-                               my_ft8var%xdtt(i).lt.my_ft8var%xdtt(i+2)) .or.  &
-                               (my_ft8var%xdtt(i).lt.my_ft8var%xdtt(i+1) .and. &
-                               my_ft8var%xdtt(i).gt.my_ft8var%xdtt(i+2))) then
-                             dtmed=my_ft8var%xdtt(i)
-                          else if((my_ft8var%xdtt(i+1).gt.my_ft8var%xdtt(i) .and. &
-                               my_ft8var%xdtt(i+1).lt.my_ft8var%xdtt(i+2)) .or.   &
-                               (my_ft8var%xdtt(i+1).lt.my_ft8var%xdtt(i) .and.    &
-                               my_ft8var%xdtt(i+1).gt.my_ft8var%xdtt(i+2))) then
-                             dtmed=my_ft8var%xdtt(i+1)
-                          else if((my_ft8var%xdtt(i+2).gt.my_ft8var%xdtt(i) .and. &
-                               my_ft8var%xdtt(i+2).lt.my_ft8var%xdtt(i+1)) .or.   &
-                               (my_ft8var%xdtt(i+2).lt.my_ft8var%xdtt(i) .and.    &
-                               my_ft8var%xdtt(i+2).gt.my_ft8var%xdtt(i+1))) then
-                             dtmed=my_ft8var%xdtt(i+2)
-                          else
-                             dtmed=my_ft8var%xdtt(i)
-                          endif
-                          sumxdt=sumxdt+dtmed
-                       else
-                          sumxdt=sumxdt+dtmed ! use last median value
-                       endif
-                    enddo
                     if(nFT8decd.gt.5) then
                        avexdt=(avexdt+sumxdt/nFT8decd)/2
                     else if(nFT8decd.eq.5) then
@@ -482,7 +456,6 @@ contains
                        avexdt=(1.35*avexdt+0.65*sumxdt/nFT8decd)/2
                     endif
                  else if(nFT8decd.gt.0) then
-                    sumxdt=sum(my_ft8var%xdtt(1:nFT8decd))
                     if(nFT8decd.eq.2) then
                        avexdt=(1.5*avexdt+0.5*sumxdt/nFT8decd)/2
                     else if(nFT8decd.eq.1) then

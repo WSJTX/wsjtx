@@ -63,6 +63,8 @@ module decoder_callbacks
      real :: xdtt(200)
      logical :: first_result = .true.
      integer :: day_wrap = 0
+   contains
+     procedure :: timing_summary => ft8_timing_summary
   end type counting_ft8_decodervar
 
   type, extends(ft4_decoder) :: counting_ft4_decoder
@@ -364,6 +366,46 @@ contains
        typed_this%decoded = typed_this%decoded + 1
     end select
   end subroutine jt9_decoded
+
+  subroutine ft8_timing_summary(this,count,sumdt)
+    class(counting_ft8_decodervar), intent(in) :: this
+    integer, intent(out) :: count
+    real, intent(out) :: sumdt
+    real :: dtmed
+    integer :: i
+
+    count=min(this%decodedvar,size(this%xdtt))
+    sumdt=0.0
+    dtmed=0.0
+    if(count.le.2) then
+       sumdt=sum(this%xdtt(1:count))
+       return
+    endif
+    do i=1,count
+       if(i.lt.count-1) then
+          if((this%xdtt(i).gt.this%xdtt(i+1) .and. &
+               this%xdtt(i).lt.this%xdtt(i+2)) .or. &
+               (this%xdtt(i).lt.this%xdtt(i+1) .and. &
+               this%xdtt(i).gt.this%xdtt(i+2))) then
+             dtmed=this%xdtt(i)
+          else if((this%xdtt(i+1).gt.this%xdtt(i) .and. &
+               this%xdtt(i+1).lt.this%xdtt(i+2)) .or. &
+               (this%xdtt(i+1).lt.this%xdtt(i) .and. &
+               this%xdtt(i+1).gt.this%xdtt(i+2))) then
+             dtmed=this%xdtt(i+1)
+          else if((this%xdtt(i+2).gt.this%xdtt(i) .and. &
+               this%xdtt(i+2).lt.this%xdtt(i+1)) .or. &
+               (this%xdtt(i+2).lt.this%xdtt(i) .and. &
+               this%xdtt(i+2).gt.this%xdtt(i+1))) then
+             dtmed=this%xdtt(i+2)
+          else
+             dtmed=this%xdtt(i)
+          endif
+       endif
+       ! Repeat the final median for the two trailing timing samples.
+       sumdt=sumdt+dtmed
+    enddo
+  end subroutine ft8_timing_summary
 
   subroutine ft8_decodedvar  (this,snr,dt,freq,decodedvar,nap,qual,evidence)
     implicit none

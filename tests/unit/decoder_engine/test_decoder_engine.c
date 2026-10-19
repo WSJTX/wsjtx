@@ -22,6 +22,44 @@ extern void decoder_engine_test_qso_snapshot(int32_t *valid, int32_t *suppressed
 extern void decoder_engine_test_records(decoder_observation records[2], size_t *record_size);
 extern void decoder_engine_test_residual(float samples[180000]);
 extern void decoder_engine_test_host_windows(void);
+extern void decoder_engine_test_timing(const float *samples, int32_t n,
+                                       int32_t *decoded, int32_t *observed,
+                                       int32_t *stored, float *sumdt,
+                                       float *emitted_sum, float *last_dt,
+                                       int32_t *prefix_matches);
+
+static void check_timing_case(const float *samples, int n, float expected_sum)
+{
+  int32_t decoded, observed, stored, prefix_matches;
+  float sumdt, emitted_sum, last_dt, expected_emitted_sum = 0.0f;
+  for (int i = 0; i < n; ++i) expected_emitted_sum += samples[i];
+  decoder_engine_test_timing(samples, n, &decoded, &observed, &stored, &sumdt,
+                            &emitted_sum, &last_dt, &prefix_matches);
+  CHECK(decoded == n && observed == n);
+  CHECK(stored == (n < 200 ? n : 200));
+  CHECK(prefix_matches);
+  CHECK(fabsf(sumdt - expected_sum) < 0.001f);
+  CHECK(fabsf(emitted_sum - expected_emitted_sum) < 0.001f);
+  CHECK(last_dt == (n ? samples[n - 1] : 0.0f));
+}
+
+static void check_timing_capacity(void)
+{
+  float samples[205];
+  const float nonmonotonic[] = {3.0f, 1.0f, 2.0f, 4.0f};
+  const float ties[] = {3.0f, 3.0f, 1.0f, 2.0f, 2.0f, 5.0f};
+  check_timing_case(nonmonotonic, 0, 0.0f);
+  check_timing_case(nonmonotonic, 1, 3.0f);
+  check_timing_case(nonmonotonic, 2, 4.0f);
+  check_timing_case(nonmonotonic, 3, 6.0f);
+  check_timing_case(nonmonotonic, 4, 8.0f);
+  check_timing_case(ties, 6, 12.0f);
+  for (int i = 0; i < 200; ++i) samples[i] = nonmonotonic[i % 3];
+  for (int i = 200; i < 205; ++i) samples[i] = 1000.0f + i;
+  check_timing_case(samples, 200, 400.0f);
+  check_timing_case(samples, 201, 400.0f);
+  check_timing_case(samples, 205, 400.0f);
+}
 
 static void check_evidence_layout(void)
 {
@@ -358,6 +396,10 @@ int main(int argc, char **argv)
     write_wav(argv[2]);
     return 0;
   }
+  if (argc == 2 && !strcmp(argv[1], "--timing-capacity")) {
+    check_timing_capacity();
+    return EXIT_SUCCESS;
+  }
   const int qso_boundary_only = argc == 2 && !strcmp(argv[1], "--qso-boundary");
   CHECK(argc == 1 || qso_boundary_only);
   decoder_engine_options options = {DECODER_ENGINE_ABI};
@@ -371,6 +413,7 @@ int main(int argc, char **argv)
   callback_context context = {0};
   CHECK(samples != NULL && before != NULL);
   check_evidence_layout();
+  check_timing_capacity();
 
   options.abi_version = DECODER_ENGINE_ABI - 1;
   CHECK(decoder_engine_create(&options, &engine) == DECODER_UNSUPPORTED);

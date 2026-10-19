@@ -244,3 +244,56 @@ subroutine decoder_engine_test_gui_codec() bind(C)
   call unpack77(bits,1,resolved,ok)
   if(.not.ok.or.resolved/='PJ2/W1AW <...> RR73') error stop 'GUI codec leaked into legacy store'
 end subroutine
+
+module decoder_engine_test_timing_sink
+  use iso_c_binding, only: c_ptr,c_int,c_float,c_f_pointer
+  use decoder_engine_types, only: engine_observation
+  implicit none
+  type, bind(C) :: timing_sink_state
+     integer(c_int) :: count=0
+     real(c_float) :: sumdt=0.0,last_dt=0.0
+  end type timing_sink_state
+contains
+  subroutine observe_timing(user,observation)
+    type(c_ptr), intent(in) :: user
+    type(engine_observation), intent(in) :: observation
+    type(timing_sink_state), pointer :: state
+
+    call c_f_pointer(user,state)
+    state%count=state%count+1
+    state%sumdt=state%sumdt+observation%dt_seconds
+    state%last_dt=observation%dt_seconds
+  end subroutine observe_timing
+end module decoder_engine_test_timing_sink
+
+subroutine decoder_engine_test_timing(samples,n,decoded,observed,stored,sumdt, &
+     emitted_sum,last_dt,prefix_matches) bind(C)
+  use iso_c_binding, only: c_int,c_float,c_loc
+  use decoder_callbacks, only: counting_ft8_decodervar,ft8_decodedvar
+  use decoder_engine_test_timing_sink, only: timing_sink_state,observe_timing
+  implicit none
+  integer(c_int), value :: n
+  real(c_float), intent(in) :: samples(n)
+  integer(c_int), intent(out) :: decoded,observed,stored,prefix_matches
+  real(c_float), intent(out) :: sumdt,emitted_sum,last_dt
+  type(counting_ft8_decodervar) :: decoder
+  type(timing_sink_state), target :: sink
+  integer :: i,count
+  real :: timing_sum
+
+  decoder%xdtt=0.0
+  decoder%context%render_legacy=.false.
+  decoder%context%sink=>observe_timing
+  decoder%context%sink_user=c_loc(sink)
+  do i=1,n
+     call ft8_decodedvar(decoder,-10,real(samples(i)),1500.0,'CQ K1JT FN20                         ',0,1.0)
+  enddo
+  call decoder%timing_summary(count,timing_sum)
+  decoded=decoder%decodedvar
+  observed=sink%count
+  stored=count
+  sumdt=timing_sum
+  emitted_sum=sink%sumdt
+  last_dt=sink%last_dt
+  prefix_matches=merge(1,0,all(decoder%xdtt(:count)==samples(:count)))
+end subroutine decoder_engine_test_timing
