@@ -21,7 +21,7 @@ module ft8_engine_kernel
        nfawide,nfbwide,mycall,hiscall,lhound,mybcall,hisbcall,lenabledxcsearch, &
        lwidedxcsearch,hisgrid4,lmultinst,dd8,nft8cycles,lskiptx1,ncandallthr,   &
        nincallthr,incall,msgincall,xdtincall,maskincallthr,ltxing,hisgrid,      &
-       lastrxmsg,lasthcall
+       prepare_ft8_qso_history
   include 'jt9com.f90'
 
   private
@@ -386,12 +386,9 @@ contains
            sumxdt=0.0
            if(params%nmode.eq.4) sumxdtt=0.0
 
-           if(hiscall.eq.'') then
-              lastrxmsg(1)%lstate=.false.
-           else if(lastrxmsg(1)%lstate .and. lasthcall.ne.hiscall .and.        &
-                index(lastrxmsg(1)%lastmsg,trim(hiscall)).le.0) then
-              lastrxmsg(1)%lstate=.false.
-           endif
+           call prepare_ft8_qso_history(hiscall,mycall,.not.logical(params%nstophint), &
+                nfqso.ge.nfa .and. nfqso.le.nfb,nsec.eq.0 .or. nsec.eq.30, &
+                nsec.eq.15 .or. nsec.eq.45)
 
 !$omp parallel num_threads(requested_threads) private(nthr) shared(numthreads)
 !$omp single

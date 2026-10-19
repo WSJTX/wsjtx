@@ -68,7 +68,7 @@ contains
     use decode_completion_module, only : write_decode_progress
 
     use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
-         lastrxmsg,calldteven,calldtodd,incall,ft8_period_hint,get_ft8_bootstrap_hint,                &
+         calldteven,calldtodd, &
          avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
          evenqso,oddqso,ft8_qso_hints_suppressed,hisgrid4
@@ -104,7 +104,6 @@ contains
     character*37 msgsrcvd(130)
     integer nsnr
     type(pack77_state), pointer :: codec
-    type(ft8_period_hint) :: bootstrap_hint
     type(ft8_signal_evidence) :: evidence
 
     type oddtmp_struct
@@ -167,30 +166,6 @@ contains
     lnohisgrid=.false.
     if(len_trim(hisgrid4).ne.4) lnohisgrid=.true.
     if(nfqso.ge.nfa .and. nfqso.le.nfb) lqsothread=.true.
-
-    if(lqsothread .and. .not.lastrxmsg(1)%lstate .and. .not.stophint .and.     &
-         hiscall.ne.'') then
-! got incoming call
-       do i=1,30
-          if(incall(i)%msg(1:1).eq." ") exit
-          if(index(incall(i)%msg,(trim(mycall)//' '//trim(hiscall))).eq.1) then
-             lastrxmsg(1)%lastmsg=incall(i)%msg
-             lastrxmsg(1)%xdt=incall(i)%xdt
-             lastrxmsg(1)%lstate=.true.
-             exit
-          endif
-       enddo
-
-       if(.not.lastrxmsg(1)%lstate) then
-! calling someone, lastrxmsg still not valid
-          call get_ft8_bootstrap_hint(hiscall,logical(levenint),logical(loddint),bootstrap_hint)
-          if(bootstrap_hint%valid) then
-             lastrxmsg(1)%lastmsg=bootstrap_hint%message
-             lastrxmsg(1)%xdt=bootstrap_hint%dt
-             lastrxmsg(1)%lstate=.true.
-          endif
-       endif
-    endif
 
 ! sliding search over +/- 2.5s relative to 0.5s TX start time
     jzb=-62 + avexdt*25.

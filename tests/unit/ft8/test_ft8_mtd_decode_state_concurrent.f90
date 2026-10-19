@@ -4,7 +4,7 @@ module ft8_decode_state_test_controls
   ! Direct global controls avoid libgomp's captured stack environment in TSan tests.
   integer, save :: started,reader_ready,checkpoint,checkpoint_seen,finished, &
        reader_finished,reads
-  logical, save :: torn_pair,torn_history,qso_failure,torn_hint
+  logical, save :: torn_pair,torn_history,qso_failure,torn_hint,torn_qso
 end module ft8_decode_state_test_controls
 
 program test_ft8_mtd_decode_state_concurrent
@@ -14,7 +14,9 @@ program test_ft8_mtd_decode_state_concurrent
        calldteven,calldtodd,ft8_lookup_call_dt,begin_ft8_qso_attempt, &
        ft8_qso_hints_suppressed,suppress_ft8_qso_hints,even,odd,ft8_period_hint, &
        get_ft8_period_hint,get_ft8_bootstrap_hint,retire_ft8_period_hint, &
-       prepare_ft8_hint_history,clear_ft8_hint_history
+       prepare_ft8_hint_history,clear_ft8_hint_history,ft8_qso_snapshot, &
+       get_ft8_qso_hint_state,publish_ft8_qso_message,seed_ft8_qso_message, &
+       reset_ft8_qso_state,invalidate_ft8_qso_partner,prepare_ft8_qso_history,incall
   implicit none
 
   interface
@@ -34,6 +36,9 @@ program test_ft8_mtd_decode_state_concurrent
   call test_period_hints()
   call test_bootstrap_hints()
   call test_concurrent_hint_retirement()
+  call test_qso_message_state()
+  call test_qso_history_preparation()
+  call test_concurrent_qso_publication()
 
 contains
 
@@ -677,5 +682,200 @@ contains
          hint%frequency.ne.1000.+real(hint%index)/1024..or.hint%dt.ne.real(hint%index)/1024.) &
          torn_hint=.true.
   end subroutine check_period_hint
+
+  subroutine assert_qso_state(suppressed,valid,message,dt,partner)
+    logical, intent(in) :: suppressed,valid
+    character(len=*), intent(in) :: message,partner
+    real, intent(in) :: dt
+    type(ft8_qso_snapshot) :: state
+
+    call get_ft8_qso_hint_state(state)
+    if((state%suppressed.neqv.suppressed).or.(state%valid.neqv.valid)) error stop &
+         'QSO snapshot returned incorrect suppression or validity'
+    if(state%message.ne.message.or.state%dt.ne.dt.or.state%partner.ne.partner) error stop &
+         'QSO snapshot returned an incorrect message/DT/partner tuple'
+  end subroutine assert_qso_state
+
+  subroutine test_qso_message_state()
+    call reset_ft8_qso_state()
+    call assert_qso_state(.false.,.false.,'',0.,'')
+    call suppress_ft8_qso_hints()
+    call assert_qso_state(.true.,.false.,'',0.,'')
+    call seed_ft8_qso_message('K1ABC W9XYZ -10',0.25)
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ -10',0.25,'')
+    call seed_ft8_qso_message('K1ABC W1ABC -15',-0.5)
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ -10',0.25,'')
+    call reset_ft8_qso_state()
+    call seed_ft8_qso_message('K1ABC W9XYZ -10',0.25)
+    call assert_qso_state(.false.,.true.,'K1ABC W9XYZ -10',0.25,'')
+    call publish_ft8_qso_message('K1ABC W9XYZ R-10',0.5,'W9XYZ')
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ R-10',0.5,'W9XYZ')
+    call invalidate_ft8_qso_partner('W9XYZ')
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ R-10',0.5,'W9XYZ')
+    call invalidate_ft8_qso_partner('W1ABC')
+    call assert_qso_state(.true.,.false.,'',0.,'')
+    call seed_ft8_qso_message('K1ABC W1ABC -15',-0.5)
+    call assert_qso_state(.true.,.true.,'K1ABC W1ABC -15',-0.5,'W9XYZ')
+    call publish_ft8_qso_message('K1ABC W9XYZ W1ABC',0.75,'W9XYZ')
+    call invalidate_ft8_qso_partner('W1ABC')
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ W1ABC',0.75,'W9XYZ')
+    call invalidate_ft8_qso_partner('')
+    call assert_qso_state(.true.,.false.,'',0.,'')
+    call reset_ft8_qso_state()
+    call assert_qso_state(.false.,.false.,'',0.,'')
+  end subroutine test_qso_message_state
+
+  subroutine test_qso_history_preparation()
+    call clear_ft8_hint_history()
+    even%lstate=.false.
+    odd%lstate=.false.
+    incall%msg=''
+    incall%xdt=0.
+    call seed_period_hint(1,1,'K1ABC W9XYZ RR73',1000.,1.25)
+    call seed_period_hint(1,2,'K1ABC W9XYZ 73',1100.,1.5)
+    call prepare_ft8_hint_history(0)
+    incall(1)%msg='K1ABC W9XYZ -10'
+    incall(1)%xdt=0.25
+    incall(2)%msg='K1ABC W9XYZ R-10'
+    incall(2)%xdt=0.5
+
+    call reset_ft8_qso_state()
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.false.,.true.,'K1ABC W9XYZ -10',0.25,'')
+    incall(1)%msg='CQ W1ABC FN42'
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.false.,.true.,'K1ABC W9XYZ -10',0.25,'')
+
+    call reset_ft8_qso_state()
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.false.,.true.,'K1ABC W9XYZ R-10',0.5,'')
+    incall(1)%msg=''
+    call reset_ft8_qso_state()
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.false.,.true.,'K1ABC W9XYZ RR73',1.25,'')
+
+    call reset_ft8_qso_state()
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.false.,.true.,.true.,.false.)
+    call assert_qso_state(.false.,.false.,'',0.,'')
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.true.,.false.,.true.,.false.)
+    call assert_qso_state(.false.,.false.,'',0.,'')
+    call prepare_ft8_qso_history('','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.false.,.false.,'',0.,'')
+
+    call publish_ft8_qso_message('K1ABC W1ABC -15',-0.5,'W1ABC')
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.false.,.true.,.true.,.false.)
+    call assert_qso_state(.true.,.false.,'',0.,'')
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ RR73',1.25,'W1ABC')
+    call publish_ft8_qso_message('K1ABC W9XYZ -20',-0.75,'W9XYZ')
+    call prepare_ft8_qso_history('W9XYZ','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ -20',-0.75,'W9XYZ')
+    call prepare_ft8_qso_history('','K1ABC',.true.,.true.,.true.,.false.)
+    call assert_qso_state(.true.,.false.,'',0.,'')
+  end subroutine test_qso_history_preparation
+
+  subroutine test_concurrent_qso_publication()
+    integer, parameter :: writer_iterations=20000,minimum_reads=40000
+    integer :: worker,iteration,status,checkpoint_status
+
+    call reset_ft8_qso_state()
+!$omp atomic write seq_cst
+    started=0
+!$omp atomic write seq_cst
+    reader_ready=0
+!$omp atomic write seq_cst
+    checkpoint=0
+!$omp atomic write seq_cst
+    checkpoint_seen=0
+!$omp atomic write seq_cst
+    finished=0
+!$omp atomic write seq_cst
+    reader_finished=0
+    reads=0
+    torn_qso=.false.
+
+!$omp parallel num_threads(2) private(worker,iteration,status,checkpoint_status)
+    if(omp_get_num_threads().ne.2) error stop 'two OpenMP workers are required for QSO publication'
+    worker=omp_get_thread_num()
+    if(worker.eq.0) then
+       call publish_ft8_qso_message('K1ABC W9XYZ -10',0.25,'W9XYZ')
+!$omp atomic write seq_cst
+       started=1
+       do
+!$omp atomic read seq_cst
+          status=reader_ready
+          if(status.eq.1) exit
+       enddo
+       do iteration=1,writer_iterations
+          if(mod(iteration,2).eq.0) then
+             call publish_ft8_qso_message('K1ABC W9XYZ -10',0.25,'W9XYZ')
+          else
+             call publish_ft8_qso_message('K1ABC W1ABC R-15',-0.5,'W1ABC')
+          endif
+          if(iteration.eq.writer_iterations/2) then
+!$omp atomic write seq_cst
+             checkpoint=1
+             do
+!$omp atomic read seq_cst
+                status=checkpoint_seen
+                if(status.eq.1) exit
+             enddo
+          endif
+       enddo
+!$omp atomic write seq_cst
+       finished=1
+       do
+!$omp atomic read seq_cst
+          status=reader_finished
+          if(status.eq.1) exit
+       enddo
+    else
+       do
+!$omp atomic read seq_cst
+          status=started
+          if(status.eq.1) exit
+       enddo
+       call check_qso_tuple(torn_qso)
+       reads=reads+1
+!$omp atomic write seq_cst
+       reader_ready=1
+       do
+!$omp atomic read seq_cst
+          checkpoint_status=checkpoint
+          call check_qso_tuple(torn_qso)
+          reads=reads+1
+          if(checkpoint_status.eq.1) then
+!$omp atomic write seq_cst
+             checkpoint_seen=1
+          endif
+!$omp atomic read seq_cst
+          status=finished
+          if(status.eq.1.and.reads.ge.minimum_reads) exit
+       enddo
+!$omp atomic write seq_cst
+       reader_finished=1
+    endif
+!$omp end parallel
+
+    if(torn_qso) error stop 'QSO reader observed a torn message/DT/partner/suppression tuple'
+    if(checkpoint_seen.ne.1) error stop 'QSO reader did not overlap publication'
+    if(reads.lt.minimum_reads) error stop 'QSO tuple reader did not finish'
+    call assert_qso_state(.true.,.true.,'K1ABC W9XYZ -10',0.25,'W9XYZ')
+  end subroutine test_concurrent_qso_publication
+
+  subroutine check_qso_tuple(torn_qso)
+    logical, intent(inout) :: torn_qso
+    type(ft8_qso_snapshot) :: state
+
+    call get_ft8_qso_hint_state(state)
+    if(.not.state%valid.or..not.state%suppressed) torn_qso=.true.
+    if(state%message.eq.'K1ABC W9XYZ -10') then
+       if(state%dt.ne.0.25.or.state%partner.ne.'W9XYZ') torn_qso=.true.
+    else if(state%message.eq.'K1ABC W1ABC R-15') then
+       if(state%dt.ne.-0.5.or.state%partner.ne.'W1ABC') torn_qso=.true.
+    else
+       torn_qso=.true.
+    endif
+  end subroutine check_qso_tuple
 
 end program test_ft8_mtd_decode_state_concurrent

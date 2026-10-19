@@ -12,7 +12,8 @@ module ft8_mod1
        csyncsdcq(0:57,32),csynccq(0:7,32),ctwkw(11,32),ctwkn(11,32),      &
        ctwk256(256)
   character*37 allmessages(200),msgsd76(76),msg(56),msgroot,msgincall(174)
-  character lasthcall*12,mycall12_0*12,mycall12_00*12,hiscall12_0*12,     &
+  character(len=12), private :: lasthcall=''
+  character mycall12_0*12,mycall12_00*12,hiscall12_0*12,     &
        hisgrid4*4,hisgrid*6 !ft8md w3sz added hisgrid
   character(len=12) :: mycall,hiscall,mybcall,hisbcall
   real allfreq(200),windowc1(0:54),windowx(0:200),pivalue,facx,twopi,     &
@@ -142,13 +143,19 @@ module ft8_mod1
      character(len=37) :: message=''
   end type ft8_period_hint
 
-  type lastrxmsg_struct
-     real xdt
-     logical lstate
-     character*37 lastmsg
+  type, private :: lastrxmsg_struct
+     real :: xdt=0.
+     logical :: lstate=.false.
+     character(len=37) :: lastmsg=''
   end type lastrxmsg_struct
-  type (lastrxmsg_struct) lastrxmsg(1)
-  data lastrxmsg%lstate/.false./
+  type(lastrxmsg_struct), private :: lastrxmsg(1)
+
+  type ft8_qso_snapshot
+     logical :: suppressed=.false.,valid=.false.
+     character(len=37) :: message=''
+     real :: dt=0.
+     character(len=12) :: partner=''
+  end type ft8_qso_snapshot
 
   type callsigndtodd_struct
      real dt
@@ -253,6 +260,95 @@ contains
     call wsjt_tsan_release_ft8_qso_state()
 !$omp end critical(ft8_qso_state)
   end subroutine suppress_ft8_qso_hints
+
+  subroutine get_ft8_qso_hint_state(snapshot)
+    type(ft8_qso_snapshot), intent(out) :: snapshot
+
+    snapshot=ft8_qso_snapshot()
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    snapshot%suppressed=lqsomsgdcd
+    snapshot%valid=lastrxmsg(1)%lstate
+    if(snapshot%valid) then
+       snapshot%message=lastrxmsg(1)%lastmsg
+       snapshot%dt=lastrxmsg(1)%xdt
+       snapshot%partner=lasthcall
+    endif
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end subroutine get_ft8_qso_hint_state
+
+  subroutine publish_ft8_qso_message(message,dt,partner)
+    character(len=*), intent(in) :: message,partner
+    real, intent(in) :: dt
+
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    lastrxmsg(1)=lastrxmsg_struct(dt,.true.,message)
+    lasthcall=partner
+    lqsomsgdcd=.true.
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end subroutine publish_ft8_qso_message
+
+  subroutine seed_ft8_qso_message(message,dt)
+    character(len=*), intent(in) :: message
+    real, intent(in) :: dt
+
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    if(.not.lastrxmsg(1)%lstate) lastrxmsg(1)=lastrxmsg_struct(dt,.true.,message)
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end subroutine seed_ft8_qso_message
+
+  subroutine invalidate_ft8_qso_partner(partner)
+    character(len=*), intent(in) :: partner
+
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    if(partner.eq.'') then
+       lastrxmsg(1)%lstate=.false.
+    else if(lastrxmsg(1)%lstate .and. lasthcall.ne.partner .and. &
+         index(lastrxmsg(1)%lastmsg,trim(partner)).le.0) then
+       lastrxmsg(1)%lstate=.false.
+    endif
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end subroutine invalidate_ft8_qso_partner
+
+  subroutine reset_ft8_qso_state()
+!$omp critical(ft8_qso_state)
+    call wsjt_tsan_acquire_ft8_qso_state()
+    lastrxmsg=lastrxmsg_struct()
+    lasthcall=''
+    lqsomsgdcd=.false.
+    call wsjt_tsan_release_ft8_qso_state()
+!$omp end critical(ft8_qso_state)
+  end subroutine reset_ft8_qso_state
+
+  ! Establish historical hints before current workers can retire or replace them.
+  subroutine prepare_ft8_qso_history(partner,localcall,hints_enabled,frequency_in_range, &
+       even_interval,odd_interval)
+    character(len=*), intent(in) :: partner,localcall
+    logical, intent(in) :: hints_enabled,frequency_in_range,even_interval,odd_interval
+    type(ft8_qso_snapshot) :: snapshot
+    type(ft8_period_hint) :: hint
+    integer :: i
+
+    call invalidate_ft8_qso_partner(partner)
+    if(.not.hints_enabled .or. .not.frequency_in_range .or. partner.eq.'') return
+    call get_ft8_qso_hint_state(snapshot)
+    if(snapshot%valid) return
+    do i=1,size(incall)
+       if(incall(i)%msg(1:1).eq.' ') exit
+       if(index(incall(i)%msg,trim(localcall)//' '//trim(partner)).ne.1) cycle
+       call seed_ft8_qso_message(incall(i)%msg,incall(i)%xdt)
+       return
+    enddo
+    call get_ft8_bootstrap_hint(partner,even_interval,odd_interval,hint)
+    if(hint%valid) call seed_ft8_qso_message(hint%message,hint%dt)
+  end subroutine prepare_ft8_qso_history
 
   subroutine clear_ft8_hint_history()
 !$omp critical(ft8_hint_state)
@@ -437,9 +533,7 @@ contains
     nlasttx=0
     sumxdtt=0.
     avexdt=0.
-    lastrxmsg%lstate=.false.
-    lastrxmsg%lastmsg=''
-    lastrxmsg%xdt=0.
+    call reset_ft8_qso_state()
     odd%lstate=.false.
     even%lstate=.false.
     call clear_ft8_hint_history()
@@ -462,9 +556,7 @@ contains
     csyncsd_valid=.false.
     csyncsdcq_valid=.false.
     first_osd=.true.
-    call begin_ft8_qso_attempt(.false.)
     lapmyc=.false.
-    lasthcall=''
     mycall12_0='dummy'
     mycall12_00='dummy'
     hiscall12_0='dummy'

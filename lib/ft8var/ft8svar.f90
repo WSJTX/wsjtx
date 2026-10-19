@@ -5,7 +5,8 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint,knowledge)
   use ft8_codec_context, only: get_ft8_codec_state
   use ft8var_codec_context, only: genft8sdvar_for_state
 
-  use ft8_mod1, only : itone56,idtone56,msg,nlasttx,lastrxmsg,mycall,hiscall, &
+  use ft8_mod1, only : itone56,idtone56,msg,nlasttx,mycall,hiscall, &
+       ft8_qso_snapshot,get_ft8_qso_hint_state, &
        idtone56_valid
   real, intent(in) :: s8(0:7,79),srr
   real s8_1(0:7,79),s8d(0:7,58),xsync(21),xmsync(21),xdata(58),xmdata(58),xnoise(79),xmnoise(79)
@@ -19,6 +20,7 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint,knowledge)
   logical(1), intent(out) :: lft8s
   logical(1) lmatched(58),lmycall,lhiscall,lrrr,lr73,lcallingrprt,lastrrprt,lastreport,lgrid
   type(pack77_state), target, optional, intent(inout) :: knowledge
+  type(ft8_qso_snapshot) :: qso_hint
   type(pack77_state), pointer :: codec
 
   codec => get_ft8_codec_state()
@@ -39,11 +41,12 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint,knowledge)
 
   lft8s=.false.
   if(stophint) return; if(len_trim(hiscall).lt.3) return; if(nlasttx.eq.6 .or. nlasttx.eq.0) return ! CQ or TX halted
+  call get_ft8_qso_hint_state(qso_hint)
   lgrid=.false.; nft8rxfslow=nft8rxfsens; lmycall=.false.; lastrcvdmsg=''
   lmatched=.false.; s8_1=s8; lhiscall=.false.; lrrr=.false.; lr73=.false.; lcallingrprt=.false.; lastrrprt=.false.
   lastreport=.false.; itonedem=11; ntresh1=26; ntresh2=38; if(srr.gt.7.0) then; ntresh1=29; ntresh2=41; endif
 
-  if(lastrxmsg(1)%lstate) then; lastrcvdmsg=lastrxmsg(1)%lastmsg; else; lastrcvdmsg=''; endif
+  if(qso_hint%valid) then; lastrcvdmsg=qso_hint%message; else; lastrcvdmsg=''; endif
 
   if(lastrcvdmsg.ne.'                                     ') then
     if(index(lastrcvdmsg,trim(hiscall)).gt.0) lhiscall=.true.
@@ -59,18 +62,18 @@ subroutine ft8svar(s8,srr,itone,msg37,lft8s,nft8rxfsens,stophint,knowledge)
     if(index(lastrcvdmsg,' +').gt.0 .or. index(lastrcvdmsg,' -').gt.0) lastreport=.true.
     if(index(lastrcvdmsg,' R+').gt.0 .or. index(lastrcvdmsg,' R-').gt.0) lastrrprt=.true.
   endif
-  if(lastrxmsg(1)%lstate .and. lmycall .and. lhiscall .and. .not.lastreport .and. .not. lastrrprt .and. .not.lrrr .and. &
+  if(qso_hint%valid .and. lmycall .and. lhiscall .and. .not.lastreport .and. .not. lastrrprt .and. .not.lrrr .and. &
     .not.lr73) lgrid=.true.
-  if(lastrxmsg(1)%lstate .and. .not.lmycall .and. lhiscall .and. nlasttx.eq.2) lcallingrprt=.true. ! calling with REPORT
+  if(qso_hint%valid .and. .not.lmycall .and. lhiscall .and. nlasttx.eq.2) lcallingrprt=.true. ! calling with REPORT
 
   if(lgrid .and. index(msg(53),trim(mycall)//' '//trim(hiscall)//' AA00').eq.1) then ! standard callsigns
     idtone56(53,1:58)=0
     itone56(53,1:79)=0
     idtone56_valid(53)=.false.
     i3=-1; n3=-1
-    call genft8sdvar_for_state(codec,lastrxmsg(1)%lastmsg,i3,n3,msgsent37,msgbits,itone)
+    call genft8sdvar_for_state(codec,qso_hint%message,i3,n3,msgsent37,msgbits,itone)
     if(i3.ge.0) then
-      msg(53)=lastrxmsg(1)%lastmsg
+      msg(53)=qso_hint%message
       idtone56(53,1:29)=itone(8:36)
       idtone56(53,30:58)=itone(44:72)
       itone56(53,1:79)=itone(1:79)

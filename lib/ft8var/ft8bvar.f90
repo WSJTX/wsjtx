@@ -19,7 +19,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   use ft8_mod1, only : ft8_message_seen,ft8_lookup_call_dt,apsym,mcq,m73,       &
        mrr73,mrrr,icos7,naptypes,nhaptypes,one,graymap, &
        ft8_period_hint,get_ft8_period_hint,retire_ft8_period_hint,       &
-       lastrxmsg,lasthcall,nlasttx,ft8_qso_hints_suppressed,suppress_ft8_qso_hints, &
+       ft8_qso_snapshot,get_ft8_qso_hint_state,publish_ft8_qso_message, &
+       nlasttx,ft8_qso_hints_suppressed,suppress_ft8_qso_hints, &
        mycalllen1,msgroot,msgrootlen,   &
        idtone25,idtone25_valid,lapmyc,idtonemyc,mycall,hiscall,lhound,apsymsp, &
        ndxnsaptypes,apsymdxns1,apsymdxnsrrr,lenabledxcsearch,lwidedxcsearch,      &
@@ -69,6 +70,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   character(len=37) :: decoded_payload_message
   logical :: has_decoded_payload,history_found
 
+  type(ft8_qso_snapshot) :: qso_hint
   type(ft8_period_hint) :: period_hint
   type(tmpcqdec_struct) tmpcqdec(numdeccq)
   type(tmpcqsig_struct) tmpcqsig(numcqsig) ! 20 sigs 24 threads
@@ -104,12 +106,13 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   xdt0=xdt
   f10=f1
 ! apply last freq f1 and last DT criteria here  
+  call get_ft8_qso_hint_state(qso_hint)
   nqso=1
-  if(lqsothread .and. .not. lft8sdec .and. .not.ft8_qso_hints_suppressed() .and. .not.stophint &
+  if(lqsothread .and. .not. lft8sdec .and. .not.qso_hint%suppressed .and. .not.stophint &
        .and. nlasttx.ge.1 .and. nlasttx.le.4 .and. abs(f10-nfqso).lt.2.51) then
-     if(lastrxmsg(1)%lstate .and. abs(lastrxmsg(1)%xdt-xdt).lt.0.18) then
+     if(qso_hint%valid .and. abs(qso_hint%dt-xdt).lt.0.18) then
         nqso=2
-     elseif(.not.lastrxmsg(1)%lstate) then
+     elseif(.not.qso_hint%valid) then
         nqso=2
      endif
   endif
@@ -117,21 +120,21 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   lvirtual2=.false.
   lvirtual3=.false.
   maxlasttx=4
-  if(lqsothread .and. .not. lft8sdec .and. .not.ft8_qso_hints_suppressed()) then
+  if(lqsothread .and. .not. lft8sdec .and. .not.qso_hint%suppressed) then
      if(len_trim(hiscall).gt.2) then
         if(xdt.gt.4.9 .or. xdt.lt.-4.9) then
-           if(lastrxmsg(1)%lstate .and. trim(lastrxmsg(1)%lastmsg).eq.trim(msgroot)//&
+           if(qso_hint%valid .and. trim(qso_hint%message).eq.trim(msgroot)//&
                 ' RRR') maxlasttx=5
         endif
         if(xdt.gt.4.9) then
            if(.not.stophint .and. nlasttx.ge.1 .and. nlasttx.le.maxlasttx .and.      &
                 abs(f10-nfqso).lt.0.1) then
-              if(lastrxmsg(1)%lstate) then
-                 xdt0=lastrxmsg(1)%xdt
+              if(qso_hint%valid) then
+                 xdt0=qso_hint%dt
                  nqso=2
                  lvirtual2=.true.
               endif
-              if(.not.lastrxmsg(1)%lstate) then
+              if(.not.qso_hint%valid) then
                  call ft8_lookup_call_dt(hiscall,logical(levenint), &
                       logical(loddint),history_found,xdt0)
                  if(history_found) then
@@ -143,12 +146,12 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         elseif (xdt.lt.-4.9) then
            if(.not.stophint .and. nlasttx.ge.1 .and. nlasttx.le.maxlasttx .and. &
                 abs(f10-nfqso).lt.0.1) then
-              if(lastrxmsg(1)%lstate) then
-                 xdt0=lastrxmsg(1)%xdt
+              if(qso_hint%valid) then
+                 xdt0=qso_hint%dt
                  nqso=3
                  lvirtual3=.true.
               endif
-              if(.not.lastrxmsg(1)%lstate) then
+              if(.not.qso_hint%valid) then
                  call ft8_lookup_call_dt(hiscall,logical(levenint), &
                       logical(loddint),history_found,xdt0)
                  if(history_found) then
@@ -2720,11 +2723,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
      if(.not.ldupemsg .and. dfqso.lt.2.0 .and. ((i3.eq.1 .and. .not.lft8s) .or. &
           lft8s)) then
         if(msg37(1:msgrootlen+1).eq.trim(msgroot)//' ') then
-           lasthcall=hiscall
-           lastrxmsg(1)%lastmsg=msg37
-           lastrxmsg(1)%xdt=xdt-0.5
-           lastrxmsg(1)%lstate=.true.
-           call suppress_ft8_qso_hints()
+           call publish_ft8_qso_message(msg37,xdt-0.5,hiscall)
         else if(.not.lft8s .and. mycalllen1.gt.2) then
            if(msg37(1:mycalllen1).ne.trim(mycall)//' ' .and.                    &
                 index(msg37,' '//trim(hiscall)//' ').gt.0) then

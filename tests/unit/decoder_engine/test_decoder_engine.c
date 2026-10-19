@@ -14,6 +14,11 @@
 
 extern void decoder_engine_test_signal(int16_t samples[180000], int8_t payload[77],
                                        int8_t tones[79], int32_t start_sample);
+extern void decoder_engine_test_ft8_message(const char text[37], float carrier,
+                                            int16_t samples[180000], int8_t payload[77],
+                                            int8_t tones[79], int32_t start_sample);
+extern void decoder_engine_test_qso_snapshot(int32_t *valid, int32_t *suppressed,
+                                             char message[38], float *dt, char partner[13]);
 extern void decoder_engine_test_records(decoder_observation records[2], size_t *record_size);
 extern void decoder_engine_test_residual(float samples[180000]);
 extern void decoder_engine_test_host_windows(void);
@@ -46,6 +51,7 @@ typedef struct {
   const decoder_audio_view *audio;
   int count;
   int found_expected;
+  const char *expected_message;
   int8_t expected_payload[77];
   int8_t expected_tones[79];
   float expected_start_seconds;
@@ -64,7 +70,7 @@ static void observe(const decoder_observation *record, void *opaque)
   ++context->count;
   context->retained = *record;
 
-  if (strcmp(record->message, "CQ K1JT FN20") == 0) {
+  if (strcmp(record->message, context->expected_message) == 0) {
     CHECK(record->ft8.payload_origin == DECODER_PAYLOAD_DECODED);
     CHECK(memcmp(record->ft8.payload77, context->expected_payload, 77) == 0);
     CHECK(memcmp(record->ft8.tones, context->expected_tones, 79) == 0);
@@ -270,6 +276,51 @@ static void check_mtd_lifecycle(callback_context *context, decoder_attempt_reque
   free(saved);
 }
 
+static void check_mtd_qso_boundary(callback_context *context, int16_t *samples,
+                                   int16_t *original)
+{
+  const char expected[] = "K1JT HA0DU -10";
+  char text[37], message[38], partner[13];
+  int32_t valid, suppressed;
+  float dt;
+  decoder_attempt_outcome outcome;
+  memset(text, ' ', sizeof text);
+  memcpy(text, expected, strlen(expected));
+  context->expected_message = expected;
+  context->expected_start_seconds = 0.5f;
+  decoder_engine_test_ft8_message(text, 1600.0f, samples, context->expected_payload,
+                                  context->expected_tones, 6000);
+  memcpy(original, samples, 180000 * sizeof *samples);
+
+  for (int boundary = 0; boundary < 2; ++boundary) {
+    decoder_attempt_request request = mtd_request_for(901 + boundary, 1001 + boundary);
+    request.ft8.receive_frequency_hz = 1600;
+    request.ft8.transmit_frequency_hz = 1600;
+    request.ft8.search_low_hz = boundary ? 200 : 1601;
+    request.ft8.search_high_hz = 3000;
+    request.ft8.filtered_retry = 0;
+    request.ft8.qso_progress = 1;
+    request.ft8.standard_mycall = 1;
+    request.ft8.standard_hiscall = 1;
+    memcpy(request.ft8.mycall, "K1JT", 4);
+    memcpy(request.ft8.my_base_call, "K1JT", 4);
+    memcpy(request.ft8.hiscall, "HA0DU", 5);
+    memcpy(request.ft8.his_base_call, "HA0DU", 5);
+    CHECK(decoder_engine_reset_session(context->engine) == DECODER_OK);
+    context->request = &request;
+    /* The 1601-Hz lower bound excludes the QSO from every integer worker range,
+       while the first FFT bin still contains the 1600-Hz signal. */
+    decode_signal(context, original, &outcome);
+    CHECK(context->expected_record.variant == DECODER_FT8_MTD);
+    decoder_engine_test_qso_snapshot(&valid, &suppressed, message, &dt, partner);
+    CHECK(valid && suppressed);
+    CHECK(strcmp(message, expected) == 0);
+    CHECK(strcmp(partner, "HA0DU") == 0);
+    CHECK(fabsf(dt - context->expected_record.dt_seconds) < 0.001f);
+  }
+  context->expected_message = "CQ K1JT FN20";
+}
+
 static void write_le(FILE *file, uint32_t value, unsigned bytes)
 {
   for (unsigned i = 0; i < bytes; ++i) CHECK(fputc((value >> (8 * i)) & 255, file) != EOF);
@@ -307,7 +358,8 @@ int main(int argc, char **argv)
     write_wav(argv[2]);
     return 0;
   }
-  CHECK(argc == 1);
+  const int qso_boundary_only = argc == 2 && !strcmp(argv[1], "--qso-boundary");
+  CHECK(argc == 1 || qso_boundary_only);
   decoder_engine_options options = {DECODER_ENGINE_ABI};
   decoder_engine_handle engine = NULL, second = NULL;
   decoder_engine_capabilities capabilities;
@@ -334,9 +386,17 @@ int main(int argc, char **argv)
   CHECK(capabilities.concurrent_sessions == 0);
   CHECK(capabilities.evidence_capacity == 1024);
 
+  context.expected_message = "CQ K1JT FN20";
   context.engine = engine;
   context.request = &request;
   context.audio = &audio;
+  if (qso_boundary_only) {
+    check_mtd_qso_boundary(&context, samples, before);
+    CHECK(decoder_engine_destroy(context.engine) == DECODER_OK);
+    free(before);
+    free(samples);
+    return EXIT_SUCCESS;
+  }
   request.mode = 123;
   CHECK(decoder_engine_decode(engine, &request, &audio, observe, &context, &outcome) == DECODER_UNSUPPORTED);
   request.mode = DECODER_MODE_FT4;
@@ -407,6 +467,7 @@ int main(int argc, char **argv)
   request = mtd_request_for(502, 602);
   request.ft8.eme_delay_seconds = 2.0f;
   decode_signal(&context, before, &outcome);
+  check_mtd_qso_boundary(&context, samples, before);
   CHECK(decoder_engine_destroy(context.engine) == DECODER_OK);
   decoder_engine_test_host_windows();
   free(before);
