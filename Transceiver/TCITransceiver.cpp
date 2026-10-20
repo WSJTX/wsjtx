@@ -1082,7 +1082,9 @@ void TCITransceiver::do_ptt (bool on)
       else if (busy_PTT_ || !tci_Ready || !_power_) return;
       else busy_PTT_ = true;
       requested_PTT_ = on;
-      if (ESDR3) {
+      // "tci" tells the server to transmit the audio we stream to it.
+      // Without it a server may use its own source, such as the mic.
+      if (ESDR3 || tci_audio_) {
         const QString cmd = CmdTrx + SmDP + rx_ + SmCM + (on ? "true" : "false") + SmCM + "tci"+ SmTZ;
         sendTextMessage(cmd);
       } else {
