@@ -110,6 +110,8 @@ def image_manifest(reference, spec, recipe, generation):
     manifest = dict(line.split("=", 1) for line in raw.splitlines() if "=" in line)
     if manifest.get("generation") != generation.removeprefix("validated-"):
         raise ValueError(f"Image generation mismatch: {reference}")
+    # The runner's disk cannot hold the whole cohort at once.
+    run(["docker", "image", "rm", reference])
     return manifest
 
 

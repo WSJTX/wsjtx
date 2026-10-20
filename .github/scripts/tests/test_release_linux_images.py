@@ -91,9 +91,14 @@ class SelectionTests(unittest.TestCase):
 
     def test_image_validation_selects_the_matching_distro(self):
         for key, distro in (("armhf_runtime", "bookworm"), ("armhf_trixie_runtime", "trixie")):
-            with patch.object(images, "run", side_effect=["4.7.2", "", "generation=" + GENERATION.removeprefix("validated-")]) as command:
+            with patch.object(images, "run", side_effect=["4.7.2", "", "generation=" + GENERATION.removeprefix("validated-"), ""]) as command:
                 images.image_manifest("image@" + DIGEST, images.IMAGES[key], RECIPE, GENERATION)
             self.assertIn("ARMHF_DISTRO=" + distro, command.call_args_list[1].args[0])
+
+    def test_verified_image_is_removed(self):
+        with patch.object(images, "run", side_effect=["4.7.2", "", "generation=" + GENERATION.removeprefix("validated-"), ""]) as command:
+            images.image_manifest("image@" + DIGEST, images.IMAGES["x86_64"], RECIPE, GENERATION)
+        self.assertEqual(command.call_args_list[-1].args[0], ["docker", "image", "rm", "image@" + DIGEST])
 
     def test_candidate_provenance_mismatch_fails(self):
         with tempfile.TemporaryDirectory() as directory:
