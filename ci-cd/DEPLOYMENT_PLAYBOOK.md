@@ -213,11 +213,11 @@ Use `cold_build=true` on a manually dispatched macOS or Windows build to bypass 
 
 Before creating a candidate, run Prepare Release Dependencies from protected private `develop`, selecting a protected `develop` or `release/X.Y` source branch and an explicit validated image generation. The workflow resolves the selected branch to an exact commit before validating its recipes. Refresh incompatible or missing images through the existing Linux image publisher first.
 
-Preparation verifies all four images against the selected source recipes: x86_64, aarch64, and the ARMHF cross-builder/runtime pair. It copies them to `ghcr.io/wsjtx/wsjtx` without changing their digests and verifies anonymous access. Images contain dependency tooling, not WSJT-X application builds. Review changes to copied scripts and image metadata before public preparation; a digest-preserving copy retains the original OCI labels and build metadata.
+Preparation verifies all six images against the selected source recipes: x86_64, aarch64, and the Bookworm and Trixie ARMHF cross-builder/runtime pairs. It copies them to `ghcr.io/wsjtx/wsjtx` without changing their digests and verifies anonymous access. Images contain dependency tooling, not WSJT-X application builds. Review changes to copied scripts and image metadata before public preparation; a digest-preserving copy retains the original OCI labels and build metadata.
 
 The private workflow needs package read access to the internal images and write access to the destination packages through its `GITHUB_TOKEN`. Destination packages must be public, which only the web UI can set. An organization owner first allows public packages under Org Settings → Packages → Package creation. Then, on each destination package's Package settings, add `WSJTX/wsjtx-internal` with role Write under Manage Actions access, and choose Public under Change visibility. A public package cannot be made private again. The workflow changes neither visibility nor access. Prepared image retention tags must remain available for release rebuilds.
 
-Download the successful `prepared-release-dependencies` artifact and review `release-linux-images.json`. Commit that file on the private release branch before candidate tagging. It records the validated generation, four public image digests, and their recipe fingerprints. Application-only changes may reuse it; recipe changes require a new preparation. Keep the detailed preparation record with the private workflow artifacts.
+Download the successful `prepared-release-dependencies` artifact and review `release-linux-images.json`. Commit that file on the private release branch before candidate tagging. It records the validated generation, six public image digests, and their recipe fingerprints. Application-only changes may reuse it; recipe changes require a new preparation. Keep the detailed preparation record with the private workflow artifacts.
 
 The selection belongs to its release branch and never lands on `develop`. In the beta phase the scheduler replaces it without review when `develop`'s recipes change ([state machine](#state-machine) step 5); RC and GA candidates keep the review above.
 
@@ -341,7 +341,7 @@ The release-related files have distinct responsibilities:
 | File | Responsibility |
 |------|----------------|
 | `release-state.txt` | Tracked numeric version, channel, prerelease number, optional Windows signing mode, and archive revision placeholder |
-| `prepare-release-dependencies.yml` | Verify the four Linux release images against a branch's recipes, copy them to the public packages, and produce `release-linux-images.json` |
+| `prepare-release-dependencies.yml` | Verify the six Linux release images against a branch's recipes, copy them to the public packages, and produce `release-linux-images.json` |
 | `release-tag-helper.yml` | Validate the release-branch tip and CI, create an immutable private candidate tag, then call the candidate build |
 | `release.yml` | Build private validation artifacts only; never publish or copy source |
 | `promote-release.yml` | Validate the candidate run and atomically create its immutable tag and create or fast-forward its public release branch; advance public `master` only for newest-line GA |
