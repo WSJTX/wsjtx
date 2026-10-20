@@ -57,18 +57,18 @@ module jtty_mdec
   real, parameter           :: FRAME_HISTORY_FREQ_TOLERANCE = 3.0
   real, parameter           :: NEAR_SIMULTANEOUS_FREQ_TOLERANCE = 12.0
   real, parameter           :: CONTINUATION_TIME_TOLERANCE = 0.1
-  ! A misaligned candidate on an already-decoded signal (sync search landing
-  ! inside that signal's frame, or one tone spacing away from it) can pass the
-  ! permissive channel-0 sync gate and still yield a TBCC codeword, producing a
-  ! plausible but false frame such as "IG4QXF TU". Such aliases overlap a
-  ! recent frame in time, lie within ALIAS_FREQ_TONES tone spacings of it, are
-  ! not frame-aligned with it, and have weak sync. Because an alias is the
-  ! same transmitter seen through a shifted window, its offset from that frame
-  ! is (nearly) a whole number of symbols; an independent station overlapping
-  ! at a fractional-symbol offset is left alone.
-  real, parameter           :: ALIAS_FREQ_TONES = 1.5
+  ! Alias rejection (see is_frame_alias). A sync candidate that lands a whole
+  ! number of symbols inside an already-decoded frame of the same signal (or
+  ! a tone spacing or two away from it) can pass the permissive channel-0
+  ! sync gate and still yield a TBCC codeword, producing a plausible but false
+  ! frame such as "IG4QXF TU". Its received symbols are that known frame's
+  ! tones, shifted; an independent overlapping station's are not.
+  real, parameter           :: ALIAS_FREQ_TONES = 2.5
   real, parameter           :: ALIAS_MAX_SYMBOL_FRACTION = 0.25
-  integer, parameter        :: ALIAS_MAX_NSYNC = 9
+  integer, parameter        :: ALIAS_MIN_OVERLAP = 9
+  real, parameter           :: ALIAS_MIN_AGREEMENT = 0.8
+  integer, parameter        :: MAX_ALIAS_REFERENCES = 32
+  integer, parameter        :: ALIAS_FRAME_SYMBOLS = 59
   ! pn leaks ~SNR_LEAKAGE_K*pt of signal power; corrected ratio still asymptotes near (1-k)/k for very strong signals.
   real, parameter           :: SNR_LEAKAGE_K = 0.048
   real, parameter           :: SNR_FLOOR_DB = -17.0  ! weaker than the weakest sometimes-decodable JTTY signal
@@ -99,6 +99,12 @@ module jtty_mdec
   real                      :: subtracted_f1(MAX_SUBTRACTED) = 0.0
   real(real64)              :: subtracted_tsync(MAX_SUBTRACTED) = 0.0_real64
   integer                   :: subtracted_payload(PAYLOAD_BITS,MAX_SUBTRACTED) = 0
+  ! Recently decoded frames (frequency, sync time, full tone sequence) that
+  ! later candidates are checked against for aliasing.
+  integer                   :: nalias_refs = 0, next_alias_ref = 1
+  real                      :: alias_ref_f1(MAX_ALIAS_REFERENCES) = 0.0
+  real(real64)              :: alias_ref_tsync(MAX_ALIAS_REFERENCES) = 0.0_real64
+  integer                   :: alias_ref_tones(ALIAS_FRAME_SYMBOLS,MAX_ALIAS_REFERENCES) = 0
   complex, allocatable, private :: sync_chirp_weights(:),sync_chirp_kernel(:)
   integer, private :: sync_chirp_samples=0,sync_chirp_first_bin=-1
   integer, private :: sync_chirp_output_count=0
@@ -255,6 +261,8 @@ contains
   subroutine reset_decode_search_state()
       nactive=0
       nrecent=0
+      nalias_refs=0
+      next_alias_ref=1
   end subroutine reset_decode_search_state
 
   subroutine discard_pending_updates()
@@ -278,26 +286,71 @@ contains
            abs(tsync_a-tsync_b).lt.FRAME_HISTORY_TIME_TOLERANCE
   end function same_recent_frame
 
-  logical function is_frame_alias(f1,tsync,nsync,tone_spacing,frame_period)
-      real, intent(in) :: f1,tone_spacing,frame_period
+  subroutine remember_alias_reference(f1,tsync,tones)
+      real, intent(in) :: f1
       real(real64), intent(in) :: tsync
-      integer, intent(in) :: nsync
-      real(real64) :: dt,resid,nsym
+      integer, intent(in) :: tones(ALIAS_FRAME_SYMBOLS)
       integer :: i
 
+      do i=1,nalias_refs                ! the same frame decoded again
+         if(abs(alias_ref_tsync(i)-tsync).lt.0.01_real64 .and. &
+              abs(alias_ref_f1(i)-f1).lt.3.0) return
+      enddo
+      alias_ref_f1(next_alias_ref)=f1
+      alias_ref_tsync(next_alias_ref)=tsync
+      alias_ref_tones(:,next_alias_ref)=tones
+      nalias_refs=min(nalias_refs+1,MAX_ALIAS_REFERENCES)
+      next_alias_ref=mod(next_alias_ref,MAX_ALIAS_REFERENCES)+1
+  end subroutine remember_alias_reference
+
+! True when a candidate frame (frequency f1, sync time tsync, hard-decision
+! received tones rx) is a misaligned view of a recently decoded frame: within
+! ALIAS_FREQ_TONES tone spacings of it, overlapping it in time at a near-whole
+! number of symbols (but not frame-aligned), and with its received tones
+! matching that frame's tones, shifted by the same symbols and tones. Frames
+! already subtracted in this pass are skipped: their energy is gone from the
+! search data, so the candidate cannot be seeing them.
+  logical function is_frame_alias(f1,tsync,rx,tone_spacing,frame_period)
+      real, intent(in) :: f1,tone_spacing,frame_period
+      real(real64), intent(in) :: tsync
+      integer, intent(in) :: rx(ALIAS_FRAME_SYMBOLS)
+      real(real64) :: dt,nsym
+      real :: df
+      integer :: i,j,m,nshift,ktone,expected,noverlap,nagree
+      logical :: gone
+
       is_frame_alias=.false.
-      if(nsync.gt.ALIAS_MAX_NSYNC) return
-      do i=1,nrecent
-         if(abs(f1-recent_frames(i)%f1).ge.ALIAS_FREQ_TONES*tone_spacing) cycle
-         dt=tsync-recent_frames(i)%tsync
+      do i=1,nalias_refs
+         df=f1-alias_ref_f1(i)
+         if(abs(df).ge.ALIAS_FREQ_TONES*tone_spacing) cycle
+         gone=.false.
+         do j=1,nsubtracted
+            if(abs(subtracted_tsync(j)-alias_ref_tsync(i)).lt.0.001_real64 .and. &
+                 abs(subtracted_f1(j)-alias_ref_f1(i)).lt.0.1) gone=.true.
+         enddo
+         if(gone) cycle
+         dt=tsync-alias_ref_tsync(i)
          if(abs(dt).ge.frame_period) cycle
          nsym=dt*tone_spacing          ! offset in symbols (tone spacing = baud)
          if(abs(nsym-anint(nsym)).gt.ALIAS_MAX_SYMBOL_FRACTION) cycle
-         resid=min(abs(dt),frame_period-abs(dt))
-         if(resid.lt.CONTINUATION_TIME_TOLERANCE .and. &
-              abs(f1-recent_frames(i)%f1).lt.NEAR_SIMULTANEOUS_FREQ_TOLERANCE) cycle
-         is_frame_alias=.true.
-         return
+         nshift=nint(nsym)
+         if(nshift.eq.0) cycle         ! frame-aligned: a dupe, not an alias
+         ktone=-nint(df/tone_spacing)  ! a higher candidate sees lower tones
+         noverlap=0
+         nagree=0
+         do j=1,ALIAS_FRAME_SYMBOLS
+            m=j+nshift
+            if(m.lt.1 .or. m.gt.ALIAS_FRAME_SYMBOLS) cycle
+            expected=alias_ref_tones(m,i)+ktone
+            if(expected.lt.0 .or. expected.gt.3) cycle
+            noverlap=noverlap+1
+            if(rx(j).eq.expected) nagree=nagree+1
+         enddo
+         if(noverlap.lt.ALIAS_MIN_OVERLAP) cycle
+         if(real(nagree).ge.ALIAS_MIN_AGREEMENT*real(noverlap)) then
+            is_frame_alias=.true.
+            return
+         endif
       enddo
   end function is_frame_alias
 
@@ -645,6 +698,7 @@ contains
       integer, save                  :: nfft,nh2,nss
       integer                        :: iloc(1)
       integer                        :: irxsync(NSYNC_SYM), irxchan(NCHAN_SYM)
+      integer                        :: rx_frame(NFRAME_SYM)
       integer                        :: iactive
       integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc,nstep_search
       integer                        :: nc0,n_ch0_ok
@@ -1152,8 +1206,6 @@ contains
       call unpack_jtty(c32,1,cand(ncand)%decoded,cand(ncand)%trailing_sep,   &
            cand(ncand)%is_last_frame,source_valid)
       if(.not.source_valid) return
-      if(is_frame_alias(cand(ncand)%f1,sample_time(istart)+ &
-           real(cand(ncand)%xdt,real64),nsync,baud,nframe6/6000.0)) return
 
       ndecodes=ndecodes+1
       ! Re-encode the decoded payload to recover the expected tone
@@ -1175,6 +1227,12 @@ contains
          cand(ncand)%snrdb=snrdb
       endif
       cand(ncand)%tsync=sample_time(istart) + real(cand(ncand)%xdt,real64)
+      if(ic_label.ge.0) then
+         rx_frame(1:NSYNC_SYM)=irxsync
+         rx_frame(NSYNC_SYM+1:NFRAME_SYM)=irxchan
+         if(is_frame_alias(cand(ncand)%f1,cand(ncand)%tsync,rx_frame,baud, &
+              nframe6/6000.0)) return
+      endif
       decoded_ok=.true.
 
 ! dupe detection
@@ -1204,6 +1262,7 @@ contains
       call subtract_jtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM,   &
            nss, cand(ncand)%f1, cand(ncand)%xdt)
       any_subtracted=.true.
+      call remember_alias_reference(cand(ncand)%f1,cand(ncand)%tsync,tone_symbols_full)
       s0_valid=.false.
 
       if(nsubtracted.lt.MAX_SUBTRACTED) then
