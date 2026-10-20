@@ -638,7 +638,8 @@ void TCITransceiver::onMessageReceived(const QString &str)
   for (QString cmds : cmd_list){
     QStringList cmd = cmds.split(":", SkipEmptyParts);
     QStringList args = cmd.last().split(",", SkipEmptyParts);
-    Tci_Cmd idCmd = mapCmd_[cmd.first()];
+    // TCI command and mode names are case-insensitive.
+    Tci_Cmd idCmd = mapCmd_[cmd.first().toLower()];
     if (idCmd != Cmd_Power && idCmd != Cmd_SWR && idCmd != Cmd_Smeter && idCmd != Cmd_AppFocus && idCmd != Cmd_RxSensors && idCmd != Cmd_TxSensors) { printf("%s TCI message received:|%s| ",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),str.toStdString().c_str()); printf("idCmd : %d args : %s\n",idCmd,args.join("|").toStdString().c_str());}
     qDebug() << cmds << idCmd;
     if (idCmd <=0) continue;
@@ -709,7 +710,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
         if(args.at(0)==rx_) {
           if (ESDR3 || HPSDR) {
             if (args.at(1) == "0" ) mode_ = args.at(2).toLower(); else mode_ = args.at(1).toLower();
-          } else mode_ = args.at(1);
+          } else mode_ = args.at(1).toLower();
           if (started_mode_.isEmpty()) started_mode_ = mode_;
           if (busy_mode_) {
             if (requested_mode_.isEmpty() || requested_mode_ == mode_) tci_done8();
