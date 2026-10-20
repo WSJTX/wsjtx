@@ -381,6 +381,10 @@ int main(int argc, char *argv[])
         QStringList {} << "live-audio-data-dir",
         "Shipped decoder data used by --live-audio-test.", "directory");
       parser.addOption (live_audio_data_dir_option);
+      QCommandLineOption live_audio_scheduling_option (
+        QStringList {} << "live-audio-ft8-stages",
+        "Check ordinary FT8 scheduling with two or three stages.", "count");
+      parser.addOption (live_audio_scheduling_option);
       QCommandLineOption jtty_live_audio_test_option (
         QStringList {} << "jtty-live-audio-test",
         "Feed a WAV fixture through the live JTTY receive path.", "wav-path");
@@ -502,6 +506,14 @@ int main(int argc, char *argv[])
         {
           std::cerr << "--live-audio-test, --live-audio-expected, and "
                        "--live-audio-data-dir must be used together"
+                    << std::endl;
+          return EXIT_FAILURE;
+        }
+      auto const ft8_stages = parser.value (live_audio_scheduling_option);
+      if (parser.isSet (live_audio_scheduling_option)
+          && (!live_audio_test || (ft8_stages != "2" && ft8_stages != "3")))
+        {
+          std::cerr << "--live-audio-ft8-stages requires --live-audio-test and 2 or 3"
                     << std::endl;
           return EXIT_FAILURE;
         }
@@ -1012,8 +1024,10 @@ int main(int argc, char *argv[])
                 parser.value (live_audio_test
                               ? live_audio_expected_option
                               : jtty_live_audio_expected_option),
-                live_audio_test ? LiveAudioTestController::Mode::Ft8
-                                : LiveAudioTestController::Mode::Jtty});
+                !live_audio_test ? LiveAudioTestController::Mode::Jtty
+                  : ft8_stages == "2" ? LiveAudioTestController::Mode::Ft8TwoStage
+                  : ft8_stages == "3" ? LiveAudioTestController::Mode::Ft8ThreeStage
+                  : LiveAudioTestController::Mode::Ft8});
               auto * controller = live_audio_controller.get ();
               QTimer::singleShot (0, live_audio_controller.get (),
                                   [controller] {

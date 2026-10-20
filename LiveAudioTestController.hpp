@@ -12,6 +12,7 @@
 #include <QByteArray>
 #include <QVector>
 #include <vector>
+#include "commons.h"
 
 class FixtureAudioInput;
 class MainWindow;
@@ -26,6 +27,8 @@ public:
   enum class Mode
   {
     Ft8,
+    Ft8TwoStage,
+    Ft8ThreeStage,
     Jtty
   };
 
@@ -44,6 +47,22 @@ private:
     Multithreaded
   };
 
+  struct Ft8Invocation
+  {
+    int halfSymbols;
+    quint64 cycle;
+    QSet<QString> raw, processed, displayed;
+  };
+
+  struct Ft8SchedulingPoint
+  {
+    int halfSymbols;
+    bool available;
+    bool captured {false};
+    bool published {false};
+    bool verified {false};
+  };
+
   static QSet<QString> readExpectedMessages (QString const& path, QString * error);
   static QStringList readExpectedJttyMessages (QString const& path, QString * error);
   static QString messageFromDecoderLine (QByteArray const& line);
@@ -60,6 +79,16 @@ private:
   void fail (QString const& reason);
   void checkForUnexpectedModal ();
   void exerciseSubmittedFt8Rollover ();
+  bool schedulingScenario () const {return m_mode == Mode::Ft8TwoStage || m_mode == Mode::Ft8ThreeStage;}
+  void observeFt8SchedulingRequest (decoder_params_t const& params,
+                                    decoder_input_metadata_t const& metadata,
+                                    short const * samples, qint64 period, bool pending);
+  void observeFt8SchedulingPoint (int halfSymbols, bool available);
+  bool verifyFt8SchedulingPoint ();
+  int finalFt8HalfSymbols () const {return m_mode == Mode::Ft8ThreeStage ? 50 : 49;}
+  int expectedFt8Stages () const {return m_mode == Mode::Ft8ThreeStage ? 3 : 2;}
+  Ft8Invocation * activeFt8Invocation ();
+  bool verifyFt8SchedulingOutput ();
 
   MainWindow * m_window;
   FixtureAudioInput * m_fixture;
@@ -74,6 +103,18 @@ private:
   QSet<QString> m_multithreadedObserved;
   QSet<QString> m_earlyRaw;
   QSet<QString> m_multithreadedRaw;
+  std::vector<short> m_ft8FixtureSamples;
+  QVector<Ft8Invocation> m_ft8Invocations;
+  QVector<Ft8SchedulingPoint> m_ft8SchedulingPoints;
+  decoder_input_metadata_t m_ft8FinalMetadata {};
+  QSet<quint64> m_ft8CompletedCycles;
+  quint64 m_ft8ActiveCycle {0};
+  quint64 m_ft8LastPublication {0};
+  quint64 m_ft8Epoch {0};
+  qint64 m_ft8InputId {0};
+  qint64 m_ft8AnalysisId {0};
+  int m_ft8LastAttempt {0};
+  int m_ft8AcceptedEnd {0};
   QString m_initializationError;
   QTimer m_timeout;
   QTimer m_prepareTimer;

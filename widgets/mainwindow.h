@@ -251,6 +251,7 @@ public:
   quint64 liveAudioTestDecodeCycleGeneration () const {return m_decodeCycleGeneration;}
   quint64 liveAudioTestReceiveEpoch () const {return m_receiveConsumer.epoch ();}
   bool liveAudioTestReceivingAudio () const {return m_receivingAudio;}
+  int liveAudioTestHalfSymbols () const {return m_ihsym;}
   QString checkLiveAudioTestJttyFrequencyChanges();
   bool startLiveAudioTestJttyWav(QString const& path);
   QString checkLiveAudioTestJttyMailboxOverflow();
@@ -275,6 +276,14 @@ public:
                              int cycles, bool subpass, int decoderStart,
                              int halfSymbols, int sampleCount,
                              int lowFrequency, int highFrequency) const;
+  // The sample pointer is borrowed for synchronous test observation.
+  void liveAudioTestFt8RequestPublished (decoder_params_t const& params,
+                                        decoder_input_metadata_t const& metadata,
+                                        short const * samples, qint64 period) const;
+  void liveAudioTestFt8SchedulingPoint (int halfSymbols, bool decoderAvailable) const;
+  void liveAudioTestFt8RequestCaptured (decoder_params_t const& params,
+                                       decoder_input_metadata_t const& metadata,
+                                       short const * samples, qint64 period) const;
   void decoderOutputLine (QByteArray line) const;
   void liveAudioTestJttyFramesConsumed (qint64 frames) const;
   void liveAudioTestReceiveRejected (qint64 notifiedFrames) const;

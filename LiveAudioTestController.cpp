@@ -13,6 +13,7 @@ extern dec_data_t& dec_data;
 #include <chrono>
 #include <condition_variable>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -25,6 +26,7 @@ extern dec_data_t& dec_data;
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QDateTime>
 #include <QLabel>
 #include <QProgressBar>
 #include <QRegularExpression>
@@ -67,7 +69,7 @@ LiveAudioTestController::LiveAudioTestController (
   , m_expectedPath {std::move (expectedPath)}
   , m_mode {mode}
 {
-  if (Mode::Ft8 == m_mode)
+  if (Mode::Jtty != m_mode)
     {
       m_expected = readExpectedMessages (m_expectedPath, &m_initializationError);
     }
@@ -89,9 +91,9 @@ LiveAudioTestController::LiveAudioTestController (
     }
 
   m_timeout.setSingleShot (true);
-  m_timeout.setInterval (Mode::Ft8 == m_mode ? 110000 : 200000);
+  m_timeout.setInterval (Mode::Jtty != m_mode ? 110000 : 200000);
   connect (&m_timeout, &QTimer::timeout, this, [this] {
-    fail (Mode::Ft8 == m_mode
+    fail (Mode::Jtty != m_mode
           ? tr ("Timed out after 110 seconds.")
           : tr ("Timed out waiting for JTTY audio or decoded text."));
   });
@@ -129,18 +131,24 @@ LiveAudioTestController::LiveAudioTestController (
            this, &LiveAudioTestController::prepareWhenReady);
   connect (m_window, &MainWindow::decoderBackendStarted,
            this, [this] {
-             if (m_submittedGeneration)
+             if (m_submittedGeneration || m_ft8LastPublication)
                fail (tr ("Decoder backend restarted after FT8 publication."));
            });
   connect (m_window, &MainWindow::decodeCycleStarted,
            this, [this] (quint64 cycle) {
-             if (m_submittedGeneration)
+             if (schedulingScenario ())
+               {
+                 if (!m_armed || m_ft8ActiveCycle || m_completedCycles != m_ft8Invocations.size ())
+                   fail (tr ("FT8 scheduling started an overlapping or unexpected cycle."));
+                 m_ft8ActiveCycle = cycle;
+               }
+             else if (m_submittedGeneration)
                fail (tr ("Unexpected decoder cycle %1 after FT8 publication %2.")
                      .arg (cycle).arg (m_submittedGeneration));
            });
   connect (m_window, &MainWindow::decoderBackendFailed,
            this, [this] (QString const& reason) {
-             if (Mode::Ft8 == m_mode)
+             if (Mode::Jtty != m_mode)
                {
                  fail (tr ("Decoder backend failed: %1").arg (reason));
                }
@@ -149,6 +157,8 @@ LiveAudioTestController::LiveAudioTestController (
            this, [this] (QString const& message) {
              if (message.isEmpty ()) return;
              auto const normalized = message.simplified ();
+             if (auto * invocation = activeFt8Invocation ())
+               invocation->processed.insert (normalized);
              m_observed.insert (normalized);
              if (m_decoderStage == DecoderStage::EarlyStandard)
                {
@@ -161,11 +171,42 @@ LiveAudioTestController::LiveAudioTestController (
            });
   connect (m_window, &MainWindow::decodedMessageDisplayed,
            this, [this] (QString const& message) {
-             if (!message.isEmpty ()) m_displayed.insert (message.simplified ());
+             if (message.isEmpty ()) return;
+             auto const normalized = message.simplified ();
+             if (auto * invocation = activeFt8Invocation ())
+               invocation->displayed.insert (normalized);
+             m_displayed.insert (normalized);
            });
   connect (m_window, &MainWindow::decodeCycleCompleted,
            this, [this] (quint64 cycle) {
              ++m_completedCycles;
+             if (schedulingScenario ())
+               {
+                 if (!m_ft8ActiveCycle || cycle != m_ft8ActiveCycle
+                     || m_ft8Invocations.size () != m_completedCycles
+                     || m_ft8CompletedCycles.contains (cycle))
+                   {
+                     fail (tr ("FT8 scheduling completion identity/count mismatch."));
+                     return;
+                   }
+                 m_ft8CompletedCycles.insert (cycle);
+                 auto const& invocation = m_ft8Invocations.constLast ();
+                 auto logMessages = [&invocation, cycle] (char const * layer, QSet<QString> const& values)
+                   {
+                     auto messages = values.values ();
+                     messages.sort ();
+                     std::cerr << "WSJT-X FT8 scheduling: half_symbols=" << invocation.halfSymbols
+                               << " cycle=" << cycle << " " << layer << "="
+                               << messages.join (" | ").toStdString () << std::endl;
+                   };
+                 logMessages ("raw", invocation.raw);
+                 logMessages ("processed", invocation.processed);
+                 logMessages ("displayed", invocation.displayed);
+                 m_ft8ActiveCycle = 0;
+                 std::cerr << "WSJT-X FT8 scheduling: completed_cycle=" << cycle
+                           << " half_symbols=" << m_window->liveAudioTestHalfSymbols ()
+                           << " received_samples=" << m_ft8AcceptedEnd << std::endl;
+               }
              if (m_submittedGeneration)
                {
                  if (!m_rolloverVerified || cycle != m_submittedCycle
@@ -192,6 +233,8 @@ LiveAudioTestController::LiveAudioTestController (
            this, [this] (QByteArray const& line) {
              auto const message = messageFromDecoderLine (line);
              if (message.isEmpty ()) return;
+             if (auto * invocation = activeFt8Invocation ())
+               invocation->raw.insert (message);
              if (m_decoderStage == DecoderStage::EarlyStandard)
                {
                  m_earlyRaw.insert (message);
@@ -206,6 +249,7 @@ LiveAudioTestController::LiveAudioTestController (
                          int cycles, bool subpass, int decoderStart,
                          int halfSymbols, int sampleCount,
                          int lowFrequency, int highFrequency) {
+             if (schedulingScenario ()) return;
              m_decoderStage = multithreaded
                ? DecoderStage::Multithreaded : DecoderStage::EarlyStandard;
              if (!multithreaded && halfSymbols == 41)
@@ -231,8 +275,30 @@ LiveAudioTestController::LiveAudioTestController (
                        << " nfb=" << highFrequency << std::endl;
              if (multithreaded) exerciseSubmittedFt8Rollover ();
            });
+  connect (m_window, &MainWindow::liveAudioTestFt8SchedulingPoint,
+           this, &LiveAudioTestController::observeFt8SchedulingPoint, Qt::DirectConnection);
+  connect (m_window, &MainWindow::liveAudioTestFt8RequestPublished,
+           this, [this] (decoder_params_t const& params,
+                         decoder_input_metadata_t const& metadata,
+                         short const * samples, qint64 period) {
+             observeFt8SchedulingRequest (params, metadata, samples, period, false);
+           }, Qt::DirectConnection);
+  connect (m_window, &MainWindow::liveAudioTestFt8RequestCaptured,
+           this, [this] (decoder_params_t const& params,
+                         decoder_input_metadata_t const& metadata,
+                         short const * samples, qint64 period) {
+             observeFt8SchedulingRequest (params, metadata, samples, period, true);
+           }, Qt::DirectConnection);
   connect (m_window, &MainWindow::liveAudioTestReceiveRange,
            this, [this] (quint64 epoch, int start, int end, bool accepted) {
+             if (schedulingScenario ())
+               {
+                 if (!m_ft8Epoch) m_ft8Epoch = epoch;
+                 if (!accepted || epoch != m_ft8Epoch || start != m_ft8AcceptedEnd)
+                   fail (tr ("FT8 scheduling received a rejected, gapped, or wrong-period block."));
+                 m_ft8AcceptedEnd = end;
+                 return;
+               }
              if (!m_submittedGeneration || m_finished) return;
              if (!accepted)
                {
@@ -386,6 +452,194 @@ void LiveAudioTestController::exerciseSubmittedFt8Rollover ()
     }
 }
 
+void LiveAudioTestController::observeFt8SchedulingPoint (int halfSymbols, bool available)
+{
+  if (!schedulingScenario () || m_finished) return;
+  if (!m_ft8SchedulingPoints.isEmpty () && halfSymbols > m_ft8SchedulingPoints.last ().halfSymbols
+      && !verifyFt8SchedulingPoint ()) return;
+  if (halfSymbols == 41 || halfSymbols == finalFt8HalfSymbols ()
+      || (m_mode == Mode::Ft8ThreeStage && halfSymbols == 46))
+    {
+      auto const index = m_ft8SchedulingPoints.size ();
+      auto const expected = index == 0 ? 41
+        : index == expectedFt8Stages () - 1 ? finalFt8HalfSymbols () : 46;
+      if (index >= expectedFt8Stages () || halfSymbols != expected
+          || (halfSymbols == 41 && !available)
+          || (!available && halfSymbols == 46
+              && (!m_ft8ActiveCycle || m_ft8Invocations.isEmpty ()
+                  || m_ft8Invocations.last ().halfSymbols != 41)))
+        {
+          fail (tr ("FT8 scheduling point %1 has an unexpected order or decoder owner.")
+                .arg (halfSymbols));
+          return;
+        }
+      m_ft8SchedulingPoints.append (Ft8SchedulingPoint {halfSymbols, available});
+      std::cerr << "WSJT-X FT8 scheduling: trigger=" << halfSymbols
+                << " available=" << available << " active_cycle=" << m_ft8ActiveCycle
+                << std::endl;
+    }
+  maybeFinish ();
+}
+
+bool LiveAudioTestController::verifyFt8SchedulingPoint ()
+{
+  auto& point = m_ft8SchedulingPoints.last ();
+  if (point.verified) return true;
+  auto const final = point.halfSymbols == finalFt8HalfSymbols ();
+  if ((final && !point.captured) || (point.available && !point.published)
+      || (!final && !point.available && point.published))
+    {
+      fail (tr ("FT8 half-symbol %1 violated scheduling: available=%2 captured=%3 published=%4.")
+            .arg (point.halfSymbols).arg (point.available).arg (point.captured).arg (point.published));
+      return false;
+    }
+  point.verified = true;
+  if (!point.available)
+    std::cerr << "WSJT-X FT8 scheduling: verified backpressure at half_symbols="
+              << point.halfSymbols << (final ? " deferred_final" : " skipped_early") << std::endl;
+  return true;
+}
+
+void LiveAudioTestController::observeFt8SchedulingRequest (
+  decoder_params_t const& params, decoder_input_metadata_t const& metadata,
+  short const * samples, qint64 period, bool pending)
+{
+  if (!schedulingScenario () || m_finished) return;
+  auto point = std::find_if (m_ft8SchedulingPoints.begin (), m_ft8SchedulingPoints.end (),
+                            [&params] (Ft8SchedulingPoint const& value) {
+                              return value.halfSymbols == params.nzhsym;
+                            });
+  if (point == m_ft8SchedulingPoints.end ())
+    {
+      fail (tr ("FT8 request has no scheduled trigger at half-symbol %1.").arg (params.nzhsym));
+      return;
+    }
+  auto const final = params.nzhsym == finalFt8HalfSymbols ();
+  auto const available = params.nzhsym * 3456;
+  auto const publication = m_window->liveAudioTestPublishedDecoderGeneration ();
+  auto const expectedTime = QDateTime::fromMSecsSinceEpoch (m_captureStartMs, Qt::UTC).time ();
+  auto const expectedUtc = expectedTime.hour () * 10000 + expectedTime.minute () * 100 + expectedTime.second ();
+  if (!m_ft8InputId && !pending)
+    {
+      m_ft8InputId = metadata.input_id;
+      m_ft8AnalysisId = metadata.analysis_id;
+    }
+  bool const identityMatches = m_captureStartMs > 0 && m_captureStartMs % 15000 == 0
+    && period == m_captureStartMs / 15000 && params.nutc == expectedUtc
+    && m_ft8Epoch && metadata.input_id > 0 && metadata.input_id == m_ft8InputId
+    && metadata.analysis_id > 0 && metadata.analysis_id == m_ft8AnalysisId
+    && metadata.attempt_no == m_ft8LastAttempt + 1
+    && (pending || (publication > m_ft8LastPublication && m_ft8ActiveCycle
+                    && m_ft8ActiveCycle == m_window->liveAudioTestDecodeCycleGeneration ()));
+  bool const configurationMatches = params.nmode == 8 && !params.ndiskdat
+    && params.newdat && !params.nagain && params.ntrperiod == 15
+    && params.lmultift8 == final && params.nmt == ft8TestThreadCount
+    && (params.ndepth & 7) == 2 && params.nft8cycles == (final ? 1 : 2)
+    && !params.lft8subpass && !params.lft8lowth
+    && params.ndecoderstart == expectedFt8Stages () - 2
+    && params.nfa == MainWindow::liveAudioTestDecodeLowFrequency ()
+    && params.nfb == MainWindow::liveAudioTestDecodeHighFrequency ();
+  auto const atTrigger = !point->captured;
+  bool const schedulingMatches = !point->published
+    && (pending ? final && !point->available && atTrigger
+                : (point->available || (final && point->captured))
+                  && m_completedCycles == m_ft8Invocations.size ())
+    && (!atTrigger || (point == m_ft8SchedulingPoints.end () - 1
+                       && m_window->liveAudioTestHalfSymbols () == params.nzhsym
+                       && m_window->liveAudioTestReceivingAudio ()
+                       && m_window->liveAudioTestReceiveEpoch () == m_ft8Epoch
+                       && m_ft8AcceptedEnd == available))
+    && (!final || atTrigger || (metadata.input_id == m_ft8FinalMetadata.input_id
+                               && metadata.analysis_id == m_ft8FinalMetadata.analysis_id
+                               && metadata.attempt_no == m_ft8FinalMetadata.attempt_no
+                               && metadata.valid_samples == m_ft8FinalMetadata.valid_samples));
+  bool const audioMatches = m_ft8FixtureSamples.size () == DecoderIpc::Ft8SampleCount
+    && params.kin == available && metadata.valid_samples == available && samples
+    && available < int (DecoderIpc::Ft8SampleCount)
+    && std::equal (m_ft8FixtureSamples.begin (), m_ft8FixtureSamples.begin () + available, samples)
+    && std::all_of (samples + available, samples + DecoderIpc::Ft8SampleCount,
+                    [] (short value) {return value == 0;});
+  std::cerr << "WSJT-X FT8 scheduling: " << (pending ? "capture" : "invocation")
+            << " MTD=" << params.lmultift8 << " half_symbols=" << params.nzhsym
+            << " available_samples=" << metadata.valid_samples
+            << " window_samples=" << DecoderIpc::Ft8SampleCount
+            << " period=" << period << " input=" << metadata.input_id
+            << " analysis=" << metadata.analysis_id << " attempt=" << metadata.attempt_no
+            << " generation=" << publication << " cycle=" << m_ft8ActiveCycle
+            << " completed=" << m_completedCycles
+            << " fixture_finished=" << m_fixtureFinished << " identity=" << identityMatches
+            << " configuration=" << configurationMatches << " scheduling=" << schedulingMatches
+            << " audio=" << audioMatches << std::endl;
+  if (!identityMatches || !configurationMatches || !schedulingMatches || !audioMatches)
+    {
+      fail (tr ("FT8 half-symbol %1 request failed identity, configuration, scheduling, or audio validation.")
+            .arg (params.nzhsym));
+      return;
+    }
+  point->captured = true;
+  if (final && atTrigger) m_ft8FinalMetadata = metadata;
+  if (pending) return;
+  point->published = true;
+  m_ft8Invocations.append (Ft8Invocation {params.nzhsym, m_ft8ActiveCycle, {}, {}, {}});
+  m_ft8LastPublication = publication;
+  m_ft8LastAttempt = metadata.attempt_no;
+  m_decoderStage = final ? DecoderStage::Multithreaded : DecoderStage::EarlyStandard;
+  if (final) m_sawConfiguredMultithreadedDecode = true;
+  else m_sawEarlyStandardDecode = true;
+}
+
+LiveAudioTestController::Ft8Invocation * LiveAudioTestController::activeFt8Invocation ()
+{
+  if (!schedulingScenario () || m_finished) return nullptr;
+  if (m_ft8Invocations.isEmpty () || !m_ft8ActiveCycle
+      || m_ft8Invocations.last ().cycle != m_ft8ActiveCycle)
+    {
+      fail (tr ("FT8 scheduling output arrived without an active invocation."));
+      return nullptr;
+    }
+  return &m_ft8Invocations.last ();
+}
+
+bool LiveAudioTestController::verifyFt8SchedulingOutput ()
+{
+  auto requireMessage = [this] (Ft8Invocation const& invocation, QString const& message, bool gui) {
+    QStringList missing;
+    if (!invocation.raw.contains (message)) missing.append (QStringLiteral ("raw output"));
+    if (gui && !invocation.processed.contains (message)) missing.append (QStringLiteral ("GUI processing"));
+    if (gui && !invocation.displayed.contains (message)) missing.append (QStringLiteral ("GUI display"));
+    if (missing.isEmpty ()) return true;
+    fail (tr ("FT8 half-symbol %1 cycle %2 reference %3 missing from %4.")
+          .arg (invocation.halfSymbols).arg (invocation.cycle)
+          .arg (message, missing.join (QStringLiteral (", "))));
+    return false;
+  };
+  auto const& first = m_ft8Invocations.constFirst ();
+  auto const& final = m_ft8Invocations.constLast ();
+  auto const usefulEarly = std::any_of (m_expected.begin (), m_expected.end (),
+                                       [&first] (QString const& message) {
+                                         return first.raw.contains (message)
+                                           && first.processed.contains (message)
+                                           && first.displayed.contains (message);
+                                       });
+  if (!usefulEarly)
+    {
+      fail (tr ("FT8 stage 41 delivered no reference message through raw output, GUI processing, and display."));
+      return false;
+    }
+  for (auto const& message : m_expected)
+    if (!requireMessage (final, message, false)) return false;
+  auto const laterMessage = QStringLiteral ("N1PJT HB9CQK -10");
+  if (first.raw.contains (laterMessage))
+    {
+      fail (tr ("FT8 half-symbol 41 unexpectedly recovered the later-stage reference %1.")
+            .arg (laterMessage));
+      return false;
+    }
+  // The second invocation is stage 46 when eligible, otherwise the final MTD stage.
+  return requireMessage (m_ft8Invocations.at (1), laterMessage, true)
+    && requireMessage (final, laterMessage, false);
+}
+
 void LiveAudioTestController::begin ()
 {
   m_timeout.start ();
@@ -490,16 +744,19 @@ void LiveAudioTestController::prepareFt8WhenReady ()
     }
 
   auto * ft8Action = m_window->findChild<QAction *> ("actionFT8");
-  auto * deepAction = m_window->findChild<QAction *> ("actionDeepestDecode");
+  auto * deepAction = m_window->findChild<QAction *> (
+    schedulingScenario () ? "actionMediumDecode" : "actionDeepestDecode");
   auto * multithreadedAction =
     m_window->findChild<QAction *> ("actionUse_multithreaded_FT8_decoder");
   auto * threadCountAction = m_window->findChild<QAction *> (
     QStringLiteral ("actionMT%1").arg (ft8TestThreadCount));
   auto * cycleCountAction = m_window->findChild<QAction *> (
-    QStringLiteral ("actionDecFT8cycles%1").arg (ft8TestCycleCount));
-  auto * subpassAction = m_window->findChild<QAction *> ("actionFT8subpass");
+    QStringLiteral ("actionDecFT8cycles%1").arg (schedulingScenario () ? 1 : ft8TestCycleCount));
+  auto * subpassAction = m_window->findChild<QAction *> (
+    schedulingScenario () ? "actionFT8SensMin" : "actionFT8subpass");
   auto * twoStageAction =
-    m_window->findChild<QAction *> ("actionStartTwoStage");
+    m_window->findChild<QAction *> (m_mode == Mode::Ft8ThreeStage
+                                   ? "actionStartThreeStage" : "actionStartTwoStage");
   auto * monitorButton = m_window->findChild<QAbstractButton *> ("monitorButton");
   auto * autoButton = m_window->findChild<QAbstractButton *> ("autoButton");
   if (!ft8Action || !deepAction || !multithreadedAction
@@ -529,7 +786,7 @@ void LiveAudioTestController::prepareFt8WhenReady ()
             .arg (MainWindow::liveAudioTestDecodeHighFrequency ()));
       return;
     }
-  if (!m_window->prepareLiveAudioTestFt8InputCompletion ())
+  if (!schedulingScenario () && !m_window->prepareLiveAudioTestFt8InputCompletion ())
     {
       fail (tr ("Unable to prepare the complete FT8 fixture decode."));
       return;
@@ -538,14 +795,34 @@ void LiveAudioTestController::prepareFt8WhenReady ()
   bool const decoderConfigurationMatches =
     m_window->liveAudioTestMultithreadedFt8Enabled ()
     && m_window->liveAudioTestFt8ThreadCount () == ft8TestThreadCount
-    && m_window->liveAudioTestDecodeDepth () == 3
-    && m_window->liveAudioTestFt8Cycles () == ft8TestCycleCount
-    && m_window->liveAudioTestFt8Sensitivity () == 3
-    && m_window->liveAudioTestFt8DecoderStart () == 0;
+    && ft8Action->isChecked () && deepAction->isChecked () && twoStageAction->isChecked ()
+    && m_window->liveAudioTestDecodeDepth () == (schedulingScenario () ? 2 : 3)
+    && m_window->liveAudioTestFt8Cycles () == (schedulingScenario () ? 1 : ft8TestCycleCount)
+    && m_window->liveAudioTestFt8Sensitivity () == (schedulingScenario () ? 1 : 3)
+    && m_window->liveAudioTestFt8DecoderStart () == (m_mode == Mode::Ft8ThreeStage ? 1 : 0);
   if (!decoderConfigurationMatches)
     {
       fail (tr ("Unable to configure the FT8 multithreaded decoder as requested."));
       return;
+    }
+
+  if (schedulingScenario ())
+    {
+      BWFFile file {QAudioFormat {}, m_fixture->fixturePath ()};
+      if (!file.open (QIODevice::ReadOnly) || file.format ().sampleRate () != 12000
+          || file.size () != qint64 (DecoderIpc::Ft8SampleCount * sizeof (short)))
+        {
+          fail (tr ("FT8 scheduling requires the 12 kHz reference fixture."));
+          return;
+        }
+      auto const pcm = file.readAll ();
+      m_ft8FixtureSamples.resize (DecoderIpc::Ft8SampleCount);
+      if (pcm.size () != file.size ())
+        {
+          fail (tr ("Cannot read the FT8 scheduling reference PCM."));
+          return;
+        }
+      std::memcpy (m_ft8FixtureSamples.data (), pcm.constData (), pcm.size ());
     }
 
   if (autoButton->isChecked ()) autoButton->click ();
@@ -570,8 +847,10 @@ void LiveAudioTestController::prepareFt8WhenReady ()
     }
   std::cerr << "WSJT-X live audio test: GUI ready, FT8 monitoring active, "
             << "MTD=1 threads=" << ft8TestThreadCount
-            << " depth=3 cycles=" << ft8TestCycleCount
-            << " sensitivity=3 start=0 decode_range="
+            << " depth=" << m_window->liveAudioTestDecodeDepth ()
+            << " cycles=" << m_window->liveAudioTestFt8Cycles ()
+            << " sensitivity=" << m_window->liveAudioTestFt8Sensitivity ()
+            << " start=" << m_window->liveAudioTestFt8DecoderStart () << " decode_range="
             << MainWindow::liveAudioTestDecodeLowFrequency () << '-'
             << MainWindow::liveAudioTestDecodeHighFrequency ()
             << std::endl;
@@ -689,6 +968,25 @@ void LiveAudioTestController::maybeFinishFt8 ()
       return;
     }
 
+  if (schedulingScenario ())
+    {
+      if (!m_ft8SchedulingPoints.isEmpty () && !m_ft8SchedulingPoints.last ().verified) return;
+      auto const expectedInvocations = std::count_if (
+        m_ft8SchedulingPoints.begin (), m_ft8SchedulingPoints.end (),
+        [this] (Ft8SchedulingPoint const& point) {
+          return point.available || point.halfSymbols == finalFt8HalfSymbols ();
+        });
+      if (m_ft8SchedulingPoints.size () != expectedFt8Stages ()
+          || m_ft8Invocations.size () != expectedInvocations
+          || m_completedCycles != expectedInvocations || m_ft8ActiveCycle
+          || m_ft8CompletedCycles.size () != expectedInvocations
+          || m_emittedFrames != qint64 (DecoderIpc::Ft8SampleCount))
+        {
+          fail (tr ("FT8 scheduling did not complete exactly one cycle per eligible invocation."));
+          return;
+        }
+    }
+
   if (!m_sawEarlyStandardDecode || !m_sawConfiguredMultithreadedDecode)
     {
       fail (tr ("The expected early standard and final configured MTD decoder "
@@ -700,6 +998,7 @@ void LiveAudioTestController::maybeFinishFt8 ()
       fail (tr ("The configured MTD invocation produced no decoder output."));
       return;
     }
+  if (schedulingScenario () && !verifyFt8SchedulingOutput ()) return;
 
   QStringList missingFromMultithreadedDecode;
   QStringList missingAfterProcessing;
@@ -1117,7 +1416,7 @@ void LiveAudioTestController::fail (QString const& reason)
             << " displayed=" << (Mode::Jtty == m_mode ? m_jttyQsoFinals.size () : m_displayed.size ())
             << " frames=" << m_emittedFrames
             << " decode_cycles=" << m_completedCycles << std::endl;
-  if (Mode::Ft8 == m_mode)
+  if (Mode::Jtty != m_mode)
     {
       std::cerr << "WSJT-X live audio test: submitted rollover epoch=" << m_rolloverEpoch
                 << " accepted=" << m_rolloverAcceptedBlocks

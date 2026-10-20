@@ -2639,6 +2639,12 @@ void MainWindow::dataSink(qint64 frames)
   if(m_mode=="MSK144") return;
 
   fixStop();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  if (m_automated_test && m_mode == "FT8" && !m_diskData)
+    Q_EMIT liveAudioTestFt8SchedulingPoint (
+      m_ihsym, !decoderBusy () && Jt9ProcessPhase::Ready == m_jt9ProcessPhase
+      && QProcess::Running == proc_jt9.state ());
+#endif
   if (m_mode == "FreqCal"
       // only calculate after 1st chunk, also skip chunk where rig
       // changed frequency
@@ -6278,6 +6284,12 @@ MainWindow::capturePendingFt8MtdDecode (qint64 period)
                  pending->payload.samples.begin ());
   }
   pending->context = currentDecodeOperatingContext ();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  if (m_automated_test)
+    Q_EMIT liveAudioTestFt8RequestCaptured (
+      pending->payload.params, pending->payload.metadata,
+      pending->payload.samples.data (), pending->period);
+#endif
   return pending;
 }
 
@@ -6352,12 +6364,20 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
   m_activeJt9Decode.ft8Stage = ft8Stage;
   m_activeJt9Decode.ft8Period = ft8Period;
   DecoderIpc::Submission submitted;
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  decoder_params_t submittedParams;
+  decoder_input_metadata_t submittedMetadata;
+#endif
   {
     QMutexLocker payloadLock {&dec_data_mutex ()};
     auto inputs = m_decoderInput;
     auto const request = m_decoderSession.prepareRequest (dec_data, copySamples, inputs);
     submitted = m_decoderSession.submit (request);
     if (submitted) m_decoderInput = inputs;
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+    submittedParams = request.options ();
+    submittedMetadata = request.metadata ();
+#endif
     m_activeJt9Decode.context.inputId = request.metadata ().input_id;
     m_activeJt9Decode.context.analysisId = request.metadata ().analysis_id;
   }
@@ -6370,6 +6390,11 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
     }
 
   m_activeJt9Decode.generation = submitted.generation.value ();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  if (m_automated_test && Ft8MtdDecodeCoordinator::Stage::None != ft8Stage)
+    Q_EMIT liveAudioTestFt8RequestPublished (
+      submittedParams, submittedMetadata, dec_data.d2, ft8Period);
+#endif
   return DecodePublishResult::Published;
 }
 
@@ -6409,6 +6434,12 @@ MainWindow::DecodePublishResult MainWindow::publishPendingFt8Decode ()
         }
 
       m_activeJt9Decode.generation = submitted.generation.value ();
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+      if (m_automated_test)
+        Q_EMIT liveAudioTestFt8RequestPublished (
+          pending.payload.params, pending.payload.metadata,
+          pending.payload.samples.data (), pending.period);
+#endif
       emitFt8DecoderInvocation (pending.payload.params);
       qInfo () << "Published pending FT8 final decode"
                << "period:" << pending.period

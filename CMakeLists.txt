@@ -1221,42 +1221,61 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
 
   # Keep GUI concurrency within the macOS CI pool's three-instance capacity.
 
-  set (wsjtx_live_audio_test_root
-    "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_live_audio_ft8")
-  file (MAKE_DIRECTORY
-    "${wsjtx_live_audio_test_root}/config"
-    "${wsjtx_live_audio_test_root}/data"
-    "${wsjtx_live_audio_test_root}/cache"
-    "${wsjtx_live_audio_test_root}/tmp")
-  set (wsjtx_live_audio_test_environment
-    "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config"
-    "XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data"
-    "XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache"
-    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_live_audio_ft8")
-  if (NOT APPLE)
-    list (APPEND wsjtx_live_audio_test_environment
-      "TMPDIR=${wsjtx_live_audio_test_root}/tmp")
-  endif ()
-  if (WSJT_ENABLE_TSAN)
-    list (APPEND wsjtx_live_audio_test_environment
-      "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
-  endif ()
-  add_test (
-    NAME test_wsjtx_live_audio_ft8
-    COMMAND $<TARGET_FILE:wsjtx>
-      --live-audio-test
-      "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
-      --live-audio-expected
-      "${CMAKE_SOURCE_DIR}/test/fixtures/ft8_210703_133430_mtd.expected.txt"
-      --live-audio-data-dir
-      "${CMAKE_SOURCE_DIR}"
-      --rig-name CTEST-LIVE-AUDIO)
-  set_tests_properties (test_wsjtx_live_audio_ft8 PROPERTIES
-    COST 25
-    ENVIRONMENT "${wsjtx_live_audio_test_environment}"
-    LABELS "gui;audio;decoder;integration"
-    PROCESSORS 1
-    TIMEOUT 120)
+  foreach (ft8_scenario IN ITEMS ownership two_stage three_stage)
+    if (NOT ft8_scenario STREQUAL "ownership"
+        AND (WSJT_ENABLE_ASAN_UBSAN OR WSJT_ENABLE_TSAN))
+      continue ()
+    endif ()
+    set (ft8_scheduling_arguments)
+    set (ft8_expected "ft8_210703_133430_mtd.expected.txt")
+    set (ft8_test test_wsjtx_live_audio_ft8)
+    if (NOT ft8_scenario STREQUAL "ownership")
+      set (ft8_test "test_wsjtx_live_audio_ft8_${ft8_scenario}")
+      set (ft8_expected "ft8_210703_133430_live.expected.txt")
+      if (ft8_scenario STREQUAL "two_stage")
+        set (ft8_scheduling_arguments --live-audio-ft8-stages 2)
+      else ()
+        set (ft8_scheduling_arguments --live-audio-ft8-stages 3)
+      endif ()
+    endif ()
+    set (wsjtx_live_audio_test_root
+      "${CMAKE_BINARY_DIR}/Testing/LiveAudio/${ft8_test}")
+    file (MAKE_DIRECTORY
+      "${wsjtx_live_audio_test_root}/config"
+      "${wsjtx_live_audio_test_root}/data"
+      "${wsjtx_live_audio_test_root}/cache"
+      "${wsjtx_live_audio_test_root}/tmp")
+    set (wsjtx_live_audio_test_environment
+      "XDG_CONFIG_HOME=${wsjtx_live_audio_test_root}/config"
+      "XDG_DATA_HOME=${wsjtx_live_audio_test_root}/data"
+      "XDG_CACHE_HOME=${wsjtx_live_audio_test_root}/cache"
+      "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-${ft8_test}")
+    if (NOT APPLE)
+      list (APPEND wsjtx_live_audio_test_environment
+        "TMPDIR=${wsjtx_live_audio_test_root}/tmp")
+    endif ()
+    if (WSJT_ENABLE_TSAN)
+      list (APPEND wsjtx_live_audio_test_environment
+        "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+    endif ()
+    add_test (
+      NAME ${ft8_test}
+      COMMAND $<TARGET_FILE:wsjtx>
+        --live-audio-test
+        "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
+        --live-audio-expected
+        "${CMAKE_SOURCE_DIR}/test/fixtures/${ft8_expected}"
+        --live-audio-data-dir
+        "${CMAKE_SOURCE_DIR}"
+        ${ft8_scheduling_arguments}
+        --rig-name "CTEST-FT8-${ft8_scenario}")
+    set_tests_properties (${ft8_test} PROPERTIES
+      COST 25
+      ENVIRONMENT "${wsjtx_live_audio_test_environment}"
+      LABELS "gui;audio;decoder;integration"
+      PROCESSORS 1
+      TIMEOUT 120)
+  endforeach ()
 
   set (wsjtx_receive_handoff_test_root
     "${CMAKE_BINARY_DIR}/Testing/LiveAudio/test_wsjtx_receive_handoff")
@@ -1445,7 +1464,9 @@ endif ()
 
 # These GUI tests read samples/, which source archives omit.
 if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples")
-  foreach (sample_test test_wsjtx_live_audio_ft8 test_wsjtx_jt9_wav)
+  foreach (sample_test test_wsjtx_live_audio_ft8
+      test_wsjtx_live_audio_ft8_two_stage test_wsjtx_live_audio_ft8_three_stage
+      test_wsjtx_jt9_wav)
     if (TEST ${sample_test})
       set_tests_properties (${sample_test} PROPERTIES DISABLED TRUE)
     endif ()
