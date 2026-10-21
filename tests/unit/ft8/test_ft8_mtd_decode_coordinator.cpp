@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "DecoderIpc.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 
 namespace
@@ -12,24 +13,38 @@ namespace
   using DrainResult = Ft8MtdDecodeCoordinator::DrainResult;
   using PendingPublishResult = Ft8MtdDecodeCoordinator::PendingPublishResult;
 
+  class Ft8Capture final
+    : public CapturedDecode
+  {
+  public:
+    decoder_params_t const& settings () const override {return payload.params;}
+    DecoderIpc::Ft8MtdPayload payload;
+  };
+
+  DecoderIpc::Ft8MtdPayload const& payloadOf (
+      Ft8MtdDecodeCoordinator::PendingMtdDecode const& pending)
+  {
+    return static_cast<Ft8Capture const&> (*pending.request).payload;
+  }
+
   std::unique_ptr<Ft8MtdDecodeCoordinator::PendingMtdDecode> pendingDecode (
       qint64 period, int nutc, short firstSample)
   {
     auto pending = std::make_unique<Ft8MtdDecodeCoordinator::PendingMtdDecode> ();
+    auto capture = std::make_unique<Ft8Capture> ();
     pending->period = period;
-    pending->payload.params.nmode = 8;
-    pending->payload.params.lmultift8 = true;
-    pending->payload.params.nutc = nutc;
-    pending->payload.metadata = {period, period + 1000, 2, 170000};
-    pending->payload.samples[0] = firstSample;
+    capture->payload.params.nmode = 8;
+    capture->payload.params.lmultift8 = true;
+    capture->payload.params.nutc = nutc;
+    capture->payload.metadata = {period, period + 1000, 2, 170000};
+    capture->payload.samples[0] = firstSample;
     pending->context.mode = "FT8";
     pending->context.periodFrequency = 14074000;
     pending->context.band = "20m";
     pending->context.multithreadFt8 = true;
     pending->context.ft8ThreadCount = 4;
     pending->context.decodeDepth = 3;
-    pending->context.inputId = pending->payload.metadata.input_id;
-    pending->context.analysisId = pending->payload.metadata.analysis_id;
+    pending->request = std::move (capture);
     return pending;
   }
 
@@ -88,10 +103,10 @@ namespace
           activeStage = Stage::Final;
           activePeriod = pending.period;
           publishedPeriods.push_back (pending.period);
-          publishedNutcs.push_back (pending.payload.params.nutc);
-          publishedFirstSamples.push_back (pending.payload.samples[0]);
+          publishedNutcs.push_back (payloadOf (pending).params.nutc);
+          publishedFirstSamples.push_back (payloadOf (pending).samples[0]);
           publishedContext = pending.context;
-          publishedMetadata = pending.payload.metadata;
+          publishedMetadata = payloadOf (pending).metadata;
           return PendingPublishResult::Published;
         });
       QCOMPARE (outcome.result, DrainResult::Published);
@@ -156,8 +171,6 @@ void TestFt8MtdDecodeCoordinator::receiveRolloverRetainsPendingFinal ()
   FakeBackend backend;
   backend.startEarly (Stage::EarlyOne, 100, 1);
   QCOMPARE (backend.submitFinal (100, 120000, 17), Action::DeferFinal);
-  ++backend.currentContext.inputId;
-  ++backend.currentContext.analysisId;
   backend.currentContext.sequenceStart = QDateTime::fromMSecsSinceEpoch (1515000);
 
   backend.completeAndDrain ();
@@ -269,7 +282,7 @@ void TestFt8MtdDecodeCoordinator::temporaryBackendFailurePreservesPending ()
     [] (Ft8MtdDecodeCoordinator::PendingMtdDecode const&) {return true;},
     [&] (Ft8MtdDecodeCoordinator::PendingMtdDecode const& pending) {
       ++publishCalls;
-      return DecoderIpc::publishFt8Mtd (*shared, pending.payload, 1)
+      return DecoderIpc::publishFt8Mtd (*shared, payloadOf (pending), 1)
         ? PendingPublishResult::Published : PendingPublishResult::Failed;
     });
 

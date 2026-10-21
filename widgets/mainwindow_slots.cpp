@@ -210,9 +210,7 @@ void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
     jtty_again();
   } else {
     if(m_mode!="WSPR" && !decoderBusy ()) {
-      if (usesJt9Process ()
-          && (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
-              || QProcess::Running != proc_jt9.state ()))
+      if (usesJt9Process () && !m_decoderBackend->available ())
         {
           ui->DecodeButton->setChecked (false);
           showStatusMessage (tr ("Decoder is starting; decode request skipped."));

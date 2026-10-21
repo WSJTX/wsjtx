@@ -25,9 +25,9 @@ void Ft8MtdDecodeCoordinator::publicationFailed (Stage stage, qint64 period)
 Ft8MtdDecodeCoordinator::Action Ft8MtdDecodeCoordinator::deferFinal (
     std::unique_ptr<PendingMtdDecode> pending)
 {
-  Q_ASSERT (pending);
-  Q_ASSERT (8 == pending->payload.params.nmode);
-  Q_ASSERT (pending->payload.params.lmultift8);
+  Q_ASSERT (pending && pending->request);
+  Q_ASSERT (8 == pending->request->settings ().nmode);
+  Q_ASSERT (pending->request->settings ().lmultift8);
   auto const action = pending_ ? Action::ReplaceFinal : Action::DeferFinal;
   pending_ = std::move (pending);
   return action;

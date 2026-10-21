@@ -66,11 +66,7 @@ void TestDecodeOperatingContext::sequenceStartIsAttributionOnly ()
 void TestDecodeOperatingContext::receiveRolloverPreservesPendingSnapshot ()
 {
   auto captured = context ();
-  captured.inputId = 10;
-  captured.analysisId = 20;
   auto current = captured;
-  ++current.inputId;
-  ++current.analysisId;
   current.sequenceStart = current.sequenceStart.addSecs (15);
 
   QVERIFY (captured.hasSameFt8PendingIdentity (current));

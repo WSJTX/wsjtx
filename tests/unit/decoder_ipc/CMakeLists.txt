@@ -81,3 +81,47 @@ add_executable (test_decoder_diagnostics
 target_include_directories (test_decoder_diagnostics PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries (test_decoder_diagnostics wsjt_cxx Qt5::Test)
 add_test (NAME test_decoder_diagnostics COMMAND test_decoder_diagnostics)
+
+add_executable (test_decoder_process_supervisor
+  test_decoder_process_supervisor.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderBackend.hpp
+  ${CMAKE_SOURCE_DIR}/DecoderProcessSupervisor.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderDiagnostics.cpp
+  ${CMAKE_SOURCE_DIR}/NonInheritingProcess.cpp
+)
+target_include_directories (test_decoder_process_supervisor PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_decoder_process_supervisor wsjt_cxx Qt5::Test)
+add_test (NAME test_decoder_process_supervisor COMMAND test_decoder_process_supervisor)
+set_tests_properties (test_decoder_process_supervisor PROPERTIES TIMEOUT 180)
+
+add_executable (test_shmem_decoder_worker
+  shmem_decoder_worker_stub.cpp
+  ${CMAKE_SOURCE_DIR}/lib/NativeSharedMemory.cpp
+  ${CMAKE_SOURCE_DIR}/lib/decoder_ipc_control.cpp
+)
+target_include_directories (test_shmem_decoder_worker PRIVATE ${CMAKE_SOURCE_DIR})
+if (UNIX AND NOT WSJT_SHM_OPEN_IN_LIBC)
+  target_link_libraries (test_shmem_decoder_worker rt)
+endif ()
+set_target_properties (test_shmem_decoder_worker PROPERTIES
+  OUTPUT_NAME jt9
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shmem-worker)
+
+add_executable (test_shmem_decoder_backend
+  test_shmem_decoder_backend.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderBackend.hpp
+  ${CMAKE_SOURCE_DIR}/ShmemDecoderBackend.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderProcessSupervisor.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderOutputFramer.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderDiagnostics.cpp
+  ${CMAKE_SOURCE_DIR}/DecoderIpc.cpp
+  ${CMAKE_SOURCE_DIR}/NonInheritingProcess.cpp
+)
+target_include_directories (test_shmem_decoder_backend PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_definitions (test_shmem_decoder_backend PRIVATE
+  WSJT_ENABLE_LIVE_AUDIO_TEST=1
+  SHMEM_WORKER_DIRECTORY="$<TARGET_FILE_DIR:test_shmem_decoder_worker>")
+add_dependencies (test_shmem_decoder_backend test_shmem_decoder_worker)
+target_link_libraries (test_shmem_decoder_backend wsjt_cxx Qt5::Test)
+add_test (NAME test_shmem_decoder_backend COMMAND test_shmem_decoder_backend)
+set_tests_properties (test_shmem_decoder_backend PROPERTIES TIMEOUT 180)

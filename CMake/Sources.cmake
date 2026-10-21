@@ -183,6 +183,9 @@ set (wsjtx_CXXSRCS
   HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
   DecoderIpc.cpp
+  DecoderBackend.hpp
+  DecoderProcessSupervisor.cpp
+  ShmemDecoderBackend.cpp
   OperatingFrequency.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
