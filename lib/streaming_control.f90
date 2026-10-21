@@ -9,9 +9,12 @@
 !   {"t":"flush"}           decode what the period in flight has and go on.
 !   {"t":"discontinuity"}   the next audio sample does not follow the last
 !                           one; lib/streaming_io.f90 states what it ends.
-!   {"t":"pack",...}, {"t":"render",...}   JTTY encode requests, read by
-!                           parse_encode_request and parse_render_request;
-!                           lib/streaming_jtty.f90 states them.
+!   {"t":"pack",...}, {"t":"render",...}   encode requests: JTTY's, read by
+!                           parse_encode_request and parse_render_request
+!                           and stated in lib/streaming_jtty.f90, and with a
+!                           "mode" other than JTTY the slot modes', read by
+!                           parse_slot_request and stated in
+!                           lib/streaming_encode.f90.
 !
 ! Hand-rolled flat-JSON parser. Callers should treat unknown "t" values
 ! as forward-compat extensions (mirrors the consumer-ignores-unknown
@@ -49,6 +52,8 @@ module streaming_control
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
+  ! WSPR, which only encode requests name, has no jt9 mode number either.
+  integer, parameter, public :: MODE_WSPR = 1001
   ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
   integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
   integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
@@ -446,10 +451,32 @@ module streaming_control
      character(len=:), allocatable :: problem, problem_key
   end type encode_request
 
+  ! A slot mode's pack or render request, read by parse_slot_request: id_ok,
+  ! problem and problem_key as in encode_request. mode is jt9's mode number
+  ! (MODE_WSPR for WSPR), submode -1 and trperiod 0 for a mode without them.
+  type, public :: slot_request
+     logical :: id_ok    = .false.
+     integer :: id       = 0
+     integer :: mode     = 0
+     character(len=:), allocatable :: text      ! UTF-8
+     integer :: submode  = -1
+     integer :: spacing  = 1
+     integer :: trperiod = 0
+     logical :: copied   = .false.
+     real(8) :: freq     = 0.d0                 ! render only
+     integer :: rate     = 0                    ! render only
+     character(len=:), allocatable :: problem, problem_key
+  end type slot_request
+
   public :: parse_control_frame
   public :: mode_string_to_int
   public :: parse_encode_request
   public :: parse_render_request
+  public :: encode_request_mode
+  public :: parse_slot_request
+
+  character(len=*), parameter :: RATE_DETAIL = 'rate must be 12000 or 48000, a JSON integer'
+  character(len=*), parameter :: FREQ_DETAIL = 'freq must be a JSON number of Hz from 200 to 5000'
 
 contains
 
@@ -2209,11 +2236,23 @@ contains
 
   ! ===== encode requests =================================================
 
-  ! Read a pack request. Unknown keys are ignored.
+  ! Read a pack request.
   subroutine parse_encode_request(buf, req)
     character(len=*),     intent(in)  :: buf
     type(encode_request), intent(out) :: req
-    character(len=:), allocatable :: text, template, word
+    call parse_jtty_request_(buf, .false., req)
+  end subroutine parse_encode_request
+
+  ! Read a JTTY pack request, or with render .true. the pack keys of a render
+  ! request.
+  subroutine parse_jtty_request_(buf, render, req)
+    character(len=*),     intent(in)  :: buf
+    logical,              intent(in)  :: render
+    type(encode_request), intent(out) :: req
+    character(len=*), parameter :: KEYS(13) = [character(len=8) :: 't', 'id',    &
+         'mode', 'text', 'template', 'final', 'profile', 'his_call',            &
+         'exchange', 'serial', 'report', 'freq', 'rate']
+    character(len=:), allocatable :: text, template, word, key
     character(len=8) :: cat
     logical :: has_text, has_template, present, ok
 
@@ -2231,6 +2270,11 @@ contains
 
     if (nested_(buf)) then
        call refuse_('', 'a request is a flat JSON object')
+       return
+    end if
+    key = unknown_key_(buf, KEYS(1:merge(13, 11, render)))
+    if (len(key) .gt. 0) then
+       call refuse_(key, unknown_detail_(key, render))
        return
     end if
 
@@ -2309,7 +2353,7 @@ contains
       req%problem = detail
     end subroutine refuse_
 
-  end subroutine parse_encode_request
+  end subroutine parse_jtty_request_
 
   ! Read a render request: a pack request's keys, then freq and rate.
   subroutine parse_render_request(buf, req)
@@ -2319,12 +2363,12 @@ contains
     integer :: vstart, blen
     logical :: present, ok
 
-    call parse_encode_request(buf, req)
+    call parse_jtty_request_(buf, .true., req)
     if (.not. req%id_ok .or. len(req%problem) .gt. 0) return
     call request_int_(buf, '"rate"', req%rate, present, ok)
     if (.not. (present .and. ok .and. (req%rate .eq. 12000 .or. req%rate .eq. 48000))) then
        req%problem_key = 'rate'
-       req%problem = 'rate must be 12000 or 48000'
+       req%problem = RATE_DETAIL
        return
     end if
     call value_category_(buf, '"freq"', cat)
@@ -2337,9 +2381,345 @@ contains
     ! Written so that a NaN fails it.
     if (.not. (ok .and. req%freq .ge. 200.d0 .and. req%freq .le. 5000.d0)) then
        req%problem_key = 'freq'
-       req%problem = 'freq must be a number of Hz from 200 to 5000'
+       req%problem = FREQ_DETAIL
     end if
   end subroutine parse_render_request
+
+  ! The encoder an encode request names: MODE_JTTY when its "mode" is absent
+  ! or "JTTY", else the slot mode's number; ok is .false. for any other mode.
+  subroutine encode_request_mode(buf, mode, ok)
+    character(len=*), intent(in)  :: buf
+    integer,          intent(out) :: mode
+    logical,          intent(out) :: ok
+    character(len=:), allocatable :: name
+    logical :: present
+
+    mode = MODE_JTTY
+    call request_string_(top_level_(buf), '"mode"', name, present, ok)
+    if (.not. present) return
+    mode = slot_mode_(name)
+    if (upper_(name) .eq. 'JTTY' .and. len(name) .eq. 4) mode = MODE_JTTY
+    ok = ok .and. mode .ne. 0
+  end subroutine encode_request_mode
+
+  ! The slot mode name names, case aside, or 0.
+  integer function slot_mode_(name)
+    character(len=*), intent(in) :: name
+    slot_mode_ = 0
+    if (len(name) .gt. 6 .or. len(name) .eq. 0 .or. index(name, ' ') .gt. 0) return
+    if (upper_(name) .eq. 'WSPR') then
+       slot_mode_ = MODE_WSPR
+       return
+    end if
+    select case (mode_string_to_int(name))
+    case (4, 5, 8, 9, 65, 66, 144, 240, 241)
+       slot_mode_ = mode_string_to_int(name)
+    end select
+  end function slot_mode_
+
+  ! Read a slot mode's pack request, or with render .true. its render request.
+  subroutine parse_slot_request(buf, render, req)
+    character(len=*),   intent(in)  :: buf
+    logical,            intent(in)  :: render
+    type(slot_request), intent(out) :: req
+    character(len=*), parameter :: JTTY_KEYS(7) = [character(len=8) ::       &
+         'template', 'final', 'profile', 'his_call', 'exchange', 'serial',   &
+         'report']
+    character(len=*), parameter :: KEYS(17) = [character(len=8) :: 't', 'id',  &
+         'mode', 'text', 'submode', 'trperiod', 'spacing', 'copied', JTTY_KEYS, &
+         'freq', 'rate']
+    character(len=:), allocatable :: name, word, key
+    character(len=8) :: cat
+    integer :: i, vstart, blen, highest
+    logical :: present, ok
+
+    req%text = ''
+    req%problem = ''
+    req%problem_key = ''
+    call request_int_(top_level_(buf), '"id"', req%id, present, req%id_ok)
+    req%id_ok = present .and. req%id_ok
+    if (.not. req%id_ok) return
+    if (nested_(buf)) then
+       call refuse_('', 'a request is a flat JSON object')
+       return
+    end if
+
+    call request_string_(buf, '"mode"', name, present, ok)
+    if (ok) req%mode = slot_mode_(name)
+    if (req%mode .eq. 0) then
+       call refuse_('mode', 'mode must be FT8, FT4, JT4, JT9, JT65, Q65, FST4, ' // &
+            'FST4W, WSPR, MSK144 or JTTY')
+       return
+    end if
+    key = unknown_key_(buf, KEYS(1:merge(17, 15, render)))
+    if (len(key) .gt. 0) then
+       call refuse_(key, unknown_detail_(key, render))
+       return
+    end if
+    do i = 1, size(JTTY_KEYS)
+       call value_category_(buf, '"' // trim(JTTY_KEYS(i)) // '"', cat)
+       if (trim(cat) .ne. 'absent') then
+          call refuse_(trim(JTTY_KEYS(i)), trim(JTTY_KEYS(i)) // ' is a JTTY key')
+          return
+       end if
+    end do
+
+    call request_string_(buf, '"text"', req%text, present, ok)
+    if (.not. (present .and. ok)) then
+       call refuse_('text', 'a request needs text, a JSON string')
+       return
+    end if
+
+    call value_category_(buf, '"trperiod"', cat)
+    select case (req%mode)
+    case (240, 241, 66, 144)
+       call request_int_(buf, '"trperiod"', req%trperiod, present, ok)
+       select case (req%mode)
+       case (240)
+          ok = any(req%trperiod .eq. [15, 30, 60, 120, 300, 900, 1800])
+          word = '15, 30, 60, 120, 300, 900 or 1800'
+       case (241)
+          ok = any(req%trperiod .eq. [120, 300, 900, 1800])
+          word = '120, 300, 900 or 1800'
+       case (66)
+          ok = any(req%trperiod .eq. [15, 30, 60, 120, 300])
+          word = '15, 30, 60, 120 or 300'
+       case default
+          ok = any(req%trperiod .eq. [5, 10, 15, 30])
+          word = '5, 10, 15 or 30'
+       end select
+       if (.not. (present .and. ok)) then
+          call refuse_('trperiod', 'trperiod must be ' // word // ', a JSON integer of seconds')
+          return
+       end if
+    case default
+       if (trim(cat) .ne. 'absent') then
+          call refuse_('trperiod', 'trperiod applies to FST4, FST4W, Q65 and MSK144')
+          return
+       end if
+    end select
+
+    call value_category_(buf, '"submode"', cat)
+    select case (req%mode)
+    case (4)
+       highest = 6
+    case (9)
+       highest = 7
+    case (65)
+       highest = 2
+    case (66)
+       ! The GUI's choices for each period.
+       select case (req%trperiod)
+       case (15)
+          highest = 2
+       case (30)
+          highest = 3
+       case (120)
+          highest = 5
+       case default
+          highest = 4
+       end select
+    case default
+       highest = -1
+    end select
+    if (highest .lt. 0) then
+       if (trim(cat) .ne. 'absent') then
+          call refuse_('submode', 'submode applies to JT4, JT9, JT65 and Q65')
+          return
+       end if
+    else
+       ok = .false.
+       if (trim(cat) .eq. 'string') then
+          call request_string_(buf, '"submode"', word, present, ok)
+          ok = ok .and. len(word) .eq. 1
+          if (ok) word = upper_(word)
+          if (ok) ok = word .ge. 'A' .and. word .le. 'Z'
+          if (ok) req%submode = iachar(word) - iachar('A')
+       else if (trim(cat) .eq. 'number') then
+          call request_int_(buf, '"submode"', req%submode, present, ok)
+       end if
+       if (.not. (ok .and. req%submode .ge. 0 .and. req%submode .le. highest)) then
+          call refuse_('submode', 'submode must be a letter from A to ' //      &
+               achar(iachar('A') + highest) // ', or a JSON integer from 0 to ' // &
+               achar(iachar('0') + highest))
+          return
+       end if
+    end if
+
+    call value_category_(buf, '"spacing"', cat)
+    select case (req%mode)
+    case (8, 9, 240, 241, MODE_WSPR)
+       call request_int_(buf, '"spacing"', req%spacing, present, ok)
+       if (.not. present) req%spacing = 1
+       if (.not. (ok .and. any(req%spacing .eq. [1, 2, 4]))) then
+          call refuse_('spacing', 'spacing must be 1, 2 or 4, a JSON integer')
+          return
+       end if
+    case default
+       if (trim(cat) .ne. 'absent') then
+          call refuse_('spacing', 'spacing applies to FT8, JT9, FST4, FST4W and WSPR')
+          return
+       end if
+    end select
+
+    call value_category_(buf, '"copied"', cat)
+    if (req%mode .eq. 66 .and. trim(cat) .eq. 'bool') then
+       call get_bool_(buf, '"copied"', req%copied, ok)
+    else if (trim(cat) .ne. 'absent') then
+       if (req%mode .eq. 66) then
+          call refuse_('copied', 'copied must be true or false')
+       else
+          call refuse_('copied', 'copied applies to Q65')
+       end if
+       return
+    end if
+
+    if (.not. render) return
+    call request_int_(buf, '"rate"', req%rate, present, ok)
+    if (.not. (present .and. ok .and. (req%rate .eq. 12000 .or. req%rate .eq. 48000))) then
+       call refuse_('rate', RATE_DETAIL)
+       return
+    end if
+    call value_category_(buf, '"freq"', cat)
+    ok = trim(cat) .eq. 'number'
+    if (ok) then
+       call find_key_(buf, '"freq"', vstart, blen, present)
+       ok = json_number_(buf(vstart:blen), .true.)
+    end if
+    if (ok) call get_real_(buf, '"freq"', req%freq, ok)
+    ! Written so that a NaN fails it.
+    if (req%mode .eq. 144) then
+       if (.not. (ok .and. req%freq .eq. 1000.d0)) &
+            call refuse_('freq', 'freq must be 1000: MSK144 sends 1000 and 2000 Hz')
+    else if (.not. (ok .and. req%freq .ge. 200.d0 .and. req%freq .le. 5000.d0)) then
+       call refuse_('freq', FREQ_DETAIL)
+    end if
+
+  contains
+
+    subroutine refuse_(key, detail)
+      character(len=*), intent(in) :: key, detail
+      req%problem_key = key
+      req%problem = detail
+    end subroutine refuse_
+
+  end subroutine parse_slot_request
+
+  ! The first key of buf's outermost object, as written, that is none of
+  ! allowed, or ''; a byte of it that is not UTF-8 becomes '?'.
+  function unknown_key_(buf, allowed) result(key)
+    character(len=*), intent(in) :: buf
+    character(len=*), intent(in) :: allowed(:)
+    character(len=:), allocatable :: key
+    integer :: i, j, depth, first
+    logical :: in_string, escaped, expect_key, known
+
+    key = ''
+    depth = 0
+    first = 0
+    in_string = .false.
+    escaped = .false.
+    expect_key = .false.
+    do i = 1, len(buf)
+       if (in_string) then
+          if (escaped) then
+             escaped = .false.
+          else if (buf(i:i) .eq. '\') then
+             escaped = .true.
+          else if (buf(i:i) .eq. '"') then
+             in_string = .false.
+             if (first .gt. 0) then
+                known = .false.
+                do j = 1, size(allowed)
+                   if (len_trim(allowed(j)) .eq. i - first) then
+                      if (allowed(j)(1:i - first) .eq. buf(first:i - 1)) known = .true.
+                   end if
+                end do
+                if (.not. known) then
+                   key = utf8_clean_(buf(first:i - 1))
+                   if (i .eq. first) key = '""'
+                   return
+                end if
+                first = 0
+             end if
+          end if
+       else if (buf(i:i) .eq. '"') then
+          in_string = .true.
+          if (depth .eq. 1 .and. expect_key) first = i + 1
+          expect_key = .false.
+       else if (buf(i:i) .eq. '{' .or. buf(i:i) .eq. '[') then
+          depth = depth + 1
+          expect_key = depth .eq. 1
+       else if (buf(i:i) .eq. '}' .or. buf(i:i) .eq. ']') then
+          depth = depth - 1
+       else if (buf(i:i) .eq. ',' .and. depth .eq. 1) then
+          expect_key = .true.
+       end if
+    end do
+  end function unknown_key_
+
+  ! s with each byte that is not part of a well-formed UTF-8 sequence as '?'.
+  function utf8_clean_(s) result(t)
+    character(len=*), intent(in) :: s
+    character(len=len(s)) :: t
+    integer :: i, j, n, b, low, high
+    t = s
+    i = 1
+    do while (i .le. len(s))
+       b = iachar(s(i:i))
+       low = 128
+       high = 191
+       select case (b)
+       case (0:127)
+          n = 1
+       case (194:223)
+          n = 2
+       case (224:239)
+          n = 3
+          if (b .eq. 224) low = 160
+          if (b .eq. 237) high = 159
+       case (240:244)
+          n = 4
+          if (b .eq. 240) low = 144
+          if (b .eq. 244) high = 143
+       case default
+          n = 0
+       end select
+       do j = 1, n - 1
+          if (i + j .gt. len(s)) then
+             n = 0
+             exit
+          end if
+          b = iachar(s(i + j:i + j))
+          if (j .gt. 1) then
+             low = 128
+             high = 191
+          end if
+          if (b .lt. low .or. b .gt. high) then
+             n = 0
+             exit
+          end if
+       end do
+       if (n .eq. 0) then
+          t(i:i) = '?'
+          i = i + 1
+       else
+          i = i + n
+       end if
+    end do
+  end function utf8_clean_
+
+  ! Why key may not be in a pack request (render .false.) or a render request.
+  function unknown_detail_(key, render) result(detail)
+    character(len=*), intent(in) :: key
+    logical,          intent(in) :: render
+    character(len=:), allocatable :: detail
+    if (.not. render .and. (key .eq. 'freq' .or. key .eq. 'rate')) then
+       detail = key // ' is a render key'
+    else
+       detail = key // ' is not a key of ' // trim(merge('render', 'pack  ', render))
+    end if
+  end function unknown_detail_
 
   ! The string value of key. present is .false. when the key is absent; ok
   ! is .false. when it is present but not a JSON string that decodes.

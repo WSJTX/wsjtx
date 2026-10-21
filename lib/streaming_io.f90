@@ -19,8 +19,8 @@
 ! 12 kHz), is fatal: error frame_too_large, then exit 1.
 !
 ! Control frames recognized today: {"t":"configure",...}, {"t":"halt"},
-! {"t":"flush"}, {"t":"discontinuity"}, and the JTTY encode requests
-! {"t":"pack",...} and {"t":"render",...} (lib/streaming_jtty.f90), answered
+! {"t":"flush"}, {"t":"discontinuity"}, and the encode requests
+! {"t":"pack",...} and {"t":"render",...} (lib/streaming_encode.f90), answered
 ! in any mode. See lib/streaming_control.f90 for the parser + schema.
 !
 ! Apply policy:
@@ -131,8 +131,8 @@
 ! preconnected unit 5 with ACCESS='STREAM' is non-conforming (F2018
 ! 12.5.6.1 — ACCESS is not a changeable mode), rejected by libgfortran
 ! everywhere. Binary mode is forced on Windows first via
-! stream_set_stdin_binary (lib/stream_setmode.c; no-op on POSIX). A
-! reader thread there drains fd 0 while the stream decodes; a request
+! stream_set_stdin_binary (lib/stream_setmode.c; no-op on POSIX). On every
+! platform a reader thread drains fd 0 while the stream decodes; a request
 ! returns short only at the end of input, so a pipe short-read is never
 ! mistaken for EOF.
 
@@ -157,7 +157,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use decoder_engine, only: engine_params_problem, option_problem,       &
        engine_begin_input
   use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
-       jtty_emit_range_error, jtty_release, jtty_note_station, jtty_encode
+       jtty_emit_range_error, jtty_release, jtty_note_station
+  use streaming_encode, only: stream_encode
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready, period_set_stop,           &
        gui_hsym_stop, HSYM_SAMPLES, trigger_fire_time, read_passes_busy_end, &
@@ -686,7 +687,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            case (CTRL_FLUSH)
               call flush_period()
            case (CTRL_PACK, CTRL_RENDER)
-              call jtty_encode(ctl_buf(1:frame_len), action .eq. CTRL_RENDER)
+              call stream_encode(ctl_buf(1:frame_len), action .eq. CTRL_RENDER)
            case (CTRL_PARSE_ERR)
               call streaming_emit_error_code('configure_parse_error',          &
                    'malformed control frame (missing or invalid t field)')
