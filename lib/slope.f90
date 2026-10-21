@@ -33,8 +33,11 @@ subroutine slope(y,npts,xpk)
      if(abs(i-xpk).gt.4.0) sq=sq + y(i)**2
   enddo
   rms=sqrt(sq/(sumw-4.0))
-  y=y/rms
+  if(rms.gt.0.0) then
+     y=y/rms
+  else
+     y=0.0
+  endif
 
   return
 end subroutine slope
-

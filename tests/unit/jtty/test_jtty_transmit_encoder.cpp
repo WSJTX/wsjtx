@@ -26,6 +26,12 @@ namespace
   {
     return code < 0x10000 ? QString (QChar (char16_t (code))) : QString::fromUcs4 (&code, 1);
   }
+
+  // After a letter, so that a leading U+FEFF is compared as a character.
+  std::string utf8 (uint code)
+  {
+    return (QStringLiteral ("a") + character (code)).toUtf8 ().toStdString ();
+  }
 }
 
 // The encoder handles characters as Qt does.
@@ -153,6 +159,25 @@ private Q_SLOTS:
     auto const grid = compileNativeMacro (u"599  %g", context (1, NativeExchangeProfile::None, {}));
     QVERIFY (grid.isNative ());
     QCOMPARE (qt (grid.text), QString {"599 FN42"});
+  }
+
+  void utf8IsDecodedAsQt ()
+  {
+    for (uint code = 0; code <= 0x10FFFF; ++code) {
+      if (code >= 0xD800 && code <= 0xDFFF) continue;
+      auto const bytes = utf8 (code);
+      if (fromUtf8 (bytes) != units (QString::fromUtf8 (bytes.data (), int (bytes.size ()))) ||
+          toUtf8 (fromUtf8 (bytes)) != bytes) {
+        QFAIL (qPrintable (QString::number (code, 16)));
+      }
+    }
+    std::string const malformed[] {"a\x80" "b", "a\xC3", "a\xC3(b", "a\xE2\x82(b", "a\xF0\x9F\x98(b",
+                                   "a\xED\xA0\x80" "b", "a\xC0\xAF" "b", "a\xF4\x90\x80\x80" "b",
+                                   "a\xFF" "b", "\xEF\xBB\xBF" "a", "\xEF\xBB\xBF\xEF\xBB\xBF" "a",
+                                   "\xEF\xBB" "a", "a\xE0\x80\xAF" "b", "a\xF0\x80\x80\xAF" "b"};
+    for (auto const& bytes : malformed) {
+      QCOMPARE (qt (fromUtf8 (bytes)), QString::fromUtf8 (bytes.data (), int (bytes.size ())));
+    }
   }
 
   void textIsPreparedOneUnitAtATime ()

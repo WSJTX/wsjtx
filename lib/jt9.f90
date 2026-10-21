@@ -57,7 +57,7 @@ program jt9
     option ('shmem',.true.,'s','Use native shared memory for sample data','NAME'), &
     option ('ipc-lock', .true., '1', 'Shared-memory worker lifetime lock', 'PATH'), &
     option ('stream', .false., '0',                                          &
-        'Read framed PCM samples from stdin',                                &
+        'Read framed PCM and control frames from stdin',                     &
         ''),                                                                 &
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',    &
         'SECONDS'),                                                          &
@@ -273,7 +273,7 @@ program jt9
      print *, ''
      if (jt9_stream_available()) then
         print *, '       cat <pcm-stream> | '//trim(program_name)//' --stream'
-        print *, '       Reads framed PCM samples from stdin.'
+        print *, '       Reads framed PCM and control frames from stdin.'
      else
         print *, '       '//trim(program_name)//                                   &
              ' -s <key> [-w patience] [-m threads] [-e path] [-a path] [-t path] [-r path]'

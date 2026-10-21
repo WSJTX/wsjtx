@@ -4,7 +4,11 @@ subroutine peakup(ym,y0,yp,dx)
 
   b=(yp-ym)
   c=(yp+ym-2.0*y0)
-  dx=-b/(2.0*c)
+  if(c.ne.0.0) then
+     dx=-b/(2.0*c)
+  else
+     dx=0.0
+  endif
 
   return
 end subroutine peakup

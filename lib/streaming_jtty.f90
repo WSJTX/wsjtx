@@ -18,14 +18,15 @@
 ! uncounted). Where a session begins in a transmission changes what decodes,
 ! as it does in the GUI. After each decoder step the session writes one
 ! jtty_update line per pending update, as the GUI takes them. Between its
-! session line and its last update only error lines appear; an
-! odd_audio_frame error comes before the "ended" lines it causes. I is unique
-! in the process, across sessions and mode changes, and the same on every
-! update of one message. A message's last line is its "complete", "expired"
-! or "ended" one. A message whose final frame has not arrived is "expired"
-! once about 8 s of audio follow its latest frame, and ending a session gives
-! each message still in progress an "ended" line; after a fatal error
-! (exit 1) nothing follows, so messages in progress get no terminal line.
+! session line and its last update only error lines and the replies to
+! encode requests appear; an odd_audio_frame error comes before the "ended"
+! lines it causes. I is unique in the process, across sessions and mode
+! changes, and the same on every update of one message. A message's last
+! line is its "complete", "expired" or "ended" one. A message whose final
+! frame has not arrived is "expired" once about 8 s of audio follow its
+! latest frame, and ending a session gives each message still in progress an
+! "ended" line; after a fatal error (exit 1) nothing follows, so messages in
+! progress get no terminal line.
 !
 ! start and latest (T) are the sync times of the message's first and latest
 ! decoded frames, in stream samples / 12000. freq is the latest frame's lowest
@@ -44,10 +45,11 @@
 ! The decoder searches rxfreq +/- ntol, and two 300 Hz channels centred on
 ! 1350 and 1650 Hz, each centre first moved into nfa..nfb and the channel
 ! clipped to it (neither when nfa > nfb); with the default nfa and nfb, 1200
-! to 1800 Hz. It works on the audio resampled to 6 kHz, so nothing whose
-! lowest tone is above about 2950 Hz decodes, as in the GUI. A configure that
-! would leave rxfreq, ntol, nfa or nfb outside 0 to 6000 Hz is declined
-! (jtty_range_key): that is the range the keys accept, not the band searched.
+! to 1800 Hz. Its 6 kHz complex signal keeps only 0 to 3000 Hz of the audio
+! (ana64a), so nothing whose lowest tone is above about 2950 Hz decodes, as
+! in the GUI. A configure that would leave rxfreq, ntol, nfa or nfb outside
+! 0 to 6000 Hz is declined (jtty_range_key): that is the range the keys
+! accept, not the band searched.
 !
 ! A decoder step that needs FFT sizes with no saved FFTW wisdom in -a measures
 ! them: up to tens of seconds on ARM Linux, during which the stream reads no
@@ -56,10 +58,106 @@
 ! audio (noise is enough), and zero samples warm nothing. Wisdom is saved only
 ! when the stream ends at halt or end of input (a killed process saves none),
 ! so keep -a across runs.
+!
+! JTTY encode, in any mode: the control frame
+!   {"t":"pack","id":I,"text":S,...}
+! I is a JSON integer from -2147483648 to 2147483647, as are serial and
+! report; a number in another form ("+5", "05", "1.0") is not one. The
+! request's I is echoed on each of its reply lines; a jtty_update's id is the
+! codec's message id, so lines are routed by t. Exactly one of text, sent
+! as typed text (placeholders expanded, a newline ends a message,
+! "final":false leaves the last one open), and template, sent as a function
+! key (natively if it is one of the forms below, else expanded as text that
+! ends its message); each at most 32767 UTF-16 units, and 1048576 expanded.
+! The stream's 262,144-byte control frame limit applies to the whole request,
+! so long fields together can exceed it (control_frame_too_large).
+! "profile": "none" (default), "field_day" or "rtty". "his_call" and
+! "exchange" (default ""): at most 64 units, none below U+0020, none from
+! U+007F to U+009F and no '%'. "serial" and "report": never defaulted. The
+! station's call and grid are the whole mycall and mygrid of the last
+! accepted configure that set them, less any ASCII white space at either end
+! (as the GUI trims its call), and usable when at most 64 characters of
+! printable ASCII, not blank and without '%'. A configure whose mycall or
+! mygrid string does not decode leaves that value unusable until another
+! sets it. Placeholders, upper case only, are replaced in this order, and a
+! value inserted earlier can complete a later one, as in the GUI:
+!   %M  the station's call
+!   %H  his_call
+!   %Q  his_call
+!   %N  serial, at least three digits ("007", "-01")
+!   %E  profile none: serial as %N; field_day: exchange, upper case, with a
+!       space put between its count and class and its section ("1DEMA" is
+!       "1D EMA"); rtty: exchange, upper case, or serial as %N when the
+!       exchange is DX or #
+!   %G  the station's grid: its first four characters, upper case
+!   %R  report, signed, at least two digits ("-07", "+05")
+! An absent his_call or exchange expands to nothing, as an empty field does
+! in the GUI. A native form sends %E as an atom instead: 599 and the serial
+! (0 to 131071) under none, and under rtty with DX or #; the count, class
+! and section under field_day; otherwise 599 and the rtty exchange, a serial
+! or a state. The native forms, matched after collapsing spaces and
+! upper-casing (the 599 %N forms exactly):
+!   CQ %M CQ, %H %E, %H 599 %N, %H %G, %H TU CQ %M CQ, %M, %H, TU NOW %Q %E,
+!   TU NOW %Q 599 %N, TU NOW %Q %G, %H AGN?, %E, 599 %N, %G, 599 %G,
+! and the control phrases
+!   AGN?, CALL?, AGN CALL, NR?, AGN NR, EXCH?, STATE?, SECTION?, ZONE?, GRID?,
+!   RPRT?, QSL TU, TU, QRZ?, QSO B4, WAIT, NIL?, OK?.
+! Requests are answered in order, between frames, so a reply also shows that
+! every earlier frame was read. It does not wait for decodes: a period's later
+! FT8 passes and its decode_finished, and a decode again held for the last
+! pass, can come after it. A request holds up the audio behind it while it is
+! answered; on live audio (live_audio) FT8 ends a pass on the wall clock, so a
+! request inside a period can change that period's decodes. A request's reply
+! lines are consecutive, each carries its id, and the last is packed or
+! rejected:
+!   segment   {"v":1,"t":"segment","id":I,"seg":K,"text":S,"canonical":S,
+!              "final":B,"substituted":B,"frames":[{"text":S},...],
+!              "seconds":X}
+!   packed    {"v":1,"t":"packed","id":I,"segments":M,"substituted":B}
+!   rejected  {"v":1,"t":"rejected","id":I,"reason":R,"key":K,"detail":S}
+! One segment line per segment, K from 0: text is the characters it carries
+! (trimmed, case kept, replacements shown), canonical what its frames carry,
+! final whether its last frame ends the message, frames each frame as the
+! receiver renders it (a five-character text frame keeps its trailing spaces
+! unless it ends the message), X its seconds on air. A line's later segments
+! continue its message, of which a receiver keeps the first 80 characters
+! (text, above). substituted, a boolean for each segment and for the whole
+! text, says whether a character was replaced: one JTTY lacks becomes '#' for
+! each UTF-16 unit ("##" beyond the BMP), each byte that is not UTF-8 '#',
+! and NUL and '~' a space. A rejected request has no segment line. Each R,
+! and the key its line carries:
+!   bad_request      the request key at fault; none when the request is
+!                    not a flat object
+!   too_long         text or template: it, or its expansion, is too long;
+!                    none for a render's audio (below)
+!   not_configured   mycall or mygrid: it uses the station's call or grid,
+!                    and no configure has set a usable one
+!   missing          serial or report: it uses one and does not give it
+!   empty            none
+!   invalid_runtime  none: a native form its context cannot fill
+!   encoding_failed  none
+! A request without such an id among its own keys (not a nested object's)
+! gets error invalid_request_id. An encode that cannot proceed (no memory)
+! ends the program with an error line, and with it period decoding and any
+! JTTY session.
+!
+! JTTY render, in any mode: {"t":"render","id":I,"template":S,...,
+! "freq":F,"rate":R}, pack's keys with F the lowest tone, a JSON number from
+! 200 to 5000 Hz, and R 12000 or 48000. It is answered as pack is, except
+! that each segment line also carries "samples":N and is followed by its
+! audio, N samples of int16 little-endian mono at R, base64 (RFC 4648), in
+! lines of 16384 samples but the last,
+!   pcm       {"v":1,"t":"pcm","id":I,"seg":K,"seq":Q,"data":S}
+! Q counting each segment's pcm lines from 0, and that the last line is
+!   rendered  {"v":1,"t":"rendered","id":I,"segments":M,"substituted":B}
+! instead of packed. A render of more than 600 s of audio is rejected
+! too_long, with no key. A JTTY receiver decodes nothing whose lowest tone is
+! above about 2950 Hz (above), though F may be up to 5000 Hz. A render holds
+! up audio for as long as it computes and its lines take to be read.
 
 module streaming_jtty
   use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_float, c_double,  &
-       c_char
+       c_char, c_int16_t, c_int32_t
   use, intrinsic :: iso_fortran_env, only: int16, int64, real64, output_unit,  &
        error_unit
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
@@ -70,13 +168,19 @@ module streaming_jtty
   use jtty_mdec, only: UPDATE_GROWING, UPDATE_COMPLETE, UPDATE_EXPIRED,        &
        UPDATE_RECEPTION_ENDED, MAX_DISPLAY_GAPS, jtty_release_fft_resources
   use jtty_filler, only: strip_filler_text
-  use streaming_emit, only: streaming_emit_error, streaming_emit_json_escape
+  use streaming_emit, only: streaming_emit_error, streaming_emit_error_code, &
+       streaming_emit_json_escape
   use streaming_apply, only: params_block
+  use streaming_control, only: configure_fields, encode_request,               &
+       parse_encode_request, parse_render_request
+  use jtty_source_codec, only: jtty_source_atom, unpack_jtty_atom,             &
+       render_jtty_atom, JTTY_ATOM_TEXT5
+  use jtty_mod, only: MAX_FRAMES
   implicit none
   private
 
   public :: jtty_audio, jtty_end, jtty_range_key, jtty_emit_range_error,      &
-       jtty_release
+       jtty_release, jtty_note_station, jtty_encode
 
   integer, parameter :: NSPS = 384
   integer, parameter :: NFRAME = 59 * NSPS
@@ -91,6 +195,80 @@ module streaming_jtty
   integer(int16), allocatable, save :: pcm_(:)
   integer(int64), save :: pcm_base_ = 0
   integer,        save :: pcm_count_ = 0
+
+  ! Encode. Jtty::Encoder::TransmitStatus, lib/jtty/JttyTransmitHost.hpp.
+  integer(c_int32_t), parameter :: TX_ENCODED = 0, TX_EMPTY = 1,                &
+       TX_ENCODING_FAILED = 2, TX_INVALID_RUNTIME = 3, TX_TOO_LONG = 4,         &
+       TX_BAD_REQUEST = 5, TX_NOT_CONFIGURED = 6, TX_MISSING = 7
+  ! jtty_tx_encode's station value lengths for no value and one too long.
+  integer(c_int32_t), parameter :: TX_UNSET = -1, TX_OVERLONG = -2
+  integer, parameter :: TX_FRAME_BITS = 34
+  integer, parameter :: TX_FRAME_SYMBOLS = 59
+  integer, parameter :: TX_TEXT = 80                   ! Jtty::maxTransmitLength
+  integer, parameter :: PCM_LINE = 16384               ! samples a pcm line holds
+  integer, parameter :: MAX_RENDER_SECONDS = 600
+  ! The station's call and grid as accepted configures set them; params'
+  ! start values are test identities that must never go on the air.
+  character(len=64), save :: station_call_ = ' '
+  character(len=64), save :: station_grid_ = ' '
+  logical,           save :: station_call_set_ = .false.
+  logical,           save :: station_grid_set_ = .false.
+  logical,           save :: station_call_long_ = .false.
+  logical,           save :: station_grid_long_ = .false.
+  integer(c_int16_t), allocatable, save :: tx_samples_(:)
+
+  interface
+     ! lib/jtty/JttyTransmitHost.hpp
+     function jtty_tx_encode(is_template, text, text_length, his_call,        &
+          his_call_length, exchange, exchange_length, my_call, my_call_length, &
+          grid, grid_length, serial, serial_given, report, report_given,      &
+          profile, is_final) result(handle) bind(C, name='jtty_tx_encode')
+       import :: c_int32_t, c_char
+       integer(c_int32_t), value :: is_template, text_length, his_call_length, &
+            exchange_length, my_call_length, grid_length, serial, serial_given,  &
+            report, report_given, profile, is_final
+       character(kind=c_char), intent(in) :: text(*), his_call(*), exchange(*), &
+            my_call(*), grid(*)
+       integer(c_int32_t) :: handle
+     end function jtty_tx_encode
+     function jtty_tx_status(handle, segments, substituted) result(status)    &
+          bind(C, name='jtty_tx_status')
+       import :: c_int32_t
+       integer(c_int32_t), value :: handle
+       integer(c_int32_t), intent(out) :: segments, substituted
+       integer(c_int32_t) :: status
+     end function jtty_tx_status
+     subroutine jtty_tx_error(handle, key, key_capacity, key_length, detail,  &
+          detail_capacity, detail_length) bind(C, name='jtty_tx_error')
+       import :: c_int32_t, c_char
+       integer(c_int32_t), value :: handle, key_capacity, detail_capacity
+       character(kind=c_char), intent(out) :: key(*), detail(*)
+       integer(c_int32_t), intent(out) :: key_length, detail_length
+     end subroutine jtty_tx_error
+     function jtty_tx_segment(handle, index, tones, frames, nframes, text,    &
+          text_length, canonical, canonical_length, is_final, substituted)    &
+          result(nsym) bind(C, name='jtty_tx_segment')
+       import :: c_int32_t, c_char
+       integer(c_int32_t), value :: handle, index
+       integer(c_int32_t), intent(out) :: tones(*), nframes, text_length,     &
+            canonical_length, is_final, substituted
+       character(kind=c_char), intent(out) :: frames(*), text(*), canonical(*)
+       integer(c_int32_t) :: nsym
+     end function jtty_tx_segment
+     subroutine jtty_tx_destroy(handle) bind(C, name='jtty_tx_destroy')
+       import :: c_int32_t
+       integer(c_int32_t), value :: handle
+     end subroutine jtty_tx_destroy
+     function jtty_tx_render(tones, nsym, sample_rate, f0, samples, capacity) &
+          result(count) bind(C, name='jtty_tx_render')
+       import :: c_int32_t, c_int16_t, c_float
+       integer(c_int32_t), intent(in) :: tones(*)
+       integer(c_int32_t), value :: nsym, sample_rate, capacity
+       real(c_float), value :: f0
+       integer(c_int16_t), intent(out) :: samples(*)
+       integer(c_int32_t) :: count
+     end function jtty_tx_render
+  end interface
 
 contains
 
@@ -142,6 +320,7 @@ contains
   ! Before the program's fftwf_cleanup, after which the decoder's plans can
   ! no longer be destroyed.
   subroutine jtty_release()
+    if (allocated(tx_samples_)) deallocate(tx_samples_)
     if (handle_ .eq. 0) return
     call jtty_rx_destroy(handle_)
     handle_ = 0
@@ -347,5 +526,307 @@ contains
        text = trim(buffer)
     end if
   end function json_real_
+
+  ! Kept from each configure the stream accepts.
+  subroutine jtty_note_station(cfg)
+    type(configure_fields), intent(in) :: cfg
+    if (cfg%mycall_set .or. cfg%mycall_unreadable) then
+       station_call_ = cfg%mycall_tx
+       station_call_long_ = cfg%mycall_tx_long
+       station_call_set_ = .true.
+    end if
+    if (cfg%mygrid_set .or. cfg%mygrid_unreadable) then
+       station_grid_ = cfg%mygrid_tx
+       station_grid_long_ = cfg%mygrid_tx_long
+       station_grid_set_ = .true.
+    end if
+  end subroutine jtty_note_station
+
+  ! Answer one pack (render .false.) or render request.
+  subroutine jtty_encode(frame, render)
+    character(len=*), intent(in) :: frame
+    logical,          intent(in) :: render
+    type(encode_request) :: req
+    integer(c_int32_t) :: handle, status, segments, substituted, nsym,        &
+         nframes, text_length, canonical_length, is_final, seg_substituted,   &
+         key_length, detail_length, rendered
+    integer(c_int32_t) :: tones(MAX_FRAMES * TX_FRAME_SYMBOLS)
+    character(kind=c_char) :: frames(MAX_FRAMES * TX_FRAME_BITS), text(TX_TEXT), &
+         canonical(TX_TEXT), key(32), detail(256)
+    character(len=:), allocatable :: id, list, line
+    integer(int64) :: total, samples
+    integer :: seg, first, seq, alloc_status
+    logical :: ok
+
+    if (render) then
+       call parse_render_request(frame, req)
+    else
+       call parse_encode_request(frame, req)
+    end if
+    if (.not. req%id_ok) then
+       call streaming_emit_error_code('invalid_request_id',                 &
+            'pack and render need an integer id from -2147483648 to 2147483647')
+       return
+    end if
+    id = itoa_(int(req%id, int64))
+    if (len(req%problem) .gt. 0) then
+       call emit_rejected_(id, 'bad_request', req%problem_key, req%problem)
+       return
+    end if
+
+    handle = jtty_tx_encode(merge(1_c_int32_t, 0_c_int32_t, req%is_template), &
+         req%text, len(req%text, c_int32_t), req%his_call,                    &
+         len(req%his_call, c_int32_t), req%exchange, len(req%exchange, c_int32_t), &
+         station_call_, station_length_(station_call_, station_call_set_,      &
+         station_call_long_), station_grid_, station_length_(station_grid_,   &
+         station_grid_set_, station_grid_long_), int(req%serial, c_int32_t),  &
+         merge(1_c_int32_t, 0_c_int32_t, req%serial_given), int(req%report, c_int32_t), &
+         merge(1_c_int32_t, 0_c_int32_t, req%report_given),                   &
+         int(req%profile, c_int32_t), merge(1_c_int32_t, 0_c_int32_t, req%final))
+    if (handle .eq. 0) call fatal_('no JTTY transmit context is available')
+    status = jtty_tx_status(handle, segments, substituted)
+    if (status .ne. TX_ENCODED) then
+       call jtty_tx_error(handle, key, size(key, kind=c_int32_t), key_length,  &
+            detail, size(detail, kind=c_int32_t), detail_length)
+       call jtty_tx_destroy(handle)
+       call emit_rejected_(id, tx_reason_(status), chars_(key, key_length),    &
+            chars_(detail, detail_length))
+       return
+    end if
+
+    ! Every check precedes the first line, so a rejected render sends no audio.
+    total = 0
+    do seg = 0, segments - 1
+       nframes = 0
+       is_final = 0
+       nsym = jtty_tx_segment(handle, seg, tones, frames, nframes, text,     &
+            text_length, canonical, canonical_length, is_final, seg_substituted)
+       call frame_list_(frames, nframes, nsym, is_final .ne. 0, list, ok)
+       if (.not. ok) then
+          call jtty_tx_destroy(handle)
+          call emit_rejected_(id, 'encoding_failed', '', 'the frames of segment ' // &
+               itoa_(int(seg, int64)) // ' do not account for its tones')
+          return
+       end if
+       total = total + int(nsym, int64) * NSPS * req%rate / 12000
+    end do
+    if (render .and. total .gt. int(MAX_RENDER_SECONDS, int64) * req%rate) then
+       call jtty_tx_destroy(handle)
+       call emit_rejected_(id, 'too_long', '', 'the audio is longer than 600 s')
+       return
+    end if
+    if (render .and. .not. allocated(tx_samples_)) then
+       allocate(tx_samples_(MAX_FRAMES * TX_FRAME_SYMBOLS * NSPS * 4), stat=alloc_status)
+       if (alloc_status .ne. 0) call fatal_('no memory for transmit audio')
+    end if
+
+    do seg = 0, segments - 1
+       nframes = 0
+       is_final = 0
+       nsym = jtty_tx_segment(handle, seg, tones, frames, nframes, text,     &
+            text_length, canonical, canonical_length, is_final, seg_substituted)
+       call frame_list_(frames, nframes, nsym, is_final .ne. 0, list, ok)
+       line = '{"v":1,"t":"segment","id":' // id // ',"seg":' //              &
+            itoa_(int(seg, int64)) // ',"text":"' //                         &
+            escaped_(chars_(text, text_length)) // '","canonical":"' //       &
+            escaped_(chars_(canonical, canonical_length)) // '","final":' //  &
+            json_bool_(is_final .ne. 0) // ',"substituted":' //               &
+            json_bool_(seg_substituted .ne. 0) // ',"frames":' // list //     &
+            ',"seconds":' // json_real_(real(nsym, real64) * NSPS / 12000, 3)
+       if (.not. render) then
+          call emit_line_(line // '}')
+          cycle
+       end if
+       samples = int(nsym, int64) * NSPS * req%rate / 12000
+       call emit_line_(line // ',"samples":' // itoa_(samples) // '}')
+       rendered = jtty_tx_render(tones, nsym, int(req%rate, c_int32_t),      &
+            real(req%freq, c_float), tx_samples_, size(tx_samples_, kind=c_int32_t))
+       if (rendered .ne. samples) call fatal_('a transmit segment did not render')
+       seq = 0
+       do first = 1, rendered, PCM_LINE
+          call emit_line_('{"v":1,"t":"pcm","id":' // id // ',"seg":' //    &
+               itoa_(int(seg, int64)) // ',"seq":' // itoa_(int(seq, int64)) // &
+               ',"data":"' // base64_(tx_samples_(first:min(first + PCM_LINE - 1, &
+               int(rendered)))) // '"}')
+          seq = seq + 1
+       end do
+    end do
+    call jtty_tx_destroy(handle)
+    call emit_line_('{"v":1,"t":"' // trim(merge('rendered', 'packed  ', render)) // &
+         '","id":' // id // ',"segments":' // itoa_(int(segments, int64)) //  &
+         ',"substituted":' // json_bool_(substituted .ne. 0) // '}')
+  end subroutine jtty_encode
+
+  ! A station value's length for jtty_tx_encode.
+  function station_length_(value, set, long) result(length)
+    character(len=*), intent(in) :: value
+    logical,          intent(in) :: set, long
+    integer(c_int32_t) :: length
+    if (.not. set) then
+       length = TX_UNSET
+    else if (long) then
+       length = TX_OVERLONG
+    else
+       length = len_trim(value, c_int32_t)
+    end if
+  end function station_length_
+
+  subroutine emit_rejected_(id, reason, key, detail)
+    character(len=*), intent(in) :: id, reason, key, detail
+    character(len=:), allocatable :: line
+    line = '{"v":1,"t":"rejected","id":' // id // ',"reason":"' // reason // '"'
+    if (len(key) .gt. 0) line = line // ',"key":"' // escaped_(key) // '"'
+    call emit_line_(line // ',"detail":"' // escaped_(detail) // '"}')
+  end subroutine emit_rejected_
+
+  function tx_reason_(status) result(reason)
+    integer(c_int32_t), intent(in) :: status
+    character(len=:), allocatable :: reason
+    select case (status)
+    case (TX_EMPTY)
+       reason = 'empty'
+    case (TX_INVALID_RUNTIME)
+       reason = 'invalid_runtime'
+    case (TX_TOO_LONG)
+       reason = 'too_long'
+    case (TX_BAD_REQUEST)
+       reason = 'bad_request'
+    case (TX_NOT_CONFIGURED)
+       reason = 'not_configured'
+    case (TX_MISSING)
+       reason = 'missing'
+    case default                        ! TX_ENCODING_FAILED
+       reason = 'encoding_failed'
+    end select
+  end function tx_reason_
+
+  ! The frames as a JSON array of {"text":S}; ok is .false. when they do not
+  ! account for nsym tones or one is no source atom. ends: the segment ends
+  ! its message.
+  subroutine frame_list_(frames, nframes, nsym, ends, list, ok)
+    character(kind=c_char),        intent(in)  :: frames(:)
+    integer(c_int32_t),            intent(in)  :: nframes, nsym
+    logical,                       intent(in)  :: ends
+    character(len=:), allocatable, intent(out) :: list
+    logical,                       intent(out) :: ok
+    character(len=TX_FRAME_BITS) :: bits
+    character(len=:), allocatable :: shown
+    integer :: i, j
+
+    list = '['
+    ok = nframes .gt. 0 .and. nframes .le. MAX_FRAMES .and.                  &
+         nframes * TX_FRAME_SYMBOLS .eq. nsym
+    if (.not. ok) return
+    do i = 1, nframes
+       do j = 1, TX_FRAME_BITS
+          bits(j:j) = frames((i - 1) * TX_FRAME_BITS + j)
+       end do
+       call frame_text_(bits, ends .and. i .eq. nframes, shown, ok)
+       if (.not. ok) return
+       if (i .gt. 1) list = list // ','
+       list = list // '{"text":"' // escaped_(shown) // '"}'
+    end do
+    list = list // ']'
+  end subroutine frame_list_
+
+  ! A frame as the receiver renders it: a structured atom's text, or a text
+  ! atom's five characters, whose trailing spaces are part of the message
+  ! unless the frame ends it.
+  subroutine frame_text_(bits, last, text, ok)
+    character(len=*),              intent(in)  :: bits
+    logical,                       intent(in)  :: last
+    character(len=:), allocatable, intent(out) :: text
+    logical,                       intent(out) :: ok
+    type(jtty_source_atom) :: atom
+    character(len=80) :: rendered
+    logical :: eom
+
+    text = ''
+    call unpack_jtty_atom(bits, atom, ok, eom)
+    if (ok) call render_jtty_atom(atom, rendered, ok)
+    if (.not. ok) return
+    if (atom%kind .eq. JTTY_ATOM_TEXT5 .and. .not. last) then
+       text = rendered(1:5)
+    else
+       text = trim(rendered)
+    end if
+  end subroutine frame_text_
+
+  ! s as JSON string contents; its trailing spaces, which the stream's
+  ! escaper drops, are kept.
+  function escaped_(s) result(text)
+    character(len=*), intent(in) :: s
+    character(len=:), allocatable :: text
+    character(len=6 * len(s)) :: buffer
+    integer :: n
+    call streaming_emit_json_escape(s, buffer, n)
+    text = buffer(1:n) // repeat(' ', len(s) - len_trim(s))
+  end function escaped_
+
+  function chars_(c, n) result(text)
+    character(kind=c_char), intent(in) :: c(:)
+    integer(c_int32_t),     intent(in) :: n
+    character(len=:), allocatable :: text
+    integer :: i
+    allocate(character(len=max(0, min(int(n), size(c)))) :: text)
+    do i = 1, len(text)
+       text(i:i) = c(i)
+    end do
+  end function chars_
+
+  function json_bool_(flag) result(text)
+    logical, intent(in) :: flag
+    character(len=:), allocatable :: text
+    if (flag) then
+       text = 'true'
+    else
+       text = 'false'
+    end if
+  end function json_bool_
+
+  ! samples as int16 little-endian bytes in base64 (RFC 4648 section 4).
+  function base64_(samples) result(text)
+    integer(c_int16_t), intent(in) :: samples(:)
+    character(len=:), allocatable :: text
+    character(len=*), parameter :: DIGITS =                                  &
+         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    integer :: nbytes, i, j, n, group, k
+
+    nbytes = 2 * size(samples)
+    allocate(character(len=4 * ((nbytes + 2) / 3)) :: text)
+    k = 0
+    do i = 0, nbytes - 1, 3
+       n = min(3, nbytes - i)
+       group = 0
+       do j = 0, 2
+          group = ishft(group, 8)
+          if (j .lt. n) group = ior(group, sample_byte_(i + j))
+       end do
+       do j = 0, 3
+          if (j .le. n) then
+             text(k + j + 1:k + j + 1) = DIGITS(iand(ishft(group, -6 * (3 - j)), 63) + 1: &
+                  iand(ishft(group, -6 * (3 - j)), 63) + 1)
+          else
+             text(k + j + 1:k + j + 1) = '='
+          end if
+       end do
+       k = k + 4
+    end do
+
+  contains
+
+    ! Byte b, from 0, of samples as int16 little-endian.
+    integer function sample_byte_(b)
+      integer, intent(in) :: b
+      integer :: value
+      value = int(samples(b / 2 + 1))
+      if (mod(b, 2) .eq. 0) then
+         sample_byte_ = iand(value, 255)
+      else
+         sample_byte_ = iand(ishft(value, -8), 255)
+      end if
+    end function sample_byte_
+
+  end function base64_
 
 end module streaming_jtty

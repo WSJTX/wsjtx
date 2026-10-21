@@ -10,6 +10,15 @@ program test_decoder_engine_jt4_state
   integer :: nsum,i,slot,entry_count,ncount,status
   character(len=22) :: decoded
   interface
+     subroutine check_sync_fallback(this,snr,dt,freq,have_sync,sync,is_deep,decoded,qual,ich,is_average,ave)
+       import jt4_decoder
+       class(jt4_decoder),intent(inout) :: this
+       integer,intent(in) :: snr,freq,ich,ave
+       real,intent(in) :: dt,qual
+       logical,intent(in) :: have_sync,is_deep,is_average
+       character,intent(in) :: sync
+       character(len=22),intent(in) :: decoded
+     end subroutine
      subroutine ignore_result(this,snr,dt,freq,have_sync,sync,is_deep,decoded,qual,ich,is_average,ave)
        import jt4_decoder
        class(jt4_decoder),intent(inout) :: this
@@ -70,8 +79,10 @@ program test_decoder_engine_jt4_state
   call check(decoder%nsave==slot.and.decoder%average_count==64,'duplicate does not advance ring')
 
   options%submode=1
-  call decoder%decode_pcm(options,silence,11025,ignore_result,status)
+  decoder%sync_strength=-2.0
+  call decoder%decode_pcm(options,silence,11025,check_sync_fallback,status)
   call check(status==0,'prepare changed submode')
+  call check(decoder%sync_strength==-1.0,'silence produces one JT4 no-sync result')
   decoder%rsymbol=1.0
   call decoder%save_average(120000,4.0,0.0,1.0,1000,20)
   call decoder%decode_pcm(options,silence,11025,ignore_result,status)
@@ -99,6 +110,21 @@ contains
     endif
   end subroutine
 end program
+
+subroutine check_sync_fallback(this,snr,dt,freq,have_sync,sync,is_deep,decoded,qual,ich,is_average,ave)
+  use jt4_decode, only: jt4_decoder
+  implicit none
+  class(jt4_decoder),intent(inout) :: this
+  integer,intent(in) :: snr,freq,ich,ave
+  real,intent(in) :: dt,qual
+  logical,intent(in) :: have_sync,is_deep,is_average
+  character,intent(in) :: sync
+  character(len=22),intent(in) :: decoded
+  if(have_sync.or.snr/=-26.or.sync/=' '.or.is_deep.or.is_average) then
+     error stop 'silence did not produce the expected JT4 fallback'
+  endif
+  this%sync_strength=-1.0
+end subroutine
 
 subroutine ignore_result(this,snr,dt,freq,have_sync,sync,is_deep,decoded,qual,ich,is_average,ave)
   use jt4_decode, only: jt4_decoder

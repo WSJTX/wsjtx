@@ -675,13 +675,14 @@ subroutine sync4(this,dat,jz,ntol,nfqso,mode4,minwidth,dtx,dfx,snrsync,flip,have
      do i=iaa,ibb                       !Find best frequency channel for CCF
         call xcor4(this%s2,i,nsteps,nsym,lag1,lag2,ich,mode4,ccfblue,ccf0,   &
              lagpk0,flip)
+        if(.not.(ccf0.gt.0.0)) cycle
 
 ! Find rms of the CCF, without main peak
         call slope(ccfblue(lag1),lag2-lag1+1,lagpk0-lag1+1.0)
         sync=abs(ccfblue(lagpk0))
 
 ! Find best sync value
-        if(sync.gt.syncbest*1.03) then
+        if(sync.gt.0.0 .and. sync.gt.syncbest*1.03) then
            ipk=i
            ichpk=ich
            syncbest=sync

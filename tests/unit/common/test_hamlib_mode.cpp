@@ -79,6 +79,12 @@ private:
   }
 
 #if HAVE_HAMLIB_CACHING
+  // Hamlib's poll thread rewrites the cache timeout when it starts; these rows set their own.
+  static int disable_polling (RIG * rig)
+  {
+    return rig_set_conf (rig, rig_token_lookup (rig, "poll_interval"), "0");
+  }
+
   Q_SLOT void uncachedModeAfterQsy_data ()
   {
     QTest::addColumn<rmode_t> ("recalled_mode");
@@ -98,6 +104,7 @@ private:
 
     auto rig = std::unique_ptr<RIG, decltype (&rig_cleanup)> {rig_init (RIG_MODEL_DUMMY), rig_cleanup};
     QVERIFY (rig);
+    QCOMPARE (disable_polling (rig.get ()), RIG_OK);
     QCOMPARE (rig_open (rig.get ()), RIG_OK);
     auto const close_rig = qScopeGuard ([&] { rig_close (rig.get ()); });
     QCOMPARE (rig_set_mode (rig.get (), RIG_VFO_A, RIG_MODE_USB, 2400), RIG_OK);
@@ -121,13 +128,15 @@ private:
   {
     auto rig = std::unique_ptr<RIG, decltype (&rig_cleanup)> {rig_init (RIG_MODEL_DUMMY), rig_cleanup};
     QVERIFY (rig);
-    QCOMPARE (rig_open (rig.get ()), RIG_OK);
-    auto const close_rig = qScopeGuard ([&] { rig_close (rig.get ()); });
+    QCOMPARE (disable_polling (rig.get ()), RIG_OK);
+    // Swap caps before rig_open, which starts Hamlib's morse thread that reads them.
     auto const original_caps = rig->caps;
     auto caps = *original_caps;
     caps.get_mode = [] (RIG *, vfo_t, rmode_t *, pbwidth_t *) { return -RIG_EIO; };
     rig->caps = &caps;
     auto const restore_caps = qScopeGuard ([&] { rig->caps = original_caps; });
+    QCOMPARE (rig_open (rig.get ()), RIG_OK);
+    auto const close_rig = qScopeGuard ([&] { rig_close (rig.get ()); });
     QCOMPARE (rig_set_cache_timeout_ms (rig.get (), HAMLIB_CACHE_ALL, 1234), RIG_OK);
 
     rmode_t mode;

@@ -210,7 +210,9 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertIn("Joseph Taylor, K1JT;", readme)
         self.assertTrue(readme.rstrip().endswith("other members of the WSJT Development Group."), readme)
         self.assertNotIn("_{prog}_", readme)
-        self.assertIn("wsjt-codec, in its own tarball, is the same decoder", readme)
+        self.assertIn("wsjt-codec, in its own tarball, is the stream codec", readme)
+        self.assertIn("wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes "
+                      "and JTTY, and encodes JTTY,", self.text("wsjtx-9.9.9-x86_64-macOS-codec", "README.txt"))
         self.assertNotIn("mingw-w64", self.text("wsjtx-9.9.9-x86_64-macOS-jt9", "THIRD-PARTY.txt"))
         notices = self.text("wsjtx-9.9.9-x86_64-macOS-jt9", "THIRD-PARTY.txt")
         self.assertIn("Files: QtCore", notices)
