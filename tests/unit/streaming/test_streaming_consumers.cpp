@@ -1592,8 +1592,9 @@ private slots:
     first.insert ("mode", "FT8");
     first.insert ("utc", "05:11:15");
     again.insert ("nagain_flag", true);
+    // The initial decode and retry share this budget, including sanitizer overhead.
     auto const result = runJt9 (sessionHeader () + configureFrame (first) +
-      frame (0x01u, recording.readAll ().mid (44)) + configureFrame (again));
+      frame (0x01u, recording.readAll ().mid (44)) + configureFrame (again), {}, 180000);
     verifyCompleted (result, 0);
     auto const periods = decodesByPeriod (verifyEvents (result).values);
     QCOMPARE (periods.size (), 2);
