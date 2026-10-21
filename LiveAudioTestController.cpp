@@ -859,6 +859,10 @@ void LiveAudioTestController::prepareFt8WhenReady ()
 void LiveAudioTestController::prepareJttyWhenReady ()
 {
   if (m_finished || m_armed) return;
+  if (m_jttyCheckStage == JttyCheckStage::Frequency) {
+    prepareJttyInput ();
+    return;
+  }
 
   auto * jttyAction = m_window->findChild<QAction *> ("actionJTTY");
   auto * monitorButton = m_window->findChild<QAbstractButton *> ("monitorButton");
@@ -918,11 +922,27 @@ void LiveAudioTestController::prepareJttyWhenReady ()
   unsplitLog->trigger ();
   saveDecoded->trigger ();
 
-  auto const frequencyError = m_window->checkLiveAudioTestJttyFrequencyChanges ();
-  if (!frequencyError.isEmpty ()) {
-    fail (frequencyError);
+  m_jttyCheckStage = JttyCheckStage::Frequency;
+  m_jttyCheckElapsed.start ();
+  prepareJttyInput ();
+}
+
+void LiveAudioTestController::prepareJttyInput ()
+{
+  if (m_jttyCheckElapsed.elapsed () > 10000) {
+    fail (tr ("Timed out waiting for JTTY frequency checks to complete."));
     return;
   }
+  auto const frequencyError = m_window->pollLiveAudioTestJttyFrequencyChanges ();
+  if (!frequencyError) {
+    m_prepareTimer.start (50);
+    return;
+  }
+  if (!frequencyError->isEmpty ()) {
+    fail (*frequencyError);
+    return;
+  }
+  m_jttyCheckStage = JttyCheckStage::Live;
   auto const mailboxError = m_window->checkLiveAudioTestJttyMailboxOverflow ();
   if (!mailboxError.isEmpty ()) { fail (mailboxError); return; }
   auto * includeTime = m_window->findChild<QAbstractButton *> ("cbIncludeTime");
@@ -1449,6 +1469,7 @@ void LiveAudioTestController::fail (QString const& reason)
     {
       char const* stage = "Live";
       switch (m_jttyCheckStage) {
+      case JttyCheckStage::Frequency: stage = "Frequency"; break;
       case JttyCheckStage::Live: break;
       case JttyCheckStage::Review: stage = "Review"; break;
       case JttyCheckStage::Stopped: stage = "Stopped"; break;

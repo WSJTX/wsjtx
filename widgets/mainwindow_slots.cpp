@@ -79,10 +79,12 @@ void MainWindow::on_monitorButton_clicked (bool checked)
   if (!m_transmitting) {
     if (checked)
       {
+        auto const online = m_config.transceiver_online ();
+        m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation (), online);
         auto const transition = m_operatingFrequency.enableMonitor (
-          operatingFrequencyContext (), [this] (Frequency corrected) {
-            return dispatchNominalFrequency (corrected, FrequencyRequestOrigin::User, true);
-          });
+          operatingFrequencyContext (), [this] (RigFrequency::Request const& request) {
+            return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
+          }, online);
         applyOperatingFrequencyTransition (transition);
         applyMonitorEffects (true, transition.restorationAccepted);
       }
@@ -709,6 +711,13 @@ void MainWindow::on_pbT2R_2_clicked()
 void MainWindow::on_readFreq_clicked()
 {
   if (m_transmitting) return;
+
+  if (m_operatingFrequency.recoveryRequired ())
+    {
+      m_frequencyRetryRequested = true;
+      rigOpen ();
+      return;
+    }
 
   if (m_config.transceiver_online ())
     {

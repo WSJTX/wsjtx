@@ -37,6 +37,7 @@
 #include <array>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 
 class QHBoxLayout;
 namespace DecoderIpc {class Session;}
@@ -252,7 +253,7 @@ public:
   quint64 liveAudioTestReceiveEpoch () const {return m_receiveConsumer.epoch ();}
   bool liveAudioTestReceivingAudio () const {return m_receivingAudio;}
   int liveAudioTestHalfSymbols () const {return m_ihsym;}
-  QString checkLiveAudioTestJttyFrequencyChanges();
+  std::optional<QString> pollLiveAudioTestJttyFrequencyChanges();
   bool startLiveAudioTestJttyWav(QString const& path);
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
@@ -1015,7 +1016,6 @@ private:
   quint64  m_mslastTX;   //ft8md
   qint32  m_nlasttx;     //ft8md
   qint32  m_lapmyc;      //ft8md
-  Astro::Correction m_astroCorrection;
   bool m_reverse_Doppler;
 
   double  m_tRemaining;
@@ -1039,7 +1039,6 @@ private:
   bool m_gen_message_is_cq;
   bool m_send_RR73;
   qint32  m_timeout;
-  qint32  m_XIT;
   qint32  m_setftx;
   qint32  m_ndepth;
   qint32  m_ncandthin; //ft8md
@@ -1619,7 +1618,8 @@ private:
     RigFrequencyChangePolicy::ChangeKind) const;
   bool nominalFrequencyChangeAllowed (FrequencyRequestOrigin);
   bool requestNominalFrequencyChange (Frequency, FrequencyRequestOrigin);
-  bool dispatchNominalFrequency (Frequency corrected, FrequencyRequestOrigin, bool monitoring);
+  bool dispatchNominalFrequency (RigFrequency::Request const&, FrequencyRequestOrigin, bool monitoring);
+  bool m_frequencyRetryRequested = false;
   bool requestBandChange (Frequency, FrequencyRequestOrigin);
   bool workingFrequencyAt (int row, Frequency&) const;
   void applyBandChange (Frequency, Frequency previous_frequency);

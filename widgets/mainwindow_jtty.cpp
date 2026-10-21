@@ -499,7 +499,7 @@ void MainWindow::execute_jtty_tones(qint64 requestId, QString const& message,
   }
   m_nsym_jtty=nsym;
 
-  float const f0=(frequency >= 0 ? frequency : ui->TxFreqSpinBox_2->value ()) - m_XIT;
+  float const f0=(frequency >= 0 ? frequency : ui->TxFreqSpinBox_2->value ()) - m_operatingFrequency.audioOffset ();
   auto const samples = Jtty::renderTransmitTones(itone, m_nsym_jtty, 48000, f0);
   if (samples.isEmpty()) {
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);

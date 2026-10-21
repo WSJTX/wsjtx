@@ -578,7 +578,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_ntx {1},
   m_gen_message_is_cq {false},
   m_send_RR73 {false},
-  m_XIT {0},
   m_ncandthin {100}, 	//ft8md
   m_nFT8Cycles {3},     //ft8md
   m_nFT8RXfSens {3}   , //ft8md
@@ -1349,6 +1348,32 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // hook up configuration signals
   connect (&m_config, &Configuration::leavingSettings, this, &MainWindow::handle_leavingSettings);
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
+  m_config.set_frequency_activity_provider ([this] { return rigFrequencyActivity (); });
+  connect (&m_config, &Configuration::frequency_result, this,
+           [this] (RigFrequency::Result const& result) {
+             m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation ());
+             applyOperatingFrequencyTransition (m_operatingFrequency.handleResult (result));
+             if (result.outcome == RigFrequency::Outcome::Established)
+               {
+                 if (result.request.path == RigFrequency::Path::Tx)
+                   setXIT (ui->TxFreqSpinBox->value ());
+                 reapplyCurrentRigFrequencyCorrection ();
+               }
+           });
+  connect (&m_config, &Configuration::frequency_observation, this,
+           [this] (RigFrequency::Evidence const& report) {
+             m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation ());
+             auto const transition = m_operatingFrequency.observe (report, operatingFrequencyContext ());
+             applyOperatingFrequencyTransition (transition);
+             if (transition.before.rx != transition.after.rx)
+               setXIT (ui->TxFreqSpinBox->value ());
+           });
+  connect (&m_config, &Configuration::frequency_failure, this,
+           [this] (QString const& reason) {
+             m_operatingFrequency.requireRecovery ();
+             m_first_error = false;
+             handle_transceiver_failure (reason);
+           });
   connect (&m_config, &Configuration::transceiverReceiveAudio, this,
            [this, live_data_sink] (ReceiveAudio audio) {
              if (m_tci_audio) live_data_sink (std::move (audio));
@@ -1597,7 +1622,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                                               , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
                                               , m_tx_audio_buffer_frames);
         }
-      Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
+      Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
     }
   }
   // Connected only after the initial start so restoring the saved Full
@@ -1664,13 +1689,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     if (m_tci_audio) {
       QTimer::singleShot (5000, this, [=] {
         if (ui->bandComboBox->currentText()!="OOB") {
-          Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_XIT);
+          Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
         } else {
           rigFailure("TCI audio cannot be started as frequency is OOB");
         }
       });
     } else {
-      Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value() - m_XIT);
+      Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ());
     }
   }
 
@@ -1854,6 +1879,7 @@ void MainWindow::on_the_minute ()
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
 {
+  m_config.set_frequency_activity_provider ({});
   PerformanceTrace::Phase destructor {"mainwindow.destructor_body"};
   // wav12 shares FFT state that main() releases after this window is destroyed.
   {
@@ -3374,12 +3400,12 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
       } else {
         if (m_tci_audio) {
           if (ui->bandComboBox->currentText()!="OOB") {
-            Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_XIT);
+            Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
           } else {
             rigFailure("TCI audio cannot be started as frequency is OOB");
           }
         } else {
-          Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value() - m_XIT);
+          Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ());
         }
       }
       on_monitorButton_clicked (true); // reset audio streams
@@ -3828,9 +3854,9 @@ void MainWindow::displayDialFrequency ()
 {
   if (ui->actionUse_Dark_Style->isChecked()) ui->bandComboBox->setStyleSheet("QLineEdit {background-color: #31363b}");  // initialize dark style at startup
   Frequency dial_frequency {m_rigState.ptt () ?
-      (m_rigState.split () ? m_operatingFrequency.correctedTx (m_astroCorrection.tx)
+      (m_rigState.split () ? m_operatingFrequency.correctedTx ()
                           : m_operatingFrequency.tx ()) :
-      m_operatingFrequency.correctedRx (m_astroCorrection.rx)};
+      m_operatingFrequency.correctedRx ()};
 
   // lookup band
   auto const& band_name = m_config.bands ()->find (dial_frequency);
@@ -3995,7 +4021,7 @@ void MainWindow::statusChanged()
     ui->txb6->click();
     if (m_config.superFox()) {
       ui->sbNslots->setVisible(true);
-      m_XIT=0;
+      m_operatingFrequency.requestTxPlan ({m_operatingFrequency.tx (), 0}, {}, false, false);
       if(ui->cbSendMsg->isChecked()) {
         ui->sbNslots->setValue(2);
         m_Nslots=2;
@@ -4696,7 +4722,7 @@ void MainWindow::on_actionAstronomical_data_toggled (bool checked)
       // hook up termination signal
       connect (this, &MainWindow::finished, m_astroWidget.data (), &Astro::close);
       connect (m_astroWidget.data (), &Astro::tracking_update, [this] {
-          m_astroCorrection = {};
+          m_operatingFrequency.setDesiredCorrection (0, 0);
           reapplyCurrentRigFrequencyCorrection ();
           setXIT (ui->TxFreqSpinBox->value ());
           displayDialFrequency ();
@@ -7857,7 +7883,7 @@ void MainWindow::guiUpdate()
               int nsps=4*1920;
               float fsample=48000.0;
               float bt=2.0;
-              float f0=ui->TxFreqSpinBox->value() - m_XIT;
+              float f0=ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ();
               int icmplx=0;
               int nwave=nsym*nsps;
               gen_ft8wave_(const_cast<int *>(itone),&nsym,&nsps,&bt,&fsample,&f0,foxcom_.wave,
@@ -7869,7 +7895,7 @@ void MainWindow::guiUpdate()
                 foxGenWaveform(0,fm);
                 foxcom_.nslots=1;
                 foxcom_.nfreq=ui->TxFreqSpinBox->value();
-                if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;  //Fox Tx freq
+                if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_operatingFrequency.audioOffset ();  //Fox Tx freq
                 QString foxCall=m_config.my_callsign() + "         ";
                 ::memcpy(foxcom_.mycall, foxCall.toLatin1(), sizeof foxcom_.mycall); //Copy Fox callsign into foxcom_
                 bool bSuperFox=m_config.superFox();
@@ -7897,7 +7923,7 @@ void MainWindow::guiUpdate()
             int nsym=103;
             int nsps=4*576;
             float fsample=48000.0;
-            float f0=ui->TxFreqSpinBox->value() - m_XIT;
+            float f0=ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ();
             int nwave=(nsym+2)*nsps;
             int icmplx=0;
             gen_ft4wave_(const_cast<int *>(itone),&nsym,&nsps,&fsample,&f0,foxcom_.wave,
@@ -7932,8 +7958,8 @@ void MainWindow::guiUpdate()
             int nsym=160;
             float fsample=48000.0;
             float dfreq=hmod*fsample/nsps;
-            float f0=ui->TxFreqSpinBox->value() - m_XIT + 1.5*dfreq;
-            if(m_mode=="FST4W") f0=ui->WSPRfreqSpinBox->value() - m_XIT + 1.5*dfreq;
+            float f0=ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset () + 1.5*dfreq;
+            if(m_mode=="FST4W") f0=ui->WSPRfreqSpinBox->value() - m_operatingFrequency.audioOffset () + 1.5*dfreq;
             int nwave=(nsym+2)*nsps;
             int icmplx=0;
             gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
@@ -7961,7 +7987,7 @@ void MainWindow::guiUpdate()
             float fsample=48000.0;
             int nwave=(nsym+2)*nsps4;
             int icmplx=0;
-            float f0=ui->TxFreqSpinBox->value()-m_XIT;
+            float f0=ui->TxFreqSpinBox->value()-m_operatingFrequency.audioOffset ();
             double toneSpacing=fsample/nsps4;
             genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
                      &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
@@ -10125,19 +10151,16 @@ void MainWindow::wheelEvent(QWheelEvent *event)         // mouse wheel events
 {
   if(ui->labDialFreq->hasFocus()) {                         // kHz + or -
     Frequency dial_frequency {m_rigState.ptt () ?
-        (m_rigState.split () ? m_operatingFrequency.correctedTx (m_astroCorrection.tx)
+        (m_rigState.split () ? m_operatingFrequency.correctedTx ()
                             : m_operatingFrequency.tx ()) :
-        m_operatingFrequency.correctedRx (m_astroCorrection.rx)};
+        m_operatingFrequency.correctedRx ()};
     if (event->angleDelta().x() > 2 or event->angleDelta().y() > 2) {
       dial_frequency = dial_frequency + 1000;
     } else if (event->angleDelta().x() < -2 or event->angleDelta().y() < -2) {
       dial_frequency = dial_frequency - 1000;
     }
     Frequency requested_frequency = dial_frequency;
-    if (m_astroWidget && m_astroWidget->doppler_tracking()
-        && m_astroWidget->DopplerMethod()!=0) {
-      requested_frequency -= m_astroCorrection.rx;
-    }
+    requested_frequency -= m_operatingFrequency.correctedRx () - m_operatingFrequency.rx ();
     if (requestNominalFrequencyChange (requested_frequency, FrequencyRequestOrigin::User)) {
       ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
       setXIT (ui->TxFreqSpinBox->value ());
@@ -12750,6 +12773,13 @@ void MainWindow::rigOpen ()
   ui->readFreq->setText ("");
   ui->readFreq->setEnabled (true);
   m_config.transceiver_online ();
+  m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation ());
+  if (m_frequencyRetryRequested)
+    {
+      m_operatingFrequency.retry (m_config.frequency_generation ());
+      m_frequencyRetryRequested = false;
+      reapplyCurrentRigFrequencyCorrection ();
+    }
   m_config.sync_transceiver (true, true);
 }
 
@@ -12761,6 +12791,8 @@ void MainWindow::setXIT(int n, Frequency base)
 {
   auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
   if (!rigFrequencyChangeDecision (kind).allowed) return;
+  m_operatingFrequency.setConnectionGeneration (
+    m_config.frequency_generation (), m_config.is_transceiver_online ());
   // If "CQ nnn ..." feature is active, set the proper Tx frequency
   if(m_config.split_mode () && ui->cbCQTx->isEnabled () && ui->cbCQTx->isVisible () &&
      ui->cbCQTx->isChecked())
@@ -12768,7 +12800,7 @@ void MainWindow::setXIT(int n, Frequency base)
       if (6 == m_ntx || (7 == m_ntx && m_gen_message_is_cq))
         {
           // All conditions are met, use calling frequency
-          base = m_operatingFrequency.rx () / 1000000 * 1000000 + 1000 * ui->sbCQTxFreq->value () + m_XIT;
+          base = m_operatingFrequency.rx () / 1000000 * 1000000 + 1000 * ui->sbCQTxFreq->value () + m_operatingFrequency.audioOffset ();
         }
   }
   if (!base) base = m_operatingFrequency.rx ();
@@ -12790,8 +12822,6 @@ void MainWindow::setXIT(int n, Frequency base)
         // All conditions are met, reset the transceiver Tx dial
         // frequency
         requested_tx_nominal = base + requested_xit;
-        if (!m_config.transceiver_tx_frequency (
-              requested_tx_nominal + m_astroCorrection.tx, kind)) return;
         update_tx_nominal = true;
       }
   }
@@ -12800,26 +12830,23 @@ void MainWindow::setXIT(int n, Frequency base)
       && m_config.is_transceiver_online ())
       {
         // the transceiver Tx dial frequency must be consistent with
-        // zero m_XIT for SuperFox
+        // zero audio offset for SuperFox
         requested_tx_nominal = base;
-        if (!m_config.transceiver_tx_frequency (
-              requested_tx_nominal + m_astroCorrection.tx, kind)) return;
         update_tx_nominal = true;
       }
 
-  m_XIT = requested_xit;
-  if (update_tx_nominal)
+  if (!m_operatingFrequency.requestTxPlan ({requested_tx_nominal, requested_xit},
+        [this] (RigFrequency::Request const& request) {
+          return m_config.request_frequency (request, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection);
+        }, update_tx_nominal, update_tx_nominal)) return;
+  if (update_tx_nominal && m_astroWidget)
     {
-      m_operatingFrequency.commitAcceptedTx (requested_tx_nominal);
-      if (m_astroWidget)
-        {
-          m_astroWidget->nominal_frequency (m_operatingFrequency.rx (), m_operatingFrequency.tx ());
-        }
+      m_astroWidget->nominal_frequency (m_operatingFrequency.rx (), m_operatingFrequency.tx ());
     }
 
   //Now set the audio Tx freq
-  if (m_tci_audio) Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_XIT);
-  else Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
+  if (m_tci_audio) Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
+  else Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
 }
 
 void MainWindow::setFreq4(int rxFreq, int txFreq)
@@ -12973,12 +13000,13 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
     }
 
   m_rigState = s;
+  m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation (), s.online ());
   auto const transition = m_operatingFrequency.reconcile (
     {old_state.online (), old_state.ptt (), m_splitMode, old_state.frequency (), old_state.tx_frequency ()},
     {s.online (), s.ptt (), s.split (), s.frequency (), s.tx_frequency ()},
-    operatingFrequencyContext (), [this] (Frequency corrected) {
-      return dispatchNominalFrequency (corrected, FrequencyRequestOrigin::User, true);
-    });
+    operatingFrequencyContext (), [this] (RigFrequency::Request const& request) {
+      return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
+    }, m_config.is_transceiver_online ());
   m_splitMode = s.split ();
   applyOperatingFrequencyTransition (transition);
   if (transition.monitor)
@@ -12995,9 +13023,10 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       setXIT (ui->TxFreqSpinBox->value ());
     }
   // ensure frequency display is correct
-  if (m_astroWidget && old_state.ptt () != s.ptt ())
+  if (s.online () && (!old_state.online () || old_state.ptt () != s.ptt ()))
     {
       reapplyCurrentRigFrequencyCorrection ();
+      if (!s.ptt ()) setXIT (ui->TxFreqSpinBox->value ());
     }
 
   update_dynamic_property (ui->readFreq, "state", "ok");
@@ -13009,6 +13038,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 
 void MainWindow::handle_transceiver_closing (bool failed)
 {
+  m_operatingFrequency.disconnect ();
   if (m_tci_audio)
     {
       m_receiveConsumer.invalidate ();
@@ -13034,6 +13064,7 @@ void MainWindow::handle_transceiver_closing (bool failed)
 
 void MainWindow::handle_transceiver_failure (QString const& reason)
 {
+  if (m_operatingFrequency.recoveryRequired ()) m_first_error = false;
   noteTxStopReason (TxEvidence::TxStopReason::Error);
   if (m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ()) {
     stopTx ();
@@ -13102,6 +13133,7 @@ void MainWindow::rigFailure (QString const& reason)
               break;
 
             case MessageBox::Retry:
+              m_frequencyRetryRequested = m_operatingFrequency.recoveryRequired ();
               QTimer::singleShot (0, this, SLOT (rigOpen ()));
               break;
 
@@ -13184,7 +13216,7 @@ void MainWindow::transmit (double snr)
     if(m_nSubMode==2) toneSpacing=4*11025.0/4096.0;
     request.symbols_length = NUM_JT65_SYMBOLS;
     request.frames_per_symbol = 4096.0*12000.0/11025.0;
-    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ();
     request.tone_spacing = toneSpacing;
     dispatchTxRequest (request);
   }
@@ -13207,7 +13239,7 @@ void MainWindow::transmit (double snr)
       request.symbols_length = NUM_FT8_SYMBOLS;
       request.frames_per_symbol = 1920.0;
     }
-    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ();
     request.tone_spacing = toneSpacing;
     dispatchTxRequest (request);
   }
@@ -13217,7 +13249,7 @@ void MainWindow::transmit (double snr)
     toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
     request.symbols_length = NUM_FT4_SYMBOLS;
     request.frames_per_symbol = 576.0;
-    request.frequency_hz = ui->TxFreqSpinBox->value() - m_XIT;
+    request.frequency_hz = ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ();
     request.tone_spacing = toneSpacing;
     dispatchTxRequest (request);
   }
@@ -13229,7 +13261,7 @@ void MainWindow::transmit (double snr)
     double txt=m_nsym_jtty*384.0/12000.0;
     request.symbols_length = m_nsym_jtty;
     request.frames_per_symbol = 384.0;
-    request.frequency_hz = ui->TxFreqSpinBox_2->value () - m_XIT;
+    request.frequency_hz = ui->TxFreqSpinBox_2->value () - m_operatingFrequency.audioOffset ();
     request.tone_spacing = toneSpacing;
     request.synchronize = false;
     request.tr_period_s = txt;
@@ -13250,8 +13282,8 @@ void MainWindow::transmit (double snr)
     if(m_config.x2ToneSpacing()) hmod=2;
     if(m_config.x4ToneSpacing()) hmod=4;
     double dfreq=hmod*12000.0/nsps;
-    double f0=ui->WSPRfreqSpinBox->value() - m_XIT;
-    if(m_mode=="FST4") f0=ui->TxFreqSpinBox->value() - m_XIT;
+    double f0=ui->WSPRfreqSpinBox->value() - m_operatingFrequency.audioOffset ();
+    if(m_mode=="FST4") f0=ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ();
     if(!m_tune) f0 += 1.5*dfreq;
     request.symbols_length = NUM_FST4_SYMBOLS;
     request.frames_per_symbol = double(nsps);
@@ -13271,7 +13303,7 @@ void MainWindow::transmit (double snr)
 //    toneSpacing=-4.0;
     request.symbols_length = NUM_Q65_SYMBOLS;
     request.frames_per_symbol = double(nsps);
-    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ();
     request.tone_spacing = toneSpacing;
     dispatchTxRequest (request);
   }
@@ -13291,7 +13323,7 @@ void MainWindow::transmit (double snr)
     }
     request.symbols_length = NUM_JT9_SYMBOLS;
     request.frames_per_symbol = sps;
-    request.frequency_hz = ui->TxFreqSpinBox->value() - m_XIT;
+    request.frequency_hz = ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ();
     request.tone_spacing = m_toneSpacing;
     request.fast_mode = fastmode;
     dispatchTxRequest (request);
@@ -13302,7 +13334,7 @@ void MainWindow::transmit (double snr)
     double f0=1000.0;
     if(!m_bFastMode) {
       m_nsps=192;
-      f0=ui->TxFreqSpinBox->value () - m_XIT - 0.5*m_toneSpacing;
+      f0=ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset () - 0.5*m_toneSpacing;
     }
     m_toneSpacing=6000.0/m_nsps;
     m_FFTSize = 7 * 512;
@@ -13329,7 +13361,7 @@ void MainWindow::transmit (double snr)
     if(m_nSubMode==6) toneSpacing=72*4.375;
     request.symbols_length = NUM_JT4_SYMBOLS;
     request.frames_per_symbol = 2520.0*12000.0/11025.0;
-    request.frequency_hz = ui->TxFreqSpinBox->value () - m_XIT;
+    request.frequency_hz = ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ();
     request.tone_spacing = toneSpacing;
     dispatchTxRequest (request);
   }
@@ -14299,14 +14331,16 @@ void MainWindow::astroUpdate ()
     m_fSpread=correction.width;
     m_tEcho=correction.techo;
 
-    if (m_transmitting && !m_config.tx_frequency_corrections_allowed ()) return;  // No Tx Doppler correction if rig can't do it
+    bool const audioCorrectionAllowed = !m_transmitting || m_config.tx_frequency_corrections_allowed ();
     if (!m_astroWidget->doppler_tracking() or m_astroWidget->DopplerMethod()==0) {
       // We are not using RF Doppler correction
-      m_fAudioShift=m_fDop;
+      if (audioCorrectionAllowed) m_fAudioShift=m_fDop;
+      m_operatingFrequency.setDesiredCorrection (0, 0);
+      reapplyCurrentRigFrequencyCorrection ();
       return;
     } else if (m_astroWidget->DopplerMethod()==10) {  // else if added for enableShift fx
       // We are not using RF Doppler correction
-      m_fAudioShift=m_fDop;
+      if (audioCorrectionAllowed) m_fAudioShift=m_fDop;
     }
 
     if ((m_monitoring || m_transmitting)
@@ -14344,13 +14378,14 @@ void MainWindow::astroUpdate ()
             correction.rx = correction.rx / 10 * 10;
             correction.tx = correction.tx / 10 * 10;
           }
-        m_astroCorrection = correction;
-        if (m_reverse_Doppler) m_astroCorrection.reverse ();
+        auto desired = correction;
+        if (m_reverse_Doppler) desired.reverse ();
+        m_operatingFrequency.setDesiredCorrection (desired.rx, desired.tx);
       } else {
-        m_astroCorrection = {};
+        m_operatingFrequency.setDesiredCorrection (0, 0);
       }
     if(!(m_tci && inSettings)) reapplyCurrentRigFrequencyCorrection ();
-    m_fAudioShift=m_fDop - correction.rx;
+    if (audioCorrectionAllowed) m_fAudioShift=m_fDop - correction.rx;
   }
 }
 
@@ -14392,17 +14427,16 @@ OperatingFrequency::Context MainWindow::operatingFrequencyContext () const
 {
   return {m_monitoring, !m_transmitting && !m_wav_load_coordinator.isLoading (),
           !m_config.monitor_off_at_startup (), m_config.monitor_last_used (), m_mode == "Echo",
-          m_astroCorrection.rx, m_astroCorrection.tx};
+          m_rigState.ptt (), m_rigState.split ()};
 }
 
-bool MainWindow::dispatchNominalFrequency (Frequency corrected,
+bool MainWindow::dispatchNominalFrequency (RigFrequency::Request const& request,
                                            FrequencyRequestOrigin origin,
                                            bool monitoring)
 {
   if (!nominalFrequencyChangeAllowed (origin)) return false;
   auto const accepted = !((monitoring || m_transmitting) && m_config.transceiver_online ())
-    || m_config.transceiver_frequency (
-      corrected, RigFrequencyChangePolicy::ChangeKind::NominalQsy);
+    || m_config.request_frequency (request, RigFrequencyChangePolicy::ChangeKind::NominalQsy);
   if (!accepted && origin == FrequencyRequestOrigin::User)
     {
       statusBar ()->showMessage (
@@ -14415,10 +14449,13 @@ bool MainWindow::requestNominalFrequencyChange (Frequency frequency,
                                                 FrequencyRequestOrigin origin)
 {
   auto const previous = m_operatingFrequency.rx();
-  if (!m_operatingFrequency.requestNominal (frequency, m_astroCorrection.rx,
-        [this, origin] (Frequency corrected) {
-          return dispatchNominalFrequency (corrected, origin, m_monitoring);
-        })) return false;
+  if (!nominalFrequencyChangeAllowed (origin)) return false;
+  auto const dispatch = (m_monitoring || m_transmitting) && m_config.transceiver_online ();
+  m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation (), dispatch);
+  if (!m_operatingFrequency.requestNominal (frequency,
+        [this, origin] (RigFrequency::Request const& request) {
+          return dispatchNominalFrequency (request, origin, m_monitoring);
+        }, dispatch)) return false;
 
   if (m_mode == "JTTY" && previous != m_operatingFrequency.rx()) updateJttyReceiveContext();
   genCQMsg ();
@@ -14432,13 +14469,17 @@ bool MainWindow::requestNominalFrequencyChange (Frequency frequency,
 bool MainWindow::reapplyCurrentRigFrequencyCorrection ()
 {
   auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
-  if (!rigFrequencyChangeDecision (kind).allowed) return false;
+  auto const activity = rigFrequencyActivity ();
   if ((m_monitoring || m_transmitting) && m_config.transceiver_online ()) {
-    if (m_transmitting && m_config.split_mode () && !(m_config.superFox() && m_specOp==SpecOp::FOX)) {
-      return m_config.transceiver_tx_frequency (m_operatingFrequency.correctedTx (m_astroCorrection.tx), kind);
-    } else {
-      return m_config.transceiver_frequency (m_operatingFrequency.correctedRx (m_astroCorrection.rx), kind);
-    }
+    m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation ());
+    auto const path = m_transmitting && m_config.split_mode ()
+      && !(m_config.superFox () && m_specOp == SpecOp::FOX)
+      ? RigFrequency::Path::Tx : RigFrequency::Path::Rx;
+    return m_operatingFrequency.applyCorrection (
+      path, activity, m_config.tx_frequency_corrections_allowed (),
+      [this] (RigFrequency::Request const& request) {
+        return m_config.request_frequency (request, kind);
+      });
   }
   return true;
 }
@@ -15539,7 +15580,7 @@ bool MainWindow::foxTxSequencer()
 
     foxcom_.nslots = islot;
     foxcom_.nfreq = ui->TxFreqSpinBox->value();
-    if (m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;
+    if (m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_operatingFrequency.audioOffset ();
     QString foxCall = m_config.my_callsign() + "         ";
     ::memcpy(foxcom_.mycall, foxCall.toLatin1(), sizeof foxcom_.mycall);
     bool bSuperFox = true;
@@ -15772,7 +15813,7 @@ list2Done:
 Transmit:
   foxcom_.nslots=islot;
   foxcom_.nfreq=ui->TxFreqSpinBox->value();
-  if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;  //Fox Tx freq
+  if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_operatingFrequency.audioOffset ();  //Fox Tx freq
   QString foxCall=m_config.my_callsign() + "         ";
   ::memcpy(foxcom_.mycall, foxCall.toLatin1(),sizeof foxcom_.mycall);   //Copy Fox callsign into foxcom_
   bool bSuperFox=m_config.superFox();
