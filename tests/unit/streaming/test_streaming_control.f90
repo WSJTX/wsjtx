@@ -2,7 +2,7 @@
 program test_streaming_control
   use streaming_control, only: parse_control_frame, configure_fields,       &
        control_type_error, CTRL_UNKNOWN, CTRL_CONFIGURE, CTRL_HALT,         &
-       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER,          &
+       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, &
        MODE_JTTY, encode_request, parse_encode_request, parse_render_request
   implicit none
 
@@ -12,6 +12,7 @@ program test_streaming_control
 
   call expect_action('{"t":"discontinuity"}', CTRL_DISCONTINUITY)
   call expect_action('{"t":"halt"}', CTRL_HALT)
+  call expect_action('{"t":"flush"}', CTRL_FLUSH)
   call expect_action('{"t":"configure","rxfreq":1500}', CTRL_CONFIGURE)
   call expect_action('{"t":"a_future_control"}', CTRL_UNKNOWN)
   call expect_action('{"t":"discontinuities"}', CTRL_UNKNOWN)
@@ -141,6 +142,70 @@ program test_streaming_control
        .false., .false., 'decode_after_eme_delay')
   call expect_flags('{"t":"configure","live_audio":1}', .false., .false., .false., .false., &
        'live_audio')
+
+  ! The GUI's Aggressive setting is an integer; its Q65 pileup decoding is
+  ! nexp_decode's bit 7, packed with the contest keys.
+  call expect_aggressive('{"t":"configure","aggressive":7}', .true., 7, '')
+  call expect_aggressive('{"t":"configure","rxfreq":1500}', .false., 0, '')
+  call expect_aggressive('{"t":"configure","aggressive":"7"}', .false., 0, 'aggressive')
+  call expect_nexp('{"t":"configure","q65_pileup":true}', .true., 128, '')
+  call expect_nexp('{"t":"configure","q65_pileup":false}', .true., 0, '')
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup","q65_pileup":true}', .true., 129, '')
+  call expect_nexp('{"t":"configure","q65_pileup":1}', .false., 0, 'q65_pileup')
+  ! The GUI's Q65 Pileup activity sets both; q65_pileup in the frame wins.
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup"}', .true., 129, '')
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup","single_decode":true}', .true., 161, '')
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup","q65_pileup":false}', .true., 1, '')
+  call expect_nexp('{"t":"configure","q65_pileup":false,"contest_type":"q65_pileup"}', .true., 1, '')
+  call expect_nexp('{"t":"configure","contest_type":"na_vhf"}', .true., 1, '')
+  call expect_nexp('{"t":"configure","contest_type":"ww_digi"}', .true., 1, '')
+
+  ! Conflicting depth keys are named by their wire keys.
+  call expect_conflict('{"t":"configure","depth":3,"depth_level":2}', 'depth', 'depth alone')
+  call expect_conflict('{"t":"configure","depth_level":2,"q65_maxiters_level":1}', &
+       'q65_maxiters_level', 'same depth_level')
+
+  ! A utc is exactly HH:MM:SS, two digits a field, else a type error, and a
+  ! time of day, else out of range. A nutc is a JSON integer and a time of
+  ! day, HHMMSS from 0 to 235959 (an HHMM up to 2359 passes as HHMMSS).
+  call expect_utc('{"t":"configure","utc":"23:59:59"}', .true., 235959)
+  call expect_utc('{"t":"configure","utc":"00:00:00"}', .true., 0)
+  call expect_utc('{"t":"configure","utc":"1\u0032:00:00"}', .true., 120000)
+  call expect_utc_refused('{"t":"configure","utc":"24:00:00"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"12:60:00"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:60"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"99:99:99"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"1:2:3"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"123:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"99999999999:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"0012:0000:0005"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:00 "}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":" 12:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:00' // repeat(' ', 125) // 'junk"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12-00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00-00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:0a:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"13:34:45Z"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"13:34"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"-1:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":""}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:0\x"}', 'type')
+  call expect_nutc('{"t":"configure","nutc":133445}', .true., 133445, '')
+  call expect_nutc('{"t":"configure","nutc":0}', .true., 0, '')
+  call expect_nutc('{"t":"configure","nutc":2359}', .true., 2359, '')
+  call expect_nutc('{"t":"configure","nutc":235959}', .true., 235959, '')
+  call expect_nutc('{"t":"configure","nutc":-1}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":240000}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":1260}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":126000}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":235960}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","rxfreq":1500}', .false., 0, '')
+  call expect_nutc('{"t":"configure","nutc":133445.0}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":1.33445e5}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":2147483648}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":05}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":"133445"}', .false., 0, 'string')
 
   ! The transmitter keeps the whole call and grid; the decoder's fields keep
   ! their widths.
@@ -348,6 +413,121 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_flags
+
+  ! aggressive as parsed, or the key a type error names.
+  subroutine expect_aggressive(frame, set, value, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            (cfg%aggressive_set .eqv. set) .and. (.not. set .or. cfg%aggressive .eq. value)
+    end if
+    call report(frame, good, '')
+  end subroutine expect_aggressive
+
+  ! The type error a conflict gives.
+  subroutine expect_conflict(frame, key, expected)
+    character(len=*), intent(in) :: frame, key, expected
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, terr%present .and. trim(terr%key) .eq. key .and.          &
+         trim(terr%expected) .eq. expected .and. trim(terr%got) .eq. 'conflict', '')
+  end subroutine expect_conflict
+
+  ! utc as parsed: set, and the HHMMSS it gives.
+  subroutine expect_utc(frame, set, value)
+    character(len=*), intent(in) :: frame
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.   &
+         (cfg%utc_set .eqv. set) .and. (.not. set .or. cfg%utc_nutc .eq. value) .and. &
+         .not. cfg%utc_out_of_range, '')
+  end subroutine expect_utc
+
+  ! A utc refused for its 'range' (the frame's range error) or its 'type'.
+  subroutine expect_utc_refused(frame, outcome)
+    character(len=*), intent(in) :: frame, outcome
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    good = action .eq. CTRL_CONFIGURE .and. .not. cfg%utc_set
+    if (outcome .eq. 'range') then
+       good = good .and. cfg%utc_out_of_range .and. .not. terr%present
+    else
+       good = good .and. .not. cfg%utc_out_of_range .and. terr%present .and.     &
+            trim(terr%key) .eq. 'utc' .and. trim(terr%expected) .eq. 'HH:MM:SS' .and. &
+            trim(terr%got) .eq. 'string'
+    end if
+    call report(frame, good, outcome)
+  end subroutine expect_utc_refused
+
+  ! nutc as parsed (set, value), refused for its 'range', or got, the
+  ! category its type error names.
+  subroutine expect_nutc(frame, set, value, got)
+    character(len=*), intent(in) :: frame, got
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (got .eq. 'range') then
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            cfg%nutc_out_of_range .and. .not. cfg%nutc_set
+    else if (len(got) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. 'nutc' .and.               &
+            trim(terr%expected) .eq. 'int' .and. trim(terr%got) .eq. got .and.  &
+            .not. cfg%nutc_set .and. .not. cfg%nutc_out_of_range
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            (cfg%nutc_set .eqv. set) .and. (.not. set .or. cfg%nutc .eq. value) .and. &
+            .not. cfg%nutc_out_of_range
+    end if
+    call report(frame, good, got)
+  end subroutine expect_nutc
+
+  ! The packed nexp_decode, or the key a type error names.
+  subroutine expect_nexp(frame, set, value, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            (cfg%nexp_decode_packed_set .eqv. set) .and.                      &
+            (.not. set .or. cfg%nexp_decode_packed .eq. value)
+    end if
+    call report(frame, good, '')
+  end subroutine expect_nexp
 
   ! short_messages, swl and train as parsed (set, then value), or the key a
   ! type error names.

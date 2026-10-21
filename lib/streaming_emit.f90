@@ -6,11 +6,59 @@
 ! Schema (v=1):
 !   ready             {"v":1,"t":"ready","modes":[...],"protocol":1}
 !   decode            {"v":1,"t":"decode","mode":"FT8","time":"HHMMSS",
-!                      "snr":-12,"dt":0.6,"freq":1500,"message":"CQ ..."}
+!                      "snr":-12,"dt":0.600000024,"freq":1500,"message":"CQ ...",
+!                      "ap":0,"pass":50}
+!                     time is the period's label (lib/streaming_io.f90 states
+!                     when to send it), always six digits.
+!                     dt (and spread) are the decoder's single-precision value
+!                     to 9 significant digits, which read back as that value.
+!                     jt9's line, which the GUI shows, prints dt as Fortran
+!                     f5.1 and spread as f6.3 below 0.95 Hz and f6.2 from
+!                     there, each rounded half to even on that single-precision
+!                     value, as C's printf does on glibc and macOS (Qt's
+!                     QString::number and JavaScript's toFixed round ties away
+!                     from zero, and differ on about one FT8 decode in 50).
+!                     DecodeEventLine (DecodeEventLine.cpp) renders an event as
+!                     jt9's line, in the per-family layouts of
+!                     lib/decoder_callbacks.f90, with the time as HHMM for
+!                     periods of a minute or more.
+!                     message keeps the text jt9 prints, ? and OOO included.
+!                     After "message", what jt9's line for the decode shows,
+!                     by family:
+!                       FT8, FT4, FST4, FST4W: "ap", the N of jt9's aN (0: none).
+!                       JT65: "sync" ("#", "#*" or "##") and "flags" (as jt9
+!                       prints them, blanks trimmed: "", "f", "d5", "a13", ...).
+!                       A candidate below min_sync, which jt9 prints without
+!                       them, has "sync":"" and an empty message.
+!                       JT4: "sync" ("*" or "#") and "flags"; a period with no
+!                       sync, which jt9 prints as time, snr, dt, freq and "$",
+!                       has "sync":"" and an empty message.
+!                       Q65: "q" (the qN code), "avg" (periods averaged) and
+!                       "copied" (jt9's #: the spare 78th bit, the sender
+!                       copied our last message).
+!                       FST4, FST4W, Q65: "period", the TR period in seconds.
+!                       FST4, FST4W: "spread" (Hz) when the decoder measured it.
+!                       SuperFox: "superfox":true and "text_width", and none of
+!                       the above.
+!                       A line of rx_messages.txt, which the FT8 decoder returns
+!                       as its decodes (a test hook): "text_width".
+!                       "text_width": the columns jt9's line gives the message,
+!                       which ends the line; SuperFox pads some texts with
+!                       blanks.
+!                     Then "pass", the half-symbol stop of the decode pass that
+!                     produced it (41, 46 or 47 for an early FT8 pass), on every
+!                     decode but MSK144's.
 !                     An MSK144 decode adds "training":true after "message"
 !                     when configure's train is still true after its window,
 !                     where the GUI marks the decode ^.
-!   decode_finished   {"v":1,"t":"decode_finished","period_end":"HHMMSS"}
+!   decode_finished   {"v":1,"t":"decode_finished","period_end":"HHMMSS",
+!                      "synced":0,"decoded":14,"average":0}
+!                     The counts of jt9's <DecodeFinished> for the pass that
+!                     ended the period (Q65's average is 1000 x even + odd
+!                     periods averaged), not a count of the decode events
+!                     sent: an FT8 period's early passes are not in them, a
+!                     decode again gives its own pass's, and they are all 0 for
+!                     a final pass not run and for MSK144.
 !   error             {"v":1,"t":"error","msg":"..."}
 !   error (coded)     {"v":1,"t":"error","code":"configure_parse_error","detail":"..."}
 !   error (version)   {"v":1,"t":"error","code":"unknown_schema_version","got":N}
@@ -26,8 +74,10 @@
 !                     the stream stays in the one it had. Also sent once after
 !                     ready for a command-line value. A configure whose
 !                     phase_eq is a well-formed array of another length or
-!                     with a non-finite number is declined with it too. JTTY's
-!                     has no "mode".
+!                     with a non-finite number is declined with it too, and
+!                     so, in every mode, is one whose nutc or utc is not a
+!                     time of day ("key":"nutc" or "utc"). JTTY's has no
+!                     "mode".
 !   error (refused)   {"v":1,"t":"error","code":"decode_rejected",
 !                      "operation":"decode","status":"invalid","mode":"JT65",
 !                      "field":"depth","detail":"depth must be from 1 to 3"}
@@ -66,9 +116,10 @@
 !                     decode_finished, which a period whose final is skipped
 !                     still sends: one per period, and one more per decode
 !                     again (none for a period a mode or period change
-!                     discards, or a SuperFox even-sequence period whose stop
-!                     is below 50). An MSK144 period a change discards keeps
-!                     the decodes it has already sent. Periods' events can
+!                     discards or a discontinuity drops short of its stop, or
+!                     a SuperFox even-sequence period whose stop is below 50).
+!                     An MSK144 period a change discards keeps the decodes it
+!                     has already sent. Periods' events can
 !                     interleave; group them by period_end.
 !   msk144_trained    {"v":1,"t":"msk144_trained","call":"W9XYZ",
 !                      "file":"./W9XYZ_261019_120512.pcoeff",
@@ -123,6 +174,8 @@ module streaming_emit
   end interface
   procedure(emit_clock), pointer, save :: clock_ => null()
   real(8), save :: finished_at_ = -huge(1.d0)
+  ! The half-symbol stop of the stream host's decode pass (0: none yet).
+  integer, save :: pass_ = 0
 
   public :: streaming_emit_set_enabled
   public :: streaming_emit_set_time_form
@@ -130,6 +183,8 @@ module streaming_emit
   public :: streaming_emit_utc_from_iso
   public :: streaming_emit_ready
   public :: streaming_emit_decode
+  public :: streaming_emit_set_pass
+  public :: streaming_emit_replay_line
   public :: streaming_emit_decode_finished
   public :: streaming_emit_hold_finished
   public :: streaming_emit_pass_skipped
@@ -178,11 +233,12 @@ contains
 
   subroutine streaming_emit_ready()
     if (.not. enabled_) return
-    ! Full jt9-internal mode support (FT8/FT4/JT9/JT65/JT4/FST4/
+    ! Full jt9-internal mode support (FT8/FT4/JT9/JT65/JT65+JT9/JT4/FST4/
     ! FST4W/Q65/MSK144) and JTTY. Modes outside this set (e.g., wsprd C2
     ! streaming, map65 I/Q) may extend this list later.
     write(output_unit, '(a)') &
-       '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"protocol":1}'
+       '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W",' // &
+       '"Q65","MSK144","JTTY"],"protocol":1}'
     flush(output_unit)
   end subroutine streaming_emit_ready
 
@@ -195,8 +251,9 @@ contains
   !   freq      : decode frequency offset in Hz (integer)
   !   msg       : decoded message text (gets JSON-escaped + trimmed)
   !   training  : an MSK144 decode made while training
+  !   the rest  : what jt9's line shows beyond the decode (the schema above)
   subroutine streaming_emit_decode(mode_str, nutc, snr, dt, freq, msg, utc_is_hhmmss, &
-       training)
+       training, ap, sync, flags, q, avg, copied, period, spread, superfox, text_width)
     character(len=*), intent(in) :: mode_str
     integer,          intent(in) :: nutc
     integer,          intent(in) :: snr
@@ -205,22 +262,39 @@ contains
     character(len=*), intent(in) :: msg
     logical, optional, intent(in) :: utc_is_hhmmss
     logical, optional, intent(in) :: training
+    integer, optional, intent(in) :: ap, q, avg, period, text_width
+    character(len=*), optional, intent(in) :: sync, flags
+    logical, optional, intent(in) :: copied, superfox
+    real, optional, intent(in) :: spread
 
     character(len=8)   :: time_str
     character(len=320) :: msg_escaped
-    character(len=16)  :: dt_str
-    character(len=16)  :: mark
+    character(len=24)  :: dt_str
+    character(len=:), allocatable :: marks
     integer            :: msg_len
 
     if (.not. enabled_) return
 
     call format_utc_(nutc, time_str, utc_is_hhmmss)
     call streaming_emit_json_escape(msg, msg_escaped, msg_len)
-    call format_dt_(dt, dt_str)
-    mark = ' '
+    call format_real_(dt, dt_str)
+    marks = ''
     if (present(training)) then
-       if (training) mark = ',"training":true'
+       if (training) marks = ',"training":true'
     end if
+    if (present(superfox)) then
+       if (superfox) marks = marks // ',"superfox":true'
+    end if
+    if (present(text_width)) marks = marks // ',"text_width":' // int_text_(text_width)
+    if (present(ap)) marks = marks // ',"ap":' // int_text_(ap)
+    if (present(sync)) marks = marks // ',"sync":"' // trim(sync) // '"'
+    if (present(flags)) marks = marks // ',"flags":"' // trim(flags) // '"'
+    if (present(q)) marks = marks // ',"q":' // int_text_(q)
+    if (present(avg)) marks = marks // ',"avg":' // int_text_(avg)
+    if (present(copied)) marks = marks // ',"copied":' // trim(merge('true ', 'false', copied))
+    if (present(period)) marks = marks // ',"period":' // int_text_(period)
+    if (present(spread)) marks = marks // ',"spread":' // real_text_(spread)
+    if (pass_ .gt. 0 .and. .not. present(training)) marks = marks // ',"pass":' // int_text_(pass_)
 
     write(output_unit, '(5a,i0,3a,i0,5a)')                                 &
          '{"v":1,"t":"decode","mode":"', trim(mode_str),                   &
@@ -229,9 +303,34 @@ contains
          ',"dt":', trim(dt_str),                                           &
          ',"freq":', freq,                                                 &
          ',"message":"', msg_escaped(1:msg_len),                           &
-         '"', trim(mark), '}'
+         '"', marks, '}'
     flush(output_unit)
   end subroutine streaming_emit_decode
+
+  ! The half-symbol stop of the decode pass the stream host runs next.
+  subroutine streaming_emit_set_pass(nzhsym)
+    integer, intent(in) :: nzhsym
+    pass_ = nzhsym
+  end subroutine streaming_emit_set_pass
+
+  ! A line of rx_messages.txt, which the FT8 decoder returns as its decodes
+  ! (lib/ft8_engine_kernel.f90): read as jt9's FT8 line, a decode event, else
+  ! stderr, so that stdout stays JSON.
+  subroutine streaming_emit_replay_line(line)
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    character(len=*), intent(in) :: line
+    character(len=64) :: padded
+    integer :: utc, snr, freq, ios
+    real :: dt
+    padded = line
+    read(padded, '(i6,i4,f5.1,i5)', iostat=ios) utc, snr, dt, freq
+    if (ios .ne. 0 .or. padded(21:24) .ne. ' ~  ') then
+       write(error_unit, '(a)') trim(line)
+       return
+    end if
+    call streaming_emit_decode('FT8', utc, snr, dt, freq, padded(25:60),     &
+         .true., text_width=len_trim(padded(25:60)))
+  end subroutine streaming_emit_replay_line
 
   subroutine streaming_emit_hold_finished(hold)
     logical, intent(in) :: hold
@@ -247,17 +346,22 @@ contains
     streaming_emit_finished_at = finished_at_
   end function streaming_emit_finished_at
 
-  subroutine streaming_emit_decode_finished(nutc, utc_is_hhmmss)
+  ! counts: jt9's <DecodeFinished> synced, decoded and average (absent: 0).
+  subroutine streaming_emit_decode_finished(nutc, utc_is_hhmmss, counts)
     integer, intent(in) :: nutc
     logical, optional, intent(in) :: utc_is_hhmmss
+    integer, optional, intent(in) :: counts(3)
     character(len=8)    :: time_str
+    integer             :: n(3)
     if (.not. enabled_ .or. finished_held_) return
     ! Stamped before the line goes out, so no answer to it can precede it.
     if (associated(clock_)) finished_at_ = clock_()
     call format_utc_(nutc, time_str, utc_is_hhmmss)
-    write(output_unit, '(3a)')                                             &
+    n = 0
+    if (present(counts)) n = counts
+    write(output_unit, '(3a,i0,a,i0,a,i0,a)')                              &
          '{"v":1,"t":"decode_finished","period_end":"', trim(time_str),    &
-         '"}'
+         '","synced":', n(1), ',"decoded":', n(2), ',"average":', n(3), '}'
     flush(output_unit)
   end subroutine streaming_emit_decode_finished
 
@@ -432,23 +536,63 @@ contains
 
   ! Internals -------------------------------------------------------------
 
-  ! Format dt (real seconds) as a JSON-safe number. gfortran's f0.x format
-  ! omits the leading zero (".25" instead of "0.25"), which violates RFC
-  ! 8259. This wrapper formats with f0.2, then re-inserts a leading zero
-  ! when the result starts with "." or "-.".
-  subroutine format_dt_(dt, str)
-    real,             intent(in)  :: dt
+  ! A single-precision value as a plain JSON number of 9 significant digits,
+  ! which reads back as the same value, and a client renders as jt9's Fw.d
+  ! does without rounding twice. At least one fraction digit, so that a
+  ! negative zero stays a real.
+  subroutine format_real_(x, str)
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    real,             intent(in)  :: x
     character(len=*), intent(out) :: str
-    character(len=16) :: tmp
-    write(tmp, '(f0.2)') dt
-    if (tmp(1:1) .eq. '.') then
-       str = '0' // trim(tmp)
-    else if (tmp(1:2) .eq. '-.') then
-       str = '-0' // trim(tmp(2:))
-    else
-       str = trim(tmp)
+    character(len=24) :: e
+    character(len=9)  :: digits
+    character(len=:), allocatable :: whole, fraction
+    integer :: ex, last
+    if (.not. ieee_is_finite(x)) then
+       str = 'null'
+       return
     end if
-  end subroutine format_dt_
+    write(e, '(es16.8e3)') abs(x)
+    e = adjustl(e)
+    digits = e(1:1) // e(3:10)
+    read(e(12:15), '(i4)') ex
+    if (x .eq. 0.0) ex = 0
+    if (ex .ge. 0) then
+       whole = digits(1:min(9, ex + 1)) // repeat('0', max(0, ex + 1 - 9))
+       fraction = digits(min(9, ex + 1) + 1:)
+    else
+       whole = '0'
+       fraction = repeat('0', -ex - 1) // digits
+    end if
+    last = len_trim(fraction)
+    do while (last .gt. 1)
+       if (fraction(last:last) .ne. '0') exit
+       last = last - 1
+    end do
+    if (last .eq. 0) then
+       fraction = '0'
+    else
+       fraction = fraction(1:max(1, last))
+    end if
+    str = whole // '.' // fraction
+    if (sign(1.0, x) .lt. 0.0) str = '-' // str
+  end subroutine format_real_
+
+  function real_text_(x) result(text)
+    real, intent(in) :: x
+    character(len=:), allocatable :: text
+    character(len=24) :: s
+    call format_real_(x, s)
+    text = trim(s)
+  end function real_text_
+
+  function int_text_(n) result(text)
+    integer, intent(in) :: n
+    character(len=:), allocatable :: text
+    character(len=12) :: s
+    write(s, '(i0)') n
+    text = trim(s)
+  end function int_text_
 
   ! Format the integer nutc time as 6 chars. 4-digit HHMM gets
   ! zero-extended to HHMM00 so consumers always see a 6-char field.

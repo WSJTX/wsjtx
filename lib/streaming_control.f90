@@ -6,6 +6,7 @@
 !   {"t":"configure","mode":"FT8","depth":3,"rxfreq":1500,
 !                    "mycall":"KJ5HST","mygrid":"EM18","trperiod":15}
 !   {"t":"halt"}
+!   {"t":"flush"}           decode what the period in flight has and go on.
 !   {"t":"discontinuity"}   the next audio sample does not follow the last
 !                           one; lib/streaming_io.f90 states what it ends.
 !   {"t":"pack",...}, {"t":"render",...}   JTTY encode requests, read by
@@ -44,6 +45,7 @@ module streaming_control
   integer, parameter, public :: CTRL_DISCONTINUITY = 4
   integer, parameter, public :: CTRL_PACK      = 5
   integer, parameter, public :: CTRL_RENDER    = 6
+  integer, parameter, public :: CTRL_FLUSH     = 7
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
@@ -92,15 +94,20 @@ module streaming_control
      logical                :: nfb_set      = .false.
      integer                :: nfb          = 0
      ! Per-period UTC as HHMMSS integer; in periods of a minute or more a
-     ! value up to 2359 is read as HHMM. Threaded into
-     ! params%nutc so streaming_emit_decode can format the time field
-     ! correctly. Producer should send a fresh nutc in each period's
-     ! configure frame (mirrors WAV-path filename-derived per-invocation
-     ! UTC). MSK144 labels each decode when its block is decoded, so its
-     ! period's label belongs before the period's first 7,168 samples
-     ! (lib/streaming_io.f90).
+     ! value up to 2359 is read as HHMM, so 00:04:00 sent as 400 reads as
+     ! 04:00: utc ("HH:MM:SS", below) is unambiguous. The label of the
+     ! period's decodes and decode_finished, and decoder input;
+     ! lib/streaming_io.f90 states when to send it (after the previous
+     ! period's last sample, before this period's first decode pass) and the
+     ! form each decoder gets. A nutc that is not a JSON integer and a utc
+     ! that is not exactly HH:MM:SS (two digits a field) are
+     ! configure_type_errors, and a nutc or utc that is not a time of day
+     ! (nutc from 0 to 235959 with minutes and seconds below 60, which every
+     ! HHMM up to 2359 passes) is a configure_range_error in the frame's mode;
+     ! the frame is declined and the label in force stays.
      logical                :: nutc_set     = .false.
      integer                :: nutc         = 0
+     logical                :: nutc_out_of_range = .false.
      ! Body schema version (RFC v1 §3). Absent => default 1 (forward-compat
      ! with un-versioned producers). The receiver declines a frame whose
      ! version it does not recognize (streaming_io.f90 CTRL_CONFIGURE arm).
@@ -149,8 +156,10 @@ module streaming_control
      ! decode_after_eme_delay, else 0): 0 at start, and again when a frame sets
      ! the mode, the TR period or that key, unless the frame gives
      ! eme_delay_seconds. min_width is JT4's; min_sync JT4's, JT65's and
-     ! JT65+JT9's; n_2pass JT65's and JT65+JT9's; clear_average JT4's, JT65's,
-     ! JT65+JT9's and Q65's; robust_mode, tx_mode and npts_c0_array reach only
+     ! JT65+JT9's; n_2pass and aggressive (the GUI's Aggressive setting, 0 to
+     ! 10; the engine takes 11) JT65's and JT65+JT9's; clear_average JT4's, JT65's, JT65+JT9's and
+     ! Q65's, and only the next decode that runs (a decode again included), as
+     ! the GUI's Clear Avg; robust_mode, tx_mode and npts_c0_array reach only
      ! JT65+JT9; no decoder reads dt_tolerance_seconds. nagain_flag asks once to
      ! decode the last period again (streaming_io.f90). With live audio it is
      ! refused while the decoder is busy (decode_again_unavailable, detail "the
@@ -172,6 +181,8 @@ module streaming_control
      integer                :: min_sync                 = 0
      logical                :: n_2pass_set              = .false.
      integer                :: n_2pass                  = 0
+     logical                :: aggressive_set           = .false.
+     integer                :: aggressive               = 0
      logical                :: robust_mode_set          = .false.
      logical                :: robust_mode              = .false.
      logical                :: nagain_flag_set          = .false.
@@ -182,8 +193,12 @@ module streaming_control
      logical                :: clear_average            = .false.
      ! The GUI's "Decode after EME delay" (later stop points, 2.5 s EME delay)
      ! and its live-audio/WAV-file distinction; the stream host keeps both.
-     ! Live audio also skips the passes the GUI's busy decoder would
-     ! (pass_skipped, lib/streaming_emit.f90); a file never does. A live
+     ! live_audio (false at the start) decodes each period at the GUI's stop
+     ! points rather than on its whole audio, skips the passes the GUI's busy
+     ! decoder would (pass_skipped, lib/streaming_emit.f90), which a file
+     ! never does, and lets FT8's passes stop on the wall clock, as the GUI's
+     ! live passes do: a live client streams in real time and starts each
+     ! period on its UTC boundary (lib/streaming_io.f90 states it). A live
      ! producer must send live_audio: without it every pass runs, however far
      ! behind, and up to 16 MiB of input is buffered.
      logical                :: decode_after_eme_delay_set = .false.
@@ -301,8 +316,12 @@ module streaming_control
      !   date  ("YYYY-MM-DD") -> date_yymmdd   = (yr-2000)*10000+mo*100+day (§6.4)
      !   n_trials (int)       -> n_trials_nranera = encode(n_trials)   (§6.6)
      ! parse_iso_time_/parse_iso_date_/ntrials_to_nranera_ do the work; a
-     ! malformed ISO string leaves the key UNSET (value-domain silent-skip, like a
-     ! bad mode name — type validation only, §4.1). TWO keys carry a PARSE-TIME
+     ! malformed date leaves the key UNSET (value-domain silent-skip, like a bad
+     ! mode name — type validation only, §4.1). A utc that is not exactly
+     ! HH:MM:SS is a configure_type_error, and one past 23:59:59 sets
+     ! utc_out_of_range, which the stream declines with configure_range_error:
+     ! a dropped utc would leave the period labelled with a time the client
+     ! did not send. TWO keys carry a PARSE-TIME
      ! VALUE check that emits configure_type_error (the schema's first value-domain
      ! errors, both RFC-mandated): n_trials NOT in {10^N, 3*10^N} (§6.6 — else a
      ! bad nranera silently corrupts ntrials at decoder.f90:100-102) and date with
@@ -320,6 +339,7 @@ module streaming_control
      ! (§4 — declare real(8), nint(wire*100), do NOT pre-store as int).
      logical                :: utc_set                   = .false.
      integer                :: utc_nutc                  = 0
+     logical                :: utc_out_of_range          = .false.
      logical                :: date_set                  = .false.
      integer                :: date_yymmdd               = 0
      logical                :: n_trials_set              = .false.
@@ -331,24 +351,35 @@ module streaming_control
      ! ===== Phase 9 (RFC v1 §2.4/§2.5/§6.1/§6.2): bit-packed fields ===========
      ! ndepth + nexp_decode are PACKED at parse (the post-pass pack_phase9_, called
      ! after all keys are read) into the two derived *_packed members below, so
-     ! apply stays flat (mirrors Phase 8's derive-at-parse). The 9 unpacked keys +
+     ! apply stays flat (mirrors Phase 8's derive-at-parse). The 10 unpacked keys +
      ! their _set flags drive the pack; the post-pass also enforces the two
      ! atomic-decline errors (the legacy depth full-int co-present with ANY unpacked
      ! ndepth key -> conflicting encodings; depth_level vs q65_maxiters_level
      ! inconsistency). Only depth_level is decode-observable on FT8/JT9 (the fixtures
      ! run at depth=3 -> ndepth=3; depth_level=1 -> ndepth=1 changes the FT8 pass
      ! structure ft8_decode.f90:178/182 and the JT9 iand(ndepth,7) tests
-     ! jt9_decode.f90:88,92) — the other 8 are Q65/JT65/FST4/JT4 or contest-branch
+     ! jt9_decode.f90:88,92) — the other 9 are Q65/JT65/FST4/JT4 or contest-branch
      ! only (use_averaging q65_decode.f90:221/477+jt65_decode.f90:258;
      ! deep_ap_search jt4_decode.f90:393+extract.f90:182; q65_auto_clear_average
      ! q65_decode.f90:337/449; single_decode/vhf_features/noise_blanker reach
-     ! FST4/JT65 not the single-pass FT8 my_ft8%decode) -> parse-unit +
+     ! FST4/JT65 not the single-pass FT8 my_ft8%decode; q65_pileup Q65's AP,
+     ! qra/q65/q65_ap.f90) -> parse-unit +
      ! apply-routing-unit + no-regression (like Phase 4/6/7). NONE indexes an array
      ! raw, so no out-of-range apply guard is needed; the pack instead
      ! MASKS depth_level to 3 bits / q65_maxiters to 2 bits and CLAMPS the NB byte to
      ! [0,255], so an out-of-range producer value cannot corrupt a sibling bit.
      ! contest_type holds the COLLAPSED ncontest int (0-7) resolved at parse by
      ! contest_string_to_int_ (SpecOp 5/8/9 -> 1; Configuration.hpp:318 enum).
+     ! Each group replaces its whole value: a frame with any one of
+     ! contest_type, single_decode, vhf_features, noise_blanker_level and
+     ! q65_pileup sets all five, those it leaves out to none, false and a
+     ! blanker byte of 0 (noise_blanker_level -3), so send them together;
+     ! likewise depth_level, q65_maxiters_level, use_averaging, deep_ap_search
+     ! and q65_auto_clear_average. contest_type "q65_pileup" in a frame without
+     ! q65_pileup sets q65_pileup true, as the GUI's Q65 Pileup activity sets
+     ! both. Decodes differ only in Q65; in FT8 a change of it is a decoder
+     ! settings change (streaming_apply.f90 ft8_settings_change), as the GUI
+     ! cancels a waiting final on any accepted Settings change.
      ! -- ndepth group --
      logical                :: depth_level_set            = .false.
      integer                :: depth_level                = 0
@@ -367,6 +398,11 @@ module streaming_control
      logical                :: single_decode              = .false.
      logical                :: vhf_features_set           = .false.
      logical                :: vhf_features               = .false.
+     ! The GUI's Q65 pileup decoding (Q65 with the Q65 Pileup activity).
+     logical                :: q65_pileup_set             = .false.
+     logical                :: q65_pileup                 = .false.
+     ! contest_type "q65_pileup", which sets q65_pileup too unless the frame does.
+     logical                :: contest_q65_pileup         = .false.
      logical                :: noise_blanker_level_set    = .false.
      integer                :: noise_blanker_level        = 0
      ! -- derived packed ints (computed by pack_phase9_; apply routes these flat) --
@@ -435,11 +471,12 @@ contains
 
     character(len=64)  :: t_value
     character(len=128) :: str_val
+    character(len=:), allocatable :: utc_val
     character(len=8)   :: category
     integer            :: int_val, mode_value_start, mode_buffer_length
     real(8)            :: real_val
     logical            :: lval
-    logical            :: ok, proceed, mode_present
+    logical            :: ok, proceed, mode_present, given
     integer            :: hh, mm, ss, yr, mo, dy, enc   ! Phase 8 ISO/encode temps
     logical            :: vok                           ! Phase 8 value-parse ok
     character(len=8)   :: numbers_got
@@ -462,6 +499,11 @@ contains
 
     if (trim(t_value) .eq. 'discontinuity') then
        action = CTRL_DISCONTINUITY
+       return
+    end if
+
+    if (trim(t_value) .eq. 'flush') then
+       action = CTRL_FLUSH
        return
     end if
 
@@ -609,10 +651,17 @@ contains
 
     call check_type_(buf, '"nutc"', 'nutc', 'int', .false., .true., terr, proceed)
     if (proceed) then
-       call get_int_(buf, '"nutc"', int_val, ok)
-       if (ok) then
-          cfg%nutc_set = .true.
-          cfg%nutc     = int_val
+       call request_int_(buf, '"nutc"', int_val, given, ok)
+       if (.not. ok) then
+          call set_type_error_(terr, 'nutc', 'int', 'number')
+       else if (given) then
+          if (int_val .ge. 0 .and. int_val .le. 235959 .and. mod(int_val, 100) .lt. 60 &
+               .and. mod(int_val / 100, 100) .lt. 60) then
+             cfg%nutc_set = .true.
+             cfg%nutc     = int_val
+          else
+             cfg%nutc_out_of_range = .true.
+          end if
        end if
     end if
 
@@ -789,6 +838,16 @@ contains
        if (ok) then
           cfg%n_2pass_set = .true.
           cfg%n_2pass     = int_val
+       end if
+    end if
+
+    call check_type_(buf, '"aggressive"', 'aggressive', 'int',                   &
+         .false., .true., terr, proceed)
+    if (proceed) then
+       call get_int_(buf, '"aggressive"', int_val, ok)
+       if (ok) then
+          cfg%aggressive_set = .true.
+          cfg%aggressive     = int_val
        end if
     end if
 
@@ -1216,16 +1275,21 @@ contains
     ! candthin_threshold/dt_center_seconds are wire reals scaled /100 at apply.
     !
     ! utc: ISO "HH:MM:SS" -> utc_nutc = hh*10000+mm*100+ss (§6.3, always full
-    ! HHMMSS). A malformed time string leaves utc unset (value-domain silent skip).
+    ! HHMMSS). A string that is not exactly HH:MM:SS is a configure_type_error;
+    ! one past 23:59:59 sets utc_out_of_range, which the stream declines in the
+    ! frame's mode.
     call check_type_(buf, '"utc"', 'utc', 'string', .true., .false., terr, proceed)
-    if (proceed) then
-       call get_string_(buf, '"utc"', str_val, ok)
-       if (ok) then
-          call parse_iso_time_(trim(str_val), hh, mm, ss, vok)
-          if (vok) then
-             cfg%utc_set  = .true.
-             cfg%utc_nutc = hh * 10000 + mm * 100 + ss
-          end if
+    call value_category_(buf, '"utc"', category)
+    if (proceed .and. trim(category) .eq. 'string') then
+       call get_whole_string_(buf, '"utc"', utc_val, vok)
+       if (vok) call parse_iso_time_(utc_val, hh, mm, ss, vok)
+       if (.not. vok) then
+          call set_type_error_(terr, 'utc', 'HH:MM:SS', 'string')
+       else if (hh .le. 23 .and. mm .le. 59 .and. ss .le. 59) then
+          cfg%utc_set  = .true.
+          cfg%utc_nutc = hh * 10000 + mm * 100 + ss
+       else
+          cfg%utc_out_of_range = .true.
        end if
     end if
 
@@ -1358,8 +1422,9 @@ contains
        if (ok) then
           int_val = contest_string_to_int_(trim(str_val))
           if (int_val .ge. 0) then
-             cfg%contest_type_set = .true.
-             cfg%contest_type     = int_val
+             cfg%contest_type_set   = .true.
+             cfg%contest_type       = int_val
+             cfg%contest_q65_pileup = trim(str_val) .eq. 'q65_pileup'
           end if
        end if
     end if
@@ -1381,6 +1446,16 @@ contains
        if (ok) then
           cfg%vhf_features_set = .true.
           cfg%vhf_features     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"q65_pileup"', 'q65_pileup', 'bool',                  &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"q65_pileup"', lval, ok)
+       if (ok) then
+          cfg%q65_pileup_set = .true.
+          cfg%q65_pileup     = lval
        end if
     end if
 
@@ -1448,24 +1523,33 @@ contains
   ! ===== internals ======================================================
 
   ! Find a string value in a flat JSON: looks for `key:"value"`, returns
-  ! `value` unescaped. ok=.false. on miss or syntax error.
+  ! `value` unescaped, cut to len(val). ok=.false. on miss or syntax error.
   subroutine get_string_(buf, key, val, ok)
     character(len=*), intent(in)  :: buf, key
     character(len=*), intent(out) :: val
     logical,          intent(out) :: ok
-    integer :: vstart, blen
-    logical :: found
     character(len=:), allocatable :: decoded
 
-    val = ' '
+    call get_whole_string_(buf, key, decoded, ok)
+    val = decoded
+  end subroutine get_string_
+
+  ! get_string_'s value whole ('' when ok is .false.).
+  subroutine get_whole_string_(buf, key, val, ok)
+    character(len=*),              intent(in)  :: buf, key
+    character(len=:), allocatable, intent(out) :: val
+    logical,                       intent(out) :: ok
+    integer :: vstart, blen
+    logical :: found
+
+    val = ''
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
     if (vstart .gt. blen) return
     if (buf(vstart:vstart) .ne. '"') return
-    call json_string_(buf(vstart + 1:blen), decoded, ok)
-    if (ok) val = decoded
-  end subroutine get_string_
+    call json_string_(buf(vstart + 1:blen), val, ok)
+  end subroutine get_whole_string_
 
   ! The JSON string whose body starts at s(1:1), up to its closing quote,
   ! decoded to UTF-8. ok=.false. on a malformed escape, a lone surrogate or
@@ -1803,26 +1887,19 @@ contains
     if (ios .eq. 0) ok = .true.
   end subroutine read_int_field_
 
-  ! Parse ISO 8601 time "HH:MM:SS" -> three ints (§6.3). ok=.false. on a malformed
-  ! string (not exactly two ':' separators with a non-empty all-digit field
-  ! between/around each). Ranges are NOT enforced (the caller packs HHMMSS; an
-  ! out-of-range component is a value-domain matter, not a parse error).
+  ! Parse ISO 8601 time "HH:MM:SS" -> three ints (§6.3). ok=.false. unless s is
+  ! exactly eight characters, two digits a field. Ranges are NOT enforced (the
+  ! caller packs HHMMSS; an out-of-range component is a value-domain matter).
   subroutine parse_iso_time_(s, hh, mm, ss, ok)
     character(len=*), intent(in)  :: s
     integer,          intent(out) :: hh, mm, ss
     logical,          intent(out) :: ok
-    integer :: c1, c2, n
     hh = 0; mm = 0; ss = 0; ok = .false.
-    n = len_trim(s)
-    c1 = index(s(1:n), ':')
-    if (c1 .le. 1) return                  ! no 1st ':' or empty HH
-    c2 = index(s(c1+1:n), ':')
-    if (c2 .le. 1) return                  ! no 2nd ':' or empty MM
-    c2 = c1 + c2                           ! absolute index of the 2nd ':'
-    if (c2 .ge. n) return                  ! nothing after the 2nd ':'
-    call read_int_field_(s(1:c1-1),    hh, ok); if (.not. ok) return
-    call read_int_field_(s(c1+1:c2-1), mm, ok); if (.not. ok) return
-    call read_int_field_(s(c2+1:n),    ss, ok)
+    if (len(s) .ne. 8) return
+    if (s(3:3) .ne. ':' .or. s(6:6) .ne. ':') return
+    call read_int_field_(s(1:2), hh, ok); if (.not. ok) return
+    call read_int_field_(s(4:5), mm, ok); if (.not. ok) return
+    call read_int_field_(s(7:8), ss, ok)
   end subroutine parse_iso_time_
 
   ! Parse ISO 8601 date "YYYY-MM-DD" -> three ints (§6.4). ok=.false. on a
@@ -1887,6 +1964,8 @@ contains
   ! (RFC §6.1/§6.2):
   !   ndepth      = depth_level(bits0-2) | use_avg<<4 | deep_ap<<5 | autoclr<<7
   !   nexp_decode = ncontest(bits0-2) | single<<5 | vhf<<6 | q65_pileup<<7 | (nb+3)<<8
+  ! where q65_pileup, when the frame does not send it, is whether contest_type
+  ! is "q65_pileup".
   ! depth_level is masked to 3 bits and q65_maxiters to 2, the NB byte clamped to
   ! [0,255], so an out-of-range producer value cannot corrupt a sibling bit (none
   ! of these reaches a raw array index, so no decode crash). The
@@ -1904,11 +1983,12 @@ contains
          cfg%use_averaging_set .or. cfg%deep_ap_search_set .or.                  &
          cfg%q65_auto_clear_average_set
     any_nexp = cfg%contest_type_set .or. cfg%single_decode_set .or.              &
-         cfg%vhf_features_set .or. cfg%noise_blanker_level_set
+         cfg%vhf_features_set .or. cfg%noise_blanker_level_set .or.            &
+         cfg%q65_pileup_set
 
     ! Conflict: legacy depth (full int) AND any unpacked ndepth key -> decline.
     if (cfg%depth_set .and. any_ndepth) then
-       call set_type_error_(terr, 'ndepth', 'depth|unpacked', 'conflict')
+       call set_type_error_(terr, 'depth', 'depth alone', 'conflict')
        return
     end if
 
@@ -1917,7 +1997,7 @@ contains
     ! is a configure_type_error.
     if (cfg%depth_level_set .and. cfg%q65_maxiters_level_set) then
        if (iand(cfg%depth_level, 3) .ne. iand(cfg%q65_maxiters_level, 3)) then
-          call set_type_error_(terr, 'q65_maxiters_level', 'match depth_lvl', 'conflict')
+          call set_type_error_(terr, 'q65_maxiters_level', 'same depth_level', 'conflict')
           return
        end if
     end if
@@ -1948,6 +2028,8 @@ contains
             cfg%nexp_decode_packed = ior(cfg%nexp_decode_packed, 32)
        if (cfg%vhf_features_set  .and. cfg%vhf_features)                       &
             cfg%nexp_decode_packed = ior(cfg%nexp_decode_packed, 64)
+       if (merge(cfg%q65_pileup, cfg%contest_q65_pileup, cfg%q65_pileup_set))  &
+            cfg%nexp_decode_packed = ior(cfg%nexp_decode_packed, 128)
        if (cfg%noise_blanker_level_set) then
           nb = cfg%noise_blanker_level + 3        ! -3 offset (RFC §6.2; 3 = off)
           if (nb .lt. 0)   nb = 0

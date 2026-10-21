@@ -121,8 +121,8 @@
 #      healthy differs guard — a crash/empty with-key also "differs", so guard it).
 #      A real apply-routing guard for the one FT8-observable Phase-9 key.
 #  25. (Phase 9 — CONFLICT DECLINE) A frame carrying BOTH the legacy depth and the
-#      unpacked depth_level emits one configure_type_error key:"ndepth"
-#      expected:"depth|unpacked" got:"conflict" and declines the whole frame
+#      unpacked depth_level emits one configure_type_error key:"depth"
+#      expected:"depth alone" got:"conflict" and declines the whole frame
 #      (co-present mode=JT65 does not apply; FT8 decodes under its default). The
 #      conflicting-encodings rule, via the parse post-pass pack_phase9_.
 #  26. (Phase 9 — TYPE DECLINE) A wrong-typed Phase 9 key (depth_level as a string)
@@ -638,17 +638,17 @@ echo ""
 echo "Gate 25 — depth + depth_level co-present (conflict) declines the frame"
 # A frame carrying BOTH the legacy depth (full int) and the unpacked depth_level is
 # a conflicting-encodings error (the two are mutually exclusive). The
-# parse post-pass pack_phase9_ emits configure_type_error key:"ndepth"
-# expected:"depth|unpacked" got:"conflict". The frame also sets mode=JT65, which must
+# parse post-pass pack_phase9_ emits configure_type_error key:"depth"
+# expected:"depth alone" got:"conflict". The frame also sets mode=JT65, which must
 # NOT apply (whole-frame decline) -> FT8 decodes under its init default.
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode JT65 --phase9-conflict --quiet 2>/dev/null || true)
 te=$(printf '%s\n' "$out" | grep -c '"code":"configure_type_error"' || true)
-triple=$(printf '%s\n' "$out" | grep -F '"key":"ndepth","expected":"depth|unpacked","got":"conflict"' | grep -c . || true)
+triple=$(printf '%s\n' "$out" | grep -F '"key":"depth","expected":"depth alone","got":"conflict"' | grep -c . || true)
 dec=$(printf '%s\n' "$out" | grep -c '"t":"decode"' || true)
 if [[ "$te" -eq 1 && "$triple" -ge 1 && "$dec" -ge "$FT8_FLOOR" ]]; then
-  echo "  PASS: one configure_type_error (ndepth conflict); frame declined, mode JT65 not applied ($dec FT8 decodes >= $FT8_FLOOR)"
+  echo "  PASS: one configure_type_error (depth conflict); frame declined, mode JT65 not applied ($dec FT8 decodes >= $FT8_FLOOR)"
 else
-  echo "  FAIL: type_err=$te (want 1), ndepth conflict triple=$triple (want >=1), decodes=$dec (want >= $FT8_FLOOR)"
+  echo "  FAIL: type_err=$te (want 1), depth conflict triple=$triple (want >=1), decodes=$dec (want >= $FT8_FLOOR)"
   fail=1
 fi
 

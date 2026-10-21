@@ -10,7 +10,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
        counting_jt65_decoder, counting_jt9_decoder,                      &
        jt65_decoded, jt9_decoded
   use streaming_emit, only: streaming_emit_enabled,                       &
-       streaming_emit_decode
+       streaming_emit_decode, streaming_emit_replay_line
   use decode_completion_module, only: decode_completion_result,          &
        reset_decode_completion, set_decode_completion, write_decode_progress
 
@@ -88,7 +88,11 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
         do i=1,9999
            read(39,'(a60)',end=5) line
            if(line(1:1).eq.' ' .or. line(1:1).eq.'-') go to 800
-           write(*,'(a)') trim(line)
+           if(streaming_emit_enabled()) then
+              call streaming_emit_replay_line(line)
+           else
+              write(*,'(a)') trim(line)
+           endif
         enddo
 5       close(39)
      endif
@@ -244,7 +248,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   if (streaming_emit_enabled()) then
      call streaming_emit_decode_finished(params%nutc,params%nmode==4.or.params%nmode==66.or. &
           params%nmode==240.or. &
-          params%nmode==241.or.params%nmode==242)
+          params%nmode==241.or.params%nmode==242, &
+          [completion%synchronized,completion%decoded,completion%average])
   else if (.not. lquiet) then
      call write_decode_completion(completion)
   end if

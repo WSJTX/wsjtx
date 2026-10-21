@@ -19,9 +19,9 @@
 ! 12 kHz), is fatal: error frame_too_large, then exit 1.
 !
 ! Control frames recognized today: {"t":"configure",...}, {"t":"halt"},
-! {"t":"discontinuity"}, and the JTTY encode requests {"t":"pack",...} and
-! {"t":"render",...} (lib/streaming_jtty.f90), answered in any mode. See
-! lib/streaming_control.f90 for the parser + schema.
+! {"t":"flush"}, {"t":"discontinuity"}, and the JTTY encode requests
+! {"t":"pack",...} and {"t":"render",...} (lib/streaming_jtty.f90), answered
+! in any mode. See lib/streaming_control.f90 for the parser + schema.
 !
 ! Apply policy:
 !   configure : applied at receive. A change of mode or period starts a
@@ -37,11 +37,57 @@
 !               mode too. The command-line starting values are checked
 !               once, after ready.
 !   halt      : drain the current period (decode if it has samples), exit.
+!   flush     : as halt, without ending the session: a final deferred
+!               while the decoder was busy runs, the period in flight
+!               decodes now, once, if it has samples, and the next audio
+!               sample starts a new period. For a WAV file's last, short
+!               period, or a decode of what has come in. It runs the
+!               period's remaining passes at their usual half-symbols on
+!               the audio that is in, so a decode's "pass" is that
+!               half-symbol, not how much audio there was. In JTTY it ends
+!               the JTTY session, and the stream goes on.
 !
 ! A period is TRperiod * 12 kHz samples (lib/streaming_period.f90). Keep a
 ! frame remainder for the next period; retain only the first npts samples
-! for decoding. The reader's phase is that of the first audio after
-! `configure`; send every sample.
+! for decoding. A period starts with the session's first audio sample, and
+! with the first after a configure that changes the mode or the period (a
+! configure that only labels does not), a discontinuity or a flush. Send
+! every sample.
+!
+! Labels: each period's nutc or utc (lib/streaming_control.f90) goes in a
+! configure after the previous period's last sample and before this
+! period's first decode pass (MSK144: before its first 7,168 samples); split
+! an audio frame at the period boundary to put it there. The label in force
+! when a pass runs labels its decodes and its decode_finished, and it is
+! decoder input: a change of label starts a new decoder input, so FT8's
+! next pass forgets the period's earlier passes and sends their decodes
+! again, and JT65 averages odd and even minutes apart by it. The GUI labels
+! JT9, JT65, JT65+JT9 and JT4 periods of a minute or more HHMM, the others
+! HHMMSS (widgets/mainwindow.cpp), and each decoder here gets the form it
+! gets from the GUI whichever form the client sends: JT9, JT65 and JT65+JT9
+! decode with HHMM, JT4 with HHMM00; their time and period_end are HHMM00.
+! A nutc is kept as it was sent, and a later mode reads it again, except
+! that JT4, Q65 and FST4 periods of a minute or more fix an HHMM one on
+! arrival (times 100); so send a label with every period, after any mode
+! change. A configure whose nutc or utc is not a time of day is declined
+! (lib/streaming_control.f90), so every label in force is one.
+!
+! Live audio or a file (configure's live_audio, false at the start): from a
+! file each period decodes on its whole audio once the period is in (FT4
+! and multithreaded FT8 at their stop points; FT8's early passes still run),
+! no pass is ever skipped and nothing reads the clock, and a flush decodes a
+! file's last, short period. Live, each period decodes at the GUI's stop
+! points for the mode (lib/streaming_period.f90), a pass the GUI's busy
+! decoder would not run is skipped (pass_skipped), and FT8's passes stop on
+! the wall clock as the GUI's live passes do (lib/ft8_decode.f90): pass 41
+! when the UTC 15 s period is 13.4 s in, and pass 47's subtraction step at
+! 14.3 s; the final pass is not cut short. So a live client streams in real
+! time, starts each period on its UTC boundary (a discontinuity there
+! re-anchors it, below), and labels it; audio out of step with UTC loses FT8
+! decodes. A final the busy decoder cannot run is deferred only by the
+! multithreaded FT8 decoder, as the GUI's is, and runs when the decoder comes
+! free unless a later final replaces it first (pass_skipped "replaced");
+! every other mode but MSK144 skips it ("busy").
 !
 ! MSK144 decodes each 3584-sample block of a period as soon as it is read,
 ! as the GUI does (lib/decode_msk144.f90), and only in the period's first 30 s,
@@ -52,17 +98,27 @@
 ! label changed within the period resets the decoder's duplicate memory and
 ! may send that period's pings again.
 !
+! Discontinuity: in the period modes it re-anchors the period, as the GUI
+! starts a new input at each UTC period and on a restart. Every pass whose
+! audio is in has run, and a deferred final still runs; a period in flight
+! that has not reached its stop (from a file, the whole period, or FT4's and
+! multithreaded FT8's stop) ends without its decode or decode_finished (the
+! decodes its early FT8 passes or MSK144 blocks sent stand); and the next
+! audio sample starts a new period, its arrival restarting the busy clock.
+! Decode-again requests waiting for the period's last FT8 pass run first. At
+! a period's start it changes nothing.
+!
 ! JTTY ({"mode":"JTTY"}; no integer code or command-line flag selects it) has
 ! no periods: its audio goes to lib/streaming_jtty.f90, which states its
-! output. A JTTY session ends at a discontinuity, an odd-length audio frame, a
-! configure that leaves JTTY, halt and end of input; the period modes ignore
-! discontinuity. Entering JTTY, rxfreq carries over, ntol becomes 20 and nfa
-! and nfb their values at the start of the stream (-L and -H, 200 and 4000 Hz
-! by default; with -9 and an -S other than 2700, nfa is -S) unless the frame
-! sets them. Any configure that carries mode or trperiod and stays in JTTY
-! keeps the session but resets in the same way whichever of nfa, nfb and ntol
-! it does not set. trperiod is validated and unused. lib/streaming_jtty.f90
-! states which frequency values a configure in JTTY is declined for
+! output. A JTTY session ends at a discontinuity, a flush, an odd-length
+! audio frame, a configure that leaves JTTY, halt and end of input. Entering
+! JTTY, rxfreq carries over, ntol becomes 20 and nfa and nfb their values at
+! the start of the stream (-L and -H, 200 and 4000 Hz by default; with -9
+! and an -S other than 2700, nfa is -S) unless the frame sets them. Any
+! configure that carries mode or trperiod and stays in JTTY keeps the
+! session but resets in the same way whichever of nfa, nfb and ntol it does
+! not set. trperiod is validated and unused. lib/streaming_jtty.f90 states
+! which frequency values a configure in JTTY is declined for
 ! (configure_range_error).
 !
 ! Format support: fmt=0x00 (int16 PCM) only. Other formats may be
@@ -93,10 +149,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        streaming_emit_utc_from_iso, streaming_emit_hold_finished,          &
        streaming_emit_error_range, streaming_emit_mode_name,               &
        streaming_emit_pass_skipped, streaming_emit_set_clock,              &
-       streaming_emit_finished_at
+       streaming_emit_finished_at, streaming_emit_set_pass
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
-       CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, MODE_JTTY
+       CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, MODE_JTTY
   use streaming_apply, only: apply_configure_fields, engine_range_key
   use decoder_engine, only: engine_params_problem, option_problem,       &
        engine_begin_input
@@ -176,6 +232,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! returned. apply_configure_fields restores these on mode change with no
   ! explicit consumer override; passed in as dummy args.
   integer :: baseline_nfa, baseline_nfb
+  ! The period label as the client gave it, and whether as utc; each decoder
+  ! gets it in the form the GUI gives that decoder.
+  integer :: label_nutc
+  logical :: label_iso
   logical :: bLowSidelobes, eof_period, halt_req
   type(configure_fields)   :: cfg
   type(control_type_error) :: terr
@@ -351,6 +411,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! mirrors WAV semantics where each invocation starts from CLI defaults.
   baseline_nfa = shared_data%params%nfa
   baseline_nfb = shared_data%params%nfb
+  label_nutc = shared_data%params%nutc
+  label_iso = .false.
 
   call streaming_emit_ready()
   ! Command-line starting values are checked once; the session still runs.
@@ -491,13 +553,25 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               next_params   = shared_data%params
               call apply_configure_fields(cfg, next_mode, next_TRperiod,   &
                    next_params, baseline_nfa, baseline_nfb)
+              ! JTTY's range errors carry no mode.
+              range_mode = ''
+              if (next_mode .ne. MODE_JTTY)                                      &
+                   range_mode = trim(streaming_emit_mode_name(next_mode))
               if (cfg%phase_eq_out_of_range) then
-                 ! JTTY's range errors carry no mode.
-                 range_mode = ''
-                 if (next_mode .ne. MODE_JTTY)                                   &
-                      range_mode = trim(streaming_emit_mode_name(next_mode))
                  call streaming_emit_error_range('phase_eq', range_mode,          &
                       'phase_eq must be five finite numbers')
+                 cycle
+              end if
+              if (cfg%nutc_out_of_range .or. cfg%utc_out_of_range) then
+                 range_key = 'nutc'
+                 if (cfg%utc_out_of_range) range_key = 'utc'
+                 if (len(range_mode) .gt. 0) then
+                    call streaming_emit_error_range(range_key, range_mode,       &
+                         range_key // ' must be a valid time of day in ' // range_mode)
+                 else
+                    call streaming_emit_error_range(range_key, '',               &
+                         range_key // ' must be a valid time of day')
+                 end if
                  cycle
               end if
               ! The GUI's EME delay goes with "Decode after EME delay", in every
@@ -545,7 +619,18 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               TRperiod           = next_TRperiod
               shared_data%params = next_params
               call jtty_note_station(cfg)
-              call streaming_emit_set_time_form(cfg%utc_set, cfg%nutc_set, TRperiod)
+              if (cfg%utc_set .or. cfg%nutc_set) then
+                 label_nutc = shared_data%params%nutc
+                 label_iso = cfg%utc_set
+              end if
+              shared_data%params%nutc = label_nutc
+              call streaming_emit_set_time_form(label_iso, .not. label_iso, TRperiod)
+              if (hhmm_label()) then
+                 if (label_iso .or. label_nutc .gt. 2359) shared_data%params%nutc = label_nutc / 100
+                 call streaming_emit_set_time_form(.false., .true., TRperiod)
+              else if (mode .eq. 4 .and. TRperiod .ge. 60.d0) then
+                 shared_data%params%nutc = label_nutc / 100 * 100
+              end if
               eme_delay_on = next_eme_on
               if (cfg%live_audio_set) live_audio = cfg%live_audio
               shared_data%params%ndiskdat = .not. live_audio
@@ -592,7 +677,14 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               end if
            case (CTRL_DISCONTINUITY)
               anchored = .false.
-              if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
+              if (mode .eq. MODE_JTTY) then
+                 call jtty_end(shared_data%params)
+              else if (period%k .gt. 0) then
+                 call run_pending_again()
+                 call begin_period()
+              end if
+           case (CTRL_FLUSH)
+              call flush_period()
            case (CTRL_PACK, CTRL_RENDER)
               call jtty_encode(ctl_buf(1:frame_len), action .eq. CTRL_RENDER)
            case (CTRL_PARSE_ERR)
@@ -648,6 +740,26 @@ contains
     decoded  = .false.
     ft8_done = 0
   end subroutine begin_period
+
+  ! JT9, JT65 and JT65+JT9 periods of a minute or more, which the GUI labels
+  ! HHMM (widgets/mainwindow.cpp, decode).
+  logical function hhmm_label()
+    hhmm_label = (mode .eq. 9 .or. mode .eq. 65 .or. mode .eq. 74) .and. TRperiod .ge. 60.d0
+  end function hhmm_label
+
+  ! halt's decode of the period in flight, after a deferred final, without
+  ! ending the session.
+  subroutine flush_period()
+    if (mode .eq. MODE_JTTY) then
+       call jtty_end(shared_data%params)
+       return
+    end if
+    ending = .true.
+    call decoder_frees()
+    if (.not. decoded .and. period%k .gt. 0) call run_period_decode()
+    ending = .false.
+    if (period%k .gt. 0) call begin_period()
+  end subroutine flush_period
 
   ! From a file the GUI's decode at the stop reads the whole period, as far as
   ! the engine takes it: FT4 72576 samples, multithreaded FT8 the stop
@@ -870,7 +982,8 @@ contains
     end if
     busy_until = decoder_freed_at(finished_before)
     if (backpressure()) call stream_ft8_backpressure_published(FINAL_STAGE, period_number)
-    if(mode==66) shared_data%params%nclearave=.false.
+    ! The GUI's Clear Avg applies to the next decode that runs.
+    shared_data%params%nclearave = .false.
     call run_pending_again()
     if (mode .eq. 144 .or. mode .eq. MODE_JTTY) then
        again_k = 0
@@ -926,7 +1039,7 @@ contains
     finished_before = streaming_emit_finished_at()
     call multimode_decoder(shared_data%ss, shared_data%id2, shared_data%params, NFSAMPLE)
     busy_until = decoder_freed_at(finished_before)
-    if (mode .eq. 66) shared_data%params%nclearave = .false.
+    shared_data%params%nclearave = .false.
     shared_data%params%lmultift8 = requested
     shared_data%params%nagain = .false.
     shared_data%params%newdat = .true.
@@ -1024,6 +1137,7 @@ contains
          ' live=', .not. shared_data%params%ndiskdat,                        &
          ' again=', shared_data%params%nagain,                               &
          ' emedelay=', trim(adjustl(delay))
+    call streaming_emit_set_pass(shared_data%params%nzhsym)
   end subroutine report_pass
 
   ! Stop at the period boundary; body_left carries the remaining frame

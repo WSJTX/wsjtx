@@ -153,7 +153,7 @@ contains
     call parse_control_frame(bb, action, cfg, terr)
     call ok('(b) inconsistent (6 low2=2 != 1): terr present', terr%present)
     call ok('(b) key == q65_maxiters_level',  trim(terr%key) .eq. 'q65_maxiters_level')
-    call ok('(b) expected == match depth_lvl', trim(terr%expected) .eq. 'match depth_lvl')
+    call ok('(b) expected == same depth_level', trim(terr%expected) .eq. 'same depth_level')
     call ok('(b) got == conflict',            trim(terr%got) .eq. 'conflict')
     call ok('(b) ndepth NOT packed (declined)', .not. cfg%ndepth_packed_set)
   end subroutine frame_D
@@ -169,8 +169,8 @@ contains
     write(*,'(a)') 'Frame E: depth + depth_level conflict -> type error'
     call parse_control_frame(b, action, cfg, terr)
     call ok('terr present',             terr%present)
-    call ok('key == ndepth',            trim(terr%key) .eq. 'ndepth')
-    call ok('expected == depth|unpacked', trim(terr%expected) .eq. 'depth|unpacked')
+    call ok('key == depth',             trim(terr%key) .eq. 'depth')
+    call ok('expected == depth alone', trim(terr%expected) .eq. 'depth alone')
     call ok('got == conflict',          trim(terr%got) .eq. 'conflict')
     call ok('ndepth NOT packed (declined)', .not. cfg%ndepth_packed_set)
   end subroutine frame_E

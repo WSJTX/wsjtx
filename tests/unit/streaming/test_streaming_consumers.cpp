@@ -26,7 +26,7 @@ constexpr int Jt9DrainBytes = 4096;
 constexpr int Jt9ControlCapacityBytes = 262144;
 
 constexpr char ReadyLine[] =
-  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"protocol":1})";
+  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"protocol":1})";
 constexpr char OddAudioFrameLine[] =
   R"({"v":1,"t":"error","code":"odd_audio_frame","detail":"audio frame length must contain whole int16 samples"})";
 constexpr char ControlFrameTooLargeLine[] =
@@ -478,8 +478,9 @@ private slots:
     QTest::addColumn<QString> ("expected");
     QTest::newRow ("afternoon") << QJsonObject {{"utc", "12:34:00"}} << QString {"123400"};
     QTest::newRow ("legacy-numeric") << QJsonObject {{"nutc", 1234}} << QString {"123400"};
+    // JT4 decodes with an HHMM00 label, as the GUI gives it.
     QTest::newRow ("early-hour-iso-precedence")
-      << QJsonObject {{"nutc", 1234}, {"utc", "00:12:34"}} << QString {"001234"};
+      << QJsonObject {{"nutc", 1234}, {"utc", "00:12:34"}} << QString {"001200"};
   }
 
   void jt4DecodesWaveform ()
@@ -988,22 +989,142 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
   }
 
-  // The period modes do not act on discontinuity: their periods are counted
-  // from the first sample whatever controls arrive between the audio frames.
-  void wsjtCodecIgnoresDiscontinuity ()
+  // A discontinuity ends the period in flight undecoded, and the next sample
+  // starts a new one: the GUI restarting its input at a period boundary.
+  void discontinuityStartsANewPeriod ()
   {
-    auto const third = silentAudioFrame (Ft4PeriodSamples / 3);
-    auto const period = silentAudioFrame (Ft4PeriodSamples);
+    auto const recording = frame (0x01u, wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 15 * 12000));
+    auto const keys = configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}});
+    auto const lead = silentAudioFrame (5 * 12000);
     auto const discontinuity = controlFrame (R"({"t":"discontinuity"})");
-    auto const plain = runJt9 (sessionHeader () + third + third + period, {"--ft4"});
-    verifyCompleted (plain, 0);
-    auto const marked = runJt9 (sessionHeader () + third + discontinuity + third
-                                + discontinuity + period, {"--ft4"});
+    auto const alone = runJt9 (sessionHeader () + keys + recording);
+    verifyCompleted (alone, 0);
+    auto const events = verifyEvents (alone);
+    QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 1);
+    QCOMPARE (eventsMatching (events.values, "decode").size (), 1);
+    auto const marked = runJt9 (sessionHeader () + keys + lead + discontinuity + recording);
     verifyCompleted (marked, 0);
-    auto const events = verifyEvents (marked);
+    QCOMPARE (marked.standardOutput, alone.standardOutput);
+    // One at the start of a period changes nothing.
+    auto const leading = runJt9 (sessionHeader () + keys + discontinuity + recording + discontinuity);
+    verifyCompleted (leading, 0);
+    QCOMPARE (leading.standardOutput, alone.standardOutput);
+  }
+
+  // flush decodes what the period in flight has, once, as halt does, and the
+  // session goes on with a new period at the next sample.
+  void flushDecodesThePeriodInFlight ()
+  {
+    auto const samples = wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 15 * 12000);
+    auto const keys = configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}});
+    auto const flush = controlFrame (R"({"t":"flush"})");
+    // 13 s: past the first early pass, short of the period.
+    auto const part = frame (0x01u, samples.left (2 * 13 * 12000));
+    auto const halted = runJt9 (sessionHeader () + keys + part + controlFrame (R"({"t":"halt"})"));
+    verifyCompleted (halted, 0);
+    auto const flushed = runJt9 (sessionHeader () + keys + part + flush + configureFrame ({{"utc", "05:11:30"}})
+                                 + frame (0x01u, samples));
+    verifyCompleted (flushed, 0);
+    QVERIFY2 (flushed.standardOutput.startsWith (halted.standardOutput), flushed.standardOutput.constData ());
+    auto const events = verifyEvents (flushed);
     QCOMPARE (eventsMatching (events.values, "error").size (), 0);
-    QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
-    QCOMPARE (marked.standardOutput, plain.standardOutput);
+    QStringList finished;
+    for (auto const& event : eventsMatching (events.values, "decode_finished"))
+      finished << event.value ("period_end").toString ();
+    QCOMPARE (finished, (QStringList {"051115", "051130"}));
+    auto const periods = decodesByPeriod (events.values);
+    for (int p = 0; p < periods.size (); ++p)
+      {
+        QCOMPARE (periods.at (p).size (), 1);
+        QCOMPARE (periods.at (p).first ().value ("message").toString (), QString {"CQ K1JT FN20"});
+        QCOMPARE (periods.at (p).first ().value ("time").toString (), finished.at (p));
+      }
+    // With nothing in flight, at the start and after a whole period, it does nothing.
+    auto const whole = runJt9 (sessionHeader () + keys + frame (0x01u, samples));
+    verifyCompleted (whole, 0);
+    auto const idle = runJt9 (sessionHeader () + keys + flush + frame (0x01u, samples) + flush);
+    verifyCompleted (idle, 0);
+    QCOMPARE (idle.standardOutput, whole.standardOutput);
+    // The period after it starts at the sample after it, as the whole one does.
+    auto const aligned = eventsMatching (verifyEvents (whole).values, "decode");
+    QCOMPARE (aligned.size (), 1);
+    QCOMPARE (periods.last ().first ().value ("dt").toDouble (), aligned.first ().value ("dt").toDouble ());
+  }
+
+  // Live, a flush is never refused for a busy decoder, as halt's decode is
+  // not: here the audio is due already, and the flush comes in while the
+  // early pass decodes.
+  void flushDecodesEvenWhileBusy ()
+  {
+    auto const samples = wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 13 * 12000);
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    QProcess process;
+    process.setProcessChannelMode (QProcess::SeparateChannels);
+    process.setWorkingDirectory (directory.path ());
+    process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+                   {"-a", directory.path (), "-t", directory.path (), "--stream"});
+    QVERIFY (process.waitForStarted (5000));
+    process.write (sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}, {"live_audio", true}})
+                   + frame (0x01u, samples.left (2)));
+    QElapsedTimer clock;
+    clock.start ();
+    while (clock.elapsed () < 13500 && process.state () == QProcess::Running) process.waitForReadyRead (50);
+    process.write (frame (0x01u, samples.mid (2)) + controlFrame (R"({"t":"flush"})"));
+    process.closeWriteChannel ();
+    QVERIFY (process.waitForFinished (120000));
+    auto const output = process.readAllStandardOutput ();
+    auto const error = process.readAllStandardError ();
+    QVERIFY2 (!output.contains (R"("t":"pass_skipped")"), output.constData ());
+    QVERIFY2 (error.contains ("pass nzhsym=50 "), error.constData ());
+    QCOMPARE (output.count (R"("t":"decode_finished")"), 1);
+  }
+
+  // A decode again that waits for the period's last FT8 pass runs at a
+  // discontinuity, which ends the period before that pass.
+  void discontinuityRunsAWaitingDecodeAgain ()
+  {
+    auto const samples = wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 15 * 12000);
+    auto const result = runJt9 (sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}})
+      + frame (0x01u, samples) + configureFrame ({{"utc", "05:11:30"}}) + frame (0x01u, samples.left (2 * 42 * 3456))
+      + configureFrame ({{"nagain_flag", true}}) + controlFrame (R"({"t":"discontinuity"})"));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    QStringList finished;
+    for (auto const& event : eventsMatching (events.values, "decode_finished"))
+      finished << event.value ("period_end").toString ();
+    QCOMPARE (finished, (QStringList {"051115", "051115"}));
+  }
+
+  // jt9 returns the lines of rx_messages.txt in its working directory as its
+  // FT8 decodes; the stream sends them as decode events, else on stderr.
+  void rxMessagesComeAsDecodeEvents ()
+  {
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    QFile messages {directory.filePath ("rx_messages.txt")};
+    QVERIFY (messages.open (QIODevice::WriteOnly));
+    messages.write ("051115 -12  0.3 1200 ~  K1JT W9XYZ R-12\nnot a decode line\n");
+    messages.close ();
+    auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+      {"-a", directory.path (), "-t", directory.path (), "--stream"},
+      sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}, {"contest_type", "fox"}})
+        + frame (0x01u, wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 15 * 12000)),
+      directory.path ());
+    verifyCompleted (result, 0);
+    auto const decodes = eventsMatching (verifyEvents (result).values, "decode");
+    QCOMPARE (decodes.size (), 1);
+    QCOMPARE (decodes.first ().value ("message").toString (), QString {"K1JT W9XYZ R-12"});
+    QCOMPARE (decodes.first ().value ("time").toString (), QString {"051115"});
+    QCOMPARE (decodes.first ().value ("snr").toInt (), -12);
+    QCOMPARE (decodes.first ().value ("freq").toInt (), 1200);
+    QCOMPARE (float (decodes.first ().value ("dt").toDouble ()), 0.3f);
+    QCOMPARE (decodes.first ().value ("pass").toInt (), 41);
+    // The line jt9 prints is the file's line, trimmed: nothing after the message.
+    QCOMPARE (decodes.first ().value ("text_width").toInt (), 15);
+    QVERIFY (!decodes.first ().contains ("ap"));
+    QVERIFY2 (result.standardError.contains ("not a decode line"), result.standardError.constData ());
   }
 
   // A period's label is the producer's UTC, whichever key and frame carried it.
@@ -1026,8 +1147,10 @@ private slots:
       << controlFrame (R"({"t":"configure","mode":"JT9"})") + controlFrame (R"({"t":"configure","nutc":1530})")
          + controlFrame (R"({"t":"configure","mode":"FT8"})")
       << 15 * 12000 << QString {"001530"};
-    QTest::newRow ("FT8 negative nutc")
-      << controlFrame (R"({"t":"configure","mode":"FT8","nutc":-1})") << 15 * 12000 << QString {"000000"};
+    QTest::newRow ("FT8 nutc 0")
+      << controlFrame (R"({"t":"configure","mode":"FT8","nutc":0})") << 15 * 12000 << QString {"000000"};
+    QTest::newRow ("FT8 nutc 235959")
+      << controlFrame (R"({"t":"configure","mode":"FT8","nutc":235959})") << 15 * 12000 << QString {"235959"};
     QTest::newRow ("FT4 05:11:15")
       << controlFrame (R"({"t":"configure","mode":"FT4","utc":"05:11:15"})") << Ft4PeriodSamples << QString {"051115"};
     QTest::newRow ("MSK144 05:11:15")
@@ -1042,8 +1165,11 @@ private slots:
       << controlFrame (R"({"t":"configure","mode":"JT9","nutc":511})") << 60 * 12000 << QString {"051100"};
     QTest::newRow ("JT9 nutc HHMMSS")
       << controlFrame (R"({"t":"configure","mode":"JT9","nutc":51100})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT9 nutc 2359")
+      << controlFrame (R"({"t":"configure","mode":"JT9","nutc":2359})") << 60 * 12000 << QString {"235900"};
+    // A minute mode decodes with HHMM, as the GUI gives it.
     QTest::newRow ("JT9 nutc 4515")
-      << controlFrame (R"({"t":"configure","mode":"JT9","nutc":4515})") << 60 * 12000 << QString {"004515"};
+      << controlFrame (R"({"t":"configure","mode":"JT9","nutc":4515})") << 60 * 12000 << QString {"004500"};
     QTest::newRow ("JT9 utc and nutc in one frame")
       << controlFrame (R"({"t":"configure","mode":"JT9","utc":"00:15:00","nutc":1530})") << 60 * 12000
       << QString {"001500"};
@@ -1059,6 +1185,14 @@ private slots:
       << 60 * 12000 << QString {"051200"};
     QTest::newRow ("JT65 05:11:00")
       << controlFrame (R"({"t":"configure","mode":"JT65","utc":"05:11:00"})") << 60 * 12000 << QString {"051100"};
+    // The decoder's HHMM drops a utc's seconds.
+    QTest::newRow ("JT9 05:11:30")
+      << controlFrame (R"({"t":"configure","mode":"JT9","utc":"05:11:30"})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT65 05:11:30")
+      << controlFrame (R"({"t":"configure","mode":"JT65","utc":"05:11:30"})") << 60 * 12000 << QString {"051100"};
+    QTest::newRow ("JT65+JT9 05:11:30")
+      << controlFrame (R"({"t":"configure","mode":"JT65+JT9","trperiod":60,"utc":"05:11:30"})") << 60 * 12000
+      << QString {"051100"};
     QTest::newRow ("JT4 05:11:00")
       << controlFrame (R"({"t":"configure","mode":"JT4","utc":"05:11:00"})") << 60 * 12000 << QString {"051100"};
     QTest::newRow ("FST4-60 05:11:00")
@@ -1165,6 +1299,13 @@ private slots:
       << QString {"n_trials"} << QString {"JT65"} << QString {"n_trials must be at most 1000000 in JT65"} << k1abc << QStringList {};
     QTest::newRow ("JT65 rxfreq 6000") << jt65 << jt65Keys << QJsonObject {{"rxfreq", 6000}}
       << QString {"rxfreq"} << QString {"JT65"} << QString {"rxfreq must be from 0 to 5000 Hz in JT65"} << k1abc << QStringList {};
+    QTest::newRow ("JT65 aggressive 12") << jt65 << jt65Keys << QJsonObject {{"aggressive", 12}}
+      << QString {"aggressive"} << QString {"JT65"} << QString {"aggressive must be from 0 to 11 in JT65"} << k1abc
+      << QStringList {};
+    QTest::newRow ("JT65 after FT8's aggressive") << ft8
+      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"aggressive", -1}} << jt65Keys
+      << QString {"aggressive"} << QString {"JT65"}
+      << QString {"aggressive must be from 0 to 11 in JT65; it was set before this frame"} << cq << QStringList {};
     QTest::newRow ("JT65 submode 3") << jt65 << jt65Keys << QJsonObject {{"submode", 3}}
       << QString {"submode"} << QString {"JT65"} << QString {"submode must be from 0 to 2 in JT65"} << k1abc << QStringList {};
     // An unpacked depth key alone leaves the depth level at 0.
@@ -1195,9 +1336,12 @@ private slots:
       << k1abc << QStringList {};
     QTest::newRow ("JT4 nutc 2360") << jt4 << jt4Keys << QJsonObject {{"nutc", 2360}}
       << QString {"nutc"} << QString {"JT4"} << QString {"nutc must be a valid time of day in JT4"} << k1abc << QStringList {};
-    QTest::newRow ("JT4 after FT8's nutc") << ft8 << QJsonObject {{"mode", "FT8"}, {"nutc", 2360}}
-      << QJsonObject {{"mode", "JT4"}, {"trperiod", 60}} << QString {"nutc"} << QString {"JT4"}
-      << QString {"nutc must be a valid time of day in JT4; it was set before this frame"} << cq << QStringList {};
+    // Every label in force is a time of day, so no carried one is refused.
+    QTest::newRow ("FT8 nutc 2360") << ft8 << ft8Keys << QJsonObject {{"nutc", 2360}}
+      << QString {"nutc"} << QString {"FT8"} << QString {"nutc must be a valid time of day in FT8"} << cq << QStringList {};
+    QTest::newRow ("JT65 nutc 250000") << jt65 << jt65Keys << QJsonObject {{"nutc", 250000}}
+      << QString {"nutc"} << QString {"JT65"} << QString {"nutc must be a valid time of day in JT65"} << k1abc
+      << QStringList {};
       // FST4 and Q65 clip nfb to 5000 Hz.
     QTest::newRow ("Q65 nfa above 5000") << q65 << q65Keys << QJsonObject {{"nfa", 5100}, {"nfb", 5500}}
       << QString {"nfa"} << QString {"Q65"} << QString {"nfa must be below nfb and below 5000 Hz in Q65"} << k1abc
@@ -1243,6 +1387,70 @@ private slots:
     QVERIFY2 (found, result.standardOutput.constData ());
   }
 
+  // A label that is not a time of day declines its whole frame, in any mode.
+  void wsjtCodecDeclinesBadLabels_data ()
+  {
+    QTest::addColumn<QByteArray> ("refused");
+    QTest::addColumn<QByteArray> ("line");
+    auto const range = [] (QString const& mode, QString const& key = "utc") {
+      return QString {"{\"v\":1,\"t\":\"error\",\"code\":\"configure_range_error\",\"key\":\"%2\",\"mode\":\"%1\","
+                      "\"detail\":\"%2 must be a valid time of day in %1\"}"}.arg (mode, key).toUtf8 ();
+    };
+    QByteArray const utcType {R"({"v":1,"t":"error","code":"configure_type_error","key":"utc","expected":"HH:MM:SS","got":"string"})"};
+    QTest::newRow ("utc 24:00:00, JT9")
+      << QByteArray {R"({"t":"configure","mode":"JT9","trperiod":60,"utc":"24:00:00"})"} << range ("JT9");
+    QTest::newRow ("utc 12:60:00, Q65")
+      << QByteArray {R"({"t":"configure","mode":"Q65","trperiod":60,"utc":"12:60:00"})"} << range ("Q65");
+    QTest::newRow ("utc 12:00:60") << QByteArray {R"({"t":"configure","utc":"12:00:60"})"} << range ("FT8");
+    QTest::newRow ("utc 13:34:45Z, JT9")
+      << QByteArray {R"({"t":"configure","mode":"JT9","trperiod":60,"utc":"13:34:45Z"})"} << utcType;
+    QTest::newRow ("utc 13:34") << QByteArray {R"({"t":"configure","utc":"13:34"})"} << utcType;
+    QTest::newRow ("utc 1:2:3") << QByteArray {R"({"t":"configure","utc":"1:2:3"})"} << utcType;
+    QTest::newRow ("utc 12:00:00, then 125 blanks and junk")
+      << QByteArray {"{\"t\":\"configure\",\"utc\":\"12:00:00"} + QByteArray (125, ' ') + QByteArray {"junk\"}"}
+      << utcType;
+    QTest::newRow ("nutc 133445.0, JT9")
+      << QByteArray {R"({"t":"configure","mode":"JT9","trperiod":60,"nutc":133445.0})"}
+      << QByteArray {R"({"v":1,"t":"error","code":"configure_type_error","key":"nutc","expected":"int","got":"number"})"};
+    QTest::newRow ("nutc -1") << QByteArray {R"({"t":"configure","nutc":-1})"} << range ("FT8", "nutc");
+    QTest::newRow ("nutc 240000, JT9")
+      << QByteArray {R"({"t":"configure","mode":"JT9","trperiod":60,"nutc":240000})"} << range ("JT9", "nutc");
+    QTest::newRow ("nutc 1260, JT9")
+      << QByteArray {R"({"t":"configure","mode":"JT9","trperiod":60,"nutc":1260})"} << range ("JT9", "nutc");
+    QTest::newRow ("nutc 126000") << QByteArray {R"({"t":"configure","nutc":126000})"} << range ("FT8", "nutc");
+    // One error: the engine's own Q65 check never sees the frame.
+    QTest::newRow ("nutc 235960, Q65")
+      << QByteArray {R"({"t":"configure","mode":"Q65","trperiod":60,"nutc":235960})"} << range ("Q65", "nutc");
+    // JTTY's range errors carry no mode.
+    QTest::newRow ("nutc -1, JTTY") << QByteArray {R"({"t":"configure","mode":"JTTY","nutc":-1})"}
+      << QByteArray {R"({"v":1,"t":"error","code":"configure_range_error","key":"nutc","detail":"nutc must be a valid time of day"})"};
+  }
+
+  void wsjtCodecDeclinesBadLabels ()
+  {
+    if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
+    QFETCH (QByteArray, refused);
+    QFETCH (QByteArray, line);
+    auto const result = runRecording (QString::fromUtf8 (FT8_ENGINE_WAV),
+      configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}}) + controlFrame (refused));
+    verifyCompleted (result, 0);
+    QList<QByteArray> errors;
+    for (auto const& output : streamOutput (result).split ('\n'))
+      {
+        if (output.contains (R"("t":"error")")) errors << output;
+      }
+    QCOMPARE (errors, QList<QByteArray> {line});
+    // The period decodes as FT8, under the label before the refused frame.
+    auto const decodes = eventsMatching (verifyEvents (result).values, "decode");
+    bool found = false;
+    for (auto const& decode : decodes)
+      {
+        QCOMPARE (decode.value ("time").toString (), QString {"051115"});
+        found |= decode.value ("message").toString ().trimmed () == "CQ K1JT FN20";
+      }
+    QVERIFY2 (found, result.standardOutput.constData ());
+  }
+
   void wsjtCodecAcceptsValuesAtTheEngineLimits_data ()
   {
     QTest::addColumn<QString> ("recording");
@@ -1257,7 +1465,7 @@ private slots:
       << QString {"CQ K1JT FN20"};
     QTest::newRow ("JT65") << QString::fromUtf8 (JT65_ENGINE_WAV)
       << QJsonObject {{"mode", "JT65"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
-                      {"n_trials", 1000000}}
+                      {"n_trials", 1000000}, {"aggressive", 11}}
       << QString {"K1ABC W9XYZ FN42"};
     // The rows below need no decode: the recording does not suit the setting.
     auto blanker = fst4Keys;

@@ -6,8 +6,9 @@
 # (utc/date/n_trials/candthin_threshold/dt_center_seconds): the ISO derivations
 # (utc->nutc HHMMSS, date->yymmdd), the n_trials->nranera encoding table (incl. the
 # n_trials=1 -> nranera=0 spec edge), the two PARSE-TIME VALUE errors (n_trials not
-# in {10^N,3*10^N}; date year>=2100), wrong-TYPE detection, malformed-ISO silent
-# skip, nutc+utc both captured, and the value-vs-key aliasing guard.
+# in {10^N,3*10^N}; date year>=2100), wrong-TYPE detection, a malformed date's
+# silent skip and a malformed utc's type error, nutc+utc both captured, and the
+# value-vs-key aliasing guard.
 #
 # WHY a Fortran unit driver (not only a fixture through jt9): four of the five
 # Phase 8 keys are INERT on the FT8/JT9 fixtures (date superfox-only; n_trials

@@ -158,12 +158,18 @@ contains
              endif
           endif
           if(streaming_emit_enabled()) then
-             call streaming_emit_decode('JT4',context%nutc,snr,dt,freq,decoded,context%utc_is_hhmmss)
+             call streaming_emit_decode('JT4',context%nutc,snr,dt,freq,decoded,context%utc_is_hhmmss, &
+                  sync=sync,flags=cflags)
           else
              write(*,1000) display_utc,snr,dt,freq,sync,decoded,cflags
           endif
        else
-          if(.not.streaming_emit_enabled()) write(*,1000) display_utc,snr,dt,freq
+          if(streaming_emit_enabled()) then
+             call streaming_emit_decode('JT4',context%nutc,snr,dt,freq,'',context%utc_is_hhmmss, &
+                  sync='',flags='')
+          else
+             write(*,1000) display_utc,snr,dt,freq
+          endif
        endif
 1000   format(i4.4,i4,f5.1,i5,1x,'$',a1,1x,a22,1x,a3)
     endif
@@ -244,7 +250,11 @@ contains
     is_deep=ft.eq.2
 
     if(ft.eq.0 .and. minsync.ge.0 .and. int(sync).lt.minsync) then
-       if (.not. streaming_emit_enabled()) write(*,1010) context_nutc,snr,dt,freq
+       if (streaming_emit_enabled()) then
+          call streaming_emit_decode("JT65", context_nutc, snr, dt, freq, '', sync='', flags='')
+       else
+          write(*,1010) context_nutc,snr,dt,freq
+       end if
     else
        is_average=nsum.ge.2
        if(context_bVHF .and. ft.gt.0) then
@@ -288,7 +298,8 @@ contains
           cflags(3:3)=' '
        endif
        if (streaming_emit_enabled()) then
-          call streaming_emit_decode("JT65", context_nutc, snr, dt, freq, decoded)
+          call streaming_emit_decode("JT65", context_nutc, snr, dt, freq, decoded, &
+               sync=csync, flags=cflags)
        else
           write(*,1010) context_nutc,snr,dt,freq,csync,decoded,cflags
        end if
@@ -480,7 +491,8 @@ contains
 
     if(context%render_legacy) then
     if (streaming_emit_enabled()) then
-       call streaming_emit_decode("FT8", context_nutc, snr, dt, nint(freq), decoded0)
+       call streaming_emit_decode("FT8", context_nutc, snr, dt, nint(freq), decoded0, &
+            ap=merge(9, nap, nap.ge.9))
     else
        write(*,1000) context_nutc,snr,dt,nint(freq),decoded0,annot
     end if
@@ -621,8 +633,10 @@ contains
     i0=1
     if(context%render_legacy) then
     if (streaming_emit_enabled()) then
-       if (i0.le.0) call streaming_emit_decode("FT8", context_nutc, snr, dt, nint(freq), decoded0(1:22))
-       if (i0.gt.0) call streaming_emit_decode("FT8", context_nutc, snr, dt, nint(freq), decoded0)
+       if (i0.le.0) call streaming_emit_decode("FT8", context_nutc, snr, dt, nint(freq), decoded0(1:22), &
+            ap=nap)
+       if (i0.gt.0) call streaming_emit_decode("FT8", context_nutc, snr, dt, nint(freq), decoded0, &
+            ap=nap)
     else
        if(i0.le.0) write(*,1000) context_nutc,snr,dt,nint(freq),decoded0(1:22),annot
        if(i0.gt.0) write(*,1001) context_nutc,snr,dt,nint(freq),decoded0,annot
@@ -745,7 +759,7 @@ contains
     endif
 
     if (streaming_emit_enabled()) then
-       call streaming_emit_decode("FT4", context_nutc, snr, dt, nint(freq), decoded0)
+       call streaming_emit_decode("FT4", context_nutc, snr, dt, nint(freq), decoded0, ap=nap)
     else
        write(*,1001) context_nutc,snr,dt,nint(freq),decoded0,annot
     end if
@@ -839,9 +853,14 @@ contains
        if(w50.ge.0.95) write(line(65:70),'(f6.2)') w50
     endif
 
-    if (streaming_emit_enabled()) then
+    if (streaming_emit_enabled() .and. fmid.ne.-999.0) then
        call streaming_emit_decode(merge('FST4W','FST4 ',context%mode==engine_mode_fst4w), &
-            nutc, nsnr, dt, nint(freq), decoded0,context%utc_is_hhmmss)
+            nutc, nsnr, dt, nint(freq), decoded0,context%utc_is_hhmmss, &
+            ap=nap, period=ntrperiod, spread=w50)
+    else if (streaming_emit_enabled()) then
+       call streaming_emit_decode(merge('FST4W','FST4 ',context%mode==engine_mode_fst4w), &
+            nutc, nsnr, dt, nint(freq), decoded0,context%utc_is_hhmmss, &
+            ap=nap, period=ntrperiod)
     else
        write(*,1005) line
     end if
@@ -934,7 +953,8 @@ contains
 
     if(ntrperiod.lt.60) then
        if (streaming_emit_enabled()) then
-          call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded,context%utc_is_hhmmss)
+          call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded,context%utc_is_hhmmss, &
+               q=idec, avg=nused, copied=iflagdec.eq.1, period=ntrperiod)
        else
           if(len_trim(cflags).gt.3) then
              write(*,1005) display_utc,nsnr,dt,nint(freq),decoded,cflags
@@ -948,7 +968,8 @@ contains
 1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     else
        if (streaming_emit_enabled()) then
-          call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded,context%utc_is_hhmmss)
+          call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded,context%utc_is_hhmmss, &
+               q=idec, avg=nused, copied=iflagdec.eq.1, period=ntrperiod)
        else
           if(len_trim(cflags).gt.3) then
              write(*,1006) display_utc,nsnr,dt,nint(freq),decoded,cflags
