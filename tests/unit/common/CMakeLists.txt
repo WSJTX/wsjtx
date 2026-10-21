@@ -32,18 +32,25 @@ target_include_directories (test_qt_helpers PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_qt_helpers Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_qt_helpers COMMAND test_qt_helpers)
 
-add_executable (test_configuration_radio test_configuration_radio.cpp)
+add_executable (test_configuration_radio
+  test_configuration_radio.cpp
+  ${CMAKE_SOURCE_DIR}/OperatingFrequency.cpp)
 add_dependencies (test_configuration_radio wsjt_qt_autogen)
 target_include_directories (test_configuration_radio PRIVATE
   ${CMAKE_BINARY_DIR}
   ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include
   ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include_$<CONFIG>)
 target_link_libraries (test_configuration_radio wsjt_qt wsjt_cxx wsjt_fort_common
-  Boost::log_setup Qt5::Test)
+  Boost::log_setup Qt5::Test tci_simulator)
 add_test (NAME test_configuration_radio COMMAND test_configuration_radio)
 set_tests_properties (test_configuration_radio PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  LABELS "frequency-control;threading"
   TIMEOUT 60)
+if (WSJT_ENABLE_TSAN)
+  set_property (TEST test_configuration_radio APPEND PROPERTY ENVIRONMENT
+    "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
+endif ()
 
 add_executable (test_callsign_validator
   test_callsign_validator.cpp
