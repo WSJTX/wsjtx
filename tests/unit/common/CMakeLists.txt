@@ -373,6 +373,10 @@ target_include_directories (test_operating_frequency PRIVATE ${CMAKE_BINARY_DIR}
 target_link_libraries (test_operating_frequency Qt5::Test)
 add_test (NAME test_operating_frequency COMMAND test_operating_frequency)
 
+add_executable (test_frequency_adapter test_frequency_adapter.cpp)
+target_link_libraries (test_frequency_adapter Qt5::Test)
+add_test (NAME test_frequency_adapter COMMAND test_frequency_adapter)
+
 add_executable (test_mainwindow_compact_controls
   test_mainwindow_compact_controls.cpp
   ${CMAKE_SOURCE_DIR}/widgets/TxDriveSlider.cpp

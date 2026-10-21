@@ -2,6 +2,7 @@
 #define CONFIGURATION_HPP_
 
 #include <QObject>
+#include <functional>
 #include <QByteArray>
 #include <QFont>
 #include <QString>
@@ -393,6 +394,12 @@ public:
 
   // Set transceiver frequency in Hertz.
   Q_SLOT bool transceiver_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
+  bool request_frequency (RigFrequency::Request const&, RigFrequencyChangePolicy::ChangeKind);
+  quint64 frequency_generation () const;
+  void set_frequency_activity_provider (std::function<RigFrequencyChangePolicy::Activity ()>);
+  Q_SIGNAL void frequency_result (RigFrequency::Result const&);
+  Q_SIGNAL void frequency_observation (RigFrequency::Evidence const&);
+  Q_SIGNAL void frequency_failure (QString const&);
 
   // Setting a non zero TX frequency means split operation
   // rationalise_mode means ensure TX uses same mode as RX.

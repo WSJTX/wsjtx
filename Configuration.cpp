@@ -1,4 +1,5 @@
 #include "Configuration.hpp"
+#include "FrequencyAdapter.hpp"
 
 //
 // Read me!
@@ -672,6 +673,11 @@ public:
   bool frequency_change_allowed (RigFrequencyChangePolicy::ChangeKind) const;
   bool transceiver_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
   bool transceiver_tx_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
+  bool request_frequency (RigFrequency::Request const&, RigFrequencyChangePolicy::ChangeKind);
+  void dispatch_frequencies ();
+  void handle_frequency_result (RigFrequency::Result const&);
+  void handle_frequency_observation (RigFrequency::Evidence const&);
+  void reproject_frequencies ();
   void transceiver_mode (MODE);
   void transceiver_ptt (bool);
   void transceiver_audio (bool);
@@ -749,8 +755,6 @@ private:
   RadioValidationError validate_radio_settings ();
   bool validate ();
   void fill_port_combo_box (QComboBox *);
-  Frequency apply_calibration (Frequency) const;
-  Frequency remove_calibration (Frequency) const;
 
   void delete_frequencies ();
   void load_frequencies ();
@@ -961,8 +965,13 @@ private:
   FrequencyList_v2_101 next_frequencies_;
   StationList stations_;
   StationList next_stations_;
-  FrequencyDelta current_offset_;
-  FrequencyDelta current_tx_offset_;
+  FrequencyAdapter frequency_adapter_;
+  bool deferred_frequency_retry_scheduled_ = false;
+  std::function<RigFrequencyChangePolicy::Activity ()> frequency_activity_provider_;
+  quint64 legacy_frequency_id_ = quint64 {1} << 63;
+  std::array<RigFrequencyChangePolicy::ChangeKind, 2> frequency_kinds_ {{
+    RigFrequencyChangePolicy::ChangeKind::TxPathCorrection,
+    RigFrequencyChangePolicy::ChangeKind::TxPathCorrection}};
 
   QAction * frequency_delete_action_;
   QAction * frequency_insert_action_;
@@ -1409,14 +1418,14 @@ void Configuration::read_CALL3_version ()
 void Configuration::set_calibration (CalibrationParams params)
 {
   m_->calibration_ = params;
+  m_->reproject_frequencies ();
 }
 
 void Configuration::enable_calibration (bool on)
 {
-  auto target_frequency = m_->remove_calibration (m_->cached_rig_state_.frequency ()) - m_->current_offset_;
+  if (m_->frequency_calibration_disabled_ == !on) return;
   m_->frequency_calibration_disabled_ = !on;
-  transceiver_frequency (
-    target_frequency, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection);
+  m_->reproject_frequencies ();
 }
 
 bool Configuration::is_transceiver_online () const
@@ -1457,6 +1466,24 @@ bool Configuration::transceiver_frequency (Frequency f, RigFrequencyChangePolicy
   if (!m_->frequency_change_allowed (kind)) return false;
   if (!m_->can_control_rig ("transceiver_frequency")) return false;
   return m_->transceiver_frequency (f, kind);
+}
+
+bool Configuration::request_frequency (RigFrequency::Request const& request,
+                                        RigFrequencyChangePolicy::ChangeKind kind)
+{
+  if (!m_->can_control_rig ("request_frequency")) return false;
+  return m_->request_frequency (request, kind);
+}
+
+quint64 Configuration::frequency_generation () const
+{
+  return m_->frequency_adapter_.generation ();
+}
+
+void Configuration::set_frequency_activity_provider (
+  std::function<RigFrequencyChangePolicy::Activity ()> provider)
+{
+  m_->frequency_activity_provider_ = std::move (provider);
 }
 
 bool Configuration::transceiver_tx_frequency (Frequency f, RigFrequencyChangePolicy::ChangeKind kind)
@@ -2253,8 +2280,6 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , next_frequencies_ {&bands_}
   , stations_ {&bands_}
   , next_stations_ {&bands_}
-  , current_offset_ {0}
-  , current_tx_offset_ {0}
   , frequency_dialog_ {new FrequencyDialog {&regions_, &modes_, this}}
   , station_delete_action_ {tr ("&Delete"), nullptr}
   , station_insert_action_ {tr ("&Insert ..."), nullptr}
@@ -4764,8 +4789,11 @@ void Configuration::impl::accept ()
   SelectedActivity_ = ui_->special_op_activity_button_group->checkedId();
   x2ToneSpacing_ = ui_->cbx2ToneSpacing->isChecked ();
   x4ToneSpacing_ = ui_->cbx4ToneSpacing->isChecked ();
+  auto const calibration_changed = calibration_.intercept != ui_->calibration_intercept_spin_box->value ()
+    || calibration_.slope_ppm != ui_->calibration_slope_ppm_spin_box->value ();
   calibration_.intercept = ui_->calibration_intercept_spin_box->value ();
   calibration_.slope_ppm = ui_->calibration_slope_ppm_spin_box->value ();
+  if (calibration_changed) reproject_frequencies ();
   sortAlphabetically_ = ui_->cbSortAlphabetically->isChecked ();
   hideCARD_ = ui_->cbHideCARD->isChecked ();
   AzElExtraLines_ = ui_->checkBoxAzElExtraLines->isChecked ();
@@ -6673,6 +6701,8 @@ bool Configuration::impl::open_rig (bool force)
         {
           if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
           close_rig ();
+          frequency_adapter_.default_projection (
+            {0, calibration_.intercept, calibration_.slope_ppm, !frequency_calibration_disabled_});
 
           auto const txvolume = cached_rig_state_.txvolume ();
           auto const receive_policy = cached_rig_state_.receive_policy ();
@@ -6706,6 +6736,7 @@ bool Configuration::impl::open_rig (bool force)
           // these connections cross the thread boundary
           rig_connections_ << connect (rig.get (), &Transceiver::resolution, this, [=] (int resolution) {
               rig_resolution_ = resolution;
+              frequency_adapter_.resolution (FrequencyAdapter::resolution_hz (resolution));
             });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::receiveAudio, self_, &Configuration::transceiverReceiveAudio);
@@ -6722,8 +6753,25 @@ bool Configuration::impl::open_rig (bool force)
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_progress, self_, &Configuration::transceiver_jtty_progress);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_accepted, self_, &Configuration::transceiver_jtty_enqueue_accepted);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
-          rig_connections_ << connect (rig.get (), &Transceiver::update, this, &Configuration::impl::handle_transceiver_update);
-          rig_connections_ << connect (rig.get (), &Transceiver::failure, this, &Configuration::impl::handle_transceiver_failure);
+          auto const frequency_generation = frequency_adapter_.generation ();
+          rig_connections_ << connect (rig.get (), &Transceiver::update, this,
+            [this, frequency_generation] (TransceiverState const& state, unsigned sequence) {
+              if (frequency_generation == frequency_adapter_.generation ()) handle_transceiver_update (state, sequence);
+            });
+          rig_connections_ << connect (rig.get (), &Transceiver::frequency_result, this,
+            [this, frequency_generation] (RigFrequency::Result const& result) {
+              if (frequency_generation == frequency_adapter_.generation ()) handle_frequency_result (result);
+            });
+          rig_connections_ << connect (rig.get (), &Transceiver::frequency_observation, this,
+            [this, frequency_generation] (RigFrequency::Evidence evidence) {
+              if (frequency_generation != frequency_adapter_.generation ()) return;
+              if (!evidence.generation && !evidence.operation) evidence.generation = frequency_generation;
+              handle_frequency_observation (evidence);
+            });
+          rig_connections_ << connect (rig.get (), &Transceiver::failure, this,
+            [this, frequency_generation] (QString const& reason) {
+              if (frequency_generation == frequency_adapter_.generation ()) handle_transceiver_failure (reason);
+            });
           if (auto inhibit = qobject_cast<TxInhibitTransceiver *> (rig.get ()))
             {
               auto const generation = tx_inhibit_generation_;
@@ -6828,6 +6876,7 @@ void Configuration::impl::set_cached_mode ()
 
 RigFrequencyChangePolicy::Activity Configuration::impl::frequency_change_activity () const
 {
+  if (frequency_activity_provider_) return frequency_activity_provider_ ();
   return {false, false, false, false, false, false, false,
           cached_rig_state_.ptt (), cached_rig_state_.tune ()};
 }
@@ -6841,59 +6890,118 @@ bool Configuration::impl::frequency_change_allowed (RigFrequencyChangePolicy::Ch
 bool Configuration::impl::transceiver_frequency (
   Frequency f, RigFrequencyChangePolicy::ChangeKind kind)
 {
-  return RigFrequencyChangePolicy::applyIfAllowed (
-    kind, frequency_change_activity (), tx_frequency_corrections_allowed_, [this, f] {
-      cached_rig_state_.online (true); // we want the rig online
-      set_cached_mode ();
-
-      // apply any offset & calibration
-      // we store the offset here for use in feedback from the rig, we
-      // cannot absolutely determine if the offset should apply but by
-      // simply picking an offset when the Rx frequency is set and
-      // sticking to it we get sane behaviour
-      current_offset_ = stations_.offset (f);
-      cached_rig_state_.frequency (apply_calibration (f + current_offset_));
-
-      // qDebug () << "Configuration::impl::transceiver_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
-      LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
-      Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
-    });
+  return request_frequency ({frequency_adapter_.generation (), ++legacy_frequency_id_,
+                             RigFrequency::Path::Rx, f}, kind);
 }
 
 bool Configuration::impl::transceiver_tx_frequency (
   Frequency f, RigFrequencyChangePolicy::ChangeKind kind)
 {
-  if (!RigFrequencyChangePolicy::tx_path_frequency_supported (f != 0, split_mode ()))
+  return request_frequency ({frequency_adapter_.generation (), ++legacy_frequency_id_,
+                             RigFrequency::Path::Tx, f}, kind);
+}
+
+bool Configuration::impl::request_frequency (
+  RigFrequency::Request const& request, RigFrequencyChangePolicy::ChangeKind kind)
+{
+  if (!frequency_change_allowed (kind)
+      || (request.path == RigFrequency::Path::Tx
+          && !RigFrequencyChangePolicy::tx_path_frequency_supported (request.target != 0, split_mode ())))
+    return false;
+  FrequencyAdapter::Projection projection;
+  projection.offset = request.target ? stations_.offset (request.target) : 0;
+  projection.intercept = calibration_.intercept;
+  projection.slope_ppm = calibration_.slope_ppm;
+  projection.calibrated = !frequency_calibration_disabled_;
+  if (!frequency_adapter_.submit (request, projection)) return false;
+  frequency_kinds_[request.path == RigFrequency::Path::Rx ? 0 : 1] = kind;
+  dispatch_frequencies ();
+  return true;
+}
+
+void Configuration::impl::dispatch_frequencies ()
+{
+  for (auto path : {RigFrequency::Path::Rx, RigFrequency::Path::Tx})
     {
-      return false;
-    }
-  return RigFrequencyChangePolicy::applyIfAllowed (
-    kind, frequency_change_activity (), tx_frequency_corrections_allowed_, [this, f] {
-      Q_ASSERT (!f || split_mode ());
-      if (split_mode ())
+      if (!frequency_change_allowed (frequency_kinds_[path == RigFrequency::Path::Rx ? 0 : 1])) continue;
+      auto command = frequency_adapter_.take_dispatch (path);
+      if (!command) continue;
+      cached_rig_state_.online (true);
+      set_cached_mode ();
+      cached_rig_state_.frequency_request (*command);
+      if (path == RigFrequency::Path::Rx) cached_rig_state_.frequency (command->target);
+      else
         {
-          cached_rig_state_.online (true); // we want the rig online
-          set_cached_mode ();
-          cached_rig_state_.split (f);
-          cached_rig_state_.tx_frequency (f);
-
-          // lookup offset for tx and apply calibration
-          if (f)
-            {
-              // apply and offset and calibration
-              // we store the offset here for use in feedback from the rig, we
-              // cannot absolutely determine if the offset should apply but by
-              // simply picking an offset when the Rx frequency is set and
-              // sticking to it we get sane behaviour
-              current_tx_offset_ = stations_.offset (f);
-              cached_rig_state_.tx_frequency (apply_calibration (f + current_tx_offset_));
-            }
-
-          // qDebug () << "Configuration::impl::transceiver_tx_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
-          LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
-          Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+          cached_rig_state_.tx_frequency (command->target);
+          cached_rig_state_.split (command->target != 0);
         }
-    });
+      Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    }
+}
+
+void Configuration::impl::handle_frequency_result (RigFrequency::Result const& result)
+{
+  auto translated = frequency_adapter_.complete (result);
+  if (!translated) return;
+  if (result.outcome != RigFrequency::Outcome::Pending
+      && RigFrequency::same_operation (cached_rig_state_.frequency_request (result.request.path), result.request))
+    cached_rig_state_.frequency_request (result.request.path, {});
+  Q_EMIT self_->frequency_result (*translated);
+  if (translated->outcome == RigFrequency::Outcome::Deferred && !deferred_frequency_retry_scheduled_)
+    {
+      deferred_frequency_retry_scheduled_ = true;
+      auto const generation = frequency_adapter_.generation ();
+      QTimer::singleShot (500, this, [this, generation] {
+        if (generation != frequency_adapter_.generation ()) return;
+        deferred_frequency_retry_scheduled_ = false;
+        frequency_adapter_.resume_deferred ();
+        dispatch_frequencies ();
+      });
+    }
+  if (translated->outcome == RigFrequency::Outcome::Failed
+      || translated->outcome == RigFrequency::Outcome::Rejected)
+    {
+      close_rig (true);
+      Q_EMIT self_->frequency_failure (
+        tr ("Frequency application could not be established. Retry rig control to restore the requested frequency."));
+      return;
+    }
+  dispatch_frequencies ();
+}
+
+void Configuration::impl::handle_frequency_observation (RigFrequency::Evidence const& evidence)
+{
+  auto translated = frequency_adapter_.observe (evidence);
+  if (!translated) return;
+  if (!translated->operation)
+    {
+      if (evidence.path == RigFrequency::Path::Rx) cached_rig_state_.frequency (evidence.value);
+      else cached_rig_state_.tx_frequency (evidence.value);
+      cached_rig_state_.frequency_request (evidence.path, {});
+    }
+  Q_EMIT self_->frequency_observation (*translated);
+}
+
+void Configuration::impl::reproject_frequencies ()
+{
+  frequency_adapter_.default_projection (
+    {0, calibration_.intercept, calibration_.slope_ppm, !frequency_calibration_disabled_});
+  if (!rig_active_) return;
+  for (auto path : {RigFrequency::Path::Rx, RigFrequency::Path::Tx})
+    {
+      auto const snapshot = frequency_adapter_.snapshot (path);
+      auto const mapping = snapshot.queued ? snapshot.queued : snapshot.pending ? snapshot.pending : snapshot.established;
+      if (!mapping) continue;
+      FrequencyAdapter::Projection projection;
+      projection.offset = mapping->projection.offset;
+      projection.intercept = calibration_.intercept;
+      projection.slope_ppm = calibration_.slope_ppm;
+      projection.calibrated = !frequency_calibration_disabled_;
+      frequency_adapter_.submit (
+        {frequency_adapter_.generation (), ++legacy_frequency_id_, path, mapping->request.target}, projection);
+      frequency_kinds_[path == RigFrequency::Path::Rx ? 0 : 1] = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
+    }
+  dispatch_frequencies ();
 }
 
 void Configuration::impl::transceiver_mode (MODE m)
@@ -6913,6 +7021,11 @@ void Configuration::impl::transceiver_ptt (bool on)
   // qDebug () << "Configuration::impl::transceiver_ptt: n:" << transceiver_command_number_ + 1 << "on:" << on;
   LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
   Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  if (!on)
+    {
+      frequency_adapter_.resume_deferred ();
+      dispatch_frequencies ();
+    }
 }
 
 void Configuration::impl::transceiver_audio (bool on)
@@ -7096,9 +7209,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 
   // only follow rig on some information, ignore other stuff
   cached_rig_state_.online (state.online ());
-  cached_rig_state_.frequency (state.frequency ());
   if(!is_tci_) cached_rig_state_.mode (state.mode ());  //was not present in jtdx
-  cached_rig_state_.split (state.split ());
 
   if (state.online ())
     {
@@ -7130,15 +7241,24 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
     {
       TransceiverState reported_state {state};
       // take off calibration & offset
-      reported_state.frequency (remove_calibration (reported_state.frequency ()) - current_offset_);
+      reported_state.frequency (frequency_adapter_.decode (RigFrequency::Path::Rx, reported_state.frequency ()));
 
       if (reported_state.tx_frequency ())
         {
           // take off calibration & offset
-          reported_state.tx_frequency (remove_calibration (reported_state.tx_frequency ()) - current_tx_offset_);
+          reported_state.tx_frequency (frequency_adapter_.decode (RigFrequency::Path::Tx, reported_state.tx_frequency ()));
         }
 
+      auto const generation = frequency_adapter_.generation ();
+      auto const activity_before = frequency_change_activity ();
       Q_EMIT self_->transceiver_update (reported_state);
+      if (generation == frequency_adapter_.generation ())
+        {
+          auto const activity_after = frequency_change_activity ();
+          if (activity_before.rigPtt != activity_after.rigPtt || activity_before.rigTune != activity_after.rigTune)
+            frequency_adapter_.resume_deferred ();
+          dispatch_frequencies ();
+        }
     }
 }
 
@@ -7161,6 +7281,8 @@ void Configuration::impl::handle_transceiver_failure (QString const& reason)
 
 void Configuration::impl::close_rig (bool failed)
 {
+  frequency_adapter_.new_connection ();
+  deferred_frequency_retry_scheduled_ = false;
   ui_->test_PTT_push_button->setEnabled (false);
 
   // revert to no rig configured
@@ -7495,20 +7617,6 @@ void Configuration::impl::fill_port_combo_box(QComboBox* cb)
     }
 
     cb->setEditText(current_text);
-}
-
-auto Configuration::impl::apply_calibration (Frequency f) const -> Frequency
-{
-  if (frequency_calibration_disabled_) return f;
-  return std::llround (calibration_.intercept
-                       + (1. + calibration_.slope_ppm / 1.e6) * f);
-}
-
-auto Configuration::impl::remove_calibration (Frequency f) const -> Frequency
-{
-  if (frequency_calibration_disabled_) return f;
-  return std::llround ((f - calibration_.intercept)
-                       / (1. + calibration_.slope_ppm / 1.e6));
 }
 
 ENUM_QDATASTREAM_OPS_IMPL (Configuration, DataMode);
