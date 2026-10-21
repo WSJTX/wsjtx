@@ -15,11 +15,22 @@ class ChangeListTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.repo = Path(self.directory.name)
+        # A stand-in gh prints the release list a test writes, and fails when it writes none.
+        tools = tempfile.TemporaryDirectory()
+        self.addCleanup(tools.cleanup)
+        self.tools = Path(tools.name)
+        gh = self.tools / "gh"
+        gh.write_text('#!/bin/sh\necho "$@" > "$FAKE_GH_ARGS"\n'
+                      '[ -f "$FAKE_RELEASES" ] || { echo "HTTP 401: Bad credentials" >&2; exit 1; }\n'
+                      'cat "$FAKE_RELEASES"\n')
+        gh.chmod(0o755)
         self.env = {
             **{key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
             "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_AUTHOR_EMAIL": "author@example.com",
             "GIT_COMMITTER_NAME": "Committer", "GIT_COMMITTER_EMAIL": "committer@example.com",
+            "PATH": f"{self.tools}{os.pathsep}{os.environ['PATH']}",
+            "FAKE_GH_ARGS": str(self.tools / "gh-args"), "FAKE_RELEASES": str(self.tools / "releases.json"),
         }
         self.git("init", "-q", "-b", "develop")
         # Background auto-maintenance would race the directory's removal.
@@ -58,6 +69,7 @@ class ChangeListTest(unittest.TestCase):
             cwd=self.repo, env=self.env, text=True, capture_output=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.stderr = result.stderr
         return result.stdout
 
     def test_a_later_beta_lists_the_changes_since_the_previous_beta_in_commit_order(self):
@@ -85,6 +97,50 @@ class ChangeListTest(unittest.TestCase):
         self.assertTrue(notes.startswith("## Changes since v3.3.0-beta1\n"))
         self.assertIn("- carried by the unpublished beta2", notes)
         self.assertIn("- new in beta3", notes)
+
+    def test_a_tag_whose_release_never_published_is_passed_over(self):
+        self.git("checkout", "-qb", "release/3.3")
+        self.git("tag", "v3.3.0-beta2")
+        self.commit("fix: carried by the beta3 tag that never published")
+        self.git("tag", "v3.3.0-beta3")
+        self.commit("fix: new in beta4")
+        self.git("tag", "v3.3.0-beta4")
+        (self.tools / "releases.json").write_text(
+            '[{"tagName": "v3.3.0-beta3", "isDraft": true}, {"tagName": "v3.3.0-beta2", "isDraft": false}]')
+        notes = self.notes("v3.3.0-beta4")
+        self.assertTrue(notes.startswith("## Changes since v3.3.0-beta2\n"))
+        self.assertIn("- carried by the beta3 tag that never published", notes)
+        self.assertIn("- new in beta4", notes)
+        # gh lists 30 releases unless told otherwise, which would drop an old GA base.
+        self.assertEqual((self.tools / "gh-args").read_text().strip(),
+                         f"release list --repo {REPO} --limit 1000 --json tagName,isDraft")
+
+    def test_no_published_earlier_release_prints_nothing(self):
+        self.git("checkout", "-qb", "release/3.3")
+        self.git("tag", "v3.3.0-beta1")
+        self.commit("fix: new in beta2")
+        self.git("tag", "v3.3.0-beta2")
+        (self.tools / "releases.json").write_text("[]")
+        self.assertEqual(self.notes("v3.3.0-beta2"), "")
+
+    def test_every_earlier_tag_counts_when_the_releases_cannot_be_read(self):
+        self.git("checkout", "-qb", "release/3.3")
+        self.git("tag", "v3.3.0-beta2")
+        self.commit("fix: carried by beta3")
+        self.git("tag", "v3.3.0-beta3")
+        self.commit("fix: new in beta4")
+        self.git("tag", "v3.3.0-beta4")
+        notes = self.notes("v3.3.0-beta4")
+        self.assertTrue(notes.startswith("## Changes since v3.3.0-beta3\n"))
+        self.assertNotIn("carried by beta3", notes)
+        self.assertIn("::warning::", self.stderr)
+        self.assertIn("HTTP 401: Bad credentials", self.stderr)
+
+    def test_the_publish_step_gives_the_change_list_a_token(self):
+        workflow = (SCRIPT.parents[1] / "workflows" / "public-release.yml").read_text()
+        steps = [step for step in workflow.split("\n      - ") if "generate-change-list.py" in step]
+        self.assertEqual(len(steps), 1)
+        self.assertRegex(steps[0], r"\n +GH_TOKEN: \$\{\{ github\.token \}\}\n")
 
     def test_a_release_candidate_follows_the_last_beta_of_its_line(self):
         self.git("checkout", "-qb", "release/3.3")

@@ -79,10 +79,11 @@ class Stop(Exception):
 
 
 class Spent(Exception):
-    """The candidate failed after its build tag was pushed; build tags never move, so the number is used up."""
+    """The candidate or the public build failed after its tag was pushed; tags never move, so the number is used up."""
 
-    def __init__(self, reason: str, link: str | None = None) -> None:
+    def __init__(self, stage: str, reason: str, link: str | None = None) -> None:
         super().__init__(reason)
+        self.stage = stage
         self.link = link
 
 
@@ -167,6 +168,7 @@ class Scheduler:
         self.bot_login = bot_login
         self.bot_email = bot_email
         self.notes = [] if notes is None else notes
+        self.notices: list[tuple[str, str, str | None]] = []
         self.recipe_cache: dict[str, dict[str, str] | None] = {}
 
     def beta_line(self) -> Line:
@@ -212,7 +214,12 @@ class Scheduler:
         if not isinstance(outcome, Spent):
             raise outcome
         self.notes.append(str(outcome))
-        return self.advance(line, spent=outcome)
+        result = self.advance(line, spent=outcome)
+        if outcome.stage == "publication":
+            # The continuation never sees the public repository's runs, so this spend alerts by itself.
+            self.notices.append((outcome.stage, f"{outcome} {result} Do not re-run its public build: it would publish "
+                                                f"{line.prerelease()} after the line has moved on.", outcome.link))
+        return result
 
     def retry(self, line: Line) -> str:
         version = line.prerelease()
@@ -282,7 +289,8 @@ class Scheduler:
         # A run reports only its latest attempt, so a later failed re-run can hide a promoted candidate.
         promoted = newest([run for run in stages["promotion"] if run.get("conclusion") == "success"])
         if candidate is None and promoted is None:
-            return Spent(f"The candidate run for `{candidate_tag(version)}` concluded {failed.get('conclusion')} after "
+            return Spent("candidate",
+                         f"The candidate run for `{candidate_tag(version)}` concluded {failed.get('conclusion')} after "
                          f"the tag was pushed. Build tags never move, so {version} is spent and the next cut is "
                          f"BETA {line.number + 1}.", failed.get("html_url"))
         promotion = promoted or newest(stages["promotion"])
@@ -298,8 +306,9 @@ class Scheduler:
             return Stop("publication", f"`{public_tag}` was promoted, but no public release run started for it.",
                         promotion.get("html_url"))
         if publication.get("conclusion") != "success":
-            return Stop("publication", f"The public release run for `{public_tag}` concluded "
-                                       f"{publication.get('conclusion')}.", publication.get("html_url"))
+            return Spent("publication", f"The public release run for `{public_tag}` concluded "
+                                        f"{publication.get('conclusion')}. Tags never move, so {version} is spent and "
+                                        f"the next cut is BETA {line.number + 1}.", publication.get("html_url"))
         return Stop("publication", f"The public release run for `{public_tag}` succeeded, but the release is not "
                                    "published.", publication.get("html_url"))
 
@@ -310,8 +319,13 @@ class Scheduler:
             raise Stop("develop", "No commit on develop has a successful push CI run.")
         if self.repository.is_ancestor(target, line.tip):
             if spent is not None:
-                raise Stop("candidate", f"{spent} develop has no newer green commit to cut "
-                                        f"{line.prerelease(number)} from; land the fix on develop.", spent.link)
+                action = "; land the fix on develop."
+                if spent.stage == "publication":
+                    action = (f". Until a cut moves on, a re-run of the public build that succeeds still publishes "
+                              f"{line.prerelease()}: re-run the public build if its failure was transient, otherwise "
+                              "land the fix on develop.")
+                raise Stop(spent.stage, f"{spent} develop has no newer green commit to cut "
+                                        f"{line.prerelease(number)} from{action}", spent.link)
             raise Skip(f"develop has not moved: its newest green commit {target} is already in {line.branch}.")
         self.check_fixes_on_develop(line)
         lock, lock_note = self.lock_for(line, target)
@@ -792,9 +806,11 @@ def main(argv: list[str] | None = None) -> int:
         alerts.post(args.stage, args.reason)
         return 0
     notes: list[str] = []
+    schedulers = []
 
     def step() -> str:
         scheduler = build_scheduler(args.command, env, notes)
+        schedulers.append(scheduler)
         if args.command == "cut":
             return scheduler.cut()
         event = json.loads(Path(env["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
@@ -805,8 +821,20 @@ def main(argv: list[str] | None = None) -> int:
     if env.get("GITHUB_STEP_SUMMARY"):
         with open(env["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as stream:
             stream.write(summary)
-    if alert:
-        alerts.post(*alert)
+    posts = [notice for scheduler in schedulers for notice in scheduler.notices] + ([alert] if alert else [])
+    try:
+        for post in posts:
+            alerts.post(*post)
+    except Exception as error:  # The step's own result stands; keep what could not be posted in the summary.
+        traceback.print_exc()
+        unposted = "".join(f"- Not posted to the tracking issue ({stage}): {reason} {link or ''}\n"
+                           for stage, reason, link in posts) + f"- Posting failed: {error}\n"
+        print(unposted)
+        if env.get("GITHUB_STEP_SUMMARY"):
+            with open(env["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as stream:
+                stream.write(unposted)
+        return 1
+    if posts:
         if env.get("GITHUB_OUTPUT"):
             with open(env["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
                 stream.write("alerted=true\n")
