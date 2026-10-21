@@ -4,9 +4,10 @@
 Usage:
     generate-change-list.py <owner/repo> <tag>
 
-Prints nothing when no earlier release tag exists.
+Prints nothing when no earlier tag has a published release.
 """
 import importlib.util
+import json
 import re
 import subprocess
 import sys
@@ -37,9 +38,28 @@ def git(*args):
     return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
 
 
-def release_tags():
+def published_tags(repo):
+    """Return the tags of the repository's published releases, or None when GitHub cannot be read."""
+    try:
+        releases = json.loads(subprocess.run(
+            ["gh", "release", "list", "--repo", repo, "--limit", "1000", "--json", "tagName,isDraft"],
+            check=True, capture_output=True, text=True,
+        ).stdout)
+        return {release["tagName"] for release in releases if not release["isDraft"]}
+    except (OSError, subprocess.CalledProcessError, ValueError, KeyError, TypeError) as error:
+        detail = " ".join(str(getattr(error, "stderr", "") or error).split())
+        sys.stderr.write(f"::warning::The releases of {repo} could not be read, so every earlier tag counts: "
+                         f"{detail}\n")
+        return None
+
+
+def release_tags(repo):
+    # A spent beta can leave a public tag whose release never published; its changes belong to the next release.
+    published = published_tags(repo)
     tags = {}
     for name in git("tag", "--list", "v*").split():
+        if published is not None and name not in published:
+            continue
         try:
             tags[name] = policy.classify(name[1:])
         except ValueError:
@@ -47,11 +67,11 @@ def release_tags():
     return tags
 
 
-def range_of(tag):
+def range_of(repo, tag):
     """Return the tag the list starts from and the tags whose history is left out."""
     current = policy.classify(tag[1:])
     order = policy.release_order(current)
-    tags = release_tags()
+    tags = release_tags(repo)
     earlier = {name: identity for name, identity in tags.items() if policy.release_order(identity) < order}
     if current["channel"] == "GA":
         earlier = {name: identity for name, identity in earlier.items() if identity["channel"] == "GA"}
@@ -100,7 +120,7 @@ def entry(match, author):
 
 
 def change_list(repo, tag):
-    span = range_of(tag)
+    span = range_of(repo, tag)
     if span is None:
         return ""
     base, excluded, scanned, unscanned = span

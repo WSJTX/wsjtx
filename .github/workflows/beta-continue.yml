@@ -68,4 +68,4 @@ jobs:
         if: failure() && steps.scheduler.outputs.alerted != 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/beta-scheduler.py alert --stage continue --reason "The beta-continue job failed before the scheduler reported a result."
+        run: python3 .github/scripts/beta-scheduler.py alert --stage continue --reason "The beta-continue job failed, or could not post its alert; see the job summary."
