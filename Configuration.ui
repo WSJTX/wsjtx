@@ -2061,6 +2061,18 @@ audio comes from the server instead.</string>
             </property>
            </widget>
           </item>
+          <item>
+           <widget class="QCheckBox" name="network_audio_tx_check_box">
+            <property name="toolTip">
+             <string>Also send transmit audio to the network audio server, over the
+same connection, instead of to the soundcard output device. The
+server must run at 48 kHz. PTT is still keyed through rig control.</string>
+            </property>
+            <property name="text">
+             <string>Use for &amp;transmit</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

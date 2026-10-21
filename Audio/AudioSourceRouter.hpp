@@ -72,6 +72,14 @@ public:
   // Endpoint for Source::Network. Applied at the next start of that source.
   Q_SLOT void setNetworkServer (QString host, quint16 port);
 
+  // Whether the network connection is opened with its transmit lane, for a
+  // SoundOutputRouter to send on. libnaudio decides the lane at connect, so
+  // changing this while a connection exists rebuilds it (and restarts a
+  // running network source against the same sink). Same threading rule as
+  // the two slots above.
+  Q_SLOT void setNetworkTransmit (bool enabled);
+  bool networkTransmit () const {return m_transmit;}
+
   // The sound card's own errors, and only those. MainWindow treats an input
   // error as "this device is gone" and clears the device selection; a network
   // fault routed there would blank the sound-card setting the operator falls
@@ -105,6 +113,7 @@ private:
 
   QString m_host;
   quint16 m_port {4533};
+  bool m_transmit {false};
 
   // The last start () arguments, so a live source switch can re-issue them.
   // The device is among them: the sound card is the one source that needs

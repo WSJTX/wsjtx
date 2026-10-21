@@ -263,6 +263,11 @@ public:
   // port defaults to 4533. Both are inert on a build without network audio.
   bool network_audio () const;
   QString network_audio_server () const;
+  // Also send transmit audio to that server, over the same connection,
+  // instead of to the soundcard output device. Never true unless
+  // network_audio () is; the server has to run at 48 kHz (the modulator's
+  // fixed rate). PTT is still rig control's.
+  bool network_audio_tx () const;
   bool broadcast_to_n1mm() const;
   bool broadcast_to_cloudlog() const;
   bool lowSidelobes() const;

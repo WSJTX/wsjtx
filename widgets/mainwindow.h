@@ -148,6 +148,7 @@ class AudioOutputSink;
 class Modulator;
 class AudioInputSource;
 class AudioSourceRouter;
+class SoundOutputRouter;
 class Detector;
 class SampleDownloader;
 class MultiSettings;
@@ -299,6 +300,7 @@ public:
   public slots:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(TxEvidence::TxOutputError const& error);
+  void invalidateSoundOutDevice(TxEvidence::TxOutputError const& error);
   void showStatusMessage(const QString& statusMsg);
   // JTTY text submission is asynchronous. The returned request id is completed
   // by accepted/rejected signals; accepted means queued for backend transmit,
@@ -1004,6 +1006,10 @@ private:
   QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
   AudioOutputSink * m_soundOutput;
+  // The same object as m_soundOutput when this window created it, and null
+  // when a sink was injected (the TX loopback fixture path). Only the router
+  // understands the device/network selection.
+  SoundOutputRouter * m_outputRouter {nullptr};
   int m_rx_audio_buffer_frames;
   int m_tx_audio_buffer_frames;
   QThread m_audioThread;

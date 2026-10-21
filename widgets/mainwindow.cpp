@@ -90,6 +90,7 @@
 #include "Audio/soundin.h"
 #include "Audio/AudioInputSource.hpp"
 #include "Audio/AudioSourceRouter.hpp"
+#include "Audio/SoundOutputRouter.hpp"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "DecDataMutex.hpp"
@@ -563,7 +564,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
   m_jttyTxQueue {new TxAudioQueue},
   m_jttyTxStream {new JttyTxStream {*m_jttyTxQueue}},
-  m_soundOutput {sound_output ? sound_output.release () : new SoundOutput},
+  m_soundOutput {sound_output
+                 ? sound_output.release ()
+                 : static_cast<AudioOutputSink *> (new SoundOutputRouter)},
+  m_outputRouter {qobject_cast<SoundOutputRouter *> (m_soundOutput)},
   m_rx_audio_buffer_frames {0},
   m_tx_audio_buffer_frames {0},
   m_msErase {0},
@@ -816,6 +820,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_jttyTxStream->moveToThread (&m_audioThread);
   m_soundInput->moveToThread (&m_audioThread);
   m_detector->moveToThread (&m_audioThread);
+  // The transmit sink borrows the receive path's network connection; both
+  // routers live on the audio thread, and the connection is re-read at every
+  // transmission so an endpoint change needs no coordination here.
+  if (m_outputRouter && m_audioRouter)
+    {
+      m_outputRouter->setSourceRouter (m_audioRouter);
+    }
   bool ok;
   auto buffer_size = env.value ("WSJT_RX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
   m_rx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_rx_audio_buffer_frames;
@@ -824,7 +835,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // hook up sound output stream slots & signals and disposal
   connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &AudioOutputSink::setFormat);
-  connect (m_soundOutput, &AudioOutputSink::error, this, &MainWindow::showSoundOutError);
+  // Only the sound card's own faults may clear the output device selection: a
+  // network transmit fault is shown but must not blank the device the
+  // operator falls back to.
+  SoundOutputRouter::connectOutputFaults (
+    m_soundOutput, this,
+    [this] (TxEvidence::TxOutputError const& fault) {invalidateSoundOutDevice (fault);},
+    [this] (TxEvidence::TxOutputError const& fault) {showSoundOutError (fault);});
   // connect (m_soundOutput, &AudioOutputSink::status, this, &MainWindow::showStatusMessage);
   connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &AudioOutputSink::setAttenuation);
   connect (&m_audioThread, &QThread::finished, m_soundOutput, &QObject::deleteLater);
@@ -3670,6 +3687,11 @@ void MainWindow::applyAudioSourceSelection ()
       host = host.mid (1, host.size () - 2);
     }
 
+  // Transmit follows receive onto the same connection. The transmit lane is
+  // decided when the connection opens, so it is set before the endpoint that
+  // builds the connection; TCI audio owns both directions when it is on.
+  auto const network_tx = m_config.network_audio () && m_config.network_audio_tx () && !m_tci_audio;
+  m_audioRouter->setNetworkTransmit (network_tx);
   m_audioRouter->setNetworkServer (host, port);
   // TCI audio owns the RX path when it is on, so the router stays on the
   // soundcard arm even if the setting says otherwise -- Configuration refuses
@@ -3677,6 +3699,15 @@ void MainWindow::applyAudioSourceSelection ()
   m_audioRouter->selectSource (m_config.network_audio () && !m_tci_audio
                                ? AudioSourceRouter::Source::Network
                                : AudioSourceRouter::Source::Device);
+  // The output side follows the same setting. The sound card's output stream
+  // is still initialised as before -- setFormat () opens nothing -- so the
+  // device is ready the moment the selection returns to it; PTT is
+  // m_config.transceiver_ptt () whichever sink is playing.
+  if (m_outputRouter)
+    {
+      m_outputRouter->selectSink (network_tx ? SoundOutputRouter::Sink::Network
+                                             : SoundOutputRouter::Sink::Device);
+    }
 }
 
 void MainWindow::on_actionAbout_triggered()                  //Display "About"

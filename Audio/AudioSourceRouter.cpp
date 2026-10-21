@@ -89,10 +89,46 @@ void AudioSourceRouter::rebuildNetworkSource ()
       // that the transmit path can share it: the wire carries both directions
       // on one transport, and an RX stop must not take a transmission down.
       m_connection = new NetworkAudioConnection {m_host, m_port, this};
+      // Read once, when the source opens the connection: the transmit lane
+      // exists only if it was asked for before connect.
+      m_connection->setTransmitEnabled (m_transmit);
       m_network = new NetworkAudioInput {m_connection, this};
       adopt (m_network);
     }
 #endif
+}
+
+void AudioSourceRouter::setNetworkTransmit (bool enabled)
+{
+  if (QThread::currentThread () != thread ())
+    {
+      QMetaObject::invokeMethod (this, [this, enabled] {setNetworkTransmit (enabled);},
+                                 Qt::QueuedConnection);
+      return;
+    }
+  if (enabled == m_transmit)
+    {
+      return;
+    }
+  m_transmit = enabled;
+  if (!m_connection)
+    {
+      // Nothing built yet; rebuildNetworkSource reads the flag when it is.
+      return;
+    }
+  // The lane is decided at connect, so the connection is replaced -- the
+  // same way an endpoint change replaces it, and with the same restart of a
+  // running source. A borrower of the old connection must not cache it.
+  auto const was_active = Source::Network == m_source && m_started;
+  if (was_active)
+    {
+      active ()->stop ();
+    }
+  rebuildNetworkSource ();
+  if (was_active)
+    {
+      restartActive ();
+    }
 }
 
 AudioInputSource * AudioSourceRouter::active () const
