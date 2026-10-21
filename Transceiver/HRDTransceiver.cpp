@@ -550,6 +550,12 @@ auto HRDTransceiver::get_data_mode (MODE m) -> MODE
   return m;
 }
 
+bool HRDTransceiver::frequency_readback_expected (RigFrequency::Path path, Frequency target) const
+{
+  return path == RigFrequency::Path::Rx ? vfo_count_ > 1 || !state ().ptt ()
+    : target && vfo_count_ > 1;
+}
+
 void HRDTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 {
   CAT_TRACE (f << "reversed" << reversed_);

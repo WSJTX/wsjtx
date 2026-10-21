@@ -865,6 +865,14 @@ void HamlibTransceiver::do_stop ()
   CAT_TRACE ("state: " << state () << " reversed=" << m_->vfo_roles_.reversed ());
 }
 
+bool HamlibTransceiver::frequency_readback_expected (RigFrequency::Path path, Frequency target) const
+{
+  if (!m_->freq_query_works_) return false;
+  if (path == RigFrequency::Path::Rx) return !state ().ptt () || !state ().split ();
+  return target && (WSJT_RIG_NONE_CAN_SPLIT || !m_->is_dummy_) && !m_->one_VFO_
+    && (rig_get_caps_int (m_->model_, RIG_CAPS_TARGETABLE_VFO) & RIG_TARGETABLE_FREQ);
+}
+
 void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
 {
   CAT_TRACE ("f: " << f << " mode: " << m << " reversed: " << m_->vfo_roles_.reversed ());
@@ -927,6 +935,7 @@ void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
           update_mode (m);
         }
     }
+  else defer_frequency (RigFrequency::Path::Rx);
 }
 
 void HamlibTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
@@ -1035,6 +1044,7 @@ void HamlibTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore
               update_other_frequency (tx);
               update_split (tx);
             }
+          else defer_frequency (RigFrequency::Path::Tx);
         }
       else
         {
@@ -1055,6 +1065,7 @@ void HamlibTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore
           update_split (tx);
         }
     }
+  else defer_frequency (RigFrequency::Path::Tx);
 }
 
 void HamlibTransceiver::do_mode (MODE mode)

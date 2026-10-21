@@ -782,6 +782,7 @@ void OmniRigTransceiver::do_tx_frequency (Frequency tx, MODE m, bool /*no_ignore
       CAT_TRACE ("set SPLIT mode off");
       rig_->SetSimplexMode (state ().frequency ());
       update_split (false);
+      update_other_frequency (0, RigFrequency::Basis::BackendOperation);
     }
   bool notify {false};
   if (readable_params_ & OmniRig::PM_FREQ || !(readable_params_ & (OmniRig::PM_FREQA | OmniRig::PM_FREQB)))

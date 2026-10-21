@@ -8,6 +8,9 @@ Transceiver::Transceiver (logger_type * logger, QObject * parent)
   : QObject {parent}
   , logger_ {logger}
 {
+  qRegisterMetaType<RigFrequency::Request> ("RigFrequency::Request");
+  qRegisterMetaType<RigFrequency::Result> ("RigFrequency::Result");
+  qRegisterMetaType<RigFrequency::Evidence> ("RigFrequency::Evidence");
 }
 
 #if !defined (QT_NO_DEBUG_STREAM)
@@ -77,6 +80,8 @@ bool operator != (Transceiver::TransceiverState const& lhs, Transceiver::Transce
   return lhs.online_ != rhs.online_
     || lhs.rx_frequency_ != rhs.rx_frequency_
     || lhs.tx_frequency_ != rhs.tx_frequency_
+    || !RigFrequency::same_operation (lhs.frequency_requests_[0], rhs.frequency_requests_[0])
+    || !RigFrequency::same_operation (lhs.frequency_requests_[1], rhs.frequency_requests_[1])
     || lhs.mode_ != rhs.mode_
     || lhs.split_ != rhs.split_
     || lhs.ptt_ != rhs.ptt_

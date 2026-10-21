@@ -8,6 +8,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QTest>
+#include <QSignalSpy>
 #include <QTimer>
 #include <QVector>
 
@@ -1519,6 +1520,100 @@ private slots:
     QCOMPARE (harness.failure_count (), failure_cursor);
     QCOMPARE (harness.state ().frequency (), latest_target);
     QVERIFY (reentered);
+  }
+
+  void frequency_contract_requires_matching_vfo_evidence ()
+  {
+    using namespace RigFrequency;
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QSignalSpy results {&harness.rig (), &Transceiver::frequency_result};
+    QSignalSpy evidence {&harness.rig (), &Transceiver::frequency_observation};
+    harness.set_command_handler (
+      [&harness] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb != QStringLiteral ("vfo")
+            || args != QStringList {"0", "0", "14074400"}) return false;
+        harness.server ().send_text (QStringLiteral ("vfo:0,0,14074399"));
+        harness.server ().send_text_later (QStringLiteral ("vfo:0,0,14074400"), 10);
+        return true;
+      });
+    auto state = state_from (harness);
+    state.frequency (14074400);
+    state.frequency_request ({7, 500, Path::Rx, 14074400});
+    harness.set_now (state, 25);
+    QVERIFY (results.size () >= 2);
+    auto result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.request.generation, quint64 {7});
+    QCOMPARE (result.request.id, quint64 {500});
+    QCOMPARE (result.outcome, Outcome::Established);
+    QCOMPARE (result.basis, Basis::Readback);
+    QCOMPARE (result.applied, Frequency {14074400});
+    QVERIFY (evidence.size () >= 2);
+    for (auto const& arguments : results)
+      {
+        result = qvariant_cast<Result> (arguments.at (0));
+        if (result.outcome == Outcome::Established)
+          QCOMPARE (result.applied, Frequency {14074400});
+      }
+  }
+
+  void nearby_unacknowledged_frequency_is_a_failed_operation ()
+  {
+    using namespace RigFrequency;
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QSignalSpy results {&harness.rig (), &Transceiver::frequency_result};
+    harness.set_command_handler (
+      [&harness] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb != QStringLiteral ("vfo")
+            || args != QStringList {"0", "0", "14074450"}) return false;
+        harness.server ().send_text (QStringLiteral ("vfo:0,0,14074449"));
+        return true;
+      });
+    auto state = state_from (harness);
+    state.frequency (14074450);
+    state.frequency_request ({8, 501, Path::Rx, 14074450});
+    harness.set_now (state, 26);
+    QVERIFY (results.size () >= 2);
+    auto const result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.request.id, quint64 {501});
+    QCOMPARE (result.outcome, Outcome::Failed);
+    for (auto const& arguments : results)
+      QVERIFY (qvariant_cast<Result> (arguments.at (0)).outcome != Outcome::Established);
+  }
+
+  void repeated_mismatched_tx_reports_cannot_extend_the_deadline ()
+  {
+    using namespace RigFrequency;
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QSignalSpy results {&harness.rig (), &Transceiver::frequency_result};
+    harness.set_command_handler (
+      [&harness] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb != QStringLiteral ("vfo")
+            || args != QStringList {"0", "1", "14074500"}) return false;
+        for (int i = 0; i < 30; ++i)
+          harness.server ().send_text_later (QStringLiteral ("vfo:0,1,14074499"), i * 50);
+        return true;
+      });
+    auto state = state_from (harness);
+    state.tx_frequency (14074500);
+    state.split (true);
+    state.frequency_request ({9, 502, Path::Tx, 14074500});
+    QElapsedTimer deadline;
+    deadline.start ();
+    harness.set_now (state, 27);
+    QVERIFY2 (deadline.elapsed () < 1400, qPrintable (harness.diagnostics ()));
+    QVERIFY (results.size () >= 2);
+    auto const result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.request.id, quint64 {502});
+    QCOMPARE (result.outcome, Outcome::Failed);
   }
 };
 

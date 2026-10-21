@@ -213,6 +213,16 @@ target_include_directories (test_tx_inhibit_transceiver PRIVATE ${CMAKE_BINARY_D
 target_link_libraries (test_tx_inhibit_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_tx_inhibit_transceiver COMMAND test_tx_inhibit_transceiver)
 
+add_executable (test_transceiver_frequency
+  test_transceiver_frequency.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/TransceiverBase.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
+)
+target_include_directories (test_transceiver_frequency PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_transceiver_frequency Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
+add_test (NAME test_transceiver_frequency COMMAND test_transceiver_frequency)
+
 add_executable (test_hamlib_mode
   test_hamlib_mode.cpp
 )

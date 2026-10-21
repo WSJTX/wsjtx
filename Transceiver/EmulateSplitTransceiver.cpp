@@ -13,6 +13,10 @@ EmulateSplitTransceiver::EmulateSplitTransceiver (logger_type * logger,
 {
   // Connect update signal of wrapped Transceiver object instance to ours.
   connect (wrapped_.get (), &Transceiver::update, this, &EmulateSplitTransceiver::handle_update);
+  connect (wrapped_.get (), &Transceiver::frequency_result,
+           this, &EmulateSplitTransceiver::handle_frequency_result);
+  connect (wrapped_.get (), &Transceiver::frequency_observation,
+           this, &EmulateSplitTransceiver::handle_frequency_observation);
 
   // Connect other signals of wrapped Transceiver object to our
   // parent matching signals.
@@ -43,10 +47,49 @@ void EmulateSplitTransceiver::set (TransceiverState const& s, unsigned sequence_
   split_ = s.split ();
 
   TransceiverState emulated_state {s};
-  if (s.ptt () && split_) emulated_state.frequency (s.tx_frequency ());
+  auto const rx = s.frequency_request (RigFrequency::Path::Rx);
+  auto const tx = s.frequency_request (RigFrequency::Path::Tx);
+  if (rx) logical_rx_ = rx;
+  else if (logical_rx_.target != s.frequency ()) logical_rx_ = {};
+  if (tx) logical_tx_ = tx;
+  else if (logical_tx_.target != s.tx_frequency ()) logical_tx_ = {};
+  emulated_state.frequency_request (RigFrequency::Path::Rx, logical_rx_);
+  if (s.ptt () && split_)
+    {
+      emulated_state.frequency (s.tx_frequency ());
+      emulated_state.frequency_request (RigFrequency::Path::Rx, logical_tx_);
+      if (rx)
+        Q_EMIT frequency_result ({rx, RigFrequency::Outcome::Deferred,
+                                 RigFrequency::Basis::Retained, 0});
+    }
+  else if (tx && !RigFrequency::same_operation (tx, emulated_tx_))
+    {
+      emulated_tx_ = tx;
+      Q_EMIT frequency_result ({tx, RigFrequency::Outcome::Established,
+                               RigFrequency::Basis::Emulated, tx.target});
+    }
+  emulated_state.frequency_request (RigFrequency::Path::Tx, {});
+  physical_request_ = emulated_state.frequency_request (RigFrequency::Path::Rx);
   emulated_state.split (false);
   emulated_state.tx_frequency (0);
   wrapped_->set (emulated_state, sequence_number);
+}
+
+void EmulateSplitTransceiver::handle_frequency_result (RigFrequency::Result const& result)
+{
+  if (result.outcome == RigFrequency::Outcome::Established
+      && result.basis != RigFrequency::Basis::Emulated
+      && RigFrequency::same_operation (result.request, physical_request_))
+    physical_path_ = result.request.path;
+  Q_EMIT frequency_result (result);
+}
+
+void EmulateSplitTransceiver::handle_frequency_observation (RigFrequency::Evidence const& report)
+{
+  auto logical = report;
+  if (!logical.operation && logical.path == RigFrequency::Path::Rx)
+    logical.path = physical_path_;
+  Q_EMIT frequency_observation (logical);
 }
 
 void EmulateSplitTransceiver::handle_update (TransceiverState const& state,

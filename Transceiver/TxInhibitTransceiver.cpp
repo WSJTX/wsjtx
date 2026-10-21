@@ -53,6 +53,9 @@ TxInhibitTransceiver::TxInhibitTransceiver (logger_type * logger,
   connect (wrapped_.get (), &Transceiver::jtty_enqueue_accepted, this, &Transceiver::jtty_enqueue_accepted);
   connect (wrapped_.get (), &Transceiver::jtty_enqueue_failed, this, &Transceiver::jtty_enqueue_failed);
   connect (wrapped_.get (), &Transceiver::update, this, &Transceiver::update);
+  connect (wrapped_.get (), &Transceiver::frequency_result, this, &Transceiver::frequency_result);
+  connect (wrapped_.get (), &Transceiver::frequency_observation,
+           this, &Transceiver::frequency_observation);
   connect (wrapped_.get (), &Transceiver::finished, this, &Transceiver::finished);
   connect (wrapped_.get (), &Transceiver::failure, this, &Transceiver::failure);
 }

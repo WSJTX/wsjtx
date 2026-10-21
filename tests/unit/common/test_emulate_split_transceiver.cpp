@@ -34,6 +34,9 @@ public:
   }
 
   void send_receive_audio (ReceiveAudio audio) { Q_EMIT receiveAudio (audio); }
+  void send_result (RigFrequency::Result const& result) { Q_EMIT frequency_result (result); }
+  void send_observation (RigFrequency::Evidence const& evidence)
+  { Q_EMIT frequency_observation (evidence); }
 
   TransceiverState last_state;
   unsigned last_sequence_number {0};
@@ -44,6 +47,58 @@ class TestEmulateSplitTransceiver : public QObject
   Q_OBJECT
 
 private:
+  Q_SLOT void logicalFrequencyEvidenceFollowsPhysicalPath ()
+  {
+    using namespace RigFrequency;
+    auto * fake = new FakeTransceiver;
+    EmulateSplitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    QVector<Result> results;
+    QVector<Evidence> observations;
+    connect (&transceiver, &Transceiver::frequency_result, this,
+             [&] (Result const& result) { results.append (result); });
+    connect (&transceiver, &Transceiver::frequency_observation, this,
+             [&] (Evidence const& report) { observations.append (report); });
+    Transceiver::TransceiverState state;
+    state.online (true);
+    state.frequency (144200100);
+    state.tx_frequency (144199900);
+    state.split (true);
+    Request const rx {7, 1, Path::Rx, state.frequency ()};
+    Request const tx {7, 2, Path::Tx, state.tx_frequency ()};
+    state.frequency_request (rx);
+    state.frequency_request (tx);
+    transceiver.set (state, 1);
+    QCOMPARE (results.size (), 1);
+    QCOMPARE (results.last ().request.path, Path::Tx);
+    QCOMPARE (results.last ().basis, Basis::Emulated);
+    QVERIFY (!fake->last_state.frequency_request (Path::Tx));
+    fake->send_result ({rx, Outcome::Established, Basis::Readback, rx.target});
+    state.frequency_request (Path::Rx, {});
+    state.frequency_request (Path::Tx, {});
+    state.ptt (true);
+    transceiver.set (state, 2);
+    auto const physical = fake->last_state.frequency_request (Path::Rx);
+    QVERIFY (same_operation (physical, tx));
+    QCOMPARE (physical.target, tx.target);
+    QCOMPARE (results.last ().request.path, Path::Rx);
+    fake->send_result ({tx, Outcome::Established, Basis::Readback, tx.target});
+    fake->send_observation ({7, 1, Path::Rx, tx.target, Basis::Readback, {}});
+    QCOMPARE (observations.last ().path, Path::Tx);
+    QCOMPARE (observations.last ().value, tx.target);
+    state.ptt (false);
+    transceiver.set (state, 3);
+    fake->send_result ({rx, Outcome::Established, Basis::Readback, rx.target});
+    fake->send_observation ({7, 2, Path::Rx, rx.target + 1000, Basis::Readback, {}});
+    QCOMPARE (observations.last ().path, Path::Rx);
+    QCOMPARE (observations.last ().value, rx.target + 1000);
+    // A delayed command result retains the operation's logical path.
+    fake->send_result ({tx, Outcome::Established, Basis::Readback, tx.target});
+    QCOMPARE (results.last ().request.id, tx.id);
+    QCOMPARE (results.last ().request.path, Path::Tx);
+    fake->send_observation ({7, 3, Path::Rx, rx.target + 2000, Basis::Readback, {}});
+    QCOMPARE (observations.last ().path, Path::Rx);
+  }
+
   Q_SLOT void forwardsReceiveAudio ()
   {
     auto * raw_fake = new FakeTransceiver;

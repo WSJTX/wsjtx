@@ -10,11 +10,6 @@
 #include <QStandardPaths>
 #include "moc_PollingTransceiver.cpp"
 
-namespace
-{
-  unsigned const polls_to_stabilize {3};
-}
-
 PollingTransceiver::PollingTransceiver (logger_type * logger, int poll_interval, QObject * parent)
   : TransceiverBase {logger, parent}
   , interval_ {poll_interval * 1000}
@@ -146,6 +141,7 @@ void PollingTransceiver::handle_timeout ()
   try
     {
       do_poll ();              // tell sub-classes to update our state
+      frequency_poll_complete ();
 
       // Signal new state if it what we expected or, hasn't become
       // what we expected after polls_to_stabilize polls. Unsolicited

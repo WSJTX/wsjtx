@@ -11,6 +11,7 @@
 
 #include "qt_helpers.hpp"
 #include "Radio.hpp"
+#include "FrequencyControl.hpp"
 #include "Audio/TxAudioQueue.hpp"
 #include "Audio/TxIdentity.hpp"
 #include "Audio/TxPlaybackEvidence.hpp"
@@ -119,6 +120,8 @@ public:
     bool online () const {return online_;}
     Frequency frequency () const {return rx_frequency_;}
     Frequency tx_frequency () const {return tx_frequency_;}
+    RigFrequency::Request const& frequency_request (RigFrequency::Path path) const
+    { return frequency_requests_[path == RigFrequency::Path::Tx]; }
     bool split () const {return Split::on == split_;}
     MODE mode () const {return mode_;}
     bool ptt () const {return ptt_;}
@@ -153,6 +156,10 @@ public:
     void online (bool state) {online_ = state;}
     void frequency (Frequency f) {rx_frequency_ = f;}
     void tx_frequency (Frequency f) {tx_frequency_ = f;}
+    void frequency_request (RigFrequency::Request const& request)
+    { frequency_requests_[request.path == RigFrequency::Path::Tx] = request; }
+    void frequency_request (RigFrequency::Path slot, RigFrequency::Request const& request)
+    { frequency_requests_[slot == RigFrequency::Path::Tx] = request; }
     void split (bool state) {split_ = state ? Split::on : Split::off;}
     void mode (MODE m) {mode_ = m;}
     void ptt (bool state) {ptt_ = state;}
@@ -188,6 +195,7 @@ public:
     bool online_;
     Frequency rx_frequency_;
     Frequency tx_frequency_;    // 0 means use Rx
+    RigFrequency::Request frequency_requests_[2];
     MODE mode_;
     enum class Split {unknown, off, on} split_;
     bool ptt_;
@@ -277,6 +285,8 @@ public:
   // rig state changed
   Q_SIGNAL void update (Transceiver::TransceiverState const&,
                         unsigned sequence_number) const;
+  Q_SIGNAL void frequency_result (RigFrequency::Result const&) const;
+  Q_SIGNAL void frequency_observation (RigFrequency::Evidence const&) const;
   // something went wrong - not recoverable, start new instance
   Q_SIGNAL void failure (QString const& reason) const;
 

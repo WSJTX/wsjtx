@@ -62,6 +62,7 @@ class TransceiverBase
   Q_OBJECT;
 
 protected:
+  static constexpr unsigned polls_to_stabilize = 3;
   TransceiverBase (logger_type * logger, QObject * parent)
     : Transceiver {logger, parent}
     , last_sequence_number_ {0}
@@ -129,10 +130,14 @@ protected:
   virtual void do_modulator_stop(bool) {}
 
   virtual bool do_pre_update () {return true;}
+  virtual bool frequency_readback_expected (RigFrequency::Path, Frequency) const {return false;}
 
   // sub classes report rig state changes with these methods
-  void update_rx_frequency (Frequency);
-  void update_other_frequency (Frequency = 0);
+  void update_rx_frequency (Frequency, RigFrequency::Basis = RigFrequency::Basis::Retained);
+  void update_other_frequency (Frequency = 0, RigFrequency::Basis = RigFrequency::Basis::Retained);
+  void defer_frequency (RigFrequency::Path);
+  void fail_pending_frequencies ();
+  void frequency_poll_complete ();
   void update_split (bool);
   void update_mode (MODE);
   void update_PTT (bool = true);
@@ -150,6 +155,8 @@ private:
   void startup ();
   void shutdown ();
   bool maybe_low_resolution (Frequency low_res, Frequency high_res);
+  void apply_frequency (TransceiverState const&, RigFrequency::Path, bool force);
+  void frequency_evidence (RigFrequency::Path, Frequency, RigFrequency::Basis);
 
   // use this convenience class to notify in update methods
   class may_update
@@ -169,6 +176,14 @@ private:
   TransceiverState actual_;
   TransceiverState last_;
   unsigned last_sequence_number_;    // from set state operation
+  RigFrequency::Request active_frequency_[2];
+  RigFrequency::Result * active_frequency_result_[2] {nullptr, nullptr};
+  RigFrequency::Result frequency_results_[2];
+  RigFrequency::Basis frequency_basis_[2] {RigFrequency::Basis::Retained, RigFrequency::Basis::Retained};
+  unsigned frequency_polls_remaining_[2] {0, 0};
+  quint64 frequency_generation_ {0};
+  quint64 frequency_serial_ {0};
+  bool failure_reported_ {false};
   bool period_applied_ {false};
   double applied_period_ {0.0};
 };
