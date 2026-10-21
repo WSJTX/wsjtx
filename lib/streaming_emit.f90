@@ -32,6 +32,42 @@
 !                     submode, minimum_width, trials, qso_progress, contest,
 !                     threads, period_seconds, blanker_percent,
 !                     eme_delay_seconds, max_drift, utc, ...).
+!   pass_skipped      {"v":1,"t":"pass_skipped","mode":"FT8","period_end":"HHMMSS",
+!                      "nzhsym":41,"stage":"early","reason":"busy"}
+!                     Live audio only (configure's live_audio; a producer that
+!                     does not send it gets every pass, however far behind, and
+!                     up to 16 MiB of its input buffered): a decode pass the GUI
+!                     would not run.
+!                     nzhsym is the pass's half-symbol: 41, 46 or 47 for an
+!                     early FT8 pass, the mode's stop point for a final (FT8
+!                     48 to 50, FT4 21, ...). stage is "early" or "final".
+!                     reason "busy": the decoder was busy when the pass's
+!                     trigger fired, with a decode running or a final waiting.
+!                     A trigger fires when its last sample arrives, or when
+!                     that sample is due if later. Audio is due at 12 kHz from
+!                     the arrival of the session's first sample; audio the
+!                     stream had to wait for moves that start earlier, by no
+!                     more than the time it waited and never later, and a
+!                     discontinuity sets it again.
+!                     "backoff": multithreaded FT8 skips early passes until it
+!                     catches up. "replaced": a waiting final gave way to a
+!                     later one. "cancelled": a waiting final was dropped as
+!                     the GUI drops it: by a configure that changes the mode,
+!                     the period, live_audio, or a decoder or station setting
+!                     the GUI cancels on; or, when the final is taken up,
+!                     because its decode range or submode changed while it
+!                     waited. period_end is the label of the period's
+!                     decode_finished, which a period whose final is skipped
+!                     still sends: one per period, and one more per decode
+!                     again (none for a period a mode or period change
+!                     discards, or a SuperFox even-sequence period whose stop
+!                     is below 50). Periods' events can interleave; group them
+!                     by period_end.
+!
+!   error (memory)    {"v":1,"t":"error","code":"out_of_memory",
+!                      "detail":"no memory to buffer the input"}
+!                     The stream could not buffer its input: the session ends,
+!                     exit 1.
 !
 ! Activation: lib/jt9.f90 calls streaming_emit_set_enabled(.true.) when
 ! --stream is parsed; only wsjt-codec runs the stream. Decoder per-mode sites
@@ -50,6 +86,15 @@ module streaming_emit
   real(8), save :: trperiod_ = 60.d0
   ! decode_finished ends a period's decode; passes before the last hold it.
   logical, save :: finished_held_ = .false.
+  ! The stream host's clock, and when it last sent decode_finished by it.
+  abstract interface
+     function emit_clock() result(t) bind(C)
+       use, intrinsic :: iso_c_binding, only: c_double
+       real(c_double) :: t
+     end function emit_clock
+  end interface
+  procedure(emit_clock), pointer, save :: clock_ => null()
+  real(8), save :: finished_at_ = -huge(1.d0)
 
   public :: streaming_emit_set_enabled
   public :: streaming_emit_set_time_form
@@ -59,6 +104,9 @@ module streaming_emit
   public :: streaming_emit_decode
   public :: streaming_emit_decode_finished
   public :: streaming_emit_hold_finished
+  public :: streaming_emit_pass_skipped
+  public :: streaming_emit_set_clock
+  public :: streaming_emit_finished_at
   public :: streaming_emit_error
   public :: streaming_emit_error_code
   public :: streaming_emit_error_version
@@ -153,17 +201,43 @@ contains
     finished_held_ = hold
   end subroutine streaming_emit_hold_finished
 
+  subroutine streaming_emit_set_clock(clock)
+    procedure(emit_clock) :: clock
+    clock_ => clock
+  end subroutine streaming_emit_set_clock
+
+  real(8) function streaming_emit_finished_at()
+    streaming_emit_finished_at = finished_at_
+  end function streaming_emit_finished_at
+
   subroutine streaming_emit_decode_finished(nutc, utc_is_hhmmss)
     integer, intent(in) :: nutc
     logical, optional, intent(in) :: utc_is_hhmmss
     character(len=8)    :: time_str
     if (.not. enabled_ .or. finished_held_) return
+    ! Stamped before the line goes out, so no answer to it can precede it.
+    if (associated(clock_)) finished_at_ = clock_()
     call format_utc_(nutc, time_str, utc_is_hhmmss)
     write(output_unit, '(3a)')                                             &
          '{"v":1,"t":"decode_finished","period_end":"', trim(time_str),    &
          '"}'
     flush(output_unit)
   end subroutine streaming_emit_decode_finished
+
+  ! nzhsym is the pass's half-symbol; stage and reason are protocol tokens.
+  subroutine streaming_emit_pass_skipped(mode, nutc, utc_is_hhmmss, nzhsym, stage, reason)
+    integer,          intent(in) :: mode, nutc, nzhsym
+    logical,          intent(in) :: utc_is_hhmmss
+    character(len=*), intent(in) :: stage, reason
+    character(len=8)             :: time_str
+    if (.not. enabled_) return
+    call format_utc_(nutc, time_str, utc_is_hhmmss)
+    write(output_unit, '(5a,i0,5a)')                                       &
+         '{"v":1,"t":"pass_skipped","mode":"', trim(streaming_emit_mode_name(mode)), &
+         '","period_end":"', trim(time_str), '","nzhsym":', nzhsym,        &
+         ',"stage":"', stage, '","reason":"', reason, '"}'
+    flush(output_unit)
+  end subroutine streaming_emit_pass_skipped
 
   subroutine streaming_emit_error(msg)
     character(len=*), intent(in) :: msg

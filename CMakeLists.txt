@@ -987,6 +987,9 @@ if (WSJT_BUILD_FORTRAN_OPENMP)
 else ()
   target_link_libraries (wsjt-codec wsjt_fort wsjt_cxx)
 endif ()
+# lib/stream_stdin.c reads stdin on its own thread.
+find_package (Threads REQUIRED)
+target_link_libraries (wsjt-codec Threads::Threads)
 
 if (WSJT_ENABLE_TESTS AND (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
   if (APPLE)

@@ -66,14 +66,15 @@
 ! preconnected unit 5 with ACCESS='STREAM' is non-conforming (F2018
 ! 12.5.6.1 — ACCESS is not a changeable mode), rejected by libgfortran
 ! everywhere. Binary mode is forced on Windows first via
-! stream_set_stdin_binary (lib/stream_setmode.c; no-op on POSIX). The
-! helper loops read() until the request fills or the stream truly ends,
-! so a pipe short-read is never mistaken for EOF.
+! stream_set_stdin_binary (lib/stream_setmode.c; no-op on POSIX). A
+! reader thread there drains fd 0 while the stream decodes; a request
+! returns short only at the end of input, so a pipe short-read is never
+! mistaken for EOF.
 
 subroutine jt9_stream(shared_data, mode, TRperiod)
   use, intrinsic :: iso_fortran_env, only: int8, int16, int64, error_unit
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
-  use, intrinsic :: iso_c_binding, only: c_int64_t
+  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_double
   use prog_args, only: data_dir
   use timer_module, only: timer
   use streaming_emit, only: streaming_emit_ready,                          &
@@ -81,17 +82,22 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        streaming_emit_error_code, streaming_emit_error_version,            &
        streaming_emit_error_type, streaming_emit_set_time_form,            &
        streaming_emit_utc_from_iso, streaming_emit_hold_finished,          &
-       streaming_emit_error_range, streaming_emit_mode_name
+       streaming_emit_error_range, streaming_emit_mode_name,               &
+       streaming_emit_pass_skipped, streaming_emit_set_clock,              &
+       streaming_emit_finished_at
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
        CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, MODE_JTTY
   use streaming_apply, only: apply_configure_fields, engine_range_key
-  use decoder_engine, only: engine_params_problem, option_problem
+  use decoder_engine, only: engine_params_problem, option_problem,       &
+       engine_begin_input
   use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
        jtty_emit_range_error, jtty_release, jtty_note_station, jtty_encode
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready, period_set_stop,           &
-       gui_hsym_stop, HSYM_SAMPLES
+       gui_hsym_stop, HSYM_SAMPLES, trigger_fire_time, read_passes_busy_end, &
+       clock_start
+  use streaming_apply, only: ft8_settings_change, ft8_identity_change
 
   include 'jt9com.f90'
 
@@ -152,7 +158,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   character(len=:), allocatable :: range_key
   type(option_problem) :: problem
   type(configure_fields) :: no_keys
-  logical :: next_eme_on
+  logical :: next_eme_on, next_live
   ! Audio samples consumed in any mode; JTTY's origin and times count them.
   integer(int64) :: stream_samples
   ! Session-baseline nfa/nfb stashed after jt9.f90's init_streaming_extra_fields
@@ -163,6 +169,32 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   type(configure_fields)   :: cfg
   type(control_type_error) :: terr
   integer :: action
+  ! Periods begun, and the one the engine's input belongs to.
+  integer(int64) :: period_number, engine_period
+  ! Live audio's busy decoder, the GUI's at a decode trigger: a trigger fires
+  ! when its last byte arrived or its last sample is due, if later (stream
+  ! sample k is due at t0 + k/12000; t0 is set by the first sample's arrival,
+  ! and the first after a discontinuity, and moves only earlier, read_audio),
+  ! and the decoder is busy until busy_until, when the last decode ended, and
+  ! while a final is deferred.
+  ! ending: halt or end of input, where no pass is skipped.
+  real(8) :: t0, busy_until
+  logical :: anchored, ending
+  ! The multithreaded FT8 final deferred while the decoder was busy: its
+  ! period's samples, params, number and time form.
+  logical :: deferred, deferred_iso
+  integer :: deferred_k
+  integer(int64) :: deferred_period
+  type(params_block) :: deferred_params
+  integer(int16), allocatable, save :: deferred_id2(:)
+  ! The last early pass's completion, which the scheduler takes, as the
+  ! GUI's does, only when the decoder frees.
+  logical :: completion_due
+  integer :: completion_stage
+  integer(int64) :: completion_period
+  ! lib/stream_ft8_backpressure.cpp's stages and decisions.
+  integer, parameter :: EARLY_ONE = 1, EARLY_TWO = 2, FINAL_STAGE = 3
+  integer, parameter :: ACTION_PUBLISH = 0, ACTION_DEFER = 2, ACTION_REPLACE = 3
 
   ! C stdin helpers. stream_set_stdin_binary (lib/stream_setmode.c) is a
   ! no-op on POSIX; stream_stdin_read_fully (lib/stream_stdin.c) is the
@@ -177,6 +209,48 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        integer(c_int64_t), value :: n
        integer(c_int64_t) :: nread
      end function stream_stdin_read_fully
+     function stream_stdin_now() result(t) bind(C, name="stream_stdin_now")
+       import :: c_double
+       real(c_double) :: t
+     end function stream_stdin_now
+     function stream_stdin_arrival() result(t) bind(C, name="stream_stdin_arrival")
+       import :: c_double
+       real(c_double) :: t
+     end function stream_stdin_arrival
+     function stream_stdin_waited() result(w) bind(C, name="stream_stdin_waited")
+       import :: c_double
+       real(c_double) :: w
+     end function stream_stdin_waited
+     function stream_stdin_buffered_before(t) result(n)                   &
+          bind(C, name="stream_stdin_buffered_before")
+       import :: c_double, c_int64_t
+       real(c_double), value :: t
+       integer(c_int64_t) :: n
+     end function stream_stdin_buffered_before
+     ! The GUI's multithreaded FT8 scheduler (lib/stream_ft8_backpressure.cpp).
+     function stream_ft8_backpressure_request(stage, period, early_stages, &
+          busy, pending) result(decision)                                  &
+          bind(C, name="stream_ft8_backpressure_request")
+       import :: c_int, c_int64_t
+       integer(c_int), value :: stage, early_stages, busy, pending
+       integer(c_int64_t), value :: period
+       integer(c_int) :: decision
+     end function stream_ft8_backpressure_request
+     subroutine stream_ft8_backpressure_published(stage, period)          &
+          bind(C, name="stream_ft8_backpressure_published")
+       import :: c_int, c_int64_t
+       integer(c_int), value :: stage
+       integer(c_int64_t), value :: period
+     end subroutine stream_ft8_backpressure_published
+     subroutine stream_ft8_backpressure_completed(stage, period)          &
+          bind(C, name="stream_ft8_backpressure_completed")
+       import :: c_int, c_int64_t
+       integer(c_int), value :: stage
+       integer(c_int64_t), value :: period
+     end subroutine stream_ft8_backpressure_completed
+     subroutine stream_ft8_backpressure_cancel()                          &
+          bind(C, name="stream_ft8_backpressure_cancel")
+     end subroutine stream_ft8_backpressure_cancel
   end interface
 
   bLowSidelobes = .false.
@@ -187,6 +261,17 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! below) — no Fortran unit is opened. Binary mode must be forced before
   ! the first read on Windows or the CRT stops at 0x1A and rewrites CRLF.
   call stream_set_stdin_binary()
+
+  ! Every stdin_read reads the busy model's state.
+  call streaming_emit_set_clock(stream_stdin_now)
+  period_number = 0
+  engine_period = -1
+  t0 = 0
+  busy_until = -huge(busy_until)
+  anchored = .false.
+  ending = .false.
+  deferred = .false.
+  completion_due = .false.
 
   call stdin_read(hdr, HDR_LEN, ios)
   if (ios /= 0) then
@@ -240,7 +325,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   !
   ! ndiskdat is the GUI's file input. With live_audio, FT8 bails out on the
   ! wall clock as the GUI's live decodes do (ft8_decode.f90), which assumes
-  ! the stream's periods start on the UTC period boundaries.
+  ! the stream's periods start on the UTC period boundaries, and a pass the
+  ! GUI's busy decoder would not run is skipped (pass_skipped).
   eme_delay_on  = .false.
   live_audio    = .false.
   pending_again = 0
@@ -411,6 +497,19 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     cycle
                  end if
               end if
+              ! Where the GUI cancels its multithreaded FT8 backpressure, the
+              ! stream does too, dropping a waiting final; the dropped final's
+              ! period ends first, under its own labels.
+              next_live = live_audio
+              if (cfg%live_audio_set) next_live = cfg%live_audio
+              if (next_mode .ne. mode .or. next_TRperiod .ne. TRperiod .or.     &
+                   (next_live .neqv. live_audio) .or.                          &
+                   ft8_settings_change(shared_data%params, next_params)) then
+                 call stream_ft8_backpressure_cancel()
+                 if (deferred) call skip_pass(deferred_params%nzhsym, .true.,  &
+                      'cancelled', deferred_params, deferred_iso)
+                 deferred = .false.
+              end if
               if (mode .eq. MODE_JTTY .and. next_mode .ne. MODE_JTTY)       &
                    call jtty_end(shared_data%params)
               prev_mode          = mode
@@ -446,6 +545,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     call streaming_emit_error_code('decode_again_unavailable', &
                          'no decoded period to decode again (none yet or since a ' // &
                          'mode or period change; MSK144 and JTTY keep none)')
+                 else if (busy()) then
+                    ! The GUI's Decode button is disabled while its decoder is busy.
+                    call streaming_emit_error_code('decode_again_unavailable', &
+                         'the decoder is busy')
                  else if (mode .eq. 8 .and. ft8_done .gt. 0 .and. .not. decoded) then
                     ! Between this period's FT8 passes the decoder holds their
                     ! state; the request runs after the last pass.
@@ -460,6 +563,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  if (period_ready(period)) call run_period_decode()
               end if
            case (CTRL_DISCONTINUITY)
+              anchored = .false.
               if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
            case (CTRL_PACK, CTRL_RENDER)
               call jtty_encode(ctl_buf(1:frame_len), action .eq. CTRL_RENDER)
@@ -483,7 +587,11 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      end do
 
      ! A period cut short (halt, or the producer closed the pipe) still
-     ! decodes what it has — once.
+     ! decodes what it has — once, after a deferred final, and is not skipped.
+     if (halt_req .or. eof_period) then
+        ending = .true.
+        call decoder_frees()
+     end if
      if (.not. decoded .and. period%k .gt. 0) call run_period_decode()
 
      if (halt_req .or. eof_period) then
@@ -505,6 +613,7 @@ contains
     end do
     call period_begin(period, TRperiod, mode, size(shared_data%id2), current_stop(), &
          file_reads_whole())
+    period_number = period_number + 1
     shared_data%id2 = 0
     nhsym    = 0
     nhsym0   = 0       ! seed at 0 so the symspec catch-up loop is O(nhsym)
@@ -544,14 +653,15 @@ contains
   ! SuperFox Hound's standard final too: 41 at decoder starts 0 and 1, then 46
   ! at depth 2 at start 1, none from start 2; otherwise 41 and 47. From a file,
   ! jt9a's: 41 and 46 below start 2 for the multithreaded decoder, else 41
-  ! and 47. On SuperFox's even sequence the GUI decodes nothing before 50.
+  ! and 47. On SuperFox's even sequence the GUI decodes nothing before 50,
+  ! though its multithreaded backpressure sees the live early triggers.
   subroutine ft8_early_schedule(h, n, depth2)
     integer, intent(out) :: h(2), n
     logical, intent(out) :: depth2
     h = 0
     n = 0
     depth2 = .false.
-    if (superfox_even()) then
+    if (superfox_even() .and. .not. backpressure()) then
        if (live_audio .or. current_stop() .lt. 50) return
     end if
     if (live_audio .and. shared_data%params%lmultift8) then
@@ -602,13 +712,18 @@ contains
   ! every, each one still to run (a period cut short decodes what it has).
   subroutine run_early_ft8(every)
     logical, intent(in) :: every
-    integer :: h(2), n, i, ndepth0, ncycles0
+    integer :: h(2), n, i, ndepth0, ncycles0, stage
     logical :: depth2, requested
     if (mode .ne. 8 .or. decoded) return
     call ft8_early_schedule(h, n, depth2)
     do i = 1, n
        if (h(i) .le. ft8_done) cycle
        if (.not. every .and. period%k .lt. h(i) * HSYM_SAMPLES) exit
+       stage = merge(EARLY_ONE, EARLY_TWO, i .eq. 1)
+       if (.not. early_pass_runs(h(i), stage)) then
+          ft8_done = h(i)
+          cycle
+       end if
        shared_data%params%newdat = .true.
        shared_data%params%nagain = .false.
        requested = shared_data%params%lmultift8
@@ -628,6 +743,11 @@ contains
        shared_data%params%lmultift8  = requested
        shared_data%params%ndepth     = ndepth0
        shared_data%params%nft8cycles = ncycles0
+       if (backpressure()) then
+          completion_due    = .true.
+          completion_stage  = stage
+          completion_period = period_number
+       end if
        ft8_done = h(i)
     end do
   end subroutine run_early_ft8
@@ -636,8 +756,9 @@ contains
   ! period: when the decoder's share is in, or from the drain when the
   ! period ends short of it.
   subroutine run_period_decode()
-    integer :: nstop
+    integer :: nstop, decision
     logical :: requested, multithreaded, at_stop
+    real(8) :: finished_before
     nstop = current_stop()
     ! The GUI's nzhsym is its stop point, for a decode at it, live or from a
     ! file; a period cut short decodes what it has. FT8 is tuned for its stop
@@ -645,7 +766,10 @@ contains
     at_stop = period_ready(period) .and. nstop .gt. 0 .and.                 &
          nstop * HSYM_SAMPLES .le. period%nperiod
     if (mode .eq. 8 .and. superfox_even() .and. nstop .lt. 50) then
-       ! On SuperFox's even sequence the GUI decodes nothing before 50.
+       ! On SuperFox's even sequence the GUI decodes nothing before 50, after
+       ! asking its multithreaded backpressure.
+       if (backpressure()) decision = stream_ft8_backpressure_request(FINAL_STAGE, &
+            period_number, early_stages(), merge(1, 0, busy()), merge(1, 0, deferred))
        decoded = .true.
        call run_pending_again()
        return
@@ -670,14 +794,30 @@ contains
 
     requested = shared_data%params%lmultift8
     multithreaded = requested .and. .not. superfox_hound()
+    if (backpressure()) then
+       decision = stream_ft8_backpressure_request(FINAL_STAGE, period_number, &
+            early_stages(), merge(1, 0, busy()), merge(1, 0, deferred))
+       if (decision .eq. ACTION_DEFER .or. decision .eq. ACTION_REPLACE) then
+          call defer_final()
+          call run_pending_again()
+          return
+       end if
+    else if (mode .ne. 144 .and. busy()) then
+       ! The GUI decodes MSK144 as its audio comes in, never refused.
+       call skip_pass(shared_data%params%nzhsym, .true., 'busy', shared_data%params)
+       call run_pending_again()
+       return
+    end if
+    call begin_engine_input(period_number)
+    finished_before = streaming_emit_finished_at()
     if (mode .eq. 144) then
        call report_pass(period%k)
        call decode_msk144(shared_data%id2, shared_data%params, data_dir)
     else if (mode .eq. 8 .and. .not. multithreaded) then
-       ! The final pass of the standard decoder's sequence; the early passes
-       ! fill ft8_decode.f90's saved `dd`, without which it decodes silence.
-       ! Live it sees the audio up to the stop; from a file the GUI's final
-       ! reads the whole period (lib/jt9a.f90).
+       ! The final pass of the standard decoder's sequence: it goes on from
+       ! the audio this period's early passes saved in ft8_decode.f90, or
+       ! takes its own when none ran. Live it sees the audio up to the stop;
+       ! from a file the GUI's final reads the whole period (lib/jt9a.f90).
        shared_data%params%lmultift8 = .false.
        if (live_audio) then
           call ft8_window_pass(shared_data%params%nzhsym)
@@ -697,6 +837,8 @@ contains
        call multimode_decoder(shared_data%ss, shared_data%id2,         &
             shared_data%params, NFSAMPLE)
     end if
+    busy_until = decoder_freed_at(finished_before)
+    if (backpressure()) call stream_ft8_backpressure_published(FINAL_STAGE, period_number)
     if(mode==66) shared_data%params%nclearave=.false.
     call run_pending_again()
     if (mode .eq. 144 .or. mode .eq. MODE_JTTY) then
@@ -722,6 +864,7 @@ contains
   subroutine decode_again()
     integer :: k_now, nutc_now, nzhsym_now, kin_now
     logical :: requested, even_now, iso_now
+    real(8) :: finished_before
     k_now    = period%k
     nutc_now = shared_data%params%nutc
     nzhsym_now = shared_data%params%nzhsym
@@ -749,7 +892,9 @@ contains
     if (mode .eq. 8 .and. .not. shared_data%params%lmultift8)              &
          shared_data%params%nzhsym = 50
     call report_pass(again_k)
+    finished_before = streaming_emit_finished_at()
     call multimode_decoder(shared_data%ss, shared_data%id2, shared_data%params, NFSAMPLE)
+    busy_until = decoder_freed_at(finished_before)
     if (mode .eq. 66) shared_data%params%nclearave = .false.
     shared_data%params%lmultift8 = requested
     shared_data%params%nagain = .false.
@@ -824,11 +969,15 @@ contains
   ! One FT8 pass over the first nz half-symbols, the rest zeroed.
   subroutine ft8_window_pass(nz)
     integer, intent(in) :: nz
+    real(8) :: finished_before
     shared_data%params%nzhsym = nz
+    call begin_engine_input(period_number)
     id2a(1:nz*3456) = shared_data%id2(1:nz*3456)
     id2a(nz*3456+1:) = 0
     call report_pass(period%k)
+    finished_before = streaming_emit_finished_at()
     call multimode_decoder(shared_data%ss, id2a, shared_data%params, NFSAMPLE)
+    busy_until = decoder_freed_at(finished_before)
   end subroutine ft8_window_pass
 
   ! Each decode pass on stderr: the samples in when it ran, and how.
@@ -856,7 +1005,7 @@ contains
        ! The read ends at the next pass's sample, so that pass runs on time.
        if (.not. decoded) take_samples = min(take_samples, max(1, next_pass_samples() - period%k))
        take_bytes   = 2 * take_samples
-       call stdin_read(chunk, take_bytes, ios)
+       call read_audio(chunk, take_samples, ios)
        if (ios /= 0) then
           eof_period = .true.; return
        end if
@@ -892,7 +1041,7 @@ contains
     do while (body_left .gt. 0)
        take_samples = min(body_left / 2, size(chunk))
        take_bytes   = 2 * take_samples
-       call stdin_read(chunk, take_bytes, ios)
+       call read_audio(chunk, take_samples, ios)
        if (ios /= 0) then
           eof_period = .true.; return
        end if
@@ -903,17 +1052,220 @@ contains
   end subroutine consume_jtty_body
 
   ! Read exactly nbytes from stdin via the C helper; ios=0 on success,
-  ! ios=1 on end-of-stream (short delivery — the producer closed the
-  ! pipe). Every caller treats nonzero ios as end-of-stream, matching
-  ! the old unformatted-stream-read iostat contract.
-  subroutine stdin_read(buf, nbytes, ios)
+  ! ios=1 at the end of input (short delivery: the producer closed the
+  ! pipe). Every caller treats nonzero ios as end-of-stream. With no memory
+  ! left to buffer the input the stream stops.
+  ! last_sample is the stream sample index of the last audio sample read.
+  subroutine stdin_read(buf, nbytes, ios, last_sample)
     type(*), dimension(*), intent(inout) :: buf
     integer, intent(in)  :: nbytes
     integer, intent(out) :: ios
+    integer(int64), intent(in), optional :: last_sample
+    integer(int64) :: k_last
+    integer(c_int64_t) :: nread
+    ! Where the GUI's decoder frees: before anything that came in, or audio
+    ! due, after the last decode ended.
+    if (deferred .or. completion_due) then
+       k_last = -1
+       if (present(last_sample) .and. anchored) k_last = last_sample
+       if (read_passes_busy_end(stream_stdin_buffered_before(busy_until),     &
+            int(nbytes, int64), t0, k_last, busy_until)) call decoder_frees()
+    end if
     ios = 0
-    if (stream_stdin_read_fully(buf, int(nbytes, c_int64_t)) /=          &
-         int(nbytes, c_int64_t)) ios = 1
+    nread = stream_stdin_read_fully(buf, int(nbytes, c_int64_t))
+    if (nread .lt. 0) then
+       call streaming_emit_error_code('out_of_memory', 'no memory to buffer the input')
+       write(error_unit, '(a)') 'wsjt-codec --stream: no memory to buffer the input'
+       stop 1
+    end if
+    if (nread /= int(nbytes, c_int64_t)) ios = 1
   end subroutine stdin_read
+
+  ! When the decoder came free after a decode: when it sent decode_finished,
+  ! if it did, so that a request answering that event never finds it busy.
+  real(8) function decoder_freed_at(finished_before)
+    real(8), intent(in) :: finished_before
+    decoder_freed_at = stream_stdin_now()
+    if (streaming_emit_finished_at() .gt. finished_before)                 &
+         decoder_freed_at = streaming_emit_finished_at()
+  end function decoder_freed_at
+
+  ! The GUI's decoder starts an input for each period it receives.
+  subroutine begin_engine_input(p)
+    integer(int64), intent(in) :: p
+    if (p .ne. engine_period) call engine_begin_input()
+    engine_period = p
+  end subroutine begin_engine_input
+
+  ! Read n audio samples. The session's first, and the first after a
+  ! discontinuity, set the audio clock by their arrival; after that, the
+  ! time the stream waits for input can only move it earlier (clock_start).
+  subroutine read_audio(samples, n, ios)
+    integer,        intent(in)    :: n
+    integer(int16), intent(inout) :: samples(n)
+    integer,        intent(out)   :: ios
+    integer :: first
+    real(8) :: wait
+    first = 0
+    ios = 0
+    if (.not. anchored .and. n .gt. 0) then
+       call stdin_read(samples, 2, ios)
+       if (ios /= 0) return
+       t0 = stream_stdin_arrival() - dble(stream_samples) / NFSAMPLE
+       wait = stream_stdin_waited()
+       anchored = .true.
+       first = 1
+    end if
+    if (n .gt. first) then
+       call stdin_read(samples(first+1:n), 2 * (n - first), ios, stream_samples + n - 1)
+       wait = stream_stdin_waited()
+       if (ios .eq. 0) t0 = clock_start(t0, stream_stdin_arrival(), stream_samples + n - 1, wait)
+    end if
+  end subroutine read_audio
+
+  ! The GUI's decoderBusy when the trigger that the last byte read completes
+  ! fires; never from a file, or at halt or end of input.
+  logical function busy()
+    integer(int64) :: k
+    busy = .false.
+    if (.not. live_audio .or. ending) return
+    k = -1
+    if (anchored) k = stream_samples - 1
+    busy = deferred .or. trigger_fire_time(stream_stdin_arrival(), t0, k) .lt. busy_until
+  end function busy
+
+  ! The GUI's multithreaded FT8 backpressure (usesFt8MtdFinal), for live audio.
+  logical function backpressure()
+    backpressure = live_audio .and. .not. ending .and. mode .eq. 8 .and.     &
+         shared_data%params%lmultift8 .and. .not. superfox_hound()
+  end function backpressure
+
+  ! The GUI's early stages for the multithreaded decoder start
+  ! (configuredFt8MtdEarlyStageCount).
+  integer function early_stages()
+    early_stages = 0
+    if (shared_data%params%ndecoderstart .eq. 0) early_stages = 1
+    if (shared_data%params%ndecoderstart .eq. 1) early_stages = 2
+  end function early_stages
+
+  ! Whether the early FT8 pass at half-symbol nzhsym runs when its trigger
+  ! fires, as the GUI decides; one the GUI refuses is reported, and SuperFox's
+  ! even sequence runs none.
+  logical function early_pass_runs(nzhsym, stage)
+    integer, intent(in) :: nzhsym, stage
+    logical :: was_busy
+    was_busy = busy()
+    if (backpressure()) then
+       early_pass_runs = stream_ft8_backpressure_request(stage, period_number, &
+            early_stages(), merge(1, 0, was_busy), merge(1, 0, deferred)) .eq. ACTION_PUBLISH
+       if (.not. early_pass_runs .and. was_busy) then
+          call skip_pass(nzhsym, .false., 'busy', shared_data%params)
+       else if (.not. early_pass_runs) then
+          call skip_pass(nzhsym, .false., 'backoff', shared_data%params)
+       end if
+       ! SuperFox's even sequence decodes nothing before 50 (ft8_early_schedule).
+       if (superfox_even()) early_pass_runs = .false.
+    else
+       early_pass_runs = .not. was_busy
+       if (was_busy) call skip_pass(nzhsym, .false., 'busy', shared_data%params)
+    end if
+  end function early_pass_runs
+
+  ! A pass not run, on stderr and as pass_skipped with the period label of
+  ! the decode params p; a final not run still ends its period. iso: p's
+  ! time form, when it is not the current one.
+  subroutine skip_pass(nzhsym, final, reason, p, iso)
+    integer,            intent(in) :: nzhsym
+    logical,            intent(in) :: final
+    character(len=*),   intent(in) :: reason
+    type(params_block), intent(in) :: p
+    logical, optional,  intent(in) :: iso
+    character(len=5) :: stage
+    logical :: iso_now
+    stage = merge('final', 'early', final)
+    write(error_unit, '(a,i0,4a)') 'wsjt-codec --stream: skip nzhsym=',    &
+         nzhsym, ' stage=', stage, ' reason=', reason
+    iso_now = streaming_emit_utc_from_iso()
+    if (present(iso)) call streaming_emit_set_time_form(iso, .not. iso, TRperiod)
+    call streaming_emit_pass_skipped(p%nmode, p%nutc, label_hhmmss(p%nmode), &
+         nzhsym, stage, reason)
+    if (final) call streaming_emit_decode_finished(p%nutc, label_hhmmss(p%nmode))
+    if (present(iso)) call streaming_emit_set_time_form(iso_now, .not. iso_now, TRperiod)
+  end subroutine skip_pass
+
+  ! As lib/decoder.f90 labels decode_finished.
+  logical function label_hhmmss(nmode)
+    integer, intent(in) :: nmode
+    label_hhmmss = nmode .eq. 4 .or. nmode .eq. 66 .or. (nmode .ge. 240 .and. nmode .le. 242)
+  end function label_hhmmss
+
+  ! The GUI's decoder frees: its scheduler takes the last early pass's
+  ! completion, then a deferred final runs, unless its decode range or
+  ! submode changed since it was deferred, when the GUI drops it and cancels.
+  subroutine decoder_frees()
+    if (completion_due) call stream_ft8_backpressure_completed(completion_stage, &
+         completion_period)
+    completion_due = .false.
+    if (.not. deferred) return
+    if (ft8_identity_change(deferred_params, shared_data%params)) then
+       call stream_ft8_backpressure_cancel()
+       call skip_pass(deferred_params%nzhsym, .true., 'cancelled', deferred_params, &
+            deferred_iso)
+       deferred = .false.
+    else
+       call run_deferred_final()
+    end if
+  end subroutine decoder_frees
+
+  ! The GUI's deferred multithreaded final: this period's samples and params,
+  ! kept until the decoder comes free; a final already waiting gives way.
+  subroutine defer_final()
+    if (deferred) call skip_pass(deferred_params%nzhsym, .true., 'replaced', &
+         deferred_params, deferred_iso)
+    call keep(deferred_id2, shared_data%id2, period%k)
+    deferred_k      = period%k
+    deferred_params = shared_data%params
+    deferred_period = period_number
+    deferred_iso    = streaming_emit_utc_from_iso()
+    deferred        = .true.
+    write(error_unit, '(a,i0)') 'wsjt-codec --stream: defer nzhsym=',      &
+         shared_data%params%nzhsym
+  end subroutine defer_final
+
+  ! The deferred final, on its own samples, params and time, the period in
+  ! flight set aside meanwhile; its period becomes the one to decode again.
+  subroutine run_deferred_final()
+    type(params_block) :: params_now
+    integer :: k_now
+    logical :: iso_now
+    real(8) :: finished_before
+    deferred = .false.
+    k_now = period%k
+    iso_now = streaming_emit_utc_from_iso()
+    params_now = shared_data%params
+    call keep(held_id2, shared_data%id2, k_now)
+    shared_data%id2(1:k_now) = 0
+    shared_data%id2(1:deferred_k) = deferred_id2(1:deferred_k)
+    shared_data%params = deferred_params
+    call streaming_emit_set_time_form(deferred_iso, .not. deferred_iso, TRperiod)
+    call begin_engine_input(deferred_period)
+    call report_pass(deferred_k)
+    finished_before = streaming_emit_finished_at()
+    call multimode_decoder(shared_data%ss, shared_data%id2, shared_data%params, NFSAMPLE)
+    busy_until = decoder_freed_at(finished_before)
+    call stream_ft8_backpressure_published(FINAL_STAGE, deferred_period)
+    call keep(again_id2, shared_data%id2, deferred_k)
+    again_k      = deferred_k
+    again_nzhsym = deferred_params%nzhsym
+    again_kin    = deferred_params%kin
+    again_nutc   = deferred_params%nutc
+    again_even   = deferred_params%b_even_seq
+    again_iso    = deferred_iso
+    shared_data%id2(1:deferred_k) = 0
+    shared_data%id2(1:k_now) = held_id2(1:k_now)
+    shared_data%params = params_now
+    call streaming_emit_set_time_form(iso_now, .not. iso_now, TRperiod)
+  end subroutine run_deferred_final
 
 end subroutine jt9_stream
 

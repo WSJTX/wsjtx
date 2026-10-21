@@ -5,7 +5,7 @@
 constexpr int Ft8MtdDecodeScheduler::BackoffPeriods[];
 
 Ft8MtdDecodeScheduler::Decision Ft8MtdDecodeScheduler::request (
-    Stage stage, qint64 period, int earlyStageCount, bool decoderBusy,
+    Stage stage, std::int64_t period, int earlyStageCount, bool decoderBusy,
     bool finalAlreadyPending)
 {
   Decision result;
@@ -75,7 +75,7 @@ Ft8MtdDecodeScheduler::Decision Ft8MtdDecodeScheduler::request (
   return result;
 }
 
-bool Ft8MtdDecodeScheduler::published (Stage stage, qint64)
+bool Ft8MtdDecodeScheduler::published (Stage stage, std::int64_t)
 {
   if (Stage::Final != stage || !recoverOnFinalPublish_) return false;
 
@@ -87,7 +87,7 @@ bool Ft8MtdDecodeScheduler::published (Stage stage, qint64)
   return true;
 }
 
-void Ft8MtdDecodeScheduler::completed (Stage stage, qint64 period)
+void Ft8MtdDecodeScheduler::completed (Stage stage, std::int64_t period)
 {
   if (period != probePeriod_) return;
   if (Stage::EarlyOne == stage)
@@ -100,7 +100,7 @@ void Ft8MtdDecodeScheduler::completed (Stage stage, qint64 period)
     }
 }
 
-void Ft8MtdDecodeScheduler::publicationFailed (Stage stage, qint64 period)
+void Ft8MtdDecodeScheduler::publicationFailed (Stage stage, std::int64_t period)
 {
   if (period == probePeriod_ && Stage::Final != stage)
     {
@@ -123,7 +123,7 @@ int Ft8MtdDecodeScheduler::skippedPeriods () const
   return degraded_ ? BackoffPeriods[backoffIndex_] : 0;
 }
 
-void Ft8MtdDecodeScheduler::degrade (qint64 period, bool advance)
+void Ft8MtdDecodeScheduler::degrade (std::int64_t period, bool advance)
 {
   if (!degraded_)
     {
@@ -139,7 +139,7 @@ void Ft8MtdDecodeScheduler::degrade (qint64 period, bool advance)
   clearProbe ();
 }
 
-bool Ft8MtdDecodeScheduler::probeComplete (qint64 period) const
+bool Ft8MtdDecodeScheduler::probeComplete (std::int64_t period) const
 {
   return probePeriod_ == period
     && completedEarlyStages_ >= probeEarlyStageCount_;
