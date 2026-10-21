@@ -147,6 +147,7 @@ class WSPRNet;
 class AudioOutputSink;
 class Modulator;
 class AudioInputSource;
+class AudioSourceRouter;
 class Detector;
 class SampleDownloader;
 class MultiSettings;
@@ -785,6 +786,9 @@ private:
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
   Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
+  // Point the router at the configured RX source. Safe to call at any time;
+  // a no-op when this window did not create the router.
+  void applyAudioSourceSelection ();
 
 private:
   void set_mode (QString const& mode);
@@ -991,6 +995,10 @@ private:
   Detector * m_detector;
   unsigned m_FFTSize;
   AudioInputSource * m_soundInput;
+  // The same object as m_soundInput when this window created it, and null
+  // when a source was injected (the live-audio fixture path). Only the
+  // router understands the device/network selection.
+  AudioSourceRouter * m_audioRouter {nullptr};
   quint64 m_decodeCycleGeneration {0};
   Modulator * m_modulator;
   QScopedPointer<TxAudioQueue> m_jttyTxQueue;

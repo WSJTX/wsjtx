@@ -173,3 +173,40 @@ if (WSJT_ENABLE_TSAN)
     TIMEOUT 30 LABELS "receive-handoff;fast-decode-ownership"
     ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
 endif ()
+
+if (WSJT_ENABLE_NETWORK_AUDIO)
+  # Hermetic: an in-process NA_SERVER_BACKEND_NULL server is the peer, so this
+  # needs no sound card, no radio, and no external process.
+  add_executable (test_network_audio_input
+    test_network_audio_input.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/AudioInputSource.hpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkAudioConnection.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkAudioInput.cpp
+    ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp
+    ${CMAKE_SOURCE_DIR}/Detector/Detector.cpp)
+  target_link_libraries (test_network_audio_input
+    wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia naudio::naudio)
+  add_test (NAME test_network_audio_input COMMAND test_network_audio_input)
+  set_tests_properties (test_network_audio_input PROPERTIES TIMEOUT 60)
+
+  add_executable (test_audio_source_router
+    test_audio_source_router.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/AudioInputSource.hpp
+    ${CMAKE_SOURCE_DIR}/Audio/AudioSourceRouter.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkAudioConnection.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkAudioInput.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/soundin.cpp
+    ${CMAKE_SOURCE_DIR}/Logger.cpp
+    ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp
+    ${CMAKE_SOURCE_DIR}/Detector/Detector.cpp)
+  # soundin.cpp reaches Logger.hpp, hence Boost.Log; wsjt_qt carries the rest of
+  # what the sound-card arm needs, and the WSJT_ENABLE_NETWORK_AUDIO definition
+  # arrives from it too (PUBLIC there), so this target compiles the router the
+  # same way the application does.
+  target_link_libraries (test_audio_source_router
+    wsjt_qtmm wsjt_qt Boost::log_setup Qt5::Core Qt5::Test Qt5::Multimedia naudio::naudio)
+  add_test (NAME test_audio_source_router COMMAND test_audio_source_router)
+  set_tests_properties (test_audio_source_router PROPERTIES TIMEOUT 60)
+endif ()

@@ -89,6 +89,7 @@
 #include "Audio/soundout.h"
 #include "Audio/soundin.h"
 #include "Audio/AudioInputSource.hpp"
+#include "Audio/AudioSourceRouter.hpp"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "DecDataMutex.hpp"
@@ -556,7 +557,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_FFTSize {6192 / 2},         // conservative value to avoid buffer overruns
   m_soundInput {audio_input_source
                 ? audio_input_source.release ()
-                : static_cast<AudioInputSource *> (new SoundInput)},
+                : static_cast<AudioInputSource *> (new AudioSourceRouter)},
+  m_audioRouter {audio_input_source ? nullptr
+                                    : qobject_cast<AudioSourceRouter *> (m_soundInput)},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
   m_jttyTxQueue {new TxAudioQueue},
   m_jttyTxStream {new JttyTxStream {*m_jttyTxQueue}},
@@ -899,7 +902,18 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     {
       connect(m_soundInput, &AudioInputSource::error, this, &MainWindow::showSoundInError);
     }
-  connect(m_soundInput, &AudioInputSource::error, &m_config, &Configuration::invalidate_audio_input_device);
+  if (m_audioRouter)
+    {
+      // Only the sound card's errors mean the configured device is gone. A
+      // network source's error is a network fault and must not clear the
+      // sound-card selection the operator would fall back to.
+      connect (m_audioRouter, &AudioSourceRouter::deviceError,
+               &m_config, &Configuration::invalidate_audio_input_device);
+    }
+  else
+    {
+      connect(m_soundInput, &AudioInputSource::error, &m_config, &Configuration::invalidate_audio_input_device);
+    }
   // connect(m_soundInput, &AudioInputSource::status, this, &MainWindow::showStatusMessage);
   connect (&m_audioThread, &QThread::finished, m_soundInput, &QObject::deleteLater);
 
@@ -1685,6 +1699,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   {
     PerformanceTrace::Phase audio_start {m_startup_trace_run, "audio.start_request"};
     if (!m_tci_audio) {
+      applyAudioSourceSelection ();
       Q_EMIT startAudioInputStream (m_config.audio_input_device ()
                                     , m_rx_audio_buffer_frames
                                     , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
@@ -3447,6 +3462,10 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
         m_receiveQueue.clear ();
       }
     if (!m_tci_audio) {
+      // Ahead of the restart check: changing only the network source is not a
+      // soundcard change, so restart_audio_input () can be false while the
+      // selection still has to move.
+      applyAudioSourceSelection ();
       if(receive_source_changed || m_config.restart_audio_input ()) {
         Q_EMIT startAudioInputStream (m_config.audio_input_device ()
                                       , m_rx_audio_buffer_frames
@@ -3622,6 +3641,42 @@ void MainWindow::monitor (bool state)
   if (!state) cancelPendingFt8Decode ("monitoring stopped");
   if (leavingDiskData) updateDecodeControls ();
   check_button_color();
+}
+
+void MainWindow::applyAudioSourceSelection ()
+{
+  if (!m_audioRouter) return;
+
+  // "host", "host:port", or "[v6::addr]:port". Anything without a port takes
+  // net-audio's default, 4533.
+  auto const server = m_config.network_audio_server ().trimmed ();
+  QString host {server};
+  quint16 port {4533};
+  auto const colon = server.lastIndexOf (QChar {':'});
+  // A bare IPv6 literal is all colons and no port; only a colon after a
+  // closing bracket, or the single colon of a host:port pair, delimits one.
+  if (colon > 0 && (server.indexOf (QChar {':'}) == colon || server.at (colon - 1) == QChar {']'}))
+    {
+      bool ok {false};
+      auto const parsed = server.mid (colon + 1).toUInt (&ok);
+      if (ok && parsed && parsed <= 65535u)
+        {
+          host = server.left (colon);
+          port = static_cast<quint16> (parsed);
+        }
+    }
+  if (host.startsWith (QChar {'['}) && host.endsWith (QChar {']'}))
+    {
+      host = host.mid (1, host.size () - 2);
+    }
+
+  m_audioRouter->setNetworkServer (host, port);
+  // TCI audio owns the RX path when it is on, so the router stays on the
+  // soundcard arm even if the setting says otherwise -- Configuration refuses
+  // to store that combination, and this is the runtime half of the same rule.
+  m_audioRouter->selectSource (m_config.network_audio () && !m_tci_audio
+                               ? AudioSourceRouter::Source::Network
+                               : AudioSourceRouter::Source::Device);
 }
 
 void MainWindow::on_actionAbout_triggered()                  //Display "About"

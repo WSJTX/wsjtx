@@ -1147,6 +1147,8 @@ private:
   int udp_TTL_;
   QString n1mm_server_name_;
   port_type n1mm_server_port_;
+  bool network_audio_;
+  QString network_audio_server_;
   bool broadcast_to_n1mm_;
   bool accept_udp_requests_;
   bool udpWindowToFront_;
@@ -1327,6 +1329,8 @@ int Configuration::udp_TTL () const {return m_->udp_TTL_;}
 bool Configuration::accept_udp_requests () const {return m_->accept_udp_requests_;}
 QString Configuration::n1mm_server_name () const {return m_->n1mm_server_name_;}
 auto Configuration::n1mm_server_port () const -> port_type {return m_->n1mm_server_port_;}
+bool Configuration::network_audio () const {return m_->network_audio_;}
+QString Configuration::network_audio_server () const {return m_->network_audio_server_;}
 bool Configuration::broadcast_to_n1mm () const {return m_->broadcast_to_n1mm_;}
 bool Configuration::broadcast_to_cloudlog () const {return m_->bCloudLog_;}
 bool Configuration::lowSidelobes() const {return m_->bLowSidelobes_;}
@@ -2552,6 +2556,8 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->refresh_push_button,
     ui_->tci_audio_check_box,
     ui_->TCI_spin_box,
+    ui_->network_audio_group_box,
+    ui_->network_audio_server_line_edit,
     ui_->cbSortAlphabetically,
     ui_->cbHideCARD,
     ui_->save_path_select_push_button,
@@ -3346,6 +3352,16 @@ void Configuration::impl::initialize_models ()
   ui_->accept_udp_requests_check_box->setChecked (accept_udp_requests_);
   ui_->n1mm_server_name_line_edit->setText (n1mm_server_name_);
   ui_->n1mm_server_port_spin_box->setValue (n1mm_server_port_);
+#if defined (WSJT_ENABLE_NETWORK_AUDIO)
+  ui_->network_audio_group_box->setChecked (network_audio_);
+  ui_->network_audio_server_line_edit->setText (network_audio_server_);
+  ui_->network_audio_group_box->setEnabled (!(is_tci_ && tci_audio_));
+#else
+  // Built without network audio: the setting cannot be honoured, so do not
+  // offer it rather than letting it read as a broken control.
+  ui_->network_audio_group_box->setChecked (false);
+  ui_->network_audio_group_box->setVisible (false);
+#endif
   ui_->enable_n1mm_broadcast_check_box->setChecked (broadcast_to_n1mm_);
   ui_->udpWindowToFront->setChecked(udpWindowToFront_);
   ui_->udpWindowRestore->setChecked(udpWindowRestore_);
@@ -3767,6 +3783,8 @@ void Configuration::impl::read_settings ()
   udp_server_port_ = settings_->value ("UDPServerPort", 2237).toUInt ();
   n1mm_server_name_ = settings_->value ("N1MMServer", "127.0.0.1").toString ();
   n1mm_server_port_ = settings_->value ("N1MMServerPort", 2333).toUInt ();
+  network_audio_ = settings_->value ("NetworkAudio", false).toBool ();
+  network_audio_server_ = settings_->value ("NetworkAudioServer", QString {}).toString ();
   broadcast_to_n1mm_ = settings_->value ("BroadcastToN1MM", false).toBool ();
   accept_udp_requests_ = settings_->value ("AcceptUDPRequests", false).toBool ();
   udpWindowToFront_ = settings_->value ("udpWindowToFront",false).toBool ();
@@ -4045,6 +4063,8 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("UDPTTL", udp_TTL_);
   settings_->setValue ("N1MMServer", n1mm_server_name_);
   settings_->setValue ("N1MMServerPort", n1mm_server_port_);
+  settings_->setValue ("NetworkAudio", network_audio_);
+  settings_->setValue ("NetworkAudioServer", network_audio_server_);
   settings_->setValue ("BroadcastToN1MM", broadcast_to_n1mm_);
   settings_->setValue ("AcceptUDPRequests", accept_udp_requests_);
   settings_->setValue ("udpWindowToFront", udpWindowToFront_);
@@ -4762,6 +4782,19 @@ void Configuration::impl::accept ()
 
   n1mm_server_name_ = ui_->n1mm_server_name_line_edit->text ();
   n1mm_server_port_ = ui_->n1mm_server_port_spin_box->value ();
+  network_audio_server_ = ui_->network_audio_server_line_edit->text ().trimmed ();
+  // An enabled-but-empty server would silently fall back to the soundcard;
+  // refusing to store that state keeps the setting honest about what it does.
+  network_audio_ = ui_->network_audio_group_box->isChecked ()
+    && !network_audio_server_.isEmpty ();
+  // TCI audio and network audio are both whole-station RX sources, and each
+  // wants to be the one filling dec_data. Let the rig selection win: it is the
+  // one the operator picked on another tab, and silently keeping both would
+  // mean two producers racing on the same buffer.
+  if (is_tci_ && tci_audio_)
+    {
+      network_audio_ = false;
+    }
   broadcast_to_n1mm_ = ui_->enable_n1mm_broadcast_check_box->isChecked ();
 
   udpWindowToFront_ = ui_->udpWindowToFront->isChecked ();
