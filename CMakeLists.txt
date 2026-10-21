@@ -223,6 +223,44 @@ option (WSJT_ENABLE_GUI_SMOKE_TESTS
   "Register GUI-driven smoke tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
 option (WSJT_ENABLE_TSAN "Instrument in-tree code with ThreadSanitizer." OFF)
+option (WSJT_ENABLE_NETWORK_AUDIO "Build the network audio input source (needs the naudio library)." OFF)
+
+if (WSJT_ENABLE_NETWORK_AUDIO)
+  # An optional extra RX audio producer. Without it the build is exactly what it
+  # was and WSJT-X keeps only its sound-card and TCI sources, so naudio never
+  # becomes a mandatory dependency.
+  #
+  # Written against naudio v1.0.0rc6 (8af7b4b). No version is requested from
+  # find_package on purpose: naudio's package config compares same-major, so
+  # asking for the 0.5.0 floor REFUSES a 1.x install rather than accepting it,
+  # and no version number separates one pre-release from the next anyway --
+  # every build up to 1.0.0 reports 1.0.0. What this code needs is two SYMBOLS,
+  # and a symbol referenced at build time but absent from the library aborts
+  # the application at load, before main (), where no run-time check can fire.
+  # So the floor is enforced where the question can actually be answered: at
+  # configure time, by looking for the symbols in the header and library that
+  # were found.
+  #
+  #   na_client_request_format  0.5.0    per-subscription RX format negotiation
+  #   na_client_set_duplex      ac9755b  the client's duplex switch (NOT PTT),
+  #                                      which opens the TX lane
+  find_package (naudio REQUIRED)
+  include (CheckSymbolExists)
+  get_target_property (naudio_include_dirs naudio::naudio INTERFACE_INCLUDE_DIRECTORIES)
+  set (CMAKE_REQUIRED_INCLUDES ${naudio_include_dirs})
+  set (CMAKE_REQUIRED_LIBRARIES naudio::naudio)
+  check_symbol_exists (na_client_request_format naudio.h HAVE_NAUDIO_REQUEST_FORMAT)
+  check_symbol_exists (na_client_set_duplex naudio.h HAVE_NAUDIO_SET_DUPLEX)
+  unset (CMAKE_REQUIRED_INCLUDES)
+  unset (CMAKE_REQUIRED_LIBRARIES)
+  if (NOT HAVE_NAUDIO_REQUEST_FORMAT OR NOT HAVE_NAUDIO_SET_DUPLEX)
+    message (FATAL_ERROR
+      "WSJT_ENABLE_NETWORK_AUDIO needs a naudio providing both "
+      "na_client_request_format and na_client_set_duplex (v1.0.0rc6 or later); "
+      "the one found does not. Point CMAKE_PREFIX_PATH at a newer install or "
+      "turn the option off.")
+  endif ()
+endif ()
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")
 set_property (CACHE WSJT_FORTRAN_LIBRARY_VARIANTS PROPERTY STRINGS
@@ -671,6 +709,14 @@ add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS}
 wsjt_enable_qt_automoc (wsjt_qt)
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
+if (WSJT_ENABLE_NETWORK_AUDIO)
+  # PUBLIC, and on this library rather than on the wsjtx executable, because
+  # Configuration.cpp -- where the setting's UI lives -- compiles into wsjt_qt.
+  # A definition PRIVATE to wsjtx never reached it, so the Network audio group
+  # was hidden in every build, the option's included. Everything that links
+  # wsjt_qt (wsjtx and the unit tests) inherits the one definition from here.
+  target_compile_definitions (wsjt_qt PUBLIC WSJT_ENABLE_NETWORK_AUDIO)
+endif ()
 target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Multimedia Qt5::SerialPort Qt5::Sql Qt5::WebSockets Qt5::Concurrent)
 if (WIN32)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
@@ -1110,6 +1156,11 @@ else ()
   endif ()
 endif ()
 target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+if (WSJT_ENABLE_NETWORK_AUDIO)
+  # The WSJT_ENABLE_NETWORK_AUDIO definition itself is PUBLIC on wsjt_qt (see
+  # that target) and reaches this executable from there.
+  target_link_libraries (wsjtx naudio::naudio)
+endif ()
 
 if (WSJT_ENABLE_TSAN)
   target_compile_definitions (wsjtx PRIVATE WSJT_TSAN_TEST_PROFILE)

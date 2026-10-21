@@ -1,0 +1,236 @@
+name: Build Network Audio
+
+# Builds and tests the WSJT_ENABLE_NETWORK_AUDIO=ON configuration.
+#
+# Why this leg exists, separately from `linux`: the option is OFF by default, so
+# every other job in this repository builds a tree in which Audio/NetworkAudio*
+# and the enabled arms of Audio/AudioSourceRouter.cpp and Configuration.cpp are
+# never compiled, the two feature tests are never registered, and the
+# `target_link_libraries (wsjtx naudio::naudio)` line is never linked. Without
+# this leg the integration can break with nothing anywhere going red.
+#
+# Scope, stated plainly: this leg covers the DELTA the option introduces. The
+# full ctest suite runs in the default configuration in `linux`; duplicating it
+# here would roughly double the cost for coverage `linux` already provides.
+
+on:
+  workflow_call:
+    inputs:
+      hamlib_branch:
+        description: "Hamlib branch the CI image was built against"
+        required: false
+        type: string
+        default: "4.7.2"
+      image_tag:
+        description: "Immutable GHCR image tag; empty resolves the current validated generation"
+        required: false
+        type: string
+        default: ""
+      allow_stale_image:
+        description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+        required: false
+        type: boolean
+        default: false
+  # Also runnable on its own, to check a naudio bump without dispatching all of
+  # ci.yml. GitHub only exposes workflow_dispatch once the trigger is on the
+  # default branch, so this must be merged before it can be dispatched.
+  workflow_dispatch:
+    inputs:
+      hamlib_branch:
+        description: "Hamlib branch the CI image was built against"
+        required: false
+        type: string
+        default: "4.7.2"
+      image_tag:
+        description: "Immutable GHCR image tag; empty resolves the current validated generation"
+        required: false
+        type: string
+        default: ""
+      allow_stale_image:
+        description: "Allow a previously promoted image when a dependency refresh changed the recipe"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: read
+
+# The pinned naudio release. Both values are load-bearing: the download is
+# verified against NAUDIO_SHA256 before anything is installed, so a re-published
+# asset fails loudly here instead of silently changing what CI builds against.
+#
+# The pin is the Debian package rather than the tarball on purpose. The tarball
+# installs to a prefix that is not on the loader's search path, and WSJT-X sets
+# no RPATH for it, so the tests link and then fail at load with
+# "libnaudio.so.1: cannot open shared object file" -- measured, not predicted.
+# The .deb lands in /usr/lib, registers with ldconfig, and is the shape a Linux
+# packager would actually consume, which is the question this leg informs.
+#
+# To move the pin, change both values together; sha256sums.txt in the same
+# release lists them: https://github.com/KJ5HST-LABS/naudio/releases
+env:
+  NAUDIO_VERSION: 1.0.0rc9
+  NAUDIO_SHA256: b952bafe328986f409cb6e90c276c9ad6c9f03e4d8e0ed7e05f1170256dfc356
+
+jobs:
+  resolve-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: resolve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+        shell: bash
+        run: |
+          if [ -n "$REQUESTED_TAG" ]; then
+            IMAGE_TAG="$REQUESTED_TAG" .github/scripts/validate-ci-inputs.sh
+            echo "image_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          else
+            .github/scripts/resolve-linux-ci-image-tag.py
+          fi
+
+  # Every `run:` step below sets `shell: bash` explicitly, and must keep doing so.
+  # Inside a job `container:` the default shell is `sh`, not bash, so `set -o
+  # pipefail` and the other bash-only syntax here die with "Illegal option -o
+  # pipefail" before the step's first real command. The other Linux legs never hit
+  # this because their container steps only invoke scripts, which carry their own
+  # bash shebang. Learned the hard way: the first run of this leg failed on it.
+  build-network-audio:
+    needs: resolve-image
+    runs-on: ubuntu-24.04
+    # Budget: the leg configures twice (the second configure-only) and builds the
+    # wsjtx executable plus the two feature tests from cold -- no ccache, which
+    # keeps this file independent of the shared Linux cache and its develop-only
+    # save policy. If the team finds the wall-clock too high, restoring (never
+    # saving) the `linux` ccache is the obvious next step: the two configurations
+    # differ only in one compile definition and one include directory, so most
+    # objects, the Fortran included, would hit.
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/wsjtx/wsjtx-internal/linux-noble:${{ needs.resolve-image.outputs.image_tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate workflow inputs
+        env:
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
+          ARCH: x86_64
+          IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
+        shell: bash
+        run: .github/scripts/validate-ci-inputs.sh
+
+      - name: Verify Linux CI image
+        id: image
+        env:
+          WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
+        shell: bash
+        run: >-
+          .github/scripts/verify-linux-ci-image.sh
+          normal x86_64 "${{ inputs.hamlib_branch }}"
+
+      # ORDER IS LOAD-BEARING: this step must stay AFTER "Verify Linux CI image".
+      # That verifier hashes the image's installed package set, so a naudio
+      # installed before it runs makes it fail with a package_sha256 mismatch and
+      # emit none of the outputs the configure steps below read -- and it fails
+      # that way even with allow_stale_image, whose escape hatch is for a recipe
+      # change, not for a package this job added itself. Measured, not predicted.
+      - name: Install pinned naudio
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/KJ5HST-LABS/naudio/releases/download/v${NAUDIO_VERSION}/naudio-${NAUDIO_VERSION}-linux-x86_64.deb"
+          echo "Pinned naudio: $url"
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/naudio.deb "$url"
+          echo "${NAUDIO_SHA256}  /tmp/naudio.deb" | sha256sum -c -
+          dpkg -i /tmp/naudio.deb
+          # The version this leg attests to belongs in the log, not only in the
+          # pin above.
+          dpkg-query -W -f '${Package} ${Version}\n' naudio
+          ldconfig -p | grep 'libnaudio\.so\.1'
+
+      - name: Configure with network audio enabled
+        shell: bash
+        run: |
+          cmake -S . -B build-network-audio \
+            -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+            -DWSJT_ENABLE_NETWORK_AUDIO=ON \
+            -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+            -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
+            -Wno-dev
+
+      - name: Configure with network audio disabled
+        # Configure only -- nothing is built from this tree. It exists so the
+        # next step can assert what the option actually changes.
+        shell: bash
+        run: |
+          cmake -S . -B build-network-audio-off \
+            -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+            -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+            -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
+            -Wno-dev
+
+      - name: Assert the option registers exactly the network-audio tests
+        # The guard on this whole leg. Without it the job passes vacuously if the
+        # option ever stops reaching tests/unit/audio/CMakeLists.txt: the tree
+        # still configures, still builds and still runs a green suite -- none of
+        # it the feature's.
+        shell: bash
+        run: |
+          set -euo pipefail
+          ( cd build-network-audio && ctest -N ) > /tmp/tests-enabled.txt
+          ( cd build-network-audio-off && ctest -N ) > /tmp/tests-disabled.txt
+          .github/scripts/assert-network-audio-tests.sh \
+            /tmp/tests-enabled.txt /tmp/tests-disabled.txt
+
+      - name: Build the application and the feature tests
+        # `wsjtx` is in this list deliberately: it is the only target carrying
+        # `target_link_libraries (wsjtx naudio::naudio)`, so building the tests
+        # alone would leave the application's own link line unexercised.
+        shell: bash
+        run: |
+          cmake --build build-network-audio \
+            --target wsjtx test_network_audio_input test_audio_source_router \
+            -j"$(nproc)"
+
+      - name: Verify the executable resolves naudio
+        shell: bash
+        run: |
+          set -euo pipefail
+          linked="$(ldd build-network-audio/wsjtx)"
+          if ! printf '%s\n' "$linked" | grep -q 'libnaudio\.so\.1 => /'; then
+            echo "::error::wsjtx does not resolve libnaudio.so.1"
+            printf '%s\n' "$linked" | grep -i naudio || echo "  (no naudio entry at all)"
+            exit 1
+          fi
+          printf '%s\n' "$linked" | grep 'libnaudio\.so\.1'
+
+      - name: Run the network audio tests
+        id: ctest
+        working-directory: build-network-audio
+        env:
+          QT_QPA_PLATFORM: xcb
+        shell: bash
+        run: |
+          xvfb-run -a -s "-screen 0 1280x1024x24" \
+            ctest -R '^(test_network_audio_input|test_audio_source_router)$' \
+              --output-on-failure --output-junit ctest-results.xml
+
+      - name: Upload test results
+        if: always() && steps.ctest.conclusion != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ctest-results-network-audio
+          path: build-network-audio/ctest-results.xml
+          if-no-files-found: ignore

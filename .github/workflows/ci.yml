@@ -65,6 +65,7 @@ jobs:
           .github/scripts/select-ccache-key-suffix.sh --self-test
           .github/scripts/select-linux-ccache-save.sh --self-test
           .github/scripts/select-linux-packaging.sh --self-test
+          .github/scripts/assert-network-audio-tests.sh --self-test
           .github/scripts/test-linux-ccache-compiler-signature.sh
           .github/scripts/test-verify-linux-ci-image.sh
           python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
@@ -170,6 +171,23 @@ jobs:
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       validate_fortran_fallback: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
       build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
+    secrets: inherit
+
+  # Not opt-in, deliberately. The two-tier note above conserves Actions minutes
+  # on PLATFORM coverage -- macOS, Windows, ARM -- where the risk is a
+  # platform-specific break. This leg is different in kind: WSJT_ENABLE_NETWORK_AUDIO
+  # is off in every other job, so nothing else in this workflow compiles the
+  # network-audio sources, registers its tests, or links naudio at all. Behind a
+  # label it would only run when someone remembered the label, which is how the
+  # configuration would stay broken. It `needs: linux` like every other leg, so
+  # it costs nothing when the cheap leg is already red.
+  network-audio:
+    needs: [prepare, linux]
+    uses: ./.github/workflows/build-network-audio.yml
+    with:
+      hamlib_branch: "4.7.2"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
     secrets: inherit
 
   linux-sanitizers:

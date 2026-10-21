@@ -258,6 +258,11 @@ public:
   QString n1mm_server_name () const;
   port_type n1mm_server_port () const;
   bool valid_n1mm_info () const;
+  // Network audio: when enabled, receive audio comes from a net-audio server
+  // instead of the soundcard. The server string is "host" or "host:port"; the
+  // port defaults to 4533. Both are inert on a build without network audio.
+  bool network_audio () const;
+  QString network_audio_server () const;
   bool broadcast_to_n1mm() const;
   bool broadcast_to_cloudlog() const;
   bool lowSidelobes() const;
