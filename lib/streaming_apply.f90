@@ -23,12 +23,14 @@ module streaming_apply
   use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
        NPTS_C0_ARRAY_MAX, MODE_JTTY
   use jt9_params_init,   only: apply_per_mode_policy
+  use msk144_stream,     only: msk144_settings
 
   include 'jt9com.f90'
 
   private
   public :: apply_configure_fields, engine_range_key
   public :: ft8_settings_change, ft8_identity_change
+  public :: apply_msk144_fields
   ! Re-export the include'd struct so a standalone unit driver can declare a
   ! params_block to assert apply routing against (test/apply_routing_test.f90)
   ! without itself including jt9com.f90. Same bind(C) type as everywhere else
@@ -300,6 +302,20 @@ contains
        end if
     end if
   end subroutine apply_configure_fields
+
+  ! An accepted configure's MSK144 options and calls. Only a configure's
+  ! mycall and his_call become the decoder's calls, never the session's
+  ! starting ones, which are not a station's.
+  subroutine apply_msk144_fields(in_cfg, settings)
+    type(configure_fields), intent(in)    :: in_cfg
+    type(msk144_settings),  intent(inout) :: settings
+    if (in_cfg%short_messages_set) settings%short_messages = in_cfg%short_messages
+    if (in_cfg%swl_set)            settings%swl            = in_cfg%swl
+    if (in_cfg%train_set)          settings%train          = in_cfg%train
+    if (in_cfg%phase_eq_set)       settings%phase_eq       = in_cfg%phase_eq
+    if (in_cfg%mycall_set)         settings%mycall         = in_cfg%mycall
+    if (in_cfg%his_call_set)       settings%hiscall        = in_cfg%his_call
+  end subroutine apply_msk144_fields
 
   ! The configure key behind an option field engine_params_problem names: the
   ! key this frame set, else the one whose earlier value the field carries

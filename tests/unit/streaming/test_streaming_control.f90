@@ -74,6 +74,65 @@ program test_streaming_control
   call expect_call('{"t":"configure","mycall":"ABC}', '')
   call expect_call('{"t":"configure","mycall":"' // repeat('K', 200) // '"}', repeat('K', 12))
 
+  ! MSK144's three options are booleans.
+  call expect_msk144('{"t":"configure","short_messages":true,"swl":false,"train":true}', &
+       [.true., .true., .true.], [.true., .false., .true.], '')
+  call expect_msk144('{"t":"configure","short_messages":false,"swl":true,"train":false}', &
+       [.true., .true., .true.], [.false., .true., .false.], '')
+  call expect_msk144('{"t":"configure","swl":true}', [.false., .true., .false.],         &
+       [.false., .true., .false.], '')
+  call expect_msk144('{"t":"configure","rxfreq":1500}', [.false., .false., .false.],     &
+       [.false., .false., .false.], '')
+  call expect_msk144('{"t":"configure","short_messages":"yes"}', [.false., .false., .false.], &
+       [.false., .false., .false.], 'short_messages')
+  call expect_msk144('{"t":"configure","swl":1}', [.false., .false., .false.],           &
+       [.false., .false., .false.], 'swl')
+  call expect_msk144('{"t":"configure","train":null}', [.false., .false., .false.],      &
+       [.false., .false., .false.], 'train')
+  ! phase_eq: exactly five finite JSON numbers; otherwise no value, and the
+  ! frame's one error says whether its text, its type or its range is wrong.
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0]}', '',                &
+       [0.d0, 0.d0, 5.d0, 0.d0, 0.d0])
+  call expect_phase_eq('{"t":"configure","phase_eq":[ -1.5e2 ,0.25E-3,' // achar(9) //   &
+       '1E+2,-0,' // achar(10) // '1.2345678901234567E-001 ]}', '',                     &
+       [-150.d0, 0.25d-3, 100.d0, 0.d0, 1.2345678901234567d-1])
+  call expect_phase_eq('{"t":"configure","rxfreq":1500}', '')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[ ]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,1e999,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,-1e999,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[1e999,0,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,"5",0,0]}', 'string')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,true,0,0]}', 'bool')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,null,0,0]}', 'null')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,[5],0,0]}', 'array')
+  call expect_phase_eq('{"t":"configure","phase_eq":[[0,0,5,0,0]]}', 'array')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,{"x":5},0,0]}', 'object')
+  call expect_phase_eq('{"t":"configure","phase_eq":5}', 'number')
+  call expect_phase_eq('{"t":"configure","phase_eq":"[0,0,5,0,0]"}', 'string')
+  call expect_phase_eq('{"t":"configure","phase_eq":true}', 'bool')
+  call expect_phase_eq('{"t":"configure","phase_eq":null}', 'null')
+  call expect_phase_eq('{"t":"configure","phase_eq":{"a":1}}', 'object')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,NaN,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,Infinity,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,+5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,05,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,00,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5.,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,.5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5e,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5/,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,/,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,2*5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0 5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5d3,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0,]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,,5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[1e999,0 0,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0', 'text')
+
   ! The GUI's "Decode after EME delay" and its live audio; both are booleans.
   call expect_flags('{"t":"configure","decode_after_eme_delay":true,"live_audio":false}', &
        .true., .true., .true., .false., '')
@@ -289,6 +348,72 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_flags
+
+  ! short_messages, swl and train as parsed (set, then value), or the key a
+  ! type error names.
+  subroutine expect_msk144(frame, set, val, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    logical,          intent(in) :: set(3), val(3)
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key .and.            &
+            .not. (cfg%short_messages_set .or. cfg%swl_set .or. cfg%train_set)
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            all([cfg%short_messages_set, cfg%swl_set, cfg%train_set] .eqv. set) .and. &
+            all(([cfg%short_messages, cfg%swl, cfg%train] .eqv. val) .or. .not. set)
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_msk144
+
+  ! phase_eq as parsed (values; absent: unset), or refused for its 'text' or
+  ! 'range', or with outcome the category its type error names.
+  subroutine expect_phase_eq(frame, outcome, values)
+    character(len=*),  intent(in)           :: frame, outcome
+    real(8),           intent(in), optional :: values(5)
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good, typed
+
+    call parse_control_frame(frame, action, cfg, terr)
+    typed = terr%present .and. trim(terr%key) .eq. 'phase_eq'
+    good = action .eq. CTRL_CONFIGURE
+    select case (outcome)
+    case ('')
+       good = good .and. .not. (terr%present .or. cfg%phase_eq_malformed .or.  &
+            cfg%phase_eq_out_of_range) .and. (cfg%phase_eq_set .eqv. present(values))
+       if (present(values)) good = good .and. all(cfg%phase_eq .eq. values)
+    case ('text')
+       good = good .and. cfg%phase_eq_malformed .and. .not. (terr%present .or.   &
+            cfg%phase_eq_out_of_range .or. cfg%phase_eq_set)
+    case ('range')
+       good = good .and. cfg%phase_eq_out_of_range .and. .not. (terr%present .or. &
+            cfg%phase_eq_malformed .or. cfg%phase_eq_set)
+    case default
+       good = good .and. typed .and. trim(terr%expected) .eq. 'array of numbers' .and. &
+            trim(terr%got) .eq. outcome .and. .not. (cfg%phase_eq_malformed .or.   &
+            cfg%phase_eq_out_of_range .or. cfg%phase_eq_set)
+    end select
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a,a,l1,a,l1,a,l1,a,a,a,5(1x,es24.16))', '  FAIL  ', frame, ' -> set ', &
+            cfg%phase_eq_set, ' text ', cfg%phase_eq_malformed, ' range ',          &
+            cfg%phase_eq_out_of_range, ' got ', trim(terr%got), ' values', cfg%phase_eq
+       nfail = nfail + 1
+    end if
+  end subroutine expect_phase_eq
 
   subroutine expect_tx_mode_unset(frame)
     character(len=*), intent(in) :: frame

@@ -7,6 +7,9 @@
 !   ready             {"v":1,"t":"ready","modes":[...],"protocol":1}
 !   decode            {"v":1,"t":"decode","mode":"FT8","time":"HHMMSS",
 !                      "snr":-12,"dt":0.6,"freq":1500,"message":"CQ ..."}
+!                     An MSK144 decode adds "training":true after "message"
+!                     when configure's train is still true after its window,
+!                     where the GUI marks the decode ^.
 !   decode_finished   {"v":1,"t":"decode_finished","period_end":"HHMMSS"}
 !   error             {"v":1,"t":"error","msg":"..."}
 !   error (coded)     {"v":1,"t":"error","code":"configure_parse_error","detail":"..."}
@@ -21,7 +24,10 @@
 !                     order (a carried one when a mode change made it
 !                     invalid). "mode" is the mode the frame would leave, and
 !                     the stream stays in the one it had. Also sent once after
-!                     ready for a command-line value. JTTY's has no "mode".
+!                     ready for a command-line value. A configure whose
+!                     phase_eq is a well-formed array of another length or
+!                     with a non-finite number is declined with it too. JTTY's
+!                     has no "mode".
 !   error (refused)   {"v":1,"t":"error","code":"decode_rejected",
 !                      "operation":"decode","status":"invalid","mode":"JT65",
 !                      "field":"depth","detail":"depth must be from 1 to 3"}
@@ -61,8 +67,30 @@
 !                     still sends: one per period, and one more per decode
 !                     again (none for a period a mode or period change
 !                     discards, or a SuperFox even-sequence period whose stop
-!                     is below 50). Periods' events can interleave; group them
-!                     by period_end.
+!                     is below 50). An MSK144 period a change discards keeps
+!                     the decodes it has already sent. Periods' events can
+!                     interleave; group them by period_end.
+!   msk144_trained    {"v":1,"t":"msk144_trained","call":"W9XYZ",
+!                      "file":"./W9XYZ_261019_120512.pcoeff",
+!                      "phase_eq":[1.2345678901234567E-001,...]}
+!                     MSK144 training completed: the DX call it trained on
+!                     (configure's his_call), the phase-response file it wrote
+!                     and its five coefficients, which a configure's phase_eq
+!                     applies. "file" is the -a directory as given, "/" and
+!                     <call>_<yymmdd>_<hhmmss>.pcoeff in local time; it is
+!                     null when the file could not be created (a call with
+!                     "/" naming no subdirectory of -a, an -a no longer
+!                     writable, a file for the call already written that
+!                     second), and the coefficients come anyway. Training
+!                     takes only decodes whose message holds his_call as
+!                     configured, case and all, from its fourth character on.
+!                     train:false stops it only before the first decode that
+!                     contains his_call; after that it goes on until it
+!                     completes, his_call changes, or more than ten frames
+!                     average without a fit. Sent for every completed
+!                     training, after the decode event, if any, of the window
+!                     that completed it, before more input is read; train is
+!                     false from then on.
 !
 !   error (memory)    {"v":1,"t":"error","code":"out_of_memory",
 !                      "detail":"no memory to buffer the input"}
@@ -105,6 +133,7 @@ module streaming_emit
   public :: streaming_emit_decode_finished
   public :: streaming_emit_hold_finished
   public :: streaming_emit_pass_skipped
+  public :: streaming_emit_msk144_trained
   public :: streaming_emit_set_clock
   public :: streaming_emit_finished_at
   public :: streaming_emit_error
@@ -165,7 +194,9 @@ contains
   !   dt        : DT seconds (float)
   !   freq      : decode frequency offset in Hz (integer)
   !   msg       : decoded message text (gets JSON-escaped + trimmed)
-  subroutine streaming_emit_decode(mode_str, nutc, snr, dt, freq, msg, utc_is_hhmmss)
+  !   training  : an MSK144 decode made while training
+  subroutine streaming_emit_decode(mode_str, nutc, snr, dt, freq, msg, utc_is_hhmmss, &
+       training)
     character(len=*), intent(in) :: mode_str
     integer,          intent(in) :: nutc
     integer,          intent(in) :: snr
@@ -173,10 +204,12 @@ contains
     integer,          intent(in) :: freq
     character(len=*), intent(in) :: msg
     logical, optional, intent(in) :: utc_is_hhmmss
+    logical, optional, intent(in) :: training
 
     character(len=8)   :: time_str
     character(len=320) :: msg_escaped
     character(len=16)  :: dt_str
+    character(len=16)  :: mark
     integer            :: msg_len
 
     if (.not. enabled_) return
@@ -184,15 +217,19 @@ contains
     call format_utc_(nutc, time_str, utc_is_hhmmss)
     call streaming_emit_json_escape(msg, msg_escaped, msg_len)
     call format_dt_(dt, dt_str)
+    mark = ' '
+    if (present(training)) then
+       if (training) mark = ',"training":true'
+    end if
 
-    write(output_unit, '(5a,i0,3a,i0,3a)')                                 &
+    write(output_unit, '(5a,i0,3a,i0,5a)')                                 &
          '{"v":1,"t":"decode","mode":"', trim(mode_str),                   &
          '","time":"', trim(time_str),                                     &
          '","snr":', snr,                                                  &
          ',"dt":', trim(dt_str),                                           &
          ',"freq":', freq,                                                 &
          ',"message":"', msg_escaped(1:msg_len),                           &
-         '"}'
+         '"', trim(mark), '}'
     flush(output_unit)
   end subroutine streaming_emit_decode
 
@@ -238,6 +275,33 @@ contains
          ',"stage":"', stage, '","reason":"', reason, '"}'
     flush(output_unit)
   end subroutine streaming_emit_pass_skipped
+
+  ! Each coefficient with 17 significant digits, which keeps every double; a
+  ! value JSON cannot hold is null, as is a blank file.
+  subroutine streaming_emit_msk144_trained(dx_call, file, terms)
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    character(len=*), intent(in) :: dx_call, file
+    real(8),          intent(in) :: terms(5)
+    character(len=80)   :: call_escaped
+    character(len=3200) :: file_escaped
+    character(len=:), allocatable :: file_value
+    character(len=24)   :: value(5)
+    integer             :: call_len, file_len, i
+    if (.not. enabled_) return
+    call streaming_emit_json_escape(dx_call, call_escaped, call_len)
+    call streaming_emit_json_escape(file, file_escaped, file_len)
+    file_value = 'null'
+    if (file_len .gt. 0) file_value = '"' // file_escaped(1:file_len) // '"'
+    do i = 1, 5
+       value(i) = 'null'
+       if (ieee_is_finite(terms(i))) write(value(i), '(es24.16e3)') terms(i)
+    end do
+    write(output_unit, '(15a)')                                            &
+         '{"v":1,"t":"msk144_trained","call":"', call_escaped(1:call_len), &
+         '","file":', file_value, ',"phase_eq":[',                        &
+         (trim(adjustl(value(i))), ',', i = 1, 4), trim(adjustl(value(5))), ']}'
+    flush(output_unit)
+  end subroutine streaming_emit_msk144_trained
 
   subroutine streaming_emit_error(msg)
     character(len=*), intent(in) :: msg
@@ -295,7 +359,8 @@ contains
   end subroutine streaming_emit_error_type
 
   ! A configure the decoder would refuse; the whole frame is declined. `key`
-  ! is a configure key name and `mode` a mode name (no escaping needed).
+  ! is a configure key name and `mode` a mode name (no escaping needed), or
+  ! blank for none.
   !   {"v":1,"t":"error","code":"configure_range_error","key":"<k>",
   !    "mode":"<m>","detail":"<d>"}
   subroutine streaming_emit_error_range(key, mode, detail)
@@ -304,10 +369,16 @@ contains
     integer                      :: d_len
     if (.not. enabled_) return
     call streaming_emit_json_escape(detail, d_escaped, d_len)
-    write(output_unit, '(7a)')                                             &
-         '{"v":1,"t":"error","code":"configure_range_error","key":"',      &
-         trim(key), '","mode":"', trim(mode), '","detail":"',              &
-         d_escaped(1:d_len), '"}'
+    if (len_trim(mode) .eq. 0) then
+       write(output_unit, '(5a)')                                          &
+            '{"v":1,"t":"error","code":"configure_range_error","key":"',   &
+            trim(key), '","detail":"', d_escaped(1:d_len), '"}'
+    else
+       write(output_unit, '(7a)')                                          &
+            '{"v":1,"t":"error","code":"configure_range_error","key":"',   &
+            trim(key), '","mode":"', trim(mode), '","detail":"',           &
+            d_escaped(1:d_len), '"}'
+    end if
     flush(output_unit)
   end subroutine streaming_emit_error_range
 

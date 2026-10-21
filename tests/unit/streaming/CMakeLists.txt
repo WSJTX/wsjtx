@@ -215,3 +215,85 @@ if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_streaming_apply PROPERTIES
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
+
+# MSK144 against the GUI's receive path: msk144_gui_model runs the GUI's
+# hspec on the same audio, the oracle each row compares the stream with.
+add_executable (msk144_gui_model msk144_gui_model.f90)
+wsjt_link_common_fortran (msk144_gui_model)
+add_executable (test_streaming_msk144 test_streaming_msk144.cpp)
+add_dependencies (test_streaming_msk144 wsjt-codec msk144_gui_model)
+target_link_libraries (test_streaming_msk144 Qt5::Test)
+target_compile_definitions (test_streaming_msk144 PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  MSK144_GUI_MODEL="$<TARGET_FILE:msk144_gui_model>")
+set (streaming_msk144_rows)
+set (streaming_msk144_fixtures)
+# Source archives omit samples/.
+set (have_msk144_samples FALSE)
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav"
+    AND EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav")
+  set (have_msk144_samples TRUE)
+  target_compile_definitions (test_streaming_msk144 PRIVATE
+    MSK144_SAMPLES="${CMAKE_SOURCE_DIR}/samples/MSK144")
+  list (APPEND streaming_msk144_rows recording120500MatchesTheGui recording120800MatchesTheGui
+    samplesDecodeAtTheGuiBlocks phaseEqErrorsKeepTheValueInForce)
+endif ()
+set (have_ft8_sample FALSE)
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+  set (have_ft8_sample TRUE)
+  target_compile_definitions (test_streaming_msk144 PRIVATE
+    FT8_SAMPLE_WAV="${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+endif ()
+if (WSJT_BUILD_UTILS)
+  # msk144sim writes 000000_000001.wav into its working directory: message, width, SNR.
+  set (msk144_sim_dir "${CMAKE_CURRENT_BINARY_DIR}/msk144")
+  set (msk144_sim_short "<K1ABC W9XYZ> R+06;0.12;10")
+  set (msk144_sim_train "K1ABC W9XYZ R-04;0.5;10")
+  set (msk144_sim_depth "K1ABC W9XYZ R-04;2.5;0")
+  set (msk144_sim_hash "<PA3XYZ/P> G4ABCD/P RR73;0.5;15")
+  set (msk144_sim_long "<PA3XYZ/P> <G4ABCD/P> R 590003 IO91NP;0.5;15")
+  set (msk144_sim_rover "K1ABC W9XYZ/R R-04;0.5;10")
+  target_compile_definitions (test_streaming_msk144 PRIVATE MSK144_SIM_DIR="${msk144_sim_dir}")
+  add_dependencies (test_streaming_msk144 msk144sim)
+  foreach (fixture short train depth hash long rover)
+    list (GET msk144_sim_${fixture} 0 message)
+    list (GET msk144_sim_${fixture} 1 width)
+    list (GET msk144_sim_${fixture} 2 snr)
+    file (MAKE_DIRECTORY "${msk144_sim_dir}/${fixture}")
+    add_test (NAME prepare_msk144_${fixture}_wav
+      COMMAND msk144sim "${message}" 15 1500 ${width} ${snr} 1
+      WORKING_DIRECTORY "${msk144_sim_dir}/${fixture}")
+    set_tests_properties (prepare_msk144_${fixture}_wav PROPERTIES FIXTURES_SETUP msk144_sim_wavs TIMEOUT 30)
+  endforeach ()
+  list (APPEND streaming_msk144_fixtures msk144_sim_wavs)
+  list (APPEND streaming_msk144_rows
+    simulatedSignalsMatchTheGui stationIdentityComesFromConfigures trainingMatchesTheGui)
+  if (have_msk144_samples)
+    list (APPEND streaming_msk144_rows trainedCoefficientsGoBack)
+  endif ()
+  if (have_ft8_sample)
+    list (APPEND streaming_msk144_rows modeChangeKeepsTheDecoderState)
+  endif ()
+endif ()
+set (streaming_msk144_environment)
+set (streaming_msk144_timeout 300)
+# Sanitizer builds decode several times slower and leave out the parity sweeps; CI's
+# sanitizer legs also build without WSJT_BUILD_UTILS, so there only placement and the
+# phase_eq errors run.
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  list (REMOVE_ITEM streaming_msk144_rows recording120500MatchesTheGui recording120800MatchesTheGui
+    simulatedSignalsMatchTheGui modeChangeKeepsTheDecoderState)
+  set (streaming_msk144_timeout 1200)
+  list (APPEND streaming_msk144_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_msk144_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+foreach (row IN LISTS streaming_msk144_rows)
+  add_test (NAME test_streaming_msk144_${row} COMMAND test_streaming_msk144 ${row})
+  set_tests_properties (test_streaming_msk144_${row} PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_msk144_environment}"
+    FIXTURES_REQUIRED "${streaming_msk144_fixtures}"
+    TIMEOUT ${streaming_msk144_timeout})
+endforeach ()

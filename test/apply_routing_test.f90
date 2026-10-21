@@ -24,11 +24,12 @@
 ! Registered with CTest as test_streaming_apply; the standalone
 ! test/run-apply-routing-unit.sh also supports running this driver.
 program apply_routing_test
-  use streaming_control, only: configure_fields
+  use streaming_control, only: configure_fields, parse_control_frame, control_type_error
   use jt9_params_init,   only: cli_args_t, init_default_params,             &
        init_streaming_extra_fields
   use streaming_apply,   only: apply_configure_fields, params_block, engine_range_key, &
-       ft8_settings_change, ft8_identity_change
+       ft8_settings_change, ft8_identity_change, apply_msk144_fields
+  use msk144_stream,     only: msk144_settings
   implicit none
   integer :: nfail
   integer, parameter :: BNFA = 111, BNFB = 222   ! baseline nfa/nfb
@@ -51,6 +52,7 @@ program apply_routing_test
   call frame_fst4_utc()
   call frame_phase9_pack()
   call frame_cancel_fields()
+  call frame_msk144()
 
   write(*,'(a)') '------------------------------------------------------------'
   if (nfail .eq. 0) then
@@ -788,6 +790,52 @@ contains
     now = was; now%nsubmode = was%nsubmode + 1
     call identity('submode', was, now)
   end subroutine frame_cancel_fields
+
+  ! MSK144's options and calls: each key to its own setting, kept until a
+  ! frame sets it.
+  subroutine frame_msk144()
+    type(configure_fields)   :: cfg, blank
+    type(control_type_error) :: terr
+    type(msk144_settings)    :: s
+    integer :: action
+    write(*,'(a)') 'Frame MSK144: options and calls -> the stream''s MSK144 settings'
+    call ok('msk144: off, no equalization and no calls by default',          &
+         .not. (s%short_messages .or. s%swl .or. s%train) .and.               &
+         all(s%phase_eq .eq. 0.d0) .and. s%mycall .eq. ' ' .and. s%hiscall .eq. ' ')
+    cfg = blank
+    cfg%short_messages_set = .true.; cfg%short_messages = .true.
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: short_messages -> short_messages only',                 &
+         s%short_messages .and. .not. s%swl .and. .not. s%train)
+    cfg = blank
+    cfg%swl_set = .true.; cfg%swl = .true.
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: swl -> swl, short_messages kept', s%swl .and. s%short_messages .and. .not. s%train)
+    cfg = blank
+    cfg%train_set = .true.; cfg%train = .true.
+    cfg%short_messages_set = .true.; cfg%short_messages = .false.
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: train -> train, short_messages false', s%train .and. s%swl .and. .not. s%short_messages)
+    cfg = blank
+    cfg%phase_eq_set = .true.; cfg%phase_eq = [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: phase_eq -> phase_eq', all(s%phase_eq .eq. [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]))
+    cfg = blank
+    cfg%mycall_set = .true.; cfg%mycall = 'KJ5HST'
+    cfg%his_call_set = .true.; cfg%his_call = 'W1AW/7'
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: mycall and his_call -> the decoder''s calls',            &
+         s%mycall .eq. 'KJ5HST' .and. s%hiscall .eq. 'W1AW/7')
+    call apply_msk144_fields(blank, s)
+    call ok('msk144: a frame without them keeps every one',                   &
+         s%train .and. s%swl .and. .not. s%short_messages .and.               &
+         all(s%phase_eq .eq. [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]) .and.             &
+         s%mycall .eq. 'KJ5HST' .and. s%hiscall .eq. 'W1AW/7')
+    call parse_control_frame('{"t":"configure","phase_eq":[0,0,5,0]}', action, cfg, terr)
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: a refused phase_eq carries none',                        &
+         cfg%phase_eq_out_of_range .and. all(s%phase_eq .eq. [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]))
+  end subroutine frame_msk144
 
   subroutine setting(key, was, now)
     character(len=*),   intent(in) :: key
