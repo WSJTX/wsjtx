@@ -1,0 +1,65 @@
+FROM debian:trixie AS cross_builder
+
+ARG IMAGE_REFRESH_EPOCH
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive ARMHF_DISTRO=trixie
+
+COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
+RUN chmod +x /usr/local/bin/run-apt-get \
+    && test -n "$IMAGE_REFRESH_EPOCH" \
+    && run-apt-get update \
+    && run-apt-get install -y --no-install-recommends \
+      arch-test asciidoctor autoconf automake binutils bison build-essential \
+      ca-certificates ccache cmake curl dpkg-dev file flex gawk git gperf \
+      help2man libncurses-dev libtool libtool-bin mmdebstrap patch pkg-config \
+      python3 python3-dev qt5-qmake-bin qtbase5-dev-tools qttools5-dev-tools \
+      qemu-user-static rsync texinfo unzip wget xz-utils \
+      gcc-14-arm-linux-gnueabihf g++-14-arm-linux-gnueabihf \
+      gfortran-14-arm-linux-gnueabihf \
+    && run-apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    mkdir -p /opt/wsjtx/armhf-toolchain/bin; \
+    for tool in gcc g++ gfortran; do \
+      ln -s "/usr/bin/arm-linux-gnueabihf-$tool-14" "/opt/wsjtx/armhf-toolchain/bin/arm-linux-gnueabihf-$tool"; \
+    done; \
+    for tool in ar nm objcopy objdump ranlib readelf strip; do \
+      ln -s "/usr/bin/arm-linux-gnueabihf-$tool" "/opt/wsjtx/armhf-toolchain/bin/arm-linux-gnueabihf-$tool"; \
+    done
+
+COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/armhf-toolchain-config.sh \
+     .github/scripts/armhf-ci-image-config.sh \
+     /usr/local/share/wsjtx-ci/
+COPY .github/scripts/linux-ccache-compiler-signature.sh \
+     .github/scripts/build-hamlib-armhf-cross.sh \
+     .github/scripts/build-armhf-toolchain-smoke.sh \
+     .github/scripts/normalize-armhf-sysroot-symlinks.sh \
+     .github/scripts/write-armhf-ci-manifest.sh \
+     .github/scripts/verify-armhf-ci-image.sh \
+     /usr/local/share/wsjtx-ci/
+COPY .github/images/linux-ci/install-armhf-sysroot.sh /usr/local/bin/install-armhf-sysroot
+RUN chmod +x /usr/local/bin/install-armhf-sysroot \
+    && /usr/local/bin/install-armhf-sysroot
+
+ARG IMAGE_CREATED
+ARG IMAGE_GENERATION=local
+ARG IMAGE_REVISION
+ARG IMAGE_RECIPE_SHA256
+LABEL org.opencontainers.image.created="${IMAGE_CREATED}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/WSJTX/wsjtx-internal" \
+      org.opencontainers.image.title="WSJT-X ARMHF cross-builder" \
+      org.opencontainers.image.description="Native x86_64 Debian GCC 14 cross-builder with a Debian Trixie ARMHF time64 sysroot"
+RUN set -eux; \
+    . /usr/local/share/wsjtx-ci/armhf-ci-image-config.sh; \
+    /usr/local/share/wsjtx-ci/write-armhf-ci-manifest.sh \
+      cross-builder armhf "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
+    IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-armhf-ci-image.sh \
+        cross-builder armhf "$LINUX_HAMLIB_REF"
+
+ENV PATH="/opt/wsjtx/armhf-toolchain/bin:${PATH}"
+WORKDIR /work

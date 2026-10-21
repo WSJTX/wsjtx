@@ -19,7 +19,72 @@ assert SPEC.loader
 SPEC.loader.exec_module(release_policy)
 
 
+def fixture_filename(artifact):
+    if artifact.endswith(("-AppImage", "-deb", "-rpm")):
+        base, kind = artifact.rsplit("-", 1)
+        return f"{base}.{kind}"
+    if artifact.endswith(".pkg"):
+        return artifact.replace("-unsigned", "")
+    if "-installer" in artifact:
+        return f"{artifact}.exe"
+    return f"{artifact}.tar.gz"
+
+
 class ReleasePolicyTest(unittest.TestCase):
+    def test_both_armhf_sets_are_required_without_legacy_aliases(self):
+        version = "3.3.0-rc1"
+        required = {
+            f"wsjtx-{version}-linux-armhf-{distro}-{kind}"
+            for distro in ("bookworm", "trixie")
+            for kind in ("deb", "rpm", "AppImage", "jt9", "codec", "wsprd", "utilities")
+        }
+        for public in (False, True):
+            with self.subTest(public=public), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                expected = release_policy.expected_assets(version, True)
+                self.assertEqual({name for name in expected if "linux-armhf" in name}, required)
+                for name in expected:
+                    target = root / name
+                    target.mkdir()
+                    (target / fixture_filename(name)).write_bytes(name.encode())
+                for distro in ("bookworm", "trixie"):
+                    raw = root / f"wsjtx-{version}-linux-armhf-{distro}"
+                    raw.mkdir()
+                    (raw / "wsjtx").write_bytes(b"executable")
+
+                def verify():
+                    if public:
+                        return release_policy.find_public_asset_files(root, version, "distribution")
+                    return release_policy.find_asset_files(root, version, True)
+
+                verify()
+                for name in sorted(required):
+                    target = root / name
+                    payload = target / fixture_filename(name)
+                    contents = payload.read_bytes()
+                    with self.subTest(artifact=name):
+                        payload.unlink()
+                        with self.assertRaisesRegex(ValueError, "must contain exactly one"):
+                            verify()
+                        payload.touch()
+                        with self.assertRaisesRegex(ValueError, "artifact is empty"):
+                            verify()
+                        payload.write_bytes(contents)
+                        duplicate = target / f"extra-{payload.name}"
+                        duplicate.write_bytes(contents)
+                        with self.assertRaisesRegex(ValueError, "must contain exactly one"):
+                            verify()
+                        duplicate.unlink()
+                        wrong = target / ("wrong" + release_policy.asset_suffix(name))
+                        payload.rename(wrong)
+                        with self.assertRaisesRegex(ValueError, "unexpected ARMHF asset filename"):
+                            verify()
+                        wrong.rename(payload)
+                legacy = root / f"wsjtx-{version}-linux-armhf.deb"
+                legacy.write_bytes(b"legacy")
+                with self.assertRaisesRegex(ValueError, "must identify Bookworm or Trixie"):
+                    verify()
+
     def test_candidate_and_public_inventories_require_both_macos_architectures(self):
         version = "3.2.0-rc1"
         for distribution in (False, True):
@@ -951,10 +1016,7 @@ class ReleasePolicyTest(unittest.TestCase):
                     for name in expected:
                         target = root / name
                         target.mkdir()
-                        suffix = release_policy.asset_suffix(name)
-                        filename = name.replace("-unsigned", "")
-                        if not filename.endswith(suffix):
-                            filename += suffix
+                        filename = fixture_filename(name)
                         (target / filename).write_bytes(name.encode())
                     def verify():
                         if public:
@@ -964,7 +1026,7 @@ class ReleasePolicyTest(unittest.TestCase):
                     suffix = "macOS.pkg" if distribution else "macOS-unsigned.pkg"
                     required = [f"wsjtx-{version}-x86_64-{suffix}"] + [
                         f"wsjtx-{version}-x86_64-macOS-{group}"
-                        for group in ("jt9", "jt9stream", "wsprd", "utilities")
+                        for group in ("jt9", "codec", "wsprd", "utilities")
                     ]
                     for name in required:
                         artifact = root / name
@@ -981,8 +1043,7 @@ class ReleasePolicyTest(unittest.TestCase):
             for name in release_policy.expected_assets(version, True):
                 target = root / name
                 target.mkdir()
-                suffix = release_policy.asset_suffix(name)
-                (target / f"artifact{suffix}").write_bytes(b"signed")
+                (target / fixture_filename(name)).write_bytes(name.encode())
             (root / "extra").mkdir()
             (root / "extra" / "unexpected-unsigned.pkg").write_bytes(b"unsigned")
             with self.assertRaisesRegex(ValueError, "unsigned macOS"):
@@ -995,9 +1056,8 @@ class ReleasePolicyTest(unittest.TestCase):
             for name in release_policy.expected_assets(version, True):
                 target = root / name
                 target.mkdir()
-                suffix = release_policy.asset_suffix(name)
-                (target / f"{name}{suffix}" if not name.endswith(suffix) else target / name).write_bytes(name.encode())
-            for arch in ("x86_64", "aarch64", "armhf"):
+                (target / fixture_filename(name)).write_bytes(name.encode())
+            for arch in ("x86_64", "aarch64"):
                 for package_type in ("deb", "rpm"):
                     target = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
                     target.mkdir()
@@ -1010,6 +1070,8 @@ class ReleasePolicyTest(unittest.TestCase):
                 "linux_aarch64_digest": "sha256:" + "2" * 64,
                 "linux_armhf_cross_digest": "sha256:" + "3" * 64,
                 "linux_armhf_digest": "sha256:" + "4" * 64,
+                "linux_armhf_trixie_cross_digest": "sha256:" + "5" * 64,
+                "linux_armhf_trixie_digest": "sha256:" + "6" * 64,
                 "macos_mode": "distribution",
                 "windows_mode": "signpath",
             })()
@@ -1019,14 +1081,21 @@ class ReleasePolicyTest(unittest.TestCase):
             self.assertEqual(manifest["commit"], "a" * 40)
             self.assertEqual(manifest["linux_builders"]["armhf_cross"], "sha256:" + "3" * 64)
             self.assertEqual(manifest["linux_builders"]["armhf_runtime"], "sha256:" + "4" * 64)
+            self.assertEqual(manifest["schema"], 2)
+            self.assertEqual(manifest["linux_builders"]["armhf_trixie_cross"], "sha256:" + "5" * 64)
+            self.assertEqual(manifest["linux_builders"]["armhf_trixie_runtime"], "sha256:" + "6" * 64)
+            self.assertEqual(len(manifest["linux_builders"]), 6)
             self.assertEqual(manifest["macos_signing"]["mode"], "distribution")
             self.assertEqual(manifest["macos_signing"]["replaceable_assets"], [])
             self.assertEqual(manifest["windows_signing"]["mode"], "signpath")
-            self.assertEqual(len(manifest["assets"]), 37)
+            self.assertEqual(len(manifest["assets"]), 44)
             self.assertTrue(
                 {f"{name}.tar.gz" for name in release_policy.release_tarballs(version)}
                 <= {entry["name"] for entry in manifest["assets"]}
             )
+            args.linux_armhf_trixie_digest = "latest"
+            with self.assertRaisesRegex(ValueError, "armhf_trixie_runtime builder digest"):
+                release_policy.write_manifest(args)
 
     def test_manual_macos_assets_keep_release_names_without_immutable_hashes(self):
         for version in ("3.2.0", "3.2.0-rc1"):
@@ -1040,11 +1109,11 @@ class ReleasePolicyTest(unittest.TestCase):
                     elif "macOS" in name:
                         filename = name.replace("-unsigned", "")
                     elif "linux" in name:
-                        filename = f"{name}.AppImage"
+                        filename = fixture_filename(name)
                     else:
                         filename = "wsjtx-win64.exe"
                     (target / filename).write_bytes(name.encode())
-                for arch in ("x86_64", "aarch64", "armhf"):
+                for arch in ("x86_64", "aarch64"):
                     for package_type in ("deb", "rpm"):
                         target = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
                         target.mkdir()
@@ -1057,6 +1126,8 @@ class ReleasePolicyTest(unittest.TestCase):
                     "linux_aarch64_digest": "sha256:" + "2" * 64,
                     "linux_armhf_cross_digest": "sha256:" + "3" * 64,
                     "linux_armhf_digest": "sha256:" + "4" * 64,
+                    "linux_armhf_trixie_cross_digest": "sha256:" + "5" * 64,
+                    "linux_armhf_trixie_digest": "sha256:" + "6" * 64,
                     "macos_mode": "validation",
                     "windows_mode": "signpath",
                 })()
@@ -1095,11 +1166,11 @@ class ReleasePolicyTest(unittest.TestCase):
                 elif "macOS" in name:
                     filename = name.replace("-unsigned", "")
                 elif "linux" in name:
-                    filename = f"{name}.AppImage"
+                    filename = fixture_filename(name)
                 else:
                     filename = f"wsjtx-{version}-win64.exe"
                 (target / filename).write_bytes(name.encode())
-            for arch in ("x86_64", "aarch64", "armhf"):
+            for arch in ("x86_64", "aarch64"):
                 for package_type in ("deb", "rpm"):
                     target = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
                     target.mkdir()
@@ -1112,6 +1183,8 @@ class ReleasePolicyTest(unittest.TestCase):
                 "linux_aarch64_digest": "sha256:" + "2" * 64,
                 "linux_armhf_cross_digest": "sha256:" + "3" * 64,
                 "linux_armhf_digest": "sha256:" + "4" * 64,
+                "linux_armhf_trixie_cross_digest": "sha256:" + "5" * 64,
+                "linux_armhf_trixie_digest": "sha256:" + "6" * 64,
                 "macos_mode": "validation", "windows_mode": "unsigned",
             })()
             release_policy.write_manifest(args)
@@ -1119,7 +1192,7 @@ class ReleasePolicyTest(unittest.TestCase):
             installer = f"wsjtx-{version}-win64.exe"
             self.assertEqual(manifest["windows_signing"]["mode"], "unsigned")
             self.assertIn(installer, {entry["name"] for entry in manifest["assets"]})
-            for group in ("jt9", "jt9stream", "wsprd", "utilities"):
+            for group in ("jt9", "codec", "wsprd", "utilities"):
                 self.assertIn(
                     f"wsjtx-{version}-windows-x86_64-{group}.tar.gz", {entry["name"] for entry in manifest["assets"]}
                 )
@@ -1141,14 +1214,14 @@ class ReleasePolicyTest(unittest.TestCase):
             tools,
             [
                 f"wsjtx-{version}-{target}-{group}"
-                for target in ("arm64-macOS", "x86_64-macOS", "linux-x86_64", "linux-aarch64", "linux-armhf", "windows-x86_64")
-                for group in ("jt9", "jt9stream", "wsprd", "utilities")
+                for target in ("arm64-macOS", "x86_64-macOS", "linux-x86_64", "linux-aarch64", "linux-armhf-bookworm", "linux-armhf-trixie", "windows-x86_64")
+                for group in ("jt9", "codec", "wsprd", "utilities")
             ],
         )
-        self.assertEqual([release_policy.asset_suffix(name) for name in tools], [".tar.gz"] * 24)
+        self.assertEqual([release_policy.asset_suffix(name) for name in tools], [".tar.gz"] * 28)
         self.assertEqual(
-            [release_policy.asset_suffix(name) for name in release_policy.expected_assets(version, False)[:6]],
-            [".pkg", ".pkg", ".AppImage", ".AppImage", ".AppImage", ".exe"],
+            [release_policy.asset_suffix(name) for name in release_policy.expected_assets(version, False)[:7]],
+            [".pkg", ".pkg", ".AppImage", ".AppImage", ".AppImage", ".AppImage", ".exe"],
         )
         for distribution in (False, True):
             self.assertTrue(set(tools) <= set(release_policy.expected_assets(version, distribution)))
@@ -1162,15 +1235,15 @@ class ReleasePolicyTest(unittest.TestCase):
             for name in release_policy.expected_assets(version, False):
                 target = root / name
                 target.mkdir()
-                (target / f"{name}{release_policy.asset_suffix(name)}").write_bytes(name.encode())
+                (target / fixture_filename(name)).write_bytes(name.encode())
             files = release_policy.find_asset_files(root, version, False)
             self.assertEqual(
                 sorted(path.name for path in files if path.name.endswith(".tar.gz")),
                 sorted(f"{name}.tar.gz" for name in tools),
             )
-            armhf = root / f"wsjtx-{version}-linux-armhf-jt9stream"
+            armhf = root / f"wsjtx-{version}-linux-armhf-bookworm-codec"
             (armhf / f"{armhf.name}.tar.gz").unlink()
-            with self.assertRaisesRegex(ValueError, "linux-armhf-jt9stream must contain exactly one .tar.gz"):
+            with self.assertRaisesRegex(ValueError, "linux-armhf-bookworm-codec must contain exactly one .tar.gz"):
                 release_policy.find_asset_files(root, version, False)
 
     def test_release_tarball_uploads_agree_with_the_group_file_and_the_policy(self):
@@ -1186,11 +1259,10 @@ class ReleasePolicyTest(unittest.TestCase):
         version = "3.3.0"
         installers = []
         for name in release_policy.public_expected_assets(version, "validation", "unsigned"):
-            if name not in release_policy.release_tarballs(version):
+            if name not in release_policy.release_tarballs(version) and not name.endswith(("-deb", "-rpm")):
                 installers.append(re.sub(r"-(unsigned\.pkg|AppImage|installer)$", "", name.removeprefix(f"wsjtx-{version}-")).removesuffix(".pkg"))
         self.assertEqual(installers, list(release_policy.RELEASE_TARGETS))
         macos_arches = [target.removesuffix("-macOS") for target in installers if target.endswith("-macOS")]
-        linux_arches = [target.removeprefix("linux-") for target in installers if target.startswith("linux-")]
 
         uploads = []
         for path in (
@@ -1210,19 +1282,21 @@ class ReleasePolicyTest(unittest.TestCase):
             if target == "${{ inputs.arch }}-macOS":
                 targets |= {f"{arch}-macOS" for arch in macos_arches}
             elif target == "linux-${{ inputs.arch }}":
-                targets |= {f"linux-{arch}" for arch in linux_arches if f"linux-{arch}" not in targets}
+                targets |= {"linux-x86_64", "linux-aarch64"}
+            elif target == "linux-armhf-${{ inputs.armhf_distro }}":
+                targets |= {"linux-armhf-bookworm", "linux-armhf-trixie"}
         self.assertEqual(targets, set(release_policy.RELEASE_TARGETS))
 
     def test_tarball_groups_come_from_the_group_file(self):
-        self.assertEqual(release_policy.tarball_groups(), ["jt9", "jt9stream", "wsprd", "utilities"])
+        self.assertEqual(release_policy.tarball_groups(), ["jt9", "codec", "wsprd", "utilities"])
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "release-tarballs.txt"
-            path.write_bytes(b"# comment\r\njt9 jt9\r\n\r\nengine jt9stream wsprd\r\n")
+            path.write_bytes(b"# comment\r\njt9 jt9\r\n\r\nengine wsjt-codec wsprd\r\n")
             self.assertEqual(release_policy.tarball_groups(path), ["jt9", "engine"])
             for contents, message in (
                 ("", "must name each release tarball once"),
                 ("# only a comment\n", "must name each release tarball once"),
-                ("jt9 jt9\njt9 jt9stream\n", "must name each release tarball once"),
+                ("jt9 jt9\njt9 wsjt-codec\n", "must name each release tarball once"),
                 ("jt9 jt9\nutilities\n", "release tarball utilities names no programs"),
                 ("jt9 jt9\ninstaller wsprd\n", "release tarball name installer cannot name a release asset"),
                 ("jt9 jt9\nsrc wsprd\n", "release tarball name src cannot name a release asset"),
@@ -1239,8 +1313,8 @@ class ReleasePolicyTest(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(release_policy.asset_suffix(name), ".tar.gz")
         self.assertEqual(
-            [release_policy.asset_suffix(name) for name in release_policy.public_expected_assets(version, "validation", "unsigned")[:6]],
-            [".pkg", ".pkg", ".AppImage", ".AppImage", ".AppImage", ".exe"],
+            [release_policy.asset_suffix(name) for name in release_policy.public_expected_assets(version, "validation", "unsigned")[:7]],
+            [".pkg", ".pkg", ".AppImage", ".AppImage", ".AppImage", ".AppImage", ".exe"],
         )
 
     def test_beta_manifest_hashes_unsigned_macos_packages_as_immutable_assets(self):
@@ -1255,11 +1329,11 @@ class ReleasePolicyTest(unittest.TestCase):
                 elif "macOS" in name:
                     filename = name.replace("-unsigned", "")
                 elif "linux" in name:
-                    filename = f"{name}.AppImage"
+                    filename = fixture_filename(name)
                 else:
                     filename = f"wsjtx-{version}-win64.exe"
                 (target / filename).write_bytes(name.encode())
-            for arch in ("x86_64", "aarch64", "armhf"):
+            for arch in ("x86_64", "aarch64"):
                 for package_type in ("deb", "rpm"):
                     target = root / f"wsjtx-{version}-linux-{arch}-{package_type}"
                     target.mkdir()
@@ -1272,6 +1346,8 @@ class ReleasePolicyTest(unittest.TestCase):
                 "linux_aarch64_digest": "sha256:" + "2" * 64,
                 "linux_armhf_cross_digest": "sha256:" + "3" * 64,
                 "linux_armhf_digest": "sha256:" + "4" * 64,
+                "linux_armhf_trixie_cross_digest": "sha256:" + "5" * 64,
+                "linux_armhf_trixie_digest": "sha256:" + "6" * 64,
                 "macos_mode": "validation", "windows_mode": "unsigned",
             })()
 

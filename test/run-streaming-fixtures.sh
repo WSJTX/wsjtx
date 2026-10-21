@@ -2,7 +2,7 @@
 # Streaming-fixture regression harness (cross-mode validation).
 #
 # Pipes the same WAV fixtures used by run-golden-fixtures.sh through
-# `jt9 --stream` via test/wav_to_stream_harness.py and asserts that the
+# `wsjt-codec --stream` via test/wav_to_stream_harness.py and asserts that the
 # streaming-mode decode count meets or exceeds the WAV-mode ground truth.
 #
 # Streaming may produce MORE decodes than WAV mode (the early-pass
@@ -13,17 +13,17 @@
 # Usage:
 #   test/run-streaming-fixtures.sh [build-dir]
 #
-# Where build-dir defaults to ./build and must contain a built jt9 binary.
+# Where build-dir defaults to ./build and must contain a built wsjt-codec binary.
 
 set -euo pipefail
 
 BUILD_DIR="${1:-build}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-JT9="$REPO_ROOT/$BUILD_DIR/jt9"
+JT9="$REPO_ROOT/$BUILD_DIR/wsjt-codec"
 HARNESS="$REPO_ROOT/test/wav_to_stream_harness.py"
 
 if [[ ! -x "$JT9" ]]; then
-  echo "ERROR: jt9 binary not found or not executable: $JT9" >&2
+  echo "ERROR: wsjt-codec binary not found or not executable: $JT9" >&2
   exit 2
 fi
 if [[ ! -f "$HARNESS" ]]; then
@@ -32,7 +32,7 @@ if [[ ! -f "$HARNESS" ]]; then
 fi
 
 echo "Streaming-fixture regression"
-echo "  jt9:       $JT9"
+echo "  wsjt-codec:  $JT9"
 echo "  harness:   $HARNESS"
 
 fail=0
@@ -68,7 +68,7 @@ fail=0
 # via run-eme-jt65-fixtures.sh. Same posture as FST4W below; replace-with-
 # margin-sample and soft-gate were the rejected alternatives.
 # Q65: 1 floor (streaming=4). 60s Q65-A sample; EME-sourced but
-# decoded through the TERRESTRIAL jt9 --stream nmode=66 path (NOT map65d) —
+# decoded through the TERRESTRIAL wsjt-codec --stream nmode=66 path (NOT map65d) —
 # exactly the path an external streaming producer exercises. Closes the
 # residual per-mode gap (FT4/MSK144/FST4 were closed earlier).
 #

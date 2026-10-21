@@ -32,9 +32,9 @@ module jtty_receive_context
   integer, parameter :: MAX_CONTEXTS=8
   type(receive_context), save :: contexts(MAX_CONTEXTS)
 
-  public :: jtty_rx_create, jtty_rx_destroy, jtty_rx_begin, jtty_rx_process
+  public :: jtty_rx_create, jtty_rx_destroy, jtty_rx_begin, jtty_rx_process, jtty_rx_process_final
   public :: jtty_rx_next_required_sample, jtty_rx_next_search_sample
-  public :: jtty_rx_take_updates, jtty_rx_end
+  public :: jtty_rx_take_updates, jtty_rx_take_updates_with_gaps, jtty_rx_end
 
 contains
 
@@ -233,6 +233,40 @@ contains
     explicit_receive_context=old_explicit
   end function jtty_rx_process
 
+  ! jtty_rx_process for Fortran callers whose reception ends at stop_sample:
+  ! the search window that first extends past it is also searched, as if
+  ! zeros followed the audio, unless less than half a frame of the audio
+  ! falls in it (only in a reception shorter than half a frame: a later
+  ! final window holds at least a frame of audio). That window is searched
+  ! once however often this is called.
+  integer(c_int) function jtty_rx_process_final(handle,pcm,count,first_sample,stop_sample, &
+       max_steps,nfa,nfb,f0,ftol)
+    integer(c_int), intent(in) :: handle,count,max_steps,nfa,nfb
+    integer(c_int16_t), intent(in) :: pcm(*)
+    integer(c_int64_t), intent(in) :: first_sample,stop_sample
+    real(c_float), intent(in) :: f0,ftol
+    integer(c_int16_t), allocatable :: padded(:)
+    integer(int64) :: last,step,final_search,window_end
+    integer :: nframe,nchunk
+
+    jtty_rx_process_final=-1
+    if(.not.valid_handle(handle)) return
+    if(.not.contexts(handle)%running .or. count.lt.0) return
+    nframe=59*contexts(handle)%nsps
+    nchunk=nframe+nframe/4
+    step=int(nframe/4,int64)
+    last=min(stop_sample,first_sample+int(count,int64))
+    final_search=contexts(handle)%first_search+step* &
+         ((max(last-nchunk+1-contexts(handle)%first_search,0_int64)+step-1)/step)
+    window_end=final_search+nchunk
+    if(last-final_search.lt.nframe/2) window_end=last
+    allocate(padded(max(window_end-first_sample,0_int64)))
+    padded=0
+    padded(1:last-first_sample)=pcm(1:last-first_sample)
+    jtty_rx_process_final=jtty_rx_process(handle,padded,int(size(padded),c_int),first_sample, &
+         window_end,max_steps,nfa,nfb,f0,ftol)
+  end function jtty_rx_process_final
+
   subroutine jtty_rx_end(handle,reason) bind(C,name='jtty_rx_end')
     integer(c_int), value :: handle,reason
     integer :: i,terminal
@@ -260,16 +294,53 @@ contains
     real(c_double), intent(out) :: starts(*),latest(*)
     integer(c_int), intent(out) :: terminals(*)
     integer(c_int), intent(out) :: snrs(*)
+
+    jtty_rx_take_updates=take_pending_updates(handle,capacity,text,ids,frequencies,starts,latest, &
+         terminals,snrs)
+  end function jtty_rx_take_updates
+
+  ! jtty_rx_take_updates for Fortran callers, plus where each update's text
+  ! marks missed frames: gaps(1:ngaps(i),i) as display_message_layout reports.
+  integer(c_int) function jtty_rx_take_updates_with_gaps(handle,capacity,text,ids,frequencies, &
+       starts,latest,terminals,snrs,gaps,ngaps)
+    integer(c_int), intent(in) :: handle,capacity
+    character(kind=c_char), intent(out) :: text(*)
+    integer(c_int64_t), intent(out) :: ids(*)
+    real(c_float), intent(out) :: frequencies(*)
+    real(c_double), intent(out) :: starts(*),latest(*)
+    integer(c_int), intent(out) :: terminals(*)
+    integer(c_int), intent(out) :: snrs(*)
+    integer, intent(out) :: gaps(MAX_DISPLAY_GAPS,*),ngaps(*)
+
+    jtty_rx_take_updates_with_gaps=take_pending_updates(handle,capacity,text,ids,frequencies, &
+         starts,latest,terminals,snrs,gaps,ngaps)
+  end function jtty_rx_take_updates_with_gaps
+
+  integer(c_int) function take_pending_updates(handle,capacity,text,ids,frequencies,starts,latest, &
+       terminals,snrs,gaps,ngaps)
+    integer(c_int), intent(in) :: handle,capacity
+    character(kind=c_char), intent(out) :: text(*)
+    integer(c_int64_t), intent(out) :: ids(*)
+    real(c_float), intent(out) :: frequencies(*)
+    real(c_double), intent(out) :: starts(*),latest(*)
+    integer(c_int), intent(out) :: terminals(*)
+    integer(c_int), intent(out) :: snrs(*)
+    integer, optional, intent(out) :: gaps(MAX_DISPLAY_GAPS,*),ngaps(*)
     character(len=80) :: message
+    integer :: message_gaps(MAX_DISPLAY_GAPS),nmessage_gaps
     integer :: i,j,index
 
-    jtty_rx_take_updates=0
+    take_pending_updates=0
     if(.not.valid_handle(handle) .or. capacity.le.0) return
     associate(state=>contexts(handle)%state)
-       jtty_rx_take_updates=min(capacity,state%pending_count)
-       do i=1,jtty_rx_take_updates
+       take_pending_updates=min(capacity,state%pending_count)
+       do i=1,take_pending_updates
           index=state%pending_head+i-1
-          message=display_message_text(state%pending(index)%decoded)
+          call display_message_layout(state%pending(index)%decoded,message,message_gaps,nmessage_gaps)
+          if(present(gaps) .and. present(ngaps)) then
+             gaps(:,i)=message_gaps
+             ngaps(i)=nmessage_gaps
+          endif
           do j=1,80
              text((i-1)*80+j)=message(j:j)
           enddo
@@ -280,8 +351,8 @@ contains
           terminals(i)=state%pending(index)%terminal
           snrs(i)=nint(state%pending(index)%snr)
        enddo
-       state%pending_head=state%pending_head+jtty_rx_take_updates
-       state%pending_count=state%pending_count-jtty_rx_take_updates
+       state%pending_head=state%pending_head+take_pending_updates
+       state%pending_count=state%pending_count-take_pending_updates
        if(state%pending_count.eq.0) then
           state%pending_head=1
           if(allocated(state%pending)) then
@@ -292,6 +363,6 @@ contains
           endif
        endif
     end associate
-  end function jtty_rx_take_updates
+  end function take_pending_updates
 
 end module jtty_receive_context

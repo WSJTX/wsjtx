@@ -10,7 +10,7 @@ _armhf_config_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
 . "$_armhf_config_dir/armhf-toolchain-config.sh"
 unset _armhf_config_dir
 
-ARMHF_CI_IMAGE_SCHEMA=1
+ARMHF_CI_IMAGE_SCHEMA=2
 ARMHF_SYSROOT=/opt/wsjtx/armhf-sysroot
 ARMHF_RUNTIME_PREFIX=/opt/wsjtx/armhf-runtime
 ARMHF_QEMU_EXECUTABLE=/usr/local/bin/qemu-arm-static

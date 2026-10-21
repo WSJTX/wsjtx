@@ -27,7 +27,7 @@ program apply_routing_test
   use streaming_control, only: configure_fields
   use jt9_params_init,   only: cli_args_t, init_default_params,             &
        init_streaming_extra_fields
-  use streaming_apply,   only: apply_configure_fields, params_block
+  use streaming_apply,   only: apply_configure_fields, params_block, engine_range_key
   implicit none
   integer :: nfail
   integer, parameter :: BNFA = 111, BNFB = 222   ! baseline nfa/nfb
@@ -43,8 +43,9 @@ program apply_routing_test
   call frame_nfa_nfb_restore()
   call frame_ntol_policy()
   call frame_mode_trperiod()
-  call frame_multithreaded_guard()
-  call frame_qso_guard()
+  call frame_multithreaded_pass_through()
+  call frame_engine_limits()
+  call frame_range_keys()
   call frame_utc_precedence()
   call frame_fst4_utc()
   call frame_phase9_pack()
@@ -142,7 +143,7 @@ contains
     ! assert whose expected value == the init default is vacuous). Bools
     ! alternate T/F asserted so a swap between adjacent keys flips a value and is
     ! caught; ints get a distinct 99 sentinel so a mis-route leaves 99 != asserted.
-    ! multithreaded_ft8 is NOT set here (it is apply-ignored; see frame_multithreaded_guard).
+    ! multithreaded_ft8 is NOT set here (see frame_multithreaded_pass_through).
     p%lft8lowth       = .false.   ! asserted .true.
     p%lft8subpass     = .true.    ! asserted .false.
     p%lft8apon        = .true.    ! asserted .false.
@@ -215,7 +216,7 @@ contains
     cfg%ntol_set = .true.;             cfg%ntol = 250
     cfg%nfa_set = .true.;              cfg%nfa = 180
     cfg%nfb_set = .true.;              cfg%nfb = 3900
-    ! Phase 6 (23 keys; multithreaded_ft8 excluded — apply-ignored). Bools
+    ! Phase 6 (23 keys; multithreaded_ft8 has its own frame). Bools
     ! alternate T/F (asserted); ints distinct (2/4/3/1/150).
     cfg%ft8_low_threshold_set = .true.;   cfg%ft8_low_threshold = .true.
     cfg%ft8_subpass_set = .true.;         cfg%ft8_subpass = .false.
@@ -503,69 +504,131 @@ contains
     call ok('trperiod=30 -> ntr = 30',    p%ntr .eq. 30)
   end subroutine frame_mode_trperiod
 
-  ! Frame MULTITHREADED-GUARD: multithreaded_ft8 is apply-IGNORED when non-false
-  ! (a true would re-enable the broken multithread branch
-  ! decoder.f90:192 -> 0 FT8 decodes). (a) a cfg true must NOT set
-  ! lmultift8 true (a straight pass-through regression would, and this catches it);
-  ! (b) a cfg false IS honored.
-  subroutine frame_multithreaded_guard()
+  ! Frame MULTITHREADED: multithreaded_ft8 passes straight through, each value
+  ! applied over the opposite planted value.
+  subroutine frame_multithreaded_pass_through()
     type(params_block)     :: p
     type(configure_fields) :: cfg, blank
     integer :: md
     real(8) :: tr
-    write(*,'(a)') 'Frame MULTITHREADED-GUARD: multithreaded_ft8 ignore-non-false'
-    ! (a) true is IGNORED: plant lmultift8=.false., apply true, assert STILL false.
-    ! (A pass-through regression would set it true and fail this.)
+    write(*,'(a)') 'Frame MULTITHREADED: multithreaded_ft8 passes through'
     call fresh(p); md = 8; tr = 15.d0; cfg = blank
     p%lmultift8 = .false.
     cfg%multithreaded_ft8_set = .true.; cfg%multithreaded_ft8 = .true.
     call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('multithreaded_ft8=true IGNORED -> lmultift8 stays false', .not. logical(p%lmultift8))
-    ! (b) false is HONORED: plant lmultift8=.true. (sentinel), apply false -> false.
+    call ok('multithreaded_ft8=true -> lmultift8 true', logical(p%lmultift8))
     call fresh(p); md = 8; tr = 15.d0; cfg = blank
     p%lmultift8 = .true.
     cfg%multithreaded_ft8_set = .true.; cfg%multithreaded_ft8 = .false.
     call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('multithreaded_ft8=false honored -> lmultift8 false', .not. logical(p%lmultift8))
-  end subroutine frame_multithreaded_guard
+    call ok('multithreaded_ft8=false -> lmultift8 false', .not. logical(p%lmultift8))
+  end subroutine frame_multithreaded_pass_through
 
-  ! Frame QSO-GUARD: qso_progress_state apply guard. nQSOProgress
-  ! reaches the single-pass FT8 decoder where ft8b.f90:274/299 index
-  ! nappasses(0:5)/naptypes(0:5,4) -> an out-of-range value crashes the decoder
-  ! (verified: qso_progress_state=99 crashes jt9 --stream). The apply IGNORES an
-  ! out-of-range value (valid [0,5] pass through unchanged) -- like the
-  ! multithreaded_ft8 guard. Negative-controlled: plant a sentinel (2) != asserted,
-  ! so a straight pass-through regression (which would write 99 / -1) fails the
-  ! ignore asserts, and a dropped apply fails the in-range asserts.
-  subroutine frame_qso_guard()
+  ! Frame ENGINE-LIMITS: the apply passes qso_progress_state, ft8_threads and
+  ! n_trials through as sent; the stream declines a configure whose values the
+  ! decoder would refuse (streaming_io.f90). Sentinels (nQSOProgress 2, nmt 2,
+  ! nranera 4) differ from every asserted value, so a guard that drops a value
+  ! fails here, and a dropped apply fails the in-range checks.
+  subroutine frame_engine_limits()
     type(params_block)     :: p
     type(configure_fields) :: cfg, blank
-    integer :: md
+    integer :: md, i
     real(8) :: tr
-    write(*,'(a)') 'Frame QSO-GUARD: qso_progress_state in-range applied / out-of-range ignored'
+    integer, parameter :: qso(4) = [99, -1, 5, 0], threads(4) = [25, -1, 24, 0]
+    integer, parameter :: nranera(3) = [13, 12, 0]
+    character(len=8) :: v
+    write(*,'(a)') 'Frame ENGINE-LIMITS: qso_progress_state/ft8_threads/n_trials pass through'
     md = 8; tr = 15.d0
-    ! out-of-range HIGH (99) IGNORED: plant 2, apply 99, assert STILL 2.
-    call fresh(p); cfg = blank; p%nQSOProgress = 2
-    cfg%qso_progress_state_set = .true.; cfg%qso_progress_state = 99
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('qso_progress_state=99 (>5) IGNORED -> nQSOProgress stays 2', p%nQSOProgress .eq. 2)
-    ! out-of-range LOW (-1) IGNORED: plant 2, apply -1, assert STILL 2.
-    call fresh(p); cfg = blank; p%nQSOProgress = 2
-    cfg%qso_progress_state_set = .true.; cfg%qso_progress_state = -1
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('qso_progress_state=-1 (<0) IGNORED -> nQSOProgress stays 2', p%nQSOProgress .eq. 2)
-    ! in-range boundary 5 APPLIED (overwrites sentinel 2).
-    call fresh(p); cfg = blank; p%nQSOProgress = 2
-    cfg%qso_progress_state_set = .true.; cfg%qso_progress_state = 5
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('qso_progress_state=5 (in range) APPLIED -> nQSOProgress = 5', p%nQSOProgress .eq. 5)
-    ! in-range boundary 0 APPLIED (overwrites sentinel 2 -> proves it is applied,
-    ! not merely left at a default that happens to equal 0).
-    call fresh(p); cfg = blank; p%nQSOProgress = 2
-    cfg%qso_progress_state_set = .true.; cfg%qso_progress_state = 0
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('qso_progress_state=0 (in range) APPLIED -> nQSOProgress = 0', p%nQSOProgress .eq. 0)
-  end subroutine frame_qso_guard
+    do i = 1, size(qso)
+       call fresh(p); cfg = blank; p%nQSOProgress = 2
+       cfg%qso_progress_state_set = .true.; cfg%qso_progress_state = qso(i)
+       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       write(v, '(i0)') qso(i)
+       call ok('qso_progress_state=' // trim(v) // ' applied as sent', p%nQSOProgress .eq. qso(i))
+    end do
+    do i = 1, size(threads)
+       call fresh(p); cfg = blank; p%nmt = 2
+       cfg%ft8_threads_set = .true.; cfg%ft8_threads = threads(i)
+       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       write(v, '(i0)') threads(i)
+       call ok('ft8_threads=' // trim(v) // ' applied as sent', p%nmt .eq. threads(i))
+    end do
+    do i = 1, size(nranera)
+       call fresh(p); cfg = blank; p%nranera = 4
+       cfg%n_trials_set = .true.; cfg%n_trials_nranera = nranera(i)
+       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       write(v, '(i0)') nranera(i)
+       call ok('n_trials nranera=' // trim(v) // ' applied as sent', p%nranera .eq. nranera(i))
+    end do
+  end subroutine frame_engine_limits
+
+  ! Frame RANGE-KEYS: engine_range_key names the configure key behind a field
+  ! the engine refuses: the key the frame set, else the carried value's key.
+  subroutine frame_range_keys()
+    type(configure_fields) :: cfg, blank
+    write(*,'(a)') 'Frame RANGE-KEYS: refused engine fields name their configure keys'
+    cfg = blank
+    call key_is('search_low_hz', cfg, 'nfa')
+    call key_is('search_high_hz', cfg, 'nfb')
+    call key_is('search_range', cfg, 'nfa')
+    call key_is('receive_frequency_hz', cfg, 'rxfreq')
+    call key_is('tolerance_hz', cfg, 'ntol')
+    call key_is('depth', cfg, 'depth')
+    call key_is('minimum_width', cfg, 'min_width')
+    call key_is('submode', cfg, 'submode')
+    call key_is('trials', cfg, 'n_trials')
+    call key_is('qso_progress', cfg, 'qso_progress_state')
+    call key_is('threads', cfg, 'ft8_threads')
+    call key_is('period_seconds', cfg, 'trperiod')
+    call key_is('eme_delay_seconds', cfg, 'eme_delay_seconds')
+    call key_is('blanker_mode', cfg, 'noise_blanker_level')
+    call key_is('blanker_percent', cfg, 'noise_blanker_level')
+    call key_is('max_drift', cfg, 'max_drift_hz')
+    call key_is('utc', cfg, 'nutc')
+    call key_is('contest', cfg, 'contest_type')
+    cfg = blank; cfg%nfb_set = .true.
+    call key_is('search_range', cfg, 'nfb')
+    cfg%nfa_set = .true.
+    call key_is('search_range', cfg, 'nfa')
+    ! The parse packs any unpacked depth key into ndepth_packed.
+    cfg = blank; cfg%ndepth_packed_set = .true.
+    call key_is('depth', cfg, 'depth_level')
+    cfg = blank; cfg%submode_set = .true.
+    call key_is('minimum_width', cfg, 'min_width')
+    cfg = blank; cfg%decode_after_eme_delay_set = .true.
+    call key_is('eme_delay_seconds', cfg, 'decode_after_eme_delay')
+    cfg%eme_delay_seconds_set = .true.
+    call key_is('eme_delay_seconds', cfg, 'eme_delay_seconds')
+    cfg = blank; cfg%utc_set = .true.
+    call key_is('utc', cfg, 'utc')
+    ! carried: the named value came from an earlier configure.
+    cfg = blank
+    call carried_is('receive_frequency_hz', cfg, .true.)
+    cfg%rxfreq_set = .true.
+    call carried_is('receive_frequency_hz', cfg, .false.)
+    cfg = blank; cfg%submode_set = .true.
+    call carried_is('minimum_width', cfg, .true.)
+    cfg = blank; cfg%mode_set = .true.
+    call carried_is('period_seconds', cfg, .false.)
+    call carried_is('eme_delay_seconds', cfg, .false.)
+    call carried_is('trials', cfg, .true.)
+  end subroutine frame_range_keys
+
+  subroutine carried_is(field, cfg, expected)
+    character(len=*),       intent(in) :: field
+    type(configure_fields), intent(in) :: cfg
+    logical,                intent(in) :: expected
+    character(len=32) :: key
+    logical :: carried
+    key = engine_range_key(field, cfg, carried)
+    call ok(field // ' carried ' // merge('T', 'F', expected), carried .eqv. expected)
+  end subroutine carried_is
+
+  subroutine key_is(field, cfg, expected)
+    character(len=*),       intent(in) :: field, expected
+    type(configure_fields), intent(in) :: cfg
+    call ok(field // ' -> ' // expected, trim(engine_range_key(field, cfg)) .eq. expected)
+  end subroutine key_is
 
   ! Frame UTC-PRECEDENCE (Phase 8): utc (ISO) is a SECOND route to
   ! nutc alongside the legacy int nutc. apply_configure_fields applies nutc THEN

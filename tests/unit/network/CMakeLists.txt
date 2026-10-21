@@ -59,6 +59,14 @@ add_executable (test_livecq_upload
 target_link_libraries (test_livecq_upload Qt5::Test Qt5::Network)
 add_test (NAME test_livecq_upload COMMAND test_livecq_upload)
 
+add_executable (test_eqsl_upload test_eqsl_upload.cpp)
+target_link_libraries (test_eqsl_upload wsjt_qt Qt5::Test Qt5::Network)
+add_test (NAME test_eqsl_upload COMMAND test_eqsl_upload)
+
+add_executable (test_message_client_adif test_message_client_adif.cpp)
+target_link_libraries (test_message_client_adif wsjt_qt Qt5::Test Qt5::Network)
+add_test (NAME test_message_client_adif COMMAND test_message_client_adif)
+
 add_executable (test_message_client_replay
   test_message_client_replay.cpp
   )

@@ -223,7 +223,6 @@ option (WSJT_ENABLE_GUI_SMOKE_TESTS
   "Register GUI-driven smoke tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
 option (WSJT_ENABLE_TSAN "Instrument in-tree code with ThreadSanitizer." OFF)
-option (WSJT_BUILD_JT9STREAM "Build the Qt-free streaming decoder jt9stream alongside jt9 (uses the jt9a stub)." ON)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")
 set_property (CACHE WSJT_FORTRAN_LIBRARY_VARIANTS PROPERTY STRINGS
@@ -443,7 +442,7 @@ endif ()
 if (WSJT_BUILD_FORTRAN_NON_OPENMP)
   set (WSJT_FORTRAN_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR})
-  add_library (wsjt_fort STATIC ${wsjt_FSRCS})
+  add_library (wsjt_fort STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
   set_target_properties (wsjt_fort
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR}
@@ -456,7 +455,7 @@ endif ()
 if (WSJT_BUILD_FORTRAN_OPENMP)
   set (WSJT_FORTRAN_OPENMP_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules_omp)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
-  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS})
+  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
   set_target_properties (wsjt_fort_omp
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR}
@@ -667,7 +666,8 @@ target_include_directories (qcp PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_
 target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 
 # build a library of package Qt functionality
-add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
+add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS}
+  DecoderDiagnostics.cpp)
 wsjt_enable_qt_automoc (wsjt_qt)
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
@@ -696,7 +696,7 @@ target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 
 if (TARGET test_streaming_consumers)
-  add_dependencies (test_streaming_consumers jt9 wsprd)
+  add_dependencies (test_streaming_consumers wsjt-codec wsprd)
 endif ()
 
 if (WSJT_BUILD_UTILS)
@@ -706,21 +706,27 @@ if (WSJT_BUILD_UTILS)
 endif ()
 
 if (WSJT_ENABLE_TESTS)
-  add_test (NAME test_jt9_version COMMAND $<TARGET_FILE:jt9> --version)
   string (REPLACE "." "\\." wsjtx_version_pattern "${wsjtx_VERSION}")
-  set_tests_properties (test_jt9_version PROPERTIES
-    PASS_REGULAR_EXPRESSION "^jt9 ${wsjtx_version_pattern} \\(revision ([0-9a-f]+(-dirty)?|unavailable)\\)"
-    )
+  foreach (program jt9 wsjt-codec)
+    add_test (NAME test_${program}_version COMMAND $<TARGET_FILE:${program}> --version)
+    set_tests_properties (test_${program}_version PROPERTIES
+      PASS_REGULAR_EXPRESSION "^${program} ${wsjtx_version_pattern} \\(revision ([0-9a-f]+(-dirty)?|unavailable)\\)"
+      )
+  endforeach ()
   add_test (NAME test_jt9_cli_validation
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9>
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_cli_validation.cmake)
+  add_test (NAME test_jt9_stream_option
+    COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
+            -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/StreamOption
+            -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_stream_option.cmake)
 
   find_package (Python3 COMPONENTS Interpreter QUIET)
   if (Python3_Interpreter_FOUND)
     add_test (NAME test_jt65_stream
       COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_SOURCE_DIR}/tests/integration/jt65/check_stream.py
-        $<TARGET_FILE:jt9>
+        $<TARGET_FILE:wsjt-codec>
         ${CMAKE_SOURCE_DIR}/test/wav_to_stream_harness.py
         ${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt65-engine.wav
         ${CMAKE_BINARY_DIR}/Testing/Jt65Stream)
@@ -958,31 +964,29 @@ else ()
   target_link_libraries (jt9 wsjt_fort wsjt_cxx)
 endif ()
 
-# Build jt9stream with shared-memory worker mode disabled.
-if (WSJT_BUILD_JT9STREAM)
-  generate_version_info (jt9stream_VERSION_RESOURCES
-    NAME jt9stream
-    BUNDLE ${PROJECT_BUNDLE_NAME}
-    ICON ${WSJTX_ICON_FILE}
-    FILE_DESCRIPTION "jt9stream - WSJT-X Qt-free streaming decoder"
-    )
-  add_executable (jt9stream ${jt9stream_FSRCS} ${jt9stream_VERSION_RESOURCES})
-  target_compile_definitions (jt9stream PRIVATE JT9_PROGRAM_NAME=\"jt9stream\")
-  # jt9stream shares jt9's Fortran module directory (fortran_modules_omp) so it
-  # can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
-  # is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
-  # target emits no .mod of its own — sharing the dir is collision-free.
-  if (WSJT_BUILD_FORTRAN_OPENMP)
-    wsjt_link_fortran_openmp (jt9stream)
-    if (WIN32)
-      set_property (TARGET jt9stream APPEND_STRING PROPERTY
-        LINK_FLAGS " -Wl,--stack,16777216")
-    endif ()
-    target_link_libraries (jt9stream wsjt_cxx)
-  else ()
-    target_link_libraries (jt9stream wsjt_fort wsjt_cxx)
+# Build wsjt-codec with shared-memory worker mode disabled.
+generate_version_info (wsjt_codec_VERSION_RESOURCES
+  NAME wsjt-codec
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "wsjt-codec - WSJT-X Qt-free streaming decoder"
+  )
+add_executable (wsjt-codec ${wsjt_codec_FSRCS} ${wsjt_codec_VERSION_RESOURCES})
+target_compile_definitions (wsjt-codec PRIVATE JT9_PROGRAM_NAME=\"wsjt-codec\")
+# wsjt-codec shares jt9's Fortran module directory (fortran_modules_omp) so it
+# can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
+# is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
+# target emits no .mod of its own — sharing the dir is collision-free.
+if (WSJT_BUILD_FORTRAN_OPENMP)
+  wsjt_link_fortran_openmp (wsjt-codec)
+  if (WIN32)
+    set_property (TARGET wsjt-codec APPEND_STRING PROPERTY
+      LINK_FLAGS " -Wl,--stack,16777216")
   endif ()
-endif (WSJT_BUILD_JT9STREAM)
+  target_link_libraries (wsjt-codec wsjt_cxx)
+else ()
+  target_link_libraries (wsjt-codec wsjt_fort wsjt_cxx)
+endif ()
 
 if (WSJT_ENABLE_TESTS AND (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
   if (APPLE)
@@ -994,7 +998,7 @@ if (WSJT_ENABLE_TESTS AND (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
   if (NOT wsjt_library_lister)
     message (FATAL_ERROR "otool or readelf is required to verify the libraries programs load")
   endif ()
-  foreach (program jt9stream ft4sim)
+  foreach (program wsjt-codec ft4sim)
     if (TARGET ${program})
       add_test (NAME test_${program}_loads_only_used_libraries
         COMMAND ${CMAKE_COMMAND}
@@ -1106,6 +1110,10 @@ target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_
 
 if (WSJT_ENABLE_TSAN)
   target_compile_definitions (wsjtx PRIVATE WSJT_TSAN_TEST_PROFILE)
+endif ()
+
+if (APPLE AND WSJT_ENABLE_TESTS)
+  add_subdirectory (tests/macos)
 endif ()
 
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
@@ -1355,6 +1363,9 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     LABELS "gui;audio;jtty;integration;accelerated"
     PROCESSORS 1
     TIMEOUT 120)
+  if (WIN32)
+    set_tests_properties (${live_test} PROPERTIES TIMEOUT 210)
+  endif ()
 
   add_test (
     NAME ${loopback_test}
@@ -1496,6 +1507,7 @@ add_custom_target (revisiontag
 add_dependencies (wsjt_qt revisiontag)
 add_dependencies (wsjtx revisiontag)
 add_dependencies (jt9 revisiontag)
+add_dependencies (wsjt-codec revisiontag)
 add_dependencies (wsprd revisiontag)
 
 
@@ -1607,6 +1619,10 @@ set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
 set (CPACK_DEBIAN_PACKAGE_SECTION "hamradio")
 set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5websockets5 (>=5.7),  libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0) | libboost-log1.81.0 (>=1.81.0) | libboost-log1.83.0 (>=1.83.0) | libboost-log1.85.0 (>=1.85.0)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+if (CPACK_DEBIAN_PACKAGE_ARCHITECTURE STREQUAL "armhf")
+  # Runtime-loaded plugins are not discovered by dpkg-shlibdeps.
+  set (CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5-plugins (>=5.7), libqt5sql5-sqlite (>=5.7)")
+endif ()
 # The downstream WSJT-X Improved fork uses the same executable, data, and doc
 # paths as mainline. Replace its packages so the installations cannot mix,
 # while preserving dependencies such as `js8call` through virtual packages.

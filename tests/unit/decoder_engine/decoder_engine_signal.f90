@@ -1,38 +1,70 @@
-subroutine decoder_engine_test_signal(samples,payload,expected_tones,start_sample) bind(C)
-  use iso_c_binding, only: c_int,c_int8_t,c_int16_t,c_int64_t
-  use packjt77, only: pack77_state
-  use ft8_codec_context, only: genft8_for_state
+module decoder_engine_test_ft8_waveform
   implicit none
-  integer, parameter :: symbol_samples=1920,wave_samples=79*symbol_samples
-  integer(c_int16_t), intent(out) :: samples(180000)
-  integer(c_int8_t), intent(out) :: payload(77)
-  integer(c_int8_t), intent(out) :: expected_tones(79)
-  integer(c_int), value :: start_sample
-  type(pack77_state) :: knowledge
-  real :: wave(wave_samples)
-  complex :: complex_wave(1)
-  integer :: tones(79),i3,n3,i,j
-  integer(c_int64_t) :: random_state
-  character(len=37) :: message,sent
+contains
+  subroutine make_ft8_test_signal(message,carrier,samples,payload,expected_tones,start_sample)
+    use iso_c_binding, only: c_int,c_int8_t,c_int16_t,c_int64_t
+    use packjt77, only: pack77_state
+    use ft8_codec_context, only: genft8_for_state
+    implicit none
+    integer, parameter :: symbol_samples=1920,wave_samples=79*symbol_samples
+    integer(c_int16_t), intent(out) :: samples(180000)
+    integer(c_int8_t), intent(out) :: payload(77)
+    integer(c_int8_t), intent(out) :: expected_tones(79)
+    integer(c_int), intent(in) :: start_sample
+    real, intent(in) :: carrier
+    character(len=37), intent(in) :: message
+    type(pack77_state) :: knowledge
+    real :: wave(wave_samples)
+    complex :: complex_wave(1)
+    integer :: tones(79),i3,n3,i,j
+    integer(c_int64_t) :: random_state
+    character(len=37) :: sent
 
-  message='CQ K1JT FN20'
-  i3=-1
-  n3=-1
-  call genft8_for_state(knowledge,message,i3,n3,sent,payload,tones)
-  expected_tones=int(tones,c_int8_t)
-  if(sent.ne.message) error stop 'engine test waveform message did not encode'
-  call gen_ft8wave(tones,79,symbol_samples,2.0,12000.0,1500.0, &
-       complex_wave,wave,0,wave_samples)
-  random_state=1234567_c_int64_t
-  do i=1,size(samples)
-     random_state=mod(16807_c_int64_t*random_state,2147483647_c_int64_t)
-     samples(i)=int(mod(random_state,21_c_int64_t)-10_c_int64_t,c_int16_t)
-  enddo
-  do i=1,wave_samples
-     j=start_sample+i
-     if(j>=1.and.j<=size(samples)) samples(j)=samples(j)+int(1500.0*wave(i),c_int16_t)
-  enddo
+    i3=-1
+    n3=-1
+    call genft8_for_state(knowledge,message,i3,n3,sent,payload,tones)
+    expected_tones=int(tones,c_int8_t)
+    if(sent.ne.message) error stop 'engine test waveform message did not encode'
+    call gen_ft8wave(tones,79,symbol_samples,2.0,12000.0,carrier, &
+         complex_wave,wave,0,wave_samples)
+    random_state=1234567_c_int64_t
+    do i=1,size(samples)
+       random_state=mod(16807_c_int64_t*random_state,2147483647_c_int64_t)
+       samples(i)=int(mod(random_state,21_c_int64_t)-10_c_int64_t,c_int16_t)
+    enddo
+    do i=1,wave_samples
+       j=start_sample+i
+       if(j>=1.and.j<=size(samples)) samples(j)=samples(j)+int(1500.0*wave(i),c_int16_t)
+    enddo
+  end subroutine make_ft8_test_signal
+end module decoder_engine_test_ft8_waveform
+
+subroutine decoder_engine_test_signal(samples,payload,expected_tones,start_sample) bind(C)
+  use iso_c_binding, only: c_int,c_int8_t,c_int16_t
+  use decoder_engine_test_ft8_waveform, only: make_ft8_test_signal
+  implicit none
+  integer(c_int16_t), intent(out) :: samples(180000)
+  integer(c_int8_t), intent(out) :: payload(77),expected_tones(79)
+  integer(c_int), value :: start_sample
+  character(len=37), parameter :: message='CQ K1JT FN20'
+
+  call make_ft8_test_signal(message,1500.0,samples,payload,expected_tones,start_sample)
 end subroutine decoder_engine_test_signal
+
+subroutine decoder_engine_test_ft8_message(text,carrier,samples,payload,expected_tones,start_sample) bind(C)
+  use iso_c_binding, only: c_int,c_char,c_float,c_int8_t,c_int16_t
+  use decoder_engine_test_ft8_waveform, only: make_ft8_test_signal
+  implicit none
+  character(c_char), intent(in) :: text(37)
+  real(c_float), value :: carrier
+  integer(c_int16_t), intent(out) :: samples(180000)
+  integer(c_int8_t), intent(out) :: payload(77),expected_tones(79)
+  integer(c_int), value :: start_sample
+  character(len=37) :: message
+
+  message=transfer(text,message)
+  call make_ft8_test_signal(message,real(carrier),samples,payload,expected_tones,start_sample)
+end subroutine decoder_engine_test_ft8_message
 
 subroutine decoder_engine_test_records(records,record_size) bind(C)
   use iso_c_binding, only: c_size_t,c_sizeof
@@ -107,6 +139,30 @@ subroutine decoder_engine_test_residual(samples) bind(C)
   real(c_float), intent(out) :: samples(180000)
   samples=dd8
 end subroutine
+
+subroutine decoder_engine_test_qso_snapshot(valid,suppressed,message,dt,partner) bind(C)
+  use iso_c_binding, only: c_int,c_float,c_char,c_null_char
+  use ft8_mod1, only: ft8_qso_snapshot,get_ft8_qso_hint_state
+  implicit none
+  integer(c_int), intent(out) :: valid,suppressed
+  character(c_char), intent(out) :: message(38),partner(13)
+  real(c_float), intent(out) :: dt
+  type(ft8_qso_snapshot) :: snapshot
+  integer :: i
+
+  call get_ft8_qso_hint_state(snapshot)
+  valid=merge(1,0,snapshot%valid)
+  suppressed=merge(1,0,snapshot%suppressed)
+  message=c_null_char
+  partner=c_null_char
+  do i=1,len_trim(snapshot%message)
+     message(i)=snapshot%message(i:i)
+  enddo
+  do i=1,len_trim(snapshot%partner)
+     partner(i)=snapshot%partner(i:i)
+  enddo
+  dt=snapshot%dt
+end subroutine decoder_engine_test_qso_snapshot
 
 subroutine decoder_engine_test_host_windows() bind(C)
   use iso_c_binding, only: c_short,c_int8_t,c_int64_t,c_sizeof
@@ -188,3 +244,56 @@ subroutine decoder_engine_test_gui_codec() bind(C)
   call unpack77(bits,1,resolved,ok)
   if(.not.ok.or.resolved/='PJ2/W1AW <...> RR73') error stop 'GUI codec leaked into legacy store'
 end subroutine
+
+module decoder_engine_test_timing_sink
+  use iso_c_binding, only: c_ptr,c_int,c_float,c_f_pointer
+  use decoder_engine_types, only: engine_observation
+  implicit none
+  type, bind(C) :: timing_sink_state
+     integer(c_int) :: count=0
+     real(c_float) :: sumdt=0.0,last_dt=0.0
+  end type timing_sink_state
+contains
+  subroutine observe_timing(user,observation)
+    type(c_ptr), intent(in) :: user
+    type(engine_observation), intent(in) :: observation
+    type(timing_sink_state), pointer :: state
+
+    call c_f_pointer(user,state)
+    state%count=state%count+1
+    state%sumdt=state%sumdt+observation%dt_seconds
+    state%last_dt=observation%dt_seconds
+  end subroutine observe_timing
+end module decoder_engine_test_timing_sink
+
+subroutine decoder_engine_test_timing(samples,n,decoded,observed,stored,sumdt, &
+     emitted_sum,last_dt,prefix_matches) bind(C)
+  use iso_c_binding, only: c_int,c_float,c_loc
+  use decoder_callbacks, only: counting_ft8_decodervar,ft8_decodedvar
+  use decoder_engine_test_timing_sink, only: timing_sink_state,observe_timing
+  implicit none
+  integer(c_int), value :: n
+  real(c_float), intent(in) :: samples(n)
+  integer(c_int), intent(out) :: decoded,observed,stored,prefix_matches
+  real(c_float), intent(out) :: sumdt,emitted_sum,last_dt
+  type(counting_ft8_decodervar) :: decoder
+  type(timing_sink_state), target :: sink
+  integer :: i,count
+  real :: timing_sum
+
+  decoder%xdtt=0.0
+  decoder%context%render_legacy=.false.
+  decoder%context%sink=>observe_timing
+  decoder%context%sink_user=c_loc(sink)
+  do i=1,n
+     call ft8_decodedvar(decoder,-10,real(samples(i)),1500.0,'CQ K1JT FN20                         ',0,1.0)
+  enddo
+  call decoder%timing_summary(count,timing_sum)
+  decoded=decoder%decodedvar
+  observed=sink%count
+  stored=count
+  sumdt=timing_sum
+  emitted_sum=sink%sumdt
+  last_dt=sink%last_dt
+  prefix_matches=merge(1,0,all(decoder%xdtt(:count)==samples(:count)))
+end subroutine decoder_engine_test_timing

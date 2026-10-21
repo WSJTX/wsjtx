@@ -75,6 +75,8 @@ void register_types ()
   qRegisterMetaType<AudioStreamDescriptor> ("AudioStreamDescriptor");
   qRegisterMetaType<TxEvidence::TxSessionId> ("TxEvidence::TxSessionId");
   qRegisterMetaType<TxEvidence::TxGeneration> ("TxEvidence::TxGeneration");
+  qRegisterMetaType<TxEvidence::TxPlaybackContext> ("TxEvidence::TxPlaybackContext");
+  qRegisterMetaType<TxEvidence::TxOutputError> ("TxEvidence::TxOutputError");
   qRegisterMetaType<TxAudioQueueEpoch> ("TxAudioQueueEpoch");
   qRegisterMetaType<TxAudioQueueProgress> ("TxAudioQueueProgress");
   qRegisterMetaType<TxAudioQueueDrainState> ("TxAudioQueueDrainState");

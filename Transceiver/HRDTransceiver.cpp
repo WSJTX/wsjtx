@@ -567,6 +567,11 @@ void HRDTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
     {
       send_simple_command ("set frequency-hz " + QString::number (f));
     }
+  if (UNK != m)
+    {
+      // A band change can recall a mode that overrides the preceding mode command.
+      do_mode (m);
+    }
   update_rx_frequency (f);
 }
 

@@ -59,13 +59,14 @@ source tree and makes a clean reconfigure as simple as choosing a new directory.
 [[SRC_WINDOWS_MSYS2]]
 == Building on Windows with MSYS2
 
-The supported Windows developer environment is *MSYS2 MINGW64*. MSYS2 supplies
+The supported Windows developer environment is *MSYS2 UCRT64*. MSYS2 supplies
 the compiler, Qt, CMake, and most libraries through its signed package
 repositories. WSJT-X builds the CI-selected Hamlib revision separately.
 
-The project intentionally uses MINGW64 as its current Windows compatibility
-contract. Do not substitute the MSYS, UCRT64, CLANG64, or another MSYS2 shell:
-package names, binary formats, paths, and supported Windows APIs can differ.
+The project uses UCRT64 as its Windows compatibility contract. Do not
+substitute the MSYS, MINGW64, CLANG64, or another MSYS2 shell: package names,
+binary formats, paths, and supported Windows APIs can differ. UCRT64 programs
+use the Universal C Runtime, which is part of Windows 10 and later.
 
 NOTE: The MSYS2 Boost package is suitable for local development. Official
       Windows builds use a separate Boost configuration to support older
@@ -75,7 +76,7 @@ NOTE: The MSYS2 Boost package is suitable for local development. Official
 
 . Download and run the installer from https://www.msys2.org. The default
   location, `C:\msys64`, is suitable.
-. Open the *MSYS2 MINGW64* shell.
+. Open the *MSYS2 UCRT64* shell.
 . Update the base system:
 
 [source,bash]
@@ -84,10 +85,10 @@ pacman -Syu
 ----
 
 MSYS2 may ask you to close the terminal during a core update. Close it, reopen
-*MSYS2 MINGW64*, and run `pacman -Syu` again until no further core update is
+*MSYS2 UCRT64*, and run `pacman -Syu` again until no further core update is
 required.
 
-Every command in the remainder of the Windows section runs in that MINGW64
+Every command in the remainder of the Windows section runs in that UCRT64
 shell. Confirm the environment before installing packages:
 
 [source,bash]
@@ -95,7 +96,7 @@ shell. Confirm the environment before installing packages:
 echo "$MSYSTEM"
 ----
 
-The result must be `MINGW64`.
+The result must be `UCRT64`.
 
 === Install the local-development dependencies
 
@@ -105,22 +106,22 @@ Install the compiler, build tools, and libraries:
 ----
 pacman -S --needed \
   git make tar autoconf automake libtool \
-  mingw-w64-x86_64-gcc \
-  mingw-w64-x86_64-gcc-fortran \
-  mingw-w64-x86_64-cmake \
-  mingw-w64-x86_64-qt5-base \
-  mingw-w64-x86_64-qt5-multimedia \
-  mingw-w64-x86_64-qt5-serialport \
-  mingw-w64-x86_64-qt5-svg \
-  mingw-w64-x86_64-qt5-tools \
-  mingw-w64-x86_64-qt5-websockets \
-  mingw-w64-x86_64-qt5-activeqt \
-  mingw-w64-x86_64-fftw \
-  mingw-w64-x86_64-boost \
-  mingw-w64-x86_64-libusb \
-  mingw-w64-x86_64-openssl \
-  mingw-w64-x86_64-portaudio \
-  mingw-w64-x86_64-pkg-config
+  mingw-w64-ucrt-x86_64-gcc \
+  mingw-w64-ucrt-x86_64-gcc-fortran \
+  mingw-w64-ucrt-x86_64-cmake \
+  mingw-w64-ucrt-x86_64-qt5-base \
+  mingw-w64-ucrt-x86_64-qt5-multimedia \
+  mingw-w64-ucrt-x86_64-qt5-serialport \
+  mingw-w64-ucrt-x86_64-qt5-svg \
+  mingw-w64-ucrt-x86_64-qt5-tools \
+  mingw-w64-ucrt-x86_64-qt5-websockets \
+  mingw-w64-ucrt-x86_64-qt5-activeqt \
+  mingw-w64-ucrt-x86_64-fftw \
+  mingw-w64-ucrt-x86_64-boost \
+  mingw-w64-ucrt-x86_64-libusb \
+  mingw-w64-ucrt-x86_64-openssl \
+  mingw-w64-ucrt-x86_64-portaudio \
+  mingw-w64-ucrt-x86_64-pkg-config
 ----
 
 User Guide generation is enabled by default. Install Ruby and Asciidoctor if
@@ -128,7 +129,7 @@ you want the guide included in the build:
 
 [source,bash]
 ----
-pacman -S --needed mingw-w64-x86_64-ruby
+pacman -S --needed mingw-w64-ucrt-x86_64-ruby
 gem install asciidoctor --no-document
 ----
 
@@ -140,10 +141,10 @@ NSIS is required only when creating an unsigned Windows installer:
 
 [source,bash]
 ----
-pacman -S --needed mingw-w64-x86_64-nsis
+pacman -S --needed mingw-w64-ucrt-x86_64-nsis
 ----
 
-Check that the MINGW64 programs, rather than programs from another Windows
+Check that the UCRT64 programs, rather than programs from another Windows
 toolchain, will be used:
 
 [source,bash]
@@ -162,12 +163,12 @@ else
 fi
 ----
 
-The MinGW programs should resolve under `/mingw64/bin`. Do not continue until
+The MinGW programs should resolve under `/ucrt64/bin`. Do not continue until
 the check reports a path for every tool and no `MISSING` line.
 
 === Clone the source
 
-Clone from inside the MINGW64 shell. These commands use a predictable workspace
+Clone from inside the UCRT64 shell. These commands use a predictable workspace
 under the MSYS2 home directory:
 
 [source,bash]
@@ -343,16 +344,16 @@ cmake --build build --target install
 This places the application under `C:\WSJT`. Executables and required runtime
 DLLs are collected in `C:\WSJT\bin`; program data is installed under
 `C:\WSJT\share\wsjtx`. Run `C:\WSJT\bin\wsjtx.exe` from Windows
-Explorer, Command Prompt, or the MINGW64 shell.
+Explorer, Command Prompt, or the UCRT64 shell.
 
 The install step matters. A build-tree executable can find compiler and Qt DLLs
-through the MINGW64 environment, but it does not have the final data-file and
+through the UCRT64 environment, but it does not have the final data-file and
 plugin layout. It is suitable for a quick launch only:
 
 [source,bash]
 ----
 export PATH="$HOME/wsjtx-dev/hamlib-prefix/bin:$PATH"
-export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
+export QT_QPA_PLATFORM_PLUGIN_PATH=/ucrt64/share/qt5/plugins
 ./build/wsjtx.exe
 ----
 
@@ -399,17 +400,21 @@ Rebuild Hamlib when the CI-selected revision changes.
 Use a new build directory after a major MSYS2 update changes GCC, gfortran,
 CMake, Qt, the MinGW runtime, or foundational libraries. Cached compiler and
 dependency paths from an older environment can otherwise produce confusing
-configure, link, or runtime failures.
+configure, link, or runtime failures. A build directory or Hamlib prefix made
+in another MSYS2 shell cannot be reused: in the UCRT64 shell, install the
+local-development dependencies, remove `~/wsjtx-dev/hamlib-src` and
+`~/wsjtx-dev/hamlib-prefix` and repeat the Hamlib section, then remove
+`~/wsjtx-dev/src/build` and configure again.
 
 === Troubleshooting Windows builds
 
 For Windows build failures, check the following:
 
-* `echo "$MSYSTEM"` reports `MINGW64`.
-* Every tool check from the dependency section resolves under `/mingw64/bin`.
+* `echo "$MSYSTEM"` reports `UCRT64`.
+* Every tool check from the dependency section resolves under `/ucrt64/bin`.
 * `OMNIRIG_TYPE_LIB` names an existing Windows installation of
   `OmniRig.exe`.
-* `mingw-w64-x86_64-openssl` is installed if CMake reports missing OpenSSL
+* `mingw-w64-ucrt-x86_64-openssl` is installed if CMake reports missing OpenSSL
   runtime DLLs.
 * `~/wsjtx-dev/hamlib-prefix` contains `include/hamlib/rig.h`,
   `lib/libhamlib.dll.a`, and `bin/libhamlib-4.dll`.

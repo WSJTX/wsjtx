@@ -5,6 +5,7 @@
 #include "JttyMessages.hpp"
 #include "JttyN1mm.hpp"
 #include "JttyReceiveLine.hpp"
+#include "JttyTransmitText.hpp"
 #include "Logger.hpp"
 #include "models/DecodeHighlightingModel.hpp"
 #include <QByteArray>
@@ -14,7 +15,6 @@
 #include <QTextCursor>
 #include <algorithm>
 #include "Modulator/Modulator.hpp"
-#include <vector>
 #ifdef WIN32
 #include "MMTTYIF.hpp"
 #undef MessageBox
@@ -41,58 +41,19 @@ namespace
       Configuration const& configuration, QString const& hisCall, int serialNumber,
       int snr)
   {
-    Jtty::NativeMacroContext context;
-    context.myCall = configuration.my_callsign();
-    context.hisCall = hisCall;
-    context.serialNumber = serialNumber;
-    context.grid = configuration.my_grid();
-    context.snr = snr;
-    context.exchangeProfile = jttyExchangeProfile(configuration);
-
-    switch (context.exchangeProfile) {
-    case Jtty::NativeExchangeProfile::FieldDay:
-      context.configuredExchange = Jtty::normalizedFieldDayExchange(
-        configuration.Field_Day_Exchange());
-      break;
-    case Jtty::NativeExchangeProfile::RttyRoundup:
-      context.configuredExchange = configuration.RTTY_Exchange();
-      break;
-    default:
-      break;
-    }
-    return context;
-  }
-
-  QString jttyNativeEncodeError(int status)
-  {
-    if (status == static_cast<int>(Jtty::NativeEncodeStatus::UnknownSection)) {
-      return QStringLiteral("Field Day section is not registered in the ARRL/RAC table");
-    }
-    return QStringLiteral("native atom encoding failed");
+    auto const profile = jttyExchangeProfile(configuration);
+    return Jtty::nativeMacroContext(
+      configuration.my_callsign(), hisCall, serialNumber, configuration.my_grid(), snr,
+      profile, profile == Jtty::NativeExchangeProfile::FieldDay
+        ? configuration.Field_Day_Exchange() : configuration.RTTY_Exchange());
   }
 }
-
-#define FCL fortran_charlen_t
-
-// Mirrors lib/jtty/jtty_mod.f90's MAX_FRAMES.
-constexpr int kMaxJttyFrames = 16;
 
 // Backstop cap: batches at least this many words per auto-advance burst even if the operator never pauses (the idle timer below normally fires first).
 constexpr int kJttyAutoAdvanceBatchWords = 5;
 
 // A typing pause this long, with anything safely committable pending, flushes it rather than waiting for kJttyAutoAdvanceBatchWords to fill up.
 constexpr int kJttyAutoAdvanceIdleMs = 1500;
-
-extern "C" {
-  void genjtty_profile_(char * msg, int const* exchange_profile,
-                       int itone[], int* nsym, int frame_starts[],
-                       int const* is_final, fortran_charlen_t);
-  void genjtty_atoms_c(Jtty::NativeAtomDescriptor const atoms[], int natoms,
-                       int itone[], int* nsym, int* status);
-
-  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
-                    float xjunk[], float wave[], int* icmplx, int* nwave);
-}
 
 #ifdef WIN32
 static QString append_separator(QString message) {
@@ -336,23 +297,12 @@ int MainWindow::jttyRequestFramesDone(qint64 requestId) const
 // Dry-run of execute_jtty_tx's segmentation/encoding, without enqueuing, to preview an uncommitted message's frame count.
 int MainWindow::countJttyTransmitFrames(QString const& preparedMessage) const
 {
-  if (preparedMessage.trimmed ().isEmpty ()) return 0;
-  int const exchangeProfile = static_cast<int>(jttyExchangeProfile (m_config));
+  auto const encoded = Jtty::encodeTransmitText (preparedMessage,
+                                                 jttyExchangeProfile (m_config), true);
+  if (encoded.status != Jtty::TransmitTextStatus::Encoded) return 0;
   int totalFrames = 0;
-  auto const lines = preparedMessage.split (QLatin1Char ('\n'));
-  for (auto const& line : lines) {
-    auto const encoded = Jtty::encodeTransmitLine (line, [&] (QString const& text) {
-      auto frame = Jtty::transmitFrame (text).toLatin1 ();
-      QVector<int> tones (944);
-      int nsym = 0;
-      int frameStarts[kMaxJttyFrames] = {};
-      int const finalFlag = 1;   // irrelevant to frame count, which EOM doesn't affect
-      genjtty_profile_ (frame.data (), &exchangeProfile, tones.data (),
-                        &nsym, frameStarts, &finalFlag, (FCL)80);
-      totalFrames += nsym / 59;
-      return nsym > 0;
-    });
-    if (!encoded) return 0;
+  for (auto const& segment : encoded.segments) {
+    totalFrames += segment.transmit.tones.size () / Jtty::transmitFrameSymbols;
   }
   return totalFrames;
 }
@@ -452,78 +402,29 @@ void MainWindow::guardJttyLiveEntryLock()
   m_guardingJttyLiveEntryLock = false;
 }
 
-// isFinal marks EOM only on the very last segment of the very last line; every other segment stays non-final since more of the same commit follows, except an earlier line's own last segment, always final since a newline is a hard break. A non-final segment shows up at the receiver as a still-growing line (jtty_mdecode.f90's continuation matching stitches the next segment onto it) rather than its own completed message.
 void MainWindow::execute_jtty_tx(qint64 requestId, QString message, bool isFinal)
 {
   if (ui->cbLowerCase->isChecked()) message = message.toLower();
-  auto const prepared = Jtty::prepareTransmitText(message);
-  message = prepared.text;
-  if (message.trimmed().isEmpty()) {
+  auto encoded = Jtty::encodeTransmitText(message, jttyExchangeProfile(m_config), isFinal);
+  switch (encoded.status) {
+  case Jtty::TransmitTextStatus::Empty:
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::Empty);
     return;
-  }
-
-  int const exchangeProfile = static_cast<int>(jttyExchangeProfile(m_config));
-  // One-shot encode; empty tones mean the text did not encode. Used for the initial non-final pass and to re-bake a line's true last segment once its real EOM status is known.
-  auto encodeOnce = [&] (QString const& text, bool segmentIsFinal) {
-    Jtty::TransmitSegment segment;
-    auto frame = Jtty::transmitFrame(text).toLatin1();
-    segment.tones.resize(944);
-    int nsym = 0;
-    int frameStarts[kMaxJttyFrames] = {};
-    int const finalFlag = segmentIsFinal ? 1 : 0;
-    genjtty_profile_(frame.data(), &exchangeProfile, segment.tones.data(),
-                     &nsym, frameStarts, &finalFlag, (FCL)80);
-    if (nsym > 0) {
-      segment.tones.resize(nsym);
-      segment.text = QString::fromLatin1(frame).trimmed();
-      int const nframes = nsym / 59;
-      segment.frameCharStarts.reserve(nframes);
-      for (int i = 0; i < nframes; ++i) {
-        // Fortran gives 1-indexed columns; store 0-indexed offsets.
-        segment.frameCharStarts.append(frameStarts[i] - 1);
-      }
-    } else {
-      segment.tones.clear();
-    }
-    return segment;
-  };
-  auto refuseUnencodable = [&] {
+  case Jtty::TransmitTextStatus::EncodingFailed:
     showStatusMessage(tr("JTTY text not sent: a line does not fit in one message once encoded; shorten it and send again"));
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
-  };
-
-  QVector<Jtty::TransmitSegment> segments;
-  // Newlines force a new segment; split them out before nextTransmitTextSegment (space-only breaks).
-  auto const lines = message.split(QLatin1Char('\n'));
-  for (int lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
-    auto const& line = lines[lineIndex];
-    int const lineStart = segments.size();
-    auto const encoded = Jtty::encodeTransmitLine(line, [&] (QString const& text) {
-      auto segment = encodeOnce(text, /*segmentIsFinal=*/false);
-      if (segment.tones.isEmpty()) return false;
-      segment.frequency = ui->TxFreqSpinBox_2->value();
-      segments.append(std::move(segment));
-      return true;
-    });
-    if (!encoded) {
-      refuseUnencodable();
-      return;
-    }
-    if (segments.size() == lineStart) continue;
-    bool const lineIsFinal = lineIndex + 1 < lines.size() || isFinal;
-    if (!lineIsFinal) continue;
-    auto& last = segments.last();
-    auto final_ = encodeOnce(last.text, /*segmentIsFinal=*/true);
-    if (final_.tones.isEmpty()) {
-      refuseUnencodable();
-      return;
-    }
-    final_.frequency = last.frequency;
-    last = std::move(final_);
+    return;
+  case Jtty::TransmitTextStatus::Encoded:
+    break;
   }
 
-  m_jttyQueueNotice = prepared.substituted
+  QVector<Jtty::TransmitSegment> segments;
+  segments.reserve(encoded.segments.size());
+  for (auto& segment : encoded.segments) {
+    segment.transmit.frequency = ui->TxFreqSpinBox_2->value();
+    segments.append(std::move(segment.transmit));
+  }
+  m_jttyQueueNotice = encoded.substituted
     ? tr("Unsupported characters were replaced. Hover over Send to review the text.")
     : QString {};
   enqueueJttySegments(requestId, std::move(segments));
@@ -598,25 +499,8 @@ void MainWindow::execute_jtty_tones(qint64 requestId, QString const& message,
   }
   m_nsym_jtty=nsym;
 
-  int nsps4=4*384;
-  float bt=2.0;
-  float fsample=48000.0;
-  float f0=(frequency >= 0 ? frequency : ui->TxFreqSpinBox_2->value ()) - m_XIT;
-  int icmplx=0;
-  int nwave=nsps4*m_nsym_jtty;
-
-  std::vector<float> wave(nwave > 0 ? nwave : 1);
-  gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
-                wave.data(), wave.data(), &icmplx, &nwave);
-
-  QVector<qint16> samples;
-  samples.reserve(nwave);
-  for(int i=0; i<nwave; ++i) {
-    float v = wave[i] * 32767.0f;
-    if(v >  32767.0f) v =  32767.0f;
-    if(v < -32768.0f) v = -32768.0f;
-    samples.append(static_cast<qint16>(qRound(v)));
-  }
+  float const f0=(frequency >= 0 ? frequency : ui->TxFreqSpinBox_2->value ()) - m_XIT;
+  auto const samples = Jtty::renderTransmitTones(itone, m_nsym_jtty, 48000, f0);
   if (samples.isEmpty()) {
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
     return;
@@ -1118,18 +1002,14 @@ bool MainWindow::sendJttyFunctionKey(int index)
     return true;
   }
 
-  int itone[944];
-  int nsym=0;
-  int encodeStatus=static_cast<int>(Jtty::NativeEncodeStatus::InvalidDescriptor);
-  genjtty_atoms_c(compiled.atoms.constData(),compiled.atoms.size(),itone,&nsym,
-                  &encodeStatus);
-  if(nsym <= 0) {
-    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1")
-             .arg(jttyNativeEncodeError(encodeStatus)));
+  auto const encoded=Jtty::encodeNativeAtoms(compiled.atoms);
+  if(encoded.tones.isEmpty()) {
+    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1").arg(encoded.error));
     Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
     return true;
   }
-  enqueueJttyToneSegment(requestId, compiled.text, itone, nsym);
+  enqueueJttyToneSegment(requestId, compiled.text, encoded.tones.constData(),
+                         encoded.tones.size());
   return true;
 }
 
@@ -1233,22 +1113,15 @@ void MainWindow::handleMmttyTxString(QString message)
     execute_jtty_tx (requestId, transmitText);
     return;
   }
-  int itone[944] {};
-  int nsym = 0;
-  int encodeStatus = static_cast<int>(Jtty::NativeEncodeStatus::InvalidDescriptor);
-  genjtty_atoms_c(compiled.atoms.constData(), compiled.atoms.size(), itone, &nsym,
-                  &encodeStatus);
-  if (nsym <= 0) {
+  auto const encoded = Jtty::encodeNativeAtoms (compiled.atoms);
+  if (encoded.tones.isEmpty ()) {
     logText(QStringLiteral("MMTTY/N1MM tagged JTTY request %1 rejected: %2")
             .arg(requestId)
-            .arg(jttyNativeEncodeError(encodeStatus)));
+            .arg(encoded.error));
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
     return;
   }
-
-  QVector<int> tones;
-  tones.reserve (nsym);
-  for (int i = 0; i < nsym; ++i) tones.append (itone[i]);
+  auto const& tones = encoded.tones;
 
   if (mmttyNeedsHandoff ()) {
     if (!m_mmttyHandoff.queue (requestId)) {

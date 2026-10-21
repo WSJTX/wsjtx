@@ -4,16 +4,16 @@
  * Adds `wsprd --stream` mode: read PCM audio from stdin (per the
  * streaming framing) instead of from a .wav/.c2 file, run the
  * standard wsprd decode pipeline, and emit decodes as NDJSON on stdout
- * (matching the jt9 --stream protocol).
+ * (matching the wsjt-codec --stream protocol).
  *
  * Streaming protocol summary:
  *   1. WSJT session header (8 bytes): magic 'WSJT' + fmt + ch + rate_kHz
- *      LE u16. fmt=0x00 = int16 PCM (same as jt9). For wsprd, audio is
+ *      LE u16. fmt=0x00 = int16 PCM (same as wsjt-codec). For wsprd, audio is
  *      always 12 kHz mono int16.
  *   2. Frames: [type:1][len:4 LE][body:len]
  *        type 0x01 = audio chunk (int16 PCM samples)
  *        type 0x02 = control JSON (configure / halt)
- *   3. Configure frame schema (subset of jt9):
+ *   3. Configure frame schema (subset of wsjt-codec):
  *        {"t":"configure","date":"YYMMDD","time":"HHMM",
  *         "dialfreq":14.0956,"wspr_type":2,
  *         "mycall":"K1JT","mygrid":"FN20"}
@@ -21,7 +21,7 @@
  *   4. Halt frame: {"t":"halt"} — drains current period if data buffered,
  *      emits decode_finished, exits clean.
  *
- * NDJSON schema (v=1, mirrors jt9):
+ * NDJSON schema (v=1, mirrors wsjt-codec):
  *   {"v":1,"t":"ready","modes":["WSPR"],"protocol":1}
  *   {"v":1,"t":"decode","mode":"WSPR","date":"YYMMDD","time":"HHMM",
  *    "snr":-12,"dt":0.6,"freq":14.097103,"drift":0,"message":"K1JT FN20 33"}

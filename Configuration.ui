@@ -190,6 +190,51 @@
           <string>Display</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_4">
+          <item row="5" column="0">
+           <widget class="QLabel" name="language_label">
+            <property name="text">
+             <string>Language (requires restart):</string>
+            </property>
+            <property name="buddy">
+             <cstring>language_combo_box</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1" colspan="2">
+           <widget class="QComboBox" name="language_combo_box">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Select the interface language. The --language command-line option overrides this setting.</string>
+            </property>
+            <property name="accessibleName">
+             <string>Interface language</string>
+            </property>
+            <property name="accessibleDescription">
+             <string>Changes take effect after restarting WSJT-X. Shared across station configurations in this instance.</string>
+            </property>
+            <property name="sizeAdjustPolicy">
+             <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
+            </property>
+            <property name="minimumContentsLength">
+             <number>18</number>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="0" colspan="3">
+           <widget class="QLabel" name="language_restart_label">
+            <property name="text">
+             <string>Changes take effect after restarting WSJT-X.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
           <item row="4" column="0">
            <widget class="QCheckBox" name="DXCC_check_box">
             <property name="toolTip">

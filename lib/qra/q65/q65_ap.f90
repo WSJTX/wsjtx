@@ -1,11 +1,14 @@
 subroutine q65_ap(nQSOprogress,ipass,ncontest,lq65pileup,lapcqonly,iaptype, &
      apsym0,apmask,apsymbols)
 
+  use packjt77_schema, only: PACK77_TYPE1_RR73_TAIL
+
   integer apsym0(58),aph10(10)
   integer apmask(78),apsymbols(78)
   integer naptypes(0:5,4) ! (nQSOProgress, ipass)  maximum of 4 passes for now
   integer mcqru(29),mcqfd(29),mcqtest(29),mcqww(29)
-  integer mcq(29),mrrr(19),m73(19),mrr73(19)
+  integer mcq(29),mrrr(19),m73(19)
+  integer, parameter :: mrr73(19)=PACK77_TYPE1_RR73_TAIL
   logical lq65pileup,lapcqonly,first
   data     mcq/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0/
   data   mcqru/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,0,0,1,1,0,0/
@@ -14,7 +17,6 @@ subroutine q65_ap(nQSOprogress,ipass,ncontest,lq65pileup,lapcqonly,iaptype, &
   data   mcqww/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,1,1,1,1,0/
   data    mrrr/0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1/
   data     m73/0,1,1,1,1,1,1,0,1,0,0,1,0,1,0,0,0,0,1/
-  data   mrr73/0,1,1,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,1/
   data ncontest0/99/
   data first/.true./
   save naptypes,ncontest0

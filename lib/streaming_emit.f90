@@ -13,12 +13,32 @@
 !   error (version)   {"v":1,"t":"error","code":"unknown_schema_version","got":N}
 !   error (type)      {"v":1,"t":"error","code":"configure_type_error",
 !                      "key":"depth","expected":"int","got":"string"}
+!   error (range)     {"v":1,"t":"error","code":"configure_range_error",
+!                      "key":"rxfreq","mode":"JT65","detail":"..."}
+!                     A configure whose result the decoder would refuse (for
+!                     JT65+JT9, the stream's rule); the frame is declined
+!                     whole, naming the first refused key in the decoder's
+!                     order (a carried one when a mode change made it
+!                     invalid). "mode" is the mode the frame would leave, and
+!                     the stream stays in the one it had. Also sent once after
+!                     ready for a command-line value. JTTY's has no "mode".
+!   error (refused)   {"v":1,"t":"error","code":"decode_rejected",
+!                      "operation":"decode","status":"invalid","mode":"JT65",
+!                      "field":"depth","detail":"depth must be from 1 to 3"}
+!                     One per decode attempt the engine refuses; "field" and
+!                     "detail" name the decoder option when it has one, in the
+!                     decoder's terms (search_low_hz, search_high_hz,
+!                     search_range, receive_frequency_hz, tolerance_hz, depth,
+!                     submode, minimum_width, trials, qso_progress, contest,
+!                     threads, period_seconds, blanker_percent,
+!                     eme_delay_seconds, max_drift, utc, ...).
 !
-! Activation: program jt9 calls streaming_emit_set_enabled(.true.) when
-! --stream is parsed. Decoder per-mode sites in lib/decoder.f90 query
-! streaming_emit_enabled() and call streaming_emit_decode() instead of
-! the legacy write(*,...) text format. When disabled, every routine in
-! this module is a no-op so non-streaming jt9 (WAV / shmem) is unchanged.
+! Activation: lib/jt9.f90 calls streaming_emit_set_enabled(.true.) when
+! --stream is parsed; only wsjt-codec runs the stream. Decoder per-mode sites
+! in lib/decoder.f90 query streaming_emit_enabled() and call
+! streaming_emit_decode() instead of the legacy write(*,...) text format.
+! When disabled, every routine in this module is a no-op so WAV and
+! shared-memory decoding are unchanged.
 
 module streaming_emit
   use, intrinsic :: iso_fortran_env, only: int64, output_unit
@@ -28,17 +48,25 @@ module streaming_emit
   logical, save :: enabled_ = .false.
   logical, save :: utc_from_iso_ = .false.
   real(8), save :: trperiod_ = 60.d0
+  ! decode_finished ends a period's decode; passes before the last hold it.
+  logical, save :: finished_held_ = .false.
 
   public :: streaming_emit_set_enabled
   public :: streaming_emit_set_time_form
   public :: streaming_emit_enabled
+  public :: streaming_emit_utc_from_iso
   public :: streaming_emit_ready
   public :: streaming_emit_decode
   public :: streaming_emit_decode_finished
+  public :: streaming_emit_hold_finished
   public :: streaming_emit_error
   public :: streaming_emit_error_code
   public :: streaming_emit_error_version
   public :: streaming_emit_error_type
+  public :: streaming_emit_error_range
+  public :: streaming_emit_decode_rejected
+  public :: streaming_emit_mode_name
+  public :: streaming_emit_json_escape
 
 contains
 
@@ -61,6 +89,11 @@ contains
     trperiod_ = trperiod
   end subroutine streaming_emit_set_time_form
 
+  ! Whether times are labelled from an ISO utc (else from a numeric nutc).
+  logical function streaming_emit_utc_from_iso()
+    streaming_emit_utc_from_iso = utc_from_iso_
+  end function streaming_emit_utc_from_iso
+
   pure function streaming_emit_enabled() result(v)
     logical :: v
     v = enabled_
@@ -69,10 +102,10 @@ contains
   subroutine streaming_emit_ready()
     if (.not. enabled_) return
     ! Full jt9-internal mode support (FT8/FT4/JT9/JT65/JT4/FST4/
-    ! FST4W/Q65/MSK144). Modes outside this set (e.g., wsprd C2 streaming,
-    ! map65 I/Q) may extend this list later.
+    ! FST4W/Q65/MSK144) and JTTY. Modes outside this set (e.g., wsprd C2
+    ! streaming, map65 I/Q) may extend this list later.
     write(output_unit, '(a)') &
-       '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144"],"protocol":1}'
+       '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"protocol":1}'
     flush(output_unit)
   end subroutine streaming_emit_ready
 
@@ -101,7 +134,7 @@ contains
     if (.not. enabled_) return
 
     call format_utc_(nutc, time_str, utc_is_hhmmss)
-    call json_escape_(msg, msg_escaped, msg_len)
+    call streaming_emit_json_escape(msg, msg_escaped, msg_len)
     call format_dt_(dt, dt_str)
 
     write(output_unit, '(5a,i0,3a,i0,3a)')                                 &
@@ -115,11 +148,16 @@ contains
     flush(output_unit)
   end subroutine streaming_emit_decode
 
+  subroutine streaming_emit_hold_finished(hold)
+    logical, intent(in) :: hold
+    finished_held_ = hold
+  end subroutine streaming_emit_hold_finished
+
   subroutine streaming_emit_decode_finished(nutc, utc_is_hhmmss)
     integer, intent(in) :: nutc
     logical, optional, intent(in) :: utc_is_hhmmss
     character(len=8)    :: time_str
-    if (.not. enabled_) return
+    if (.not. enabled_ .or. finished_held_) return
     call format_utc_(nutc, time_str, utc_is_hhmmss)
     write(output_unit, '(3a)')                                             &
          '{"v":1,"t":"decode_finished","period_end":"', trim(time_str),    &
@@ -132,7 +170,7 @@ contains
     character(len=320)           :: msg_escaped
     integer                      :: msg_len
     if (.not. enabled_) return
-    call json_escape_(msg, msg_escaped, msg_len)
+    call streaming_emit_json_escape(msg, msg_escaped, msg_len)
     write(output_unit, '(3a)')                                             &
          '{"v":1,"t":"error","msg":"', msg_escaped(1:msg_len), '"}'
     flush(output_unit)
@@ -147,7 +185,7 @@ contains
     character(len=320)           :: d_escaped
     integer                      :: d_len
     if (.not. enabled_) return
-    call json_escape_(detail, d_escaped, d_len)
+    call streaming_emit_json_escape(detail, d_escaped, d_len)
     write(output_unit, '(5a)')                                             &
          '{"v":1,"t":"error","code":"', trim(code),                        &
          '","detail":"', d_escaped(1:d_len), '"}'
@@ -181,6 +219,71 @@ contains
          '","got":"', trim(got), '"}'
     flush(output_unit)
   end subroutine streaming_emit_error_type
+
+  ! A configure the decoder would refuse; the whole frame is declined. `key`
+  ! is a configure key name and `mode` a mode name (no escaping needed).
+  !   {"v":1,"t":"error","code":"configure_range_error","key":"<k>",
+  !    "mode":"<m>","detail":"<d>"}
+  subroutine streaming_emit_error_range(key, mode, detail)
+    character(len=*), intent(in) :: key, mode, detail
+    character(len=320)           :: d_escaped
+    integer                      :: d_len
+    if (.not. enabled_) return
+    call streaming_emit_json_escape(detail, d_escaped, d_len)
+    write(output_unit, '(7a)')                                             &
+         '{"v":1,"t":"error","code":"configure_range_error","key":"',      &
+         trim(key), '","mode":"', trim(mode), '","detail":"',              &
+         d_escaped(1:d_len), '"}'
+    flush(output_unit)
+  end subroutine streaming_emit_error_range
+
+  ! A decode the engine refused. `operation`, `status` and `field` are the
+  ! engine's controlled-vocabulary tokens; `field` and `limit` are blank when
+  ! no decoder option is at fault.
+  !   {"v":1,"t":"error","code":"decode_rejected","operation":"<o>",
+  !    "status":"<s>","mode":"<m>"[,"field":"<f>","detail":"<f> must be <l>"]}
+  subroutine streaming_emit_decode_rejected(operation, status, mode, field, limit)
+    character(len=*), intent(in) :: operation, status, field, limit
+    integer, intent(in)          :: mode
+    character(len=:), allocatable :: rule
+    if (.not. enabled_) return
+    ! The search range's limit is already a whole rule.
+    rule = trim(field) // ' must be ' // trim(limit)
+    if (field .eq. 'search_range') rule = trim(limit)
+    if (len_trim(field) .eq. 0) then
+       write(output_unit, '(7a)')                                          &
+            '{"v":1,"t":"error","code":"decode_rejected","operation":"',   &
+            trim(operation), '","status":"', trim(status), '","mode":"',   &
+            trim(streaming_emit_mode_name(mode)), '"}'
+    else
+       write(output_unit, '(11a)')                                         &
+            '{"v":1,"t":"error","code":"decode_rejected","operation":"',   &
+            trim(operation), '","status":"', trim(status), '","mode":"',   &
+            trim(streaming_emit_mode_name(mode)), '","field":"',           &
+            trim(field), '","detail":"', trim(rule), '"}'
+    end if
+    flush(output_unit)
+  end subroutine streaming_emit_decode_rejected
+
+  ! The protocol's name for a mode number, or the number.
+  function streaming_emit_mode_name(mode) result(name)
+    integer, intent(in) :: mode
+    character(len=12)   :: name
+    select case (mode)
+    case (4);       name = 'JT4'
+    case (5);       name = 'FT4'
+    case (8);       name = 'FT8'
+    case (9);       name = 'JT9'
+    case (65);      name = 'JT65'
+    case (66);      name = 'Q65'
+    case (74);      name = 'JT65+JT9'
+    case (144);     name = 'MSK144'
+    case (240);     name = 'FST4'
+    case (241, 242); name = 'FST4W'
+    case default
+       write(name, '(i0)') mode
+    end select
+  end function streaming_emit_mode_name
 
   ! Internals -------------------------------------------------------------
 
@@ -238,7 +341,7 @@ contains
   ! Trailing trim: the input is silently trimmed to its non-blank length
   ! before escaping (decoder messages are right-padded fixed-width strings).
   ! Output buffer must be large enough for worst case 6x input len.
-  subroutine json_escape_(in_str, out_str, out_len)
+  subroutine streaming_emit_json_escape(in_str, out_str, out_len)
     character(len=*), intent(in)  :: in_str
     character(len=*), intent(out) :: out_str
     integer,          intent(out) :: out_len
@@ -275,7 +378,7 @@ contains
           out_str(out_len:out_len) = c
        end select
     end do
-  end subroutine json_escape_
+  end subroutine streaming_emit_json_escape
 
   subroutine append_pair_(a, b, buf, idx)
     character,        intent(in)    :: a, b

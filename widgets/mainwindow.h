@@ -84,6 +84,7 @@ class QHBoxLayout;
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
 #include "DecoderOutputFramer.hpp"
+#include "DecoderDiagnostics.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
 #include "BeaconTxController.hpp"
@@ -143,7 +144,7 @@ class WSPRBandHopping;
 class HelpTextWindow;
 class EQSL;
 class WSPRNet;
-class SoundOutput;
+class AudioOutputSink;
 class Modulator;
 class AudioInputSource;
 class Detector;
@@ -203,7 +204,7 @@ public:
                       QSplashScreen *, QProcessEnvironment const&, bool automated_test,
                       QString base_style_sheet,
                       std::unique_ptr<AudioInputSource> audio_input_source = {},
-                      std::unique_ptr<SoundOutput> sound_output = {},
+                      std::unique_ptr<AudioOutputSink> sound_output = {},
                       QString decoder_data_path = {},
                       QWidget *parent = nullptr);
   ~MainWindow();
@@ -253,6 +254,7 @@ public:
   bool startLiveAudioTestJttyWav(QString const& path);
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
+  QString checkLiveAudioTestOutputFaults ();
   bool liveAudioTestJttyStreamActive () const
   {
     return m_jttyTxStream && m_jttyTxStream->isActive ();
@@ -295,7 +297,7 @@ public:
 
   public slots:
   void showSoundInError(const QString& errorMsg);
-  void showSoundOutError(const QString& errorMsg);
+  void showSoundOutError(TxEvidence::TxOutputError const& error);
   void showStatusMessage(const QString& statusMsg);
   // JTTY text submission is asynchronous. The returned request id is completed
   // by accepted/rejected signals; accepted means queued for backend transmit,
@@ -310,8 +312,10 @@ public:
   void diskDat();
   void freezeDecode(int n);
   void guiUpdate();
-  void doubleClickOnCall (QString const& line, QString const& word, Qt::KeyboardModifiers);
-  void doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnCall (QString const& line, QString const& word, Qt::KeyboardModifiers,
+                          QString const& clicked_token);
+  void doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers,
+                          QString const& clicked_token);
   void doubleClickOnFoxQueue(QString const& line, QString const& word, Qt::KeyboardModifiers);
   void doubleClickOnFoxInProgress(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers);
   void readFromStdout();
@@ -771,8 +775,8 @@ private:
   Q_SIGNAL void transmitFrequency (double) const;
   Q_SIGNAL void endTransmitMessage (bool quick = false) const;
   Q_SIGNAL void tune (bool = true) const;
-  Q_SIGNAL void sendMessage (TxEvidence::TxRequest, SoundOutput *) const;
-  Q_SIGNAL void startJttyStream (TxEvidence::TxRequest, SoundOutput *);
+  Q_SIGNAL void sendMessage (TxEvidence::TxRequest, AudioOutputSink *) const;
+  Q_SIGNAL void startJttyStream (TxEvidence::TxRequest, AudioOutputSink *);
   Q_SIGNAL void endJttyStream () const;
   Q_SIGNAL void clearJttyStream (TxAudioQueueEpoch epoch) const;
   Q_SIGNAL void enqueueJttyStream (QByteArray const& samples,
@@ -991,7 +995,7 @@ private:
   Modulator * m_modulator;
   QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
-  SoundOutput * m_soundOutput;
+  AudioOutputSink * m_soundOutput;
   int m_rx_audio_buffer_frames;
   int m_tx_audio_buffer_frames;
   QThread m_audioThread;
@@ -1145,6 +1149,7 @@ private:
   bool    m_startAnother;
   ActiveJt9Decode m_activeJt9Decode;
   DecoderOutputFramer m_decoderOutputFramer;
+  DecoderDiagnostics m_decoderDiagnostics {logDecoderDiagnostic};
   Ft8MtdDecodeCoordinator m_ft8MtdDecodeCoordinator;
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   qint64 m_liveAudioTestPendingFt8FinalPeriod {-1};
@@ -1557,6 +1562,8 @@ private:
   bool switchTxNextMessage(QKeyEvent const *key_event);
   bool switchMainWindowTab(QKeyEvent const *key_event);
   void genStdMsgs(QString rpt, bool unconditional = false);
+  void genStdMsgsForSelection(QString const& rpt, bool unconditional = false);
+  void selectTxNextMessage(int n);
   void genCQMsg();
   void clearDX ();
   void lookup();
@@ -1580,12 +1587,14 @@ private:
                DecodeOperatingContext const& context);
   void displayDialFrequency ();
   void transmitDisplay (bool);
-  void handleDecodeSelection(QString const& line, QString const& word,
-                             Qt::KeyboardModifiers modifiers,
-                             DecodedMessageReaction::SelectionOrigin selection_origin);
+  void handleDecodeSelection(QString const& line, Qt::KeyboardModifiers modifiers,
+                             DecodedMessageReaction::SelectionOrigin selection_origin,
+                             QString const& clicked_token);
   void processMessage(DecodedText const& message, Qt::KeyboardModifiers modifiers,
                       DecodedMessageReaction::SelectionOrigin selection_origin);
   void processSyntheticMessage(DecodedText const& message);
+  void processSyntheticMessage(DecodedText const& message,
+                               DecodedMessageReaction::SelectionOrigin origin);
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
     Qt::KeyboardModifiers modifiers = Qt::NoModifier) const;
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
@@ -1740,6 +1749,8 @@ private:
   bool activeDecodeOperatingContextMatchesCurrent() const;
   bool initializeDecoderSharedMemory();
   void startDecoderProcess();
+  void drainDecoderStderr(bool final = false);
+  QString decoderFailureDetail(QString const& reason);
   void failDecoderStartup(QString const& reason);
   bool beginDecode(
       DecodeOwner owner, decoder_params_t const * diagnosticParams = nullptr,

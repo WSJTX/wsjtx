@@ -4,11 +4,13 @@ subroutine cwfilter(first,knowledge,render_legacy)
   use ft8_codec_context, only: get_ft8_codec_state
   use ft8var_codec_context, only: genft8sdvar_for_state
 
-  use ft8_mod1, only : cw,windowc1,windowx,pivalue,facx,mcq,m73,mrr73,mrrr,one,twopi,facc1,dt,csync,idtone25,csynccq, &
+  use ft8_mod1, only : cw,windowc1,windowx,pivalue,facx,mcq,m73,mrrr,one,twopi,facc1,dt,csync,idtone25,csynccq, &
                        idtone25_valid, &
                        NFILT1,NFILT2,endcorr,ctwkw,ctwkn,ctwk256
   use jt65_mod9 ! callsign DB to memory
   use prog_args ! path to files
+  use streaming_emit, only: streaming_emit_enabled
+  use, intrinsic :: iso_fortran_env, only: error_unit
 
   parameter (NFFT=180000)
   complex, allocatable :: csig0(:)
@@ -75,9 +77,14 @@ subroutine cwfilter(first,knowledge,render_legacy)
        ncallk.lt.1 .or. ncalllm.lt.1 .or. ncalln.lt.1 .or. ncallo.lt.1 .or. ncallpq.lt.1 .or. ncallr.lt.1 .or.  &
        ncallst.lt.1 .or. ncalluv.lt.1 .or. ncallw.lt.1 .or. ncallxz.lt.1) then
       ldbvalid=.false.
-      if(emit_line) write(*,4) 'ALLCALL7.TXT is too short or broken?','d'
-4     format(a36,13x,a1)
-      if(emit_line) call flush(6)
+      ! The stream's stdout carries only JSON events.
+      if(emit_line .and. streaming_emit_enabled()) then
+        write(error_unit,'(a)') 'ALLCALL7.TXT is too short or broken?'
+      else if(emit_line) then
+        write(*,4) 'ALLCALL7.TXT is too short or broken?','d'
+4       format(a36,13x,a1)
+        call flush(6)
+      endif
     endif
     endif
 
@@ -97,7 +104,6 @@ subroutine cwfilter(first,knowledge,render_legacy)
       mcq=2*mcq-1
       mrrr=2*mrrr-1
       m73=2*m73-1
-      mrr73=2*mrr73-1
     endif
 
     one=.false.

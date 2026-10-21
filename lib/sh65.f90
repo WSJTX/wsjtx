@@ -49,6 +49,8 @@ subroutine sh65(cx,n5,mode65,ntol,xdf,nspecial,snrdb)
 
 ! Find strongest line in each of the 16 phases
   snr1=0.
+  snr2=0.
+  snr=0.
   sbest=0.
   snrbest=0.
   nbest=1

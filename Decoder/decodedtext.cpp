@@ -14,7 +14,7 @@ namespace
 {
   QRegularExpression tokens_re {R"(
 ^
-  (?:(?<dual>[A-Z0-9/]+)\sRR73;\s)? # dual reply DXpedition message
+  (?:(?<dual>[A-Z0-9/]+|\.{3})\sRR73;\s)? # dual reply DXpedition message
   (?:
     (?<word1>
       (?:CQ|DE|QRZ)
@@ -26,7 +26,7 @@ namespace
     )\s
   )
   (?:
-    (?<word2>[A-Z0-9/]+)      # DE call
+    (?<word2>[A-Z0-9/]+|\.{3}) # DE call or unknown hash code
     (?:\s
       (?<word3>[-+A-Z0-9]+)   # report
       (?:\s

@@ -11,6 +11,7 @@ namespace HamlibMode
   rmode_t to_hamlib (Transceiver::MODE);
   bool satisfies_request (rmode_t requested, rmode_t current);
   bool change_required (Transceiver::MODE requested, rmode_t current);
+  int get_uncached_mode (RIG *, vfo_t, rmode_t *, pbwidth_t *);
 }
 
 #endif

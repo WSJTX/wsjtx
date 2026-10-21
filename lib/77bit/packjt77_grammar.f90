@@ -941,6 +941,16 @@ subroutine pack77_parse_type12_source(msg,source,ok)
   endif
 
   tail=w(tail_start)
+  if(.not.source%call_1%is_cq) then
+     itail=pack77_qso_tail_index(tail)
+     if(itail.ge.1) then
+        source%ir=0
+        source%igrid4=PACK77_MAXGRID4+pack77_type12_irpt_from_tail(itail)
+        ok=.true.
+        return
+     endif
+  endif
+
   tail_is_grid=.false.
   if(len_trim(tail).eq.4) tail_is_grid=pack77_is_grid4(tail)
   if(tail_is_grid) then
@@ -950,7 +960,6 @@ subroutine pack77_parse_type12_source(msg,source,ok)
      return
   endif
   if(source%call_1%is_cq) return
-
   if(tail(1:1).eq.'+' .or. tail(1:1).eq.'-') then
      call pack77_parse_signed_report(tail,isnr,ok)
      if(.not.ok) return
@@ -977,21 +986,19 @@ subroutine pack77_parse_type12_source(msg,source,ok)
      ok=.true.
      return
   endif
-
-  itail=pack77_qso_tail_index(tail)
-  if(itail.lt.1) return
-  source%ir=0
-  source%igrid4=PACK77_MAXGRID4+pack77_type12_irpt_from_tail(itail)
-  ok=.true.
 end subroutine pack77_parse_type12_source
-logical function pack77_valid_c28_call_slot(token) result(ok)
+logical function pack77_valid_c28_call_slot(token,allow_hash_calls) result(ok)
   character(len=*), intent(in) :: token
+  logical, intent(in), optional :: allow_hash_calls
   integer :: i,n,slash
 
   ok=.false.
   n=len_trim(token)
   if(n.lt.3 .or. n.gt.13) return
-  if(pack77_valid_hash_call_token(token)) return
+  if(pack77_valid_hash_call_token(token)) then
+     if(present(allow_hash_calls)) ok=allow_hash_calls
+     return
+  endif
   do i=1,n
      if(.not.((token(i:i).ge.'A' .and. token(i:i).le.'Z') .or. &
           pack77_is_digit_char(token(i:i)) .or. token(i:i).eq.'/')) return
@@ -1006,13 +1013,14 @@ logical function pack77_valid_c28_call_slot(token) result(ok)
   ok=.true.
 end function pack77_valid_c28_call_slot
 
-subroutine pack77_parse_dxpedition_source(msg,source,ok,matched_shape)
+subroutine pack77_parse_dxpedition_source(msg,source,ok,matched_shape,allow_hash_calls)
 ! DXpedition messages encode two c28 calls, a 10-bit hashed callsign, and a
 ! report in the fixed "CALL RR73; CALL <HASH> REPORT" token shape.
   character(len=*), intent(in) :: msg
   type(pack77_dxpedition_source), intent(out) :: source
   logical, intent(out) :: ok
   logical, intent(out) :: matched_shape
+  logical, intent(in), optional :: allow_hash_calls
   character(len=37) :: w(5)
   integer :: nwords
   logical :: split_ok
@@ -1025,8 +1033,8 @@ subroutine pack77_parse_dxpedition_source(msg,source,ok,matched_shape)
   if(nwords.ne.5) return
   if(trim(w(2)).ne.'RR73;') return
   matched_shape=.true.
-  if(.not.pack77_valid_c28_call_slot(w(1))) return
-  if(.not.pack77_valid_c28_call_slot(w(3))) return
+  if(.not.pack77_valid_c28_call_slot(w(1),allow_hash_calls)) return
+  if(.not.pack77_valid_c28_call_slot(w(3),allow_hash_calls)) return
   if(.not.pack77_valid_hash_call_token(w(4))) return
   call pack77_parse_dxpedition_report(w(5),source%n5,ok)
   if(.not.ok) return

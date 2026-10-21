@@ -33,13 +33,23 @@ consequences.
 
 === Other Languages
 
-The _WSJT-X_ user interface (UI) is now available in many languages.
-When a translated UI is available for the computer's default System
-Language, it will appear automatically on program startup. The UI
-language may be overridden if desired by starting _WSJT-X_ with a
-command line option. For example, to start _WSJT-X_ with its user
-interface in Spanish or Japanese, start a command-prompt window and
-enter one of these the commands:
+The _WSJT-X_ user interface (UI) is available in many languages.
+Choose the interface language in *Settings -> General -> Display* using
+*Language (requires restart)*, then restart _WSJT-X_ to apply the choice.
+*System default*, the initial setting, automatically uses a translation
+matching the computer's system language when available. Choose *English*
+to use the original English interface regardless of the system language.
+The choice is shared across named station configurations within the same
+instance; separate instances started with `--rig-name` retain their own
+language preferences.
+
+The `--language` command line option overrides the saved preference for
+that launch without changing it. To recover an English interface, start
+_WSJT-X_ with `wsjtx --language en`. On Windows, the option can also be
+appended to the executable path in a shortcut's *Target* field.
+
+For example, to start _WSJT-X_ with its user interface in Spanish or
+Japanese, start a command-prompt window and enter one of these commands:
 
 `wsjtx --language es`
 

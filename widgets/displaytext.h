@@ -41,7 +41,8 @@ public:
   qint32 m_points;
   bool m_bDisplayPoints;
 
-  Q_SIGNAL void selectCallsign (QString const& line, QString const& word, Qt::KeyboardModifiers);
+  Q_SIGNAL void selectCallsign (QString const& line, QString const& word,
+                                Qt::KeyboardModifiers, QString const& clicked_token);
   Q_SIGNAL void erased ();
 
   Q_SLOT void insertText (QString const& text, QColor bg = QColor {}, QColor fg = QColor {}
@@ -61,6 +62,7 @@ private:
   void resizeEvent (QResizeEvent *) override;
 
   bool decodesFromTop () const;
+  bool stickyScrollEnabled () const;
   void extend_vertical_scrollbar (int min, int max);
   void scrollRangeChanged (int minimum, int maximum);
   void userScrolledTo (int position);
@@ -85,6 +87,7 @@ private:
   };
   QString pressed_line_;
   QString pressed_word_;
+  QString pressed_token_;
   Qt::MouseButton pressed_button_;
   ClickState click_state_;
 
@@ -93,6 +96,7 @@ private:
   bool sticky_scroll_enabled_;
   bool following_live_activity_;
   QMetaObject::Connection vertical_scroll_connection_;
+  QMetaObject::Connection configuration_connection_;
   long long modified_vertical_scrollbar_max_;
   QToolButton * return_to_live_button_;
   int live_scroll_position_;

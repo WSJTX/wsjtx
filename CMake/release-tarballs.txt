@@ -1,5 +1,5 @@
 # <tarball> <program>...: the command-line programs each release tarball carries
 jt9 jt9
-jt9stream jt9stream
+codec wsjt-codec
 wsprd wsprd
 utilities wsprcode encode77 ft4sim jt4sim jt65sim cwsim sfoxsim

@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: "x86_64"
+      armhf_distro:
+        description: "ARMHF runtime distribution: bookworm or trixie"
+        required: false
+        type: string
+        default: bookworm
       recache:
         description: "Force ccache to recompile and refresh cached objects"
         required: false
@@ -97,6 +102,14 @@ on:
           - aarch64
           - armhf
         default: "x86_64"
+      armhf_distro:
+        description: "ARMHF runtime distribution"
+        required: false
+        type: choice
+        options:
+          - bookworm
+          - trixie
+        default: bookworm
       recache:
         description: "Force ccache to recompile and refresh cached objects"
         required: false
@@ -175,10 +188,8 @@ on:
 #   aarch64 — validated GCC 13.4 Bookworm container on ubuntu-24.04-arm. This keeps the
 #            Bookworm glibc 2.36 + pre-t64 library baseline while using GCC 13
 #            (issue #49).
-#   armhf  — native x86_64-to-ARMHF GCC 13.4 cross-build, then target tests
-#            and packaging in a Bookworm arm/v7 container on ubuntu-24.04-arm,
-#            which runs 32-bit ARM code natively (issue #51). DigiPi / Pi Zero
-#            2W class.
+#   armhf  — x86_64 cross-build using the selected Bookworm or Trixie profile,
+#            then native ARMv7 tests and packaging in the matching runtime image.
 #
 # The native jobs use the build-linux-payload composite action. ARMHF needs
 # separate host-build and target-runtime phases, but shares their artifact
@@ -187,6 +198,9 @@ on:
 permissions:
   contents: read
   packages: read
+
+env:
+  ARMHF_DISTRO: ${{ inputs.armhf_distro }}
 
 jobs:
   resolve-image:
@@ -216,10 +230,18 @@ jobs:
             echo "::error::armhf_build_only is valid only for ARMHF builds"
             exit 2
           fi
+          case "$ARMHF_DISTRO" in
+            bookworm|trixie) ;;
+            *) echo "::error::Unsupported ARMHF distribution: $ARMHF_DISTRO"; exit 2 ;;
+          esac
+          if [ "$ARCH" != armhf ] && [ "$ARMHF_DISTRO" != bookworm ]; then
+            echo "::error::armhf_distro is valid only for ARMHF builds"
+            exit 2
+          fi
           case "$ARCH" in
             x86_64) package=linux-noble; cross_package= ;;
             aarch64) package=linux-arm64-bookworm; cross_package= ;;
-            armhf) package=linux-armv7-bookworm; cross_package=linux-armhf-cross-bookworm ;;
+            armhf) package="linux-armv7-$ARMHF_DISTRO"; cross_package="linux-armhf-cross-$ARMHF_DISTRO" ;;
             *)
               echo "::error::Unsupported Linux architecture: $ARCH"
               exit 2
@@ -374,7 +396,7 @@ jobs:
     if: inputs.arch == 'armhf'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # Compile natively on x86_64 with a pinned GCC 13.4 cross-toolchain;
+    # Compile natively on x86_64 with the selected distro cross-toolchain;
     # test-armhf then runs the target tests and packaging on an ARM runner.
     #
     # Keep JavaScript actions on the host: the runner's x86_64 Node runtime
@@ -426,6 +448,7 @@ jobs:
           docker run --rm --platform linux/amd64 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
+            -e ARMHF_DISTRO \
             -e GITHUB_OUTPUT=/work/$output_file \
             -e WSJTX_CI_OUTPUT_PREFIX=cross_ \
             -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$ALLOW_STALE_IMAGE" \
@@ -434,6 +457,7 @@ jobs:
           docker run --rm --platform linux/arm/v7 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
+            -e ARMHF_DISTRO \
             -e GITHUB_OUTPUT=/work/$output_file \
             -e WSJTX_CI_OUTPUT_PREFIX=runtime_ \
             -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$ALLOW_STALE_IMAGE" \
@@ -483,11 +507,11 @@ jobs:
         id: ccache
         uses: actions/cache/restore@v6
         with:
-          path: .ccache-armhf
-          key: ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
+          path: .ccache-armhf-${{ inputs.armhf_distro }}
+          key: ccache-linux-armhf-${{ inputs.armhf_distro }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
           restore-keys: |
-            ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
-            ccache-linux-armhf-${{ steps.image.outputs.ccache_compatibility_id }}-
+            ccache-linux-armhf-${{ inputs.armhf_distro }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+            ccache-linux-armhf-${{ inputs.armhf_distro }}-${{ steps.image.outputs.ccache_compatibility_id }}-
 
       - name: Cross-build ARMHF binaries
         id: cross-build
@@ -506,12 +530,13 @@ jobs:
           docker run --rm --platform linux/amd64 \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
+            -e ARMHF_DISTRO \
             -e VERSION \
             -e HAMLIB_BRANCH \
             -e ARCH \
             -e WSJT_RELEASE_CHANNEL \
             -e WSJT_PRERELEASE_NUMBER \
-            -e CCACHE_DIR=/work/.ccache-armhf \
+            -e CCACHE_DIR=/work/.ccache-armhf-${{ inputs.armhf_distro }} \
             -e CCACHE_COMPILERCHECK \
             -e ARMHF_BUILD_ONLY \
             -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH \
@@ -528,7 +553,7 @@ jobs:
         if: inputs.save_ccache && (!inputs.armhf_build_only || github.ref == 'refs/heads/develop') && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
-          path: .ccache-armhf
+          path: .ccache-armhf-${{ inputs.armhf_distro }}
           key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       # test-armhf runs the tests and packaging on an ARM runner from this
@@ -537,16 +562,16 @@ jobs:
       - name: Pack ARMHF build tree
         if: ${{ !inputs.armhf_build_only }}
         run: |
-          sudo tar --create --file armhf-build-tree.tar --exclude='wsjtx-build/*.o' --exclude='wsjtx-build/*.a' wsjtx-build AppDir
-          ls -l armhf-build-tree.tar
+          sudo tar --create --file armhf-build-tree-${{ inputs.armhf_distro }}.tar --exclude='wsjtx-build/*.o' --exclude='wsjtx-build/*.a' wsjtx-build AppDir
+          ls -l armhf-build-tree-${{ inputs.armhf_distro }}.tar
 
       # Kept one day: re-running test-armhf alone works within that window.
       - name: Upload ARMHF build tree
         if: ${{ !inputs.armhf_build_only }}
         uses: actions/upload-artifact@v7
         with:
-          name: armhf-build-tree
-          path: armhf-build-tree.tar
+          name: armhf-build-tree-${{ inputs.armhf_distro }}
+          path: armhf-build-tree-${{ inputs.armhf_distro }}.tar
           if-no-files-found: error
           retention-days: 1
 
@@ -650,12 +675,12 @@ jobs:
       - name: Download ARMHF build tree
         uses: actions/download-artifact@v8
         with:
-          name: armhf-build-tree
+          name: armhf-build-tree-${{ inputs.armhf_distro }}
 
       - name: Unpack ARMHF build tree
         run: |
-          sudo tar --extract --file armhf-build-tree.tar
-          rm armhf-build-tree.tar
+          sudo tar --extract --file armhf-build-tree-${{ inputs.armhf_distro }}.tar
+          rm armhf-build-tree-${{ inputs.armhf_distro }}.tar
 
       - name: Test and package on native ARMv7
         id: armhf-runtime
@@ -669,6 +694,7 @@ jobs:
             --shm-size=1g \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
+            -e ARMHF_DISTRO \
             -e VERSION \
             -e HAMLIB_BRANCH \
             -e ARCH \
@@ -686,6 +712,7 @@ jobs:
             --shm-size=16m \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
+            -e ARMHF_DISTRO \
             -e WSJTX_TEST_SMALL_SHM=1 \
             "$RUNTIME_IMAGE" \
             bash -euo pipefail -c '
@@ -694,56 +721,74 @@ jobs:
                 wsjtx-build/tests/unit/decoder_ipc/test_decoder_ipc_handshake insufficientLinuxSharedMemory
             '
 
+      - name: Install and start the Debian package in a clean target OS
+        if: inputs.build_packages
+        id: deb-install
+        timeout-minutes: 15
+        run: |
+          mkdir -p deb-install-check
+          docker run --rm --platform linux/arm/v7 --shm-size=1g \
+            -v "${GITHUB_WORKSPACE}/wsjtx-build/wsjtx-${VERSION}-linux-armhf-${ARMHF_DISTRO}.deb:/packages/wsjtx.deb:ro" \
+            -v "${GITHUB_WORKSPACE}/.github/scripts/validate-armhf-deb-install.sh:/validate.sh:ro" \
+            -v "${GITHUB_WORKSPACE}/deb-install-check:/logs" \
+            "arm32v7/debian:${ARMHF_DISTRO}" \
+            bash /validate.sh /packages/wsjtx.deb "$ARMHF_DISTRO" /logs
+
+      - name: Upload Debian install diagnostics
+        if: inputs.build_packages && always() && steps.deb-install.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-deb-install-linux-armhf-${{ inputs.armhf_distro }}
+          path: deb-install-check/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Publish armhf test summary
         if: always()
         run: >-
           python3 .github/scripts/publish-ctest-summary.py
-          "Linux armhf" wsjtx-build/ctest-results.xml
+          "Linux armhf ${{ inputs.armhf_distro }}" wsjtx-build/ctest-results.xml
           >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload armhf AppImage startup diagnostics
         if: inputs.build_packages && failure() && steps.armhf-runtime.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
-          name: wsjtx-startup-smoke-linux-armhf
+          name: wsjtx-startup-smoke-linux-armhf-${{ inputs.armhf_distro }}
           path: wsjtx-build/appimage-startup-smoke.log
           if-no-files-found: ignore
           retention-days: 7
 
-      # Artifacts produced inside the container land in $GITHUB_WORKSPACE
-      # via the bind-mount. Upload from the host where actions/upload-
-      # artifact runs natively. Same artifact names as the composite
-      # action's uploads so release.yml's all-platforms-ready gate
-      # pattern works unchanged.
+      # Upload from the host, where the artifact action runs natively.
       - name: Upload .deb
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
-          name: wsjtx-${{ inputs.version }}-linux-armhf-deb
-          path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-armhf.deb
+          name: wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}-deb
+          path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}.deb
           if-no-files-found: error
           compression-level: 0
       - name: Upload RPM
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
-          name: wsjtx-${{ inputs.version }}-linux-armhf-rpm
-          path: wsjtx-build/*.rpm
+          name: wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}-rpm
+          path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}.rpm
           if-no-files-found: error
           compression-level: 0
       - name: Upload AppImage
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
-          name: wsjtx-${{ inputs.version }}-linux-armhf-AppImage
-          path: wsjtx-${{ inputs.version }}-linux-armhf.AppImage
+          name: wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}-AppImage
+          path: wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}.AppImage
           if-no-files-found: error
           compression-level: 0
       - name: Upload build artifacts
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
         with:
-          name: wsjtx-${{ inputs.version }}-linux-armhf
+          name: wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}
           path: |
             wsjtx-build/jt9
             wsjtx-build/wsprd
@@ -753,12 +798,12 @@ jobs:
         uses: ./.github/actions/upload-release-tarballs
         with:
           version: ${{ inputs.version }}
-          target: linux-armhf
+          target: linux-armhf-${{ inputs.armhf_distro }}
           directory: release-tarballs
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ctest-results-linux-armhf
+          name: ctest-results-linux-armhf-${{ inputs.armhf_distro }}
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore

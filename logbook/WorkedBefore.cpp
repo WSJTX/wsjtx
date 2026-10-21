@@ -19,6 +19,7 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QTextStream>
+#include <QRegularExpression>
 #include <QDateTime>
 #include <QPointer>
 #include "Configuration.hpp"
@@ -281,6 +282,84 @@ namespace
     return QString {};
   }
 
+  int find_adif_tag (QString const& input, QString const& tag, int start, int& tag_end, bool at_eof)
+  {
+    int position {start};
+    while ((position = input.indexOf (QChar {'<'}, position)) >= 0)
+      {
+        auto closing_bracket = input.indexOf (QChar {'>'}, position + 1);
+        auto next_opening_bracket = input.indexOf (QChar {'<'}, position + 1);
+        if (next_opening_bracket >= 0 && (closing_bracket < 0 || next_opening_bracket < closing_bracket))
+          {
+            position = next_opening_bracket;
+            continue;
+          }
+        if (closing_bracket < 0)
+          {
+            return -1;
+          }
+
+        auto descriptor = input.mid (position + 1, closing_bracket - position - 1);
+        if (descriptor.compare (tag, Qt::CaseInsensitive) == 0)
+          {
+            tag_end = closing_bracket + 1;
+            return position;
+          }
+
+        auto length_delimiter = descriptor.indexOf (QChar {':'});
+        if (length_delimiter >= 0)
+          {
+            auto type_delimiter = descriptor.indexOf (QChar {':'}, length_delimiter + 1);
+            auto length_text = descriptor.mid (length_delimiter + 1,
+                                               (type_delimiter < 0 ? descriptor.size () : type_delimiter)
+                                               - length_delimiter - 1);
+            bool valid_length {!length_text.isEmpty ()};
+            for (auto const& character : length_text)
+              {
+                valid_length = valid_length && character >= QChar {'0'} && character <= QChar {'9'};
+              }
+            bool ok {false};
+            auto field_length = valid_length ? length_text.toULongLong (&ok) : 0;
+            auto data_start = closing_bracket + 1;
+            if (ok)
+              {
+                if (field_length > static_cast<quint64> (input.size () - data_start))
+                  {
+                    if (!at_eof) return -1;
+                  }
+                else
+                  {
+                    auto data_end = data_start + static_cast<int> (field_length);
+                    auto opening = input.lastIndexOf (QChar {'<'}, data_end - 1);
+                    if (opening >= data_start)
+                      {
+                        auto closing = input.indexOf (QChar {'>'}, opening + 1);
+                        if (closing < 0 && !at_eof) return -1;
+                        if (closing >= data_end)
+                          {
+                            static QRegularExpression const descriptor_pattern {
+                              QStringLiteral ("\\A(?:EO[HR]|[A-Z][A-Z0-9_]*:[0-9]+(?::[A-Z])?)\\z"),
+                              QRegularExpression::CaseInsensitiveOption};
+                            auto crossing_descriptor = input.mid (opening + 1, closing - opening - 1);
+                            if (descriptor_pattern.match (crossing_descriptor).hasMatch ())
+                              {
+                                // A length ending inside a tag may have consumed a record boundary.
+                                position = data_start;
+                                continue;
+                              }
+                          }
+                      }
+                    position = data_end;
+                    continue;
+                  }
+              }
+          }
+
+        position = closing_bracket + 1;
+      }
+    return -1;
+  }
+
   worked_before_database_type loader (QString const& path, AD1CCty const * prefixes,
                                       PerformanceTrace::RunId run)
   {
@@ -293,48 +372,72 @@ namespace
           {
             QTextStream in {&inputFile};
             QString buffer;
-            bool pre_read {false};
-            int end_position {-1};
-
-            // skip optional header record
-            do
+            constexpr int read_chunk_size {64 * 1024};
+            bool eof {false};
+            auto read_more = [&in, &buffer, &eof] ()
               {
-                buffer += in.readLine () + '\n';
-                if (buffer.startsWith (QChar {'<'})) // denotes no header
+                auto chunk = in.read (read_chunk_size);
+                buffer += chunk;
+                eof = chunk.isEmpty ();
+                return !eof;
+              };
+            while (true)
+              {
+                int first_character {0};
+                while (first_character < buffer.size () && buffer[first_character].isSpace ())
                   {
-                    pre_read = true;
+                    ++first_character;
+                  }
+                if (first_character == buffer.size ())
+                  {
+                    if (!read_more ())
+                      {
+                        throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Invalid ADIF header").toLocal8Bit ()});
+                      }
+                    continue;
+                  }
+                if (buffer[first_character] != QChar {'<'})
+                  {
+                    int header_end {0};
+                    while (find_adif_tag (buffer, "EOH", 0, header_end, eof) < 0)
+                      {
+                        if (eof)
+                          {
+                            throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Invalid ADIF header").toLocal8Bit ()});
+                          }
+                        read_more ();
+                      }
+                    buffer.remove (0, header_end);
                   }
                 else
                   {
-                    end_position = buffer.indexOf ("<EOH>", 0, Qt::CaseInsensitive);
-                  }
-              }
-            while (!in.atEnd () && !pre_read && end_position < 0);
-            if (!pre_read)            // found header
-              {
-                if (end_position < 0)
-                  {
-                    throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Invalid ADIF header").toLocal8Bit ()});
-                  }
-                buffer.remove (0, end_position + 5);
-              }
-            while (!in.atEnd ())
-              {
-                end_position = buffer.indexOf ("<EOR>", 0, Qt::CaseInsensitive);
-                do
-                  {
-                    if (!in.atEnd () && end_position < 0)
+                    while (true)
                       {
-                        buffer += in.readLine () + '\n';
+                        int header_end {0};
+                        int record_end {0};
+                        auto header_position = find_adif_tag (buffer, "EOH", 0, header_end, eof);
+                        auto record_position = find_adif_tag (buffer, "EOR", 0, record_end, eof);
+                        if (header_position >= 0 && (record_position < 0 || header_position < record_position))
+                          {
+                            buffer.remove (0, header_end);
+                            break;
+                          }
+                        if (record_position >= 0 || eof) break;
+                        read_more ();
                       }
                   }
-                while ((end_position = buffer.indexOf ("<EOR>", 0, Qt::CaseInsensitive)) < 0 && !in.atEnd ());
-                if (end_position >= 0) // require valid ADIF record
-                                       // with terminator
+                break;
+              }
+
+            int buffer_start {0};
+            while (true)
+              {
+                int record_end {0};
+                auto end_position = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof);
+                if (end_position >= 0)
                   {
-                    auto record = buffer.left (end_position + 5).trimmed ();
-                    auto next_record = buffer.indexOf (QChar {'<'}, end_position + 5);
-                    buffer.remove (0, next_record >=0 ? next_record : buffer.size ());
+                    auto record = buffer.mid (buffer_start, record_end - buffer_start).trimmed ();
+                    buffer_start = record_end;
                     record = record.mid (record.indexOf (QChar {'<'}));
                     auto call = extractField (record, "CALL");
                     if (call.size ()) // require CALL field before we
@@ -355,6 +458,21 @@ namespace
                                         , entity.CQ_zone
                                         , entity.ITU_zone);
                       }
+                    if (buffer_start >= read_chunk_size)
+                      {
+                        buffer.remove (0, buffer_start);
+                        buffer_start = 0;
+                      }
+                  }
+                else
+                  {
+                    if (buffer_start)
+                      {
+                        buffer.remove (0, buffer_start);
+                        buffer_start = 0;
+                      }
+                    if (eof) break;
+                    read_more ();
                   }
               }
           }
@@ -501,7 +619,7 @@ bool WorkedBefore::add (QString const& call
               out <<            // new file
                 QString {
                   "ADIF Export\n"
-                  "<adif_ver:5>3.1.1\n"
+                  "<adif_ver:5>3.1.8\n"
                   "<created_timestamp:15>%0\n"
                   "<programid:6>WSJT-X\n"
                   "<programversion:%1>%2\n"

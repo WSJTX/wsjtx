@@ -26,11 +26,11 @@ runs:
         if-no-files-found: error
         compression-level: 0
 
-    - name: Upload jt9stream tarball
+    - name: Upload codec tarball
       uses: actions/upload-artifact@v7
       with:
-        name: wsjtx-${{ inputs.version }}-${{ inputs.target }}-jt9stream
-        path: ${{ inputs.directory }}/wsjtx-${{ inputs.version }}-${{ inputs.target }}-jt9stream.tar.gz
+        name: wsjtx-${{ inputs.version }}-${{ inputs.target }}-codec
+        path: ${{ inputs.directory }}/wsjtx-${{ inputs.version }}-${{ inputs.target }}-codec.tar.gz
         if-no-files-found: error
         compression-level: 0
 

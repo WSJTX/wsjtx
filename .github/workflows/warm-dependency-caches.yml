@@ -36,6 +36,10 @@ on:
       - ".github/workflows/build-windows.yml"
       - ".github/actions/warm-macos-deps/**"
       - ".github/actions/build-windows-deps/**"
+      - ".github/patches/hamlib-funcube-windows-hid.patch"
+      - ".github/patches/hamlib-windows-precise-time.patch"
+      - ".github/scripts/tests/test_hamlib_funcube_patch.py"
+      - ".github/scripts/tests/test_hamlib_precise_time.c"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
       - ".github/scripts/*armhf*"
@@ -108,6 +112,7 @@ jobs:
         name: Select cache warmers
         shell: bash
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
           BEFORE_SHA: ${{ github.event.before }}
@@ -238,7 +243,7 @@ jobs:
                   .github/workflows/build-linux-sanitizers.yml|.github/actions/build-linux-sanitizers/*|.github/scripts/verify-sanitizer-instrumentation.py)
                     linux_asan_ubsan=true
                     ;;
-                  .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh)
+                  .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/patches/hamlib-windows-precise-time.patch|.github/scripts/tests/test_hamlib_funcube_patch.py|.github/scripts/tests/test_hamlib_precise_time.c)
                     windows=true
                     ;;
                   .github/workflows/build-macos.yml|.github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh|.github/scripts/verify-macos-*.sh)
@@ -365,6 +370,8 @@ jobs:
             --package wsjtx-internal/linux-arm64-bookworm
             --package wsjtx-internal/linux-armhf-cross-bookworm
             --package wsjtx-internal/linux-armv7-bookworm
+            --package wsjtx-internal/linux-armhf-cross-trixie
+            --package wsjtx-internal/linux-armv7-trixie
           )
           if [ "$APPLY" = true ]; then
             args+=(--apply)
@@ -395,17 +402,22 @@ jobs:
       needs.detect.outputs.linux_armhf == 'true' &&
       needs.detect.outputs.image_set != 'normal' &&
       needs.detect.outputs.image_set != 'normal-and-tsan'
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [bookworm, trixie]
     uses: ./.github/workflows/build-linux.yml
     permissions:
       contents: read
       packages: read
     concurrency:
-      group: armhf-ccache-develop
+      group: armhf-ccache-develop-${{ matrix.distro }}
       cancel-in-progress: false
     with:
       version: ${{ needs.detect.outputs.version }}
       hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
       arch: armhf
+      armhf_distro: ${{ matrix.distro }}
       armhf_build_only: true
       allow_stale_image: false
       recache: false
@@ -449,16 +461,16 @@ jobs:
       # and Boost.Atomic patch stay pinned; do not install MSYS2 Boost here.
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           cache: true
           install: >-
             git make tar curl
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-gcc-fortran
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-python
-            mingw-w64-x86_64-pkg-config
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-gcc-fortran
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-pkg-config
             autoconf automake libtool
 
       - uses: ./.github/actions/build-windows-deps

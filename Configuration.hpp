@@ -90,6 +90,9 @@ public:
                           LogBook * logbook, QWidget * parent = nullptr);
   ~Configuration ();
 
+  void set_ui_language_preference (QString const&);
+  Q_SIGNAL void ui_language_preference_changed (QString const&) const;
+
   void select_tab (int);
   int exec ();
   bool is_active () const;
@@ -480,6 +483,7 @@ public:
 
   // signal updates to decode highlighting
   Q_SIGNAL void decode_highlighting_changed (DecodeHighlightingModel const&) const;
+  Q_SIGNAL void decodes_from_top_changed (bool enabled) const;
 
   //
   // These signals are emitted and reflect transceiver state changes

@@ -27,6 +27,20 @@ def job(name: str, workflow: str = PUBLISH) -> str:
 
 
 class LinuxImagePublicationPolicyTests(unittest.TestCase):
+    def test_armhf_image_builds_register_emulation_before_buildx(self):
+        for name in ("build-armhf-cross", "build-armhf-runtime",
+                     "build-armhf-trixie-cross", "build-armhf-trixie-runtime"):
+            with self.subTest(job=name):
+                build = job(name)
+                self.assertIn("docker/setup-qemu-action@v4", build)
+                self.assertIn(
+                    "tonistiigi/binfmt:qemu-v10.2.3-68@sha256:"
+                    "400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0",
+                    build,
+                )
+                self.assertLess(build.index("docker/setup-qemu-action@v4"),
+                                build.index("docker/setup-buildx-action@v4"))
+
     def test_armhf_cross_cache_import_and_export_share_registry_destination(self):
         metadata = job("metadata")
         for package_root in ("ghcr.io/wsjtx/wsjtx", "ghcr.io/wsjtx/wsjtx-internal"):
@@ -266,7 +280,7 @@ git() {
             PUBLISH.count(
                 "labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}"
             ),
-            5,
+            7,
         )
 
     def test_reusable_publisher_exports_all_release_image_digests(self):
@@ -278,6 +292,10 @@ git() {
         self.assertIn("value: ${{ jobs.build-armhf-runtime.outputs.digest }}", PUBLISH)
         self.assertIn("armhf_cross_digest:", PUBLISH)
         self.assertIn("value: ${{ jobs.build-armhf-cross.outputs.digest }}", PUBLISH)
+        self.assertIn("armhf_trixie_digest:", PUBLISH)
+        self.assertIn("value: ${{ jobs.build-armhf-trixie-runtime.outputs.digest }}", PUBLISH)
+        self.assertIn("armhf_trixie_cross_digest:", PUBLISH)
+        self.assertIn("value: ${{ jobs.build-armhf-trixie-cross.outputs.digest }}", PUBLISH)
 
     def test_public_release_builds_require_and_consume_digest_references(self):
         self.assertIn("^sha256:[0-9a-f]{64}$", BUILD)
@@ -388,11 +406,36 @@ git() {
         self.assertNotIn("armhf_available", rollback)
         self.assertIn("packages+=(linux-noble linux-arm64-bookworm)", rollback)
         self.assertIn(
-            "packages+=(linux-armhf-cross-bookworm linux-armv7-bookworm)",
+            "packages+=(linux-armhf-cross-bookworm linux-armv7-bookworm linux-armhf-cross-trixie linux-armv7-trixie)",
             rollback,
         )
         self.assertIn("packages+=(linux-tsan-noble)", rollback)
         self.assertIn("stable_packages+=(linux-noble)", rollback)
+
+    def test_trixie_pair_and_both_cache_warmers_are_distro_specific(self):
+        cross = job("build-armhf-trixie-cross")
+        runtime = job("build-armhf-trixie-runtime")
+        self.assertIn("Dockerfile.armhf-cross-trixie", cross)
+        self.assertIn("linux-armhf-cross-trixie:buildcache", cross)
+        self.assertIn("- build-armhf-trixie-cross", runtime)
+        self.assertIn("ARMHF_DISTRO=trixie", runtime)
+        self.assertIn("linux-armhf-cross-trixie:${{ needs.metadata.outputs.build_tag }}", runtime)
+        for warmer in (job("warm-armhf-ccache"), job("warm-linux-armhf-ccache", WARM)):
+            self.assertIn("distro: [bookworm, trixie]", warmer)
+            self.assertIn("armhf_distro: ${{ matrix.distro }}", warmer)
+            self.assertIn("group: armhf-ccache-develop-${{ matrix.distro }}", warmer)
+        promote = job("promote")
+        for member in ("cross", "runtime"):
+            self.assertIn(f"needs.build-armhf-trixie-{member}.result == 'success'", promote)
+        self.assertLess(promote.index("imagetools inspect"), promote.index("imagetools create"))
+        rollback = job("rollback")
+        self.assertLess(rollback.index("imagetools inspect"), rollback.index("imagetools create"))
+
+    def test_preparation_uses_the_selected_sources_own_schema_contract(self):
+        preparation = (ROOT / ".github/workflows/prepare-release-dependencies.yml").read_text()
+        self.assertIn("working-directory: source", preparation)
+        self.assertIn("python3 .github/scripts/release-linux-images.py prepare", preparation)
+        self.assertNotIn("python3 ../.github/scripts/release-linux-images.py prepare", preparation)
 
 
     def test_release_paths_consume_the_same_committed_selection(self):

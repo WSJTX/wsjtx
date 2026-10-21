@@ -1,6 +1,8 @@
 module ft8_engine_kernel
 !$ use omp_lib
   use prog_args, only: temp_dir
+  use streaming_emit, only: streaming_emit_enabled
+  use, intrinsic :: iso_fortran_env, only: error_unit
   use timer_module, only: timer
   use packjt77, only: pack77_state
   use decoder_engine_types, only: ft8_signal_evidence
@@ -13,13 +15,13 @@ module ft8_engine_kernel
   use decode_completion_module, only: decode_completion_result,reset_decode_completion, &
        set_decode_completion,write_decode_progress
   use sfrx_engine, only: sfrx_decode
-  use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,mycall12_0,         &
-       mycall12_00,hiscall12_0,nmsg,odd,even,oddcopy,evencopy,nlasttx,          &
-       lqsomsgdcd,mycalllen1,msgroot,msgrootlen,lapmyc,sumxdtt,avexdt,          &
+  use ft8_mod1, only : mycall12_0,         &
+       mycall12_00,hiscall12_0,nmsg,odd,even,prepare_ft8_hint_history,nlasttx,          &
+       begin_ft8_qso_attempt,suppress_ft8_qso_hints,mycalllen1,msgroot,msgrootlen,lapmyc,sumxdtt,avexdt,          &
        nfawide,nfbwide,mycall,hiscall,lhound,mybcall,hisbcall,lenabledxcsearch, &
        lwidedxcsearch,hisgrid4,lmultinst,dd8,nft8cycles,lskiptx1,ncandallthr,   &
        nincallthr,incall,msgincall,xdtincall,maskincallthr,ltxing,hisgrid,      &
-       lastrxmsg,lasthcall
+       prepare_ft8_qso_history,begin_ft8_result_attempt,report_ft8_result_overflow
   include 'jt9com.f90'
 
   private
@@ -251,10 +253,10 @@ contains
            endif ! avexdt fast track in FT8 after mode change
 
            if(.not.params%nagain) ndelay=params%ndelay
-           lqsomsgdcd=.false.
+           call begin_ft8_qso_attempt(.false.)
            if(ndelay.gt.0) then ! received incomplete interval
               call partintft8(ndelay,params%nutc,context%render_legacy)
-              lqsomsgdcd=.true.
+              call suppress_ft8_qso_hints()
            endif
            ntrials=params%nranera
            if(params%nsecbandchanged.gt.0) then
@@ -303,10 +305,7 @@ contains
               mycall12_00=mycall
            endif
 
-           ndecodes=0            !Initialize arrays for multi-threaded decoding
-           allmessages=""
-           allsnrs=0
-           allfreq=0.
+           call begin_ft8_result_attempt()
            numcores=1
 !$         numcores=omp_get_num_procs()
            nuserthr=params%nmt
@@ -344,8 +343,13 @@ contains
 
            if(params%nagainfil) then
               if(nfqso.lt.nfa .or. nfqso.gt.nfb) then
-                 if(context%render_legacy) write(*,64) nutc,'nfqso is out of bandwidth','d'
-64               format(i6.6,2x,a25,16x,a1)
+                 ! The stream's stdout carries only JSON events.
+                 if(context%render_legacy .and. streaming_emit_enabled()) then
+                    write(error_unit,'(a)') 'nfqso is out of bandwidth'
+                 else if(context%render_legacy) then
+                    write(*,64) nutc,'nfqso is out of bandwidth','d'
+64                  format(i6.6,2x,a25,16x,a1)
+                 endif
                  go to 800
               endif
               nfa=max(nfa,nfqso-25) ! 50Hz bandwidth for decode via double click
@@ -365,35 +369,13 @@ contains
 
            nsec=mod(nutc,100)
            nmsg=0
-           if(nsec.ne.0 .and. nsec.ne.15 .and. nsec.ne.30 .and. nsec.ne.45) then
-! Reading simulated wav file
-              odd%lstate=.false.
-              even%lstate=.false.
-              oddcopy%lstate=.false.
-              evencopy%lstate=.false.
-           endif
-
            if(firstsd) then
               odd%lstate=.false.
               even%lstate=.false.
               firstsd=.false.
            endif
 
-           if(nsec.eq.0 .or. nsec.eq.30) then
-              evencopy%msg=even%msg
-              evencopy%freq=even%freq
-              evencopy%dt=even%dt
-              evencopy%lstate=even%lstate
-              even%lstate=.false.
-           endif
-
-           if(nsec.eq.15 .or. nsec.eq.45) then
-              oddcopy%msg=odd%msg
-              oddcopy%freq=odd%freq
-              oddcopy%dt=odd%dt
-              oddcopy%lstate=odd%lstate
-              odd%lstate=.false.
-           endif
+           call prepare_ft8_hint_history(nsec)
 
            nlasttx=params%nlasttx
            lapmyc=params%lapmyc
@@ -401,12 +383,9 @@ contains
            sumxdt=0.0
            if(params%nmode.eq.4) sumxdtt=0.0
 
-           if(hiscall.eq.'') then
-              lastrxmsg(1)%lstate=.false.
-           else if(lastrxmsg(1)%lstate .and. lasthcall.ne.hiscall .and.        &
-                index(lastrxmsg(1)%lastmsg,trim(hiscall)).le.0) then
-              lastrxmsg(1)%lstate=.false.
-           endif
+           call prepare_ft8_qso_history(hiscall,mycall,.not.logical(params%nstophint), &
+                nfqso.ge.nfa .and. nfqso.le.nfb,nsec.eq.0 .or. nsec.eq.30, &
+                nsec.eq.15 .or. nsec.eq.45)
 
 !$omp parallel num_threads(requested_threads) private(nthr) shared(numthreads)
 !$omp single
@@ -434,6 +413,7 @@ contains
                 mtd_worker_spectrum(:,nthr))
 !$omp end parallel
 
+           call report_ft8_result_overflow()
            call write_decode_progress(active_progress_generation)
            call mtd_finish(dd8)
            state%mtd_residual_ready=.true.
@@ -455,8 +435,7 @@ contains
            if(nsec.eq.15 .or. nsec.eq.45) odd(nmsg+1:130)%lstate=.false.
 
            if(params%ndelay.eq.0) then
-              nFT8decd=my_ft8var%decodedvar
-              dtmed=0.
+              call my_ft8var%timing_summary(nFT8decd,sumxdt)
 !            if(params%lforcesync) then; nintcount=3 ! fast track after Sync
 !            elseif(nintcount.gt.0) then; nintcount=nintcount-1
               if(nintcount.gt.0) then
@@ -467,31 +446,6 @@ contains
                  avexdt=forcedt
               else
                  if(nFT8decd.gt.2) then
-                    do i=1,nFT8decd
-                       if(i.lt.nFT8decd-1) then
-                          if((my_ft8var%xdtt(i).gt.my_ft8var%xdtt(i+1) .and.   &
-                               my_ft8var%xdtt(i).lt.my_ft8var%xdtt(i+2)) .or.  &
-                               (my_ft8var%xdtt(i).lt.my_ft8var%xdtt(i+1) .and. &
-                               my_ft8var%xdtt(i).gt.my_ft8var%xdtt(i+2))) then
-                             dtmed=my_ft8var%xdtt(i)
-                          else if((my_ft8var%xdtt(i+1).gt.my_ft8var%xdtt(i) .and. &
-                               my_ft8var%xdtt(i+1).lt.my_ft8var%xdtt(i+2)) .or.   &
-                               (my_ft8var%xdtt(i+1).lt.my_ft8var%xdtt(i) .and.    &
-                               my_ft8var%xdtt(i+1).gt.my_ft8var%xdtt(i+2))) then
-                             dtmed=my_ft8var%xdtt(i+1)
-                          else if((my_ft8var%xdtt(i+2).gt.my_ft8var%xdtt(i) .and. &
-                               my_ft8var%xdtt(i+2).lt.my_ft8var%xdtt(i+1)) .or.   &
-                               (my_ft8var%xdtt(i+2).lt.my_ft8var%xdtt(i) .and.    &
-                               my_ft8var%xdtt(i+2).gt.my_ft8var%xdtt(i+1))) then
-                             dtmed=my_ft8var%xdtt(i+2)
-                          else
-                             dtmed=my_ft8var%xdtt(i)
-                          endif
-                          sumxdt=sumxdt+dtmed
-                       else
-                          sumxdt=sumxdt+dtmed ! use last median value
-                       endif
-                    enddo
                     if(nFT8decd.gt.5) then
                        avexdt=(avexdt+sumxdt/nFT8decd)/2
                     else if(nFT8decd.eq.5) then
@@ -502,7 +456,6 @@ contains
                        avexdt=(1.35*avexdt+0.65*sumxdt/nFT8decd)/2
                     endif
                  else if(nFT8decd.gt.0) then
-                    sumxdt=sum(my_ft8var%xdtt(1:nFT8decd))
                     if(nFT8decd.eq.2) then
                        avexdt=(1.5*avexdt+0.5*sumxdt/nFT8decd)/2
                     else if(nFT8decd.eq.1) then

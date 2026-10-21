@@ -52,19 +52,23 @@ bool SoundOutput::checkStream () const
     switch (m_stream->error ())
       {
       case QAudio::OpenError:
-        Q_EMIT error (tr ("An error opening the audio output device has occurred."));
+        Q_EMIT error ({m_context, TxEvidence::TxBackendError::Open,
+                      tr ("An error opening the audio output device has occurred.")});
         break;
 
       case QAudio::IOError:
-        Q_EMIT error (tr ("An error occurred during write to the audio output device."));
+        Q_EMIT error ({m_context, TxEvidence::TxBackendError::Io,
+                      tr ("An error occurred during write to the audio output device.")});
         break;
 
       case QAudio::UnderrunError:
-        Q_EMIT error (tr ("Audio data not being fed to the audio output device fast enough."));
+        Q_EMIT error ({m_context, TxEvidence::TxBackendError::Underrun,
+                      tr ("Audio data not being fed to the audio output device fast enough.")});
         break;
 
       case QAudio::FatalError:
-        Q_EMIT error (tr ("Non-recoverable error, audio output device not usable at this time."));
+        Q_EMIT error ({m_context, TxEvidence::TxBackendError::Fatal,
+                      tr ("Non-recoverable error, audio output device not usable at this time.")});
         break;
 
       case QAudio::NoError:
@@ -83,10 +87,18 @@ void SoundOutput::setFormat (QAudioDeviceInfo const& device, unsigned channels, 
   m_framesBuffered = frames_buffered;
 }
 
-void SoundOutput::restart (QIODevice * source)
+void SoundOutput::restart (QIODevice * source, TxEvidence::TxPlaybackContext context,
+                           qint64 period_offset_ms)
 {
-  ++m_backendStartSequence;
-  bool failed {false};
+  Q_UNUSED (period_offset_ms);
+  if (m_stream)
+    {
+      disconnect (m_stream.data (), nullptr, this, nullptr);
+      m_stream.reset ();
+    }
+  m_context = context;
+  auto const backendStartSequence = ++m_backendStartSequence;
+  QString failure;
   if (!m_device.isNull ())
     {
       QAudioFormat format (m_device.preferredFormat ());
@@ -99,13 +111,11 @@ void SoundOutput::restart (QIODevice * source)
       format.setByteOrder (QAudioFormat::Endian (QSysInfo::ByteOrder));
       if (!format.isValid ())
         {
-          Q_EMIT error (tr ("Requested output audio format is not valid."));
-          failed = true;
+          failure = tr ("Requested output audio format is not valid.");
         }
       else if (!m_device.isFormatSupported (format))
         {
-          Q_EMIT error (tr ("Requested output audio format is not supported on device."));
-          failed = true;
+          failure = tr ("Requested output audio format is not supported on device.");
         }
       else
         {
@@ -114,10 +124,13 @@ void SoundOutput::restart (QIODevice * source)
           checkStream ();
           m_stream->setVolume (m_volume);
           m_stream->setNotifyInterval(1000);
-          error_ = false;
-
-          connect (m_stream.data(), &QAudioOutput::stateChanged, this, &SoundOutput::handleStateChanged);
-          connect (m_stream.data(), &QAudioOutput::notify, [this] () {
+          connect (m_stream.data (), &QAudioOutput::stateChanged, this,
+                   [this, context, backendStartSequence] (QAudio::State state) {
+                     handleStateChanged (state, context, backendStartSequence);
+                   });
+          connect (m_stream.data(), &QAudioOutput::notify, this,
+                   [this, context, backendStartSequence] () {
+              if (!m_stream || context != m_context || backendStartSequence != m_backendStartSequence) return;
               checkStream ();
               publishRawTxPlayoutSnapshot ();
             });
@@ -127,28 +140,13 @@ void SoundOutput::restart (QIODevice * source)
     }
   else
     {
-      failed = true;
+      failure = tr ("No audio output device configured.");
     }
-  if (failed)
+  if (!failure.isEmpty ())
     {
-      publishUnavailableTxPlayoutSnapshot (true, tr ("Audio output restart attempt failed."));
-    }
-  if (!m_stream)
-    {
-      if (!error_)
-        {
-          error_ = true;        // only signal error once
-          Q_EMIT error (tr ("No audio output device configured."));
-        }
-      if (!failed)
-        {
-          publishUnavailableTxPlayoutSnapshot (true, tr ("No audio output device configured."));
-        }
+      publishUnavailableTxPlayoutSnapshot (true, failure);
+      Q_EMIT error ({context, TxEvidence::TxBackendError::Open, failure});
       return;
-    }
-  else
-    {
-      error_ = false;
     }
 
   // we have to set this before every start on the stream because the
@@ -235,6 +233,7 @@ int SoundOutput::bufferSize () const
 TxEvidence::TxRawPlayoutSnapshot SoundOutput::makeRawTxPlayoutSnapshot (bool startEvent) const
 {
   TxEvidence::TxRawPlayoutSnapshot snapshot;
+  snapshot.context = m_context;
   if (!m_stream) return snapshot;
 
   QAudioFormat const format {m_stream->format ()};
@@ -272,6 +271,7 @@ void SoundOutput::publishRawTxPlayoutSnapshot (bool startEvent) const
 void SoundOutput::publishUnavailableTxPlayoutSnapshot (bool startEvent, QString const& diagnostic) const
 {
   TxEvidence::TxRawPlayoutSnapshot snapshot;
+  snapshot.context = m_context;
   snapshot.backend_start_sequence = m_backendStartSequence;
   snapshot.start_event = startEvent;
   snapshot.state = TxEvidence::TxBackendState::Unavailable;
@@ -300,8 +300,11 @@ void SoundOutput::resetAttenuation ()
     }
 }
 
-void SoundOutput::handleStateChanged (QAudio::State newState)
+void SoundOutput::handleStateChanged (QAudio::State newState,
+                                      TxEvidence::TxPlaybackContext context,
+                                      qint64 backendStartSequence)
 {
+  if (!m_stream || context != m_context || backendStartSequence != m_backendStartSequence) return;
   switch (newState)
     {
     case QAudio::IdleState:

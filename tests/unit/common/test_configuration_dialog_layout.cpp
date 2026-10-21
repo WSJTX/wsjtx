@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QDialog>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFrame>
 #include <QGroupBox>
@@ -144,6 +145,8 @@ class TestConfigurationDialogLayout final
 
 private Q_SLOTS:
   void pagesRetainIdentityAndScrollingPolicy ();
+  void languageControlHasLabelAndRemainsReachable_data ();
+  void languageControlHasLabelAndRemainsReachable ();
   void windowSizeIsBoundedByAvailableGeometry ();
   void compactControlsKeepNaturalGeometry_data ();
   void compactControlsKeepNaturalGeometry ();
@@ -155,6 +158,45 @@ private Q_SLOTS:
   void wheelEventsScrollThePage ();
   void colorsPageOwnsVerticalScrolling ();
 };
+
+void TestConfigurationDialogLayout::languageControlHasLabelAndRemainsReachable_data ()
+{
+  QTest::addColumn<QSize> ("dialog_size");
+  QTest::newRow ("default-size") << QSize {700, 650};
+  QTest::newRow ("constrained-size") << QSize {683, 439};
+}
+
+void TestConfigurationDialogLayout::languageControlHasLabelAndRemainsReachable ()
+{
+  QFETCH (QSize, dialog_size);
+  DialogFixture fixture;
+  auto& ui = fixture.ui;
+  QCOMPARE (ui.language_label->buddy (), ui.language_combo_box);
+  QVERIFY (!ui.language_combo_box->accessibleName ().isEmpty ());
+  QVERIFY (!ui.language_combo_box->accessibleDescription ().isEmpty ());
+  ui.language_combo_box->addItem (QStringLiteral ("System default"));
+  ui.configuration_tabs->setCurrentWidget (ui.general_tab);
+  showDialog (fixture.dialog, dialog_size);
+  auto * scroll_area = SettingsDialogLayout::pageScrollArea (ui.general_tab);
+  auto const selector_width = ui.language_combo_box->sizeHint ().width ();
+  auto const content_minimum_width = scroll_area->widget ()->minimumSizeHint ().width ();
+  ui.language_combo_box->addItem (QString (60, QChar {'W'}));
+  ui.language_combo_box->setCurrentIndex (ui.language_combo_box->count () - 1);
+  settleLayouts ();
+  auto const reveal_language = [&] {
+    scroll_area->ensureWidgetVisible (ui.language_combo_box);
+    settleLayouts ();
+    return isFullyVisible (ui.language_combo_box, scroll_area);
+  };
+  QTRY_VERIFY2 (reveal_language (),
+            qPrintable (scrollDiagnostics (ui.general_tab, fixture.dialog, scroll_area)
+                        + QString {" control=%1,%2 %3x%4"}
+                          .arg (geometryIn (ui.language_combo_box, scroll_area->viewport ()).x ())
+                          .arg (geometryIn (ui.language_combo_box, scroll_area->viewport ()).y ())
+                          .arg (ui.language_combo_box->width ()).arg (ui.language_combo_box->height ())));
+  QCOMPARE (ui.language_combo_box->sizeHint ().width (), selector_width);
+  QCOMPARE (scroll_area->widget ()->minimumSizeHint ().width (), content_minimum_width);
+}
 
 void TestConfigurationDialogLayout::pagesRetainIdentityAndScrollingPolicy ()
 {

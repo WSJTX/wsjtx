@@ -30,16 +30,16 @@ class TCITransceiver final
   Q_OBJECT;
 
 public:
-  // UTC milliseconds, called on the transceiver thread for receive audio.
+  // UTC milliseconds, called on the transceiver thread for audio timing.
   // An empty provider retains the system-clock behavior.
-  using ReceiveClock = std::function<qint64 ()>;
+  using UtcClock = std::function<qint64 ()>;
   static void register_transceivers (logger_type *, TransceiverFactory::Transceivers *, unsigned id1, unsigned id2);
 
   // Takes ownership of the wrapped transceiver.
   explicit TCITransceiver (logger_type * logger, std::unique_ptr<TransceiverBase> wrapped, QString const& rignr,
                                            QString const& address, bool use_for_ptt,
                                            int poll_interval, QObject * parent = nullptr,
-                                           ReceiveClock receive_clock = {});
+                                           UtcClock utc_clock = {});
 
 enum Tci_Cmd {
 Cmd_Unknown,
@@ -293,7 +293,8 @@ private:
     void clear ();                // discard buffer contents
 
   double m_period = 15.0;
-  ReceiveClock receive_clock_;
+  qint64 utc_msecs () const;
+  UtcClock utc_clock_;
   ReceiveAudioProducer m_receiveAudioProducer;
   ReceivePolicy m_receivePolicy = ReceivePolicy::Timed;
   quint64 m_receiveContext = 0;
@@ -358,9 +359,9 @@ private:
 
   bool m_cwLevel;
   QVector<int> m_cwId;
-  unsigned m_ic;
+  qint64 m_ic;
   unsigned m_isym0;
-  int m_j0;
+  qint64 m_j0;
   double m_toneFrequency0;
   
   QByteArray m_tx1[8];

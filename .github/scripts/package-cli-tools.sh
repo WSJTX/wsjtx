@@ -4,7 +4,7 @@
 #
 #   package-cli-tools.sh --platform macos|linux|windows --version V --arch A \
 #       --groups FILE --source DIR --out DIR \
-#       [--dll-dir DIR --system-dir DIR] [--linuxdeploy COMMAND]
+#       [--dll-dir DIR --system-dir DIR] [--linuxdeploy COMMAND] [--distro bookworm|trixie]
 #
 # wsjtx-V-<target>-<tarball>.tar.gz holds one directory of the same name: the
 # tarball's programs, every library they load beyond the operating system's,
@@ -29,16 +29,18 @@
 # windows: --source is the CMake build directory, --dll-dir the staged bin/
 #          after DLL fixup and --system-dir the Windows system directory. Each
 #          tarball gets its .exe files and the transitive closure of the DLLs
-#          they import from --dll-dir; an import found in neither directory
-#          fails the run.
+#          they import from --dll-dir; an import found in neither directory,
+#          other than the Universal C Runtime's API sets, fails the run.
 set -euo pipefail
 
 PLATFORM=""; VERSION=""; ARCH=""; GROUPS_FILE=""; SOURCE=""; OUT=""; DLL_DIR=""; SYSTEM_DIR=""; LINUXDEPLOY=""
+DISTRO=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --platform) PLATFORM="$2"; shift 2 ;;
     --version) VERSION="$2"; shift 2 ;;
     --arch) ARCH="$2"; shift 2 ;;
+    --distro) DISTRO="$2"; shift 2 ;;
     --groups) GROUPS_FILE="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
@@ -48,6 +50,12 @@ while [ "$#" -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+if [ -n "$DISTRO" ]; then
+  case "$PLATFORM:$ARCH:$DISTRO" in
+    linux:armhf:bookworm|linux:armhf:trixie) ;;
+    *) echo "--distro requires linux armhf and bookworm or trixie" >&2; exit 2 ;;
+  esac
+fi
 for option in PLATFORM VERSION ARCH GROUPS_FILE SOURCE OUT; do
   if [ -z "${!option}" ]; then echo "missing --$(echo "${option%_FILE}" | tr '[:upper:]' '[:lower:]')" >&2; exit 2; fi
 done
@@ -57,12 +65,16 @@ COPYING="${SCRIPTS}/../../COPYING"
 NOTICES_TABLE="${SCRIPTS}/third-party-libraries.tsv"
 EXCLUDELIST="${SCRIPTS}/linuxdeploy-excludelist.txt"
 LICENSE_PAGE="${SCRIPTS}/../../doc/common/license.adoc"
+if [ -n "$DISTRO" ]; then
+  # shellcheck source=.github/scripts/linux-artifact-validation.sh
+  source "${SCRIPTS}/linux-artifact-validation.sh"
+fi
 
 fail() { echo "::error::$*" >&2; exit 1; }
 
 case "$PLATFORM" in
   macos) TARGET="${ARCH}-macOS"; EXT="" ;;
-  linux) TARGET="linux-${ARCH}"; EXT=""
+  linux) TARGET="linux-${ARCH}${DISTRO:+-${DISTRO}}"; EXT=""
     [ -n "$LINUXDEPLOY" ] || { echo "::error::--linuxdeploy is required for linux" >&2; exit 2; } ;;
   windows) TARGET="windows-${ARCH}"; EXT=".exe"
     [ -n "$DLL_DIR" ] && [ -d "$DLL_DIR" ] || { echo "::error::--dll-dir is required for windows" >&2; exit 2; }
@@ -223,6 +235,9 @@ windows_closure() {
     imports=$(objdump -p "$bin") || fail "objdump failed on ${bin##*/}"
     while read -r dep; do
       lower=$(printf '%s' "$dep" | tr '[:upper:]' '[:lower:]')
+      # The Universal C Runtime's API sets are names the Windows 10 loader
+      # maps; no file by that name need exist in the system directory.
+      case "$lower" in api-ms-win-crt-*) continue ;; esac
       src=$(awk -F '\t' -v k="$lower" '$1 == k { print $2; exit }' "$have")
       if [ -z "$src" ]; then
         grep -qxF "$lower" "$system" || unresolved+=("${dep}(${bin##*/})")
@@ -393,12 +408,12 @@ describe() {
   local writes="writes working files to its data directory (-a) and its temporary directory (-t), both the current directory by default; run it where it can write, or point -a and -t at writable directories."
   case "$1" in
     jt9)
-      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files, and framed PCM audio on standard input (--stream). jt9stream, in its own tarball, is the same decoder without Qt or shared memory."
+      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the same decoder without the shared-memory worker, and decodes framed PCM audio on standard input (--stream)."
       echo "jt9 ${writes}"
       ;;
-    jt9stream)
-      echo "jt9stream is the decoder of jt9 without Qt or shared memory: it decodes WAV files, and framed PCM audio on standard input (--stream). Its usage text names jt9 and lists -s, which jt9stream does not support."
-      echo "jt9stream ${writes}"
+    codec)
+      echo "wsjt-codec is the decoder of jt9 without the shared-memory worker: it decodes WAV files, and framed PCM audio on standard input (--stream)."
+      echo "wsjt-codec ${writes}"
       ;;
     wsprd)
       echo "wsprd decodes WSPR from WAV files, and from framed PCM audio on standard input (-0)."
@@ -448,6 +463,8 @@ write_readme() {
       windows)
         echo "Layout: the programs and the DLLs they load are in this directory. Keep them together."
         echo
+        echo "The programs use the Universal C Runtime, part of Windows 10 and later."
+        echo
         echo "The programs and DLLs carry no Authenticode signature."
         ;;
     esac
@@ -479,6 +496,9 @@ for index in "${!GROUP_NAMES[@]}"; do
     linux)
       linux_deploy "$group" $programs
       linux_check
+      if [ -n "$DISTRO" ]; then
+        validate_armhf_elf_tree "$DEST" "$DISTRO"
+      fi
       ;;
     windows)
       for program in $programs; do cp "${SOURCE}/${program}.exe" "${DEST}/"; done

@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include "QsoReactionTestSupport.hpp"
+#include "AutoRespondPeriod.hpp"
 
 namespace
 {
@@ -39,6 +40,101 @@ class TestDecodedMessageReaction final
   Q_OBJECT
 
 private slots:
+  void unresolvedRecipientSelectionStartsContact_data()
+  {
+    QTest::addColumn<int>("origin");
+    QTest::addColumn<bool>("tx1Enabled");
+    QTest::addColumn<QString>("previousPartner");
+    QTest::addColumn<bool>("sendingRogerReport");
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    for (auto origin : {Origin::ManualLeftPane, Origin::ManualRightPane}) {
+      for (bool tx1Enabled : {false, true}) {
+        for (QString const& partner : {QString {}, QString {"W1AW"}, QString {"V5/HB9SHD"}}) {
+          for (bool sendingRogerReport : {false, true}) {
+            auto const name = QString {"%1-tx%2-%3-%4"}
+              .arg(origin == Origin::ManualLeftPane ? "left" : "right")
+              .arg(tx1Enabled ? 1 : 2).arg(partner.isEmpty() ? "empty" : partner)
+              .arg(sendingRogerReport ? "tx3" : "idle").toLatin1();
+            QTest::newRow(name.constData())
+              << int(origin) << tx1Enabled << partner << sendingRogerReport;
+          }
+        }
+      }
+    }
+  }
+
+  void unresolvedRecipientSelectionStartsContact()
+  {
+    QFETCH(int, origin);
+    QFETCH(bool, tx1Enabled);
+    QFETCH(QString, previousPartner);
+    QFETCH(bool, sendingRogerReport);
+    auto context = baseContext();
+    context.myCall = context.baseCall = "AF8C";
+    context.dxCall = context.hisCall = previousPartner;
+    context.tx1Enabled = tx1Enabled;
+    context.selectionOrigin = static_cast<DecodedMessageReaction::SelectionOrigin>(origin);
+    context.doubleClicked = true;
+    context.autoEnabled = context.autoSequenceEnabled = true;
+    context.loggingEnabled = true;
+    context.selectedTxMessage = sendingRogerReport ? 3 : 6;
+    context.qsoProgress = sendingRogerReport ? QsoProgress::RogerReport : QsoProgress::Calling;
+    DecodedText const message {"122445 -16  0.3 0719 ~  <...> V5/HB9SHD RR73 "};
+    QVERIFY(message.isStandardMessage());
+    QVERIFY(message.string().contains("73 "));
+
+    for (int click = 0; click < 2; ++click) {
+      auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+
+      QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+      QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessageIndex), tx1Enabled ? 1 : 2);
+      QCOMPARE(intEffect(plan, Effect::Kind::CheckTxMessage), tx1Enabled ? 1 : 2);
+      QVERIFY(!hasEffect(plan, Effect::Kind::RequestLogQso));
+      QVERIFY(!hasEffect(plan, Effect::Kind::CeaseAutoTx));
+      for (auto const& effect : plan.effects) {
+        if (effect.kind == Effect::Kind::SetQsoProgress) {
+          QCOMPARE(effect.progress, tx1Enabled ? QsoProgress::Replying : QsoProgress::Report);
+          context.qsoProgress = effect.progress;
+        }
+        if (effect.kind == Effect::Kind::SetDxCall) {
+          QCOMPARE(effect.text, QString {"V5/HB9SHD"});
+          context.dxCall = context.hisCall = effect.text;
+        }
+      }
+      QCOMPARE(context.dxCall, QString {"V5/HB9SHD"});
+      QVERIFY(hasEffect(plan, Effect::Kind::GenerateStandardMessages));
+      context.selectedTxMessage = tx1Enabled ? 1 : 2;
+    }
+  }
+
+  void unresolvedSenderCannotSelectPartner_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::newRow("standard-call") << "K1ABC <...> RR73";
+    QTest::newRow("compound-call") << "V5/HB9SHD <...> RR73";
+    QTest::newRow("both-unresolved") << "<...> <...> RR73";
+  }
+
+  void unresolvedSenderCannotSelectPartner()
+  {
+    QFETCH(QString, payload);
+    auto context = baseContext();
+    context.doubleClicked = true;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::ManualLeftPane;
+    context.qsoProgress = QsoProgress::RogerReport;
+    context.loggingEnabled = true;
+    auto const message = decode(payload);
+    QVERIFY(message.isStandardMessage());
+
+    auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
+    QVERIFY(!hasEffect(plan, Effect::Kind::SetDxCall));
+    QVERIFY(!hasEffect(plan, Effect::Kind::SetQsoProgress));
+    QVERIFY(!hasEffect(plan, Effect::Kind::GenerateStandardMessages));
+    QVERIFY(!hasEffect(plan, Effect::Kind::RequestLogQso));
+  }
+
   void classifiesLegacy72Messages_data()
   {
     QTest::addColumn<QString>("mode");
@@ -100,6 +196,107 @@ private slots:
     QCOMPARE(message.isStandardMessage(), expected);
   }
 
+  void automaticProcessingDoesNotChangePartners_data()
+  {
+    QTest::addColumn<int>("origin");
+    QTest::addColumn<bool>("manualSelection");
+    QTest::addColumn<bool>("callingCq");
+    QTest::addColumn<bool>("changesPartner");
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    QTest::newRow("automatic") << int(Origin::None) << false << false << false;
+    QTest::newRow("synthetic") << int(Origin::Synthetic) << false << false << false;
+    QTest::newRow("synthetic-after-double-click") << int(Origin::Synthetic) << true << false << false;
+    QTest::newRow("automatic-station-selection") << int(Origin::AutomaticSelection) << true << false << true;
+    QTest::newRow("manual") << int(Origin::ManualLeftPane) << true << false << true;
+    QTest::newRow("cq-auto-reply") << int(Origin::Synthetic) << false << true << true;
+  }
+
+  void automaticProcessingDoesNotChangePartners()
+  {
+    QFETCH(int, origin);
+    QFETCH(bool, manualSelection);
+    QFETCH(bool, callingCq);
+    QFETCH(bool, changesPartner);
+    auto context = baseContext();
+    context.qsoProgress = callingCq ? QsoProgress::Calling : QsoProgress::Report;
+    context.selectionOrigin = static_cast<DecodedMessageReaction::SelectionOrigin>(origin);
+    context.doubleClicked = manualSelection;
+    context.callingCq = callingCq;
+    context.autoReply = callingCq;
+    auto const message = decode("K1ABC W1AWX -10");
+    QVERIFY(message.isStandardMessage());
+    auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+
+    QCOMPARE(hasEffect(plan, Effect::Kind::SetDxCall), changesPartner);
+    QCOMPARE(hasEffect(plan, Effect::Kind::ClearDxGrid), changesPartner);
+    QCOMPARE(hasEffect(plan, Effect::Kind::GenerateStandardMessages), changesPartner);
+    if (changesPartner) {
+      QCOMPARE(textEffect(plan, Effect::Kind::SetDxCall), QString {"W1AWX"});
+    } else {
+      QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
+      QVERIFY(!hasEffect(plan, Effect::Kind::SetQsoProgress));
+    }
+  }
+
+  void udpDirectedRepliesRespectPartnerSelection_data()
+  {
+    QTest::addColumn<QString>("previousPartner");
+    QTest::addColumn<bool>("euVhf");
+    QTest::addColumn<bool>("holdTxFrequency");
+    QTest::addColumn<bool>("autoReply");
+    QTest::addColumn<int>("expectedMessage");
+    QTest::newRow("eu-vhf-without-partner") << "" << true << false << false << 3;
+    QTest::newRow("roger-report-without-partner") << "" << false << false << false << 4;
+    QTest::newRow("eu-vhf-current-partner") << "G4ABC" << true << false << true << 3;
+    QTest::newRow("roger-report-current-partner") << "G4ABC" << false << false << true << 4;
+    QTest::newRow("eu-vhf-other-partner-rejected") << "W1AW" << true << false << false << -1;
+    QTest::newRow("roger-report-other-partner-fallback") << "W1AW" << false << false << false << 2;
+    QTest::newRow("roger-report-other-partner-auto-reply") << "W1AW" << false << false << true << -1;
+    QTest::newRow("eu-vhf-hold-frequency-selects") << "W1AW" << true << true << false << 3;
+    QTest::newRow("roger-report-hold-frequency-selects") << "W1AW" << false << true << true << 4;
+  }
+
+  void udpDirectedRepliesRespectPartnerSelection()
+  {
+    QFETCH(QString, previousPartner);
+    QFETCH(bool, euVhf);
+    QFETCH(bool, holdTxFrequency);
+    QFETCH(bool, autoReply);
+    QFETCH(int, expectedMessage);
+    auto context = baseContext();
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Udp;
+    context.dxCall = previousPartner;
+    context.hisCall = previousPartner;
+    context.doubleClicked = holdTxFrequency;
+    context.holdTxFrequency = holdTxFrequency;
+    context.autoReply = autoReply;
+    context.qsoProgress = euVhf ? QsoProgress::Calling : QsoProgress::Report;
+    if (euVhf) context.specOp = SpecialOperatingActivity::EU_VHF;
+    auto const message = decode(euVhf
+      ? "<K1ABC> <G4ABC> 570001 IO91NP" : "K1ABC G4ABC R-10");
+    QVERIFY(message.isStandardMessage());
+
+    auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+
+    QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessage,
+                       intEffect(plan, Effect::Kind::SetTxMessageIndex)), expectedMessage);
+    if (expectedMessage < 0) {
+      QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
+      QVERIFY(!hasEffect(plan, Effect::Kind::SetDxCall));
+      QVERIFY(!hasEffect(plan, Effect::Kind::SetQsoProgress));
+      QVERIFY(!hasEffect(plan, Effect::Kind::DisarmAutoRespondSelection));
+      return;
+    }
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QCOMPARE(textEffect(plan, Effect::Kind::SetDxCall),
+             previousPartner == "G4ABC" ? QString {} : QString {"G4ABC"});
+    int const progress = effectIndex(plan, Effect::Kind::SetQsoProgress);
+    QVERIFY(progress >= 0);
+    QCOMPARE(plan.effects.at(progress).progress, expectedMessage == 2 ? QsoProgress::Report
+      : expectedMessage == 3 ? QsoProgress::RogerReport : QsoProgress::Rogers);
+    QVERIFY(hasEffect(plan, Effect::Kind::DisarmAutoRespondSelection));
+  }
+
   void rejectsDecodeWithTooFewFields()
   {
     auto context = baseContext();
@@ -109,6 +306,97 @@ private slots:
 
     QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"decode has too few fields"});
+  }
+
+  void acceptedExplicitSelectionsCancelAutoRespond_data()
+  {
+    QTest::addColumn<int>("origin");
+    QTest::addColumn<QString>("line");
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<bool>("doubleClicked");
+    QTest::addColumn<bool>("blockedFastCq");
+    QTest::addColumn<bool>("transmittingSignoff");
+    QTest::addColumn<bool>("reacted");
+    QTest::addColumn<bool>("disarms");
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    QString const caller {"0605 -10  0.3 1500 ~  K1ABC W9XYZ FN31"};
+    QTest::newRow("left-pane-selection")
+      << int(Origin::ManualLeftPane) << caller << "FT8"
+      << true << false << false << true << true;
+    QTest::newRow("right-pane-selection")
+      << int(Origin::ManualRightPane) << caller << "FT8"
+      << true << false << false << true << true;
+    QTest::newRow("udp-selection")
+      << int(Origin::Udp) << caller << "FT8"
+      << true << false << false << true << true;
+    QTest::newRow("automatic-caller-with-double-click-privileges")
+      << int(Origin::AutomaticSelection) << caller << "FT8"
+      << true << false << false << true << false;
+    QTest::newRow("ordinary-automatic-caller")
+      << int(Origin::None) << caller << "FT8"
+      << false << false << false << true << false;
+    QTest::newRow("transmitted-line-frequency-pick")
+      << int(Origin::ManualLeftPane) << "0605  Tx      1259 ~  CQ K1ABC FN42" << "FT8"
+      << true << false << false << false << false;
+    QTest::newRow("malformed-line")
+      << int(Origin::ManualLeftPane) << "CQ K1ABC FN42" << "FT8"
+      << true << false << false << false << false;
+    QTest::newRow("mismatched-mode")
+      << int(Origin::ManualLeftPane) << "0605 -10  0.3 1500 @  K1ABC W9XYZ FN31" << "JT65"
+      << true << false << false << false << false;
+    QTest::newRow("blocked-fast-cq")
+      << int(Origin::ManualLeftPane) << "060522 -10  0.3 1500 &  CQ 074 W1AW FN31" << "MSK144"
+      << true << true << false << false << false;
+    QTest::newRow("ignored-udp-signoff")
+      << int(Origin::Udp) << "0605 -10  0.3 1500 ~  K1ABC W1AW 73" << "FT8"
+      << true << false << true << false << false;
+  }
+
+  void acceptedExplicitSelectionsCancelAutoRespond()
+  {
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    QFETCH(int, origin);
+    QFETCH(QString, line);
+    QFETCH(QString, mode);
+    QFETCH(bool, doubleClicked);
+    QFETCH(bool, blockedFastCq);
+    QFETCH(bool, transmittingSignoff);
+    QFETCH(bool, reacted);
+    QFETCH(bool, disarms);
+    auto context = baseContext();
+    context.mode = mode;
+    context.selectionOrigin = static_cast<DecodedMessageReaction::SelectionOrigin>(origin);
+    context.doubleClicked = doubleClicked;
+    context.callingCq = context.autoReply = true;
+    context.qsoProgress = QsoProgress::Calling;
+    context.selectedTxMessage = 6;
+    context.fastMode = context.transceiverOnline = blockedFastCq;
+    context.nominalQsyAllowed = !blockedFastCq;
+    context.transmittingSignoff = transmittingSignoff;
+
+    auto const plan = DecodedMessageReaction::planProcessMessage(DecodedText {line}, context);
+
+    QCOMPARE(plan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted, reacted);
+    QCOMPARE(hasEffect(plan, Effect::Kind::DisarmAutoRespondSelection), disarms);
+    auto const receivePeriod = QDateTime::fromMSecsSinceEpoch(15000, Qt::UTC);
+    for (auto policy : {AutoRespondPolicy::First, AutoRespondPolicy::MaxSignal,
+                        AutoRespondPolicy::MinSignal, AutoRespondPolicy::MaxDistance}) {
+      AutoRespondPeriodState state;
+      state.setEnableTx(true);
+      QVERIFY(state.observePeriod(receivePeriod, true, true, policy));
+      if (context.selectionOrigin == Origin::AutomaticSelection && policy == AutoRespondPolicy::First) {
+        QVERIFY(state.claimFirst(receivePeriod));
+      }
+      for (auto const& effect : plan.effects) {
+        if (effect.kind == Effect::Kind::DisarmAutoRespondSelection) state.disarm();
+      }
+      state.observePeriod(receivePeriod.addSecs(15), false, false, policy);
+      QCOMPARE(state.accepts(receivePeriod), !disarms);
+      if (policy == AutoRespondPolicy::First) {
+        QCOMPARE(state.claimFirst(receivePeriod),
+                 !disarms && context.selectionOrigin != Origin::AutomaticSelection);
+      }
+    }
   }
 
   void rejectsMismatchedModeMarker()

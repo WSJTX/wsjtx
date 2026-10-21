@@ -127,14 +127,12 @@ set (jt9_FSRCS
   lib/shmem.cpp
   lib/decoder_ipc_layout.f90
   lib/jt9a.f90
-  lib/streaming_io.f90
-  lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
-  lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
+  lib/jt9_stream_stub.f90
   lib/jt9_version.c
   )
 
-# jt9stream uses the same main as jt9 with shared-memory worker mode disabled.
-set (jt9stream_FSRCS
+# wsjt-codec uses the same main as jt9 with shared-memory worker mode disabled.
+set (wsjt_codec_FSRCS
   lib/jt9.f90
   lib/jt9a_stub.f90
   lib/streaming_io.f90
@@ -146,6 +144,7 @@ set (jt9stream_FSRCS
 set (wsjtx_CXXSRCS
   Audio/AudioInputSource.hpp
   Audio/AudioStreamClock.hpp
+  Audio/AudioOutputSink.hpp
   DecoderOutputFramer.cpp
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
@@ -234,6 +233,13 @@ set (wsjt_CXXSRCS
   lib/crc14.cpp
   ${wsjt_fox_CXXSRCS}
   )
+
+# The JTTY transmit encoder calls the Fortran codec, so it is archived with it.
+set (wsjt_jtty_CXXSRCS
+  lib/jtty/JttyTransmit.cpp
+  lib/jtty/JttyUnicode.cpp
+  )
+
 # deal with a GCC v6 UB error message
 set_source_files_properties (
   lib/crc10.cpp
@@ -268,6 +274,7 @@ set (wsjt_FSRCS
   lib/iso_c_utilities.f90
   lib/streaming_period.f90
   lib/streaming_emit.f90
+  lib/stdcall_suffix.f90
   lib/streaming_control.f90
   lib/jt9_params_init.f90
   lib/streaming_apply.f90
@@ -322,6 +329,8 @@ set (wsjt_FSRCS
   lib/jtty/jttycom.f90
   lib/jtty/jtty_mdecode.f90
   lib/jtty/jtty_receive_context.f90
+  lib/jtty/jtty_filler.f90
+  lib/streaming_jtty.f90
 
   # remaining non-module sources
   lib/addit.f90

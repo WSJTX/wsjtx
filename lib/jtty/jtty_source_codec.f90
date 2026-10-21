@@ -42,7 +42,7 @@ module jtty_source_codec
   integer, parameter :: JTTY_PAIR_ZONE_LOC3=0,JTTY_PAIR_CLASS_SECTION=1
   integer, parameter :: JTTY_MISC_CONTROL=0,JTTY_MISC_GRID4=1
   integer(c_int), parameter :: JTTY_ENCODE_OK=0,JTTY_ENCODE_INVALID_DESCRIPTOR=1
-  integer(c_int), parameter :: JTTY_ENCODE_UNKNOWN_SECTION=2
+  integer(c_int), parameter :: JTTY_ENCODE_UNKNOWN_SECTION=2,JTTY_ENCODE_UNENCODABLE=3
   integer, parameter :: JTTY_CONTROL_AGN=0,JTTY_CONTROL_CALL=1,JTTY_CONTROL_AGN_CALL=2
   integer, parameter :: JTTY_CONTROL_NR=3,JTTY_CONTROL_AGN_NR=4,JTTY_CONTROL_EXCH=5
   integer, parameter :: JTTY_CONTROL_STATE=6,JTTY_CONTROL_SECTION=7,JTTY_CONTROL_ZONE=8

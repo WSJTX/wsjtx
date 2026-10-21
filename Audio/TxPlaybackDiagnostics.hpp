@@ -29,8 +29,7 @@ namespace TxEvidence
     bool observeSourceProgress (TxSessionId sessionId, TxGeneration generation,
                                 qint64 servedSamples, qint64 totalSamples,
                                 QString const& diagnostic = QString ());
-    bool observe (TxSessionId sessionId, TxGeneration generation,
-                  TxRawPlayoutSnapshot const& raw);
+    bool observe (TxRawPlayoutSnapshot const& raw);
     TxStopDecision stop (TxSessionId sessionId, TxGeneration generation,
                          TxStopReason reason, int legacyTailMs = 0);
 

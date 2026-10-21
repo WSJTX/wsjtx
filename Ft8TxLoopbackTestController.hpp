@@ -52,6 +52,7 @@ private:
   int m_captureStopCount {0};
   int m_startAttemptCount {0};
   bool m_prepared {false};
+  bool m_outputFaultsChecked {false};
   bool m_autoDisabledDuringTransmit {false};
   bool m_finished {false};
   bool m_succeeded {false};

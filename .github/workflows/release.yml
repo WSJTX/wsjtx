@@ -32,6 +32,8 @@ jobs:
       aarch64_digest: ${{ steps.linux-images.outputs.aarch64_digest }}
       armhf_digest: ${{ steps.linux-images.outputs.armhf_digest }}
       armhf_cross_digest: ${{ steps.linux-images.outputs.armhf_cross_digest }}
+      armhf_trixie_digest: ${{ steps.linux-images.outputs.armhf_trixie_digest }}
+      armhf_trixie_cross_digest: ${{ steps.linux-images.outputs.armhf_trixie_cross_digest }}
     env:
       CANDIDATE_TAG: ${{ inputs.candidate_tag }}
       EXPECTED_SHA: ${{ inputs.expected_sha }}
@@ -116,16 +118,21 @@ jobs:
   # Cross-compile on x86_64, then run target tests, packaging, and AppImage
   # validation in the paired ARMv7 runtime image on an ARM runner.
   linux-armhf:
+    strategy:
+      fail-fast: false
+      matrix:
+        armhf_distro: [bookworm, trixie]
     needs: prepare
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       arch: armhf
+      armhf_distro: ${{ matrix.armhf_distro }}
       image_source: public-release
       image_tag: ${{ needs.prepare.outputs.image_tag }}
-      image_digest: ${{ needs.prepare.outputs.armhf_digest }}
-      armhf_cross_image_digest: ${{ needs.prepare.outputs.armhf_cross_digest }}
+      image_digest: ${{ matrix.armhf_distro == 'trixie' && needs.prepare.outputs.armhf_trixie_digest || needs.prepare.outputs.armhf_digest }}
+      armhf_cross_image_digest: ${{ matrix.armhf_distro == 'trixie' && needs.prepare.outputs.armhf_trixie_cross_digest || needs.prepare.outputs.armhf_cross_digest }}
       save_ccache: true
       build_packages: true
 
@@ -147,7 +154,7 @@ jobs:
           path: artifacts
       # build-linux.yml hands this tree between its ARMHF jobs; it is no asset.
       - name: Drop the ARMHF build tree
-        run: rm -rf artifacts/armhf-build-tree
+        run: rm -rf artifacts/armhf-build-tree-bookworm artifacts/armhf-build-tree-trixie
       - name: Verify all candidate artifacts
         run: python3 .github/scripts/release-policy.py verify-assets "${{ needs.prepare.outputs.version }}" artifacts
       - name: Verify candidate packaging reports

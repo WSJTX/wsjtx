@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=.github/scripts/armhf-toolchain-config.sh
+. "$(dirname "${BASH_SOURCE[0]}")/armhf-toolchain-config.sh"
+
 if [ "$#" -ne 3 ]; then
   echo "Usage: build-hamlib-armhf-cross.sh COMMIT SYSROOT TOOLCHAIN_PREFIX" >&2
   exit 2
@@ -46,8 +49,8 @@ cd hamlib-src
   OBJDUMP="${triplet}-objdump" \
   RANLIB="${triplet}-ranlib" \
   STRIP="${triplet}-strip" \
-  CFLAGS="--sysroot=$sysroot -isystem $target_include -g -O2 -fPIC -fdata-sections -ffunction-sections" \
-  CXXFLAGS="--sysroot=$sysroot -isystem $target_include -g -O2 -fPIC -fdata-sections -ffunction-sections" \
+  CFLAGS="--sysroot=$sysroot -isystem $target_include ${ARMHF_ABI_FLAGS[*]} -g -O2 -fPIC -fdata-sections -ffunction-sections" \
+  CXXFLAGS="--sysroot=$sysroot -isystem $target_include ${ARMHF_ABI_FLAGS[*]} -g -O2 -fPIC -fdata-sections -ffunction-sections" \
   LDFLAGS="--sysroot=$sysroot -B$target_lib/ -L$target_lib -Wl,-rpath-link,$target_lib -Wl,-rpath-link,$target_base_lib -Wl,--gc-sections"
 make -j"$(nproc)"
 make DESTDIR="$sysroot" install

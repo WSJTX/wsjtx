@@ -54,6 +54,7 @@
 #include <QButtonGroup>
 #include <QActionGroup>
 #include <QSignalBlocker>
+#include <QScopedValueRollback>
 #include <QMetaMethod>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -64,6 +65,11 @@
 #include <QInputDialog>
 #include <QSound> // TCI
 #include <QtMath> // TCI
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+#include <QEventLoop>
+#include <QMessageBox>
+#include "Audio/FixtureSoundOutput.hpp"
+#endif
 #if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
 #include <QRandomGenerator>
 #endif
@@ -320,11 +326,6 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
-  void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
-
-  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
-                    float xjunk[], float wave[], int* icmplx, int* nwave);
-
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
 
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],
@@ -519,7 +520,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        bool automated_test,
                        QString base_style_sheet,
                        std::unique_ptr<AudioInputSource> audio_input_source,
-                       std::unique_ptr<SoundOutput> sound_output,
+                       std::unique_ptr<AudioOutputSink> sound_output,
                        QString decoder_data_path,
                        QWidget *parent) :
   MultiGeometryWidget {parent},
@@ -819,11 +820,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_tx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_tx_audio_buffer_frames;
 
   // hook up sound output stream slots & signals and disposal
-  connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &SoundOutput::setFormat);
-  connect (m_soundOutput, &SoundOutput::error, this, &MainWindow::showSoundOutError);
-  connect (m_soundOutput, &SoundOutput::error, &m_config, &Configuration::invalidate_audio_output_device);
-  // connect (m_soundOutput, &SoundOutput::status, this, &MainWindow::showStatusMessage);
-  connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &SoundOutput::setAttenuation);
+  connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &AudioOutputSink::setFormat);
+  connect (m_soundOutput, &AudioOutputSink::error, this, &MainWindow::showSoundOutError);
+  // connect (m_soundOutput, &AudioOutputSink::status, this, &MainWindow::showStatusMessage);
+  connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &AudioOutputSink::setAttenuation);
   connect (&m_audioThread, &QThread::finished, m_soundOutput, &QObject::deleteLater);
 
   // hook up Modulator slots and disposal
@@ -856,7 +856,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                sessionId, generation, windowOpenMs, accepted, actualStartMs);
            }, Qt::QueuedConnection);
 #endif
-  connect (m_soundOutput, &SoundOutput::rawTxPlayoutSnapshot,
+  connect (m_soundOutput, &AudioOutputSink::rawTxPlayoutSnapshot,
            this, &MainWindow::recordRawTxPlayout, Qt::QueuedConnection);
   connect (&m_audioThread, &QThread::finished, m_modulator, &QObject::deleteLater);
 
@@ -1199,7 +1199,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     }, Qt::QueuedConnection);
 
   set_dateTimeQSO(-1);
-  connect (m_tx_message_button_group, SIGNAL (buttonClicked (int)), SLOT (set_ntx (int)));
+  connect (m_tx_message_button_group, QOverload<QAbstractButton *>::of (&QButtonGroup::buttonClicked),
+           this, [this] (QAbstractButton *button) {
+             m_autoRespondPeriodState.disarm();
+             set_ntx(m_tx_message_button_group->id(button));
+           });
   connect (ui->decodedTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall2);
   connect (ui->decodedTextBrowser2, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall);
   connect (ui->houndQueueTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnFoxQueue);
@@ -1207,6 +1211,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (ui->decodedTextBrowser, &DisplayText::erased, this, &MainWindow::band_activity_cleared);
   connect (ui->decodedTextBrowser2, &DisplayText::erased, this, &MainWindow::rx_frequency_activity_cleared);
   connect (ui->decodedTextBrowser->horizontalScrollBar(),SIGNAL(sliderMoved(int)),SLOT(ScrollBarPosition(int)));
+
+  m_config.set_ui_language_preference (m_multi_settings->common_value ("UiLanguage").toString ());
+  connect (&m_config, &Configuration::ui_language_preference_changed, this, [this] (QString const& language) {
+      m_multi_settings->set_common_value ("UiLanguage", language);
+      m_settings->sync ();
+    });
 
   // Native menu fonts require a refresh after main window construction.
   QTimer::singleShot (0, this, SLOT (initialize_fonts ()));
@@ -1227,6 +1237,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         }
     });
   connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
+  connect(&proc_jt9, &QProcess::readyReadStandardError, this, [this] {
+      drainDecoderStderr ();
+    });
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
@@ -1241,7 +1254,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                  || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
                  || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
                 && QProcess::Crashed == error) return;
-            Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
+            Q_EMIT decoderBackendFailed (decoderFailureDetail (proc_jt9.errorString ()));
             subProcessError (&proc_jt9, error);
           });
 #else
@@ -1257,12 +1270,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                                                       || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
                                                       || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
                                                      && QProcess::Crashed == error) return;
-                                                 Q_EMIT decoderBackendFailed (proc_jt9.errorString ());
+                                                 Q_EMIT decoderBackendFailed (decoderFailureDetail (proc_jt9.errorString ()));
                                                  subProcessError (&proc_jt9, error);
                                                });
 #endif
   connect(&proc_jt9, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
+            drainDecoderStderr (true);
             if (m_closing || !m_valid) return;
             if (Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
                 || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase)
@@ -1279,7 +1293,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                 m_decoderKillTimer.stop ();
                 m_decoderStartTimer.stop ();
                 proc_jt9.readAllStandardOutput ();
-                proc_jt9.readAllStandardError ();
                 if (!initializeDecoderSharedMemory ())
                   {
                     m_valid = false;
@@ -3635,7 +3648,8 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       case Qt::Key_Return:
       case Qt::Key_Enter:
         doubleClickOnCall2(ui->decodedTextBrowser->document()->firstBlock().text(), QString {},
-                           Qt::KeyboardModifier(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier));
+                           Qt::KeyboardModifier(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier),
+                           QString {});
         return;
       case Qt::Key_Backspace:
         qDebug() << "Key Backspace";
@@ -3796,7 +3810,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       break;
     case Qt::Key_G:
       if(e->modifiers() & Qt::AltModifier) {
-        genStdMsgs (m_rpt, true);
+        genStdMsgsForSelection (m_rpt, true);
         return;
       }
       break;
@@ -3815,7 +3829,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     case Qt::Key_L:
       if(e->modifiers() & Qt::ControlModifier) {
         lookup();
-        genStdMsgs(m_rpt);
+        genStdMsgsForSelection(m_rpt);
         return;
       }
       break;
@@ -5723,6 +5737,204 @@ QString MainWindow::completeLiveAudioTestFt8Input (qint64 frames)
   return {};
 }
 
+QString MainWindow::checkLiveAudioTestOutputFaults ()
+{
+  if (!m_automated_test || !qobject_cast<FixtureSoundOutput *> (m_soundOutput)
+      || m_transmitting || m_tune || m_auto || m_tx_when_ready
+      || ptt0Timer.isActive () || ptt1Timer.isActive ())
+    return tr ("Output fault checks require an idle synthetic output.");
+
+  bool const guiTimerActive = m_guiTimer.isActive ();
+  m_guiTimer.stop ();
+  auto const savedBeacon = m_beaconTxController;
+  QObject scope;
+  connect (&scope, &QObject::destroyed, this, [this, guiTimerActive, savedBeacon] {
+    m_beaconTxController = savedBeacon;
+    m_tx_when_ready = false;
+    m_transmitting = false;
+    m_tune = false;
+    m_auto = false;
+    g_iptt = 0;
+    ptt1Timer.stop ();
+    ptt0Timer.stop ();
+    tuneATU_Timer.stop ();
+    tuneButtonTimer.stop ();
+    m_txEvidenceSession = {};
+    m_pendingTxStopReason = TxEvidence::TxStopReason::NormalEnd;
+    ui->autoButton->setChecked (false);
+    ui->tuneButton->setChecked (false);
+    if (guiTimerActive) m_guiTimer.start (100);
+  });
+  int stopRequests {0};
+  int pttReleaseCallbacks {0};
+  connect (this, &MainWindow::endTransmitMessage, &scope,
+           [&stopRequests] {++stopRequests;});
+  connect (&ptt0Timer, &QTimer::timeout, &scope,
+           [&pttReleaseCallbacks] {++pttReleaseCallbacks;});
+
+  auto deliver = [this] (TxEvidence::TxOutputError const& fault,
+                         bool expectDialog, bool expectStopped) -> QString {
+    QEventLoop loop;
+    QTimer dialogPoll;
+    QTimer deadline;
+    deadline.setSingleShot (true);
+    QString failure;
+    bool delivered {false};
+    bool sawDialog {false};
+    auto checkDialog = [&] {
+      auto * box = qobject_cast<QMessageBox *> (QApplication::activeModalWidget ());
+      if (!box || box->informativeText () != fault.message) return;
+      sawDialog = true;
+      if (!expectDialog)
+        failure = tr ("A stale output fault opened a dialog.");
+      else if (expectStopped
+               && (m_transmitting || m_tune || m_auto || m_tx_when_ready
+                   || ptt1Timer.isActive () || tuneATU_Timer.isActive ()
+                   || m_txEvidenceSession.isValid () || g_iptt != 0))
+        failure = tr ("Output fault cleanup did not precede its dialog.");
+      else if (!expectStopped && !m_transmitting)
+        failure = tr ("A timed output underrun stopped transmission.");
+      box->accept ();
+      loop.quit ();
+    };
+    connect (&dialogPoll, &QTimer::timeout, &loop, checkDialog);
+    connect (&deadline, &QTimer::timeout, &loop, [&] {
+      failure = tr ("Timed out while delivering an output fault.");
+      checkDialog ();
+      if (QApplication::activeModalWidget ()) QCoreApplication::exit (1);
+      loop.quit ();
+    });
+    connect (m_soundOutput, &AudioOutputSink::error, &loop,
+             [&] (TxEvidence::TxOutputError const& received) {
+      if (received.message != fault.message) return;
+      delivered = true;
+      if (!expectDialog) loop.quit ();
+    }, Qt::QueuedConnection);
+    auto * output = m_soundOutput;
+    QMetaObject::invokeMethod (output, [output, fault] {
+      Q_EMIT output->error (fault);
+    }, Qt::QueuedConnection);
+    dialogPoll.start (5);
+    deadline.start (2000);
+    loop.exec ();
+    if (failure.isEmpty () && (!delivered || sawDialog != expectDialog))
+      failure = tr ("Output fault notification did not follow its expected route.");
+    return failure;
+  };
+
+  for (auto const& scenario : {QStringLiteral ("pending"), QStringLiteral ("timed"),
+                               QStringLiteral ("tune")})
+    {
+      beginTxEvidenceSession ();
+      beginTxEvidenceGeneration ();
+      TxEvidence::TxPlaybackContext const context {
+        m_txEvidenceSourceSession, m_txEvidenceGeneration};
+      m_transmitting = scenario != "pending";
+      m_tx_when_ready = scenario == "pending";
+      m_tune = scenario == "tune";
+      m_auto = !m_tune;
+      ui->autoButton->setChecked (m_auto);
+      ui->tuneButton->setChecked (m_tune);
+      g_iptt = 1;
+      if (m_tx_when_ready) ptt1Timer.start (10000);
+      if (m_tune) tuneATU_Timer.start (10000);
+      auto const stopsBefore = stopRequests;
+      auto const releasesBefore = pttReleaseCallbacks;
+      TxEvidence::TxOutputError const fault {
+        context, TxEvidence::TxBackendError::Fatal,
+        QStringLiteral ("Synthetic output fault preflight: ") + scenario};
+      auto error = deliver (fault, true, true);
+      if (!error.isEmpty ()) return error;
+      if (stopRequests != stopsBefore + 1)
+        return tr ("A terminal output fault did not request exactly one source stop.");
+      error = deliver (fault, false, true);
+      if (!error.isEmpty ()) return error;
+      if (ptt0Timer.isActive ())
+        {
+          QEventLoop wait;
+          connect (&ptt0Timer, &QTimer::timeout, &wait, &QEventLoop::quit);
+          QTimer::singleShot (2000, &wait, &QEventLoop::quit);
+          wait.exec ();
+        }
+      if (stopRequests != stopsBefore + 1 || pttReleaseCallbacks != releasesBefore + 1
+          || ptt0Timer.isActive ())
+        return tr ("A duplicate output fault repeated or prevented PTT release.");
+    }
+
+  beginTxEvidenceSession ();
+  beginTxEvidenceGeneration ();
+  m_transmitting = true;
+  g_iptt = 1;
+  TxEvidence::TxPlaybackContext const current {
+    m_txEvidenceSourceSession, m_txEvidenceGeneration};
+  auto const stopsBefore = stopRequests;
+  TxEvidence::TxOutputError fault {current, TxEvidence::TxBackendError::Fatal,
+                                  QStringLiteral ("Synthetic stale output fault preflight")};
+  fault.context.generation = TxEvidence::TxGeneration {current.generation.value () - 1};
+  auto error = deliver (fault, false, false);
+  if (!error.isEmpty ()) return error;
+  if (!m_transmitting || stopRequests != stopsBefore)
+    return tr ("A stale output fault affected the current transmission.");
+  fault = {current, TxEvidence::TxBackendError::Underrun,
+           QStringLiteral ("Synthetic timed underrun preflight")};
+  error = deliver (fault, true, false);
+  if (!error.isEmpty ()) return error;
+  if (!m_transmitting || stopRequests != stopsBefore)
+    return tr ("A timed underrun requested source cancellation.");
+  fault = {current, TxEvidence::TxBackendError::Open,
+           QStringLiteral ("Synthetic startup output fault preflight")};
+  error = deliver (fault, true, true);
+  if (!error.isEmpty ()) return error;
+
+  // A delayed source commit may outlive its session while a beacon plan awaits
+  // source acceptance; it must remain diagnostic evidence only.
+  m_beaconTxController.enterMode (1000);
+  m_beaconTxController.setAutoEnabled (true);
+  m_beaconTxController.observeUtc (100);
+  for (auto const& action : m_beaconTxController.receiveCompleted ())
+    if (action.kind == BeaconTx::ActionKind::RequestScheduleProposal)
+      {
+        BeaconTx::ScheduleProposal proposal;
+        proposal.disposition = BeaconTx::Disposition::Transmit;
+        m_beaconTxController.proposalDelivered (action.planId, proposal);
+      }
+  m_beaconTxController.observeUtc (1100);
+  m_beaconTxController.txStartRequested ();
+  m_beaconTxController.txStartResult (m_beaconTxController.txPlanId (), true);
+  if (m_beaconTxController.txLifecycle () != BeaconTx::TxLifecycle::StartRequested)
+    return tr ("Unable to stage a pending beacon source commit.");
+  TxEvidence::TxStartSnapshot snapshot;
+  snapshot.session_id = current.session_id;
+  snapshot.generation = current.generation;
+  snapshot.mode = QStringLiteral ("WSPR");
+  snapshot.sample_rate_hz = TX_SAMPLE_RATE;
+  recordTxSourceCommit (snapshot);
+  if (m_beaconTxController.txLifecycle () != BeaconTx::TxLifecycle::StartRequested)
+    return tr ("A stopped source commit marked a beacon transmission as started.");
+  m_beaconTxController = savedBeacon;
+
+  QEventLoop drained;
+  QPointer<QEventLoop> drainGuard {&drained};
+  QMetaObject::invokeMethod (m_soundOutput, [drainGuard] {
+    if (drainGuard) QMetaObject::invokeMethod (drainGuard, "quit", Qt::QueuedConnection);
+  }, Qt::QueuedConnection);
+  QTimer deadline;
+  deadline.setSingleShot (true);
+  connect (&deadline, &QTimer::timeout, &drained, &QEventLoop::quit);
+  deadline.start (2000);
+  drained.exec ();
+  if (!deadline.isActive ()) return tr ("Timed out draining synthetic output stop requests.");
+  if (ptt0Timer.isActive ())
+    {
+      QEventLoop wait;
+      connect (&ptt0Timer, &QTimer::timeout, &wait, &QEventLoop::quit);
+      QTimer::singleShot (2000, &wait, &QEventLoop::quit);
+      wait.exec ();
+      if (ptt0Timer.isActive ()) return tr ("Timed out releasing synthetic PTT.");
+    }
+  return {};
+}
+
 MainWindow::LiveAudioTestFt8TransmitRequest
 MainWindow::startLiveAudioTestFt8Transmit (qint64 targetPeriodStartMs)
 {
@@ -5845,6 +6057,7 @@ void MainWindow::startDecoderProcess ()
   m_activeJt9Decode = {};
   m_decoderOutputFramer.reset ();
   m_decoderSession.beginStartup ();
+  m_decoderDiagnostics.reset ();
   QStringList jt9Args {
     "-s", m_decoderSession.name (),
     "--ipc-lock", m_decoderSession.workerLockPath (),
@@ -5872,6 +6085,19 @@ void MainWindow::startDecoderProcess ()
   updateDecodeControls ();
 }
 
+void MainWindow::drainDecoderStderr (bool final)
+{
+  m_decoderDiagnostics.append (proc_jt9.readAllStandardError ());
+  if (final) m_decoderDiagnostics.finish ();
+}
+
+QString MainWindow::decoderFailureDetail (QString const& reason)
+{
+  drainDecoderStderr (true);
+  auto const& diagnostic = m_decoderDiagnostics.tail ();
+  return diagnostic.isEmpty () ? reason : reason + "\n\n" + QString::fromLocal8Bit (diagnostic);
+}
+
 void MainWindow::failDecoderStartup (QString const& reason)
 {
   if (m_closing || Jt9ProcessPhase::Failed == m_jt9ProcessPhase) return;
@@ -5880,11 +6106,12 @@ void MainWindow::failDecoderStartup (QString const& reason)
   m_decoderSession.beginStartup ();
   m_valid = false;
   updateDecodeControls ();
-  qCritical () << "Decoder startup failed:" << reason;
-  Q_EMIT decoderBackendFailed (reason);
+  auto const detail = decoderFailureDetail (reason);
+  qCritical () << "Decoder startup failed:" << detail;
+  Q_EMIT decoderBackendFailed (detail);
   QTimer::singleShot (0, this, SLOT (close ()));
   if (!m_automated_test)
-    MessageBox::critical_message (this, tr ("Decoder Error"), reason);
+    MessageBox::critical_message (this, tr ("Decoder Error"), detail);
 }
 
 bool MainWindow::initializeDecoderSharedMemory ()
@@ -6679,6 +6906,7 @@ void MainWindow::queueActiveWindowHound2(QString line) {
 
 void MainWindow::callSandP2(int n)
 {
+  QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
   m_specOp=m_config.special_op_id();
   bool bCtrl = (n<0);
   n=qAbs(n)-1;
@@ -6698,6 +6926,7 @@ void MainWindow::callSandP2(int n)
       refreshPileupList();
       return;
     }
+    m_autoRespondPeriodState.disarm();
     m_deGrid=w[3];
     m_bDoubleClicked=true;
     m_txFirst=true;
@@ -6725,6 +6954,7 @@ void MainWindow::callSandP2(int n)
     applyQ65StationSelection ({w[4], w[5], w[3], w[2], w[6]=="0"});
   } else {
     if(w.size() < 6) return;
+    m_autoRespondPeriodState.disarm();
     m_deCall=w[0];
     m_deGrid=w[1];
     ui->RxFreqSpinBox->setValue(w[4].toInt());
@@ -6773,6 +7003,8 @@ void MainWindow::callSandP2(int n)
 
 void MainWindow::applyQ65StationSelection (Q65StationSelection const& selection)
 {
+  QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
+  m_autoRespondPeriodState.disarm();
   m_deCall=selection.call;
   m_deGrid=selection.grid;
   m_txFirst=selection.txFirst;
@@ -7214,16 +7446,18 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   and m_BestCQpriority!="New Multiplier"
                   and (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
                 m_BestCQpriority="New Call on Band";
+                QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
                 m_bDoubleClicked = true;
-                processSyntheticMessage(decodedtext0);
+                processSyntheticMessage(decodedtext0, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
               }
               if (messagePriority=="New DXCC"
                   and m_BestCQpriority!="New DXCC"
                   and m_BestCQpriority!="New Multiplier"
                   and (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
                 m_BestCQpriority="New DXCC";
+                QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
                 m_bDoubleClicked = true;
-                processSyntheticMessage(decodedtext0);
+                processSyntheticMessage(decodedtext0, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
               }
             }
           }
@@ -7261,9 +7495,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
           bProcessMsgNormally=true;
         }
         if(bProcessMsgNormally) {
+          QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
           m_bDoubleClicked=true;
           m_bAutoReply = true;
-          processSyntheticMessage(decodedtext);
+          processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
         }
       }
 
@@ -7652,7 +7887,6 @@ void MainWindow::guiUpdate()
 
     if(g_iptt==0 and can_start_transmit (m_mode, m_bTxTime, fTR, msgLength, m_tune)) {
       //### Allow late starts
-      m_autoRespondPeriodState.close();
       icw[0]=m_ncw;
       g_iptt = 1;
       if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::Decided)
@@ -8595,6 +8829,7 @@ void MainWindow::recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapsh
                                              snapshot.diagnostic);
     }
   if ((snapshot.mode == "WSPR" || snapshot.mode == "FST4W")
+      && snapshot.session_id == m_txEvidenceSession
       && snapshot.session_id == m_txEvidenceSourceSession
       && snapshot.generation == m_txEvidenceGeneration)
     {
@@ -8608,11 +8843,7 @@ void MainWindow::recordTxSourceCommit (TxEvidence::TxStartSnapshot const& snapsh
 
 void MainWindow::recordRawTxPlayout (TxEvidence::TxRawPlayoutSnapshot const& snapshot)
 {
-  if (m_txEvidenceSourceSession.isValid () && m_txEvidenceGeneration.isValid ())
-    {
-      m_txPlaybackDiagnostics.observe (m_txEvidenceSourceSession,
-                                       m_txEvidenceGeneration, snapshot);
-    }
+  m_txPlaybackDiagnostics.observe (snapshot);
 }
 
 void MainWindow::noteTxStopReason (TxEvidence::TxStopReason reason)
@@ -8881,6 +9112,14 @@ void MainWindow::set_ntx(int n)                                   //set_ntx()
   m_ntx=n;
 }
 
+void MainWindow::selectTxNextMessage(int n)
+{
+  auto *button = txNextButtons().at(n - 1);
+  if (!button->isEnabled()) return;
+  button->setChecked(true);
+  set_ntx(n);
+}
+
 void MainWindow::on_txrb1_toggled (bool status)
 {
   if (status) {
@@ -8890,7 +9129,7 @@ void MainWindow::on_txrb1_toggled (bool status)
       set_dateTimeQSO (-1); // we reset here as tx2/tx3 is used for start times
     }
     else {
-      QTimer::singleShot (0, ui->txrb2, SLOT (click ()));
+      QTimer::singleShot (0, this, [this] {selectTxNextMessage(2);});
     }
   }
 }
@@ -8916,7 +9155,7 @@ void MainWindow::on_txrb1_doubleClicked ()
   toggle_tx1_enabled_preference ();
   if (!ui->tx1->isEnabled ()) {
     // leave time for clicks to complete before setting txrb2
-    QTimer::singleShot (500, ui->txrb2, SLOT (click ()));
+    QTimer::singleShot (500, this, [this] {selectTxNextMessage(2);});
   }
 }
 
@@ -8963,7 +9202,7 @@ void MainWindow::on_txrb5_toggled (bool status)
 
 void MainWindow::on_txrb5_doubleClicked ()
 {
-  genStdMsgs (m_rpt, true);
+  genStdMsgsForSelection (m_rpt, true);
 }
 
 void MainWindow::on_txrb6_toggled(bool status)
@@ -8999,25 +9238,33 @@ void MainWindow::on_txb4_doubleClicked()
 
 void MainWindow::on_txb5_doubleClicked()
 {
-  genStdMsgs (m_rpt, true);
+  genStdMsgsForSelection (m_rpt, true);
 }
 
 
-void MainWindow::doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnCall2(QString const& line, QString const& word,
+                                    Qt::KeyboardModifiers modifiers,
+                                    QString const& clicked_token)
 {
-  handleDecodeSelection(line, word, modifiers,
-                        DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
+  Q_UNUSED (word);
+  handleDecodeSelection(line, modifiers,
+                        DecodedMessageReaction::SelectionOrigin::ManualLeftPane,
+                        clicked_token);
 }
 
-void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnCall(QString const& line, QString const& word,
+                                   Qt::KeyboardModifiers modifiers,
+                                   QString const& clicked_token)
 {
-  handleDecodeSelection(line, word, modifiers,
-                        DecodedMessageReaction::SelectionOrigin::ManualRightPane);
+  Q_UNUSED (word);
+  handleDecodeSelection(line, modifiers,
+                        DecodedMessageReaction::SelectionOrigin::ManualRightPane,
+                        clicked_token);
 }
 
 void MainWindow::handleDecodeSelection(
-  QString const& line, QString const& word, Qt::KeyboardModifiers modifiers,
-  DecodedMessageReaction::SelectionOrigin selection_origin)
+  QString const& line, Qt::KeyboardModifiers modifiers,
+  DecodedMessageReaction::SelectionOrigin selection_origin, QString const& clicked_token)
 {
   m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
@@ -9028,11 +9275,11 @@ void MainWindow::handleDecodeSelection(
     return;
   }
   if(m_mode=="JTTY") {
-    m_deCall = word;
+    m_deCall = Jtty::trimJttyChatPunctuation (clicked_token);
     ui->dxCallEntry->setText(m_deCall);  // clears m_jttyHisCallSnr via on_dxCallEntry_textChanged
     // Capture the SNR of the decode actually selected, not whichever decoded last.
     m_jttyHisCallSnr = jttySnrForSelectedWord(
-      word, selection_origin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
+      m_deCall, selection_origin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
     return;
   }
   DecodedText message {line.trimmed().left(61).remove("TU; ")};
@@ -9091,6 +9338,7 @@ void MainWindow::handleDecodeSelection(
       return;    // don't allow a QSO when both stations Tx 1st or Tx 2nd, and the Tx 1st checkbox is frozen
   } else {
     m_muted = true;  // Don't play alert sounds again
+    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
     m_bDoubleClicked = true;
     m_hisCall0 = m_hisCall;
     processMessage (message, modifiers, selection_origin);
@@ -9155,12 +9403,11 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
   snapshot.transmitting = m_transmitting;
   snapshot.transmittingSignoff = m_transmitting
     && message_is_73(m_currentMessageType, m_currentMessage.split(' ', SkipEmptyParts));
-  snapshot.doubleClicked = m_bDoubleClicked;
+  snapshot.doubleClicked = m_bDoubleClicked
+    && selection_origin != DecodedMessageReaction::SelectionOrigin::None
+    && selection_origin != DecodedMessageReaction::SelectionOrigin::Synthetic;
   snapshot.doubleClickAfterCqFrequency = m_bDoubleClickAfterCQnnn;
-  snapshot.selectionOrigin = selection_origin != DecodedMessageReaction::SelectionOrigin::None
-    ? selection_origin
-    : (m_bDoubleClicked ? DecodedMessageReaction::SelectionOrigin::ManualLeftPane
-                        : DecodedMessageReaction::SelectionOrigin::None);
+  snapshot.selectionOrigin = selection_origin;
   snapshot.modifiers.shift = modifiers.testFlag(Qt::ShiftModifier);
   snapshot.modifiers.ctrl = modifiers.testFlag(Qt::ControlModifier);
   snapshot.modifiers.alt = modifiers.testFlag(Qt::AltModifier);
@@ -9221,6 +9468,9 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
 {
   using Effect = DecodedMessageReaction::QsoReactionEffect;
   switch (effect.kind) {
+  case Effect::Kind::DisarmAutoRespondSelection:
+    m_autoRespondPeriodState.disarm();
+    break;
   case Effect::Kind::SetRxFrequency:
     ui->RxFreqSpinBox->setValue(effect.intValue);
     break;
@@ -9256,7 +9506,7 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
     txNextButtons().at(effect.intValue - 1)->setChecked(true);
     break;
   case Effect::Kind::ClickTxMessage:
-    txNextButtons().at(effect.intValue - 1)->click();
+    selectTxNextMessage(effect.intValue);
     break;
   case Effect::Kind::SetQsoProgress:
     m_QSOProgress = effect.progress;
@@ -9383,6 +9633,11 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
   case Effect::Kind::ProcessSyntheticMessageNow:
     processSyntheticMessage(message);
     break;
+  case Effect::Kind::ProcessAutomaticSelectionNow: {
+    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, true};
+    processSyntheticMessage(message, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
+    break;
+  }
   }
 }
 
@@ -9435,8 +9690,13 @@ void MainWindow::processMessage(DecodedText const& message, Qt::KeyboardModifier
 
 void MainWindow::processSyntheticMessage(DecodedText const& message)
 {
-  auto snapshot = qsoReactionSnapshot();
-  snapshot.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Synthetic;
+  processSyntheticMessage(message, DecodedMessageReaction::SelectionOrigin::Synthetic);
+}
+
+void MainWindow::processSyntheticMessage(DecodedText const& message,
+                                         DecodedMessageReaction::SelectionOrigin origin)
+{
+  auto const snapshot = qsoReactionSnapshot(Qt::NoModifier, origin);
   applyQsoReactionPlan(DecodedMessageReaction::planProcessMessage(message, snapshot), message);
 }
 void MainWindow::setTxMsg(int n)
@@ -9562,6 +9822,12 @@ void MainWindow::set_rr73_tx4 (bool enabled)
 
 void MainWindow::ScrollBarPosition(int n) {
   m_position=n;
+}
+
+void MainWindow::genStdMsgsForSelection(QString const& rpt, bool unconditional)
+{
+  if (!m_hisCall.isEmpty()) m_autoRespondPeriodState.disarm();
+  genStdMsgs(rpt, unconditional);
 }
 
 void MainWindow::genStdMsgs(QString rpt, bool unconditional)
@@ -11624,6 +11890,7 @@ void MainWindow::on_actionQ65_triggered()
 void MainWindow::on_actionJTTY_triggered()
 {
   if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
+  bool const enteringJtty = m_mode != "JTTY";
   noteTxModeChange (QStringLiteral ("JTTY"));
   on_stopButton_clicked();
   m_mode = "JTTY";
@@ -11644,13 +11911,14 @@ void MainWindow::on_actionJTTY_triggered()
   m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  ui->TxFreqSpinBox_2->setValue(1500);
-  ui->RxFreqSpinBox_2->setValue(1500);
+  if (enteringJtty)
+    {
+      ui->TxFreqSpinBox_2->setValue(1500);
+      ui->RxFreqSpinBox_2->setValue(1500);
+    }
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({2, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
-  // setValue() above is a no-op (no valueChanged signal) if the spinbox
-  // already held this value from a prior JTTY session, so set the plotter
-  // state directly rather than relying on that signal to reach it.
+  // Reapply the marker because setting the spinbox to its existing value emits no change.
   m_wideGraph->setRxFreq(ui->RxFreqSpinBox_2->value());
   m_wideGraph->setTol(ui->sbFtol_2->value());
   m_fastGraph->hide();
@@ -11905,13 +12173,7 @@ void MainWindow::switch_mode (Mode mode)
     m_q65PileupCopiedLastRxCall.clear();
     m_q65PileupCopiedCallers.clear();
   }
-  // Sit just under the decoded-text panes, outside the per-mode
-  // displayWidgets()/ModeUiControl mechanism -- only meaningful for JTTY.
-  bool const jtty = m_mode=="JTTY";
-  updateJttyReceivePolicy(jtty);
-  progressBar.setVisible(!jtty);
-  ui->cbLowerCase->setVisible(jtty);
-  ui->cbIncludeTime->setVisible(jtty);
+  updateJttyReceivePolicy(m_mode == "JTTY");
   if (mode != Modes::MSK144) m_msk144basefreq = 0;
   no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
   msk144qsy = false;     // MSK144 QSY
@@ -11957,13 +12219,18 @@ void MainWindow::switch_mode (Mode mode)
         && ui->actionAstronomical_data->isChecked () && m_config.auto_astro()) ui->actionAstronomical_data->setChecked (false);
   });
   check_button_color();
-  ui->autoButton->setEnabled(m_mode != "JTTY");
-  ui->autoButton->setVisible(m_mode != "JTTY");
   updateDecodeControls ();
 }
 
 void MainWindow::WSPR_config(bool b)
 {
+  // Hound mode skips switch_mode() to preserve the operating frequency.
+  bool const jtty = m_mode == "JTTY";
+  progressBar.setVisible(!jtty);
+  ui->cbLowerCase->setVisible(jtty);
+  ui->cbIncludeTime->setVisible(jtty);
+  ui->autoButton->setEnabled(!jtty);
+  ui->autoButton->setVisible(!jtty);
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version
   ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 2 : 0);
   if(m_mode=="Echo") ui->controls_stack_widget->setCurrentIndex(3);
@@ -12985,7 +13252,7 @@ void MainWindow::rigFailure (QString const& reason)
 
 void MainWindow::dispatchTxRequest (TxEvidence::TxRequest const& request)
 {
-  bool const useTciAudio = request.mode == QStringLiteral ("JTTY")
+  bool const useTciAudio = request.mode == QStringLiteral ("JTTY") && !request.tuning
     ? m_jttyTxLifecycle.backend () == JttyTxLifecycle::Backend::Tci
     : m_tci_audio;
   if (useTciAudio)
@@ -13641,6 +13908,7 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
                             , QString const& mode, QString const& message_text
                             , bool /*low_confidence*/, quint8 modifiers)
 {
+  QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, false};
   auto const& time_string = time.toString ("~" == mode || "&" == mode || "+" == mode
                                            || (m_TRperiod < 60. && ("`" == mode || ":" == mode))
                                            ? "hhmmss" : "hhmm");
@@ -14526,7 +14794,7 @@ void MainWindow::tx_watchdog (bool triggered)
       tx_status_label.setStyleSheet ("QLabel{color: #ffffff; background-color: #ff0000}");
       tx_status_label.setText (tr (" Runaway Tx watchdog "));
       QApplication::alert (this);
-      if (SpecOp::HOUND == m_specOp) ui->txrb1->click ();   // Go back to Tx1
+      if (SpecOp::HOUND == m_specOp) selectTxNextMessage(1);
       if (m_jttyTxLifecycle.active ()) stopTx ();
 #ifdef WIN32
       finalizeMmttyExternalAbort ();
@@ -17586,10 +17854,11 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && AutoRespondPolicy::First == periodPolicy
     && m_autoRespondPeriodState.claimFirst(decodePeriodStart);
   if (selectPounceFirst || selectCurrentFirst) {
+    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
     m_bDoubleClicked=true;
     if (selectPounceFirst) m_autoRespondSelectionLatch.selectFor();
     auto_tx_mode(true);
-    processSyntheticMessage(decodedtext);
+    processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
     auto now = QDateTime::currentDateTimeUtc();
     m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
     if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
@@ -17618,10 +17887,11 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     int distancePoints=nDkm;
     if (!deGrid.contains(MainWindow::grid_regexp)) distancePoints=1;
     if(m_autoRespondScores.considerDistance(distancePoints)) {
+      QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
       m_deCall=deCall;
       m_bDoubleClicked=true;
       auto_tx_mode(true);
-      processSyntheticMessage(decodedtext);
+      processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
       ui->dxCallEntry->setText(deCall);
       genStdMsgs(QString::number(decodedtext.snr()));
@@ -17644,10 +17914,11 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && AutoRespondPolicy::MaxSignal == periodPolicy;
   if ((selectPounceMaximum || selectCurrentMaximum)
       && m_autoRespondScores.considerMaximumDb(decodedtext.snr())) {
+    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
     m_deCall=deCall;
     m_bDoubleClicked=true;
     auto_tx_mode(true);
-    processSyntheticMessage(decodedtext);
+    processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
     if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
     ui->dxCallEntry->setText(deCall);
     genStdMsgs(QString::number(decodedtext.snr()));
@@ -17669,10 +17940,11 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && AutoRespondPolicy::MinSignal == periodPolicy;
   if ((selectPounceMinimum || selectCurrentMinimum)
       && m_autoRespondScores.considerMinimumDb(decodedtext.snr())) {
+    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
     m_deCall=deCall;
     m_bDoubleClicked=true;
     auto_tx_mode(true);
-    processSyntheticMessage(decodedtext);
+    processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
     if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
     ui->dxCallEntry->setText(deCall);
     genStdMsgs(QString::number(decodedtext.snr()));

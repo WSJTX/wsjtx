@@ -28,7 +28,9 @@ linux_ci_image_set_for_inputs() {
     if is_linux_ci_image_input normal-noble "$path" ||
        is_linux_ci_image_input normal-bookworm "$path" ||
        is_linux_ci_image_input armhf-cross-bookworm "$path" ||
-       is_linux_ci_image_input armhf-runtime-bookworm "$path"; then
+       is_linux_ci_image_input armhf-runtime-bookworm "$path" ||
+       is_linux_ci_image_input armhf-cross-trixie "$path" ||
+       is_linux_ci_image_input armhf-runtime-trixie "$path"; then
       normal=true
     fi
     if is_linux_ci_image_input tsan-noble "$path"; then
@@ -78,6 +80,10 @@ if [ "${1:-}" = "--self-test" ]; then
   expect_input normal-bookworm ".github/images/linux-ci/Dockerfile.bookworm"
   expect_input armhf-cross-bookworm ".github/images/linux-ci/Dockerfile.armhf-cross"
   expect_input armhf-runtime-bookworm ".github/images/linux-ci/Dockerfile.armhf-runtime"
+  expect_input armhf-cross-trixie ".github/images/linux-ci/Dockerfile.armhf-cross-trixie"
+  expect_input armhf-runtime-trixie ".github/images/linux-ci/Dockerfile.armhf-runtime"
+  expect_non_input armhf-cross-trixie ".github/images/linux-ci/armhf-cross-toolchain.config"
+  expect_image_set normal ".github/images/linux-ci/Dockerfile.armhf-cross-trixie"
   expect_input armhf-runtime-bookworm ".github/images/linux-ci/install-armhf-runtime-packages.sh"
   expect_non_input normal-noble ".github/images/linux-ci/install-armhf-runtime-packages.sh"
   expect_input armhf-cross-bookworm ".github/images/linux-ci/armhf-cross-toolchain.config"

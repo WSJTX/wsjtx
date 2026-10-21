@@ -26,8 +26,16 @@ if [ -f "$fixture" ]; then cat "$fixture"; fi
 """
 
 READELF_STUB = """#!/bin/sh
-case "$1" in -dW) kind=d ;; -VW) kind=V ;; *) exit 2 ;; esac
-fixture="$STUB_FIXTURES/readelf.$kind.$(basename "$2")"
+case "$1" in
+  -dW) kind=d ;;
+  -VW) kind=V ;;
+  -hW) printf '%s\\n' 'Class: ELF32' 'Machine: ARM' 'Flags: Version5 EABI, hard-float ABI'; exit 0 ;;
+  -lW) echo '/lib/ld-linux-armhf.so.3'; exit 0 ;;
+  *) exit 2 ;;
+esac
+shift
+[ "$1" != -- ] || shift
+fixture="$STUB_FIXTURES/readelf.$kind.$(basename "$1")"
 if [ -f "$fixture" ]; then cat "$fixture"; fi
 """
 
@@ -147,9 +155,9 @@ class PackageCliToolsTests(unittest.TestCase):
     # macOS: the CLI assets directory as deploy-macos-cli-tools.sh leaves it.
     # Fixture names differ by more than case: macOS file systems ignore it.
     def macos_assets(self):
-        self.files(self.source, ["jt9", "jt9stream", "wsprd", "encode77"])
+        self.files(self.source, ["jt9", "wsjt-codec", "wsprd", "encode77"])
         self.files(self.source / "lib", ["QtCore", "libfftw3f.3.dylib", "libfftw3f_threads.3.dylib", "libmystery.dylib"])
-        for program in ("jt9", "jt9stream", "encode77"):
+        for program in ("jt9", "wsjt-codec", "encode77"):
             self.fixture(f"otool.load.{program}", rpath("@loader_path/lib") + MINOS)
         self.fixture("otool.load.wsprd", rpath("@loader_path") + rpath("@loader_path/lib") + MINOS)
         for library in ("QtCore", "libfftw3f.3.dylib", "libfftw3f_threads.3.dylib"):
@@ -161,7 +169,7 @@ class PackageCliToolsTests(unittest.TestCase):
             "\t@rpath/QtCore (compatibility version 5.15.0, current version 5.15.18)",
             "\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 1900.180.0)",
         ])
-        self.fixture("otool.refs.jt9stream", ["\t@rpath/libfftw3f_threads.3.dylib (compatibility version 9.0.0)"])
+        self.fixture("otool.refs.wsjt-codec", ["\t@rpath/libfftw3f_threads.3.dylib (compatibility version 9.0.0)"])
         self.fixture("otool.refs.wsprd", ["\t@rpath/libfftw3f.3.dylib (compatibility version 9.0.0)"])
         self.fixture("otool.refs.encode77", ["\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)"])
         self.fixture("otool.refs.QtCore", [
@@ -174,7 +182,7 @@ class PackageCliToolsTests(unittest.TestCase):
         ])
         self.fixture("otool.refs.libfftw3f.3.dylib", ["\t/Users/runner/work/fftw-prefix/lib/libfftw3f.3.dylib (compatibility version 9.0.0)"])
 
-    MACOS_GROUPS = ["jt9 jt9", "jt9stream jt9stream", "wsprd wsprd", "utilities encode77"]
+    MACOS_GROUPS = ["jt9 jt9", "codec wsjt-codec", "wsprd wsprd", "utilities encode77"]
 
     def test_macos_tarballs_hold_each_group_and_the_dylibs_it_reaches(self):
         self.macos_assets()
@@ -186,8 +194,8 @@ class PackageCliToolsTests(unittest.TestCase):
             sorted([*documents, "jt9", "lib/QtCore", "lib/libfftw3f.3.dylib", "lib/libfftw3f_threads.3.dylib"]),
         )
         self.assertEqual(
-            self.members("wsjtx-9.9.9-x86_64-macOS-jt9stream"),
-            sorted([*documents, "jt9stream", "lib/libfftw3f.3.dylib", "lib/libfftw3f_threads.3.dylib"]),
+            self.members("wsjtx-9.9.9-x86_64-macOS-codec"),
+            sorted([*documents, "wsjt-codec", "lib/libfftw3f.3.dylib", "lib/libfftw3f_threads.3.dylib"]),
         )
         self.assertEqual(
             self.members("wsjtx-9.9.9-x86_64-macOS-wsprd"), sorted([*documents, "wsprd", "lib/libfftw3f.3.dylib"])
@@ -202,7 +210,7 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertIn("Joseph Taylor, K1JT;", readme)
         self.assertTrue(readme.rstrip().endswith("other members of the WSJT Development Group."), readme)
         self.assertNotIn("_{prog}_", readme)
-        self.assertIn("jt9stream, in its own tarball, is the same decoder", readme)
+        self.assertIn("wsjt-codec, in its own tarball, is the same decoder", readme)
         self.assertNotIn("mingw-w64", self.text("wsjtx-9.9.9-x86_64-macOS-jt9", "THIRD-PARTY.txt"))
         notices = self.text("wsjtx-9.9.9-x86_64-macOS-jt9", "THIRD-PARTY.txt")
         self.assertIn("Files: QtCore", notices)
@@ -272,7 +280,7 @@ class PackageCliToolsTests(unittest.TestCase):
         self.fixture("otool.refs.libfftw3f_threads.3.dylib", ["\t@loader_path/libfftw3f.3.dylib (compatibility version 9.0.0)"])
         result = self.package("macos", self.MACOS_GROUPS)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("lib/libfftw3f.3.dylib", self.members("wsjtx-9.9.9-x86_64-macOS-jt9stream"))
+        self.assertIn("lib/libfftw3f.3.dylib", self.members("wsjtx-9.9.9-x86_64-macOS-codec"))
 
     def test_macos_reference_escaping_the_source_fails(self):
         self.macos_assets()
@@ -297,7 +305,7 @@ class PackageCliToolsTests(unittest.TestCase):
     def test_macos_legacy_minimum_version_is_recorded_for_every_tarball(self):
         self.macos_assets()
         source_version = ["Load command 10", "      cmd LC_SOURCE_VERSION", "  cmdsize 16", "  version 99.0"]
-        for program in ("jt9", "jt9stream", "wsprd", "encode77"):
+        for program in ("jt9", "wsjt-codec", "wsprd", "encode77"):
             self.fixture(
                 f"otool.load.{program}",
                 source_version + rpath("@loader_path/lib") + version_min_macosx("10.13") + source_version,
@@ -306,7 +314,7 @@ class PackageCliToolsTests(unittest.TestCase):
             self.fixture(f"otool.load.{library}", version_min_macosx("10.13") + source_version)
         result = self.package("macos", self.MACOS_GROUPS)
         self.assertEqual(result.returncode, 0, result.stderr)
-        for group in ("jt9", "jt9stream", "wsprd", "utilities"):
+        for group in ("jt9", "codec", "wsprd", "utilities"):
             self.assertIn(
                 "They require macOS 10.13 or later.",
                 self.text(f"wsjtx-9.9.9-x86_64-macOS-{group}", "README.txt"),
@@ -347,7 +355,7 @@ class PackageCliToolsTests(unittest.TestCase):
 
     def test_tarball_named_twice_fails(self):
         self.macos_assets()
-        self.assert_failed(self.package("macos", ["wsprd wsprd", "jt9 jt9", "wsprd jt9stream"]), "release tarball wsprd is named twice")
+        self.assert_failed(self.package("macos", ["wsprd wsprd", "jt9 jt9", "wsprd wsjt-codec"]), "release tarball wsprd is named twice")
 
     def test_tarball_without_readme_description_fails(self):
         self.macos_assets()
@@ -355,8 +363,8 @@ class PackageCliToolsTests(unittest.TestCase):
 
     def test_missing_program_fails_naming_it(self):
         self.macos_assets()
-        (self.source / "jt9stream").unlink()
-        self.assert_failed(self.package("macos", self.MACOS_GROUPS), "missing under", "jt9stream")
+        (self.source / "wsjt-codec").unlink()
+        self.assert_failed(self.package("macos", self.MACOS_GROUPS), "missing under", "wsjt-codec")
 
     def test_group_without_programs_fails(self):
         self.macos_assets()
@@ -397,6 +405,34 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertEqual(notices.count("  Linked statically into the programs"), 1)
         self.assertNotIn("libquadmath", notices)
 
+    def test_windows_ucrt_api_set_imports_are_part_of_windows(self):
+        (self.root / "system").mkdir()
+        self.fixture("objdump.encode77.exe", ["\tDLL Name: api-ms-win-crt-runtime-l1-1-0.dll", "\tDLL Name: API-MS-WIN-CRT-HEAP-L1-1-0.dll"])
+        self.files(self.source, ["jt9.exe", "encode77.exe"])
+        self.files(self.root / "dlls", [])
+        self.fixture("objdump.jt9.exe", [])
+        result = self.package(
+            "windows", ["jt9 jt9", "utilities encode77"],
+            "--dll-dir", str(self.root / "dlls"), "--system-dir", str(self.root / "system"),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.members("wsjtx-9.9.9-windows-x86_64-utilities"), ["COPYING", "README.txt", "THIRD-PARTY.txt", "encode77.exe"]
+        )
+        self.assertIn("Universal C Runtime, part of Windows 10 and later", self.text("wsjtx-9.9.9-windows-x86_64-utilities", "README.txt"))
+
+    def test_windows_other_api_set_imports_need_a_file(self):
+        (self.root / "system").mkdir()
+        self.fixture("objdump.encode77.exe", ["\tDLL Name: api-ms-win-core-synch-l1-2-0.dll", "\tDLL Name: ext-ms-win-ntuser-window-l1-1-0.dll"])
+        self.files(self.source, ["jt9.exe", "encode77.exe"])
+        self.files(self.root / "dlls", [])
+        self.fixture("objdump.jt9.exe", [])
+        result = self.package(
+            "windows", ["jt9 jt9", "utilities encode77"],
+            "--dll-dir", str(self.root / "dlls"), "--system-dir", str(self.root / "system"),
+        )
+        self.assert_failed(result, "api-ms-win-core-synch-l1-2-0.dll(encode77.exe)", "ext-ms-win-ntuser-window-l1-1-0.dll(encode77.exe)")
+
     def test_windows_import_outside_dll_and_system_dirs_fails(self):
         (self.root / "system").mkdir()
         self.fixture("objdump.encode77.exe", ["\tDLL Name: libmissing.dll"])
@@ -414,20 +450,20 @@ class PackageCliToolsTests(unittest.TestCase):
 
     # Linux: linuxdeploy and readelf are stubbed; the excludelist is the committed one.
     def linux_build(self):
-        self.files(self.source, ["jt9", "jt9stream", "wsjtx"])
+        self.files(self.source, ["jt9", "wsjt-codec", "wsjtx"])
         self.files(self.fixtures / "appdir-lib", ["libQt5Core.so.5", "libicuuc.so.74", "libgfortran.so.5"])
         self.fixture("deploys.jt9", ["libQt5Core.so.5", "libicuuc.so.74", "libgfortran.so.5"])
-        self.fixture("deploys.jt9stream", ["libgfortran.so.5"])
+        self.fixture("deploys.wsjt-codec", ["libgfortran.so.5"])
         self.fixture("readelf.d.jt9", needed("libQt5Core.so.5", "libgfortran.so.5", "libc.so.6", runpath="$ORIGIN/../lib"))
         self.fixture("readelf.V.jt9", versions("GLIBC_2.34", "GLIBC_2.2.5"))
-        self.fixture("readelf.d.jt9stream", needed("libgfortran.so.5", "libm.so.6", runpath="${ORIGIN}/../lib"))
-        self.fixture("readelf.V.jt9stream", versions("GLIBC_2.29"))
+        self.fixture("readelf.d.wsjt-codec", needed("libgfortran.so.5", "libm.so.6", runpath="${ORIGIN}/../lib"))
+        self.fixture("readelf.V.wsjt-codec", versions("GLIBC_2.29"))
         self.fixture("readelf.d.libQt5Core.so.5", needed("libicuuc.so.74", "libstdc++.so.6", runpath="$ORIGIN"))
         self.fixture("readelf.V.libQt5Core.so.5", versions("GLIBC_2.38", "GLIBCXX_3.4.9", "GLIBCXX_3.4.30", "CXXABI_1.3.13"))
         self.fixture("readelf.d.libicuuc.so.74", needed("libstdc++.so.6", runpath="${ORIGIN}"))
         self.fixture("readelf.d.libgfortran.so.5", needed("libc.so.6", "ld-linux-aarch64.so.1", runpath="$ORIGIN"))
 
-    def linux_package(self, groups=("jt9 jt9", "jt9stream jt9stream")):
+    def linux_package(self, groups=("jt9 jt9", "codec wsjt-codec")):
         return self.package("linux", list(groups), "--linuxdeploy", str(self.bin / "linuxdeploy"))
 
     def test_linux_tarballs_bundle_deployed_libraries_and_state_host_requirements(self):
@@ -446,17 +482,54 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertIn("these libraries: ld-linux-aarch64.so.1 libc.so.6 libstdc++.so.6.", readme)
         self.assertIn("ICU 74\n", self.text("wsjtx-9.9.9-linux-x86_64-jt9", "THIRD-PARTY.txt"))
         self.assertIn("without it", readme)
-        self.assertIn("glibc 2.29 or later, and these libraries", self.text("wsjtx-9.9.9-linux-x86_64-jt9stream", "README.txt"))
+        self.assertIn("glibc 2.29 or later, and these libraries", self.text("wsjtx-9.9.9-linux-x86_64-codec", "README.txt"))
         self.assertIn("share/doc/", self.text("wsjtx-9.9.9-linux-x86_64-jt9", "THIRD-PARTY.txt"))
         log = (self.fixtures / "linuxdeploy.log").read_text(encoding="utf-8").splitlines()
         self.assertTrue(log[0].startswith("--appimage-extract-and-run --appdir "), log[0])
         self.assertTrue(log[0].endswith(f"--executable {self.source}/jt9"), log[0])
         self.assertEqual(log[1:3], ["token=unset", "extract=1"])
 
+    def test_armhf_distro_tarballs_have_distinct_names_and_top_directories(self):
+        self.linux_build()
+        (self.bin / "file").write_text(
+            "#!/bin/sh\necho 'ELF 32-bit LSB shared object, ARM, EABI5 version 1'\n",
+            encoding="utf-8",
+        )
+        (self.bin / "file").chmod(0o755)
+        (self.bin / "dpkg").write_text(
+            "#!/bin/sh\npython3 -c 'import sys; sys.exit(not (tuple(map(int, sys.argv[1].split(\".\"))) > tuple(map(int, sys.argv[2].split(\".\")))))' \"$2\" \"$4\"\n",
+            encoding="utf-8",
+        )
+        (self.bin / "dpkg").chmod(0o755)
+        for distro in ("bookworm", "trixie"):
+            with self.subTest(distro=distro):
+                result = self.package(
+                    "linux", ["codec wsjt-codec"], "--arch", "armhf",
+                    "--distro", distro, "--linuxdeploy", str(self.bin / "linuxdeploy"),
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                name = f"wsjtx-9.9.9-linux-armhf-{distro}-codec"
+                self.assertIn("bin/wsjt-codec", self.members(name))
+                self.assertIn(f"for linux-armhf-{distro}", self.text(name, "README.txt"))
+        self.assertEqual(len(list(self.out.glob("*.tar.gz"))), 2)
+
+    def test_distro_is_restricted_to_supported_armhf_linux_targets(self):
+        for platform, arch, distro in (
+            ("linux", "x86_64", "bookworm"),
+            ("macos", "armhf", "bookworm"),
+            ("linux", "armhf", "sid"),
+        ):
+            with self.subTest(platform=platform, arch=arch, distro=distro):
+                result = self.package(
+                    platform, ["codec wsjt-codec"], "--arch", arch, "--distro", distro,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("--distro requires linux armhf", result.stderr)
+
     def test_linux_library_neither_bundled_nor_excluded_fails(self):
         self.linux_build()
-        self.fixture("readelf.d.jt9stream", needed("libfftw3f.so.3", runpath="$ORIGIN/../lib"))
-        self.assert_failed(self.linux_package(), "libfftw3f.so.3(bin/jt9stream)")
+        self.fixture("readelf.d.wsjt-codec", needed("libfftw3f.so.3", runpath="$ORIGIN/../lib"))
+        self.assert_failed(self.linux_package(), "libfftw3f.so.3(bin/wsjt-codec)")
 
     def test_linux_runpath_is_not_inherited_by_bundled_libraries(self):
         self.linux_build()
@@ -565,6 +638,21 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
         self.assertTrue(lines[3].startswith("ft4sim  lib=unset"), lines[3])
         self.assertEqual((self.root / "timeout.log").read_text(encoding="utf-8").split(), ["120"] * 4)
 
+    def test_every_committed_group_has_a_smoke_invocation(self):
+        script = self.scripts_copy()
+        lines = [
+            line.strip()
+            for line in (ROOT / "CMake/release-tarballs.txt").read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        for line in lines:
+            group, *programs = line.split()
+            self.tarball(group, programs)
+        result = self.smoke(lines, script=script)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        ran = [entry.split(" ", 1)[0] for entry in self.log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(ran, [program for line in lines for program in line.split()[1:]])
+
     def scripts_copy(self):
         scripts = self.root / "repo/.github/scripts"
         scripts.mkdir(parents=True)
@@ -618,7 +706,7 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
         self.assertIn("ft4sim from wsjtx-9.9.9-linux-x86_64-utilities failed", result.stderr)
 
     def test_program_missing_from_its_tarball_fails(self):
-        self.tarball("jt9", ["jt9stream"])
+        self.tarball("jt9", ["wsjt-codec"])
         result = self.smoke(["jt9 jt9"])
         self.assertEqual(result.returncode, 1)
         self.assertIn("jt9 is not in wsjtx-9.9.9-linux-x86_64-jt9", result.stderr)

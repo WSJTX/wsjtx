@@ -10,10 +10,10 @@
 ! point). The configure_fields -> params APPLY routing lives in the module-public
 ! streaming_apply::apply_configure_fields and is asserted by
 ! test/run-apply-routing-unit.sh (which includes the 24 Phase 6 slot asserts +
-! the multithreaded_ft8 ignore-non-false guard). All 24 Phase 6 keys are inert on
-! the FT8/JT9 fixtures (multithreaded_ft8 is destructive and
-! apply-guarded, the rest read only on multithread/JT65/superfox/WAV paths or have
-! no AP-only decodes on the fixture), so no decode-output gate can assert their
+! the multithreaded_ft8 pass-through frame). Without multithreaded_ft8 the other
+! 23 Phase 6 keys are inert on the FT8/JT9 fixtures (read only on
+! multithread/JT65/superfox/WAV paths or no AP-only decodes on the fixture),
+! so no decode-output gate can assert their
 ! values; this parse-unit + the apply-routing unit are their coverage.
 program p6_parse_test
   use streaming_control, only: parse_control_frame, configure_fields,        &

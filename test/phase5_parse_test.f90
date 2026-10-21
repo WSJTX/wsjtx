@@ -13,10 +13,10 @@
 ! public streaming_apply::apply_configure_fields (extracted from the
 ! former nested-internal apply_configure_) and is asserted by
 ! test/run-apply-routing-unit.sh. For Phase 5, 10 of 12 fields are observably
-! inert on the FT8/JT9 fixtures; the two observable keys (nagain_flag -> FT8,
-! npts_c0_array -> JT9) ALSO get a decode-effect gate in run-schema-v1-fixtures.sh
-! (Gates 11/12), which proves they reach the decoder (apply routed them to a
-! decode-affecting param).
+! inert on the FT8/JT9 fixtures; npts_c0_array has a decode-effect gate in
+! run-schema-v1-fixtures.sh (Gate 12, on JT9 alone, which decodes without npts8
+! in the engine, so the gate fails), and nagain_flag, a decode-again request,
+! gets a refusal gate (Gate 11).
 program p5_parse_test
   use streaming_control, only: parse_control_frame, configure_fields,        &
        control_type_error, CTRL_CONFIGURE

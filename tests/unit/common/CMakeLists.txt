@@ -1,6 +1,21 @@
+qt5_wrap_ui (test_astro_UIS ${CMAKE_SOURCE_DIR}/widgets/astro.ui)
+add_executable (test_astro
+  test_astro.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/astro.cpp
+  ${test_astro_UIS}
+)
+target_include_directories (test_astro PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries (test_astro wsjt_qt wsjt_fort_common Qt5::Test Qt5::Widgets)
+add_test (NAME test_astro COMMAND test_astro)
+set_tests_properties (test_astro PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable (test_radio_callsign test_radio_callsign.cpp)
 target_link_libraries (test_radio_callsign wsjt_qt Qt5::Test)
 add_test (NAME test_radio_callsign COMMAND test_radio_callsign)
+
+add_executable (test_tx_output_fault_policy test_tx_output_fault_policy.cpp)
+target_link_libraries (test_tx_output_fault_policy Qt5::Core Qt5::Test)
+add_test (NAME test_tx_output_fault_policy COMMAND test_tx_output_fault_policy)
 
 add_executable (test_frequency_list
   test_frequency_list.cpp
@@ -201,6 +216,7 @@ add_test (NAME test_tx_inhibit_transceiver COMMAND test_tx_inhibit_transceiver)
 add_executable (test_hamlib_mode
   test_hamlib_mode.cpp
 )
+target_include_directories (test_hamlib_mode PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_hamlib_mode wsjt_qt Qt5::Test)
 add_test (NAME test_hamlib_mode COMMAND test_hamlib_mode)
 
@@ -234,6 +250,7 @@ set_tests_properties (test_frequency_suggestions PROPERTIES ENVIRONMENT "QT_QPA_
 
 add_executable (test_decoded_message_reaction
   test_decoded_message_reaction.cpp
+  ${CMAKE_SOURCE_DIR}/AutoRespondPeriod.cpp
 )
 target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)
@@ -350,3 +367,62 @@ add_test (NAME test_mainwindow_compact_controls_scaled COMMAND test_mainwindow_c
 set_tests_properties (test_mainwindow_compact_controls_scaled PROPERTIES
   ENVIRONMENT "QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
 )
+
+qt5_add_translation (test_l10n_QM_FILES
+  l10n/wsjtx_hu.ts
+  l10n/wsjtx_de.ts
+  l10n/wsjtx_de_AT.ts
+  l10n/wsjtx_en_GB.ts
+  l10n/qt_hu.ts
+  l10n/qt_de.ts
+  l10n/local_de.ts
+)
+set (test_l10n_RESOURCES "<RCC><qresource prefix=\"/Translations\">")
+foreach (catalog ${test_l10n_QM_FILES})
+  get_filename_component (catalog_name ${catalog} NAME)
+  string (APPEND test_l10n_RESOURCES "<file alias=\"${catalog_name}\">${catalog}</file>")
+endforeach ()
+string (APPEND test_l10n_RESOURCES "</qresource></RCC>")
+file (WRITE ${CMAKE_CURRENT_BINARY_DIR}/test_l10n.qrc "${test_l10n_RESOURCES}")
+qt5_add_resources (test_l10n_RCC ${CMAKE_CURRENT_BINARY_DIR}/test_l10n.qrc)
+add_executable (test_l10n_loader
+  test_l10n_loader.cpp
+  ${CMAKE_SOURCE_DIR}/L10nLoader.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
+  ${test_l10n_QM_FILES}
+  ${test_l10n_RCC}
+)
+target_link_libraries (test_l10n_loader Boost::log_setup Qt5::Test Qt5::Widgets Qt5::Network)
+add_test (NAME test_l10n_loader COMMAND test_l10n_loader)
+set_tests_properties (test_l10n_loader PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable (test_configuration_language test_configuration_language.cpp)
+target_link_libraries (test_configuration_language wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test)
+add_test (NAME test_configuration_language COMMAND test_configuration_language)
+set_tests_properties (test_configuration_language PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 60)
+
+set (test_widegraph_palette_RESOURCES "<RCC><qresource prefix=\"/Palettes\">")
+foreach (palette Default Digipan)
+  string (APPEND test_widegraph_palette_RESOURCES
+    "<file alias=\"${palette}.pal\">${CMAKE_SOURCE_DIR}/Palettes/${palette}.pal</file>")
+endforeach ()
+string (APPEND test_widegraph_palette_RESOURCES "</qresource></RCC>")
+file (WRITE ${CMAKE_CURRENT_BINARY_DIR}/test_widegraph_palette.qrc "${test_widegraph_palette_RESOURCES}")
+qt5_add_resources (test_widegraph_palette_RCC ${CMAKE_CURRENT_BINARY_DIR}/test_widegraph_palette.qrc)
+qt5_wrap_ui (test_widegraph_palette_UIS ${CMAKE_SOURCE_DIR}/widgets/widegraph.ui)
+add_executable (test_widegraph_palette test_widegraph_palette.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/widegraph.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/plotter.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/JttySpectrum.cpp
+  ${test_widegraph_palette_UIS}
+  ${test_l10n_QM_FILES} ${test_l10n_RCC} ${test_widegraph_palette_RCC})
+target_include_directories (test_widegraph_palette PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries (test_widegraph_palette wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test)
+add_test (NAME test_widegraph_palette COMMAND test_widegraph_palette)
+set_tests_properties (test_widegraph_palette PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 30)

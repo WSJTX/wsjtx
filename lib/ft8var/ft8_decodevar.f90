@@ -67,11 +67,12 @@ contains
     use ft8_mtd_residual, only : mtd_publish_worker,mtd_transform_phase
     use decode_completion_module, only : write_decode_progress
 
-    use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
-         lastrxmsg,calldteven,calldtodd,incall,oddcopy,evencopy,                &
+    use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg, &
+         ft8_store_decoded_message_locked,    &
+         calldteven,calldtodd, &
          avexdt,mycall,hiscall,nft8cycles,ncandallthr,nincallthr,evencq,        &
          oddcq,numcqsig,numdeccq,evenmyc,oddmyc,nummycsig,numdecmyc,lapmyc,     &
-         evenqso,oddqso,lqsomsgdcd,hisgrid4
+         evenqso,oddqso,ft8_qso_hints_suppressed,hisgrid4
 
     interface
        subroutine wsjt_tsan_acquire_ft8_find_dupes() bind(C)
@@ -166,46 +167,6 @@ contains
     lnohisgrid=.false.
     if(len_trim(hisgrid4).ne.4) lnohisgrid=.true.
     if(nfqso.ge.nfa .and. nfqso.le.nfb) lqsothread=.true.
-
-    if(lqsothread .and. .not.lastrxmsg(1)%lstate .and. .not.stophint .and.     &
-         hiscall.ne.'') then
-! got incoming call
-       do i=1,30
-          if(incall(i)%msg(1:1).eq." ") exit
-          if(index(incall(i)%msg,(trim(mycall)//' '//trim(hiscall))).eq.1) then
-             lastrxmsg(1)%lastmsg=incall(i)%msg
-             lastrxmsg(1)%xdt=incall(i)%xdt
-             lastrxmsg(1)%lstate=.true.
-             exit
-          endif
-       enddo
-
-       if(.not.lastrxmsg(1)%lstate) then
-! calling someone, lastrxmsg still not valid
-          if(levenint) then
-             do i=1,130
-                if(.not.evencopy(i)%lstate) cycle
-                if(index(evencopy(i)%msg,' '//trim(hiscall)//' ').gt.1) then
-                   lastrxmsg(1)%lastmsg=evencopy(i)%msg
-                   lastrxmsg(1)%xdt=evencopy(i)%dt
-                   lastrxmsg(1)%lstate=.true.
-                   exit
-                endif
-             enddo
-
-          elseif(loddint) then
-             do i=1,130
-                if(.not.oddcopy(i)%lstate) cycle
-                if(index(oddcopy(i)%msg,' '//trim(hiscall)//' ').gt.1) then
-                   lastrxmsg(1)%lastmsg=oddcopy(i)%msg
-                   lastrxmsg(1)%xdt=oddcopy(i)%dt
-                   lastrxmsg(1)%lstate=.true.
-                   exit
-                endif
-             enddo
-          endif
-       endif
-    endif
 
 ! sliding search over +/- 2.5s relative to 0.5s TX start time
     jzb=-62 + avexdt*25.
@@ -318,13 +279,8 @@ contains
                 endif
                 
                 if(.not.ldupe) then
+                   if(.not.ft8_store_decoded_message_locked(msg37,nsnr,f1)) cycle
                    if(.not.lFreeText .and. k.eq.1) call extract_callvar(msg37,call2)
-!!!$omp critical(update_arrays)
-                   ndecodes=ndecodes+1
-                   allmessages(ndecodes)=msg37
-                   allsnrs(ndecodes)=nsnr
-                   allfreq(ndecodes)=f1
-
                    if(.not.lhidemsg) then
  ! simulated wav tests affected, structure contains data for at least previous and current even|odd intervals
                       if(levenint) then
@@ -337,7 +293,6 @@ contains
                          calldtodd(1)%dt=xdt
                       endif
                    endif
-!!!$omp end critical(update_arrays)
 
                    if(.not.lhidemsg) then
                       msg26=msg37(1:37) !ft8md was 1:26
@@ -436,7 +391,7 @@ contains
           do ik=1,nmycsignal
              evenmyc(ik,nthr)%cs=tmpmycsig(ik)%cs
           enddo
-          if(.not.lqsomsgdcd .and. tmpqsosig(1)%freq.lt.5001.) then
+          if(.not.ft8_qso_hints_suppressed() .and. tmpqsosig(1)%freq.lt.5001.) then
              evenqso(1,nthr)%freq=tmpqsosig(1)%freq
              evenqso(1,nthr)%xdt=tmpqsosig(1)%xdt
              evenqso(1,nthr)%cs=tmpqsosig(1)%cs
@@ -454,7 +409,7 @@ contains
           do ik=1,nmycsignal
              oddmyc(ik,nthr)%cs=tmpmycsig(ik)%cs
           enddo
-          if(.not.lqsomsgdcd .and. tmpqsosig(1)%freq.lt.5001.) then
+          if(.not.ft8_qso_hints_suppressed() .and. tmpqsosig(1)%freq.lt.5001.) then
              oddqso(1,nthr)%freq=tmpqsosig(1)%freq
              oddqso(1,nthr)%xdt=tmpqsosig(1)%xdt
              oddqso(1,nthr)%cs=tmpqsosig(1)%cs

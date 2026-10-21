@@ -81,7 +81,104 @@ subroutine genjtty_frames(frames,nframes,itone,nsym)
   enddo
 end subroutine genjtty_frames
 
+! The tones genjtty_profile transmits for an 80-character message, with
+! what lies behind them: msg is rewritten as the text the frames carry,
+! frames holds each 34-bit frame as '0'/'1' characters (frame i at
+! frames(34*(i-1)+1:34*i)) and frame_starts each frame's 1-based column in
+! msg. is_final 0 leaves the end-of-message flag clear. status is
+! JTTY_ENCODE_UNENCODABLE, with nsym and nframes 0, when the message holds no
+! text, does not fit in MAX_FRAMES frames under its exchange profile, or the
+! exchange profile is not one pack_jtty knows.
+subroutine genjtty_text_c(msg,exchange_profile,is_final,itone,nsym,frames,nframes, &
+     frame_starts,status) bind(C,name='genjtty_text_c')
+
+  use iso_c_binding, only: c_char,c_int
+  use jtty_mod, only: pack_jtty,MAX_FRAMES,JTTY_ENCODE_OK,JTTY_ENCODE_UNENCODABLE
+  implicit none
+  character(kind=c_char), intent(inout) :: msg(80)
+  integer(c_int), value, intent(in) :: exchange_profile,is_final
+  integer(c_int), intent(out) :: itone(59*MAX_FRAMES),nsym
+  character(kind=c_char), intent(out) :: frames(34*MAX_FRAMES)
+  integer(c_int), intent(out) :: nframes,frame_starts(MAX_FRAMES),status
+  character(len=80) :: text
+  character(len=34) :: packed(MAX_FRAMES)
+  integer :: starts(MAX_FRAMES),tones(59*MAX_FRAMES),i,j,n,symbols
+
+  do i=1,80
+     text(i:i)=msg(i)
+  enddo
+  starts=0
+  call pack_jtty(text,packed,n,int(exchange_profile),starts,int(is_final))
+  do i=1,80
+     msg(i)=text(i:i)
+  enddo
+  itone=0; nsym=0; frames=' '; nframes=0; frame_starts=0
+  status=JTTY_ENCODE_UNENCODABLE
+  if(n.le.0) return
+  call genjtty_frames(packed,n,tones,symbols)
+  itone(1:symbols)=tones(1:symbols)
+  nsym=symbols
+  do i=1,n
+     do j=1,34
+        frames(34*(i-1)+j)=packed(i)(j:j)
+     enddo
+  enddo
+  nframes=n
+  frame_starts(1:n)=starts(1:n)
+  status=JTTY_ENCODE_OK
+end subroutine genjtty_text_c
+
 subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym,status) bind(C,name='genjtty_atoms_c')
+
+  use iso_c_binding, only: c_int
+  use jtty_mod, only: jtty_source_atom_c,MAX_FRAMES,JTTY_ENCODE_OK
+  type(jtty_source_atom_c), intent(in) :: c_atoms(*)
+  integer(c_int), value, intent(in) :: natoms
+  integer(c_int), intent(out) :: itone(*)
+  integer(c_int), intent(out) :: nsym
+  integer(c_int), intent(out) :: status
+  character(len=34) :: frames(MAX_FRAMES)
+  integer :: nframes
+
+  nsym=0
+  call genjtty_descriptor_frames(c_atoms,int(natoms),frames,nframes,status)
+  if(status.eq.JTTY_ENCODE_OK) call genjtty_frames(frames,nframes,itone,nsym)
+end subroutine genjtty_atoms_c
+
+! genjtty_atoms_c's tones for the same descriptors with the frames behind
+! them, from one packing: each frame a string of 34 '0'/'1' characters, frame
+! i at frames(34*(i-1)+1:34*i).
+subroutine genjtty_atoms_frames_c(c_atoms,natoms,itone,nsym,frames,nframes,status) &
+     bind(C,name='genjtty_atoms_frames_c')
+
+  use iso_c_binding, only: c_char,c_int
+  use jtty_mod, only: jtty_source_atom_c,MAX_FRAMES,JTTY_ENCODE_OK
+  implicit none
+  type(jtty_source_atom_c), intent(in) :: c_atoms(*)
+  integer(c_int), value, intent(in) :: natoms
+  integer(c_int), intent(out) :: itone(*)
+  integer(c_int), intent(out) :: nsym
+  character(kind=c_char), intent(out) :: frames(34*MAX_FRAMES)
+  integer(c_int), intent(out) :: nframes
+  integer(c_int), intent(out) :: status
+  character(len=34) :: packed(MAX_FRAMES)
+  integer :: i,j,n
+
+  nsym=0; nframes=0; frames=' '
+  call genjtty_descriptor_frames(c_atoms,int(natoms),packed,n,status)
+  if(status.ne.JTTY_ENCODE_OK) return
+  call genjtty_frames(packed,n,itone,nsym)
+  do i=1,n
+     do j=1,34
+        frames(34*(i-1)+j)=packed(i)(j:j)
+     enddo
+  enddo
+  nframes=n
+end subroutine genjtty_atoms_frames_c
+
+! Validates the C atom descriptors and packs them; status is JTTY_ENCODE_OK
+! only when every descriptor is valid.
+subroutine genjtty_descriptor_frames(c_atoms,natoms,frames,nframes,status)
 
   use iso_c_binding, only: c_char,c_int,c_null_char
   use packjt77_grammar, only: pack77_arrl_section_index,pack77_arrl_section_name
@@ -89,29 +186,19 @@ subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym,status) bind(C,name='genjtt
        JTTY_ATOM_EXCH_NUM,JTTY_ATOM_EXCH_LOC,JTTY_ATOM_EXCH_PAIR, &
        JTTY_ATOM_CONTROL,JTTY_ATOM_GRID4,jtty_call_atom,jtty_exch_num_atom, &
        jtty_exch_loc_atom,jtty_class_section_atom,jtty_control_atom, &
-       jtty_grid4_atom,MAX_FRAMES,JTTY_ENCODE_OK,JTTY_ENCODE_INVALID_DESCRIPTOR, &
-       JTTY_ENCODE_UNKNOWN_SECTION
+       jtty_grid4_atom,pack_jtty_atoms,MAX_FRAMES,JTTY_ENCODE_OK, &
+       JTTY_ENCODE_INVALID_DESCRIPTOR,JTTY_ENCODE_UNKNOWN_SECTION
   type(jtty_source_atom_c), intent(in) :: c_atoms(*)
-  integer(c_int), value, intent(in) :: natoms
-  integer(c_int), intent(out) :: itone(*)
-  integer(c_int), intent(out) :: nsym
+  integer, intent(in) :: natoms
+  character(len=34), intent(out) :: frames(MAX_FRAMES)
+  integer, intent(out) :: nframes
   integer(c_int), intent(out) :: status
   type(jtty_source_atom) :: atoms(MAX_FRAMES)
   character(len=13) :: descriptor_text
   integer :: i,section_index
-  logical :: text_valid
+  logical :: text_valid,valid
 
-  interface
-     subroutine genjtty_atoms(atoms,natoms,itone,nsym)
-       use jtty_mod, only: jtty_source_atom
-       type(jtty_source_atom), intent(in) :: atoms(:)
-       integer, intent(in) :: natoms
-       integer, intent(out) :: itone(*)
-       integer, intent(out) :: nsym
-     end subroutine genjtty_atoms
-  end interface
-
-  nsym=0; status=JTTY_ENCODE_INVALID_DESCRIPTOR
+  frames=''; nframes=0; status=JTTY_ENCODE_INVALID_DESCRIPTOR
   if(natoms.lt.1 .or. natoms.gt.MAX_FRAMES) return
   do i=1,natoms
      if(c_atoms(i)%reserved.ne.0) return
@@ -150,8 +237,8 @@ subroutine genjtty_atoms_c(c_atoms,natoms,itone,nsym,status) bind(C,name='genjtt
         return
      end select
   enddo
-  call genjtty_atoms(atoms,int(natoms),itone,nsym)
-  if(nsym.gt.0) status=JTTY_ENCODE_OK
+  call pack_jtty_atoms(atoms,natoms,frames,nframes,valid)
+  if(valid) status=JTTY_ENCODE_OK
 
 contains
 
@@ -172,4 +259,4 @@ contains
        text(j:j)=c_text(j)
     enddo
   end subroutine unpack_descriptor_text
-end subroutine genjtty_atoms_c
+end subroutine genjtty_descriptor_frames

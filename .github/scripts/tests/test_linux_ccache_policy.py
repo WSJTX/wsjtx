@@ -139,7 +139,7 @@ class LinuxCcachePolicyTests(unittest.TestCase):
 
     def test_armhf_verifies_and_forwards_cache_identity(self):
         workflow = self.read(".github/workflows/build-linux.yml")
-        self.assert_cache_tiers(workflow, "ccache-linux-armhf-")
+        self.assert_cache_tiers(workflow, "ccache-linux-armhf-${{ inputs.armhf_distro }}-")
         self.assertIn(
             "verify-armhf-ci-image.sh cross-builder armhf", workflow
         )
@@ -214,7 +214,7 @@ class LinuxCcachePolicyTests(unittest.TestCase):
         self.assertIn("bash .github/scripts/validate-linux-armhf-runtime.sh", self.armhf_step("Test and package on native ARMv7", "test-armhf"))
         pack = self.armhf_step("Pack ARMHF build tree")
         self.assertIn(
-            "sudo tar --create --file armhf-build-tree.tar --exclude='wsjtx-build/*.o' --exclude='wsjtx-build/*.a' wsjtx-build AppDir\n",
+            "sudo tar --create --file armhf-build-tree-${{ inputs.armhf_distro }}.tar --exclude='wsjtx-build/*.o' --exclude='wsjtx-build/*.a' wsjtx-build AppDir\n",
             pack,
         )
         self.assertLess(build_job.index("- name: Save armhf ccache"), build_job.index("- name: Pack ARMHF build tree"))
@@ -232,18 +232,37 @@ class LinuxCcachePolicyTests(unittest.TestCase):
         for name in ("Publish armhf test summary", "Upload test results"):
             self.assertIn("        if: always()\n", self.armhf_step(name, "test-armhf"))
         for name, artifact in (
-            ("Upload .deb", "wsjtx-${{ inputs.version }}-linux-armhf-deb"),
-            ("Upload RPM", "wsjtx-${{ inputs.version }}-linux-armhf-rpm"),
-            ("Upload AppImage", "wsjtx-${{ inputs.version }}-linux-armhf-AppImage"),
+            ("Upload .deb", "wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}-deb"),
+            ("Upload RPM", "wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}-rpm"),
+            ("Upload AppImage", "wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}-AppImage"),
         ):
             self.assertIn(f"          name: {artifact}\n", self.armhf_step(name, "test-armhf"))
-        self.assertIn("name: armhf-build-tree\n", self.armhf_step("Upload ARMHF build tree"))
-        self.assertIn("name: armhf-build-tree\n", self.armhf_step("Download ARMHF build tree", "test-armhf"))
-        self.assertIn("tar --extract --file armhf-build-tree.tar", self.armhf_step("Unpack ARMHF build tree", "test-armhf"))
+        self.assertIn("name: armhf-build-tree-${{ inputs.armhf_distro }}\n", self.armhf_step("Upload ARMHF build tree"))
+        self.assertIn("name: armhf-build-tree-${{ inputs.armhf_distro }}\n", self.armhf_step("Download ARMHF build tree", "test-armhf"))
+        self.assertIn("tar --extract --file armhf-build-tree-${{ inputs.armhf_distro }}.tar", self.armhf_step("Unpack ARMHF build tree", "test-armhf"))
         self.assertLess(test_job.index("- name: Unpack ARMHF build tree"), test_job.index("- name: Test and package on native ARMv7"))
         runtime = self.read(".github/scripts/validate-linux-armhf-runtime.sh")
         self.assertIn("ctest --parallel 3 --output-on-failure", runtime)
         self.assertNotIn("--exclude-regex", runtime)
+
+    def test_clean_deb_install_gates_uploads_without_ci_libraries(self):
+        runtime = self.armhf_job("test-armhf")
+        install = self.armhf_step("Install and start the Debian package in a clean target OS", "test-armhf")
+        self.assertIn('"arm32v7/debian:${ARMHF_DISTRO}"', install)
+        self.assertIn('bash /validate.sh /packages/wsjtx.deb "$ARMHF_DISTRO" /logs', install)
+        self.assertIn('mkdir -p deb-install-check', install)
+        self.assertIn('${GITHUB_WORKSPACE}/deb-install-check:/logs', install)
+        self.assertNotIn('wsjtx-build/deb-install-check', runtime)
+        mounts = [line.strip() for line in install.splitlines() if line.strip().startswith("-v ")]
+        self.assertEqual(len(mounts), 3)
+        for destination in ("/packages/wsjtx.deb:ro", "/validate.sh:ro", "/logs"):
+            self.assertTrue(any(destination in mount for mount in mounts))
+        self.assertNotIn("LD_LIBRARY_PATH", install)
+        self.assertNotIn("continue-on-error", install)
+        for upload in ("Upload .deb", "Upload RPM", "Upload AppImage", "Upload release tarballs"):
+            self.assertLess(runtime.index("id: deb-install"), runtime.index(f"- name: {upload}"))
+            self.assertIn("if: inputs.build_packages", self.armhf_step(upload, "test-armhf"))
+            self.assertNotIn("always()", self.armhf_step(upload, "test-armhf"))
 
     def test_armhf_build_only_save_requires_trusted_successful_audits(self):
         save = self.armhf_step("Save armhf ccache")
@@ -264,8 +283,8 @@ class LinuxCcachePolicyTests(unittest.TestCase):
         )[0]
         self.assertNotIn("allow_stale_image: true", armhf_job)
         self.assertIn("image_source: public-release", armhf_job)
-        self.assertIn("image_digest: ${{ needs.prepare.outputs.armhf_digest }}", armhf_job)
-        self.assertIn("armhf_cross_image_digest: ${{ needs.prepare.outputs.armhf_cross_digest }}", armhf_job)
+        self.assertIn("image_digest: ${{ matrix.armhf_distro == 'trixie' && needs.prepare.outputs.armhf_trixie_digest || needs.prepare.outputs.armhf_digest }}", armhf_job)
+        self.assertIn("armhf_cross_image_digest: ${{ matrix.armhf_distro == 'trixie' && needs.prepare.outputs.armhf_trixie_cross_digest || needs.prepare.outputs.armhf_cross_digest }}", armhf_job)
 
 
 if __name__ == "__main__":

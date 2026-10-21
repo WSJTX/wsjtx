@@ -2,6 +2,7 @@
 #define WSJTX_L10N_LOADER_HPP__
 
 #include <QString>
+#include <QStringList>
 #include "pimpl_h.hpp"
 
 class QApplication;
@@ -12,6 +13,8 @@ class L10nLoader final
 public:
   explicit L10nLoader (QApplication *, QLocale const&, QString const& language_override = QString {});
   ~L10nLoader ();
+
+  static QStringList available_languages ();
 
 private:
   class impl;

@@ -188,12 +188,28 @@ class ReleaseWorkflowPolicyTests(unittest.TestCase):
             r'if \[ "\$\(jq -r \'\.protected\' <<< "\$branch"\)" != true \]; then\s+echo "::error::[^"]+"\s+exit 1',
         )
 
+    def test_both_armhf_distros_build_in_full_ci_and_release(self):
+        for filename in ("ci.yml", "release.yml", "public-release.yml"):
+            workflow = (ROOT / ".github/workflows" / filename).read_text()
+            armhf = job(workflow, "linux-armhf")
+            self.assertIn("armhf_distro: [bookworm, trixie]", armhf)
+            self.assertIn("armhf_distro: ${{ matrix.armhf_distro }}", armhf)
+            self.assertIn("fail-fast: false", armhf)
+            if filename == "ci.yml":
+                self.assertIn("full-ci", armhf)
+            else:
+                self.assertIn("image_source: public-release", armhf)
+                self.assertIn("needs.prepare.outputs.armhf_trixie_digest", armhf)
+                self.assertIn("needs.prepare.outputs.armhf_trixie_cross_digest", armhf)
+                aggregate = job(workflow, "candidate-ready" if filename == "release.yml" else "assemble")
+                self.assertIn("linux-armhf", aggregate.split("steps:", 1)[0])
+
     def test_full_artifact_downloads_drop_the_armhf_build_tree(self):
         release = (ROOT / ".github/workflows/release.yml").read_text()
         for workflow, job_name, next_step in ((release, "candidate-ready", "Verify all candidate artifacts"), (PUBLIC, "assemble", "Build corresponding source archive")):
             body = job(workflow, job_name)
             download = body.index("uses: actions/download-artifact@v8\n        with:\n          path: artifacts\n")
-            drop = body.index("      - name: Drop the ARMHF build tree\n        run: rm -rf artifacts/armhf-build-tree\n")
+            drop = body.index("      - name: Drop the ARMHF build tree\n        run: rm -rf artifacts/armhf-build-tree-bookworm artifacts/armhf-build-tree-trixie\n")
             self.assertLess(download, drop, job_name)
             self.assertLess(drop, body.index(f"      - name: {next_step}\n"), job_name)
 

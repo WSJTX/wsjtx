@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=.github/scripts/armhf-toolchain-config.sh
+. "$(dirname "${BASH_SOURCE[0]}")/armhf-toolchain-config.sh"
+# shellcheck source=.github/scripts/linux-artifact-validation.sh
+. "$(dirname "${BASH_SOURCE[0]}")/linux-artifact-validation.sh"
+
 if [ "$#" -ne 1 ]; then
   echo "Usage: audit-armhf-cross-build.sh BUILD_DIR" >&2
   exit 2
@@ -51,54 +56,14 @@ for target in \
   esac
 done
 
-binary_count=0
-while IFS= read -r -d '' target_file; do
-  metadata="$(file -L "$target_file")"
-  case "$metadata" in
-    *"ELF 32-bit"*"ARM, EABI5"*) ;;
-    *"ELF"*)
-      echo "Target build contains a non-ARMHF binary: $metadata" >&2
-      exit 1
-      ;;
-    *) continue ;;
-  esac
-  dynamic="$($readelf -dW "$target_file" 2>/dev/null || true)"
-  if [[ "$dynamic" == *"Shared library: [libquadmath.so"* ]]; then
-    echo "$target_file unexpectedly depends on libquadmath" >&2
-    exit 1
-  fi
-  versions="$($readelf --version-info -W "$target_file" 2>/dev/null || true)"
-  if [[ "$versions" == *"GLIBC_PRIVATE"* ]]; then
-    echo "$target_file unexpectedly depends on a private glibc symbol" >&2
-    exit 1
-  fi
-  binary_count=$((binary_count + 1))
-done < <(find "$build_dir" -type f \( -perm /111 -o -name '*.so*' \) -print0)
-if [ "$binary_count" -eq 0 ]; then
-  echo "No target executables or shared libraries found below $build_dir" >&2
-  exit 1
-fi
+READELF="$readelf" validate_armhf_elf_tree "$build_dir" "$ARMHF_DISTRO"
 
 for executable in wsjtx jt9 qmap/qmap map65/map65 ft8code wsprd; do
   versions="$("$readelf" --version-info -W "$build_dir/$executable")"
-  remaining=$versions
-  maximum=0
-  while [[ "$remaining" =~ GLIBC_([0-9]+\.[0-9]+) ]]; do
-    version=${BASH_REMATCH[1]}
-    if dpkg --compare-versions "$version" gt "$maximum"; then
-      maximum=$version
-    fi
-    remaining=${remaining#*"${BASH_REMATCH[0]}"}
-  done
-  if dpkg --compare-versions "$maximum" gt 2.36; then
-    echo "$build_dir/$executable requires GLIBC_$maximum, newer than Bookworm" >&2
-    exit 1
-  fi
   for runtime in libstdc++.so.6 libgcc_s.so.1 libgfortran.so.5 libgomp.so.1; do
     if [[ "$versions" == *"${runtime%%.so*}"* ]]; then
       test -f "$runtime_prefix/$runtime"
     fi
   done
-  echo "$executable: maximum GLIBC_$maximum"
 done
-echo "Audited $object_count ARMHF objects and $binary_count target binaries; Qt host tools are x86-64"
+echo "Audited $object_count ARMHF objects and target binaries; Qt host tools are x86-64"

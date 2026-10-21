@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef VERSION_INFO_@PRODUCT_NAME@_H__
-#define VERSION_INFO_@PRODUCT_NAME@_H__
+#ifndef VERSION_INFO_@PRODUCT_NAME_ID@_H__
+#define VERSION_INFO_@PRODUCT_NAME_ID@_H__
 
 #include "scs_version.h"
 

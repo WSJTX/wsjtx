@@ -10,9 +10,9 @@
 ! point). The configure_fields -> params APPLY routing lives in the module-public
 ! streaming_apply::apply_configure_fields and is asserted by
 ! test/run-apply-routing-unit.sh (which includes the 6 Phase 7 slot asserts). All
-! 6 Phase 7 keys are inert on the FT8/JT9 fixtures (five read only
-! inside the multithreaded-FT8 block decoder.f90:192..1148 which streaming forces
-! off; qso_progress_state reaches the single-pass FT8 decoder but only steers AP
+! 6 Phase 7 keys are inert on the FT8/JT9 fixtures without multithreaded_ft8
+! (five read only inside the multithreaded-FT8 block in ft8_engine_kernel.f90;
+! qso_progress_state reaches the single-pass FT8 decoder but only steers AP
 ! passes and the fixture has no AP-only decodes), so no decode-output gate can
 ! assert their values; this parse-unit + the apply-routing unit are their coverage.
 program p7_parse_test

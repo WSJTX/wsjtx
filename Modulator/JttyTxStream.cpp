@@ -1,8 +1,9 @@
 #include "JttyTxStream.hpp"
 
-#include "Audio/soundout.h"
+#include "Audio/AudioOutputSink.hpp"
 #include "Logger.hpp"
 #include <QSemaphore>
+#include <limits>
 
 #include "moc_JttyTxStream.cpp"
 
@@ -48,7 +49,7 @@ JttyTxStream::JttyTxStream (TxAudioQueue& queue, QObject * parent)
   connect (m_drainTimer, &QTimer::timeout, this, &JttyTxStream::pollDrain);
 }
 
-void JttyTxStream::start (TxEvidence::TxRequest request, SoundOutput * stream)
+void JttyTxStream::start (TxEvidence::TxRequest request, AudioOutputSink * stream)
 {
   if (m_active) return;
   auto progress = m_queue.progress ();
@@ -72,17 +73,23 @@ void JttyTxStream::start (TxEvidence::TxRequest request, SoundOutput * stream)
   m_lastProgress = {};
   m_active = true;
   m_stream = stream;
+  // Restart may pull immediately, before the new backend tail is available.
+  m_drainGuard.store (std::numeric_limits<qint64>::max (),
+                      std::memory_order_release);
   if (m_stream)
     {
-      m_stream->restart (this);
-      // Size the drain guard to the actual device buffer (now valid) plus a
-      // margin; same audio thread as SoundOutput, so this is not a cross-thread
-      // QAudioOutput access.
-      qint64 const bufFrames = bytesPerFrame ()
-        ? qint64 (m_stream->bufferSize ()) / qint64 (bytesPerFrame ())
+      m_stream->restart (this, {request.session_id, request.generation});
+      // Include the sink's unplayed tail estimate and a safety margin.
+      qint64 const tailFrames = bytesPerFrame ()
+        ? qint64 (m_stream->unplayedBufferBytes ()) / qint64 (bytesPerFrame ())
         : 0;
-      m_drainGuard.store (qMax (bufFrames, DEFAULT_DRAIN_GUARD) + DRAIN_GUARD_MARGIN,
-                           std::memory_order_release);
+      m_drainGuard.store (
+        qMax (tailFrames, DEFAULT_DRAIN_GUARD) + DRAIN_GUARD_MARGIN,
+        std::memory_order_release);
+    }
+  else
+    {
+      m_drainGuard.store (DEFAULT_DRAIN_GUARD, std::memory_order_release);
     }
   if (!m_drainTimer->isActive ()) m_drainTimer->start ();
   Q_EMIT txSourceCommitted (makeJttyTxStartSnapshot (

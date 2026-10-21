@@ -9,25 +9,36 @@ Complete installation packages are provided on the {downloads} for
 the package built for your machine's architecture: it will have
 `x86_64` in the file name for Intel/AMD machines, `aarch64` for ARM.
 
+For 32-bit ARM systems, releases provide separate `armhf-bookworm` and
+`armhf-trixie` builds. Choose Bookworm for Debian 12 or Raspberry Pi OS
+Bookworm, and Trixie for Debian 13 or Raspberry Pi OS Trixie. Both builds
+contain the same _WSJT-X_ version; their library dependencies match the
+respective operating system. Keeping the Bookworm build preserves support
+for that older system. The packages are alternatives and cannot be
+installed together.
+
+The Bookworm and Trixie labels also appear on ARMHF AppImages, RPMs, and
+command-line archives to identify their build baselines. An RPM built on
+Debian is intended for an RPM-based system with compatible libraries; the
+label does not imply compatibility with every RPM-based distribution.
+Use the `.deb` format on Debian-based systems. ARMHF AppImages and archives
+should likewise be selected for the matching operating-system baseline.
+
 * To install on Debian-based Linux, for example Ubuntu 22.x or later,
 execute the following command in a terminal:
 +
 [example]
-sudo dpkg -i <package-name>
+sudo apt install ./<package-name>
+
+APT installs the package's required dependencies from the configured
+repositories. On ARMHF, use the package matching the operating-system
+release; adding dependencies from another Debian release can mix
+incompatible libraries.
 
 * To uninstall:
 +
 [example]
 sudo dpkg -P wsjtx
-
-You may also need to execute the following command in a terminal:
-
-....
-sudo apt install libgfortran5 libqt5widgets5 libqt5network5 \
-     libqt5printsupport5 libqt5multimedia5-plugins libqt5serialport5 \
-     libqt5sql5-sqlite libfftw3-single3 libgomp1 libboost-all-dev \
-     libusb-1.0-0 libportaudio2
-....
 
 * To install on Fedora, CentOS, Red Hat, and other rpm-based systems:
 +

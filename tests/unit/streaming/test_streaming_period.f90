@@ -1,6 +1,6 @@
 program test_streaming_period
   use streaming_period, only: period_state, period_begin, period_room,      &
-       period_take, period_full, period_ready
+       period_take, period_full, period_ready, period_set_stop, gui_hsym_stop
   implicit none
 
   integer, parameter :: NMAX = 1800 * 12000
@@ -11,6 +11,8 @@ program test_streaming_period
   call frames_of_128('FT4', 5, 7.5d0,  90000, 21 * 3456)
   call straddle()
   call short_periods()
+  call gui_stops()
+  call stop_points()
 
   if (nfail .eq. 0) then
      print '(a)', 'ALL STREAMING PERIOD CHECKS PASSED'
@@ -112,5 +114,87 @@ contains
     call ok('zero TRperiod: one second of decoder share, period the same',     &
          st%npts .eq. 12000 .and. st%nperiod .eq. 12000)
   end subroutine short_periods
+
+  ! MainWindow::fixStop's table (widgets/mainwindow.cpp), mode by mode.
+  subroutine gui_stops()
+    integer :: start, i
+    integer, parameter :: fst4_tr(7) = [15, 30, 60, 120, 300, 900, 1800]
+    integer, parameter :: fst4(7)     = [39, 85, 187, 387, 1003, 3107, 6232]
+    integer, parameter :: fst4_eme(7) = [48, 95, 197, 396, 1012, 3107, 6232]
+    integer, parameter :: mtd(0:4) = [49, 50, 48, 49, 50]
+    logical :: good
+    call ok('JT4 176, 179 after EME delay',                                   &
+         gui_hsym_stop(4, 60.d0, .false., .false., 3) .eq. 176 .and.          &
+         gui_hsym_stop(4, 60.d0, .true., .false., 3) .eq. 179)
+    call ok('JT9 173, 179 after EME delay',                                   &
+         gui_hsym_stop(9, 60.d0, .false., .false., 3) .eq. 173 .and.          &
+         gui_hsym_stop(9, 60.d0, .true., .false., 3) .eq. 179)
+    call ok('JT65 174, 179 after EME delay',                                  &
+         gui_hsym_stop(65, 60.d0, .false., .false., 3) .eq. 174 .and.         &
+         gui_hsym_stop(65, 60.d0, .true., .false., 3) .eq. 179)
+    call ok('Q65 15/30/60/120/300 s: 48, 96, 196, 408, 1030',                 &
+         gui_hsym_stop(66, 15.d0, .false., .false., 3) .eq. 48 .and.          &
+         gui_hsym_stop(66, 30.d0, .false., .false., 3) .eq. 96 .and.          &
+         gui_hsym_stop(66, 60.d0, .false., .false., 3) .eq. 196 .and.         &
+         gui_hsym_stop(66, 120.d0, .false., .false., 3) .eq. 408 .and.        &
+         gui_hsym_stop(66, 300.d0, .false., .false., 3) .eq. 1030)
+    call ok('Q65 after EME delay: 100 at 30 s, the rest unchanged',           &
+         gui_hsym_stop(66, 15.d0, .true., .false., 3) .eq. 48 .and.           &
+         gui_hsym_stop(66, 30.d0, .true., .false., 3) .eq. 100 .and.          &
+         gui_hsym_stop(66, 60.d0, .true., .false., 3) .eq. 196 .and.          &
+         gui_hsym_stop(66, 300.d0, .true., .false., 3) .eq. 1030)
+    good = .true.
+    do i = 1, 7
+       good = good .and.                                                      &
+            gui_hsym_stop(240, dble(fst4_tr(i)), .false., .false., 3) .eq. fst4(i) .and. &
+            gui_hsym_stop(241, dble(fst4_tr(i)), .false., .false., 3) .eq. fst4(i) .and. &
+            gui_hsym_stop(240, dble(fst4_tr(i)), .true., .false., 3) .eq. fst4_eme(i)
+    end do
+    call ok('FST4 and FST4W: the TR table, and the EME table after EME delay', good)
+    call ok('FT4 21, FT8 50 single-threaded at any decoder start',            &
+         gui_hsym_stop(5, 7.5d0, .false., .false., 3) .eq. 21 .and.           &
+         gui_hsym_stop(8, 15.d0, .false., .false., 2) .eq. 50 .and.           &
+         gui_hsym_stop(8, 15.d0, .true., .false., 0) .eq. 50)
+    good = .true.
+    do start = 0, 4
+       good = good .and. gui_hsym_stop(8, 15.d0, .false., .true., start) .eq. mtd(start)
+    end do
+    call ok('FT8 multithreaded, decoder start 0-4: 49, 50, 48, 49, 50', good)
+    call ok('MSK144 and JT65+JT9: no stop point',                            &
+         gui_hsym_stop(144, 15.d0, .false., .false., 3) .eq. 0 .and.          &
+         gui_hsym_stop(74, 60.d0, .false., .false., 3) .eq. 0)
+  end subroutine gui_stops
+
+  subroutine stop_points()
+    type(period_state) :: st
+    integer :: nacc
+    call period_begin(st, 60.d0, 65, NMAX, 174)
+    call ok('JT65 at stop 174: decoder 174 half-symbols, period 720000',      &
+         st%npts .eq. 174 * 3456 .and. st%nperiod .eq. 720000)
+    call period_begin(st, 15.d0, 8, NMAX, 48)
+    call ok('FT8 at stop 48: decoder 48 half-symbols',                       &
+         st%npts .eq. 48 * 3456 .and. st%nperiod .eq. 180000)
+    call period_begin(st, 15.d0, 144, NMAX, 0)
+    call ok('no stop point: the whole period',                               &
+         st%npts .eq. 180000 .and. st%nperiod .eq. 180000)
+    call period_begin(st, 15.d0, 66, NMAX, 1030)
+    call ok('a stop past the period: the mode share', st%npts .eq. 180000)
+    call period_begin(st, 1.d0, 5, NMAX, 21)
+    call ok('FT4 at 1 s, stop 21 past it: the share, period stretched',       &
+         st%npts .eq. 21 * 3456 .and. st%nperiod .eq. 21 * 3456)
+    call period_begin(st, 60.d0, 65, NMAX, 174, .true.)
+    call ok('whole: the period, not the stop', st%npts .eq. 720000)
+    call period_begin(st, 15.d0, 8, NMAX, 50, .true.)
+    call ok('whole FT8: the 15 s period', st%npts .eq. 180000)
+    call period_begin(st, 60.d0, 65, NMAX, 179)
+    call period_take(st, 174 * 3456, nacc)
+    call ok('at 174 half-symbols, not ready for a stop at 179', .not. period_ready(st))
+    call period_set_stop(st, 174, NMAX)
+    call ok('the stop moved to 174: ready', period_ready(st) .and. st%npts .eq. 174 * 3456)
+    call period_set_stop(st, 0, NMAX)
+    call ok('a zero stop leaves the share alone', st%npts .eq. 174 * 3456)
+    call period_set_stop(st, 300, NMAX)
+    call ok('a stop past the period leaves the share alone', st%npts .eq. 174 * 3456)
+  end subroutine stop_points
 
 end program test_streaming_period

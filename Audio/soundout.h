@@ -2,13 +2,11 @@
 #ifndef SOUNDOUT_H__
 #define SOUNDOUT_H__
 
-#include <QObject>
-#include <QString>
+#include "Audio/AudioOutputSink.hpp"
+
 #include <QAudioOutput>
 #include <QAudioDeviceInfo>
 #include <QOperatingSystemVersion>
-
-#include "Audio/TxPlaybackEvidence.hpp"
 
 class QIODevice;
 class QAudioDeviceInfo;
@@ -16,16 +14,15 @@ class QAudioDeviceInfo;
 // An instance of this sends audio data to a specified soundcard.
 
 class SoundOutput
-  : public QObject
+  : public AudioOutputSink
 {
   Q_OBJECT;
   
 public:
   explicit SoundOutput (QObject * parent = nullptr)
-    : QObject {parent}
+    : AudioOutputSink {parent}
     , m_framesBuffered {0}
     , m_volume {1.0}
-    , error_ {false}
     , m_backendStartSequence {0}
   {
   }
@@ -34,39 +31,30 @@ public:
 
   // Device buffer size in bytes, or 0 when no stream is active. Call only on the
   // audio thread (this object's thread); QAudioOutput is not cross-thread safe.
-  virtual int bufferSize () const;
+  int bufferSize () const override;
 
 public Q_SLOTS:
-  virtual void setFormat (QAudioDeviceInfo const& device, unsigned channels,
-                          int frames_buffered = 0);
-  virtual void restart (QIODevice *);
-  virtual void restart (QIODevice * source, qint64 period_offset_ms)
-  {
-    Q_UNUSED (period_offset_ms);
-    restart (source);
-  }
-  void suspend ();
-  void resume ();
-  void reset ();
-  virtual void stop ();
-  void setAttenuation (qreal);	/* unsigned */
-  void resetAttenuation ();	/* to zero */
-  
-Q_SIGNALS:
-  void error (QString message) const;
-  void status (QString message) const;
-  void audioOutputActive () const;
-  void audioOutputIdle () const;
-  void rawTxPlayoutSnapshot (TxEvidence::TxRawPlayoutSnapshot snapshot) const;
+  void setFormat (QAudioDeviceInfo const& device, unsigned channels,
+                  int frames_buffered = 0) override;
+  void restart (QIODevice *, TxEvidence::TxPlaybackContext,
+                qint64 period_offset_ms = -1) override;
+  void suspend () override;
+  void resume () override;
+  void reset () override;
+  void stop () override;
+  void setAttenuation (qreal) override;
+  void resetAttenuation () override;
 
 private:
+  friend class TestSoundOutput;
+
   bool checkStream () const;
   TxEvidence::TxRawPlayoutSnapshot makeRawTxPlayoutSnapshot (bool startEvent = false) const;
   void publishRawTxPlayoutSnapshot (bool startEvent = false) const;
   void publishUnavailableTxPlayoutSnapshot (bool startEvent, QString const& diagnostic) const;
 
-private Q_SLOTS:
-  void handleStateChanged (QAudio::State);
+  void handleStateChanged (QAudio::State, TxEvidence::TxPlaybackContext,
+                           qint64 backendStartSequence);
 
 private:
   QAudioDeviceInfo m_device;
@@ -74,7 +62,7 @@ private:
   QScopedPointer<QAudioOutput> m_stream;
   int m_framesBuffered;
   qreal m_volume;
-  bool error_;
+  TxEvidence::TxPlaybackContext m_context;
   qint64 m_backendStartSequence;
 };
 

@@ -40,7 +40,8 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
   type(pack77_state), pointer :: codec
   type(ft8_signal_evidence), optional, intent(out) :: evidence
   integer ipk(1)
-  logical newdat
+  logical newdat,dstd,mstd
+  integer nrun,ndx
 
   codec => get_ft8_codec_state()
   if(present(knowledge)) codec => knowledge
@@ -66,7 +67,19 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
   msgbest=''
   itone_best=0
   msgbits_best=0
-  do imsg=1,NMSGS
+! A standard /R or /P DX call also tries the candidates (see getmsg) that the
+! former nonstandard-call path produced: 207, or 411 with a standard MyCall.
+  nrun=NMSGS
+  ndx=len_trim(dxcall)
+  call stdcall_suffix(dxcall,dstd)
+  if(dstd .and. ndx.gt.3) then
+     if(dxcall(ndx-1:ndx).eq.'/R' .or. dxcall(ndx-1:ndx).eq.'/P') then
+        nrun=207
+        call stdcall_suffix(mycall,mstd)
+        if(mstd) nrun=411
+     endif
+  endif
+  do imsg=1,nrun
      call write_decode_progress(progress_generation)
      call getmsg(imsg,mycall,dxcall,dxgrid,msg)
 

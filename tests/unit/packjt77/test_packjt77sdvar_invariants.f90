@@ -3,8 +3,8 @@ program test_packjt77sdvar_invariants
   use packjt77
   use packjt77_test_helpers
   use ft8var_codec_context, only: ft8sdvar,ft8svar,tonesdvar
-  use ft8_mod1, only : idtone56_valid,idtone56,itone56,msg,lastrxmsg,mycall, &
-       hiscall,nlasttx,csyncsd_valid,csyncsdcq_valid
+  use ft8_mod1, only : idtone56_valid,idtone56,itone56,msg,mycall, &
+       hiscall,nlasttx,csyncsd_valid,csyncsdcq_valid,seed_ft8_qso_message
   implicit none
 
   integer :: ntests
@@ -123,8 +123,7 @@ contains
     hiscall='W9XYZ'
     nlasttx=1
     msg(53)='N0AAA W9XYZ AA00'
-    lastrxmsg(1)%lstate=.true.
-    lastrxmsg(1)%lastmsg='N0AAA W9XYZ FN42'
+    call seed_ft8_qso_message('N0AAA W9XYZ FN42',0.0)
     idtone56(53,1:58)=0
     itone56(53,1:79)=0
     idtone56_valid(53)=.false.

@@ -21,13 +21,13 @@
 
 module streaming_apply
   use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
-       NPTS_C0_ARRAY_MAX
+       NPTS_C0_ARRAY_MAX, MODE_JTTY
   use jt9_params_init,   only: apply_per_mode_policy
 
   include 'jt9com.f90'
 
   private
-  public :: apply_configure_fields
+  public :: apply_configure_fields, engine_range_key
   ! Re-export the include'd struct so a standalone unit driver can declare a
   ! params_block to assert apply routing against (test/apply_routing_test.f90)
   ! without itself including jt9com.f90. Same bind(C) type as everywhere else
@@ -103,16 +103,16 @@ contains
     ! ===== Phase 5: decoder-tuning basic fields (RFC v1 §2) =================
     ! Flat 1:1. dt_tolerance_seconds/eme_delay_seconds narrow real(8) ->
     ! real(c_float) via the target's kind() (§4 — document the narrowing).
-    ! eme_delay_seconds is applied HERE, before the apply_per_mode_policy
-    ! call below: a frame that ALSO sets mode/trperiod re-runs that policy, which
-    ! OVERWRITES emedelay (0.0 non-Q65-60s, 2.5 Q65-60s) — so a producer
-    ! eme_delay_seconds survives only on a frame with NO mode/trperiod change
-    ! (matches RFC §2.4). kin_samples/nzhsym_per_period are honored at apply, but
-    ! the streaming period-prep block (~:331/:339) RECOMPUTES kin/nzhsym from the
-    ! accumulated sample count before each decode, so they are inert on this path
-    ! (documented; verified byte-identical). robust_mode/nagain_flag/
-    ! clear_average -> logical(c_bool). tx_mode (enum) -> ntxmode (read only in
-    ! the 65+9 dual-decode dispatch; inert for FT8/pure-JT9 fixtures).
+    ! eme_delay_seconds is applied before the apply_per_mode_policy call below,
+    ! which a frame that also sets mode/trperiod re-runs (emedelay 2.5 for Q65
+    ! at 60 s, else 0). The stream host sets emedelay as the GUI does (2.5 with
+    ! decode_after_eme_delay, else 0): 0 at start, and again on a frame that
+    ! sets the mode, the TR period or that key, where an eme_delay_seconds in
+    ! the frame wins (streaming_io.f90). The host also sets kin and nzhsym before
+    ! each decode, so kin_samples/nzhsym_per_period do not reach the decoder.
+    ! robust_mode/nagain_flag/clear_average -> logical(c_bool); nagain holds
+    ! only for the decode again nagain_flag asks for (streaming_io.f90).
+    ! tx_mode (enum) -> ntxmode, read only by JT65+JT9.
     if (in_cfg%dt_tolerance_seconds_set)                                       &
          params%dttol    = real(in_cfg%dt_tolerance_seconds, kind(params%dttol))
     if (in_cfg%eme_delay_seconds_set)                                          &
@@ -132,35 +132,26 @@ contains
     if (in_cfg%clear_average_set)     params%nclearave = in_cfg%clear_average
 
     ! ===== Phase 6: FT8/FT4 specifics cluster (RFC v1 §2) ===================
-    ! Flat 1:1, no per-mode-policy interaction (none of these 24 are touched by
-    ! apply_per_mode_policy / the nfa-nfb-restore / ntol blocks below). 21 of 24
-    ! are INERT on the jt9 --stream FT8/JT9 fixtures (read only inside the
-    ! multithreaded-FT8 block decoder.f90:192, which streaming forces off via
-    ! lmultift8=.false.; jt65_ap_on is JT65-only; superfox_mode/even_sequence are
-    ! superfox-path-only (ncontest==7 / sfrx_sub); ft8_decoder_start is non-stream
-    ! (WAV/shmem) path; hint_mode unread anywhere) —
-    ! parse-unit + apply-routing-unit + no-regression guard them. Only ft8_ap_on
-    ! -> lft8apon, ap_cq_only -> lapcqonly, ap_width_hz -> napwid reach the
-    ! single-pass FT8 decoder (decoder.f90:1141-1146), but they are EMPIRICALLY
-    ! inert on the FT8 fixture in the FLIP direction too (ft8_ap_on=false / AP off,
-    ! ap_cq_only=true, ap_width_hz=5000 each yield byte-identical 21 decodes vs
-    ! baseline across 6 clean paired trials — the fixture has no AP-only
-    ! decodes), so no decode-effect gate is possible. ap_width_hz stores the RAW
-    ! wire int (the decoder halves it at lib/ft8var/ft8bvar.f90:1040 for the lapmyc
-    ! AP path, §3 napwid note) — do NOT pre-scale here. nagain_filter/stop_hint/hint_mode
-    ! assign logical -> logical(c_bool) nagainfil/nstophint/nhint (n-prefix, but
-    ! bool-typed in the struct).
-    ! multithreaded_ft8: the receiver IGNORES a non-false value.
-    ! Streaming has NO multithreaded-FT8 support — lmultift8=.true. takes the
-    ! decoder.f90:192 multithread branch, which yields 0 FT8 decodes on the stream
-    ! path (deterministic: 0 vs a 21-decode baseline, every trial).
-    ! So apply ONLY a false value (a no-op given the init-forced false), keeping the
-    ! forced-false invariant; a true is dropped so a producer can never enable the
-    ! broken path. Re-enable a straight pass-through if/when multithread streaming
-    ! lands. (The other 23 keys are flat pass-throughs — inert on the FT8/JT9
-    ! fixtures; verified byte-identical at probe values.)
-    if (in_cfg%multithreaded_ft8_set .and. .not. in_cfg%multithreaded_ft8)      &
-         params%lmultift8 = .false.
+    ! Flat 1:1; the per-mode policy and the ntol/nfa/nfb blocks below touch
+    ! none of these. multithreaded_ft8 selects the multithreaded FT8 decoder
+    ! (ft8_engine_kernel.f90), the only reader of ft8_cycles,
+    ! ft8_rxf_sensitivity, ft8_threads, ft8_low_threshold, ft8_subpass,
+    ! ap_my_call, hide_ft8_duplicates, enable_dxc_search, wide_dxc_search,
+    ! hound_mode, multi_instance, skip_tx1, nagain_filter and stop_hint. The
+    ! engine refuses every FT8 decode, single-threaded too, while ft8_threads is
+    ! outside [0,24] (decoder_engine.f90); the kernel runs 13 to 24 on one
+    ! thread (ft8_engine_kernel.f90). ft8_ap_on and ap_width_hz reach both FT8
+    ! decoders; in the multithreaded one ft8_ap_on gates only the a8 pass.
+    ! ap_cq_only reaches the single-threaded FT8 decoder, FT4, FST4 and Q65.
+    ! ft8_decoder_start sets the multithreaded pass schedule (streaming_io.f90);
+    ! superfox_mode and even_sequence drive SuperFox decoding
+    ! (ft8_engine_kernel.f90, streaming_io.f90); jt65_ap_on is JT65's; no
+    ! decoder reads common_ft8b or hint_mode. ap_width_hz is in Hz
+    ! and is not pre-scaled: the decoders compare frequency offsets with it, or
+    ! with half of it in one multithreaded AP pass (ft8var/ft8bvar.f90).
+    ! nagain_filter/stop_hint/hint_mode assign logical -> logical(c_bool)
+    ! nagainfil/nstophint/nhint (n-prefix, but bool-typed in the struct).
+    if (in_cfg%multithreaded_ft8_set) params%lmultift8 = in_cfg%multithreaded_ft8
     if (in_cfg%ft8_cycles_set)          params%nft8cycles      = in_cfg%ft8_cycles
     if (in_cfg%ft8_rxf_sensitivity_set) params%nft8rxfsens     = in_cfg%ft8_rxf_sensitivity
     if (in_cfg%ft8_threads_set)         params%nmt             = in_cfg%ft8_threads
@@ -186,66 +177,36 @@ contains
     if (in_cfg%hint_mode_set)           params%nhint           = in_cfg%hint_mode
 
     ! ===== Phase 7: diagnostic / sequencing fields (RFC v1 §2) ==============
-    ! No per-mode-policy interaction (none of these 6 are touched by
-    ! apply_per_mode_policy / the nfa-nfb-restore / ntol blocks below). 5 of the 6
-    ! are flat pass-throughs and INERT on the jt9 --stream FT8/JT9 fixtures:
-    ! currently_txing/mode_changed/sec_band_changed/delay_units/
-    ! last_tx_seconds_ago are read ONLY inside the multithreaded-FT8 block
-    ! (decoder.f90:192..1148, which streaming forces off via lmultift8=.false.), so
-    ! no decode-output gate is possible -> the parse-unit (run-phase7-parse-unit.sh)
-    ! + the apply-routing unit (run-apply-routing-unit.sh, sentinel-opposite slot
-    ! asserts) + no-regression are their coverage (like Phase 4).
+    ! Flat 1:1, outside the per-mode policy. last_tx_seconds_ago,
+    ! currently_txing, mode_changed, sec_band_changed and delay_units are read
+    ! only by the multithreaded FT8 decoder (ft8_engine_kernel.f90).
     ! currently_txing/mode_changed assign logical -> logical(c_bool)
-    ! ltxing/lmodechanged. OMITTED wire keys (utc_list*/nlist_count/datetime/
-    ! from_wav_file/new_data_flag) are documented in streaming_control.f90.
+    ! ltxing/lmodechanged. The keys left off the wire (utc_list*/nlist_count/
+    ! datetime/from_wav_file/new_data_flag) are listed in streaming_control.f90.
     !
-    ! qso_progress_state -> nQSOProgress is the EXCEPTION: it reaches the
-    ! single-pass FT8 decoder (decoder.f90:1141), where ft8b.f90:274/299 use it as a
-    ! RAW index into nappasses(0:5) / naptypes(0:5,4) on the default
-    ! lft8apon=.true. / lapcqonly=.false. path. An out-of-range producer value
-    ! (<0 or >5) faults the decoder (an -fbounds-check abort -> a one-frame DoS;
-    ! silent memory corruption without the flag) -- a qso_progress_state=99
-    ! crashes jt9 --stream. The valid range is [0,5] universally (every decoder
-    ! dimensions naptypes(0:5,4)/nappasses(0:5); QsoProgress.hpp defines the
-    ! C++ producer values as 0..5). So, exactly like the Phase 6
-    ! multithreaded_ft8 guard
-    ! (the receiver IGNORES a value that would break the decode path), the apply
-    ! IGNORES an out-of-range value, keeping the safe default. Valid [0,5] pass
-    ! through UNCHANGED -> wire-parity preserved for every value the CLI -Q path
-    ! accepts (the CLI's identical out-of-range crash, jt9.f90:191, is a pre-existing
-    ! latent bug the streaming wire contract declines to inherit). On the FT8/JT9
-    ! fixtures an in-range qso_progress_state is empirically INERT (it only steers AP
-    ! passes and the fixture has no AP-only decodes -> qso=5 gives a
-    ! byte-identical 21-decode set), so the in-range routing is guarded by the
-    ! apply-routing unit; a survival fixture guards the out-of-range case (negative-controlled).
+    ! qso_progress_state reaches both FT8 decoders, FT4, JT65, JT65+JT9, FST4
+    ! and Q65, which index AP tables dimensioned (0:5,...) with it (ft8/ft8b.f90,
+    ! ft8var/ft8bvar.f90, ft4_decode.f90, extract.f90, fst4_decode.f90,
+    ! qra/q65/q65_ap.f90). The engine refuses a request with it outside [0,5]
+    ! (decoder_engine.f90), the stream declines a configure that would leave
+    ! one where a decoder reads it, and the CLI's -Q refuses one (jt9.f90).
     if (in_cfg%last_tx_seconds_ago_set) params%nlasttx         = in_cfg%last_tx_seconds_ago
     if (in_cfg%currently_txing_set)     params%ltxing          = in_cfg%currently_txing
     if (in_cfg%mode_changed_set)        params%lmodechanged    = in_cfg%mode_changed
-    if (in_cfg%qso_progress_state_set .and. in_cfg%qso_progress_state >= 0        &
-         .and. in_cfg%qso_progress_state <= 5)                                    &
-         params%nQSOProgress = in_cfg%qso_progress_state
+    if (in_cfg%qso_progress_state_set)  params%nQSOProgress    = in_cfg%qso_progress_state
     if (in_cfg%sec_band_changed_set)    params%nsecbandchanged = in_cfg%sec_band_changed
     if (in_cfg%delay_units_set)         params%ndelay          = in_cfg%delay_units
 
     ! ===== Phase 8: string & scaled / derived fields (RFC v1 §2/§6) =========
-    ! No per-mode-policy interaction. The cfg members already hold the DERIVED
-    ! legacy ints (utc_nutc / date_yymmdd / n_trials_nranera — computed at parse,
-    ! streaming_control.f90), so date/n_trials are flat pass-throughs here; only
-    ! candthin_threshold/dt_center_seconds scale at apply (real(8) wire -> int /100,
-    ! §6.5). INERT on the FT8/JT9 stream fixtures except utc (read-site map+probe):
-    ! ncandthin/ndtcenter are read ONLY by the multithread FT8-variant decoder
-    ! my_ft8var%decodevar (every such call — first at decoder.f90:348 — scales /100
-    ! into the variant sync thresholds sync8var.f90:17-18), and every such call lives
-    ! inside the if(lmultift8 .and. nmode==8) block (opens decoder.f90:192, else at
-    ! :1140) that streaming forces off — the single-pass FT8 decoder
-    ! (my_ft8%decode, :1141) is NOT passed them (probed inert: 5.0 / 2.0 s gave the
-    ! byte-identical 21-decode set). n_trials->nranera->ntrials is JT65-deep-search-only
-    ! (ntrials computed decoder.f90:143-145, consumed :1338/:1365, unused on FT8/JT9);
-    ! date->yymmdd is superfox-only (sfrx_sub.f90). So those four are guarded by
-    ! parse-unit + apply-routing-unit + no-regression; utc is decode-observable
-    ! (round-trip fixtures). NONE is an array index, so unlike qso_progress_state no
-    ! out-of-range apply guard is needed (read-site check: nranera<=18
-    ! keeps 10**(nranera/2) within int32; ncandthin/ndtcenter become real thresholds).
+    ! No per-mode-policy interaction. utc, date and n_trials arrive as the
+    ! legacy ints computed at parse (streaming_control.f90); candthin_threshold
+    ! and dt_center_seconds scale here to hundredths, which their only reader,
+    ! the multithreaded FT8 decoder, divides back (ft8var/sync8var.f90). utc
+    ! sets the decode time, and date reaches only the SuperFox decoder. n_trials
+    ! is the trial count of JT65's soft-decision Reed-Solomon decoder
+    ! (extract.f90 ftrsdap), used with VHF features on and for averaged decodes.
+    ! The engine refuses a JT65 decode above 1,000,000 trials, nranera 12, the
+    ! most the GUI offers in any mode. None of these indexes an array.
     if (in_cfg%date_set)     params%yymmdd  = in_cfg%date_yymmdd
     if (in_cfg%n_trials_set) params%nranera = in_cfg%n_trials_nranera
     if (in_cfg%candthin_threshold_set)                                          &
@@ -322,6 +283,7 @@ contains
           case (241, 242);   params%ntol = 100      ! FST4/FST4W
           case (65 + 9);     params%ntol = 20       ! JT65+JT9 hard
           case (66);         params%ntol = 10       ! Q65 hard
+          case (MODE_JTTY);  params%ntol = 20       ! the GUI's JTTY F Tol
           case default;      params%ntol = 1000     ! FT8/FT4/etc
           end select
        else
@@ -331,10 +293,74 @@ contains
           case (241, 242);   params%ntol = min(params%ntol, 100)
           case (66);         params%ntol = 10
           case (65 + 9);     params%ntol = 20
+          case (MODE_JTTY)   ! the stream's 0..6000 Hz range check limits it
           case default;      params%ntol = min(params%ntol, 1000)
           end select
        end if
     end if
   end subroutine apply_configure_fields
+
+  ! The configure key behind an option field engine_params_problem names: the
+  ! key this frame set, else the one whose earlier value the field carries
+  ! (carried). The unpacked depth keys replace the whole depth, so a depth they
+  ! leave at 0 names depth_level.
+  function engine_range_key(field, in_cfg, carried) result(key)
+    character(len=*),       intent(in)            :: field
+    type(configure_fields), intent(in)            :: in_cfg
+    logical,                intent(out), optional :: carried
+    character(len=32)                             :: key
+    logical                                       :: set
+    select case (trim(field))
+    case ('search_low_hz')
+       key = 'nfa'; set = in_cfg%nfa_set
+    case ('search_high_hz')
+       key = 'nfb'; set = in_cfg%nfb_set
+    case ('search_range')
+       key = 'nfa'
+       if (in_cfg%nfb_set .and. .not. in_cfg%nfa_set) key = 'nfb'
+       set = in_cfg%nfa_set .or. in_cfg%nfb_set
+    case ('receive_frequency_hz')
+       key = 'rxfreq'; set = in_cfg%rxfreq_set
+    case ('tolerance_hz')
+       key = 'ntol'; set = in_cfg%ntol_set
+    case ('depth')
+       key = 'depth'
+       if (in_cfg%ndepth_packed_set) key = 'depth_level'
+       set = in_cfg%depth_set .or. in_cfg%ndepth_packed_set
+    case ('submode')
+       key = 'submode'; set = in_cfg%submode_set
+    case ('minimum_width')
+       key = 'min_width'; set = in_cfg%min_width_set
+    case ('trials')
+       key = 'n_trials'; set = in_cfg%n_trials_set
+    case ('qso_progress')
+       key = 'qso_progress_state'; set = in_cfg%qso_progress_state_set
+    case ('threads')
+       key = 'ft8_threads'; set = in_cfg%ft8_threads_set
+    case ('period_seconds')
+       key = 'trperiod'; set = in_cfg%trperiod_set .or. in_cfg%mode_set
+    case ('eme_delay_seconds')
+       key = 'eme_delay_seconds'
+       if (in_cfg%decode_after_eme_delay_set .and. .not. in_cfg%eme_delay_seconds_set) &
+            key = 'decode_after_eme_delay'
+       set = in_cfg%eme_delay_seconds_set .or. in_cfg%decode_after_eme_delay_set .or. &
+            in_cfg%mode_set .or. in_cfg%trperiod_set
+    case ('blanker_mode', 'blanker_percent')
+       key = 'noise_blanker_level'; set = in_cfg%noise_blanker_level_set
+    case ('max_drift')
+       key = 'max_drift_hz'; set = in_cfg%max_drift_hz_set
+    case ('utc')
+       key = 'nutc'
+       if (in_cfg%utc_set) key = 'utc'
+       set = in_cfg%utc_set .or. in_cfg%nutc_set
+    case ('contest')
+       key = 'contest_type'; set = in_cfg%contest_type_set
+    case default
+       ! flags, passes and aggressiveness: no configure key sets a value the
+       ! engine refuses (the conversion makes them 0/1, clamps or fixes them).
+       key = field; set = .true.
+    end select
+    if (present(carried)) carried = .not. set
+  end function engine_range_key
 
 end module streaming_apply

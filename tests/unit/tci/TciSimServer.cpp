@@ -272,6 +272,11 @@ void TciSimServer::on_new_connection ()
       client_->setProperty ("tciConnectionGeneration", connection_generation_);
       connect (client_, &QWebSocket::textMessageReceived,
                this, &TciSimServer::on_text_message);
+      connect (client_, &QWebSocket::binaryMessageReceived, this,
+               [this, generation = connection_generation_] (QByteArray const& data)
+               {
+                 emit binary_received (data, generation);
+               });
       connect (client_, &QWebSocket::disconnected,
                this, &TciSimServer::on_disconnected);
       emit client_arrived (connection_generation_);

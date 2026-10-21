@@ -85,7 +85,7 @@ jobs:
           GENERATION: ${{ inputs.generation }}
           PREPARATION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          python3 ../.github/scripts/release-linux-images.py prepare "$GENERATION" \
+          python3 .github/scripts/release-linux-images.py prepare "$GENERATION" \
             --output-directory ../prepared-dependencies
           {
             echo '## Prepared Linux dependencies'

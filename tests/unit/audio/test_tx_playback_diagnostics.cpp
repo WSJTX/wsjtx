@@ -6,9 +6,11 @@
 
 namespace
 {
-  TxEvidence::TxRawPlayoutSnapshot deviceClockStart (qint64 sequence)
+  TxEvidence::TxRawPlayoutSnapshot deviceClockStart (
+    qint64 sequence, TxEvidence::TxPlaybackContext context)
   {
     TxEvidence::TxRawPlayoutSnapshot raw;
+    raw.context = context;
     raw.tier = TxEvidence::TxPlayoutTier::DeviceClock;
     raw.backend_start_sequence = sequence;
     raw.start_event = true;
@@ -109,15 +111,15 @@ private:
     auto const generation = recorder.beginGeneration (session);
     QVERIFY (recorder.commitTarget (session, generation, 300));
     QVERIFY (!recorder.commitTarget (session, generation, 299));
-    QVERIFY (recorder.observe (session, generation, deviceClockStart (7)));
+    QVERIFY (recorder.observe (deviceClockStart (7, {session, generation})));
     QVERIFY (recorder.observeSourceProgress (session, generation, 250, 301,
                                              "JTTY FIFO progress"));
     QVERIFY (!recorder.observeSourceProgress (session, generation, 249, 301));
     recorder.stop (session, generation, TxEvidence::TxStopReason::NormalEnd, 42);
-    auto later = deviceClockStart (7);
+    auto later = deviceClockStart (7, {session, generation});
     later.start_event = false;
     later.processed_usecs = 300000;
-    QVERIFY (recorder.observe (session, generation, later));
+    QVERIFY (recorder.observe (later));
 
     auto terminal = recorder.terminalSessions ().last ();
     QCOMPARE (terminal.committed_end_sample, qint64 (300));
@@ -142,15 +144,15 @@ private:
     auto const session = recorder.beginSession ("FT4", 12000, 7999, true);
     auto const generation = recorder.beginGeneration (session);
 
-    auto raw = deviceClockStart (10);
+    auto raw = deviceClockStart (10, {session, generation});
     raw.processed_usecs = 500000;
     raw.source_served_frames = 5000;
     raw.error = TxEvidence::TxBackendError::Underrun;
-    QVERIFY (recorder.observe (session, generation, raw));
+    QVERIFY (recorder.observe (raw));
     raw.start_event = false;
     raw.processed_usecs = 600000;
     raw.error = TxEvidence::TxBackendError::None;
-    QVERIFY (recorder.observe (session, generation, raw));
+    QVERIFY (recorder.observe (raw));
     recorder.stop (session, generation, TxEvidence::TxStopReason::Error);
     auto terminal = recorder.terminalSessions ().last ();
     QCOMPARE (terminal.consumed_samples, qint64 (7200));
@@ -161,18 +163,18 @@ private:
 
     auto const deadSession = recorder.beginSession ("FT8", 12000);
     auto const deadGeneration = recorder.beginGeneration (deadSession);
-    raw = deviceClockStart (11);
+    raw = deviceClockStart (11, {deadSession, deadGeneration});
     raw.tier = TxEvidence::TxPlayoutTier::DeadReckoning;
     raw.successfully_written_frames = 123;
-    QVERIFY (recorder.observe (deadSession, deadGeneration, raw));
+    QVERIFY (recorder.observe (raw));
     recorder.stop (deadSession, deadGeneration, TxEvidence::TxStopReason::NormalEnd);
     QCOMPARE (recorder.terminalSessions ().last ().consumed_samples, qint64 (123));
 
     auto const unavailableSession = recorder.beginSession ("FT8", 12000);
     auto const unavailableGeneration = recorder.beginGeneration (unavailableSession);
-    raw = deviceClockStart (12);
+    raw = deviceClockStart (12, {unavailableSession, unavailableGeneration});
     raw.tier = TxEvidence::TxPlayoutTier::Unavailable;
-    QVERIFY (recorder.observe (unavailableSession, unavailableGeneration, raw));
+    QVERIFY (recorder.observe (raw));
     recorder.stop (unavailableSession, unavailableGeneration,
                    TxEvidence::TxStopReason::NormalEnd);
     QCOMPARE (recorder.terminalSessions ().last ().consumed_samples, qint64 (-1));
@@ -185,12 +187,13 @@ private:
     auto const session = recorder.beginSession ("FT8", 48000, 47999, true);
     auto const generation = recorder.beginGeneration (session);
     TxEvidence::TxRawPlayoutSnapshot raw;
+    raw.context = {session, generation};
     raw.start_event = true;
     raw.backend_start_sequence = 20;
     raw.tier = TxEvidence::TxPlayoutTier::Unavailable;
     raw.state = TxEvidence::TxBackendState::Unavailable;
     raw.diagnostic = "No audio output device configured";
-    QVERIFY (recorder.observe (session, generation, raw));
+    QVERIFY (recorder.observe (raw));
     recorder.stop (session, generation, TxEvidence::TxStopReason::Error, 200);
     auto const terminal = recorder.terminalSessions ().last ();
     QCOMPARE (terminal.tier, TxEvidence::TxPlayoutTier::Unavailable);
@@ -203,14 +206,15 @@ private:
     TxEvidence::TxPlaybackDiagnostics recorder;
     auto const session = recorder.beginSession ("JTTY", 12000, 2999, true);
     auto const generation = recorder.beginGeneration (session);
-    auto raw = deviceClockStart (21);
-    QVERIFY (recorder.observe (session, generation, raw));
+    auto raw = deviceClockStart (21, {session, generation});
+    QVERIFY (recorder.observe (raw));
     recorder.stop (session, generation, TxEvidence::TxStopReason::NormalEnd);
 
     TxEvidence::TxRawPlayoutSnapshot unavailable;
+    unavailable.context = {session, generation};
     unavailable.backend_start_sequence = 21;
     unavailable.diagnostic = "No audio output stream is active";
-    QVERIFY (!recorder.observe (session, generation, unavailable));
+    QVERIFY (!recorder.observe (unavailable));
 
     auto const terminal = recorder.terminalSessions ().last ();
     QCOMPARE (terminal.tier, TxEvidence::TxPlayoutTier::DeviceClock);
@@ -223,21 +227,99 @@ private:
     TxEvidence::TxPlaybackDiagnostics recorder;
     auto const session = recorder.beginSession ("FT8", 12000);
     auto const generation = recorder.beginGeneration (session);
-    auto raw = deviceClockStart (17);
-    QVERIFY (recorder.observe (session, generation, raw));
-    QVERIFY (!recorder.observe (session, generation, raw));
-    QVERIFY (!recorder.observe (session, TxEvidence::TxGeneration {generation.value () - 1}, raw));
+    auto raw = deviceClockStart (17, {session, generation});
+    QVERIFY (recorder.observe (raw));
+    QVERIFY (!recorder.observe (raw));
+    raw.context.generation = TxEvidence::TxGeneration {generation.value () - 1};
+    QVERIFY (!recorder.observe (raw));
+    raw.context.generation = generation;
     raw.start_event = false;
     raw.backend_start_sequence = 18;
-    QVERIFY (!recorder.observe (session, generation, raw));
+    QVERIFY (!recorder.observe (raw));
     raw.backend_start_sequence = 17;
     raw.processed_usecs = 1;
-    QVERIFY (!recorder.observe (session, generation, raw));
+    QVERIFY (!recorder.observe (raw));
 
     recorder.stop (session, generation, TxEvidence::TxStopReason::NormalEnd);
     raw.processed_usecs = 750000;
-    QVERIFY (recorder.observe (session, generation, raw));
+    QVERIFY (recorder.observe (raw));
     QCOMPARE (recorder.terminalSessions ().last ().consumed_samples, qint64 (9000));
+  }
+
+  Q_SLOT void delayed_evidence_retains_its_session_with_equal_backend_sequences ()
+  {
+    TxEvidence::TxPlaybackDiagnostics recorder;
+    auto const sessionA = recorder.beginSession ("FT8", 12000);
+    auto const generationA = recorder.beginGeneration (sessionA);
+    auto delayedA = deviceClockStart (1, {sessionA, generationA});
+    recorder.stop (sessionA, generationA, TxEvidence::TxStopReason::UserHalt);
+
+    auto const sessionB = recorder.beginSession ("FT8", 12000);
+    auto const generationB = recorder.beginGeneration (sessionB);
+    auto currentB = deviceClockStart (1, {sessionB, generationB});
+    currentB.processed_usecs = 100000;
+    currentB.successfully_written_frames = 1200;
+    currentB.source_served_frames = 1200;
+    currentB.source_total_frames = 2400;
+    QVERIFY (recorder.observe (currentB));
+    QVERIFY (recorder.observe (delayedA));
+
+    delayedA.start_event = false;
+    delayedA.processed_usecs = 500000;
+    delayedA.successfully_written_frames = 6000;
+    delayedA.source_served_frames = 6000;
+    delayedA.source_total_frames = 7200;
+    QVERIFY (recorder.observe (delayedA));
+    currentB.start_event = false;
+    currentB.processed_usecs = 150000;
+    currentB.successfully_written_frames = 1800;
+    currentB.source_served_frames = 1800;
+    QVERIFY (recorder.observe (currentB));
+    recorder.stop (sessionB, generationB, TxEvidence::TxStopReason::NormalEnd);
+
+    auto terminals = recorder.terminalSessions ();
+    QCOMPARE (terminals.size (), 2);
+    QCOMPARE (terminals.at (0).session_id, sessionA);
+    QCOMPARE (terminals.at (0).consumed_samples, qint64 {6000});
+    QCOMPARE (terminals.at (0).source_served_samples, qint64 {6000});
+    QCOMPARE (terminals.at (0).stop.reason, TxEvidence::TxStopReason::UserHalt);
+    QCOMPARE (terminals.at (1).session_id, sessionB);
+    QCOMPARE (terminals.at (1).consumed_samples, qint64 {1800});
+    QCOMPARE (terminals.at (1).source_served_samples, qint64 {1800});
+
+    delayedA.state = TxEvidence::TxBackendState::Idle;
+    delayedA.processed_usecs = 600000;
+    delayedA.successfully_written_frames = 7200;
+    delayedA.source_served_frames = 7200;
+    QVERIFY (recorder.observe (delayedA));
+    terminals = recorder.terminalSessions ();
+    QCOMPARE (terminals.at (0).consumed_samples, qint64 {7200});
+    QCOMPARE (terminals.at (0).source_served_samples, qint64 {7200});
+    QVERIFY (terminals.at (0).terminal_playout_observed);
+    QCOMPARE (terminals.at (1).consumed_samples, qint64 {1800});
+    QCOMPARE (terminals.at (1).source_served_samples, qint64 {1800});
+  }
+
+  Q_SLOT void invalid_or_mismatched_context_cannot_bind_playback ()
+  {
+    TxEvidence::TxPlaybackDiagnostics recorder;
+    auto const session = recorder.beginSession ("FT8", 12000);
+    auto const generation = recorder.beginGeneration (session);
+    auto raw = deviceClockStart (1, {});
+    QVERIFY (!recorder.observe (raw));
+    raw.context = {session, {}};
+    QVERIFY (!recorder.observe (raw));
+    raw.context = {{}, generation};
+    QVERIFY (!recorder.observe (raw));
+
+    auto const otherSession = recorder.beginSession ("FT8", 12000);
+    auto const otherGeneration = recorder.beginGeneration (otherSession);
+    raw.context = {session, otherGeneration};
+    QVERIFY (!recorder.observe (raw));
+    raw.context = {otherSession, generation};
+    QVERIFY (!recorder.observe (raw));
+    raw.context = {session, generation};
+    QVERIFY (recorder.observe (raw));
   }
 
   Q_SLOT void retains_the_last_sixteen_terminal_sessions ()

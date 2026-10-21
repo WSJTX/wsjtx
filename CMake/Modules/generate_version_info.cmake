@@ -152,6 +152,8 @@ function(generate_version_info outfiles)
     set(PRODUCT_FILE_DESCRIPTION "${PRODUCT_COMMENTS}")
   endif()
 
+  string (MAKE_C_IDENTIFIER "${PRODUCT_NAME}" PRODUCT_NAME_ID)
+
 # Force resource files into the top-level build directory
   set(_VersionInfoFile VersionInfo_${PRODUCT_NAME}.h)
   set(_VersionResourceFile VersionResource_${PRODUCT_NAME}.rc)

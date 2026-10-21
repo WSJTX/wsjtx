@@ -13,6 +13,7 @@ endfunction ()
 
 require_rejection (-Q 6)
 require_rejection (-Q invalid)
+require_rejection (-N 25)
 require_rejection (-p invalid)
 require_rejection (-m invalid)
 

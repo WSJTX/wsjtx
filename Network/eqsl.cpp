@@ -1,4 +1,7 @@
-#include "wsprnet.h"
+#include "eqsl.h"
+#include "logbook/AdifQso.hpp"
+
+#include <QDateTime>
 
 #include <cmath>
 
@@ -41,12 +44,16 @@ void EQSL::upload(QString const& eqsl_username, QString const& eqsl_passwd, QStr
         reply->abort();
         m_in_progress = false;
     }
-    myadif="<ADIF_VER:5>2.1.9";
+    myadif="<ADIF_VER:5>3.1.8";
     myadif+="<EQSL_USER:" + QString::number(eqsl_username.length()) + ">" + eqsl_username;
     myadif+="<EQSL_PSWD:" + QString::number(eqsl_passwd.length()) + ">" + eqsl_passwd;
     myadif+="<PROGRAMID:4>JTDX<EOH><APP_EQSL_QTH_NICKNAME:" + QString::number(eqsl_nickname.length()) + ">" + eqsl_nickname;
     myadif+="<CALL:" + QString::number(call.length()) + ">" + call;
-    myadif+="<MODE:"  + QString::number(mode.length()) + ">" + mode;
+    auto const adif_mode = AdifQso::base_mode (mode);
+    myadif+="<MODE:"  + QString::number(adif_mode.length()) + ">" + adif_mode;
+    if (adif_mode != mode) {
+      myadif+="<SUBMODE:" + QString::number(mode.length()) + ">" + mode;
+    }
     myadif+="<QSO_DATE:8>" + QSO_date_on.date().toString("yyyyMMdd");
     myadif+="<TIME_ON:4>" + QSO_date_on.time().toString("hhmm");
     myadif+="<RST_SENT:" + QString::number(rpt_sent.length()) + ">" + rpt_sent;

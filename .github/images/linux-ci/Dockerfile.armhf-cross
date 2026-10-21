@@ -1,7 +1,7 @@
 FROM debian:bookworm@sha256:704583dbf243593da87cf949fc0543ffeca24a28d36c2760dc9545410cb8ed02 AS toolchain
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive ARMHF_DISTRO=bookworm
 
 COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
 COPY .github/scripts/armhf-toolchain-config.sh /usr/local/share/wsjtx-ci/
@@ -59,14 +59,14 @@ FROM debian:bookworm AS cross_builder
 ARG IMAGE_REFRESH_EPOCH
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive ARMHF_DISTRO=bookworm
 
 COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
 RUN chmod +x /usr/local/bin/run-apt-get \
     && test -n "$IMAGE_REFRESH_EPOCH" \
     && run-apt-get update \
     && run-apt-get install -y --no-install-recommends \
-      asciidoctor autoconf automake binutils bison build-essential \
+      arch-test asciidoctor autoconf automake binutils bison build-essential \
       ca-certificates ccache cmake curl dpkg-dev file flex gawk git gperf \
       help2man libncurses-dev libtool libtool-bin mmdebstrap patch pkg-config \
       python3 python3-dev qt5-qmake-bin qtbase5-dev-tools qttools5-dev-tools \
@@ -87,42 +87,9 @@ COPY .github/scripts/linux-ccache-compiler-signature.sh \
      .github/scripts/write-armhf-ci-manifest.sh \
      .github/scripts/verify-armhf-ci-image.sh \
      /usr/local/share/wsjtx-ci/
-RUN set -eux; \
-    chmod +x /usr/local/share/wsjtx-ci/*.sh; \
-    . /usr/local/share/wsjtx-ci/armhf-ci-image-config.sh; \
-    test "$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -dumpfullversion -dumpversion)" = "$ARMHF_GCC_VERSION"; \
-    test "$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -dumpmachine)" = "$ARMHF_TARGET_TRIPLET"; \
-    package_csv="$(IFS=,; echo "${ARMHF_SYSROOT_PACKAGES[*]}")"; \
-    mmdebstrap --variant=extract --architectures=armhf \
-      --include="$package_csv" --skip=cleanup/apt/cache \
-      bookworm "$ARMHF_SYSROOT" http://deb.debian.org/debian; \
-    /usr/local/share/wsjtx-ci/normalize-armhf-sysroot-symlinks.sh \
-      "$ARMHF_SYSROOT"; \
-    mkdir -p /opt/wsjtx-ci; \
-    : > /opt/wsjtx-ci/armhf-sysroot-packages.unsorted; \
-    while IFS= read -r -d '' package; do \
-      dpkg-deb -f "$package" '${binary:Package}=${Version}\n' \
-        >> /opt/wsjtx-ci/armhf-sysroot-packages.unsorted; \
-    done < <(find "$ARMHF_SYSROOT/var/cache/apt/archives" -type f -name '*.deb' -print0); \
-    LC_ALL=C sort -u /opt/wsjtx-ci/armhf-sysroot-packages.unsorted \
-      > /opt/wsjtx-ci/armhf-sysroot-packages.txt; \
-    rm /opt/wsjtx-ci/armhf-sysroot-packages.unsorted; \
-    rm -rf "$ARMHF_SYSROOT/var/cache/apt/archives" \
-      "$ARMHF_SYSROOT/var/lib/apt/lists"; \
-    mkdir -p /tmp/wsjtx-hamlib-build; \
-    cd /tmp/wsjtx-hamlib-build; \
-    /usr/local/share/wsjtx-ci/build-hamlib-armhf-cross.sh \
-      "$LINUX_HAMLIB_COMMIT" "$ARMHF_SYSROOT" "$ARMHF_TOOLCHAIN_PREFIX"; \
-    mkdir -p "$ARMHF_RUNTIME_PREFIX"; \
-    for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do \
-      source_path="$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name="$library")"; \
-      test "$source_path" != "$library"; \
-      cp -L "$source_path" "$ARMHF_RUNTIME_PREFIX/$library"; \
-    done; \
-    test "$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name=libquadmath.so.0)" = libquadmath.so.0; \
-    /usr/local/share/wsjtx-ci/build-armhf-toolchain-smoke.sh \
-      "$ARMHF_TOOLCHAIN_PREFIX" "$ARMHF_SYSROOT" /opt/wsjtx-ci/toolchain-smoke; \
-    rm -rf /tmp/wsjtx-hamlib-build
+COPY .github/images/linux-ci/install-armhf-sysroot.sh /usr/local/bin/install-armhf-sysroot
+RUN chmod +x /usr/local/bin/install-armhf-sysroot \
+    && /usr/local/bin/install-armhf-sysroot
 
 ARG IMAGE_CREATED
 ARG IMAGE_GENERATION=local

@@ -22,6 +22,9 @@ program jt9
   interface
      subroutine jt9_print_version() bind(C, name='jt9_print_version')
      end subroutine jt9_print_version
+     ! True in wsjt-codec (lib/streaming_io.f90), false in jt9 (lib/jt9_stream_stub.f90).
+     logical function jt9_stream_available()
+     end function jt9_stream_available
   end interface
 
   type(cli_args_t) :: args
@@ -37,6 +40,7 @@ program jt9
   character c
   character(len=500) optarg, infile
   character wisfile*256
+  character(len=10) :: program_name
 
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0,ncycles=3,  &
@@ -47,7 +51,7 @@ program jt9
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.,      &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
-  type (option) :: long_options(44) = [                                      &
+  type (option) :: long_options(45) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use native shared memory for sample data','NAME'), &
@@ -64,6 +68,9 @@ program jt9
         'Location of writeable data files, default PATH="."', 'PATH'),       &
     option ('temp-path', .true., 't',                                        &
         'Temporary files path, default PATH="."', 'PATH'),                   &
+    option ('share-path', .true., 'r',                                       &
+        'Location of read-only data files (ALLCALL7.TXT), default PATH="."', &
+        'PATH'),                                                             &
     option ('lowest', .true., 'L',                                           &
         'Lowest frequency decoded (JT65), default HERTZ=200', 'HERTZ'),      &
     option ('highest', .true., 'H',                                          &
@@ -132,12 +139,14 @@ program jt9
   common/decstats/ntry65a,ntry65b,n65a,n65b,num9,numfano
   data npatience/1/,nthreads/1/,wisfile/' '/
 
+  program_name = 'jt9'
+  if (jt9_stream_available()) program_name = 'wsjt-codec'
   nsubmode = 0
   ntol = 20
   TRperiod=60.d0
 
   do
-     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:9876543WYqkTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:',    &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqkTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:',   &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -196,6 +205,9 @@ program jt9
            call require_integer('R', optarg(:arglen), nft8rxfsens)
         case ('N')
            call require_integer('N', optarg(:arglen), nmt)
+           if (nmt < 0 .or. nmt > 24) then
+              call invalid_option('N', optarg(:arglen), 'must be between 0 and 24')
+           end if
         case ('E')
            call require_integer('E', optarg(:arglen), nmtft8decsens)
         case ('D')
@@ -256,18 +268,27 @@ program jt9
        .or. (.not. read_files .and. remain .gt. 0)       &
        .or. (read_files .and. remain .lt. 1)) then
 
-     print *, 'Usage: jt9 [OPTIONS] file1 [file2 ...]'
+     print *, 'Usage: '//trim(program_name)//' [OPTIONS] file1 [file2 ...]'
      print *, '       Reads data from *.wav files.'
      print *, ''
-     print *, '       jt9 -s <key> [-w patience] [-m threads] [-e path] [-a path] [-t path] [-r path]'
-     print *, '       Gets data from the native shared memory name supplied with -s'
-     print *, ''
-     print *, '       cat <pcm-stream> | jt9 --stream'
-     print *, '       Reads framed PCM samples from stdin.'
+     if (jt9_stream_available()) then
+        print *, '       cat <pcm-stream> | '//trim(program_name)//' --stream'
+        print *, '       Reads framed PCM samples from stdin.'
+     else
+        print *, '       '//trim(program_name)//                                   &
+             ' -s <key> [-w patience] [-m threads] [-e path] [-a path] [-t path] [-r path]'
+        print *, '       Gets data from the native shared memory name supplied with -s'
+     end if
      print *, ''
      print *, 'OPTIONS:'
      print *, ''
      do i = 1, size (long_options)
+       select case (trim (long_options(i) % name))
+       case ('stream')
+          if (.not. jt9_stream_available()) cycle
+       case ('shmem', 'ipc-lock')
+          if (jt9_stream_available()) cycle
+       end select
        call long_options(i) % print (6)
      end do
      stop
@@ -324,6 +345,8 @@ program jt9
            hisgrid = '      '
         end if
         allocate(shared_data)
+        ! jt9's stub refuses here, before anything is written.
+        if (.not. jt9_stream_available()) call jt9_stream(shared_data, mode, TRperiod)
         call init_timer (trim(data_dir)//'/timer.out')
         shared_data%id2 = 0
 
@@ -345,7 +368,8 @@ program jt9
 
         ! Streaming-side overrides post-init.
         ! (mode=9 nfa=fsplit handled by init_default_params per-mode adjustment.)
-        ! (single-pass FT8 only in stream — already enforced via args.multift8=.false.)
+        ! (configure switches multithreaded FT8 on; -M/-U/-E do not apply, and
+        !  -N/-D/-C/-R/-Z only set starting values.)
 
         call jt9_stream(shared_data, mode, TRperiod)
      else
@@ -383,13 +407,14 @@ program jt9
      infile = optarg(:arglen)
      call wav%read (infile, wav_status, optarg)
      if (wav_status /= 0) then
-        write(error_unit, '(A)') 'jt9: cannot read WAV file ' // trim(infile) // ': ' // trim(optarg)
+        write(error_unit, '(A)') trim(program_name) // ': cannot read WAV file ' // trim(infile) // &
+             ': ' // trim(optarg)
         stop 2
      end if
      nfsample=wav%audio_format%sample_rate
      if (nfsample /= 12000 .and. .not. (mode == 4 .and. nfsample == 11025)) then
         close(unit=wav%lun)
-        write(error_unit, '(A,I0,A)') 'jt9: unsupported ',nfsample, &
+        write(error_unit, '(A,I0,A)') trim(program_name) // ': unsupported ',nfsample, &
              ' Hz WAV sample rate for the selected mode'
         stop 2
      end if
@@ -425,7 +450,7 @@ program jt9
         call timer('read_wav',1)
         if (wav_status /= 0) then
            close(unit=wav%lun)
-           write(error_unit, '(A)') 'jt9: cannot read WAV file ' // &
+           write(error_unit, '(A)') trim(program_name) // ': cannot read WAV file ' // &
                 trim(infile) // ': ' // trim(optarg)
            stop 2
         end if
@@ -648,7 +673,7 @@ contains
   subroutine invalid_option(option, text, reason)
     character(len=*), intent(in) :: option, text, reason
 
-    write(error_unit, '(A)') 'jt9: invalid value for -' // trim(option) // ': ' // &
+    write(error_unit, '(A)') trim(program_name) // ': invalid value for -' // trim(option) // ': ' // &
          trim(text) // ' (' // trim(reason) // ')'
     stop 2
   end subroutine invalid_option

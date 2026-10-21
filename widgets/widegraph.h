@@ -86,7 +86,7 @@ private slots:
   void on_spec2dComboBox_currentIndexChanged(int);
   void on_fSplitSpinBox_valueChanged(int n);
   void on_fStartSpinBox_valueChanged(int n);
-  void on_paletteComboBox_activated(const QString &palette);
+  void on_paletteComboBox_activated(int index);
   void on_timestampComboBox_currentIndexChanged(int n);
   void on_cbFlatten_toggled(bool b);
   void on_cbRef_toggled(bool b);
@@ -136,7 +136,6 @@ private:
   QString m_mode;
   QString m_waterfallPalette;  
   float   m_swide[MAX_SCREENSIZE];
-  QString m_user_defined;
   std::array<double, JttySpectrumFrame::BinCount> m_jttySpectrumSum {};
   JttyWaterfallRow m_jttyAverageRow;
   JttyWaterfallRow m_jttyLastRow;

@@ -112,11 +112,23 @@ DisplayText::DisplayText(QWidget *parent)
 void DisplayText::set_configuration (Configuration const * configuration, bool high_volume)
 {
   disconnect (vertical_scroll_connection_);
+  disconnect (configuration_connection_);
   m_config = configuration;
   high_volume_ = high_volume;
   sticky_scroll_enabled_ = true;
   following_live_activity_ = true;
   live_scroll_position_ = verticalScrollBar ()->value ();
+  if (configuration)
+    {
+      configuration_connection_ = connect (configuration, &Configuration::decodes_from_top_changed,
+                                            this, [this] (bool enabled) {
+                                              if (high_volume_ && enabled)
+                                                {
+                                                  following_live_activity_ = true;
+                                                }
+                                              updateReturnToLiveButton ();
+                                            });
+    }
   updateReturnToLiveButton ();
 }
 
@@ -143,30 +155,28 @@ bool DisplayText::decodesFromTop () const
   return high_volume_ && m_config && m_config->decodes_from_top ();
 }
 
+bool DisplayText::stickyScrollEnabled () const
+{
+  return sticky_scroll_enabled_ && !decodesFromTop ();
+}
+
 void DisplayText::userScrolledTo (int position)
 {
-  if (sticky_scroll_enabled_)
+  if (stickyScrollEnabled ())
     {
       following_live_activity_ = position == live_scroll_position_;
       updateReturnToLiveButton ();
     }
 }
 
-void DisplayText::scrollRangeChanged (int minimum, int maximum)
+void DisplayText::scrollRangeChanged (int, int maximum)
 {
-  if (sticky_scroll_enabled_)
+  if (stickyScrollEnabled ())
     {
-      if (decodesFromTop ())
+      live_scroll_position_ = maximum;
+      if (following_live_activity_)
         {
-          live_scroll_position_ = qBound (minimum, live_scroll_position_, maximum);
-        }
-      else
-        {
-          live_scroll_position_ = maximum;
-          if (following_live_activity_)
-            {
-              verticalScrollBar ()->setValue (live_scroll_position_);
-            }
+          verticalScrollBar ()->setValue (live_scroll_position_);
         }
     }
   updateReturnToLiveButton ();
@@ -195,7 +205,7 @@ void DisplayText::updateReturnToLiveButton ()
   return_to_live_button_->resize (button_width, button_height);
   return_to_live_button_->move (qMax (margin, viewport ()->width () - button_width - margin)
                                 , qMax (margin, viewport ()->height () - button_height - margin));
-  auto const wanted = sticky_scroll_enabled_
+  auto const wanted = stickyScrollEnabled ()
     && vertical_scroll_bar->maximum () > vertical_scroll_bar->minimum ()
     && !following_live_activity_
     && button_width > 0
@@ -215,7 +225,7 @@ void DisplayText::resizeEvent (QResizeEvent * e)
 
 void DisplayText::setContentFont(QFont const& font)
 {
-  auto const preserve_view = sticky_scroll_enabled_ && !following_live_activity_;
+  auto const preserve_view = stickyScrollEnabled () && !following_live_activity_;
   QTextCursor view_anchor;
   int anchor_offset {0};
   if (preserve_view)
@@ -240,14 +250,14 @@ void DisplayText::setContentFont(QFont const& font)
   cursor.endEditBlock ();
 
   auto * vertical_scroll_bar = verticalScrollBar ();
-  if (!sticky_scroll_enabled_ || following_live_activity_)
+  if (!stickyScrollEnabled () || following_live_activity_)
     {
       if (!decodesFromTop ())
         {
           setTextCursor (cursor);
           ensureCursorVisible ();
         }
-      if (sticky_scroll_enabled_)
+      if (stickyScrollEnabled ())
         {
           live_scroll_position_ = vertical_scroll_bar->value ();
         }
@@ -268,8 +278,20 @@ void DisplayText::captureClick (QMouseEvent const * event)
 {
   auto cursor = cursorForPosition (event->pos ());
   pressed_line_ = cursor.block ().text ();
+  auto const click_position = cursor.position () - cursor.block ().position ();
   cursor.select (QTextCursor::WordUnderCursor);
   pressed_word_ = cursor.selectedText ();
+  auto token_start = click_position;
+  auto token_end = click_position;
+  while (token_start > 0 && !pressed_line_.at (token_start - 1).isSpace ())
+    {
+      --token_start;
+    }
+  while (token_end < pressed_line_.size () && !pressed_line_.at (token_end).isSpace ())
+    {
+      ++token_end;
+    }
+  pressed_token_ = pressed_line_.mid (token_start, token_end - token_start);
   pressed_button_ = event->button ();
   click_state_ = ClickState::Captured;
 }
@@ -298,7 +320,8 @@ void DisplayText::mouseDoubleClickEvent (QMouseEvent * event)
   auto const word = pressed_word_;
   pressed_button_ = Qt::NoButton;
   click_state_ = ClickState::None;
-  Q_EMIT selectCallsign (line, word, event->modifiers ());
+  auto const token = pressed_token_;
+  Q_EMIT selectCallsign (line, word, event->modifiers (), token);
 }
 
 void DisplayText::insertLineSpacer(QString const& line)
@@ -327,7 +350,7 @@ namespace
 void DisplayText::insertText(QString const& text, QColor bg, QColor fg
                              , QString const& call1, QString const& call2, QTextCursor::MoveOperation location)
 {
-  auto const preserve_view = sticky_scroll_enabled_ && !following_live_activity_;
+  auto const preserve_view = stickyScrollEnabled () && !following_live_activity_;
   QTextCursor view_anchor;
   int anchor_offset {0};
   if (preserve_view)
@@ -341,6 +364,7 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
   auto block_format = cursor.blockFormat ();
   auto format = cursor.blockCharFormat ();
   format.setFont (char_font_);
+  format.clearBackground ();
   block_format.clearBackground ();
   if (bg.isValid ())
     {
@@ -412,7 +436,7 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
 
   // position so viewport scrolled to left
   cursor.movePosition (QTextCursor::StartOfLine);
-  if ((!sticky_scroll_enabled_ || following_live_activity_) && !decodesFromTop ())
+  if ((!stickyScrollEnabled () || following_live_activity_) && !decodesFromTop ())
     {
       setTextCursor (cursor);
       ensureCursorVisible ();
@@ -424,17 +448,9 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
       vertical_scroll_bar->setValue (vertical_scroll_bar->value ()
                                      + cursorRect (view_anchor).top () - anchor_offset);
     }
-  if (sticky_scroll_enabled_)
+  if (stickyScrollEnabled ())
     {
-      if (decodesFromTop ())
-        {
-          live_scroll_position_ = qBound (vertical_scroll_bar->minimum (), live_scroll_position_
-                                          , vertical_scroll_bar->maximum ());
-        }
-      else
-        {
-          live_scroll_position_ = vertical_scroll_bar->maximum ();
-        }
+      live_scroll_position_ = vertical_scroll_bar->maximum ();
     }
   updateReturnToLiveButton ();
 }
@@ -458,7 +474,7 @@ void DisplayText::extend_vertical_scrollbar (int min, int max)
 
 void DisplayText::new_period ()
 {
-  auto const preserve_view = sticky_scroll_enabled_ && !following_live_activity_;
+  auto const preserve_view = stickyScrollEnabled () && !following_live_activity_;
   QTextCursor view_anchor;
   int anchor_offset {0};
   if (preserve_view)
@@ -491,14 +507,14 @@ void DisplayText::new_period ()
                                              });
     }
   auto * vertical_scroll_bar = verticalScrollBar ();
-  if (sticky_scroll_enabled_)
+  if (stickyScrollEnabled ())
     {
       live_scroll_position_ = vertical_scroll_bar->maximum ();
     }
-  if (!sticky_scroll_enabled_ || following_live_activity_)
+  if (!stickyScrollEnabled () || following_live_activity_)
     {
       vertical_scroll_bar->setSliderPosition (vertical_scroll_bar->maximum ());
-      if (sticky_scroll_enabled_)
+      if (stickyScrollEnabled ())
         {
           live_scroll_position_ = vertical_scroll_bar->value ();
         }

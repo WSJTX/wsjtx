@@ -29,12 +29,12 @@ The first step is to  install some prerequisite packages which contain
 the tools needed  to prepare and build the portaudio  DLL. Execute the
 following command to do that:
 
-  pacman -S make diffutils unzip mingw-w64-x86_64-gcc sed tar curl
+  pacman -S make diffutils unzip mingw-w64-ucrt-x86_64-gcc sed tar curl
 
 Once  MSYS2  is installed  and  the  prerequisite packages  above  are
 installed you will find a new Windows Start Menu entry labelled "MSYS2
-MinGW 64-bit",  use that to start  a fresh MSYS2 shell  window for the
-rest of these instructions.
+UCRT64", use that to start a  fresh MSYS2 shell window for the rest of
+these instructions.
 
 Then make directories to put downloaded sources in and for building:
 

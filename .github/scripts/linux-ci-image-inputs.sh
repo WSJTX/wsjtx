@@ -29,10 +29,15 @@ linux_ci_image_inputs() {
         .github/scripts/build-pfunit-linux.sh \
         .github/scripts/build-hamlib-linux.sh
       ;;
-    armhf-cross-bookworm)
+    armhf-cross-bookworm|armhf-cross-trixie)
+      if [ "$profile" = armhf-cross-bookworm ]; then
+        printf '%s\n' .github/images/linux-ci/Dockerfile.armhf-cross \
+          .github/images/linux-ci/armhf-cross-toolchain.config
+      else
+        printf '%s\n' .github/images/linux-ci/Dockerfile.armhf-cross-trixie
+      fi
       printf '%s\n' \
-        .github/images/linux-ci/Dockerfile.armhf-cross \
-        .github/images/linux-ci/armhf-cross-toolchain.config \
+        .github/images/linux-ci/install-armhf-sysroot.sh \
         .github/scripts/armhf-toolchain-config.sh \
         .github/scripts/armhf-ci-image-config.sh \
         .github/scripts/build-armhf-toolchain-smoke.sh \
@@ -46,7 +51,7 @@ linux_ci_image_inputs() {
         .github/scripts/verify-armhf-ci-image.sh \
         .github/scripts/write-armhf-ci-manifest.sh
       ;;
-    armhf-runtime-bookworm)
+    armhf-runtime-bookworm|armhf-runtime-trixie)
       printf '%s\n' \
         .github/images/linux-ci/Dockerfile.armhf-runtime \
         .github/images/linux-ci/install-armhf-runtime-packages.sh \

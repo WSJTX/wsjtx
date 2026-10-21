@@ -1,4 +1,6 @@
 import pathlib
+import os
+import subprocess
 import unittest
 
 
@@ -38,9 +40,76 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
         verifier = self.read(".github/scripts/verify-armhf-ci-image.sh")
         audit = self.read(".github/scripts/audit-armhf-cross-build.sh")
         self.assertIn("reject_quadmath_dependency", verifier)
-        self.assertIn("unexpectedly depends on libquadmath", audit)
+        self.assertIn("validate_armhf_elf_tree", audit)
         self.assertIn("reject_private_glibc_dependency", verifier)
-        self.assertIn("private glibc symbol", audit)
+        self.assertIn('READELF="$readelf"', audit)
+
+    def test_distro_profiles_select_compiler_and_time_abi(self):
+        for distro, expected in (("bookworm", "13.4.0:2.36:32:"),
+                                ("trixie", "14:2.41:64:-D_TIME_BITS=64 -D_FILE_OFFSET_BITS=64")):
+            with self.subTest(distro=distro):
+                result = subprocess.run(
+                    ["bash", "-c", '. .github/scripts/armhf-toolchain-config.sh; '
+                     'printf "%s:%s:%s:%s" "$ARMHF_GCC_VERSION" "$ARMHF_GLIBC_VERSION" '
+                     '"$ARMHF_TIME_BITS" "${ARMHF_ABI_FLAGS[*]}"'],
+                    cwd=ROOT, env={**os.environ, "ARMHF_DISTRO": distro},
+                    capture_output=True, text=True, check=True,
+                )
+                self.assertEqual(result.stdout, expected)
+        result = subprocess.run(
+            ["bash", "-c", '. .github/scripts/armhf-toolchain-config.sh'],
+            cwd=ROOT, env={**os.environ, "ARMHF_DISTRO": "invalid"},
+            capture_output=True, text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unsupported ARMHF_DISTRO", result.stderr)
+
+    def test_trixie_uses_native_gcc14_and_explicit_time64(self):
+        builder = self.read(".github/images/linux-ci/Dockerfile.armhf-cross-trixie")
+        self.assertIn("FROM debian:trixie", builder)
+        self.assertIn("ARMHF_DISTRO=trixie", builder)
+        for compiler in ("gcc", "g++", "gfortran"):
+            self.assertIn(f"{compiler}-14-arm-linux-gnueabihf", builder)
+        self.assertNotIn("crosstool-ng", builder)
+        self.assertIn("install-armhf-sysroot", builder)
+        smoke = self.read(".github/scripts/build-armhf-toolchain-smoke.sh")
+        self.assertEqual(smoke.count("sizeof(time_t) * 8 == WSJT_TIME_BITS"), 2)
+        self.assertIn("clock_gettime(CLOCK_REALTIME", smoke)
+        self.assertIn("std::time(nullptr)", smoke)
+        hamlib = self.read(".github/scripts/build-hamlib-armhf-cross.sh")
+        self.assertEqual(hamlib.count("${ARMHF_ABI_FLAGS[*]}"), 2)
+        toolchain = self.read(".github/cmake/armhf-toolchain.cmake")
+        self.assertIn('WSJT_ARMHF_DISTRO STREQUAL "trixie"', toolchain)
+        self.assertEqual(toolchain.count("-D_TIME_BITS=64 -D_FILE_OFFSET_BITS=64"), 2)
+
+    def test_cross_builders_install_foreign_architecture_probe(self):
+        for name in ("Dockerfile.armhf-cross", "Dockerfile.armhf-cross-trixie"):
+            with self.subTest(dockerfile=name):
+                builder = self.read(f".github/images/linux-ci/{name}")
+                image = builder.split("AS cross_builder", 1)[1]
+                install = image.split("run-apt-get install", 1)[1].split("&&", 1)[0]
+                self.assertIn("arch-test", install.split())
+                self.assertIn("qemu-user-static", install.split())
+
+    def test_runtime_package_names_match_each_distro_time_abi(self):
+        installer = self.read(".github/images/linux-ci/install-armhf-runtime-packages.sh")
+        selection = installer.split("/usr/local/bin/run-apt-get update", 1)[0]
+        for distro, version, suffix in (("bookworm", "1.74.0", ""),
+                                        ("trixie", "1.83.0", "t64")):
+            with self.subTest(distro=distro):
+                result = subprocess.run(
+                    ["bash", "-c", selection + '\nprintf "%s\\n" "${packages[@]}"'],
+                    cwd=ROOT, env={**os.environ, "ARMHF_DISTRO": distro},
+                    capture_output=True, text=True, check=True,
+                )
+                packages = result.stdout.splitlines()
+                expected_boost = {f"libboost-{name}{version}" for name in
+                                  ("atomic", "filesystem", "log", "regex", "thread")}
+                expected_boost.add(f"libboost-chrono{version}{suffix}")
+                self.assertEqual({name for name in packages if name.startswith("libboost-")},
+                                 expected_boost)
+                for name in ("widgets", "network", "printsupport", "test", "concurrent"):
+                    self.assertIn(f"libqt5{name}5{suffix}", packages)
 
     def test_toolchain_stage_is_independent_of_image_refresh_inputs(self):
         builder = self.read(".github/images/linux-ci/Dockerfile.armhf-cross")
@@ -123,7 +192,8 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
         builder = self.read(".github/images/linux-ci/Dockerfile.armhf-cross")
         runtime = self.read(".github/images/linux-ci/Dockerfile.armhf-runtime")
         self.assertIn("FROM debian:bookworm AS cross_builder\n", builder)
-        self.assertIn("--architectures=armhf", builder)
+        sysroot = self.read(".github/images/linux-ci/install-armhf-sysroot.sh")
+        self.assertIn("--architectures=armhf", sysroot)
         self.assertIn("qemu-user-static", builder)
         self.assertIn("normalize-armhf-sysroot-symlinks.sh", builder)
         self.assertIn("tail -n 300 build.log", builder)
@@ -132,11 +202,13 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
             "FROM --platform=${CROSS_BUILDER_PLATFORM} ${CROSS_BUILDER_IMAGE}",
             runtime,
         )
-        self.assertIn("FROM arm32v7/debian:bookworm", runtime)
+        self.assertIn("ARG ARMHF_DISTRO=bookworm", runtime)
+        self.assertIn("FROM arm32v7/debian:${ARMHF_DISTRO}", runtime)
         self.assertIn("install-armhf-runtime-packages", runtime)
         self.assertIn(
-            "COPY --from=cross_builder /usr/bin/qemu-arm-static", runtime
+            "COPY --from=cross_builder /usr/local/bin/qemu-arm-static", runtime
         )
+        self.assertIn('cp -L /usr/bin/qemu-arm-static "$ARMHF_QEMU_EXECUTABLE"', sysroot)
 
         cross_build = self.read(".github/scripts/build-linux-armhf-cross.sh")
         runtime_package = self.read(".github/scripts/package-linux-armhf.sh")

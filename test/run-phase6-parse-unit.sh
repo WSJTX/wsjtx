@@ -8,15 +8,14 @@
 # non-collisions (hint_mode / hound_mode / superfox_mode all contain "mode"), and
 # the value-vs-key aliasing guard.
 #
-# WHY a Fortran unit driver (not only a fixture through jt9): all 24 Phase 6 keys
-# are INERT on the FT8/JT9 fixtures (multithreaded_ft8 is
-# destructive and apply-guarded to ignore non-false; the other 23 are read only on
-# the multithread-FT8 / JT65 / superfox-Q65 / WAV-disk paths or are AP keys for
-# which the fixture has no AP-only decodes), so no decode-output gate can assert
-# those values landed. This unit driver is the parse->pack assert
+# WHY a Fortran unit driver (not only a fixture through jt9): without
+# multithreaded_ft8 the other 23 Phase 6 keys are INERT on the FT8/JT9 fixtures
+# (read only on the multithread-FT8 / JT65 / superfox-Q65 / WAV-disk paths or AP
+# keys for which the fixture has no AP-only decodes), so no decode-output gate can
+# assert those values landed. This unit driver is the parse->pack assert
 # for the PARSE side; the configure_fields -> params APPLY routing is asserted by
 # test/run-apply-routing-unit.sh (the 24 Phase 6 slot asserts + the
-# multithreaded_ft8 ignore-non-false guard).
+# multithreaded_ft8 pass-through frame).
 #
 # Usage:
 #   test/run-phase6-parse-unit.sh        (no build dir; compiles from source)

@@ -69,12 +69,6 @@ extern QString m_hisCall0;
 extern QString earlyDecodes;
 
 
-extern "C" {
-  void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
-  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
-                    float xjunk[], float wave[], int* icmplx, int* nwave);
-}
-
 void MainWindow::on_monitorButton_clicked (bool checked)
 {
   if (m_wav_load_coordinator.isLoading ()) {
@@ -470,12 +464,12 @@ void MainWindow::on_DX_Call_Button_clicked (bool checked)
 void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
-  genStdMsgs(m_rpt);
+  genStdMsgsForSelection(m_rpt);
   if (!m_bDoubleClicked && m_hisCall!="") {
       if (ui->tx1->isEnabled ()) {
-          QTimer::singleShot (0, ui->txrb1, SLOT (click ()));   // Go to Tx1
+          QTimer::singleShot (0, this, [this] {selectTxNextMessage(1);});
       } else {
-          QTimer::singleShot (0, ui->txrb2, SLOT (click ()));   // Go to Tx2 if Tx1 is disabled
+          QTimer::singleShot (0, this, [this] {selectTxNextMessage(2);});
       }
       m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
       m_bHisCallStd=stdCall(m_hisCall); //ft8md

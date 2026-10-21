@@ -909,7 +909,7 @@ int main(int argc, char *argv[])
             case 'z':
                 bias=strtod(optarg,NULL); //fano metric bias (default is 0.45)
                 break;
-            case '0':  // --stream (long-name parity with jt9 --stream)
+            case '0':  // --stream (long-name parity with wsjt-codec --stream)
                 stream_mode = 1;
                 break;
             case '?':

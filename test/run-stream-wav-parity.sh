@@ -2,7 +2,7 @@
 # Stream-vs-WAV decode-parity harness.
 #
 # Asserts CONTAINMENT: every signal in a committed WAV-mode golden
-# (test/fixtures/*.expected.txt) is also decoded by `jt9 --stream`. Streaming
+# (test/fixtures/*.expected.txt) is also decoded by `wsjt-codec --stream`. Streaming
 # legitimately finds MORE (the early nzhsym passes pick up low-SNR signals; see
 # run-streaming-fixtures.sh) so the relation is "WAV goldens are a subset of
 # stream decodes", NOT equality. This is the rigorous regression guard the
@@ -25,17 +25,17 @@
 # Usage:
 #   test/run-stream-wav-parity.sh [build-dir]
 #
-# Where build-dir defaults to ./build and must contain a built jt9 binary.
+# Where build-dir defaults to ./build and must contain a built wsjt-codec binary.
 
 set -euo pipefail
 
 BUILD_DIR="${1:-build}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-JT9="$REPO_ROOT/$BUILD_DIR/jt9"
+JT9="$REPO_ROOT/$BUILD_DIR/wsjt-codec"
 HARNESS="$REPO_ROOT/test/wav_to_stream_harness.py"
 
 if [[ ! -x "$JT9" ]]; then
-  echo "ERROR: jt9 binary not found or not executable: $JT9" >&2
+  echo "ERROR: wsjt-codec binary not found or not executable: $JT9" >&2
   exit 2
 fi
 if [[ ! -f "$HARNESS" ]]; then
@@ -44,8 +44,8 @@ if [[ ! -f "$HARNESS" ]]; then
 fi
 
 echo "Stream-vs-WAV decode-parity (containment; FT8/JT9 only)"
-echo "  jt9:     $JT9"
-echo "  harness: $HARNESS"
+echo "  wsjt-codec: $JT9"
+echo "  harness:  $HARNESS"
 
 fail=0
 

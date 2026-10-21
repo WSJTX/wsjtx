@@ -42,6 +42,8 @@ if (CPACK_GENERATOR MATCHES "NSIS")
   set (CPACK_NSIS_CONTACT "${CPACK_PACKAGE_CONTACT}")
   set (CPACK_NSIS_MUI_FINISHPAGE_RUN "wsjtx.exe")
   set (CPACK_NSIS_MODIFY_PATH ON)
+  # An upgrade installs over the old version without uninstalling it, so remove the program wsjt-codec replaced.
+  string (APPEND CPACK_NSIS_EXTRA_INSTALL_COMMANDS "\nDelete \"$INSTDIR\\bin\\jt9stream.exe\"")
 
   # Preserve caller-supplied definitions alongside installer version metadata.
   string (APPEND CPACK_NSIS_EXTRA_DEFINES
