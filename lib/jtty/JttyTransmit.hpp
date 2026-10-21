@@ -154,6 +154,13 @@ extern "C" {
 // and is handled one unit at a time.
 namespace Jtty::Encoder
 {
+  // UTF-8 as UTF-16 units, as QString::fromUtf8 decodes it: a leading byte
+  // order mark is dropped, and each byte that does not start a well-formed
+  // sequence becomes U+FFFD. toUtf8 writes a lone surrogate as U+FFFD.
+  std::u16string fromUtf8 (char const * text, std::size_t length);
+  std::u16string fromUtf8 (std::string const& text);
+  std::string toUtf8 (std::u16string const& text);
+
   // QChar::isSpace, QString::trimmed, QString::simplified and QString::toUpper
   // as Qt 5 has them.
   bool isSpace (char16_t c);

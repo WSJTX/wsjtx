@@ -969,7 +969,7 @@ generate_version_info (wsjt_codec_VERSION_RESOURCES
   NAME wsjt-codec
   BUNDLE ${PROJECT_BUNDLE_NAME}
   ICON ${WSJTX_ICON_FILE}
-  FILE_DESCRIPTION "wsjt-codec - WSJT-X Qt-free streaming decoder"
+  FILE_DESCRIPTION "wsjt-codec - WSJT-X Qt-free stream codec"
   )
 add_executable (wsjt-codec ${wsjt_codec_FSRCS} ${wsjt_codec_VERSION_RESOURCES})
 target_compile_definitions (wsjt-codec PRIVATE JT9_PROGRAM_NAME=\"wsjt-codec\")

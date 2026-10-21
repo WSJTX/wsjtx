@@ -2,11 +2,13 @@
 program test_streaming_control
   use streaming_control, only: parse_control_frame, configure_fields,       &
        control_type_error, CTRL_UNKNOWN, CTRL_CONFIGURE, CTRL_HALT,         &
-       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, MODE_JTTY
+       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER,          &
+       MODE_JTTY, encode_request, parse_encode_request, parse_render_request
   implicit none
 
   integer :: nfail = 0
   character(len=12) :: code
+  character(len=:), allocatable :: long_text
 
   call expect_action('{"t":"discontinuity"}', CTRL_DISCONTINUITY)
   call expect_action('{"t":"halt"}', CTRL_HALT)
@@ -80,6 +82,140 @@ program test_streaming_control
        .false., .false., 'decode_after_eme_delay')
   call expect_flags('{"t":"configure","live_audio":1}', .false., .false., .false., .false., &
        'live_audio')
+
+  ! The transmitter keeps the whole call and grid; the decoder's fields keep
+  ! their widths.
+  call expect_station('{"t":"configure","mycall":"VE3/KJ5HST/MM","mygrid":"FN42MN12"}', &
+       'VE3/KJ5HST/MM', .false., 'FN42MN12', .false.)
+  call expect_call('{"t":"configure","mycall":"VE3/KJ5HST/MM","mygrid":"FN42MN12"}', &
+       'VE3/KJ5HST/M', 'FN42MN')
+  call expect_station('{"t":"configure","mycall":"' // repeat('K', 64) // '","mygrid":"' // &
+       repeat('G', 64) // '"}', repeat('K', 64), .false., repeat('G', 64), .false.)
+  call expect_station('{"t":"configure","mycall":"' // repeat('K', 65) // '","mygrid":"' // &
+       repeat('G', 65) // '"}', repeat('K', 64), .true., repeat('G', 64), .true.)
+  call expect_station('{"t":"configure","mycall":"' // repeat('K', 200) // '"}', &
+       repeat('K', 64), .true., '', .false.)
+  call expect_station('{"t":"configure","mycall":"K1\/ABC  "}', 'K1/ABC', .false., '', .false.)
+  call expect_station('{"t":"configure","rxfreq":1500}', '', .false., '', .false.)
+  ! White space at either end is dropped, as the GUI trims its call, before
+  ! the characters are counted; the decoder's fields are as before.
+  call expect_station('{"t":"configure","mycall":"  K1XYZ","mygrid":"\tEM18 \r"}', &
+       'K1XYZ', .false., 'EM18', .false.)
+  call expect_call('{"t":"configure","mycall":"  K1XYZ"}', '  K1XYZ')
+  call expect_station('{"t":"configure","mycall":"' // repeat(' ', 70) // repeat('K', 64) // '"}', &
+       repeat('K', 64), .false., '', .false.)
+  call expect_station('{"t":"configure","mycall":"' // repeat('W', 64) // repeat(' ', 70) // 'Z"}', &
+       repeat('W', 64), .true., '', .false.)
+  call expect_station('{"t":"configure","mycall":"' // repeat(achar(195) // achar(169), 40) // '"}', &
+       repeat(achar(195) // achar(169), 32), .false., '', .false.)
+  ! A string that does not decode leaves the key unset and is reported.
+  call expect_unreadable('{"t":"configure","mycall":"KJ5\x","mygrid":"EM18"}', .true., .false.)
+  call expect_unreadable('{"t":"configure","mycall":"KJ5HST","mygrid":"EM\u12"}', .false., .true.)
+  call expect_unreadable('{"t":"configure","mycall":"KJ5HST","mygrid":"EM18"}', .false., .false.)
+  call expect_unreadable('{"t":"configure","rxfreq":1500,"mygrid":}', .false., .false.)
+
+  ! Encode requests: the verbs, then each key's rule.
+  call expect_action('{"t":"pack"}', CTRL_PACK)
+  call expect_action('{"t":"render"}', CTRL_RENDER)
+  call expect_action('{"t":"packs"}', CTRL_UNKNOWN)
+  call expect_defaults('{"t":"pack","id":1,"text":"x"}')
+  call expect_id('{"t":"pack","id":-2147483648,"text":"x"}', -2147483647 - 1)
+  call expect_id('{"t":"pack","id":2147483647,"text":"x"}', 2147483647)
+  call expect_no_id('{"t":"pack","id":2147483648,"text":"x"}')
+  call expect_no_id('{"t":"pack","id":1.0,"text":"x"}')
+  call expect_no_id('{"t":"pack","id":1e3,"text":"x"}')
+  call expect_no_id('{"t":"pack","id":"5","text":"x"}')
+  call expect_no_id('{"t":"pack","text":"x"}')
+  call expect_problem('{"t":"pack","id":1,"text":"x","template":"y"}', 'template')
+  call expect_problem('{"t":"pack","id":1}', 'text')
+  call expect_problem('{"t":"pack","id":1,"text":5}', 'text')
+  call expect_problem('{"t":"pack","id":1,"template":true}', 'template')
+  call expect_template('{"t":"pack","id":1,"template":"%H %E"}', '%H %E')
+  call expect_profile('{"t":"pack","id":1,"text":"x","profile":"none"}', 0)
+  call expect_profile('{"t":"pack","id":1,"text":"x","profile":"field_day"}', 1)
+  call expect_profile('{"t":"pack","id":1,"text":"x","profile":"rtty"}', 2)
+  call expect_problem('{"t":"pack","id":1,"text":"x","profile":"unknown"}', 'profile')
+  call expect_problem('{"t":"pack","id":1,"text":"x","profile":"field-day"}', 'profile')
+  call expect_problem('{"t":"pack","id":1,"text":"x","profile":"rtty "}', 'profile')
+  call expect_problem('{"t":"pack","id":1,"text":"x","profile":3}', 'profile')
+  call expect_problem('{"t":"pack","id":1,"text":"x","final":"yes"}', 'final')
+  call expect_final('{"t":"pack","id":1,"text":"x","final":false}', .false.)
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":"107"}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":10.5}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":2147483648}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","report":"-07"}', 'report')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":null}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","his_call":7}', 'his_call')
+  call expect_problem('{"t":"pack","id":1,"text":"x","exchange":false}', 'exchange')
+  call expect_context('{"t":"pack","id":1,"text":"x","his_call":"W9XYZ",' // &
+       '"exchange":"1D EMA","serial":-131072,"report":-7}', 'W9XYZ', '1D EMA', -131072, -7)
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":44100}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":12000.0}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":"12000"}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":"1500"}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":199.99}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":5000.01}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":NaN}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":Infinity}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"rate":12000,"freq":1500}', 'text')
+  call expect_render_problem('{"t":"render","id":1,"freq":1500}', 'text')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":1500.}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":.5e4}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":3*1500}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":+1500}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":01500}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":1500e}', 'freq')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":+12000}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":012000}', 'rate')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","freq":1500,"rate":/}', 'rate')
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":1.5e3}', 12000, 1500.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":1234.5E0}', 12000, 1234.5d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":15e+2}', 12000, 1500.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":200}', 12000, 200.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":5000}', 48000, 5000.d0)
+  call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":1234.5}', 48000, 1234.5d0)
+  call expect_accepted('{"t":"pack","id":1,"text":"x","rate":44100,"freq":"x"}')
+  ! A request is one flat object; strings may hold any character.
+  ! Request integers are JSON integers, which the list-directed reader alone is not.
+  call expect_id('{"t":"pack","id":-0,"text":"x"}', 0)
+  call expect_no_id('{"t":"pack","id":/,"text":"x"}')
+  call expect_no_id('{"t":"pack","id":3*7,"text":"x"}')
+  call expect_no_id('{"t":"pack","id":+5,"text":"x"}')
+  call expect_no_id('{"t":"pack","id":05,"text":"x"}')
+  call expect_no_id('{"t":"pack","id":1e2,"text":"x"}')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":/}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":1*}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":+5}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":05}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":2*5}', 'serial')
+  call expect_problem('{"t":"pack","id":1,"text":"x","report":/}', 'report')
+  call expect_problem('{"t":"pack","id":1,"text":"x","report":-05}', 'report')
+  call expect_context('{"t":"pack","id":1,"text":"x","his_call":"W","exchange":"E","serial":0,"report":-0 }', 'W', 'E', 0, 0)
+  call expect_problem('{"t":"pack","id":1,"text":"x","context":{"his_call":"W9XYZ"}}', '')
+  call expect_problem('{"t":"pack","id":1,"text":"x","serial":[1]}', '')
+  call expect_problem('{"t":"pack","id":1,"text":"x"}{"t":"pack"}', '')
+  call expect_text('{"t":"pack","id":1,"text":"{[x]}"}', '{[x]}')
+  call expect_text('{"t":"pack","id":1,"text":"a\"{["}', 'a"{[')
+  call expect_text('{"t":"pack","id":1,"text":"a\\","his_call":"{"}', 'a\')
+  call expect_text('{"t":"pack","id":1,"text":"A\/B\\C\"D\b\f\n\r\tE\u004B\u00e9\u20AC\ud83d\ude00\uD83D\uDE00\u0000F"}', &
+       'A/B\C"D' // achar(8) // achar(12) // achar(10) // achar(13) // achar(9) // 'EK' // &
+       char(195) // char(169) // char(226) // char(130) // char(172) // &
+       repeat(char(240) // char(159) // char(152) // char(128), 2) // achar(0) // 'F')
+  call expect_problem('{"t":"pack","id":1,"text":"A\x"}', 'text')
+  call expect_problem('{"t":"pack","id":1,"text":"x","his_call":"A\x"}', 'his_call')
+  call expect_problem('{"t":"pack","id":1,"text":"\ud83d"}', 'text')
+  call expect_problem('{"t":"pack","id":1,"text":"x","his_call":"\ud83d"}', 'his_call')
+  call expect_problem('{"t":"pack","id":1,"text":"A\u12G4"}', 'text')
+  call expect_problem('{"t":"pack","id":1,"text":"x","his_call":"A\u12G4"}', 'his_call')
+  call expect_problem('{"t":"pack","id":1,"text":"\ude00"}', 'text')
+  call expect_problem('{"t":"pack","id":1,"text":"x","his_call":"\ude00"}', 'his_call')
+  call expect_problem('{"t":"pack","id":1,"text":"x","exchange":"\udc00"}', 'exchange')
+  call expect_profile('{"t":"pack","id":1,"text":"x","profile":"rt\u0074y"}', 2)
+  call expect_problem('{"t":"pack","id":1,"text":"abc}', 'text')
+  long_text = repeat('0123456789', 10000)
+  call expect_text('{"t":"pack","id":1,"text":"' // long_text // '"}', long_text)
 
   if (nfail .eq. 0) then
      print '(a)', 'ALL STREAMING CONTROL CHECKS PASSED'
@@ -191,5 +327,160 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_call
+
+  subroutine report(frame, ok, why)
+    character(len=*), intent(in) :: frame, why
+    logical,          intent(in) :: ok
+    if (ok) then
+       print '(a,a)', '  PASS  ', frame(1:min(len(frame), 100))
+    else
+       print '(a,a,a,a)', '  FAIL  ', frame(1:min(len(frame), 100)), ' -> ', why
+       nfail = nfail + 1
+    end if
+  end subroutine report
+
+  ! The transmitter's copies of mycall and mygrid ('' expects the key unset).
+  subroutine expect_station(frame, call_tx, call_long, grid_tx, grid_long)
+    character(len=*), intent(in) :: frame, call_tx, grid_tx
+    logical,          intent(in) :: call_long, grid_long
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.   &
+         (cfg%mycall_set .eqv. len(call_tx) .gt. 0) .and. cfg%mycall_tx .eq. call_tx .and. &
+         (cfg%mycall_tx_long .eqv. call_long) .and.                              &
+         (cfg%mygrid_set .eqv. len(grid_tx) .gt. 0) .and. cfg%mygrid_tx .eq. grid_tx .and. &
+         (cfg%mygrid_tx_long .eqv. grid_long), 'transmitter copies')
+  end subroutine expect_station
+
+  subroutine expect_unreadable(frame, call_unreadable, grid_unreadable)
+    character(len=*), intent(in) :: frame
+    logical,          intent(in) :: call_unreadable, grid_unreadable
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.   &
+         (cfg%mycall_unreadable .eqv. call_unreadable) .and.                     &
+         (cfg%mygrid_unreadable .eqv. grid_unreadable) .and.                     &
+         .not. (call_unreadable .and. cfg%mycall_set) .and.                      &
+         .not. (grid_unreadable .and. cfg%mygrid_set), 'unreadable flags')
+  end subroutine expect_unreadable
+
+  ! A pack request that reads with no problem.
+  logical function accepted(frame, req)
+    character(len=*),     intent(in)  :: frame
+    type(encode_request), intent(out) :: req
+    call parse_encode_request(frame, req)
+    accepted = req%id_ok .and. len(req%problem) .eq. 0
+  end function accepted
+
+  subroutine expect_accepted(frame)
+    character(len=*), intent(in) :: frame
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req), req%problem)
+  end subroutine expect_accepted
+
+  ! Every key absent: final, profile none, empty context strings, and no
+  ! serial or report.
+  subroutine expect_defaults(frame)
+    character(len=*), intent(in) :: frame
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. req%id .eq. 1 .and.  &
+         .not. req%is_template .and. req%text .eq. 'x' .and. len(req%text) .eq. 1 .and. &
+         req%final .and. req%profile .eq. 0 .and. len(req%his_call) .eq. 0 .and.  &
+         len(req%exchange) .eq. 0 .and. .not. req%serial_given .and.           &
+         .not. req%report_given, 'not the defaults')
+  end subroutine expect_defaults
+
+  subroutine expect_id(frame, id)
+    character(len=*), intent(in) :: frame
+    integer,          intent(in) :: id
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. req%id .eq. id, 'id')
+  end subroutine expect_id
+
+  subroutine expect_no_id(frame)
+    character(len=*), intent(in) :: frame
+    type(encode_request) :: req
+    call parse_encode_request(frame, req)
+    call report(frame, .not. req%id_ok, 'id accepted')
+  end subroutine expect_no_id
+
+  ! The pack request has an id and a problem with key ('' for none).
+  subroutine expect_problem(frame, key)
+    character(len=*), intent(in) :: frame, key
+    type(encode_request) :: req
+    call parse_encode_request(frame, req)
+    call report_problem(frame, req, key)
+  end subroutine expect_problem
+
+  subroutine report_problem(frame, req, key)
+    character(len=*),     intent(in) :: frame, key
+    type(encode_request), intent(in) :: req
+    call report(frame, req%id_ok .and. len(req%problem) .gt. 0 .and.         &
+         req%problem_key .eq. key .and. len(req%problem_key) .eq. len(key),     &
+         'key ' // req%problem_key // ': ' // req%problem)
+  end subroutine report_problem
+
+  subroutine expect_template(frame, template)
+    character(len=*), intent(in) :: frame, template
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. req%is_template .and. &
+         req%text .eq. template .and. len(req%text) .eq. len(template), 'template')
+  end subroutine expect_template
+
+  ! The text's exact bytes.
+  subroutine expect_text(frame, text)
+    character(len=*), intent(in) :: frame, text
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. .not. req%is_template .and. &
+         len(req%text) .eq. len(text) .and. req%text .eq. text, 'text bytes')
+  end subroutine expect_text
+
+  subroutine expect_profile(frame, profile)
+    character(len=*), intent(in) :: frame
+    integer,          intent(in) :: profile
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. req%profile .eq. profile, 'profile')
+  end subroutine expect_profile
+
+  subroutine expect_final(frame, final)
+    character(len=*), intent(in) :: frame
+    logical,          intent(in) :: final
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. (req%final .eqv. final), 'final')
+  end subroutine expect_final
+
+  subroutine expect_context(frame, his_call, exchange, serial, report_value)
+    character(len=*), intent(in) :: frame, his_call, exchange
+    integer,          intent(in) :: serial, report_value
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. req%his_call .eq. his_call .and. &
+         len(req%his_call) .eq. len(his_call) .and. req%exchange .eq. exchange .and. &
+         len(req%exchange) .eq. len(exchange) .and. req%serial_given .and.        &
+         req%serial .eq. serial .and. req%report_given .and. req%report .eq. report_value, &
+         'context')
+  end subroutine expect_context
+
+  subroutine expect_render_problem(frame, key)
+    character(len=*), intent(in) :: frame, key
+    type(encode_request) :: req
+    call parse_render_request(frame, req)
+    call report_problem(frame, req, key)
+  end subroutine expect_render_problem
+
+  subroutine expect_render(frame, rate, freq)
+    character(len=*), intent(in) :: frame
+    integer,          intent(in) :: rate
+    real(8),          intent(in) :: freq
+    type(encode_request) :: req
+    call parse_render_request(frame, req)
+    call report(frame, req%id_ok .and. len(req%problem) .eq. 0 .and. req%rate .eq. rate .and. &
+         req%freq .eq. freq, 'render')
+  end subroutine expect_render
 
 end program test_streaming_control

@@ -111,6 +111,8 @@ namespace
     {0xFB15, {0x544, 0x53B}}, {0xFB16, {0x54E, 0x546}}, {0xFB17, {0x544, 0x53D}},
   };
 
+  constexpr char16_t replacementCharacter = 0xFFFD;
+
   bool isHighSurrogate (char16_t c) {return c >= 0xD800 && c <= 0xDBFF;}
   bool isLowSurrogate (char16_t c) {return c >= 0xDC00 && c <= 0xDFFF;}
 
@@ -134,10 +136,97 @@ namespace
     if (code > r.last || (code - r.first) % r.step) return code;
     return static_cast<char32_t> (static_cast<int> (code) + r.delta);
   }
+
+  // The length of the well-formed UTF-8 sequence at text, or 0.
+  int sequenceLength (unsigned char const * text, std::size_t available, char32_t& code)
+  {
+    auto const lead = text[0];
+    int length;
+    unsigned char low = 0x80, high = 0xBF;
+    if (lead < 0x80) {code = lead; return 1;}
+    else if (lead >= 0xC2 && lead <= 0xDF) {length = 2; code = lead & 0x1F;}
+    else if (lead >= 0xE0 && lead <= 0xEF) {
+      length = 3; code = lead & 0x0F;
+      if (lead == 0xE0) low = 0xA0;
+      if (lead == 0xED) high = 0x9F;
+    } else if (lead >= 0xF0 && lead <= 0xF4) {
+      length = 4; code = lead & 0x07;
+      if (lead == 0xF0) low = 0x90;
+      if (lead == 0xF4) high = 0x8F;
+    } else {
+      return 0;
+    }
+    if (available < static_cast<std::size_t> (length)) return 0;
+    for (int i = 1; i < length; ++i) {
+      auto const byte = text[i];
+      if (byte < (i == 1 ? low : 0x80) || byte > (i == 1 ? high : 0xBF)) return 0;
+      code = (code << 6) | (byte & 0x3F);
+    }
+    return length;
+  }
 }
 
 namespace Jtty::Encoder
 {
+  // As QString::fromUtf8: a leading byte order mark is dropped, and each byte
+  // that does not start a well-formed sequence becomes U+FFFD.
+  std::u16string fromUtf8 (char const * text, std::size_t length)
+  {
+    auto bytes = reinterpret_cast<unsigned char const *> (text);
+    std::u16string result;
+    result.reserve (length);
+    std::size_t i = 0;
+    if (length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) i = 3;
+    while (i < length) {
+      char32_t code = 0;
+      int const n = sequenceLength (bytes + i, length - i, code);
+      if (n == 0) {
+        result += replacementCharacter;
+        ++i;
+      } else {
+        appendCodePoint (result, code);
+        i += n;
+      }
+    }
+    return result;
+  }
+
+  std::u16string fromUtf8 (std::string const& text)
+  {
+    return fromUtf8 (text.data (), text.size ());
+  }
+
+  // A lone surrogate becomes U+FFFD.
+  std::string toUtf8 (std::u16string const& text)
+  {
+    std::string result;
+    result.reserve (text.size ());
+    for (std::size_t i = 0; i < text.size (); ++i) {
+      char32_t code = text[i];
+      if (isHighSurrogate (text[i]) && i + 1 < text.size () && isLowSurrogate (text[i + 1])) {
+        code = 0x10000 + ((code - 0xD800) << 10) + (text[++i] - 0xDC00);
+      } else if (isHighSurrogate (text[i]) || isLowSurrogate (text[i])) {
+        code = replacementCharacter;
+      }
+      if (code < 0x80) {
+        result += static_cast<char> (code);
+      } else if (code < 0x800) {
+        result += static_cast<char> (0xC0 | (code >> 6));
+        result += static_cast<char> (0x80 | (code & 0x3F));
+      } else if (code < 0x10000) {
+        result += static_cast<char> (0xE0 | (code >> 12));
+        result += static_cast<char> (0x80 | ((code >> 6) & 0x3F));
+        result += static_cast<char> (0x80 | (code & 0x3F));
+      } else {
+        result += static_cast<char> (0xF0 | (code >> 18));
+        result += static_cast<char> (0x80 | ((code >> 12) & 0x3F));
+        result += static_cast<char> (0x80 | ((code >> 6) & 0x3F));
+        result += static_cast<char> (0x80 | (code & 0x3F));
+      }
+    }
+    return result;
+  }
+
   bool isSpace (char16_t c)
   {
     return c == 0x20 || (c >= 0x09 && c <= 0x0D) || c == 0x85 || c == 0xA0 || c == 0x1680
