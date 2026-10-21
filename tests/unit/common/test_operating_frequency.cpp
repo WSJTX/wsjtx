@@ -19,12 +19,46 @@ namespace
       return accepted;
     }
   };
+  struct IndependentRig
+  {
+    QVector<Radio::Frequency> requested;
+    Radio::Frequency applied = 0;
+    bool operator() (Radio::Frequency value)
+    {
+      requested.append (value);
+      return true;
+    }
+    void applyLast () { applied = requested.last (); }
+    Owner::Observation report (bool ptt) const
+    { return {true, ptt, true, applied, applied}; }
+  };
 }
 
 class TestOperatingFrequency : public QObject
 {
   Q_OBJECT
 private slots:
+  void cfomCorrectionDeferredDuringStopTail ()
+  {
+    Owner frequency {rf};
+    IndependentRig rig;
+    auto context = automatic;
+    context.rxCorrection = 125;
+    QVERIFY (frequency.requestNominal (rf, context.rxCorrection, std::ref (rig)));
+    rig.applyLast ();
+    context.monitoring = true;
+    auto receiving = rig.report (false);
+    frequency.reconcile (initial, receiving, context, std::ref (rig));
+    auto transmitting = rig.report (true);
+    frequency.reconcile (receiving, transmitting, context, std::ref (rig));
+    // The stop tail prohibits dispatch while astronomy supplies a new candidate.
+    context.rxCorrection = 175;
+    frequency.reconcile (transmitting, receiving, context, std::ref (rig));
+    QCOMPARE (frequency.rx (), rf);
+    QCOMPARE (frequency.remembered (), rf);
+    QCOMPARE (rig.applied, rf + 125);
+  }
+
   void startupAndDoppler_data ()
   {
     QTest::addColumn<bool> ("responseFirst");
