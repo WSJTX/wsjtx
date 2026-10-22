@@ -37,7 +37,8 @@ namespace
   enum Mode : std::int32_t
   {
     JT4 = 4, FT4 = 5, FT8 = 8, JT9 = 9, JT65 = 65, Q65 = 66, MSK144 = 144,
-    FST4 = 240, FST4W = 241, WSPR = 1001, ECHO = 1002, TUNE = 1003
+    FST4 = 240, FST4W = 241, WSPR = 1001, ECHO = 1002, TUNE = 1003, FOX = 1004,
+    SUPERFOX = 1005
   };
 
   // lib/streaming_encode.f90's stream_tx.
@@ -201,6 +202,19 @@ namespace
         request.frames_per_symbol = 4096;
         request.tone_spacing = tx.kind == 1 ? 0.0 : -5.0;
         request.tr_period_s = 3.0;
+        break;
+      case FOX:
+        request.symbols_length = 79;
+        request.frames_per_symbol = 1920.0;
+        request.tone_spacing = -1;
+        request.tr_period_s = 15;
+        break;
+      case SUPERFOX:
+        request.symbols_length = 153;         // NUM_SUPERFOX_SYMBOLS
+        request.frames_per_symbol = 1024.0;
+        request.frequency_hz = 750.0;
+        request.tone_spacing = -1;
+        request.tr_period_s = 15;
         break;
       case TUNE:
         // The carrier is the same in every mode; a WSPR request's own limit,

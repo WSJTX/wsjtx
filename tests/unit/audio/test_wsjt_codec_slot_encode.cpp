@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 
 #include "wsjtx_config.h"
 #include "commons.h"
@@ -59,7 +60,19 @@ extern "C" {
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
   void gen_cw_wave_(char const * msg, int* ifreq, float wave[], fortran_charlen_t);
   void morse_(char* msg, int* icw, int* ncw, fortran_charlen_t);
+  void foxgen_(bool* bSuperFox, char const * fname, FCL len);
+  void sfox_wave_gfsk_();
+  void sftx_sub_(char const * otp_key, int* pack_error, FCL len1);
 }
+
+// lib/ft8/foxgen.f90's common/foxcom3/, SuperFox's slots and tones.
+struct FoxCom3
+{
+  int nslots;
+  char cmsg[5][40];
+  int itone[151];
+};
+extern "C" FoxCom3 foxcom3_;
 
 // Modulator's friend: its start and reads at a chosen clock.
 class TestModulator
@@ -81,6 +94,7 @@ namespace
 {
 constexpr unsigned TX_SAMPLE_RATE = 48000;          // widgets/mainwindow.h
 constexpr int NUM_MSK144_SYMBOLS = 144;              // widgets/mainwindow.h
+constexpr unsigned NUM_SUPERFOX_SYMBOLS = 153;       // widgets/mainwindow.h
 constexpr int ProcessTimeoutMs = 240000;
 
 class Sink final : public AudioOutputSink
@@ -114,6 +128,19 @@ struct Row
   QString tuneMode;             // Tune: m_tune in this m_mode
   int seconds {};               // Tune: how long it runs
   QString cwid;                 // icw[0]=m_ncw, with this my_callsign
+  QStringList foxSlots;         // Fox: foxGenWaveform's messages
+  QList<bool> slotFallbacks;    // Fox: each slot's fallback
+  QString foxCall {"K1ABC"};    // Fox: my_callsign
+  bool sendText {};             // SuperFox: cbSendMsg, text its free text
+  bool moreCqs {};              // SuperFox: cbMoreCQs
+  QStringList heard;            // SuperFox: what a Hound decodes
+  int otp {};                   // SuperFox: the verification code
+};
+
+struct Slot
+{
+  QString msgsent;
+  QVector<int> tones;
 };
 
 struct Transmission
@@ -123,6 +150,8 @@ struct Transmission
   QVector<int> tones;
   int type {};
   QVector<qint16> audio;        // 48 kHz
+  QVector<Slot> foxSlots;       // Fox
+  int packError {};             // SuperFox: sfox_pack's error
 };
 
 // MainWindow::ba2msg.
@@ -542,6 +571,117 @@ Transmission gui (Row const& row, bool audio = true)
   return result;
 }
 
+// The GUI's Fox transmission of row: MainWindow::foxTxSequencer's slots as
+// foxGenWaveform stores them, foxgen, for SuperFox sfox_tx (sftx_sub and
+// sfox_wave_gfsk), then (with audio) MainWindow::transmit's FT8 Fox request to
+// the Modulator. Each slot's msgsent and tones are genft8's for it, as foxgen
+// calls it, in a call of its own before foxgen's (the tables it records in
+// keep the same calls).
+Transmission fox (Row const& row, bool audio)
+{
+  bool const superFox = row.mode == "SUPERFOX";
+  int const TxFreqSpinBox = row.txFreq;
+  int const m_XIT = 0;
+  Transmission result;
+  std::fill_n (foxcom_.wave, superFox ? 153 * 4 * 1024 + 1 : 79 * 4 * 1920 + 1, 0.f);
+  int islot = 0;
+  for (auto const& text : row.foxSlots)
+    {
+      // foxGenWaveform, with the text the codec takes, less its outer blanks.
+      QString fm = text.trimmed ();
+      fm += "                                        ";
+      fm=fm.mid(0,40);
+      foxcom_.i3bit[islot]=0;
+      if(fm.indexOf("<")>0) foxcom_.i3bit[islot]=1;
+      strncpy(&foxcom_.cmsg[islot][0],fm.toLatin1(),40);
+      ++islot;
+    }
+  if (!superFox)
+    {
+      for (int i = 0; i < islot; ++i)
+        {
+          char msg[38];
+          char msgsent[38];
+          char ft8msgbits[77];
+          int tones[79];
+          std::copy_n (foxcom_.cmsg[i], 37, msg);
+          msg[37] = 0;
+          int i3=0;
+          int n3=0;
+          genft8_(msg, &i3, &n3, msgsent, ft8msgbits, tones, (FCL)37, (FCL)37);
+          msgsent[37] = 0;
+          Slot slot;
+          slot.msgsent = QString::fromLatin1 (msgsent).trimmed ();
+          slot.tones = QVector<int> (tones, tones + 79);
+          result.foxSlots << slot;
+          if (should_block_generated_transmit (slot.msgsent, false)) result.refused = true;
+        }
+      if (result.refused || !audio) return result;
+    }
+  foxcom_.nslots=islot;
+  foxcom_.nfreq=TxFreqSpinBox;
+  QString foxCall=row.foxCall + "         ";
+  ::memcpy(foxcom_.mycall, foxCall.toLatin1(),sizeof foxcom_.mycall);
+  bool bSuperFox=superFox;
+  foxcom_.bMoreCQs=row.moreCqs;
+  foxcom_.bSendMsg=row.sendText;
+  // on_pbFreeText_clicked's text.
+  QString const m_freeTextMsg0=row.text.left(26).toUpper();
+  ::memcpy(foxcom_.textMsg, m_freeTextMsg0.leftJustified(26,' ').toLatin1(),26);
+  QByteArray const fname {"sfox_1.dat"};
+  foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
+  if (superFox)
+    {
+      // MainWindow::sfox_tx, its code from the operator's verification seed.
+      QString ckey{"OTP:000000"};
+      if (row.otp) ckey=(QString("OTP:%1").arg(row.otp));
+      int pack_error {0};
+      sftx_sub_(ckey.toLatin1().constData(), &pack_error, (FCL)ckey.size());
+      result.packError = pack_error;
+      result.refused = pack_error != 0;
+      if (result.refused) return result;
+      result.tones = QVector<int> (foxcom3_.itone, foxcom3_.itone + 151);
+      if (!audio) return result;
+      sfox_wave_gfsk_();
+    }
+
+  TxEvidence::TxRequest request;
+  request.mode = "FT8";
+  request.channel = AudioDevice::Mono;
+  request.snr_db = 99;
+  request.tr_period_s = 15;
+  request.synchronize = false;
+  double toneSpacing=-1;
+  if(superFox) {
+    request.symbols_length = NUM_SUPERFOX_SYMBOLS;
+    request.frames_per_symbol = 1024.0;
+  } else {
+    request.symbols_length = 79;
+    request.frames_per_symbol = 1920.0;
+  }
+  request.frequency_hz = TxFreqSpinBox - m_XIT;
+  request.tone_spacing = toneSpacing;
+
+  Sink sink;
+  Modulator modulator {TX_SAMPLE_RATE, NTMAX};
+  modulator.setTRPeriod (15);
+  qint64 last = -1;
+  QObject::connect (&modulator, &Modulator::txSourceCommitted,
+                    [&] (TxEvidence::TxStartSnapshot snapshot) {
+                      if (snapshot.target_known) last = snapshot.committed_end_sample;
+                    });
+  TestModulator::startAt (modulator, request, &sink, 0);
+  if (last >= 0)
+    {
+      result.audio.resize (int (last + 1));
+      auto const bytes = qint64 (result.audio.size ()) * qint64 (sizeof (qint16));
+      if (TestModulator::readDataAt (modulator, reinterpret_cast<char *> (result.audio.data ()), bytes, 0) != bytes)
+        result.audio.clear ();
+    }
+  modulator.stop (true);
+  return result;
+}
+
 // The codec request's freq for row: its lowest tone, where MainWindow::transmit
 // puts tone 0.
 double lowestTone (Row const& row)
@@ -550,6 +690,7 @@ double lowestTone (Row const& row)
   if (mode == "WSPR") return row.txFreq - 1.5 * 12000 / 8192;
   if (mode == "MSK144") return 1000;
   if (mode == "ECHO") return row.kind == "cw" ? 1500 : 1500 + row.dither;
+  if (mode == "SUPERFOX") return 750;
   return row.txFreq;
 }
 
@@ -592,6 +733,14 @@ QByteArray header ()
 QJsonObject request (QString const& verb, qint64 id, Row const& row)
 {
   QJsonObject object {{"t", verb}, {"id", id}, {"mode", row.mode}};
+  if (row.mode == "FOX" || row.mode == "SUPERFOX")
+    {
+      object.insert ("slots", QJsonArray::fromStringList (row.foxSlots));
+      if (row.sendText) object.insert ("text", row.text);
+      if (row.moreCqs) object.insert ("more_cqs", true);
+      if (row.otp) object.insert ("otp", row.otp);
+      return object;
+    }
   if (row.mode != "TUNE" && row.kind != "tone") object.insert ("text", row.text);
   // A Tune's submode and period are the GUI's mode's.
   if (row.submode >= 0 && row.mode != "TUNE") object.insert ("submode", QString {QChar ('A' + row.submode)});
@@ -650,6 +799,8 @@ QStringList encodedKeys (Row const& row, bool rendered)
 {
   auto const& mode = row.mode;
   QStringList keys {"id", "mode", "msgsent", "t", "tones", "v"};
+  if (mode == "FOX") keys = QStringList {"id", "mode", "slots", "t", "v"};
+  if (mode == "SUPERFOX") keys = QStringList {"id", "mode", "more_cqs", "otp", "t", "tones", "v"};
   if (mode == "JT4" || mode == "JT9" || mode == "JT65" || mode == "MSK144") keys << "type";
   if (mode == "FT8" || mode == "FT4" || mode == "FST4" || mode == "FST4W" || mode == "Q65" || mode == "MSK144")
     keys << "fallback";
@@ -670,7 +821,8 @@ QStringList encodedKeys (Row const& row, bool rendered)
 
 // Every member an encoded line may carry.
 QStringList const allEncodedKeys {"id", "mode", "msgsent", "t", "tones", "v", "type", "fallback", "submode",
-  "trperiod", "spacing", "copied", "fast", "kind", "freq", "rate", "samples", "seconds", "cwid"};
+  "trperiod", "spacing", "copied", "fast", "kind", "freq", "rate", "samples", "seconds", "cwid", "slots", "more_cqs",
+  "otp"};
 
 // Parses the output strictly: each reply's lines are consecutive and in the
 // documented order, and only replies carry an id.
@@ -783,15 +935,17 @@ QTemporaryDir& dataDirectory ()
   return directory;
 }
 
-Run runCodec (QByteArray const& input)
+// directory, when given, is the session's data directory instead of the
+// shared one, whose saved FFTW wisdom every earlier session has added to.
+Run runCodec (QByteArray const& input, QString directory = {})
 {
   Run run;
   if (!dataDirectory ().isValid ()) return run;
+  if (directory.isEmpty ()) directory = dataDirectory ().path ();
   QProcess process;
   process.setProcessChannelMode (QProcess::SeparateChannels);
-  process.setWorkingDirectory (dataDirectory ().path ());
-  process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                 {"-a", dataDirectory ().path (), "-t", dataDirectory ().path (), "--stream"});
+  process.setWorkingDirectory (directory);
+  process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), {"-a", directory, "-t", directory, "--stream"});
   if (!process.waitForStarted (5000)) return run;
   process.write (header () + input + control ({{"t", "halt"}}));
   process.closeWriteChannel ();
@@ -839,6 +993,25 @@ QByteArray audioFrames (QVector<qint16> const& samples)
   return bytes;
 }
 
+// The messages a SuperFox Hound decodes from a 12 kHz render that starts
+// 0.4 s into its period, as the GUI starts SuperFox, sorted.
+QStringList houndHears (QVector<qint16> const& audio)
+{
+  QVector<qint16> period (4800);
+  period += audio;
+  period.resize (15 * 12000);
+  QJsonObject const hound {{"t", "configure"}, {"mode", "FT8"}, {"utc", "00:00:30"}, {"contest_type", "hound"},
+                           {"superfox_mode", true}, {"even_sequence", true}, {"rxfreq", 750}};
+  QStringList messages;
+  for (auto const& line : runRaw (control (hound) + audioFrames (period)))
+    {
+      auto const event = QJsonDocument::fromJson (line).object ();
+      if (event.value ("t") == "decode") messages << event.value ("message").toString ();
+    }
+  messages.sort ();
+  return messages;
+}
+
 QVector<qint16> every4th (QVector<qint16> const& audio)
 {
   QVector<qint16> samples;
@@ -867,6 +1040,8 @@ bool echoes (QJsonObject const& encoded, Row const& row, int rate)
   if (encoded.contains ("kind") && value ("kind").toString () != row.kind) return false;
   if (encoded.contains ("seconds") && value ("seconds").toInt () != row.seconds) return false;
   if (encoded.contains ("cwid") && value ("cwid").toString () != row.cwid) return false;
+  if (encoded.contains ("more_cqs") && value ("more_cqs").toBool () != row.moreCqs) return false;
+  if (encoded.contains ("otp") && value ("otp").toInt () != row.otp) return false;
   if (rate && ((!single (row) && value ("freq").toDouble () != lowestTone (row)) || value ("rate").toInt () != rate))
     return false;
   return true;
@@ -1057,8 +1232,80 @@ private:
       }
   }
 
+  // As parity, for Fox and SuperFox rows.
+  void foxParity (QList<Row> const& rows)
+  {
+    QVector<QVector<Transmission>> expected;
+    QByteArray input;
+    for (int i = 0; i < rows.size (); ++i)
+      {
+        expected << QVector<Transmission> {fox (rows[i], false), fox (rows[i], true), fox (rows[i], true)};
+        input += control (request ("pack", 3 * i, rows[i]));
+        input += control (render (3 * i + 1, rows[i], 12000));
+        input += control (render (3 * i + 2, rows[i], 48000));
+      }
+    m_run = runCodec (input);
+    auto const& run = m_run;
+    QVERIFY2 (run.finished, run.standardError.constData ());
+    QCOMPARE (run.exitCode, 0);
+    QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+    for (int i = 0; i < rows.size (); ++i)
+      {
+        auto const& row = rows[i];
+        auto const where = QString {"%1 \"%2\""}.arg (row.mode, row.foxSlots.join ('|'));
+        for (int k = 0; k < 3; ++k)
+          {
+            auto const& gui = expected[i][k];
+            auto const reply = run.replies.value (3 * i + k);
+            auto const what = where + QStringList {" pack", " render 12000", " render 48000"}[k];
+            if (gui.refused)
+              {
+                auto const key = row.mode == "FOX" ? "slots"
+                  : gui.packError == 2 ? "otp" : gui.packError == 6 ? "text" : "slots";
+                QVERIFY2 (reply.terminal.value ("t") == "rejected", qPrintable (what + " was not rejected"));
+                QCOMPARE (reply.terminal.value ("reason").toString (), QString {"bad_request"});
+                QCOMPARE (reply.terminal.value ("key").toString (), QString {key});
+                continue;
+              }
+            QVERIFY2 (!reply.encoded.isEmpty (),
+                      qPrintable (what + ": " + QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact)));
+            QVERIFY2 (k == 0 || !gui.audio.isEmpty (), qPrintable (what + ": the GUI committed no audio"));
+            QVERIFY2 (echoes (reply.encoded, row, k == 0 ? 0 : k == 1 ? 12000 : 48000),
+                      qPrintable (what + ": " + QJsonDocument {reply.encoded}.toJson (QJsonDocument::Compact).left (200)));
+            if (row.mode == "FOX")
+              {
+                auto const replies = reply.encoded.value ("slots").toArray ();
+                QCOMPARE (replies.size (), gui.foxSlots.size ());
+                for (int n = 0; n < replies.size (); ++n)
+                  {
+                    auto const slot = replies[n].toObject ();
+                    QCOMPARE (slot.keys (), (QStringList {"fallback", "msgsent", "tones"}));
+                    QCOMPARE (slot.value ("msgsent").toString (), gui.foxSlots[n].msgsent);
+                    QCOMPARE (tones (slot), gui.foxSlots[n].tones);
+                    QVERIFY2 (slot.value ("fallback").toBool () == row.slotFallbacks.value (n),
+                              qPrintable (what + ": fallback"));
+                  }
+              }
+            else
+              {
+                QCOMPARE (tones (reply.encoded), gui.tones);
+              }
+            if (k == 0) continue;
+            auto const audio = k == 1 ? every4th (gui.audio) : gui.audio;
+            auto const difference = firstDifference (reply.audio, audio);
+            QVERIFY2 (difference < 0, qPrintable (QString {"%1: sample %2 of %3 (%4) differs from the GUI's (%5 of %6)"}
+                                                  .arg (what).arg (difference).arg (reply.audio.size ())
+                                                  .arg (reply.audio.value (difference)).arg (audio.value (difference))
+                                                  .arg (audio.size ())));
+            // What goes on the air is what the slots say.
+            if (row.mode == "SUPERFOX" && k == 1)
+              QCOMPARE (houndHears (reply.audio), row.heard);
+          }
+      }
+  }
+
   // The codec's reply to a request, sent as written, expected to be refused.
-  void refusal (QByteArray const& request, QString const& reason, QString const& key)
+  void refusal (QByteArray const& request, QString const& reason, QString const& key, QString const& detail = {})
   {
     auto const run = runCodec (frame (0x02u, request));
     QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
@@ -1069,6 +1316,8 @@ private:
     QVERIFY2 (reply.terminal.value ("reason").toString () == reason, what.constData ());
     QVERIFY2 (reply.terminal.value ("key").toString () == key && reply.terminal.contains ("key") == !key.isEmpty (),
               what.constData ());
+    QVERIFY2 (reply.terminal.value ("detail").toString ().startsWith (detail),
+              qPrintable (reply.terminal.value ("detail").toString ()));
   }
 
 private slots:
@@ -1315,6 +1564,197 @@ private slots:
       QCOMPARE (run.replies.value (id).encoded.value ("cwid").toString (), QString {"K1ABC"});
   }
 
+  // The GUI's Fox: one to five FT8 messages, each a slot 60 Hz above the
+  // last, summed and filtered by foxgen.
+  void foxSlots ()
+  {
+    auto const r = [] (QStringList const& messages, int txFreq, QList<bool> const& fallbacks = {})
+    {
+      Row f;
+      f.mode = "FOX";
+      f.foxSlots = messages;
+      f.txFreq = txFreq;
+      f.slotFallbacks = fallbacks;
+      return f;
+    };
+    auto compound = r ({"CQ KH1/KH7Z", "W9XYZ RR73; K2DEF <KH1/KH7Z> -08", "K3GHI KH7Z RR73"}, 450);
+    compound.foxCall = "KH1/KH7Z";
+    foxParity ({r ({"CQ K1ABC FN42"}, 500), r ({"W9XYZ K1ABC -12", "K2DEF K1ABC +05"}, 300),
+                r ({"W9XYZ RR73; K2DEF <K1ABC> -08", "K3GHI K1ABC RR73", "CQ K1ABC FN42", "TNX 73 GL",
+                    "K1ABC.123456"}, 600),
+                compound,
+                // KH1/KH7Z's hash resolves from the row before.
+                r ({"K4XYZ RR73; K5DEF <KH1/KH7Z> -10"}, 450),
+                r ({"THIS FREE TEXT IS LONGER THAN 13", "W9XYZ K1ABC -12"}, 2000, {true, false}),
+                r ({"cq k1abc fn42"}, 900), r ({"  W9XYZ K1ABC RR73  "}, 350), r ({"{BAD} MESSAGE"}, 500),
+                r ({"W9XYZ K1ABC -12", "{BAD} MESSAGE"}, 500)});
+  }
+
+  // A Fox's slots share FT8's transmit hash tables, in turn: K0AAA and K0BAP
+  // have the same 12-bit hash (transmitState).
+  void foxTransmitState ()
+  {
+    auto const r = [] (QStringList const& messages)
+    {
+      Row f;
+      f.mode = "FOX";
+      f.foxSlots = messages;
+      f.txFreq = 500;
+      return f;
+    };
+    foxParity ({r ({"PJ4/K1ABC <K0AAA>"}), r ({"PJ4/K1ABC <K0BAP>"}), r ({"K0BAP W9XYZ EN37", "PJ4/K1ABC <K0BAP>"}),
+                r ({"PJ4/K1ABC <K0AAA>"}), r ({"K0AAA W9XYZ EN37"}), r ({"PJ4/K1ABC <K0AAA>"})});
+    if (QTest::currentTestFailed ()) return;
+    QVERIFY (m_run.replies.value (3).terminal.value ("detail").toString ().startsWith ("a hashed call in slot 1"));
+    QVERIFY (m_run.replies.value (9).terminal.value ("detail").toString ().startsWith ("a hashed call in slot 1"));
+    QVERIFY (!m_run.replies.value (6).encoded.isEmpty ());
+  }
+
+  // Fox requests among others in one session.
+  void foxSequences ()
+  {
+    Row fox;
+    fox.mode = "FOX";
+    fox.foxSlots = QStringList {"CQ K1ABC FN42"};
+    fox.txFreq = 500;
+
+    // smo leaves the ends of gen_cw_wave's work array unwritten, and a FOX
+    // render leaves the codec's stack under it dirty.
+    auto cw = row ("ECHO", "K1JT");
+    cw.kind = "cw";
+    auto run = runCodec (control (render (1, fox, 48000)) + control (render (2, cw, 48000)));
+    QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+    QCOMPARE (firstDifference (run.replies.value (2).audio, gui (cw).audio), -1);
+
+    // A SuperFox slot with a blank Fox call is refused even when an earlier
+    // request gave sfox_assemble a call it would keep.
+    run = runCodec (frame (0x02u, R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["K1ABC KJ5HST RR73"]})")
+                    + frame (0x02u, R"({"t":"pack","id":2,"mode":"SUPERFOX","slots":["K1ABC RR73; W9XYZ <> -10"]})"));
+    QVERIFY (!run.replies.value (1).encoded.isEmpty ());
+    QCOMPARE (run.replies.value (2).terminal.value ("key").toString (), QString {"slots"});
+
+    // A slot's escapes decode: an escaped quote is part of its text.
+    run = runCodec (frame (0x02u, "{\"t\":\"pack\",\"id\":1,\"mode\":\"FOX\",\"slots\":[\"TNX \\\"OK\\\"\"]}")
+                    + frame (0x02u, "{\"t\":\"pack\",\"id\":2,\"mode\":\"FOX\",\"slots\":[\"CQ\\u0020K1ABC FN42\"]}"));
+    QVERIFY (run.replies.value (1).terminal.value ("detail").toString ().startsWith ("slot 1 does not encode"));
+    QCOMPARE (run.replies.value (2).encoded.value ("slots").toArray ()[0].toObject ().value ("msgsent").toString (),
+              QString {"CQ K1ABC FN42"});
+
+    // A collision with a call a SuperFox sent says which modes share the tables.
+    run = runCodec (frame (0x02u, R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["K1ABC KJ5HST RR73"]})")
+                    + frame (0x02u, R"({"t":"pack","id":2,"mode":"FT8","text":"K1ABC RR73; W9XYZ <W0AGP> -12"})")
+                    + frame (0x02u, R"({"t":"pack","id":3,"mode":"FOX","slots":["K1ABC RR73; W9XYZ <W0AGP> -12"]})"));
+    for (qint64 id : {2, 3})
+      QVERIFY2 (run.replies.value (id).terminal.value ("detail").toString ().contains ("FT8, FT4, FOX or SUPERFOX"),
+                qPrintable (QJsonDocument {run.replies.value (id).terminal}.toJson (QJsonDocument::Compact)));
+
+    // More Hounds than SuperFox carries: five reports, ten Hounds, six with
+    // free text.
+    run = runCodec (frame (0x02u, R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["K1AAA K1ABC -01","K1AAB K1ABC -02","K1AAC K1ABC -03","K1AAD K1ABC -04","K1AAE K1ABC -05"]})")
+                    + frame (0x02u, R"({"t":"pack","id":2,"mode":"SUPERFOX","slots":["K1AAA RR73; K1AAB <K1ABC> -01","K1AAC RR73; K1AAD <K1ABC> -02","K1AAE RR73; K1AAF <K1ABC> -03","K1AAG RR73; K1AAH <K1ABC> -04","K1AAJ RR73; K1AAK <K1ABC> -05"]})")
+                    + frame (0x02u, R"({"t":"pack","id":3,"mode":"SUPERFOX","slots":["K1AAA RR73; K1AAB <K1ABC> -01","K1AAC RR73; K1AAD <K1ABC> -02","K1AAE K1ABC RR73"],"text":"QRZ"})"));
+    for (qint64 id : {1, 2, 3})
+      QVERIFY2 (run.replies.value (id).terminal.value ("detail").toString ().contains ("SuperFox sends at most 5 RR73s"),
+                qPrintable (QJsonDocument {run.replies.value (id).terminal}.toJson (QJsonDocument::Compact)));
+
+    // The decoders plan their FFTs with the codec's own patience again after a
+    // FOX render, which plans foxfilt's with the GUI's: a noisy JT65 period's
+    // dt depends on the plans. Each session starts with no saved wisdom.
+    auto const signal = runCodec (control (render (1, with (row ("JT65", "W9XYZ K1ABC -12"), 0), 12000)));
+    QVector<qint16> period (12000);
+    for (auto sample : signal.replies.value (1).audio) period << qint16 (sample / 20);
+    period.resize (60 * 12000);
+    std::mt19937 noise (7);
+    for (auto& sample : period) sample = qint16 (sample + int (noise () % 5201) - 2600);
+    QJsonObject const configure {{"t", "configure"}, {"mode", "JT65"}, {"submode", 0}, {"trperiod", 60},
+                                 {"rxfreq", 1500}, {"nutc", 1200}, {"depth", 3}};
+    auto const decodes = [] (Run const& r) {
+      QList<QJsonObject> events;
+      for (auto const& event : r.events)
+        if (event.value ("t") == "decode") events << event;
+      return events;
+    };
+    QTemporaryDir freshDirectory;
+    QTemporaryDir foxDirectory;
+    auto const fresh = decodes (runCodec (control (configure) + audioFrames (period), freshDirectory.path ()));
+    QVERIFY (!fresh.isEmpty ());
+    QCOMPARE (decodes (runCodec (control (render (1, fox, 12000)) + control (configure) + audioFrames (period),
+                                 foxDirectory.path ())),
+              fresh);
+  }
+
+  // The GUI's SuperFox: its Fox's slots, free text, CQ flag and verification
+  // code packed into one transmission at 750 Hz.
+  void superFox ()
+  {
+    auto const r = [] (QStringList const& messages, QStringList const& heard, int otp = 0, bool moreCqs = false,
+                       QString const& text = {}, bool sendText = false)
+    {
+      Row f;
+      f.mode = "SUPERFOX";
+      f.foxSlots = messages;
+      f.heard = heard;
+      f.txFreq = 750;
+      f.otp = otp;
+      f.moreCqs = moreCqs;
+      f.text = text;
+      f.sendText = sendText;
+      return f;
+    };
+    Row compoundCq;
+    compoundCq.mode = "FOX";
+    compoundCq.foxSlots = QStringList {"CQ KH1/KH7Z"};
+    compoundCq.txFreq = 500;
+    Row hashed;
+    hashed.mode = "FOX";
+    hashed.foxSlots = QStringList {"K1ABC RR73; W9XYZ <W0AGP> -12"};
+    hashed.txFreq = 500;
+    foxParity ({r ({"CQ K1ABC FN42"}, {"$VERIFY$ K1ABC 000000", "CQ K1ABC FN42"}),
+                r ({"W9XYZ K1ABC -12", "K2DEF K1ABC RR73", "W3GHI RR73; K4JKL <K1ABC> +05"},
+                   {"$VERIFY$ K1ABC 123456", "K2DEF K1ABC RR73", "K4JKL K1ABC +05", "W3GHI K1ABC RR73", "W9XYZ K1ABC -12"},
+                   123456),
+                r ({"W9XYZ K1ABC -18", "K2DEF K1ABC +12"},
+                   {"$VERIFY$ K1ABC 000000", "CQ K1ABC", "K2DEF K1ABC +12", "TNX FOR QSO", "W9XYZ K1ABC -18"},
+                   0, true, "TNX FOR QSO", true),
+                r ({"W9XYZ K1ABC RR73", "K2DEF K1ABC RR73", "W3GHI K1ABC RR73", "K4JKL K1ABC RR73", "W5MNO K1ABC -03"},
+                   {"$VERIFY$ K1ABC 999999", "K2DEF K1ABC RR73", "K4JKL K1ABC RR73", "W3GHI K1ABC RR73",
+                    "W5MNO K1ABC -03", "W9XYZ K1ABC RR73"}, 999999),
+                r ({"CQ K1ABC FN42"}, {"$VERIFY$ K1ABC 000012", "CQ K1ABC FN42"}, 12, false, "", true),
+                r ({"CQ K1ABC FN42"}, {"$VERIFY$ K1ABC 000007", "CQ K1ABC FN42"}, 7, true),
+                // Free text as the GUI takes it: upper-cased, its leading blanks kept.
+                r ({"W9XYZ K1ABC -12"}, {"  TNX BOB", "$VERIFY$ K1ABC 000000", "W9XYZ K1ABC -12"}, 0, false,
+                   "  tnx bob", true),
+                // Nine Hounds, the most SuperFox carries; four with free text.
+                r ({"K1AAA RR73; K1AAB <K1ABC> -01", "K1AAC RR73; K1AAD <K1ABC> -02", "K1AAE RR73; K1AAF <K1ABC> -03",
+                    "K1AAG RR73; K1AAH <K1ABC> -04", "K1AAJ K1ABC RR73"},
+                   {"$VERIFY$ K1ABC 000000", "K1AAA K1ABC RR73", "K1AAB K1ABC -01", "K1AAC K1ABC RR73", "K1AAD K1ABC -02",
+                    "K1AAE K1ABC RR73", "K1AAF K1ABC -03", "K1AAG K1ABC RR73", "K1AAH K1ABC -04", "K1AAJ K1ABC RR73"}),
+                r ({"K1AAA RR73; K1AAB <K1ABC> -01", "K1AAC RR73; K1AAD <K1ABC> -02"},
+                   {"$VERIFY$ K1ABC 000000", "K1AAA K1ABC RR73", "K1AAB K1ABC -01", "K1AAC K1ABC RR73", "K1AAD K1ABC -02",
+                    "QRZ"}, 0, false, "QRZ", true),
+                // A compound Fox: its combined slots name its call whole and the
+                // others its base call, and the last slot's goes on the air.
+                r ({"W9XYZ RR73; K2DEF <KH1/KH7Z> -08", "K3GHI KH7Z RR73"},
+                   {"$VERIFY$ KH7Z 000000", "K2DEF KH7Z -08", "K3GHI KH7Z RR73", "W9XYZ KH7Z RR73"}),
+                // Radio::base_callsign drops an operating suffix before a prefix.
+                r ({"W9XYZ RR73; K2DEF <PJ4/K1ABC/P> -08", "K3GHI K1ABC RR73"},
+                   {"$VERIFY$ K1ABC 000000", "K2DEF K1ABC -08", "K3GHI K1ABC RR73", "W9XYZ K1ABC RR73"}),
+                // A tie takes the part after /, and LGT is an operating suffix.
+                r ({"W9XYZ RR73; K2DEF <VP2/K1A> -08", "K3GHI K1A RR73"},
+                   {"$VERIFY$ K1A 000000", "K2DEF K1A -08", "K3GHI K1A RR73", "W9XYZ K1A RR73"}),
+                r ({"W9XYZ RR73; K2DEF <K1A/LGT> -08", "K3GHI K1A RR73"},
+                   {"$VERIFY$ K1A 000000", "K2DEF K1A -08", "K3GHI K1A RR73", "W9XYZ K1A RR73"}),
+                // Zero as the GUI writes it.
+                r ({"W9XYZ K1ABC +00"}, {"$VERIFY$ K1ABC 000000", "W9XYZ K1ABC +00"}),
+                r ({"CQ KH1/KH7Z"}, {}), r ({"W9XYZ K1ABC -25"}, {}), r ({"W9XYZ K1ABC -12"}, {}, 0, false, "TNX!", true),
+                // sfox_pack refuses a compound Fox's call in a Hound slot, even
+                // once an FT8 message (here a Fox's) has carried it in full.
+                r ({"W3GHI RR73; K4JKL <KH1/KH7Z> +05"}, {}), compoundCq, r ({"W3GHI RR73; K4JKL <KH1/KH7Z> +05"}, {}),
+                // A SuperFox's Fox call enters FT8's transmit tables: W0AGP has
+                // KJ5HST's 10-bit hash.
+                r ({"K1ABC KJ5HST RR73"}, {"$VERIFY$ KJ5HST 000000", "K1ABC KJ5HST RR73"}), hashed});
+  }
+
   // The GUI's two sets of transmit hash tables, each kept across requests:
   // K0AAA and K0BAP have the same 12-bit hash, so after one of them a type 4
   // message with the other does not encode in the same set until a message
@@ -1347,7 +1787,7 @@ private slots:
     QVERIFY (!run.events.isEmpty ());
     QCOMPARE (run.events[0].value ("encodes").toArray (),
               (QJsonArray {"FT8", "FT4", "JT4", "JT9", "JT65", "Q65", "FST4", "FST4W", "WSPR", "MSK144", "ECHO",
-                           "TUNE", "JTTY"}));
+                           "TUNE", "FOX", "SUPERFOX", "JTTY"}));
   }
 
   // A request with no mode, or mode JTTY, is answered as JTTY's always was.
@@ -1441,9 +1881,11 @@ private slots:
     QTest::addColumn<QByteArray> ("request");
     QTest::addColumn<QString> ("reason");
     QTest::addColumn<QString> ("key");
-    auto const add = [] (char const * tag, QByteArray const& json, QString const& reason, QString const& key)
+    QTest::addColumn<QString> ("detail");
+    auto const add = [] (char const * tag, QByteArray const& json, QString const& reason, QString const& key,
+                         QString const& detail = {})
     {
-      QTest::newRow (tag) << json << reason << key;
+      QTest::newRow (tag) << json << reason << key << detail;
     };
     add ("blank", R"({"t":"pack","id":1,"mode":"FT8","text":"   "})", "empty", "");
     add ("JT9 single tone 50", R"({"t":"pack","id":1,"mode":"JT9","submode":"A","text":"@50"})", "bad_request", "text");
@@ -1612,6 +2054,79 @@ private slots:
          "bad_request", "cwid");
     add ("JT65 cwid unconfigured", R"({"t":"render","id":1,"mode":"JT65","submode":"A","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"cwid":true})",
          "not_configured", "mycall");
+    add ("FOX blank slot", R"({"t":"pack","id":1,"mode":"FOX","slots":["CQ K1ABC FN42","   "]})", "empty", "slots");
+    add ("FOX slot 38", R"({"t":"pack","id":1,"mode":"FOX","slots":["K1ABC W9XYZ FN42 AND MORE TEXT ADDED!!"]})",
+         "too_long", "slots");
+    add ("FOX 6 slots", R"({"t":"pack","id":1,"mode":"FOX","slots":["CQ K1ABC FN42","CQ K1ABC FN42","CQ K1ABC FN42","CQ K1ABC FN42","CQ K1ABC FN42","CQ K1ABC FN42"]})",
+         "bad_request", "slots");
+    add ("FOX no slots", R"({"t":"pack","id":1,"mode":"FOX"})", "bad_request", "slots");
+    add ("FOX empty slots", R"({"t":"pack","id":1,"mode":"FOX","slots":[]})", "bad_request", "slots");
+    add ("FOX slots string", R"({"t":"pack","id":1,"mode":"FOX","slots":"CQ K1ABC FN42"})", "bad_request", "slots");
+    add ("FOX slots number", R"({"t":"pack","id":1,"mode":"FOX","slots":["CQ K1ABC FN42",5]})", "bad_request", "slots");
+    add ("FOX slots array", R"({"t":"pack","id":1,"mode":"FOX","slots":[["CQ K1ABC FN42"]]})", "bad_request", "slots");
+    add ("FOX nested", R"({"t":"pack","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"x":{"a":1}})", "bad_request", "");
+    add ("FOX text", R"({"t":"pack","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"text":"CQ"})", "bad_request", "text");
+    add ("FOX freq 1500.5", R"({"t":"render","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"freq":1500.5,"rate":12000})",
+         "bad_request", "freq");
+    add ("FOX freq 150", R"({"t":"render","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"freq":150,"rate":12000})",
+         "bad_request", "freq");
+    add ("FOX freq 5001", R"({"t":"render","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"freq":5001,"rate":48000})",
+         "bad_request", "freq");
+    add ("FT8 slots", R"({"t":"pack","id":1,"mode":"FT8","text":"CQ K1ABC FN42","slots":["CQ K1ABC FN42"]})",
+         "bad_request", "slots");
+    add ("FOX otp", R"({"t":"pack","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"otp":1})", "bad_request", "otp");
+    add ("FOX more_cqs", R"({"t":"pack","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"more_cqs":true})",
+         "bad_request", "more_cqs");
+    add ("FOX cwid", R"({"t":"render","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"freq":500,"rate":12000,"cwid":true})",
+         "bad_request", "cwid");
+    add ("SUPERFOX 1500", R"({"t":"render","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"freq":1500,"rate":12000})",
+         "bad_request", "freq");
+    add ("SUPERFOX 5 slots and text", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["W9XYZ K1ABC RR73","K2DEF K1ABC RR73","W3GHI K1ABC RR73","K4JKL K1ABC RR73","W5MNO K1ABC -03"],"text":"TNX"})",
+         "bad_request", "slots", "slots must be an array of 1 to 4");
+    add ("SUPERFOX HELLO", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42","HELLO"]})", "bad_request", "slots");
+    add ("SUPERFOX CQ alone", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ"]})", "bad_request", "slots");
+    add ("SUPERFOX otp 1000000", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"otp":1000000})",
+         "bad_request", "otp");
+    add ("SUPERFOX otp -1", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"otp":-1})", "bad_request", "otp");
+    add ("SUPERFOX otp string", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"otp":"123456"})",
+         "bad_request", "otp");
+    add ("SUPERFOX more_cqs yes", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"more_cqs":"yes"})",
+         "bad_request", "more_cqs");
+    add ("SUPERFOX text 27", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"text":"ABCDEFGHIJKLMNOPQRSTUVWXYZA"})",
+         "too_long", "text");
+    add ("SUPERFOX text number", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"text":5})",
+         "bad_request", "text");
+    // Slots foxgen2 and sfox_assemble would send altered or not at all, each
+    // refused before sfox_pack sees it.
+    QString const none {"slot 1 is none of the GUI's SuperFox messages"};
+    QString const longHound {"slot 1 has a Hound call longer"};
+    QString const capacity {"the slots hold"};
+    for (auto set : {R"(["K1ABC RR73; W9XYZ KJ5HST -12"])", R"(["K1ABC RR73; W9XYZ <KJ5HST -12"])",
+                     R"(["K1ABC RR73; W9XYZ <KJ5HST> R-12"])", R"(["K1ABC KJ5HST RR73 EXTRA"])",
+                     R"(["K1ABC KJ5HST -12 EXTRA"])", R"(["W9XYZ 73; N0AB <K1ABC> -10"])", R"(["W9XYZ K1ABC RR73X"])",
+                     R"(["W9XYZ RR73; N0AB <K1ABC> -10X"])", R"(["K1ABC KJ5HST -1X"])", R"(["K1ABC RR73; W9XYZ <> -10"])",
+                     R"(["CQ DX KJ5HST EM18"])", R"(["W9XYZ RR73; N0AB XK1ABC> -10"])", R"(["W9XYZ KJ5HST -00"])",
+                     R"(["K1ABC RR73; W9XYZ <KJ5HST> -00"])"})
+      add (set, R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":)" + QByteArray {set} + "}", "bad_request", "slots", none);
+    for (auto set : {R"(["KJ5HSTX KJ5HST -10"])", R"(["K1ABC RR73; KJ5HSTXY <KJ5HST> -12"])"})
+      add (set, R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":)" + QByteArray {set} + "}", "bad_request", "slots",
+           longHound);
+    // The GUI writes its call whole in each combined slot and as its base call
+    // in the others.
+    for (auto set : {R"(["K1ABC KJ5HST RR73","W9XYZ W1AW -10"])", R"(["K1ABC RR73; W9XYZ <W1AW> -12","K2ABC KJ5HST RR73"])",
+                     R"(["K2AB RR73; W2XY <VE3/KJ5HST> -10","K3AB RR73; W3XY <KJ5HST/P> -11","K1ABC KJ5HST RR73"])",
+                     R"(["K1ABC KJ5HST/P RR73","W9XYZ KJ5HST -10"])"})
+      add (set, R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":)" + QByteArray {set} + "}", "bad_request", "slots",
+           "the slots name different Fox calls");
+    for (auto set : {R"(["CQ KJ5HST EM18","K1ABC KJ5HST RR73"])", R"(["CQ KJ5HST EM18","CQ KJ5HST EM18"])"})
+      add (set, R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":)" + QByteArray {set} + "}", "bad_request", "slots",
+           "a CQ slot goes alone");
+    add ("SUPERFOX 10 Hounds", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["K1AAA RR73; K1AAB <K1ABC> -01","K1AAC RR73; K1AAD <K1ABC> -02","K1AAE RR73; K1AAF <K1ABC> -03","K1AAG RR73; K1AAH <K1ABC> -04","K1AAJ RR73; K1AAK <K1ABC> -05"]})",
+         "bad_request", "slots", capacity);
+    add ("SUPERFOX 6 Hounds and text", R"({"t":"pack","id":1,"mode":"SUPERFOX","slots":["K1AAA RR73; K1AAB <K1ABC> -01","K1AAC RR73; K1AAD <K1ABC> -02","K1AAE RR73; K1AAF <K1ABC> -03"],"text":"QRZ"})",
+         "bad_request", "slots", capacity);
+    add ("SUPERFOX 750.0", R"({"t":"render","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"freq":750.0,"rate":12000})",
+         "bad_request", "freq");
   }
 
   void refusals ()
@@ -1619,7 +2134,8 @@ private slots:
     QFETCH (QByteArray, request);
     QFETCH (QString, reason);
     QFETCH (QString, key);
-    refusal (request, reason, key);
+    QFETCH (QString, detail);
+    refusal (request, reason, key, detail);
   }
 
   // What is not a refusal: an FST4 pack at a period too long to render, a
