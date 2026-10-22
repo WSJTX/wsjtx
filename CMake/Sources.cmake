@@ -252,11 +252,13 @@ set (wsjt_CXXSRCS
   ${wsjt_fox_CXXSRCS}
   )
 
-# The JTTY transmit encoder calls the Fortran codec, so it is archived with it.
+# The JTTY transmit encoder and the stream's slot-mode transmit audio call the
+# Fortran codec, so they are archived with it.
 set (wsjt_jtty_CXXSRCS
   lib/jtty/JttyTransmit.cpp
   lib/jtty/JttyTransmitHost.cpp
   lib/jtty/JttyUnicode.cpp
+  lib/stream_slot_audio.cpp
   )
 
 # deal with a GCC v6 UB error message
@@ -350,6 +352,7 @@ set (wsjt_FSRCS
   lib/jtty/jtty_receive_context.f90
   lib/jtty/jtty_filler.f90
   lib/streaming_jtty.f90
+  lib/streaming_encode.f90
 
   # remaining non-module sources
   lib/addit.f90

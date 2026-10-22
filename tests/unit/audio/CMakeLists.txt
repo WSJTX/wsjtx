@@ -254,3 +254,29 @@ if (WSJT_ENABLE_NETWORK_AUDIO)
 endif ()
 add_test (NAME test_sound_output_router COMMAND test_sound_output_router)
 set_tests_properties (test_sound_output_router PROPERTIES TIMEOUT 90)
+
+# The codec's slot-mode pack and render against the GUI's generators and its
+# Modulator. One process per mode, so each starts from a fresh GUI's and a
+# fresh codec's transmit hash tables.
+add_executable (test_wsjt_codec_slot_encode
+  test_wsjt_codec_slot_encode.cpp
+  ${CMAKE_SOURCE_DIR}/Modulator/Modulator.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp)
+target_include_directories (test_wsjt_codec_slot_encode PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_wsjt_codec_slot_encode
+  wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
+target_compile_definitions (test_wsjt_codec_slot_encode PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>")
+add_dependencies (test_wsjt_codec_slot_encode wsjt-codec)
+foreach (function ft8 ft4 fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr transmitState jttyUnchanged
+    readyListsEncodes decodesItsOwnRender renderAfterDecode refusals accepted)
+  add_test (NAME test_wsjt_codec_slot_encode_${function}
+    COMMAND test_wsjt_codec_slot_encode ${function})
+  set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES
+    LABELS "streaming;encode;runtime" TIMEOUT 300)
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+  endif ()
+endforeach ()

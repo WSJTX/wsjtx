@@ -1,4 +1,14 @@
-subroutine genmsk_128_90(msg0,ichk,msgsent,i4tone,itype)
+module msk144_tx
+  use packjt77, only: pack77_state,pack77_legacy_truncating_fallback,       &
+       pack77_legacy_truncating_fallback_for_state,unpack77,unpack77_for_state
+  private
+  public :: genmsk_128_90_for_state
+
+contains
+
+! genmsk_128_90, packing with state's hash tables, or without state packjt77's
+! own.
+subroutine genmsk_128_90_for_state(msg0,ichk,msgsent,i4tone,itype,state)
 ! s8 + 48bits + s8 + 80 bits = 144 bits (72ms message duration)
 !
 ! Encode an MSK144 message
@@ -18,7 +28,7 @@ subroutine genmsk_128_90(msg0,ichk,msgsent,i4tone,itype)
 !                 7 = short message     "<Call_1 Call2> Rpt"
 
   use iso_c_binding, only: c_loc,c_size_t
-  use packjt77
+  type(pack77_state), optional, target, intent(inout) :: state
   character*37 msg0
   character*37 message                    !Message to be generated
   character*37 msgsent                    !Message as it will be received
@@ -83,9 +93,17 @@ subroutine genmsk_128_90(msg0,ichk,msgsent,i4tone,itype)
      n3=-1
      c77=' '
      unpk77_success=.false.
-     call pack77_legacy_truncating_fallback(message,i3,n3,c77)
+     if(present(state)) then
+        call pack77_legacy_truncating_fallback_for_state(state,message,i3,n3,c77)
+     else
+        call pack77_legacy_truncating_fallback(message,i3,n3,c77)
+     endif
      if(i3.lt.0 .or. n3.lt.0) go to 998
-     call unpack77(c77,0,msgsent,unpk77_success) !Unpack to get msgsent
+     if(present(state)) then
+        call unpack77_for_state(state,c77,0,msgsent,unpk77_success)
+     else
+        call unpack77(c77,0,msgsent,unpk77_success) !Unpack to get msgsent
+     endif
      if(ichk.eq.1) go to 999
      read(c77,"(77i1)",err=998) msgbits
      call encode_128_90(msgbits,codeword)
@@ -126,4 +144,13 @@ subroutine genmsk_128_90(msg0,ichk,msgsent,i4tone,itype)
   msgsent='*** bad message ***                  '
   itype=-1
 999 return
+end subroutine genmsk_128_90_for_state
+
+end module msk144_tx
+
+subroutine genmsk_128_90(msg0,ichk,msgsent,i4tone,itype)
+  use msk144_tx, only: genmsk_128_90_for_state
+  character*37 msg0,msgsent
+  integer*4 i4tone(144)
+  call genmsk_128_90_for_state(msg0,ichk,msgsent,i4tone,itype)
 end subroutine genmsk_128_90

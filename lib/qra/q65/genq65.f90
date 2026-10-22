@@ -1,10 +1,18 @@
-subroutine genq65(msg0,ichk,msgsent,itone,i3,n3,iflag)
+module q65_tx
+  use packjt77, only: pack77_state,pack77_legacy_truncating_fallback,       &
+       pack77_legacy_truncating_fallback_for_state,unpack77,unpack77_for_state
+  private
+  public :: genq65_for_state
+
+contains
+
+! genq65, packing with knowledge's hash tables, or without it packjt77's own.
+subroutine genq65_for_state(msg0,ichk,msgsent,itone,i3,n3,iflag,knowledge)
 
 ! Encodes a Q65 message to yield itone(1:85)
 
-  use packjt77
-  use q65, only: q65_work
   use q65_codec, only: q65_enc
+  type(pack77_state), pointer, intent(in) :: knowledge
   character*37 msg0               !Message to be generated
   character*37 msgsent            !Message as it will be received
   character*77 c77
@@ -29,24 +37,16 @@ subroutine genq65(msg0,ichk,msgsent,itone,i3,n3,iflag)
   n3=-1
   c77=' '
   unpk77_success=.false.
-  if(associated(q65_work)) then
-     if(associated(q65_work%knowledge)) then
-        call pack77_legacy_truncating_fallback_for_state(q65_work%knowledge,msg0,i3,n3,c77)
-     else
-        call pack77_legacy_truncating_fallback(msg0,i3,n3,c77)
-     endif
+  if(associated(knowledge)) then
+     call pack77_legacy_truncating_fallback_for_state(knowledge,msg0,i3,n3,c77)
   else
      call pack77_legacy_truncating_fallback(msg0,i3,n3,c77)
   endif
   if(i3.lt.0 .or. n3.lt.0) go to 998
   read(c77(60:74),'(b15)',err=998) ng15
   if(ng15.eq.32373) c77(60:74)='111111010010011'    !Message is RR73
-  if(associated(q65_work)) then
-     if(associated(q65_work%knowledge)) then
-        call unpack77_for_state(q65_work%knowledge,c77,0,msgsent,unpk77_success)
-     else
-        call unpack77(c77,0,msgsent,unpk77_success)
-     endif
+  if(associated(knowledge)) then
+     call unpack77_for_state(knowledge,c77,0,msgsent,unpk77_success)
   else
      call unpack77(c77,0,msgsent,unpk77_success)
   endif    !Unpack to get msgsent
@@ -76,4 +76,20 @@ subroutine genq65(msg0,ichk,msgsent,itone,i3,n3,iflag)
   n3=-1
   msgsent='*** bad message ***                  '
 999 return
+end subroutine genq65_for_state
+
+end module q65_tx
+
+! With the selected decoder's knowledge, if any (lib/qra/q65/q65.f90 q65_work).
+subroutine genq65(msg0,ichk,msgsent,itone,i3,n3,iflag)
+  use packjt77, only: pack77_state
+  use q65, only: q65_work
+  use q65_tx, only: genq65_for_state
+  character*37 msg0,msgsent
+  integer itone(85)
+  type(pack77_state), pointer :: knowledge
+
+  knowledge=>null()
+  if(associated(q65_work)) knowledge=>q65_work%knowledge
+  call genq65_for_state(msg0,ichk,msgsent,itone,i3,n3,iflag,knowledge)
 end subroutine genq65

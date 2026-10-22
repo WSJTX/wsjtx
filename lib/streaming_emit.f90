@@ -4,7 +4,9 @@
 ! Zero-dependency (no Qt, no nlohmann). One line per message on stdout.
 !
 ! Schema (v=1):
-!   ready             {"v":1,"t":"ready","modes":[...],"protocol":1}
+!   ready             {"v":1,"t":"ready","modes":[...],"encodes":[...],"protocol":1}
+!                     modes are those configure decodes, encodes those pack
+!                     and render take (lib/streaming_encode.f90).
 !   decode            {"v":1,"t":"decode","mode":"FT8","time":"HHMMSS",
 !                      "snr":-12,"dt":0.600000024,"freq":1500,"message":"CQ ...",
 !                      "ap":0,"pass":50}
@@ -238,7 +240,8 @@ contains
     ! streaming, map65 I/Q) may extend this list later.
     write(output_unit, '(a)') &
        '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W",' // &
-       '"Q65","MSK144","JTTY"],"protocol":1}'
+       '"Q65","MSK144","JTTY"],' // &
+       '"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","JTTY"],"protocol":1}'
     flush(output_unit)
   end subroutine streaming_emit_ready
 

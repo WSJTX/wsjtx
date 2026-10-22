@@ -300,7 +300,11 @@ program test_streaming_control
   call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":200}', 12000, 200.d0)
   call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":5000}', 48000, 5000.d0)
   call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":1234.5}', 48000, 1234.5d0)
-  call expect_accepted('{"t":"pack","id":1,"text":"x","rate":44100,"freq":"x"}')
+  call expect_problem('{"t":"pack","id":1,"text":"x","rate":44100,"freq":"x"}', 'rate')
+  call expect_problem('{"t":"pack","id":1,"text":"x","Text":"y"}', 'Text')
+  call expect_problem('{"t":"pack","id":1,"text":"x","":1}', '""')
+  call expect_accepted('{"t":"pack","id":1,"text":"x","mode":"JTTY"}')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":1500,"zz":1}', 'zz')
   ! A request is one flat object; strings may hold any character.
   ! Request integers are JSON integers, which the list-directed reader alone is not.
   call expect_id('{"t":"pack","id":-0,"text":"x"}', 0)
