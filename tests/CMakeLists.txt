@@ -33,6 +33,15 @@ if (GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
       -D GIT_EXECUTABLE=${GIT_EXECUTABLE}
       -P ${CMAKE_SOURCE_DIR}/tests/release/test_git_archive.cmake)
 endif ()
+if (GIT_FOUND)
+  add_test (
+    NAME test_release_revision_label
+    COMMAND ${CMAKE_COMMAND}
+      -D SOURCE_DIR=${CMAKE_SOURCE_DIR}
+      -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/release-revision-label
+      -D GIT_EXECUTABLE=${GIT_EXECUTABLE}
+      -P ${CMAKE_SOURCE_DIR}/tests/release/test_revision_label.cmake)
+endif ()
 
 add_test (
   NAME test_release_build_type
