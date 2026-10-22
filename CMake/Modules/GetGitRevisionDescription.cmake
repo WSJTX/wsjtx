@@ -160,9 +160,11 @@ function(git_local_changes _source_dir _var)
 		return()
 	endif()
 
+	# status rechecks stale stat data in memory and, with no optional locks,
+	# never writes the index; safe.directory admits a tree another user owns.
 	execute_process(COMMAND
-		"${GIT_EXECUTABLE}"
-		diff-index --quiet HEAD --
+		"${GIT_EXECUTABLE}" -c "safe.directory=${_source_dir}" --no-optional-locks
+		status --porcelain --untracked-files=no
 		WORKING_DIRECTORY
 		"${_source_dir}"
 		RESULT_VARIABLE
@@ -171,7 +173,7 @@ function(git_local_changes _source_dir _var)
 		out
 		ERROR_QUIET
 		OUTPUT_STRIP_TRAILING_WHITESPACE)
-	if(res EQUAL 0)
+	if(res EQUAL 0 AND out STREQUAL "")
 		set(${_var} "CLEAN" PARENT_SCOPE)
 	else()
 		set(${_var} "DIRTY" PARENT_SCOPE)
