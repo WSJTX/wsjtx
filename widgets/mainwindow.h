@@ -147,8 +147,6 @@ class WSPRNet;
 class AudioOutputSink;
 class Modulator;
 class AudioInputSource;
-class AudioSourceRouter;
-class SoundOutputRouter;
 class Detector;
 class SampleDownloader;
 class MultiSettings;
@@ -310,7 +308,6 @@ public:
   public slots:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(TxEvidence::TxOutputError const& error);
-  void invalidateSoundOutDevice(TxEvidence::TxOutputError const& error);
   void showStatusMessage(const QString& statusMsg);
   // JTTY text submission is asynchronous. The returned request id is completed
   // by accepted/rejected signals; accepted means queued for backend transmit,
@@ -785,9 +782,6 @@ private:
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
   Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
-  // Point the router at the configured RX source. Safe to call at any time;
-  // a no-op when this window did not create the router.
-  void applyAudioSourceSelection ();
 
 private:
   void set_mode (QString const& mode);
@@ -994,19 +988,11 @@ private:
   Detector * m_detector;
   unsigned m_FFTSize;
   AudioInputSource * m_soundInput;
-  // The same object as m_soundInput when this window created it, and null
-  // when a source was injected (the live-audio fixture path). Only the
-  // router understands the device/network selection.
-  AudioSourceRouter * m_audioRouter {nullptr};
   quint64 m_decodeCycleGeneration {0};
   Modulator * m_modulator;
   QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
   AudioOutputSink * m_soundOutput;
-  // The same object as m_soundOutput when this window created it, and null
-  // when a sink was injected (the TX loopback fixture path). Only the router
-  // understands the device/network selection.
-  SoundOutputRouter * m_outputRouter {nullptr};
   int m_rx_audio_buffer_frames;
   int m_tx_audio_buffer_frames;
   QThread m_audioThread;

@@ -2023,60 +2023,6 @@ transmitting periods.</string>
         </widget>
        </item>
        <item>
-        <widget class="QGroupBox" name="network_audio_group_box">
-         <property name="toolTip">
-          <string>Receive audio from a network audio server instead of the soundcard.</string>
-         </property>
-         <property name="title">
-          <string>Network audio</string>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>false</bool>
-         </property>
-         <layout class="QHBoxLayout" name="horizontalLayout_network_audio">
-          <item>
-           <widget class="QLabel" name="network_audio_server_label">
-            <property name="text">
-             <string>Ser&amp;ver:</string>
-            </property>
-            <property name="buddy">
-             <cstring>network_audio_server_line_edit</cstring>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="network_audio_server_line_edit">
-            <property name="toolTip">
-             <string>Hostname or address of the network audio server, optionally
-followed by a colon and a port number. The default port is 4533.
-
-While this is enabled the soundcard input is not used; receive
-audio comes from the server instead.</string>
-            </property>
-            <property name="placeholderText">
-             <string>host[:port]</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="network_audio_tx_check_box">
-            <property name="toolTip">
-             <string>Also send transmit audio to the network audio server, over the
-same connection, instead of to the soundcard output device. The
-server must run at 48 kHz. PTT is still keyed through rig control.</string>
-            </property>
-            <property name="text">
-             <string>Use for &amp;transmit</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
         <widget class="QGroupBox" name="save_path_group_box">
          <property name="toolTip">
           <string>Save Directory</string>

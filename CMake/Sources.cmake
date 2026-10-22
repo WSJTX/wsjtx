@@ -214,19 +214,6 @@ set (wsjtx_CXXSRCS
   widgets/MMTTYIF.cpp
   )
 
-list (APPEND wsjtx_CXXSRCS
-  Audio/AudioSourceRouter.cpp
-  Audio/SoundOutputRouter.cpp
-  )
-
-if (WSJT_ENABLE_NETWORK_AUDIO)
-  list (APPEND wsjtx_CXXSRCS
-    Audio/NetworkAudioConnection.cpp
-    Audio/NetworkAudioInput.cpp
-    Audio/NetworkSoundOutput.cpp
-    )
-endif ()
-
 if (WSJT_ENABLE_TESTS)
   list (APPEND wsjtx_CXXSRCS
     Audio/FixtureAudioInput.cpp
