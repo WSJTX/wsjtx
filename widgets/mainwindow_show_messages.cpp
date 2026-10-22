@@ -13,16 +13,6 @@ void MainWindow::showSoundInError(const QString& errorMsg)
   MessageBox::critical_message (this, tr ("Error in Sound Input"), errorMsg);
 }
 
-void MainWindow::invalidateSoundOutDevice(TxEvidence::TxOutputError const& error)
-{
-  TxEvidence::TxPlaybackContext active;
-  if (m_txEvidenceSession == m_txEvidenceSourceSession)
-    active = {m_txEvidenceSession, m_txEvidenceGeneration};
-  bool const jtty = m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ();
-  if (TxOutputFaultPolicy::decide (error, active, jtty) == TxOutputFaultPolicy::Action::Ignore) return;
-  m_config.invalidate_audio_output_device (error.message);
-}
-
 void MainWindow::showSoundOutError(TxEvidence::TxOutputError const& error)
 {
   TxEvidence::TxPlaybackContext active;
@@ -34,6 +24,7 @@ void MainWindow::showSoundOutError(TxEvidence::TxOutputError const& error)
 
   auto const& errorMsg = error.message;
   noteTxStopReason (TxEvidence::TxStopReason::Error);
+  m_config.invalidate_audio_output_device (errorMsg);
   if (action == TxOutputFaultPolicy::Action::Stop)
     requestTxStop (TxEvidence::TxStopReason::Error);
   if (jtty) {
