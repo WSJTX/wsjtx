@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QTemporaryDir>
@@ -1232,6 +1233,86 @@ private slots:
   {
     if (!recordings ()) QSKIP ("run by test_streaming_backlog_*");
     check (msk144BehindOnePeriod ());
+  }
+
+  // A discontinuity re-anchors, as the GUI's input restarts at each period:
+  // period 1's final, deferred while period 0's decodes, still runs; period
+  // 2, short of its stop, is dropped; and the period after it starts at the
+  // next sample and decodes at its own stop.
+  void mtdDeferredFinalOutlivesADiscontinuity ()
+  {
+    if (!recordings ()) QSKIP ("run by test_streaming_backlog_*");
+    auto const busy = samples ("WSJT_FT8_SAMPLE_WAV", Ft8PeriodSamples);
+    auto const engine = samples ("WSJT_FT8_ENGINE_WAV", Ft8PeriodSamples);
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    QProcess process;
+    process.setProcessChannelMode (QProcess::SeparateChannels);
+    process.setReadChannel (QProcess::StandardError);
+    process.setWorkingDirectory (directory.path ());
+    process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+                   {"-a", directory.path (), "-t", directory.path (), "--stream"});
+    QVERIFY (process.waitForStarted (5000));
+    QByteArray out, err;
+    auto const read = [&] {
+      QCoreApplication::processEvents ();
+      out += process.readAllStandardOutput ();
+      err += process.readAllStandardError ();
+    };
+    auto const waitFor = [&] (std::function<bool ()> const& done, int ms) {
+      QElapsedTimer timer;
+      timer.start ();
+      while (!done () && timer.elapsed () < ms && QProcess::Running == process.state ())
+        {
+          if (process.bytesToWrite () > 0) process.waitForBytesWritten (5);
+          else process.waitForReadyRead (5);
+          read ();
+        }
+      return done ();
+    };
+    process.write (sessionHeader () + configureFrame ({{"mode", "FT8"}, {"depth", 3}, {"multithreaded_ft8", true},
+                                                       {"ft8_threads", 2}, {"ft8_decoder_start", 0},
+                                                       {"ft8_cycles", 1}, {"live_audio", true},
+                                                       {"utc", "13:34:30"}})
+                   + frame (0x01u, busy.left (2)));
+    QElapsedTimer clock;
+    clock.start ();
+    // All of it due before period 0's final, so that what comes in while that
+    // final decodes finds the decoder busy.
+    qint64 const lateEnd = 2 * Ft8PeriodSamples + 10 * HsymSamples;
+    QVERIFY (waitFor ([&] {return clock.elapsed () > lateEnd / 12 + DueMarginMs;}, int (lateEnd / 12) + 5000));
+    process.write (frame (0x01u, busy.mid (2, 2 * 41 * HsymSamples - 2)) + marker ());
+    QVERIFY2 (waitFor ([&] {return out.contains (R"("code":"configure_parse_error")");}, waitMs ()), err.constData ());
+    process.write (frame (0x01u, busy.mid (2 * 41 * HsymSamples, 2 * 8 * HsymSamples)));
+    QVERIFY2 (waitFor ([&] {return err.contains ("pass nzhsym=49 ");}, waitMs ()), err.constData ());
+    process.write (frame (0x01u, busy.mid (2 * 49 * HsymSamples)) + configureFrame ({{"utc", "13:34:45"}})
+                   + frame (0x01u, engine) + configureFrame ({{"utc", "13:35:00"}})
+                   + frame (0x01u, busy.left (2 * 10 * HsymSamples)) + controlFrame ({{"t", "discontinuity"}}));
+    QVERIFY2 (waitFor ([&] {return out.contains (R"("t":"decode_finished")");}, waitMs ()), err.constData ());
+    process.write (configureFrame ({{"utc", "13:35:15"}}) + frame (0x01u, engine));
+    process.closeWriteChannel ();
+    QVERIFY (waitFor ([&] {return QProcess::NotRunning == process.state ();}, waitMs ()));
+    read ();
+    QVERIFY2 (err.contains ("defer nzhsym=49"), err.constData ());
+    QStringList finished;
+    QMap<QString, QStringList> decodes;
+    QStringList current;
+    for (auto const& text : QByteArray {out}.replace ("\r\n", "\n").split ('\n'))
+      {
+        auto const event = QJsonDocument::fromJson (text).object ();
+        auto const type = event.value ("t").toString ();
+        if ("decode" == type) current << event.value ("message").toString ();
+        if ("decode_finished" == type)
+          {
+            finished << event.value ("period_end").toString ();
+            decodes[finished.last ()] = current;
+            current.clear ();
+          }
+        QVERIFY2 (event.value ("reason").toString () != "cancelled", text.constData ());
+      }
+    QCOMPARE (finished, (QStringList {"133430", "133445", "133515"}));
+    QVERIFY2 (decodes["133445"].contains (EngineMessage), out.constData ());
+    QVERIFY2 (decodes["133515"].contains (EngineMessage), out.constData ());
   }
 };
 

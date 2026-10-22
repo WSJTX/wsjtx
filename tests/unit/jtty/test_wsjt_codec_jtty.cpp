@@ -1005,8 +1005,8 @@ private Q_SLOTS:
 
   // When a session ends, the window that extends past its last sample is
   // searched too, with the session's own settings, so a last frame that ends
-  // shortly before halt, end of input, a discontinuity, an odd-length frame or
-  // a change of mode decodes. A full search window reaches the last frame here
+  // shortly before halt, end of input, a discontinuity, a flush, an odd-length
+  // frame or a change of mode decodes. A full search window reaches the last frame here
   // only when 5328 more samples follow it. The change of mode would hide
   // 1500 Hz from a message that begins in that window, as a one-frame message
   // does.
@@ -1021,6 +1021,7 @@ private Q_SLOTS:
     QTest::newRow ("eof +2000") << Quick << 2000 << QByteArray {};
     QTest::newRow ("discontinuity +5000")
       << Quick << 5000 << control (R"({"t":"discontinuity"})") + silence (1000);
+    QTest::newRow ("flush +5000") << Quick << 5000 << control (R"({"t":"flush"})") + silence (1000);
     QTest::newRow ("mode change +1000") << Quick << 1000 << modeChange;
     QTest::newRow ("mode change, one frame +1000") << OneFrame << 1000 << modeChange;
     QTest::newRow ("odd frame +3000") << Quick << 3000 << frame (0x01u, QByteArray (1, 'Z'));
@@ -1043,7 +1044,7 @@ private Q_SLOTS:
     QCOMPARE (updates.last ().value ("state").toString (), QString {"complete"});
     QCOMPARE (updates.last ().value ("text").toString (), message);
     auto const sessions = ofType (run.events, "session");
-    QCOMPARE (sessions.size (), ending.contains ("discontinuity") ? 2 : 1);
+    QCOMPARE (sessions.size (), ending.contains ("discontinuity") || ending.contains ("flush") ? 2 : 1);
     if (sessions.size () == 2)
       {
         QCOMPARE (sessions[1].value ("origin").toInt (), end + extra);

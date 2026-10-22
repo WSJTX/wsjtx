@@ -114,7 +114,8 @@ contains
     ! the frame wins (streaming_io.f90). The host also sets kin and nzhsym before
     ! each decode, so kin_samples/nzhsym_per_period do not reach the decoder.
     ! robust_mode/nagain_flag/clear_average -> logical(c_bool); nagain holds
-    ! only for the decode again nagain_flag asks for (streaming_io.f90).
+    ! only for the decode again nagain_flag asks for, and nclearave only for
+    ! the next decode that runs (streaming_io.f90).
     ! tx_mode (enum) -> ntxmode, read only by JT65+JT9.
     if (in_cfg%dt_tolerance_seconds_set)                                       &
          params%dttol    = real(in_cfg%dt_tolerance_seconds, kind(params%dttol))
@@ -129,6 +130,7 @@ contains
     if (in_cfg%min_width_set)         params%minw      = in_cfg%min_width
     if (in_cfg%min_sync_set)          params%minsync   = in_cfg%min_sync
     if (in_cfg%n_2pass_set)           params%n2pass    = in_cfg%n_2pass
+    if (in_cfg%aggressive_set)        params%naggressive = in_cfg%aggressive
     if (in_cfg%robust_mode_set)       params%nrobust   = in_cfg%robust_mode
     if (in_cfg%nagain_flag_set)       params%nagain    = in_cfg%nagain_flag
     if (in_cfg%tx_mode_set)           params%ntxmode   = in_cfg%tx_mode
@@ -372,9 +374,11 @@ contains
        set = in_cfg%utc_set .or. in_cfg%nutc_set
     case ('contest')
        key = 'contest_type'; set = in_cfg%contest_type_set
+    case ('aggressiveness')
+       key = 'aggressive'; set = in_cfg%aggressive_set
     case default
-       ! flags, passes and aggressiveness: no configure key sets a value the
-       ! engine refuses (the conversion makes them 0/1, clamps or fixes them).
+       ! flags and passes: no configure key sets a value the engine refuses
+       ! (the conversion makes them 0/1 or clamps them).
        key = field; set = .true.
     end select
     if (present(carried)) carried = .not. set

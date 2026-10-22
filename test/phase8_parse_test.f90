@@ -5,8 +5,9 @@
 ! is ENCODED to nranera, and two keys carry a PARSE-TIME VALUE check that emits
 ! configure_type_error (n_trials not in {10^N,3*10^N}; date year>=2100). This
 ! driver asserts the derivations, the encoding table (incl. the n_trials=1 ->
-! nranera=0 edge), the two value errors, the wrong-TYPE detection, malformed
-! ISO silent-skip, that nutc AND utc are BOTH kept at parse (precedence is resolved
+! nranera=0 edge), the two value errors, the wrong-TYPE detection, a malformed
+! date's silent skip and a malformed utc's type error, that nutc AND utc are BOTH
+! kept at parse (precedence is resolved
 ! at apply — see run-apply-routing-unit.sh frame_utc_precedence), and value-vs-key
 ! aliasing. Compiled + run by run-phase8-parse-unit.sh.
 !
@@ -186,21 +187,28 @@ contains
     call ok('candthin string: got == string',         trim(terr%got) .eq. 'string')
   end subroutine frame_E
 
-  ! Frame F: malformed ISO strings -> value-domain SILENT SKIP (key left unset, NO
-  ! type error — these are well-typed strings, just not parseable HH:MM:SS /
-  ! YYYY-MM-DD). Mirrors the bad-mode-name silent skip.
+  ! Frame F: a malformed ISO date -> value-domain SILENT SKIP (key left unset, NO
+  ! type error), like the bad-mode-name silent skip. A utc that is not HH:MM:SS
+  ! is a type error, so that a period is never labelled with a time the client
+  ! did not send.
   subroutine frame_F()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: b =                                       &
-      '{"t":"configure","utc":"13:34","date":"2021-07","mode":"FT8"}'
-    write(*,'(a)') 'Frame F: malformed ISO (utc "13:34" / date "2021-07") -> silent skip'
+      '{"t":"configure","date":"2021-07","mode":"FT8"}'
+    character(len=*), parameter :: bu =                                      &
+      '{"t":"configure","utc":"13:34","mode":"FT8"}'
+    write(*,'(a)') 'Frame F: malformed ISO date "2021-07" -> silent skip; utc "13:34" -> type error'
     call parse_control_frame(b, action, cfg, terr)
     call ok('terr not present (no false decline)', .not. terr%present)
-    call ok('utc "13:34" (no seconds) -> utc UNSET',  .not. cfg%utc_set)
     call ok('date "2021-07" (no day)  -> date UNSET', .not. cfg%date_set)
     call ok('mode still parsed (FT8)', cfg%mode_set .and. cfg%mode .eq. 8)
+    call parse_control_frame(bu, action, cfg, terr)
+    call ok('utc "13:34" (no seconds) -> type error utc/HH:MM:SS/string',      &
+         terr%present .and. trim(terr%key) .eq. 'utc' .and.                   &
+         trim(terr%expected) .eq. 'HH:MM:SS' .and. trim(terr%got) .eq. 'string')
+    call ok('utc "13:34" -> utc UNSET', .not. cfg%utc_set)
   end subroutine frame_F
 
   ! Frame G: nutc AND utc both present -> parse keeps BOTH (the legacy int nutc and

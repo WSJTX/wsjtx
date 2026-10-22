@@ -212,6 +212,7 @@ contains
     cfg%min_width_set = .true.;        cfg%min_width = 3
     cfg%min_sync_set = .true.;         cfg%min_sync = 4
     cfg%n_2pass_set = .true.;          cfg%n_2pass = 1
+    cfg%aggressive_set = .true.;       cfg%aggressive = 7
     cfg%robust_mode_set = .true.;      cfg%robust_mode = .true.
     cfg%nagain_flag_set = .true.;      cfg%nagain_flag = .true.
     cfg%tx_mode_set = .true.;          cfg%tx_mode = 9
@@ -283,6 +284,7 @@ contains
     call ok('min_width -> minw = 3 (not minsync)',  p%minw    .eq. 3)
     call ok('min_sync -> minsync = 4 (not minw)',   p%minsync .eq. 4)
     call ok('n_2pass -> n2pass = 1',           p%n2pass  .eq. 1)
+    call ok('aggressive -> naggressive = 7',   p%naggressive .eq. 7)
     call ok('robust_mode -> nrobust true',     logical(p%nrobust))
     call ok('nagain_flag -> nagain true',      logical(p%nagain))
     call ok('tx_mode -> ntxmode = 9',          p%ntxmode .eq. 9)
@@ -590,6 +592,7 @@ contains
     call key_is('max_drift', cfg, 'max_drift_hz')
     call key_is('utc', cfg, 'nutc')
     call key_is('contest', cfg, 'contest_type')
+    call key_is('aggressiveness', cfg, 'aggressive')
     cfg = blank; cfg%nfb_set = .true.
     call key_is('search_range', cfg, 'nfb')
     cfg%nfa_set = .true.

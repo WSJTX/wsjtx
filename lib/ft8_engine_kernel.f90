@@ -1,7 +1,7 @@
 module ft8_engine_kernel
 !$ use omp_lib
   use prog_args, only: temp_dir
-  use streaming_emit, only: streaming_emit_enabled
+  use streaming_emit, only: streaming_emit_enabled, streaming_emit_replay_line
   use, intrinsic :: iso_fortran_env, only: error_unit
   use timer_module, only: timer
   use packjt77, only: pack77_state
@@ -180,7 +180,11 @@ contains
              do i=1,9999
                 read(39,'(a60)',end=5) line
                 if(line(1:1).eq.' ' .or. line(1:1).eq.'-') exit
-                write(*,'(a)') trim(line)
+                if(streaming_emit_enabled()) then
+                   call streaming_emit_replay_line(line)
+                else
+                   write(*,'(a)') trim(line)
+                endif
              enddo
 5            close(39)
           endif

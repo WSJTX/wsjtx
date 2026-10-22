@@ -69,7 +69,7 @@ if (WSJT_ENABLE_TSAN)
   list (APPEND streaming_range_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 add_test (NAME test_streaming_configure_ranges
-  COMMAND test_streaming_consumers wsjtCodecDeclinesValuesTheEngineRefuses
+  COMMAND test_streaming_consumers wsjtCodecDeclinesValuesTheEngineRefuses wsjtCodecDeclinesBadLabels
     wsjtCodecAcceptsValuesAtTheEngineLimits wsjtCodecReportsRefusedDecodes)
 set_tests_properties (test_streaming_configure_ranges PROPERTIES
   LABELS "streaming;runtime"
@@ -168,7 +168,8 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
     mtdCancelDropsTheDeferredFinal houndDropsTheFinalWhileBusy
     standardFt8DropsPassesWhileBusy standardFt8RunsPassesWhenFree
     ft4DropsTheDecodeWhileBusy ft4DecodesWhenFree
-    decodeAgainRefusedWhileBusy decodeAgainRunsWhenFree msk144NeverRefused)
+    decodeAgainRefusedWhileBusy decodeAgainRunsWhenFree msk144NeverRefused
+    mtdDeferredFinalOutlivesADiscontinuity)
   set (streaming_backlog_timeout 300)
   # The rows wait in real time; sanitizer builds, with slower decodes, run one row (ASan) or two (TSan).
   if (WSJT_ENABLE_TSAN)
@@ -196,6 +197,131 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
     endif ()
   endforeach ()
 endif ()
+
+# The GUI's lines from the stream's events (DecodeEventLine): each rendered
+# line equals jt9's for the same audio and options, before and after
+# DecodeOutputPlan::prepareLine.
+add_executable (test_streaming_render test_streaming_render.cpp)
+add_dependencies (test_streaming_render jt9 wsjt-codec)
+target_include_directories (test_streaming_render PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_streaming_render wsjt_qt wsjt_fort_common Qt5::Test)
+target_compile_definitions (test_streaming_render PRIVATE
+  JT9_EXECUTABLE="$<TARGET_FILE:jt9>"
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>")
+add_test (NAME test_streaming_render COMMAND test_streaming_render rendersJt9Lines rendersDecodeFinished)
+set_tests_properties (test_streaming_render PROPERTIES LABELS "streaming" TIMEOUT 60)
+if (WSJT_BUILD_UTILS)
+  # The worker's path, for settings jt9's command line cannot give.
+  add_executable (ft8_worker_model ft8_worker_model.f90)
+  target_include_directories (ft8_worker_model PRIVATE ${CMAKE_SOURCE_DIR}/lib)
+  wsjt_link_common_fortran (ft8_worker_model)
+  # The decoder's stack, as jt9's.
+  if (WIN32)
+    set_property (TARGET ft8_worker_model APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--stack,16777216")
+  endif ()
+  add_dependencies (test_streaming_render ft8_worker_model)
+  target_compile_definitions (test_streaming_render PRIVATE
+    SUPERFOX_WAV="${CMAKE_CURRENT_BINARY_DIR}/superfox/000000_000000.wav"
+    FT8_WORKER_MODEL="$<TARGET_FILE:ft8_worker_model>")
+endif ()
+# Without a console (a Windows runner) QtTest writes to the debugger, not to
+# ctest, unless QT_FORCE_STDERR_LOGGING is set; the rows require their PASS line.
+set (streaming_render_environment "WSJT_RENDER_FIXTURES=${CMAKE_BINARY_DIR}/tests/unit"
+  "WSJT_SHARE_DIR=${CMAKE_SOURCE_DIR}" "QT_FORCE_STDERR_LOGGING=1")
+set (streaming_render_timeout 300)
+# Each row runs jt9 and the stream; the sanitizers slow both several times over.
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_render_timeout 1200)
+  list (APPEND streaming_render_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_render_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+# Source archives omit samples/.
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+  list (APPEND streaming_render_environment "WSJT_SAMPLES_DIR=${CMAKE_SOURCE_DIR}/samples")
+endif ()
+function (wsjt_add_streaming_render_test name function fixtures)
+  add_test (NAME test_streaming_render_${name} COMMAND test_streaming_render "${function}")
+  # QtTest exits 0 for a data tag it does not have: require the row's PASS.
+  string (REPLACE ":" "\\(" pattern "${function}")
+  if (function MATCHES ":")
+    string (APPEND pattern "\\)")
+  else ()
+    string (APPEND pattern "\\(\\)")
+  endif ()
+  set_tests_properties (test_streaming_render_${name} PROPERTIES
+    LABELS "streaming;runtime;decode"
+    ENVIRONMENT "${streaming_render_environment}"
+    TIMEOUT ${streaming_render_timeout}
+    PASS_REGULAR_EXPRESSION "PASS   : TestStreamingRender::${pattern}"
+    FAIL_REGULAR_EXPRESSION "FAIL!")
+  if (fixtures)
+    set_tests_properties (test_streaming_render_${name} PROPERTIES FIXTURES_REQUIRED "${fixtures}")
+  endif ()
+endfunction ()
+set (streaming_render_rows fst4-15 fst4-15-doppler q65-15)
+set (streaming_render_sample_rows ft8 ft8-d3 ft8-mtd ft4 jt9 jt9-d3 jt65 jt65-seq jt65-seq-avg
+  jt65-seq-avg-utc jt65-seq-vhf-avg jt65jt9 jt4f jt4a jt4a-avg q65-30a q65-30a-ap q65-30a-seq
+  q65-30a-seq-avg q65-60a q65-60b-seq-avg q65-60d q65-120d q65-120e-seq-avg-counts q65-300a fst4
+  fst4-doppler fst4w)
+set (streaming_render_ap_rows ft8-ap ft4-ap q65-pileup-ap q65-pileup-off-counts)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_render_rows fst4-15 q65-15)
+  set (streaming_render_sample_rows ft8 ft4 jt9 jt65-seq-vhf-avg jt4f q65-30a fst4)
+  set (streaming_render_ap_rows ft8-ap)
+endif ()
+foreach (row IN LISTS streaming_render_rows)
+  wsjt_add_streaming_render_test (${row} "matchesJt9:${row}" "fst4_engine_wav;q65_engine_wav")
+endforeach ()
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+  foreach (row IN LISTS streaming_render_sample_rows)
+    wsjt_add_streaming_render_test (${row} "matchesJt9:${row}" "")
+  endforeach ()
+  if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
+    wsjt_add_streaming_render_test (clear_average clearAverageClearsOnce "")
+    wsjt_add_streaming_render_test (clear_average_q65 q65ClearAverageClearsOnce "")
+    wsjt_add_streaming_render_test (pass decodesCarryTheirPass "")
+  endif ()
+endif ()
+if (WSJT_BUILD_UTILS)
+  # Weak signals, which need a priori decoding: the lines carry aN. The noise
+  # differs from run to run, so eight periods each, nearly all of them aN.
+  foreach (sim ft8 ft4)
+    file (MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/render/${sim}ap")
+  endforeach ()
+  add_dependencies (test_streaming_render ft8sim ft4sim q65sim)
+  add_test (NAME prepare_render_ft8ap_wavs COMMAND ft8sim "K1ABC W9XYZ RR73" 1500.0 0.0 0.1 1.0 8 -22
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/render/ft8ap")
+  add_test (NAME prepare_render_ft4ap_wavs COMMAND ft4sim "K1ABC W9XYZ RR73" 1500 0.0 0.1 1.0 8 -19
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/render/ft4ap")
+  # Q65 messages with the copied bit set, decodable only with a priori help.
+  file (MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/render/q65pileup")
+  add_test (NAME prepare_render_q65pileup_wavs COMMAND q65sim "K1ABC W9XYZ R-15" A 1500 0.0 0.0 0.0 1 30 1 4 -26 1
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/render/q65pileup")
+  # SuperFox with its CQ, and with its free text.
+  foreach (variant cq text)
+    file (MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/superfox-${variant}")
+  endforeach ()
+  add_test (NAME prepare_render_superfox_cq_wav COMMAND sfoxsim 750 0.0 AW K1JT 3 1 1 0 1 -5
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/superfox-cq")
+  add_test (NAME prepare_render_superfox_text_wav COMMAND sfoxsim 750 0.0 AW K1JT 3 1 0 1 1 -5
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/superfox-text")
+  set_tests_properties (prepare_render_ft8ap_wavs prepare_render_ft4ap_wavs prepare_render_q65pileup_wavs
+    prepare_render_superfox_cq_wav prepare_render_superfox_text_wav PROPERTIES FIXTURES_SETUP render_sim_wavs
+    TIMEOUT 30)
+  foreach (row superfox superfox-cq superfox-text mtd-ap)
+    wsjt_add_streaming_render_test (worker-${row} "matchesTheWorker:${row}" "superfox_wav;render_sim_wavs")
+  endforeach ()
+  foreach (row IN LISTS streaming_render_ap_rows)
+    wsjt_add_streaming_render_test (${row} "matchesJt9:${row}" render_sim_wavs)
+  endforeach ()
+endif ()
+foreach (row ft8-mtd worker-mtd-ap)
+  if (TEST test_streaming_render_${row})
+    set_tests_properties (test_streaming_render_${row} PROPERTIES PROCESSORS 4)
+  endif ()
+endforeach ()
 
 add_executable (test_streaming_period test_streaming_period.f90)
 wsjt_link_common_fortran (test_streaming_period)

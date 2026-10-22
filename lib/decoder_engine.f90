@@ -1263,7 +1263,8 @@ contains
     if(session%render_legacy.and.observation%legacy_line_length>0) then
        if(streaming_emit_enabled()) then
           call streaming_emit_decode("FT8",session%request%ft8%utc,observation%snr_db, &
-               observation%dt_seconds,nint(observation%frequency_hz),observation%message)
+               observation%dt_seconds,nint(observation%frequency_hz),observation%message, &
+               superfox=.true.,text_width=observation%legacy_line_length-24)
        else
           write(*,'(a)') observation%legacy_line(:observation%legacy_line_length)
           flush(6)
