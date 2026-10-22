@@ -1900,7 +1900,7 @@ void MainWindow::configureModeControlsLayout()
     ui->lookupButton, ui->addButton, ui->ignoreButton,
     ui->txb1, ui->txb2, ui->txb3, ui->txb4, ui->txb5, ui->txb6
   };
-  for (auto * button : compactButtons) button->setProperty ("wsjtxCompact", true);
+  for (auto * button : compactButtons) update_dynamic_property (button, "wsjtxCompact", true);
 
   // A designer minimum of 32 overrides the font/style minimumSizeHint and
   // clips FT8/JT65 at larger fonts. Let the layout use the real label hints.
@@ -2203,23 +2203,8 @@ void MainWindow::applyApplicationStyle (QFont const& font, bool dark)
       darkStyleSheet = stream.readAll ();
     }
 
-  QFont prominentFont {font};
-  if (font.pointSizeF () > 0.) prominentFont.setPointSizeF (font.pointSizeF () * 1.6);
-  else if (font.pixelSize () > 0) prominentFont.setPixelSize (qRound (font.pixelSize () * 1.6));
-  auto styleSheet = application_style_sheet (
-    m_base_style_sheet, darkStyleSheet, dark, font)
-    + "\nQLabel#labDialFreq, QLabel#labUTC {" + font_as_stylesheet (prominentFont) + '}';
-#ifdef Q_OS_MAC
-  if (!dark)
-    {
-      styleSheet += "\nQPushButton[wsjtxCompact=\"true\"] {"
-        "border: 1px solid palette(mid); border-radius: 4px; padding: 3px 6px; "
-        "background-color: palette(button); color: palette(button-text);}"
-        "\nQPushButton[wsjtxCompact=\"true\"]:focus {border-color: palette(highlight);}"
-        "\nQPushButton[wsjtxCompact=\"true\"]:pressed {background-color: palette(midlight);}"
-        "\nQPushButton[wsjtxCompact=\"true\"]:disabled {color: palette(mid);}";
-    }
-#endif
+  auto const styleSheet = main_window_style_sheet (
+    m_base_style_sheet, darkStyleSheet, dark, font);
   if (qApp->font () != font) qApp->setFont (font);
   ui->outAttenuation->setProperty ("wsjtxDarkStyle", dark);
   if (qApp->styleSheet () != styleSheet) qApp->setStyleSheet (styleSheet);

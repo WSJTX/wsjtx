@@ -80,6 +80,30 @@ QString application_style_sheet (QString const& base_style_sheet,
   return style_sheet + "* {" + font_as_stylesheet (font) + '}';
 }
 
+QString main_window_style_sheet (QString const& base_style_sheet,
+                                QString const& dark_style_sheet,
+                                bool dark, QFont const& font)
+{
+  QFont prominentFont {font};
+  if (font.pointSizeF () > 0.) prominentFont.setPointSizeF (font.pointSizeF () * 1.6);
+  else if (font.pixelSize () > 0) prominentFont.setPixelSize (qRound (font.pixelSize () * 1.6));
+  auto styleSheet = application_style_sheet (
+    base_style_sheet, dark_style_sheet, dark, font)
+    + "\nQLabel#labDialFreq, QLabel#labUTC {" + font_as_stylesheet (prominentFont) + '}';
+#ifdef Q_OS_MAC
+  if (!dark)
+    {
+      styleSheet += "\nQPushButton[wsjtxCompact=\"true\"] {"
+        "border: 1px solid palette(mid); border-radius: 4px; padding: 3px 6px; "
+        "background-color: palette(button); color: palette(button-text);}"
+        "\nQPushButton[wsjtxCompact=\"true\"]:focus {border-color: palette(highlight);}"
+        "\nQPushButton[wsjtxCompact=\"true\"]:pressed {background-color: palette(midlight);}"
+        "\nQPushButton[wsjtxCompact=\"true\"]:disabled {color: palette(mid);}";
+    }
+#endif
+  return styleSheet;
+}
+
 void update_dynamic_property (QWidget * widget, char const * property, QVariant const& value)
 {
   widget->setProperty (property, value);

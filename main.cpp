@@ -791,7 +791,7 @@ int main(int argc, char *argv[])
           }
 
         auto const dark_style = multi_settings.settings ()->value (
-          "MainWindow/DarkStyle", false).toBool ();
+          "Common/DarkStyle", false).toBool ();
         QString dark_style_sheet;
         if (dark_style)
           {
@@ -802,7 +802,7 @@ int main(int argc, char *argv[])
               }
           }
 
-        auto const style_sheet = application_style_sheet (
+        auto const style_sheet = main_window_style_sheet (
           original_style_sheet, dark_style_sheet, dark_style, font);
         if (a.font () != font) a.setFont (font);
         if (a.styleSheet () != style_sheet) a.setStyleSheet (style_sheet);
