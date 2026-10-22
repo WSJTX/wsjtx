@@ -27,6 +27,7 @@ set -euo pipefail
 EXPECTED_ADDED=(
   test_audio_source_router
   test_network_audio_input
+  test_network_sound_output
 )
 
 # `ctest -N` prints one "  Test #N: name" line per registered test, plus a
@@ -131,8 +132,8 @@ self_test () {
     esac
   }
 
-  # The green case: the option adds exactly the two tests.
-  write_listing "$dir/on" test_bwf_file test_audio_source_router test_network_audio_input
+  # The green case: the option adds exactly the expected tests.
+  write_listing "$dir/on" test_bwf_file "${EXPECTED_ADDED[@]}"
   write_listing "$dir/off" test_bwf_file
   expect_pass "$dir/on" "$dir/off" "the option adding exactly the expected tests"
 
@@ -141,12 +142,12 @@ self_test () {
   write_listing "$dir/on-inert" test_bwf_file
   expect_fail "$dir/on-inert" "$dir/off" "an option that added nothing"
 
-  # RED 2 -- one feature test present, the other silently gone.
-  write_listing "$dir/on-partial" test_bwf_file test_network_audio_input
-  expect_fail "$dir/on-partial" "$dir/off" "only one of the expected tests"
+  # RED 2 -- one feature test silently gone, the others present.
+  write_listing "$dir/on-partial" test_bwf_file "${EXPECTED_ADDED[@]:1}"
+  expect_fail "$dir/on-partial" "$dir/off" "all but one of the expected tests"
 
   # RED 3 -- an unexpected extra test rode in with the option.
-  write_listing "$dir/on-extra" test_bwf_file test_audio_source_router test_network_audio_input test_surprise
+  write_listing "$dir/on-extra" test_bwf_file "${EXPECTED_ADDED[@]}" test_surprise
   expect_fail "$dir/on-extra" "$dir/off" "an unexpected extra test"
 
   # RED 4 -- enabling the option removed an unrelated test.

@@ -3,9 +3,10 @@ name: Build Network Audio
 # Builds and tests the WSJT_ENABLE_NETWORK_AUDIO=ON configuration.
 #
 # Why this leg exists, separately from `linux`: the option is OFF by default, so
-# every other job in this repository builds a tree in which Audio/NetworkAudio*
-# and the enabled arms of Audio/AudioSourceRouter.cpp and Configuration.cpp are
-# never compiled, the two feature tests are never registered, and the
+# every other job in this repository builds a tree in which Audio/Network* and
+# the enabled arms of Audio/AudioSourceRouter.cpp, Audio/SoundOutputRouter.cpp
+# and Configuration.cpp are never compiled, the feature tests are never
+# registered (test_sound_output_router is, without its network rows), and the
 # `target_link_libraries (wsjtx naudio::naudio)` line is never linked. Without
 # this leg the integration can break with nothing anywhere going red.
 #
@@ -104,7 +105,7 @@ jobs:
     needs: resolve-image
     runs-on: ubuntu-24.04
     # Budget: the leg configures twice (the second configure-only) and builds the
-    # wsjtx executable plus the two feature tests from cold -- no ccache, which
+    # wsjtx executable plus the feature tests from cold -- no ccache, which
     # keeps this file independent of the shared Linux cache and its develop-only
     # save policy. If the team finds the wall-clock too high, restoring (never
     # saving) the `linux` ccache is the obvious next step: the two configurations
@@ -202,6 +203,7 @@ jobs:
         run: |
           cmake --build build-network-audio \
             --target wsjtx test_network_audio_input test_audio_source_router \
+              test_network_sound_output test_sound_output_router \
             -j"$(nproc)"
 
       - name: Verify the executable resolves naudio
@@ -224,7 +226,7 @@ jobs:
         shell: bash
         run: |
           xvfb-run -a -s "-screen 0 1280x1024x24" \
-            ctest -R '^(test_network_audio_input|test_audio_source_router)$' \
+            ctest -R '^(test_network_audio_input|test_audio_source_router|test_network_sound_output|test_sound_output_router)$' \
               --output-on-failure --output-junit ctest-results.xml
 
       - name: Upload test results

@@ -160,9 +160,22 @@ bool NetworkAudioConnection::open (int rxSampleRate)
   // whether or not the server could also execute it. The consumer converts:
   // fil4_ for the rate when the sink asks for it, AudioDevice::store () for the
   // channel -- the same code the sound card has always gone through.
-  if (NA_OK != na_client_request_format (m_client, rxSampleRate, NA_RX_LAYOUT_NATIVE))
+  //
+  // With the transmit lane the RATE is not requested either. AUDIO_TX is
+  // always the server's native format (wire spec 6.4; the library neither
+  // resamples nor converts injected audio) and libnaudio 1.0.0rc6 has no call
+  // that reports the native format to a client -- na_client_get_audio_format
+  // reports the RX grant, which under a reduced subscription says nothing
+  // about the native rate. Subscribing natively is the one way to learn it,
+  // so a transmitting connection does, and audioFormat () then IS the format
+  // the transmit path must produce. The RX consumer's own rate check turns a
+  // native rate it cannot use into a named error, for both directions at once.
+  auto const requested_rate = m_transmit ? 0 : rxSampleRate;
+  if (NA_OK != na_client_request_format (m_client, requested_rate, NA_RX_LAYOUT_NATIVE))
     {
-      return fail (tr ("Unable to request %1 Hz network audio.").arg (rxSampleRate));
+      return fail (requested_rate
+                   ? tr ("Unable to request %1 Hz network audio.").arg (requested_rate)
+                   : tr ("Unable to request network audio at the server's native rate."));
     }
   // The transmit lane is decided here and only here: connect starts the send
   // worker once, so this cannot be turned on later without reconnecting.
@@ -263,6 +276,37 @@ bool NetworkAudioConnection::formatUnchanged () const
 bool NetworkAudioConnection::setDuplex (Duplex mode)
 {
   return m_client && NA_OK == na_client_set_duplex (m_client, toNaudio (mode));
+}
+
+int NetworkAudioConnection::injectTransmitAudio (char const * pcm, int n_bytes)
+{
+  if (!m_client || !pcm || n_bytes <= 0)
+    {
+      return 0;
+    }
+  return na_client_inject_tx_audio (m_client, reinterpret_cast<unsigned char const *> (pcm), n_bytes);
+}
+
+QString NetworkAudioConnection::transmitOwner () const
+{
+  if (!m_client)
+    {
+      return {};
+    }
+  // Length-return-for-truncation: the call reports the length it needed, so
+  // a buffer too small is grown once and the call repeated.
+  QByteArray buffer (64, '\0');
+  auto needed = na_client_server_tx_owner (m_client, buffer.data (), buffer.size ());
+  if (needed >= buffer.size ())
+    {
+      buffer.resize (needed + 1);
+      needed = na_client_server_tx_owner (m_client, buffer.data (), buffer.size ());
+    }
+  if (needed <= 0)
+    {
+      return {};
+    }
+  return QString::fromUtf8 (buffer.constData (), needed);
 }
 
 void NetworkAudioConnection::setReconnectPolicy (int baseDelayMs, int maxDelayMs, int maxAttempts)

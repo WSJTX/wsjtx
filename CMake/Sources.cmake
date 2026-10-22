@@ -212,12 +212,14 @@ set (wsjtx_CXXSRCS
 
 list (APPEND wsjtx_CXXSRCS
   Audio/AudioSourceRouter.cpp
+  Audio/SoundOutputRouter.cpp
   )
 
 if (WSJT_ENABLE_NETWORK_AUDIO)
   list (APPEND wsjtx_CXXSRCS
     Audio/NetworkAudioConnection.cpp
     Audio/NetworkAudioInput.cpp
+    Audio/NetworkSoundOutput.cpp
     )
 endif ()
 

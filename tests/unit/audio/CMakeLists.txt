@@ -209,4 +209,48 @@ if (WSJT_ENABLE_NETWORK_AUDIO)
     wsjt_qtmm wsjt_qt Boost::log_setup Qt5::Core Qt5::Test Qt5::Multimedia naudio::naudio)
   add_test (NAME test_audio_source_router COMMAND test_audio_source_router)
   set_tests_properties (test_audio_source_router PROPERTIES TIMEOUT 60)
+
+  # The transmit side. Hermetic like the two above: the in-process NULL-backend
+  # server is also the TX sink, collecting the mixed audio through
+  # na_server_set_tx_audio_cb, so the pacing can be checked frame by frame.
+  add_executable (test_network_sound_output
+    test_network_sound_output.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkAudioConnection.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkSoundOutput.cpp
+    ${CMAKE_SOURCE_DIR}/Logger.cpp)
+  target_link_libraries (test_network_sound_output
+    wsjt_qtmm wsjt_qt Boost::log_setup Qt5::Core Qt5::Test Qt5::Multimedia naudio::naudio)
+  add_test (NAME test_network_sound_output COMMAND test_network_sound_output)
+  set_tests_properties (test_network_sound_output PROPERTIES TIMEOUT 120)
 endif ()
+
+# MainWindow builds SoundOutputRouter in every configuration, so its test is
+# registered in every one; the network rows compile with the option alone.
+add_executable (test_sound_output_router
+  test_sound_output_router.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioInputSource.hpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioSourceRouter.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/SoundOutputRouter.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/soundin.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
+  ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp
+  ${CMAKE_SOURCE_DIR}/Detector/Detector.cpp
+  # The drain-guard case drives a real JttyTxStream through the router.
+  # TxAudioQueue and JttyPcmFifo already come from the linked wsjt_qt.
+  ${CMAKE_SOURCE_DIR}/Modulator/JttyTxStream.cpp)
+target_link_libraries (test_sound_output_router
+  wsjt_qtmm wsjt_qt Boost::log_setup Qt5::Core Qt5::Test Qt5::Multimedia)
+if (WSJT_ENABLE_NETWORK_AUDIO)
+  target_sources (test_sound_output_router PRIVATE
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkAudioConnection.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkAudioInput.cpp
+    ${CMAKE_SOURCE_DIR}/Audio/NetworkSoundOutput.cpp)
+  target_link_libraries (test_sound_output_router naudio::naudio)
+endif ()
+add_test (NAME test_sound_output_router COMMAND test_sound_output_router)
+set_tests_properties (test_sound_output_router PROPERTIES TIMEOUT 90)

@@ -543,7 +543,11 @@ private:
     TestServer server {testPort (11)};
     QVERIFY2 (server.started (), qPrintable (server.error ()));
 
-    Detector detector {RX_SAMPLE_RATE, no_wrap_period, 1};
+    // A transmitting connection subscribes at the server's native rate (the
+    // transmit path has no other way to learn it), so this source runs the
+    // application's 4:1 decimation: one native 960-frame chunk fills the
+    // detector's 4 x 240 buffer and advances kin by the same 240 frames.
+    Detector detector {RX_SAMPLE_RATE, no_wrap_period, 4};
     detector.setBlockSize (granted_frames_per_chunk);
     NetworkAudioConnection connection {"127.0.0.1", static_cast<quint16> (testPort (11))};
     // Decided at connect: the lane exists only if this was set before open ().
@@ -552,7 +556,8 @@ private:
     QSignalSpy errors {&source, &AudioInputSource::error};
     QSignalSpy written {&detector, &Detector::framesWritten};
 
-    source.start (QAudioDeviceInfo {}, 0, &detector, 1, AudioDevice::Mono);
+    source.start (QAudioDeviceInfo {}, 0, &detector, 4, AudioDevice::Mono);
+    QCOMPARE (connection.audioFormat ().sample_rate_hz, native_rate);
     QVERIFY2 (errors.isEmpty (),
               qPrintable (errors.isEmpty () ? QString {}
                                             : errors.first ().first ().toString ()));

@@ -21,7 +21,7 @@ struct na_client_stats;
 // receive path: an RX source that stops must not take a running transmission's
 // link down with it, and a TX sink that starts must find the lane already open.
 // This class owns the na_stream_client; NetworkAudioInput borrows it for RX and
-// a later sink will borrow it for TX.
+// NetworkSoundOutput borrows it for TX.
 //
 // Threading. libnaudio delivers RX PCM on its receive worker and every
 // lifecycle event on a dispatch thread. Nothing here runs on those threads
@@ -91,6 +91,18 @@ public:
   bool formatUnchanged () const;
 
   bool setDuplex (Duplex);
+
+  // --- The transmit lane: meaningful only on a connection opened with
+  //     setTransmitEnabled (true), and only while the duplex mode is Talk or
+  //     Full. ---
+  // Queue PCM for the server. It must already be in audioFormat () -- the
+  // library neither resamples nor converts. Returns the bytes accepted: 0 is
+  // not an error, it means not connected, no transmit lane, or Listen mode;
+  // a negative value is a libnaudio error code.
+  int injectTransmitAudio (char const * pcm, int n_bytes);
+  // The server's TX-arbitration owner as last pushed in its roster update --
+  // a client id, or empty when nobody transmits. Empty when closed.
+  QString transmitOwner () const;
 
   // libnaudio's auto-reconnect policy for the next open (): base and maximum
   // delay in milliseconds, and the number of attempts before it gives up.
