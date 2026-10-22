@@ -188,8 +188,9 @@ target_link_libraries (test_wsjt_codec_slot_encode
 target_compile_definitions (test_wsjt_codec_slot_encode PRIVATE
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>")
 add_dependencies (test_wsjt_codec_slot_encode wsjt-codec)
-foreach (function ft8 ft4 fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr transmitState jttyUnchanged
-    readyListsEncodes decodesItsOwnRender renderAfterDecode refusals accepted)
+foreach (function ft8 ft4 fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr tune echo singleTones fastJt9 cwId
+    cwIdStation transmitState jttyUnchanged readyListsEncodes decodesItsOwnRender renderAfterDecode refusals
+    accepted)
   add_test (NAME test_wsjt_codec_slot_encode_${function}
     COMMAND test_wsjt_codec_slot_encode ${function})
   set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES

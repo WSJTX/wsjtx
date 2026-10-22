@@ -19,9 +19,10 @@
 !   {"t":"pack","id":I,"mode":M,"text":S,...}
 !   {"t":"render","id":I,"mode":M,"text":S,...,"freq":F,"rate":R}
 ! I as in JTTY's requests. M, case aside: FT8, FT4, JT4, JT9, JT65, Q65, FST4,
-! FST4W, WSPR or MSK144. The codec takes S less its outer spaces, which the
-! GUI's Tx box keeps (and its FST4 and MSK144 encoders then drop characters
-! after leading blanks; the codec does not follow it there). If that is
+! FST4W, WSPR, MSK144, ECHO (the GUI's Echo mode) or TUNE (its Tune button).
+! The codec takes S less its outer spaces, which the GUI's Tx box keeps (and
+! its FST4 and MSK144 encoders then drop characters after leading blanks; the
+! codec does not follow it there). If that is
 ! longer than the 37 bytes the box gives the mode's encoder (22 for JT4,
 ! JT9, JT65 and WSPR) it is refused, else it is encoded as the GUI encodes
 ! that box, with a to z in upper case and nothing in it expanded. For
@@ -31,33 +32,72 @@
 ! character or two digits), or "<CALL> GRID6 DBM"; DBM one of the GUI's
 ! powers, 0, 3, 7, 10, ... 60. FST4W's are the same but the last,
 ! "<CALL> GRID6", and must encode as its WSPR-type messages do.
+! In JT4, JT9, JT65 and Q65 an S that begins with @ is the GUI's single tone:
+! @ then a frequency, which the GUI reads from the next four characters as
+! Fortran reads an integer (nothing there, or no integer, is 1000 Hz; only
+! those four count, so @12345 is 1234 Hz). One below 100 Hz, which the GUI
+! keys as a channel tone, is refused, as is a / or , before any number there
+! or anything else that leaves the frequency unread (2*, a null value), which
+! leaves the GUI keying its last single tone's frequency; and so is MSK144's,
+! whose encoder inverts it (genmsk_128_90) so that the GUI keys no single
+! tone. A single tone takes copied and cwid only false.
+! ECHO's S is the GUI's Echo message, one to six letters and digits (longer
+! is too_long); TUNE takes none.
 ! The other keys, each refused (bad_request) in a mode it does not name:
 !   submode   JT4 A to G, JT9 A to H, JT65 A to C, Q65 A to C (trperiod 15),
 !             A to D (30), A to E (60 and 300), A to F (120): a letter of
 !             either case, or a JSON integer, 0 for A and so on. Required.
 !   trperiod  FST4 15, 30, 60, 120, 300, 900 or 1800; FST4W 120, 300, 900 or
-!             1800; Q65 15, 30, 60, 120 or 300; MSK144 5, 10, 15 or 30: a JSON
-!             integer of seconds. Required.
-!   spacing   FT8, JT9, FST4, FST4W and WSPR: 1 (default), 2 or 4, a JSON
-!             integer, the GUI's x2 and x4 tone spacing.
+!             1800; Q65 15, 30, 60, 120 or 300; MSK144 and fast JT9 5, 10, 15
+!             or 30: a JSON integer of seconds. Required.
+!   spacing   FT8, slow JT9, FST4, FST4W and WSPR: 1 (default), 2 or 4, a JSON
+!             integer, the GUI's x2 and x4 tone spacing. An Echo message: 10,
+!             15, 20, 25 or 30, a JSON integer of Hz, the GUI's Spacing.
+!             Required there.
 !   copied    Q65: true sets the message's spare 78th bit, the GUI's Q65
 !             pileup flag that it copied the station it answers. Default
 !             false.
+!   fast      JT9: true for the GUI's fast JT9, submode E to H, whose period
+!             is trperiod and which takes no spacing. Default false.
+!   kind      ECHO: tone, message or cw, case aside, the GUI's Fixed Tone,
+!             Message and CW. Required. A tone takes no text, a message and cw
+!             do.
 ! A render adds F, the lowest tone, a JSON number from 200 to 5000 Hz (for
-! MSK144 1000, whose tones are always 1000 and 2000 Hz), and R, the JSON
-! integer 12000 or 48000. At 12000 Hz the highest tone (the table below) must
-! be below 6000 Hz, or the render is refused with key freq. Any other key, a
+! MSK144 1000, whose tones are always 1000 and 2000 Hz; for ECHO's tone and
+! message from 1490 to below 1510, the GUI's 1500 Hz and its dither of -10 to
+! below +10 Hz, and its cw 1500), and R, the JSON integer 12000 or 48000. A
+! single tone takes no F. At 12000 Hz the highest tone (the table below) must
+! be below 6000 Hz, or the render is refused with key freq (text for a single
+! tone). A render also takes:
+!   seconds   TUNE: the Tune's length, a JSON integer from 1 to 600. Required.
+!   cwid      JT4, JT9, JT65, Q65, FST4, FST4W, WSPR and MSK144: true sends
+!             the GUI's CW ID of the station's call after the message (below).
+!             Default false. The call is the one the last accepted configure
+!             that named one set (its "mycall", as JTTY takes it). The render
+!             is refused not_configured with key mycall when no configure has
+!             set one (a blank call counts as none), when it is longer than
+!             the 64 characters a configure keeps, when its JSON string does
+!             not decode (unreadable), when it has a character Morse lacks
+!             (letters, digits and / are sent), or when it is longer than the
+!             GUI's 250 Morse elements hold, the detail saying which. encoded's
+!             cwid is the call in upper case, as sent. A
+!             single tone takes it only false (the GUI keys the CW ID at its
+!             Tx frequency, which a single tone's render does not take), and
+!             the GUI sends none in FT8, FT4, Echo (whose 3 s period its
+!             Modulator excludes) or Tune.
+! Any other key, a
 ! misspelt or mis-cased one included, is refused with that key as written
 ! (keys are matched without escapes; a byte not UTF-8 is reported as '?'),
-! as are JTTY's keys and, on a pack, freq and rate; configure, unlike pack
-! and render, ignores keys it does not know.
+! as are JTTY's keys and, on a pack, freq, rate, seconds and cwid; configure,
+! unlike pack and render, ignores keys it does not know.
 !
 ! A request's reply lines are consecutive, each carries its id, and the last
 ! is packed, rendered or rejected. pack answers encoded then packed; render
 ! answers encoded, the pcm lines of the audio, then rendered:
 !   encoded   {"v":1,"t":"encoded","id":I,"mode":M,"msgsent":S,"tones":[T,...],
 !              "type":N,"fallback":B,"submode":L,"trperiod":P,"spacing":N,
-!              "copied":B,"freq":F,"rate":R,"samples":N}
+!              "copied":B,"fast":B,"kind":K,"freq":F,"rate":R,"seconds":N,
+!              "cwid":C,"samples":N}
 !   pcm       {"v":1,"t":"pcm","id":I,"seg":0,"seq":Q,"data":S}
 !   packed    {"v":1,"t":"packed","id":I}
 !   rendered  {"v":1,"t":"rendered","id":I}
@@ -70,16 +110,24 @@
 ! DBM" as given; a message that would read back otherwise is refused. One
 ! exception: a call beginning 3DA0, which WSPR sends as 3D0, reads back and
 ! shows in the GUI as 3DA0, while wsprd prints 3D0 (and <...> for its hash).
-! tones
-! are the channel symbols the GUI keys. type, for JT4, JT9, JT65 and MSK144
-! only, is the GUI's message type: for JT4, JT9 and JT65 1 standard, 2 to 5
-! with a prefix or suffix, 6 free text, and for JT65 7 a shorthand (RO, RRR
-! or 73 alone); for MSK144 1, or 7 for a short message "<CALL1 CALL2> RPT".
-! fallback, for every mode but JT4, JT9, JT65 and WSPR, says the message did
+! ECHO's and TUNE's are "ECHO" and "TUNE", the GUI's. A single tone's is
+! JT4's S, Q65's the frequency right-justified in five characters then
+! " Hz" (" 1500 Hz"), and JT9's and JT65's empty
+! (JT9's encoder gives none, and JT65's gives the last message it encoded,
+! which the GUI shows and the codec does not repeat).
+! tones are the channel symbols the GUI keys: none for a single tone, [0] for
+! TUNE and ECHO's tone, an Echo message's six, and none for its cw. type, for
+! JT4, JT9, JT65 and MSK144 only, is the GUI's message type: for JT4, JT9 and
+! JT65 1 standard, 2 to 5 with a prefix or suffix, 6 free text, 0 a single
+! tone, and for JT65 7 a shorthand (RO, RRR or 73 alone); for MSK144 1, or 7
+! for a short message "<CALL1 CALL2> RPT".
+! fallback, for FT8, FT4, FST4, FST4W, Q65 and MSK144, says the message did
 ! not encode as written and its first 13 characters went as free text
-! instead, as the GUI sends it. submode (its letter), trperiod, spacing and
-! copied are those applied, each where the mode has it; a render adds freq,
-! rate and samples. pcm lines are as JTTY's render writes them (int16
+! instead, as the GUI sends it. submode (its letter), trperiod, spacing,
+! copied, fast (fast JT9 only) and kind are those applied, each where the mode
+! has it; a render adds freq, rate, seconds (TUNE), cwid (the call its CW ID
+! sends, when asked) and samples. A single tone carries freq, its frequency,
+! on pack and render. pcm lines are as JTTY's render writes them (int16
 ! little-endian mono, base64, 16384 samples a line but the last).
 !
 ! Each mode's samples per symbol at 12 kHz, tone spacing, symbols, and its
@@ -88,8 +136,8 @@
 !   FT4     576; 12000/576 Hz; 103, with a ramp symbol either side; 3
 !   JT4     2520*12000/11025; 4.375 Hz times 1, 2, 4, 9, 18, 36, 72 for A to
 !           G; 206; 3
-!   JT9     6912; 12000/6912 Hz times 2**submode and spacing; 85; 8 (the slow
-!           form at every submode: the GUI's fast JT9 is not encoded here)
+!   JT9     6912; 12000/6912 Hz times 2**submode and spacing; 85; 8. Fast
+!           (E to H): 480, 240, 120, 60; 12000/that Hz; 85; 8
 !   JT65    4096*12000/11025; 11025/4096 Hz times 1, 2, 4 for A to C; 126; 65
 !   Q65     1800, 3600, 7200, 16000, 41472 for 15, 30, 60, 120, 300 s;
 !           12000/that times 2**submode; 85; 64
@@ -97,31 +145,57 @@
 !   FST4W   300, 900, 1800 s; 12000/that times spacing; 160; 3
 !   WSPR    8192; 12000/8192 Hz times spacing; 162; 3
 !   MSK144  6; tones at 1000 and 2000 Hz; 144, or 40 for a short message
+!   ECHO    4096; a message spacing Hz; 6; 36 spacings (a tone and cw: none)
+!   TUNE    one tone at F
+! A single tone's is its frequency.
 !
 ! The audio is the GUI's, sample for sample: at 48000 Hz the samples its
 ! Modulator plays for the message from its first to the last it commits,
 ! full scale, before the GUI's output attenuation; at 12000 Hz every fourth
 ! of them from the first. At 48000 Hz that is the samples of the GUI's
 ! symbols, rounded down, and one more; at 12000 Hz a quarter of it, rounded
-! up. MSK144 instead repeats its message for the period less 0.5 s, and one
-! sample more. FT8, FT4, FST4 and FST4W are the GUI's shaped waveforms; JT4,
-! JT9, JT65, WSPR, Q65, MSK144, and FT8 with spacing 2 or 4, are
-! phase-continuous tones whose amplitude decays over the last 0.017 symbol.
+! up. MSK144 and fast JT9 instead repeat their message for the period less
+! 0.5 s, and one sample more. FT8, FT4, FST4 and FST4W are the GUI's shaped
+! waveforms; JT4, JT9, JT65, WSPR, Q65, MSK144, and FT8 with spacing 2 or 4,
+! are phase-continuous tones whose amplitude decays over the last 0.017
+! symbol; a single tone is one such tone, at its frequency for the mode's
+! symbols. ECHO is 2.048 s and one sample: for a tone a steady tone at F, for
+! a message its six symbols as the GUI's genwave makes them from its letters
+! and digits (lib/gen_echocall.f90), and for cw the text in Morse filling the
+! 2.048 s, as lib/gen_cw_wave.f90 keys it. TUNE is seconds of a steady tone
+! at F; the GUI's own Tune stops after 9999 times its mode's samples per
+! symbol at 12 kHz, counted at 48000 Hz (999999 times in MSK144 and fast
+! JT9), which in FT4 is 120 s, in FT8 400 s, in MSK144 125 s and in FST4 at
+! 15 s 150 s, and a render does not.
+! A CW ID is the call in Morse keyed at 2560 samples a dit at 48000 Hz (22.5
+! WPM), each key change ramped over 512 samples, at the message's frequency
+! (FST4 and FST4W: the centre of their four tones), from the sample after the
+! message's last; the GUI plays silence from there to the end of its audio
+! buffer first, which a render does not. In MSK144 and fast JT9 the GUI
+! instead stops the message for the CW ID at the first audio buffer it reads
+! more than TR - 5 s into the period, at 1500 Hz, hard keyed, faster for a
+! call of more than 4 s; a render, whose audio starts with the period, stops
+! it 48 samples (1 ms at 48000 Hz) after TR - 5 s, the earliest the GUI's
+! millisecond clock allows, so at TR 5 s the CW ID replaces the message after
+! 48 samples (the GUI sends none of it or a whole buffer), while encoded
+! still gives the message. Every transmission with a CW ID ends with it.
 ! The GUI starts the audio 1 s into its period (0.5 s for FT8, FST4 at 15 s
-! and Q65 at 15 and 30 s, 0.3 s for FT4, none for MSK144); timing is the
-! client's.
+! and Q65 at 15 and 30 s, 0.3 s for FT4, none for MSK144, fast JT9 and Echo,
+! which it sends every 6 s); timing is the client's.
 !
 ! Each R and its K:
 !   bad_request      the key at fault; none when the request is not a flat
 !                    object. For text: the message does not encode in M (the
 !                    GUI's *** bad message ***, which it does not transmit),
-!                    or a hashed call in it collides (below); it begins with
-!                    @ (the GUI's single tones, not encoded here); or it is
-!                    not a WSPR message of the forms above.
+!                    or a hashed call in it collides (below); a single tone
+!                    the GUI does not key as one (above); it is
+!                    not a WSPR message of the forms above, or not an Echo
+!                    message.
 !   empty            none: text is blank
 !   too_long         text: it is longer than the mode takes; none: a render
 !                    of more than 600 s of audio, which FST4 and FST4W give
 !                    at 900 and 1800 s
+!   not_configured   mycall: a CW ID and no call it can send
 !   encoding_failed  none
 ! A request without such an id gets error invalid_request_id.
 !
@@ -146,15 +220,18 @@
 ! into the period (half-symbol 41).
 
 module streaming_encode
-  use, intrinsic :: iso_c_binding, only: c_int16_t, c_int32_t, c_double, c_char, c_int
+  use, intrinsic :: iso_c_binding, only: c_int16_t, c_int32_t, c_double, c_char, &
+       c_int, c_float, c_float_complex
   use, intrinsic :: iso_fortran_env, only: int64, output_unit
   use streaming_control, only: slot_request, parse_slot_request,              &
-       encode_request_mode, MODE_JTTY, MODE_WSPR
+       encode_request_mode, MODE_JTTY, MODE_WSPR, MODE_ECHO, MODE_TUNE
   use streaming_emit, only: streaming_emit_error_code, streaming_emit_json_escape
-  use streaming_jtty, only: jtty_encode, encode_emit_rejected, encode_emit_pcm
+  use streaming_jtty, only: jtty_encode, encode_emit_rejected, encode_emit_pcm, &
+       encode_station_call
   use packjt77, only: pack77_state, pack77_for_state, pack77_options,          &
        PACK77_STATUS_ENCODED
   use packjt, only: packcall
+  use morse_encoder, only: encode_morse
   use ft8_codec_context, only: genft8_for_state
   use ft4_codec, only: genft4_for_state
   use fst4_tx, only: genfst4_for_state
@@ -167,10 +244,26 @@ module streaming_encode
 
   integer, parameter :: MAX_RENDER_SECONDS = 600
   character(len=*), parameter :: BAD_MESSAGE = '*** bad message ***'
+  ! An Echo transmission's samples at 48000 Hz (MainWindow::transmit).
+  integer, parameter :: ECHO_WAVE = 6 * 4 * 4096
   ! The GUI's two sets of transmit hash tables: FT8's and FT4's
   ! (lib/77bit/decoder_codec_context.f90), and packjt77's own, which its
   ! FST4, Q65 and MSK144 encoders use.
   type(pack77_state), save, target :: ft_tables_, tables_
+
+  ! lib/stream_slot_audio.cpp's Tx.
+  type, bind(C) :: stream_tx
+     integer(c_int32_t) :: mode = 0
+     integer(c_int32_t) :: submode = -1
+     integer(c_int32_t) :: spacing = 1
+     integer(c_int32_t) :: trperiod = 0
+     integer(c_int32_t) :: nsym = 0
+     integer(c_int32_t) :: fast = 0
+     integer(c_int32_t) :: seconds = 0
+     integer(c_int32_t) :: kind = 0
+     integer(c_int32_t) :: rate = 0
+     real(c_double)     :: freq = 0
+  end type stream_tx
 
   interface
      ! lib/gen65.f90
@@ -179,28 +272,55 @@ module streaming_encode
        character(kind=c_char) :: msg00(23), msgsent0(23)
        integer(c_int) :: ichk, itone(126), itype
      end subroutine gen65
+     ! lib/gen_echocall.f90
+     subroutine gen_echocall(callsign, itone)
+       character(len=6) :: callsign
+       integer :: itone(6)
+     end subroutine gen_echocall
+     ! lib/genwave.f90
+     subroutine genwave(itone, nsym, nsps, nwave, fsample, tonespacing, f0,   &
+          icmplx, cwave, wave)
+       import :: c_float, c_float_complex
+       integer :: itone(*), nsym, nsps, nwave, icmplx
+       real(c_float) :: fsample, f0, wave(*)
+       real(8) :: tonespacing
+       complex(c_float_complex) :: cwave(*)
+     end subroutine genwave
+     ! lib/gen_cw_wave.f90
+     subroutine gen_cw_wave(message, ifreq, wave)
+       import :: c_float
+       character(len=*) :: message
+       integer :: ifreq
+       real(c_float) :: wave(*)
+     end subroutine gen_cw_wave
+     ! lib/morse.f90
+     subroutine morse(msg, idat, n)
+       character(len=*), intent(in) :: msg
+       integer, intent(out) :: idat(250), n
+     end subroutine morse
      ! lib/stream_slot_audio.cpp
-     function stream_slot_samples(mode, nsym, submode, spacing, trperiod, rate) &
-          result(count) bind(C, name='stream_slot_samples')
-       import :: c_int32_t
-       integer(c_int32_t), value :: mode, nsym, submode, spacing, trperiod, rate
+     function stream_slot_samples(tx, ncw) result(count)                      &
+          bind(C, name='stream_slot_samples')
+       import :: c_int32_t, stream_tx
+       type(stream_tx), intent(in) :: tx
+       integer(c_int32_t), value :: ncw
        integer(c_int32_t) :: count
      end function stream_slot_samples
-     function stream_slot_top_tone(mode, submode, spacing, trperiod, freq)    &
-          result(top) bind(C, name='stream_slot_top_tone')
-       import :: c_int32_t, c_double
-       integer(c_int32_t), value :: mode, submode, spacing, trperiod
-       real(c_double), value :: freq
+     function stream_slot_top_tone(tx, tones, ntones) result(top)             &
+          bind(C, name='stream_slot_top_tone')
+       import :: c_int32_t, c_double, stream_tx
+       type(stream_tx), intent(in) :: tx
+       integer(c_int32_t), intent(in) :: tones(*)
+       integer(c_int32_t), value :: ntones
        real(c_double) :: top
      end function stream_slot_top_tone
-     function stream_slot_render(mode, tones, nsym, submode, spacing, trperiod, &
-          freq, rate, samples, capacity) result(count)                         &
-          bind(C, name='stream_slot_render')
-       import :: c_int32_t, c_int16_t, c_double
-       integer(c_int32_t), value :: mode, nsym, submode, spacing, trperiod,    &
-            rate, capacity
-       integer(c_int32_t), intent(in) :: tones(*)
-       real(c_double), value :: freq
+     function stream_slot_render(tx, tones, ntones, wave, nwave, cw, ncw,     &
+          samples, capacity) result(count) bind(C, name='stream_slot_render')
+       import :: c_int32_t, c_int16_t, c_float, stream_tx
+       type(stream_tx), intent(in) :: tx
+       integer(c_int32_t), intent(in) :: tones(*), cw(*)
+       integer(c_int32_t), value :: ntones, nwave, ncw, capacity
+       real(c_float), intent(in) :: wave(*)
        integer(c_int16_t), intent(out) :: samples(*)
        integer(c_int32_t) :: count
      end function stream_slot_render
@@ -228,17 +348,23 @@ contains
     logical,          intent(in) :: render
     type(slot_request) :: req
     type(pack77_state), target :: fresh_ft, fresh
+    type(stream_tx) :: tx
     character(len=37) :: message, msgsent, unused
     character(len=22) :: decoded
+    character(len=64) :: call
     character(len=:), allocatable :: id, line, text
-    integer(c_int32_t) :: tones(206), unused_tones(206)
+    integer(c_int32_t) :: tones(206), unused_tones(206), top_tones(6), cw(250)
     integer(c_int16_t), allocatable :: samples(:)
+    real(c_float), allocatable :: wave(:)
     integer(c_int32_t) :: count
-    integer :: ntones, itype, i, alloc_status, first, last, limit, n_unused, t_unused
+    integer :: ntones, itype, i, alloc_status, first, last, limit, n_unused,   &
+         t_unused, nfreq, ncw, ntop, cw_status
     real(c_double) :: top
-    logical :: fallback, ok
+    logical :: fallback, ok, call_long, call_unreadable
 
     count = 0
+    ncw = 0
+    nfreq = 0
     call parse_slot_request(frame, render, req)
     if (.not. req%id_ok) then
        call streaming_emit_error_code('invalid_request_id',                 &
@@ -251,28 +377,56 @@ contains
        return
     end if
 
-    ! The text less its outer blanks, so that every encoder takes the same one.
-    first = verify(req%text, ' ')
-    last = verify(req%text, ' ', back=.true.)
-    if (first .eq. 0) then
-       call encode_emit_rejected(id, 'empty', '', 'the message is blank')
-       return
+    message = ' '
+    if (req%mode .ne. MODE_TUNE .and. req%kind .ne. 1) then
+       ! The text less its outer blanks, so that every encoder takes the same one.
+       first = verify(req%text, ' ')
+       last = verify(req%text, ' ', back=.true.)
+       if (first .eq. 0) then
+          call encode_emit_rejected(id, 'empty', '', 'the message is blank')
+          return
+       end if
+       text = req%text(first:last)
+       limit = 37
+       if (any(req%mode .eq. [4, 9, 65, MODE_WSPR])) limit = 22
+       if (req%mode .eq. MODE_ECHO) limit = 6
+       if (len(text) .gt. limit) then
+          call encode_emit_rejected(id, 'too_long', 'text', 'the message is longer ' // &
+               'than ' // itoa_(int(limit, int64)) // ' bytes, all ' //             &
+               mode_name_(req%mode) // ' takes')
+          return
+       end if
+       call tx_buffer_(text, message)
     end if
-    text = req%text(first:last)
-    limit = 37
-    if (any(req%mode .eq. [4, 9, 65, MODE_WSPR])) limit = 22
-    if (len(text) .gt. limit) then
-       call encode_emit_rejected(id, 'too_long', 'text', 'the message is longer ' // &
-            'than ' // itoa_(int(limit, int64)) // ' bytes, all ' //             &
-            mode_name_(req%mode) // ' takes')
-       return
-    end if
-    call tx_buffer_(text, message)
     select case (req%mode)
-    case (4, 9, 65, 66, 144)
+    case (4, 9, 65, 66)
+       if (req%single) then
+          if (.not. single_tone_(message, nfreq)) then
+             call encode_emit_rejected(id, 'bad_request', 'text', 'the four ' //  &
+                  'characters after @ give a frequency below 100 Hz, or a / or ' // &
+                  ', or anything else before any number that leaves the ' //     &
+                  'frequency unread, which the GUI keys as a channel tone or ' //  &
+                  'at a stale frequency')
+             return
+          end if
+          if (req%copied) then
+             call encode_emit_rejected(id, 'bad_request', 'copied', 'a single ' // &
+                  'tone carries no message bits')
+             return
+          end if
+          ! The GUI sends the CW ID at its Tx frequency, which a single tone's
+          ! render does not take.
+          if (req%cwid) then
+             call encode_emit_rejected(id, 'bad_request', 'cwid', 'a single ' // &
+                  'tone takes no CW ID')
+             return
+          end if
+       end if
+    case (144)
        if (message(1:1) .eq. '@') then
-          call encode_emit_rejected(id, 'bad_request', 'text', 'a message ' //  &
-               'beginning with @ is a single tone, which this does not encode')
+          call encode_emit_rejected(id, 'bad_request', 'text', 'MSK144''s ' //  &
+               'single tone is not encoded: the GUI''s MSK144 encoder ' //       &
+               '(genmsk_128_90) inverts it, so that it keys no single tone')
           return
        end if
     case (MODE_WSPR)
@@ -281,21 +435,77 @@ contains
                'message: CALL GRID4 DBM, PFX/CALL DBM, CALL/SFX DBM or <CALL> GRID6 DBM')
           return
        end if
+    case (MODE_ECHO)
+       if (req%kind .ne. 1 .and.                                              &
+            verify(trim(message), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') .ne. 0) then
+          call encode_emit_rejected(id, 'bad_request', 'text', 'an Echo ' //    &
+               'message is one to six letters and digits')
+          return
+       end if
     end select
+
+    tx%mode = req%mode
+    tx%submode = req%submode
+    tx%spacing = req%spacing
+    tx%trperiod = req%trperiod
+    tx%nsym = 144
+    tx%fast = merge(1, 0, req%fast)
+    tx%seconds = req%seconds
+    tx%kind = req%kind
+    tx%rate = req%rate
+    tx%freq = req%freq
+    if (req%single) tx%freq = nfreq
 
     if (render) then
        if (req%rate .eq. 12000) then
-          top = stream_slot_top_tone(req%mode, req%submode, req%spacing,       &
-               req%trperiod, real(req%freq, c_double))
+          ntop = 1
+          top_tones(1) = 0
+          if (req%single) top_tones(1) = nfreq
+          if (req%kind .eq. 2) then
+             call gen_echocall(message(1:6), top_tones)
+             ntop = 6
+          end if
+          top = stream_slot_top_tone(tx, top_tones, ntop)
           if (top .ge. 6000.d0) then
-             call encode_emit_rejected(id, 'bad_request', 'freq', 'at 12000 Hz ' // &
-                  'the top tone, ' // itoa_(nint(top, int64)) // ' Hz, would ' //  &
-                  'fold back; it must be below 6000 Hz')
+             ! A single tone's frequency comes from its text.
+             call encode_emit_rejected(id, 'bad_request', merge('text', 'freq', req%single), &
+                  'at 12000 Hz the top tone, ' // itoa_(nint(top, int64)) // ' Hz, ' // &
+                  'would fold back; it must be below 6000 Hz')
              return
           end if
        end if
-       count = stream_slot_samples(req%mode, 144, req%submode, req%spacing,   &
-            req%trperiod, req%rate)
+       if (req%cwid) then
+          call encode_station_call(call, call_long, call_unreadable)
+          if (call_unreadable) then
+             cw_status = 5
+          else if (call_long) then
+             cw_status = 4
+          else
+             call cw_id_(trim(call), cw, ncw, cw_status)
+          end if
+          if (cw_status .ne. 0) then
+             select case (cw_status)
+             case (2)
+                line = 'the configured call has a character Morse does not ' // &
+                     'send (it sends letters, digits and /)'
+             case (3)
+                line = 'the configured call is longer than the GUI''s 250 ' //  &
+                     'Morse elements hold'
+             case (4)
+                line = 'the configured call is longer than the 64 characters ' // &
+                     'a configure keeps'
+             case (5)
+                line = 'the configured call is unreadable (its JSON string ' //  &
+                     'does not decode)'
+             case default
+                line = 'no configure has set it'
+             end select
+             call encode_emit_rejected(id, 'not_configured', 'mycall', 'a CW ID ' // &
+                  'sends the station''s call, and ' // line)
+             return
+          end if
+       end if
+       count = stream_slot_samples(tx, ncw)
        if (count .le. 0) then
           call encode_emit_rejected(id, 'encoding_failed', '', 'the audio has no length')
           return
@@ -306,15 +516,15 @@ contains
        end if
     end if
 
-    call generate_(req, message, ft_tables_, tables_, msgsent, tones, ntones,   &
-         itype, fallback)
+    call generate_(req, message, nfreq, ft_tables_, tables_, msgsent, tones,   &
+         ntones, itype, fallback)
     if (trim(msgsent) .eq. BAD_MESSAGE) then
        ! With no calls in its tables, a message whose hashed call collides
        ! with one already there would encode.
        if (req%mode .ne. 4 .and. req%mode .ne. 9 .and. req%mode .ne. 65 .and. &
             req%mode .ne. MODE_WSPR) then
-          call generate_(req, message, fresh_ft, fresh, unused, unused_tones,   &
-               n_unused, t_unused, ok)
+          call generate_(req, message, nfreq, fresh_ft, fresh, unused,          &
+               unused_tones, n_unused, t_unused, ok)
           if (trim(unused) .ne. BAD_MESSAGE) then
              line = 'FST4, FST4W, Q65 or MSK144'
              if (req%mode .eq. 8 .or. req%mode .eq. 5) line = 'FT8 or FT4'
@@ -339,14 +549,17 @@ contains
        end if
        msgsent = decoded
     end if
+    tx%nsym = ntones
 
     line = '{"v":1,"t":"encoded","id":' // id // ',"mode":"' //                &
          mode_name_(req%mode) // '","msgsent":"' // escaped_(msgsent) //        &
          '","tones":['
-    do i = 1, ntones
-       if (i .gt. 1) line = line // ','
-       line = line // itoa_(int(tones(i), int64))
-    end do
+    if (.not. req%single .and. req%kind .ne. 3) then
+       do i = 1, ntones
+          if (i .gt. 1) line = line // ','
+          line = line // itoa_(int(tones(i), int64))
+       end do
+    end if
     line = line // ']'
     select case (req%mode)
     case (4, 9, 65, 144)
@@ -360,22 +573,36 @@ contains
          achar(iachar('A') + req%submode) // '"'
     if (req%trperiod .gt. 0) line = line // ',"trperiod":' //                  &
          itoa_(int(req%trperiod, int64))
-    if (any(req%mode .eq. [8, 9, 240, 241, MODE_WSPR])) line = line //          &
-         ',"spacing":' // itoa_(int(req%spacing, int64))
+    if (any(req%mode .eq. [8, 240, 241, MODE_WSPR]) .or. req%kind .eq. 2 .or.   &
+         (req%mode .eq. 9 .and. .not. req%fast)) line = line // ',"spacing":' // &
+         itoa_(int(req%spacing, int64))
     if (req%mode .eq. 66) line = line // ',"copied":' //                       &
          trim(merge('true ', 'false', req%copied))
+    if (req%fast) line = line // ',"fast":true'
+    select case (req%kind)
+    case (1)
+       line = line // ',"kind":"tone"'
+    case (2)
+       line = line // ',"kind":"message"'
+    case (3)
+       line = line // ',"kind":"cw"'
+    end select
+    if (req%single) line = line // ',"freq":' // itoa_(int(nfreq, int64))
     if (.not. render) then
        call emit_line_(line // '}')
        call emit_line_('{"v":1,"t":"packed","id":' // id // '}')
        return
     end if
-    line = line // ',"freq":' // number_(req%freq) // ',"rate":' //            &
-         itoa_(int(req%rate, int64))
+    if (.not. req%single) line = line // ',"freq":' // number_(req%freq)
+    line = line // ',"rate":' // itoa_(int(req%rate, int64))
+    if (req%mode .eq. MODE_TUNE) line = line // ',"seconds":' //               &
+         itoa_(int(req%seconds, int64))
+    if (req%cwid) line = line // ',"cwid":"' // escaped_(upper_(trim(call))) // '"'
 
+    call echo_wave_(req, message, tones, wave)
     allocate(samples(count), stat=alloc_status)
-    if (alloc_status .eq. 0) count = stream_slot_render(req%mode, tones, ntones, &
-         req%submode, req%spacing, req%trperiod, real(req%freq, c_double),      &
-         req%rate, samples, count)
+    if (alloc_status .eq. 0) count = stream_slot_render(tx, tones, ntones,     &
+         wave, size(wave, kind=c_int32_t), cw, ncw, samples, count)
     if (alloc_status .ne. 0 .or. count .ne. size(samples)) then
        call encode_emit_rejected(id, 'encoding_failed', '', 'the audio did not render')
        return
@@ -397,14 +624,90 @@ contains
     end do
   end subroutine tx_buffer_
 
+  ! The frequency of the single tone message gives, as the JT4, JT9, JT65 and
+  ! Q65 encoders read it, and whether the GUI keys it as one: a frequency
+  ! below 100 is keyed as a channel tone, and none read ('/', ',' or a null
+  ! value such as 2*) leaves the encoders' saved one.
+  logical function single_tone_(message, nfreq)
+    character(len=37), intent(in)  :: message
+    integer,           intent(out) :: nfreq
+    nfreq = -huge(nfreq)
+    read(message(2:5), *, end=1, err=1) nfreq
+    go to 2
+1   nfreq = 1000
+2   single_tone_ = nfreq .ge. 100
+  end function single_tone_
+
+  ! The GUI's CW ID of call: lib/morse.f90's elements as MainWindow::transmit
+  ! puts them in its request, from the second (it overwrites the first, a
+  ! space, with their count) and at most 249. status: 0, or 1 call is blank,
+  ! 2 it has a character Morse lacks, 3 it has more elements than the GUI's
+  ! 250 hold.
+  subroutine cw_id_(call, cw, ncw, status)
+    character(len=*),   intent(in)  :: call
+    integer(c_int32_t), intent(out) :: cw(250)
+    integer,            intent(out) :: ncw, status
+    integer :: idat(250), whole(1000), n, nwhole
+    cw = 0
+    ncw = 0
+    status = 1
+    if (len(call) .eq. 0) return
+    status = 2
+    if (verify(call, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/') &
+         .ne. 0) return
+    call morse(call, idat, n)
+    call encode_morse(call, whole, nwhole)
+    status = 3
+    if (n .ne. nwhole) return
+    status = 0
+    ncw = min(n, 249)
+    cw(1:ncw) = idat(2:ncw + 1)
+  end subroutine cw_id_
+
+  ! The waveform MainWindow::transmit precomputes for an Echo message or CW,
+  ! or none.
+  subroutine echo_wave_(req, message, tones, wave)
+    type(slot_request),         intent(in)  :: req
+    character(len=37),          intent(in)  :: message
+    integer(c_int32_t),         intent(in)  :: tones(206)
+    real(c_float), allocatable, intent(out) :: wave(:)
+    complex(c_float_complex) :: cwave(1)
+    integer :: itone(6), nsym, nsps4, nwave, icmplx, ifreq
+    real(c_float) :: fsample, f0
+    real(8) :: spacing
+
+    allocate(wave(ECHO_WAVE))
+    wave = 0
+    if (req%kind .eq. 2) then
+       itone = tones(1:6)
+       nsym = 6
+       nsps4 = 4 * 4096
+       nwave = nsym * nsps4
+       fsample = 48000.0
+       spacing = req%spacing
+       f0 = real(req%freq, c_float)
+       icmplx = 0
+       call genwave(itone, nsym, nsps4, nwave, fsample, spacing, f0, icmplx,   &
+            cwave, wave)
+    else if (req%kind .eq. 3) then
+       ifreq = 1500
+       call gen_cw_wave(trim(message), ifreq, wave)
+    else
+       deallocate(wave)
+       allocate(wave(0))
+    end if
+  end subroutine echo_wave_
+
   ! As MainWindow::guiUpdate generates message in req's mode, with the
   ! transmit tables ft_tables (FT8 and FT4) and tables (FST4, FST4W, Q65 and
   ! MSK144): msgsent and the tones; itype the message type its generator
   ! gives, and fallback whether the 13-character free-text fallback applied.
-  subroutine generate_(req, message, ft_tables, tables, msgsent, tones, ntones, &
-       itype, fallback)
+  ! A single tone, nfreq, is tones(1).
+  subroutine generate_(req, message, nfreq, ft_tables, tables, msgsent, tones, &
+       ntones, itype, fallback)
     type(slot_request), intent(in)  :: req
     character(len=37),  intent(in)  :: message
+    integer,            intent(in)  :: nfreq
     type(pack77_state), target, intent(inout) :: ft_tables, tables
     character(len=37),  intent(out) :: msgsent
     integer(c_int32_t), intent(out) :: tones(206)
@@ -414,7 +717,7 @@ contains
     character(kind=c_char) :: msg00(23), msgsent0(23)
     character(len=77) :: c77
     integer(kind=1) :: msgbits77(77), msgbits101(101)
-    integer :: ichk, i3, n3, iwspr, iflag, status, i
+    integer :: ichk, i3, n3, iwspr, iflag, status, i, itone6(6)
     integer(c_int) :: ichk_c, itype_c, itone65(126)
     type(pack77_state), pointer :: knowledge
 
@@ -423,7 +726,41 @@ contains
     ntones = 0
     itype = 0
     ichk = 0
+    fallback = .false.
     message22 = message(1:22)
+
+    if (req%single) then
+       ! The JT4, JT9, JT65 and Q65 encoders' single tone; JT9's leaves the
+       ! GUI's blank message, and JT65's its own last one.
+       tones(1) = nfreq
+       ntones = 1
+       if (req%mode .eq. 4) msgsent = message22
+       if (req%mode .eq. 66) write(msgsent, '(i5,'' Hz'')') nfreq
+       select case (req%mode)
+       case (4)
+          ntones = 206
+       case (9, 66)
+          ntones = 85
+       case default
+          ntones = 126
+       end select
+       return
+    end if
+    select case (req%mode)
+    case (MODE_TUNE)
+       msgsent = 'TUNE'
+       ntones = 1
+       return
+    case (MODE_ECHO)
+       msgsent = 'ECHO'
+       ntones = 1
+       if (req%kind .ne. 1) then
+          call gen_echocall(message(1:6), itone6)
+          tones(1:6) = itone6
+          ntones = 6
+       end if
+       return
+    end select
 
     ! The free-text fallback applies when the message, as the encoder takes
     ! it, does not encode exactly with the tables as they stand before it.
@@ -614,6 +951,17 @@ contains
 
   end function wspr_message_ok_
 
+  ! s with a to z in upper case.
+  function upper_(s) result(t)
+    character(len=*), intent(in) :: s
+    character(len=len(s)) :: t
+    integer :: i
+    t = s
+    do i = 1, len(t)
+       if (t(i:i) .ge. 'a' .and. t(i:i) .le. 'z') t(i:i) = achar(iachar(t(i:i)) - 32)
+    end do
+  end function upper_
+
   function mode_name_(mode) result(name)
     integer, intent(in) :: mode
     character(len=:), allocatable :: name
@@ -636,6 +984,10 @@ contains
        name = 'FST4W'
     case (144)
        name = 'MSK144'
+    case (MODE_ECHO)
+       name = 'ECHO'
+    case (MODE_TUNE)
+       name = 'TUNE'
     case default
        name = 'WSPR'
     end select

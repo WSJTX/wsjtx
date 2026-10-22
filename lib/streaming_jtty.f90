@@ -186,8 +186,9 @@ module streaming_jtty
 
   public :: jtty_audio, jtty_end, jtty_range_key, jtty_emit_range_error,      &
        jtty_release, jtty_note_station, jtty_encode
-  ! The reply lines the slot modes' encode shares (lib/streaming_encode.f90).
-  public :: encode_emit_rejected, encode_emit_pcm
+  ! The reply lines and the station's call the slot modes' encode shares
+  ! (lib/streaming_encode.f90).
+  public :: encode_emit_rejected, encode_emit_pcm, encode_station_call
 
   integer, parameter :: NSPS = 384
   integer, parameter :: NFRAME = 59 * NSPS
@@ -221,6 +222,7 @@ module streaming_jtty
   logical,           save :: station_call_set_ = .false.
   logical,           save :: station_grid_set_ = .false.
   logical,           save :: station_call_long_ = .false.
+  logical,           save :: station_call_unreadable_ = .false.
   logical,           save :: station_grid_long_ = .false.
   integer(c_int16_t), allocatable, save :: tx_samples_(:)
 
@@ -540,6 +542,7 @@ contains
     if (cfg%mycall_set .or. cfg%mycall_unreadable) then
        station_call_ = cfg%mycall_tx
        station_call_long_ = cfg%mycall_tx_long
+       station_call_unreadable_ = cfg%mycall_unreadable
        station_call_set_ = .true.
     end if
     if (cfg%mygrid_set .or. cfg%mygrid_unreadable) then
@@ -548,6 +551,17 @@ contains
        station_grid_set_ = .true.
     end if
   end subroutine jtty_note_station
+
+  ! The station's call as the last accepted configure that named one gave it,
+  ! blank before one has: long when it has more than the 64 characters call
+  ! holds, unreadable when its JSON string does not decode (call is blank).
+  subroutine encode_station_call(call, long, unreadable)
+    character(len=64), intent(out) :: call
+    logical,           intent(out) :: long, unreadable
+    call = station_call_
+    long = station_call_long_
+    unreadable = station_call_unreadable_
+  end subroutine encode_station_call
 
   ! Answer one pack (render .false.) or render request.
   subroutine jtty_encode(frame, render)

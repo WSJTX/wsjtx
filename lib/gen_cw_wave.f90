@@ -47,6 +47,7 @@ subroutine gen_cw_wave(message,ifreq,wave)
   enddo
 
   nadd=0.002/dt
+  y=0.
   call smo(x,NMAX,y,nadd)
   call smo(y,NMAX,x,nadd)
   call smo(x,NMAX,y,nadd)

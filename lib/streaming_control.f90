@@ -52,8 +52,11 @@ module streaming_control
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
-  ! WSPR, which only encode requests name, has no jt9 mode number either.
+  ! WSPR, Echo and Tune, which only encode requests name, have no jt9 mode
+  ! number either.
   integer, parameter, public :: MODE_WSPR = 1001
+  integer, parameter, public :: MODE_ECHO = 1002
+  integer, parameter, public :: MODE_TUNE = 1003
   ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
   integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
   integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
@@ -453,7 +456,9 @@ module streaming_control
 
   ! A slot mode's pack or render request, read by parse_slot_request: id_ok,
   ! problem and problem_key as in encode_request. mode is jt9's mode number
-  ! (MODE_WSPR for WSPR), submode -1 and trperiod 0 for a mode without them.
+  ! (MODE_WSPR, MODE_ECHO or MODE_TUNE for the others), submode -1 and
+  ! trperiod 0 for a mode without them. single: text is a single tone (@),
+  ! which takes no freq. kind: Echo's 1 fixed tone, 2 message, 3 CW.
   type, public :: slot_request
      logical :: id_ok    = .false.
      integer :: id       = 0
@@ -463,8 +468,13 @@ module streaming_control
      integer :: spacing  = 1
      integer :: trperiod = 0
      logical :: copied   = .false.
+     logical :: fast     = .false.
+     logical :: single   = .false.
+     integer :: kind     = 0
      real(8) :: freq     = 0.d0                 ! render only
      integer :: rate     = 0                    ! render only
+     integer :: seconds  = 0                    ! render only
+     logical :: cwid     = .false.              ! render only
      character(len=:), allocatable :: problem, problem_key
   end type slot_request
 
@@ -2407,10 +2417,17 @@ contains
     character(len=*), intent(in) :: name
     slot_mode_ = 0
     if (len(name) .gt. 6 .or. len(name) .eq. 0 .or. index(name, ' ') .gt. 0) return
-    if (upper_(name) .eq. 'WSPR') then
+    select case (upper_(name))
+    case ('WSPR')
        slot_mode_ = MODE_WSPR
        return
-    end if
+    case ('ECHO')
+       slot_mode_ = MODE_ECHO
+       return
+    case ('TUNE')
+       slot_mode_ = MODE_TUNE
+       return
+    end select
     select case (mode_string_to_int(name))
     case (4, 5, 8, 9, 65, 66, 144, 240, 241)
        slot_mode_ = mode_string_to_int(name)
@@ -2425,9 +2442,9 @@ contains
     character(len=*), parameter :: JTTY_KEYS(7) = [character(len=8) ::       &
          'template', 'final', 'profile', 'his_call', 'exchange', 'serial',   &
          'report']
-    character(len=*), parameter :: KEYS(17) = [character(len=8) :: 't', 'id',  &
-         'mode', 'text', 'submode', 'trperiod', 'spacing', 'copied', JTTY_KEYS, &
-         'freq', 'rate']
+    character(len=*), parameter :: KEYS(21) = [character(len=8) :: 't', 'id',  &
+         'mode', 'text', 'submode', 'trperiod', 'spacing', 'copied', 'fast',   &
+         'kind', JTTY_KEYS, 'freq', 'rate', 'seconds', 'cwid']
     character(len=:), allocatable :: name, word, key
     character(len=8) :: cat
     integer :: i, vstart, blen, highest
@@ -2448,12 +2465,16 @@ contains
     if (ok) req%mode = slot_mode_(name)
     if (req%mode .eq. 0) then
        call refuse_('mode', 'mode must be FT8, FT4, JT4, JT9, JT65, Q65, FST4, ' // &
-            'FST4W, WSPR, MSK144 or JTTY')
+            'FST4W, WSPR, MSK144, ECHO, TUNE or JTTY')
        return
     end if
-    key = unknown_key_(buf, KEYS(1:merge(17, 15, render)))
+    key = unknown_key_(buf, KEYS(1:merge(21, 17, render)))
     if (len(key) .gt. 0) then
-       call refuse_(key, unknown_detail_(key, render))
+       if (.not. render .and. (key .eq. 'seconds' .or. key .eq. 'cwid')) then
+          call refuse_(key, key // ' is a render key')
+       else
+          call refuse_(key, unknown_detail_(key, render))
+       end if
        return
     end if
     do i = 1, size(JTTY_KEYS)
@@ -2464,15 +2485,50 @@ contains
        end if
     end do
 
-    call request_string_(buf, '"text"', req%text, present, ok)
-    if (.not. (present .and. ok)) then
-       call refuse_('text', 'a request needs text, a JSON string')
+    call value_category_(buf, '"fast"', cat)
+    if (req%mode .eq. 9 .and. trim(cat) .eq. 'bool') then
+       call get_bool_(buf, '"fast"', req%fast, ok)
+    else if (trim(cat) .ne. 'absent') then
+       if (req%mode .eq. 9) then
+          call refuse_('fast', 'fast must be true or false')
+       else
+          call refuse_('fast', 'fast applies to JT9')
+       end if
        return
     end if
 
+    call request_string_(buf, '"kind"', word, present, ok)
+    if (req%mode .eq. MODE_ECHO) then
+       if (present .and. ok) then
+          if (upper_(word) .eq. 'TONE') req%kind = 1
+          if (upper_(word) .eq. 'MESSAGE') req%kind = 2
+          if (upper_(word) .eq. 'CW') req%kind = 3
+       end if
+       if (req%kind .eq. 0) then
+          call refuse_('kind', 'kind must be tone, message or cw, case aside')
+          return
+       end if
+    else if (present) then
+       call refuse_('kind', 'kind applies to ECHO')
+       return
+    end if
+
+    call request_string_(buf, '"text"', req%text, present, ok)
+    if (req%mode .eq. MODE_TUNE .or. req%kind .eq. 1) then
+       if (present) then
+          call refuse_('text', 'text is not a key of ' //                     &
+               trim(merge('TUNE              ', 'an Echo fixed tone', req%mode .eq. MODE_TUNE)))
+          return
+       end if
+    else if (.not. (present .and. ok)) then
+       call refuse_('text', 'a request needs text, a JSON string')
+       return
+    end if
+    if (any(req%mode .eq. [4, 9, 65, 66])) req%single = adjustl(req%text) .ne. ' ' &
+         .and. index(adjustl(req%text), '@') .eq. 1
+
     call value_category_(buf, '"trperiod"', cat)
-    select case (req%mode)
-    case (240, 241, 66, 144)
+    if (any(req%mode .eq. [240, 241, 66, 144]) .or. (req%mode .eq. 9 .and. req%fast)) then
        call request_int_(buf, '"trperiod"', req%trperiod, present, ok)
        select case (req%mode)
        case (240)
@@ -2492,12 +2548,12 @@ contains
           call refuse_('trperiod', 'trperiod must be ' // word // ', a JSON integer of seconds')
           return
        end if
-    case default
+    else
        if (trim(cat) .ne. 'absent') then
-          call refuse_('trperiod', 'trperiod applies to FST4, FST4W, Q65 and MSK144')
+          call refuse_('trperiod', 'trperiod applies to FST4, FST4W, Q65, MSK144 and fast JT9')
           return
        end if
-    end select
+    end if
 
     call value_category_(buf, '"submode"', cat)
     select case (req%mode)
@@ -2544,23 +2600,37 @@ contains
                achar(iachar('0') + highest))
           return
        end if
+       ! The GUI keeps JT9's fast option off below submode E.
+       if (req%fast .and. req%submode .lt. 4) then
+          call refuse_('submode', 'fast JT9 is submode E to H, or 4 to 7')
+          return
+       end if
     end if
 
     call value_category_(buf, '"spacing"', cat)
-    select case (req%mode)
-    case (8, 9, 240, 241, MODE_WSPR)
+    if (any(req%mode .eq. [8, 240, 241, MODE_WSPR]) .or.                      &
+         (req%mode .eq. 9 .and. .not. req%fast)) then
        call request_int_(buf, '"spacing"', req%spacing, present, ok)
        if (.not. present) req%spacing = 1
        if (.not. (ok .and. any(req%spacing .eq. [1, 2, 4]))) then
           call refuse_('spacing', 'spacing must be 1, 2 or 4, a JSON integer')
           return
        end if
-    case default
-       if (trim(cat) .ne. 'absent') then
-          call refuse_('spacing', 'spacing applies to FT8, JT9, FST4, FST4W and WSPR')
+    else if (req%kind .eq. 2) then
+       call request_int_(buf, '"spacing"', req%spacing, present, ok)
+       if (.not. (present .and. ok .and. any(req%spacing .eq. [10, 15, 20, 25, 30]))) then
+          call refuse_('spacing', 'spacing must be 10, 15, 20, 25 or 30, a JSON ' // &
+               'integer of Hz')
           return
        end if
-    end select
+    else
+       req%spacing = 0
+       if (trim(cat) .ne. 'absent') then
+          call refuse_('spacing', 'spacing applies to FT8, slow JT9, FST4, FST4W, ' // &
+               'WSPR and an Echo message')
+          return
+       end if
+    end if
 
     call value_category_(buf, '"copied"', cat)
     if (req%mode .eq. 66 .and. trim(cat) .eq. 'bool') then
@@ -2580,7 +2650,41 @@ contains
        call refuse_('rate', RATE_DETAIL)
        return
     end if
+
+    call value_category_(buf, '"seconds"', cat)
+    if (req%mode .eq. MODE_TUNE) then
+       call request_int_(buf, '"seconds"', req%seconds, present, ok)
+       if (.not. (present .and. ok .and. req%seconds .ge. 1 .and. req%seconds .le. 600)) then
+          call refuse_('seconds', 'seconds must be a JSON integer from 1 to 600')
+          return
+       end if
+    else if (trim(cat) .ne. 'absent') then
+       call refuse_('seconds', 'seconds applies to TUNE')
+       return
+    end if
+
+    ! The GUI's Modulator sends a CW ID after the message, or in its last 5 s
+    ! in a fast mode, in every mode but FT8, FT4 and Echo.
+    call value_category_(buf, '"cwid"', cat)
+    if (any(req%mode .eq. [4, 9, 65, 66, 240, 241, MODE_WSPR, 144]) .and.     &
+         trim(cat) .eq. 'bool') then
+       call get_bool_(buf, '"cwid"', req%cwid, ok)
+    else if (trim(cat) .ne. 'absent') then
+       if (any(req%mode .eq. [4, 9, 65, 66, 240, 241, MODE_WSPR, 144])) then
+          call refuse_('cwid', 'cwid must be true or false')
+       else
+          call refuse_('cwid', 'cwid applies to JT4, JT9, JT65, Q65, FST4, FST4W, ' // &
+               'WSPR and MSK144: the GUI sends no CW ID in FT8, FT4, Echo or Tune')
+       end if
+       return
+    end if
+
     call value_category_(buf, '"freq"', cat)
+    if (req%single) then
+       if (trim(cat) .ne. 'absent') call refuse_('freq', 'an @ message is a ' // &
+            'single tone at the frequency it gives, and takes no freq')
+       return
+    end if
     ok = trim(cat) .eq. 'number'
     if (ok) then
        call find_key_(buf, '"freq"', vstart, blen, present)
@@ -2591,6 +2695,13 @@ contains
     if (req%mode .eq. 144) then
        if (.not. (ok .and. req%freq .eq. 1000.d0)) &
             call refuse_('freq', 'freq must be 1000: MSK144 sends 1000 and 2000 Hz')
+    else if (req%kind .eq. 3) then
+       if (.not. (ok .and. req%freq .eq. 1500.d0)) &
+            call refuse_('freq', 'freq must be 1500: the GUI sends Echo CW at 1500 Hz')
+    else if (req%mode .eq. MODE_ECHO) then
+       if (.not. (ok .and. req%freq .ge. 1490.d0 .and. req%freq .lt. 1510.d0))   &
+            call refuse_('freq', 'freq must be a JSON number from 1490 to below ' // &
+            '1510: the GUI sends Echo at 1500 Hz, dithered from -10 to below +10 Hz')
     else if (.not. (ok .and. req%freq .ge. 200.d0 .and. req%freq .le. 5000.d0)) then
        call refuse_('freq', FREQ_DETAIL)
     end if
