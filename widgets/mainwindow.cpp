@@ -94,7 +94,7 @@
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "DecDataMutex.hpp"
-#include "DecoderIpc.hpp"
+#include "ShmemDecoderBackend.hpp"
 #include "qmap/qmap_ipc.h"
 #include "qmap/qmap_decode_record.h"
 #include "qmap/qmap_click_policy.h"
@@ -677,7 +677,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_rpt {"-15"},
   m_pfx {Radio::PrefixSuffix::type1Prefixes()},
   m_sfx {Radio::PrefixSuffix::type1Suffixes()},
-  m_decoderSession {decoderSession},
+  m_decoderBackend {std::make_unique<ShmemDecoderBackend> (decoderSession, dec_data, dec_data_mutex ())},
   m_downSampleFactor (downSampleFactor),
   m_audioThreadPriority (QThread::HighPriority),
   m_bandEdited {false},
@@ -1260,96 +1260,33 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   setWindowTitle (branded_program_title ());
 
-  connect(&proc_jt9, &QProcess::started, this, [this] {
+  connect(m_decoderBackend.get (), &DecoderBackend::processStarted, this, [this] {
       if (!m_startup_decoder_reported)
         {
           m_startup_decoder_reported = true;
           PerformanceTrace::milestone (m_startup_trace_run, "decoder.process_started");
         }
     });
-  connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
-  connect(&proc_jt9, &QProcess::readyReadStandardError, this, [this] {
-      drainDecoderStderr ();
+  connect(m_decoderBackend.get (), &DecoderBackend::outputAvailable, this, &MainWindow::readFromStdout);
+  connect(m_decoderBackend.get (), &DecoderBackend::launched, this, [this] {
+      m_activeJt9Decode = {};
+      updateDecodeControls ();
     });
-#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
-  connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
-          [this] (QProcess::ProcessError error) {
-            if (m_closing || !m_valid) return;
-            if (Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
-                || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase)
-              {
-                failDecoderStartup (proc_jt9.errorString ());
-                return;
-              }
-            if ((Jt9ProcessPhase::StopRequested == m_jt9ProcessPhase
-                 || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
-                 || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
-                && QProcess::Crashed == error) return;
-            Q_EMIT decoderBackendFailed (decoderFailureDetail (proc_jt9.errorString ()));
-            subProcessError (&proc_jt9, error);
-          });
-#else
-  connect(&proc_jt9, &QProcess::errorOccurred, [this] (QProcess::ProcessError error) {
-                                                 if (m_closing || !m_valid) return;
-                                                 if (Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
-                                                     || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase)
-                                                   {
-                                                     failDecoderStartup (proc_jt9.errorString ());
-                                                     return;
-                                                   }
-                                                 if ((Jt9ProcessPhase::StopRequested == m_jt9ProcessPhase
-                                                      || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
-                                                      || Jt9ProcessPhase::Killing == m_jt9ProcessPhase)
-                                                     && QProcess::Crashed == error) return;
-                                                 Q_EMIT decoderBackendFailed (decoderFailureDetail (proc_jt9.errorString ()));
-                                                 subProcessError (&proc_jt9, error);
-                                               });
-#endif
-  connect(&proc_jt9, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
-          [this] (int exitCode, QProcess::ExitStatus status) {
-            drainDecoderStderr (true);
-            if (m_closing || !m_valid) return;
-            if (Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
-                || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase)
-              {
-                readFromStdout ();
-                failDecoderStartup (tr ("The decoder exited before completing its startup handshake (code %1).")
-                                      .arg (exitCode));
-                return;
-              }
-            if (decoderRestartInProgress ())
-              {
-                m_decoderShutdownTimer.stop ();
-                m_decoderTerminateTimer.stop ();
-                m_decoderKillTimer.stop ();
-                m_decoderStartTimer.stop ();
-                proc_jt9.readAllStandardOutput ();
-                if (!initializeDecoderSharedMemory ())
-                  {
-                    m_valid = false;
-                    QTimer::singleShot (0, this, SLOT (close ()));
-                    return;
-                  }
-                m_activeJt9Decode = {};
-                m_decoderOutputFramer.reset ();
-                startDecoderProcess ();
-                return;
-              }
-            auto const failed = subProcessFailed (&proc_jt9, exitCode, status);
-            if (!failed && m_valid)
-              {
-                MessageBox::critical_message (this, tr ("Decoder Error"),
-                                              tr ("The decoder subprocess exited unexpectedly."));
-              }
-            if (m_valid)
-              {
-                Q_EMIT decoderBackendFailed (
-                  tr ("jt9 exited unexpectedly with code %1.").arg (exitCode));
-                m_valid = false;          // ensures exit if still
-                                          // constructing
-                QTimer::singleShot (0, this, SLOT (close ()));
-              }
-          });
+  connect(m_decoderBackend.get (), &DecoderBackend::becameReady, this, [this] {
+      m_decoderCompletedSinceStart = false;
+      updateDecodeControls ();
+      Q_EMIT decoderBackendStarted ();
+      QTimer::singleShot (0, this, [this] {
+          auto const pendingResult = publishPendingFt8Decode ();
+          if (DecodePublishResult::Failed == pendingResult)
+            requestDecoderRestart ("pending FT8 decode publication failed after restart");
+        });
+    });
+  connect(m_decoderBackend.get (), &DecoderBackend::restartInitiated, this, [this] {
+      abortJt9Transaction ();
+      updateDecodeControls ();
+    });
+  connect(m_decoderBackend.get (), &DecoderBackend::failed, this, &MainWindow::handleDecoderFailure);
   connect(&p1, &QProcess::started, [this] () {
                                      showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p1.program ()).arg (p1.arguments ().join ("\" \"")));
                                    });
@@ -1514,43 +1451,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(&m_guiTimer, &QTimer::timeout, this, &MainWindow::guiUpdate);
   m_guiTimer.start(100);   //### Don't change the 100 ms! ###
 
-  m_decoderShutdownTimer.setSingleShot (true);
-  connect (&m_decoderShutdownTimer, &QTimer::timeout, this, [this] {
-      if (Jt9ProcessPhase::StopRequested != m_jt9ProcessPhase
-          || QProcess::NotRunning == proc_jt9.state ()) return;
-      m_jt9ProcessPhase = Jt9ProcessPhase::Terminating;
-      proc_jt9.terminate ();
-      m_decoderTerminateTimer.start (1000);
-    });
-  m_decoderTerminateTimer.setSingleShot (true);
-  connect (&m_decoderTerminateTimer, &QTimer::timeout, this, [this] {
-      if (Jt9ProcessPhase::Terminating != m_jt9ProcessPhase
-          || QProcess::NotRunning == proc_jt9.state ()) return;
-      m_jt9ProcessPhase = Jt9ProcessPhase::Killing;
-      proc_jt9.kill ();
-      m_decoderKillTimer.start (2000);
-    });
-  m_decoderKillTimer.setSingleShot (true);
-  connect (&m_decoderKillTimer, &QTimer::timeout, this, [this] {
-      if (Jt9ProcessPhase::Killing != m_jt9ProcessPhase
-          || QProcess::NotRunning == proc_jt9.state ()) return;
-      MessageBox::critical_message (this, tr ("Decoder Error"),
-                                    tr ("The decoder subprocess could not be stopped."));
-      m_valid = false;
-      QTimer::singleShot (0, this, SLOT (close ()));
-    });
-  m_decoderStartTimer.setSingleShot (true);
-  connect (&m_decoderStartTimer, &QTimer::timeout, this, [this] {
-      if (Jt9ProcessPhase::InitialStarting != m_jt9ProcessPhase
-          && Jt9ProcessPhase::ReplacementStarting != m_jt9ProcessPhase) return;
-      // A GUI stall can delay stdout notification past the handshake deadline.
-      proc_jt9.waitForReadyRead (0);
-      if (proc_jt9.bytesAvailable ()) readFromStdout ();
-      if (Jt9ProcessPhase::InitialStarting != m_jt9ProcessPhase
-          && Jt9ProcessPhase::ReplacementStarting != m_jt9ProcessPhase) return;
-      failDecoderStartup (tr ("The decoder did not complete its startup handshake within five seconds."));
-    });
-
   stopWRTimer.setSingleShot(true);
   connect(&stopWRTimer, &QTimer::timeout, this, &MainWindow::stopWRTimeout);
 
@@ -1683,7 +1583,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   {
     PerformanceTrace::Phase decoder_start {m_startup_trace_run, "decoder.start_request"};
-    startDecoderProcess ();
+    DecoderBackend::LaunchSettings launch;
+    launch.programDirectory = m_appDir;
+    launch.writeableDataDirectory = m_config.writeable_data_dir ().absolutePath ();
+    launch.temporaryDirectory = m_config.temp_dir ().absolutePath ();
+    launch.dataDirectory = m_decoderDataDir.absolutePath ();
+    launch.environment = m_env;
+    m_decoderBackend->start (launch);
   }
 
   {
@@ -2209,7 +2115,7 @@ void MainWindow::updateModeControlsLayout ()
 
 bool MainWindow::decoderBackendRunning () const
 {
-  return proc_jt9.state () == QProcess::Running;
+  return m_decoderBackend->running ();
 }
 
 void MainWindow::save_wave_file(QString const& name, int samples, Frequency frequency,
@@ -2625,6 +2531,8 @@ void MainWindow::dataSink(qint64 frames)
                       &m_bUseRef, fname.constData (), (FCL) fname.size ());
       });
   }
+  if (usesJt9Process () && "Echo" != m_mode && "FreqCal" != m_mode)
+    m_decoderBackend->acceptAudio (dec_data.d2, k);
 
   if(m_mode=="MSK144" or m_bFast9) {
     fastSink(frames);
@@ -2659,8 +2567,7 @@ void MainWindow::dataSink(qint64 frames)
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   if (m_automated_test && m_mode == "FT8" && !m_diskData)
     Q_EMIT liveAudioTestFt8SchedulingPoint (
-      m_ihsym, !decoderBusy () && Jt9ProcessPhase::Ready == m_jt9ProcessPhase
-      && QProcess::Running == proc_jt9.state ());
+      m_ihsym, !decoderBusy () && m_decoderBackend->available ());
 #endif
   if (m_mode == "FreqCal"
       // only calculate after 1st chunk, also skip chunk where rig
@@ -4583,6 +4490,7 @@ void MainWindow::closeEvent(QCloseEvent * e)
   if (jttyDrainInProgress()) { closeAfterJttyDrain(); e->ignore(); return; }
   if (m_closing) { e->accept(); return; }
   m_closing = true;
+  m_decoderBackend->prepareForClose ();
   drainJttyReceive();
   auto const active_run = PerformanceTrace::current_run ();
   if (active_run == m_startup_trace_run)
@@ -4593,11 +4501,6 @@ void MainWindow::closeEvent(QCloseEvent * e)
   PerformanceTrace::Phase close {"window.close"};
   cancelPendingFt8Decode ("application closing");
   m_closing = true;
-  m_jt9ProcessPhase = Jt9ProcessPhase::Closing;
-  m_decoderShutdownTimer.stop ();
-  m_decoderTerminateTimer.stop ();
-  m_decoderKillTimer.stop ();
-  m_decoderStartTimer.stop ();
   m_valid = false;              // suppresses subprocess errors
   {
     PerformanceTrace::Phase rig_shutdown {"rig.shutdown_request"};
@@ -4636,19 +4539,8 @@ void MainWindow::closeEvent(QCloseEvent * e)
   plotsave_(&sw,&nw,&nh,&irow);
   {
     PerformanceTrace::Phase decoder_shutdown {"decoder.shutdown"};
-    m_decoderSession.shutdown ();
-    if (proc_jt9.state() != QProcess::NotRunning) {
-      if (!proc_jt9.waitForFinished(5000)) {
-        proc_jt9.terminate();
-        if (!proc_jt9.waitForFinished(1000)) {
-          proc_jt9.kill();
-          proc_jt9.waitForFinished(1000);
-        }
-      }
-    }
-    proc_jt9.close();
+    m_decoderBackend->shutdownAtClose ();
   }
-  m_decoderSession.detach ();
   Q_EMIT finished ();
   QMainWindow::closeEvent (e);
   close.finish ();
@@ -5157,7 +5049,7 @@ void MainWindow::wav_file_loaded ()
   if (result->valid) {
     beginDecoderInput ();
     // Opening another file supersedes retained audio even if monitoring resumes before decoding.
-    if (!decoderBusy ()) m_decoderSession.abort ();
+    if (!decoderBusy ()) m_decoderBackend->discardRetainedAudio ();
   }
   m_fileDateTime=result->fileDateTime;
   if (m_mode == "JTTY") {
@@ -5170,8 +5062,7 @@ void MainWindow::wav_file_loaded ()
 
 void MainWindow::update_wav_file_actions ()
 {
-  auto const backendReady = !usesJt9Process ()
-    || Jt9ProcessPhase::Ready == m_jt9ProcessPhase;
+  auto const backendReady = !usesJt9Process () || m_decoderBackend->ready ();
   bool const enabled=!decoderBusy () && backendReady
     && !m_wav_load_coordinator.isLoading ();
   ui->actionOpen->setEnabled(enabled);
@@ -5375,9 +5266,7 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
       return;                        //Don't start decoder if it's already busy.
     }
   }
-  if (usesJt9Process ()
-      && (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
-          || QProcess::Running != proc_jt9.state ())
+  if (usesJt9Process () && !m_decoderBackend->available ()
       && Ft8MtdDecodeCoordinator::Stage::Final != ft8Stage)
     {
       ui->DecodeButton->setChecked (false);
@@ -5389,8 +5278,8 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
       ui->DecodeButton->setChecked (false);
       return;
     }
-  if (usesJt9Process () && m_diskData
-      && m_decoderInput.inputId () != m_decoderSession.completedSnapshot ().metadata.input_id)
+  auto const retained = m_decoderBackend->retainedAudio ();
+  if (usesJt9Process () && m_diskData && !retained.fromCurrentInput)
     {
       dec_data.params.newdat = true;
       dec_data.params.nagain = false;
@@ -5404,13 +5293,14 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   int const retainedMode = m_mode == "Q65" ? 66 : m_mode == "FST4" ? 240
     : m_mode == "FST4W" ? 241 : 0;
   if (retainedMode && !dec_data.params.newdat
-      && !m_decoderSession.canReuseSamples (retainedMode, int (m_TRperiod)))
+      && !(retained.available && retained.mode == retainedMode
+           && retained.period == int (m_TRperiod)))
     {
       ui->DecodeButton->setChecked (false);
       showStatusMessage (tr ("No completed %1 reception is available to decode again.").arg (m_mode));
       return;
     }
-  if (usesJt9Process () && !dec_data.params.newdat && !m_decoderSession.samples ())
+  if (usesJt9Process () && !dec_data.params.newdat && !retained.available)
     {
       dec_data.params.newdat = true;
       dec_data.params.nagain = false;
@@ -5679,6 +5569,7 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
       QMutexLocker lock {&dec_data_mutex ()};
       decoderParams = dec_data.params;
     }
+    m_decoderBackend->applySettings (decoderParams);
     if (deferFt8Final)
       {
         auto pending = capturePendingFt8MtdDecode (ft8Period);
@@ -5734,6 +5625,13 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
 }
 
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+bool MainWindow::liveAudioTestStallDecoder ()
+{
+  if (!m_automated_test || !m_decoderBackend->available ()) return false;
+  handleDecoderFailure ({DecoderBackend::Failure::Kind::Unresponsive, {}, 0, false, {}, {}});
+  return true;
+}
+
 bool MainWindow::startWavDecodeTest (QString const& path)
 {
   auto const fixtureMode = ((m_mode == QStringLiteral ("JT4")
@@ -6075,23 +5973,15 @@ MainWindow::startLiveAudioTestFt8Transmit (qint64 targetPeriodStartMs)
 
 QString MainWindow::liveAudioTestFt8BackpressureDiagnostics () const
 {
-  auto const ipc = m_decoderSession.diagnostics ();
-
   return QString {"degraded=%1 pending_final=%2 backoff_periods=%3 "
-                  "next_probe_period=%4 owner=%5 process_phase=%6 "
-                  "active_generation=%7 ipc_state=%8 ipc_generation=%9 "
-                  "ipc_progress=%10 decoder_elapsed_ms=%11 "
-                  "decoder_idle_ms=%12"}
+                  "next_probe_period=%4 owner=%5 "}
     .arg (m_ft8MtdDecodeCoordinator.degraded ())
     .arg (m_ft8MtdDecodeCoordinator.hasPending ())
     .arg (m_ft8MtdDecodeCoordinator.skippedPeriods ())
     .arg (m_ft8MtdDecodeCoordinator.nextProbePeriod ())
     .arg (static_cast<int> (m_decodeOwner))
-    .arg (static_cast<int> (m_jt9ProcessPhase))
-    .arg (m_activeJt9Decode.generation)
-    .arg (ipc.state)
-    .arg (ipc.generation)
-    .arg (ipc.progress)
+    + m_decoderBackend->diagnostics ()
+    + QString {" decoder_elapsed_ms=%1 decoder_idle_ms=%2"}
     .arg (decoderDiagnosticElapsedMs ())
     .arg (decoderDiagnosticIdleMs ());
 }
@@ -6141,64 +6031,11 @@ void::MainWindow::fast_decode_done()
   m_bFastDone=false;
 }
 
-void MainWindow::startDecoderProcess ()
-{
-  auto const replacement = decoderRestartInProgress ();
-  m_jt9ProcessPhase = replacement ? Jt9ProcessPhase::ReplacementStarting
-                                  : Jt9ProcessPhase::InitialStarting;
-  m_activeJt9Decode = {};
-  m_decoderOutputFramer.reset ();
-  m_decoderSession.beginStartup ();
-  m_decoderDiagnostics.reset ();
-  QStringList jt9Args {
-    "-s", m_decoderSession.name (),
-    "--ipc-lock", m_decoderSession.workerLockPath (),
-    "-w", "1", // FFTW planning patience
-    // The number  of threads for  FFTW specified here is  chosen as
-    // three because  that gives  the best  throughput of  the large
-    // FFTs used  in jt9.  The count  is the minimum of  (the number
-    // available CPU threads less one) and three.  This ensures that
-    // there is always at least one free CPU thread to run the other
-    // mode decoder in parallel.
-    "-m", QString::number (qMin (qMax (QThread::idealThreadCount () - 1, 1), 3)),
-    "-e", QDir::toNativeSeparators (m_appDir),
-    "-a", QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath ()),
-    "-t", QDir::toNativeSeparators (m_config.temp_dir ().absolutePath ()),
-    // -r: read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...) for the
-    // Fortran decoder; resolves to Contents/Resources/wsjtx on macOS.
-    "-r", QDir::toNativeSeparators (m_decoderDataDir.absolutePath ())
-  };
-  QProcessEnvironment environment {m_env};
-  environment.insert ("OMP_STACKSIZE", "10M");
-  proc_jt9.setProcessEnvironment (environment);
-  proc_jt9.start (QDir::toNativeSeparators (QDir {m_appDir}.filePath ("jt9")),
-                  jt9Args, QIODevice::ReadWrite | QIODevice::Unbuffered);
-  m_decoderStartTimer.start (5000);
-  updateDecodeControls ();
-}
-
-void MainWindow::drainDecoderStderr (bool final)
-{
-  m_decoderDiagnostics.append (proc_jt9.readAllStandardError ());
-  if (final) m_decoderDiagnostics.finish ();
-}
-
-QString MainWindow::decoderFailureDetail (QString const& reason)
-{
-  drainDecoderStderr (true);
-  auto const& diagnostic = m_decoderDiagnostics.tail ();
-  return diagnostic.isEmpty () ? reason : reason + "\n\n" + QString::fromLocal8Bit (diagnostic);
-}
-
 void MainWindow::failDecoderStartup (QString const& reason)
 {
-  if (m_closing || Jt9ProcessPhase::Failed == m_jt9ProcessPhase) return;
-  m_decoderStartTimer.stop ();
-  m_jt9ProcessPhase = Jt9ProcessPhase::Failed;
-  m_decoderSession.beginStartup ();
   m_valid = false;
   updateDecodeControls ();
-  auto const detail = decoderFailureDetail (reason);
+  auto const detail = m_decoderBackend->failureDetail (reason);
   qCritical () << "Decoder startup failed:" << detail;
   Q_EMIT decoderBackendFailed (detail);
   QTimer::singleShot (0, this, SLOT (close ()));
@@ -6206,9 +6043,76 @@ void MainWindow::failDecoderStartup (QString const& reason)
     MessageBox::critical_message (this, tr ("Decoder Error"), detail);
 }
 
-bool MainWindow::initializeDecoderSharedMemory ()
+void MainWindow::handleDecoderFailure (DecoderBackend::Failure const& failure)
 {
-  return m_decoderSession.reset ();
+  using Kind = DecoderBackend::Failure::Kind;
+  switch (failure.kind)
+    {
+    case Kind::StartError:
+      if (m_closing || !m_valid) return;
+      failDecoderStartup (failure.reason);
+      return;
+    case Kind::StartExit:
+      if (m_closing || !m_valid) return;
+      failDecoderStartup (tr ("The decoder exited before completing its startup handshake (code %1).")
+                            .arg (failure.code));
+      return;
+    case Kind::StartTimeout:
+      failDecoderStartup (tr ("The decoder did not complete its startup handshake within five seconds."));
+      return;
+    case Kind::HandshakeInvalid:
+      failDecoderStartup (tr ("The decoder reported an incompatible or unexpected startup handshake (version %1).")
+                            .arg (failure.code));
+      return;
+    case Kind::HandshakeRefused:
+      failDecoderStartup (tr ("The decoder rejected the shared-memory contract: %1.")
+                            .arg (failure.reason));
+      return;
+    case Kind::HandshakeMalformed:
+      failDecoderStartup (tr ("The decoder reported a malformed or out-of-order startup handshake."));
+      return;
+    case Kind::ProcessError:
+      if (m_closing || !m_valid) return;
+      Q_EMIT decoderBackendFailed (m_decoderBackend->failureDetail (failure.reason));
+      subProcessError (failure.program, failure.arguments,
+                       m_decoderBackend->failureDetail (failure.reason));
+      return;
+    case Kind::Exit:
+      {
+        if (m_closing || !m_valid) return;
+        auto const failed = subProcessFailed (
+          failure.program, failure.arguments, failure.code,
+          failure.crashed ? QProcess::CrashExit : QProcess::NormalExit,
+          m_decoderBackend->diagnosticsTail ());
+        if (!failed && m_valid)
+          {
+            MessageBox::critical_message (this, tr ("Decoder Error"),
+                                          tr ("The decoder subprocess exited unexpectedly."));
+          }
+        if (m_valid)
+          {
+            Q_EMIT decoderBackendFailed (
+              tr ("jt9 exited unexpectedly with code %1.").arg (failure.code));
+            m_valid = false;          // ensures exit if still
+                                      // constructing
+            QTimer::singleShot (0, this, SLOT (close ()));
+          }
+      }
+      return;
+    case Kind::StopFailed:
+      MessageBox::critical_message (this, tr ("Decoder Error"),
+                                    tr ("The decoder subprocess could not be stopped."));
+      m_valid = false;
+      QTimer::singleShot (0, this, SLOT (close ()));
+      return;
+    case Kind::StateUnavailable:
+      m_valid = false;
+      QTimer::singleShot (0, this, SLOT (close ()));
+      return;
+    case Kind::Unresponsive:
+      requestDecoderRestart ("decoder hard timeout");
+      return;
+    }
 }
 
 DecodeOperatingContext MainWindow::currentDecodeOperatingContext () const
@@ -6224,8 +6128,6 @@ DecodeOperatingContext MainWindow::currentDecodeOperatingContext () const
   context.periodFrequency = periodFrequency;
   context.band = periodBand;
   context.sequenceStart = m_dateTimeSeqStart;
-  context.inputId = m_decoderInput.inputId ();
-  context.analysisId = m_decoderInput.analysisId ();
   context.trPeriod = m_TRperiod;
   context.submode = m_nSubMode;
   context.diskData = m_diskData;
@@ -6277,7 +6179,7 @@ qint64 MainWindow::currentFt8DecodePeriod () const
 
 void MainWindow::beginDecoderInput ()
 {
-  m_decoderInput.beginInput ();
+  m_decoderBackend->beginInput ();
 }
 
 bool MainWindow::usesFt8MtdFinal () const
@@ -6302,24 +6204,16 @@ MainWindow::capturePendingFt8MtdDecode (qint64 period)
 {
   auto pending = std::make_unique<Ft8MtdDecodeCoordinator::PendingMtdDecode> ();
   pending->period = period;
-  {
-    QMutexLocker payloadLock {&dec_data_mutex ()};
-    pending->payload.params = dec_data.params;
-    pending->payload.metadata = m_decoderInput.nextMetadata (dec_data.params);
-    pending->payload.metadata.valid_samples = std::min (
-      pending->payload.metadata.valid_samples,
-      static_cast<qint32> (DecoderIpc::Ft8SampleCount));
-    Q_ASSERT (8 == pending->payload.params.nmode);
-    Q_ASSERT (pending->payload.params.lmultift8);
-    std::copy_n (dec_data.d2, DecoderIpc::Ft8SampleCount,
-                 pending->payload.samples.begin ());
-  }
+  pending->request = m_decoderBackend->capture ();
   pending->context = currentDecodeOperatingContext ();
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   if (m_automated_test)
-    Q_EMIT liveAudioTestFt8RequestCaptured (
-      pending->payload.params, pending->payload.metadata,
-      pending->payload.samples.data (), pending->period);
+    {
+      auto const captured = ShmemDecoderBackend::describe (*pending->request);
+      if (captured.samples)
+        Q_EMIT liveAudioTestFt8RequestCaptured (
+          captured.params, captured.metadata, captured.samples, pending->period);
+    }
 #endif
   return pending;
 }
@@ -6369,13 +6263,11 @@ void MainWindow::emitFt8DecoderInvocation (decoder_params_t const& params) const
 MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
     bool copySamples, Ft8MtdDecodeCoordinator::Stage ft8Stage, qint64 ft8Period)
 {
-  if (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
-      || QProcess::Running != proc_jt9.state ()
-      || decoderBusy ())
+  if (!m_decoderBackend->available () || decoderBusy ())
     {
       return DecodePublishResult::Unavailable;
     }
-  if (!copySamples && !m_decoderSession.samples ())
+  if (!copySamples && !m_decoderBackend->retainedAudio ().available)
     {
       return DecodePublishResult::Failed;
     }
@@ -6394,25 +6286,8 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
   m_activeJt9Decode.context = currentDecodeOperatingContext ();
   m_activeJt9Decode.ft8Stage = ft8Stage;
   m_activeJt9Decode.ft8Period = ft8Period;
-  DecoderIpc::Submission submitted;
-#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-  decoder_params_t submittedParams;
-  decoder_input_metadata_t submittedMetadata;
-#endif
-  {
-    QMutexLocker payloadLock {&dec_data_mutex ()};
-    auto inputs = m_decoderInput;
-    auto const request = m_decoderSession.prepareRequest (dec_data, copySamples, inputs);
-    submitted = m_decoderSession.submit (request);
-    if (submitted) m_decoderInput = inputs;
-#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
-    submittedParams = request.options ();
-    submittedMetadata = request.metadata ();
-#endif
-    m_activeJt9Decode.context.inputId = request.metadata ().input_id;
-    m_activeJt9Decode.context.analysisId = request.metadata ().analysis_id;
-  }
-  if (!submitted)
+  if (!m_decoderBackend->submit (copySamples ? DecoderBackend::Audio::Current
+                                             : DecoderBackend::Audio::Retained))
     {
       logDecoderAbnormalClear ("decode publication failed");
       m_activeJt9Decode = {};
@@ -6420,11 +6295,14 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
       return DecodePublishResult::Failed;
     }
 
-  m_activeJt9Decode.generation = submitted.generation.value ();
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   if (m_automated_test && Ft8MtdDecodeCoordinator::Stage::None != ft8Stage)
-    Q_EMIT liveAudioTestFt8RequestPublished (
-      submittedParams, submittedMetadata, dec_data.d2, ft8Period);
+    if (auto const * shmem = dynamic_cast<ShmemDecoderBackend const *> (m_decoderBackend.get ()))
+      {
+        auto const published = shmem->lastSubmission ();
+        Q_EMIT liveAudioTestFt8RequestPublished (
+          published.params, published.metadata, published.samples, ft8Period);
+      }
 #endif
   return DecodePublishResult::Published;
 }
@@ -6440,12 +6318,11 @@ MainWindow::DecodePublishResult MainWindow::publishPendingFt8Decode ()
         && pendingFt8DecodeOperatingContextMatchesCurrent (pending.context);
     },
     [this] (Ft8MtdDecodeCoordinator::PendingMtdDecode const& pending) {
-      if (Jt9ProcessPhase::Ready != m_jt9ProcessPhase
-          || QProcess::Running != proc_jt9.state ())
+      if (!m_decoderBackend->available ())
         {
           return PendingPublishResult::Unavailable;
         }
-      if (!beginDecode (DecodeOwner::Jt9, &pending.payload.params,
+      if (!beginDecode (DecodeOwner::Jt9, &pending.request->settings (),
                         &pending.context))
         {
           return PendingPublishResult::Unavailable;
@@ -6455,8 +6332,7 @@ MainWindow::DecodePublishResult MainWindow::publishPendingFt8Decode ()
       m_activeJt9Decode.ft8Stage = Ft8MtdDecodeCoordinator::Stage::Final;
       m_activeJt9Decode.ft8Period = pending.period;
 
-      auto const submitted = m_decoderSession.submit (DecoderIpc::Request::ft8 (pending.payload));
-      if (!submitted)
+      if (!m_decoderBackend->submit (*pending.request))
         {
           logDecoderAbnormalClear ("pending FT8 decode publication failed");
           m_activeJt9Decode = {};
@@ -6464,17 +6340,19 @@ MainWindow::DecodePublishResult MainWindow::publishPendingFt8Decode ()
           return PendingPublishResult::Failed;
         }
 
-      m_activeJt9Decode.generation = submitted.generation.value ();
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
       if (m_automated_test)
-        Q_EMIT liveAudioTestFt8RequestPublished (
-          pending.payload.params, pending.payload.metadata,
-          pending.payload.samples.data (), pending.period);
+        {
+          auto const published = ShmemDecoderBackend::describe (*pending.request);
+          if (published.samples)
+            Q_EMIT liveAudioTestFt8RequestPublished (
+              published.params, published.metadata, published.samples, pending.period);
+        }
 #endif
-      emitFt8DecoderInvocation (pending.payload.params);
+      emitFt8DecoderInvocation (pending.request->settings ());
       qInfo () << "Published pending FT8 final decode"
                << "period:" << pending.period
-               << "generation:" << submitted.generation.value ();
+               << "request:" << m_decoderBackend->activeRequest ();
       return PendingPublishResult::Published;
     });
 
@@ -6505,36 +6383,11 @@ void MainWindow::cancelPendingFt8Decode (QString const& reason)
 
 void MainWindow::requestDecoderRestart (QString const& reason)
 {
-  if (m_closing || decoderRestartInProgress ()) return;
+  if (m_closing || m_decoderBackend->restartInProgress ()) return;
   if (DecodeOwner::Wsprd == m_decodeOwner) return;
 
   logDecoderAbnormalClear (reason);
-  m_jt9ProcessPhase = Jt9ProcessPhase::StopRequested;
-  abortJt9Transaction ();
-  updateDecodeControls ();
-
-  m_decoderSession.shutdown ();
-
-  if (QProcess::NotRunning == proc_jt9.state ())
-    {
-      if (!initializeDecoderSharedMemory ())
-        {
-          m_valid = false;
-          QTimer::singleShot (0, this, SLOT (close ()));
-          return;
-        }
-      startDecoderProcess ();
-      return;
-    }
-  m_decoderShutdownTimer.start (250);
-}
-
-bool MainWindow::decoderRestartInProgress () const
-{
-  return Jt9ProcessPhase::StopRequested == m_jt9ProcessPhase
-    || Jt9ProcessPhase::Terminating == m_jt9ProcessPhase
-    || Jt9ProcessPhase::Killing == m_jt9ProcessPhase
-    || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase;
+  m_decoderBackend->restart ();
 }
 
 bool MainWindow::usesJt9Process () const
@@ -6583,8 +6436,7 @@ void MainWindow::endDecode (DecodeOwner owner, DecodeEndState state)
 
 void MainWindow::updateDecodeControls ()
 {
-  auto const backendReady = !usesJt9Process ()
-    || Jt9ProcessPhase::Ready == m_jt9ProcessPhase;
+  auto const backendReady = !usesJt9Process () || m_decoderBackend->ready ();
   auto const enabled = !decoderBusy () && backendReady
     && !m_wav_load_coordinator.isLoading ();
   ui->DecodeButton->setEnabled (enabled && "WSPR" != m_mode
@@ -6595,11 +6447,10 @@ void MainWindow::updateDecodeControls ()
 
 void MainWindow::abortJt9Transaction ()
 {
-  m_decoderOutputFramer.reset ();
   m_ft8MtdDecodeCoordinator.publicationFailed (
     m_activeJt9Decode.ft8Stage, m_activeJt9Decode.ft8Period);
   m_activeJt9Decode = {};
-  m_decoderSession.abort ();
+  m_decoderBackend->abandonDecode ();
   dec_data.params.nagain = false;
   dec_data.params.ndiskdat = false;
   m_nclearave = 0;
@@ -6700,14 +6551,12 @@ void MainWindow::logDecoderProgress()
 {
   if(DecodeOwner::Jt9 != m_decodeOwner || !m_decoderDiagActive) return;
 
-  auto const ipc = m_decoderSession.diagnostics ();
-  if (m_decoderSession.accepts (ipc.generation))
+  qint32 progress {0};
+  if (m_decoderBackend->activeProgress (progress)
+      && progress != m_decoderDiagProgressCount)
     {
-      if (ipc.progress != m_decoderDiagProgressCount)
-        {
-          m_decoderDiagProgressCount = ipc.progress;
-          markDecoderProgress ();
-        }
+      m_decoderDiagProgressCount = progress;
+      markDecoderProgress ();
     }
 
   auto const elapsedMs = decoderDiagnosticElapsedMs();
@@ -6743,7 +6592,7 @@ void MainWindow::logDecoderProgress()
                << "startIhsym:" << m_decoderDiagStartIhsym
                << "hsymStop:" << m_decoderDiagStartHsymStop
                << "nzhsym:" << m_decoderDiagStartNzhsym;
-    if (proc_jt9.canReadLine ())
+    if (m_decoderBackend->hasPendingOutput ())
       {
         readFromStdout ();
         if (DecodeOwner::Jt9 != m_decodeOwner || !m_decoderDiagActive) return;
@@ -6838,7 +6687,7 @@ void MainWindow::recoverDecoderAtBoundary (QString const& reason, bool manual)
       logDecoderBusyRequest (reason);
       return;
     }
-  if (proc_jt9.canReadLine ())
+  if (m_decoderBackend->hasPendingOutput ())
     {
       readFromStdout ();
       if (DecodeOwner::Jt9 != m_decodeOwner) return;
@@ -7188,57 +7037,20 @@ void MainWindow::activeWorked(QString call, QString band)
   activeCall.bands=QString::fromLatin1(ba);
 }
 
-bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& event,
-                                           bool& decodeCompleted)
+bool MainWindow::handleDecoderOutput (DecoderBackend::Output const& output,
+                                      bool& decodeCompleted)
 {
-  if (m_closing || Jt9ProcessPhase::Failed == m_jt9ProcessPhase) return true;
-  auto const starting = Jt9ProcessPhase::InitialStarting == m_jt9ProcessPhase
-    || Jt9ProcessPhase::ReplacementStarting == m_jt9ProcessPhase;
-  if (DecoderOutputFramer::EventType::Ready == event.type)
+  using Kind = DecoderBackend::Output::Kind;
+  if (Kind::Rejected == output.kind)
     {
-      if (!starting || DecoderIpc::Status::Ok != m_decoderSession.acceptReady (event.protocolVersion))
-        {
-          failDecoderStartup (tr ("The decoder reported an incompatible or unexpected startup handshake (version %1).")
-                                .arg (event.protocolVersion));
-          return true;
-        }
-      m_decoderStartTimer.stop ();
-      m_decoderCompletedSinceStart = false;
-      m_jt9ProcessPhase = Jt9ProcessPhase::Ready;
-      updateDecodeControls ();
-      Q_EMIT decoderBackendStarted ();
-      QTimer::singleShot (0, this, [this] {
-          auto const pendingResult = publishPendingFt8Decode ();
-          if (DecodePublishResult::Failed == pendingResult)
-            requestDecoderRestart ("pending FT8 decode publication failed after restart");
-        });
-      return true;
-    }
-  if (DecoderOutputFramer::EventType::Error == event.type)
-    {
-      failDecoderStartup (tr ("The decoder rejected the shared-memory contract: %1.")
-                            .arg (QString::fromLatin1 (event.errorStatus)));
-      return true;
-    }
-  if ((DecoderOutputFramer::EventType::Malformed == event.type
-       && (event.rawLine.startsWith ("<DecoderReady")
-           || event.rawLine.startsWith ("<DecoderError")))
-      || (starting && DecoderOutputFramer::EventType::Malformed != event.type))
-    {
-      failDecoderStartup (tr ("The decoder reported a malformed or out-of-order startup handshake."));
-      return true;
-    }
-  if (DecoderOutputFramer::EventType::Rejected == event.type)
-    {
-      if (DecodeOwner::Jt9 == m_decodeOwner && m_decoderSession.accepts (event.generation))
+      if (DecodeOwner::Jt9 == m_decodeOwner && output.current)
         qCritical () << "Decoder request rejected"
-                     << "generation:" << event.generation << event.rawLine.trimmed ();
+                     << "request:" << output.request << output.text.trimmed ();
       return true;
     }
-  if (DecoderOutputFramer::EventType::Record == event.type)
+  if (Kind::Record == output.kind)
     {
-      if (DecodeOwner::Jt9 != m_decodeOwner
-          || !m_decoderSession.accepts (event.generation))
+      if (DecodeOwner::Jt9 != m_decodeOwner || !output.current)
         {
           return true;
         }
@@ -7248,19 +7060,18 @@ bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& eve
         {
           m_activeJt9Decode.obsolete = true;
           qInfo () << "Discarding obsolete decoder output"
-                   << "generation:" << event.generation;
+                   << "request:" << output.request;
         }
       return m_activeJt9Decode.obsolete;
     }
 
-  if (DecoderOutputFramer::EventType::Malformed == event.type)
+  if (Kind::Unframed == output.kind || Kind::MalformedBoundary == output.kind)
     {
       qWarning () << "Ignoring malformed or unframed decoder output:"
-                  << event.rawLine.trimmed ();
-      if (event.rawLine.startsWith ("<DecodeStarted>")
-          || event.rawLine.startsWith ("<DecodeFinished>"))
+                  << output.text.trimmed ();
+      if (Kind::MalformedBoundary == output.kind)
         {
-          if (Jt9ProcessPhase::Ready == m_jt9ProcessPhase
+          if (m_decoderBackend->ready ()
               && DecodeOwner::Jt9 == m_decodeOwner)
             {
               requestDecoderRestart ("malformed decoder output frame");
@@ -7273,17 +7084,17 @@ bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& eve
       return true;
     }
 
-  if (DecoderOutputFramer::EventType::Started == event.type)
+  if (Kind::CycleStarted == output.kind)
     {
-      auto const authoritative = Jt9ProcessPhase::Ready == m_jt9ProcessPhase
+      auto const authoritative = m_decoderBackend->ready ()
         && DecodeOwner::Jt9 == m_decodeOwner
-        && m_decoderSession.accepts (event.generation);
+        && output.current;
       if (!authoritative)
         {
           qWarning () << "Quarantining stale decoder output"
-                      << "generation:" << event.generation
-                      << "activeGeneration:" << m_activeJt9Decode.generation;
-          if (Jt9ProcessPhase::Ready == m_jt9ProcessPhase
+                      << "request:" << output.request
+                      << "activeRequest:" << m_decoderBackend->activeRequest ();
+          if (m_decoderBackend->ready ()
               && DecodeOwner::Jt9 == m_decodeOwner)
             {
               requestDecoderRestart ("decoder output generation mismatch");
@@ -7296,13 +7107,12 @@ bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& eve
       return true;
     }
 
-  auto const completion = event.completion;
   auto const authoritative = DecodeOwner::Jt9 == m_decodeOwner
-    && m_decoderSession.accepts (event.generation);
+    && output.current;
   if (!authoritative)
     {
       qWarning () << "Ignoring stale decoder completion"
-                  << "generation:" << completion.generation;
+                  << "request:" << output.request;
       return true;
     }
 
@@ -7311,32 +7121,27 @@ bool MainWindow::handleDecoderOutputEvent (DecoderOutputFramer::Event const& eve
     {
       m_activeJt9Decode.obsolete = true;
       qInfo () << "Discarding obsolete decoder completion"
-               << "generation:" << event.generation;
+               << "request:" << output.request;
     }
 
-  auto const ipc = m_decoderSession.diagnostics ();
-  if (DecoderIpc::Status::Ok != m_decoderSession.complete (completion))
+  if (Kind::CycleLost == output.kind)
     {
-      qWarning () << "Unable to consume matching decoder completion"
-                  << "generation:" << completion.generation
-                  << "state:" << ipc.state;
       requestDecoderRestart ("matching decoder completion could not be consumed");
       return true;
     }
 
   if (!m_activeJt9Decode.obsolete)
     {
-      m_bDecoded = completion.decoded > 0;
+      m_bDecoded = output.counts.decoded > 0;
       auto const& context = m_activeJt9Decode.context;
       if(context.mode=="Q65") {
-        auto const n0 = completion.average / 1000;
-        auto const n1 = completion.average % 1000;
+        auto const n0 = output.counts.average / 1000;
+        auto const n1 = output.counts.average % 1000;
         ndecodes_label.setText(QString {"%1  %2"}.arg (n0).arg (n1));
       } else if(m_nDecodes==0 && !(context.multithreadFt8 && context.diskData)) {
         ndecodes_label.setText("0");
       }
     }
-  m_activeJt9Decode.generation = 0;
   decodeCompleted = true;
   return true;
 }
@@ -7368,15 +7173,15 @@ void MainWindow::readFromStdout()                             //readFromStdout
   preparationContext.ft8DecoderStart = decodeContext.ft8DecoderStart;
   preparationContext.nominalFrequency = decodeContext.periodFrequency;
   preparationContext.reduceFalseDecodes = ui->actionReduce_false_decodes->isChecked();
-  m_decoderOutputFramer.drain (
-    proc_jt9, [this, &all_decodes, &preparationContext, &decodeCompleted,
-               &decodeContext, bDisplayPoints]
-    (DecoderOutputFramer::Event const& event) {
-    if (handleDecoderOutputEvent (event, decodeCompleted)) return;
+  m_decoderBackend->deliverOutput (
+    [this, &all_decodes, &preparationContext, &decodeCompleted,
+     &decodeContext, bDisplayPoints]
+    (DecoderBackend::Output const& output) {
+    if (handleDecoderOutput (output, decodeCompleted)) return;
     filtered = false;
     ignored = false;
     m_muted = false;
-    auto const raw_line = event.rawLine;
+    auto const raw_line = output.text;
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
     Q_EMIT decoderOutputLine (raw_line);
 #endif

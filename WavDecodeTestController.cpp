@@ -51,9 +51,35 @@ WavDecodeTestController::WavDecodeTestController (
     finish (tr ("Decoder backend failed: %1").arg (reason));
   });
   connect (m_window, &MainWindow::decoderBackendStarted, this, [this] {
+    if (m_stage == Stage::Restart && m_restartAborted)
+      {
+        m_stage = Stage::AfterRestart;
+        QTimer::singleShot (0, this, [this] {
+          if (m_finished) return;
+          auto * decode = m_window->findChild<QAbstractButton *> ("DecodeButton");
+          if (!decode || !decode->isEnabled () || m_window->decoderBusy ())
+            {
+              finish (tr ("%1 decoding did not resume after the decoder restart.").arg (m_modeName));
+              return;
+            }
+          m_observed = false;
+          m_awaitingCycle = true;
+          decode->click ();
+          if (!m_finished && !m_activeGeneration)
+            finish (tr ("Manual decoding did not start after the decoder restart."));
+        });
+        return;
+      }
     if (m_started) finish (tr ("Decoder backend restarted during the test."));
   });
-  connect (m_window, &MainWindow::decodeCycleAborted, this, [this] {
+  connect (m_window, &MainWindow::decodeCycleAborted, this, [this] (quint64 generation) {
+    if (m_stage == Stage::Restart && !m_restartAborted && generation == m_activeGeneration)
+      {
+        m_restartAborted = true;
+        m_lastGeneration = generation;
+        m_activeGeneration = 0;
+        return;
+      }
     finish (tr ("%1 decode cycle was aborted.").arg (m_modeName));
   });
   connect (m_window, &MainWindow::decodeCycleStarted, this,
@@ -314,7 +340,12 @@ void WavDecodeTestController::completeCycle (quint64 generation)
           finish (tr ("Unable to start the %1 WAV load.").arg (m_modeName));
         return;
       }
-    if (m_stage == Stage::Repeat)
+    if (m_stage == Stage::Repeat && restartsDecoder ())
+      {
+        restartDuringDecode ();
+        return;
+      }
+    if (m_stage == Stage::Repeat || m_stage == Stage::AfterRestart)
       {
         m_stage = m_mode == Mode::Jt4 || m_mode == Mode::Jt9 || m_mode == Mode::Jt65
           ? Stage::ShortReplacement : Stage::ShortBeforeMonitoring;
@@ -357,17 +388,43 @@ void WavDecodeTestController::completeCycle (quint64 generation)
   });
 }
 
+// A restart while the worker decodes must abort that cycle, relaunch the
+// decoder, and leave decoding usable.
+void WavDecodeTestController::restartDuringDecode ()
+{
+  auto * decode = m_window->findChild<QAbstractButton *> ("DecodeButton");
+  m_stage = Stage::Restart;
+  m_awaitingCycle = true;
+  decode->click ();
+  if (m_finished) return;
+  if (!m_activeGeneration)
+    {
+      finish (tr ("Manual decoding did not start before the decoder restart."));
+      return;
+    }
+  if (!m_window->liveAudioTestStallDecoder ())
+    {
+      finish (tr ("The decoder restart was refused."));
+      return;
+    }
+  if (m_finished) return;
+  if (!m_restartAborted || m_window->decoderBusy () || decode->isEnabled ())
+    finish (tr ("The decoder restart did not abort the active %1 cycle.").arg (m_modeName));
+}
+
 void WavDecodeTestController::finish (QString const& error)
 {
   if (m_finished) return;
   m_finished = true;
-  m_succeeded = error.isEmpty () && m_completedCycles == 5;
+  m_succeeded = error.isEmpty () && m_completedCycles == (restartsDecoder () ? 6 : 5)
+    && m_restartAborted == restartsDecoder ();
   m_timeout.stop ();
   m_prepareTimer.stop ();
   m_modalTimer.stop ();
   if (m_succeeded)
     std::cerr << "WSJT-X " << m_modeName.toStdString () << " WAV test passed: initial and repeat decode displayed "
               << m_expectedMessage.toStdString () << "; short initial, replacement, and repeat WAV decodes were silent"
+              << (restartsDecoder () ? "; decoding resumed after a decoder restart aborted a cycle" : "")
               << std::endl;
   else
     std::cerr << "WSJT-X " << m_modeName.toStdString () << " WAV test failed: " << error.toStdString ()
