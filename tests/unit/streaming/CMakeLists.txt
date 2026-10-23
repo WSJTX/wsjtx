@@ -352,7 +352,7 @@ target_link_libraries (test_streaming_msk144 Qt5::Test)
 target_compile_definitions (test_streaming_msk144 PRIVATE
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
   MSK144_GUI_MODEL="$<TARGET_FILE:msk144_gui_model>")
-set (streaming_msk144_rows)
+set (streaming_msk144_rows trainingComparisonAllowsSignalRoundoff)
 set (streaming_msk144_fixtures)
 # Source archives omit samples/.
 set (have_msk144_samples FALSE)

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -652,12 +653,15 @@ QList<double> fileTerms (QByteArray const& contents)
   return terms;
 }
 
-bool same (QList<double> const& a, QList<double> const& b)
+bool same (QList<double> const& a, QList<double> const& b,
+           double absoluteTolerance = 1e-15, double relativeTolerance = 1e-12)
 {
   if (a.size () != b.size ()) return false;
   for (int i = 0; i < a.size (); ++i)
     {
-      if (std::abs (a.at (i) - b.at (i)) > 1e-12 * std::max (1e-3, std::abs (b.at (i)))) return false;
+      if (!std::isfinite (a.at (i)) || !std::isfinite (b.at (i))) return false;
+      if (std::abs (a.at (i) - b.at (i))
+          > std::max (absoluteTolerance, relativeTolerance * std::abs (b.at (i)))) return false;
     }
   return true;
 }
@@ -788,7 +792,8 @@ void checkTrainings (Outcome const& o, Expect const& expect)
       auto const& event = o.seen.trained.at (i);
       auto const terms = eventTerms (event);
       auto const gui = fileTerms (o.model.trainings.at (i));
-      QVERIFY2 (5 == terms.size () && same (terms, gui),
+      // The double-precision fit consumes single-precision FFT phases.
+      QVERIFY2 (5 == terms.size () && same (terms, gui, 1e-6, 1e-6),
                 qPrintable (QString {"event %1, GUI model %2"}.arg (show (terms), show (gui))));
       if (!expect.written.value (i, true)) continue;
       ++files;
@@ -898,6 +903,29 @@ class TestStreamingMsk144 final : public QObject
   Q_OBJECT
 
 private slots:
+  void trainingComparisonAllowsSignalRoundoff ()
+  {
+    QList<double> const stream {-0.013671596863997061, 0.35713625852129233, 0.077501951536153357,
+                                -0.31190463596108831, -0.16234377120035451};
+    QList<double> const gui {-0.013671626719376179, 0.35713625302992369, 0.077501891874621781,
+                             -0.31190457008526978, -0.1623436374074135};
+    QVERIFY (same (stream, gui, 1e-6, 1e-6));
+    QVERIFY (!same (stream, gui));
+    QVERIFY (same (stream, stream));
+    auto changed = stream;
+    changed[2] += 1e-3;
+    QVERIFY (!same (changed, gui, 1e-6, 1e-6));
+    for (auto invalid : {std::numeric_limits<double>::quiet_NaN (),
+                         std::numeric_limits<double>::infinity ()})
+      {
+        changed = stream;
+        changed[2] = invalid;
+        QVERIFY (!same (changed, stream, 1e-6, 1e-6));
+        QVERIFY (!same (stream, changed, 1e-6, 1e-6));
+        QVERIFY (!same (changed, changed));
+      }
+  }
+
   void recording120500MatchesTheGui_data ()
   {
     QTest::addColumn<Session> ("session");
@@ -1215,7 +1243,14 @@ private slots:
     auto bare = o.session;
     bare.periods[2].keys = {};
     auto const without = runModel (bare);
-    QVERIFY2 (shown (without.ok && without.out != o.model.out, o), without.out.constData ());
+    QVERIFY2 (shown (without.ok, o), without.out.constData ());
+    auto const decodes = [] (ModelRun const& model) {
+      QStringList result;
+      for (auto const& line : model.lines)
+        if (line.period == 2 && line.kind == "decode") result << modelDecode (line.text);
+      return result;
+    };
+    QVERIFY2 (shown (decodes (without) != decodes (o.model), o), without.out.constData ());
   }
 
   // MSK144's decoder state survives a period of another mode: SWL shows a short message on its
