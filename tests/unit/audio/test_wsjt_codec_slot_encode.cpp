@@ -716,11 +716,11 @@ QVector<qint16> every4th (QVector<qint16> const& audio)
   return samples;
 }
 
-// The first sample where a and b differ, or -1.
-int firstDifference (QVector<qint16> const& a, QVector<qint16> const& b)
+// Independent sine synthesis may round adjacent int16 values at a sample boundary.
+int firstDifference (QVector<qint16> const& a, QVector<qint16> const& b, int tolerance = 0)
 {
   for (int i = 0; i < std::min (a.size (), b.size ()); ++i)
-    if (a[i] != b[i]) return i;
+    if (std::abs (int (a[i]) - int (b[i])) > tolerance) return i;
   return a.size () == b.size () ? -1 : std::min (a.size (), b.size ());
 }
 
@@ -882,7 +882,9 @@ private:
                       qPrintable (what + ": " + QJsonDocument {reply.encoded}.toJson (QJsonDocument::Compact).left (200)));
             if (k == 0) continue;
             auto const audio = k == 1 ? every4th (gui.audio) : gui.audio;
-            auto const difference = firstDifference (reply.audio, audio);
+            auto const shaped = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4"
+              || row.mode == "FST4" || row.mode == "FST4W";
+            auto const difference = firstDifference (reply.audio, audio, shaped ? 0 : 1);
             QVERIFY2 (difference < 0, qPrintable (QString {"%1: sample %2 of %3 (%4) differs from the GUI's (%5 of %6)"}
                                                   .arg (what).arg (difference).arg (reply.audio.size ())
                                                   .arg (reply.audio.value (difference)).arg (audio.value (difference))
