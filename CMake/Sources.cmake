@@ -233,6 +233,7 @@ set (wsjt_CXXSRCS
   lib/decoder_ipc_layout.cpp
   lib/NativeSharedMemory.cpp
   lib/DecoderWorkerLock.cpp
+  lib/ft8var/ft8_coarse_mutex.cpp
   lib/crc10.cpp
   lib/crc13.cpp
   lib/crc14.cpp
@@ -324,6 +325,8 @@ set (wsjt_FSRCS
   lib/superfox/popen_module.f90
   lib/superfox/qpc/qpc_mod.f90
   lib/ft8var/ft8_decode_ranges.f90
+  lib/ft8var/ft8_coarse_cache.f90
+  lib/ft8var/ft8_coarse_sync.f90
   lib/ft8var/ft8_mtd_residual.f90
   lib/ft8var/ft8_decodevar.f90
   lib/jtty/jtty_source_codec.f90
@@ -450,6 +453,7 @@ set (wsjt_FSRCS
   lib/ft4/ft4code.f90
   lib/ft4/genft4.f90
   lib/ft4/gen_ft4wave.f90
+  lib/ft8/ft8_waveform.f90
   lib/ft8/gen_ft8wave.f90
   lib/ft8/genft8refsig.f90
   lib/genwspr.f90
@@ -603,6 +607,9 @@ set (wsjt_FSRCS
   lib/ft8var/fillhashvar.f90
   lib/ft8var/filtersfreevar.f90
   lib/ft8var/four2avar.f90
+  lib/ft8var/ft8_fft32.f90
+  lib/ft8var/ft8_symbol_spectrum.f90
+  lib/ft8var/ft8_bit_metrics.f90
   lib/ft8var/ft4_mod1.f90
   lib/ft8var/ft8apsetvar.f90
   lib/ft8var/ft8bvar.f90

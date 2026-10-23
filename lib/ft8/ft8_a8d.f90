@@ -1,5 +1,5 @@
 subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
-     progress_generation,knowledge,evidence)
+     progress_generation,knowledge,evidence,worker_count)
 
 ! List decoding for FT8, activated only at nfqso (Rx Freq) +/- 10 Hz and when
 ! DxCall and DxGrid are populated. Returns xdt, fbest, and msgbest.
@@ -14,18 +14,22 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
   parameter (NWAVE=NN*NSPS/NDOWN)    !Length of generated cwave = 2528
   parameter (NZZ=3200)               !Length of downsampled arrays
   parameter (NFFT=NZZ,NH=NFFT/2)     !FFT length
-  parameter (NMSGS=206)              !Number of messages to be tried
+  parameter (NMSGS=206)              !Default number of message hypotheses
   parameter (PLOG_MIN=-160.0)        !Minimum log probability
   character mycall*12,dxcall*12,dxgrid*6
   character*37 msg,msgsent,msgbest
-  character*77 c77
+  character(len=37) :: local_msgbest
+  character(len=37), allocatable :: msg_list(:)
   integer*1 msgbits(77)
-  integer*1 msgbits_best(77)
+  integer*1 msgbits_best(77),local_msgbits_best(77)
+  integer(kind=1), allocatable :: msgbits_msg(:,:)
   real xjunk(NZZ)
   real s(-NH:NH)                     !Power spectrum of cd0
 !  real s00(-NH:NH)                   !Raw spectrum of downsampled data
+  real raw_spectrum(-NH:NH)
   real s0(-NH:NH)                    !Best-fit re-centered spectrum for this msg
   real s1(-NH:NH)                    !Overall best-fit re-centered spectrum
+  real :: local_s1(-NH:NH),local_sbest,local_fbest,local_tbest
   real s8(0:7)                       !Spectrum of a single symbol
   real dd(NMAX)                      !Floating point copy of iwave
   real a(5)
@@ -34,13 +38,19 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
   complex cd0(0:NZZ-1)               !All tones in cd nominally shifted to 0 Hz
   complex csymb(0:31)
   integer itone(NN)
-  integer itone_best(NN)
+  integer itone_best(NN),local_itone_best(NN)
+  integer, allocatable :: itone_msg(:,:)
+  integer :: nvalid,nworkers,ibest_msg,local_best_index
+  integer, allocatable :: msg_index(:)
+  integer :: ioffset,i1,i2,peak_mask
+  complex, allocatable :: cwave_conj_msg(:,:)
   integer, intent(in) :: progress_generation
+  integer, intent(in), optional :: worker_count
   type(pack77_state), target, optional, intent(inout) :: knowledge
   type(pack77_state), pointer :: codec
   type(ft8_signal_evidence), optional, intent(out) :: evidence
   integer ipk(1)
-  logical newdat,dstd,mstd
+  logical newdat,dstd,mstd,lag_improved
   integer nrun,ndx
 
   codec => get_ft8_codec_state()
@@ -56,7 +66,6 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
   bt=2.0                                 !Gaussian smoothing parameter
   dt=1.0/fsd
   df=200.0/NFFT
-  s=0.
   ss=0.
   sq=0.
 
@@ -67,8 +76,7 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
   msgbest=''
   itone_best=0
   msgbits_best=0
-! A standard /R or /P DX call also tries the candidates (see getmsg) that the
-! former nonstandard-call path produced: 207, or 411 with a standard MyCall.
+! Preserve the nonstandard-call hypotheses for standard /R and /P DX calls.
   nrun=NMSGS
   ndx=len_trim(dxcall)
   call stdcall_suffix(dxcall,dstd)
@@ -79,19 +87,39 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
         if(mstd) nrun=411
      endif
   endif
+  nvalid=0
+  allocate(msg_list(nrun),msg_index(nrun),msgbits_msg(77,nrun), &
+       itone_msg(NN,nrun),cwave_conj_msg(0:NWAVE-1,nrun))
   do imsg=1,nrun
      call write_decode_progress(progress_generation)
      call getmsg(imsg,mycall,dxcall,dxgrid,msg)
+     if(len_trim(msg).eq.0) cycle
 
-! Source-encode the message, get itone(), and generate complex FT8 waveform.
-     i3=-1
-     n3=-1
-     call pack77_for_state(codec,msg,i3,n3,c77)
      call genft8_for_state(codec,msg,i3,n3,msgsent,msgbits,itone)
      call gen_ft8wave(itone,NN,32,bt,fsd,0.0,cwave,xjunk,1,NWAVE)
-     cwave(NWAVE:)=0.
+     nvalid=nvalid+1
+     msg_list(nvalid)=msg
+     msg_index(nvalid)=imsg
+     msgbits_msg(:,nvalid)=msgbits
+     itone_msg(:,nvalid)=itone
+     cwave_conj_msg(:,nvalid)=conjg(cwave(0:NWAVE-1))
+  enddo
+  if(nvalid.eq.0) return
 
-! For this message, find the best lag
+  nworkers=1
+  if(present(worker_count)) nworkers=max(1,min(worker_count,nvalid))
+  ibest_msg=nrun+1
+!$omp parallel num_threads(nworkers) if(nworkers.gt.1) default(shared)         &
+!$omp& private(imsg,spk,fpk,tpk,lagpk,lag1,lag2,lagstep,iter,lag,i,j,ioffset, &
+!$omp& i1,i2,peak_mask,cd0,s,raw_spectrum,s0,smax,lag_improved,local_sbest,local_fbest,local_tbest,local_msgbest, &
+!$omp& local_best_index,local_itone_best,local_msgbits_best,local_s1)
+  raw_spectrum=0.
+  s=0.
+  local_sbest=0.
+  local_best_index=nrun+1
+!$omp do schedule(static)
+  do imsg=1,nvalid
+     call write_decode_progress(progress_generation)
      spk=0.
      fpk=0.
      tpk=0.
@@ -100,53 +128,83 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
      lag2=200
      lagstep=4
      do iter=1,2
+        call write_decode_progress(progress_generation)
         if(iter.eq.2) then
            lag1=lagpk-8
            lag2=lagpk+8
            lagstep=1
         endif
         do lag=lag1,lag2,lagstep
-           do i=0,NWAVE-1
-              j=i+lag + 100
-              cd0(i)=0.
-              if(j.ge.0 .and. j.le.NWAVE-1) cd0(i)=cd(j)*conjg(cwave(i))
-           enddo
-
-           cd0(NWAVE:)=0.
+           ioffset=lag+100
+           i1=max(0,-ioffset)
+           i2=min(NWAVE-1,NWAVE-1-ioffset)
+           cd0=0.
+           if(i1.le.i2) cd0(i1:i2)=cd(i1+ioffset:i2+ioffset)*cwave_conj_msg(i1:i2,imsg)
            call four2a(cd0,NFFT,1,-1,1)               !Forward c2c FFT
 
            do i=0,NFFT-1
               j=i
               if(i.gt.NH) j=i-NFFT
-              s(j)=fac*(real(cd0(i))**2 + aimag(cd0(i))**2)
+              raw_spectrum(j)=fac*(real(cd0(i))**2 + aimag(cd0(i))**2)
            enddo
 
-           call smo121(s,NFFT+1)
+           s(-NH)=raw_spectrum(-NH)
+           s(NH)=raw_spectrum(NH)
+           peak_mask=merge(1,0,(s(-NH).gt.spk).or.(s(NH).gt.spk))
+! Use an integer mask so the comparison reduction can remain vectorized.
+!$omp simd reduction(ior:peak_mask)
+           do j=-NH+1,NH-1
+              s(j)=0.5*raw_spectrum(j) + 0.25*(raw_spectrum(j-1)+raw_spectrum(j+1))
+              peak_mask=ior(peak_mask,merge(1,0,s(j).gt.spk))
+           enddo
+           lag_improved=peak_mask.ne.0
 
-           smax=0.
-           do j=-NH,NH
-              smax=max(s(j),smax)
-              if(s(j).gt.spk) then
-                 spk=s(j)
-                 fpk=j*df + f1
-                 lagpk=lag
-                 tpk=lag*dt
-                 s0=s                       !Save best-fit spectrum for this msg
-              endif
-           enddo  ! j
-        enddo  ! lag
-     enddo  ! iter
+           if(lag_improved) then
+              lag_improved=.false.
+              smax=0.
+              do j=-NH,NH
+                 smax=max(s(j),smax)
+                 if(s(j).gt.spk) then
+                    spk=s(j)
+                    fpk=j*df+f1
+                    lagpk=lag
+                    tpk=lag*dt
+                    lag_improved=.true.
+                 endif
+              enddo
+           endif
+           if(lag_improved) s0=s
+        enddo
+     enddo
 
-     if(spk.gt.sbest) then
-        sbest=spk
-        fbest=fpk
-        tbest=tpk
-        msgbest=msg
-        itone_best=itone
-        msgbits_best=msgbits
-        s1=s0                                !Save overall best-fit spectrum
+     if(spk.gt.local_sbest) then
+        local_sbest=spk
+        local_fbest=fpk
+        local_tbest=tpk
+        local_msgbest=msg_list(imsg)
+        local_best_index=msg_index(imsg)
+        local_itone_best=itone_msg(:,imsg)
+        local_msgbits_best=msgbits_msg(:,imsg)
+        local_s1=s0
      endif
-  enddo  ! imsg
+  enddo
+!$omp end do nowait
+!$omp critical(ft8_a8d_best)
+  ! Ties select the earliest hypothesis, regardless of worker completion order.
+  if(local_sbest.gt.sbest.or. &
+       (local_sbest.eq.sbest.and.local_best_index.lt.ibest_msg)) then
+     sbest=local_sbest
+     fbest=local_fbest
+     tbest=local_tbest
+     msgbest=local_msgbest
+     ibest_msg=local_best_index
+     itone_best=local_itone_best
+     msgbits_best=local_msgbits_best
+     s1=local_s1
+  endif
+!$omp end critical(ft8_a8d_best)
+!$omp end parallel
+  deallocate(msg_list,msg_index,msgbits_msg,itone_msg,cwave_conj_msg)
 
   a=0
   a(1)=f1-fbest

@@ -191,8 +191,7 @@ contains
           call mtd_transform_phase(ipass)
 !$omp end single
        endif
-       call mtd_publish_worker(nthr)
-       newdat1=.true.
+       call mtd_publish_worker(nthr,newdat1)
        lsubtract=.true.
        if(ipass.eq.1 .or. ipass.eq.4 .or. ipass.eq.7) then
           if(lft8lowth) syncmin=1.225

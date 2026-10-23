@@ -71,13 +71,14 @@ module ft8_decode
        type(ft8_signal_evidence), optional, intent(out) :: evidence
      end subroutine
      subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
-          progress_generation,knowledge,evidence)
+          progress_generation,knowledge,evidence,worker_count)
        import pack77_state,ft8_signal_evidence
        real :: dd(15*12000),f1a,xdt,fbest,xsnr,plog
        character(len=12) :: mycall,dxcall
        character(len=6) :: dxgrid
        character(len=37) :: msgbest
        integer :: progress_generation
+       integer, intent(in), optional :: worker_count
        type(pack77_state), target, optional, intent(inout) :: knowledge
        type(ft8_signal_evidence), optional, intent(out) :: evidence
      end subroutine
