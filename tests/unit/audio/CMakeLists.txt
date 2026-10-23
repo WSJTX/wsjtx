@@ -35,6 +35,10 @@ add_executable (test_tx_playback_diagnostics
 target_link_libraries (test_tx_playback_diagnostics Qt5::Core Qt5::Test)
 add_test (NAME test_tx_playback_diagnostics COMMAND test_tx_playback_diagnostics)
 
+add_executable (test_rx_audio_buffer_policy test_rx_audio_buffer_policy.cpp)
+target_link_libraries (test_rx_audio_buffer_policy Qt5::Test)
+add_test (NAME test_rx_audio_buffer_policy COMMAND test_rx_audio_buffer_policy)
+
 add_executable (test_tx_request test_tx_request.cpp)
 target_link_libraries (test_tx_request Qt5::Test)
 add_test (NAME test_tx_request COMMAND test_tx_request)
