@@ -201,6 +201,11 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionSave_all->setActionGroup(saveGroup);
   ui->actionNone->setActionGroup(saveGroup);
 
+  QActionGroup* DepthGroupJT65 = new QActionGroup(this);
+  ui->actionJT65_No_Deep_Search->setActionGroup(DepthGroupJT65);
+  ui->actionJT65_Normal_Deep_Search->setActionGroup(DepthGroupJT65);
+  ui->actionJT65_Aggressive_Deep_Search->setActionGroup(DepthGroupJT65);
+
   QActionGroup* DepthGroup = new QActionGroup(this);
   ui->actionNo_Deep_Search->setActionGroup(DepthGroup);
   ui->actionNormal_Deep_Search->setActionGroup(DepthGroup);
@@ -966,7 +971,8 @@ void MainWindow::writeSettings()
   settings.setValue("TxMode",m_modeTx);
   settings.setValue("SaveNone",ui->actionNone->isChecked());
   settings.setValue("SaveAll",ui->actionSave_all->isChecked());
-  settings.setValue("NDepth",m_ndepth);
+  settings.setValue("NDepthJT65",m_ndepth);
+  settings.setValue("NDepthQ65",m_ndepthq65);
   settings.setValue("NEME",m_onlyEME);
   settings.setValue("KB8RQ",m_kb8rq);
   settings.setValue("NB",m_NB);
@@ -1094,7 +1100,10 @@ void MainWindow::readSettings()
   ui->actionNone->setChecked(settings.value("SaveNone",true).toBool());
   ui->actionSave_all->setChecked(settings.value("SaveAll",false).toBool());
   m_saveAll=ui->actionSave_all->isChecked();
-  m_ndepth=settings.value("NDepth",0).toInt();
+  // Older versions stored one shared level under "NDepth".
+  int ndepthOld=settings.value("NDepth",0).toInt();
+  m_ndepth=qBound(0,settings.value("NDepthJT65",qMin(ndepthOld,2)).toInt(),2);
+  m_ndepthq65=qBound(0,settings.value("NDepthQ65",ndepthOld).toInt(),3);
   m_onlyEME=settings.value("NEME",false).toBool();
   ui->actionOnly_EME_calls->setChecked(m_onlyEME);
   m_kb8rq=settings.value("KB8RQ",false).toBool();
@@ -1119,10 +1128,13 @@ void MainWindow::readSettings()
     on_actionLinrad_triggered();
     ui->actionLinrad->setChecked(true);
   }
-  if(m_ndepth==0) ui->actionNo_Deep_Search->setChecked(true);
-  if(m_ndepth==1) ui->actionNormal_Deep_Search->setChecked(true);
-  if(m_ndepth==2) ui->actionAggressive_Deep_Search->setChecked(true);
-  if(m_ndepth==3) ui->actionFull_Deep_Search->setChecked(true);
+  if(m_ndepth==0) ui->actionJT65_No_Deep_Search->setChecked(true);
+  if(m_ndepth==1) ui->actionJT65_Normal_Deep_Search->setChecked(true);
+  if(m_ndepth==2) ui->actionJT65_Aggressive_Deep_Search->setChecked(true);
+  if(m_ndepthq65==0) ui->actionNo_Deep_Search->setChecked(true);
+  if(m_ndepthq65==1) ui->actionNormal_Deep_Search->setChecked(true);
+  if(m_ndepthq65==2) ui->actionAggressive_Deep_Search->setChecked(true);
+  if(m_ndepthq65==3) ui->actionFull_Deep_Search->setChecked(true);
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
   m_spot_to_psk_reporter = pskReporterSettings.enabled;
@@ -2077,24 +2089,39 @@ void MainWindow::on_actionNo_shorthands_if_Tx1_triggered()
   stub();
 }
 
-void MainWindow::on_actionNo_Deep_Search_triggered()          //No Deep Search
+void MainWindow::on_actionJT65_No_Deep_Search_triggered()          //JT65 No DS
 {
   m_ndepth=0;
 }
 
-void MainWindow::on_actionNormal_Deep_Search_triggered()      //Normal DS
+void MainWindow::on_actionJT65_Normal_Deep_Search_triggered()      //JT65 Normal DS
 {
   m_ndepth=1;
 }
 
-void MainWindow::on_actionAggressive_Deep_Search_triggered()  //Aggressive DS
+void MainWindow::on_actionJT65_Aggressive_Deep_Search_triggered()  //JT65 Aggressive DS
 {
   m_ndepth=2;
 }
 
-void MainWindow::on_actionFull_Deep_Search_triggered()        //Full DS
+void MainWindow::on_actionNo_Deep_Search_triggered()          //Q65 No Deep Search
 {
-  m_ndepth=3;
+  m_ndepthq65=0;
+}
+
+void MainWindow::on_actionNormal_Deep_Search_triggered()      //Q65 Normal DS
+{
+  m_ndepthq65=1;
+}
+
+void MainWindow::on_actionAggressive_Deep_Search_triggered()  //Q65 Aggressive DS
+{
+  m_ndepthq65=2;
+}
+
+void MainWindow::on_actionFull_Deep_Search_triggered()        //Q65 Full DS
+{
+  m_ndepthq65=3;
 }
 
 void MainWindow::on_actionNone_triggered()                    //Save None
@@ -2175,6 +2202,7 @@ void MainWindow::decode()                                       //decode()
   setMousedf(m_wide_graph_window->DF());
   setMousefqso(m_wide_graph_window->QSOfreq());
   setNdepth(m_ndepth);
+  setNdepthq65(m_ndepthq65);
   setNdiskdat(0);
   if(m_diskData) {
     if(m_myGrid.trimmed().length()>=6) {
@@ -2296,7 +2324,7 @@ void MainWindow::writeCrashData() {
 
       out << "nutc: " << getNutc() << ", idphi: " << getIdphi()
           << ", mousedf: " << getMousedf() << ", mousefqso: " << getMousefqso()
-          << ", nagain: " << getNagain() << ", ndepth: " << getNdepth() << "\n";
+          << ", nagain: " << getNagain() << ", ndepth: " << getNdepth() << ", ndepthq65: " << getNdepthq65() << "\n";
 
       out << "ndiskdat: " << getNdiskdat() << ", neme: " << getNeme()
           << ", newdat: " << getNewdat() << ", nfa: " << getNfa()

@@ -5,7 +5,7 @@ program test_map65_q65_dphi
   use filbig_mod, only: filbig, MAXFFT2
   use ftninit_mod, only: ftninit
   use gen_q65_cwave_mod, only: gen_q65_cwave
-  use npar_ptrs_mod, only: abort_decode, fcenter, idphi, manualDecodeFlag, ndepth, &
+  use npar_ptrs_mod, only: abort_decode, fcenter, idphi, manualDecodeFlag, ndepthq65, &
        nfft_active, nsmax_active, set_runtime_params, t_start
   use q65_decode, only: msg0, nsnr0
   use q65b_mod, only: q65b
@@ -68,7 +68,7 @@ program test_map65_q65_dphi
   call init_wideband_sync()
   abort_decode = .false.
   manualDecodeFlag = 0
-  ndepth = 1
+  ndepthq65 = 1
   idphi = 180
   fcenter = 144.125_real64
   nkhz_center = 125
