@@ -207,9 +207,9 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionJT65_Aggressive_Deep_Search->setActionGroup(DepthGroupJT65);
 
   QActionGroup* DepthGroup = new QActionGroup(this);
-  ui->actionNormal_Deep_Search->setActionGroup(DepthGroup);
-  ui->actionAggressive_Deep_Search->setActionGroup(DepthGroup);
-  ui->actionFull_Deep_Search->setActionGroup(DepthGroup);
+  ui->actionQ65_Fast->setActionGroup(DepthGroup);
+  ui->actionQ65_Normal->setActionGroup(DepthGroup);
+  ui->actionQ65_Deep->setActionGroup(DepthGroup);
 
   QButtonGroup* txMsgButtonGroup = new QButtonGroup;
   txMsgButtonGroup->addButton(ui->txrb1,1);
@@ -1102,7 +1102,7 @@ void MainWindow::readSettings()
   // Older versions stored one shared level under "NDepth".
   int ndepthOld=settings.value("NDepth",0).toInt();
   m_ndepth=qBound(0,settings.value("NDepthJT65",qMin(ndepthOld,2)).toInt(),2);
-  // Q65 levels 0 and 1 behave identically, so the menu starts at 1 (Normal).
+  // Q65 levels 0 and 1 behave identically, so the menu starts at 1 (Fast).
   m_ndepthq65=qBound(1,settings.value("NDepthQ65",ndepthOld).toInt(),3);
   m_onlyEME=settings.value("NEME",false).toBool();
   ui->actionOnly_EME_calls->setChecked(m_onlyEME);
@@ -1131,9 +1131,9 @@ void MainWindow::readSettings()
   if(m_ndepth==0) ui->actionJT65_No_Deep_Search->setChecked(true);
   if(m_ndepth==1) ui->actionJT65_Normal_Deep_Search->setChecked(true);
   if(m_ndepth==2) ui->actionJT65_Aggressive_Deep_Search->setChecked(true);
-  if(m_ndepthq65==1) ui->actionNormal_Deep_Search->setChecked(true);
-  if(m_ndepthq65==2) ui->actionAggressive_Deep_Search->setChecked(true);
-  if(m_ndepthq65==3) ui->actionFull_Deep_Search->setChecked(true);
+  if(m_ndepthq65==1) ui->actionQ65_Fast->setChecked(true);
+  if(m_ndepthq65==2) ui->actionQ65_Normal->setChecked(true);
+  if(m_ndepthq65==3) ui->actionQ65_Deep->setChecked(true);
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
   m_spot_to_psk_reporter = pskReporterSettings.enabled;
@@ -2103,17 +2103,17 @@ void MainWindow::on_actionJT65_Aggressive_Deep_Search_triggered()  //JT65 Aggres
   m_ndepth=2;
 }
 
-void MainWindow::on_actionNormal_Deep_Search_triggered()      //Q65 Normal DS
+void MainWindow::on_actionQ65_Fast_triggered()      //Q65 Fast
 {
   m_ndepthq65=1;
 }
 
-void MainWindow::on_actionAggressive_Deep_Search_triggered()  //Q65 Aggressive DS
+void MainWindow::on_actionQ65_Normal_triggered()  //Q65 Normal
 {
   m_ndepthq65=2;
 }
 
-void MainWindow::on_actionFull_Deep_Search_triggered()        //Q65 Full DS
+void MainWindow::on_actionQ65_Deep_triggered()        //Q65 Deep
 {
   m_ndepthq65=3;
 }

@@ -1384,9 +1384,9 @@ p, li { white-space: pre-wrap; }
     <property name="title">
      <string>Q65 Search Level</string>
     </property>
-    <addaction name="actionNormal_Deep_Search"/>
-    <addaction name="actionAggressive_Deep_Search"/>
-    <addaction name="actionFull_Deep_Search"/>
+    <addaction name="actionQ65_Fast"/>
+    <addaction name="actionQ65_Normal"/>
+    <addaction name="actionQ65_Deep"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -1725,7 +1725,7 @@ p, li { white-space: pre-wrap; }
     <string>Aggressive Deep Search</string>
    </property>
   </action>
-  <action name="actionNormal_Deep_Search">
+  <action name="actionQ65_Fast">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1733,23 +1733,23 @@ p, li { white-space: pre-wrap; }
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Normal Deep Search</string>
+    <string>Fast</string>
    </property>
   </action>
-  <action name="actionAggressive_Deep_Search">
+  <action name="actionQ65_Normal">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Aggressive Deep Search</string>
+    <string>Normal</string>
    </property>
   </action>
-  <action name="actionFull_Deep_Search">
+  <action name="actionQ65_Deep">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Full Deep Search</string>
+    <string>Deep</string>
    </property>
   </action>
   <action name="actionNone">

@@ -160,9 +160,9 @@ private slots:
   void on_actionJT65_No_Deep_Search_triggered();
   void on_actionJT65_Normal_Deep_Search_triggered();
   void on_actionJT65_Aggressive_Deep_Search_triggered();
-  void on_actionNormal_Deep_Search_triggered();
-  void on_actionAggressive_Deep_Search_triggered();
-  void on_actionFull_Deep_Search_triggered();
+  void on_actionQ65_Fast_triggered();
+  void on_actionQ65_Normal_triggered();
+  void on_actionQ65_Deep_triggered();
   void on_actionNone_triggered();
   void on_actionSave_all_triggered();
   void on_actionKeyboard_shortcuts_triggered();
