@@ -207,7 +207,6 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionJT65_Aggressive_Deep_Search->setActionGroup(DepthGroupJT65);
 
   QActionGroup* DepthGroup = new QActionGroup(this);
-  ui->actionNo_Deep_Search->setActionGroup(DepthGroup);
   ui->actionNormal_Deep_Search->setActionGroup(DepthGroup);
   ui->actionAggressive_Deep_Search->setActionGroup(DepthGroup);
   ui->actionFull_Deep_Search->setActionGroup(DepthGroup);
@@ -1103,7 +1102,8 @@ void MainWindow::readSettings()
   // Older versions stored one shared level under "NDepth".
   int ndepthOld=settings.value("NDepth",0).toInt();
   m_ndepth=qBound(0,settings.value("NDepthJT65",qMin(ndepthOld,2)).toInt(),2);
-  m_ndepthq65=qBound(0,settings.value("NDepthQ65",ndepthOld).toInt(),3);
+  // Q65 levels 0 and 1 behave identically, so the menu starts at 1 (Normal).
+  m_ndepthq65=qBound(1,settings.value("NDepthQ65",ndepthOld).toInt(),3);
   m_onlyEME=settings.value("NEME",false).toBool();
   ui->actionOnly_EME_calls->setChecked(m_onlyEME);
   m_kb8rq=settings.value("KB8RQ",false).toBool();
@@ -1131,7 +1131,6 @@ void MainWindow::readSettings()
   if(m_ndepth==0) ui->actionJT65_No_Deep_Search->setChecked(true);
   if(m_ndepth==1) ui->actionJT65_Normal_Deep_Search->setChecked(true);
   if(m_ndepth==2) ui->actionJT65_Aggressive_Deep_Search->setChecked(true);
-  if(m_ndepthq65==0) ui->actionNo_Deep_Search->setChecked(true);
   if(m_ndepthq65==1) ui->actionNormal_Deep_Search->setChecked(true);
   if(m_ndepthq65==2) ui->actionAggressive_Deep_Search->setChecked(true);
   if(m_ndepthq65==3) ui->actionFull_Deep_Search->setChecked(true);
@@ -2102,11 +2101,6 @@ void MainWindow::on_actionJT65_Normal_Deep_Search_triggered()      //JT65 Normal
 void MainWindow::on_actionJT65_Aggressive_Deep_Search_triggered()  //JT65 Aggressive DS
 {
   m_ndepth=2;
-}
-
-void MainWindow::on_actionNo_Deep_Search_triggered()          //Q65 No Deep Search
-{
-  m_ndepthq65=0;
 }
 
 void MainWindow::on_actionNormal_Deep_Search_triggered()      //Q65 Normal DS

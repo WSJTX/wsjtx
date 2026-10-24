@@ -15,7 +15,7 @@ module npar_ptrs_mod
     integer(c_int) :: mousefqso = 0
     integer(c_int) :: nagain = 0
     integer(c_int) :: ndepth = 0       ! JT65 search level (0-2)
-    integer(c_int) :: ndepthq65 = 0    ! Q65 search level (0-3)
+    integer(c_int) :: ndepthq65 = 1    ! Q65 search level (1-3)
     integer(c_int) :: ndiskdat = 0
     integer(c_int) :: neme = 0
     integer(c_int) :: newdat = 0

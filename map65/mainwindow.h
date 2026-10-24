@@ -160,7 +160,6 @@ private slots:
   void on_actionJT65_No_Deep_Search_triggered();
   void on_actionJT65_Normal_Deep_Search_triggered();
   void on_actionJT65_Aggressive_Deep_Search_triggered();
-  void on_actionNo_Deep_Search_triggered();
   void on_actionNormal_Deep_Search_triggered();
   void on_actionAggressive_Deep_Search_triggered();
   void on_actionFull_Deep_Search_triggered();
@@ -234,7 +233,7 @@ private:
   qint32  m_txFreq;
   qint32  m_setftx;
   qint32  m_ndepth;                 //JT65 search level (0-2)
-  qint32  m_ndepthq65;              //Q65 search level (0-3)
+  qint32  m_ndepthq65;              //Q65 search level (1-3)
   qint32  m_sec0;
   qint32  m_map65RxLog;
   qint32  m_nutc0;
