@@ -1217,10 +1217,13 @@ private slots:
     if (!haveSimulator ()) QSKIP ("msk144sim is built only with WSJT_BUILD_UTILS");
     if (!haveRecordings ()) QSKIP ("the repository's MSK144 samples are not in this tree");
     auto const ping = simulated ("train");
-    auto s = session ({{"mycall", "K1ABC"}, {"his_call", "W9XYZ"}, {"train", true}},
+    // Training bypasses receive equalization. Afterward, term 3 = 5 loses
+    // K1JT on 181211_120500 unless the returned coefficients replace it.
+    auto s = session ({{"mycall", "K1ABC"}, {"his_call", "W9XYZ"}, {"train", true},
+                      {"phase_eq", terms (5)}},
                       {period ("00:00:00", zeroed (ping, 6 * BlockSamples, 180000)),
                        period ("00:00:15", ping),
-                       period ("00:00:30", recording ("181211_120800"))});
+                       period ("00:00:30", recording ("181211_120500"))});
     s.answerAfter = 1;
     s.answer = [] (QList<QJsonObject> const& events, QString const&) {
       for (auto const& event : events)
@@ -1232,25 +1235,27 @@ private slots:
         }
       return QJsonObject {};
     };
-    Expect expect;
+    auto expect = expectDecodes ({"K1JT WA4CQG EM72"});
     expect.marks = true;
     expect.trained = 1;
     Outcome o;
     compare (s, expect, true, &o);
     if (QTest::currentTestFailed ()) return;
     QVERIFY2 (shown (o.session.periods.at (2).keys.contains ("phase_eq"), o), "no coefficients to send back");
-    // Without them the GUI decodes period 3 otherwise.
+    // Keeping the previous equalizer must lose the message, independently of
+    // small differences in the learned fit or rounded decode fields.
     auto bare = o.session;
     bare.periods[2].keys = {};
     auto const without = runModel (bare);
     QVERIFY2 (shown (without.ok, o), without.out.constData ());
-    auto const decodes = [] (ModelRun const& model) {
-      QStringList result;
+    auto const decoded = [] (ModelRun const& model) {
       for (auto const& line : model.lines)
-        if (line.period == 2 && line.kind == "decode") result << modelDecode (line.text);
-      return result;
+        if (line.period == 2 && line.kind == "decode"
+            && modelMessage (line.text) == "K1JT WA4CQG EM72") return true;
+      return false;
     };
-    QVERIFY2 (shown (decodes (without) != decodes (o.model), o), without.out.constData ());
+    QVERIFY (shown (decoded (o.model), o));
+    QVERIFY2 (shown (!decoded (without), o), without.out.constData ());
   }
 
   // MSK144's decoder state survives a period of another mode: SWL shows a short message on its
