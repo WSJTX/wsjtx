@@ -707,23 +707,32 @@ contains
   subroutine precompute_sequence_energies(plan, correlations, energies)
     type(jtty_tbcc_decoder_plan), intent(in) :: plan
     complex(real32), intent(in) :: correlations(0:3, JTTY_TBCC_INFORMATION_BITS)
-    real(real64), intent(out) :: energies(:)
-    complex(real32) :: coherent_sum
+    real(real64), intent(out), contiguous :: energies(:)
+    complex(real32) :: prefix_sum
+    real(real32) :: real_sums(0:3), imaginary_sums(0:3)
+    real(real64) :: normalization
     integer(int32) :: block_index, block_length, block_start
-    integer(int32) :: offset, sequence_count, sequence_word, tone
+    integer(int32) :: offset, prefix_count, prefix_word, tone, energy_offset
 
     do block_index = 1, plan%block_count
       block_start = plan%block_starts(block_index)
       block_length = plan%block_lengths(block_index)
-      sequence_count = shiftl(1_int32, 2_int32*block_length)
-      do sequence_word = 0, sequence_count - 1
-        coherent_sum = cmplx(0.0_real32, 0.0_real32, real32)
-        do offset = 1, block_length
-          tone = ibits(sequence_word, 2_int32*(block_length - offset), 2)
-          coherent_sum = coherent_sum + correlations(tone, block_start + offset - 1_int32)
+      energy_offset = plan%energy_offsets(block_index)
+      ! Supported block lengths are powers of two, so reciprocal scaling is exact.
+      normalization = 1.0_real64 / real(block_length, real64)
+      prefix_count = shiftl(1_int32, 2_int32*(block_length - 1_int32))
+      do prefix_word = 0, prefix_count - 1
+        prefix_sum = cmplx(0.0_real32, 0.0_real32, real32)
+        do offset = 1, block_length - 1
+          tone = ibits(prefix_word, 2_int32*(block_length - offset - 1), 2)
+          prefix_sum = prefix_sum + correlations(tone, block_start + offset - 1_int32)
         end do
-        energies(plan%energy_offsets(block_index) + sequence_word) = &
-             real(coherent_sum*conjg(coherent_sum), real64) / real(block_length, real64)
+        real_sums = real(prefix_sum, real32) + &
+             real(correlations(:, block_start + block_length - 1_int32), real32)
+        imaginary_sums = aimag(prefix_sum) + &
+             aimag(correlations(:, block_start + block_length - 1_int32))
+        energies(energy_offset + 4_int32*prefix_word:energy_offset + 4_int32*prefix_word + 3_int32) = &
+             real(real_sums*real_sums + imaginary_sums*imaginary_sums, real64) * normalization
       end do
     end do
   end subroutine precompute_sequence_energies
