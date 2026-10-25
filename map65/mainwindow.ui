@@ -1372,6 +1372,22 @@ p, li { white-space: pre-wrap; }
     <addaction name="menuCallsign_font"/>
     <addaction name="menuCallsign_position"/>
    </widget>
+   <widget class="QMenu" name="menuJT65_Search_Level">
+    <property name="title">
+     <string>JT65 Search Level</string>
+    </property>
+    <addaction name="actionJT65_No_Deep_Search"/>
+    <addaction name="actionJT65_Normal_Deep_Search"/>
+    <addaction name="actionJT65_Aggressive_Deep_Search"/>
+   </widget>
+   <widget class="QMenu" name="menuQ65_Search_Level">
+    <property name="title">
+     <string>Q65 Search Level</string>
+    </property>
+    <addaction name="actionQ65_Fast"/>
+    <addaction name="actionQ65_Normal"/>
+    <addaction name="actionQ65_Deep"/>
+   </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
      <string>Decode</string>
@@ -1379,10 +1395,8 @@ p, li { white-space: pre-wrap; }
     <addaction name="actionOnly_EME_calls"/>
     <addaction name="actionNo_shorthands_if_Tx1"/>
     <addaction name="separator"/>
-    <addaction name="actionNo_Deep_Search"/>
-    <addaction name="actionNormal_Deep_Search"/>
-    <addaction name="actionAggressive_Deep_Search"/>
-    <addaction name="actionFull_Deep_Search"/>
+    <addaction name="menuJT65_Search_Level"/>
+    <addaction name="menuQ65_Search_Level"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuSave">
@@ -1684,7 +1698,7 @@ p, li { white-space: pre-wrap; }
     <string>No shorthand decodes if Tx1</string>
    </property>
   </action>
-  <action name="actionNo_Deep_Search">
+  <action name="actionJT65_No_Deep_Search">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1695,7 +1709,7 @@ p, li { white-space: pre-wrap; }
     <string>No Deep Search</string>
    </property>
   </action>
-  <action name="actionNormal_Deep_Search">
+  <action name="actionJT65_Normal_Deep_Search">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1703,7 +1717,7 @@ p, li { white-space: pre-wrap; }
     <string>Normal Deep Search</string>
    </property>
   </action>
-  <action name="actionAggressive_Deep_Search">
+  <action name="actionJT65_Aggressive_Deep_Search">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1711,12 +1725,31 @@ p, li { white-space: pre-wrap; }
     <string>Aggressive Deep Search</string>
    </property>
   </action>
-  <action name="actionFull_Deep_Search">
+  <action name="actionQ65_Fast">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Fast</string>
+   </property>
+  </action>
+  <action name="actionQ65_Normal">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Full Deep Search</string>
+    <string>Normal</string>
+   </property>
+  </action>
+  <action name="actionQ65_Deep">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Deep</string>
    </property>
   </action>
   <action name="actionNone">

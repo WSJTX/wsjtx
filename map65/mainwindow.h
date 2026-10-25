@@ -157,10 +157,12 @@ private slots:
   void on_actionF4_sets_Tx6_triggered();
   void on_actionOnly_EME_calls_triggered();
   void on_actionNo_shorthands_if_Tx1_triggered();
-  void on_actionNo_Deep_Search_triggered();
-  void on_actionNormal_Deep_Search_triggered();
-  void on_actionAggressive_Deep_Search_triggered();
-  void on_actionFull_Deep_Search_triggered();
+  void on_actionJT65_No_Deep_Search_triggered();
+  void on_actionJT65_Normal_Deep_Search_triggered();
+  void on_actionJT65_Aggressive_Deep_Search_triggered();
+  void on_actionQ65_Fast_triggered();
+  void on_actionQ65_Normal_triggered();
+  void on_actionQ65_Deep_triggered();
   void on_actionNone_triggered();
   void on_actionSave_all_triggered();
   void on_actionKeyboard_shortcuts_triggered();
@@ -230,7 +232,8 @@ private:
   qint32  m_ntx;
   qint32  m_txFreq;
   qint32  m_setftx;
-  qint32  m_ndepth;
+  qint32  m_ndepth;                 //JT65 search level (0-2)
+  qint32  m_ndepthq65;              //Q65 search level (1-3)
   qint32  m_sec0;
   qint32  m_map65RxLog;
   qint32  m_nutc0;
