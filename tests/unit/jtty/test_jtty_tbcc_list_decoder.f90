@@ -420,13 +420,15 @@ contains
 
   pure logical function real_arrays_agree(left, right) result(agree)
     real(real64), intent(in) :: left(:), right(:)
+    ! Coherent energies are evaluated in real32 before accumulation in real64.
+    real(real64), parameter :: relative_tolerance = 1.0e-6_real64
     integer(int32) :: element
 
     agree = size(left) == size(right)
     if (.not.agree) return
     do element = 1, size(left)
       if (left(element) == right(element)) cycle
-      if (abs(left(element)-right(element)) <= 64.0_real64*epsilon(0.0_real64)* &
+      if (abs(left(element)-right(element)) <= relative_tolerance* &
            max(1.0_real64, abs(left(element)), abs(right(element)))) cycle
       agree = .false.
       return

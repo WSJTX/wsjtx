@@ -1,5 +1,6 @@
 program test_jtty_payload_correlators
-  use, intrinsic :: iso_fortran_env, only: int32, int64, real32, real64
+  use, intrinsic :: iso_fortran_env, only: int32, real32, real64
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use jtty_payload_correlators
   implicit none
 
@@ -21,9 +22,9 @@ program test_jtty_payload_correlators
     do segment_count = 1, 2
       call separate_reference(samples,7,nss,segment_count,expected)
       if (segment_count == 1) then
-        call require(identical(whole,expected),'shared M1 differs from separate original-order accumulation')
+        call require(correlations_agree(whole,expected,nss),'shared M1 differs from separate original-order accumulation')
       else
-        call require(identical(halves,expected),'shared M2 differs from separate half-symbol accumulation')
+        call require(correlations_agree(halves,expected,nss),'shared M2 differs from separate half-symbol accumulation')
       end if
     end do
 
@@ -94,10 +95,24 @@ contains
     end do
   end subroutine separate_reference
 
-  logical function identical(left,right)
+  logical function correlations_agree(left,right,accumulation_terms) result(agree)
     complex(real32), intent(in) :: left(:,:),right(:,:)
-    identical = all(transfer(left,[0_int64],size(left)) == transfer(right,[0_int64],size(right)))
-  end function identical
+    integer, intent(in) :: accumulation_terms
+    real(real64) :: relative_tolerance, observation_scale
+
+    agree = .false.
+    if (any(shape(left) /= shape(right))) return
+    if (.not.all(ieee_is_finite(real(left,real32))) .or. &
+         .not.all(ieee_is_finite(aimag(left))) .or. &
+         .not.all(ieee_is_finite(real(right,real32))) .or. &
+         .not.all(ieee_is_finite(aimag(right)))) return
+    ! Independent real32 accumulation may round differently over a whole symbol.
+    relative_tolerance = real(accumulation_terms,real64)*real(epsilon(0.0_real32),real64)
+    observation_scale = max(1.0_real64,maxval(abs(cmplx(left,kind=real64))), &
+         maxval(abs(cmplx(right,kind=real64))))
+    agree = maxval(abs(cmplx(left,kind=real64)-cmplx(right,kind=real64))) <= &
+         relative_tolerance*observation_scale
+  end function correlations_agree
 
   subroutine require(condition,message)
     logical, intent(in) :: condition
