@@ -319,7 +319,7 @@ StreamRun runStream (Session& session)
   QElapsedTimer clock;
   clock.start ();
   process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                 {"-a", directory.path (), "-t", directory.path (), "--stream"});
+                 {"-a", directory.path (), "-t", directory.path ()});
   r.started = process.waitForStarted (5000);
   if (!r.started)
     {
@@ -779,7 +779,7 @@ void checkSession (Outcome const& o, Session const& session)
   // One pass line per period, a period cut short included; another mode's have their own.
   if (std::all_of (session.periods.begin (), session.periods.end (), [] (Period const& p) {return p.msk144;}))
     {
-      QCOMPARE (int (o.stream.err.count ("wsjt-codec --stream: pass nzhsym=")), session.periods.size ());
+      QCOMPARE (int (o.stream.err.count ("wsjt-codec: pass nzhsym=")), session.periods.size ());
     }
 }
 
@@ -895,7 +895,7 @@ void addRecordingRows (QString const& name, QByteArray const& pcm, QString const
 }
 }
 
-// wsjt-codec --stream decodes MSK144 as the GUI does (widgets/mainwindow.cpp
+// wsjt-codec decodes MSK144 as the GUI does (widgets/mainwindow.cpp
 // fastSink): each row's events equal those of msk144_gui_model, which runs the
 // GUI's hspec on the same audio with the same settings.
 class TestStreamingMsk144 final : public QObject

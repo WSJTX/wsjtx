@@ -192,15 +192,16 @@ add_dependencies (test_wsjt_codec_slot_encode wsjt-codec)
 if (WIN32)
   set_property (TARGET test_wsjt_codec_slot_encode APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--stack,16777216")
 endif ()
+# Without a console (a Windows runner) QtTest writes to the debugger, not to ctest.
+set (slot_encode_environment "QT_FORCE_STDERR_LOGGING=1")
+if (WSJT_ENABLE_TSAN)
+  list (APPEND slot_encode_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
 foreach (function ft8 ft4 fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr tune echo singleTones fastJt9 cwId
     cwIdStation foxSlots foxTransmitState foxSequences superFox transmitState jttyUnchanged
     readyListsEncodes decodesItsOwnRender renderAfterDecode refusals accepted)
   add_test (NAME test_wsjt_codec_slot_encode_${function}
     COMMAND test_wsjt_codec_slot_encode ${function})
   set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES
-    LABELS "streaming;encode;runtime" TIMEOUT 300)
-  if (WSJT_ENABLE_TSAN)
-    set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES
-      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
-  endif ()
+    LABELS "streaming;encode;runtime" TIMEOUT 300 ENVIRONMENT "${slot_encode_environment}")
 endforeach ()

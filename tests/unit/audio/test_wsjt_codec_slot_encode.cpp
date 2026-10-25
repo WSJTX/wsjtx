@@ -945,7 +945,7 @@ Run runCodec (QByteArray const& input, QString directory = {})
   QProcess process;
   process.setProcessChannelMode (QProcess::SeparateChannels);
   process.setWorkingDirectory (directory);
-  process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), {"-a", directory, "-t", directory, "--stream"});
+  process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), {"-a", directory, "-t", directory});
   if (!process.waitForStarted (5000)) return run;
   process.write (header () + input + control ({{"t", "halt"}}));
   process.closeWriteChannel ();
@@ -970,7 +970,7 @@ QList<QByteArray> runRaw (QByteArray const& input)
   process.setProcessChannelMode (QProcess::SeparateChannels);
   process.setWorkingDirectory (dataDirectory ().path ());
   process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                 {"-a", dataDirectory ().path (), "-t", dataDirectory ().path (), "--stream"});
+                 {"-a", dataDirectory ().path (), "-t", dataDirectory ().path ()});
   if (!process.waitForStarted (5000)) return lines;
   process.write (header () + input + control ({{"t", "halt"}}));
   process.closeWriteChannel ();
@@ -1811,8 +1811,14 @@ private slots:
     QTest::addColumn<QString> ("text");
     QTest::addColumn<int> ("submode");
     QTest::addColumn<int> ("trperiod");
-    QTest::newRow ("FT8") << "FT8" << "K1ABC W9XYZ EN37" << -1 << 15;
-    QTest::newRow ("Q65-15A") << "Q65" << "CQ K1ABC FN42" << 0 << 15;
+    // The silence before the render: where the GUI's Modulator starts it (delay_ms).
+    QTest::addColumn<int> ("lead");
+    QTest::addColumn<QJsonObject> ("keys");
+    QTest::newRow ("FT8") << "FT8" << "K1ABC W9XYZ EN37" << -1 << 15 << 6000 << QJsonObject {};
+    QTest::newRow ("Q65-15A") << "Q65" << "CQ K1ABC FN42" << 0 << 15 << 6000 << QJsonObject {};
+    // At this start slow JT9 E (decode9w) needs F Tol 20; at 50 or 100 it finds the signal only
+    // at some starts within the half-symbol, as jt9 does.
+    QTest::newRow ("JT9-60E") << "JT9" << "CQ K1ABC FN42" << 4 << 60 << 12000 << QJsonObject {{"ntol", 20}};
   }
 
   void decodesItsOwnRender ()
@@ -1821,22 +1827,27 @@ private slots:
     QFETCH (QString, text);
     QFETCH (int, submode);
     QFETCH (int, trperiod);
+    QFETCH (int, lead);
+    QFETCH (QJsonObject, keys);
     auto r = with (row (mode, text), submode, mode == "Q65" ? trperiod : 0);
     auto const rendered = runCodec (control (render (1, r, 12000)));
     auto const reply = rendered.replies.value (1);
     QVERIFY2 (!reply.audio.isEmpty (), "no render");
-    QVector<qint16> period (6000);                       // the GUI starts 0.5 s in
+    QVector<qint16> period (lead);
     period += reply.audio;
     period.resize (trperiod * 12000);
     QJsonObject configure {{"t", "configure"}, {"mode", mode}, {"trperiod", trperiod}, {"rxfreq", 1500},
                            {"nutc", 1200}};
     if (submode >= 0) configure.insert ("submode", submode);
+    for (auto key = keys.constBegin (); key != keys.constEnd (); ++key) configure.insert (key.key (), key.value ());
     auto const lines = runRaw (control (configure) + audioFrames (period));
     QStringList messages;
     for (auto const& line : lines)
       {
         auto const event = QJsonDocument::fromJson (line).object ();
-        if (event.value ("t") == "decode") messages << event.value ("message").toString ();
+        if (event.value ("t") != "decode") continue;
+        QCOMPARE (event.value ("mode").toString (), mode);
+        messages << event.value ("message").toString ();
       }
     QVERIFY2 (messages.contains (reply.encoded.value ("msgsent").toString ()), qPrintable (messages.join ('|')));
   }

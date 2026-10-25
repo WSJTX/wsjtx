@@ -2,7 +2,7 @@
 """
 wav-to-stream validation harness.
 
-Pipes a 12 kHz mono int16 WAV file through `wsjt-codec --stream` using the
+Pipes a 12 kHz mono int16 WAV file through `wsjt-codec` using the
 streaming protocol, then prints the resulting NDJSON decodes.
 Used to verify that streaming-mode decode results match the WAV-mode
 ground truth (cross-mode validation).
@@ -753,7 +753,7 @@ def main() -> int:
         type=Path,
         default=None,
         help="Stream-vs-WAV decode-parity mode. Instead of "
-             "printing NDJSON, decode the WAV via --stream, parse the WSJT-X "
+             "printing NDJSON, decode the WAV via the stream, parse the WSJT-X "
              "text golden at this path, and assert CONTAINMENT: every "
              "WAV-confirmed signal (by message text) is present in the stream. "
              "Exit 0 if all present, 1 if any is dropped. snr/dt/freq are shown "
@@ -794,7 +794,7 @@ def main() -> int:
         audio = w.readframes(w.getnframes())
 
     proc = subprocess.Popen(
-        [str(args.wsjt_codec), "--stream"],
+        [str(args.wsjt_codec)],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,  # mandatory: consumers must drain stderr

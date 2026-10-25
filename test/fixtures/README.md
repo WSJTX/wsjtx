@@ -44,7 +44,7 @@ Two independent ways to run these:
 
 - FT8 + JT9 + Q65-30A + Q65-300A + Q65-60D + MSK144 + FST4 + FST4W + FT4 + JT65 + JT4 + WSPR fixtures above cover basic decoder regression.
 - The streaming harnesses extend coverage to FST4 (`-7`), Q65 (`-3`), MSK144 (`-5`), and wsprd streaming.
-- Streaming I/O parity: `test/run-stream-wav-parity.sh` validates that `wsjt-codec --stream` decodes **contain** these expected decodes. The check is **containment, not identity**: streaming legitimately finds *more* signals (the early `nzhsym` passes pick up low-SNR signals) and the `snr`/`dt`/`freq` fields drift between the WAV and stream decode paths for the same signal (≈ ±2 dB / ±0.05 s / ±3 Hz — different fine estimates), so the decoded **message text** is the parity identity. FT8/JT9 only (FST4W has no good fixture; EME/JT65 I/Q paths are pass-on-absence).
+- Streaming I/O parity: `test/run-stream-wav-parity.sh` validates that `wsjt-codec`'s stream decodes **contain** these expected decodes. The check is **containment, not identity**: streaming legitimately finds *more* signals (the early `nzhsym` passes pick up low-SNR signals) and the `snr`/`dt`/`freq` fields drift between the WAV and stream decode paths for the same signal (≈ ±2 dB / ±0.05 s / ±3 Hz — different fine estimates), so the decoded **message text** is the parity identity. FT8/JT9 only (FST4W has no good fixture; EME/JT65 I/Q paths are pass-on-absence).
 
 ## GUI FT8 receive scheduling
 

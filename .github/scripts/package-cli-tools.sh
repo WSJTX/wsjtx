@@ -408,11 +408,11 @@ describe() {
   local writes="writes working files to its data directory (-a) and its temporary directory (-t), both the current directory by default; run it where it can write, or point -a and -t at writable directories."
   case "$1" in
     jt9)
-      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the stream codec without the shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input (--stream), and decodes WAV files."
+      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the stream codec without the shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files."
       echo "jt9 ${writes}"
       ;;
     codec)
-      echo "wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input (--stream), and decodes WAV files."
+      echo "wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files."
       echo "wsjt-codec ${writes}"
       ;;
     wsprd)

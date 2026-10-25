@@ -69,12 +69,15 @@
 !   error (range)     {"v":1,"t":"error","code":"configure_range_error",
 !                      "key":"rxfreq","mode":"JT65","detail":"..."}
 !                     A configure whose result the decoder would refuse (for
-!                     JT65+JT9, the stream's rule); the frame is declined
-!                     whole, naming the first refused key in the decoder's
-!                     order (a carried one when a mode change made it
-!                     invalid). "mode" is the mode the frame would leave, and
-!                     the stream stays in the one it had. Also sent once after
-!                     ready for a command-line value. A configure whose
+!                     JT65+JT9, the stream's rule), or that would leave JT9
+!                     at a trperiod other than 60 (checked first); the frame
+!                     is declined whole, naming the first refused key in the
+!                     decoder's order (a carried one when a mode change made
+!                     it invalid). "mode" is the mode the frame would leave,
+!                     and the stream stays in the one it had. Also sent once
+!                     after ready for a command-line value, and in place of
+!                     ready for a command-line JT9 trperiod, which ends the
+!                     session (exit status 2). A configure whose
 !                     phase_eq is a well-formed array of another length or
 !                     with a non-finite number is declined with it too, and
 !                     so, in every mode, is one whose nutc or utc is not a
@@ -150,8 +153,8 @@
 !                     The stream could not buffer its input: the session ends,
 !                     exit 1.
 !
-! Activation: lib/jt9.f90 calls streaming_emit_set_enabled(.true.) when
-! --stream is parsed; only wsjt-codec runs the stream. Decoder per-mode sites
+! Activation: lib/jt9.f90 calls streaming_emit_set_enabled(.true.) when the
+! stream session starts; only wsjt-codec runs the stream. Decoder per-mode sites
 ! in lib/decoder.f90 query streaming_emit_enabled() and call
 ! streaming_emit_decode() instead of the legacy write(*,...) text format.
 ! When disabled, every routine in this module is a no-op so WAV and

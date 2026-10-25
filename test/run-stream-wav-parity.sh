@@ -2,7 +2,7 @@
 # Stream-vs-WAV decode-parity harness.
 #
 # Asserts CONTAINMENT: every signal in a committed WAV-mode golden
-# (test/fixtures/*.expected.txt) is also decoded by `wsjt-codec --stream`. Streaming
+# (test/fixtures/*.expected.txt) is also decoded by `wsjt-codec`'s stream. Streaming
 # legitimately finds MORE (the early nzhsym passes pick up low-SNR signals; see
 # run-streaming-fixtures.sh) so the relation is "WAV goldens are a subset of
 # stream decodes", NOT equality. This is the rigorous regression guard the
