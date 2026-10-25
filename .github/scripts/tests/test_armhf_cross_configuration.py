@@ -149,6 +149,25 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
             dockerfile = self.read(f".github/images/linux-ci/Dockerfile.armhf-{role}")
             self.assertIn(".github/scripts/armhf-toolchain-config.sh", dockerfile)
 
+    def test_fftw_uses_the_same_cross_built_runtime_in_both_abi_profiles(self):
+        installer = self.read(".github/images/linux-ci/install-armhf-sysroot.sh")
+        self.assertIn('DESTDIR="$ARMHF_SYSROOT"', installer)
+        self.assertIn('CFLAGS="$fftw_cflags"', installer)
+        self.assertIn('fftw_cc="$ARMHF_TARGET_TRIPLET-gcc -B$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET/"', installer)
+        self.assertIn('FFTW_ARCH=armhf CC="$fftw_cc"', installer)
+        self.assertIn('${ARMHF_ABI_FLAGS[*]} -O3', installer)
+        self.assertIn('cp -L "$ARMHF_SYSROOT$LINUX_FFTW_PREFIX"/lib/libfftw3f*.so*', installer)
+        self.assertIn('build-fftw-smoke-linux.sh', installer)
+        build = self.read(".github/scripts/build-linux-armhf-cross.sh")
+        self.assertIn('-DFFTW3_ROOT_DIR="$ARMHF_SYSROOT$LINUX_FFTW_PREFIX"', build)
+        self.assertIn('-DWSJT_FFTW_VERSION="$FFTW_VERSION"', build)
+        for dockerfile in ("Dockerfile.armhf-cross", "Dockerfile.armhf-cross-trixie",
+                           "Dockerfile.armhf-runtime"):
+            with self.subTest(dockerfile=dockerfile):
+                recipe = self.read(f".github/images/linux-ci/{dockerfile}")
+                self.assertIn(".github/scripts/fftw-version.sh", recipe)
+                self.assertIn("tests/dependencies/test_fftw_runtime.c", recipe)
+
     def test_armhf_cache_identity_parsing_fails_closed(self):
         workflow = self.read(".github/workflows/build-linux.yml")
         self.assertIn(

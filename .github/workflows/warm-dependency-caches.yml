@@ -22,6 +22,11 @@ on:
       - ".github/scripts/linux-ci-image-inputs.sh"
       - ".github/scripts/linux-ccache-compiler-signature.sh"
       - ".github/scripts/select-ccache-key-suffix.sh"
+      - ".github/scripts/fftw-version.sh"
+      - ".github/scripts/build-fftw.sh"
+      - ".github/scripts/build-fftw-smoke-linux.sh"
+      - "tests/dependencies/test_fftw_runtime.c"
+      - ".github/scripts/install-fftw-windows.sh"
       - ".github/scripts/select-linux-ccache-save.sh"
       - ".github/scripts/run-apt-get.sh"
       - ".github/scripts/build-pfunit-linux.sh"
@@ -226,6 +231,11 @@ jobs:
               while IFS= read -r path; do
                 [ -n "$path" ] || continue
                 case "$path" in
+                  .github/scripts/fftw-version.sh)
+                    enable_cache_all
+                    normal_images=true
+                    tsan_images=true
+                    ;;
                   .github/workflows/ci.yml|.github/workflows/release.yml|.github/workflows/warm-dependency-caches.yml|.github/scripts/select-ccache-key-suffix.sh)
                     enable_cache_all
                     ;;
@@ -243,7 +253,7 @@ jobs:
                   .github/workflows/build-linux-sanitizers.yml|.github/actions/build-linux-sanitizers/*|.github/scripts/verify-sanitizer-instrumentation.py)
                     linux_asan_ubsan=true
                     ;;
-                  .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/patches/hamlib-windows-precise-time.patch|.github/scripts/tests/test_hamlib_funcube_patch.py|.github/scripts/tests/test_hamlib_precise_time.c)
+                  .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/scripts/install-fftw-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/patches/hamlib-windows-precise-time.patch|.github/scripts/tests/test_hamlib_funcube_patch.py|.github/scripts/tests/test_hamlib_precise_time.c)
                     windows=true
                     ;;
                   .github/workflows/build-macos.yml|.github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh|.github/scripts/verify-macos-*.sh)
@@ -465,9 +475,10 @@ jobs:
           update: true
           cache: true
           install: >-
-            git make tar curl
+            git make tar curl zstd
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-gcc-fortran
+            mingw-w64-ucrt-x86_64-libgomp
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-pkg-config

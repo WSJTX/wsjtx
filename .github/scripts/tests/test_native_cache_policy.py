@@ -81,6 +81,38 @@ class NativeCachePolicyTests(unittest.TestCase):
         warmer = (ROOT / ".github/workflows/warm-dependency-caches.yml").read_text()
         self.assertIn("  summary:\n    if: always()", warmer)
 
+    def test_windows_fftw_cache_and_linkage_use_the_selected_package(self):
+        action = (ROOT / ".github/actions/build-windows-deps/action.yml").read_text()
+        windows = (ROOT / ".github/workflows/build-windows.yml").read_text()
+        self.assertIn("hashFiles('.github/scripts/fftw-version.sh', '.github/scripts/install-fftw-windows.sh')", action)
+        self.assertIn('./fftw-runtime-check.exe "$FFTW_VERSION"', action)
+        self.assertNotIn("mingw-w64-ucrt-x86_64-fftw", windows)
+        self.assertIn('-DFFTW3F_LIBRARY="${FFTW_PREFIX}/lib/libfftw3f.dll.a"', windows)
+        self.assertIn('-DFFTW3F_THREADS_LIBRARY="${FFTW_PREFIX}/lib/libfftw3f_threads.dll.a"', windows)
+        self.assertIn('cmp "${{ steps.windows-deps.outputs.fftw_prefix }}/bin/$library"', windows)
+
+    def test_macos_fftw_cache_tracks_shared_source_policy(self):
+        for path in (".github/workflows/build-macos.yml",
+                     ".github/actions/warm-macos-deps/action.yml"):
+            with self.subTest(path=path):
+                text = (ROOT / path).read_text()
+                self.assertLess(text.index(". .github/scripts/fftw-version.sh"),
+                                text.index("id: fftw-cache"))
+                cache = next(part for part in re.split(r"^\s+- name: ", text, flags=re.M)
+                             if part.startswith("Restore FFTW cache"))
+                self.assertIn("${{ env.FFTW_VERSION }}", cache)
+                self.assertIn("hashFiles('.github/scripts/fftw-version.sh',", cache)
+                self.assertNotIn("3.3.10", cache)
+
+    def test_windows_declares_openmp_without_relying_on_fftw_package_dependencies(self):
+        for path in (".github/workflows/build-windows.yml",
+                     ".github/workflows/warm-dependency-caches.yml"):
+            with self.subTest(path=path):
+                text = (ROOT / path).read_text()
+                self.assertIn("mingw-w64-ucrt-x86_64-libgomp", text)
+        windows = (ROOT / ".github/workflows/build-windows.yml").read_text()
+        self.assertIn("-DCMAKE_REQUIRE_FIND_PACKAGE_OpenMP=ON", windows)
+
 
 if __name__ == "__main__":
     unittest.main()

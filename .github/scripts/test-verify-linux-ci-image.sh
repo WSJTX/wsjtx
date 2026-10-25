@@ -31,6 +31,7 @@ fi
 compiler_major=${compiler_version%%.*}
 ccache_compatibility_id="gcc${compiler_major}-v2"
 compiler_signature_sha256=1111111111111111111111111111111111111111111111111111111111111111
+fftw_sha256=2222222222222222222222222222222222222222222222222222222222222222
 
 write_manifest() {
   local hamlib_commit=${1:-$LINUX_HAMLIB_COMMIT}
@@ -46,6 +47,9 @@ write_manifest() {
     echo "compiler_sha256=$compiler_sha256"
     echo "compiler_target=$compiler_target"
     echo "package_sha256=$package_sha256"
+    echo "fftw_version=$FFTW_VERSION"
+    echo "fftw_source_sha256=$FFTW_SHA256"
+    echo "fftw_sha256=$fftw_sha256"
     echo "toolchain_id=$toolchain_id"
     if [ "$include_ccache_identity" = true ]; then
       echo "ccache_compatibility_id=$ccache_compatibility_id"
@@ -70,6 +74,13 @@ run_verify() {
 
 write_manifest
 run_verify >/dev/null
+
+printf '%s\n' 'fftw_version=3.3.8' >> "$manifest"
+if run_verify true >/dev/null 2>&1; then
+  echo "Expected stale image allowance to reject an incompatible FFTW version" >&2
+  exit 1
+fi
+write_manifest
 
 output="$fixture/output"
 GITHUB_OUTPUT="$output" run_verify >/dev/null
@@ -116,6 +127,7 @@ mkdir -p "$tsan_config_dir" "$fixture/prefix/tsan/boost/cmake"
 cp .github/scripts/verify-linux-ci-image.sh \
   .github/scripts/linux-ccache-compiler-signature.sh \
   .github/scripts/linux-ci-image-config.sh \
+  .github/scripts/fftw-version.sh \
   .github/scripts/tsan-linux-deps-config.sh \
   "$tsan_config_dir/"
 cp .github/scripts/linux-ci-image-fingerprint.sh "$tsan_config_dir/"
@@ -137,6 +149,9 @@ compiler_version=$TSAN_GCC_VERSION
 compiler_sha256=0000000000000000000000000000000000000000000000000000000000000000
 compiler_target=fixture
 package_sha256=0000000000000000000000000000000000000000000000000000000000000000
+fftw_version=$FFTW_VERSION
+fftw_source_sha256=$FFTW_SHA256
+fftw_sha256=$fftw_sha256
 toolchain_id=fixture
 ccache_compatibility_id=gcc${TSAN_GCC_VERSION%%.*}-v2
 compiler_signature_sha256=1111111111111111111111111111111111111111111111111111111111111111

@@ -42,7 +42,8 @@ case "$arch:$dpkg_arch" in
     ;;
 esac
 package_sha256="$(dpkg-query -W -f='${binary:Package}=${Version}\n' | LC_ALL=C sort | sha256sum | awk '{print $1}')"
-identity="$recipe_sha256:$compiler_target:$compiler_sha256:$package_sha256"
+fftw_sha256="$(sha256sum "$LINUX_FFTW_PREFIX/lib/libfftw3f.so.3" "$LINUX_FFTW_PREFIX/lib/libfftw3f_threads.so.3" | sha256sum | awk '{print $1}')"
+identity="$recipe_sha256:$compiler_target:$compiler_sha256:$package_sha256:$fftw_sha256"
 toolchain_sha256="$(printf '%s' "$identity" | sha256sum | awk '{print $1}')"
 toolchain_id="gcc${compiler_version}-${arch}-${toolchain_sha256:0:20}"
 
@@ -58,6 +59,9 @@ mkdir -p /opt/wsjtx-ci
   printf 'compiler_target=%s\n' "$compiler_target"
   printf 'dpkg_arch=%s\n' "$dpkg_arch"
   printf 'package_sha256=%s\n' "$package_sha256"
+  printf 'fftw_version=%s\n' "$FFTW_VERSION"
+  printf 'fftw_source_sha256=%s\n' "$FFTW_SHA256"
+  printf 'fftw_sha256=%s\n' "$fftw_sha256"
   printf 'recipe_sha256=%s\n' "$recipe_sha256"
   printf 'toolchain_id=%s\n' "$toolchain_id"
   printf 'ccache_compatibility_id=%s\n' "$ccache_compatibility_id"

@@ -602,7 +602,10 @@ class Repository:
     def fingerprints(self, commit: str) -> dict[str, str] | None:
         if not self.contains(commit):
             return None
-        archive = self.git("archive", "--format=tar", commit, ".github").stdout
+        paths = [".github"]
+        if self.output("ls-tree", "--name-only", commit, "tests/dependencies"):
+            paths.append("tests/dependencies")
+        archive = self.git("archive", "--format=tar", commit, *paths).stdout
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run(["tar", "-x", "-f", "-", "-C", directory], input=archive, check=True, capture_output=True)
             profiles = images.IMAGES

@@ -77,6 +77,9 @@ RUN chmod +x /usr/local/bin/run-apt-get \
 COPY --from=toolchain /opt/wsjtx/armhf-toolchain /opt/wsjtx/armhf-toolchain
 
 COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/fftw-version.sh \
+     .github/scripts/build-fftw.sh \
+     .github/scripts/build-fftw-smoke-linux.sh \
      .github/scripts/armhf-toolchain-config.sh \
      .github/scripts/armhf-ci-image-config.sh \
      /usr/local/share/wsjtx-ci/
@@ -87,6 +90,7 @@ COPY .github/scripts/linux-ccache-compiler-signature.sh \
      .github/scripts/write-armhf-ci-manifest.sh \
      .github/scripts/verify-armhf-ci-image.sh \
      /usr/local/share/wsjtx-ci/
+COPY tests/dependencies/test_fftw_runtime.c /usr/local/share/wsjtx-ci/
 COPY .github/images/linux-ci/install-armhf-sysroot.sh /usr/local/bin/install-armhf-sysroot
 RUN chmod +x /usr/local/bin/install-armhf-sysroot \
     && /usr/local/bin/install-armhf-sysroot

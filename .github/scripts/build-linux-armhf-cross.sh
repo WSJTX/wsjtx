@@ -40,6 +40,8 @@ mkdir -p "$CCACHE_DIR"
 ccache --zero-stats
 started="$(date +%s)"
 cmake -S . -B wsjtx-build \
+  -DFFTW3_ROOT_DIR="$ARMHF_SYSROOT$LINUX_FFTW_PREFIX" \
+  -DWSJT_FFTW_VERSION="$FFTW_VERSION" \
   -DWSJT_ARMHF_DISTRO="$ARMHF_DISTRO" \
   -DCMAKE_TOOLCHAIN_FILE=/work/.github/cmake/armhf-toolchain.cmake \
   -DCMAKE_C_COMPILER_LAUNCHER=ccache \

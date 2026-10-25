@@ -9,6 +9,10 @@ linux_ci_image_inputs() {
     .github/scripts/linux-ci-image-fingerprint.sh
     .github/scripts/linux-ci-image-inputs.sh
     .github/scripts/linux-ci-image-config.sh
+    .github/scripts/fftw-version.sh
+    .github/scripts/build-fftw.sh
+    .github/scripts/build-fftw-smoke-linux.sh
+    tests/dependencies/test_fftw_runtime.c
     .github/scripts/linux-ccache-compiler-signature.sh
     .github/scripts/run-apt-get.sh
     .github/scripts/verify-linux-ci-image.sh
@@ -44,6 +48,10 @@ linux_ci_image_inputs() {
         .github/scripts/build-hamlib-armhf-cross.sh \
         .github/scripts/linux-ccache-compiler-signature.sh \
         .github/scripts/linux-ci-image-config.sh \
+        .github/scripts/fftw-version.sh \
+        .github/scripts/build-fftw.sh \
+        .github/scripts/build-fftw-smoke-linux.sh \
+        tests/dependencies/test_fftw_runtime.c \
         .github/scripts/linux-ci-image-fingerprint.sh \
         .github/scripts/linux-ci-image-inputs.sh \
         .github/scripts/normalize-armhf-sysroot-symlinks.sh \
@@ -58,6 +66,10 @@ linux_ci_image_inputs() {
         .github/scripts/armhf-toolchain-config.sh \
         .github/scripts/armhf-ci-image-config.sh \
         .github/scripts/linux-ci-image-config.sh \
+        .github/scripts/fftw-version.sh \
+        .github/scripts/build-fftw.sh \
+        .github/scripts/build-fftw-smoke-linux.sh \
+        tests/dependencies/test_fftw_runtime.c \
         .github/scripts/linux-ci-image-fingerprint.sh \
         .github/scripts/linux-ci-image-inputs.sh \
         .github/scripts/run-apt-get.sh \

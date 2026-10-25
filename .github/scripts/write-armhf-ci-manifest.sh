@@ -30,7 +30,7 @@ hash_package_set() {
 
 hash_runtime_set() {
   local library records=""
-  for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do
+  for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}" libfftw3f.so.3 libfftw3f_threads.so.3; do
     records+="$library=$(sha256sum "$ARMHF_RUNTIME_PREFIX/$library" | awk '{print $1}')"$'\n'
   done
   printf '%s' "$records" | sha256sum | awk '{print $1}'
@@ -69,6 +69,8 @@ case "$role" in
       printf 'package_sha256=%s\n' "$package_sha256"
       printf 'sysroot_package_sha256=%s\n' "$sysroot_package_sha256"
       printf 'runtime_sha256=%s\n' "$runtime_sha256"
+      printf 'fftw_version=%s\n' "$FFTW_VERSION"
+      printf 'fftw_source_sha256=%s\n' "$FFTW_SHA256"
       printf 'hamlib_ref=%s\n' "$LINUX_HAMLIB_REF"
       printf 'hamlib_commit=%s\n' "$LINUX_HAMLIB_COMMIT"
       printf 'hamlib_sha256=%s\n' "$hamlib_sha256"
@@ -89,6 +91,11 @@ case "$role" in
     fi
     # shellcheck disable=SC1090
     . "$cross_manifest"
+    if [ "${fftw_version:-}" != "$FFTW_VERSION" ] ||
+       [ "${fftw_source_sha256:-}" != "$FFTW_SHA256" ]; then
+      echo "Cross-builder FFTW source differs from the runtime policy" >&2
+      exit 1
+    fi
     if [ "${distro:-}" != "$ARMHF_DISTRO" ] ||
        [ "${time_bits:-}" != "$ARMHF_TIME_BITS" ] ||
        [ "${glibc_version:-}" != "$ARMHF_GLIBC_VERSION" ]; then
@@ -104,7 +111,7 @@ case "$role" in
     runtime_package_sha256="$(hash_package_set)"
     runtime_sha256="$(hash_runtime_set)"
     if [ "$runtime_sha256" != "$cross_runtime_sha256" ]; then
-      echo "Runtime GCC library set differs from the cross-builder" >&2
+      echo "Runtime library set differs from the cross-builder" >&2
       exit 1
     fi
     {
@@ -122,6 +129,8 @@ case "$role" in
       printf 'cross_recipe_sha256=%s\n' "$cross_recipe_sha256"
       printf 'cross_toolchain_id=%s\n' "$cross_toolchain_id"
       printf 'runtime_sha256=%s\n' "$runtime_sha256"
+      printf 'fftw_version=%s\n' "$FFTW_VERSION"
+      printf 'fftw_source_sha256=%s\n' "$FFTW_SHA256"
       printf 'package_sha256=%s\n' "$runtime_package_sha256"
       printf 'hamlib_ref=%s\n' "$cross_hamlib_ref"
       printf 'hamlib_commit=%s\n' "$cross_hamlib_commit"

@@ -195,12 +195,18 @@ runs:
         path: portaudio-prefix
         key: ${{ steps.portaudio-cache.outputs.cache-primary-key }}
 
+    - name: Select FFTW version
+      shell: bash
+      run: |
+        . .github/scripts/fftw-version.sh
+        echo "FFTW_VERSION=$FFTW_VERSION" >> "$GITHUB_ENV"
+
     - name: Restore FFTW cache
       id: fftw-cache
       uses: actions/cache/restore@v5
       with:
         path: fftw-prefix
-        key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-3.3.10-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
+        key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ env.FFTW_VERSION }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/fftw-version.sh', '.github/scripts/build-fftw-macos.sh') }}
 
     - name: Build FFTW
       id: fftw-build
@@ -208,7 +214,6 @@ runs:
       shell: bash
       run: |
         .github/scripts/build-fftw-macos.sh \
-          3.3.10 \
           "${{ inputs.deployment_target }}" \
           "${GITHUB_WORKSPACE}/fftw-prefix"
 

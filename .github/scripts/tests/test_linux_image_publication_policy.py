@@ -27,6 +27,55 @@ def job(name: str, workflow: str = PUBLISH) -> str:
 
 
 class LinuxImagePublicationPolicyTests(unittest.TestCase):
+    def test_single_profile_candidates_cannot_promote_or_select_other_cohorts(self):
+        validate = job("validate-inputs")
+        body = textwrap.dedent(validate.split("        run: |\n", 1)[1])
+        environment = {
+            **os.environ, "MODE": "refresh", "ROLLBACK_TAG": "", "IMAGE_SET": "normal",
+            "INCLUDE_ARMHF": "false", "CANDIDATE_PROFILE": "aarch64", "PROMOTE": "false",
+            "REQUEST_REF": "refs/heads/build/fftw-3.3.11",
+            "REQUEST_REPOSITORY": "WSJTX/wsjtx-internal", "PUBLICATION_TARGET": "internal",
+        }
+        for profile in ("x86_64", "aarch64", "armhf-bookworm", "armhf-trixie"):
+            with self.subTest(profile=profile):
+                result = subprocess.run(["bash", "-c", body],
+                                        env={**environment, "CANDIDATE_PROFILE": profile},
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for key, value in (("PROMOTE", "true"), ("INCLUDE_ARMHF", "true"),
+                           ("IMAGE_SET", "normal-and-tsan"), ("PUBLICATION_TARGET", "public-release")):
+            with self.subTest(key=key):
+                result = subprocess.run(["bash", "-c", body], env={**environment, key: value},
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("Single-profile candidates require", result.stdout)
+
+    def test_candidate_profiles_select_only_their_image_jobs(self):
+        names = {"build-normal", "build-arm64", "build-tsan", "build-armhf-cross",
+                 "build-armhf-runtime", "build-armhf-trixie-cross", "build-armhf-trixie-runtime"}
+        cases = [
+            ("x86_64", "normal", False, {"build-normal"}),
+            ("aarch64", "normal", False, {"build-arm64"}),
+            ("armhf-bookworm", "normal", False, {"build-armhf-cross", "build-armhf-runtime"}),
+            ("armhf-trixie", "normal", False, {"build-armhf-trixie-cross", "build-armhf-trixie-runtime"}),
+            ("all", "normal", False, {"build-normal", "build-arm64"}),
+            ("all", "normal", True, names - {"build-tsan"}),
+            ("all", "tsan", False, {"build-tsan"}),
+        ]
+        for profile, image_set, include_armhf, expected in cases:
+            with self.subTest(profile=profile, image_set=image_set, include_armhf=include_armhf):
+                inputs = {"candidate_profile": profile, "image_set": image_set,
+                          "include_armhf": include_armhf}
+                selected = set()
+                for name in names:
+                    expression = job(name).split("    needs:", 1)[0].split("    if:", 1)[1]
+                    expression = " ".join(expression.strip().removeprefix(">-").split())
+                    expression = re.sub(r"inputs\.(\w+)", lambda match: repr(inputs[match[1]]), expression)
+                    expression = expression.replace("&&", " and ").replace("||", " or ")
+                    if eval(expression, {"__builtins__": {}}, {}):
+                        selected.add(name)
+                self.assertEqual(selected, expected)
+
     def test_armhf_image_builds_register_emulation_before_buildx(self):
         for name in ("build-armhf-cross", "build-armhf-runtime",
                      "build-armhf-trixie-cross", "build-armhf-trixie-runtime"):
@@ -339,6 +388,13 @@ git() {
         self.assertIn("armhf-cross-bookworm", CLASSIFIER)
         self.assertIn("armhf-runtime-bookworm", CLASSIFIER)
         self.assertIn('include_armhf: true', WARM)
+
+    def test_fftw_policy_refreshes_images_and_native_caches(self):
+        case = re.search(r"\.github/scripts/fftw-version\.sh\)\n(?P<body>.*?);;",
+                         WARM, re.DOTALL).group("body")
+        self.assertIn("enable_cache_all", case)
+        self.assertIn("normal_images=true", case)
+        self.assertIn("tsan_images=true", case)
 
     def test_candidate_warm_uses_exact_tag_and_publishes_without_recache(self):
         warm = job("warm-normal-ccache")

@@ -164,6 +164,8 @@ runs:
         fi
 
         cmake -S . -B "${{ steps.sanitizer.outputs.build_dir }}" \
+          -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
+          -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DCMAKE_PREFIX_PATH="$prefix_path" \

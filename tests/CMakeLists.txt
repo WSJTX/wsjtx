@@ -1,5 +1,11 @@
 find_package (Qt5Test 5 REQUIRED)
 
+add_executable (test_fftw_runtime dependencies/test_fftw_runtime.c)
+target_include_directories (test_fftw_runtime PRIVATE ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (test_fftw_runtime PRIVATE ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+set (WSJT_FFTW_VERSION "" CACHE STRING "Required FFTW runtime version for official builds")
+add_test (NAME test_fftw_runtime COMMAND test_fftw_runtime "${WSJT_FFTW_VERSION}")
+
 add_test (
   NAME test_release_state
   COMMAND ${CMAKE_COMMAND}

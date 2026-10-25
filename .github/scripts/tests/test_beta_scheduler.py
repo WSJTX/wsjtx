@@ -1361,6 +1361,7 @@ class RepositoryTest(unittest.TestCase):
 
     def test_fingerprints_run_each_commits_own_recipe_scripts(self):
         shutil.copytree(ROOT / ".github", self.work / ".github")
+        shutil.copytree(ROOT / "tests/dependencies", self.work / "tests/dependencies")
         recipes = self.commit("add the pipeline")
         self.git(self.work, "push", str(self.origin), f"{recipes}:refs/heads/develop")
         dockerfile = self.work / ".github/images/linux-ci/Dockerfile.noble"
