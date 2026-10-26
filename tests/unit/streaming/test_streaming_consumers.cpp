@@ -26,7 +26,7 @@ constexpr int Jt9DrainBytes = 4096;
 constexpr int Jt9ControlCapacityBytes = 262144;
 
 constexpr char ReadyLine[] =
-  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","JTTY"],"protocol":1})";
+  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","JTTY"],"protocol":1})";
 constexpr char OddAudioFrameLine[] =
   R"({"v":1,"t":"error","code":"odd_audio_frame","detail":"audio frame length must contain whole int16 samples"})";
 constexpr char ControlFrameTooLargeLine[] =

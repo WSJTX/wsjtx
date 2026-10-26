@@ -56,6 +56,9 @@ extern "C" {
   void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
               int* i3, int* n3, int* iflag, fortran_charlen_t, fortran_charlen_t);
   void genwspr_(char* msg, char* msgsent, int itone[], fortran_charlen_t, fortran_charlen_t);
+  void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
+  void gen_cw_wave_(char const * msg, int* ifreq, float wave[], fortran_charlen_t);
+  void morse_(char* msg, int* icw, int* ncw, fortran_charlen_t);
 }
 
 // Modulator's friend: its start and reads at a chosen clock.
@@ -100,11 +103,17 @@ struct Row
   QString mode;
   QString text;
   int submode {-1};             // m_nSubMode; -1 for none
-  int spacing {1};              // x2ToneSpacing, x4ToneSpacing
+  int spacing {1};              // x2ToneSpacing, x4ToneSpacing; Echo: sbToneSpacing
   int trperiod {0};             // m_TRperiod where the mode has a choice; 0 for none
   bool copied {};               // Q65 pileup: the bit-78 flag
   int txFreq {1500};            // TxFreqSpinBox (WSPRfreqSpinBox for FST4W)
   bool fallback {};             // the 13-character free-text fallback applies
+  bool fast {};                 // m_bFast9
+  QString kind;                 // Echo: rbFixedTone, rbEchoMessage or rbEchoCW
+  double dither {};             // Echo: m_fDither
+  QString tuneMode;             // Tune: m_tune in this m_mode
+  int seconds {};               // Tune: how long it runs
+  QString cwid;                 // icw[0]=m_ncw, with this my_callsign
 };
 
 struct Transmission
@@ -148,22 +157,31 @@ int fst4Nsps (double m_TRperiod)
 // process's GUI state, then (with audio) MainWindow::transmit's request to the
 // Modulator, read from its first sample to the last it commits. synchronize
 // is off, which removes only the leading silence that starts the audio on
-// time.
+// time. A Tune is read for its seconds; with a CW ID the Modulator is read as
+// the GUI's sound card would read it with a buffer that ends where the
+// message does (in a fast mode where the first buffer more than TR - 5 s into
+// the period, which starts with the audio, begins), and from there until the
+// Modulator goes idle.
 Transmission gui (Row const& row, bool audio = true)
 {
-  QString const m_mode = row.mode;
+  bool const m_tune = row.mode == "TUNE";
+  QString const m_mode = m_tune ? row.tuneMode : row.mode == "ECHO" ? QString {"Echo"} : row.mode;
   int const m_nSubMode = row.submode;
   double m_TRperiod = row.trperiod;
   if (m_mode == "FT8") m_TRperiod = 15;
   if (m_mode == "FT4") m_TRperiod = 7.5;
-  if (m_mode == "JT4" || m_mode == "JT9" || m_mode == "JT65") m_TRperiod = 60;
+  if ((m_mode == "JT4" || m_mode == "JT9" || m_mode == "JT65") && !row.fast) m_TRperiod = 60;
   if (m_mode == "WSPR") m_TRperiod = 120;
+  if (m_mode == "Echo") m_TRperiod = 3.0;
+  bool const m_bFast9 = row.fast;
   int const m_XIT = 0;
   bool const x2ToneSpacing = row.spacing == 2;
   bool const x4ToneSpacing = row.spacing == 4;
   int const TxFreqSpinBox = row.txFreq;
   int const WSPRfreqSpinBox = row.txFreq;
-  bool const m_tune = false;
+  double const m_fDither = row.dither;
+  bool const rbEchoMessage = row.kind == "message";
+  bool const rbEchoCW = row.kind == "cw";
 
   // Modulator reads the tone and the waveform sample just past the message,
   // which a fresh GUI process has as zero.
@@ -172,6 +190,7 @@ Transmission gui (Row const& row, bool audio = true)
   if (m_mode == "FT8") waveSamples = 79 * 4 * 1920 + 1;
   if (m_mode == "FT4") waveSamples = 105 * 4 * 576 + 1;
   if (m_mode == "FST4" || m_mode == "FST4W") waveSamples = 162 * 4 * fst4Nsps (m_TRperiod) + 1;
+  if (m_mode == "Echo") waveSamples = 6 * 4 * 4096 + 1;
   std::fill_n (foxcom_.wave, waveSamples, 0.f);
 
   // The codec takes the text less its outer blanks, which the GUI's Tx box
@@ -194,6 +213,17 @@ Transmission gui (Row const& row, bool audio = true)
   std::fill_n(msgsent, sizeof msgsent, ' ');
   msgsent[37]=0;
   int m_currentMessageType = 0;
+  // CallsignValidator upper-cases the Echo message.
+  QString const leEchoMessage = text.toUpper ();
+  if(m_tune or m_mode=="Echo") {
+    itone[0]=0;
+    auto const generated_label = m_tune ? QByteArrayLiteral("TUNE") : QByteArrayLiteral("ECHO");
+    std::copy(generated_label.cbegin(), generated_label.cend(), msgsent);
+    if(rbEchoMessage or rbEchoCW) {
+      QString echoMsg=(leEchoMessage+"      ").left(6);
+      gen_echocall_(const_cast <char *> (echoMsg.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
+    }
+  } else {
   if(m_mode=="JT4") gen4_(message, &ichk , msgsent, const_cast<int *> (itone),
                             &m_currentMessageType, (FCL)22, (FCL)22);
   if(m_mode=="JT9") gen9_(message, &ichk, msgsent, const_cast<int *> (itone),
@@ -295,6 +325,7 @@ Transmission gui (Row const& row, bool audio = true)
     }
   }
   msgsent[msgsent_length]=0;
+  }
 
   Transmission result;
   QString const generated_message = QString::fromLatin1(msgsent);
@@ -313,15 +344,29 @@ Transmission gui (Row const& row, bool audio = true)
   if (m_mode == "FT8") ntones = 79;
   if (m_mode == "FT4") ntones = 103;
   if (m_mode == "FST4" || m_mode == "FST4W") ntones = 160;
+  if (m_tune || m_mode == "Echo") ntones = rbEchoMessage || rbEchoCW ? 6 : 1;
   for (int i = 0; i < ntones; ++i) result.tones << int (itone[i]);
   if (!audio) return result;
+
+  // MainWindow::morse_ for the station's call, and guiUpdate's icw[0]=m_ncw.
+  int icw[NUM_CW_SYMBOLS] {};
+  int m_ncw = 0;
+  if (!row.cwid.isEmpty ()) {
+    morse_(const_cast<char *> (row.cwid.toLatin1().constData()),
+           icw, &m_ncw, (FCL)row.cwid.length());
+    icw[0]=m_ncw;
+  }
 
   TxEvidence::TxRequest request;
   request.mode = m_mode;
   request.channel = AudioDevice::Mono;
   request.snr_db = 99;
-  request.tr_period_s = static_cast<int> (m_TRperiod);
+  request.tr_period_s = m_TRperiod;
   request.synchronize = false;
+  request.tuning = m_tune;
+  int const cwSymbols = qBound (0, int (icw[0]), NUM_CW_SYMBOLS - 1);
+  request.cw_id.reserve (cwSymbols);
+  for (int i = 1; i <= cwSymbols; ++i) request.cw_id.append (int (icw[i]));
   double m_toneSpacing = 12000.0/8192.0;        // set on entering WSPR
   double toneSpacing=0.0;
   if (m_mode == "JT65") {
@@ -379,15 +424,22 @@ Transmission gui (Row const& row, bool audio = true)
   }
   if (m_mode == "JT9") {
     int nsub=pow(2,m_nSubMode);
+    int nsps[]={480,240,120,60};
     double sps=6912;
     m_toneSpacing=nsub*12000.0/6912.0;
     if(x2ToneSpacing) m_toneSpacing=2.0*m_toneSpacing;
     if(x4ToneSpacing) m_toneSpacing=4.0*m_toneSpacing;
+    bool fastmode=false;
+    if(m_bFast9 and (m_nSubMode>=4)) {
+      fastmode=true;
+      sps=nsps[m_nSubMode-4];
+      m_toneSpacing=12000.0/sps;
+    }
     request.symbols_length = 85;
     request.frames_per_symbol = sps;
     request.frequency_hz = TxFreqSpinBox - m_XIT;
     request.tone_spacing = m_toneSpacing;
-    request.fast_mode = false;
+    request.fast_mode = fastmode;
   }
   if (m_mode == "MSK144") {
     int m_nsps=6;
@@ -424,6 +476,39 @@ Transmission gui (Row const& row, bool audio = true)
     request.frequency_hz = TxFreqSpinBox - 1.5 * 12000 / 8192;
     request.tone_spacing = m_toneSpacing*nToneSpacing;
   }
+  if(m_mode=="Echo") {
+    unsigned int numEchoSymbols=6;
+    double framesPerSymbol=4096;
+    double freq=1500.0+m_fDither;
+    double toneSpacing=0.0;
+
+    if(rbEchoMessage or rbEchoCW) {
+
+      if(rbEchoCW) {
+        freq=1500.0;
+        int ifreq=freq;
+        auto const message = leEchoMessage.toLatin1();
+        gen_cw_wave_(message.constData(), &ifreq, foxcom_.wave, (FCL)message.size());
+      } else {
+        toneSpacing=row.spacing;
+        int nsps4=4*framesPerSymbol;                           //48000 Hz sampling
+        int nsym=numEchoSymbols;
+        float fsample=48000.0;
+        int nwave=nsym*nsps4;
+        int icmplx=0;
+        float f0=freq;
+        genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
+             &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
+      }
+      toneSpacing=-5.0;  //Flag Modulator to use precomputed foxcom_.wave[].
+    }
+
+    request.symbols_length = numEchoSymbols;
+    request.frames_per_symbol = framesPerSymbol;
+    request.frequency_hz = freq;
+    request.tone_spacing = toneSpacing;
+    request.synchronize = false;
+  }
 
   Sink sink;
   Modulator modulator {TX_SAMPLE_RATE, NTMAX};
@@ -434,11 +519,25 @@ Transmission gui (Row const& row, bool audio = true)
                       if (snapshot.target_known) last = snapshot.committed_end_sample;
                     });
   TestModulator::startAt (modulator, request, &sink, 0);
-  if (last < 0) return result;
-  result.audio.resize (int (last + 1));
-  auto const bytes = qint64 (result.audio.size ()) * qint64 (sizeof (qint16));
-  if (TestModulator::readDataAt (modulator, reinterpret_cast<char *> (result.audio.data ()), bytes, 0) != bytes)
-    result.audio.clear ();
+  // Reads frames from the clock ms; the Modulator returns fewer when it goes
+  // idle.
+  auto const read = [&] (qint64 frames, qint64 ms) {
+    QVector<qint16> samples (static_cast<int> (frames));
+    auto const bytes = TestModulator::readDataAt (modulator, reinterpret_cast<char *> (samples.data ()),
+                                                  frames * qint64 (sizeof (qint16)), ms);
+    samples.resize (int (bytes / qint64 (sizeof (qint16))));
+    result.audio += samples;
+    return samples.size ();
+  };
+  if (m_tune) {
+    read (qint64 (row.seconds) * TX_SAMPLE_RATE, 0);
+  } else if (!request.cw_id.isEmpty ()) {
+    unsigned const message = request.fast_mode ? unsigned ((m_TRperiod - 5.0) * 48000.0) + 48
+      : unsigned (request.symbols_length * 4.0 * request.frames_per_symbol) + 1;
+    if (read (message, 0) == int (message)) read (30 * TX_SAMPLE_RATE, request.fast_mode ? message / 48 : 0);
+  } else if (last >= 0) {
+    if (read (last + 1, 0) != last + 1) result.audio.clear ();
+  }
   modulator.stop (true);
   return result;
 }
@@ -447,9 +546,18 @@ Transmission gui (Row const& row, bool audio = true)
 // puts tone 0.
 double lowestTone (Row const& row)
 {
-  if (row.mode == "WSPR") return row.txFreq - 1.5 * 12000 / 8192;
-  if (row.mode == "MSK144") return 1000;
+  auto const mode = row.mode == "TUNE" ? row.tuneMode : row.mode;
+  if (mode == "WSPR") return row.txFreq - 1.5 * 12000 / 8192;
+  if (mode == "MSK144") return 1000;
+  if (mode == "ECHO") return row.kind == "cw" ? 1500 : 1500 + row.dither;
   return row.txFreq;
+}
+
+// Whether row's text is a single tone, which takes no freq.
+bool single (Row const& row)
+{
+  return (row.mode == "JT4" || row.mode == "JT9" || row.mode == "JT65" || row.mode == "Q65")
+    && row.text.trimmed ().startsWith ('@');
 }
 
 // --- the stream ---------------------------------------------------------------
@@ -483,20 +591,32 @@ QByteArray header ()
 
 QJsonObject request (QString const& verb, qint64 id, Row const& row)
 {
-  QJsonObject object {{"t", verb}, {"id", id}, {"mode", row.mode}, {"text", row.text}};
-  if (row.submode >= 0) object.insert ("submode", QString {QChar ('A' + row.submode)});
+  QJsonObject object {{"t", verb}, {"id", id}, {"mode", row.mode}};
+  if (row.mode != "TUNE" && row.kind != "tone") object.insert ("text", row.text);
+  // A Tune's submode and period are the GUI's mode's.
+  if (row.submode >= 0 && row.mode != "TUNE") object.insert ("submode", QString {QChar ('A' + row.submode)});
   if (row.spacing != 1) object.insert ("spacing", row.spacing);
-  if (row.trperiod) object.insert ("trperiod", row.trperiod);
+  if (row.trperiod && row.mode != "TUNE") object.insert ("trperiod", row.trperiod);
   if (row.copied) object.insert ("copied", true);
+  if (row.fast) object.insert ("fast", true);
+  if (!row.kind.isEmpty ()) object.insert ("kind", row.kind);
   return object;
 }
 
 QJsonObject render (qint64 id, Row const& row, int rate)
 {
   auto object = request ("render", id, row);
-  object.insert ("freq", lowestTone (row));
+  if (!single (row)) object.insert ("freq", lowestTone (row));
   object.insert ("rate", rate);
+  if (row.seconds) object.insert ("seconds", row.seconds);
+  if (!row.cwid.isEmpty ()) object.insert ("cwid", true);
   return object;
+}
+
+// The configure that gives the codec row's station call for its CW ID.
+QByteArray station (Row const& row)
+{
+  return control ({{"t", "configure"}, {"mycall", row.cwid}});
 }
 
 struct Reply
@@ -525,20 +645,32 @@ QVector<qint16> decodePcm (QString const& data)
   return samples;
 }
 
-// The documented members of an encoded line for mode, beyond v, t and id.
-QStringList encodedKeys (QString const& mode, bool rendered)
+// The documented members of an encoded line for row.
+QStringList encodedKeys (Row const& row, bool rendered)
 {
+  auto const& mode = row.mode;
   QStringList keys {"id", "mode", "msgsent", "t", "tones", "v"};
   if (mode == "JT4" || mode == "JT9" || mode == "JT65" || mode == "MSK144") keys << "type";
-  if (mode != "JT4" && mode != "JT9" && mode != "JT65" && mode != "WSPR") keys << "fallback";
+  if (mode == "FT8" || mode == "FT4" || mode == "FST4" || mode == "FST4W" || mode == "Q65" || mode == "MSK144")
+    keys << "fallback";
   if (mode == "JT4" || mode == "JT9" || mode == "JT65" || mode == "Q65") keys << "submode";
-  if (mode == "FST4" || mode == "FST4W" || mode == "Q65" || mode == "MSK144") keys << "trperiod";
-  if (mode == "FT8" || mode == "JT9" || mode == "FST4" || mode == "FST4W" || mode == "WSPR") keys << "spacing";
+  if (mode == "FST4" || mode == "FST4W" || mode == "Q65" || mode == "MSK144" || row.fast) keys << "trperiod";
+  if (mode == "FT8" || (mode == "JT9" && !row.fast) || mode == "FST4" || mode == "FST4W" || mode == "WSPR"
+      || row.kind == "message") keys << "spacing";
   if (mode == "Q65") keys << "copied";
-  if (rendered) keys << "freq" << "rate" << "samples";
+  if (row.fast) keys << "fast";
+  if (!row.kind.isEmpty ()) keys << "kind";
+  if (single (row) || rendered) keys << "freq";
+  if (rendered) keys << "rate" << "samples";
+  if (rendered && mode == "TUNE") keys << "seconds";
+  if (rendered && !row.cwid.isEmpty ()) keys << "cwid";
   std::sort (keys.begin (), keys.end ());
   return keys;
 }
+
+// Every member an encoded line may carry.
+QStringList const allEncodedKeys {"id", "mode", "msgsent", "t", "tones", "v", "type", "fallback", "submode",
+  "trperiod", "spacing", "copied", "fast", "kind", "freq", "rate", "samples", "seconds", "cwid"};
 
 // Parses the output strictly: each reply's lines are consecutive and in the
 // documented order, and only replies carry an id.
@@ -583,14 +715,12 @@ void parse (QByteArray const& output, Run& run)
               run.error = "an encoded line is out of place";
               return;
             }
-          auto keys = object.keys ();
-          std::sort (keys.begin (), keys.end ());
-          auto const mode = object.value ("mode").toString ();
-          if (keys != encodedKeys (mode, false) && keys != encodedKeys (mode, true))
-            {
-              run.error = "an encoded line's members are not the documented ones: " + keys.join (",");
-              return;
-            }
+          for (auto const& key : object.keys ())
+            if (!allEncodedKeys.contains (key))
+              {
+                run.error = "an encoded line has an undocumented member: " + key;
+                return;
+              }
           reply.encoded = object;
           open = id;
           seq = 0;
@@ -728,11 +858,17 @@ int firstDifference (QVector<qint16> const& a, QVector<qint16> const& b, int tol
 bool echoes (QJsonObject const& encoded, Row const& row, int rate)
 {
   auto const value = [&] (char const * key) { return encoded.value (key); };
+  if (encoded.keys () != encodedKeys (row, rate != 0)) return false;
   if (encoded.contains ("submode") && value ("submode") != QString {QChar ('A' + row.submode)}) return false;
   if (encoded.contains ("trperiod") && value ("trperiod").toInt () != row.trperiod) return false;
   if (encoded.contains ("spacing") && value ("spacing").toInt () != row.spacing) return false;
   if (encoded.contains ("copied") && value ("copied").toBool () != row.copied) return false;
-  if (rate && (value ("freq").toDouble () != lowestTone (row) || value ("rate").toInt () != rate)) return false;
+  if (encoded.contains ("fast") && value ("fast").toBool () != row.fast) return false;
+  if (encoded.contains ("kind") && value ("kind").toString () != row.kind) return false;
+  if (encoded.contains ("seconds") && value ("seconds").toInt () != row.seconds) return false;
+  if (encoded.contains ("cwid") && value ("cwid").toString () != row.cwid) return false;
+  if (rate && ((!single (row) && value ("freq").toDouble () != lowestTone (row)) || value ("rate").toInt () != rate))
+    return false;
   return true;
 }
 
@@ -839,9 +975,15 @@ private:
     auto& expected = m_expected;
     expected.clear ();
     QByteArray input;
+    QString call;
+    QStringList jt65;                            // gen65's last message, by row
     for (int i = 0; i < rows.size (); ++i)
       {
         expected << QVector<Transmission> {gui (rows[i], false), gui (rows[i]), gui (rows[i])};
+        jt65 << (rows[i].mode == "JT65" && !single (rows[i]) ? expected[i][0].msgsent
+                 : jt65.isEmpty () ? QString {} : jt65.last ());
+        if (!rows[i].cwid.isEmpty () && rows[i].cwid != call) input += station (rows[i]);
+        if (!rows[i].cwid.isEmpty ()) call = rows[i].cwid;
         input += control (request ("pack", 3 * i, rows[i]));
         input += control (render (3 * i + 1, rows[i], 12000));
         input += control (render (3 * i + 2, rows[i], 48000));
@@ -873,8 +1015,30 @@ private:
             QVERIFY2 (!reply.encoded.isEmpty (),
                       qPrintable (what + ": " + QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact)));
             QCOMPARE (reply.encoded.value ("mode").toString (), row.mode);
-            QCOMPARE (reply.encoded.value ("msgsent").toString (), gui.msgsent);
-            QCOMPARE (tones (reply.encoded), gui.tones);
+            if (single (row))
+              {
+                // The single tone's frequency is the GUI's itone[0]. JT65's
+                // encoder gives its last message, which the codec does not.
+                QVERIFY2 (!gui.tones.isEmpty () && reply.encoded.value ("freq").toInt () == gui.tones[0],
+                          qPrintable (what + ": freq"));
+                QCOMPARE (tones (reply.encoded), QVector<int> {});
+                if (row.mode == "JT65")
+                  {
+                    QCOMPARE (gui.msgsent, i > 0 ? jt65[i - 1] : QString {});
+                    QCOMPARE (reply.encoded.value ("msgsent").toString (), QString {});
+                  }
+                else
+                  {
+                    QCOMPARE (reply.encoded.value ("msgsent").toString (), gui.msgsent);
+                  }
+              }
+            else
+              {
+                QCOMPARE (reply.encoded.value ("msgsent").toString (), gui.msgsent);
+                // The GUI keys Echo CW from its Morse, not from the tones it
+                // makes of the message.
+                QCOMPARE (tones (reply.encoded), row.kind == "cw" ? QVector<int> {} : gui.tones);
+              }
             if (reply.encoded.contains ("type")) QCOMPARE (reply.encoded.value ("type").toInt (), gui.type);
             if (reply.encoded.contains ("fallback"))
               QVERIFY2 (reply.encoded.value ("fallback").toBool () == row.fallback, qPrintable (what + ": fallback"));
@@ -882,9 +1046,9 @@ private:
                       qPrintable (what + ": " + QJsonDocument {reply.encoded}.toJson (QJsonDocument::Compact).left (200)));
             if (k == 0) continue;
             auto const audio = k == 1 ? every4th (gui.audio) : gui.audio;
-            auto const shaped = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4"
-              || row.mode == "FST4" || row.mode == "FST4W";
-            auto const difference = firstDifference (reply.audio, audio, shaped ? 0 : 1);
+            auto const precomputed = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4"
+              || row.mode == "FST4" || row.mode == "FST4W" || (row.mode == "ECHO" && row.kind != "tone");
+            auto const difference = firstDifference (reply.audio, audio, precomputed ? 0 : 1);
             QVERIFY2 (difference < 0, qPrintable (QString {"%1: sample %2 of %3 (%4) differs from the GUI's (%5 of %6)"}
                                                   .arg (what).arg (difference).arg (reply.audio.size ())
                                                   .arg (reply.audio.value (difference)).arg (audio.value (difference))
@@ -1013,6 +1177,144 @@ private slots:
              r ("<PJ4/K1ABC> FN42AB 37"), r ("w9xyz en37 60", 2), r ("K1ABC FN42 3", 4)});
   }
 
+  // The Tune button in a mode, a steady tone at the mode's lowest tone, which
+  // the GUI's Modulator ends itself after 9999 times the mode's samples per
+  // symbol at 12 kHz, counted at 48 kHz (FT4: 120 s).
+  void tune ()
+  {
+    auto const r = [] (QString const& tuneMode, int txFreq, int seconds, int trperiod = 0)
+    {
+      auto t = at (with (row ("TUNE", ""), -1, trperiod), txFreq);
+      t.tuneMode = tuneMode;
+      t.seconds = seconds;
+      return t;
+    };
+    parity ({r ("FT8", 1500, 10), r ("FT4", 2350, 3), r ("MSK144", 1000, 4, 15), r ("WSPR", 1500, 2),
+             r ("FST4", 1200, 2, 60), r ("JT65", 700, 2), r ("Q65", 1500, 1, 30), r ("JT9", 1000, 600)});
+    if (QTest::currentTestFailed ()) return;
+    auto const audio = gui (r ("FT4", 1500, 121)).audio;
+    int const end = 9999 * 576;
+    QCOMPARE (audio.size (), 121 * 48000);
+    QVERIFY (std::any_of (audio.begin () + end - 100, audio.begin () + end + 1, [] (qint16 v) { return v != 0; }));
+    QVERIFY (std::all_of (audio.begin () + end + 1, audio.end (), [] (qint16 v) { return v == 0; }));
+  }
+
+  // The GUI's Echo mode: its fixed tone, message and CW, at 1500 Hz dithered
+  // as the GUI dithers it.
+  void echo ()
+  {
+    auto const r = [] (QString const& kind, QString const& text, int spacing = 1, double dither = 0)
+    {
+      auto e = row ("ECHO", text);
+      e.kind = kind;
+      e.spacing = spacing;
+      e.dither = dither;
+      return e;
+    };
+    parity ({r ("tone", ""), r ("tone", "", 1, -10), r ("tone", "", 1, 9.99), r ("tone", "", 1, 3.25),
+             r ("message", "K1JT", 10), r ("message", "W9XYZ", 30, -7.5), r ("message", "AB12CD", 15, 9.75),
+             r ("message", "k1jt", 20), r ("message", "Q", 25), r ("cw", "K1JT"), r ("cw", "Q"),
+             r ("cw", "123456"), r ("cw", "w9xyz")});
+  }
+
+  // The @ single tones of JT4, JT9, JT65 and Q65.
+  void singleTones ()
+  {
+    auto fast = with (row ("JT9", "@1500"), 7, 15);
+    fast.fast = true;
+    parity ({with (row ("JT65", "@1000"), 0), with (row ("JT4", "@1000"), 0), with (row ("JT4", "@"), 2),
+             with (row ("JT4", "@1000 HELLO"), 6), with (row ("JT4", "@ 700"), 1), with (row ("JT9", "@1200"), 0),
+             with (row ("JT9", "@2500"), 3, 0, 2), fast, with (row ("JT65", "CQ K1ABC FN42"), 0),
+             with (row ("JT65", "@1500"), 1), with (row ("JT65", "@ABCD"), 2), with (row ("JT65", "K1ABC W9XYZ -15"), 0),
+             with (row ("JT65", "@800"), 0), with (row ("Q65", "@800"), 0, 30), with (row ("Q65", "@3000"), 2, 60),
+             with (row ("Q65", "@"), 0, 15), with (row ("Q65", "@5950"), 0, 30),
+             with (row ("JT4", "@12345"), 0)});
+  }
+
+  // JT9's fast submodes, E to H, at each period.
+  void fastJt9 ()
+  {
+    QList<Row> rows;
+    auto const messages = messages72 ("JT9", 4);
+    for (int i = 0; i < messages.size (); ++i)
+      {
+        auto r = at (with (messages[i], 4 + i % 4, QList<int> {5, 10, 15, 30}[i % 4]), i % 2 ? 700 : 1500);
+        r.fast = true;
+        rows << r;
+      }
+    parity (rows);
+  }
+
+  // The GUI's CW ID of the station's call after the message, or in a fast
+  // mode instead of its last 5 s.
+  void cwId ()
+  {
+    auto const r = [] (Row r, QString const& call)
+    {
+      r.cwid = call;
+      return r;
+    };
+    auto fastG = with (row ("JT9", "CQ K1ABC FN42"), 6, 10);
+    fastG.fast = true;
+    auto fastE = at (with (row ("JT9", "K1ABC W9XYZ RRR"), 4, 30), 700);
+    fastE.fast = true;
+    parity ({r (with (row ("JT4", "CQ K1ABC FN42"), 0), "KJ5HST"),
+             r (with (row ("JT9", "K1ABC W9XYZ -15"), 0), "K1ABC"),
+             r (with (row ("JT65", "CQ K1ABC FN42"), 1), "PJ4/K1ABC"),
+             r (with (row ("Q65", "K1ABC W9XYZ R-07"), 0, 30), "KJ5HST"),
+             r (with (row ("FST4", "CQ K1ABC FN42"), -1, 60), "K1ABC"),
+             r (with (row ("FST4", "K1ABC W9XYZ 73"), -1, 15, 2), "KJ5HST"),
+             r (with (row ("FST4W", "K1ABC FN42 37"), -1, 120), "K1ABC"),
+             r (row ("WSPR", "K1ABC FN42 37"), "K1ABC"),
+             r (with (row ("MSK144", "CQ K1ABC FN42"), -1, 15), "KJ5HST"),
+             r (with (row ("MSK144", "K1ABC W9XYZ R-07"), -1, 5), "K1ABC"),
+             r (with (row ("MSK144", "<K1ABC W9XYZ> R+06"), -1, 30), "VK9/KH6ABC"),
+             r (fastG, "KJ5HST"),
+             r (fastE, "3D2/W9XYZ/P"),
+             // Morse's 250 elements, which the GUI's request cuts to 249, and 248.
+             r (with (row ("JT9", "CQ K1ABC FN42"), 0), "00000000001"),
+             r (with (row ("MSK144", "CQ K1ABC FN42"), -1, 15), "00000000002")});
+  }
+
+  // The CW ID's call comes from the last configure that named one, and is
+  // refused, the detail naming the cause, unless a configure kept it whole
+  // and Morse sends all of it.
+  void cwIdStation ()
+  {
+    auto const configure = [] (QString const& call) {
+      return control ({{"t", "configure"}, {"mycall", call}});
+    };
+    auto const jt65 = [] (qint64 id) {
+      return control ({{"t", "render"}, {"id", id}, {"mode", "JT65"}, {"submode", "A"}, {"text", "CQ K1ABC FN42"},
+                       {"freq", 1500}, {"rate", 12000}, {"cwid", true}});
+    };
+    auto const run = runCodec (jt65 (1) + configure ("K1#BC") + jt65 (2) + configure ("K1ABC") + jt65 (3)
+                               + configure ("") + jt65 (4) + configure (QString (65, 'K')) + jt65 (5)
+                               + configure ("ABCDEFGHIJ0123456789") + jt65 (6) + configure (" k1abc ") + jt65 (7)
+                               + control ({{"t", "configure"}, {"mygrid", "FN42"}}) + jt65 (8)
+                               + frame (0x02u, R"({"t":"configure","mycall":"K1\qBC"})") + jt65 (9)
+                               + configure ("K1ABC") + jt65 (10));
+    QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+    for (qint64 id : {1, 2, 4, 5, 6, 9})
+      {
+        auto const terminal = run.replies.value (id).terminal;
+        QVERIFY2 (terminal.value ("reason") == "not_configured" && terminal.value ("key") == "mycall",
+                  qPrintable (QString::number (id) + ": " + QJsonDocument {terminal}.toJson (QJsonDocument::Compact)));
+      }
+    struct Detail { qint64 id; char const * text; };
+    QStringList wrong;
+    for (auto const& d : {Detail {1, "no configure has set it"}, Detail {2, "a character Morse"},
+                          Detail {5, "longer than the 64 characters a configure keeps"},
+                          Detail {6, "250 Morse elements"}, Detail {9, "unreadable"}})
+      {
+        auto const detail = run.replies.value (d.id).terminal.value ("detail").toString ();
+        if (!detail.contains (d.text)) wrong << QString::number (d.id) + ": " + detail;
+      }
+    QVERIFY2 (wrong.isEmpty (), qPrintable (wrong.join ("; ")));
+    for (qint64 id : {3, 7, 8, 10})
+      QCOMPARE (run.replies.value (id).encoded.value ("cwid").toString (), QString {"K1ABC"});
+  }
+
   // The GUI's two sets of transmit hash tables, each kept across requests:
   // K0AAA and K0BAP have the same 12-bit hash, so after one of them a type 4
   // message with the other does not encode in the same set until a message
@@ -1044,7 +1346,8 @@ private slots:
     auto const run = runCodec ({});
     QVERIFY (!run.events.isEmpty ());
     QCOMPARE (run.events[0].value ("encodes").toArray (),
-              (QJsonArray {"FT8", "FT4", "JT4", "JT9", "JT65", "Q65", "FST4", "FST4W", "WSPR", "MSK144", "JTTY"}));
+              (QJsonArray {"FT8", "FT4", "JT4", "JT9", "JT65", "Q65", "FST4", "FST4W", "WSPR", "MSK144", "ECHO",
+                           "TUNE", "JTTY"}));
   }
 
   // A request with no mode, or mode JTTY, is answered as JTTY's always was.
@@ -1143,8 +1446,10 @@ private slots:
       QTest::newRow (tag) << json << reason << key;
     };
     add ("blank", R"({"t":"pack","id":1,"mode":"FT8","text":"   "})", "empty", "");
-    add ("JT9 single tone", R"({"t":"pack","id":1,"mode":"JT9","submode":"A","text":"@1000"})", "bad_request", "text");
-    add ("Q65 single tone", R"({"t":"pack","id":1,"mode":"Q65","submode":"A","trperiod":30,"text":"@1200"})",
+    add ("JT9 single tone 50", R"({"t":"pack","id":1,"mode":"JT9","submode":"A","text":"@50"})", "bad_request", "text");
+    add ("Q65 single tone slash", R"({"t":"pack","id":1,"mode":"Q65","submode":"A","trperiod":30,"text":"@/"})",
+         "bad_request", "text");
+    add ("JT65 single tone null value", R"({"t":"pack","id":1,"mode":"JT65","submode":"A","text":"@2*"})",
          "bad_request", "text");
     add ("MSK144 single tone", R"({"t":"pack","id":1,"mode":"MSK144","trperiod":15,"text":"@1000"})",
          "bad_request", "text");
@@ -1237,6 +1542,76 @@ private slots:
          "bad_request", "freq");
     add ("FST4W-1800 render", R"({"t":"render","id":1,"mode":"FST4W","trperiod":1800,"text":"K1ABC FN42 37","freq":1500,"rate":48000})",
          "too_long", "");
+    add ("JT4 single tone freq", R"({"t":"render","id":1,"mode":"JT4","submode":"A","text":"@1000","freq":1500,"rate":12000})",
+         "bad_request", "freq");
+    add ("Q65 single tone copied", R"({"t":"pack","id":1,"mode":"Q65","submode":"A","trperiod":30,"text":"@1000","copied":true})",
+         "bad_request", "copied");
+    add ("JT9 single tone cwid", R"({"t":"render","id":1,"mode":"JT9","submode":"A","text":"@1000","rate":12000,"cwid":true})",
+         "bad_request", "cwid");
+    add ("Q65 single tone 6000, 12 kHz", R"({"t":"render","id":1,"mode":"Q65","submode":"A","trperiod":30,"text":"@6000","rate":12000})",
+         "bad_request", "text");
+    add ("TUNE text", R"({"t":"pack","id":1,"mode":"TUNE","text":"TUNE"})", "bad_request", "text");
+    add ("TUNE no seconds", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000})", "bad_request", "seconds");
+    add ("TUNE 0 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":0})", "bad_request", "seconds");
+    add ("TUNE 601 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":601})", "bad_request", "seconds");
+    add ("TUNE 1.5 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":1.5})", "bad_request", "seconds");
+    add ("TUNE pack seconds", R"({"t":"pack","id":1,"mode":"TUNE","seconds":5})", "bad_request", "seconds");
+    add ("FT8 seconds", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"seconds":5})",
+         "bad_request", "seconds");
+    add ("TUNE submode", R"({"t":"pack","id":1,"mode":"TUNE","submode":"A"})", "bad_request", "submode");
+    add ("TUNE cwid", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":1,"cwid":true})",
+         "bad_request", "cwid");
+    add ("ECHO no kind", R"({"t":"pack","id":1,"mode":"ECHO","text":"K1JT"})", "bad_request", "kind");
+    add ("ECHO kind beep", R"({"t":"pack","id":1,"mode":"ECHO","kind":"beep"})", "bad_request", "kind");
+    add ("ECHO tone 1510", R"({"t":"render","id":1,"mode":"ECHO","kind":"tone","freq":1510,"rate":12000})",
+         "bad_request", "freq");
+    add ("FT8 kind", R"({"t":"pack","id":1,"mode":"FT8","kind":"tone","text":"CQ K1ABC FN42"})", "bad_request", "kind");
+    add ("ECHO tone text", R"({"t":"pack","id":1,"mode":"ECHO","kind":"tone","text":"K1JT"})", "bad_request", "text");
+    add ("ECHO message no text", R"({"t":"pack","id":1,"mode":"ECHO","kind":"message","spacing":10})", "bad_request", "text");
+    add ("ECHO message no spacing", R"({"t":"pack","id":1,"mode":"ECHO","kind":"message","text":"K1JT"})",
+         "bad_request", "spacing");
+    add ("ECHO message spacing 12", R"({"t":"pack","id":1,"mode":"ECHO","kind":"message","text":"K1JT","spacing":12})",
+         "bad_request", "spacing");
+    add ("ECHO tone spacing", R"({"t":"pack","id":1,"mode":"ECHO","kind":"tone","spacing":10})", "bad_request", "spacing");
+    add ("ECHO cw spacing", R"({"t":"pack","id":1,"mode":"ECHO","kind":"cw","text":"K1JT","spacing":10})",
+         "bad_request", "spacing");
+    add ("ECHO message slash", R"({"t":"pack","id":1,"mode":"ECHO","kind":"message","text":"K1/JT","spacing":10})",
+         "bad_request", "text");
+    add ("ECHO cw 7", R"({"t":"pack","id":1,"mode":"ECHO","kind":"cw","text":"K1JTXYZ"})", "too_long", "text");
+    add ("ECHO message blank", R"({"t":"pack","id":1,"mode":"ECHO","kind":"message","text":"  ","spacing":10})", "empty", "");
+    add ("ECHO tone 1489.5", R"({"t":"render","id":1,"mode":"ECHO","kind":"tone","freq":1489.5,"rate":12000})",
+         "bad_request", "freq");
+    add ("ECHO message 1511", R"({"t":"render","id":1,"mode":"ECHO","kind":"message","text":"K1JT","spacing":10,"freq":1511,"rate":12000})",
+         "bad_request", "freq");
+    add ("ECHO cw 1501", R"({"t":"render","id":1,"mode":"ECHO","kind":"cw","text":"K1JT","freq":1501,"rate":12000})",
+         "bad_request", "freq");
+    add ("ECHO cwid", R"({"t":"render","id":1,"mode":"ECHO","kind":"tone","freq":1500,"rate":12000,"cwid":true})",
+         "bad_request", "cwid");
+    add ("FT8 fast", R"({"t":"pack","id":1,"mode":"FT8","fast":true,"text":"CQ K1ABC FN42"})", "bad_request", "fast");
+    add ("JT9 fast yes", R"({"t":"pack","id":1,"mode":"JT9","fast":"yes","submode":"E","trperiod":15,"text":"CQ K1ABC FN42"})",
+         "bad_request", "fast");
+    add ("JT9 fast D", R"({"t":"pack","id":1,"mode":"JT9","fast":true,"submode":"D","trperiod":15,"text":"CQ K1ABC FN42"})",
+         "bad_request", "submode");
+    add ("JT9 fast no trperiod", R"({"t":"pack","id":1,"mode":"JT9","fast":true,"submode":"E","text":"CQ K1ABC FN42"})",
+         "bad_request", "trperiod");
+    add ("JT9 fast 60", R"({"t":"pack","id":1,"mode":"JT9","fast":true,"submode":"E","trperiod":60,"text":"CQ K1ABC FN42"})",
+         "bad_request", "trperiod");
+    add ("JT9 fast spacing", R"({"t":"pack","id":1,"mode":"JT9","fast":true,"submode":"E","trperiod":15,"spacing":2,"text":"CQ K1ABC FN42"})",
+         "bad_request", "spacing");
+    add ("JT9 slow trperiod", R"({"t":"pack","id":1,"mode":"JT9","submode":"A","trperiod":60,"text":"CQ K1ABC FN42"})",
+         "bad_request", "trperiod");
+    add ("JT9 fast H at 4500, 12 kHz", R"({"t":"render","id":1,"mode":"JT9","fast":true,"submode":"H","trperiod":15,"text":"CQ K1ABC FN42","freq":4500,"rate":12000})",
+         "bad_request", "freq");
+    add ("FT8 cwid", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"cwid":true})",
+         "bad_request", "cwid");
+    add ("FT4 cwid", R"({"t":"render","id":1,"mode":"FT4","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"cwid":true})",
+         "bad_request", "cwid");
+    add ("JT65 pack cwid", R"({"t":"pack","id":1,"mode":"JT65","submode":"A","text":"CQ K1ABC FN42","cwid":true})",
+         "bad_request", "cwid");
+    add ("JT65 cwid yes", R"({"t":"render","id":1,"mode":"JT65","submode":"A","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"cwid":"yes"})",
+         "bad_request", "cwid");
+    add ("JT65 cwid unconfigured", R"({"t":"render","id":1,"mode":"JT65","submode":"A","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"cwid":true})",
+         "not_configured", "mycall");
   }
 
   void refusals ()
@@ -1262,11 +1637,14 @@ private slots:
       + frame (0x02u, R"({"t":"pack","id":6,"mode":"WSPR","text":"PJ4/K1ABC 37"})")
       + frame (0x02u, R"({"t":"pack","id":7,"mode":"WSPR","text":"1A/KH6AB 37"})")
       + frame (0x02u, R"({"t":"pack","id":8,"mode":"WSPR","text":"<PJ4/K1ABC> FN42AB 37"})")
+      + frame (0x02u, R"({"t":"pack","id":9,"mode":"ECHO","kind":"Tone"})")
+      + frame (0x02u, R"({"t":"pack","id":10,"mode":"Q65","submode":"A","trperiod":30,"text":"@1500","copied":false})")
+      + frame (0x02u, R"({"t":"render","id":11,"mode":"Q65","submode":"A","trperiod":15,"text":"@1500","rate":12000,"cwid":false})")
       + frame (0x02u, R"({"t":"pack","id":1.5,"mode":"FT8","text":"CQ K1ABC FN42"})")
       + frame (0x02u, R"({"t":"render","mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000})"));
     QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
-    QCOMPARE (run.replies.size (), 8);
-    for (qint64 id = 1; id <= 8; ++id)
+    QCOMPARE (run.replies.size (), 11);
+    for (qint64 id = 1; id <= 11; ++id)
       QVERIFY2 (!run.replies.value (id).encoded.isEmpty (),
                 qPrintable (QJsonDocument {run.replies.value (id).terminal}.toJson (QJsonDocument::Compact)));
     QCOMPARE (run.replies.value (1).encoded.value ("msgsent").toString (), QString {"CQ K1ABC FN42"});
@@ -1275,6 +1653,7 @@ private slots:
     for (qint64 id = 6; id <= 8; ++id)
       QCOMPARE (run.replies.value (id).encoded.value ("msgsent").toString (),
                 QStringList ({"PJ4/K1ABC 37", "1A/KH6AB 37", "<PJ4/K1ABC> FN42AB 37"})[id - 6]);
+    QCOMPARE (run.replies.value (9).encoded.value ("kind").toString (), QString {"tone"});
     QCOMPARE (run.events.size (), 3);
     for (int i = 1; i < 3; ++i)
       QCOMPARE (run.events[i].value ("code").toString (), QString {"invalid_request_id"});
