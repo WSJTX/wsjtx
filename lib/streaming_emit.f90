@@ -242,7 +242,7 @@ contains
        '{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W",' // &
        '"Q65","MSK144","JTTY"],' // &
        '"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144",' // &
-       '"ECHO","TUNE","JTTY"],"protocol":1}'
+       '"ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}'
     flush(output_unit)
   end subroutine streaming_emit_ready
 

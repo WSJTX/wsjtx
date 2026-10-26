@@ -19,7 +19,8 @@
 !   {"t":"pack","id":I,"mode":M,"text":S,...}
 !   {"t":"render","id":I,"mode":M,"text":S,...,"freq":F,"rate":R}
 ! I as in JTTY's requests. M, case aside: FT8, FT4, JT4, JT9, JT65, Q65, FST4,
-! FST4W, WSPR, MSK144, ECHO (the GUI's Echo mode) or TUNE (its Tune button).
+! FST4W, WSPR, MSK144, ECHO (the GUI's Echo mode), TUNE (its Tune button), or
+! FOX and SUPERFOX (its FT8 Fox, below).
 ! The codec takes S less its outer spaces, which the GUI's Tx box keeps (and
 ! its FST4 and MSK144 encoders then drop characters after leading blanks; the
 ! codec does not follow it there). If that is
@@ -89,7 +90,10 @@
 ! misspelt or mis-cased one included, is refused with that key as written
 ! (keys are matched without escapes; a byte not UTF-8 is reported as '?'),
 ! as are JTTY's keys and, on a pack, freq, rate, seconds and cwid; configure,
-! unlike pack and render, ignores keys it does not know.
+! unlike pack and render, ignores keys it does not know. A request holds no
+! array but a Fox's slots: any other key whose value is an array or object,
+! a misspelt "slots" among them, makes it a request that is not flat
+! (bad_request with no key).
 !
 ! A request's reply lines are consecutive, each carries its id, and the last
 ! is packed, rendered or rejected. pack answers encoded then packed; render
@@ -197,7 +201,8 @@
 !                    at 900 and 1800 s
 !   not_configured   mycall: a CW ID and no call it can send
 !   encoding_failed  none
-! A request without such an id gets error invalid_request_id.
+! and for FOX and SUPERFOX those below. A request without such an id gets
+! error invalid_request_id.
 !
 ! A hashed call (<CALL>) is resolved through the transmitter's hash tables,
 ! which the codec keeps as the GUI keeps its own: one set for FT8 and FT4 and
@@ -209,6 +214,74 @@
 ! first, replaces the other. (The GUI's second set also takes the calls of
 ! every 77-bit decode it shows, Decoder/decodedtext.cpp, and of its own
 ! MSK144 decoder.)
+!
+! The GUI's Fox (FT8 with its Fox special operation) sends up to five FT8
+! messages at once, one a slot, and with its SuperFox option packs them into
+! one transmission:
+!   {"t":"pack","id":I,"mode":"FOX","slots":[S,...]}
+!   {"t":"pack","id":I,"mode":"SUPERFOX","slots":[S,...],"text":T,
+!    "more_cqs":B,"otp":N}
+! and their renders with "freq" and "rate". slots, required, are one to five
+! messages as MainWindow::foxTxSequencer writes them (four for a SuperFox
+! with text), each less its outer spaces and at most 37 bytes, taken as
+! written: the GUI does not upper-case them. A SuperFox slot must be one of
+! the forms the GUI writes, word for word, since foxgen2 and sfox_assemble
+! alter or drop most other text without saying so (sfox_pack refuses some
+! itself): "CQ CALL GRID4" (the GUI writes "CQ CALL" for a compound call,
+! which sfox_pack refuses), "HOUND CALL RR73",
+! "HOUND CALL RPT" and "HOUND1 RR73; HOUND2 <CALL> RPT", RPT a sign and two
+! digits (sfox_pack takes -18 to +12; zero is +00, as the GUI writes it), each
+! HOUND at most 6 characters, as the GUI queues them. The slots name the Fox
+! call as the GUI writes it: whole, the same, in every combined slot, and as
+! its base call (Radio::base_callsign) in every other Hound slot. SuperFox
+! sends the last slot's for every Hound, and sfox_pack takes a CQ only as
+! three words and the Fox call of Hound messages only as a standard call, so
+! for a compound or suffixed Fox call, whose base call differs from it, the
+! GUI's CQ, which drops the grid, is refused ("CQ CALL GRID4" encodes), and
+! the last slot must be one that names the base call; the GUI's own SuperFox
+! fails the same way. A CQ slot goes alone, as the GUI writes one only when
+! it has no Hound to call: with Hound slots SuperFox would send only the CQ.
+! SuperFox carries at most 5 Hounds with RR73 and 4 with reports, 9 in all,
+! or 4 in all with text; a combined slot holds one of each. T, its free text,
+! is upper-cased and keeps its leading blanks, as the GUI's is, and is at
+! most 26 bytes less its trailing blanks; it is sent when given, even blank.
+! more_cqs (default false) is the GUI's More CQs; N (default 0, the GUI's
+! code with verification off) is the six-digit verification code the GUI
+! makes from the operator's seed and the time, which the client makes.
+! FOX's F is the lowest tone of its first slot, a JSON integer from 200 to
+! 5000 Hz, each later slot 60 Hz above the last (the GUI keeps it at 900 Hz
+! or below, moving a higher one to 500, and unless Hold Tx Freq picks it
+! from 300 to 598 Hz for each transmission); SUPERFOX's is 750, a JSON
+! integer.
+! FOX's encoded line has "slots", for each its "msgsent", "tones" and
+! "fallback" as FT8's, instead of msgsent and tones; SUPERFOX's has "tones",
+! its 151 channel symbols (0 to 128), "more_cqs" and "otp", and no msgsent:
+! the GUI shows and logs the slots and the text as written, and a Hound
+! decodes what sfox_pack packs from them. Both pack with FT8's hash tables:
+! a FOX request's slots enter them in turn, and a SUPERFOX request's Fox and
+! Hound calls do (a CQ's call does not).
+! FOX's audio is foxgen's: each slot's tones as phase-continuous tones
+! without FT8's shaping, summed, scaled to full scale, filtered (foxfilt)
+! and scaled again, 79 symbols of 1920 samples at 12 kHz and one sample.
+! foxfilt's FFTs are planned as the GUI plans them (FFTW_ESTIMATE).
+! SUPERFOX's is sfox_wave_gfsk's GFSK of its tones at 750 Hz, 11.72 Hz a
+! tone, with a ramp symbol either side: 153 symbols of 1024 samples and one.
+! The GUI starts a Fox 0.5 s and a SuperFox 0.4 s into its period. Each
+! refusal's R and K:
+!   empty            slots: a slot is blank
+!   too_long         slots: a slot is longer than 37 bytes; text: the free
+!                    text is longer than 26
+!   bad_request      slots: they are not one to five JSON strings (four
+!                    with text), a FOX slot does not encode in FT8 (which the
+!                    GUI's Fox would send as a steady tone) or a hashed call
+!                    in it collides, a SUPERFOX slot is none of its forms or
+!                    has a longer Hound call, the slots name different Fox
+!                    calls, a CQ slot is not alone, they hold more Hounds than
+!                    SuperFox carries, or sfox_pack refuses them (invalid
+!                    message tokens, callsign, CQ call or grid, or a report
+!                    outside -18 to +12); text: its free text has a character
+!                    SuperFox does not send; otp: not a JSON integer from 0
+!                    to 999999.
 !
 ! A slot-mode request is answered as JTTY's are, in order between frames
 ! (lib/streaming_jtty.f90), on the thread that decodes. On live audio its time
@@ -224,7 +297,8 @@ module streaming_encode
        c_int, c_float, c_float_complex
   use, intrinsic :: iso_fortran_env, only: int64, output_unit
   use streaming_control, only: slot_request, parse_slot_request,              &
-       encode_request_mode, MODE_JTTY, MODE_WSPR, MODE_ECHO, MODE_TUNE
+       encode_request_mode, MODE_JTTY, MODE_WSPR, MODE_ECHO, MODE_TUNE,        &
+       MODE_FOX, MODE_SUPERFOX
   use streaming_emit, only: streaming_emit_error_code, streaming_emit_json_escape
   use streaming_jtty, only: jtty_encode, encode_emit_rejected, encode_emit_pcm, &
        encode_station_call
@@ -237,6 +311,8 @@ module streaming_encode
   use fst4_tx, only: genfst4_for_state
   use q65_tx, only: genq65_for_state
   use msk144_tx, only: genmsk_128_90_for_state
+  use fox_tx, only: foxgen_for_state
+  use sfox_tx, only: sftx_for_state, sfox_wave_for_tones
   implicit none
   private
 
@@ -374,6 +450,10 @@ contains
     id = itoa_(int(req%id, int64))
     if (len(req%problem) .gt. 0) then
        call encode_emit_rejected(id, 'bad_request', req%problem_key, req%problem)
+       return
+    end if
+    if (req%mode .eq. MODE_FOX .or. req%mode .eq. MODE_SUPERFOX) then
+       call fox_encode_(req, render, id)
        return
     end if
 
@@ -527,7 +607,7 @@ contains
                unused_tones, n_unused, t_unused, ok)
           if (trim(unused) .ne. BAD_MESSAGE) then
              line = 'FST4, FST4W, Q65 or MSK144'
-             if (req%mode .eq. 8 .or. req%mode .eq. 5) line = 'FT8 or FT4'
+             if (req%mode .eq. 8 .or. req%mode .eq. 5) line = 'FT8, FT4, FOX or SUPERFOX'
              call encode_emit_rejected(id, 'bad_request', 'text', 'a hashed ' // &
                   'call in it has the hash of another call already sent in ' // &
                   line // '; send the call in full in a message first, which ' // &
@@ -611,6 +691,345 @@ contains
     call encode_emit_pcm(id, 0, samples)
     call emit_line_('{"v":1,"t":"rendered","id":' // id // '}')
   end subroutine slot_encode_
+
+  ! A FOX or SUPERFOX request, whose id is id, generated as the GUI's Fox
+  ! generates its transmission (MainWindow::foxTxSequencer, foxgen, sfox_tx).
+  subroutine fox_encode_(req, render, id)
+    type(slot_request), intent(in) :: req
+    logical,            intent(in) :: render
+    character(len=*),   intent(in) :: id
+    type(pack77_state), target :: trial, wave_tables, fresh
+    type(stream_tx) :: tx
+    character(len=40) :: cmsg(5)
+    character(len=37) :: msgsent(5), unused
+    character(len=77) :: c77
+    character(len=10) :: ckey
+    character(len=:), allocatable :: line, text, slot, message
+    integer(c_int32_t) :: tones(151), itone(79, 5), unused_tone(79), cw(1)
+    integer(kind=1) :: msgbits(77, 5), unused_bits(77)
+    integer(c_int16_t), allocatable :: samples(:)
+    real(c_float), allocatable :: wave(:)
+    integer(c_int32_t) :: count, ntones
+    integer :: n, i, first, last, nslots, i3, n3, status, pack_error, alloc_status, patience
+    logical :: fallback(5)
+    integer :: npatience, nthreads
+    common/patience/npatience, nthreads
+
+    cmsg = ' '
+    text = ''
+    slot = ''
+    nslots = req%nslots
+    do n = 1, nslots
+       slot = itoa_(int(n, int64))
+       first = verify(req%slots(n), ' ')
+       last = verify(req%slots(n), ' ', back=.true.)
+       if (first .eq. 0) then
+          call encode_emit_rejected(id, 'empty', 'slots', 'slot ' // slot // ' is blank')
+          return
+       end if
+       if (req%slot_long(n) .or. last - first + 1 .gt. 37) then
+          call encode_emit_rejected(id, 'too_long', 'slots', 'slot ' // slot //        &
+               ' is longer than the 37 bytes the GUI''s Fox encodes')
+          return
+       end if
+       message = req%slots(n)(first:last)
+       cmsg(n) = message
+    end do
+    if (req%mode .eq. MODE_SUPERFOX) then
+       call superfox_slots_(cmsg, nslots, req%send_text, line)
+       if (len(line) .gt. 0) then
+          call encode_emit_rejected(id, 'bad_request', 'slots', line)
+          return
+       end if
+    end if
+    if (req%mode .eq. MODE_SUPERFOX .and. req%send_text) then
+       ! The GUI's free text keeps its leading blanks and is upper-cased.
+       last = verify(req%text, ' ', back=.true.)
+       if (last .gt. 0) text = upper_(req%text(1:last))
+       if (len(text) .gt. 26) then
+          call encode_emit_rejected(id, 'too_long', 'text', 'the free text is longer ' // &
+               'than the 26 bytes SuperFox sends')
+          return
+       end if
+    end if
+
+    tx%mode = req%mode
+    tx%rate = req%rate
+    tx%freq = req%freq
+    count = 0
+    tones = 0
+    allocate(wave(merge(merge(79 * 4 * 1920, 153 * 4096, req%mode .eq. MODE_FOX), 0, render)))
+    ! At 12000 Hz neither folds back: FOX's top tone is at most 5283.75 Hz,
+    ! and SUPERFOX's 2250.
+    if (render) then
+       count = stream_slot_samples(tx, 0)
+       if (count .le. 0) then
+          call encode_emit_rejected(id, 'encoding_failed', '', 'the audio has no length')
+          return
+       end if
+    end if
+
+    trial = ft_tables_
+    line = '{"v":1,"t":"encoded","id":' // id // ',"mode":"' // mode_name_(req%mode) // '"'
+    if (req%mode .eq. MODE_FOX) then
+       ! foxgen encodes each slot with genft8 and the GUI's FT8 tables, in turn.
+       do n = 1, nslots
+          call pack77_for_state(trial, cmsg(n)(1:37), i3, n3, c77,                &
+               pack77_options(record_tx_hashes=.false.), status)
+          call genft8_for_state(trial, cmsg(n)(1:37), i3, n3, msgsent(n),        &
+               msgbits(:, n), itone(:, n))
+          if (trim(msgsent(n)) .eq. BAD_MESSAGE) then
+             slot = itoa_(int(n, int64))
+             call genft8_for_state(fresh, cmsg(n)(1:37), i3, n3, unused, unused_bits, &
+                  unused_tone)
+             if (trim(unused) .ne. BAD_MESSAGE) then
+                call encode_emit_rejected(id, 'bad_request', 'slots', 'a hashed ' //  &
+                     'call in slot ' // slot // ' has the hash of another call ' //    &
+                     'already sent in FT8, FT4, FOX or SUPERFOX; send the call in ' //  &
+                     'full in a message first, which replaces the other')
+             else
+                call encode_emit_rejected(id, 'bad_request', 'slots', 'slot ' //      &
+                     slot // ' does not encode in FT8 (the GUI''s ' // BAD_MESSAGE //    &
+                     ', which its Fox sends as a steady tone)')
+             end if
+             return
+          end if
+          fallback(n) = status .ne. PACK77_STATUS_ENCODED
+       end do
+       line = line // ',"slots":['
+       do n = 1, nslots
+          if (n .gt. 1) line = line // ','
+          line = line // '{"msgsent":"' // escaped_(msgsent(n)) // '","tones":['
+          do i = 1, 79
+             if (i .gt. 1) line = line // ','
+             line = line // itoa_(int(itone(i, n), int64))
+          end do
+          line = line // '],"fallback":' // trim(merge('true ', 'false', fallback(n))) // '}'
+       end do
+       line = line // ']'
+       tones(1) = itone(1, 1)
+       ntones = 1
+       if (render) then
+          ! The GUI plans foxfilt's FFTs with its patience, 0.
+          wave_tables = ft_tables_
+          patience = npatience
+          npatience = 0
+          call foxgen_for_state(wave_tables, nslots, cmsg, nint(req%freq), wave,  &
+               msgsent, itone, msgbits)
+          npatience = patience
+       end if
+    else
+       ! foxgen's SuperFox flags, then sfox_tx's packing with the GUI's FT8
+       ! tables and the verification code req%otp.
+       if (req%more_cqs) cmsg(1)(40:40) = '1'
+       if (req%send_text) then
+          nslots = nslots + 1
+          cmsg(nslots) = text
+          cmsg(nslots)(39:39) = '1'
+       end if
+       write(ckey, '(a,i0)') 'OTP:', req%otp
+       call sftx_for_state(trial, ckey, nslots, cmsg, tones, pack_error)
+       if (pack_error .ne. 0) then
+          call superfox_refusal_(id, pack_error)
+          return
+       end if
+       ntones = 151
+       line = line // ',"tones":['
+       do i = 1, 151
+          if (i .gt. 1) line = line // ','
+          line = line // itoa_(int(tones(i), int64))
+       end do
+       line = line // '],"more_cqs":' // trim(merge('true ', 'false', req%more_cqs)) // &
+            ',"otp":' // itoa_(int(req%otp, int64))
+       if (render) call sfox_wave_for_tones(tones, wave)
+    end if
+    ft_tables_ = trial
+
+    if (.not. render) then
+       call emit_line_(line // '}')
+       call emit_line_('{"v":1,"t":"packed","id":' // id // '}')
+       return
+    end if
+    line = line // ',"freq":' // number_(req%freq) // ',"rate":' // itoa_(int(req%rate, int64))
+    allocate(samples(count), stat=alloc_status)
+    if (alloc_status .eq. 0) count = stream_slot_render(tx, tones, ntones,     &
+         wave, size(wave, kind=c_int32_t), cw, 0, samples, count)
+    if (alloc_status .ne. 0 .or. count .ne. size(samples)) then
+       call encode_emit_rejected(id, 'encoding_failed', '', 'the audio did not render')
+       return
+    end if
+    call emit_line_(line // ',"samples":' // itoa_(int(count, int64)) // '}')
+    call encode_emit_pcm(id, 0, samples)
+    call emit_line_('{"v":1,"t":"rendered","id":' // id // '}')
+  end subroutine fox_encode_
+
+  ! Whether msg is one of the messages the GUI's SuperFox builds, as foxgen2
+  ! sorts them, and names the Fox's call (with none, sfox_assemble would send
+  ! the call of an earlier transmission).
+  subroutine superfox_slots_(cmsg, nslots, send_text, problem)
+    character(len=40),             intent(in)  :: cmsg(5)
+    integer,                       intent(in)  :: nslots
+    logical,                       intent(in)  :: send_text
+    character(len=:), allocatable, intent(out) :: problem
+    character(len=37) :: words(6)
+    character(len=:), allocatable :: slot, fox, whole, single
+    integer :: n, nwords, i, rr73, reports, cqs
+    logical :: ok, paired
+
+    problem = ''
+    rr73 = 0
+    reports = 0
+    cqs = 0
+    whole = ''
+    single = ''
+    do n = 1, nslots
+       slot = 'slot ' // itoa_(int(n, int64))
+       call split_words_(upper_(cmsg(n)(1:37)), words, nwords)
+       fox = ''
+       ok = .false.
+       if (words(1) .eq. 'CQ') then
+          ! CQ CALL GRID4, or CQ CALL for a compound call, which sfox_pack refuses.
+          ok = nwords .eq. 3 .or. (nwords .eq. 2 .and. index(words(2), '/') .gt. 0)
+          cqs = cqs + 1
+       else if (nwords .eq. 3) then
+          ok = trim(words(3)) .eq. 'RR73' .or. report_(words(3))
+          fox = trim(words(2))
+          if (trim(words(3)) .eq. 'RR73') rr73 = rr73 + 1
+          if (report_(words(3))) reports = reports + 1
+       else if (nwords .eq. 5) then
+          i = len_trim(words(4))
+          ok = trim(words(2)) .eq. 'RR73;' .and. words(4)(1:1) .eq. '<' .and.      &
+               words(4)(i:i) .eq. '>' .and. i .ge. 3 .and. report_(words(5))
+          if (ok) fox = words(4)(2:i - 1)
+          rr73 = rr73 + 1
+          reports = reports + 1
+       end if
+       if (.not. ok) then
+          problem = slot // ' is none of the GUI''s SuperFox messages: CQ CALL ' //  &
+               'GRID4, HOUND CALL RR73, HOUND CALL RPT or HOUND1 RR73; HOUND2 ' //    &
+               '<CALL> RPT, RPT a sign and two digits (+00, not -00)'
+          return
+       end if
+       ! The GUI queues a Hound only when its base call is at most 6 characters
+       ! (MainWindow's superFoxQueueableHound); foxgen2 cuts longer ones.
+       if (words(1) .ne. 'CQ' .and. (len_trim(words(1)) .gt. 6 .or.               &
+            (nwords .eq. 5 .and. len_trim(words(3)) .gt. 6))) then
+          problem = slot // ' has a Hound call longer than the 6 characters ' //    &
+               'SuperFox sends'
+          return
+       end if
+       ! The GUI writes its call whole in each combined slot and as its base
+       ! call in the others.
+       if (len(fox) .gt. 0) then
+          if (nwords .eq. 5) then
+             if (len(whole) .eq. 0) whole = fox
+             paired = fox .eq. whole
+          else
+             if (len(single) .eq. 0) single = fox
+             paired = fox .eq. single
+          end if
+          if (paired .and. len(whole) .gt. 0 .and. len(single) .gt. 0)         &
+               paired = single .eq. base_call_(whole)
+          if (.not. paired) then
+             problem = 'the slots name different Fox calls: the GUI writes its ' // &
+                  'call whole in each combined slot and as its base call in ' //    &
+                  'the others, and SuperFox sends the last slot''s for every Hound'
+             return
+          end if
+       end if
+    end do
+    if (cqs .gt. 0 .and. nslots .gt. 1) then
+       problem = 'a CQ slot goes alone: with one, SuperFox sends only the CQ (the ' // &
+            'GUI writes a CQ only when it has no Hound slot)'
+    else if (reports .gt. 4 .or. (send_text .and. rr73 + reports .gt. 4)) then
+       ! Five slots hold at most five RR73s, so nine Hounds in all.
+       problem = 'the slots hold ' // itoa_(int(rr73 + reports, int64)) //           &
+            ' Hounds; SuperFox sends at most 5 RR73s and 4 reports, 9 Hounds in ' //  &
+            'all, or 4 with free text (a combined slot holds two)'
+    end if
+
+  contains
+
+    ! A report as the GUI writes one: a sign and two digits, zero as +00.
+    logical function report_(word)
+      character(len=*), intent(in) :: word
+      report_ = len_trim(word) .eq. 3 .and. (word(1:1) .eq. '+' .or.             &
+           word(1:1) .eq. '-') .and. verify(word(2:3), '0123456789') .eq. 0 .and. &
+           word(1:3) .ne. '-00'
+    end function report_
+
+  end subroutine superfox_slots_
+
+  ! s's blank-separated words, the first size(words) of them, and their count.
+  subroutine split_words_(s, words, nwords)
+    character(len=*), intent(in)  :: s
+    character(len=*), intent(out) :: words(:)
+    integer,          intent(out) :: nwords
+    integer :: i
+    logical :: inword
+    words = ' '
+    nwords = 0
+    inword = .false.
+    do i = 1, len(s)
+       if (s(i:i) .eq. ' ') then
+          inword = .false.
+       else
+          if (.not. inword) nwords = nwords + 1
+          inword = .true.
+          if (nwords .le. size(words)) words(nwords) = trim(words(nwords)) // s(i:i)
+       end if
+    end do
+  end subroutine split_words_
+
+  ! Radio::base_callsign: call less its operating suffixes (/P, /QRP, ...),
+  ! then of a compound call the longer part, the part after / on a tie.
+  function base_call_(call) result(base)
+    character(len=*), intent(in) :: call
+    character(len=:), allocatable :: base
+    integer :: slash
+    base = upper_(trim(call))
+    do
+       slash = index(base, '/', back=.true.)
+       if (slash .eq. 0) exit
+       select case (base(slash + 1:))
+       case ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'M', 'P', 'Q', &
+            'R', 'QRP', 'FD', 'FF', 'AM', 'MM', 'LH', 'LT', 'LGT')
+          base = base(1:slash - 1)
+       case default
+          exit
+       end select
+    end do
+    slash = index(base, '/')
+    if (slash .gt. 0) then
+       if (len(base) - slash .ge. slash - 1) then
+          base = base(slash + 1:)
+       else
+          base = base(1:slash - 1)
+       end if
+    end if
+  end function base_call_
+
+  ! sfox_pack's error code as a refusal, with MainWindow::sfox_tx's words.
+  subroutine superfox_refusal_(id, pack_error)
+    character(len=*), intent(in) :: id
+    integer,          intent(in) :: pack_error
+    select case (pack_error)
+    case (2)
+       call encode_emit_rejected(id, 'bad_request', 'otp', 'invalid verification code')
+    case (3)
+       call encode_emit_rejected(id, 'bad_request', 'slots', 'invalid CQ call or grid')
+    case (4)
+       call encode_emit_rejected(id, 'bad_request', 'slots', 'invalid callsign')
+    case (5)
+       call encode_emit_rejected(id, 'bad_request', 'slots', 'report is outside ' //     &
+            'the SuperFox range')
+    case (6)
+       call encode_emit_rejected(id, 'bad_request', 'text', 'free text contains ' //     &
+            'unsupported characters')
+    case default
+       call encode_emit_rejected(id, 'bad_request', 'slots', 'invalid message tokens')
+    end select
+  end subroutine superfox_refusal_
 
   ! The GUI's message buffer for text: MainWindow::ba2msg.
   subroutine tx_buffer_(text, message)
@@ -988,6 +1407,10 @@ contains
        name = 'ECHO'
     case (MODE_TUNE)
        name = 'TUNE'
+    case (MODE_FOX)
+       name = 'FOX'
+    case (MODE_SUPERFOX)
+       name = 'SUPERFOX'
     case default
        name = 'WSPR'
     end select

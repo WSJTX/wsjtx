@@ -22,7 +22,7 @@
 !
 ! Restrictions (deliberate scope):
 !   - Flat objects only; no nested objects, and no arrays except
-!     configure's phase_eq.
+!     configure's phase_eq and a Fox's slots (lib/streaming_encode.f90).
 !   - Numeric values must be plain decimal (no scientific notation),
 !     except where a key's rule says otherwise (render's freq and each
 !     phase_eq element are JSON numbers). Configure's integer keys must be
@@ -52,11 +52,13 @@ module streaming_control
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
-  ! WSPR, Echo and Tune, which only encode requests name, have no jt9 mode
-  ! number either.
+  ! WSPR, Echo, Tune, Fox and SuperFox, which only encode requests name, have
+  ! no jt9 mode number either.
   integer, parameter, public :: MODE_WSPR = 1001
   integer, parameter, public :: MODE_ECHO = 1002
   integer, parameter, public :: MODE_TUNE = 1003
+  integer, parameter, public :: MODE_FOX = 1004
+  integer, parameter, public :: MODE_SUPERFOX = 1005
   ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
   integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
   integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
@@ -456,9 +458,12 @@ module streaming_control
 
   ! A slot mode's pack or render request, read by parse_slot_request: id_ok,
   ! problem and problem_key as in encode_request. mode is jt9's mode number
-  ! (MODE_WSPR, MODE_ECHO or MODE_TUNE for the others), submode -1 and
-  ! trperiod 0 for a mode without them. single: text is a single tone (@),
-  ! which takes no freq. kind: Echo's 1 fixed tone, 2 message, 3 CW.
+  ! (MODE_WSPR, MODE_ECHO, MODE_TUNE, MODE_FOX or MODE_SUPERFOX for the
+  ! others), submode -1 and trperiod 0 for a mode without them. single: text
+  ! is a single tone (@), which takes no freq. kind: Echo's 1 fixed tone, 2
+  ! message, 3 CW. slots: a Fox's nslots messages, slot_long where one has
+  ! more bytes than slots holds; send_text: a SuperFox request's text, its
+  ! free text, is given.
   type, public :: slot_request
      logical :: id_ok    = .false.
      integer :: id       = 0
@@ -471,6 +476,12 @@ module streaming_control
      logical :: fast     = .false.
      logical :: single   = .false.
      integer :: kind     = 0
+     character(len=512) :: slots(5) = ' '
+     logical :: slot_long(5) = .false.
+     integer :: nslots   = 0
+     logical :: send_text = .false.
+     logical :: more_cqs = .false.
+     integer :: otp      = 0
      real(8) :: freq     = 0.d0                 ! render only
      integer :: rate     = 0                    ! render only
      integer :: seconds  = 0                    ! render only
@@ -2416,8 +2427,14 @@ contains
   integer function slot_mode_(name)
     character(len=*), intent(in) :: name
     slot_mode_ = 0
-    if (len(name) .gt. 6 .or. len(name) .eq. 0 .or. index(name, ' ') .gt. 0) return
+    if (len(name) .gt. 8 .or. len(name) .eq. 0 .or. index(name, ' ') .gt. 0) return
     select case (upper_(name))
+    case ('FOX')
+       slot_mode_ = MODE_FOX
+       return
+    case ('SUPERFOX')
+       slot_mode_ = MODE_SUPERFOX
+       return
     case ('WSPR')
        slot_mode_ = MODE_WSPR
        return
@@ -2442,12 +2459,14 @@ contains
     character(len=*), parameter :: JTTY_KEYS(7) = [character(len=8) ::       &
          'template', 'final', 'profile', 'his_call', 'exchange', 'serial',   &
          'report']
-    character(len=*), parameter :: KEYS(21) = [character(len=8) :: 't', 'id',  &
+    character(len=*), parameter :: KEYS(24) = [character(len=8) :: 't', 'id',  &
          'mode', 'text', 'submode', 'trperiod', 'spacing', 'copied', 'fast',   &
-         'kind', JTTY_KEYS, 'freq', 'rate', 'seconds', 'cwid']
+         'kind', 'slots', 'more_cqs', 'otp', JTTY_KEYS, 'freq', 'rate',        &
+         'seconds', 'cwid']
     character(len=:), allocatable :: name, word, key
+    character(len=len(buf)) :: flat
     character(len=8) :: cat
-    integer :: i, vstart, blen, highest
+    integer :: i, vstart, blen, highest, first, last
     logical :: present, ok
 
     req%text = ''
@@ -2456,7 +2475,16 @@ contains
     call request_int_(top_level_(buf), '"id"', req%id, present, req%id_ok)
     req%id_ok = present .and. req%id_ok
     if (.not. req%id_ok) return
-    if (nested_(buf)) then
+    ! A Fox's slots are the one array a request may hold.
+    call string_array_(buf, '"slots"', req%slots, req%slot_long, req%nslots,  &
+         present, ok, first, last)
+    if (present .and. .not. ok) then
+       call refuse_('slots', 'slots must be an array of JSON strings')
+       return
+    end if
+    flat = buf
+    if (present) flat(first:last) = ' '
+    if (nested_(flat)) then
        call refuse_('', 'a request is a flat JSON object')
        return
     end if
@@ -2465,10 +2493,10 @@ contains
     if (ok) req%mode = slot_mode_(name)
     if (req%mode .eq. 0) then
        call refuse_('mode', 'mode must be FT8, FT4, JT4, JT9, JT65, Q65, FST4, ' // &
-            'FST4W, WSPR, MSK144, ECHO, TUNE or JTTY')
+            'FST4W, WSPR, MSK144, ECHO, TUNE, FOX, SUPERFOX or JTTY')
        return
     end if
-    key = unknown_key_(buf, KEYS(1:merge(21, 17, render)))
+    key = unknown_key_(buf, KEYS(1:merge(24, 20, render)))
     if (len(key) .gt. 0) then
        if (.not. render .and. (key .eq. 'seconds' .or. key .eq. 'cwid')) then
           call refuse_(key, key // ' is a render key')
@@ -2514,14 +2542,64 @@ contains
     end if
 
     call request_string_(buf, '"text"', req%text, present, ok)
-    if (req%mode .eq. MODE_TUNE .or. req%kind .eq. 1) then
+    if (req%mode .eq. MODE_TUNE .or. req%kind .eq. 1 .or. req%mode .eq. MODE_FOX) then
        if (present) then
-          call refuse_('text', 'text is not a key of ' //                     &
-               trim(merge('TUNE              ', 'an Echo fixed tone', req%mode .eq. MODE_TUNE)))
+          select case (req%mode)
+          case (MODE_TUNE)
+             call refuse_('text', 'text is not a key of TUNE')
+          case (MODE_FOX)
+             call refuse_('text', 'text is not a key of FOX, whose messages are its slots')
+          case default
+             call refuse_('text', 'text is not a key of an Echo fixed tone')
+          end select
           return
        end if
+    else if (req%mode .eq. MODE_SUPERFOX) then
+       if (present .and. .not. ok) then
+          call refuse_('text', 'text must be a JSON string')
+          return
+       end if
+       req%send_text = present
     else if (.not. (present .and. ok)) then
        call refuse_('text', 'a request needs text, a JSON string')
+       return
+    end if
+
+    call value_category_(buf, '"slots"', cat)
+    if (req%mode .eq. MODE_FOX .or. req%mode .eq. MODE_SUPERFOX) then
+       ! The GUI's Fox has one to five slots, and its SuperFox four with its
+       ! free text.
+       highest = merge(4, 5, req%send_text)
+       if (req%nslots .lt. 1 .or. req%nslots .gt. highest) then
+          call refuse_('slots', 'slots must be an array of 1 to ' //            &
+               achar(iachar('0') + highest) // ' JSON strings')
+          return
+       end if
+    else if (trim(cat) .ne. 'absent') then
+       call refuse_('slots', 'slots applies to FOX and SUPERFOX')
+       return
+    end if
+
+    call value_category_(buf, '"more_cqs"', cat)
+    if (req%mode .eq. MODE_SUPERFOX .and. trim(cat) .eq. 'bool') then
+       call get_bool_(buf, '"more_cqs"', req%more_cqs, ok)
+    else if (trim(cat) .ne. 'absent') then
+       if (req%mode .eq. MODE_SUPERFOX) then
+          call refuse_('more_cqs', 'more_cqs must be true or false')
+       else
+          call refuse_('more_cqs', 'more_cqs applies to SUPERFOX')
+       end if
+       return
+    end if
+
+    call request_int_(buf, '"otp"', req%otp, present, ok)
+    if (req%mode .eq. MODE_SUPERFOX) then
+       if (.not. (ok .and. req%otp .ge. 0 .and. req%otp .le. 999999)) then
+          call refuse_('otp', 'otp must be a JSON integer from 0 to 999999')
+          return
+       end if
+    else if (present) then
+       call refuse_('otp', 'otp applies to SUPERFOX')
        return
     end if
     if (any(req%mode .eq. [4, 9, 65, 66])) req%single = adjustl(req%text) .ne. ' ' &
@@ -2685,6 +2763,21 @@ contains
             'single tone at the frequency it gives, and takes no freq')
        return
     end if
+    ! The GUI's Fox frequency is a whole number of Hz, and its SuperFox 750.
+    if (req%mode .eq. MODE_FOX) then
+       call request_int_(buf, '"freq"', i, present, ok)
+       req%freq = i
+       if (.not. (present .and. ok .and. i .ge. 200 .and. i .le. 5000))        &
+            call refuse_('freq', 'freq must be a JSON integer of Hz from 200 to 5000')
+       return
+    else if (req%mode .eq. MODE_SUPERFOX) then
+       call request_int_(buf, '"freq"', i, present, ok)
+       req%freq = i
+       if (.not. (present .and. ok .and. i .eq. 750))                          &
+            call refuse_('freq', 'freq must be 750, a JSON integer: the GUI sends ' // &
+            'SuperFox at 750 Hz')
+       return
+    end if
     ok = trim(cat) .eq. 'number'
     if (ok) then
        call find_key_(buf, '"freq"', vstart, blen, present)
@@ -2819,6 +2912,79 @@ contains
        end if
     end do
   end function utf8_clean_
+
+  ! The JSON array of strings that is key's value in buf, from buf(first) to
+  ! its closing bracket at buf(last): n strings, the first size(vals) of
+  ! them in vals, long(i) when vals(i) is too short for its string. present:
+  ! the key is there; ok: its value is such an array.
+  subroutine string_array_(buf, key, vals, long, n, present, ok, first, last)
+    character(len=*), intent(in)  :: buf, key
+    character(len=*), intent(out) :: vals(:)
+    logical,          intent(out) :: long(:)
+    integer,          intent(out) :: n, first, last
+    logical,          intent(out) :: present, ok
+    character(len=:), allocatable :: val
+    integer :: blen, p, q
+    logical :: escaped
+
+    vals = ' '
+    long = .false.
+    n = 0
+    ok = .false.
+    last = 0
+    call find_key_(buf, key, first, blen, present)
+    if (.not. present .or. first .gt. blen) return
+    if (buf(first:first) .ne. '[') return
+    p = first + 1
+    do
+       p = after_blanks_(p)
+       if (p .gt. blen) return
+       if (buf(p:p) .eq. ']' .and. n .eq. 0) exit
+       if (buf(p:p) .ne. '"') return
+       q = p + 1
+       escaped = .false.
+       do while (q .le. blen)
+          if (escaped) then
+             escaped = .false.
+          else if (buf(q:q) .eq. '\') then
+             escaped = .true.
+          else if (buf(q:q) .eq. '"') then
+             exit
+          end if
+          q = q + 1
+       end do
+       if (q .gt. blen) return
+       call json_string_(buf(p + 1:q), val, ok)
+       if (.not. ok) return
+       ok = .false.
+       n = n + 1
+       if (n .le. size(vals)) then
+          vals(n) = val
+          long(n) = len(val) .gt. len(vals(n))
+       end if
+       p = after_blanks_(q + 1)
+       if (p .gt. blen) return
+       if (buf(p:p) .eq. ']') exit
+       if (buf(p:p) .ne. ',') return
+       p = p + 1
+    end do
+    last = p
+    ok = .true.
+
+  contains
+
+    ! The first index from i of buf that is not JSON white space.
+    integer function after_blanks_(i)
+      integer, intent(in) :: i
+      after_blanks_ = i
+      do while (after_blanks_ .le. blen)
+         if (index(' ' // achar(9) // achar(10) // achar(13), buf(after_blanks_:after_blanks_)) &
+              .eq. 0) exit
+         after_blanks_ = after_blanks_ + 1
+      end do
+    end function after_blanks_
+
+  end subroutine string_array_
 
   ! Why key may not be in a pack request (render .false.) or a render request.
   function unknown_detail_(key, render) result(detail)
