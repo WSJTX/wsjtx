@@ -730,7 +730,7 @@ struct Run
 };
 
 QRegularExpression const decisionLine {
-  R"(wsjt-codec --stream: (?:pass|skip|defer) nzhsym=)"};
+  R"(wsjt-codec: (?:pass|skip|defer) nzhsym=)"};
 
 Run run (Row const& row, QList<bool> const& drains)
 {
@@ -747,7 +747,7 @@ Run run (Row const& row, QList<bool> const& drains)
   process.setReadChannel (QProcess::StandardError);
   process.setWorkingDirectory (directory.path ());
   process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                 {"-a", directory.path (), "-t", directory.path (), "--stream"});
+                 {"-a", directory.path (), "-t", directory.path ()});
   if (!process.waitForStarted (5000))
     {
       r.failure = process.errorString ();
@@ -935,7 +935,7 @@ Observed observe (Run const& r, QString const& mode)
 {
   Observed o;
   QRegularExpression const line {
-    R"(wsjt-codec --stream: (?:pass nzhsym=(\d+) samples=\d+ depth=\d+ cycles=\d+ multithreaded=([TF]) live=[TF] again=([TF]) emedelay=-?[0-9.]+|skip nzhsym=(\d+) stage=(\w+) reason=(\w+)|defer nzhsym=(\d+))\r?$)",
+    R"(wsjt-codec: (?:pass nzhsym=(\d+) samples=\d+ depth=\d+ cycles=\d+ multithreaded=([TF]) live=[TF] again=([TF]) emedelay=-?[0-9.]+|skip nzhsym=(\d+) stage=(\w+) reason=(\w+)|defer nzhsym=(\d+))\r?$)",
     QRegularExpression::MultilineOption};
   auto matches = line.globalMatch (QString::fromUtf8 (r.err));
   while (matches.hasNext ())
@@ -1251,7 +1251,7 @@ private slots:
     process.setReadChannel (QProcess::StandardError);
     process.setWorkingDirectory (directory.path ());
     process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                   {"-a", directory.path (), "-t", directory.path (), "--stream"});
+                   {"-a", directory.path (), "-t", directory.path ()});
     QVERIFY (process.waitForStarted (5000));
     QByteArray out, err;
     auto const read = [&] {

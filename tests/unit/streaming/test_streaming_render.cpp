@@ -557,7 +557,7 @@ private slots:
     QStringList const paths {"-a", ".", "-t", ".", "-r", qEnvironmentVariable ("WSJT_SHARE_DIR")};
     auto const jt9 = run (QString::fromUtf8 (JT9_EXECUTABLE), options + paths + wavs, {}, directory.filePath ("jt9"));
     QVERIFY2 (jt9.ok, jt9.err.constData ());
-    auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths + QStringList {"--stream"}, input,
+    auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths, input,
                             directory.filePath ("codec"));
     QVERIFY2 (codec.ok, codec.err.constData ());
 
@@ -672,7 +672,7 @@ private slots:
         QVERIFY (pcm.rate == 12000);
         QStringList const paths {"-a", directory.path (), "-t", directory.path (), "-r",
                                  qEnvironmentVariable ("WSJT_SHARE_DIR")};
-        auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths + QStringList {"--stream"},
+        auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths,
                                 sessionHeader () + frame (0x02u, json) + audio (pcm.samples), directory.path ());
         QVERIFY2 (codec.ok, codec.err.constData ());
         for (auto const& line : worker.out.split ('\n'))
@@ -741,7 +741,7 @@ private slots:
         }
       QTemporaryDir directory;
       auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                              {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
+                              {"-a", directory.path (), "-t", directory.path ()}, input, directory.path ());
       QList<int> decodes {0};
       for (auto const& event : eventsOf (codec.out))
         {
@@ -791,7 +791,7 @@ private slots:
         }
       QTemporaryDir directory;
       auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                              {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
+                              {"-a", directory.path (), "-t", directory.path ()}, input, directory.path ());
       QStringList found;
       int decodes = 0;
       for (auto const& event : eventsOf (codec.out))
@@ -823,7 +823,7 @@ private slots:
     QVERIFY (directory.isValid ());
     auto const ft8 = readWav (samples + "/FT8/210703_133430.wav");
     auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                            {"-a", directory.path (), "-t", directory.path (), "--stream"},
+                            {"-a", directory.path (), "-t", directory.path ()},
                             sessionHeader () + configure ({{"mode", "FT8"}, {"utc", "13:34:30"}, {"depth", 3}})
                               + audio (ft8.samples), directory.path ());
     QVERIFY2 (codec.ok, codec.err.constData ());
@@ -839,7 +839,7 @@ private slots:
     auto const msk144 = readWav (samples + "/MSK144/181211_120800.wav");
     auto const period = msk144.samples.left (15 * 24000).leftJustified (15 * 24000, '\0');
     auto const blocks = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                             {"-a", directory.path (), "-t", directory.path (), "--stream"},
+                             {"-a", directory.path (), "-t", directory.path ()},
                              sessionHeader () + configure ({{"mode", "MSK144"}, {"trperiod", 15}, {"rxfreq", 1500},
                                                             {"ntol", 50}, {"depth", 3}, {"utc", "12:08:00"}})
                                + audio (period) + configure ({{"utc", "12:08:15"}}) + audio (period),

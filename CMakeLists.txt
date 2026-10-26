@@ -732,6 +732,26 @@ if (WSJT_ENABLE_TESTS)
         ${CMAKE_BINARY_DIR}/Testing/Jt65Stream)
     set_tests_properties (test_jt65_stream PROPERTIES
       FIXTURES_REQUIRED jt65_engine_wav TIMEOUT 75 LABELS "decoder;jt65;integration")
+    # A pseudo-terminal on stdin; the WAV cases need samples/, which source archives omit.
+    if (APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      set (codec_terminal_sample "")
+      if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+        set (codec_terminal_sample "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+      endif ()
+      add_test (NAME test_wsjt_codec_terminal
+        COMMAND ${Python3_EXECUTABLE}
+          ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_wsjt_codec_terminal.py
+          $<TARGET_FILE:wsjt-codec>
+          $<TARGET_FILE:jt9>
+          ${CMAKE_BINARY_DIR}/Testing/CodecTerminal
+          ${codec_terminal_sample})
+      set_tests_properties (test_wsjt_codec_terminal PROPERTIES
+        LABELS "streaming;integration" TIMEOUT 300)
+      if (WSJT_ENABLE_TSAN)
+        set_tests_properties (test_wsjt_codec_terminal PROPERTIES
+          ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+      endif ()
+    endif ()
   endif ()
 
   # Golden output is pinned to the required GNU/Linux x86-64 decoder path.

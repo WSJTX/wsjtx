@@ -2,7 +2,7 @@
 # Streaming-fixture regression harness — no-configure-frame variant.
 #
 # Exercises the CLI-arg threading path through init_default_params.
-# Sends WSJT header + audio frames + halt to wsjt-codec --stream
+# Sends WSJT header + audio frames + halt to wsjt-codec's stream
 # WITHOUT a configure frame; wsjt-codec reads its decode parameters from the
 # CLI flags supplied to the binary directly.
 #

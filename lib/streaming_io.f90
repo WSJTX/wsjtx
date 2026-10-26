@@ -35,7 +35,11 @@
 !               engine's checks, lib/decoder_engine.f90); values it
 !               carries from earlier frames are checked against a new
 !               mode too. The command-line starting values are checked
-!               once, after ready.
+!               once, after ready. JT9 decodes only at a trperiod of 60:
+!               a configure that would leave it at another is declined
+!               with configure_range_error (key trperiod), and a session
+!               the command line starts so (-9 and a -p other than 60)
+!               sends that error instead of ready and exits with status 2.
 !   halt      : drain the current period (decode if it has samples), exit.
 !   flush     : as halt, without ending the session: a final deferred
 !               while the decoder was busy runs, the period in flight
@@ -178,6 +182,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer, parameter :: FRAME_AUDIO   = 1
   integer, parameter :: FRAME_CONTROL = 2
   integer, parameter :: CTL_BUF_LEN = 262144
+  ! The stream has slow JT9's decoder only, not fast JT9's.
+  character(len=*), parameter :: JT9_PERIOD_RULE = 'trperiod must be 60 s in JT9'
   ! 4-byte session magic "WSJT" (W=0x57 S=0x53 J=0x4A T=0x54)
   integer(int8), parameter :: MAGIC(4) = [                                 &
        int(z'57', int8), int(z'53', int8),                                 &
@@ -350,13 +356,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   call stdin_read(hdr, HDR_LEN, ios)
   if (ios /= 0) then
      call streaming_emit_error('short header (need 8 bytes)')
-     write(error_unit, '(a)') 'wsjt-codec --stream: short header (need 8 bytes)'
+     write(error_unit, '(a)') 'wsjt-codec: short header (need 8 bytes)'
      stop 1
   end if
 
   if (any(hdr(1:4) /= MAGIC)) then
      call streaming_emit_error('bad magic (expected ''WSJT'')')
-     write(error_unit, '(a)') 'wsjt-codec --stream: bad magic (expected ''WSJT'')'
+     write(error_unit, '(a)') 'wsjt-codec: bad magic (expected ''WSJT'')'
      stop 1
   end if
 
@@ -367,26 +373,26 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   if (fmt /= 0) then
      call streaming_emit_error('unsupported format (only fmt=0 int16 PCM supported)')
      write(error_unit, '(a,i0,a)')                                         &
-          'wsjt-codec --stream: unsupported fmt=', fmt, ' (only int16 PCM supported)'
+          'wsjt-codec: unsupported fmt=', fmt, ' (only int16 PCM supported)'
      stop 1
   end if
 
   if (ch /= 1) then
      call streaming_emit_error('unsupported channel count (only mono supported)')
      write(error_unit, '(a,i0,a)')                                         &
-          'wsjt-codec --stream: unsupported channels=', ch, ' (only mono supported)'
+          'wsjt-codec: unsupported channels=', ch, ' (only mono supported)'
      stop 1
   end if
 
   if (rate_khz /= 12) then
      call streaming_emit_error('unsupported sample rate (only 12 kHz supported)')
      write(error_unit, '(a,i0,a)')                                         &
-          'wsjt-codec --stream: unsupported rate=', rate_khz, ' kHz (only 12 kHz supported)'
+          'wsjt-codec: unsupported rate=', rate_khz, ' kHz (only 12 kHz supported)'
      stop 1
   end if
 
   write(error_unit, '(a,i0,a,i0,a,i0,a)')                                  &
-       'wsjt-codec --stream: header ok (fmt=', fmt, ' ch=', ch,            &
+       'wsjt-codec: header ok (fmt=', fmt, ' ch=', ch,                     &
        ' rate=', rate_khz, ' kHz)'
 
   nsps  = 6912
@@ -415,6 +421,12 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   label_nutc = shared_data%params%nutc
   label_iso = .false.
 
+  if (mode .eq. 9 .and. TRperiod .ne. 60.d0) then
+     call streaming_emit_error_range('trperiod', 'JT9',                    &
+          JT9_PERIOD_RULE // '; the command line set it')
+     write(error_unit, '(a)') 'wsjt-codec: ' // JT9_PERIOD_RULE // '; the command line set it'
+     stop 2
+  end if
   call streaming_emit_ready()
   ! Command-line starting values are checked once; the session still runs.
   problem = engine_params_problem(shared_data%params, .true.)
@@ -450,7 +462,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         if (frame_len_wide .gt. max_audio_frame_bytes) then
            call streaming_emit_error_code('frame_too_large',                    &
                 'frame length exceeds the streaming sample-buffer capacity')
-           write(error_unit, '(a,i0,a,i0)') 'wsjt-codec --stream: frame length ', &
+           write(error_unit, '(a,i0,a,i0)') 'wsjt-codec: frame length ', &
                 frame_len_wide, ' exceeds capacity ', max_audio_frame_bytes
            stop 1
         end if
@@ -558,6 +570,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               range_mode = ''
               if (next_mode .ne. MODE_JTTY)                                      &
                    range_mode = trim(streaming_emit_mode_name(next_mode))
+              if (next_mode .eq. 9 .and. next_TRperiod .ne. 60.d0) then
+                 call streaming_emit_error_range('trperiod', 'JT9', JT9_PERIOD_RULE)
+                 cycle
+              end if
               if (cfg%phase_eq_out_of_range) then
                  call streaming_emit_error_range('phase_eq', range_mode,          &
                       'phase_eq must be five finite numbers')
@@ -1131,7 +1147,7 @@ contains
     character(len=16) :: delay
     write(delay, '(f16.1)') shared_data%params%emedelay
     write(error_unit, '(a,i0,a,i0,a,i0,a,i0,a,l1,a,l1,a,l1,2a)')            &
-         'wsjt-codec --stream: pass nzhsym=', shared_data%params%nzhsym,     &
+         'wsjt-codec: pass nzhsym=', shared_data%params%nzhsym,              &
          ' samples=', samples, ' depth=', shared_data%params%ndepth,         &
          ' cycles=', shared_data%params%nft8cycles,                          &
          ' multithreaded=', shared_data%params%lmultift8,                    &
@@ -1226,7 +1242,7 @@ contains
     nread = stream_stdin_read_fully(buf, int(nbytes, c_int64_t))
     if (nread .lt. 0) then
        call streaming_emit_error_code('out_of_memory', 'no memory to buffer the input')
-       write(error_unit, '(a)') 'wsjt-codec --stream: no memory to buffer the input'
+       write(error_unit, '(a)') 'wsjt-codec: no memory to buffer the input'
        stop 1
     end if
     if (nread /= int(nbytes, c_int64_t)) ios = 1
@@ -1334,7 +1350,7 @@ contains
     character(len=5) :: stage
     logical :: iso_now
     stage = merge('final', 'early', final)
-    write(error_unit, '(a,i0,4a)') 'wsjt-codec --stream: skip nzhsym=',    &
+    write(error_unit, '(a,i0,4a)') 'wsjt-codec: skip nzhsym=',             &
          nzhsym, ' stage=', stage, ' reason=', reason
     iso_now = streaming_emit_utc_from_iso()
     if (present(iso)) call streaming_emit_set_time_form(iso, .not. iso, TRperiod)
@@ -1379,7 +1395,7 @@ contains
     deferred_period = period_number
     deferred_iso    = streaming_emit_utc_from_iso()
     deferred        = .true.
-    write(error_unit, '(a,i0)') 'wsjt-codec --stream: defer nzhsym=',      &
+    write(error_unit, '(a,i0)') 'wsjt-codec: defer nzhsym=',               &
          shared_data%params%nzhsym
   end subroutine defer_final
 

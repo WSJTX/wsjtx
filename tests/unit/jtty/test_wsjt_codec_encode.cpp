@@ -406,7 +406,7 @@ QTemporaryDir& dataDirectory ()
 void startCodec (QProcess& process, QStringList options = {})
 {
   auto const& directory = dataDirectory ();
-  options << "-a" << directory.path () << "-t" << directory.path () << "--stream";
+  options << "-a" << directory.path () << "-t" << directory.path ();
   process.setProcessChannelMode (QProcess::SeparateChannels);
   process.setWorkingDirectory (directory.path ());
   process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), options);

@@ -448,7 +448,7 @@ contains
           do j = 1, ngaps(i)
              offset = shown_offset_(message, gaps(j, i), shown(1:length))
              if (offset .lt. 0) then
-                write(error_unit, '(a,i0,a)') 'wsjt-codec --stream: the gap markers of message ', &
+                write(error_unit, '(a,i0,a)') 'wsjt-codec: the gap markers of message ', &
                      ids(i), ' are not in its displayed text; it is reported without gaps'
                 gap_list = ''
                 exit
@@ -494,7 +494,7 @@ contains
   subroutine fatal_(message)
     character(len=*), intent(in) :: message
     call streaming_emit_error(message)
-    write(error_unit, '(2a)') 'wsjt-codec --stream: ', message
+    write(error_unit, '(2a)') 'wsjt-codec: ', message
     stop 1
   end subroutine fatal_
 

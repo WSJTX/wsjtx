@@ -299,7 +299,7 @@ Run runCodec (QByteArray const& input, QStringList options = {}, int timeoutMs =
   Run run;
   auto const& directory = codecDirectory ();
   if (directory.isEmpty ()) return run;
-  options << "-a" << directory << "-t" << directory << "--stream";
+  options << "-a" << directory << "-t" << directory;
   QProcess process;
   process.setProcessChannelMode (QProcess::SeparateChannels);
   process.setWorkingDirectory (directory);

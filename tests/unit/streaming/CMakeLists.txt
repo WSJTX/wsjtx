@@ -27,15 +27,17 @@ if (WSJT_BUILD_UTILS)
 endif ()
 
 add_test (NAME test_streaming_consumers COMMAND test_streaming_consumers)
+# Without a console (a Windows runner) QtTest writes to the debugger, not to ctest.
+set (streaming_consumers_environment "QT_FORCE_STDERR_LOGGING=1")
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_consumers_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
 set_tests_properties (test_streaming_consumers PROPERTIES
   LABELS "streaming;runtime"
   TIMEOUT 360
   FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
+  ENVIRONMENT "${streaming_consumers_environment}"
 )
-if (WSJT_ENABLE_TSAN)
-  set_tests_properties (test_streaming_consumers PROPERTIES
-    ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
-endif ()
 
 # The GUI's decode schedule, apart from the rest of the binary: its sessions
 # wait for the decoder, which the sanitizers slow several times over.
@@ -140,6 +142,45 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
     ENVIRONMENT "${streaming_mtd_environment}"
     PROCESSORS 4
     TIMEOUT ${streaming_mtd_timeout})
+endif ()
+
+# One FT8 period from a recording with no flag, --stream and -0.
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+  set (streaming_flag_environment "WSJT_FT8_SAMPLE_WAV=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
+    "QT_FORCE_STDERR_LOGGING=1")
+  set (streaming_flag_timeout 300)
+  if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+    set (streaming_flag_timeout 1200)
+    list (APPEND streaming_flag_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+  endif ()
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND streaming_flag_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+  endif ()
+  add_test (NAME test_streaming_stream_flag COMMAND test_streaming_consumers wsjtCodecIgnoresTheStreamFlag)
+  set_tests_properties (test_streaming_stream_flag PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_flag_environment}"
+    TIMEOUT ${streaming_flag_timeout})
+endif ()
+
+# JT9 periods on a JT9 recording; source archives omit samples/.
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/JT9/130418_1742.wav")
+  set (streaming_jt9_environment "WSJT_JT9_SAMPLE_WAV=${CMAKE_SOURCE_DIR}/samples/JT9/130418_1742.wav"
+    "QT_FORCE_STDERR_LOGGING=1")
+  set (streaming_jt9_timeout 300)
+  if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+    set (streaming_jt9_timeout 1200)
+    list (APPEND streaming_jt9_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+  endif ()
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND streaming_jt9_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+  endif ()
+  add_test (NAME test_streaming_jt9_periods
+    COMMAND test_streaming_consumers wsjtCodecKeepsJt9AtSixtySeconds)
+  set_tests_properties (test_streaming_jt9_periods PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_jt9_environment}"
+    TIMEOUT ${streaming_jt9_timeout})
 endif ()
 
 # Live audio that falls behind: each row stalls until its audio is late (the

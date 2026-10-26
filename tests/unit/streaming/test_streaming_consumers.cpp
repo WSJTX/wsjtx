@@ -19,7 +19,8 @@ constexpr quint32 Jt9AudioCapacityBytes = 30u * 60u * 12000u * 2u;
 constexpr quint32 WsprdAudioCapacityBytes = 8u * 114u * 12000u * 2u;
 // FT4's 7.5 s period at 12 kHz.
 constexpr int Ft4PeriodSamples = 90000;
-constexpr int Jt9TenSecondPeriodSamples = 10 * 12000;
+// FST4's 15 s period at 12 kHz.
+constexpr int Fst4FifteenSecondPeriodSamples = 15 * 12000;
 // wsjt-codec reads audio 4,096 samples at a time and skips frames 4,096 bytes at a time.
 constexpr int Jt9ChunkSamples = 4096;
 constexpr int Jt9DrainBytes = 4096;
@@ -35,6 +36,8 @@ constexpr char FrameTooLargeLine[] =
   R"({"v":1,"t":"error","code":"frame_too_large","detail":"frame length exceeds the streaming sample-buffer capacity"})";
 constexpr char InvalidTrperiodLine[] =
   R"({"v":1,"t":"error","code":"invalid_trperiod","detail":"trperiod must be finite and between 0 and 1800 seconds"})";
+constexpr char Jt9StartPeriodLine[] =
+  R"({"v":1,"t":"error","code":"configure_range_error","key":"trperiod","mode":"JT9","detail":"trperiod must be 60 s in JT9; the command line set it"})";
 
 struct ProcessResult
 {
@@ -211,8 +214,7 @@ ProcessResult runJt9 (QByteArray const& input, QStringList options = {},
       return {};
     }
   options << "-a" << directory.path ()
-          << "-t" << directory.path ()
-          << "--stream";
+          << "-t" << directory.path ();
   return runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), options, input,
                      directory.path (), timeoutMs);
 }
@@ -337,7 +339,7 @@ OpenSession runOpenSession (QByteArray const& input, int waitMs, SessionDone don
   process.setProcessChannelMode (QProcess::SeparateChannels);
   process.setWorkingDirectory (directory.path ());
   process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                 options + QStringList {"-a", directory.path (), "-t", directory.path (), "--stream"});
+                 options + QStringList {"-a", directory.path (), "-t", directory.path ()});
   session.result.started = process.waitForStarted (5000);
   if (!session.result.started) return session;
   process.write (input);
@@ -455,7 +457,7 @@ ProcessResult runRecording (QString const& path, QByteArray const& frames,
     {
       return {};
     }
-  options << "-a" << directory.path () << "-t" << directory.path () << "--stream";
+  options << "-a" << directory.path () << "-t" << directory.path ();
   return runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), options, input,
                      directory.path (), 120000);
 }
@@ -505,7 +507,7 @@ private slots:
       QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) +
       frame (0x01u, wav.mid (44)) + controlFrame (R"({"t":"halt"})");
     auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
+      {"-a", directory.path (), "-t", directory.path ()}, input, directory.path ());
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "error").size (), 0);
@@ -551,7 +553,7 @@ private slots:
     auto const input = sessionHeader () + controlFrame (
       QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) + frame (0x01u, wav.mid (44));
     auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path (), 360000);
+      {"-a", directory.path (), "-t", directory.path ()}, input, directory.path (), 360000);
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "error").size (), 0);
@@ -573,7 +575,7 @@ private slots:
       R"({"t":"configure","mode":"FST4W","trperiod":120,"depth_level":1,"nutc":15})") +
       silentAudioFrame (12001);
     auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
+      {"-a", directory.path (), "-t", directory.path ()}, input, directory.path ());
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "error").size (), 0);
@@ -606,7 +608,7 @@ private slots:
       R"({"t":"configure","mode":"Q65","trperiod":15,"submode":0,"depth_level":1,"nfa":1300,"nfb":1700,"rxfreq":1500,"utc":"00:15:00"})") +
       frame (0x01u, wav.mid (44)) + controlFrame (R"({"t":"halt"})");
     auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path ());
+      {"-a", directory.path (), "-t", directory.path ()}, input, directory.path ());
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "error").size (), 0);
@@ -663,21 +665,21 @@ private slots:
   {
     QTest::addColumn<QByteArray> ("configure");
     QTest::newRow ("string")
-      << QByteArray {R"({"t":"configure","mode":"BOGUS","trperiod":1})"};
+      << QByteArray {R"({"t":"configure","mode":"BOGUS","trperiod":30})"};
     QTest::newRow ("numeric")
-      << QByteArray {R"({"t":"configure","mode":999,"trperiod":1})"};
+      << QByteArray {R"({"t":"configure","mode":999,"trperiod":30})"};
   }
 
   void wsjtCodecRejectsUnknownMode ()
   {
     QFETCH (QByteArray, configure);
     auto const input = sessionHeader () + controlFrame (configure) +
-                       silentAudioFrame (Jt9TenSecondPeriodSamples + 2);
-    auto const result = runJt9 (input, {"-9", "-p", "10"});
+                       silentAudioFrame (Fst4FifteenSecondPeriodSamples + 2);
+    auto const result = runJt9 (input, {"-7", "-p", "15"});
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "error", "unknown_mode").size (), 1);
-    // The two samples past the 10 s period open the next period, drained at EOF.
+    // The two samples past the 15 s period open the next period, drained at EOF.
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
   }
 
@@ -699,6 +701,154 @@ private slots:
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "error", "invalid_trperiod").size (), 1);
     QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
+  }
+
+  // JT9 decodes only at 60 s: a configure that would leave it at another
+  // period is declined whole, and the FT8 audio after it decodes as FT8.
+  void wsjtCodecRefusesJt9AtOtherPeriods_data ()
+  {
+    QTest::addColumn<QJsonObject> ("refused");
+    QTest::newRow ("JT9 5 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 5}};
+    QTest::newRow ("JT9 10 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 10}};
+    QTest::newRow ("JT9 15 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}};
+    QTest::newRow ("JT9 15 s E") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}, {"submode", "E"}};
+    QTest::newRow ("JT9 30 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 30}};
+    // Two faults: the period is checked first.
+    QTest::newRow ("JT9 15 s, bad utc") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}, {"utc", "25:61:00"}};
+  }
+
+  void wsjtCodecRefusesJt9AtOtherPeriods ()
+  {
+    QFETCH (QJsonObject, refused);
+    auto const result = runRecording (QString::fromUtf8 (FT8_ENGINE_WAV),
+      configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}}) + configureFrame (refused));
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    auto const errors = eventsMatching (events.values, "error");
+    QCOMPARE (errors.size (), 1);
+    QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
+    QCOMPARE (errors.first ().value ("key").toString (), QString {"trperiod"});
+    QCOMPARE (errors.first ().value ("mode").toString (), QString {"JT9"});
+    QCOMPARE (errors.first ().value ("detail").toString (), QString {"trperiod must be 60 s in JT9"});
+    bool found = false;
+    for (auto const& decode : eventsMatching (events.values, "decode"))
+      {
+        QCOMPARE (decode.value ("mode").toString (), QString {"FT8"});
+        QCOMPARE (decode.value ("time").toString (), QString {"051115"});
+        found |= decode.value ("message").toString ().trimmed () == "CQ K1JT FN20";
+      }
+    QVERIFY2 (found, result.standardOutput.constData ());
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("period_end").toString (), QString {"051115"});
+  }
+
+  // In JT9 a period change is declined and a bare JT9 configure takes 60 s:
+  // the recording decodes as one 60 s JT9 period either way.
+  void wsjtCodecKeepsJt9AtSixtySeconds_data ()
+  {
+    QTest::addColumn<QStringList> ("options");
+    QTest::addColumn<QByteArray> ("frames");
+    QTest::addColumn<bool> ("refused");
+    QTest::addColumn<QString> ("message");
+    QString const ja1kau {"JA1KAU PD0JAC -23"};
+    QJsonObject const jt9 {{"mode", "JT9"}, {"utc", "17:42:00"}};
+    // The refused frame's other keys are declined with it.
+    QTest::newRow ("-9, then trperiod 15") << QStringList {"-9"}
+      << configureFrame ({{"utc", "17:42:00"}})
+         + configureFrame ({{"trperiod", 15}, {"utc", "01:02:03"}, {"depth", 3}, {"live_audio", true}})
+      << true << ja1kau;
+    QTest::newRow ("JT9, then trperiod 15") << QStringList {}
+      << configureFrame (jt9) + configureFrame ({{"trperiod", 15}}) << true << ja1kau;
+    QTest::newRow ("JT9") << QStringList {} << configureFrame (jt9) << false << ja1kau;
+    QTest::newRow ("JT9 60 s") << QStringList {} << configureFrame (with (jt9, {{"trperiod", 60}}))
+      << false << ja1kau;
+    QTest::newRow ("JT9 60 s A") << QStringList {}
+      << configureFrame (with (jt9, {{"trperiod", 60}, {"submode", "A"}})) << false << ja1kau;
+    // Submodes B-H run the wide-submode decoder (decode9w), which finds none
+    // of this JT9A recording's signals.
+    QTest::newRow ("JT9 60 s E") << QStringList {}
+      << configureFrame (with (jt9, {{"trperiod", 60}, {"submode", "E"}})) << false << QString {};
+  }
+
+  void wsjtCodecKeepsJt9AtSixtySeconds ()
+  {
+    auto const sample = qEnvironmentVariable ("WSJT_JT9_SAMPLE_WAV");
+    if (sample.isEmpty ())
+      {
+        QSKIP ("run by test_streaming_jt9_periods");
+      }
+    QFETCH (QStringList, options);
+    QFETCH (QByteArray, frames);
+    QFETCH (bool, refused);
+    QFETCH (QString, message);
+    auto const result = runRecording (sample, frames, options);
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    auto const errors = eventsMatching (events.values, "error");
+    QCOMPARE (errors.size (), refused ? 1 : 0);
+    if (refused)
+      {
+        QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
+        QCOMPARE (errors.first ().value ("key").toString (), QString {"trperiod"});
+        QCOMPARE (errors.first ().value ("mode").toString (), QString {"JT9"});
+        QCOMPARE (errors.first ().value ("detail").toString (), QString {"trperiod must be 60 s in JT9"});
+      }
+    auto const run = passes (result.standardError);
+    QCOMPARE (run.size (), 1);
+    QCOMPARE (run.first ().nzhsym, 173);
+    QCOMPARE (run.first ().samples, 60 * 12000);
+    QCOMPARE (run.first ().depth, 1);
+    QVERIFY (!run.first ().live);
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("period_end").toString (), QString {"174200"});
+    auto const decodes = eventsMatching (events.values, "decode");
+    bool found = false;
+    for (auto const& decode : decodes)
+      {
+        QCOMPARE (decode.value ("mode").toString (), QString {"JT9"});
+        QCOMPARE (decode.value ("time").toString (), QString {"174200"});
+        found |= decode.value ("message").toString ().trimmed () == message;
+      }
+    if (message.isEmpty ())
+      {
+        QCOMPARE (decodes.size (), 0);
+      }
+    else
+      {
+        QVERIFY2 (found, result.standardOutput.constData ());
+      }
+  }
+
+  // A session the command line starts in JT9 at a period other than 60 s
+  // gets the refusal in place of ready, and the codec exits with status 2.
+  void wsjtCodecRefusesJt9AtOtherPeriodsAtStart_data ()
+  {
+    QTest::addColumn<QStringList> ("options");
+    QTest::addColumn<bool> ("refused");
+    QTest::newRow ("-9 -p 10") << QStringList {"-9", "-p", "10"} << true;
+    QTest::newRow ("-9 -p 10 --stream") << QStringList {"-9", "-p", "10", "--stream"} << true;
+    QTest::newRow ("-9") << QStringList {"-9"} << false;
+    QTest::newRow ("-9 -p 60") << QStringList {"-9", "-p", "60"} << false;
+  }
+
+  void wsjtCodecRefusesJt9AtOtherPeriodsAtStart ()
+  {
+    QFETCH (QStringList, options);
+    QFETCH (bool, refused);
+    auto const result = runJt9 (sessionHeader () + silentAudioFrame (12000), options);
+    if (!refused)
+      {
+        verifyCompleted (result, 0);
+        QVERIFY2 (streamOutput (result).startsWith (ndjson ({ReadyLine})), result.standardOutput.constData ());
+        QCOMPARE (eventsMatching (verifyEvents (result).values, "error").size (), 0);
+        return;
+      }
+    verifyCompleted (result, 2);
+    QCOMPARE (streamOutput (result), ndjson ({Jt9StartPeriodLine}));
+    QVERIFY2 (result.standardError.contains ("wsjt-codec: trperiod must be 60 s in JT9; the command line set it"),
+              result.standardError.constData ());
   }
 
   void wsjtCodecWritesTheReadyLine ()
@@ -874,7 +1024,7 @@ private slots:
     QTemporaryDir directory;
     QVERIFY (directory.isValid ());
     auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-      {"-a", directory.path (), "-t", directory.path (), "--stream"}, input, directory.path (), 10000, false);
+      {"-a", directory.path (), "-t", directory.path ()}, input, directory.path (), 10000, false);
     verifyCompleted (result, exitCode);
   }
 
@@ -961,13 +1111,13 @@ private slots:
   // old period drains at the new length.
   void wsjtCodecStartsANewPeriodOnATrperiodChange ()
   {
-    // Half a 10 s period, a change to 20 s, then exactly one 20 s period.
+    // Half a 15 s period, a change to 30 s, then exactly one 30 s period.
     auto const result = runJt9 (
       sessionHeader () +
-      controlFrame (R"({"t":"configure","trperiod":10})") +
-      silentAudioFrame (Jt9TenSecondPeriodSamples / 2) +
-      controlFrame (R"({"t":"configure","trperiod":20})") +
-      silentAudioFrame (2 * Jt9TenSecondPeriodSamples), {"-9"});
+      controlFrame (R"({"t":"configure","trperiod":15})") +
+      silentAudioFrame (Fst4FifteenSecondPeriodSamples / 2) +
+      controlFrame (R"({"t":"configure","trperiod":30})") +
+      silentAudioFrame (2 * Fst4FifteenSecondPeriodSamples), {"-7", "-p", "15"});
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 1);
@@ -976,14 +1126,14 @@ private slots:
   // Repeating the current configuration mid-period leaves the period alone.
   void wsjtCodecKeepsThePeriodOnAnUnchangedConfigure ()
   {
-    // Half a 10 s period, the same configuration again, then the other half
+    // Half a 15 s period, the same configuration again, then the other half
     // plus two samples: one full period, and the two samples open the next.
     auto const result = runJt9 (
       sessionHeader () +
-      controlFrame (R"({"t":"configure","mode":"JT9","trperiod":10})") +
-      silentAudioFrame (Jt9TenSecondPeriodSamples / 2) +
-      controlFrame (R"({"t":"configure","mode":"JT9","trperiod":10})") +
-      silentAudioFrame (Jt9TenSecondPeriodSamples / 2 + 2), {"-9"});
+      controlFrame (R"({"t":"configure","mode":"FST4","trperiod":15})") +
+      silentAudioFrame (Fst4FifteenSecondPeriodSamples / 2) +
+      controlFrame (R"({"t":"configure","mode":"FST4","trperiod":15})") +
+      silentAudioFrame (Fst4FifteenSecondPeriodSamples / 2 + 2), {"-7"});
     verifyCompleted (result, 0);
     auto const events = verifyEvents (result);
     QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 2);
@@ -1063,7 +1213,7 @@ private slots:
     process.setProcessChannelMode (QProcess::SeparateChannels);
     process.setWorkingDirectory (directory.path ());
     process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                   {"-a", directory.path (), "-t", directory.path (), "--stream"});
+                   {"-a", directory.path (), "-t", directory.path ()});
     QVERIFY (process.waitForStarted (5000));
     process.write (sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}, {"live_audio", true}})
                    + frame (0x01u, samples.left (2)));
@@ -1108,7 +1258,7 @@ private slots:
     messages.write ("051115 -12  0.3 1200 ~  K1JT W9XYZ R-12\nnot a decode line\n");
     messages.close ();
     auto const result = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-      {"-a", directory.path (), "-t", directory.path (), "--stream"},
+      {"-a", directory.path (), "-t", directory.path ()},
       sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}, {"contest_type", "fox"}})
         + frame (0x01u, wavSamples (QString::fromUtf8 (FT8_ENGINE_WAV), 15 * 12000)),
       directory.path ());
@@ -1125,6 +1275,31 @@ private slots:
     QCOMPARE (decodes.first ().value ("text_width").toInt (), 15);
     QVERIFY (!decodes.first ().contains ("ap"));
     QVERIFY2 (result.standardError.contains ("not a decode line"), result.standardError.constData ());
+  }
+
+  // wsjt-codec runs its stream with no flag, and --stream and -0 change nothing.
+  void wsjtCodecIgnoresTheStreamFlag ()
+  {
+    auto const sample = qEnvironmentVariable ("WSJT_FT8_SAMPLE_WAV");
+    if (sample.isEmpty ())
+      {
+        QSKIP ("run by test_streaming_stream_flag");
+      }
+    auto const input = sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "13:34:30"}})
+      + frame (0x01u, wavSamples (sample, 15 * 12000));
+    QList<ProcessResult> runs;
+    for (auto const& flags : {QStringList {}, QStringList {"--stream"}, QStringList {"-0"}})
+      {
+        runs << runJt9 (input, flags);
+        verifyCompleted (runs.last (), 0);
+      }
+    auto const decodes = eventsMatching (verifyEvents (runs.first ()).values, "decode");
+    QVERIFY2 (decodes.size () > 1, runs.first ().standardOutput.constData ());
+    for (auto const& run : runs)
+      {
+        QCOMPARE (run.standardOutput, runs.first ().standardOutput);
+        QCOMPARE (run.standardError, runs.first ().standardError);
+      }
   }
 
   // A period's label is the producer's UTC, whichever key and frame carried it.
@@ -1732,7 +1907,7 @@ private slots:
                                {"depth", depth}, {"multithreaded_ft8", true},
                                {"ft8_threads", 4}, {"ft8_decoder_start", decoderStart}};
     auto const stream = runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-      paths + QStringList {"--stream"},
+      paths,
       sessionHeader () + controlFrame (QJsonDocument {configuration}.toJson (QJsonDocument::Compact)) +
         frame (0x01u, delayed),
       directory.path (), 120000);
@@ -2375,7 +2550,7 @@ private slots:
     process.setProcessChannelMode (QProcess::SeparateChannels);
     process.setWorkingDirectory (directory.path ());
     process.start (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
-                   {"-a", directory.path (), "-t", directory.path (), "--stream"});
+                   {"-a", directory.path (), "-t", directory.path ()});
     QVERIFY (process.waitForStarted (5000));
     process.write (sessionHeader () + configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}, {"depth", 3},
       {"multithreaded_ft8", true}, {"ft8_threads", 2}, {"ft8_decoder_start", 1}}) + frame (0x01u, audio));
