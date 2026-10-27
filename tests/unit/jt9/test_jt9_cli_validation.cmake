@@ -37,6 +37,20 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
     require_acceptance ("${option}" 0)
   endforeach ()
 
+  foreach (option -W --fst4w -Y --fst4w-hash)
+    require_acceptance ("${option}")
+  endforeach ()
+  execute_process (
+    COMMAND "${program}" --help
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE help
+    ERROR_VARIABLE stderr)
+  if (NOT "${result}" STREQUAL "0" OR NOT stderr STREQUAL "" OR
+      NOT help MATCHES "-W[\r\n ]+--fst4w[\r\n]" OR
+      NOT help MATCHES "-Y[\r\n ]+--fst4w-hash[\r\n]")
+    message (FATAL_ERROR "${program_name} has incorrect FST4W option mappings: ${help}${stderr}")
+  endif ()
+
   string (REPEAT K 501 oversized_call)
   foreach (option -c --my-call -x --his-call)
     require_acceptance ("${option}" PJ4/K1ABC)

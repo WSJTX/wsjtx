@@ -119,7 +119,7 @@ program jt9
     option ('jt65', .false.,'6', 'JT65 mode', ''),                           &
     option ('fst4', .false., '7', 'FST4 mode', ''),                          &
     option ('fst4w', .false., 'W', 'FST4W mode', ''),                        &
-    option ('fst4w', .false., 'Y', 'FST4W mode, print hash22 values', ''),   &
+    option ('fst4w-hash', .false., 'Y', 'FST4W mode, print hash22 values', ''), &
     option ('ft8', .false., '8', 'FT8 mode', ''),                            &
     option ('jt9', .false., '9', 'JT9 mode', ''),                            &
     option ('quiet', .false., 'q', 'Quiet mode, no <DecodeFinished>', ''),   &
