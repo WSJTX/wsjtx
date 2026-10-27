@@ -722,6 +722,23 @@ if (WSJT_ENABLE_TESTS)
             -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/StreamOption
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_stream_option.cmake)
 
+  if (EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav" AND
+      EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav")
+    add_test (NAME test_jt9_msk144_wav
+      COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
+              -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+              -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/Msk144Wav
+              -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav
+              -DSECOND_SAMPLE=${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav
+              -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/test_msk144_wav.cmake)
+    set_tests_properties (test_jt9_msk144_wav PROPERTIES
+      LABELS "decoder;msk144;integration" TIMEOUT 400)
+    if (WSJT_ENABLE_TSAN)
+      set_tests_properties (test_jt9_msk144_wav PROPERTIES
+        ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+    endif ()
+  endif ()
+
   find_package (Python3 COMPONENTS Interpreter QUIET)
   if (Python3_Interpreter_FOUND)
     add_test (NAME test_jt65_stream

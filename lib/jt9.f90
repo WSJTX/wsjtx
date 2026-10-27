@@ -33,6 +33,7 @@ program jt9
   end interface
 
   type(cli_args_t) :: args
+  type(decode_completion_result) :: msk_completion
   integer*2 id2a(180000)
   integer(C_INT) iret
   type(wav_header) wav
@@ -609,7 +610,10 @@ program jt9
 
      ! MSK144        
      else if (mode .eq. 144) then
-        call decode_msk144(shared_data%id2, shared_data%params, data_dir)
+        call decode_msk144_core(shared_data%id2, shared_data%params, data_dir, msk_completion)
+        if (.not. lquiet) call write_decode_completion(msk_completion)
+        call flush(6)
+        cycle
      endif
 
 ! Normal decoding pass
