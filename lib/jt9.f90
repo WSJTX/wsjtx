@@ -662,11 +662,11 @@ contains
     character(len=*), intent(out) :: value
 
     logical :: ok
-    character(len=32) :: reason
+    character(len=96) :: reason
 
     call parse_fixed_text(text, text_length, value, ok)
     if (.not. ok) then
-       write(reason, '(A,I0,A)') 'must be at most ', len(value), ' characters'
+       write(reason, '(A,I0,A)') 'must be at most ', len(value), ' characters with no internal whitespace'
        call invalid_option(option, text, trim(reason))
     end if
   end subroutine require_text

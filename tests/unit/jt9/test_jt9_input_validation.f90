@@ -8,6 +8,36 @@ program test_jt9_input_validation
   character(len=12) :: call_value
   character(len=6) :: grid_value
 
+  call parse_fixed_text(' W9XYZ ', 7, call_value, ok)
+  call assert_true(ok .and. call_value == 'W9XYZ', 'surrounding spaces are removed')
+
+  call parse_fixed_text(achar(9) // 'PJ4/K1ABC' // achar(9), 11, call_value, ok)
+  call assert_true(ok .and. call_value == 'PJ4/K1ABC', 'surrounding tabs preserve portable calls')
+
+  call parse_fixed_text(' PJ4/K1ABC/P1 ', 14, call_value, ok)
+  call assert_true(ok .and. call_value == 'PJ4/K1ABC/P1', 'callsign width is checked after normalization')
+
+  call parse_fixed_text(' EN37aa ', 8, grid_value, ok)
+  call assert_true(ok .and. grid_value == 'EN37aa', 'grid width is checked after normalization')
+
+  call parse_fixed_text(' K1ABC/P123456 ', 15, call_value, ok)
+  call assert_true(.not. ok, 'normalized overlong callsign is rejected')
+
+  call parse_fixed_text(' EN37abc ', 9, grid_value, ok)
+  call assert_true(.not. ok, 'normalized overlong grid is rejected')
+
+  call parse_fixed_text('K1 ABC', 6, call_value, ok)
+  call assert_true(.not. ok, 'embedded spaces are rejected')
+
+  call parse_fixed_text('EN' // achar(9) // '37', 5, grid_value, ok)
+  call assert_true(.not. ok, 'embedded tabs are rejected')
+
+  call parse_fixed_text(' b ', 3, call_value, ok)
+  call assert_true(ok .and. call_value == 'b', 'padded blank-call sentinel is normalized')
+
+  call parse_fixed_text(' ' // achar(9) // achar(10) // achar(11) // achar(12) // achar(13), 6, call_value, ok)
+  call assert_true(ok .and. call_value == ' ', 'ASCII whitespace-only text produces a blank field')
+
   call parse_fixed_text('PJ4/K1ABC', 9, call_value, ok)
   call assert_true(ok .and. call_value == 'PJ4/K1ABC', 'portable prefix is preserved')
 

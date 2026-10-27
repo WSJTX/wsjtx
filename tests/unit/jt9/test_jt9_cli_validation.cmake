@@ -23,6 +23,18 @@ function (require_acceptance)
   endif ()
 endfunction ()
 
+function (require_text_acceptance option value)
+  execute_process (
+    COMMAND "${program}" "${option}" "${value}" --version
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE stdout
+    ERROR_VARIABLE stderr)
+  if (NOT "${result}" STREQUAL "0" OR NOT stdout MATCHES "^${program_name} [0-9]" OR
+      NOT stderr STREQUAL "")
+    message (FATAL_ERROR "${program_name} ${option}=${value} did not accept its argument: ${stdout}${stderr}")
+  endif ()
+endfunction ()
+
 foreach (program "${JT9}" "${WSJT_CODEC}")
   get_filename_component (program_name "${program}" NAME_WE)
 
@@ -57,12 +69,25 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
     require_acceptance ("${option}" K1ABC/P)
     require_acceptance ("${option}" PJ4/K1ABC/P1)
     require_acceptance ("${option}" b)
+    require_text_acceptance ("${option}" " W9XYZ ")
+    require_text_acceptance ("${option}" "\tPJ4/K1ABC\t")
+    require_text_acceptance ("${option}" " PJ4/K1ABC/P1 ")
+    require_text_acceptance ("${option}" " b ")
+    require_text_acceptance ("${option}" "")
+    require_text_acceptance ("${option}" " \t ")
+    require_rejection ("${option}" "K1 ABC")
+    require_rejection ("${option}" "K1\tABC")
     require_rejection ("${option}" K1ABC/P123456)
     require_rejection ("${option}" "${oversized_call}")
   endforeach ()
 
   foreach (option -G --my-grid -g --his-grid)
     require_acceptance ("${option}" EN37aa)
+    require_text_acceptance ("${option}" "\tEN37aa ")
+    require_text_acceptance ("${option}" "")
+    require_text_acceptance ("${option}" " \t ")
+    require_rejection ("${option}" "EN 37")
+    require_rejection ("${option}" "EN\t37")
     require_rejection ("${option}" EN37abc)
   endforeach ()
 

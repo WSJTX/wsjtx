@@ -13,9 +13,25 @@ contains
     character(len=*), intent(out) :: value
     logical, intent(out) :: ok
 
+    character(len=*), parameter :: whitespace = ' ' // achar(9) // achar(10) // &
+         achar(11) // achar(12) // achar(13)
+    integer :: first, last
+
     value = ' '
-    ok = text_length >= 0 .and. text_length <= len(text) .and. text_length <= len(value)
-    if (ok) value = text(:text_length)
+    ok = .false.
+    if (text_length < 0 .or. text_length > len(text)) return
+
+    first = verify(text(:text_length), whitespace)
+    if (first == 0) then
+      ok = .true.
+      return
+    end if
+    last = verify(text(:text_length), whitespace, back=.true.)
+    if (last - first + 1 > len(value)) return
+    if (scan(text(first:last), whitespace) /= 0) return
+
+    value = text(first:last)
+    ok = .true.
   end subroutine parse_fixed_text
 
   subroutine parse_integer(text, value, ok)
