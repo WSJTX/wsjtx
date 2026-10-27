@@ -10,7 +10,7 @@ program jt9
   use timer_module, only: timer
   use timer_impl, only: init_timer, fini_timer
   use readwav
-  use jt9_input_validation, only: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc
+  use jt9_input_validation, only: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc, submode_limit
   use, intrinsic :: iso_fortran_env, only: error_unit
   use streaming_emit, only: streaming_emit_set_enabled, streaming_emit_error
   use jt9_params_init, only: init_default_params, init_streaming_extra_fields, &
@@ -40,6 +40,7 @@ program jt9
   real*4 s(NSMAX)
   real*8 TRperiod
   integer npct_unused
+  integer :: validation_mode
   integer(c_int) :: engine_attempt_no, engine_valid_samples
   integer(c_int64_t) :: engine_input_id
 
@@ -126,7 +127,8 @@ program jt9
     option ('msk144', .false., 'k', 'MSK144 mode', ''),                      &
     option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=1',&
         'QSOprogress'),                                                      &
-    option ('sub-mode', .true., 'b', 'Sub mode (A-H), default SUBMODE=A', 'SUBMODE'), &
+    option ('sub-mode', .true., 'b',                                        &
+        'Sub mode (mode-dependent A-H), default SUBMODE=A', 'SUBMODE'),      &
     option ('depth', .true., 'd',                                            &
         'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
     option ('tx-jt9', .false., 'T', 'Tx mode is JT9', ''),                   &
@@ -310,7 +312,19 @@ program jt9
      stop
   endif
 
-  iret=fftwf_init_threads()            !Initialize FFTW threading 
+  if (read_files .or. stream_mode) then
+     validation_mode = mode
+     if (validation_mode == 0) then
+        if (stream_mode) then
+           validation_mode = 8
+        else
+           validation_mode = 74
+        end if
+     end if
+     call require_mode_submode(validation_mode)
+  end if
+
+  iret=fftwf_init_threads()            !Initialize FFTW threading
 
 ! Default to 1 thread, but use nthreads for the big ones
   call fftwf_plan_with_nthreads(1)
@@ -655,6 +669,31 @@ program jt9
   if (allocated(shared_data)) deallocate(shared_data)
 
 contains
+
+  subroutine require_mode_submode(selected_mode)
+    integer, intent(in) :: selected_mode
+
+    integer :: maximum
+    character(len=16) :: mode_name
+    character(len=64) :: reason
+
+    maximum = submode_limit(selected_mode, tx9)
+    if (nsubmode <= maximum) return
+    select case (selected_mode)
+    case (4)
+       mode_name = 'JT4'
+    case (65)
+       mode_name = 'JT65'
+    case (66)
+       mode_name = 'Q65'
+    case (74)
+       mode_name = 'JT9+JT65'
+    case default
+       mode_name = 'selected mode'
+    end select
+    reason = 'must be A-' // achar(iachar('A') + maximum) // ' for ' // trim(mode_name)
+    call invalid_option('b', achar(iachar('A') + nsubmode), trim(reason))
+  end subroutine require_mode_submode
 
   subroutine require_text(option, text, text_length, value)
     character(len=*), intent(in) :: option, text

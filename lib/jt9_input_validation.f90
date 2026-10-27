@@ -4,8 +4,28 @@ module jt9_input_validation
 
   private
   public :: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc
+  public :: submode_limit
 
 contains
+
+  pure integer function submode_limit(mode, tx9) result(limit)
+    integer, intent(in) :: mode
+    logical, intent(in) :: tx9
+
+    ! Modes that ignore submode retain the CLI token range.
+    limit = 7
+    select case (mode)
+    case (4)
+      limit = 6
+    case (65)
+      limit = 2
+    case (66)
+      limit = 5
+    case (74)
+      ! The legacy combined path enables JT65 when the transmit mode is JT9.
+      if (tx9) limit = 2
+    end select
+  end function submode_limit
 
   subroutine parse_fixed_text(text, text_length, value, ok)
     character(len=*), intent(in) :: text

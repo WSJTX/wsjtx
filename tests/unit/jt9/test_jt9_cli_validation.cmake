@@ -35,6 +35,22 @@ function (require_text_acceptance option value)
   endif ()
 endfunction ()
 
+function (require_mode_result expected_stderr)
+  execute_process (
+    COMMAND "${program}" ${ARGN} "${missing_wav}"
+    RESULT_VARIABLE result
+    ERROR_VARIABLE stderr
+    TIMEOUT 10)
+  if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "${expected_stderr}")
+    message (FATAL_ERROR "${program_name} ${ARGN} produced an unexpected result (${result}): ${stderr}")
+  endif ()
+endfunction ()
+
+set (missing_wav "${CMAKE_CURRENT_BINARY_DIR}/jt9-cli-validation-missing.wav")
+if (EXISTS "${missing_wav}")
+  message (FATAL_ERROR "CLI validation requires an absent WAV path: ${missing_wav}")
+endif ()
+
 foreach (program "${JT9}" "${WSJT_CODEC}")
   get_filename_component (program_name "${program}" NAME_WE)
 
@@ -98,5 +114,44 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
     foreach (submode "" a h AA AB "A " 1 I Z @ /)
       require_rejection ("${option}" "${submode}")
     endforeach ()
+
+    foreach (mode -6 --jt65)
+      require_mode_result ("cannot read WAV file" "${mode}" "${option}" C)
+      require_mode_result ("invalid value for -b: D.*A-C for JT65" "${mode}" "${option}" D)
+      require_mode_result ("invalid value for -b: D.*A-C for JT65" "${option}" D "${mode}")
+    endforeach ()
+    require_mode_result ("cannot read WAV file" -4 "${option}" G)
+    require_mode_result ("invalid value for -b: H.*A-G for JT4" -4 "${option}" H)
+    require_mode_result ("invalid value for -b: H.*A-G for JT4" "${option}" H -4)
+    require_mode_result ("cannot read WAV file" -9 "${option}" H)
+    foreach (period 15 30 60 120 300)
+      require_mode_result ("cannot read WAV file" --q65 -p "${period}" "${option}" F)
+      require_mode_result ("invalid value for -b: G.*A-F for Q65" --q65 -p "${period}" "${option}" G)
+      require_mode_result ("invalid value for -b: G.*A-F for Q65" "${option}" G -p "${period}" --q65)
+    endforeach ()
+
+    require_mode_result ("cannot read WAV file" "${option}" H)
+    require_mode_result ("cannot read WAV file" -6 -9 "${option}" H)
+    require_mode_result ("cannot read WAV file" -T "${option}" C)
+    require_mode_result ("invalid value for -b: D.*A-C for JT9\\+JT65" "${option}" D -T)
+    require_mode_result ("cannot read WAV file" -9 -6 -T "${option}" C)
+    require_mode_result ("invalid value for -b: D.*A-C for JT9\\+JT65" -6 -9 -T "${option}" D)
+    require_mode_result ("cannot read WAV file" -8 "${option}" H)
+    require_mode_result ("cannot read WAV file" -k "${option}" H)
   endforeach ()
+
+  if (program_name STREQUAL "wsjt-codec")
+    set (empty_stdin "${CMAKE_CURRENT_BINARY_DIR}/Testing/Temporary/jt9-cli-empty-stdin")
+    file (MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Testing/Temporary")
+    file (WRITE "${empty_stdin}" "")
+    execute_process (
+      COMMAND "${program}" -b D --jt65
+      INPUT_FILE "${empty_stdin}"
+      RESULT_VARIABLE result
+      ERROR_VARIABLE stderr
+      TIMEOUT 10)
+    if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "invalid value for -b: D.*A-C for JT65")
+      message (FATAL_ERROR "wsjt-codec did not reject its invalid startup submode: ${stderr}")
+    endif ()
+  endif ()
 endforeach ()
