@@ -25,6 +25,11 @@ program jt9
      ! True in wsjt-codec (lib/streaming_io.f90), false in jt9 (lib/jt9_stream_stub.f90).
      logical function jt9_stream_available()
      end function jt9_stream_available
+     ! wsjt-codec's is in lib/stream_setmode.c; jt9's stub is never asked.
+     function stream_stdin_is_terminal() bind(C, name='stream_stdin_is_terminal')
+       import :: c_int
+       integer(c_int) :: stream_stdin_is_terminal
+     end function stream_stdin_is_terminal
   end interface
 
   type(cli_args_t) :: args
@@ -162,9 +167,7 @@ program jt9
         case ('1')
            ipc_lock_path = optarg(:arglen)
         case ('0')
-           read_files = .false.
            stream_mode = .true.
-           call streaming_emit_set_enabled(.true.)
         case ('e')
            exe_dir = optarg(:arglen)
         case ('a')
@@ -263,7 +266,16 @@ program jt9
      call jt9_print_version()
      stop
   endif
-  
+
+  ! wsjt-codec runs the stream whenever it has no file and no -s; --stream and -0 change nothing.
+  if (jt9_stream_available()) stream_mode = read_files .and. remain .lt. 1
+  if (stream_mode) then
+     read_files = .false.
+     if (jt9_stream_available()) then
+        if (stream_stdin_is_terminal() .ne. 0) display_help = .true.
+     end if
+  end if
+
   if (display_help .or. stat .lt. 0                      &
        .or. (.not. read_files .and. remain .gt. 0)       &
        .or. (read_files .and. remain .lt. 1)) then
@@ -272,7 +284,7 @@ program jt9
      print *, '       Reads data from *.wav files.'
      print *, ''
      if (jt9_stream_available()) then
-        print *, '       cat <pcm-stream> | '//trim(program_name)//' --stream'
+        print *, '       cat <pcm-stream> | '//trim(program_name)//' [OPTIONS]'
         print *, '       Reads framed PCM and control frames from stdin.'
      else
         print *, '       '//trim(program_name)//                                   &
@@ -285,7 +297,7 @@ program jt9
      do i = 1, size (long_options)
        select case (trim (long_options(i) % name))
        case ('stream')
-          if (.not. jt9_stream_available()) cycle
+          cycle
        case ('shmem', 'ipc-lock')
           if (jt9_stream_available()) cycle
        end select
@@ -314,6 +326,7 @@ program jt9
      if (stream_mode) then
         ! Streaming subprocess mode. Mirror the WAV path's shared_data setup,
         ! then hand off to the streaming reader.
+        call streaming_emit_set_enabled(.true.)
         if (mode .eq. 0) then
            mode = 8                            ! default: FT8
            if (TRperiod .eq. 60.d0) TRperiod = 15.d0

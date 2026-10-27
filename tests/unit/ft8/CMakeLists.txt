@@ -33,7 +33,31 @@ wsjt_link_common_fortran (test_ft8_mtd_residual)
 
 add_test (NAME test_ft8_mtd_residual COMMAND test_ft8_mtd_residual)
 
+add_executable (test_ft8_symbol_spectrum
+  test_ft8_symbol_spectrum.f90)
+wsjt_link_common_fortran (test_ft8_symbol_spectrum)
+add_test (NAME test_ft8_symbol_spectrum COMMAND test_ft8_symbol_spectrum)
+
+add_executable (test_ft8_fft32
+  test_ft8_fft32.f90)
+wsjt_link_common_fortran (test_ft8_fft32)
+add_test (NAME test_ft8_fft32 COMMAND test_ft8_fft32)
+
 if (TARGET wsjt_fort_omp)
+  add_executable (test_ft8_sync_fft_concurrent
+    test_ft8_sync_fft_concurrent.f90)
+  target_include_directories (test_ft8_sync_fft_concurrent PRIVATE
+    ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
+  target_link_libraries (test_ft8_sync_fft_concurrent PRIVATE
+    wsjt_fort_omp wsjt_fortran_openmp)
+
+  add_test (NAME test_ft8_sync_fft_concurrent
+    COMMAND test_ft8_sync_fft_concurrent)
+  set_tests_properties (test_ft8_sync_fft_concurrent PROPERTIES
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=4;OMP_THREAD_LIMIT=4"
+    PROCESSORS 4
+    TIMEOUT 30)
+
   add_executable (test_ft8_mtd_transaction_concurrent
     test_ft8_mtd_transaction_concurrent.f90)
   target_include_directories (test_ft8_mtd_transaction_concurrent PRIVATE

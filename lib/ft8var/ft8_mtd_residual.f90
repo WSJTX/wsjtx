@@ -1,6 +1,8 @@
 module ft8_mtd_residual
 
   use iso_fortran_env, only : int64
+  use iso_c_binding, only: c_loc,c_associated
+  use ft8_coarse_cache, only: coarse_cache_reset
 
   implicit none
 
@@ -29,7 +31,7 @@ module ft8_mtd_residual
      integer(int64) :: commit_generation=0_int64
   end type ft8_subtraction_descriptor
 
-  real, allocatable, save, public :: mtd_worker_residual(:,:)
+  real, allocatable, target, save, public :: mtd_worker_residual(:,:)
   complex, allocatable, save, public :: mtd_worker_spectrum(:,:)
 
   real, allocatable, save :: canonical_residual(:)
@@ -41,6 +43,8 @@ module ft8_mtd_residual
   integer(int64), allocatable, save :: worker_spectrum_generation(:)
   integer(int64), allocatable, save :: worker_spectrum_epoch(:)
   integer, save :: active_workers=0
+  integer, save :: coarse_team_size=0
+  logical, save :: coarse_frame_active=.false.
   integer(int64), save :: canonical_generation=0_int64
   integer(int64), save :: current_epoch=0_int64
   integer, save :: history_count=0
@@ -60,14 +64,22 @@ module ft8_mtd_residual
 
 contains
 
-  subroutine mtd_prepare(input_residual,nworkers)
+  subroutine mtd_prepare(input_residual,nworkers,cooperative)
     real, intent(in) :: input_residual(:)
     integer, intent(in) :: nworkers
+    logical, intent(in), optional :: cooperative
 
     if(size(input_residual).ne.mtd_residual_samples) error stop &
          'MTD residual has an unexpected sample count'
     if(nworkers.lt.1) error stop 'MTD requires at least one worker'
 
+    ! Reset only while no worker can access the frame cache.
+    call coarse_cache_reset()
+    coarse_frame_active=.true.
+    coarse_team_size=0
+    if(present(cooperative)) then
+       if(cooperative) coarse_team_size=nworkers
+    endif
     call ensure_capacity(nworkers)
 !$omp critical(ft8_mtd_canonical)
     call wsjt_tsan_acquire_ft8_mtd()
@@ -115,17 +127,27 @@ contains
     allocate(worker_spectrum_epoch(nworkers))
   end subroutine ensure_capacity
 
-  subroutine mtd_publish_worker(worker)
+  subroutine mtd_publish_worker(worker,spectrum_required)
     integer, intent(in) :: worker
+    logical, intent(out), optional :: spectrum_required
+    logical :: keep_residual,keep_spectrum
 
     call assert_worker(worker)
 !$omp critical(ft8_mtd_canonical)
     call wsjt_tsan_acquire_ft8_mtd()
-    mtd_worker_residual(:,worker)=canonical_residual
+    keep_residual=present(spectrum_required).and.worker_generation(worker).ge.0_int64.and. &
+         worker_epoch(worker).eq.current_epoch.and.worker_generation(worker).eq.canonical_generation
+    keep_spectrum=keep_residual.and.worker_spectrum_generation(worker).ge.0_int64.and. &
+         worker_spectrum_epoch(worker).eq.current_epoch.and. &
+         worker_spectrum_generation(worker).eq.canonical_generation
+    if(.not.keep_residual) mtd_worker_residual(:,worker)=canonical_residual
     worker_generation(worker)=canonical_generation
     worker_epoch(worker)=current_epoch
-    worker_spectrum_generation(worker)=-1_int64
-    worker_spectrum_epoch(worker)=current_epoch
+    if(.not.keep_spectrum) then
+       worker_spectrum_generation(worker)=-1_int64
+       worker_spectrum_epoch(worker)=current_epoch
+    endif
+    if(present(spectrum_required)) spectrum_required=.not.keep_spectrum
     call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
   end subroutine mtd_publish_worker
@@ -244,6 +266,30 @@ contains
     epoch=worker_epoch(worker)
     generation=worker_generation(worker)
   end subroutine mtd_capture_generation
+
+  subroutine mtd_coarse_snapshot(worker,residual,epoch,generation,valid)
+    integer, intent(in) :: worker
+    real, target, intent(in) :: residual(:)
+    integer(int64), intent(out) :: epoch,generation
+    logical, intent(out) :: valid
+
+    valid=.false.
+    epoch=-1_int64
+    generation=-1_int64
+    if(.not.coarse_frame_active) return
+    if(worker.lt.1.or.worker.gt.active_workers) return
+    if(.not.allocated(mtd_worker_residual)) return
+    if(size(residual).ne.mtd_residual_samples) return
+    if(.not.c_associated(c_loc(residual(1)),c_loc(mtd_worker_residual(1,worker)))) return
+    if(worker_generation(worker).lt.0_int64) return
+    ! Cache keys describe this worker's snapshot, not the latest canonical residual.
+    call mtd_capture_generation(worker,epoch,generation)
+    valid=.true.
+  end subroutine mtd_coarse_snapshot
+
+  integer function mtd_coarse_team_size() result(nworkers)
+    nworkers=coarse_team_size
+  end function mtd_coarse_team_size
 
   subroutine mtd_try_commit_delta(worker,residual,descriptor,base_epoch, &
        base_generation,delta,outcome)
@@ -426,6 +472,9 @@ contains
     output_residual=canonical_residual
     call wsjt_tsan_release_ft8_mtd()
 !$omp end critical(ft8_mtd_canonical)
+    coarse_frame_active=.false.
+    coarse_team_size=0
+    call coarse_cache_reset()
   end subroutine mtd_finish
 
   subroutine mtd_forward_half_sample(residual)

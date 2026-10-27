@@ -24,6 +24,18 @@ profile, defaulting to Bookworm. Trixie C/C++ builds explicitly define
 `_TIME_BITS=64` and `_FILE_OFFSET_BITS=64`, including static Hamlib.
 WSJT-X objects and binaries are never baked into these images.
 
+Official Linux, macOS, and Windows builds select FFTW 3.3.11 through
+`.github/scripts/fftw-version.sh`. Linux and macOS build the checksum-pinned
+source with their existing toolchains; Windows extracts a checksum-pinned MSYS2
+package into a private dependency prefix. Single precision and pthread support
+are required, with architecture-specific SIMD support. The linked runtime test
+checks the selected version and executes a threaded transform. A matching source
+version does not imply identical floating-point output across architectures.
+
+AppImages, portable archives, macOS bundles, and Windows packages carry the
+selected FFTW libraries. Native DEB and RPM packages retain their system FFTW
+dependency, so their installed runtime follows the distribution's package.
+
 The Ubuntu and GCC base tags intentionally follow their maintained upstream
 security updates. Each published generation records the resolved package set,
 compiler identity, dependency pins, and recipe fingerprint. Normal-image
@@ -34,6 +46,14 @@ is an explicit image cohort and verifies its pinned closure during the image
 build; the current code-level TSan suite is not part of image promotion.
 
 ## Publication
+
+For a single-platform check, dispatch `publish-linux-ci-images.yml` with
+`candidate_profile=x86_64|aarch64|armhf-bookworm|armhf-trixie`, `promote=false`,
+`include_armhf=false`, and `image_set=normal`. Each ARMHF profile builds its
+cross-builder followed by its matching runtime image. The resulting immutable
+tag can then be passed to `build-linux.yml` with the matching architecture and
+ARMHF distro for application tests and packaging. Broaden validation after that
+build passes. `candidate_profile=all` retains the complete-cohort publication path.
 
 `publish-linux-ci-images.yml` pushes unique candidate and immutable `build-*`
 tags for the selected image cohort. Each Docker build verifies the image

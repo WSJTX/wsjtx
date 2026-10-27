@@ -33,6 +33,11 @@ on:
         required: false
         type: string
         default: "normal"
+      candidate_profile:
+        description: "Candidate profile: all, x86_64, aarch64, armhf-bookworm, or armhf-trixie"
+        required: false
+        type: string
+        default: "all"
     outputs:
       image_tag:
         description: "Immutable tag shared by the published image cohort"
@@ -97,6 +102,17 @@ on:
           - internal
           - public-release
         default: internal
+      candidate_profile:
+        description: "Select one internal candidate profile, or all for a complete cohort"
+        required: false
+        type: choice
+        options:
+          - all
+          - x86_64
+          - aarch64
+          - armhf-bookworm
+          - armhf-trixie
+        default: all
 
 permissions:
   contents: read
@@ -117,6 +133,7 @@ jobs:
           ROLLBACK_TAG: ${{ inputs.rollback_tag }}
           IMAGE_SET: ${{ inputs.image_set }}
           INCLUDE_ARMHF: ${{ inputs.include_armhf }}
+          CANDIDATE_PROFILE: ${{ inputs.candidate_profile }}
           PROMOTE: ${{ inputs.promote }}
           REQUEST_REF: ${{ github.ref }}
           REQUEST_REPOSITORY: ${{ github.repository }}
@@ -149,6 +166,23 @@ jobs:
               exit 2
               ;;
           esac
+
+          case "$CANDIDATE_PROFILE" in
+            all|x86_64|aarch64|armhf-bookworm|armhf-trixie) ;;
+            *)
+              echo "::error::Unsupported candidate_profile: $CANDIDATE_PROFILE"
+              exit 2
+              ;;
+          esac
+
+          if [ "$CANDIDATE_PROFILE" != all ]; then
+            if [ "$MODE" != refresh ] || [ "$PROMOTE" != false ] || \
+               [ "$IMAGE_SET" != normal ] || [ "$INCLUDE_ARMHF" != false ] || \
+               [ "$PUBLICATION_TARGET" != internal ]; then
+              echo "::error::Single-profile candidates require internal refresh, promote=false, image_set=normal, and include_armhf=false"
+              exit 2
+            fi
+          fi
 
           case "$PUBLICATION_TARGET" in
             internal) ;;
@@ -270,7 +304,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   build-normal:
-    if: inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan'
+    if: >-
+      (inputs.candidate_profile == 'all' || inputs.candidate_profile == 'x86_64') &&
+      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -346,7 +382,9 @@ jobs:
           cache-to: type=inline
 
   build-arm64:
-    if: inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan'
+    if: >-
+      (inputs.candidate_profile == 'all' || inputs.candidate_profile == 'aarch64') &&
+      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs: metadata
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
@@ -385,7 +423,7 @@ jobs:
 
   build-armhf-cross:
     if: >-
-      inputs.include_armhf &&
+      ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-bookworm') &&
       (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs: metadata
     runs-on: ubuntu-24.04
@@ -435,7 +473,7 @@ jobs:
 
   build-armhf-runtime:
     if: >-
-      inputs.include_armhf &&
+      ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-bookworm') &&
       (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs:
       - metadata
@@ -481,7 +519,7 @@ jobs:
 
   build-armhf-trixie-cross:
     if: >-
-      inputs.include_armhf &&
+      ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-trixie') &&
       (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs: metadata
     runs-on: ubuntu-24.04
@@ -525,7 +563,7 @@ jobs:
 
   build-armhf-trixie-runtime:
     if: >-
-      inputs.include_armhf &&
+      ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-trixie') &&
       (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
     needs:
       - metadata

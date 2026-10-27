@@ -14,7 +14,8 @@ module npar_ptrs_mod
     integer(c_int) :: mousedf = 0
     integer(c_int) :: mousefqso = 0
     integer(c_int) :: nagain = 0
-    integer(c_int) :: ndepth = 0
+    integer(c_int) :: ndepth = 0       ! JT65 search level (0-2)
+    integer(c_int) :: ndepthq65 = 1    ! Q65 search level (1-3)
     integer(c_int) :: ndiskdat = 0
     integer(c_int) :: neme = 0
     integer(c_int) :: newdat = 0
@@ -136,6 +137,7 @@ module npar_ptrs_mod
   integer(c_int), pointer :: mousefqso => active%mousefqso
   integer(c_int), pointer :: nagain => active%nagain
   integer(c_int), pointer :: ndepth => active%ndepth
+  integer(c_int), pointer :: ndepthq65 => active%ndepthq65
   integer(c_int), pointer :: ndiskdat => active%ndiskdat
   integer(c_int), pointer :: neme => active%neme
   integer(c_int), pointer :: newdat => active%newdat
@@ -397,6 +399,13 @@ contains
     call unlock_decode_requests()
   end function
 
+  function get_ndepthq65() bind(C, name="get_ndepthq65")
+    integer(c_int) :: get_ndepthq65
+    call lock_decode_requests()
+    get_ndepthq65 = draft%ndepthq65
+    call unlock_decode_requests()
+  end function
+
   function get_ndiskdat() bind(C, name="get_ndiskdat")
     integer(c_int) :: get_ndiskdat
     call lock_decode_requests()
@@ -594,6 +603,14 @@ contains
     integer(c_int), value :: val
     call lock_decode_requests()
     draft%ndepth = val
+    call unlock_decode_requests()
+  end subroutine
+
+  subroutine set_ndepthq65(val) bind(C, name="set_ndepthq65")
+    use iso_c_binding
+    integer(c_int), value :: val
+    call lock_decode_requests()
+    draft%ndepthq65 = val
     call unlock_decode_requests()
   end subroutine
 

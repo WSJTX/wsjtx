@@ -2,7 +2,7 @@
 """
 wav-to-stream validation harness — no-configure-frame variant.
 
-Pipes a 12 kHz mono int16 WAV file through `wsjt-codec --stream` using the
+Pipes a 12 kHz mono int16 WAV file through `wsjt-codec` using the
 streaming protocol, but does NOT send a configure frame.
 Decode parameters come from wsjt-codec's CLI args (-F/-f/-L/-H/-d) instead.
 
@@ -74,7 +74,7 @@ def main() -> int:
         audio = w.readframes(w.getnframes())
 
     cmd = [
-        str(args.wsjt_codec), "--stream", args.mode_flag,
+        str(args.wsjt_codec), args.mode_flag,
         "-F", str(args.ntol), "-f", str(args.nrxfreq),
         "-L", str(args.flow), "-H", str(args.fhigh),
         "-d", str(args.ndepth),

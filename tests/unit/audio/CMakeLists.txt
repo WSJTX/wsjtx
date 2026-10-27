@@ -35,6 +35,10 @@ add_executable (test_tx_playback_diagnostics
 target_link_libraries (test_tx_playback_diagnostics Qt5::Core Qt5::Test)
 add_test (NAME test_tx_playback_diagnostics COMMAND test_tx_playback_diagnostics)
 
+add_executable (test_rx_audio_buffer_policy test_rx_audio_buffer_policy.cpp)
+target_link_libraries (test_rx_audio_buffer_policy Qt5::Test)
+add_test (NAME test_rx_audio_buffer_policy COMMAND test_rx_audio_buffer_policy)
+
 add_executable (test_tx_request test_tx_request.cpp)
 target_link_libraries (test_tx_request Qt5::Test)
 add_test (NAME test_tx_request COMMAND test_tx_request)
@@ -173,3 +177,35 @@ if (WSJT_ENABLE_TSAN)
     TIMEOUT 30 LABELS "receive-handoff;fast-decode-ownership"
     ENVIRONMENT "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
 endif ()
+
+# The codec's slot-mode pack and render against the GUI's generators and its
+# Modulator. One process per mode, so each starts from a fresh GUI's and a
+# fresh codec's transmit hash tables.
+add_executable (test_wsjt_codec_slot_encode
+  test_wsjt_codec_slot_encode.cpp
+  ${CMAKE_SOURCE_DIR}/Modulator/Modulator.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioDevice.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp)
+target_include_directories (test_wsjt_codec_slot_encode PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_wsjt_codec_slot_encode
+  wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
+target_compile_definitions (test_wsjt_codec_slot_encode PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>")
+add_dependencies (test_wsjt_codec_slot_encode wsjt-codec)
+# The GUI's stack: the test runs the GUI's Fox generation, foxfilt's 2.4 MB array, in process.
+if (WIN32)
+  set_property (TARGET test_wsjt_codec_slot_encode APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--stack,16777216")
+endif ()
+# Without a console (a Windows runner) QtTest writes to the debugger, not to ctest.
+set (slot_encode_environment "QT_FORCE_STDERR_LOGGING=1")
+if (WSJT_ENABLE_TSAN)
+  list (APPEND slot_encode_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+foreach (function ft8 ft4 fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr tune echo singleTones fastJt9 cwId
+    cwIdStation foxSlots foxTransmitState foxSequences superFox transmitState jttyUnchanged
+    readyListsEncodes decodesItsOwnRender renderAfterDecode refusals accepted)
+  add_test (NAME test_wsjt_codec_slot_encode_${function}
+    COMMAND test_wsjt_codec_slot_encode ${function})
+  set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES
+    LABELS "streaming;encode;runtime" TIMEOUT 300 ENVIRONMENT "${slot_encode_environment}")
+endforeach ()

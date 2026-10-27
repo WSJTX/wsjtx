@@ -59,6 +59,9 @@ require_equal schema 1 "${schema:-}"
 require_equal flavor "$expected_flavor" "${flavor:-}"
 require_equal architecture "$expected_arch" "${architecture:-}"
 require_equal hamlib_ref "$expected_hamlib_ref" "${hamlib_ref:-}"
+require_equal fftw_version "$FFTW_VERSION" "${fftw_version:-}"
+require_equal fftw_source_sha256 "$FFTW_SHA256" "${fftw_source_sha256:-}"
+require_sha256 fftw_sha256 "${fftw_sha256:-}"
 require_key_component generation "${generation:-}"
 
 case "$expected_flavor" in
@@ -173,7 +176,9 @@ if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
   require_equal compiler_sha256 "$compiler_sha256" "$(sha256sum "$compiler_path" | awk '{print $1}')"
   actual_package_sha256="$(dpkg-query -W -f='${binary:Package}=${Version}\n' | LC_ALL=C sort | sha256sum | awk '{print $1}')"
   require_equal package_sha256 "$package_sha256" "$actual_package_sha256"
-  toolchain_identity="$toolchain_recipe:$compiler_target:$compiler_sha256:$package_sha256"
+  actual_fftw_sha256="$(sha256sum "$image_prefix/fftw/lib/libfftw3f.so.3" "$image_prefix/fftw/lib/libfftw3f_threads.so.3" | sha256sum | awk '{print $1}')"
+  require_equal fftw_sha256 "$fftw_sha256" "$actual_fftw_sha256"
+  toolchain_identity="$toolchain_recipe:$compiler_target:$compiler_sha256:$package_sha256:$fftw_sha256"
   toolchain_sha256="$(printf '%s' "$toolchain_identity" | sha256sum | awk '{print $1}')"
   require_equal toolchain_id "$toolchain_id" "gcc${compiler_version}-${expected_arch}-${toolchain_sha256:0:20}"
 
@@ -199,6 +204,10 @@ fi
 
 if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
   smoke_dir="$(mktemp -d)"
+  CC="$compiler" "$config_dir/build-fftw-smoke-linux.sh" \
+    "$smoke_dir/fftw-smoke" "$image_prefix/fftw"
+  LD_LIBRARY_PATH="$image_prefix/fftw/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$smoke_dir/fftw-smoke" "$FFTW_VERSION"
   cat > "$smoke_dir/CMakeLists.txt" <<'EOF'
 cmake_minimum_required(VERSION 3.16)
 project(wsjt_ci_image_smoke LANGUAGES CXX)
@@ -256,6 +265,8 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
     printf 'ccache_compatibility_id=%s\n' "$verified_ccache_compatibility_id"
     printf 'ccache_compiler_check=%s\n' "$verified_ccache_compiler_check"
     printf 'recipe_match=%s\n' "$recipe_match"
+    printf 'fftw_version=%s\n' "$FFTW_VERSION"
+    printf 'fftw_prefix=%s\n' "$image_prefix/fftw"
     if [ "$expected_flavor" = normal ]; then
       printf 'pfunit_dir=%s\n' "$pfunit_dir"
       printf 'hamlib_prefix=%s\n' "$hamlib_prefix"

@@ -1,5 +1,6 @@
 ARG BASE_IMAGE=gcc:13.4.0-bookworm
 FROM ${BASE_IMAGE}
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG IMAGE_ARCH
 ARG IMAGE_CREATED
@@ -23,17 +24,22 @@ RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-packages \
     && /usr/local/bin/install-packages normal
 
 COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/fftw-version.sh \
+     .github/scripts/build-fftw.sh \
+     .github/scripts/build-fftw-smoke-linux.sh \
      .github/scripts/build-pfunit-linux.sh \
      .github/scripts/build-hamlib-linux.sh \
      .github/scripts/linux-ccache-compiler-signature.sh \
      .github/scripts/verify-linux-ci-image.sh \
      /usr/local/share/wsjtx-ci/
+COPY tests/dependencies/test_fftw_runtime.c /usr/local/share/wsjtx-ci/
 COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
 
 RUN set -eux; \
     test -n "$IMAGE_ARCH"; \
     chmod +x /usr/local/bin/write-wsjtx-ci-manifest; \
     . /usr/local/share/wsjtx-ci/linux-ci-image-config.sh; \
+    FFTW_ARCH="${IMAGE_ARCH:-x86_64}" /usr/local/share/wsjtx-ci/build-fftw.sh "$LINUX_FFTW_PREFIX"; \
     mkdir -p /tmp/wsjtx-pfunit-build; \
     cd /tmp/wsjtx-pfunit-build; \
     /usr/local/share/wsjtx-ci/build-pfunit-linux.sh \

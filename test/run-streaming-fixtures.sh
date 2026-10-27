@@ -2,13 +2,13 @@
 # Streaming-fixture regression harness (cross-mode validation).
 #
 # Pipes the same WAV fixtures used by run-golden-fixtures.sh through
-# `wsjt-codec --stream` via test/wav_to_stream_harness.py and asserts that the
+# `wsjt-codec`'s stream via test/wav_to_stream_harness.py and asserts that the
 # streaming-mode decode count meets or exceeds the WAV-mode ground truth.
 #
 # Streaming may produce MORE decodes than WAV mode (the early-pass
 # nzhsym=41/47 calls can find low-SNR signals; not a regression). What we
 # guard against is the "zero decodes" regression: any combination of
-# params/protocol bugs that silences the FT8 decoder under --stream.
+# params/protocol bugs that silences the FT8 decoder in the stream.
 #
 # Usage:
 #   test/run-streaming-fixtures.sh [build-dir]
@@ -54,7 +54,7 @@ fail=0
 # sequence. A probe of all 8 JT65B samples through this harness
 # found ONLY 0001 decodes at all (others 0/6), and 0001 only on a
 # quiescent box; the one non-averaging sample (DL7UAE) is 8-bit/11025 Hz
-# which --stream hard-rejects (needs 16-bit/12 kHz), so no margin-clearing
+# which the stream hard-rejects (needs 16-bit/12 kHz), so no margin-clearing
 # JT65 sample is available to swap in. On the single-pass streaming
 # path (no WAV multi-pass threshold relaxation, jt65_decode.f90:122-145)
 # the candidate sits on KVASD's dual accept gate (extract.f90:176), so a
@@ -68,7 +68,7 @@ fail=0
 # via run-eme-jt65-fixtures.sh. Same posture as FST4W below; replace-with-
 # margin-sample and soft-gate were the rejected alternatives.
 # Q65: 1 floor (streaming=4). 60s Q65-A sample; EME-sourced but
-# decoded through the TERRESTRIAL wsjt-codec --stream nmode=66 path (NOT map65d) —
+# decoded through the TERRESTRIAL wsjt-codec stream nmode=66 path (NOT map65d) —
 # exactly the path an external streaming producer exercises. Closes the
 # residual per-mode gap (FT4/MSK144/FST4 were closed earlier).
 #

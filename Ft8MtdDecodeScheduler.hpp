@@ -1,7 +1,7 @@
 #ifndef FT8_MTD_DECODE_SCHEDULER_HPP
 #define FT8_MTD_DECODE_SCHEDULER_HPP
 
-#include <QtGlobal>
+#include <cstdint>
 
 class Ft8MtdDecodeScheduler
 {
@@ -35,29 +35,29 @@ public:
     int skippedPeriods {0};
   };
 
-  Decision request (Stage stage, qint64 period, int earlyStageCount,
+  Decision request (Stage stage, std::int64_t period, int earlyStageCount,
                     bool decoderBusy, bool finalAlreadyPending);
-  bool published (Stage stage, qint64 period);
-  void completed (Stage stage, qint64 period);
-  void publicationFailed (Stage stage, qint64 period);
+  bool published (Stage stage, std::int64_t period);
+  void completed (Stage stage, std::int64_t period);
+  void publicationFailed (Stage stage, std::int64_t period);
   void cancel ();
 
   bool degraded () const {return degraded_;}
   int skippedPeriods () const;
-  qint64 nextProbePeriod () const {return nextProbePeriod_;}
+  std::int64_t nextProbePeriod () const {return nextProbePeriod_;}
 
 private:
   static constexpr int BackoffCount {4};
   static constexpr int BackoffPeriods[BackoffCount] {1, 2, 4, 8};
 
-  void degrade (qint64 period, bool advance);
-  bool probeComplete (qint64 period) const;
+  void degrade (std::int64_t period, bool advance);
+  bool probeComplete (std::int64_t period) const;
   void clearProbe ();
 
   bool degraded_ {false};
   int backoffIndex_ {0};
-  qint64 nextProbePeriod_ {0};
-  qint64 probePeriod_ {-1};
+  std::int64_t nextProbePeriod_ {0};
+  std::int64_t probePeriod_ {-1};
   int probeEarlyStageCount_ {0};
   int completedEarlyStages_ {0};
   bool recoverOnFinalPublish_ {false};

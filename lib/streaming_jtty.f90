@@ -61,6 +61,8 @@
 !
 ! JTTY encode, in any mode: the control frame
 !   {"t":"pack","id":I,"text":S,...}
+! with no "mode", or with "mode":"JTTY", case aside (a request naming another
+! mode is a slot mode's, lib/streaming_encode.f90).
 ! I is a JSON integer from -2147483648 to 2147483647, as are serial and
 ! report; a number in another form ("+5", "05", "1.0") is not one. The
 ! request's I is echoed on each of its reply lines; a jtty_update's id is the
@@ -70,7 +72,10 @@
 ! key (natively if it is one of the forms below, else expanded as text that
 ! ends its message); each at most 32767 UTF-16 units, and 1048576 expanded.
 ! The stream's 262,144-byte control frame limit applies to the whole request,
-! so long fields together can exceed it (control_frame_too_large).
+! so long fields together can exceed it (control_frame_too_large). Any key
+! not named here, a misspelt or mis-cased one included, is refused
+! bad_request with that key as written (keys are matched without escapes),
+! as are freq and rate on a pack.
 ! "profile": "none" (default), "field_day" or "rtty". "his_call" and
 ! "exchange" (default ""): at most 64 units, none below U+0020, none from
 ! U+007F to U+009F and no '%'. "serial" and "report": never defaulted. The
@@ -143,10 +148,10 @@
 !
 ! JTTY render, in any mode: {"t":"render","id":I,"template":S,...,
 ! "freq":F,"rate":R}, pack's keys with F the lowest tone, a JSON number from
-! 200 to 5000 Hz, and R 12000 or 48000. It is answered as pack is, except
-! that each segment line also carries "samples":N and is followed by its
-! audio, N samples of int16 little-endian mono at R, base64 (RFC 4648), in
-! lines of 16384 samples but the last,
+! 200 to 5000 Hz, and R the JSON integer 12000 or 48000. It is answered as
+! pack is, except that each segment line also carries "samples":N and is
+! followed by its audio, N samples of int16 little-endian mono at R, base64
+! (RFC 4648), in lines of 16384 samples but the last,
 !   pcm       {"v":1,"t":"pcm","id":I,"seg":K,"seq":Q,"data":S}
 ! Q counting each segment's pcm lines from 0, and that the last line is
 !   rendered  {"v":1,"t":"rendered","id":I,"segments":M,"substituted":B}
@@ -181,6 +186,9 @@ module streaming_jtty
 
   public :: jtty_audio, jtty_end, jtty_range_key, jtty_emit_range_error,      &
        jtty_release, jtty_note_station, jtty_encode
+  ! The reply lines and the station's call the slot modes' encode shares
+  ! (lib/streaming_encode.f90).
+  public :: encode_emit_rejected, encode_emit_pcm, encode_station_call
 
   integer, parameter :: NSPS = 384
   integer, parameter :: NFRAME = 59 * NSPS
@@ -214,6 +222,7 @@ module streaming_jtty
   logical,           save :: station_call_set_ = .false.
   logical,           save :: station_grid_set_ = .false.
   logical,           save :: station_call_long_ = .false.
+  logical,           save :: station_call_unreadable_ = .false.
   logical,           save :: station_grid_long_ = .false.
   integer(c_int16_t), allocatable, save :: tx_samples_(:)
 
@@ -439,7 +448,7 @@ contains
           do j = 1, ngaps(i)
              offset = shown_offset_(message, gaps(j, i), shown(1:length))
              if (offset .lt. 0) then
-                write(error_unit, '(a,i0,a)') 'wsjt-codec --stream: the gap markers of message ', &
+                write(error_unit, '(a,i0,a)') 'wsjt-codec: the gap markers of message ', &
                      ids(i), ' are not in its displayed text; it is reported without gaps'
                 gap_list = ''
                 exit
@@ -485,7 +494,7 @@ contains
   subroutine fatal_(message)
     character(len=*), intent(in) :: message
     call streaming_emit_error(message)
-    write(error_unit, '(2a)') 'wsjt-codec --stream: ', message
+    write(error_unit, '(2a)') 'wsjt-codec: ', message
     stop 1
   end subroutine fatal_
 
@@ -533,6 +542,7 @@ contains
     if (cfg%mycall_set .or. cfg%mycall_unreadable) then
        station_call_ = cfg%mycall_tx
        station_call_long_ = cfg%mycall_tx_long
+       station_call_unreadable_ = cfg%mycall_unreadable
        station_call_set_ = .true.
     end if
     if (cfg%mygrid_set .or. cfg%mygrid_unreadable) then
@@ -541,6 +551,17 @@ contains
        station_grid_set_ = .true.
     end if
   end subroutine jtty_note_station
+
+  ! The station's call as the last accepted configure that named one gave it,
+  ! blank before one has: long when it has more than the 64 characters call
+  ! holds, unreadable when its JSON string does not decode (call is blank).
+  subroutine encode_station_call(call, long, unreadable)
+    character(len=64), intent(out) :: call
+    logical,           intent(out) :: long, unreadable
+    call = station_call_
+    long = station_call_long_
+    unreadable = station_call_unreadable_
+  end subroutine encode_station_call
 
   ! Answer one pack (render .false.) or render request.
   subroutine jtty_encode(frame, render)
@@ -555,7 +576,7 @@ contains
          canonical(TX_TEXT), key(32), detail(256)
     character(len=:), allocatable :: id, list, line
     integer(int64) :: total, samples
-    integer :: seg, first, seq, alloc_status
+    integer :: seg, alloc_status
     logical :: ok
 
     if (render) then
@@ -642,14 +663,7 @@ contains
        rendered = jtty_tx_render(tones, nsym, int(req%rate, c_int32_t),      &
             real(req%freq, c_float), tx_samples_, size(tx_samples_, kind=c_int32_t))
        if (rendered .ne. samples) call fatal_('a transmit segment did not render')
-       seq = 0
-       do first = 1, rendered, PCM_LINE
-          call emit_line_('{"v":1,"t":"pcm","id":' // id // ',"seg":' //    &
-               itoa_(int(seg, int64)) // ',"seq":' // itoa_(int(seq, int64)) // &
-               ',"data":"' // base64_(tx_samples_(first:min(first + PCM_LINE - 1, &
-               int(rendered)))) // '"}')
-          seq = seq + 1
-       end do
+       call encode_emit_pcm(id, seg, tx_samples_(1:rendered))
     end do
     call jtty_tx_destroy(handle)
     call emit_line_('{"v":1,"t":"' // trim(merge('rendered', 'packed  ', render)) // &
@@ -670,6 +684,27 @@ contains
        length = len_trim(value, c_int32_t)
     end if
   end function station_length_
+
+  ! samples as the pcm lines of request id's segment seg.
+  subroutine encode_emit_pcm(id, seg, samples)
+    character(len=*),   intent(in) :: id
+    integer,            intent(in) :: seg
+    integer(c_int16_t), intent(in) :: samples(:)
+    integer :: first, seq
+    seq = 0
+    do first = 1, size(samples), PCM_LINE
+       call emit_line_('{"v":1,"t":"pcm","id":' // id // ',"seg":' //       &
+            itoa_(int(seg, int64)) // ',"seq":' // itoa_(int(seq, int64)) //    &
+            ',"data":"' // base64_(samples(first:min(first + PCM_LINE - 1,    &
+            size(samples)))) // '"}')
+       seq = seq + 1
+    end do
+  end subroutine encode_emit_pcm
+
+  subroutine encode_emit_rejected(id, reason, key, detail)
+    character(len=*), intent(in) :: id, reason, key, detail
+    call emit_rejected_(id, reason, key, detail)
+  end subroutine encode_emit_rejected
 
   subroutine emit_rejected_(id, reason, key, detail)
     character(len=*), intent(in) :: id, reason, key, detail

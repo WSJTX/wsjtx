@@ -1,16 +1,28 @@
 subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass, &
      lqsothread,ncandthin,ndtcenter,progress_generation)
 
+  use iso_fortran_env, only: int64
+!$ use omp_lib, only: omp_get_thread_num
+  use ft8_mtd_residual, only: mtd_coarse_snapshot,mtd_coarse_team_size
+  use ft8_coarse_cache, only: coarse_cache_lookup,coarse_cache_store
+  use ft8_coarse_sync, only: cooperative_first_pass
   use ft8_mod1, only : windowx,facx,icos7,lagcc,lagccbail,nfawide,nfbwide
   use decode_completion_module, only : write_decode_progress
-  real, intent(in) :: residual(180000)
+  real, target, intent(in) :: residual(180000)
   include 'ft8_params.f90'
   complex cx(0:NH1)
   real, save :: s(NH1,NHSYM)
   !$omp threadprivate(s)
   real x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
-  real candidate_sync(450)
+  real candidate_sync(450),baseline_sum
+  real signal_a(NH1),signal_b(NH1),signal_c(NH1),signal_cq(NH1)
+  real baseline_a(NH1),baseline_b(NH1),baseline_c(NH1),baseline_cq(NH1)
+  integer(int64) :: cache_epoch,cache_generation
+  integer :: cache_fields(7),worker,cooperative_workers
+  logical :: snapshot_valid,cache_fill,cache_hit,cooperative_handled,cooperative_eligible
+  real, allocatable :: baseline(:,:)
   integer jpeak(NH1),indx(NH1),ii(1)
+  integer*8 sync_plan
   integer, parameter :: max_sync_stencil=16
   integer, intent(in) :: nfa,nfb,nfqso,jzb,jzt,ipass,ncandthin,ndtcenter,progress_generation
   logical(1) syncq(NH1,jzb:jzt),redcq(NH1),lcq,lcq2,lpass1,lpass2
@@ -25,7 +37,33 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
   rcandthin=ncandthin/100.;
   dtcenter=ndtcenter/100.
 
-  if(nfa.gt.nfb .or. nfawide.gt.nfbwide) return
+  iaw=max(1,nint(nfawide/df))
+  ibw=min(NH1-max_sync_stencil,nint(nfbwide/df))
+  ia=max(1,nint(nfa/df),iaw)
+  ib=min(NH1-max_sync_stencil,nint(nfb/df),ibw)
+  worker=1
+!$ worker=omp_get_thread_num()+1
+  call mtd_coarse_snapshot(worker,residual,cache_epoch,cache_generation,snapshot_valid)
+  cache_fields=[ipass,jzb,jzt,nfawide,nfbwide,merge(1,0,lagcc),merge(1,0,lagccbail)]
+  cooperative_workers=mtd_coarse_team_size()
+  ! Every team member must reach this first-pass collective before any worker-local
+  ! early return, including empty-range workers; otherwise its barriers can deadlock.
+  if(ipass.eq.1.and.cooperative_workers.gt.1) then
+    cooperative_eligible=snapshot_valid.and.nfawide.le.nfbwide.and.iaw.le.ibw.and.jzb.le.jzt.and. &
+         .not.(lagcc.and..not.lagccbail)
+    call cooperative_first_pass(residual,jzb,jzt,cache_epoch,cache_generation,cache_fields, &
+         red,jpeak,redcq,cooperative_eligible,cooperative_handled,progress_generation,cooperative_workers)
+    if(cooperative_handled) then
+      if(nfa.gt.nfb.or.ia.gt.ib) return
+      goto 800
+    endif
+  endif
+  if(nfa.gt.nfb.or.nfawide.gt.nfbwide.or.ia.gt.ib.or.iaw.gt.ibw.or.jzb.gt.jzt) return
+  cache_fill=snapshot_valid.and..not.(lagcc.and..not.lagccbail)
+  if(cache_fill) then
+    call coarse_cache_lookup(cache_epoch,cache_generation,cache_fields,red,jpeak,redcq,cache_hit)
+    if(cache_hit) goto 800
+  endif
 
   if(ipass.eq.1 .or. ipass.eq.4 .or. ipass.eq.7) then
     do j=1,NHSYM
@@ -36,8 +74,9 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
       x(961:2880)=facx*residual(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
       if(j.ne.NHSYM) then; x(2881:3081)=residual(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
       x(3082:)=0.
-      call four2avar(cx,NFFT1,1,-1,0)              !r2c FFT
-      do i=1,NH1
+      if(j.eq.1) call four2avar_get_plan(cx,NFFT1,1,-1,0,sync_plan)
+      call sfftw_execute_dft_r2c(sync_plan,x,cx)
+      do i=iaw,ibw+max_sync_stencil
         s(i,j)=SQRT(real(cx(i))**2 + aimag(cx(i))**2)
       enddo
       if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
@@ -52,8 +91,9 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
       x(961:2880)=facx*residual(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
       if(j.ne.NHSYM) then; x(2881:3081)=residual(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
       x(3082:)=0.
-      call four2avar(cx,NFFT1,1,-1,0)              !r2c FFT
-      do i=1,NH1
+      if(j.eq.1) call four2avar_get_plan(cx,NFFT1,1,-1,0,sync_plan)
+      call sfftw_execute_dft_r2c(sync_plan,x,cx)
+      do i=iaw,ibw+max_sync_stencil
         s(i,j)=real(cx(i))**2 + aimag(cx(i))**2
       enddo
       if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
@@ -68,8 +108,9 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
       x(961:2880)=facx*residual(ia:ib); x(961)=x(961)*1.9; x(2880)=x(2880)*1.9
       if(j.ne.NHSYM) then; x(2881:3081)=residual(ib+1:ib+201)*windowx; else; x(2881:3081)=0.; endif
       x(3082:)=0.
-      call four2avar(cx,NFFT1,1,-1,0)              !r2c FFT
-      do i=1,NH1
+      if(j.eq.1) call four2avar_get_plan(cx,NFFT1,1,-1,0,sync_plan)
+      call sfftw_execute_dft_r2c(sync_plan,x,cx)
+      do i=iaw,ibw+max_sync_stencil
         s(i,j)=abs(real(cx(i))) + abs(aimag(cx(i)))
       enddo
       if(mod(j,16).eq.0) call write_decode_progress(progress_generation)
@@ -78,11 +119,9 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
 
   ia=max(1,nint(nfa/df))
   ib=min(NH1-max_sync_stencil,nint(nfb/df))
-  iaw=max(1,nint(nfawide/df))
-  ibw=min(NH1-max_sync_stencil,nint(nfbwide/df))
   ia=max(ia,iaw)
   ib=min(ib,ibw)
-  if(ia.gt.ib .or. iaw.gt.ibw) return
+  if(ia.gt.ib) return
   nssy=4 ! NSPS/NSTEP   ! # steps per symbol
   nssy36=144 ! nssy*36
   nssy72=288 ! nssy*72
@@ -91,6 +130,12 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
 
   if(lagcc .and. .not.lagccbail) then
     nfos6=12 ! nfos*6
+    allocate(baseline(iaw:ibw,NHSYM))
+    do k=1,NHSYM
+      do i=iaw,ibw
+        baseline(i,k)=sum(s(i:i+nfos6:nfos,k))
+      enddo
+    enddo
     do j=jzb,jzt
       do i=iaw,ibw
         ta=0.; tb=0.; tc=0.; tall=0.
@@ -98,17 +143,17 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
           k=j+jstrt+nssy*n
           if(k.gt.0) then
             ta=s(i+nfos*icos7(n),k)
-            if(ta.gt.1e-9) then; tall(n+1)=ta*6.0/(sum(s(i:i+nfos6:nfos,k))-ta); else; tall(n+1)=0.; endif
+            if(ta.gt.1e-9) then; tall(n+1)=ta*6.0/(baseline(i,k)-ta); else; tall(n+1)=0.; endif
           endif
           k36=k+nssy36
           if(k36.gt.0 .and. k36.le.NHSYM) then
             tb=s(i+nfos*icos7(n),k36)
-            if(tb.gt.1e-9) then; tall(n+17)=tb*6.0/(sum(s(i:i+nfos6:nfos,k36))-tb); else; tall(n+17)=0.; endif
+            if(tb.gt.1e-9) then; tall(n+17)=tb*6.0/(baseline(i,k36)-tb); else; tall(n+17)=0.; endif
           endif
           k72=k+nssy72
           if(k72.le.NHSYM) then
             tc=s(i+nfos*icos7(n),k72)
-            if(tc.gt.1e-9) then; tall(n+24)=tc*6.0/(sum(s(i:i+nfos6:nfos,k72))-tc); else; tall(n+24)=0.; endif
+            if(tc.gt.1e-9) then; tall(n+24)=tc*6.0/(baseline(i,k72)-tc); else; tall(n+24)=0.; endif
           endif
         enddo
         lcq=.false.
@@ -117,9 +162,9 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
             k=j+jstrt+nssy*n
             if(k.gt.0) then
               if(n.lt.15) then
-                tall(n+1)=s(i,k)*6.0/(sum(s(i:i+nfos6:nfos,k))-s(i,k))
+                tall(n+1)=s(i,k)*6.0/(baseline(i,k)-s(i,k))
               else
-                tall(n+1)=s(i+2,k)*6.0/(sum(s(i:i+nfos6:nfos,k))-s(i+2,k))
+                tall(n+1)=s(i+2,k)*6.0/(baseline(i,k)-s(i+2,k))
               endif
             endif
           enddo
@@ -136,30 +181,64 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
   else
 !    nfos6=15 ! 16i spec bw -1
     nfos6=max_sync_stencil
-    do j=jzb,jzt
+    allocate(baseline(iaw:ibw,NHSYM))
+    do k=1,NHSYM
+!$omp simd private(baseline_sum,n)
       do i=iaw,ibw
-        ta=0.; tb=0.; tc=0.; tcq=0.; t0a=0.; t0b=0.; t0c=0.; t0cq=0.
-        do n=0,6
-          k=j+jstrt+nssy*n
-          if(k.gt.0) then; ta=ta + s(i+nfos*icos7(n),k); t0a=t0a + sum(s(i:i+nfos6,k)) - s(i+nfos*icos7(n)+1,k); endif
-          k36=k+nssy36
-          if(k36.gt.0 .and. k36.le.NHSYM) then
-            tb=tb + s(i+nfos*icos7(n),k36); t0b=t0b + sum(s(i:i+nfos6,k36)) - s(i+nfos*icos7(n)+1,k36)
-          endif
-          k72=k+nssy72
-          if(k72.le.NHSYM) then
-            tc=tc + s(i+nfos*icos7(n),k72)
-            t0c=t0c + sum(s(i:i+nfos6,k72)) - s(i+nfos*icos7(n)+1,k72)
-          endif
+        baseline_sum=0.0
+        do n=0,16
+          baseline_sum=baseline_sum+s(i+n,k)
         enddo
-        do n=7,15
-          k=j+jstrt+nssy*n
-          if(k.ge.1) then
-            if(n.lt.15) then; tcq=tcq + s(i,k); t0cq=t0cq + sum(s(i:i+nfos6,k)) - s(i,k+1)
-            else; tcq=tcq + s(i+2,k); t0cq=t0cq + sum(s(i:i+nfos6,k)) - s(i,k+3)
-            endif
+        baseline(i,k)=baseline_sum
+      enddo
+    enddo
+    do j=jzb,jzt
+      signal_a(iaw:ibw)=0.; signal_b(iaw:ibw)=0.
+      signal_c(iaw:ibw)=0.; signal_cq(iaw:ibw)=0.
+      baseline_a(iaw:ibw)=0.; baseline_b(iaw:ibw)=0.
+      baseline_c(iaw:ibw)=0.; baseline_cq(iaw:ibw)=0.
+      do n=0,6
+        k=j+jstrt+nssy*n
+        if(k.gt.0) then
+          do i=iaw,ibw
+            signal_a(i)=signal_a(i)+s(i+nfos*icos7(n),k)
+            baseline_a(i)=baseline_a(i)+baseline(i,k)-s(i+nfos*icos7(n)+1,k)
+          enddo
+        endif
+        k36=k+nssy36
+        if(k36.gt.0 .and. k36.le.NHSYM) then
+          do i=iaw,ibw
+            signal_b(i)=signal_b(i)+s(i+nfos*icos7(n),k36)
+            baseline_b(i)=baseline_b(i)+baseline(i,k36)-s(i+nfos*icos7(n)+1,k36)
+          enddo
+        endif
+        k72=k+nssy72
+        if(k72.le.NHSYM) then
+          do i=iaw,ibw
+            signal_c(i)=signal_c(i)+s(i+nfos*icos7(n),k72)
+            baseline_c(i)=baseline_c(i)+baseline(i,k72)-s(i+nfos*icos7(n)+1,k72)
+          enddo
+        endif
+      enddo
+      do n=7,15
+        k=j+jstrt+nssy*n
+        if(k.ge.1) then
+          if(n.lt.15) then
+            do i=iaw,ibw
+              signal_cq(i)=signal_cq(i)+s(i,k)
+              baseline_cq(i)=baseline_cq(i)+baseline(i,k)-s(i,k+1)
+            enddo
+          else
+            do i=iaw,ibw
+              signal_cq(i)=signal_cq(i)+s(i+2,k)
+              baseline_cq(i)=baseline_cq(i)+baseline(i,k)-s(i,k+3)
+            enddo
           endif
-        enddo
+        endif
+      enddo
+      do i=iaw,ibw
+        ta=signal_a(i); tb=signal_b(i); tc=signal_c(i); tcq=signal_cq(i)
+        t0a=baseline_a(i); t0b=baseline_b(i); t0c=baseline_c(i); t0cq=baseline_cq(i)
         t1=ta+tb+tc; t01=t0a+t0b+t0c; t2=t1+tcq; t02=t01+t0cq
         t01=(t01-t1*2)/42.0; if(t01.lt.1e-8) t01=1.0; t02=(t02-t2*2)/60.0; if(t02.lt.1e-8) t02=1.0 ! safe division
         sync01=t1/(7.0*t01); sync02=(t1/7.0 + tcq/9.0)/t02; syncf=max(sync01,sync02)
@@ -174,6 +253,8 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
       if(mod(j-jzb+1,16).eq.0) call write_decode_progress(progress_generation)
     enddo
   endif
+  deallocate(baseline)
+
 
   red=0.
   do i=iaw,ibw
@@ -191,6 +272,8 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
   base=red(ibase)
   if(base.lt.1e-8) base=1.0 ! safe division
   red=red/base
+  if(cache_fill) call coarse_cache_store(cache_epoch,cache_generation,cache_fields,iaw,ibw,red,jpeak,redcq)
+800 continue
 
   candidate0=0.; k=0; iz=ib-ia+1; lpass1=.false.; lpass2=.false.
   if(rcandthin.lt.0.99) then

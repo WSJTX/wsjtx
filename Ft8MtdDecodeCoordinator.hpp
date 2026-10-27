@@ -6,8 +6,8 @@
 
 #include <QtGlobal>
 
+#include "CapturedDecode.hpp"
 #include "DecodeOperatingContext.hpp"
-#include "DecoderIpc.hpp"
 #include "Ft8MtdDecodeScheduler.hpp"
 
 class Ft8MtdDecodeCoordinator
@@ -19,7 +19,7 @@ public:
 
   struct PendingMtdDecode
   {
-    DecoderIpc::Ft8MtdPayload payload;
+    std::unique_ptr<CapturedDecode> request;
     DecodeOperatingContext context;
     qint64 period {0};
   };

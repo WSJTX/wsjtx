@@ -57,7 +57,7 @@ hash_package_set() {
 
 hash_runtime_set() {
   local library records=""
-  for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do
+  for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}" libfftw3f.so.3 libfftw3f_threads.so.3; do
     test -f "$ARMHF_RUNTIME_PREFIX/$library"
     records+="$library=$(sha256sum "$ARMHF_RUNTIME_PREFIX/$library" | awk '{print $1}')"$'\n'
   done
@@ -132,6 +132,8 @@ require_equal distribution "$ARMHF_DISTRO" "${VERSION_CODENAME:-}"
 require_equal role "$expected_role" "${role:-}"
 require_equal architecture "$expected_arch" "${architecture:-}"
 require_equal hamlib_ref "$expected_hamlib_ref" "${hamlib_ref:-}"
+require_equal fftw_version "$FFTW_VERSION" "${fftw_version:-}"
+require_equal fftw_source_sha256 "$FFTW_SHA256" "${fftw_source_sha256:-}"
 require_equal glibc_version "$ARMHF_GLIBC_VERSION" "${glibc_version:-}"
 require_equal quadmath_runtime unavailable-on-arm "${quadmath_runtime:-}"
 require_sha256 recipe_sha256 "${recipe_sha256:-}"
@@ -159,7 +161,7 @@ fi
 actual_package_sha256="$(hash_package_set)"
 require_equal package_sha256 "$package_sha256" "$actual_package_sha256"
 require_equal runtime_sha256 "$runtime_sha256" "$(hash_runtime_set)"
-for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do
+for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}" libfftw3f.so.3 libfftw3f_threads.so.3; do
   require_armhf_elf "$ARMHF_RUNTIME_PREFIX/$library"
   verify_glibc_ceiling "$ARMHF_RUNTIME_PREFIX/$library"
   reject_quadmath_dependency "$ARMHF_RUNTIME_PREFIX/$library"
@@ -241,7 +243,11 @@ case "$expected_role" in
       require_armhf_elf "$smoke"
       reject_quadmath_dependency "$smoke"
       reject_private_glibc_dependency "$smoke"
-      LD_LIBRARY_PATH="$ARMHF_RUNTIME_PREFIX" OMP_NUM_THREADS=2 "$smoke"
+      smoke_args=()
+      if [ "${smoke##*/}" = fftw-smoke ]; then
+        smoke_args+=("$FFTW_VERSION")
+      fi
+      LD_LIBRARY_PATH="$ARMHF_RUNTIME_PREFIX" OMP_NUM_THREADS=2 "$smoke" "${smoke_args[@]}"
     done
     ;;
   *)
@@ -256,6 +262,7 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
   {
     printf '%sgeneration=%s\n' "$output_prefix" "$generation"
     printf '%srecipe_match=%s\n' "$output_prefix" "$recipe_match"
+    printf '%sfftw_version=%s\n' "$output_prefix" "$FFTW_VERSION"
     if [ "$expected_role" = cross-builder ]; then
       printf '%stoolchain_id=%s\n' "$output_prefix" "$toolchain_id"
       printf '%sccache_compatibility_id=%s\n' "$output_prefix" "$ccache_compatibility_id"

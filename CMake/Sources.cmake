@@ -108,6 +108,7 @@ set (wsjt_qt_CXXSRCS
   MessageFilterRules.cpp
   MessageFilterLogic.cpp
   DecodeOutputPlan.cpp
+  DecodeEventLine.cpp
   DecodedMessageReaction.cpp
   PrefixSuffix.cpp
   CountryNames.cpp
@@ -136,8 +137,9 @@ set (wsjt_codec_FSRCS
   lib/jt9.f90
   lib/jt9a_stub.f90
   lib/streaming_io.f90
-  lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
+  lib/stream_setmode.c   # stdin helpers: Windows binary mode, terminal check
   lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
+  lib/stream_ft8_backpressure.cpp # the stream's calls into the GUI's FT8 decode scheduler
   lib/jt9_version.c
   )
 
@@ -182,7 +184,9 @@ set (wsjtx_CXXSRCS
   HoundTransmissionPolicy.cpp
   SuperFoxTxPlanner.cpp
   DecoderIpc.cpp
-  Ft8MtdDecodeScheduler.cpp
+  DecoderBackend.hpp
+  DecoderProcessSupervisor.cpp
+  ShmemDecoderBackend.cpp
   OperatingFrequency.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
@@ -224,21 +228,25 @@ endif ()
 
 set (wsjt_CXXSRCS
   Logger.cpp
+  Ft8MtdDecodeScheduler.cpp
   lib/decoder_ipc_control.cpp
   lib/decoder_ipc_layout.cpp
   lib/NativeSharedMemory.cpp
   lib/DecoderWorkerLock.cpp
+  lib/ft8var/ft8_coarse_mutex.cpp
   lib/crc10.cpp
   lib/crc13.cpp
   lib/crc14.cpp
   ${wsjt_fox_CXXSRCS}
   )
 
-# The JTTY transmit encoder calls the Fortran codec, so it is archived with it.
+# The JTTY transmit encoder and the stream's slot-mode transmit audio call the
+# Fortran codec, so they are archived with it.
 set (wsjt_jtty_CXXSRCS
   lib/jtty/JttyTransmit.cpp
   lib/jtty/JttyTransmitHost.cpp
   lib/jtty/JttyUnicode.cpp
+  lib/stream_slot_audio.cpp
   )
 
 # deal with a GCC v6 UB error message
@@ -317,6 +325,8 @@ set (wsjt_FSRCS
   lib/superfox/popen_module.f90
   lib/superfox/qpc/qpc_mod.f90
   lib/ft8var/ft8_decode_ranges.f90
+  lib/ft8var/ft8_coarse_cache.f90
+  lib/ft8var/ft8_coarse_sync.f90
   lib/ft8var/ft8_mtd_residual.f90
   lib/ft8var/ft8_decodevar.f90
   lib/jtty/jtty_source_codec.f90
@@ -332,6 +342,7 @@ set (wsjt_FSRCS
   lib/jtty/jtty_receive_context.f90
   lib/jtty/jtty_filler.f90
   lib/streaming_jtty.f90
+  lib/streaming_encode.f90
 
   # remaining non-module sources
   lib/addit.f90
@@ -442,6 +453,7 @@ set (wsjt_FSRCS
   lib/ft4/ft4code.f90
   lib/ft4/genft4.f90
   lib/ft4/gen_ft4wave.f90
+  lib/ft8/ft8_waveform.f90
   lib/ft8/gen_ft8wave.f90
   lib/ft8/genft8refsig.f90
   lib/genwspr.f90
@@ -595,6 +607,9 @@ set (wsjt_FSRCS
   lib/ft8var/fillhashvar.f90
   lib/ft8var/filtersfreevar.f90
   lib/ft8var/four2avar.f90
+  lib/ft8var/ft8_fft32.f90
+  lib/ft8var/ft8_symbol_spectrum.f90
+  lib/ft8var/ft8_bit_metrics.f90
   lib/ft8var/ft4_mod1.f90
   lib/ft8var/ft8apsetvar.f90
   lib/ft8var/ft8bvar.f90

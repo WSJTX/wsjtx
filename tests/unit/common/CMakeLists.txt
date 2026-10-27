@@ -220,6 +220,13 @@ target_include_directories (test_hamlib_mode PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_hamlib_mode wsjt_qt Qt5::Test)
 add_test (NAME test_hamlib_mode COMMAND test_hamlib_mode)
 
+add_executable (test_hamlib_transceiver
+  test_hamlib_transceiver.cpp
+)
+target_include_directories (test_hamlib_transceiver PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_hamlib_transceiver wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_hamlib_transceiver COMMAND test_hamlib_transceiver)
+
 add_executable (test_hamlib_vfo_role_state
   test_hamlib_vfo_role_state.cpp
 )
@@ -401,6 +408,14 @@ target_link_libraries (test_configuration_language wsjt_qt wsjt_cxx wsjt_fort_co
   Boost::log_setup Qt5::Test)
 add_test (NAME test_configuration_language COMMAND test_configuration_language)
 set_tests_properties (test_configuration_language PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 60)
+
+add_executable (test_configuration_udp_destinations test_configuration_udp_destinations.cpp)
+target_link_libraries (test_configuration_udp_destinations wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test)
+add_test (NAME test_configuration_udp_destinations COMMAND test_configuration_udp_destinations)
+set_tests_properties (test_configuration_udp_destinations PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
 

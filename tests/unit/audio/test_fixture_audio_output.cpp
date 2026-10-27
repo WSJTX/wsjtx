@@ -137,33 +137,112 @@ private Q_SLOTS:
 
   void pauseDoesNotBecomeCatchupTime_data ()
   {
-    QTest::addColumn<bool> ("acceleratedTail");
-    QTest::newRow ("ft8") << false;
-    QTest::newRow ("jtty-realtime-tail") << true;
+    QTest::addColumn<bool> ("ft8");
+    QTest::addColumn<qint64> ("audioFrames");
+    QTest::newRow ("ft8") << true << qint64 {0};
+    QTest::newRow ("jtty-accelerated") << false << qint64 {48000};
+    QTest::newRow ("jtty-realtime-tail") << false << qint64 {257};
   }
 
   void pauseDoesNotBecomeCatchupTime ()
   {
-    QFETCH (bool, acceleratedTail);
+    QFETCH (bool, ft8);
+    QFETCH (qint64, audioFrames);
+    qint64 now {100000};
     QTemporaryDir directory;
     FixtureSoundOutput output {directory.filePath ("capture.wav"),
-      acceleratedTail ? FixtureSoundOutput::Profile::JttyStrict
-                      : FixtureSoundOutput::Profile::Ft8Period,
-      acceleratedTail ? 4u : 1u};
-    if (acceleratedTail) output.configureJttyCapture (257);
+      ft8 ? FixtureSoundOutput::Profile::Ft8Period
+          : FixtureSoundOutput::Profile::JttyStrict,
+      ft8 ? 1u : 4u, nullptr, [&now] {return now;}};
     PcmSource source;
-    output.restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}}, 0);
-    for (int i = 0; i < 16; ++i) QVERIFY (pull (output));
+    auto restart = [&] {
+      if (!ft8) output.configureJttyCapture (audioFrames);
+      output.restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}}, 0);
+    };
+    restart ();
+    for (int i = 0; i < 3; ++i) QVERIFY (pull (output));
     auto timer = output.findChild<QTimer *> ();
     QVERIFY (timer);
-    auto const remaining = timer->remainingTime ();
-    QVERIFY (remaining > 100);
+    auto const interval = timer->interval ();
+    QVERIFY (interval > 4);
+    auto const framesRead = source.framesRead;
+    auto const capturedFrames = output.capturedFrames ();
+
+    now += 2;
     output.suspend ();
-    QTest::qSleep (400);
+    QVERIFY (!timer->isActive ());
+    QVERIFY (pull (output));
+    QCOMPARE (source.framesRead, framesRead);
+    QCOMPARE (output.capturedFrames (), capturedFrames);
+    now += 400;
+    output.suspend ();
+    now += 600;
     output.resume ();
-    QVERIFY (timer->remainingTime () > 100);
-    QVERIFY (qAbs (timer->remainingTime () - remaining) < 50);
+    QVERIFY (timer->isActive ());
+    QCOMPARE (timer->interval (), interval - 2);
+    QCOMPARE (source.framesRead, framesRead);
+    QCOMPARE (output.capturedFrames (), capturedFrames);
+
+    now += 2;
+    output.suspend ();
+    now += 10000;
+    output.resume ();
+    QCOMPARE (timer->interval (), interval - 4);
+    now += 1;
+    output.resume ();
+    QCOMPARE (timer->interval (), interval - 4);
+
     output.reset ();
+    now += 5000;
+    restart ();
+    for (int i = 0; i < 3; ++i) QVERIFY (pull (output));
+    QCOMPARE (timer->interval (), interval);
+    output.reset ();
+  }
+
+  void realtimeTailStartsWithFreshPacingOrigin_data ()
+  {
+    QTest::addColumn<qint64> ("activeBeforeBoundaryMs");
+    QTest::addColumn<qint64> ("pauseMs");
+    QTest::newRow ("active-7ms") << qint64 {7} << qint64 {0};
+    QTest::newRow ("paused-2ms") << qint64 {2} << qint64 {1000};
+    QTest::newRow ("paused-7ms") << qint64 {7} << qint64 {10000};
+  }
+
+  void realtimeTailStartsWithFreshPacingOrigin ()
+  {
+    QFETCH (qint64, activeBeforeBoundaryMs);
+    QFETCH (qint64, pauseMs);
+    qint64 now {100000};
+    QTemporaryDir directory;
+    FixtureSoundOutput output {directory.filePath ("capture.wav"),
+      FixtureSoundOutput::Profile::JttyStrict, 4u, nullptr, [&now] {return now;}};
+    PcmSource source;
+    auto timer = output.findChild<QTimer *> ();
+    QVERIFY (timer);
+    int referenceInterval {-1};
+    for (int capture = 0; capture < 2; ++capture)
+      {
+        output.configureJttyCapture (766);
+        output.restart (&source, {TxEvidence::TxSessionId {1}, TxEvidence::TxGeneration {1}}, 0);
+        QVERIFY (pull (output));
+        output.suspend ();
+        now += capture == 0 ? 0 : pauseMs;
+        output.resume ();
+        now += capture == 0 ? 2 : activeBeforeBoundaryMs;
+        QVERIFY (pull (output));
+        now += 1;
+        QVERIFY (pull (output));
+        if (capture == 0)
+          {
+            referenceInterval = timer->interval ();
+            QVERIFY (referenceInterval > 1);
+          }
+        else
+          QCOMPARE (timer->interval (), referenceInterval);
+        output.reset ();
+        now += 5000;
+      }
   }
 
   void onlyNormalStopPadsFt8Period_data ()

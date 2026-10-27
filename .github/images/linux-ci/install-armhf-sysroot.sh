@@ -20,11 +20,24 @@ dpkg-query --admindir="$ARMHF_SYSROOT/var/lib/dpkg" -W -f='${binary:Package}=${V
   > /opt/wsjtx-ci/armhf-sysroot-packages.txt
 test -s /opt/wsjtx-ci/armhf-sysroot-packages.txt
 rm -rf "$ARMHF_SYSROOT/var/cache/apt/archives" "$ARMHF_SYSROOT/var/lib/apt/lists"
+export PATH="$ARMHF_TOOLCHAIN_PREFIX/bin:$PATH"
+fftw_cflags="--sysroot=$ARMHF_SYSROOT -isystem $ARMHF_SYSROOT/usr/include/$ARMHF_TARGET_TRIPLET ${ARMHF_ABI_FLAGS[*]} -O3"
+fftw_ldflags="--sysroot=$ARMHF_SYSROOT -B$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET/ -L$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET -Wl,-rpath-link,$ARMHF_SYSROOT/lib/$ARMHF_TARGET_TRIPLET"
+# Libtool preserves the Debian start-file prefix in CC, but drops it from LDFLAGS.
+fftw_cc="$ARMHF_TARGET_TRIPLET-gcc -B$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET/"
+FFTW_ARCH=armhf CC="$fftw_cc" \
+  CFLAGS="$fftw_cflags" LDFLAGS="$fftw_ldflags" DESTDIR="$ARMHF_SYSROOT" \
+  /usr/local/share/wsjtx-ci/build-fftw.sh "$LINUX_FFTW_PREFIX" \
+    --build=x86_64-pc-linux-gnu --host="$ARMHF_TARGET_TRIPLET"
 mkdir -p /tmp/wsjtx-hamlib-build
 cd /tmp/wsjtx-hamlib-build
 /usr/local/share/wsjtx-ci/build-hamlib-armhf-cross.sh \
   "$LINUX_HAMLIB_COMMIT" "$ARMHF_SYSROOT" "$ARMHF_TOOLCHAIN_PREFIX"
 mkdir -p "$ARMHF_RUNTIME_PREFIX"
+cp -L "$ARMHF_SYSROOT$LINUX_FFTW_PREFIX"/lib/libfftw3f*.so* "$ARMHF_RUNTIME_PREFIX/"
+CC="$fftw_cc" CFLAGS="$fftw_cflags" LDFLAGS="$fftw_ldflags" \
+  /usr/local/share/wsjtx-ci/build-fftw-smoke-linux.sh \
+    /opt/wsjtx-ci/toolchain-smoke/fftw-smoke "$ARMHF_SYSROOT$LINUX_FFTW_PREFIX"
 for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do
   source_path="$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name="$library")"
   test "$source_path" != "$library"

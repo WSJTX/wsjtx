@@ -1,5 +1,5 @@
 name: "Build Windows dependencies"
-description: "Restore or populate Windows Boost, pFUnit, and Hamlib dependency caches."
+description: "Restore or populate Windows Boost, FFTW, pFUnit, and Hamlib dependency caches."
 
 inputs:
   boost_version:
@@ -27,6 +27,9 @@ inputs:
     default: "true"
 
 outputs:
+  fftw_prefix:
+    description: "MSYS path to the pinned FFTW prefix"
+    value: ${{ steps.paths.outputs.fftw_prefix }}
   boost_prefix:
     description: "MSYS path to the Boost prefix"
     value: ${{ steps.paths.outputs.boost_prefix }}
@@ -62,9 +65,40 @@ runs:
         WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
         {
           echo "boost_prefix=${WORKSPACE}/boost-prefix"
+          echo "fftw_prefix=${WORKSPACE}/fftw-prefix"
           echo "hamlib_prefix=${WORKSPACE}/hamlib-prefix"
           echo "pfunit_prefix=${WORKSPACE}/pfunit-prefix"
         } >> "$GITHUB_OUTPUT"
+
+    - name: Restore FFTW cache
+      id: fftw-cache
+      if: inputs.cold_build != 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: fftw-prefix
+        key: fftw-windows-ucrt64-${{ hashFiles('.github/scripts/fftw-version.sh', '.github/scripts/install-fftw-windows.sh') }}
+
+    - name: Install FFTW
+      id: fftw-build
+      if: steps.fftw-cache.outputs.cache-hit != 'true'
+      shell: msys2 {0}
+      run: bash .github/scripts/install-fftw-windows.sh "${{ steps.paths.outputs.fftw_prefix }}"
+
+    - name: Verify FFTW runtime
+      shell: msys2 {0}
+      run: |
+        . .github/scripts/fftw-version.sh
+        prefix="${{ steps.paths.outputs.fftw_prefix }}"
+        gcc -I"$prefix/include" tests/dependencies/test_fftw_runtime.c \
+          -L"$prefix/lib" -lfftw3f_threads -lfftw3f -lm -o fftw-runtime-check.exe
+        PATH="$prefix/bin:$PATH" ./fftw-runtime-check.exe "$FFTW_VERSION"
+
+    - name: Save FFTW cache
+      if: inputs.cold_build != 'true' && inputs.save_caches == 'true' && steps.fftw-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: fftw-prefix
+        key: ${{ steps.fftw-cache.outputs.cache-primary-key }}
 
     - name: Restore Boost cache
       id: boost-cache
@@ -189,4 +223,4 @@ runs:
       env:
         CACHE_STEPS: ${{ toJSON(steps) }}
         COLD_BUILD: ${{ inputs.cold_build }}
-      run: python .github/scripts/summarize-native-caches.py boost hamlib pfunit >> "$GITHUB_STEP_SUMMARY"
+      run: python .github/scripts/summarize-native-caches.py boost fftw hamlib pfunit >> "$GITHUB_STEP_SUMMARY"

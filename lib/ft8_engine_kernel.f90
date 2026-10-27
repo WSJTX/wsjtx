@@ -1,7 +1,7 @@
 module ft8_engine_kernel
 !$ use omp_lib
   use prog_args, only: temp_dir
-  use streaming_emit, only: streaming_emit_enabled
+  use streaming_emit, only: streaming_emit_enabled, streaming_emit_replay_line
   use, intrinsic :: iso_fortran_env, only: error_unit
   use timer_module, only: timer
   use packjt77, only: pack77_state
@@ -133,7 +133,7 @@ contains
     type(decoder_callback_context), intent(in) :: callback_context
     type(decoder_callback_context) :: context
     integer :: ft8_range_low(max_ft8_decode_ranges),ft8_range_high(max_ft8_decode_ranges)
-    integer :: ft8_range_count,requested_threads,nthr,active_progress_generation
+    integer :: ft8_range_count,requested_threads,a8_requested_threads,nthr,active_progress_generation
     integer :: ncontest,nfqso
     logical :: newdat,ex
     character(len=6) :: mygrid
@@ -180,7 +180,11 @@ contains
              do i=1,9999
                 read(39,'(a60)',end=5) line
                 if(line(1:1).eq.' ' .or. line(1:1).eq.'-') exit
-                write(*,'(a)') trim(line)
+                if(streaming_emit_enabled()) then
+                   call streaming_emit_replay_line(line)
+                else
+                   write(*,'(a)') trim(line)
+                endif
              enddo
 5            close(39)
           endif
@@ -332,6 +336,8 @@ contains
               endif
            endif
 
+           a8_requested_threads=numthreads
+
 !$         call omp_set_dynamic(.false.)
 !$         call omp_set_max_active_levels(omp_get_supported_active_levels())
 
@@ -395,7 +401,7 @@ contains
            call partition_ft8_decode_range(nfa,nfb,numthreads,ft8_range_low, &
                 ft8_range_high,ft8_range_count)
            numthreads=ft8_range_count
-           call mtd_prepare(dd8,numthreads)
+           call mtd_prepare(dd8,numthreads,cooperative=.true.)
            call fillhashvar(numthreads,.false.,knowledge)
            call ft8apsetvar(params%lmycallstd,params%lhiscallstd,numthreads,knowledge)
 !$omp end single
@@ -571,7 +577,7 @@ contains
     dxgrid=hisgrid4
     call timer('ft8_a8d ',0)
     call ft8_a8d(dd8,mycall,hiscall,dxgrid,f1,xdt,fbest,xsnr,plog,msg37, &
-         active_progress_generation,knowledge,evidence)
+         active_progress_generation,knowledge,evidence,a8_requested_threads)
     call timer('ft8_a8d ',1)
 
     if(msg37(1:1).ne.' ') then

@@ -20,8 +20,14 @@ public:
 
 private:
   void prepareWhenReady ();
-  enum class Stage {ShortFirst, Initial, Repeat, ShortBeforeMonitoring, ShortReplacement, ShortRepeat};
-  bool expectsMessage () const {return m_stage == Stage::Initial || m_stage == Stage::Repeat;}
+  enum class Stage {ShortFirst, Initial, Repeat, Restart, AfterRestart, ShortBeforeMonitoring,
+                    ShortReplacement, ShortRepeat};
+  bool expectsMessage () const
+  {
+    return m_stage == Stage::Initial || m_stage == Stage::Repeat || m_stage == Stage::AfterRestart;
+  }
+  bool restartsDecoder () const {return m_mode == Mode::Jt9;}
+  void restartDuringDecode ();
   void loadShortWav ();
   void decodeShortWavWhenReady ();
   bool rejectsLiveRepeat ();
@@ -43,6 +49,7 @@ private:
   quint64 m_lastGeneration {0};
   int m_completedCycles {0};
   bool m_awaitingCycle {false};
+  bool m_restartAborted {false};
   bool m_observed {false};
   bool m_configured {false};
   bool m_started {false};

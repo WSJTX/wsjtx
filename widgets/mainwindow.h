@@ -39,6 +39,7 @@
 #include <memory>
 
 class QHBoxLayout;
+namespace DecoderIpc {class Session;}
 
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
@@ -83,8 +84,7 @@ class QHBoxLayout;
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
-#include "DecoderOutputFramer.hpp"
-#include "DecoderDiagnostics.hpp"
+#include "DecoderBackend.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
 #include "BeaconTxController.hpp"
@@ -238,18 +238,20 @@ public:
   static constexpr int liveAudioTestDecodeHighFrequency () {return 3000;}
   bool configureLiveAudioTestDecodeRange ();
   bool startWavDecodeTest (QString const& path);
+  // Reports the decoder unresponsive, as a backend that watches its own progress would.
+  bool liveAudioTestStallDecoder ();
   bool prepareLiveAudioTestFt8InputCompletion ();
   QString completeLiveAudioTestFt8Input (qint64 frames);
   bool configureLiveAudioTestHandoff ();
   quint64 liveAudioTestPublishedDecoderGeneration () const
   {
     return m_automated_test && DecodeOwner::Jt9 == m_decodeOwner
-      && m_decoderSession.accepts (m_activeJt9Decode.generation)
-      ? m_activeJt9Decode.generation : 0;
+      ? m_decoderBackend->activeRequest () : 0;
   }
   quint64 liveAudioTestDecodeCycleGeneration () const {return m_decodeCycleGeneration;}
   quint64 liveAudioTestReceiveEpoch () const {return m_receiveConsumer.epoch ();}
   bool liveAudioTestReceivingAudio () const {return m_receivingAudio;}
+  int liveAudioTestHalfSymbols () const {return m_ihsym;}
   QString checkLiveAudioTestJttyFrequencyChanges();
   bool startLiveAudioTestJttyWav(QString const& path);
   QString checkLiveAudioTestJttyMailboxOverflow();
@@ -274,6 +276,14 @@ public:
                              int cycles, bool subpass, int decoderStart,
                              int halfSymbols, int sampleCount,
                              int lowFrequency, int highFrequency) const;
+  // The sample pointer is borrowed for synchronous test observation.
+  void liveAudioTestFt8RequestPublished (decoder_params_t const& params,
+                                        decoder_input_metadata_t const& metadata,
+                                        short const * samples, qint64 period) const;
+  void liveAudioTestFt8SchedulingPoint (int halfSymbols, bool decoderAvailable) const;
+  void liveAudioTestFt8RequestCaptured (decoder_params_t const& params,
+                                       decoder_input_metadata_t const& metadata,
+                                       short const * samples, qint64 period) const;
   void decoderOutputLine (QByteArray line) const;
   void liveAudioTestJttyFramesConsumed (qint64 frames) const;
   void liveAudioTestReceiveRejected (qint64 notifiedFrames) const;
@@ -341,18 +351,6 @@ private:
     Aborted
   };
 
-  enum class Jt9ProcessPhase
-  {
-    InitialStarting,
-    Ready,
-    StopRequested,
-    Terminating,
-    Killing,
-    ReplacementStarting,
-    Failed,
-    Closing
-  };
-
   enum class DecodePublishResult
   {
     Published,
@@ -362,7 +360,6 @@ private:
 
   struct ActiveJt9Decode
   {
-    qint32 generation {0};
     DecodeOperatingContext context;
     bool obsolete {false};
     Ft8MtdDecodeCoordinator::Stage ft8Stage {Ft8MtdDecodeCoordinator::Stage::None};
@@ -576,6 +573,9 @@ private slots:
   void startP1();
   void stopTx();
   void stopTx2();
+  int rxAudioBufferFrames () const;
+  void startSoundcardInputStream ();
+  void applyRxAudioBufferSize ();
   void on_rptSpinBox_valueChanged(int n);
   void killWaveFile();
   void on_tuneButton_clicked (bool);
@@ -996,7 +996,9 @@ private:
   QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
   AudioOutputSink * m_soundOutput;
-  int m_rx_audio_buffer_frames;
+  int m_rx_audio_buffer_frames_override {0};  // WSJT_RX_AUDIO_BUFFER_FRAMES, 0 = unset
+  int m_rx_audio_buffer_frames_active {0};    // size the capture stream was last opened with
+  bool m_rx_audio_buffer_restart_pending {false};
   int m_tx_audio_buffer_frames;
   QThread m_audioThread;
 
@@ -1114,7 +1116,6 @@ private:
   qint32  m_position;
   qint64  m_decoderDiagSequence=0;
   qint64  m_decoderDiagActiveSequence=0;
-  DecoderIpc::InputState m_decoderInput;
   qint32  m_decoderDiagStartIhsym=0;
   qint32  m_decoderDiagStartHsymStop=0;
   qint32  m_decoderDiagStartNzhsym=0;
@@ -1132,7 +1133,6 @@ private:
   bool    m_diskData;
   bool    m_loopall;
   DecodeOwner m_decodeOwner=DecodeOwner::None;
-  Jt9ProcessPhase m_jt9ProcessPhase=Jt9ProcessPhase::InitialStarting;
   bool    m_modeLocked = false;
   bool    m_decoderDiagActive=false;
   bool    m_decoderDiagBusyRequestLogged=false;
@@ -1148,8 +1148,6 @@ private:
   bool    m_generated_message_error;
   bool    m_startAnother;
   ActiveJt9Decode m_activeJt9Decode;
-  DecoderOutputFramer m_decoderOutputFramer;
-  DecoderDiagnostics m_decoderDiagnostics {logDecoderDiagnostic};
   Ft8MtdDecodeCoordinator m_ft8MtdDecodeCoordinator;
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   qint64 m_liveAudioTestPendingFt8FinalPeriod {-1};
@@ -1284,7 +1282,6 @@ private:
   QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;
 
-  NonInheritingProcess proc_jt9;
   NonInheritingProcess p1;
   NonInheritingProcess p3;
 
@@ -1295,10 +1292,6 @@ private:
   EQSL *Eqsl;
 
   QTimer m_guiTimer;
-  QTimer m_decoderShutdownTimer;
-  QTimer m_decoderTerminateTimer;
-  QTimer m_decoderKillTimer;
-  QTimer m_decoderStartTimer;
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
   QTimer ptt1Timer;                 //StartTx delay
@@ -1448,7 +1441,7 @@ private:
   QDateTime m_dateTimeBestSP;
   QDateTime m_dateTimeSeqStart;        //Nominal start time of Rx sequence about to be decoded
 
-  DecoderIpc::Session& m_decoderSession;
+  std::unique_ptr<DecoderBackend> m_decoderBackend;
   QString m_QSOText;
   unsigned m_downSampleFactor;
   QThread::Priority m_audioThreadPriority;
@@ -1655,7 +1648,11 @@ private:
   void update_wav_file_actions ();
   void finishDecodeUi ();
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
+  bool subProcessFailed (QString const& program, QStringList const& processArguments,
+                         int exit_code, QProcess::ExitStatus, QByteArray const& standardError);
   void subProcessError (QProcess *, QProcess::ProcessError);
+  void subProcessError (QString const& program, QStringList const& processArguments,
+                        QString const& detail);
   void statusUpdate () const;
   void update_watchdog_label ();
   bool normalWatchdogWarningActive () const;
@@ -1739,18 +1736,15 @@ private:
       Ft8MtdDecodeCoordinator::Decision const& decision, qint64 period);
   void reportFt8BackpressureRecovery (qint64 period);
   void emitFt8DecoderInvocation (decoder_params_t const& params) const;
-  bool handleDecoderOutputEvent(DecoderOutputFramer::Event const& event,
-                                bool& decodeCompleted);
+  bool handleDecoderOutput(DecoderBackend::Output const& output,
+                           bool& decodeCompleted);
+  void handleDecoderFailure(DecoderBackend::Failure const& failure);
   DecodeOperatingContext currentDecodeOperatingContext() const;
   bool decodeOperatingContextMatchesCurrent(
       DecodeOperatingContext const& context) const;
   bool pendingFt8DecodeOperatingContextMatchesCurrent(
       DecodeOperatingContext const& context) const;
   bool activeDecodeOperatingContextMatchesCurrent() const;
-  bool initializeDecoderSharedMemory();
-  void startDecoderProcess();
-  void drainDecoderStderr(bool final = false);
-  QString decoderFailureDetail(QString const& reason);
   void failDecoderStartup(QString const& reason);
   bool beginDecode(
       DecodeOwner owner, decoder_params_t const * diagnosticParams = nullptr,
@@ -1759,7 +1753,6 @@ private:
                  DecodeEndState state = DecodeEndState::Completed);
   void updateDecodeControls();
   bool usesJt9Process() const;
-  bool decoderRestartInProgress() const;
   void abortJt9Transaction();
   void recoverDecoderAtBoundary(QString const& reason, bool manual);
   void requestDecoderRestart(QString const& reason);

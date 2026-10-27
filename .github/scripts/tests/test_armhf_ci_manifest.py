@@ -41,10 +41,12 @@ class ArmhfCiManifestTests(unittest.TestCase):
             )
             dpkg_query.chmod(0o755)
 
-            library = runtime / "libgcc_s.so.1"
-            library.write_bytes(b"fixture GCC runtime\n")
-            library_sha = hashlib.sha256(library.read_bytes()).hexdigest()
-            runtime_records = f"libgcc_s.so.1={library_sha}\n".encode()
+            runtime_records = b""
+            for name in ("libgcc_s.so.1", "libfftw3f.so.3", "libfftw3f_threads.so.3"):
+                library = runtime / name
+                library.write_bytes(f"fixture {name}\n".encode())
+                library_sha = hashlib.sha256(library.read_bytes()).hexdigest()
+                runtime_records += f"{name}={library_sha}\n".encode()
             runtime_sha = hashlib.sha256(runtime_records).hexdigest()
 
             (config / "armhf-ci-image-config.sh").write_text(
@@ -53,6 +55,8 @@ class ArmhfCiManifestTests(unittest.TestCase):
                 f"ARMHF_TIME_BITS={time_bits}\n"
                 f"ARMHF_RUNTIME_PREFIX={runtime}\n"
                 "ARMHF_GCC_RUNTIME_LIBRARIES=(libgcc_s.so.1)\n"
+                "FFTW_VERSION=3.3.11\n"
+                f"FFTW_SHA256={'5' * 64}\n"
                 f"ARMHF_GLIBC_VERSION={glibc}\n",
                 encoding="utf-8",
             )
@@ -68,6 +72,8 @@ class ArmhfCiManifestTests(unittest.TestCase):
                 f"recipe_sha256={'1' * 64}\n"
                 "toolchain_id=gcc13.4.0-armhf-fixture\n"
                 f"runtime_sha256={runtime_sha}\n"
+                "fftw_version=3.3.11\n"
+                f"fftw_source_sha256={'5' * 64}\n"
                 "hamlib_ref=4.7.2\n"
                 f"hamlib_commit={'2' * 40}\n",
                 encoding="utf-8",
@@ -115,6 +121,8 @@ class ArmhfCiManifestTests(unittest.TestCase):
             self.assertEqual(fields["cross_generation"], "build-20260901-10-1")
             self.assertEqual(fields["cross_recipe_sha256"], "1" * 64)
             self.assertEqual(fields["runtime_sha256"], runtime_sha)
+            self.assertEqual(fields["fftw_version"], "3.3.11")
+            self.assertEqual(fields["fftw_source_sha256"], "5" * 64)
 
 
 if __name__ == "__main__":

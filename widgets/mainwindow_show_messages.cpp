@@ -42,13 +42,19 @@ void MainWindow::showStatusMessage(const QString& statusMsg)
 
 bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::ExitStatus status)
 {
+  return subProcessFailed (process->program (), process->arguments (), exit_code, status,
+                           m_valid && (exit_code || QProcess::NormalExit != status)
+                           ? process->readAllStandardError () : QByteArray {});
+}
+
+bool MainWindow::subProcessFailed (QString const& program, QStringList const& processArguments,
+                                   int exit_code, QProcess::ExitStatus status,
+                                   QByteArray const& standardError)
+{
   if (m_valid && (exit_code || QProcess::NormalExit != status))
     {
-      if (process == &proc_jt9) drainDecoderStderr (true);
-      auto const standardError = process == &proc_jt9 ? m_decoderDiagnostics.tail ()
-                                                     : process->readAllStandardError ();
       QStringList arguments;
-      for (auto argument: process->arguments ())
+      for (auto argument: processArguments)
         {
           if (argument.contains (' ')) argument = '"' + argument + '"';
           arguments << argument;
@@ -58,7 +64,7 @@ bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::
                                     , tr ("Subprocess failed with exit code %1")
                                     .arg (exit_code)
                                     , tr ("Running: %1\n%2")
-                                    .arg (process->program () + ' ' + arguments.join (' '))
+                                    .arg (program + ' ' + arguments.join (' '))
                                     .arg (QString {standardError}));
       return true;
     }
@@ -67,10 +73,16 @@ bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::
 
 void MainWindow::subProcessError (QProcess * process, QProcess::ProcessError)
 {
+  subProcessError (process->program (), process->arguments (), process->errorString ());
+}
+
+void MainWindow::subProcessError (QString const& program, QStringList const& processArguments,
+                                  QString const& detail)
+{
   if (m_valid)
     {
       QStringList arguments;
-      for (auto argument: process->arguments ())
+      for (auto argument: processArguments)
         {
           if (argument.contains (' ')) argument = '"' + argument + '"';
           arguments << argument;
@@ -78,9 +90,8 @@ void MainWindow::subProcessError (QProcess * process, QProcess::ProcessError)
       if (m_splash && m_splash->isVisible ()) m_splash->hide ();
       MessageBox::critical_message (this, tr ("Subprocess error")
                                     , tr ("Running: %1\n%2")
-                                    .arg (process->program () + ' ' + arguments.join (' '))
-                                    .arg (process == &proc_jt9 ? decoderFailureDetail (process->errorString ())
-                                                              : process->errorString ()));
+                                    .arg (program + ' ' + arguments.join (' '))
+                                    .arg (detail));
       m_valid = false;              // ensures exit if still constructing
       QTimer::singleShot (0, this, SLOT (close ()));
     }

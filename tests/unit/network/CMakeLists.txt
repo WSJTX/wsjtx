@@ -63,20 +63,22 @@ add_executable (test_eqsl_upload test_eqsl_upload.cpp)
 target_link_libraries (test_eqsl_upload wsjt_qt Qt5::Test Qt5::Network)
 add_test (NAME test_eqsl_upload COMMAND test_eqsl_upload)
 
-add_executable (test_message_client_adif test_message_client_adif.cpp)
-target_link_libraries (test_message_client_adif wsjt_qt Qt5::Test Qt5::Network)
+add_executable (test_message_client_adif test_message_client_adif.cpp ${CMAKE_SOURCE_DIR}/Logger.cpp)
+target_link_libraries (test_message_client_adif wsjt_qt Boost::log_setup Qt5::Test Qt5::Network)
 add_test (NAME test_message_client_adif COMMAND test_message_client_adif)
 
 add_executable (test_message_client_replay
   test_message_client_replay.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
   )
-target_link_libraries (test_message_client_replay wsjt_qt Qt5::Test Qt5::Network)
+target_link_libraries (test_message_client_replay wsjt_qt Boost::log_setup Qt5::Test Qt5::Network)
 add_test (NAME test_message_client_replay COMMAND test_message_client_replay)
 
 add_executable (test_message_client_inhibit_status
   test_message_client_inhibit_status.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
   )
-target_link_libraries (test_message_client_inhibit_status wsjt_qt Qt5::Test Qt5::Network)
+target_link_libraries (test_message_client_inhibit_status wsjt_qt Boost::log_setup Qt5::Test Qt5::Network)
 add_test (NAME test_message_client_inhibit_status COMMAND test_message_client_inhibit_status)
 
 add_executable (test_message_server

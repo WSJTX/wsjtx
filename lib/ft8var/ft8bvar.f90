@@ -16,6 +16,10 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   use ft8_mtd_residual, only : mtd_commit_subtraction,mtd_mark_spectrum_current, &
        mtd_refresh_candidate
   use decode_completion_module, only : write_decode_progress
+  use ft8_symbol_spectrum, only : ft8_symbol_spectra
+  use ft8_bit_metrics, only : ft8_bit_marginals
+  use ft8_fft32, only : fft32_first_eight
+  use ft8var_waveform_generator, only : gen_ft8wavevar_samples
   use ft8_mod1, only : ft8_message_seen,ft8_lookup_call_dt,apsym,mcq,m73,       &
        mrr73,mrrr,icos7,naptypes,nhaptypes,one,graymap, &
        ft8_period_hint,get_ft8_period_hint,retire_ft8_period_hint,       &
@@ -39,13 +43,19 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   character callsign*12,grid*12
   character*37 msgsrcvd(130)
   complex cd0(-800:4000),cd1(-800:4000),cd2(-800:4000),cd3(-800:4000),ctwk(32),   &
-       csymb(32),cs(0:7,79),csymbr(32),csr(0:7,79),csig(32),z1,                   &
+       csymb(32),cs(0:7,79),csymbf(0:7),csymbr(0:7),csr(0:7,79),csig(32),z1,    &
        csymb256(256),cstmp2(0:7,79),csold(0:7,79),cscs(0:7,79)
   complex, allocatable :: csig0(:)
   real a(5),s8(0:7,79),s82(0:7,79),s2(0:511),sp(0:7),s81(0:7),snrsync(21),        &
        syncw(7),sumkw(7),scoreratiow(7),s256(0:8),s2563(0:26),                   &
        syncavpart(3)
   real bmeta(174),bmetb(174),bmetc(174),bmetd(174)
+  integer :: llr_tone,llr_symbol
+  complex :: llr_gray_cs(0:7,79),llr_gray_csr(0:7,79),llr_gray_cscs(0:7,79),llr_gray_csold(0:7,79)
+  integer :: llr_first,llr_lane
+  complex :: llr_block_a(0:15),llr_block_b(0:15)
+  real :: bit_maxone(0:8),bit_maxzero(0:8)
+  logical :: finite_scores
   real llra(174),llrb(174),llrc(174),llrd(174),llrz(174)
   real qual !ft8md  
   integer*1 message77(77),apmask(174),cw(174),nsmax(8)
@@ -258,8 +268,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         csymb=cd0(i1:i1+31)
         if((k.ge.1 .and. k.le.7) .or. (k.ge.37 .and. k.le.43) .or.             &
              (k.ge.73 .and. k.le.79)) then
-           call four2avar(csymb,32,1,-1,1)
-           s81(0:7)=abs(csymb(1:8))
+           call fft32_first_eight(csymb,csymbf)
+           s81(0:7)=abs(csymbf)
            if(k.ge.1 .and. k.le.7) then
               synclev=s81(icos7(k-1))
               snoiselev=(sum(s81)-synclev)/7.0
@@ -309,23 +319,19 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
               if(scr.gt.1.E-16) csymb(1)=csymb(1)/scr
            endif
         endif
-        do i=1,32
-           csymbr(i)=cmplx(real(csymb(33-i)),-aimag(csymb(33-i)))
-        enddo
+         call ft8_symbol_spectra(csymb,csymbf,csymbr)
         if(lreverse) then
-           call four2avar(csymb,32,1,-1,1)
-           cscs(0:7,k)=csymb(1:8)/1e3
-           csymb=csymbr
-        endif
-        call four2avar(csymb,32,1,-1,1)
-        cs(0:7,k)=csymb(1:8)/1e3
-        if(lreverse) then
-           csr=cs
+            cscs(0:7,k)=csymbf/1e3
+            cs(0:7,k)=csymbr/1e3
+            csr(0:7,k)=cs(0:7,k)
+            s8(0:7,k)=abs(csymbr)
         else
-           call four2avar(csymbr,32,1,-1,1)
-           csr(0:7,k)=csymbr(1:8)/1e3
+            cs(0:7,k)=csymbf/1e3
+            ! Combined metrics retain the forward spectrum after cs switches to csr.
+            cscs(0:7,k)=cs(0:7,k)
+            csr(0:7,k)=csymbr/1e3
+            s8(0:7,k)=abs(csymbf)
         endif
-        s8(0:7,k)=abs(csymb(1:8))
      enddo
 
      sp=0.
@@ -1021,6 +1027,28 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         if(ipass.eq.npass .and. lapmyc .and. ndxt.gt.2 .and. nmic.gt.2 .and.      &
              ((nweak.eq.1 .and. isubp1.eq.1) .or.                                 &
              (nweak.eq.2 .and. isubp1.eq.2))) cstmp2=cs
+        if(isubp1.lt.3) then
+           do llr_symbol=1,79
+              do llr_tone=0,7
+                 llr_gray_cs(llr_tone,llr_symbol)=cs(graymap(llr_tone),llr_symbol)
+              enddo
+           enddo
+        elseif(isubp1.eq.3 .or. isubp1.eq.6 .or. isubp1.eq.9) then
+           do llr_symbol=1,79
+              do llr_tone=0,7
+                 llr_gray_cscs(llr_tone,llr_symbol)=cscs(graymap(llr_tone),llr_symbol)
+                 llr_gray_csr(llr_tone,llr_symbol)=csr(graymap(llr_tone),llr_symbol)
+              enddo
+           enddo
+        else
+           do llr_symbol=1,79
+              do llr_tone=0,7
+                 llr_gray_cs(llr_tone,llr_symbol)=cs(graymap(llr_tone),llr_symbol)
+                 llr_gray_csold(llr_tone,llr_symbol)=csold(graymap(llr_tone),llr_symbol)
+              enddo
+           enddo
+        endif
+        ! Stage three-symbol sums separately so magnitude calls do not block SIMD.
         do nsym=1,3
            nt=2**(3*nsym)-1
            do ihalf=1,2
@@ -1032,88 +1060,181 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                  endif
                  ks1=ks+1
                  ks2=ks+2
-                 do i=0,nt
-                    i1=i/64
-                    i2=iand(i,63)/8
-                    i33=iand(i,7)
+                 if(nsym.eq.1) then
                     if(isubp1.lt.3) then
-                       if(nsym.eq.1) then
-                          s2(i)=abs(cs(graymap(i33),ks))
-                       elseif(nsym.eq.2) then
-                          s2(i)=abs(cs(graymap(i2),ks)+cs(graymap(i33),ks1))
-                       else
-                          s2(i)=abs(cs(graymap(i1),ks)+cs(graymap(i2),ks1) +      &
-                               cs(graymap(i33),ks2))
-                       endif
-                    else if(isubp1.eq.3 .or. isubp1.eq.6 .or. isubp1.eq.9) then
-                       if(nsym.eq.1) then
-                          s2(i)=abs(cscs(graymap(i33),ks))**2 +                   &
-                               abs(csr(graymap(i33),ks))**2
-                       elseif(nsym.eq.2) then
-                          s2(i)=abs(cscs(graymap(i2),ks) +                        &
-                               cscs(graymap(i33),ks1))**2 +                       &
-                               abs(csr(graymap(i2),ks)+csr(graymap(i33),ks1))**2
-                       else
-                          s2(i)=abs(cscs(graymap(i1),ks) +                        &
-                               cscs(graymap(i2),ks1)+cscs(graymap(i33),ks2))**2 + &
-                               abs(csr(graymap(i1),ks)+csr(graymap(i2),ks1) +     &
-                               csr(graymap(i33),ks2))**2
-                       endif
-                    else if(isubp1.eq.4 .or. isubp1.eq.7 .or. isubp1.eq.10) then
-                       if(nsym.eq.1) then
-                          s2(i)=abs(cs(graymap(i33),ks))**2 +                     &
-                               abs(csold(graymap(i33),ks))**2
-                       elseif(nsym.eq.2) then
-                          s2(i)=abs(cs(graymap(i2),ks)+cs(graymap(i33),ks1))**2 + &
-                               abs(csold(graymap(i2),ks)+csold(graymap(i33),ks1))**2
-                       else
-                          s2(i)=abs(cs(graymap(i1),ks)+cs(graymap(i2),ks1) +      &
-                               cs(graymap(i33),ks2))**2 +                         &
-                               abs(csold(graymap(i1),ks)+csold(graymap(i2),ks1) + &
-                               csold(graymap(i33),ks2))**2
-                       endif
-                    else if(isubp1.eq.5 .or. isubp1.eq.8 .or. isubp1.eq.11) then
-                       if(nsym.eq.1) then
-                          s2(i)=abs(cs(graymap(i33),ks))+abs(csold(graymap(i33),ks))
-                       elseif(nsym.eq.2) then
-                          s2(i)=abs(cs(graymap(i2),ks)+cs(graymap(i33),ks1)) +    &
-                               abs(csold(graymap(i2),ks)+csold(graymap(i33),ks1))
-                       else
-                          s2(i)=abs(cs(graymap(i1),ks)+cs(graymap(i2),ks1) +      &
-                               cs(graymap(i33),ks2)) +                            &
-                               abs(csold(graymap(i1),ks)+csold(graymap(i2),ks1) + &
-                               csold(graymap(i33),ks2))
-                       endif
+                       do i=0,7
+                          i33=iand(i,7)
+                          s2(i)=abs(llr_gray_cs(i33,ks))
+                       enddo
+                    elseif(isubp1.eq.3 .or. isubp1.eq.6 .or. isubp1.eq.9) then
+                       do i=0,7
+                          i33=iand(i,7)
+                          s2(i)=abs(llr_gray_cscs(i33,ks))**2 + abs(llr_gray_csr(i33,ks))**2
+                       enddo
+                    elseif(isubp1.eq.4 .or. isubp1.eq.7 .or. isubp1.eq.10) then
+                       do i=0,7
+                          i33=iand(i,7)
+                          s2(i)=abs(llr_gray_cs(i33,ks))**2 + abs(llr_gray_csold(i33,ks))**2
+                       enddo
+                    elseif(isubp1.eq.5 .or. isubp1.eq.8 .or. isubp1.eq.11) then
+                       do i=0,7
+                          i33=iand(i,7)
+                          s2(i)=abs(llr_gray_cs(i33,ks))+abs(llr_gray_csold(i33,ks))
+                       enddo
                     endif
-                    if(isubp1.eq.1 .and. srr.lt.2.5) then
-                       !  srr.lt.2.5 -19dB SNR threshold
-                       if(srr.gt.2.3) then 
+                 elseif(nsym.eq.2) then
+                    if(isubp1.lt.3) then
+                       do llr_first=0,63,16
+                          do i=llr_first,min(llr_first+15,63)
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cs(i2,ks)+llr_gray_cs(i33,ks1)
+                          enddo
+                          do llr_lane=0,min(15,63-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane))
+                          enddo
+                       enddo
+                    elseif(isubp1.eq.3 .or. isubp1.eq.6 .or. isubp1.eq.9) then
+                       do llr_first=0,63,16
+                          do i=llr_first,min(llr_first+15,63)
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cscs(i2,ks) + llr_gray_cscs(i33,ks1)
+                             llr_block_b(llr_lane)=llr_gray_csr(i2,ks)+llr_gray_csr(i33,ks1)
+                          enddo
+                          do llr_lane=0,min(15,63-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane))**2 + abs(llr_block_b(llr_lane))**2
+                          enddo
+                       enddo
+                    elseif(isubp1.eq.4 .or. isubp1.eq.7 .or. isubp1.eq.10) then
+                       do llr_first=0,63,16
+                          do i=llr_first,min(llr_first+15,63)
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cs(i2,ks)+llr_gray_cs(i33,ks1)
+                             llr_block_b(llr_lane)=llr_gray_csold(i2,ks)+llr_gray_csold(i33,ks1)
+                          enddo
+                          do llr_lane=0,min(15,63-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane))**2 + abs(llr_block_b(llr_lane))**2
+                          enddo
+                       enddo
+                    elseif(isubp1.eq.5 .or. isubp1.eq.8 .or. isubp1.eq.11) then
+                       do llr_first=0,63,16
+                          do i=llr_first,min(llr_first+15,63)
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cs(i2,ks)+llr_gray_cs(i33,ks1)
+                             llr_block_b(llr_lane)=llr_gray_csold(i2,ks)+llr_gray_csold(i33,ks1)
+                          enddo
+                          do llr_lane=0,min(15,63-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane)) + abs(llr_block_b(llr_lane))
+                          enddo
+                       enddo
+                    endif
+                 elseif(nsym.eq.3) then
+                    if(isubp1.lt.3) then
+                       do llr_first=0,511,16
+                          do i=llr_first,min(llr_first+15,511)
+                             i1=i/64
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cs(i1,ks)+llr_gray_cs(i2,ks1) + llr_gray_cs(i33,ks2)
+                          enddo
+                          do llr_lane=0,min(15,511-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane))
+                          enddo
+                       enddo
+                    elseif(isubp1.eq.3 .or. isubp1.eq.6 .or. isubp1.eq.9) then
+                       do llr_first=0,511,16
+                          do i=llr_first,min(llr_first+15,511)
+                             i1=i/64
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cscs(i1,ks) + llr_gray_cscs(i2,ks1)+llr_gray_cscs(i33,ks2)
+                             llr_block_b(llr_lane)=llr_gray_csr(i1,ks)+llr_gray_csr(i2,ks1) + llr_gray_csr(i33,ks2)
+                          enddo
+                          do llr_lane=0,min(15,511-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane))**2 + abs(llr_block_b(llr_lane))**2
+                          enddo
+                       enddo
+                    elseif(isubp1.eq.4 .or. isubp1.eq.7 .or. isubp1.eq.10) then
+                       do llr_first=0,511,16
+                          do i=llr_first,min(llr_first+15,511)
+                             i1=i/64
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cs(i1,ks)+llr_gray_cs(i2,ks1) + llr_gray_cs(i33,ks2)
+                             llr_block_b(llr_lane)=llr_gray_csold(i1,ks)+llr_gray_csold(i2,ks1) + llr_gray_csold(i33,ks2)
+                          enddo
+                          do llr_lane=0,min(15,511-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane))**2 + abs(llr_block_b(llr_lane))**2
+                          enddo
+                       enddo
+                    elseif(isubp1.eq.5 .or. isubp1.eq.8 .or. isubp1.eq.11) then
+                       do llr_first=0,511,16
+                          do i=llr_first,min(llr_first+15,511)
+                             i1=i/64
+                             i2=iand(i,63)/8
+                             i33=iand(i,7)
+                             llr_lane=i-llr_first
+                             llr_block_a(llr_lane)=llr_gray_cs(i1,ks)+llr_gray_cs(i2,ks1) + llr_gray_cs(i33,ks2)
+                             llr_block_b(llr_lane)=llr_gray_csold(i1,ks)+llr_gray_csold(i2,ks1) + llr_gray_csold(i33,ks2)
+                          enddo
+                          do llr_lane=0,min(15,511-llr_first)
+                             s2(llr_first+llr_lane)=abs(llr_block_a(llr_lane)) + abs(llr_block_b(llr_lane))
+                          enddo
+                       enddo
+                    endif
+                 endif
+                 if(isubp1.eq.1 .and. srr.lt.2.5) then
+                    if(srr.gt.2.3) then
+                       do i=0,nt
                           s2(i)=s2(i)**2
-                       else
+                       enddo
+                    else
+                       do i=0,nt
                           ss1=s2(i)
                           if(ss1.lt.5.77) then
                              s2(i)=1+8.*ss1**2-0.12*ss1**4
                           else
                              s2(i)=(ss1+5.82)**2
                           endif
-                       endif
+                       enddo
                     endif
-                    if(isubp1.gt.1 .and. srr.lt.2.5) then
-                       s2(i)=(0.5*s2(i))**3 ! -19dB SNR threshold
-                    endif
-                 enddo
+                 endif
+                 if(isubp1.gt.1 .and. srr.lt.2.5) then
+                    do i=0,nt
+                       s2(i)=(0.5*s2(i))**3
+                    enddo
+                 endif
                  i32=1+(k-1)*3+(ihalf-1)*87
                  if(nsym.eq.1) ibmax=2
                  if(nsym.eq.2) ibmax=5
                  if(nsym.eq.3) ibmax=8
+                 call ft8_bit_marginals(s2(0:nt),nsym,bit_maxone,bit_maxzero,finite_scores)
                  do ib=0,ibmax
-                    bm=maxval(s2(0:nt),one(0:nt,ibmax-ib)) -                     &
-                         maxval(s2(0:nt),.not.one(0:nt,ibmax-ib))
+                    if(finite_scores) then
+                       bm=bit_maxone(ib)-bit_maxzero(ib)
+                    else
+                       bm=maxval(s2(0:nt),one(0:nt,ibmax-ib)) -                     &
+                            maxval(s2(0:nt),.not.one(0:nt,ibmax-ib))
+                    endif
                     if(i32+ib .gt.174) cycle
                     if(nsym.eq.1) then
                        bmeta(i32+ib)=bm
-                       den=max(maxval(s2(0:nt),one(0:nt,ibmax-ib)),              &
-                            maxval(s2(0:nt),.not.one(0:nt,ibmax-ib)))
+                       if(finite_scores) then
+                          den=max(bit_maxone(ib),bit_maxzero(ib))
+                       else
+                          den=max(maxval(s2(0:nt),one(0:nt,ibmax-ib)),              &
+                               maxval(s2(0:nt),.not.one(0:nt,ibmax-ib)))
+                       endif
                        if(den.gt.0.0) then
                           cm=bm/den
                        else
@@ -1130,10 +1251,6 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
            enddo ! ihalf
         enddo ! nsym
 
-!tests
-!call indexx(bmetc(1:174),174,indx)
-!src=abs(bmetc(indx(1))/bmetc(indx(174)))
-!print *,src
           
         call normalizebmetvar(bmeta,174)
         call normalizebmetvar(bmetb,174)
@@ -2845,12 +2962,13 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         syncp=0.
         syncm=0.
         k=1
-        allocate(csig0(151680))
-        call gen_ft8wavevar(itone,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
+        allocate(csig0(1+(NZ-1)/NDOWN))
+        call gen_ft8wavevar_samples(itone,NN,NSPS,2.0,12000.0,0.0,NZ, &
+             NDOWN,size(csig0),cwave=csig0)
         do i=0,78
            do j=1,32
               csig(j)=csig0(k)
-              k=k+60
+              k=k+1
            enddo
            i21=i0+i*32
            z1=0.

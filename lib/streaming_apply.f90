@@ -23,11 +23,14 @@ module streaming_apply
   use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
        NPTS_C0_ARRAY_MAX, MODE_JTTY
   use jt9_params_init,   only: apply_per_mode_policy
+  use msk144_stream,     only: msk144_settings
 
   include 'jt9com.f90'
 
   private
   public :: apply_configure_fields, engine_range_key
+  public :: ft8_settings_change, ft8_identity_change
+  public :: apply_msk144_fields
   ! Re-export the include'd struct so a standalone unit driver can declare a
   ! params_block to assert apply routing against (test/apply_routing_test.f90)
   ! without itself including jt9com.f90. Same bind(C) type as everywhere else
@@ -111,7 +114,8 @@ contains
     ! the frame wins (streaming_io.f90). The host also sets kin and nzhsym before
     ! each decode, so kin_samples/nzhsym_per_period do not reach the decoder.
     ! robust_mode/nagain_flag/clear_average -> logical(c_bool); nagain holds
-    ! only for the decode again nagain_flag asks for (streaming_io.f90).
+    ! only for the decode again nagain_flag asks for, and nclearave only for
+    ! the next decode that runs (streaming_io.f90).
     ! tx_mode (enum) -> ntxmode, read only by JT65+JT9.
     if (in_cfg%dt_tolerance_seconds_set)                                       &
          params%dttol    = real(in_cfg%dt_tolerance_seconds, kind(params%dttol))
@@ -126,6 +130,7 @@ contains
     if (in_cfg%min_width_set)         params%minw      = in_cfg%min_width
     if (in_cfg%min_sync_set)          params%minsync   = in_cfg%min_sync
     if (in_cfg%n_2pass_set)           params%n2pass    = in_cfg%n_2pass
+    if (in_cfg%aggressive_set)        params%naggressive = in_cfg%aggressive
     if (in_cfg%robust_mode_set)       params%nrobust   = in_cfg%robust_mode
     if (in_cfg%nagain_flag_set)       params%nagain    = in_cfg%nagain_flag
     if (in_cfg%tx_mode_set)           params%ntxmode   = in_cfg%tx_mode
@@ -300,6 +305,20 @@ contains
     end if
   end subroutine apply_configure_fields
 
+  ! An accepted configure's MSK144 options and calls. Only a configure's
+  ! mycall and his_call become the decoder's calls, never the session's
+  ! starting ones, which are not a station's.
+  subroutine apply_msk144_fields(in_cfg, settings)
+    type(configure_fields), intent(in)    :: in_cfg
+    type(msk144_settings),  intent(inout) :: settings
+    if (in_cfg%short_messages_set) settings%short_messages = in_cfg%short_messages
+    if (in_cfg%swl_set)            settings%swl            = in_cfg%swl
+    if (in_cfg%train_set)          settings%train          = in_cfg%train
+    if (in_cfg%phase_eq_set)       settings%phase_eq       = in_cfg%phase_eq
+    if (in_cfg%mycall_set)         settings%mycall         = in_cfg%mycall
+    if (in_cfg%his_call_set)       settings%hiscall        = in_cfg%his_call
+  end subroutine apply_msk144_fields
+
   ! The configure key behind an option field engine_params_problem names: the
   ! key this frame set, else the one whose earlier value the field carries
   ! (carried). The unpacked depth keys replace the whole depth, so a depth they
@@ -355,12 +374,46 @@ contains
        set = in_cfg%utc_set .or. in_cfg%nutc_set
     case ('contest')
        key = 'contest_type'; set = in_cfg%contest_type_set
+    case ('aggressiveness')
+       key = 'aggressive'; set = in_cfg%aggressive_set
     case default
-       ! flags, passes and aggressiveness: no configure key sets a value the
-       ! engine refuses (the conversion makes them 0/1, clamps or fixes them).
+       ! flags and passes: no configure key sets a value the engine refuses
+       ! (the conversion makes them 0/1 or clamps them).
        key = field; set = .true.
     end select
     if (present(carried)) carried = .not. set
   end function engine_range_key
+
+  ! A change the GUI cancels its multithreaded FT8 backpressure on
+  ! (cancelPendingFt8Decode, widgets/mainwindow.cpp): its FT8 decoder menus
+  ! and Settings (my call and grid, SuperFox, special operating activity and
+  ! Hound, single decode, VHF features, trials, decode after EME delay).
+  pure logical function ft8_settings_change(was, now)
+    type(params_block), intent(in) :: was, now
+    ft8_settings_change = was%ndepth .ne. now%ndepth .or.                  &
+         (was%lmultift8 .neqv. now%lmultift8) .or. was%nmt .ne. now%nmt .or. &
+         was%ndecoderstart .ne. now%ndecoderstart .or.                     &
+         was%nft8cycles .ne. now%nft8cycles .or.                           &
+         was%nft8rxfsens .ne. now%nft8rxfsens .or.                         &
+         (was%lft8lowth .neqv. now%lft8lowth) .or.                         &
+         (was%lft8subpass .neqv. now%lft8subpass) .or.                     &
+         (was%lwidedxcsearch .neqv. now%lwidedxcsearch) .or.               &
+         (was%lhideft8dupes .neqv. now%lhideft8dupes) .or.                 &
+         (was%lft8apon .neqv. now%lft8apon) .or.                           &
+         any(was%mycall .ne. now%mycall) .or. any(was%mygrid .ne. now%mygrid) .or. &
+         (was%b_superfox .neqv. now%b_superfox) .or.                       &
+         (was%lhound .neqv. now%lhound) .or.                               &
+         iand(was%nexp_decode, 255) .ne. iand(now%nexp_decode, 255) .or.   &
+         was%nranera .ne. now%nranera .or. was%emedelay .ne. now%emedelay
+  end function ft8_settings_change
+
+  ! The rest of the GUI's pending-final identity, which it checks
+  ! only when it takes the final up (DecodeOperatingContext.hpp
+  ! hasSameFt8PendingIdentity, widgets/mainwindow.cpp publishPendingFt8Decode).
+  pure logical function ft8_identity_change(was, now)
+    type(params_block), intent(in) :: was, now
+    ft8_identity_change = was%nfa .ne. now%nfa .or. was%nfb .ne. now%nfb .or. &
+         was%nsubmode .ne. now%nsubmode
+  end function ft8_identity_change
 
 end module streaming_apply

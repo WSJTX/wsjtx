@@ -222,6 +222,7 @@ public:
   Transceiver::MODE map_mode (rmode_t) const;
   rmode_t map_mode (Transceiver::MODE mode) const;
   std::tuple<vfo_t, vfo_t> get_vfos (bool for_split, bool split_ptt_active) const;
+  std::tuple<vfo_t, vfo_t> resolve_vfos (bool for_split) const;
 
   HamlibTransceiver::logger_type mutable * logger_;
   unsigned model_;
@@ -336,6 +337,11 @@ std::tuple<vfo_t, vfo_t> HamlibTransceiver::impl::get_vfos (bool for_split, bool
     }
   // else only toggle available but VFOs should be substitutable 
 
+  return resolve_vfos (for_split);
+}
+
+std::tuple<vfo_t, vfo_t> HamlibTransceiver::impl::resolve_vfos (bool for_split) const
+{
   auto rx_vfo = ::rx_vfo (rig_.data ());
   auto tx_vfo = (WSJT_RIG_NONE_CAN_SPLIT || !is_dummy_) && for_split
     ? ::tx_vfo (rig_.data ())
@@ -867,6 +873,15 @@ void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
   // unavailable or forced
   if (!state ().ptt () || !state ().split () || !m_->one_VFO_ || no_ignore)
     {
+      vfo_t tx_mode_vfo = RIG_VFO_NONE;
+      if (state ().split () && m_->mode_query_works_ && UNK != m)
+        {
+          // During split TX the active VFO can be TX; retain the established roles.
+          auto const vfos = state ().ptt ()
+            ? m_->resolve_vfos (true)
+            : m_->get_vfos (true, false);
+          tx_mode_vfo = std::get<1> (vfos);
+        }
       // for the 1st time as a band change may cause a recalled mode to be
       // set
       vfo_t target_vfo = RIG_VFO_CURR;
@@ -899,15 +914,14 @@ void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
               CAT_TRACE ("rig_set_mode mode=" << rig_strrmode (new_mode));
               m_->error_check (rig_set_mode (m_->rig_.data (), target_vfo, new_mode, RIG_PASSBAND_NOCHANGE), tr ("setting current VFO mode"));
             }
-          // set mode on VFOB too if we are in split
           if (state ().split ())
             {
               rmode_t tx_mode;
               pbwidth_t tx_width;
-              auto rc = rig_get_mode (m_->rig_.data (), RIG_VFO_B, &tx_mode, &tx_width);
+              auto rc = rig_get_mode (m_->rig_.data (), tx_mode_vfo, &tx_mode, &tx_width);
               if (RIG_OK != rc || HamlibMode::change_required (m, tx_mode))
                 {
-                  rig_set_mode (m_->rig_.data (), RIG_VFO_B, new_mode, RIG_PASSBAND_NOCHANGE);
+                  rig_set_mode (m_->rig_.data (), tx_mode_vfo, new_mode, RIG_PASSBAND_NOCHANGE);
                 }
             }
           update_mode (m);

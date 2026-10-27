@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFont>
+#include <QLabel>
 #include <QTemporaryDir>
 
 #include <algorithm>
@@ -582,6 +583,35 @@ private:
     QFETCH (bool, result);
 
     QCOMPARE (::is_MAC_ambiguous_multicast_address (QHostAddress {addr}), result);
+  }
+
+  Q_SLOT void main_window_style_sheet_preserves_font_hierarchy_data ()
+  {
+    QTest::addColumn<bool> ("dark");
+    QTest::newRow ("light") << false;
+    QTest::newRow ("dark") << true;
+  }
+
+  Q_SLOT void main_window_style_sheet_preserves_font_hierarchy ()
+  {
+    QFETCH (bool, dark);
+    QWidget window;
+    QLabel ordinary {&window};
+    QLabel dial {&window};
+    QLabel utc {&window};
+    dial.setObjectName ("labDialFreq");
+    utc.setObjectName ("labUTC");
+    auto const sheet = main_window_style_sheet (
+      "QLabel {color: red;}", "QLabel {color: white;}", dark, QFont {"Arial", 10});
+    window.setStyleSheet (sheet);
+    for (auto * widget : {&ordinary, &dial, &utc}) widget->ensurePolished ();
+    QCOMPARE (ordinary.font ().pointSize (), 10);
+    QCOMPARE (dial.font ().pointSize (), 16);
+    QCOMPARE (utc.font ().pointSize (), 16);
+    QCOMPARE (ordinary.palette ().color (QPalette::WindowText), dark ? QColor {Qt::white} : QColor {Qt::red});
+#ifdef Q_OS_MAC
+    QCOMPARE (sheet.contains ("QPushButton[wsjtxCompact"), !dark);
+#endif
   }
 
   Q_SLOT void application_style_sheet_uses_light_base ()

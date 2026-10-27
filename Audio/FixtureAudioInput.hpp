@@ -37,6 +37,7 @@ public:
   Q_SLOT void stop () override;
   Q_SLOT void reset (bool reportDroppedFrames) override;
   Q_SLOT void arm ();
+  QString fixturePath () const {return m_path;}
   Q_SLOT void acknowledgeJttyFrames (qint64 detectorFrames);
   QString emitFt8RolloverPrefix ();
   static constexpr int ft8RolloverFrames () {return 6912;}

@@ -2,10 +2,12 @@
 ! samples; the decoder takes the first npts of them; a frame that straddles
 ! the boundary carries its remainder into the next period.
 module streaming_period
+  use, intrinsic :: iso_fortran_env, only: int64
   implicit none
   private
   public :: period_state, period_begin, period_room, period_take,          &
        period_full, period_ready, period_set_stop, gui_hsym_stop
+  public :: sample_due, trigger_fire_time, read_passes_busy_end, clock_start
 
   ! The GUI's half-symbol: its detector hands symspec this many samples a call.
   integer, parameter, public :: HSYM_SAMPLES = 3456
@@ -124,6 +126,43 @@ contains
     st%kperiod = st%kperiod + ntake
     st%k       = st%k + nacc
   end subroutine period_take
+
+  ! When stream sample k (from 0) is due, live audio being due from t0 on.
+  pure real(8) function sample_due(t0, k)
+    real(8),        intent(in) :: t0
+    integer(int64), intent(in) :: k
+    sample_due = t0 + dble(k) / PERIOD_NFSAMPLE
+  end function sample_due
+
+  ! When a decode trigger fires: when its last byte arrived, or when its last
+  ! sample k is due if that is later (k < 0: no audio clock).
+  pure real(8) function trigger_fire_time(arrival, t0, k)
+    real(8),        intent(in) :: arrival, t0
+    integer(int64), intent(in) :: k
+    trigger_fire_time = arrival
+    if (k .ge. 0) trigger_fire_time = max(arrival, sample_due(t0, k))
+  end function trigger_fire_time
+
+  ! The audio clock's start t0 after a read whose last sample, k, arrived at
+  ! arrival, the stream having waited `wait` seconds for input since the last
+  ! audio: moved earlier toward the start at which that sample is due on
+  ! arrival, by no more than the wait; never later.
+  pure real(8) function clock_start(t0, arrival, k, wait)
+    real(8),        intent(in) :: t0, arrival, wait
+    integer(int64), intent(in) :: k
+    clock_start = max(min(t0, arrival - dble(k) / PERIOD_NFSAMPLE), t0 - wait)
+  end function clock_start
+
+  ! Whether a read of nbytes, bytes_before of which arrived before busy_end and
+  ! whose last audio sample is k_last (< 0: none, or no audio clock), takes in
+  ! anything that came after the decoder came free at busy_end.
+  pure logical function read_passes_busy_end(bytes_before, nbytes, t0, k_last, busy_end)
+    integer(int64), intent(in) :: bytes_before, nbytes, k_last
+    real(8),        intent(in) :: t0, busy_end
+    read_passes_busy_end = bytes_before .lt. nbytes
+    if (k_last .ge. 0) read_passes_busy_end = read_passes_busy_end .or.       &
+         sample_due(t0, k_last) .ge. busy_end
+  end function read_passes_busy_end
 
   ! Every sample of the period is in.
   pure logical function period_full(st)

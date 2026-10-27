@@ -24,10 +24,12 @@
 ! Registered with CTest as test_streaming_apply; the standalone
 ! test/run-apply-routing-unit.sh also supports running this driver.
 program apply_routing_test
-  use streaming_control, only: configure_fields
+  use streaming_control, only: configure_fields, parse_control_frame, control_type_error
   use jt9_params_init,   only: cli_args_t, init_default_params,             &
        init_streaming_extra_fields
-  use streaming_apply,   only: apply_configure_fields, params_block, engine_range_key
+  use streaming_apply,   only: apply_configure_fields, params_block, engine_range_key, &
+       ft8_settings_change, ft8_identity_change, apply_msk144_fields
+  use msk144_stream,     only: msk144_settings
   implicit none
   integer :: nfail
   integer, parameter :: BNFA = 111, BNFB = 222   ! baseline nfa/nfb
@@ -49,6 +51,8 @@ program apply_routing_test
   call frame_utc_precedence()
   call frame_fst4_utc()
   call frame_phase9_pack()
+  call frame_cancel_fields()
+  call frame_msk144()
 
   write(*,'(a)') '------------------------------------------------------------'
   if (nfail .eq. 0) then
@@ -208,6 +212,7 @@ contains
     cfg%min_width_set = .true.;        cfg%min_width = 3
     cfg%min_sync_set = .true.;         cfg%min_sync = 4
     cfg%n_2pass_set = .true.;          cfg%n_2pass = 1
+    cfg%aggressive_set = .true.;       cfg%aggressive = 7
     cfg%robust_mode_set = .true.;      cfg%robust_mode = .true.
     cfg%nagain_flag_set = .true.;      cfg%nagain_flag = .true.
     cfg%tx_mode_set = .true.;          cfg%tx_mode = 9
@@ -279,6 +284,7 @@ contains
     call ok('min_width -> minw = 3 (not minsync)',  p%minw    .eq. 3)
     call ok('min_sync -> minsync = 4 (not minw)',   p%minsync .eq. 4)
     call ok('n_2pass -> n2pass = 1',           p%n2pass  .eq. 1)
+    call ok('aggressive -> naggressive = 7',   p%naggressive .eq. 7)
     call ok('robust_mode -> nrobust true',     logical(p%nrobust))
     call ok('nagain_flag -> nagain true',      logical(p%nagain))
     call ok('tx_mode -> ntxmode = 9',          p%ntxmode .eq. 9)
@@ -586,6 +592,7 @@ contains
     call key_is('max_drift', cfg, 'max_drift_hz')
     call key_is('utc', cfg, 'nutc')
     call key_is('contest', cfg, 'contest_type')
+    call key_is('aggressiveness', cfg, 'aggressive')
     cfg = blank; cfg%nfb_set = .true.
     call key_is('search_range', cfg, 'nfb')
     cfg%nfa_set = .true.
@@ -728,5 +735,122 @@ contains
     call ok('ndepth_packed -> ndepth = 178 (not sentinel 99)',        p%ndepth      .eq. 178)
     call ok('nexp_decode_packed -> nexp_decode = 1382 (not sentinel 99)', p%nexp_decode .eq. 1382)
   end subroutine frame_phase9_pack
+
+  ! What cancels the GUI's multithreaded FT8 backpressure, field by field: a
+  ! setting at once, an identity-only field when the waiting final is taken up.
+  subroutine frame_cancel_fields()
+    type(params_block) :: was, now
+    call fresh(was)
+    now = was
+    call ok('cancel: an unchanged copy changes no setting', .not. ft8_settings_change(was, now))
+    call ok('cancel: an unchanged copy changes no identity', .not. ft8_identity_change(was, now))
+    now = was; now%ndepth = was%ndepth + 1
+    call setting('depth', was, now)
+    now = was; now%lmultift8 = .not. was%lmultift8
+    call setting('multithreaded_ft8', was, now)
+    now = was; now%nmt = was%nmt + 1
+    call setting('ft8_threads', was, now)
+    now = was; now%ndecoderstart = was%ndecoderstart + 1
+    call setting('ft8_decoder_start', was, now)
+    now = was; now%nft8cycles = was%nft8cycles + 1
+    call setting('ft8_cycles', was, now)
+    now = was; now%nft8rxfsens = was%nft8rxfsens + 1
+    call setting('ft8_rxf_sensitivity', was, now)
+    now = was; now%lft8lowth = .not. was%lft8lowth
+    call setting('ft8_low_threshold', was, now)
+    now = was; now%lft8subpass = .not. was%lft8subpass
+    call setting('ft8_subpass', was, now)
+    now = was; now%lwidedxcsearch = .not. was%lwidedxcsearch
+    call setting('wide_dxc_search', was, now)
+    now = was; now%lhideft8dupes = .not. was%lhideft8dupes
+    call setting('hide_ft8_duplicates', was, now)
+    now = was; now%lft8apon = .not. was%lft8apon
+    call setting('ft8_ap_on', was, now)
+    now = was; now%mycall(12) = merge('Y', 'X', was%mycall(12) .eq. 'X')
+    call setting('mycall', was, now)
+    now = was; now%mygrid(6) = merge('Y', 'X', was%mygrid(6) .eq. 'X')
+    call setting('mygrid', was, now)
+    now = was; now%b_superfox = .not. was%b_superfox
+    call setting('superfox_mode', was, now)
+    now = was; now%lhound = .not. was%lhound
+    call setting('hound_mode', was, now)
+    now = was; now%nexp_decode = ieor(was%nexp_decode, 7)
+    call setting('contest_type', was, now)
+    now = was; now%nexp_decode = ieor(was%nexp_decode, 32)
+    call setting('single_decode', was, now)
+    now = was; now%nexp_decode = ieor(was%nexp_decode, 64)
+    call setting('vhf_features', was, now)
+    now = was; now%nranera = was%nranera + 1
+    call setting('n_trials', was, now)
+    now = was; now%emedelay = was%emedelay + 1
+    call setting('decode_after_eme_delay', was, now)
+    now = was; now%nexp_decode = was%nexp_decode + 256
+    call ok('cancel: noise_blanker_level is no FT8 setting', .not. ft8_settings_change(was, now))
+    now = was; now%nfa = was%nfa + 1
+    call identity('nfa', was, now)
+    now = was; now%nfb = was%nfb + 1
+    call identity('nfb', was, now)
+    now = was; now%nsubmode = was%nsubmode + 1
+    call identity('submode', was, now)
+  end subroutine frame_cancel_fields
+
+  ! MSK144's options and calls: each key to its own setting, kept until a
+  ! frame sets it.
+  subroutine frame_msk144()
+    type(configure_fields)   :: cfg, blank
+    type(control_type_error) :: terr
+    type(msk144_settings)    :: s
+    integer :: action
+    write(*,'(a)') 'Frame MSK144: options and calls -> the stream''s MSK144 settings'
+    call ok('msk144: off, no equalization and no calls by default',          &
+         .not. (s%short_messages .or. s%swl .or. s%train) .and.               &
+         all(s%phase_eq .eq. 0.d0) .and. s%mycall .eq. ' ' .and. s%hiscall .eq. ' ')
+    cfg = blank
+    cfg%short_messages_set = .true.; cfg%short_messages = .true.
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: short_messages -> short_messages only',                 &
+         s%short_messages .and. .not. s%swl .and. .not. s%train)
+    cfg = blank
+    cfg%swl_set = .true.; cfg%swl = .true.
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: swl -> swl, short_messages kept', s%swl .and. s%short_messages .and. .not. s%train)
+    cfg = blank
+    cfg%train_set = .true.; cfg%train = .true.
+    cfg%short_messages_set = .true.; cfg%short_messages = .false.
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: train -> train, short_messages false', s%train .and. s%swl .and. .not. s%short_messages)
+    cfg = blank
+    cfg%phase_eq_set = .true.; cfg%phase_eq = [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: phase_eq -> phase_eq', all(s%phase_eq .eq. [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]))
+    cfg = blank
+    cfg%mycall_set = .true.; cfg%mycall = 'KJ5HST'
+    cfg%his_call_set = .true.; cfg%his_call = 'W1AW/7'
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: mycall and his_call -> the decoder''s calls',            &
+         s%mycall .eq. 'KJ5HST' .and. s%hiscall .eq. 'W1AW/7')
+    call apply_msk144_fields(blank, s)
+    call ok('msk144: a frame without them keeps every one',                   &
+         s%train .and. s%swl .and. .not. s%short_messages .and.               &
+         all(s%phase_eq .eq. [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]) .and.             &
+         s%mycall .eq. 'KJ5HST' .and. s%hiscall .eq. 'W1AW/7')
+    call parse_control_frame('{"t":"configure","phase_eq":[0,0,5,0]}', action, cfg, terr)
+    call apply_msk144_fields(cfg, s)
+    call ok('msk144: a refused phase_eq carries none',                        &
+         cfg%phase_eq_out_of_range .and. all(s%phase_eq .eq. [1.d0, 2.d0, 3.d0, 4.d0, 5.d0]))
+  end subroutine frame_msk144
+
+  subroutine setting(key, was, now)
+    character(len=*),   intent(in) :: key
+    type(params_block), intent(in) :: was, now
+    call ok('cancel: ' // key // ' is a setting', ft8_settings_change(was, now))
+  end subroutine setting
+
+  subroutine identity(key, was, now)
+    character(len=*),   intent(in) :: key
+    type(params_block), intent(in) :: was, now
+    call ok('cancel: ' // key // ' is identity only',                         &
+         ft8_identity_change(was, now) .and. .not. ft8_settings_change(was, now))
+  end subroutine identity
 
 end program apply_routing_test

@@ -65,8 +65,7 @@ elseif (EXISTS "${SOURCE_DIR}/.git")
       message (STATUS "Source tree based on revision ${GIT_REFSPEC} ${SCS_VERSION} appears to have local changes")
       file (APPEND ${__scs_header_file} "#define SCS_VERSION_IS_DIRTY 1\n")
       set (SCS_VERSION_STR "${SCS_VERSION}-dirty")
-      execute_process (COMMAND ${GIT_EXECUTABLE} -C ${SOURCE_DIR} status
-	ERROR_QUIET
+      execute_process (COMMAND ${GIT_EXECUTABLE} -c "safe.directory=${SOURCE_DIR}" -C ${SOURCE_DIR} status
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
     else ()
       set (SCS_VERSION_STR "${SCS_VERSION}")

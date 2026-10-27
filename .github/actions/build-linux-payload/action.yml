@@ -151,6 +151,8 @@ runs:
       shell: bash
       run: |
         cmake -S . -B cfgmatrix-default \
+          -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
+          -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
           -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
           -DWSJT_SKIP_MANPAGES=ON \
           -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
@@ -163,6 +165,8 @@ runs:
         WSJT_PRERELEASE_NUMBER: ${{ inputs.prerelease_number }}
       run: |
         cmake -S . -B wsjtx-build \
+          -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
+          -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
           -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
           -DCMAKE_C_COMPILER_LAUNCHER=ccache \
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -191,6 +195,8 @@ runs:
       shell: bash
       run: |
         cmake -S . -B cfgmatrix-NON_OPENMP_ONLY \
+          -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
+          -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
           -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=NON_OPENMP_ONLY \

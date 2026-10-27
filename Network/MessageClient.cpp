@@ -17,6 +17,8 @@
 #include <QtEndian>
 
 #include "NetworkMessage.hpp"
+#include "Decoder/DecoderAnnotations.hpp"
+#include "Logger.hpp"
 #include "qt_helpers.hpp"
 #include "pimpl_impl.hpp"
 
@@ -133,20 +135,37 @@ public:
 
   struct DecodeIdentity
   {
+    DecodeIdentity (QTime time, qint32 snr, float delta_time, quint32 delta_frequency,
+                    QByteArray const& mode, QByteArray const& message)
+      : time {time}
+      , snr {snr}
+      , delta_time {delta_time}
+      , delta_frequency {delta_frequency}
+      , mode {mode}
+      , message {DecoderAnnotations::normalized_message (QString::fromUtf8 (message)).toUtf8 ()}
+    {
+    }
+
     QTime time;
     qint32 snr;
     float delta_time;
     quint32 delta_frequency;
     QByteArray mode;
     QByteArray message;
-    bool low_confidence;
 
     bool operator== (DecodeIdentity const& other) const
     {
       return time == other.time && snr == other.snr && delta_time == other.delta_time
         && delta_frequency == other.delta_frequency && mode == other.mode
-        && message == other.message && low_confidence == other.low_confidence;
+        && message == other.message;
     }
+  };
+
+  struct SentDecode
+  {
+    DecodeIdentity identity;
+    QByteArray message;
+    bool low_confidence;
   };
 
   void set_server (QString const& server_name, QStringList const& network_interface_names);
@@ -172,8 +191,8 @@ public:
   StreamStatus check_status (QDataStream const&) const;
   void send_message (QByteArray const&, bool queue_if_pending = true, bool allow_duplicates = false);
   void send_message_immediately (QByteArray const&);
-  void remember_decode (DecodeIdentity const&);
-  bool is_prior_decode (DecodeIdentity const&) const;
+  void remember_decode (SentDecode const&);
+  SentDecode const * find_prior_decode (DecodeIdentity const&) const;
   void clear_decode_history ();
   void send_message (QDataStream const& out, QByteArray const& message, bool queue_if_pending = true, bool allow_duplicates = false)
   {
@@ -209,7 +228,7 @@ public:
   // hold messages sent before host lookup completes asynchronously
   QQueue<QByteArray> pending_messages_;
   QQueue<PendingMessage> replay_messages_;
-  QQueue<DecodeIdentity> decode_history_;
+  QQueue<SentDecode> decode_history_;
   QByteArray last_message_;
   InhibitStatusSnapshot inhibit_status_;
 };
@@ -444,17 +463,23 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
                 if (check_status (in) != Fail)
                   {
                     DecodeIdentity const decode {time, snr, delta_time, delta_frequency,
-                                                 mode, message, low_confidence};
-                    if (is_prior_decode (decode))
+                                                 mode, message};
+                    if (auto const prior = find_prior_decode (decode))
                       {
-                        Q_EMIT self_->reply (time, snr, delta_time, delta_frequency
-                                             , QString::fromUtf8 (mode), QString::fromUtf8 (message)
-                                             , low_confidence, modifiers);
+                        auto const stored = *prior;
+                        auto const& identity = stored.identity;
+                        Q_EMIT self_->reply (identity.time, identity.snr, identity.delta_time, identity.delta_frequency
+                                             , QString::fromUtf8 (identity.mode), QString::fromUtf8 (stored.message)
+                                             , stored.low_confidence, modifiers);
                       }
                     else
                       {
-                        qDebug () << "process reply message ignored, decode not found:"
-                                  << time << snr << delta_time << delta_frequency << mode << message;
+                        LOG_DEBUG ("UDP Reply refused: decode not found;"
+                                   << " time: " << time.toString ("hh:mm:ss.zzz") << " snr: " << snr
+                                   << " dt: " << delta_time << " df: " << delta_frequency
+                                   << " mode: " << mode << " message: \"" << message << '"'
+                                   << " low confidence: " << low_confidence
+                                   << " modifiers: " << unsigned (modifiers));
                       }
                   }
               }
@@ -625,7 +650,7 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
     }
 }
 
-void MessageClient::impl::remember_decode (DecodeIdentity const& decode)
+void MessageClient::impl::remember_decode (SentDecode const& decode)
 {
   if (decode_history_.size () >= decode_history_limit)
     {
@@ -634,9 +659,11 @@ void MessageClient::impl::remember_decode (DecodeIdentity const& decode)
   decode_history_.enqueue (decode);
 }
 
-bool MessageClient::impl::is_prior_decode (DecodeIdentity const& decode) const
+auto MessageClient::impl::find_prior_decode (DecodeIdentity const& decode) const -> SentDecode const *
 {
-  return decode_history_.contains (decode);
+  auto const found = std::find_if (decode_history_.cbegin (), decode_history_.cend (),
+                                  [&] (SentDecode const& stored) {return stored.identity == decode;});
+  return found == decode_history_.cend () ? nullptr : &*found;
 }
 
 void MessageClient::impl::clear_decode_history ()
@@ -1018,7 +1045,7 @@ void MessageClient::decode (bool is_new, QTime time, qint32 snr, float delta_tim
     {
       auto const mode_utf8 = mode.toUtf8 ();
       auto const message_utf8 = message_text.toUtf8 ();
-      m_->remember_decode ({time, snr, delta_time, delta_frequency, mode_utf8,
+      m_->remember_decode ({{time, snr, delta_time, delta_frequency, mode_utf8, message_utf8},
                             message_utf8, low_confidence});
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::Decode, m_->id_, m_->schema_};

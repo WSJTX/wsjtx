@@ -22,7 +22,8 @@ phase="all"
 repeats_soak=20
 repeats_pair=10
 smoke=0
-audio_re='test_wsjtx_live_audio_ft8|test_wsjtx_live_audio_jtty|test_wsjtx_jtty_tx_loopback|test_wsjtx_ft8_tx_loopback'
+# Deliberate contention uses the ownership test; scheduling requires healthy stages.
+audio_re='test_wsjtx_live_audio_ft8$|test_wsjtx_live_audio_jtty|test_wsjtx_jtty_tx_loopback|test_wsjtx_ft8_tx_loopback'
 gui_audio_re="test_wsjtx_startup|${audio_re}"
 canary_re='test_q65_decode_pipeline|test_tci_transceiver_characterization'
 experiment_re="${gui_audio_re}|${canary_re}"
@@ -66,7 +67,7 @@ if ! command -v ctest >/dev/null 2>&1; then
   exit 2
 fi
 
-listed=$(ctest --test-dir "${build_dir}" -N -R "${experiment_re}" | awk '/Test #/{print $3}')
+listed=$(ctest --test-dir "${build_dir}" -N -R "${experiment_re}" | awk '/Test[[:space:]]+#/{print $3}')
 for expected in "${experiment_tests[@]}"; do
   if [[ $'\n'"${listed}"$'\n' != *$'\n'"${expected}"$'\n'* ]]; then
     echo "ctest did not list ${expected}:" >&2
@@ -136,16 +137,16 @@ phase1 () {
 
 phase2 () {
   run_suite_repeats "2 FT8 live || JTTY live" "${repeats_pair}" \
-    -j2 -R 'test_wsjtx_live_audio_ft8|test_wsjtx_live_audio_jtty' \
+    -j2 -R 'test_wsjtx_live_audio_ft8$|test_wsjtx_live_audio_jtty' \
     --output-on-failure
   run_suite_repeats "2 FT8 live || JTTY TX loopback" "${repeats_pair}" \
-    -j2 -R 'test_wsjtx_live_audio_ft8|test_wsjtx_jtty_tx_loopback' \
+    -j2 -R 'test_wsjtx_live_audio_ft8$|test_wsjtx_jtty_tx_loopback' \
     --output-on-failure
   run_suite_repeats "2 JTTY live || JTTY TX loopback" "${repeats_pair}" \
     -j2 -R 'test_wsjtx_live_audio_jtty|test_wsjtx_jtty_tx_loopback' \
     --output-on-failure
   run_suite_repeats "2 FT8 TX || FT8 live" "${repeats_pair}" \
-    -j3 -R 'test_wsjtx_ft8_tx_loopback|test_wsjtx_live_audio_ft8' \
+    -j3 -R 'test_wsjtx_ft8_tx_loopback|test_wsjtx_live_audio_ft8$' \
     --output-on-failure
   run_suite_repeats "2 FT8 TX || JTTY live" "${repeats_pair}" \
     -j3 -R 'test_wsjtx_ft8_tx_loopback|test_wsjtx_live_audio_jtty' \

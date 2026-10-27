@@ -9,15 +9,26 @@ subroutine four2avar(a,nfft,ndim,isign,iform)
 ! by ... will be returned in the same array, now considered to
 ! be complex of dimensions N(1)/2+1 by N(2) by ....  Note that if
 ! IFORM = 0 or -1, N(1) must be even, and enough room must be
-! reserved.  The missing values may be obtained by complex conjugation.  
+! reserved.  The missing values may be obtained by complex conjugation.
 
 ! The reverse transformation of a half complex array dimensioned
 ! N(1)/2+1 by N(2) by ..., is accomplished by setting IFORM
 ! to -1.  In the N array, N(1) must be the true N(1), not N(1)/2+1.
 ! The transform will be real and returned to the input array.
 
-! This version of four2avar makes calls to the FFTW library to do the 
+! This version of four2avar makes calls to the FFTW library to do the
 ! actual computations.
+
+  complex a(*)
+  integer*8 fft_plan
+
+  call four2avar_get_plan(a,nfft,ndim,isign,iform,fft_plan)
+  if(nfft.ge.0) call sfftw_execute(fft_plan)
+
+end subroutine four2avar
+
+! Borrow a buffer-bound plan until cache cleanup after all decoding has joined.
+subroutine four2avar_get_plan(a,nfft,ndim,isign,iform,fft_plan)
 
   parameter (NPMAX=2100)                 !Max numberf of stored plans
   parameter (NSMALL=16385)               !Max size of "small" FFTs
@@ -26,6 +37,7 @@ subroutine four2avar(a,nfft,ndim,isign,iform)
   integer nn(NPMAX),ns(NPMAX),nf(NPMAX)  !Params of stored plans 
   integer*8 nl(NPMAX),nloc               !More params of plans
   integer*8 plan(NPMAX)                  !Pointers to stored plans
+  integer*8, intent(out) :: fft_plan
   logical found_plan
   data nplan/0/                          !Number of stored plans
   common/patience/npatience,nthreads     !Patience and threads for FFTW plans
@@ -39,6 +51,7 @@ subroutine four2avar(a,nfft,ndim,isign,iform)
      end subroutine wsjt_tsan_release_four2avar_setup
   end interface
 
+  fft_plan=0
   if(nfft.lt.0) go to 999
 
   nloc=loc(a)
@@ -100,15 +113,16 @@ subroutine four2avar(a,nfft,ndim,isign,iform)
         a(1:jz)=aa(1:jz)
      endif
   end if
+  fft_plan=plan(i)
   call wsjt_tsan_release_four2avar_setup()
   !$omp end critical(four2avar_setup)
 
-  call sfftw_execute(plan(i))
   return
 
 999 continue
 
-  !$omp critical(four2avar)
+  !$omp critical(four2avar_setup)
+  call wsjt_tsan_acquire_four2avar_setup()
   do i=1,nplan
 ! The test is only to silence a compiler warning:
      if(ndim.ne.-999) then
@@ -119,7 +133,8 @@ subroutine four2avar(a,nfft,ndim,isign,iform)
   enddo
 
   nplan=0
-  !$omp end critical(four2avar)
+  call wsjt_tsan_release_four2avar_setup()
+  !$omp end critical(four2avar_setup)
 
   return
-end subroutine four2avar
+end subroutine four2avar_get_plan

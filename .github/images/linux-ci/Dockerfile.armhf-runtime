@@ -18,11 +18,15 @@ RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-armhf-runtime-pac
     && /usr/local/bin/install-armhf-runtime-packages
 
 COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/fftw-version.sh \
+     .github/scripts/build-fftw.sh \
+     .github/scripts/build-fftw-smoke-linux.sh \
      .github/scripts/armhf-toolchain-config.sh \
      .github/scripts/armhf-ci-image-config.sh \
      .github/scripts/write-armhf-ci-manifest.sh \
      .github/scripts/verify-armhf-ci-image.sh \
      /usr/local/share/wsjtx-ci/
+COPY tests/dependencies/test_fftw_runtime.c /usr/local/share/wsjtx-ci/
 COPY --from=cross_builder /opt/wsjtx/armhf-runtime /opt/wsjtx/armhf-runtime
 COPY --from=cross_builder /opt/wsjtx-ci/toolchain-smoke /opt/wsjtx-ci/toolchain-smoke
 COPY --from=cross_builder /opt/wsjtx-ci/image.env \

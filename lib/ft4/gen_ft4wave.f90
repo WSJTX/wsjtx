@@ -7,11 +7,14 @@ subroutine gen_ft4wave(itone,nsym,nsps,fsample,f0,cwave,wave,icmplx,nwave)
   integer itone(nsym)
   logical first
   data first/.true./
-  save pulse,first,twopi,dt,hmod
+  data nsps0/0/,fsample0/0.0/
+  save pulse,first,twopi,dt,hmod,nsps0,fsample0
 
   allocate(dphi(0:(nsym+2)*nsps-1))
 
-  if(first) then
+! The decoder's subtraction (12 kHz) and the transmitter (48 kHz) can share a
+! process.
+  if(first .or. nsps.ne.nsps0 .or. fsample.ne.fsample0) then
      twopi=8.0*atan(1.0)
      dt=1.0/fsample
      hmod=1.0
@@ -21,6 +24,8 @@ subroutine gen_ft4wave(itone,nsym,nsps,fsample,f0,cwave,wave,icmplx,nwave)
         pulse(i)=gfsk_pulse(1.0,tt)
      enddo
      first=.false.
+     nsps0=nsps
+     fsample0=fsample
   endif
 
 ! Compute the smoothed frequency waveform.

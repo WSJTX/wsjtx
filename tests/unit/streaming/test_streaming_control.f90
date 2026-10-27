@@ -2,7 +2,7 @@
 program test_streaming_control
   use streaming_control, only: parse_control_frame, configure_fields,       &
        control_type_error, CTRL_UNKNOWN, CTRL_CONFIGURE, CTRL_HALT,         &
-       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER,          &
+       CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, &
        MODE_JTTY, encode_request, parse_encode_request, parse_render_request
   implicit none
 
@@ -12,6 +12,7 @@ program test_streaming_control
 
   call expect_action('{"t":"discontinuity"}', CTRL_DISCONTINUITY)
   call expect_action('{"t":"halt"}', CTRL_HALT)
+  call expect_action('{"t":"flush"}', CTRL_FLUSH)
   call expect_action('{"t":"configure","rxfreq":1500}', CTRL_CONFIGURE)
   call expect_action('{"t":"a_future_control"}', CTRL_UNKNOWN)
   call expect_action('{"t":"discontinuities"}', CTRL_UNKNOWN)
@@ -74,6 +75,65 @@ program test_streaming_control
   call expect_call('{"t":"configure","mycall":"ABC}', '')
   call expect_call('{"t":"configure","mycall":"' // repeat('K', 200) // '"}', repeat('K', 12))
 
+  ! MSK144's three options are booleans.
+  call expect_msk144('{"t":"configure","short_messages":true,"swl":false,"train":true}', &
+       [.true., .true., .true.], [.true., .false., .true.], '')
+  call expect_msk144('{"t":"configure","short_messages":false,"swl":true,"train":false}', &
+       [.true., .true., .true.], [.false., .true., .false.], '')
+  call expect_msk144('{"t":"configure","swl":true}', [.false., .true., .false.],         &
+       [.false., .true., .false.], '')
+  call expect_msk144('{"t":"configure","rxfreq":1500}', [.false., .false., .false.],     &
+       [.false., .false., .false.], '')
+  call expect_msk144('{"t":"configure","short_messages":"yes"}', [.false., .false., .false.], &
+       [.false., .false., .false.], 'short_messages')
+  call expect_msk144('{"t":"configure","swl":1}', [.false., .false., .false.],           &
+       [.false., .false., .false.], 'swl')
+  call expect_msk144('{"t":"configure","train":null}', [.false., .false., .false.],      &
+       [.false., .false., .false.], 'train')
+  ! phase_eq: exactly five finite JSON numbers; otherwise no value, and the
+  ! frame's one error says whether its text, its type or its range is wrong.
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0]}', '',                &
+       [0.d0, 0.d0, 5.d0, 0.d0, 0.d0])
+  call expect_phase_eq('{"t":"configure","phase_eq":[ -1.5e2 ,0.25E-3,' // achar(9) //   &
+       '1E+2,-0,' // achar(10) // '1.2345678901234567E-001 ]}', '',                     &
+       [-150.d0, 0.25d-3, 100.d0, 0.d0, 1.2345678901234567d-1])
+  call expect_phase_eq('{"t":"configure","rxfreq":1500}', '')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[ ]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,1e999,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,-1e999,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[1e999,0,0,0]}', 'range')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,"5",0,0]}', 'string')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,true,0,0]}', 'bool')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,null,0,0]}', 'null')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,[5],0,0]}', 'array')
+  call expect_phase_eq('{"t":"configure","phase_eq":[[0,0,5,0,0]]}', 'array')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,{"x":5},0,0]}', 'object')
+  call expect_phase_eq('{"t":"configure","phase_eq":5}', 'number')
+  call expect_phase_eq('{"t":"configure","phase_eq":"[0,0,5,0,0]"}', 'string')
+  call expect_phase_eq('{"t":"configure","phase_eq":true}', 'bool')
+  call expect_phase_eq('{"t":"configure","phase_eq":null}', 'null')
+  call expect_phase_eq('{"t":"configure","phase_eq":{"a":1}}', 'object')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,NaN,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,Infinity,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,+5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,05,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,00,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5.,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,.5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5e,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5/,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,/,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,2*5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0 5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5d3,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0,]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,,5,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[1e999,0 0,0,0]}', 'text')
+  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0', 'text')
+
   ! The GUI's "Decode after EME delay" and its live audio; both are booleans.
   call expect_flags('{"t":"configure","decode_after_eme_delay":true,"live_audio":false}', &
        .true., .true., .true., .false., '')
@@ -82,6 +142,70 @@ program test_streaming_control
        .false., .false., 'decode_after_eme_delay')
   call expect_flags('{"t":"configure","live_audio":1}', .false., .false., .false., .false., &
        'live_audio')
+
+  ! The GUI's Aggressive setting is an integer; its Q65 pileup decoding is
+  ! nexp_decode's bit 7, packed with the contest keys.
+  call expect_aggressive('{"t":"configure","aggressive":7}', .true., 7, '')
+  call expect_aggressive('{"t":"configure","rxfreq":1500}', .false., 0, '')
+  call expect_aggressive('{"t":"configure","aggressive":"7"}', .false., 0, 'aggressive')
+  call expect_nexp('{"t":"configure","q65_pileup":true}', .true., 128, '')
+  call expect_nexp('{"t":"configure","q65_pileup":false}', .true., 0, '')
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup","q65_pileup":true}', .true., 129, '')
+  call expect_nexp('{"t":"configure","q65_pileup":1}', .false., 0, 'q65_pileup')
+  ! The GUI's Q65 Pileup activity sets both; q65_pileup in the frame wins.
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup"}', .true., 129, '')
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup","single_decode":true}', .true., 161, '')
+  call expect_nexp('{"t":"configure","contest_type":"q65_pileup","q65_pileup":false}', .true., 1, '')
+  call expect_nexp('{"t":"configure","q65_pileup":false,"contest_type":"q65_pileup"}', .true., 1, '')
+  call expect_nexp('{"t":"configure","contest_type":"na_vhf"}', .true., 1, '')
+  call expect_nexp('{"t":"configure","contest_type":"ww_digi"}', .true., 1, '')
+
+  ! Conflicting depth keys are named by their wire keys.
+  call expect_conflict('{"t":"configure","depth":3,"depth_level":2}', 'depth', 'depth alone')
+  call expect_conflict('{"t":"configure","depth_level":2,"q65_maxiters_level":1}', &
+       'q65_maxiters_level', 'same depth_level')
+
+  ! A utc is exactly HH:MM:SS, two digits a field, else a type error, and a
+  ! time of day, else out of range. A nutc is a JSON integer and a time of
+  ! day, HHMMSS from 0 to 235959 (an HHMM up to 2359 passes as HHMMSS).
+  call expect_utc('{"t":"configure","utc":"23:59:59"}', .true., 235959)
+  call expect_utc('{"t":"configure","utc":"00:00:00"}', .true., 0)
+  call expect_utc('{"t":"configure","utc":"1\u0032:00:00"}', .true., 120000)
+  call expect_utc_refused('{"t":"configure","utc":"24:00:00"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"12:60:00"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:60"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"99:99:99"}', 'range')
+  call expect_utc_refused('{"t":"configure","utc":"1:2:3"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"123:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"99999999999:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"0012:0000:0005"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:00 "}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":" 12:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:00' // repeat(' ', 125) // 'junk"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12-00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00-00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:0a:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"13:34:45Z"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"13:34"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"-1:00:00"}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":""}', 'type')
+  call expect_utc_refused('{"t":"configure","utc":"12:00:0\x"}', 'type')
+  call expect_nutc('{"t":"configure","nutc":133445}', .true., 133445, '')
+  call expect_nutc('{"t":"configure","nutc":0}', .true., 0, '')
+  call expect_nutc('{"t":"configure","nutc":2359}', .true., 2359, '')
+  call expect_nutc('{"t":"configure","nutc":235959}', .true., 235959, '')
+  call expect_nutc('{"t":"configure","nutc":-1}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":240000}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":1260}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":126000}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","nutc":235960}', .false., 0, 'range')
+  call expect_nutc('{"t":"configure","rxfreq":1500}', .false., 0, '')
+  call expect_nutc('{"t":"configure","nutc":133445.0}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":1.33445e5}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":2147483648}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":05}', .false., 0, 'number')
+  call expect_nutc('{"t":"configure","nutc":"133445"}', .false., 0, 'string')
 
   ! The transmitter keeps the whole call and grid; the decoder's fields keep
   ! their widths.
@@ -176,7 +300,11 @@ program test_streaming_control
   call expect_render('{"t":"render","id":1,"text":"x","rate":12000,"freq":200}', 12000, 200.d0)
   call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":5000}', 48000, 5000.d0)
   call expect_render('{"t":"render","id":1,"text":"x","rate":48000,"freq":1234.5}', 48000, 1234.5d0)
-  call expect_accepted('{"t":"pack","id":1,"text":"x","rate":44100,"freq":"x"}')
+  call expect_problem('{"t":"pack","id":1,"text":"x","rate":44100,"freq":"x"}', 'rate')
+  call expect_problem('{"t":"pack","id":1,"text":"x","Text":"y"}', 'Text')
+  call expect_problem('{"t":"pack","id":1,"text":"x","":1}', '""')
+  call expect_accepted('{"t":"pack","id":1,"text":"x","mode":"JTTY"}')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":1500,"zz":1}', 'zz')
   ! A request is one flat object; strings may hold any character.
   ! Request integers are JSON integers, which the list-directed reader alone is not.
   call expect_id('{"t":"pack","id":-0,"text":"x"}', 0)
@@ -289,6 +417,187 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_flags
+
+  ! aggressive as parsed, or the key a type error names.
+  subroutine expect_aggressive(frame, set, value, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            (cfg%aggressive_set .eqv. set) .and. (.not. set .or. cfg%aggressive .eq. value)
+    end if
+    call report(frame, good, '')
+  end subroutine expect_aggressive
+
+  ! The type error a conflict gives.
+  subroutine expect_conflict(frame, key, expected)
+    character(len=*), intent(in) :: frame, key, expected
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, terr%present .and. trim(terr%key) .eq. key .and.          &
+         trim(terr%expected) .eq. expected .and. trim(terr%got) .eq. 'conflict', '')
+  end subroutine expect_conflict
+
+  ! utc as parsed: set, and the HHMMSS it gives.
+  subroutine expect_utc(frame, set, value)
+    character(len=*), intent(in) :: frame
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.   &
+         (cfg%utc_set .eqv. set) .and. (.not. set .or. cfg%utc_nutc .eq. value) .and. &
+         .not. cfg%utc_out_of_range, '')
+  end subroutine expect_utc
+
+  ! A utc refused for its 'range' (the frame's range error) or its 'type'.
+  subroutine expect_utc_refused(frame, outcome)
+    character(len=*), intent(in) :: frame, outcome
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    good = action .eq. CTRL_CONFIGURE .and. .not. cfg%utc_set
+    if (outcome .eq. 'range') then
+       good = good .and. cfg%utc_out_of_range .and. .not. terr%present
+    else
+       good = good .and. .not. cfg%utc_out_of_range .and. terr%present .and.     &
+            trim(terr%key) .eq. 'utc' .and. trim(terr%expected) .eq. 'HH:MM:SS' .and. &
+            trim(terr%got) .eq. 'string'
+    end if
+    call report(frame, good, outcome)
+  end subroutine expect_utc_refused
+
+  ! nutc as parsed (set, value), refused for its 'range', or got, the
+  ! category its type error names.
+  subroutine expect_nutc(frame, set, value, got)
+    character(len=*), intent(in) :: frame, got
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (got .eq. 'range') then
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            cfg%nutc_out_of_range .and. .not. cfg%nutc_set
+    else if (len(got) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. 'nutc' .and.               &
+            trim(terr%expected) .eq. 'int' .and. trim(terr%got) .eq. got .and.  &
+            .not. cfg%nutc_set .and. .not. cfg%nutc_out_of_range
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            (cfg%nutc_set .eqv. set) .and. (.not. set .or. cfg%nutc .eq. value) .and. &
+            .not. cfg%nutc_out_of_range
+    end if
+    call report(frame, good, got)
+  end subroutine expect_nutc
+
+  ! The packed nexp_decode, or the key a type error names.
+  subroutine expect_nexp(frame, set, value, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    logical,          intent(in) :: set
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            (cfg%nexp_decode_packed_set .eqv. set) .and.                      &
+            (.not. set .or. cfg%nexp_decode_packed .eq. value)
+    end if
+    call report(frame, good, '')
+  end subroutine expect_nexp
+
+  ! short_messages, swl and train as parsed (set, then value), or the key a
+  ! type error names.
+  subroutine expect_msk144(frame, set, val, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    logical,          intent(in) :: set(3), val(3)
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key .and.            &
+            .not. (cfg%short_messages_set .or. cfg%swl_set .or. cfg%train_set)
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            all([cfg%short_messages_set, cfg%swl_set, cfg%train_set] .eqv. set) .and. &
+            all(([cfg%short_messages, cfg%swl, cfg%train] .eqv. val) .or. .not. set)
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_msk144
+
+  ! phase_eq as parsed (values; absent: unset), or refused for its 'text' or
+  ! 'range', or with outcome the category its type error names.
+  subroutine expect_phase_eq(frame, outcome, values)
+    character(len=*),  intent(in)           :: frame, outcome
+    real(8),           intent(in), optional :: values(5)
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    logical :: good, typed
+
+    call parse_control_frame(frame, action, cfg, terr)
+    typed = terr%present .and. trim(terr%key) .eq. 'phase_eq'
+    good = action .eq. CTRL_CONFIGURE
+    select case (outcome)
+    case ('')
+       good = good .and. .not. (terr%present .or. cfg%phase_eq_malformed .or.  &
+            cfg%phase_eq_out_of_range) .and. (cfg%phase_eq_set .eqv. present(values))
+       if (present(values)) good = good .and. all(cfg%phase_eq .eq. values)
+    case ('text')
+       good = good .and. cfg%phase_eq_malformed .and. .not. (terr%present .or.   &
+            cfg%phase_eq_out_of_range .or. cfg%phase_eq_set)
+    case ('range')
+       good = good .and. cfg%phase_eq_out_of_range .and. .not. (terr%present .or. &
+            cfg%phase_eq_malformed .or. cfg%phase_eq_set)
+    case default
+       good = good .and. typed .and. trim(terr%expected) .eq. 'array of numbers' .and. &
+            trim(terr%got) .eq. outcome .and. .not. (cfg%phase_eq_malformed .or.   &
+            cfg%phase_eq_out_of_range .or. cfg%phase_eq_set)
+    end select
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a,a,l1,a,l1,a,l1,a,a,a,5(1x,es24.16))', '  FAIL  ', frame, ' -> set ', &
+            cfg%phase_eq_set, ' text ', cfg%phase_eq_malformed, ' range ',          &
+            cfg%phase_eq_out_of_range, ' got ', trim(terr%got), ' values', cfg%phase_eq
+       nfail = nfail + 1
+    end if
+  end subroutine expect_phase_eq
 
   subroutine expect_tx_mode_unset(frame)
     character(len=*), intent(in) :: frame

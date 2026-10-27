@@ -129,9 +129,10 @@ jobs:
           update: true
           cache: ${{ !inputs.cold_build }}
           install: >-
-            git make tar
+            git make tar curl zstd
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-gcc-fortran
+            mingw-w64-ucrt-x86_64-libgomp
             mingw-w64-ucrt-x86_64-ccache
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-qt5-base
@@ -141,7 +142,6 @@ jobs:
             mingw-w64-ucrt-x86_64-qt5-tools
             mingw-w64-ucrt-x86_64-qt5-websockets
             mingw-w64-ucrt-x86_64-qt5-activeqt
-            mingw-w64-ucrt-x86_64-fftw
             mingw-w64-ucrt-x86_64-libusb
             mingw-w64-ucrt-x86_64-portaudio
             mingw-w64-ucrt-x86_64-pkg-config
@@ -221,8 +221,15 @@ jobs:
           OMNIRIG=$(cygpath "${OMNIRIG_PATH}")
           BOOST_PREFIX="${{ steps.windows-deps.outputs.boost_prefix }}"
           HAMLIB_PREFIX="${{ steps.windows-deps.outputs.hamlib_prefix }}"
+          FFTW_PREFIX="${{ steps.windows-deps.outputs.fftw_prefix }}"
+          . .github/scripts/fftw-version.sh
           cmake -G "MSYS Makefiles" -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${BOOST_PREFIX};${HAMLIB_PREFIX}" \
+            -DFFTW3_ROOT_DIR="${FFTW_PREFIX}" \
+            -DFFTW3_INCLUDE_DIR="${FFTW_PREFIX}/include" \
+            -DFFTW3F_LIBRARY="${FFTW_PREFIX}/lib/libfftw3f.dll.a" \
+            -DFFTW3F_THREADS_LIBRARY="${FFTW_PREFIX}/lib/libfftw3f_threads.dll.a" \
+            -DWSJT_FFTW_VERSION="${FFTW_VERSION}" \
             -DBOOST_ROOT="${BOOST_PREFIX}" \
             -DBOOST_INCLUDEDIR="${BOOST_PREFIX}/include" \
             -DBOOST_LIBRARYDIR="${BOOST_PREFIX}/lib" \
@@ -242,6 +249,7 @@ jobs:
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
             -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+            -DCMAKE_REQUIRE_FIND_PACKAGE_OpenMP=ON \
             -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
             -DWSJT_PRERELEASE_NUMBER="${WSJT_PRERELEASE_NUMBER}" \
             -DPFUNIT_DIR="${{ steps.windows-deps.outputs.pfunit_dir }}" \
@@ -280,7 +288,7 @@ jobs:
           # the test exits 0xc0000135 (STATUS_DLL_NOT_FOUND) at launch. The
           # packaged installer is unaffected: cpack's bundle_fixup copies
           # libhamlib-4.dll in.
-          export PATH="${{ steps.windows-deps.outputs.boost_prefix }}/lib:${{ steps.windows-deps.outputs.hamlib_prefix }}/bin:${PATH}"
+          export PATH="${{ steps.windows-deps.outputs.fftw_prefix }}/bin:${{ steps.windows-deps.outputs.boost_prefix }}/lib:${{ steps.windows-deps.outputs.hamlib_prefix }}/bin:${PATH}"
           ctest --output-on-failure --output-junit ctest-results.xml
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
@@ -328,6 +336,9 @@ jobs:
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
           cmake --install wsjtx-build --prefix "${WORKSPACE}/stage-main"
+          for library in libfftw3f-3.dll libfftw3f_threads-3.dll; do
+            cmp "${{ steps.windows-deps.outputs.fftw_prefix }}/bin/$library" "${WORKSPACE}/stage-main/bin/$library"
+          done
           ls -la "${WORKSPACE}/stage-main/bin"
 
       - name: Audit staged runtime DLL imports

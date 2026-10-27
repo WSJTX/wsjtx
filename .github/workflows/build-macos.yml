@@ -404,20 +404,24 @@ jobs:
           path: portaudio-prefix
           key: ${{ steps.portaudio-cache.outputs.cache-primary-key }}
 
+      - name: Select FFTW version
+        run: |
+          . .github/scripts/fftw-version.sh
+          echo "FFTW_VERSION=$FFTW_VERSION" >> "$GITHUB_ENV"
+
       - name: Restore FFTW cache
         id: fftw-cache
         if: ${{ !inputs.cold_build }}
         uses: actions/cache/restore@v6
         with:
           path: fftw-prefix
-          key: fftw-macos-${{ inputs.arch }}-${{ env.RUNNER }}-3.3.10-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
+          key: fftw-macos-${{ inputs.arch }}-${{ env.RUNNER }}-${{ env.FFTW_VERSION }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/fftw-version.sh', '.github/scripts/build-fftw-macos.sh') }}
 
       - name: Build FFTW
         id: fftw-build
         if: steps.fftw-cache.outputs.cache-hit != 'true'
         run: |
           .github/scripts/build-fftw-macos.sh \
-            3.3.10 \
             "${{ env.DEPLOYMENT_TARGET }}" \
             "${GITHUB_WORKSPACE}/fftw-prefix"
 
@@ -550,6 +554,7 @@ jobs:
         run: |
           cmake -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/qt-prefix;${GITHUB_WORKSPACE}/boost-prefix;${GITHUB_WORKSPACE}/fftw-prefix;${GITHUB_WORKSPACE}/libusb-prefix;${GITHUB_WORKSPACE}/portaudio-prefix;${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+            -DFFTW3_ROOT_DIR="${GITHUB_WORKSPACE}/fftw-prefix" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
@@ -559,6 +564,7 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_FFTW_VERSION="${FFTW_VERSION}" \
             -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \

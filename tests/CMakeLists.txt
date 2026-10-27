@@ -1,5 +1,11 @@
 find_package (Qt5Test 5 REQUIRED)
 
+add_executable (test_fftw_runtime dependencies/test_fftw_runtime.c)
+target_include_directories (test_fftw_runtime PRIVATE ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (test_fftw_runtime PRIVATE ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+set (WSJT_FFTW_VERSION "" CACHE STRING "Required FFTW runtime version for official builds")
+add_test (NAME test_fftw_runtime COMMAND test_fftw_runtime "${WSJT_FFTW_VERSION}")
+
 add_test (
   NAME test_release_state
   COMMAND ${CMAKE_COMMAND}
@@ -32,6 +38,15 @@ if (GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
       -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/release-git-archive
       -D GIT_EXECUTABLE=${GIT_EXECUTABLE}
       -P ${CMAKE_SOURCE_DIR}/tests/release/test_git_archive.cmake)
+endif ()
+if (GIT_FOUND)
+  add_test (
+    NAME test_release_revision_label
+    COMMAND ${CMAKE_COMMAND}
+      -D SOURCE_DIR=${CMAKE_SOURCE_DIR}
+      -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/release-revision-label
+      -D GIT_EXECUTABLE=${GIT_EXECUTABLE}
+      -P ${CMAKE_SOURCE_DIR}/tests/release/test_revision_label.cmake)
 endif ()
 
 add_test (

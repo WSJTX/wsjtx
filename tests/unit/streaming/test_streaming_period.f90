@@ -1,6 +1,8 @@
 program test_streaming_period
+  use, intrinsic :: iso_fortran_env, only: int64
   use streaming_period, only: period_state, period_begin, period_room,      &
-       period_take, period_full, period_ready, period_set_stop, gui_hsym_stop
+       period_take, period_full, period_ready, period_set_stop, gui_hsym_stop, &
+       sample_due, trigger_fire_time, read_passes_busy_end, clock_start
   implicit none
 
   integer, parameter :: NMAX = 1800 * 12000
@@ -13,6 +15,9 @@ program test_streaming_period
   call short_periods()
   call gui_stops()
   call stop_points()
+  call fire_times()
+  call busy_end()
+  call clock_starts()
 
   if (nfail .eq. 0) then
      print '(a)', 'ALL STREAMING PERIOD CHECKS PASSED'
@@ -196,5 +201,69 @@ contains
     call period_set_stop(st, 300, NMAX)
     call ok('a stop past the period leaves the share alone', st%npts .eq. 174 * 3456)
   end subroutine stop_points
+
+  ! Live audio's clock: a trigger fires when its last byte arrives, or when its
+  ! last sample is due if later.
+  subroutine fire_times()
+    call ok('sample 12000 is due a second after sample 0',                   &
+         sample_due(100.d0, 12000_int64) .eq. 101.d0)
+    call ok('audio sent ahead of time fires when due',                       &
+         trigger_fire_time(5.d0, 0.d0, 120000_int64) .eq. 10.d0)
+    call ok('audio arriving late fires on arrival',                          &
+         trigger_fire_time(12.d0, 0.d0, 120000_int64) .eq. 12.d0)
+    call ok('with no audio clock, a trigger fires on arrival',               &
+         trigger_fire_time(3.d0, 50.d0, -1_int64) .eq. 3.d0)
+  end subroutine fire_times
+
+  ! The decoder came free at 5 s: a read past what came in or fell due by then
+  ! runs a deferred final first.
+  subroutine busy_end()
+    call ok('every byte in before 5 s, no audio: the read stays before it',  &
+         .not. read_passes_busy_end(100_int64, 100_int64, 0.d0, -1_int64, 5.d0))
+    call ok('a byte not in before 5 s: the read passes it',                  &
+         read_passes_busy_end(99_int64, 100_int64, 0.d0, -1_int64, 5.d0))
+    call ok('audio whose last sample was due before 5 s stays before it',    &
+         .not. read_passes_busy_end(100_int64, 100_int64, 0.d0, 59999_int64, 5.d0))
+    call ok('audio whose last sample is due at 5 s passes it',               &
+         read_passes_busy_end(100_int64, 100_int64, 0.d0, 60000_int64, 5.d0))
+  end subroutine busy_end
+
+  ! The audio clock started at 10 s; sample 24000 is due at 12 s.
+  subroutine clock_starts()
+    real(8) :: t0, mid
+    integer :: j
+    integer(int64) :: k
+    call ok('audio a second early, after a 2 s wait, starts the clock a second earlier', &
+         clock_start(10.d0, 11.d0, 24000_int64, 2.d0) .eq. 9.d0)
+    call ok('after a 5 ms wait the clock moves 5 ms',                         &
+         clock_start(10.d0, 11.d0, 24000_int64, 0.005d0) .eq. 10.d0 - 0.005d0)
+    call ok('late audio leaves the clock',                                    &
+         clock_start(10.d0, 13.d0, 24000_int64, 2.d0) .eq. 10.d0)
+    call ok('buffered audio leaves the clock',                                &
+         clock_start(10.d0, 11.d0, 24000_int64, 0.d0) .eq. 10.d0)
+    ! A pipe-limited feeder: 2.73 s of audio per 64 KiB piece, 5 ms waited for each.
+    t0 = 0
+    do j = 1, 10
+       t0 = clock_start(t0, 0.005d0 * j, int(j, int64) * 32768 - 1, 0.005d0)
+    end do
+    call ok('a fast feeder moves the clock by no more than it waited', abs(t0 + 0.05d0) .lt. 1d-9)
+    ! A 3 s start-up lead, then 0.1 s frames sent in real time, each waited for.
+    t0 = 0
+    mid = 0
+    do j = 1, 30
+       k = 36000 + int(j, int64) * 1200 - 1
+       t0 = clock_start(t0, 0.1d0 * j, k, 0.1d0)
+       if (j .eq. 15) mid = t0
+    end do
+    call ok('a 3 s lead is taken up by 3 s of real-time frames, not sooner',  &
+         abs(mid + 1.5d0) .lt. 1d-9 .and. abs(t0 - (-3.d0 + 1.d0 / 12000)) .lt. 1d-9)
+    ! An hour of 0.1 s frames from a sound card 100 ppm fast.
+    t0 = 0
+    do j = 1, 36000
+       k = int(j, int64) * 1200 - 1
+       t0 = clock_start(t0, dble(k + 1) / 12000 * (1 - 1d-4), k, 0.1d0)
+    end do
+    call ok('100 ppm of drift is taken up', abs(t0 - (-0.36d0 + 1.d0 / 12000)) .lt. 1d-6)
+  end subroutine clock_starts
 
 end program test_streaming_period

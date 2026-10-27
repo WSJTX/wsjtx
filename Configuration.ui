@@ -2496,7 +2496,7 @@ comments field.</string>
        <item>
         <widget class="QGroupBox" name="network_group_box">
          <property name="title">
-          <string>Network Services</string>
+          <string>PSK Reporter spotting</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_29" columnstretch="0,0">
           <item row="0" column="0">
@@ -2525,10 +2525,20 @@ comments field.</string>
        <item>
         <widget class="QGroupBox" name="groupBox_4">
          <property name="title">
-          <string>UDP Server</string>
+          <string>Application connections (WSJT-X UDP)</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_16">
-          <item row="0" column="0">
+          <item row="0" column="0" colspan="2">
+           <widget class="QLabel" name="udp_server_description_label">
+            <property name="text">
+             <string>Exchange decodes, status, and logged contacts with companion applications.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
            <layout class="QFormLayout" name="formLayout_6">
             <property name="fieldGrowthPolicy">
              <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
@@ -2536,7 +2546,7 @@ comments field.</string>
             <item row="0" column="0">
              <widget class="QLabel" name="udp_server_label">
               <property name="text">
-               <string>UDP Server:</string>
+               <string>Application address:</string>
               </property>
               <property name="buddy">
                <cstring>udp_server_line_edit</cstring>
@@ -2546,34 +2556,67 @@ comments field.</string>
             <item row="0" column="1">
              <widget class="QLineEdit" name="udp_server_line_edit">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional hostname of network service to receive decodes.&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable the broadcasting of UDP status updates.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="inputMethodHints">
-               <set>Qt::ImhDigitsOnly</set>
+               <string>Hostname or IPv4/IPv6 address of an application that receives WSJT-X UDP messages. Multicast group addresses are supported. Use the address from your companion application's setup instructions. Leave blank to disable this connection. PSK Reporter is configured separately above.</string>
               </property>
              </widget>
             </item>
-            <item row="1" column="0">
+            <item row="1" column="0" colspan="2">
+             <layout class="QHBoxLayout" name="udp_server_error_layout">
+              <item>
+               <widget class="QLabel" name="udp_server_error_label">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="visible">
+                 <bool>false</bool>
+                </property>
+                <property name="text">
+                 <string>This address is for PSK Reporter. Enable PSK Reporter spotting above. Enter your receiving application's address here, or leave this field blank.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="udp_server_error_spacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item row="2" column="0">
              <widget class="QLabel" name="label_6">
               <property name="text">
-               <string>UDP Server port number:</string>
+               <string>Port:</string>
               </property>
               <property name="buddy">
                <cstring>udp_server_port_spin_box</cstring>
               </property>
              </widget>
             </item>
-            <item row="1" column="1">
+            <item row="2" column="1">
              <widget class="QSpinBox" name="udp_server_port_spin_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>Port on which the companion application receives WSJT-X UDP messages. A port of zero disables this connection.</string>
               </property>
               <property name="maximum">
                <number>65534</number>
               </property>
              </widget>
             </item>
-            <item row="2" column="0">
+            <item row="3" column="0">
              <widget class="QLabel" name="udp_interfaces_label">
               <property name="text">
                <string>Outgoing interfaces:</string>
@@ -2583,14 +2626,14 @@ comments field.</string>
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
+            <item row="3" column="1">
              <widget class="CheckableItemComboBox" name="udp_interfaces_combo_box">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </item>
-            <item row="3" column="0">
+            <item row="4" column="0">
              <widget class="QLabel" name="udp_TTL_label">
               <property name="text">
                <string>Multicast TTL:</string>
@@ -2600,7 +2643,7 @@ comments field.</string>
               </property>
              </widget>
             </item>
-            <item row="3" column="1">
+            <item row="4" column="1">
              <widget class="QSpinBox" name="udp_TTL_spin_box">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -2615,12 +2658,12 @@ comments field.</string>
             </item>
            </layout>
           </item>
-          <item row="0" column="1">
+          <item row="1" column="1">
            <layout class="QVBoxLayout" name="verticalLayout_11">
             <item>
              <widget class="QCheckBox" name="accept_udp_requests_check_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this enabled WSJT-X will accept certain requests back from a UDP server that receives decode messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>Allow companion applications receiving WSJT-X UDP messages to send supported requests back to WSJT-X.</string>
               </property>
               <property name="text">
                <string>Accept UDP requests</string>
@@ -2655,55 +2698,101 @@ comments field.</string>
        <item>
         <widget class="QGroupBox" name="n1mm_group_box">
          <property name="title">
-          <string>Secondary UDP Server (deprecated)</string>
+          <string>ADIF output (UDP)</string>
          </property>
          <layout class="QFormLayout" name="formLayout_15">
           <item row="0" column="0" colspan="2">
-           <widget class="QCheckBox" name="enable_n1mm_broadcast_check_box">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, WSJT-X will broadcast a logged contact in ADIF format to the configured hostname and port. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
+           <widget class="QLabel" name="n1mm_server_description_label">
             <property name="text">
-             <string>Enable logged contact ADIF broadcast</string>
+             <string>Send logged contacts to an application configured to receive plain ADIF records.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
+          <item row="1" column="0" colspan="2">
+           <widget class="QCheckBox" name="enable_n1mm_broadcast_check_box">
+            <property name="toolTip">
+             <string>Send a plain ADIF record to the configured application whenever a contact is logged. This feed does not send decodes or status updates.</string>
+            </property>
+            <property name="text">
+             <string>Enable ADIF output</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
            <widget class="QLabel" name="n1mm_server_name_label">
             <property name="text">
-             <string>Server name or IP address:</string>
+             <string>Application address:</string>
             </property>
             <property name="buddy">
              <cstring>n1mm_server_name_line_edit</cstring>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="2" column="1">
            <widget class="QLineEdit" name="n1mm_server_name_line_edit">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional host name of N1MM Logger+ program to receive ADIF UDP broadcasts. This is usually 'localhost' or ip address 127.0.0.1&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable broadcasting of ADIF information via UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>IPv4 or IPv6 address of a logging application that receives plain ADIF records over UDP. For an application on this computer, use 127.0.0.1. Leave blank to disable forwarding. PSK Reporter is configured separately above.</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="n1mm_server_port_label">
             <property name="text">
-             <string>Server port number:</string>
+             <string>Port:</string>
             </property>
             <property name="buddy">
              <cstring>n1mm_server_port_spin_box</cstring>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="4" column="1">
            <widget class="QSpinBox" name="n1mm_server_port_spin_box">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the port number that WSJT-X should use for UDP broadcasts of ADIF log information. For N1MM Logger+, this value should be 2333. If this is zero,  no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>Port on which the logging application receives plain ADIF records over UDP. A port of zero disables forwarding.</string>
             </property>
             <property name="maximum">
              <number>65534</number>
             </property>
            </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <layout class="QHBoxLayout" name="n1mm_server_error_layout">
+            <item>
+             <widget class="QLabel" name="n1mm_server_error_label">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="visible">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>This address is for PSK Reporter. Enable PSK Reporter spotting above. Enter your receiving application's address here, or leave this field blank.</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="n1mm_server_error_spacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>0</width>
+                <height>0</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
           </item>
          </layout>
         </widget>
