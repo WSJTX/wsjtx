@@ -183,6 +183,7 @@ private:
   unsigned frequency_polls_remaining_[2] {0, 0};
   quint64 frequency_generation_ {0};
   quint64 frequency_serial_ {0};
+  Frequency frequency_resolution_ {1};
   bool failure_reported_ {false};
   bool period_applied_ {false};
   double applied_period_ {0.0};

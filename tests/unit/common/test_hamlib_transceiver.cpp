@@ -1,6 +1,7 @@
 #include "wsjtx_config.h"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -25,10 +26,13 @@ namespace
   class RigFixture
   {
   public:
-    explicit RigFixture (vfo_t receive_vfo, bool main_sub = false, bool single_vfo_addressing = false)
+    explicit RigFixture (vfo_t receive_vfo, bool main_sub = false, bool single_vfo_addressing = false,
+                         int quantum = 1, bool rounded = false)
       : rx_vfo {receive_vfo}
       , tx_vfo {main_sub ? RIG_VFO_SUB : receive_vfo == RIG_VFO_A ? RIG_VFO_B : RIG_VFO_A}
       , vfos {main_sub ? RIG_VFO_MAIN | RIG_VFO_SUB : RIG_VFO_A | RIG_VFO_B}
+      , quantum {quantum}
+      , rounded {rounded}
     {
       active = this;
       auto dummy = std::unique_ptr<RIG, decltype (&rig_cleanup)> {rig_init (RIG_MODEL_DUMMY), rig_cleanup};
@@ -85,6 +89,9 @@ namespace
       caps.set_freq = [] (RIG * rig, vfo_t vfo, freq_t frequency)
         {
           active->frequency_targets.push_back (vfo);
+          if (active->quantum > 1)
+            frequency = std::floor ((frequency + (active->rounded ? active->quantum / 2. : 0.))
+                                    / active->quantum) * active->quantum;
           return active->original.set_freq (rig, vfo, frequency);
         };
       caps.get_vfo = [] (RIG * rig, vfo_t * vfo)
@@ -126,6 +133,8 @@ namespace
                         [&] (QString const& message) { failure = message; });
       QObject::connect (transceiver.get (), &Transceiver::update,
                         [&] (Transceiver::TransceiverState const& value, unsigned) { state = value; });
+      QObject::connect (transceiver.get (), &Transceiver::resolution,
+                        [&] (int value) { negotiated_resolution = value; });
       transceiver->start (1);
     }
 
@@ -147,6 +156,9 @@ namespace
     vfo_t rx_vfo;
     vfo_t tx_vfo;
     vfo_t vfos;
+    int quantum;
+    bool rounded;
+    int negotiated_resolution = 0;
     bool reject_tx_mode = false;
     bool registered = false;
     RIG * rig = nullptr;
@@ -190,6 +202,65 @@ private:
   Q_SLOT void cleanupTestCase ()
   {
     QVERIFY (QDir::setCurrent (previous_directory_));
+  }
+
+  Q_SLOT void quantizedReadbackUsesNegotiatedResolution_data ()
+  {
+    QTest::addColumn<int> ("quantum");
+    QTest::addColumn<bool> ("rounded");
+    QTest::addColumn<int> ("code");
+    QTest::newRow ("resolution0") << 1 << false << 0;
+    for (auto quantum : {10, 20, 100})
+      for (auto rounded : {false, true})
+        {
+          auto const code = (quantum == 10 ? 1 : quantum == 20 ? 2 : 3) * (rounded ? 1 : -1);
+          QTest::newRow (qPrintable (QString {"resolution%1"}.arg (code))) << quantum << rounded << code;
+        }
+  }
+
+  Q_SLOT void quantizedReadbackUsesNegotiatedResolution ()
+  {
+    QFETCH (int, quantum);
+    QFETCH (bool, rounded);
+    QFETCH (int, code);
+    RigFixture fixture {RIG_VFO_A, false, false, quantum, rounded};
+    QVERIFY (fixture.registered);
+    fixture.start ();
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QCOMPARE (fixture.negotiated_resolution, code);
+    fixture.establish_split ();
+#if HAVE_HAMLIB_CACHING
+    QCOMPARE (rig_set_cache_timeout_ms (fixture.rig, HAMLIB_CACHE_ALL, 0), RIG_OK);
+#elif HAVE_HAMLIB_OLD_CACHING
+    QCOMPARE (rig_set_cache_timeout_ms (fixture.rig, CACHE_ALL, 0), RIG_OK);
+#endif
+    auto const target = Radio::Frequency {144200003};
+    fixture.state.frequency (target);
+    fixture.state.frequency_request ({1, 101, RigFrequency::Path::Rx, target});
+    QSignalSpy results {fixture.transceiver.get (), &Transceiver::frequency_result};
+    fixture.transceiver->set (fixture.state, 4);
+    QVERIFY (!results.isEmpty ());
+    QCOMPARE (qvariant_cast<RigFrequency::Result> (results.last ().at (0)).outcome,
+              RigFrequency::Outcome::Pending);
+    auto const applied = quantum == 1 ? target : Radio::Frequency {144200000};
+    for (int i = 0; i < 3; ++i)
+      QVERIFY (QMetaObject::invokeMethod (fixture.transceiver.get (), "handle_timeout", Qt::DirectConnection));
+    bool established = false;
+    for (auto const& arguments : results)
+      {
+        auto const result = qvariant_cast<RigFrequency::Result> (arguments.at (0));
+        if (result.request.id != 101) continue;
+        QVERIFY (result.outcome != RigFrequency::Outcome::Failed);
+        QCOMPARE (result.request.target, target);
+        if (result.outcome == RigFrequency::Outcome::Established)
+          {
+            QCOMPARE (result.basis, RigFrequency::Basis::Readback);
+            QCOMPARE (result.applied, applied);
+            established = true;
+          }
+      }
+    QVERIFY (established);
+    QCOMPARE (fixture.state.frequency (), applied);
   }
 
   Q_SLOT void splitModeIsEstablishedBeforePtt_data ()

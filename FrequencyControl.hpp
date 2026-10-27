@@ -11,6 +11,21 @@ namespace RigFrequency
   enum class Outcome { Pending, Deferred, Established, Rejected, Failed };
   enum class Basis { Retained, BackendOperation, Readback, Emulated };
 
+  inline Radio::Frequency resolution_hz (int code)
+  {
+    if (code >= 3 || code <= -3) return 100;
+    if (code == 2 || code == -2) return 20;
+    if (code == 1 || code == -1) return 10;
+    return 1;
+  }
+
+  inline bool within_resolution (Radio::Frequency observed, Radio::Frequency target,
+                                 Radio::Frequency resolution)
+  {
+    auto const delta = observed > target ? observed - target : target - observed;
+    return delta < resolution;
+  }
+
   struct Request
   {
     quint64 generation = 0;

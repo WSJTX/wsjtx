@@ -4,6 +4,7 @@
 #include <QtTest>
 
 #include "Transceiver/TransceiverBase.hpp"
+#include "FrequencyAdapter.hpp"
 
 namespace
 {
@@ -21,6 +22,7 @@ namespace
     int mode_commands = 0;
     bool readback_expected = false;
     bool readable = true;
+    int resolution_code = 0;
     void observe_rx (Frequency value) {update_rx_frequency (value, Basis::Readback);}
     void observe_tx (Frequency value) {update_other_frequency (value, Basis::Readback);}
     void defer_rx () {defer_frequency (Path::Rx);}
@@ -31,7 +33,7 @@ namespace
     void meters () {update_level (42); update_PTT (false); update_complete (true);}
 
   private:
-    int do_start () override {observe_rx (14074000); observe_tx (0); return 0;}
+    int do_start () override {observe_rx (14074000); observe_tx (0); return resolution_code;}
     void do_stop () override {}
     void do_frequency (Frequency value, MODE, bool) override
     {
@@ -68,6 +70,199 @@ class TestTransceiverFrequency : public QObject
   Q_OBJECT
 
 private Q_SLOTS:
+  void quantized_readback_completes_only_within_negotiated_resolution_data ()
+  {
+    QTest::addColumn<int> ("code");
+    QTest::addColumn<int> ("delta");
+    QTest::addColumn<bool> ("tx");
+    QTest::addColumn<bool> ("established");
+    for (auto code : {0, -1, 1, -2, 2, -3, 3})
+      {
+        auto const hz = code == 0 ? 1 : std::abs (code) == 1 ? 10 : std::abs (code) == 2 ? 20 : 100;
+        QList<int> const deltas = code ? QList<int> {0, hz - 1, -(hz - 1), hz, -hz, hz + 1, -(hz + 1)}
+                                      : QList<int> {0, 1, -1, 2, -2};
+        for (auto tx : {false, true})
+          for (auto delta : deltas)
+            {
+              auto name = QString {"code%1-%2-delta%3"}.arg (code).arg (tx ? "TX" : "RX").arg (delta);
+              QTest::newRow (qPrintable (name)) << code << delta << tx << (std::abs (delta) < hz);
+            }
+      }
+  }
+
+  void quantized_readback_completes_only_within_negotiated_resolution ()
+  {
+    QFETCH (int, code);
+    QFETCH (int, delta);
+    QFETCH (bool, tx);
+    QFETCH (bool, established);
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.resolution_code = code;
+    rig.start (1);
+    rig.readback_expected = true;
+    auto const target = Radio::Frequency {144200003};
+    auto state = request (10, target, target);
+    state.frequency_request (tx ? Path::Rx : Path::Tx, {});
+    QSignalSpy results {&rig, &Transceiver::frequency_result};
+    rig.set (state, 2);
+    QCOMPARE (qvariant_cast<Result> (results.last ().at (0)).outcome, Outcome::Pending);
+    auto const observed = static_cast<Radio::Frequency> (static_cast<Radio::FrequencyDelta> (target) + delta);
+    if (tx) rig.observe_tx (observed);
+    else rig.observe_rx (observed);
+    QCOMPARE (qvariant_cast<Result> (results.last ().at (0)).outcome,
+              established ? Outcome::Established : Outcome::Pending);
+    rig.readable = false;
+    for (int i = 0; i < 10; ++i) rig.poll_complete ();
+    rig.readable = true;
+    for (int i = 0; i < 2; ++i)
+      {
+        rig.poll_complete ();
+        QCOMPARE (qvariant_cast<Result> (results.last ().at (0)).outcome,
+                  established ? Outcome::Established : Outcome::Pending);
+      }
+    rig.poll_complete ();
+    auto const result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.outcome, established ? Outcome::Established : Outcome::Failed);
+    QCOMPARE (result.request.generation, quint64 {1});
+    QCOMPARE (result.request.id, quint64 {tx ? 11u : 10u});
+    QCOMPARE (result.request.path, tx ? Path::Tx : Path::Rx);
+    QCOMPARE (result.request.target, target);
+    if (established)
+      {
+        QCOMPARE (result.basis, Basis::Readback);
+        QCOMPARE (result.applied, observed);
+      }
+  }
+
+  void calibrated_quantized_readback_preserves_nominal_mapping_data ()
+  {
+    QTest::addColumn<int> ("code");
+    QTest::addColumn<bool> ("tx");
+    QTest::addColumn<double> ("intercept");
+    for (auto code : {-1, 1, -2, 2, -3, 3})
+      for (auto tx : {false, true})
+        for (auto intercept : {-3., 3.})
+          {
+            auto name = QString {"code%1-%2-intercept%3"}.arg (code).arg (tx ? "TX" : "RX").arg (intercept);
+            QTest::newRow (qPrintable (name)) << code << tx << intercept;
+          }
+  }
+
+  void calibrated_quantized_readback_preserves_nominal_mapping ()
+  {
+    QFETCH (int, code);
+    QFETCH (bool, tx);
+    QFETCH (double, intercept);
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.resolution_code = code;
+    rig.readback_expected = true;
+    FrequencyAdapter adapter;
+    adapter.new_connection ();
+    std::optional<Result> completion;
+    std::optional<Evidence> observation;
+    connect (&rig, &Transceiver::resolution, [&] (int value) {
+      adapter.resolution (FrequencyAdapter::resolution_hz (value));
+    });
+    connect (&rig, &Transceiver::frequency_observation, [&] (Evidence const& evidence) {
+      if (auto translated = adapter.observe (evidence)) observation = *translated;
+    });
+    connect (&rig, &Transceiver::frequency_result, [&] (Result const& result) {
+      if (auto translated = adapter.complete (result)) completion = *translated;
+    });
+    rig.start (1);
+    FrequencyAdapter::Projection projection;
+    projection.intercept = intercept;
+    auto const nominal = Radio::Frequency {144200000};
+    auto const path = tx ? Path::Tx : Path::Rx;
+    Request intent {adapter.generation (), 10, path, nominal};
+    QVERIFY (adapter.submit (intent, projection));
+    auto command = adapter.take_dispatch (path);
+    QVERIFY (command);
+    QCOMPARE (command->target, static_cast<Radio::Frequency> (nominal + intercept));
+    auto state = request (10, command->target, command->target);
+    state.frequency_request (tx ? Path::Rx : Path::Tx, {});
+    state.frequency_request (path, *command);
+    QSignalSpy results {&rig, &Transceiver::frequency_result};
+    rig.set (state, 2);
+    QVERIFY (completion);
+    QCOMPARE (completion->outcome, Outcome::Pending);
+    QVERIFY (!observation);
+    if (tx) rig.observe_tx (nominal);
+    else rig.observe_rx (nominal);
+    QVERIFY (observation);
+    QCOMPARE (observation->value, nominal);
+    QVERIFY (same_operation (observation->operation, intent));
+    QCOMPARE (observation->operation.target, intent.target);
+    for (int i = 0; i < 3; ++i) rig.poll_complete ();
+    auto const physical = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (physical.outcome, Outcome::Established);
+    QCOMPARE (physical.basis, Basis::Readback);
+    QCOMPARE (physical.applied, nominal);
+    QVERIFY (same_operation (physical.request, *command));
+    QCOMPARE (physical.request.target, command->target);
+    QCOMPARE (completion->outcome, Outcome::Established);
+    QCOMPARE (completion->applied, nominal);
+    QCOMPARE (completion->request.target, intent.target);
+    QCOMPARE (adapter.decode (path, nominal), nominal);
+    QVERIFY (!adapter.snapshot (path).pending);
+    QVERIFY (!adapter.snapshot (tx ? Path::Rx : Path::Tx).established);
+  }
+
+  void quantized_paths_complete_independently ()
+  {
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.resolution_code = -1;
+    rig.readback_expected = true;
+    rig.start (1);
+    QSignalSpy results {&rig, &Transceiver::frequency_result};
+    auto const state = request (10, 144200003, 144201003);
+    rig.set (state, 2);
+    rig.observe_rx (144200000);
+    auto const rx = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (rx.request.id, quint64 {10});
+    QCOMPARE (rx.request.path, Path::Rx);
+    QCOMPARE (rx.outcome, Outcome::Established);
+    rig.observe_tx (144201013);
+    for (int i = 0; i < 2; ++i) rig.poll_complete ();
+    for (auto const& arguments : results)
+      {
+        auto const result = qvariant_cast<Result> (arguments.at (0));
+        if (result.request.path == Path::Tx) QCOMPARE (result.outcome, Outcome::Pending);
+      }
+    rig.poll_complete ();
+    auto const tx = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (tx.request.id, quint64 {11});
+    QCOMPARE (tx.request.path, Path::Tx);
+    QCOMPARE (tx.request.target, state.tx_frequency ());
+    QCOMPARE (tx.outcome, Outcome::Failed);
+  }
+
+  void restart_renegotiates_readback_resolution ()
+  {
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.resolution_code = -3;
+    rig.readback_expected = true;
+    rig.start (1);
+    auto state = request (10, 144200003, 0);
+    state.frequency_request (Path::Tx, {});
+    QSignalSpy results {&rig, &Transceiver::frequency_result};
+    rig.set (state, 2);
+    rig.observe_rx (144199904);
+    QCOMPARE (qvariant_cast<Result> (results.last ().at (0)).outcome, Outcome::Established);
+    rig.resolution_code = 0;
+    rig.start (3);
+    rig.set (state, 4);
+    rig.observe_rx (144200002);
+    for (int i = 0; i < 2; ++i) rig.poll_complete ();
+    QCOMPARE (qvariant_cast<Result> (results.last ().at (0)).outcome, Outcome::Pending);
+    rig.poll_complete ();
+    QCOMPARE (qvariant_cast<Result> (results.last ().at (0)).outcome, Outcome::Failed);
+  }
+
   void both_paths_have_independent_results ()
   {
     Transceiver::logger_type logger;

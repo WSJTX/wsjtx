@@ -253,8 +253,10 @@ public:
   // 0 - 1Hz
   // 1 - 10Hz rounded
   // -1 - 10Hz truncated
-  // 2 - 100Hz rounded
-  // -2 - 100Hz truncated
+  // 2 - 20Hz rounded
+  // -2 - 20Hz truncated
+  // 3 - 100Hz rounded
+  // -3 - 100Hz truncated
   Q_SIGNAL void resolution (int);
 
   // rig audio data transfer w3sz tci

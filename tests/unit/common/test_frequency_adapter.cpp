@@ -27,6 +27,53 @@ private:
     QCOMPARE (FrequencyAdapter::resolution_hz (0), Radio::Frequency {1});
   }
 
+  Q_SLOT void readbackTolerance_data ()
+  {
+    QTest::addColumn<int> ("code");
+    QTest::addColumn<int> ("delta");
+    QTest::addColumn<bool> ("tx");
+    QTest::addColumn<bool> ("established");
+    for (auto code : {0, -1, 1, -2, 2, -3, 3})
+      {
+        auto const hz = code == 0 ? 1 : std::abs (code) == 1 ? 10 : std::abs (code) == 2 ? 20 : 100;
+        QList<int> const deltas = code ? QList<int> {0, hz - 1, -(hz - 1), hz, -hz, hz + 1, -(hz + 1)}
+                                      : QList<int> {0, 1, -1, 2, -2};
+        for (auto delta : deltas)
+          for (auto tx : {false, true})
+            {
+              auto name = QString {"code%1-%2-delta%3"}.arg (code).arg (tx ? "TX" : "RX").arg (delta);
+              QTest::newRow (qPrintable (name)) << code << delta << tx << (std::abs (delta) < hz);
+            }
+      }
+  }
+
+  Q_SLOT void readbackTolerance ()
+  {
+    QFETCH (int, code);
+    QFETCH (int, delta);
+    QFETCH (bool, tx);
+    QFETCH (bool, established);
+    FrequencyAdapter adapter;
+    adapter.resolution (FrequencyAdapter::resolution_hz (code));
+    auto const path = tx ? Path::Tx : Path::Rx;
+    auto const nominal = Radio::Frequency {144200000};
+    auto const command = submit (adapter, 1, path, nominal, {0, 3., 0., true});
+    auto const observed = static_cast<Radio::Frequency> (static_cast<Radio::FrequencyDelta> (command.target) + delta);
+    QVERIFY (!adapter.observe ({0, 1, path, command.target + 1000, Basis::Readback, {}}));
+    auto const evidence = adapter.observe ({0, 2, path, observed, Basis::Readback, command});
+    QVERIFY (evidence);
+    auto const expected = established ? nominal
+      : static_cast<Radio::Frequency> (static_cast<Radio::FrequencyDelta> (nominal) + delta);
+    QCOMPARE (evidence->value, expected);
+    auto const result = adapter.complete ({command, Outcome::Established, Basis::Readback, observed});
+    QVERIFY (result);
+    QCOMPARE (result->outcome, established ? Outcome::Established : Outcome::Failed);
+    QCOMPARE (result->applied, expected);
+    QCOMPARE (result->request.target, nominal);
+    QCOMPARE (bool (adapter.snapshot (path).established), established);
+    if (established) QCOMPARE (adapter.decode (path, observed), nominal);
+  }
+
   Q_SLOT void startupCalibrationDoesNotRequireAnEstablishedTarget ()
   {
     FrequencyAdapter adapter;

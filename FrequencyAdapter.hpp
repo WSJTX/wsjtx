@@ -48,8 +48,7 @@ public:
   quint64 generation () const { return generation_; }
   static Radio::Frequency resolution_hz (int code)
   {
-    auto const magnitude = std::abs (code);
-    return magnitude >= 3 ? 100 : magnitude == 2 ? 20 : magnitude == 1 ? 10 : 1;
+    return RigFrequency::resolution_hz (code);
   }
   void new_connection ()
   {
@@ -120,11 +119,11 @@ public:
         return translated;
       }
     auto const target = path.state.pending->command.target;
-    auto const delta = result.applied > target ? result.applied - target : target - result.applied;
-    if (result.outcome == RigFrequency::Outcome::Established && delta < resolution_)
+    auto const matched = RigFrequency::within_resolution (result.applied, target, resolution_);
+    if (result.outcome == RigFrequency::Outcome::Established && matched)
       translated.applied = translated.request.target;
     if (result.outcome == RigFrequency::Outcome::Established
-        && (path.ambiguous || delta >= resolution_ || result.basis == RigFrequency::Basis::Retained))
+        && (path.ambiguous || !matched || result.basis == RigFrequency::Basis::Retained))
       {
         translated.outcome = RigFrequency::Outcome::Failed;
       }
@@ -170,10 +169,9 @@ public:
           mapping = &*path.state.established;
         else return {};
         translated.operation = mapping->request;
-        auto const delta = evidence.value > mapping->command.target
-          ? evidence.value - mapping->command.target : mapping->command.target - evidence.value;
         if (mapping == (path.state.pending ? &*path.state.pending : nullptr)
-            && evidence.basis == RigFrequency::Basis::Readback && delta < resolution_)
+            && evidence.basis == RigFrequency::Basis::Readback
+            && RigFrequency::within_resolution (evidence.value, mapping->command.target, resolution_))
           path.ambiguous = false;
       }
     else
@@ -190,9 +188,8 @@ public:
       }
     if (mapping)
       {
-        auto const delta = evidence.value > mapping->command.target
-          ? evidence.value - mapping->command.target : mapping->command.target - evidence.value;
-        translated.value = delta < resolution_ ? mapping->request.target : mapping->projection.decode (evidence.value);
+        translated.value = RigFrequency::within_resolution (evidence.value, mapping->command.target, resolution_)
+          ? mapping->request.target : mapping->projection.decode (evidence.value);
       }
     else translated.value = path.baseline.value_or (default_projection_).decode (evidence.value);
     return translated;
@@ -203,8 +200,8 @@ public:
     auto const& path = slot (which);
     if (!path.state.established) return path.baseline.value_or (default_projection_).decode (value);
     auto const& mapping = *path.state.established;
-    auto const delta = value > mapping.command.target ? value - mapping.command.target : mapping.command.target - value;
-    return delta < resolution_ ? mapping.request.target : mapping.projection.decode (value);
+    return RigFrequency::within_resolution (value, mapping.command.target, resolution_)
+      ? mapping.request.target : mapping.projection.decode (value);
   }
   Snapshot snapshot (RigFrequency::Path which) const { return slot (which).state; }
 

@@ -265,6 +265,7 @@ void TransceiverBase::startup ()
       actual_.online (true);
       requested_.online (true);
       auto res = do_start ();
+      frequency_resolution_ = RigFrequency::resolution_hz (res);
       do_post_start ();
       Q_EMIT resolution (res);
     }
@@ -467,7 +468,8 @@ void TransceiverBase::frequency_evidence (RigFrequency::Path path, Frequency val
     (result.outcome == Outcome::Pending ? result.request : Request {});
   Q_EMIT frequency_observation (Evidence {pending ? pending.generation : frequency_generation_, ++frequency_serial_,
     pending ? pending.path : path, value, basis, pending});
-  if (pending && value == pending.target && same_operation (result.request, pending))
+  if (pending && same_operation (result.request, pending)
+      && within_resolution (value, pending.target, frequency_resolution_))
     {
       result = {pending, Outcome::Established, basis, value};
       if (!operation) Q_EMIT frequency_result (result);
