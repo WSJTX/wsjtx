@@ -14470,6 +14470,8 @@ bool MainWindow::reapplyCurrentRigFrequencyCorrection ()
 {
   auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
   auto const activity = rigFrequencyActivity ();
+  if (!RigFrequencyChangePolicy::evaluate (
+        kind, activity, m_config.tx_frequency_corrections_allowed ()).allowed) return false;
   if ((m_monitoring || m_transmitting) && m_config.transceiver_online ()) {
     m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation ());
     auto const path = m_transmitting && m_config.split_mode ()
