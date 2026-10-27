@@ -13,6 +13,7 @@
 #include <QScrollBar>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QStringList>
 #include <QTemporaryDir>
 #include <QTabWidget>
 #include <QTimer>
@@ -73,6 +74,13 @@ class TestConfigurationUdpDestinations final : public QObject
     QTest::newRow ("mapped-ipv4") << QString {"::ffff:15.204.212.142"};
     QTest::newRow ("mapped-hex") << QString {"::ffff:0fcc:d48e"};
     QTest::newRow ("mapped-expanded") << QString {"0:0:0:0:0:ffff:0fcc:d48e"};
+  }
+
+  static QStringList valid_destinations ()
+  {
+    return {"", "127.0.0.1", "192.168.1.2", "239.255.0.1", "::1", "ff02::1",
+            "localhost", "companion.example.org", "notpskreporter.info",
+            "pskreporter.info.example.org", "15.204.212.143"};
   }
 
 private Q_SLOTS:
@@ -138,10 +146,8 @@ private Q_SLOTS:
   void preserves_valid_saved_destinations_data ()
   {
     QTest::addColumn<QString> ("destination");
-    for (auto destination : {"", "127.0.0.1", "192.168.1.2", "239.255.0.1", "::1", "ff02::1",
-                             "localhost", "companion.example.org", "notpskreporter.info",
-                             "pskreporter.info.example.org", "15.204.212.143"})
-      QTest::newRow (destination[0] ? destination : "empty") << QString {destination};
+    for (auto const& destination : valid_destinations ())
+      QTest::newRow (destination.isEmpty () ? "empty" : qPrintable (destination)) << destination;
   }
 
   void preserves_valid_saved_destinations ()
@@ -237,22 +243,26 @@ private Q_SLOTS:
       }
   }
 
-  void accepts_valid_edits_data () { preserves_valid_saved_destinations_data (); }
-
   void accepts_valid_edits ()
   {
-    QFETCH (QString, destination);
     QVERIFY (create_configuration ());
-    primary_->setText (destination);
-    secondary_->setText (destination);
-    dialog_->accept ();
-    QCOMPARE (dialog_->result (), int {QDialog::Accepted});
-    QCOMPARE (configuration_->udp_server_name (), destination);
-    QCOMPARE (configuration_->n1mm_server_name (), destination);
-    QCOMPARE (settings_->value ("Configuration/UDPServer").toString (), destination);
-    QCOMPARE (settings_->value ("Configuration/N1MMServer").toString (), destination);
-    QVERIFY (primary_error_->isHidden ());
-    QVERIFY (secondary_error_->isHidden ());
+    for (auto const& destination : valid_destinations ())
+      {
+        qInfo () << "Valid destination:" << destination;
+        dialog_->setResult (QDialog::Rejected);
+        primary_->setText (destination);
+        secondary_->setText (destination);
+        dialog_->accept ();
+        QCOMPARE (dialog_->result (), int {QDialog::Accepted});
+        QCOMPARE (primary_->text (), destination);
+        QCOMPARE (secondary_->text (), destination);
+        QCOMPARE (configuration_->udp_server_name (), destination);
+        QCOMPARE (configuration_->n1mm_server_name (), destination);
+        QCOMPARE (settings_->value ("Configuration/UDPServer").toString (), destination);
+        QCOMPARE (settings_->value ("Configuration/N1MMServer").toString (), destination);
+        QVERIFY (primary_error_->isHidden ());
+        QVERIFY (secondary_error_->isHidden ());
+      }
   }
 
   void visible_validation_keeps_error_and_focus_data ()
