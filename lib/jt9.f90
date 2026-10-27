@@ -501,7 +501,7 @@ program jt9
      ! through the args bundle.
      if (mode.eq.164 .and. nsubmode.lt.100) nsubmode = nsubmode + 100
 
-     ! WAV mode initializes only fields historically set by this path.
+     ! Initialize all parameters before applying WAV-specific overrides.
      args = cli_args_t(                                                    &
           flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,           &
           ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                     &
