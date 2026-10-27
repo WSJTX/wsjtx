@@ -10,7 +10,7 @@ program jt9
   use timer_module, only: timer
   use timer_impl, only: init_timer, fini_timer
   use readwav
-  use jt9_input_validation, only: parse_integer, parse_real, parse_wav_filename_nutc
+  use jt9_input_validation, only: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc
   use, intrinsic :: iso_fortran_env, only: error_unit
   use streaming_emit, only: streaming_emit_set_enabled, streaming_emit_error
   use jt9_params_init, only: init_default_params, init_streaming_extra_fields, &
@@ -249,13 +249,13 @@ program jt9
         case ('Y')
            mode = 242
         case ('c')
-           read (optarg(:arglen), *) mycall
+           call require_text('c', optarg, arglen, mycall)
         case ('G')
-           read (optarg(:arglen), *) mygrid
+           call require_text('G', optarg, arglen, mygrid)
         case ('x')
-           read (optarg(:arglen), *) hiscall
+           call require_text('x', optarg, arglen, hiscall)
         case ('g')
-           read (optarg(:arglen), *) hisgrid
+           call require_text('g', optarg, arglen, hisgrid)
         case ('X')
            call require_integer('X', optarg(:arglen), nexp_decode)
            nexp_decode_set = .true.
@@ -648,6 +648,21 @@ program jt9
   if (allocated(shared_data)) deallocate(shared_data)
 
 contains
+
+  subroutine require_text(option, text, text_length, value)
+    character(len=*), intent(in) :: option, text
+    integer, intent(in) :: text_length
+    character(len=*), intent(out) :: value
+
+    logical :: ok
+    character(len=32) :: reason
+
+    call parse_fixed_text(text, text_length, value, ok)
+    if (.not. ok) then
+       write(reason, '(A,I0,A)') 'must be at most ', len(value), ' characters'
+       call invalid_option(option, text, trim(reason))
+    end if
+  end subroutine require_text
 
   subroutine run_engine_wav(samples, pass_samples)
     integer*2, intent(inout) :: samples(*)

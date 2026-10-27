@@ -1,10 +1,42 @@
 program test_jt9_input_validation
-  use jt9_input_validation, only: parse_integer, parse_real, parse_wav_filename_nutc
+  use jt9_input_validation, only: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc
   implicit none
 
   integer :: integer_value, nutc
   real(kind=8) :: real_value
   logical :: ok, includes_seconds
+  character(len=12) :: call_value
+  character(len=6) :: grid_value
+
+  call parse_fixed_text('PJ4/K1ABC', 9, call_value, ok)
+  call assert_true(ok .and. call_value == 'PJ4/K1ABC', 'portable prefix is preserved')
+
+  call parse_fixed_text('K1ABC/P', 7, call_value, ok)
+  call assert_true(ok .and. call_value == 'K1ABC/P', 'portable suffix is preserved')
+
+  call parse_fixed_text('PJ4/K1ABC/P1', 12, call_value, ok)
+  call assert_true(ok .and. call_value == 'PJ4/K1ABC/P1', 'exact-width callsign is preserved')
+
+  call parse_fixed_text('K1ABC/P123456', 13, call_value, ok)
+  call assert_true(.not. ok, 'overlong callsign is rejected')
+
+  call parse_fixed_text('EN37aa', 6, grid_value, ok)
+  call assert_true(ok .and. grid_value == 'EN37aa', 'exact-width grid preserves case')
+
+  call parse_fixed_text('EN/37', 5, grid_value, ok)
+  call assert_true(ok .and. grid_value == 'EN/37', 'grid option is read literally')
+
+  call parse_fixed_text('EN37abc', 7, grid_value, ok)
+  call assert_true(.not. ok, 'overlong grid is rejected')
+
+  call parse_fixed_text('b', 1, call_value, ok)
+  call assert_true(ok .and. call_value == 'b', 'blank-call sentinel reaches caller unchanged')
+
+  call parse_fixed_text('', 0, grid_value, ok)
+  call assert_true(ok .and. grid_value == ' ', 'empty text produces a blank field')
+
+  call parse_fixed_text('truncated buffer', 501, call_value, ok)
+  call assert_true(.not. ok, 'actual length is checked before slicing the option buffer')
 
   call parse_integer('42', integer_value, ok)
   call assert_true(ok .and. integer_value == 42, 'integer parsing accepts integers')

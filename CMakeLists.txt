@@ -715,6 +715,7 @@ if (WSJT_ENABLE_TESTS)
   endforeach ()
   add_test (NAME test_jt9_cli_validation
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9>
+            -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_cli_validation.cmake)
   add_test (NAME test_jt9_stream_option
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>

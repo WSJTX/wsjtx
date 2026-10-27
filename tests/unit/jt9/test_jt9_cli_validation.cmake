@@ -1,31 +1,54 @@
 function (require_rejection option value)
   execute_process (
-    COMMAND "${JT9}" "${option}" "${value}"
+    COMMAND "${program}" "${option}" "${value}"
     RESULT_VARIABLE result
     ERROR_VARIABLE stderr)
-  if (result EQUAL 0)
-    message (FATAL_ERROR "${option}=${value} unexpectedly succeeded")
+  if (NOT "${result}" STREQUAL "2")
+    message (FATAL_ERROR "${program_name} ${option}=${value} exited with ${result}, expected 2")
   endif ()
-  if (NOT stderr MATCHES "jt9: invalid value")
+  if (NOT stderr MATCHES "${program_name}: invalid value")
     message (FATAL_ERROR "${option}=${value} did not report a validation error: ${stderr}")
   endif ()
 endfunction ()
 
-require_rejection (-Q 6)
-require_rejection (-Q invalid)
-require_rejection (-N 25)
-require_rejection (-p invalid)
-require_rejection (-m invalid)
-
-foreach (option --patience -w)
+function (require_acceptance)
   execute_process (
-    COMMAND "${JT9}" "${option}" 0 --version
+    COMMAND "${program}" ${ARGN} --version
     RESULT_VARIABLE result
     OUTPUT_VARIABLE stdout
     ERROR_VARIABLE stderr)
-  if (NOT result EQUAL 0 OR NOT stdout MATCHES "^jt9 [0-9]" OR NOT stderr STREQUAL "")
-    message (FATAL_ERROR "${option} did not consume exactly one argument: ${stdout}${stderr}")
+  if (NOT "${result}" STREQUAL "0" OR NOT stdout MATCHES "^${program_name} [0-9]" OR
+      NOT stderr STREQUAL "")
+    message (FATAL_ERROR "${program_name} ${ARGN} did not accept its arguments: ${stdout}${stderr}")
   endif ()
-endforeach ()
+endfunction ()
 
-require_rejection (--tr-period invalid)
+foreach (program "${JT9}" "${WSJT_CODEC}")
+  get_filename_component (program_name "${program}" NAME_WE)
+
+  require_rejection (-Q 6)
+  require_rejection (-Q invalid)
+  require_rejection (-N 25)
+  require_rejection (-p invalid)
+  require_rejection (-m invalid)
+  require_rejection (--tr-period invalid)
+
+  foreach (option --patience -w)
+    require_acceptance ("${option}" 0)
+  endforeach ()
+
+  string (REPEAT K 501 oversized_call)
+  foreach (option -c --my-call -x --his-call)
+    require_acceptance ("${option}" PJ4/K1ABC)
+    require_acceptance ("${option}" K1ABC/P)
+    require_acceptance ("${option}" PJ4/K1ABC/P1)
+    require_acceptance ("${option}" b)
+    require_rejection ("${option}" K1ABC/P123456)
+    require_rejection ("${option}" "${oversized_call}")
+  endforeach ()
+
+  foreach (option -G --my-grid -g --his-grid)
+    require_acceptance ("${option}" EN37aa)
+    require_rejection ("${option}" EN37abc)
+  endforeach ()
+endforeach ()

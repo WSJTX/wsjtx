@@ -3,9 +3,20 @@ module jt9_input_validation
   implicit none
 
   private
-  public :: parse_integer, parse_real, parse_wav_filename_nutc
+  public :: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc
 
 contains
+
+  subroutine parse_fixed_text(text, text_length, value, ok)
+    character(len=*), intent(in) :: text
+    integer, intent(in) :: text_length
+    character(len=*), intent(out) :: value
+    logical, intent(out) :: ok
+
+    value = ' '
+    ok = text_length >= 0 .and. text_length <= len(text) .and. text_length <= len(value)
+    if (ok) value = text(:text_length)
+  end subroutine parse_fixed_text
 
   subroutine parse_integer(text, value, ok)
     character(len=*), intent(in) :: text
