@@ -126,7 +126,7 @@ program jt9
     option ('msk144', .false., 'k', 'MSK144 mode', ''),                      &
     option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=1',&
         'QSOprogress'),                                                      &
-    option ('sub-mode', .true., 'b', 'Sub mode, default SUBMODE=A', 'A'),    &
+    option ('sub-mode', .true., 'b', 'Sub mode (A-H), default SUBMODE=A', 'SUBMODE'), &
     option ('depth', .true., 'd',                                            &
         'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
     option ('tx-jt9', .false., 'T', 'Tx mode is JT9', ''),                   &
@@ -176,6 +176,9 @@ program jt9
         case ('r')
            share_dir = optarg(:arglen)   ! read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...)
         case ('b')
+           if (arglen /= 1 .or. optarg(:1) < 'A' .or. optarg(:1) > 'H') then
+              call invalid_option('b', optarg, 'must be one uppercase letter A-H')
+           end if
            nsubmode = ichar (optarg(:1)) - ichar ('A')
         case ('t')
            temp_dir = optarg(:arglen)
