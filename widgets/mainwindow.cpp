@@ -89,6 +89,7 @@
 #include "Audio/soundout.h"
 #include "Audio/soundin.h"
 #include "Audio/AudioInputSource.hpp"
+#include "Audio/RxAudioBufferPolicy.hpp"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "DecDataMutex.hpp"
@@ -483,7 +484,6 @@ namespace
   auto quint32_max = std::numeric_limits<quint32>::max ();
   constexpr int standard_messages_tab_index {0};
   constexpr int fox_queue_tab_index {1};
-  constexpr int default_rx_audio_buffer_frames {-1}; // lets Qt decide
   constexpr int default_tx_audio_buffer_frames {-1}; // lets Qt decide
   // Type 5 EU VHF messages carry an 11-bit serial number.
   constexpr int eu_vhf_type5_serial_max {2047};
@@ -561,7 +561,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_jttyTxQueue {new TxAudioQueue},
   m_jttyTxStream {new JttyTxStream {*m_jttyTxQueue}},
   m_soundOutput {sound_output ? sound_output.release () : new SoundOutput},
-  m_rx_audio_buffer_frames {0},
   m_tx_audio_buffer_frames {0},
   m_msErase {0},
   m_secBandChanged {0},
@@ -815,7 +814,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_detector->moveToThread (&m_audioThread);
   bool ok;
   auto buffer_size = env.value ("WSJT_RX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
-  m_rx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_rx_audio_buffer_frames;
+  m_rx_audio_buffer_frames_override = ok ? buffer_size : 0;
   buffer_size = env.value ("WSJT_TX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
   m_tx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_tx_audio_buffer_frames;
 
@@ -1591,9 +1590,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   {
     PerformanceTrace::Phase audio_start {m_startup_trace_run, "audio.start_request"};
     if (!m_tci_audio) {
-      Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                    , m_rx_audio_buffer_frames
-                                    , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
+      startSoundcardInputStream ();
       if (!m_config.audio_output_device ().isNull ())
         {
           Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
@@ -1603,6 +1600,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
     }
   }
+  // Connected only after the initial start so restoring the saved Full
+  // Duplex state in readSettings () does not restart the stream.
+  connect (ui->actionFull_Duplex_Mode, &QAction::toggled, this,
+           [this] (bool) {applyRxAudioBufferSize ();});
 
   {
     PerformanceTrace::Phase logbook_initialize {m_startup_trace_run, "logbook.initialize_request"};
@@ -3346,10 +3347,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
       }
     if (!m_tci_audio) {
       if(receive_source_changed || m_config.restart_audio_input ()) {
-        Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                      , m_rx_audio_buffer_frames
-                                      , m_detector, m_downSampleFactor
-                                      , m_config.audio_input_channel ());
+        startSoundcardInputStream ();
       }
 
       if(m_config.restart_audio_output () && !m_config.audio_output_device ().isNull ()) {
@@ -8865,6 +8863,44 @@ void MainWindow::stopTx2()
 #endif
   m_delayedJttyStopContext = {};
   if (m_mode == "JTTY") feedJttyTransmitQueue ();
+  if (m_rx_audio_buffer_restart_pending) applyRxAudioBufferSize ();
+}
+
+int MainWindow::rxAudioBufferFrames () const
+{
+  return RxAudioBufferPolicy::select (m_rx_audio_buffer_frames_override,
+                                      ui->actionFull_Duplex_Mode->isChecked ());
+}
+
+void MainWindow::startSoundcardInputStream ()
+{
+  m_rx_audio_buffer_frames_active = rxAudioBufferFrames ();
+  m_rx_audio_buffer_restart_pending = false;
+  Q_EMIT startAudioInputStream (m_config.audio_input_device ()
+                                , m_rx_audio_buffer_frames_active
+                                , m_detector, m_downSampleFactor
+                                , m_config.audio_input_channel ());
+}
+
+// Full Duplex was toggled: reopen the soundcard capture stream if the
+// buffer size it needs has changed. Never while transmitting -- the
+// restart is deferred to stopTx2 () -- so a Duplex transmission is not
+// interrupted.
+void MainWindow::applyRxAudioBufferSize ()
+{
+  if (m_tci_audio || m_closing) return;
+  if (rxAudioBufferFrames () == m_rx_audio_buffer_frames_active)
+    {
+      m_rx_audio_buffer_restart_pending = false;
+      return;
+    }
+  if (m_transmitting || g_iptt == 1)
+    {
+      m_rx_audio_buffer_restart_pending = true;
+      return;
+    }
+  startSoundcardInputStream ();
+  if (!m_monitoring) Q_EMIT suspendAudioInputStream ();
 }
 
 QString MainWindow::expandTxMacros(QString const& message) const

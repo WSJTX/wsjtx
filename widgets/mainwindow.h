@@ -573,6 +573,9 @@ private slots:
   void startP1();
   void stopTx();
   void stopTx2();
+  int rxAudioBufferFrames () const;
+  void startSoundcardInputStream ();
+  void applyRxAudioBufferSize ();
   void on_rptSpinBox_valueChanged(int n);
   void killWaveFile();
   void on_tuneButton_clicked (bool);
@@ -993,7 +996,9 @@ private:
   QScopedPointer<TxAudioQueue> m_jttyTxQueue;
   JttyTxStream * m_jttyTxStream;
   AudioOutputSink * m_soundOutput;
-  int m_rx_audio_buffer_frames;
+  int m_rx_audio_buffer_frames_override {0};  // WSJT_RX_AUDIO_BUFFER_FRAMES, 0 = unset
+  int m_rx_audio_buffer_frames_active {0};    // size the capture stream was last opened with
+  bool m_rx_audio_buffer_restart_pending {false};
   int m_tx_audio_buffer_frames;
   QThread m_audioThread;
 
