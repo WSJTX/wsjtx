@@ -19,13 +19,16 @@
 
 FixtureSoundOutput::FixtureSoundOutput (QString capturePath, Profile profile,
                                         unsigned pacingSpeed,
-                                        QObject * parent)
+                                        QObject * parent,
+                                        std::function<qint64 ()> now)
   : AudioOutputSink {parent}
   , m_capturePath {std::move (capturePath)}
   , m_profile {profile}
   , m_pacingSpeed {pacingSpeed}
   , m_timer {new QTimer {this}}
+  , m_now {now ? std::move (now) : [this] {return m_elapsed.elapsed ();}}
 {
+  m_elapsed.start ();
   Q_ASSERT (pacingSpeed >= 1 && pacingSpeed <= 4);
   Q_ASSERT (Profile::JttyStrict == profile || pacingSpeed == 1);
   m_timer->setSingleShot (true);
@@ -136,8 +139,7 @@ void FixtureSoundOutput::restart (QIODevice * source,
   m_nonSilentAudioSeen = false;
   m_active = true;
   m_suspended = false;
-  m_pausedDurationMs = 0;
-  m_elapsed.start ();
+  restartPacingClock ();
   if (Profile::Ft8Period == m_profile)
     {
       constexpr qint64 periodMs = 15000;
@@ -159,14 +161,14 @@ void FixtureSoundOutput::suspend ()
 {
   if (!m_active || m_suspended) return;
   m_suspended = true;
-  m_pauseStartedMs = m_elapsed.elapsed ();
+  m_pauseStartedMs = m_now ();
   m_timer->stop ();
 }
 
 void FixtureSoundOutput::resume ()
 {
   if (!m_active || !m_suspended) return;
-  m_pausedDurationMs += m_elapsed.elapsed () - m_pauseStartedMs;
+  m_pausedDurationMs += m_now () - m_pauseStartedMs;
   m_suspended = false;
   scheduleNextPull ();
 }
@@ -280,6 +282,17 @@ void FixtureSoundOutput::fail (QString const& message)
   Q_EMIT error ({context, TxEvidence::TxBackendError::Io, message});
 }
 
+void FixtureSoundOutput::restartPacingClock ()
+{
+  m_clockOriginMs = m_now ();
+  m_pausedDurationMs = 0;
+}
+
+qint64 FixtureSoundOutput::activeElapsedMs () const
+{
+  return m_now () - m_clockOriginMs - m_pausedDurationMs;
+}
+
 void FixtureSoundOutput::scheduleNextPull ()
 {
   if (!m_active || m_suspended) return;
@@ -291,18 +304,16 @@ void FixtureSoundOutput::scheduleNextPull ()
           // Preserve the real backend drain interval after the waveform ends.
           m_realtimeTail = true;
           m_scheduleOriginFrame = m_framesPulled;
-          m_elapsed.restart ();
-          m_pausedDurationMs = 0;
+          restartPacingClock ();
         }
       auto const speed = m_realtimeTail ? 1u : m_pacingSpeed;
       auto const targetMs = (m_framesPulled - m_scheduleOriginFrame) * 1000
         / (sampleRate * speed);
-      auto const delayMs = targetMs - (m_elapsed.elapsed () - m_pausedDurationMs);
+      auto const delayMs = targetMs - activeElapsedMs ();
       if (delayMs < 0)
         {
           m_scheduleOriginFrame = m_framesPulled;
-          m_elapsed.restart ();
-          m_pausedDurationMs = 0;
+          restartPacingClock ();
         }
       m_timer->start (static_cast<int> (std::max<qint64> (1, delayMs)));
       return;
@@ -310,7 +321,7 @@ void FixtureSoundOutput::scheduleNextPull ()
   auto const targetMs = (m_framesPulled - m_scheduleOriginFrame) * 1000
     / sampleRate;
   auto const delayMs = std::max<qint64> (
-    0, targetMs - (m_elapsed.elapsed () - m_pausedDurationMs));
+    0, targetMs - activeElapsedMs ());
   m_timer->start (static_cast<int> (delayMs));
 }
 

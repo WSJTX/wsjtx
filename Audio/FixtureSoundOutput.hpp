@@ -5,6 +5,7 @@
 #include "Audio/AudioOutputSink.hpp"
 
 #include <atomic>
+#include <functional>
 #include <memory>
 
 #include <QElapsedTimer>
@@ -32,7 +33,8 @@ public:
   explicit FixtureSoundOutput (QString capturePath,
                                Profile profile = Profile::JttyStrict,
                                unsigned pacingSpeed = 1,
-                               QObject * parent = nullptr);
+                               QObject * parent = nullptr,
+                               std::function<qint64 ()> now = {});
   ~FixtureSoundOutput () override;
 
   int bufferSize () const override;
@@ -69,6 +71,8 @@ private:
   bool appendSilence (qint64 frames);
   void finishCapture (bool padPeriod = false);
   void fail (QString const& message);
+  void restartPacingClock ();
+  qint64 activeElapsedMs () const;
   void scheduleNextPull ();
   Q_SLOT void pullAudio ();
 
@@ -85,6 +89,8 @@ private:
   std::unique_ptr<BWFFile> m_capture;
   QTimer * m_timer;
   QElapsedTimer m_elapsed;
+  std::function<qint64 ()> const m_now;
+  qint64 m_clockOriginMs {0};
   qint64 m_pauseStartedMs {0};
   qint64 m_pausedDurationMs {0};
   quint64 m_revision {0};
