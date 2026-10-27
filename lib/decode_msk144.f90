@@ -148,21 +148,3 @@ subroutine decode_msk144_core(audio_samples, params, data_dir, completion)
   call set_decode_completion(completion, 0, message_count, 0)
 
 end subroutine decode_msk144_core
-
-subroutine decode_msk144(audio_samples, params, data_dir)
-  use decode_completion_module, only: decode_completion_result,           &
-       write_decode_completion
-
-  include 'jt9com.f90'
-
-  integer*2 audio_samples(NMAX)
-  type(params_block) :: params
-  character(len = 500) :: data_dir
-  type(decode_completion_result) :: completion
-
-  call decode_msk144_core(audio_samples, params, data_dir, completion)
-  if (.not. params%ndiskdat) then
-    call write_decode_completion(completion)
-    call flush(6)
-  end if
-end subroutine decode_msk144
