@@ -234,8 +234,8 @@ int unpackgrid( int32_t ngrid, char *grid)
 
 int unpackpfx( int32_t nprefix, char *call)
 {
-    char nc, pfx[4]={'\0'}, tmpcall[7];
-    int i;
+    char pfx[4]={'\0'}, tmpcall[7];
+    int nc, i;
     int32_t n;
     
     if( !format_checked(tmpcall, sizeof tmpcall, "%s", call) ) return 0;
@@ -330,6 +330,7 @@ int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow,
     if( !unpackcall(n1,callsign) ) return 1;
     if( !unpackgrid(n2, grid) ) return 1;
     int ntype = (n2&127) - 64;
+    if( ntype == 63 ) return 1;
     callsign[WSPRD_CALLSIGN_SIZE - 1]=0;
     grid[4]=0;
 

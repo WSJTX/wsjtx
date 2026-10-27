@@ -113,6 +113,20 @@ static const struct wspr_vector rover = {
     "K1ABC/R"
 };
 
+static const struct wspr_vector k1abc_max_power = {
+    "K1ABC FN42 60",
+    {-9, 12, 35, -117, 13, 31, 0, 0, 0, 0, 0},
+    "K1ABC FN42 60",
+    "K1ABC"
+};
+
+static const struct wspr_vector rover_max_power = {
+    "K1ABC/R 60",
+    {-9, 12, 35, -115, 79, 127, -128, 0, 0, 0, 0},
+    "K1ABC/R 60",
+    "K1ABC/R"
+};
+
 static const struct wspr_vector k1abc_type3_unresolved = {
     "<K1ABC> FN42AA 33",
     {-100, 54, -76, -77, 47, 39, -128, 0, 0, 0, 0},
@@ -157,6 +171,90 @@ static void test_standard_and_compound_messages(char *hashtab, char *loctab)
 
     decode_vector(&rover, hashtab, loctab);
     expect_hash_entry("K1ABC/R", NULL, hashtab, loctab);
+
+    decode_vector(&k1abc_max_power, hashtab, loctab);
+    expect_hash_entry("K1ABC", "FN42", hashtab, loctab);
+
+    decode_vector(&rover_max_power, hashtab, loctab);
+    expect_hash_entry("K1ABC/R", NULL, hashtab, loctab);
+}
+
+static void test_suffix_codes(void)
+{
+    static const struct {
+        int code;
+        const char *callsign;
+    } cases[] = {
+        {60000, "K1ABC/0"},
+        {60009, "K1ABC/9"},
+        {60010, "K1ABC/A"},
+        {60035, "K1ABC/Z"},
+        {60036, "K1ABC/10"},
+        {60125, "K1ABC/99"},
+        {60126, NULL},
+        {60256, NULL},
+        {60283, NULL},
+        {60381, NULL}
+    };
+
+    for( size_t i = 0; i < sizeof cases / sizeof cases[0]; i++ ) {
+        char callsign[WSPRD_CALLSIGN_SIZE] = "K1ABC";
+        char label[64];
+        snprintf(label, sizeof label, "suffix code %d", cases[i].code);
+        expect_int(label, unpackpfx(cases[i].code, callsign),
+                   cases[i].callsign != NULL);
+        if( cases[i].callsign != NULL ) {
+            expect_string(label, callsign, cases[i].callsign);
+        }
+    }
+}
+
+static void test_rejected_messages_preserve_hash_tables(char *hashtab,
+                                                       char *loctab)
+{
+    static const struct {
+        const char *name;
+        signed char data[11];
+    } cases[] = {
+        {"suffix code 60126", {-9, 12, 35, -115, 91, -39, -64, 0, 0, 0, 0}},
+        {"suffix code 60256", {-9, 12, 35, -115, 108, 25, -64, 0, 0, 0, 0}},
+        {"suffix code 60283", {-9, 12, 35, -115, 111, 121, -64, 0, 0, 0, 0}},
+        {"reserved type 63", {-9, 12, 35, -117, 13, 31, -64, 0, 0, 0, 0}}
+    };
+    const size_t calls_size = WSPRD_HASH_COUNT * WSPRD_CALLSIGN_SIZE;
+    const size_t grids_size = WSPRD_HASH_COUNT * WSPRD_GRID4_SIZE;
+    char *saved_calls = malloc(calls_size);
+    char *saved_grids = malloc(grids_size);
+    if( saved_calls == NULL || saved_grids == NULL ) {
+        fprintf(stderr, "failed to allocate WSPR hash table snapshots\n");
+        exit(2);
+    }
+
+    decode_vector(&k1abc, hashtab, loctab);
+    decode_vector(&rover, hashtab, loctab);
+
+    char call_loc_pow[WSPRD_MESSAGE_SIZE];
+    char callsign[WSPRD_CALLSIGN_SIZE];
+    for( size_t i = 0; i < sizeof cases / sizeof cases[0]; i++ ) {
+        expect_int("prime reused message buffers",
+                   unpk_((signed char *)k1abc.data, hashtab, loctab,
+                         call_loc_pow, callsign), 0);
+        memcpy(saved_calls, hashtab, calls_size);
+        memcpy(saved_grids, loctab, grids_size);
+        expect_int(cases[i].name,
+                   unpk_((signed char *)cases[i].data, hashtab, loctab,
+                         call_loc_pow, callsign), 1);
+
+        char label[80];
+        snprintf(label, sizeof label, "%s preserves callsign cache", cases[i].name);
+        expect_int(label, memcmp(hashtab, saved_calls, calls_size), 0);
+        snprintf(label, sizeof label, "%s preserves locator cache", cases[i].name);
+        expect_int(label, memcmp(loctab, saved_grids, grids_size), 0);
+        decode_vector(&k1abc_type3_resolved, hashtab, loctab);
+    }
+
+    free(saved_calls);
+    free(saved_grids);
 }
 
 static void test_type3_unresolved(char *hashtab, char *loctab)
@@ -243,6 +341,8 @@ static void test_invalid_hash_table_lines(char *hashtab, char *loctab)
 int main(void)
 {
     run_with_fresh_tables(test_standard_and_compound_messages);
+    test_suffix_codes();
+    run_with_fresh_tables(test_rejected_messages_preserve_hash_tables);
     run_with_fresh_tables(test_type3_unresolved);
     run_with_fresh_tables(test_type3_resolved_k1abc);
     run_with_fresh_tables(test_type3_resolved_pj4);
