@@ -1,5 +1,5 @@
 program test_jt9_wav_request
-  use, intrinsic :: iso_c_binding, only: c_int64_t
+  use, intrinsic :: iso_c_binding, only: c_int64_t, c_size_t, c_sizeof
   use jt9_params_init, only: cli_args_t, init_default_params
   use jt9_wav_request, only: build_wav_request
   use decoder_engine, only: attempt_request, params_to_request
@@ -7,6 +7,7 @@ program test_jt9_wav_request
   type(cli_args_t) :: args
   integer :: i, variant
   integer, parameter :: modes(*) = [4,5,9,65,66,240,241,242,8]
+  call check_request_layout()
   args%mycall='PJ4/K1ABC'
   args%hiscall='W9XYZ/P'
   args%mygrid='EN37aa'
@@ -33,6 +34,32 @@ program test_jt9_wav_request
   call compare(65,60.d0,50,.false.,.false.,2)
   call compare(4,60.d0,50,.false.,.false.,2)
 contains
+  subroutine check_request_layout()
+    type(attempt_request) :: request
+
+    ! Additions can fit in existing padding: two bytes in JT65/Q65/JT4,
+    ! and four bytes at the end of the request.
+    call check_size(c_sizeof(request%ft8),236_c_size_t,'ft8')
+    call check_size(c_sizeof(request%ft4),56_c_size_t,'ft4')
+    call check_size(c_sizeof(request%jt9),28_c_size_t,'jt9')
+    call check_size(c_sizeof(request%jt65),104_c_size_t,'jt65')
+    call check_size(c_sizeof(request%q65),104_c_size_t,'q65')
+    call check_size(c_sizeof(request%fst4),80_c_size_t,'fst4')
+    call check_size(c_sizeof(request%jt4),68_c_size_t,'jt4')
+    call check_size(c_sizeof(request),712_c_size_t,'attempt_request')
+  end subroutine check_request_layout
+
+  subroutine check_size(actual,expected,name)
+    integer(c_size_t), intent(in) :: actual,expected
+    character(len=*), intent(in) :: name
+
+    if(actual/=expected) then
+      write(*,'(A,A,A,I0,A,I0)') 'Layout changed: ',name,' has ',actual,' bytes; expected ',expected
+      write(*,'(A)') 'Review build_wav_request and its field comparisons before updating the recorded sizes.'
+      stop 1
+    endif
+  end subroutine check_size
+
   subroutine compare(mode,period,stage,configured,mtd,variant)
     integer, intent(in) :: mode,stage,variant
     real(8), intent(in) :: period
@@ -212,6 +239,7 @@ contains
       call check(actual%fst4%ap_cq_only == expected%fst4%ap_cq_only, 'fst4%ap_cq_only')
       call check(actual%fst4%blanker_percent == expected%fst4%blanker_percent, 'fst4%blanker_percent')
       call check(actual%fst4%blanker_mode == expected%fst4%blanker_mode, 'fst4%blanker_mode')
+      call check(actual%fst4%measure_doppler == expected%fst4%measure_doppler, 'fst4%measure_doppler')
       call check(actual%fst4%eme_delay_seconds == expected%fst4%eme_delay_seconds, 'fst4%eme_delay_seconds')
       call check(all(actual%fst4%mycall == expected%fst4%mycall), 'fst4%mycall')
       call check(all(actual%fst4%hiscall == expected%fst4%hiscall), 'fst4%hiscall')
