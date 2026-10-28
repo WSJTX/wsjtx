@@ -162,13 +162,26 @@ private slots:
     QCOMPARE (transport.requests.size (), 0);
   }
 
+  void rejectsInvalidEndpoint_data ()
+  {
+    QTest::addColumn<QUrl> ("endpoint");
+    QTest::newRow ("empty") << QUrl {};
+    QTest::newRow ("http-without-host") << QUrl {"http:///livecq"};
+    QTest::newRow ("https-without-host") << QUrl {"https:///livecq"};
+    QTest::newRow ("unsupported-scheme") << QUrl {"ftp://example.com/livecq"};
+  }
+
   void rejectsInvalidEndpoint ()
   {
+    QFETCH (QUrl, endpoint);
     FakeTransport transport;
     LiveCQUpload upload {&transport, false};
     QSignalSpy errors {&upload, &LiveCQUpload::errorOccurred};
-    QVERIFY (!upload.setEndpoint (QUrl {}));
+    QVERIFY (!upload.setEndpoint (endpoint));
     QCOMPARE (errors.count (), 1);
+    QVERIFY (!upload.endpoint ().isValid ());
+    upload.postSpot (spotQuery ());
+    QVERIFY (transport.requests.isEmpty ());
   }
 
   void rejectsPostBeforeEndpointSet ()

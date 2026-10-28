@@ -51,6 +51,7 @@ LiveCQUpload::~LiveCQUpload ()
 bool LiveCQUpload::setEndpoint (QUrl const& endpoint)
 {
   if (!endpoint.isValid ()
+      || endpoint.host ().isEmpty ()
       || endpoint.scheme ().compare ("https", Qt::CaseInsensitive) != 0)
     {
       Q_EMIT errorOccurred (
