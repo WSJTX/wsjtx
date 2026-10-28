@@ -56,7 +56,7 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
 
   foreach (option --help -h --version -v)
     execute_process (
-      COMMAND "${program}" "${option}" "${missing_wav}"
+      COMMAND "${program}" -D 5 -E 4 "${option}" "${missing_wav}"
       RESULT_VARIABLE result
       OUTPUT_VARIABLE stdout
       ERROR_VARIABLE stderr
@@ -88,6 +88,27 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
   endif ()
   file (REMOVE_RECURSE "${empty_dir}")
   require_mode_result ("cannot read WAV file" --ft8)
+  foreach (option -D --MTft8-StartTime)
+    foreach (value 5)
+      require_mode_result ("invalid value for -D: ${value}.*between 0 and 4" --ft8 "${option}" "${value}")
+      require_mode_result ("invalid value for -D: ${value}.*between 0 and 4" --jt65 "${option}" "${value}")
+      require_acceptance ("${option}" "${value}")
+    endforeach ()
+    foreach (value 0 4)
+      require_mode_result ("cannot read WAV file" --ft8 "${option}" "${value}")
+    endforeach ()
+  endforeach ()
+  foreach (option -E --MTft8-DecSens)
+    foreach (value 0 4)
+      require_mode_result ("invalid value for -E: ${value}.*between 1 and 3" --ft8 -M "${option}" "${value}")
+      require_mode_result ("invalid value for -E: ${value}.*between 1 and 3" --jt65 "${option}" "${value}")
+      require_acceptance ("${option}" "${value}")
+    endforeach ()
+    foreach (value 1 3)
+      require_mode_result ("cannot read WAV file" --ft8 "${option}" "${value}")
+    endforeach ()
+  endforeach ()
+
   require_rejection (-Q 6)
   require_rejection (-Q invalid)
   require_rejection (-N 25)

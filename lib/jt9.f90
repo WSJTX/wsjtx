@@ -339,6 +339,17 @@ program jt9
      call require_mode_submode(validation_mode)
   end if
 
+  if (read_files) then
+     if (ndecoderstart < 0 .or. ndecoderstart > 4) then
+        write(optarg, '(I0)') ndecoderstart
+        call invalid_option('D', optarg, 'must be between 0 and 4')
+     end if
+     if (nmtft8decsens < 1 .or. nmtft8decsens > 3) then
+        write(optarg, '(I0)') nmtft8decsens
+        call invalid_option('E', optarg, 'must be between 1 and 3')
+     end if
+  end if
+
   iret=fftwf_init_threads()            !Initialize FFTW threading
 
 ! Default to 1 thread, but use nthreads for the big ones
