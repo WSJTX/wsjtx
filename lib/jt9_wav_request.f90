@@ -6,11 +6,11 @@ module jt9_wav_request
   private
   public :: build_wav_request
 contains
-  subroutine build_wav_request(args,mode,period,utc,stage,mtd_configured,pass_mtd,input_id,attempt,now,request)
+  subroutine build_wav_request(args,mode,period,utc,stage,pass_mtd,input_id,attempt,now,request)
     type(cli_args_t), intent(in) :: args
     integer, intent(in) :: mode,utc,stage,attempt,now
     real(8), intent(in) :: period
-    logical, intent(in) :: mtd_configured,pass_mtd
+    logical, intent(in) :: pass_mtd
     integer(c_int64_t), intent(in) :: input_id
     type(attempt_request), intent(out) :: request
     integer :: low,tolerance,blanker
@@ -137,7 +137,7 @@ contains
        request%ft8%contest=args%nexp_decode
        request%ft8%trials=6
        request%ft8%ap_enabled=1
-       if(mtd_configured) then
+       if(args%multift8) then
           request%ft8%candidate_thinning=100
           request%ft8%cycles=args%ncycles
           request%ft8%threads=args%nmt

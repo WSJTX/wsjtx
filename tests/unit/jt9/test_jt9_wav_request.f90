@@ -113,7 +113,7 @@ contains
     expected%mode=mode
     if(mode==242) expected%mode=241
     call params_to_request(params,expected,12345)
-    call build_wav_request(options,mode,period,1234,stage,configured,mtd,1_c_int64_t,1,12345,actual)
+    call build_wav_request(options,mode,period,1234,stage,mtd,1_c_int64_t,1,12345,actual)
     call check(actual%input_id==1_c_int64_t.and.actual%analysis_id==1_c_int64_t, 'input identity')
     call check(actual%attempt_no==1.and.actual%source==1, 'attempt and source')
     call check(actual%mode==expected%mode, 'normalized mode')

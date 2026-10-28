@@ -38,11 +38,8 @@ program jt9
   type(cli_args_t) :: args
   type(decode_completion_result) :: msk_completion
   type(msk144_file_options) :: msk_options
-  type(attempt_request) :: wav_request
-  type(host_decode_context) :: wav_context
   logical :: wav_mtd_pass
-  integer :: wav_stage, time
-  intrinsic :: time
+  integer :: wav_stage
   integer*2 id2a(180000)
   integer(C_INT) iret
   type(wav_header) wav
@@ -519,19 +516,16 @@ program jt9
      engine_input_id=int(iarg-offset,c_int64_t)
      engine_attempt_no=0
 
-     ! Initialize all parameters before applying WAV-specific overrides.
      args = cli_args_t(                                                    &
-          flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,           &
-          ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                     &
+          flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,            &
+          ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                      &
           nexp_decode=nexp_decode, ncycles=ncycles,                         &
-          nft8rxfsens=nft8rxfsens, nmt=nmt, ndecoderstart=ndecoderstart,   &
-          nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,               &
+          nft8rxfsens=nft8rxfsens, nmt=nmt,                                 &
+          nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,                 &
           mygrid=mygrid, hisgrid=hisgrid,                                   &
-          datetime='2013-Apr-16 15:13   ',                                 &
-          tx9=tx9, multift8=multift8, hidedupes=hidedupes,                 &
-          lft8lowth=lft8lowth, lft8subpass=lft8subpass,                    &
-          lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,              &
-          nexp_decode_set=nexp_decode_set)
+          multift8=multift8, hidedupes=hidedupes,                            &
+          lft8lowth=lft8lowth, lft8subpass=lft8subpass,                       &
+          lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol)
      if (multift8 .and. mode.eq.8) then
         select case (nmtft8decsens)
         case (1)
@@ -684,10 +678,16 @@ contains
     integer*2, intent(inout) :: samples(*)
     integer, intent(in) :: pass_samples
     type(decode_completion_result) :: completion
+    type(attempt_request) :: wav_request
+    type(host_decode_context) :: wav_context
+    integer :: now, time
+    intrinsic :: time
 
+    now=0
+    if(mode==66) now=time()
     engine_attempt_no=engine_attempt_no+1
-    call build_wav_request(args,mode,TRperiod,nutc,wav_stage,multift8.and.mode.eq.8, &
-         wav_mtd_pass,engine_input_id,engine_attempt_no,time(),wav_request)
+    call build_wav_request(args,mode,TRperiod,nutc,wav_stage,wav_mtd_pass, &
+         engine_input_id,engine_attempt_no,now,wav_request)
     wav_context=host_decode_context(legacy_mode=mode,utc=nutc,half_symbol_stage=wav_stage, &
          print_hash22=mode.eq.242)
     call engine_host_decode_request(samples,wav_request,wav_context,nfsample,completion,0, &
