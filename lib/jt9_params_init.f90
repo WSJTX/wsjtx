@@ -78,7 +78,7 @@ contains
     else
        params%ntxmode      = 65
     end if
-    params%nmode           = mode             ! caller may overwrite (WAV mode=0 → 65+9)
+    params%nmode           = mode
     params%minw            = 0
     params%nclearave       = .false.
     params%minsync         = 0
@@ -150,8 +150,6 @@ contains
     ! mode-default (see streaming_apply.f90).
     if (mode .eq. 241 .or. mode .eq. 242) then
        params%ntol = min(args%ntol, 100)         ! FST4/FST4W
-    else if (mode .eq. 65 + 9 .and. .not. args%have_ntol) then
-       params%ntol = 20                          ! JT65+JT9 hard (unless -F given)
     else if (mode .eq. 66 .and. .not. args%have_ntol) then
        params%ntol = 10                          ! Q65 hard (unless -F given)
     else

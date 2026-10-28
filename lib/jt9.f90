@@ -37,9 +37,7 @@ program jt9
   integer*2 id2a(180000)
   integer(C_INT) iret
   type(wav_header) wav
-  real*4 s(NSMAX)
   real*8 TRperiod
-  integer npct_unused
   integer :: validation_mode
   integer(c_int) :: engine_attempt_no, engine_valid_samples
   integer(c_int64_t) :: engine_input_id
@@ -54,7 +52,7 @@ program jt9
        nft8rxfsens=3,nmt=0,nmtft8decsens=3,ndecoderstart=3, samples_read, wav_status
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
        display_version = .false.,                                            &
-       bLowSidelobes = .false., nexp_decode_set = .false.,                   &
+       nexp_decode_set = .false.,                                             &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.,      &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
@@ -239,13 +237,13 @@ program jt9
         case ('5')
            mode = 5
         case ('6')
-           if (mode.lt.65) mode = mode + 65
+           mode = 65
         case ('7')
            mode = 240
         case ('8')
            mode = 8
         case ('9')
-           if (mode.lt.9.or.mode.eq.65) mode = mode + 9
+           mode = 9
         case ('T')
            tx9 = .true.
         case ('w')
@@ -287,7 +285,7 @@ program jt9
        .or. (read_files .and. remain .lt. 1)) then
 
      print *, 'Usage: '//trim(program_name)//' [OPTIONS] file1 [file2 ...]'
-     print *, '       Reads data from *.wav files.'
+     print *, '       Reads data from *.wav files; select a mode (for example, --ft8).'
      print *, ''
      if (jt9_stream_available()) then
         print *, '       cat <pcm-stream> | '//trim(program_name)//' [OPTIONS]'
@@ -312,15 +310,13 @@ program jt9
      stop
   endif
 
+  if (read_files .and. mode == 0) then
+     write(error_unit, '(A)') trim(program_name) // ': WAV decoding requires a mode (for example, --ft8)'
+     stop 2
+  end if
   if (read_files .or. stream_mode) then
      validation_mode = mode
-     if (validation_mode == 0) then
-        if (stream_mode) then
-           validation_mode = 8
-        else
-           validation_mode = 74
-        end if
-     end if
+     if (stream_mode .and. validation_mode == 0) validation_mode = 8
      call require_mode_submode(validation_mode)
   end if
 
@@ -355,8 +351,6 @@ program jt9
         ! Per-mode ntol defaulting (mirrors WAV path lines 277–285).
         if (mode .eq. 241 .or. mode .eq. 242) then
            ntol = min(ntol, 100)
-        else if (mode .eq. 65 + 9 .and. .not. have_ntol) then
-           ntol = 20
         else if (mode .eq. 66 .and. .not. have_ntol) then
            ntol = 10
         else
@@ -417,8 +411,6 @@ program jt9
 
   if (mode .eq. 241 .or. mode .eq. 242) then
      ntol = min (ntol, 100)
-  else if (mode .eq. 65 + 9 .and. .not. have_ntol) then
-     ntol = 20
   else if (mode .eq. 66 .and. .not. have_ntol) then
      ntol = 10
   else
@@ -492,15 +484,6 @@ program jt9
         engine_valid_samples=k0+samples_read
         nhsym=(k-2048)/kstep
         if(nhsym.ge.1 .and. nhsym.ne.nhsym0) then
-           if(mode.eq.74) then
-! Compute rough symbol spectra for the JT9 decoder
-              ingain=0
-              call timer('symspec ',0)
-              nminw=1
-              call symspec(shared_data,k,nsps,ingain,      &
-                   bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax,npct_unused)
-              call timer('symspec ',1)
-           endif
            nhsym0=nhsym
            if(nhsym.ge.181 .and. mode.ne.9 .and. mode.ne.240 .and. mode.ne.241 .and. &
               mode.ne.242 .and. mode.ne.66) exit
@@ -539,7 +522,6 @@ program jt9
      shared_data%params%nutc      = nutc        ! parsed from filename
      shared_data%params%ndiskdat  = .true.      ! reading from disk
      shared_data%params%nzhsym    = nhsym       ! per-period (matches former jt9.f90:486)
-     if (mode.eq.0) shared_data%params%nmode = 65 + 9   ! WAV-only mode=0 → JT65+JT9
 
      if (multift8 .and. mode.eq.8) then
         shared_data%params%lft8subpass = .true.
@@ -634,14 +616,10 @@ program jt9
      endif
 
 ! Normal decoding pass
-     if(mode.eq.4.or.mode.eq.8.or.mode.eq.9.or.mode.eq.65.or.mode.eq.66.or. &
-          mode.eq.240.or.mode.eq.241.or.mode.eq.242) then
-        call run_engine_wav(shared_data%id2,engine_valid_samples)
-     else if(mode.eq.5) then
+     if (mode.eq.5) then
         call run_engine_wav(shared_data%id2,72576)
      else
-        call multimode_decoder(shared_data%ss,shared_data%id2, &
-             shared_data%params,nfsample)
+        call run_engine_wav(shared_data%id2,engine_valid_samples)
      endif
   enddo
 
@@ -677,7 +655,7 @@ contains
     character(len=16) :: mode_name
     character(len=64) :: reason
 
-    maximum = submode_limit(selected_mode, tx9)
+    maximum = submode_limit(selected_mode)
     if (nsubmode <= maximum) return
     select case (selected_mode)
     case (4)
@@ -686,8 +664,6 @@ contains
        mode_name = 'JT65'
     case (66)
        mode_name = 'Q65'
-    case (74)
-       mode_name = 'JT9+JT65'
     case default
        mode_name = 'selected mode'
     end select

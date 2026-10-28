@@ -67,8 +67,6 @@ program test_jt9_params_init
   call assert_true(params%ntol == 75 .and. params%emedelay == 0., 'explicit Q65 tolerance survives initialization')
   args%have_ntol = .false.
   args%ntol = 1000
-  call init_default_params(params, 74, 60.d0, args)
-  call assert_true(params%ntol == 20, 'combined mode retains its default tolerance')
   call init_default_params(params, 241, 120.d0, args)
   call assert_true(params%ntol == 100, 'FST4W tolerance is capped')
   call init_default_params(params, 240, 60.d0, args)

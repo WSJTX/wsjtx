@@ -8,9 +8,8 @@ module jt9_input_validation
 
 contains
 
-  pure integer function submode_limit(mode, tx9) result(limit)
+  pure integer function submode_limit(mode) result(limit)
     integer, intent(in) :: mode
-    logical, intent(in) :: tx9
 
     ! Modes that ignore submode retain the CLI token range.
     limit = 7
@@ -21,9 +20,6 @@ contains
       limit = 2
     case (66)
       limit = 5
-    case (74)
-      ! The legacy combined path enables JT65 when the transmit mode is JT9.
-      if (tx9) limit = 2
     end select
   end function submode_limit
 

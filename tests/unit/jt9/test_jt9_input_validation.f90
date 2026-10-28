@@ -8,13 +8,11 @@ program test_jt9_input_validation
   character(len=12) :: call_value
   character(len=6) :: grid_value
 
-  call assert_true(submode_limit(9, .false.) == 7, 'JT9 accepts A-H')
-  call assert_true(submode_limit(4, .false.) == 6, 'JT4 accepts A-G')
-  call assert_true(submode_limit(65, .false.) == 2, 'JT65 accepts A-C')
-  call assert_true(submode_limit(66, .false.) == 5, 'Q65 accepts A-F')
-  call assert_true(submode_limit(74, .true.) == 2, 'combined mode with JT65 enabled accepts A-C')
-  call assert_true(submode_limit(74, .false.) == 7, 'combined mode without JT65 retains the token range')
-  call assert_true(submode_limit(8, .false.) == 7, 'modes without submodes retain the token range')
+  call assert_true(submode_limit(9) == 7, 'JT9 accepts A-H')
+  call assert_true(submode_limit(4) == 6, 'JT4 accepts A-G')
+  call assert_true(submode_limit(65) == 2, 'JT65 accepts A-C')
+  call assert_true(submode_limit(66) == 5, 'Q65 accepts A-F')
+  call assert_true(submode_limit(8) == 7, 'modes without submodes retain the token range')
 
   call parse_fixed_text(' W9XYZ ', 7, call_value, ok)
   call assert_true(ok .and. call_value == 'W9XYZ', 'surrounding spaces are removed')
