@@ -137,7 +137,7 @@ contains
     call expect(status.eq.JTTY_ENCODE_OK .and. nsymbols.eq.2*frame_symbols, &
          'C++ compiled descriptors cross the native encoder ABI',count)
     if(status.ne.JTTY_ENCODE_OK .or. nsymbols.ne.2*frame_symbols) return
-    call decode_waveform(tones,int(nsymbols))
+    call decode_waveform(tones,int(nsymbols),10.0)
     call expect(npending.eq.1,'C++ compiled N1MM message produces one update',count)
     if(npending.ne.1) return
     call expect(trim(normalized(pending_updates(1)%decoded)).eq.'W9XYZ 32D EMA' .and. &
@@ -372,7 +372,7 @@ contains
     call expect(jtty_cpp_rtty_line_tones(tones,nsymbols).eq.1, &
          'the longest RTTY line that fits is one segment',count)
     if(nsymbols.le.0) return
-    call decode_waveform(tones,int(nsymbols))
+    call decode_waveform(tones,int(nsymbols),10.0)
     call expect(npending.ge.1,'the accepted RTTY line produces updates',count)
     if(npending.lt.1) return
     call expect(trim(normalized(pending_updates(npending)%decoded)).eq.trim(expected) .and. &

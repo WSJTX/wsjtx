@@ -27,7 +27,10 @@ program test_jtty_alias_decode
   character(len=*), parameter :: fox='THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG'
   character(len=*), parameter :: weak='CQ DL3WDG JN68'
   integer, parameter :: nsps=384
-  integer :: ntrials
+  ! These trials produced false messages before alias rejection.
+  integer, parameter :: routine_trials(4)=[8,13,14,21]
+  integer :: ntrials,i
+  logical :: routine
   real :: snr_case1
   character(len=16) :: arg
   integer, parameter :: frame_symbols=size(is13)+TOTAL_K
@@ -39,22 +42,33 @@ program test_jtty_alias_decode
   ntrials=24
   snr_case1=-3.0
   call get_command_argument(1,arg)
-  if(len_trim(arg).gt.0) read(arg,*) ntrials
+  routine=trim(arg).eq.'--routine'
+  if(routine) then
+     ntrials=size(routine_trials)
+  else if(len_trim(arg).gt.0) then
+     read(arg,*) ntrials
+  endif
   call get_command_argument(2,arg)
   if(len_trim(arg).gt.0) read(arg,*) snr_case1
 
 ! Case 1: no alias decodes of a strong signal inside FTol.
   nfull=0
   nfalse=0
-  do itrial=1,ntrials
+  do i=1,ntrials
+     itrial=i
+     if(routine) itrial=routine_trials(i)
      call decode_fox_in_noise(snr_case1,int(1000+itrial,int64))
      call inspect_fox(full,clean)
-     if(full) nfull=nfull+1
+     if(full) then
+        nfull=nfull+1
+     else
+        write(*,'(a,i0)') 'incomplete message: seed=',itrial
+     endif
      if(.not.clean) nfalse=nfalse+1
   enddo
   write(*,'(a,i0,a,i0,a,i0)') 'trials=',ntrials,' full=',nfull,' false=',nfalse
   call expect(nfalse.eq.0,'no false (alias) messages decoded from a strong signal',failures)
-  call expect(nfull.ge.ntrials-1,'the strong message still decodes completely',failures)
+  call expect(nfull.ge.max(1,ntrials-1),'the strong message still decodes completely',failures)
 
 ! Case 2: a weaker independent station at a fractional-symbol offset survives.
   ! 30 Hz (inside the alias window) and 18.5 symbols after the strong one.

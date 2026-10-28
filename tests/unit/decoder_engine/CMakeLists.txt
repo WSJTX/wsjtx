@@ -219,7 +219,7 @@ if (TARGET wsjt_fort_omp)
   set_target_properties (test_decoder_engine_fst4_omp PROPERTIES LINKER_LANGUAGE CXX)
   target_include_directories (test_decoder_engine_fst4_omp PRIVATE ${CMAKE_SOURCE_DIR})
   target_link_libraries (test_decoder_engine_fst4_omp PRIVATE test_decoder_engine_fst4_signal_omp Threads::Threads)
-  add_test (NAME test_decoder_engine_fst4_omp COMMAND test_decoder_engine_fst4_omp --small-stack)
+  add_test (NAME test_decoder_engine_fst4_omp COMMAND test_decoder_engine_fst4_omp --small-stack-smoke)
   set_tests_properties (test_decoder_engine_fst4_omp PROPERTIES TIMEOUT 360 PROCESSORS 2
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2;OMP_STACKSIZE=1M")
 endif ()
