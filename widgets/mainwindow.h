@@ -838,6 +838,7 @@ private:
   double jttyRequestSentFraction(qint64 requestId) const;
   int jttyRequestFramesDone(qint64 requestId) const;
   int countJttyTransmitFrames(QString const& preparedMessage) const;
+  Q_SLOT void switchToJttyAfterMmttyStartup();
 #ifdef WIN32
   void handleMmttyTxString(QString message);
   void handleMmttyStartTx();

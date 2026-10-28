@@ -11,6 +11,7 @@
 #include <fftw3.h>
 
 #include <QApplication>
+#include <QAction>
 #include <QProcessEnvironment>
 #include <QTemporaryFile>
 #include <QDateTime>
@@ -1092,7 +1093,14 @@ int main(int argc, char *argv[])
 #endif
           if (startup_smoke_test)
             {
-              QTimer::singleShot (1000, &w, [&a, &w, &smoke_phase, &startup_smoke_ready] {
+              QString expectedMmttyMode;
+              if (parser.isSet (n1mm_tcp_port_option))
+                {
+                  expectedMmttyMode = parser.isSet (mode_option)
+                    ? parser.value (mode_option).toUpper () : QStringLiteral ("JTTY");
+                  if (!parser.isSet (mode_option)) w.set_mode_from_command_line ("FT8");
+                }
+              QTimer::singleShot (1000, &w, [&a, &w, &smoke_phase, &startup_smoke_ready, expectedMmttyMode] {
                 smoke_phase ("event loop reached");
                 if (auto *modal = QApplication::activeModalWidget ())
                   {
@@ -1101,6 +1109,26 @@ int main(int argc, char *argv[])
                     w.close ();
                     a.exit (EXIT_FAILURE);
                     return;
+                  }
+                if (!expectedMmttyMode.isEmpty ())
+                  {
+                    auto * action = w.findChild<QAction *> ("action" + expectedMmttyMode);
+                    if (!QMetaObject::invokeMethod (&w, "switchToJttyAfterMmttyStartup", Qt::DirectConnection))
+                      {
+                        std::cerr << "WSJT-X startup smoke: MMTTY startup callback was not found" << std::endl;
+                        w.close ();
+                        a.exit (EXIT_FAILURE);
+                        return;
+                      }
+                    if (!action || !action->isChecked ())
+                      {
+                        std::cerr << "WSJT-X startup smoke: MMTTY startup did not preserve/select "
+                                  << expectedMmttyMode.toStdString () << std::endl;
+                        w.close ();
+                        a.exit (EXIT_FAILURE);
+                        return;
+                      }
+                    smoke_phase ("MMTTY startup mode verified");
                   }
                 if (w.close ())
                   {

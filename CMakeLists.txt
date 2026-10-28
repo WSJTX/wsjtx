@@ -1167,46 +1167,60 @@ if (APPLE AND WSJT_ENABLE_TESTS)
 endif ()
 
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
-  set (wsjtx_startup_test_root
-    "${CMAKE_BINARY_DIR}/Testing/Startup/test_wsjtx_startup")
-  file (MAKE_DIRECTORY
-    "${wsjtx_startup_test_root}/config"
-    "${wsjtx_startup_test_root}/data"
-    "${wsjtx_startup_test_root}/cache"
-    "${wsjtx_startup_test_root}/tmp")
-  set (wsjtx_startup_test_environment
-    "XDG_CONFIG_HOME=${wsjtx_startup_test_root}/config"
-    "XDG_DATA_HOME=${wsjtx_startup_test_root}/data"
-    "XDG_CACHE_HOME=${wsjtx_startup_test_root}/cache"
-    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_startup")
-  if (NOT APPLE)
-    list (APPEND wsjtx_startup_test_environment
-      "TMPDIR=${wsjtx_startup_test_root}/tmp")
-  endif ()
-  if (APPLE)
-    add_test (
-      NAME test_wsjtx_startup
-      COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/test/run-wsjtx-startup-macos.sh"
-        "${CMAKE_BINARY_DIR}/startup-smoke-diagnostics"
-        "$<TARGET_FILE:wsjtx>" --startup-smoke-test --rig-name CTEST-STARTUP
+  foreach (startup_scenario IN ITEMS default mmtty_port_only mmtty_ft8 mmtty_ft4 mmtty_jtty)
+    set (startup_test test_wsjtx_startup)
+    set (startup_arguments)
+    if (NOT startup_scenario STREQUAL "default")
+      set (startup_test "test_wsjtx_startup_${startup_scenario}")
+      # Port zero exercises command-line locking without opening an MMTTY connection.
+      list (APPEND startup_arguments --n1mm-tcp-port 0)
+      if (NOT startup_scenario STREQUAL "mmtty_port_only")
+        string (REPLACE "mmtty_" "" startup_mode "${startup_scenario}")
+        list (APPEND startup_arguments --mode "${startup_mode}")
+      endif ()
+    endif ()
+    set (wsjtx_startup_test_root
+      "${CMAKE_BINARY_DIR}/Testing/Startup/${startup_test}")
+    file (MAKE_DIRECTORY
+      "${wsjtx_startup_test_root}/config"
+      "${wsjtx_startup_test_root}/data"
+      "${wsjtx_startup_test_root}/cache"
+      "${wsjtx_startup_test_root}/tmp")
+    set (wsjtx_startup_test_environment
+      "XDG_CONFIG_HOME=${wsjtx_startup_test_root}/config"
+      "XDG_DATA_HOME=${wsjtx_startup_test_root}/data"
+      "XDG_CACHE_HOME=${wsjtx_startup_test_root}/cache"
+      "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-${startup_test}")
+    if (NOT APPLE)
+      list (APPEND wsjtx_startup_test_environment
+        "TMPDIR=${wsjtx_startup_test_root}/tmp")
+    endif ()
+    if (APPLE)
+      add_test (
+        NAME ${startup_test}
+        COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/test/run-wsjtx-startup-macos.sh"
+          "${CMAKE_BINARY_DIR}/startup-smoke-diagnostics/${startup_test}"
+          "$<TARGET_FILE:wsjtx>" --startup-smoke-test --rig-name "CTEST-${startup_scenario}"
+          ${startup_arguments}
+      )
+      set (wsjtx_startup_test_timeout 45)
+    else ()
+      add_test (
+        NAME ${startup_test}
+        COMMAND $<TARGET_FILE:wsjtx> --startup-smoke-test --rig-name "CTEST-${startup_scenario}"
+          ${startup_arguments}
+      )
+      set (wsjtx_startup_test_timeout 20)
+    endif ()
+    if (WSJT_ENABLE_TSAN)
+      list (APPEND wsjtx_startup_test_environment "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+    endif ()
+    set_tests_properties (${startup_test} PROPERTIES
+      ENVIRONMENT "${wsjtx_startup_test_environment}"
+      PROCESSORS 1
+      TIMEOUT ${wsjtx_startup_test_timeout}
     )
-    set (wsjtx_startup_test_timeout 45)
-  else ()
-    add_test (
-      NAME test_wsjtx_startup
-      COMMAND $<TARGET_FILE:wsjtx> --startup-smoke-test --rig-name CTEST-STARTUP
-    )
-    set (wsjtx_startup_test_timeout 20)
-  endif ()
-  set_tests_properties (test_wsjtx_startup PROPERTIES
-    ENVIRONMENT "${wsjtx_startup_test_environment}"
-    PROCESSORS 1
-    TIMEOUT ${wsjtx_startup_test_timeout}
-  )
-  if (WSJT_ENABLE_TSAN)
-    set_tests_properties (test_wsjtx_startup PROPERTIES
-      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
-  endif ()
+  endforeach ()
 endif ()
 
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS

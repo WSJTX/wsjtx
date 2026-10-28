@@ -1059,6 +1059,17 @@ void MainWindow::on_comboBoxJttyStyle_currentIndexChanged(int index)
   m_jttyMessageStyle = index;
 }
 
+void MainWindow::switchToJttyAfterMmttyStartup()
+{
+  if (m_modeLocked || m_closing) return;
+  bool const idle = !m_transmitting && !m_tune && g_iptt != 1
+    && !ptt0Timer.isActive () && !m_jttyTxLifecycle.active ();
+#ifdef WIN32
+  if (m_mmttyHandoff.active ()) return;
+#endif
+  if (idle && m_mode != "JTTY") set_mode("JTTY");
+}
+
 #ifdef WIN32
 void MainWindow::logText(const QString &text) {
   LOG_INFO(text);
@@ -1338,12 +1349,7 @@ void MainWindow::initMMTTY(quint16 port) {
         close();
     });
 
-    QTimer::singleShot(3000, this, [this]() {
-         bool const idle = !m_transmitting && !m_tune && g_iptt != 1
-           && !ptt0Timer.isActive () && !m_jttyTxLifecycle.active ()
-           && !m_mmttyHandoff.active ();
-         if (idle && m_mode != "JTTY") set_mode("JTTY");
-    });
+    QTimer::singleShot(3000, this, &MainWindow::switchToJttyAfterMmttyStartup);
 }
 
 MMTTYIF *MainWindow::getMmttyIf() const {
