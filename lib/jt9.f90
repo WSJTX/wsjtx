@@ -41,6 +41,7 @@ program jt9
   logical :: wav_mtd_pass
   integer :: wav_stage
   integer*2 id2a(180000)
+  integer(c_short), allocatable :: wav_samples(:)
   integer(C_INT) iret
   type(wav_header) wav
   real*8 TRperiod
@@ -453,7 +454,7 @@ program jt9
      end if
   end if
   
-  allocate(shared_data)
+  allocate(wav_samples(NMAX))
   nflatten=0
   do iarg = offset + 1, offset + remain
      call get_command_argument (iarg, optarg, arglen)
@@ -486,7 +487,7 @@ program jt9
         call init_timer (trim(data_dir)//'/timer.out')
         call timer('jt9     ',0)
      endif
-     shared_data%id2=0          !??? Why is this necessary ???
+     wav_samples=0          ! Fixed-window decoders and gates need silence beyond this file.
      if(mode.eq.4) npts=52*nfsample
      if(mode.eq.5) npts=21*3456
      if(mode.eq.66) npts=TRperiod*12000
@@ -498,7 +499,7 @@ program jt9
         k=min(iblk*kstep,npts)
         if(mode.eq.8 .and. k.gt.179712) exit
         call timer('read_wav',0)
-        call wav%read_samples(shared_data%id2(k0+1:k), samples_read, &
+        call wav%read_samples(wav_samples(k0+1:k), samples_read, &
              wav_status, optarg)
         call timer('read_wav',1)
         if (wav_status /= 0) then
@@ -558,15 +559,15 @@ program jt9
 ! "Early" decoding pass, FT8 only, when jt9 reads data from disk
         nearly=41
         wav_stage=nearly
-        id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
+        id2a(1:nearly*3456)=wav_samples(1:nearly*3456)
         id2a(nearly*3456+1:)=0
         call run_engine_wav(id2a,nearly*3456)
         nearly=47
         wav_stage=nearly
-        id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
+        id2a(1:nearly*3456)=wav_samples(1:nearly*3456)
         id2a(nearly*3456+1:)=0
         call run_engine_wav(id2a,nearly*3456)
-        id2a(nearly*3456+1:50*3456)=shared_data%id2(nearly*3456+1:50*3456)
+        id2a(nearly*3456+1:50*3456)=wav_samples(nearly*3456+1:50*3456)
         id2a(50*3456+1:)=0
         wav_stage=50
         call run_engine_wav(id2a,50*3456)
@@ -576,14 +577,14 @@ program jt9
            nearly=41
            wav_mtd_pass=.false.
            wav_stage=nearly
-           id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
+           id2a(1:nearly*3456)=wav_samples(1:nearly*3456)
            id2a(nearly*3456+1:)=0
            call run_engine_wav(id2a,nearly*3456)
            if(ndecoderstart.lt.2) then
               nearly=46
               wav_mtd_pass=.false.
               wav_stage=nearly
-              id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
+              id2a(1:nearly*3456)=wav_samples(1:nearly*3456)
               id2a(nearly*3456+1:)=0
               call run_engine_wav(id2a,nearly*3456)
            endif
@@ -601,7 +602,7 @@ program jt9
      ! MSK144        
      else if (mode .eq. 144) then
         msk_options=msk144_file_options(int(TRperiod),nutc,ntol,nrxfreq,ndepth,mycall,hiscall)
-        call decode_msk144_file(shared_data%id2, msk_options, data_dir, msk_completion)
+        call decode_msk144_file(wav_samples, msk_options, data_dir, msk_completion)
         if (.not. lquiet) call write_decode_completion(msk_completion)
         call flush(6)
         cycle
@@ -609,9 +610,9 @@ program jt9
 
 ! Normal decoding pass
      if (mode.eq.5) then
-        call run_engine_wav(shared_data%id2,72576)
+        call run_engine_wav(wav_samples,72576)
      else
-        call run_engine_wav(shared_data%id2,engine_valid_samples)
+        call run_engine_wav(wav_samples,engine_valid_samples)
      endif
   enddo
 
@@ -625,12 +626,10 @@ program jt9
 
 ! Save FFTW wisdom and free memory
   if(len(trim(wisfile)).gt.0) iret=fftwf_export_wisdom_to_filename(wisfile)
-  if (allocated(shared_data)) then
-     if (read_files) then
-        use_mtd_fft_plans=mode.eq.8 .and. multift8
-     else
-        use_mtd_fft_plans=mode.eq.8 .and. shared_data%params%lmultift8
-     endif
+  if (allocated(wav_samples)) then
+     use_mtd_fft_plans=mode.eq.8 .and. multift8
+  else if (allocated(shared_data)) then
+     use_mtd_fft_plans=mode.eq.8 .and. shared_data%params%lmultift8
   endif
   if(use_mtd_fft_plans) then
      call four2avar(a,-1,1,1,1)
@@ -640,6 +639,7 @@ program jt9
   endif
   call fftwf_cleanup_threads()
   call fftwf_cleanup()
+  if (allocated(wav_samples)) deallocate(wav_samples)
   if (allocated(shared_data)) deallocate(shared_data)
 
 contains
