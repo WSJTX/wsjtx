@@ -497,11 +497,6 @@ program jt9
      engine_input_id=int(iarg-offset,c_int64_t)
      engine_attempt_no=0
 
-     ! WAV-path-only mode adjustment (mode=164 with submode<100 bumps by 100).
-     ! Hoisted before init_default_params so the bumped value is threaded
-     ! through the args bundle.
-     if (mode.eq.164 .and. nsubmode.lt.100) nsubmode = nsubmode + 100
-
      ! Initialize all parameters before applying WAV-specific overrides.
      args = cli_args_t(                                                    &
           flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,           &
