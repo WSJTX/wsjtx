@@ -269,6 +269,8 @@ bool MainWindow::startLiveAudioTestJttyWav(QString const& path)
   if (!m_automated_test || !m_config.is_dummy_rig() || m_mode != "JTTY"
       || m_monitoring || decoderBusy()) return false;
   m_diskData = true;
+  // A previous load can be invalidated while its result callback processes events.
+  m_discardJttyWavLoad = true;
   read_wav_file(path);
   return true;
 }
@@ -336,6 +338,23 @@ QString MainWindow::checkLiveAudioTestJttyDrain()
     bool lateEndNotified = false;
     bool playbackStopped = false;
     QTimer heartbeat;
+    auto const wavFrames = dec_data.params.kin;
+    auto const wavSample = dec_data.d2[0];
+    QEventLoop loadLoop;
+    connect(&m_wav_load_coordinator, &WavLoadCoordinator::loadingChanged,
+            &loadLoop, [&loadLoop](bool loading) { if (!loading) loadLoop.quit(); });
+    m_discardJttyWavLoad = false;
+    if (!m_wav_load_coordinator.start([] {
+      auto result = std::make_shared<Radio::WavInputResult>();
+      result->valid = true;
+      result->frames = 1;
+      result->samples = {12345};
+      return result;
+    })) {
+      error = "Unable to start the isolated WAV load before JTTY drain.";
+      break;
+    }
+    m_loopall = m_startAnother = m_bNoMoreFiles = m_diskData = true;
     connect(this, &MainWindow::endTransmitMessage, &heartbeat, [&] { playbackStopped = true; });
     if (missingAcknowledgement) {
       auto const epoch = m_jttyTxLifecycle.begin (JttyTxLifecycle::Backend::Local);
@@ -363,6 +382,16 @@ QString MainWindow::checkLiveAudioTestJttyDrain()
     heartbeat.start(0);
     drainJttyReceive();
     heartbeat.stop();
+    if (m_wav_load_coordinator.isLoading()) {
+      QTimer timeout;
+      timeout.setSingleShot(true);
+      connect(&timeout, &QTimer::timeout, &loadLoop, &QEventLoop::quit);
+      timeout.start(2000);
+      loadLoop.exec(QEventLoop::ExcludeUserInputEvents);
+    }
+    if (m_wav_load_coordinator.isLoading() || m_loopall || m_startAnother || m_bNoMoreFiles
+        || m_diskData || dec_data.params.kin != wavFrames || dec_data.d2[0] != wavSample)
+      error = "JTTY drain did not discard its pending WAV batch.";
     qint64 const expected = blocks * qint64(samples.size());
     if (state.active || !state.mailboxes.empty() || state.history.end(state.liveSpan.id) != expected
         || state.live.nextSearchSample() + windowSamples <= expected)
@@ -390,6 +419,11 @@ QString MainWindow::checkLiveAudioTestJttyDrain()
   m_saveAll = saveAll;
   m_saveDecoded = saveDecoded;
   updateJttySavePolicy();
+  updateDecodeControls();
+  if (error.isEmpty() && (!ui->actionOpen->isEnabled()
+      || !ui->actionDecode_remaining_files_in_directory->isEnabled()
+      || !ui->monitorButton->isEnabled()))
+    error = "A cancelled JTTY WAV load left file controls disabled.";
   return error;
 }
 #endif

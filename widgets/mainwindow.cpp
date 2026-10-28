@@ -4913,6 +4913,7 @@ void MainWindow::read_wav_file (QString const& fname)
   int const nsamples=m_TRperiod * RX_SAMPLE_RATE;
   int const sample_capacity=sizeof (dec_data.d2) / sizeof (dec_data.d2[0]);
   int const sample_limit=std::min (nsamples, sample_capacity);
+  m_discardJttyWavLoad = false;
   m_wav_load_coordinator.start ([fname, sample_limit] {
     return std::make_shared<Radio::WavInputResult> (
         Radio::load_wav_input (fname, sample_limit));
@@ -4921,7 +4922,15 @@ void MainWindow::read_wav_file (QString const& fname)
 
 void MainWindow::wav_file_loaded ()
 {
-  if (m_discardJttyWavLoad || jttyDrainInProgress()) { m_discardJttyWavLoad = false; return; }
+  if (m_discardJttyWavLoad || jttyDrainInProgress()) {
+    m_discardJttyWavLoad = false;
+    m_loopall = false;
+    m_startAnother = false;
+    m_bNoMoreFiles = false;
+    m_diskData = false;
+    ui->DecodeButton->setChecked(false);
+    return;
+  }
   if (!m_valid) return;
 
   auto const result=m_wav_load_coordinator.result ();
