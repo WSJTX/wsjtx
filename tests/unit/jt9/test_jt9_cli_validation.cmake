@@ -54,7 +54,39 @@ endif ()
 foreach (program "${JT9}" "${WSJT_CODEC}")
   get_filename_component (program_name "${program}" NAME_WE)
 
-  require_mode_result ("WAV decoding requires a mode")
+  foreach (option --help -h --version -v)
+    execute_process (
+      COMMAND "${program}" "${option}" "${missing_wav}"
+      RESULT_VARIABLE result
+      OUTPUT_VARIABLE stdout
+      ERROR_VARIABLE stderr
+      TIMEOUT 10)
+    if (option MATCHES "help|^-h$")
+      set (expected_output "Usage: ${program_name}")
+    else ()
+      set (expected_output "^${program_name} [0-9]")
+    endif ()
+    if (NOT "${result}" STREQUAL "0" OR NOT stdout MATCHES "${expected_output}" OR
+        NOT stderr STREQUAL "")
+      message (FATAL_ERROR "${program_name} ${option} with a WAV argument failed: ${stdout}${stderr}")
+    endif ()
+  endforeach ()
+
+  string (RANDOM LENGTH 12 ALPHABET 0123456789abcdef run_id)
+  set (empty_dir "${CMAKE_CURRENT_BINARY_DIR}/Testing/Temporary/jt9-missing-mode-${program_name}-${run_id}")
+  file (MAKE_DIRECTORY "${empty_dir}")
+  execute_process (
+    COMMAND "${program}" "${missing_wav}"
+    WORKING_DIRECTORY "${empty_dir}"
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE stdout
+    ERROR_VARIABLE stderr
+    TIMEOUT 10)
+  file (GLOB written LIST_DIRECTORIES true "${empty_dir}/*")
+  if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "WAV decoding requires a mode" OR written)
+    message (FATAL_ERROR "${program_name} missing-mode check failed (${result}, files: ${written}): ${stdout}${stderr}")
+  endif ()
+  file (REMOVE_RECURSE "${empty_dir}")
   require_mode_result ("cannot read WAV file" --ft8)
   require_rejection (-Q 6)
   require_rejection (-Q invalid)
