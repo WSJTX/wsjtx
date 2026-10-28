@@ -106,7 +106,11 @@ public:
           start_load (next_file);
           return;
         }
-      if (active_generation_ != load_generation_) return;
+      if (active_generation_ != load_generation_)
+        {
+          if (!download_active_) Q_EMIT self_->load_finished ();
+          return;
+        }
 
       auto result = loader_watcher_.result ();
       auto const should_finish = !download_active_;
