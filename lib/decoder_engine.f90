@@ -26,7 +26,8 @@ module decoder_engine
        streaming_emit_decode_rejected
   implicit none
   private
-  public :: engine_host_decode,engine_params_problem,engine_begin_input
+  public :: engine_host_decode,engine_host_decode_request,engine_params_problem,engine_begin_input
+  public :: attempt_request,params_to_request,host_decode_context
   integer(c_int), parameter :: ok=0,invalid=1,busy=2,unsupported=3,capacity=4,internal_error=5
   integer, parameter :: evidence_capacity=1024
 
@@ -171,6 +172,10 @@ module decoder_engine
      type(engine_q65_options) :: q65
      type(engine_fst4_options) :: fst4
      type(engine_jt4_options) :: jt4
+  end type
+  type :: host_decode_context
+     integer :: legacy_mode=0, utc=0, half_symbol_stage=0
+     logical :: again=.false., clear_average=.false., print_hash22=.false.
   end type
   type, bind(C) :: audio_view
      type(c_ptr) :: samples
@@ -1402,9 +1407,10 @@ contains
 
   ! The engine request a decode with these params makes, without the session
   ! work (call lists, averages, history); the caller sets request%mode.
-  subroutine params_to_request(params,request)
+  subroutine params_to_request(params,request,now_seconds)
     type(params_block), intent(in) :: params
     type(attempt_request), intent(inout) :: request
+    integer, intent(in), optional :: now_seconds
     integer :: time,blanker
     if(request%mode==engine_mode_jt4) then
        call convert_jt4_host_options(params,request%jt4,streaming_emit_enabled())
@@ -1493,7 +1499,11 @@ contains
        request%q65%extended_eme_search=merge(1,0,params%emedelay>0)
        request%q65%pileup=merge(1,0,iand(params%nexp_decode,128)/=0)
        request%q65%ap_cq_only=merge(1,0,params%lapcqonly)
-       request%q65%now_seconds=time()
+       if(present(now_seconds)) then
+          request%q65%now_seconds=now_seconds
+       else
+          request%q65%now_seconds=time()
+       endif
        request%q65%mycall=params%mycall
        request%q65%hiscall=params%hiscall
        request%q65%hisgrid=params%hisgrid
@@ -1589,6 +1599,34 @@ contains
     integer(c_int64_t), intent(in) :: input_id,analysis_id
     type(decode_completion_result), intent(out) :: completion
     type(attempt_request) :: request
+    type(host_decode_context) :: context
+
+    request%input_id=input_id
+    request%analysis_id=analysis_id
+    request%attempt_no=attempt_no
+    request%mode=params%nmode
+    if(request%mode==242) request%mode=engine_mode_fst4w
+    request%phase=2
+    if(params%nmode==engine_mode_ft8.and.params%nzhsym<50) request%phase=1
+    if(params%nagain) request%phase=3
+    request%source=merge(1,0,params%ndiskdat)
+    context%legacy_mode=params%nmode
+    context%utc=params%nutc
+    context%half_symbol_stage=params%nzhsym
+    context%again=params%nagain
+    context%clear_average=params%nclearave
+    context%print_hash22=params%nmode==242
+    call engine_host_decode_request(id2,request,context,nfsample,completion,progress,valid_samples,params)
+  end subroutine engine_host_decode
+
+  subroutine engine_host_decode_request(id2,input_request,context,nfsample,completion,progress,valid_samples,legacy_params)
+    integer(c_short), target, intent(in) :: id2(*)
+    type(attempt_request), intent(in) :: input_request
+    type(host_decode_context), intent(in) :: context
+    type(params_block), intent(in), optional :: legacy_params
+    integer, intent(in) :: nfsample,progress,valid_samples
+    type(decode_completion_result), intent(out) :: completion
+    type(attempt_request) :: request
     type(audio_view) :: audio
     type(attempt_outcome) :: outcome
     type(engine_options) :: options
@@ -1596,24 +1634,21 @@ contains
     integer :: history_status,period_samples,gate_samples
     character(len=12), allocatable :: calls(:)
     character(len=4), allocatable :: grids(:)
+
+    request=input_request
     options%abi_version=engine_abi
     completion=decode_completion_result(.true.,0,0,0)
-    if(params%nmode==engine_mode_jt4) then
-       if(params%nclearave.and.valid_handle(host_handle)) call session%jt4%clear_averages()
+    if(context%legacy_mode==engine_mode_jt4) then
+       if(context%clear_average.and.valid_handle(host_handle)) call session%jt4%clear_averages()
        gate_samples=min(180000,max(0,valid_samples))
        if(gate_samples>0) then
           if(sqrt(sum(real(id2(1:gate_samples))**2)/180000.0)<0.5) return
        endif
     endif
-    if(params%nmode==engine_mode_ft4) then
+    if(context%legacy_mode==engine_mode_ft4) then
        ! The legacy host's low-signal gate includes its zero-padded 15-second window.
        if(sqrt(sum(real(id2(1:180000))**2)/180000.0)<0.5) return
     endif
-    request%input_id=input_id
-    request%mode=params%nmode
-    if(request%mode==242) request%mode=engine_mode_fst4w
-    request%analysis_id=analysis_id
-    request%attempt_no=attempt_no
     if(.not.valid_handle(host_handle)) then
        status=engine_create(options,host_handle)
        if(status/=ok) then
@@ -1621,22 +1656,23 @@ contains
           return
        endif
     endif
-    if(input_id<=0.or.analysis_id<=0) then
-       if(session%input_id==0.or.params%nutc/=fallback_utc.or.session%input_mode/=request%mode.or. &
-            ((params%nmode==engine_mode_jt4.or.params%nmode==engine_mode_ft4.or.params%nmode==engine_mode_jt9.or. &
-            params%nmode==engine_mode_jt65.or.params%nmode==engine_mode_q65.or. &
-            request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w).and..not.params%nagain).or. &
-            ((params%nzhsym==41.or.fallback_begin).and..not.params%nagain)) then
+    if(request%input_id<=0.or.request%analysis_id<=0) then
+       if(session%input_id==0.or.context%utc/=fallback_utc.or.session%input_mode/=request%mode.or. &
+            ((context%legacy_mode==engine_mode_jt4.or.context%legacy_mode==engine_mode_ft4.or. &
+            context%legacy_mode==engine_mode_jt9.or. &
+            context%legacy_mode==engine_mode_jt65.or.context%legacy_mode==engine_mode_q65.or. &
+            request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w).and..not.context%again).or. &
+            ((context%half_symbol_stage==41.or.fallback_begin).and..not.context%again)) then
           fallback_input=fallback_input+1
           fallback_analysis=fallback_analysis+1
-       else if(params%nagain) then
+       else if(context%again) then
           fallback_analysis=fallback_analysis+1
        endif
        request%input_id=max(1_c_int64_t,fallback_input)
        request%analysis_id=max(1_c_int64_t,fallback_analysis)
        request%attempt_no=session%last_attempt+1
-       fallback_utc=params%nutc
-       if(.not.params%nagain) fallback_begin=.false.
+       fallback_utc=context%utc
+       if(.not.context%again) fallback_begin=.false.
     endif
     if(session%input_id/=0.and.(session%input_id/=request%input_id.or.session%input_mode/=request%mode)) then
        status=engine_release_input(host_handle,session%input_id)
@@ -1645,23 +1681,19 @@ contains
           return
        endif
     endif
-    request%phase=2
-    if(params%nmode==engine_mode_ft8.and.params%nzhsym<50) request%phase=1
-    if(params%nagain) request%phase=3
-    request%source=merge(1,0,params%ndiskdat)
-    call params_to_request(params,request)
+    if(present(legacy_params)) call params_to_request(legacy_params,request)
     if(request%mode==engine_mode_jt4) then
        if(request%jt4%deep_search/=0) call load_jt4_calls(session%jt4)
     else if(request%mode==engine_mode_jt65) then
-       if(params%nclearave) call session%jt65%clear_averages()
+       if(context%clear_average) call session%jt65%clear_averages()
        if(request%jt65%deep_search/=0) then
           call load_jt65_calls(calls,grids)
           call session%jt65%set_calls(calls,grids)
        endif
     else if(request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w) then
-       session%fst4%print_hash22=params%nmode==242
+       session%fst4%print_hash22=context%print_hash22
     else if(request%mode==engine_mode_q65) then
-       if(params%nclearave) call session%q65%clear_averages()
+       if(context%clear_average) call session%q65%clear_averages()
        history_status=0
        if(request%q65%contest==1) call load_q65_history(session%q65,history_status)
     endif
@@ -1670,15 +1702,15 @@ contains
     if(request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w) &
          period_samples=analysis_extent(request%mode,request%fst4%period_seconds)
     audio%sample_count=min(period_samples,valid_samples)
-    if(valid_samples<=0.and.input_id<=0) then
+    if(valid_samples<=0.and.input_request%input_id<=0) then
        audio%sample_count=period_samples
        if(request%mode==engine_mode_jt9.or.request%mode==engine_mode_jt65) audio%sample_count=624000
        if(request%mode==engine_mode_jt4) audio%sample_count=52*nfsample
     endif
     if(request%mode==engine_mode_ft8) then
-       if(params%lmultift8.and..not.(iand(params%nexp_decode,7)==7.and. &
-            params%b_superfox.and.params%b_even_seq)) &
-            audio%sample_count=min(audio%sample_count,params%nzhsym*3456)
+       if(request%ft8%mtd/=0.and..not.(iand(request%ft8%contest,7)==7.and. &
+            request%ft8%superfox/=0.and.request%ft8%even_sequence/=0)) &
+            audio%sample_count=min(audio%sample_count,context%half_symbol_stage*3456)
     endif
     audio%sample_rate_hz=nfsample
     status=decode_attempt(host_handle,request,audio,c_null_funptr,c_null_ptr,outcome,.true.,progress)
@@ -1689,7 +1721,7 @@ contains
     else
        call report_host_rejection(status,request,'decode')
     endif
-  end subroutine
+  end subroutine engine_host_decode_request
 
   subroutine report_host_rejection(status,request,operation)
     use, intrinsic :: iso_fortran_env, only: error_unit, output_unit

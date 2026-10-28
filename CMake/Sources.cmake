@@ -286,6 +286,7 @@ set (wsjt_FSRCS
   lib/stdcall_suffix.f90
   lib/streaming_control.f90
   lib/jt9_params_init.f90
+  lib/jt9_wav_request.f90
   lib/streaming_apply.f90
   lib/jt4.f90
   lib/jt4_decode.f90
