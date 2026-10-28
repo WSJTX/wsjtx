@@ -33,6 +33,33 @@ private slots:
     QCOMPARE(DecodedTime::spotTime("235930", nowUtc(), 15), thirdExpected);
   }
 
+  void datesMidnightPeriodFromCurrentUtcClock_data()
+  {
+    QTest::addColumn<QString>("encodedTime");
+    QTest::addColumn<QTime>("clock");
+    QTest::addColumn<double>("period");
+    QTest::addColumn<int>("dayOffset");
+    QTest::newRow("before-midnight") << QString {"2359"} << QTime {23, 59, 55} << 60.0 << 0;
+    QTest::newRow("equal-clock") << QString {"2359"} << QTime {23, 59} << 60.0 << 0;
+    QTest::newRow("after-midnight") << QString {"2359"} << QTime {0, 0, 5} << 60.0 << -1;
+    QTest::newRow("six-digit-before") << QString {"235945"} << QTime {23, 59, 59} << 15.0 << 0;
+    QTest::newRow("six-digit-after") << QString {"235945"} << QTime {0, 0, 1} << 15.0 << -1;
+    QTest::newRow("fractional-before") << QString {"235952"} << QTime {23, 59, 59} << 7.5 << 0;
+  }
+
+  void datesMidnightPeriodFromCurrentUtcClock()
+  {
+    QFETCH(QString, encodedTime);
+    QFETCH(QTime, clock);
+    QFETCH(double, period);
+    QFETCH(int, dayOffset);
+    QDate const date {2026, 8, 17};
+    QDateTime const now {date, clock, Qt::UTC};
+    auto const result = DecodedTime::spotTime(encodedTime, now, period);
+    QCOMPARE(result.date(), date.addDays(dayOffset));
+    QCOMPARE(DecodedTime::spotTime(encodedTime, now.toOffsetFromUtc(7200), period), result);
+  }
+
   void roundsFractionalPeriodForMidnight()
   {
     auto const expected = QDateTime {QDate {2026, 8, 16}, QTime {23, 59, 52}, Qt::UTC};

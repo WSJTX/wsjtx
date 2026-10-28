@@ -53,8 +53,10 @@ namespace DecodedTime
       return {};
     }
 
-    auto const currentDate = nowUtc.toUTC().date();
-    auto const spotDate = secondsSinceMidnight + qCeil(periodSeconds) >= secondsPerDay
+    auto const currentUtc = nowUtc.toUTC();
+    auto const currentDate = currentUtc.date();
+    auto const spotDate = time > currentUtc.time()
+      && secondsSinceMidnight + qCeil(periodSeconds) >= secondsPerDay
       ? currentDate.addDays(-1) : currentDate;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     return {spotDate, time, QTimeZone::UTC};
