@@ -863,6 +863,11 @@ void LiveAudioTestController::prepareJttyWhenReady ()
     prepareJttyInput ();
     return;
   }
+  if (!m_window->liveAudioTestJttyRigReady ())
+    {
+      m_prepareTimer.start (50);
+      return;
+    }
 
   auto * jttyAction = m_window->findChild<QAction *> ("actionJTTY");
   auto * monitorButton = m_window->findChild<QAbstractButton *> ("monitorButton");

@@ -254,6 +254,10 @@ public:
   bool liveAudioTestReceivingAudio () const {return m_receivingAudio;}
   int liveAudioTestHalfSymbols () const {return m_ihsym;}
   std::optional<QString> pollLiveAudioTestJttyFrequencyChanges();
+  bool liveAudioTestJttyRigReady() const
+  {
+    return m_startup_rig_reported && m_rigState.online() && m_rigState.frequency();
+  }
   bool startLiveAudioTestJttyWav(QString const& path);
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
