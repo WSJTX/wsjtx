@@ -26,6 +26,7 @@ namespace
       setRequest (request);
       setUrl (request.url ());
       setOperation (QNetworkAccessManager::PostOperation);
+      setHttpStatus (200);
       open (QIODevice::ReadOnly | QIODevice::Unbuffered);
     }
 
@@ -50,7 +51,7 @@ namespace
       Q_EMIT finished ();
     }
 
-    void setHttpStatus (int status)
+    void setHttpStatus (QVariant const& status)
     {
       setAttribute (QNetworkRequest::HttpStatusCodeAttribute, status);
     }
@@ -77,6 +78,7 @@ namespace
       QByteArray body;
       QString content_type;
       QByteArray user_agent;
+      QVariant redirect_policy;
     };
 
     explicit FakeTransport (QObject *parent = nullptr)
@@ -92,6 +94,7 @@ namespace
       recorded.content_type
         = request.header (QNetworkRequest::ContentTypeHeader).toString ();
       recorded.user_agent = request.rawHeader ("User-Agent");
+      recorded.redirect_policy = request.attribute (QNetworkRequest::RedirectPolicyAttribute);
       requests.append (recorded);
 
       auto *reply = new FakeReply {request, error_, error_string_, this};
@@ -225,21 +228,48 @@ private slots:
     QTRY_COMPARE (errors.count (), 1);
   }
 
-  void reportsHttpErrorStatus ()
+  void acceptsOnlySuccessfulHttpStatus_data ()
   {
+    QTest::addColumn<QVariant> ("status");
+    QTest::addColumn<bool> ("success");
+    QTest::newRow ("missing") << QVariant {} << false;
+    QTest::newRow ("malformed") << QVariant {"invalid"} << false;
+    for (int const status : {0, 100, 199, 200, 204, 299, 300, 301, 302, 307, 308, 399, 400, 500})
+      {
+        QTest::newRow (qPrintable (QString::number (status)))
+          << QVariant {status} << (status >= 200 && status <= 299);
+      }
+  }
+
+  void acceptsOnlySuccessfulHttpStatus ()
+  {
+    QFETCH (QVariant, status);
+    QFETCH (bool, success);
     FakeTransport transport;
     transport.auto_finish = false;
     LiveCQUpload upload {&transport, false};
-    QVERIFY (upload.setEndpoint (QUrl {"https://w3sz.com/livecq_update.php"}));
-
+    QVERIFY (upload.setEndpoint (QUrl {"https://example.com/livecq"}));
     QSignalSpy posted {&upload, &LiveCQUpload::spotPosted};
     QSignalSpy errors {&upload, &LiveCQUpload::errorOccurred};
     upload.postSpot (spotQuery ());
     QCOMPARE (transport.replies.size (), 1);
-    transport.replies.first ()->setHttpStatus (500);
+    transport.replies.first ()->setHttpStatus (status);
     transport.replies.first ()->finish ();
-    QCOMPARE (posted.count (), 0);
-    QCOMPARE (errors.count (), 1);
+    QCOMPARE (posted.count (), success ? 1 : 0);
+    QCOMPARE (errors.count (), success ? 0 : 1);
+    QCOMPARE (transport.requests.size (), 1);
+  }
+
+  void disablesAutomaticRedirects ()
+  {
+    FakeTransport transport;
+    LiveCQUpload upload {&transport, false};
+    QVERIFY (upload.setEndpoint (QUrl {"https://example.com/livecq"}));
+    upload.postSpot (spotQuery ());
+    QCOMPARE (transport.requests.size (), 1);
+    auto const policy = transport.requests.first ().redirect_policy;
+    QVERIFY (policy.isValid ());
+    QCOMPARE (policy.toInt (), int (QNetworkRequest::ManualRedirectPolicy));
   }
 
   void abortsOutstandingRequestsOnDestruction ()
