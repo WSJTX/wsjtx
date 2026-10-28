@@ -87,7 +87,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 100
+    timeout-minutes: 150
     outputs:
       installer-artifact-id: ${{ steps.upload_installer.outputs.artifact-id }}
     env:
