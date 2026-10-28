@@ -15,7 +15,7 @@ program jt9
   use, intrinsic :: iso_fortran_env, only: error_unit
   use streaming_emit, only: streaming_emit_set_enabled, streaming_emit_error
   use jt9_params_init, only: init_default_params, init_streaming_extra_fields, &
-       apply_per_mode_policy, cli_args_t
+       cli_args_t, cli_tolerance, cli_exp_decode, normalize_station_options
   use decode_completion_module, only: decode_completion_result, write_decode_completion
   use decoder_engine, only: attempt_request, host_decode_context, engine_host_decode_request
   use jt9_wav_request, only: build_wav_request
@@ -373,8 +373,6 @@ program jt9
 
   if (.not. read_files) then
      if (stream_mode) then
-        ! Streaming subprocess mode. Mirror the WAV path's shared_data setup,
-        ! then hand off to the streaming reader.
         call streaming_emit_set_enabled(.true.)
         if (mode .eq. 0) then
            mode = 8                            ! default: FT8
@@ -383,27 +381,9 @@ program jt9
         if (mode .eq. 5  .and. TRperiod .eq. 60.d0) TRperiod = 7.5d0   ! FT4
         if (mode .eq. 144 .and. TRperiod .eq. 60.d0) TRperiod = 30.d0  ! MSK144
 
-        ! Per-mode ntol defaulting (mirrors WAV path lines 277–285).
-        if (mode .eq. 241 .or. mode .eq. 242) then
-           ntol = min(ntol, 100)
-        else if (mode .eq. 66 .and. .not. have_ntol) then
-           ntol = 10
-        else
-           ntol = min(ntol, 1000)
-        end if
-
-        ! Per-mode nexp_decode default (mirrors WAV path lines 287–291).
-        if (.not. nexp_decode_set) then
-           if (mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) then
-              nexp_decode = 3 * 256   ! FST4: single decode off, nb=0
-           end if
-        end if
-
-        if (mycall.eq.'b') mycall = '            '
-        if (hiscall.eq.'b') then
-           hiscall = '            '
-           hisgrid = '      '
-        end if
+        ntol=cli_tolerance(mode,ntol,have_ntol)
+        nexp_decode=cli_exp_decode(mode,nexp_decode,nexp_decode_set)
+        call normalize_station_options(mycall,hiscall,hisgrid)
         allocate(shared_data)
         ! jt9's stub refuses here, before anything is written.
         if (.not. jt9_stream_available()) call jt9_stream(shared_data, mode, TRperiod)
@@ -438,26 +418,10 @@ program jt9
      go to 999
   endif
 
-  if(mycall.eq.'b') mycall='            '
-  if(hiscall.eq.'b') then
-     hiscall='            '
-     hisgrid='      '
-  endif
+  call normalize_station_options(mycall,hiscall,hisgrid)
+  ntol=cli_tolerance(mode,ntol,have_ntol)
+  nexp_decode=cli_exp_decode(mode,nexp_decode,nexp_decode_set)
 
-  if (mode .eq. 241 .or. mode .eq. 242) then
-     ntol = min (ntol, 100)
-  else if (mode .eq. 66 .and. .not. have_ntol) then
-     ntol = 10
-  else
-     ntol = min (ntol, 1000)
-  end if
-
-  if (.not. nexp_decode_set) then
-     if (mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) then
-        nexp_decode = 3 * 256   ! single decode off and nb=0
-     end if
-  end if
-  
   allocate(wav_samples(NMAX))
   nflatten=0
   do iarg = offset + 1, offset + remain

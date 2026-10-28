@@ -3,12 +3,15 @@ module jt9_params_test_types
 end module jt9_params_test_types
 
 program test_jt9_params_init
-  use jt9_params_init, only: cli_args_t, init_default_params, init_streaming_extra_fields
+  use jt9_params_init, only: cli_args_t, init_default_params, init_streaming_extra_fields, &
+       cli_tolerance, cli_exp_decode, normalize_station_options
   use jt9_params_test_types, only: params_block
   implicit none
 
   type(params_block) :: params
   type(cli_args_t) :: args
+
+  call assert_cli_defaults()
 
   args%mycall = 'PJ4/K1ABC'
   args%hiscall = 'W9XYZ/P'
@@ -85,6 +88,60 @@ program test_jt9_params_init
   call assert_true(params%nfa == 1800, 'JT9 uses an explicit split as its low search frequency')
 
 contains
+
+  subroutine assert_cli_defaults()
+    integer :: i, mode
+    integer, parameter :: fst_modes(*) = [240, 241, 242]
+    character(len=12) :: mycall, hiscall
+    character(len=6) :: hisgrid
+
+    call assert_true(cli_tolerance(66, 75, .false.) == 10, 'Q65 defaults to tolerance 10 without -F')
+    call assert_true(cli_tolerance(66, 75, .true.) == 75, 'Q65 preserves explicit tolerance')
+    call assert_true(cli_tolerance(66, 1001, .true.) == 1000, 'explicit Q65 tolerance is capped at 1000')
+    call assert_true(cli_tolerance(66, -1, .true.) == -1, 'explicit negative Q65 tolerance is preserved')
+    call assert_true(cli_tolerance(240, 1001, .false.) == 1000, 'FST4 tolerance uses the ordinary cap')
+    call assert_true(cli_tolerance(8, 1000, .false.) == 1000, 'ordinary tolerance keeps the cap boundary')
+    call assert_true(cli_tolerance(8, 1001, .true.) == 1000, 'ordinary tolerance is capped above the boundary')
+    call assert_true(cli_tolerance(8, -1, .false.) == -1, 'ordinary tolerance has no lower clamp')
+    do i = 2, size(fst_modes)
+       mode = fst_modes(i)
+       call assert_true(cli_tolerance(mode, 99, .true.) == 99, 'FST4W keeps tolerance below its cap')
+       call assert_true(cli_tolerance(mode, 100, .false.) == 100, 'FST4W keeps its cap boundary')
+       call assert_true(cli_tolerance(mode, 101, .true.) == 100, 'FST4W tolerance is capped above the boundary')
+       call assert_true(cli_tolerance(mode, -1, .false.) == -1, 'FST4W tolerance has no lower clamp')
+    end do
+    do i = 1, size(fst_modes)
+       mode = fst_modes(i)
+       call assert_true(cli_exp_decode(mode, 0, .false.) == 768, 'FST4 family defaults to experiment flags 768')
+       call assert_true(cli_exp_decode(mode, 0, .true.) == 0, 'explicit FST4 experiment flags zero survives')
+       call assert_true(cli_exp_decode(mode, 800, .true.) == 800, 'explicit FST4 experiment flags survive')
+    end do
+    call assert_true(cli_exp_decode(8, 0, .false.) == 0, 'other modes retain zero experiment flags')
+    call assert_true(cli_exp_decode(65, 64, .false.) == 64, 'other modes retain nonzero experiment flags')
+
+    mycall = 'b'
+    hiscall = 'W9XYZ/P'
+    hisgrid = 'EN37'
+    call normalize_station_options(mycall, hiscall, hisgrid)
+    call assert_true(mycall == ' ' .and. hiscall == 'W9XYZ/P' .and. hisgrid == 'EN37', &
+         'own-call sentinel preserves partner identity')
+    mycall = 'PJ4/K1ABC'
+    hiscall = 'b'
+    call normalize_station_options(mycall, hiscall, hisgrid)
+    call assert_true(mycall == 'PJ4/K1ABC' .and. hiscall == ' ' .and. hisgrid == ' ', &
+         'partner sentinel clears the partner call and grid')
+    mycall = 'B'
+    hiscall = 'B'
+    hisgrid = 'EN37'
+    call normalize_station_options(mycall, hiscall, hisgrid)
+    call assert_true(mycall == 'B' .and. hiscall == 'B' .and. hisgrid == 'EN37', &
+         'uppercase calls do not act as blank sentinels')
+    mycall = ' '
+    hiscall = ' '
+    call normalize_station_options(mycall, hiscall, hisgrid)
+    call assert_true(mycall == ' ' .and. hiscall == ' ' .and. hisgrid == 'EN37', &
+         'an already blank partner call does not clear the grid')
+  end subroutine assert_cli_defaults
 
   subroutine assert_baseline(value)
     type(params_block), intent(in) :: value

@@ -1,7 +1,7 @@
 module jt9_wav_request
   use, intrinsic :: iso_c_binding, only: c_int64_t
   use decoder_engine, only: attempt_request
-  use jt9_params_init, only: cli_args_t
+  use jt9_params_init, only: cli_args_t, cli_tolerance
   implicit none
   private
   public :: build_wav_request
@@ -26,9 +26,7 @@ contains
     request%source=1
     low=args%flow
     if(mode==9.and.args%fsplit/=2700) low=args%fsplit
-    tolerance=min(args%ntol,1000)
-    if(mode==241.or.mode==242) tolerance=min(args%ntol,100)
-    if(mode==66.and..not.args%have_ntol) tolerance=10
+    tolerance=cli_tolerance(mode,args%ntol,args%have_ntol)
 
     select case(mode)
     case(4)

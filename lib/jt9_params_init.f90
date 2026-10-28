@@ -10,6 +10,7 @@ module jt9_params_init
   public :: init_streaming_extra_fields
   public :: apply_per_mode_policy
   public :: cli_args_t
+  public :: cli_tolerance, cli_exp_decode, normalize_station_options
 
   ! CLI options used to initialize decoder parameters.
   type :: cli_args_t
@@ -42,6 +43,37 @@ module jt9_params_init
   end type cli_args_t
 
 contains
+
+  pure integer function cli_tolerance(mode, tolerance, explicitly_set) result(value)
+    integer, intent(in) :: mode, tolerance
+    logical, intent(in) :: explicitly_set
+
+    if (mode == 241 .or. mode == 242) then
+       value = min(tolerance, 100)
+    else if (mode == 66 .and. .not. explicitly_set) then
+       value = 10
+    else
+       value = min(tolerance, 1000)
+    end if
+  end function cli_tolerance
+
+  pure integer function cli_exp_decode(mode, value, explicitly_set) result(flags)
+    integer, intent(in) :: mode, value
+    logical, intent(in) :: explicitly_set
+
+    flags = value
+    if (.not. explicitly_set .and. (mode == 240 .or. mode == 241 .or. mode == 242)) flags = 3 * 256
+  end function cli_exp_decode
+
+  pure subroutine normalize_station_options(mycall, hiscall, hisgrid)
+    character(len=*), intent(inout) :: mycall, hiscall, hisgrid
+
+    if (mycall == 'b') mycall = ' '
+    if (hiscall == 'b') then
+       hiscall = ' '
+       hisgrid = ' '
+    end if
+  end subroutine normalize_station_options
 
   ! Define every parameter before callers apply WAV or streaming overrides.
   subroutine init_default_params(params, mode, TRperiod, args)
@@ -145,16 +177,7 @@ contains
 
     if (mode .eq. 9 .and. args%fsplit .ne. 2700) params%nfa = args%fsplit
 
-    ! Init-time ntol cap (per-mode). Streaming-config-time ntol policy
-    ! lives in apply_configure_fields where it can branch on consumer-set vs
-    ! mode-default (see streaming_apply.f90).
-    if (mode .eq. 241 .or. mode .eq. 242) then
-       params%ntol = min(args%ntol, 100)         ! FST4/FST4W
-    else if (mode .eq. 66 .and. .not. args%have_ntol) then
-       params%ntol = 10                          ! Q65 hard (unless -F given)
-    else
-       params%ntol = min(args%ntol, 1000)        ! FT8/FT4/etc
-    end if
+    params%ntol = cli_tolerance(mode, args%ntol, args%have_ntol)
 
     call apply_per_mode_policy(params, mode, TRperiod)
   end subroutine init_default_params
