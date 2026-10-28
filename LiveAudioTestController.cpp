@@ -1223,6 +1223,22 @@ void LiveAudioTestController::maybeFinishJtty ()
       fail (tr ("The displayed JTTY message could not be located: %1").arg (message));
       return;
     }
+    auto const displayFields = QRegularExpression {
+      QStringLiteral ("^[0-9]{6} +([0-9]{3,4}) +(-?[0-9]+) +")}.match (allBlock.text ());
+    QString loggedLine;
+    for (auto const& line : liveLog.split (QLatin1Char {'\n'})) {
+      if (line.contains (message)) loggedLine = line;
+    }
+    auto const logFields = QRegularExpression {
+      QStringLiteral ("^[0-9]{6}_[0-9]{6} +[^ ]+ +Rx +JTTY +(-?[0-9]+) +0[.]0 +([0-9]+) +(.+)$"),
+      QRegularExpression::CaseInsensitiveOption}.match (loggedLine.trimmed ());
+    if (!displayFields.hasMatch () || !logFields.hasMatch ()
+        || logFields.captured (1).toInt () != displayFields.captured (2).toInt ()
+        || logFields.captured (2).toInt () != displayFields.captured (1).toInt ()
+        || logFields.captured (3) != message) {
+      fail (tr ("JTTY ALL.TXT SNR, audio frequency, or message differs from the received decode."));
+      return;
+    }
     m_jttyAllLiveBlocks.append (allBlock);
     m_jttyQsoLiveBlocks.append (qsoBlock);
   }

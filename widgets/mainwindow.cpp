@@ -16178,11 +16178,11 @@ void MainWindow::write_all(QString txRx, QString message,
     t = t.asprintf("%5d",txFrequency);
     if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
     if (mode=="JTTY" and txRx=="Rx") {
-      auto const decoded = Jtty::parseDecodeLine(message);
+      auto const decoded = Jtty::parseDecodeLine(message, true);
       int const frequency = decoded.valid
         ? decoded.frequency : ui->RxFreqSpinBox_2->value();
       t = t.asprintf("%5d", frequency);
-      msg="   0  0.0" + t + " " + decoded.message;
+      msg=QStringLiteral("%1  0.0").arg(decoded.snr, 4) + t + " " + decoded.message;
     }
     auto time = QDateTime::currentDateTimeUtc ();
     if( (txRx=="Rx" || txRx=="Ck") && (context || !m_bFastMode) ) time=sequenceStart;

@@ -60,6 +60,7 @@ namespace Jtty
   struct ParsedDecodeLine
   {
     int frequency {0};
+    int snr {0};
     QString message;
     bool valid {false};
   };
@@ -413,7 +414,7 @@ namespace Jtty
     return frequencyText + QStringLiteral ("      ") + message;
   }
 
-  inline ParsedDecodeLine parseDecodeLine (QString const& line)
+  inline ParsedDecodeLine parseDecodeLine (QString const& line, bool withSnr = false)
   {
     ParsedDecodeLine result;
     QString const trimmed = line.trimmed ();
@@ -432,6 +433,14 @@ namespace Jtty
     result.frequency = frequency;
     result.message = separator < trimmed.size ()
         ? trimmed.mid (separator).trimmed () : QString {};
+    if (withSnr) {
+      int const end = result.message.indexOf (QLatin1Char {' '});
+      bool snrOk {false};
+      int const snr = result.message.left (end < 0 ? result.message.size () : end).toInt (&snrOk);
+      if (!snrOk) return result;
+      result.snr = snr;
+      result.message = end < 0 ? QString {} : result.message.mid (end).trimmed ();
+    }
     result.valid = true;
     return result;
   }
