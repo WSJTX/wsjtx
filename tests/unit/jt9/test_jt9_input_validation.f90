@@ -1,8 +1,10 @@
 program test_jt9_input_validation
-  use jt9_input_validation, only: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc, submode_limit
+  use jt9_input_validation, only: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc, submode_limit, &
+       adjust_wav_nutc
   implicit none
 
-  integer :: integer_value, nutc
+  integer :: integer_value, nutc, i
+  integer, parameter :: utc_modes(*) = [4, 5, 8, 9, 65, 66, 144, 240, 241, 242]
   real(kind=8) :: real_value
   logical :: ok, includes_seconds
   character(len=12) :: call_value
@@ -121,6 +123,34 @@ program test_jt9_input_validation
 
   call parse_wav_filename_nutc('a.wav', nutc)
   call assert_true(nutc == 0, 'short names default to midnight')
+
+  do i = 1, size(utc_modes)
+    call parse_wav_filename_nutc('240101_1234.wav', nutc, includes_seconds)
+    if (any(utc_modes(i) == [66, 240, 241, 242])) then
+      call assert_true(adjust_wav_nutc(utc_modes(i), nutc, includes_seconds) == 123400, &
+           'second-based modes expand HHMM')
+    else
+      call assert_true(adjust_wav_nutc(utc_modes(i), nutc, includes_seconds) == 1234, &
+           'other modes preserve HHMM')
+    end if
+    call parse_wav_filename_nutc('240101_123456.wav', nutc, includes_seconds)
+    if (utc_modes(i) == 4) then
+      call assert_true(adjust_wav_nutc(utc_modes(i), nutc, includes_seconds) == 1234, &
+           'JT4 drops filename seconds')
+    else
+      call assert_true(adjust_wav_nutc(utc_modes(i), nutc, includes_seconds) == 123456, &
+           'other modes preserve HHMMSS')
+    end if
+    call parse_wav_filename_nutc('240101_001500.wav', nutc, includes_seconds)
+    if (utc_modes(i) == 4) then
+      call assert_true(adjust_wav_nutc(utc_modes(i), nutc, includes_seconds) == 15, 'JT4 handles midnight HHMMSS')
+    else
+      call assert_true(adjust_wav_nutc(utc_modes(i), nutc, includes_seconds) == 1500, &
+           'midnight seconds remain distinguishable from minutes')
+    end if
+    call parse_wav_filename_nutc('240101_0000.wav', nutc, includes_seconds)
+    call assert_true(adjust_wav_nutc(utc_modes(i), nutc, includes_seconds) == 0, 'midnight remains zero')
+  end do
 
 contains
 

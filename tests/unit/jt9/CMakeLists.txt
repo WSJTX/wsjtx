@@ -19,3 +19,7 @@ if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_readwav_validation PROPERTIES
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
+
+add_executable (test_jt9_wav_policy test_jt9_wav_policy.f90)
+wsjt_link_common_fortran (test_jt9_wav_policy)
+add_test (NAME test_jt9_wav_policy COMMAND test_jt9_wav_policy)

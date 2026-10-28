@@ -4,7 +4,7 @@ module jt9_input_validation
 
   private
   public :: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc
-  public :: submode_limit
+  public :: submode_limit, adjust_wav_nutc
 
 contains
 
@@ -144,6 +144,16 @@ contains
 
     is_real_token = i > length
   end function is_real_token
+
+  pure integer function adjust_wav_nutc(mode, utc, has_seconds) result(adjusted)
+    integer, intent(in) :: mode, utc
+    logical, intent(in) :: has_seconds
+
+    adjusted = utc
+    if (mode == 4 .and. has_seconds) adjusted = utc / 100
+    if ((mode == 66 .or. mode == 240 .or. mode == 241 .or. mode == 242) .and. .not. has_seconds) &
+         adjusted = 100 * utc
+  end function adjust_wav_nutc
 
   subroutine parse_wav_filename_nutc(filename, nutc, includes_seconds)
     character(len=*), intent(in) :: filename
