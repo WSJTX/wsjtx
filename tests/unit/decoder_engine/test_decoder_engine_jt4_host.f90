@@ -91,6 +91,10 @@ program test_decoder_engine_jt4_host
   params%ndepth=1
   params%newdat=.true.
   params%ndiskdat=.true.
+  call compare_gate(4)
+  call compare_gate(5)
+  call new_period(1234)
+  params%nmode=4
   params%nclearave=.true.
   samples=0
   before=samples
@@ -145,8 +149,6 @@ program test_decoder_engine_jt4_host
   before=samples
   call run(0)
   call require(average_rows()==1,'quiet clear prevents reuse of the preceding weak reception')
-  call compare_gate(4)
-  call compare_gate(5)
 
   call new_period(1237)
   params%nmode=4
@@ -201,16 +203,36 @@ contains
     type(attempt_request) :: request
     type(host_decode_context) :: context
     type(decode_completion_result) :: legacy
+    integer :: entry,sample_rate,valid_samples
+    logical :: decoded_file_exists
+
     params%nmode=mode
     params%nclearave=.false.
+    params%ndepth=1
+    params%nfa=200
+    params%nfb=4000
+    sample_rate=merge(11025,12000,mode==4)
+    valid_samples=merge(size(samples),180000,mode==4)
     samples=0
     before=samples
-    call engine_host_decode(samples,params,11025,legacy,0,input_id,analysis_id,attempt,size(samples))
-    call make_request(request,context)
-    call engine_host_decode_request(samples,request,context,11025,completion,0,size(samples))
+    do entry=1,2
+       call new_period(1236)
+       call remove_file('decoded.txt')
+       open(unit=6,file='host-output.txt',status='replace')
+       if(entry==1) then
+          call engine_host_decode(samples,params,sample_rate,legacy,0,input_id,analysis_id,attempt,valid_samples)
+       else
+          call make_request(request,context)
+          call engine_host_decode_request(samples,request,context,sample_rate,completion,0,valid_samples)
+       endif
+       close(6)
+       call require(.not.output_contains('<DecodeRejected>'),'quiet input is not a rejected request')
+       inquire(file='decoded.txt',exist=decoded_file_exists)
+       call require(.not.decoded_file_exists,'quiet gate returns before opening decoder output')
+       call require(all(samples==before),'quiet gate leaves PCM unchanged')
+    enddo
     call require(legacy%available.and.completion%available,'both gated completions available')
     call require(legacy%decoded==0.and.completion%decoded==legacy%decoded,'typed and legacy quiet gates agree')
-    call require(all(samples==before),'quiet gate leaves PCM unchanged')
   end subroutine
 
   subroutine compare_typed_decode()
