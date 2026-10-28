@@ -10,6 +10,7 @@ subroutine jt9a()
        DECODER_IPC_CLAIMED, DECODER_IPC_CLAIM_SHUTDOWN
   use decode_completion_module, only: decode_completion_result,          &
        reset_decode_completion, set_decode_completion, write_decode_completion
+  use msk144_file, only: msk144_file_options, decode_msk144_file
   use prog_args
   use timer_module, only: timer
   use timer_impl, only: init_timer !, limtrace
@@ -22,6 +23,7 @@ subroutine jt9a()
 ! Multiple instances:
   type(shared_dec_data), pointer, volatile :: shared_memory
   type(params_block) :: local_params
+  type(msk144_file_options) :: msk_options
   logical(c_bool) :: ok
   integer(c_int) :: active_generation, claim_result, pass_attempt_no, pass_valid_samples
   integer(c_int) :: layout_status
@@ -169,8 +171,10 @@ subroutine jt9a()
 
   if(local_params%nmode .eq. 144) then
     ! MSK144
-     call decode_msk144_core(shared_memory%payload%id2, local_params, data_dir, &
-          completion)
+     msk_options = msk144_file_options(local_params%ntr, local_params%nutc, local_params%ntol, &
+          local_params%nfqso, local_params%ndepth, transfer(local_params%mycall, msk_options%mycall), &
+          transfer(local_params%hiscall, msk_options%hiscall))
+     call decode_msk144_file(shared_memory%payload%id2, msk_options, data_dir, completion)
   elseif(local_params%nmode.eq.4.or.local_params%nmode.eq.8.or.local_params%nmode.eq.5.or. &
        local_params%nmode.eq.9.or. &
        local_params%nmode.eq.65.or.local_params%nmode.eq.66.or. &

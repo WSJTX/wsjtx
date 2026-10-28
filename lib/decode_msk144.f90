@@ -88,10 +88,21 @@ contains
 
 end module msk144_stream
 
-subroutine decode_msk144_core(audio_samples, params, data_dir, completion)
-  use decode_completion_module, only: decode_completion_result,           &
+module msk144_file
+  use decode_completion_module, only: decode_completion_result, &
        reset_decode_completion, set_decode_completion
-  include 'jt9com.f90'
+  implicit none
+  private
+  public :: msk144_file_options, decode_msk144_file
+
+  type :: msk144_file_options
+     integer :: period_seconds, utc, tolerance_hz, receive_frequency_hz, depth
+     character(len=12) :: mycall, hiscall
+  end type msk144_file_options
+
+contains
+
+subroutine decode_msk144_file(audio_samples, options, data_dir, completion)
 
   ! constants
   integer, parameter :: SAMPLING_RATE = 12000
@@ -100,9 +111,9 @@ subroutine decode_msk144_core(audio_samples, params, data_dir, completion)
   integer, parameter :: CALL_LENGTH = 12
   
   ! aguments
-  integer*2 audio_samples(NMAX)
-  type(params_block) :: params
-  character(len = 500) :: data_dir
+  integer*2, intent(in) :: audio_samples(*)
+  type(msk144_file_options), intent(in) :: options
+  character(len=*), intent(in) :: data_dir
   type(decode_completion_result), intent(out) :: completion
 
   ! parameters of mskrtd
@@ -126,15 +137,15 @@ subroutine decode_msk144_core(audio_samples, params, data_dir, completion)
 
 
   ! decode in 0.3s blocks
-  sample_count = params%ntr * SAMPLING_RATE
-  mycall = transfer(params%mycall, mycall)    ! string to char[]
-  hiscall = transfer(params%hiscall, hiscall)
+  sample_count = options%period_seconds * SAMPLING_RATE
+  mycall = options%mycall
+  hiscall = options%hiscall
 
   do position = 1, sample_count - BLOCK_SIZE + 1, STEP_SIZE
     buffer =  audio_samples(position : position + BLOCK_SIZE - 1)
     tsec = position / REAL(SAMPLING_RATE)
 
-    call mskrtd(buffer, params%nutc, tsec, params%ntol, params%nfqso, params%ndepth, &
+    call mskrtd(buffer, options%utc, tsec, options%tolerance_hz, options%receive_frequency_hz, options%depth, &
       mycall, hiscall, bshmsg, btrain, pcoeffs, bswl, data_dir, line)
 
     if (line(1:1) .ne. char(0)) then
@@ -147,4 +158,6 @@ subroutine decode_msk144_core(audio_samples, params, data_dir, completion)
 
   call set_decode_completion(completion, 0, message_count, 0)
 
-end subroutine decode_msk144_core
+end subroutine decode_msk144_file
+
+end module msk144_file

@@ -16,6 +16,9 @@ program jt9
   use jt9_params_init, only: init_default_params, init_streaming_extra_fields, &
        apply_per_mode_policy, cli_args_t
   use decode_completion_module, only: decode_completion_result, write_decode_completion
+  use decoder_engine, only: attempt_request, host_decode_context, engine_host_decode_request
+  use jt9_wav_request, only: build_wav_request
+  use msk144_file, only: msk144_file_options, decode_msk144_file
 
   include 'jt9com.f90'
 
@@ -34,6 +37,12 @@ program jt9
 
   type(cli_args_t) :: args
   type(decode_completion_result) :: msk_completion
+  type(msk144_file_options) :: msk_options
+  type(attempt_request) :: wav_request
+  type(host_decode_context) :: wav_context
+  logical :: wav_mtd_pass
+  integer :: wav_stage, time
+  intrinsic :: time
   integer*2 id2a(180000)
   integer(C_INT) iret
   type(wav_header) wav
@@ -523,101 +532,71 @@ program jt9
           lft8lowth=lft8lowth, lft8subpass=lft8subpass,                    &
           lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,              &
           nexp_decode_set=nexp_decode_set)
-     call init_default_params(shared_data%params, mode, TRperiod, args)
-
-     ! WAV-path post-init overrides.
-     shared_data%params%ntr = int(TRperiod)
-     shared_data%params%nutc      = nutc        ! parsed from filename
-     shared_data%params%ndiskdat  = .true.      ! reading from disk
-     shared_data%params%nzhsym    = nhsym       ! per-period (matches former jt9.f90:486)
-
      if (multift8 .and. mode.eq.8) then
-        shared_data%params%lft8subpass = .true.
-        shared_data%params%lhideft8dupes = hidedupes
-        shared_data%params%nft8cycles = ncycles
-        shared_data%params%nmt = nmt
-        if(nmtft8decsens.eq.1) then
-           lft8lowth = .false.
-           lft8subpass = .false.
-        elseif(nmtft8decsens.eq.2) then
-           lft8lowth = .true.
-           lft8subpass = .false.        
-        elseif(nmtft8decsens.eq.3) then
-           lft8lowth = .true.
-           lft8subpass = .true.              
-        end if
-        shared_data%params%lft8lowth = lft8lowth
-        shared_data%params%lft8subpass = lft8subpass
-        shared_data%params%ndecoderstart = ndecoderstart 
-        shared_data%params%lwidedxcsearch = lwidedxcsearch
-        shared_data%params%ndtcenter = 0
-        shared_data%params%lmodechanged = .false.
-        shared_data%params%nsecbandchanged = 0
-        shared_data%params%ncandthin = 100
-        shared_data%params%nft8rxfsens = nft8rxfsens
-        shared_data%params%lhound = .false.
-        shared_data%params%lcommonft8b = .true.
-        shared_data%params%lbandchanged = .false.
-        shared_data%params%lmultinst = .false.
-        shared_data%params%nlasttx = 0
-        shared_data%params%nhint = .false.
-        shared_data%params%ndelay = 0
-        shared_data%params%nprepass = 4
-        shared_data%params%nharmonicsdepth = 0
-        shared_data%params%nsdecatt = 1
-      !print*,'lwidedxcsearch ',shared_data%params%lwidedxcsearch
-     end if
-     ! emedelay (Q65 60s), datetime placeholder, and mode=9 nfa=fsplit
-     ! handled by init_default_params + apply_per_mode_policy above.
+        select case (nmtft8decsens)
+        case (1)
+           args%lft8lowth = .false.
+           args%lft8subpass = .false.
+        case (2)
+           args%lft8lowth = .true.
+           args%lft8subpass = .false.
+        case (3)
+           args%lft8lowth = .true.
+           args%lft8subpass = .true.
+        end select
+     endif
+     wav_mtd_pass = multift8 .and. mode.eq.8
 
      nearly=50
-     if(mode.eq.8 .and. .not.  shared_data%params%lmultift8) then
+     wav_stage=nhsym
+     if(mode.eq.8 .and. .not. multift8) then
 ! "Early" decoding pass, FT8 only, when jt9 reads data from disk
         nearly=41
-        shared_data%params%nzhsym=nearly
+        wav_stage=nearly
         id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
         id2a(nearly*3456+1:)=0
         call run_engine_wav(id2a,nearly*3456)
         nearly=47
-        shared_data%params%nzhsym=nearly
+        wav_stage=nearly
         id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
         id2a(nearly*3456+1:)=0
         call run_engine_wav(id2a,nearly*3456)
         id2a(nearly*3456+1:50*3456)=shared_data%id2(nearly*3456+1:50*3456)
         id2a(50*3456+1:)=0
-        shared_data%params%nzhsym=50
+        wav_stage=50
         call run_engine_wav(id2a,50*3456)
         cycle
-     else if(mode.eq.8 .and. shared_data%params%lmultift8) then
-        if(shared_data%params%ndecoderstart.lt.2) then
+     else if(mode.eq.8 .and. multift8) then
+        if(ndecoderstart.lt.2) then
            nearly=41
-           shared_data%params%lmultift8=.false.
-           shared_data%params%nzhsym=nearly
+           wav_mtd_pass=.false.
+           wav_stage=nearly
            id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
            id2a(nearly*3456+1:)=0
            call run_engine_wav(id2a,nearly*3456)
-           if(shared_data%params%ndecoderstart.lt.2) then
+           if(ndecoderstart.lt.2) then
               nearly=46
-              shared_data%params%lmultift8=.false.
-              shared_data%params%nzhsym=nearly
+              wav_mtd_pass=.false.
+              wav_stage=nearly
               id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
               id2a(nearly*3456+1:)=0
               call run_engine_wav(id2a,nearly*3456)
            endif
-           if(shared_data%params%ndecoderstart.eq.0) nearly=49
-           if(shared_data%params%ndecoderstart.eq.1) nearly=50
-           shared_data%params%lmultift8=.true.
-           shared_data%params%nzhsym=nearly
+           if(ndecoderstart.eq.0) nearly=49
+           if(ndecoderstart.eq.1) nearly=50
+           wav_mtd_pass=.true.
+           wav_stage=nearly
         else
-           if(shared_data%params%ndecoderstart.eq.2) nearly=48
-           if(shared_data%params%ndecoderstart.eq.3) nearly=49
-           if(shared_data%params%ndecoderstart.eq.4) nearly=50
-           shared_data%params%nzhsym=nearly
+           if(ndecoderstart.eq.2) nearly=48
+           if(ndecoderstart.eq.3) nearly=49
+           if(ndecoderstart.eq.4) nearly=50
+           wav_stage=nearly
         endif
 
      ! MSK144        
      else if (mode .eq. 144) then
-        call decode_msk144_core(shared_data%id2, shared_data%params, data_dir, msk_completion)
+        msk_options=msk144_file_options(int(TRperiod),nutc,ntol,nrxfreq,ndepth,mycall,hiscall)
+        call decode_msk144_file(shared_data%id2, msk_options, data_dir, msk_completion)
         if (.not. lquiet) call write_decode_completion(msk_completion)
         call flush(6)
         cycle
@@ -641,8 +620,12 @@ program jt9
 
 ! Save FFTW wisdom and free memory
   if(len(trim(wisfile)).gt.0) iret=fftwf_export_wisdom_to_filename(wisfile)
-  if(allocated(shared_data)) then
-     use_mtd_fft_plans=mode.eq.8 .and. shared_data%params%lmultift8
+  if (allocated(shared_data)) then
+     if (read_files) then
+        use_mtd_fft_plans=mode.eq.8 .and. multift8
+     else
+        use_mtd_fft_plans=mode.eq.8 .and. shared_data%params%lmultift8
+     endif
   endif
   if(use_mtd_fft_plans) then
      call four2avar(a,-1,1,1,1)
@@ -703,9 +686,12 @@ contains
     type(decode_completion_result) :: completion
 
     engine_attempt_no=engine_attempt_no+1
-    call run_decoder_engine(samples,shared_data%params, &
-         nfsample,completion,0,engine_input_id,engine_input_id, &
-         engine_attempt_no,min(engine_valid_samples,pass_samples))
+    call build_wav_request(args,mode,TRperiod,nutc,wav_stage,multift8.and.mode.eq.8, &
+         wav_mtd_pass,engine_input_id,engine_attempt_no,time(),wav_request)
+    wav_context=host_decode_context(legacy_mode=mode,utc=nutc,half_symbol_stage=wav_stage, &
+         print_hash22=mode.eq.242)
+    call engine_host_decode_request(samples,wav_request,wav_context,nfsample,completion,0, &
+         min(engine_valid_samples,pass_samples))
     if(.not.completion%available) return
     if(.not.lquiet) call write_decode_completion(completion)
     call flush(6)
