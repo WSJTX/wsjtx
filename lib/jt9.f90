@@ -38,7 +38,7 @@ program jt9
   integer(C_INT) iret
   type(wav_header) wav
   real*8 TRperiod
-  integer :: validation_mode
+  integer :: validation_mode, wav_mode=0
   integer(c_int) :: engine_attempt_no, engine_valid_samples
   integer(c_int64_t) :: engine_input_id
 
@@ -129,7 +129,8 @@ program jt9
         'Sub mode (mode-dependent A-H), default SUBMODE=A', 'SUBMODE'),      &
     option ('depth', .true., 'd',                                            &
         'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
-    option ('tx-jt9', .false., 'T', 'Tx mode is JT9', ''),                   &
+    option ('tx-jt9', .false., 'T',                                         &
+        'Tx mode is JT9 (combined-mode streaming only)', ''),                &
     option ('my-call', .true., 'c', 'my callsign', 'CALL'),                  &
     option ('my-grid', .true., 'G', 'my grid locator', 'GRID'),              &
     option ('his-call', .true., 'x', 'his callsign', 'CALL'),                &
@@ -225,6 +226,7 @@ program jt9
            lquiet=.true.
         case ('k')
            mode = 144
+           wav_mode = mode
         case ('Q')
            call require_integer('Q', optarg(:arglen), nQSOProg)
            if (nQSOProg < 0 .or. nQSOProg > 5) then
@@ -232,26 +234,35 @@ program jt9
            end if
         case ('3')
            mode = 66
+           wav_mode = mode
         case ('4')
            mode = 4
+           wav_mode = mode
         case ('5')
            mode = 5
+           wav_mode = mode
         case ('6')
-           mode = 65
+           if (mode.lt.65) mode = mode + 65
+           wav_mode = 65
         case ('7')
            mode = 240
+           wav_mode = mode
         case ('8')
            mode = 8
+           wav_mode = mode
         case ('9')
-           mode = 9
+           if (mode.lt.9.or.mode.eq.65) mode = mode + 9
+           wav_mode = 9
         case ('T')
            tx9 = .true.
         case ('w')
            call require_integer('w', optarg(:arglen), npatience)
         case ('W')
            mode = 241
+           wav_mode = mode
         case ('Y')
            mode = 242
+           wav_mode = mode
         case ('c')
            call require_text('c', optarg, arglen, mycall)
         case ('G')
@@ -310,6 +321,8 @@ program jt9
      stop
   endif
 
+  ! WAV decoding selects one mode; stream startup retains the legacy mode combinations.
+  if (read_files) mode = wav_mode
   if (read_files .and. mode == 0) then
      write(error_unit, '(A)') trim(program_name) // ': WAV decoding requires a mode (for example, --ft8)'
      stop 2
@@ -651,6 +664,7 @@ contains
     character(len=64) :: reason
 
     maximum = submode_limit(selected_mode)
+    if (selected_mode == 74 .and. tx9) maximum = submode_limit(65)
     if (nsubmode <= maximum) return
     select case (selected_mode)
     case (4)
@@ -659,6 +673,8 @@ contains
        mode_name = 'JT65'
     case (66)
        mode_name = 'Q65'
+    case (74)
+       mode_name = 'JT9+JT65'
     case default
        mode_name = 'selected mode'
     end select

@@ -188,5 +188,16 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
     if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "invalid value for -b: D.*A-C for JT65")
       message (FATAL_ERROR "wsjt-codec did not reject its invalid startup submode: ${stderr}")
     endif ()
+    foreach (mode_flags "-6;-9" "-9;-6")
+      execute_process (
+        COMMAND "${program}" ${mode_flags} -T -b D
+        INPUT_FILE "${empty_stdin}"
+        RESULT_VARIABLE result
+        ERROR_VARIABLE stderr
+        TIMEOUT 10)
+      if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "invalid value for -b: D.*A-C for JT9[+]JT65")
+        message (FATAL_ERROR "wsjt-codec lost combined-mode startup for ${mode_flags}: ${stderr}")
+      endif ()
+    endforeach ()
   endif ()
 endforeach ()
