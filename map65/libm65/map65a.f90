@@ -1074,17 +1074,20 @@ endif
                do icand = 1, ncand
                   if (cand(icand)%iflip .ne. 0) cycle        !Keep only Q65 candidates
                   q65_on_jt65 = .false.
+                  pjt65 = -1.0
+                  near_sync = .false.
                   if (nagain .eq. 0 .and. manualDecodeFlag_initial .eq. 0 .and. nts_jt65 .gt. 0) then
                      nq65bin = nint(1000.0*cand(icand)%f/df) + 1
                      call jt65_span_power(nq65bin, pjt65, near_sync)
                      q65_on_jt65 = pjt65 .ge. 0.0 .and. &
                                    (near_sync .or. cand(icand)%snr .lt. Q65_GHOST_FACTOR*pjt65)
                   endif
-                  if (q65_on_jt65) then
-                     call dbg('map65a: Q65 cand f=' // rtoa(real(cand(icand)%f)) // &
-                              ' SKIPPED (ghost of decoded JT65 signal) nqd=' // itoa(nqd))
-                     cycle
-                  endif
+                  if (pjt65 .ge. 0.0) &
+                     call dbg('map65a: Q65 cand in JT65 span f=' // rtoa(real(cand(icand)%f)) // &
+                              ' snr=' // rtoa(real(cand(icand)%snr)) // ' pjt65=' // rtoa(pjt65) // &
+                              ' near_sync=' // itoa(merge(1,0,near_sync)) // &
+                              ' skip=' // itoa(merge(1,0,q65_on_jt65)) // ' nqd=' // itoa(nqd))
+                  if (q65_on_jt65) cycle
                   freq = cand(icand)%f + nkhz_center - real(nrate_active)/2000.0 - 1.27046
                   nhzdiff = nint(1000.0*(freq - mousefqso) - mousedf) - nfcal
 ! Now looking for "quick decode" (nqd=1) candidates at cursor freq +/- ntol.
@@ -1166,17 +1169,20 @@ endif
                if (cand(icand)%iflip .ne. 0) cycle    !Do only Q65 candidates here
                if (candec(icand)) cycle             !Skip if already decoded
                q65_on_jt65 = .false.
+               pjt65 = -1.0
+               near_sync = .false.
                if (nagain .eq. 0 .and. manualDecodeFlag_initial .eq. 0 .and. nts_jt65 .gt. 0) then
                   nq65bin = nint(1000.0*cand(icand)%f/df) + 1
                   call jt65_span_power(nq65bin, pjt65, near_sync)
                   q65_on_jt65 = pjt65 .ge. 0.0 .and. &
                                 (near_sync .or. cand(icand)%snr .lt. Q65_GHOST_FACTOR*pjt65)
                endif
-               if (q65_on_jt65) then
-                  call dbg('map65a: Q65 cand f=' // rtoa(real(cand(icand)%f)) // &
-                           ' SKIPPED (ghost of decoded JT65 signal) nqd=' // itoa(nqd))
-                  cycle
-               endif
+               if (pjt65 .ge. 0.0) &
+                  call dbg('map65a: Q65 cand in JT65 span f=' // rtoa(real(cand(icand)%f)) // &
+                           ' snr=' // rtoa(real(cand(icand)%snr)) // ' pjt65=' // rtoa(pjt65) // &
+                           ' near_sync=' // itoa(merge(1,0,near_sync)) // &
+                           ' skip=' // itoa(merge(1,0,q65_on_jt65)) // ' nqd=' // itoa(nqd))
+               if (q65_on_jt65) cycle
                freq = cand(icand)%f + nkhz_center - real(nrate_active)/2000.0 - 1.27046
 !###! If here at nqd=1, do only candidates at mousefqso +/- ntol
 !###           if(nqd.eq.1 .and. abs(freq-mousefqso).gt.0.001*ntol) cycle
