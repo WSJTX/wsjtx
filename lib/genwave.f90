@@ -1,34 +1,15 @@
-subroutine genwave(itone,nsym,nsps,nwave,fsample,tonespacing,f0,icmplx, &
-     cwave,wave)
-
-  real*8 tonespacing
-  real wave(nwave)
-  complex cwave(nwave)
-  integer itone(nsym)
-  real*8 dt,phi,dphi,twopi,freq
-
-  dt=1.d0/fsample
-  twopi=8.d0*atan(1.d0)
-
-! Calculate the audio waveform
-  phi=0.d0
-  if(icmplx.le.0) wave=0.
-  if(icmplx.eq.1) cwave=0.
-  k=0
-  do j=1,nsym
-     freq=f0 + itone(j)*tonespacing
-     dphi=twopi*freq*dt
-     do i=1,nsps
-        k=k+1
-        if(icmplx.eq.1) then
-           cwave(k)=cmplx(cos(phi),sin(phi))
-        else
-           wave(k)=sin(phi)
-        endif
-        phi=phi+dphi
-        if(phi.gt.twopi) phi=phi-twopi
-     enddo
-  enddo
-
-  return
-end subroutine genwave
+subroutine genwave(itone,nsym,nsps,nwave,fsample,tonespacing,f0,icmplx,cwave,wave)
+  use iso_fortran_env, only: real64
+  use waveform_kernels, only: render_fsk
+  implicit none
+  integer, intent(in) :: nsym,nsps,nwave,icmplx,itone(nsym)
+  real, intent(in) :: fsample,f0
+  real(real64), intent(in) :: tonespacing
+  real, intent(out) :: wave(nwave)
+  complex, intent(out) :: cwave(nwave)
+  if(icmplx.eq.1) then
+     call render_fsk(itone,nsps,real(fsample,real64),tonespacing,real(f0,real64),cwave=cwave)
+  else
+     call render_fsk(itone,nsps,real(fsample,real64),tonespacing,real(f0,real64),wave=wave)
+  endif
+end subroutine

@@ -130,11 +130,7 @@ contains
       if(allocated(this%metrics%one)) deallocate(this%metrics%one,this%metrics%zero)
       if(allocated(this%metrics%s2)) deallocate(this%metrics%s2)
       this%metrics%nss=0
-      if(allocated(this%wavegen%ctab)) deallocate(this%wavegen%ctab)
-      if(allocated(this%wavegen%pulse)) deallocate(this%wavegen%pulse)
-      if(allocated(this%wavegen%dphi)) deallocate(this%wavegen%dphi,this%wavegen%scaled_pulse)
-      this%wavegen%first=.true.
-      this%wavegen%nsps=0
+      this%wavegen=fst4_wavegen_workspace()
       if(associated(this%knowledge).and.this%owns_knowledge) deallocate(this%knowledge)
       this%owns_knowledge=.false.
       nullify(this%knowledge,this%callback,this%diagnostic,this%spectrum_sink)

@@ -153,13 +153,14 @@
 !   TUNE    one tone at F
 ! A single tone's is its frequency.
 !
-! The audio is the GUI's, sample for sample: at 48000 Hz the samples its
+! The audio follows the GUI's: at 48000 Hz the samples its
 ! Modulator plays for the message from its first to the last it commits,
 ! full scale, before the GUI's output attenuation; at 12000 Hz every fourth
-! of them from the first. At 48000 Hz that is the samples of the GUI's
-! symbols, rounded down, and one more; at 12000 Hz a quarter of it, rounded
-! up. MSK144 and fast JT9 instead repeat their message for the period less
-! 0.5 s, and one sample more. FT8, FT4, FST4 and FST4W are the GUI's shaped
+! of them from the first. TUNE at 12000 Hz may differ by one int16 unit
+! because its phase and sine are computed in blocks. At 48000 Hz the count
+! is the GUI's symbols, rounded down, and one more; at 12000 Hz a quarter of
+! it, rounded up. MSK144 and fast JT9 instead repeat their message for the
+! period less 0.5 s, and one sample more. FT8, FT4, FST4 and FST4W are the GUI's shaped
 ! waveforms; JT4, JT9, JT65, WSPR, Q65, MSK144, and FT8 with spacing 2 or 4,
 ! are phase-continuous tones whose amplitude decays over the last 0.017
 ! symbol; a single tone is one such tone, at its frequency for the mode's

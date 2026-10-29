@@ -25,6 +25,7 @@
 extern "C" {
   void gen_ft8wave_ (int itone[], int * nsym, int * nsps, float * bt, float * fsample, float * f0,
                      float xjunk[], float wave[], int * icmplx, int * nwave);
+  void stream_ft8wave_12k (std::int32_t const tones[], float frequency, float wave[]);
   void gen_ft4wave_ (int itone[], int * nsym, int * nsps, float * fsample, float * f0,
                      float xjunk[], float wave[], int * icmplx, int * nwave);
   void gen_fst4wave_ (int itone[], int * nsym, int * nsps, int * nwave, float * fsample,
@@ -388,11 +389,11 @@ namespace
         if (m_ic > i0) m_amp = 0.98 * m_amp;
         if (m_ic > i1) m_amp = 0.0;
 
-        sample=qtRound(m_amp*std::sin(m_phi));
-
         if(!m_tuning and (m_toneSpacing < 0) and (tone (0)<100)) {
           m_amp=32767.0;
           sample=qtRound(m_amp*(m_ic < m_nwave ? m_wave[m_ic] : 0.f));
+        } else {
+          sample=qtRound(m_amp*std::sin(m_phi));
         }
         out.push_back (sample);
         ++m_ic;
@@ -543,7 +544,8 @@ extern "C"
   }
 
   // The GUI's audio at 48 kHz, or every fourth sample of it at 12 kHz, into
-  // samples: tones the GUI's itone[], wave (nwave samples, or none for the
+  // samples; Tune at 12 kHz can differ by one int16 unit.
+  // tones are the GUI's itone[], wave (nwave samples, or none for the
   // waveforms made here) its precomputed waveform, cw its CW ID; returns the
   // count, or 0 when capacity is too small or there is no memory.
   std::int32_t stream_slot_render (Tx const * tx, std::int32_t const tones[], std::int32_t ntones,
@@ -555,6 +557,76 @@ extern "C"
       {
         auto const request = transmitRequest (*tx);
         if (!request.valid || (tx->rate != 12000 && tx->rate != 48000)) return 0;
+        if (request.tuning)
+          {
+            auto const total = samples48 (*tx, request, ncw);
+            auto const step = tx->rate == 48000 ? 1 : 4;
+            auto const count = (total + step - 1) / step;
+            auto const limit = std::int64_t (9999 * request.frames_per_symbol) + 1;
+            if (total <= 0 || total > limit || count > capacity) return 0;
+
+            int const tone = ntones > 0 ? tones[0] : 0;
+            double const frequency = tone >= 100 ? tone : request.frequency_hz + tone * request.tone_spacing;
+            double const dphi = twoPi * frequency / frameRate;
+            if (step == 4 && tone == 0 && frequency >= 200.0 && frequency <= 5000.0)
+              {
+                constexpr int block = 16;
+                double const outputStep = 4.0 * dphi;
+                double phi = dphi;
+                for (std::int64_t i = 0; i < count; i += block)
+                  {
+                    int const n = int (std::min<std::int64_t> (block, count - i));
+                    for (int j = 0; j < n; ++j)
+                      {
+                        double x = phi + j * outputStep;
+                        x -= std::floor (x / twoPi + 0.5) * twoPi;
+                        // Fold into [-pi/2, pi/2] without branching for SIMD.
+                        double const upper = double (x > twoPi / 4);
+                        double const lower = double (x < -twoPi / 4);
+                        x -= upper * (2.0 * x - twoPi / 2) + lower * (2.0 * x + twoPi / 2);
+                        double const x2 = x * x;
+                        // The degree-17 sine series has a remainder below 5e-14 on [-pi/2, pi/2].
+                        double const s = x * (1.0 + x2 * (-1.0 / 6 + x2 * (1.0 / 120
+                          + x2 * (-1.0 / 5040 + x2 * (1.0 / 362880 + x2 * (-1.0 / 39916800
+                          + x2 * (1.0 / 6227020800 + x2 * (-1.0 / 1307674368000
+                          + x2 / 355687428096000))))))));
+                        samples[i + j] = static_cast<std::int16_t> (std::round (32767.0 * s));
+                      }
+                    phi += n * outputStep;
+                    phi -= std::floor (phi / twoPi) * twoPi;
+                  }
+                return std::int32_t (count);
+              }
+            double phi = 0.0;
+            auto const advance = [&] {
+              phi += dphi;
+              if (phi > twoPi) phi -= twoPi;
+            };
+            for (std::int64_t i = 0; i < count; ++i)
+              {
+                advance ();
+                samples[i] = qtRound (32767.0 * std::sin (phi));
+                if (step == 4)
+                  {
+                    advance ();
+                    advance ();
+                    advance ();
+                  }
+              }
+            return std::int32_t (count);
+          }
+        if (tx->mode == FT8 && tx->rate == 12000 && tx->spacing == 1
+            && ntones >= 79 && tones[0] < 100 && ncw == 0 && nwave <= 0)
+          {
+            constexpr std::int32_t waveCount = 79 * 1920;
+            if (capacity < waveCount + 1) return 0;
+            std::vector<float> wave12 (waveCount);
+            stream_ft8wave_12k (tones, float (tx->freq), wave12.data ());
+            for (std::int32_t i = 0; i < waveCount; ++i)
+              samples[i] = qtRound (32767.0 * wave12[i]);
+            samples[waveCount] = 0;
+            return waveCount + 1;
+          }
         auto const i1 = lastSample (request);
         std::vector<float> made;
         if (request.tone_spacing < 0 && !request.tuning && nwave <= 0
@@ -568,11 +640,7 @@ extern "C"
         std::vector<std::int16_t> audio;
         auto const total = samples48 (*tx, request, ncw);
         audio.reserve (std::size_t (total));
-        if (request.tuning)
-          {
-            modulator.read (audio, std::size_t (total), 0);
-          }
-        else if (ncw > 0 && request.fast_mode)
+        if (ncw > 0 && request.fast_mode)
           {
             auto const start = fastCwStart (request);
             modulator.read (audio, start, 0);

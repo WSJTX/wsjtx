@@ -1,67 +1,48 @@
 module ft8_waveform_generator
+  use iso_fortran_env, only: real64
+  use waveform_kernels, only: waveform_workspace,render_gfsk,apply_waveform_ramp
   implicit none
   private
-  public :: gen_ft8wave_samples
+  public :: gen_ft8wave_samples,render_ft8_samples
+  type(waveform_workspace), save :: workspace
+!$omp threadprivate(workspace)
 contains
   subroutine gen_ft8wave_samples(itone,nsym,nsps,bt,fsample,f0,nwave, &
        sample_stride,output_count,cwave,wave)
-    use ft8_waveform, only: emit_ft8_waveform
-    use timer_module, only: timer
     integer, intent(in) :: nsym,nsps,nwave,sample_stride,output_count
     integer, intent(in) :: itone(nsym)
     real, intent(in) :: bt,fsample,f0
     complex, intent(out), optional :: cwave(output_count)
     real, intent(out), optional :: wave(output_count)
-    integer, parameter :: NTAB=65536
-    complex, allocatable :: ctab(:)
-    real, allocatable :: pulse(:)
-    real :: dphi(0:(nsym+2)*nsps-1)
-    real :: twopi,dt,hmod,dphi_peak,tt,phi
-    real, external :: gfsk_pulse
-    integer :: ibt,i,j,ib,ie
-    real :: fchk,fchk0
-    data fchk0/0.0/
-    save pulse,twopi,dt,hmod,fchk0,ctab
-    ! Per thread: a render and a decoder's subtraction can run at once.
-    !$omp threadprivate(pulse,twopi,dt,hmod,fchk0,ctab)
-
-    ibt=nint(10*bt)
-    fchk=nsym+nsps+bt+fsample
-    if(fchk.ne.fchk0) then
-       if(.not.allocated(pulse)) allocate(pulse(23040),ctab(0:NTAB-1))
-       twopi=8.0*atan(1.0)
-       dt=1.0/fsample
-       hmod=1.0
-  ! Compute the frequency-smoothing pulse
-       do i=1,3*nsps
-          tt=(i-1.5*nsps)/real(nsps)
-          pulse(i)=gfsk_pulse(bt,tt)
-       enddo
-       do i=0,NTAB-1
-          phi=i*twopi/NTAB
-          ctab(i)=cmplx(cos(phi),sin(phi))
-       enddo
-       fchk0=fchk
+    call render_ft8_samples(workspace,itone,nsym,nsps,bt,fsample,f0,nwave, &
+         sample_stride,output_count,cwave=cwave,wave=wave)
+  end subroutine
+  subroutine render_ft8_samples(workspace,itone,nsym,nsps,bt,fsample,f0,nwave, &
+       sample_stride,output_count,cwave,wave)
+    type(waveform_workspace), intent(inout) :: workspace
+    integer, intent(in) :: nsym,nsps,nwave,sample_stride,output_count
+    integer, intent(in) :: itone(nsym)
+    real, intent(in) :: bt,fsample,f0
+    complex, intent(out), optional :: cwave(output_count)
+    real, intent(out), optional :: wave(output_count)
+    real(real64) :: carrier
+    integer :: nramp
+    if(sample_stride.lt.1.or.nwave.lt.1) error stop 'Invalid emission stride or sample count'
+    if(output_count.ne.1+(nwave-1)/sample_stride) error stop 'Incorrect emitted sample count'
+    carrier=(8.0_real64*atan(1.0_real64))*real(f0,real64)/real(fsample,real64)
+    call render_gfsk(workspace,itone,nsps,fsample,bt,1,carrier,nsps,nwave, &
+         sample_stride,.true.,present(cwave),wave=wave,cwave=cwave)
+    nramp=nint(nsps/8.0)
+    if(nramp.le.0) return
+    if(present(wave)) then
+       call apply_waveform_ramp(wave,sample_stride,0,nramp,real(2*nramp),-1.0)
+       call apply_waveform_ramp(wave,sample_stride,nsym*nsps-nramp,nramp,real(2*nramp),1.0)
+    else
+       call apply_waveform_ramp(cwave,sample_stride,0,nramp,real(2*nramp),-1.0)
+       call apply_waveform_ramp(cwave,sample_stride,nsym*nsps-nramp,nramp,real(2*nramp),1.0)
     endif
-
-  ! Compute the smoothed frequency waveform.
-  ! Length = (nsym+2)*nsps samples, first and last symbols extended
-    dphi_peak=twopi*hmod/real(nsps)
-    dphi=0.0
-    do j=1,nsym
-       ib=(j-1)*nsps
-       ie=ib+3*nsps-1
-       dphi(ib:ie) = dphi(ib:ie) + dphi_peak*pulse(1:3*nsps)*itone(j)
-    enddo
-  ! Add dummy symbols at beginning and end with tone values equal to 1st and last symbol, respectively
-    dphi(0:2*nsps-1)=dphi(0:2*nsps-1)+dphi_peak*itone(1)*pulse(nsps+1:3*nsps)
-    dphi(nsym*nsps:(nsym+2)*nsps-1)=dphi(nsym*nsps:(nsym+2)*nsps-1)+dphi_peak*itone(nsym)*pulse(1:2*nsps)
-
-    dphi = dphi + twopi*f0*dt
-    call emit_ft8_waveform(dphi(nsps:nsps+nwave-1),nwave,nsym,nsps,ctab,NTAB, &
-         twopi,sample_stride,output_count,cwave=cwave,wave=wave)
-  end subroutine gen_ft8wave_samples
-end module ft8_waveform_generator
+  end subroutine
+end module
 
 subroutine gen_ft8wave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   use ft8_waveform_generator, only: gen_ft8wave_samples
@@ -76,4 +57,15 @@ subroutine gen_ft8wave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   else
     call gen_ft8wave_samples(itone,nsym,nsps,bt,fsample,f0,nwave,1,nwave,cwave=cwave)
   endif
-end subroutine gen_ft8wave
+end subroutine
+
+subroutine stream_ft8wave_12k(itone,f0,wave) bind(C, name='stream_ft8wave_12k')
+  use, intrinsic :: iso_c_binding, only: c_int,c_float
+  use ft8_waveform_generator, only: gen_ft8wave_samples
+  implicit none
+  integer(c_int), intent(in) :: itone(79)
+  real(c_float), value :: f0
+  real(c_float), intent(out) :: wave(79*1920)
+  call gen_ft8wave_samples(itone,79,4*1920,2.0_c_float,48000.0_c_float,f0, &
+       79*4*1920,4,79*1920,wave=wave)
+end subroutine

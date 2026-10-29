@@ -460,7 +460,7 @@ set (wsjt_FSRCS
   lib/ft4/ft4code.f90
   lib/ft4/genft4.f90
   lib/ft4/gen_ft4wave.f90
-  lib/ft8/ft8_waveform.f90
+  lib/waveform_kernels.f90
   lib/ft8/gen_ft8wave.f90
   lib/ft8/genft8refsig.f90
   lib/genwspr.f90

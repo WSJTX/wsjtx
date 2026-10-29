@@ -1,0 +1,6 @@
+add_executable (test_waveform_contract test_waveform_contract.f90)
+target_include_directories (test_waveform_contract PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_waveform_contract)
+add_test (NAME test_waveform_contract COMMAND test_waveform_contract)
+add_test (NAME test_waveform_contract_unshaped COMMAND test_waveform_contract)
+set_tests_properties (test_waveform_contract_unshaped PROPERTIES ENVIRONMENT "FST4_NOSHAPING=1")
