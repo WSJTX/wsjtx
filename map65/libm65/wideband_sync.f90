@@ -55,7 +55,6 @@ contains
 ! The nts_* variables are the submode tone spacings: 1 2 4 8 16 for A B C D E.
 ! Birdies are detected and excised. Candidates are returned in cand().
 
-      integer, parameter :: MAX_PEAKS = 100
       real pavg(-20:20)
       real base, bw, diffhz, df3, flip, flip_top, pmax, snr1, snr_top, tstep
       real(real64) f0
@@ -90,7 +89,12 @@ contains
       flip_top = sync(n_top)%iflip
             
       k = 0
-      do i = 1, MAX_PEAKS
+      ! Walk every ranked bin, not just the first 100: the loop stops at
+      ! SNR1_THRESHOLD or MAX_CANDIDATES. A strong signal scores highly in
+      ! over a hundred adjacent bins, so a fixed limit on ranked bins let
+      ! two strong JT65 signals use them all up before a weaker signal elsewhere
+      ! in the band was reached.
+      do i = 1, iz
          if ((iz + 1 - i) .lt. 1) cycle !w3sz debug
          n = indx(iz + 1 - i) + ia - 1
          f0 = 0.001*(n - 1)*df3
