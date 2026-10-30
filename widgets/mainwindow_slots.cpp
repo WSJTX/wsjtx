@@ -13,13 +13,11 @@
 #include <QSettings>
 #include <QtMath>
 #include "MessageBox.hpp"
-#include "DecodedMessageReaction.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "commons.h"
 #include "echograph.h"
 #include "widegraph.h"
 #include "messageaveraging.h"
-#include "logqso.h"
 
 using SpecOp = Configuration::SpecialOperatingActivity;
 
@@ -130,9 +128,14 @@ void MainWindow::on_autoButton_clicked (bool checked)
   m_specOp=m_config.special_op_id();
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   if (checked) {
+      if (m_qsoCompletion && !m_qsoCompletion->waiting ()
+          && m_qsoCompletion->phase != QsoCompletion::Phase::Ordinary
+          && !(m_qsoCompletion->phase == QsoCompletion::Phase::TimedOut
+               && repeatContextIsCurrent (m_qsoCompletion))) endQsoRepeat (QsoRepeatEnd::Superseded);
       m_auto = checked;
       QTimer::singleShot (3000, [=] {pounce = false;});  // ensure to select only CQ messages
   } else {
+      endQsoRepeat (QsoRepeatEnd::OperatorStop);
       pounce = false;
       m_auto = false;
       m_bCallingCQ = false;
@@ -477,42 +480,9 @@ void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
   }
 }
 
-void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
-{
-  auto stopAutoTx = [this] {
-    if (SpecOp::NA_VHF==m_specOp && m_mode=="FT4" && m_config.NCCC_Sprint()) {
-      QTimer::singleShot (int(850.0*m_TRperiod), [this] {cease_auto_Tx_after_QSO ();});
-    } else {
-      cease_auto_Tx_after_QSO ();
-    }
-  };
-  DecodedMessageReaction::applyAutoTxStopAfterLogging(
-    m_mode, m_config.repeat_Tx(), send_rr73_for_tx4 (), stopAutoTx);
-
-  if (!m_hisCall.size ()) {
-    MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));
-    if ((SpecOp::NA_VHF == m_specOp or SpecOp::WW_DIGI == m_specOp) && m_config.autoLog()) return;  // prevent program crash
-  }
-  m_logDlg->initLogQSO (captureLogQso ());
-  m_inQSOwith="";
-  if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {
-        m_autoRespondScores.reset();
-  }
-  QTimer::singleShot (2000, [=] {
-      pounce = false;
-      filtered = false;
-      read_txLog();
-      check_button_color();
-  });
-  QTimer::singleShot (7000, [=] {
-      read_txLog();
-  });
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
-}
-
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
+  if (checked) endQsoRepeat (QsoRepeatEnd::Superseded);
   if (checked) m_autoRespondPeriodState.disarm();
   rigTuneTimer.stop ();
   ui->pbBandHopping->setChecked(false); // disable band hopping
@@ -571,6 +541,7 @@ void MainWindow::on_tuneButton_clicked (bool checked)
 
 void MainWindow::reset_transmit_controls_after_stop ()
 {
+  endQsoRepeat (QsoRepeatEnd::AutoDisabled);
   m_autoRespondPeriodState.setEnableTx(false);
   ui->pbBandHopping->setChecked(false); // disable band hopping
   m_btxok=false;
@@ -605,6 +576,9 @@ void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
 
 void MainWindow::requestTxStop (TxEvidence::TxStopReason reason)
 {
+  if (reason == TxEvidence::TxStopReason::UserHalt)
+    endQsoRepeat (QsoRepeatEnd::OperatorStop);
+  else endQsoRepeat (QsoRepeatEnd::Fault);
   noteTxStopReason (reason);
   bool const pending_start = m_tx_when_ready || ptt1Timer.isActive ();
   m_tx_when_ready = false;

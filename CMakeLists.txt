@@ -1116,6 +1116,7 @@ wsjt_enable_qt_automoc (wsjtx)
 target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
 if (WSJT_ENABLE_TESTS)
+  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
 endif ()
 
@@ -1223,6 +1224,34 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
       PROCESSORS 1
       TIMEOUT ${wsjtx_startup_test_timeout}
     )
+  endforeach ()
+endif ()
+
+if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS AND NOT WIN32)
+  foreach (profile IN ITEMS automatic prompt disabled automatic-keep prompt-keep disabled-keep
+      automatic-keep-call automatic-keep-grid)
+    set (qso_test_root "${CMAKE_BINARY_DIR}/Testing/QsoCompletion/${profile}")
+    file (MAKE_DIRECTORY
+      "${qso_test_root}/config" "${qso_test_root}/data"
+      "${qso_test_root}/cache" "${qso_test_root}/tmp")
+    set (qso_test_environment
+      "XDG_CONFIG_HOME=${qso_test_root}/config"
+      "XDG_DATA_HOME=${qso_test_root}/data"
+      "XDG_CACHE_HOME=${qso_test_root}/cache"
+      "QT_QPA_PLATFORM=offscreen"
+      "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-qso-completion-${profile}")
+    if (NOT APPLE)
+      list (APPEND qso_test_environment "TMPDIR=${qso_test_root}/tmp")
+    endif ()
+    if (WSJT_ENABLE_TSAN)
+      list (APPEND qso_test_environment "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+    endif ()
+    add_test (NAME test_wsjtx_qso_completion_${profile}
+      COMMAND $<TARGET_FILE:wsjtx> --test-mode --qso-completion-test ${profile}
+        --rig-name CTEST-QSO-COMPLETION-${profile})
+    set_tests_properties (test_wsjtx_qso_completion_${profile} PROPERTIES
+      ENVIRONMENT "${qso_test_environment}" LABELS "gui;qso;integration"
+      PROCESSORS 1 TIMEOUT 30)
   endforeach ()
 endif ()
 

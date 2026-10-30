@@ -152,7 +152,8 @@ class MultiSettings::impl final
   Q_OBJECT
 
 public:
-  explicit impl (MultiSettings const * parent, QString const& config_name);
+  explicit impl (MultiSettings const * parent, QString const& config_name,
+                 QString const& settings_file);
   bool reposition ();
   void create_menu_actions (QMainWindow * main_window, QMenu * menu);
   bool exit ();
@@ -212,8 +213,8 @@ private:
 #include "MultiSettings.moc"
 #include "moc_MultiSettings.cpp"
 
-MultiSettings::MultiSettings (QString const& config_name)
-  : m_ {this, config_name}
+MultiSettings::MultiSettings (QString const& config_name, QString const& settings_file)
+  : m_ {this, config_name, settings_file}
 {
 }
 
@@ -284,8 +285,9 @@ bool MultiSettings::exit ()
   return m_->exit ();
 }
 
-MultiSettings::impl::impl (MultiSettings const * parent, QString const& config_name)
-  : settings_ {settings_path (), QSettings::IniFormat}
+MultiSettings::impl::impl (MultiSettings const * parent, QString const& config_name,
+                           QString const& settings_file)
+  : settings_ {settings_file.isEmpty () ? settings_path () : settings_file, QSettings::IniFormat}
   , parent_ {parent}
   , main_window_ {nullptr}
   , name_change_emit_pending_ {true}

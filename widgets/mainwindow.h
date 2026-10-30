@@ -60,7 +60,6 @@ namespace DecoderIpc {class Session;}
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
-#include "QsoLogData.hpp"
 #include "JttyN1mmOutput.hpp"
 #include "JttyReceiveAudio.hpp"
 #include "JttyMmttyHandoff.hpp"
@@ -170,6 +169,8 @@ class Cloudlog;
 
 #include "Audio/TxAudioQueue.hpp"
 #include "Modulator/JttyTxStream.hpp"
+#include "QsoCompletion.hpp"
+#include <deque>
 
 #ifdef WIN32
 class MMTTYIF;
@@ -264,6 +265,7 @@ public:
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
   QString checkLiveAudioTestOutputFaults ();
+  QString checkQsoCompletionTest ();
   bool liveAudioTestJttyStreamActive () const
   {
     return m_jttyTxStream && m_jttyTxStream->isActive ();
@@ -821,7 +823,19 @@ private:
   bool rr73_tx4_allowed () const;
   bool send_rr73_for_tx4 () const;
   void set_rr73_tx4 (bool enabled);
+  void scheduleLogQso (bool automatic = true);
+  void showNextLogQso ();
+  void processLogRequests ();
+  void applyLogCompletionEffects (QsoLogRequest const&);
+  bool ownsQsoContact (QsoLogRequest const&) const;
   QsoLogData captureLogQso ();
+  std::shared_ptr<QsoCompletion> currentQsoCompletion ();
+  bool repeatIsCurrent (std::shared_ptr<QsoCompletion> const&) const;
+  bool repeatContextIsCurrent (std::shared_ptr<QsoCompletion> const&) const;
+  void recordFinalConfirmation ();
+  void applyPendingQsoClear (std::shared_ptr<QsoCompletion> const&);
+  bool updateRepeatTransmission (QStringList const& messageParts);
+  void endQsoRepeat (QsoRepeatEnd, std::shared_ptr<QsoCompletion> context = {});
   void readWidebandDecodes();
   void refreshQmapActiveStations(QDateTime const& nowUtc);
   void configActiveStations();
@@ -1304,6 +1318,11 @@ private:
   QTimer ptt1Timer;                 //StartTx delay
   QTimer ptt0Timer;                 //StopTx delay
   QTimer logQSOTimer;
+  QTimer m_repeatDeadline;
+  bool m_processingLogRequests {false};
+  std::shared_ptr<QsoCompletion> m_qsoCompletion;
+  std::deque<QsoLogRequest> m_pendingLogQsos;
+  std::optional<QsoLogRequest> m_openLogQso;
   QTimer killFileTimer;
   QTimer tuneButtonTimer;
   QTimer rigTuneTimer;

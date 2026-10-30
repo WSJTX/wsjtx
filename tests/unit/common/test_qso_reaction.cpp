@@ -85,6 +85,137 @@ private slots:
     QCOMPARE(stopCalled, !expectedDefer);
   }
 
+  void repeatFinal73_data()
+  {
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<bool>("loggingEnabled");
+    QTest::addColumn<bool>("logRequested");
+    QTest::addColumn<bool>("replyPending");
+    for (auto const& mode : {QString {"MSK144"}, QString {"Q65"}}) {
+      for (bool logging : {false, true}) {
+        for (bool requested : {false, true}) {
+          for (bool pending : {false, true}) {
+            auto const name = QString {"%1-log%2-requested%3-pending%4"}
+              .arg(mode).arg(logging).arg(requested).arg(pending).toLatin1();
+            QTest::newRow(name.constData()) << mode << logging << requested << pending;
+          }
+        }
+      }
+    }
+  }
+
+  void repeatFinal73()
+  {
+    QFETCH(QString, mode);
+    QFETCH(bool, loggingEnabled);
+    QFETCH(bool, logRequested);
+    QFETCH(bool, replyPending);
+    auto snapshot = baseSnapshot();
+    snapshot.mode = mode;
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.autoEnabled = true;
+    snapshot.sentFirst73 = true;
+    snapshot.repeatTx = true;
+    snapshot.sendRr73 = true;
+    snapshot.loggingEnabled = loggingEnabled;
+    snapshot.completion = {replyPending ? QsoCompletionPhase::FinalReplyPending
+                                        : QsoCompletionPhase::AwaitingFinal73, logRequested};
+    auto const plan = DecodedMessageReaction::planProcessMessage(
+      decode("K1ABC W1AW 73", mode == "MSK144" ? "&" : ":"), snapshot);
+
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QCOMPARE(effectIndex(plan, Effect::Kind::RecordFinalConfirmation), replyPending ? -1 : 0);
+    QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQso),
+             int(loggingEnabled && !logRequested && !replyPending));
+    QCOMPARE(hasEffect(plan, Effect::Kind::ScheduleRepeatFinish),
+             mode == "MSK144" && !replyPending);
+    QCOMPARE(hasEffect(plan, Effect::Kind::FinishRepeat), mode == "Q65" && !replyPending);
+    if (mode == "MSK144" && !replyPending) {
+      QCOMPARE(intEffect(plan, Effect::Kind::ScheduleRepeatFinish), 11250);
+    }
+    QVERIFY(!hasEffect(plan, Effect::Kind::CeaseAutoTx));
+    QVERIFY(!hasEffect(plan, Effect::Kind::SetTxMessageIndex));
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleAutoFlagOff));
+    if (replyPending) QVERIFY(plan.effects.isEmpty());
+  }
+
+  void repeatAllowsExplicitPartnerSelection_data()
+  {
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<int>("origin");
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    for (auto const& mode : {QString {"MSK144"}, QString {"Q65"}}) {
+      for (auto origin : {Origin::ManualLeftPane, Origin::ManualRightPane, Origin::Udp,
+                          Origin::None}) {
+        auto const name = QString {"%1-origin%2"}.arg(mode).arg(int(origin)).toLatin1();
+        QTest::newRow(name.constData()) << mode << int(origin);
+      }
+    }
+  }
+
+  void repeatAllowsExplicitPartnerSelection()
+  {
+    QFETCH(QString, mode);
+    QFETCH(int, origin);
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    auto snapshot = baseSnapshot();
+    snapshot.mode = mode;
+    snapshot.fastMode = mode == "MSK144";
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.autoEnabled = true;
+    snapshot.repeatTx = true;
+    snapshot.sendRr73 = true;
+    snapshot.completion = {QsoCompletionPhase::AwaitingFinal73, true};
+    snapshot.selectionOrigin = static_cast<Origin>(origin);
+    snapshot.doubleClicked = snapshot.selectionOrigin == Origin::ManualLeftPane
+      || snapshot.selectionOrigin == Origin::ManualRightPane;
+    auto const plan = DecodedMessageReaction::planProcessMessage(
+      decode("K9XYZ K2BCD 73", mode == "MSK144" ? "&" : ":"), snapshot);
+
+    if (snapshot.selectionOrigin == Origin::None) {
+      QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
+      QVERIFY(plan.effects.isEmpty());
+    } else {
+      QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+      QCOMPARE(textEffect(plan, Effect::Kind::SetDxCall), QString {"K2BCD"});
+      QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessageIndex), 1);
+    }
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleRepeatFinish));
+    QVERIFY(!hasEffect(plan, Effect::Kind::FinishRepeat));
+    QVERIFY(!hasEffect(plan, Effect::Kind::RequestLogQso));
+  }
+
+  void received73WithoutRepeatContextRetainsNormalSignoff_data()
+  {
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<bool>("loggingEnabled");
+    QTest::newRow("MSK144 without logging") << QString {"MSK144"} << false;
+    QTest::newRow("MSK144 with logging") << QString {"MSK144"} << true;
+    QTest::newRow("Q65 without logging") << QString {"Q65"} << false;
+    QTest::newRow("Q65 with logging") << QString {"Q65"} << true;
+  }
+
+  void received73WithoutRepeatContextRetainsNormalSignoff()
+  {
+    QFETCH(QString, mode);
+    QFETCH(bool, loggingEnabled);
+    auto snapshot = baseSnapshot();
+    snapshot.mode = mode;
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.repeatTx = true;
+    snapshot.sendRr73 = true;
+    snapshot.loggingEnabled = loggingEnabled;
+    auto const plan = DecodedMessageReaction::planProcessMessage(
+      decode("K1ABC W1AW 73", mode == "MSK144" ? "&" : ":"), snapshot);
+
+    QCOMPARE(hasEffect(plan, Effect::Kind::RequestLogQso), loggingEnabled);
+    QCOMPARE(hasEffect(plan, Effect::Kind::CeaseAutoTx), !loggingEnabled);
+    QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessageIndex), 6);
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleAutoFlagOff));
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleRepeatFinish));
+    QVERIFY(!hasEffect(plan, Effect::Kind::FinishRepeat));
+  }
+
   void q65Final73LoggingStopsAutoTxWhenRepeatIsDisabled()
   {
     auto snapshot = baseSnapshot();

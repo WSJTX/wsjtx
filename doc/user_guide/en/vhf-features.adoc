@@ -337,6 +337,24 @@ attempts will be made before it times out if a 73 message has not yet
 been received. You can use *Wait & Reply* in case this is still
 not enough.
 
+For RR73 repeats, logging is offered on the first transmission. Receiving
+the other station's directed 73 stops the repeat independently of *Auto Seq*.
+With *Auto Seq* enabled, CQ is selected for the next contact, with transmission
+disabled. This also applies to a Q65 exchange ending with RRR followed by 73.
+
+If the RR73 retry period expires without confirmation, transmission stops but
+the DX call, grid, and Tx4 selection remain available for retry or *Wait & Reply*.
+Logging the contact does not clear those fields while waiting. The configured
+clear-after-logging preferences take effect when confirmation arrives or you
+press *Stop*, provided the logged contact is still selected. Moving to another
+contact or activity discards the old contact's pending clear.
+
+If you cancel the first log prompt before confirmation, receiving the partner's
+73 offers logging once more. Canceling a prompt after confirmation dismisses
+automatic logging for that contact; *Log QSO* remains available manually.
+Confirmation does not open a second dialog if that contact's prompt is already
+open, and no contact fields are cleared automatically unless a log is accepted.
+
 === Echo Mode
 
 *Echo* mode provides tools for two types of measurements: lunar echoes

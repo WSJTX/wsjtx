@@ -1491,7 +1491,22 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect(&p1Timer, &QTimer::timeout, this, &MainWindow::startP1);
 
   logQSOTimer.setSingleShot(true);
-  connect(&logQSOTimer, &QTimer::timeout, this, &MainWindow::on_logQSOButton_clicked);
+  connect (&logQSOTimer, &QTimer::timeout, this, &MainWindow::processLogRequests);
+  m_repeatDeadline.setSingleShot (true);
+  m_repeatDeadline.setTimerType (Qt::PreciseTimer);
+  connect (&m_repeatDeadline, &QTimer::timeout, this, [this] {
+    endQsoRepeat (QsoRepeatEnd::Deadline);
+  });
+  connect (m_logDlg.data (), &QDialog::finished, this, [this] (int result) {
+    if (m_openLogQso) {
+      if (result != QDialog::Accepted
+          && m_openLogQso->context->logState == QsoCompletion::LogState::Pending)
+        m_openLogQso->context->logState = m_openLogQso->context->confirmedAt.isValid ()
+          ? QsoCompletion::LogState::Declined : QsoCompletion::LogState::None;
+      m_openLogQso.reset ();
+    }
+    logQSOTimer.start (0);
+  });
 
   tuneButtonTimer.setSingleShot(true);
   connect(&tuneButtonTimer, &QTimer::timeout, this, &MainWindow::end_tuning);
@@ -3118,9 +3133,6 @@ void MainWindow::fastSink(qint64 frames)
         }
     }
 
-    // Ensure that Tx stops when "73" is received and repeat_Tx is enabled for MSK144
-    if (m_config.repeat_Tx() && m_mode=="MSK144" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73") && send_rr73_for_tx4 ())
-      QTimer::singleShot (int(750*m_TRperiod), this, [=] {cease_auto_Tx_after_QSO();});
 
     // highlight orange and blue callsigns for MSK144
     if(m_config.highlight_orange() or (m_config.highlight_blue()) or ui->actionHighlight_Whitelist_entries->isChecked()) {
@@ -3582,6 +3594,7 @@ void MainWindow::on_sbTxPercent_valueChanged (int n)
 
 void MainWindow::auto_tx_mode (bool state)
 {
+  if (!state) endQsoRepeat (QsoRepeatEnd::AutoDisabled);
   ui->autoButton->setChecked (state);
   on_autoButton_clicked (state);
 }
@@ -7308,11 +7321,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
         updateRespondTarget(decodedtext0, text, pounce, decodeContext.sequenceStart,
                             decodeContext.diskData);
 
-        // Ensure that Tx stops and QSO is logged when repeat_Tx is enabled and "73" is received
-        if(m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73 ")) {
-          if((m_config.prompt_to_log() or m_config.autoLog()) && !m_tune && CALLING != m_QSOProgress) logQSOTimer.start(0);
-          cease_auto_Tx_after_QSO();
-        }
 
         playDecodeAlertSound(play_Wanted, play_DXcall);
         play_Wanted = play_DXcall = false;
@@ -7444,7 +7452,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(w.size() >= 5) {
             if(w.at(0)==m_config.my_callsign() or w.at(0)==Radio::base_callsign(m_config.my_callsign())) {
               ui->stopTxButton->click ();
-              logQSOTimer.start(0);
+              scheduleLogQso();
             }
             if((w.at(2)==m_config.my_callsign() or w.at(2)==Radio::base_callsign(m_config.my_callsign()))
                and ui->tx3->text().length()>0) {
@@ -7463,7 +7471,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                ui->tx3->text().length()>0) {
               if(w.at(2)=="RR73") {
                 ui->stopTxButton->click ();
-                logQSOTimer.start(0);
+                scheduleLogQso();
               } else {
                 if(w.at(1)==Radio::base_callsign(ui->dxCallEntry->text()) and
                    (w.at(2).mid(0,1)=="+" or w.at(2).mid(0,1)=="-")) {
@@ -8116,20 +8124,22 @@ void MainWindow::guiUpdate()
     auto is_73 = message_is_73 (m_currentMessageType, msg_parts);
     m_sentFirst73 = is_73
       && !message_is_73 (m_lastMessageType, m_lastMessageSent.split (' ', SkipEmptyParts));
-    if (m_sentFirst73 || (is_73 && CALLING == m_QSOProgress)) {
+    auto const previousCompletion = m_qsoCompletion;
+    bool const repeatRr73 = updateRepeatTransmission (msg_parts);
+    bool const firstRepeat = repeatRr73 && previousCompletion != m_qsoCompletion;
+    if (firstRepeat || m_sentFirst73 || (is_73 && CALLING == m_QSOProgress)) {
       m_qsoStop=t2;
       if(m_config.id_after_73 ()) {
         icw[0] = m_ncw;
       }
       if((m_config.prompt_to_log() or m_config.autoLog()) && !m_tune && CALLING != m_QSOProgress)
         {
-        // always stop Tx after sending 73
         if (m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65") && m_ntx != 4) cease_auto_Tx_after_QSO ();
-        if (!(m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint())) logQSOTimer.start(0);
+        if (!(m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint())) scheduleLogQso();
         }
       else
         {
-          cease_auto_Tx_after_QSO ();
+          if (!repeatRr73) cease_auto_Tx_after_QSO ();
         }
     }
 
@@ -8141,7 +8151,7 @@ void MainWindow::guiUpdate()
         useNextCall();
       } else {
         if(m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65")) {
-           stopWRTimer.start(int(20000.0*m_TRperiod));  // send RR73 up to 10 times
+           if (!repeatRr73) stopWRTimer.start(int(20000.0*m_TRperiod));  // send RR73 up to 10 times
         } else {
           auto_tx_mode (false);
           if(b) {
@@ -8741,6 +8751,7 @@ void MainWindow::noteTxStopReason (TxEvidence::TxStopReason reason)
 
 void MainWindow::noteTxModeChange (QString const& mode)
 {
+  if (mode != m_mode) endQsoRepeat (QsoRepeatEnd::Superseded);
   if (m_mode == "JTTY" && mode != m_mode) {
     bool const resume = m_monitoring;
     // Drain the old stream before a timed mode can reuse reference-filter history.
@@ -9323,6 +9334,7 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
   snapshot.shortMessages = m_bShMsgs;
   snapshot.sendRr73 = send_rr73_for_tx4 ();
   snapshot.transmitting = m_transmitting;
+  snapshot.tuning = m_tune;
   snapshot.transmittingSignoff = m_transmitting
     && message_is_73(m_currentMessageType, m_currentMessage.split(' ', SkipEmptyParts));
   snapshot.doubleClicked = m_bDoubleClicked
@@ -9351,6 +9363,17 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
     && ui->cbAutoSeq->isEnabled() && ui->cbAutoSeq->isChecked();
   snapshot.quickCall = m_config.quick_call();
   snapshot.repeatTx = m_config.repeat_Tx();
+  if (m_qsoCompletion) {
+    snapshot.completion.phase = m_qsoCompletion->phase;
+    snapshot.completion.call = m_qsoCompletion->call;
+    snapshot.completion.confirmed = m_qsoCompletion->confirmedAt.isValid ();
+    if ((m_qsoCompletion->waiting () && !repeatIsCurrent (m_qsoCompletion))
+        || (m_qsoCompletion->phase == QsoCompletion::Phase::TimedOut
+            && !repeatContextIsCurrent (m_qsoCompletion)))
+      snapshot.completion.phase = QsoCompletionPhase::Cancelled;
+    if (m_qsoCompletion->matches (m_hisCall, m_mode, m_currentBand, m_TRperiod))
+      snapshot.completion.logRequested = m_qsoCompletion->logState != QsoCompletion::LogState::None;
+  }
   snapshot.loggingEnabled = m_config.prompt_to_log() || m_config.autoLog();
   snapshot.contestHintShown = m_contestModeHintShown;
   snapshot.ncccSprint = m_config.NCCC_Sprint();
@@ -9505,11 +9528,25 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
   case Effect::Kind::RecordRr73Received:
     m_dateTimeRcvdRR73 = QDateTime::currentDateTimeUtc();
     break;
+  case Effect::Kind::RecordFinalConfirmation:
+    recordFinalConfirmation ();
+    break;
   case Effect::Kind::RequestLogQso:
-    logQSOTimer.start(0);
+    scheduleLogQso();
     break;
   case Effect::Kind::RequestLogQsoUnlessSuppressed:
-    if (!no_logging) logQSOTimer.start(0);
+    if (!no_logging) scheduleLogQso();
+    break;
+  case Effect::Kind::ScheduleRepeatFinish: {
+    auto context = m_qsoCompletion;
+    if (repeatIsCurrent (context) && context->waiting ()) {
+      context->phase = QsoCompletion::Phase::FinalReplyPending;
+      QTimer::singleShot (effect.intValue, this, [this, context] {endQsoRepeat (QsoRepeatEnd::FinalReply, context);});
+    }
+    break;
+  }
+  case Effect::Kind::FinishRepeat:
+    endQsoRepeat (QsoRepeatEnd::FinalReply);
     break;
   case Effect::Kind::CeaseAutoTx:
     cease_auto_Tx_after_QSO();
@@ -9554,7 +9591,7 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
     QTimer::singleShot(effect.intValue, this, [=] {no_logging = false;});
     break;
   case Effect::Kind::ScheduleAutoFlagOff:
-    QTimer::singleShot(effect.intValue, this, [=] {m_auto = false;});
+    QTimer::singleShot(effect.intValue, this, [this] {endQsoRepeat (QsoRepeatEnd::AutoDisabled); m_auto = false;});
     break;
   case Effect::Kind::QueueContestHint:
     break;
@@ -9743,6 +9780,7 @@ void MainWindow::set_rr73_tx4 (bool enabled)
     return;
   }
 
+  if (enabled != m_send_RR73) endQsoRepeat (QsoRepeatEnd::ActivityChanged);
   m_send_RR73 = enabled;
   if ("FT4" == m_mode) m_send_RR73 = true;
   genStdMsgs (m_rpt);
@@ -10002,6 +10040,7 @@ void MainWindow::TxAgain()
 
 void MainWindow::clearDX ()
 {
+  endQsoRepeat (QsoRepeatEnd::Superseded);
   set_dateTimeQSO (-1);
   if (m_QSOProgress != CALLING) {
     auto_tx_mode (false);
@@ -10480,6 +10519,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
+  if (m_qsoCompletion && call != m_qsoCompletion->call) endQsoRepeat (QsoRepeatEnd::Superseded);
   m_q65PileupCopiedLastRxCall.clear();
   if (SpecOp::HOUND==m_specOp && m_config.superFox() && !(m_bDoubleClicked or (m_hisCall0 != ""
        && (call.left(6).contains(m_hisCall0) or call.right(6).contains(m_hisCall0))))
@@ -10568,6 +10608,8 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
                             , QString const& satmode
                             , QString const& freqRx, QByteArray const& ADIF)
 {
+  auto const request = m_openLogQso;
+  if (request) request->context->logState = QsoCompletion::LogState::Accepted;
   QString date = QSO_date_on.toString("yyyyMMdd");
   m_lastloggedcall=call; //ft8md
   if (!m_logBook.add (call, grid, m_config.bands()->find(dial_freq), mode, ADIF))
@@ -10603,27 +10645,39 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
   // Log to eqsl.cc
   if (m_config.send_to_eqsl()) Eqsl->upload(m_config.eqsl_username(),m_config.eqsl_passwd(),m_config.eqsl_nickname(),call,mode,QSO_date_on,rpt_sent,m_config.bands ()->find (dial_freq),comments);
 
-  blocked=true;                                      // needed to clear DXgrid only optionally
-  if (m_config.clear_DXcall ()) clearDX ();
-  if (m_config.clear_DXgrid ()) ui->dxGridEntry->clear ();
-  QTimer::singleShot (50, this, [=] {blocked = false;});   // needed to clear DXgrid only optionally
-  m_dateTimeQSOOn = QDateTime {};
-  if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
+  if (request && request->context->defersClear ()
+      && !(request->context->phase == QsoCompletion::Phase::TimedOut
+           ? repeatContextIsCurrent (request->context) : repeatIsCurrent (request->context)))
+    endQsoRepeat (QsoRepeatEnd::ActivityChanged, request->context);
+  bool const ownsContact = request && ownsQsoContact (*request);
+  if (ownsContact) {
+    blocked=true;
+    request->context->clearDxPending = m_config.clear_DXcall ();
+    request->context->clearGridPending = m_config.clear_DXgrid ();
+    applyPendingQsoClear (request->context);
+    QTimer::singleShot (50, this, [] {blocked = false;});
+    m_dateTimeQSOOn = QDateTime {};
+  }
+  auto const loggedActivity = request ? request->data.specOp : m_specOp;
+  auto const operatingMode = request ? request->data.mode : m_mode;
+  bool const sameActivity = loggedActivity == m_specOp && operatingMode == m_mode;
+  if (sameActivity && loggedActivity != SpecOp::NONE
+      && loggedActivity != SpecOp::FOX && loggedActivity != SpecOp::HOUND) {
     ui->sbSerialNumber->setValue(ui->sbSerialNumber->value() + 1);
   }
 
-  if(m_ActiveStationsWidget!=NULL) {
-    if(m_mode=="Q65") {
+  if (m_ActiveStationsWidget && operatingMode == "Q65") m_EMEworked[call] = true;
+  if(m_ActiveStationsWidget!=NULL && sameActivity) {
+    if(operatingMode=="Q65") {
       m_score++;
-      m_EMEworked[call]=true;
       if(m_specOp==SpecOp::Q65_PILEUP) {
         auto const fname = QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("tsil.3q")).toLatin1();
         rm_q3list_(const_cast<char *>(fname.constData()),
-                    const_cast<char *> (m_deCall.toLatin1().constData()), fname.size(), m_deCall.size());
+                    const_cast<char *> (call.toLatin1().constData()), fname.size(), call.size());
         refreshPileupList();
       }
       m_ActiveStationsWidget->setRate(m_score);
-    } else if (m_specOp==SpecOp::ARRL_DIGI) {
+    } else if (loggedActivity==SpecOp::ARRL_DIGI) {
       QString band=m_config.bands()->find(dial_freq);
       activeWorked(call,band);
       int points=m_activeCall[call].points;
@@ -10637,9 +10691,11 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
     }
   }
 
-  m_xSent.clear ();
-  m_xRcvd.clear ();
-  if (m_config.set_RXtoTX ()) on_pbT2R_clicked();   // Mod for WD5DHK
+  if (ownsContact) {
+    m_xSent.clear ();
+    m_xRcvd.clear ();
+    if (m_config.set_RXtoTX ()) on_pbT2R_clicked();
+  }
 }
 
 void MainWindow::updateRate()
@@ -12642,6 +12698,8 @@ void MainWindow::band_changed (Frequency frequency)
 
 void MainWindow::applyBandChange (Frequency f, Frequency previous_frequency)
 {
+  if (m_config.bands ()->find (f) != m_config.bands ()->find (previous_frequency))
+    endQsoRepeat (QsoRepeatEnd::Superseded);
   if (f != previous_frequency) cancelPendingFt8Decode ("dial frequency changed");
   m_autoRespondPeriodState.disarm();
   msk144qsy = false;  // MSK144 QSY
@@ -13128,6 +13186,7 @@ void MainWindow::handle_transceiver_failure (QString const& reason)
   ui->readFreq->setEnabled (true);
   // tune carrier isn't gated by m_btxok, so stop it explicitly; messages self-stop via guiUpdate
   if (m_tune) Q_EMIT tune (false);
+  endQsoRepeat (QsoRepeatEnd::Fault);
   m_auto = false;
   reset_transmit_controls_after_stop ();
   rigFailure (reason);
@@ -13628,6 +13687,7 @@ void::MainWindow::VHF_features_enabled(bool b)
 
 void MainWindow::on_sbTR_valueChanged(int value)
 {
+  if (value != m_TRperiod) endQsoRepeat (QsoRepeatEnd::Superseded);
   //  if(!m_bFastMode and n>m_nSubMode) m_MinW=m_nSubMode;
   if(m_bFastMode or m_mode=="FreqCal" or m_mode=="FST4" or m_mode=="FST4W" or m_mode=="Q65") {
     m_TRperiod = value;
