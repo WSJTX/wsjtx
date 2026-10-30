@@ -3593,7 +3593,7 @@ Right click for insert and delete options.</string>
           <item row="0" column="0">
            <widget class="QCheckBox" name="cbCloudlog">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Upload logged QSOs to Cloudlog or Wavelog.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Upload logged QSOs to Cloudlog or Wavelog. Disable this if WaveLogGate already uploads these contacts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="accessibleName">
              <string>Upload QSOs to Cloudlog or Wavelog</string>
@@ -3699,6 +3699,42 @@ Right click for insert and delete options.</string>
               </property>
               <property name="text">
                <string>Check Connection</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0" colspan="4">
+             <widget class="QCheckBox" name="cbCloudlogRadio">
+              <property name="toolTip">
+               <string>Send live frequency and mode changes to Cloudlog or Wavelog. Wavelog API v2 tokens also need the radio:write scope. Enable only one live-status publisher per radio. Disable this if WaveLogGate already reports this radio.</string>
+              </property>
+              <property name="accessibleName">
+               <string>Report live radio status to Cloudlog or Wavelog</string>
+              </property>
+              <property name="text">
+               <string>Report live radio status</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="cloudlog_radio_name_label">
+              <property name="text">
+               <string>Radio name: </string>
+              </property>
+              <property name="buddy">
+               <cstring>leCloudlogRadioName</cstring>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1" colspan="3">
+             <widget class="QLineEdit" name="leCloudlogRadioName">
+              <property name="toolTip">
+               <string>Name identifying this WSJT-X radio in Cloudlog or Wavelog. Use a different name for each running instance.</string>
+              </property>
+              <property name="maxLength">
+               <number>250</number>
+              </property>
+              <property name="placeholderText">
+               <string>WSJT-X</string>
               </property>
              </widget>
             </item>
@@ -5561,6 +5597,8 @@ Right click for insert and delete options.</string>
   <tabstop>leCloudlogApiKey</tabstop>
   <tabstop>cbCloudlogStationProfile</tabstop>
   <tabstop>pbTestCloudlog</tabstop>
+  <tabstop>cbCloudlogRadio</tabstop>
+  <tabstop>leCloudlogRadioName</tabstop>
   <tabstop>cbEQSL</tabstop>
   <tabstop>eqsluser_edit</tabstop>
   <tabstop>eqslpasswd_edit</tabstop>

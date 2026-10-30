@@ -787,6 +787,7 @@ private:
   Q_SLOT void on_test_PTT_push_button_clicked (bool checked);
   Q_SLOT void on_pbTestCloudlog_clicked ();
   Q_SLOT void on_cbCloudlog_toggled (bool checked);
+  Q_SLOT void on_cbCloudlogRadio_toggled (bool checked);
   Q_SLOT void on_cbEQSL_toggled (bool checked);
   Q_SLOT void on_force_DTR_combo_box_currentIndexChanged (int);
   Q_SLOT void on_force_RTS_combo_box_currentIndexChanged (int);
@@ -1079,6 +1080,7 @@ private:
   QString hamlib_backed_up_;
   QString cloudLogApiUrl_;
   QString cloudLogApiKey_;
+  QString cloudLogRadioName_;
   QDir voice_directory_;
   bool send_to_eqsl_;
   QString eqsl_username_;
@@ -1157,6 +1159,7 @@ private:
   bool filters_for_word2_;
   bool twoDays_;
   bool bCloudLog_;
+  bool cloudLogRadioEnabled_;
   int  SelectedActivity_;
   bool x2ToneSpacing_;
   bool x4ToneSpacing_;
@@ -1295,6 +1298,8 @@ bool Configuration::cloudlog_enabled () const {return m_->bCloudLog_;}
 QString Configuration::cloudlog_api_url () const {return m_->cloudLogApiUrl_;}
 QString Configuration::cloudlog_api_key () const {return m_->cloudLogApiKey_;}
 qint32 Configuration::cloudlog_api_station_id () const {return m_->cloudLogStationID_;}
+bool Configuration::cloudlog_radio_enabled () const {return m_->cloudLogRadioEnabled_;}
+QString Configuration::cloudlog_radio_name () const {return m_->cloudLogRadioName_;}
 bool Configuration::prompt_to_log () const {return m_->prompt_to_log_;}
 bool Configuration::autoLog() const {return m_->autoLog_;}
 bool Configuration::contestingOnly() const {return m_->contestingOnly_;}
@@ -2713,6 +2718,8 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->leCloudlogApiKey,
     ui_->cbCloudlogStationProfile,
     ui_->pbTestCloudlog,
+    ui_->cbCloudlogRadio,
+    ui_->leCloudlogRadioName,
     ui_->cbEQSL,
     ui_->eqsluser_edit,
     ui_->eqslpasswd_edit,
@@ -3336,6 +3343,8 @@ void Configuration::impl::initialize_models ()
   ui_->cbEQSL->setChecked(send_to_eqsl_);
   ui_->leCloudlogApiUrl->setText(cloudLogApiUrl_);
   ui_->leCloudlogApiKey->setText(cloudLogApiKey_);
+  ui_->cbCloudlogRadio->setChecked (cloudLogRadioEnabled_);
+  ui_->leCloudlogRadioName->setText (cloudLogRadioName_);
   ui_->cbCloudlogStationProfile->clear ();
   if (cloudLogStationID_ > 0)
     {
@@ -3802,6 +3811,8 @@ void Configuration::impl::read_settings ()
   cloudLogApiUrl_ = settings_->value ("CloudLogApiUrl", QString {}).toString ();
   cloudLogApiKey_ = settings_->value ("CloudLogApiKey", QString {}).toString ();
   cloudLogStationID_ = settings_->value("CloudLogStationID",1).toInt ();
+  cloudLogRadioEnabled_ = settings_->value ("CloudLogRadioEnabled", false).toBool ();
+  cloudLogRadioName_ = settings_->value ("CloudLogRadioName", QStringLiteral ("WSJT-X")).toString ();
   SelectedActivity_ = settings_->value("SelectedActivity",1).toInt ();
   x2ToneSpacing_ = settings_->value("x2ToneSpacing",false).toBool ();
   x4ToneSpacing_ = settings_->value("x4ToneSpacing",false).toBool ();
@@ -4094,6 +4105,8 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("CloudLogApiUrl", cloudLogApiUrl_);
   settings_->setValue ("CloudLogApiKey", cloudLogApiKey_);
   settings_->setValue ("CloudLogStationID", cloudLogStationID_);
+  settings_->setValue ("CloudLogRadioEnabled", cloudLogRadioEnabled_);
+  settings_->setValue ("CloudLogRadioName", cloudLogRadioName_);
   settings_->setValue ("x2ToneSpacing", x2ToneSpacing_);
   settings_->setValue ("x4ToneSpacing", x4ToneSpacing_);
   settings_->setValue ("OpCall", opCall_);
@@ -4787,6 +4800,12 @@ void Configuration::impl::accept ()
   cloudLogApiUrl_ = ui_->leCloudlogApiUrl->text ();
   cloudLogApiKey_ = ui_->leCloudlogApiKey->text ();
   cloudLogStationID_ = cloudlog_station_profile_id ();
+  cloudLogRadioEnabled_ = ui_->cbCloudlogRadio->isChecked ();
+  cloudLogRadioName_ = ui_->leCloudlogRadioName->text ().trimmed ();
+  if (cloudLogRadioName_.isEmpty ())
+    {
+      cloudLogRadioName_ = QStringLiteral ("WSJT-X");
+    }
   SelectedActivity_ = ui_->special_op_activity_button_group->checkedId();
   x2ToneSpacing_ = ui_->cbx2ToneSpacing->isChecked ();
   x4ToneSpacing_ = ui_->cbx4ToneSpacing->isChecked ();
@@ -5338,7 +5357,8 @@ void Configuration::impl::on_pbTestCloudlog_clicked ()
 {
   cloudlog_.checkConnection ({ui_->leCloudlogApiUrl->text (),
                               ui_->leCloudlogApiKey->text (),
-                              cloudlog_station_profile_id ()});
+                              cloudlog_station_profile_id (), ui_->cbCloudlogRadio->isChecked (),
+                              ui_->cbCloudlog->isChecked ()});
 }
 
 void Configuration::impl::handle_cloudlog_connection_check_result (Cloudlog::ConnectionCheckResult const& result)
@@ -5408,14 +5428,23 @@ qint32 Configuration::impl::cloudlog_station_profile_id () const
 
 void Configuration::impl::on_cbCloudlog_toggled (bool checked)
 {
-  ui_->api_url_label->setEnabled (checked);
-  ui_->api_key_label->setEnabled (checked);
+  auto const radio_enabled = ui_->cbCloudlogRadio->isChecked ();
+  auto const enabled = checked || radio_enabled;
+  ui_->api_url_label->setEnabled (enabled);
+  ui_->api_key_label->setEnabled (enabled);
   ui_->station_profile_label->setEnabled (checked);
-  ui_->leCloudlogApiUrl->setEnabled (checked);
-  ui_->leCloudlogApiKey->setEnabled (checked);
+  ui_->leCloudlogApiUrl->setEnabled (enabled);
+  ui_->leCloudlogApiKey->setEnabled (enabled);
   ui_->cbCloudlogStationProfile->setEnabled (checked);
-  ui_->pbTestCloudlog->setEnabled (checked);
+  ui_->pbTestCloudlog->setEnabled (enabled);
+  ui_->cloudlog_radio_name_label->setEnabled (radio_enabled);
+  ui_->leCloudlogRadioName->setEnabled (radio_enabled);
   ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: none;}");
+}
+
+void Configuration::impl::on_cbCloudlogRadio_toggled (bool)
+{
+  on_cbCloudlog_toggled (ui_->cbCloudlog->isChecked ());
 }
 
 void Configuration::impl::on_cbEQSL_toggled (bool checked)

@@ -47,16 +47,21 @@ public:
   struct ConnectionCheckRequest
   {
     ConnectionCheckRequest () = default;
-    ConnectionCheckRequest (QString const& url, QString const& apiKey, qint32 stationId)
+    ConnectionCheckRequest (QString const& url, QString const& apiKey, qint32 stationId,
+                            bool radioEnabled = false, bool qsoEnabled = true)
       : url {url}
       , apiKey {apiKey}
       , stationId {stationId}
+      , radioEnabled {radioEnabled}
+      , qsoEnabled {qsoEnabled}
     {
     }
 
     QString url;
     QString apiKey;
     qint32 stationId {0};
+    bool radioEnabled {false};
+    bool qsoEnabled {true};
   };
 
   struct StationProfile
@@ -119,11 +124,20 @@ public:
   static QString stationProfileDisplayText (StationProfile const& profile);
   static QByteArray qsoUploadPayload (QString const& apiKey, qint32 stationId, QByteArray const& ADIF);
 
+  struct RadioState
+  {
+    quint64 txFrequency {0};
+    quint64 rxFrequency {0};
+    QString mode;
+  };
+
   void logQso (QByteArray ADIF);
+  void updateRadio (RadioState const& state);
   Q_SLOT void checkConnection (ConnectionCheckRequest const& request);
 
   Q_SIGNAL void connection_check_finished (ConnectionCheckResult const& result) const;
   Q_SIGNAL void qso_upload_finished (UploadResult const& result) const;
+  Q_SIGNAL void radio_status_finished (UploadResult const& result) const;
 
 private:
   class impl;

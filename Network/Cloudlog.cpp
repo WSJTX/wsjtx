@@ -6,6 +6,7 @@
 
 #include <QApplication>
 #include <QDate>
+#include <QElapsedTimer>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -16,6 +17,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QTimer>
 #include <QUrl>
 #include <QVariant>
 #include <QXmlStreamReader>
@@ -653,8 +655,111 @@ public:
     startConnectionCheck ();
   }
 
+  void updateRadio (Cloudlog::RadioState const& state)
+  {
+    if (!config_ || !config_->cloudlog_radio_enabled () || !state.txFrequency || !state.rxFrequency)
+      {
+        if (radio_reply_)
+          {
+            disconnect (radio_reply_, nullptr, this, nullptr);
+            radio_reply_->abort ();
+            radio_reply_->deleteLater ();
+            radio_reply_ = nullptr;
+          }
+        radio_attempt_.invalidate ();
+        return;
+      }
+    if (radio_reply_)
+      {
+        return;
+      }
+
+    auto const base_url = Cloudlog::normalizeBaseUrl (config_->cloudlog_api_url ());
+    auto const api_key = config_->cloudlog_api_key ();
+    if (base_url.isEmpty () || api_key.isEmpty ())
+      {
+        return;
+      }
+    auto const v2 = usesApiV2 (api_key);
+    QJsonObject object;
+    object.insert (QStringLiteral ("radio"), config_->cloudlog_radio_name ());
+    object.insert (QStringLiteral ("frequency"), static_cast<qint64> (state.txFrequency));
+    object.insert (QStringLiteral ("frequency_rx"), static_cast<qint64> (state.rxFrequency));
+    object.insert (QStringLiteral ("mode"), state.mode);
+    object.insert (QStringLiteral ("mode_rx"), state.mode);
+    if (!v2)
+      {
+        object.insert (QStringLiteral ("key"), api_key);
+      }
+    auto const payload = QJsonDocument {object}.toJson (QJsonDocument::Compact);
+    if (radio_attempt_.isValid () && base_url == radio_base_url_ && api_key == radio_api_key_)
+      {
+        auto const elapsed = radio_attempt_.elapsed ();
+        if (elapsed < (radio_succeeded_ ? 1000 : 30000)
+            || (radio_succeeded_ && payload == radio_payload_ && elapsed < 60000))
+          {
+            return;
+          }
+      }
+
+    radio_base_url_ = base_url;
+    radio_api_key_ = api_key;
+    radio_payload_ = payload;
+    radio_attempt_.start ();
+    radio_succeeded_ = false;
+    QString http_fallback;
+    auto const preferred_url = httpsFirstBaseUrl (base_url, http_fallback);
+    startRadioUpload (preferred_url, payload, http_fallback, v2, api_key);
+  }
+
 private:
   using Layouts = std::array<EndpointLayout, 2>;
+
+  void startRadioUpload (QString const& baseUrl, QByteArray const& payload, QString const& httpFallback,
+                         bool v2, QString const& apiKey)
+  {
+    auto const url = v2 ? v2EndpointUrl (baseUrl, QStringLiteral ("radio"))
+      : QUrl {baseUrl + endpointPath (uploadLayoutCache ().value (baseUrl, EndpointLayout::IndexPhpApi),
+                                    QStringLiteral ("radio"))};
+    auto const request = v2 ? v2PostRequest (url, apiKey) : jsonPostRequest (url);
+    radio_reply_ = network_manager_->post (request, payload);
+    auto * reply = radio_reply_.data ();
+    QTimer::singleShot (10000, reply, [reply] { reply->abort (); });
+    connect (reply, &QNetworkReply::finished, this, [this, reply, payload, httpFallback, v2, apiKey] {
+      radio_reply_ = nullptr;
+      if (!httpFallback.isEmpty () && canRetryUploadOverHttp (*reply))
+        {
+          reply->deleteLater ();
+          startRadioUpload (httpFallback, payload, {}, v2, apiKey);
+          return;
+        }
+
+      auto const status = httpStatus (*reply);
+      Cloudlog::UploadResult result;
+      result.httpStatusCode = status;
+      auto const object = QJsonDocument::fromJson (reply->readAll ()).object ();
+      auto const valid_response = v2
+        ? !object.value (QStringLiteral ("data")).toObject ().value (QStringLiteral ("radio")).toString ().isEmpty ()
+        : lowerString (object, "status") == QLatin1String ("success");
+      if (reply->error () == QNetworkReply::NoError && (status == 200 || status == 201)
+          && valid_response)
+        {
+          result.status = Cloudlog::UploadStatus::Success;
+          radio_succeeded_ = true;
+        }
+      else
+        {
+          result.status = !status ? Cloudlog::UploadStatus::NetworkError
+            : status >= 400 ? Cloudlog::UploadStatus::HttpError : Cloudlog::UploadStatus::UnexpectedResponse;
+          result.message = tr ("Live radio status could not be sent to Wavelog.");
+          auto const fallback = reply->error () != QNetworkReply::NoError ? reply->errorString ()
+            : tr ("HTTP status %1 did not include a valid radio status response.").arg (status);
+          result.detail = v2 ? v2FailureDetail (object, fallback) : responseFailureDetail (object, fallback);
+        }
+      Q_EMIT self_->radio_status_finished (result);
+      reply->deleteLater ();
+    });
+  }
 
   void startConnectionCheck ()
   {
@@ -765,10 +870,14 @@ private:
     QStringList missing_scopes;
     for (auto const& required : {QStringLiteral ("qso:write"), QStringLiteral ("station:read")})
       {
-        if (!scopes.contains (required))
+        if (check_request_.qsoEnabled && !scopes.contains (required))
           {
             missing_scopes.append (required);
           }
+      }
+    if (check_request_.radioEnabled && !scopes.contains (QStringLiteral ("radio:write")))
+      {
+        missing_scopes.append (QStringLiteral ("radio:write"));
       }
     if (!missing_scopes.isEmpty ())
       {
@@ -779,7 +888,17 @@ private:
         return;
       }
 
-    startV2Station ();
+    if (check_request_.qsoEnabled)
+      {
+        startV2Station ();
+      }
+    else
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::Success,
+                 tr ("Connection check passed."),
+                 tr ("Wavelog API v2 token has the required live radio reporting scope."),
+                 check_request_.url});
+      }
   }
 
   void startV2Station ()
@@ -985,12 +1104,22 @@ private:
     switch (result.status)
       {
       case AuthStatus::Writable:
-        startStationInfo ();
+        if (check_request_.qsoEnabled)
+          {
+            startStationInfo ();
+          }
+        else
+          {
+            finish ({Cloudlog::ConnectionCheckStatus::Success,
+                     tr ("Connection check passed."),
+                     tr ("API key is writable for live radio reporting."),
+                     check_request_.url});
+          }
         break;
       case AuthStatus::ReadOnly:
         finish ({Cloudlog::ConnectionCheckStatus::ReadOnlyKey,
                  tr ("API key is valid but read-only."),
-                 tr ("Generate a read/write API key before enabling QSO uploads."),
+                 tr ("Generate a read/write API key before enabling uploads."),
                  check_request_.url});
         break;
       case AuthStatus::Invalid:
@@ -1322,6 +1451,12 @@ private:
   QNetworkAccessManager * network_manager_;
   QPointer<QNetworkReply> upload_reply_;
   QPointer<QNetworkReply> check_reply_;
+  QPointer<QNetworkReply> radio_reply_;
+  QElapsedTimer radio_attempt_;
+  QString radio_base_url_;
+  QString radio_api_key_;
+  QByteArray radio_payload_;
+  bool radio_succeeded_ {false};
   Cloudlog::ConnectionCheckRequest check_request_;
   ApiVersion check_api_version_ {ApiVersion::Legacy};
   EndpointLayout validated_auth_layout_ {EndpointLayout::IndexPhpApi};
@@ -1405,4 +1540,9 @@ void Cloudlog::checkConnection (ConnectionCheckRequest const& request)
 void Cloudlog::logQso (QByteArray ADIF)
 {
   m_->logQso (ADIF);
+}
+
+void Cloudlog::updateRadio (RadioState const& state)
+{
+  m_->updateRadio (state);
 }

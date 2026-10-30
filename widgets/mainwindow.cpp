@@ -1347,6 +1347,24 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // hook up configuration signals
   connect (&m_config, &Configuration::leavingSettings, this, &MainWindow::handle_leavingSettings);
+  auto * wavelog_radio_timer = new QTimer {this};
+  connect (wavelog_radio_timer, &QTimer::timeout, this, [this] {
+    Cloudlog::RadioState state;
+    if (m_config.is_transceiver_online ())
+      {
+        state.txFrequency = m_operatingFrequency.tx ();
+        state.rxFrequency = m_operatingFrequency.rx ();
+        state.mode = m_mode;
+      }
+    m_cloudlog.updateRadio (state);
+  });
+  wavelog_radio_timer->start (1000);
+  connect (&m_cloudlog, &Cloudlog::radio_status_finished, this, [this] (Cloudlog::UploadResult const& result) {
+    if (result.status != Cloudlog::UploadStatus::Success)
+      {
+        showStatusMessage (result.message);
+      }
+  });
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
   m_config.set_frequency_activity_provider ([this] { return rigFrequencyActivity (); });
   connect (&m_config, &Configuration::frequency_result, this,
@@ -13039,6 +13057,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 void MainWindow::handle_transceiver_closing (bool failed)
 {
   m_operatingFrequency.disconnect ();
+  m_cloudlog.updateRadio ({});
   if (m_tci_audio)
     {
       m_receiveConsumer.invalidate ();

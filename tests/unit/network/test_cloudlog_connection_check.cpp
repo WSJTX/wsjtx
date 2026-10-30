@@ -23,6 +23,11 @@ public:
   QString url;
   QString apiKey;
   qint32 stationId {0};
+  bool radioEnabled {false};
+  QString radioName {QStringLiteral ("WSJT-X")};
+
+  bool cloudlog_radio_enabled () const override {return radioEnabled;}
+  QString cloudlog_radio_name () const override {return radioName;}
 
   QString cloudlog_api_url () const override
   {
@@ -218,11 +223,12 @@ namespace
 
   Cloudlog::ConnectionCheckResult runCheck (FakeNetworkAccessManager& network, int stationId = 7,
                                              QString const& url = QStringLiteral (" https://example.test/api/qso/ "),
-                                             QString const& apiKey = QStringLiteral ("secret/key"))
+                                             QString const& apiKey = QStringLiteral ("secret/key"),
+                                             bool radioEnabled = false, bool qsoEnabled = true)
   {
     Cloudlog cloudlog {nullptr, &network};
     QSignalSpy spy {&cloudlog, &Cloudlog::connection_check_finished};
-    cloudlog.checkConnection ({url, apiKey, stationId});
+    cloudlog.checkConnection ({url, apiKey, stationId, radioEnabled, qsoEnabled});
     if (spy.isEmpty ())
       {
         spy.wait (1000);
@@ -284,6 +290,189 @@ private Q_SLOTS:
     qRegisterMetaType<Cloudlog::ConnectionCheckResult> ("ConnectionCheckResult");
     qRegisterMetaType<Cloudlog::UploadResult> ("Cloudlog::UploadResult");
     qRegisterMetaType<Cloudlog::UploadResult> ("UploadResult");
+  }
+
+  void requiresRadioScopeOnlyWhenLiveStatusIsEnabled ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueJson (200, json (R"({"data":{"name":"Wavelog API","status":"ok"}})"));
+    network.queueJson (200, json (R"({"data":{"scopes":["station:read","qso:write"]}})"));
+    auto const result = runCheck (network, 7, QStringLiteral ("https://wavelog.example"),
+                                  QStringLiteral ("wl2_secret"), true);
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::InsufficientScope);
+    QCOMPARE (result.detail, QStringLiteral ("Required scopes: radio:write"));
+    QCOMPARE (network.requests ().size (), 2);
+  }
+
+  void doesNotPublishRadioUnlessEnabledAndOnline ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_secret"), 7};
+    Cloudlog cloudlog {&config, &network};
+    cloudlog.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+    QVERIFY (network.requests ().isEmpty ());
+    config.radioEnabled = true;
+    cloudlog.updateRadio ({});
+    QVERIFY (network.requests ().isEmpty ());
+  }
+
+  void acceptsRadioOnlyTokenWithoutQsoOrStationScopes ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueJson (200, json (R"({"data":{"name":"Wavelog API","status":"ok"}})"));
+    network.queueJson (200, json (R"({"data":{"scopes":["radio:write"]}})"));
+    auto const result = runCheck (network, 0, QStringLiteral ("https://wavelog.example"),
+                                  QStringLiteral ("wl2_secret"), true, false);
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::Success);
+    QCOMPARE (network.requests ().size (), 2);
+  }
+
+  void acceptsLegacyRadioOnlyCheckWithoutStationOrQsoUpload ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueWritableJsonAuth ();
+    auto const result = runCheck (network, 0, QStringLiteral ("https://wavelog.example"),
+                                  QStringLiteral ("legacy-secret"), true, false);
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::Success);
+    QCOMPARE (network.requests ().size (), 1);
+  }
+
+  void rejectsHtmlInsteadOfRadioApiSuccess ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("https://wavelog.example"), QStringLiteral ("legacy-secret"), 7};
+    config.radioEnabled = true;
+    network.queueJson (200, QByteArray {"<html>Login required</html>"});
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::radio_status_finished};
+    cloudlog.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+    QVERIFY (spy.wait (1000));
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (spy.at (0).at (0)).status,
+              Cloudlog::UploadStatus::UnexpectedResponse);
+  }
+
+  void publishesRadioWithV2BearerToken ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_secret"), 7};
+    config.radioEnabled = true;
+    config.radioName = QStringLiteral ("Digital station");
+    network.queueJson (201, json (R"({"data":{"radio":"Digital station","frequency":14075000}})"));
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::radio_status_finished};
+    cloudlog.updateRadio ({14075000, 14074000, QStringLiteral ("FT8")});
+    QVERIFY (spy.wait (1000));
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (spy.at (0).at (0)).status, Cloudlog::UploadStatus::Success);
+    auto const request = network.requests ().at (0);
+    QCOMPARE (request.url.path (), QStringLiteral ("/index.php/api/v2/radio"));
+    QCOMPARE (request.authorization, QByteArray {"Bearer wl2_secret"});
+    QCOMPARE (request.redirectPolicy, int (QNetworkRequest::NoLessSafeRedirectPolicy));
+    auto const payload = QJsonDocument::fromJson (request.payload).object ();
+    QCOMPARE (payload.value (QStringLiteral ("radio")).toString (), config.radioName);
+    QCOMPARE (payload.value (QStringLiteral ("frequency")).toInt (), 14075000);
+    QCOMPARE (payload.value (QStringLiteral ("frequency_rx")).toInt (), 14074000);
+    QCOMPARE (payload.value (QStringLiteral ("mode")).toString (), QStringLiteral ("FT8"));
+    QCOMPARE (payload.value (QStringLiteral ("mode_rx")).toString (), QStringLiteral ("FT8"));
+    QVERIFY (!request.payload.contains ("wl2_secret"));
+    QVERIFY (!request.url.toString ().contains (QStringLiteral ("wl2_secret")));
+    cloudlog.updateRadio ({14075000, 14074000, QStringLiteral ("FT8")});
+    QCOMPARE (network.requests ().size (), 1);
+  }
+
+  void publishesRadioWithLegacyKeyInBody ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("https://wavelog.example"), QStringLiteral ("legacy-secret"), 7};
+    config.radioEnabled = true;
+    network.queueJson (200, json (R"({"status":"success"})"));
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::radio_status_finished};
+    cloudlog.updateRadio ({7074000, 7074000, QStringLiteral ("FT8")});
+    QVERIFY (spy.wait (1000));
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (spy.at (0).at (0)).status, Cloudlog::UploadStatus::Success);
+    auto const request = network.requests ().at (0);
+    QCOMPARE (request.url.path (), QStringLiteral ("/index.php/api/radio"));
+    QVERIFY (request.authorization.isEmpty ());
+    QCOMPARE (QJsonDocument::fromJson (request.payload).object ().value (QStringLiteral ("key")).toString (), config.apiKey);
+  }
+
+  void publishesLatestRadioStateWithoutOverlappingRequests ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_secret"), 7};
+    config.radioEnabled = true;
+    network.queueResponse ({200, json (R"({"data":{"radio":"WSJT-X"}})"), QNetworkReply::NoError, {}, false});
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::radio_status_finished};
+    cloudlog.updateRadio ({14075000, 14074000, QStringLiteral ("FT8")});
+    cloudlog.updateRadio ({7074000, 7074000, QStringLiteral ("FT4")});
+    QCOMPARE (network.requests ().size (), 1);
+    network.replies ().at (0)->finishNow ();
+    QTest::qWait (1100);
+    cloudlog.updateRadio ({14075000, 14074000, QStringLiteral ("FT8")});
+    QCOMPARE (network.requests ().size (), 1);
+    network.queueJson (200, json (R"({"data":{"radio":"WSJT-X"}})"));
+    cloudlog.updateRadio ({7074000, 7074000, QStringLiteral ("FT4")});
+    QVERIFY (spy.wait (1000));
+    QCOMPARE (network.requests ().size (), 2);
+    auto const payload = QJsonDocument::fromJson (network.requests ().at (1).payload).object ();
+    QCOMPARE (payload.value (QStringLiteral ("frequency")).toInt (), 7074000);
+    QCOMPARE (payload.value (QStringLiteral ("frequency_rx")).toInt (), 7074000);
+    QCOMPARE (payload.value (QStringLiteral ("mode")).toString (), QStringLiteral ("FT4"));
+  }
+
+  void preservesRadioBearerTokenAcrossHttpFallback ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("http://wavelog.example"), QStringLiteral ("wl2_secret"), 7};
+    config.radioEnabled = true;
+    network.queueResponse ({0, {}, QNetworkReply::SslHandshakeFailedError, QStringLiteral ("TLS unavailable")});
+    network.queueJson (200, json (R"({"data":{"radio":"WSJT-X"}})"));
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::radio_status_finished};
+    cloudlog.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+    QVERIFY (spy.wait (1000));
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (spy.at (0).at (0)).status, Cloudlog::UploadStatus::Success);
+    QCOMPARE (network.requests ().size (), 2);
+    QCOMPARE (network.requests ().at (0).url.scheme (), QStringLiteral ("https"));
+    QCOMPARE (network.requests ().at (1).url.scheme (), QStringLiteral ("http"));
+    QCOMPARE (network.requests ().at (1).authorization, QByteArray {"Bearer wl2_secret"});
+    QCOMPARE (network.requests ().at (1).payload, network.requests ().at (0).payload);
+  }
+
+  void backsOffRadioErrorsWithoutProtocolOrHttpFallback ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("http://wavelog.example"), QStringLiteral ("wl2_secret"), 7};
+    config.radioEnabled = true;
+    network.queueJson (403, json (R"({"error":{"message":"Missing radio:write"}})"), QNetworkReply::ContentAccessDenied);
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::radio_status_finished};
+    cloudlog.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+    QVERIFY (spy.wait (1000));
+    auto const result = qvariant_cast<Cloudlog::UploadResult> (spy.at (0).at (0));
+    QCOMPARE (result.status, Cloudlog::UploadStatus::HttpError);
+    QCOMPARE (result.detail, QStringLiteral ("Missing radio:write"));
+    cloudlog.updateRadio ({7074000, 7074000, QStringLiteral ("FT8")});
+    QCOMPARE (network.requests ().size (), 1);
+  }
+
+  void cancelsRadioReportingWhenDisabled ()
+  {
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_secret"), 7};
+    config.radioEnabled = true;
+    network.queueResponse ({200, {}, QNetworkReply::NoError, {}, false});
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::radio_status_finished};
+    cloudlog.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+    auto reply = network.replies ().at (0);
+    config.radioEnabled = false;
+    cloudlog.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+    QCOMPARE (reply->error (), QNetworkReply::OperationCanceledError);
+    reply->finishNow ();
+    QVERIFY (spy.isEmpty ());
+    QCOMPARE (network.requests ().size (), 1);
   }
 
   void normalizesBaseUrl_data ()

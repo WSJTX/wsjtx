@@ -204,6 +204,8 @@ public:
   QString cloudlog_api_url () const override;
   QString cloudlog_api_key () const override;
   qint32 cloudlog_api_station_id () const override;
+  bool cloudlog_radio_enabled () const override;
+  QString cloudlog_radio_name () const override;
   bool prompt_to_log () const;
   bool autoLog() const;
   bool contestingOnly() const;
