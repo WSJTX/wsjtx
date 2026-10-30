@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <cmath>
 #include <optional>
 #include <boost/multi_index_container.hpp>
@@ -633,6 +634,27 @@ AD1CCty::AD1CCty (Configuration const * configuration)
       bool block_rejected = false;
       QString pending_prefix;
       std::array<QString, maxIndex> pending_states;
+      std::bitset<maxIndex> populated_cells;
+      auto finish_block = [&] (bool terminated) {
+        int kept = 0;
+        if (block_valid)
+          {
+            auto const duplicate = std::find (std::begin (gridPrefix), std::begin (gridPrefix) + gridNumPrefix, pending_prefix);
+            if (duplicate != std::begin (gridPrefix) + gridNumPrefix)
+              diagnostics.add (block_line, "duplicate grid prefix");
+            else if (gridNumPrefix < maxPrefix)
+              {
+                gridPrefix[gridNumPrefix] = pending_prefix;
+                for (int i = 0; i < maxIndex; ++i) gridState[gridNumPrefix][i] = pending_states[i];
+                ++gridNumPrefix;
+                kept = static_cast<int> (populated_cells.count ());
+              }
+            else diagnostics.add (block_line, "excess grid prefix");
+          }
+        if (!terminated && !block_rejected)
+          diagnostics.add (block_line, QString {"grid block missing '>'; kept %1 cells"}.arg (kept));
+        block_open = false;
+      };
       QTextStream in {&file1};
       while (!in.atEnd ())
         {
@@ -644,7 +666,7 @@ AD1CCty::AD1CCty (Configuration const * configuration)
           auto const header = line.indexOf ('<');
           if (header >= 0 && separator < 0)
             {
-              if (block_open && !block_rejected) diagnostics.add (block_line, "incomplete grid block");
+              if (block_open) finish_block (false);
               block_line = line_number;
               pending_prefix = line.left (header).trimmed ();
               block_valid = valid_grid_prefix (pending_prefix);
@@ -652,6 +674,7 @@ AD1CCty::AD1CCty (Configuration const * configuration)
               if (block_rejected) diagnostics.add (block_line, "invalid grid prefix");
               block_open = true;
               pending_states.fill (QString {"**"});
+              populated_cells.reset ();
               if (!line.mid (header + 1).contains ('>')) continue;
             }
 
@@ -673,6 +696,7 @@ AD1CCty::AD1CCty (Configuration const * configuration)
               if (block_valid && parse_grid_index (index_text, grid_index) && !state.isEmpty ())
                 {
                   pending_states[grid_index] = state;
+                  populated_cells.set (grid_index);
                 }
               else
                 {
@@ -684,30 +708,9 @@ AD1CCty::AD1CCty (Configuration const * configuration)
               diagnostics.add (line_number, "invalid grid cell");
             }
 
-          if (end >= 0)
-            {
-              if (block_valid)
-                {
-                  auto const duplicate = std::find (std::begin (gridPrefix), std::begin (gridPrefix) + gridNumPrefix, pending_prefix);
-                  if (duplicate != std::begin (gridPrefix) + gridNumPrefix)
-                    {
-                      diagnostics.add (block_line, "duplicate grid prefix");
-                    }
-                  else if (gridNumPrefix < maxPrefix)
-                    {
-                      gridPrefix[gridNumPrefix] = pending_prefix;
-                      for (int i = 0; i < maxIndex; ++i) gridState[gridNumPrefix][i] = pending_states[i];
-                      ++gridNumPrefix;
-                    }
-                  else
-                    {
-                      diagnostics.add (block_line, "excess grid prefix");
-                    }
-                }
-              block_open = false;
-            }
+          if (end >= 0) finish_block (true);
         }
-      if (block_open && !block_rejected) diagnostics.add (block_line, "incomplete grid block");
+      if (block_open) finish_block (false);
       diagnostics.report (file1.fileName ());
     }
   }

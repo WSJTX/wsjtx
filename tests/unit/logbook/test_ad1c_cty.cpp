@@ -66,7 +66,9 @@ private Q_SLOTS:
   void handles_invalid_overrides ();
   void loads_bundled_grid_file ();
   void bounds_grid_prefixes_and_indices ();
-  void discards_incomplete_grid_blocks ();
+  void recovers_unterminated_grid_blocks ();
+  void bounds_recovered_grid_blocks ();
+  void keeps_first_recovered_grid_block ();
   void requires_two_digit_grid_lookup ();
   void ignores_duplicate_grid_blocks ();
   void accepts_grid_line_separators ();
@@ -629,11 +631,13 @@ void TestAD1CCty::loads_bundled_grid_file ()
   qInfo () << "Validated" << blocks << "grid blocks and" << cells << "cells";
 }
 
-void TestAD1CCty::discards_incomplete_grid_blocks ()
+void TestAD1CCty::recovers_unterminated_grid_blocks ()
 {
   auto const contents = QByteArray {
     "AA<\n"
-    "00:DISCARDED,\n"
+    "00:KEPT,\n"
+    "01:,\n"
+    "02:ALSO-KEPT\n"
     "BB<\n"
     "01:KEPT>\n"
     "CC<\n"
@@ -644,12 +648,39 @@ void TestAD1CCty::discards_incomplete_grid_blocks ()
     "04:EOF-INCOMPLETE,\n"};
   QVERIFY (write_data_file ("grid.dat", contents));
 
+  LogCapture log;
   AD1CCty countries {configuration_.get ()};
-  QCOMPARE (countries.findState ("AA00"), QString {"**"});
+  QCOMPARE (countries.findState ("AA00"), QString {"KEPT"});
+  QCOMPARE (countries.findState ("AA01"), QString {"**"});
+  QCOMPARE (countries.findState ("AA02"), QString {"ALSO-KEPT"});
   QCOMPARE (countries.findState ("BB01"), QString {"KEPT"});
-  QCOMPARE (countries.findState ("CC02"), QString {"**"});
+  QCOMPARE (countries.findState ("CC02"), QString {"INCOMPLETE"});
   QCOMPARE (countries.findState ("dD03"), QString {"**"});
-  QCOMPARE (countries.findState ("EE04"), QString {"**"});
+  QCOMPARE (countries.findState ("EE04"), QString {"EOF-INCOMPLETE"});
+  QVERIFY (log.text ().contains ("line 1: grid block missing '>'; kept 2 cells"));
+  QVERIFY (log.text ().contains ("line 3: invalid grid cell"));
+}
+
+void TestAD1CCty::bounds_recovered_grid_blocks ()
+{
+  QByteArray contents;
+  for (int i = 0; i < 26; ++i)
+    contents += QByteArray {"A"} + char ('A' + i) + "<\n00:KEPT\n";
+  QVERIFY (write_data_file ("grid.dat", contents));
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.findState ("AY00"), QString {"KEPT"});
+  QCOMPARE (countries.findState ("AZ00"), QString {"**"});
+}
+
+void TestAD1CCty::keeps_first_recovered_grid_block ()
+{
+  QVERIFY (write_data_file ("grid.dat", QByteArray {"AA<\n00:FIRST,\nAA<\n01:SECOND>\n"}));
+  LogCapture log;
+  AD1CCty countries {configuration_.get ()};
+  // Recovering the partial first block still reserves its prefix.
+  QCOMPARE (countries.findState ("AA00"), QString {"FIRST"});
+  QCOMPARE (countries.findState ("AA01"), QString {"**"});
+  QVERIFY (log.text ().contains ("line 3: duplicate grid prefix"));
 }
 
 void TestAD1CCty::requires_two_digit_grid_lookup ()
