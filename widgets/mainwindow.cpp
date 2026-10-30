@@ -12881,12 +12881,12 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
     ui->WSPRfreqSpinBox->setValue(txFreq);
   } else {
     if (ui->TxFreqSpinBox->isEnabled ()) {
+      auto const previousTxFreq = ui->TxFreqSpinBox->value ();
       ui->TxFreqSpinBox->setValue(txFreq);
-      if ("FT8" == m_mode || "FT4" == m_mode || m_mode=="FST4")
+      if (m_transmitting && ui->TxFreqSpinBox->value () != previousTxFreq
+          && ("FT8" == m_mode || "FT4" == m_mode || m_mode=="FST4"))
         {
-          // we need to regenerate the current transmit waveform for
-          // GFSK modulated modes
-          if (m_transmitting) m_restart = true;
+          m_restart = true;
         }
     }
     else if (vhf_dial_adjustment) {
