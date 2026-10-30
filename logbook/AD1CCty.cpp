@@ -3,6 +3,7 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <optional>
 #include <boost/multi_index_container.hpp>
@@ -102,6 +103,22 @@ namespace
     else if ("SA" == id) continent = AD1CCty::Continent::SA;
     else return false;
     return true;
+  }
+
+  bool parse_grid_index (QString const& text, int& index)
+  {
+    if (text.size () != 2
+        || text[0] < QLatin1Char {'0'} || text[0] > QLatin1Char {'9'}
+        || text[1] < QLatin1Char {'0'} || text[1] > QLatin1Char {'9'}) return false;
+    index = (text[0].unicode () - '0') * 10 + text[1].unicode () - '0';
+    return true;
+  }
+
+  bool valid_grid_prefix (QString const& prefix)
+  {
+    return prefix.size () == 2
+      && prefix[0] >= QLatin1Char {'A'} && prefix[0] <= QLatin1Char {'Z'}
+      && prefix[1] >= QLatin1Char {'A'} && prefix[1] <= QLatin1Char {'Z'};
   }
 }
 
@@ -617,50 +634,90 @@ AD1CCty::AD1CCty (Configuration const * configuration)
 
   if (file1.open (QFile::ReadOnly))
     {
-       int line_number [[maybe_unused]] {0};
-       QTextStream in {&file1};
-       while (!in.atEnd ())
-       {
-          auto const& entity_line = in.readLine ();
+      parse_diagnostics diagnostics;
+      int line_number = 0;
+      int block_line = 0;
+      bool block_open = false;
+      bool block_valid = false;
+      bool block_rejected = false;
+      QString pending_prefix;
+      std::array<QString, maxIndex> pending_states;
+      QTextStream in {&file1};
+      while (!in.atEnd ())
+        {
+          auto const line = in.readLine ().trimmed ();
           ++line_number;
-          if (!in.atEnd () && entity_line.length() > 0 && entity_line.contains("<"))
-          {
-              //std::cout << entity_line.toStdString() << '\n';
-              if (entity_line.contains("<")) {
-                auto const& entity_parts = entity_line.split ('<');
-                //std::cout << "Grid prefix: " << entity_parts[0].toStdString() << '\n';
-                gridPrefix[gridNumPrefix] = entity_parts[0];
-                gridNumPrefix++;
-                while (!in.atEnd()) {
-                    auto const& entity_grid_line = in.readLine();
-                    if (entity_grid_line.length()  > 1 &&
-                            entity_grid_line.contains(":") &&
-                            entity_grid_line.contains(",")) {
-                        auto const& entity_parts = entity_grid_line.split(":");
-                        //std::cout << "Grid Indxes: " << entity_parts[0].trimmed().toStdString() << " " ;
+          if (line.isEmpty ()) continue;
 
-                        auto const& entity_temp = entity_parts[1].split(",");
-                        auto const & entity_state = entity_temp[0];
-                        //std::cout << "State: " << entity_state.toStdString() << '\n';
-                        gridState[gridNumPrefix - 1] [entity_parts[0].toInt()] = entity_state;
+          auto const separator = line.indexOf (':');
+          auto const header = line.indexOf ('<');
+          if (header >= 0 && separator < 0)
+            {
+              if (block_open && !block_rejected) diagnostics.add (block_line, "incomplete grid block");
+              block_line = line_number;
+              pending_prefix = line.left (header).trimmed ();
+              block_valid = valid_grid_prefix (pending_prefix);
+              block_rejected = !block_valid;
+              if (block_rejected) diagnostics.add (block_line, "invalid grid prefix");
+              block_open = true;
+              pending_states.fill (QString {"**"});
+              if (!line.mid (header + 1).contains ('>')) continue;
+            }
 
-                    } else if (entity_grid_line.length()  > 1 &&
-                               entity_grid_line.contains(":") &&
-                               entity_grid_line.contains(">")) {
-                        auto const& entity_parts = entity_grid_line.split(":");
-                        //std::cout << "Grid Indxes: " <<  entity_parts[0].trimmed().toStdString() << " ";
+          if (!block_open)
+            {
+              diagnostics.add (line_number, "grid cell outside a block");
+              continue;
+            }
 
-                        auto const& entity_temp = entity_parts[1].split(">");
-                        auto const & entity_state = entity_temp[0];
-                        //std::cout << "State: " << entity_state.toStdString() << '\n';
-                        gridState[gridNumPrefix - 1] [entity_parts[0].toInt()] = entity_state;
+          auto const end = line.indexOf ('>');
+          auto const comma = line.indexOf (',');
+          auto const delimiter = end >= 0 && comma >= 0 ? std::min (end, comma) : std::max (end, comma);
+          auto const terminator = delimiter >= 0 ? delimiter : line.size ();
+          if (separator >= 0 && terminator > separator)
+            {
+              int grid_index;
+              auto const index_text = line.left (separator).trimmed ();
+              auto const state = line.mid (separator + 1, terminator - separator - 1).trimmed ();
+              if (block_valid && parse_grid_index (index_text, grid_index) && !state.isEmpty ())
+                {
+                  pending_states[grid_index] = state;
+                }
+              else
+                {
+                  diagnostics.add (line_number, "invalid grid cell");
+                }
+            }
+          else if (header < 0 && end < 0)
+            {
+              diagnostics.add (line_number, "invalid grid cell");
+            }
 
-                        break;
+          if (end >= 0)
+            {
+              if (block_valid)
+                {
+                  auto const duplicate = std::find (std::begin (gridPrefix), std::begin (gridPrefix) + gridNumPrefix, pending_prefix);
+                  if (duplicate != std::begin (gridPrefix) + gridNumPrefix)
+                    {
+                      diagnostics.add (block_line, "duplicate grid prefix");
+                    }
+                  else if (gridNumPrefix < maxPrefix)
+                    {
+                      gridPrefix[gridNumPrefix] = pending_prefix;
+                      for (int i = 0; i < maxIndex; ++i) gridState[gridNumPrefix][i] = pending_states[i];
+                      ++gridNumPrefix;
+                    }
+                  else
+                    {
+                      diagnostics.add (block_line, "excess grid prefix");
                     }
                 }
-              }
-          }
-       }
+              block_open = false;
+            }
+        }
+      if (block_open && !block_rejected) diagnostics.add (block_line, "incomplete grid block");
+      diagnostics.report (file1.fileName ());
     }
   }
 
@@ -728,16 +785,11 @@ auto AD1CCty::findState ( QString const& grid) const -> QString
 
 
     auto const& prefix = grid.left(2);
-    int gridIndex = grid.mid(2,2).toInt();
-    //if (gridIndex < 0 || gridIndex > maxIndex) {
-        //std::cout << "Prefix: " << prefix.toStdString() << " Index " << gridIndex << '\n';
-    //}
-    for (int i = 0; i < gridNumPrefix + 1; i ++) {
+    int gridIndex;
+    if (grid.size () < 4 || !parse_grid_index (grid.mid (2, 2), gridIndex)) return "**";
+    for (int i = 0; i < gridNumPrefix; i ++) {
         if (gridPrefix[i] == prefix) {
             QString state = gridState[i] [gridIndex];
-            //if (state.length() < 2 ) {
-               // std::cout << "Prefix: " << prefix.toStdString() << " Index " << gridIndex << '\n';
-            //}
             return state;
         }
     }

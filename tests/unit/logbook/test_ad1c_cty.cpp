@@ -57,6 +57,12 @@ private Q_SLOTS:
   void applies_valid_overrides ();
   void handles_invalid_overrides_data ();
   void handles_invalid_overrides ();
+  void loads_bundled_grid_file ();
+  void bounds_grid_prefixes_and_indices ();
+  void discards_incomplete_grid_blocks ();
+  void requires_two_digit_grid_lookup ();
+  void ignores_duplicate_grid_blocks ();
+  void accepts_grid_line_separators ();
 
 private:
   QString data_directory () const;
@@ -368,6 +374,128 @@ void TestAD1CCty::handles_invalid_overrides ()
       QCOMPARE (record.UTC_offset, -18000);
     }
   QCOMPARE (countries.lookup ("GOOD").entity_name, QString {"Version Entity"});
+}
+
+void TestAD1CCty::bounds_grid_prefixes_and_indices ()
+{
+  QByteArray contents;
+  for (int i = 0; i < 26; ++i)
+    {
+      auto const prefix = QByteArray {"A"} + static_cast<char> ('A' + i);
+      contents += prefix + "<\n";
+      if (i == 0)
+        {
+          contents += "-1:NEGATIVE,\n";
+          contents += "100:TOO_LARGE,\n";
+          contents += "A0:NONNUMERIC,\n";
+          contents += "0:TOO_SHORT,\n";
+        }
+      contents += "00:STATE" + QByteArray::number (i) + ">\n";
+    }
+  QVERIFY (write_data_file ("grid.dat", contents));
+
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.findState ("AA00"), QString {"STATE0"});
+  QCOMPARE (countries.findState ("AA99"), QString {"**"});
+  QCOMPARE (countries.findState ("AAAA"), QString {"**"});
+  QCOMPARE (countries.findState ("AA-1"), QString {"**"});
+  QCOMPARE (countries.findState ("AY00"), QString {"STATE24"});
+  QCOMPARE (countries.findState ("AZ00"), QString {"**"});
+}
+
+void TestAD1CCty::loads_bundled_grid_file ()
+{
+  QFile source {QFINDTESTDATA ("../../../grid.dat")};
+  QVERIFY (source.open (QIODevice::ReadOnly | QIODevice::Text));
+  QVERIFY (write_data_file ("grid.dat", source.readAll ()));
+
+  LogCapture log;
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.findState ("AL91"), QString {"HI"});
+  QCOMPARE (countries.findState ("BK19"), QString {"HI"});
+  QVERIFY (source.seek (0));
+  QString prefix;
+  int blocks = 0;
+  int cells = 0;
+  while (!source.atEnd ())
+    {
+      auto const line = QString::fromUtf8 (source.readLine ()).trimmed ();
+      if (line.contains ('<'))
+        {
+          prefix = line.section ('<', 0, 0);
+          ++blocks;
+        }
+      if (!line.contains (':')) continue;
+      auto const index = line.section (':', 0, 0).trimmed ();
+      auto const state = line.section (':', 1).section (',', 0, 0).section ('>', 0, 0).trimmed ();
+      QCOMPARE (countries.findState (prefix + index), state);
+      ++cells;
+    }
+  QCOMPARE (blocks, 21);
+  QCOMPARE (cells, 695);
+  QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
+}
+
+void TestAD1CCty::discards_incomplete_grid_blocks ()
+{
+  auto const contents = QByteArray {
+    "AA<\n"
+    "00:DISCARDED,\n"
+    "BB<\n"
+    "01:KEPT>\n"
+    "CC<\n"
+    "02:INCOMPLETE,\n"
+    "dD<\n"
+    "03:INVALID>\n"
+    "EE<\n"
+    "04:EOF-INCOMPLETE,\n"};
+  QVERIFY (write_data_file ("grid.dat", contents));
+
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.findState ("AA00"), QString {"**"});
+  QCOMPARE (countries.findState ("BB01"), QString {"KEPT"});
+  QCOMPARE (countries.findState ("CC02"), QString {"**"});
+  QCOMPARE (countries.findState ("dD03"), QString {"**"});
+  QCOMPARE (countries.findState ("EE04"), QString {"**"});
+}
+
+void TestAD1CCty::requires_two_digit_grid_lookup ()
+{
+  QVERIFY (write_data_file ("grid.dat", QByteArray {
+    "FN<\n"
+    "03:STATE>\n"}));
+
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.findState ("FN03"), QString {"STATE"});
+  QCOMPARE (countries.findState ("FN03AB"), QString {"STATE"});
+  QCOMPARE (countries.findState ("FN3"), QString {"**"});
+  QCOMPARE (countries.findState ("FN+3"), QString {"**"});
+  QCOMPARE (countries.findState ("FN 3"), QString {"**"});
+  QCOMPARE (countries.findState ("FNAA"), QString {"**"});
+}
+
+void TestAD1CCty::ignores_duplicate_grid_blocks ()
+{
+  QByteArray contents {"AA<\n00:FIRST>\nAA<\n01:SECOND>\n"};
+  for (int i = 1; i < 25; ++i)
+    contents += QByteArray {"A"} + char ('A' + i) + "<\n00:KEPT>\n";
+  QVERIFY (write_data_file ("grid.dat", contents));
+  LogCapture log;
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.findState ("AA00"), QString {"FIRST"});
+  QCOMPARE (countries.findState ("AA01"), QString {"**"});
+  QCOMPARE (countries.findState ("AY00"), QString {"KEPT"});
+  QVERIFY (log.text ().contains ("line 3: duplicate grid prefix"));
+}
+
+void TestAD1CCty::accepts_grid_line_separators ()
+{
+  QVERIFY (write_data_file ("grid.dat", QByteArray {"FN<\n00: CA\n01: NV\n>\n"}));
+  LogCapture log;
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.findState ("FN00"), QString {"CA"});
+  QCOMPARE (countries.findState ("FN01"), QString {"NV"});
+  QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
 }
 QTEST_MAIN (TestAD1CCty)
 
