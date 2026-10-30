@@ -1,12 +1,56 @@
 #include <QtTest>
 #include <QDateTime>
 #include <QNetworkAccessManager>
-#include <QNetworkProxy>
 #include <QNetworkReply>
-#include <QTcpServer>
-#include <QUrlQuery>
 
 #include "Network/eqsl.h"
+
+namespace
+{
+  class FakeReply final : public QNetworkReply
+  {
+  public:
+    FakeReply (QNetworkRequest const& request, QObject * parent)
+      : QNetworkReply {parent}
+    {
+      setRequest (request);
+      setUrl (request.url ());
+      setOpenMode (QIODevice::ReadOnly);
+    }
+
+    void abort () override
+    {
+      setError (QNetworkReply::OperationCanceledError, QStringLiteral ("operation canceled"));
+    }
+
+  protected:
+    qint64 readData (char *, qint64) override
+    {
+      return -1;
+    }
+  };
+
+  class FakeNetworkAccessManager final : public QNetworkAccessManager
+  {
+  public:
+    Operation operation {UnknownOperation};
+    QNetworkRequest request;
+    QByteArray body;
+
+  protected:
+    QNetworkReply * createRequest (Operation requestedOperation, QNetworkRequest const& requestedRequest,
+                                   QIODevice * outgoingData) override
+    {
+      operation = requestedOperation;
+      request = requestedRequest;
+      if (outgoingData)
+        {
+          body = outgoingData->readAll ();
+        }
+      return new FakeReply {requestedRequest, this};
+    }
+  };
+}
 
 class TestEqslUpload final : public QObject
 {
@@ -30,27 +74,36 @@ private Q_SLOTS:
     QFETCH (QString, mode);
     QFETCH (QString, fields);
 
-    QTcpServer proxy;
-    QVERIFY (proxy.listen (QHostAddress::LocalHost));
-    EQSL uploader;
-    auto manager = uploader.findChild<QNetworkAccessManager *> ();
-    QVERIFY (manager);
-    manager->setProxy (QNetworkProxy {QNetworkProxy::HttpProxy, "127.0.0.1", proxy.serverPort ()});
+    FakeNetworkAccessManager manager;
+    EQSL uploader {&manager, nullptr};
 
     auto const time = QDateTime {QDate {2026, 10, 15}, QTime {12, 34}, Qt::UTC};
     uploader.upload ("user", "password", "station", "K1ABC", mode, time, "-10", "20m", "TNX");
     uploader.work ();
-    auto const replies = manager->findChildren<QNetworkReply *> ();
-    QCOMPARE (replies.size (), 1);
-    auto const adif = QUrlQuery {replies.front ()->url ()}.queryItemValue ("ADIFdata");
-    replies.front ()->abort ();
+    QCOMPARE (manager.operation, QNetworkAccessManager::PostOperation);
+    QCOMPARE (manager.request.url (), QUrl {QStringLiteral ("https://www.eqsl.cc/qslcard/importADIF.cfm")});
+    QVERIFY (manager.request.url ().query ().isEmpty ());
+    QCOMPARE (manager.request.attribute (QNetworkRequest::RedirectPolicyAttribute).toInt (),
+              static_cast<int> (QNetworkRequest::NoLessSafeRedirectPolicy));
+    QVERIFY (manager.request.header (QNetworkRequest::ContentTypeHeader).toByteArray ().startsWith (
+      "multipart/form-data; boundary="));
+    QVERIFY (manager.body.contains ("name=\"EQSL_USER\""));
+    QVERIFY (manager.body.contains ("\r\n\r\nuser\r\n"));
+    QVERIFY (manager.body.contains ("name=\"EQSL_PSWD\""));
+    QVERIFY (manager.body.contains ("\r\n\r\npassword\r\n"));
+    QVERIFY (manager.body.contains ("name=\"Filename\"; filename=\"wsjtx.adi\""));
 
-    QVERIFY (adif.startsWith ("<ADIF_VER:5>3.1.8"));
+    auto const adif = QString::fromUtf8 (manager.body);
+
+    QVERIFY (adif.contains ("<ADIF_VER:5>3.1.8"));
     QVERIFY2 (adif.contains (fields + "<QSO_DATE:"), qPrintable (adif));
     QCOMPARE (adif.contains ("<SUBMODE:"), mode != "FT8" && mode != "RTTY");
-    QVERIFY (adif.contains ("<EQSL_USER:4>user<EQSL_PSWD:8>password"));
+    QVERIFY (!adif.contains ("<EQSL_USER:"));
+    QVERIFY (!adif.contains ("<EQSL_PSWD:"));
     QVERIFY (adif.contains ("<QSO_DATE:8>20261015<TIME_ON:4>1234"));
-    QVERIFY (adif.endsWith ("<QSLMSG:3>TNX<EOR>"));
+    QVERIFY (adif.contains ("<QSLMSG:3>TNX<EOR>"));
+    QVERIFY (!manager.request.url ().toString ().contains (QStringLiteral ("user")));
+    QVERIFY (!manager.request.url ().toString ().contains (QStringLiteral ("password")));
   }
 };
 
