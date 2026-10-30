@@ -873,6 +873,9 @@ void MainWindow::on_q65Button_clicked()
       m_q65PileupCopiedCallers.clear();
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
+      // Pileup mode starts QSOs with Tx2 and disables Tx1; restore it.
+      ui->tx1->setEnabled(true);
+      ui->txb1->setEnabled(true);
     }
     on_actionQ65_triggered();
 }
