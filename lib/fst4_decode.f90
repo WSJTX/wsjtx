@@ -14,6 +14,8 @@ module fst4_decode
    private
    public :: fst4_decoder,fst4_options,fst4_decode_callback,fst4_diagnostic_callback,fst4_spectrum_callback
 
+   integer, parameter :: MAXCAND=200
+
    type fst4_options
       integer :: utc=0,period=15,receive_frequency=1500,low_frequency=200,high_frequency=4000
       integer :: tolerance=100,effort=1,qso_progress=0,blanker_percent=0,blanker_step=0
@@ -267,20 +269,20 @@ contains
       use packjt77
       use, intrinsic :: iso_c_binding
       include 'fst4/fst4_params.f90'
-      parameter (MAXCAND=100,MAXWCALLS=100)
+      parameter (MAXWCALLS=100)
       class(fst4_decoder), intent(inout) :: this
       procedure(fst4_decode_callback) :: callback
       integer, intent(in) :: blanker_percent,blanker_step
       logical, intent(in) :: single_decode
-      character*37 decodes(100)
-      integer decoded_hashes(100),unresolved_hash
+      character*37 decodes(MAXCAND)
+      integer decoded_hashes(MAXCAND),unresolved_hash
       character*37 msg,msgsent
       character*20 wpart
       character*77 c77
       character*12 mycall,hiscall
       complex(c_float_complex), pointer, contiguous :: c2(:),cframe(:),c_bigfft(:)
       real llr(240),llrs(240,4)
-      real candidates0(200,5),candidates(200,5)
+      real candidates0(MAXCAND,5),candidates(MAXCAND,5)
       real bitmetrics(320,4)
       real s4(0:3,NN)
       real minsync
@@ -817,6 +819,7 @@ contains
                         if(decodes(i)==msg.and.decoded_hashes(i)==unresolved_hash) idupe=1
                      enddo
                      if(idupe.eq.1) goto 800
+                     if(ndecodes.ge.size(decodes)) goto 800
                      ndecodes=ndecodes+1
                      decodes(ndecodes)=msg
                      decoded_hashes(ndecodes)=unresolved_hash
@@ -1064,7 +1067,7 @@ contains
       complex c_bigfft(0:nfft1/2)              !Full length FFT of raw data
       integer hmod                             !Modulation index (submode)
       integer im(1)                            !For maxloc
-      real candidates(200,5)                   !Candidate list
+      real candidates(MAXCAND,5)               !Candidate list
       real xdb(-3:3)                           !Model 4-tone CCF peaks
       real minsync
       integer, intent(out) :: status
@@ -1129,7 +1132,7 @@ contains
 ! Find candidates, using the CLEAN algorithm to remove a model of each one
 ! from s2() after it has been found.
       pval=99.99
-      do while(ncand.lt.200)
+      do while(ncand.lt.size(candidates,1))
          im=maxloc(s2(ia:ib))
          iploc=ia+im(1)-1                         !Index of CCF peak
          pval=s2(iploc)                           !Peak value
