@@ -1,6 +1,7 @@
 #ifndef HRD_TRANSCEIVER_HPP__
 #define HRD_TRANSCEIVER_HPP__
 
+#include <array>
 #include <vector>
 #include <tuple>
 #include <memory>
@@ -65,6 +66,8 @@ private:
   void set_dropdown (int, int);
   void set_button (int button_index, bool checked = true);
   bool is_button_checked (int button_index);
+  Frequency get_frequency ();
+  std::array<Frequency, 2> get_frequencies ();
 
   // This dictionary type maps Transceiver::MODE to a list of mode
   // drop down selection indexes that equate to that mode.  It is used

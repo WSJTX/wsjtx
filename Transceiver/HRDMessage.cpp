@@ -1,5 +1,6 @@
 #include "Transceiver/HRDMessage.hpp"
 
+#include <QStringList>
 #include <QVector>
 
 namespace
@@ -128,5 +129,47 @@ namespace HRDMessage
       }
 
     return {true, true, static_cast<int> (message_size), QString::fromUtf16 (payload.constData (), payload.size () - 1), {}};
+  }
+
+  bool parse_radio (QString const& reply, unsigned * id, QString * name)
+  {
+    auto const separator = reply.indexOf (':');
+    if (separator <= 0)
+      {
+        return false;
+      }
+
+    bool valid_id;
+    auto const parsed_id = reply.left (separator).trimmed ().toUInt (&valid_id);
+    auto const parsed_name = reply.mid (separator + 1).trimmed ();
+    if (!valid_id || parsed_name.isEmpty ())
+      {
+        return false;
+      }
+
+    *id = parsed_id;
+    *name = parsed_name;
+    return true;
+  }
+
+  bool parse_frequencies (QString const& reply, std::array<quint64, 2> * frequencies)
+  {
+    auto const fields = reply.trimmed ().split ('-', Qt::KeepEmptyParts);
+    if (fields.size () < 2)
+      {
+        return false;
+      }
+
+    bool valid_a;
+    bool valid_b;
+    auto const frequency_a = fields[0].toULongLong (&valid_a);
+    auto const frequency_b = fields[1].toULongLong (&valid_b);
+    if (!valid_a || !valid_b)
+      {
+        return false;
+      }
+
+    *frequencies = {{frequency_a, frequency_b}};
+    return true;
   }
 }

@@ -1,6 +1,7 @@
 #include "HRDTransceiver.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <QHostAddress>
 #include <QByteArray>
 #include <QRegExp>
@@ -138,11 +139,22 @@ int HRDTransceiver::do_start ()
     }
 
   HRD_info << "Radios:\n";
+  radios_.clear ();
   Q_FOREACH (auto const& radio, radios)
     {
       HRD_info << "\t" << radio << "\n";
-      auto entries = radio.trimmed ().split (':', SkipEmptyParts);
-      radios_.push_back (std::forward_as_tuple (entries[0].toUInt (), entries[1]));
+      unsigned id;
+      QString name;
+      if (!HRDMessage::parse_radio (radio, &id, &name))
+        {
+          CAT_ERROR ("bad get radios response:" << radio);
+          continue;
+        }
+      radios_.emplace_back (id, name);
+    }
+  if (radios_.empty ())
+    {
+      throw error {tr ("Ham Radio Deluxe didn't respond as expected")};
     }
 
   CAT_TRACE ("radios:-");
@@ -159,7 +171,12 @@ int HRDTransceiver::do_start ()
       throw error {tr ("Ham Radio Deluxe: no rig found")};
     }
 
-  vfo_count_ = send_command ("get vfo-count").toUInt ();
+  bool vfo_count_ok;
+  vfo_count_ = send_command ("get vfo-count").trimmed ().toUInt (&vfo_count_ok);
+  if (!vfo_count_ok || !vfo_count_)
+    {
+      throw error {tr ("Ham Radio Deluxe didn't respond as expected")};
+    }
   HRD_info << "VFO count: " << vfo_count_ << "\n";
   CAT_TRACE ("vfo count:" << vfo_count_);
 
@@ -202,10 +219,15 @@ int HRDTransceiver::do_start ()
   split_mode_button_ = find_button (QRegExp ("^(Spl~On|Spl_On|Split|Split~On)$"));
   split_off_button_ = find_button (QRegExp ("^(Spl~Off|Spl_Off|Split~Off)$"));
 
+  split_mode_dropdown_selection_on_.clear ();
+  split_mode_dropdown_selection_off_.clear ();
+  split_mode_dropdown_write_only_ = true;
   if ((split_mode_dropdown_ = find_dropdown (QRegExp ("^(Split)$"))) >= 0)
     {
       split_mode_dropdown_selection_on_ = find_dropdown_selection (split_mode_dropdown_, QRegExp ("^(On)$"));
       split_mode_dropdown_selection_off_ = find_dropdown_selection (split_mode_dropdown_, QRegExp ("^(Off)$"));
+      split_mode_dropdown_write_only_ = split_mode_dropdown_selection_on_.empty ()
+        || split_mode_dropdown_selection_off_.empty ();
     }
   else if ((receiver_dropdown_ = find_dropdown (QRegExp ("^Receiver$"))) >= 0)
     {
@@ -260,10 +282,10 @@ int HRDTransceiver::do_start ()
     {
       // put the rig into a known state for tricky cases like Icoms
 
-      auto f = send_command ("get frequency").toUInt ();
+      auto f = get_frequency ();
       auto m = get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_));
       set_button (vfo_B_button_ >= 0 ? vfo_B_button_ : vfo_toggle_button_);
-      auto fo = send_command ("get frequency").toUInt ();
+      auto fo = get_frequency ();
       update_other_frequency (fo);
       auto mo = get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_));
       set_button (vfo_A_button_ >= 0 ? vfo_A_button_ : vfo_toggle_button_);
@@ -275,35 +297,62 @@ int HRDTransceiver::do_start ()
         }
       else
         {
-          update_rx_frequency (send_command ("get frequency").toUInt ());
+          update_rx_frequency (get_frequency ());
           update_mode (get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_)));
         }
     }
 
   int resolution {0};
-  auto f = send_command ("get frequency").toUInt ();
-  if (f && !(f % 10))
+  auto f = get_frequency ();
+  if (f && !(f % 10) && f - f % 100 <= std::numeric_limits<Frequency>::max () - 55)
     {
-      auto test_frequency = f - f % 100 + 55;
-      send_simple_command ("set frequency-hz " + QString::number (test_frequency));
-      auto new_frequency = send_command ("get frequency").toUInt ();
-      switch (static_cast<Radio::FrequencyDelta> (new_frequency - test_frequency))
+      try
         {
-        case -5: resolution = -1; break;  // 10Hz truncated
-        case 5: resolution = 1; break;    // 10Hz rounded
-        case -15: resolution = -2; break; // 20Hz truncated
-        case -55: resolution = -2; break; // 100Hz truncated
-        case 45: resolution = 2; break;   // 100Hz rounded
-        }
-      if (1 == resolution)      // may be 20Hz rounded
-        {
-          test_frequency = f - f % 100 + 51;
+          auto test_frequency = f - f % 100 + 55;
           send_simple_command ("set frequency-hz " + QString::number (test_frequency));
-          new_frequency = send_command ("get frequency").toUInt ();
-          if (9 == static_cast<Radio::FrequencyDelta> (new_frequency - test_frequency))
+          auto new_frequency = get_frequency ();
+          auto probe_delta = [] (Frequency actual, Frequency requested) -> Radio::FrequencyDelta
             {
-              resolution = 2;   // 20Hz rounded
+              auto const magnitude = actual >= requested ? actual - requested : requested - actual;
+              if (magnitude > 55) return std::numeric_limits<Radio::FrequencyDelta>::max ();
+              auto const delta = static_cast<Radio::FrequencyDelta> (magnitude);
+              return actual >= requested ? delta : -delta;
+            };
+          switch (probe_delta (new_frequency, test_frequency))
+            {
+            case -5: resolution = -1; break;  // 10Hz truncated
+            case 5: resolution = 1; break;    // 10Hz rounded
+            case -15: resolution = -2; break; // 20Hz truncated
+            case -55: resolution = -2; break; // 100Hz truncated
+            case 45: resolution = 2; break;   // 100Hz rounded
             }
+          if (1 == resolution)      // may be 20Hz rounded
+            {
+              test_frequency = f - f % 100 + 51;
+              send_simple_command ("set frequency-hz " + QString::number (test_frequency));
+              new_frequency = get_frequency ();
+              auto const delta = probe_delta (new_frequency, test_frequency);
+              if (delta > 55)
+                {
+                  resolution = 0;
+                }
+              else if (9 == delta)
+                {
+                  resolution = 2;   // 20Hz rounded
+                }
+            }
+        }
+      catch (...)
+        {
+          try
+            {
+              send_simple_command ("set frequency-hz " + QString::number (f));
+            }
+          catch (...)
+            {
+              // Preserve the probe error if restoring the frequency also fails.
+            }
+          throw;
         }
       send_simple_command ("set frequency-hz " + QString::number (f));
     }
@@ -376,7 +425,7 @@ void HRDTransceiver::map_modes (int dropdown, ModeMap *map)
 int HRDTransceiver::lookup_mode (MODE mode, ModeMap const& map) const
 {
   auto it = std::find_if (map.begin (), map.end (), [mode] (ModeMap::value_type const& item) {return std::get<0> (item) == mode;});
-  if (map.end () == it)
+  if (map.end () == it || std::get<1> (*it).empty ())
     {
       throw error {tr ("Ham Radio Deluxe: rig doesn't support mode")};
     }
@@ -397,7 +446,7 @@ auto HRDTransceiver::lookup_mode (int mode, ModeMap const& map) const -> MODE
                           });
   if (map.end () == it)
     {
-      throw error {tr ("Ham Radio Deluxe: sent an unrecognised mode")};
+      return UNK;
     }
   return std::get<0> (*it);
 }
@@ -413,12 +462,11 @@ int HRDTransceiver::get_dropdown (int dd)
   auto reply = send_command ("get dropdown-text {" + dd_name + "}");
   auto colon_index = reply.indexOf (':');
 
-  if (colon_index < 0)
+  if (colon_index < 0 || reply.left (colon_index).trimmed () != dd_name)
     {
       return -1;
     }
 
-  Q_ASSERT (reply.left (colon_index).trimmed () == dd_name);
   return dropdowns_.value (dropdown_names_.value (dd)).indexOf (reply.mid (colon_index + 1).trimmed ());
 }
 
@@ -566,8 +614,8 @@ void HRDTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
   auto fo_string = QString::number (f);
   if (vfo_count_ > 1 && reversed_)
     {
-      auto frequencies = send_command ("get frequencies").trimmed ().split ('-', SkipEmptyParts);
-      send_simple_command ("set frequencies-hz " + QString::number (frequencies[0].toUInt ()) + ' ' + fo_string);
+      auto const frequencies = get_frequencies ();
+      send_simple_command ("set frequencies-hz " + QString::number (frequencies[0]) + ' ' + fo_string);
     }
   else
     {
@@ -657,15 +705,15 @@ void HRDTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool /*no_ignore*
         {
           Q_ASSERT (vfo_count_ > 1);
 
-          auto frequencies = send_command ("get frequencies").trimmed ().split ('-', SkipEmptyParts);
-          send_simple_command ("set frequencies-hz " + fo_string + ' ' + QString::number (frequencies[1].toUInt ()));
+          auto const frequencies = get_frequencies ();
+          send_simple_command ("set frequencies-hz " + fo_string + ' ' + QString::number (frequencies[1]));
         }
       else
         {
           if (vfo_count_ > 1)
             {
-              auto frequencies = send_command ("get frequencies").trimmed ().split ('-', SkipEmptyParts);
-              send_simple_command ("set frequencies-hz " + QString::number (frequencies[0].toUInt ()) + ' ' + fo_string);
+              auto const frequencies = get_frequencies ();
+              send_simple_command ("set frequencies-hz " + QString::number (frequencies[0]) + ' ' + fo_string);
             }
           else if ((vfo_B_button_ >= 0 && vfo_A_button_ >= 0) || vfo_toggle_button_ >= 0)
             {
@@ -905,15 +953,10 @@ void HRDTransceiver::do_poll ()
         {
           auto selection = get_dropdown (split_mode_dropdown_);
           if (selection >= 0
-              && split_mode_dropdown_selection_off_.size ())
+              && split_mode_dropdown_selection_off_.size ()
+              && split_mode_dropdown_selection_on_.size ())
             {
               update_split (selection == split_mode_dropdown_selection_on_.front ());
-            }
-          else
-            {
-              // leave split alone as we can't query it - it should be
-              // correct so long as rig or HRD haven't been changed
-              split_mode_dropdown_write_only_ = true;
             }
         }
     }
@@ -951,9 +994,9 @@ void HRDTransceiver::do_poll ()
 
   if (vfo_count_ > 1)
     {
-      auto frequencies = send_command ("get frequencies").trimmed ().split ('-', SkipEmptyParts);
-      update_rx_frequency (frequencies[reversed_ ? 1 : 0].toUInt ());
-      update_other_frequency (frequencies[reversed_ ? 0 : 1].toUInt ());
+      auto const frequencies = get_frequencies ();
+      update_rx_frequency (frequencies[reversed_ ? 1 : 0]);
+      update_other_frequency (frequencies[reversed_ ? 0 : 1]);
     }
   else
     {
@@ -961,7 +1004,7 @@ void HRDTransceiver::do_poll ()
       // while transmitting
       if (!state ().ptt ())
         {
-          update_rx_frequency (send_command ("get frequency").toUInt ());
+          update_rx_frequency (get_frequency ());
         }
     }
 
@@ -971,6 +1014,31 @@ void HRDTransceiver::do_poll ()
     {
       observe_mode (get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_)));
     }
+}
+
+HRDTransceiver::Frequency HRDTransceiver::get_frequency ()
+{
+  auto const reply = send_command ("get frequency").trimmed ();
+  bool ok;
+  auto const frequency = reply.toULongLong (&ok);
+  if (!ok || reply.startsWith ('-'))
+    {
+      CAT_ERROR ("bad get frequency response:" << reply);
+      throw error {tr ("Ham Radio Deluxe didn't respond as expected")};
+    }
+  return frequency;
+}
+
+std::array<HRDTransceiver::Frequency, 2> HRDTransceiver::get_frequencies ()
+{
+  std::array<Frequency, 2> frequencies;
+  auto const reply = send_command ("get frequencies");
+  if (!HRDMessage::parse_frequencies (reply, &frequencies))
+    {
+      CAT_ERROR ("bad get frequencies response:" << reply);
+      throw error {tr ("Ham Radio Deluxe didn't respond as expected")};
+    }
+  return frequencies;
 }
 
 QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, bool recurse)
