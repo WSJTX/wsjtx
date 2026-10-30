@@ -3,12 +3,13 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
+#include <cmath>
+#include <optional>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/key_extractors.hpp>
 #include <boost/lambda/lambda.hpp>
-#include <boost/lexical_cast.hpp>
 #include <QString>
 #include <QDir>
 #include <QFile>
@@ -31,6 +32,77 @@ namespace
   auto const file_name = "cty.dat";
   auto const grid_file_name = "grid.dat";    // NJ0A
 //  auto const logFileName = "wsjtx_log.adi";  // NJ0A
+
+  constexpr int min_cq_zone = 1;
+  constexpr int max_cq_zone = 40;
+  constexpr int min_itu_zone = 1;
+  constexpr int max_itu_zone = 90;
+  constexpr double min_latitude = -90.;
+  constexpr double max_latitude = 90.;
+  constexpr double min_longitude = -180.;
+  constexpr double max_longitude = 180.;
+  constexpr double min_utc_offset = -14.;
+  constexpr double max_utc_offset = 14.;
+
+  class parse_diagnostics
+  {
+  public:
+    void add (int line, QString const& reason)
+    {
+      ++count_;
+      if (examples_.size () < 5) examples_ << QString {"line %1: %2"}.arg (line).arg (reason);
+    }
+
+    void report (QString const& path) const
+    {
+      if (count_) LOG_WARN(QString {"Recovered or ignored %1 malformed records/fields while loading %2 (%3)"}
+                           .arg (count_).arg (path).arg (examples_.join ("; ")));
+    }
+
+  private:
+    int count_ = 0;
+    QStringList examples_;
+  };
+
+  bool parse_bounded_int (QString const& text, int minimum, int maximum, int& value)
+  {
+    bool ok;
+    auto const parsed = text.trimmed ().toInt (&ok);
+    if (!ok || parsed < minimum || parsed > maximum) return false;
+    value = parsed;
+    return true;
+  }
+
+  bool parse_bounded_float (QString const& text, double minimum, double maximum, float& value)
+  {
+    bool ok;
+    auto const parsed = text.trimmed ().toDouble (&ok);
+    if (!ok || !std::isfinite (parsed) || parsed < minimum || parsed > maximum) return false;
+    value = static_cast<float> (parsed);
+    return true;
+  }
+
+  bool parse_utc_offset (QString const& text, int& seconds)
+  {
+    bool ok;
+    auto const hours = text.trimmed ().toDouble (&ok);
+    if (!ok || !std::isfinite (hours) || hours < min_utc_offset || hours > max_utc_offset) return false;
+    seconds = static_cast<int> (std::lround (hours * 60. * 60.));
+    return true;
+  }
+
+  bool parse_continent (QString const& id, AD1CCty::Continent& continent)
+  {
+    if ("AF" == id) continent = AD1CCty::Continent::AF;
+    else if ("AN" == id) continent = AD1CCty::Continent::AN;
+    else if ("AS" == id) continent = AD1CCty::Continent::AS;
+    else if ("EU" == id) continent = AD1CCty::Continent::EU;
+    else if ("NA" == id) continent = AD1CCty::Continent::NA;
+    else if ("OC" == id) continent = AD1CCty::Continent::OC;
+    else if ("SA" == id) continent = AD1CCty::Continent::SA;
+    else return false;
+    return true;
+  }
 }
 
 struct entity
@@ -133,18 +205,19 @@ struct prefix
   {
   }
 
-  // extract key which is the prefix ignoring the trailing override
-  // information
   QString prefix_key () const
   {
-    auto const& prefix = prefix_.toStdString ();
-    return QString::fromStdString (prefix.substr (0, prefix.find_first_of ("({[<~")));
+    return prefix_;
   }
-    
-  QString prefix_;              // call or prefix with optional
-                                // trailing override information
+
+  QString prefix_;
   bool exact_;
   int entity_id_;
+  std::optional<int> CQ_zone_;
+  std::optional<int> ITU_zone_;
+  std::optional<AD1CCty::Continent> continent_;
+  std::optional<std::pair<float, float>> coordinates_;
+  std::optional<int> UTC_offset_;
 };
 
 #if !defined (QT_NO_DEBUG_STREAM)
@@ -238,35 +311,77 @@ public:
     result.UTC_offset = e.UTC_offset_;
     result.primary_prefix = e.primary_prefix_;
 
-    // check for overrides
-    bool ok1 {true}, ok2 {true}, ok3 {true}, ok4 {true}, ok5 {true};
-    QString value;
-    if (override_value (p.prefix_, '(', ')', value)) result.CQ_zone = value.toInt (&ok1);
-    if (override_value (p.prefix_, '[', ']', value)) result.ITU_zone = value.toInt (&ok2);
-    if (override_value (p.prefix_, '<', '>', value))
+    if (p.CQ_zone_) result.CQ_zone = *p.CQ_zone_;
+    if (p.ITU_zone_) result.ITU_zone = *p.ITU_zone_;
+    if (p.continent_) result.continent = *p.continent_;
+    if (p.coordinates_)
       {
-        auto const& fix = value.split ('/');
-        result.latitude = fix[0].toFloat (&ok3);
-        result.longtitude = fix[1].toFloat (&ok4);
+        result.latitude = p.coordinates_->first;
+        result.longtitude = p.coordinates_->second;
       }
-    if (override_value (p.prefix_, '{', '}', value)) result.continent = continent (value);
-    if (override_value (p.prefix_, '~', '~', value)) result.UTC_offset = static_cast<int> (value.toFloat (&ok5) * 60 * 60);
-    if (!(ok1 && ok2 && ok3 && ok4 && ok5))
-      {
-        throw std::domain_error {"Invalid number in cty.dat for override of " + p.prefix_.toStdString ()};
-      }
+    if (p.UTC_offset_) result.UTC_offset = *p.UTC_offset_;
     return result;
   }
 
-  static bool override_value (QString const& s, QChar lb, QChar ub, QString& v)
+  static bool parse_prefix (prefix& result, int& ignored_fields)
   {
-    auto pos = s.indexOf (lb);
-    if (pos >= 0)
+    auto const text = result.prefix_.trimmed ();
+    int pos = 0;
+    while (pos < text.size () && !QStringLiteral ("([{<~").contains (text[pos])) ++pos;
+    result.prefix_ = text.left (pos).trimmed ().toUpper ();
+    if (result.prefix_.isEmpty ()) return false;
+    for (auto const c : result.prefix_)
+      if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '/')) return false;
+
+    QString seen;
+    while (pos < text.size ())
       {
-        v = s.mid (pos + 1, s.indexOf (ub, pos + 1) - pos - 1);
-        return true;
+        if (text[pos].isSpace ()) {++pos; continue;}
+        auto const opening = text[pos];
+        auto const kind = QStringLiteral ("([<{~").indexOf (opening);
+        if (kind < 0 || seen.contains (opening)) return false;
+        seen += opening;
+        auto const close = text.indexOf (QStringLiteral (")]>}~")[kind], pos + 1);
+        if (close < 0) return false;
+        auto const value = text.mid (pos + 1, close - pos - 1).trimmed ();
+        for (auto const c : value) if (QStringLiteral ("()[]<>{}~").contains (c)) return false;
+        bool valid = false;
+        int number;
+        float latitude;
+        float longitude;
+        Continent continent;
+        switch (kind)
+          {
+          case 0:
+            valid = parse_bounded_int (value, min_cq_zone, max_cq_zone, number);
+            if (valid) result.CQ_zone_ = number;
+            break;
+          case 1:
+            valid = parse_bounded_int (value, min_itu_zone, max_itu_zone, number);
+            if (valid) result.ITU_zone_ = number;
+            break;
+          case 2:
+            {
+              auto const pair = value.split ('/', Qt::KeepEmptyParts);
+              valid = pair.size () == 2
+                && parse_bounded_float (pair[0], min_latitude, max_latitude, latitude)
+                && parse_bounded_float (pair[1], min_longitude, max_longitude, longitude);
+              if (valid) result.coordinates_ = std::make_pair (latitude, longitude);
+              break;
+            }
+          case 3:
+            valid = parse_continent (value.toUpper (), continent);
+            if (valid) result.continent_ = continent;
+            break;
+          case 4:
+            valid = parse_utc_offset (value, number);
+            if (valid) result.UTC_offset_ = number;
+            break;
+          }
+        if (!valid) ++ignored_fields;
+        pos = close + 1;
       }
-    return false;
+    return true;
   }
 
   Configuration const * configuration_;
@@ -310,35 +425,7 @@ AD1CCty::Record::Record ()
 auto AD1CCty::continent (QString const& continent_id) -> Continent
 {
   Continent continent;
-  if ("AF" == continent_id)
-    {
-      continent = Continent::AF;
-    }
-  else if ("AN" == continent_id)
-    {
-      continent = Continent::AN;
-    }
-  else if ("AS" == continent_id)
-    {
-      continent = Continent::AS;
-    }
-  else if ("EU" == continent_id)
-    {
-      continent = Continent::EU;
-    }
-  else if ("NA" == continent_id)
-    {
-      continent = Continent::NA;
-    }
-  else if ("OC" == continent_id)
-    {
-      continent = Continent::OC;
-    }
-  else if ("SA" == continent_id)
-    {
-      continent = Continent::SA;
-    }
-  else
+  if (!parse_continent (continent_id, continent))
     {
       throw std::domain_error {"Invalid continent id: " + continent_id.toStdString ()};
     }
@@ -370,7 +457,9 @@ void AD1CCty::impl::load_cty(QFile &file)
 {
   QRegularExpression version_pattern{R"(VER\d{8})"};
   int entity_id = 0;
-  int line_number{0};
+  int line_number = 0;
+  parse_diagnostics diagnostics;
+  QString pending_header;
 
   entities_.clear();
   prefixes_.clear();
@@ -378,57 +467,126 @@ void AD1CCty::impl::load_cty(QFile &file)
   cty_version_date_ = QString{};
 
   QTextStream in{&file};
-  while (!in.atEnd())
+  while (!pending_header.isEmpty () || !in.atEnd())
   {
-    auto const &entity_line = in.readLine();
-    ++line_number;
-    if (!in.atEnd())
-    {
-      auto const &entity_parts = entity_line.split(':');
-      if (entity_parts.size() >= 8)
+    QString entity_line;
+    if (!pending_header.isEmpty ())
       {
-        auto primary_prefix = entity_parts[7].trimmed();
-        bool WAE_only{false};
-        if (primary_prefix.startsWith('*'))
-        {
-          primary_prefix = primary_prefix.mid(1);
-          WAE_only = true;
-        }
-        bool ok1, ok2, ok3, ok4, ok5;
-        entities_.emplace(++entity_id, entity_parts[0].trimmed(), abbreviated_entity_name(entity_parts[0].trimmed()),WAE_only, entity_parts[1].trimmed().toInt(&ok1),
-                          entity_parts[2].trimmed().toInt(&ok2), continent(entity_parts[3].trimmed()),
-                          entity_parts[4].trimmed().toFloat(&ok3), entity_parts[5].trimmed().toFloat(&ok4),
-                          static_cast<int> (entity_parts[6].trimmed().toFloat(&ok5) * 60 * 60), primary_prefix);
-        if (!(ok1 && ok2 && ok3 && ok4 && ok5))
-        {
-          throw std::domain_error{"Invalid number in cty.dat line " + boost::lexical_cast<std::string>(line_number)};
-        }
-        QString line;
-        QString detail;
-        do
-        {
-          in.readLineInto(&line);
-          ++line_number;
-        } while (detail += line, !detail.endsWith(';'));
-        for (auto prefix: detail.left(detail.size() - 1).split(','))
-        {
-          prefix = prefix.trimmed();
-          bool exact{false};
-          if (prefix.startsWith('='))
+        entity_line = pending_header;
+        pending_header.clear ();
+      }
+    else
+      {
+        entity_line = in.readLine ();
+        ++line_number;
+      }
+    auto const header_line = line_number;
+    auto const &entity_parts = entity_line.split(':');
+    if (entity_parts.size() >= 8)
+    {
+      QString line;
+      QList<QPair<int, QString>> alias_lines;
+      bool complete = false;
+      while (in.readLineInto (&line))
+      {
+        ++line_number;
+        if (line.count (':') >= 7)
           {
-            prefix = prefix.mid(1);
-            exact = true;
-            // match version pattern to prefix
-            if (version_pattern.match(prefix).hasMatch())
-            {
-              cty_version_date_ = prefix;
-            }
+            pending_header = line;
+            break;
           }
-          prefixes_.emplace(prefix, exact, entity_id);
+        auto const terminator = line.indexOf (';');
+        alias_lines.append ({line_number, terminator >= 0 ? line.left (terminator) : line});
+        if (terminator >= 0)
+          {
+            complete = true;
+            if (!line.mid (terminator + 1).trimmed ().isEmpty ())
+              diagnostics.add (line_number, "text after entity terminator");
+            break;
+          }
+      }
+      if (!complete)
+      {
+        diagnostics.add (header_line, "incomplete entity");
+        continue;
+      }
+
+      auto primary_prefix = entity_parts[7].trimmed();
+      bool WAE_only{false};
+      if (primary_prefix.startsWith('*'))
+      {
+        primary_prefix = primary_prefix.mid(1).trimmed ();
+        WAE_only = true;
+      }
+      if (entity_parts[0].trimmed ().isEmpty () || primary_prefix.isEmpty ())
+        {
+          diagnostics.add (header_line, "missing entity name or primary prefix");
+          continue;
         }
+      int cq_zone;
+      int itu_zone;
+      float latitude;
+      float longitude;
+      int utc_offset;
+      Continent entity_continent;
+      auto check = [&] (bool valid, QString const& field) {
+        if (!valid) diagnostics.add (header_line, "invalid entity " + field);
+        return valid;
+      };
+      if (!check (parse_bounded_int (entity_parts[1], min_cq_zone, max_cq_zone, cq_zone), "CQ zone")
+          || !check (parse_bounded_int (entity_parts[2], min_itu_zone, max_itu_zone, itu_zone), "ITU zone")
+          || !check (parse_continent (entity_parts[3].trimmed ().toUpper (), entity_continent), "continent")
+          || !check (parse_bounded_float (entity_parts[4], min_latitude, max_latitude, latitude), "latitude")
+          || !check (parse_bounded_float (entity_parts[5], min_longitude, max_longitude, longitude), "longitude")
+          || !check (parse_utc_offset (entity_parts[6], utc_offset), "UTC offset"))
+      {
+        continue;
+      }
+
+      auto const entity_result = entities_.emplace(++entity_id, entity_parts[0].trimmed(),
+                                                   abbreviated_entity_name(entity_parts[0].trimmed()),
+                                                   WAE_only, cq_zone, itu_zone, entity_continent, latitude, longitude,
+                                                   utc_offset, primary_prefix);
+      if (!entity_result.second)
+      {
+        --entity_id;
+        diagnostics.add (header_line, "duplicate entity primary prefix");
+        continue;
+      }
+      for (auto const& aliases : alias_lines)
+      for (auto prefix: aliases.second.split (',', Qt::SkipEmptyParts))
+      {
+        prefix = prefix.trimmed();
+        if (prefix.isEmpty ()) continue;
+        bool exact{false};
+        if (prefix.startsWith('='))
+        {
+          prefix = prefix.mid(1);
+          exact = true;
+        }
+        auto candidate = ::prefix {prefix, exact, entity_id};
+        int ignored_fields = 0;
+        if (!parse_prefix (candidate, ignored_fields))
+        {
+          diagnostics.add (aliases.first, "invalid prefix or override syntax");
+          continue;
+        }
+        if (ignored_fields) diagnostics.add (aliases.first, "invalid override values; inherited entity defaults");
+        auto const prefix_result = prefixes_.emplace(candidate);
+        if (!prefix_result.second)
+        {
+          continue;
+        }
+        if (exact && version_pattern.match(candidate.prefix_).hasMatch()) cty_version_date_ = candidate.prefix_;
       }
     }
+    else if (!entity_line.trimmed ().isEmpty () && !entity_line.front ().isSpace ())
+    {
+      diagnostics.add (header_line, "invalid entity header");
+    }
   }
+
+  diagnostics.report (file.fileName ());
 }
 
 AD1CCty::AD1CCty (Configuration const * configuration)
@@ -537,7 +695,8 @@ auto AD1CCty::lookup (QString const& call) const -> Record
           auto p = m_->prefixes_.find (exact_search);
           if (p != m_->prefixes_.end () && p->exact_)
             {
-              return m_->fixup (*p, *m_->lookup_entity (call, *p));
+              auto const e = m_->lookup_entity (call, *p);
+              return e == m_->entities_.get<id> ().end () ? Record {} : m_->fixup (*p, *e);
             }
         }
       while (search_prefix.size ())
@@ -549,7 +708,7 @@ auto AD1CCty::lookup (QString const& call) const -> Record
               // always lookup WAE entities, we substitute them later in displaytext.cpp if "Include extra WAE entites" is not selected
               if (!p->exact_ || call.size () == search_prefix.size ())
                 {
-                  return m_->fixup (*p, *e);
+                  return e == m_->entities_.get<id> ().end () ? Record {} : m_->fixup (*p, *e);
                 }
             }
           search_prefix = search_prefix.left (search_prefix.size () - 1);
