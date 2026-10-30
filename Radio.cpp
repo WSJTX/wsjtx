@@ -32,7 +32,7 @@ namespace Radio
     {
       callsign = callsign.toUpper ();
       auto slash_pos = callsign.lastIndexOf ('/');
-      while (slash_pos >= 0 && callsign.mid (slash_pos + 1).contains (non_prefix_suffix))
+      while (slash_pos >= 0 && is_operating_suffix (callsign.mid (slash_pos + 1)))
         {
           callsign.truncate (slash_pos);
           slash_pos = callsign.lastIndexOf ('/');
@@ -168,6 +168,11 @@ namespace Radio
   bool is_compound_callsign (QString const& callsign)
   {
     return callsign.contains ('/');
+  }
+
+  bool is_operating_suffix (QString const& suffix)
+  {
+    return non_prefix_suffix.match (suffix.toUpper ()).hasMatch ();
   }
 
   bool is_77bit_nonstandard_callsign (QString const& callsign)

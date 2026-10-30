@@ -6,6 +6,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <memory>
+#include <cmath>
 #include <sstream>
 #include <boost/log/utility/setup/console.hpp>
 
@@ -51,6 +52,13 @@ private Q_SLOTS:
   void handles_missing_us_entity_data ();
   void handles_missing_us_entity ();
   void keeps_prefix_with_invalid_override ();
+  void separates_exact_calls_and_prefixes_data ();
+  void separates_exact_calls_and_prefixes ();
+  void keeps_first_duplicate_callsign_data ();
+  void keeps_first_duplicate_callsign ();
+  void resolves_bundled_lookup_exceptions ();
+  void validates_country_file_aliases_data ();
+  void validates_country_file_aliases ();
   void accepts_boundary_entity_fields ();
   void rejects_invalid_entity_fields_data ();
   void rejects_invalid_entity_fields ();
@@ -184,6 +192,205 @@ void TestAD1CCty::keeps_prefix_with_invalid_override ()
   QCOMPARE (record.CQ_zone, 40);
   QCOMPARE (record.ITU_zone, 28);
   QCOMPARE (record.UTC_offset, 20700);
+}
+
+void TestAD1CCty::separates_exact_calls_and_prefixes_data ()
+{
+  QTest::addColumn<bool> ("exact_first");
+  QTest::newRow ("exact-first") << true;
+  QTest::newRow ("prefix-first") << false;
+}
+
+void TestAD1CCty::separates_exact_calls_and_prefixes ()
+{
+  QFETCH (bool, exact_first);
+  QByteArray const exact {"Exact:14:37:EU:40:4:-1:E\n=EF6;\n"};
+  QByteArray const broad {"Prefix:14:37:EU:40:4:-1:P\nEF6;\n"};
+  QVERIFY (write_data_file ("cty.dat", exact_first ? exact + broad : broad + exact));
+  LogCapture log;
+  AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.lookup ("EF6").entity_name, QString {"Exact"});
+  QCOMPARE (countries.lookup ("EF6ABC").entity_name, QString {"Prefix"});
+  QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
+}
+
+void TestAD1CCty::keeps_first_duplicate_callsign_data ()
+{
+  QTest::addColumn<bool> ("wae_first");
+  QTest::newRow ("dxcc-first") << false;
+  QTest::newRow ("wae-first") << true;
+}
+
+void TestAD1CCty::keeps_first_duplicate_callsign ()
+{
+  QFETCH (bool, wae_first);
+  QByteArray const dxcc {"DXCC:14:28:EU:50:-10:-1:D\n=TEST[29];\n"};
+  QByteArray const wae {"WAE:14:28:EU:50:-10:-1:*D/w\n=TEST[30];\n"};
+  QVERIFY (write_data_file ("cty.dat", wae_first ? wae + dxcc : dxcc + wae));
+  LogCapture log;
+  AD1CCty countries {configuration_.get ()};
+  auto const record = countries.lookup ("TEST");
+  QCOMPARE (record.entity_name, wae_first ? QString {"WAE"} : QString {"DXCC"});
+  QCOMPARE (record.WAE_only, wae_first);
+  QCOMPARE (record.ITU_zone, wae_first ? 30 : 29);
+  QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
+}
+
+void TestAD1CCty::resolves_bundled_lookup_exceptions ()
+{
+  QFile source {QFINDTESTDATA ("../../../cty.dat")};
+  QVERIFY (source.open (QIODevice::ReadOnly));
+  QVERIFY (write_data_file ("cty.dat", source.readAll ()));
+  AD1CCty countries {configuration_.get ()};
+  for (auto const * call : {"RC4I", "RJ4I", "RM4I", "RU4I", "UA4H", "UC4I", "UG4I", "UI4I"})
+    {
+      QCOMPARE (countries.lookup (call).ITU_zone, 29);
+      QCOMPARE (countries.lookup (QString {call} + "XYZ").ITU_zone, 30);
+    }
+  for (auto const * call : {"RA9J", "RC9J", "RT9J", "UA8J"})
+    {
+      QCOMPARE (countries.lookup (call).ITU_zone, 21);
+      QCOMPARE (countries.lookup (QString {call} + "/P/QRP").ITU_zone, 21);
+      QCOMPARE (countries.lookup (QString {call} + "XYZ").ITU_zone, 20);
+    }
+  QMap<QString, int> const suffix_zones {
+    {"RC4I/P", 29}, {"RA9J/P/QRP", 21}, {"UG4I/P", 30}, {"UG4I/P/QRP", 30}
+  };
+  for (auto i = suffix_zones.cbegin (); i != suffix_zones.cend (); ++i)
+    QVERIFY2 (countries.lookup (i.key ()).ITU_zone == i.value (), qPrintable (i.key ()));
+  QMap<QString, QString> const expected {
+    {"EF6", "Spain"}, {"EF6ABC", "Balearic Islands"},
+    {"WH7K", "Hawaii"}, {"WH7KABC", "Kure Island"},
+    {"G0FBJ", "Scotland"}, {"4U1VIC", "Vienna Intl Ctr"},
+    {"KG44WW", "Guantanamo Bay"}, {"KG4BKW", "Guam"},
+    {"KG4NBL/P", "Alaska"}, {"KG4NBL/P/QRP", "Alaska"},
+    {"KG4BKW/P", "Guam"}, {"KG4AA/P", "Guantanamo Bay"},
+    {"KG4ABC/P", "United States"}, {"KG4ABC/VP9", "Bermuda"},
+    {"KG4ABC/KG4", "Guantanamo Bay"}, {"W1A/VP9", "Bermuda"},
+    {"EA8/K1A", "Canary Islands"}, {"EA8/VP9", "Canary Islands"}
+  };
+  for (auto i = expected.cbegin (); i != expected.cend (); ++i)
+    {
+      auto const actual = countries.lookup (i.key ());
+      QVERIFY2 (actual.entity_name == i.value (), qPrintable (i.key () + ": " + actual.entity_name));
+    }
+  QVERIFY (countries.lookup ("N2NL/MM").entity_name.isEmpty ());
+  QVERIFY (countries.lookup ("NQ4I/AM").entity_name.isEmpty ());
+  QVERIFY (countries.lookup ("N2NL/MM/QRP").entity_name.isEmpty ());
+}
+
+void TestAD1CCty::validates_country_file_aliases_data ()
+{
+  QTest::addColumn<QString> ("path");
+  QTest::addColumn<bool> ("bundled");
+  QTest::newRow ("bundled") << QFINDTESTDATA ("../../../cty.dat") << true;
+  auto const downloaded = qEnvironmentVariable ("WSJTX_TEST_CTY_FILE");
+  if (!downloaded.isEmpty ()) QTest::newRow ("downloaded") << downloaded << false;
+}
+
+void TestAD1CCty::validates_country_file_aliases ()
+{
+  QFETCH (QString, path);
+  QFETCH (bool, bundled);
+  QFile source {path};
+  QVERIFY (source.open (QIODevice::ReadOnly | QIODevice::Text));
+  auto const bytes = source.readAll ();
+  QVERIFY (write_data_file ("cty.dat", bytes));
+  QMap<QString, AD1CCty::Record> prefixes;
+  QMap<QString, AD1CCty::Record> exact_calls;
+  QSet<QString> text_keys;
+  int entities = 0;
+  int aliases = 0;
+  int text_collisions = 0;
+  int duplicates = 0;
+  AD1CCty::Record parent;
+  QRegularExpression const alias_pattern {R"(^\s*(=?)([A-Z0-9/]+)(.*)$)"};
+  QRegularExpression const override_pattern {R"(\(([^)]*)\)|\[([^\]]*)\]|<([^>]*)>|\{([^}]*)\}|~([^~]*)~)"};
+  for (auto const& line : QString::fromUtf8 (bytes).split ('\n'))
+    {
+      auto const fields = line.split (':');
+      if (fields.size () >= 8)
+        {
+          ++entities;
+          parent.entity_name = fields[0].trimmed ();
+          parent.CQ_zone = fields[1].toInt ();
+          parent.ITU_zone = fields[2].toInt ();
+          parent.continent = AD1CCty::continent (fields[3].trimmed ());
+          parent.latitude = fields[4].toFloat ();
+          parent.longtitude = fields[5].toFloat ();
+          parent.UTC_offset = std::lround (fields[6].toDouble () * 3600.);
+          parent.primary_prefix = fields[7].trimmed ();
+          parent.WAE_only = parent.primary_prefix.startsWith ('*');
+          if (parent.WAE_only) parent.primary_prefix.remove (0, 1);
+          continue;
+        }
+      for (auto const& token : line.section (';', 0, 0).split (',', Qt::SkipEmptyParts))
+        {
+          if (token.trimmed ().isEmpty ()) continue;
+          auto const parsed = alias_pattern.match (token.trimmed ());
+          QVERIFY2 (parsed.hasMatch (), qPrintable (token));
+          auto const key = parsed.captured (2);
+          auto expected = parent;
+          auto overrides = override_pattern.globalMatch (parsed.captured (3));
+          while (overrides.hasNext ())
+            {
+              auto const item = overrides.next ();
+              if (!item.captured (1).isNull ()) expected.CQ_zone = item.captured (1).toInt ();
+              if (!item.captured (2).isNull ()) expected.ITU_zone = item.captured (2).toInt ();
+              if (!item.captured (3).isNull ())
+                {
+                  auto const coordinates = item.captured (3).split ('/');
+                  QCOMPARE (coordinates.size (), 2);
+                  expected.latitude = coordinates[0].toFloat ();
+                  expected.longtitude = coordinates[1].toFloat ();
+                }
+              if (!item.captured (4).isNull ()) expected.continent = AD1CCty::continent (item.captured (4));
+              if (!item.captured (5).isNull ()) expected.UTC_offset = std::lround (item.captured (5).toDouble () * 3600.);
+            }
+          ++aliases;
+          if (text_keys.contains (key)) ++text_collisions;
+          text_keys.insert (key);
+          auto& index = parsed.captured (1).isEmpty () ? prefixes : exact_calls;
+          if (index.contains (key)) ++duplicates;
+          else index.insert (key, expected);
+        }
+    }
+  if (bundled)
+    {
+      QCOMPARE (entities, 346);
+      QCOMPARE (aliases, 29104);
+      QCOMPARE (text_collisions, 72);
+      QCOMPARE (duplicates, 58);
+    }
+  QVERIFY (entities > 300);
+  LogCapture log;
+  AD1CCty countries {configuration_.get ()};
+  auto check = [&] (QString const& key, AD1CCty::Record const& expected) {
+    auto const actual = countries.lookup (key);
+    QVERIFY2 (actual.entity_name == expected.entity_name, qPrintable (key + ": " + actual.entity_name));
+    QVERIFY2 (actual.primary_prefix == expected.primary_prefix, qPrintable (key));
+    QVERIFY2 (actual.WAE_only == expected.WAE_only, qPrintable (key));
+    QVERIFY2 (actual.CQ_zone == expected.CQ_zone, qPrintable (key + " CQ zone"));
+    QVERIFY2 (actual.ITU_zone == expected.ITU_zone, qPrintable (key + " ITU zone"));
+    QVERIFY2 (actual.continent == expected.continent, qPrintable (key + " continent"));
+    QVERIFY2 (actual.latitude == expected.latitude, qPrintable (key + " latitude"));
+    QVERIFY2 (actual.longtitude == expected.longtitude, qPrintable (key + " longitude"));
+    QVERIFY2 (actual.UTC_offset == expected.UTC_offset, qPrintable (key + " UTC offset"));
+  };
+  for (auto i = prefixes.cbegin (); i != prefixes.cend (); ++i)
+    {
+      if (!exact_calls.contains (i.key ())) check (i.key (), i.value ());
+      if (QTest::currentTestFailed ()) return;
+    }
+  for (auto i = exact_calls.cbegin (); i != exact_calls.cend (); ++i)
+    {
+      if (i.key ().endsWith ("/MM") || i.key ().endsWith ("/AM")) continue;
+      check (i.key (), i.value ());
+      if (QTest::currentTestFailed ()) return;
+    }
+  QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
+  qInfo () << "Validated" << entities << "entities and" << aliases << "aliases;"
+           << duplicates << "same-namespace duplicates," << text_collisions - duplicates << "exact/prefix overlaps";
 }
 
 void TestAD1CCty::ignores_truncated_final_entity ()

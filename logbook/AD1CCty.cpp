@@ -215,20 +215,13 @@ typedef multi_index_container<
 
 struct prefix
 {
-  explicit prefix (QString const& prefix, bool exact_match_only, int entity_id)
+  explicit prefix (QString const& prefix, int entity_id)
     : prefix_ {prefix}
-    , exact_ {exact_match_only}
     , entity_id_ {entity_id}
   {
   }
 
-  QString prefix_key () const
-  {
-    return prefix_;
-  }
-
   QString prefix_;
-  bool exact_;
   int entity_id_;
   std::optional<int> CQ_zone_;
   std::optional<int> ITU_zone_;
@@ -243,7 +236,6 @@ QDebug operator << (QDebug dbg, prefix const& p)
   QDebugStateSaver saver {dbg};
   dbg.nospace () << "prefix("
                  << p.prefix_ << ", "
-                 << p.exact_ << ", "
                  << p.entity_id_ << ')';
   return dbg;
 }
@@ -255,7 +247,7 @@ QDebug operator << (QDebug dbg, prefix const& p)
 typedef multi_index_container<
   prefix,
   indexed_by<
-    ordered_unique<const_mem_fun<prefix, QString, &prefix::prefix_key> > >
+    ordered_unique<member<prefix, QString, &prefix::prefix_> > >
   > prefixes_type;
 
 class AD1CCty::impl final
@@ -295,23 +287,18 @@ public:
   QString get_cty_path(const Configuration *configuration);
   void load_cty(QFile &file);
 
-  entity_by_id::iterator lookup_entity (QString call, prefix const& p) const
+  Record lookup_record (prefix const& p, QString const& effective_prefix = {}) const
   {
-    call = call.toUpper ();
-    entity_by_id::iterator e;   // iterator into entity set
-
-    //
-    // deal with special rules that cty.dat does not cope with
-    //
-    if (call.startsWith ("KG4") && call.size () != 5 && call.size () != 3)
+    if (p.prefix_ == "KG4" && effective_prefix.startsWith ("KG4")
+        && effective_prefix.size () != 5 && effective_prefix.size () != 3)
       {
-        // KG4 2x1 and 2x3 calls that map to Gitmo are mainland US not Gitmo
-        return entities_.project<id> (entities_.get<primary_prefix> ().find ("K"));
+        // Exact calls and foreign operating prefixes take precedence over this exception.
+        auto const us = entities_.get<primary_prefix> ().find ("K");
+        if (us == entities_.get<primary_prefix> ().end ()) return Record {};
+        return fixup (prefix {"K", us->id_}, *us);
       }
-    else
-      {
-        return entities_.get<id> ().find (p.entity_id_);
-      }
+    auto const e = entities_.get<id> ().find (p.entity_id_);
+    return e == entities_.get<id> ().end () ? Record {} : fixup (p, *e);
   }
 
   Record fixup (prefix const& p, entity const& e) const
@@ -408,6 +395,7 @@ public:
 
   entities_type entities_;
   prefixes_type prefixes_;
+  prefixes_type exact_calls_;
 };
 
 AD1CCty::Record::Record ()
@@ -480,6 +468,7 @@ void AD1CCty::impl::load_cty(QFile &file)
 
   entities_.clear();
   prefixes_.clear();
+  exact_calls_.clear();
   cty_version_ = QString{};
   cty_version_date_ = QString{};
 
@@ -581,7 +570,7 @@ void AD1CCty::impl::load_cty(QFile &file)
           prefix = prefix.mid(1);
           exact = true;
         }
-        auto candidate = ::prefix {prefix, exact, entity_id};
+        auto candidate = ::prefix {prefix, entity_id};
         int ignored_fields = 0;
         if (!parse_prefix (candidate, ignored_fields))
         {
@@ -589,7 +578,9 @@ void AD1CCty::impl::load_cty(QFile &file)
           continue;
         }
         if (ignored_fields) diagnostics.add (aliases.first, "invalid override values; inherited entity defaults");
-        auto const prefix_result = prefixes_.emplace(candidate);
+        // CTY aliases are ordered: the first entry in each namespace wins.
+        auto& index = exact ? exact_calls_ : prefixes_;
+        auto const prefix_result = index.emplace(candidate);
         if (!prefix_result.second)
         {
           continue;
@@ -743,33 +734,31 @@ AD1CCty::~AD1CCty ()
 
 auto AD1CCty::lookup (QString const& call) const -> Record
 {
-  auto const& exact_search = call.toUpper ();
-  if (!(exact_search.endsWith ("/MM") || exact_search.endsWith ("/AM")))
+  auto exact_search = call.trimmed ().toUpper ();
+  while (true)
     {
-      auto search_prefix = Radio::effective_prefix (exact_search);
-      if (search_prefix != exact_search)
-        {
-          auto p = m_->prefixes_.find (exact_search);
-          if (p != m_->prefixes_.end () && p->exact_)
-            {
-              auto const e = m_->lookup_entity (call, *p);
-              return e == m_->entities_.get<id> ().end () ? Record {} : m_->fixup (*p, *e);
-            }
-        }
-      while (search_prefix.size ())
-        {
-          auto p = m_->prefixes_.find (search_prefix);
-          if (p != m_->prefixes_.end ())
-            {
-              impl::entity_by_id::iterator e = m_->lookup_entity (call, *p);
-              // always lookup WAE entities, we substitute them later in displaytext.cpp if "Include extra WAE entites" is not selected
-              if (!p->exact_ || call.size () == search_prefix.size ())
-                {
-                  return e == m_->entities_.get<id> ().end () ? Record {} : m_->fixup (*p, *e);
-                }
-            }
-          search_prefix = search_prefix.left (search_prefix.size () - 1);
-        }
+      if (exact_search.endsWith ("/MM") || exact_search.endsWith ("/AM")) return Record {};
+      auto const exact = m_->exact_calls_.find (exact_search);
+      if (exact != m_->exact_calls_.end ()) return m_->lookup_record (*exact);
+      auto const slash = exact_search.lastIndexOf ('/');
+      if (slash < 0 || !Radio::is_operating_suffix (exact_search.mid (slash + 1))) break;
+      exact_search.truncate (slash);
+    }
+
+  auto search_prefix = Radio::effective_prefix (exact_search);
+  auto const other_half = Radio::base_callsign (exact_search);
+  if (search_prefix != other_half && search_prefix.size () == other_half.size ()
+      && m_->prefixes_.find (search_prefix) == m_->prefixes_.end ()
+      && m_->prefixes_.find (other_half) != m_->prefixes_.end ())
+    {
+      search_prefix = other_half;
+    }
+  auto const effective_prefix = search_prefix;
+  while (search_prefix.size ())
+    {
+      auto p = m_->prefixes_.find (search_prefix);
+      if (p != m_->prefixes_.end ()) return m_->lookup_record (*p, effective_prefix);
+      search_prefix.chop (1);
     }
   return Record {};
 }
