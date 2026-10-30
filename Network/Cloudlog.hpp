@@ -24,6 +24,7 @@ public:
   {
     Success,
     ReadOnlyKey,
+    InsufficientScope,
     InvalidKey,
     StationProfileUnavailable,
     EndpointUnavailable,

@@ -427,6 +427,7 @@ namespace
       case Cloudlog::ConnectionCheckStatus::Success:
         return QStringLiteral ("QPushButton {background-color: green;}");
       case Cloudlog::ConnectionCheckStatus::ReadOnlyKey:
+      case Cloudlog::ConnectionCheckStatus::InsufficientScope:
         return QStringLiteral ("QPushButton {background-color: orange;}");
       case Cloudlog::ConnectionCheckStatus::InvalidKey:
       case Cloudlog::ConnectionCheckStatus::StationProfileUnavailable:

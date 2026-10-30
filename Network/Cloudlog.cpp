@@ -34,6 +34,12 @@ namespace
     IndexPhpApi
   };
 
+  enum class ApiVersion
+  {
+    Legacy,
+    V2
+  };
+
   enum class AuthStatus
   {
     Writable,
@@ -77,6 +83,16 @@ namespace
     return QUrl {baseUrl + endpointPath (layout, apiPath) + QLatin1Char ('/') + encodedKey (apiKey)};
   }
 
+  QUrl v2EndpointUrl (QString const& baseUrl, QString const& resource)
+  {
+    return QUrl {baseUrl + QStringLiteral ("/index.php/api/v2/") + resource};
+  }
+
+  bool usesApiV2 (QString const& apiKey)
+  {
+    return apiKey.startsWith (QStringLiteral ("wl2_"));
+  }
+
   QHash<QString, EndpointLayout>& uploadLayoutCache ()
   {
     static QHash<QString, EndpointLayout> cache;
@@ -105,6 +121,25 @@ namespace
   {
     QNetworkRequest request {url};
     applyCommonHeaders (request, acceptJson);
+    return request;
+  }
+
+  void applyBearerToken (QNetworkRequest& request, QString const& token)
+  {
+    request.setRawHeader ("Authorization", QByteArray {"Bearer "} + token.toUtf8 ());
+  }
+
+  QNetworkRequest v2GetRequest (QUrl const& url, QString const& token)
+  {
+    auto request = connectionCheckGetRequest (url, true);
+    applyBearerToken (request, token);
+    return request;
+  }
+
+  QNetworkRequest v2PostRequest (QUrl const& url, QString const& token)
+  {
+    auto request = jsonPostRequest (url);
+    applyBearerToken (request, token);
     return request;
   }
 
@@ -375,6 +410,39 @@ namespace
     return fallback;
   }
 
+  QString v2FailureDetail (QJsonObject const& object, QString const& fallback)
+  {
+    auto const error = object.value (QStringLiteral ("error")).toObject ();
+    auto const message = error.value (QStringLiteral ("message")).toString ().trimmed ();
+    auto const details = jsonDiagnostic (error.value (QStringLiteral ("details")));
+    if (!message.isEmpty () && !details.isEmpty ())
+      {
+        return message + QStringLiteral (" ") + details;
+      }
+    if (!message.isEmpty ())
+      {
+        return message;
+      }
+    if (!details.isEmpty ())
+      {
+        return details;
+      }
+    return fallback;
+  }
+
+  QByteArray v2QsoPayload (qint32 stationId, QByteArray const& ADIF, bool dryRun = false)
+  {
+    QJsonObject object;
+    object.insert (QStringLiteral ("import_type"), QStringLiteral ("adif"));
+    object.insert (QStringLiteral ("station_profile_id"), stationId);
+    object.insert (QStringLiteral ("adif"), QString::fromUtf8 (ADIF + QByteArray {"<eor>"}));
+    if (dryRun)
+      {
+        object.insert (QStringLiteral ("dryrun"), true);
+      }
+    return QJsonDocument {object}.toJson (QJsonDocument::Compact);
+  }
+
   ServerProduct parseProductManifest (QByteArray const& body)
   {
     QJsonParseError error;
@@ -450,6 +518,52 @@ namespace
 
     return {Cloudlog::UploadStatus::Success, {}, {}, httpStatusCode};
   }
+
+  Cloudlog::UploadResult classifyV2QsoUploadReply (int httpStatusCode, QNetworkReply::NetworkError networkError,
+                                                    QString const& errorString, QByteArray const& body)
+  {
+    if (QNetworkReply::NoError != networkError && httpStatusCode == 0)
+      {
+        return {Cloudlog::UploadStatus::NetworkError,
+                Cloudlog::tr ("QSO could not be sent to Wavelog."),
+                errorString,
+                httpStatusCode};
+      }
+
+    QJsonParseError error;
+    auto const document = QJsonDocument::fromJson (body, &error);
+    if (QJsonParseError::NoError != error.error || !document.isObject ())
+      {
+        return {httpStatusCode >= 400 ? Cloudlog::UploadStatus::HttpError : Cloudlog::UploadStatus::UnexpectedResponse,
+                Cloudlog::tr ("Wavelog returned an unexpected API v2 upload response."),
+                httpStatusCode >= 400
+                  ? Cloudlog::tr ("HTTP status %1. Response was not JSON.").arg (httpStatusCode)
+                  : error.errorString (),
+                httpStatusCode};
+      }
+
+    auto const object = document.object ();
+    if (httpStatusCode >= 400)
+      {
+        return {Cloudlog::UploadStatus::HttpError,
+                Cloudlog::tr ("QSO upload was rejected by Wavelog."),
+                v2FailureDetail (object, Cloudlog::tr ("HTTP status %1.").arg (httpStatusCode)),
+                httpStatusCode};
+      }
+
+    auto const data = object.value (QStringLiteral ("data")).toObject ();
+    if (httpStatusCode == 201 && intValue (data.value (QStringLiteral ("parsed"))) > 0
+        && intValue (data.value (QStringLiteral ("imported")))
+             + intValue (data.value (QStringLiteral ("skipped"))) > 0)
+      {
+        return {Cloudlog::UploadStatus::Success, {}, {}, httpStatusCode};
+      }
+
+    return {Cloudlog::UploadStatus::UnexpectedResponse,
+            Cloudlog::tr ("Wavelog returned an unexpected API v2 upload response."),
+            Cloudlog::tr ("HTTP status %1 did not include a valid ADIF import summary.").arg (httpStatusCode),
+            httpStatusCode};
+  }
 }
 
 class Cloudlog::impl final
@@ -475,20 +589,36 @@ public:
     auto const configured_base_url = Cloudlog::normalizeBaseUrl (config_->cloudlog_api_url ());
     QString http_fallback;
     auto const base_url = httpsFirstBaseUrl (configured_base_url, http_fallback);
-    auto const data = Cloudlog::qsoUploadPayload (config_->cloudlog_api_key (), config_->cloudlog_api_station_id (), ADIF);
-    startQsoUpload (base_url, data, http_fallback);
+    auto const api_key = config_->cloudlog_api_key ();
+    auto const api_version = usesApiV2 (api_key) ? ApiVersion::V2 : ApiVersion::Legacy;
+    auto const data = ApiVersion::V2 == api_version
+      ? v2QsoPayload (config_->cloudlog_api_station_id (), ADIF)
+      : Cloudlog::qsoUploadPayload (api_key, config_->cloudlog_api_station_id (), ADIF);
+    startQsoUpload (base_url, data, http_fallback, api_version, api_key);
   }
 
-  void startQsoUpload (QString const& baseUrl, QByteArray const& data, QString const& httpFallback)
+  void startQsoUpload (QString const& baseUrl, QByteArray const& data, QString const& httpFallback,
+                       ApiVersion apiVersion, QString const& apiKey)
   {
-    auto const layout = uploadLayoutCache ().value (baseUrl, EndpointLayout::IndexPhpApi);
-    auto const path = EndpointLayout::DirectApi == layout ? QStringLiteral ("/api/qso") : QStringLiteral ("/index.php/api/qso");
-    auto const u = QUrl {baseUrl + path};
+    QUrl url;
+    if (ApiVersion::V2 == apiVersion)
+      {
+        url = v2EndpointUrl (baseUrl, QStringLiteral ("qso"));
+      }
+    else
+      {
+        auto const layout = uploadLayoutCache ().value (baseUrl, EndpointLayout::IndexPhpApi);
+        auto const path = EndpointLayout::DirectApi == layout
+          ? QStringLiteral ("/api/qso") : QStringLiteral ("/index.php/api/qso");
+        url = QUrl {baseUrl + path};
+      }
 
-    auto request = jsonPostRequest (u);
+    auto request = ApiVersion::V2 == apiVersion ? v2PostRequest (url, apiKey) : jsonPostRequest (url);
     upload_reply_ = network_manager_->post (request, data);
     upload_reply_->setProperty ("cloudlogHttpFallback", httpFallback);
     upload_reply_->setProperty ("cloudlogUploadPayload", data);
+    upload_reply_->setProperty ("cloudlogApiVersion", static_cast<int> (apiVersion));
+    upload_reply_->setProperty ("cloudlogApiKey", apiKey);
     connect (upload_reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_logqso);
   }
 
@@ -498,6 +628,7 @@ public:
     check_request_ = request;
     auto const configured_base_url = Cloudlog::normalizeBaseUrl (request.url);
     check_request_.url = httpsFirstBaseUrl (configured_base_url, check_http_fallback_url_);
+    check_api_version_ = usesApiV2 (request.apiKey) ? ApiVersion::V2 : ApiVersion::Legacy;
     check_using_http_fallback_ = false;
     auth_layout_index_ = 0;
     dry_run_layout_index_ = 0;
@@ -519,11 +650,262 @@ public:
         return;
       }
 
-    startJsonAuth ();
+    startConnectionCheck ();
   }
 
 private:
   using Layouts = std::array<EndpointLayout, 2>;
+
+  void startConnectionCheck ()
+  {
+    if (ApiVersion::V2 == check_api_version_)
+      {
+        startV2Status ();
+      }
+    else
+      {
+        startJsonAuth ();
+      }
+  }
+
+  void startV2Status ()
+  {
+    auto request = connectionCheckGetRequest (
+      v2EndpointUrl (check_request_.url, QStringLiteral ("status")), true);
+    check_reply_ = network_manager_->get (request);
+    connect (check_reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_v2_status);
+  }
+
+  void reply_v2_status ()
+  {
+    auto * reply = takeCheckReply ();
+    if (!reply)
+      {
+        return;
+      }
+
+    if (isTransportError (*reply))
+      {
+        auto const detail = reply->errorString ();
+        reply->deleteLater ();
+        finishNetworkError (detail);
+        return;
+      }
+
+    auto const status_code = httpStatus (*reply);
+    QJsonParseError error;
+    auto const document = QJsonDocument::fromJson (reply->readAll (), &error);
+    reply->deleteLater ();
+    auto const data = document.isObject ()
+      ? document.object ().value (QStringLiteral ("data")).toObject () : QJsonObject {};
+    if (status_code != 200 || lowerString (data, "name") != QLatin1String ("wavelog api")
+        || lowerString (data, "status") != QLatin1String ("ok"))
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::EndpointUnavailable,
+                 tr ("Wavelog API v2 was not found."),
+                 tr ("A wl2_ token requires Wavelog 3.1.0 or later."),
+                 check_request_.url});
+        return;
+      }
+
+    startV2Token ();
+  }
+
+  void startV2Token ()
+  {
+    auto request = v2GetRequest (
+      v2EndpointUrl (check_request_.url, QStringLiteral ("token")), check_request_.apiKey);
+    check_reply_ = network_manager_->get (request);
+    connect (check_reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_v2_token);
+  }
+
+  void reply_v2_token ()
+  {
+    auto * reply = takeCheckReply ();
+    if (!reply)
+      {
+        return;
+      }
+
+    if (isTransportError (*reply))
+      {
+        auto const detail = reply->errorString ();
+        reply->deleteLater ();
+        finishNetworkError (detail);
+        return;
+      }
+
+    auto const status_code = httpStatus (*reply);
+    QJsonParseError error;
+    auto const document = QJsonDocument::fromJson (reply->readAll (), &error);
+    reply->deleteLater ();
+    auto const object = document.isObject () ? document.object () : QJsonObject {};
+    if (status_code == 401)
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::InvalidKey,
+                 tr ("Wavelog API v2 token is invalid."),
+                 v2FailureDetail (object, tr ("The token was rejected.")),
+                 check_request_.url});
+        return;
+      }
+    if (status_code != 200 || !document.isObject ())
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::UnexpectedResponse,
+                 tr ("Wavelog API v2 token response was not usable."),
+                 v2FailureDetail (object, error.errorString ()),
+                 check_request_.url});
+        return;
+      }
+
+    QStringList scopes;
+    for (auto const& value : object.value (QStringLiteral ("data")).toObject ().value (QStringLiteral ("scopes")).toArray ())
+      {
+        scopes.append (value.toString ());
+      }
+    QStringList missing_scopes;
+    for (auto const& required : {QStringLiteral ("qso:write"), QStringLiteral ("station:read")})
+      {
+        if (!scopes.contains (required))
+          {
+            missing_scopes.append (required);
+          }
+      }
+    if (!missing_scopes.isEmpty ())
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::InsufficientScope,
+                 tr ("Wavelog API v2 token is missing required scopes."),
+                 tr ("Required scopes: %1").arg (missing_scopes.join (QStringLiteral (", "))),
+                 check_request_.url});
+        return;
+      }
+
+    startV2Station ();
+  }
+
+  void startV2Station ()
+  {
+    auto request = v2GetRequest (
+      v2EndpointUrl (check_request_.url, QStringLiteral ("station")), check_request_.apiKey);
+    check_reply_ = network_manager_->get (request);
+    connect (check_reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_v2_station);
+  }
+
+  void reply_v2_station ()
+  {
+    auto * reply = takeCheckReply ();
+    if (!reply)
+      {
+        return;
+      }
+
+    if (isTransportError (*reply))
+      {
+        auto const detail = reply->errorString ();
+        reply->deleteLater ();
+        finishNetworkError (detail);
+        return;
+      }
+
+    auto const status_code = httpStatus (*reply);
+    QJsonParseError error;
+    auto const document = QJsonDocument::fromJson (reply->readAll (), &error);
+    reply->deleteLater ();
+    auto const object = document.isObject () ? document.object () : QJsonObject {};
+    if (status_code == 401)
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::InvalidKey,
+                 tr ("Wavelog API v2 token is invalid."),
+                 v2FailureDetail (object, tr ("The token was rejected.")),
+                 check_request_.url});
+        return;
+      }
+    if (status_code != 200 || !document.isObject ())
+      {
+        finish ({status_code == 403 ? Cloudlog::ConnectionCheckStatus::InsufficientScope
+                                    : Cloudlog::ConnectionCheckStatus::UnexpectedResponse,
+                 tr ("Wavelog API v2 station response was not usable."),
+                 v2FailureDetail (object, error.errorString ()),
+                 check_request_.url});
+        return;
+      }
+
+    QList<Cloudlog::StationProfile> profiles;
+    collectStationProfiles (object.value (QStringLiteral ("data")), profiles);
+    checked_station_profiles_ = profiles;
+    startV2DryRun ();
+  }
+
+  void startV2DryRun ()
+  {
+    auto const data = v2QsoPayload (check_request_.stationId, dryRunAdif (), true);
+    auto request = v2PostRequest (
+      v2EndpointUrl (check_request_.url, QStringLiteral ("qso")), check_request_.apiKey);
+    check_reply_ = network_manager_->post (request, data);
+    connect (check_reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_v2_dry_run);
+  }
+
+  void reply_v2_dry_run ()
+  {
+    auto * reply = takeCheckReply ();
+    if (!reply)
+      {
+        return;
+      }
+
+    if (isTransportError (*reply))
+      {
+        auto const detail = reply->errorString ();
+        reply->deleteLater ();
+        finishNetworkError (detail);
+        return;
+      }
+
+    auto const status_code = httpStatus (*reply);
+    QJsonParseError error;
+    auto const document = QJsonDocument::fromJson (reply->readAll (), &error);
+    reply->deleteLater ();
+    auto const object = document.isObject () ? document.object () : QJsonObject {};
+    auto const data = object.value (QStringLiteral ("data")).toObject ();
+    if (status_code == 200 && data.value (QStringLiteral ("dryrun")).toBool ()
+        && intValue (data.value (QStringLiteral ("parsed"))) > 0)
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::Success,
+                 tr ("Connection check passed."),
+                 tr ("Wavelog API v2 token, station profile, and dry-run QSO upload were validated."),
+                 check_request_.url});
+        return;
+      }
+
+    auto const error_code = lowerString (object.value (QStringLiteral ("error")).toObject (), "code");
+    auto const detail = v2FailureDetail (object, tr ("The API v2 QSO dry run was rejected."));
+    if (status_code == 401)
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::InvalidKey,
+                 tr ("Wavelog API v2 token is invalid."), detail, check_request_.url});
+      }
+    else if (status_code == 403 && error_code == QLatin1String ("insufficient_scope"))
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::InsufficientScope,
+                 tr ("Wavelog API v2 token is missing required scopes."), detail, check_request_.url});
+      }
+    else if (status_code == 403 || status_code == 404)
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::StationProfileUnavailable,
+                 tr ("Configured station profile was not available to the API token."),
+                 detail, check_request_.url});
+      }
+    else if (status_code == 400)
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::UploadShapeRejected,
+                 tr ("Wavelog API v2 dry-run upload was rejected."), detail, check_request_.url});
+      }
+    else
+      {
+        finish ({Cloudlog::ConnectionCheckStatus::UnexpectedResponse,
+                 tr ("Wavelog API v2 dry-run response was not usable."),
+                 detail, check_request_.url});
+      }
+  }
 
   void startJsonAuth ()
   {
@@ -875,15 +1257,19 @@ private:
       }
 
     auto const http_fallback = reply->property ("cloudlogHttpFallback").toString ();
+    auto const api_version = static_cast<ApiVersion> (reply->property ("cloudlogApiVersion").toInt ());
     if (!http_fallback.isEmpty () && canRetryUploadOverHttp (*reply))
       {
         auto const data = reply->property ("cloudlogUploadPayload").toByteArray ();
+        auto const api_key = reply->property ("cloudlogApiKey").toString ();
         reply->deleteLater ();
-        startQsoUpload (http_fallback, data, {});
+        startQsoUpload (http_fallback, data, {}, api_version, api_key);
         return;
       }
 
-    auto const result = classifyQsoUploadReply (httpStatus (*reply), reply->error (), reply->errorString (), reply->readAll ());
+    auto const result = ApiVersion::V2 == api_version
+      ? classifyV2QsoUploadReply (httpStatus (*reply), reply->error (), reply->errorString (), reply->readAll ())
+      : classifyQsoUploadReply (httpStatus (*reply), reply->error (), reply->errorString (), reply->readAll ());
     Q_EMIT self_->qso_upload_finished (result);
     showUploadWarning (result);
     reply->deleteLater ();
@@ -927,7 +1313,7 @@ private:
     auth_layout_index_ = 0;
     dry_run_layout_index_ = 0;
     checked_station_profiles_.clear ();
-    startJsonAuth ();
+    startConnectionCheck ();
     return true;
   }
 
@@ -937,6 +1323,7 @@ private:
   QPointer<QNetworkReply> upload_reply_;
   QPointer<QNetworkReply> check_reply_;
   Cloudlog::ConnectionCheckRequest check_request_;
+  ApiVersion check_api_version_ {ApiVersion::Legacy};
   EndpointLayout validated_auth_layout_ {EndpointLayout::IndexPhpApi};
   EndpointLayout validated_dry_run_layout_ {EndpointLayout::IndexPhpApi};
   std::size_t auth_layout_index_ {0};
@@ -955,7 +1342,8 @@ QString Cloudlog::normalizeBaseUrl (QString const& url)
     {
       result.chop (1);
     }
-  for (auto const& endpoint : {QStringLiteral ("/index.php/api/qso"), QStringLiteral ("/api/qso")})
+  for (auto const& endpoint : {QStringLiteral ("/index.php/api/v2/qso"), QStringLiteral ("/api/v2/qso"),
+                               QStringLiteral ("/index.php/api/qso"), QStringLiteral ("/api/qso")})
     {
       if (result.endsWith (endpoint))
         {

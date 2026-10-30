@@ -69,6 +69,7 @@ namespace
     QByteArray payload;
     QByteArray contentType;
     QByteArray accept;
+    QByteArray authorization;
     int redirectPolicy {0};
   };
 
@@ -195,6 +196,7 @@ namespace
       captured.url = request.url ();
       captured.contentType = request.header (QNetworkRequest::ContentTypeHeader).toByteArray ();
       captured.accept = request.rawHeader ("Accept");
+      captured.authorization = request.rawHeader ("Authorization");
       captured.redirectPolicy = request.attribute (QNetworkRequest::RedirectPolicyAttribute).toInt ();
       if (outgoingData)
         {
@@ -215,11 +217,12 @@ namespace
   };
 
   Cloudlog::ConnectionCheckResult runCheck (FakeNetworkAccessManager& network, int stationId = 7,
-                                             QString const& url = QStringLiteral (" https://example.test/api/qso/ "))
+                                             QString const& url = QStringLiteral (" https://example.test/api/qso/ "),
+                                             QString const& apiKey = QStringLiteral ("secret/key"))
   {
     Cloudlog cloudlog {nullptr, &network};
     QSignalSpy spy {&cloudlog, &Cloudlog::connection_check_finished};
-    cloudlog.checkConnection ({url, QStringLiteral ("secret/key"), stationId});
+    cloudlog.checkConnection ({url, apiKey, stationId});
     if (spy.isEmpty ())
       {
         spy.wait (1000);
@@ -235,11 +238,12 @@ namespace
 
   Cloudlog::UploadResult runLogQso (
     FakeNetworkAccessManager& network, FakeResponse const& response,
-    QString const& url = QStringLiteral (" https://example.test/index.php/api/qso/ "))
+    QString const& url = QStringLiteral (" https://example.test/index.php/api/qso/ "),
+    QString const& apiKey = QStringLiteral ("secret/key"))
   {
     TestCloudlogConfiguration configuration {
       url,
-      QStringLiteral ("secret/key"),
+      apiKey,
       7};
     network.queueResponse (response);
 
@@ -291,6 +295,8 @@ private Q_SLOTS:
     QTest::newRow ("trailing slash") << "https://log.example/" << "https://log.example";
     QTest::newRow ("api qso") << " https://log.example/api/qso/ " << "https://log.example";
     QTest::newRow ("index qso") << "https://log.example/index.php/api/qso/" << "https://log.example";
+    QTest::newRow ("v2 api qso") << "https://log.example/api/v2/qso/" << "https://log.example";
+    QTest::newRow ("v2 index qso") << "https://log.example/index.php/api/v2/qso/" << "https://log.example";
   }
 
   void normalizesBaseUrl ()
@@ -311,6 +317,93 @@ private Q_SLOTS:
     QCOMPARE (object.value (QStringLiteral ("station_profile_id")).toString (), QStringLiteral ("42"));
     QCOMPARE (object.value (QStringLiteral ("type")).toString (), QStringLiteral ("adif"));
     QCOMPARE (object.value (QStringLiteral ("string")).toString (), QStringLiteral ("<call:6>K1\"ABC<comment:8>a\\b\nc<eor>"));
+  }
+
+  void usesWavelogV2ForScopedToken ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueJson (200, json (R"({"data":{"name":"Wavelog API","status":"ok"}})"));
+    network.queueJson (200, json (R"({"data":{"scopes":["station:read","qso:write"]}})"));
+    network.queueJson (200, json (R"({"data":[{"id":7,"name":"Home","callsign":"K1ABC"}]})"));
+    network.queueJson (200, json (R"({"data":{"dryrun":true,"parsed":1}})"));
+
+    auto const result = runCheck (
+      network, 7, QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_secret"));
+
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::Success);
+    QVERIFY (result.detail.contains (QStringLiteral ("API v2")));
+    QCOMPARE (result.stationProfiles.size (), 1);
+    QCOMPARE (result.stationProfiles.at (0).id, 7);
+    auto const requests = network.requests ();
+    QCOMPARE (requests.size (), 4);
+    QCOMPARE (requests.at (0).url.path (), QStringLiteral ("/index.php/api/v2/status"));
+    QVERIFY (requests.at (0).authorization.isEmpty ());
+    QCOMPARE (requests.at (1).url.path (), QStringLiteral ("/index.php/api/v2/token"));
+    QCOMPARE (requests.at (2).url.path (), QStringLiteral ("/index.php/api/v2/station"));
+    QCOMPARE (requests.at (3).url.path (), QStringLiteral ("/index.php/api/v2/qso"));
+    for (int i = 1; i < requests.size (); ++i)
+      {
+        QCOMPARE (requests.at (i).authorization, QByteArray {"Bearer wl2_secret"});
+        QVERIFY (!requests.at (i).url.toString ().contains (QStringLiteral ("wl2_secret")));
+      }
+    QCOMPARE (requests.at (3).method, QStringLiteral ("POST"));
+    auto const payload = QJsonDocument::fromJson (requests.at (3).payload).object ();
+    QCOMPARE (payload.value (QStringLiteral ("import_type")).toString (), QStringLiteral ("adif"));
+    QCOMPARE (payload.value (QStringLiteral ("station_profile_id")).toInt (), 7);
+    QCOMPARE (payload.value (QStringLiteral ("dryrun")).toBool (), true);
+    QVERIFY (payload.value (QStringLiteral ("adif")).toString ().endsWith (QStringLiteral ("<eor>")));
+  }
+
+  void rejectsWavelogV2TokenWithoutRequiredScopes ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueJson (200, json (R"({"data":{"name":"Wavelog API","status":"ok"}})"));
+    network.queueJson (200, json (R"({"data":{"scopes":["qso:read"]}})"));
+
+    auto const result = runCheck (
+      network, 7, QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_secret"));
+
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::InsufficientScope);
+    QVERIFY (result.detail.contains (QStringLiteral ("qso:write")));
+    QVERIFY (result.detail.contains (QStringLiteral ("station:read")));
+    QCOMPARE (network.requests ().size (), 2);
+  }
+
+  void doesNotSendWavelogV2TokenToLegacyApi ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueJson (200, json (R"({"data":{"name":"Wavelog API","status":"ok"}})"));
+    network.queueResponse ({401,
+                            json (R"({"error":{"code":"invalid_token","message":"Token revoked"}})"),
+                            QNetworkReply::AuthenticationRequiredError,
+                            QStringLiteral ("unauthorized")});
+
+    auto const result = runCheck (
+      network, 7, QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_revoked"));
+
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::InvalidKey);
+    QCOMPARE (result.detail, QStringLiteral ("Token revoked"));
+    QCOMPARE (network.requests ().size (), 2);
+    for (auto const& request : network.requests ())
+      {
+        QVERIFY (request.url.path ().contains (QStringLiteral ("/api/v2/")));
+        QVERIFY (!request.url.toString ().contains (QStringLiteral ("wl2_revoked")));
+      }
+  }
+
+  void reportsUnavailableWavelogV2WithoutLegacyFallback ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueResponse ({404, QByteArray {"not found"}, QNetworkReply::ContentNotFoundError,
+                            QStringLiteral ("not found")});
+
+    auto const result = runCheck (
+      network, 7, QStringLiteral ("https://old-wavelog.example"), QStringLiteral ("wl2_secret"));
+
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::EndpointUnavailable);
+    QVERIFY (result.detail.contains (QStringLiteral ("3.1.0")));
+    QCOMPARE (network.requests ().size (), 1);
+    QCOMPARE (network.requests ().at (0).url.path (), QStringLiteral ("/index.php/api/v2/status"));
   }
 
   void classifiesQsoUploadReplies_data ()
@@ -409,6 +502,66 @@ private Q_SLOTS:
     QCOMPARE (result.httpStatusCode, 201);
   }
 
+  void uploadsQsoWithWavelogV2BearerToken ()
+  {
+    FakeNetworkAccessManager network;
+    auto const result = runLogQso (
+      network, {201, json (R"({"data":{"parsed":1,"imported":1,"skipped":0,"messages":[]}})")},
+      QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_secret"));
+
+    QCOMPARE (result.status, Cloudlog::UploadStatus::Success);
+    QCOMPARE (network.requests ().size (), 1);
+    auto const request = network.requests ().at (0);
+    QCOMPARE (request.method, QStringLiteral ("POST"));
+    QCOMPARE (request.url.path (), QStringLiteral ("/index.php/api/v2/qso"));
+    QVERIFY (!request.url.toString ().contains (QStringLiteral ("wl2_secret")));
+    QCOMPARE (request.authorization, QByteArray {"Bearer wl2_secret"});
+    auto const payload = QJsonDocument::fromJson (request.payload).object ();
+    QCOMPARE (payload.value (QStringLiteral ("import_type")).toString (), QStringLiteral ("adif"));
+    QCOMPARE (payload.value (QStringLiteral ("station_profile_id")).toInt (), 7);
+    QVERIFY (!payload.contains (QStringLiteral ("dryrun")));
+    QVERIFY (!payload.contains (QStringLiteral ("key")));
+    QCOMPARE (payload.value (QStringLiteral ("adif")).toString (), QStringLiteral ("<call:5>K1ABC<eor>"));
+  }
+
+  void reportsWavelogV2UploadErrorWithoutLegacyFallback ()
+  {
+    FakeNetworkAccessManager network;
+    auto const result = runLogQso (
+      network,
+      {403,
+       json (R"({"error":{"code":"insufficient_scope","message":"Missing qso:write"}})"),
+       QNetworkReply::ContentAccessDenied,
+       QStringLiteral ("forbidden")},
+      QStringLiteral ("https://wavelog.example"), QStringLiteral ("wl2_read_only"));
+
+    QCOMPARE (result.status, Cloudlog::UploadStatus::HttpError);
+    QCOMPARE (result.detail, QStringLiteral ("Missing qso:write"));
+    QCOMPARE (network.requests ().size (), 1);
+    QCOMPARE (network.requests ().at (0).url.path (), QStringLiteral ("/index.php/api/v2/qso"));
+  }
+
+  void preservesWavelogV2AcrossHttpTransportFallback ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueResponse ({0, {}, QNetworkReply::SslHandshakeFailedError, QStringLiteral ("TLS unavailable")});
+    auto const result = runLogQso (
+      network, {201, json (R"({"data":{"parsed":1,"imported":1,"skipped":0}})")},
+      QStringLiteral ("http://legacy-wavelog.example"), QStringLiteral ("wl2_secret"));
+
+    QCOMPARE (result.status, Cloudlog::UploadStatus::Success);
+    auto const requests = network.requests ();
+    QCOMPARE (requests.size (), 2);
+    QCOMPARE (requests.at (0).url.scheme (), QStringLiteral ("https"));
+    QCOMPARE (requests.at (1).url.scheme (), QStringLiteral ("http"));
+    for (auto const& request : requests)
+      {
+        QCOMPARE (request.url.path (), QStringLiteral ("/index.php/api/v2/qso"));
+        QCOMPARE (request.authorization, QByteArray {"Bearer wl2_secret"});
+        QVERIFY (!request.url.toString ().contains (QStringLiteral ("wl2_secret")));
+      }
+  }
+
   void prefersHttpsAndFallsBackForQsoUpload ()
   {
     FakeNetworkAccessManager network;
@@ -464,6 +617,30 @@ private Q_SLOTS:
         QCOMPARE (requests.at (i).url.scheme (), QStringLiteral ("http"));
         QCOMPARE (requests.at (i).redirectPolicy,
                   static_cast<int> (QNetworkRequest::NoLessSafeRedirectPolicy));
+      }
+  }
+
+  void preservesWavelogV2ConnectionCheckAcrossHttpFallback ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueResponse ({0, {}, QNetworkReply::SslHandshakeFailedError, QStringLiteral ("TLS unavailable")});
+    network.queueJson (200, json (R"({"data":{"name":"Wavelog API","status":"ok"}})"));
+    network.queueJson (200, json (R"({"data":{"scopes":["station:read","qso:write"]}})"));
+    network.queueJson (200, json (R"({"data":[{"id":7,"name":"Home"}]})"));
+    network.queueJson (200, json (R"({"data":{"dryrun":true,"parsed":1}})"));
+
+    auto const result = runCheck (
+      network, 7, QStringLiteral ("http://legacy-wavelog.example"), QStringLiteral ("wl2_secret"));
+
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::Success);
+    QVERIFY (result.detail.contains (QStringLiteral ("connected over HTTP")));
+    auto const requests = network.requests ();
+    QCOMPARE (requests.size (), 5);
+    QCOMPARE (requests.at (0).url.scheme (), QStringLiteral ("https"));
+    for (int i = 1; i < requests.size (); ++i)
+      {
+        QCOMPARE (requests.at (i).url.scheme (), QStringLiteral ("http"));
+        QVERIFY (requests.at (i).url.path ().contains (QStringLiteral ("/api/v2/")));
       }
   }
 
