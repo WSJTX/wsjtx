@@ -9,6 +9,7 @@
 #include <QDateTime>
 
 #include "HelpTextWindow.hpp"
+#include "QsoLogData.hpp"
 #include "Radio.hpp"
 
 namespace Ui {
@@ -27,10 +28,7 @@ class LogQSO : public QDialog
 public:
   explicit LogQSO(QString const& programTitle, QSettings *, Configuration const *, LogBook *, QWidget *parent = 0);
   ~LogQSO();
-  void initLogQSO(QString const& hisCall, QString const& hisGrid, QString mode,
-                  QString const& rptSent, QString const& rptRcvd, QDateTime const& dateTimeOn,
-                  QDateTime const& dateTimeOff, Radio::Frequency dialFreq, 
-                  bool noSuffix, QString xSent, QString xRcvd);
+  void initLogQSO(QsoLogData const&);
 
 public slots:
   void accept();
@@ -64,9 +62,7 @@ private:
   QString m_txPower;
   QString m_comments;
   QString m_comments_temp = "";
-  Radio::Frequency m_dialFreq;
-  QString m_myCall;
-  QString m_myGrid;
+  QsoLogData m_data;
   QString m_freqRx;
 };
 

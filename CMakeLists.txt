@@ -1113,6 +1113,7 @@ add_executable (wsjtx MACOSX_BUNDLE
   )
 
 wsjt_enable_qt_automoc (wsjtx)
+target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
 if (WSJT_ENABLE_TESTS)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)

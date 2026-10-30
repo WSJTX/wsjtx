@@ -493,59 +493,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
     MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));
     if ((SpecOp::NA_VHF == m_specOp or SpecOp::WW_DIGI == m_specOp) && m_config.autoLog()) return;  // prevent program crash
   }
-  // m_dateTimeQSOOn should really already be set but we'll ensure it gets set to something just in case
-  if (!m_dateTimeQSOOn.isValid ()) {
-    auto now = QDateTime::currentDateTimeUtc();
-    m_dateTimeQSOOn = now.addSecs (-(m_ntx - 2) * int(m_TRperiod) -
-                                   int(fmod(double(now.time().second()),m_TRperiod)));
-  }
-  auto dateTimeQSOOff = QDateTime::currentDateTimeUtc();
-  if (dateTimeQSOOff < m_dateTimeQSOOn) dateTimeQSOOff = m_dateTimeQSOOn;
-  QString grid=m_hisGrid;
-  if(grid=="....") grid="";
-
-  // Optionally replace empty grids by "ZZ00"
-  if(m_config.ZZ00() && m_hisGrid=="" && m_specOp!=SpecOp::NONE && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND) m_hisGrid = "ZZ00";
-
-  switch( m_specOp )
-    {
-      case SpecOp::NA_VHF:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::EU_VHF:
-        m_rptSent=m_xSent.split(" ").at(0).left(2);
-        m_rptRcvd=m_xRcvd.split(" ").at(0).left(2);
-        if(m_xRcvd.split(" ").size()>=2) m_hisGrid=m_xRcvd.split(" ").at(1);
-        grid=m_hisGrid;
-        ui->dxGridEntry->setText(grid);
-        break;
-      case SpecOp::FIELD_DAY:
-        m_rptSent=m_xSent.split(" ").at(0);
-        m_rptRcvd=m_xRcvd.split(" ").at(0);
-        break;
-      case SpecOp::RTTY:
-        m_rptSent=m_xSent.split(" ").at(0);
-        m_rptRcvd=m_xRcvd.split(" ").at(0);
-        break;
-      case SpecOp::WW_DIGI:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::ARRL_DIGI:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::Q65_PILEUP:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid;
-        break;
-      default: break;
-    }
-
-  m_logDlg->initLogQSO (m_hisCall, grid, m_mode, m_rptSent, m_rptRcvd,
-                        m_dateTimeQSOOn, dateTimeQSOOff, m_operatingFrequency.rx () +
-                        ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
+  m_logDlg->initLogQSO (captureLogQso ());
   m_inQSOwith="";
   if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {
         m_autoRespondScores.reset();

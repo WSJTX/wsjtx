@@ -60,6 +60,7 @@ namespace DecoderIpc {class Session;}
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
+#include "QsoLogData.hpp"
 #include "JttyN1mmOutput.hpp"
 #include "JttyReceiveAudio.hpp"
 #include "JttyMmttyHandoff.hpp"
@@ -820,6 +821,7 @@ private:
   bool rr73_tx4_allowed () const;
   bool send_rr73_for_tx4 () const;
   void set_rr73_tx4 (bool enabled);
+  QsoLogData captureLogQso ();
   void readWidebandDecodes();
   void refreshQmapActiveStations(QDateTime const& nowUtc);
   void configActiveStations();
