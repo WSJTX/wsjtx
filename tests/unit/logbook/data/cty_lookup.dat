@@ -1,0 +1,33 @@
+Vienna Intl Ctr:15:28:EU:48.20:-16.30:-1.0:*4U1V:
+    =4U1VIC;
+Spain:14:37:EU:40.32:3.43:-1.0:EA:
+    =EF6;
+Balearic Islands:14:37:EU:39.60:-2.95:-1.0:EA6:
+    EF6;
+Canary Islands:33:36:AF:28.32:15.85:0.0:EA8:
+    EA8;
+Scotland:14:27:EU:56.82:4.18:0.0:GM:
+    =G0FBJ;
+Shetland Islands:14:27:EU:60.50:1.50:0.0:*GM/s:
+    =G0FBJ;
+United States:05:08:NA:37.60:91.87:5.0:K:
+    K,=N2NL/MM(7),=NQ4I/AM;
+Guantanamo Bay:08:11:NA:20.00:75.00:5.0:KG4:
+    KG4,=KG44WW;
+Guam:27:64:OC:13.37:-144.70:-10.0:KH2:
+    =KG4BKW;
+Hawaii:31:61:OC:21.12:157.48:10.0:KH6:
+    =WH7K;
+Kure Island:31:61:OC:29.00:178.00:10.0:KH7K:
+    WH7K;
+Alaska:01:01:NA:61.40:148.87:8.0:KL:
+    =KG4NBL/P;
+Austria:15:28:EU:47.33:-13.33:-1.0:OE:
+    =4U1VIC;
+European Russia:16:29:EU:53.65:-41.37:-4.0:UA:
+    RC4I[30],RJ4I[30],RM4I[30],RU4I[30],UA4H[30],UC4I[30],UG4I[30],UI4I[30],
+    =RC4I[29],=RJ4I[29],=RM4I[29],=RU4I[29],=UA4H[29],=UC4I[29],=UG4I[29],=UG4I/P[30],=UI4I[29];
+Asiatic Russia:17:30:AS:55.88:-84.08:-7.0:UA9:
+    RA9J[20],RC9J[20],RT9J[20],UA8J[20],=RA9J[21],=RC9J[21],=RT9J[21],=UA8J[21];
+Bermuda:05:11:NA:32.32:64.73:4.0:VP9:
+    VP9;

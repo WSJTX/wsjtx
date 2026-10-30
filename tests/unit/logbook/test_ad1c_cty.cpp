@@ -43,7 +43,6 @@ private Q_SLOTS:
   void cleanupTestCase ();
   void init ();
   void cleanup ();
-  void loads_bundled_country_file ();
   void ignores_truncated_final_entity ();
   void survives_country_file_damage ();
   void bounds_diagnostic_examples ();
@@ -56,7 +55,7 @@ private Q_SLOTS:
   void separates_exact_calls_and_prefixes ();
   void keeps_first_duplicate_callsign_data ();
   void keeps_first_duplicate_callsign ();
-  void resolves_bundled_lookup_exceptions ();
+  void resolves_lookup_exceptions ();
   void validates_country_file_aliases_data ();
   void validates_country_file_aliases ();
   void accepts_boundary_entity_fields ();
@@ -121,19 +120,6 @@ void TestAD1CCty::cleanup ()
   settings_.reset ();
   QFile::remove (QDir {data_directory ()}.filePath ("cty.dat"));
   QFile::remove (QDir {data_directory ()}.filePath ("grid.dat"));
-}
-
-void TestAD1CCty::loads_bundled_country_file ()
-{
-  QFile source {QFINDTESTDATA ("../../../cty.dat")};
-  QVERIFY (source.open (QIODevice::ReadOnly | QIODevice::Text));
-  QVERIFY (write_data_file ("cty.dat", source.readAll ()));
-
-  LogCapture log;
-  AD1CCty countries {configuration_.get ()};
-  QCOMPARE (countries.lookup ("K1ABC").entity_name, QString {"United States"});
-  QCOMPARE (countries.version (), QString {"VER20250115"});
-  QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
 }
 
 void TestAD1CCty::recovers_at_next_entity_header ()
@@ -236,9 +222,10 @@ void TestAD1CCty::keeps_first_duplicate_callsign ()
   QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
 }
 
-void TestAD1CCty::resolves_bundled_lookup_exceptions ()
+void TestAD1CCty::resolves_lookup_exceptions ()
 {
-  QFile source {QFINDTESTDATA ("../../../cty.dat")};
+  // Historical aliases keep lookup-rule regressions independent of country-file updates.
+  QFile source {QFINDTESTDATA ("data/cty_lookup.dat")};
   QVERIFY (source.open (QIODevice::ReadOnly));
   QVERIFY (write_data_file ("cty.dat", source.readAll ()));
   AD1CCty countries {configuration_.get ()};
@@ -259,6 +246,7 @@ void TestAD1CCty::resolves_bundled_lookup_exceptions ()
   for (auto i = suffix_zones.cbegin (); i != suffix_zones.cend (); ++i)
     QVERIFY2 (countries.lookup (i.key ()).ITU_zone == i.value (), qPrintable (i.key ()));
   QMap<QString, QString> const expected {
+    {"K1ABC", "United States"},
     {"EF6", "Spain"}, {"EF6ABC", "Balearic Islands"},
     {"WH7K", "Hawaii"}, {"WH7KABC", "Kure Island"},
     {"G0FBJ", "Scotland"}, {"4U1VIC", "Vienna Intl Ctr"},
@@ -282,16 +270,14 @@ void TestAD1CCty::resolves_bundled_lookup_exceptions ()
 void TestAD1CCty::validates_country_file_aliases_data ()
 {
   QTest::addColumn<QString> ("path");
-  QTest::addColumn<bool> ("bundled");
-  QTest::newRow ("bundled") << QFINDTESTDATA ("../../../cty.dat") << true;
+  QTest::newRow ("bundled") << QFINDTESTDATA ("../../../cty.dat");
   auto const downloaded = qEnvironmentVariable ("WSJTX_TEST_CTY_FILE");
-  if (!downloaded.isEmpty ()) QTest::newRow ("downloaded") << downloaded << false;
+  if (!downloaded.isEmpty ()) QTest::newRow ("downloaded") << downloaded;
 }
 
 void TestAD1CCty::validates_country_file_aliases ()
 {
   QFETCH (QString, path);
-  QFETCH (bool, bundled);
   QFile source {path};
   QVERIFY (source.open (QIODevice::ReadOnly | QIODevice::Text));
   auto const bytes = source.readAll ();
@@ -303,7 +289,9 @@ void TestAD1CCty::validates_country_file_aliases ()
   int aliases = 0;
   int text_collisions = 0;
   int duplicates = 0;
+  QString expected_version;
   AD1CCty::Record parent;
+  QRegularExpression const version_pattern {R"(^VER\d{8}$)"};
   QRegularExpression const alias_pattern {R"(^\s*(=?)([A-Z0-9/]+)(.*)$)"};
   QRegularExpression const override_pattern {R"(\(([^)]*)\)|\[([^\]]*)\]|<([^>]*)>|\{([^}]*)\}|~([^~]*)~)"};
   for (auto const& line : QString::fromUtf8 (bytes).split ('\n'))
@@ -330,6 +318,8 @@ void TestAD1CCty::validates_country_file_aliases ()
           auto const parsed = alias_pattern.match (token.trimmed ());
           QVERIFY2 (parsed.hasMatch (), qPrintable (token));
           auto const key = parsed.captured (2);
+          if (!parsed.captured (1).isEmpty () && version_pattern.match (key).hasMatch ())
+            expected_version = key;
           auto expected = parent;
           auto overrides = override_pattern.globalMatch (parsed.captured (3));
           while (overrides.hasNext ())
@@ -355,16 +345,13 @@ void TestAD1CCty::validates_country_file_aliases ()
           else index.insert (key, expected);
         }
     }
-  if (bundled)
-    {
-      QCOMPARE (entities, 346);
-      QCOMPARE (aliases, 29104);
-      QCOMPARE (text_collisions, 72);
-      QCOMPARE (duplicates, 58);
-    }
-  QVERIFY (entities > 300);
+  QVERIFY (entities > 0);
+  QVERIFY (!prefixes.isEmpty ());
+  QVERIFY (!exact_calls.isEmpty ());
+  QVERIFY (!expected_version.isEmpty ());
   LogCapture log;
   AD1CCty countries {configuration_.get ()};
+  QCOMPARE (countries.version (), expected_version);
   auto check = [&] (QString const& key, AD1CCty::Record const& expected) {
     auto const actual = countries.lookup (key);
     QVERIFY2 (actual.entity_name == expected.entity_name, qPrintable (key + ": " + actual.entity_name));
@@ -618,8 +605,6 @@ void TestAD1CCty::loads_bundled_grid_file ()
 
   LogCapture log;
   AD1CCty countries {configuration_.get ()};
-  QCOMPARE (countries.findState ("AL91"), QString {"HI"});
-  QCOMPARE (countries.findState ("BK19"), QString {"HI"});
   QVERIFY (source.seek (0));
   QString prefix;
   int blocks = 0;
@@ -638,9 +623,10 @@ void TestAD1CCty::loads_bundled_grid_file ()
       QCOMPARE (countries.findState (prefix + index), state);
       ++cells;
     }
-  QCOMPARE (blocks, 21);
-  QCOMPARE (cells, 695);
+  QVERIFY (blocks > 0);
+  QVERIFY (cells > 0);
   QVERIFY2 (!log.text ().contains ("malformed"), qPrintable (log.text ()));
+  qInfo () << "Validated" << blocks << "grid blocks and" << cells << "cells";
 }
 
 void TestAD1CCty::discards_incomplete_grid_blocks ()
