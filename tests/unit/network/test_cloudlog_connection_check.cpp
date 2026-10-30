@@ -69,6 +69,7 @@ namespace
     QByteArray payload;
     QByteArray contentType;
     QByteArray accept;
+    int redirectPolicy {0};
   };
 
   class FakeReply final
@@ -194,6 +195,7 @@ namespace
       captured.url = request.url ();
       captured.contentType = request.header (QNetworkRequest::ContentTypeHeader).toByteArray ();
       captured.accept = request.rawHeader ("Accept");
+      captured.redirectPolicy = request.attribute (QNetworkRequest::RedirectPolicyAttribute).toInt ();
       if (outgoingData)
         {
           captured.payload = outgoingData->readAll ();
@@ -212,13 +214,12 @@ namespace
     QList<QPointer<FakeReply>> replies_;
   };
 
-  Cloudlog::ConnectionCheckResult runCheck (FakeNetworkAccessManager& network, int stationId = 7)
+  Cloudlog::ConnectionCheckResult runCheck (FakeNetworkAccessManager& network, int stationId = 7,
+                                             QString const& url = QStringLiteral (" https://example.test/api/qso/ "))
   {
     Cloudlog cloudlog {nullptr, &network};
     QSignalSpy spy {&cloudlog, &Cloudlog::connection_check_finished};
-    cloudlog.checkConnection ({QStringLiteral (" https://example.test/api/qso/ "),
-                               QStringLiteral ("secret/key"),
-                               stationId});
+    cloudlog.checkConnection ({url, QStringLiteral ("secret/key"), stationId});
     if (spy.isEmpty ())
       {
         spy.wait (1000);
@@ -232,10 +233,12 @@ namespace
     return text.toUtf8 ();
   }
 
-  Cloudlog::UploadResult runLogQso (FakeNetworkAccessManager& network, FakeResponse const& response)
+  Cloudlog::UploadResult runLogQso (
+    FakeNetworkAccessManager& network, FakeResponse const& response,
+    QString const& url = QStringLiteral (" https://example.test/index.php/api/qso/ "))
   {
     TestCloudlogConfiguration configuration {
-      QStringLiteral (" https://example.test/index.php/api/qso/ "),
+      url,
       QStringLiteral ("secret/key"),
       7};
     network.queueResponse (response);
@@ -387,6 +390,8 @@ private Q_SLOTS:
     QCOMPARE (network.requests ().at (0).url.path (), QStringLiteral ("/index.php/api/qso"));
     QCOMPARE (network.requests ().at (0).contentType, QByteArray {"application/json"});
     QCOMPARE (network.requests ().at (0).accept, QByteArray {"application/json"});
+    QCOMPARE (network.requests ().at (0).redirectPolicy,
+              static_cast<int> (QNetworkRequest::NoLessSafeRedirectPolicy));
     if (!expectedDetail.isEmpty ())
       {
         QVERIFY2 (result.detail.contains (expectedDetail), qPrintable (result.detail));
@@ -402,6 +407,64 @@ private Q_SLOTS:
     QVERIFY (result.message.isEmpty ());
     QVERIFY (result.detail.isEmpty ());
     QCOMPARE (result.httpStatusCode, 201);
+  }
+
+  void prefersHttpsAndFallsBackForQsoUpload ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueResponse ({0, {}, QNetworkReply::SslHandshakeFailedError, QStringLiteral ("TLS unavailable")});
+    auto const result = runLogQso (
+      network, {201, json (R"({"status":"created"})")},
+      QStringLiteral (" http://legacy-upload.example/index.php/api/qso/ "));
+
+    QCOMPARE (result.status, Cloudlog::UploadStatus::Success);
+    auto const requests = network.requests ();
+    QCOMPARE (requests.size (), 2);
+    QCOMPARE (requests.at (0).url.scheme (), QStringLiteral ("https"));
+    QCOMPARE (requests.at (1).url.scheme (), QStringLiteral ("http"));
+    QCOMPARE (requests.at (0).url.host (), requests.at (1).url.host ());
+    QCOMPARE (requests.at (0).payload, requests.at (1).payload);
+    QCOMPARE (requests.at (0).redirectPolicy,
+              static_cast<int> (QNetworkRequest::NoLessSafeRedirectPolicy));
+    QCOMPARE (requests.at (1).redirectPolicy,
+              static_cast<int> (QNetworkRequest::NoLessSafeRedirectPolicy));
+  }
+
+  void doesNotDowngradeAfterHttpsHttpResponse ()
+  {
+    FakeNetworkAccessManager network;
+    auto const result = runLogQso (
+      network,
+      {404, json (R"({"message":"not found"})"), QNetworkReply::ContentNotFoundError, QStringLiteral ("not found")},
+      QStringLiteral ("http://legacy-upload.example"));
+
+    QCOMPARE (result.status, Cloudlog::UploadStatus::HttpError);
+    QCOMPARE (network.requests ().size (), 1);
+    QCOMPARE (network.requests ().at (0).url.scheme (), QStringLiteral ("https"));
+  }
+
+  void prefersHttpsAndFallsBackForConnectionCheck ()
+  {
+    FakeNetworkAccessManager network;
+    network.queueResponse ({0, {}, QNetworkReply::SslHandshakeFailedError, QStringLiteral ("TLS unavailable")});
+    network.queueWritableJsonAuth ();
+    network.queueStationInfo (json (R"([{"station_id":7,"station_profile_name":"Home"}])"));
+    network.queueManifest (json (R"({"name":"Cloudlog"})"));
+
+    auto const result = runCheck (network, 7, QStringLiteral (" http://legacy-check.example/api/qso/ "));
+
+    QCOMPARE (result.status, Cloudlog::ConnectionCheckStatus::Success);
+    QCOMPARE (result.normalizedBaseUrl, QStringLiteral ("http://legacy-check.example"));
+    QVERIFY (result.detail.contains (QStringLiteral ("connected over HTTP")));
+    auto const requests = network.requests ();
+    QCOMPARE (requests.size (), 4);
+    QCOMPARE (requests.at (0).url.scheme (), QStringLiteral ("https"));
+    for (int i = 1; i < requests.size (); ++i)
+      {
+        QCOMPARE (requests.at (i).url.scheme (), QStringLiteral ("http"));
+        QCOMPARE (requests.at (i).redirectPolicy,
+                  static_cast<int> (QNetworkRequest::NoLessSafeRedirectPolicy));
+      }
   }
 
   void acceptsWritableClassicWithoutDryRun ()

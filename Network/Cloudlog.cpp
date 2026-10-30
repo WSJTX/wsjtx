@@ -85,6 +85,7 @@ namespace
 
   void applyCommonHeaders (QNetworkRequest& request, bool acceptJson)
   {
+    request.setAttribute (QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setRawHeader ("User-Agent", http_user_agent ().toUtf8 ());
     if (acceptJson)
       {
@@ -116,6 +117,31 @@ namespace
   int httpStatus (QNetworkReply const& reply)
   {
     return reply.attribute (QNetworkRequest::HttpStatusCodeAttribute).toInt ();
+  }
+
+  QString httpsFirstBaseUrl (QString const& baseUrl, QString& httpFallback)
+  {
+    QUrl url {baseUrl};
+    if (url.scheme ().compare (QStringLiteral ("http"), Qt::CaseInsensitive) != 0)
+      {
+        httpFallback.clear ();
+        return baseUrl;
+      }
+
+    httpFallback = baseUrl;
+    url.setScheme (QStringLiteral ("https"));
+    return url.toString ();
+  }
+
+  bool canRetryUploadOverHttp (QNetworkReply const& reply)
+  {
+    if (!isTransportError (reply))
+      {
+        return false;
+      }
+
+    return QNetworkReply::ConnectionRefusedError == reply.error ()
+      || QNetworkReply::SslHandshakeFailedError == reply.error ();
   }
 
   QString lowerString (QJsonObject const& object, char const * key)
@@ -446,14 +472,23 @@ public:
         return;
       }
 
-    auto const base_url = Cloudlog::normalizeBaseUrl (config_->cloudlog_api_url ());
+    auto const configured_base_url = Cloudlog::normalizeBaseUrl (config_->cloudlog_api_url ());
+    QString http_fallback;
+    auto const base_url = httpsFirstBaseUrl (configured_base_url, http_fallback);
     auto const data = Cloudlog::qsoUploadPayload (config_->cloudlog_api_key (), config_->cloudlog_api_station_id (), ADIF);
-    auto const layout = uploadLayoutCache ().value (base_url, EndpointLayout::IndexPhpApi);
+    startQsoUpload (base_url, data, http_fallback);
+  }
+
+  void startQsoUpload (QString const& baseUrl, QByteArray const& data, QString const& httpFallback)
+  {
+    auto const layout = uploadLayoutCache ().value (baseUrl, EndpointLayout::IndexPhpApi);
     auto const path = EndpointLayout::DirectApi == layout ? QStringLiteral ("/api/qso") : QStringLiteral ("/index.php/api/qso");
-    auto const u = QUrl {base_url + path};
+    auto const u = QUrl {baseUrl + path};
 
     auto request = jsonPostRequest (u);
     upload_reply_ = network_manager_->post (request, data);
+    upload_reply_->setProperty ("cloudlogHttpFallback", httpFallback);
+    upload_reply_->setProperty ("cloudlogUploadPayload", data);
     connect (upload_reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_logqso);
   }
 
@@ -461,7 +496,9 @@ public:
   {
     abortCheckReply ();
     check_request_ = request;
-    check_request_.url = Cloudlog::normalizeBaseUrl (request.url);
+    auto const configured_base_url = Cloudlog::normalizeBaseUrl (request.url);
+    check_request_.url = httpsFirstBaseUrl (configured_base_url, check_http_fallback_url_);
+    check_using_http_fallback_ = false;
     auth_layout_index_ = 0;
     dry_run_layout_index_ = 0;
     checked_station_profiles_.clear ();
@@ -780,6 +817,11 @@ private:
 
   void finishNetworkError (QString const& detail)
   {
+    if (retryCheckOverHttp ())
+      {
+        return;
+      }
+
     finish ({Cloudlog::ConnectionCheckStatus::NetworkError,
              tr ("Network error while checking Cloudlog or Wavelog."),
              detail,
@@ -790,6 +832,10 @@ private:
   {
     check_reply_ = nullptr;
     auto result_with_profiles = result;
+    if (check_using_http_fallback_ && Cloudlog::ConnectionCheckStatus::Success == result_with_profiles.status)
+      {
+        result_with_profiles.detail += tr (" HTTPS was unavailable; connected over HTTP.");
+      }
     if (result_with_profiles.stationProfiles.isEmpty ())
       {
         result_with_profiles.stationProfiles = checked_station_profiles_;
@@ -828,6 +874,15 @@ private:
         upload_reply_ = nullptr;
       }
 
+    auto const http_fallback = reply->property ("cloudlogHttpFallback").toString ();
+    if (!http_fallback.isEmpty () && canRetryUploadOverHttp (*reply))
+      {
+        auto const data = reply->property ("cloudlogUploadPayload").toByteArray ();
+        reply->deleteLater ();
+        startQsoUpload (http_fallback, data, {});
+        return;
+      }
+
     auto const result = classifyQsoUploadReply (httpStatus (*reply), reply->error (), reply->errorString (), reply->readAll ());
     Q_EMIT self_->qso_upload_finished (result);
     showUploadWarning (result);
@@ -859,6 +914,23 @@ private:
       }
   }
 
+  bool retryCheckOverHttp ()
+  {
+    if (check_http_fallback_url_.isEmpty () || check_using_http_fallback_)
+      {
+        return false;
+      }
+
+    check_request_.url = check_http_fallback_url_;
+    check_http_fallback_url_.clear ();
+    check_using_http_fallback_ = true;
+    auth_layout_index_ = 0;
+    dry_run_layout_index_ = 0;
+    checked_station_profiles_.clear ();
+    startJsonAuth ();
+    return true;
+  }
+
   Cloudlog * self_;
   CloudlogConfiguration const * config_;
   QNetworkAccessManager * network_manager_;
@@ -870,6 +942,8 @@ private:
   std::size_t auth_layout_index_ {0};
   std::size_t dry_run_layout_index_ {0};
   QList<Cloudlog::StationProfile> checked_station_profiles_;
+  QString check_http_fallback_url_;
+  bool check_using_http_fallback_ {false};
 };
 
 #include "Cloudlog.moc"
