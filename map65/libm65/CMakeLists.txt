@@ -327,6 +327,18 @@ if (WSJT_ENABLE_TESTS)
     RUN_SERIAL TRUE
     TIMEOUT 180)
 
+  add_executable (test_map65_candidate_peaks
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_candidate_peaks.f90)
+  target_include_directories (test_map65_candidate_peaks PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_candidate_peaks PRIVATE m65impl)
+  file (MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test-map65-candidate-peaks)
+  add_test (NAME test_map65_candidate_peaks COMMAND test_map65_candidate_peaks)
+  set_tests_properties (test_map65_candidate_peaks PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test-map65-candidate-peaks
+    ENVIRONMENT "OMP_NUM_THREADS=1"
+    RUN_SERIAL TRUE
+    TIMEOUT 180)
+
   add_executable (test_map65_symspec_contract
     ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_symspec_contract.f90)
   target_include_directories (test_map65_symspec_contract PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
