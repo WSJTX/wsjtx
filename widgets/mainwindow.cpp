@@ -2943,6 +2943,7 @@ void MainWindow::fastSink(qint64 frames)
 
     // Filtering for MSK144
     MessageFilterLogic::FilterContext ctx;
+    ctx.entityView = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
     ctx.specOp = m_specOp;
     ctx.bypass = ui->cbBypass->isChecked();
     ctx.filtersForWord2 = m_config.filters_for_word2();
@@ -3197,7 +3198,8 @@ void MainWindow::fastSink(qint64 frames)
         if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
             ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
           auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-          auto countryName =looked_up.abbreviated_entity_name;
+          auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+          auto const& countryName = looked_up.identity (entity_view).abbreviated_name;
           if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
               && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
           if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -17583,7 +17585,8 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
     visibilityContext.yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString("yyyy-MM-dd");
   }
   visibilityContext.countryName = [this] (QString const& deCall) {
-    return m_logBook.countries()->lookup(deCall).abbreviated_entity_name;
+    auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+    return m_logBook.countries()->lookup(deCall).identity(entity_view).abbreviated_name;
   };
   visibilityContext.continent = [this] (QString const& deCall) {
     return AD1CCty::continent(m_logBook.countries()->lookup(deCall).continent);
@@ -17641,7 +17644,8 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
           ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
         auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-        auto countryName = looked_up.abbreviated_entity_name;
+        auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+        auto const& countryName = looked_up.identity (entity_view).abbreviated_name;
         if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
             && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) decodePane->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
         if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())

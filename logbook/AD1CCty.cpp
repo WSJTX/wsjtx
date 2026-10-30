@@ -15,6 +15,7 @@
 #include <QString>
 #include <QDir>
 #include <QFile>
+#include <QMap>
 #include <QTextStream>
 #include <QDebug>
 #include <QDebugStateSaver>
@@ -57,7 +58,7 @@ namespace
 
     void report (QString const& path) const
     {
-      if (count_) LOG_WARN(QString {"Recovered or ignored %1 malformed records/fields while loading %2 (%3)"}
+      if (count_) LOG_WARN(QString {"Found %1 data issues while loading %2 (%3)"}
                            .arg (count_).arg (path).arg (examples_.join ("; ")));
     }
 
@@ -231,6 +232,14 @@ struct prefix
   std::optional<int> UTC_offset_;
 };
 
+bool same_definition (prefix const& lhs, prefix const& rhs)
+{
+  return lhs.entity_id_ == rhs.entity_id_
+    && lhs.CQ_zone_ == rhs.CQ_zone_ && lhs.ITU_zone_ == rhs.ITU_zone_
+    && lhs.continent_ == rhs.continent_ && lhs.coordinates_ == rhs.coordinates_
+    && lhs.UTC_offset_ == rhs.UTC_offset_;
+}
+
 #if !defined (QT_NO_DEBUG_STREAM)
 QDebug operator << (QDebug dbg, prefix const& p)
 {
@@ -288,34 +297,45 @@ public:
   QString get_cty_path(const Configuration *configuration);
   void load_cty(QFile &file);
 
-  Record lookup_record (prefix const& p, QString const& effective_prefix = {}) const
+  struct match
+  {
+    entity const * country {};
+    prefix const * alias {};
+  };
+
+  match lookup_match (prefix const& p, QString const& effective_prefix = {}) const
   {
     if (p.prefix_ == "KG4" && effective_prefix.startsWith ("KG4")
         && effective_prefix.size () != 5 && effective_prefix.size () != 3)
       {
         // Exact calls and foreign operating prefixes take precedence over this exception.
         auto const us = entities_.get<primary_prefix> ().find ("K");
-        if (us == entities_.get<primary_prefix> ().end ()) return Record {};
-        return fixup (prefix {"K", us->id_}, *us);
+        if (us == entities_.get<primary_prefix> ().end () || us->WAE_only_) return {};
+        return {&*us, nullptr};
       }
     auto const e = entities_.get<id> ().find (p.entity_id_);
-    return e == entities_.get<id> ().end () ? Record {} : fixup (p, *e);
+    return e == entities_.get<id> ().end () ? match {} : match {&*e, &p};
   }
 
-  Record fixup (prefix const& p, entity const& e) const
+  static EntityIdentity identity_for (match const& found)
   {
-    Record result;
+    if (!found.country) return {};
+    auto const& e = *found.country;
+    return {e.name_, e.abbreviated_name_, e.primary_prefix_, e.WAE_only_};
+  }
+
+  static void set_geography (Record& result, match const& found)
+  {
+    if (!found.country) return;
+    auto const& e = *found.country;
     result.continent = e.continent_;
     result.CQ_zone = e.CQ_zone_;
     result.ITU_zone = e.ITU_zone_;
-    result.entity_name = e.name_;
-    result.abbreviated_entity_name = e.abbreviated_name_;
-    result.WAE_only = e.WAE_only_;
     result.latitude = e.lat_;
     result.longtitude = e.long_;
     result.UTC_offset = e.UTC_offset_;
-    result.primary_prefix = e.primary_prefix_;
-
+    if (!found.alias) return;
+    auto const& p = *found.alias;
     if (p.CQ_zone_) result.CQ_zone = *p.CQ_zone_;
     if (p.ITU_zone_) result.ITU_zone = *p.ITU_zone_;
     if (p.continent_) result.continent = *p.continent_;
@@ -325,7 +345,135 @@ public:
         result.longtitude = p.coordinates_->second;
       }
     if (p.UTC_offset_) result.UTC_offset = *p.UTC_offset_;
-    return result;
+  }
+
+  prefix const * find_alias (QString const& key, EntityView view, bool exact) const
+  {
+    if (view == EntityView::WAE)
+      {
+        auto const& index = exact ? wae_exact_calls_ : wae_prefixes_;
+        auto const found = index.find (key);
+        if (found != index.end ()) return &*found;
+      }
+    auto const& index = exact ? exact_calls_ : prefixes_;
+    auto const found = index.find (key);
+    return found == index.end () ? nullptr : &*found;
+  }
+
+  match resolve (QString const& call, EntityView view, bool use_wae_parent = true) const
+  {
+    auto exact_search = call.trimmed ().toUpper ();
+    while (true)
+      {
+        if (exact_search.endsWith ("/MM") || exact_search.endsWith ("/AM")) return {};
+        if (auto const exact = find_alias (exact_search, view, true)) return lookup_match (*exact);
+        if (view == EntityView::DXCC && use_wae_parent)
+          {
+            auto const wae = wae_exact_calls_.find (exact_search);
+            if (wae != wae_exact_calls_.end ())
+              {
+                auto const parent = wae_parents_.constFind (wae->entity_id_);
+                if (parent != wae_parents_.cend () && parent->entity_id)
+                  return {&*entities_.get<id> ().find (parent->entity_id), nullptr};
+              }
+          }
+        auto const slash = exact_search.lastIndexOf ('/');
+        if (slash < 0 || !Radio::is_operating_suffix (exact_search.mid (slash + 1))) break;
+        exact_search.truncate (slash);
+      }
+
+    auto search_prefix = Radio::effective_prefix (exact_search);
+    auto const other_half = Radio::base_callsign (exact_search);
+    if (search_prefix != other_half && search_prefix.size () == other_half.size ()
+        && !find_alias (search_prefix, EntityView::WAE, false)
+        && find_alias (other_half, EntityView::WAE, false))
+      search_prefix = other_half;
+    return resolve_prefix (search_prefix, view);
+  }
+
+  match resolve_prefix (QString search_prefix, EntityView view) const
+  {
+    auto const effective_prefix = search_prefix;
+    while (!search_prefix.isEmpty ())
+      {
+        if (auto const found = find_alias (search_prefix, view, false))
+          return lookup_match (*found, effective_prefix);
+        search_prefix.chop (1);
+      }
+    return {};
+  }
+
+  void derive_wae_parents ()
+  {
+    for (auto const& e : entities_)
+      if (e.WAE_only_) wae_parents_.insert (e.id_, {});
+    // Shared exact aliases identify the parent more reliably than prefix fall-through.
+    for (auto const& p : wae_exact_calls_)
+      {
+        auto const exact = exact_calls_.find (p.prefix_);
+        if (exact != exact_calls_.end ())
+          {
+            auto& parent = wae_parents_[p.entity_id_];
+            parent.shared_exact = true;
+            ++parent.votes[exact->entity_id_];
+          }
+      }
+    for (auto const * index : {&wae_prefixes_, &wae_exact_calls_})
+      for (auto const& p : *index)
+        {
+          auto& parent = wae_parents_[p.entity_id_];
+          if (parent.shared_exact) continue;
+          auto const found = resolve (p.prefix_, EntityView::DXCC, false);
+          if (found.country) ++parent.votes[found.country->id_];
+          else ++parent.unmatched;
+        }
+    for (auto& parent : wae_parents_)
+      {
+        if (parent.shared_exact && parent.votes.size () != 1) continue;
+        int total = 0;
+        for (auto count : parent.votes) total += count;
+        for (auto vote = parent.votes.cbegin (); vote != parent.votes.cend (); ++vote)
+          if (*vote > total / 2) parent.entity_id = vote.key ();
+      }
+  }
+
+  void diagnose_wae_parents (parse_diagnostics& diagnostics, QMap<int, int> const& header_lines) const
+  {
+    QMap<int, QStringList> prefix_mismatches;
+    QMap<int, int> mismatch_counts;
+    for (auto const& p : wae_prefixes_)
+      {
+        auto const parent_id = wae_parents_.value (p.entity_id_).entity_id;
+        if (!parent_id) continue;
+        auto const found = resolve_prefix (p.prefix_, EntityView::DXCC).country;
+        if (found && found->id_ == parent_id) continue;
+        ++mismatch_counts[p.entity_id_];
+        auto& examples = prefix_mismatches[p.entity_id_];
+        if (examples.size () < 5)
+          examples << p.prefix_ + " -> " + (found ? found->primary_prefix_ : "no DXCC match");
+      }
+    for (auto parent = wae_parents_.cbegin (); parent != wae_parents_.cend (); ++parent)
+      {
+        auto const& wae = *entities_.get<id> ().find (parent.key ());
+        if (!parent->entity_id)
+          {
+            QStringList votes;
+            for (auto vote = parent->votes.cbegin (); vote != parent->votes.cend (); ++vote)
+              if (votes.size () < 5)
+                votes << QString {"%1=%2"}.arg (entities_.get<id> ().find (vote.key ())->primary_prefix_).arg (*vote);
+            if (parent->votes.size () > 5) votes << QString {"and %1 other entities"}.arg (parent->votes.size () - 5);
+            diagnostics.add (header_lines.value (parent.key ()),
+                             QString {"WAE entity %1: ambiguous DXCC parent (%2 votes: %3; unmatched=%4)"}
+                             .arg (wae.name_).arg (parent->shared_exact ? "shared exact" : "alias")
+                             .arg (votes.isEmpty () ? "none" : votes.join (", ")).arg (parent->unmatched));
+          }
+        else if (mismatch_counts.contains (parent.key ()))
+          diagnostics.add (header_lines.value (parent.key ()),
+                           QString {"WAE entity %1: %2 prefixes differ from DXCC parent %3 (%4)"}
+                           .arg (wae.name_).arg (mismatch_counts.value (parent.key ()))
+                           .arg (entities_.get<id> ().find (parent->entity_id)->name_)
+                           .arg (prefix_mismatches.value (parent.key ()).join (", ")));
+      }
   }
 
   static bool parse_prefix (prefix& result, int& ignored_fields)
@@ -397,17 +545,38 @@ public:
   entities_type entities_;
   prefixes_type prefixes_;
   prefixes_type exact_calls_;
+  prefixes_type wae_prefixes_;
+  prefixes_type wae_exact_calls_;
+  struct wae_parent
+  {
+    int entity_id = 0;
+    bool shared_exact = false;
+    QMap<int, int> votes;
+    int unmatched = 0;
+  };
+  QMap<int, wae_parent> wae_parents_;
 };
 
 AD1CCty::Record::Record ()
   : continent {Continent::UN}
   , CQ_zone {0}
   , ITU_zone {0}
-  , WAE_only {false}
   , latitude {NAN}
   , longtitude {NAN}
   , UTC_offset {0}
 {
+}
+
+auto AD1CCty::Record::identity (EntityView view) const -> EntityIdentity const&
+{
+  return view == EntityView::WAE || dxcc.name.isEmpty () ? wae : dxcc;
+}
+
+QString AD1CCty::Record::display_name (EntityView view) const
+{
+  auto const& selected = identity (view);
+  return view == EntityView::DXCC && selected.primary_prefix == "TA"
+    ? QString {"Turkey"} : selected.abbreviated_name;
 }
 
 #if !defined (QT_NO_DEBUG_STREAM)
@@ -418,12 +587,13 @@ AD1CCty::Record::Record ()
                    << r.continent << ", "
                    << r.CQ_zone << ", "
                    << r.ITU_zone << ", "
-                   << r.entity_name << ", "
-                   << r.WAE_only << ", "
+                   << r.dxcc.name << ", "
+                   << r.wae.name << ", "
                    << r.latitude << ", "
                    << r.longtitude << ", "
                    << (r.UTC_offset / (60. * 60.)) << ", "
-                   << r.primary_prefix << ')';
+                   << r.dxcc.primary_prefix << ", "
+                   << r.wae.primary_prefix << ')';
     return dbg;
   }
 #endif
@@ -465,11 +635,15 @@ void AD1CCty::impl::load_cty(QFile &file)
   int entity_id = 0;
   int line_number = 0;
   parse_diagnostics diagnostics;
+  QMap<int, int> wae_header_lines;
   QString pending_header;
 
   entities_.clear();
   prefixes_.clear();
   exact_calls_.clear();
+  wae_prefixes_.clear ();
+  wae_exact_calls_.clear ();
+  wae_parents_.clear ();
   cty_version_ = QString{};
   cty_version_date_ = QString{};
 
@@ -560,6 +734,7 @@ void AD1CCty::impl::load_cty(QFile &file)
         diagnostics.add (header_line, "duplicate entity primary prefix");
         continue;
       }
+      if (WAE_only) wae_header_lines.insert (entity_id, header_line);
       for (auto const& aliases : alias_lines)
       for (auto prefix: aliases.second.split (',', Qt::SkipEmptyParts))
       {
@@ -580,10 +755,14 @@ void AD1CCty::impl::load_cty(QFile &file)
         }
         if (ignored_fields) diagnostics.add (aliases.first, "invalid override values; inherited entity defaults");
         // CTY aliases are ordered: the first entry in each namespace wins.
-        auto& index = exact ? exact_calls_ : prefixes_;
+        auto& index = WAE_only ? (exact ? wae_exact_calls_ : wae_prefixes_)
+                              : (exact ? exact_calls_ : prefixes_);
         auto const prefix_result = index.emplace(candidate);
         if (!prefix_result.second)
         {
+          if (!same_definition (*prefix_result.first, candidate))
+            diagnostics.add (aliases.first, QString {"conflicting %1 %2; first definition kept"}
+                             .arg (exact ? "exact call" : "prefix").arg (candidate.prefix_));
           continue;
         }
         if (exact && version_pattern.match(candidate.prefix_).hasMatch()) cty_version_date_ = candidate.prefix_;
@@ -595,6 +774,8 @@ void AD1CCty::impl::load_cty(QFile &file)
     }
   }
 
+  derive_wae_parents ();
+  diagnose_wae_parents (diagnostics, wae_header_lines);
   diagnostics.report (file.fileName ());
 }
 
@@ -725,7 +906,7 @@ void AD1CCty::reload(Configuration const * configuration)
   if (file.open (QFile::ReadOnly))
   {
     m_->impl::load_cty(file);
-    m_->cty_version_ = AD1CCty::lookup("VERSION").entity_name;
+    m_->cty_version_ = AD1CCty::lookup("VERSION").identity (EntityView::DXCC).name;
     Q_EMIT cty_loaded(m_->cty_version_);
     LOG_INFO(QString{"Loaded CTY.DAT version %1, %2"}.arg (m_->cty_version_date_).arg (m_->cty_version_));
   }
@@ -737,33 +918,13 @@ AD1CCty::~AD1CCty ()
 
 auto AD1CCty::lookup (QString const& call) const -> Record
 {
-  auto exact_search = call.trimmed ().toUpper ();
-  while (true)
-    {
-      if (exact_search.endsWith ("/MM") || exact_search.endsWith ("/AM")) return Record {};
-      auto const exact = m_->exact_calls_.find (exact_search);
-      if (exact != m_->exact_calls_.end ()) return m_->lookup_record (*exact);
-      auto const slash = exact_search.lastIndexOf ('/');
-      if (slash < 0 || !Radio::is_operating_suffix (exact_search.mid (slash + 1))) break;
-      exact_search.truncate (slash);
-    }
-
-  auto search_prefix = Radio::effective_prefix (exact_search);
-  auto const other_half = Radio::base_callsign (exact_search);
-  if (search_prefix != other_half && search_prefix.size () == other_half.size ()
-      && m_->prefixes_.find (search_prefix) == m_->prefixes_.end ()
-      && m_->prefixes_.find (other_half) != m_->prefixes_.end ())
-    {
-      search_prefix = other_half;
-    }
-  auto const effective_prefix = search_prefix;
-  while (search_prefix.size ())
-    {
-      auto p = m_->prefixes_.find (search_prefix);
-      if (p != m_->prefixes_.end ()) return m_->lookup_record (*p, effective_prefix);
-      search_prefix.chop (1);
-    }
-  return Record {};
+  auto const wae = m_->resolve (call, EntityView::WAE);
+  auto const dxcc = m_->resolve (call, EntityView::DXCC);
+  Record result;
+  result.dxcc = impl::identity_for (dxcc);
+  result.wae = impl::identity_for (wae);
+  impl::set_geography (result, wae);
+  return result;
 }
 
 auto AD1CCty::version () const -> QString

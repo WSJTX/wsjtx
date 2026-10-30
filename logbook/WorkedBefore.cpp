@@ -47,16 +47,16 @@ std::size_t hash_value (QString const& s)
 struct worked_entry
 {
   explicit worked_entry (QString const& call, QString const& grid, QString const& band
-                         , QString const& mode, QString const& country, AD1CCty::Continent continent
-                         , int CQ_zone, int ITU_zone)
+                         , QString const& mode, AD1CCty::Record const& entity)
     : call_ {call}
     , grid_ {grid}
     , band_ {band}
     , mode_ {mode}
-    , country_ {country}
-    , continent_ {continent}
-    , CQ_zone_ {CQ_zone}
-    , ITU_zone_ {ITU_zone}
+    , dxcc_country_ {entity.identity (AD1CCty::EntityView::DXCC).name}
+    , wae_country_ {entity.identity (AD1CCty::EntityView::WAE).name}
+    , continent_ {entity.continent}
+    , CQ_zone_ {entity.CQ_zone}
+    , ITU_zone_ {entity.ITU_zone}
   {
   }
 
@@ -64,7 +64,8 @@ struct worked_entry
   QString grid_;
   QString band_;
   QString mode_;
-  QString country_;
+  QString dxcc_country_;
+  QString wae_country_;
   AD1CCty::Continent continent_;
   int CQ_zone_;
   int ITU_zone_;
@@ -78,7 +79,8 @@ bool operator == (worked_entry const& lhs, worked_entry const& rhs)
     && lhs.ITU_zone_ == rhs.ITU_zone_ // ditto
     && lhs.call_ == rhs.call_         // check the rest in decreasing
     && lhs.grid_ == rhs.grid_         // domain size order to shortcut
-    && lhs.country_ == rhs.country_   // differences as quickly as possible
+    && lhs.dxcc_country_ == rhs.dxcc_country_
+    && lhs.wae_country_ == rhs.wae_country_
     && lhs.band_ == rhs.band_
     && lhs.mode_ == rhs.mode_;
 }
@@ -90,7 +92,8 @@ std::size_t hash_value (worked_entry const& we)
   boost::hash_combine (seed, we.grid_);
   boost::hash_combine (seed, we.band_);
   boost::hash_combine (seed, we.mode_);
-  boost::hash_combine (seed, we.country_);
+  boost::hash_combine (seed, we.dxcc_country_);
+  boost::hash_combine (seed, we.wae_country_);
   boost::hash_combine (seed, we.continent_);
   boost::hash_combine (seed, we.CQ_zone_);
   boost::hash_combine (seed, we.ITU_zone_);
@@ -106,7 +109,8 @@ QDebug operator << (QDebug dbg, worked_entry const& e)
                  << e.grid_ << ", "
                  << e.band_ << ", "
                  << e.mode_ << ", "
-                 << e.country_ << ", "
+                 << e.dxcc_country_ << ", "
+                 << e.wae_country_ << ", "
                  << e.continent_ << ", "
                  << e.CQ_zone_ << ", "
                  << e.ITU_zone_ << ')';
@@ -129,8 +133,10 @@ struct call_mode_band {};
 struct call_band {};
 struct grid_mode_band {};
 struct grid_band {};
-struct entity_mode_band {};
-struct entity_band {};
+struct dxcc_entity_mode_band {};
+struct dxcc_entity_band {};
+struct wae_entity_mode_band {};
+struct wae_entity_band {};
 struct continent_mode_band {};
 struct continent_band {};
 struct CQ_zone_mode_band {};
@@ -177,16 +183,27 @@ typedef multi_index_container<
                        composite_key<worked_entry,
                                      member<worked_entry, QString, &worked_entry::grid_>,
                                      member<worked_entry, QString, &worked_entry::band_> > >,
-    // country+mode+band
-    ordered_non_unique<tag<entity_mode_band>,
+    // DXCC country+mode+band
+    ordered_non_unique<tag<dxcc_entity_mode_band>,
                        composite_key<worked_entry,
-                                     member<worked_entry, QString, &worked_entry::country_>,
+                                     member<worked_entry, QString, &worked_entry::dxcc_country_>,
                                      member<worked_entry, QString, &worked_entry::mode_>,
                                      member<worked_entry, QString, &worked_entry::band_> > >,
-    // country+band
-    ordered_non_unique<tag<entity_band>,
+    // DXCC country+band
+    ordered_non_unique<tag<dxcc_entity_band>,
                        composite_key<worked_entry,
-                                     member<worked_entry, QString, &worked_entry::country_>,
+                                     member<worked_entry, QString, &worked_entry::dxcc_country_>,
+                                     member<worked_entry, QString, &worked_entry::band_> > >,
+    // WAE country+mode+band
+    ordered_non_unique<tag<wae_entity_mode_band>,
+                       composite_key<worked_entry,
+                                     member<worked_entry, QString, &worked_entry::wae_country_>,
+                                     member<worked_entry, QString, &worked_entry::mode_>,
+                                     member<worked_entry, QString, &worked_entry::band_> > >,
+    // WAE country+band
+    ordered_non_unique<tag<wae_entity_band>,
+                       composite_key<worked_entry,
+                                     member<worked_entry, QString, &worked_entry::wae_country_>,
                                      member<worked_entry, QString, &worked_entry::band_> > >,
     // continent+mode+band
     ordered_non_unique<tag<continent_mode_band>,
@@ -469,7 +486,7 @@ namespace
                     worked.emplace (call.toUpper ()
                                     , extractField (record, "GRIDSQUARE", character_lengths).left (4).toUpper ()
                                     , extractField (record, "BAND", character_lengths).toUpper ()
-                                    , mode, entity.entity_name, entity.continent, entity.CQ_zone, entity.ITU_zone);
+                                    , mode, entity);
                   };
                 int buffer_start {0};
                 while (true)
@@ -830,7 +847,7 @@ bool WorkedBefore::add (QString const& call
                  ;
         }
       worked_entry entry {call.toUpper (), grid.left (4).toUpper (), band.toUpper (), mode.toUpper ()
-                          , entity.entity_name, entity.continent, entity.CQ_zone, entity.ITU_zone};
+                          , entity};
       m_->worked_.insert (entry);
       if (m_->load_state_.active ())
         {
@@ -840,44 +857,24 @@ bool WorkedBefore::add (QString const& call
   return true;
 }
 
-bool WorkedBefore::country_worked (QString const& country, QString const& mode, QString const& band) const
+bool WorkedBefore::country_worked (QString const& country, QString const& mode, QString const& band,
+                                   AD1CCty::EntityView view) const
 {
-  if (mode.size ())
-    {
-      if (band.size ())
-        {
-          return
-            country.size ()
-            && m_->worked_.get<entity_mode_band> ().end ()
-            != m_->worked_.get<entity_mode_band> ().find (std::make_tuple (country, mode.toUpper (), band.toUpper ()));
-        }
-      else
-        {
-          // partial key lookup
-          return
-            country.size ()
-            && m_->worked_.get<entity_mode_band> ().end ()
-            != m_->worked_.get<entity_mode_band> ().find (std::make_tuple (country, mode.toUpper ()));
-        }
-    }
-  else
-    {
-      if (band.size ())
-        {
-          return
-            country.size ()
-            && m_->worked_.get<entity_band> ().end ()
-            != m_->worked_.get<entity_band> ().find (std::make_tuple (country, band.toUpper ()));
-        }
-      else
-        {
-          // partial key lookup
-          return
-            country.size ()
-            && m_->worked_.get<entity_band> ().end ()
-            != m_->worked_.get<entity_band> ().find (country);
-        }
-    }
+  if (country.isEmpty ()) return false;
+  auto lookup = [&] (auto const& mode_index, auto const& band_index) {
+    if (!mode.isEmpty ())
+      {
+        if (!band.isEmpty ())
+          return mode_index.end () != mode_index.find (std::make_tuple (country, mode.toUpper (), band.toUpper ()));
+        return mode_index.end () != mode_index.find (std::make_tuple (country, mode.toUpper ()));
+      }
+    if (!band.isEmpty ())
+      return band_index.end () != band_index.find (std::make_tuple (country, band.toUpper ()));
+    return band_index.end () != band_index.find (country);
+  };
+  return view == AD1CCty::EntityView::WAE
+    ? lookup (m_->worked_.get<wae_entity_mode_band> (), m_->worked_.get<wae_entity_band> ())
+    : lookup (m_->worked_.get<dxcc_entity_mode_band> (), m_->worked_.get<dxcc_entity_band> ());
 }
 
 bool WorkedBefore::grid_worked (QString const& grid, QString const& mode, QString const& band) const

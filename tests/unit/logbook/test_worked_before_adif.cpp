@@ -3,11 +3,16 @@
 #include <QTemporaryDir>
 #include <QStandardPaths>
 #include <QThreadPool>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QMessageBox>
+#include <QTimer>
 #include <memory>
 
 #include "Configuration.cpp"
 #include "logbook/WorkedBefore.hpp"
 #include "logbook/AdifQso.hpp"
+#include "logbook/logbook.h"
 #include "widgets/itoneAndicw.h"
 
 int volatile itone[MAX_NUM_SYMBOLS] {};
@@ -34,15 +39,66 @@ private Q_SLOTS:
   void reports_incomplete_sources ();
   void primary_rescan_recovers_records_and_preserves_live_qsos ();
   void comment_cannot_supply_a_missing_band ();
+  void country_views_survive_loading_and_live_additions ();
+  void logbook_changes_country_view_without_rescanning ();
 
 private:
   QString data_directory () const;
   bool wait_for_load (WorkedBefore& worked_before, int& record_count, QString& error);
+  bool write_data_file (QString const& name, QByteArray const& contents);
+  bool write_country_views ();
+  bool set_wae_enabled (bool enabled);
 };
 
 QString TestWorkedBeforeAdif::data_directory () const
 {
   return QStandardPaths::writableLocation (QStandardPaths::DataLocation);
+}
+
+bool TestWorkedBeforeAdif::write_data_file (QString const& name, QByteArray const& contents)
+{
+  QFile file {QDir {data_directory ()}.filePath (name)};
+  return file.open (QIODevice::WriteOnly | QIODevice::Text) && file.write (contents) == contents.size ();
+}
+
+bool TestWorkedBeforeAdif::write_country_views ()
+{
+  return write_data_file ("cty.dat", QByteArray {
+    "Scotland:14:27:EU:56:4:0:GM\nGM,2M,=G0FBJ;\n"
+    "Shetland Islands:14:27:EU:60:1:0:*GM/s\n=G0FBJ,=2M0BDR;\n"
+    "WAE Only:15:28:EU:42:-21:-1:*Z6\nZ6;\n"});
+}
+
+bool TestWorkedBeforeAdif::set_wae_enabled (bool enabled)
+{
+  QDialog * dialog {};
+  for (auto * widget : QApplication::topLevelWidgets ())
+    {
+      auto * candidate = qobject_cast<QDialog *> (widget);
+      if (candidate && candidate->findChild<QCheckBox *> ("include_WAE_check_box"))
+        {
+          dialog = candidate;
+          break;
+        }
+    }
+  if (!dialog) return false;
+  dialog->findChild<QCheckBox *> ("include_WAE_check_box")->setChecked (enabled);
+  auto ensure_option = [dialog] (char const * object_name, char const * option) {
+    if (auto * combo = dialog->findChild<QComboBox *> (object_name);
+        combo && combo->currentIndex () < 0) combo->addItem (option);
+  };
+  ensure_option ("sound_input_combo_box", "Test input");
+  ensure_option ("sound_input_channel_combo_box", "Mono");
+  ensure_option ("sound_output_combo_box", "Test output");
+  QTimer dismiss_message;
+  dismiss_message.setSingleShot (true);
+  connect (&dismiss_message, &QTimer::timeout, [] {
+    for (auto * widget : QApplication::topLevelWidgets ())
+      if (auto * message = qobject_cast<QMessageBox *> (widget)) message->accept ();
+  });
+  dismiss_message.start (1000);
+  auto const invoked = QMetaObject::invokeMethod (dialog, "accept", Qt::DirectConnection);
+  return invoked && configuration_->include_WAE_entities () == enabled;
 }
 
 void TestWorkedBeforeAdif::initTestCase ()
@@ -54,10 +110,6 @@ void TestWorkedBeforeAdif::initTestCase ()
   QVERIFY (settings_dir_.isValid ());
 
   QVERIFY (QDir {}.mkpath (data_directory ()));
-  QFile cty_file {QDir {data_directory ()}.filePath ("cty.dat")};
-  QVERIFY (cty_file.open (QIODevice::WriteOnly | QIODevice::Text));
-  QByteArray cty_data {"Test Entity:5:8:NA:37:-96:-5:K\nK,W;\n"};
-  QCOMPARE (cty_file.write (cty_data), static_cast<qint64> (cty_data.size ()));
 }
 
 void TestWorkedBeforeAdif::cleanupTestCase ()
@@ -68,6 +120,7 @@ void TestWorkedBeforeAdif::cleanupTestCase ()
 
 void TestWorkedBeforeAdif::init ()
 {
+  QVERIFY (write_data_file ("cty.dat", QByteArray {"Test Entity:5:8:NA:37:-96:-5:K\nK,W;\n"}));
   settings_.reset (new QSettings {settings_dir_.filePath ("settings.ini"), QSettings::IniFormat});
   settings_->clear ();
   configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, settings_.get (), nullptr});
@@ -389,6 +442,85 @@ void TestWorkedBeforeAdif::comment_cannot_supply_a_missing_band ()
   QCOMPARE (count, 1);
   QVERIFY (worked.call_worked ("K1ABC", "FT8", {}));
   QVERIFY (!worked.call_worked ("K1ABC", "FT8", "20M"));
+}
+
+void TestWorkedBeforeAdif::country_views_survive_loading_and_live_additions ()
+{
+  using View = AD1CCty::EntityView;
+  QVERIFY (write_country_views ());
+  QVERIFY (write_data_file ("wsjtx_log.adi", QByteArray {
+    "<CALL:6>2M0BDR<BAND:3>20M<MODE:3>FT8<EOR>\n"
+    "<CALL:5>Z61AA<BAND:3>40M<MODE:3>FT4<EOR>\n"}));
+  WorkedBefore worked {configuration_.get ()};
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QTRY_COMPARE (finished.count (), 1);
+  QCOMPARE (finished.at (0).at (0).toInt (), 2);
+  auto const shetland = worked.countries ()->lookup ("2M0BDR");
+  auto const wae_only = worked.countries ()->lookup ("Z61AA");
+  QVERIFY (wae_only.dxcc.name.isEmpty ());
+  for (auto view : {View::DXCC, View::WAE, View::DXCC})
+    {
+      auto const country = shetland.identity (view).name;
+      QCOMPARE (country, view == View::DXCC ? QString {"Scotland"} : QString {"Shetland Islands"});
+      QVERIFY (worked.country_worked (country, "ft8", "20m", view));
+      QVERIFY (worked.country_worked (country, "ft8", {}, view));
+      QVERIFY (worked.country_worked (country, {}, "20m", view));
+      QVERIFY (worked.country_worked (country, {}, {}, view));
+      QVERIFY (!worked.country_worked (country, "FT4", "20M", view));
+      QVERIFY (!worked.country_worked (country, "FT8", "40M", view));
+      QVERIFY (worked.country_worked (wae_only.identity (view).name, "FT4", "40M", view));
+    }
+  QCOMPARE (finished.count (), 1);
+  QVERIFY (!worked.country_worked ("Scotland", {}, {}, View::WAE));
+  QVERIFY (!worked.country_worked ("Shetland Islands", {}, {}, View::DXCC));
+  QVERIFY (worked.continent_worked (AD1CCty::Continent::EU, "FT8", "20M"));
+  QVERIFY (worked.CQ_zone_worked (14, "FT8", "20M"));
+  QVERIFY (worked.ITU_zone_worked (27, "FT8", "20M"));
+
+  worked.reload ();
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  // The loader has read the file, but its result has not reached the GUI thread.
+  QVERIFY (worked.add ("G0FBJ", "IO99", "15M", "FT4", "<CALL:5>G0FBJ<BAND:3>15M<MODE:3>FT4"));
+  QTRY_COMPARE (finished.count (), 2);
+  QCOMPARE (finished.at (1).at (0).toInt (), 3);
+  QVERIFY (worked.country_worked ("Scotland", "FT4", "15M", View::DXCC));
+  QVERIFY (worked.country_worked ("Shetland Islands", "FT4", "15M", View::WAE));
+  worked.reload ();
+  QTRY_COMPARE (finished.count (), 3);
+  QCOMPARE (finished.at (2).at (0).toInt (), 3);
+  QVERIFY (worked.country_worked ("Scotland", "FT4", "15M", View::DXCC));
+  QVERIFY (worked.country_worked ("Shetland Islands", "FT4", "15M", View::WAE));
+}
+
+void TestWorkedBeforeAdif::logbook_changes_country_view_without_rescanning ()
+{
+  QVERIFY (write_country_views ());
+  QVERIFY (write_data_file ("wsjtx_log.adi", QByteArray {
+    "<CALL:6>2M0BDR<BAND:3>20M<MODE:3>FT8<EOR>\n"
+    "<CALL:5>Z61AA<BAND:3>20M<MODE:3>FT8<EOR>\n"}));
+  LogBook logbook {configuration_.get ()};
+  QSignalSpy finished {&logbook, &LogBook::finished_loading};
+  QSignalSpy started {&logbook, &LogBook::loading_started};
+  QTRY_COMPARE (finished.count (), 1);
+  auto country_worked = [&] (QString const& call) {
+    bool call_b4, country_b4, grid_b4, continent_b4, cq_b4, itu_b4;
+    logbook.match (call, "FT8", {}, logbook.countries ()->lookup (call),
+                   call_b4, country_b4, grid_b4, continent_b4, cq_b4, itu_b4, "20M");
+    return country_b4;
+  };
+  QVERIFY (!configuration_->include_WAE_entities ());
+  QVERIFY (country_worked ("GM4ABC"));
+  QVERIFY (country_worked ("G0FBJ"));
+  QVERIFY (country_worked ("Z62BB"));
+  QVERIFY (set_wae_enabled (true));
+  QVERIFY (!country_worked ("GM4ABC"));
+  QVERIFY (country_worked ("G0FBJ"));
+  QVERIFY (country_worked ("Z62BB"));
+  QVERIFY (set_wae_enabled (false));
+  QVERIFY (country_worked ("GM4ABC"));
+  QVERIFY (country_worked ("Z62BB"));
+  QCOMPARE (started.count (), 0);
+  QCOMPARE (finished.count (), 1);
 }
 
 QTEST_MAIN (TestWorkedBeforeAdif)

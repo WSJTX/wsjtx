@@ -6,6 +6,7 @@
 
 #include "AutoRespondPolicy.hpp"
 #include "SpecialOperatingActivity.hpp"
+#include "logbook/AD1CCty.hpp"
 
 class DecodedText;
 class LogBook;
@@ -14,6 +15,7 @@ class MessageFilterLogic
 {
 public:
     struct FilterContext {
+        AD1CCty::EntityView entityView {AD1CCty::EntityView::DXCC};
         SpecialOperatingActivity specOp {SpecialOperatingActivity::NONE};
         bool bypass {false};
         bool filtersForWord2 {false};

@@ -48,10 +48,12 @@ void LogBook::match (QString const& call, QString const& mode, QString const& gr
       auto const& mode_to_check = (config_ && !config_->highlight_by_mode ()) ? QString {} : mode;
       callB4 = worked_before_.call_worked (call, mode_to_check, band);
       gridB4 = worked_before_.grid_worked(grid, mode_to_check, band);
-      auto const& countryName = looked_up.entity_name;
+      auto const view = config_ && config_->include_WAE_entities ()
+        ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+      auto const& countryName = looked_up.identity (view).name;
       if (countryName.size ())
         {
-          countryB4 = worked_before_.country_worked (countryName, mode_to_check, band);
+          countryB4 = worked_before_.country_worked (countryName, mode_to_check, band, view);
           continentB4 = worked_before_.continent_worked (looked_up.continent, mode_to_check, band);
           CQZoneB4 = worked_before_.CQ_zone_worked (looked_up.CQ_zone, mode_to_check, band);
           ITUZoneB4 = worked_before_.ITU_zone_worked (looked_up.ITU_zone, mode_to_check, band);

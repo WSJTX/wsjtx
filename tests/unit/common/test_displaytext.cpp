@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QDialog>
 #include <QDir>
+#include <QFile>
 #include <QMouseEvent>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
@@ -23,6 +24,9 @@
 #include "Configuration.hpp"
 #include "MetaDataRegistry.hpp"
 #include "JttyReceiveLine.hpp"
+#include "Decoder/decodedtext.h"
+#include "logbook/logbook.h"
+#include "models/DecodeHighlightingModel.hpp"
 #include "widgets/JttyMessages.hpp"
 #include "widgets/displaytext.h"
 
@@ -121,12 +125,21 @@ private:
     QApplication::processEvents ();
   }
 
-  void createConfiguration (bool decodes_from_top)
+  void createConfiguration (bool decodes_from_top, bool include_wae = false, bool show_countries = false)
   {
     configuration_.reset ();
     settings_.reset (new QSettings {directory_.filePath ("settings.ini"), QSettings::IniFormat});
     settings_->clear ();
     settings_->setValue ("Configuration/DecodesFromTop", decodes_from_top);
+    settings_->setValue ("Configuration/IncludeWAEEntities", include_wae);
+    settings_->setValue ("Configuration/AlwaysShowCountryNames", show_countries);
+    if (show_countries)
+      {
+        auto highlights = DecodeHighlightingModel::default_items ();
+        for (auto& highlight : highlights)
+          highlight.enabled_ = highlight.type_ == DecodeHighlightingModel::Highlight::CQ;
+        settings_->setValue ("Configuration/DecodeHighlighting", QVariant::fromValue (highlights));
+      }
     settings_->sync ();
     configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
   }
@@ -182,6 +195,68 @@ private slots:
     QStandardPaths::setTestModeEnabled (true);
     QCoreApplication::setApplicationName ("test_displaytext");
     QVERIFY (directory_.isValid ());
+    QDir data_dir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
+    QVERIFY (QDir {}.mkpath (data_dir.path ()));
+    QFile countries {data_dir.filePath ("cty.dat")};
+    QVERIFY (countries.open (QIODevice::WriteOnly | QIODevice::Text));
+    QByteArray const contents {
+      "Asiatic Turkey:20:39:AS:39:-35:-3:TA\nTA;\n"
+      "European Turkey:20:39:EU:41:-28:-3:*TA1\nTA1;\n"
+      "Asiatic Russia:17:30:AS:55:-80:-6:UA9\nUA9;\n"};
+    QCOMPARE (countries.write (contents), qint64 {contents.size ()});
+  }
+
+  void cleanupTestCase ()
+  {
+    configuration_.reset ();
+    QFile::remove (QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.filePath ("cty.dat"));
+  }
+
+  void countryLabelsRespectEntityView_data ()
+  {
+    QTest::addColumn<bool> ("include_wae");
+    QTest::addColumn<bool> ("cq");
+    QTest::addColumn<bool> ("principal_prefix");
+    QTest::addColumn<QString> ("call");
+    QTest::addColumn<QString> ("expected");
+    for (bool include_wae : {false, true})
+      for (bool cq : {false, true})
+        for (bool principal_prefix : {false, true})
+          for (auto const * call : {"TA1ABC", "TA2ABC", "UA9ABC"})
+            {
+              bool const european_turkey = QString {call}.startsWith ("TA1");
+              bool const russia = QString {call}.startsWith ("UA9");
+              QString const expected = principal_prefix
+                ? (russia ? "UA9" : include_wae && european_turkey ? "TA1" : "TA")
+                : (russia ? "AS Russia" : !include_wae ? "Turkey" : european_turkey ? "EU Turkey" : "AS Turkey");
+              auto const row = QString {"%1-%2-%3-%4"}.arg (include_wae ? "WAE" : "DXCC")
+                .arg (cq ? "CQ" : "reply").arg (principal_prefix ? "prefix" : "name").arg (call);
+              QTest::newRow (qPrintable (row)) << include_wae << cq << principal_prefix << QString {call} << expected;
+            }
+  }
+
+  void countryLabelsRespectEntityView ()
+  {
+    QFETCH (bool, include_wae);
+    QFETCH (bool, cq);
+    QFETCH (bool, principal_prefix);
+    QFETCH (QString, call);
+    QFETCH (QString, expected);
+    createConfiguration (false, include_wae, true);
+    LogBook logbook {configuration_.get ()};
+    DecodedText decoded {QString {"060522 -10  0.3  815 ~ %1 %2 %3"}
+      .arg (cq ? "CQ" : "W1AAA").arg (call).arg (cq ? "KN40" : "-10")};
+    QString sender;
+    QString grid;
+    decoded.deCallAndGrid (sender, grid);
+    QCOMPARE (sender, call);
+
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    QVERIFY (display.displayDecodedText (decoded, "W1AAA", "FT8", true, logbook, "20m", principal_prefix));
+    auto const rendered = display.toPlainText ();
+    QVERIFY (rendered.startsWith (decoded.string ()));
+    QCOMPARE (rendered.mid (decoded.string ().size ()).trimmed (), expected);
   }
 
   void jttyTransmitHighlightDoesNotLeakIntoNewLines_data ()
