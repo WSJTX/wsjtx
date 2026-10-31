@@ -1221,9 +1221,10 @@ private:
                       qPrintable (what + ": " + QJsonDocument {reply.encoded}.toJson (QJsonDocument::Compact).left (200)));
             if (k == 0) continue;
             auto const audio = k == 1 ? every4th (gui.audio) : gui.audio;
-            auto const precomputed = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4"
-              || row.mode == "FST4" || row.mode == "FST4W" || (row.mode == "ECHO" && row.kind != "tone");
-            auto const difference = firstDifference (reply.audio, audio, precomputed ? 0 : 1);
+            auto const exactSamples = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4"
+              || row.mode == "FST4" || row.mode == "FST4W" || row.mode == "TUNE"
+              || (row.mode == "ECHO" && row.kind != "tone");
+            auto const difference = firstDifference (reply.audio, audio, exactSamples ? 0 : 1);
             QVERIFY2 (difference < 0, qPrintable (QString {"%1: sample %2 of %3 (%4) differs from the GUI's (%5 of %6)"}
                                                   .arg (what).arg (difference).arg (reply.audio.size ())
                                                   .arg (reply.audio.value (difference)).arg (audio.value (difference))
@@ -1490,7 +1491,7 @@ private slots:
         auto const highAudio = run.replies.value (2).audio;
         QCOMPARE (lowAudio.size (), 3 * 12000);
         QCOMPARE (highAudio.size (), 3 * 48000);
-        QVERIFY (firstDifference (lowAudio, every4th (highAudio), 1) < 0);
+        QVERIFY (firstDifference (lowAudio, every4th (highAudio)) < 0);
       }
     auto const audio = gui (r ("FT4", 1500, 121)).audio;
     int const end = 9999 * 576;

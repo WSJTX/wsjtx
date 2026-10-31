@@ -4,8 +4,8 @@
 // Modulator, the waveforms MainWindow::guiUpdate and MainWindow::transmit
 // precompute for it (widgets/mainwindow.cpp), and the samples
 // Modulator::startAt and Modulator::readDataAt make of them
-// (Modulator/Modulator.cpp), with the arithmetic in the same form so that the
-// samples are the same.
+// (Modulator/Modulator.cpp), following the same timing and numerical
+// conventions.
 
 #include <algorithm>
 #include <cmath>
@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "wsjtx_config.h"
+#include "waveform_kernels.h"
 
 // Modulator.cpp's, which sees wsjtx_config.h.
 #if defined (WSJT_SOFT_KEYING)
@@ -544,7 +545,7 @@ extern "C"
   }
 
   // The GUI's audio at 48 kHz, or every fourth sample of it at 12 kHz, into
-  // samples; Tune at 12 kHz can differ by one int16 unit.
+  // samples.
   // tones are the GUI's itone[], wave (nwave samples, or none for the
   // waveforms made here) its precomputed waveform, cw its CW ID; returns the
   // count, or 0 when capacity is too small or there is no memory.
@@ -568,50 +569,15 @@ extern "C"
             int const tone = ntones > 0 ? tones[0] : 0;
             double const frequency = tone >= 100 ? tone : request.frequency_hz + tone * request.tone_spacing;
             double const dphi = twoPi * frequency / frameRate;
-            if (step == 4 && tone == 0 && frequency >= 200.0 && frequency <= 5000.0)
+            double phi = 0;
+            constexpr int block = 256;
+            float wave[block];
+            for (std::int64_t i = 0; i < count; i += block)
               {
-                constexpr int block = 16;
-                double const outputStep = 4.0 * dphi;
-                double phi = dphi;
-                for (std::int64_t i = 0; i < count; i += block)
-                  {
-                    int const n = int (std::min<std::int64_t> (block, count - i));
-                    for (int j = 0; j < n; ++j)
-                      {
-                        double x = phi + j * outputStep;
-                        x -= std::floor (x / twoPi + 0.5) * twoPi;
-                        // Fold into [-pi/2, pi/2] without branching for SIMD.
-                        double const upper = double (x > twoPi / 4);
-                        double const lower = double (x < -twoPi / 4);
-                        x -= upper * (2.0 * x - twoPi / 2) + lower * (2.0 * x + twoPi / 2);
-                        double const x2 = x * x;
-                        // The degree-17 sine series has a remainder below 5e-14 on [-pi/2, pi/2].
-                        double const s = x * (1.0 + x2 * (-1.0 / 6 + x2 * (1.0 / 120
-                          + x2 * (-1.0 / 5040 + x2 * (1.0 / 362880 + x2 * (-1.0 / 39916800
-                          + x2 * (1.0 / 6227020800 + x2 * (-1.0 / 1307674368000
-                          + x2 / 355687428096000))))))));
-                        samples[i + j] = static_cast<std::int16_t> (std::round (32767.0 * s));
-                      }
-                    phi += n * outputStep;
-                    phi -= std::floor (phi / twoPi) * twoPi;
-                  }
-                return std::int32_t (count);
-              }
-            double phi = 0.0;
-            auto const advance = [&] {
-              phi += dphi;
-              if (phi > twoPi) phi -= twoPi;
-            };
-            for (std::int64_t i = 0; i < count; ++i)
-              {
-                advance ();
-                samples[i] = qtRound (32767.0 * std::sin (phi));
-                if (step == 4)
-                  {
-                    advance ();
-                    advance ();
-                    advance ();
-                  }
+                int const n = int (std::min<std::int64_t> (block, count - i));
+                wsjt_render_tone (&phi, dphi, n, step, wave);
+                for (int j = 0; j < n; ++j)
+                  samples[i + j] = qtRound (32767.0 * wave[j]);
               }
             return std::int32_t (count);
           }

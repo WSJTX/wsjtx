@@ -1,6 +1,7 @@
 program test_waveform_contract
   use iso_fortran_env, only: real32, real64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use waveform_kernels, only: render_tone
   use ft8_waveform_generator, only: gen_ft8wave_samples
   use ft8var_waveform_generator, only: gen_ft8wavevar_samples
   use fst4_wavegen, only: fst4_wavegen_workspace,gen_fst4wave_owned
@@ -48,9 +49,91 @@ program test_waveform_contract
   call check_genwave(200003,48000.0_real32,-500.0_real32)
   call check_genwave(65537,48000.0_real32,48000.0_real32/65537)
   call check_genwave(65537,48000.0_real32,-48000.0_real32/65537)
+  call check_tone()
+  call check_tone_stride()
   print '(a)', 'Waveform contract tests passed'
 
 contains
+  subroutine check_tone()
+    integer, parameter :: count=4099
+    integer, parameter :: chunks(*)=[1,255,256,257,17]
+    real(real64), parameter :: starts(*)=[0.0_real64,0.7_real64,-8.3_real64,9*pi2d]
+    real(real64), parameter :: steps(*)=[0.0_real64,0.161604_real64,-0.65_real64, &
+         pi2d/4,pi2d*3.1_real64,-pi2d*2.3_real64]
+    real(real32) :: whole(count),split(count),other(count),interleaved(count),empty(0)
+    real(real64) :: phase,split_phase,other_phase,reference_phase,expected,error
+    integer :: i,j,k,first,last,chunk
+
+    do i=1,size(starts)
+       do j=1,size(steps)
+          phase=starts(i)
+          call render_tone(phase,steps(j),empty)
+          if(phase.ne.starts(i)) error stop 'Empty tone render changed phase'
+          call render_tone(phase,steps(j),whole)
+          do k=1,count
+             expected=sin(starts(i)+k*steps(j))
+             error=abs(real(whole(k),real64)-expected)
+             if(error.gt.sample_tolerance) call fail('tone sine',k,real(error,real32))
+          enddo
+
+          other_phase=-0.23_real64
+          call render_tone(other_phase,-0.37_real64,other)
+          reference_phase=other_phase
+          other_phase=-0.23_real64
+          split_phase=starts(i)
+          first=1
+          chunk=1
+          do while(first.le.count)
+             last=min(count,first+chunks(chunk)-1)
+             call render_tone(split_phase,steps(j),split(first:last))
+             call render_tone(other_phase,-0.37_real64,interleaved(first:last))
+             first=last+1
+             chunk=mod(chunk,size(chunks))+1
+          enddo
+          if(any(whole.ne.split).or.phase.ne.split_phase) error stop 'Tone depends on block boundaries'
+          if(any(other.ne.interleaved).or.other_phase.ne.reference_phase) error stop 'Tone states interfere'
+       enddo
+    enddo
+  end subroutine check_tone
+
+  subroutine check_tone_stride()
+    integer, parameter :: count=4099,strides(*)=[1,2,4,7],chunks(*)=[1,255,256,257,17]
+    real(real64), parameter :: starts(*)=[0.0_real64,0.7_real64,-8.3_real64,9*pi2d]
+    real(real64), parameter :: steps(*)=[0.0_real64,0.161604_real64,-0.65_real64, &
+         pi2d/4,pi2d*3.1_real64,-pi2d*2.3_real64]
+    real(real32) :: full(count*7),sampled(count),split(count),empty(0)
+    real(real64) :: phase,sampled_phase,split_phase
+    integer :: i,j,k,stride,first,last,chunk,n
+
+    do i=1,size(starts)
+       do j=1,size(steps)
+          do k=1,size(strides)
+             stride=strides(k)
+             n=count*stride
+             phase=starts(i)
+             call render_tone(phase,steps(j),full(1:n))
+             sampled_phase=starts(i)
+             call render_tone(sampled_phase,steps(j),empty,stride)
+             if(sampled_phase.ne.starts(i)) error stop 'Empty strided render changed phase'
+             call render_tone(sampled_phase,steps(j),sampled,stride)
+             if(any(sampled.ne.full(1:n:stride)).or.sampled_phase.ne.phase) &
+                  error stop 'Strided tone differs from source samples'
+             split_phase=starts(i)
+             first=1
+             chunk=1
+             do while(first.le.count)
+                last=min(count,first+chunks(chunk)-1)
+                call render_tone(split_phase,steps(j),split(first:last),stride)
+                first=last+1
+                chunk=mod(chunk,size(chunks))+1
+             enddo
+             if(any(sampled.ne.split).or.split_phase.ne.sampled_phase) &
+                  error stop 'Strided tone depends on block boundaries'
+          enddo
+       enddo
+    enddo
+  end subroutine check_tone_stride
+
   real(real32) function pulse_value(bt,t) result(value)
     real(real32), intent(in) :: bt,t
     real(real32) :: c

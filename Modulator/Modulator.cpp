@@ -1,4 +1,5 @@
 #include "Modulator.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <qmath.h>
@@ -11,6 +12,7 @@
 //#include "widgets/mainwindow.h" // TODO: G4WJS - break this dependency //w3sz tci
 #include "Audio/AudioOutputSink.hpp"
 #include "commons.h"
+#include "lib/waveform_kernels.h"
 
 #include "moc_Modulator.cpp"
 
@@ -420,6 +422,22 @@ qint64 Modulator::readDataAt (char * data, qint64 maxSize, qint64 utcMs)
             toneFrequency = m_toneFrequency0 + 0.5*m_fSpread*(x1+x2-1.0);
             m_dphi = m_twoPi * toneFrequency / m_frameRate;
             m_j0=j;
+          }
+
+          if (m_tuning) {
+            constexpr unsigned block = 256;
+            float wave[block];
+            unsigned const available = (end - samples) / (bytesPerFrame () / sizeof (qint16));
+            unsigned n = std::min ({block, available, i1 - m_ic + 1});
+            if (m_fSpread > 0.0) n = std::min (n, 480 - m_ic % 480);
+            wsjt_render_tone (&m_phi, m_dphi, int (n), 1, wave);
+            for (unsigned i = 0; i < n; ++i) {
+              sample = qRound (m_amp * wave[i]);
+              samples = load (postProcessSample (sample), samples);
+            }
+            framesGenerated += n;
+            m_ic += n;
+            continue;
           }
 
           m_phi += m_dphi;

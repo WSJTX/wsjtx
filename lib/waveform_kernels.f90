@@ -1,12 +1,13 @@
 module waveform_kernels
   use iso_fortran_env, only: real32, real64
+  use iso_c_binding, only: c_double, c_float, c_int
   implicit none
   private
   integer, parameter :: block_size=256, table_size=65536
   integer, parameter :: wrap_general=0,wrap_bounded=1,wrap_positive=2
   real(real32), parameter :: twopi32=8.0_real32*atan(1.0_real32)
   real(real64), parameter :: twopi64=8.0_real64*atan(1.0_real64)
-  public :: waveform_workspace, render_gfsk, render_fsk, apply_waveform_ramp
+  public :: waveform_workspace, render_gfsk, render_fsk, render_tone, apply_waveform_ramp
 
   type waveform_workspace
      real(real32), allocatable :: pulse(:),scaled_pulse(:)
@@ -310,6 +311,71 @@ contains
        first=first+n
     enddo
   end subroutine
+
+  pure real(real64) function advance_tone_phase(phase,increment) result(next_phase)
+    real(real64), intent(in) :: phase,increment
+    next_phase=phase+increment
+    if(next_phase.ge.twopi64) then
+       next_phase=next_phase-twopi64
+    elseif(next_phase.le.-twopi64) then
+       next_phase=next_phase+twopi64
+    endif
+  end function advance_tone_phase
+
+  ! Emit the first sample of each stride and retain phase after every source step.
+  subroutine render_tone(phase,phase_step,wave,sample_stride)
+    real(real64), intent(inout) :: phase
+    real(real64), intent(in) :: phase_step
+    real(real32), intent(out) :: wave(:)
+    integer, intent(in), optional :: sample_stride
+    real(real64) :: phases(block_size),increment
+    integer :: first,n,i,j,stride
+
+    stride=1
+    if(present(sample_stride)) stride=sample_stride
+    if(stride.lt.1) error stop 'Invalid tone emission stride'
+    if(size(wave).eq.0) return
+    if(abs(phase).ge.twopi64) phase=mod(phase,twopi64)
+    increment=phase_step
+    if(abs(increment).ge.twopi64) increment=mod(increment,twopi64)
+    first=1
+    do while(first.le.size(wave))
+       n=min(block_size,size(wave)-first+1)
+       if(stride.eq.1) then
+          do i=1,n
+             phase=advance_tone_phase(phase,increment)
+             phases(i)=phase
+          enddo
+       elseif(stride.eq.4) then
+          do i=1,n
+             phase=advance_tone_phase(phase,increment)
+             phases(i)=phase
+             phase=advance_tone_phase(phase,increment)
+             phase=advance_tone_phase(phase,increment)
+             phase=advance_tone_phase(phase,increment)
+          enddo
+       else
+          do i=1,n
+             phase=advance_tone_phase(phase,increment)
+             phases(i)=phase
+             do j=2,stride
+                phase=advance_tone_phase(phase,increment)
+             enddo
+          enddo
+       endif
+       call emit_real(phases(1:n),wave(first:first+n-1))
+       first=first+n
+    enddo
+  end subroutine render_tone
+
+  subroutine wsjt_render_tone(phase,phase_step,n,sample_stride,wave) bind(C,name='wsjt_render_tone')
+    real(c_double), intent(inout) :: phase
+    real(c_double), value :: phase_step
+    integer(c_int), value :: n,sample_stride
+    real(c_float), intent(out) :: wave(n)
+
+    call render_tone(phase,phase_step,wave,sample_stride)
+  end subroutine wsjt_render_tone
 
   subroutine render_fsk(tones,nsps,rate,spacing,carrier,wave,cwave)
     integer, intent(in) :: tones(:),nsps
