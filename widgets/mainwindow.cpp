@@ -10308,7 +10308,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       } else {
         m_config.setSpecial_None();
         if(ui->txrb1->isChecked()) on_txb2_clicked();
-        ui->tx1->setEnabled(true);
+        ui->tx1->setEnabled(m_tx1_enabled_preference);
         ui->txb1->setEnabled(true);
         if (m_specOp==SpecOp::HOUND) {
         ui->houndButton->setChecked(false);
@@ -12087,7 +12087,7 @@ void MainWindow::switch_mode (Mode mode)
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
-      ui->tx1->setEnabled(true);
+      ui->tx1->setEnabled(m_tx1_enabled_preference);
       ui->txb1->setEnabled(true);
    }
   m_fastGraph->setMode(m_mode);
