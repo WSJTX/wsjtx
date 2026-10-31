@@ -41,6 +41,32 @@ contains
       ! this is ~+/-15 Hz, covering the couple-of-bin spread a single real
       ! JT65 signal can show across separate automatic calls.
       integer, parameter :: JT65_LOCAL_BINS = 5
+      ! A strong JT65 signal that has decoded also looks like several Q65
+      ! candidates ("ghosts") across its span, and each failed Q65 attempt
+      ! on one costs seconds. A JT65 signal's tones span about
+      ! JT65_BW_HZ * nts_jt65 above its sync tone, so Q65 candidates inside
+      ! that span (plus a small guard on each side) of a decoded sync tone
+      ! are screened:
+      !   - one on the sync tone itself (within JT65_SYNC_HZ) is always
+      !     skipped;
+      !   - any other is skipped only if its sync strength is below
+      !     Q65_GHOST_FACTOR times the JT65 signal's own spectral power at
+      !     sync bin (the strongest bin near it, relative to the local noise
+      !     floor, as in the JT65 sweep). Ghosts never exceeded about 0.62
+      !     times that power in testing, whereas a real Q65 signal in the
+      !     span is usually stronger, so it is still tried.
+      ! The two guards are named from the JT65 signal's side: BELOW its sync
+      ! tone, ABOVE its top tone.
+      real, parameter :: JT65_BW_HZ = 178.0
+      real, parameter :: JT65_EXCL_BELOW_HZ = 10.0
+      real, parameter :: JT65_EXCL_ABOVE_HZ = 10.0
+      real, parameter :: JT65_SYNC_HZ = 10.0
+      ! A decoded JT65 signal's flagged bin can be several bins off its true
+      ! sync tone (a quick decode near the cursor accepts weak sync), so its
+      ! power and sync position are taken from the strongest bin within
+      ! JT65_SLOP_HZ of it.
+      real, parameter :: JT65_SLOP_HZ = 60.0
+      real, parameter :: Q65_GHOST_FACTOR = 0.7
       real, intent(in) :: dd(4, nsmax_active)
       integer, intent(inout) :: newdat
       integer, intent(inout) :: nutc
@@ -78,7 +104,10 @@ contains
       integer :: noffset, npol, nqd, nqual, nsync1, nsync2, ntry
       integer :: nts_jt65, nts_q65, ntxpol, nutc0, nwrite, nwrite_q65, nz
       integer :: idec
-      logical xpol, bq65, q65b_called
+      logical xpol, bq65, q65b_called, q65_on_jt65
+      integer :: nq65bin, nq65_back, nq65_ahead, nq65_sync, nq65_slop
+      real :: pjt65
+      logical :: near_sync
       logical candec(MAX_CANDIDATES)
       character(len=22) decoded, blank, decoded_jt65
       character(len=2) cmode
@@ -173,6 +202,14 @@ contains
       mode_q65 = nmode/10
       nts_jt65 = mode65
       nts_q65 = 2**(mode_q65 - 1)
+      ! Search window around a Q65 candidate's bin, for a decoded JT65 sync
+      ! tone: nq65_back bins below the candidate (a candidate on a JT65
+      ! signal sits above that signal's sync tone, up to its full span) and
+      ! nq65_ahead bins above it (the guard below the sync tone).
+      nq65_back = ceiling((JT65_BW_HZ*nts_jt65 + JT65_EXCL_ABOVE_HZ)/df)
+      nq65_ahead = ceiling(JT65_EXCL_BELOW_HZ/df)
+      nq65_sync = ceiling(JT65_SYNC_HZ/df)
+      nq65_slop = ceiling(JT65_SLOP_HZ/df)
       xpol = (nxpol .ne. 0)
 
       nwrite_q65 = 0
@@ -1036,6 +1073,21 @@ endif
                q65b_called = .false.
                do icand = 1, ncand
                   if (cand(icand)%iflip .ne. 0) cycle        !Keep only Q65 candidates
+                  q65_on_jt65 = .false.
+                  pjt65 = -1.0
+                  near_sync = .false.
+                  if (nagain .eq. 0 .and. manualDecodeFlag_initial .eq. 0 .and. nts_jt65 .gt. 0) then
+                     nq65bin = nint(1000.0*cand(icand)%f/df) + 1
+                     call jt65_span_power(nq65bin, pjt65, near_sync)
+                     q65_on_jt65 = pjt65 .ge. 0.0 .and. &
+                                   (near_sync .or. cand(icand)%snr .lt. Q65_GHOST_FACTOR*pjt65)
+                  endif
+                  if (pjt65 .ge. 0.0) &
+                     call dbg('map65a: Q65 cand in JT65 span f=' // rtoa(real(cand(icand)%f)) // &
+                              ' snr=' // rtoa(real(cand(icand)%snr)) // ' pjt65=' // rtoa(pjt65) // &
+                              ' near_sync=' // itoa(merge(1,0,near_sync)) // &
+                              ' skip=' // itoa(merge(1,0,q65_on_jt65)) // ' nqd=' // itoa(nqd))
+                  if (q65_on_jt65) cycle
                   freq = cand(icand)%f + nkhz_center - real(nrate_active)/2000.0 - 1.27046
                   nhzdiff = nint(1000.0*(freq - mousefqso) - mousedf) - nfcal
 ! Now looking for "quick decode" (nqd=1) candidates at cursor freq +/- ntol.
@@ -1116,6 +1168,21 @@ endif
             do icand = 1, ncand
                if (cand(icand)%iflip .ne. 0) cycle    !Do only Q65 candidates here
                if (candec(icand)) cycle             !Skip if already decoded
+               q65_on_jt65 = .false.
+               pjt65 = -1.0
+               near_sync = .false.
+               if (nagain .eq. 0 .and. manualDecodeFlag_initial .eq. 0 .and. nts_jt65 .gt. 0) then
+                  nq65bin = nint(1000.0*cand(icand)%f/df) + 1
+                  call jt65_span_power(nq65bin, pjt65, near_sync)
+                  q65_on_jt65 = pjt65 .ge. 0.0 .and. &
+                                (near_sync .or. cand(icand)%snr .lt. Q65_GHOST_FACTOR*pjt65)
+               endif
+               if (pjt65 .ge. 0.0) &
+                  call dbg('map65a: Q65 cand in JT65 span f=' // rtoa(real(cand(icand)%f)) // &
+                           ' snr=' // rtoa(real(cand(icand)%snr)) // ' pjt65=' // rtoa(pjt65) // &
+                           ' near_sync=' // itoa(merge(1,0,near_sync)) // &
+                           ' skip=' // itoa(merge(1,0,q65_on_jt65)) // ' nqd=' // itoa(nqd))
+               if (q65_on_jt65) cycle
                freq = cand(icand)%f + nkhz_center - real(nrate_active)/2000.0 - 1.27046
 !###! If here at nqd=1, do only candidates at mousefqso +/- ntol
 !###           if(nqd.eq.1 .and. abs(freq-mousefqso).gt.0.001*ntol) cycle
@@ -1229,6 +1296,46 @@ endif
       mcall3b = mcall3a
 
       return
+
+   contains
+
+      subroutine jt65_span_power(nbin, pmax, near)
+         ! For a Q65 candidate at bin nbin: among decoded JT65 sync bins that
+         ! it could be a ghost of (nq65_back bins below to nq65_ahead above),
+         ! return the strongest one's spectral power relative to the local
+         ! noise floor (-1 if there is none), and whether the candidate sits
+         ! on a decoded sync tone.
+         integer, intent(in)  :: nbin
+         real,    intent(out) :: pmax
+         logical, intent(out) :: near
+         integer :: jj, jp, ii, iii, kk, kbest
+         real :: tav(-50:50), bas, p
+
+         pmax = -1.0
+         near = .false.
+         do jj = max(1, nbin - nq65_back), min(nfft_active, nbin + nq65_ahead)
+            if (.not. ljt65decoded(jj)) cycle
+            p = 0.0
+            kbest = jj
+            do jp = 1, jpz
+               do ii = -50, 50
+                  iii = jj + ii
+                  tav(ii) = 1.0
+                  if (iii .ge. 1 .and. iii .le. nfft_active) tav(ii) = savg_dec(jp, iii)
+               enddo
+               call pctile(tav, 101, 50, bas)
+               if (bas .le. 0.0) cycle
+               do kk = max(1, jj - nq65_slop), min(nfft_active, jj + nq65_slop)
+                  if (savg_dec(jp, kk)/bas .gt. p) then
+                     p = savg_dec(jp, kk)/bas
+                     kbest = kk
+                  endif
+               enddo
+            enddo
+            if (abs(nbin - kbest) .le. nq65_sync) near = .true.
+            pmax = max(pmax, p)
+         enddo
+      end subroutine jt65_span_power
    end subroutine map65a
 
 end module map65a_mod
