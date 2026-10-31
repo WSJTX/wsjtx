@@ -13,7 +13,6 @@ subroutine gen4(msg0,ichk,msgsent,itone,itype)
   integer itone(206)
   integer*4 i4Msg6BitWords(13)            !72-bit message as 6-bit words
   integer mettab(-128:127,0:1)
-  save
 
   if(msg0(1:1).eq.'@') then
      read(msg0(2:5),*,end=1,err=1) nfreq

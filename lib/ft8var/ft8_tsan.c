@@ -29,5 +29,10 @@ WSJT_TSAN_SYNC(decoder_section_primary)
 WSJT_TSAN_SYNC(decoder_section_secondary)
 WSJT_TSAN_SYNC(msk40_sync)
 
+WSJT_TSAN_SYNC(fftw)
+WSJT_TSAN_SYNC(four2a_setup)
+// critical(first_call): first-call setup; a block holding it calls nothing that takes it again.
+WSJT_TSAN_SYNC(first_call)
+
 WSJT_TSAN_SYNC(ft8_qso_state)
 WSJT_TSAN_SYNC(ft8_hint_state)

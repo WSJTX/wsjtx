@@ -2,19 +2,21 @@ subroutine gen_ft4wave(itone,nsym,nsps,fsample,f0,cwave,wave,icmplx,nwave)
 
   real wave(nwave)
   complex cwave(nwave)
-  real pulse(6912)              !576*4*3
+  real, allocatable :: pulse(:)
   real, allocatable :: dphi(:)
   integer itone(nsym)
   logical first
   data first/.true./
   data nsps0/0/,fsample0/0.0/
   save pulse,first,twopi,dt,hmod,nsps0,fsample0
+  !$omp threadprivate(pulse,first,twopi,dt,hmod,nsps0,fsample0)
 
   allocate(dphi(0:(nsym+2)*nsps-1))
 
 ! The decoder's subtraction (12 kHz) and the transmitter (48 kHz) can share a
-! process.
+! process, and run at once on two threads.
   if(first .or. nsps.ne.nsps0 .or. fsample.ne.fsample0) then
+     if(.not.allocated(pulse)) allocate(pulse(6912))   !576*4*3
      twopi=8.0*atan(1.0)
      dt=1.0/fsample
      hmod=1.0

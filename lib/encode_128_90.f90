@@ -5,6 +5,7 @@ subroutine encode_128_90(message77,codeword)
 use, intrinsic :: iso_c_binding
 use iso_c_binding, only: c_loc,c_size_t
 use crc
+use first_call_tsan, only: wsjt_tsan_acquire_first_call,wsjt_tsan_release_first_call
 
 integer, parameter:: N=128, K=90, M=N-K
 character*90 tmpchar
@@ -17,21 +18,31 @@ include "ldpc_128_90_generator.f90"
 logical first
 data first/.true./
 save first,gen
+logical building
 
-if( first ) then ! fill the generator matrix
-  gen=0
-  do i=1,M
-    do j=1,23
-      read(g(i)(j:j),"(Z1)") istr
-        ibmax=4
-        if(j.eq.23) ibmax=2 
-        do jj=1, ibmax 
-          icol=(j-1)*4+jj
-          if( btest(istr,4-jj) ) gen(i,icol)=1
-        enddo
-    enddo
-  enddo
-first=.false.
+!$omp atomic read seq_cst
+building=first
+if(building) then
+   !$omp critical(first_call)
+   call wsjt_tsan_acquire_first_call()
+   if( first ) then ! fill the generator matrix
+     gen=0
+     do i=1,M
+       do j=1,23
+         read(g(i)(j:j),"(Z1)") istr
+           ibmax=4
+           if(j.eq.23) ibmax=2 
+           do jj=1, ibmax 
+             icol=(j-1)*4+jj
+             if( btest(istr,4-jj) ) gen(i,icol)=1
+           enddo
+       enddo
+     enddo
+   !$omp atomic write seq_cst
+   first=.false.
+   endif
+   call wsjt_tsan_release_first_call()
+   !$omp end critical(first_call)
 endif
 
 ! Add 13 bit CRC to form 90-bit message+CRC13

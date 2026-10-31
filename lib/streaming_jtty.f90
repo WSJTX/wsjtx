@@ -18,15 +18,19 @@
 ! uncounted). Where a session begins in a transmission changes what decodes,
 ! as it does in the GUI. After each decoder step the session writes one
 ! jtty_update line per pending update, as the GUI takes them. Between its
-! session line and its last update only error lines and the replies to
-! encode requests appear; an odd_audio_frame error comes before the "ended"
-! lines it causes. I is unique in the process, across sessions and mode
-! changes, and the same on every update of one message. A message's last
-! line is its "complete", "expired" or "ended" one. A message whose final
-! frame has not arrived is "expired" once about 8 s of audio follow its
-! latest frame, and ending a session gives each message still in progress an
-! "ended" line; after a fatal error (exit 1) nothing follows, so messages in
-! progress get no terminal line.
+! session line and its last update only error lines, the replies to encode
+! requests, planning lines and, when the session began with a mode change, the
+! previous mode's remaining decode lines, its busy and pass_progress lines
+! among them, appear (JTTY decodes at once, without waiting for them); an
+! odd_audio_frame error comes before the "ended" lines it causes. I is unique
+! in the process, across sessions and mode changes, and the same on every
+! update of one message. A message's last line is its "complete", "expired" or
+! "ended" one. A message whose final frame has not arrived is "expired" once
+! about 8 s of audio follow its latest frame, and ending a session gives each
+! message still in progress an "ended" line. A fatal error ends the program:
+! nothing follows, so messages in progress get no terminal line, a period
+! decode in flight is cut short and the lines queued behind it are lost, and
+! the exit status is not guaranteed to be 1.
 !
 ! start and latest (T) are the sync times of the message's first and latest
 ! decoded frames, in stream samples / 12000. freq is the latest frame's lowest
@@ -53,11 +57,15 @@
 !
 ! A decoder step that needs FFT sizes with no saved FFTW wisdom in -a measures
 ! them: up to tens of seconds on ARM Linux, during which the stream reads no
-! input. The sizes follow from rxfreq, ntol, nfa and nfb; a step over zero
-! samples needs none, so the first to measure is the first step over other
-! audio (noise is enough), and zero samples warm nothing. Wisdom is saved only
-! when the stream ends at halt or end of input (a killed process saves none),
-! so keep -a across runs.
+! input and a period decode that needs a new FFT plan waits (with busy_events,
+! planning lines bracket the step, lib/streaming_emit.f90). The sizes follow
+! from rxfreq, ntol, nfa and nfb; a step over zero samples needs none, so the
+! first to measure is the first step over other audio (noise is enough), and
+! zero samples warm nothing. The wisdom is saved to -a after each step that
+! measured and when the stream ends at halt or end of input, written beside
+! the file and renamed over it, so a process stopped later measures those
+! sizes again only if a save failed (noted on stderr; the old file stays).
+! Keep -a across runs.
 !
 ! JTTY encode, in any mode: the control frame
 !   {"t":"pack","id":I,"text":S,...}
@@ -107,12 +115,12 @@
 ! and the control phrases
 !   AGN?, CALL?, AGN CALL, NR?, AGN NR, EXCH?, STATE?, SECTION?, ZONE?, GRID?,
 !   RPRT?, QSL TU, TU, QRZ?, QSO B4, WAIT, NIL?, OK?.
-! Requests are answered in order, between frames, so a reply also shows that
-! every earlier frame was read. It does not wait for decodes: a period's later
-! FT8 passes and its decode_finished, and a decode again held for the last
-! pass, can come after it. A request holds up the audio behind it while it is
-! answered; on live audio (live_audio) FT8 ends a pass on the wall clock, so a
-! request inside a period can change that period's decodes. A request's reply
+! Requests are answered in order, at their place in the input, so a reply
+! also shows that every earlier frame was read. A reply waits for no decode
+! (lib/streaming_encode.f90 states the waits that remain and the lines it can
+! come before). A request holds up the audio behind it while it is answered;
+! on live audio (live_audio) FT8 ends a pass on the wall clock, so a request
+! inside a period can change that period's decodes. A request's reply
 ! lines are consecutive, each carries its id, and the last is packed or
 ! rejected:
 !   segment   {"v":1,"t":"segment","id":I,"seg":K,"text":S,"canonical":S,
@@ -143,8 +151,8 @@
 !   encoding_failed  none
 ! A request without such an id among its own keys (not a nested object's)
 ! gets error invalid_request_id. An encode that cannot proceed (no memory)
-! ends the program with an error line, and with it period decoding and any
-! JTTY session.
+! ends the program with an error line, a fatal error (above), and with it
+! period decoding and any JTTY session.
 !
 ! JTTY render, in any mode: {"t":"render","id":I,"template":S,...,
 ! "freq":F,"rate":R}, pack's keys with F the lowest tone, a JSON number from
@@ -158,13 +166,13 @@
 ! instead of packed. A render of more than 600 s of audio is rejected
 ! too_long, with no key. A JTTY receiver decodes nothing whose lowest tone is
 ! above about 2950 Hz (above), though F may be up to 5000 Hz. A render holds
-! up audio for as long as it computes and its lines take to be read.
+! up audio for as long as it computes and its lines take to be read, and
+! decode lines for as long as its lines take to be read.
 
 module streaming_jtty
   use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_float, c_double,  &
        c_char, c_int16_t, c_int32_t
-  use, intrinsic :: iso_fortran_env, only: int16, int64, real64, output_unit,  &
-       error_unit
+  use, intrinsic :: iso_fortran_env, only: int16, int64, real64, error_unit
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use jtty_receive_context, only: jtty_rx_create, jtty_rx_destroy,             &
        jtty_rx_begin, jtty_rx_process, jtty_rx_process_final,                  &
@@ -172,9 +180,12 @@ module streaming_jtty
        jtty_rx_take_updates_with_gaps, jtty_rx_end
   use jtty_mdec, only: UPDATE_GROWING, UPDATE_COMPLETE, UPDATE_EXPIRED,        &
        UPDATE_RECEPTION_ENDED, MAX_DISPLAY_GAPS, jtty_release_fft_resources
+  use fftw_wisdom, only: save_wisdom
+  use prog_args, only: data_dir
   use jtty_filler, only: strip_filler_text
   use streaming_emit, only: streaming_emit_error, streaming_emit_error_code, &
-       streaming_emit_json_escape
+       streaming_emit_json_escape, streaming_emit_line, streaming_emit_planning, &
+       streaming_emit_hold
   use streaming_apply, only: params_block
   use streaming_control, only: configure_fields, encode_request,               &
        parse_encode_request, parse_render_request
@@ -185,7 +196,7 @@ module streaming_jtty
   private
 
   public :: jtty_audio, jtty_end, jtty_range_key, jtty_emit_range_error,      &
-       jtty_release, jtty_note_station, jtty_encode
+       jtty_release, jtty_note_station, jtty_encode, jtty_measuring
   ! The reply lines and the station's call the slot modes' encode shares
   ! (lib/streaming_encode.f90).
   public :: encode_emit_rejected, encode_emit_pcm, encode_station_call
@@ -203,6 +214,9 @@ module streaming_jtty
   integer(int16), allocatable, save :: pcm_(:)
   integer(int64), save :: pcm_base_ = 0
   integer,        save :: pcm_count_ = 0
+  ! The decoder step under way measures an FFT plan, and said planning true.
+  logical,        save :: measuring_ = .false.
+  logical,        save :: planning_ = .false.
 
   ! Encode. Jtty::Encoder::TransmitStatus, lib/jtty/JttyTransmitHost.hpp.
   integer(c_int32_t), parameter :: TX_ENCODED = 0, TX_EMPTY = 1,                &
@@ -407,11 +421,34 @@ contains
                params%nfa, params%nfb, real(params%nfqso, c_float),          &
                real(params%ntol, c_float))
        end if
+       call step_done_()
        call emit_updates_()
        if (processed .lt. 0) call fatal_('required receive audio is unavailable')
        if (processed .eq. 0) return
     end do
   end subroutine decode_available_
+
+  ! The decoder step under way is about to measure an FFT plan that wisdom
+  ! cannot supply: planning true, once a step, when the client asked for it.
+  subroutine jtty_measuring(planning)
+    logical, intent(in) :: planning
+    if (.not. measuring_ .and. planning) then
+       call streaming_emit_planning(.true.)
+       planning_ = .true.
+    end if
+    measuring_ = .true.
+  end subroutine jtty_measuring
+
+  ! After a step that measured: its wisdom saved to -a, then planning false.
+  subroutine step_done_()
+    if (.not. measuring_) return
+    measuring_ = .false.
+    if (.not. save_wisdom(trim(data_dir) // '/jt9_wisdom.dat' // achar(0)))     &
+         write(error_unit, '(3a)') 'wsjt-codec: could not save the FFTW wisdom to ', &
+         trim(data_dir), '/jt9_wisdom.dat; the old file stays'
+    if (planning_) call streaming_emit_planning(.false.)
+    planning_ = .false.
+  end subroutine step_done_
 
   subroutine emit_updates_()
     character(kind=c_char) :: text(80 * UPDATE_CAPACITY)
@@ -493,6 +530,9 @@ contains
 
   subroutine fatal_(message)
     character(len=*), intent(in) :: message
+    ! The writer lock is kept to the end: no line follows the error, and a
+    ! decode thread about to write waits on the lock while the program ends.
+    call streaming_emit_hold(.true.)
     call streaming_emit_error(message)
     write(error_unit, '(2a)') 'wsjt-codec: ', message
     stop 1
@@ -500,8 +540,7 @@ contains
 
   subroutine emit_line_(line)
     character(len=*), intent(in) :: line
-    write(output_unit, '(a)') line
-    flush(output_unit)
+    call streaming_emit_line(line)
   end subroutine emit_line_
 
   function itoa_(value) result(text)

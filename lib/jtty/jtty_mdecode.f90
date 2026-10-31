@@ -120,6 +120,13 @@ module jtty_mdec
   end type sync_fft_cache
   integer, parameter, private :: MIN_SYNC_FFT_ORDER=11,MAX_SYNC_FFT_ORDER=13
   type(sync_fft_cache), private :: sync_fft_caches(MIN_SYNC_FFT_ORDER:MAX_SYNC_FFT_ORDER)
+  ! Called, when set, before measuring a sync FFT plan that FFTW's wisdom
+  ! cannot supply (a step that can take tens of seconds).
+  abstract interface
+     subroutine planning_notice()
+     end subroutine planning_notice
+  end interface
+  procedure(planning_notice), pointer, private :: planning_callback => null()
 
   interface prune_receive_state
      module procedure prune_receive_state_real64, prune_receive_state_real32
@@ -128,12 +135,15 @@ module jtty_mdec
 contains
 
   subroutine release_sync_fft_cache(cache)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
       use fftw3, only: fftwf_destroy_plan,fftwf_free
       type(sync_fft_cache), intent(inout) :: cache
 
       !$omp critical(fftw)
+      call wsjt_tsan_acquire_fftw()
       if(c_associated(cache%forward)) call fftwf_destroy_plan(cache%forward)
       if(c_associated(cache%backward)) call fftwf_destroy_plan(cache%backward)
+      call wsjt_tsan_release_fftw()
       !$omp end critical(fftw)
       cache%forward=c_null_ptr
       cache%backward=c_null_ptr
@@ -161,6 +171,7 @@ contains
   end function allocate_sync_fft_buffer
 
   logical function ensure_sync_fft_cache(nfft,needs_backward,fft_order)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
       use fftw3, only: fftwf_plan_dft_1d,FFTW_FORWARD,FFTW_BACKWARD, &
            FFTW_MEASURE,FFTW_PRESERVE_INPUT,fftwf_free
       integer, intent(in) :: nfft
@@ -195,11 +206,17 @@ contains
             fft_order=0
             return
          endif
+         if(associated(planning_callback)) call notice_measuring(nfft, &
+              sync_fft_caches(fft_order)%input, &
+              sync_fft_caches(fft_order)%spectrum,FFTW_FORWARD, &
+              ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          sync_fft_caches(fft_order)%forward=fftwf_plan_dft_1d(nfft, &
               sync_fft_caches(fft_order)%input, &
               sync_fft_caches(fft_order)%spectrum,FFTW_FORWARD, &
               ior(FFTW_MEASURE,FFTW_PRESERVE_INPUT))
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          if(.not.c_associated(sync_fft_caches(fft_order)%forward)) then
             call release_sync_fft_cache(sync_fft_caches(fft_order))
@@ -216,10 +233,15 @@ contains
             fft_order=0
             return
          endif
+         if(associated(planning_callback)) call notice_measuring(nfft, &
+              sync_fft_caches(fft_order)%spectrum, &
+              sync_fft_caches(fft_order)%inverse,FFTW_BACKWARD,FFTW_MEASURE)
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          sync_fft_caches(fft_order)%backward=fftwf_plan_dft_1d(nfft, &
               sync_fft_caches(fft_order)%spectrum, &
               sync_fft_caches(fft_order)%inverse,FFTW_BACKWARD,FFTW_MEASURE)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          if(.not.c_associated(sync_fft_caches(fft_order)%backward)) then
             nullify(sync_fft_caches(fft_order)%inverse)
@@ -238,6 +260,30 @@ contains
          fft_order=0
       endif
   end function ensure_sync_fft_cache
+
+  ! planning_callback, unless FFTW's wisdom supplies the plan about to be
+  ! measured: a probe that may only use wisdom, under critical(fftw) like
+  ! the plan itself.
+  subroutine notice_measuring(nfft,input,output,sign,flags)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
+      use fftw3, only: fftwf_plan_dft_1d,fftwf_destroy_plan,FFTW_WISDOM_ONLY
+      integer, intent(in) :: nfft,sign,flags
+      complex(c_float_complex), intent(inout) :: input(*),output(*)
+      type(c_ptr) :: probe
+
+      !$omp critical(fftw)
+      call wsjt_tsan_acquire_fftw()
+      probe=fftwf_plan_dft_1d(nfft,input,output,sign,ior(flags,FFTW_WISDOM_ONLY))
+      if(c_associated(probe)) call fftwf_destroy_plan(probe)
+      call wsjt_tsan_release_fftw()
+      !$omp end critical(fftw)
+      if(.not.c_associated(probe)) call planning_callback()
+  end subroutine notice_measuring
+
+  subroutine jtty_set_planning_callback(callback)
+      procedure(planning_notice) :: callback
+      planning_callback=>callback
+  end subroutine jtty_set_planning_callback
 
   subroutine jtty_release_fft_resources() bind(C,name='jtty_release_fft_resources')
       integer :: index

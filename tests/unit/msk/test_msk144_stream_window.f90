@@ -5,7 +5,7 @@ module msk144_window_probe
   implicit none
   integer :: calls = 0
   integer*2 :: received(7168)
-  integer :: got_nutc, got_ntol, got_rxfreq, got_depth, got_patience
+  integer :: got_nutc, got_ntol, got_rxfreq, got_depth, got_patience, got_npatience
   real :: got_tsec
   real(8) :: got_pcoeffs(5)
   logical :: got_shmsg, got_train, got_swl
@@ -18,6 +18,7 @@ end module msk144_window_probe
 program test_msk144_stream_window
   use msk144_window_probe
   use msk144_stream, only: msk144_settings, msk144_window, msk144_line_fields
+  use four2a_patience, only: patience_override
   implicit none
   integer, parameter :: NPERIOD = 30 * 12000 + 2 * 7168
   integer*2 :: id2(NPERIOD)
@@ -102,8 +103,10 @@ program test_msk144_stream_window
 
   npatience = 1
   call window(14336, 3)
-  call ok('the decoder plans its FFTs at patience 0, and the patience comes back', &
-       got_patience .eq. 0 .and. npatience .eq. 1)
+  call ok('the decoder plans its FFTs at patience 0 by the thread''s override, ' // &
+       '/patience/ untouched, and the override comes back',                  &
+       got_patience .eq. 0 .and. got_npatience .eq. 1 .and. npatience .eq. 1 .and. &
+       patience_override .eq. -1)
 
   settings%train = .true.
   call window(17920, 3)
@@ -175,6 +178,7 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall, &
      bshmsg,btrain,pcoeffs,bswl,datadir,line)
   use msk144_window_probe
   use msk144_training, only: trainings_done
+  use four2a_patience, only: patience_override
   implicit none
   integer*2 :: id2(7168)
   integer :: nutc0, ntol, nrxfreq, ndepth
@@ -185,7 +189,9 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall, &
   integer :: npatience, nthreads
   common/patience/npatience,nthreads
   received = id2
-  got_patience = npatience
+  ! What four2a plans with.
+  got_patience = merge(patience_override, npatience, patience_override .ge. 0)
+  got_npatience = npatience
   got_nutc = nutc0
   got_tsec = tsec
   got_ntol = ntol

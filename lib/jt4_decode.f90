@@ -833,6 +833,7 @@ end subroutine ps4
   end subroutine
 
   subroutine prepare_workspace(this,status,include_conversion)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     class(jt4_decoder),intent(inout) :: this
     integer,intent(out) :: status
     logical,intent(in),optional :: include_conversion
@@ -881,15 +882,19 @@ end subroutine ps4
        endif
        if(.not.c_associated(this%transform(i)%forward)) then
 !$omp critical(fftw)
+          call wsjt_tsan_acquire_fftw()
           this%transform(i)%forward=fftwf_plan_dft_r2c_1d(n,this%transform(i)%x, &
                this%transform(i)%cx,this%fft_flags)
+          call wsjt_tsan_release_fftw()
 !$omp end critical(fftw)
        endif
        if(.not.c_associated(this%transform(i)%forward)) return
        if(inverse_lengths(i)>0.and..not.c_associated(this%transform(i)%backward)) then
 !$omp critical(fftw)
+          call wsjt_tsan_acquire_fftw()
           this%transform(i)%backward=fftwf_plan_dft_c2r_1d(inverse_lengths(i),this%transform(i)%cx, &
                this%transform(i)%x,this%fft_flags)
+          call wsjt_tsan_release_fftw()
 !$omp end critical(fftw)
        endif
        if(inverse_lengths(i)>0.and..not.c_associated(this%transform(i)%backward)) return
@@ -907,15 +912,18 @@ end subroutine ps4
   end subroutine
 
   subroutine destroy_plans(this)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     class(jt4_decoder),intent(inout) :: this
     integer :: i
 !$omp critical(fftw)
+    call wsjt_tsan_acquire_fftw()
     do i=1,4
        if(c_associated(this%transform(i)%forward)) call fftwf_destroy_plan(this%transform(i)%forward)
        if(c_associated(this%transform(i)%backward)) call fftwf_destroy_plan(this%transform(i)%backward)
        this%transform(i)%forward=c_null_ptr
        this%transform(i)%backward=c_null_ptr
     enddo
+    call wsjt_tsan_release_fftw()
 !$omp end critical(fftw)
   end subroutine
 

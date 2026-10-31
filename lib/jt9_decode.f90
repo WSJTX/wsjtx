@@ -79,11 +79,14 @@ contains
   end subroutine decode_pcm
 
   subroutine initialize_spectrum(this)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     class(jt9_spectrum_workspace), intent(inout) :: this
     if(c_associated(this%plan)) return
     allocate(this%input(16384),this%output(0:8192))
     !$omp critical(fftw)
+    call wsjt_tsan_acquire_fftw()
     this%plan=fftwf_plan_dft_r2c_1d(16384,this%input,this%output,FFTW_ESTIMATE)
+    call wsjt_tsan_release_fftw()
     !$omp end critical(fftw)
   end subroutine initialize_spectrum
 
@@ -109,9 +112,12 @@ contains
   end subroutine prepare_spectra
 
   subroutine clear_spectrum(this)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     class(jt9_spectrum_workspace), intent(inout) :: this
     !$omp critical(fftw)
+    call wsjt_tsan_acquire_fftw()
     if(c_associated(this%plan)) call fftwf_destroy_plan(this%plan)
+    call wsjt_tsan_release_fftw()
     !$omp end critical(fftw)
     this%plan=c_null_ptr
     if(allocated(this%input)) deallocate(this%input,this%output)

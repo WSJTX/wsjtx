@@ -6,13 +6,16 @@ module q65_tx
 
 contains
 
-! genq65, packing with knowledge's hash tables, or without it packjt77's own.
-subroutine genq65_for_state(msg0,ichk,msgsent,itone,i3,n3,iflag,knowledge)
+! genq65, packing with knowledge's hash tables, or without it packjt77's own,
+! and encoding with codec (q65_enc), or without it the thread's selected one.
+subroutine genq65_for_state(msg0,ichk,msgsent,itone,i3,n3,iflag,knowledge,codec)
 
 ! Encodes a Q65 message to yield itone(1:85)
 
+  use iso_c_binding, only: c_ptr
   use q65_codec, only: q65_enc
   type(pack77_state), pointer, intent(in) :: knowledge
+  type(c_ptr), intent(in), optional :: codec
   character*37 msg0               !Message to be generated
   character*37 msgsent            !Message as it will be received
   character*77 c77
@@ -22,7 +25,6 @@ subroutine genq65_for_state(msg0,ichk,msgsent,itone,i3,n3,iflag,knowledge)
   integer sent(63)
   integer isync(22)
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
-  save
 
   if(msg0(1:1).eq.'@') then
      read(msg0(2:5),*,end=1,err=1) nfreq
@@ -54,7 +56,7 @@ subroutine genq65_for_state(msg0,ichk,msgsent,itone,i3,n3,iflag,knowledge)
 1001 format(12b6.6,b5.5)
   dgen(13)=2*dgen(13)+iflag     !Convert 77-bit to 78-bit payload; iflag is the spare 78th bit
   if(ichk.eq.1) go to 999       !Return if checking only
-  call q65_enc(dgen,sent)       !Encode message, dgen(1:13) ==> sent(1:63)
+  call q65_enc(dgen,sent,codec) !Encode message, dgen(1:13) ==> sent(1:63)
 
   j=1
   k=0

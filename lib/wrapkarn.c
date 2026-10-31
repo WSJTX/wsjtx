@@ -3,10 +3,25 @@
 #include <float.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include "rs.h"
 
 static void *rs;
-static int first=1;
+static atomic_int rs_state;   /* 0: not built, 1: building, 2: built */
+
+static void rs_ready(void)
+// Builds the JT65 codec once, whichever thread calls first.
+{
+  int none=0;
+
+  if(atomic_load_explicit(&rs_state,memory_order_acquire)==2) return;
+  if(atomic_compare_exchange_strong(&rs_state,&none,1)) {
+    rs=init_rs_int(6,0x43,3,1,51,0);
+    atomic_store_explicit(&rs_state,2,memory_order_release);
+  } else {
+    while(atomic_load_explicit(&rs_state,memory_order_acquire)!=2);
+  }
+}
 
 void rs_encode_(int *dgen, int *sent)
 // Encode JT65 data dgen[12], producing sent[63].
@@ -15,11 +30,7 @@ void rs_encode_(int *dgen, int *sent)
   int b[51];
   int i;
 
-  if(first) {
-    // Initialize the JT65 codec
-    rs=init_rs_int(6,0x43,3,1,51,0);
-    first=0;
-  }
+  rs_ready();
 
   // Reverse data order for the Karn codec.
   for(i=0; i<12; i++) {
@@ -43,10 +54,7 @@ void rs_decode_(int *recd0, int *era0, int *numera0, int *decoded, int *nerr)
   int era_pos[50];
   int recd[63];
 
-  if(first) {
-    rs=init_rs_int(6,0x43,3,1,51,0);
-    first=0;
-  }
+  rs_ready();
 
   numera=*numera0;
   for(i=0; i<12; i++) recd[i]=recd0[62-i];

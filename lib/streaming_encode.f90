@@ -283,23 +283,37 @@
 !                    SuperFox does not send; otp: not a JSON integer from 0
 !                    to 999999.
 !
-! A slot-mode request is answered as JTTY's are, in order between frames
-! (lib/streaming_jtty.f90), on the thread that decodes. On live audio its time
-! delays the decoder: a pass it holds up runs late, and a pass whose trigger
-! falls before that one ends is skipped as busy (pass_skipped), which the GUI,
-! building its audio outside its decoder, never does. A render takes from a fraction of a second (FT8) to
-! seconds (JT65, WSPR or FST4 at 48000 Hz), so send one between a period's
-! decode_finished and its next trigger: for FT8 the first early pass, 11.81 s
-! into the period (half-symbol 41).
+! A slot-mode request is answered as JTTY's are, in order at its place in the
+! input (lib/streaming_jtty.f90), while decodes run on their own thread: it
+! waits for no decode. It waits only while what was sent before it fills the
+! decoder's queue, while a pass's audio is copied again after its memory ran
+! out, for a decode line already being written, and, at a render's first FFT
+! plan, for a decoder's planning. So its reply can come before the decode
+! lines for audio sent before it, before a waiting final that starts just
+! before it, and before the errors for configure, control or odd-length audio
+! frames sent before it, which wait behind decode work
+! (lib/streaming_decode.f90). An error about a request the stream could parse
+! carries the request's id and comes inside its reply; three carry none: a
+! fatal error (the program ends), control_frame_too_large for a request frame
+! too long to read, and configure_parse_error for one without a readable t. A
+! client that sends configures and requests to a session that decodes matches
+! errors without an id by code, not by the request in flight. A request holds
+! up a decode in three ways: a long reply's lines hold the decode's next line
+! until they are read; a render's first FFT plan can wait for a decoder's, or
+! a decoder's for it; and the stream reads no audio while it computes a
+! render, so on live audio a pass whose audio arrives meanwhile runs late,
+! and FT8's wall-clock stops can shorten it. A render takes from a fraction of
+! a second (FT8) to seconds (JT65, WSPR or FST4 at 48000 Hz).
 
 module streaming_encode
   use, intrinsic :: iso_c_binding, only: c_int16_t, c_int32_t, c_double, c_char, &
-       c_int, c_float, c_float_complex
-  use, intrinsic :: iso_fortran_env, only: int64, output_unit
+       c_int, c_float, c_float_complex, c_null_ptr
+  use, intrinsic :: iso_fortran_env, only: int64
   use streaming_control, only: slot_request, parse_slot_request,              &
        encode_request_mode, MODE_JTTY, MODE_WSPR, MODE_ECHO, MODE_TUNE,        &
        MODE_FOX, MODE_SUPERFOX
-  use streaming_emit, only: streaming_emit_error_code, streaming_emit_json_escape
+  use streaming_emit, only: streaming_emit_error_code, streaming_emit_json_escape, &
+       streaming_emit_line
   use streaming_jtty, only: jtty_encode, encode_emit_rejected, encode_emit_pcm, &
        encode_station_call
   use packjt77, only: pack77_state, pack77_for_state, pack77_options,          &
@@ -313,6 +327,7 @@ module streaming_encode
   use msk144_tx, only: genmsk_128_90_for_state
   use fox_tx, only: foxgen_for_state
   use sfox_tx, only: sftx_for_state, sfox_wave_for_tones
+  use four2a_patience, only: patience_override
   implicit none
   private
 
@@ -712,8 +727,6 @@ contains
     integer(c_int32_t) :: count, ntones
     integer :: n, i, first, last, nslots, i3, n3, status, pack_error, alloc_status, patience
     logical :: fallback(5)
-    integer :: npatience, nthreads
-    common/patience/npatience, nthreads
 
     cmsg = ' '
     text = ''
@@ -812,11 +825,11 @@ contains
        if (render) then
           ! The GUI plans foxfilt's FFTs with its patience, 0.
           wave_tables = ft_tables_
-          patience = npatience
-          npatience = 0
+          patience = patience_override
+          patience_override = 0
           call foxgen_for_state(wave_tables, nslots, cmsg, nint(req%freq), wave,  &
                msgsent, itone, msgbits)
-          npatience = patience
+          patience_override = patience
        end if
     else
        ! foxgen's SuperFox flags, then sfox_tx's packing with the GUI's FT8
@@ -1244,7 +1257,8 @@ contains
        n3 = -1
        iflag = merge(1, 0, req%copied)
        knowledge => tables
-       call genq65_for_state(message, ichk, msgsent, tones(1:85), i3, n3, iflag, knowledge)
+       call genq65_for_state(message, ichk, msgsent, tones(1:85), i3, n3, iflag, knowledge, &
+            c_null_ptr)
        ntones = 85
     end select
 
@@ -1450,8 +1464,7 @@ contains
 
   subroutine emit_line_(line)
     character(len=*), intent(in) :: line
-    write(output_unit, '(a)') line
-    flush(output_unit)
+    call streaming_emit_line(line)
   end subroutine emit_line_
 
 end module streaming_encode

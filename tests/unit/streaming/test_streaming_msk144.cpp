@@ -149,6 +149,8 @@ struct Session
   int answerAfter {-1};
   std::function<QJsonObject (QList<QJsonObject> const&, QString const&)> answer;
   bool halt {false};     // a halt ends the input, else the input closes
+  // Another mode's period may end after later MSK144 events, never before its place.
+  bool otherModesLate {false};
 };
 
 struct Expect
@@ -729,8 +731,20 @@ QString difference (QStringList const& seen, QStringList const& want)
 
 bool agree (Outcome const& o, bool placed, QString& why)
 {
-  auto const seen = texts (o.seen.tokens, placed);
-  auto const want = texts (o.want, placed);
+  auto seen = texts (o.seen.tokens, placed);
+  auto want = texts (o.want, placed);
+  // The decode thread can still be decoding another mode's period when the
+  // main thread writes the next MSK144 period's events.
+  for (auto const& period : o.session.periods)
+    {
+      if (placed || !o.session.otherModesLate || period.msk144) continue;
+      auto const token = "finished " + label (period.utc);
+      auto const w = want.indexOf (token);
+      auto const s = seen.indexOf (token);
+      if (w < 0 || s < w) continue;
+      want.removeAt (w);
+      seen.removeAt (s);
+    }
   why = difference (seen, want);
   return shown (seen == want, o);
 }
@@ -1272,6 +1286,7 @@ private slots:
     s.periods[1].keys = {{"mode", "FT8"}, {"trperiod", 15}};
     s.periods[1].msk144 = false;
     s.periods[2].keys = with (Defaults, swl);
+    s.otherModesLate = true;
     // The control: a his_call change resets mskrtd, which forgets the first sighting.
     auto reset = s;
     reset.periods[2].keys.insert ("his_call", "K9AN");

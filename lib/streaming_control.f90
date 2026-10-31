@@ -210,11 +210,15 @@ module streaming_control
      ! live passes do: a live client streams in real time and starts each
      ! period on its UTC boundary (lib/streaming_io.f90 states it). A live
      ! producer must send live_audio: without it every pass runs, however far
-     ! behind, and up to 16 MiB of input is buffered.
+     ! behind, with its input buffered and queued as pass_skipped states.
      logical                :: decode_after_eme_delay_set = .false.
      logical                :: decode_after_eme_delay     = .false.
      logical                :: live_audio_set           = .false.
      logical                :: live_audio               = .false.
+     ! busy_events (false at the start) turns the busy, pass_progress and
+     ! planning lines on and off (lib/streaming_emit.f90), in stream order.
+     logical                :: busy_events_set          = .false.
+     logical                :: busy_events              = .false.
      ! MSK144's receive options, in every mode, each in force until another
      ! configure sets it: the GUI's "Sh" (short_messages) and "SWL" check
      ! boxes, each independent of the other, its "Measure phase response"
@@ -947,6 +951,16 @@ contains
        if (ok) then
           cfg%live_audio_set = .true.
           cfg%live_audio     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"busy_events"', 'busy_events', 'bool',                &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"busy_events"', lval, ok)
+       if (ok) then
+          cfg%busy_events_set = .true.
+          cfg%busy_events     = lval
        end if
     end if
 

@@ -2,8 +2,10 @@
 ! at each 3584-sample block end k of a period, from 7168 to 30 s, mskrtd on
 ! the period's samples [k-7168, k), unless either half is all zeros.
 module msk144_stream
-  use streaming_emit, only: streaming_emit_decode, streaming_emit_msk144_trained
+  use streaming_emit, only: streaming_emit_decode, streaming_emit_msk144_trained, &
+       time_form
   use msk144_training, only: trainings_done, trained_file, trained_call, trained_terms
+  use four2a_patience, only: patience_override
   implicit none
   private
   public :: msk144_settings, msk144_window, msk144_line_fields
@@ -26,20 +28,20 @@ module msk144_stream
 contains
 
   ! The window ending at block end k of id2, the period's samples; its decode
-  ! event, then msk144_trained if its call completed a training.
-  subroutine msk144_window(id2, k, nutc, ntol, nfqso, ndepth, settings, data_dir)
+  ! event, labelled in form when given, then msk144_trained if its call
+  ! completed a training.
+  subroutine msk144_window(id2, k, nutc, ntol, nfqso, ndepth, settings, data_dir, form)
     integer*2,             intent(in)    :: id2(*)
     integer,               intent(in)    :: k, nutc, ntol, nfqso, ndepth
     type(msk144_settings), intent(inout) :: settings
     character(len=*),      intent(in)    :: data_dir
+    type(time_form), optional, intent(in) :: form
     logical*1 :: bshmsg, bswl, btrain
     real :: tsec, tt1, tt2, dt
     integer :: done, utc, snr, freq, patience
     logical :: training, ok
     character(len=80) :: line
     character(len=37) :: message
-    integer :: npatience, nthreads
-    common/patience/npatience,nthreads
 
     if (k .lt. WINDOW .or. k .gt. LAST_K .or. mod(k, MSK144_BLOCK) .ne. 0) return
     tt1 = sum(float(abs(id2(k-WINDOW+1:k-MSK144_BLOCK))))
@@ -52,17 +54,17 @@ contains
     done = trainings_done
     ! The GUI decodes MSK144 in its own process, which plans FFTs FFTW_ESTIMATE;
     ! a more patient plan the session or -a's wisdom already holds still wins.
-    patience = npatience
-    npatience = 0
+    patience = patience_override
+    patience_override = 0
     call mskrtd(id2(k-WINDOW+1:k), nutc, tsec, ntol, nfqso, iand(ndepth, 3),  &
          settings%mycall, settings%hiscall, bshmsg, btrain, settings%phase_eq, &
          bswl, trim(data_dir), line)
-    npatience = patience
+    patience_override = patience
     settings%train = btrain
     if (line(1:1) .ne. char(0)) then
        call msk144_line_fields(line, utc, snr, dt, freq, message, training, ok)
        if (ok) call streaming_emit_decode('MSK144', utc, snr, dt, freq,       &
-            message, training=training)
+            message, training=training, form=form)
     end if
     if (trainings_done .ne. done) call streaming_emit_msk144_trained(        &
          trained_call, trained_file, trained_terms)

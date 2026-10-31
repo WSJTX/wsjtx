@@ -3,7 +3,9 @@ module packjt
 ! These variables are accessible from outside via "use packjt":
   integer jt_itype,jt_nc1,jt_nc2,jt_ng,jt_k1,jt_k2
   character*6 jt_c1,jt_c2,jt_c3
-  
+! Set by each packmsg, per thread.
+!$omp threadprivate(jt_itype,jt_nc1,jt_nc2,jt_ng,jt_k1,jt_k2,jt_c1,jt_c2,jt_c3)
+
   contains
 
 subroutine packbits(dbits,nsymd,m0,sym)

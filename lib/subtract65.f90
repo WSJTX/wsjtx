@@ -1,4 +1,5 @@
 subroutine subtract65(dd,npts,f0,dt)
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
 ! Subtract a jt65 signal
 !
@@ -88,6 +89,7 @@ subroutine subtract65(dd,npts,f0,dt)
     if(npatience.eq.3) nflags=FFTW_PATIENT
     if(npatience.eq.4) nflags=FFTW_EXHAUSTIVE
     !$omp critical(fftw)
+    call wsjt_tsan_acquire_fftw()
     if(c_associated(jt65_work%subtract_forward)) call fftwf_destroy_plan(jt65_work%subtract_forward)
     if(c_associated(jt65_work%subtract_inverse)) call fftwf_destroy_plan(jt65_work%subtract_inverse)
     if(c_associated(jt65_work%window_plan)) call fftwf_destroy_plan(jt65_work%window_plan)
@@ -96,6 +98,7 @@ subroutine subtract65(dd,npts,f0,dt)
     jt65_work%subtract_inverse=fftwf_plan_dft_1d(nfft,cfilt,cfilt,1,nflags)
     jt65_work%window_plan=fftwf_plan_dft_1d(nfft,cw,cw,-1,nflags)
     call fftwf_plan_with_nthreads(1)
+    call wsjt_tsan_release_fftw()
     !$omp end critical(fftw)
     jt65_work%sub_patience=npatience
     jt65_work%sub_threads=nthreads

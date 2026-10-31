@@ -13,18 +13,22 @@ contains
     complex, intent(out), optional :: cwave(output_count)
     real, intent(out), optional :: wave(output_count)
     integer, parameter :: NTAB=65536
-    complex :: ctab(0:NTAB-1)
-    real :: pulse(23040),dphi(0:(nsym+2)*nsps-1)
+    complex, allocatable :: ctab(:)
+    real, allocatable :: pulse(:)
+    real :: dphi(0:(nsym+2)*nsps-1)
     real :: twopi,dt,hmod,dphi_peak,tt,phi
     real, external :: gfsk_pulse
     integer :: ibt,i,j,ib,ie
     real :: fchk,fchk0
     data fchk0/0.0/
     save pulse,twopi,dt,hmod,fchk0,ctab
+    ! Per thread: a render and a decoder's subtraction can run at once.
+    !$omp threadprivate(pulse,twopi,dt,hmod,fchk0,ctab)
 
     ibt=nint(10*bt)
     fchk=nsym+nsps+bt+fsample
     if(fchk.ne.fchk0) then
+       if(.not.allocated(pulse)) allocate(pulse(23040),ctab(0:NTAB-1))
        twopi=8.0*atan(1.0)
        dt=1.0/fsample
        hmod=1.0
