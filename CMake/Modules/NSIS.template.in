@@ -575,6 +575,22 @@ FunctionEnd
 @CPACK_NSIS_INSTALLER_MUI_COMPONENTS_DESC@
 @CPACK_NSIS_INSTALLER_MUI_FINISHPAGE_RUN_CODE@
 
+!ifdef MUI_FINISHPAGE_RUN
+  !define MUI_FINISHPAGE_RUN_FUNCTION LaunchAsDesktopUser
+  Function LaunchAsDesktopUser
+    InitPluginsDir
+    ClearErrors
+    File "/oname=$PLUGINSDIR\wsjtx-launch-user.exe" "@WSJTX_NSIS_LAUNCHER@"
+    IfErrors launch_failed
+    ExecWait '"$PLUGINSDIR\wsjtx-launch-user.exe" "${MUI_FINISHPAGE_RUN}" "$INSTDIR"' $0
+    IfErrors launch_failed
+    StrCmp $0 0 launch_done
+  launch_failed:
+    MessageBox MB_OK|MB_ICONINFORMATION "WSJT-X was installed, but could not be started as the desktop user. Please start it from the Start menu or your usual shortcut."
+  launch_done:
+  FunctionEnd
+!endif
+
 ;--------------------------------
 ;Pages
   !insertmacro MUI_PAGE_WELCOME

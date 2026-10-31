@@ -1668,6 +1668,8 @@ set (CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}
 
 if (WIN32)
   set (CPACK_GENERATOR "NSIS")
+  add_subdirectory (CMake/NSIS)
+  add_dependencies (wsjtx wsjtx-launch-user)
 elseif (APPLE)
   set (CPACK_GENERATOR "DragNDrop")
 else ()

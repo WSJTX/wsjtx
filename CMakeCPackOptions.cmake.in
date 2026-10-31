@@ -20,6 +20,17 @@ set (CPACK_STRIP_FILES TRUE)
 if (CPACK_GENERATOR MATCHES "NSIS")
   set (CPACK_STRIP_FILES FALSE)	# breaks Qt packaging on Windows
 
+  set (wsjtx_nsis_config "@CMAKE_BUILD_TYPE@")
+  if (NOT "@CMAKE_CONFIGURATION_TYPES@" STREQUAL "")
+    set (wsjtx_nsis_config "${CPACK_BUILD_CONFIG}")
+    if (NOT wsjtx_nsis_config)
+      set (wsjtx_nsis_config Release)
+    endif ()
+  endif ()
+  include ("@PROJECT_BINARY_DIR@/NSIS-launcher-${wsjtx_nsis_config}.cmake")
+  # NSIS File requires backslashes in absolute Windows paths.
+  string (REPLACE "/" "\\" WSJTX_NSIS_LAUNCHER "${WSJTX_NSIS_LAUNCHER}")
+
   set (CPACK_NSIS_INSTALL_ROOT "C:\\WSJT")
 
   # set the install/unistall icon used for the installer itself
