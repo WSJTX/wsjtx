@@ -61,8 +61,10 @@ program test_waveform_contract
   call check_constant_storage()
   call check_gaussian_regions(1.0_real32)
   call check_gaussian_regions(2.0_real32)
+  call check_gaussian_regions(8.0_real32)
   call check_gaussian_precision(1.0_real32)
   call check_gaussian_precision(2.0_real32)
+  call check_gaussian_precision(8.0_real32)
   call check_genwave(263,12000.0_real32,1500.0_real32)
   call check_genwave(263,12000.0_real32,123456.75_real32)
   call check_genwave(200003,48000.0_real32,-500.0_real32)
@@ -177,7 +179,7 @@ contains
     real(real64) :: carrier,peak64
     real(real64), allocatable :: pulse64(:)
     integer :: i,j
-    if(bt.eq.1.0_real32.or.bt.eq.2.0_real32) then
+    if(bt.eq.1.0_real32.or.bt.eq.2.0_real32.or.bt.eq.8.0_real32) then
        allocate(pulse64(3*nsps))
        do i=1,3*nsps
           pulse64(i)=gaussian_reference(bt,real(i,real64)/nsps-1.5_real64)
@@ -468,7 +470,7 @@ contains
 
   subroutine check_constant_storage()
     integer, parameter :: nsps=720,nsym=160,n=nsym*nsps
-    real(real32), parameter :: widths(*)=[1.0_real32,2.0_real32]
+    real(real32), parameter :: widths(*)=[1.0_real32,2.0_real32,8.0_real32]
     integer :: tones(nsym),k,pattern,width
     real(real32) :: dense(n),again(n),bt
     complex(real32) :: wave(n)
@@ -553,6 +555,7 @@ contains
 
     allocate(wave(n),cwave(n))
     tone=2
+    if(bt.eq.8.0_real32) tone=128
     tones=tone
     do direction=1,2
        carrier=0

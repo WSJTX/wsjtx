@@ -53,7 +53,7 @@ extern "C" int check_parallel_waveforms ()
   std::vector<RenderCase> cases;
   for (auto generator : {gen_ft8wave_, gen_ft8wavevar_, gen_jttywave_})
     for (int kind : {0, 1})
-      for (float bt : {1.0f, 2.0f, 1.5f})
+      for (float bt : {1.0f, 2.0f, 8.0f, 1.5f})
         {
           cases.push_back ({generator, 1920, bt, 12000, 1500, kind});
           cases.push_back ({generator, 7680, bt, 48000, -500, kind});

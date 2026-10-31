@@ -48,7 +48,7 @@ module waveform_kernels
   end type
 
   interface apply_waveform_ramp
-     module procedure ramp_real,ramp_complex
+     module procedure ramp_real,ramp_real_double,ramp_complex
   end interface
 contains
   subroutine prepare_pulse(work,nsps,bt,hmod,constant_pulse)
@@ -199,33 +199,34 @@ contains
     enddo
   end subroutine
 
-  subroutine prepare_bt2_steps(first,n,nsps,next_tone,current_tone,previous_tone,peak,carrier,scale,steps)
-    integer, intent(in) :: first,n,nsps,next_tone,current_tone,previous_tone
+  subroutine prepare_narrow_steps(first,n,nsps,region_scale,next_tone,current_tone,previous_tone,peak,carrier,scale,steps)
+    integer, intent(in) :: first,n,nsps,region_scale,next_tone,current_tone,previous_tone
     real(real64), intent(in) :: peak,carrier,scale
     real(real64), intent(out) :: steps(n)
-    real(real64) :: inverse_nsps,center,difference
+    real(real64) :: inverse_nsps,center,difference,cutoff
     real(real32) :: inverse_nsps32,u,tail,c(0:7)
     integer :: i,j,last,position,region,origin,direction
 
     inverse_nsps=1.0_real64/nsps
     inverse_nsps32=1.0_real32/nsps
+    cutoff=6.0_real64/region_scale
     center=real(current_tone,real64)
     i=1
     do while(i.le.n)
        position=first+i
-       if(position.gt.0.4_real64*nsps.and.position.lt.0.6_real64*nsps) then
-          last=min(n,max(i,ceiling(0.6_real64*nsps)-1-first))
+       if(position.gt.cutoff*nsps.and.position.lt.(1.0_real64-cutoff)*nsps) then
+          last=min(n,max(i,ceiling((1.0_real64-cutoff)*nsps)-1-first))
           steps(i:last)=(peak*center+carrier)*scale
        else
-          if(position.ge.0.6_real64*nsps) then
-             region=min(5,max(0,int(real(nsps-position,real64)*inverse_nsps*15.0_real64)))
-             last=min(n,max(i,floor(nsps*(1.0_real64-region/15.0_real64))-first))
+          if(position.ge.(1.0_real64-cutoff)*nsps) then
+             region=min(5,max(0,int(real(nsps-position,real64)*inverse_nsps*region_scale)))
+             last=min(n,max(i,floor(nsps*(1.0_real64-real(region,real64)/region_scale))-first))
              origin=nsps-first
              direction=-1
              difference=real(next_tone,real64)-center
           else
-             region=min(5,max(0,int(real(position,real64)*inverse_nsps*15.0_real64)))
-             last=min(n,max(i,ceiling(real(nsps,real64)*(region+1)/15.0_real64)-1-first))
+             region=min(5,max(0,int(real(position,real64)*inverse_nsps*region_scale)))
+             last=min(n,max(i,ceiling(real(nsps,real64)*(region+1)/region_scale)-1-first))
              origin=first
              direction=1
              difference=real(previous_tone,real64)-center
@@ -233,7 +234,7 @@ contains
           c=gaussian_tail_coefficients(:,region)
           do j=i,last
              ! Form the falling distance as an integer before rounding to float.
-             u=real(origin+direction*j,real32)*inverse_nsps32*15.0_real32-region
+             u=real(origin+direction*j,real32)*inverse_nsps32*region_scale-region
              tail=max(0.0_real32,c(0)+u*(c(1)+u*(c(2)+u*(c(3)+u*(c(4)+u*(c(5)+u*(c(6)+u*c(7))))))))
              steps(j)=(peak*(center+difference*real(tail,real64))+carrier)*scale
           enddo
@@ -313,12 +314,14 @@ contains
     real(real32) :: increments(block_size)
     real(real64) :: phases(block_size)
     integer :: first,raw,q,r,n,j,p,selected,step,k,last,nsym,i,index
-    integer :: p0,p1,p2,t0,t1,t2
+    integer :: p0,p1,p2,t0,t1,t2,region_scale
     logical :: table_blocks,constant_pulse
 
     if(present(wave).eqv.present(cwave)) error stop 'Provide exactly one waveform output'
     if(sample_stride.lt.1) error stop 'Invalid waveform sample stride'
-    constant_pulse=bt.eq.1.0_real32.or.bt.eq.2.0_real32
+    constant_pulse=bt.eq.1.0_real32.or.bt.eq.2.0_real32.or.bt.eq.8.0_real32
+    region_scale=15
+    if(bt.eq.8.0_real32) region_scale=60
     call prepare_pulse(work,nsps,bt,hmod,constant_pulse)
     k=1
     if(active_count.gt.0) k=2+(active_count-1)/sample_stride
@@ -356,7 +359,7 @@ contains
           if(bt.eq.1.0_real32) then
              call prepare_bt1_steps(r,n,nsps,t2,t1,t0,constant_peak,carrier,table_size/twopi64,phases(1:n))
           elseif(constant_pulse) then
-             call prepare_bt2_steps(r,n,nsps,t2,t1,t0,constant_peak, &
+             call prepare_narrow_steps(r,n,nsps,region_scale,t2,t1,t0,constant_peak, &
                   carrier,table_size/twopi64,phases(1:n))
           else
              j=max(0,q-2)
@@ -403,7 +406,7 @@ contains
        if(bt.eq.1.0_real32) then
           call prepare_bt1_steps(r,n,nsps,t2,t1,t0,constant_peak,0.0_real64,1.0_real64,phases(1:n))
        elseif(constant_pulse) then
-          call prepare_bt2_steps(r,n,nsps,t2,t1,t0,constant_peak, &
+          call prepare_narrow_steps(r,n,nsps,region_scale,t2,t1,t0,constant_peak, &
                0.0_real64,1.0_real64,phases(1:n))
        else
           increments(1:n)=0
@@ -575,6 +578,17 @@ contains
     do k=1+(start+stride-1)/stride,min(size(wave),1+(start+length-1)/stride)
        i=(k-1)*stride-start
        wave(k)=wave(k)*(1+direction*cos(twopi32*i/denominator))/2
+    enddo
+  end subroutine
+
+  subroutine ramp_real_double(wave,stride,start,length,denominator,direction)
+    real(real32), intent(inout) :: wave(:)
+    integer, intent(in) :: stride,start,length
+    real(real64), intent(in) :: denominator,direction
+    integer :: k,i
+    do k=1+(start+stride-1)/stride,min(size(wave),1+(start+length-1)/stride)
+       i=(k-1)*stride-start
+       wave(k)=wave(k)*(1+direction*cos(twopi64*i/denominator))/2
     enddo
   end subroutine
 

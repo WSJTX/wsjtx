@@ -10,6 +10,11 @@ wsjt_link_common_fortran (test_superfox_tx_handoff)
 
 add_test (NAME test_superfox_tx_handoff COMMAND test_superfox_tx_handoff)
 
+add_executable (test_superfox_waveform test_superfox_waveform.f90)
+target_include_directories (test_superfox_waveform PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_superfox_waveform)
+add_test (NAME test_superfox_waveform COMMAND test_superfox_waveform)
+
 add_executable (test_superfox_unpack test_superfox_unpack.f90)
 target_include_directories (test_superfox_unpack PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_superfox_unpack)
