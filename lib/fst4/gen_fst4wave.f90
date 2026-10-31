@@ -27,14 +27,14 @@ contains
     carrier=(8.0_real64*atan(1.0_real64))*(real(f0,real64)-1.5_real64*hmod/tsym)/real(fsample,real64)
     tail=(nsym-1)*nsps+3*nsps/4
     if(icmplx.eq.0) then
-       call render_gfsk(work%samples,itone,nsps,fsample,2.0,hmod,carrier,nsps,nsym*nsps,1, &
+       call render_gfsk(work%samples,itone,nsps,2.0,hmod,carrier,nsps,nsym*nsps,1, &
             .false.,.true.,wave=wave(1:nwave))
        if(work%shape) then
           call apply_waveform_ramp(wave(1:nwave),1,0,nsps/4,real(nsps/2),-1.0)
           call apply_waveform_ramp(wave(1:nwave),1,tail,nsps/4+1,real(nsps/2),1.0)
        endif
     else
-       call render_gfsk(work%samples,itone,nsps,fsample,2.0,hmod,carrier,nsps,nsym*nsps,1, &
+       call render_gfsk(work%samples,itone,nsps,2.0,hmod,carrier,nsps,nsym*nsps,1, &
             .false.,.true.,cwave=cwave(1:nwave))
        if(work%shape) then
           call apply_waveform_ramp(cwave(1:nwave),1,0,nsps/4,real(nsps/2),-1.0)

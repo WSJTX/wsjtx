@@ -952,3 +952,7 @@ if (WIN32)
     file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
   endif ()
 endif ()
+
+# GNU Fortran's default constructor limit is one entry below the sine table size.
+set_property (SOURCE lib/waveform_kernels.f90 APPEND PROPERTY COMPILE_OPTIONS
+  "$<$<COMPILE_LANG_AND_ID:Fortran,GNU>:-fmax-array-constructor=65536>")

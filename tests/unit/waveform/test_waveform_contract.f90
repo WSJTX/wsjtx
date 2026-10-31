@@ -1,11 +1,18 @@
 program test_waveform_contract
   use iso_fortran_env, only: real32, real64
+  use iso_c_binding, only: c_int
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
-  use waveform_kernels, only: render_tone
+  use waveform_kernels, only: render_tone, render_gfsk, waveform_workspace
   use ft8_waveform_generator, only: gen_ft8wave_samples
   use ft8var_waveform_generator, only: gen_ft8wavevar_samples
   use fst4_wavegen, only: fst4_wavegen_workspace,gen_fst4wave_owned
   implicit none
+  interface
+     function check_parallel_waveforms() bind(C) result(passed)
+       import :: c_int
+       integer(c_int) :: passed
+     end function
+  end interface
 
   real(real32), parameter :: pi2s=8.0_real32*atan(1.0_real32)
   real(real64), parameter :: pi2d=8.0_real64*atan(1.0_real64)
@@ -28,6 +35,11 @@ program test_waveform_contract
   call check_ft8(1920,12000.0_real32,1.0_real32,-500.0_real32)
   call check_ft8(1920,12000.0_real32,1.5_real32,0.0_real32)
   call check_ft8(263,12000.0_real32,1.5_real32,123456.75_real32)
+  call check_ft8(120,6000.0_real32,2.0_real32,1500.0_real32)
+  call check_ft8(384,12000.0_real32,2.0_real32,-500.0_real32)
+  call check_ft8(32,12000.0_real32,2.0_real32,1500.0_real32)
+  call check_ft8(257,12000.0_real32,2.0_real32,-500.0_real32)
+  call check_ft8(21504,48000.0_real32,2.0_real32,1500.0_real32)
   call check_ft8_carrier()
   call check_ft4(576,12000.0_real32,1500.0_real32)
   call check_ft4(2304,48000.0_real32,-500.0_real32)
@@ -41,9 +53,16 @@ program test_waveform_contract
   call check_fst4(257,12000.0_real32,5999.5_real32,0)
   call check_fst4(720,16000.0_real32,1500.0_real32,1)
   call check_fst4(2880,48000.0_real32,-500.0_real32,2)
+  call check_fst4(257,12000.0_real32,-500.0_real32,-2)
   call check_fst4(720,12000.0_real32,0.0_real32,1)
   call check_fst4(720,16000.0_real32,123456.75_real32,0)
+  call check_fst4(537600,48000.0_real32,1500.0_real32,1)
   call check_owned_workspaces()
+  call check_constant_storage()
+  call check_gaussian_regions(1.0_real32)
+  call check_gaussian_regions(2.0_real32)
+  call check_gaussian_precision(1.0_real32)
+  call check_gaussian_precision(2.0_real32)
   call check_genwave(263,12000.0_real32,1500.0_real32)
   call check_genwave(263,12000.0_real32,123456.75_real32)
   call check_genwave(200003,48000.0_real32,-500.0_real32)
@@ -51,6 +70,7 @@ program test_waveform_contract
   call check_genwave(65537,48000.0_real32,-48000.0_real32/65537)
   call check_tone()
   call check_tone_stride()
+  if(check_parallel_waveforms().ne.1_c_int) error stop 'Concurrent waveform calls interfere'
   print '(a)', 'Waveform contract tests passed'
 
 contains
@@ -141,29 +161,58 @@ contains
     value=0.5_real32*(erf(c*bt*(t+0.5_real32))-erf(c*bt*(t-0.5_real32)))
   end function pulse_value
 
+  real(real64) function gaussian_reference(bt,t) result(value)
+    real(real32), intent(in) :: bt
+    real(real64), intent(in) :: t
+    real(real64), parameter :: a=0.5_real64*pi2d*sqrt(2.0_real64/log(2.0_real64))
+    value=0.5_real64*(erf(a*bt*(t+0.5_real64))-erf(a*bt*(t-0.5_real64)))
+  end function gaussian_reference
+
   subroutine increments(tones,nsym,nsps,bt,rate,freq,edges,fst,hmod,dphi)
     integer, intent(in) :: nsym,nsps,tones(nsym),hmod
     real(real32), intent(in) :: bt,rate,freq
     logical, intent(in) :: edges,fst
     real(real64), intent(out) :: dphi(0:(nsym+2)*nsps-1)
     real(real32) :: pulse(3*nsps),peak,modulation(0:(nsym+2)*nsps-1)
-    real(real64) :: carrier
+    real(real64) :: carrier,peak64
+    real(real64), allocatable :: pulse64(:)
     integer :: i,j
-    do i=1,3*nsps
-       pulse(i)=pulse_value(bt,(i-1.5_real32*nsps)/real(nsps,real32))
-    enddo
-    peak=pi2s*real(hmod,real32)/real(nsps,real32)
-    modulation=0.0_real32
-    do j=1,nsym
+    if(bt.eq.1.0_real32.or.bt.eq.2.0_real32) then
+       allocate(pulse64(3*nsps))
        do i=1,3*nsps
-          modulation((j-1)*nsps+i-1)=modulation((j-1)*nsps+i-1)+peak*pulse(i)*tones(j)
+          pulse64(i)=gaussian_reference(bt,real(i,real64)/nsps-1.5_real64)
        enddo
-    enddo
-    if(edges) then
-       do i=1,2*nsps
-          modulation(i-1)=modulation(i-1)+peak*tones(1)*pulse(nsps+i)
-          modulation(nsym*nsps+i-1)=modulation(nsym*nsps+i-1)+peak*tones(nsym)*pulse(i)
+       peak64=pi2d*real(hmod,real64)/nsps
+       dphi=0
+       do j=1,nsym
+          do i=1,3*nsps
+             dphi((j-1)*nsps+i-1)=dphi((j-1)*nsps+i-1)+peak64*pulse64(i)*tones(j)
+          enddo
        enddo
+       if(edges) then
+          do i=1,2*nsps
+             dphi(i-1)=dphi(i-1)+peak64*tones(1)*pulse64(nsps+i)
+             dphi(nsym*nsps+i-1)=dphi(nsym*nsps+i-1)+peak64*tones(nsym)*pulse64(i)
+          enddo
+       endif
+    else
+       do i=1,3*nsps
+          pulse(i)=pulse_value(bt,(i-1.5_real32*nsps)/real(nsps,real32))
+       enddo
+       peak=pi2s*real(hmod,real32)/real(nsps,real32)
+       modulation=0.0_real32
+       do j=1,nsym
+          do i=1,3*nsps
+             modulation((j-1)*nsps+i-1)=modulation((j-1)*nsps+i-1)+peak*pulse(i)*tones(j)
+          enddo
+       enddo
+       if(edges) then
+          do i=1,2*nsps
+             modulation(i-1)=modulation(i-1)+peak*tones(1)*pulse(nsps+i)
+             modulation(nsym*nsps+i-1)=modulation(nsym*nsps+i-1)+peak*tones(nsym)*pulse(i)
+          enddo
+       endif
+       dphi=real(modulation,real64)
     endif
     if(fst) then
        carrier=pi2d*(real(freq,real64)-1.5_real64*hmod/ &
@@ -171,7 +220,7 @@ contains
     else
        carrier=pi2d*real(freq,real64)/real(rate,real64)
     endif
-    dphi=real(modulation,real64)+carrier
+    dphi=dphi+carrier
   end subroutine increments
 
   subroutine fail(label,index,error)
@@ -182,7 +231,7 @@ contains
     error stop 1
   end subroutine fail
 
-  subroutine compare(label,actual,expected,phase,table_output,index,adjacent)
+  subroutine compare(label,actual,expected,phase,table_output,index,adjacent,phase_tolerance)
     character(len=*), intent(in) :: label
     complex(real32), intent(in) :: actual,expected
     real(real64), intent(in) :: phase
@@ -190,14 +239,20 @@ contains
     integer, intent(in) :: index
     complex(real32), intent(in), optional :: adjacent(2)
     real(real32) :: err
-    real(real64) :: scaled
+    real(real64), intent(in), optional :: phase_tolerance
+    real(real64) :: scaled,tolerance
+    tolerance=table_phase_tolerance
+    if(present(phase_tolerance)) tolerance=phase_tolerance
     err=abs(actual-expected)
     if(.not.ieee_is_finite(err)) call fail(label,index,err)
     if(err<=sample_tolerance) return
+    if(.not.table_output.and.present(phase_tolerance)) then
+       if(err.le.phase_tolerance) return
+    endif
     if(table_output.and.present(adjacent)) then
        scaled=phase*real(ntab,real64)/pi2d
-       ! Sub-microradian phase differences can cross a quantized lookup boundary.
-       if(abs(scaled-real(nint(scaled),real64))*pi2d/ntab<=table_phase_tolerance.and.err<1.1e-4_real32) then
+       ! Small phase differences can cross a quantized lookup boundary.
+       if(abs(scaled-real(nint(scaled),real64))*pi2d/ntab<=tolerance.and.err<1.1e-4_real32) then
           if(any(abs(actual-adjacent)<=sample_tolerance)) return
        endif
     endif
@@ -222,21 +277,25 @@ contains
     real(real32), allocatable :: w(:),stridewave(:)
     complex(real32), allocatable :: c(:),stridecomplex(:)
     real(real32) :: env,x
+    real(real64) :: pulse_tolerance
     real(real64) :: phi
     complex(real32) :: expected,adjacent(2)
-    tones=[0,7,2,5,1]
+    tones=[6,7,2,5,3]
     n=nsym*nsps
     allocate(d(0:(nsym+2)*nsps-1),w(n+2),c(n+2))
     call increments(tones,nsym,nsps,bt,rate,freq,.true.,.false.,1,d)
     nramp=nint(nsps/8.0_real32)
-    do variant=1,2
+    pulse_tolerance=table_phase_tolerance
+    do variant=1,3
        do kind=0,1
           w=guard
           c=cmplx(guard,guard)
           if(variant==1) then
              call gen_ft8wave(tones,nsym,nsps,bt,rate,freq,c(2),w(2),kind,n)
-          else
+          elseif(variant.eq.2) then
              call gen_ft8wavevar(tones,nsym,nsps,bt,rate,freq,c(2),w(2),kind,n)
+          else
+             call gen_jttywave(tones,nsym,nsps,bt,rate,freq,c(2),w(2),kind,n)
           endif
           call guards('FT8 guards',w,c,n)
           phi=0.0_real64
@@ -246,16 +305,18 @@ contains
              if(k>n-nramp) env=(1.0_real32+cos(pi2s*(k-(n-nramp+1))/(2.0_real32*nramp)))/2.0_real32
              if(kind==0) then
                 x=sin(real(phi,real32))*env
-                call compare('FT8 real',cmplx(w(k+1),0.0_real32),cmplx(x,0.0_real32),phi,.false.,k)
+                call compare('FT8 real',cmplx(w(k+1),0.0_real32),cmplx(x,0.0_real32),&
+                     phi,.false.,k,phase_tolerance=pulse_tolerance)
              else
                 idx=iand(int(phi*real(ntab,real64)/pi2d),ntab-1)
                 expected=table(idx)*env
                 adjacent=table([iand(idx-1,ntab-1),iand(idx+1,ntab-1)])*env
-                call compare('FT8 complex',c(k+1),expected,phi,.true.,k,adjacent)
+                call compare('FT8 complex',c(k+1),expected,phi,.true.,k,adjacent,pulse_tolerance)
              endif
              phi=mod(phi+real(d(nsps+k-1),real64),pi2d)
           enddo
        enddo
+       if(variant.eq.3) cycle
        stride=4
        count=1+(n-1)/stride
        allocate(stridewave(count),stridecomplex(count))
@@ -376,9 +437,9 @@ contains
           adjacent=table([iand(idx-1,ntab-1),iand(idx+1,ntab-1)])*env
           if(kind==0) then
              call compare('FST4 real',cmplx(w(k+1),0.0_real32),cmplx(aimag(expected),0.0_real32), &
-                  phi,.true.,k,cmplx(aimag(adjacent),0.0_real32))
+                  phi,.true.,k,cmplx(aimag(adjacent),0.0_real32),table_phase_tolerance)
           else
-             call compare('FST4 complex',c(k+1),expected,phi,.true.,k,adjacent)
+             call compare('FST4 complex',c(k+1),expected,phi,.true.,k,adjacent,table_phase_tolerance)
           endif
           phi=mod(phi+real(d(nsps+k-1),real64),pi2d)
        enddo
@@ -404,6 +465,121 @@ contains
     call gen_fst4wave_owned(work_b,tones,nsym,nsps,n,16000.0_real32,2,-500.0_real32,0,unused,again)
     if(any(b/=again)) call fail('FST4 independent workspace B',0,maxval(abs(b-again)))
   end subroutine check_owned_workspaces
+
+  subroutine check_constant_storage()
+    integer, parameter :: nsps=720,nsym=160,n=nsym*nsps
+    real(real32), parameter :: widths(*)=[1.0_real32,2.0_real32]
+    integer :: tones(nsym),k,pattern,width
+    real(real32) :: dense(n),again(n),bt
+    complex(real32) :: wave(n)
+    real(real64) :: d(0:(nsym+2)*nsps-1),phi,error,carrier
+    type(waveform_workspace) :: work
+
+    carrier=pi2d*1500/12000
+    tones=mod([(17*k+1,k=1,nsym)],4)
+    call render_gfsk(work,tones,nsps,1.5_real32,1,carrier,nsps,n,1, &
+         .false.,.true.,wave=dense)
+    if(.not.allocated(work%pulse)) error stop 'Generic pulse cache was not created'
+    do width=1,size(widths)
+       bt=widths(width)
+       do pattern=1,3
+          if(pattern.eq.1) tones=mod([(17*k+1,k=1,nsym)],4)
+          if(pattern.eq.2) tones=3*mod([(k,k=1,nsym)],2)
+          if(pattern.eq.3) tones=3
+          call render_gfsk(work,tones,nsps,bt,1,carrier,nsps,n,1, &
+               .false.,.true.,cwave=wave)
+          if(allocated(work%pulse).or.allocated(work%scaled_pulse)) error stop 'Constant pulse allocated scratch'
+          call increments(tones,nsym,nsps,bt,12000.0_real32,1500.0_real32,.false.,.false.,1,d)
+          phi=0
+          do k=1,n
+             error=modulo(atan2(real(aimag(wave(k)),real64),real(wave(k),real64))-phi+pi2d/2,pi2d)-pi2d/2
+             ! Includes one sine-table quantization interval in addition to pulse approximation.
+             if(.not.ieee_is_finite(error).or.abs(error).gt.table_phase_tolerance+pi2d/ntab) &
+                  call fail('Constant pulse phase',k,real(error,real32))
+             phi=mod(phi+d(nsps+k-1),pi2d)
+          enddo
+       enddo
+    enddo
+    tones=mod([(17*k+1,k=1,nsym)],4)
+    call render_gfsk(work,tones,nsps,1.5_real32,1,carrier,nsps,n,1, &
+         .false.,.true.,wave=again)
+    if(any(dense.ne.again)) error stop 'Dense pulse cache was not restored after constant render'
+  end subroutine check_constant_storage
+
+  subroutine check_gaussian_regions(bt)
+    real(real32), intent(in) :: bt
+    integer, parameter :: sizes(*)=[1,2,31,32,120,255,256,257,384,720,1920,7680,15552,537600]
+    integer :: tones(3),nsps,case_index,pattern,side,region,neighbor,position
+    complex(real32) :: wave(2)
+    real(real64) :: r,expected,actual,error
+    type(waveform_workspace) :: work
+
+    do case_index=1,size(sizes)
+       nsps=sizes(case_index)
+       do pattern=1,2
+          if(pattern.eq.1) tones=[0,7,0]
+          if(pattern.eq.2) tones=[7,0,7]
+          do side=0,1
+             do region=0,6
+                do neighbor=-1,1
+                   position=floor(real(nsps,real64)*region/(7.5_real64*bt))
+                   if(side.eq.1) position=nsps-position
+                   position=max(1,min(nsps,position+neighbor))
+                   r=real(position,real64)/nsps
+                   expected=tones(1)*gaussian_reference(bt,r+0.5_real64)+ &
+                        tones(2)*gaussian_reference(bt,r-0.5_real64)+tones(3)*gaussian_reference(bt,r-1.5_real64)
+                   call render_gfsk(work,tones,nsps,bt,1,0.0_real64, &
+                        2*nsps+position-1,2,1,.false.,.false.,cwave=wave)
+                   actual=atan2(real(aimag(wave(2)),real64),real(wave(2),real64))*nsps/pi2d
+                   error=abs(modulo(actual-expected+0.5_real64*nsps,real(nsps,real64))-0.5_real64*nsps)
+                   if(.not.ieee_is_finite(error).or.error.gt.1.0e-6_real64) &
+                        call fail('Gaussian region transition',position,real(error,real32))
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+  end subroutine check_gaussian_regions
+
+  subroutine check_gaussian_precision(bt)
+    real(real32), intent(in) :: bt
+    integer, parameter :: nsym=4096,nsps=384,n=nsym*nsps
+    integer :: tones(nsym),kind,direction,k,tone
+    real(real32), allocatable :: wave(:)
+    complex(real32), allocatable :: cwave(:)
+    real(real64) :: carrier,step,phase,error
+    complex(real64) :: expected
+    type(waveform_workspace) :: work
+
+    allocate(wave(n),cwave(n))
+    tone=2
+    tones=tone
+    do direction=1,2
+       carrier=0
+       if(direction.eq.2) carrier=-(tone+1)*pi2d/nsps
+       step=carrier+tone*pi2d/nsps
+       do kind=0,1
+          if(kind.eq.0) then
+             call render_gfsk(work,tones,nsps,bt,1,carrier,nsps,n,1, &
+                  .true.,.false.,wave=wave)
+          else
+             call render_gfsk(work,tones,nsps,bt,1,carrier,nsps,n,1, &
+                  .true.,.false.,cwave=cwave)
+          endif
+          do k=1,n
+             phase=mod(real(k-1,real64)*step,pi2d)
+             expected=cmplx(cos(phase),sin(phase),real64)
+             if(kind.eq.0) then
+                error=abs(real(wave(k),real64)-aimag(expected))
+             else
+                error=abs(cmplx(cwave(k),kind=real64)-expected)
+             endif
+             if(.not.ieee_is_finite(error).or.error.gt.1.0e-6_real64) &
+                  call fail('Gaussian phase precision',k,real(error,real32))
+          enddo
+       enddo
+    enddo
+  end subroutine check_gaussian_precision
 
   subroutine check_genwave(nsps,rate,freq)
     integer, parameter :: nsym=3

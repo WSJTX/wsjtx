@@ -1,12 +1,8 @@
 module ft8var_waveform_generator
-  use iso_fortran_env, only: real64
-  use waveform_kernels, only: waveform_workspace
-  use ft8_waveform_generator, only: render_ft8_samples
+  use ft8_waveform_generator, only: gen_ft8wave_samples
   implicit none
   private
   public :: gen_ft8wavevar_samples
-  type(waveform_workspace), save :: workspace
-!$omp threadprivate(workspace)
 contains
   subroutine gen_ft8wavevar_samples(itone,nsym,nsps,bt,fsample,f0,nwave, &
        sample_stride,output_count,cwave,wave)
@@ -15,7 +11,7 @@ contains
     real, intent(in) :: bt,fsample,f0
     complex, intent(out), optional :: cwave(output_count)
     real, intent(out), optional :: wave(output_count)
-    call render_ft8_samples(workspace,itone,nsym,nsps,bt,fsample,f0,nwave, &
+    call gen_ft8wave_samples(itone,nsym,nsps,bt,fsample,f0,nwave, &
          sample_stride,output_count,cwave=cwave,wave=wave)
   end subroutine
 end module

@@ -1,4 +1,6 @@
-add_executable (test_waveform_contract test_waveform_contract.f90)
+find_package (Threads REQUIRED)
+add_executable (test_waveform_contract test_waveform_contract.f90 waveform_concurrency.cpp)
+target_link_libraries (test_waveform_contract PRIVATE Threads::Threads)
 target_include_directories (test_waveform_contract PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_waveform_contract)
 add_test (NAME test_waveform_contract COMMAND test_waveform_contract)

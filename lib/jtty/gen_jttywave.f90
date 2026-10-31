@@ -1,110 +1,19 @@
 subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
+  use ft8_waveform_generator, only: gen_ft8wave_samples
+  implicit none
+  integer, intent(in) :: nsym,nsps,icmplx,itone(nsym)
+  integer, intent(inout) :: nwave
+  real, intent(in) :: bt,fsample,f0
+  real, intent(out) :: wave(nwave)
+  complex, intent(out) :: cwave(nwave)
 
-! Generate JT2 waveform using Gaussian-filtered frequency pulses.
-  
-! Input:  integer*4 itone(1:nsym)      !Tones for channel symbols
-!         integer*4 nsym               !Number of channel symbols
-!         integer*4 nsps               !Number of samples per symbol
-!         real*4 bt                    !BT product for Gaussian smoothing
-!         real*4 fsample               !Sample rate, Hz
-!         real*4 f0                    !Nominal carrier frequency (lowest tone)
-!         integer*4 icmplx             !0 for real waveford, 1 for complex
-!         integer*4 nwave              !Length of output waveform
-  
-! Output: complex*8 cwave(nwave)       !Complex waveform
-!         read*4 wave(nwave)           !Real waveform
-
-  parameter(NTAB=65536)
-  real wave(nwave)
-  complex cwave(nwave),ctab(0:NTAB-1)
-  real, allocatable :: pulse(:)
-  real, allocatable :: dphi(:)
-  integer itone(nsym)
-  data fchk0/0.0/
-  save pulse,twopi,dt,hmod,fchk0,ctab
-
-  if(nsym.le.0 .or. nwave.le.0) then
+  if(nsym.le.0.or.nwave.le.0) then
      nwave=0
      return
   endif
-
-  ibt=nint(10*bt)
-  fchk=nsym+nsps+bt+fsample
-  if(fchk.ne.fchk0) then                      !Execute again only when params change
-     if( allocated(pulse) ) then
-       deallocate(pulse)
-     endif
-     allocate(pulse(1:3*nsps))
-
-     twopi=8.0*atan(1.0)
-     dt=1.0/fsample
-     hmod=1.0
-! Compute the frequency-smoothing pulse
-     do i=1,3*nsps
-        tt=(i-1.5*nsps)/real(nsps)
-        pulse(i)=gfsk_pulse(bt,tt)
-     enddo
-     do i=0,NTAB-1                            !Tabulate the trig-functiion values
-        phi=i*twopi/NTAB
-        ctab(i)=cmplx(cos(phi),sin(phi))
-     enddo
-     fchk0=fchk
-  endif
-
-! Compute the smoothed frequency waveform.
-! Length = (nsym+2)*nsps samples, first and last symbols extended 
-
-  allocate(dphi(0:(nsym+2)*nsps-1))
-
-  dphi_peak=twopi*hmod/real(nsps)
-  dphi=0.0
-  do j=1,nsym         
-     ib=(j-1)*nsps
-     ie=ib+3*nsps-1
-     dphi(ib:ie) = dphi(ib:ie) + dphi_peak*pulse(1:3*nsps)*itone(j)
-  enddo
-
-! Add dummy symbols at beginning and end with tone values equal to 1st and
-! last symbol, respectively
-  
-  dphi(0:2*nsps-1)=dphi(0:2*nsps-1)+dphi_peak*itone(1)*pulse(nsps+1:3*nsps)
-  dphi(nsym*nsps:(nsym+2)*nsps-1)=dphi(nsym*nsps:(nsym+2)*nsps-1) +          &
-       dphi_peak*itone(nsym)*pulse(1:2*nsps)
-
-! Calculate and insert the audio waveform
-  phi=0.0
-  dphi = dphi + twopi*f0*dt                      !Shift frequency up by f0
-  if(icmplx .eq. 0) wave=0.
-  if(icmplx .ne. 0) cwave=0. !Avoid writing to memory we may not have access to
-
-  k=0
-  do j=nsps,nsps+nwave-1                         !Don't include dummy symbols
-     k=k+1
-     if(icmplx.eq.0) then
-        wave(k)=sin(phi)
-     else
-        i=min(NTAB-1,int(phi*float(NTAB)/twopi))
-        cwave(k)=ctab(i)
-     endif
-     phi=modulo(phi+dphi(j),twopi)
-  enddo
-
-! Apply envelope shaping to the first and last symbols
-  nramp=nint(nsps/8.0)
   if(icmplx.eq.0) then
-     wave(1:nramp)=wave(1:nramp) *                                          &
-          (1.0-cos(twopi*(/(i,i=0,nramp-1)/)/(2.0*nramp)))/2.0
-     k1=nsym*nsps-nramp+1
-     wave(k1:k1+nramp-1)=wave(k1:k1+nramp-1) *                              &
-          (1.0+cos(twopi*(/(i,i=0,nramp-1)/)/(2.0*nramp)))/2.0
+     call gen_ft8wave_samples(itone,nsym,nsps,bt,fsample,f0,nwave,1,nwave,wave=wave)
   else
-     cwave(1:nramp)=cwave(1:nramp) *                                        &
-          (1.0-cos(twopi*(/(i,i=0,nramp-1)/)/(2.0*nramp)))/2.0
-     k1=nsym*nsps-nramp+1
-     cwave(k1:k1+nramp-1)=cwave(k1:k1+nramp-1) *                            &
-          (1.0+cos(twopi*(/(i,i=0,nramp-1)/)/(2.0*nramp)))/2.0
+     call gen_ft8wave_samples(itone,nsym,nsps,bt,fsample,f0,nwave,1,nwave,cwave=cwave)
   endif
-
-  deallocate(dphi)
-  return
 end subroutine gen_jttywave

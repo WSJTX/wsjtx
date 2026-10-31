@@ -3,9 +3,7 @@ module ft8_waveform_generator
   use waveform_kernels, only: waveform_workspace,render_gfsk,apply_waveform_ramp
   implicit none
   private
-  public :: gen_ft8wave_samples,render_ft8_samples
-  type(waveform_workspace), save :: workspace
-!$omp threadprivate(workspace)
+  public :: gen_ft8wave_samples
 contains
   subroutine gen_ft8wave_samples(itone,nsym,nsps,bt,fsample,f0,nwave, &
        sample_stride,output_count,cwave,wave)
@@ -14,23 +12,13 @@ contains
     real, intent(in) :: bt,fsample,f0
     complex, intent(out), optional :: cwave(output_count)
     real, intent(out), optional :: wave(output_count)
-    call render_ft8_samples(workspace,itone,nsym,nsps,bt,fsample,f0,nwave, &
-         sample_stride,output_count,cwave=cwave,wave=wave)
-  end subroutine
-  subroutine render_ft8_samples(workspace,itone,nsym,nsps,bt,fsample,f0,nwave, &
-       sample_stride,output_count,cwave,wave)
-    type(waveform_workspace), intent(inout) :: workspace
-    integer, intent(in) :: nsym,nsps,nwave,sample_stride,output_count
-    integer, intent(in) :: itone(nsym)
-    real, intent(in) :: bt,fsample,f0
-    complex, intent(out), optional :: cwave(output_count)
-    real, intent(out), optional :: wave(output_count)
+    type(waveform_workspace) :: workspace
     real(real64) :: carrier
     integer :: nramp
     if(sample_stride.lt.1.or.nwave.lt.1) error stop 'Invalid emission stride or sample count'
     if(output_count.ne.1+(nwave-1)/sample_stride) error stop 'Incorrect emitted sample count'
     carrier=(8.0_real64*atan(1.0_real64))*real(f0,real64)/real(fsample,real64)
-    call render_gfsk(workspace,itone,nsps,fsample,bt,1,carrier,nsps,nwave, &
+    call render_gfsk(workspace,itone,nsps,bt,1,carrier,nsps,nwave, &
          sample_stride,.true.,present(cwave),wave=wave,cwave=cwave)
     nramp=nint(nsps/8.0)
     if(nramp.le.0) return
