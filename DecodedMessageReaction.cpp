@@ -377,6 +377,8 @@ namespace
     }
     if (!freeText73 && analysis.hisGrid.contains(gridExpression())) {
       appendTextEffect(plan, QsoReactionEffect::Kind::SetDxGrid, analysis.hisGrid);
+    } else if (!freeText73) {
+      appendEffect(plan, QsoReactionEffect::Kind::LookupDecodedGrid);
     }
     appendEffect(plan, QsoReactionEffect::Kind::Lookup);
     appendEffect(plan, QsoReactionEffect::Kind::CaptureHisGrid);

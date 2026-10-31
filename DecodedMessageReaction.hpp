@@ -152,6 +152,7 @@ namespace DecodedMessageReaction
       SetBlockRightDisplay,
       SetAutoEnabled,
       RefreshQsoPaneIfChanged,
+      LookupDecodedGrid,
       Lookup,
       CaptureHisGrid,
       ExtractReceivedReport,

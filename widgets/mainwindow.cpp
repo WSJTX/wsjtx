@@ -2937,6 +2937,7 @@ void MainWindow::fastSink(qint64 frames)
   if(bmsk144 and (line[0]!=0)) {
     QString message {QString::fromLatin1 (line)};
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
+    if (!m_diskData) m_decodedGridHistory.observe(decodedtext);
 
     QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait features
 
@@ -5950,6 +5951,7 @@ void::MainWindow::fast_decode_done()
 
 //Left (Band activity) window
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
+    if (!m_diskData) m_decodedGridHistory.observe(decodedtext);
     if(!m_bFastDone) {
       ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
          m_logBook, m_currentBandPeriod, m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
@@ -7159,6 +7161,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     QString const message0 = prepared.decodedOriginal;
     DecodedText decodedtext0 {prepared.decodedOriginal};
     DecodedText const& decodedtext {prepared.logicMessage};
+    if (!decodeContext.diskData) m_decodedGridHistory.observe(decodedtext0);
     Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
     if (m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
@@ -9471,6 +9474,12 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
   case Effect::Kind::RefreshQsoPaneIfChanged:
     refreshQsoPane(message);
     break;
+  case Effect::Kind::LookupDecodedGrid: {
+    auto const currentGrid = ui->dxGridEntry->text();
+    auto const grid = m_decodedGridHistory.lookup(ui->dxCallEntry->text(), currentGrid);
+    if (grid != currentGrid) ui->dxGridEntry->setText(grid);
+    break;
+  }
   case Effect::Kind::Lookup:
     lookup();
     break;
@@ -10040,7 +10049,9 @@ void MainWindow::lookup()
           } else {
             hisgrid=hisgrid.mid(0,6).toUpper();
           }
-          if(hisgrid.left(4)==hisgrid0.left(4) or (hisgrid0.size()==0)) {
+          if (hisgrid != hisgrid0
+              && (hisgrid0.isEmpty()
+                  || (hisgrid0.size() == 4 && hisgrid.left(4) == hisgrid0))) {
             ui->dxGridEntry->setText(hisgrid);
           }
           break;

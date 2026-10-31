@@ -42,6 +42,7 @@
 class QHBoxLayout;
 namespace DecoderIpc {class Session;}
 
+#include "DecodedGridHistory.hpp"
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
@@ -1415,6 +1416,8 @@ private:
   QMap<QString,EMECall> m_EMECall;
 
   QMap<QString,bool> m_EMEworked;
+
+  DecodedGridHistory m_decodedGridHistory;
 
   struct RecentCall
   {
