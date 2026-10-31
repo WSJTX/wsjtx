@@ -260,11 +260,6 @@ set_source_files_properties (
   PROPERTIES COMPILE_FLAGS -fpermissive)
 
 if (WIN32)
-  set (wsjt_CXXSRCS
-    ${wsjt_CXXSRCS}
-    killbyname.cpp
-    )
-
   set (wsjt_qt_CXXSRCS
     ${wsjt_qt_CXXSRCS}
     Transceiver/OmniRigTransceiver.cpp

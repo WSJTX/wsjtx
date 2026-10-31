@@ -218,7 +218,6 @@ private:
 
 extern void getfile(QString fname, bool xpol, int idInt);
 extern void save_iq(QString fname);
-extern int killbyname(const char* progName);
 
 extern "C" {
 //----------------------------------------------------- C and Fortran routines

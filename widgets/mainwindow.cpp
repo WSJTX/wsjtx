@@ -514,7 +514,7 @@ constexpr int MainWindow::MaxActiveStationRows;
 constexpr int MainWindow::MaxQ65PileupCallers;
 
 //--------------------------------------------------- MainWindow constructor
-MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
+MainWindow::MainWindow(QDir const& temp_directory,
                        MultiSettings * multi_settings, DecoderIpc::Session& decoderSession,
                        unsigned downSampleFactor,
                        QSplashScreen * splash, QProcessEnvironment const& env,
@@ -531,7 +531,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_valid {true},
   m_splash {splash},
   m_revision {revision ()},
-  m_multiple {multiple},
   m_automated_test {automated_test},
   m_multi_settings {multi_settings},
   m_configurations_button {0},
@@ -1561,21 +1560,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     read_log();
   }
   m_audioThread.start (m_audioThreadPriority);
-
-#ifdef WIN32
-  if (!m_multiple)
-    {
-      while(true)
-        {
-          int iret=killbyname("jt9.exe");
-          if(iret == 603) break;
-          if(iret != 0)
-            MessageBox::warning_message (this, tr ("Error Killing jt9.exe Process")
-                                         , tr ("KillByName return code: %1")
-                                         .arg (iret));
-        }
-    }
-#endif
 
   {
     //delete any .quit file that might have been left lying around

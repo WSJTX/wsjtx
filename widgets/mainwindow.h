@@ -201,7 +201,7 @@ public:
   static QRegularExpression const grid_regexp;
   static QRegularExpression const non_r_db_regexp;
 
-  explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
+  explicit MainWindow(QDir const& temp_directory, MultiSettings *,
                       DecoderIpc::Session& decoderSession, unsigned downSampleFactor,
                       QSplashScreen *, QProcessEnvironment const&, bool automated_test,
                       QString base_style_sheet,
@@ -942,7 +942,6 @@ private:
   bool m_valid;
   QSplashScreen * m_splash;
   QString m_revision;
-  bool m_multiple;
   bool m_automated_test;
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
@@ -1791,7 +1790,6 @@ private:
 #endif
 };
 
-extern int killbyname(const char* progName);
 extern void getDev(int* numDevices,char hostAPI_DeviceName[][50],
                    int minChan[], int maxChan[],
                    int minSpeed[], int maxSpeed[]);
