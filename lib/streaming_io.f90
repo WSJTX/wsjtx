@@ -165,7 +165,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use streaming_apply, only: apply_configure_fields, engine_range_key
   use decoder_engine, only: engine_params_problem, option_problem
   use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
-       jtty_emit_range_error, jtty_release, jtty_note_station
+       jtty_emit_range_error, jtty_release, jtty_note_station,             &
+       jtty_spectrum_rows
   use streaming_encode, only: stream_encode
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready, period_set_stop,           &
@@ -177,7 +178,16 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        OP_FREE, OP_END, OP_LINE, OP_STOP, EARLY_ONE, EARLY_TWO, FINAL_STAGE, &
        NO_DECODED_PERIOD, decode_start, decode_threaded, decode_join,      &
        decode_read, decode_room, decode_wait, decode_has_work
-  use msk144_stream, only: msk144_settings, msk144_window, MSK144_BLOCK
+  use streaming_decode, only: rows_start, rows_end
+  use msk144_stream, only: msk144_settings, msk144_window, MSK144_BLOCK,  &
+       msk144_fast_spectrum, msk144_fast_reset
+  use streaming_receive, only: receive_configure, receive_blocks,          &
+       receive_equalizes, receive_equalize
+  use streaming_receive, only: receive
+  use streaming_emit, only: streaming_emit_spectrum, streaming_emit_set_live,  &
+       streaming_emit_quiet
+  use four2a_patience, only: patience_override
+  use spectrum_rows, only: wide_rows, wide_begin, wide_take, wide_row, WIDE_BINS, WIDE_DF
 
   include 'jt9com.f90'
 
@@ -217,7 +227,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   real    :: pxdb, df3, pxdbmax, s(NSMAX)
   integer :: npct_unused
   integer :: body_left, take_bytes, take_samples
-  integer(int16) :: chunk(4096)
+  ! The most samples one read takes.
+  integer, parameter :: READ_SAMPLES = 4096
+  integer(int16) :: chunk(READ_SAMPLES)
   integer(int8)  :: byte_sink(4096)
   character(len=CTL_BUF_LEN), save :: ctl_buf     !Keep this big buffer off the stack
   integer(int8), save :: ctl_bytes(CTL_BUF_LEN)
@@ -239,7 +251,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer :: label_nutc
   logical :: label_iso
   type(time_form) :: label_form
-  logical :: bLowSidelobes, eof_period, halt_req
+  logical(1) :: bLowSidelobes
+  logical :: eof_period, halt_req
   type(configure_fields)   :: cfg
   type(control_type_error) :: terr
   integer :: action
@@ -257,6 +270,21 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   logical :: anchored, ending
   ! MSK144's receive options and calls, as accepted configures set them.
   type(msk144_settings) :: msk144
+  ! The GUI block in progress, MSK144's 3584 samples or the other modes'
+  ! 3456 from the period's start: blk(1:nblk), from period sample blk_from
+  ! on. blk_first: the receive chain has had none of the period's audio.
+  integer(int16) :: blk(MSK144_BLOCK)
+  integer :: nblk, blk_from
+  logical :: blk_first
+  ! The period's rows, fed every block from its first: rows_k samples.
+  type(wide_rows) :: rows
+  integer :: rows_k
+  ! The open JTTY session's first stream sample, and the samples read for
+  ! it and not yet handed on, jblk(1:njblk) from stream sample jblk_from on.
+  logical :: jtty_open
+  integer(int64) :: jtty_origin, jblk_from
+  integer(int16) :: jblk(READ_SAMPLES)
+  integer :: njblk
 
   ! C stdin helpers. stream_set_stdin_binary (lib/stream_setmode.c) is a
   ! no-op on POSIX; stream_stdin_read_fully (lib/stream_stdin.c) is the
@@ -288,6 +316,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   bLowSidelobes = .false.
   ingain        = 0
   nminw         = 1
+  npct_unused   = 0
 
   ! Read the framed byte stream from stdin via the C helper (stdin_read
   ! below) — no Fortran unit is opened. Binary mode must be forced before
@@ -386,6 +415,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   max_audio_frame_bytes = 2_int64 * int(size(shared_data%id2), int64)
   body_left = 0
   stream_samples = 0
+  jtty_open = .false.
+  jtty_origin = 0
+  jblk_from = 0
+  njblk = 0
 
   ! ===== Outer period loop ===========================================
   do
@@ -424,12 +457,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
 
         if (iand(int(type_byte(1)), 255) .eq. FRAME_AUDIO) then
            if (mod(frame_len, 2) /= 0) then
+              if (mode .eq. MODE_JTTY .and. njblk .gt. 0) call jtty_deliver()
               call route_begin()
               call streaming_emit_error_code('odd_audio_frame',                &
                    'audio frame length must contain whole int16 samples')
               call route_end()
               ! The skipped samples are a hole in the JTTY session.
-              if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
+              if (mode .eq. MODE_JTTY) call jtty_close()
               body_left = frame_len
               do while (body_left .gt. 0)
                  take_bytes = min(body_left, size(byte_sink))
@@ -551,6 +585,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  call route_end()
                  cycle
               end if
+              if (cfg%ref_spectrum_out_of_range) then
+                 call route_begin()
+                 call streaming_emit_error_range('ref_spectrum', range_mode,      &
+                      'ref_spectrum must be off, measure or apply')
+                 call route_end()
+                 cycle
+              end if
               if (cfg%nutc_out_of_range .or. cfg%utc_out_of_range) then
                  range_key = 'nutc'
                  if (cfg%utc_out_of_range) range_key = 'utc'
@@ -602,7 +643,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                    (next_live .neqv. live_audio) .or.                          &
                    ft8_settings_change(shared_data%params, next_params)
               if (mode .eq. MODE_JTTY .and. next_mode .ne. MODE_JTTY)       &
-                   call jtty_end(shared_data%params)
+                   call jtty_close()
               prev_mode          = mode
               prev_TRperiod      = TRperiod
               mode               = next_mode
@@ -623,8 +664,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               end if
               eme_delay_on = next_eme_on
               if (cfg%live_audio_set) live_audio = cfg%live_audio
+              call streaming_emit_set_live(live_audio)
               shared_data%params%ndiskdat = .not. live_audio
               call apply_msk144_fields(cfg, msk144)
+              call route_begin()
+              call receive_configure(cfg)
+              call route_end()
+              if (receive_blocks()) call rows_start()
               ! A configure that changes the applied mode or period starts a
               ! new period; what was in flight is discarded. Otherwise the
               ! period in flight decodes at the stop point the new settings give.
@@ -667,7 +713,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            case (CTRL_DISCONTINUITY)
               anchored = .false.
               if (mode .eq. MODE_JTTY) then
-                 call jtty_end(shared_data%params)
+                 call jtty_close()
               else if (period%k .gt. 0) then
                  if (mode .ne. 144) call hand_op(OP_DISCONTINUITY)
                  call begin_period()
@@ -709,8 +755,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
 
      if (halt_req .or. eof_period) then
         call end_decodes(OP_END)
-        if (mode .eq. MODE_JTTY) call jtty_end(shared_data%params)
+        if (mode .eq. MODE_JTTY) call jtty_close()
         call jtty_release()
+        call rows_end()
         return
      end if
   end do
@@ -728,13 +775,18 @@ contains
     nhsym0   = 0       ! seed at 0 so the symspec catch-up loop is O(nhsym)
     decoded  = .false.
     ft8_done = 0
+    nblk = 0
+    blk_from = 0
+    blk_first = .true.
+    rows_k = 0
+    call msk144_fast_reset()
   end subroutine begin_period
 
   ! halt's decode of the period in flight, after a deferred final, without
   ! ending the session.
   subroutine flush_period()
     if (mode .eq. MODE_JTTY) then
-       call jtty_end(shared_data%params)
+       call jtty_close()
        return
     end if
     ending = .true.
@@ -857,6 +909,9 @@ contains
     integer :: nstop
     logical :: at_stop
     type(decode_op) :: op
+    ! The passes take the period's audio through its last sample; MSK144's
+    ! period end takes none.
+    if (mode .ne. 144) call block_cut()
     nstop = current_stop()
     ! The GUI's nzhsym is its stop point, for a decode at it, live or from a
     ! file; a period cut short decodes what it has. FT8 is tuned for its stop
@@ -960,12 +1015,14 @@ contains
   ! A fatal error's line, behind every line before it; then the decode
   ! thread leaves. fatal_begin, the line, fatal_end, then stop.
   subroutine fatal_begin()
+    call streaming_emit_quiet()
     if (decode_threaded()) call streaming_emit_capture()
   end subroutine fatal_begin
 
   subroutine fatal_end()
     call route_end()
     call end_decodes(OP_STOP)
+    call rows_end()
   end subroutine fatal_end
 
   ! A pass's audio, the period's first n samples (for JT65+JT9 with its
@@ -1025,6 +1082,9 @@ contains
        take_samples = period_room(period, min(body_left / 2, size(chunk)))
        ! The read ends at the next pass's sample, so that pass runs on time.
        if (.not. decoded) take_samples = min(take_samples, max(1, next_pass_samples() - period%k))
+       ! And at the GUI block's end, which the receive chain takes whole.
+       if (receive_blocks()) take_samples = min(take_samples,                &
+            block_size() - mod(period%kperiod, block_size()))
        take_bytes   = 2 * take_samples
        call read_audio(chunk, take_samples, ios)
        if (ios /= 0) then
@@ -1034,46 +1094,202 @@ contains
        stream_samples = stream_samples + take_samples
        k0 = period%k
        call period_take(period, take_samples, nacc)
-       if (nacc .gt. 0) then
-          shared_data%id2(k0+1 : k0+nacc) = chunk(1:nacc)
-          ! Incremental symspec for JT9-family at kstep boundaries.
-          ! Cap at nhsym=181 to match the WAV-path exit condition
-          ! (jt9.f90:442-443) — exceeding it overruns ss(184,*).
-          do while ((period%k - 2048) / kstep .gt. nhsym0 .and. nhsym0 .lt. 181)
-             nhsym0 = nhsym0 + 1
-             if (nhsym0 .lt. 1) cycle
-             nhsym = nhsym0
-             if (mode .eq. 74) then
-                call symspec(shared_data, nhsym*kstep + 2048, nsps,        &
-                     ingain, bLowSidelobes, nminw, pxdb, s, df3,           &
-                     ihsym, npts8, pxdbmax, npct_unused)
-             end if
-          end do
-          ! The GUI's early FT8 passes run as soon as their audio is in.
-          if (mode .eq. 8) call run_early_ft8(.false.)
-          ! As does each MSK144 block, never refused for a busy decoder.
-          if (mode .eq. 144) call msk144_window(shared_data%id2, period%k,   &
-               shared_data%params%nutc, shared_data%params%ntol,              &
-               shared_data%params%nfqso, shared_data%params%ndepth, msk144,   &
-               data_dir, label_form)
-       end if
+       if (nacc .gt. 0) shared_data%id2(k0+1 : k0+nacc) = chunk(1:nacc)
+       call block_add(chunk(1:take_samples))
+       if (nacc .gt. 0 .and. .not. receive_blocks()) call block_work()
     end do
   end subroutine consume_audio_body
 
-  ! JTTY has no periods: the whole frame goes to the session.
+  ! The GUI's block in the mode (MainWindow::initializeFFT): MSK144's 3584
+  ! samples, the other modes' 3456.
+  integer function block_size()
+    block_size = HSYM_SAMPLES
+    if (mode .eq. 144) block_size = MSK144_BLOCK
+  end function block_size
+
+  ! The samples just taken into the period, which now holds period%kperiod,
+  ! into the block in progress; each block they end goes to the receive
+  ! chain when it takes blocks.
+  subroutine block_add(samples)
+    integer(int16), intent(in) :: samples(:)
+    integer :: i, n, at
+    i = 1
+    do while (i .le. size(samples))
+       at = period%kperiod - size(samples) + i - 1
+       n = min(size(samples) - i + 1, block_size() - mod(at, block_size()))
+       blk(nblk + 1:nblk + n) = samples(i:i + n - 1)
+       nblk = nblk + n
+       i = i + n
+       if (mod(at + n, block_size()) .eq. 0) then
+          if (receive_blocks()) then
+             call block_deliver()
+          else
+             nblk = 0
+             blk_from = at + n
+          end if
+       end if
+    end do
+  end subroutine block_add
+
+  ! The block in progress, as far as it is in: equalized, then its decoder's
+  ! share into id2, then its rows, then the decodes its audio triggers.
+  subroutine block_deliver()
+    integer :: last
+    call receive_equalize(blk(1:nblk), live_audio, blk_first)
+    blk_first = .false.
+    last = min(blk_from + nblk, period%k)
+    if (last .gt. blk_from) shared_data%id2(blk_from + 1:last) = blk(1:last - blk_from)
+    if (mode .eq. 144) then
+       call msk144_rows()
+    else
+       call period_rows()
+    end if
+    if (last .gt. blk_from) call block_work()
+    blk_from = blk_from + nblk
+    nblk = 0
+  end subroutine block_deliver
+
+  ! A pass about to run on the period's audio takes the block in progress
+  ! as far as it is in, and every decode its audio triggers before.
+  subroutine block_cut()
+    if (nblk .eq. 0) return
+    if (receive_blocks()) then
+       call block_deliver()
+    else
+       call block_work()
+    end if
+  end subroutine block_cut
+
+  ! A period mode's rows for the block delivered, blk(1:nblk) from period
+  ! sample blk_from on, after its equalization and before its decodes: a row
+  ! at each whole block's end, live through the period, from a file up to the
+  ! stop (as the GUI's diskDat), or through the period in JT65+JT9, which has
+  ! none. A period has rows only from its first block.
+  subroutine period_rows()
+    integer :: i, taken, nstop
+    logical :: ready
+    real :: power, peak, bins(WIDE_BINS)
+    if (.not. receive%spectrum .or. blk_from .ne. rows_k) return
+    nstop = current_stop()
+    if (.not. live_audio .and. nstop .gt. 0 .and. blk_from .ge. nstop * HSYM_SAMPLES) return
+    if (blk_from .eq. 0) call wide_begin(rows)
+    i = 1
+    do while (i .le. nblk)
+       call wide_take(rows, blk(i:nblk), taken, ready)
+       i = i + taken
+       if (ready) then
+          call wide_row(rows, receive%low_sidelobes, power, peak, bins)
+          call streaming_emit_spectrum(blk_from + i - 1,                         &
+               (blk_from + i - 1) / HSYM_SAMPLES, power, peak, WIDE_DF, bins)
+       end if
+    end do
+    rows_k = blk_from + nblk
+  end subroutine period_rows
+
+  ! MSK144's rows for the block delivered, its samples in id2 through
+  ! blk_from + nblk, before its decode.
+  subroutine msk144_rows()
+    if (mod(blk_from + nblk, MSK144_BLOCK) .ne. 0) return
+    call msk144_fast_spectrum(shared_data%id2, blk_from + nblk, int(TRperiod))
+  end subroutine msk144_rows
+
+  ! The period's audio is in through period%k: JT65+JT9's symbol spectra,
+  ! FT8's early passes and MSK144's block decode.
+  subroutine block_work()
+    integer :: patience
+    ! Incremental symspec for JT9-family at kstep boundaries.
+    ! Cap at nhsym=181 to match the WAV-path exit condition
+    ! (jt9.f90:442-443) — exceeding it overruns ss(184,*).
+    do while ((period%k - 2048) / kstep .gt. nhsym0 .and. nhsym0 .lt. 181)
+       nhsym0 = nhsym0 + 1
+       if (nhsym0 .lt. 1) cycle
+       nhsym = nhsym0
+       if (mode .eq. 74) then
+          ! Planned at patience 0, as the GUI's process plans them, and
+          ! windowed by low_sidelobes, as the GUI's Low sidelobes windowed
+          ! the spectra its JT9 decoder read: JT65+JT9's JT9 decoder reads
+          ! these.
+          bLowSidelobes = receive%low_sidelobes
+          patience = patience_override
+          patience_override = 0
+          call symspec(shared_data, nhsym*kstep + 2048, nsps,        &
+               ingain, bLowSidelobes, nminw, pxdb, s, df3,           &
+               ihsym, npts8, pxdbmax, npct_unused)
+          patience_override = patience
+       end if
+    end do
+    ! The GUI's early FT8 passes run as soon as their audio is in.
+    if (mode .eq. 8) call run_early_ft8(.false.)
+    ! As does each MSK144 block, never refused for a busy decoder.
+    if (mode .eq. 144) call msk144_window(shared_data%id2, period%k,   &
+         shared_data%params%nutc, shared_data%params%ntol,              &
+         shared_data%params%nfqso, shared_data%params%ndepth, msk144,   &
+         data_dir, label_form)
+  end subroutine block_work
+
+  ! JTTY has no periods: the whole frame goes to the session, in GUI blocks
+  ! from the session's first sample while the receive chain equalizes.
   subroutine consume_jtty_body()
     do while (body_left .gt. 0)
        take_samples = min(body_left / 2, size(chunk))
+       if (receive_equalizes(live_audio)) take_samples = min(take_samples, jtty_room())
        take_bytes   = 2 * take_samples
        call read_audio(chunk, take_samples, ios)
        if (ios /= 0) then
           eof_period = .true.; return
        end if
        body_left = body_left - take_bytes
-       call jtty_audio(chunk(1:take_samples), stream_samples, shared_data%params)
+       call jtty_add(chunk(1:take_samples))
        stream_samples = stream_samples + take_samples
     end do
   end subroutine consume_jtty_body
+
+  ! Samples to the end of the JTTY session's block in progress.
+  integer function jtty_room()
+    jtty_room = HSYM_SAMPLES
+    if (jtty_open) jtty_room = HSYM_SAMPLES -                                &
+         int(mod(stream_samples - jtty_origin, int(HSYM_SAMPLES, int64)))
+  end function jtty_room
+
+  ! JTTY samples read from stream sample stream_samples on: on to the
+  ! session at once, or, while the receive chain equalizes, a block at a
+  ! time.
+  subroutine jtty_add(samples)
+    integer(int16), intent(in) :: samples(:)
+    if (.not. jtty_open) then
+       jtty_open = .true.
+       jtty_origin = stream_samples
+    end if
+    if (.not. receive_equalizes(live_audio) .and. njblk .gt. 0) call jtty_deliver()
+    if (njblk .eq. 0) jblk_from = stream_samples
+    jblk(njblk + 1:njblk + size(samples)) = samples
+    njblk = njblk + size(samples)
+    if (.not. receive_equalizes(live_audio) .or. jtty_room() .eq. size(samples)) &
+         call jtty_deliver()
+  end subroutine jtty_add
+
+  ! The JTTY samples held, through the receive chain to the rows and the
+  ! session.
+  subroutine jtty_deliver()
+    if (receive_blocks()) call receive_equalize(jblk(1:njblk), live_audio,    &
+         jblk_from .eq. jtty_origin)
+    call jtty_rows()
+    call jtty_audio(jblk(1:njblk), jblk_from, shared_data%params)
+    njblk = 0
+  end subroutine jtty_deliver
+
+  ! JTTY's rows for the samples delivered, jblk(1:njblk) from stream sample
+  ! jblk_from on, before the session decodes them.
+  subroutine jtty_rows()
+    call jtty_spectrum_rows(jblk(1:njblk), jblk_from)
+  end subroutine jtty_rows
+
+  ! The JTTY session ends, after what it holds.
+  subroutine jtty_close()
+    if (njblk .gt. 0) call jtty_deliver()
+    call jtty_end(shared_data%params)
+    jtty_open = .false.
+  end subroutine jtty_close
 
   ! Read exactly nbytes from stdin via the C helper; ios=0 on success,
   ! ios=1 at the end of input (short delivery: the producer closed the

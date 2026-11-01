@@ -243,7 +243,7 @@ end subroutine multimode_decoder
 subroutine multimode_decoder_progress(ss,id2,params,nfsample,generation)
   use prog_args, only: lquiet
   use streaming_emit, only: streaming_emit_enabled,                       &
-       streaming_emit_decode_finished
+       streaming_emit_decode_finished, streaming_emit_flush
   use decode_completion_module, only: decode_completion_result,          &
        write_decode_completion
 
@@ -266,5 +266,5 @@ subroutine multimode_decoder_progress(ss,id2,params,nfsample,generation)
   else if (.not. lquiet) then
      call write_decode_completion(completion)
   end if
-  call flush(6)
+  call streaming_emit_flush()
 end subroutine multimode_decoder_progress
