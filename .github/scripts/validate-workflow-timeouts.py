@@ -10,10 +10,15 @@ JOB_PATTERN = re.compile(
     r"(?:\s+&[A-Za-z_][A-Za-z0-9_-]*)?(?:\s*#.*)?$"
 )
 TIMEOUT_PATTERN = re.compile(r"^    timeout-minutes:\s*(\d+)\s*(?:#.*)?$")
-MINIMUM_JOB_TIMEOUTS = {("build-macos.yml", "build"): 180}
+MINIMUM_JOB_TIMEOUTS = {
+    ("build-macos.yml", "build"): 180,
+    ("build-windows.yml", "build"): 150,
+    ("public-release.yml", "macos-intel-deps"): 300,
+    ("warm-dependency-caches.yml", "warm-macos-x86_64-deps"): 300,
+}
 
 
-def unbounded_jobs(path: Path) -> list[str]:
+def unbounded_jobs(path: Path, seen: "set[tuple[str, str]] | None" = None) -> list[str]:
     failures: list[str] = []
     in_jobs = False
     job_name: str | None = None
@@ -23,6 +28,8 @@ def unbounded_jobs(path: Path) -> list[str]:
     timeout_minutes: int | None = None
 
     def finish_job() -> None:
+        if job_name is not None and has_runner and seen is not None:
+            seen.add((path.name, job_name))
         if job_name is not None and has_runner and not has_timeout:
             failures.append(f"{path}:{job_line}: job '{job_name}' has runs-on but no timeout-minutes")
         minimum = MINIMUM_JOB_TIMEOUTS.get((path.name, job_name or ""))
@@ -77,7 +84,10 @@ def unbounded_jobs(path: Path) -> list[str]:
 def main() -> int:
     workflow_dir = Path(".github/workflows")
     workflows = sorted((*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")))
-    failures = [failure for path in workflows for failure in unbounded_jobs(path)]
+    seen: set[tuple[str, str]] = set()
+    failures = [failure for path in workflows for failure in unbounded_jobs(path, seen)]
+    failures += [f"{workflow_dir / name}: no runner-backed job '{job}' for its minimum timeout"
+                 for name, job in sorted(set(MINIMUM_JOB_TIMEOUTS) - seen)]
     if failures:
         print("Every runner-backed GitHub Actions job must define timeout-minutes:", file=sys.stderr)
         print("\n".join(failures), file=sys.stderr)

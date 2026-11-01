@@ -119,8 +119,24 @@ jobs:
       deployment_target: "11.0"
       signing_mode: ${{ needs.prepare.outputs.macos_sign_mode }}
 
-  macos-intel:
+  # A tag run sees no earlier tag's caches, so Intel's cold dependency build gets its own job and time limit.
+  macos-intel-deps:
     needs: prepare
+    runs-on: macos-15-intel
+    timeout-minutes: 300
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/warm-macos-deps
+        with:
+          arch: x86_64
+          runner: macos-15-intel
+          deployment_target: "10.13"
+          hamlib_branch: "4.7.2"
+
+  macos-intel:
+    needs: [prepare, macos-intel-deps]
     uses: ./.github/workflows/build-macos.yml
     permissions:
       actions: read

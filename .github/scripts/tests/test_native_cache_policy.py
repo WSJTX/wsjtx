@@ -104,6 +104,24 @@ class NativeCachePolicyTests(unittest.TestCase):
                 self.assertIn("hashFiles('.github/scripts/fftw-version.sh',", cache)
                 self.assertNotIn("3.3.10", cache)
 
+    def test_macos_dependency_warmer_saves_what_the_build_restores(self):
+        build = (ROOT / ".github/workflows/build-macos.yml").read_text()
+        action = (ROOT / ".github/actions/warm-macos-deps/action.yml").read_text()
+        for name, value in re.findall(r"^      (BOOST_VERSION|BOOST_SOURCE_SHA256): (\S+)$", build, re.M):
+            build = build.replace("${{ env.%s }}" % name, value)
+        self.assertNotIn("env.RUNNER", action)
+        self.assertNotIn("env.DEPLOYMENT_TARGET", action)
+        action = action.replace("inputs.runner", "env.RUNNER").replace("inputs.deployment_target", "env.DEPLOYMENT_TARGET")
+
+        def caches(text):
+            qt = re.search(r"macos-qt-cache-key\.sh \\\n((?:\s+--.*\n)+)", text).group(1).split()
+            return qt, {match["id"]: (match["path"], match["key"]) for match in re.finditer(
+                r"id: (?P<id>[a-z0-9-]+-cache)\n(?:.*\n){1,3}?\s+path: (?P<path>.+)\n\s+key: (?P<key>.+)\n", text)}
+
+        self.assertEqual(set(caches(action)[1]),
+                         {f"{name}-cache" for name in ("qt", "libusb", "portaudio", "fftw", "boost", "hamlib", "pfunit")})
+        self.assertEqual(caches(action), caches(build))
+
     def test_windows_declares_openmp_without_relying_on_fftw_package_dependencies(self):
         for path in (".github/workflows/build-windows.yml",
                      ".github/workflows/warm-dependency-caches.yml"):
