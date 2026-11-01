@@ -21,6 +21,28 @@ namespace
   // some commands require a settling time, particularly "RX A" and
   // "RX B" on the Yaesu FTdx3000.
   int constexpr yaesu_delay {350};
+
+  template<typename Action, typename Restore>
+  void with_restoration (Action action, Restore restore)
+  {
+    try
+      {
+        action ();
+      }
+    catch (...)
+      {
+        try
+          {
+            restore ();
+          }
+        catch (...)
+          {
+            // A restoration failure must not hide the original error.
+          }
+        throw;
+      }
+    restore ();
+  }
 }
 
 #include "moc_HRDTransceiver.cpp"
@@ -46,35 +68,55 @@ HRDTransceiver::HRDTransceiver (logger_type * logger
   , server_ {server}
   , hrd_ {0}
   , protocol_ {none}
-  , current_radio_ {0}
-  , vfo_count_ {0}
-  , vfo_A_button_ {-1}
-  , vfo_B_button_ {-1}
-  , vfo_toggle_button_ {-1}
-  , mode_A_dropdown_ {-1}
-  , mode_B_dropdown_ {-1}
-  , data_mode_toggle_button_ {-1}
-  , data_mode_on_button_ {-1}
-  , data_mode_off_button_ {-1}
-  , data_mode_dropdown_ {-1}
-  , split_mode_button_ {-1}
-  , split_mode_dropdown_ {-1}
-  , split_mode_dropdown_write_only_ {false}
-  , split_off_button_ {-1}
-  , tx_A_button_ {-1}
-  , tx_B_button_ {-1}
-  , rx_A_button_ {-1}
-  , rx_B_button_ {-1}
-  , receiver_dropdown_ {-1}
-  , ptt_button_ {-1}
-  , alt_ptt_button_ {-1}
-  , reversed_ {false}
 {
+  reset_discovery ();
+}
+
+void HRDTransceiver::reset_discovery ()
+{
+  current_radio_ = 0;
+  vfo_count_ = 0;
+  vfo_A_button_ = -1;
+  vfo_B_button_ = -1;
+  vfo_toggle_button_ = -1;
+  mode_A_dropdown_ = -1;
+  mode_B_dropdown_ = -1;
+  data_mode_toggle_button_ = -1;
+  data_mode_on_button_ = -1;
+  data_mode_off_button_ = -1;
+  data_mode_dropdown_ = -1;
+  split_mode_button_ = -1;
+  split_mode_dropdown_ = -1;
+  split_mode_dropdown_write_only_ = true;
+  split_off_button_ = -1;
+  tx_A_button_ = -1;
+  tx_B_button_ = -1;
+  rx_A_button_ = -1;
+  rx_B_button_ = -1;
+  receiver_dropdown_ = -1;
+  ptt_button_ = -1;
+  alt_ptt_button_ = -1;
+  reversed_ = false;
+  radios_.clear ();
+  buttons_.clear ();
+  dropdown_names_.clear ();
+  dropdowns_.clear ();
+  slider_names_.clear ();
+  sliders_.clear ();
+  mode_A_map_.clear ();
+  mode_B_map_.clear ();
+  data_mode_dropdown_selection_on_.clear ();
+  data_mode_dropdown_selection_off_.clear ();
+  split_mode_dropdown_selection_on_.clear ();
+  split_mode_dropdown_selection_off_.clear ();
+  rx_A_selection_.clear ();
+  rx_B_selection_.clear ();
 }
 
 int HRDTransceiver::do_start ()
 {
   CAT_TRACE ("starting");
+  reset_discovery ();
   if (wrapped_) wrapped_->start (0);
 
   auto server_details = network_server_lookup (server_, 7809u);
@@ -139,7 +181,6 @@ int HRDTransceiver::do_start ()
     }
 
   HRD_info << "Radios:\n";
-  radios_.clear ();
   Q_FOREACH (auto const& radio, radios)
     {
       HRD_info << "\t" << radio << "\n";
@@ -173,7 +214,8 @@ int HRDTransceiver::do_start ()
 
   bool vfo_count_ok;
   vfo_count_ = send_command ("get vfo-count").trimmed ().toUInt (&vfo_count_ok);
-  if (!vfo_count_ok || !vfo_count_)
+  // Preserve acceptance of zero for compatibility; whether any HRD rig needs it is unknown.
+  if (!vfo_count_ok)
     {
       throw error {tr ("Ham Radio Deluxe didn't respond as expected")};
     }
@@ -219,9 +261,6 @@ int HRDTransceiver::do_start ()
   split_mode_button_ = find_button (QRegExp ("^(Spl~On|Spl_On|Split|Split~On)$"));
   split_off_button_ = find_button (QRegExp ("^(Spl~Off|Spl_Off|Split~Off)$"));
 
-  split_mode_dropdown_selection_on_.clear ();
-  split_mode_dropdown_selection_off_.clear ();
-  split_mode_dropdown_write_only_ = true;
   if ((split_mode_dropdown_ = find_dropdown (QRegExp ("^(Split)$"))) >= 0)
     {
       split_mode_dropdown_selection_on_ = find_dropdown_selection (split_mode_dropdown_, QRegExp ("^(On)$"));
@@ -285,10 +324,13 @@ int HRDTransceiver::do_start ()
       auto f = get_frequency ();
       auto m = get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_));
       set_button (vfo_B_button_ >= 0 ? vfo_B_button_ : vfo_toggle_button_);
-      auto fo = get_frequency ();
-      update_other_frequency (fo);
-      auto mo = get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_));
-      set_button (vfo_A_button_ >= 0 ? vfo_A_button_ : vfo_toggle_button_);
+      Frequency fo;
+      MODE mo;
+      with_restoration ([&] {
+          fo = get_frequency ();
+          update_other_frequency (fo);
+          mo = get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_));
+        }, [&] { set_button (vfo_A_button_ >= 0 ? vfo_A_button_ : vfo_toggle_button_); });
       if (f != fo || m != mo)
         {
           // we must have started with A/MAIN
@@ -306,8 +348,7 @@ int HRDTransceiver::do_start ()
   auto f = get_frequency ();
   if (f && !(f % 10) && f - f % 100 <= std::numeric_limits<Frequency>::max () - 55)
     {
-      try
-        {
+      with_restoration ([&] {
           auto test_frequency = f - f % 100 + 55;
           send_simple_command ("set frequency-hz " + QString::number (test_frequency));
           auto new_frequency = get_frequency ();
@@ -341,20 +382,7 @@ int HRDTransceiver::do_start ()
                   resolution = 2;   // 20Hz rounded
                 }
             }
-        }
-      catch (...)
-        {
-          try
-            {
-              send_simple_command ("set frequency-hz " + QString::number (f));
-            }
-          catch (...)
-            {
-              // Preserve the probe error if restoring the frequency also fails.
-            }
-          throw;
-        }
-      send_simple_command ("set frequency-hz " + QString::number (f));
+        }, [&] { send_simple_command ("set frequency-hz " + QString::number (f)); });
     }
   return resolution;
 }
@@ -475,7 +503,8 @@ void HRDTransceiver::set_dropdown (int dd, int value)
   auto dd_name = dropdown_names_.value (dd);
   if (value >= 0)
     {
-      send_simple_command ("set dropdown " + dd_name.replace (' ', '~') + ' ' + dropdowns_.value (dd_name).value (value).replace (' ', '~') + ' ' + QString::number (value));
+      auto selection = dropdowns_.value (dd_name).value (value).replace (' ', '~');
+      send_simple_command ("set dropdown " + dd_name.replace (' ', '~') + ' ' + selection + ' ' + QString::number (value));
     }
   else
     {

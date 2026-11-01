@@ -9,7 +9,7 @@ namespace
 {
   constexpr int legacyCapacityBytes = 2 * 120 * 12000;
 
-  QByteArray wav (qint32 declaredBytes, int actualBytes)
+  QByteArray wav (quint32 declaredBytes, int actualBytes)
   {
     QByteArray result (44 + actualBytes, '\0');
     auto put16 = [&] (int offset, quint16 value) {
@@ -55,7 +55,11 @@ private slots:
     QTest::newRow ("beyond-legacy-capacity") << wav (legacyCapacityBytes + 2, legacyCapacityBytes + 2)
                                             << QByteArray {};
     QTest::newRow ("huge-count") << wav (2147483647, 8) << QByteArray {};
-    QTest::newRow ("negative") << wav (-2, 8) << QByteArray {"Invalid WAV data size."};
+    QTest::newRow ("high-bit") << wav (0x80000000u, 8) << QByteArray {};
+    QTest::newRow ("near-maximum") << wav (0xfffffffeu, 8) << QByteArray {};
+    QTest::newRow ("unknown-length") << wav (0xffffffffu, 8) << QByteArray {};
+    QTest::newRow ("unknown-length-short-metadata") << wav (0xffffffffu, 7)
+                                                << QByteArray {"Cannot read WAV samples."};
     QTest::newRow ("empty") << wav (0, 0) << QByteArray {"Invalid WAV data size."};
     QTest::newRow ("short-metadata") << wav (6, 6) << QByteArray {"Invalid WAV data size."};
     QTest::newRow ("odd") << wav (9, 9) << QByteArray {};
@@ -88,7 +92,12 @@ private slots:
     auto const errors = process.readAllStandardError ();
     if (diagnostic.isEmpty ()) {
       QCOMPARE (process.exitCode (), 0);
-      QVERIFY (process.readAllStandardOutput ().contains ("Band:"));
+      auto const output = process.readAllStandardOutput ();
+      QVERIFY (output.contains ("Band:"));
+      auto const match = QRegularExpression {"Npts:\\s*([0-9]+)"}.match (QString::fromLatin1 (output));
+      QVERIFY2 (match.hasMatch (), output.constData ());
+      QCOMPARE (match.captured (1).toULongLong (),
+                quint64 (qFromLittleEndian<quint32> (contents.constData () + 40)) / 2);
     } else {
       QVERIFY (process.exitCode () != 0);
       QVERIFY2 (errors.contains (diagnostic), errors.constData ());
@@ -166,21 +175,68 @@ private slots:
     QCOMPARE (file.readAll (), contents);
   }
 
+  void rejected_edits_preserve_file_data ()
+  {
+    QTest::addColumn<QStringList> ("arguments");
+    QTest::addColumn<QByteArray> ("confirmation");
+    QTest::addColumn<QByteArray> ("diagnostic");
+    QTest::newRow ("unknown-mode") << QStringList {"14.0", "BADMODE", "A", "60"}
+      << QByteArray {"Y\n"} << QByteArray {"Invalid replacement WAV metadata"};
+    QTest::newRow ("invalid-submode") << QStringList {"14.0", "FT8", "9", "60"}
+      << QByteArray {"Y\n"} << QByteArray {"Invalid replacement WAV metadata"};
+    QTest::newRow ("invalid-period") << QStringList {"14.0", "FT8", "A", "45"}
+      << QByteArray {"Y\n"} << QByteArray {"Invalid replacement WAV metadata"};
+    QTest::newRow ("confirmation-eof") << QStringList {"14.0", "FT8", "B", "60"}
+      << QByteArray {} << QByteArray {"Cannot read confirmation"};
+  }
+
+  void rejected_edits_preserve_file ()
+  {
+    QFETCH (QStringList, arguments);
+    QFETCH (QByteArray, confirmation);
+    QFETCH (QByteArray, diagnostic);
+    auto const contents = wav (32, 32);
+    QTemporaryDir dir;
+    QVERIFY (dir.isValid ());
+    QFile file {dir.filePath ("input.wav")};
+    QVERIFY (file.open (QIODevice::WriteOnly));
+    QCOMPARE (file.write (contents), qint64 (contents.size ()));
+    file.close ();
+    QProcess process;
+    process.setWorkingDirectory (dir.path ());
+    arguments.append ("input.wav");
+    process.start (FIXWAV_EXECUTABLE, arguments);
+    QVERIFY (process.waitForStarted ());
+    process.write (confirmation);
+    process.closeWriteChannel ();
+    QVERIFY (process.waitForFinished (5000));
+    QCOMPARE (process.exitStatus (), QProcess::NormalExit);
+    QVERIFY (process.exitCode () != 0);
+    auto const errors = process.readAllStandardError ();
+    QVERIFY2 (errors.contains (diagnostic), errors.constData ());
+    QVERIFY (!errors.contains ("Fortran runtime error"));
+    QVERIFY (file.open (QIODevice::ReadOnly));
+    QCOMPARE (file.readAll (), contents);
+  }
+
   void rewrite_preserves_other_bytes_data ()
   {
-    QTest::addColumn<qint32> ("declaredBytes");
+    QTest::addColumn<quint32> ("declaredBytes");
     QTest::addColumn<int> ("actualBytes");
-    QTest::newRow ("minimum") << qint32 (8) << 8;
-    QTest::newRow ("odd") << qint32 (9) << 9;
-    QTest::newRow ("beyond-legacy-capacity") << qint32 (legacyCapacityBytes + 2)
+    QTest::newRow ("minimum") << quint32 (8) << 8;
+    QTest::newRow ("odd") << quint32 (9) << 9;
+    QTest::newRow ("beyond-legacy-capacity") << quint32 (legacyCapacityBytes + 2)
                                             << legacyCapacityBytes + 2;
-    QTest::newRow ("truncated-audio") << qint32 (2147483647) << 31;
-    QTest::newRow ("trailing-data") << qint32 (8) << 31;
+    QTest::newRow ("truncated-audio") << quint32 (2147483647) << 31;
+    QTest::newRow ("high-bit") << quint32 (0x80000000u) << 31;
+    QTest::newRow ("near-maximum") << quint32 (0xfffffffeu) << 31;
+    QTest::newRow ("unknown-length") << quint32 (0xffffffffu) << 31;
+    QTest::newRow ("trailing-data") << quint32 (8) << 31;
   }
 
   void rewrite_preserves_other_bytes ()
   {
-    QFETCH (qint32, declaredBytes);
+    QFETCH (quint32, declaredBytes);
     QFETCH (int, actualBytes);
     QTemporaryDir dir;
     QVERIFY (dir.isValid ());

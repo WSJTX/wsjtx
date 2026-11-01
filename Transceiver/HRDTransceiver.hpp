@@ -55,6 +55,7 @@ protected:
   bool frequency_readback_expected (RigFrequency::Path, Frequency) const override;
 
 private:
+  void reset_discovery ();
   QString send_command (QString const&, bool prepend_context = true, bool recurse = false);
   QByteArray read_reply (QString const& command);
   void send_simple_command (QString const&);

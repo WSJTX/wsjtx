@@ -36,6 +36,30 @@ namespace
       modes_only_cw
     };
 
+    struct Capabilities
+    {
+      QString radio {"FTDX-3000"};
+      unsigned id {1};
+      QStringList buttons;
+      QStringList checked_buttons;
+      QStringList dropdowns;
+      QMap<QString, QStringList> selections;
+      QMap<QString, QString> values;
+    };
+
+    void set_capabilities (Capabilities const& capabilities)
+    {
+      QMutexLocker lock {&config_mutex_};
+      capabilities_ = capabilities;
+      custom_capabilities_ = true;
+    }
+
+    void set_button_replies (QString const& command, QStringList replies)
+    {
+      QMutexLocker lock {&config_mutex_};
+      button_replies_[command] = std::move (replies);
+    }
+
     explicit ScriptedHRDServer (Profile profile)
       : profile_ {profile}
     {
@@ -177,6 +201,50 @@ namespace
       if ("get context" == command) return "OK";
       if ("get id" == command) return "HRD";
       if ("get version" == command) return "6.8.0";
+      if (custom_capabilities_)
+        {
+          if ("get radios" == command) return QString::number (capabilities_.id) + ':' + capabilities_.radio;
+          if ("get radio" == command) return capabilities_.radio;
+          if ("get buttons" == command) return capabilities_.buttons.join (',');
+          if ("get dropdowns" == command) return capabilities_.dropdowns.join (',');
+          for (auto const& button : capabilities_.buttons)
+            {
+              auto name = button;
+              name.replace (' ', '~');
+              if (command == "get button-select " + name)
+                return capabilities_.checked_buttons.contains (button) ? "1" : "0";
+              if (command == "set button-select " + name + " 0"
+                  || command == "set button-select " + name + " 1")
+                {
+                  if (button_replies_.contains (command)) return next_reply (button_replies_[command]);
+                  return "OK";
+                }
+            }
+          for (auto const& name : capabilities_.dropdowns)
+            {
+              auto const selections = capabilities_.selections.value (name);
+              if (command == "get dropdown-list {" + name + '}') return selections.join (',');
+              if (command == "get dropdown-text {" + name + '}') return name + ':' + capabilities_.values.value (name);
+              auto wire_name = name;
+              wire_name.replace (' ', '~');
+              for (int i = 0; i < selections.size (); ++i)
+                {
+                  auto value = selections[i];
+                  value.replace (' ', '~');
+                  if (command == "set dropdown " + wire_name + ' ' + value + ' ' + QString::number (i))
+                    {
+                      capabilities_.values[name] = selections[i];
+                      return "OK";
+                    }
+                }
+            }
+          if (command.startsWith ("get button-select ") || command.startsWith ("set button-select ")
+              || command.startsWith ("get dropdown-") || command.startsWith ("set dropdown "))
+            {
+              set_error ("unadvertised control command: " + command);
+              return {};
+            }
+        }
       if ("get radios" == command)
         {
           if (Profile::mixed_radios == profile_) return "junk, 2:Backup,, 1:FTDX-3000 ,:bad";
@@ -189,6 +257,8 @@ namespace
       if (vfo_buttons_ && command.startsWith ("set button-select VFO~")) return "OK";
       if (vfo_buttons_ && command.startsWith ("get button-select VFO~")) return "0";
       if (command.startsWith ("set frequency-hz ")) return "OK";
+      if (command == "set frequencies-hz 10368100000 7074001") return "OK";
+      if (command == "set frequencies-hz 10368100000 7074003") return "OK";
       if ("get dropdowns" == command)
         {
           if (!split_selections_.isNull ()) return "Split";
@@ -266,6 +336,9 @@ namespace
       if (error_.isEmpty ()) error_ = message;
     }
 
+    Capabilities capabilities_;
+    bool custom_capabilities_ {false};
+    QMap<QString, QStringList> button_replies_;
     QMutex config_mutex_;
     QStringList scalar_replies_ {"14074001"};
     QString vfo_count_reply_ {"2"};
@@ -312,6 +385,11 @@ namespace
                         [&] (int value) { resolution = value; });
       transceiver->start (1);
       return true;
+    }
+
+    bool poll ()
+    {
+      return QMetaObject::invokeMethod (transceiver.get (), "handle_timeout", Qt::DirectConnection);
     }
 
     ScriptedHRDServer server;
@@ -436,7 +514,6 @@ private slots:
     QTest::newRow ("overflow-frequency") << "18446744073709551616" << "2";
     QTest::newRow ("empty-vfo-count") << "14074001" << QString {};
     QTest::newRow ("malformed-vfo-count") << "14074001" << "two";
-    QTest::newRow ("zero-vfo-count") << "14074001" << "0";
     QTest::newRow ("negative-vfo-count") << "14074001" << "-1";
     QTest::newRow ("overflow-vfo-count") << "14074001" << "4294967296";
   }
@@ -449,6 +526,18 @@ private slots:
     fixture.server.set_scalar_replies ({frequency}, vfoCount);
     QVERIFY (fixture.start ());
     QVERIFY (fixture.failure.contains ("didn't respond as expected"));
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void acceptsZeroVfoCount ()
+  {
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    fixture.server.set_scalar_replies ({"14074001"}, "0");
+    QVERIFY (fixture.start ());
+    QVERIFY (fixture.failure.isEmpty ());
+    QTRY_COMPARE_WITH_TIMEOUT (fixture.state.frequency (), quint64 (14074001), 2500);
+    QVERIFY (fixture.state.online ());
+    QVERIFY (!fixture.server.commands ().contains ("[1] get frequencies"));
     QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
   }
 
@@ -577,6 +666,183 @@ private slots:
     QTRY_VERIFY_WITH_TIMEOUT (!fixture.state.split (), 2500);
     QCOMPARE (fixture.server.commands ().count ("[1] get dropdown-text {Split}"), before);
     QVERIFY (fixture.state.online ());
+    QVERIFY (fixture.failure.isEmpty ());
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void restoresVfoAfterMalformedReadback_data ()
+  {
+    QTest::addColumn<bool> ("toggle");
+    QTest::addColumn<bool> ("restoreFails");
+    QTest::newRow ("buttons") << false << false;
+    QTest::newRow ("toggle") << true << false;
+    QTest::newRow ("buttons-restore-fails") << false << true;
+    QTest::newRow ("toggle-restore-fails") << true << true;
+  }
+
+  void restoresVfoAfterMalformedReadback ()
+  {
+    QFETCH (bool, toggle);
+    QFETCH (bool, restoreFails);
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    ScriptedHRDServer::Capabilities capabilities;
+    capabilities.buttons = toggle ? QStringList {"A / B"} : QStringList {"VFO A", "VFO B"};
+    fixture.server.set_capabilities (capabilities);
+    fixture.server.set_scalar_replies ({"10368100001", "invalid"});
+    auto const away = toggle ? QString {"set button-select A~/~B 1"} : QString {"set button-select VFO~B 1"};
+    auto const restore = toggle ? away : QString {"set button-select VFO~A 1"};
+    if (restoreFails)
+      fixture.server.set_button_replies (restore, toggle ? QStringList {"OK", "ERROR"} : QStringList {"ERROR"});
+    QVERIFY (fixture.start ());
+    QCOMPARE (fixture.failure, QString {"Ham Radio Deluxe didn't respond as expected"});
+    fixture.transceiver->stop ();
+    auto const commands = fixture.server.commands ();
+    QCOMPARE (commands.count ("[1] " + away), toggle ? 2 : 1);
+    QCOMPARE (commands.count ("[1] " + restore), toggle ? 2 : 1);
+    auto const first_switch = commands.indexOf ("[1] " + away);
+    auto const failed_read = commands.indexOf ("[1] get frequency", first_switch);
+    QVERIFY (failed_read > first_switch);
+    QVERIFY (commands.lastIndexOf ("[1] " + restore) > failed_read);
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void rediscoversModeOrderAfterRestart ()
+  {
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    ScriptedHRDServer::Capabilities capabilities;
+    capabilities.dropdowns = QStringList {"Main Mode", "Sub Mode", "Split"};
+    capabilities.selections["Main Mode"] = QStringList {"CW", "USB"};
+    capabilities.selections["Sub Mode"] = QStringList {"USB", "CW"};
+    capabilities.selections["Split"] = QStringList {"Off", "On"};
+    capabilities.values["Main Mode"] = "CW";
+    capabilities.values["Sub Mode"] = "USB";
+    capabilities.values["Split"] = "Off";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.start ());
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::CW);
+    fixture.transceiver->stop ();
+    capabilities.radio = "IC-7300";
+    capabilities.id = 2;
+    capabilities.selections["Main Mode"] = QStringList {"USB", "CW"};
+    capabilities.selections["Sub Mode"] = QStringList {"CW", "USB"};
+    capabilities.values["Main Mode"] = "USB";
+    fixture.server.set_capabilities (capabilities);
+    fixture.transceiver->start (2);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::USB);
+    auto requested = fixture.transceiver->state ();
+    requested.mode (Transceiver::CW);
+    requested.tx_frequency (7074003);
+    requested.split (true);
+    fixture.transceiver->set (requested, 3);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    // The legacy interface applies RX mode and TX frequency on successive calls.
+    fixture.transceiver->set (requested, 4);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    auto const commands = fixture.server.commands ();
+    QVERIFY (commands.contains ("[2] set dropdown Main~Mode CW 1"));
+    QVERIFY (commands.contains ("[2] set dropdown Sub~Mode CW 0"));
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void dropsDisappearingControlsAfterRestart ()
+  {
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    ScriptedHRDServer::Capabilities capabilities;
+    capabilities.radio = "IC-7300";
+    capabilities.buttons = QStringList {"Data"};
+    capabilities.dropdowns = QStringList {"Receiver", "Main Mode", "Data"};
+    capabilities.selections["Receiver"] = QStringList {"Mute / RX", "RX / Off"};
+    capabilities.values["Receiver"] = "RX / Off";
+    capabilities.selections["Main Mode"] = QStringList {"CW", "USB"};
+    capabilities.values["Main Mode"] = "CW";
+    capabilities.selections["Data"] = QStringList {"Off", "On"};
+    capabilities.values["Data"] = "On";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.start ());
+    QVERIFY (fixture.poll ());
+    fixture.transceiver->stop ();
+    capabilities.radio = "FTDX-3000";
+    capabilities.buttons = QStringList {"TX"};
+    capabilities.dropdowns = QStringList {"Main Mode", "Split"};
+    capabilities.selections["Split"] = QStringList {"Off", "On"};
+    capabilities.values["Split"] = "Off";
+    capabilities.values["Main Mode"] = "USB";
+    fixture.server.set_capabilities (capabilities);
+    fixture.transceiver->start (2);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::USB);
+    auto const before = fixture.server.commands ().size ();
+    auto requested = fixture.transceiver->state ();
+    requested.mode (Transceiver::CW);
+    requested.tx_frequency (0);
+    requested.split (false);
+    fixture.transceiver->set (requested, 3);
+    QVERIFY (fixture.failure.isEmpty ());
+    auto const commands = fixture.server.commands ().mid (before);
+    QVERIFY (commands.contains ("[1] set dropdown Main~Mode CW 0"));
+    QVERIFY (!commands.contains ("[1] set button-select TX 0"));
+    QVERIFY (!commands.contains ("[1] get dropdown-text {Receiver}"));
+    QVERIFY (!commands.contains ("[1] get dropdown-text {Data}"));
+    fixture.transceiver->stop ();
+    capabilities.buttons.clear ();
+    capabilities.dropdowns.clear ();
+    fixture.server.set_capabilities (capabilities);
+    fixture.transceiver->start (4);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::UNK);
+    QVERIFY (fixture.failure.isEmpty ());
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void replacesReceiverWithSplitAfterRestart ()
+  {
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    ScriptedHRDServer::Capabilities capabilities;
+    capabilities.dropdowns = QStringList {"Receiver", "Main Mode"};
+    capabilities.selections["Receiver"] = QStringList {"Mute / RX", "RX / Off"};
+    capabilities.values["Receiver"] = "RX / Off";
+    capabilities.selections["Main Mode"] = QStringList {"CW", "USB"};
+    capabilities.values["Main Mode"] = "CW";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.start ());
+    QVERIFY (fixture.poll ());
+    fixture.transceiver->stop ();
+    capabilities.dropdowns = QStringList {"Main Mode", "Split"};
+    capabilities.selections["Split"] = QStringList {"Off", "On"};
+    capabilities.values["Split"] = "Off";
+    fixture.server.set_capabilities (capabilities);
+    fixture.transceiver->start (2);
+    QVERIFY (fixture.poll ());
+    auto requested = fixture.transceiver->state ();
+    requested.tx_frequency (7074003);
+    requested.split (true);
+    fixture.transceiver->set (requested, 3);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().frequency (), quint64 (10368100000));
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QVERIFY (fixture.server.commands ().contains ("[1] set frequencies-hz 10368100000 7074003"));
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void clearsReversedVfoAfterRestart ()
+  {
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    ScriptedHRDServer::Capabilities capabilities;
+    capabilities.buttons = QStringList {"VFO A", "VFO B", "TX A", "TX B"};
+    capabilities.checked_buttons = QStringList {"VFO B", "TX A"};
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.start ());
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().frequency (), quint64 (7074001));
+    fixture.transceiver->stop ();
+    capabilities.buttons.clear ();
+    capabilities.checked_buttons.clear ();
+    fixture.server.set_capabilities (capabilities);
+    fixture.transceiver->start (2);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().frequency (), quint64 (10368100000));
     QVERIFY (fixture.failure.isEmpty ());
     QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
   }
