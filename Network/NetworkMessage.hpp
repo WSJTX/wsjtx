@@ -529,6 +529,16 @@
  *      ffffffff will remove the sort-order value from the internal table.
  *      Callsigns without a sort order will be valued at zero for sorting purposes
  *      in the hound display.
+ *
+ *
+ * Enable Tx      In       17                     quint32
+ *                         Id (unique key)        utf8
+ *
+ *      The server may send this message  to request that the client
+ *      enables transmission. This is equivalent to the user checking
+ *      the "Enable  Tx" button  in  the WSJT-X  main window. If  Tx is
+ *      already enabled this message has no effect. To disable Tx use
+ *      the "Halt Tx" message with "Auto Tx Only" set to true.
  */
 
 #include <QDataStream>
@@ -561,6 +571,7 @@ namespace NetworkMessage
       SwitchConfiguration,
       Configure,
       AnnotationInfo,
+      EnableTx,
       maximum_message_type_     // ONLY add new message types
                                 // immediately before here
     };

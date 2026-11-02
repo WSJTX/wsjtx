@@ -137,6 +137,7 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   , message_line_edit_ {new QLineEdit {this}}
   , grid_line_edit_ {new QLineEdit {this}}
   , generate_messages_push_button_ {new QPushButton {tr ("&Gen Msgs"), this}}
+  , enable_tx_button_ {nullptr}
   , auto_off_button_ {nullptr}
   , halt_tx_button_ {nullptr}
   , de_label_ {new QLabel {this}}
@@ -285,6 +286,7 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   content_layout_->addLayout (decodes_stack_);
 
   // set up controls
+  enable_tx_button_ = control_button_box_->addButton (tr ("&Enable Tx"), QDialogButtonBox::ActionRole);
   auto_off_button_ = control_button_box_->addButton (tr ("&Auto Off"), QDialogButtonBox::ActionRole);
   halt_tx_button_ = control_button_box_->addButton (tr ("&Halt Tx"), QDialogButtonBox::ActionRole);
   connect (generate_messages_push_button_, &QAbstractButton::clicked, [this] (bool /*checked*/) {
@@ -292,6 +294,9 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
       Q_EMIT configure (key_, empty, quint32_max, empty, fast_mode ()
                         , quint32_max, quint32_max, empty, empty, true);
   });
+  connect (enable_tx_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
+      Q_EMIT do_enable_tx (key_);
+    });
   connect (auto_off_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
       Q_EMIT do_halt_tx (key_, true);
     });
@@ -440,6 +445,7 @@ void ClientWidget::update_status (ClientKey const& key, Frequency f, QString con
       tx_df_label_->setText (QString {"Tx: %1"}.arg (tx_df));
       report_label_->setText ("SNR: " + report);
       update_dynamic_property (frequency_label_, "transmitting", transmitting);
+      enable_tx_button_->setEnabled (!tx_enabled);
       auto_off_button_->setEnabled (tx_enabled);
       halt_tx_button_->setEnabled (transmitting);
       update_line_edit (configuration_line_edit_, configuration_name);

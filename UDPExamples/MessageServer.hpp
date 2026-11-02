@@ -67,6 +67,9 @@ public:
   // Tx, otherwise halt is immediate
   Q_SLOT void halt_tx (ClientKey const&, bool auto_only);
 
+  // ask the client with identification 'id' to enable Tx
+  Q_SLOT void enable_tx (ClientKey const&);
+
   // ask the client to set the free text message and optionally send
   // it ASAP
   Q_SLOT void free_text (ClientKey const&, QString const& text, bool send);

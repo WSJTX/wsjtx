@@ -106,6 +106,10 @@ public:
   // auto Tx if auto_only is true) transmission to halt
   Q_SIGNAL void halt_tx (bool auto_only);
 
+  // this signal is emitted if the server has requested that
+  // transmission be enabled (equivalent to checking "Enable Tx")
+  Q_SIGNAL void enable_tx ();
+
   // this signal is emitted if the server has requested a new free
   // message text
   Q_SIGNAL void free_text (QString const&, bool send);

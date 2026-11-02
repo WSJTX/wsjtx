@@ -535,6 +535,17 @@ void MessageServer::halt_tx (ClientKey const& key, bool auto_only)
     }
 }
 
+void MessageServer::enable_tx (ClientKey const& key)
+{
+  auto iter = m_->clients_.find (key);
+  if (iter != std::end (m_->clients_))
+    {
+      QByteArray message;
+      NetworkMessage::Builder out {&message, NetworkMessage::EnableTx, key.second, (*iter).negotiated_schema_number_};
+      m_->send_message (out, message, key.first, (*iter).sender_port_);
+    }
+}
+
 void MessageServer::free_text (ClientKey const& key, QString const& text, bool send)
 {
   auto iter = m_->clients_.find (key);

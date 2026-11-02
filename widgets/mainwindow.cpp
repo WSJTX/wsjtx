@@ -688,6 +688,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         ui->stopTxButton->click();
       }
     });
+  connect (m_messageClient, &MessageClient::enable_tx, [this] () {
+      if (!ui->autoButton->isChecked ()) {
+        ui->autoButton->click();
+      }
+    });
   connect (m_messageClient, &MessageClient::error, this, &MainWindow::networkError);
   connect (m_messageClient, &MessageClient::free_text, [this] (QString const& text, bool send) {
       tx_watchdog (false);

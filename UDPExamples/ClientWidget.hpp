@@ -66,6 +66,7 @@ public:
   Q_SIGNAL void do_close (ClientKey const& key);
   Q_SIGNAL void do_reply (QModelIndex const&, quint8 modifier);
   Q_SIGNAL void do_halt_tx (ClientKey const& key, bool auto_only);
+  Q_SIGNAL void do_enable_tx (ClientKey const& key);
   Q_SIGNAL void do_free_text (ClientKey const& key, QString const& text, bool);
   Q_SIGNAL void location (ClientKey const& key, QString const& text);
   Q_SIGNAL void highlight_callsign (ClientKey const& key, QString const& call
@@ -112,6 +113,7 @@ private:
   QLineEdit * message_line_edit_;
   QLineEdit * grid_line_edit_;
   QAbstractButton * generate_messages_push_button_;
+  QAbstractButton * enable_tx_button_;
   QAbstractButton * auto_off_button_;
   QAbstractButton * halt_tx_button_;
   QLabel * de_label_;

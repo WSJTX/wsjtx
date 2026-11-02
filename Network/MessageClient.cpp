@@ -316,6 +316,14 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
               }
               break;
 
+            case NetworkMessage::EnableTx:
+              TRACE_UDP ("Enable Tx");
+              if (check_status (in) != Fail)
+                {
+                  Q_EMIT self_->enable_tx ();
+                }
+              break;
+
             case NetworkMessage::FreeText:
               {
                 QByteArray message;
