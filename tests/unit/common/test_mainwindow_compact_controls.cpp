@@ -37,6 +37,24 @@ private Q_SLOTS:
     QCOMPARE (stack.sizeHint ().height (), tallPage->sizeHint ().height ());
   }
 
+  void scaleColorContrast ()
+  {
+    // Light desktop palette whose Mid sits almost on the window background.
+    QPalette pale;
+    pale.setColor (QPalette::Window, QColor {250, 249, 248});
+    pale.setColor (QPalette::Mid, QColor {240, 240, 240});
+    pale.setColor (QPalette::WindowText, QColor {30, 30, 30});
+    QCOMPARE (TxDriveSlider::scaleColor (pale).lightness (), QColor (30, 30, 30).lightness ());
+
+    // Distinct Mid keeps its lightness and loses its hue.
+    QPalette normal;
+    normal.setColor (QPalette::Window, QColor {239, 239, 239});
+    normal.setColor (QPalette::Mid, QColor {40, 120, 200});
+    normal.setColor (QPalette::WindowText, QColor {0, 0, 0});
+    auto const color = TxDriveSlider::scaleColor (normal);
+    QCOMPARE (color.lightness (), QColor (40, 120, 200).lightness ());
+    QCOMPARE (color.saturation (), 0);
+  }
   void nativeSlider ()
   {
 #ifndef Q_OS_WIN
