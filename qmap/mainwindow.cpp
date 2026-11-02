@@ -709,12 +709,18 @@ void MainWindow::createStatusBar()                           //createStatusBar
   lab2->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab2);
 
-  lab3 = new QLabel(QString("%1 kHz IQ").arg(qmap_runtime::activeRateHz()/1000));
-  lab3->setToolTip(tr("IQ sample rate in use. Change it in Setup; it takes effect when QMAP is restarted."));
+  lab3 = new QLabel("");                      // Q65 sub-mode, set by the mode handlers
   lab3->setAlignment(Qt::AlignHCenter);
-  lab3->setMinimumSize(QSize(70,10));
+  lab3->setMinimumSize(QSize(50,10));
   lab3->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab3);
+
+  labRate = new QLabel(QString("%1 kHz IQ").arg(qmap_runtime::activeRateHz()/1000));
+  labRate->setToolTip(tr("IQ sample rate in use. Change it in Setup; it takes effect when QMAP is restarted."));
+  labRate->setAlignment(Qt::AlignHCenter);
+  labRate->setMinimumSize(QSize(70,10));
+  labRate->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  statusBar()->addWidget(labRate);
 
   lab4 = new QLabel("");
   lab4->setAlignment(Qt::AlignHCenter);

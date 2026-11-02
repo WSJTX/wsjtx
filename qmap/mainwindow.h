@@ -167,6 +167,7 @@ private:
 
   QLabel* lab1;                            // labels in status bar
   QLabel* lab2;                            // labels in status bar
+  QLabel* labRate;                         // IQ sample rate in use
   QLabel* lab3;                            // labels in status bar
   QLabel* lab4;
   QLabel* lab5;
