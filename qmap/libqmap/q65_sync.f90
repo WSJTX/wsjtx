@@ -2,9 +2,9 @@ subroutine q65_sync(ss,i0,nts_q65,ntrperiod,iseq,sync_ok,snr,xdt)
 
 ! Test for presence of Q65 sync tone
 
-  parameter (NFFT=32768)
+  use qmap_params, only: nrate_active, nfft_active
   parameter (LAGMAX=33)
-  real ss(400,NFFT)                !Symbol spectra
+  real ss(400,*)                   !Symbol spectra
   real ccf(0:LAGMAX)               !The WSJT "blue curve", peak at DT
   logical sync_ok
   integer isync0(22),isync(22),ipk(1)
@@ -25,7 +25,7 @@ subroutine q65_sync(ss,i0,nts_q65,ntrperiod,iseq,sync_ok,snr,xdt)
   m=nts_q65/2
   if(ntrperiod.eq.30) m=nts_q65/4
   i1=max(1,i0-m)
-  i2=min(NFFT,i0+m)
+  i2=min(nfft_active,i0+m)
   ccf=0.
   do lag=0,LAGMAX                     !Search over range of DT
      do j=1,22                        !Test for Q65 sync
@@ -49,7 +49,7 @@ subroutine q65_sync(ss,i0,nts_q65,ntrperiod,iseq,sync_ok,snr,xdt)
   xsum=0.
   sq=0.
   nsum=0
-  fpk=0.001*i0*96000.0/32768.0 + 32.0
+  fpk=0.001*i0*nrate_active/nfft_active + 32.0
   do i=0,lagmax                       !Compute ave and rms of "blue curve"
      if(abs(i-lagbest).gt.2) then
         xsum=xsum+ccf(i)

@@ -14,6 +14,7 @@ public:
   void initDlg();
   qint32  m_fCal;
   qint32  m_udpPort;
+  qint32  m_iqRate;       //IQ sample rate (Hz) to use at the next start
   qint32  m_astroFont;
   qint32  m_dB;
 

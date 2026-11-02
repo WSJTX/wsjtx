@@ -15,8 +15,6 @@
 #include "sleep.h"
 #include <QtConcurrent/QtConcurrent>
 
-#define NFFT 32768
-#define NSMAX 5760000
 
 //--------------------------------------------------------------- MainWindow
 namespace Ui {
@@ -43,6 +41,7 @@ public slots:
   void showSoundInError(const QString& errorMsg);
   void showStatusMessage(const QString& statusMsg);
   void dataSink(int k);
+  int  loadDiskFile(QString const& fname);
   void diskDat(int iret);
   void decoderFinished();
   void freezeDecode(int n);
@@ -121,6 +120,7 @@ private:
   qint32  m_hsym0;
   qint32  m_paInDevice;
   qint32  m_udpPort;
+  qint32  m_iqRate;               //IQ rate (Hz) saved for the next start; the running rate is qmap_runtime::activeRateHz()
   qint32  m_NBslider;
   qint32  m_TRperiod;
   qint32  m_modeQ65;
@@ -167,6 +167,7 @@ private:
 
   QLabel* lab1;                            // labels in status bar
   QLabel* lab2;                            // labels in status bar
+  QLabel* labRate;                         // IQ sample rate in use
   QLabel* lab3;                            // labels in status bar
   QLabel* lab4;
   QLabel* lab5;

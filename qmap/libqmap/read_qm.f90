@@ -1,21 +1,34 @@
 subroutine read_qm(fname,iret)
 
+  use qmap_params, only: MAX_NSMAX, MAX_NFFT, nsmax_active, nrate_active, qm_file_rate
   include 'njunk.f90'
-  parameter(NMAX=60*96000,NFFT=32768)
   character*(*) fname
   character prog_id*24,mycall*12,mygrid*6
   real*8 fcenter
   integer nxtra(15)                        !For possible future additions
-  integer*1 id1(2,NMAX)
-  save id1                              !Keep this big array off the stack
-  common/datcom/dd(2,5760000),ss(400,NFFT),savg(NFFT),                  &
+  integer*1, allocatable, save :: id1(:,:)  !Keep this big array off the stack
+  common/datcom/dd(2,MAX_NSMAX),ss(400,MAX_NFFT),savg(MAX_NFFT),        &
        fcenter,nutc,fselected,mousedf,mousefqso,nagain,                 &
        ndepth,ndiskdat,ntx60,newdat,nn1,nn2,nfcal,nfshift,              &
        ntx30a,ntx30b   !...
 
+  NMAX=nsmax_active
+  if(allocated(id1)) then
+     if(size(id1,2).ne.NMAX) deallocate(id1)
+  endif
+  if(.not.allocated(id1)) allocate(id1(2,NMAX))
   open(28,file=trim(fname),status='old',access='stream',err=900)
   read(28,end=910,err=910) prog_id,mycall,mygrid,fcenter,nutc,ntx30a,   &
        ntx30b,ndop00,ndop58,ia,ib,fac0,nxtra
+
+! Files written at 96 kHz have nxtra(1)=0.  Other rates are stored in nxtra(1).
+  nrate_file=96000
+  if(nxtra(1).ne.0) nrate_file=nxtra(1)
+  qm_file_rate=nrate_file                   !Lets the caller say which rate a refused file has
+  if(nrate_file.ne.nrate_active) then
+     iret=-3                              !File rate differs from the running rate
+     go to 999
+  endif
 
   if(.not. ((ia.eq.1 .and. ib.eq.NMAX) .or.                          &
        (ia.eq.1 .and. ib.eq.NMAX/2) .or.                              &
@@ -29,7 +42,7 @@ subroutine read_qm(fname,iret)
   if(fac0.gt.0.0) fac=1.0/fac0
   id1=0
   read(28,end=910,err=910) id1(1:2,ia:ib)
-  dd=0.
+  dd(1:2,1:NMAX)=0.
   dd(1:2,ia:ib)=fac*id1(1:2,ia:ib)   !Boost back to previous level
   go to 999
 

@@ -7,8 +7,8 @@ subroutine q65c
   use q65
   use q65_decode
   use qmap_decode_ipc, only: ndecodes
+  use qmap_params, only: MAX_NSMAX, MAX_NFFT, nrate_active, nfft_active
 
-  parameter (NFFT=32768)
   include 'njunk.f90'
   real*8 fcenter
   real*4 pdb(4)
@@ -21,7 +21,7 @@ subroutine q65c
   character*12 mycall,hiscall
   character*6 mygrid,hisgrid
   character*20 datetime
-  common/datcom2/dd(2,5760000),ss(400,NFFT),savg(NFFT),nparams0
+  common/datcom2/dd(2,MAX_NSMAX),ss(400,MAX_NFFT),savg(MAX_NFFT),nparams0
   common/savecom/revision,fname
 !### REMEMBER that /npar/ is not updated until nparams=nparams0 is executed. ###
   common/npar/fcenter,nutc,fselected,mousedf,mousefqso,nagain,            &
@@ -51,16 +51,16 @@ subroutine q65c
   endif
 
   if(ntx30a.gt.5) then
-     dd(1:2,1:30*96000)=0.
-     ss(1:200,1:NFFT)=0.
-     do i=1,NFFT
+     dd(1:2,1:30*nrate_active)=0.
+     ss(1:200,1:nfft_active)=0.
+     do i=1,nfft_active
         savg(i)=sum(ss(201:400,i))
      enddo
   endif
   if(ntx30b.gt.5) then
-     dd(1:2,30*96000+1:60*96000)=0.
-     ss(201:400,1:NFFT)=0.
-     do i=1,NFFT
+     dd(1:2,30*nrate_active+1:60*nrate_active)=0.
+     ss(201:400,1:nfft_active)=0.
+     do i=1,nfft_active
         savg(i)=sum(ss(1:200,i))
      enddo
   endif

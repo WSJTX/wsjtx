@@ -1,4 +1,5 @@
 #include <memory>
+#include <vector>
 
 #include <QtTest>
 #include <QApplication>
@@ -7,6 +8,7 @@
 #include <QSignalSpy>
 
 #include "qmap/plotter.h"
+#include "qmap/qmap_runtime_config.h"
 
 class TestablePlotter final : public CPlotter
 {
@@ -20,6 +22,11 @@ class TestPlotterInitialization final : public QObject
 
 private slots:
   void sizesHiddenPlotter();
+  void appliesANewSpanAtOnce();
+  void remembersASpanGivenBeforeSizing();
+  void wideningTheSpanLeavesNoStaleTraces();
+  void scalesAtTheActiveRateWithoutSetFsample();
+  void setFsampleRefreshesTheScaling();
   void ignoresOutOfSpanAndControlClicks();
   void paintsLabelsInTwoDSpectrumMode();
 };
@@ -37,6 +44,93 @@ void TestPlotterInitialization::sizesHiddenPlotter()
   QCOMPARE (plotter->plotWidth (), 1000);
   QVERIFY (plotter->centerFreq () >= 0);
   QVERIFY (plotter->binsPerPixel () > 0);
+}
+
+void TestPlotterInitialization::appliesANewSpanAtOnce()
+{
+  auto const plotter = std::make_unique<CPlotter> ();
+  plotter->ensureSized (1000, 280);
+  plotter->setFsample (96000);
+
+  plotter->applySpan (30);
+  int const narrowBins = plotter->binsPerPixel ();
+  float const narrowSpan = plotter->m_fSpan;
+  plotter->applySpan (60);
+  int const wideBins = plotter->binsPerPixel ();
+  float const wideSpan = plotter->m_fSpan;
+
+  // Twice the span needs about twice the bins per pixel, and the displayed span follows
+  QVERIFY2 (wideBins >= 2 * narrowBins - 1 && wideBins <= 2 * narrowBins + 1,
+            "bins per pixel should follow the span");
+  QVERIFY (narrowSpan > 27.f && narrowSpan < 31.f);
+  QVERIFY (wideSpan > 57.f && wideSpan < 61.f);
+  QCOMPARE (plotter->m_nSpan, 60);
+}
+
+void TestPlotterInitialization::remembersASpanGivenBeforeSizing()
+{
+  // WideGraph's constructor sets the span box (and so the span) before the plot has a size
+  auto const plotter = std::make_unique<CPlotter> ();
+  plotter->applySpan (45);
+  QCOMPARE (plotter->m_nSpan, 45);
+  plotter->ensureSized (1000, 280);
+  QCOMPARE (plotter->plotWidth (), 1000);
+  QVERIFY (plotter->m_fSpan > 42.f && plotter->m_fSpan < 46.f);
+}
+
+void TestPlotterInitialization::wideningTheSpanLeavesNoStaleTraces()
+{
+  auto const plotter = std::make_unique<CPlotter> ();
+  plotter->setPalette ("Linrad");
+  plotter->ensureSized (1000, 280);
+  plotter->show ();
+  QCoreApplication::processEvents ();
+  plotter->applySpan (30);
+
+  // A few rows of strong signal across the whole narrow span
+  std::vector<float> s (1000, 1.e3f), splot (qmap_runtime::activeNfft (), 1.e3f);
+  for (int row = 0; row < 5; ++row) plotter->draw (s.data (), 0, splot.data ());
+
+  plotter->applySpan (90);                          // three times wider: the old rows cover the middle third
+  QCoreApplication::processEvents ();
+  QImage image (plotter->size (), QImage::Format_ARGB32);
+  image.fill (Qt::transparent);
+  plotter->render (&image);
+
+  auto lit = [&] (int x, int y) { return image.pixelColor (x, y).red () + image.pixelColor (x, y).green () > 40; };
+  int const y = 30 + 2;                             // third waterfall row (the waterfall starts below the 30 px scale)
+  QVERIFY2 (lit (500, y), "the captured middle should show the signal");
+  QVERIFY2 (!lit (20, y), "left of the captured range should be empty");
+  QVERIFY2 (!lit (980, y), "right of the captured range should be empty");
+}
+
+void TestPlotterInitialization::scalesAtTheActiveRateWithoutSetFsample()
+{
+  // A 256 kHz run sizes the plot before MainWindow hands it the rate; the scaling must already be right
+  qmap_runtime::setActive (256000, 131072);
+  {
+    auto const plotter = std::make_unique<CPlotter> ();
+    plotter->applySpan (240);
+    plotter->ensureSized (1000, 280);
+    // 240 kHz across 1000 pixels at 1.953 Hz per bin is about 123 bins per pixel (328 at 96 kHz scaling)
+    QVERIFY2 (plotter->binsPerPixel () >= 122 && plotter->binsPerPixel () <= 124,
+              qPrintable (QString::number (plotter->binsPerPixel ())));
+  }
+  qmap_runtime::setActive (96000, 32768);
+}
+
+void TestPlotterInitialization::setFsampleRefreshesTheScaling()
+{
+  qmap_runtime::setActive (192000, 65536);
+  {
+    auto const plotter = std::make_unique<CPlotter> ();
+    plotter->applySpan (100);
+    plotter->ensureSized (1000, 280);
+    int const atActive = plotter->binsPerPixel ();
+    plotter->setFsample (96000);                    // a later rate change re-derives the scaling
+    QVERIFY (plotter->binsPerPixel () > atActive);
+  }
+  qmap_runtime::setActive (96000, 32768);
 }
 
 void TestPlotterInitialization::ignoresOutOfSpanAndControlClicks()

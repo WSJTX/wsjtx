@@ -33,6 +33,11 @@ void DevSetup::initDlg()
   ui.fCalSpinBox->setValue(m_fCal);
   ui.faddEntry->setText(QString::number(m_fAdd,'f',3));
   ui.sbPort->setValue(m_udpPort);
+  ui.cbIqRate->clear();
+  for (int rate : {96000, 128000, 192000, 256000})
+    ui.cbIqRate->addItem(QString::number(rate/1000) + " kHz", rate);
+  int const iRate = ui.cbIqRate->findData(m_iqRate);
+  ui.cbIqRate->setCurrentIndex(iRate >= 0 ? iRate : 0);
   ui.sb_dB->setValue(m_dB);
   ui.otherUrlBox->setText(m_otherUrl);
   if(m_w3szUrl) ui.w3szBut->setChecked(true);
@@ -55,6 +60,7 @@ void DevSetup::accept()
   m_fCal=ui.fCalSpinBox->value();
   m_fAdd=ui.faddEntry->text().toDouble();
   m_udpPort=ui.sbPort->value();
+  m_iqRate=ui.cbIqRate->currentData().toInt();
   m_dB=ui.sb_dB->value();
   m_otherUrl=ui.otherUrlBox->text();
   m_w3szUrl = ui.w3szBut->isChecked();

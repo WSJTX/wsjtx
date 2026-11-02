@@ -31,7 +31,6 @@
 #include <QUrl>
 #include <QUrlQuery>
 
-#define NFFT 32768
 
 QSharedMemory mem_qmap;                        //Memory segment to be shared (optionally) with WSJT-X
 QMapSharedMemory * ipc_wsjtx {nullptr};
@@ -39,6 +38,23 @@ bool qmap_decoder_region_available {false};
 bool qmap_click_mailbox_available {false};
 
 extern const int RxDataFrequency = 96000;
+
+namespace
+{
+  // Snapshot the part of the datcom_ common block that is in use at the active
+  // sample rate into datcom2_.  The d4, ss and savg arrays are sized for the
+  // highest supported rate, so copying the whole struct would move far more
+  // data than the decoder will ever read.
+  void copyDatcomToDatcom2 ()
+  {
+    memcpy (datcom2_.d4, datcom_.d4, sizeof (float) * 2 * size_t (qmap_runtime::activeNsmax ()));
+    memcpy (datcom2_.ss, datcom_.ss, sizeof (float) * 400 * size_t (qmap_runtime::activeNfft ()));
+    memcpy (datcom2_.savg, datcom_.savg, sizeof (float) * size_t (qmap_runtime::activeNfft ()));
+    constexpr size_t tail = offsetof (decltype (datcom_), fcenter);
+    memcpy (reinterpret_cast<char *> (&datcom2_) + tail,
+            reinterpret_cast<char const *> (&datcom_) + tail, sizeof (datcom_) - tail);
+  }
+}
 
 //-------------------------------------------------- MainWindow constructor
 MainWindow::MainWindow(QWidget *parent) :
@@ -80,7 +96,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionSave_all->setActionGroup(saveGroup);
   ui->actionSave_decoded->setActionGroup(saveGroup);
 
-  setWindowTitle (branded_program_title ());
+  setWindowTitle (branded_program_title () + QString {"  -  %1 kHz IQ"}.arg (qmap_runtime::activeRateHz () / 1000));
 
   connect(&soundInThread, SIGNAL(readyForFFT(int)), this, SLOT(dataSink(int)));
   connect(&soundInThread, SIGNAL(error(QString)), this, SLOT(showSoundInError(QString)));
@@ -107,6 +123,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_NB=false;
   m_mode="Q65";
   m_udpPort=50004;
+  m_iqRate=qmap_runtime::BASELINE_RATE;
   m_modeQ65=0;
   m_TRperiod=60;
 
@@ -175,7 +192,7 @@ MainWindow::MainWindow(QWidget *parent) :
   connect(&watcher3, SIGNAL(finished()),this,SLOT(decoderFinished()));
 
 // Assign input device and start input thread
-  soundInThread.setRate(96000.0);
+  soundInThread.setRate(double(qmap_runtime::activeRateHz()));
   soundInThread.setBufSize(10*7056);
   soundInThread.setNetwork(m_network);
   soundInThread.setPort(m_udpPort);
@@ -188,7 +205,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_tol=500;
   m_wide_graph_window->setTol(m_tol);
   m_wide_graph_window->setFcal(m_fCal);
-  m_wide_graph_window->setFsample(96000);
+  m_wide_graph_window->setFsample(qmap_runtime::activeRateHz());
   QString rev{"QMAP v" + QCoreApplication::applicationVersion() + " " + revision()};
   m_revision=rev;
 
@@ -285,6 +302,7 @@ void MainWindow::writeSettings()
   settings.setValue("paInDevice",m_paInDevice);
   settings.setValue("Scale_dB",m_dB);
   settings.setValue("UDPport",m_udpPort);
+  settings.setValue("IQRate",m_iqRate);
   settings.setValue("PaletteCuteSDR",ui->actionCuteSDR->isChecked());
   settings.setValue("PaletteLinrad",ui->actionLinrad->isChecked());
   settings.setValue("PaletteAFMHot",ui->actionAFMHot->isChecked());
@@ -328,6 +346,8 @@ void MainWindow::readSettings()
   m_network = settings.value("NetworkInput",true).toBool();
   m_dB = settings.value("Scale_dB",0).toInt();
   m_udpPort = settings.value("UDPport",50004).toInt();
+  m_iqRate = settings.value("IQRate",qmap_runtime::BASELINE_RATE).toInt();
+  if(!qmap_runtime::isSupportedRate(m_iqRate)) m_iqRate=qmap_runtime::BASELINE_RATE;
   soundInThread.setScale(m_dB);
   soundInThread.setPort(m_udpPort);
   ui->actionCuteSDR->setChecked(settings.value(
@@ -388,7 +408,8 @@ void MainWindow::readSettings()
 //-------------------------------------------------------------- dataSink()
 void MainWindow::dataSink(int k)
 {
-  static float s[NFFT],splot[NFFT];
+  static float s[qmap_runtime::MAX_NFFT],splot[qmap_runtime::MAX_NFFT];
+  const int nfft=qmap_runtime::activeNfft();
   static int n=0;
   static int ihsym=0;
   static int ihsym0=0;
@@ -416,7 +437,7 @@ void MainWindow::dataSink(int k)
 // Get power, spectrum, nkhz, and ihsym
   nb=0;
   if(m_NB) nb=1;
-  nfsample=96000;
+  nfsample=qmap_runtime::activeRateHz();
 
   if(m_bWTransmitting) zaptx_(datcom_.d4, &k0, &k);
   k0=k;
@@ -438,7 +459,7 @@ void MainWindow::dataSink(int k)
 
   if(m_bWTransmitting) px=0.0;
   QString t;
-  m_pctZap=nzap/178.3;
+  m_pctZap=qmap_runtime::zapPercent(nzap,qmap_runtime::activeRateHz());
 
   lab2->setText (
         QString {" Rx: %1  %2 % "}
@@ -454,16 +475,16 @@ void MainWindow::dataSink(int k)
 
   //Average over specified number of spectra
   if (n==0) {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<nfft; i++)
       splot[i]=s[i];
   } else {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<nfft; i++)
       splot[i] += s[i];
   }
   n++;
 
   if (n>=m_waterfallAvg) {
-    for (int i=0; i<NFFT; i++) {
+    for (int i=0; i<nfft; i++) {
         splot[i] /= n;                           //Normalize the average
     }
 
@@ -471,7 +492,7 @@ void MainWindow::dataSink(int k)
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     int ntr = (ms/1000) % m_TRperiod;
     if((m_diskData && ihsym <= m_waterfallAvg) || (!m_diskData && ntr<ntrz)) {
-      for (int i=0; i<NFFT; i++) {
+      for (int i=0; i<nfft; i++) {
         splot[i] = 1.e30;
       }
     }
@@ -521,6 +542,7 @@ void MainWindow::on_actionSettings_triggered()
   dlg.m_fAdd=m_fAdd;
   dlg.m_network=m_network;
   dlg.m_udpPort=m_udpPort;
+  dlg.m_iqRate=m_iqRate;
   dlg.m_dB=m_dB;
   dlg.m_w3szUrl = m_w3szUrl;  //liveCQ
   dlg.m_otherUrl=m_otherUrl;  //liveCQ
@@ -540,6 +562,12 @@ void MainWindow::on_actionSettings_triggered()
     m_wide_graph_window->setFcal(m_fCal);
     m_network=dlg.m_network;
     m_udpPort=dlg.m_udpPort;
+    if(dlg.m_iqRate != m_iqRate) {
+      m_iqRate=dlg.m_iqRate;
+      if(m_iqRate != qmap_runtime::activeRateHz())
+        QMessageBox::information(this, tr("IQ sample rate"),
+          tr("The IQ sample rate will change to %1 kHz when QMAP is restarted.").arg(m_iqRate/1000));
+    }
     m_dB=dlg.m_dB;
     m_w3szUrl=dlg.m_w3szUrl;
     m_otherUrl=dlg.m_otherUrl;
@@ -549,7 +577,7 @@ void MainWindow::on_actionSettings_triggered()
       soundInThread.quit();
       soundInThread.wait(1000);
       soundInThread.setNetwork(m_network);
-      soundInThread.setRate(96000.0);
+      soundInThread.setRate(double(qmap_runtime::activeRateHz()));
       soundInThread.setNrx(1);
       soundInThread.start(QThread::HighestPriority);
     }
@@ -681,11 +709,18 @@ void MainWindow::createStatusBar()                           //createStatusBar
   lab2->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab2);
 
-  lab3 = new QLabel("");
+  lab3 = new QLabel("");                      // Q65 sub-mode, set by the mode handlers
   lab3->setAlignment(Qt::AlignHCenter);
   lab3->setMinimumSize(QSize(50,10));
   lab3->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab3);
+
+  labRate = new QLabel(QString("%1 kHz IQ").arg(qmap_runtime::activeRateHz()/1000));
+  labRate->setToolTip(tr("IQ sample rate in use. Change it in Setup; it takes effect when QMAP is restarted."));
+  labRate->setAlignment(Qt::AlignHCenter);
+  labRate->setMinimumSize(QSize(70,10));
+  labRate->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  statusBar()->addWidget(labRate);
 
   lab4 = new QLabel("");
   lab4->setAlignment(Qt::AlignHCenter);
@@ -783,15 +818,36 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
     on_stopButton_clicked();
     clearDecodeLabels ();
     m_diskData=true;
-    int dbDgrd=0;
-    int iret=4;
-    if(m_path.indexOf(".iq")>0) {
-      getfile(fname, dbDgrd);
-    } else {
-      read_qm_(fname.toLatin1(), &iret, fname.length());
-    }
+    int iret=loadDiskFile(fname);
     if(iret > 0) diskDat(iret);
   }
+}
+
+// Read an .iq or .qm file into the data buffer.  Returns a positive code for diskDat() on
+// success.  A file recorded at a different IQ sample rate than the one QMAP is running at
+// cannot be decoded: tell the user, and stop any "decode remaining files" loop.
+int MainWindow::loadDiskFile(QString const& fname)
+{
+  int dbDgrd=0;
+  int iret=4;
+  int fileRate=0;
+  if(m_path.indexOf(".iq")>0) {
+    fileRate=iqFileRate(fname);
+    if(fileRate==0 || fileRate==qmap_runtime::activeRateHz()) getfile(fname, dbDgrd);
+  } else {
+    read_qm_(fname.toLatin1(), &iret, fname.length());
+    if(iret==-3) fileRate=qmap_qm_file_rate();   //The header holds the rate of a file that was refused
+  }
+  if(fileRate!=0 && fileRate!=qmap_runtime::activeRateHz()) {
+    m_loopall=false;
+    QString what=tr("%1 kHz").arg(QString::number(fileRate/1000.0,'g',6));   //"192", or "95.2381" if odd
+    QMessageBox::warning(this, tr("IQ sample rate"),
+      tr("%1 was recorded at %2, but QMAP is running at %3 kHz.\n"
+         "Choose that rate under Setup and restart QMAP to decode it.")
+      .arg(QFileInfo(fname).fileName()).arg(what).arg(qmap_runtime::activeRateHz()/1000));
+    return -3;
+  }
+  return iret;
 }
 
 void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
@@ -819,13 +875,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
       }
       clearDecodeLabels ();
       m_diskData=true;
-      int dbDgrd=0;
-      int iret=4;
-      if(m_path.indexOf(".iq")>0) {
-        getfile(fname, dbDgrd);
-      } else {
-        read_qm_(fname.toLatin1(), &iret, fname.length());
-      }
+      int iret=loadDiskFile(fname);
       if(iret > 0) diskDat(iret);
       return;
     }
@@ -850,10 +900,10 @@ void MainWindow::diskDat(int iret)                                   //diskDat()
   datcom_.newdat=1;
   m_nTx30a=datcom_.ntx30a;
   m_nTx30b=datcom_.ntx30b;
-  hsym=0.15*96000.0;                   //Samples per Q65-30x half-symbol or Q65-60x quarter-symbol
+  hsym=0.15*qmap_runtime::activeRateHz();   //Samples per Q65-30x half-symbol or Q65-60x quarter-symbol
   for(int i=ia; i<ib; i++) {           // Do the half-symbol FFTs
     int k = i*hsym + 0.5;
-    if(k > 60*96000) break;
+    if(k > qmap_runtime::activeNsmax()) break;
     dataSink(k);
     qApp->processEvents();             // Allow the waterfall to update
     while(m_decoderBusy) {
@@ -1028,7 +1078,7 @@ void MainWindow::decode()                                       //decode()
   datcom_.nfshift=nfshift;
   datcom_.ntol=m_tol;
   m_nutc0=datcom_.nutc;
-  datcom_.nfsample=96000;
+  datcom_.nfsample=qmap_runtime::activeRateHz();
   datcom_.nBaseSubmode=m_modeQ65;
   datcom_.max_drift=ui->sbMaxDrift->value();
   datcom_.offset=ui->sbOffset->value();
@@ -1060,9 +1110,7 @@ void MainWindow::decode()                                       //decode()
   datcom_.ndop00=m_dop00;
   datcom_.ndop58=m_dop58;
 
-  char *to = (char*) datcom2_.d4;
-  char *from = (char*) datcom_.d4;
-  memcpy(to, from, sizeof(datcom_));    //Copy the full datcom_ common block into datcom2_
+  copyDatcomToDatcom2();                //Snapshot the in-use part of the datcom_ common block into datcom2_
 
   datcom_.ndiskdat=0;
 
