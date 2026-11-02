@@ -319,7 +319,7 @@ jobs:
     needs: resolve-image
     if: inputs.arch == 'x86_64'
     runs-on: ubuntu-24.04
-    timeout-minutes: 65
+    timeout-minutes: 90
     container:
       image: ${{ needs.resolve-image.outputs.image_reference }}
       options: --shm-size=1g
