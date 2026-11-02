@@ -536,9 +536,10 @@
  *
  *      The server may send this message  to request that the client
  *      enables transmission. This is equivalent to the user checking
- *      the "Enable  Tx" button  in  the WSJT-X  main window. If  Tx is
- *      already enabled this message has no effect. To disable Tx use
- *      the "Halt Tx" message with "Auto Tx Only" set to true.
+ *      the "Enable  Tx" button  in  the WSJT-X  main window, including
+ *      resetting the Tx watchdog before enabling. If Tx is already
+ *      enabled this message has no effect. To disable Tx use the "Halt
+ *      Tx" message with "Auto Tx Only" set to true.
  *
  *
  * Start DX Tx    In       18                     quint32

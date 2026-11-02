@@ -86,6 +86,7 @@
 #include "models/StationList.hpp"
 #include "validators/LiveFrequencyValidator.hpp"
 #include "Network/MessageClient.hpp"
+#include "Network/EnableTx.hpp"
 #include "Network/StartDxTx.hpp"
 #include "Network/FoxVerifier.hpp"
 #include "Network/wsprnet.h"
@@ -690,9 +691,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
     });
   connect (m_messageClient, &MessageClient::enable_tx, [this] () {
-      if (!ui->autoButton->isChecked ()) {
-        ui->autoButton->click();
-      }
+      EnableTx::execute (*ui->autoButton, [this] {tx_watchdog (false);});
     });
   connect (m_messageClient, &MessageClient::start_dx_tx, this, &MainWindow::remote_start_dx_tx);
   connect (m_messageClient, &MessageClient::error, this, &MainWindow::networkError);

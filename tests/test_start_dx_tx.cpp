@@ -8,6 +8,7 @@
 
 #include "Network/NetworkMessage.hpp"
 #include "Network/MessageClient.hpp"
+#include "Network/EnableTx.hpp"
 #include "Network/StartDxTx.hpp"
 
 namespace
@@ -15,6 +16,40 @@ namespace
   quint32 constexpr quint32_max {std::numeric_limits<quint32>::max ()};
 
   QStringList const accepted_calls {"snapshot", "cancel", "select", "snapshot", "enable", "selected", "snapshot"};
+
+  class MockEnableTxButton
+  {
+  public:
+    bool checked {false};
+    bool watchdog_triggered {false};
+    int idle_minutes {0};
+    int watchdog_limit {10};
+    QStringList calls;
+
+    bool isChecked () const {return checked;}
+
+    void click ()
+    {
+      calls << "click";
+      checked = !checked;
+    }
+
+    void reset_watchdog ()
+    {
+      calls << "reset";
+      watchdog_triggered = false;
+      idle_minutes = 0;
+    }
+
+    void gui_update ()
+    {
+      if (idle_minutes >= watchdog_limit)
+        {
+          watchdog_triggered = true;
+          checked = false;
+        }
+    }
+  };
 
   // records every call so that tests can verify ordering and that Tx
   // is never enabled on a rejected request
@@ -541,11 +576,46 @@ private:
   {
     QSignalSpy start_spy {client_.data (), &MessageClient::start_dx_tx};
     QSignalSpy enable_spy {client_.data (), &MessageClient::enable_tx};
+    MockEnableTxButton button;
+    button.watchdog_triggered = true;
+    button.idle_minutes = button.watchdog_limit;
+    QObject connection_context;
+    connect (client_.data (), &MessageClient::enable_tx, &connection_context, [&button] {
+        EnableTx::execute (button, [&button] {button.reset_watchdog ();});
+      });
     QByteArray message;
     NetworkMessage::Builder out {&message, NetworkMessage::EnableTx, "TEST-ID", NetworkMessage::Builder::schema_number};
     send (message);
     QVERIFY (enable_spy.wait (2000));
     QCOMPARE (start_spy.count (), 0);
+    QCOMPARE (button.calls, (QStringList {"reset", "click"}));
+    QVERIFY (!button.watchdog_triggered);
+    QCOMPARE (button.idle_minutes, 0);
+    button.gui_update ();
+    QVERIFY (button.checked);
+  }
+
+  Q_SLOT void legacy_enable_tx_resets_watchdog_before_timeout ()
+  {
+    MockEnableTxButton button;
+    button.idle_minutes = button.watchdog_limit - 1;
+    EnableTx::execute (button, [&button] {button.reset_watchdog ();});
+    QCOMPARE (button.calls, (QStringList {"reset", "click"}));
+    QCOMPARE (button.idle_minutes, 0);
+    QVERIFY (button.checked);
+  }
+
+  Q_SLOT void legacy_enable_tx_is_noop_when_already_enabled ()
+  {
+    MockEnableTxButton button;
+    button.checked = true;
+    button.watchdog_triggered = true;
+    button.idle_minutes = button.watchdog_limit;
+    EnableTx::execute (button, [&button] {button.reset_watchdog ();});
+    QVERIFY (button.calls.isEmpty ());
+    QVERIFY (button.checked);
+    QVERIFY (button.watchdog_triggered);
+    QCOMPARE (button.idle_minutes, button.watchdog_limit);
   }
 
   Q_SLOT void client_ignores_other_ids ()
