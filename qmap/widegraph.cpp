@@ -3,6 +3,7 @@
 #include <QMessageBox>
 #include "SettingsGroup.hpp"
 #include "ui_widegraph.h"
+#include "spectrum_columns.h"
 
 
 WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
@@ -88,7 +89,6 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
   static float splot[qmap_runtime::MAX_NFFT];
   const int nfft=qmap_runtime::activeNfft();
   float swide[2048];
-  float smax;
   double df;
   int nbpp = ui->widePlot->binsPerPixel();
   static int n=0;
@@ -125,17 +125,9 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
     qint64 sf = nkhz - 0.5*w*nbpp*df/1000.0;
     if(sf != ui->widePlot->startFreq()) ui->widePlot->SetStartFreq(sf);
     int i0=nfft/2+(ui->widePlot->startFreq()-nkhz+0.001*m_fCal) * 1000.0/df + 0.5;
-    int i=i0;
-    for (int j=0; j<2048; j++) {
-        smax=0;
-        for (int k=0; k<nbpp; k++) {
-            i++;
-            if(splot[i]>smax) smax=splot[i];
-        }
-        swide[j]=smax;
-        //lstrong has 1024 entries spanning the whole sampled bandwidth (32 bins each at 96 kHz)
-        if(lstrong[1 + i*1024LL/nfft]!=0) swide[j]=-smax;   //Tag strong signals
-    }
+    //Only the visible columns are needed, and the span may reach past the sampled band
+    //lstrong has 1024 entries spanning the whole sampled bandwidth (32 bins each at 96 kHz)
+    qmap_runtime::reduceToColumns(splot, nfft, i0, nbpp, qMin(w,2048), lstrong, swide, 2048);
 
 // Time according to this computer
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;

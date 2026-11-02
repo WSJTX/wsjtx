@@ -1,9 +1,11 @@
 #include <QtTest>
+#include <vector>
 
 #include <QTemporaryDir>
 
 #include "qmap/getfile.h"
 #include "qmap/qmap_runtime_config.h"
+#include "qmap/spectrum_columns.h"
 
 class TestQMapSampleRates final : public QObject
 {
@@ -19,6 +21,8 @@ private slots:
   void bringsASavedSpanWithinTheRateLimit();
   void deducesFileRateFromSize_data();
   void deducesFileRateFromSize();
+  void columnsStayInsideTheSpectrum();
+  void columnsTagStrongSignals();
 };
 
 void TestQMapSampleRates::acceptsOnlyTheSelectableRates_data()
@@ -125,6 +129,49 @@ void TestQMapSampleRates::deducesFileRateFromSize()
   QVERIFY (f.resize (size));            // sparse: the content does not matter
   f.close ();
   QCOMPARE (iqFileRate (name), rate);
+}
+
+void TestQMapSampleRates::columnsStayInsideTheSpectrum()
+{
+  // 256 kHz, 240 kHz span across 1000 columns: 123 bins per column, so the old fixed 2048 columns
+  // would read ~252k bins from the 131072-bin spectrum.  Sentinels around the arrays catch any read
+  // outside them.
+  int const nfft = 131072, nbpp = 123, cols = 1000;
+  float const sentinel = 777.f;
+  std::vector<float> buf (nfft + 2 * 4096, sentinel);
+  float * splot = buf.data () + 4096;
+  for (int i = 0; i < nfft; ++i) splot[i] = 1.f;
+  std::vector<unsigned char> strong (1024 + 8, 1);       // bytes past entry 1023 are tagged strong
+  std::fill (strong.begin (), strong.begin () + 1024, 0);
+
+  for (int i0 : {nfft / 2 - cols * nbpp / 2, -50000, nfft - 1000, nfft + 5000}) {
+    float swide[2048];
+    qmap_runtime::reduceToColumns (splot, nfft, i0, nbpp, cols, strong.data (), swide, 2048);
+    for (int j = 0; j < 2048; ++j) {
+      QVERIFY2 (swide[j] != sentinel && swide[j] != -sentinel, "read outside the spectrum");
+      QVERIFY2 (swide[j] >= 0.f, "tagged from beyond lstrong");
+      if (j >= cols) QCOMPARE (swide[j], 0.f);
+    }
+  }
+  float swide[2048];
+  qmap_runtime::reduceToColumns (splot, nfft, nfft / 2 - cols * nbpp / 2, nbpp, cols,
+                                 strong.data (), swide, 2048);
+  QCOMPARE (swide[0], 1.f);
+  QCOMPARE (swide[cols - 1], 1.f);
+}
+
+void TestQMapSampleRates::columnsTagStrongSignals()
+{
+  int const nfft = 32768;
+  std::vector<float> splot (nfft, 2.f);
+  std::vector<unsigned char> strong (1024, 0);
+  strong[1 + 16000 / 32] = 1;
+  float swide[16];
+  qmap_runtime::reduceToColumns (splot.data (), nfft, 15990, 10, 6, strong.data (), swide, 16);
+  // the column ends at bin 16000 -> entry 501, as do the next three (32 bins per entry)
+  for (int j = 0; j < 4; ++j) QCOMPARE (swide[j], -2.f);
+  QCOMPARE (swide[4], 2.f);
+  QCOMPARE (swide[5], 2.f);
 }
 
 QTEST_GUILESS_MAIN (TestQMapSampleRates)
