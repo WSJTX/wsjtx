@@ -1,4 +1,5 @@
 #include <memory>
+#include <vector>
 
 #include <QtTest>
 #include <QApplication>
@@ -23,6 +24,7 @@ private slots:
   void sizesHiddenPlotter();
   void appliesANewSpanAtOnce();
   void remembersASpanGivenBeforeSizing();
+  void wideningTheSpanLeavesNoStaleTraces();
   void scalesAtTheActiveRateWithoutSetFsample();
   void setFsampleRefreshesTheScaling();
   void ignoresOutOfSpanAndControlClicks();
@@ -74,6 +76,32 @@ void TestPlotterInitialization::remembersASpanGivenBeforeSizing()
   plotter->ensureSized (1000, 280);
   QCOMPARE (plotter->plotWidth (), 1000);
   QVERIFY (plotter->m_fSpan > 42.f && plotter->m_fSpan < 46.f);
+}
+
+void TestPlotterInitialization::wideningTheSpanLeavesNoStaleTraces()
+{
+  auto const plotter = std::make_unique<CPlotter> ();
+  plotter->setPalette ("Linrad");
+  plotter->ensureSized (1000, 280);
+  plotter->show ();
+  QCoreApplication::processEvents ();
+  plotter->applySpan (30);
+
+  // A few rows of strong signal across the whole narrow span
+  std::vector<float> s (1000, 1.e3f), splot (qmap_runtime::activeNfft (), 1.e3f);
+  for (int row = 0; row < 5; ++row) plotter->draw (s.data (), 0, splot.data ());
+
+  plotter->applySpan (90);                          // three times wider: the old rows cover the middle third
+  QCoreApplication::processEvents ();
+  QImage image (plotter->size (), QImage::Format_ARGB32);
+  image.fill (Qt::transparent);
+  plotter->render (&image);
+
+  auto lit = [&] (int x, int y) { return image.pixelColor (x, y).red () + image.pixelColor (x, y).green () > 40; };
+  int const y = 30 + 2;                             // third waterfall row (the waterfall starts below the 30 px scale)
+  QVERIFY2 (lit (500, y), "the captured middle should show the signal");
+  QVERIFY2 (!lit (20, y), "left of the captured range should be empty");
+  QVERIFY2 (!lit (980, y), "right of the captured range should be empty");
 }
 
 void TestPlotterInitialization::scalesAtTheActiveRateWithoutSetFsample()

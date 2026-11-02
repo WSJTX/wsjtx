@@ -316,6 +316,8 @@ void CPlotter::rebuildWideFromHistory()
   double gain = pow(10.0,0.05*(m_plotGain+7));
   double newDf = m_fSpan/w;         // kHz per pixel, current width
 
+  // Pixels whose frequency a stored row did not capture must not keep what an earlier scale drew
+  m_WaterfallPixmap.fill(Qt::black);
   QPainter painter(&m_WaterfallPixmap);
   int rows = qMin(h, m_wideHistory.size());
   for (int y=0; y<rows; y++) {
