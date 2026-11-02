@@ -574,6 +574,7 @@ void MainWindow::clearDecodeLabels ()
 {
   if (m_wide_graph_window) m_wide_graph_window->clearDecodeLabels ();
   if (m_vert_waterfall_window) m_vert_waterfall_window->clearDecodeLabels ();
+  ui->decodedTextBrowser->clearDecodeLines ();
 }
 
 void MainWindow::on_stopButton_clicked()                      //stopButton
@@ -1110,6 +1111,7 @@ void MainWindow::decode()                                       //decode()
 void MainWindow::on_EraseButton_clicked()
 {
   ui->decodedTextBrowser->clear();
+  ui->decodedTextBrowser->clearDecodeLines();
   lab4->clear();
   m_nline=0;
 }
@@ -1243,6 +1245,7 @@ void MainWindow::guiUpdate()
   if (!m_diskData) {
     m_wide_graph_window->pruneDecodeLabels(nsec);
     if (m_vert_waterfall_window) m_vert_waterfall_window->pruneDecodeLabels(nsec);
+    ui->decodedTextBrowser->pruneDecodeLines(nsec);
   }
 
   if(m_startAnother and !m_bDiskDatBusy) {
