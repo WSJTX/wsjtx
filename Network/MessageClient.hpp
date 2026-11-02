@@ -85,6 +85,10 @@ public:
   // of record marker
   Q_SLOT void logged_ADIF (QByteArray const& ADIF_record);
 
+  // reply to a start_dx_tx request
+  Q_SLOT void start_dx_tx_result (quint32 request_id, bool accepted, QString const& reason
+                                  , QString const& tx_message);
+
   // this signal is emitted if the server has requested a decode
   // window clear action
   Q_SIGNAL void clear_decodes (quint8 window);
@@ -109,6 +113,14 @@ public:
   // this signal is emitted if the server has requested that
   // transmission be enabled (equivalent to checking "Enable Tx")
   Q_SIGNAL void enable_tx ();
+
+  // this signal is emitted if the server has requested that the
+  // initial message to the specified DX station be selected and Tx
+  // enabled atomically, the receiver must reply with
+  // start_dx_tx_result
+  Q_SIGNAL void start_dx_tx (quint32 request_id, QString const& de_call, quint64 dial_frequency
+                             , QString const& dx_call, QString const& dx_grid
+                             , QString const& mode, QString const& submode, quint32 tr_period);
 
   // this signal is emitted if the server has requested a new free
   // message text

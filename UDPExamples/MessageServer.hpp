@@ -70,6 +70,13 @@ public:
   // ask the client with identification 'id' to enable Tx
   Q_SLOT void enable_tx (ClientKey const&);
 
+  // ask the client to atomically select Tx1 to the DX station and
+  // enable Tx, the arguments must match the client's latest status
+  Q_SLOT void start_dx_tx (ClientKey const&, quint32 request_id, QString const& de_call
+                           , Frequency dial_frequency, QString const& dx_call
+                           , QString const& dx_grid, QString const& mode, QString const& submode
+                           , quint32 tr_period);
+
   // ask the client to set the free text message and optionally send
   // it ASAP
   Q_SLOT void free_text (ClientKey const&, QString const& text, bool send);
@@ -117,6 +124,8 @@ public:
                             , QString const& satellite, QString const& sat_mode, QString const& freqRx);
   Q_SIGNAL void decodes_cleared (ClientKey const&);
   Q_SIGNAL void logged_ADIF (ClientKey const&, QByteArray const& ADIF);
+  Q_SIGNAL void start_dx_tx_result (ClientKey const&, quint32 request_id, bool accepted
+                                    , QString const& reason, QString const& tx_message);
 
   // this signal is emitted when a network error occurs
   Q_SIGNAL void error (QString const&) const;

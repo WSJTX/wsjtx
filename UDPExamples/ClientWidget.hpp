@@ -61,12 +61,18 @@ public:
                                  , QString const& callsign, QString const& grid, qint32 power
                                  , bool off_air);
   Q_SLOT void decodes_cleared (ClientKey const& key);
+  Q_SLOT void start_dx_tx_result (ClientKey const& key, quint32 request_id, bool accepted
+                                  , QString const& reason, QString const& tx_message);
 
   Q_SIGNAL void do_clear_decodes (ClientKey const& key, quint8 window = 0);
   Q_SIGNAL void do_close (ClientKey const& key);
   Q_SIGNAL void do_reply (QModelIndex const&, quint8 modifier);
   Q_SIGNAL void do_halt_tx (ClientKey const& key, bool auto_only);
   Q_SIGNAL void do_enable_tx (ClientKey const& key);
+  Q_SIGNAL void do_start_dx_tx (ClientKey const& key, quint32 request_id, QString const& de_call
+                                , Frequency dial_frequency, QString const& dx_call
+                                , QString const& dx_grid, QString const& mode, QString const& submode
+                                , quint32 tr_period);
   Q_SIGNAL void do_free_text (ClientKey const& key, QString const& text, bool);
   Q_SIGNAL void location (ClientKey const& key, QString const& text);
   Q_SIGNAL void highlight_callsign (ClientKey const& key, QString const& call
@@ -116,6 +122,15 @@ private:
   QAbstractButton * enable_tx_button_;
   QAbstractButton * auto_off_button_;
   QAbstractButton * halt_tx_button_;
+  QAbstractButton * start_dx_tx_button_;
+  quint32 next_start_dx_tx_request_id_;
+  quint32 status_tr_period_;
+  Frequency status_dial_frequency_;
+  QString status_de_call_;
+  QString status_dx_call_;
+  QString status_dx_grid_;
+  QString status_mode_;
+  QString status_submode_;
   QLabel * de_label_;
   QLabel * frequency_label_;
   QLabel * tx_df_label_;

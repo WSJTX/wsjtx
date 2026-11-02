@@ -86,6 +86,7 @@
 #include "models/StationList.hpp"
 #include "validators/LiveFrequencyValidator.hpp"
 #include "Network/MessageClient.hpp"
+#include "Network/StartDxTx.hpp"
 #include "Network/FoxVerifier.hpp"
 #include "Network/wsprnet.h"
 #include "signalmeter.h"
@@ -693,6 +694,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         ui->autoButton->click();
       }
     });
+  connect (m_messageClient, &MessageClient::start_dx_tx, this, &MainWindow::remote_start_dx_tx);
   connect (m_messageClient, &MessageClient::error, this, &MainWindow::networkError);
   connect (m_messageClient, &MessageClient::free_text, [this] (QString const& text, bool send) {
       tx_watchdog (false);
@@ -8664,9 +8666,19 @@ void MainWindow::on_txrb1_toggled (bool status)
       set_dateTimeQSO (-1); // we reset here as tx2/tx3 is used for start times
     }
     else {
-      QTimer::singleShot (0, ui->txrb2, SLOT (click ()));
+      defer_tx_selection (ui->txrb2, 0);
     }
   }
+}
+
+// a deferred selection is dropped if an atomic selection (see
+// remote_start_dx_tx) happens before it runs
+void MainWindow::defer_tx_selection (QAbstractButton * button, int delay_ms)
+{
+  auto token = m_deferred_tx_selection.token ();
+  QTimer::singleShot (delay_ms, button, [this, button, token] {
+      if (m_deferred_tx_selection.is_current (token)) button->click ();
+    });
 }
 
 bool MainWindow::elide_tx1_not_allowed () const
@@ -8684,7 +8696,7 @@ void MainWindow::on_txrb1_doubleClicked ()
   ui->tx1->setEnabled (elide_tx1_not_allowed () || !ui->tx1->isEnabled ());
   if (!ui->tx1->isEnabled ()) {
     // leave time for clicks to complete before setting txrb2
-    QTimer::singleShot (500, ui->txrb2, SLOT (click ()));
+    defer_tx_selection (ui->txrb2, 500);
   }
 }
 
@@ -10510,9 +10522,9 @@ void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
   genStdMsgs(m_rpt);
   if (!m_bDoubleClicked && m_hisCall!="") {
       if (ui->tx1->isEnabled ()) {
-          QTimer::singleShot (0, ui->txrb1, SLOT (click ()));   // Go to Tx1
+          defer_tx_selection (ui->txrb1, 0);   // Go to Tx1
       } else {
-          QTimer::singleShot (0, ui->txrb2, SLOT (click ()));   // Go to Tx2 if Tx1 is disabled
+          defer_tx_selection (ui->txrb2, 0);   // Go to Tx2 if Tx1 is disabled
       }
       m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
       m_bHisCallStd=stdCall(m_hisCall); //ft8md
@@ -13970,16 +13982,11 @@ void MainWindow::statusUpdate () const
     {
       ftol = quint32_max;
     }
-  auto tr_period = ui->sbTR->value ();
+  auto tr_period = status_tr_period ();
   auto rx_frequency = ui->RxFreqSpinBox->value ();
   if ("FST4W" == m_mode)
     {
-      tr_period = ui->sbTR_FST4W->value ();
       rx_frequency = ui->sbFST4W_RxFreq->value ();
-    }
-  else if (!(ui->sbTR->isVisible () && ui->sbTR->isEnabled ()))
-    {
-      tr_period = quint32_max;
     }
   m_messageClient->status_update (m_freqNominal, m_mode, m_hisCall,
                                   QString::number (ui->rptSpinBox->value ()),
@@ -13992,6 +13999,19 @@ void MainWindow::statusUpdate () const
                                   static_cast<quint8> (m_specOp),
                                   ftol, tr_period, m_multi_settings->configuration_name (),
                                   m_currentMessage);
+}
+
+quint32 MainWindow::status_tr_period () const
+{
+  if ("FST4W" == m_mode)
+    {
+      return ui->sbTR_FST4W->value ();
+    }
+  if (!(ui->sbTR->isVisible () && ui->sbTR->isEnabled ()))
+    {
+      return quint32_max;
+    }
+  return ui->sbTR->value ();
 }
 
 void MainWindow::childEvent (QChildEvent * e)
@@ -15458,6 +15478,102 @@ void MainWindow::remote_configure (QString const& mode, quint32 frequency_tolera
     }
   tx_watchdog (false);
   QApplication::alert (this);
+}
+
+void MainWindow::remote_start_dx_tx (quint32 request_id, QString const& de_call, quint64 dial_frequency
+                                     , QString const& dx_call, QString const& dx_grid
+                                     , QString const& mode, QString const& submode, quint32 tr_period)
+{
+  // adapts this window to the StartDxTx logic, every action is
+  // synchronous so no other event can intervene between validation,
+  // message selection and enabling Tx
+  class Target final
+    : public StartDxTx::Target
+  {
+  public:
+    explicit Target (MainWindow * w) : w_ {w} {}
+
+    StartDxTx::Snapshot snapshot () const override
+    {
+      StartDxTx::Snapshot s;
+      s.de_call = w_->m_config.my_callsign ();
+      s.dial_frequency = w_->m_freqNominal;
+      s.dx_call = w_->m_hisCall;
+      s.dx_grid = w_->m_hisGrid;
+      s.mode = w_->m_mode;
+      auto sub = w_->current_submode ();
+      if (sub != QChar::Null) s.submode = QString {sub};
+      s.tr_period = w_->status_tr_period ();
+      s.transmitting = w_->m_transmitting;
+      s.tx_enabled = w_->m_auto || w_->ui->autoButton->isChecked ();
+      s.tuning = w_->m_tune || w_->ui->tuneButton->isChecked ();
+      s.watchdog_timeout = w_->m_tx_watchdog;
+      s.special_operation_supported = SpecOp::FOX != w_->m_specOp && SpecOp::HOUND != w_->m_specOp;
+      return s;
+    }
+
+    void cancel_deferred_selections () override
+    {
+      w_->m_deferred_tx_selection.invalidate ();
+    }
+
+    bool select_initial_message (QString * tx_message) override
+    {
+      auto const& ui = w_->ui;
+      if (ui->dxCallEntry->text () != w_->m_hisCall) return false;
+      ui->pbBandHopping->setChecked (false);
+      w_->genStdMsgs (w_->m_rpt);
+      auto const& text = ui->tx1->text ();
+      if (!ui->tx1->isEnabled () || !ui->txrb1->isEnabled () || text.trimmed ().isEmpty ()) return false;
+      ui->txrb1->setChecked (true);
+      w_->m_ntx = 1;
+      w_->m_QSOProgress = REPLYING;
+      w_->set_dateTimeQSO (-1);
+      w_->m_bMyCallStd = w_->stdCall (w_->m_config.my_callsign ());
+      w_->m_bHisCallStd = w_->stdCall (w_->m_hisCall);
+      if (!ui->txrb1->isChecked () || 1 != w_->m_ntx) return false;
+      *tx_message = text;
+      return true;
+    }
+
+    int selected_message (QString * tx_message) const override
+    {
+      auto const& ui = w_->ui;
+      QLineEdit const * edits[] {ui->tx1, ui->tx2, ui->tx3, ui->tx4, ui->tx5->lineEdit (), ui->tx6};
+      QRadioButton const * buttons[] {ui->txrb1, ui->txrb2, ui->txrb3, ui->txrb4, ui->txrb5, ui->txrb6};
+      if (w_->m_ntx < 1 || w_->m_ntx > 6 || !buttons[w_->m_ntx - 1]->isChecked ()) return 0;
+      *tx_message = edits[w_->m_ntx - 1]->text ();
+      return w_->m_ntx;
+    }
+
+    bool enable_tx () override
+    {
+      auto const& ui = w_->ui;
+      if (!ui->autoButton->isChecked ()) ui->autoButton->click ();
+      return ui->autoButton->isChecked () && w_->m_auto;
+    }
+
+    void disable_tx () override
+    {
+      if (w_->ui->autoButton->isChecked () || w_->m_auto) w_->auto_tx_mode (false);
+    }
+
+  private:
+    MainWindow * w_;
+  } target {this};
+
+  StartDxTx::Request request;
+  request.request_id = request_id;
+  request.de_call = de_call;
+  request.dial_frequency = dial_frequency;
+  request.dx_call = dx_call;
+  request.dx_grid = dx_grid;
+  request.mode = mode;
+  request.submode = submode;
+  request.tr_period = tr_period;
+  auto result = StartDxTx::execute (request, target);
+  m_messageClient->start_dx_tx_result (request_id, result.accepted, result.reason, result.tx_message);
+  statusUpdate ();
 }
 
 QString MainWindow::WSPR_message()
