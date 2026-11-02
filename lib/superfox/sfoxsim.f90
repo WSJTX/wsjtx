@@ -94,7 +94,6 @@ program sfoxsim
 
 2 idum=-1
   rms=100.
-  baud=fsample/nsps                 !Keying rate, 11.719 baud for nsps=1024
   bandwidth_ratio=2500.0/fsample
   do i=1,5
      cmsg(i)=cmsg(i)(1:19)//trim(foxcall)//cmsg(i)(24:28)

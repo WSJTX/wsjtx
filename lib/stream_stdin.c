@@ -17,6 +17,11 @@
  * FIFO could not hold what was read (out of memory). Without a thread it
  * reads fd 0 itself, as a single-threaded caller would.
  *
+ * With the stream's decode thread (lib/stream_decode.c), a caller about to
+ * block marks itself blocked under that thread's queue lock and wakes it
+ * (lock order: the queue lock, then this one), and the time it waits counts
+ * toward stream_stdin_waited only while the decode thread is idle.
+ *
  * The first stream_stdin_read_fully starts the thread. Windows: binary
  * mode must be forced on fd 0 before that (stream_set_stdin_binary in
  * lib/stream_setmode.c, called from jt9_stream's setup), or the CRT stops
@@ -24,6 +29,7 @@
  * _read. Nothing here is freed or destroyed: at exit the reader may still
  * be parked in read(). Called via bind(C) from Fortran.
  */
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +65,20 @@ static int ended, failed, threaded;
 /* Seconds stream_stdin_read_fully spent waiting for input since stream_stdin_waited last asked. */
 static double waited;
 static double consumed_arrival = -1.0;
+/* The decode thread's queue lock and its wakeup, while it runs. */
+static void (*decode_lock) (void), (*decode_unlock) (void), (*decode_wake) (void);
+/* The caller waits for input in stream_stdin_read_fully (since wait_start);
+ * the decode thread is working, or idle since idle_since; idle_waited: the
+ * caller's idle wait before the decode thread last started working. */
+static int blocked, working;
+static double wait_start, idle_since = -HUGE_VAL, idle_waited;
+
+/* The caller's wait, from wait_start to t, while the decode thread has been idle. */
+static double idle_wait (double t)
+{
+  if (working) return 0;
+  return t - (wait_start > idle_since ? wait_start : idle_since);
+}
 
 double stream_stdin_now(void)
 {
@@ -148,10 +168,23 @@ int64_t stream_stdin_read_fully(void *buf, int64_t n)
   }
   pthread_mutex_lock(&lock);
   while (total < n) {
+    if (!head && !ended && decode_lock) {
+      pthread_mutex_unlock(&lock);
+      decode_lock();
+      pthread_mutex_lock(&lock);
+      if (!head && !ended) {
+        blocked = 1;
+        decode_wake();
+      }
+      decode_unlock();
+    }
     if (!head && !ended) {
-      double start = stream_stdin_now();
+      blocked = 1;
+      wait_start = stream_stdin_now();
+      idle_waited = 0;
       while (!head && !ended) pthread_cond_wait(&readable, &lock);
-      waited += stream_stdin_now() - start;
+      blocked = 0;
+      waited += idle_waited + idle_wait(stream_stdin_now());
     }
     if (!head) {
       if (failed) total = -1;
@@ -205,4 +238,37 @@ int64_t stream_stdin_buffered_before(double t)
     n += chunk->size - chunk->used;
   pthread_mutex_unlock(&lock);
   return n;
+}
+
+/* Whether a reader thread drains fd 0. */
+int stream_stdin_threaded(void)
+{
+  return threaded;
+}
+
+void stream_stdin_set_decode(void (*lock_queue)(void), void (*unlock_queue)(void), void (*wake)(void))
+{
+  decode_lock = lock_queue;
+  decode_unlock = unlock_queue;
+  decode_wake = wake;
+}
+
+/* The decode thread starts working (an operation queued, or a drain) or goes idle. */
+void stream_stdin_set_working(int now_working)
+{
+  pthread_mutex_lock(&lock);
+  double t = stream_stdin_now();
+  if (now_working && blocked) idle_waited += idle_wait(t);
+  if (!now_working && working) idle_since = t;
+  working = now_working;
+  pthread_mutex_unlock(&lock);
+}
+
+/* Whether the caller is blocked for input with nothing buffered that arrived before t. */
+int stream_stdin_blocked_before(double t)
+{
+  pthread_mutex_lock(&lock);
+  int none = blocked && !(head && head->arrival < t);
+  pthread_mutex_unlock(&lock);
+  return none;
 }

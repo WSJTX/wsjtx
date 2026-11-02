@@ -22,6 +22,7 @@ program jt9
   use jt9_wav_policy, only: WAV_BLOCK_SAMPLES, wav_read_plan, wav_decode_pass, wav_pass_plan, &
        plan_wav_read, plan_wav_passes
   use msk144_file, only: msk144_file_options, decode_msk144_file
+  use fftw_wisdom, only: save_wisdom
 
   include 'jt9com.f90'
 
@@ -522,8 +523,16 @@ program jt9
 ! Output decoder statistics
   call fini_timer ()
 
-! Save FFTW wisdom and free memory
-  if(len(trim(wisfile)).gt.0) iret=fftwf_export_wisdom_to_filename(wisfile)
+! Save FFTW wisdom (jt9, the GUI's worker, in place) and free memory
+  if(len(trim(wisfile)).gt.0) then
+     if(.not.jt9_stream_available()) then
+        iret=fftwf_export_wisdom_to_filename(wisfile)
+     else if(.not.save_wisdom(wisfile)) then
+        write(error_unit,'(4a)') trim(program_name),                         &
+             ': could not save the FFTW wisdom to ',trim(data_dir),          &
+             '/jt9_wisdom.dat; the old file stays'
+     endif
+  endif
   if (allocated(wav_samples)) then
      use_mtd_fft_plans=mode.eq.8 .and. multift8
   else if (allocated(shared_data)) then

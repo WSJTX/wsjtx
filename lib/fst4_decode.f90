@@ -147,11 +147,14 @@ contains
    end subroutine
 
    subroutine clear_fft_plans(this)
+     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
       class(fst4_decoder), intent(inout) :: this
       !$omp critical(fftw)
+      call wsjt_tsan_acquire_fftw()
       if(c_associated(this%big_plan)) call fftwf_destroy_plan(this%big_plan)
       if(c_associated(this%baseband_plan)) call fftwf_destroy_plan(this%baseband_plan)
       if(c_associated(this%dop_plan)) call fftwf_destroy_plan(this%dop_plan)
+      call wsjt_tsan_release_fftw()
       !$omp end critical(fftw)
       this%big_plan=c_null_ptr
       this%baseband_plan=c_null_ptr
@@ -264,6 +267,7 @@ contains
    subroutine decode_kernel(this,callback,iwave,nutc,nQSOProgress,nfa,nfb,nfqso, &
       ndepth,ntrperiod,blanker_percent,blanker_step,single_decode,ntol,emedelay,lapcqonly,mycall, &
       hiscall,iwspr,status)
+     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
       use timer_module, only: timer
       use packjt77
@@ -446,14 +450,18 @@ contains
       call c_f_pointer(this%big_storage,fft_input,[nfft1+2])
       if(this%fft_length/=nfft1.or..not.c_associated(this%big_plan)) then
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          if(c_associated(this%big_plan)) call fftwf_destroy_plan(this%big_plan)
          this%big_plan=fftwf_plan_dft_r2c_1d(nfft1,fft_input,this%big,this%fft_flags)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%fft_length=nfft1
       endif
       if(this%down_length/=nfft2.or..not.c_associated(this%baseband_plan)) then
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          if(c_associated(this%baseband_plan)) call fftwf_destroy_plan(this%baseband_plan)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%baseband_plan=c_null_ptr
          if(associated(this%baseband)) then
@@ -464,7 +472,9 @@ contains
          endif
          if(.not.associated(this%baseband)) allocate(this%baseband(0:nfft2-1))
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          this%baseband_plan=fftwf_plan_dft_1d(nfft2,this%baseband,this%baseband,FFTW_BACKWARD,this%fft_flags)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%down_length=nfft2
       endif
@@ -1209,6 +1219,7 @@ contains
    end subroutine fst4_sync_search
 
    subroutine dopspread(this,itone,iwave,nsps,nmax,ndown,hmod,i0,fc,fmid,w50,status)
+     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
 ! On "plotspec" special request, compute Doppler spread for a decoded signal
 
@@ -1231,8 +1242,10 @@ contains
       if(status/=0) return
       if(this%dop_length/=nfft.or..not.c_associated(this%dop_plan)) then
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          if(c_associated(this%dop_plan)) call fftwf_destroy_plan(this%dop_plan)
          this%dop_plan=fftwf_plan_dft_1d(nfft,this%dopgain,this%dopgain,FFTW_FORWARD,this%fft_flags)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%dop_length=nfft
       endif

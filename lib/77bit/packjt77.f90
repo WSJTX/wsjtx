@@ -1499,17 +1499,14 @@ subroutine mp_short_init
   character*1 w(*),u(*)
   integer i,ireg,j,n,ir,iv,ii1,ii2
   character*1 creg(4)
-  save ii1,ii2
   equivalence (ireg,creg)
 
-  ireg=256*ichar('2')+ichar('1')
-  do j=1,4
-     if (creg(j).eq.'1') ii1=j
-     if (creg(j).eq.'2') ii2=j
-  enddo
+! Nothing to set up: add and mult find ireg's two low bytes on every call,
+! so calls on different threads share no state.
   return
 
   entry mp_short_add(w,u,n,iv)
+  call mp_short_bytes(ii1,ii2)
   ireg=256*iv
   do j=n,1,-1
      ireg=ichar(u(j))+ichar(creg(ii2))
@@ -1519,6 +1516,7 @@ subroutine mp_short_init
   return
 
   entry mp_short_mult(w,u,n,iv)
+  call mp_short_bytes(ii1,ii2)
   ireg=0
   do j=n,1,-1
      ireg=ichar(u(j))*iv+ichar(creg(ii2))
@@ -1538,6 +1536,21 @@ subroutine mp_short_init
 
   return
 end subroutine mp_short_init
+
+! The positions of an integer's lowest byte (ii1) and next byte (ii2) in
+! its storage.
+subroutine mp_short_bytes(ii1,ii2)
+  integer ii1,ii2,ireg,j
+  character*1 creg(4)
+  equivalence (ireg,creg)
+
+  ireg=256*ichar('2')+ichar('1')
+  do j=1,4
+     if (creg(j).eq.'1') ii1=j
+     if (creg(j).eq.'2') ii2=j
+  enddo
+  return
+end subroutine mp_short_bytes
 
 subroutine add_call_to_recent_calls(callsign)
   character*13 callsign

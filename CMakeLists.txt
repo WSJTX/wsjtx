@@ -221,6 +221,8 @@ option (WSJT_SKIP_QMAP "Skip building QMAP." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 option (WSJT_ENABLE_GUI_SMOKE_TESTS
   "Register GUI-driven smoke tests with CTest." OFF)
+option (WSJT_ENABLE_STREAM_TIMING_TESTS
+  "Register the stream codec's timing and measurement tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
 option (WSJT_ENABLE_TSAN "Instrument in-tree code with ThreadSanitizer." OFF)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
@@ -1021,9 +1023,9 @@ generate_version_info (wsjt_codec_VERSION_RESOURCES
 add_executable (wsjt-codec ${wsjt_codec_FSRCS} ${wsjt_codec_VERSION_RESOURCES})
 target_compile_definitions (wsjt-codec PRIVATE JT9_PROGRAM_NAME=\"wsjt-codec\")
 # wsjt-codec shares jt9's Fortran module directory (fortran_modules_omp) so it
-# can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
-# is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
-# target emits no .mod of its own — sharing the dir is collision-free.
+# can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). Of its
+# own sources only streaming_decode.f90 is a module, a name no library module
+# has, so sharing the dir is collision-free.
 if (WSJT_BUILD_FORTRAN_OPENMP)
   wsjt_link_fortran_openmp (wsjt-codec)
   if (WIN32)

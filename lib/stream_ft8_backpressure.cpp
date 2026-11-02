@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The GUI's multithreaded FT8 decode scheduler for lib/streaming_io.f90:
+// The GUI's multithreaded FT8 decode scheduler for lib/streaming_decode.f90:
 // one per process, as the GUI has one per main window.
 #include <cstdint>
 
@@ -9,7 +9,7 @@ namespace
 {
   Ft8MtdDecodeScheduler scheduler;
 
-  // streaming_io.f90's stage numbers: 1 early one, 2 early two, 3 final.
+  // streaming_decode.f90's stage numbers: 1 early one, 2 early two, 3 final.
   Ft8MtdDecodeScheduler::Stage stage_of (int stage)
   {
     switch (stage)
@@ -46,6 +46,11 @@ extern "C"
   void stream_ft8_backpressure_completed (int stage, std::int64_t period)
   {
     scheduler.completed (stage_of (stage), period);
+  }
+
+  void stream_ft8_backpressure_publication_failed (int stage, std::int64_t period)
+  {
+    scheduler.publicationFailed (stage_of (stage), period);
   }
 
   void stream_ft8_backpressure_cancel ()

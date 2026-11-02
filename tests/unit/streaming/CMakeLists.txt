@@ -369,6 +369,22 @@ wsjt_link_common_fortran (test_streaming_period)
 add_test (NAME test_streaming_period COMMAND test_streaming_period)
 set_tests_properties (test_streaming_period PROPERTIES LABELS "streaming")
 
+# four2a's per-thread patience override, read on an OpenMP worker too.
+if (TARGET wsjt_fort_omp)
+  add_executable (test_four2a_patience test_four2a_patience.f90)
+  target_include_directories (test_four2a_patience PRIVATE
+    ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
+  target_link_libraries (test_four2a_patience PRIVATE
+    wsjt_fort_omp wsjt_fortran_openmp)
+  add_test (NAME test_four2a_patience COMMAND test_four2a_patience)
+  set_tests_properties (test_four2a_patience PROPERTIES
+    LABELS "streaming" ENVIRONMENT "OMP_DYNAMIC=FALSE" TIMEOUT 30)
+  if (WSJT_ENABLE_TSAN)
+    set_property (TEST test_four2a_patience APPEND PROPERTY
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+  endif ()
+endif ()
+
 add_executable (test_streaming_control test_streaming_control.f90)
 wsjt_link_common_fortran (test_streaming_control)
 add_test (NAME test_streaming_control COMMAND test_streaming_control)
@@ -464,3 +480,212 @@ foreach (row IN LISTS streaming_msk144_rows)
     FIXTURES_REQUIRED "${streaming_msk144_fixtures}"
     TIMEOUT ${streaming_msk144_timeout})
 endforeach ()
+
+# Period-mode decodes on the codec's decode thread while the main thread
+# reads, renders and decodes MSK144 and JTTY. The rows run real-time sessions;
+# the timed ones run alone.
+add_executable (test_streaming_decode_thread test_streaming_decode_thread.cpp
+  ${CMAKE_SOURCE_DIR}/Ft8MtdDecodeScheduler.cpp)
+target_include_directories (test_streaming_decode_thread PRIVATE ${CMAKE_SOURCE_DIR})
+add_dependencies (test_streaming_decode_thread wsjt-codec jt9 test_decoder_engine test_decoder_engine_q65
+  test_decoder_engine_fst4 test_decoder_engine_jt4)
+target_link_libraries (test_streaming_decode_thread Qt5::Test)
+target_compile_definitions (test_streaming_decode_thread PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  JT9_EXECUTABLE="$<TARGET_FILE:jt9>")
+set (decode_thread_environment
+  "WSJT_SAMPLES_DIR=${CMAKE_SOURCE_DIR}/samples"
+  "WSJT_ENGINE_FIXTURES=${CMAKE_BINARY_DIR}/tests/unit/decoder_engine"
+  "OMP_STACKSIZE=16M"
+  "QT_FORCE_STDERR_LOGGING=1")
+set (decode_thread_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (decode_thread_timeout 1200)
+  list (APPEND decode_thread_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND decode_thread_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+set (decode_thread_fixtures ft8_engine_wav fst4_engine_wav q65_engine_wav jt4_engine_wav)
+# TIMING rows, the measurements and the rows whose time is mostly the slowest
+# decodes or a cold FFTW_MEASURE plan, register only with
+# WSJT_ENABLE_STREAM_TIMING_TESTS: routine CI runs the behaviour rows. Windows
+# runs its suite serially within its job limit, so without the option it runs
+# only the inline registrations below.
+function (wsjt_add_decode_thread_test name function)
+  cmake_parse_arguments (row "SERIAL;TIMING" "PROCESSORS;TIMEOUT" "" ${ARGN})
+  if (NOT WSJT_ENABLE_STREAM_TIMING_TESTS AND (row_TIMING OR WIN32))
+    return ()
+  endif ()
+  add_test (NAME test_streaming_decode_thread_${name} COMMAND test_streaming_decode_thread "${function}")
+  # QtTest exits 0 for a data tag it does not have: require the row's PASS.
+  string (REPLACE ":" "\\(" pattern "${function}")
+  if (function MATCHES ":")
+    string (APPEND pattern "\\)")
+  else ()
+    string (APPEND pattern "\\(\\)")
+  endif ()
+  set_tests_properties (test_streaming_decode_thread_${name} PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${decode_thread_environment}"
+    FIXTURES_REQUIRED "${decode_thread_fixtures}"
+    TIMEOUT ${decode_thread_timeout}
+    PASS_REGULAR_EXPRESSION "PASS   : TestStreamingDecodeThread::${pattern}"
+    # The PASS expression replaces the exit status, which a sanitizer report in the test sets.
+    FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
+  if (row_SERIAL)
+    set_tests_properties (test_streaming_decode_thread_${name} PROPERTIES RUN_SERIAL TRUE)
+  endif ()
+  if (row_PROCESSORS)
+    set_tests_properties (test_streaming_decode_thread_${name} PROPERTIES PROCESSORS ${row_PROCESSORS})
+  endif ()
+  # A row with a longer budget raises QtTest's limit with ctest's.
+  if (row_TIMEOUT)
+    set (environment ${decode_thread_environment})
+    list (FILTER environment EXCLUDE REGEX "^QTEST_FUNCTION_TIMEOUT=")
+    math (EXPR function_ms "${row_TIMEOUT} * 1000")
+    list (APPEND environment "QTEST_FUNCTION_TIMEOUT=${function_ms}")
+    set_tests_properties (test_streaming_decode_thread_${name} PROPERTIES
+      TIMEOUT ${row_TIMEOUT} ENVIRONMENT "${environment}")
+  endif ()
+endfunction ()
+# Source archives omit samples/: the rows need every recording they read.
+set (decode_thread_samples TRUE)
+foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav JT65/JT65B/000000_0001.wav
+    JT65/JT65B/000000_0002.wav JT65/JT65B/000000_0003.wav JT65/JT65B/000000_0004.wav JT65/JT65B/000000_0005.wav
+    JT65/JT65B/000000_0006.wav FST4+FST4W/210115_0058.wav FST4+FST4W/201230_0300.wav
+    Q65/300A_Optical_Scatter/201210_0505.wav MSK144/181211_120800.wav JTTY/260807_134110.wav)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/${sample}")
+    set (decode_thread_samples FALSE)
+  endif ()
+endforeach ()
+if (decode_thread_samples)
+  # On the sanitizer legs: encodes beside every decode, a halt during one, and
+  # MSK144 and JTTY beside one.
+  foreach (row ft8 ft8-mtd ft4 fst4 q65 jt4 jt9 jt65 jt65jt9)
+    wsjt_add_decode_thread_test (encodes_${row} "encodesDuringEachDecode:${row}" SERIAL PROCESSORS 2)
+  endforeach ()
+  foreach (row ft8 ft8-mtd)
+    wsjt_add_decode_thread_test (halt_${row} "haltDuringADecode:${row}" PROCESSORS 2)
+  endforeach ()
+  wsjt_add_decode_thread_test (msk144_beside_jt9 "modeEnteredDuringADecode:msk144 beside jt9")
+  wsjt_add_decode_thread_test (jtty_beside_jt9 "modeEnteredDuringADecode:jtty beside jt9")
+  if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
+    # The per-render bound is a gate measured natively and on a CPU-capped runner before a merge.
+    wsjt_add_decode_thread_test (renders_fst4 "rendersDuringTheSlowestDecodes:fst4-60-wide" SERIAL TIMING TIMEOUT 900)
+    wsjt_add_decode_thread_test (renders_mtd "rendersDuringTheSlowestDecodes:multithreaded ft8" SERIAL TIMING
+      TIMEOUT 900)
+    foreach (row jt9 jt65 q65 fst4)
+      wsjt_add_decode_thread_test (fox_${row} "foxRendersLeaveLiveDecodes:${row}")
+    endforeach ()
+    foreach (row ft8-mtd jt65jt9)
+      wsjt_add_decode_thread_test (reference_${row} "decodesMatchTheReference:${row}" PROCESSORS 2)
+    endforeach ()
+    wsjt_add_decode_thread_test (mtd_labels multithreadedDecodesCarryTheirPassAndTime PROCESSORS 2)
+    # Each mode's deepest decode against inline, up to about 80 s each on the Linux CI image: run before a merge.
+    foreach (row ft8 ft8-mtd ft4 fst4-60 fst4w-1800 q65-300a jt4 jt9 jt65 jt65jt9)
+      wsjt_add_decode_thread_test (deepest_${row} "deepestDecodeOnTheDecodeThread:${row}" PROCESSORS 2 TIMING)
+    endforeach ()
+    wsjt_add_decode_thread_test (marker markerDuringADecodeFollowsIt)
+    wsjt_add_decode_thread_test (cancel_after_the_decode cancelAfterTheDecodeRunsTheWaitingFinal SERIAL PROCESSORS 2)
+    wsjt_add_decode_thread_test (deferred_plain "deferredFinalRunsWithNoFurtherInput:plain" PROCESSORS 2)
+    wsjt_add_decode_thread_test (deferred_take_held "deferredFinalRunsWithNoFurtherInput:take held" PROCESSORS 2)
+    wsjt_add_decode_thread_test (reply_declined "repliesComeAtOnce:declined configure" SERIAL)
+    wsjt_add_decode_thread_test (reply_msk144 "repliesComeAtOnce:msk144 refusal" SERIAL)
+    wsjt_add_decode_thread_test (render_starts_the_final renderAfterTheDecodeStartsTheWaitingFinal SERIAL PROCESSORS 2)
+    wsjt_add_decode_thread_test (waiting_final_reader_blocks "waitingFinalBehindLongRenders:reader blocks" PROCESSORS 2)
+    wsjt_add_decode_thread_test (waiting_final_marker "waitingFinalBehindLongRenders:marker" PROCESSORS 2)
+    wsjt_add_decode_thread_test (flush_releases_the_waiting_final flushRunsTheWaitingFinalFirst PROCESSORS 2)
+    wsjt_add_decode_thread_test (replies_whole repliesStayWholeDuringDecodes PROCESSORS 2)
+    wsjt_add_decode_thread_test (clock_ignores_busy_waits waitsDuringADecodeLeaveTheClock PROCESSORS 2)
+    wsjt_add_decode_thread_test (retry_after_the_queue aSnapshotRetriesOnceTheQueueDrains)
+    wsjt_add_decode_thread_test (inline_switch theInlineSwitchTakesEffect)
+    wsjt_add_decode_thread_test (busy_false_before_a_later_line busyFalseComesBeforeALaterLine)
+    wsjt_add_decode_thread_test (busy_false_before_a_refusal busyFalseComesBeforeARefusal)
+    wsjt_add_decode_thread_test (plan_gate_opens_at_the_end planGateOpensAtTheEnd)
+    # Resident memory from /proc or ps; a link to a file.
+    if (UNIX)
+      wsjt_add_decode_thread_test (control_frames_cap controlFramesQueueUpToTheCap)
+      wsjt_add_decode_thread_test (jt9_wisdom_in_place jt9SavesItsWisdomInPlace)
+    endif ()
+    wsjt_add_decode_thread_test (fast_feeder fastFeederRunsEveryPass PROCESSORS 2)
+    wsjt_add_decode_thread_test (queue_cap fastFeederQueuesAudioUpToTheCap)
+    wsjt_add_decode_thread_test (msk144_entered "modeEnteredDuringADecode:msk144" SERIAL)
+    wsjt_add_decode_thread_test (jtty_entered "modeEnteredDuringADecode:jtty" SERIAL)
+    # Most of these rows' time is JTTY's FFTW_MEASURE planning in a fresh -a (about 33 s on the Linux CI image).
+    wsjt_add_decode_thread_test (jtty_measures "jttyMeasuresBesideADecode:from a file" TIMING)
+    wsjt_add_decode_thread_test (jtty_measures_live "jttyMeasuresBesideADecode:live ft8" TIMING)
+    wsjt_add_decode_thread_test (busy_planning "busyEvents:planning" PROCESSORS 2 TIMING)
+    wsjt_add_decode_thread_test (busy_planning_warm "busyEvents:planning warm" TIMING)
+    wsjt_add_decode_thread_test (busy_without_the_key "busyEvents:without the key" TIMING)
+    wsjt_add_decode_thread_test (ignored_planning "clientsIgnoringTheEventsStillWork:planning" TIMING)
+    foreach (row passes again deferral discontinuity cancelled replaced memory progress)
+      wsjt_add_decode_thread_test (busy_${row} "busyEvents:${row}" PROCESSORS 2)
+    endforeach ()
+    wsjt_add_decode_thread_test (busy_key_mid_session "busyEvents:key mid-session" PROCESSORS 2)
+    wsjt_add_decode_thread_test (busy_after_a_drained_final "busyEvents:after a drained final" PROCESSORS 2)
+    wsjt_add_decode_thread_test (busy_generation "busyEvents:generation")
+    wsjt_add_decode_thread_test (deadline_held_decode "clientDeadlines:held decode" SERIAL)
+    wsjt_add_decode_thread_test (deadline_held_between "clientDeadlines:held between operations" SERIAL)
+    # On a CPU-capped runner its decodes run slower than real time.
+    wsjt_add_decode_thread_test (deadline_fast_feeder "clientDeadlines:fast feeder" PROCESSORS 2 TIMEOUT 900)
+    wsjt_add_decode_thread_test (deadline_long_reply "clientDeadlines:long reply" SERIAL PROCESSORS 2)
+    wsjt_add_decode_thread_test (deadline_long_hold "clientDeadlines:long hold" SERIAL PROCESSORS 2)
+    foreach (row busy pass_progress)
+      wsjt_add_decode_thread_test (ignored_${row} "clientsIgnoringTheEventsStillWork:${row}")
+    endforeach ()
+    wsjt_add_decode_thread_test (clear_average_in_msk144 clearAverageSentInMsk144WaitsForJt65)
+    foreach (row standard multithreaded defer replace)
+      wsjt_add_decode_thread_test (memory_${row} "snapshotAllocationFails:${row}" PROCESSORS 2)
+    endforeach ()
+    wsjt_add_decode_thread_test (memory_held_again "snapshotAllocationFails:held again" PROCESSORS 2)
+  endif ()
+endif ()
+
+# Stream rows with the decode handler run inline on the main thread, as when
+# no decode thread exists: the drain and its deferred final, decode-again and
+# the order of its lines, and MSK144's placement.
+if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
+  foreach (row mtdBehindOnePeriodSkipsAndDefers mtdDeferredFinalOutlivesADiscontinuity decodeAgainRefusedWhileBusy
+      decodeAgainRunsWhenFree)
+    if (TEST test_streaming_backlog_${row})
+      add_test (NAME test_streaming_decode_thread_inline_${row} COMMAND test_streaming_backlog ${row})
+      set_tests_properties (test_streaming_decode_thread_inline_${row} PROPERTIES
+        LABELS "streaming;runtime"
+        ENVIRONMENT "${streaming_backlog_environment};WSJT_CODEC_TEST_INLINE=1"
+        FIXTURES_REQUIRED ft8_engine_wav
+        TIMEOUT ${streaming_backlog_timeout})
+      if (row MATCHES "^mtd")
+        set_tests_properties (test_streaming_decode_thread_inline_${row} PROPERTIES PROCESSORS 2)
+      endif ()
+    endif ()
+  endforeach ()
+  add_test (NAME test_streaming_decode_thread_inline_decode_again
+    COMMAND test_streaming_consumers decodeAgainNeedsADecodedPeriod decodeAgainDecodesAtTheRxFrequency
+      decodeAgainLeavesThePeriodInFlight discontinuityRunsAWaitingDecodeAgain wsjtCodecHaltsAfterThePeriodInFlight)
+  set_tests_properties (test_streaming_decode_thread_inline_decode_again PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_consumers_environment};WSJT_CODEC_TEST_INLINE=1"
+    FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
+    TIMEOUT 300)
+  if (have_msk144_samples)
+    add_test (NAME test_streaming_decode_thread_inline_msk144_blocks
+      COMMAND test_streaming_msk144 samplesDecodeAtTheGuiBlocks)
+    set_tests_properties (test_streaming_decode_thread_inline_msk144_blocks PROPERTIES
+      LABELS "streaming;runtime"
+      ENVIRONMENT "WSJT_CODEC_TEST_INLINE=1"
+      TIMEOUT ${streaming_msk144_timeout})
+  endif ()
+  # Every stream row but these and the decode thread's again inline, a nested ctest of about 400 s: run before
+  # a merge.
+  if (WSJT_ENABLE_STREAM_TIMING_TESTS)
+    add_test (NAME test_streaming_decode_thread_inline_suite
+      COMMAND ${CMAKE_CTEST_COMMAND} -L streaming -E "^test_streaming_decode_thread_" -j 4 --output-on-failure
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_tests_properties (test_streaming_decode_thread_inline_suite PROPERTIES
+      LABELS "streaming;runtime"
+      ENVIRONMENT "WSJT_CODEC_TEST_INLINE=1"
+      RUN_SERIAL TRUE
+      TIMEOUT 3600)
+  endif ()
+endif ()

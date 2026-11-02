@@ -144,13 +144,16 @@ integer function q65_fft_flags() result(flags)
 end function
 
 subroutine q65_check_planning()
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
   integer npatience,nthreads
   common/patience/npatience,nthreads
   if(q65_work%planning==npatience) return
   !$omp critical(fftw)
+  call wsjt_tsan_acquire_fftw()
   if(q65_work%symbol_plan/=0) call sfftw_destroy_plan(q65_work%symbol_plan)
   if(q65_work%analytic_forward/=0) call sfftw_destroy_plan(q65_work%analytic_forward)
   if(q65_work%analytic_inverse/=0) call sfftw_destroy_plan(q65_work%analytic_inverse)
+  call wsjt_tsan_release_fftw()
   !$omp end critical(fftw)
   q65_work%symbol_plan=0
   q65_work%analytic_forward=0
@@ -161,6 +164,7 @@ subroutine q65_check_planning()
 end subroutine
 
 subroutine q65_analytic(iwave,npts)
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
   integer, intent(in) :: npts
   integer(c_int16_t), intent(in) :: iwave(npts)
   integer nfft2,flags
@@ -168,8 +172,10 @@ subroutine q65_analytic(iwave,npts)
   call q65_check_planning()
   if(q65_work%analytic_length/=npts) then
      !$omp critical(fftw)
+     call wsjt_tsan_acquire_fftw()
      if(q65_work%analytic_forward/=0) call sfftw_destroy_plan(q65_work%analytic_forward)
      if(q65_work%analytic_inverse/=0) call sfftw_destroy_plan(q65_work%analytic_inverse)
+     call wsjt_tsan_release_fftw()
      !$omp end critical(fftw)
      q65_work%analytic_forward=0
      q65_work%analytic_inverse=0
@@ -183,10 +189,12 @@ subroutine q65_analytic(iwave,npts)
   flags=q65_fft_flags()
   if(q65_work%analytic_forward==0) then
      !$omp critical(fftw)
+     call wsjt_tsan_acquire_fftw()
      call sfftw_plan_dft_1d(q65_work%analytic_forward,npts,q65_work%analytic, &
           q65_work%analytic,FFTW_FORWARD,flags)
      call sfftw_plan_dft_1d(q65_work%analytic_inverse,nfft2,q65_work%analytic, &
           q65_work%analytic,FFTW_BACKWARD,flags)
+     call wsjt_tsan_release_fftw()
      !$omp end critical(fftw)
   endif
   fac=2.0/(32767.0*npts)
@@ -289,11 +297,14 @@ subroutine q65_initialize_state(state)
 end subroutine
 
 subroutine q65_release_state(state)
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
   type(q65_state), intent(inout) :: state
   !$omp critical(fftw)
+  call wsjt_tsan_acquire_fftw()
   if(state%symbol_plan/=0) call sfftw_destroy_plan(state%symbol_plan)
   if(state%analytic_forward/=0) call sfftw_destroy_plan(state%analytic_forward)
   if(state%analytic_inverse/=0) call sfftw_destroy_plan(state%analytic_inverse)
+  call wsjt_tsan_release_fftw()
   !$omp end critical(fftw)
   state%symbol_plan=0
   state%analytic_forward=0
@@ -567,6 +578,7 @@ subroutine q65_clravg
 end subroutine q65_clravg
 
 subroutine q65_symspec(iwave,nmax,iz,jz,s1)
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
 ! Compute symbol spectra with NSTEP time-steps per symbol.
   
@@ -581,9 +593,11 @@ subroutine q65_symspec(iwave,nmax,iz,jz,s1)
   call q65_check_planning()
   if(q65_work%symbol_length/=nfft.or.q65_work%symbol_plan==0) then
      !$omp critical(fftw)
+     call wsjt_tsan_acquire_fftw()
      if(q65_work%symbol_plan/=0) call sfftw_destroy_plan(q65_work%symbol_plan)
      flags=q65_fft_flags()
      call sfftw_plan_dft_r2c_1d(q65_work%symbol_plan,nfft,c0,c0,flags)
+     call wsjt_tsan_release_fftw()
      !$omp end critical(fftw)
      q65_work%symbol_length=nfft
   endif

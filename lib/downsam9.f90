@@ -26,6 +26,7 @@ module jt9_downsample
 contains
 
   subroutine initialize(this)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     class(jt9_downsample_workspace), intent(inout) :: this
     integer :: npatience,nthreads,nflags
     common/patience/npatience,nthreads
@@ -41,12 +42,14 @@ contains
     if(npatience.eq.4) nflags=FFTW_EXHAUSTIVE
     allocate(this%spectrum(0:NFFT1/2),this%power(5000))
     !$omp critical(fftw)
+    call wsjt_tsan_acquire_fftw()
     this%storage=fftwf_alloc_real(int(NFFT1,c_size_t))
     call c_f_pointer(this%storage,this%samples,[NFFT1])
     this%samples(0:NFFT1-1) => this%samples
     call fftwf_plan_with_nthreads(nthreads)
     this%plan=fftwf_plan_dft_r2c_1d(NFFT1,this%samples,this%spectrum,nflags)
     call fftwf_plan_with_nthreads(1)
+    call wsjt_tsan_release_fftw()
     !$omp end critical(fftw)
     this%plan_patience=npatience
     this%plan_threads=nthreads
@@ -58,10 +61,13 @@ contains
   end subroutine invalidate
 
   subroutine clear(this)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     class(jt9_downsample_workspace), intent(inout) :: this
     !$omp critical(fftw)
+    call wsjt_tsan_acquire_fftw()
     if(c_associated(this%plan)) call fftwf_destroy_plan(this%plan)
     if(c_associated(this%storage)) call fftwf_free(this%storage)
+    call wsjt_tsan_release_fftw()
     !$omp end critical(fftw)
     this%plan=c_null_ptr
     this%storage=c_null_ptr
