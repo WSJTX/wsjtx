@@ -459,7 +459,7 @@ void MainWindow::dataSink(int k)
 
   if(m_bWTransmitting) px=0.0;
   QString t;
-  m_pctZap=nzap/178.3;
+  m_pctZap=qmap_runtime::zapPercent(nzap,qmap_runtime::activeRateHz());
 
   lab2->setText (
         QString {" Rx: %1  %2 % "}

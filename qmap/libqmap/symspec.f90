@@ -11,7 +11,8 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
 !  ihsym    index number of this half-symbol (1-400)
 !  nzap     number of samples zero'ed by noise blanker
 
-  use qmap_params, only: MAX_NSMAX, MAX_NFFT, nrate_active, nsmax_active, nfft_active
+  use qmap_params, only: MAX_NSMAX, MAX_NFFT, nrate_active, nsmax_active, nfft_active, &
+       qmap_zap_limit
   include 'njunk.f90'
   real*8 ts,hsym
   real*8 fcenter
@@ -94,7 +95,7 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
   enddo
   cx(npts+1:)=0.
 
-  if(nzap/178.lt.50 .and. (ndiskdat.eq.0 .or. ihsym.lt.280)) then
+  if(real(nzap,8).lt.qmap_zap_limit() .and. (ndiskdat.eq.0 .or. ihsym.lt.280)) then
      nsum=nblks*kstep - nzap
      if(nsum.le.0) nsum=1
      rmsx=sqrt(px/nsum)

@@ -1,6 +1,6 @@
 program test_qmap_symspec_contract
   use iso_fortran_env, only: real32, real64
-  use qmap_params, only: MAX_NSMAX, MAX_NFFT
+  use qmap_params, only: MAX_NSMAX, MAX_NFFT, qmap_zap_limit, qmap_set_runtime_params
   implicit none
 
   integer, parameter :: nfft = 32768, sample_rate = 96000
@@ -42,6 +42,13 @@ program test_qmap_symspec_contract
   end do
   call require(abs(powers(2) / powers(1) - 4.0_real32) < 0.12_real32, 'amplitude squared power')
   call require(abs(powers(3) / powers(1) - 1.0_real32) < 0.03_real32, 'phase preserves power')
+  ! The blanker's give-up point is the same fraction of a half-symbol at every rate
+  call require(abs(qmap_zap_limit() - 8900.0d0) < 1.0d-9, 'zap limit at 96 kHz')
+  call qmap_set_runtime_params(192000, 65536)
+  call require(abs(qmap_zap_limit() - 17800.0d0) < 1.0d-9, 'zap limit at 192 kHz')
+  call qmap_set_runtime_params(256000, 131072)
+  call require(abs(qmap_zap_limit() - 8900.0d0*256000.0d0/96000.0d0) < 1.0d-6, 'zap limit at 256 kHz')
+  call qmap_set_runtime_params(96000, 32768)
   print '(a)', 'QMAP symspec contract passed.'
 
 contains

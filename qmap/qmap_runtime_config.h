@@ -41,6 +41,13 @@ inline int clampSpanKHz(int span_khz, int rate_hz)
   return span_khz < MIN_SPAN_KHZ ? MIN_SPAN_KHZ : (span_khz > hi ? hi : span_khz);
 }
 
+// Percentage of a half-symbol's samples the noise blanker zeroed: nzap/178.3 at 96 kHz, and the
+// number of samples in a half-symbol grows with the rate.
+inline double zapPercent(int nzap, int rate_hz)
+{
+  return nzap / (178.3 * rate_hz / BASELINE_RATE);
+}
+
 // FFT length used by symspec at a given rate: the power of 2 nearest above
 // BASELINE_NFFT * rate / BASELINE_RATE, which keeps the bin width near 2-3 Hz.
 inline int nfftForRate(int rate_hz)
@@ -65,6 +72,9 @@ extern "C" {
 
   // Sample rate (Hz) stored in the header of the .qm file that read_qm last examined.
   int qmap_qm_file_rate(void);
+
+  // Blanked samples per half-symbol at which the blanker stops updating its level (8900 at 96 kHz).
+  double qmap_zap_limit(void);
 }
 
 namespace qmap_runtime {

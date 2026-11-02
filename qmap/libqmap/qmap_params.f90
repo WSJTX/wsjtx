@@ -50,6 +50,13 @@ contains
     if (npairs > 0) npairs_active = npairs
   end subroutine qmap_set_npairs_active
 
+  ! Blanked samples (per half-symbol) at which symspec stops trusting that half-symbol's level
+  ! for the blanker threshold: 50% of the 17800 samples that make 100% at 96 kHz (nzap/178).
+  ! The samples a half-symbol holds, and so the number the blanker can zero, grow with the rate.
+  real(c_double) function qmap_zap_limit() bind(c, name='qmap_zap_limit')
+    qmap_zap_limit = 8900.0d0 * real(nrate_active, c_double) / real(BASELINE_RATE, c_double)
+  end function qmap_zap_limit
+
   ! Rate recorded in the last .qm file header that read_qm looked at (0 if none yet).
   integer(c_int) function qmap_qm_file_rate() bind(c, name='qmap_qm_file_rate')
     qmap_qm_file_rate = qm_file_rate

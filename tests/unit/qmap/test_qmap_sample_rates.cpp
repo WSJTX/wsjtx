@@ -21,6 +21,7 @@ private slots:
   void bringsASavedSpanWithinTheRateLimit();
   void deducesFileRateFromSize_data();
   void deducesFileRateFromSize();
+  void blankedPercentFollowsTheRate();
   void columnsStayInsideTheSpectrum();
   void columnsTagStrongSignals();
 };
@@ -129,6 +130,16 @@ void TestQMapSampleRates::deducesFileRateFromSize()
   QVERIFY (f.resize (size));            // sparse: the content does not matter
   f.close ();
   QCOMPARE (iqFileRate (name), rate);
+}
+
+void TestQMapSampleRates::blankedPercentFollowsTheRate()
+{
+  // The same fraction of a half-symbol blanked reads the same percent at every rate
+  QCOMPARE (qmap_runtime::zapPercent (0, 96000), 0.0);
+  for (int rate : {96000, 128000, 192000, 256000}) {
+    int const halfSymbol = rate / 96000.0 * 17830;     // samples that make 100 % (178.3 per percent at 96 kHz)
+    QVERIFY (qAbs (qmap_runtime::zapPercent (halfSymbol / 2, rate) - 50.0) < 0.1);
+  }
 }
 
 void TestQMapSampleRates::columnsStayInsideTheSpectrum()
