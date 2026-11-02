@@ -10,7 +10,7 @@ module filbig_mod
   use sec_midn_mod, only: sec_midn
   implicit none
   
-  integer, parameter :: MAXFFT1 = 56*192000
+  integer, parameter :: MAXFFT1 = 56*256000
   integer, parameter :: MAXFFT2 = 2*77175
 
   complex, save :: c4a_buf(MAXFFT2), c4b_buf(MAXFFT2), cfilt_buf(MAXFFT2)

@@ -14,6 +14,7 @@
 #include "fortran_mutex.hpp"
 #include "globals.h"
 #include "runtime_paths.h"
+#include "sample_rates.h"
 
 #include <cstdio>
 
@@ -54,10 +55,8 @@ int main(int argc, char *argv[])
   settings.beginGroup("Common");
   int srFlag = readFSam96000(settings, 1);
   settings.endGroup();
-  if(srFlag <= 1) g_sampleRate = 96000;
-  else if(srFlag == 2) g_sampleRate = 192000;
-  if (g_sampleRate != 96000 && g_sampleRate != 192000)
-      g_sampleRate = 96000;
+  g_sampleRate = sampleRateForCode(srFlag);
+  if (g_sampleRate == 95238) g_sampleRate = 96000;   // 95238 still sizes buffers at 96000
 
 // ------------------------------------------------------------
 // NEW: compute active FFT sizes for MAP65

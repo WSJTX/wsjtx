@@ -136,7 +136,7 @@
       ! MAXFFT1/2 are *max* sizes; actual runtime sizes are derived below.
       ! MAXFFT1 must be = nfft_big_active; MAXFFT2 must be = the
       ! downsampled-FFT length at the highest supported rate.
-      integer, parameter :: MAXFFT1 = 56*192000
+      integer, parameter :: MAXFFT1 = 56*256000
       integer, parameter :: NMAX    = 60*12000
 
       !==== Local variables =====================================================

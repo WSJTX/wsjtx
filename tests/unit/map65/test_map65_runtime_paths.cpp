@@ -1,8 +1,10 @@
 #include "runtime_paths.h"
+#include "sample_rates.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSettings>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -55,6 +57,32 @@ class TestMap65RuntimePaths final : public QObject
   Q_OBJECT
 
 private slots:
+  void sampleRateCodesRoundTripThroughSettings()
+  {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QSettings settings {dir.filePath("map65.ini"), QSettings::IniFormat};
+    int const expected[][2] = {{0, 95238}, {1, 96000}, {2, 192000}, {3, 128000}, {4, 256000}};
+    for (auto const& e : expected) {
+      settings.setValue("FSam96000", e[0]);
+      QCOMPARE(readFSam96000(settings, 1), e[0]);
+      QCOMPARE(sampleRateForCode(e[0]), e[1]);
+    }
+    settings.setValue("FSam96000", 5);
+    QCOMPARE(readFSam96000(settings, 1), 1);
+    settings.setValue("FSam96000", "false");
+    QCOMPARE(readFSam96000(settings, 1), 0);
+  }
+
+  void freqSpanFitsSampledBandwidth()
+  {
+    QCOMPARE(maxFreqSpanKHz(96000), 90);
+    QCOMPARE(maxFreqSpanKHz(95238), 90);
+    QCOMPARE(maxFreqSpanKHz(128000), 125);
+    QCOMPARE(maxFreqSpanKHz(192000), 190);
+    QCOMPARE(maxFreqSpanKHz(256000), 250);
+  }
+
   void canonicalSourcePrecedesLegacyCandidates()
   {
     QTemporaryDir root;

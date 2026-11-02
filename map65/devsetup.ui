@@ -775,9 +775,9 @@
                 <widget class="QWidget" name="layoutWidget_4">
                  <property name="geometry">
                   <rect>
-                   <x>30</x>
+                   <x>10</x>
                    <y>20</y>
-                   <width>282</width>
+                   <width>480</width>
                    <height>26</height>
                   </rect>
                  </property>
@@ -790,6 +790,26 @@
                     <property name="sizeHint" stdset="0">
                      <size>
                       <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="rb256000">
+                    <property name="text">
+                     <string>256000 Hz</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_256">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>10</width>
                       <height>20</height>
                      </size>
                     </property>
@@ -813,6 +833,26 @@
                     <property name="sizeHint" stdset="0">
                      <size>
                       <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="rb128000">
+                    <property name="text">
+                     <string>128000 Hz</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_128">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>10</width>
                       <height>20</height>
                      </size>
                     </property>

@@ -1,5 +1,6 @@
 #include "devsetup.h"
 #include "mainwindow.h"
+#include "sample_rates.h"
 #include <QTextStream>
 #include <QDebug>
 #include <cstdio>
@@ -217,13 +218,7 @@ for (id = 0; id < numDevices; id++) {
   if (idx >= 0)
       ui.pttComboBox->setCurrentIndex(idx);
 
-  if      (mw->m_fs96000 == 2)
-      oldSampleRate = 192000;
-  else if (mw->m_fs96000 == 1)
-      oldSampleRate = 96000;
-  else if (mw->m_fs96000 == 0)
-      oldSampleRate = 95238;
-  else oldSampleRate = 96000;
+  oldSampleRate = sampleRateForCode(mw->m_fs96000);
 
   ui.astroFont->setValue(mw->m_astroFont);
   ui.cbXpol->setChecked(mw->m_xpol);
@@ -242,7 +237,9 @@ for (id = 0; id < numDevices; id++) {
     ui.networkRadioButton->setChecked(mw->m_network);
     ui.soundCardRadioButton->setChecked(!mw->m_network);
   }
+  ui.rb256000->setChecked(mw->m_fs96000 == 4);
   ui.rb192000->setChecked(mw->m_fs96000 == 2);
+  ui.rb128000->setChecked(mw->m_fs96000 == 3);
   ui.rb96000->setChecked(mw->m_fs96000 == 1);
   ui.rb95238->setChecked(mw->m_fs96000 == 0);
   on_soundCardRadioButton_toggled(ui.soundCardRadioButton->isChecked());
@@ -297,12 +294,8 @@ void DevSetup::accept()
   // Check to see whether SoundInThread must be restarted,
   // and save user parameters.
 
-  int newSampleRate = ui.rb192000->isChecked() ? 192000 :
-      ui.rb96000->isChecked()  ? 96000  :
-      95238;
-  int newFs96000 = ui.rb192000->isChecked() ? 2 :
-      ui.rb96000->isChecked()  ? 1  :
-      0;
+  int const newFs96000 = selectedSampleRateCode();
+  int const newSampleRate = sampleRateForCode(newFs96000);
   double const newFAdd = ui.faddEntry->text().toDouble();
 
   m_restartRequired = oldSampleRate != newSampleRate;
@@ -387,12 +380,19 @@ void DevSetup::accept()
 
 }
 
+int DevSetup::selectedSampleRateCode() const
+{
+  return ui.rb256000->isChecked() ? 4 :
+      ui.rb192000->isChecked() ? 2 :
+      ui.rb128000->isChecked() ? 3 :
+      ui.rb95238->isChecked()  ? 0 :
+      1;
+}
+
 void DevSetup::on_soundCardRadioButton_toggled(bool checked)
 {
   ui.comboBoxSndIn->setEnabled(ui.soundCardRadioButton->isChecked());
-  int fs96000 = ui.rb192000->isChecked() ? 2 :
-      ui.rb95238->isChecked() ? 0 :
-      1;
+  int fs96000 = selectedSampleRateCode();
   if(checked) {
     if(fs96000 == 0) fs96000 = 1;
     ui.rb95238->setEnabled(false);
@@ -400,7 +400,9 @@ void DevSetup::on_soundCardRadioButton_toggled(bool checked)
   else {
     ui.rb95238->setEnabled(true);
   }
+  ui.rb256000->setChecked(fs96000 == 4);
   ui.rb192000->setChecked(fs96000 == 2);
+  ui.rb128000->setChecked(fs96000 == 3);
   ui.rb96000->setChecked(fs96000 == 1);
   ui.rb95238->setChecked(fs96000 == 0);
   ui.rb95238->setEnabled(!checked);
