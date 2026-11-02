@@ -20,6 +20,8 @@ class TestPlotterInitialization final : public QObject
 
 private slots:
   void sizesHiddenPlotter();
+  void appliesANewSpanAtOnce();
+  void remembersASpanGivenBeforeSizing();
   void ignoresOutOfSpanAndControlClicks();
   void paintsLabelsInTwoDSpectrumMode();
 };
@@ -37,6 +39,38 @@ void TestPlotterInitialization::sizesHiddenPlotter()
   QCOMPARE (plotter->plotWidth (), 1000);
   QVERIFY (plotter->centerFreq () >= 0);
   QVERIFY (plotter->binsPerPixel () > 0);
+}
+
+void TestPlotterInitialization::appliesANewSpanAtOnce()
+{
+  auto const plotter = std::make_unique<CPlotter> ();
+  plotter->ensureSized (1000, 280);
+  plotter->setFsample (96000);
+
+  plotter->applySpan (30);
+  int const narrowBins = plotter->binsPerPixel ();
+  float const narrowSpan = plotter->m_fSpan;
+  plotter->applySpan (60);
+  int const wideBins = plotter->binsPerPixel ();
+  float const wideSpan = plotter->m_fSpan;
+
+  // Twice the span needs about twice the bins per pixel, and the displayed span follows
+  QVERIFY2 (wideBins >= 2 * narrowBins - 1 && wideBins <= 2 * narrowBins + 1,
+            "bins per pixel should follow the span");
+  QVERIFY (narrowSpan > 27.f && narrowSpan < 31.f);
+  QVERIFY (wideSpan > 57.f && wideSpan < 61.f);
+  QCOMPARE (plotter->m_nSpan, 60);
+}
+
+void TestPlotterInitialization::remembersASpanGivenBeforeSizing()
+{
+  // WideGraph's constructor sets the span box (and so the span) before the plot has a size
+  auto const plotter = std::make_unique<CPlotter> ();
+  plotter->applySpan (45);
+  QCOMPARE (plotter->m_nSpan, 45);
+  plotter->ensureSized (1000, 280);
+  QCOMPARE (plotter->plotWidth (), 1000);
+  QVERIFY (plotter->m_fSpan > 42.f && plotter->m_fSpan < 46.f);
 }
 
 void TestPlotterInitialization::ignoresOutOfSpanAndControlClicks()

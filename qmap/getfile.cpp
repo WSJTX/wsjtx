@@ -1,15 +1,31 @@
 #include "getfile.h"
 #include <QFile>
+#include <QFileInfo>
 #include <algorithm>
 #include <array>
 #include <vector>
 #include <stdlib.h>
 #include <math.h>
 
+int iqFileRate(QString fname)
+{
+  // An .iq file is an 8-byte centre frequency, then 60 s (older files: 56 s) of 16-bit I/Q pairs
+  // (4 bytes per sample), optionally followed by two 4-byte Tx counters.  No size of one length
+  // at one rate equals a size of the other length at another rate, so the rate is unambiguous.
+  qint64 const size=QFileInfo(fname).size();
+  for(qint64 seconds : {qint64(60), qint64(56)}) {
+    for(qint64 extra : {qint64(8), qint64(16)}) {
+      qint64 const bytes=size-extra;
+      qint64 const perHz=4*seconds;
+      if(bytes>0 && bytes%perHz==0 && qmap_runtime::isSupportedRate(int(bytes/perHz))) return int(bytes/perHz);
+    }
+  }
+  return 0;
+}
+
 void getfile(QString fname, int dbDgrd)
 {
-//  int npts=2*56*96000;
-  int npts=2*60*96000;
+  int npts=2*qmap_runtime::activeNsmax();
 
 // Degrade S/N by dbDgrd dB -- for tests only!!
   float dgrd=0.0;
@@ -60,7 +76,7 @@ void getfile(QString fname, int dbDgrd)
 
 void save_iq(QString fname)
 {
-  int npts=2*60*96000;
+  int npts=2*qmap_runtime::activeNsmax();
   std::vector<qint16> buf(npts);
   QFile file(fname);
 

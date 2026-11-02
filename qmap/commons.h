@@ -2,15 +2,14 @@
 #define COMMONS_H
 
 #include "qmap_ipc.h"
-
-#define NFFT 32768
+#include "qmap_runtime_config.h"
 
 extern "C" {
 
 extern struct {                     //This is "common/datcom/..." in Fortran
-  float d4[2*5760000];              //Raw I/Q data from Linrad
-  float ss[400*NFFT];               //Half-symbol spectra at 0,45,90,135 deg pol
-  float savg[NFFT];                 //Avg spectra at 0,45,90,135 deg pol
+  float d4[2*qmap_runtime::MAX_NSMAX];   //Raw I/Q data from Linrad (sized for the highest rate)
+  float ss[400*qmap_runtime::MAX_NFFT];  //Half-symbol spectra at 0,45,90,135 deg pol
+  float savg[qmap_runtime::MAX_NFFT];    //Avg spectra at 0,45,90,135 deg pol
   double fcenter;                   //Center freq from Linrad (MHz)
   int nutc;                         //UTC as integer, HHMM
   float fselected;                  //Selected frequency for nagain decodes
@@ -49,9 +48,9 @@ extern struct {                     //This is "common/datcom/..." in Fortran
 } datcom_;
 
 extern struct {                     //This is "common/datcom/..." in Fortran
-  float d4[2*5760000];              //Raw I/Q data from Linrad
-  float ss[400*NFFT];               //Half-symbol spectra at 0,45,90,135 deg pol
-  float savg[NFFT];                 //Avg spectra at 0,45,90,135 deg pol
+  float d4[2*qmap_runtime::MAX_NSMAX];   //Raw I/Q data from Linrad (sized for the highest rate)
+  float ss[400*qmap_runtime::MAX_NFFT];  //Half-symbol spectra at 0,45,90,135 deg pol
+  float savg[qmap_runtime::MAX_NFFT];    //Avg spectra at 0,45,90,135 deg pol
   double fcenter;                   //Center freq from Linrad (MHz)
   int nutc;                         //UTC as integer, HHMM
   float fselected;                  //Selected frequency for nagain decodes

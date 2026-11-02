@@ -4,7 +4,6 @@
 #include "SettingsGroup.hpp"
 #include "ui_widegraph.h"
 
-#define NFFT 32768
 
 WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   : QDialog {parent},
@@ -39,9 +38,13 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->gainSpinBox->setValue(ui->widePlot->getPlotGain());
   int n = settings.value("FreqSpan",60).toInt();
   int w = settings.value("PlotWidth",1000).toInt();
+  //The widest selectable span is 90 kHz at 96 kHz, and scales with the sample rate.  A span saved
+  //at a higher rate must be brought within range here, so that the plot and the spin box agree.
+  ui->freqSpanSpinBox->setMaximum(qmap_runtime::maxSpanKHz(qmap_runtime::activeRateHz()));
+  n = qmap_runtime::clampSpanKHz(n, qmap_runtime::activeRateHz());
   ui->freqSpanSpinBox->setValue(n);
   ui->widePlot->setNSpan(n);
-  int nbpp = n * 32768.0/(w*96.0) + 0.5;
+  int nbpp = n * double(qmap_runtime::activeNfft())/(w*0.001*qmap_runtime::activeRateHz()) + 0.5;
   ui->widePlot->setBinsPerPixel(nbpp);
   m_waterfallAvg = settings.value("WaterfallAvg",10).toInt();
   ui->waterfallAvgSpinBox->setValue(m_waterfallAvg);
@@ -82,7 +85,8 @@ void WideGraph::saveSettings()
 void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
                           uchar lstrong[])
 {
-  static float splot[NFFT];
+  static float splot[qmap_runtime::MAX_NFFT];
+  const int nfft=qmap_runtime::activeNfft();
   float swide[2048];
   float smax;
   double df;
@@ -91,7 +95,7 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
   static int nkhz0=-999;
   static int ntrz=0;
 
-  df = m_fSample/32768.0;
+  df = m_fSample/double(nfft);
   if(nkhz != nkhz0) {
     ui->widePlot->setNkhz(nkhz);                   //Why do we need both?
     ui->widePlot->SetCenterFreq(nkhz);             //Why do we need both?
@@ -101,16 +105,16 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
 
   //Average spectra over specified number, m_waterfallAvg
   if (n==0) {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<nfft; i++)
       splot[i]=s[i];
   } else {
-    for (int i=0; i<NFFT; i++)
+    for (int i=0; i<nfft; i++)
       splot[i] += s[i];
   }
   n++;
 
   if (n>=m_waterfallAvg) {
-    for (int i=0; i<NFFT; i++) {
+    for (int i=0; i<nfft; i++) {
       splot[i] /= n;                       //Normalize the average
     }
     n=0;
@@ -120,7 +124,7 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
     int w=ui->widePlot->plotWidth();
     qint64 sf = nkhz - 0.5*w*nbpp*df/1000.0;
     if(sf != ui->widePlot->startFreq()) ui->widePlot->SetStartFreq(sf);
-    int i0=16384.0+(ui->widePlot->startFreq()-nkhz+0.001*m_fCal) * 1000.0/df + 0.5;
+    int i0=nfft/2+(ui->widePlot->startFreq()-nkhz+0.001*m_fCal) * 1000.0/df + 0.5;
     int i=i0;
     for (int j=0; j<2048; j++) {
         smax=0;
@@ -129,7 +133,8 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
             if(splot[i]>smax) smax=splot[i];
         }
         swide[j]=smax;
-        if(lstrong[1 + i/32]!=0) swide[j]=-smax;   //Tag strong signals
+        //lstrong has 1024 entries spanning the whole sampled bandwidth (32 bins each at 96 kHz)
+        if(lstrong[1 + i*1024LL/nfft]!=0) swide[j]=-smax;   //Tag strong signals
     }
 
 // Time according to this computer
@@ -140,7 +145,7 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
       for (int i=0; i<2048; i++) {
         swide[i] = 1.e30;
       }
-      for (int i=0; i<32768; i++) {
+      for (int i=0; i<nfft; i++) {
         splot[i] = 1.e30;
       }
     }
@@ -172,6 +177,12 @@ void WideGraph::clearDecodeLabels()
   if (m_decodeLabels.isEmpty ()) return;
   m_decodeLabels.clear ();
   if (ui && ui->widePlot) ui->widePlot->setDecodeLabels (m_decodeLabels);
+}
+
+void WideGraph::on_freqSpanSpinBox_valueChanged(int n)
+{
+  // Takes effect at once: the span used to be read only at start-up
+  ui->widePlot->applySpan(n);
 }
 
 void WideGraph::on_waterfallAvgSpinBox_valueChanged(int n)

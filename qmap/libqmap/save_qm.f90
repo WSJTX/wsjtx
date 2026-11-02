@@ -1,16 +1,17 @@
 subroutine save_qm(fname,revision,mycall,mygrid,dd,ntx30a,ntx30b,fcenter,  &
      nutc,ndop00,ndop58)
 
-  parameter(NMAX=60*96000)
+  use qmap_params, only: nrate_active, nsmax_active
   character*120 fname
   character*22 revision
   character*12 mycall
   character*6 mygrid
-  real*4 dd(2,NMAX)
+  real*4 dd(2,*)
   real*8 fcenter
   integer nxtra(15)                        !For possible future additions
   integer*1,allocatable :: id1(:,:)
 
+  NMAX=nsmax_active
   ia=1
   ib=NMAX
   if(ntx30a.gt.5) ia=NMAX/2+1
@@ -48,11 +49,12 @@ subroutine save_qm(fname,revision,mycall,mygrid,dd,ntx30a,ntx30b,fcenter,  &
      id1(1,i)=nint(x)
      id1(2,i)=nint(y)
   enddo
-  if(ia.gt.30*96000) id1(1:2,1:ia-1)=0
-  if(ib.eq.30*96000) id1(1:2,ib+1:60*96000)=0
+  if(ia.gt.30*nrate_active) id1(1:2,1:ia-1)=0
+  if(ib.eq.30*nrate_active) id1(1:2,ib+1:60*nrate_active)=0
 
   open(29,file=trim(fname),status='unknown',access='stream')
   nxtra=0
+  if(nrate_active.ne.96000) nxtra(1)=nrate_active   !96 kHz files keep the original header
   write(29) revision//'  ',mycall,mygrid,fcenter,nutc,ntx30a,ntx30b,  &
        ndop00,ndop58,ia,ib,fac0,nxtra  !Write header to disk
   write(29) id1(1:2,ia:ib)             !Write 8-bit data to disk

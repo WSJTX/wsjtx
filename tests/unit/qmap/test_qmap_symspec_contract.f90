@@ -1,11 +1,12 @@
 program test_qmap_symspec_contract
   use iso_fortran_env, only: real32, real64
+  use qmap_params, only: MAX_NSMAX, MAX_NFFT
   implicit none
 
   integer, parameter :: nfft = 32768, sample_rate = 96000
   integer, parameter :: bins(3) = [4000, 4300, 4600]
   real(real32), parameter :: pi = 3.14159265358979323846_real32
-  real(real32) :: dd(2,60*sample_rate), ss(400,nfft), savg(nfft), junk(42)
+  real(real32) :: dd(2,MAX_NSMAX), ss(400,MAX_NFFT), savg(MAX_NFFT), junk(42)
   real(real64) :: fcenter
   integer :: nutc
   common /datcom/ dd, ss, savg, fcenter, nutc, junk
@@ -32,7 +33,7 @@ program test_qmap_symspec_contract
   slimit = 0.0
   call symspec(k, 1, 0, 40, sample_rate, pxdb, waterfall, nkhz, ihsym, nzap, slimit, lstrong)
   call require(ihsym == 1, 'first completed row')
-  call require(abs(maxloc(ss(1,:), dim=1) - (bins(2) + 1)) <= 1, 'strongest frequency bin')
+  call require(abs(maxloc(ss(1,1:nfft), dim=1) - (bins(2) + 1)) <= 1, 'strongest frequency bin')
   do i = 1, 3
      powers(i) = ss(1,bins(i)+1)
      call require(powers(i) > 0.0_real32, 'tone power')

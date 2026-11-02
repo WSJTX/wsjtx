@@ -63,6 +63,7 @@ protected:
   void resizeEvent(QResizeEvent* event);
 
 private slots:
+  void on_freqSpanSpinBox_valueChanged(int arg1);
   void on_waterfallAvgSpinBox_valueChanged(int arg1);
   void on_zeroSpinBox_valueChanged(int arg1);
   void on_gainSpinBox_valueChanged(int arg1);

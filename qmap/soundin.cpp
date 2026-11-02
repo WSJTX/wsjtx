@@ -1,4 +1,5 @@
 #include "soundin.h"
+#include "qmap_runtime_config.h"
 #include <math.h>
 
 #ifdef Q_OS_WIN32
@@ -7,16 +8,15 @@
 #include <sys/socket.h>
 #endif
 
-#define NFFT 32768
 #define FRAMES_PER_BUFFER 1024
 
 extern "C"
 {
   extern struct
   {
-    double d8[60*96000];              //This is "common/datcom/..." in fortran
-    float ss[400*NFFT];
-    float savg[NFFT];                 //Avg spectra at 0,45,90,135 deg pol
+    double d8[qmap_runtime::MAX_NSMAX];   //This is "common/datcom/..." in fortran
+    float ss[400*qmap_runtime::MAX_NFFT];
+    float savg[qmap_runtime::MAX_NFFT];   //Avg spectra at 0,45,90,135 deg pol
     double fcenter;                   //Center freq from Linrad (MHz)
     int nutc;                         //UTC as integer, HHMM
     float fselected;                  //Selected frequency for nagain decodes
@@ -159,7 +159,9 @@ void SoundInThread::inputUDP()
   }
 
   // Set this socket's total buffer space for received UDP packets
-  udpSocket->setSocketOption (QUdpSocket::ReceiveBufferSizeSocketOption, 141600);
+  // (the same time span of data as at 96 kHz, whatever the rate)
+  udpSocket->setSocketOption (QUdpSocket::ReceiveBufferSizeSocketOption,
+                              141600 * (qmap_runtime::activeRateHz() / 96000.0));
 
   bool qe = quitExecution;
   struct linradBuffer {
@@ -170,8 +172,9 @@ void SoundInThread::inputUDP()
     quint16 iblk;
     qint8 nrx;
     char iusb;
-    double d8[174];
+    double d8[512];                  //Up to 1024 i*2 IQ pairs (4096 bytes)
   } b;
+  constexpr int header_bytes = 24;   //Bytes in the packet ahead of d8
 
   int ntr0=99;
   int k=0;
@@ -188,8 +191,14 @@ void SoundInThread::inputUDP()
 //      msleep(2);                  // Sleep if no packet available
       QObject().thread()->usleep(2000);
     } else {
-      int nBytesRead = udpSocket->readDatagram((char *)&b,1416);
-      if (nBytesRead != 1416) qDebug() << "UDP Read Error:" << nBytesRead;
+      // The packet length depends on the sender and on the sample rate: 1416 bytes
+      // (348 IQ pairs) at 96 kHz, more at the higher rates.
+      int nBytesRead = udpSocket->readDatagram((char *)&b,sizeof(b));
+      int payload_bytes = nBytesRead - header_bytes;
+      if (payload_bytes < 8) {
+        qDebug() << "UDP Read Error:" << nBytesRead;
+        continue;
+      }
 
       qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
       nsec = ms/1000;             // Time according to this computer
@@ -206,18 +215,20 @@ void SoundInThread::inputUDP()
 
       if(m_monitoring) {
         m_nrx=b.nrx;
-        if(m_nrx == +1) iz=348;                 //One RF channel, i*2 data
-        if(m_nrx == -1 or m_nrx == +2) iz=174;  //One Rf channel, r*4 data
-                                                // or 2 RF channels, i*2 data
-        if(m_nrx == -2) iz=87;                  // Two RF channels, r*4 data
+        // Number of IQ pairs in this datagram, from its payload size
+        if(m_nrx == +1) iz=payload_bytes/4;                    //One RF channel, i*2 data (348 at 96 kHz)
+        if(m_nrx == -1 or m_nrx == +2) iz=payload_bytes/8;     //One Rf channel, r*4 data
+                                                               // or 2 RF channels, i*2 data
+        if(m_nrx == -2) iz=payload_bytes/16;                   // Two RF channels, r*4 data
 
         // If buffer will not overflow, move data into datcom_
-        if ((k+iz) <= 60*96000) {
+        if ((k+iz) <= qmap_runtime::activeNsmax()) {
           int nsam=-1;
+          qmap_set_npairs_active(iz);
           recvpkt_(&nsam, &b.iblk, &b.nrx, &k, b.d8, b.d8, &m_dB);
           datcom_.fcenter=b.cfreq + m_fAdd;
         }
-        m_hsym=(k-2048)/14400;           //14400 = 0.15 * 96000
+        m_hsym=(k-2048)/(qmap_runtime::activeRateHz()*3/20);   //0.15 s * rate = 14400 at 96 kHz
         if(m_hsym != nhsym0) {
           if(!m_dataSinkBusy) {
             m_dataSinkBusy=true;
