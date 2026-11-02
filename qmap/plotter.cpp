@@ -919,7 +919,9 @@ void CPlotter::setPalette(QString palette)                      //setPalette()
 
 void CPlotter::setFsample(int n)
 {
+  if(n==m_fSample) return;
   m_fSample=n;
+  if(!m_WaterfallPixmap.isNull() && m_WaterfallPixmap.width()>0) DrawOverlay();  //Refresh m_binsPerPixel, m_fSpan
 }
 
 void CPlotter::setMode65(int n)

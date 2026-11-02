@@ -7,6 +7,7 @@
 #include <QSignalSpy>
 
 #include "qmap/plotter.h"
+#include "qmap/qmap_runtime_config.h"
 
 class TestablePlotter final : public CPlotter
 {
@@ -22,6 +23,8 @@ private slots:
   void sizesHiddenPlotter();
   void appliesANewSpanAtOnce();
   void remembersASpanGivenBeforeSizing();
+  void scalesAtTheActiveRateWithoutSetFsample();
+  void setFsampleRefreshesTheScaling();
   void ignoresOutOfSpanAndControlClicks();
   void paintsLabelsInTwoDSpectrumMode();
 };
@@ -71,6 +74,35 @@ void TestPlotterInitialization::remembersASpanGivenBeforeSizing()
   plotter->ensureSized (1000, 280);
   QCOMPARE (plotter->plotWidth (), 1000);
   QVERIFY (plotter->m_fSpan > 42.f && plotter->m_fSpan < 46.f);
+}
+
+void TestPlotterInitialization::scalesAtTheActiveRateWithoutSetFsample()
+{
+  // A 256 kHz run sizes the plot before MainWindow hands it the rate; the scaling must already be right
+  qmap_runtime::setActive (256000, 131072);
+  {
+    auto const plotter = std::make_unique<CPlotter> ();
+    plotter->applySpan (240);
+    plotter->ensureSized (1000, 280);
+    // 240 kHz across 1000 pixels at 1.953 Hz per bin is about 123 bins per pixel (328 at 96 kHz scaling)
+    QVERIFY2 (plotter->binsPerPixel () >= 122 && plotter->binsPerPixel () <= 124,
+              qPrintable (QString::number (plotter->binsPerPixel ())));
+  }
+  qmap_runtime::setActive (96000, 32768);
+}
+
+void TestPlotterInitialization::setFsampleRefreshesTheScaling()
+{
+  qmap_runtime::setActive (192000, 65536);
+  {
+    auto const plotter = std::make_unique<CPlotter> ();
+    plotter->applySpan (100);
+    plotter->ensureSized (1000, 280);
+    int const atActive = plotter->binsPerPixel ();
+    plotter->setFsample (96000);                    // a later rate change re-derives the scaling
+    QVERIFY (plotter->binsPerPixel () > atActive);
+  }
+  qmap_runtime::setActive (96000, 32768);
 }
 
 void TestPlotterInitialization::ignoresOutOfSpanAndControlClicks()

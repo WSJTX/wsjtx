@@ -172,7 +172,7 @@ private:
   qint32  m_z1 {};
   qint32  m_z2 {};
   qint32  m_nkhz {};
-  qint32  m_fSample {96000};
+  qint32  m_fSample {qmap_runtime::activeRateHz()};   //Set before the plot is first sized
   qint32  m_nfft {qmap_runtime::activeNfft()};   //Spectrum bins per row, fixed for the run
   qint32  m_mode65 {};
   qint32  m_i0 {};
