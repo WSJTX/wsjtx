@@ -53,7 +53,7 @@ void ftrsdap_(int mrsym[], int mrprob[], int mr2sym[], int mr2prob[],
     
 // Initialize the KA9Q Reed-Solomon encoder/decoder
   unsigned int symsize=6, gfpoly=0x43, fcr=3, prim=1, nroots=51;
-  rs=init_rs_int(symsize, gfpoly, fcr, prim, nroots, 0);
+  rs=init_rs_int(symsize, gfpoly, fcr, prim, nroots);
 
 // Reverse the received symbol vectors for BM decoder
   for (i=0; i<63; i++) {

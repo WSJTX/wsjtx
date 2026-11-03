@@ -23,6 +23,7 @@ target_link_libraries (test_qt_helpers wsjt_qt Qt5::Test)
 add_test (test_qt_helpers test_qt_helpers)
 add_subdirectory (unit/hrd)
 add_subdirectory (unit/packjt77)
+add_subdirectory (unit/rs)
 
 add_executable (test_http_user_agent test_http_user_agent.cpp)
 target_link_libraries (test_http_user_agent wsjt_qt Qt5::Test)
