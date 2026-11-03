@@ -60,7 +60,7 @@ subroutine afc65b(cx,npts,fsample,nflip,mode65,a,ccfbest,dtbest)
         chisq1=fchisq65(cx,npts,fsample,nflip,a,ccfmax,dtmax)
         fn=0.
         delta=deltaa(j)
-10      a(j)=a(j)+delta
+        a(j)=a(j)+delta
         chisq2=fchisq65(cx,npts,fsample,nflip,a,ccfmax,dtmax)
         if(chisq2.eq.chisq1) then
            a(j)=a(j)-delta

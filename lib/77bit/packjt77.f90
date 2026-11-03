@@ -1613,15 +1613,6 @@ subroutine queue_hash_call_core(store,c13,nthr)
        store%nqueued_calls_by_thread)
 end subroutine queue_hash_call_core
 
-subroutine queue_recent_call_for_thread(c13,nthr)
-  character*13 c13
-  integer, intent(in) :: nthr
-
-  call queue_recent_call_core(legacy_state_view(),c13,nthr)
-
-  return
-end subroutine queue_recent_call_for_thread
-
 subroutine queue_recent_call_core(store,c13,nthr)
   type(pack77_state_view), intent(in) :: store
   character*13 c13
