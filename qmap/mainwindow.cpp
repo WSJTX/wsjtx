@@ -1242,6 +1242,12 @@ void MainWindow::guiUpdate()
   }
 
   m_wide_graph_window->updateFreqLabel();
+  // A jump of a MHz or more in the centre frequency is a band change (Fadd
+  // or Linrad retune); decodes from the old band must stop being clickable.
+  if (std::fabs (datcom_.fcenter - m_lastCentreMHz) >= 1.0) {
+    if (m_lastCentreMHz >= 0.0) clearDecodeLabels ();
+    m_lastCentreMHz = datcom_.fcenter;
+  }
   if (!m_diskData) {
     m_wide_graph_window->pruneDecodeLabels(nsec);
     if (m_vert_waterfall_window) m_vert_waterfall_window->pruneDecodeLabels(nsec);

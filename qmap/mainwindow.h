@@ -132,6 +132,7 @@ private:
   qint32  m_nTx60=0;
   qint32  m_nDoubleClicked=0;
   qint32  m_nline=0;
+  double  m_lastCentreMHz=-1.0;      //Centre frequency when decodes were last cleared
   qint32  m_WSJTX_TRperiod=0;
   qint32  m_dop00=0;
   qint32  m_dop58=0;
