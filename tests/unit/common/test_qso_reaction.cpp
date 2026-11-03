@@ -465,6 +465,55 @@ private slots:
     QCOMPARE(plan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted, reacts);
   }
 
+  void waitRequiresSelectedStation_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<QString>("selectedCall");
+    QTest::addColumn<bool>("waitAndCall");
+    QTest::addColumn<bool>("expectedReaction");
+
+    QTest::newRow("reply") << "K1ABC W1AW -10" << "W1AW" << false << true;
+    QTest::newRow("hashed reply") << "<K1ABC> <W1AW> -10" << "W1AW" << false << true;
+    QTest::newRow("longer sender") << "K1ABC W1AWX -10" << "W1AW" << false << false;
+    QTest::newRow("shorter sender") << "K1ABC W1AW -10" << "W1AWX" << false << false;
+    QTest::newRow("portable sender") << "K1ABC W1AW/P -10" << "W1AW" << false << false;
+    QTest::newRow("selected portable") << "K1ABC W1AW/P -10" << "W1AW/P" << false << true;
+    QTest::newRow("other recipient") << "K1ABCD W1AW -10" << "W1AW" << false << false;
+    QTest::newRow("unresolved sender") << "K1ABC <...> -10" << "W1AW" << false << false;
+    QTest::newRow("cq") << "CQ W1AW FN31" << "W1AW" << true << true;
+    QTest::newRow("directional cq") << "CQ DX W1AW FN31" << "W1AW" << true << true;
+    QTest::newRow("cq longer sender") << "CQ W1AWX FN31" << "W1AW" << true << false;
+    QTest::newRow("cq portable sender") << "CQ W1AW/P FN31" << "W1AW" << true << false;
+    QTest::newRow("rr73") << "W9XYZ W1AW RR73" << "W1AW" << true << true;
+    QTest::newRow("rr73 suffix collision") << "W9XYZ KW1AW RR73" << "W1AW" << true << false;
+    QTest::newRow("rrr suffix collision") << "W9XYZ KW1AW RRR" << "W1AW" << true << false;
+    QTest::newRow("73 suffix collision") << "W9XYZ KW1AW 73" << "W1AW" << true << false;
+  }
+
+  void waitRequiresSelectedStation()
+  {
+    QFETCH(QString, payload);
+    QFETCH(QString, selectedCall);
+    QFETCH(bool, waitAndCall);
+    QFETCH(bool, expectedReaction);
+
+    for (bool fast : {false, true}) {
+      auto snapshot = baseSnapshot();
+      snapshot.mode = fast ? "MSK144" : "FT8";
+      snapshot.dxCall = snapshot.hisCall = selectedCall;
+      snapshot.waitFeaturesEnabled = true;
+      snapshot.waitAndCall = waitAndCall;
+      snapshot.autoSequenceChecked = true;
+      auto const plan = DecodedMessageReaction::planWaitReplyCall(
+        decode(payload, fast ? "&" : "~", "060522"), snapshot,
+        fast ? DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder
+             : DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
+      QCOMPARE(hasEffect(plan, Effect::Kind::ProcessAutomaticSelectionNow), expectedReaction);
+      QCOMPARE(hasEffect(plan, Effect::Kind::SetAutoEnabled), expectedReaction);
+      if (!expectedReaction) QVERIFY(plan.effects.isEmpty());
+    }
+  }
+
   void slowWaitReplyOrderingAndTimeout()
   {
     auto snapshot = baseSnapshot();

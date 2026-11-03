@@ -850,9 +850,15 @@ namespace DecodedMessageReaction
       return plan;
     }
 
+    auto const fields = parseDecodedMessage(message.message());
+    if (fields.sender == "..." || fields.sender != snapshot.hisCall) {
+      plan.reason = "Wait message is not from the selected station";
+      return plan;
+    }
+    bool const direct = fields.destination == snapshot.myCall;
+
     QString text = message.string();
     text.replace("<", "").replace(">", "");
-    bool const direct = text.contains(" " + snapshot.myCall + " " + snapshot.hisCall);
 
     if (nccc && !snapshot.hisGrid.isEmpty()
         && text.contains(" " + snapshot.myCall + " " + snapshot.hisCall
