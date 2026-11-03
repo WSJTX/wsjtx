@@ -369,8 +369,18 @@ wsjt_link_common_fortran (test_streaming_period)
 add_test (NAME test_streaming_period COMMAND test_streaming_period)
 set_tests_properties (test_streaming_period PROPERTIES LABELS "streaming")
 
-# four2a's per-thread patience override, read on an OpenMP worker too.
 if (TARGET wsjt_fort_omp)
+  add_executable (test_streaming_emit_progress test_streaming_emit_progress.f90
+    test_streaming_emit_progress_thread.c ${CMAKE_SOURCE_DIR}/lib/stream_decode.c
+    ${CMAKE_SOURCE_DIR}/lib/stream_stdin.c)
+  wsjt_link_fortran_openmp (test_streaming_emit_progress)
+  target_link_libraries (test_streaming_emit_progress Threads::Threads wsjt_fortran_openmp)
+  add_test (NAME test_streaming_emit_progress
+    COMMAND ${CMAKE_COMMAND} -DTEST_EXECUTABLE=$<TARGET_FILE:test_streaming_emit_progress>
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/verify_streaming_emit_progress.cmake)
+  set_tests_properties (test_streaming_emit_progress PROPERTIES LABELS "streaming" TIMEOUT 40)
+
+  # four2a's per-thread patience override, read on an OpenMP worker too.
   add_executable (test_four2a_patience test_four2a_patience.f90)
   target_include_directories (test_four2a_patience PRIVATE
     ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
