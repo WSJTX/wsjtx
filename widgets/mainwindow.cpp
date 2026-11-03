@@ -84,6 +84,7 @@
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "CompactButtonSize.hpp"
+#include "FormColumnAlignment.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "Network/DecodedTime.hpp"
 #include "Audio/soundout.h"
@@ -2046,7 +2047,7 @@ void MainWindow::configureModeControlsLayout()
   m_frequencyToleranceRow = new QHBoxLayout;
   m_frequencyToleranceRow->setContentsMargins (0, 0, 0, 0);
   m_frequencyToleranceRow->setSpacing (4);
-  m_frequencyToleranceRow->addWidget (m_frequencyToleranceLabel);
+  ui->horizontalLayout_4->removeWidget (ui->sbFtol);
   m_frequencyToleranceRow->addLayout (ui->horizontalLayout_4);
   m_frequencyToleranceRow->addStretch (1);
 
@@ -2075,7 +2076,8 @@ void MainWindow::configureModeControlsLayout()
 
   form->addLayout (makeControlRow (m_txFrequencyLabel, ui->TxFreqSpinBox), 0, 0, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_submodeLabel, ui->sbSubmode), 0, 1, Qt::AlignLeft);
-  form->addLayout (m_frequencyToleranceRow, 1, 0, 1, 2, Qt::AlignLeft);
+  form->addLayout (m_frequencyToleranceRow, 1, 0, Qt::AlignLeft);
+  form->addLayout (makeControlRow (m_frequencyToleranceLabel, ui->sbFtol), 1, 1, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_maxDriftLabel, ui->sbMaxDrift), 2, 1, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_rxFrequencyLabel, ui->RxFreqSpinBox), 2, 0, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_reportLabel, ui->rptSpinBox), 3, 0, Qt::AlignLeft);
@@ -2388,6 +2390,23 @@ void MainWindow::updateMainWindowControlSizes()
       row.control->setFixedWidth (commonRowWidth - row.label->sizeHint ().width ()
                                   - formControlSpacing);
     }
+
+  {
+    // sbFtol's range (and so its minimumSizeHint) changes per mode -- e.g.
+    // on_actionMSK144_triggered() narrows it to 500 Hz, while switch_mode()'s
+    // generic path widens it back to 1000 Hz for most other modes. Measure it
+    // at its widest so the column doesn't end up sized for whichever mode
+    // last called HintedSpinBox::values(), then restore the active mode's
+    // actual range.
+    constexpr int kMaxFrequencyToleranceHz = 1000;
+    auto const savedMinimum = ui->sbFtol->minimum ();
+    auto const savedMaximum = ui->sbFtol->maximum ();
+    ui->sbFtol->setRange (qMin (savedMinimum, 1),
+                          qMax (savedMaximum, kMaxFrequencyToleranceHz));
+    alignFormColumn ({m_submodeLabel, m_frequencyToleranceLabel, m_maxDriftLabel},
+                     {ui->sbSubmode, ui->sbFtol, ui->sbMaxDrift});
+    ui->sbFtol->setRange (savedMinimum, savedMaximum);
+  }
   updateFrequencyToleranceRowAlignment ();
 }
 

@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QApplication>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QSpinBox>
 #include <QImage>
 #include <QPainter>
 #include <QVBoxLayout>
 #include <QTest>
 #include "widgets/CompactButtonSize.hpp"
 #include "widgets/CurrentPageHeightStackedWidget.hpp"
+#include "widgets/FormColumnAlignment.hpp"
 #include "widgets/TxDriveSlider.hpp"
 
 class CompactControlsTest : public QObject
@@ -35,6 +40,41 @@ private Q_SLOTS:
 
     stack.setCurrentWidget (tallPage);
     QCOMPARE (stack.sizeHint ().height (), tallPage->sizeHint ().height ());
+  }
+
+  void formColumnControlsLineUp ()
+  {
+    QWidget panel;
+    auto * grid = new QGridLayout {&panel};
+    QList<QLabel *> labels;
+    QList<QSpinBox *> boxes;
+    int row = 0;
+    for (auto const& text : {QStringLiteral ("Submode"), QStringLiteral ("F Tol"),
+                             QStringLiteral ("Max Drift")})
+      {
+        auto * label = new QLabel {text, &panel};
+        auto * box = new QSpinBox {&panel};
+        box->setMaximum (row == 1 ? 1000 : 9);
+        box->setSizePolicy (QSizePolicy::Fixed, QSizePolicy::Fixed);
+        auto * line = new QHBoxLayout;
+        line->setSpacing (4);
+        line->addWidget (label);
+        line->addWidget (box);
+        grid->addLayout (line, row++, 0, Qt::AlignLeft);
+        labels << label;
+        boxes << box;
+      }
+    alignFormColumn ({labels[0], labels[1], labels[2]}, {boxes[0], boxes[1], boxes[2]});
+    panel.adjustSize ();
+    grid->activate ();
+
+    for (auto * box : boxes)
+      {
+        QCOMPARE (box->x (), boxes[0]->x ());
+        QCOMPARE (box->width (), boxes[1]->width ());
+        QVERIFY (box->width () >= box->minimumSizeHint ().width ());
+      }
+    QVERIFY (boxes[0]->x () >= labels[2]->x () + labels[2]->sizeHint ().width ());
   }
 
   void scaleColorContrast ()
