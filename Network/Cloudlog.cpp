@@ -17,6 +17,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QSet>
 #include <QTimer>
 #include <QUrl>
 #include <QVariant>
@@ -101,6 +102,13 @@ namespace
     return cache;
   }
 
+  QSet<QString>& checkedHttpBaseUrls ()
+  {
+    // Connection checks and uploads use separate Cloudlog instances.
+    static QSet<QString> urls;
+    return urls;
+  }
+
   void applyCommonHeaders (QNetworkRequest& request, bool acceptJson)
   {
     request.setAttribute (QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -168,6 +176,16 @@ namespace
     httpFallback = baseUrl;
     url.setScheme (QStringLiteral ("https"));
     return url.toString ();
+  }
+
+  QString uploadBaseUrl (QString const& baseUrl, QString& httpFallback)
+  {
+    if (checkedHttpBaseUrls ().contains (baseUrl))
+      {
+        httpFallback.clear ();
+        return baseUrl;
+      }
+    return httpsFirstBaseUrl (baseUrl, httpFallback);
   }
 
   bool canRetryUploadOverHttp (QNetworkReply const& reply)
@@ -590,7 +608,7 @@ public:
 
     auto const configured_base_url = Cloudlog::normalizeBaseUrl (config_->cloudlog_api_url ());
     QString http_fallback;
-    auto const base_url = httpsFirstBaseUrl (configured_base_url, http_fallback);
+    auto const base_url = uploadBaseUrl (configured_base_url, http_fallback);
     auto const api_key = config_->cloudlog_api_key ();
     auto const api_version = usesApiV2 (api_key) ? ApiVersion::V2 : ApiVersion::Legacy;
     auto const data = ApiVersion::V2 == api_version
@@ -708,7 +726,7 @@ public:
     radio_attempt_.start ();
     radio_succeeded_ = false;
     QString http_fallback;
-    auto const preferred_url = httpsFirstBaseUrl (base_url, http_fallback);
+    auto const preferred_url = uploadBaseUrl (base_url, http_fallback);
     startRadioUpload (preferred_url, payload, http_fallback, v2, api_key);
   }
 
@@ -1343,6 +1361,17 @@ private:
   {
     check_reply_ = nullptr;
     auto result_with_profiles = result;
+    if (Cloudlog::ConnectionCheckStatus::Success == result.status)
+      {
+        if (check_using_http_fallback_)
+          {
+            checkedHttpBaseUrls ().insert (check_request_.url);
+          }
+        else if (!check_http_fallback_url_.isEmpty ())
+          {
+            checkedHttpBaseUrls ().remove (check_http_fallback_url_);
+          }
+      }
     if (check_using_http_fallback_ && Cloudlog::ConnectionCheckStatus::Success == result_with_profiles.status)
       {
         result_with_profiles.detail += tr (" HTTPS was unavailable; connected over HTTP.");

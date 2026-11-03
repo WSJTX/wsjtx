@@ -3,8 +3,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
+#include <QNetworkProxy>
 #include <QNetworkReply>
 #include <QPointer>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTimer>
 
 #include "Network/Cloudlog.hpp"
@@ -156,6 +159,8 @@ namespace
     Q_OBJECT
 
   public:
+    QNetworkReply::NetworkError httpsError {QNetworkReply::NoError};
+
     void queueResponse (FakeResponse const& response)
     {
       responses_.append (response);
@@ -209,7 +214,9 @@ namespace
         }
       requests_.append (captured);
 
-      auto response = responses_.isEmpty () ? FakeResponse {404, QByteArray {"not found"}, QNetworkReply::ContentNotFoundError, QStringLiteral ("not found")} : responses_.takeFirst ();
+      auto response = request.url ().scheme () == QStringLiteral ("https") && httpsError != QNetworkReply::NoError
+        ? FakeResponse {0, {}, httpsError, QStringLiteral ("HTTPS unavailable")}
+        : responses_.isEmpty () ? FakeResponse {404, QByteArray {"not found"}, QNetworkReply::ContentNotFoundError, QStringLiteral ("not found")} : responses_.takeFirst ();
       auto * reply = new FakeReply {request, response, this};
       replies_.append (reply);
       return reply;
@@ -831,6 +838,186 @@ private Q_SLOTS:
         QCOMPARE (requests.at (i).url.scheme (), QStringLiteral ("http"));
         QVERIFY (requests.at (i).url.path ().contains (QStringLiteral ("/api/v2/")));
       }
+  }
+
+  void reusesCheckedHttpTransportAcrossInstances_data ()
+  {
+    QTest::addColumn<bool> ("v2");
+    QTest::newRow ("legacy") << false;
+    QTest::newRow ("v2") << true;
+  }
+
+  void reusesCheckedHttpTransportAcrossInstances ()
+  {
+    QFETCH (bool, v2);
+    auto const url = QStringLiteral ("http://checked-timeout-%1.example/log").arg (v2);
+    auto const key = v2 ? QStringLiteral ("wl2_test") : QStringLiteral ("test-key");
+    FakeNetworkAccessManager network;
+    network.httpsError = QNetworkReply::TimeoutError;
+    TestCloudlogConfiguration config {url + QStringLiteral ("/index.php/api/qso/"), key, 7};
+    config.radioEnabled = true;
+    Cloudlog uploader {&config, &network};
+    QSignalSpy qsoSpy {&uploader, &Cloudlog::qso_upload_finished};
+    QSignalSpy radioSpy {&uploader, &Cloudlog::radio_status_finished};
+    if (v2)
+      {
+        network.queueJson (200, json (R"({"data":{"name":"Wavelog API","status":"ok"}})"));
+        network.queueJson (200, json (R"({"data":{"scopes":["station:read","qso:write","radio:write"]}})"));
+        network.queueJson (200, json (R"({"data":[{"id":7,"name":"Home"}]})"));
+        network.queueJson (200, json (R"({"data":{"dryrun":true,"parsed":1}})"));
+      }
+    else
+      {
+        network.queueWritableJsonAuth ();
+        network.queueStationInfo (json (R"([{"station_id":7,"station_profile_name":"Home"}])"));
+        network.queueManifest (json (R"({"name":"Wavelog"})"));
+        network.queueJson (201, json (R"({"status":"created"})"));
+      }
+    auto const check = runCheck (network, 7, url + QStringLiteral ("/api/qso/"), key, true);
+    QCOMPARE (check.status, Cloudlog::ConnectionCheckStatus::Success);
+    QCOMPARE (check.normalizedBaseUrl, url);
+    QVERIFY (check.detail.contains (QStringLiteral ("connected over HTTP")));
+    auto const checkRequests = network.requests ().size ();
+    for (int i = 0; i < 2; ++i)
+      {
+        network.queueJson (201, v2 ? json (R"({"data":{"parsed":1,"imported":1,"skipped":0}})")
+                                  : json (R"({"status":"created"})"));
+        uploader.logQso (QByteArray {"<call:5>K1ABC"});
+        QVERIFY (qsoSpy.wait (1000));
+        QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (qsoSpy.takeFirst ().at (0)).status,
+                  Cloudlog::UploadStatus::Success);
+      }
+    network.queueJson (200, v2 ? json (R"({"data":{"radio":"WSJT-X"}})")
+                              : json (R"({"status":"success"})"));
+    uploader.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+    QVERIFY (radioSpy.wait (1000));
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (radioSpy.takeFirst ().at (0)).status,
+              Cloudlog::UploadStatus::Success);
+    QCOMPARE (network.requests ().size (), checkRequests + 3);
+    auto const path = v2 ? QStringLiteral ("/log/index.php/api/v2/") : QStringLiteral ("/log/api/");
+    for (int i = checkRequests; i < network.requests ().size (); ++i)
+      {
+        auto const request = network.requests ().at (i);
+        QCOMPARE (request.url.scheme (), QStringLiteral ("http"));
+        QCOMPARE (request.url.path (), path + (i == checkRequests + 2 ? QStringLiteral ("radio") : QStringLiteral ("qso")));
+        QCOMPARE (request.authorization, v2 ? QByteArray {"Bearer wl2_test"} : QByteArray {});
+      }
+
+    // An explicitly configured HTTPS URL must not inherit the HTTP selection.
+    config.url = QString {url}.replace (QStringLiteral ("http:"), QStringLiteral ("https:"));
+    uploader.logQso (QByteArray {"<call:5>K1ABC"});
+    QVERIFY (qsoSpy.wait (1000));
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (qsoSpy.takeFirst ().at (0)).status,
+              Cloudlog::UploadStatus::NetworkError);
+    QCOMPARE (network.requests ().size (), checkRequests + 4);
+    QCOMPARE (network.requests ().last ().url.scheme (), QStringLiteral ("https"));
+
+    // A successful recheck probes HTTPS again and restores its preference.
+    network.httpsError = QNetworkReply::NoError;
+    network.queueWritableJsonAuth ();
+    network.queueStationInfo (json (R"([{"station_id":7}])"));
+    network.queueManifest (json (R"({"name":"Cloudlog"})"));
+    auto const recheck = runCheck (network, 7, url);
+    QCOMPARE (recheck.status, Cloudlog::ConnectionCheckStatus::Success);
+    QVERIFY (recheck.normalizedBaseUrl.startsWith (QStringLiteral ("https:")));
+    auto const restored = runLogQso (network, {201, json (R"({"status":"created"})")}, url);
+    QCOMPARE (restored.status, Cloudlog::UploadStatus::Success);
+    QCOMPARE (network.requests ().last ().url.scheme (), QStringLiteral ("https"));
+  }
+
+  void doesNotRetryUncertainPost_data ()
+  {
+    QTest::addColumn<int> ("error");
+    QTest::addColumn<bool> ("radio");
+    for (auto error : {QNetworkReply::TimeoutError, QNetworkReply::OperationCanceledError,
+                       QNetworkReply::RemoteHostClosedError})
+      {
+        for (bool radio : {false, true})
+          {
+            auto const name = QByteArray::number (error) + (radio ? "-radio" : "-qso");
+            QTest::newRow (name.constData ()) << static_cast<int> (error) << radio;
+          }
+      }
+  }
+
+  void doesNotSelectHttpAfterFailedCheck ()
+  {
+    FakeNetworkAccessManager network;
+    network.httpsError = QNetworkReply::TimeoutError;
+    network.queueJson (200, json (R"({"status":"valid","rights":"r"})"));
+    auto const url = QStringLiteral ("http://failed-check.example");
+    QCOMPARE (runCheck (network, 7, url).status, Cloudlog::ConnectionCheckStatus::ReadOnlyKey);
+    QCOMPARE (network.requests ().size (), 2);
+    auto const result = runLogQso (network, {201, json (R"({"status":"created"})")}, url);
+    QCOMPARE (result.status, Cloudlog::UploadStatus::NetworkError);
+    QCOMPARE (network.requests ().size (), 3);
+    QCOMPARE (network.requests ().last ().url.scheme (), QStringLiteral ("https"));
+  }
+
+  void doesNotRetryUncertainPost ()
+  {
+    QFETCH (int, error);
+    QFETCH (bool, radio);
+    FakeNetworkAccessManager network;
+    TestCloudlogConfiguration config {QStringLiteral ("http://uncertain-upload.example"), QStringLiteral ("test-key"), 7};
+    config.radioEnabled = true;
+    network.queueResponse ({0, {}, static_cast<QNetworkReply::NetworkError> (error), QStringLiteral ("delivery uncertain")});
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, radio ? &Cloudlog::radio_status_finished : &Cloudlog::qso_upload_finished};
+    if (radio)
+      {
+        cloudlog.updateRadio ({14074000, 14074000, QStringLiteral ("FT8")});
+      }
+    else
+      {
+        cloudlog.logQso (QByteArray {"<call:5>K1ABC"});
+      }
+    QVERIFY (spy.wait (1000));
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (spy.takeFirst ().at (0)).status,
+              Cloudlog::UploadStatus::NetworkError);
+    QCOMPARE (network.requests ().size (), 1);
+    QCOMPARE (network.requests ().first ().url.scheme (), QStringLiteral ("https"));
+  }
+
+  void doesNotRetryDeliveredPostAfterAbort ()
+  {
+    QTcpServer server;
+    QVERIFY (server.listen (QHostAddress::LocalHost));
+    QNetworkAccessManager network;
+    network.setProxy (QNetworkProxy::NoProxy);
+    TestCloudlogConfiguration config {
+      QStringLiteral ("http://127.0.0.1:%1").arg (server.serverPort ()), QStringLiteral ("local-test-key"), 7};
+    // Select HTTP without exposing a real POST to an HTTPS timeout.
+    FakeNetworkAccessManager checker;
+    checker.httpsError = QNetworkReply::TimeoutError;
+    checker.queueWritableJsonAuth ();
+    checker.queueStationInfo (json (R"([{"station_id":7}])"));
+    checker.queueManifest (json (R"({"name":"Cloudlog"})"));
+    QCOMPARE (runCheck (checker, 7, config.url).status, Cloudlog::ConnectionCheckStatus::Success);
+    Cloudlog cloudlog {&config, &network};
+    QSignalSpy spy {&cloudlog, &Cloudlog::qso_upload_finished};
+    QPointer<QNetworkReply> reply;
+    connect (&network, &QNetworkAccessManager::finished, this, [&reply] (QNetworkReply * finished) { reply = finished; });
+    cloudlog.logQso (QByteArray {"<call:5>K1ABC"});
+    QTRY_VERIFY (server.hasPendingConnections ());
+    auto * socket = server.nextPendingConnection ();
+    QByteArray received;
+    auto const payload = Cloudlog::qsoUploadPayload (config.apiKey, 7, QByteArray {"<call:5>K1ABC"});
+    QTRY_VERIFY ((received += socket->readAll ()).endsWith (payload));
+    QVERIFY (received.startsWith ("POST /api/qso HTTP/1.1\r\n"));
+    // The server has the complete QSO, but sends no response.
+    auto const replies = network.findChildren<QNetworkReply *> ();
+    QCOMPARE (replies.size (), 1);
+    replies.first ()->abort ();
+    QCOMPARE (spy.size (), 1);
+    QVERIFY (reply);
+    QCOMPARE (reply->error (), QNetworkReply::OperationCanceledError);
+    QVERIFY (!reply->attribute (QNetworkRequest::HttpStatusCodeAttribute).isValid ());
+    QCOMPARE (qvariant_cast<Cloudlog::UploadResult> (spy.first ().at (0)).status,
+              Cloudlog::UploadStatus::NetworkError);
+    QCoreApplication::processEvents ();
+    QVERIFY (!server.hasPendingConnections ());
+    QVERIFY (socket->readAll ().isEmpty ());
   }
 
   void acceptsWritableClassicWithoutDryRun ()
