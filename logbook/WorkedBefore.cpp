@@ -342,6 +342,13 @@ namespace
               QRegularExpression::CaseInsensitiveOption};
             if (pattern.match (input.mid (opening + 1, tag_closing - opening - 1)).hasMatch ())
               {
+                if (!character_lengths && static_cast<quint64> (end - field.data_start) < length)
+                  {
+                    // A byte endpoint inside a tag can be character-counted field data.
+                    // Resolve it before exposing embedded delimiters to boundary recovery.
+                    auto characters = read_adif_field (input, position, closing, at_eof, true);
+                    if (characters.needs_more || !characters.recover_boundary) return characters;
+                  }
                 field.recover_boundary = true;
                 return field;
               }

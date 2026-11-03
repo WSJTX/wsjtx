@@ -230,6 +230,52 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
     << QByteArray {"<CALL:5>K1ABC<COMMENT:10><BAND:999><BAND:3>20M<MODE:3>FT8<EOR>"}
     << QStringList {"K1ABC"};
 
+  QTest::newRow ("character-counted-comment-containing-eor")
+    << (QString {"<CALL:5>K1ABC<COMMENT:9>"} + QString (4, QChar {0x00e9})
+        + "<EOR><BAND:3>20M<MODE:3>FT8<EOR>").toUtf8 ()
+    << QStringList {"K1ABC"};
+
+  for (auto const& tag : {"<eOr>", "<eOh>", "<BAND:999:S>", "<BAND:3>40M"})
+    for (int count : {1, 2, 3, 4})
+      for (bool byte_counted : {false, true})
+        {
+          auto value = QString (count, QChar {0x00e9}) + tag;
+          auto length = byte_counted ? value.toUtf8 ().size () : value.size ();
+          auto row = QString {"unicode-comment-%1-%2-%3"}.arg (tag).arg (count)
+            .arg (byte_counted ? "bytes" : "characters");
+          QTest::newRow (qPrintable (row))
+            << (QString {"<CALL:5>K1ABC<COMMENT:%1:S>%2<BAND:3>20M<MODE:3>FT8<EOR>"}
+                .arg (length).arg (value).toUtf8 () + record ("W1XYZ").toUtf8 ())
+            << QStringList {"K1ABC", "W1XYZ"};
+        }
+
+  auto unicode_header = QString (4, QChar {0x00e9}) + "<EOH>";
+  for (bool byte_counted : {false, true})
+    for (bool preamble : {false, true})
+      {
+        auto row = QString {"unicode-header-%1-%2"}.arg (byte_counted ? "bytes" : "characters")
+          .arg (preamble ? "preamble" : "field-first");
+        QTest::newRow (qPrintable (row))
+          << ((preamble ? QByteArray {"ADIF Export"} : QByteArray {})
+              + QString {"<PROGRAMID:%1>%2<EOH>"}
+                .arg (byte_counted ? unicode_header.toUtf8 ().size () : unicode_header.size ())
+                .arg (unicode_header).toUtf8 () + record ("K1ABC").toUtf8 ())
+          << QStringList {"K1ABC"};
+      }
+
+  QTest::newRow ("unicode-malformed-length-crosses-tags-in-both-interpretations")
+    << ((QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:14>"}
+         + QString (4, QChar {0x00e9}) + "oops<EOR>").toUtf8 () + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
+  QTest::newRow ("maximum-length-recovers-without-overflow")
+    << (QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:18446744073709551615>oops<EOR>"}
+        + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
+  QTest::newRow ("unicode-malformed-length-beyond-eof")
+    << (QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:12>"}
+        + QString (4, QChar {0x00e9}) + "<EOR>").toUtf8 ()
+    << QStringList {"K1ABC"};
+
   auto unicode_comment = QString (5, QChar {0x00e9}) + "<BAND:999>";
   QTest::newRow ("character-counted-comment-containing-descriptor")
     << (QString {"<COMMENT:%1>%2"}.arg (unicode_comment.size ()).arg (unicode_comment).toUtf8 ()
@@ -277,6 +323,16 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
     << QStringList {"K1ABC"};
 
   constexpr int chunk_size {64 * 1024};
+  auto unicode_split_record = QString {"<CALL:5>K1ABC<COMMENT:12>"} + QString (4, QChar {0x00e9})
+    + "<EOR>abc<BAND:3>20M<MODE:3>FT8<EOR>";
+  auto embedded_eor = unicode_split_record.indexOf ("<EOR>");
+  for (int offset : {-1, 0, 1, 4, 5, 6, 8, 9})
+    {
+      QTest::newRow (qPrintable (QString {"character-counted-eor-crosses-chunk-%1"}.arg (offset)))
+        << (QByteArray (chunk_size - embedded_eor - offset, ' ') + unicode_split_record.toUtf8 ()
+            + record ("W1XYZ").toUtf8 ())
+        << QStringList {"K1ABC", "W1XYZ"};
+    }
   auto split_endpoint_tag = [] (QByteArray const& adif, int field_length) {
     auto data_start = adif.indexOf ('>', adif.indexOf ("<COMMENT:")) + 1;
     return QByteArray (chunk_size - data_start - field_length - 1, ' ') + adif;
