@@ -44,7 +44,7 @@ double stream_stdin_now (void)
 static int wait_for (int *condition)
 {
   struct timespec deadline;
-  if (timespec_get (&deadline, TIME_UTC) != TIME_UTC) return 0;
+  if (clock_gettime (CLOCK_REALTIME, &deadline) != 0) return 0;
   deadline.tv_sec += 10;
   pthread_mutex_lock (&mutex);
   while (!*condition)
