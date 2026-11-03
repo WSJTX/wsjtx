@@ -21,7 +21,7 @@ program test_decoder_engine_fst4_host
   character(len=256) :: line
   character(len=37) :: expected
   interface
-     subroutine signal(mode,period,frequency,samples) bind(C,name='decoder_engine_test_fst4_signal')
+     subroutine gen_signal(mode,period,frequency,samples) bind(C,name='decoder_engine_test_fst4_signal')
        import c_int,c_int16_t,c_float
        integer(c_int), value :: mode,period
        real(c_float), value :: frequency
@@ -49,7 +49,7 @@ program test_decoder_engine_fst4_host
         expected='K1ABC FN42 37'
      endif
      allocate(samples(period*12000),before(period*12000))
-     call signal(mode,period,real(receive_frequencies(mode_index),c_float),samples)
+     call gen_signal(mode,period,real(receive_frequencies(mode_index),c_float),samples)
      before=samples
      parameter_bytes=0
      params%nmode=mode

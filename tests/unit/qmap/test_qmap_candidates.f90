@@ -127,8 +127,9 @@ contains
     logical, intent(in) :: also30
     type(candidate), intent(out) :: candidates(50)
     integer, intent(out) :: count
-    real :: fresh_savg(nfft)
+    real, allocatable :: fresh_savg(:)
     logical(kind=1) :: search30
+    allocate(fresh_savg(nfft))
     fresh_savg=savg
     search30=also30
     count=-1
@@ -139,8 +140,9 @@ contains
     integer, intent(in) :: selected_bin
     type(candidate), intent(out) :: candidates(50)
     integer, intent(out) :: count
-    real :: fresh_savg(nfft)
+    real, allocatable :: fresh_savg(:)
     logical(kind=1) :: search30
+    allocate(fresh_savg(nfft))
     fresh_savg=savg
     search30=.false.
     count=-1

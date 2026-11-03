@@ -22,7 +22,7 @@ program test_decoder_engine_jt4_host
   logical :: exists
   common/patience/npatience,nthreads
   interface
-     subroutine signal(rate,submode,seed,amplitude,noise,frequency,samples) bind(C,name='decoder_engine_test_jt4_signal')
+     subroutine gen_signal(rate,submode,seed,amplitude,noise,frequency,samples) bind(C,name='decoder_engine_test_jt4_signal')
        import c_int,c_int16_t,c_float
        integer(c_int), value :: rate,submode,seed
        real(c_float), value :: amplitude,noise,frequency
@@ -100,7 +100,7 @@ program test_decoder_engine_jt4_host
   before=samples
   call run(0)
   params%nclearave=.false.
-  call signal(11025,0,1,300.0,100.0,1000.0,samples)
+  call gen_signal(11025,0,1,300.0,100.0,1000.0,samples)
   before=samples
   call run(1)
   call require(output_contains('K1ABC W9XYZ FN42'),'legacy host prints recovered message')
@@ -122,7 +122,7 @@ program test_decoder_engine_jt4_host
   call require(.not.output_contains('K1ABC'),'no-sync output cannot reuse prior message')
   call new_period(1234)
   params%ndepth=3+16
-  call signal(11025,0,5,5.0,100.0,1000.0,samples)
+  call gen_signal(11025,0,5,5.0,100.0,1000.0,samples)
   before=samples
   call run(0)
   call require(average_rows()==1,'weak synchronized reception enters average history')
@@ -145,7 +145,7 @@ program test_decoder_engine_jt4_host
   params%nclearave=.false.
 
   call new_period(1236)
-  call signal(11025,0,6,5.0,100.0,1000.0,samples)
+  call gen_signal(11025,0,6,5.0,100.0,1000.0,samples)
   before=samples
   call run(0)
   call require(average_rows()==1,'quiet clear prevents reuse of the preceding weak reception')
@@ -154,7 +154,7 @@ program test_decoder_engine_jt4_host
   params%nmode=4
   params%ndepth=1
   params%nclearave=.true.
-  call signal(11025,0,1,300.0,100.0,1000.0,samples)
+  call gen_signal(11025,0,1,300.0,100.0,1000.0,samples)
   before=samples
   call compare_typed_decode()
   deallocate(samples,before)
