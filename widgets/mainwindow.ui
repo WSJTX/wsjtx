@@ -5080,10 +5080,10 @@ QLabel[oob=&quot;true&quot;] {
               <bool>false</bool>
              </property>
              <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Orange or red indicates that rig control needs recovery. Click to retry rig control and restore the requested frequency. S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
              <property name="accessibleDescription">
-              <string>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</string>
+              <string>Orange or red indicates that rig control needs recovery. Click to retry rig control and restore the requested frequency. S implies split mode.</string>
              </property>
              <property name="styleSheet">
               <string notr="true">QPushButton {

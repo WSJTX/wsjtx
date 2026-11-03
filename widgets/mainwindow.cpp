@@ -13067,8 +13067,9 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       if (!s.ptt ()) setXIT (ui->TxFreqSpinBox->value ());
     }
 
-  update_dynamic_property (ui->readFreq, "state", "ok");
-  ui->readFreq->setEnabled (false);
+  bool const recoveryRequired = m_operatingFrequency.recoveryRequired ();
+  update_dynamic_property (ui->readFreq, "state", recoveryRequired ? "warning" : "ok");
+  ui->readFreq->setEnabled (recoveryRequired);
   ui->readFreq->setText (s.split () ? "S" : "");
   updateRigMeters (s);
   if (high_swr) showHighSWRWarning (s.swr ());

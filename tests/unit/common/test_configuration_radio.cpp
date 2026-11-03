@@ -69,19 +69,22 @@ struct FrequencySession final : QObject
     };
     configuration.set_frequency_activity_provider ([this] { checkThread (); return activity; });
     connect (&configuration, &Configuration::frequency_result, this,
-      [this] (RigFrequency::Result const& result) {
+      [this, &configuration] (RigFrequency::Result const& result) {
         checkThread ();
+        frequency.setConnectionGeneration (configuration.frequency_generation ());
         results.push_back (result);
         frequency.handleResult (result);
       });
     connect (&configuration, &Configuration::frequency_observation, this,
-      [this] (RigFrequency::Evidence const& evidence) {
+      [this, &configuration] (RigFrequency::Evidence const& evidence) {
         checkThread ();
+        frequency.setConnectionGeneration (configuration.frequency_generation ());
         frequency.observe (evidence, context);
       });
     connect (&configuration, &Configuration::transceiver_update, this,
-      [this] (Transceiver::TransceiverState const& state) {
+      [this, &configuration] (Transceiver::TransceiverState const& state) {
         checkThread ();
+        frequency.setConnectionGeneration (configuration.frequency_generation (), state.online ());
         activity.rigPtt = state.ptt ();
         activity.rigTune = state.tune ();
         context.transmitting = state.ptt ();
@@ -330,8 +333,24 @@ private slots:
     QVERIFY (!app.wrongThread.load ());
   }
 
-  void reconnectDiscardsQueuedFrequencyApplication ()
+  void reconnectDiscardsPendingFrequencyApplication_data ()
   {
+    QTest::addColumn<bool> ("tx");
+    QTest::addColumn<bool> ("testCat");
+    QTest::addColumn<bool> ("queuedResult");
+    QTest::newRow ("offline-rx-queued") << false << false << true;
+    QTest::newRow ("test-cat-rx-queued") << false << true << true;
+    QTest::newRow ("test-cat-tx-queued") << true << true << true;
+    QTest::newRow ("test-cat-rx-awaiting-readback") << false << true << false;
+    QTest::newRow ("test-cat-tx-awaiting-readback") << true << true << false;
+  }
+
+  void reconnectDiscardsPendingFrequencyApplication ()
+  {
+    QFETCH (bool, tx);
+    QFETCH (bool, testCat);
+    QFETCH (bool, queuedResult);
+    auto const path = tx ? RigFrequency::Path::Tx : RigFrequency::Path::Rx;
     session_.reset (new FrequencySession {*configuration_});
     auto& s = *session_;
     QVERIFY (s.server.listen ());
@@ -339,27 +358,50 @@ private slots:
     s.frequency.setDesiredCorrection (125, -125);
     QVERIFY (s.frequency.requestNominal (FrequencySession::nominal, s.dispatch));
     QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingRx; }, 3000));
+    QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingTx; }, 3000));
     s.frequency.setDesiredCorrection (175, -175);
-    s.withheldTarget = FrequencySession::nominal + 175;
-    QVERIFY (s.apply (RigFrequency::Path::Rx));
-    QVERIFY (s.server.wait_for ([&] { return !s.withheld.isEmpty (); }, 1000));
+    s.withheldTarget = tx ? FrequencySession::nominal - 175 : FrequencySession::nominal + 175;
+    QVERIFY (s.apply (path));
+    QVERIFY (s.server.wait_for ([&] { return !s.withheld.isEmpty (); }, 3000));
     auto& app = *static_cast<RadioTestApplication *> (qApp);
     while (app.completedCall.tryAcquire ()) {}
-    app.fenceArmed.store (true);
-    s.release ();
-    // Keep the GUI queue stopped until CAT has emitted its result into that queue.
-    QVERIFY (app.completedCall.tryAcquire (1, 3000));
-    QVERIFY (s.frequency.snapshot ().pendingRx);
+    if (queuedResult)
+      {
+        app.fenceArmed.store (true);
+        s.release ();
+        // Keep the GUI queue stopped until CAT has emitted its result into that queue.
+        QVERIFY (app.completedCall.tryAcquire (1, 3000));
+      }
+    QVERIFY (tx ? s.frequency.snapshot ().pendingTx : s.frequency.snapshot ().pendingRx);
     auto const oldGeneration = configuration_->frequency_generation ();
     auto const resultsBeforeClose = s.results.size ();
-    configuration_->transceiver_offline ();
-    QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+    if (testCat)
+      {
+        // The simulator accepts one client, so retire the old socket before reconnecting.
+        connect (configuration_.get (), &Configuration::transceiver_closing,
+                 &s.server, &TciSimServer::abort_client);
+        s.previous = {};
+        dialog ().on_test_CAT_push_button_clicked ();
+        QVERIFY (s.server.wait_for ([&] { return s.previous.online || !s.failures.isEmpty (); }, 7000));
+        QVERIFY (s.previous.online);
+      }
+    else
+      {
+        configuration_->transceiver_offline ();
+        QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+        s.previous = {};
+        QVERIFY (openFrequencySession ());
+      }
     QCOMPARE (s.results.size (), resultsBeforeClose);
-    s.previous = {};
-    QVERIFY (openFrequencySession ());
+    s.withheld.clear ();
+    s.withheldTarget = 0;
     QVERIFY (configuration_->frequency_generation () > oldGeneration);
     QVERIFY (s.frequency.recoveryRequired ());
     QVERIFY (!s.apply (RigFrequency::Path::Rx));
+    QVERIFY (!s.apply (RigFrequency::Path::Tx));
+    QVERIFY (!s.frequency.snapshot ().pendingRx);
+    QVERIFY (!s.frequency.snapshot ().pendingTx);
     QCOMPARE (s.frequency.rx (), FrequencySession::nominal);
     QCOMPARE (s.frequency.remembered (), FrequencySession::nominal);
     for (auto const& message : s.server.messages (TciSimServer::Direction::ClientToServer, "vfo"))
@@ -369,6 +411,10 @@ private slots:
     QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingRx; }, 3000));
     QCOMPARE (s.appliedRx, FrequencySession::nominal + 175);
     QCOMPARE (s.frequency.correctedRx (), s.appliedRx);
+    QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingTx; }, 3000));
+    QCOMPARE (s.appliedTx, FrequencySession::nominal - 175);
+    QCOMPARE (s.frequency.correctedTx (), s.appliedTx);
     QVERIFY (!s.frequency.recoveryRequired ());
     QVERIFY (s.failures.isEmpty ());
     QVERIFY (!s.wrongThread);
