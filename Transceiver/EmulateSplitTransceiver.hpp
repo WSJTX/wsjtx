@@ -57,6 +57,8 @@ private:
   Frequency rx_frequency_;        // requested Rx frequency
   Frequency tx_frequency_;        // requested Tx frequency
   bool split_; // requested split state
+  bool tx_requested_ = false;
+  Frequency frequency_resolution_ = 1;
   RigFrequency::Request emulated_tx_;
   RigFrequency::Request logical_rx_;
   RigFrequency::Request logical_tx_;

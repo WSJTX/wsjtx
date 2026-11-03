@@ -212,6 +212,8 @@ add_test (NAME test_auto_respond_period COMMAND test_auto_respond_period)
 
 add_executable (test_emulate_split_transceiver
   test_emulate_split_transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/OperatingFrequency.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/TransceiverBase.cpp
   ${CMAKE_SOURCE_DIR}/Transceiver/EmulateSplitTransceiver.cpp
   ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
   ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
