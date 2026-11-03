@@ -98,9 +98,17 @@ set_tests_properties (test_streaming_reads_while_decoding PROPERTIES
   PROCESSORS 2
   TIMEOUT ${streaming_read_timeout})
 
+find_package (Threads REQUIRED)
+add_executable (test_stream_decode_queue test_stream_decode_queue.c ${CMAKE_SOURCE_DIR}/lib/stream_decode.c)
+target_link_libraries (test_stream_decode_queue Threads::Threads)
+if (UNIX)
+  target_link_libraries (test_stream_decode_queue m)
+endif ()
+add_test (NAME test_stream_decode_queue COMMAND test_stream_decode_queue)
+set_tests_properties (test_stream_decode_queue PROPERTIES LABELS "streaming" TIMEOUT 30)
+
 # The codec's stdin reader over a pipe on fd 0, which these platforms redirect in-process.
 if (UNIX)
-  find_package (Threads REQUIRED)
   add_executable (test_stream_stdin test_stream_stdin.c ${CMAKE_SOURCE_DIR}/lib/stream_stdin.c)
   target_link_libraries (test_stream_stdin Threads::Threads)
   add_test (NAME test_stream_stdin COMMAND test_stream_stdin)

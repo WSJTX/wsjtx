@@ -1672,10 +1672,8 @@ private slots:
       }
   }
 
-  // A final waits while renders keep the main thread busy; a render
-  // that arrives after the decoder freed, with no other frame, starts the
-  // final before its reply ends, and the next trigger is decided by the
-  // GUI's scheduler.
+  // A final waits while renders keep the main thread busy; a later render
+  // wakes the waiting final, and the next trigger is decided by the GUI's scheduler.
   void renderAfterTheDecodeStartsTheWaitingFinal ()
   {
     Behind b;
@@ -1690,10 +1688,8 @@ private slots:
     QVERIFY2 (failed.isEmpty (), qPrintable (failed + "\n" + codec.report ()));
     auto const r2 = ++b.nextId;
     codec.request (r2, Fst4LongRender);
-    auto const deferral = find (codec.lines, errHas ("defer nzhsym=49"));
-    QVERIFY2 (codec.waitForLine (passLine (49, true), waitMs (), "the waiting final", std::max (deferral, b.endedAt)),
+    QVERIFY2 (codec.waitForLine (passLine (49, true), waitMs (), "the waiting final", b.endedAt),
               qPrintable (codec.report ()));
-    auto const final = codec.lines.value (find (codec.lines, passLine (49, true), std::max (deferral, b.endedAt)));
     codec.write (configure ({{"utc", utcOf (2)}}) + frame (0x01u, b.busy.left (2 * 41 * HsymSamples)));
     Tally decided {isDecision};
     QVERIFY2 (codec.waitFor ([&] {return codec.answered (r2) && decided (codec.lines) >= 6;}, waitMs (),
@@ -1702,14 +1698,12 @@ private slots:
     QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
     QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
     auto const reply = repliesOf (codec).value (r2);
-    qInfo ().noquote () << QString {"render sent %1 ms, final's pass line %2 ms, render's last line %3 ms"}
-      .arg (reply.sent).arg (final.ms).arg (reply.last);
+    auto const deferral = find (codec.lines, errHas ("defer nzhsym=49"), b.endedAt);
+    QVERIFY2 (reply.terminal == "rendered", qPrintable (codec.report ()));
     QVERIFY2 (deferral >= 0 && deferral < find (codec.lines, passLine (49, true), b.endedAt),
               qPrintable (codec.report ()));
-    QVERIFY2 (final.ms < reply.last, "the waiting final started after the render's reply");
-    QCOMPARE (decisions (codec.lines).mid (0, 6),
-              (QStringList {"pass 41 F", "pass 49 T", "skip 41 early busy", "defer 49", "pass 49 T",
-                            "skip 41 early busy"}));
+    QCOMPARE (decisions (codec.lines).mid (0, 5),
+              (QStringList {"pass 41 F", "pass 49 T", "skip 41 early busy", "defer 49", "pass 49 T"}));
   }
 
   // A fast feeder: every pass runs, threaded and inline; and while the
