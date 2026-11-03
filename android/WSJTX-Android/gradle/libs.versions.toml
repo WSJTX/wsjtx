@@ -1,0 +1,29 @@
+[versions]
+agp              = "8.3.2"
+kotlin           = "2.0.0"
+compose-bom      = "2024.09.03"
+lifecycle        = "2.8.5"
+navigation       = "2.8.1"
+datastore        = "1.1.1"
+coroutines       = "1.8.1"
+location         = "21.3.0"
+
+[libraries]
+compose-bom              = { group = "androidx.compose",     name = "compose-bom",         version.ref = "compose-bom" }
+compose-ui               = { group = "androidx.compose.ui",  name = "ui"                                               }
+compose-ui-tooling       = { group = "androidx.compose.ui",  name = "ui-tooling"                                       }
+compose-material3        = { group = "androidx.compose.material3", name = "material3"                                  }
+compose-foundation       = { group = "androidx.compose.foundation", name = "foundation"                                }
+compose-runtime          = { group = "androidx.compose.runtime",    name = "runtime"                                   }
+activity-compose         = { group = "androidx.activity",    name = "activity-compose",    version = "1.9.2"           }
+lifecycle-viewmodel      = { group = "androidx.lifecycle",   name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+lifecycle-runtime        = { group = "androidx.lifecycle",   name = "lifecycle-runtime-ktx",       version.ref = "lifecycle" }
+navigation-compose       = { group = "androidx.navigation",  name = "navigation-compose",  version.ref = "navigation"  }
+datastore-prefs          = { group = "androidx.datastore",   name = "datastore-preferences", version.ref = "datastore" }
+coroutines-android       = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+location                 = { group = "com.google.android.gms", name = "play-services-location", version.ref = "location" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp"    }
+kotlin-android      = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+compose-compiler    = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

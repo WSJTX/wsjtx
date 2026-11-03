@@ -1,0 +1,51 @@
+name: WSJTX-iOS
+
+options:
+  bundleIdPrefix: com.wsjtx
+  deploymentTarget:
+    iOS: "17.0"
+
+targets:
+  WSJTX-iOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources/WSJTX
+    info:
+      path: WSJTX-iOS-Info.plist
+      properties:
+        CFBundleName: WSJT-X
+        CFBundleDisplayName: WSJT-X
+        CFBundleShortVersionString: "2.7.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        NSMicrophoneUsageDescription: "WSJT-X records audio from your transceiver to receive weak-signal transmissions."
+        NSLocationWhenInUseUsageDescription: "WSJT-X uses your GPS location to auto-fill your Maidenhead grid square."
+        UIBackgroundModes:
+          - audio
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wsjtx.ios
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        ENABLE_BITCODE: NO
+        DEVELOPMENT_TEAM: QJ2R7N9BRA
+        CODE_SIGN_IDENTITY: "Apple Development"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGNING_ALLOWED: YES
+    dependencies:
+      - sdk: AVFoundation.framework
+      - sdk: Accelerate.framework
+      - sdk: CoreLocation.framework
+      - sdk: Network.framework

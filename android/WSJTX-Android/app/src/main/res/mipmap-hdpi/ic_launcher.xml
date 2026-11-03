@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@android:color/black"/>
+    <foreground>
+        <vector android:width="108dp" android:height="108dp"
+            android:viewportWidth="108" android:viewportHeight="108">
+            <!-- Antenna icon -->
+            <path android:fillColor="#4FC3F7"
+                android:pathData="M54,20 L54,88 M42,32 Q54,44 66,32 M36,26 Q54,50 72,26"/>
+        </vector>
+    </foreground>
+</adaptive-icon>
