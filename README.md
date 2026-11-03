@@ -21,5 +21,35 @@
 ## License
 Licensed under the GNU General Public License v3.0 — see [COPYING](COPYING).
 
+## Releases on this fork
+
+The existing `Release` workflow publishes only to the repository running it
+(`cpicoto/wsjtx` on this fork), using the automatic `GITHUB_TOKEN`. It does not
+push to upstream or require `CROSS_REPO_TOKEN`.
+
+Enable GitHub Actions on the fork, commit and push the workflow changes, then
+push a `build/vX.Y.Z` tag whose numeric version matches `CMakeLists.txt`.
+For the current `3.0.2.0` project version:
+
+```sh
+git tag build/v3.0.2
+git push origin build/v3.0.2
+```
+
+Use `build/v3.0.2-rc1` for a prerelease. The workflow reuses the existing
+Linux x86_64/aarch64, Windows x86_64, and macOS Apple Silicon/Intel builds,
+and publishes only after all five platform builds and installer checks succeed.
+Assets include Linux AppImage/DEB/RPM packages, Windows EXE installers, and
+macOS PKG installers. All releases include a source archive.
+macOS signing and notarization remain optional and use the existing signing
+secrets when configured; Windows installers use the existing self-signed
+certificate, which is not publicly trusted.
+
+Integration release candidates may include unmerged PRs on a separate branch;
+the original PRs remain open. Mobile additions are included as source only:
+the existing release workflow does not build or validate iOS or Android apps.
+If an asset upload fails, the release remains a draft; remove the incomplete
+draft before rerunning the release job.
+
 ## Trademark
 "WSJT-X," "MAP65," and "QMAP" are trademarks of the WSJT Development Team — see [TRADEMARK.md](TRADEMARK.md) for our policy on use of these names.
