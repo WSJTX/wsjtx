@@ -256,6 +256,7 @@ contains
     center=real(current_tone,real64)
     left_difference=real(previous_tone,real64)-center
     right_difference=real(next_tone,real64)-center
+    left_c=0.0_real32
     i=1
     do while(i.le.n)
        position=first+i

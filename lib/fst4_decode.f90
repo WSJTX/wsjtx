@@ -319,7 +319,10 @@ contains
       this%knowledge%dxcall13=hiscall
       this%knowledge%mycall13=mycall
 
-      if(iwspr.ne.0 .and. iwspr.ne.1) return 
+      if(iwspr.ne.0 .and. iwspr.ne.1) return
+
+      fa=0.
+      fb=0.
 
       if(this%first) then
          this%apbits=0
@@ -469,6 +472,7 @@ contains
          if(.not.associated(this%baseband)) allocate(this%baseband(0:nfft2-1))
          !$omp critical(fftw)
          call wsjt_tsan_acquire_fftw()
+         ! in==out requests an intentional in-place FFTW transform.
          this%baseband_plan=fftwf_plan_dft_1d(nfft2,this%baseband,this%baseband,FFTW_BACKWARD,this%fft_flags)
          call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
@@ -1240,6 +1244,7 @@ contains
          !$omp critical(fftw)
          call wsjt_tsan_acquire_fftw()
          if(c_associated(this%dop_plan)) call fftwf_destroy_plan(this%dop_plan)
+         ! in==out requests an intentional in-place FFTW transform.
          this%dop_plan=fftwf_plan_dft_1d(nfft,this%dopgain,this%dopgain,FFTW_FORWARD,this%fft_flags)
          call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)

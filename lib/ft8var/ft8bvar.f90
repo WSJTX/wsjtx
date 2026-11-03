@@ -1215,6 +1215,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
                     enddo
                  endif
                  i32=1+(k-1)*3+(ihalf-1)*87
+                 ibmax=0
                  if(nsym.eq.1) ibmax=2
                  if(nsym.eq.2) ibmax=5
                  if(nsym.eq.3) ibmax=8

@@ -94,6 +94,7 @@ subroutine subtract65(dd,npts,f0,dt)
     if(c_associated(jt65_work%subtract_inverse)) call fftwf_destroy_plan(jt65_work%subtract_inverse)
     if(c_associated(jt65_work%window_plan)) call fftwf_destroy_plan(jt65_work%window_plan)
     call fftwf_plan_with_nthreads(nthreads)
+    ! in==out requests an intentional in-place FFTW transform.
     jt65_work%subtract_forward=fftwf_plan_dft_1d(nfft,cfilt,cfilt,-1,nflags)
     jt65_work%subtract_inverse=fftwf_plan_dft_1d(nfft,cfilt,cfilt,1,nflags)
     jt65_work%window_plan=fftwf_plan_dft_1d(nfft,cw,cw,-1,nflags)
