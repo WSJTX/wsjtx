@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 #endif
   QApplication a {argc, argv};
   a.setApplicationName ("MAP65");
-  a.setApplicationVersion ("3.8.4");
+  a.setApplicationVersion ("3.8.5");
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   
   QString appDir = QApplication::applicationDirPath();
