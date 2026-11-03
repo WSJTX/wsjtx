@@ -821,6 +821,7 @@ private:
   bool send_rr73_for_tx4 () const;
   void set_rr73_tx4 (bool enabled);
   void readWidebandDecodes();
+  void refreshQmapActiveStations(QDateTime const& nowUtc);
   void configActiveStations();
   bool sfox_tx();
   void clearSuperFoxPreparedTx();
@@ -1407,7 +1408,7 @@ private:
     double frx;
     double fsked;
     qint32 nsnr;
-    qint32 t;
+    QDateTime lastHeard;
     bool worked;
     bool ready2call;
     QString submode;

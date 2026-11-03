@@ -8332,6 +8332,11 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
+    if (m_mode == "Q65" && m_specOp == SpecOp::NONE
+        && nsec / 30 != m_sec0 / 30 && !m_EMECall.isEmpty()
+        && qmapcom.nQDecoderDone != 2) {
+      refreshQmapActiveStations(nowUtc);
+    }
     logDecoderProgress();
     //    qDebug()   << "AAA" << nsec % 60;
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
@@ -14865,9 +14870,7 @@ void MainWindow::write_transmit_entry (QString const& file_name)
 
 void MainWindow::readWidebandDecodes()
 {
-  int nhr=0;
-  int nmin=0;
-  int nsec=0;
+  auto const nowUtc = QDateTime::currentDateTimeUtc();
   int nsnr=0;
   int const max_qmap_decodes = sizeof qmapcom.result / sizeof qmapcom.result[0];
   int const qmap_decodes = qBound(0, qmapcom.ndecodes, max_qmap_decodes);
@@ -14880,11 +14883,8 @@ void MainWindow::readWidebandDecodes()
     auto const record = parseQMapDecodeRecord (
       QByteArray {row, static_cast<int> (QMapDecodeRowSize)});
     if (!record) continue;
-    nhr=record->secondsSinceMidnight/3600;
-    nmin=(record->secondsSinceMidnight/60)%60;
-    nsec=record->secondsSinceMidnight%60;
     auto const qSpotTime = DecodedTime::spotTime(
-      line.left(6), QDateTime::currentDateTimeUtc(), m_TRperiod);
+      line.left(6), nowUtc, record->submode.startsWith("30") ? 30 : 60);
     if (!qSpotTime.isValid()) continue;
     double frx=record->receiveFrequencyKHz;
     double fsked=record->scheduledFrequencyKHz;
@@ -14895,7 +14895,7 @@ void MainWindow::readWidebandDecodes()
       m_EMECall[dxcall].frx=frx;
       m_EMECall[dxcall].fsked=fsked;
       m_EMECall[dxcall].nsnr=nsnr;
-      m_EMECall[dxcall].t=3600*nhr + 60*nmin + nsec;
+      m_EMECall[dxcall].lastHeard=qSpotTime;
       m_EMECall[dxcall].submode=submode;
       if(!record->grid.isEmpty ()) m_EMECall[dxcall].grid4=record->grid;
       bool bCQ=record->cq;
@@ -14917,7 +14917,19 @@ void MainWindow::readWidebandDecodes()
     m_psk_Reporter.sendReport();                // Upload any queued spots
   }
 
-  if(m_ActiveStationsWidget==NULL) return;
+  auto displayTime = nowUtc;
+  if (qmapcom.nQDecoderDone == 2 && qmap_decodes > 0) {
+    // File playback uses the recording clock, even if its rows were already consumed.
+    auto const recordedTime = DecodedTime::spotTime(
+      QString::fromLatin1(qmapcom.result[qmap_decodes - 1], 6), nowUtc, 60);
+    if (recordedTime.isValid()) displayTime = recordedTime;
+  }
+  refreshQmapActiveStations(displayTime);
+}
+
+void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
+{
+  if (!m_ActiveStationsWidget) return;
 
 // Displayed row numbers index m_ready2call, so the rendered QMAP list must
 // stay within the same capacity as its click-target storage.
@@ -14939,11 +14951,11 @@ void MainWindow::readWidebandDecodes()
       int snr=i->nsnr;
       QString submode=i->submode;
       int odd=0;
-      if(submode.left(2)=="30" and (i->t%60)==0) odd=1;
-      if(submode.left(2)=="60" and (i->t%120)==0) odd=1;
-      int age=(3600*nhr + 60*nmin + nsec - (i->t))/60;
+      int const secondsSinceMidnight = QTime {0, 0}.secsTo(i->lastHeard.time());
+      if(submode.left(2)=="30" and (secondsSinceMidnight%60)==0) odd=1;
+      if(submode.left(2)=="60" and (secondsSinceMidnight%120)==0) odd=1;
+      int const age = int(qMax(qint64 {0}, i->lastHeard.secsTo(nowUtc)) / 60);
       char c2[3]={32,32,0};
-      if(age<0) age += 1440;
       if(age<=maxAge) {
         dxcall=(i.key()+"     ").left(8);
         dxgrid4=(i->grid4+"... ").left(4);
