@@ -2,12 +2,19 @@
 
 #include <string>
 #include <exception>
+#include <iostream>
 #include <sstream>
 
 #include <boost/version.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/utility/exception_handler.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup/from_settings.hpp>
+#include <boost/log/utility/setup/settings.hpp>
+#include <boost/container/flat_map.hpp>
+
+#include <QtGlobal>
+#ifdef Q_OS_WIN
 #include <boost/log/sinks/text_file_backend.hpp>
 #include <boost/log/sinks/async_frontend.hpp>
 #include <boost/log/expressions.hpp>
@@ -16,9 +23,7 @@
 #include <boost/log/support/date_time.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_day.hpp>
-#include <boost/container/flat_map.hpp>
-
-#include <QtGlobal>
+#endif
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
@@ -33,15 +38,17 @@
 
 namespace logging = boost::log;
 namespace trivial = logging::trivial;
+namespace container = boost::container;
+#ifdef Q_OS_WIN
 namespace keywords = logging::keywords;
 namespace expr = logging::expressions;
 namespace sinks = logging::sinks;
 namespace posix_time = boost::posix_time;
 namespace gregorian = boost::gregorian;
-namespace container = boost::container;
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", trivial::severity_level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", std::string)
+#endif
 
 namespace
 {
@@ -106,6 +113,14 @@ namespace
       }
   }
 
+#ifdef Q_OS_WIN
+  std::wstring log_string (QString const& value) { return value.toStdWString (); }
+#else
+  using log_settings = logging::settings;
+  std::string log_string (QString const& value) { return value.toUtf8 ().toStdString (); }
+#endif
+
+#ifdef Q_OS_WIN
   void default_log_config ()
   {
     auto core = logging::core::get ();
@@ -170,6 +185,47 @@ namespace
     // Indicate start of logging
     LOG_INFO ("Log Start");
   }
+#else
+  void default_log_config ()
+  {
+    QDir app_data {QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation)};
+    Logger::init ();
+
+    // Let the loaded Boost library own its version-specific queue and file backend.
+    log_settings settings;
+    auto sink_setting = [&settings] (char const * name, QString const& value) {
+      settings["Sinks"]["SYSLOG"][name] = log_string (value);
+    };
+    sink_setting ("Destination", "TextFile");
+    sink_setting ("Asynchronous", "true");
+    sink_setting ("AutoFlush", "false");
+#if BOOST_VERSION / 100 >= 1070
+    sink_setting ("FileName", app_data.absoluteFilePath ("wsjtx_syslog.log"));
+    sink_setting ("TargetFileName",
+#else
+    sink_setting ("FileName",
+#endif
+      app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log"));
+    sink_setting ("RotationTimePoint", "01 00:00:00");
+    sink_setting ("Append", "true");
+#if BOOST_VERSION / 100 >= 1063
+    sink_setting ("EnableFinalRotation", "false");
+#endif
+    sink_setting ("Target", app_data.absoluteFilePath ("logs"));
+    sink_setting ("MaxSize", "5242880");
+    sink_setting ("MinFreeSpace", "1073741824");
+    sink_setting ("MaxFiles", "12");
+    sink_setting ("ScanForFiles", "Matching");
+    sink_setting ("Filter", R"((%Channel% = "SYSLOG" & %Severity% >= error) |
+      (%Channel% = "RIGCTRL" & %Severity% >= warning) |
+      (%Channel% = "DATALOG" & %Severity% >= error) |
+      (%Channel% = "DECODER" & %Severity% >= warning) | %Severity% >= fatal)");
+    sink_setting ("Format", R"([%Channel%][%TimeStamp(format="%Y-%m-%d %H:%M:%S.%f")%])"
+      R"([%Uptime(format="%O:%M:%S.%f")%][%Severity%] %Message%)");
+    logging::init_from_settings (settings);
+    LOG_INFO ("Log Start");
+  }
+#endif
 }
 
 WSJTXLogging::WSJTXLogging ()
@@ -216,8 +272,11 @@ WSJTXLogging::WSJTXLogging ()
           pos = match.capturedEnd (0);
         }
       new_config += config.mid (pos);
-      std::wstringbuf buffer {new_config.toStdWString (), std::ios_base::in};
-      std::wistream stream {&buffer};
+#ifdef Q_OS_WIN
+      std::wistringstream stream {log_string (new_config)};
+#else
+      std::istringstream stream {log_string (new_config)};
+#endif
       try
         {
           Logger::init_from_config (stream);
