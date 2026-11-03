@@ -42,6 +42,7 @@
 #include "DisplayManual.hpp"
 #include "Network/PSKReporter.hpp"
 #include "Network/Cloudlog.hpp"
+#include "Network/StartDxTx.hpp"
 #include "logbook/logbook.h"
 #include "astro.h"
 #include "widgets/QSYMessageCreator.h"
@@ -79,6 +80,7 @@ class QSharedMemory;
 class QSplashScreen;
 class QSettings;
 class QLineEdit;
+class QAbstractButton;
 class QFont;
 class QHostInfo;
 class EchoGraph;
@@ -455,6 +457,9 @@ private slots:
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
                          , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
                          , QString const& dx_grid, bool generate_messages);
+  void remote_start_dx_tx (quint32 request_id, QString const& de_call, quint64 dial_frequency
+                           , QString const& dx_call, QString const& dx_grid
+                           , QString const& mode, QString const& submode, quint32 tr_period);
   void callSandP2(int nline);
   void refreshHoundQueueDisplay();
   void queueActiveWindowHound2(QString text);
@@ -570,6 +575,7 @@ private:
 
   Frequency m_freqNominal;
   Frequency m_freqNominalPeriod;
+  StartDxTx::DeferredSelectionGuard m_deferred_tx_selection;
   Frequency m_freqTxNominal;
   quint64 m_msk144basefreq;
   quint64 m_msk144oldfreq;
@@ -1040,6 +1046,8 @@ private:
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
   void subProcessError (QProcess *, QProcess::ProcessError);
   void statusUpdate () const;
+  quint32 status_tr_period () const;
+  void defer_tx_selection (QAbstractButton *, int delay_ms);
   void update_watchdog_label ();
   void invalidate_frequencies_filter ();
   void on_the_minute ();

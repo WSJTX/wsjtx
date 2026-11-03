@@ -137,8 +137,13 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   , message_line_edit_ {new QLineEdit {this}}
   , grid_line_edit_ {new QLineEdit {this}}
   , generate_messages_push_button_ {new QPushButton {tr ("&Gen Msgs"), this}}
+  , enable_tx_button_ {nullptr}
   , auto_off_button_ {nullptr}
   , halt_tx_button_ {nullptr}
+  , start_dx_tx_button_ {nullptr}
+  , next_start_dx_tx_request_id_ {1}
+  , status_tr_period_ {quint32_max}
+  , status_dial_frequency_ {0}
   , de_label_ {new QLabel {this}}
   , frequency_label_ {new QLabel {this}}
   , tx_df_label_ {new QLabel {this}}
@@ -285,13 +290,26 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   content_layout_->addLayout (decodes_stack_);
 
   // set up controls
+  enable_tx_button_ = control_button_box_->addButton (tr ("&Enable Tx"), QDialogButtonBox::ActionRole);
   auto_off_button_ = control_button_box_->addButton (tr ("&Auto Off"), QDialogButtonBox::ActionRole);
   halt_tx_button_ = control_button_box_->addButton (tr ("&Halt Tx"), QDialogButtonBox::ActionRole);
+  start_dx_tx_button_ = control_button_box_->addButton (tr ("Start &DX Tx"), QDialogButtonBox::ActionRole);
+  start_dx_tx_button_->setEnabled (false);
   connect (generate_messages_push_button_, &QAbstractButton::clicked, [this] (bool /*checked*/) {
       QString empty;
       Q_EMIT configure (key_, empty, quint32_max, empty, fast_mode ()
                         , quint32_max, quint32_max, empty, empty, true);
   });
+  connect (enable_tx_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
+      Q_EMIT do_enable_tx (key_);
+    });
+  connect (start_dx_tx_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
+      // echo the values from the latest status so that the client
+      // rejects the request if anything has changed since
+      Q_EMIT do_start_dx_tx (key_, next_start_dx_tx_request_id_++, status_de_call_, status_dial_frequency_
+                             , status_dx_call_, status_dx_grid_
+                             , status_mode_, status_submode_, status_tr_period_);
+    });
   connect (auto_off_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
       Q_EMIT do_halt_tx (key_, true);
     });
@@ -440,11 +458,32 @@ void ClientWidget::update_status (ClientKey const& key, Frequency f, QString con
       tx_df_label_->setText (QString {"Tx: %1"}.arg (tx_df));
       report_label_->setText ("SNR: " + report);
       update_dynamic_property (frequency_label_, "transmitting", transmitting);
+      enable_tx_button_->setEnabled (!tx_enabled);
+      status_de_call_ = de_call;
+      status_dial_frequency_ = f;
+      status_dx_call_ = dx_call;
+      status_dx_grid_ = dx_grid;
+      status_mode_ = mode;
+      status_submode_ = submode;
+      status_tr_period_ = tr_period;
+      start_dx_tx_button_->setEnabled (!tx_enabled && !transmitting && dx_call.size ());
       auto_off_button_->setEnabled (tx_enabled);
       halt_tx_button_->setEnabled (transmitting);
       update_line_edit (configuration_line_edit_, configuration_name);
       update_dynamic_property (mode_line_edit_, "decoding", decoding);
       update_dynamic_property (tx_df_label_, "watchdog_timeout", watchdog_timeout);
+    }
+}
+
+void ClientWidget::start_dx_tx_result (ClientKey const& key, quint32 request_id, bool accepted
+                                       , QString const& reason, QString const& tx_message)
+{
+  if (key == key_)
+    {
+      status_bar_->showMessage (accepted
+                                ? tr ("Start DX Tx #%1 accepted: %2").arg (request_id).arg (tx_message.trimmed ())
+                                : tr ("Start DX Tx #%1 rejected: %2").arg (request_id).arg (reason)
+                                , 10000);
     }
 }
 

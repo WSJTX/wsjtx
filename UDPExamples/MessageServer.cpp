@@ -369,6 +369,22 @@ void MessageServer::impl::parse_message (QHostAddress const& sender, port_type s
               }
               break;
 
+            case NetworkMessage::StartDxTxResult:
+              {
+                quint32 request_id {0};
+                bool accepted {false};
+                QByteArray reason;
+                QByteArray tx_message;
+                in >> request_id >> accepted >> reason >> tx_message;
+                if (check_status (in) != Fail)
+                  {
+                    Q_EMIT self_->start_dx_tx_result (client_key, request_id, accepted
+                                                      , QString::fromUtf8 (reason)
+                                                      , QString::fromUtf8 (tx_message));
+                  }
+              }
+              break;
+
             default:
               // Ignore
               break;
@@ -531,6 +547,33 @@ void MessageServer::halt_tx (ClientKey const& key, bool auto_only)
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::HaltTx, key.second, (*iter).negotiated_schema_number_};
       out << auto_only;
+      m_->send_message (out, message, key.first, (*iter).sender_port_);
+    }
+}
+
+void MessageServer::enable_tx (ClientKey const& key)
+{
+  auto iter = m_->clients_.find (key);
+  if (iter != std::end (m_->clients_))
+    {
+      QByteArray message;
+      NetworkMessage::Builder out {&message, NetworkMessage::EnableTx, key.second, (*iter).negotiated_schema_number_};
+      m_->send_message (out, message, key.first, (*iter).sender_port_);
+    }
+}
+
+void MessageServer::start_dx_tx (ClientKey const& key, quint32 request_id, QString const& de_call
+                                 , Frequency dial_frequency, QString const& dx_call
+                                 , QString const& dx_grid, QString const& mode, QString const& submode
+                                 , quint32 tr_period)
+{
+  auto iter = m_->clients_.find (key);
+  if (iter != std::end (m_->clients_))
+    {
+      QByteArray message;
+      NetworkMessage::Builder out {&message, NetworkMessage::StartDxTx, key.second, (*iter).negotiated_schema_number_};
+      out << request_id << de_call.toUtf8 () << quint64 {dial_frequency} << dx_call.toUtf8 () << dx_grid.toUtf8 () << mode.toUtf8 () << submode.toUtf8 ()
+          << tr_period;
       m_->send_message (out, message, key.first, (*iter).sender_port_);
     }
 }

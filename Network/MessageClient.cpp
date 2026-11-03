@@ -316,6 +316,47 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
               }
               break;
 
+            case NetworkMessage::EnableTx:
+              TRACE_UDP ("Enable Tx");
+              if (check_status (in) != Fail)
+                {
+                  Q_EMIT self_->enable_tx ();
+                }
+              break;
+
+            case NetworkMessage::StartDxTx:
+              {
+                if (in.id () != id_)
+                  {
+                    TRACE_UDP ("Start DX Tx ignored for id:" << in.id ());
+                    break;
+                  }
+                quint32 request_id {0};
+                QByteArray de_call;
+                quint64 dial_frequency {0};
+                QByteArray dx_call;
+                QByteArray dx_grid;
+                QByteArray mode;
+                QByteArray submode;
+                quint32 tr_period {0};
+                in >> request_id;
+                if (OK != check_status (in)) request_id = 0;
+                in >> de_call >> dial_frequency >> dx_call >> dx_grid >> mode >> submode >> tr_period;
+                TRACE_UDP ("Start DX Tx request id:" << request_id << "de call:" << de_call << "dial frequency:" << dial_frequency << "dx call:" << dx_call << "dx grid:" << dx_grid << "mode:" << mode << "submode:" << submode << "T/R period:" << tr_period);
+                if (OK == check_status (in))
+                  {
+                    Q_EMIT self_->start_dx_tx (request_id, QString::fromUtf8 (de_call), dial_frequency
+                                               , QString::fromUtf8 (dx_call)
+                                               , QString::fromUtf8 (dx_grid), QString::fromUtf8 (mode)
+                                               , QString::fromUtf8 (submode), tr_period);
+                  }
+                else
+                  {
+                    self_->start_dx_tx_result (request_id, false, "malformed_request", QString {});
+                  }
+              }
+              break;
+
             case NetworkMessage::FreeText:
               {
                 QByteArray message;
@@ -676,5 +717,18 @@ void MessageClient::logged_ADIF (QByteArray const& ADIF_record)
       out << ADIF;
       TRACE_UDP ("ADIF:" << ADIF);
       m_->send_message (out, message);
+    }
+}
+
+void MessageClient::start_dx_tx_result (quint32 request_id, bool accepted, QString const& reason
+                                        , QString const& tx_message)
+{
+  if (m_->server_port_ && !m_->server_.isNull ())
+    {
+      QByteArray message;
+      NetworkMessage::Builder out {&message, NetworkMessage::StartDxTxResult, m_->id_, m_->schema_};
+      out << request_id << accepted << reason.toUtf8 () << tx_message.toUtf8 ();
+      TRACE_UDP ("request id:" << request_id << "accepted:" << accepted << "reason:" << reason << "Tx message:" << tx_message);
+      m_->send_message (out, message, false, true);
     }
 }

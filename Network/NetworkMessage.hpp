@@ -529,6 +529,87 @@
  *      ffffffff will remove the sort-order value from the internal table.
  *      Callsigns without a sort order will be valued at zero for sorting purposes
  *      in the hound display.
+ *
+ *
+ * Enable Tx      In       17                     quint32
+ *                         Id (unique key)        utf8
+ *
+ *      The server may send this message  to request that the client
+ *      enables transmission. This is equivalent to the user checking
+ *      the "Enable  Tx" button  in  the WSJT-X  main window, including
+ *      resetting the Tx watchdog before enabling. If Tx is already
+ *      enabled this message has no effect. To disable Tx use the "Halt
+ *      Tx" message with "Auto Tx Only" set to true.
+ *
+ *
+ * Start DX Tx    In       18                     quint32
+ *                         Id (unique key)        utf8
+ *                         Request Id             quint32
+ *                         DE Call                utf8
+ *                         Dial Frequency (Hz)    quint64
+ *                         DX Call                utf8
+ *                         DX Grid                utf8
+ *                         Mode                   utf8
+ *                         Submode                utf8
+ *                         T/R Period             quint32
+ *
+ *      The server may send this  message to atomically select the
+ *      initial standard  message (Tx1)  to the  current DX  station
+ *      and enable Tx. Unlike the "Enable  Tx" message, which enables
+ *      whatever transmit  message is currently selected,  this  is
+ *      only honoured if the DE Call, Dial Frequency, DX Call, DX
+ *      Grid, Mode, Submode and T/R Period fields exactly match the
+ *      corresponding fields of the most recent Status message
+ *      (callsigns, grid and submode are compared case-insensitively,
+ *      an empty value matches only an empty value, the T/R Period
+ *      must match including the maximum quint32 value meaning not
+ *      applicable). An empty DE Call, DX Call or Mode, or a zero
+ *      Dial Frequency, makes the request invalid. The Id must match
+ *      the client  Id, requests for  other Ids  are silently ignored.
+ *      The request  is also rejected  if the client is transmitting,
+ *      Tx is already enabled, the client is tuning, the Tx watchdog
+ *      has timed out, Fox or Hound mode is active, Tx1 cannot be
+ *      selected  (for  example  if  the operator  has disabled Tx1),
+ *      or the first two words of Tx1 (ignoring any <> around hashed
+ *      callsigns) are not the DX Call and the DE Call (or their base
+ *      callsigns). On success any pending deferred transmit message
+ *      selection  (for  example  one  queued by an  earlier
+ *      "Configure" message  that  generated  messages) is cancelled,
+ *      the standard messages are regenerated, Tx1 is selected and Tx
+ *      is enabled in a single step without any deferred message
+ *      selection. The station, DX, mode and Tx1 selection are
+ *      checked before and after selecting Tx1 and again after
+ *      enabling Tx, if they changed Tx is disabled again and the
+ *      request is rejected. The operator's "Tx even/1st" setting is
+ *      not changed. The client always replies with a "Start DX Tx
+ *      Result" message, unless "Accept UDP requests" is disabled or
+ *      the Id does not match.
+ *
+ *
+ * Start DX Tx Result Out  19                     quint32
+ *                         Id (unique key)        utf8
+ *                         Request Id             quint32
+ *                         Accepted               bool
+ *                         Reason                 utf8
+ *                         Tx Message             utf8
+ *
+ *      Sent in reply to a "Start DX Tx" message. The Request Id is
+ *      copied from the request (zero if it could not be read). If
+ *      Accepted is true Reason is empty and Tx Message contains the
+ *      selected Tx1 message text. If Accepted is false Tx has not
+ *      been enabled by the request, Tx Message is empty and Reason
+ *      is one of: malformed_request, invalid_request,
+ *      already_transmitting, tx_already_enabled, tuning,
+ *      watchdog_timeout, unsupported_special_operation,
+ *      de_call_mismatch, dial_frequency_mismatch, dx_call_mismatch,
+ *      dx_grid_mismatch, mode_mismatch, submode_mismatch,
+ *      tr_period_mismatch, tx1_unavailable, tx1_address_mismatch,
+ *      enable_tx_failed or state_changed_after_enable. Servers should
+ *      treat any other Reason as a rejection. Results are sent to the
+ *      configured UDP server, not to the request's source port.
+ *      Empty utf8 fields may be encoded as either a null QByteArray
+ *      (length 0xffffffff) or a zero-length QByteArray; receivers must
+ *      accept both as empty.
  */
 
 #include <QDataStream>
@@ -561,6 +642,9 @@ namespace NetworkMessage
       SwitchConfiguration,
       Configure,
       AnnotationInfo,
+      EnableTx,
+      StartDxTx,
+      StartDxTxResult,
       maximum_message_type_     // ONLY add new message types
                                 // immediately before here
     };

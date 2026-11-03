@@ -344,6 +344,9 @@ void MessageAggregatorMainWindow::add_client (ClientKey const& key, QString cons
   connect (dock, &ClientWidget::do_close, server_, &MessageServer::close);
   connect (dock, &ClientWidget::do_reply, decodes_model_, &DecodesModel::do_reply);
   connect (dock, &ClientWidget::do_halt_tx, server_, &MessageServer::halt_tx);
+  connect (dock, &ClientWidget::do_enable_tx, server_, &MessageServer::enable_tx);
+  connect (dock, &ClientWidget::do_start_dx_tx, server_, &MessageServer::start_dx_tx);
+  connect (server_, &MessageServer::start_dx_tx_result, dock, &ClientWidget::start_dx_tx_result);
   connect (dock, &ClientWidget::do_free_text, server_, &MessageServer::free_text);
   connect (dock, &ClientWidget::location, server_, &MessageServer::location);
   connect (view_action, &QAction::toggled, dock, &ClientWidget::setVisible);
