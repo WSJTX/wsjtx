@@ -753,7 +753,7 @@ contains
       real(real64)                    :: tsync_ch0_ok(16)
       integer                        :: nsync,nsymerrs
       real                           :: fc,fwid
-      real                           :: fpk,pa,pt,pn,pn_corrected
+      real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
       real                           :: xdt_retry
       real, allocatable, save        :: s0(:,:)
