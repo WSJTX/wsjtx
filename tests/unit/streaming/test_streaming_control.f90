@@ -230,8 +230,8 @@ program test_streaming_control
        repeat('K', 64), .false., '', .false.)
   call expect_station('{"t":"configure","mycall":"' // repeat('W', 64) // repeat(' ', 70) // 'Z"}', &
        repeat('W', 64), .true., '', .false.)
-  call expect_station('{"t":"configure","mycall":"' // repeat(achar(195) // achar(169), 40) // '"}', &
-       repeat(achar(195) // achar(169), 32), .false., '', .false.)
+  call expect_station('{"t":"configure","mycall":"' // repeat(char(195) // char(169), 40) // '"}', &
+       repeat(char(195) // char(169), 32), .false., '', .false.)
   ! A string that does not decode leaves the key unset and is reported.
   call expect_unreadable('{"t":"configure","mycall":"KJ5\x","mygrid":"EM18"}', .true., .false.)
   call expect_unreadable('{"t":"configure","mycall":"KJ5HST","mygrid":"EM\u12"}', .false., .true.)

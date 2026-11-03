@@ -598,7 +598,7 @@ contains
     type(decode_completion_result) :: completion
     type(attempt_request) :: wav_request
     type(host_decode_context) :: wav_context
-    integer :: now, time
+    integer :: now
     intrinsic :: time
 
     now=0
