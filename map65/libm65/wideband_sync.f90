@@ -26,6 +26,9 @@ module wideband_sync
    type(sync_dat), allocatable :: sync(:)  !NFFT
    type(sync_dat), allocatable :: q65_generalized_sync(:)
    integer nkhz_center
+   ! True when sync() was last filled for a narrow frequency window only (the
+   ! automatic early pass); false once it covers the whole decode span.
+   logical :: sync_narrow = .false.
 
 contains
 

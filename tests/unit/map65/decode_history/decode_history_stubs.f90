@@ -31,6 +31,7 @@ module wideband_sync
   implicit none
   integer, parameter :: MAX_CANDIDATES = 50
   integer :: nkhz_center
+  logical :: sync_narrow = .false.
   type candidate
     real :: snr, f, xdt, pol
     integer :: ipol, iflip, indx

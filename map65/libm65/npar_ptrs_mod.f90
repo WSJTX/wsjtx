@@ -107,6 +107,13 @@ module npar_ptrs_mod
   end type
   type(decode_request), pointer, save :: pending_head => null(), pending_tail => null()
   integer(c_int64_t), save :: published_request_id = 0
+  ! Decoder-behind events, for the status-bar indicator: a decode pass dropped
+  ! or cut short because the decoder could not keep up with the minute.
+  !   1 = snapshot refill refused (previous pass still reading it)
+  !   2 = queued request skipped (its snapshot was lost)
+  !   3 = pass aborted at the 40 s budget
+  integer(c_int), save :: lag_event_count = 0
+  integer(c_int), save :: lag_last_kind = 0
   integer(c_int64_t), save :: active_request_id = 0
   integer(c_int64_t), save :: live_input_generation = 0
   integer(c_int64_t), save :: active_input_generation = 0
@@ -890,8 +897,32 @@ end subroutine
     snap_seq(idx) = snap_seq(idx) + 1
     snap_valid_seq(idx) = 0
     ok = .not. snap_busy(idx)
+    if (.not. ok) then
+      lag_event_count = lag_event_count + 1
+      lag_last_kind = 1
+    endif
     call unlock_decode_requests()
   end subroutine
+
+  subroutine note_decoder_lag(kind)
+    integer, intent(in) :: kind
+    call lock_decode_requests()
+    lag_event_count = lag_event_count + 1
+    lag_last_kind = kind
+    call unlock_decode_requests()
+  end subroutine
+
+  integer(c_int) function get_decoder_lag_count() bind(C, name="get_decoder_lag_count")
+    call lock_decode_requests()
+    get_decoder_lag_count = lag_event_count
+    call unlock_decode_requests()
+  end function
+
+  integer(c_int) function get_decoder_lag_kind() bind(C, name="get_decoder_lag_kind")
+    call lock_decode_requests()
+    get_decoder_lag_kind = lag_last_kind
+    call unlock_decode_requests()
+  end function
 
   subroutine snapshot_fill_end(idx)
     integer, intent(in) :: idx

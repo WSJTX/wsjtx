@@ -29,7 +29,7 @@ contains
       use getdphi_mod
       use datcom_ptrs_mod, only: ss_old, savg_old
       use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, &
-                               manualDecodeFlag, active_input_generation
+                               manualDecodeFlag, active_input_generation, note_decoder_lag
       use sec0_mod, only: sec0
       use q65_decode, only: nsnr0, msg0, xdt0, nfreq0
 
@@ -124,6 +124,10 @@ contains
       integer :: t_now, t_rate
       logical :: m65_inited = .false.
       logical :: abort_saved
+      logical :: early_window
+      integer :: mfa_s, mfb_s
+      real :: f0lo, f0hi
+      integer, parameter :: EARLY_MARGIN_KHZ = 2
       integer :: icenter
       logical :: initialization_only, shorthand_detected, jt65_success, q65_success
       logical :: already_decoded_nearby
@@ -685,10 +689,35 @@ else
    rms = 0.0d0
 endif
 
-if (nagain .eq. 0) then
+! The automatic early pass (nhsym1) decodes only near the QSO frequency and
+! stops before the wideband search, so it needs sync() only there. Searching
+! the whole span for candidates it never uses cost 10 s or more per minute at
+! 256 kHz and delayed the final pass. Keep a margin around the window that
+! q65b's cursor search (+/- ntol) and the candidate filter below look at.
+early_window = nagain .eq. 0 .and. nhsym .eq. nhsym1 .and. &
+               manualDecodeFlag_initial .eq. 0 .and. ndiskdat .eq. 0
+mfa_s = mfa
+mfb_s = mfb
+if (early_window) then
+   f0lo = real(mousefqso) + 0.001*real(mousedf + nfcal - ntol) - real(nkhz_center) &
+          + real(nrate_active)/2000.0 + 1.27046
+   f0hi = real(mousefqso) + 0.001*real(mousedf + nfcal + ntol) - real(nkhz_center) &
+          + real(nrate_active)/2000.0 + 1.27046
+   mfa_s = max(mfa, floor(f0lo) - EARLY_MARGIN_KHZ)
+   mfb_s = min(mfb, ceiling(f0hi) + EARLY_MARGIN_KHZ)
+   if (mfb_s .le. mfa_s) then          !QSO frequency outside the span: search it all
+      early_window = .false.
+      mfa_s = mfa
+      mfb_s = mfb
+   endif
+endif
+if (nagain .eq. 0 .or. sync_narrow) then
+   ! A manual repeat (nagain=1) reuses the last pass's sync(); if that was an
+   ! early pass it covers only the QSO window, so redo it over the full span.
    call timer('get_cand', 0)
-   call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa, mfb, nts_jt65, nts_q65, cand, ncand)
+   call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa_s, mfb_s, nts_jt65, nts_q65, cand, ncand)
    call timer('get_cand', 1)
+   sync_narrow = early_window
    candec = .false.
    ! TEMP diagnostic 2026-09-09 for the missing-upper-Q65-decode investigation.
    call dbg('map65a: get_candidates done at t=' // rtoa(sec_midn()) // &
@@ -1154,7 +1183,10 @@ endif
          call sec0(1, tsec0)
          call dbg('map65a: end of nqd=' // itoa(nqd) // ' body at t=' // rtoa(sec_midn()) // &
                   ' tsec0=' // rtoa(tsec0) // ' nhsym=' // itoa(nhsym) // ' nagain=' // itoa(nagain))
-         if (nhsym .eq. nhsym1 .and. tsec0 .gt. 3.0) then
+         ! The early pass never runs the wideband (nqd=0) decode: sync() holds
+         ! only the QSO window then. (tsec0 is a wall-clock count, not a
+         ! per-pass timer, so the old 3 s test below was always true.)
+         if (nhsym .eq. nhsym1 .and. (early_window .or. tsec0 .gt. 3.0)) then
             call dbg('map65a: ABORT (early-pass 3s budget) at t=' // rtoa(sec_midn()) // &
                      ' tsec0=' // rtoa(tsec0) // ' -- nqd=0 will NOT run this pass')
             go to 700
@@ -1216,6 +1248,7 @@ endif
       enddo  ! nqd
 
 700   continue
+      if (abort_decode) call note_decoder_lag(3)
       ! TEMP diagnostic 2026-09-09 for the missing-other-signals-in-Messages investigation.
       call dbg('map65a: reached label 700 at t=' // rtoa(sec_midn()) // &
                ' km=' // itoa(km) // ' abort_decode=' // itoa(merge(1,0,abort_decode)) // &
