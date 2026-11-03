@@ -2391,8 +2391,22 @@ void MainWindow::updateMainWindowControlSizes()
                                   - formControlSpacing);
     }
 
-  alignFormColumn ({m_submodeLabel, m_frequencyToleranceLabel, m_maxDriftLabel},
-                   {ui->sbSubmode, ui->sbFtol, ui->sbMaxDrift});
+  {
+    // sbFtol's range (and so its minimumSizeHint) changes per mode -- e.g.
+    // on_actionMSK144_triggered() narrows it to 500 Hz, while switch_mode()'s
+    // generic path widens it back to 1000 Hz for most other modes. Measure it
+    // at its widest so the column doesn't end up sized for whichever mode
+    // last called HintedSpinBox::values(), then restore the active mode's
+    // actual range.
+    constexpr int kMaxFrequencyToleranceHz = 1000;
+    auto const savedMinimum = ui->sbFtol->minimum ();
+    auto const savedMaximum = ui->sbFtol->maximum ();
+    ui->sbFtol->setRange (qMin (savedMinimum, 1),
+                          qMax (savedMaximum, kMaxFrequencyToleranceHz));
+    alignFormColumn ({m_submodeLabel, m_frequencyToleranceLabel, m_maxDriftLabel},
+                     {ui->sbSubmode, ui->sbFtol, ui->sbMaxDrift});
+    ui->sbFtol->setRange (savedMinimum, savedMaximum);
+  }
   updateFrequencyToleranceRowAlignment ();
 }
 
