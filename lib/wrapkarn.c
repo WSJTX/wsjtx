@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdatomic.h>
-#include "rs.h"
+#include "ftrsd/rs2.h"
 
 static void *rs;
 static atomic_int rs_state;   /* 0: not built, 1: building, 2: built */
@@ -16,7 +16,7 @@ static void rs_ready(void)
 
   if(atomic_load_explicit(&rs_state,memory_order_acquire)==2) return;
   if(atomic_compare_exchange_strong(&rs_state,&none,1)) {
-    rs=init_rs_int(6,0x43,3,1,51,0);
+    rs=init_rs_int(6,0x43,3,1,51);
     atomic_store_explicit(&rs_state,2,memory_order_release);
   } else {
     while(atomic_load_explicit(&rs_state,memory_order_acquire)!=2);
@@ -61,7 +61,7 @@ void rs_decode_(int *recd0, int *era0, int *numera0, int *decoded, int *nerr)
   for(i=0; i<51; i++) recd[12+i]=recd0[50-i];
   if(numera) 
     for(i=0; i<numera; i++) era_pos[i]=era0[i];
-  *nerr=decode_rs_int(rs,recd,era_pos,numera);
+  *nerr=decode_rs_int(rs,recd,era_pos,numera,1);
   for(i=0; i<12; i++) decoded[i]=recd[11-i];
 }
 
