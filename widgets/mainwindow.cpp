@@ -10397,7 +10397,8 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
      ui->decodedTextBrowser2->erase ();
      ui->EraseButton->clearFocus();
   }
-  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {       // switch to Q65_Pileup mode
+  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)
+     && (event->modifiers() & Qt::ControlModifier)) {                          // Ctrl+right-click: switch to Q65_Pileup mode
       if (m_specOp != SpecOp::Q65_PILEUP) {
         m_q65PileupCopiedLastRxCall.clear();
         m_q65PileupCopiedCallers.clear();

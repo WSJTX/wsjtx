@@ -105,7 +105,7 @@ QString HelpText::specialMouseCommands()
   <tr>
     <td align="right">Q65 Button:</td>
     <td><b>Click</b> to switch to Q65 Mode.<br/>
-        <b>Right-click</b> to switch to Q65 Pileup Mode.
+        <b>Ctrl+right-click</b> to switch to Q65 Pileup Mode.
     </td>
   </tr>
   <tr>
