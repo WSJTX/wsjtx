@@ -71,7 +71,7 @@ int readFSam96000(QSettings const& settings, int defaultValue)
   if (text.compare("false", Qt::CaseInsensitive) == 0) return 0;   // legacy bool: false == 95238
   bool ok = false;
   int value = text.toInt(&ok);
-  if (ok && value >= 0 && value <= kMaxSampleRateCode) return value;   // current int: 0..4
+  if (ok && value >= 0 && value <= kMaxSampleRateCode) return usableSampleRateCode(value);   // current int: 0..4
   return defaultValue;
 }
 

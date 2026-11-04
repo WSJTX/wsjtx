@@ -74,6 +74,29 @@ private slots:
     QCOMPARE(readFSam96000(settings, 1), 0);
   }
 
+  void sampleRateCodeThatCannotBeAddressedFallsBack()
+  {
+    // 32-bit: 256 kHz would need more than the process can address.
+    QVERIFY(!sampleRateCodeFitsAddressSpace(4, 4));
+    QCOMPARE(usableSampleRateCode(4, 4), 2);
+    for (int code : {0, 1, 2, 3}) {
+      QVERIFY(sampleRateCodeFitsAddressSpace(code, 4));
+      QCOMPARE(usableSampleRateCode(code, 4), code);
+    }
+    for (int code = 0; code <= kMaxSampleRateCode; ++code)
+      QCOMPARE(usableSampleRateCode(code, 8), code);
+  }
+
+  void blankingPercentScalesWithRate()
+  {
+    // 50% of a half-symbol is 8900 samples at 96 kHz and scales with the rate.
+    QCOMPARE(zapPercent(8915, 96000), 50.0);
+    QVERIFY(qAbs(zapPercent(8915 * 8 / 3, 256000) - 50.0) < 0.1);
+    QVERIFY(qAbs(zapPercent(8915 * 2, 192000) - 50.0) < 0.1);
+    // ~20% blanking at 256 kHz must not read as 53%.
+    QVERIFY(zapPercent(9500, 256000) < 21.0);
+  }
+
   void freqSpanFitsSampledBandwidth()
   {
     QCOMPARE(maxFreqSpanKHz(96000), 90);

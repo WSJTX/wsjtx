@@ -37,6 +37,7 @@ contains
     real halfpulse(8)                       !Impulse response (one sided)
     real base, fac, filtval
     integer i, i0, j, nfft1, nfft2, nflags, nh, npatience, nz
+    logical need_big_fft
     real(real64) :: decim
     ! Filter in frequency domain; sized at max short-FFT length
     data npatience/1/
@@ -133,7 +134,11 @@ contains
   ! When new data comes along, we need to compute a new "big FFT"
   ! If we just have a new f0, continue with the existing ca and cb.
 
-    if (newdat .ne. 0 .or. sum(abs(ca)) .eq. 0.0) then  !### Test on ca should be unnecessary?
+    ! Only the active nfft1 samples are ever filled; scanning the whole
+    ! MAXFFT1 allocation would cost more at every rate below the maximum.
+    need_big_fft = newdat .ne. 0
+    if (.not. need_big_fft) need_big_fft = sum(abs(ca(1:nfft1))) .eq. 0.0
+    if (need_big_fft) then
        nz = min(nmax, nfft1)
        do i = 1, nz
           ca(i) = cmplx(dd(1, i), dd(2, i))

@@ -1234,7 +1234,7 @@ void MainWindow::dataSink(int k)
   nsec0=nsec;
 
   QString t;
-  m_pctZap=nzap/178.3;
+  m_pctZap=zapPercent(nzap,g_sampleRate);
   ui->yMeterFrame->setVisible(m_xpol);
   if(m_xpol) {
     lab4->setText (

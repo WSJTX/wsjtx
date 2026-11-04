@@ -45,9 +45,11 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->gainSpinBox->setValue(ui->widePlot->getPlotGain());
   int n = settings.value("FreqSpan",60).toInt();
   int w = settings.value("PlotWidth",1000).toInt();
-  ui->freqSpanSpinBox->setValue(n);
-
+  // Widen the range first: the spinbox's UI-defined maximum would clamp a
+  // saved span above 190 kHz.
   setFreqSpanLimits(60, maxFreqSpanKHz(g_sampleRate));
+  ui->freqSpanSpinBox->setValue(n);
+  n = ui->freqSpanSpinBox->value();
   updateSpanFromSpinbox();
 
   extern int g_sampleRate;          // at top of widegraph.cpp
