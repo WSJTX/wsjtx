@@ -34,7 +34,8 @@ public:
   QString const& load_errors () const;
   static QStringList normalize_history_files (QStringList const&, QString const& primary_path);
   AD1CCty const * countries () const;
-  bool country_worked (QString const& call, QString const& mode, QString const& band) const;
+  bool country_worked (QString const& country, QString const& mode, QString const& band,
+                       AD1CCty::EntityView view) const;
   bool grid_worked (QString const& grid, QString const& mode, QString const& band) const;
   bool call_worked (QString const& call, QString const& mode, QString const& band) const;
   bool continent_worked (Continent continent, QString const& mode, QString const& band) const;

@@ -1,4 +1,5 @@
 subroutine filbigvar(f0,newfft,c4a,n4,sq0,c6a,n2)
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
 ! Filter and downsample the real data in array dd(npts), sampled at 12000 Hz.
 ! Output is complex, sampled at 1378.125 Hz.
@@ -68,6 +69,7 @@ subroutine filbigvar(f0,newfft,c4a,n4,sq0,c6a,n2)
 
 ! Plan the FFTs just once
      !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
+     call wsjt_tsan_acquire_fftw()
      call fftwf_plan_with_nthreads(nthreadsmin)
      plan1=fftwf_plan_dft_r2c_1d(nfft1,rca,ca,nflags)
      plan2=fftwf_plan_dft_1d(nfft2,c4a,c4a,-1,nflags)
@@ -75,6 +77,7 @@ subroutine filbigvar(f0,newfft,c4a,n4,sq0,c6a,n2)
      call fftwf_plan_with_nthreads(1)
      plan4=fftwf_plan_dft_1d(nfft3,cfilt2,cfilt2,+1,nflags)
      plan5=fftwf_plan_dft_1d(nfft3,c6a,c6a,-1,nflags)
+     call wsjt_tsan_release_fftw()
      !$omp end critical(fftw)
 
 ! Convert impulse response to filter function
@@ -187,11 +190,13 @@ subroutine filbigvar(f0,newfft,c4a,n4,sq0,c6a,n2)
 900 continue
 
   !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
+  call wsjt_tsan_acquire_fftw()
   call fftwf_destroy_plan(plan1)
   call fftwf_destroy_plan(plan2)
   call fftwf_destroy_plan(plan3)
   call fftwf_destroy_plan(plan4)
   call fftwf_destroy_plan(plan5)
+  call wsjt_tsan_release_fftw()
   !$omp end critical(fftw)
   
   return

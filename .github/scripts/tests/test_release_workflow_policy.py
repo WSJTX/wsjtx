@@ -31,7 +31,8 @@ class ReleaseWorkflowPolicyTests(unittest.TestCase):
                 ("macos-intel", "x86_64", "macos-15-intel", "10.13"),
             ):
                 body = job(workflow, name)
-                self.assertIn("needs: prepare", body)
+                needs = "needs: [prepare, macos-intel-deps]" if (gate, name) == ("assemble", "macos-intel") else "needs: prepare\n"
+                self.assertIn(needs, body)
                 self.assertNotIn("    if:", body)
                 self.assertIn("uses: ./.github/workflows/build-macos.yml", body)
                 self.assertIn(f"arch: {arch}", body)
@@ -41,6 +42,17 @@ class ReleaseWorkflowPolicyTests(unittest.TestCase):
                 self.assertNotIn("release_channel:", body)
                 signing = "validation" if gate == "candidate-ready" else "${{ needs.prepare.outputs.macos_sign_mode }}"
                 self.assertIn(f"signing_mode: {signing}", body)
+
+    def test_public_intel_dependencies_build_in_their_own_job_with_the_build_tuple(self):
+        deps = job(PUBLIC, "macos-intel-deps")
+        build = job(PUBLIC, "macos-intel")
+        self.assertIn("needs: prepare\n", deps)
+        self.assertNotIn("    if:", deps)
+        self.assertIn("runs-on: macos-15-intel", deps)
+        self.assertIn("uses: ./.github/actions/warm-macos-deps", deps)
+        for key in ("arch", "runner", "deployment_target", "hamlib_branch"):
+            value = re.search(rf"\n      {key}: (.+)\n", build).group(1)
+            self.assertIn(f"\n          {key}: {value}\n", deps)
 
     def test_intel_ci_is_opt_in_and_selected_artifacts_include_it(self):
         ci = (ROOT / ".github/workflows/ci.yml").read_text()

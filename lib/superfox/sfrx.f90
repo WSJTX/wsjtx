@@ -43,12 +43,12 @@ program sfrx
 5    read(10) ihdr,iwave
      close(10)
 
-     nz=len(trim(fname))
+     nlen=len(trim(fname))
      nyymmdd=ihdr(1)
      nutc=ihdr(2)
-     if(fname(nz-3:nz).eq.'.wav') then
-        read(fname(nz-16:nz-11),*) nyymmdd
-        read(fname(nz-9:nz-4),*) nutc
+     if(fname(nlen-3:nlen).eq.'.wav') then
+        read(fname(nlen-16:nlen-11),*) nyymmdd
+        read(fname(nlen-9:nlen-4),*) nutc
      endif
 
      call sfrx_sub(nyymmdd,nutc,nfqso,ntol,iwave)

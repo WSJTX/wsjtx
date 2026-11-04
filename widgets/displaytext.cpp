@@ -532,7 +532,7 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
                                      QString const& currentBand, QString const& currentMode,
                                      QString extra, QString const& state, bool entityMismatch)
 {
-  QString countryName;
+  auto const entity_view = m_config->include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
   bool callB4;
   bool callB4onBand;
   bool countryB4;
@@ -660,7 +660,7 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
     default:
       if (m_bPrincipalPrefix)
         {
-          extra += looked_up.primary_prefix;
+          extra += looked_up.identity (entity_view).primary_prefix;
         }
       else if (!state.isEmpty () || entityMismatch)
         {
@@ -680,19 +680,7 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
         }
       else
         {
-          auto countryName = looked_up.abbreviated_entity_name;
-
-          // assign WAE entities to the correct DXCC when "Include extra WAE entities" is not selected
-          if (!(m_config->include_WAE_entities())) {
-            countryName.replace ("Bear Is.", "Svalbard");
-            countryName.replace ("Shetland Is.", "Scotland");
-            countryName.replace ("AF Italy", "Italy");
-            countryName.replace ("Sicily", "Italy");
-            countryName.replace ("Vienna Intl Ctr", "Austria");
-            countryName.replace ("AF Turkey", "Turkey");
-            countryName.replace ("EU Turkey", "Turkey");
-          }
-          extra += countryName;
+          extra += looked_up.display_name (entity_view);
         }
     }
     m_CQPriority=DecodeHighlightingModel::highlight_name(top_highlight);
@@ -733,6 +721,7 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
                                      bool haveFSpread, float fSpread, bool bDisplayPoints,
                                      int points, QString distance, bool alertsMuted)
 {
+  auto const entity_view = m_config->include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
   m_points=points;
   m_bDisplayPoints=bDisplayPoints;
   m_bPrincipalPrefix=ppfx;
@@ -797,7 +786,7 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   static QHash<QString, QString> const home_state_for_entity {
     {"KL", "AK"}, {"KH6", "HI"}};
   auto const& dxRecord = logBook.countries ()->lookup (dxCall);
-  bool const usFamilyEntity = us_family_prefixes.contains (dxRecord.primary_prefix);
+  bool const usFamilyEntity = us_family_prefixes.contains (dxRecord.dxcc.primary_prefix);
 
   // entityMismatch answers "does this call's grid contradict its own DXCC
   // entity" independently of GridMap()/GridMapAll(), so the entity-name
@@ -810,7 +799,7 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
       rawState = logBook.countries ()->findState (dxGrid);
       if (rawState == "**") rawState.clear ();
       entityMismatch = !rawState.isEmpty ()
-        && rawState != home_state_for_entity.value (dxRecord.primary_prefix);
+        && rawState != home_state_for_entity.value (dxRecord.dxcc.primary_prefix);
   }
   if (dxGrid.length() > 0 && usFamilyEntity && m_config->GridMap()) {
       if (CQcall || is_73 || m_config->GridMapAll()) {
@@ -857,27 +846,14 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
       if (m_config->show_country_names())
         {
           auto const& looked_up = logBook.countries ()->lookup (dxCall);
-          auto countryName = looked_up.abbreviated_entity_name;
-
           if (m_bPrincipalPrefix) {
-              extra += looked_up.primary_prefix;
+              extra += looked_up.identity (entity_view).primary_prefix;
           } else if (!state.isEmpty () || entityMismatch) {
               // Same reasoning as the CQ-line case above: a grid-derived
               // U.S. state overrides the callsign's own DXCC entity name.
               extra += "U.S.A.";
           } else {
-              // assign WAE entities to the correct DXCC when "Include extra WAE entities" is not selected
-              if (!(m_config->include_WAE_entities())) {
-                countryName.replace ("Bear Is.", "Svalbard");
-                countryName.replace ("Shetland Is.", "Scotland");
-                countryName.replace ("AF Italy", "Italy");
-                countryName.replace ("Sicily", "Italy");
-                countryName.replace ("Vienna Intl Ctr", "Austria");
-                countryName.replace ("AF Turkey", "Turkey");
-                countryName.replace ("EU Turkey", "Turkey");
-              }
-
-              extra += countryName;
+              extra += looked_up.display_name (entity_view);
           }
           message = leftJustifyAppendage(message, extra);
         }

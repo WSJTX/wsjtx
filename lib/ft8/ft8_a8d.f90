@@ -116,6 +116,8 @@ subroutine ft8_a8d(dd,mycall,dxcall,dxgrid,f1a,xdt,fbest,xsnr,plog,msgbest, &
   raw_spectrum=0.
   s=0.
   local_sbest=0.
+  local_fbest=0.
+  local_tbest=0.
   local_best_index=nrun+1
 !$omp do schedule(static)
   do imsg=1,nvalid

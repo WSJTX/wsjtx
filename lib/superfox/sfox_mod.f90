@@ -1,40 +1,28 @@
 module sfox_mod
   
   parameter (NMAX=15*12000)       !Samples in iwave (180,000)
-  integer MM,NQ,NN,KK,NS,NDS,NFZ,NSPS,NSYNC,NZ,NFFT1
-  real baud,tsym,bw
+  integer, parameter :: MM=7          !Bits per symbol
+  integer, parameter :: NQ=2**MM      !Q, number of MFSK tones
+  integer, parameter :: NN=127        !Codeword length
+  integer, parameter :: KK=50         !Number of information symbols
+  integer, parameter :: NS=24         !Number of sync symbols
+  integer, parameter :: NDS=NN+NS     !Total number of channel symbols
+  integer, parameter :: NFZ=3         !First zero
+  integer, parameter :: NSPS=1024     !Samples per symbol: the FFT size nearest 12.8*12000/NDS
+  integer, parameter :: NSYNC=NS*NSPS !Samples in sync waveform
+  integer, parameter :: NZ=NSPS*NDS   !Samples in full Tx waveform
+  integer, parameter :: NFFT1=2*NSPS  !Length of FFTs for symbol spectra
+  real, parameter :: baud=12000.0/NSPS
+  real, parameter :: tsym=1.0/baud
+  real, parameter :: bw=NQ*baud
 
 contains
   subroutine sfox_init(mm0,nn0,kk0,itu,fspread,delay,fsample,ns0)
 
     character*2 itu
-    integer isps(54)
-    integer iloc(1)
-    data isps/ 896, 960, 972, 980,1000,1008,1024,1029,1050,1080,   &
-              1120,1125,1134,1152,1176,1200,1215,1225,1250,1260,   &
-              1280,1296,1323,1344,1350,1372,1400,1440,1458,1470,   &
-              1500,1512,1536,1568,1575,1600,1620,1680,1701,1715,   &
-              1728,1750,1764,1792,1800,1875,1890,1920,1944,1960,   &
-              2000,2016,2025,2048/
 
-    MM=mm0              !Bits per symbol
-    NQ=2**MM            !Q, number of MFSK tones
-    NN=nn0              !Codeword length
-    KK=kk0              !Number of information symbols
-    NS=ns0              !Number of sync symbols
-    NDS=NN+NS           !Total number of channel symbols
-    NFZ=3               !First zero
-
-    jsps=nint(12.8*fsample/NDS)
-    iloc=minloc(abs(isps-jsps))
-    NSPS=isps(iloc(1))  !Samples per symbol
-    NSYNC=NS*NSPS       !Samples in sync waveform
-    NZ=NSPS*NDS         !Samples in full Tx waveform
-    NFFT1=2*NSPS        !Length of FFTs for symbol spectra
-    
-    baud=fsample/NSPS
-    tsym=1.0/baud
-    bw=NQ*baud
+    if(mm0.ne.MM .or. nn0.ne.NN .or. kk0.ne.KK .or. ns0.ne.NS .or.            &
+         fsample.ne.12000.0) error stop 'sfox_init: parameters differ from sfox_mod'
 
     fspread=0.0
     delay=0.0

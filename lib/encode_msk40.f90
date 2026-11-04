@@ -6,6 +6,7 @@ subroutine encode_msk40(message,codeword)
 ! "colorder" to make the codeword compatible with the parity-check
 ! matrix stored in Radford Neal's "pchk" format.
 !
+use first_call_tsan, only: wsjt_tsan_acquire_first_call,wsjt_tsan_release_first_call
 integer*1 codeword(32)
 integer*1 colorder(32)
 integer g(16)
@@ -20,15 +21,25 @@ data g/Z'4428',Z'5a6b',Z'1b04',Z'2c12',Z'60c4',Z'1071',Z'be6a',Z'36dd', &
 data colorder/4,1,2,3,0,8,6,10,13,28,20,23,17,15,27,25, &
              16,12,18,19,7,21,22,11,24,5,26,14,9,29,30,31/
 save first,gen40
+logical building
 
-if( first ) then ! fill the generator matrix
-  gen40=0
-  do i=1,16
-    do j=1,16
-      if( btest(g(i),16-j) ) gen40(i,j)=1
-    enddo
-  enddo
-  first=.false.
+!$omp atomic read seq_cst
+building=first
+if(building) then
+   !$omp critical(first_call)
+   call wsjt_tsan_acquire_first_call()
+   if( first ) then ! fill the generator matrix
+     gen40=0
+     do i=1,16
+       do j=1,16
+         if( btest(g(i),16-j) ) gen40(i,j)=1
+       enddo
+     enddo
+     !$omp atomic write seq_cst
+     first=.false.
+   endif
+   call wsjt_tsan_release_first_call()
+   !$omp end critical(first_call)
 endif
 
 do i=1,16

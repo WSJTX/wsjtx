@@ -44,7 +44,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
 
 ! This routine provides an interface between QMAP and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the QMAP GUI.
-! Raw Rx data are available as the 96 kHz complex spectrum ca(MAXFFT1)
+! Raw Rx data are available as the complex spectrum ca(nfft_big_active)
 ! in cacb_mod.  Decoded messages are sent back to the GUI.
 
   use q65_decode
@@ -56,9 +56,9 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   use iso_fortran_env, only: int16
   use cacb_mod, only: init_cacb
   use qmap_q65_samples_mod, only: build_q65_samples
+  use qmap_params, only: nrate_active, nfft_active, nfft_big_active
 
-  parameter (MAXFFT1=5376000)              !56*96000
-  parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
+  parameter (MAXFFT2=336000)               !56*6000 (downsampled to 12 kHz: independent of input rate)
   parameter (NMAX=60*12000)
   parameter (RAD=57.2957795)
   type(hdr) h
@@ -77,22 +77,23 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   data ifile/0/
   save
   
-  call init_cacb(MAXFFT1)
+  call init_cacb(nfft_big_active)
+  bwhalf=real(nrate_active)/2000.0         !Half the sampled bandwidth (kHz): 48 at 96 kHz
 
   if(mycall0(1:1).ne.' ') mycall=mycall0
   if(hiscall0(1:1).ne.' ') hiscall=hiscall0
   if(hisgrid(1:4).ne.'    ') grid4=hisgrid(1:4)
 
 ! Find best frequency from sync_dat, the "orange sync curve".
-  df3=96000.0/32768.0
+  df3=real(nrate_active)/real(nfft_active)
   ipk=(1000.0*f0-1.0)/df3
-  if(nagain.ge.2) ipk = nint(1000.0*(fqso-nkhz_center+48.0)/df3)
-  nfft1=MAXFFT1
+  if(nagain.ge.2) ipk = nint(1000.0*(fqso-nkhz_center+bwhalf)/df3)
+  nfft1=nfft_big_active
   nfft2=MAXFFT2
-  df=96000.0/NFFT1
+  df=real(nrate_active)/nfft1
   nh=nfft2/2
   k0=nint((ipk*df3-1000.0)/df)
-  if(k0.lt.nh .or. k0.gt.MAXFFT1-nfft2+1) go to 900
+  if(k0.lt.nh .or. k0.gt.nfft1-nfft2+1) go to 900
   call build_q65_samples(k0,nfft2,df,iseq,iwave)
 
   nsubmode=mode_q65-1
@@ -155,7 +156,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
         if(i1.gt.0 .and. (.not.bClickDecode .or. nhsym.eq.390)) go to 800
      enddo
      
-     nq65df=nint(1000*(0.001*k0*df+nkhz_center-48.0+1.000-1.27046-ikhz))-nfcal
+     nq65df=nint(1000*(0.001*k0*df+nkhz_center-bwhalf+1.000-1.27046-ikhz))-nfcal
      nq65df=nq65df + nfreq0 - 1000
      ikhz1=ikhz
      ndf=nq65df
@@ -163,7 +164,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
      if(ndf.lt.-500) ikhz1=ikhz + (nq65df-500)/1000
      ndf=nq65df - 1000*(ikhz1-ikhz)
      freq1=freq0 + 0.001d0*(ikhz1-ikhz)
-     frx=0.001*k0*df+nkhz_center-48.0+1.0 - 0.001*nfcal
+     frx=0.001*k0*df+nkhz_center-bwhalf+1.0 - 0.001*nfcal
      fsked=frx - 0.001*ndop00/2.0 - 0.001*offset
      ctmp=csubmode//'  '//trim(msg0)
      ndecodes=min(ndecodes+1,max_decode_rows)

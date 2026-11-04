@@ -10,6 +10,11 @@ wsjt_link_common_fortran (test_superfox_tx_handoff)
 
 add_test (NAME test_superfox_tx_handoff COMMAND test_superfox_tx_handoff)
 
+add_executable (test_superfox_waveform test_superfox_waveform.f90)
+target_include_directories (test_superfox_waveform PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_superfox_waveform)
+add_test (NAME test_superfox_waveform COMMAND test_superfox_waveform)
+
 add_executable (test_superfox_unpack test_superfox_unpack.f90)
 target_include_directories (test_superfox_unpack PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_superfox_unpack)
@@ -29,3 +34,16 @@ add_test (NAME test_superfox_unpack_unsupported
 set_tests_properties (test_superfox_unpack_unsupported PROPERTIES
   PASS_REGULAR_EXPRESSION "unsupported i3=1 ignored"
   FAIL_REGULAR_EXPRESSION "~")
+
+add_executable (test_superfox_init test_superfox_init.f90)
+target_include_directories (test_superfox_init PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_superfox_init)
+
+add_test (NAME test_superfox_init COMMAND test_superfox_init)
+foreach (field mm nn kk ns fsample)
+  add_test (NAME test_superfox_init_differs_${field}
+    COMMAND test_superfox_init ${field})
+  set_tests_properties (test_superfox_init_differs_${field} PROPERTIES
+    PASS_REGULAR_EXPRESSION "parameters differ from sfox_mod"
+    FAIL_REGULAR_EXPRESSION "FAIL")
+endforeach ()

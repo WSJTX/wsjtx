@@ -516,7 +516,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.macos_x86_64 == 'true'
     runs-on: macos-15-intel
-    timeout-minutes: 100
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/warm-macos-deps

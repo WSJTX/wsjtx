@@ -607,7 +607,6 @@ int main(int argc, char *argv[])
       QStandardPaths::setTestModeEnabled (parser.isSet (test_option) || automated_test);
 
       // support for multiple instances running from a single installation
-      bool multiple {false};
       if (parser.isSet (rig_option) || parser.isSet (test_option) || automated_test)
         {
           auto temp_name = parser.value (rig_option);
@@ -626,8 +625,6 @@ int main(int argc, char *argv[])
             {
               a.setApplicationName (a.applicationName () + " - test");
             }
-
-          multiple = true;
         }
 
       // now we have the application name we can open the logging and settings
@@ -955,7 +952,7 @@ int main(int argc, char *argv[])
 #else
           std::unique_ptr<AudioInputSource> audio_input;
 #endif
-          MainWindow w(temp_dir, multiple, &multi_settings, decoderSession, downSampleFactor, &splash, env,
+          MainWindow w(temp_dir, &multi_settings, decoderSession, downSampleFactor, &splash, env,
                        automated_test, original_style_sheet, std::move (audio_input),
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
                        std::move (sound_output),

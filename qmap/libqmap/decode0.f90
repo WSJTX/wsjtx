@@ -2,9 +2,9 @@ subroutine decode0(dd,ss,savg)
 
   use timer_module, only: timer
   use qmap_decode_ipc, only: nQDecoderDone
-  parameter (NSMAX=60*96000,NFFT=32768)
+  use qmap_params, only: nrate_active, nsmax_active, nfft_active
 
-  real*4 dd(2,NSMAX),ss(400,NFFT),savg(NFFT)
+  real*4 dd(2,*),ss(400,*),savg(*)
   real*8 fcenter
   integer offset
   integer hist(0:32768)
@@ -20,7 +20,7 @@ subroutine decode0(dd,ss,savg)
 
   nQDecoderDone=0
   if(newdat.ne.0) then
-     nz=96000*nhsym*0.15
+     nz=nrate_active*nhsym*0.15
      hist=0
      do i=1,nz
         j1=min(abs(dd(1,i)),32768.0)
@@ -40,7 +40,8 @@ subroutine decode0(dd,ss,savg)
   hiscall0=hiscall
   hisgrid0=hisgrid
 
-  if(sum(dd).eq.0.0 .or. sum(ss).eq.0.0 .or. sum(savg).eq.0.0) return
+  if(sum(dd(:,1:nsmax_active)).eq.0.0 .or. sum(ss(:,1:nfft_active)).eq.0.0 .or.  &
+       sum(savg(1:nfft_active)).eq.0.0) return
   call timer('qmapa   ',0)
   call qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,                  &
        mousedf,mousefqso,nagain,ntx30a,ntx30b,nfshift,max_drift,offset,    &

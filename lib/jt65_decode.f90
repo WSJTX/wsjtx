@@ -504,7 +504,7 @@ contains
     parameter (MAXAVE=64)
     character*22 avemsg,deepave,deepbest
     character mycall*12,hiscall*12,hisgrid*6
-    character*1 csync,cused(64)
+    character*1 cused(64)
     logical nagain
     integer iused(64)
 ! Accumulated data for message averaging

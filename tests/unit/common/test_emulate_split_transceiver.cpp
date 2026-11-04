@@ -3,6 +3,32 @@
 #include <QtTest>
 
 #include "Transceiver/EmulateSplitTransceiver.hpp"
+#include "Transceiver/TransceiverBase.hpp"
+#include "OperatingFrequency.hpp"
+
+class ReadbackTransceiver final : public TransceiverBase
+{
+public:
+  explicit ReadbackTransceiver (logger_type * logger) : TransceiverBase {logger, nullptr} {}
+  bool delayed = false;
+  Frequency commanded = 0;
+  int commands = 0;
+  void readback (Frequency value) { update_rx_frequency (value, RigFrequency::Basis::Readback); }
+
+private:
+  int do_start () override { readback (14074000); return 0; }
+  void do_stop () override {}
+  void do_frequency (Frequency value, MODE, bool) override
+  {
+    commanded = value;
+    ++commands;
+    if (!delayed) readback (value);
+  }
+  void do_tx_frequency (Frequency, MODE, bool) override {}
+  void do_mode (MODE mode) override { update_mode (mode); }
+  void do_ptt (bool value) override { update_PTT (value); }
+  bool frequency_readback_expected (RigFrequency::Path, Frequency) const override { return true; }
+};
 
 class FakeTransceiver final
   : public Transceiver
@@ -34,6 +60,7 @@ public:
   }
 
   void send_receive_audio (ReceiveAudio audio) { Q_EMIT receiveAudio (audio); }
+  void send_resolution (int code) { Q_EMIT resolution (code); }
   void send_result (RigFrequency::Result const& result) { Q_EMIT frequency_result (result); }
   void send_observation (RigFrequency::Evidence const& evidence)
   { Q_EMIT frequency_observation (evidence); }
@@ -47,6 +74,154 @@ class TestEmulateSplitTransceiver : public QObject
   Q_OBJECT
 
 private:
+  Q_SLOT void legacyRxRestorationRequiresEvidence_data ()
+  {
+    QTest::addColumn<int> ("resolution");
+    QTest::addColumn<int> ("delta");
+    QTest::newRow ("exact") << 0 << 0;
+    QTest::newRow ("rounded-up") << 1 << 9;
+    QTest::newRow ("rounded-down") << -1 << -9;
+  }
+
+  Q_SLOT void legacyRxRestorationRequiresEvidence ()
+  {
+    using namespace RigFrequency;
+    QFETCH (int, resolution);
+    QFETCH (int, delta);
+    auto * fake = new FakeTransceiver;
+    EmulateSplitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    QVector<Evidence> observations;
+    connect (&transceiver, &Transceiver::frequency_observation, this,
+             [&] (Evidence const& report) { observations.append (report); });
+    fake->send_resolution (resolution);
+    Transceiver::TransceiverState state;
+    state.online (true);
+    state.frequency (14076000);
+    state.tx_frequency (14074500);
+    state.split (true);
+    Request const tx {1, 2, Path::Tx, state.tx_frequency ()};
+    state.frequency_request (tx);
+    state.ptt (true);
+    transceiver.set (state, 1);
+    fake->send_result ({tx, Outcome::Established, Basis::Readback, tx.target});
+    auto const restored = Radio::Frequency (Radio::FrequencyDelta (state.frequency ()) + delta);
+    fake->send_observation ({1, 1, Path::Rx, restored, Basis::Readback, {}});
+    QCOMPARE (observations.last ().path, Path::Tx);
+
+    state.frequency_request (Path::Tx, {});
+    state.ptt (false);
+    transceiver.set (state, 2);
+    QVERIFY (!fake->last_state.frequency_request (Path::Rx));
+    fake->send_observation ({1, 2, Path::Rx, restored, Basis::Retained, {}});
+    QCOMPARE (observations.last ().path, Path::Tx);
+    fake->send_observation ({1, 3, Path::Rx, tx.target, Basis::Readback, {}});
+    QCOMPARE (observations.last ().path, Path::Tx);
+    // Operation-associated evidence retains the backend's logical path.
+    fake->send_observation ({1, 4, Path::Tx, tx.target, Basis::Readback, tx});
+    QCOMPARE (observations.last ().path, Path::Tx);
+    fake->send_observation ({1, 5, Path::Rx, restored, Basis::Readback, {}});
+    QCOMPARE (observations.last ().path, Path::Rx);
+    fake->send_result ({tx, Outcome::Established, Basis::Readback, tx.target});
+    fake->send_observation ({1, 6, Path::Tx, tx.target, Basis::Readback, tx});
+    QCOMPARE (observations.last ().path, Path::Tx);
+    fake->send_observation ({1, 7, Path::Rx, state.frequency () + 1000, Basis::Readback, {}});
+    QCOMPARE (observations.last ().path, Path::Rx);
+  }
+
+  Q_SLOT void manualQsyAcrossTransmitCycle_data ()
+  {
+    QTest::addColumn<bool> ("delayed");
+    QTest::addColumn<bool> ("sameFrequency");
+    QTest::newRow ("synchronous-readback") << false << false;
+    QTest::newRow ("delayed-readback") << true << false;
+    QTest::newRow ("same-frequency-synchronous") << false << true;
+    QTest::newRow ("same-frequency-delayed") << true << true;
+  }
+
+  Q_SLOT void manualQsyAcrossTransmitCycle ()
+  {
+    using namespace RigFrequency;
+    QFETCH (bool, delayed);
+    QFETCH (bool, sameFrequency);
+    auto const txFrequency = Radio::Frequency {sameFrequency ? 14076000u : 14074500u};
+    Transceiver::logger_type logger;
+    auto * rig = new ReadbackTransceiver {&logger};
+    rig->delayed = delayed;
+    EmulateSplitTransceiver transceiver {&logger, std::unique_ptr<Transceiver> {rig}};
+    OperatingFrequency frequency;
+    frequency.setConnectionGeneration (1);
+    OperatingFrequency::Context context {true, true, true, false, false, false, true};
+    QVector<Evidence> observations;
+    connect (&transceiver, &Transceiver::frequency_result, this,
+             [&] (Result const& result) { frequency.handleResult (result); });
+    connect (&transceiver, &Transceiver::frequency_observation, this,
+             [&] (Evidence const& report) {
+               observations.append (report);
+               frequency.observe (report, context);
+             });
+    transceiver.start (1);
+    Transceiver::TransceiverState state;
+    state.online (true);
+    state.split (true);
+    unsigned sequence = 1;
+    int requests = 0;
+    auto dispatch = [&] (Request const& request) {
+      ++requests;
+      if (request.path == Path::Rx) state.frequency (request.target);
+      else state.tx_frequency (request.target);
+      state.frequency_request (request);
+      transceiver.set (state, ++sequence);
+      state.frequency_request (request.path, {});
+      return true;
+    };
+    QVERIFY (frequency.requestNominal (14075000, dispatch));
+    if (delayed) rig->readback (rig->commanded);
+    QVERIFY (!frequency.snapshot ().pendingRx);
+
+    rig->readback (14076000);
+    QCOMPARE (frequency.rx (), Radio::Frequency {14076000});
+    state.frequency (frequency.correctedRx ());
+    QVERIFY (frequency.requestTx (txFrequency, dispatch));
+    auto const requestsBefore = requests;
+    QVERIFY (frequency.applyCorrection (Path::Rx, {}, false, dispatch));
+    QCOMPARE (requests, requestsBefore);
+
+    context.transmitting = true;
+    state.ptt (true);
+    transceiver.set (state, ++sequence);
+    if (delayed && !sameFrequency) rig->readback (rig->commanded);
+    rig->readback (txFrequency);
+    QCOMPARE (observations.last ().path, Path::Tx);
+    QCOMPARE (frequency.rx (), Radio::Frequency {14076000});
+
+    context.transmitting = false;
+    state.ptt (false);
+    transceiver.set (state, ++sequence);
+    if (!sameFrequency) QCOMPARE (rig->commanded, Radio::Frequency {14076000});
+    if (delayed && !sameFrequency)
+      {
+        rig->readback (txFrequency);
+        QCOMPARE (observations.last ().path, Path::Tx);
+        QCOMPARE (frequency.rx (), Radio::Frequency {14076000});
+      }
+    rig->readback (14076000);
+    QVERIFY (!observations.last ().operation);
+    QCOMPARE (observations.last ().path, Path::Rx);
+    auto const commandsBefore = rig->commands;
+    QVERIFY (frequency.applyCorrection (Path::Rx, {}, false, dispatch));
+    QCOMPARE (rig->commands, commandsBefore);
+
+    rig->readback (14077000);
+    QCOMPARE (frequency.rx (), Radio::Frequency {14077000});
+    QCOMPARE (frequency.remembered (), frequency.rx ());
+    rig->readback (txFrequency);
+    QCOMPARE (observations.last ().path, Path::Rx);
+    QCOMPARE (frequency.rx (), txFrequency);
+    rig->readback (14078000);
+    QCOMPARE (frequency.rx (), Radio::Frequency {14078000});
+    QVERIFY (!frequency.recoveryRequired ());
+  }
+
   Q_SLOT void logicalFrequencyEvidenceFollowsPhysicalPath ()
   {
     using namespace RigFrequency;

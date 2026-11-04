@@ -1728,7 +1728,7 @@ contains
     integer(c_int), intent(in) :: status
     type(attempt_request), intent(in) :: request
     character(len=*), intent(in) :: operation
-    character(len=12) :: status_name
+    character(len=14) :: status_name
     integer :: unit
     type(option_problem) :: problem
     select case(status)

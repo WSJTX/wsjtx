@@ -20,7 +20,7 @@ program test_decoder_engine_q65_host
   character(len=16) :: scenario
 
   interface
-     subroutine signal(period,submode,flag,seed,amplitude,noise,frequency,samples) &
+     subroutine gen_signal(period,submode,flag,seed,amplitude,noise,frequency,samples) &
           bind(C,name='decoder_engine_test_q65_signal')
        import c_int,c_int16_t,c_float
        integer(c_int), value :: period,submode,flag,seed
@@ -70,9 +70,9 @@ contains
 
     allocate(fixtures(sample_count,4))
     do seed=1,3
-       call signal(60,0,0,seed,3.8,100.0,1000.0,fixtures(:,seed))
+       call gen_signal(60,0,0,seed,3.8,100.0,1000.0,fixtures(:,seed))
     enddo
-    call signal(60,0,0,4,300.0,100.0,1000.0,fixtures(:,4))
+    call gen_signal(60,0,0,4,300.0,100.0,1000.0,fixtures(:,4))
     call fresh(10000,fixtures(:,1),.true.)
     call decode(0,1000)
     call repeat()
@@ -111,7 +111,7 @@ contains
     integer(c_int16_t), allocatable :: fixture(:)
 
     allocate(fixture(sample_count))
-    call signal(60,0,0,1,3.0,100.0,1000.0,fixture)
+    call gen_signal(60,0,0,1,3.0,100.0,1000.0,fixture)
     params%ndepth=1
     params%nexp_decode=1
     params%nQSOProgress=5

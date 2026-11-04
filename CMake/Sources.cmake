@@ -109,6 +109,7 @@ set (wsjt_qt_CXXSRCS
   MessageFilterLogic.cpp
   DecodeOutputPlan.cpp
   DecodeEventLine.cpp
+  DecodedGridHistory.cpp
   DecodedMessageReaction.cpp
   PrefixSuffix.cpp
   CountryNames.cpp
@@ -136,9 +137,11 @@ set (jt9_FSRCS
 set (wsjt_codec_FSRCS
   lib/jt9.f90
   lib/jt9a_stub.f90
+  lib/streaming_decode.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # stdin helpers: Windows binary mode, terminal check
   lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
+  lib/stream_decode.c    # the decode thread, its queue and the stdout writer lock
   lib/stream_ft8_backpressure.cpp # the stream's calls into the GUI's FT8 decode scheduler
   lib/jt9_version.c
   )
@@ -257,11 +260,6 @@ set_source_files_properties (
   PROPERTIES COMPILE_FLAGS -fpermissive)
 
 if (WIN32)
-  set (wsjt_CXXSRCS
-    ${wsjt_CXXSRCS}
-    killbyname.cpp
-    )
-
   set (wsjt_qt_CXXSRCS
     ${wsjt_qt_CXXSRCS}
     Transceiver/OmniRigTransceiver.cpp
@@ -431,6 +429,9 @@ set (wsjt_FSRCS
   lib/flat65.f90
   lib/fmtmsg.f90
   lib/foldspec9f.f90
+  lib/fftw_tsan.f90
+  lib/first_call_tsan.f90
+  lib/fftw_wisdom.f90
   lib/four2a.f90
   lib/fspread_lorentz.f90
   lib/ft8/foxfilt.f90
@@ -455,7 +456,7 @@ set (wsjt_FSRCS
   lib/ft4/ft4code.f90
   lib/ft4/genft4.f90
   lib/ft4/gen_ft4wave.f90
-  lib/ft8/ft8_waveform.f90
+  lib/waveform_kernels.f90
   lib/ft8/gen_ft8wave.f90
   lib/ft8/genft8refsig.f90
   lib/genwspr.f90
@@ -947,3 +948,7 @@ if (WIN32)
     file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
   endif ()
 endif ()
+
+# GNU Fortran's default constructor limit is one entry below the sine table size.
+set_property (SOURCE lib/waveform_kernels.f90 APPEND PROPERTY COMPILE_OPTIONS
+  "$<$<COMPILE_LANG_AND_ID:Fortran,GNU>:-fmax-array-constructor=65536>")

@@ -42,6 +42,7 @@
 class QHBoxLayout;
 namespace DecoderIpc {class Session;}
 
+#include "DecodedGridHistory.hpp"
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
@@ -200,7 +201,7 @@ public:
   static QRegularExpression const grid_regexp;
   static QRegularExpression const non_r_db_regexp;
 
-  explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
+  explicit MainWindow(QDir const& temp_directory, MultiSettings *,
                       DecoderIpc::Session& decoderSession, unsigned downSampleFactor,
                       QSplashScreen *, QProcessEnvironment const&, bool automated_test,
                       QString base_style_sheet,
@@ -820,6 +821,7 @@ private:
   bool send_rr73_for_tx4 () const;
   void set_rr73_tx4 (bool enabled);
   void readWidebandDecodes();
+  void refreshQmapActiveStations(QDateTime const& nowUtc);
   void configActiveStations();
   bool sfox_tx();
   void clearSuperFoxPreparedTx();
@@ -941,7 +943,6 @@ private:
   bool m_valid;
   QSplashScreen * m_splash;
   QString m_revision;
-  bool m_multiple;
   bool m_automated_test;
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
@@ -1407,7 +1408,7 @@ private:
     double frx;
     double fsked;
     qint32 nsnr;
-    qint32 t;
+    QDateTime lastHeard;
     bool worked;
     bool ready2call;
     QString submode;
@@ -1415,6 +1416,8 @@ private:
   QMap<QString,EMECall> m_EMECall;
 
   QMap<QString,bool> m_EMEworked;
+
+  DecodedGridHistory m_decodedGridHistory;
 
   struct RecentCall
   {
@@ -1788,7 +1791,6 @@ private:
 #endif
 };
 
-extern int killbyname(const char* progName);
 extern void getDev(int* numDevices,char hostAPI_DeviceName[][50],
                    int minChan[], int maxChan[],
                    int minSpeed[], int maxSpeed[]);

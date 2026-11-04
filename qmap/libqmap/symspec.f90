@@ -11,43 +11,47 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
 !  ihsym    index number of this half-symbol (1-400)
 !  nzap     number of samples zero'ed by noise blanker
 
+  use qmap_params, only: MAX_NSMAX, MAX_NFFT, nrate_active, nsmax_active, nfft_active, &
+       qmap_zap_limit
   include 'njunk.f90'
-  parameter (NSMAX=60*96000)          !Total sample intervals per minute
-  parameter (NFFT=32768)              !Length of FFTs
   real*8 ts,hsym
   real*8 fcenter
-  common/datcom/dd(2,5760000),ss(400,NFFT),savg(NFFT),fcenter,nutc,  &
+  common/datcom/dd(2,MAX_NSMAX),ss(400,MAX_NFFT),savg(MAX_NFFT),fcenter,nutc,  &
        junk(NJUNK)
-  real*4 ssz5a(NFFT),w(NFFT)
-  complex cx(NFFT)
-  complex cx00(NFFT)
+  real*4 ssz5a(*)                      !Caller supplies at least nfft_active elements
+  real*4, allocatable :: w(:)          !Sized at nfft_active on first use
+  complex, allocatable :: cx(:)
+  complex, allocatable :: cx00(:)
   complex cx0(0:1023),cx1(0:1023)
   logical*1 lstrong(0:1023)
   data rms/999.0/,k0/99999999/,nadjx/0/,nadjy/0/
   save
 
-  hsym=0.15d0*96000.d0                 !Samples per Q65-30x half-symbol
+  hsym=0.15d0*real(nrate_active,8)     !Samples per Q65-30x half-symbol
   npts=2*hsym                          !Full Q65-30x symbol
-  if(k.gt.5751000) go to 999
+  if(k.gt.nsmax_active-9000) go to 999
   if(k.lt.npts) then
      ihsym=0
      go to 999             !Wait for enough samples to start
   endif
   if(k0.eq.99999999) then
+     if(.not.allocated(cx))   allocate(cx(nfft_active))
+     if(.not.allocated(cx00)) allocate(cx00(nfft_active))
+     if(.not.allocated(w))    allocate(w(nfft_active))
 !     pi=4.0*atan(1.0)
-!     do i=1,NFFT
-!        w(i)=(sin(i*pi/NFFT))**2                          !Window
+!     do i=1,nfft_active
+!        w(i)=(sin(i*pi/nfft_active))**2                   !Window
 !     enddo
      w=0.7                             !Flat window
   endif
 
   if(k.lt.k0) then
      ts=1.d0 - hsym
-     ss=0.
-     savg=0.
+     ss(:,1:nfft_active)=0.
+     savg(1:nfft_active)=0.
      ihsym=0
      k1=0
-     if(ndiskdat.eq.0) dd(1:2,k+1:5760000)=0.  !### Should not be needed ??? ###
+     if(ndiskdat.eq.0) dd(1:2,k+1:nsmax_active)=0.  !### Should not be needed ??? ###
   endif
   k0=k
 
@@ -91,7 +95,7 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
   enddo
   cx(npts+1:)=0.
 
-  if(nzap/178.lt.50 .and. (ndiskdat.eq.0 .or. ihsym.lt.280)) then
+  if(real(nzap,8).lt.qmap_zap_limit() .and. (ndiskdat.eq.0 .or. ihsym.lt.280)) then
      nsum=nblks*kstep - nzap
      if(nsum.le.0) nsum=1
      rmsx=sqrt(px/nsum)
@@ -105,9 +109,9 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
 
   ihsym=ihsym+1
   cx=w*cx00                           !Apply window for 2nd forward FFT
-  call four2a(cx,NFFT,1,1,1)          !Second forward FFT (X)
+  call four2a(cx,nfft_active,1,1,1)   !Second forward FFT (X)
   n=min(400,ihsym)
-  do i=1,NFFT
+  do i=1,nfft_active
      sx=real(cx(i))**2 + aimag(cx(i))**2
      ss(n,i)=sx                    ! Pol = 0
      savg(i)=savg(i) + sx

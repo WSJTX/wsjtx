@@ -1,5 +1,8 @@
 #include <QtTest>
 
+#include <algorithm>
+#include <cmath>
+
 #include "Audio/AudioOutputSink.hpp"
 #include "Modulator/Modulator.hpp"
 #include "widgets/itoneAndicw.h"
@@ -36,6 +39,15 @@ namespace
     QByteArray startupPcm;
   };
 
+  TxEvidence::TxRequest tuneRequest ()
+  {
+    TxEvidence::TxRequest request;
+    request.tuning = true;
+    request.synchronize = false;
+    request.frequency_hz = 1234.56789;
+    return request;
+  }
+
   TxEvidence::TxRequest cwRequest ()
   {
     TxEvidence::TxRequest request;
@@ -58,12 +70,116 @@ class TestModulator : public QObject
 
   QByteArray readFrames (Modulator& modulator, int frames)
   {
-    QByteArray pcm (frames * sizeof (qint16), '\0');
+    QByteArray pcm (frames * modulator.bytesPerFrame (), '\0');
     pcm.resize (modulator.readData (pcm.data (), pcm.size ()));
     return pcm;
   }
 
 private slots:
+  void tuneBlocksPreservePhase_data ()
+  {
+    QTest::addColumn<AudioDevice::Channel> ("channel");
+    QTest::addColumn<double> ("snr");
+    for (auto channel : {AudioDevice::Mono, AudioDevice::Left, AudioDevice::Right, AudioDevice::Both})
+      for (double snr : {99.0, -6.0})
+        QTest::newRow (qPrintable (QString {"%1-%2"}.arg (AudioDevice::toString (channel)).arg (snr)))
+          << channel << snr;
+  }
+
+  void tuneBlocksPreservePhase ()
+  {
+    QFETCH (AudioDevice::Channel, channel);
+    QFETCH (double, snr);
+    itone[0] = 0;
+    auto request = tuneRequest ();
+    request.channel = channel;
+    request.snr_db = snr;
+    ScriptedOutput output, splitOutput;
+    Modulator whole {48000, 60}, split {48000, 60};
+    whole.startAt (request, &output, 0);
+    split.startAt (request, &splitOutput, 0);
+    auto const expected = readFrames (whole, 4099);
+    QCOMPARE (expected.size (), int (4099 * whole.bytesPerFrame ()));
+    QByteArray actual;
+    int remaining = 4099;
+    while (remaining)
+      for (int chunk : {1, 255, 256, 257, 17})
+        {
+          int const n = std::min (chunk, remaining);
+          actual += readFrames (split, n);
+          remaining -= n;
+        }
+    QCOMPARE (actual, expected);
+    QCOMPARE (split.m_phi, whole.m_phi);
+    auto const samples = reinterpret_cast<qint16 const *> (actual.constData ());
+    int expectedFirst = qRound (32767.0 * std::sin (Modulator::m_twoPi * request.frequency_hz / 48000));
+    if (snr < 0)
+      {
+        double const signal = std::pow (10.0, 0.05 * (snr - 6.0));
+        expectedFirst = int (3000.0 * expectedFirst * signal / 32768.0);
+      }
+    QVERIFY (std::abs (int (samples[channel == AudioDevice::Right ? 1 : 0]) - expectedFirst) <= 1);
+    if (channel != AudioDevice::Mono)
+      for (int i = 0; i < 4099; ++i)
+        {
+          if (channel == AudioDevice::Left) QCOMPARE (samples[2 * i + 1], qint16 {0});
+          if (channel == AudioDevice::Right) QCOMPARE (samples[2 * i], qint16 {0});
+          if (channel == AudioDevice::Both) QCOMPARE (samples[2 * i], samples[2 * i + 1]);
+        }
+  }
+
+  void tuneFrequencyChangeAndRestart ()
+  {
+    itone[0] = 0;
+    auto request = tuneRequest ();
+    ScriptedOutput output;
+    Modulator modulator {48000, 60};
+    modulator.startAt (request, &output, 0);
+    auto const initial = readFrames (modulator, 257);
+    double phase = modulator.m_phi;
+    double const frequency = 4999.75;
+    double const increment = 8.0 * std::atan (1.0) * frequency / 48000;
+    modulator.setFrequency (frequency);
+    auto const audio = readFrames (modulator, 513);
+    QCOMPARE (audio.size (), 513 * int (sizeof (qint16)));
+    auto const samples = reinterpret_cast<qint16 const *> (audio.constData ());
+    for (int i = 0; i < 513; ++i)
+      {
+        phase += increment;
+        if (phase >= Modulator::m_twoPi) phase -= Modulator::m_twoPi;
+        QVERIFY (std::abs (int (samples[i]) - qRound (32767.0 * std::sin (phase))) <= 1);
+      }
+    QCOMPARE (modulator.m_phi, phase);
+    modulator.stop (true);
+    modulator.startAt (request, &output, 0);
+    QCOMPARE (readFrames (modulator, 257), initial);
+  }
+
+  void tuneSpreadUpdatesAtFrameBoundary ()
+  {
+    itone[0] = 0;
+    ScriptedOutput output;
+    Modulator modulator {48000, 60};
+    modulator.setSpread (20.0);
+    modulator.startAt (tuneRequest (), &output, 0);
+    QCOMPARE (readFrames (modulator, 1).size (), int (sizeof (qint16)));
+    double phase = modulator.m_phi;
+    double const firstIncrement = modulator.m_dphi;
+    auto const audio = readFrames (modulator, 959);
+    QCOMPARE (audio.size (), 959 * int (sizeof (qint16)));
+    QCOMPARE (modulator.m_j0, 1);
+    auto const samples = reinterpret_cast<qint16 const *> (audio.constData ());
+    for (int i = 0; i < 959; ++i)
+      {
+        phase += i < 479 ? firstIncrement : modulator.m_dphi;
+        if (phase >= Modulator::m_twoPi) phase -= Modulator::m_twoPi;
+        QVERIFY (std::abs (int (samples[i]) - qRound (32767.0 * std::sin (phase))) <= 1);
+      }
+    QCOMPARE (modulator.m_phi, phase);
+    QCOMPARE (readFrames (modulator, 1).size (), int (sizeof (qint16)));
+    QCOMPARE (modulator.m_j0, 2);
+  }
+
   void fastCwStartsIndependently_data ()
   {
     QTest::addColumn<bool> ("reuseInstance");

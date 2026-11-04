@@ -69,14 +69,17 @@ contains
   end subroutine
 
   subroutine destroy_jt65_plans(work)
+    use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     type(jt65_workspace), intent(inout) :: work
     !$omp critical(fftw)
+    call wsjt_tsan_acquire_fftw()
     if(c_associated(work%big_plan)) call fftwf_destroy_plan(work%big_plan)
     if(c_associated(work%short_plan)) call fftwf_destroy_plan(work%short_plan)
     if(c_associated(work%filter_plan)) call fftwf_destroy_plan(work%filter_plan)
     if(c_associated(work%subtract_forward)) call fftwf_destroy_plan(work%subtract_forward)
     if(c_associated(work%subtract_inverse)) call fftwf_destroy_plan(work%subtract_inverse)
     if(c_associated(work%window_plan)) call fftwf_destroy_plan(work%window_plan)
+    call wsjt_tsan_release_fftw()
     !$omp end critical(fftw)
     work%big_plan=c_null_ptr
     work%short_plan=c_null_ptr

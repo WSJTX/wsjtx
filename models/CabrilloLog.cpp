@@ -313,14 +313,16 @@ void CabrilloLog::export_qsos (QTextStream& stream) const
 
 auto CabrilloLog::unique_DXCC_entities (AD1CCty const * countries) const -> worked_set
 {
-  QSqlQuery q {"SELECT DISTINCT BAND, CALL FROM cabrillo_log_v2"};
-  auto band_index = q.record ().indexOf ("band");
+  QSqlQuery q {"SELECT DISTINCT frequency, call FROM cabrillo_log_v2"};
+  auto frequency_index = q.record ().indexOf ("frequency");
   auto call_index = q.record ().indexOf ("call");
   worked_set entities;
   while (q.next ())
     {
-      entities << worked_item {q.value (band_index).toString ()
-          , countries->lookup (q.value (call_index).toString ()).primary_prefix};
+      auto const identity = countries->lookup (q.value (call_index).toString ()).dxcc;
+      if (identity.primary_prefix.isEmpty ()) continue;
+      entities << worked_item {m_->configuration_->bands ()->find (q.value (frequency_index).toULongLong ())
+          , identity.primary_prefix};
     }
   return entities;
 }

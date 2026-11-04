@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QApplication>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QSpinBox>
 #include <QImage>
 #include <QPainter>
 #include <QVBoxLayout>
 #include <QTest>
 #include "widgets/CompactButtonSize.hpp"
 #include "widgets/CurrentPageHeightStackedWidget.hpp"
+#include "widgets/FormColumnAlignment.hpp"
 #include "widgets/TxDriveSlider.hpp"
 
 class CompactControlsTest : public QObject
@@ -37,6 +42,59 @@ private Q_SLOTS:
     QCOMPARE (stack.sizeHint ().height (), tallPage->sizeHint ().height ());
   }
 
+  void formColumnControlsLineUp ()
+  {
+    QWidget panel;
+    auto * grid = new QGridLayout {&panel};
+    QList<QLabel *> labels;
+    QList<QSpinBox *> boxes;
+    int row = 0;
+    for (auto const& text : {QStringLiteral ("Submode"), QStringLiteral ("F Tol"),
+                             QStringLiteral ("Max Drift")})
+      {
+        auto * label = new QLabel {text, &panel};
+        auto * box = new QSpinBox {&panel};
+        box->setMaximum (row == 1 ? 1000 : 9);
+        box->setSizePolicy (QSizePolicy::Fixed, QSizePolicy::Fixed);
+        auto * line = new QHBoxLayout;
+        line->setSpacing (4);
+        line->addWidget (label);
+        line->addWidget (box);
+        grid->addLayout (line, row++, 0, Qt::AlignLeft);
+        labels << label;
+        boxes << box;
+      }
+    alignFormColumn ({labels[0], labels[1], labels[2]}, {boxes[0], boxes[1], boxes[2]});
+    panel.adjustSize ();
+    grid->activate ();
+
+    for (auto * box : boxes)
+      {
+        QCOMPARE (box->x (), boxes[0]->x ());
+        QCOMPARE (box->width (), boxes[1]->width ());
+        QVERIFY (box->width () >= box->minimumSizeHint ().width ());
+      }
+    QVERIFY (boxes[0]->x () >= labels[2]->x () + labels[2]->sizeHint ().width ());
+  }
+
+  void scaleColorContrast ()
+  {
+    // Light desktop palette whose Mid sits almost on the window background.
+    QPalette pale;
+    pale.setColor (QPalette::Window, QColor {250, 249, 248});
+    pale.setColor (QPalette::Mid, QColor {240, 240, 240});
+    pale.setColor (QPalette::WindowText, QColor {30, 30, 30});
+    QCOMPARE (TxDriveSlider::scaleColor (pale).lightness (), QColor (30, 30, 30).lightness ());
+
+    // Distinct Mid keeps its lightness and loses its hue.
+    QPalette normal;
+    normal.setColor (QPalette::Window, QColor {239, 239, 239});
+    normal.setColor (QPalette::Mid, QColor {40, 120, 200});
+    normal.setColor (QPalette::WindowText, QColor {0, 0, 0});
+    auto const color = TxDriveSlider::scaleColor (normal);
+    QCOMPARE (color.lightness (), QColor (40, 120, 200).lightness ());
+    QCOMPARE (color.saturation (), 0);
+  }
   void nativeSlider ()
   {
 #ifndef Q_OS_WIN

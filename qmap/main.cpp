@@ -13,6 +13,7 @@
 
 #include "revision_utils.hpp"
 #include "mainwindow.h"
+#include "qmap_runtime_config.h"
 #include "runtime_paths.h"
 
 extern "C" {
@@ -57,6 +58,16 @@ int main(int argc, char *argv[])
   _gfortran_set_args(argc, argv);
   _gfortran_set_convert(0);
   ftninit_();
+
+  // The IQ sample rate is fixed for the whole run: it sizes the FFTs and buffers.
+  // It comes from the settings file, and a change made in Setup takes effect at the next start.
+  {
+    QSettings settings {qmapSettingsFile (QApplication::applicationDirPath (), dataDir), QSettings::IniFormat};
+    settings.beginGroup ("Common");
+    int rate = settings.value ("IQRate", qmap_runtime::BASELINE_RATE).toInt ();
+    if (!qmap_runtime::isSupportedRate (rate)) rate = qmap_runtime::BASELINE_RATE;
+    qmap_runtime::setActive (rate, qmap_runtime::nfftForRate (rate));
+  }
   // switch off as we share an Info.plist file with WSJT-X
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   MainWindow w;

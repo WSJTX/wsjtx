@@ -9,7 +9,7 @@ subroutine hint65(s3,mrs,mrs2,nadd,nflip,mycall,hiscall,hisgrid,qual,decoded)
   integer dgen(12),sym_rev(0:62)
   character*6 mycall,hiscall,hisgrid
   character*4 rpt(MAXRPT)
-  character ceme*3,msg*22,msg00*22
+  character msg*22,msg00*22
   character*22 decoded
   data rpt/'-01','-02','-03','-04','-05',          &
            '-06','-07','-08','-09','-10',          &

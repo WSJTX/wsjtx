@@ -229,6 +229,18 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
 end subroutine multimode_decoder_core
 
 subroutine multimode_decoder(ss,id2,params,nfsample)
+  include 'jt9com.f90'
+
+  real ss(184,NSMAX)
+  integer*2 id2(NTMAX*12000)
+  type(params_block) :: params
+
+  call multimode_decoder_progress(ss,id2,params,nfsample,0)
+end subroutine multimode_decoder
+
+! multimode_decoder, its decoders reporting their progress under generation
+! (lib/decode_completion.f90; 0: none).
+subroutine multimode_decoder_progress(ss,id2,params,nfsample,generation)
   use prog_args, only: lquiet
   use streaming_emit, only: streaming_emit_enabled,                       &
        streaming_emit_decode_finished
@@ -240,9 +252,10 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   real ss(184,NSMAX)
   integer*2 id2(NTMAX*12000)
   type(params_block) :: params
+  integer, intent(in) :: generation
   type(decode_completion_result) :: completion
 
-  call multimode_decoder_core(ss,id2,params,nfsample,completion,0)
+  call multimode_decoder_core(ss,id2,params,nfsample,completion,generation)
   if (.not. completion%available) return
 
   if (streaming_emit_enabled()) then
@@ -254,4 +267,4 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      call write_decode_completion(completion)
   end if
   call flush(6)
-end subroutine multimode_decoder
+end subroutine multimode_decoder_progress

@@ -377,6 +377,8 @@ namespace
     }
     if (!freeText73 && analysis.hisGrid.contains(gridExpression())) {
       appendTextEffect(plan, QsoReactionEffect::Kind::SetDxGrid, analysis.hisGrid);
+    } else if (!freeText73) {
+      appendEffect(plan, QsoReactionEffect::Kind::LookupDecodedGrid);
     }
     appendEffect(plan, QsoReactionEffect::Kind::Lookup);
     appendEffect(plan, QsoReactionEffect::Kind::CaptureHisGrid);
@@ -848,9 +850,15 @@ namespace DecodedMessageReaction
       return plan;
     }
 
+    auto const fields = parseDecodedMessage(message.message());
+    if (fields.sender == "..." || fields.sender != snapshot.hisCall) {
+      plan.reason = "Wait message is not from the selected station";
+      return plan;
+    }
+    bool const direct = fields.destination == snapshot.myCall;
+
     QString text = message.string();
     text.replace("<", "").replace(">", "");
-    bool const direct = text.contains(" " + snapshot.myCall + " " + snapshot.hisCall);
 
     if (nccc && !snapshot.hisGrid.isEmpty()
         && text.contains(" " + snapshot.myCall + " " + snapshot.hisCall

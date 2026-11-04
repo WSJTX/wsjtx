@@ -554,7 +554,7 @@ private slots:
     QVERIFY (!worked.call_worked ("DL1AA", "FT8", "40m"));
     QVERIFY (!worked.call_worked ("K1ABC", "FT8", "40m"));
     QVERIFY (worked.grid_worked ("JO31cc", "FT4", "40m"));
-    QVERIFY (worked.country_worked ("Germany", "FT4", "40m"));
+    QVERIFY (worked.country_worked ("Germany", "FT4", "40m", AD1CCty::EntityView::DXCC));
     QVERIFY (worked.continent_worked (AD1CCty::Continent::NA, "FT8", "20m"));
     QVERIFY (worked.CQ_zone_worked (14, "FT4", "40m"));
     QVERIFY (worked.ITU_zone_worked (28, "FT4", "40m"));

@@ -84,6 +84,7 @@
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "CompactButtonSize.hpp"
+#include "FormColumnAlignment.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "Network/DecodedTime.hpp"
 #include "Audio/soundout.h"
@@ -513,7 +514,7 @@ constexpr int MainWindow::MaxActiveStationRows;
 constexpr int MainWindow::MaxQ65PileupCallers;
 
 //--------------------------------------------------- MainWindow constructor
-MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
+MainWindow::MainWindow(QDir const& temp_directory,
                        MultiSettings * multi_settings, DecoderIpc::Session& decoderSession,
                        unsigned downSampleFactor,
                        QSplashScreen * splash, QProcessEnvironment const& env,
@@ -530,7 +531,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_valid {true},
   m_splash {splash},
   m_revision {revision ()},
-  m_multiple {multiple},
   m_automated_test {automated_test},
   m_multi_settings {multi_settings},
   m_configurations_button {0},
@@ -1561,21 +1561,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
   m_audioThread.start (m_audioThreadPriority);
 
-#ifdef WIN32
-  if (!m_multiple)
-    {
-      while(true)
-        {
-          int iret=killbyname("jt9.exe");
-          if(iret == 603) break;
-          if(iret != 0)
-            MessageBox::warning_message (this, tr ("Error Killing jt9.exe Process")
-                                         , tr ("KillByName return code: %1")
-                                         .arg (iret));
-        }
-    }
-#endif
-
   {
     //delete any .quit file that might have been left lying around
     //since its presence will cause jt9 to exit a soon as we start it
@@ -2046,7 +2031,7 @@ void MainWindow::configureModeControlsLayout()
   m_frequencyToleranceRow = new QHBoxLayout;
   m_frequencyToleranceRow->setContentsMargins (0, 0, 0, 0);
   m_frequencyToleranceRow->setSpacing (4);
-  m_frequencyToleranceRow->addWidget (m_frequencyToleranceLabel);
+  ui->horizontalLayout_4->removeWidget (ui->sbFtol);
   m_frequencyToleranceRow->addLayout (ui->horizontalLayout_4);
   m_frequencyToleranceRow->addStretch (1);
 
@@ -2075,7 +2060,8 @@ void MainWindow::configureModeControlsLayout()
 
   form->addLayout (makeControlRow (m_txFrequencyLabel, ui->TxFreqSpinBox), 0, 0, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_submodeLabel, ui->sbSubmode), 0, 1, Qt::AlignLeft);
-  form->addLayout (m_frequencyToleranceRow, 1, 0, 1, 2, Qt::AlignLeft);
+  form->addLayout (m_frequencyToleranceRow, 1, 0, Qt::AlignLeft);
+  form->addLayout (makeControlRow (m_frequencyToleranceLabel, ui->sbFtol), 1, 1, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_maxDriftLabel, ui->sbMaxDrift), 2, 1, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_rxFrequencyLabel, ui->RxFreqSpinBox), 2, 0, Qt::AlignLeft);
   form->addLayout (makeControlRow (m_reportLabel, ui->rptSpinBox), 3, 0, Qt::AlignLeft);
@@ -2388,6 +2374,23 @@ void MainWindow::updateMainWindowControlSizes()
       row.control->setFixedWidth (commonRowWidth - row.label->sizeHint ().width ()
                                   - formControlSpacing);
     }
+
+  {
+    // sbFtol's range (and so its minimumSizeHint) changes per mode -- e.g.
+    // on_actionMSK144_triggered() narrows it to 500 Hz, while switch_mode()'s
+    // generic path widens it back to 1000 Hz for most other modes. Measure it
+    // at its widest so the column doesn't end up sized for whichever mode
+    // last called HintedSpinBox::values(), then restore the active mode's
+    // actual range.
+    constexpr int kMaxFrequencyToleranceHz = 1000;
+    auto const savedMinimum = ui->sbFtol->minimum ();
+    auto const savedMaximum = ui->sbFtol->maximum ();
+    ui->sbFtol->setRange (qMin (savedMinimum, 1),
+                          qMax (savedMaximum, kMaxFrequencyToleranceHz));
+    alignFormColumn ({m_submodeLabel, m_frequencyToleranceLabel, m_maxDriftLabel},
+                     {ui->sbSubmode, ui->sbFtol, ui->sbMaxDrift});
+    ui->sbFtol->setRange (savedMinimum, savedMaximum);
+  }
   updateFrequencyToleranceRowAlignment ();
 }
 
@@ -2937,11 +2940,13 @@ void MainWindow::fastSink(qint64 frames)
   if(bmsk144 and (line[0]!=0)) {
     QString message {QString::fromLatin1 (line)};
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
+    if (!m_diskData) m_decodedGridHistory.observe(decodedtext);
 
     QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait features
 
     // Filtering for MSK144
     MessageFilterLogic::FilterContext ctx;
+    ctx.entityView = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
     ctx.specOp = m_specOp;
     ctx.bypass = ui->cbBypass->isChecked();
     ctx.filtersForWord2 = m_config.filters_for_word2();
@@ -3196,7 +3201,8 @@ void MainWindow::fastSink(qint64 frames)
         if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
             ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
           auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-          auto countryName =looked_up.abbreviated_entity_name;
+          auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+          auto const& countryName = looked_up.identity (entity_view).abbreviated_name;
           if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
               && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
           if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -5950,6 +5956,7 @@ void::MainWindow::fast_decode_done()
 
 //Left (Band activity) window
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
+    if (!m_diskData) m_decodedGridHistory.observe(decodedtext);
     if(!m_bFastDone) {
       ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
          m_logBook, m_currentBandPeriod, m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
@@ -7159,6 +7166,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     QString const message0 = prepared.decodedOriginal;
     DecodedText decodedtext0 {prepared.decodedOriginal};
     DecodedText const& decodedtext {prepared.logicMessage};
+    if (!decodeContext.diskData) m_decodedGridHistory.observe(decodedtext0);
     Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
     if (m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
@@ -8324,6 +8332,11 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
+    if (m_mode == "Q65" && m_specOp == SpecOp::NONE
+        && nsec / 30 != m_sec0 / 30 && !m_EMECall.isEmpty()
+        && qmapcom.nQDecoderDone != 2) {
+      refreshQmapActiveStations(nowUtc);
+    }
     logDecoderProgress();
     //    qDebug()   << "AAA" << nsec % 60;
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
@@ -9471,6 +9484,12 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
   case Effect::Kind::RefreshQsoPaneIfChanged:
     refreshQsoPane(message);
     break;
+  case Effect::Kind::LookupDecodedGrid: {
+    auto const currentGrid = ui->dxGridEntry->text();
+    auto const grid = m_decodedGridHistory.lookup(ui->dxCallEntry->text(), currentGrid);
+    if (grid != currentGrid) ui->dxGridEntry->setText(grid);
+    break;
+  }
   case Effect::Kind::Lookup:
     lookup();
     break;
@@ -10040,7 +10059,9 @@ void MainWindow::lookup()
           } else {
             hisgrid=hisgrid.mid(0,6).toUpper();
           }
-          if(hisgrid.left(4)==hisgrid0.left(4) or (hisgrid0.size()==0)) {
+          if (hisgrid != hisgrid0
+              && (hisgrid0.isEmpty()
+                  || (hisgrid0.size() == 4 && hisgrid.left(4) == hisgrid0))) {
             ui->dxGridEntry->setText(hisgrid);
           }
           break;
@@ -14849,9 +14870,7 @@ void MainWindow::write_transmit_entry (QString const& file_name)
 
 void MainWindow::readWidebandDecodes()
 {
-  int nhr=0;
-  int nmin=0;
-  int nsec=0;
+  auto const nowUtc = QDateTime::currentDateTimeUtc();
   int nsnr=0;
   int const max_qmap_decodes = sizeof qmapcom.result / sizeof qmapcom.result[0];
   int const qmap_decodes = qBound(0, qmapcom.ndecodes, max_qmap_decodes);
@@ -14864,11 +14883,8 @@ void MainWindow::readWidebandDecodes()
     auto const record = parseQMapDecodeRecord (
       QByteArray {row, static_cast<int> (QMapDecodeRowSize)});
     if (!record) continue;
-    nhr=record->secondsSinceMidnight/3600;
-    nmin=(record->secondsSinceMidnight/60)%60;
-    nsec=record->secondsSinceMidnight%60;
     auto const qSpotTime = DecodedTime::spotTime(
-      line.left(6), QDateTime::currentDateTimeUtc(), m_TRperiod);
+      line.left(6), nowUtc, record->submode.startsWith("30") ? 30 : 60);
     if (!qSpotTime.isValid()) continue;
     double frx=record->receiveFrequencyKHz;
     double fsked=record->scheduledFrequencyKHz;
@@ -14879,7 +14895,7 @@ void MainWindow::readWidebandDecodes()
       m_EMECall[dxcall].frx=frx;
       m_EMECall[dxcall].fsked=fsked;
       m_EMECall[dxcall].nsnr=nsnr;
-      m_EMECall[dxcall].t=3600*nhr + 60*nmin + nsec;
+      m_EMECall[dxcall].lastHeard=qSpotTime;
       m_EMECall[dxcall].submode=submode;
       if(!record->grid.isEmpty ()) m_EMECall[dxcall].grid4=record->grid;
       bool bCQ=record->cq;
@@ -14901,7 +14917,19 @@ void MainWindow::readWidebandDecodes()
     m_psk_Reporter.sendReport();                // Upload any queued spots
   }
 
-  if(m_ActiveStationsWidget==NULL) return;
+  auto displayTime = nowUtc;
+  if (qmapcom.nQDecoderDone == 2 && qmap_decodes > 0) {
+    // File playback uses the recording clock, even if its rows were already consumed.
+    auto const recordedTime = DecodedTime::spotTime(
+      QString::fromLatin1(qmapcom.result[qmap_decodes - 1], 6), nowUtc, 60);
+    if (recordedTime.isValid()) displayTime = recordedTime;
+  }
+  refreshQmapActiveStations(displayTime);
+}
+
+void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
+{
+  if (!m_ActiveStationsWidget) return;
 
 // Displayed row numbers index m_ready2call, so the rendered QMAP list must
 // stay within the same capacity as its click-target storage.
@@ -14923,11 +14951,11 @@ void MainWindow::readWidebandDecodes()
       int snr=i->nsnr;
       QString submode=i->submode;
       int odd=0;
-      if(submode.left(2)=="30" and (i->t%60)==0) odd=1;
-      if(submode.left(2)=="60" and (i->t%120)==0) odd=1;
-      int age=(3600*nhr + 60*nmin + nsec - (i->t))/60;
+      int const secondsSinceMidnight = QTime {0, 0}.secsTo(i->lastHeard.time());
+      if(submode.left(2)=="30" and (secondsSinceMidnight%60)==0) odd=1;
+      if(submode.left(2)=="60" and (secondsSinceMidnight%120)==0) odd=1;
+      int const age = int(qMax(qint64 {0}, i->lastHeard.secsTo(nowUtc)) / 60);
       char c2[3]={32,32,0};
-      if(age<0) age += 1440;
       if(age<=maxAge) {
         dxcall=(i.key()+"     ").left(8);
         dxgrid4=(i->grid4+"... ").left(4);
@@ -17572,7 +17600,8 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
     visibilityContext.yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString("yyyy-MM-dd");
   }
   visibilityContext.countryName = [this] (QString const& deCall) {
-    return m_logBook.countries()->lookup(deCall).abbreviated_entity_name;
+    auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+    return m_logBook.countries()->lookup(deCall).identity(entity_view).abbreviated_name;
   };
   visibilityContext.continent = [this] (QString const& deCall) {
     return AD1CCty::continent(m_logBook.countries()->lookup(deCall).continent);
@@ -17630,7 +17659,8 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
           ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
         auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-        auto countryName = looked_up.abbreviated_entity_name;
+        auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+        auto const& countryName = looked_up.identity (entity_view).abbreviated_name;
         if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
             && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) decodePane->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
         if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())

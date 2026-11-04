@@ -201,7 +201,7 @@ set (slot_encode_environment "QT_FORCE_STDERR_LOGGING=1")
 if (WSJT_ENABLE_TSAN)
   list (APPEND slot_encode_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
-foreach (function ft8 ft4 fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr tune echo singleTones fastJt9 cwId
+foreach (function ft8 ft4 ft4PhaseWrap fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr tune echo singleTones fastJt9 cwId
     cwIdStation foxSlots foxTransmitState foxSequences superFox transmitState jttyUnchanged
     readyListsEncodes decodesItsOwnRender renderAfterDecode refusals accepted)
   add_test (NAME test_wsjt_codec_slot_encode_${function}

@@ -20,7 +20,10 @@ EmulateSplitTransceiver::EmulateSplitTransceiver (logger_type * logger,
 
   // Connect other signals of wrapped Transceiver object to our
   // parent matching signals.
-  connect (wrapped_.get (), &Transceiver::resolution, this, &Transceiver::resolution);
+  connect (wrapped_.get (), &Transceiver::resolution, this, [this] (int code) {
+    frequency_resolution_ = RigFrequency::resolution_hz (code);
+    Q_EMIT resolution (code);
+  });
   connect (wrapped_.get (), &Transceiver::tciframeswritten, this, &Transceiver::tciframeswritten);
   connect (wrapped_.get (), &Transceiver::receiveAudio, this, &Transceiver::receiveAudio);
   connect (wrapped_.get (), &Transceiver::continuousAudioAvailable,
@@ -45,6 +48,7 @@ void EmulateSplitTransceiver::set (TransceiverState const& s, unsigned sequence_
   rx_frequency_ = s.frequency ();
   tx_frequency_ = s.tx_frequency ();
   split_ = s.split ();
+  tx_requested_ = s.ptt () && split_;
 
   TransceiverState emulated_state {s};
   auto const rx = s.frequency_request (RigFrequency::Path::Rx);
@@ -54,7 +58,7 @@ void EmulateSplitTransceiver::set (TransceiverState const& s, unsigned sequence_
   if (tx) logical_tx_ = tx;
   else if (logical_tx_.target != s.tx_frequency ()) logical_tx_ = {};
   emulated_state.frequency_request (RigFrequency::Path::Rx, logical_rx_);
-  if (s.ptt () && split_)
+  if (tx_requested_)
     {
       emulated_state.frequency (s.tx_frequency ());
       emulated_state.frequency_request (RigFrequency::Path::Rx, logical_tx_);
@@ -88,7 +92,16 @@ void EmulateSplitTransceiver::handle_frequency_observation (RigFrequency::Eviden
 {
   auto logical = report;
   if (!logical.operation && logical.path == RigFrequency::Path::Rx)
-    logical.path = physical_path_;
+    {
+      auto const matches_rx = RigFrequency::within_resolution (
+        report.value, rx_frequency_, frequency_resolution_);
+      // A manual QSY can discard the logical RX request. Its legacy restore
+      // then has no result, so wait for RX evidence before changing paths.
+      if (!tx_requested_ && !physical_request_ && rx_frequency_ && matches_rx
+          && report.basis != RigFrequency::Basis::Retained)
+        physical_path_ = RigFrequency::Path::Rx;
+      logical.path = physical_path_;
+    }
   Q_EMIT frequency_observation (logical);
 }
 

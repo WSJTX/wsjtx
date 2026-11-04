@@ -8,20 +8,19 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
   use timer_module, only: timer
   use qmap_decode_ipc, only: ndecodes, ncand2
   use qmap_candidates_mod, only: candidate, getcand2
+  use qmap_params, only: nrate_active, nfft_active, nsmax_active
 
   type good_decode
-     real :: f            !Freq of sync tone, 0 to 96000 Hz
+     real :: f            !Freq of sync tone, 0 to sample rate (kHz span)
      integer :: ntrperiod !60 for Q65-60x, 30 for Q65-30x
      integer :: iseq      !0 for first half-minute, 1 for second half
   end type good_decode
 
-  parameter (NFFT=32768)             !Size of FFTs done in symspec()
   parameter (MAX_CANDIDATES=50)
   parameter (MAXMSG=1000)            !Size of decoded message list
-  parameter (NSMAX=60*96000)
-  real dd(2,NSMAX)                   !I/Q data from Linrad
-  real ss(400,NFFT)                  !Symbol spectra
-  real savg(NFFT)                    !Average spectrum
+  real dd(2,*)                       !I/Q data from Linrad, nsmax_active samples
+  real ss(400,*)                     !Symbol spectra, nfft_active bins
+  real savg(*)                       !Average spectrum
   real*8 fcenter                     !Center RF frequency, MHz
   logical*1 bAlso30,bClickDecode
   character mycall*12,hiscall*12,hisgrid*6
@@ -33,11 +32,12 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
   tsec0=sec_midn()
   if(nagain.ge.1) ndepth=3            !Use full depth for click-to-decode
   nkhz_center=nint(1000.0*(fcenter-int(fcenter)))
-  mfa=nfa-nkhz_center+48
-  mfb=nfb-nkhz_center+48
+  nhalf=nrate_active/2000            !Half the sampled bandwidth (kHz): 48 at 96 kHz
+  mfa=nfa-nkhz_center+nhalf
+  mfb=nfb-nkhz_center+nhalf
   mode_q65=nBaseSubmode
   nts_q65=2**(mode_q65-1)             !Q65 tone separation factor
-  f0_selected=fselected - nkhz_center + 48.0
+  f0_selected=fselected - nkhz_center + real(nhalf)
 
   if(nagain.le.1) then
      call timer('get_cand',0)
@@ -48,7 +48,7 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
   endif
 
   nwrite_q65=0
-  df=96000.0/NFFT                     !df = 96000/NFFT = 2.930 Hz
+  df=real(nrate_active)/real(nfft_active)   !2.930 Hz at 96 kHz
   ftol=0.010                          !Frequency tolerance (kHz)
   foffset=0.001*(1270 + nfcal)        !Offset from sync tone, plus CAL
   fqso=mousefqso + foffset - 0.5*(nfa+nfb) + nfshift !fqso at baseband (khz)
@@ -56,7 +56,7 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
   bClickDecode=(nagain.ge.1)
 
   call timer('fftbig  ',0)
-  call fftbig(dd,NSMAX) !Do the full-length FFT
+  call fftbig(dd,nsmax_active) !Do the full-length FFT
   call timer('fftbig  ',1)
 
   if(nagain.ge.2) then
@@ -88,7 +88,7 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
 
      mode_q65_tmp=mode_q65
      if(ntrperiod.eq.30) mode_q65_tmp=max(1,mode_q65-1)
-     freq=f0+nkhz_center-48.0-1.27046
+     freq=f0+nkhz_center-real(nhalf)-1.27046
      ikhz=nint(freq)
      idec=-1
      call timer('q65b    ',0)
