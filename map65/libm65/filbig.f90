@@ -46,9 +46,10 @@ contains
 
     save
 
-    ! ca/cb storage is sized at MAXFFT1 in cacb_mod; the *active* big FFT
-    ! length is nfft_big_active, set from C++ via set_runtime_params_().
-    call init_cacb(MAXFFT1)
+    ! ca/cb storage in cacb_mod is sized for the active big FFT (56 * the
+    ! sample rate, set from C++ via set_runtime_params_()), not for the
+    ! largest supported rate. The rate only changes on restart.
+    call init_cacb(min(56*nrate_active, MAXFFT1))
 
     if (nmax .lt. 0) go to 900
 

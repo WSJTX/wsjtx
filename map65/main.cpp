@@ -63,7 +63,10 @@ int main(int argc, char *argv[])
 // ------------------------------------------------------------
 int active_rate = g_sampleRate;
 
-// Keep ~3 Hz bin resolution like WSJT-X/QMAP
+// symspec FFT size: the next power of 2 at or above 32768 * rate / 96000.
+// That gives 2.93 Hz bins at 96 and 192 kHz and 1.95 Hz bins at 128 and
+// 256 kHz (a 49152-point FFT matching 96 kHz was measured less sensitive
+// for Q65 candidates).
 auto round_pow2 = [](int x) {
     int p = 1;
     while (p < x) p <<= 1;
