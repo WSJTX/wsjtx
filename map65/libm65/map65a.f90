@@ -703,10 +703,9 @@ else
 endif
 
 ! The automatic early pass (nhsym1) decodes only near the QSO frequency and
-! stops before the wideband search, so it needs sync() only there. Searching
-! the whole span for candidates it never uses cost 10 s or more per minute at
-! 256 kHz and delayed the final pass. Keep a margin around the window that
-! q65b's cursor search (+/- ntol) and the candidate filter below look at.
+! stops before the wideband search, so it needs sync() only there. Keep a
+! margin around the window that q65b's cursor search (+/- ntol) and the
+! candidate filter below look at.
 early_window = nagain .eq. 0 .and. nhsym .eq. nhsym1 .and. &
                manualDecodeFlag_initial .eq. 0 .and. ndiskdat .eq. 0
 mfa_s = mfa
@@ -1191,10 +1190,9 @@ endif
          call dbg('map65a: end of nqd=' // itoa(nqd) // ' body at t=' // rtoa(sec_midn()) // &
                   ' tsec0=' // rtoa(tsec0) // ' nhsym=' // itoa(nhsym) // ' nagain=' // itoa(nagain))
          ! The early pass never runs the wideband (nqd=0) decode: sync() holds
-         ! only the QSO window then. (tsec0 is a wall-clock count, not a
-         ! per-pass timer, so the old 3 s test below was always true.)
+         ! only the QSO window then.
          if (nhsym .eq. nhsym1 .and. (early_window .or. tsec0 .gt. 3.0)) then
-            call dbg('map65a: ABORT (early-pass 3s budget) at t=' // rtoa(sec_midn()) // &
+            call dbg('map65a: early pass skips nqd=0 at t=' // rtoa(sec_midn()) // &
                      ' tsec0=' // rtoa(tsec0) // ' -- nqd=0 will NOT run this pass')
             go to 700
          endif
