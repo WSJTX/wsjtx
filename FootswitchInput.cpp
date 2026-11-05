@@ -1,7 +1,5 @@
 #include "FootswitchInput.hpp"
 
-#include <QSerialPort>
-
 FootswitchInput::FootswitchInput (QObject * parent)
   : QObject {parent}
   , port_ {new QSerialPort {this}}
@@ -24,8 +22,6 @@ FootswitchInput::~FootswitchInput ()
 bool FootswitchInput::start (QString const& port_name, Pin pin, bool invert)
 {
   stop ();
-  pin_ = pin;
-  invert_ = invert;
   port_->setPortName (port_name);
   if (!port_->open (QIODevice::ReadWrite))
     {
@@ -36,13 +32,25 @@ bool FootswitchInput::start (QString const& port_name, Pin pin, bool invert)
   port_->setFlowControl (QSerialPort::NoFlowControl);
   port_->setDataTerminalReady (true); // supply for the footswitch contact
   port_->setRequestToSend (false);
-  poll_timer_.start ();
+  start ([this] {return readPort ();}, pin, invert);
   return true;
+}
+
+void FootswitchInput::start (Reader reader, Pin pin, bool invert)
+{
+  poll_timer_.stop ();
+  reader_ = std::move (reader);
+  pin_ = pin;
+  invert_ = invert;
+  candidate_ = false;
+  stable_reads_ = 0;
+  poll_timer_.start ();
 }
 
 void FootswitchInput::stop ()
 {
   poll_timer_.stop ();
+  reader_ = nullptr;
   if (port_->isOpen ())
     {
       port_->setDataTerminalReady (false);
@@ -57,18 +65,26 @@ void FootswitchInput::stop ()
   stable_reads_ = 0;
 }
 
-bool FootswitchInput::isActive () const
+FootswitchInput::Reading FootswitchInput::readPort ()
 {
-  return port_->isOpen () && poll_timer_.isActive ();
+  Reading reading;
+  reading.lines = port_->pinoutSignals ();
+  if (QSerialPort::NoError != port_->error ()
+      && QSerialPort::TimeoutError != port_->error ())
+    {
+      reading.ok = false;
+      reading.error = port_->errorString ();
+    }
+  return reading;
 }
 
 void FootswitchInput::poll ()
 {
-  auto const signals_now = port_->pinoutSignals ();
-  if (QSerialPort::NoError != port_->error ()
-      && QSerialPort::TimeoutError != port_->error ())
+  if (!reader_) return;
+  auto const reading = reader_ ();
+  if (!reading.ok)
     {
-      auto const reason = tr ("Footswitch: port error: %1").arg (port_->errorString ());
+      auto const reason = tr ("Footswitch: port error: %1").arg (reading.error);
       stop ();              // releases if pressed
       Q_EMIT error (reason);
       return;
@@ -82,7 +98,7 @@ void FootswitchInput::poll ()
     case Pin::DCD: mask = QSerialPort::DataCarrierDetectSignal; break;
     case Pin::RI:  mask = QSerialPort::RingIndicatorSignal; break;
     }
-  bool const level = signals_now & mask;
+  bool const level = reading.lines & mask;
   bool const active = invert_ ? !level : level;
 
   if (active != candidate_)
