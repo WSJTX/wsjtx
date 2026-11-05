@@ -356,7 +356,7 @@ jobs:
     needs: resolve-image
     if: inputs.arch == 'aarch64'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 90
     # The official GCC image adds GCC 13.4 without moving off the Bookworm
     # glibc 2.36 and pre-t64 runtime baseline (issue #49).
     container:

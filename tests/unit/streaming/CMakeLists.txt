@@ -628,8 +628,9 @@ if (decode_thread_samples)
     endif ()
     wsjt_add_decode_thread_test (fast_feeder fastFeederRunsEveryPass PROCESSORS 2)
     wsjt_add_decode_thread_test (queue_cap fastFeederQueuesAudioUpToTheCap)
-    wsjt_add_decode_thread_test (msk144_entered "modeEnteredDuringADecode:msk144" SERIAL)
-    wsjt_add_decode_thread_test (jtty_entered "modeEnteredDuringADecode:jtty" SERIAL)
+    # After the halt the period's decode runs over 60 s on armhf and for minutes on a slower Pi.
+    wsjt_add_decode_thread_test (msk144_entered "modeEnteredDuringADecode:msk144" SERIAL TIMEOUT 900)
+    wsjt_add_decode_thread_test (jtty_entered "modeEnteredDuringADecode:jtty" SERIAL TIMEOUT 900)
     # Most of these rows' time is JTTY's FFTW_MEASURE planning in a fresh -a (about 33 s on the Linux CI image).
     wsjt_add_decode_thread_test (jtty_measures "jttyMeasuresBesideADecode:from a file" TIMING)
     wsjt_add_decode_thread_test (jtty_measures_live "jttyMeasuresBesideADecode:live ft8" TIMING)

@@ -2246,7 +2246,10 @@ private slots:
     shared.directory = directory.path ();
     shared.environment << "OMP_STACKSIZE=16M";
     // Each alone first, which leaves the FFTW wisdom both measure in the directory.
+    QElapsedTimer aloneClock;
+    aloneClock.start ();
     auto const alone = runInput (sessionHeader () + configure (mode.settings) + audio (pcm) + halt (), shared);
+    auto const aloneMs = aloneClock.elapsed ();
     QVERIFY2 (alone->clean (), qPrintable (alone->report ()));
     QByteArray enteredInput = sessionHeader () + configure (settings);
     for (auto const& chunk : chunks) enteredInput += chunk;
@@ -2269,7 +2272,8 @@ private slots:
         writes << codec.write (chunks.at (i));
       }
     codec.write (halt ());
-    QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
+    // The exit waits for the period's decode: twice its time alone on this machine.
+    QVERIFY2 (codec.finish (std::max (waitMs (), int (2 * aloneMs))), qPrintable (codec.report ()));
     QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
 
     // The period's lines.
