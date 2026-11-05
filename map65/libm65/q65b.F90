@@ -1,9 +1,9 @@
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
-! Raw Rx data are available as the 96 kHz complex spectrum ca(MAXFFT1)
-! in cacb_mod.  If xpol is true, we also have cb(MAXFFT1) for the
-! orthogonal polarization.  Decoded messages are sent back to the GUI
-! on stdout.
+! Raw Rx data are available as the complex spectrum ca(1:nfft1) in
+! cacb_mod, where nfft1 is 56 times the sample rate.  If xpol is true, we
+! also have cb for the orthogonal polarization.  Decoded messages are sent
+! back to the GUI on stdout.
 
       module q65b_mod
       use iso_fortran_env, only: int16, real64

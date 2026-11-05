@@ -135,8 +135,7 @@ contains
   ! When new data comes along, we need to compute a new "big FFT"
   ! If we just have a new f0, continue with the existing ca and cb.
 
-    ! Only the active nfft1 samples are ever filled; scanning the whole
-    ! MAXFFT1 allocation would cost more at every rate below the maximum.
+    ! Only the first nfft1 samples of ca are ever filled, so only those are checked.
     need_big_fft = newdat .ne. 0
     if (.not. need_big_fft) need_big_fft = sum(abs(ca(1:nfft1))) .eq. 0.0
     if (need_big_fft) then
