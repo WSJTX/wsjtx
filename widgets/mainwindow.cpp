@@ -13578,6 +13578,7 @@ void MainWindow::transmit (double snr)
   request.queue_epoch = jttyTx ? m_jttyTxLifecycle.epoch ()
                                : TxAudioQueueEpoch::invalid ();
   request.tuning = m_tune;
+  request.silent = m_tune && m_footswitchTune;
   int const cwSymbols = qBound (0, int (icw[0]), NUM_CW_SYMBOLS - 1);
   request.cw_id.reserve (cwSymbols);
   for (int i = 1; i <= cwSymbols; ++i) request.cw_id.append (int (icw[i]));

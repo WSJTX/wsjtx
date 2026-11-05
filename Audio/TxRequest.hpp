@@ -28,6 +28,7 @@ namespace TxEvidence
     TxGeneration generation {};
     TxAudioQueueEpoch queue_epoch {};
     bool tuning {false};
+    bool silent {false};          // keep PTT and timing but output zeros (footswitch TX)
     QVector<int> cw_id;
     qint64 start_window_open_ms {-1};
     qint64 start_window_close_ms {-1};
@@ -49,6 +50,7 @@ namespace TxEvidence
       && lhs.generation == rhs.generation
       && lhs.queue_epoch == rhs.queue_epoch
       && lhs.tuning == rhs.tuning
+      && lhs.silent == rhs.silent
       && lhs.cw_id == rhs.cw_id
       && lhs.start_window_open_ms == rhs.start_window_open_ms
       && lhs.start_window_close_ms == rhs.start_window_close_ms;
