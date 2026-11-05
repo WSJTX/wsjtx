@@ -118,6 +118,9 @@ module npar_ptrs_mod
   integer(c_int64_t), save :: live_input_generation = 0
   integer(c_int64_t), save :: active_input_generation = 0
   logical, save :: active_request_expired = .false.
+  ! The expired request's snapshot was overwritten before it ran (the decoder
+  ! fell behind), as opposed to a request invalidated by monitoring stopping.
+  logical, save :: active_request_lagged = .false.
 
   ! Decoder data snapshots (see datcom_ptrs_mod). All of this state is
   ! protected by lock_decode_requests().
@@ -858,11 +861,13 @@ end subroutine
       active_request_id = request%id
       active_input_generation = request%input_generation
       active_snap_idx = 0
+      active_request_lagged = .false.
       if (request%snap_idx > 0) then
         ! Automatic pass: valid while its snapshot is intact, even if the
         ! minute has rolled over. A live request more than one generation old
         ! (monitoring stopped, period changed) is still dropped.
         active_request_expired = snap_valid_seq(request%snap_idx) /= request%snap_seq
+        active_request_lagged = active_request_expired
         if (active%ndiskdat == 0 .and. &
             live_input_generation - request%input_generation >= 2) active_request_expired = .true.
         if (.not. active_request_expired) then

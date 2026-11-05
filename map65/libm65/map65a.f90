@@ -126,7 +126,6 @@ contains
       logical :: abort_saved
       logical :: early_window
       integer :: mfa_s, mfb_s
-      real :: f0lo, f0hi
       integer, parameter :: EARLY_MARGIN_KHZ = 2
       integer :: icenter
       logical :: initialization_only, shorthand_detected, jt65_success, q65_success
@@ -522,6 +521,20 @@ contains
             ! itself instead, from f0 (already unambiguous), leaving this
             ! mousedf untouched for f_mouse/k0 to keep working correctly.
 
+            ! q65b reads sync() near the click for the polarization and the
+            ! combining angle. The last automatic pass may have covered only
+            ! its own window, or have expired without running at all (monitoring
+            ! stopped), so refresh sync() around this click first.
+            nkhz_center = nint(1000.0*(fcenter - int(fcenter)))
+            mfa = nfa - nkhz_center + int(nrate_active/2000.0)
+            mfb = nfb - nkhz_center + int(nrate_active/2000.0)
+            call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
+                 EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, sync_narrow)
+            call timer('get_cand', 0)
+            call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa_s, mfb_s, nts_jt65, nts_q65, &
+                 cand, ncand, mfa, mfb)
+            call timer('get_cand', 1)
+
             call dbg('map65a manual: Q65 call nutc=' // itoa(nutc) // ' nqd=' // itoa(nqd) // &
                      ' ikhz=' // itoa(ikhz) // ' mousedf=' // itoa(mousedf) // ' ntol=' // itoa(ntol) // &
                      ' mode_q65=' // itoa(mode_q65) // ' f0=' // rtoa(real(f0)) // &
@@ -699,23 +712,17 @@ early_window = nagain .eq. 0 .and. nhsym .eq. nhsym1 .and. &
 mfa_s = mfa
 mfb_s = mfb
 if (early_window) then
-   f0lo = real(mousefqso) + 0.001*real(mousedf + nfcal - ntol) - real(nkhz_center) &
-          + real(nrate_active)/2000.0 + 1.27046
-   f0hi = real(mousefqso) + 0.001*real(mousedf + nfcal + ntol) - real(nkhz_center) &
-          + real(nrate_active)/2000.0 + 1.27046
-   mfa_s = max(mfa, floor(f0lo) - EARLY_MARGIN_KHZ)
-   mfb_s = min(mfb, ceiling(f0hi) + EARLY_MARGIN_KHZ)
-   if (mfb_s .le. mfa_s) then          !QSO frequency outside the span: search it all
-      early_window = .false.
-      mfa_s = mfa
-      mfb_s = mfb
-   endif
+   call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
+        EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, early_window)
 endif
 if (nagain .eq. 0 .or. sync_narrow) then
    ! A manual repeat (nagain=1) reuses the last pass's sync(); if that was an
    ! early pass it covers only the QSO window, so redo it over the full span.
    call timer('get_cand', 0)
-   call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa_s, mfb_s, nts_jt65, nts_q65, cand, ncand)
+   ! mfa..mfb stays the reference for the score scale, so a narrowed search
+   ! scores a signal as the full-span search would.
+   call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa_s, mfb_s, nts_jt65, nts_q65, cand, ncand, &
+        mfa, mfb)
    call timer('get_cand', 1)
    sync_narrow = early_window
    candec = .false.

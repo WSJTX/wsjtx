@@ -1814,14 +1814,14 @@ void MainWindow::updateDecoderLagIndicator()
     }
     labLag->setText("Decoder behind");
     labLag->setStyleSheet("QLabel{background-color: #ffb266}");
-    labLag->setToolTip(QString("Last event: %1.\n%2 so far this session. Some stations may be "
+    labLag->setToolTip(QString("Last event: %1.\n%2 decoder-behind events so far this session. Some stations may be "
                                "missing from the Messages window.\nTry closing other programs, "
                                "a lower sample rate, or single polarization.").arg(what).arg(m_lagTotal));
   } else if (m_lagLastMs != 0 and now - m_lagLastMs > holdMs) {
     m_lagLastMs = 0;
     labLag->setText("Decoder OK");
     labLag->setStyleSheet("");
-    labLag->setToolTip(QString("Decoder keeping up with the minute (%1 dropped passes so far this session)")
+    labLag->setToolTip(QString("Decoder keeping up with the minute (%1 decoder-behind events so far this session)")
                        .arg(m_lagTotal));
   }
 }

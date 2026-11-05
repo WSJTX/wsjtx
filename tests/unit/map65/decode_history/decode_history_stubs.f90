@@ -40,16 +40,37 @@ contains
   subroutine init_wideband_sync()
   end subroutine
 
-  subroutine get_candidates(ss, savg, xpol, jz, nfa, nfb, nts_jt65, nts_q65, cand, ncand)
+  subroutine get_candidates(ss, savg, xpol, jz, nfa, nfb, nts_jt65, nts_q65, cand, ncand, &
+                            nfa_ref, nfb_ref)
     use npar_ptrs_mod, only: nfft_active
     real, intent(in) :: ss(4,322,nfft_active), savg(4,nfft_active)
     logical, intent(in) :: xpol
     integer, intent(in) :: jz, nfa, nfb, nts_jt65, nts_q65
     type(candidate), intent(out) :: cand(MAX_CANDIDATES)
     integer, intent(out) :: ncand
+    integer, intent(in), optional :: nfa_ref, nfb_ref
     ncand = 1
     ! With nfcal=-1270, this places the Q65 signal at the zero-kHz cursor.
     cand(1) = candidate(10.0, 48.00046, 0.0, 0.0, 1, 0, 1)
+  end subroutine
+
+  pure subroutine qso_sync_window(rate, nkhz_ctr, mousefqso, mousedf, nfcal, ntol, &
+       margin_khz, mfa, mfb, mfa_s, mfb_s, narrowed)
+    integer, intent(in)  :: rate, nkhz_ctr, mousefqso, mousedf, nfcal, ntol, margin_khz, mfa, mfb
+    integer, intent(out) :: mfa_s, mfb_s
+    logical, intent(out) :: narrowed
+    real :: f0lo, f0hi
+    f0lo = real(mousefqso) + 0.001*real(mousedf + nfcal - ntol) - real(nkhz_ctr) &
+           + real(rate)/2000.0 + 1.27046
+    f0hi = real(mousefqso) + 0.001*real(mousedf + nfcal + ntol) - real(nkhz_ctr) &
+           + real(rate)/2000.0 + 1.27046
+    mfa_s = max(mfa, floor(f0lo) - margin_khz)
+    mfb_s = min(mfb, ceiling(f0hi) + margin_khz)
+    narrowed = mfb_s .gt. mfa_s
+    if (.not. narrowed) then
+       mfa_s = mfa
+       mfb_s = mfb
+    endif
   end subroutine
 end module
 

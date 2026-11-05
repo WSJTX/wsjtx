@@ -107,6 +107,7 @@ program test_map65_wideband_sync_rows
        error stop 'invalid covariance did not preserve the legacy Q65 score'
 
   call test_candidate_search()
+  call test_narrow_window_score_scale()
 
 contains
 
@@ -237,4 +238,40 @@ contains
     call get_candidates(ss,savg,.false.,jz,2,3,0,1,candidates,ncand)
     if(ncand/=0) error stop 'MAP65 candidate outside search band was admitted'
   end subroutine test_candidate_search
+
+  ! A search of only part of the span must score a signal as the whole-span
+  ! search does, even when interference fills that part.
+  subroutine test_narrow_window_score_scale()
+    integer :: lo, hi, wlo, whi, tbin, bin, row
+    real :: full_score, bare_score, ref_score
+
+    lo=nint(1000.0/df)+1
+    hi=nint(90000.0/df)+1
+    wlo=nint(50000.0/df)+1
+    whi=nint(51000.0/df)+1
+    tbin=(wlo+whi)/2
+    ss(:,1:jz,lo:hi)=1.0
+    savg(:,lo:hi)=real(jz)
+    do bin=lo,hi
+       do row=1,jz
+          ss(1,row,bin)=1.0+0.002*real(mod(17*row+13*bin,23))
+       enddo
+       savg(1,bin)=sum(ss(1,1:jz,bin))
+    enddo
+    do bin=wlo,whi
+       if(abs(bin-tbin)>30) call add_search_sync(bin,30.0)
+    enddo
+    call add_search_sync(tbin,50.0)
+
+    call wb_sync(ss,savg,.false.,.true.,jz,1,90)
+    full_score=sync(tbin)%ccfmax
+    call wb_sync(ss,savg,.false.,.true.,jz,50,51)
+    bare_score=sync(tbin)%ccfmax
+    call wb_sync(ss,savg,.false.,.true.,jz,50,51,1,90)
+    ref_score=sync(tbin)%ccfmax
+
+    if(bare_score>0.5*full_score) error stop 'fixture: interference did not lower the narrow-window score'
+    if(abs(ref_score-full_score)>0.02*full_score) &
+         error stop 'narrow search with a reference span changed the signal score'
+  end subroutine test_narrow_window_score_scale
 end program test_map65_wideband_sync_rows

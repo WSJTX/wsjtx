@@ -6,7 +6,7 @@ program test_map65_pass_snapshots
   use datcom_ptrs_mod, only: dd, ss, savg, snap, snapshot_buffers
   use npar_ptrs_mod, only: snap_latest_idx, set_nhsym, set_nagain, set_ndiskdat, &
        publish_decode_request, claim_decode_request, active_request_expired, &
-       active_snap_idx, snapshot_release, advance_live_input_generation, &
+       active_request_lagged, active_snap_idx, snapshot_release, advance_live_input_generation, &
        get_decoder_lag_count, get_decoder_lag_kind, note_decoder_lag
   implicit none
 
@@ -60,6 +60,7 @@ program test_map65_pass_snapshots
   call require(claim_decode_request(), 'request claimed')
   call require(.not. active_request_expired, 'late request with intact snapshot runs')
   call require(active_snap_idx == 2, 'late request reads its own slot')
+  call require(.not. active_request_lagged, 'intact request is not lag')
 
   ! 2. While that pass is running, the next cycle's fill must not overwrite
   !    the slot; the request published for it is then dropped, not mis-decoded.
@@ -73,6 +74,7 @@ program test_map65_pass_snapshots
   call snapshot_release()
   call require(claim_decode_request(), 'second request claimed')
   call require(active_request_expired, 'request whose fill was skipped is dropped')
+  call require(active_request_lagged, 'request dropped for an overwritten snapshot is lag')
 
   ! 3. A queued request whose slot is refilled before it is claimed is dropped.
   dd = 5.0
@@ -82,6 +84,7 @@ program test_map65_pass_snapshots
   call snapshot_buffers(2, 3800, 12)
   call require(claim_decode_request(), 'third request claimed')
   call require(active_request_expired, 'overwritten snapshot request is dropped')
+  call require(active_request_lagged, 'overwritten snapshot request is lag')
 
   ! 4. More than one generation old (monitoring stopped etc.) is dropped.
   call snapshot_buffers(2, 3800, 12)
@@ -90,6 +93,7 @@ program test_map65_pass_snapshots
   call advance_live_input_generation()
   call require(claim_decode_request(), 'fourth request claimed')
   call require(active_request_expired, 'request two generations old is dropped')
+  call require(.not. active_request_lagged, 'request dropped by monitoring stopping is not lag')
 
   ! 5. Other decoder-behind events are counted with their kind.
   lag0 = get_decoder_lag_count()
