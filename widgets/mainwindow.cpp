@@ -1540,6 +1540,13 @@ MainWindow::MainWindow(QDir const& temp_directory,
   tuneATU_Timer.setSingleShot(true);
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
 
+  connect (&m_footswitch, &FootswitchInput::pressed, this, &MainWindow::footswitchPressed);
+  connect (&m_footswitch, &FootswitchInput::released, this, &MainWindow::footswitchReleased);
+  connect (&m_footswitch, &FootswitchInput::error, this, [this] (QString const& reason) {
+      showStatusMessage (reason);
+    });
+  applyFootswitchSettings ();
+
   killFileTimer.setSingleShot(true);
   connect(&killFileTimer, &QTimer::timeout, this, &MainWindow::killWaveFile);
 
@@ -1916,6 +1923,8 @@ void MainWindow::on_the_minute ()
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
 {
+  m_footswitch.disconnect (this);
+  m_footswitch.stop ();
   m_config.set_frequency_activity_provider ({});
   PerformanceTrace::Phase destructor {"mainwindow.destructor_body"};
   // wav12 shares FFT state that main() releases after this window is destroyed.
@@ -3390,6 +3399,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   auto psk_on = m_config.spot_to_psk_reporter ();
   if (QDialog::Accepted == m_config.exec ()) {
     cancelPendingFt8Decode ("settings changed");
+    applyFootswitchSettings ();
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
       m_baseCall = Radio::base_callsign (m_config.my_callsign ());
@@ -8554,7 +8564,7 @@ void MainWindow::guiUpdate()
       }
     }
 
-    if (m_tune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+    if (m_tune && !m_footswitchTune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
         QString remtime;
         remtime = QString::asprintf("%.0f s",tuneATU_Timer.remainingTime()/1000.0);
         ui->tuneButton->setText(remtime);  // display Tune watchdog countdog
@@ -13036,6 +13046,7 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 
 void MainWindow::end_tuning ()
 {
+  auto const footswitch_tune = m_footswitchTune; // cleared by the stop below
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   if (m_mode == "WSPR" || m_mode == "FST4W")
     {
@@ -13047,7 +13058,7 @@ void MainWindow::end_tuning ()
       on_stopTxButton_clicked ();
     }
   // we're turning off so remember our Tune pwr setting and reset to Tx pwr
-  if (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory()) {
+  if (!footswitch_tune && (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory())) {
     auto const& curBand = ui->bandComboBox->currentText();
     m_pwrBandTuneMemory[curBand] = ui->outAttenuation->value(); // remember our Tune pwr
     m_PwrBandSetOK = false;
@@ -13058,11 +13069,68 @@ void MainWindow::end_tuning ()
 
 void MainWindow::stop_tuning ()
 {
+  m_footswitchTune = false;
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   on_tuneButton_clicked(false);
   ui->tuneButton->setChecked (false);
   m_bTxTime=false;
   m_tune=false;
+}
+
+void MainWindow::applyFootswitchSettings ()
+{
+  if (m_footswitchTune && m_tune) ui->tuneButton->click (); // drop any footswitch TX first
+  m_footswitch.stop ();
+  if (!m_config.footswitch_enabled ()) return;
+  auto const port = m_config.footswitch_port ();
+  if (port.isEmpty ())
+    {
+      showStatusMessage (tr ("Footswitch: no port selected"));
+      return;
+    }
+  if (m_footswitch.start (port, static_cast<FootswitchInput::Pin> (m_config.footswitch_pin ()),
+                          m_config.footswitch_invert ()))
+    {
+      showStatusMessage (tr ("Footswitch active on %1").arg (port));
+    }
+}
+
+void MainWindow::footswitchPressed ()
+{
+  if (!m_footswitch.isPressed ()) return; // released before a retry fired
+  // A previous Tune may still be ending (Tune-off delay, PTT release
+  // delay); wait for it to finish so quick re-presses between overs work.
+  bool const ending = tuneButtonTimer.isActive () || ptt0Timer.isActive ();
+  if (ending && !m_auto && m_footswitchRetries < 40)
+    {
+      ++m_footswitchRetries;
+      QTimer::singleShot (50, this, &MainWindow::footswitchPressed);
+      return;
+    }
+  m_footswitchRetries = 0;
+  // Act only when idle; never interrupt a digital transmission or a
+  // Tune started from the button.
+  if (m_tune || m_auto || m_transmitting || m_tx_when_ready || g_iptt == 1)
+    {
+      if (!m_tune) showStatusMessage (tr ("Footswitch ignored: transmission in progress"));
+      return;
+    }
+  m_footswitchTune = true;
+  ui->tuneButton->click ();     // same path as clicking Tune
+  if (m_tune) ui->tuneButton->setText (tr ("Foot TX"));
+  else
+    {
+      m_footswitchTune = false; // Tune was refused (e.g. Tx blocked)
+      ui->tuneButton->setChecked (false);
+    }
+}
+
+void MainWindow::footswitchReleased ()
+{
+  if (m_footswitchTune && ui->tuneButton->isChecked ())
+    {
+      ui->tuneButton->click ();   // same path as clicking Tune off
+    }
 }
 
 void MainWindow::stopTuneATU()

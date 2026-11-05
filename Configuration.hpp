@@ -227,6 +227,12 @@ public:
   int watchdog () const;
   int tune_watchdog_time () const;
   bool tune_watchdog () const;
+
+  // Footswitch manual TX input on a serial port status line
+  bool footswitch_enabled () const;
+  QString footswitch_port () const;
+  int footswitch_pin () const;  // 0=CTS 1=DSR 2=DCD 3=RI
+  bool footswitch_invert () const;
   bool TX_messages () const;
   bool split_mode () const;
   bool enable_VHF_features () const;

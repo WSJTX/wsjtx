@@ -1167,6 +1167,10 @@ private:
   int watchdog_;
   int tune_watchdog_time_;
   bool tune_watchdog_;
+  bool footswitch_enabled_ {false};
+  QString footswitch_port_;
+  int footswitch_pin_ {0};
+  bool footswitch_invert_ {false};
   bool TX_messages_;
   bool enable_VHF_features_;
   bool decode_at_52s_;
@@ -1351,6 +1355,10 @@ bool Configuration::alternate_bindings() const {return m_->alternate_bindings_;}
 int Configuration::watchdog () const {return m_->watchdog_;}
 int Configuration::tune_watchdog_time () const {return m_->tune_watchdog_time_;}
 bool Configuration::tune_watchdog () const {return m_->tune_watchdog_;}
+bool Configuration::footswitch_enabled () const {return m_->footswitch_enabled_;}
+QString Configuration::footswitch_port () const {return m_->footswitch_port_;}
+int Configuration::footswitch_pin () const {return m_->footswitch_pin_;}
+bool Configuration::footswitch_invert () const {return m_->footswitch_invert_;}
 bool Configuration::TX_messages () const {return m_->TX_messages_;}
 bool Configuration::enable_VHF_features () const {return m_->enable_VHF_features_;}
 bool Configuration::decode_at_52s () const {return m_->decode_at_52s_;}
@@ -2645,6 +2653,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->PTT_CAT_radio_button,
     ui_->PTT_RTS_radio_button,
     ui_->PTT_port_combo_box,
+    ui_->footswitch_group_box,
+    ui_->footswitch_port_combo_box,
+    ui_->footswitch_pin_combo_box,
+    ui_->footswitch_invert_check_box,
     ui_->TX_source_data_radio_button,
     ui_->TX_source_mic_radio_button,
     ui_->mode_none_radio_button,
@@ -3061,6 +3073,12 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->PTT_port_combo_box->setItemData (ui_->PTT_port_combo_box->count () - 1, "Delegate to proxy CAT service", Qt::ToolTipRole);
 
   //
+  // setup footswitch port and input pin combo boxes
+  //
+  fill_port_combo_box (ui_->footswitch_port_combo_box);
+  ui_->footswitch_pin_combo_box->addItems ({"CTS", "DSR", "DCD", "RI"});
+
+  //
   // setup hooks to keep audio channels aligned with devices
   //
   {
@@ -3386,6 +3404,10 @@ void Configuration::impl::initialize_models ()
   ui_->alternate_bindings_check_box->setChecked (alternate_bindings_);
   ui_->tx_watchdog_spin_box->setValue (watchdog_);
   ui_->tune_watchdog_check_box->setChecked(tune_watchdog_);
+  ui_->footswitch_group_box->setChecked (footswitch_enabled_);
+  ui_->footswitch_port_combo_box->setCurrentText (footswitch_port_);
+  ui_->footswitch_pin_combo_box->setCurrentIndex (footswitch_pin_);
+  ui_->footswitch_invert_check_box->setChecked (footswitch_invert_);
   ui_->tune_watchdog_spin_box->setValue (tune_watchdog_time_);
   ui_->TX_messages_check_box->setChecked (TX_messages_);
   ui_->enable_VHF_features_check_box->setChecked(enable_VHF_features_);
@@ -3885,6 +3907,10 @@ void Configuration::impl::read_settings ()
   alternate_bindings_ = settings_->value ("AlternateBindings", false).toBool ();
   watchdog_ = settings_->value ("TxWatchdog", 6).toInt ();
   tune_watchdog_ = settings_->value("TuneWatchdog",true).toBool ();
+  footswitch_enabled_ = settings_->value ("FootswitchEnabled", false).toBool ();
+  footswitch_port_ = settings_->value ("FootswitchPort").toString ();
+  footswitch_pin_ = qBound (0, settings_->value ("FootswitchPin", 0).toInt (), 3);
+  footswitch_invert_ = settings_->value ("FootswitchInvert", false).toBool ();
   tune_watchdog_time_ = settings_->value ("TuneWatchdogTime", 90).toInt ();
   TX_messages_ = settings_->value ("Tx2QSO", true).toBool ();
   enable_VHF_features_ = settings_->value("VHFUHF",false).toBool ();
@@ -4183,6 +4209,10 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("AlternateBindings", alternate_bindings_);
   settings_->setValue ("TxWatchdog", watchdog_);
   settings_->setValue ("TuneWatchdog", tune_watchdog_);
+  settings_->setValue ("FootswitchEnabled", footswitch_enabled_);
+  settings_->setValue ("FootswitchPort", footswitch_port_);
+  settings_->setValue ("FootswitchPin", footswitch_pin_);
+  settings_->setValue ("FootswitchInvert", footswitch_invert_);
   settings_->setValue ("TuneWatchdogTime", tune_watchdog_time_);
   settings_->setValue ("Tx2QSO", TX_messages_);
   settings_->setValue ("CATForceDTR", rig_params_.force_dtr);
@@ -4884,6 +4914,10 @@ void Configuration::impl::accept ()
   alternate_bindings_ = ui_->alternate_bindings_check_box->isChecked ();
   watchdog_ = ui_->tx_watchdog_spin_box->value ();
   tune_watchdog_ = ui_->tune_watchdog_check_box->isChecked ();
+  footswitch_enabled_ = ui_->footswitch_group_box->isChecked ();
+  footswitch_port_ = ui_->footswitch_port_combo_box->currentText ().trimmed ();
+  footswitch_pin_ = qMax (0, ui_->footswitch_pin_combo_box->currentIndex ());
+  footswitch_invert_ = ui_->footswitch_invert_check_box->isChecked ();
   tune_watchdog_time_ = ui_->tune_watchdog_spin_box->value ();
   TX_messages_ = ui_->TX_messages_check_box->isChecked ();
   data_mode_ = static_cast<DataMode> (ui_->TX_mode_button_group->checkedId ());

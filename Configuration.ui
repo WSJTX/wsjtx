@@ -1448,6 +1448,80 @@ radio interface behave as expected.</string>
          </property>
         </widget>
        </item>
+       <item row="7" column="2">
+        <widget class="QGroupBox" name="footswitch_group_box">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use a footswitch wired to a serial port status line to switch between receive and transmit, as if clicking Tune. Press to transmit, release to receive.&lt;/p&gt;&lt;p&gt;Intended for manual CW EME with Doppler tracking: set Mode to None, put the rig in CW and turn its break-in off.&lt;/p&gt;&lt;p&gt;WSJT-X asserts DTR on this port, so a footswitch can connect DTR to the input pin, with a pull-down of about 10k to ground. Use a port that is not also used for CAT or PTT.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="title">
+          <string>Footswitch T/R</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+         <layout class="QGridLayout" name="footswitch_grid_layout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="footswitch_port_label">
+            <property name="text">
+             <string>Port:</string>
+            </property>
+            <property name="buddy">
+             <cstring>footswitch_port_combo_box</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="footswitch_port_combo_box">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Serial port the footswitch is connected to.</string>
+            </property>
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+            <property name="insertPolicy">
+             <enum>QComboBox::NoInsert</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="footswitch_pin_label">
+            <property name="text">
+             <string>Input:</string>
+            </property>
+            <property name="buddy">
+             <cstring>footswitch_pin_combo_box</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="footswitch_pin_combo_box">
+            <property name="toolTip">
+             <string>Serial port status line the footswitch drives.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
+           <widget class="QCheckBox" name="footswitch_invert_check_box">
+            <property name="toolTip">
+             <string>Treat an inactive input line as pressed (for switches that open when pressed).</string>
+            </property>
+            <property name="text">
+             <string>Invert</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
        <item row="1" column="2">
         <widget class="QGroupBox" name="PTT_method_group_box">
          <property name="sizePolicy">

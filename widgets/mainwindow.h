@@ -93,6 +93,7 @@ namespace DecoderIpc {class Session;}
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
 #include "BeaconTxController.hpp"
+#include "FootswitchInput.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -639,6 +640,9 @@ private slots:
   void end_tuning ();
   void stop_tuning ();
   void stopTuneATU();
+  void applyFootswitchSettings ();
+  void footswitchPressed ();
+  void footswitchReleased ();
   void auto_tx_mode(bool);
   void on_actionMessage_averaging_triggered();
   void on_actionActiveStations_triggered();
@@ -1383,6 +1387,9 @@ private:
   QTimer rigTuneTimer;
   QTimer uploadTimer;
   QTimer tuneATU_Timer;
+  FootswitchInput m_footswitch;
+  bool m_footswitchTune {false}; // current Tune was started by the footswitch
+  int m_footswitchRetries {0};
   QTimer TxAgainTimer;
   QTimer minuteTimer;
   QTimer splashTimer;

@@ -568,7 +568,7 @@ void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
     }
   if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W")) ui->autoButton->click();   // stop any other transmission
   invalidateWaitRetries ();
-  if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+  if (checked && !m_footswitchTune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
       tuneATU_Timer.start (m_config.tune_watchdog_time()*1000); // tune watchdog
   }
   if (!checked) {
@@ -579,7 +579,7 @@ void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
   if (lastChecked == checked) return;
   lastChecked = checked;
   if (checked && m_tune==false) { // we're starting tuning so remember Tx and change pwr to Tune value
-    if (m_config.pwrBandTuneMemory ()) {
+    if (m_config.pwrBandTuneMemory () && !m_footswitchTune) {
       auto const& curBand = ui->bandComboBox->currentText();
       m_pwrBandTxMemory[curBand] = ui->outAttenuation->value(); // remember our Tx pwr
       m_PwrBandSetOK = false;
@@ -625,6 +625,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   ui->tuneButton->setChecked (false);
   ui->tuneButton->setText("Tune");
   m_tune=false;
+  m_footswitchTune=false;
   m_bTxTime=false;
   filtered = false;
   ignored = false;
