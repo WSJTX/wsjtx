@@ -69,6 +69,8 @@ contains
     integer*8 :: probe
     a = 0
     call four2a(a, nfft, 1, -1, 1)
+    ! FFTW stores a pointer, which fills only 4 of probe's 8 bytes on a 32-bit target.
+    probe = 0
     call sfftw_plan_dft_1d(probe, nfft, a, a, FFTW_FORWARD,                  &
          ior(FFTW_ESTIMATE_PATIENT, FFTW_WISDOM_ONLY))
     patient = probe .ne. 0
