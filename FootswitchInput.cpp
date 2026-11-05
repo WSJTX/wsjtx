@@ -11,6 +11,8 @@ FootswitchInput::FootswitchInput (QObject * parent)
 {
   poll_timer_.setInterval (poll_interval_ms);
   connect (&poll_timer_, &QTimer::timeout, this, &FootswitchInput::poll);
+  retry_timer_.setInterval (retry_interval_ms);
+  connect (&retry_timer_, &QTimer::timeout, this, &FootswitchInput::retryPort);
 }
 
 FootswitchInput::~FootswitchInput ()
@@ -22,47 +24,86 @@ FootswitchInput::~FootswitchInput ()
 bool FootswitchInput::start (QString const& port_name, Pin pin, bool invert)
 {
   stop ();
-  port_->setPortName (port_name);
-  if (!port_->open (QIODevice::ReadWrite))
+  port_name_ = port_name;
+  pin_ = pin;
+  invert_ = invert;
+  if (!openPort ())
     {
       Q_EMIT error (tr ("Footswitch: cannot open %1: %2")
                     .arg (port_name, port_->errorString ()));
+      retry_timer_.start ();
       return false;
     }
-  port_->setFlowControl (QSerialPort::NoFlowControl);
-  port_->setDataTerminalReady (true); // supply for the footswitch contact
-  port_->setRequestToSend (false);
-  start ([this] {return readPort ();}, pin, invert);
+  startPolling ([this] {return readPort ();});
   return true;
 }
 
 void FootswitchInput::start (Reader reader, Pin pin, bool invert)
 {
-  poll_timer_.stop ();
-  reader_ = std::move (reader);
+  stop ();
   pin_ = pin;
   invert_ = invert;
-  candidate_ = false;
-  stable_reads_ = 0;
-  poll_timer_.start ();
+  startPolling (std::move (reader));
 }
 
 void FootswitchInput::stop ()
 {
+  retry_timer_.stop ();
   poll_timer_.stop ();
   reader_ = nullptr;
+  port_name_.clear ();
   if (port_->isOpen ())
     {
       port_->setDataTerminalReady (false);
       port_->close ();
     }
+  releaseIfPressed ();
+}
+
+bool FootswitchInput::openPort ()
+{
+  if (port_->isOpen ()) port_->close ();
+  port_->clearError ();
+  port_->setPortName (port_name_);
+  if (!port_->open (QIODevice::ReadWrite)) return false;
+  port_->setFlowControl (QSerialPort::NoFlowControl);
+  port_->setDataTerminalReady (true); // supply for the footswitch contact
+  port_->setRequestToSend (false);
+  return true;
+}
+
+void FootswitchInput::startPolling (Reader reader)
+{
+  reader_ = std::move (reader);
+  candidate_ = false;
+  stable_reads_ = 0;
+  poll_timer_.start ();
+}
+
+void FootswitchInput::releaseIfPressed ()
+{
+  candidate_ = false;
+  stable_reads_ = 0;
   if (pressed_)
     {
       pressed_ = false;
       Q_EMIT released ();   // never leave the caller transmitting
     }
-  candidate_ = false;
-  stable_reads_ = 0;
+}
+
+void FootswitchInput::retryPort ()
+{
+  if (port_name_.isEmpty ())
+    {
+      retry_timer_.stop ();
+      return;
+    }
+  if (openPort ())
+    {
+      retry_timer_.stop ();
+      startPolling ([this] {return readPort ();});
+      Q_EMIT restored (port_name_);
+    }
 }
 
 FootswitchInput::Reading FootswitchInput::readPort ()
@@ -85,7 +126,14 @@ void FootswitchInput::poll ()
   if (!reading.ok)
     {
       auto const reason = tr ("Footswitch: port error: %1").arg (reading.error);
-      stop ();              // releases if pressed
+      poll_timer_.stop ();
+      reader_ = nullptr;
+      releaseIfPressed ();
+      if (!port_name_.isEmpty ())
+        {
+          port_->close ();      // the device may come back; keep trying
+          retry_timer_.start ();
+        }
       Q_EMIT error (reason);
       return;
     }

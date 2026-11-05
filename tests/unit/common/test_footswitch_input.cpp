@@ -168,6 +168,29 @@ private:
     QVERIFY (!input.isActive ());
   }
 
+  Q_SLOT void readerErrorDoesNotRetry ()
+  {
+    Script script {{failure ("gone")}};
+    FootswitchInput input;
+    input.start (script.reader (), Pin::CTS, false);
+    input.poll ();
+    QVERIFY (!input.isActive ());
+    QVERIFY (!input.isRetrying ());   // only a real serial port is retried
+  }
+
+  Q_SLOT void missingPortReportsErrorAndKeepsRetrying ()
+  {
+    FootswitchInput input;
+    QSignalSpy error {&input, &FootswitchInput::error};
+    QVERIFY (!input.start (QStringLiteral ("WSJTX_TEST_NO_SUCH_PORT"), Pin::CTS, false));
+    QCOMPARE (error.count (), 1);
+    QVERIFY (!input.isActive ());
+    QVERIFY (input.isRetrying ());
+
+    input.stop ();                    // stop() cancels the retries
+    QVERIFY (!input.isRetrying ());
+  }
+
   Q_SLOT void eachPinReadsItsOwnLine_data ()
   {
     QTest::addColumn<int> ("pin");

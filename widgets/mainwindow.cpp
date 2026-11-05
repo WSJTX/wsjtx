@@ -1545,6 +1545,9 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (&m_footswitch, &FootswitchInput::error, this, [this] (QString const& reason) {
       showStatusMessage (reason);
     });
+  connect (&m_footswitch, &FootswitchInput::restored, this, [this] (QString const& port) {
+      showStatusMessage (tr ("Footswitch active again on %1").arg (port));
+    });
   applyFootswitchSettings ();
 
   killFileTimer.setSingleShot(true);
