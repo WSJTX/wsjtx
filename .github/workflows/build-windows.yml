@@ -289,7 +289,8 @@ jobs:
           # packaged installer is unaffected: cpack's bundle_fixup copies
           # libhamlib-4.dll in.
           export PATH="${{ steps.windows-deps.outputs.fftw_prefix }}/bin:${{ steps.windows-deps.outputs.boost_prefix }}/lib:${{ steps.windows-deps.outputs.hamlib_prefix }}/bin:${PATH}"
-          ctest --output-on-failure --output-junit ctest-results.xml
+          # Release builds leave out the long decode-thread rows (ci-cd/DEVELOPMENT_WORKFLOW.md, Test Failure Policy).
+          ctest ${{ (startsWith(github.ref, 'refs/tags/') || (startsWith(github.ref, 'refs/heads/release/') && github.event_name != 'push')) && '-LE decode-thread-long' || '' }} --output-on-failure --output-junit ctest-results.xml
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
 
