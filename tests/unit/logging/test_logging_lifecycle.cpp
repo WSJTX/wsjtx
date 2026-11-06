@@ -5,7 +5,6 @@
 #include <QDir>
 #include <QFile>
 #include <QRegularExpression>
-#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -38,6 +37,7 @@ class LoggingLifecycle final : public QObject
   Q_OBJECT
 
 private:
+  QTemporaryDir directory_;
   QString config_path_;
   QString data_path_;
 
@@ -51,20 +51,15 @@ private:
 private slots:
   void initTestCase ()
   {
-    auto config = QStandardPaths::writableLocation (QStandardPaths::ConfigLocation);
-    auto data = QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation);
-    auto root = QString::fromUtf8 (qgetenv ("WSJT_LOG_TEST_ROOT"));
-    if (!config.startsWith (root + '/') || !data.startsWith (root + '/'))
-      QSKIP ("Platform does not isolate QStandardPaths through XDG environment variables");
-    config_path_ = QDir {config}.filePath ("wsjtx_log_config.ini");
-    data_path_ = data;
-    QVERIFY (QDir {}.mkpath (config));
+    QVERIFY (directory_.isValid ());
+    config_path_ = directory_.filePath ("wsjtx_log_config.ini");
+    data_path_ = directory_.filePath ("data");
   }
 
   void init ()
   {
-    QFile::remove (config_path_);
-    QDir {data_path_}.removeRecursively ();
+    QVERIFY (!QFile::exists (config_path_) || QFile::remove (config_path_));
+    QVERIFY (!QDir {data_path_}.exists () || QDir {data_path_}.removeRecursively ());
     QVERIFY (QDir {}.mkpath (data_path_));
     auto core = boost::log::core::get ();
     core->remove_all_sinks ();
@@ -81,7 +76,7 @@ private slots:
   void default_filter_format_append_and_flush ()
   {
     {
-      WSJTXLogging logging;
+      WSJTXLogging logging {config_path_, QDir {data_path_}};
       LOG_WARN ("excluded-system-warning");
       LOG_ERROR ("included-system-error");
       LOG_DATA_INFO ("excluded-data-info");
@@ -103,7 +98,7 @@ private slots:
       R"(^\[SYSLOG\]\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\]\[\d+:\d{2}:\d{2}\.\d{6}\]\[error\] included-system-error)"};
     QVERIFY2 (format.match (QString::fromUtf8 (first)).hasMatch (), first.constData ());
     {
-      WSJTXLogging logging;
+      WSJTXLogging logging {config_path_, QDir {data_path_}};
       LOG_ERROR ("appended-session");
     }
     auto second = read_file (path);
@@ -124,7 +119,7 @@ Format="%Message%"
 Filter="%Severity% >= info"
 )");
     {
-      WSJTXLogging logging;
+      WSJTXLogging logging {config_path_, QDir {data_path_}};
       std::vector<std::thread> writers;
       for (int thread = 0; thread < 4; ++thread)
         writers.emplace_back ([thread] {
@@ -140,11 +135,14 @@ Filter="%Severity% >= info"
         expected.insert ("record:" + QByteArray::number (thread) + ':' + QByteArray::number (record));
     int count = 0;
     for (auto const& line : output.split ('\n'))
-      if (line.startsWith ("record:"))
-        {
-          QCOMPARE (expected.erase (line), std::size_t {1});
-          ++count;
-        }
+      {
+        auto record = line.trimmed ();
+        if (record.startsWith ("record:"))
+          {
+            QCOMPARE (expected.erase (record), std::size_t {1});
+            ++count;
+          }
+      }
     QCOMPARE (count, 1000);
     QVERIFY (expected.empty ());
     QCOMPARE (output.count ("Log Finish"), 1);
@@ -165,7 +163,7 @@ EnableFinalRotation="true"
 Format="%Message%"
 )");
     {
-      WSJTXLogging logging;
+      WSJTXLogging logging {config_path_, QDir {data_path_}};
       for (int record = 0; record < 100; ++record)
         LOG_ERROR ("rotation-record:" << record << " padding-to-force-file-rotation");
     }
@@ -183,7 +181,7 @@ Format="%Message%"
   {
     write_config ("[Sinks.SYSLOG]\nDestination=\"unknown-test-destination\"\n");
     {
-      WSJTXLogging logging;
+      WSJTXLogging logging {config_path_, QDir {data_path_}};
       LOG_ERROR ("fallback-is-operational");
     }
     auto output = read_file (QDir {data_path_}.filePath ("wsjtx_syslog.log"));
@@ -192,25 +190,6 @@ Format="%Message%"
   }
 };
 
-int main (int argc, char ** argv)
-{
-  QTemporaryDir directory;
-  if (!directory.isValid ()) return 1;
-  auto root = directory.path ();
-  auto data = root + QString::fromUtf8 ("/données ログ");
-  qputenv ("WSJT_LOG_TEST_ROOT", root.toUtf8 ());
-  qputenv ("XDG_CONFIG_HOME", (root + "/config").toUtf8 ());
-  qputenv ("XDG_DATA_HOME", data.toUtf8 ());
-  QCoreApplication app {argc, argv};
-  app.setApplicationName ("WSJTXLoggingTest");
-  LoggingLifecycle test;
-  auto result = QTest::qExec (&test, argc, argv);
-  if (result)
-    {
-      directory.setAutoRemove (false);
-      qWarning () << "Logging test artifacts:" << directory.path ();
-    }
-  return result;
-}
+QTEST_GUILESS_MAIN (LoggingLifecycle)
 
 #include "test_logging_lifecycle.moc"

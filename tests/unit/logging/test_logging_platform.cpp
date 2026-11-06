@@ -4,9 +4,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
-#include <QStandardPaths>
 #include <QTemporaryDir>
-#include <QUuid>
 #include <QtTest>
 
 #include <boost/log/core.hpp>
@@ -72,23 +70,23 @@ private slots:
     auto subdirectory = directory.path () + suffix;
     QVERIFY (QDir {}.mkpath (subdirectory));
     auto path = subdirectory + "/threaded.log";
-    auto config = stream_settings (path);
-#ifdef Q_OS_WIN
-    std::wistringstream stream {config.toStdWString ()};
-#else
-    std::istringstream stream {config.toUtf8 ().toStdString ()};
-#endif
-    Logger::init_from_config (stream);
-    std::vector<std::thread> writers;
-    for (int thread = 0; thread < 4; ++thread)
-      writers.emplace_back ([thread] {
-        for (int record = 0; record < 250; ++record)
-          LOG_INFO ("record:" << thread << ':' << record);
-      });
-    for (auto& writer : writers) writer.join ();
-    LOG_INFO ("stream-final");
-    boost::log::core::get ()->flush ();
-    boost::log::core::get ()->remove_all_sinks ();
+    auto config_path = directory.filePath ("wsjtx_log_config.ini");
+    QFile config {config_path};
+    QVERIFY (config.open (QIODevice::WriteOnly));
+    auto settings = stream_settings ("${AppLocalDataLocation}/threaded.log").toUtf8 ();
+    QCOMPARE (config.write (settings), qint64 (settings.size ()));
+    config.close ();
+    {
+      WSJTXLogging logging {config_path, QDir {subdirectory}};
+      std::vector<std::thread> writers;
+      for (int thread = 0; thread < 4; ++thread)
+        writers.emplace_back ([thread] {
+          for (int record = 0; record < 250; ++record)
+            LOG_INFO ("record:" << thread << ':' << record);
+        });
+      for (auto& writer : writers) writer.join ();
+      LOG_INFO ("stream-final");
+    }
     auto output = read_file (path);
     std::set<QByteArray> expected;
     for (int thread = 0; thread < 4; ++thread)
@@ -126,38 +124,31 @@ private slots:
     QCOMPARE (read_file (path).count ("wide-parser-record"), 1);
   }
 
-  void default_configuration_uses_application_directory_data ()
+  void default_configuration_uses_selected_data_directory_data ()
   {
     QTest::addColumn<QString> ("suffix");
     QTest::newRow ("ascii") << QStringLiteral ("logs");
     QTest::newRow ("unicode") << QString::fromUtf8 ("ログ");
   }
 
-  void default_configuration_uses_application_directory ()
+  void default_configuration_uses_selected_data_directory ()
   {
     QFETCH (QString, suffix);
 #if defined(Q_OS_WIN) && defined(__GLIBCXX__)
     if (suffix != "logs")
       QSKIP ("Original Boost.Filesystem MinGW backend cannot open paths outside the active code page");
 #endif
-    QStandardPaths::setTestModeEnabled (true);
-    if (!QStandardPaths::locate (QStandardPaths::ConfigLocation, "wsjtx_log_config.ini").isEmpty ())
-      QSKIP ("An existing test-mode logging configuration must not be used or modified");
-    auto name = "WSJTXLoggingTest-" + suffix + '-'
-      + QUuid::createUuid ().toString (QUuid::WithoutBraces);
-    QCoreApplication::setApplicationName (name);
-    auto path = QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation);
-    QVERIFY (path.endsWith ('/' + name));
-    QVERIFY (!QFile::exists (path));
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    auto path = directory.filePath (suffix);
     QVERIFY (QDir {}.mkpath (path));
     {
-      WSJTXLogging logging;
+      WSJTXLogging logging {directory.filePath ("missing-config.ini"), QDir {path}};
       LOG_WARN ("platform-default-excluded");
       LOG_ERROR ("platform-default-included");
       qCritical ("platform-qt-routing");
     }
     auto output = read_file (QDir {path}.filePath ("wsjtx_syslog.log"));
-    QVERIFY (QDir {path}.removeRecursively ());
     QCOMPARE (output.count ("platform-default-included"), 1);
     QCOMPARE (output.count ("platform-qt-routing"), 1);
     QVERIFY (!output.contains ("platform-default-excluded"));

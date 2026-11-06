@@ -121,7 +121,7 @@ namespace
 #endif
 
 #ifdef Q_OS_WIN
-  void default_log_config ()
+  void default_log_config (QDir const& app_data)
   {
     auto core = logging::core::get ();
 
@@ -130,8 +130,6 @@ namespace
     // templates for efficiency.
     //
 
-    // Default log file location.
-    QDir app_data {QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation)};
     Logger::init ();          // Basic setup of attributes
 
     //
@@ -186,9 +184,8 @@ namespace
     LOG_INFO ("Log Start");
   }
 #else
-  void default_log_config ()
+  void default_log_config (QDir const& app_data)
   {
-    QDir app_data {QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation)};
     Logger::init ();
 
     // Let the loaded Boost library own its version-specific queue and file backend.
@@ -229,6 +226,12 @@ namespace
 }
 
 WSJTXLogging::WSJTXLogging ()
+  : WSJTXLogging {QStandardPaths::locate (QStandardPaths::ConfigLocation, "wsjtx_log_config.ini"),
+                 QDir {QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation)}}
+{
+}
+
+WSJTXLogging::WSJTXLogging (QString const& configuration_file, QDir const& app_data)
 {
   auto core = logging::core::get ();
   // Catch relevant exceptions from logging.
@@ -238,7 +241,7 @@ WSJTXLogging::WSJTXLogging ()
      );
  
   // Check for a user-defined logging configuration settings file.
-  QFile log_config {QStandardPaths::locate (QStandardPaths::ConfigLocation, "wsjtx_log_config.ini")};
+  QFile log_config {configuration_file};
   if (log_config.exists () && log_config.open (QFile::ReadOnly) && log_config.isReadable ())
     {
       QTextStream ts {&log_config};
@@ -255,7 +258,7 @@ WSJTXLogging::WSJTXLogging ()
          {"GenericCacheLocation", QStandardPaths::writableLocation (QStandardPaths::GenericCacheLocation)},
          {"GenericDataLocation", QStandardPaths::writableLocation (QStandardPaths::GenericDataLocation)},
          {"AppDataLocation", QStandardPaths::writableLocation (QStandardPaths::AppDataLocation)},
-         {"AppLocalDataLocation", QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation)},
+         {"AppLocalDataLocation", app_data.absolutePath ()},
         };
       // Parse the configration settings substituting the variable if found.
       QString new_config;
@@ -284,14 +287,14 @@ WSJTXLogging::WSJTXLogging ()
         }
       catch (std::exception const& e)
         {
-          default_log_config ();
+          default_log_config (app_data);
           LOG_ERROR ("Reading logging configuration file: " << log_config.fileName () << " - " << e.what ());
           LOG_INFO ("Reverting to default logging configuration");
         }
     }
   else                          // Default setup
     {
-      default_log_config ();
+      default_log_config (app_data);
     }
 
   QFile f(QApplication::applicationDirPath() + "/qdebug");

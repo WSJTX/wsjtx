@@ -2,6 +2,8 @@
 #define WSJTX_LOGGING_HPP__
 
 #include <string>
+#include <QDir>
+#include <QString>
 #include <boost/log/expressions/filter.hpp>
 #include <boost/log/expressions/attr.hpp>
 #include <boost/log/expressions/predicates/channel_severity_filter.hpp>
@@ -16,6 +18,7 @@ class WSJTXLogging final
 {
 public:
   explicit WSJTXLogging ();
+  WSJTXLogging (QString const& configuration_file, QDir const& app_data);
   ~WSJTXLogging ();
 
   static boost::log::filter default_filter ()
