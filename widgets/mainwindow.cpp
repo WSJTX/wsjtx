@@ -1365,6 +1365,8 @@ MainWindow::MainWindow(QDir const& temp_directory,
       }
   });
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
+  connect (&m_config, &Configuration::radio_mode_control_changed,
+           this, &MainWindow::handleRadioModeControl);
   m_config.set_frequency_activity_provider ([this] { return rigFrequencyActivity (); });
   connect (&m_config, &Configuration::frequency_result, this,
            [this] (RigFrequency::Result const& result) {
@@ -1513,6 +1515,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
 
   rigTuneTimer.setSingleShot (true);
   connect (&rigTuneTimer, &QTimer::timeout, this, [this] {
+      m_pendingRigTune = false;
       m_config.transceiver_tune (false);
       ui->tuneButton->setChecked (false);
       ui->tuneButton->setText ("Tune");
@@ -3595,8 +3598,7 @@ void MainWindow::on_sbTxPercent_valueChanged (int n)
 void MainWindow::auto_tx_mode (bool state)
 {
   if (!state) endQsoRepeat (QsoRepeatEnd::AutoDisabled);
-  ui->autoButton->setChecked (state);
-  on_autoButton_clicked (state);
+  setAutoTxEnabled (state, TxControlOrigin::Automatic);
 }
 
 void MainWindow::keyPressEvent (QKeyEvent * e)
@@ -3657,7 +3659,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       break;
     case Qt::Key_F1:
       if(bAltF1F6) {
-        auto_tx_mode(true);
+        setAutoTxEnabled (true, TxControlOrigin::Local);
         on_txb6_clicked();
         return;
       } else {
@@ -3666,7 +3668,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
     case Qt::Key_F2:
       if(bAltF1F6) {
-        auto_tx_mode(true);
+        setAutoTxEnabled (true, TxControlOrigin::Local);
         on_txb2_clicked();
         return;
       } else {
@@ -3675,7 +3677,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
     case Qt::Key_F3:
       if(bAltF1F6) {
-        auto_tx_mode(true);
+        setAutoTxEnabled (true, TxControlOrigin::Local);
         on_txb3_clicked();
         return;
       } else {
@@ -3684,7 +3686,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
     case Qt::Key_F4:
       if(bAltF1F6) {
-        auto_tx_mode(true);
+        setAutoTxEnabled (true, TxControlOrigin::Local);
         on_txb4_clicked();
         return;
       } else {
@@ -3694,7 +3696,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
     case Qt::Key_F5:
       if(bAltF1F6) {
-        auto_tx_mode(true);
+        setAutoTxEnabled (true, TxControlOrigin::Local);
         on_txb5_clicked();
         return;
       } else {
@@ -4350,12 +4352,97 @@ void MainWindow::handleTxInhibitStatus (bool supported, bool inhibited,
 
 void MainWindow::startTxAudioAfterPttDelay ()
 {
-  if (!m_tx_when_ready || !g_iptt) return;
+  if (!m_tx_when_ready || !g_iptt || !m_config.radio_mode_ready ()) return;
 
   auto delay_ms = static_cast<int> (1000 * m_config.txDelay ());
   if (m_mode == "FT4") delay_ms = 20;
   ptt1Timer.start (delay_ms);
   m_tx_when_ready = false;
+}
+
+void MainWindow::handleRadioModeControl (bool yielded, bool ready)
+{
+  if (yielded)
+    {
+      m_jttyLiveEntryArmed = false;
+      m_jttyAutoAdvanceIdleTimer.stop ();
+      requestTxStop (TxEvidence::TxStopReason::Error);
+    }
+  else if (ready && (m_auto || m_tune || m_jttyTxLifecycle.active ()))
+    {
+      setXIT (ui->TxFreqSpinBox->value ());
+      if (m_tune && m_tci_audio) m_config.transceiver_tune (true);
+      startTxAudioAfterPttDelay ();
+    }
+  if (ready) startPendingRigTune ();
+  updateRadioModeStatus ();
+}
+
+void MainWindow::cancelRigTune ()
+{
+  bool const active = rigTuneTimer.isActive ();
+  bool const pending = m_pendingRigTune;
+  m_pendingRigTune = false;
+  rigTuneTimer.stop ();
+  if (active) m_config.transceiver_tune (false);
+  if (active || pending)
+    {
+      ui->tuneButton->setChecked (false);
+      ui->tuneButton->setText (tr ("Tune"));
+    }
+}
+
+void MainWindow::startPendingRigTune ()
+{
+  if (!m_pendingRigTune || !m_config.radio_mode_ready ()) return;
+  int const second = QDateTime::currentDateTimeUtc ().time ().second ();
+  bool const fox_receiving = m_specOp == SpecOp::HOUND && m_config.superFox ()
+    && (second < 15 || (second >= 30 && second < 45));
+  if (m_closing || blocked || m_tx_inhibited || fox_receiving
+      || !rigFrequencyChangeDecision (RigFrequencyChangePolicy::ChangeKind::NominalQsy).allowed)
+    {
+      cancelRigTune ();
+      return;
+    }
+  m_pendingRigTune = false;
+  m_config.transceiver_tune (false);
+  QScopedValueRollback<bool> blockTuneSlot {blocked, true};
+  m_config.transceiver_tune (true);
+  ui->tuneButton->setChecked (true);
+  ui->tuneButton->setText (tr ("Tuning"));
+  rigTuneTimer.start (6000);
+}
+
+void MainWindow::updateRadioModeStatus ()
+{
+  bool const blocked = m_config.radio_mode_yielded () || !m_config.radio_mode_ready ();
+  bool const visible = blocked && !m_transmitting && !m_tx_watchdog
+    && !m_generated_message_error && !m_tx_inhibited && !m_diskData;
+  if (visible)
+    {
+      auto const details = m_config.radio_mode_yielded ()
+        ? tr ("The radio mode changed or could not be applied. Enable Tx or Tune to resume "
+              "digital operation at the current dial frequency.")
+        : tr ("Waiting for the radio to apply the configured digital mode.");
+      set_style_sheet_if_changed (tx_status_label,
+        "QLabel{color: #000000; background-color: #ffff00}");
+      tx_status_label.setText (m_config.radio_mode_yielded ()
+        ? tr ("Radio mode not ready; Enable Tx is off") : tr ("Preparing radio mode"));
+      tx_status_label.setToolTip (details);
+      tx_status_label.setAccessibleDescription (details);
+    }
+  else if (m_radioModeStatusVisible && !m_tx_watchdog && !m_generated_message_error
+           && !m_tx_inhibited)
+    {
+      tx_status_label.setToolTip ({});
+      tx_status_label.setAccessibleDescription ({});
+      if (!m_transmitting && !m_diskData)
+        {
+          set_style_sheet_if_changed (tx_status_label, {});
+          tx_status_label.setText (m_monitoring ? tr ("Receiving") : QString {});
+        }
+    }
+  m_radioModeStatusVisible = visible;
 }
 
 void MainWindow::show_generated_message_error ()
@@ -4446,6 +4533,7 @@ void MainWindow::paintEvent (QPaintEvent * event)
 
 void MainWindow::closeEvent(QCloseEvent * e)
 {
+  cancelRigTune ();
   if (jttyDrainInProgress()) { closeAfterJttyDrain(); e->ignore(); return; }
   if (m_closing) { e->accept(); return; }
   m_closing = true;
@@ -7772,7 +7860,8 @@ void MainWindow::guiUpdate()
     int msgLength=txMsg.trimmed().length();
     if(should_stop_for_missing_tx_payload (m_mode, msgLength, m_tune)) on_stopTxButton_clicked();
 
-    if(g_iptt==0 and can_start_transmit (m_mode, m_bTxTime, fTR, msgLength, m_tune)) {
+    if(g_iptt==0 && m_config.radio_mode_ready ()
+       && can_start_transmit (m_mode, m_bTxTime, fTR, msgLength, m_tune)) {
       //### Allow late starts
       icw[0]=m_ncw;
       g_iptt = 1;
@@ -8084,7 +8173,7 @@ void MainWindow::guiUpdate()
         if (n > 3) m_xSent=t.at(n-2) + " " + t.at(n-1);
       }
     }
-    if (g_iptt == 1 && m_iptt0 == 0) {
+    if (g_iptt == 1 && m_iptt0 == 0 && m_config.radio_mode_ready ()) {
       if (m_mode != "JTTY")
         {
           beginTxEvidenceSession ();
@@ -8517,7 +8606,7 @@ void MainWindow::guiUpdate()
     } else if(m_generated_message_error && !m_tx_watchdog) {
       update_generated_message_error ();
     } else if(m_monitoring) {
-      if (!m_tx_watchdog) {
+      if (!m_tx_watchdog && m_config.radio_mode_ready ()) {
         tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #00ff00}");
         auto t = tr ("Receiving");
         // switching tx_status_label text and color when filters are enabled
@@ -8554,7 +8643,7 @@ void MainWindow::guiUpdate()
         tx_status_label.setText (t);
       }
       transmitDisplay(false);
-    } else if (!m_diskData && !m_tx_watchdog) {
+    } else if (!m_diskData && !m_tx_watchdog && m_config.radio_mode_ready ()) {
       tx_status_label.setStyleSheet("");
       tx_status_label.setText(m_mode == "JTTY" ? tr("Stopped") : QString{});
     }
@@ -8563,6 +8652,7 @@ void MainWindow::guiUpdate()
         "QLabel{color: #ffffff; background-color: #cc0000; font-weight: bold}");
       tx_status_label.setText (tr ("TX inhibited"));
     }
+    updateRadioModeStatus ();
 
     QDateTime t = QDateTime::currentDateTimeUtc();
     QString utc = t.date().toString("yyyy MMM dd") + "\n " +
@@ -8612,6 +8702,7 @@ void MainWindow::useNextCall()
 
 bool MainWindow::startTx2()
 {
+  if (!m_config.radio_mode_ready ()) return false;
   if (jttyDrainInProgress()) return false;
   bool const jtty = m_jttyTxLifecycle.active () && !m_tune;
   if (m_mode == "JTTY" && !m_tune
@@ -9502,7 +9593,8 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
     if (block_right_display) *block_right_display = effect.boolValue;
     break;
   case Effect::Kind::SetAutoEnabled:
-    auto_tx_mode(effect.boolValue);
+    setAutoTxEnabled (effect.boolValue, effect.userInitiated
+      ? TxControlOrigin::Local : TxControlOrigin::Automatic);
     break;
   case Effect::Kind::RefreshQsoPaneIfChanged:
     refreshQsoPane(message);
@@ -10257,20 +10349,17 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->labDialFreq->clearFocus();
   }
   if(ui->tuneButton->hasFocus() && (event->button() & Qt::RightButton)) {      // Tune button
-    if (rigTuneTimer.isActive ()) {
-      rigTuneTimer.stop ();
-      ui->tuneButton->setChecked(false);
-      ui->tuneButton->setText("Tune");
-      m_config.transceiver_tune (false);     // reset rig tuning
-    } else {
-      m_config.transceiver_tune (false);     // reset any prior rig tuning
-      blocked=true;
-      m_config.transceiver_tune (true);
-      blocked=false;
-      ui->tuneButton->setChecked(true);
-      ui->tuneButton->setText("Tuning");
-      rigTuneTimer.start (6000);
-    }
+    if (rigTuneTimer.isActive () || m_pendingRigTune) cancelRigTune ();
+    else if (!m_closing && !blocked && !m_tx_inhibited
+             && rigFrequencyChangeDecision (RigFrequencyChangePolicy::ChangeKind::NominalQsy).allowed)
+      {
+        if (m_auto) auto_tx_mode (false);
+        if (m_config.prepare_radio_mode ())
+          {
+            m_pendingRigTune = true;
+            startPendingRigTune ();
+          }
+      }
     ui->tuneButton->clearFocus();
   }
   if(ui->DX_Call_Button->hasFocus() && (event->button() & Qt::RightButton)) {  // DX_Call_Button
@@ -12885,6 +12974,7 @@ void MainWindow::rigOpen ()
 
 void MainWindow::setXIT(int n, Frequency base)
 {
+  if (m_config.radio_mode_yielded ()) return;
   auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
   if (!rigFrequencyChangeDecision (kind).allowed) return;
   m_operatingFrequency.setConnectionGeneration (
@@ -14381,17 +14471,19 @@ void MainWindow::processBeaconActions (BeaconTx::Controller::Actions actions)
             action.planId, applyBeaconBandChange (action.hopping));
           break;
         case BeaconTx::ActionKind::StartAutomaticTune:
+          if (m_config.radio_mode_yielded ()) break;
           followup = m_beaconTxController.tuneStarted (
             BeaconTx::TuneKind::Automatic, action.planId);
           if (m_beaconTxController.tuneKind () == BeaconTx::TuneKind::Automatic
               && m_beaconTxController.tunePlanId () == action.planId)
             {
-              on_tuneButton_clicked (true);
+              setTuneEnabled (true, TxControlOrigin::Automatic);
               tuneATU_Timer.start (2500);
             }
           break;
         case BeaconTx::ActionKind::RestoreAuto:
           {
+            if (m_config.radio_mode_yielded ()) break;
             QSignalBlocker const blocker {ui->autoButton};
             ui->autoButton->setChecked (true);
             m_auto = true;
@@ -14550,6 +14642,8 @@ bool MainWindow::requestNominalFrequencyChange (Frequency frequency,
 {
   auto const previous = m_operatingFrequency.rx();
   if (!nominalFrequencyChangeAllowed (origin)) return false;
+  if (origin == FrequencyRequestOrigin::User && m_config.radio_mode_yielded ()
+      && !m_config.prepare_radio_mode ()) return false;
   auto const dispatch = (m_monitoring || m_transmitting) && m_config.transceiver_online ();
   m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation (), dispatch);
   if (!m_operatingFrequency.requestNominal (frequency,
@@ -14568,6 +14662,7 @@ bool MainWindow::requestNominalFrequencyChange (Frequency frequency,
 
 bool MainWindow::reapplyCurrentRigFrequencyCorrection ()
 {
+  if (m_config.radio_mode_yielded ()) return false;
   auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
   auto const activity = rigFrequencyActivity ();
   if (!RigFrequencyChangePolicy::evaluate (

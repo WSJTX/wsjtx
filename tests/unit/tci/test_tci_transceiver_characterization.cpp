@@ -1103,6 +1103,93 @@ private slots:
                             QStringLiteral ("modulation")), mode_count);
   }
 
+  void unsolicited_mode_survives_frequency_maintenance_until_explicit_restore ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    auto cursor = harness.set (digital, 10);
+    QVERIFY2 (harness.wait_for_state (cursor, 10, [] (State const& state) {
+      return state.mode () == Transceiver::DIG_U;
+    }), qPrintable (harness.diagnostics ()));
+    QTest::qWait (1600);
+    auto& server = harness.server ();
+    auto const mode_commands = server.count (Direction::ClientToServer, "modulation");
+    QSignalSpy statuses {&harness.rig (), &Transceiver::mode_status};
+    server.send_text ("modulation:0,cw");
+    QVERIFY2 (harness.wait_for_current_state ([] (State const& state) {
+      return state.mode () == Transceiver::CW;
+    }, 2000), qPrintable (harness.diagnostics ()));
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), mode_commands);
+    QVERIFY (!statuses.isEmpty ());
+    auto const observed = qvariant_cast<Transceiver::ModeStatus> (statuses.last ().at (0));
+    QCOMPARE (observed.kind, Transceiver::ModeStatusKind::Observed);
+    QCOMPARE (observed.mode, Transceiver::CW);
+
+    auto correction = state_from (harness);
+    correction.frequency (correction.frequency () + 1);
+    correction.mode (Transceiver::UNK);
+    cursor = harness.set (correction, 11);
+    QVERIFY2 (harness.wait_for_state (cursor, 11, [&] (State const& state) {
+      return state.frequency () == correction.frequency () && state.mode () == Transceiver::CW;
+    }), qPrintable (harness.diagnostics ()));
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), mode_commands);
+
+    digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    cursor = harness.set (digital, 12);
+    QVERIFY2 (harness.wait_for_state (cursor, 12, [] (State const& state) {
+      return state.mode () == Transceiver::DIG_U;
+    }), qPrintable (harness.diagnostics ()));
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), mode_commands + 1);
+    QCOMPARE (harness.failure_count (), 0);
+  }
+
+  void mode_preparation_conflict_keeps_connection_available_for_recovery ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto& server = harness.server ();
+    server.send_text ("modulation:0,cw");
+    QVERIFY2 (harness.wait_for_current_state ([] (State const& state) {
+      return state.mode () == Transceiver::CW;
+    }, 2000), qPrintable (harness.diagnostics ()));
+    QSignalSpy statuses {&harness.rig (), &Transceiver::mode_status};
+    harness.set_command_handler ([&server] (QString const& verb, QStringList const&, int) {
+      if (verb != "modulation") return false;
+      server.send_text_later ("modulation:0,cw", 10);
+      return true;
+    });
+    auto digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    auto const command_start = server.count (Direction::ClientToServer, "modulation");
+    harness.set (digital, 10);
+    QVERIFY2 (server.wait_for ([&statuses] {
+      if (statuses.isEmpty ()) return false;
+      auto const status = qvariant_cast<Transceiver::ModeStatus> (statuses.last ().at (0));
+      return status.kind == Transceiver::ModeStatusKind::Observed && status.mode == Transceiver::CW;
+    }, 3000), qPrintable (harness.diagnostics ()));
+    QCOMPARE (harness.failure_count (), 0);
+    QVERIFY (harness.state ().online ());
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), command_start + 1);
+    QTest::qWait (600);
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), command_start + 1);
+    QCOMPARE (harness.failure_count (), 0);
+
+    harness.set_command_handler ({});
+    digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    auto const cursor = harness.set (digital, 11);
+    QVERIFY2 (harness.wait_for_state (cursor, 11, [] (State const& state) {
+      return state.mode () == Transceiver::DIG_U;
+    }), qPrintable (harness.diagnostics ()));
+    QCOMPARE (harness.failure_count (), 0);
+    QVERIFY (harness.state ().online ());
+  }
+
   void unacknowledged_rx_vfo_fails_boundedly_without_dependent_commands ()
   {
     RigHarness harness;

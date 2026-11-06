@@ -77,6 +77,11 @@ void MainWindow::on_monitorButton_clicked (bool checked)
   if (!m_transmitting) {
     if (checked)
       {
+        if (m_config.radio_mode_yielded ())
+          {
+            applyMonitorEffects (true, false);
+            return;
+          }
         auto const online = m_config.transceiver_online ();
         m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation (), online);
         auto const transition = m_operatingFrequency.enableMonitor (
@@ -116,9 +121,25 @@ void MainWindow::applyMonitorEffects (bool checked, bool restored)
 
 void MainWindow::on_autoButton_clicked (bool checked)
 {
-  if (ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
-  m_config.transceiver_tune (false);  // reset rig tuning
+  setAutoTxEnabled (checked, TxControlOrigin::Local);
+}
+
+void MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
+{
+  if (checked && origin == TxControlOrigin::Automatic
+      && (m_pendingRigTune || rigTuneTimer.isActive ())) return;
+  cancelRigTune ();
+  if (checked && ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
   if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return; // not allowed while tuning
+  if (checked && ((origin == TxControlOrigin::Automatic && m_config.radio_mode_yielded ())
+                  || !m_config.prepare_radio_mode ()))
+    {
+      ui->autoButton->setChecked (false);
+      updateRadioModeStatus ();
+      return;
+    }
+  ui->autoButton->setChecked (checked);
+  m_config.transceiver_tune (false);  // reset rig tuning
   stopWRTimer.stop();                                       // stop any Wait & Reply timeout
   if (!checked && ui->DX_Call_Button->isChecked()) {
       stopWCTimer.stop();                                   // stop any Wait & Call timeout
@@ -167,6 +188,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
   }
   m_tAutoOn=QDateTime::currentMSecsSinceEpoch()/1000;
   if(m_mode=="Echo") m_echoRunning=false;
+  if (checked) setXIT (ui->TxFreqSpinBox->value ());
   check_button_color();
 }
 
@@ -482,7 +504,21 @@ void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
 
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
+  setTuneEnabled (checked, TxControlOrigin::Local);
+}
+
+void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
+{
   if (checked) endQsoRepeat (QsoRepeatEnd::Superseded);
+  cancelRigTune ();
+  bool const recovering_mode = checked && !m_config.radio_mode_ready ();
+  if (checked && ((origin == TxControlOrigin::Automatic && m_config.radio_mode_yielded ())
+                  || !m_config.prepare_radio_mode ()))
+    {
+      ui->tuneButton->setChecked (false);
+      updateRadioModeStatus ();
+      return;
+    }
   if (checked) m_autoRespondPeriodState.disarm();
   rigTuneTimer.stop ();
   ui->pbBandHopping->setChecked(false); // disable band hopping
@@ -532,7 +568,9 @@ void MainWindow::on_tuneButton_clicked (bool checked)
   } else {
     m_sentFirst73=false;
     itone[0]=0;
-    on_monitorButton_clicked (true);
+    if (recovering_mode) applyMonitorEffects (true, false);
+    else on_monitorButton_clicked (true);
+    setXIT (ui->TxFreqSpinBox->value ());
     m_tune=true;
   }
   if (m_tci_audio) Q_EMIT m_config.transceiver_tune(checked);
@@ -579,10 +617,12 @@ void MainWindow::requestTxStop (TxEvidence::TxStopReason reason)
   if (reason == TxEvidence::TxStopReason::UserHalt)
     endQsoRepeat (QsoRepeatEnd::OperatorStop);
   else endQsoRepeat (QsoRepeatEnd::Fault);
+  cancelRigTune ();
   noteTxStopReason (reason);
   bool const pending_start = m_tx_when_ready || ptt1Timer.isActive ();
   m_tx_when_ready = false;
   ptt1Timer.stop ();
+  TxAgainTimer.stop ();
   m_restart = false;
   if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::Decided
       || m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::StartRequested)

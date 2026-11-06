@@ -1,5 +1,6 @@
 #include "Configuration.hpp"
 #include "FrequencyAdapter.hpp"
+#include "RadioModePolicy.hpp"
 
 //
 // Read me!
@@ -750,7 +751,11 @@ private:
       (WSJT_RIG_NONE_CAN_SPLIT || !rig_is_dummy_) &&
       (rig_params_.split_mode != TransceiverFactory::split_mode_none);
   }
-  void set_cached_mode ();
+  MODE configured_mode () const;
+  void send_transceiver (MODE = Transceiver::UNK);
+  bool prepare_radio_mode ();
+  void handle_mode_status (Transceiver::ModeStatus const&, unsigned);
+  void notify_mode_control (RadioModePolicy::State);
   bool open_rig (bool force = false);
   bool rig_restart_required (TransceiverFactory::ParameterPack const&, bool) const;
   bool tx_inhibit_blocks_rig_restart (TransceiverFactory::ParameterPack const&, bool) const;
@@ -978,6 +983,8 @@ private:
   StationList stations_;
   StationList next_stations_;
   FrequencyAdapter frequency_adapter_;
+  RadioModePolicy radio_mode_policy_;
+  Frequency observed_rx_frequency_ = 0;
   bool deferred_frequency_retry_scheduled_ = false;
   std::function<RigFrequencyChangePolicy::Activity ()> frequency_activity_provider_;
   quint64 legacy_frequency_id_ = quint64 {1} << 63;
@@ -1527,6 +1534,22 @@ bool Configuration::transceiver_tx_frequency (Frequency f, RigFrequencyChangePol
   return m_->transceiver_tx_frequency (f, kind);
 }
 
+bool Configuration::prepare_radio_mode ()
+{
+  return m_->prepare_radio_mode ();
+}
+
+bool Configuration::radio_mode_ready () const
+{
+  return m_->configured_mode () == Transceiver::UNK || m_->rig_is_dummy_
+    || m_->radio_mode_policy_.ready ();
+}
+
+bool Configuration::radio_mode_yielded () const
+{
+  return m_->configured_mode () != Transceiver::UNK && m_->radio_mode_policy_.yielded ();
+}
+
 void Configuration::transceiver_mode (MODE mode)
 {
   LOG_TRACE (mode << ' ' << m_->cached_rig_state_);
@@ -1569,7 +1592,7 @@ void Configuration::transceiver_receive_policy (ReceivePolicy policy)
 {
   m_->cached_rig_state_.receive_policy (policy);
   if (m_->cached_rig_state_.online () && m_->can_control_rig ("transceiver_receive_policy"))
-    Q_EMIT m_->set_transceiver (m_->cached_rig_state_, ++m_->transceiver_command_number_);
+    m_->send_transceiver ();
 }
 
 void Configuration::transceiver_receive_discontinuity (JttyReceiveReason reason)
@@ -1581,7 +1604,7 @@ void Configuration::transceiver_receive_context (quint64 context)
 {
   m_->cached_rig_state_.receive_context (context);
   if (m_->cached_rig_state_.online () && m_->can_control_rig ("transceiver_receive_context"))
-    Q_EMIT m_->set_transceiver (m_->cached_rig_state_, ++m_->transceiver_command_number_);
+    m_->send_transceiver ();
 }
 
 void Configuration::transceiver_receive_stop_reason (JttyReceiveReason reason)
@@ -4827,6 +4850,9 @@ void Configuration::impl::accept ()
   tune_watchdog_time_ = ui_->tune_watchdog_spin_box->value ();
   TX_messages_ = ui_->TX_messages_check_box->isChecked ();
   data_mode_ = static_cast<DataMode> (ui_->TX_mode_button_group->checkedId ());
+  auto const previous_mode_control = radio_mode_policy_.state ();
+  radio_mode_policy_.configure (configured_mode ());
+  notify_mode_control (previous_mode_control);
   bLowSidelobes_ = ui_->rbLowSidelobes->isChecked();
   save_directory_.setPath (ui_->save_path_display_label->text ());
   azel_directory_.setPath (ui_->azel_path_display_label->text ());
@@ -7120,6 +7146,10 @@ bool Configuration::impl::open_rig (bool force)
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_accepted, self_, &Configuration::transceiver_jtty_enqueue_accepted);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
           auto const frequency_generation = frequency_adapter_.generation ();
+          rig_connections_ << connect (rig.get (), &Transceiver::mode_status, this,
+            [this, frequency_generation] (Transceiver::ModeStatus const& status, unsigned sequence) {
+              if (frequency_generation == frequency_adapter_.generation ()) handle_mode_status (status, sequence);
+            });
           rig_connections_ << connect (rig.get (), &Transceiver::update, this,
             [this, frequency_generation] (TransceiverState const& state, unsigned sequence) {
               if (frequency_generation == frequency_adapter_.generation ()) handle_transceiver_update (state, sequence);
@@ -7225,19 +7255,76 @@ void Configuration::impl::warn_tx_inhibit_restart_blocked ()
         "settings that require restarting the radio."));
 }
 
-void Configuration::impl::set_cached_mode ()
+auto Configuration::impl::configured_mode () const -> MODE
 {
-  MODE mode {Transceiver::UNK};
-  // override cache mode with what we want to enforce which includes
-  // UNK (unknown) where we want to leave the rig mode untouched
   switch (data_mode_)
     {
-    case data_mode_USB: mode = Transceiver::USB; break;
-    case data_mode_data: mode = Transceiver::DIG_U; break;
-    default: break;
+    case data_mode_USB: return Transceiver::USB;
+    case data_mode_data: return Transceiver::DIG_U;
+    default: return Transceiver::UNK;
     }
+}
 
-  cached_rig_state_.mode (mode);
+void Configuration::impl::notify_mode_control (RadioModePolicy::State previous)
+{
+  if (radio_mode_policy_.yielded () && previous != RadioModePolicy::State::Yielded)
+    {
+      auto const cancelled = frequency_adapter_.cancel_pending ();
+      cached_rig_state_.frequency_request (RigFrequency::Path::Rx, {});
+      cached_rig_state_.frequency_request (RigFrequency::Path::Tx, {});
+      if (observed_rx_frequency_) cached_rig_state_.frequency (observed_rx_frequency_);
+      for (auto const& request : cancelled)
+        Q_EMIT self_->frequency_result (
+          {request, RigFrequency::Outcome::Deferred, RigFrequency::Basis::Retained, 0});
+    }
+  if (previous != radio_mode_policy_.state ())
+    Q_EMIT self_->radio_mode_control_changed (
+      radio_mode_policy_.yielded (), radio_mode_policy_.ready ());
+}
+
+void Configuration::impl::send_transceiver (MODE mode)
+{
+  auto command = cached_rig_state_;
+  command.mode (mode);
+  auto const sequence = ++transceiver_command_number_;
+  if (mode != Transceiver::UNK && !command.ptt ())
+    {
+      auto const previous = radio_mode_policy_.state ();
+      radio_mode_policy_.configure (configured_mode ());
+      radio_mode_policy_.prepare (sequence);
+      notify_mode_control (previous);
+    }
+  Q_EMIT set_transceiver (command, sequence);
+}
+
+bool Configuration::impl::prepare_radio_mode ()
+{
+  auto const previous = radio_mode_policy_.state ();
+  auto const desired = configured_mode ();
+  radio_mode_policy_.configure (desired);
+  notify_mode_control (previous);
+  if (desired == Transceiver::UNK || rig_is_dummy_) return true;
+  if (radio_mode_policy_.state () == RadioModePolicy::State::Preparing) return true;
+  if (radio_mode_policy_.ready () && radio_mode_policy_.has_prepared ()
+      && cached_rig_state_.mode () == desired) return true;
+  if (!frequency_change_allowed (RigFrequencyChangePolicy::ChangeKind::NominalQsy)
+      || !have_rig () || !cached_rig_state_.frequency ()) return false;
+  cached_rig_state_.online (true);
+  send_transceiver (desired);
+  return true;
+}
+
+void Configuration::impl::handle_mode_status (Transceiver::ModeStatus const& status,
+                                               unsigned sequence)
+{
+  auto const previous = radio_mode_policy_.state ();
+  radio_mode_policy_.configure (configured_mode ());
+  radio_mode_policy_.observe (status, sequence);
+  if (radio_mode_policy_.ready () && status.mode == configured_mode ()
+      && (status.kind == Transceiver::ModeStatusKind::Observed
+          || status.kind == Transceiver::ModeStatusKind::Applied))
+    cached_rig_state_.mode (status.mode);
+  notify_mode_control (previous);
 }
 
 RigFrequencyChangePolicy::Activity Configuration::impl::frequency_change_activity () const
@@ -7270,7 +7357,7 @@ bool Configuration::impl::transceiver_tx_frequency (
 bool Configuration::impl::request_frequency (
   RigFrequency::Request const& request, RigFrequencyChangePolicy::ChangeKind kind)
 {
-  if (!frequency_change_allowed (kind)
+  if (radio_mode_policy_.yielded () || !frequency_change_allowed (kind)
       || (request.path == RigFrequency::Path::Tx
           && !RigFrequencyChangePolicy::tx_path_frequency_supported (request.target != 0, split_mode ())))
     return false;
@@ -7289,11 +7376,11 @@ void Configuration::impl::dispatch_frequencies ()
 {
   for (auto path : {RigFrequency::Path::Rx, RigFrequency::Path::Tx})
     {
-      if (!frequency_change_allowed (frequency_kinds_[path == RigFrequency::Path::Rx ? 0 : 1])) continue;
+      if (radio_mode_policy_.yielded ()
+          || !frequency_change_allowed (frequency_kinds_[path == RigFrequency::Path::Rx ? 0 : 1])) continue;
       auto command = frequency_adapter_.take_dispatch (path);
       if (!command) continue;
       cached_rig_state_.online (true);
-      set_cached_mode ();
       cached_rig_state_.frequency_request (*command);
       if (path == RigFrequency::Path::Rx) cached_rig_state_.frequency (command->target);
       else
@@ -7301,7 +7388,10 @@ void Configuration::impl::dispatch_frequencies ()
           cached_rig_state_.tx_frequency (command->target);
           cached_rig_state_.split (command->target != 0);
         }
-      Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+      send_transceiver (
+        frequency_kinds_[path == RigFrequency::Path::Rx ? 0 : 1]
+          == RigFrequencyChangePolicy::ChangeKind::NominalQsy
+        ? configured_mode () : Transceiver::UNK);
     }
 }
 
@@ -7337,6 +7427,9 @@ void Configuration::impl::handle_frequency_result (RigFrequency::Result const& r
 
 void Configuration::impl::handle_frequency_observation (RigFrequency::Evidence const& evidence)
 {
+  if (evidence.path == RigFrequency::Path::Rx
+      && evidence.basis == RigFrequency::Basis::Readback && evidence.value)
+    observed_rx_frequency_ = evidence.value;
   auto translated = frequency_adapter_.observe (evidence);
   if (!translated) return;
   if (!translated->operation)
@@ -7373,20 +7466,17 @@ void Configuration::impl::reproject_frequencies ()
 void Configuration::impl::transceiver_mode (MODE m)
 {
   cached_rig_state_.online (true); // we want the rig online
-  cached_rig_state_.mode (m);
-  // qDebug () << "Configuration::impl::transceiver_mode: n:" << transceiver_command_number_ + 1 << "m:" << m;
-  LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
-  Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  send_transceiver (m);
 }
 
 void Configuration::impl::transceiver_ptt (bool on)
 {
+  if (on && !self_->radio_mode_ready ()) return;
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   cached_rig_state_.ptt (on);
   // qDebug () << "Configuration::impl::transceiver_ptt: n:" << transceiver_command_number_ + 1 << "on:" << on;
   LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
-  Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  send_transceiver (on ? configured_mode () : Transceiver::UNK);
   if (!on)
     {
       frequency_adapter_.resume_deferred ();
@@ -7397,118 +7487,109 @@ void Configuration::impl::transceiver_ptt (bool on)
 void Configuration::impl::transceiver_audio (bool on)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (cached_rig_state_.audio() != on)
   {
     cached_rig_state_.audio (on);
 //    printf("%s(%0.1f) Configuration #:%d audio: %d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,on);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 }
 
 void Configuration::impl::transceiver_tune (bool on)
 {
+  if (on && !self_->radio_mode_ready ()) return;
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   //cached_rig_state_.ptt (on);
   cached_rig_state_.tune (on);
   // qDebug () << "Configuration::impl::transceiver_ptt: n:" << transceiver_command_number_ + 1 << "on:" << on;
   LOG_TRACE ("emitting set_transceiver: requested state:" << cached_rig_state_);
-  Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  send_transceiver ();
 }
 
 
 void Configuration::impl::transceiver_period (double period)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
 //    printf("%s(%0.1f) Configuration #:%d period: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,period,cached_rig_state_.period());
   cached_rig_state_.period (period);
-  Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  send_transceiver ();
 }
 
 void Configuration::impl::transceiver_blocksize (qint32 blocksize)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (cached_rig_state_.blocksize() != blocksize)
   {
 //    printf("%s(%0.1f) Configuration #:%d blocksize: %d cached:%d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,blocksize,cached_rig_state_.blocksize());
     cached_rig_state_.blocksize (blocksize);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 }
 
 void Configuration::impl::transceiver_spread (double spread)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (cached_rig_state_.spread() != spread)
   {
 //    printf("%s(%0.1f) Configuration #:%d spread: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,spread,cached_rig_state_.spread());
     cached_rig_state_.spread (spread);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 }
 
 void Configuration::impl::transceiver_nsym (int nsym)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (cached_rig_state_.nsym() != nsym)
   {
 //    printf("%s(%0.1f) Configuration #:%d nsym: %d cached:%d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,nsym,cached_rig_state_.nsym());
     cached_rig_state_.nsym (nsym);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 }
 
 void Configuration::impl::transceiver_trfrequency (double trfrequency)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (cached_rig_state_.trfrequency() != trfrequency)
   {
 //    printf("%s(%0.1f) Configuration #:%d trfrequency: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,trfrequency,cached_rig_state_.trfrequency());
     cached_rig_state_.trfrequency (trfrequency);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 }
 
 void Configuration::impl::transceiver_txvolume (double txvolume, bool force)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (force || cached_rig_state_.txvolume() != txvolume)
   {
 //    printf("%s(%0.1f) Configuration #:%d txvolume: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,txvolume,cached_rig_state_.txvolume());
     cached_rig_state_.txvolume (txvolume);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 }
 
 void Configuration::impl::transceiver_volume (double volume)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (cached_rig_state_.volume() != volume)
   {
     //printf("In Configuration::transceiver_volume, volume: %f cached: %f\n",volume,cached_rig_state_.volume());
     cached_rig_state_.volume (volume);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 }
 
 void Configuration::impl::transceiver_modulator_start (TxEvidence::TxRequest const& request)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (!cached_rig_state_.tx_audio())
   {
     cached_rig_state_.tx_audio (true);
     cached_rig_state_.tx_request (request);
     //    printf("%s(%0.1f) Configuration #:%d modulator_start: symbolslength=%d framespersymbol=%0.1f frequency=%0.1f tonespacing=%0.1f synchronize= %d dbsnr=%0.1f trperiod=%0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,symbolslength,framespersymbol,frequency,tonespacing,synchronize,dbsnr,trperiod);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 //  else printf("%s(%0.1f) Configuration modulator_start: WAS ALLREADY RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
 }
@@ -7536,13 +7617,12 @@ void Configuration::impl::transceiver_clear_jtty_pcm (TxAudioQueueEpoch epoch)
 void Configuration::impl::transceiver_modulator_stop (bool on)
 {
   cached_rig_state_.online (true); // we want the rig online
-  set_cached_mode ();
   if (cached_rig_state_.tx_audio())
   {
     cached_rig_state_.tx_audio (false);
     cached_rig_state_.quick (on);
 //    printf("%s(%0.1f) Configuration #:%d modulator_stop: quick=%d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,on);
-    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+    send_transceiver ();
   }
 //  else printf("%s(%0.1f) Configuration modulator_stop: WAS NOT RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
 }
@@ -7654,6 +7734,7 @@ void Configuration::impl::close_rig (bool failed)
   // revert to no rig configured
   if (rig_active_)
     {
+      rig_active_ = false;
       Q_EMIT self_->transceiver_closing (failed);
       ui_->test_CAT_push_button->setStyleSheet ("QPushButton {background-color: red;}");
       LOG_TRACE ("emitting stop_transceiver");
@@ -7664,9 +7745,12 @@ void Configuration::impl::close_rig (bool failed)
           disconnect (connection);
         }
       rig_connections_.clear ();
-      rig_active_ = false;
     }
   mark_rig_offline ();
+  // Frequency owners must record an interrupted request before mode yield cancels it.
+  if (radio_mode_policy_.state () == RadioModePolicy::State::Preparing)
+    handle_mode_status ({Transceiver::UNK, Transceiver::ModeStatusKind::Unavailable}, transceiver_command_number_);
+  observed_rx_frequency_ = 0;
   ++tx_inhibit_generation_;
   tx_inhibit_active_ = false;
   if (tx_inhibit_status_forwarded_)

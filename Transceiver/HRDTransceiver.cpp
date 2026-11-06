@@ -969,7 +969,7 @@ void HRDTransceiver::do_poll ()
   // transmitting
   if (vfo_count_ > 1 || !state ().ptt ())
     {
-      update_mode (get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_)));
+      observe_mode (get_data_mode (lookup_mode (get_dropdown (mode_A_dropdown_), mode_A_map_)));
     }
 }
 

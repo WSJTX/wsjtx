@@ -46,7 +46,7 @@ add_test (NAME test_configuration_radio COMMAND test_configuration_radio)
 set_tests_properties (test_configuration_radio PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   LABELS "frequency-control;threading"
-  TIMEOUT 60)
+  TIMEOUT 90)
 if (WSJT_ENABLE_TSAN)
   set_property (TEST test_configuration_radio APPEND PROPERTY ENVIRONMENT
     "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
@@ -242,6 +242,10 @@ add_executable (test_transceiver_frequency
 target_include_directories (test_transceiver_frequency PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_transceiver_frequency Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_transceiver_frequency COMMAND test_transceiver_frequency)
+
+add_executable (test_radio_mode_policy test_radio_mode_policy.cpp)
+target_link_libraries (test_radio_mode_policy wsjt_qt Qt5::Test)
+add_test (NAME test_radio_mode_policy COMMAND test_radio_mode_policy)
 
 add_executable (test_hamlib_mode
   test_hamlib_mode.cpp

@@ -411,6 +411,12 @@ public:
   // rationalise_mode means ensure TX uses same mode as RX.
   Q_SLOT bool transceiver_tx_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
 
+  // Request configured mode at the observed dial; readiness is asynchronous.
+  bool prepare_radio_mode ();
+  bool radio_mode_ready () const;
+  bool radio_mode_yielded () const;
+  Q_SIGNAL void radio_mode_control_changed (bool yielded, bool ready) const;
+
   // Set transceiver mode.
   Q_SLOT void transceiver_mode (MODE);
 

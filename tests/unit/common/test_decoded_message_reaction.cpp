@@ -525,6 +525,30 @@ private slots:
     QVERIFY(foundQsy);
   }
 
+  void fastCqQsyIdentifiesOnlyLocalControl()
+  {
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    for (auto origin : {Origin::ManualLeftPane, Origin::ManualRightPane,
+                        Origin::Udp, Origin::AutomaticSelection, Origin::Synthetic}) {
+      auto context = baseContext();
+      context.mode = "MSK144";
+      context.fastMode = true;
+      context.transceiverOnline = true;
+      context.nominalFrequency = 50260000;
+      context.selectionOrigin = origin;
+      DecodedText message {"060522 -10  0.3 0815 &  CQ 260 W1AW FN31"};
+      auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+      bool found {false};
+      for (auto const& effect : plan.effects) {
+        if (effect.kind != Effect::Kind::ApplyFastCqQsy) continue;
+        found = true;
+        QCOMPARE(effect.userInitiated,
+                 origin == Origin::ManualLeftPane || origin == Origin::ManualRightPane);
+      }
+      QVERIFY(found);
+    }
+  }
+
   void blockedFastCqSuppressesOnlyNominalQsyEffects()
   {
     auto allowedContext = baseContext();

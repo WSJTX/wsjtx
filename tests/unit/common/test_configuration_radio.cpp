@@ -61,6 +61,7 @@ struct FrequencySession final : QObject
   QStringList failures;
   Frequency appliedRx = 14074000;
   Frequency appliedTx = 14075000;
+  QString appliedMode {"digu"};
   Frequency withheldTarget = 0;
   QString withheld;
   bool wrongThread = false;
@@ -104,8 +105,13 @@ struct FrequencySession final : QObject
     connect (&configuration, &Configuration::transceiver_failure, this,
       [this] (QString const& reason) { failures.push_back (reason); });
     connect (&server, &TciSimServer::client_arrived, this, [this] (int) {
-      for (auto const& message : TciSimScript::greeting_messages (TciSimGreeting::Thetis))
-        server.send_text (message);
+      for (auto message : TciSimScript::greeting_messages (TciSimGreeting::Thetis))
+        {
+          if (message.startsWith ("vfo:0,0,")) message = QString {"vfo:0,0,%1"}.arg (appliedRx);
+          else if (message.startsWith ("vfo:0,1,")) message = QString {"vfo:0,1,%1"}.arg (appliedTx);
+          else if (message.startsWith ("modulation:0,")) message = QString {"modulation:0,%1"}.arg (appliedMode);
+          server.send_text (message);
+        }
     });
     connect (&server, &TciSimServer::text_received, this, [this] (QString const& raw, int) {
       for (auto message : raw.split (';', Qt::SkipEmptyParts))
@@ -124,7 +130,12 @@ struct FrequencySession final : QObject
                 }
               server.send_text (QString {"vfo:0,%1,%2"}.arg (args.at (1)).arg (applied));
             }
-          else if (verb == "trx" || verb == "split_enable" || verb == "modulation"
+          else if (verb == "modulation")
+            {
+              if (args.size () >= 2) appliedMode = args.at (1);
+              server.send_text (QString {"modulation:0,%1"}.arg (appliedMode));
+            }
+          else if (verb == "trx" || verb == "split_enable"
                    || verb == "rx_enable" || verb == "start" || verb == "stop")
             server.send_text (message);
         }
@@ -135,6 +146,19 @@ struct FrequencySession final : QObject
   bool apply (RigFrequency::Path path)
   {
     return frequency.applyCorrection (path, activity, false, dispatch);
+  }
+  int modeWrites () const
+  {
+    int writes = 0;
+    for (auto const& message : server.messages (TciSimServer::Direction::ClientToServer, "modulation"))
+      if (message.args.size () >= 2) ++writes;
+    return writes;
+  }
+  void selectMode (QString const& mode)
+  {
+    appliedMode = mode;
+    server.send_text (QString {"modulation:0,%1"}.arg (mode));
+    server.flush ();
   }
   void release ()
   {
@@ -437,6 +461,297 @@ private slots:
     QVERIFY (!s.frequency.recoveryRequired ());
     QVERIFY (s.failures.isEmpty ());
     QVERIFY (!s.wrongThread);
+  }
+
+  void reconnectAfterInterruptedFrequencyPreservesExternalMode_data ()
+  {
+    QTest::addColumn<bool> ("tx");
+    QTest::addColumn<bool> ("queuedCompletion");
+    QTest::addColumn<QString> ("externalMode");
+    QTest::newRow ("RX-QSY-pending-CW") << false << false << QString {"cw"};
+    QTest::newRow ("RX-QSY-queued-USB") << false << true << QString {"usb"};
+    QTest::newRow ("TX-correction-pending-CW") << true << false << QString {"cw"};
+    QTest::newRow ("TX-correction-queued-USB") << true << true << QString {"usb"};
+  }
+
+  void reconnectAfterInterruptedFrequencyPreservesExternalMode ()
+  {
+    QFETCH (bool, tx);
+    QFETCH (bool, queuedCompletion);
+    QFETCH (QString, externalMode);
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.frequency.setDesiredCorrection (125, -125);
+    QVERIFY (s.frequency.requestNominal (FrequencySession::nominal, s.dispatch));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingRx; }, 3000));
+    QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingTx; }, 3000));
+
+    s.frequency.setDesiredCorrection (175, -175);
+    s.withheldTarget = tx ? FrequencySession::nominal - 175 : FrequencySession::nominal + 1175;
+    if (!tx)
+      {
+        QVERIFY (s.frequency.requestNominal (FrequencySession::nominal + 1000,
+          [&] (RigFrequency::Request const& request) {
+            return configuration_->request_frequency (request, RigFrequencyChangePolicy::ChangeKind::NominalQsy);
+          }));
+      }
+    else QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.withheld.isEmpty (); }, 3000));
+    if (queuedCompletion)
+      {
+        auto& app = *static_cast<RadioTestApplication *> (qApp);
+        while (app.completedCall.tryAcquire ()) {}
+        app.fenceArmed.store (true);
+        s.release ();
+        // Leave the completed operation queued on the GUI side until CAT closes.
+        QVERIFY (app.completedCall.tryAcquire (1, 3000));
+      }
+    QVERIFY (tx ? s.frequency.snapshot ().pendingTx : s.frequency.snapshot ().pendingRx);
+    auto const oldGeneration = configuration_->frequency_generation ();
+    QObject stopping;
+    auto const stopConnection = connect (configuration_.get (), &Configuration::radio_mode_control_changed, &stopping,
+      [&] (bool yielded, bool) {
+        if (!yielded) return;
+        configuration_->transceiver_ptt (false);
+        configuration_->transceiver_tune (false);
+        configuration_->transceiver_audio (false);
+        configuration_->transceiver_txvolume (1.0, true);
+      });
+    QSignalSpy closingCommands {&dialog (), &Configuration::impl::set_transceiver};
+    configuration_->transceiver_offline ();
+    QVERIFY (closingCommands.isEmpty ());
+    disconnect (stopConnection);
+    QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+    QVERIFY (s.frequency.recoveryRequired ());
+    auto const resultsAfterClose = s.results.size ();
+
+    FrequencySession::Frequency const externalDial = 7074000;
+    s.appliedRx = externalDial;
+    s.appliedTx = externalDial + 1000;
+    s.appliedMode = externalMode;
+    s.withheld.clear ();
+    s.withheldTarget = 0;
+    s.previous = {};
+    auto const modeWritesBeforeReconnect = s.modeWrites ();
+    QVector<Transceiver::TransceiverState> commands;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& state, unsigned) { commands.push_back (state); });
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->frequency_generation () > oldGeneration);
+    QVERIFY (s.server.wait_for ([&] {
+      return configuration_->radio_mode_yielded () && s.previous.rx == externalDial;
+    }, 3000));
+    QCOMPARE (s.results.size (), resultsAfterClose);
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QVERIFY (s.frequency.recoveryRequired ());
+    QVERIFY (!s.apply (RigFrequency::Path::Rx));
+    QVERIFY (!s.apply (RigFrequency::Path::Tx));
+
+    QSignalSpy updates {configuration_.get (), &Configuration::transceiver_update};
+    configuration_->transceiver_tune (true);
+    configuration_->transceiver_ptt (false);
+    configuration_->transceiver_tune (false);
+    configuration_->transceiver_audio (false);
+    configuration_->transceiver_txvolume (1.0, true);
+    QVERIFY (s.server.wait_for ([&] { return !updates.isEmpty (); }, 3000));
+    QCOMPARE (s.modeWrites (), modeWritesBeforeReconnect);
+    QCOMPARE (s.appliedMode, externalMode);
+    QCOMPARE (s.appliedRx, externalDial);
+    for (auto const& message : s.server.messages (TciSimServer::Direction::ClientToServer, "vfo"))
+      QVERIFY (message.connection_generation != s.server.connection_generation () || message.args.size () != 3);
+
+    s.activity.stopDelayActive = true;
+    QVERIFY (!configuration_->prepare_radio_mode ());
+    QCOMPARE (s.modeWrites (), modeWritesBeforeReconnect);
+    QVERIFY (configuration_->radio_mode_yielded ());
+    s.activity.stopDelayActive = false;
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_yielded ());
+    QCOMPARE (s.appliedMode, QString {"digu"});
+    QCOMPARE (s.appliedRx, externalDial);
+    QVERIFY (s.frequency.recoveryRequired ());
+    for (auto const& command : commands)
+      QVERIFY (!command.ptt () && !command.tune () && !command.tx_audio ());
+    QVERIFY (s.failures.isEmpty ());
+    QVERIFY (!s.wrongThread);
+  }
+
+  void yieldedModeSurvivesCatRestart_data ()
+  {
+    QTest::addColumn<QString> ("externalMode");
+    QTest::newRow ("CW") << QString {"cw"};
+    QTest::newRow ("USB") << QString {"usb"};
+  }
+
+  void yieldedModeSurvivesCatRestart ()
+  {
+    QFETCH (QString, externalMode);
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.selectMode (externalMode);
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    s.appliedRx += 1000;
+    s.server.send_text (QString {"vfo:0,0,%1"}.arg (s.appliedRx));
+    auto const externalDial = s.appliedRx;
+    QVERIFY (s.server.wait_for ([&] { return s.previous.rx == externalDial; }, 3000));
+    auto const modeWrites = s.modeWrites ();
+    configuration_->transceiver_offline ();
+    QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+    QCOMPARE (s.appliedMode, externalMode);
+    QCOMPARE (s.modeWrites (), modeWrites);
+    s.previous = {};
+    QVERIFY (openFrequencySession ());
+    QCOMPARE (s.appliedMode, externalMode);
+    QCOMPARE (s.appliedRx, externalDial);
+    QCOMPARE (s.modeWrites (), modeWrites);
+    QVERIFY (configuration_->radio_mode_yielded ());
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void externalModeSurvivesHousekeepingAndRequiresExplicitRecovery ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    auto const initialWrites = s.modeWrites ();
+
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QCOMPARE (s.modeWrites (), initialWrites);
+
+    QSignalSpy blockedTune {&dialog (), &Configuration::impl::set_transceiver};
+    configuration_->transceiver_tune (true);
+    QVERIFY (blockedTune.isEmpty ());
+
+    ++s.appliedRx;
+    s.server.send_text (QString {"vfo:0,0,%1"}.arg (s.appliedRx));
+    QVERIFY (s.server.wait_for ([&] { return s.previous.rx == s.appliedRx; }, 3000));
+    auto const physicalDial = s.appliedRx;
+    QVERIFY (!configuration_->transceiver_tx_frequency (
+      physicalDial + 1000, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection));
+    QSignalSpy updates {configuration_.get (), &Configuration::transceiver_update};
+    configuration_->transceiver_ptt (false);
+    configuration_->transceiver_tune (false);
+    configuration_->transceiver_audio (false);
+    configuration_->transceiver_txvolume (1.0);
+    QVERIFY (s.server.wait_for ([&] { return !updates.isEmpty (); }, 3000));
+    QCOMPARE (s.appliedMode, QString {"cw"});
+    QCOMPARE (s.modeWrites (), initialWrites);
+    QVERIFY (configuration_->radio_mode_yielded ());
+
+    s.selectMode ("digu");
+    QTest::qWait (600);
+    QVERIFY (configuration_->radio_mode_yielded ());
+    QVERIFY (!configuration_->radio_mode_ready ());
+    s.selectMode ("cw");
+    QTest::qWait (600);
+    int preparationCommands = 0;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& command, unsigned) {
+        if (command.mode () != Transceiver::UNK) ++preparationCommands;
+      });
+    QVERIFY (configuration_->prepare_radio_mode ());
+    auto const commandsAfterPreparation = preparationCommands;
+    QVERIFY (commandsAfterPreparation > 0);
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QCOMPARE (preparationCommands, commandsAfterPreparation);
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_yielded ());
+    QCOMPARE (s.appliedMode, QString {"digu"});
+    QCOMPARE (s.appliedRx, physicalDial);
+    QVERIFY (s.modeWrites () > initialWrites);
+    QVERIFY (s.failures.isEmpty ());
+    QVERIFY (!s.wrongThread);
+  }
+
+  void firstPreparationOnCompatibleRadioStillDetectsLaterOverride ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (s.server.wait_for ([&] {
+      return dialog ().cached_rig_state_.mode () == Transceiver::DIG_U;
+    }, 3000));
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void modeNoneAfterYieldAllowsQsyWithoutChangingPhysicalMode ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    auto const initialWrites = s.modeWrites ();
+
+    ui ().mode_none_radio_button->setChecked (true);
+    dialog ().accept ();
+    QVERIFY (configuration_->radio_mode_ready ());
+    QVERIFY (!configuration_->radio_mode_yielded ());
+    auto const target = s.appliedRx + 500;
+    QVERIFY (configuration_->transceiver_frequency (
+      target, RigFrequencyChangePolicy::ChangeKind::NominalQsy));
+    QVERIFY (s.server.wait_for ([&] { return s.appliedRx == target; }, 3000));
+    QCOMPARE (s.modeWrites (), initialWrites);
+    QCOMPARE (s.appliedMode, QString {"cw"});
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void frequencyMaintenancePreservesCompatibleMode ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    auto const initialWrites = s.modeWrites ();
+
+    QVector<Transceiver::TransceiverState> commands;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& state, unsigned) { commands.push_back (state); });
+    QVERIFY (configuration_->transceiver_tx_frequency (
+      s.appliedRx + 1000, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection));
+    QVERIFY (!commands.isEmpty ());
+    for (auto const& command : commands) QCOMPARE (command.mode (), Transceiver::UNK);
+    QVERIFY (s.server.wait_for ([&] { return s.appliedTx == s.appliedRx + 1000; }, 3000));
+    QCOMPARE (s.modeWrites (), initialWrites);
+    QCOMPARE (s.appliedMode, QString {"digu"});
+    QVERIFY (configuration_->radio_mode_ready ());
+    QVERIFY (s.failures.isEmpty ());
   }
 
   void proxyCatBecomesExplicitSerialSelection_data ()

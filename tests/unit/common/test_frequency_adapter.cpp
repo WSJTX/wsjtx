@@ -157,6 +157,70 @@ private:
     QCOMPARE (adapter.snapshot (Path::Rx).established->request.id, quint64 {99});
   }
 
+  Q_SLOT void cancellationRestoresDialObservationWithoutReplayingOldTargets_data ()
+  {
+    QTest::addColumn<bool> ("deferred");
+    QTest::newRow ("in-flight") << false;
+    QTest::newRow ("deferred") << true;
+  }
+
+  Q_SLOT void cancellationRestoresDialObservationWithoutReplayingOldTargets ()
+  {
+    QFETCH (bool, deferred);
+    FrequencyAdapter adapter;
+    auto const initial = submit (adapter, 1, Path::Rx, 144174000,
+                                 {-116000000, 100., 0., true});
+    QVERIFY (adapter.complete ({initial, Outcome::Established, Basis::Readback, initial.target}));
+    auto const pendingRx = submit (adapter, 2, Path::Rx, 144174100,
+                                   {-116000000, 200., 0., true});
+    if (deferred)
+      QVERIFY (adapter.complete ({pendingRx, Outcome::Deferred, Basis::Retained, initial.target}));
+    Request const queued {adapter.generation (), 3, Path::Rx, 144174200};
+    QVERIFY (adapter.submit (queued, {-116000000, 300., 0., true}));
+    auto const pendingTx = submit (adapter, 4, Path::Tx, 144175000);
+    auto const generation = adapter.generation ();
+
+    auto const cancelled = adapter.cancel_pending ();
+    QCOMPARE (int (cancelled.size ()), 3);
+    auto cancelledRequest = [&] (quint64 id, Radio::Frequency target) {
+      for (auto const& request : cancelled)
+        if (request.id == id && request.target == target && request.generation == generation)
+          return true;
+      return false;
+    };
+    QVERIFY (cancelledRequest (2, 144174100));
+    QVERIFY (cancelledRequest (3, 144174200));
+    QVERIFY (cancelledRequest (4, 144175000));
+    QCOMPARE (adapter.generation (), generation);
+    for (auto path : {Path::Rx, Path::Tx})
+      {
+        QVERIFY (!adapter.snapshot (path).pending);
+        QVERIFY (!adapter.snapshot (path).queued);
+      }
+    QCOMPARE (adapter.snapshot (Path::Rx).established->request.id, quint64 {1});
+    QCOMPARE (adapter.decode (Path::Rx, initial.target), Radio::Frequency {144174000});
+    adapter.resume_deferred ();
+    QVERIFY (!adapter.take_dispatch (Path::Rx));
+    QVERIFY (!adapter.take_dispatch (Path::Tx));
+
+    auto const dial = adapter.observe ({generation, 1, Path::Rx, initial.target + 500,
+                                       Basis::Readback, {}});
+    QVERIFY (dial);
+    QCOMPARE (dial->value, Radio::Frequency {144174500});
+    QVERIFY (!dial->operation);
+    QVERIFY (!adapter.complete ({pendingRx, Outcome::Failed, Basis::Retained, 0}));
+    QVERIFY (!adapter.complete ({pendingTx, Outcome::Established, Basis::Readback, pendingTx.target}));
+    QVERIFY (!adapter.observe ({generation, 2, Path::Rx, pendingRx.target,
+                                Basis::Readback, pendingRx}));
+    QVERIFY (adapter.cancel_pending ().empty ());
+
+    auto const current = submit (adapter, 5, Path::Rx, 144174500,
+                                 {-116000000, 100., 0., true});
+    QVERIFY (current);
+    QVERIFY (adapter.complete ({current, Outcome::Established, Basis::Readback, current.target}));
+    QCOMPARE (adapter.decode (Path::Rx, current.target), Radio::Frequency {144174500});
+  }
+
   Q_SLOT void staleSessionsAndRetainedReportsCannotChangeMappings ()
   {
     FrequencyAdapter adapter;

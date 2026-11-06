@@ -611,6 +611,7 @@ private slots:
   void on_outAttenuation_valueChanged (int);
   void rigOpen ();
   void handle_transceiver_update (Transceiver::TransceiverState const&);
+  void handleRadioModeControl (bool yielded, bool ready);
   void handle_transceiver_closing (bool failed);
   void handle_transceiver_failure (QString const& reason);
   void handle_leavingSettings();
@@ -796,6 +797,12 @@ private:
   Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
 
 private:
+  enum class TxControlOrigin { Automatic, Local };
+  void setAutoTxEnabled (bool, TxControlOrigin);
+  void setTuneEnabled (bool, TxControlOrigin);
+  void startPendingRigTune ();
+  void cancelRigTune ();
+  void updateRadioModeStatus ();
   void set_mode (QString const& mode);
   void dispatchTxRequest (TxEvidence::TxRequest const& request);
   void beginTxEvidenceSession ();
@@ -1273,6 +1280,8 @@ private:
 
   // labels in status bar
   QLabel tx_status_label;
+  bool m_radioModeStatusVisible {false};
+  bool m_pendingRigTune {false};
   bool m_tx_inhibited {false};
   QLabel config_label;
   QLabel mode_label;

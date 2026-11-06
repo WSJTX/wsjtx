@@ -295,7 +295,8 @@ namespace
           effect.frequency = dialFrequency;
           effect.text = QString {"QSY %1"}.arg(snapshot.nominalFrequency / 1e6, 7, 'f', 3);
           effect.boolValue = snapshot.mode == "MSK144";
-          effect.userInitiated = snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None;
+          effect.userInitiated = snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane
+            || snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualRightPane;
           plan.effects.append(effect);
         } else if (snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None) {
           appendEffect(plan, QsoReactionEffect::Kind::RejectNominalQsy);
@@ -471,7 +472,12 @@ namespace
     }
     if (snapshot.autoSequenceEnabled && !snapshot.doubleClicked && snapshot.mode != "FT4") return;
     if (snapshot.quickCall && snapshot.doubleClicked) {
-      appendBoolEffect(plan, QsoReactionEffect::Kind::SetAutoEnabled, true);
+      QsoReactionEffect effect;
+      effect.kind = QsoReactionEffect::Kind::SetAutoEnabled;
+      effect.boolValue = true;
+      effect.userInitiated = snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane
+        || snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualRightPane;
+      plan.effects.append(effect);
     }
     appendBoolEffect(plan, QsoReactionEffect::Kind::SetDoubleClicked, false);
   }

@@ -44,6 +44,8 @@ public:
   }
 
   void send_receive_audio (ReceiveAudio audio) { Q_EMIT receiveAudio (audio); }
+  void send_mode (ModeStatus const& status, unsigned sequence)
+  { Q_EMIT mode_status (status, sequence); }
 
   TransceiverState last_state;
   QVector<TransceiverState> states;
@@ -90,6 +92,19 @@ class TestTxInhibitTransceiver : public QObject
 
 private:
   Q_SIGNAL void command (QString controller, quint32 ttl, QString station);
+
+  Q_SLOT void forwardsModeStatusWithoutChangingItsSequence ()
+  {
+    auto * fake = new FakeInhibitTransceiver;
+    TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    QSignalSpy statuses {&transceiver, &Transceiver::mode_status};
+    fake->send_mode ({Transceiver::CW, Transceiver::ModeStatusKind::Observed}, 17);
+    QCOMPARE (statuses.size (), 1);
+    auto const status = qvariant_cast<Transceiver::ModeStatus> (statuses.first ().at (0));
+    QCOMPARE (status.mode, Transceiver::CW);
+    QCOMPARE (status.kind, Transceiver::ModeStatusKind::Observed);
+    QCOMPARE (statuses.first ().at (1).toUInt (), 17u);
+  }
 
   Q_SLOT void intermediateUnkeyRetainsOldFrequencyIdentity ()
   {

@@ -380,7 +380,7 @@ auto DXLabSuiteCommanderTransceiver::get_mode () -> MODE
           CAT_ERROR ("unexpected mode name" << mode);
           throw error {tr ("DX Lab Suite Commander sent an unrecognised mode: \"") + mode + '"'};
         }
-      update_mode (m);
+      observe_mode (m);
     }
   else
     {

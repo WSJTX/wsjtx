@@ -87,6 +87,14 @@ public:
   enum MODE {UNK, CW, CW_R, USB, LSB, FSK, FSK_R, DIG_U, DIG_L, AM, FM, DIG_FM};
   Q_ENUM (MODE)
 
+  // Applied permits command completion when receive-mode readback is unavailable.
+  enum class ModeStatusKind { Preparing, Observed, Applied, Unavailable };
+  struct ModeStatus
+  {
+    MODE mode {UNK};
+    ModeStatusKind kind {ModeStatusKind::Observed};
+  };
+
   //
   // Aggregation of all of the rig and PTT state accessible via this
   // interface.
@@ -289,6 +297,7 @@ public:
                         unsigned sequence_number) const;
   Q_SIGNAL void frequency_result (RigFrequency::Result const&) const;
   Q_SIGNAL void frequency_observation (RigFrequency::Evidence const&) const;
+  Q_SIGNAL void mode_status (Transceiver::ModeStatus const&, unsigned sequence_number) const;
   // something went wrong - not recoverable, start new instance
   Q_SIGNAL void failure (QString const& reason) const;
 
@@ -300,6 +309,7 @@ private:
 };
 
 Q_DECLARE_METATYPE (Transceiver::TransceiverState);
+Q_DECLARE_METATYPE (Transceiver::ModeStatus);
 
 #if !defined (QT_NO_DEBUG_STREAM)
 QDebug operator << (QDebug, Transceiver::TransceiverState const&);

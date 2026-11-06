@@ -361,6 +361,34 @@ private slots:
     QVERIFY(effectIndex(plan, Effect::Kind::SetAutoEnabled) >= 0);
   }
 
+  void quickCallPreservesLocalTransmitIntent_data()
+  {
+    QTest::addColumn<int>("origin");
+    QTest::addColumn<bool>("local");
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    QTest::newRow("manual-left") << int(Origin::ManualLeftPane) << true;
+    QTest::newRow("manual-right") << int(Origin::ManualRightPane) << true;
+    QTest::newRow("udp") << int(Origin::Udp) << false;
+    QTest::newRow("automatic-selection") << int(Origin::AutomaticSelection) << false;
+    QTest::newRow("synthetic") << int(Origin::Synthetic) << false;
+  }
+
+  void quickCallPreservesLocalTransmitIntent()
+  {
+    QFETCH(int, origin);
+    QFETCH(bool, local);
+    auto snapshot = baseSnapshot();
+    snapshot.doubleClicked = true;
+    snapshot.quickCall = true;
+    snapshot.selectionOrigin = static_cast<DecodedMessageReaction::SelectionOrigin>(origin);
+    auto const plan = DecodedMessageReaction::planProcessMessage(
+      decode("K1ABC W1AW -10"), snapshot);
+    auto const index = effectIndex(plan, Effect::Kind::SetAutoEnabled);
+    QVERIFY(index >= 0);
+    QVERIFY(plan.effects[index].boolValue);
+    QCOMPARE(plan.effects[index].userInitiated, local);
+  }
+
   void jt65OooSelectsRogerReport()
   {
     auto snapshot = baseSnapshot();

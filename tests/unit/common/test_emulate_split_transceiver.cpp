@@ -64,6 +64,8 @@ public:
   void send_result (RigFrequency::Result const& result) { Q_EMIT frequency_result (result); }
   void send_observation (RigFrequency::Evidence const& evidence)
   { Q_EMIT frequency_observation (evidence); }
+  void send_mode (ModeStatus const& status, unsigned sequence)
+  { Q_EMIT mode_status (status, sequence); }
 
   TransceiverState last_state;
   unsigned last_sequence_number {0};
@@ -74,6 +76,19 @@ class TestEmulateSplitTransceiver : public QObject
   Q_OBJECT
 
 private:
+  Q_SLOT void forwards_mode_status_without_changing_its_sequence ()
+  {
+    auto * fake = new FakeTransceiver;
+    EmulateSplitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    QSignalSpy statuses {&transceiver, &Transceiver::mode_status};
+    fake->send_mode ({Transceiver::CW, Transceiver::ModeStatusKind::Observed}, 17);
+    QCOMPARE (statuses.size (), 1);
+    auto const status = qvariant_cast<Transceiver::ModeStatus> (statuses.first ().at (0));
+    QCOMPARE (status.mode, Transceiver::CW);
+    QCOMPARE (status.kind, Transceiver::ModeStatusKind::Observed);
+    QCOMPARE (statuses.first ().at (1).toUInt (), 17u);
+  }
+
   Q_SLOT void legacyRxRestorationRequiresEvidence_data ()
   {
     QTest::addColumn<int> ("resolution");

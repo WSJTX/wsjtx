@@ -17,10 +17,12 @@ namespace
     explicit FrequencyRig (logger_type * logger) : TransceiverBase {logger, nullptr} {}
     std::function<void (Frequency)> rx_operation;
     std::function<void (Frequency)> tx_operation;
+    std::function<void ()> mode_refresh;
     int rx_commands = 0;
     int tx_commands = 0;
     int mode_commands = 0;
     bool readback_expected = false;
+    bool mode_readable = false;
     bool readable = true;
     int resolution_code = 0;
     void observe_rx (Frequency value) {update_rx_frequency (value, Basis::Readback);}
@@ -31,6 +33,12 @@ namespace
     void poll_complete () {frequency_poll_complete ();}
     void fail () {offline (QStringLiteral ("CAT disconnected"));}
     void meters () {update_level (42); update_PTT (false); update_complete (true);}
+    void report_mode (MODE mode, bool transmitting = false)
+    {
+      update_PTT (transmitting);
+      observe_mode (mode);
+      update_complete (true);
+    }
 
   private:
     int do_start () override {observe_rx (14074000); observe_tx (0); return resolution_code;}
@@ -51,6 +59,8 @@ namespace
     void do_ptt (bool value) override {update_PTT (value);}
     bool frequency_readback_expected (Path, Frequency) const override
     {return readback_expected && readable;}
+    bool mode_readback_expected () const override {return mode_readable;}
+    void refresh_mode_observation () override {if (mode_refresh) mode_refresh ();}
   };
 
   State request (quint64 id, Transceiver::Frequency rx, Transceiver::Frequency tx)
@@ -70,6 +80,140 @@ class TestTransceiverFrequency : public QObject
   Q_OBJECT
 
 private Q_SLOTS:
+  void mode_preparation_is_not_lost_when_audio_changes ()
+  {
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    auto state = rig.state ();
+    state.mode (Transceiver::DIG_U);
+    state.audio (true);
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    rig.set (state, 2);
+    QCOMPARE (rig.mode_commands, 1);
+    QCOMPARE (statuses.size (), 2);
+    QCOMPARE (qvariant_cast<Transceiver::ModeStatus> (statuses.last ().at (0)).kind,
+              Transceiver::ModeStatusKind::Applied);
+  }
+
+  void unchanged_mode_preparation_uses_existing_backend_observation ()
+  {
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    rig.mode_readable = true;
+    rig.report_mode (Transceiver::DIG_U);
+    auto state = rig.state ();
+    state.mode (Transceiver::DIG_U);
+    rig.mode_refresh = [&] {rig.report_mode (Transceiver::DIG_U);};
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    rig.set (state, 2);
+    QCOMPARE (rig.rx_commands, 0);
+    QCOMPARE (rig.mode_commands, 0);
+    QCOMPARE (statuses.size (), 2);
+    auto const result = qvariant_cast<Transceiver::ModeStatus> (statuses.last ().at (0));
+    QCOMPARE (result.kind, Transceiver::ModeStatusKind::Observed);
+    QCOMPARE (result.mode, Transceiver::DIG_U);
+  }
+
+  void frequency_mode_preparation_requires_observation_when_readable ()
+  {
+    using Kind = Transceiver::ModeStatusKind;
+    using Status = Transceiver::ModeStatus;
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    rig.mode_readable = true;
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    auto state = request (10, 14074000, 0);
+    state.mode (Transceiver::DIG_U);
+    rig.set (state, 2);
+    QCOMPARE (statuses.size (), 1);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Preparing);
+    rig.report_mode (Transceiver::CW);
+    QCOMPARE (statuses.size (), 1);
+    rig.report_mode (Transceiver::DIG_U);
+    QCOMPARE (statuses.size (), 2);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Observed);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).mode, Transceiver::DIG_U);
+    QCOMPARE (statuses.last ().at (1).toUInt (), 2u);
+  }
+
+  void frequency_mode_preparation_uses_completion_without_readback ()
+  {
+    using Kind = Transceiver::ModeStatusKind;
+    using Status = Transceiver::ModeStatus;
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    auto state = request (10, 14074000, 0);
+    state.mode (Transceiver::DIG_U);
+    rig.set (state, 2);
+    QCOMPARE (statuses.size (), 2);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Applied);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).mode, Transceiver::DIG_U);
+  }
+
+  void repeated_frequency_commands_do_not_extend_mode_settlement ()
+  {
+    using Kind = Transceiver::ModeStatusKind;
+    using Status = Transceiver::ModeStatus;
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    rig.mode_readable = true;
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    auto state = request (10, 14074000, 0);
+    state.mode (Transceiver::DIG_U);
+    QElapsedTimer elapsed;
+    elapsed.start ();
+    rig.set (state, 2);
+    rig.report_mode (Transceiver::CW);
+    QTest::qWait (900);
+    rig.set (state, 3);
+    rig.report_mode (Transceiver::CW);
+    QTRY_COMPARE_WITH_TIMEOUT (qvariant_cast<Status> (statuses.last ().at (0)).kind,
+                              Kind::Observed, 1300);
+    QVERIFY (elapsed.elapsed () < 2200);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).mode, Transceiver::CW);
+    QCOMPARE (statuses.last ().at (1).toUInt (), 3u);
+  }
+
+  void unknown_or_transmitting_mode_is_not_an_override ()
+  {
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    rig.report_mode (Transceiver::UNK);
+    rig.report_mode (Transceiver::CW, true);
+    rig.meters ();
+    QVERIFY (statuses.isEmpty ());
+    rig.report_mode (Transceiver::CW);
+    QCOMPARE (statuses.size (), 1);
+    rig.report_mode (Transceiver::CW);
+    QCOMPARE (statuses.size (), 1);
+  }
+
+  void unreadable_mode_during_preparation_reports_unavailable ()
+  {
+    using Kind = Transceiver::ModeStatusKind;
+    using Status = Transceiver::ModeStatus;
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    rig.mode_readable = true;
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    auto state = request (10, 14074000, 0);
+    state.mode (Transceiver::DIG_U);
+    rig.set (state, 2);
+    rig.report_mode (Transceiver::UNK);
+    QTRY_COMPARE_WITH_TIMEOUT (qvariant_cast<Status> (statuses.last ().at (0)).kind,
+                              Kind::Unavailable, 2200);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).mode, Transceiver::UNK);
+  }
+
   void quantized_readback_completes_only_within_negotiated_resolution_data ()
   {
     QTest::addColumn<int> ("code");

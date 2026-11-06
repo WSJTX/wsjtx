@@ -454,7 +454,6 @@ int TCITransceiver::do_start ()
   requested_PTT_ = false;
   mode_ = "";
   requested_mode_ = "";
-  started_mode_ = "";
   requested_rx_frequency_ = "";
   rx_frequency_ = "";
   requested_other_frequency_ = "";
@@ -573,7 +572,6 @@ void TCITransceiver::do_stop ()
     busy_split_ = false;
     requested_split_ = false;
     rig_split();
-    if (started_mode_ != mode_) sendTextMessage(mode_to_command(started_mode_));
     if (!started_rx2_ && rx2_) {
       rx2_enable (false);
     }
@@ -800,13 +798,10 @@ void TCITransceiver::onMessageReceived(const QString &str)
               mode_ = args.at(1).toLower();
             }
           } else mode_ = args.at(1);
-          if (started_mode_.isEmpty()) started_mode_ = mode_;
+          observe_mode (get_mode ());
           if (busy_mode_) {
             if (requested_mode_.isEmpty() || requested_mode_ == mode_) tci_done8();
             return;
-          }
-          else if (!requested_mode_.isEmpty() && requested_mode_ != mode_ && !band_change) {
-            sendTextMessage(mode_to_command(requested_mode_));
           }
         }
         break;
@@ -1431,7 +1426,7 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
     return;
   } else {
     requested_rx_frequency_ = f_string;
-    requested_mode_ = map_mode (m);
+    if (m != UNK) requested_mode_ = map_mode (m);
   }
   if (tci_Ready && _power_) {
     if ((rx_frequency_ != requested_rx_frequency_)) {
@@ -1462,14 +1457,14 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
       busy_rx_frequency_ = false;
     } else update_rx_frequency (string_to_frequency (rx_frequency_), RigFrequency::Basis::Readback);
 
-    if (!requested_mode_.isEmpty() && requested_mode_ != mode_ && !busy_mode_) {
+    if (m != UNK && !requested_mode_.isEmpty() && requested_mode_ != mode_ && !busy_mode_) {
       busy_mode_ = true;
       sendTextMessage(mode_to_command(requested_mode_));
       mysleep8(1000);
       if (requested_mode_.isEmpty() || requested_mode_ == mode_) update_mode (m);
       else {
         printf("%s TCI failed set mode %s->%s",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),mode_.toStdString().c_str(),requested_mode_.toStdString().c_str());
-        error_ = tr ("TCI failed set mode");
+        CAT_WARNING ("mode preparation did not reach " << requested_mode_);
       }
       busy_mode_ = false;
     }
@@ -1488,7 +1483,7 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
   }
   if (busy_other_frequency_ || busy_split_) { defer_frequency (RigFrequency::Path::Tx); return; }
   requested_other_frequency_ = f_string;
-  requested_mode_ = map_mode (mode);
+  if (mode != UNK) requested_mode_ = map_mode (mode);
   if (tx) {
     requested_split_ = true;
     if (tci_Ready && _power_) {
@@ -1551,6 +1546,7 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
 void TCITransceiver::do_mode (MODE m)
 {
   TRACE_CAT ("TCITransceiver", m << state ());
+  if (m == UNK) return;
   auto m_string = map_mode (m);
   if (requested_mode_ != m_string) requested_mode_ = m_string;
   if (!requested_mode_.isEmpty() && mode_ != requested_mode_ && !busy_mode_) {
@@ -1560,7 +1556,7 @@ void TCITransceiver::do_mode (MODE m)
     if (requested_mode_ == mode_) update_mode (m);
     else {
       printf("%s TCI failed set mode %s->%s",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),mode_.toStdString().c_str(),requested_mode_.toStdString().c_str());
-      error_ = tr ("TCI failed set mode");
+      CAT_WARNING ("mode preparation did not reach " << requested_mode_);
     }
     busy_mode_ = false;
   }
@@ -1571,7 +1567,7 @@ void TCITransceiver::do_poll ()
   if (!error_.isEmpty()) {tci_Ready = false; throw error {error_};}
   else if (!tci_Ready) throw error {tr ("TCI could not be opened")};
   update_split(split_);
-  update_mode (get_mode());
+  observe_mode (get_mode());
   if (do_pwr_ && PTT_) {update_power (power_ * 100); update_swr (swr_*10);}
   if (do_snr_ && !PTT_) {
     update_level (level_);
