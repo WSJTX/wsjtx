@@ -324,7 +324,6 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
   int x,y;
   float pixperdiv;
 
-  QRect rect0;
   QPainter painter0(&m_ScalePixmap);
 
   //create Font to use for scales
