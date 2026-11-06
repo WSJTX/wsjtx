@@ -53,25 +53,6 @@ contains
     ! With nfcal=-1270, this places the Q65 signal at the zero-kHz cursor.
     cand(1) = candidate(10.0, 48.00046, 0.0, 0.0, 1, 0, 1)
   end subroutine
-
-  pure subroutine qso_sync_window(rate, nkhz_ctr, mousefqso, mousedf, nfcal, ntol, &
-       margin_khz, mfa, mfb, mfa_s, mfb_s, narrowed)
-    integer, intent(in)  :: rate, nkhz_ctr, mousefqso, mousedf, nfcal, ntol, margin_khz, mfa, mfb
-    integer, intent(out) :: mfa_s, mfb_s
-    logical, intent(out) :: narrowed
-    real :: f0lo, f0hi
-    f0lo = real(mousefqso) + 0.001*real(mousedf + nfcal - ntol) - real(nkhz_ctr) &
-           + real(rate)/2000.0 + 1.27046
-    f0hi = real(mousefqso) + 0.001*real(mousedf + nfcal + ntol) - real(nkhz_ctr) &
-           + real(rate)/2000.0 + 1.27046
-    mfa_s = max(mfa, floor(f0lo) - margin_khz)
-    mfb_s = min(mfb, ceiling(f0hi) + margin_khz)
-    narrowed = mfb_s .gt. mfa_s
-    if (.not. narrowed) then
-       mfa_s = mfa
-       mfb_s = mfb
-    endif
-  end subroutine
 end module
 
 module ccf65_legacy_mod

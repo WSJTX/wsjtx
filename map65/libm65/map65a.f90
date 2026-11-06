@@ -17,7 +17,7 @@ contains
       use debug_log, only: dbg, itoa, rtoa
       use sec_midn_mod, only: sec_midn
       use q65b_mod
-      use q65_cursor_mod, only: q65_cursor_f0
+      use q65_cursor_mod, only: q65_cursor_f0, qso_sync_window
       use decode1a_mod
       use ccf65_legacy_mod
       use pctile_mod
@@ -508,6 +508,9 @@ contains
             ! is centered on the actual clicked frequency, not just rounded
             ! to the nearest kHz -- matters once q65b targets this exactly
             ! (see the manualDecodeFlag handling around k0 in q65b.F90).
+            ! f0 and the sync window below both use the current center, which the
+            ! last automatic pass may not have set to this fcenter yet.
+            nkhz_center = nint(1000.0*(fcenter - int(fcenter)))
             freq = mousefqso + 0.001*mousedf
             freq_q65 = freq
             f0       = q65_cursor_f0(mousefqso, mousedf, nkhz_center, nrate_active, nfcal)
@@ -530,7 +533,6 @@ contains
             ! combining angle. The last automatic pass may have covered only
             ! its own window, or have expired without running at all (monitoring
             ! stopped), so refresh sync() around this click first.
-            nkhz_center = nint(1000.0*(fcenter - int(fcenter)))
             mfa = nfa - nkhz_center + int(nrate_active/2000.0)
             mfb = nfb - nkhz_center + int(nrate_active/2000.0)
             call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
