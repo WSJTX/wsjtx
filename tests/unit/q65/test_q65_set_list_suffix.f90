@@ -50,7 +50,7 @@ contains
     character(len=*), intent(in) :: dxcall
     character(len=12) :: mycall,hiscall
     character(len=6) :: hisgrid
-    character(len=37) :: msg(8)
+    character(len=37) :: msg(8),extra
     logical :: has_sfx
     integer :: k,n
     mycall='K1JT'
@@ -73,24 +73,24 @@ contains
     n=len_trim(dxcall)
     has_sfx=n.gt.3 .and. (dxcall(n-1:n).eq.'/R' .or. dxcall(n-1:n).eq.'/P')
     if(has_sfx) then
-       msg(1)='CQ '//trim(dxcall)
-       call expect_in_list(msg(1))
-       msg(1)='<K1JT> '//trim(dxcall)
-       call expect_in_list(msg(1))
-       msg(1)='<K1JT> '//trim(dxcall)//' RRR'
-       call expect_in_list(msg(1))
-       msg(1)='<K1JT> '//trim(dxcall)//' RR73'
-       call expect_in_list(msg(1))
-       msg(1)='<K1JT> '//trim(dxcall)//' 73'
-       call expect_in_list(msg(1))
-       msg(1)='K1JT <'//trim(dxcall)//'> -10'
-       call expect_in_list(msg(1))
-       msg(1)='K1JT <'//trim(dxcall)//'> R-10'
-       call expect_in_list(msg(1))
-       msg(1)='K1JT <'//trim(dxcall)//'> -50'
-       call expect_in_list(msg(1))
-       msg(1)='K1JT <'//trim(dxcall)//'> R+49'
-       call expect_in_list(msg(1))
+       extra='CQ '//trim(dxcall)
+       call expect_in_list(extra)
+       extra='<K1JT> '//trim(dxcall)
+       call expect_in_list(extra)
+       extra='<K1JT> '//trim(dxcall)//' RRR'
+       call expect_in_list(extra)
+       extra='<K1JT> '//trim(dxcall)//' RR73'
+       call expect_in_list(extra)
+       extra='<K1JT> '//trim(dxcall)//' 73'
+       call expect_in_list(extra)
+       extra='K1JT <'//trim(dxcall)//'> -10'
+       call expect_in_list(extra)
+       extra='K1JT <'//trim(dxcall)//'> R-10'
+       call expect_in_list(extra)
+       extra='K1JT <'//trim(dxcall)//'> -50'
+       call expect_in_list(extra)
+       extra='K1JT <'//trim(dxcall)//'> R+49'
+       call expect_in_list(extra)
        if(ncw.ne.411) then
           print *, 'ncw =',ncw,' expected 411 for ',trim(dxcall)
           nfail=nfail+1

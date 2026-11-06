@@ -9,7 +9,7 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   use timer_impl, only: init_timer, fini_timer
   use debug_log
   use m65a_mod
-  use npar_ptrs_mod, only: snapshot_release, t_start, nhsym, mycall, hiscall, hisgrid, neme, &
+  use npar_ptrs_mod, only: snapshot_release, t_start, mycall, hiscall, hisgrid, neme, &
                             initialize_decode_parameters, claim_decode_request, get_stop_m65, &
                             active_request_id, active_request_expired
   use stdout_channel_mod, only: write_stdout

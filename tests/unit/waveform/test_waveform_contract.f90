@@ -123,10 +123,12 @@ contains
     real(real64), parameter :: starts(*)=[0.0_real64,0.7_real64,-8.3_real64,9*pi2d]
     real(real64), parameter :: steps(*)=[0.0_real64,0.161604_real64,-0.65_real64, &
          pi2d/4,pi2d*3.1_real64,-pi2d*2.3_real64]
-    real(real32) :: full(count*7),sampled(count),split(count),empty(0)
+    real(real32), allocatable :: full(:)
+    real(real32) :: sampled(count),split(count),empty(0)
     real(real64) :: phase,sampled_phase,split_phase
     integer :: i,j,k,stride,first,last,chunk,n
 
+    allocate(full(count*7))
     do i=1,size(starts)
        do j=1,size(steps)
           do k=1,size(strides)
@@ -472,11 +474,14 @@ contains
     integer, parameter :: nsps=720,nsym=160,n=nsym*nsps
     real(real32), parameter :: widths(*)=[1.0_real32,2.0_real32,8.0_real32]
     integer :: tones(nsym),k,pattern,width
-    real(real32) :: dense(n),again(n),bt
-    complex(real32) :: wave(n)
-    real(real64) :: d(0:(nsym+2)*nsps-1),phi,error,carrier
+    real(real32), allocatable :: dense(:),again(:)
+    real(real32) :: bt
+    complex(real32), allocatable :: wave(:)
+    real(real64), allocatable :: d(:)
+    real(real64) :: phi,error,carrier
     type(waveform_workspace) :: work
 
+    allocate(dense(n),again(n),wave(n),d(0:(nsym+2)*nsps-1))
     carrier=pi2d*1500/12000
     tones=mod([(17*k+1,k=1,nsym)],4)
     call render_gfsk(work,tones,nsps,1.5_real32,1,carrier,nsps,n,1, &
