@@ -1948,19 +1948,24 @@ private slots:
     QJsonObject const settings {{"mode", "FT8"}, {"depth", 3}, {"multithreaded_ft8", true}, {"ft8_threads", 2},
                                 {"ft8_decoder_start", 0}, {"ft8_cycles", 1}, {"live_audio", true}, {"utc", utcOf (0)}};
     Options options;
-    options.environment << "WSJT_CODEC_TEST_HOLD_PASS=41:12000";
+    options.environment << "WSJT_CODEC_TEST_HOLD_PASS=41:9000";
     Codec codec {options};
     QVERIFY2 (codec.started, qPrintable (codec.failure));
     auto const t0 = codec.write (sessionHeader () + configure (settings) + frame (0x01u, pcm.left (2 * 41 * HsymSamples)));
     QVERIFY2 (codec.waitForLine (passLine (41), waitMs (), "the early pass"), qPrintable (codec.report ()));
-    // The final falls due 14.1 s in, after the held pass ends; sent at 8 s.
-    QVERIFY (codec.waitUntil (t0 + 8000));
+    // The final falls due 14.1 s in, 5.1 s after the hold ends, room for a slow
+    // runner's decode. Sent at 6 s, it would fall due 8.1 s in, inside the hold,
+    // if the clock took up the wait.
+    QVERIFY (codec.waitUntil (t0 + 6000));
     codec.write (frame (0x01u, samples (pcm, 41 * HsymSamples, 49 * HsymSamples)));
     QVERIFY2 (codec.waitForLine (outType ("decode_finished"), waitMs (), "the final"), qPrintable (codec.report ()));
     codec.write (frame (0x01u, samples (pcm, 49 * HsymSamples, Ft8PeriodSamples)) + halt ());
     QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
     QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
-    QCOMPARE (decisions (codec.lines), (QStringList {"pass 41 F", "pass 49 T"}));
+    qInfo ().noquote () << QString {"after the first write: hold ended %1 ms, final decided %2 ms, due %3 ms"}
+      .arg (msOf (codec.lines, find (codec.lines, holdDoneLine (41))) - t0)
+      .arg (msOf (codec.lines, find (codec.lines, errHas ("nzhsym=49"))) - t0).arg (49 * HsymSamples / 12);
+    QCOMPARE (decisions (codec.lines).join (", "), QString {"pass 41 F, pass 49 T"});
   }
 
   // A snapshot that does not fit waits for the operations queued before it
