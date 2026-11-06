@@ -475,20 +475,42 @@ int main(int argc, char *argv[])
 
       if (!parser.parse (a.arguments ()))
         {
+#if defined (Q_OS_WIN)
           MessageBox::critical_message (nullptr, "Command line error", parser.errorText ());
+#else
+          std::cerr << parser.errorText ().toLocal8Bit ().constData () << std::endl;
+#endif
+          process_bootstrap.cancel ();
           return -1;
         }
       else
         {
           if (parser.isSet (help_option))
             {
+#if defined (Q_OS_WIN)
+              // Windows keeps the boxes: the release build (WSJT_CREATE_WINMAIN) has no console
               MessageBox::information_message (nullptr, "Command line help", parser.helpText ());
+#else
+              std::cout << parser.helpText ().toLocal8Bit ().constData () << std::flush;
+#endif
+              process_bootstrap.cancel ();
               return 0;
             }
           else if (parser.isSet (version_option))
             {
+#if defined (Q_OS_WIN)
               MessageBox::information_message (nullptr, "Application version", a.applicationVersion ());
+#else
+              std::cout << (a.applicationName () + ' ' + a.applicationVersion ()).toLocal8Bit ().constData ()
+                        << std::endl;
+#endif
+              process_bootstrap.cancel ();
               return 0;
+            }
+          else if (parser.isSet ("help-all"))
+            {
+              // parse() accepts --help-all; only process() prints it (and exits)
+              parser.process (a);
             }
         }
 

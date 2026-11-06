@@ -30,7 +30,8 @@ namespace PerformanceTrace
   void milestone (RunId run, char const * phase, QString const& details = {});
 
   // Phase records its duration when destroyed. Call finish() when details must
-  // accompany the measurement; subsequent calls and destruction are no-ops.
+  // accompany the measurement, or cancel() to discard it; subsequent calls and
+  // destruction are no-ops.
   class Phase final
   {
   public:
@@ -42,6 +43,8 @@ namespace PerformanceTrace
     Phase& operator= (Phase const&) = delete;
 
     void finish (QString const& details = {});
+
+    void cancel () noexcept {finished_ = true;}
 
   private:
     RunId run_;
