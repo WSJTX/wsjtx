@@ -114,6 +114,7 @@ public slots:
   void freezeDecode(int n);
   void editor_error();
   void guiUpdate();
+  void updateDecoderLagIndicator();
   void doubleClickOnCall(QString hiscall, bool ctrl);
   void doubleClickOnMessages(QString hiscall, QString t2, bool ctrl);
   void startDecoder();
@@ -303,6 +304,10 @@ private:
   QLabel* lab6;
   QLabel* lab7;
   QLabel* lab8;
+  QLabel* labLag;
+  int     m_lagSeen {0};
+  int     m_lagTotal {0};
+  qint64  m_lagLastMs {0};
 
   QMessageBox msgBox0;
 

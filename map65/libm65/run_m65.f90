@@ -11,7 +11,7 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   use m65a_mod
   use npar_ptrs_mod, only: snapshot_release, t_start, mycall, hiscall, hisgrid, neme, &
                             initialize_decode_parameters, claim_decode_request, get_stop_m65, &
-                            active_request_id, active_request_expired, nrate_active
+                            active_request_id, active_request_expired, nrate_active, active_request_lagged, note_decoder_lag
   use stdout_channel_mod, only: write_stdout
   use decodes_mod, only: nhsym1,nhsym2
   use deep65_mod, only: build_call3_candidates
@@ -82,6 +82,9 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   do while (get_stop_m65() == 0)
      if (claim_decode_request()) then
         if (active_request_expired) then
+           ! Only a snapshot that was overwritten means the decoder fell behind;
+           ! requests dropped because monitoring stopped are not lag.
+           if (active_request_lagged) call note_decoder_lag(2)
            write(line, '(A,1X,I0)') '<DecodeSkipped>', active_request_id
            call write_stdout(trim(line)//new_line('a'))
         else

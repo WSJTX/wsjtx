@@ -17,7 +17,7 @@ contains
       use debug_log, only: dbg, itoa, rtoa
       use sec_midn_mod, only: sec_midn
       use q65b_mod
-      use q65_cursor_mod, only: q65_cursor_f0
+      use q65_cursor_mod, only: q65_cursor_f0, qso_sync_window
       use decode1a_mod
       use ccf65_legacy_mod
       use pctile_mod
@@ -29,7 +29,8 @@ contains
       use getdphi_mod
       use datcom_ptrs_mod, only: ss_old, savg_old
       use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, &
-                               manualDecodeFlag, active_input_generation
+                               manualDecodeFlag, active_input_generation, note_decoder_lag, &
+                               active_snap_idx
       use sec0_mod, only: sec0
       use q65_decode, only: nsnr0, msg0, xdt0, nfreq0
 
@@ -124,6 +125,9 @@ contains
       integer :: t_now, t_rate
       logical :: m65_inited = .false.
       logical :: abort_saved
+      logical :: early_window
+      integer :: mfa_s, mfb_s, nhsym_rows
+      integer, parameter :: EARLY_MARGIN_KHZ = 2
       integer :: icenter
       logical :: initialization_only, shorthand_detected, jt65_success, q65_success
       logical :: already_decoded_nearby
@@ -157,6 +161,10 @@ contains
       ! once the next cycle's UDP data starts arriving.
       ss_dec   => ss_old
       savg_dec => savg_old
+      ! The early snapshot holds only nhsym1 rows, even when a manual request
+      ! arrives with nhsym2.
+      nhsym_rows = nhsym
+      if (active_snap_idx .eq. 1) nhsym_rows = min(nhsym, nhsym1)
 
       abort_decode = .false.
 
@@ -287,7 +295,7 @@ contains
 
             ssmax = 1.e30
             call timer('ccf65   ',0)
-            call ccf65(ss_dec(:,:,iii), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+            call ccf65(ss_dec(:,:,iii), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                      syncshort_tmp, snr2_tmp, ipol2_tmp, dt2_tmp)
             call timer('ccf65   ',1)
 
@@ -342,12 +350,12 @@ contains
                   iu = il + jsep
                   if (il < 51 .or. iu > nfft_active - 51) cycle
                   ssmax = 1.e30
-                  call ccf65(ss_dec(:,:,iu), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+                  call ccf65(ss_dec(:,:,iu), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                              syncshort_tmp, u_snr2, u_ipol2, u_dt2)
                   if (syncshort_tmp <= sh_sync) cycle
                   syncshort = syncshort_tmp
                   ssmax = 1.e30
-                  call ccf65(ss_dec(:,:,il), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+                  call ccf65(ss_dec(:,:,il), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                              syncshort_tmp, snr2_tmp, ipol2_tmp, dt2_tmp)
                   if (syncshort_tmp <= thresh0) cycle
                   sh_sync  = syncshort
@@ -500,6 +508,9 @@ contains
             ! is centered on the actual clicked frequency, not just rounded
             ! to the nearest kHz -- matters once q65b targets this exactly
             ! (see the manualDecodeFlag handling around k0 in q65b.F90).
+            ! f0 and the sync window below both use the current center, which the
+            ! last automatic pass may not have set to this fcenter yet.
+            nkhz_center = nint(1000.0*(fcenter - int(fcenter)))
             freq = mousefqso + 0.001*mousedf
             freq_q65 = freq
             f0       = q65_cursor_f0(mousefqso, mousedf, nkhz_center, nrate_active, nfcal)
@@ -517,6 +528,19 @@ contains
             ! gate's reference-frame mismatch is now fixed inside q65b.F90
             ! itself instead, from f0 (already unambiguous), leaving this
             ! mousedf untouched for f_mouse/k0 to keep working correctly.
+
+            ! q65b reads sync() near the click for the polarization and the
+            ! combining angle. The last automatic pass may have covered only
+            ! its own window, or have expired without running at all (monitoring
+            ! stopped), so refresh sync() around this click first.
+            mfa = nfa - nkhz_center + int(nrate_active/2000.0)
+            mfb = nfb - nkhz_center + int(nrate_active/2000.0)
+            call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
+                 EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, sync_narrow)
+            call timer('get_cand', 0)
+            call get_candidates(ss_dec, savg_dec, xpol, nhsym_rows, mfa_s, mfb_s, nts_jt65, nts_q65, &
+                 cand, ncand, mfa, mfb)
+            call timer('get_cand', 1)
 
             call dbg('map65a manual: Q65 call nutc=' // itoa(nutc) // ' nqd=' // itoa(nqd) // &
                      ' ikhz=' // itoa(ikhz) // ' mousedf=' // itoa(mousedf) // ' ntol=' // itoa(ntol) // &
@@ -685,10 +709,28 @@ else
    rms = 0.0d0
 endif
 
-if (nagain .eq. 0) then
+! The automatic early pass (nhsym1) decodes only near the QSO frequency and
+! stops before the wideband search, so it needs sync() only there. Keep a
+! margin around the window that q65b's cursor search (+/- ntol) and the
+! candidate filter below look at.
+early_window = nagain .eq. 0 .and. nhsym .eq. nhsym1 .and. &
+               manualDecodeFlag_initial .eq. 0 .and. ndiskdat .eq. 0
+mfa_s = mfa
+mfb_s = mfb
+if (early_window) then
+   call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
+        EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, early_window)
+endif
+if (nagain .eq. 0 .or. sync_narrow) then
+   ! A manual repeat (nagain=1) reuses the last pass's sync(); if that covered only
+   ! a narrow window, redo it over the full span.
    call timer('get_cand', 0)
-   call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa, mfb, nts_jt65, nts_q65, cand, ncand)
+   ! mfa..mfb stays the reference for the score scale, so a narrowed search
+   ! scores a signal as the full-span search would.
+   call get_candidates(ss_dec, savg_dec, xpol, nhsym_rows, mfa_s, mfb_s, nts_jt65, nts_q65, cand, ncand, &
+        mfa, mfb)
    call timer('get_cand', 1)
+   sync_narrow = early_window
    candec = .false.
    ! TEMP diagnostic 2026-09-09 for the missing-upper-Q65-decode investigation.
    call dbg('map65a: get_candidates done at t=' // rtoa(sec_midn()) // &
@@ -801,7 +843,7 @@ endif
 !  Look for JT65 sync patterns and shorthand square-wave patterns.
                call timer('ccf65   ', 0)
                ssmax = 1.e30
-               call ccf65(ss_dec(:,:,i), nhsym, ssmax, sync1, ipol, jpz, dt, flipk, &
+               call ccf65(ss_dec(:,:,i), nhsym_rows, ssmax, sync1, ipol, jpz, dt, flipk, &
                   syncshort, snr2, ipol2, dt2)
                call timer('ccf65   ', 1)
                ! 2026-09-12: instrumentation for the "identical anomalous
@@ -1154,8 +1196,10 @@ endif
          call sec0(1, tsec0)
          call dbg('map65a: end of nqd=' // itoa(nqd) // ' body at t=' // rtoa(sec_midn()) // &
                   ' tsec0=' // rtoa(tsec0) // ' nhsym=' // itoa(nhsym) // ' nagain=' // itoa(nagain))
-         if (nhsym .eq. nhsym1 .and. tsec0 .gt. 3.0) then
-            call dbg('map65a: ABORT (early-pass 3s budget) at t=' // rtoa(sec_midn()) // &
+         ! The automatic early pass does not run the wideband (nqd=0) decode; with
+         ! early_window set, sync() then holds only the QSO window.
+         if (nhsym .eq. nhsym1 .and. (early_window .or. tsec0 .gt. 3.0)) then
+            call dbg('map65a: early pass skips nqd=0 at t=' // rtoa(sec_midn()) // &
                      ' tsec0=' // rtoa(tsec0) // ' -- nqd=0 will NOT run this pass')
             go to 700
          endif
@@ -1216,6 +1260,7 @@ endif
       enddo  ! nqd
 
 700   continue
+      if (abort_decode) call note_decoder_lag(3)
       ! TEMP diagnostic 2026-09-09 for the missing-other-signals-in-Messages investigation.
       call dbg('map65a: reached label 700 at t=' // rtoa(sec_midn()) // &
                ' km=' // itoa(km) // ' abort_decode=' // itoa(merge(1,0,abort_decode)) // &

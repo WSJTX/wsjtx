@@ -1786,6 +1786,44 @@ void MainWindow::createStatusBar()                           //createStatusBar
   lab8->setMinimumSize(QSize(50,10));
   lab8->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab8);
+
+  labLag = new QLabel("Decoder OK");
+  labLag->setAlignment(Qt::AlignHCenter);
+  labLag->setMinimumSize(QSize(50,10));
+  labLag->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  labLag->setToolTip("Decoder keeping up with the minute");
+  statusBar()->addWidget(labLag);
+}
+
+// Shows when the decoder cannot keep up: a decode pass was dropped or cut
+// short. Stays on for three minutes after the last event.
+void MainWindow::updateDecoderLagIndicator()
+{
+  constexpr qint64 holdMs = 180000;
+  qint64 const now = QDateTime::currentMSecsSinceEpoch();
+  int const count = get_decoder_lag_count();
+  if (count != m_lagSeen) {
+    m_lagTotal += count - m_lagSeen;
+    m_lagSeen = count;
+    m_lagLastMs = now;
+    QString what;
+    switch (get_decoder_lag_kind()) {
+    case 1:  what = "a decode pass was dropped because the previous one was still running"; break;
+    case 2:  what = "a queued decode pass was skipped"; break;
+    default: what = "a decode pass was stopped at its 40 s time limit"; break;
+    }
+    labLag->setText("Decoder behind");
+    labLag->setStyleSheet("QLabel{background-color: #ffb266}");
+    labLag->setToolTip(QString("Last event: %1.\n%2 decoder-behind events so far this session. Some stations may be "
+                               "missing from the Messages window.\nTry closing other programs, "
+                               "a lower sample rate, or single polarization.").arg(what).arg(m_lagTotal));
+  } else if (m_lagLastMs != 0 and now - m_lagLastMs > holdMs) {
+    m_lagLastMs = 0;
+    labLag->setText("Decoder OK");
+    labLag->setStyleSheet("");
+    labLag->setToolTip(QString("Decoder keeping up with the minute (%1 decoder-behind events so far this session)")
+                       .arg(m_lagTotal));
+  }
 }
 
 void MainWindow::on_tolSpinBox_valueChanged(int i)             //tolSpinBox
@@ -2380,6 +2418,8 @@ void MainWindow::guiUpdate()
   static char msgsent[23];
   static int nsendingsh=0;
   int khsym=0;
+
+  updateDecoderLagIndicator();
 
   double tx1=0.0;
   double tx2=126.0*4096.0/11025.0 + 1.8;

@@ -107,10 +107,20 @@ module npar_ptrs_mod
   end type
   type(decode_request), pointer, save :: pending_head => null(), pending_tail => null()
   integer(c_int64_t), save :: published_request_id = 0
+  ! Decoder-behind events, for the status-bar indicator: a decode pass dropped
+  ! or cut short because the decoder could not keep up with the minute.
+  !   1 = snapshot refill refused (previous pass still reading it)
+  !   2 = queued request skipped (its snapshot was lost)
+  !   3 = pass aborted at the 40 s budget
+  integer(c_int), save :: lag_event_count = 0
+  integer(c_int), save :: lag_last_kind = 0
   integer(c_int64_t), save :: active_request_id = 0
   integer(c_int64_t), save :: live_input_generation = 0
   integer(c_int64_t), save :: active_input_generation = 0
   logical, save :: active_request_expired = .false.
+  ! The expired request's snapshot was overwritten before it ran (the decoder
+  ! fell behind), as opposed to a request invalidated by monitoring stopping.
+  logical, save :: active_request_lagged = .false.
 
   ! Decoder data snapshots (see datcom_ptrs_mod). All of this state is
   ! protected by lock_decode_requests().
@@ -851,11 +861,13 @@ end subroutine
       active_request_id = request%id
       active_input_generation = request%input_generation
       active_snap_idx = 0
+      active_request_lagged = .false.
       if (request%snap_idx > 0) then
         ! Automatic pass: valid while its snapshot is intact, even if the
         ! minute has rolled over. A live request more than one generation old
         ! (monitoring stopped, period changed) is still dropped.
         active_request_expired = snap_valid_seq(request%snap_idx) /= request%snap_seq
+        active_request_lagged = active_request_expired
         if (active%ndiskdat == 0 .and. &
             live_input_generation - request%input_generation >= 2) active_request_expired = .true.
         if (.not. active_request_expired) then
@@ -890,8 +902,32 @@ end subroutine
     snap_seq(idx) = snap_seq(idx) + 1
     snap_valid_seq(idx) = 0
     ok = .not. snap_busy(idx)
+    if (.not. ok) then
+      lag_event_count = lag_event_count + 1
+      lag_last_kind = 1
+    endif
     call unlock_decode_requests()
   end subroutine
+
+  subroutine note_decoder_lag(kind)
+    integer, intent(in) :: kind
+    call lock_decode_requests()
+    lag_event_count = lag_event_count + 1
+    lag_last_kind = kind
+    call unlock_decode_requests()
+  end subroutine
+
+  integer(c_int) function get_decoder_lag_count() bind(C, name="get_decoder_lag_count")
+    call lock_decode_requests()
+    get_decoder_lag_count = lag_event_count
+    call unlock_decode_requests()
+  end function
+
+  integer(c_int) function get_decoder_lag_kind() bind(C, name="get_decoder_lag_kind")
+    call lock_decode_requests()
+    get_decoder_lag_kind = lag_last_kind
+    call unlock_decode_requests()
+  end function
 
   subroutine snapshot_fill_end(idx)
     integer, intent(in) :: idx

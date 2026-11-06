@@ -16,7 +16,7 @@ program test_map65_q65_fcal
   use npar_ptrs_mod, only: abort_decode, fcenter, idphi, manualDecodeFlag, ndepthq65, &
        nfft_active, nsmax_active, set_runtime_params, t_start
   use q65_decode, only: msg0, nsnr0
-  use q65_cursor_mod, only: q65_cursor_f0
+  use q65_cursor_mod, only: q65_cursor_f0, qso_sync_window
   use q65b_mod, only: q65b
   use symspec_mod, only: symspec
   use timer_impl, only: init_timer, fini_timer
@@ -42,6 +42,9 @@ program test_map65_q65_fcal
   real(real64) :: f0
   real :: fqso, df3
   integer :: ibin
+  integer :: mfa_s, mfb_s, nfcal_test
+  logical :: narrowed
+  integer, parameter :: fcal_cases(7) = [-10000, -3000, -120, 0, 120, 3000, 10000]
 
   ! q65_cursor_f0 converts the cursor (a true frequency) to the spectrum frequency.
   call require(abs(q65_cursor_f0(mousefqso, 0, 125, 96000, 0) - 49.27046_real64) < 1.0e-4_real64, &
@@ -50,6 +53,20 @@ program test_map65_q65_fcal
        < 1.0e-4_real64, 'Fcal moves the cursor target up by Fcal')
   call require(abs(q65_cursor_f0(mousefqso, -25, 125, 96000, -40) - 49.20546_real64) < 1.0e-4_real64, &
        'mousedf and a negative Fcal both apply')
+
+  ! The sync window must cover everything the cursor search reads, at any Fcal.
+  do i = 1, size(fcal_cases)
+    nfcal_test = fcal_cases(i)
+    call qso_sync_window(sample_rate, 125, mousefqso, -25, nfcal_test, 100, 2, 1, 90, &
+         mfa_s, mfb_s, narrowed)
+    f0 = q65_cursor_f0(mousefqso, -25, 125, sample_rate, nfcal_test)
+    call require(narrowed .and. mfb_s - mfa_s < 89, 'the window is narrower than the span')
+    call require(real(mfa_s, real64) <= f0 - 0.1_real64 .and. real(mfb_s, real64) >= f0 + 0.1_real64, &
+         'the window covers the cursor +/- ntol at any Fcal')
+  end do
+  call qso_sync_window(sample_rate, 125, mousefqso, 0, 0, 100, 2, 1, 40, mfa_s, mfb_s, narrowed)
+  call require(.not. narrowed .and. mfa_s == 1 .and. mfb_s == 40, &
+       'a cursor outside the span leaves the whole span')
 
   call set_runtime_params(sample_rate, fft_size, 56 * sample_rate)
   allocate(dd(4, nsmax_active), ss(4, 322, nfft_active), savg(4, nfft_active))

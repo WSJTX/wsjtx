@@ -151,6 +151,8 @@ extern struct {                     //This is "common/datcom/..." in Fortran
                             intptr_t event_handle);
   void set_manual_decode_flag(int);
   void snapshot_buffers(int idx, int ksamp, int nhsym_snap);
+  int get_decoder_lag_count();
+  int get_decoder_lag_kind();
 }
 
 extern QStringList allDecodes2;

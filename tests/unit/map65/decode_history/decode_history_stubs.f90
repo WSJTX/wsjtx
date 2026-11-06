@@ -31,6 +31,7 @@ module wideband_sync
   implicit none
   integer, parameter :: MAX_CANDIDATES = 50
   integer :: nkhz_center
+  logical :: sync_narrow = .false.
   type candidate
     real :: snr, f, xdt, pol
     integer :: ipol, iflip, indx
@@ -39,13 +40,15 @@ contains
   subroutine init_wideband_sync()
   end subroutine
 
-  subroutine get_candidates(ss, savg, xpol, jz, nfa, nfb, nts_jt65, nts_q65, cand, ncand)
+  subroutine get_candidates(ss, savg, xpol, jz, nfa, nfb, nts_jt65, nts_q65, cand, ncand, &
+                            nfa_ref, nfb_ref)
     use npar_ptrs_mod, only: nfft_active
     real, intent(in) :: ss(4,322,nfft_active), savg(4,nfft_active)
     logical, intent(in) :: xpol
     integer, intent(in) :: jz, nfa, nfb, nts_jt65, nts_q65
     type(candidate), intent(out) :: cand(MAX_CANDIDATES)
     integer, intent(out) :: ncand
+    integer, intent(in), optional :: nfa_ref, nfb_ref
     ncand = 1
     ! With nfcal=-1270, this places the Q65 signal at the zero-kHz cursor.
     cand(1) = candidate(10.0, 48.00046, 0.0, 0.0, 1, 0, 1)
