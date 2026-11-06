@@ -247,6 +247,7 @@ MainWindow::MainWindow(QWidget *parent) :
   connect (m_wide_graph_window.get (), &WideGraph::freezeDecode2, this, &MainWindow::freezeDecode);
   connect (m_wide_graph_window.get (), &WideGraph::decodeLabelClicked2, this, &MainWindow::decodeLabelClicked);
   connect (m_vert_waterfall_window.get (), &VertWaterfall::decodeLabelClicked2, this, &MainWindow::decodeLabelClicked);
+  connect (ui->decodedTextBrowser, &DisplayText::decodeLineClicked, this, &MainWindow::decodeLabelClicked);
   connect (m_wide_graph_window.get (), &WideGraph::f11f12, this, &MainWindow::bumpDF);
   connect (m_wide_graph_window.get (), &WideGraph::spectrumReady,
            m_vert_waterfall_window.get (), &VertWaterfall::dataSinkVert);
@@ -601,6 +602,7 @@ void MainWindow::clearDecodeLabels ()
 {
   if (m_wide_graph_window) m_wide_graph_window->clearDecodeLabels ();
   if (m_vert_waterfall_window) m_vert_waterfall_window->clearDecodeLabels ();
+  ui->decodedTextBrowser->clearDecodeLines ();
 }
 
 void MainWindow::on_stopButton_clicked()                      //stopButton
@@ -1157,6 +1159,7 @@ void MainWindow::decode()                                       //decode()
 void MainWindow::on_EraseButton_clicked()
 {
   ui->decodedTextBrowser->clear();
+  ui->decodedTextBrowser->clearDecodeLines();
   lab4->clear();
   m_nline=0;
 }
@@ -1287,9 +1290,16 @@ void MainWindow::guiUpdate()
   }
 
   m_wide_graph_window->updateFreqLabel();
+  // A jump of a MHz or more in the centre frequency is a band change (Fadd
+  // or Linrad retune); decodes from the old band must stop being clickable.
+  if (std::fabs (datcom_.fcenter - m_lastCentreMHz) >= 1.0) {
+    if (m_lastCentreMHz >= 0.0) clearDecodeLabels ();
+    m_lastCentreMHz = datcom_.fcenter;
+  }
   if (!m_diskData) {
     m_wide_graph_window->pruneDecodeLabels(nsec);
     if (m_vert_waterfall_window) m_vert_waterfall_window->pruneDecodeLabels(nsec);
+    ui->decodedTextBrowser->pruneDecodeLines(nsec);
   }
 
   if(m_startAnother and !m_bDiskDatBusy) {
@@ -1308,13 +1318,14 @@ void MainWindow::guiUpdate()
       QString t2=QString::fromLatin1(live_cq_row,
         static_cast<int>(qmap_decode_ipc::text_length(live_cq_row)));
 
-      if (m_vert_waterfall_window || m_wide_graph_window) {
-        auto const record = parseQMapDecodeRecord (
-          QByteArray {decodes_.result[m_fetched], static_cast<int> (QMapDecodeRowSize)});
-        if (record && LiveCQ::isValidCallsign (record->callsign)) {
-          if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(*record);
-          if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(*record);
-        }
+      // A decode with a valid callsign becomes clickable on the waterfalls
+      // and in the decoded-text window; all three send the same raw row.
+      auto record = parseQMapDecodeRecord (
+        QByteArray {decodes_.result[m_fetched], static_cast<int> (QMapDecodeRowSize)});
+      if (record && !LiveCQ::isValidCallsign (record->callsign)) record.reset ();
+      if (record) {
+        if (m_vert_waterfall_window) m_vert_waterfall_window->addDecodeLabel(*record);
+        if (m_wide_graph_window) m_wide_graph_window->addDecodeLabel(*record);
       }
 
       if(m_UTC0!="" and m_UTC0!=t.left(4)) {
@@ -1332,6 +1343,7 @@ void MainWindow::guiUpdate()
       QString t3 = t + " " + t2;  //liveCQ
       cqliveText.append(t3);      //liveCQ
       ui->decodedTextBrowser->append(t);
+      if (record) ui->decodedTextBrowser->setLastLineDecode(*record);
       m_fetched++;
       m_nline++;
       QTextCursor cursor(ui->decodedTextBrowser->document()->findBlockByLineNumber(m_nline-1));
