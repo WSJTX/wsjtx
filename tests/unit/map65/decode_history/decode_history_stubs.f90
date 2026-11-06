@@ -1,6 +1,7 @@
 ! These stand-ins supply one successful signal per mode. The production
 ! map65a loop owns all JT65 suppression and both modes' history resets.
 module decode_history_observations
+  use iso_fortran_env, only: real64
   implicit none
   integer :: jt65_attempts = 0, q65_successes = 0
   integer :: phase_attempts(0:12) = 0
@@ -12,6 +13,9 @@ module decode_history_observations
   real :: stub_fit = 0.0
   logical :: stub_short_from_ss = .false.
   logical :: phase_has_signal(0:12) = .true.
+  ! What the latest manual q65b call and its get_candidates were given.
+  real(real64) :: last_q65_f0 = -1.0_real64
+  integer :: last_q65_nkhz = -1, last_ref_nfa = -1, last_ref_nfb = -1
 end module
 
 module stdout_channel_mod
@@ -28,6 +32,7 @@ contains
 end module
 
 module wideband_sync
+  use decode_history_observations
   implicit none
   integer, parameter :: MAX_CANDIDATES = 50
   integer :: nkhz_center
@@ -49,6 +54,8 @@ contains
     type(candidate), intent(out) :: cand(MAX_CANDIDATES)
     integer, intent(out) :: ncand
     integer, intent(in), optional :: nfa_ref, nfb_ref
+    if (present(nfa_ref)) last_ref_nfa = nfa_ref
+    if (present(nfb_ref)) last_ref_nfb = nfb_ref
     ncand = 1
     ! With nfcal=-1270, this places the Q65 signal at the zero-kHz cursor.
     cand(1) = candidate(10.0, 48.00046, 0.0, 0.0, 1, 0, 1)
@@ -128,6 +135,7 @@ contains
                  mycall,mygrid,hiscall,hisgrid,mode_q65,f0,fqso,newdat,nagain,max_drift,ndop00,idec,cursor_fallback)
     use decodes_mod, only: ldecoded
     use q65_decode, only: nsnr0
+    use wideband_sync, only: nkhz_center
     integer, intent(in) :: nutc,nqd,nxant,nfcal,nfsample,ikhz,mousedf,ntol,mode_q65
     integer, intent(in) :: newdat,nagain,max_drift,ndop00,configured_dphi_deg
     real(real64), intent(in) :: fcenter,f0
@@ -137,6 +145,8 @@ contains
     character(len=12), intent(in) :: mycall,hiscall
     character(len=6), intent(in) :: mygrid,hisgrid
     integer, intent(out) :: idec
+    last_q65_f0 = f0
+    last_q65_nkhz = nkhz_center
     nsnr0 = -99
     idec = -1
     ! Model q65b's successful-bin guard, not its signal processing. This
