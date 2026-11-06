@@ -1951,21 +1951,34 @@ private slots:
     options.environment << "WSJT_CODEC_TEST_HOLD_PASS=41:9000";
     Codec codec {options};
     QVERIFY2 (codec.started, qPrintable (codec.failure));
+    auto const start = codec.now ();
     auto const t0 = codec.write (sessionHeader () + configure (settings) + frame (0x01u, pcm.left (2 * 41 * HsymSamples)));
     QVERIFY2 (codec.waitForLine (passLine (41), waitMs (), "the early pass"), qPrintable (codec.report ()));
-    // The final falls due 14.1 s in, 5.1 s after the hold ends, room for a slow
-    // runner's decode. Sent at 6 s, it would fall due 8.1 s in, inside the hold,
-    // if the clock took up the wait.
+    // The final falls due 14.1 s in, 5.1 s after the hold ends. A clock that took
+    // up the wait would move back by it, but no further than makes the frame's
+    // first read due on arrival: sent at 6 s, the final would then fall due 8.1 s
+    // in, inside the hold. A send outside about 5 to 7 s would not show that.
     QVERIFY (codec.waitUntil (t0 + 6000));
     codec.write (frame (0x01u, samples (pcm, 41 * HsymSamples, 49 * HsymSamples)));
     QVERIFY2 (codec.waitForLine (outType ("decode_finished"), waitMs (), "the final"), qPrintable (codec.report ()));
     codec.write (frame (0x01u, samples (pcm, 49 * HsymSamples, Ft8PeriodSamples)) + halt ());
     QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
     QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
-    qInfo ().noquote () << QString {"after the first write: hold ended %1 ms, final decided %2 ms, due %3 ms"}
-      .arg (msOf (codec.lines, find (codec.lines, holdDoneLine (41))) - t0)
-      .arg (msOf (codec.lines, find (codec.lines, errHas ("nzhsym=49"))) - t0).arg (49 * HsymSamples / 12);
-    QCOMPARE (decisions (codec.lines).join (", "), QString {"pass 41 F, pass 49 T"});
+    auto const due = qint64 {49} * HsymSamples * 1000 / SampleRate;
+    auto const deferredAt = msOf (codec.lines, find (codec.lines, errHas ("defer nzhsym=49"))) - t0;
+    qInfo ().noquote () << QString {"after the first write (%1 ms): hold ended %2 ms, final decided %3 ms; it falls due at %4 ms"}
+      .arg (t0 - start).arg (msOf (codec.lines, find (codec.lines, holdDoneLine (41))) - t0)
+      .arg (msOf (codec.lines, find (codec.lines, errHas ("nzhsym=49"))) - t0).arg (due);
+    // A decode that outlasts the 5.1 s defers the final after it fell due, which
+    // says nothing about the clock; a clock that took up the wait defers it when
+    // the early pass ends, well before. The clock starts when the first audio
+    // arrives, and the codec's waits while the rest of that write comes in move it
+    // earlier: up to twice the write's time before t0, and a quarter second more
+    // covers the reader.
+    if (deferredAt >= due - 2 * (t0 - start) - 250)
+      QCOMPARE (decisions (codec.lines).join (", "), QString {"pass 41 F, defer 49, pass 49 T"});
+    else
+      QCOMPARE (decisions (codec.lines).join (", "), QString {"pass 41 F, pass 49 T"});
   }
 
   // A snapshot that does not fit waits for the operations queued before it
