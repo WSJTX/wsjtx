@@ -26,12 +26,13 @@ class TestWorkedBeforeAdif final : public QObject
   QNetworkAccessManager network_;
   std::unique_ptr<QSettings> settings_;
   std::unique_ptr<Configuration> configuration_;
+  std::unique_ptr<QSettings> supplemental_settings_;
+  std::unique_ptr<Configuration> supplemental_configuration_;
 
 private Q_SLOTS:
   void initTestCase ();
   void cleanupTestCase ();
   void init ();
-  void cleanup ();
   void jtty_round_trips_with_current_header ();
   void imports_records_across_layouts_and_length_errors_data ();
   void imports_records_across_layouts_and_length_errors ();
@@ -47,7 +48,7 @@ private:
   bool wait_for_load (WorkedBefore& worked_before, int& record_count, QString& error);
   bool write_data_file (QString const& name, QByteArray const& contents);
   bool write_country_views ();
-  bool set_wae_enabled (bool enabled);
+  bool set_wae_enabled (Configuration const&, QWidget& parent, bool enabled);
 };
 
 QString TestWorkedBeforeAdif::data_directory () const
@@ -69,13 +70,12 @@ bool TestWorkedBeforeAdif::write_country_views ()
     "WAE Only:15:28:EU:42:-21:-1:*Z6\nZ6;\n"});
 }
 
-bool TestWorkedBeforeAdif::set_wae_enabled (bool enabled)
+bool TestWorkedBeforeAdif::set_wae_enabled (Configuration const& configuration, QWidget& parent, bool enabled)
 {
   QDialog * dialog {};
-  for (auto * widget : QApplication::topLevelWidgets ())
+  for (auto * candidate : parent.findChildren<QDialog *> ())
     {
-      auto * candidate = qobject_cast<QDialog *> (widget);
-      if (candidate && candidate->findChild<QCheckBox *> ("include_WAE_check_box"))
+      if (candidate->findChild<QCheckBox *> ("include_WAE_check_box"))
         {
           dialog = candidate;
           break;
@@ -92,13 +92,12 @@ bool TestWorkedBeforeAdif::set_wae_enabled (bool enabled)
   ensure_option ("sound_output_combo_box", "Test output");
   QTimer dismiss_message;
   dismiss_message.setSingleShot (true);
-  connect (&dismiss_message, &QTimer::timeout, [] {
-    for (auto * widget : QApplication::topLevelWidgets ())
-      if (auto * message = qobject_cast<QMessageBox *> (widget)) message->accept ();
+  connect (&dismiss_message, &QTimer::timeout, [&parent] {
+    for (auto * message : parent.findChildren<QMessageBox *> ()) message->accept ();
   });
   dismiss_message.start (1000);
   auto const invoked = QMetaObject::invokeMethod (dialog, "accept", Qt::DirectConnection);
-  return invoked && configuration_->include_WAE_entities () == enabled;
+  return invoked && configuration.include_WAE_entities () == enabled;
 }
 
 void TestWorkedBeforeAdif::initTestCase ()
@@ -110,26 +109,34 @@ void TestWorkedBeforeAdif::initTestCase ()
   QVERIFY (settings_dir_.isValid ());
 
   QVERIFY (QDir {}.mkpath (data_directory ()));
-}
-
-void TestWorkedBeforeAdif::cleanupTestCase ()
-{
-  configuration_.reset ();
-  QDir {data_directory ()}.removeRecursively ();
-}
-
-void TestWorkedBeforeAdif::init ()
-{
   QVERIFY (write_data_file ("cty.dat", QByteArray {"Test Entity:5:8:NA:37:-96:-5:K\nK,W;\n"}));
   settings_.reset (new QSettings {settings_dir_.filePath ("settings.ini"), QSettings::IniFormat});
   settings_->clear ();
   configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, settings_.get (), nullptr});
+  supplemental_settings_.reset (new QSettings {settings_dir_.filePath ("supplemental-settings.ini"), QSettings::IniFormat});
+  supplemental_settings_->clear ();
+  supplemental_settings_->setValue ("Configuration/SupplementalHistoryFiles", QStringList {settings_dir_.filePath ("station.adi")});
+  supplemental_configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, supplemental_settings_.get (), nullptr});
 }
 
-void TestWorkedBeforeAdif::cleanup ()
+void TestWorkedBeforeAdif::cleanupTestCase ()
 {
+  supplemental_configuration_.reset ();
   configuration_.reset ();
+  supplemental_settings_.reset ();
   settings_.reset ();
+  QVERIFY (QDir {data_directory ()}.removeRecursively ());
+}
+
+void TestWorkedBeforeAdif::init ()
+{
+  for (auto const& path : {QDir {data_directory ()}.filePath ("wsjtx_log.adi"), settings_dir_.filePath ("station.adi")})
+    if (QFile::exists (path)) QVERIFY (QFile::remove (path));
+  QVERIFY (write_data_file ("cty.dat", QByteArray {"Test Entity:5:8:NA:37:-96:-5:K\nK,W;\n"}));
+  QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
+  QCOMPARE (supplemental_configuration_->supplemental_history_files (), QStringList {settings_dir_.filePath ("station.adi")});
+  QVERIFY (!configuration_->include_WAE_entities ());
+  QVERIFY (!supplemental_configuration_->include_WAE_entities ());
 }
 
 void TestWorkedBeforeAdif::jtty_round_trips_with_current_header ()
@@ -434,19 +441,14 @@ void TestWorkedBeforeAdif::reports_incomplete_sources ()
   auto const primary_path = configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi");
   if (QFile::exists (primary_path)) QVERIFY (QFile::remove (primary_path));
   auto const source = primary ? primary_path : settings_dir_.filePath ("station.adi");
-  if (!primary)
-    {
-      configuration_.reset ();
-      settings_->setValue ("Configuration/SupplementalHistoryFiles", QStringList {source});
-      configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, settings_.get (), nullptr});
-    }
   QFile file {source};
   QVERIFY (file.open (QIODevice::WriteOnly));
   QCOMPARE (file.write (contents), static_cast<qint64> (contents.size ()));
   file.close ();
-  WorkedBefore worked {configuration_.get ()};
+  WorkedBefore worked {primary ? configuration_.get () : supplemental_configuration_.get ()};
   QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
-  QTRY_COMPARE (finished.count (), 1);
+  QVERIFY (finished.count () || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
   int expected = primary || accepted ? entries : 0;
   QCOMPARE (finished.at (0).at (0).toInt (), expected);
   QCOMPARE (worked.load_errors ().isEmpty (), accepted);
@@ -468,13 +470,15 @@ void TestWorkedBeforeAdif::primary_rescan_recovers_records_and_preserves_live_qs
   QVERIFY (write ("<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<EOR>"));
   WorkedBefore worked {configuration_.get ()};
   QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
-  QTRY_COMPARE (finished.count (), 1);
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
   QVERIFY (worked.call_worked ("K1ABC", {}, {}));
   QVERIFY (write ("<CALL:5>W1XYZ<BAND:3>20M<MODE:3>FT8<EOR><CALL:5>N2AAA"));
   worked.reload ();
   QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
   QVERIFY (worked.add ("K3NEW", "FN20", "20M", "FT8", "<CALL:5>K3NEW<BAND:3>20M<MODE:3>FT8"));
-  QTRY_COMPARE (finished.count (), 2);
+  QVERIFY (finished.count () >= 2 || finished.wait (5000));
+  QCOMPARE (finished.count (), 2);
   QCOMPARE (finished.at (1).at (0).toInt (), 2);
   QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
   QVERIFY (worked.call_worked ("W1XYZ", "FT8", "20M"));
@@ -509,7 +513,8 @@ void TestWorkedBeforeAdif::country_views_survive_loading_and_live_additions ()
     "<CALL:5>Z61AA<BAND:3>40M<MODE:3>FT4<EOR>\n"}));
   WorkedBefore worked {configuration_.get ()};
   QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
-  QTRY_COMPARE (finished.count (), 1);
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
   QCOMPARE (finished.at (0).at (0).toInt (), 2);
   auto const shetland = worked.countries ()->lookup ("2M0BDR");
   auto const wae_only = worked.countries ()->lookup ("Z61AA");
@@ -537,12 +542,14 @@ void TestWorkedBeforeAdif::country_views_survive_loading_and_live_additions ()
   QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
   // The loader has read the file, but its result has not reached the GUI thread.
   QVERIFY (worked.add ("G0FBJ", "IO99", "15M", "FT4", "<CALL:5>G0FBJ<BAND:3>15M<MODE:3>FT4"));
-  QTRY_COMPARE (finished.count (), 2);
+  QVERIFY (finished.count () >= 2 || finished.wait (5000));
+  QCOMPARE (finished.count (), 2);
   QCOMPARE (finished.at (1).at (0).toInt (), 3);
   QVERIFY (worked.country_worked ("Scotland", "FT4", "15M", View::DXCC));
   QVERIFY (worked.country_worked ("Shetland Islands", "FT4", "15M", View::WAE));
   worked.reload ();
-  QTRY_COMPARE (finished.count (), 3);
+  QVERIFY (finished.count () >= 3 || finished.wait (5000));
+  QCOMPARE (finished.count (), 3);
   QCOMPARE (finished.at (2).at (0).toInt (), 3);
   QVERIFY (worked.country_worked ("Scotland", "FT4", "15M", View::DXCC));
   QVERIFY (worked.country_worked ("Shetland Islands", "FT4", "15M", View::WAE));
@@ -554,25 +561,30 @@ void TestWorkedBeforeAdif::logbook_changes_country_view_without_rescanning ()
   QVERIFY (write_data_file ("wsjtx_log.adi", QByteArray {
     "<CALL:6>2M0BDR<BAND:3>20M<MODE:3>FT8<EOR>\n"
     "<CALL:5>Z61AA<BAND:3>20M<MODE:3>FT8<EOR>\n"}));
-  LogBook logbook {configuration_.get ()};
+  QSettings settings {settings_dir_.filePath ("wae-settings.ini"), QSettings::IniFormat};
+  settings.clear ();
+  QWidget parent;
+  Configuration configuration {&network_, QDir {settings_dir_.path ()}, &settings, nullptr, &parent};
+  LogBook logbook {&configuration};
   QSignalSpy finished {&logbook, &LogBook::finished_loading};
   QSignalSpy started {&logbook, &LogBook::loading_started};
-  QTRY_COMPARE (finished.count (), 1);
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
   auto country_worked = [&] (QString const& call) {
     bool call_b4, country_b4, grid_b4, continent_b4, cq_b4, itu_b4;
     logbook.match (call, "FT8", {}, logbook.countries ()->lookup (call),
                    call_b4, country_b4, grid_b4, continent_b4, cq_b4, itu_b4, "20M");
     return country_b4;
   };
-  QVERIFY (!configuration_->include_WAE_entities ());
+  QVERIFY (!configuration.include_WAE_entities ());
   QVERIFY (country_worked ("GM4ABC"));
   QVERIFY (country_worked ("G0FBJ"));
   QVERIFY (country_worked ("Z62BB"));
-  QVERIFY (set_wae_enabled (true));
+  QVERIFY (set_wae_enabled (configuration, parent, true));
   QVERIFY (!country_worked ("GM4ABC"));
   QVERIFY (country_worked ("G0FBJ"));
   QVERIFY (country_worked ("Z62BB"));
-  QVERIFY (set_wae_enabled (false));
+  QVERIFY (set_wae_enabled (configuration, parent, false));
   QVERIFY (country_worked ("GM4ABC"));
   QVERIFY (country_worked ("Z62BB"));
   QCOMPARE (started.count (), 0);
