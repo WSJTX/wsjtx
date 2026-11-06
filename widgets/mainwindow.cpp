@@ -3619,7 +3619,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       if(m_mode=="Q65" && e->modifiers() & Qt::AltModifier) {
         m_EMECall.clear();
         qmapcom.ndecodes=0;
-        refreshQmapActiveStations(QDateTime::currentDateTimeUtc());
+        displayQ65ActiveStations();
       }
     return;
   case Qt::Key_B:
@@ -3799,7 +3799,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       if(m_specOp==SpecOp::Q65_PILEUP) {
         refreshPileupList();
       } else {
-        refreshQmapActiveStations(QDateTime::currentDateTimeUtc());
+        displayQ65ActiveStations();
       }
       return;
     }
@@ -14923,6 +14923,7 @@ void MainWindow::readWidebandDecodes()
       QString::fromLatin1(qmapcom.result[qmap_decodes - 1], 6), nowUtc, 60);
     if (recordedTime.isValid()) displayTime = recordedTime;
   }
+  m_qmapDisplayTime = displayTime;
   refreshQmapActiveStations(displayTime);
 }
 
@@ -14956,6 +14957,16 @@ void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
   m_ActiveStationsWidget->erase();
   m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65,t);
   m_ActiveStationsWidget->setClickOK(true);
+}
+
+// Redraw only, without rereading qmapcom (so m_fetched isn't disturbed and the
+// batch's PSK Reporter spots aren't queued again). File playback's stations
+// are timestamped on the recording's clock, so reuse readWidebandDecodes()'s
+// last "now" rather than the real current time, or every station reads as
+// hours old and the list goes blank.
+void MainWindow::displayQ65ActiveStations()
+{
+  refreshQmapActiveStations(qmapcom.nQDecoderDone==2 ? m_qmapDisplayTime : QDateTime::currentDateTimeUtc());
 }
 
 // -------------------------- Code for FT8 DXpedition Mode ---------------------------

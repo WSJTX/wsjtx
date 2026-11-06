@@ -822,6 +822,7 @@ private:
   void set_rr73_tx4 (bool enabled);
   void readWidebandDecodes();
   void refreshQmapActiveStations(QDateTime const& nowUtc);
+  void displayQ65ActiveStations();
   void configActiveStations();
   bool sfox_tx();
   void clearSuperFoxPreparedTx();
@@ -1118,6 +1119,8 @@ private:
   qint32  m_fDop=0;
   qint32  m_echoSec0=0;
   qint32  m_fetched=0;
+  QDateTime m_qmapDisplayTime;   // readWidebandDecodes()'s last "now" (file-playback-aware);
+                                 // reused by redraw-only Active Stations refreshes
   qint32  m_position;
   qint64  m_decoderDiagSequence=0;
   qint64  m_decoderDiagActiveSequence=0;
