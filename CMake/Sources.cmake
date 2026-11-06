@@ -237,9 +237,6 @@ set (wsjt_CXXSRCS
   lib/NativeSharedMemory.cpp
   lib/DecoderWorkerLock.cpp
   lib/ft8var/ft8_coarse_mutex.cpp
-  lib/crc10.cpp
-  lib/crc13.cpp
-  lib/crc14.cpp
   ${wsjt_fox_CXXSRCS}
   )
 
@@ -251,13 +248,6 @@ set (wsjt_jtty_CXXSRCS
   lib/jtty/JttyUnicode.cpp
   lib/stream_slot_audio.cpp
   )
-
-# deal with a GCC v6 UB error message
-set_source_files_properties (
-  lib/crc10.cpp
-  lib/crc13.cpp
-  lib/crc14.cpp
-  PROPERTIES COMPILE_FLAGS -fpermissive)
 
 if (WIN32)
   set (wsjt_qt_CXXSRCS
