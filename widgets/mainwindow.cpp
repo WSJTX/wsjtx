@@ -1548,6 +1548,9 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (&m_footswitch, &FootswitchInput::waitingForRelease, this, [this] {
       statusBar ()->showMessage (tr ("Footswitch is closed: release it to arm it"));
     });
+  connect (&m_footswitch, &FootswitchInput::readyAfterRelease, this, [this] {
+      showStatusMessage (tr ("Footswitch released: ready"));
+    });
   m_footswitchLimitTimer.setSingleShot (true);
   m_footswitchLimitTimer.setInterval (footswitch_tx_limit_ms);
   connect (&m_footswitchLimitTimer, &QTimer::timeout, this, [this] {

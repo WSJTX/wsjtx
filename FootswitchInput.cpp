@@ -183,6 +183,7 @@ void FootswitchInput::poll ()
       if (!active)
         {
           armed_ = true;      // seen released: presses count from now on
+          if (reported_waiting_) Q_EMIT readyAfterRelease ();
         }
       else if (!reported_waiting_)
         {

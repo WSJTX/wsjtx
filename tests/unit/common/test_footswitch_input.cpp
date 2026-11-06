@@ -72,11 +72,13 @@ private:
   {
     Script script {armed ()};
     FootswitchInput input;
+    QSignalSpy ready {&input, &FootswitchInput::readyAfterRelease};
     input.start (script.reader (), Pin::CTS);
     pollTimes (input, N - 1);
     QVERIFY (!input.isArmed ());
     input.poll ();
     QVERIFY (input.isArmed ());
+    QCOMPARE (ready.count (), 0); // only reported after a held switch
   }
 
   Q_SLOT void pressReportedAfterDebounce ()
@@ -105,15 +107,18 @@ private:
     FootswitchInput input;
     QSignalSpy pressed {&input, &FootswitchInput::pressed};
     QSignalSpy waiting {&input, &FootswitchInput::waitingForRelease};
+    QSignalSpy ready {&input, &FootswitchInput::readyAfterRelease};
     input.start (script.reader (), Pin::CTS);
 
     pollTimes (input, 10);      // closed from the start: never a press
     QCOMPARE (pressed.count (), 0);
     QCOMPARE (waiting.count (), 1);
+    QCOMPARE (ready.count (), 0);
     QVERIFY (!input.isArmed ());
 
     pollTimes (input, N);       // released: now armed
     QVERIFY (input.isArmed ());
+    QCOMPARE (ready.count (), 1);
     pollTimes (input, N);       // a fresh press counts
     QCOMPARE (pressed.count (), 1);
     QCOMPARE (waiting.count (), 1);

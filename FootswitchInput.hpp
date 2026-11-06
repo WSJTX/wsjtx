@@ -78,6 +78,9 @@ public:
   // The switch was already closed when polling started; it is ignored
   // until it has been released.
   Q_SIGNAL void waitingForRelease ();
+  // Emitted when a switch that was held at start has been released and
+  // presses are now accepted.
+  Q_SIGNAL void readyAfterRelease ();
 
 private:
   Reading readPort ();
