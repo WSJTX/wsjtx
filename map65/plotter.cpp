@@ -363,27 +363,37 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
 
   //draw frequency values
   MakeFrequencyStrs();
-  for( int i=0; i<=m_hdivs; i++) {
-    if(0==i) {
-      //left justify the leftmost text
-      x = (int)( (float)i*pixperdiv);
-      rect0.setRect(x,0, (int)pixperdiv, 20);
-      painter0.drawText(rect0, Qt::AlignLeft|Qt::AlignVCenter,
-                       m_HDivText[i]);
-    }
-    else if(m_hdivs == i) {
-      //right justify the rightmost text
-      x = (int)( (float)i*pixperdiv - pixperdiv);
-      rect0.setRect(x,0, (int)pixperdiv, 20);
-      painter0.drawText(rect0, Qt::AlignRight|Qt::AlignVCenter,
-                       m_HDivText[i]);
+  // Cell and alignment for the label of division i: the first and last
+  // labels are justified to the plot edges, the rest are centred.
+  auto labelCell = [&](int i, int* flags) {
+    int xl;
+    if (0 == i) {
+      xl = 0;
+      *flags = Qt::AlignLeft | Qt::AlignVCenter;
+    } else if (m_hdivs == i) {
+      xl = int(float(i)*pixperdiv - pixperdiv);
+      *flags = Qt::AlignRight | Qt::AlignVCenter;
     } else {
-      //center justify the rest of the text
-      x = (int)( (float)i*pixperdiv - pixperdiv/2);
-      rect0.setRect(x,0, (int)pixperdiv, 20);
-      painter0.drawText(rect0, Qt::AlignHCenter|Qt::AlignVCenter,
-                       m_HDivText[i]);
+      xl = int(float(i)*pixperdiv - pixperdiv/2);
+      *flags = Qt::AlignHCenter | Qt::AlignVCenter;
     }
+    return QRect(xl, 0, int(pixperdiv), 20);
+  };
+  auto labelText = [&](int i) {
+    int flags;
+    QRect cell = labelCell(i, &flags);
+    return painter0.boundingRect(cell, flags, m_HDivText[i]);
+  };
+  for( int i=0; i<=m_hdivs; i++) {
+    int flags;
+    QRect cell = labelCell(i, &flags);
+    // At high sample rates the divisions are narrow enough that an edge
+    // label would print on top of its neighbour: drop it in that case.
+    if (m_hdivs > 1 && (0 == i || m_hdivs == i)) {
+      QRect neighbour = labelText(0 == i ? 1 : m_hdivs - 1);
+      if (labelText(i).adjusted(-2, 0, 2, 0).intersects(neighbour)) continue;
+    }
+    painter0.drawText(cell, flags, m_HDivText[i]);
   }
 
 

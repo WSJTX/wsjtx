@@ -1,5 +1,5 @@
 program test_map65_symspec_contract
-  use iso_fortran_env, only: int8, real32
+  use iso_fortran_env, only: int8, int64, real32
   use, intrinsic :: ieee_arithmetic, only: ieee_quiet_nan, ieee_value
   use datcom_ptrs_mod, only: dd, ss, savg
   use npar_ptrs_mod, only: set_runtime_params
@@ -18,8 +18,12 @@ program test_map65_symspec_contract
 
   call get_command_argument(1, rate_text)
   read(rate_text, *) rate
-  call require(rate == 96000 .or. rate == 192000, 'supported sample rate')
-  fft_size = 32768 * (rate / 96000)
+  call require(any(rate == [96000, 128000, 192000, 256000]), 'supported sample rate')
+  ! Same rule as main.cpp: 32768 * rate / 96000, rounded up to a power of 2.
+  fft_size = 32768
+  do while (int(fft_size, int64) * 96000_int64 < 32768_int64 * rate)
+     fft_size = 2 * fft_size
+  end do
   call set_runtime_params(rate, fft_size, 56 * rate)
   allocate(dd(4, fft_size + 1024), ss(4, 1, fft_size), savg(4, fft_size), waterfall(fft_size))
   dd = 0.0

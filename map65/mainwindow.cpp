@@ -1,5 +1,6 @@
 //------------------------------------------------------------------ MainWindow
 #include "mainwindow.h"
+#include "sample_rates.h"
 #include <fftw3.h>
 #include <QDir>
 #include <QRegularExpression>
@@ -450,9 +451,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 // Assign input device and start input thread
   soundInThread.setInputDevice(m_paInDevice);
-  if(m_fs96000 == 1) soundInThread.setRate(96000.0);
-  else if(m_fs96000 ==0) soundInThread.setRate(95238.1);
-  else if(m_fs96000 ==2) soundInThread.setRate(192000.0);
+  soundInThread.setRate(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)));
   soundInThread.setBufSize(10*7056);
   soundInThread.setNetwork(m_network);
   soundInThread.setPort(m_udpPort);
@@ -1184,10 +1183,7 @@ void MainWindow::dataSink(int k)
   static int nzap=0;
   static int ntrz=0;
   static int nkhz;
-  int nfsample = 96000; 
-  if (m_fs96000 == 0) nfsample = 95238;
-  else if(m_fs96000 == 2) nfsample = 192000;
-  setNfsample(nfsample);
+  setNfsample(sampleRateForCode(m_fs96000));
   int nxpol= m_xpol ? 1 : 0;
   setNxpol(nxpol);
   static int nsec0=0;
@@ -1238,7 +1234,7 @@ void MainWindow::dataSink(int k)
   nsec0=nsec;
 
   QString t;
-  m_pctZap=nzap/178.3;
+  m_pctZap=zapPercent(nzap,g_sampleRate);
   ui->yMeterFrame->setVisible(m_xpol);
   if(m_xpol) {
     lab4->setText (
@@ -1546,9 +1542,7 @@ void MainWindow::on_actionDeviceSetup_triggered()
             soundInThread.setInputDevice(m_paInDevice);
       soundInThread.setNetwork(m_network);
       soundInThread.setFadd(m_fAdd);
-            if (m_fs96000 == 1) soundInThread.setRate(96000.0);
-            else if (m_fs96000 == 0) soundInThread.setRate(95238.1);
-            else if (m_fs96000 == 2) soundInThread.setRate(192000.0);
+            soundInThread.setRate(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)));
             soundInThread.setSwapIQ(m_IQswap);
             soundInThread.setScale(m_dB);
             soundInThread.setPort(m_udpPort);
@@ -1603,10 +1597,7 @@ void MainWindow::onSampleRateChanged(int newRate)
     if (!m_wide_graph_window)
         return;
 
-    if (newRate == 96000 || newRate == 95238)
-        m_wide_graph_window->setFreqSpanLimits(60, 90);
-    else
-        m_wide_graph_window->setFreqSpanLimits(60, 190);
+    m_wide_graph_window->setFreqSpanLimits(60, maxFreqSpanKHz(newRate));
 
     m_wide_graph_window->updateSpanFromSpinbox();
 }
@@ -2018,9 +2009,8 @@ void MainWindow::diskDat()                                   //diskDat()
     setFcenter(m_wide_graph_window->m_dForceCenterFreq);
   }
 
-  hsym=2048.0*96000.0/11025.0;   //Samples per JT65 half-symbol if SR = 96000
-  if(m_fs96000 == 0) hsym=2048.0*95238.1/11025.0; // Samples per JT65 half-symbol if SR =  95238.1
-  else if(m_fs96000 == 2) hsym=2048.0*192000.0/11025.0;   //Samples per JT65 half-symbol if SR = 192000
+  // Samples per JT65 half-symbol at the active sample rate
+  hsym=2048.0*(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)))/11025.0;
   for(int i=0; i<304; i++) {           // Do the half-symbol FFTs
     int k = i*hsym + 2048.5;
     dataSink(k);
@@ -2252,9 +2242,7 @@ void MainWindow::decode()                                       //decode()
   if(getNutc() < m_nutc0) m_map65RxLog |= 1;  //Date and Time to map65_rx.log
   m_nutc0=getNutc();
   setMap65RxLog(m_map65RxLog);
-  if(m_fs96000 == 1) setNfsample(96000);
-  if(m_fs96000 == 0) setNfsample(95238);
-  else if(m_fs96000 == 2) setNfsample(192000);
+  setNfsample(sampleRateForCode(m_fs96000));
  // qDebug() << "MainWindow::decode setting nfsample to " << m_fs96000;
   setNxpol(0);
   if(m_xpol) setNxpol(1);

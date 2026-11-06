@@ -1,5 +1,6 @@
 #include "devsetup.h"
 #include "mainwindow.h"
+#include "sample_rates.h"
 #include <QTextStream>
 #include <QDebug>
 #include <cstdio>
@@ -217,13 +218,7 @@ for (id = 0; id < numDevices; id++) {
   if (idx >= 0)
       ui.pttComboBox->setCurrentIndex(idx);
 
-  if      (mw->m_fs96000 == 2)
-      oldSampleRate = 192000;
-  else if (mw->m_fs96000 == 1)
-      oldSampleRate = 96000;
-  else if (mw->m_fs96000 == 0)
-      oldSampleRate = 95238;
-  else oldSampleRate = 96000;
+  oldSampleRate = sampleRateForCode(mw->m_fs96000);
 
   ui.astroFont->setValue(mw->m_astroFont);
   ui.cbXpol->setChecked(mw->m_xpol);
@@ -242,7 +237,10 @@ for (id = 0; id < numDevices; id++) {
     ui.networkRadioButton->setChecked(mw->m_network);
     ui.soundCardRadioButton->setChecked(!mw->m_network);
   }
+  ui.rb256000->setEnabled(sampleRateCodeFitsAddressSpace(4));
+  ui.rb256000->setChecked(mw->m_fs96000 == 4);
   ui.rb192000->setChecked(mw->m_fs96000 == 2);
+  ui.rb128000->setChecked(mw->m_fs96000 == 3);
   ui.rb96000->setChecked(mw->m_fs96000 == 1);
   ui.rb95238->setChecked(mw->m_fs96000 == 0);
   on_soundCardRadioButton_toggled(ui.soundCardRadioButton->isChecked());
@@ -279,8 +277,10 @@ for (id = 0; id < numDevices; id++) {
   ui.sbBlue2->setValue(b2);
   ui.sbBlue3->setValue(b3);
 
-  mw->m_paInDevice=m_inDevList[mw->m_nDevIn];
-  mw->m_paOutDevice=m_outDevList[mw->m_nDevOut];
+  int const inDev = inDevice(mw->m_nDevIn);
+  int const outDev = outDevice(mw->m_nDevOut);
+  if (inDev >= 0) mw->m_paInDevice = inDev;
+  if (outDev >= 0) mw->m_paOutDevice = outDev;
 
   ui.otherUrlBox->setText(mw->m_otherUrl);
   if(mw->m_w3szUrl) ui.w3szBut->setChecked(true);
@@ -297,12 +297,8 @@ void DevSetup::accept()
   // Check to see whether SoundInThread must be restarted,
   // and save user parameters.
 
-  int newSampleRate = ui.rb192000->isChecked() ? 192000 :
-      ui.rb96000->isChecked()  ? 96000  :
-      95238;
-  int newFs96000 = ui.rb192000->isChecked() ? 2 :
-      ui.rb96000->isChecked()  ? 1  :
-      0;
+  int const newFs96000 = selectedSampleRateCode();
+  int const newSampleRate = sampleRateForCode(newFs96000);
   double const newFAdd = ui.faddEntry->text().toDouble();
 
   m_restartRequired = oldSampleRate != newSampleRate;
@@ -312,15 +308,19 @@ void DevSetup::accept()
     emit sampleRateChanged(newSampleRate);
   }
 
+  int const newInIndex = ui.comboBoxSndIn->currentIndex();
+  int const newOutIndex = ui.comboBoxSndOut->currentIndex();
+  int const newInDev = inDevice(newInIndex);
+  int const newOutDev = outDevice(newOutIndex);
+
   if(mw->m_network!=ui.networkRadioButton->isChecked() or
-     mw->m_nDevIn!=ui.comboBoxSndIn->currentIndex() or
-     mw->m_paInDevice!=m_inDevList[mw->m_nDevIn] or
+     (newInDev >= 0 and (mw->m_nDevIn!=newInIndex or mw->m_paInDevice!=newInDev)) or
      mw->m_xpol!=ui.cbXpol->isChecked() or
      mw->m_fAdd!=newFAdd or
      mw->m_udpPort!=ui.sbPort->value()) m_restartSoundIn=true;
 
-  if(mw->m_nDevOut!=ui.comboBoxSndOut->currentIndex() or
-     mw->m_paOutDevice!=m_outDevList[mw->m_nDevOut]) m_restartSoundOut=true;
+  if(newOutDev >= 0 and
+     (mw->m_nDevOut!=newOutIndex or mw->m_paOutDevice!=newOutDev)) m_restartSoundOut=true;
 
   mw->m_myCall=ui.myCallEntry->text();
   mw->m_myGrid=ui.myGridEntry->text();
@@ -357,10 +357,14 @@ void DevSetup::accept()
     mw->m_fs96000 = newFs96000;
   }
   mw->m_bIQxt=ui.rbIQXT->isChecked();
-  mw->m_nDevIn=ui.comboBoxSndIn->currentIndex();
-  mw->m_paInDevice=m_inDevList[mw->m_nDevIn];
-  mw->m_nDevOut=ui.comboBoxSndOut->currentIndex();
-  mw->m_paOutDevice=m_outDevList[mw->m_nDevOut];
+  if (newInDev >= 0) {
+    mw->m_nDevIn=newInIndex;
+    mw->m_paInDevice=newInDev;
+  }
+  if (newOutDev >= 0) {
+    mw->m_nDevOut=newOutIndex;
+    mw->m_paOutDevice=newOutDev;
+  }
   mw->m_udpPort=ui.sbPort->value();
   mw->m_IQswap=ui.cbIQswap->isChecked();
   mw->m_initIQplus=ui.cbInitIQplus->isChecked();
@@ -387,12 +391,31 @@ void DevSetup::accept()
 
 }
 
+int DevSetup::selectedSampleRateCode() const
+{
+  return ui.rb256000->isChecked() ? 4 :
+      ui.rb192000->isChecked() ? 2 :
+      ui.rb128000->isChecked() ? 3 :
+      ui.rb95238->isChecked()  ? 0 :
+      1;
+}
+
+// PortAudio device number behind a combo box row, or -1 if the row doesn't
+// exist (the list is empty when no input device supports the current rate).
+int DevSetup::inDevice(int index) const
+{
+  return index >= 0 && index < ui.comboBoxSndIn->count() ? m_inDevList[index] : -1;
+}
+
+int DevSetup::outDevice(int index) const
+{
+  return index >= 0 && index < ui.comboBoxSndOut->count() ? m_outDevList[index] : -1;
+}
+
 void DevSetup::on_soundCardRadioButton_toggled(bool checked)
 {
   ui.comboBoxSndIn->setEnabled(ui.soundCardRadioButton->isChecked());
-  int fs96000 = ui.rb192000->isChecked() ? 2 :
-      ui.rb95238->isChecked() ? 0 :
-      1;
+  int fs96000 = selectedSampleRateCode();
   if(checked) {
     if(fs96000 == 0) fs96000 = 1;
     ui.rb95238->setEnabled(false);
@@ -400,7 +423,9 @@ void DevSetup::on_soundCardRadioButton_toggled(bool checked)
   else {
     ui.rb95238->setEnabled(true);
   }
+  ui.rb256000->setChecked(fs96000 == 4);
   ui.rb192000->setChecked(fs96000 == 2);
+  ui.rb128000->setChecked(fs96000 == 3);
   ui.rb96000->setChecked(fs96000 == 1);
   ui.rb95238->setChecked(fs96000 == 0);
   ui.rb95238->setEnabled(!checked);

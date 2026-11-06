@@ -60,6 +60,9 @@ private slots:
   void on_sb_dB_valueChanged(int n);
 
 private:
+  int selectedSampleRateCode() const;
+  int inDevice(int index) const;
+  int outDevice(int index) const;
   MainWindow *mw;
   int r,g,b,r0,g0,b0,r1,g1,b1,r2,g2,b2,r3,g3,b3;
   Ui::DialogSndCard ui;

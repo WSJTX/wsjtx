@@ -11,7 +11,7 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   use m65a_mod
   use npar_ptrs_mod, only: snapshot_release, t_start, mycall, hiscall, hisgrid, neme, &
                             initialize_decode_parameters, claim_decode_request, get_stop_m65, &
-                            active_request_id, active_request_expired
+                            active_request_id, active_request_expired, nrate_active
   use stdout_channel_mod, only: write_stdout
   use decodes_mod, only: nhsym1,nhsym2
   use deep65_mod, only: build_call3_candidates
@@ -34,7 +34,7 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   dbg_enabled = .false.   ! flip to .true. to enable dbg() logging to w3sz_debug.log
 
   if (sample_rate_96000 /=0) then
-     sample_rate = 96000
+     sample_rate = nrate_active   ! 96000, 128000, 192000 or 256000
   else
      sample_rate = 95238   ! 96000 / 1.008, legacy WSJT slow-96k correction
   endif

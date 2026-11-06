@@ -14,6 +14,7 @@
 #include "fortran_mutex.hpp"
 #include "globals.h"
 #include "runtime_paths.h"
+#include "sample_rates.h"
 
 #include <cstdio>
 
@@ -54,17 +55,18 @@ int main(int argc, char *argv[])
   settings.beginGroup("Common");
   int srFlag = readFSam96000(settings, 1);
   settings.endGroup();
-  if(srFlag <= 1) g_sampleRate = 96000;
-  else if(srFlag == 2) g_sampleRate = 192000;
-  if (g_sampleRate != 96000 && g_sampleRate != 192000)
-      g_sampleRate = 96000;
+  g_sampleRate = sampleRateForCode(srFlag);
+  if (g_sampleRate == 95238) g_sampleRate = 96000;   // 95238 still sizes buffers at 96000
 
 // ------------------------------------------------------------
 // NEW: compute active FFT sizes for MAP65
 // ------------------------------------------------------------
 int active_rate = g_sampleRate;
 
-// Keep ~3 Hz bin resolution like WSJT-X/QMAP
+// symspec FFT size: the next power of 2 at or above 32768 * rate / 96000.
+// That gives 2.93 Hz bins at 96 and 192 kHz and 1.95 Hz bins at 128 and
+// 256 kHz (a 49152-point FFT matching 96 kHz was measured less sensitive
+// for Q65 candidates).
 auto round_pow2 = [](int x) {
     int p = 1;
     while (p < x) p <<= 1;
