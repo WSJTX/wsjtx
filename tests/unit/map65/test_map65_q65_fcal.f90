@@ -44,7 +44,7 @@ program test_map65_q65_fcal
   integer :: ibin
   integer :: mfa_s, mfb_s, nfcal_test
   logical :: narrowed
-  integer, parameter :: fcal_cases(5) = [-3000, -120, 0, 120, 3000]
+  integer, parameter :: fcal_cases(7) = [-10000, -3000, -120, 0, 120, 3000, 10000]
 
   ! q65_cursor_f0 converts the cursor (a true frequency) to the spectrum frequency.
   call require(abs(q65_cursor_f0(mousefqso, 0, 125, 96000, 0) - 49.27046_real64) < 1.0e-4_real64, &
@@ -55,7 +55,7 @@ program test_map65_q65_fcal
        'mousedf and a negative Fcal both apply')
 
   ! The sync window must cover everything the cursor search reads, at any Fcal.
-  do i = 1, 5
+  do i = 1, size(fcal_cases)
     nfcal_test = fcal_cases(i)
     call qso_sync_window(sample_rate, 125, mousefqso, -25, nfcal_test, 100, 2, 1, 90, &
          mfa_s, mfb_s, narrowed)
