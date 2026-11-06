@@ -643,6 +643,7 @@ private slots:
   void applyFootswitchSettings ();
   void footswitchPressed ();
   void footswitchReleased ();
+  void stopFootswitchTx ();
   void auto_tx_mode(bool);
   void on_actionMessage_averaging_triggered();
   void on_actionActiveStations_triggered();
@@ -1390,6 +1391,9 @@ private:
   FootswitchInput m_footswitch;
   bool m_footswitchTune {false}; // current Tune was started by the footswitch
   int m_footswitchRetries {0};
+  bool m_footswitchPowerBypass {false}; // Tune power memory untouched by footswitch TX
+  QTimer m_footswitchLimitTimer;        // upper limit on one footswitch transmission
+  static int constexpr footswitch_tx_limit_ms {3 * 60 * 1000};
   QTimer TxAgainTimer;
   QTimer minuteTimer;
   QTimer splashTimer;

@@ -4,7 +4,9 @@ FootswitchInput::FootswitchInput (QObject * parent)
   : QObject {parent}
   , port_ {new QSerialPort {this}}
   , pin_ {Pin::CTS}
-  , invert_ {false}
+  , armed_ {false}
+  , reported_waiting_ {false}
+  , read_ok_since_open_ {false}
   , pressed_ {false}
   , candidate_ {false}
   , stable_reads_ {0}
@@ -21,12 +23,11 @@ FootswitchInput::~FootswitchInput ()
   stop ();
 }
 
-bool FootswitchInput::start (QString const& port_name, Pin pin, bool invert)
+bool FootswitchInput::start (QString const& port_name, Pin pin)
 {
   stop ();
   port_name_ = port_name;
   pin_ = pin;
-  invert_ = invert;
   if (!openPort ())
     {
       Q_EMIT error (tr ("Footswitch: cannot open %1: %2")
@@ -38,11 +39,10 @@ bool FootswitchInput::start (QString const& port_name, Pin pin, bool invert)
   return true;
 }
 
-void FootswitchInput::start (Reader reader, Pin pin, bool invert)
+void FootswitchInput::start (Reader reader, Pin pin)
 {
   stop ();
   pin_ = pin;
-  invert_ = invert;
   startPolling (std::move (reader));
 }
 
@@ -69,12 +69,18 @@ bool FootswitchInput::openPort ()
   port_->setFlowControl (QSerialPort::NoFlowControl);
   port_->setDataTerminalReady (true); // supply for the footswitch contact
   port_->setRequestToSend (false);
+  // QSerialPort errors are sticky; a setter the driver does not support
+  // must not make every later reading look like a failure.
+  port_->clearError ();
+  read_ok_since_open_ = false;
   return true;
 }
 
 void FootswitchInput::startPolling (Reader reader)
 {
   reader_ = std::move (reader);
+  armed_ = false;
+  reported_waiting_ = false;
   candidate_ = false;
   stable_reads_ = 0;
   poll_timer_.start ();
@@ -82,6 +88,7 @@ void FootswitchInput::startPolling (Reader reader)
 
 void FootswitchInput::releaseIfPressed ()
 {
+  armed_ = false;
   candidate_ = false;
   stable_reads_ = 0;
   if (pressed_)
@@ -125,18 +132,30 @@ void FootswitchInput::poll ()
   auto const reading = reader_ ();
   if (!reading.ok)
     {
-      auto const reason = tr ("Footswitch: port error: %1").arg (reading.error);
+      auto reason = tr ("Footswitch: port error: %1").arg (reading.error);
       poll_timer_.stop ();
       reader_ = nullptr;
       releaseIfPressed ();
       if (!port_name_.isEmpty ())
         {
-          port_->close ();      // the device may come back; keep trying
-          retry_timer_.start ();
+          port_->close ();
+          if (read_ok_since_open_)
+            {
+              retry_timer_.start (); // the device may come back; keep trying
+            }
+          else
+            {
+              // Failed straight after opening: the port cannot report its
+              // status lines, so retrying would only loop.
+              reason = tr ("Footswitch: %1 cannot read its input lines: %2")
+                .arg (port_name_, reading.error);
+              port_name_.clear ();
+            }
         }
       Q_EMIT error (reason);
       return;
     }
+  read_ok_since_open_ = true;
 
   QSerialPort::PinoutSignal mask {QSerialPort::ClearToSendSignal};
   switch (pin_)
@@ -146,17 +165,33 @@ void FootswitchInput::poll ()
     case Pin::DCD: mask = QSerialPort::DataCarrierDetectSignal; break;
     case Pin::RI:  mask = QSerialPort::RingIndicatorSignal; break;
     }
-  bool const level = reading.lines & mask;
-  bool const active = invert_ ? !level : level;
+  bool const active = reading.lines & mask;
 
-  if (active != candidate_)
+  if (active != candidate_ || 0 == stable_reads_)
     {
       candidate_ = active;
       stable_reads_ = 1;
+    }
+  else if (stable_reads_ < debounce_count)
+    {
+      ++stable_reads_;
+    }
+  if (stable_reads_ < debounce_count) return;
+
+  if (!armed_)
+    {
+      if (!active)
+        {
+          armed_ = true;      // seen released: presses count from now on
+        }
+      else if (!reported_waiting_)
+        {
+          reported_waiting_ = true;
+          Q_EMIT waitingForRelease ();
+        }
       return;
     }
-  if (stable_reads_ < debounce_count) ++stable_reads_;
-  if (stable_reads_ >= debounce_count && active != pressed_)
+  if (active != pressed_)
     {
       pressed_ = active;
       if (pressed_) Q_EMIT pressed ();

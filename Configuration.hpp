@@ -232,7 +232,7 @@ public:
   bool footswitch_enabled () const;
   QString footswitch_port () const;
   int footswitch_pin () const;  // 0=CTS 1=DSR 2=DCD 3=RI
-  bool footswitch_invert () const;
+  bool footswitch_port_clash () const; // footswitch port is also the CAT or PTT port
   bool TX_messages () const;
   bool split_mode () const;
   bool enable_VHF_features () const;

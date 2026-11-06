@@ -13,10 +13,15 @@
 // FootswitchInput - reads a footswitch wired to a serial port status line
 //
 // The port is opened without CAT traffic. DTR is asserted so that it
-// can supply the positive voltage for a simple contact-closure
-// footswitch wired from DTR to the chosen input pin (with a pull-down
-// of around 10k to ground). The input pin is polled and debounced,
-// and pressed() / released() are emitted on each stable change.
+// can supply the positive voltage for a normally open footswitch wired
+// from DTR to the chosen input pin (with a pull-down of around 10k to
+// ground). An active line means pressed, so an unplugged cable, broken
+// wire or unpowered adapter all read as released.
+//
+// The input pin is polled and debounced, and pressed() / released() are
+// emitted on each stable change. After every start or reconnection a
+// press is accepted only once the switch has first been seen released,
+// so a stuck or held switch never keys the transmitter by itself.
 //
 // If the port cannot be opened, or fails while in use (for example a
 // USB adapter losing power), error() is emitted, any press is released,
@@ -50,16 +55,17 @@ public:
   // Open the port and start polling. Returns false and emits error()
   // if the port cannot be opened; it is then retried in the background.
   // Calling again reconfigures.
-  bool start (QString const& port_name, Pin pin, bool invert);
+  bool start (QString const& port_name, Pin pin);
 
   // Start polling from an arbitrary source instead of a serial port.
   // Used by the unit tests to feed simulated line levels.
-  void start (Reader reader, Pin pin, bool invert);
+  void start (Reader reader, Pin pin);
 
   void stop ();
 
   bool isActive () const {return poll_timer_.isActive ();}
   bool isRetrying () const {return retry_timer_.isActive ();}
+  bool isArmed () const {return armed_;}
   bool isPressed () const {return pressed_;}
 
   // Take one reading now; normally called by the poll timer.
@@ -69,6 +75,9 @@ public:
   Q_SIGNAL void released ();
   Q_SIGNAL void error (QString const& reason);
   Q_SIGNAL void restored (QString const& port_name);
+  // The switch was already closed when polling started; it is ignored
+  // until it has been released.
+  Q_SIGNAL void waitingForRelease ();
 
 private:
   Reading readPort ();
@@ -83,7 +92,9 @@ private:
   QTimer retry_timer_;
   QString port_name_;          // empty unless using a serial port
   Pin pin_;
-  bool invert_;
+  bool armed_;                 // a stable release has been seen
+  bool reported_waiting_;
+  bool read_ok_since_open_;
   bool pressed_;
   bool candidate_;
   int stable_reads_;

@@ -1543,7 +1543,20 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (&m_footswitch, &FootswitchInput::pressed, this, &MainWindow::footswitchPressed);
   connect (&m_footswitch, &FootswitchInput::released, this, &MainWindow::footswitchReleased);
   connect (&m_footswitch, &FootswitchInput::error, this, [this] (QString const& reason) {
-      showStatusMessage (reason);
+      statusBar ()->showMessage (reason); // stays until the next message
+    });
+  connect (&m_footswitch, &FootswitchInput::waitingForRelease, this, [this] {
+      statusBar ()->showMessage (tr ("Footswitch is closed: release it to arm it"));
+    });
+  m_footswitchLimitTimer.setSingleShot (true);
+  m_footswitchLimitTimer.setInterval (footswitch_tx_limit_ms);
+  connect (&m_footswitchLimitTimer, &QTimer::timeout, this, [this] {
+      if (m_footswitchTune && m_tune)
+        {
+          stopFootswitchTx ();
+          statusBar ()->showMessage (tr ("Footswitch transmission stopped after 3 minutes: "
+                                         "release and press again to transmit"));
+        }
     });
   connect (&m_footswitch, &FootswitchInput::restored, this, [this] (QString const& port) {
       showStatusMessage (tr ("Footswitch active again on %1").arg (port));
@@ -13049,7 +13062,10 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 
 void MainWindow::end_tuning ()
 {
-  auto const footswitch_tune = m_footswitchTune; // cleared by the stop below
+  // Footswitch TX never switched to the Tune power, so must not record
+  // or restore it. Captured here because the stop below clears flags.
+  auto const footswitch_tune = m_footswitchPowerBypass;
+  m_footswitchPowerBypass = false;
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   if (m_mode == "WSPR" || m_mode == "FST4W")
     {
@@ -13082,17 +13098,22 @@ void MainWindow::stop_tuning ()
 
 void MainWindow::applyFootswitchSettings ()
 {
-  if (m_footswitchTune && m_tune) ui->tuneButton->click (); // drop any footswitch TX first
+  stopFootswitchTx ();           // drop any footswitch TX first
   m_footswitch.stop ();
   if (!m_config.footswitch_enabled ()) return;
   auto const port = m_config.footswitch_port ();
   if (port.isEmpty ())
     {
-      showStatusMessage (tr ("Footswitch: no port selected"));
+      statusBar ()->showMessage (tr ("Footswitch: no port selected"));
       return;
     }
-  if (m_footswitch.start (port, static_cast<FootswitchInput::Pin> (m_config.footswitch_pin ()),
-                          m_config.footswitch_invert ()))
+  if (m_config.footswitch_port_clash ())
+    {
+      // Opening it would assert DTR on the CAT or PTT port.
+      statusBar ()->showMessage (tr ("Footswitch not started: %1 is also the CAT or PTT port").arg (port));
+      return;
+    }
+  if (m_footswitch.start (port, static_cast<FootswitchInput::Pin> (m_config.footswitch_pin ())))
     {
       showStatusMessage (tr ("Footswitch active on %1").arg (port));
     }
@@ -13115,12 +13136,18 @@ void MainWindow::footswitchPressed ()
   // Tune started from the button.
   if (m_tune || m_auto || m_transmitting || m_tx_when_ready || g_iptt == 1)
     {
-      if (!m_tune) showStatusMessage (tr ("Footswitch ignored: transmission in progress"));
+      if (!m_tune) showStatusMessage (tr ("Footswitch ignored while WSJT-X is transmitting"));
       return;
     }
   m_footswitchTune = true;
-  ui->tuneButton->click ();     // same path as clicking Tune
-  if (m_tune) ui->tuneButton->setText (tr ("Foot TX"));
+  ui->tuneButton->setChecked (true);
+  on_tuneButton_clicked (true); // same path as clicking Tune
+  if (m_tune)
+    {
+      m_footswitchPowerBypass = true;
+      ui->tuneButton->setText (tr ("Foot TX"));
+      m_footswitchLimitTimer.start ();
+    }
   else
     {
       m_footswitchTune = false; // Tune was refused (e.g. Tx blocked)
@@ -13130,10 +13157,17 @@ void MainWindow::footswitchPressed ()
 
 void MainWindow::footswitchReleased ()
 {
-  if (m_footswitchTune && ui->tuneButton->isChecked ())
-    {
-      ui->tuneButton->click ();   // same path as clicking Tune off
-    }
+  stopFootswitchTx ();
+}
+
+void MainWindow::stopFootswitchTx ()
+{
+  m_footswitchLimitTimer.stop ();
+  // Decide from our own state, not the button: a rig tune can uncheck the
+  // button while footswitch TX is still running.
+  if (!(m_footswitchTune && m_tune)) return;
+  ui->tuneButton->setChecked (false);
+  on_tuneButton_clicked (false); // same path as clicking Tune off
 }
 
 void MainWindow::stopTuneATU()

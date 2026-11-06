@@ -794,7 +794,7 @@ quiet period when decoding is done.</string>
        <string>Radio interface configuration settings.</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="13" column="2">
+       <item row="14" column="2">
         <spacer name="verticalSpacer_13">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -807,7 +807,7 @@ quiet period when decoding is done.</string>
          </property>
         </spacer>
        </item>
-       <item row="8" column="2">
+       <item row="9" column="2">
         <widget class="QGroupBox" name="split_operation_group_box">
          <property name="title">
           <string>Split Operation</string>
@@ -861,7 +861,7 @@ quiet period when decoding is done.</string>
          </layout>
         </widget>
        </item>
-       <item row="13" column="0">
+       <item row="14" column="0">
         <spacer name="verticalSpacer_5">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -877,7 +877,7 @@ quiet period when decoding is done.</string>
          </property>
         </spacer>
        </item>
-       <item row="5" column="2">
+       <item row="7" column="2">
         <widget class="QGroupBox" name="mode_group_box">
          <property name="toolTip">
           <string>Modulation mode selected on radio.</string>
@@ -933,21 +933,21 @@ or bandwidth is selected).</string>
          </layout>
         </widget>
        </item>
-       <item row="4" column="2">
+       <item row="6" column="2">
         <widget class="Line" name="line_4">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
-       <item row="2" column="2">
+       <item row="4" column="2">
         <widget class="Line" name="line_3">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
-       <item row="1" column="0" rowspan="11">
+       <item row="1" column="0" rowspan="12">
         <widget class="QGroupBox" name="CAT_control_group_box">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -1353,14 +1353,14 @@ a few, particularly some Kenwood rigs, require it).</string>
          </layout>
         </widget>
        </item>
-       <item row="1" column="1" rowspan="13">
+       <item row="1" column="1" rowspan="14">
         <widget class="Line" name="line">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
         </widget>
        </item>
-       <item row="10" column="2">
+       <item row="11" column="2">
         <layout class="QVBoxLayout" name="ptt_test_layout">
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_11">
@@ -1441,29 +1441,37 @@ radio interface behave as expected.</string>
          </item>
         </layout>
        </item>
-       <item row="6" column="2">
+       <item row="8" column="2">
         <widget class="Line" name="line_6">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
-       <item row="7" column="2">
+       <item row="2" column="2">
+        <widget class="Line" name="line_footswitch">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2">
         <widget class="QGroupBox" name="footswitch_group_box">
          <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use a footswitch wired to a serial port status line to switch between receive and transmit, as if clicking Tune. Press to transmit, release to receive.&lt;/p&gt;&lt;p&gt;Intended for manual CW EME with Doppler tracking: set Mode to None, put the rig in CW and turn its break-in off.&lt;/p&gt;&lt;p&gt;WSJT-X asserts DTR on this port, so a footswitch can connect DTR to the input pin, with a pull-down of about 10k to ground. Use a port that is not also used for CAT or PTT.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use a normally open footswitch wired to a serial port status line to switch between receive and transmit, as if clicking Tune but without sending a tone. Press to transmit, release to receive. Footswitch transmissions stop after 3 minutes.&lt;/p&gt;&lt;p&gt;Intended for manual CW EME with Doppler tracking: set Mode to None, put the rig in CW and turn its break-in off.&lt;/p&gt;&lt;p&gt;WSJT-X asserts DTR on this port, so the footswitch can connect DTR to the input pin, with a pull-down of about 10k to ground. Use a port that is not also used for CAT or PTT.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="title">
           <string>Footswitch T/R</string>
          </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>false</bool>
-         </property>
          <layout class="QGridLayout" name="footswitch_grid_layout">
-          <item row="0" column="0">
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="footswitch_enable_check_box">
+            <property name="text">
+             <string>Use footswitch</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
            <widget class="QLabel" name="footswitch_port_label">
             <property name="text">
              <string>Port:</string>
@@ -1473,7 +1481,7 @@ radio interface behave as expected.</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
+          <item row="1" column="1">
            <widget class="QComboBox" name="footswitch_port_combo_box">
             <property name="sizePolicy">
              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
@@ -1492,7 +1500,7 @@ radio interface behave as expected.</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
+          <item row="2" column="0">
            <widget class="QLabel" name="footswitch_pin_label">
             <property name="text">
              <string>Input:</string>
@@ -1502,20 +1510,10 @@ radio interface behave as expected.</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="2" column="1">
            <widget class="QComboBox" name="footswitch_pin_combo_box">
             <property name="toolTip">
              <string>Serial port status line the footswitch drives.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0" colspan="2">
-           <widget class="QCheckBox" name="footswitch_invert_check_box">
-            <property name="toolTip">
-             <string>Treat an inactive input line as pressed (for switches that open when pressed).</string>
-            </property>
-            <property name="text">
-             <string>Invert</string>
             </property>
            </widget>
           </item>
@@ -1636,7 +1634,7 @@ other hardware interface for PTT.</string>
          </layout>
         </widget>
        </item>
-       <item row="12" column="0">
+       <item row="13" column="0">
         <widget class="QGroupBox" name="hamlib_groupBox">
          <property name="title">
           <string>Update Hamlib</string>
@@ -1773,7 +1771,7 @@ other hardware interface for PTT.</string>
          </item>
         </layout>
        </item>
-       <item row="11" column="2">
+       <item row="12" column="2">
         <spacer name="verticalSpacer_7">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -1786,7 +1784,7 @@ other hardware interface for PTT.</string>
          </property>
         </spacer>
        </item>
-       <item row="12" column="2">
+       <item row="13" column="2">
         <widget class="QGroupBox" name="rig_data_group_box">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -1846,7 +1844,7 @@ other hardware interface for PTT.</string>
          </layout>
         </widget>
        </item>
-       <item row="9" column="2">
+       <item row="10" column="2">
         <spacer name="verticalSpacer_2">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -1859,7 +1857,7 @@ other hardware interface for PTT.</string>
          </property>
         </spacer>
        </item>
-       <item row="3" column="2">
+       <item row="5" column="2">
         <widget class="QGroupBox" name="TX_audio_source_group_box">
          <property name="toolTip">
           <string>Some radios can select the audio input using a CAT command,

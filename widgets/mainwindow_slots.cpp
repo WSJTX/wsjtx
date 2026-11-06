@@ -579,6 +579,7 @@ void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
   if (lastChecked == checked) return;
   lastChecked = checked;
   if (checked && m_tune==false) { // we're starting tuning so remember Tx and change pwr to Tune value
+    m_footswitchPowerBypass = m_footswitchTune;
     if (m_config.pwrBandTuneMemory () && !m_footswitchTune) {
       auto const& curBand = ui->bandComboBox->currentText();
       m_pwrBandTxMemory[curBand] = ui->outAttenuation->value(); // remember our Tx pwr

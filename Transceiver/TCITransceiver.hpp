@@ -352,6 +352,7 @@ private:
   bool m_tciFinalSnapshotEmitted;
 
   bool m_tuning;
+  bool m_silent {false};       // footswitch TX: keep timing, send no audio
   bool m_addNoise;
   bool m_bFastMode;
 
