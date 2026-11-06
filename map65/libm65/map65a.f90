@@ -295,7 +295,7 @@ contains
 
             ssmax = 1.e30
             call timer('ccf65   ',0)
-            call ccf65(ss_dec(:,:,iii), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+            call ccf65(ss_dec(:,:,iii), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                      syncshort_tmp, snr2_tmp, ipol2_tmp, dt2_tmp)
             call timer('ccf65   ',1)
 
@@ -350,12 +350,12 @@ contains
                   iu = il + jsep
                   if (il < 51 .or. iu > nfft_active - 51) cycle
                   ssmax = 1.e30
-                  call ccf65(ss_dec(:,:,iu), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+                  call ccf65(ss_dec(:,:,iu), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                              syncshort_tmp, u_snr2, u_ipol2, u_dt2)
                   if (syncshort_tmp <= sh_sync) cycle
                   syncshort = syncshort_tmp
                   ssmax = 1.e30
-                  call ccf65(ss_dec(:,:,il), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+                  call ccf65(ss_dec(:,:,il), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                              syncshort_tmp, snr2_tmp, ipol2_tmp, dt2_tmp)
                   if (syncshort_tmp <= thresh0) cycle
                   sh_sync  = syncshort
@@ -843,7 +843,7 @@ endif
 !  Look for JT65 sync patterns and shorthand square-wave patterns.
                call timer('ccf65   ', 0)
                ssmax = 1.e30
-               call ccf65(ss_dec(:,:,i), nhsym, ssmax, sync1, ipol, jpz, dt, flipk, &
+               call ccf65(ss_dec(:,:,i), nhsym_rows, ssmax, sync1, ipol, jpz, dt, flipk, &
                   syncshort, snr2, ipol2, dt2)
                call timer('ccf65   ', 1)
                ! 2026-09-12: instrumentation for the "identical anomalous
