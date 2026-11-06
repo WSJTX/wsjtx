@@ -206,10 +206,14 @@ runs:
           --target jt65sim m65impl qmap_impl test_jtty_pack \
           -j$(nproc)
 
+    # Release builds leave out the long decode-thread rows (ci-cd/DEVELOPMENT_WORKFLOW.md, Test Failure Policy).
     - name: Run tests
       id: ctest
       shell: bash
-      run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --parallel 3 --output-on-failure --output-junit ctest-results.xml
+      run: >-
+        xvfb-run -a -s "-screen 0 1280x1024x24" ctest --parallel 3
+        ${{ (startsWith(github.ref, 'refs/tags/') || (startsWith(github.ref, 'refs/heads/release/') && github.event_name != 'push')) && '-LE decode-thread-long' || '' }}
+        --output-on-failure --output-junit ctest-results.xml
       working-directory: wsjtx-build
       env:
         QT_QPA_PLATFORM: xcb

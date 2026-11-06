@@ -592,9 +592,13 @@ jobs:
           path: .ccache
           key: ${{ steps.ccache.outputs.cache-primary-key }}
 
+      # Intel and release builds leave out the long decode-thread rows (ci-cd/DEVELOPMENT_WORKFLOW.md, Test Failure Policy).
       - name: Run tests
         id: ctest
-        run: ctest --parallel 3 --output-on-failure --output-junit ctest-results.xml
+        run: >-
+          ctest --parallel 3
+          ${{ (inputs.arch == 'x86_64' || startsWith(github.ref, 'refs/tags/') || (startsWith(github.ref, 'refs/heads/release/') && github.event_name != 'push')) && '-LE decode-thread-long' || '' }}
+          --output-on-failure --output-junit ctest-results.xml
         working-directory: wsjtx-build
 
       - name: Publish test summary

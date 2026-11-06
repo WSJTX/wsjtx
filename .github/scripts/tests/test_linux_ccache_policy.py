@@ -242,7 +242,7 @@ class LinuxCcachePolicyTests(unittest.TestCase):
         self.assertIn("tar --extract --file armhf-build-tree-${{ inputs.armhf_distro }}.tar", self.armhf_step("Unpack ARMHF build tree", "test-armhf"))
         self.assertLess(test_job.index("- name: Unpack ARMHF build tree"), test_job.index("- name: Test and package on native ARMv7"))
         runtime = self.read(".github/scripts/validate-linux-armhf-runtime.sh")
-        self.assertIn("ctest --parallel 3 --output-on-failure", runtime)
+        self.assertIn("ctest --parallel 3 -LE decode-thread-long --output-on-failure", runtime)
         self.assertNotIn("--exclude-regex", runtime)
 
     def test_clean_deb_install_gates_uploads_without_ci_libraries(self):
