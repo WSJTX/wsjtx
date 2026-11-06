@@ -17,6 +17,7 @@ contains
       use debug_log, only: dbg, itoa, rtoa
       use sec_midn_mod, only: sec_midn
       use q65b_mod
+      use q65_cursor_mod, only: q65_cursor_f0
       use decode1a_mod
       use ccf65_legacy_mod
       use pctile_mod
@@ -501,7 +502,7 @@ contains
             ! (see the manualDecodeFlag handling around k0 in q65b.F90).
             freq = mousefqso + 0.001*mousedf
             freq_q65 = freq
-            f0       = freq_q65 - (nkhz_center - real(nrate_active)/2000.0 - 1.27046)
+            f0       = q65_cursor_f0(mousefqso, mousedf, nkhz_center, nrate_active, nfcal)
             nqd      = 1   ! target-frequency decode, like wideband's quick pass at
                            ! fQSO; also required so q65b's own write_stdout/output
                            ! path (gated on nqd==1) actually emits the result
@@ -1115,7 +1116,7 @@ endif
                if (.not. q65b_called) then
                   freq = mousefqso + 0.001*mousedf
                   ikhz = mousefqso
-                  f0 = freq - (nkhz_center - real(nrate_active)/2000.0 - 1.27046)
+                  f0 = q65_cursor_f0(mousefqso, mousedf, nkhz_center, nrate_active, nfcal)
                   call timer('q65b    ', 0)
                  
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &

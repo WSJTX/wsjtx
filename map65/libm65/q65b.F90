@@ -307,8 +307,8 @@
       ! loop decode the same narrow window near the cursor instead of its
       ! own frequency. The one nagain=1 case where f0 genuinely comes from
       ! mousefqso (the "no candidate found" fallback in map65a.f90) already
-      ! sets f0 = mousefqso + mousedf directly, so the default k0 below
-      ! lands on the same point anyway.
+      ! sets f0 to the cursor in the spectrum frame (q65_cursor_f0), so the
+      ! default k0 below lands on the same point anyway.
       if (manualDecodeFlag .ne. 0) k0 = nint((f_mouse - 1000.0)/df)
 
       if (k0 .lt. nh .or. k0 .gt. nfft1 - nfft2 + 1) then
@@ -326,9 +326,9 @@
       poldeg = 0.
       combine_poldeg = 0.
       if (xpol) then
-         ! NB: still uses the (possibly wrong-bin, see k0 above) ipk for
-         ! manual clicks in xpol mode -- not exercised by current testing,
-         ! but worth revisiting if xpol manual decode misbehaves similarly.
+         ! NB: for manual clicks in xpol mode this still takes the angles from
+         ! ipk, the sync-curve peak within +/- ntol of f0 (see above), which
+         ! is not necessarily the bin of the clicked signal.
          poldeg = sync(ipk)%pol
          combine_poldeg = sync(ipk)%combine_pol
       endif

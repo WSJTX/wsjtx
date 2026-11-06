@@ -52,6 +52,7 @@ set (libm65_FSRCS
   four2a.f90
   ftninit.f90
   ftnquit.f90
+  q65_cursor_mod.f90
   q65b.F90
   gen65.f90
   gen_q65_cwave.f90
@@ -323,6 +324,18 @@ if (WSJT_ENABLE_TESTS)
   add_test (NAME test_map65_q65_dphi COMMAND test_map65_q65_dphi)
   set_tests_properties (test_map65_q65_dphi PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test-map65-q65-dphi
+    ENVIRONMENT "OMP_NUM_THREADS=1"
+    RUN_SERIAL TRUE
+    TIMEOUT 180)
+
+  add_executable (test_map65_q65_fcal
+    ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_q65_fcal.f90)
+  target_include_directories (test_map65_q65_fcal PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries (test_map65_q65_fcal PRIVATE m65impl)
+  file (MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test-map65-q65-fcal)
+  add_test (NAME test_map65_q65_fcal COMMAND test_map65_q65_fcal)
+  set_tests_properties (test_map65_q65_fcal PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test-map65-q65-fcal
     ENVIRONMENT "OMP_NUM_THREADS=1"
     RUN_SERIAL TRUE
     TIMEOUT 180)
