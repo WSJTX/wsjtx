@@ -1557,6 +1557,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
       if (m_footswitchTune && m_tune)
         {
           stopFootswitchTx ();
+          m_footswitchLimitReached = true;
           statusBar ()->showMessage (tr ("Footswitch transmission stopped after 3 minutes: "
                                          "release and press again to transmit"));
         }
@@ -13161,6 +13162,11 @@ void MainWindow::footswitchPressed ()
 void MainWindow::footswitchReleased ()
 {
   stopFootswitchTx ();
+  if (m_footswitchLimitReached)
+    {
+      m_footswitchLimitReached = false;
+      showStatusMessage (tr ("Footswitch released: ready"));
+    }
 }
 
 void MainWindow::stopFootswitchTx ()
