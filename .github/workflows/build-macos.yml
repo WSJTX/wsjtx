@@ -165,7 +165,11 @@ jobs:
     # runs-on cannot reference job-level env, so keep this expression and RUNNER
     # aligned. RUNNER also keeps cache keys consistent across both triggers.
     runs-on: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
-    timeout-minutes: 180
+    # Without caches the Intel job builds Qt from source before its tests, and a
+    # slow Intel runner has run out of 180 minutes still compiling. Both arches get
+    # 360, GitHub's limit for a hosted job: validate-workflow-timeouts.py reads
+    # only a number here.
+    timeout-minutes: 360
     env:
       RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
       DEPLOYMENT_TARGET: ${{ inputs.deployment_target || (inputs.arch == 'x86_64' && '10.13' || '11.0') }}
