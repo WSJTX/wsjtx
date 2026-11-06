@@ -29,7 +29,8 @@ contains
       use getdphi_mod
       use datcom_ptrs_mod, only: ss_old, savg_old
       use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, &
-                               manualDecodeFlag, active_input_generation, note_decoder_lag
+                               manualDecodeFlag, active_input_generation, note_decoder_lag, &
+                               active_snap_idx
       use sec0_mod, only: sec0
       use q65_decode, only: nsnr0, msg0, xdt0, nfreq0
 
@@ -125,7 +126,7 @@ contains
       logical :: m65_inited = .false.
       logical :: abort_saved
       logical :: early_window
-      integer :: mfa_s, mfb_s
+      integer :: mfa_s, mfb_s, nhsym_rows
       integer, parameter :: EARLY_MARGIN_KHZ = 2
       integer :: icenter
       logical :: initialization_only, shorthand_detected, jt65_success, q65_success
@@ -160,6 +161,10 @@ contains
       ! once the next cycle's UDP data starts arriving.
       ss_dec   => ss_old
       savg_dec => savg_old
+      ! The early snapshot holds only nhsym1 rows, even when a manual request
+      ! arrives with nhsym2.
+      nhsym_rows = nhsym
+      if (active_snap_idx .eq. 1) nhsym_rows = min(nhsym, nhsym1)
 
       abort_decode = .false.
 
@@ -531,7 +536,7 @@ contains
             call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
                  EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, sync_narrow)
             call timer('get_cand', 0)
-            call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa_s, mfb_s, nts_jt65, nts_q65, &
+            call get_candidates(ss_dec, savg_dec, xpol, nhsym_rows, mfa_s, mfb_s, nts_jt65, nts_q65, &
                  cand, ncand, mfa, mfb)
             call timer('get_cand', 1)
 
@@ -715,12 +720,12 @@ if (early_window) then
         EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, early_window)
 endif
 if (nagain .eq. 0 .or. sync_narrow) then
-   ! A manual repeat (nagain=1) reuses the last pass's sync(); if that was an
-   ! early pass it covers only the QSO window, so redo it over the full span.
+   ! A manual repeat (nagain=1) reuses the last pass's sync(); if that covered only
+   ! a narrow window, redo it over the full span.
    call timer('get_cand', 0)
    ! mfa..mfb stays the reference for the score scale, so a narrowed search
    ! scores a signal as the full-span search would.
-   call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa_s, mfb_s, nts_jt65, nts_q65, cand, ncand, &
+   call get_candidates(ss_dec, savg_dec, xpol, nhsym_rows, mfa_s, mfb_s, nts_jt65, nts_q65, cand, ncand, &
         mfa, mfb)
    call timer('get_cand', 1)
    sync_narrow = early_window
@@ -1189,8 +1194,8 @@ endif
          call sec0(1, tsec0)
          call dbg('map65a: end of nqd=' // itoa(nqd) // ' body at t=' // rtoa(sec_midn()) // &
                   ' tsec0=' // rtoa(tsec0) // ' nhsym=' // itoa(nhsym) // ' nagain=' // itoa(nagain))
-         ! The early pass never runs the wideband (nqd=0) decode: sync() holds
-         ! only the QSO window then.
+         ! The automatic early pass does not run the wideband (nqd=0) decode; with
+         ! early_window set, sync() then holds only the QSO window.
          if (nhsym .eq. nhsym1 .and. (early_window .or. tsec0 .gt. 3.0)) then
             call dbg('map65a: early pass skips nqd=0 at t=' // rtoa(sec_midn()) // &
                      ' tsec0=' // rtoa(tsec0) // ' -- nqd=0 will NOT run this pass')

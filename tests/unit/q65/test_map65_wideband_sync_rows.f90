@@ -243,7 +243,7 @@ contains
   ! search does, even when interference fills that part.
   subroutine test_narrow_window_score_scale()
     integer :: lo, hi, wlo, whi, tbin, bin, row
-    real :: full_score, bare_score, ref_score
+    real :: full_score, bare_score, ref_score, same_score
 
     lo=nint(1000.0/df)+1
     hi=nint(90000.0/df)+1
@@ -270,8 +270,13 @@ contains
     call wb_sync(ss,savg,.false.,.true.,jz,50,51,1,90)
     ref_score=sync(tbin)%ccfmax
 
+    call wb_sync(ss,savg,.false.,.true.,jz,1,90,1,90)
+    same_score=sync(tbin)%ccfmax
+
     if(bare_score>0.5*full_score) error stop 'fixture: interference did not lower the narrow-window score'
     if(abs(ref_score-full_score)>0.02*full_score) &
          error stop 'narrow search with a reference span changed the signal score'
+    if(same_score/=full_score) &
+         error stop 'a window equal to its reference span did not score as the plain search'
   end subroutine test_narrow_window_score_scale
 end program test_map65_wideband_sync_rows

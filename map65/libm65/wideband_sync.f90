@@ -27,7 +27,8 @@ module wideband_sync
    type(sync_dat), allocatable :: q65_generalized_sync(:)
    integer nkhz_center
    ! True when sync() was last filled for a narrow frequency window only (the
-   ! automatic early pass); false once it covers the whole decode span.
+   ! automatic early pass or a manual Q65 decode); false once it covers the
+   ! whole decode span.
    logical :: sync_narrow = .false.
 
 contains
@@ -179,7 +180,7 @@ contains
       integer, intent(in), optional :: nfa_ref, nfb_ref
 
 ! Scores in nfa..nfb (kHz) are scaled by their median over the whole nfa_ref..nfb_ref
-! span, estimated from every nstride-th bin outside the window, so interference that
+! span, estimated from every nstride-th bin of that span, so interference that
 ! fills a narrow window can't lower the scores of the signals in it.
 
       integer, parameter :: LAGMAX = 30
@@ -247,6 +248,8 @@ contains
          ib_r = min(nfft_active - 1, max(ib, nint(1000*nfb_ref/df3) + 1))
          nstride = max(1, (ib_r - ia_r + 1)/REF_SAMPLES)
       endif
+      ! With no wider reference the median uses every bin, as without a reference.
+      if (ia_r .eq. ia .and. ib_r .eq. ib) nstride = 1
       npol = 1
       if (xpol) npol = 4
 
@@ -442,10 +445,12 @@ contains
         enddo   ! i (frequency bin)
 
       call pctile(ref_sync, nref, 50, base)
-      do i = ia_r, ib_r
-         if ((i .lt. ia .or. i .gt. ib) .and. mod(i - ia_r, nstride) .ne. 0) cycle
-         sync(i)%ccfmax = sync(i)%ccfmax/base
-      enddo
+      if (base > tiny(base)) then
+         do i = ia_r, ib_r
+            if ((i .lt. ia .or. i .gt. ib) .and. mod(i - ia_r, nstride) .ne. 0) cycle
+            sync(i)%ccfmax = sync(i)%ccfmax/base
+         enddo
+      endif
       if (generalized_available) then
          call pctile(ref_gen, nref, 50, base)
          if (base > tiny(base)) then
