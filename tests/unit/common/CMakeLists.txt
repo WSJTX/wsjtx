@@ -278,7 +278,7 @@ add_executable (test_frequency_editors
   test_frequency_editors.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp
 )
-target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets)
+target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets Qt5::Sql)
 add_test (NAME test_frequency_editors COMMAND test_frequency_editors)
 
 add_executable (test_frequency_suggestions
@@ -449,8 +449,10 @@ set_tests_properties (test_configuration_language PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
 
-add_dependencies (test_displaytext translations)
-target_compile_definitions (test_displaytext PRIVATE WSJT_JAPANESE_QM="${CMAKE_BINARY_DIR}/wsjtx_ja.qm")
+foreach (target test_displaytext test_frequency_editors)
+  add_dependencies (${target} translations)
+  target_compile_definitions (${target} PRIVATE WSJT_JAPANESE_QM="${CMAKE_BINARY_DIR}/wsjtx_ja.qm")
+endforeach ()
 
 add_executable (test_configuration_udp_destinations test_configuration_udp_destinations.cpp)
 target_link_libraries (test_configuration_udp_destinations wsjt_qt wsjt_cxx wsjt_fort_common

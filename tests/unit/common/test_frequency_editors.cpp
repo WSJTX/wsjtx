@@ -9,9 +9,16 @@
 #include <QFocusEvent>
 #include <QLineEdit>
 #include <QModelIndex>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QSqlTableModel>
+#include <QStandardItemModel>
+#include <QStyleOptionViewItem>
 #include <QString>
+#include <QTranslator>
 
 #include "Radio.hpp"
+#include "item_delegates/ForeignKeyDelegate.hpp"
 #include "models/Bands.hpp"
 #include "models/FrequencyList.hpp"
 #include "models/IARURegions.hpp"
@@ -26,6 +33,26 @@ namespace
   constexpr Radio::Frequency preferred_3cm_frequency {10368200000ULL};
   constexpr Radio::Frequency entered_3cm_frequency {10368799000ULL};
   constexpr Radio::Frequency preferred_20m_frequency {14074000ULL};
+
+  class DuplicateRegionTranslator : public QTranslator
+  {
+  public:
+    bool isEmpty () const override { return false; }
+    QString translate (char const * context, char const *, char const * = nullptr,
+                       int = -1) const override
+    {
+      return QString::fromLatin1 (context) == "IARURegions"
+        ? QStringLiteral ("Translated region") : QString {};
+    }
+  };
+
+  std::unique_ptr<QComboBox> key_editor (QAbstractItemDelegate& delegate, QModelIndex const& index)
+  {
+    auto editor = std::unique_ptr<QComboBox> {
+      qobject_cast<QComboBox *> (delegate.createEditor (nullptr, QStyleOptionViewItem {}, index))};
+    if (editor) delegate.setEditorData (editor.get (), index);
+    return editor;
+  }
 
   class LiveFrequencyEditorFixture
   {
@@ -94,12 +121,44 @@ class TestFrequencyEditors
   Q_OBJECT
 
 private Q_SLOTS:
+  void japanese_region_editor_preserves_key ()
+  {
+    QTranslator translator;
+    QVERIFY (translator.load (QString::fromUtf8 (WSJT_JAPANESE_QM)));
+    QCoreApplication::installTranslator (&translator);
+    Bands bands;
+    IARURegions regions;
+    FrequencyList_v2_101 frequencies {&bands};
+    auto const added = frequencies.add ({14080000, Modes::FT4, IARURegions::R2,
+                                         {}, {}, {}, {}, false});
+    auto const index = frequencies.index (added.row (), FrequencyList_v2_101::region_column);
+    ForeignKeyDelegate delegate {&regions, 0};
+    QAbstractItemDelegate& base = delegate;
+    auto editor = key_editor (base, index);
+    QVERIFY (editor);
+    QVERIFY (editor->currentText () != "Region 2");
+    QCOMPARE (editor->currentData (Qt::EditRole).value<IARURegions::Region> (), IARURegions::R2);
+    base.setModelData (editor.get (), &frequencies, index);
+    QCOMPARE (index.data (Qt::EditRole).value<IARURegions::Region> (), IARURegions::R2);
+    editor->setCurrentIndex (editor->findData (QVariant::fromValue (IARURegions::R3), Qt::EditRole));
+    base.setModelData (editor.get (), &frequencies, index);
+    QCOMPARE (index.data (Qt::EditRole).value<IARURegions::Region> (), IARURegions::R3);
+    QCoreApplication::removeTranslator (&translator);
+  }
+
   void frequency_line_edit_requires_positive_frequency ();
   void frequency_line_edit_accepts_frequency_above_signed_range ();
   void frequency_conversion_rejects_unsigned_limit ();
   void frequency_delta_line_edit_accepts_signed_offsets ();
   void station_list_rejects_invalid_offset_variants ();
   void frequency_list_rejects_invalid_frequency_variants ();
+  void translated_region_editor_preserves_and_changes_keys ();
+  void mode_editor_preserves_and_changes_keys ();
+  void frequency_list_rejects_invalid_enum_variants ();
+  void foreign_key_editor_ignores_missing_keys ();
+  void foreign_key_editor_honors_roles_and_columns ();
+  void station_band_editor_filters_used_keys ();
+  void sql_band_editor_preserves_string_keys ();
   void live_frequency_entry_requests_one_qsy_data ();
   void live_frequency_entry_requests_one_qsy ();
   void live_frequency_band_entry_requests_working_frequency ();
@@ -190,6 +249,191 @@ void TestFrequencyEditors::frequency_list_rejects_invalid_frequency_variants ()
   QVERIFY (frequencies.setData (frequency_index, Radio::Frequency {14075000}, Qt::EditRole));
   QCOMPARE (frequencies.data (frequency_index, Qt::EditRole).value<Radio::Frequency> (),
             Radio::Frequency {14075000});
+}
+
+void TestFrequencyEditors::translated_region_editor_preserves_and_changes_keys ()
+{
+  DuplicateRegionTranslator translator;
+  QVERIFY (QCoreApplication::installTranslator (&translator));
+  IARURegions regions;
+  Bands bands;
+  FrequencyList_v2_101 frequencies {&bands};
+  auto const added = frequencies.add ({14074000, Modes::FT4, IARURegions::R2,
+        {}, {}, {}, {}, false});
+  auto const index = frequencies.index (added.row (), FrequencyList_v2_101::region_column);
+  QCOMPARE (index.data (Qt::EditRole).userType (), qMetaTypeId<IARURegions::Region> ());
+  QCOMPARE (regions.index (IARURegions::R2, 0).data (Qt::EditRole).userType (),
+            qMetaTypeId<IARURegions::Region> ());
+  QCOMPARE (index.data ().toString (), QString {"Translated region"});
+  ForeignKeyDelegate delegate {&regions, 0};
+  QAbstractItemDelegate& base = delegate;
+  auto editor = key_editor (base, index);
+  QVERIFY (editor);
+  QCOMPARE (editor->currentData (Qt::EditRole).value<IARURegions::Region> (), IARURegions::R2);
+  QSignalSpy changes {&frequencies, &QAbstractItemModel::dataChanged};
+  base.setModelData (editor.get (), &frequencies, index);
+  QCOMPARE (index.data (Qt::EditRole).value<IARURegions::Region> (), IARURegions::R2);
+  QCOMPARE (changes.count (), 0);
+  for (auto region : {IARURegions::R3, IARURegions::ALL})
+    {
+      editor->setCurrentIndex (editor->findData (QVariant::fromValue (region), Qt::EditRole));
+      base.setModelData (editor.get (), &frequencies, index);
+      QCOMPARE (index.data (Qt::EditRole).value<IARURegions::Region> (), region);
+    }
+  QCOMPARE (changes.count (), 2);
+}
+
+void TestFrequencyEditors::mode_editor_preserves_and_changes_keys ()
+{
+  Modes modes;
+  Bands bands;
+  FrequencyList_v2_101 frequencies {&bands};
+  auto const added = frequencies.add ({14074000, Modes::FT4, IARURegions::R2,
+        {}, {}, {}, {}, false});
+  auto const index = frequencies.index (added.row (), FrequencyList_v2_101::mode_column);
+  QCOMPARE (index.data (Qt::EditRole).userType (), qMetaTypeId<Modes::Mode> ());
+  QCOMPARE (modes.index (Modes::FT4, 0).data (Qt::EditRole).userType (), qMetaTypeId<Modes::Mode> ());
+  ForeignKeyDelegate delegate {&modes, 0};
+  QAbstractItemDelegate& base = delegate;
+  auto editor = key_editor (base, index);
+  QVERIFY (editor);
+  QCOMPARE (editor->currentData (Qt::EditRole).value<Modes::Mode> (), Modes::FT4);
+  base.setModelData (editor.get (), &frequencies, index);
+  QCOMPARE (index.data (Qt::EditRole).value<Modes::Mode> (), Modes::FT4);
+  for (auto mode : {Modes::FT8, Modes::ALL})
+    {
+      editor->setCurrentIndex (editor->findData (QVariant::fromValue (mode), Qt::EditRole));
+      base.setModelData (editor.get (), &frequencies, index);
+      QCOMPARE (index.data (Qt::EditRole).value<Modes::Mode> (), mode);
+    }
+}
+
+void TestFrequencyEditors::frequency_list_rejects_invalid_enum_variants ()
+{
+  Bands bands;
+  FrequencyList_v2_101 frequencies {&bands};
+  auto const added = frequencies.add ({14074000, Modes::FT4, IARURegions::R2,
+        {}, {}, {}, {}, false});
+  auto const region = frequencies.index (added.row (), FrequencyList_v2_101::region_column);
+  auto const mode = frequencies.index (added.row (), FrequencyList_v2_101::mode_column);
+  QSignalSpy changes {&frequencies, &QAbstractItemModel::dataChanged};
+  for (auto const& value : {QVariant {}, QVariant {2}, QVariant {"Region 2"},
+                           QVariant::fromValue (Modes::JT9),
+                           QVariant::fromValue (static_cast<IARURegions::Region> (-1)),
+                           QVariant::fromValue (IARURegions::SENTINAL)})
+    QVERIFY (!frequencies.setData (region, value, Qt::EditRole));
+  for (auto const& value : {QVariant {}, QVariant {9}, QVariant {"FT4"},
+                           QVariant::fromValue (IARURegions::R2),
+                           QVariant::fromValue (static_cast<Modes::Mode> (-1)),
+                           QVariant::fromValue (Modes::MODES_END_SENTINAL_AND_COUNT)})
+    QVERIFY (!frequencies.setData (mode, value, Qt::EditRole));
+  QCOMPARE (region.data (Qt::EditRole).value<IARURegions::Region> (), IARURegions::R2);
+  QCOMPARE (mode.data (Qt::EditRole).value<Modes::Mode> (), Modes::FT4);
+  QCOMPARE (changes.count (), 0);
+}
+
+void TestFrequencyEditors::foreign_key_editor_ignores_missing_keys ()
+{
+  Bands bands;
+  QStandardItemModel target {1, 1};
+  auto const index = target.index (0, 0);
+  target.setData (index, QString {"Unknown band"}, Qt::EditRole);
+  ForeignKeyDelegate delegate {&bands, 0};
+  QAbstractItemDelegate& base = delegate;
+  auto editor = key_editor (base, index);
+  QVERIFY (editor);
+  QCOMPARE (editor->currentIndex (), -1);
+  QSignalSpy changes {&target, &QAbstractItemModel::dataChanged};
+  base.setModelData (editor.get (), &target, index);
+  QCOMPARE (index.data (Qt::EditRole).toString (), QString {"Unknown band"});
+  QCOMPARE (changes.count (), 0);
+  target.setData (index, QVariant {}, Qt::EditRole);
+  base.setEditorData (editor.get (), index);
+  QCOMPARE (editor->currentIndex (), -1);
+  changes.clear ();
+  base.setModelData (editor.get (), &target, index);
+  QCOMPARE (changes.count (), 0);
+}
+
+void TestFrequencyEditors::foreign_key_editor_honors_roles_and_columns ()
+{
+  int constexpr referenced_role = Qt::UserRole + 1;
+  int constexpr referencing_role = Qt::UserRole + 2;
+  QStandardItemModel referenced {3, 2};
+  for (int row = 0; row < referenced.rowCount (); ++row)
+    {
+      referenced.setData (referenced.index (row, 1), QString {"Duplicate label"});
+      referenced.setData (referenced.index (row, 1), (row + 1) * 10, referenced_role);
+    }
+  QStandardItemModel target {2, 2};
+  auto const index = target.index (0, 1);
+  target.setData (index, 10, referencing_role);
+  target.setData (target.index (1, 1), 20, referencing_role);
+  ForeignKeyDelegate delegate {&referenced, &target, 1, 1, nullptr,
+                                referenced_role, referencing_role};
+  QAbstractItemDelegate& base = delegate;
+  auto editor = key_editor (base, index);
+  QVERIFY (editor);
+  QCOMPARE (editor->modelColumn (), 1);
+  QCOMPARE (editor->count (), 2);
+  QCOMPARE (editor->currentData (referenced_role).toInt (), 10);
+  QCOMPARE (editor->findData (20, referenced_role), -1);
+  editor->setCurrentIndex (editor->findData (30, referenced_role));
+  base.setModelData (editor.get (), &target, index);
+  QCOMPARE (index.data (referencing_role).toInt (), 30);
+  QVERIFY (!index.data (Qt::EditRole).isValid ());
+}
+
+void TestFrequencyEditors::station_band_editor_filters_used_keys ()
+{
+  Bands bands;
+  StationList stations {&bands, {{"20m", 0, "Yagi"}, {"40m", 0, "Dipole"}}};
+  auto const index = stations.index (0, StationList::band_column);
+  ForeignKeyDelegate delegate {&bands, &stations, 0, StationList::band_column};
+  QAbstractItemDelegate& base = delegate;
+  auto editor = key_editor (base, index);
+  QVERIFY (editor);
+  QCOMPARE (editor->currentData (Qt::EditRole).toString (), QString {"20m"});
+  QCOMPARE (editor->findData (QString {"40m"}, Qt::EditRole), -1);
+  base.setModelData (editor.get (), &stations, index);
+  QCOMPARE (index.data (Qt::EditRole).toString (), QString {"20m"});
+  editor->setCurrentIndex (editor->findData (QString {"80m"}, Qt::EditRole));
+  base.setModelData (editor.get (), &stations, index);
+  QCOMPARE (index.data (Qt::EditRole).toString (), QString {"80m"});
+}
+
+void TestFrequencyEditors::sql_band_editor_preserves_string_keys ()
+{
+  QString const connection {"frequency_editor_keys"};
+  {
+    auto database = QSqlDatabase::addDatabase ("QSQLITE", connection);
+    database.setDatabaseName (":memory:");
+    QVERIFY (database.open ());
+    QSqlQuery query {database};
+    QVERIFY (query.exec ("CREATE TABLE log (band TEXT)"));
+    QVERIFY (query.exec ("INSERT INTO log VALUES ('20m')"));
+    QSqlTableModel model {nullptr, database};
+    model.setEditStrategy (QSqlTableModel::OnManualSubmit);
+    model.setTable ("log");
+    QVERIFY (model.select ());
+    auto const index = model.index (0, 0);
+    Bands bands;
+    ForeignKeyDelegate delegate {&bands, 0};
+    QAbstractItemDelegate& base = delegate;
+    auto editor = key_editor (base, index);
+    QVERIFY (editor);
+    QCOMPARE (editor->currentData (Qt::EditRole).toString (), QString {"20m"});
+    base.setModelData (editor.get (), &model, index);
+    QVERIFY (model.submitAll ());
+    QCOMPARE (index.data (Qt::EditRole).toString (), QString {"20m"});
+    editor->setCurrentIndex (editor->findData (QString {"40m"}, Qt::EditRole));
+    base.setModelData (editor.get (), &model, index);
+    QVERIFY (model.submitAll ());
+    QVERIFY (query.exec ("SELECT band FROM log"));
+    QVERIFY (query.next ());
+    QCOMPARE (query.value (0).toString (), QString {"40m"});
+  }
+  QSqlDatabase::removeDatabase (connection);
 }
 
 void TestFrequencyEditors::live_frequency_entry_requests_one_qsy_data ()

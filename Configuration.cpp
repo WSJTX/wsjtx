@@ -534,8 +534,8 @@ public:
     QDateTime end_time = enable_dates_checkbox_->isChecked() ? end_date_time_edit_->dateTime()  : QDateTime();
     return {
             frequency_line_edit_.frequency(),
-            Modes::value(mode_combo_box_.currentText()),
-            IARURegions::value(region_combo_box_.currentText()),
+            mode_combo_box_.currentData (Qt::EditRole).value<Modes::Mode> (),
+            region_combo_box_.currentData (Qt::EditRole).value<IARURegions::Region> (),
             description_line_edit_.text(), source_line_edit_.text(),
             start_time,
             end_time,
@@ -555,6 +555,7 @@ private:
   void update_accept_button ()
   {
     button_box->button (QDialogButtonBox::Ok)->setEnabled (frequency_line_edit_.hasAcceptableInput ()
+        && region_combo_box_.currentIndex () >= 0 && mode_combo_box_.currentIndex () >= 0
         && dates_are_sane ());
   }
 
@@ -3487,7 +3488,8 @@ void Configuration::impl::initialize_models ()
       ui_->PTT_port_combo_box->setCurrentText (rig_params_.ptt_port);
     }
 
-  ui_->region_combo_box->setCurrentIndex (region_);
+  ui_->region_combo_box->setCurrentIndex (
+    ui_->region_combo_box->findData (QVariant::fromValue (region_), Qt::EditRole));
 
   next_macros_.setStringList (macros_.stringList ());
   next_frequencies_.frequency_list (frequencies_.frequency_list ());
@@ -4963,7 +4965,12 @@ void Configuration::impl::accept ()
       macros_.setStringList (next_macros_.stringList ());
     }
 
-  region_ = IARURegions::value (ui_->region_combo_box->currentText ());
+  auto const region_key = ui_->region_combo_box->currentData (Qt::EditRole);
+  if (region_key.userType () == qMetaTypeId<IARURegions::Region> ())
+    {
+      auto const region = region_key.value<IARURegions::Region> ();
+      if (region >= IARURegions::ALL && region < IARURegions::SENTINAL) region_ = region;
+    }
 
   if (frequencies_.frequency_list () != next_frequencies_.frequency_list ())
     {
