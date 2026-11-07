@@ -62,7 +62,6 @@ DevSetup::DevSetup(MainWindow *parent)
 
   m_restartSoundIn=false;
   m_restartSoundOut=false;
-  m_restartRequired=false;
   m_pendingFs96000=-1;
 
   QButtonGroup *buttonGroup = new QButtonGroup(this);
@@ -218,7 +217,7 @@ for (id = 0; id < numDevices; id++) {
   if (idx >= 0)
       ui.pttComboBox->setCurrentIndex(idx);
 
-  oldSampleRate = sampleRateForCode(mw->m_fs96000);
+  int const shownSampleRateCode = dialogSampleRateCode(mw->m_fs96000, mw->m_pendingFs96000);
 
   ui.astroFont->setValue(mw->m_astroFont);
   ui.cbXpol->setChecked(mw->m_xpol);
@@ -238,11 +237,11 @@ for (id = 0; id < numDevices; id++) {
     ui.soundCardRadioButton->setChecked(!mw->m_network);
   }
   ui.rb256000->setEnabled(sampleRateCodeFitsAddressSpace(4));
-  ui.rb256000->setChecked(mw->m_fs96000 == 4);
-  ui.rb192000->setChecked(mw->m_fs96000 == 2);
-  ui.rb128000->setChecked(mw->m_fs96000 == 3);
-  ui.rb96000->setChecked(mw->m_fs96000 == 1);
-  ui.rb95238->setChecked(mw->m_fs96000 == 0);
+  ui.rb256000->setChecked(shownSampleRateCode == 4);
+  ui.rb192000->setChecked(shownSampleRateCode == 2);
+  ui.rb128000->setChecked(shownSampleRateCode == 3);
+  ui.rb96000->setChecked(shownSampleRateCode == 1);
+  ui.rb95238->setChecked(shownSampleRateCode == 0);
   on_soundCardRadioButton_toggled(ui.soundCardRadioButton->isChecked());
   ui.rbIQXT->setChecked(mw->m_bIQxt);
   ui.rbSi570->setChecked(!mw->m_bIQxt);
@@ -301,10 +300,9 @@ void DevSetup::accept()
   int const newSampleRate = sampleRateForCode(newFs96000);
   double const newFAdd = ui.faddEntry->text().toDouble();
 
-  m_restartRequired = oldSampleRate != newSampleRate;
-  if (m_restartRequired) {
-    m_pendingFs96000 = newFs96000;
-  } else {
+  int const previousPending = mw->m_pendingFs96000;
+  m_pendingFs96000 = pendingSampleRateCode(mw->m_fs96000, newFs96000);
+  if (m_pendingFs96000 < 0) {
     emit sampleRateChanged(newSampleRate);
   }
 
@@ -353,9 +351,6 @@ void DevSetup::accept()
   mw->m_fCal=ui.fCalSpinBox->value();
   mw->m_fAdd=newFAdd;
   mw->m_network=ui.networkRadioButton->isChecked();
-  if (!m_restartRequired) {
-    mw->m_fs96000 = newFs96000;
-  }
   mw->m_bIQxt=ui.rbIQXT->isChecked();
   if (newInDev >= 0) {
     mw->m_nDevIn=newInIndex;
@@ -379,7 +374,7 @@ void DevSetup::accept()
   mw->m_spot_to_psk_reporter = ui.pskBox->isChecked();
   mw->m_psk_reporter_tcpip = ui.pskReporterTcpIpBox->isChecked();
 
-  if (m_restartRequired) {
+  if (restartNoticeNeeded(previousPending, m_pendingFs96000)) {
       QMessageBox::information(this,
           "Restart Required",
           "Changing sample rate requires MAP65 to be restarted.\n"

@@ -107,6 +107,29 @@ private slots:
     QCOMPARE(maxFreqSpanKHz(256000), 250);
   }
 
+  void reopeningSettingsKeepsAPendingRate()
+  {
+    int const shown = dialogSampleRateCode(1, 2);
+    QCOMPARE(shown, 2);
+    QCOMPARE(pendingSampleRateCode(1, shown), 2);   // OK with nothing touched
+    QCOMPARE(pendingSampleRateCode(1, 1), -1);      // back to the running rate
+    QCOMPARE(pendingSampleRateCode(1, 4), 4);       // a different rate
+    QCOMPARE(pendingSampleRateCode(1, 0), 0);       // 95238 is not 96000
+    QCOMPARE(pendingSampleRateCode(0, 1), 1);
+    QCOMPARE(dialogSampleRateCode(1, -1), 1);
+    QCOMPARE(dialogSampleRateCode(2, 0), 0);
+  }
+
+  void restartNoticeAppearsOnlyWhenThePendingRateChanges()
+  {
+    QVERIFY(restartNoticeNeeded(-1, 2));    // first choice
+    QVERIFY(!restartNoticeNeeded(2, 2));    // OK again, nothing changed
+    QVERIFY(restartNoticeNeeded(2, 4));     // a third rate
+    QVERIFY(!restartNoticeNeeded(2, -1));   // back to the running rate
+    QVERIFY(!restartNoticeNeeded(-1, -1));  // never changed
+    QVERIFY(restartNoticeNeeded(-1, 0));    // 95238 is a real code
+  }
+
   void canonicalSourcePrecedesLegacyCandidates()
   {
     QTemporaryDir root;

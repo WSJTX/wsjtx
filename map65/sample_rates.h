@@ -45,6 +45,27 @@ inline bool sampleRateCodeFitsAddressSpace(int code, std::size_t pointerSize = s
   return pointerSize > 4 || code != 4;
 }
 
+// The rate code Settings shows: a change waiting for a restart
+// (pendingCode >= 0), otherwise the running one.
+inline int dialogSampleRateCode(int runningCode, int pendingCode)
+{
+  return pendingCode >= 0 ? pendingCode : runningCode;
+}
+
+// The rate code left waiting for a restart once Settings is accepted with
+// selectedCode, or -1 when that is the running rate.
+inline int pendingSampleRateCode(int runningCode, int selectedCode)
+{
+  return selectedCode != runningCode ? selectedCode : -1;
+}
+
+// Whether accepting Settings should show the restart notice: only when the
+// pending rate is new or has changed, not each time an unchanged one is kept.
+inline bool restartNoticeNeeded(int previousPendingCode, int pendingCode)
+{
+  return pendingCode >= 0 && pendingCode != previousPendingCode;
+}
+
 // A saved code the build can't hold falls back to 192 kHz instead of leaving
 // an installation that cannot start.
 inline int usableSampleRateCode(int code, std::size_t pointerSize = sizeof(void*))

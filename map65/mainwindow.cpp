@@ -949,7 +949,7 @@ void MainWindow::writeSettings()
   settings.setValue("Fcal",m_fCal);
   settings.setValue("Fadd",m_fAdd);
   settings.setValue("NetworkInput", m_network);
-  settings.setValue("FSam96000", QString::number(m_pendingFs96000 >= 0 ? m_pendingFs96000 : m_fs96000));
+  settings.setValue("FSam96000", QString::number(dialogSampleRateCode(m_fs96000, m_pendingFs96000)));
   settings.setValue("SoundInIndex",m_nDevIn);
   settings.setValue("paInDevice",m_paInDevice);
   settings.setValue("SoundOutIndex",m_nDevOut);
@@ -1520,16 +1520,7 @@ void MainWindow::on_actionDeviceSetup_triggered()
 
     if (dlg.exec() == QDialog::Accepted)
     {
-        if (dlg.m_restartRequired)
-        {
-            m_pendingFs96000 = dlg.m_pendingFs96000;
-            writeSettings();
-            if (m_messages_window) {
-                m_messages_window->setPSKReportingEnabled(m_spot_to_psk_reporter);
-            }
-            return;
-        }
-        m_pendingFs96000 = -1;
+        m_pendingFs96000 = dlg.m_pendingFs96000;
 
         //
         // Apply runtime effects for SoundIn
