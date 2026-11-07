@@ -390,8 +390,22 @@ runs:
         # above on every child AppImage means the whole pipeline runs
         # FUSE-free.
         export OUTPUT="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
+        extra_libraries=()
+        # linuxdeploy excludes libgpg-error even when bundled libgcrypt needs it.
+        gpg_error=$(ldd AppDir/usr/bin/wsjtx | awk '$1 == "libgpg-error.so.0" && $2 == "=>" { print $3 }')
+        if [ -n "$gpg_error" ]; then
+          if [ ! -f "$gpg_error" ]; then
+            echo "::error::Cannot resolve libgpg-error.so.0 for the AppImage: $gpg_error"
+            exit 1
+          fi
+          extra_libraries+=(--library "$gpg_error")
+          # Merged /usr paths can defeat linuxdeploy's dpkg ownership lookup.
+          install -D -m 644 /usr/share/doc/libgpg-error0/copyright \
+            AppDir/usr/share/doc/libgpg-error0/copyright
+        fi
         env -u GITHUB_TOKEN ./linuxdeploy.AppImage --appimage-extract-and-run \
           --appdir AppDir \
+          "${extra_libraries[@]}" \
           --plugin qt \
           --output appimage \
           --desktop-file AppDir/usr/share/applications/wsjtx.desktop \

@@ -270,6 +270,11 @@ validate_linux_application_layout() {
     fi
   done
 
+  if [ -f "$root/usr/lib/libgcrypt.so.20" ]; then
+    linux_require_file "$root/usr/lib/libgpg-error.so.0" || return
+    linux_require_file "$root/usr/share/doc/libgpg-error0/copyright" || return
+  fi
+
   if [ -z "$(find "$root" -path '*/plugins/audio/*.so' -print -quit 2>/dev/null)" ]; then
     linux_validation_error "No Qt audio backend plugin is bundled in the AppImage"
     echo "AppImage plugin tree:"

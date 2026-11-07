@@ -190,6 +190,28 @@ class LinuxArtifactValidationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_appimage_bundled_gcrypt_requires_gpg_error_and_copyright(self):
+        temporary, root = self.make_application_tree()
+        self.addCleanup(temporary.cleanup)
+        (root / "usr/lib/libgcrypt.so.20").touch()
+        dependency = root / "usr/lib/libgpg-error.so.0"
+        copyright_file = root / "usr/share/doc/libgpg-error0/copyright"
+        command = 'validate_linux_application_layout "$TREE" appimage'
+
+        result = self.run_helper(command, TREE=root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(str(dependency), result.stderr)
+
+        dependency.touch()
+        result = self.run_helper(command, TREE=root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(str(copyright_file), result.stderr)
+
+        copyright_file.parent.mkdir(parents=True)
+        copyright_file.write_text("libgpg-error copyright and license notice\n")
+        result = self.run_helper(command, TREE=root)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_armhf_elf_metadata_rejects_wrong_abi_properties(self):
         good = {
             "FILE_OUT": (
