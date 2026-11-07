@@ -5033,87 +5033,87 @@ Liste hinzuzufügen. Die Liste kann unter Einstellungen (F2) verwaltet werden.</
     <message>
         <location filename="../widgets/mainwindow.ui" line="2562"/>
         <source>CQ AF</source>
-        <translation>CQ AF</translation>
+        <translation type="vanished">CQ AF</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2567"/>
         <source>CQ AN</source>
-        <translation>CQ AN</translation>
+        <translation type="vanished">CQ AN</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2572"/>
         <source>CQ AS</source>
-        <translation>CQ AS</translation>
+        <translation type="vanished">CQ AS</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2577"/>
         <source>CQ EU</source>
-        <translation>CQ EU</translation>
+        <translation type="vanished">CQ EU</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2582"/>
         <source>CQ NA</source>
-        <translation>CQ NA</translation>
+        <translation type="vanished">CQ NA</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2587"/>
         <source>CQ OC</source>
-        <translation>CQ OC</translation>
+        <translation type="vanished">CQ OC</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2592"/>
         <source>CQ SA</source>
-        <translation>CQ SA</translation>
+        <translation type="vanished">CQ SA</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2597"/>
         <source>CQ 0</source>
-        <translation>CQ 0</translation>
+        <translation type="vanished">CQ 0</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2602"/>
         <source>CQ 1</source>
-        <translation>CQ 1</translation>
+        <translation type="vanished">CQ 1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2607"/>
         <source>CQ 2</source>
-        <translation>CQ 2</translation>
+        <translation type="vanished">CQ 2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2612"/>
         <source>CQ 3</source>
-        <translation>CQ 3</translation>
+        <translation type="vanished">CQ 3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2617"/>
         <source>CQ 4</source>
-        <translation>CQ 4</translation>
+        <translation type="vanished">CQ 4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2622"/>
         <source>CQ 5</source>
-        <translation>CQ 5</translation>
+        <translation type="vanished">CQ 5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2627"/>
         <source>CQ 6</source>
-        <translation>CQ 6</translation>
+        <translation type="vanished">CQ 6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2632"/>
         <source>CQ 7</source>
-        <translation>CQ 7</translation>
+        <translation type="vanished">CQ 7</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2637"/>
         <source>CQ 8</source>
-        <translation>CQ 8</translation>
+        <translation type="vanished">CQ 8</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2642"/>
         <source>CQ 9</source>
-        <translation>CQ 9</translation>
+        <translation type="vanished">CQ 9</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2670"/>

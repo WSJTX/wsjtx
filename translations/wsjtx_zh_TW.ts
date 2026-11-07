@@ -5854,7 +5854,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2562"/>
         <source>CQ AF</source>
-        <translation>CQ 非洲</translation>
+        <translation type="vanished">CQ 非洲</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1188"/>
@@ -5864,82 +5864,82 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2567"/>
         <source>CQ AN</source>
-        <translation>CQ 南極</translation>
+        <translation type="vanished">CQ 南極</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2572"/>
         <source>CQ AS</source>
-        <translation>CQ 亞洲</translation>
+        <translation type="vanished">CQ 亞洲</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2577"/>
         <source>CQ EU</source>
-        <translation>CQ 歐洲</translation>
+        <translation type="vanished">CQ 歐洲</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2582"/>
         <source>CQ NA</source>
-        <translation>CQ 北美洲</translation>
+        <translation type="vanished">CQ 北美洲</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2587"/>
         <source>CQ OC</source>
-        <translation>CQ 大洋洲</translation>
+        <translation type="vanished">CQ 大洋洲</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2592"/>
         <source>CQ SA</source>
-        <translation>CQ 南美洲</translation>
+        <translation type="vanished">CQ 南美洲</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2597"/>
         <source>CQ 0</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2602"/>
         <source>CQ 1</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2607"/>
         <source>CQ 2</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2612"/>
         <source>CQ 3</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2617"/>
         <source>CQ 4</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2622"/>
         <source>CQ 5</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2627"/>
         <source>CQ 6</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2632"/>
         <source>CQ 7</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2637"/>
         <source>CQ 8</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2642"/>
         <source>CQ 9</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2670"/>
