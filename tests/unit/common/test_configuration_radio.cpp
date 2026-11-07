@@ -10,6 +10,7 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QStyleOptionButton>
+#include <QTranslator>
 #include <functional>
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
@@ -366,6 +367,45 @@ private slots:
     configuration_.reset ();
     session_.reset ();
     settings_.reset ();
+  }
+
+  void baudRatePresetsRemainCanonicalAcrossTranslations ()
+  {
+    class Translator final : public QTranslator
+    {
+    public:
+      bool isEmpty () const override { return false; }
+      QString translate (char const * context, char const * source,
+                         char const * = nullptr, int = -1) const override
+      {
+        bool numeric {false};
+        QString::fromLatin1 (source).toInt (&numeric);
+        return QByteArray {context} == "configuration_dialog" && numeric
+          ? QStringLiteral ("Translated baud rate") : QString {};
+      }
+      ~Translator () override { QCoreApplication::removeTranslator (this); }
+    } translator;
+    QVERIFY (QCoreApplication::installTranslator (&translator));
+    QCOMPARE (QCoreApplication::translate ("configuration_dialog", "1200"),
+              QStringLiteral ("Translated baud rate"));
+    ui ().retranslateUi (&dialog ());
+
+    int const rates[] {1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200};
+    auto * const combo = ui ().CAT_serial_baud_combo_box;
+    QCOMPARE (combo->count (), int (sizeof rates / sizeof rates[0]));
+    for (int row = 0; row < combo->count (); ++row)
+      {
+        QCOMPARE (combo->itemText (row), QString::number (rates[row]));
+        combo->setCurrentIndex ((row + 1) % combo->count ());
+        dialog ().rig_params_.baud = rates[row];
+        dialog ().initialize_models ();
+        QCOMPARE (combo->currentIndex (), row);
+        QCOMPARE (dialog ().gather_rig_data ().baud, rates[row]);
+
+        auto const changed = (row + 1) % combo->count ();
+        combo->setCurrentIndex (changed);
+        QCOMPARE (dialog ().gather_rig_data ().baud, rates[changed]);
+      }
   }
 
   void threadedFrequencyApplicationAcrossPttTail ()

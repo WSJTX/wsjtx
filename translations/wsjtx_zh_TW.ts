@@ -10929,42 +10929,42 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="996"/>
         <source>1200</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1001"/>
         <source>2400</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1006"/>
         <source>4800</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1011"/>
         <source>9600</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1016"/>
         <source>19200</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1021"/>
         <source>38400</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1026"/>
         <source>57600</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1031"/>
         <source>115200</source>
-        <translation></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1041"/>

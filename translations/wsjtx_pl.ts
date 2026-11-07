@@ -10990,42 +10990,42 @@ w cichym okresie, w którym odbywa się dekodowanie.</translation>
     <message>
         <location filename="../Configuration.ui" line="996"/>
         <source>1200</source>
-        <translation>1200</translation>
+        <translation type="vanished">1200</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1001"/>
         <source>2400</source>
-        <translation>2400</translation>
+        <translation type="vanished">2400</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1006"/>
         <source>4800</source>
-        <translation>4800</translation>
+        <translation type="vanished">4800</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1011"/>
         <source>9600</source>
-        <translation>9600</translation>
+        <translation type="vanished">9600</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1016"/>
         <source>19200</source>
-        <translation>19200</translation>
+        <translation type="vanished">19200</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1021"/>
         <source>38400</source>
-        <translation>38400</translation>
+        <translation type="vanished">38400</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1026"/>
         <source>57600</source>
-        <translation>57600</translation>
+        <translation type="vanished">57600</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1031"/>
         <source>115200</source>
-        <translation>115200</translation>
+        <translation type="vanished">115200</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1041"/>
