@@ -1509,18 +1509,13 @@ Not available to nonstandard callsign holders.</string>
                     <item>
                      <widget class="QPushButton" name="pbBestSP">
                       <property name="toolTip">
-                       <string>Enable auto response to the first decode from a new DXCC or new call on the current band.</string>
+                       <string>After decoding finishes, select a new DXCC entity first, then a callsign not worked on this band. Arm before starting a QSO, with Wait &amp; Call and Wait &amp; Pounce inactive. Activating either cancels Best S+P; directed replies continue normally. Rx and Tx audio-frequency adjustments preserve arming. Configure selection in Settings &gt; Advanced &gt; Best S+P. Highlight colors, enabled rules, and rule order do not affect selection. Worked-before matching follows 'Highlight by Mode' and 'Include extra WAE entities' on Colors. Arming times out after two minutes.</string>
                       </property>
-                      <property name="styleSheet">
-                       <string notr="true">QPushButton:checked {
-	color: rgb(0, 0, 0);
-	background-color: red;
-	border-style: outset;
-	border-width: 1px;
-	border-radius: 5px;
-	border-color: black;
-	padding: 3px;
-}</string>
+                      <property name="accessibleName">
+                       <string>Best S+P</string>
+                      </property>
+                      <property name="accessibleDescription">
+                       <string>Best S+P is not armed.</string>
                       </property>
                       <property name="text">
                        <string>Best S+P</string>

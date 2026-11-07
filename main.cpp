@@ -62,6 +62,8 @@
 #include "Audio/AudioInputSource.hpp"
 #include "Audio/soundout.h"
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+#include <QUuid>
+#include "BestSPApplicationTestController.hpp"
 #include "Audio/BWFFile.hpp"
 #include "Audio/FixtureAudioInput.hpp"
 #include "Audio/FixtureSoundOutput.hpp"
@@ -300,6 +302,7 @@ int main(int argc, char *argv[])
   bool ft8_tx_loopback_test {false};
   bool receive_handoff_test {false};
   bool qso_completion_test {false};
+  bool best_sp_test {false};
   bool jt4_wav_test {false};
   bool jt9_wav_test {false};
   bool jt65_wav_test {false};
@@ -412,6 +415,10 @@ int main(int argc, char *argv[])
         QStringList {} << "qso-completion-test",
         "Exercise QSO completion with automatic, prompt, or disabled logging; append -keep, -keep-call, or -keep-grid to retain fields.", "profile");
       parser.addOption (qso_completion_test_option);
+      QCommandLineOption best_sp_test_option (
+        QStringList {} << "best-sp-test",
+        "Exercise Best S+P through the application with a scripted decoder and silent audio.");
+      parser.addOption (best_sp_test_option);
       QCommandLineOption jt4_wav_test_option (
         QStringList {} << "jt4-wav-test",
         "Decode a JT4 WAV through the application and repeat the decode.", "wav-path");
@@ -505,6 +512,7 @@ int main(int argc, char *argv[])
           std::cerr << "--qso-completion-test requires automatic, prompt, or disabled, optionally suffixed with -keep, -keep-call, or -keep-grid" << std::endl;
           return EXIT_FAILURE;
         }
+      best_sp_test = parser.isSet (best_sp_test_option);
       jt4_wav_test = parser.isSet (jt4_wav_test_option);
       jt9_wav_test = parser.isSet (jt9_wav_test_option);
       jt65_wav_test = parser.isSet (jt65_wav_test_option);
@@ -591,6 +599,7 @@ int main(int argc, char *argv[])
           + (ft8_tx_loopback_test ? 1 : 0)
           + (receive_handoff_test ? 1 : 0) + (qso_completion_test ? 1 : 0)
           + (jt4_wav_test ? 1 : 0) + (jt9_wav_test ? 1 : 0)
+          + (best_sp_test ? 1 : 0)
           + (jt65_wav_test ? 1 : 0) + (q65_wav_test ? 1 : 0) + (fst4_wav_test ? 1 : 0)
           + (fst4w_wav_test ? 1 : 0) > 1)
         {
@@ -613,7 +622,7 @@ int main(int argc, char *argv[])
         }
       automated_test = startup_smoke_test || live_audio_test
         || jtty_live_audio_test || jtty_tx_loopback_test || ft8_tx_loopback_test
-        || receive_handoff_test || qso_completion_test || jt4_wav_test || jt9_wav_test || jt65_wav_test || q65_wav_test || fst4_wav_test || fst4w_wav_test;
+        || receive_handoff_test || qso_completion_test || best_sp_test || jt4_wav_test || jt9_wav_test || jt65_wav_test || q65_wav_test || fst4_wav_test || fst4w_wav_test;
 #else
       automated_test = startup_smoke_test;
 #endif
@@ -647,6 +656,12 @@ int main(int argc, char *argv[])
             }
         }
 
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+      if (best_sp_test)
+        a.setApplicationName (a.applicationName () + " - BestSP-"
+                              + QUuid::createUuid ().toString (QUuid::WithoutBraces));
+      auto best_sp_test_environment = best_sp_test ? std::make_unique<BestSPTestEnvironment> () : nullptr;
+#endif
       // now we have the application name we can open the logging and settings
       WSJTXLogging lg;
       LOG_INFO (program_title (revision ()) << " - Program startup");
@@ -666,6 +681,13 @@ int main(int argc, char *argv[])
         }
 #endif
       MultiSettings multi_settings {parser.value (cfg_option), settings_file};
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+      if (best_sp_test)
+        {
+          auto const error = BestSPApplicationTestController::prepareSettings (multi_settings.settings ());
+          if (!error.isEmpty ()) throw std::runtime_error {error.toStdString ()};
+        }
+#endif
 
       // find the temporary files path
       QDir temp_dir {QStandardPaths::writableLocation (QStandardPaths::TempLocation)};
@@ -955,6 +977,15 @@ int main(int argc, char *argv[])
           FixtureSoundOutput * fixture_output {nullptr};
           std::unique_ptr<AudioInputSource> audio_input;
           std::unique_ptr<AudioOutputSink> sound_output;
+          std::unique_ptr<DecoderBackend> decoder_backend;
+          DecoderBackend * best_sp_backend {nullptr};
+          if (best_sp_test)
+            {
+              audio_input = makeBestSPTestAudioInput ();
+              sound_output = makeBestSPTestAudioOutput ();
+              decoder_backend = makeBestSPTestBackend ();
+              best_sp_backend = decoder_backend.get ();
+            }
           if (live_audio_test || jtty_live_audio_test || receive_handoff_test || qso_completion_test)
             {
               std::unique_ptr<FixtureAudioInput> fixture {
@@ -1014,6 +1045,9 @@ int main(int argc, char *argv[])
 #else
                        QString {}
 #endif
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+                       , std::move (decoder_backend)
+#endif
                        );
           main_window_construct.finish ();
           smoke_phase ("MainWindow constructed");
@@ -1064,6 +1098,14 @@ int main(int argc, char *argv[])
           std::unique_ptr<WavDecodeTestController> wav_decode_controller;
           std::unique_ptr<JttyTxLoopbackTestController> jtty_tx_controller;
           std::unique_ptr<Ft8TxLoopbackTestController> ft8_tx_controller;
+          std::unique_ptr<BestSPApplicationTestController> best_sp_controller;
+          if (best_sp_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              best_sp_controller.reset (new BestSPApplicationTestController {&w, best_sp_backend});
+              auto * controller = best_sp_controller.get ();
+              QTimer::singleShot (0, controller, [controller] {controller->begin ();});
+            }
           if (live_audio_test || jtty_live_audio_test)
             {
               a.setQuitOnLastWindowClosed (false);
@@ -1240,6 +1282,8 @@ int main(int argc, char *argv[])
             {
               result = EXIT_FAILURE;
             }
+          if (best_sp_test && (!best_sp_controller || !best_sp_controller->succeeded ()))
+            result = EXIT_FAILURE;
 #endif
 
         }

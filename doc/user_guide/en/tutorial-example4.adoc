@@ -49,22 +49,53 @@ The FT4 user interface includes a button labeled *Best S+P*.
 
 image::Best_S+P.png[align="center"]
 
-Clicking *Best S+P* during an Rx cycle arms the program to examine all
-CQ messages decoded at the end of the Rx sequence.  The program will
-select the best potential QSO partner (from a contesting perspective),
-and treat it as if you had double-clicked on that line of decoded
-text. Here "best potential QSO partner" means "New Multiplier" (1st
-priority) or "New Call on Band" (2nd priority).  "New Multiplier" is
-currently interpreted to mean "New DXCC".
+Before starting a QSO, click *Best S+P* during an Rx cycle to arm the
+program to examine all standard CQ messages in that decoder request,
+including messages decoded before the button was clicked. After decoding
+finishes successfully, the program selects at most one eligible QSO
+partner using the normal automatic-selection path. A new DXCC entity has
+first priority; a callsign not worked on the current band has second
+priority. Within either category, the first eligible decode wins.
+Filters, ignored-call rules, and current logbook history are checked at
+completion, allowing another candidate to be selected if an earlier
+candidate is no longer eligible.
+If the operating band is unknown, the new-entity category remains
+available; callsign-on-band eligibility requires a known band.
 
-*Best S+P* is a useful feature only if you have defined what "best" is
-supposed to mean.  This is done by configuring suitable options on the
-*Settings | Colors* tab.  Selection and ordering of color-highlighting
-options determines what potential QSO partners will be chosen by the
-"Best S+P" feature.  Optimum choices will be different for different
-contests.  In a contest using FT Roundup rules we recommend activating
-*My Call in message*, *New DXCC*, *New Call on Band*, *CQ in message*
-and *Transmitted message*, reading from top to bottom.
+Enable either or both categories under *Settings | Advanced | Best S+P*.
+New profiles enable both. Existing profiles initialize these options
+once from the enabled *New DXCC* and *New Call on Band* highlighting
+rules. Highlight colors, enabled rules, rule order, UI language, and the
+option to show DXCC/worked-before information do not affect selection.
+Consequently, stations previously masked by a higher-priority color rule
+can become eligible. Both categories must not be disabled when arming.
+
+Worked-before matching follows *Highlight by Mode* and *Include extra WAE
+entities* on *Settings | Colors*. These options determine whether history
+is matched per mode and whether the entity definition includes the extra
+WAE entities.
+
+Best S+P cannot be armed while *Wait & Call* or *Wait & Pounce* is actively
+choosing from CQ messages. Turn that feature off first. Activating either
+feature while Best S+P is armed cancels Best S+P with an explanation.
+Directed replies, including *Wait & Reply* and replies to your own CQ,
+continue to be processed normally. Merely having a callsign in *DX Call*
+does not prevent arming. If no CQ qualifies, Best S+P remains armed for
+subsequent receptions until selection, cancellation, or timeout.
+
+Click the button again or press *Alt+B* to cancel. Manual station
+selection, Halt Tx, an operating-context change, or a request to transmit
+also cancels arming. Adjusting the Rx or Tx audio frequency preserves
+arming, including waterfall retuning and *Shift+F11/F12* Tx nudges.
+Arming expires after two minutes. Status messages
+and the button's checked state indicate arming, cancellation, timeout,
+and the selected station with its reason. A failed decode cannot select
+a station; arming can remain active for the next reception. The button's
+accessible description retains the result until the next Best S+P action.
+Re-decoding
+the same reception does not repeat a completed selection intent;
+deliberately rearming creates a new intent. Disk-file requests are
+independent, and UDP replay does not participate.
 
 TIP: Keyboard shortcuts *Shift+F11* and *Shift+F12* provide an easy
 way to move your FT4 Tx frequency down or up in 90 Hz steps.

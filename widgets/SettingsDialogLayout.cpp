@@ -17,6 +17,7 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QVector>
 #include <QWidget>
 
 #include "ui_Configuration.h"
@@ -214,8 +215,12 @@ QSize SettingsDialogLayout::preferredWindowSize (QDialog& dialog,
   dialog.layout ()->activate ();
   auto required_size = dialog.sizeHint ();
   auto * selected_page = ui.configuration_tabs->currentWidget ();
-  int tallest_page = 0;
-  int next_tallest_page = 0;
+  struct PageGeometry
+  {
+    QScrollArea * scrollArea;
+    QSize chromeSize;
+  };
+  QVector<PageGeometry> page_geometries;
 
   for (auto * page : {
        ui.general_tab,
@@ -236,14 +241,27 @@ QSize SettingsDialogLayout::preferredWindowSize (QDialog& dialog,
       required_size.setWidth (qMax (required_size.width (),
                                     page_size.width ()
                                     + scroll_area->verticalScrollBar ()->sizeHint ().width ()));
-      if (page_size.height () > tallest_page)
+      page_geometries.push_back ({scroll_area, chrome_size});
+    }
+
+  int tallest_page = 0;
+  int next_tallest_page = 0;
+  for (auto const& page : page_geometries)
+    {
+      auto * content = page.scrollArea->widget ();
+      auto const minimum_size = content->minimumSizeHint ();
+      auto const content_width = qMax (minimum_size.width (), required_size.width ()
+        - page.chromeSize.width () - page.scrollArea->verticalScrollBar ()->sizeHint ().width ());
+      auto const page_height = qMax (minimum_size.height (), content->hasHeightForWidth ()
+        ? content->heightForWidth (content_width) : minimum_size.height ()) + page.chromeSize.height ();
+      if (page_height > tallest_page)
         {
           next_tallest_page = tallest_page;
-          tallest_page = page_size.height ();
+          tallest_page = page_height;
         }
       else
         {
-          next_tallest_page = qMax (next_tallest_page, page_size.height ());
+          next_tallest_page = qMax (next_tallest_page, page_height);
         }
     }
 

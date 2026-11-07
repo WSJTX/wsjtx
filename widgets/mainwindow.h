@@ -86,6 +86,8 @@ namespace DecoderIpc {class Session;}
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
+#include "DecodeOutputPlan.hpp"
+#include "BestSPController.hpp"
 #include "DecoderBackend.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
@@ -210,6 +212,9 @@ public:
                       std::unique_ptr<AudioInputSource> audio_input_source = {},
                       std::unique_ptr<AudioOutputSink> sound_output = {},
                       QString decoder_data_path = {},
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+                      std::unique_ptr<DecoderBackend> decoder_backend = {},
+#endif
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -347,6 +352,9 @@ public:
   void jttyDecodeAgainAtSample(quint64 reception, qint64 sample);
 
 private:
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  friend class BestSPApplicationTestController;
+#endif
   enum class DecodeOwner
   {
     None,
@@ -694,7 +702,7 @@ private slots:
   void FoxReset(QString reason);
   void on_comboBoxHoundSort_activated (int index);
   void checkMSK144ContestType();
-  void on_pbBestSP_clicked();
+  void on_pbBestSP_toggled (bool checked);
   void on_RoundRobin_currentTextChanged(QString);
   void setTxMsg(int n);
   bool stdCall(QString const& w);
@@ -752,6 +760,13 @@ private:
     DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
     bool * block_right_display = nullptr);
   bool applyFiltering(const DecodedText& dt, bool& filtered, DecodeClassification const * classification = nullptr);
+  DecodeOutputPlan::KeywordFilterDecision decodeFilterDecision (
+    DecodedText const&, bool initiallyFiltered, DecodeClassification const *) const;
+  void setBestSPArmed (bool armed, QString const& feedback = {});
+  enum class CompetingCQSelection {None, WaitAndCall, WaitAndPounce};
+  CompetingCQSelection competingCQSelection () const;
+  void cancelBestSPForCQSelection ();
+  void completeBestSP (quint64 backendRequest);
   void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
                          bool& play_Wanted, bool& play_DXcall, DecodeClassification const * classification = nullptr);
   void cycleRespondMode();
@@ -1248,7 +1263,7 @@ private:
   bool    m_contestModeHintShown;
   bool    m_bWarnedSplit=false;
   bool    m_bTUmsg;
-  bool    m_bBestSPArmed=false;
+  BestSPController m_bestSP;
   bool    m_bOK_to_chk=false;
   bool    m_bSentReport=false;
   bool    m_discard_decoded_hounds_this_cycle=false;     // if something changes, like frequency, discard decoded messages that may be in-flight.
@@ -1385,7 +1400,6 @@ private:
   QString m_nextGrid;
   QString m_fileDateTime;
   QString m_inQSOwith;
-  std::optional<DecodeHighlightingModel::Highlight> m_BestCQpriority;
   QString m_deCall;
   QString m_deGrid;
   QString m_freeTextMsg;
@@ -1477,7 +1491,6 @@ private:
   QDateTime m_dateTimeLastTX;
   QDateTime m_dateTimeSentTx3;
   QDateTime m_dateTimeRcvdRR73;
-  QDateTime m_dateTimeBestSP;
   QDateTime m_dateTimeSeqStart;        //Nominal start time of Rx sequence about to be decoded
 
   std::unique_ptr<DecoderBackend> m_decoderBackend;

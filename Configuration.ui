@@ -3635,6 +3635,49 @@ Right click for insert and delete options.</string>
        <string>Advanced</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_9">
+       <item row="1" column="0" colspan="2">
+        <widget class="QGroupBox" name="best_sp_group_box">
+         <property name="title">
+          <string>Best S+P</string>
+         </property>
+         <layout class="QGridLayout" name="best_sp_layout">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="best_sp_new_dxcc_check_box">
+            <property name="text">
+             <string>New DXCC entity</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="best_sp_new_call_on_band_check_box">
+            <property name="text">
+             <string>Callsign not worked on this band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_explanation_label">
+            <property name="text">
+             <string>New DXCC entities have priority. Highlight colors, enabled rules, and rule order do not affect selection.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_matching_explanation_label">
+            <property name="text">
+             <string>Worked-before matching follows 'Highlight by Mode' and 'Include extra WAE entities' on Colors.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QGroupBox" name="gbCloudlog">
          <property name="sizePolicy">
@@ -3809,7 +3852,7 @@ Right click for insert and delete options.</string>
          </layout>
         </widget>
        </item>
-       <item row="0" column="1" rowspan="2">
+       <item row="0" column="1">
         <widget class="QGroupBox" name="groupBox_5">
          <property name="title">
           <string>Miscellaneous</string>
@@ -5637,6 +5680,8 @@ Right click for insert and delete options.</string>
   <tabstop>cbx4ToneSpacing</tabstop>
   <tabstop>rbLowSidelobes</tabstop>
   <tabstop>rbMaxSensitivity</tabstop>
+  <tabstop>best_sp_new_dxcc_check_box</tabstop>
+  <tabstop>best_sp_new_call_on_band_check_box</tabstop>
   <tabstop>cbSpecialOpActivity</tabstop>
   <tabstop>rbFox</tabstop>
   <tabstop>cbSuperFox</tabstop>

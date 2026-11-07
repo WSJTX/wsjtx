@@ -4,6 +4,7 @@
 #include <QUrl>
 #include <QDateTime>
 #include <QTimer>
+#include <QSignalBlocker>
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
@@ -484,6 +485,7 @@ void MainWindow::on_DX_Call_Button_clicked (bool checked)
       if (m_specOp==SpecOp::HOUND && m_config.superFox() && !m_auto) clearDX();
   }
   check_button_color();
+  cancelBestSPForCQSelection ();
 }
 
 void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
@@ -618,6 +620,7 @@ void MainWindow::requestTxStop (TxEvidence::TxStopReason reason)
     endQsoRepeat (QsoRepeatEnd::OperatorStop);
   else endQsoRepeat (QsoRepeatEnd::Fault);
   cancelRigTune ();
+  setBestSPArmed (false);
   noteTxStopReason (reason);
   bool const pending_start = m_tx_when_ready || ptt1Timer.isActive ();
   m_tx_when_ready = false;
@@ -778,12 +781,91 @@ void MainWindow::on_pbFreeText_clicked()
   m_freeTextMsg0=m_freeTextMsg;
 }
 
-void MainWindow::on_pbBestSP_clicked()
+void MainWindow::on_pbBestSP_toggled (bool checked)
 {
-  m_bBestSPArmed = !m_bBestSPArmed;
-  if(m_bBestSPArmed and !m_transmitting) ui->pbBestSP->setStyleSheet ("QPushButton{color:red}");
-  if(!m_bBestSPArmed) ui->pbBestSP->setStyleSheet ("");
-  if(m_bBestSPArmed) m_dateTimeBestSP=QDateTime::currentDateTimeUtc();
+  setBestSPArmed (checked);
+}
+
+MainWindow::CompetingCQSelection MainWindow::competingCQSelection () const
+{
+  WaitFeatureContext const context {
+    m_mode, m_specOp, m_config.Wait_features_enabled (), ui->cbAutoSeq->isChecked (),
+    !m_hisCall.isEmpty (), m_config.NCCC_Sprint ()
+  };
+  if (wait_and_call && !no_wait_and_call && wait_and_call_arming_eligible (context))
+    return CompetingCQSelection::WaitAndCall;
+  if (pounce && context.waitFeaturesEnabled && ui->respondComboBox->isVisible ()
+      && autoRespondPolicy () != AutoRespondPolicy::None)
+    return CompetingCQSelection::WaitAndPounce;
+  return CompetingCQSelection::None;
+}
+
+void MainWindow::cancelBestSPForCQSelection ()
+{
+  if (!m_bestSP.armed ()) return;
+  switch (competingCQSelection ())
+    {
+    case CompetingCQSelection::WaitAndCall:
+      setBestSPArmed (false, tr ("Best S+P canceled: Wait & Call is active."));
+      break;
+    case CompetingCQSelection::WaitAndPounce:
+      setBestSPArmed (false, tr ("Best S+P canceled: Wait & Pounce is active."));
+      break;
+    case CompetingCQSelection::None:
+      break;
+    }
+}
+
+void MainWindow::setBestSPArmed (bool armed, QString const& feedback)
+{
+  bool const wasArmed = m_bestSP.armed ();
+  auto status = feedback;
+  if (armed && (!m_config.best_sp_new_dxcc () && !m_config.best_sp_new_call_on_band ()))
+    {
+      armed = false;
+      status = tr ("Enable a selection category in Settings > Advanced > Best S+P.");
+    }
+  if (armed && (m_mode != "FT4" || m_transmitting || m_txing || g_iptt
+                || m_tx_when_ready || ptt1Timer.isActive ()))
+    {
+      armed = false;
+      status = tr ("Best S+P is available in FT4 while receiving.");
+    }
+  if (armed && CALLING != m_QSOProgress)
+    {
+      armed = false;
+      status = tr ("Best S+P is available before starting a QSO.");
+    }
+  if (armed)
+    switch (competingCQSelection ())
+      {
+      case CompetingCQSelection::WaitAndCall:
+        armed = false;
+        status = tr ("Turn off Wait & Call before arming Best S+P.");
+        break;
+      case CompetingCQSelection::WaitAndPounce:
+        armed = false;
+        status = tr ("Turn off Wait & Pounce before arming Best S+P.");
+        break;
+      case CompetingCQSelection::None:
+        break;
+      }
+  if (armed && !wasArmed) m_bestSP.arm (QDateTime::currentDateTimeUtc ());
+  else if (!armed && wasArmed) m_bestSP.cancel ();
+  QSignalBlocker const blocker {ui->pbBestSP};
+  ui->pbBestSP->setChecked (m_bestSP.armed ());
+  QString const style = m_bestSP.armed () && !m_config.button_coloring_disabled ()
+    ? "QPushButton{color:red}" : "";
+  if (ui->pbBestSP->styleSheet () != style) ui->pbBestSP->setStyleSheet (style);
+  if (status.isEmpty ())
+    {
+      if (armed && !wasArmed) status = tr ("Best S+P armed. Waiting for decode completion.");
+      else if (!armed && wasArmed) status = tr ("Best S+P canceled.");
+    }
+  if (status.isEmpty ()) return;
+  ui->pbBestSP->setAccessibleDescription (status);
+  ui->pbBestSP->setStatusTip (status);
+  showStatusMessage (status);
 }
 
 void MainWindow::on_houndButton_clicked (bool checked)

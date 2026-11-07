@@ -288,6 +288,8 @@ public:
   Cloudlog const& cloudlog () const;
   DecodeHighlightingModel const& decode_highlighting () const;
   bool highlight_by_mode () const;
+  bool best_sp_new_dxcc () const;
+  bool best_sp_new_call_on_band () const;
   QStringList const& supplemental_history_files () const;
   HistoryFolders const& supplemental_history_folders () const;
   void set_worked_before_status (QString const& status, QString const& errors);

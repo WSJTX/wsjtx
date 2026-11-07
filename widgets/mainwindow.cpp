@@ -523,6 +523,9 @@ MainWindow::MainWindow(QDir const& temp_directory,
                        std::unique_ptr<AudioInputSource> audio_input_source,
                        std::unique_ptr<AudioOutputSink> sound_output,
                        QString decoder_data_path,
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+                       std::unique_ptr<DecoderBackend> decoder_backend,
+#endif
                        QWidget *parent) :
   MultiGeometryWidget {parent},
   m_startup_trace_run {PerformanceTrace::current_run ()},
@@ -668,7 +671,11 @@ MainWindow::MainWindow(QDir const& temp_directory,
   m_rpt {"-15"},
   m_pfx {Radio::PrefixSuffix::type1Prefixes()},
   m_sfx {Radio::PrefixSuffix::type1Suffixes()},
-  m_decoderBackend {std::make_unique<ShmemDecoderBackend> (decoderSession, dec_data, dec_data_mutex ())},
+  m_decoderBackend {
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+    decoder_backend ? std::move (decoder_backend) :
+#endif
+    std::make_unique<ShmemDecoderBackend> (decoderSession, dec_data, dec_data_mutex ())},
   m_downSampleFactor (downSampleFactor),
   m_audioThreadPriority (QThread::HighPriority),
   m_bandEdited {false},
@@ -698,6 +705,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   programStart = true;
   qApp->setFont (m_config.text_font ());
   ui->setupUi(this);
+  ui->pbBestSP->setStatusTip (ui->pbBestSP->accessibleDescription ());
   updateJttySendButton ();
   ui->Tx_Message->setToolTip (tr ("Ctrl+K sends now (one-shot). Alt+J starts a live session that keeps sending as you type, until Alt+K signs off. Ctrl+Shift+K clears the box. Ctrl+H inserts a chat opener."));
   ui->Tx_Message->installEventFilter (this);
@@ -1203,6 +1211,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
            });
   connect (ui->decodedTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall2);
   connect (ui->decodedTextBrowser2, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall);
+  connect (ui->dxCallEntry, &QLineEdit::textEdited, this, [this] {setBestSPArmed (false);});
   connect (ui->houndQueueTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnFoxQueue);
   connect (ui->foxTxListTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnFoxInProgress);
   connect (ui->decodedTextBrowser, &DisplayText::erased, this, &MainWindow::band_activity_cleared);
@@ -1572,6 +1581,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
                m_autoRespondPeriodState.disarm();
              }
              check_button_color();
+             cancelBestSPForCQSelection ();
            });
   if(m_mode=="Q65") {
     m_score=0;
@@ -3514,6 +3524,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
 
     configActiveStations();
     check_button_color();
+    cancelBestSPForCQSelection ();
     rigFailed = false;
     keep_frequency = false;
     inSettings = false;
@@ -3639,7 +3650,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     return;
   case Qt::Key_B:
     if(m_mode=="FT4" && e->modifiers() & Qt::AltModifier) {
-      on_pbBestSP_clicked();
+      setBestSPArmed (!m_bestSP.armed ());
     }
   return;
     case Qt::Key_C:
@@ -4736,6 +4747,7 @@ void MainWindow::change_layout (std::size_t n)
       trim_view (!ui->cbMenus->isChecked ());
       break;
     }
+  cancelBestSPForCQSelection ();
 }
 
 void MainWindow::cycleRespondMode()
@@ -5461,7 +5473,6 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(m_mode=="FT8") dec_data.params.napwid=50;
   if(m_mode=="FT4") {
     dec_data.params.nmode=5;
-    m_BestCQpriority.reset ();
   }
   if(m_mode=="FST4") dec_data.params.nmode=240;
   if(m_mode=="FST4W") dec_data.params.nmode=241;
@@ -6102,6 +6113,7 @@ void MainWindow::failDecoderStartup (QString const& reason)
 
 void MainWindow::handleDecoderFailure (DecoderBackend::Failure const& failure)
 {
+  m_bestSP.failRequest ();
   using Kind = DecoderBackend::Failure::Kind;
   switch (failure.kind)
     {
@@ -6351,6 +6363,9 @@ MainWindow::DecodePublishResult MainWindow::publishDecodeRequest (
       endDecode (DecodeOwner::Jt9, DecodeEndState::Aborted);
       return DecodePublishResult::Failed;
     }
+  m_bestSP.beginRequest ({m_decodeCycleGeneration,
+                          static_cast<quint64> (m_decoderBackend->activeRequest ()),
+                          m_activeJt9Decode.context});
 
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   if (m_automated_test && Ft8MtdDecodeCoordinator::Stage::None != ft8Stage)
@@ -6504,6 +6519,7 @@ void MainWindow::updateDecodeControls ()
 
 void MainWindow::abortJt9Transaction ()
 {
+  m_bestSP.failRequest ();
   m_ft8MtdDecodeCoordinator.publicationFailed (
     m_activeJt9Decode.ft8Stage, m_activeJt9Decode.ft8Period);
   m_activeJt9Decode = {};
@@ -6929,6 +6945,7 @@ void MainWindow::queueActiveWindowHound2(QString line) {
 
 void MainWindow::callSandP2(int n)
 {
+  setBestSPArmed (false);
   QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
   m_specOp=m_config.special_op_id();
   bool bCtrl = (n<0);
@@ -7101,8 +7118,11 @@ bool MainWindow::handleDecoderOutput (DecoderBackend::Output const& output,
   if (Kind::Rejected == output.kind)
     {
       if (DecodeOwner::Jt9 == m_decodeOwner && output.current)
-        qCritical () << "Decoder request rejected"
-                     << "request:" << output.request << output.text.trimmed ();
+        {
+          m_bestSP.failRequest ();
+          qCritical () << "Decoder request rejected"
+                       << "request:" << output.request << output.text.trimmed ();
+        }
       return true;
     }
   if (Kind::Record == output.kind)
@@ -7116,6 +7136,7 @@ bool MainWindow::handleDecoderOutput (DecoderBackend::Output const& output,
           && !activeDecodeOperatingContextMatchesCurrent ())
         {
           m_activeJt9Decode.obsolete = true;
+          setBestSPArmed (false);
           qInfo () << "Discarding obsolete decoder output"
                    << "request:" << output.request;
         }
@@ -7177,6 +7198,7 @@ bool MainWindow::handleDecoderOutput (DecoderBackend::Output const& output,
       && !activeDecodeOperatingContextMatchesCurrent ())
     {
       m_activeJt9Decode.obsolete = true;
+      setBestSPArmed (false);
       qInfo () << "Discarding obsolete decoder completion"
                << "request:" << output.request;
     }
@@ -7206,6 +7228,7 @@ bool MainWindow::handleDecoderOutput (DecoderBackend::Output const& output,
 void MainWindow::readFromStdout()                             //readFromStdout
 {
   bool decodeCompleted {false};
+  quint64 completedRequest {0};
   auto const decodeContext = m_activeJt9Decode.context;
   bool bDisplayPoints = false;
   QString all_decodes;
@@ -7231,10 +7254,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
   preparationContext.nominalFrequency = decodeContext.periodFrequency;
   preparationContext.reduceFalseDecodes = ui->actionReduce_false_decodes->isChecked();
   m_decoderBackend->deliverOutput (
-    [this, &all_decodes, &preparationContext, &decodeCompleted,
+    [this, &all_decodes, &preparationContext, &decodeCompleted, &completedRequest,
      &decodeContext, bDisplayPoints]
     (DecoderBackend::Output const& output) {
-    if (handleDecoderOutput (output, decodeCompleted)) return;
+    if (handleDecoderOutput (output, decodeCompleted))
+      {
+        if (decodeCompleted && output.current
+            && output.kind == DecoderBackend::Output::Kind::CycleFinished)
+          completedRequest = static_cast<quint64> (output.request);
+        return;
+      }
     filtered = false;
     ignored = false;
     m_muted = false;
@@ -7269,6 +7298,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
     DecodedText const& decodedtext {prepared.logicMessage};
     auto const classification = classifyDecode (decodedtext, decodeContext.mode, decodeContext.band,
                                                  m_logBook, &m_config.lotw_users ());
+    m_bestSP.observe ({m_decodeCycleGeneration, static_cast<quint64> (output.request), decodeContext},
+                       decodedtext0);
+    bool const deferCQSelection = m_bestSP.armed () && decodeContext.mode == "FT4"
+      && decodedtext0.isStandardMessage () && parseDecodedMessage (decodedtext0.message ()).cq;
     if (!decodeContext.diskData) m_decodedGridHistory.observe(decodedtext0);
     Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
@@ -7338,8 +7371,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         QString text = decodedtext.string().replace("<", "").replace(">", "");
 
-        if (processWaitReplyCall(decodedtext0, DecodedMessageReaction::WaitDecodeSource::SlowDecoder,
-                                 &block_right_display)
+        if (!deferCQSelection
+            && processWaitReplyCall(decodedtext0, DecodedMessageReaction::WaitDecodeSource::SlowDecoder,
+                                    &block_right_display)
             == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) return;
 
         if (!applyFiltering(decodedtext, filtered, &classification)) return;
@@ -7406,38 +7440,14 @@ void MainWindow::readFromStdout()                             //readFromStdout
            activeWorked(classification.sender,decodeContext.band);
         }
 
-        updateRespondTarget(decodedtext0, text, pounce, decodeContext.sequenceStart,
-                            decodeContext.diskData);
+        if (!deferCQSelection)
+          updateRespondTarget(decodedtext0, text, pounce, decodeContext.sequenceStart,
+                              decodeContext.diskData);
 
 
         playDecodeAlertSound(play_Wanted, play_DXcall);
         play_Wanted = play_DXcall = false;
 
-          if (m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress && !ignored && !filtered) {
-            std::optional<DecodeHighlightingModel::Highlight> messagePriority;
-            if (m_config.DXCC () && classification.worked
-                && parseDecodedMessage (decodedtext.message ()).cq)
-              messagePriority = DecodeHighlightingModel::resolve_colors (
-                m_config.decode_highlighting ().items (), classification.highlights, {}, {}).type_;
-            if (messagePriority) {
-              if (messagePriority == DecodeHighlightingModel::Highlight::CallBand
-                  and m_BestCQpriority != DecodeHighlightingModel::Highlight::CallBand
-                  and (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-                m_BestCQpriority = DecodeHighlightingModel::Highlight::CallBand;
-                QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
-                m_bDoubleClicked = true;
-                processSyntheticMessage(decodedtext0, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
-              }
-              if (messagePriority == DecodeHighlightingModel::Highlight::DXCC
-                  and m_BestCQpriority != DecodeHighlightingModel::Highlight::DXCC
-                  and (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-                m_BestCQpriority = DecodeHighlightingModel::Highlight::DXCC;
-                QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
-                m_bDoubleClicked = true;
-                processSyntheticMessage(decodedtext0, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
-              }
-            }
-          }
         }
       }
 
@@ -7515,7 +7525,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       if (bDisplayRight) {
         // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg, or contains MyCall
 
-        if(!pounce && (!m_bBestSPArmed or m_mode!="FT4")) {
+        if(!pounce && (!m_bestSP.armed () or m_mode!="FT4")) {
           // insert blank line when band was changed
           if (m_config.insert_blank () && SpecOp::FOX!=m_specOp && m_band_changed && (m_currentBandPeriod == m_currentBand)) {
             if (ui->actionUse_Dark_Style->isChecked()) {
@@ -7580,8 +7590,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
 //### I think this is where we are preventing Hounds from spotting Fox ###
       if(m_mode!="FT8" or (SpecOp::HOUND != m_specOp) or (SpecOp::HOUND == m_specOp and m_config.superFox())) {
-        if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65"
-           or m_mode=="JT4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="FST4") {
+        if (!deferCQSelection && (m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65"
+           or m_mode=="JT4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="FST4")) {
           auto_sequence (decodedtext, 25, 50);
         }
 
@@ -7652,6 +7662,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           m_ft8MtdDecodeCoordinator.completed (
             m_activeJt9Decode.ft8Stage, m_activeJt9Decode.ft8Period);
           m_decoderCompletedSinceStart = true;
+          completeBestSP (completedRequest);
           m_activeJt9Decode = {};
           finishDecodeUi ();
           endDecode (DecodeOwner::Jt9);
@@ -7864,6 +7875,7 @@ void MainWindow::guiUpdate()
 
     if(g_iptt==0 && m_config.radio_mode_ready ()
        && can_start_transmit (m_mode, m_bTxTime, fTR, msgLength, m_tune)) {
+      setBestSPArmed (false);
       //### Allow late starts
       icw[0]=m_ncw;
       g_iptt = 1;
@@ -8159,11 +8171,6 @@ void MainWindow::guiUpdate()
 
     if(m_QSOProgress==REPORT || m_QSOProgress==ROGER_REPORT) m_bSentReport=true;
     if(m_bSentReport and (m_QSOProgress<REPORT or m_QSOProgress>ROGER_REPORT)) m_bSentReport=false;
-    if(m_mode=="FT4" and m_bBestSPArmed) {
-      m_BestCQpriority.reset ();
-      m_bBestSPArmed=false;
-      ui->pbBestSP->setStyleSheet ("");
-    }
     if(SpecOp::EU_VHF==m_specOp) {
       if(m_ntx==2) m_xSent=ui->tx2->text().right(13);
       if(m_ntx==3) m_xSent=ui->tx3->text().right(13);
@@ -8661,7 +8668,7 @@ void MainWindow::guiUpdate()
       t.time().toString() + " ";
 //    QString utc = t.time().toString();      // UR for AL version use this and disable the 2 lines above
     ui->labUTC->setText(utc);
-    if(m_bBestSPArmed and (m_dateTimeBestSP.secsTo(t) >= 120)) on_pbBestSP_clicked(); //BestSP timeout
+    if (m_bestSP.timeout (t)) setBestSPArmed (false, tr ("Best S+P timed out."));
     if(!m_monitoring and !m_diskData) ui->signal_meter_widget->setValue(0,0);
     m_sec0=nsec;
     displayDialFrequency ();
@@ -8853,7 +8860,11 @@ void MainWindow::noteTxModeChange (QString const& mode)
       if (!m_closing && m_mode == mode) monitor(true);
     });
   }
-  if (mode != m_mode) cancelPendingFt8Decode ("mode changed");
+  if (mode != m_mode)
+    {
+      cancelPendingFt8Decode ("mode changed");
+      setBestSPArmed (false);
+    }
   if (mode != m_mode && m_beaconTxController.active ())
     {
       processBeaconActions (m_beaconTxController.exitMode ());
@@ -9292,6 +9303,7 @@ void MainWindow::handleDecodeSelection(
   QString const& line, Qt::KeyboardModifiers modifiers,
   DecodedMessageReaction::SelectionOrigin selection_origin, QString const& clicked_token)
 {
+  setBestSPArmed (false);
   m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
   set_dateTimeQSO(-1); // reset our QSO start time
@@ -10433,6 +10445,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       if (!pounce && !m_auto && m_config.Wait_features_enabled() && SpecOp::FOX!=m_specOp) {
         pounce = true;
         check_button_color();
+        cancelBestSPForCQSelection ();
         stopWRTimer.stop();           // Stop any Wait & Reply timeout
         stopWCTimer.stop();           // Stop any Wait & Call timeout
       } else {
@@ -12791,6 +12804,7 @@ void MainWindow::applyBandChange (Frequency f, Frequency previous_frequency)
 {
   if (m_config.bands ()->find (f) != m_config.bands ()->find (previous_frequency))
     endQsoRepeat (QsoRepeatEnd::Superseded);
+  if (f != previous_frequency) setBestSPArmed (false);
   if (f != previous_frequency) cancelPendingFt8Decode ("dial frequency changed");
   m_autoRespondPeriodState.disarm();
   msk144qsy = false;  // MSK144 QSY
@@ -13081,6 +13095,7 @@ void MainWindow::applyOperatingFrequencyTransition (OperatingFrequency::Transiti
       if (m_mode == "JTTY") updateJttyReceiveContext();
       if (m_mode == "JT65") m_jt65ClearAveragesPending = true;
       cancelPendingFt8Decode ("dial frequency changed");
+      setBestSPArmed (false);
       genCQMsg ();
     }
   if (m_lastDialFreq != transition.after.rx && transition.after.rx
@@ -14029,6 +14044,8 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
   Qt::KeyboardModifiers kbmod {modifiers << 24};
   auto const snapshot = qsoReactionSnapshot (kbmod, DecodedMessageReaction::SelectionOrigin::Udp);
   auto const plan = DecodedMessageReaction::planProcessMessage (message, snapshot);
+  if (plan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted)
+    setBestSPArmed (false);
   if (plan.disposition != DecodedMessageReaction::ReactionDisposition::Reacted)
     {
       LOG_DEBUG ("UDP Reply refused: " << plan.reason
@@ -14982,6 +14999,7 @@ void MainWindow::on_cbAutoSeq_toggled(bool b)
   ui->respondComboBox->setVisible((m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST4"
       or m_mode=="Q65" or m_mode=="MSK144" or m_mode=="JT65" or m_mode=="JT9") and b);
   check_button_color();
+  cancelBestSPForCQSelection ();
 }
 
 void MainWindow::on_measure_check_box_stateChanged (int state)
@@ -17709,10 +17727,19 @@ DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
 bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered,
                                  DecodeClassification const * classification)
 {
+  auto const decision = decodeFilterDecision (decodedtext, filtered, classification);
+  filtered = decision.filtered;
+  if (decision.resetPounceScores) m_autoRespondScores.reset ();
+  return decision.continueProcessing;
+}
+
+DecodeOutputPlan::KeywordFilterDecision MainWindow::decodeFilterDecision (
+  DecodedText const& decodedtext, bool initiallyFiltered, DecodeClassification const * classification) const
+{
   DecodeOutputPlan::KeywordFilterContext keywordContext;
   keywordContext.mode = m_mode;
   keywordContext.specOp = m_specOp;
-  keywordContext.alreadyFiltered = filtered;
+  keywordContext.alreadyFiltered = initiallyFiltered;
   keywordContext.filterBySecondWord = m_config.filters_for_word2();
   keywordContext.alwaysPass = m_config.AlwaysPass();
   keywordContext.passKeywords = m_config.pass_keywords();
@@ -17724,13 +17751,11 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered,
   keywordContext.bypass = ui->cbBypass->isChecked();
   keywordContext.pounce = pounce;
   keywordContext.respondPolicy = autoRespondPolicy ();
-  auto const keywordDecision = DecodeOutputPlan::decideKeywordFilter(decodedtext, keywordContext);
-  filtered = keywordDecision.filtered;
-  if (keywordDecision.resetPounceScores) m_autoRespondScores.reset();
-  if (!keywordDecision.continueProcessing) return false;
+  auto keywordDecision = DecodeOutputPlan::decideKeywordFilter(decodedtext, keywordContext);
+  if (!keywordDecision.continueProcessing) return keywordDecision;
 
   DecodeOutputPlan::VisibilityFilterContext visibilityContext;
-  visibilityContext.alreadyFiltered = filtered;
+  visibilityContext.alreadyFiltered = keywordDecision.filtered;
   visibilityContext.alwaysPassed = keywordDecision.alwaysPassed;
   visibilityContext.bypass = keywordContext.bypass;
   visibilityContext.hideTerritory1 = ui->actionHideTerritory1->isChecked();
@@ -17783,8 +17808,58 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered,
                     gridWorked, continentWorked, cqZoneWorked, ituZoneWorked, m_currentBand);
     return callWorked;
   };
-  filtered = DecodeOutputPlan::decideVisibilityFilter(decodedtext, visibilityContext).filtered;
-  return true;
+  keywordDecision.filtered = DecodeOutputPlan::decideVisibilityFilter(decodedtext, visibilityContext).filtered;
+  return keywordDecision;
+}
+
+void MainWindow::completeBestSP (quint64 backendRequest)
+{
+  auto const now = QDateTime::currentDateTimeUtc ();
+  if (m_bestSP.timeout (now))
+    {
+      setBestSPArmed (false, tr ("Best S+P timed out."));
+      return;
+    }
+  if (m_bestSP.armed () && (m_mode != "FT4" || CALLING != m_QSOProgress
+      || m_transmitting || m_txing || g_iptt || m_tx_when_ready || ptt1Timer.isActive ()
+      || !activeDecodeOperatingContextMatchesCurrent ()))
+    {
+      setBestSPArmed (false);
+      return;
+    }
+  auto const& context = m_activeJt9Decode.context;
+  BestSPController::Policy const policy {m_config.best_sp_new_dxcc (), m_config.best_sp_new_call_on_band ()};
+  auto const selected = m_bestSP.complete (
+    {m_decodeCycleGeneration, backendRequest, context}, now, policy,
+    [this, &context, &now] (DecodedText const& message, BestSPController::Policy const& currentPolicy)
+      -> std::optional<BestSPController::Reason> {
+      auto const facts = classifyDecode (message, context.mode, context.band, m_logBook);
+      if (!facts.worked || facts.sender == m_config.my_callsign ()) return {};
+      auto const filters = decodeFilterDecision (message, false, &facts);
+      if (!filters.continueProcessing || filters.filtered) return {};
+      if (ui->actionIgnoreIgnored->isChecked () && ignoreList.contains (facts.sender + ',')) return {};
+      if (ui->actionIgnoreB4->isChecked () && !ui->cbBypass->isChecked ()
+          && facts.workedOnBand && facts.workedOnBand->call) return {};
+      if (ui->actionIgnoreToday->isChecked ())
+        {
+          auto workedOnDate = [&] (QDate const& date) {
+            return txLog.contains (QRegularExpression {date.toString ("yyyy-MM-dd")
+              + ",[0-9]{2}:[0-9]{2}:[0-9]{2}," + QRegularExpression::escape (facts.sender) + ','});
+          };
+          if (workedOnDate (now.date ()) || (m_config.twoDays () && workedOnDate (now.date ().addDays (-1)))) return {};
+        }
+      if (currentPolicy.newDxcc && !facts.worked->entity) return BestSPController::Reason::NewDXCC;
+      if (currentPolicy.newCallOnBand && facts.workedOnBand && !facts.workedOnBand->call)
+        return BestSPController::Reason::CallBand;
+      return {};
+    });
+  if (!selected) return;
+  auto const reason = selected->reason == BestSPController::Reason::NewDXCC
+    ? tr ("new DXCC entity") : tr ("callsign not worked on this band");
+  setBestSPArmed (false, tr ("Best S+P selected %1: %2.")
+    .arg (parseDecodedMessage (selected->message.message ()).sender, reason));
+  QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, true};
+  processSyntheticMessage (selected->message, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
 }
 
 void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText * decodePane, bool updateAlertState,

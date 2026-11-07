@@ -1019,6 +1019,8 @@ private:
   DecodeHighlightingModel decode_highlighing_model_;
   DecodeHighlightingModel next_decode_highlighing_model_;
   bool highlight_by_mode_;
+  bool best_sp_new_dxcc_ {true};
+  bool best_sp_new_call_on_band_ {true};
   QStringList supplemental_history_files_;
   QStringList next_supplemental_history_files_;
   HistoryFolders supplemental_history_folders_;
@@ -1408,6 +1410,8 @@ bool Configuration::pwrBandTuneMemory () const {return m_->pwrBandTuneMemory_;}
 LotWUsers const& Configuration::lotw_users () const {return m_->lotw_users_;}
 DecodeHighlightingModel const& Configuration::decode_highlighting () const {return m_->decode_highlighing_model_;}
 bool Configuration::highlight_by_mode () const {return m_->highlight_by_mode_;}
+bool Configuration::best_sp_new_dxcc () const {return m_->best_sp_new_dxcc_;}
+bool Configuration::best_sp_new_call_on_band () const {return m_->best_sp_new_call_on_band_;}
 QStringList const& Configuration::supplemental_history_files () const {return m_->supplemental_history_files_;}
 HistoryFolders const& Configuration::supplemental_history_folders () const {return m_->supplemental_history_folders_;}
 void Configuration::set_worked_before_status (QString const& status, QString const& errors)
@@ -2757,6 +2761,8 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->cbx4ToneSpacing,
     ui_->rbLowSidelobes,
     ui_->rbMaxSensitivity,
+    ui_->best_sp_new_dxcc_check_box,
+    ui_->best_sp_new_call_on_band_check_box,
     ui_->cbSpecialOpActivity,
     ui_->rbFox,
     ui_->cbSuperFox,
@@ -3501,6 +3507,8 @@ void Configuration::impl::initialize_models ()
 
   next_decode_highlighing_model_.items (decode_highlighing_model_.items ());
   ui_->highlight_by_mode_check_box->setChecked (highlight_by_mode_);
+  ui_->best_sp_new_dxcc_check_box->setChecked (best_sp_new_dxcc_);
+  ui_->best_sp_new_call_on_band_check_box->setChecked (best_sp_new_call_on_band_);
   next_supplemental_history_files_ = supplemental_history_files_;
   next_supplemental_history_folders_ = supplemental_history_folders_;
   ui_->only_fields_check_box->setChecked (highlight_only_fields_);
@@ -3798,6 +3806,19 @@ void Configuration::impl::read_settings ()
   auto highlight_items = settings_->value ("DecodeHighlighting", QVariant::fromValue (DecodeHighlightingModel::default_items ())).value<DecodeHighlightingModel::HighlightItems> ();
   if (!highlight_items.size ()) highlight_items = DecodeHighlightingModel::default_items ();
   decode_highlighing_model_.items (highlight_items);
+  auto selection_setting = [&] (char const * key, DecodeHighlightingModel::Highlight type) {
+    if (!settings_->contains (key))
+      {
+        auto const enabled = keys.isEmpty () || std::any_of (
+          highlight_items.cbegin (), highlight_items.cend (), [type] (auto const& item) {
+            return item.type_ == type && item.enabled_;
+          });
+        settings_->setValue (key, enabled);
+      }
+    return settings_->value (key).toBool ();
+  };
+  best_sp_new_dxcc_ = selection_setting ("BestSPNewDXCC", DecodeHighlightingModel::Highlight::DXCC);
+  best_sp_new_call_on_band_ = selection_setting ("BestSPNewCallOnBand", DecodeHighlightingModel::Highlight::CallBand);
   highlight_by_mode_ = settings_->value("HighlightByMode", false).toBool ();
   supplemental_history_files_ = WorkedBefore::normalize_history_files (
     settings_->value ("SupplementalHistoryFiles").toStringList (),
@@ -4111,6 +4132,8 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("FrequenciesForRegionModes_v2", QVariant::fromValue (frequencies_.frequency_list ()));
   settings_->setValue ("DecodeHighlighting", QVariant::fromValue (decode_highlighing_model_.items ()));
   settings_->setValue ("HighlightByMode", highlight_by_mode_);
+  settings_->setValue ("BestSPNewDXCC", best_sp_new_dxcc_);
+  settings_->setValue ("BestSPNewCallOnBand", best_sp_new_call_on_band_);
   settings_->setValue ("SupplementalHistoryFiles", supplemental_history_files_);
   settings_->beginWriteArray ("SupplementalHistoryFolders", supplemental_history_folders_.size ());
   for (int index = 0; index < supplemental_history_folders_.size (); ++index)
@@ -4990,6 +5013,8 @@ void Configuration::impl::accept ()
       Q_EMIT self_->decode_highlighting_changed (decode_highlighing_model_);
     }
   highlight_by_mode_ = ui_->highlight_by_mode_check_box->isChecked ();
+  best_sp_new_dxcc_ = ui_->best_sp_new_dxcc_check_box->isChecked ();
+  best_sp_new_call_on_band_ = ui_->best_sp_new_call_on_band_check_box->isChecked ();
   highlight_only_fields_ = ui_->only_fields_check_box->isChecked ();
   include_WAE_entities_ = ui_->include_WAE_check_box->isChecked ();
   highlight_73_ = ui_->highlight_73_check_box->isChecked ();

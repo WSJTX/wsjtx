@@ -296,6 +296,10 @@ add_executable (test_decoded_message_reaction
 target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)
 
+add_executable (test_best_sp_controller test_best_sp_controller.cpp)
+target_link_libraries (test_best_sp_controller wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_best_sp_controller COMMAND test_best_sp_controller)
+
 add_executable (test_decode_output_plan
   test_decode_output_plan.cpp
 )
@@ -441,11 +445,11 @@ target_link_libraries (test_l10n_loader Boost::log_setup Qt5::Test Qt5::Widgets 
 add_test (NAME test_l10n_loader COMMAND test_l10n_loader)
 set_tests_properties (test_l10n_loader PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable (test_configuration_language test_configuration_language.cpp)
-target_link_libraries (test_configuration_language wsjt_qt wsjt_cxx wsjt_fort_common
+add_executable (test_configuration_preferences test_configuration_preferences.cpp)
+target_link_libraries (test_configuration_preferences wsjt_qt wsjt_cxx wsjt_fort_common
   Boost::log_setup Qt5::Test)
-add_test (NAME test_configuration_language COMMAND test_configuration_language)
-set_tests_properties (test_configuration_language PROPERTIES
+add_test (NAME test_configuration_preferences COMMAND test_configuration_preferences)
+set_tests_properties (test_configuration_preferences PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
 

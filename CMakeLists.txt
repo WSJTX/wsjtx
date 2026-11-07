@@ -1118,6 +1118,13 @@ target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 if (WSJT_ENABLE_TESTS)
   target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
+  add_test (NAME test_wsjtx_best_sp
+    COMMAND $<TARGET_FILE:wsjtx> --best-sp-test --rig-name CTEST-BEST-SP)
+  set_tests_properties (test_wsjtx_best_sp PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_best_sp"
+    LABELS "gui;ft4;integration"
+    PROCESSORS 1
+    TIMEOUT 30)
 endif ()
 
 if (APPLE)

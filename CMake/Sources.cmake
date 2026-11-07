@@ -226,6 +226,7 @@ if (WSJT_ENABLE_TESTS)
     WavDecodeTestController.cpp
     LiveAudioTestController.cpp
     ReceiveHandoffTestController.cpp
+    BestSPApplicationTestController.cpp
     )
 endif ()
 
