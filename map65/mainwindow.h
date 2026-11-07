@@ -89,6 +89,19 @@ public:
   bool    m_xpolx;
   int     m_fs96000;
   int     m_pendingFs96000 {-1};
+  int     m_pendingPaInDevice {-1};
+  // Saved device names; kept for map65.ini while the device isn't found.
+  QString m_paInDeviceName;
+  QString m_paOutDeviceName;
+  QString m_paInDeviceApi;              // host API of the saved device
+  QString m_paOutDeviceApi;
+  bool    m_noOutputShown = false;
+  // What SoundIn was last started with: the sound-card device and channel
+  // count, or device -1 for network input or while input is stopped until a
+  // restart.
+  int     m_soundInDevice {-1};
+  int     m_soundInChannels {0};
+  bool    m_soundInStopped {false};
   bool    m_IQswap;
   bool    m_initIQplus;
   bool    m_bIQxt;
@@ -345,6 +358,10 @@ private:
   void updateStatusBar();
   void msgBox(QString t);
   bool stopSoundIn(bool report = true);
+public:
+  bool soundInRunning() const { return soundInThread.isRunning(); }
+private:
+  void findSavedDevices();
   void genStdMsgs(QString rpt);
   void lookup();
   void ba2msg(QByteArray ba, char* message);

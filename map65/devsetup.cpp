@@ -5,6 +5,13 @@
 #include <QDebug>
 #include <cstdio>
 #include <portaudio.h>
+#if defined(__linux__) && __has_include(<pa_linux_alsa.h>)
+#include <pa_linux_alsa.h>
+#define MAP65_ALSA_RETRIES 1
+#endif
+#include <map>
+#include <set>
+#include <tuple>
 #include <vector>
 #include <QDir>
 #include <QStringList>
@@ -14,6 +21,75 @@
 #include <QSettings>
 #include "SettingsGroup.hpp"
 #include "libm65/ptt.h"
+
+// PortAudio 19.6 (ALSA) retries opening a busy device 100 times, about 1 s.
+// Settings asks about every device, including the one SoundIn has open and
+// the ALSA plugins on its card, so it asks without retries and restores the
+// default afterwards for SoundIn.
+constexpr int kAlsaDefaultBusyRetries = 100;
+
+static void setAlsaBusyRetries(int retries)
+{
+#ifdef MAP65_ALSA_RETRIES
+  PaAlsa_SetRetriesBusy(retries);
+#else
+  (void)retries;
+#endif
+}
+
+// Definite answers, kept for the rest of the run. An ALSA hw: device cannot
+// be asked while it is open, so the device SoundIn uses is asked before
+// SoundIn opens it; see cacheInputDeviceRates.
+static std::map<std::tuple<int, int, int>, RateProbe> knownRateProbes;
+
+// Asks PortAudio whether the device accepts the rate with the channel count,
+// sample format and latency SoundIn opens the stream with.
+static RateProbe inputSupportsRate(int device, int channels, int rate,
+                                   int busyRetries = 0)
+{
+  auto const key = std::make_tuple(device, channels, rate);
+  auto const known = knownRateProbes.find(key);
+  if (known != knownRateProbes.end()) return known->second;
+
+  PaDeviceInfo const* info = Pa_GetDeviceInfo(device);
+  if (!info) return RateProbe::NotSupported;
+  PaStreamParameters params {};
+  params.device = device;
+  params.channelCount = channels;
+  params.sampleFormat = paFloat32;
+  params.suggestedLatency = info->defaultHighInputLatency;
+  setAlsaBusyRetries(busyRetries);
+  PaError const result = Pa_IsFormatSupported(&params, nullptr, double(rate));
+  setAlsaBusyRetries(kAlsaDefaultBusyRetries);
+  switch (result) {
+  case paFormatIsSupported:
+    return knownRateProbes[key] = RateProbe::Supported;
+  case paInvalidSampleRate:
+  case paInvalidChannelCount:
+  case paSampleFormatNotSupported:
+    return knownRateProbes[key] = RateProbe::NotSupported;
+  case paDeviceUnavailable:
+    return RateProbe::Busy;
+  default:        // e.g. a host error: not kept, asked again next time
+    return RateProbe::NotSupported;
+  }
+}
+
+void cacheInputDeviceRates(int device)
+{
+  PaDeviceInfo const* info = Pa_GetDeviceInfo(device);
+  if (!info) return;
+  PaHostApiInfo const* api = Pa_GetHostApiInfo(info->hostApi);
+  if (!api || api->type != paALSA) return;
+  for (int rate : {96000, 128000, 192000, 256000}) {
+    for (int channels : {2, 4}) {
+      if (channels > info->maxInputChannels) continue;
+      // Open elsewhere: SoundIn can't open it either.
+      if (inputSupportsRate(device, channels, rate, kAlsaDefaultBusyRetries)
+          == RateProbe::Busy) return;
+    }
+  }
+}
 
 static QStringList enumeratePorts()
 {
@@ -67,7 +143,13 @@ DevSetup::DevSetup(MainWindow *parent)
   QButtonGroup *buttonGroup = new QButtonGroup(this);
   buttonGroup->addButton(ui.w3szBut);
   buttonGroup->addButton(ui.otherBut);
-  
+
+  for (QRadioButton* rb : {ui.rb95238, ui.rb96000, ui.rb128000, ui.rb192000, ui.rb256000}) {
+    connect(rb, &QRadioButton::toggled, this, [this](bool checked) {
+      if (checked) rebuildInputList();
+    });
+  }
+
 connect(buttonGroup,
         QOverload<QAbstractButton *>::of(&QButtonGroup::buttonClicked),
         this,
@@ -109,7 +191,6 @@ void DevSetup::initDlg()
 };
   std::vector<DeviceName> hostAPI_DeviceName(MAXDEVICES);
 
-  char s[256];
   int numDevices = Pa_GetDeviceCount();
   
   if (numDevices > MAXDEVICES) {
@@ -117,30 +198,41 @@ void DevSetup::initDlg()
   }
 
   // Pass the pointers to the data inside the vectors
+setAlsaBusyRetries(0);
 getDev(&numDevices,
        reinterpret_cast<char (*)[50]>(hostAPI_DeviceName.data()),
        minChan.data(), maxChan.data(), minSpeed.data(), maxSpeed.data());
+setAlsaBusyRetries(kAlsaDefaultBusyRetries);
   
-k = 0;
+m_inputDevices.clear();
 for (id = 0; id < numDevices; id++) {
 
-    if (!(g_sampleRate >= minSpeed[id] && g_sampleRate <= maxSpeed[id]))
-        continue;
-
+    // getDev can't ask an ALSA device a stream has open and leaves it blank.
+    // For the device SoundIn has open, use the channel count PortAudio found
+    // at start-up and no rate range: the answers kept from before SoundIn
+    // opened it decide at every rate.
+    if (maxChan[id] == 0 && id == mw->m_soundInDevice) {
+      PaDeviceInfo const* info = Pa_GetDeviceInfo(id);
+      PaHostApiInfo const* api = info ? Pa_GetHostApiInfo(info->hostApi) : nullptr;
+      if (!api || api->type != paALSA || info->maxInputChannels < 1) continue;
+      maxChan[id] = info->maxInputChannels;
+    }
 
 #ifdef _WIN32
     if (!QString(hostAPI_DeviceName[id].name).contains("MME"))
         continue;
 #endif
 
-    // Now safe to add to list
-    m_inDevList[k] = id;
+    // getDev cuts names to 39 characters, which drops the "(hw:N,M)" that
+    // tells ALSA devices apart; keep only its host API column.
+    PaDeviceInfo const* info = Pa_GetDeviceInfo(id);
+    QString const name = info ? QString(info->name).trimmed()
+                              : QString(hostAPI_DeviceName[id].name).mid(9).trimmed();
+    QString const label = QString("%1   %2  %3 %4")
+        .arg(id, 2).arg(maxChan[id])
+        .arg(QString(hostAPI_DeviceName[id].name).left(8), -8).arg(name);
 
-    snprintf(s, sizeof(s), "%2d   %d  %-49.49s",
-             id, maxChan[id], hostAPI_DeviceName[id].name);
-
-    ui.comboBoxSndIn->addItem(QString(s));
-    k++;
+    m_inputDevices.push_back({id, maxChan[id], minSpeed[id], maxSpeed[id], name, label});
 }
 
   const PaDeviceInfo *pdi;
@@ -190,7 +282,7 @@ for (id = 0; id < numDevices; id++) {
     if (strstr(api, "ASIO"))    p1 = "ASIO";
     if (strstr(api, "ALSA"))    p1 = "ALSA";
 
-    snprintf(p2, sizeof(p2), "%2d   %-8.8s  %-39.39s",
+    snprintf(p2, sizeof(p2), "%2d   %-8.8s  %s",
              id, p1, pdi->name);
 
     ui.comboBoxSndOut->addItem(QString(p2));
@@ -247,8 +339,21 @@ for (id = 0; id < numDevices; id++) {
   ui.rbSi570->setChecked(!mw->m_bIQxt);
   ui.mult570TxSpinBox->setEnabled(mw->m_bIQxt);
   ui.comboBoxSndIn->setEnabled(!mw->m_network);
-  ui.comboBoxSndIn->setCurrentIndex(mw->m_nDevIn);
-  ui.comboBoxSndOut->setCurrentIndex(mw->m_nDevOut);
+  m_inputListReady = true;
+  m_wantedInDevice = savedInputDevice(mw->m_paInDevice, mw->m_pendingPaInDevice);
+  fillInputList(m_wantedInDevice);
+  connect(ui.comboBoxSndIn, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+          [this](int row) {
+            int const device = inDevice(row);
+            if (device >= 0) m_wantedInDevice = device;
+          });
+  // If the saved output device is no longer listed, show the first one; OK
+  // then saves it.
+  // No output device (the saved one wasn't found): leave it unselected so an
+  // unrelated OK doesn't replace it. One that exists but isn't listed shows
+  // the first output device, which OK then saves.
+  int const outRow = rowOfDevice(m_outDevList, ui.comboBoxSndOut->count(), mw->m_paOutDevice);
+  ui.comboBoxSndOut->setCurrentIndex(outRow >= 0 || mw->m_paOutDevice < 0 ? outRow : 0);
   ui.sbPort->setValue(mw->m_udpPort);
   ui.cbIQswap->setChecked(mw->m_IQswap);
   ui.cbInitIQplus->setChecked(mw->m_initIQplus);
@@ -276,11 +381,6 @@ for (id = 0; id < numDevices; id++) {
   ui.sbBlue2->setValue(b2);
   ui.sbBlue3->setValue(b3);
 
-  int const inDev = inDevice(mw->m_nDevIn);
-  int const outDev = outDevice(mw->m_nDevOut);
-  if (inDev >= 0) mw->m_paInDevice = inDev;
-  if (outDev >= 0) mw->m_paOutDevice = outDev;
-
   ui.otherUrlBox->setText(mw->m_otherUrl);
   if(mw->m_w3szUrl) ui.w3szBut->setChecked(true);
   else ui.otherBut->setChecked(true);
@@ -295,6 +395,18 @@ void DevSetup::accept()
   // Called when OK button is clicked.
   // Check to see whether SoundInThread must be restarted,
   // and save user parameters.
+
+  if (ui.soundCardRadioButton->isChecked() &&
+      inDevice(ui.comboBoxSndIn->currentIndex()) < 0) {
+    QMessageBox::warning(this, "Input Device",
+        ui.comboBoxSndIn->count() > 0
+            ? QString("Select an input device.")
+            : QString("No input device can be used at %1 kHz with %2 input channels.\n"
+                      "Choose another sample rate%3 or use network input.")
+                  .arg(m_listRate / 1000.0, 0, 'f', 0).arg(m_listChannels)
+                  .arg(m_listChannels == 4 ? ", untick Xpol," : ""));
+    return;
+  }
 
   int const newFs96000 = selectedSampleRateCode();
   int const newSampleRate = sampleRateForCode(newFs96000);
@@ -311,14 +423,33 @@ void DevSetup::accept()
   int const newInDev = inDevice(newInIndex);
   int const newOutDev = outDevice(newOutIndex);
 
+  // SoundIn restarts at the running rate, so in sound-card mode a device that
+  // was listed for a pending rate but can't run at the running one (or not
+  // with the new channel count) waits for the restart, and input stops until
+  // then.
+  bool const soundCard = ui.soundCardRadioButton->isChecked();
+  int const channels = ui.cbXpol->isChecked() ? 4 : 2;
+  bool const runsNow = !soundCard ||
+      inputFit(newInDev, inputListSampleRate(mw->m_fs96000), channels) == InputFit::Listed;
+  int const previousPendingIn = mw->m_pendingPaInDevice;
+  int pendingInDev;
+  int const inDev = inputDeviceToApply(mw->m_paInDevice, newInDev, runsNow,
+                                       m_pendingFs96000 >= 0, previousPendingIn, pendingInDev);
+
   if(mw->m_network!=ui.networkRadioButton->isChecked() or
-     (newInDev >= 0 and (mw->m_nDevIn!=newInIndex or mw->m_paInDevice!=newInDev)) or
+     mw->m_paInDevice!=inDev or
      mw->m_xpol!=ui.cbXpol->isChecked() or
      mw->m_fAdd!=newFAdd or
-     mw->m_udpPort!=ui.sbPort->value()) m_restartSoundIn=true;
+     mw->m_udpPort!=ui.sbPort->value() or
+     mw->m_soundInStopped or
+     !mw->soundInRunning()) m_restartSoundIn=true;   // e.g. its open or start failed
+  if(!runsNow) {
+    m_restartSoundIn=false;
+    m_stopSoundIn=!mw->m_soundInStopped;
+  }
 
   if(newOutDev >= 0 and
-     (mw->m_nDevOut!=newOutIndex or mw->m_paOutDevice!=newOutDev)) m_restartSoundOut=true;
+     mw->m_paOutDevice!=newOutDev) m_restartSoundOut=true;
 
   mw->m_myCall=ui.myCallEntry->text();
   mw->m_myGrid=ui.myGridEntry->text();
@@ -352,10 +483,9 @@ void DevSetup::accept()
   mw->m_fAdd=newFAdd;
   mw->m_network=ui.networkRadioButton->isChecked();
   mw->m_bIQxt=ui.rbIQXT->isChecked();
-  if (newInDev >= 0) {
-    mw->m_nDevIn=newInIndex;
-    mw->m_paInDevice=newInDev;
-  }
+  if (newInDev >= 0) mw->m_nDevIn=newInIndex;
+  mw->m_paInDevice=inDev;
+  mw->m_pendingPaInDevice=pendingInDev;
   if (newOutDev >= 0) {
     mw->m_nDevOut=newOutIndex;
     mw->m_paOutDevice=newOutDev;
@@ -374,11 +504,16 @@ void DevSetup::accept()
   mw->m_spot_to_psk_reporter = ui.pskBox->isChecked();
   mw->m_psk_reporter_tcpip = ui.pskReporterTcpIpBox->isChecked();
 
-  if (restartNoticeNeeded(previousPending, m_pendingFs96000)) {
+  if (restartNoticeNeeded(previousPending, m_pendingFs96000) ||
+      restartNoticeNeeded(previousPendingIn, pendingInDev) || m_stopSoundIn) {
       QMessageBox::information(this,
           "Restart Required",
-          "Changing sample rate requires MAP65 to be restarted.\n"
-          "Please exit MAP65 and start it again.");
+          QString("%1%2Please exit MAP65 and start it again.")
+              .arg(m_pendingFs96000 >= 0
+                   ? "Changing sample rate requires MAP65 to be restarted.\n" : "")
+              .arg(!runsNow
+                   ? "The selected input device can't run at the current sample rate\n"
+                     "with these settings, so input stops until the restart.\n" : ""));
   }
 
   // Normal path
@@ -395,8 +530,8 @@ int DevSetup::selectedSampleRateCode() const
       1;
 }
 
-// PortAudio device number behind a combo box row, or -1 if the row doesn't
-// exist (the list is empty when no input device supports the current rate).
+// PortAudio device number behind a combo box row, or -1 when there is no such
+// row (nothing selected, or an empty list).
 int DevSetup::inDevice(int index) const
 {
   return index >= 0 && index < ui.comboBoxSndIn->count() ? m_inDevList[index] : -1;
@@ -405,6 +540,100 @@ int DevSetup::inDevice(int index) const
 int DevSetup::outDevice(int index) const
 {
   return index >= 0 && index < ui.comboBoxSndOut->count() ? m_outDevList[index] : -1;
+}
+
+// Whether the input device can run at rate with channels, and if not, why.
+InputFit DevSetup::inputFit(int device, int rate, int channels)
+{
+  // SoundIn has this device open at the running rate and channel count; an
+  // open ALSA hw: device can't be asked.
+  if (device >= 0 && device == mw->m_soundInDevice && mw->soundInRunning() &&
+      rate == inputListSampleRate(mw->m_fs96000) && channels == mw->m_soundInChannels)
+    return InputFit::Listed;
+  for (auto const& d : m_inputDevices) {
+    if (d.id != device) continue;
+    return inputDeviceFit(rate, channels, d.maxChan, d.minSpeed, d.maxSpeed, [&] {
+      auto const key = std::make_tuple(d.id, channels, rate);
+      if (m_busyProbes.count(key)) return RateProbe::Busy;
+      RateProbe const answer = inputSupportsRate(d.id, channels, rate);
+      if (answer == RateProbe::Busy) m_busyProbes.insert(key);
+      return answer;
+    });
+  }
+  return InputFit::RateNotSupported;
+}
+
+// Fills the input list for the rate and channel count Settings has selected,
+// keeping preferredDevice selected if it is still listed, otherwise nothing.
+// Returns whether preferredDevice is listed, and if not, why.
+InputFit DevSetup::fillInputList(int preferredDevice)
+{
+  int const rate = inputListSampleRate(selectedSampleRateCode());
+  int const channels = ui.cbXpol->isChecked() ? 4 : 2;
+  m_listRate = rate;
+  m_listChannels = channels;
+
+  QSignalBlocker block {ui.comboBoxSndIn};
+  ui.comboBoxSndIn->clear();
+  InputFit preferredFit = InputFit::RateNotSupported;
+  int k = 0;
+  for (auto const& d : m_inputDevices) {
+    InputFit const fit = inputFit(d.id, rate, channels);
+    if (d.id == preferredDevice) preferredFit = fit;
+    if (fit != InputFit::Listed) continue;
+    m_inDevList[k++] = d.id;
+    ui.comboBoxSndIn->addItem(d.label);
+  }
+  ui.comboBoxSndIn->setCurrentIndex(rowOfDevice(m_inDevList, k, preferredDevice));
+  return preferredFit;
+}
+
+// Called when the rate or Xpol choice changes: relists the devices and, in
+// sound-card mode, says so if the chosen device no longer qualifies.
+void DevSetup::rebuildInputList()
+{
+  if (!m_inputListReady) return;
+  if (inputListSampleRate(selectedSampleRateCode()) == m_listRate &&
+      (ui.cbXpol->isChecked() ? 4 : 2) == m_listChannels) return;
+
+  // The combo box handler keeps any selected device equal to m_wantedInDevice.
+  int const previous = inDevice(ui.comboBoxSndIn->currentIndex());
+  QString previousName;
+  int previousChannels = 0;
+  for (auto const& d : m_inputDevices) {
+    if (d.id == previous) {
+      previousName = d.name;
+      previousChannels = d.maxChan;
+    }
+  }
+  InputFit const fit = fillInputList(m_wantedInDevice);
+  if (previous >= 0 && ui.comboBoxSndIn->currentIndex() < 0 &&
+      ui.soundCardRadioButton->isChecked()) {
+    QString const kHz = QString::number(m_listRate / 1000.0, 'f', 0);
+    QString reason;
+    switch (fit) {
+    case InputFit::TooFewChannels:
+      // Only reachable by ticking Xpol: devices with fewer than 2 channels
+      // are never listed.
+      reason = QString("has %1 input channel%2; Xpol needs 4.\n"
+                       "Choose another input device or untick Xpol.")
+          .arg(previousChannels).arg(previousChannels == 1 ? "" : "s");
+      break;
+    case InputFit::Busy:
+      reason = QString("is in use and can't be checked at %1 kHz: another program has it open,\n"
+                       "or MAP65 is using another device on the same sound card.\n"
+                       "Choose another input device, or close the program using it.")
+          .arg(kHz);
+      break;
+    default:
+      reason = QString("does not support %1 kHz%2.\n"
+                       "Choose another input device or sample rate.")
+          .arg(kHz).arg(m_listChannels == 4 ? " with 4 input channels" : "");
+      break;
+    }
+    QMessageBox::warning(this, "Input Device",
+        QString("The input device\n%1\n%2").arg(previousName, reason));
+  }
 }
 
 void DevSetup::on_soundCardRadioButton_toggled(bool checked)
@@ -445,11 +674,12 @@ void DevSetup::onButtonClicked()
 
 void DevSetup::on_cbXpol_stateChanged(int n)
 {
-  mw->m_xpol = (n!=0);
-  ui.rbAntenna->setEnabled(mw->m_xpol);
-  ui.rbAntennaX->setEnabled(mw->m_xpol);
-  ui.dPhiSpinBox->setEnabled(mw->m_xpol);
-  ui.labelDphi->setEnabled(mw->m_xpol);
+  bool const xpol = n!=0;
+  ui.rbAntenna->setEnabled(xpol);
+  ui.rbAntennaX->setEnabled(xpol);
+  ui.dPhiSpinBox->setEnabled(xpol);
+  ui.labelDphi->setEnabled(xpol);
+  rebuildInputList();
 }
 
 void DevSetup::on_cal570SpinBox_valueChanged(double ppm)
