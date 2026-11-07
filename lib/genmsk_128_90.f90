@@ -63,6 +63,8 @@ subroutine genmsk_128_90_for_state(msg0,ichk,msgsent,i4tone,itype,state)
      go to 2
 1    nfreq=1000
 2    i4tone(1)=nfreq
+     msgsent=msg0
+     go to 999                                 !A frequency, not channel tones
   else
      message=msg0
 

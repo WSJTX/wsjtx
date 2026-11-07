@@ -25,6 +25,10 @@ if (WSJT_ENABLE_TSAN)
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 
+add_executable (test_msk144_single_tone test_msk144_single_tone.f90)
+wsjt_link_common_fortran (test_msk144_single_tone)
+add_test (NAME test_msk144_single_tone COMMAND test_msk144_single_tone)
+
 add_executable (test_msk144_training_file test_msk144_training_file.f90)
 wsjt_link_common_fortran (test_msk144_training_file)
 file (MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/msk144_training")
