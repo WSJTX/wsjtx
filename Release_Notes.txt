@@ -66,6 +66,30 @@ following:
    are being reviewed. New decodes continue to accumulate below, and
    the pane returns to live output when scrolled back to the end.
 
+ - FT4 Best S+P selects once after decoding finishes, with new DXCC
+   entities ahead of callsigns not worked on the current band. Its
+   independent options are under Settings > Advanced > Best S+P.
+   Existing profiles initialize these options once from the enabled
+   legacy highlighting categories; new profiles enable both. Highlight
+   colors, enabled rules, rule order, and UI language no longer control
+   selection, so stations previously masked by another highlight can
+   become eligible. Worked-before matching still follows Highlight by
+   Mode and Include extra WAE entities on Colors. Status messages and
+   the accessible checked state report arming, cancellation, timeout,
+   and selection reasons. New-entity eligibility remains available when
+   the operating band is unknown. Arming rejects active QSO states, and
+   redundant cancellation requests preserve the accessible result.
+   Rx and Tx audio-frequency adjustments preserve arming.
+   Best S+P rejects arming while Wait & Call or Wait & Pounce is actively
+   choosing from CQs; activating either cancels Best S+P with a reason.
+   Directed replies continue normally while Best S+P is armed.
+
+ - Translated region and mode editors preserve their stored keys,
+   including when an editor is accepted without changes. Worked-on-band
+   status comes from logbook history rather than the winning highlight.
+   Fox CQ presets and CAT baud-rate values remain canonical protocol
+   tokens in every UI language. Existing file formats are unchanged.
+
  - Raspberry Pi and other ARM single-board computers: 32-bit (armhf)
    Linux packages (.deb, .rpm, and AppImage) are again available
    alongside 64-bit aarch64 packages. Both are built and tested on

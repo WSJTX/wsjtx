@@ -83,6 +83,37 @@ subsequent release.
   that is already clear from its names and structure.
 - Add the appropriate GPL-3.0 license header to new source files.
 
+## Keep operational identities independent of presentation
+
+Translated labels belong at the presentation boundary. Keep domain facts
+(callsigns, grids, worked history, modes, bands, and entities) separate from
+operational policy (eligibility, ranking, and automatic selection) and from
+colors, tooltips, and accessible feedback. A winning highlight is not evidence
+that a station has been worked. Pass decode classification with its message;
+missing facts must remain absent rather than inheriting a previous message's
+state.
+
+Models and editors exchange stable keys through `Qt::EditRole`. Use explicitly
+typed enum variants such as `QVariant::fromValue (IARURegions::R2)` for region
+and mode keys, and canonical strings for string-backed band and SQL keys.
+Delegates must initialize and commit by their configured key roles, including
+when labels are duplicated. An unmatched key selects no item, no selection
+writes nothing, and invalid enum types or values must be rejected. Translate
+`Qt::DisplayRole` labels without reverse-parsing them for decisions or storage.
+
+Keep existing canonical settings, JSON, binary, and SQL representations stable.
+Protocol tokens used in CAT commands or transmitted messages must not be
+translated; editable user input is a separate boundary. When adding selection
+settings, migrate explicitly once instead of continuously deriving policy from
+presentation preferences.
+
+Extend the owning regression suites with translators that change labels
+substantially, including duplicate labels. Verify operational outcomes and
+no-op editor commits remain identical, and exercise a shipped catalog as an
+integration check. Use the CMake `UPDATE_TRANSLATIONS` workflow to extract
+affected messages; avoid unrelated catalog churn and preserve existing
+translations.
+
 ## Keep changes reviewable
 
 - Keep each pull request to one logical change.
