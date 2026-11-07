@@ -57,7 +57,7 @@ class TestMap65RuntimePaths final : public QObject
   Q_OBJECT
 
 private slots:
-  void sampleRateCodesRoundTripThroughSettings()
+  void sampleRateSettingsRespectAddressSpace()
   {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
@@ -65,7 +65,8 @@ private slots:
     int const expected[][2] = {{0, 95238}, {1, 96000}, {2, 192000}, {3, 128000}, {4, 256000}};
     for (auto const& e : expected) {
       settings.setValue("FSam96000", e[0]);
-      QCOMPARE(readFSam96000(settings, 1), e[0]);
+      int const expectedCode = sizeof(void*) == 4 && e[0] == 4 ? 2 : e[0];
+      QCOMPARE(readFSam96000(settings, 1), expectedCode);
       QCOMPARE(sampleRateForCode(e[0]), e[1]);
     }
     settings.setValue("FSam96000", 5);
