@@ -9,6 +9,7 @@
 #include <QThreadPool>
 #include <QScrollBar>
 #include <QSet>
+#include <QStyleOptionButton>
 #include <functional>
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
@@ -1252,13 +1253,16 @@ private slots:
         auto const geometry_in = [] (QWidget * widget, QWidget * ancestor) {
             return QRect {widget->mapTo (ancestor, {}), widget->size ()};
           };
+        nested.resize ({650, 680});
         nested.layout ()->activate ();
         QApplication::processEvents ();
+        QList<QWidget *> layout_controls {sources, recursive, status};
         for (auto const& name : {"history_add_files", "history_add_folder", "history_remove", "history_open_folder"})
           {
             auto action = nested.findChild<QPushButton *> (name);
             QVERIFY2 (action, name);
             QVERIFY (action->isVisible ());
+            layout_controls.append (action);
             QString diagnostic;
             {
               QDebug debug {&diagnostic};
@@ -1270,6 +1274,42 @@ private slots:
             QVERIFY2 (scroll->viewport ()->rect ().contains (geometry_in (action, scroll->viewport ())),
                       qPrintable (diagnostic));
           }
+        auto layout_overlap = [&] {
+            auto control_rect = [&] (QWidget * control) {
+                auto rect = control->rect ();
+                if (auto button = qobject_cast<QAbstractButton *> (control))
+                  {
+                    QStyleOptionButton option;
+                    option.initFrom (button);
+                    option.text = button->text ();
+                    auto const element = qobject_cast<QCheckBox *> (button)
+                      ? QStyle::SE_CheckBoxLayoutItem : QStyle::SE_PushButtonLayoutItem;
+                    auto const layout_rect = button->style ()->subElementRect (element, &option, button);
+                    if (!layout_rect.isEmpty ()) rect = layout_rect;
+                  }
+                return QRect {control->mapTo (scroll->widget (), rect.topLeft ()), rect.size ()};
+              };
+            for (int left = 0; left != layout_controls.size (); ++left)
+              for (int right = left + 1; right != layout_controls.size (); ++right)
+                {
+                  auto first = layout_controls.at (left);
+                  auto second = layout_controls.at (right);
+                  auto const first_rect = control_rect (first);
+                  auto const second_rect = control_rect (second);
+                  if (first_rect.intersects (second_rect))
+                    {
+                      QString diagnostic;
+                      QDebug debug {&diagnostic};
+                      debug << "overlapping controls" << first->accessibleName () << first_rect
+                            << second->accessibleName () << second_rect << "dialog" << nested.size ()
+                            << "font" << nested.font ().pointSizeF ();
+                      return diagnostic;
+                    }
+                }
+            return QString {};
+          };
+        auto overlap = layout_overlap ();
+        QVERIFY2 (overlap.isEmpty (), qPrintable (overlap));
         nested.setFont (font);
         nested.resize ({640, 480});
         nested.layout ()->activate ();
@@ -1277,6 +1317,8 @@ private slots:
         QCOMPARE (nested.size (), QSize (640, 480));
         QCOMPARE (status->font ().pointSizeF (), font.pointSizeF ());
         QCOMPARE (primary->font ().pointSizeF (), font.pointSizeF ());
+        overlap = layout_overlap ();
+        QVERIFY2 (overlap.isEmpty (), qPrintable (overlap));
         auto layout_diagnostic = [&] {
             QString diagnostic;
             {

@@ -5139,8 +5139,8 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   sources->setSelectionMode (QAbstractItemView::ExtendedSelection);
   sources->setTextElideMode (Qt::ElideNone);
   sources->setHorizontalScrollBarPolicy (Qt::ScrollBarAsNeeded);
-  sources->setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Ignored);
   sources->setMinimumHeight (sources->fontMetrics ().lineSpacing () * 4 + sources->frameWidth () * 2);
+  sources->setMaximumHeight (140);
   sources_label->setBuddy (sources);
   auto update_item = [primary_path] (QListWidgetItem * item) {
       auto const path = item->data (Qt::UserRole).toString ();
@@ -5323,7 +5323,6 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   auto status = new QTextEdit {&dialog};
   status->setReadOnly (true);
   status->setMaximumHeight (130);
-  status->setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Ignored);
   status->setMinimumHeight (status->fontMetrics ().lineSpacing () * 3 + status->frameWidth () * 2);
   status->setAccessibleName (tr ("Worked-before scan result and source errors"));
   status_label->setBuddy (status);
