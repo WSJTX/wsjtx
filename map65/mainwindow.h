@@ -344,6 +344,7 @@ private:
   void createStatusBar();
   void updateStatusBar();
   void msgBox(QString t);
+  bool stopSoundIn(bool report = true);
   void genStdMsgs(QString rpt);
   void lookup();
   void ba2msg(QByteArray ba, char* message);

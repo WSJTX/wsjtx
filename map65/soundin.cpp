@@ -164,7 +164,7 @@ void SoundInThread::run()                           //SoundInThread::run()
 
   PaError paerr;
   PaStreamParameters inParam;
-  PaStream *inStream;
+  PaStream *inStream = nullptr;
   paUserData udata;
   
   udata.kin=0;                              //Buffer pointer
@@ -204,10 +204,20 @@ void SoundInThread::run()                           //SoundInThread::run()
     paClipOff,
     a2dCallback,
     &udata);
+  if(paerr!=paNoError) {
+    emit error(QString {"Failed to open audio input stream: %1"}.arg (Pa_GetErrorText (paerr)));
+    return;
+  }
 
     paerr=Pa_StartStream(inStream);
     if(paerr<0) {
-      emit error("Failed to start audio input stream.");
+      // After a failed start PortAudio 19.6 on Linux has already joined the
+      // callback thread, and closing the stream joins it again and never
+      // returns. The stream is left open (on every platform), and MainWindow
+      // skips Pa_Terminate, which would close it.
+      m_streamLeftOpen = true;
+      emit error(QString {"Failed to start audio input stream: %1\n"
+                          "Please exit MAP65 and start it again."}.arg (Pa_GetErrorText (paerr)));
       return;
     }
 

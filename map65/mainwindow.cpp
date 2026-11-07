@@ -529,16 +529,19 @@ MainWindow::~MainWindow()
   if (stdoutReaderThread.joinable())
       stdoutReaderThread.join();
   writeSettings();
-  if (soundInThread.isRunning()) {
-    soundInThread.quit();
-    soundInThread.wait(3000);
-  }
+  fftwf_export_wisdom_to_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
+  bool stopped = !soundInThread.isRunning() || stopSoundIn(false);
   if (soundOutThread.isRunning()) {
     soundOutThread.quitExecution=true;
-    soundOutThread.wait(3000);
+    stopped = soundOutThread.wait(3000) && stopped;
   }
-  Pa_Terminate();
-  fftwf_export_wisdom_to_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
+  // A thread stuck in PortAudio (e.g. on a stream that never delivered) can't
+  // be stopped, and destroying a running QThread aborts. Settings are saved,
+  // so end here.
+  if (!stopped) std::_Exit(0);
+  // Pa_Terminate closes every open stream, and closing one whose start
+  // failed waits forever.
+  if (!soundInThread.m_streamLeftOpen && !soundOutThread.m_streamLeftOpen) Pa_Terminate();
   delete ui;
 }
 
@@ -1503,6 +1506,17 @@ void MainWindow::getfile(QString fname, bool xpol, int dbDgrd)
     }
 }
 
+// SoundIn ignores new settings while it runs and a stream it still holds
+// can't be reopened, so wait until it has really finished (closing an ALSA
+// plugin stream can take more than a second).
+bool MainWindow::stopSoundIn(bool report)
+{
+  soundInThread.quit();
+  if (soundInThread.wait(5000)) return true;
+  if (report) msgBox("Sound input did not stop. Please exit MAP65 and start it again.");
+  return false;
+}
+
 void MainWindow::showSoundInError(const QString& errorMsg)
  {QMessageBox::critical(this, tr("Error in SoundIn"), errorMsg);}
 
@@ -1525,11 +1539,8 @@ void MainWindow::on_actionDeviceSetup_triggered()
         //
         // Apply runtime effects for SoundIn
         //
-        if (dlg.m_restartSoundIn)
+        if (dlg.m_restartSoundIn && stopSoundIn())
         {
-      soundInThread.quit();
-      soundInThread.wait(1000);
-
             soundInThread.setInputDevice(m_paInDevice);
       soundInThread.setNetwork(m_network);
       soundInThread.setFadd(m_fAdd);
