@@ -751,9 +751,9 @@ private:
   DecodedMessageReaction::ReactionDisposition processWaitReplyCall(
     DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
     bool * block_right_display = nullptr);
-  bool applyFiltering(const DecodedText& dt, bool& filtered);
+  bool applyFiltering(const DecodedText& dt, bool& filtered, DecodeClassification const * classification = nullptr);
   void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
-                         bool& play_Wanted, bool& play_DXcall);
+                         bool& play_Wanted, bool& play_DXcall, DecodeClassification const * classification = nullptr);
   void cycleRespondMode();
   static DecodeAlertSound selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled, bool wantedAlertEnabled,
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
@@ -764,7 +764,9 @@ private:
   QString selectedTxMessage() const;
   AutoRespondPolicy autoRespondPolicy() const;
   bool pendingCqAutoRespondIntent() const;
-  void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
+  void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance,
+                              bool haveFSpread, float fSpread, bool bDisplayPoints,
+                              DecodeClassification const& classification);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt);
 
@@ -1383,7 +1385,7 @@ private:
   QString m_nextGrid;
   QString m_fileDateTime;
   QString m_inQSOwith;
-  QString m_BestCQpriority;
+  std::optional<DecodeHighlightingModel::Highlight> m_BestCQpriority;
   QString m_deCall;
   QString m_deGrid;
   QString m_freeTextMsg;

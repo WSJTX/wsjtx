@@ -10,6 +10,7 @@
 #include <QNetworkAccessManager>
 #include <QScrollBar>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -17,6 +18,7 @@
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QToolButton>
+#include <QTranslator>
 
 #include <memory>
 
@@ -189,6 +191,145 @@ private:
   }
 
 private slots:
+  void workedFactsRespectSharedMatchingOptions_data ()
+  {
+    QTest::addColumn<bool> ("byMode");
+    QTest::addColumn<bool> ("includeWae");
+    for (bool byMode : {false, true})
+      for (bool includeWae : {false, true})
+        QTest::newRow (qPrintable (QString {"mode-%1-wae-%2"}.arg (byMode).arg (includeWae)))
+          << byMode << includeWae;
+  }
+
+  void workedFactsRespectSharedMatchingOptions ()
+  {
+    QFETCH (bool, byMode);
+    QFETCH (bool, includeWae);
+    createConfiguration (false, includeWae);
+    configuration_.reset ();
+    settings_->setValue ("Configuration/HighlightByMode", byMode);
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    LogBook logbook {configuration_.get ()};
+    QSignalSpy loaded {&logbook, &LogBook::finished_loading};
+    QTRY_VERIFY (!loaded.isEmpty ());
+    QVERIFY (logbook.add ("TA2ABC", "KN40", "20m", "FT8", QByteArray {}));
+
+    auto const sameCall = classifyDecode (DecodedText {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"},
+                                           "FT4", "20m", logbook);
+    QVERIFY (sameCall.workedOnBand);
+    QCOMPARE (sameCall.workedOnBand->call, !byMode);
+    auto const otherEntity = classifyDecode (DecodedText {"060522 -10  0.3  815 ~ CQ TA1ABC KN40"},
+                                              "FT4", "20m", logbook);
+    QVERIFY (otherEntity.worked);
+    QCOMPARE (otherEntity.worked->entity, !byMode && !includeWae);
+  }
+
+  void japaneseCatalogPreservesDecodeFacts ()
+  {
+    createConfiguration (false);
+    LogBook logbook {configuration_.get ()};
+    QSignalSpy loaded {&logbook, &LogBook::finished_loading};
+    QTRY_VERIFY (!loaded.isEmpty ());
+    DecodedText cq {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"};
+    auto const original = classifyDecode (cq, "FT4", "20m", logbook);
+    QTranslator translator;
+    QVERIFY (translator.load (QString::fromUtf8 (WSJT_JAPANESE_QM)));
+    QCoreApplication::installTranslator (&translator);
+    QVERIFY (DecodeHighlightingModel::highlight_name (DecodeHighlightingModel::Highlight::DXCC) != "New DXCC");
+    auto const translated = classifyDecode (cq, "FT4", "20m", logbook);
+    QCOMPARE (translated.sender, original.sender);
+    QCOMPARE (translated.grid, original.grid);
+    QVERIFY (translated.highlights == original.highlights);
+    QCOMPARE (translated.worked->entity, original.worked->entity);
+    QCOMPARE (translated.workedOnBand->call, original.workedOnBand->call);
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m",
+                                         false, false, false, 0.0, false, -99, {}, false, &translated));
+    auto const withFacts = display.toPlainText ();
+    display.clear ();
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    QCOMPARE (display.toPlainText (), withFacts);
+    QCoreApplication::removeTranslator (&translator);
+  }
+
+  void classificationUsesIdentityAndHasNoWidgetHistory ()
+  {
+    class Translator final : public QTranslator
+    {
+      QString translate (char const *, char const * source, char const *, int) const override
+      {
+        return QString {source}.startsWith ("New ") ? QStringLiteral ("Duplicate translated label") : QString {};
+      }
+    } translator;
+    createConfiguration (false);
+    LogBook logbook {configuration_.get ()};
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    DecodedText cq {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"};
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    auto const facts = classifyDecode (cq, "FT4", "20m", logbook);
+    QVERIFY (facts.worked);
+    auto const original = display.toPlainText ();
+    QCoreApplication::installTranslator (&translator);
+    QCOMPARE (DecodeHighlightingModel::highlight_name (DecodeHighlightingModel::Highlight::DXCC),
+              QStringLiteral ("Duplicate translated label"));
+    display.clear ();
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    auto const translated = classifyDecode (cq, "FT4", "20m", logbook);
+    QVERIFY (translated.highlights == facts.highlights);
+    QCOMPARE (translated.sender, facts.sender);
+    QCOMPARE (translated.grid, facts.grid);
+    QCOMPARE (translated.worked->entity, facts.worked->entity);
+    QCOMPARE (translated.workedOnBand->call, facts.workedOnBand->call);
+    QCOMPARE (display.toPlainText (), original);
+    DecodedText reply {"060522 -10  0.3  815 ~ W1AAA TA2ABC -10"};
+    QVERIFY (!display.displayDecodedText (reply, "W1AAA", "FT4", true, logbook, "20m", false, true));
+    auto const missing = classifyDecode (DecodedText {"."}, "FT4", "20m", logbook);
+    QVERIFY (!missing.worked);
+    QVERIFY (!missing.workedOnBand);
+    QVERIFY (missing.highlights.empty ());
+    QVERIFY (missing.sender.isEmpty ());
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", false, logbook, "20m"));
+    QCoreApplication::removeTranslator (&translator);
+  }
+
+  void workedStatusDoesNotFollowWinningHighlight ()
+  {
+    createConfiguration (false);
+    configuration_.reset ();
+    auto highlights = DecodeHighlightingModel::default_items ();
+    for (auto& highlight : highlights)
+      highlight.enabled_ = highlight.type_ == DecodeHighlightingModel::Highlight::DXCC
+        || highlight.type_ == DecodeHighlightingModel::Highlight::CQ;
+    settings_->setValue ("Configuration/DecodeHighlighting", QVariant::fromValue (highlights));
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    LogBook logbook {configuration_.get ()};
+    QSignalSpy loaded {&logbook, &LogBook::finished_loading};
+    QTRY_VERIFY (!loaded.isEmpty ());
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    DecodedText cq {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"};
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    auto facts = classifyDecode (cq, "FT4", "20m", logbook);
+    auto priority = [&] {
+      return DecodeHighlightingModel::resolve_colors (highlights, facts.highlights, {}, {}).type_;
+    };
+    QVERIFY (priority () == DecodeHighlightingModel::Highlight::DXCC);
+    QVERIFY (facts.workedOnBand);
+    QVERIFY (!facts.workedOnBand->call);
+    QVERIFY (logbook.add ("TA2ABC", "KN40", "20m", "FT4", QByteArray {}));
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    facts = classifyDecode (cq, "FT4", "20m", logbook);
+    QVERIFY (priority () == DecodeHighlightingModel::Highlight::CQ);
+    QVERIFY (facts.workedOnBand->call);
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "40m"));
+    facts = classifyDecode (cq, "FT4", "40m", logbook);
+    QVERIFY (!facts.workedOnBand->call);
+    facts = classifyDecode (cq, "FT4", "", logbook);
+    QVERIFY (!facts.workedOnBand);
+  }
+
   void initTestCase ()
   {
     register_types ();

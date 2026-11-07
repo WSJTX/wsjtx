@@ -449,6 +449,9 @@ set_tests_properties (test_configuration_language PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
 
+add_dependencies (test_displaytext translations)
+target_compile_definitions (test_displaytext PRIVATE WSJT_JAPANESE_QM="${CMAKE_BINARY_DIR}/wsjtx_ja.qm")
+
 add_executable (test_configuration_udp_destinations test_configuration_udp_destinations.cpp)
 target_link_libraries (test_configuration_udp_destinations wsjt_qt wsjt_cxx wsjt_fort_common
   Boost::log_setup Qt5::Test)

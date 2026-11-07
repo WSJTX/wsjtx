@@ -5461,7 +5461,7 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(m_mode=="FT8") dec_data.params.napwid=50;
   if(m_mode=="FT4") {
     dec_data.params.nmode=5;
-    m_BestCQpriority="";
+    m_BestCQpriority.reset ();
   }
   if(m_mode=="FST4") dec_data.params.nmode=240;
   if(m_mode=="FST4W") dec_data.params.nmode=241;
@@ -7267,6 +7267,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
     QString const message0 = prepared.decodedOriginal;
     DecodedText decodedtext0 {prepared.decodedOriginal};
     DecodedText const& decodedtext {prepared.logicMessage};
+    auto const classification = classifyDecode (decodedtext, decodeContext.mode, decodeContext.band,
+                                                 m_logBook, &m_config.lotw_users ());
     if (!decodeContext.diskData) m_decodedGridHistory.observe(decodedtext0);
     Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
@@ -7340,7 +7342,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                                  &block_right_display)
             == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) return;
 
-        if (!applyFiltering(decodedtext, filtered)) return;
+        if (!applyFiltering(decodedtext, filtered, &classification)) return;
 
 
         // insert blank line, but only if not filtered and no decodes
@@ -7392,18 +7394,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
                                                 decodeContext.specOp, filtered,
                                                 m_config.filters_for_Wait_and_Pounce_only())) {
           QString distance = calculateDistanceAndBearing(decodedtext);
-          displayDecodedTextLine(decodedtext1, line_read, distance, haveFSpread, fSpread, bDisplayPoints);
+          displayDecodedTextLine(decodedtext1, line_read, distance, haveFSpread, fSpread, bDisplayPoints, classification);
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
         }
         if (m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_operatingFrequency.rx ()>45000000)) earlyDecodes.append(line_read); //ft8md
 
-        applyHighlighting(decodedtext, ui->decodedTextBrowser, true, play_Wanted, play_DXcall);
+        applyHighlighting(decodedtext, ui->decodedTextBrowser, true, play_Wanted, play_DXcall, &classification);
 
         if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
-         QString deCall,deGrid;
-         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-         bool bWorkedOnBand=(ui->decodedTextBrowser->CQPriority()!="New Call on Band") and ui->decodedTextBrowser->CQPriority()!="";
-         if(bWorkedOnBand) activeWorked(deCall,m_currentBand);
+         if (classification.workedOnBand && classification.workedOnBand->call)
+           activeWorked(classification.sender,decodeContext.band);
         }
 
         updateRespondTarget(decodedtext0, text, pounce, decodeContext.sequenceStart,
@@ -7414,22 +7414,24 @@ void MainWindow::readFromStdout()                             //readFromStdout
         play_Wanted = play_DXcall = false;
 
           if (m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress && !ignored && !filtered) {
-            QString messagePriority=ui->decodedTextBrowser->CQPriority();
-            if (messagePriority!="") {
-              if (messagePriority=="New Call on Band"
-                  and m_BestCQpriority!="New Call on Band"
-                  and m_BestCQpriority!="New Multiplier"
+            std::optional<DecodeHighlightingModel::Highlight> messagePriority;
+            if (m_config.DXCC () && classification.worked
+                && parseDecodedMessage (decodedtext.message ()).cq)
+              messagePriority = DecodeHighlightingModel::resolve_colors (
+                m_config.decode_highlighting ().items (), classification.highlights, {}, {}).type_;
+            if (messagePriority) {
+              if (messagePriority == DecodeHighlightingModel::Highlight::CallBand
+                  and m_BestCQpriority != DecodeHighlightingModel::Highlight::CallBand
                   and (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-                m_BestCQpriority="New Call on Band";
+                m_BestCQpriority = DecodeHighlightingModel::Highlight::CallBand;
                 QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
                 m_bDoubleClicked = true;
                 processSyntheticMessage(decodedtext0, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
               }
-              if (messagePriority=="New DXCC"
-                  and m_BestCQpriority!="New DXCC"
-                  and m_BestCQpriority!="New Multiplier"
+              if (messagePriority == DecodeHighlightingModel::Highlight::DXCC
+                  and m_BestCQpriority != DecodeHighlightingModel::Highlight::DXCC
                   and (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-                m_BestCQpriority="New DXCC";
+                m_BestCQpriority = DecodeHighlightingModel::Highlight::DXCC;
                 QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
                 m_bDoubleClicked = true;
                 processSyntheticMessage(decodedtext0, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
@@ -7525,8 +7527,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
           if (m_config.alert_Enabled() && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) ui->decodedTextBrowser->new_period (); // ensure alerts are played
           ui->decodedTextBrowser2->displayDecodedText (decodedtext0, m_config.my_callsign (), m_mode, m_config.DXCC (),
-            m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points, "", m_muted);
-          applyHighlighting(decodedtext, ui->decodedTextBrowser2, false, play_Wanted, play_DXcall);
+            m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points, "", m_muted, &classification);
+          applyHighlighting(decodedtext, ui->decodedTextBrowser2, false, play_Wanted, play_DXcall, &classification);
         }
         m_QSOText = decodedtext.string ().trimmed ();
       }
@@ -8158,7 +8160,7 @@ void MainWindow::guiUpdate()
     if(m_QSOProgress==REPORT || m_QSOProgress==ROGER_REPORT) m_bSentReport=true;
     if(m_bSentReport and (m_QSOProgress<REPORT or m_QSOProgress>ROGER_REPORT)) m_bSentReport=false;
     if(m_mode=="FT4" and m_bBestSPArmed) {
-      m_BestCQpriority="";
+      m_BestCQpriority.reset ();
       m_bBestSPArmed=false;
       ui->pbBestSP->setStyleSheet ("");
     }
@@ -17704,7 +17706,8 @@ DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
   applyQsoReactionPlan(plan, message, block_right_display);
   return plan.disposition;
 }
-bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
+bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered,
+                                 DecodeClassification const * classification)
 {
   DecodeOutputPlan::KeywordFilterContext keywordContext;
   keywordContext.mode = m_mode;
@@ -17755,14 +17758,20 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
     visibilityContext.today = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd");
     visibilityContext.yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString("yyyy-MM-dd");
   }
-  visibilityContext.countryName = [this] (QString const& deCall) {
+  visibilityContext.countryName = [this, classification] (QString const& deCall) {
     auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+    if (classification && classification->sender == deCall && classification->entity)
+      return classification->entity->identity (entity_view).abbreviated_name;
     return m_logBook.countries()->lookup(deCall).identity(entity_view).abbreviated_name;
   };
-  visibilityContext.continent = [this] (QString const& deCall) {
+  visibilityContext.continent = [this, classification] (QString const& deCall) {
+    if (classification && classification->sender == deCall && classification->entity)
+      return AD1CCty::continent (classification->entity->continent);
     return AD1CCty::continent(m_logBook.countries()->lookup(deCall).continent);
   };
-  visibilityContext.workedBeforeOnBand = [this] (QString const& deCall, QString const& deGrid) {
+  visibilityContext.workedBeforeOnBand = [this, classification] (QString const& deCall, QString const& deGrid) {
+    if (classification && classification->sender == deCall)
+      return classification->workedOnBand && classification->workedOnBand->call;
     bool callWorked {false};
     bool countryWorked;
     bool gridWorked;
@@ -17779,7 +17788,7 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
 }
 
 void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText * decodePane, bool updateAlertState,
-                                   bool& play_Wanted, bool& play_DXcall)
+                                   bool& play_Wanted, bool& play_DXcall, DecodeClassification const * classification)
 {
   if (!decodePane) return;
 
@@ -17792,17 +17801,12 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       QString deCall;
       QString deGrid;
       decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-      bool callB4onBand;
-      bool countryB4onBand;
-      bool gridB4onBand;
-      bool continentB4onBand;
-      bool CQZoneB4onBand;
-      bool ITUZoneB4onBand;
       if (ui->actionHighlightB4->isChecked()) {
-          auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-          m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                           continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-          if (callB4onBand) decodePane->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
+          auto const ownClassification = classification ? DecodeClassification {}
+            : classifyDecode (decodedtext, m_mode, m_currentBand, m_logBook);
+          auto const& facts = classification ? *classification : ownClassification;
+          if (facts.workedOnBand && facts.workedOnBand->call)
+            decodePane->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
       }
       if (ui->actionHighlightToday->isChecked() && (
           txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
@@ -17814,7 +17818,8 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       }
       if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
           ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
-        auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+        auto const looked_up = classification && classification->entity
+          ? *classification->entity : m_logBook.countries ()->lookup (deCall);
         auto const entity_view = m_config.include_WAE_entities () ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
         auto const& countryName = looked_up.identity (entity_view).abbreviated_name;
         if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
@@ -18122,7 +18127,9 @@ QString MainWindow::calculateDistanceAndBearing(const DecodedText& decodedtext)
   return distance;
 }
 
-void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints)
+void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QByteArray& line_read, const QString& distance,
+                                       bool haveFSpread, float fSpread, bool bDisplayPoints,
+                                       DecodeClassification const& classification)
 {
   bool displayed;
   if ((m_mode == "JT65" or m_mode == "JT9" or m_mode == "JT4") && m_config.DXCC()) {
@@ -18131,7 +18138,7 @@ void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QB
       decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
       m_logBook, m_currentBandPeriod, m_config.ppfx (),
       ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-      haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+      haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted, &classification);
   } else {
     if (ui->actionHide_AP_info->isVisible() && ui->actionHide_AP_info->isChecked()) {
       // Hide FT8 AP information
@@ -18142,13 +18149,13 @@ void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QB
         decodedtext2, m_config.my_callsign (), m_mode, m_config.DXCC (),
         m_logBook, m_currentBandPeriod, m_config.ppfx (),
         ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-        haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+        haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted, &classification);
     } else {
       displayed = ui->decodedTextBrowser->displayDecodedText (
         decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
         m_logBook, m_currentBandPeriod, m_config.ppfx (),
         ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-        haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+        haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted, &classification);
     }
   }
   if (displayed)

@@ -8,6 +8,7 @@
 #include <QPair>
 #include <QString>
 #include <QTimer>
+#include "DecodeClassification.hpp"
 
 class QAction;
 class QResizeEvent;
@@ -30,14 +31,14 @@ public:
                           bool displayDXCCEntity, LogBook const& logBook,
                           QString const& currentBand=QString {}, bool ppfx=false, bool bCQonly=false,
                           bool haveFSpread = false, float fSpread = 0.0, bool bDisplayPoints=false,
-                          int points=-99, QString distance = "", bool alertsMuted=false);
+                          int points=-99, QString distance = "", bool alertsMuted=false,
+                          DecodeClassification const * classification = nullptr);
   void displayTransmittedText(QString text, QString modeTx, qint32 txFreq, bool bFastMode,
                               double TRperiod, bool bSuperfox);
   void displayQSY(QString text);
   void displayHoundToBeCalled(QString t, bool bAtTop=false, QColor bg = QColor {}, QColor fg = QColor {});
   void setHighlightedHoundText(QString text);
   void new_period ();
-  QString CQPriority(){return m_CQPriority;};
   qint32 m_points;
   bool m_bDisplayPoints;
 
@@ -70,11 +71,8 @@ private:
 
   Configuration const * m_config;
   bool m_bPrincipalPrefix;
-  QString m_CQPriority;
-  QString appendWorkedB4(QString message, QString callsign
-                         , QString const& grid, QColor * bg, QColor * fg
-                         , LogBook const& logBook, QString const& currentBand
-                         , QString const& currentMode, QString extra
+  QString appendWorkedB4(QString message, DecodeClassification const& classification
+                         , QColor * bg, QColor * fg, QString extra
                          , QString const& state = QString {}
                          , bool entityMismatch = false);
   QFont char_font_;
