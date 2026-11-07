@@ -16,12 +16,14 @@
 #include <QString>
 #include <QByteArray>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QFile>
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QDateTime>
 #include <QPointer>
+#include <QSet>
 #include "Configuration.hpp"
 #include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
@@ -571,6 +573,8 @@ namespace
   {
     worked_before_database_type worked;
     QStringList errors;
+    QStringList folder_summaries;
+    int directory_failures {0};
     int files_read {0};
     int files_incomplete {0};
     int files_failed {0};
@@ -586,24 +590,88 @@ namespace
     return path;
   }
 
-  load_result load_sources (QString const& primary, QStringList const& supplemental,
+  QStringList discover_folder (HistoryFolder const& folder, load_result& result)
+  {
+    QStringList matches;
+    QStringList directories {folder.path};
+    QStringList errors;
+    while (!directories.isEmpty ())
+      {
+        auto path = directories.takeLast ();
+        QFileInfo info {path};
+        if (path != folder.path && info.isSymLink ()) continue;
+        QString error;
+        if (!info.exists ()) error = QCoreApplication::translate ("WorkedBefore", "Folder does not exist");
+        else if (!info.isDir ()) error = QCoreApplication::translate ("WorkedBefore", "Not a folder");
+        else if (!info.isReadable () || !QDir {path}.isReadable ()
+#ifndef Q_OS_WIN
+                 || !info.isExecutable ()
+#endif
+                 ) error = QCoreApplication::translate ("WorkedBefore", "Folder cannot be read or searched");
+        if (!error.isEmpty ())
+          {
+            errors.append (QDir::toNativeSeparators (path) + ": " + error);
+            continue;
+          }
+
+        // Qt cannot report every enumeration failure or provide an atomic snapshot;
+        // check accessibility before traversal so known failures are not reported as empty folders.
+        QDirIterator entries {path, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot};
+        QStringList children;
+        while (entries.hasNext ())
+          {
+            entries.next ();
+            auto const entry = entries.fileInfo ();
+            if (entry.isDir ())
+              {
+                if (folder.include_subfolders && !entry.isSymLink ())
+                  children.append (entry.absoluteFilePath ());
+              }
+            else if (entry.isFile ()
+                     && (entry.suffix ().compare ("adi", Qt::CaseInsensitive) == 0
+                         || entry.suffix ().compare ("adif", Qt::CaseInsensitive) == 0))
+              matches.append (entry.absoluteFilePath ());
+          }
+        children.sort ();
+        for (auto it = children.crbegin (); it != children.crend (); ++it) directories.append (*it);
+      }
+    matches.sort ();
+    auto summary = QCoreApplication::translate ("WorkedBefore", "Folder — %1 — %2 — %3 matching files")
+      .arg (QDir::toNativeSeparators (folder.path))
+      .arg (folder.include_subfolders
+            ? QCoreApplication::translate ("WorkedBefore", "Includes subfolders")
+            : QCoreApplication::translate ("WorkedBefore", "This folder only"))
+      .arg (matches.size ());
+    if (!errors.isEmpty ())
+      summary += QCoreApplication::translate ("WorkedBefore", "; discovery incomplete (%1 directory failures)").arg (errors.size ());
+    result.folder_summaries.append (summary);
+    result.directory_failures += errors.size ();
+    result.errors.append (errors);
+    return matches;
+  }
+
+  load_result load_sources (QString const& primary, QStringList const& supplemental, HistoryFolders const& folders,
                             AD1CCty const * prefixes, PerformanceTrace::RunId run)
   {
+    load_result result;
     auto configured = WorkedBefore::normalize_history_files (supplemental, primary);
     configured.prepend (primary);
+    QStringList discovered;
+    for (auto const& folder : folders) discovered.append (discover_folder (folder, result));
+    discovered.sort ();
+    configured.append (discovered);
     QStringList sources;
-    QStringList seen;
+    QSet<QString> seen;
     for (auto const& path : configured)
       {
         auto canonical = QFileInfo {path}.canonicalFilePath ();
         auto key = history_path_key (canonical.isEmpty () ? path : canonical);
         if (!seen.contains (key))
           {
-            seen.append (key);
+            seen.insert (key);
             sources.append (path);
           }
       }
-    load_result result;
     result.files_expected = sources.size ();
     for (auto const& path : sources)
       {
@@ -653,7 +721,8 @@ public:
       prefixes_.reload (configuration_);
     }
     PerformanceTrace::milestone (loader_run_, "logbook.load_started");
-    async_loader_ = QtConcurrent::run (load_sources, path_, configuration_->supplemental_history_files (), &prefixes_, loader_run_);
+    async_loader_ = QtConcurrent::run (load_sources, path_, configuration_->supplemental_history_files (),
+                                     configuration_->supplemental_history_folders (), &prefixes_, loader_run_);
     loader_watcher_.setFuture (async_loader_);
   }
 
@@ -677,7 +746,7 @@ WorkedBefore::WorkedBefore (Configuration const * configuration)
   Q_ASSERT (configuration);
   connect (&m_->loader_watcher_, &QFutureWatcher<load_result>::finished,
            this, &WorkedBefore::handle_loader_finished);
-  connect (configuration, &Configuration::supplemental_history_files_changed, this, &WorkedBefore::reload);
+  connect (configuration, &Configuration::supplemental_history_sources_changed, this, &WorkedBefore::reload);
   reload ();
 }
 
@@ -720,6 +789,13 @@ void WorkedBefore::handle_loader_finished ()
   if (result.primary_absent)
     {
       m_->load_status_ += tr (" The primary log was absent when scanned.");
+    }
+  if (result.directory_failures)
+    m_->load_status_ += tr (" Directory discovery failures: %1.").arg (result.directory_failures);
+  if (!result.folder_summaries.isEmpty ())
+    {
+      m_->load_status_ += "\n\n" + result.folder_summaries.join ('\n');
+      m_->load_status_ += "\n" + tr ("Folder matches may overlap; the overall loaded count represents unique files.");
     }
   QString cty_ver = m_->prefixes_.version();
   auto const error = m_->load_errors_;
@@ -794,6 +870,24 @@ QStringList WorkedBefore::normalize_history_files (QStringList const& files, QSt
         {
           seen.append (key);
           result.append (absolute);
+        }
+    }
+  return result;
+}
+
+HistoryFolders WorkedBefore::normalize_history_folders (HistoryFolders const& folders)
+{
+  HistoryFolders result;
+  QSet<QString> seen;
+  for (auto const& folder : folders)
+    {
+      if (folder.path.isEmpty ()) continue;
+      auto absolute = QDir::cleanPath (QFileInfo {folder.path}.absoluteFilePath ());
+      auto key = history_path_key (absolute);
+      if (!seen.contains (key))
+        {
+          seen.insert (key);
+          result.append ({absolute, folder.include_subfolders});
         }
     }
   return result;

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QStringList>
 #include "AD1CCty.hpp"
+#include "HistoryFolder.hpp"
 #include "pimpl_h.hpp"
 
 class Configuration;
@@ -33,6 +34,7 @@ public:
   QString const& load_status () const;
   QString const& load_errors () const;
   static QStringList normalize_history_files (QStringList const&, QString const& primary_path);
+  static HistoryFolders normalize_history_folders (HistoryFolders const&);
   AD1CCty const * countries () const;
   bool country_worked (QString const& country, QString const& mode, QString const& band,
                        AD1CCty::EntityView view) const;

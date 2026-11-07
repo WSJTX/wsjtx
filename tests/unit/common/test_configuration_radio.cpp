@@ -10,6 +10,9 @@
 #include <QScrollBar>
 #include <QSet>
 #include <functional>
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#endif
 #include "logbook/WorkedBefore.hpp"
 
 // Exercise the private dialog and its auto-connected slots without exposing a test API.
@@ -178,7 +181,7 @@ class TestConfigurationRadio final : public QObject
       && session.previous.online && session.failures.isEmpty ();
   }
 
-  bool inspectHistoryDialog (std::function<void (QDialog&)> const& inspect)
+  bool inspectHistoryDialog (std::function<void (QDialog&)> const& inspect, bool accept = false)
   {
     bool found {false};
     auto& d = dialog ();
@@ -192,7 +195,7 @@ class TestConfigurationRadio final : public QObject
         if (!nested) return;
         found = true;
         inspect (*nested);
-        nested->reject ();
+        nested->done (accept ? QDialog::Accepted : QDialog::Rejected);
       });
     d.on_history_sources_push_button_clicked (false);
     return found;
@@ -208,6 +211,21 @@ class TestConfigurationRadio final : public QObject
   {
     QFile file {path};
     return file.open (QIODevice::ReadOnly) ? file.readAll () : QByteArray {};
+  }
+
+  bool createHistorySymlink (QString const& source, QString const& alias, bool directory)
+  {
+#ifdef Q_OS_WIN
+    auto const target = QDir::toNativeSeparators (source).toStdWString ();
+    auto const link = QDir::toNativeSeparators (alias).toStdWString ();
+    DWORD const flags = directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
+    constexpr DWORD allow_unprivileged_create {0x2};
+    return CreateSymbolicLinkW (link.c_str (), target.c_str (), flags | allow_unprivileged_create)
+      || CreateSymbolicLinkW (link.c_str (), target.c_str (), flags);
+#else
+    Q_UNUSED (directory);
+    return QFile::link (source, alias);
+#endif
   }
 
   bool prepareHistoryDirectory (QTemporaryDir const& directory)
@@ -705,18 +723,224 @@ private slots:
     QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
   }
 
+  void folderHistoryDiscoversCurrentFilesAndOptionalSubfolders ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const exports = history.filePath ("exports");
+    auto const nested = exports + "/2026";
+    QVERIFY (QDir {}.mkpath (nested));
+    auto const immediate = exports + "/station.adi";
+    auto const mixed_case = exports + "/contest.AdIf";
+    auto const nested_file = nested + "/activation.ADI";
+    QVERIFY (writeHistoryFile (immediate, "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (mixed_case, "<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (nested_file, "<call:5>K2XYZ<band:3>20m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (exports + "/notes.txt", "<call:5>K4TXT<eor>"));
+#ifndef Q_OS_WIN
+    QVERIFY (writeHistoryFile (exports + "/.hidden.adi", "<call:5>K4HID<eor>"));
+    QVERIFY (QDir {}.mkpath (exports + "/.archive"));
+    QVERIFY (writeHistoryFile (exports + "/.archive/backup.adi", "<call:5>K4BAK<eor>"));
+#endif
+    HistoryFolder const folder {exports};
+    QVERIFY (!folder.include_subfolders);
+    dialog ().supplemental_history_folders_ = HistoryFolders {folder};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("K1ABC", "FT8", "20m"));
+    QVERIFY (worked.call_worked ("DL1AA", "FT8", "40m"));
+    QVERIFY (!worked.call_worked ("K2XYZ", {}, {}));
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.load_status ().contains ("This folder only"));
+    QVERIFY (worked.load_status ().contains ("2 matching files"));
+
+    dialog ().supplemental_history_folders_.first ().include_subfolders = true;
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 2);
+    QCOMPARE (finished.at (1).at (0).toInt (), 3);
+    QVERIFY (worked.call_worked ("K2XYZ", "FT8", "20m"));
+    QVERIFY (!worked.call_worked ("K4TXT", {}, {}));
+    QVERIFY (!worked.call_worked ("K4HID", {}, {}));
+    QVERIFY (!worked.call_worked ("K4BAK", {}, {}));
+    QVERIFY (worked.load_status ().contains ("Includes subfolders"));
+
+    QVERIFY (QFile::remove (immediate));
+    QVERIFY (QDir {}.mkpath (exports + "/2027/new"));
+    QVERIFY (writeHistoryFile (exports + "/2027/new/activation.adif", "<call:5>K3NEW<eor>"));
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (!worked.call_worked ("K3NEW", {}, {}));
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 3);
+    QCOMPARE (finished.at (2).at (0).toInt (), 3);
+    QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+  }
+
+  void overlappingHistoryFoldersLoadEachFileOnceAndStayReadOnly ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const nested = history.filePath ("exports");
+    QVERIFY (QDir {}.mkpath (nested));
+    auto const source = nested + "/station.adi";
+    QByteArray const contents {"<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"};
+    QVERIFY (writeHistoryFile (source, contents));
+    QVERIFY (writeHistoryFile (history.filePath ("wsjtx_log.adi"), "<call:5>K1ABC<eor>"));
+    dialog ().supplemental_history_files_ = QStringList {source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{history.path (), true}, {nested, false}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY2 (worked.load_status ().contains ("; 2 files loaded."), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.add ("K3NEW", "FN20", "20m", "FT8",
+                        "<call:5>K3NEW<gridsquare:4>FN20<band:3>20m<mode:3>FT8"));
+    QCOMPARE (historyFileContents (source), contents);
+
+    dialog ().supplemental_history_folders_.clear ();
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 2);
+    QVERIFY (worked.call_worked ("DL1AA", {}, {}));
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+    QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
+    dialog ().supplemental_history_files_.clear ();
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 3);
+    QVERIFY (!worked.call_worked ("DL1AA", {}, {}));
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+    QCOMPARE (historyFileContents (source), contents);
+  }
+
+  void folderHistoryDistinguishesEmptyMissingAndMalformedSources ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const empty = history.filePath ("empty");
+    auto const exports = history.filePath ("exports");
+    auto const missing = history.filePath ("disconnected");
+    QVERIFY (QDir {}.mkpath (empty));
+    QVERIFY (QDir {}.mkpath (exports));
+    auto const good = exports + "/good.adi";
+    auto const bad = exports + "/broken.adif";
+    QVERIFY (writeHistoryFile (good, "<call:5>K1ABC<eor>"));
+    QVERIFY (writeHistoryFile (bad, "<call:5>K2BAD<eor><call:99>truncated"));
+    dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.load_status ().contains (QDir::toNativeSeparators (empty)));
+    QVERIFY (worked.load_status ().contains ("0 matching files"));
+
+    dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}, {exports, false}, {missing, true}};
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 2);
+    QCOMPARE (finished.at (1).at (0).toInt (), 1);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (!worked.call_worked ("K2BAD", {}, {}));
+    QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (bad)));
+    QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (missing)));
+    QVERIFY (!worked.load_errors ().contains (QDir::toNativeSeparators (empty)));
+    QVERIFY2 (worked.load_status ().contains ("1 of 2 files loaded"), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_status ().contains ("Directory discovery failures: 1"));
+    QCOMPARE (configuration_->supplemental_history_folders ().size (), 3);
+
+    QVERIFY (QDir {}.mkpath (missing));
+    QVERIFY (writeHistoryFile (missing + "/returned.adi", "<call:5>K3NEW<eor>"));
+    QVERIFY (QFile::remove (bad));
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 3);
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+  }
+
+  void folderHistoryReportsUnreadableDirectories ()
+  {
+#ifdef Q_OS_WIN
+    QSKIP ("QFile permissions do not control directory ACL traversal on Windows.");
+#else
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const exports = history.filePath ("exports");
+    auto const locked = exports + "/locked";
+    QVERIFY (QDir {}.mkpath (locked));
+    QVERIFY (writeHistoryFile (exports + "/good.adi", "<call:5>K1ABC<eor>"));
+    QVERIFY (writeHistoryFile (locked + "/hidden.adi", "<call:5>K2HID<eor>"));
+    auto const permissions = QFile::permissions (locked);
+    QVERIFY (QFile::setPermissions (locked, {}));
+    bool const inaccessible = !QFileInfo {locked}.isReadable ();
+    if (!inaccessible)
+      {
+        QFile::setPermissions (locked, permissions);
+        QSKIP ("This account can still read directories without read permission.");
+      }
+    dialog ().supplemental_history_folders_ = HistoryFolders {{exports, true}, {locked, false}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    bool const completed = finished.wait (5000);
+    QVERIFY (QFile::setPermissions (locked, permissions));
+    QVERIFY (completed);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (!worked.call_worked ("K2HID", {}, {}));
+    QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (locked)));
+    QVERIFY (worked.load_status ().contains ("Directory discovery failures:"));
+#endif
+  }
+
+  void folderHistorySkipsDirectorySymlinksAndDeduplicatesFileAliases ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const exports = history.filePath ("exports");
+    auto const outside = history.filePath ("outside");
+    auto const root_alias = history.filePath ("export-alias");
+    QVERIFY (QDir {}.mkpath (exports));
+    QVERIFY (QDir {}.mkpath (outside));
+    auto const primary = history.filePath ("wsjtx_log.adi");
+    auto const source = exports + "/station.adi";
+    QVERIFY (writeHistoryFile (primary, "<call:5>K1ABC<eor>"));
+    QVERIFY (writeHistoryFile (source, "<call:5>DL1AA<eor>"));
+    QVERIFY (writeHistoryFile (outside + "/excluded.adi", "<call:5>K2OUT<eor>"));
+    if (!createHistorySymlink (exports, root_alias, true))
+      QSKIP ("Creating filesystem directory symlinks is unavailable.");
+    QVERIFY (createHistorySymlink (outside, exports + "/outside-link", true));
+    QVERIFY (createHistorySymlink (exports, exports + "/loop", true));
+    if (!createHistorySymlink (source, exports + "/alias.adif", false))
+      QSKIP ("Creating filesystem file symlinks is unavailable.");
+    QVERIFY (createHistorySymlink (primary, exports + "/primary.adi", false));
+    dialog ().supplemental_history_files_ = QStringList {source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{root_alias, true}, {exports, true}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (worked.call_worked ("DL1AA", {}, {}));
+    QVERIFY (!worked.call_worked ("K2OUT", {}, {}));
+    QVERIFY2 (worked.load_status ().contains ("; 2 files loaded."), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QCOMPARE (configuration_->supplemental_history_folders ().first ().path, root_alias);
+  }
+
   void newerHistorySelectionSupersedesQueuedCompletion ()
   {
     QTemporaryDir history;
     QVERIFY (prepareHistoryDirectory (history));
-    auto const old_source = history.filePath ("old.adi");
-    auto const new_source = history.filePath ("new.adi");
+    auto const old_folder = history.filePath ("old");
+    auto const new_folder = history.filePath ("new");
+    QVERIFY (QDir {}.mkpath (old_folder));
+    QVERIFY (QDir {}.mkpath (new_folder));
+    auto const old_source = old_folder + "/old.adi";
+    auto const new_source = new_folder + "/new.adi";
     QVERIFY (writeHistoryFile (old_source, "<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"));
     QVERIFY (writeHistoryFile (new_source, "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"));
-    dialog ().supplemental_history_files_ = QStringList {old_source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{old_folder, false}};
     WorkedBefore worked {configuration_.get ()};
     QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
-    dialog ().supplemental_history_files_ = QStringList {new_source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{new_folder, false}};
     worked.reload ();
     worked.reload ();
     QTRY_COMPARE (finished.count (), 1);
@@ -731,6 +955,9 @@ private slots:
     QVERIFY (prepareHistoryDirectory (history));
     QVERIFY (writeHistoryFile (history.filePath ("wsjtx_log.adi"),
                               "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (history.filePath ("station.adi"),
+                              "<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"));
+    dialog ().supplemental_history_folders_ = HistoryFolders {{history.path (), false}};
     WorkedBefore worked {configuration_.get ()};
     QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
     QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
@@ -740,7 +967,8 @@ private slots:
     QTRY_COMPARE (finished.count (), 1);
     QVERIFY (worked.call_worked ("K1ABC", "FT8", "20m"));
     QVERIFY (worked.call_worked ("K3NEW", "FT8", "20m"));
-    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("DL1AA", "FT8", "40m"));
+    QCOMPARE (finished.at (0).at (0).toInt (), 3);
   }
 
   void reentrantReloadPreservesCompletionErrors ()
@@ -777,7 +1005,7 @@ private slots:
     auto& d = dialog ();
     ui ().rig_combo_box->setCurrentText ("None");
     d.rig_params_ = d.gather_rig_data ();
-    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_files_changed};
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
     d.next_supplemental_history_files_ = QStringList {source};
     QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
     d.reject ();
@@ -796,6 +1024,148 @@ private slots:
     configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
     QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
     QCOMPARE (dialog ().next_supplemental_history_files_, QStringList {source});
+  }
+
+  void folderSettingsRequireAcceptanceAndPreserveIndependentScopes ()
+  {
+    auto const exports = directory_.filePath ("unavailable-exports");
+    auto const archive = directory_.filePath ("archive");
+    auto const source = directory_.filePath ("explicit.adi");
+    HistoryFolders const expected {{exports, false}, {archive, true}};
+    auto& d = dialog ();
+    ui ().rig_combo_box->setCurrentText ("None");
+    d.rig_params_ = d.gather_rig_data ();
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
+    QVERIFY (configuration_->supplemental_history_folders ().isEmpty ());
+    d.next_supplemental_history_folders_ = expected;
+    d.reject ();
+    QVERIFY (d.next_supplemental_history_folders_.isEmpty ());
+    QCOMPARE (changed.count (), 0);
+
+    d.next_supplemental_history_folders_ = HistoryFolders {{exports, false}, {exports + "/.", true}, {archive, true}};
+    d.next_supplemental_history_files_ = QStringList {source};
+    d.accept ();
+    QVERIFY (configuration_->supplemental_history_folders () == expected);
+    QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
+    QCOMPARE (changed.count (), 1);
+    d.accept ();
+    QCOMPARE (changed.count (), 1);
+    d.next_supplemental_history_folders_.first ().include_subfolders = true;
+    d.accept ();
+    QCOMPARE (changed.count (), 2);
+    QVERIFY (configuration_->supplemental_history_folders ().first ().include_subfolders);
+    d.next_supplemental_history_folders_ = expected;
+    d.accept ();
+    QCOMPARE (changed.count (), 3);
+    configuration_.reset ();
+    settings_->sync ();
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/size").toInt (), 2);
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/1/Path").toString (), exports);
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/1/IncludeSubfolders").toBool (), false);
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/2/IncludeSubfolders").toBool (), true);
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QVERIFY (configuration_->supplemental_history_folders () == expected);
+    QVERIFY (dialog ().next_supplemental_history_folders_ == expected);
+    QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
+  }
+
+  void folderSettingsWithoutRecursionFlagStayNonrecursive ()
+  {
+    configuration_.reset ();
+    auto const path = directory_.filePath ("unavailable-exports");
+    settings_->beginWriteArray ("Configuration/SupplementalHistoryFolders", 1);
+    settings_->setArrayIndex (0);
+    settings_->setValue ("Path", path);
+    settings_->endArray ();
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QCOMPARE (configuration_->supplemental_history_folders ().size (), 1);
+    QCOMPARE (configuration_->supplemental_history_folders ().first ().path, path);
+    QVERIFY (!configuration_->supplemental_history_folders ().first ().include_subfolders);
+    QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
+  }
+
+  void historyFolderScopeSelectionAndDialogCancellation ()
+  {
+    auto& d = dialog ();
+    auto const source = directory_.filePath ("explicit.adi");
+    auto const exports = directory_.filePath ("exports");
+    auto const archive = directory_.filePath ("archive");
+    HistoryFolders const saved {{exports, false}, {archive, true}};
+    d.supplemental_history_files_ = QStringList {source};
+    d.next_supplemental_history_files_ = QStringList {source};
+    d.supplemental_history_folders_ = saved;
+    d.next_supplemental_history_folders_ = saved;
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
+    auto edit_scope = [&] (QDialog& nested) {
+        auto sources = nested.findChild<QListWidget *> ("history_sources_list");
+        auto recursive = nested.findChild<QCheckBox *> ("history_include_subfolders");
+        QVERIFY (sources);
+        QVERIFY (recursive);
+        QCOMPARE (sources->count (), 3);
+        QVERIFY (!recursive->isTristate ());
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        QVERIFY (!recursive->accessibleName ().isEmpty ());
+        QVERIFY (recursive->accessibleDescription ().contains ("beneath the selected folder"));
+        auto first = sources->item (1);
+        auto second = sources->item (2);
+        QVERIFY (first->data (Qt::UserRole + 1).toBool ());
+        QVERIFY (!sources->item (0)->data (Qt::UserRole + 1).toBool ());
+        QCOMPARE (first->data (Qt::UserRole).toString (), exports);
+        QVERIFY (first->text ().contains ("Folder — "));
+        QVERIFY (first->text ().contains ("This folder only"));
+        sources->setCurrentRow (1);
+        QVERIFY (recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        recursive->setFocus ();
+        QTest::keyClick (recursive, Qt::Key_Space);
+        QVERIFY (recursive->isChecked ());
+        QVERIFY (first->data (Qt::UserRole + 2).toBool ());
+        QVERIFY (first->text ().contains ("Includes subfolders"));
+        QCOMPARE (first->data (Qt::AccessibleTextRole).toString (), first->text ());
+        QCOMPARE (first->toolTip (), first->text ());
+        sources->setCurrentRow (0);
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        QVERIFY (first->data (Qt::UserRole + 2).toBool ());
+        sources->setCurrentRow (2);
+        QVERIFY (recursive->isEnabled ());
+        QVERIFY (recursive->isChecked ());
+        first->setSelected (true);
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        QVERIFY (first->data (Qt::UserRole + 2).toBool ());
+        QVERIFY (second->data (Qt::UserRole + 2).toBool ());
+        sources->clearSelection ();
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+      };
+    QVERIFY (inspectHistoryDialog (edit_scope));
+    QVERIFY (d.next_supplemental_history_folders_ == saved);
+    QVERIFY (configuration_->supplemental_history_folders () == saved);
+    QVERIFY (inspectHistoryDialog (edit_scope, true));
+    QVERIFY (d.next_supplemental_history_folders_.first ().include_subfolders);
+    QVERIFY (configuration_->supplemental_history_folders () == saved);
+    QCOMPARE (changed.count (), 0);
+    d.reject ();
+    QVERIFY (d.next_supplemental_history_folders_ == saved);
+
+    QVERIFY (inspectHistoryDialog ([&] (QDialog& nested) {
+        auto sources = nested.findChild<QListWidget *> ("history_sources_list");
+        auto remove = nested.findChild<QPushButton *> ("history_remove");
+        QVERIFY (sources);
+        QVERIFY (remove);
+        sources->setCurrentRow (1);
+        sources->item (2)->setSelected (true);
+        remove->click ();
+        QCOMPARE (sources->count (), 1);
+      }, true));
+    QVERIFY (d.next_supplemental_history_folders_.isEmpty ());
+    QCOMPARE (d.next_supplemental_history_files_, QStringList {source});
+    QVERIFY (configuration_->supplemental_history_folders () == saved);
+    d.reject ();
+    QVERIFY (d.next_supplemental_history_folders_ == saved);
+    QCOMPARE (changed.count (), 0);
   }
 
   void historySourceDialogAnnotatesPrimaryAliasesWithoutChangingPaths ()
@@ -829,7 +1199,7 @@ private slots:
             QCOMPARE (sources->item (0)->text ().contains ("Same file as primary log"), expected_annotation);
             QCOMPARE (sources->item (0)->data (Qt::AccessibleTextRole).toString (), sources->item (0)->text ());
             QCOMPARE (sources->item (0)->toolTip (), sources->item (0)->text ());
-            QCOMPARE (sources->item (1)->text (), QDir::toNativeSeparators (missing));
+            QCOMPARE (sources->item (1)->text (), "File — " + QDir::toNativeSeparators (missing));
           }));
         QCOMPARE (d.next_supplemental_history_files_, paths);
         QCOMPARE (configuration_->supplemental_history_files (), paths);
@@ -862,6 +1232,7 @@ private slots:
     font.setPointSize (font.pointSize () + font_delta);
     auto const source = history.filePath (QString (180, 'x') + ".adi");
     d.next_supplemental_history_files_ = QStringList {source};
+    d.next_supplemental_history_folders_ = HistoryFolders {{history.filePath (QString (180, 'y')), false}};
     configuration_->set_worked_before_status ("Incomplete history: one source could not be read.",
                                               source + ": " + QString (400, 'E'));
 
@@ -871,11 +1242,34 @@ private slots:
         auto status = nested.findChild<QTextEdit *> ();
         auto primary = nested.findChild<QLineEdit *> ();
         auto buttons = nested.findChild<QDialogButtonBox *> ();
+        auto recursive = nested.findChild<QCheckBox *> ("history_include_subfolders");
         QVERIFY (scroll);
         QVERIFY (sources);
         QVERIFY (status);
         QVERIFY (primary);
         QVERIFY (buttons);
+        QVERIFY (recursive);
+        auto const geometry_in = [] (QWidget * widget, QWidget * ancestor) {
+            return QRect {widget->mapTo (ancestor, {}), widget->size ()};
+          };
+        nested.layout ()->activate ();
+        QApplication::processEvents ();
+        for (auto const& name : {"history_add_files", "history_add_folder", "history_remove", "history_open_folder"})
+          {
+            auto action = nested.findChild<QPushButton *> (name);
+            QVERIFY2 (action, name);
+            QVERIFY (action->isVisible ());
+            QString diagnostic;
+            {
+              QDebug debug {&diagnostic};
+              debug << "initial action" << name << geometry_in (action, scroll->viewport ())
+                    << "viewport" << scroll->viewport ()->rect () << "dialog" << nested.size ()
+                    << "content" << scroll->widget ()->size ()
+                    << "scrollPosition" << scroll->verticalScrollBar ()->value ();
+            }
+            QVERIFY2 (scroll->viewport ()->rect ().contains (geometry_in (action, scroll->viewport ())),
+                      qPrintable (diagnostic));
+          }
         nested.setFont (font);
         nested.resize ({640, 480});
         nested.layout ()->activate ();
@@ -883,9 +1277,6 @@ private slots:
         QCOMPARE (nested.size (), QSize (640, 480));
         QCOMPARE (status->font ().pointSizeF (), font.pointSizeF ());
         QCOMPARE (primary->font ().pointSizeF (), font.pointSizeF ());
-        auto const geometry_in = [] (QWidget * widget, QWidget * ancestor) {
-            return QRect {widget->mapTo (ancestor, {}), widget->size ()};
-          };
         auto layout_diagnostic = [&] {
             QString diagnostic;
             {
@@ -911,8 +1302,9 @@ private slots:
         QVERIFY (sources->horizontalScrollBar ()->maximum () > 0);
         if (font_delta) QVERIFY (scroll->verticalScrollBar ()->maximum () > 0);
 
-        sources->setCurrentRow (0);
-        QSet<QWidget *> expected_focus {primary, sources, status, ok, cancel};
+        sources->setCurrentRow (1);
+        QVERIFY (recursive->isEnabled ());
+        QSet<QWidget *> expected_focus {primary, sources, recursive, status, ok, cancel};
         for (auto button : nested.findChildren<QPushButton *> ())
           if (button->isEnabled () && button->focusPolicy () != Qt::NoFocus)
             expected_focus.insert (button);
@@ -982,7 +1374,7 @@ private slots:
     auto& d = dialog ();
     d.supplemental_history_files_ = QStringList {source};
     d.next_supplemental_history_files_ = QStringList {source};
-    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_files_changed};
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
     QString const summary {"Incomplete history: one source could not be read."};
     QString const errors {"station.adi: unavailable"};
     QStringList observed_paths;

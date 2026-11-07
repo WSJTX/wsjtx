@@ -30,20 +30,37 @@ This is the writable primary log: new contacts logged in _WSJT-X_ are
 appended here. You can still replace this file with an ADIF export
 from your station logging application and click *Rescan ADIF Log*.
 
-* Click *History sources...* to select additional ADIF files as
-read-only history. These files contribute to worked-before highlighting
+* Click *History sources...* and use *Add files...* for individual ADIF
+exports or *Add folder...* for a persistent folder source. These sources
+contribute read-only worked-before history
 without copying their contacts into the primary log. _WSJT-X_ does not
 append to, rewrite, or erase these files. Removing a source from the
 list does not delete it.
 
+* Added folders include all `.adi` and `.adif` files directly inside them,
+including mixed-case extensions. Select a folder in the list and check
+*Include subfolders* to include files beneath it. This option starts off
+for each new folder. Hidden files and folders and symbolic links to child
+folders are skipped. For example, use a dedicated ADIF export folder, with
+optional subfolders by year or contest, to avoid including unrelated logs
+or backups. Explicit file selections remain independent of folder sources.
+
 * Source changes take effect when you accept *Settings* with *OK*;
-*Cancel* discards them. Loading then runs in the background. Click
-*Rescan ADIF Log* after updating an external file; Rescan uses the saved
-sources, including the primary log, rather than unaccepted changes.
+*Cancel* discards them. The history dialog's *OK* stages its edits and its
+*Cancel* discards them. Loading runs in the background at startup and after
+accepting changed sources. Folder selections are saved, so new files and
+subfolders are discovered on the next scan. Click *Rescan saved sources*
+in this dialog or *Rescan ADIF Log* after adding, removing, or updating
+external files. Rescan uses the saved sources, including the primary log,
+rather than unaccepted changes. Folders are not watched continuously.
 
 * Scan results appear briefly in the main window status bar and remain
 visible on *Colors*. Scan failures do not open a warning dialog, including
-at startup. *History sources...* shows the source paths and error details.
+at startup. *History sources...* shows each folder's scope and matching-file
+count, plus any directory-discovery or file-loading errors. Folder counts
+can overlap; the overall loaded-file count counts each file once. An empty
+folder is valid. Missing or inaccessible folders remain configured and
+make the scan incomplete or failed; reconnect or correct them and rescan.
 
 * If the primary log ends with an incomplete or invalid record, completed
 records before the error remain available and the scan reports incomplete

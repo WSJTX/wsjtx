@@ -3283,7 +3283,7 @@ Right click for insert and delete options.</string>
             <item>
              <widget class="QPushButton" name="history_sources_push_button">
               <property name="toolTip">
-               <string>Select additional ADIF files to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
+               <string>Select additional ADIF files and folders to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
               </property>
               <property name="text">
                <string>History sources...</string>

@@ -1008,6 +1008,8 @@ private:
   bool highlight_by_mode_;
   QStringList supplemental_history_files_;
   QStringList next_supplemental_history_files_;
+  HistoryFolders supplemental_history_folders_;
+  HistoryFolders next_supplemental_history_folders_;
   QString worked_before_status_;
   QString worked_before_errors_;
   bool highlight_only_fields_;
@@ -1394,6 +1396,7 @@ LotWUsers const& Configuration::lotw_users () const {return m_->lotw_users_;}
 DecodeHighlightingModel const& Configuration::decode_highlighting () const {return m_->decode_highlighing_model_;}
 bool Configuration::highlight_by_mode () const {return m_->highlight_by_mode_;}
 QStringList const& Configuration::supplemental_history_files () const {return m_->supplemental_history_files_;}
+HistoryFolders const& Configuration::supplemental_history_folders () const {return m_->supplemental_history_folders_;}
 void Configuration::set_worked_before_status (QString const& status, QString const& errors)
 {
   m_->worked_before_status_ = status;
@@ -3465,6 +3468,7 @@ void Configuration::impl::initialize_models ()
   next_decode_highlighing_model_.items (decode_highlighing_model_.items ());
   ui_->highlight_by_mode_check_box->setChecked (highlight_by_mode_);
   next_supplemental_history_files_ = supplemental_history_files_;
+  next_supplemental_history_folders_ = supplemental_history_folders_;
   ui_->only_fields_check_box->setChecked (highlight_only_fields_);
   ui_->include_WAE_check_box->setChecked (include_WAE_entities_);
   ui_->highlight_73_check_box->setChecked (highlight_73_);
@@ -3763,6 +3767,16 @@ void Configuration::impl::read_settings ()
   supplemental_history_files_ = WorkedBefore::normalize_history_files (
     settings_->value ("SupplementalHistoryFiles").toStringList (),
     writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
+  supplemental_history_folders_.clear ();
+  auto const history_folder_count = settings_->beginReadArray ("SupplementalHistoryFolders");
+  for (int index = 0; index < history_folder_count; ++index)
+    {
+      settings_->setArrayIndex (index);
+      supplemental_history_folders_.append ({settings_->value ("Path").toString (),
+                                             settings_->value ("IncludeSubfolders", false).toBool ()});
+    }
+  settings_->endArray ();
+  supplemental_history_folders_ = WorkedBefore::normalize_history_folders (supplemental_history_folders_);
   highlight_only_fields_ = settings_->value("OnlyFieldsSought", false).toBool ();
   include_WAE_entities_ = settings_->value("IncludeWAEEntities", false).toBool ();
   highlight_73_ = settings_->value("Highlight73", true).toBool ();
@@ -4063,6 +4077,15 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("DecodeHighlighting", QVariant::fromValue (decode_highlighing_model_.items ()));
   settings_->setValue ("HighlightByMode", highlight_by_mode_);
   settings_->setValue ("SupplementalHistoryFiles", supplemental_history_files_);
+  settings_->beginWriteArray ("SupplementalHistoryFolders", supplemental_history_folders_.size ());
+  for (int index = 0; index < supplemental_history_folders_.size (); ++index)
+    {
+      settings_->setArrayIndex (index);
+      auto const& folder = supplemental_history_folders_.at (index);
+      settings_->setValue ("Path", folder.path);
+      settings_->setValue ("IncludeSubfolders", folder.include_subfolders);
+    }
+  settings_->endArray ();
   settings_->setValue ("OnlyFieldsSought", highlight_only_fields_);
   settings_->setValue ("IncludeWAEEntities", include_WAE_entities_);
   settings_->setValue ("Highlight73", highlight_73_);
@@ -4977,11 +5000,15 @@ void Configuration::impl::accept ()
 
   auto history_files = WorkedBefore::normalize_history_files (
     next_supplemental_history_files_, writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
-  bool history_changed = history_files != supplemental_history_files_;
+  auto history_folders = WorkedBefore::normalize_history_folders (next_supplemental_history_folders_);
+  bool history_changed = history_files != supplemental_history_files_
+    || history_folders != supplemental_history_folders_;
   supplemental_history_files_ = history_files;
   next_supplemental_history_files_ = history_files;
+  supplemental_history_folders_ = history_folders;
+  next_supplemental_history_folders_ = history_folders;
   write_settings ();		// make visible to all
-  if (history_changed) Q_EMIT self_->supplemental_history_files_changed ();
+  if (history_changed) Q_EMIT self_->supplemental_history_sources_changed ();
   if (previous_decodes_from_top != decodes_from_top_)
     {
       Q_EMIT self_->decodes_from_top_changed (decodes_from_top_);
@@ -5074,7 +5101,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   auto layout = new QVBoxLayout {content};
   scroll->setWidget (content);
   outer_layout->addWidget (scroll);
-  auto explanation = new QLabel {tr ("The WSJT-X log receives new QSOs. Additional ADIF files supply read-only "
+  auto explanation = new QLabel {tr ("The WSJT-X log receives new QSOs. Additional ADIF sources supply read-only "
                                     "worked-before history; contacts are not copied into the WSJT-X log. "
                                     "Aliases of the primary log refer to the same writable file. "
                                     "Source changes take effect after Settings OK."), &dialog};
@@ -5102,22 +5129,29 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
       QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {primary_path}.absolutePath ()));
     });
 
-  auto sources_label = new QLabel {tr ("Additional ADIF &history files (read-only):"), &dialog};
+  auto sources_label = new QLabel {tr ("Additional ADIF &history sources (read-only):"), &dialog};
   sources_label->setWordWrap (true);
   layout->addWidget (sources_label);
   auto sources = new QListWidget {&dialog};
-  sources->setAccessibleName (tr ("Additional read-only ADIF history files"));
-  sources->setAccessibleDescription (tr ("Full file paths. Removing an item does not delete its file."));
+  sources->setObjectName ("history_sources_list");
+  sources->setAccessibleName (tr ("Additional read-only ADIF history sources"));
+  sources->setAccessibleDescription (tr ("Source types, full paths, and folder scope. Removing a source does not delete its files."));
   sources->setSelectionMode (QAbstractItemView::ExtendedSelection);
   sources->setTextElideMode (Qt::ElideNone);
   sources->setHorizontalScrollBarPolicy (Qt::ScrollBarAsNeeded);
+  sources->setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Ignored);
+  sources->setMinimumHeight (sources->fontMetrics ().lineSpacing () * 4 + sources->frameWidth () * 2);
   sources_label->setBuddy (sources);
-  auto populate = [sources, primary_path] (QStringList const& paths) {
-      sources->clear ();
-      auto const primary_canonical = QFileInfo {primary_path}.canonicalFilePath ();
-      for (auto const& path : paths)
+  auto update_item = [primary_path] (QListWidgetItem * item) {
+      auto const path = item->data (Qt::UserRole).toString ();
+      auto const is_folder = item->data (Qt::UserRole + 1).toBool ();
+      auto label = (is_folder ? tr ("Folder") : tr ("File")) + " — " + QDir::toNativeSeparators (path);
+      if (is_folder)
+        label += " — " + (item->data (Qt::UserRole + 2).toBool ()
+                            ? tr ("Includes subfolders") : tr ("This folder only"));
+      else
         {
-          auto label = QDir::toNativeSeparators (path);
+          auto const primary_canonical = QFileInfo {primary_path}.canonicalFilePath ();
           auto const canonical = QFileInfo {path}.canonicalFilePath ();
 #ifdef Q_OS_WIN
           bool const same_primary = !primary_canonical.isEmpty ()
@@ -5126,55 +5160,145 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
           bool const same_primary = !primary_canonical.isEmpty () && canonical == primary_canonical;
 #endif
           if (same_primary) label += " — " + tr ("Same file as primary log");
-          auto item = new QListWidgetItem {label, sources};
-          item->setData (Qt::UserRole, path);
-          item->setData (Qt::AccessibleTextRole, label);
-          item->setToolTip (label);
         }
+      item->setText (label);
+      item->setData (Qt::AccessibleTextRole, label);
+      item->setToolTip (label);
+    };
+  auto append_item = [sources, update_item] (QString const& path, bool is_folder, bool recursive) {
+      auto item = new QListWidgetItem {sources};
+      item->setData (Qt::UserRole, path);
+      item->setData (Qt::UserRole + 1, is_folder);
+      item->setData (Qt::UserRole + 2, recursive);
+      update_item (item);
+      return item;
     };
   auto selected_paths = [sources] {
       QStringList paths;
       for (int row = 0; row != sources->count (); ++row)
-        paths.append (sources->item (row)->data (Qt::UserRole).toString ());
+        if (!sources->item (row)->data (Qt::UserRole + 1).toBool ())
+          paths.append (sources->item (row)->data (Qt::UserRole).toString ());
       return paths;
     };
-  populate (next_supplemental_history_files_);
+  auto selected_folders = [sources] {
+      HistoryFolders folders;
+      for (int row = 0; row != sources->count (); ++row)
+        {
+          auto const item = sources->item (row);
+          if (item->data (Qt::UserRole + 1).toBool ())
+            folders.append ({item->data (Qt::UserRole).toString (), item->data (Qt::UserRole + 2).toBool ()});
+        }
+      return folders;
+    };
+  for (auto const& path : next_supplemental_history_files_) append_item (path, false, false);
+  for (auto const& folder : next_supplemental_history_folders_)
+    append_item (folder.path, true, folder.include_subfolders);
   layout->addWidget (sources);
+  auto recursive = new QCheckBox {tr ("Include &subfolders"), &dialog};
+  recursive->setObjectName ("history_include_subfolders");
+  recursive->setAccessibleName (tr ("Include subfolders"));
+  recursive->setToolTip (tr ("Also include ADIF files in folders beneath the selected folder."));
+  recursive->setAccessibleDescription (recursive->toolTip ());
+  recursive->setFocusPolicy (Qt::StrongFocus);
+  layout->addWidget (recursive);
+  auto discovery_hint = new QLabel {tr ("All .adi and .adif files in added folders are used for worked-before history. "
+                                       "New files are included at startup or when you rescan."), &dialog};
+  discovery_hint->setWordWrap (true);
   auto actions = new QHBoxLayout;
-  auto add = new QPushButton {tr ("&Add..."), &dialog};
+  auto add = new QPushButton {tr ("Add &files..."), &dialog};
+  auto add_folder = new QPushButton {tr ("Add f&older..."), &dialog};
   auto remove = new QPushButton {tr ("&Remove"), &dialog};
-  auto folder = new QPushButton {tr ("Open &folder"), &dialog};
+  auto folder = new QPushButton {tr ("Open fol&der"), &dialog};
+  add->setObjectName ("history_add_files");
+  add_folder->setObjectName ("history_add_folder");
+  remove->setObjectName ("history_remove");
+  folder->setObjectName ("history_open_folder");
   add->setAccessibleName (tr ("Add read-only ADIF history files"));
+  add_folder->setAccessibleName (tr ("Add read-only ADIF history folder"));
   remove->setAccessibleName (tr ("Remove selected history sources"));
   folder->setAccessibleName (tr ("Open selected history source folder"));
-  for (auto button : {add, remove, folder})
+  for (auto button : {add, add_folder, remove, folder})
     {
       button->setAutoDefault (false);
       button->setFocusPolicy (Qt::StrongFocus);
-      actions->addWidget (button);
     }
+  actions->addWidget (add);
+  actions->addWidget (add_folder);
   actions->addStretch ();
   layout->addLayout (actions);
+  auto selection_actions = new QHBoxLayout;
+  selection_actions->addWidget (remove);
+  selection_actions->addWidget (folder);
+  selection_actions->addStretch ();
+  layout->addLayout (selection_actions);
+  layout->addWidget (discovery_hint);
   auto hint = new QLabel {&dialog};
   hint->setWordWrap (true);
   layout->addWidget (hint);
-  auto update_actions = [sources, remove, folder] {
-      remove->setEnabled (!sources->selectedItems ().isEmpty ());
-      folder->setEnabled (sources->selectedItems ().size () == 1);
+  auto update_actions = [sources, remove, folder, recursive] {
+      auto const selected = sources->selectedItems ();
+      remove->setEnabled (!selected.isEmpty ());
+      folder->setEnabled (selected.size () == 1);
+      QSignalBlocker blocker {recursive};
+      bool const single_folder = selected.size () == 1 && selected.first ()->data (Qt::UserRole + 1).toBool ();
+      recursive->setEnabled (single_folder);
+      recursive->setChecked (single_folder && selected.first ()->data (Qt::UserRole + 2).toBool ());
     };
   connect (sources, &QListWidget::itemSelectionChanged, &dialog, update_actions);
   update_actions ();
-  connect (add, &QPushButton::clicked, &dialog, [&dialog, sources, hint, populate, selected_paths, primary_path] {
+  connect (recursive, &QCheckBox::toggled, &dialog, [sources, update_item] (bool checked) {
+      auto const selected = sources->selectedItems ();
+      if (selected.size () == 1 && selected.first ()->data (Qt::UserRole + 1).toBool ())
+        {
+          selected.first ()->setData (Qt::UserRole + 2, checked);
+          update_item (selected.first ());
+        }
+    });
+  connect (add, &QPushButton::clicked, &dialog, [&dialog, sources, hint, append_item, selected_paths, primary_path] {
       auto paths = QFileDialog::getOpenFileNames (&dialog, tr ("Add read-only ADIF history"),
                                                  QFileInfo {primary_path}.absolutePath (),
                                                  tr ("ADIF files (*.adi *.adif);;All files (*)"));
       if (paths.isEmpty ()) return;
-      auto const proposed = selected_paths () + paths;
+      auto const existing = selected_paths ();
+      auto const proposed = existing + paths;
       auto const normalized = WorkedBefore::normalize_history_files (proposed, primary_path);
-      populate (normalized);
+      for (auto const& path : normalized)
+        if (!existing.contains (path)) append_item (path, false, false);
       hint->setText (normalized.size () < proposed.size ()
         ? tr ("Already selected files and the writable WSJT-X log were skipped.") : QString {});
       if (sources->count ()) sources->setCurrentRow (sources->count () - 1);
+      sources->setFocus ();
+    });
+  connect (add_folder, &QPushButton::clicked, &dialog,
+           [&dialog, sources, hint, append_item, selected_folders, primary_path] {
+      auto const path = QFileDialog::getExistingDirectory (&dialog, tr ("Add read-only ADIF history folder"),
+                                                          QFileInfo {primary_path}.absolutePath (),
+                                                          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+      if (path.isEmpty ()) return;
+      auto const existing = selected_folders ();
+      auto proposed = existing;
+      proposed.append ({path, false});
+      auto const normalized = WorkedBefore::normalize_history_folders (proposed);
+      QListWidgetItem * item = nullptr;
+      if (normalized.size () > existing.size ())
+        item = append_item (normalized.last ().path, true, false);
+      else
+        {
+          auto const normalized_path = WorkedBefore::normalize_history_folders ({{path, false}}).first ().path;
+          for (int row = 0; row != sources->count (); ++row)
+            {
+              auto candidate = sources->item (row);
+              if (!candidate->data (Qt::UserRole + 1).toBool ()) continue;
+#ifdef Q_OS_WIN
+              if (candidate->data (Qt::UserRole).toString ().compare (normalized_path, Qt::CaseInsensitive) == 0)
+#else
+              if (candidate->data (Qt::UserRole).toString () == normalized_path)
+#endif
+                { item = candidate; break; }
+            }
+        }
+      sources->setCurrentItem (item, QItemSelectionModel::ClearAndSelect);
+      hint->setText (normalized.size () == existing.size () ? tr ("This folder is already selected.") : QString {});
       sources->setFocus ();
     });
   connect (remove, &QPushButton::clicked, &dialog, [sources, hint] {
@@ -5185,8 +5309,12 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   connect (folder, &QPushButton::clicked, &dialog, [sources] {
       auto const selected = sources->selectedItems ();
       if (selected.size () == 1)
-        QDesktopServices::openUrl (QUrl::fromLocalFile (
-          QFileInfo {selected.first ()->data (Qt::UserRole).toString ()}.absolutePath ()));
+        {
+          auto const item = selected.first ();
+          auto const path = item->data (Qt::UserRole).toString ();
+          QDesktopServices::openUrl (QUrl::fromLocalFile (
+            item->data (Qt::UserRole + 1).toBool () ? path : QFileInfo {path}.absolutePath ()));
+        }
     });
 
   auto status_label = new QLabel {tr ("Last scan of saved sources:"), &dialog};
@@ -5195,6 +5323,8 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   auto status = new QTextEdit {&dialog};
   status->setReadOnly (true);
   status->setMaximumHeight (130);
+  status->setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Ignored);
+  status->setMinimumHeight (status->fontMetrics ().lineSpacing () * 3 + status->frameWidth () * 2);
   status->setAccessibleName (tr ("Worked-before scan result and source errors"));
   status_label->setBuddy (status);
   auto update_status = [this, status] {
@@ -5217,13 +5347,16 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   connect (buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
   connect (buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
   outer_layout->addWidget (buttons);
-  dialog.resize (650, 580);
+  dialog.resize (650, 680);
   auto screen = windowHandle () ? windowHandle ()->screen () : QGuiApplication::primaryScreen ();
   if (screen) dialog.resize (dialog.size ().boundedTo (screen->availableGeometry ().size () - QSize {40, 60}));
   primary->setCursorPosition (0);
   sources->setFocus ();
   if (dialog.exec () == QDialog::Accepted)
-    next_supplemental_history_files_ = selected_paths ();
+    {
+      next_supplemental_history_files_ = selected_paths ();
+      next_supplemental_history_folders_ = selected_folders ();
+    }
 }
 
 void Configuration::impl::on_CTY_download_button_clicked (bool /*clicked*/)

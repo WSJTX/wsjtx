@@ -17,6 +17,7 @@
 #include "Audio/AudioDevice.hpp"
 #include "Transceiver/Transceiver.hpp"
 #include "Network/CloudlogConfiguration.hpp"
+#include "logbook/HistoryFolder.hpp"
 
 // Qt 5 moc generates unqualified argument names for these value types.
 using TxSessionId = TxEvidence::TxSessionId;
@@ -288,6 +289,7 @@ public:
   DecodeHighlightingModel const& decode_highlighting () const;
   bool highlight_by_mode () const;
   QStringList const& supplemental_history_files () const;
+  HistoryFolders const& supplemental_history_folders () const;
   void set_worked_before_status (QString const& status, QString const& errors);
   bool highlight_only_fields () const;
   bool include_WAE_entities () const;
@@ -495,7 +497,7 @@ public:
   // signal updates to decode highlighting
   Q_SIGNAL void decode_highlighting_changed (DecodeHighlightingModel const&) const;
   Q_SIGNAL void decodes_from_top_changed (bool enabled) const;
-  Q_SIGNAL void supplemental_history_files_changed () const;
+  Q_SIGNAL void supplemental_history_sources_changed () const;
   Q_SIGNAL void worked_before_status_changed () const;
 
   //
