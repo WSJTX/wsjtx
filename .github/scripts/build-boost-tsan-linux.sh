@@ -36,6 +36,8 @@ fi
 
 tar -xjf "$archive" -C "$build_root"
 cd "${build_root}/boost_${version_underscores}"
+python3 "${script_dir}/patch-boost-log-queue.py" "$PWD" \
+  --manifest "${prefix}/share/wsjtx/boost-log-queue-patch.json"
 
 printf 'using gcc : %s : %s ;\n' "$TSAN_GCC_SUFFIX" "$TSAN_CXX" > user-config.jam
 ./bootstrap.sh --prefix="$prefix" --with-libraries=log
@@ -43,7 +45,7 @@ printf 'using gcc : %s : %s ;\n' "$TSAN_GCC_SUFFIX" "$TSAN_CXX" > user-config.ja
   --user-config="${PWD}/user-config.jam" \
   toolset="gcc-${TSAN_GCC_SUFFIX}" \
   variant=release \
-  link=shared \
+  link=static \
   runtime-link=shared \
   threading=multi \
   cxxstd=11 \

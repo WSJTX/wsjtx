@@ -1,59 +1,3 @@
-FROM debian:bookworm@sha256:704583dbf243593da87cf949fc0543ffeca24a28d36c2760dc9545410cb8ed02 AS toolchain
-
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-ENV DEBIAN_FRONTEND=noninteractive ARMHF_DISTRO=bookworm
-
-COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
-COPY .github/scripts/armhf-toolchain-config.sh /usr/local/share/wsjtx-ci/
-RUN set -eux; \
-    . /usr/local/share/wsjtx-ci/armhf-toolchain-config.sh; \
-    test -n "$ARMHF_TOOLCHAIN_REBUILD_REVISION"; \
-    chmod +x /usr/local/bin/run-apt-get; \
-    run-apt-get update; \
-    run-apt-get install -y --no-install-recommends \
-      autoconf automake bison build-essential ca-certificates curl file flex \
-      gawk gperf help2man libncurses-dev libtool libtool-bin patch pkg-config python3 \
-      rsync texinfo unzip wget xz-utils; \
-    run-apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
-
-COPY .github/images/linux-ci/armhf-cross-toolchain.config \
-     /usr/local/share/wsjtx-ci/armhf-cross-toolchain.config
-
-RUN set -eux; \
-    . /usr/local/share/wsjtx-ci/armhf-toolchain-config.sh; \
-    curl --fail --show-error --silent --location --retry 5 \
-      -o /tmp/crosstool-ng.tar.xz "$ARMHF_CROSSTOOL_NG_URL"; \
-    echo "$ARMHF_CROSSTOOL_NG_SHA256  /tmp/crosstool-ng.tar.xz" | sha256sum -c -; \
-    mkdir /tmp/crosstool-ng; \
-    tar -xf /tmp/crosstool-ng.tar.xz -C /tmp/crosstool-ng --strip-components=1; \
-    cd /tmp/crosstool-ng; \
-    ./configure --prefix=/usr/local; \
-    make -j"$(nproc)"; \
-    make install; \
-    cd /; \
-    rm -rf /tmp/crosstool-ng /tmp/crosstool-ng.tar.xz; \
-    useradd --create-home --shell /bin/bash wsjtx; \
-    mkdir -p /var/cache/wsjtx-ctng /opt/wsjtx; \
-    chown -R wsjtx:wsjtx /var/cache/wsjtx-ctng /opt/wsjtx
-
-USER wsjtx
-RUN --mount=type=cache,id=wsjtx-armhf-ctng-downloads,target=/var/cache/wsjtx-ctng,uid=1000,gid=1000 \
-    set -eux; \
-    build_dir=/tmp/wsjtx-ctng-build; \
-    mkdir "$build_dir"; \
-    cd "$build_dir"; \
-    cp /usr/local/share/wsjtx-ci/armhf-cross-toolchain.config .config; \
-    ct-ng olddefconfig; \
-    # crosstool-NG prints only a summary on failure; expose the detailed compiler \
-    # tail so hosted image failures can be diagnosed without reproducing locally. \
-    if ! ct-ng build; then \
-      tail -n 300 build.log >&2; \
-      exit 1; \
-    fi; \
-    cd /; \
-    rm -rf "$build_dir"
-
 FROM debian:bookworm AS cross_builder
 
 ARG IMAGE_REFRESH_EPOCH
@@ -71,12 +15,26 @@ RUN chmod +x /usr/local/bin/run-apt-get \
       help2man libncurses-dev libtool libtool-bin mmdebstrap patch pkg-config \
       python3 python3-dev qt5-qmake-bin qtbase5-dev-tools qttools5-dev-tools \
       qemu-user-static rsync texinfo unzip wget xz-utils \
+      gcc-12-arm-linux-gnueabihf g++-12-arm-linux-gnueabihf \
+      gfortran-12-arm-linux-gnueabihf \
     && run-apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=toolchain /opt/wsjtx/armhf-toolchain /opt/wsjtx/armhf-toolchain
+RUN set -eux; \
+    mkdir -p /opt/wsjtx/armhf-toolchain/bin; \
+    for tool in gcc g++ gfortran; do \
+      ln -s "/usr/bin/arm-linux-gnueabihf-$tool-12" "/opt/wsjtx/armhf-toolchain/bin/arm-linux-gnueabihf-$tool"; \
+    done; \
+    for tool in ar nm objcopy objdump ranlib readelf strip; do \
+      ln -s "/usr/bin/arm-linux-gnueabihf-$tool" "/opt/wsjtx/armhf-toolchain/bin/arm-linux-gnueabihf-$tool"; \
+    done
 
 COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/linux-boost-config.sh \
+     .github/scripts/boost-version.sh \
+     .github/scripts/build-boost-linux.sh \
+     .github/scripts/patch-boost-log-queue.py \
+     .github/scripts/linux-artifact-validation.sh \
      .github/scripts/fftw-version.sh \
      .github/scripts/build-fftw.sh \
      .github/scripts/build-fftw-smoke-linux.sh \
@@ -103,7 +61,7 @@ LABEL org.opencontainers.image.created="${IMAGE_CREATED}" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
       org.opencontainers.image.source="https://github.com/WSJTX/wsjtx-internal" \
       org.opencontainers.image.title="WSJT-X ARMHF cross-builder" \
-      org.opencontainers.image.description="Native x86_64 GCC 13.4 cross-builder with a Debian Bookworm ARMHF sysroot"
+      org.opencontainers.image.description="Native x86_64 Debian GCC 12 cross-builder with a Debian Bookworm ARMHF time32 sysroot"
 RUN set -eux; \
     . /usr/local/share/wsjtx-ci/armhf-ci-image-config.sh; \
     /usr/local/share/wsjtx-ci/write-armhf-ci-manifest.sh \

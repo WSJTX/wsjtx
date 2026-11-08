@@ -211,7 +211,9 @@ git() {
                 self.assertTrue(any(fnmatch.fnmatchcase(path, pattern) for pattern in push_filters))
                 outputs = self.select_warmers("push", paths=[path])
                 self.assertEqual(outputs["linux_armhf"], "true")
-                self.assertEqual(outputs["image_set"], "none")
+                expected_images = ("normal-and-tsan" if path ==
+                                   ".github/scripts/linux-artifact-validation.sh" else "none")
+                self.assertEqual(outputs["image_set"], expected_images)
 
     def test_armhf_warmers_share_configuration_and_serialize(self):
         standalone = job("warm-linux-armhf-ccache", WARM)
@@ -389,12 +391,35 @@ git() {
         self.assertIn("armhf-runtime-bookworm", CLASSIFIER)
         self.assertIn('include_armhf: true', WARM)
 
-    def test_fftw_policy_refreshes_images_and_native_caches(self):
-        case = re.search(r"\.github/scripts/fftw-version\.sh\)\n(?P<body>.*?);;",
+    def test_dependency_version_policies_refresh_images_and_native_caches(self):
+        for dependency in ("fftw", "boost"):
+            path = f".github/scripts/{dependency}-version.sh"
+            with self.subTest(path=path):
+                self.assertIn(f'      - "{path}"', WARM)
+                outputs = self.select_warmers("push", paths=[path])
+                self.assertEqual(outputs["image_set"], "normal-and-tsan")
+                for cache in ("macos_arm64", "macos_x86_64", "windows", "linux_armhf"):
+                    self.assertEqual(outputs[cache], "true")
+
+    def test_boost_queue_patch_refreshes_each_compiled_dependency(self):
+        path = ".github/scripts/patch-boost-log-queue.py"
+        self.assertIn(f'      - "{path}"', WARM)
+        case = re.search(r"\.github/scripts/patch-boost-log-queue\.py\)\n(?P<body>.*?);;",
                          WARM, re.DOTALL).group("body")
         self.assertIn("enable_cache_all", case)
-        self.assertIn("normal_images=true", case)
-        self.assertIn("tsan_images=true", case)
+        profiles = ("normal-noble", "normal-bookworm", "tsan-noble",
+                    "armhf-cross-bookworm", "armhf-cross-trixie")
+        for profile in profiles:
+            with self.subTest(profile=profile):
+                result = subprocess.run(
+                    ["bash", ".github/scripts/is-linux-ci-image-input.sh", profile, path],
+                    cwd=ROOT, text=True, capture_output=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+        outputs = self.select_warmers("push", paths=[path])
+        self.assertEqual(outputs["image_set"], "normal-and-tsan")
+        for cache in ("macos_arm64", "macos_x86_64", "windows", "linux_armhf"):
+            self.assertEqual(outputs[cache], "true")
 
     def test_candidate_warm_uses_exact_tag_and_publishes_without_recache(self):
         warm = job("warm-normal-ccache")
@@ -425,8 +450,6 @@ git() {
 
         self.assertIn("platforms: linux/amd64", cross)
         self.assertIn("Dockerfile.armhf-cross", cross)
-        self.assertIn("/usr/local/lib/android /usr/share/dotnet /opt/ghc", cross)
-        self.assertNotIn("/usr/local/lib/android", job("build-normal"))
         self.assertIn("- build-armhf-cross", runtime)
         self.assertIn("platforms: linux/arm/v7", runtime)
         self.assertIn("Dockerfile.armhf-runtime", runtime)

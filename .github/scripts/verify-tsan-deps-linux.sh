@@ -13,6 +13,8 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 # shellcheck source=.github/scripts/tsan-linux-deps-config.sh
 . "${script_dir}/tsan-linux-deps-config.sh"
+# shellcheck source=.github/scripts/linux-artifact-validation.sh
+. "${script_dir}/linux-artifact-validation.sh"
 
 qt_prefix=$1
 boost_prefix=$2
@@ -72,26 +74,42 @@ verify_dynamic_tsan_symbols() {
   fi
 }
 
+verify_static_tsan_symbols() {
+  local label=$1 library=$2
+  if [ ! -f "$library" ] || [ "$(head -c 7 "$library")" != '!<arch>' ]; then
+    echo "Missing or invalid $label static archive: $library" >&2
+    return 1
+  fi
+  if ! nm -A --undefined-only "$library" | awk '$0 ~ /__tsan_/ {found=1} END {exit !found}'; then
+    echo "$label does not reference the TSan runtime: $library" >&2
+    return 1
+  fi
+}
+
 verify_manifest qt "$qt_prefix"
 verify_manifest boost "$boost_prefix"
 verify_manifest hamlib "$hamlib_prefix"
+validate_linux_boost_patch "$boost_prefix" "$TSAN_BOOST_VERSION"
 
 qt_core="${qt_prefix}/lib/libQt5Core.so.5"
-boost_candidates=("${boost_prefix}"/lib/libboost_log.so*)
-boost_log=${boost_candidates[0]}
 hamlib_archive="${hamlib_prefix}/lib/libhamlib.a"
 
 verify_dynamic_tsan_symbols Qt5Core "$qt_core"
-verify_dynamic_tsan_symbols Boost.Log "$boost_log"
-
-if [ ! -f "$hamlib_archive" ]; then
-  echo "Missing Hamlib archive: $hamlib_archive" >&2
+verify_static_tsan_symbols Hamlib "$hamlib_archive"
+for component in log log_setup filesystem thread chrono atomic container; do
+  if [ ! -f "${boost_prefix}/lib/libboost_${component}.a" ]; then
+    echo "Missing Boost.$component static archive" >&2
+    exit 1
+  fi
+done
+shopt -s nullglob
+for library in "${boost_prefix}"/lib/libboost_*.a; do
+  verify_static_tsan_symbols "Boost.${library##*/}" "$library"
+done
+for library in "${boost_prefix}"/lib/libboost_*.so*; do
+  echo "Shared Boost library found in static TSan prefix: $library" >&2
   exit 1
-fi
-if ! nm -A "$hamlib_archive" | awk '$0 ~ /__tsan_/ {found=1} END {exit !found}'; then
-  echo "Hamlib does not reference the TSan runtime: $hamlib_archive" >&2
-  exit 1
-fi
+done
 
 for required in \
   "${qt_prefix}/lib/cmake/Qt5Core/Qt5CoreConfig.cmake" \
@@ -99,6 +117,7 @@ for required in \
   "${qt_prefix}/lib/cmake/Qt5Multimedia/Qt5MultimediaConfig.cmake" \
   "${qt_prefix}/lib/cmake/Qt5SerialPort/Qt5SerialPortConfig.cmake" \
   "${qt_prefix}/lib/cmake/Qt5WebSockets/Qt5WebSocketsConfig.cmake" \
+  "${boost_prefix}/lib/cmake/Boost-${TSAN_BOOST_VERSION}/BoostConfig.cmake" \
   "${boost_prefix}/include/boost/log/core.hpp"; do
   if [ ! -e "$required" ]; then
     echo "Missing cached TSan dependency file: $required" >&2
@@ -112,9 +131,7 @@ if [ -n "$cmake_cache" ]; then
     exit 1
   fi
   verify_cmake_cache_prefix "$cmake_cache" Qt5Core_DIR "$qt_prefix"
-  verify_cmake_cache_prefix "$cmake_cache" Boost_INCLUDE_DIR "$boost_prefix"
-  verify_cmake_cache_prefix "$cmake_cache" Boost_LOG_LIBRARY_RELEASE "$boost_prefix"
-  verify_cmake_cache_prefix "$cmake_cache" Boost_LOG_SETUP_LIBRARY_RELEASE "$boost_prefix"
+  validate_linux_boost_selection "$(dirname "$cmake_cache")" "$boost_prefix"
   verify_cmake_cache_prefix "$cmake_cache" Hamlib_INCLUDE_DIR "$hamlib_prefix"
   verify_cmake_cache_prefix "$cmake_cache" Hamlib_LIBRARY "$hamlib_prefix"
 fi
@@ -129,8 +146,8 @@ if [ -n "$binary" ]; then
     echo "Binary is not using cached TSan Qt: $binary" >&2
     exit 1
   fi
-  if ! printf '%s\n' "$linked" | awk -v prefix="$boost_prefix" '$0 ~ /libboost_log/ && index($0, prefix) {found=1} END {exit !found}'; then
-    echo "Binary is not using cached TSan Boost.Log: $binary" >&2
+  if printf '%s\n' "$linked" | awk '/libboost_/ {found=1} END {exit !found}'; then
+    echo "Binary has a shared Boost dependency: $binary" >&2
     exit 1
   fi
 fi

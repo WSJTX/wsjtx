@@ -224,12 +224,21 @@ runs:
         path: fftw-prefix
         key: ${{ steps.fftw-cache.outputs.cache-primary-key }}
 
+    - name: Select Boost version
+      shell: bash
+      run: |
+        . .github/scripts/boost-version.sh
+        {
+          echo "BOOST_VERSION=$BOOST_VERSION"
+          echo "BOOST_SOURCE_SHA256=$BOOST_SOURCE_SHA256"
+        } >> "$GITHUB_ENV"
+
     - name: Restore Boost cache
       id: boost-cache
       uses: actions/cache/restore@v5
       with:
-        path: boost-prefix
-        key: boost-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.85.0-7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
+        path: boost-static-prefix
+        key: boost-static-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ env.BOOST_VERSION }}-${{ env.BOOST_SOURCE_SHA256 }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/boost-version.sh', '.github/scripts/build-boost-macos.sh', '.github/scripts/patch-boost-log-queue.py') }}
 
     - name: Build Boost
       id: boost-build
@@ -237,17 +246,32 @@ runs:
       shell: bash
       run: |
         .github/scripts/build-boost-macos.sh \
-          1.85.0 \
-          7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617 \
+          "${BOOST_VERSION}" \
+          "${BOOST_SOURCE_SHA256}" \
           "${{ inputs.arch }}" \
           "${{ inputs.deployment_target }}" \
-          "${GITHUB_WORKSPACE}/boost-prefix"
+          "${GITHUB_WORKSPACE}/boost-static-prefix"
+
+    - name: Verify static Boost archives
+      shell: bash
+      run: |
+        python3 - "${GITHUB_WORKSPACE}/boost-static-prefix/share/wsjtx-build/boost-log-queue-patch.json" "${{ env.BOOST_VERSION }}" <<'PY'
+        import hashlib, json, pathlib, sys
+        manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+        helper_hash = hashlib.sha256(pathlib.Path('.github/scripts/patch-boost-log-queue.py').read_bytes()).hexdigest()
+        if manifest['boost_version'] != sys.argv[2] or manifest['patch_helper_sha256'] != helper_hash:
+            raise SystemExit('Cached Boost queue patch provenance does not match the build recipe')
+        PY
+        .github/scripts/verify-macos-static-archives.sh \
+          --target "${{ inputs.deployment_target }}" \
+          --arch "${{ inputs.arch }}" \
+          "${GITHUB_WORKSPACE}/boost-static-prefix/lib/"libboost*.a
 
     - name: Save Boost cache
       if: steps.boost-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
       with:
-        path: boost-prefix
+        path: boost-static-prefix
         key: ${{ steps.boost-cache.outputs.cache-primary-key }}
 
     - name: Verify pinned runtime prefixes
@@ -259,11 +283,9 @@ runs:
           --allow-prefix "${GITHUB_WORKSPACE}/libusb-prefix" \
           --allow-prefix "${GITHUB_WORKSPACE}/portaudio-prefix" \
           --allow-prefix "${GITHUB_WORKSPACE}/fftw-prefix" \
-          --allow-prefix "${GITHUB_WORKSPACE}/boost-prefix" \
           "${GITHUB_WORKSPACE}/libusb-prefix" \
           "${GITHUB_WORKSPACE}/portaudio-prefix" \
-          "${GITHUB_WORKSPACE}/fftw-prefix" \
-          "${GITHUB_WORKSPACE}/boost-prefix"
+          "${GITHUB_WORKSPACE}/fftw-prefix"
 
     - name: Restore Hamlib cache
       id: hamlib-cache

@@ -16,7 +16,7 @@ inputs:
     required: true
   runtime_base:
     description: >-
-      Runtime profile used to select the GCC 13.4 Bookworm toolchain.
+      Runtime profile used to select the GCC 12 Bookworm toolchain.
     required: false
     default: "host"
   recache:
@@ -81,13 +81,13 @@ runs:
           echo "FC=gfortran"
         } >> "$GITHUB_ENV"
 
-    - name: Select GCC 13.4 Bookworm toolchain
-      if: inputs.runtime_base == 'bookworm-gcc13.4'
+    - name: Select GCC 12 Bookworm toolchain
+      if: inputs.runtime_base == 'bookworm-gcc12'
       shell: bash
       run: |
-        CC=/usr/local/bin/gcc
-        CXX=/usr/local/bin/g++
-        FC=/usr/local/bin/gfortran
+        CC=/usr/bin/gcc-12
+        CXX=/usr/bin/g++-12
+        FC=/usr/bin/gfortran-12
 
         for compiler in "$CC" "$CXX" "$FC"; do
           if [ ! -x "$compiler" ]; then
@@ -96,8 +96,8 @@ runs:
           fi
           version=$("$compiler" -dumpfullversion -dumpversion)
           echo "$compiler: $version"
-          if [ "$version" != "13.4.0" ]; then
-            echo "::error::Expected GCC 13.4.0, found $version at $compiler"
+          if [ "${version%%.*}" != "12" ]; then
+            echo "::error::Expected GCC 12, found $version at $compiler"
             exit 1
           fi
         done
@@ -151,6 +151,12 @@ runs:
       shell: bash
       run: |
         cmake -S . -B cfgmatrix-default \
+          -DBoost_USE_STATIC_LIBS=ON \
+          -DBOOST_ROOT="${{ steps.image.outputs.boost_prefix }}" \
+          -DBOOST_INCLUDEDIR="${{ steps.image.outputs.boost_prefix }}/include" \
+          -DBOOST_LIBRARYDIR="${{ steps.image.outputs.boost_prefix }}/lib" \
+          -DBoost_DIR="${{ steps.image.outputs.boost_prefix }}/lib/cmake/Boost-${{ steps.image.outputs.boost_version }}" \
+          -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DBoost_NO_BOOST_CMAKE=OFF \
           -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
           -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
           -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
@@ -164,7 +170,15 @@ runs:
         WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
         WSJT_PRERELEASE_NUMBER: ${{ inputs.prerelease_number }}
       run: |
+        source .github/scripts/linux-artifact-validation.sh
+        validate_linux_boost_archives "${{ steps.image.outputs.boost_prefix }}" "${{ inputs.arch }}" "${{ steps.image.outputs.boost_version }}"
         cmake -S . -B wsjtx-build \
+          -DBoost_USE_STATIC_LIBS=ON \
+          -DBOOST_ROOT="${{ steps.image.outputs.boost_prefix }}" \
+          -DBOOST_INCLUDEDIR="${{ steps.image.outputs.boost_prefix }}/include" \
+          -DBOOST_LIBRARYDIR="${{ steps.image.outputs.boost_prefix }}/lib" \
+          -DBoost_DIR="${{ steps.image.outputs.boost_prefix }}/lib/cmake/Boost-${{ steps.image.outputs.boost_version }}" \
+          -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DBoost_NO_BOOST_CMAKE=OFF \
           -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
           -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
           -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
@@ -178,6 +192,8 @@ runs:
           -DWSJT_PRERELEASE_NUMBER="${WSJT_PRERELEASE_NUMBER}" \
           -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
           -Wno-dev
+
+        validate_linux_boost_selection wsjtx-build "${{ steps.image.outputs.boost_prefix }}"
 
     - name: Build and test targets
       shell: bash
@@ -195,6 +211,12 @@ runs:
       shell: bash
       run: |
         cmake -S . -B cfgmatrix-NON_OPENMP_ONLY \
+          -DBoost_USE_STATIC_LIBS=ON \
+          -DBOOST_ROOT="${{ steps.image.outputs.boost_prefix }}" \
+          -DBOOST_INCLUDEDIR="${{ steps.image.outputs.boost_prefix }}/include" \
+          -DBOOST_LIBRARYDIR="${{ steps.image.outputs.boost_prefix }}/lib" \
+          -DBoost_DIR="${{ steps.image.outputs.boost_prefix }}/lib/cmake/Boost-${{ steps.image.outputs.boost_version }}" \
+          -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DBoost_NO_BOOST_CMAKE=OFF \
           -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
           -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
           -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
@@ -284,7 +306,7 @@ runs:
     # RPM builds via the same CPack scaffolding the .deb step above
     # uses. CMakeLists.txt:2014-2026 already auto-detects rpmbuild and
     # sets the Fedora-style dependency list (qt5-qtbase >= 5.9, fftw-
-    # libs-single, boost-log, etc.); only the workflow side was
+    # libs-single, etc.); only the workflow side was
     # missing. `-G RPM` is explicit so this step doesn't accidentally
     # rebuild the .deb already produced above.
     - name: Package RPM

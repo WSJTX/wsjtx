@@ -22,6 +22,9 @@ libquadmath*	libquadmath (GCC)	LGPL-2.1-or-later	https://github.com/gcc-mirror/g
 libwinpthread*	mingw-w64 winpthreads	MIT and BSD-3-Clause	https://github.com/mingw-w64/mingw-w64/blob/master/mingw-w64-libraries/winpthreads/COPYING
 libfftw3f*	FFTW 3	GPL-2.0-or-later	https://www.fftw.org/doc/License-and-Copyright.html
 libboost_*	Boost	BSL-1.0	https://www.boost.org/LICENSE_1_0.txt
+@linux	Boost	BSL-1.0	https://www.boost.org/LICENSE_1_0.txt
+@macos	Boost	BSL-1.0	https://www.boost.org/LICENSE_1_0.txt
+@windows	Boost	BSL-1.0	https://www.boost.org/LICENSE_1_0.txt
 @macos	GCC runtime libraries	GPL-3.0-or-later WITH GCC-exception-3.1	https://www.gnu.org/licenses/gcc-exception-3.1.html
 @macos	libquadmath (GCC)	LGPL-2.1-or-later	https://github.com/gcc-mirror/gcc/blob/master/libquadmath/COPYING.LIB
 @windows	mingw-w64 runtime	ZPL-2.1, with the other terms the file lists	https://github.com/mingw-w64/mingw-w64/blob/master/COPYING.MinGW-w64-runtime/COPYING.MinGW-w64-runtime.txt

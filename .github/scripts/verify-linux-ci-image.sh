@@ -67,6 +67,10 @@ require_key_component generation "${generation:-}"
 case "$expected_flavor" in
   normal)
     expected_compiler=gcc
+    # shellcheck source=.github/scripts/linux-boost-config.sh
+    . "$config_dir/linux-boost-config.sh"
+    boost_prefix=$image_prefix/boost-static
+    boost_version=$BOOST_VERSION
     require_equal hamlib_commit "$LINUX_HAMLIB_COMMIT" "${hamlib_commit:-}"
     require_equal pfunit_version "$LINUX_PFUNIT_VERSION" "${pfunit_version:-}"
     require_equal pfunit_commit "$LINUX_PFUNIT_COMMIT" "${pfunit_commit:-}"
@@ -81,6 +85,9 @@ case "$expected_flavor" in
     fi
     test -f "$image_prefix/hamlib/lib/libhamlib.a"
     if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
+      # shellcheck source=.github/scripts/linux-artifact-validation.sh
+      . "$config_dir/linux-artifact-validation.sh"
+      validate_linux_boost_archives "$boost_prefix" "$expected_arch" "$boost_version"
       qt_core_config="$(find /usr -path '*/cmake/Qt5Core/Qt5CoreConfig.cmake' -print -quit)"
       qt_multimedia_config="$(find /usr -path '*/cmake/Qt5Multimedia/Qt5MultimediaConfig.cmake' -print -quit)"
       qt_plugin="$(find /usr -path '*/plugins/platforms/*' -type f -print -quit)"
@@ -100,8 +107,8 @@ case "$expected_flavor" in
     require_equal qt_version "$TSAN_QT_VERSION" "${qt_version:-}"
     require_equal boost_version "$TSAN_BOOST_VERSION" "${boost_version:-}"
     "$config_dir/verify-tsan-deps-linux.sh" \
-      "$image_prefix/tsan/qt" "$image_prefix/tsan/boost" "$image_prefix/tsan/hamlib"
-    boost_config="$(find "$image_prefix/tsan/boost" -name BoostConfig.cmake -print -quit)"
+      "$image_prefix/tsan/qt" "$image_prefix/tsan/boost-static" "$image_prefix/tsan/hamlib"
+    boost_config="$(find "$image_prefix/tsan/boost-static" -name BoostConfig.cmake -print -quit)"
     test -n "$boost_config"
     if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
       test -d "$image_prefix/tsan/qt/plugins"
@@ -149,6 +156,9 @@ require_key_component toolchain_id "${toolchain_id:-}"
 if [[ ! "${compiler_version:-}" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
   echo "Linux CI image compiler_version is invalid: ${compiler_version:-missing}" >&2
   exit 1
+fi
+if [ "$profile" = normal-bookworm ]; then
+  require_equal compiler_major 12 "${compiler_version%%.*}"
 fi
 require_key_component compiler_target "${compiler_target:-}"
 require_sha256 compiler_sha256 "${compiler_sha256:-}"
@@ -223,6 +233,7 @@ target_include_directories(wsjt_ci_image_smoke PRIVATE "${WSJTX_HAMLIB_PREFIX}/i
 target_link_libraries(wsjt_ci_image_smoke PRIVATE Qt5::Core Boost::log_setup Boost::log PkgConfig::HAMLIB)
 EOF
   cat > "$smoke_dir/main.cpp" <<'EOF'
+#include <iostream>
 #include <QCoreApplication>
 #include <boost/log/trivial.hpp>
 #include <hamlib/rig.h>
@@ -230,6 +241,7 @@ EOF
 int main(int argc, char **argv)
 {
   QCoreApplication application(argc, argv);
+  std::cerr << "WSJT-X CI image standard streams initialized" << std::endl;
   BOOST_LOG_TRIVIAL(info) << "WSJT-X CI image smoke test";
   return 0;
 }
@@ -243,16 +255,44 @@ EOF
   )
   if [ "$expected_flavor" = tsan ]; then
     cmake_args+=(
-      "-DCMAKE_PREFIX_PATH=$image_prefix/tsan/qt;$image_prefix/tsan/boost;$image_prefix/tsan/hamlib"
-      "-DBOOST_ROOT=$image_prefix/tsan/boost"
+      "-DCMAKE_PREFIX_PATH=$image_prefix/tsan/qt;$image_prefix/tsan/boost-static;$image_prefix/tsan/hamlib"
+      "-DBOOST_ROOT=$image_prefix/tsan/boost-static"
+      "-DBoost_DIR=$image_prefix/tsan/boost-static/lib/cmake/Boost-$BOOST_VERSION"
+      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
+      -DBoost_NO_BOOST_CMAKE=OFF
+      -DBoost_USE_STATIC_LIBS=ON
       -DBoost_NO_SYSTEM_PATHS=ON
       -DCMAKE_CXX_FLAGS=-fsanitize=thread
       -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread
     )
+  else
+    cmake_args+=(
+      -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -ffunction-sections -fdata-sections"
+      -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,--as-needed"
+      "-DBOOST_ROOT=$boost_prefix"
+      "-DBOOST_INCLUDEDIR=$boost_prefix/include"
+      "-DBOOST_LIBRARYDIR=$boost_prefix/lib"
+      -DBoost_USE_STATIC_LIBS=ON
+      -DBoost_NO_SYSTEM_PATHS=ON
+      "-DBoost_DIR=$boost_prefix/lib/cmake/Boost-$boost_version"
+      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
+      -DBoost_NO_BOOST_CMAKE=OFF
+    )
   fi
   export PKG_CONFIG_PATH="$hamlib_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
   cmake "${cmake_args[@]}"
+  if [ "$expected_flavor" = normal ]; then
+    validate_linux_boost_selection "$smoke_dir/build" "$boost_prefix"
+  else
+    # shellcheck source=.github/scripts/linux-artifact-validation.sh
+    . "$config_dir/linux-artifact-validation.sh"
+    validate_linux_boost_selection "$smoke_dir/build" "$image_prefix/tsan/boost-static"
+  fi
   cmake --build "$smoke_dir/build" --parallel "$(nproc)"
+  if [ "$expected_flavor" = normal ]; then
+    env -u LD_LIBRARY_PATH -u LD_PRELOAD -u LD_AUDIT \
+      "$smoke_dir/build/wsjt_ci_image_smoke"
+  fi
   rm -rf "$smoke_dir"
 fi
 
@@ -270,9 +310,11 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
     if [ "$expected_flavor" = normal ]; then
       printf 'pfunit_dir=%s\n' "$pfunit_dir"
       printf 'hamlib_prefix=%s\n' "$hamlib_prefix"
+      printf 'boost_prefix=%s\n' "$boost_prefix"
+      printf 'boost_version=%s\n' "$boost_version"
     else
       printf 'qt_prefix=%s\n' "$image_prefix/tsan/qt"
-      printf 'boost_prefix=%s\n' "$image_prefix/tsan/boost"
+      printf 'boost_prefix=%s\n' "$image_prefix/tsan/boost-static"
       printf 'hamlib_prefix=%s\n' "$image_prefix/tsan/hamlib"
     fi
   } >> "$GITHUB_OUTPUT"

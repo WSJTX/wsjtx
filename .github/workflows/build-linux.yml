@@ -185,9 +185,8 @@ on:
 # keeps the per-arch runtime profile explicit at the job level:
 #
 #   x86_64 — validated Noble container on ubuntu-24.04.
-#   aarch64 — validated GCC 13.4 Bookworm container on ubuntu-24.04-arm. This keeps the
-#            Bookworm glibc 2.36 + pre-t64 library baseline while using GCC 13
-#            (issue #49).
+#   aarch64 — validated GCC 12 Bookworm container on ubuntu-24.04-arm,
+#            matching Bookworm C++ headers/runtime and its glibc 2.36 baseline.
 #   armhf  — x86_64 cross-build using the selected Bookworm or Trixie profile,
 #            then native ARMv7 tests and packaging in the matching runtime image.
 #
@@ -357,8 +356,7 @@ jobs:
     if: inputs.arch == 'aarch64'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 90
-    # The official GCC image adds GCC 13.4 without moving off the Bookworm
-    # glibc 2.36 and pre-t64 runtime baseline (issue #49).
+    # Keep compiler headers and runtime libraries on the Bookworm baseline.
     container:
       image: ${{ needs.resolve-image.outputs.image_reference }}
       options: --shm-size=1g
@@ -382,7 +380,7 @@ jobs:
           arch: aarch64
           version: ${{ inputs.version }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
-          runtime_base: bookworm-gcc13.4
+          runtime_base: bookworm-gcc12
           recache: ${{ inputs.recache }}
           save_ccache: ${{ inputs.save_ccache }}
           validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}

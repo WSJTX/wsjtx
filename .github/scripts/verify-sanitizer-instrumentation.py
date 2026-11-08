@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import json
+import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -103,12 +106,59 @@ def verify_link(build_dir, target, sanitizer_flag, runtimes):
             fail(f"{target} does not declare a dependency on {runtime}")
 
 
+def verify_boost_links(build_dir, boost_prefix=None, instrumented=True):
+    boost_links = set()
+    verified_archives = set()
+    for link_file in build_dir.rglob("link.txt"):
+        boost_archives = []
+        for argument in shlex.split(link_file.read_text(encoding="utf-8")):
+            if not re.search(r"(?:^|[/,])(?:lib)?boost_|^-lboost_", argument):
+                continue
+            archive = Path(argument)
+            if not archive.is_absolute() or archive.suffix != ".a" or argument.endswith(".dll.a"):
+                fail(f"non-static or unresolved Boost link input in {link_file}: {argument}")
+            require_file(archive)
+            if boost_prefix and not archive.resolve().is_relative_to(boost_prefix.resolve()):
+                fail(f"Boost link input is outside the pinned prefix: {archive}")
+            if archive not in verified_archives:
+                with archive.open("rb") as stream:
+                    if stream.read(8) != b"!<arch>\n":
+                        fail(f"Boost link input is not a static archive: {archive}")
+                if boost_prefix and instrumented:
+                    verify_archive(archive, "__tsan_")
+                verified_archives.add(archive)
+                print(f"  Boost archive SHA-256: {hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive}")
+            boost_archives.append(archive)
+        if boost_archives:
+            boost_links.add(link_file.parent.name.removesuffix(".dir"))
+    if "wsjtx" not in boost_links:
+        fail("wsjtx link command has no static Boost archives")
+    print(f"  static Boost links: {len(boost_links)} targets, {len(verified_archives)} archives")
+
+
+def verify_no_shared_boost(build_dir):
+    for path in build_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        with path.open("rb") as stream:
+            header = stream.read(18)
+        if len(header) < 18 or header[:4] != b"\x7fELF":
+            continue
+        byteorder = "little" if header[5] == 1 else "big"
+        if int.from_bytes(header[16:18], byteorder) not in (2, 3):
+            continue
+        dynamic_section = tool_output("readelf", "-d", str(path))
+        if re.search(r"\(NEEDED\).*libboost_", dynamic_section):
+            fail(f"shared Boost dependency in {path}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("build_dir", type=Path)
     parser.add_argument(
         "--sanitizer", choices=SANITIZERS, default="asan-ubsan"
     )
+    parser.add_argument("--boost-prefix", type=Path)
     args = parser.parse_args()
 
     build_dir = args.build_dir.resolve()
@@ -116,12 +166,16 @@ def main():
         fail(f"build directory does not exist: {build_dir}")
 
     sanitizer = SANITIZERS[args.sanitizer]
+    if args.sanitizer == "tsan" and not args.boost_prefix:
+        fail("TSan verification requires --boost-prefix")
     language_counts = verify_compile_commands(build_dir, sanitizer["flag"])
     for symbol in sanitizer["symbols"]:
         verify_archive(build_dir / "libwsjt_cxx.a", symbol)
         verify_archive(build_dir / "libwsjt_fort_omp.a", symbol)
     verify_link(build_dir, "jt9", sanitizer["flag"], sanitizer["runtimes"])
     verify_link(build_dir, "wsjtx", sanitizer["flag"], sanitizer["runtimes"])
+    verify_boost_links(build_dir, args.boost_prefix, instrumented=args.sanitizer == "tsan")
+    verify_no_shared_boost(build_dir)
 
     print("Sanitizer instrumentation verified")
     compile_summary = ", ".join(

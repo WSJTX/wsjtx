@@ -27,7 +27,7 @@ declare compiler_version='' compiler_target='' compiler_sha256=''
 declare compiler_signature_sha256='' ccache_compatibility_id='' toolchain_id=''
 declare host_dpkg_arch='' package_sha256='' sysroot_package_sha256='' runtime_sha256=''
 declare hamlib_ref='' hamlib_commit='' hamlib_sha256='' glibc_version=''
-declare binutils_version='' linux_headers_version='' minimum_kernel_version=''
+declare minimum_kernel_version=''
 declare quadmath_runtime='' cross_generation='' cross_recipe_sha256='' cross_toolchain_id=''
 # shellcheck disable=SC1090
 . "$manifest"
@@ -178,9 +178,18 @@ case "$expected_role" in
     fi
     require_equal compiler_target "$ARMHF_TARGET_TRIPLET" "${compiler_target:-}"
     if [ "$ARMHF_DISTRO" = bookworm ]; then
-      require_equal binutils_version "$ARMHF_BINUTILS_VERSION" "${binutils_version:-}"
-      require_equal linux_headers_version "$ARMHF_LINUX_HEADERS_VERSION" "${linux_headers_version:-}"
       require_equal minimum_kernel_version "$ARMHF_MIN_KERNEL_VERSION" "${minimum_kernel_version:-}"
+      libc_notes="$(readelf -nW "$ARMHF_SYSROOT/lib/$ARMHF_TARGET_TRIPLET/libc.so.6")"
+      if [[ "$libc_notes" != *"OS: Linux, ABI: $ARMHF_MIN_KERNEL_VERSION"* ]]; then
+        echo "Bookworm libc does not retain the Linux $ARMHF_MIN_KERNEL_VERSION baseline" >&2
+        exit 1
+      fi
+      for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do
+        if ! cmp -s "$ARMHF_RUNTIME_PREFIX/$library" "$(armhf_sysroot_runtime_path "$library")"; then
+          echo "ARMHF runtime differs from its target sysroot: $library" >&2
+          exit 1
+        fi
+      done
     fi
     require_equal compiler_version "$compiler_version" "$($compiler -dumpfullversion -dumpversion)"
     require_equal compiler_target "$compiler_target" "$($compiler -dumpmachine)"

@@ -432,13 +432,6 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
-      - name: Reclaim disk for the ARMHF cross-toolchain
-        run: |
-          # crosstool-NG needs about 8 GiB of transient build storage. Remove
-          # unused hosted-runner SDKs so the Actions worker retains log space.
-          df -h /
-          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc
-          df -h /
       - uses: docker/setup-qemu-action@v4
         with:
           image: tonistiigi/binfmt:qemu-v10.2.3-68@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0

@@ -27,6 +27,11 @@ LABEL org.opencontainers.image.title="WSJT-X Noble Linux CI" \
 RUN test -n "$IMAGE_REFRESH_EPOCH" && /usr/local/bin/install-packages normal
 
 COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/linux-boost-config.sh \
+     .github/scripts/boost-version.sh \
+     .github/scripts/build-boost-linux.sh \
+     .github/scripts/patch-boost-log-queue.py \
+     .github/scripts/linux-artifact-validation.sh \
      .github/scripts/fftw-version.sh \
      .github/scripts/build-fftw.sh \
      .github/scripts/build-fftw-smoke-linux.sh \
@@ -41,6 +46,8 @@ COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-man
 RUN set -eux; \
     chmod +x /usr/local/bin/write-wsjtx-ci-manifest; \
     . /usr/local/share/wsjtx-ci/linux-ci-image-config.sh; \
+    . /usr/local/share/wsjtx-ci/linux-boost-config.sh; \
+    /usr/local/share/wsjtx-ci/build-boost-linux.sh "$BOOST_VERSION" "$LINUX_BOOST_PREFIX"; \
     FFTW_ARCH="${IMAGE_ARCH:-x86_64}" /usr/local/share/wsjtx-ci/build-fftw.sh "$LINUX_FFTW_PREFIX"; \
     mkdir -p /tmp/wsjtx-pfunit-build; \
     cd /tmp/wsjtx-pfunit-build; \
@@ -76,8 +83,11 @@ COPY .github/scripts/linux-ci-image-config.sh \
      .github/scripts/build-fftw.sh \
      .github/scripts/build-fftw-smoke-linux.sh \
      .github/scripts/tsan-linux-deps-config.sh \
+     .github/scripts/boost-version.sh \
      .github/scripts/build-qt-tsan-linux.sh \
      .github/scripts/build-boost-tsan-linux.sh \
+     .github/scripts/patch-boost-log-queue.py \
+     .github/scripts/linux-artifact-validation.sh \
      .github/scripts/build-hamlib-tsan-linux.sh \
      .github/scripts/linux-ccache-compiler-signature.sh \
      .github/scripts/verify-tsan-deps-linux.sh \
@@ -92,7 +102,7 @@ RUN set -eux; \
     . /usr/local/share/wsjtx-ci/linux-ci-image-config.sh; \
     FFTW_ARCH=x86_64 CC=gcc-13 /usr/local/share/wsjtx-ci/build-fftw.sh "$LINUX_FFTW_PREFIX"; \
     /usr/local/share/wsjtx-ci/build-qt-tsan-linux.sh /opt/wsjtx/tsan/qt; \
-    /usr/local/share/wsjtx-ci/build-boost-tsan-linux.sh /opt/wsjtx/tsan/boost; \
+    /usr/local/share/wsjtx-ci/build-boost-tsan-linux.sh /opt/wsjtx/tsan/boost-static; \
     /usr/local/share/wsjtx-ci/build-hamlib-tsan-linux.sh /opt/wsjtx/tsan/hamlib; \
     /usr/local/bin/write-wsjtx-ci-manifest \
       tsan x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \

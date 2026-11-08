@@ -100,7 +100,7 @@ class LinuxCcachePolicyTests(unittest.TestCase):
             r'  run_tests:\n(?:    .*\n)*?    default: "true"',
         )
         self.assertIn("run_tests: ${{ inputs.run_tests }}", workflow)
-        self.assertIn("inputs.sanitizer == 'tsan' && 180 || 60", workflow)
+        self.assertIn("    timeout-minutes: 180", workflow)
 
     def test_build_only_sanitizer_keeps_test_targets_and_instrumentation(self):
         configure = self.sanitizer_step("Configure sanitizer build")

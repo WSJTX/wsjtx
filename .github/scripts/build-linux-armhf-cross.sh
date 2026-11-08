@@ -22,6 +22,8 @@ cd /work
 source .github/scripts/armhf-ci-image-config.sh
 # shellcheck source=.github/scripts/linux-artifact-validation.sh
 source .github/scripts/linux-artifact-validation.sh
+# shellcheck source=.github/scripts/linux-boost-config.sh
+source .github/scripts/linux-boost-config.sh
 .github/scripts/verify-armhf-ci-image.sh cross-builder "$ARCH" "$HAMLIB_BRANCH"
 
 export CC="$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc"
@@ -38,8 +40,17 @@ done
 export CCACHE_DIR="${CCACHE_DIR:-/work/.ccache-armhf}"
 mkdir -p "$CCACHE_DIR"
 ccache --zero-stats
+READELF="$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-readelf" \
+  validate_linux_boost_archives "$ARMHF_SYSROOT$LINUX_BOOST_PREFIX" "$ARCH" \
+    "$BOOST_VERSION"
 started="$(date +%s)"
 cmake -S . -B wsjtx-build \
+  -DBoost_USE_STATIC_LIBS=ON \
+  -DBOOST_ROOT="$ARMHF_SYSROOT$LINUX_BOOST_PREFIX" \
+  -DBOOST_INCLUDEDIR="$ARMHF_SYSROOT$LINUX_BOOST_PREFIX/include" \
+  -DBOOST_LIBRARYDIR="$ARMHF_SYSROOT$LINUX_BOOST_PREFIX/lib" \
+  -DBoost_DIR="$ARMHF_SYSROOT$LINUX_BOOST_PREFIX/lib/cmake/Boost-$BOOST_VERSION" \
+  -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DBoost_NO_BOOST_CMAKE=OFF \
   -DFFTW3_ROOT_DIR="$ARMHF_SYSROOT$LINUX_FFTW_PREFIX" \
   -DWSJT_FFTW_VERSION="$FFTW_VERSION" \
   -DWSJT_ARMHF_DISTRO="$ARMHF_DISTRO" \
@@ -52,6 +63,7 @@ cmake -S . -B wsjtx-build \
   -DWSJT_RELEASE_CHANNEL="$WSJT_RELEASE_CHANNEL" \
   -DWSJT_PRERELEASE_NUMBER="$WSJT_PRERELEASE_NUMBER" \
   -Wno-dev
+validate_linux_boost_selection wsjtx-build "$ARMHF_SYSROOT$LINUX_BOOST_PREFIX"
 cmake --build wsjtx-build --parallel "$(nproc)"
 ended="$(date +%s)"
 {

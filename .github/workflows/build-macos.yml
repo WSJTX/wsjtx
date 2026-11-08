@@ -179,8 +179,6 @@ jobs:
       WSJT_PRERELEASE_NUMBER: ${{ inputs.prerelease_number }}
       SIGNING_MODE: ${{ inputs.signing_mode }}
       ARCH: ${{ inputs.arch }}
-      BOOST_VERSION: 1.85.0
-      BOOST_SOURCE_SHA256: 7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617
     steps:
       - uses: actions/checkout@v7
 
@@ -436,13 +434,21 @@ jobs:
           path: fftw-prefix
           key: ${{ steps.fftw-cache.outputs.cache-primary-key }}
 
+      - name: Select Boost version
+        run: |
+          . .github/scripts/boost-version.sh
+          {
+            echo "BOOST_VERSION=$BOOST_VERSION"
+            echo "BOOST_SOURCE_SHA256=$BOOST_SOURCE_SHA256"
+          } >> "$GITHUB_ENV"
+
       - name: Restore Boost cache
         id: boost-cache
         if: ${{ !inputs.cold_build }}
         uses: actions/cache/restore@v6
         with:
-          path: boost-prefix
-          key: boost-macos-${{ inputs.arch }}-${{ env.RUNNER }}-${{ env.BOOST_VERSION }}-${{ env.BOOST_SOURCE_SHA256 }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
+          path: boost-static-prefix
+          key: boost-static-macos-${{ inputs.arch }}-${{ env.RUNNER }}-${{ env.BOOST_VERSION }}-${{ env.BOOST_SOURCE_SHA256 }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/boost-version.sh', '.github/scripts/build-boost-macos.sh', '.github/scripts/patch-boost-log-queue.py') }}
 
       - name: Build Boost
         id: boost-build
@@ -453,13 +459,27 @@ jobs:
             "${BOOST_SOURCE_SHA256}" \
             "${{ inputs.arch }}" \
             "${{ env.DEPLOYMENT_TARGET }}" \
-            "${GITHUB_WORKSPACE}/boost-prefix"
+            "${GITHUB_WORKSPACE}/boost-static-prefix"
+
+      - name: Verify static Boost archives
+        run: |
+          python3 - "${GITHUB_WORKSPACE}/boost-static-prefix/share/wsjtx-build/boost-log-queue-patch.json" "${{ env.BOOST_VERSION }}" <<'PY'
+          import hashlib, json, pathlib, sys
+          manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          helper_hash = hashlib.sha256(pathlib.Path('.github/scripts/patch-boost-log-queue.py').read_bytes()).hexdigest()
+          if manifest['boost_version'] != sys.argv[2] or manifest['patch_helper_sha256'] != helper_hash:
+              raise SystemExit('Cached Boost queue patch provenance does not match the build recipe')
+          PY
+          .github/scripts/verify-macos-static-archives.sh \
+            --target "${{ env.DEPLOYMENT_TARGET }}" \
+            --arch "${{ inputs.arch }}" \
+            "${GITHUB_WORKSPACE}/boost-static-prefix/lib/"libboost*.a
 
       - name: Save Boost cache
         if: ${{ !inputs.cold_build && steps.boost-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
-          path: boost-prefix
+          path: boost-static-prefix
           key: ${{ steps.boost-cache.outputs.cache-primary-key }}
 
       - name: Verify pinned runtime prefixes
@@ -470,11 +490,9 @@ jobs:
             --allow-prefix "${GITHUB_WORKSPACE}/libusb-prefix" \
             --allow-prefix "${GITHUB_WORKSPACE}/portaudio-prefix" \
             --allow-prefix "${GITHUB_WORKSPACE}/fftw-prefix" \
-            --allow-prefix "${GITHUB_WORKSPACE}/boost-prefix" \
             "${GITHUB_WORKSPACE}/libusb-prefix" \
             "${GITHUB_WORKSPACE}/portaudio-prefix" \
-            "${GITHUB_WORKSPACE}/fftw-prefix" \
-            "${GITHUB_WORKSPACE}/boost-prefix"
+            "${GITHUB_WORKSPACE}/fftw-prefix"
 
       - name: Restore Hamlib cache
         id: hamlib-cache
@@ -554,17 +572,20 @@ jobs:
 
       - name: Configure build and tests
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/qt-prefix/lib/pkgconfig:${{ github.workspace }}/boost-prefix/lib/pkgconfig:${{ github.workspace }}/fftw-prefix/lib/pkgconfig:${{ github.workspace }}/libusb-prefix/lib/pkgconfig:${{ github.workspace }}/portaudio-prefix/lib/pkgconfig:${{ github.workspace }}/hamlib-prefix/lib/pkgconfig:${{ github.workspace }}/pfunit-prefix/lib/pkgconfig
+          PKG_CONFIG_PATH: ${{ github.workspace }}/qt-prefix/lib/pkgconfig:${{ github.workspace }}/boost-static-prefix/lib/pkgconfig:${{ github.workspace }}/fftw-prefix/lib/pkgconfig:${{ github.workspace }}/libusb-prefix/lib/pkgconfig:${{ github.workspace }}/portaudio-prefix/lib/pkgconfig:${{ github.workspace }}/hamlib-prefix/lib/pkgconfig:${{ github.workspace }}/pfunit-prefix/lib/pkgconfig
         run: |
           cmake -S . -B wsjtx-build \
-            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/qt-prefix;${GITHUB_WORKSPACE}/boost-prefix;${GITHUB_WORKSPACE}/fftw-prefix;${GITHUB_WORKSPACE}/libusb-prefix;${GITHUB_WORKSPACE}/portaudio-prefix;${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/qt-prefix;${GITHUB_WORKSPACE}/boost-static-prefix;${GITHUB_WORKSPACE}/fftw-prefix;${GITHUB_WORKSPACE}/libusb-prefix;${GITHUB_WORKSPACE}/portaudio-prefix;${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+            -DBoost_USE_STATIC_LIBS=ON \
+            -DBOOST_ROOT="${GITHUB_WORKSPACE}/boost-static-prefix" \
+            -DBoost_NO_SYSTEM_PATHS=ON \
             -DFFTW3_ROOT_DIR="${GITHUB_WORKSPACE}/fftw-prefix" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
             -DCMAKE_Fortran_FLAGS="${{ steps.fc.outputs.fortran_runtime_flags }}" \
             -DCMAKE_EXE_LINKER_FLAGS="${{ steps.fc.outputs.runtime_link_flags }}" \
-            -DCMAKE_INSTALL_RPATH="${GITHUB_WORKSPACE}/qt-prefix/lib;${GITHUB_WORKSPACE}/boost-prefix/lib;${GITHUB_WORKSPACE}/fftw-prefix/lib;${GITHUB_WORKSPACE}/libusb-prefix/lib;${GITHUB_WORKSPACE}/portaudio-prefix/lib;${GITHUB_WORKSPACE}/hamlib-prefix/lib" \
+            -DCMAKE_INSTALL_RPATH="${GITHUB_WORKSPACE}/qt-prefix/lib;${GITHUB_WORKSPACE}/fftw-prefix/lib;${GITHUB_WORKSPACE}/libusb-prefix/lib;${GITHUB_WORKSPACE}/portaudio-prefix/lib;${GITHUB_WORKSPACE}/hamlib-prefix/lib" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
@@ -686,6 +707,8 @@ jobs:
           DOCDIR="${APP}/Contents/Resources/doc/wsjtx"
           SOUNDDIR="${APP}/Contents/Resources/sounds"
 
+          test -s "${DOCDIR}/BOOST-LICENSE.txt"
+
           for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH; do
             if [ ! -f "${DATADIR}/${file}" ]; then
               echo "::error::Expected CMake-installed data file is missing: ${DATADIR}/${file}"
@@ -722,7 +745,7 @@ jobs:
             --app "${{ steps.collect.outputs.stage_dir }}/wsjtx.app" \
             --workspace-prefix "${GITHUB_WORKSPACE}" \
             --qt-prefix "${GITHUB_WORKSPACE}/qt-prefix" \
-            --boost-prefix "${GITHUB_WORKSPACE}/boost-prefix" \
+            --boost-prefix "${GITHUB_WORKSPACE}/boost-static-prefix" \
             --fftw-prefix "${GITHUB_WORKSPACE}/fftw-prefix" \
             --libusb-prefix "${GITHUB_WORKSPACE}/libusb-prefix" \
             --portaudio-prefix "${GITHUB_WORKSPACE}/portaudio-prefix" \
@@ -748,7 +771,7 @@ jobs:
             --assets "${{ steps.collect.outputs.assets_dir }}" \
             --stage "${{ steps.collect.outputs.stage_dir }}" \
             --workspace-prefix "${GITHUB_WORKSPACE}" \
-            --boost-prefix "${GITHUB_WORKSPACE}/boost-prefix" \
+            --boost-prefix "${GITHUB_WORKSPACE}/boost-static-prefix" \
             --fftw-prefix "${GITHUB_WORKSPACE}/fftw-prefix" \
             --libusb-prefix "${GITHUB_WORKSPACE}/libusb-prefix" \
             --portaudio-prefix "${GITHUB_WORKSPACE}/portaudio-prefix" \
@@ -912,6 +935,7 @@ jobs:
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/qmap"
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/map65"
           APP_PAYLOAD="$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app"
+          test -s "${APP_PAYLOAD}/Contents/Resources/doc/wsjtx/BOOST-LICENSE.txt"
           SOUNDDIR="${APP_PAYLOAD}/Contents/Resources/sounds"
           set -- "${APP_PAYLOAD}/Contents/Resources/doc/wsjtx/wsjtx-main"*.html
           if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
@@ -997,6 +1021,7 @@ jobs:
             dir="${PKGS}/${arch_name}"
             mkdir -p "${dir}"
             cp "$bin" "${dir}/"
+            cp doc/BOOST-LICENSE.txt "${dir}/"
             [ -d "${ASSETS}/lib" ] && cp -R "${ASSETS}/lib" "${dir}/lib"
             tar -czf "${PKGS}/${arch_name}.tar.gz" -C "${PKGS}" "${arch_name}"
             rm -rf "${dir}"

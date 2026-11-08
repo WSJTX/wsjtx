@@ -105,6 +105,7 @@ install (FILES
 
 install (FILES
   COPYING
+  doc/BOOST-LICENSE.txt
   AUTHORS
   THANKS
   NEWS

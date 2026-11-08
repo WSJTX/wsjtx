@@ -12,6 +12,11 @@ linux_ci_image_inputs() {
     .github/scripts/fftw-version.sh
     .github/scripts/build-fftw.sh
     .github/scripts/build-fftw-smoke-linux.sh
+    .github/scripts/linux-boost-config.sh
+    .github/scripts/boost-version.sh
+    .github/scripts/build-boost-linux.sh
+    .github/scripts/patch-boost-log-queue.py
+    .github/scripts/linux-artifact-validation.sh
     tests/dependencies/test_fftw_runtime.c
     .github/scripts/linux-ccache-compiler-signature.sh
     .github/scripts/run-apt-get.sh
@@ -35,8 +40,7 @@ linux_ci_image_inputs() {
       ;;
     armhf-cross-bookworm|armhf-cross-trixie)
       if [ "$profile" = armhf-cross-bookworm ]; then
-        printf '%s\n' .github/images/linux-ci/Dockerfile.armhf-cross \
-          .github/images/linux-ci/armhf-cross-toolchain.config
+        printf '%s\n' .github/images/linux-ci/Dockerfile.armhf-cross
       else
         printf '%s\n' .github/images/linux-ci/Dockerfile.armhf-cross-trixie
       fi
@@ -46,6 +50,11 @@ linux_ci_image_inputs() {
         .github/scripts/armhf-ci-image-config.sh \
         .github/scripts/build-armhf-toolchain-smoke.sh \
         .github/scripts/build-hamlib-armhf-cross.sh \
+        .github/scripts/linux-boost-config.sh \
+        .github/scripts/boost-version.sh \
+        .github/scripts/build-boost-linux.sh \
+        .github/scripts/patch-boost-log-queue.py \
+        .github/scripts/linux-artifact-validation.sh \
         .github/scripts/linux-ccache-compiler-signature.sh \
         .github/scripts/linux-ci-image-config.sh \
         .github/scripts/fftw-version.sh \

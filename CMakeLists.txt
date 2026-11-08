@@ -281,28 +281,6 @@ if (WSJT_ENABLE_TESTS)
 # 10 seconds or longer a representative COST so parallel CTest runs start them
 # early; relative ordering matters more than an exact duration.
 
-if (WSJT_ENABLE_TSAN)
-  # A CTest ENVIRONMENT assignment replaces the inherited TSAN_OPTIONS. Build
-  # complete per-family suppression files from the cross-cutting baseline so
-  # scoped tests retain the same TSan controls and classified Hamlib/Boost
-  # suppressions as the rest of the suite.
-  set (wsjt_tsan_suppression_directory
-    "${CMAKE_BINARY_DIR}/tsan-suppressions")
-  file (MAKE_DIRECTORY "${wsjt_tsan_suppression_directory}")
-  file (READ "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan.supp"
-    wsjt_tsan_base_suppressions)
-  foreach (wsjt_tsan_scope IN ITEMS fortran network gui)
-    file (READ
-      "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan-${wsjt_tsan_scope}.supp"
-      wsjt_tsan_scope_suppressions)
-    file (GENERATE
-      OUTPUT "${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp"
-      CONTENT "${wsjt_tsan_base_suppressions}\n${wsjt_tsan_scope_suppressions}")
-    set (wsjt_tsan_${wsjt_tsan_scope}_options
-      "halt_on_error=0:second_deadlock_stack=1:suppressions=${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp")
-  endforeach ()
-endif ()
-
 include (CMake/Sources.cmake)
 #
 # decide on platform specifc packing and fixing up
@@ -321,6 +299,30 @@ endif (APPLE)
 
 
 include (CMake/Dependencies.cmake)
+
+if (WSJT_ENABLE_TSAN)
+  # CTest ENVIRONMENT replaces inherited TSAN_OPTIONS, so every scoped file
+  # must include the baseline dependency suppressions.
+  set (wsjt_tsan_suppression_directory
+    "${CMAKE_BINARY_DIR}/tsan-suppressions")
+  file (MAKE_DIRECTORY "${wsjt_tsan_suppression_directory}")
+  file (READ "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan.supp"
+    wsjt_tsan_base_suppressions)
+  file (GENERATE
+    OUTPUT "${wsjt_tsan_suppression_directory}/tsan.supp"
+    CONTENT "${wsjt_tsan_base_suppressions}")
+  foreach (wsjt_tsan_scope IN ITEMS fortran network gui)
+    file (READ
+      "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan-${wsjt_tsan_scope}.supp"
+      wsjt_tsan_scope_suppressions)
+    file (GENERATE
+      OUTPUT "${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp"
+      CONTENT "${wsjt_tsan_base_suppressions}\n${wsjt_tsan_scope_suppressions}")
+    set (wsjt_tsan_${wsjt_tsan_scope}_options
+      "halt_on_error=0:second_deadlock_stack=1:suppressions=${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp")
+  endforeach ()
+endif ()
+
 include (CMake/CompilerFlags.cmake)
 
 # project definitions

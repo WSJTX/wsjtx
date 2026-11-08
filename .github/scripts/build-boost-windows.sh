@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -ne 4 ]; then
-  echo "Usage: build-boost-windows.sh VERSION SOURCE_SHA256 WIN32_WINNT PREFIX" >&2
+if [ "$#" -ne 2 ]; then
+  echo "Usage: build-boost-windows.sh WIN32_WINNT PREFIX" >&2
   exit 2
 fi
 
-version="$1"
-source_sha256="$2"
-win32_winnt="$3"
-prefix="$4"
-version_underscores=${version//./_}
+win32_winnt="$1"
+prefix="$2"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.github/scripts/boost-version.sh
+. "$script_dir/boost-version.sh"
+version_underscores=${BOOST_VERSION//./_}
 api_floor_flags="-D_WIN32_WINNT=${win32_winnt} -DWINVER=${win32_winnt} -DBOOST_USE_WINAPI_VERSION=${win32_winnt}"
 install_prefix=$(cygpath -m "$prefix")
 
@@ -25,16 +26,18 @@ sha256_file() {
   fi
 }
 
-curl -L --fail --retry 5 --retry-delay 10 -o boost.tar.bz2 "https://archives.boost.io/release/${version}/source/boost_${version_underscores}.tar.bz2"
+curl -L --fail --retry 5 --retry-delay 10 -o boost.tar.bz2 "$BOOST_SOURCE_URL"
 actual_sha256="$(sha256_file boost.tar.bz2)"
-if [ "$actual_sha256" != "$source_sha256" ]; then
+if [ "$actual_sha256" != "$BOOST_SOURCE_SHA256" ]; then
   echo "::error::Boost source SHA-256 mismatch" >&2
-  echo "Expected: ${source_sha256}" >&2
+  echo "Expected: ${BOOST_SOURCE_SHA256}" >&2
   echo "Actual:   ${actual_sha256}" >&2
   exit 1
 fi
 tar -xjf boost.tar.bz2
 cd "boost_${version_underscores}"
+python3 "$script_dir/patch-boost-log-queue.py" . \
+  --manifest "${install_prefix}/share/wsjtx-build/boost-log-queue-patch.json"
 
 python3 - <<'PY'
 from pathlib import Path
@@ -76,7 +79,7 @@ PY
 ./b2 --with-log -j"$(nproc)" \
   toolset=gcc \
   variant=release \
-  link=shared \
+  link=static \
   runtime-link=shared \
   threading=multi \
   cxxstd=11 \

@@ -23,6 +23,7 @@ on:
       - ".github/scripts/linux-ccache-compiler-signature.sh"
       - ".github/scripts/select-ccache-key-suffix.sh"
       - ".github/scripts/fftw-version.sh"
+      - ".github/scripts/boost-version.sh"
       - ".github/scripts/build-fftw.sh"
       - ".github/scripts/build-fftw-smoke-linux.sh"
       - "tests/dependencies/test_fftw_runtime.c"
@@ -34,6 +35,9 @@ on:
       - ".github/scripts/tsan-linux-deps-config.sh"
       - ".github/scripts/build-qt-tsan-linux.sh"
       - ".github/scripts/build-boost-tsan-linux.sh"
+      - ".github/scripts/build-boost-linux.sh"
+      - ".github/scripts/linux-boost-config.sh"
+      - ".github/scripts/patch-boost-log-queue.py"
       - ".github/scripts/build-hamlib-tsan-linux.sh"
       - ".github/scripts/verify-linux-ci-image.sh"
       - ".github/scripts/verify-tsan-deps-linux.sh"
@@ -231,10 +235,13 @@ jobs:
               while IFS= read -r path; do
                 [ -n "$path" ] || continue
                 case "$path" in
-                  .github/scripts/fftw-version.sh)
+                  .github/scripts/fftw-version.sh|.github/scripts/boost-version.sh)
                     enable_cache_all
                     normal_images=true
                     tsan_images=true
+                    ;;
+                  .github/scripts/patch-boost-log-queue.py)
+                    enable_cache_all
                     ;;
                   .github/workflows/ci.yml|.github/workflows/release.yml|.github/workflows/warm-dependency-caches.yml|.github/scripts/select-ccache-key-suffix.sh)
                     enable_cache_all
@@ -260,19 +267,17 @@ jobs:
                     macos_arm64=true
                     macos_x86_64=true
                     ;;
-                  *)
-                    case "$(.github/scripts/is-linux-ci-image-input.sh --classify "$path")" in
-                      normal)
-                        normal_images=true
-                        ;;
-                      tsan)
-                        tsan_images=true
-                        ;;
-                      normal-and-tsan)
-                        normal_images=true
-                        tsan_images=true
-                        ;;
-                    esac
+                esac
+                case "$(.github/scripts/is-linux-ci-image-input.sh --classify "$path")" in
+                  normal)
+                    normal_images=true
+                    ;;
+                  tsan)
+                    tsan_images=true
+                    ;;
+                  normal-and-tsan)
+                    normal_images=true
+                    tsan_images=true
                     ;;
                 esac
               done <<< "$changed"

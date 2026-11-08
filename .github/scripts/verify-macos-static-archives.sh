@@ -109,6 +109,7 @@ check_archive() {
   local minos
   local reported=0
   local suppressed=0
+  local load_commands
 
   if [ ! -f "$archive" ]; then
     echo "::error::Static archive does not exist: ${archive}"
@@ -116,7 +117,10 @@ check_archive() {
   fi
 
   archs=$(lipo -archs "$archive" 2>/dev/null || true)
-  if [ -n "$archs" ]; then
+  if [ -z "$archs" ]; then
+    echo "::error file=${archive}::Could not determine static archive architecture"
+    return 2
+  else
     case " ${archs} " in
       *" ${arch} "*) ;;
       *)
@@ -125,6 +129,18 @@ check_archive() {
         ;;
     esac
   fi
+
+  if ! load_commands=$(otool -arch "$arch" -l "$archive" 2>/dev/null); then
+    echo "::error file=${archive}::Could not inspect static archive members"
+    return 2
+  fi
+  case "$load_commands" in
+    "Archive : "*) ;;
+    *)
+      echo "::error file=${archive}::Input is not a readable static archive"
+      return 2
+      ;;
+  esac
 
   while IFS= read -r line; do
     case "$line" in
@@ -172,7 +188,7 @@ check_archive() {
         fi
         ;;
     esac
-  done < <(otool -arch "$arch" -l "$archive" 2>/dev/null || true)
+  done <<< "$load_commands"
 
   if [ "$suppressed" -gt 0 ]; then
     echo "::${ann} file=${archive}::Suppressed ${suppressed} additional archive member deployment-target findings"

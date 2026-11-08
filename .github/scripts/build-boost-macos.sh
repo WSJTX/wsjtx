@@ -11,6 +11,7 @@ source_sha256="$2"
 arch="$3"
 deployment_target="$4"
 prefix="$5"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
 version_underscores=${version//./_}
 boost_arch=x86
 
@@ -38,13 +39,15 @@ if [ "$actual_sha256" != "$source_sha256" ]; then
   exit 1
 fi
 tar -xjf boost.tar.bz2
+python3 "$script_dir/patch-boost-log-queue.py" "boost_${version_underscores}" \
+  --manifest "$prefix/share/wsjtx-build/boost-log-queue-patch.json"
 cd "boost_${version_underscores}"
 
 ./bootstrap.sh --prefix="$prefix" --with-libraries=log
 ./b2 -j"$(sysctl -n hw.ncpu)" \
   toolset=clang \
   variant=release \
-  link=shared \
+  link=static \
   runtime-link=shared \
   threading=multi \
   cxxstd=11 \

@@ -231,6 +231,13 @@ class PackageCliToolsTests(unittest.TestCase):
             stream.write("\t@rpath/libmissing.dylib (compatibility version 1.0.0)\n")
         self.assert_failed(self.package("macos", self.MACOS_GROUPS), "@rpath/libmissing.dylib(wsprd)")
 
+    def test_macos_direct_and_transitive_boost_imports_fail(self):
+        for binary in ("jt9", "QtCore"):
+            with self.subTest(binary=binary):
+                self.macos_assets()
+                self.fixture(f"otool.refs.{binary}", ["@rpath/libboost_log.dylib (compatibility version 1.0.0)"])
+                self.assert_failed(self.package("macos", self.MACOS_GROUPS), "imports a Boost shared library")
+
     def test_macos_build_tree_reference_fails(self):
         self.macos_assets()
         self.fixture("otool.refs.encode77", ["\t/opt/homebrew/lib/libgfortran.5.dylib (compatibility version 6.0.0)"])
@@ -404,7 +411,8 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertIn("GCC runtime libraries\n  License: GPL-3.0-or-later WITH GCC-exception-3.1\n", notices)
         self.assertIn("  Files: LIBGFORTRAN-5.DLL\n", notices)
         self.assertIn("mingw-w64 runtime\n", notices)
-        self.assertEqual(notices.count("  Linked statically into the programs"), 1)
+        self.assertEqual(notices.count("  Linked statically into the programs"), 2)
+        self.assertIn("Boost\n  License: BSL-1.0\n", notices)
         self.assertNotIn("libquadmath", notices)
 
     def test_windows_ucrt_api_set_imports_are_part_of_windows(self):
@@ -449,6 +457,18 @@ class PackageCliToolsTests(unittest.TestCase):
 
     def test_windows_objdump_failure_fails_naming_the_file(self):
         self.assert_failed(self.windows_build(failing=["libfftw3f-3.dll"]), "objdump failed on libfftw3f-3.dll")
+
+    def test_windows_direct_and_transitive_boost_imports_fail(self):
+        for binary in ("jt9.exe", "libfftw3f-3.dll"):
+            with self.subTest(binary=binary):
+                self.windows_build()
+                self.fixture(f"objdump.{binary}", ["DLL Name: LIBBOOST_LOG.DLL"])
+                result = self.package(
+                    "windows", ["jt9 jt9"], "--dll-dir", str(self.root / "dlls"),
+                    "--system-dir", str(self.root / "system"),
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("imports a Boost shared library", result.stderr)
 
     # Linux: linuxdeploy and readelf are stubbed; the excludelist is the committed one.
     def linux_build(self):
@@ -532,6 +552,19 @@ class PackageCliToolsTests(unittest.TestCase):
         self.linux_build()
         self.fixture("readelf.d.wsjt-codec", needed("libfftw3f.so.3", runpath="$ORIGIN/../lib"))
         self.assert_failed(self.linux_package(), "libfftw3f.so.3(bin/wsjt-codec)")
+
+    def test_linux_direct_and_transitive_boost_imports_fail(self):
+        for binary in ("jt9", "libQt5Core.so.5"):
+            with self.subTest(binary=binary):
+                self.linux_build()
+                self.fixture(f"readelf.d.{binary}", needed("libboost_log.so.1.83.0"))
+                self.assert_failed(self.linux_package(), "imports a Boost shared library")
+
+    def test_linux_unused_bundled_boost_library_fails(self):
+        self.linux_build()
+        self.files(self.fixtures / "appdir-lib", ["libboost_log.so.1.83.0"])
+        self.fixture("deploys.jt9", ["libboost_log.so.1.83.0", "libQt5Core.so.5", "libicuuc.so.74", "libgfortran.so.5"])
+        self.assert_failed(self.linux_package(), "unexpected bundled Boost library: lib/libboost_log.so.1.83.0")
 
     def test_linux_runpath_is_not_inherited_by_bundled_libraries(self):
         self.linux_build()

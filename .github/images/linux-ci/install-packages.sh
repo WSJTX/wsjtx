@@ -9,7 +9,7 @@ fi
 normal_packages=(
   ca-certificates curl git
   build-essential cmake ccache
-  libfftw3-dev libboost-log-dev
+  libfftw3-dev bzip2
   qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev
   libqt5sql5-sqlite libqt5websockets5-dev
   libqt5multimedia5-plugins
@@ -18,7 +18,7 @@ normal_packages=(
   texinfo
   dpkg-dev
   asciidoctor
-  rpm
+  rpm cpio
   python3
   file xz-utils xauth xvfb
   portaudio19-dev

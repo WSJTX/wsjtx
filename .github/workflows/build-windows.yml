@@ -91,8 +91,6 @@ jobs:
     outputs:
       installer-artifact-id: ${{ steps.upload_installer.outputs.artifact-id }}
     env:
-      BOOST_VERSION: 1.91.0
-      BOOST_SOURCE_SHA256: de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5
       WSJT_WINDOWS_API_FLOOR: "0x0601"
       VERSION: ${{ inputs.version }}
       HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
@@ -193,8 +191,6 @@ jobs:
         id: windows-deps
         uses: ./.github/actions/build-windows-deps
         with:
-          boost_version: ${{ env.BOOST_VERSION }}
-          boost_source_sha256: ${{ env.BOOST_SOURCE_SHA256 }}
           windows_api_floor: ${{ env.WSJT_WINDOWS_API_FLOOR }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
           cold_build: ${{ inputs.cold_build }}
@@ -231,6 +227,7 @@ jobs:
             -DFFTW3F_THREADS_LIBRARY="${FFTW_PREFIX}/lib/libfftw3f_threads.dll.a" \
             -DWSJT_FFTW_VERSION="${FFTW_VERSION}" \
             -DBOOST_ROOT="${BOOST_PREFIX}" \
+            -DBoost_USE_STATIC_LIBS=ON \
             -DBOOST_INCLUDEDIR="${BOOST_PREFIX}/include" \
             -DBOOST_LIBRARYDIR="${BOOST_PREFIX}/lib" \
             -DHamlib_INCLUDE_DIR="${HAMLIB_PREFIX}/include" \
@@ -288,7 +285,7 @@ jobs:
           # the test exits 0xc0000135 (STATUS_DLL_NOT_FOUND) at launch. The
           # packaged installer is unaffected: cpack's bundle_fixup copies
           # libhamlib-4.dll in.
-          export PATH="${{ steps.windows-deps.outputs.fftw_prefix }}/bin:${{ steps.windows-deps.outputs.boost_prefix }}/lib:${{ steps.windows-deps.outputs.hamlib_prefix }}/bin:${PATH}"
+          export PATH="${{ steps.windows-deps.outputs.fftw_prefix }}/bin:${{ steps.windows-deps.outputs.hamlib_prefix }}/bin:${PATH}"
           # Release builds leave out the long decode-thread rows (ci-cd/DEVELOPMENT_WORKFLOW.md, Test Failure Policy).
           ctest ${{ (startsWith(github.ref, 'refs/tags/') || (startsWith(github.ref, 'refs/heads/release/') && github.event_name != 'push')) && '-LE decode-thread-long' || '' }} --output-on-failure --output-junit ctest-results.xml
           python3 - <<'PY'
@@ -397,6 +394,16 @@ jobs:
             --groups "${WORKSPACE}/CMake/release-tarballs.txt" \
             --dir "${WORKSPACE}/release-tarballs"
 
+      - name: Audit release tarball runtime imports
+        run: |
+          audit_dir=$(mktemp -d)
+          for archive in release-tarballs/*.tar.gz; do
+            payload="$audit_dir/$(basename "$archive" .tar.gz)"
+            mkdir -p "$payload"
+            tar -xzf "$archive" -C "$payload"
+            bash .github/scripts/audit-staged-dll-imports-windows.sh "$payload"
+          done
+
       # Emit an NSIS installer containing the full executable set
       # (wsjtx.exe, map65.exe, jt9, wsprd, fmtave, fcal, fmeasure + WSJT_BUILD_UTILS
       # ft8code/jt65code/... + rigctl wrappers + Qt runtime via bundle_fixup).
@@ -428,6 +435,9 @@ jobs:
           fi
           if cpack "${cpack_args[@]}"; then
             ls -la *.exe
+            for payload in _CPack_Packages/*/NSIS/wsjtx-*/bin; do
+              bash ../.github/scripts/audit-staged-dll-imports-windows.sh "$payload"
+            done
           else
             cpack_status=$?
             for nsis_log in _CPack_Packages/*/NSIS/NSISOutput.log; do
