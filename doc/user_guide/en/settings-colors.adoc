@@ -39,10 +39,11 @@ source from the list does not delete it.
 
 * Added folders include all `.adi` and `.adif` files directly inside them.
 Select a folder in the list and check *Include subfolders* to include files
-beneath it; this option is off by default for each folder. A dedicated ADIF
-export folder, optionally organized by year or contest, helps avoid
-including unrelated logs or backups. Hidden files and folders and symbolic
-links to child folders are skipped.
+beneath it; this option is off by default for each folder. Large folder
+trees can take longer to scan. A dedicated ADIF export folder, optionally
+organized by year or contest, helps avoid including unrelated logs or
+backups. Files and subfolders hidden by your operating system are skipped,
+as are symbolic links to child folders.
 
 * Click *OK* in the history dialog, then *OK* in *Settings* to apply source
 changes. *Cancel* in either dialog discards its changes. Loading runs in
