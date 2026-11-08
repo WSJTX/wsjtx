@@ -11,7 +11,7 @@ fi
 
 fail=0
 images=()
-staged_dlls=()
+runtime_dlls=()
 
 collect_images() {
   local entry lower
@@ -29,7 +29,13 @@ collect_images() {
         ;;
     esac
     case "$lower" in
-      *.dll) staged_dlls+=("$lower"); images+=("$entry") ;;
+      *.dll)
+        images+=("$entry")
+        # Windows does not search arbitrary subdirectories for runtime DLLs.
+        if [ "$1" = "$stage_bin" ]; then
+          runtime_dlls+=("$lower")
+        fi
+        ;;
       *.exe) images+=("$entry") ;;
     esac
   done
@@ -48,13 +54,13 @@ if [ "${#images[@]}" -eq 0 ]; then
   exit 1
 fi
 
-staged_lower=$(
-  printf '%s\n' "${staged_dlls[@]}" | sort -u
+runtime_lower=$(
+  printf '%s\n' "${runtime_dlls[@]}" | sort -u
 )
 
 echo "staged DLLs in $stage_bin:"
-if [ -n "$staged_lower" ]; then
-  echo "$staged_lower"
+if [ -n "$runtime_lower" ]; then
+  echo "$runtime_lower"
 else
   echo "(none)"
 fi
@@ -126,7 +132,7 @@ for exe in "${images[@]}"; do
   )
 
   for dll in $high_risk; do
-    if ! printf '%s\n' "$staged_lower" | awk -v wanted="$dll" '$0 == wanted { found=1 } END { exit found ? 0 : 1 }'; then
+    if ! printf '%s\n' "$runtime_lower" | awk -v wanted="$dll" '$0 == wanted { found=1 } END { exit found ? 0 : 1 }'; then
       echo "::error::$exe imports $dll, but $dll is missing from $stage_bin"
       fail=1
     fi

@@ -63,6 +63,19 @@ class StagedImportAuditTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertNotIn("must not depend on Qt", result.stdout)
 
+    def test_runtime_dll_in_unsearched_subdirectory_is_rejected(self):
+        (self.stage / "Qt5Core.dll").unlink()
+        self.set_imports("unsearched/Qt5Core.dll", "DLL Name: KERNEL32.dll\n")
+        result = self.audit("wsjtx.exe")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("wsjtx.exe imports qt5core.dll, but qt5core.dll is missing", result.stdout)
+
+    def test_nested_plugin_resolves_root_runtime_dll(self):
+        self.set_imports("plugins/platforms/qwindows.dll", "DLL Name: QT5CORE.DLL\n")
+        result = self.audit("wsjtx.exe")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("DLL imports for " + str(self.stage / "plugins/platforms/qwindows.dll"), result.stdout)
+
     def test_direct_boost_import_is_rejected(self):
         self.set_imports("wsjtx.exe", "DLL Name: libboost_log-mt-x64-1_91.dll\n")
         result = self.audit("wsjtx.exe")

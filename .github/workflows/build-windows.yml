@@ -401,7 +401,8 @@ jobs:
             payload="$audit_dir/$(basename "$archive" .tar.gz)"
             mkdir -p "$payload"
             tar -xzf "$archive" -C "$payload"
-            bash .github/scripts/audit-staged-dll-imports-windows.sh "$payload"
+            runtime_dir="$payload/$(basename "$archive" .tar.gz)"
+            bash .github/scripts/audit-staged-dll-imports-windows.sh "$runtime_dir"
           done
 
       # Emit an NSIS installer containing the full executable set
