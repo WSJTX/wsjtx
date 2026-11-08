@@ -112,11 +112,15 @@ void TestAD1CCty::initTestCase ()
   QCoreApplication::setApplicationName ("test_ad1c_cty");
   QVERIFY (settings_dir_.isValid ());
   QVERIFY (QDir {}.mkpath (data_directory ()));
+  settings_.reset (new QSettings {settings_dir_.filePath ("settings.ini"), QSettings::IniFormat});
+  settings_->clear ();
+  configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, settings_.get (), nullptr});
 }
 
 void TestAD1CCty::cleanupTestCase ()
 {
   configuration_.reset ();
+  settings_.reset ();
   QDir {data_directory ()}.removeRecursively ();
 }
 
@@ -125,15 +129,10 @@ void TestAD1CCty::init ()
   QVERIFY (write_data_file ("cty.dat", QByteArray {
     "Baseline Entity:5:8:NA:37:-96:-5:B\n"
     "=BASELINE;\n"}));
-  settings_.reset (new QSettings {settings_dir_.filePath ("settings.ini"), QSettings::IniFormat});
-  settings_->clear ();
-  configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, settings_.get (), nullptr});
 }
 
 void TestAD1CCty::cleanup ()
 {
-  configuration_.reset ();
-  settings_.reset ();
   QFile::remove (QDir {data_directory ()}.filePath ("cty.dat"));
   QFile::remove (QDir {data_directory ()}.filePath ("grid.dat"));
 }
