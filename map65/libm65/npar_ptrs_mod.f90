@@ -103,6 +103,7 @@ module npar_ptrs_mod
     integer(c_int64_t) :: input_generation
     integer(c_int) :: snap_idx = 0            ! snapshot slot (1 = nhsym1, 2 = nhsym2); 0 = none
     integer(c_int64_t) :: snap_seq = 0        ! fill number of that slot when published
+    logical :: lag_counted = .false.          ! its fill was refused and counted as kind 1
     type(decode_request), pointer :: next => null()
   end type
   type(decode_request), pointer, save :: pending_head => null(), pending_tail => null()
@@ -110,8 +111,10 @@ module npar_ptrs_mod
   ! Decoder-behind events, for the status-bar indicator: a decode pass dropped
   ! or cut short because the decoder could not keep up with the minute.
   !   1 = snapshot refill refused (previous pass still reading it)
-  !   2 = queued request skipped (its snapshot was lost)
+  !   2 = queued request skipped (its snapshot was overwritten)
   !   3 = pass aborted at the 40 s budget
+  ! A pass lost to a refused refill is counted once, as kind 1: the request
+  ! published for that fill is marked so claiming it does not add a kind 2 event.
   integer(c_int), save :: lag_event_count = 0
   integer(c_int), save :: lag_last_kind = 0
   integer(c_int64_t), save :: active_request_id = 0
@@ -132,6 +135,7 @@ module npar_ptrs_mod
   integer(c_int64_t), save :: snap_seq(2) = 0
   integer(c_int64_t), save :: snap_valid_seq(2) = 0
   logical, save :: snap_busy(2) = .false.
+  integer(c_int64_t), save :: snap_refused_seq(2) = 0   ! fill refused and already counted
   integer(c_int), save :: snap_latest_idx = 0   ! most recently completed fill
   integer(c_int), save :: active_snap_idx = 0   ! slot read by the active pass
 
@@ -833,6 +837,7 @@ end subroutine
         (draft%nhsym == 280 .or. draft%nhsym == 302)) then
       request%snap_idx = merge(1, 2, draft%nhsym == 280)
       request%snap_seq = snap_seq(request%snap_idx)
+      request%lag_counted = snap_refused_seq(request%snap_idx) == request%snap_seq
       ! No fill has ever happened for this slot (no snapshot support in the
       ! caller): fall back to the input-generation rule.
       if (request%snap_seq == 0) request%snap_idx = 0
@@ -867,7 +872,15 @@ end subroutine
         ! minute has rolled over. A live request more than one generation old
         ! (monitoring stopped, period changed) is still dropped.
         active_request_expired = snap_valid_seq(request%snap_idx) /= request%snap_seq
+        ! Counted before the generation rule below, so a request that is both
+        ! overwritten and from before a monitoring stop still counts: its
+        ! snapshot was lost because the decoder did not get to the pass in time,
+        ! whether or not a stop also happened.
         active_request_lagged = active_request_expired
+        if (active_request_lagged .and. (.not. request%lag_counted)) then
+          lag_event_count = lag_event_count + 1
+          lag_last_kind = 2
+        endif
         if (active%ndiskdat == 0 .and. &
             live_input_generation - request%input_generation >= 2) active_request_expired = .true.
         if (.not. active_request_expired) then
@@ -903,6 +916,7 @@ end subroutine
     snap_valid_seq(idx) = 0
     ok = .not. snap_busy(idx)
     if (.not. ok) then
+      snap_refused_seq(idx) = snap_seq(idx)
       lag_event_count = lag_event_count + 1
       lag_last_kind = 1
     endif
