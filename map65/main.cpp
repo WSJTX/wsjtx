@@ -19,6 +19,7 @@
 #include <cstdio>
 
 extern "C" void set_runtime_params_(int rate_hz, int nfft, int nfft_big);
+extern "C" int symspec_fft_size_(int rate_hz);
 
 extern "C" {
   // Fortran procedures we need
@@ -63,22 +64,7 @@ int main(int argc, char *argv[])
 // ------------------------------------------------------------
 int active_rate = g_sampleRate;
 
-// symspec FFT size: the next power of 2 at or above 32768 * rate / 96000.
-// That gives 2.93 Hz bins at 96 and 192 kHz and 1.95 Hz bins at 128 and
-// 256 kHz (a 49152-point FFT matching 96 kHz was measured less sensitive
-// for Q65 candidates).
-auto round_pow2 = [](int x) {
-    int p = 1;
-    while (p < x) p <<= 1;
-    return p;
-};
-
-// symspec FFT size
-active_nfft = round_pow2(
-    static_cast<int>(
-        static_cast<long long>(BASELINE_NFFT) * active_rate / BASELINE_RATE
-    )
-);
+active_nfft = symspec_fft_size_(active_rate);
 
 g_activeNfft = active_nfft;
 

@@ -1,10 +1,10 @@
 program test_map65_filbig_boundary
-  use iso_fortran_env, only: int64, real32, real64
+  use iso_fortran_env, only: real32, real64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite, ieee_quiet_nan, ieee_value
   use filbig_mod, only: filbig, MAXFFT1, MAXFFT2
   use cacb_mod, only: init_cacb, ca, cb
   use decode1a_mod, only: jt65c_center_offset
-  use npar_ptrs_mod, only: set_runtime_params
+  use npar_ptrs_mod, only: set_runtime_params, symspec_fft_size
   implicit none
 
   real(real32) :: dd(4,1)
@@ -16,10 +16,7 @@ program test_map65_filbig_boundary
 
   call get_command_argument(1, argument)
   read(argument, *) rate
-  nfft = 32768   ! as main.cpp: 32768 * rate / 96000 rounded up to a power of 2
-  do while (int(nfft, int64) * 96000_int64 < 32768_int64 * rate)
-     nfft = 2 * nfft
-  end do
+  nfft = symspec_fft_size(rate)
   nfft_big = 56 * rate
   call set_runtime_params(rate, nfft, nfft_big)
   call init_cacb(MAXFFT1)
