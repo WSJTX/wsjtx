@@ -118,6 +118,19 @@ add_executable (test_waterfall_scale
 target_link_libraries (test_waterfall_scale Qt5::Test)
 add_test (NAME test_waterfall_scale COMMAND test_waterfall_scale)
 
+add_executable (test_plotter_timestamps
+  test_plotter_timestamps.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/plotter.cpp)
+target_link_libraries (test_plotter_timestamps PRIVATE wsjt_qt Qt5::Test)
+wsjt_link_common_fortran (test_plotter_timestamps)
+add_test (NAME test_plotter_timestamps COMMAND test_plotter_timestamps)
+if (WIN32)
+  # The Windows offscreen plugin does not load system fonts.
+  set_tests_properties (test_plotter_timestamps PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+else ()
+  set_tests_properties (test_plotter_timestamps PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif ()
+
 add_executable (test_http_user_agent
   test_http_user_agent.cpp
   )
