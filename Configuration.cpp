@@ -756,6 +756,10 @@ private:
   bool prepare_radio_mode ();
   void handle_mode_status (Transceiver::ModeStatus const&, unsigned);
   void notify_mode_control (RadioModePolicy::State);
+  enum class TestPttState { Idle, Preparing, Active };
+  void set_test_ptt_state (TestPttState, QString const& status = {});
+  void finish_test_ptt_preparation ();
+  void stop_test_ptt ();
   bool open_rig (bool force = false);
   bool rig_restart_required (TransceiverFactory::ParameterPack const&, bool) const;
   bool tx_inhibit_blocks_rig_restart (TransceiverFactory::ParameterPack const&, bool) const;
@@ -984,6 +988,7 @@ private:
   StationList next_stations_;
   FrequencyAdapter frequency_adapter_;
   RadioModePolicy radio_mode_policy_;
+  TestPttState test_ptt_state_ = TestPttState::Idle;
   Frequency observed_rx_frequency_ = 0;
   bool deferred_frequency_retry_scheduled_ = false;
   std::function<RigFrequencyChangePolicy::Activity ()> frequency_activity_provider_;
@@ -2431,6 +2436,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   update_rig_invariants_when_checked (ui_->CAT_handshake_button_group);
   update_rig_invariants_when_checked (ui_->PTT_method_button_group);
   update_rig_invariants_when_checked (ui_->split_mode_button_group);
+  update_rig_invariants_when_checked (ui_->TX_mode_button_group);
+  update_rig_invariants_when_checked (ui_->TX_audio_source_button_group);
+  connect (ui_->tci_audio_check_box, &QCheckBox::toggled, this, &Configuration::impl::stop_test_ptt);
+  connect (ui_->PWR_and_SWR_check_box, &QCheckBox::toggled, this, &Configuration::impl::stop_test_ptt);
 
   auto set_accessible_line_edit_names = [] (QList<QLineEdit *> const& line_edits,
                                             QString const& name_template) {
@@ -3533,6 +3542,7 @@ void Configuration::impl::initialize_models ()
 
 void Configuration::impl::done (int r)
 {
+  stop_test_ptt ();
   // do this here since window is still on screen at this point
   SettingsGroup g {settings_, "Configuration"};
   settings_->setValue ("window/geometry", saveGeometry ());
@@ -4325,6 +4335,8 @@ void Configuration::impl::set_rig_invariants ()
 {
   if (initializing_models_) return;
 
+  stop_test_ptt ();
+
   normalize_rig_selections ();
   auto const& rig = ui_->rig_combo_box->currentText ();
   auto const& ptt_port = ui_->PTT_port_combo_box->currentText ();
@@ -4628,6 +4640,7 @@ TransceiverFactory::ParameterPack Configuration::impl::gather_rig_data ()
 
 void Configuration::impl::accept ()
 {
+  stop_test_ptt ();
   // Called when OK button is clicked.
   if (!validate ())
     {
@@ -5046,6 +5059,7 @@ void Configuration::impl::accept ()
 
 void Configuration::impl::reject ()
 {
+  stop_test_ptt ();
   suggestion_notice_state_.cancel ();
   if (dns_lookup_id_ > -1)
     {
@@ -5821,6 +5835,13 @@ void Configuration::impl::on_cbEQSL_toggled (bool checked)
 
 void Configuration::impl::on_test_PTT_push_button_clicked (bool checked)
 {
+  if (test_ptt_state_ != TestPttState::Idle || !checked)
+    {
+      bool const active = test_ptt_state_ == TestPttState::Active;
+      stop_test_ptt ();
+      if (!checked && !active) self_->transceiver_ptt (false);
+      return;
+    }
   auto const showing_requested_ptt = tx_inhibit_active_;
   if (!showing_requested_ptt)
     {
@@ -5849,12 +5870,66 @@ void Configuration::impl::on_test_PTT_push_button_clicked (bool checked)
 
   if (open_rig ())
     {
-      Q_EMIT self_->transceiver_ptt (checked);
+      if (self_->radio_mode_ready ())
+        {
+          set_test_ptt_state (TestPttState::Active);
+          self_->transceiver_ptt (true);
+        }
+      else
+        {
+          set_test_ptt_state (TestPttState::Preparing,
+            tr ("Preparing radio mode. Click Cancel PTT test to cancel."));
+          if (prepare_radio_mode ()) finish_test_ptt_preparation ();
+          else set_test_ptt_state (TestPttState::Idle,
+            tr ("Cannot prepare the radio mode for the PTT test. Check CAT and wait for transmit activity to stop, then try again."));
+        }
     }
   else if (showing_requested_ptt)
     {
       ui_->test_PTT_push_button->setChecked (!checked);
     }
+}
+
+void Configuration::impl::set_test_ptt_state (TestPttState state, QString const& status)
+{
+  test_ptt_state_ = state;
+  ui_->test_PTT_push_button->setText (state == TestPttState::Preparing
+    ? tr ("Cancel PTT test") : tr ("Test PTT"));
+  if (state == TestPttState::Preparing) ui_->test_PTT_push_button->setEnabled (true);
+  if (state != TestPttState::Active) ui_->test_PTT_push_button->setChecked (false);
+  ui_->test_PTT_push_button->setAccessibleDescription (status);
+  ui_->test_PTT_status_label->setText (status);
+  ui_->test_PTT_status_label->setVisible (!status.isEmpty ());
+}
+
+void Configuration::impl::stop_test_ptt ()
+{
+  if (test_ptt_state_ == TestPttState::Idle) return;
+  bool const active = test_ptt_state_ == TestPttState::Active;
+  set_test_ptt_state (TestPttState::Idle);
+  if (active) self_->transceiver_ptt (false);
+}
+
+void Configuration::impl::finish_test_ptt_preparation ()
+{
+  if (test_ptt_state_ != TestPttState::Preparing) return;
+  if (self_->radio_mode_yielded ())
+    {
+      set_test_ptt_state (TestPttState::Idle,
+        tr ("The radio mode could not be confirmed. Check the radio mode and CAT settings, then try Test PTT again."));
+      return;
+    }
+  if (!self_->radio_mode_ready ()) return;
+  if (!isVisible () || !rig_active_ || !cached_rig_state_.online () || tx_inhibit_active_
+      || rig_restart_required (gather_rig_data (), false)
+      || !frequency_change_allowed (RigFrequencyChangePolicy::ChangeKind::NominalQsy))
+    {
+      set_test_ptt_state (TestPttState::Idle,
+        tr ("PTT test canceled because the radio is no longer ready to transmit."));
+      return;
+    }
+  set_test_ptt_state (TestPttState::Active);
+  self_->transceiver_ptt (true);
 }
 
 void Configuration::impl::on_force_DTR_combo_box_currentIndexChanged (int /* index */)
@@ -7183,6 +7258,9 @@ bool Configuration::impl::open_rig (bool force)
                         quint32 expiries, quint32 invalid) {
                   if (generation != tx_inhibit_generation_) return;
                   tx_inhibit_active_ = inhibited;
+                  if (inhibited && test_ptt_state_ == TestPttState::Preparing)
+                    set_test_ptt_state (TestPttState::Idle,
+                      tr ("PTT test canceled because TX inhibit is active."));
                   if (inhibited)
                     {
                       ui_->test_PTT_push_button->setChecked (cached_rig_state_.ptt ());
@@ -7273,6 +7351,7 @@ void Configuration::impl::notify_mode_control (RadioModePolicy::State previous)
       cached_rig_state_.frequency_request (RigFrequency::Path::Rx, {});
       cached_rig_state_.frequency_request (RigFrequency::Path::Tx, {});
       if (observed_rx_frequency_) cached_rig_state_.frequency (observed_rx_frequency_);
+      if (test_ptt_state_ == TestPttState::Active) stop_test_ptt ();
       for (auto const& request : cancelled)
         Q_EMIT self_->frequency_result (
           {request, RigFrequency::Outcome::Deferred, RigFrequency::Basis::Retained, 0});
@@ -7325,6 +7404,7 @@ void Configuration::impl::handle_mode_status (Transceiver::ModeStatus const& sta
           || status.kind == Transceiver::ModeStatusKind::Applied))
     cached_rig_state_.mode (status.mode);
   notify_mode_control (previous);
+  finish_test_ptt_preparation ();
 }
 
 RigFrequencyChangePolicy::Activity Configuration::impl::frequency_change_activity () const
@@ -7727,6 +7807,7 @@ void Configuration::impl::handle_transceiver_failure (QString const& reason)
 
 void Configuration::impl::close_rig (bool failed)
 {
+  set_test_ptt_state (TestPttState::Idle);
   frequency_adapter_.new_connection ();
   deferred_frequency_retry_scheduled_ = false;
   ui_->test_PTT_push_button->setEnabled (false);

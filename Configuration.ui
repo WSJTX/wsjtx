@@ -1361,44 +1361,46 @@ a few, particularly some Kenwood rigs, require it).</string>
         </widget>
        </item>
        <item row="10" column="2">
-        <layout class="QHBoxLayout" name="horizontalLayout_11">
+        <layout class="QVBoxLayout" name="ptt_test_layout">
          <item>
-          <widget class="QPushButton" name="test_CAT_push_button">
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Test CAT</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_3">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Preferred</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QPushButton" name="test_PTT_push_button">
-           <property name="toolTip">
-            <string>Attempt to activate the transmitter.
+          <layout class="QHBoxLayout" name="horizontalLayout_11">
+           <item>
+            <widget class="QPushButton" name="test_CAT_push_button">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Test CAT</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Preferred</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="test_PTT_push_button">
+             <property name="toolTip">
+              <string>Attempt to activate the transmitter.
 Click again to deactivate. Normally no power should be
 output since there is no audio being generated at this time.
 Check that any Tx indication on your radio and/or your
 radio interface behave as expected.</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton:checked {
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton:checked {
 	background-color: red;
 	border-style	: outset;
 	border-width: 1px;
@@ -1407,11 +1409,32 @@ radio interface behave as expected.</string>
 	min-width: 5em;
 	padding: 3px;
 }</string>
+             </property>
+             <property name="text">
+              <string>Test PTT</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QLabel" name="test_PTT_status_label">
+           <property name="visible">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <property name="text">
-            <string>Test PTT</string>
+            <string/>
            </property>
-           <property name="checkable">
+           <property name="wordWrap">
             <bool>true</bool>
            </property>
           </widget>

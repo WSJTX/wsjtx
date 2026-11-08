@@ -62,6 +62,8 @@ struct FrequencySession final : QObject
   Frequency appliedRx = 14074000;
   Frequency appliedTx = 14075000;
   QString appliedMode {"digu"};
+  Transceiver::MODE observedMode = Transceiver::UNK;
+  bool holdMode = false;
   Frequency withheldTarget = 0;
   QString withheld;
   bool wrongThread = false;
@@ -91,6 +93,7 @@ struct FrequencySession final : QObject
         checkThread ();
         frequency.setConnectionGeneration (configuration.frequency_generation (), state.online ());
         activity.rigPtt = state.ptt ();
+        observedMode = state.mode ();
         activity.rigTune = state.tune ();
         context.transmitting = state.ptt ();
         OperatingFrequency::Observation current {
@@ -132,6 +135,7 @@ struct FrequencySession final : QObject
             }
           else if (verb == "modulation")
             {
+              if (holdMode && args.size () >= 2) continue;
               if (args.size () >= 2) appliedMode = args.at (1);
               server.send_text (QString {"modulation:0,%1"}.arg (appliedMode));
             }
@@ -204,6 +208,45 @@ class TestConfigurationRadio final : public QObject
     session.frequency.setConnectionGeneration (configuration_->frequency_generation ());
     return session.server.wait_for ([&] { return session.previous.online || !session.failures.isEmpty (); }, 7000)
       && session.previous.online && session.failures.isEmpty ();
+  }
+
+  bool openPttTestWithLatchedYield ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    ui ().mode_data_radio_button->setChecked (true);
+    dialog ().show ();
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    s.appliedMode = "cw";
+    dialog ().radio_mode_policy_.configure (Transceiver::DIG_U);
+    dialog ().radio_mode_policy_.prepare (dialog ().transceiver_command_number_);
+    dialog ().handle_mode_status ({Transceiver::CW, Transceiver::ModeStatusKind::Observed},
+      dialog ().transceiver_command_number_);
+    if (!s.server.listen () || !openFrequencySession ()) return false;
+    dialog ().have_rig_ = true;
+    dialog ().rig_changed_ = false;
+    return configuration_->radio_mode_yielded () && !configuration_->radio_mode_ready ()
+      && s.observedMode == Transceiver::CW;
+  }
+
+  bool stageYieldedRadioWithoutTransport ()
+  {
+    auto& d = dialog ();
+    d.data_mode_ = Configuration::data_mode_data;
+    ui ().mode_data_radio_button->setChecked (true);
+    d.show ();
+    d.rig_params_ = d.saved_rig_params_ = d.gather_rig_data ();
+    d.rig_active_ = d.have_rig_ = true;
+    d.rig_changed_ = d.rig_is_dummy_ = false;
+    Transceiver::TransceiverState observed;
+    observed.online (true);
+    observed.frequency (14074000);
+    observed.mode (Transceiver::CW);
+    d.cached_rig_state_ = observed;
+    d.send_transceiver (Transceiver::DIG_U);
+    d.handle_mode_status ({Transceiver::CW, Transceiver::ModeStatusKind::Observed}, d.transceiver_command_number_);
+    d.handle_transceiver_update (observed, d.transceiver_command_number_);
+    return configuration_->radio_mode_yielded () && ui ().test_PTT_push_button->isEnabled ();
   }
 
   bool inspectHistoryDialog (std::function<void (QDialog&)> const& inspect, bool accept = false)
@@ -329,6 +372,7 @@ private slots:
   {
     session_.reset (new FrequencySession {*configuration_});
     auto& s = *session_;
+    s.appliedRx = s.appliedTx = FrequencySession::nominal;
     QVERIFY (s.server.listen ());
     QVERIFY (openFrequencySession ());
     s.frequency.setDesiredCorrection (125, -125);
@@ -396,6 +440,7 @@ private slots:
     auto const path = tx ? RigFrequency::Path::Tx : RigFrequency::Path::Rx;
     session_.reset (new FrequencySession {*configuration_});
     auto& s = *session_;
+    s.appliedRx = s.appliedTx = FrequencySession::nominal;
     QVERIFY (s.server.listen ());
     QVERIFY (openFrequencySession ());
     s.frequency.setDesiredCorrection (125, -125);
@@ -482,6 +527,7 @@ private slots:
     dialog ().data_mode_ = Configuration::data_mode_data;
     session_.reset (new FrequencySession {*configuration_});
     auto& s = *session_;
+    s.appliedRx = s.appliedTx = FrequencySession::nominal;
     QVERIFY (s.server.listen ());
     QVERIFY (openFrequencySession ());
     QVERIFY (configuration_->prepare_radio_mode ());
@@ -659,11 +705,11 @@ private slots:
     QVERIFY (configuration_->radio_mode_yielded ());
 
     s.selectMode ("digu");
-    QTest::qWait (600);
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::DIG_U; }, 3000));
     QVERIFY (configuration_->radio_mode_yielded ());
     QVERIFY (!configuration_->radio_mode_ready ());
     s.selectMode ("cw");
-    QTest::qWait (600);
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::CW; }, 3000));
     int preparationCommands = 0;
     QObject capture;
     connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
@@ -682,6 +728,176 @@ private slots:
     QVERIFY (s.modeWrites () > initialWrites);
     QVERIFY (s.failures.isEmpty ());
     QVERIFY (!s.wrongThread);
+  }
+
+  void testPttPreparesModeBeforeKeying ()
+  {
+    QVERIFY (openPttTestWithLatchedYield ());
+    auto& s = *session_;
+    auto const dial = s.appliedRx;
+    auto const writes = s.modeWrites ();
+    s.holdMode = true;
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    bool keyedBeforeReady = false;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& state, unsigned) {
+        keyedBeforeReady |= state.ptt () && !configuration_->radio_mode_ready ();
+      });
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return s.modeWrites () > writes; }, 1000));
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+    QCOMPARE (ui ().test_PTT_push_button->text (), QString {"Cancel PTT test"});
+    QVERIFY (!ui ().test_PTT_status_label->isHidden ());
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+
+    s.holdMode = false;
+    s.selectMode ("digu");
+    QVERIFY (s.server.wait_for ([&] { return s.activity.rigPtt; }, 3000));
+    QVERIFY (!keyedBeforeReady);
+    QVERIFY (ui ().test_PTT_push_button->isChecked ());
+    QVERIFY (ui ().test_PTT_status_label->isHidden ());
+    QCOMPARE (s.appliedRx, dial);
+    for (auto const& command : commands)
+      {
+        auto const state = qvariant_cast<Transceiver::TransceiverState> (command.at (0));
+        QVERIFY (!state.tune ());
+        QVERIFY (!state.tx_audio ());
+      }
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return !s.activity.rigPtt; }, 3000));
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void testPttOffDoesNotSendToOfflineRig ()
+  {
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    dialog ().on_test_PTT_push_button_clicked (false);
+    QVERIFY (commands.isEmpty ());
+    QVERIFY (!dialog ().cached_rig_state_.online ());
+  }
+
+  void canceledPttTestDoesNotKeyAfterLateModeReadback_data ()
+  {
+    QTest::addColumn<QString> ("action");
+    for (auto action : {"button", "accept", "reject", "close", "settings", "audio-source", "inhibit", "stop-delay"})
+      QTest::newRow (action) << QString {action};
+  }
+
+  void canceledPttTestDoesNotKeyAfterLateModeReadback ()
+  {
+    QFETCH (QString, action);
+    QVERIFY (stageYieldedRadioWithoutTransport ());
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    ui ().test_PTT_push_button->click ();
+    QCOMPARE (commands.size (), 1);
+    QCOMPARE (dialog ().test_ptt_state_, Configuration::impl::TestPttState::Preparing);
+    auto const sequence = dialog ().transceiver_command_number_;
+    if (action == "button") ui ().test_PTT_push_button->click ();
+    else if (action == "accept") dialog ().accept ();
+    else if (action == "reject") dialog ().reject ();
+    else if (action == "close") dialog ().close ();
+    else if (action == "settings") ui ().mode_USB_radio_button->setChecked (true);
+    else if (action == "audio-source")
+      {
+        for (auto button : ui ().TX_audio_source_button_group->buttons ())
+          if (!button->isChecked ()) { button->setChecked (true); break; }
+      }
+    else if (action == "inhibit") dialog ().tx_inhibit_active_ = true;
+    else dialog ().frequency_activity_provider_ = [] {
+        RigFrequencyChangePolicy::Activity activity;
+        activity.stopDelayActive = true;
+        return activity;
+      };
+    dialog ().handle_mode_status ({Transceiver::DIG_U, Transceiver::ModeStatusKind::Observed}, sequence);
+    QCOMPARE (dialog ().test_ptt_state_, Configuration::impl::TestPttState::Idle);
+    dialog ().tx_inhibit_active_ = false;
+    dialog ().frequency_activity_provider_ = {};
+    dialog ().handle_mode_status ({Transceiver::DIG_U, Transceiver::ModeStatusKind::Observed}, sequence);
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+  }
+
+  void canceledPttTestIgnoresLateTransportReadback_data ()
+  {
+    QTest::addColumn<QString> ("action");
+    for (auto action : {"button", "test-cat", "offline"})
+      QTest::newRow (action) << QString {action};
+  }
+
+  void canceledPttTestIgnoresLateTransportReadback ()
+  {
+    QFETCH (QString, action);
+    QVERIFY (openPttTestWithLatchedYield ());
+    auto& s = *session_;
+    s.holdMode = true;
+    auto const writes = s.modeWrites ();
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return s.modeWrites () > writes; }, 1000));
+    if (action == "button") ui ().test_PTT_push_button->click ();
+    else if (action == "test-cat")
+      {
+        connect (configuration_.get (), &Configuration::transceiver_closing,
+                 &s.server, &TciSimServer::abort_client);
+        s.previous = {};
+        dialog ().on_test_CAT_push_button_clicked ();
+        QVERIFY (s.server.wait_for ([&] { return s.previous.online || !s.failures.isEmpty (); }, 7000));
+        QVERIFY (s.previous.online);
+      }
+    else
+      {
+        configuration_->transceiver_offline ();
+        QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+        QVERIFY (openFrequencySession ());
+      }
+    s.holdMode = false;
+    s.selectMode ("digu");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::DIG_U; }, 3000));
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+    QVERIFY (!s.activity.rigPtt);
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void failedPttModePreparationExplainsFailureWithoutKeying ()
+  {
+    QVERIFY (openPttTestWithLatchedYield ());
+    auto& s = *session_;
+    s.holdMode = true;
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    QVERIFY (ui ().test_PTT_status_label->text ().contains ("could not be confirmed"));
+    QVERIFY (!ui ().test_PTT_status_label->isHidden ());
+    QCOMPARE (ui ().test_PTT_push_button->accessibleDescription (), ui ().test_PTT_status_label->text ());
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+    s.selectMode ("digu");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::DIG_U; }, 3000));
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+  }
+
+  void testPttModeNonePreservesModeAndStopsOnDialogClose ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_none;
+    dialog ().show ();
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::CW; }, 3000));
+    auto const writes = s.modeWrites ();
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return s.activity.rigPtt; }, 3000));
+    QCOMPARE (s.modeWrites (), writes);
+    QCOMPARE (s.appliedMode, QString {"cw"});
+    dialog ().done (QDialog::Rejected);
+    QVERIFY (s.server.wait_for ([&] { return !s.activity.rigPtt; }, 3000));
   }
 
   void firstPreparationOnCompatibleRadioStillDetectsLaterOverride ()
