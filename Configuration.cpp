@@ -3565,7 +3565,6 @@ void Configuration::impl::read_settings ()
 {
   SettingsGroup g {settings_, "Configuration"};
   LOG_INFO(QString{"Configuration Settings (%1)"}.arg(settings_->fileName()));
-  QStringList keys = settings_->allKeys();
 
   use_default_geometry_ = !settings_->contains ("window/geometry");
   if (!use_default_geometry_)
@@ -3809,7 +3808,7 @@ void Configuration::impl::read_settings ()
   auto selection_setting = [&] (char const * key, DecodeHighlightingModel::Highlight type) {
     if (!settings_->contains (key))
       {
-        auto const enabled = keys.isEmpty () || std::any_of (
+        auto const enabled = !settings_->contains ("DecodeHighlighting") || std::any_of (
           highlight_items.cbegin (), highlight_items.cend (), [type] (auto const& item) {
             return item.type_ == type && item.enabled_;
           });

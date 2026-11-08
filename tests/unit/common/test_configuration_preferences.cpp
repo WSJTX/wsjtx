@@ -103,6 +103,19 @@ private Q_SLOTS:
     QVERIFY (!settings_->value ("Configuration/BestSPNewCallOnBand").toBool ());
   }
 
+  void bestSpPartialProfileWithoutHighlightingUsesNewDefaults ()
+  {
+    configuration_.reset ();
+    settings_->clear ();
+    settings_->setValue ("Configuration/MyCall", QStringLiteral ("K1ABC"));
+    QVERIFY (!settings_->contains ("Configuration/DecodeHighlighting"));
+    loadConfiguration ();
+    QVERIFY (configuration_->best_sp_new_dxcc ());
+    QVERIFY (configuration_->best_sp_new_call_on_band ());
+    QVERIFY (settings_->value ("Configuration/BestSPNewDXCC").toBool ());
+    QVERIFY (settings_->value ("Configuration/BestSPNewCallOnBand").toBool ());
+  }
+
   void bestSpMigrationIsIndependentOfLaterColors_data ()
   {
     QTest::addColumn<bool> ("dxcc");
