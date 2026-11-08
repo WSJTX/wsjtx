@@ -13,6 +13,7 @@
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QDialog>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QLineEdit>
@@ -99,13 +100,15 @@ namespace
     QByteArray diagnosticsTail () override {return {};}
     QString diagnostics () const override {return QStringLiteral ("scripted Best S+P backend");}
 
-    void record (QString const& payload)
+    void record (QString const& payload, int snr = -10, int frequency = 1900,
+                 QString const& time = "120000")
     {
       Output output;
       output.kind = Output::Kind::Record;
       output.current = true;
       output.request = active_;
-      output.text = ("120000 -10  0.3 1900 +  " + payload + '\n').toUtf8 ();
+      output.text = (QString {"%1 %2  0.3 %3 +  "}.arg (time).arg (snr, 3).arg (frequency, 4)
+                     + payload + '\n').toUtf8 ();
       deliver (output);
     }
     void complete (bool stale = false)
@@ -290,6 +293,7 @@ bool BestSPApplicationTestController::startRequest (quint64 frequency, QString c
   window_->ptt1Timer.stop ();
   window_->ptt0Timer.stop ();
   window_->m_autoRespondPeriodState = {};
+  window_->cancelAutomaticCQSelection ();
   window_->m_autoRespondScores.reset ();
   window_->m_autoRespondSelectionLatch.clear ();
   window_->m_bCallingCQ = false;
@@ -395,7 +399,7 @@ bool BestSPApplicationTestController::run ()
       || !record ("CQ JA1ABC PM95") || !complete ("JA1ABC")) return false;
   return armingEligibility () && audioFrequencyChanges () && feedbackLifecycle ()
     && competingCQSelections () && contextAndReplyPaths () && translatedSelections ()
-    && settingsCQSelection ();
+    && settingsCQSelection () && pounceSelections ();
 }
 
 bool BestSPApplicationTestController::audioFrequencyChanges ()
@@ -625,10 +629,144 @@ bool BestSPApplicationTestController::settingsCQSelection ()
       || !feedbackMatches (true, feedback)
       || !editWaitFeatures (true, true)
       || !require (window_->m_config.Wait_features_enabled () && pounce,
-                   "Settings acceptance did not reactivate Pounce.")
+                   QString {"Settings acceptance did not reactivate Pounce: Wait features=%1, Pounce=%2."}
+                     .arg (window_->m_config.Wait_features_enabled ()).arg (pounce))
       || !feedbackMatches (false, QCoreApplication::translate (
            "MainWindow", "Best S+P canceled: Wait & Pounce is active."))) return false;
   return complete ({});
+}
+
+bool BestSPApplicationTestController::pounceSelections ()
+{
+  auto * scripted = static_cast<ScriptedDecoderBackend *> (backend_);
+  auto const arm = [this] {
+    QApplication::setActiveWindow (window_);
+    window_->ui->autoButton->setFocus ();
+    if (!require (window_->ui->autoButton->hasFocus (),
+                  "The Pounce activation control did not receive focus.")) return false;
+    QMouseEvent event {QEvent::MouseButtonPress, QPointF {}, Qt::RightButton,
+                       Qt::RightButton, Qt::NoModifier};
+    QApplication::sendEvent (window_, &event);
+    return require (pounce, "Right-click did not arm Pounce.");
+  };
+  auto const begin = [this, &arm] (AutoRespondPolicy policy, QString const& scenario) {
+    if (!startRequest (14080000, scenario)) return false;
+    window_->setBestSPArmed (false);
+    window_->ui->cbAutoSeq->setChecked (true);
+    window_->ui->respondComboBox->setVisible (true);
+    window_->ui->respondComboBox->setCurrentIndex (
+      window_->ui->respondComboBox->findData (static_cast<int> (policy)));
+    window_->ui->txFirstCheckBox->setEnabled (true);
+    return arm ();
+  };
+  auto const messages = [this] {
+    return QStringList {window_->ui->tx1->text (), window_->ui->tx2->text (),
+      window_->ui->tx3->text (), window_->ui->tx4->text (),
+      window_->ui->tx5->currentText (), window_->ui->tx6->text ()};
+  };
+  auto const candidate = [scripted] (AutoRespondPolicy policy) {
+    scripted->record ("CQ JA1ABC PM95", policy == AutoRespondPolicy::MinSignal ? -25 : -2, 2400);
+  };
+  auto const wait = [] (int milliseconds) {
+    QEventLoop loop;
+    QTimer::singleShot (milliseconds, &loop, &QEventLoop::quit);
+    loop.exec ();
+  };
+  for (auto const policy : {AutoRespondPolicy::MaxDistance, AutoRespondPolicy::MaxSignal,
+                            AutoRespondPolicy::MinSignal})
+    for (int origin = 0; origin != 3; ++origin)
+      {
+        if (!begin (policy, QString {"Pounce policy %1 preserves manual target from origin %2"}
+                    .arg (static_cast<int> (policy)).arg (origin))) return false;
+        scripted->record ("CQ W1AW FN31");
+        if (!require (pounce && window_->m_auto && window_->ui->dxCallEntry->text () == "W1AW"
+                      && window_->m_pounceSelectionTimer.isActive (),
+                      "The initial automatic candidate did not open its selection window.")) return false;
+        QString const manual {"120007 -10  0.3 1250 +  CQ W9XYZ EN50"};
+        if (origin == 0) window_->doubleClickOnCall2 (manual, {}, Qt::NoModifier, {});
+        else if (origin == 1) window_->doubleClickOnCall (manual, {}, Qt::NoModifier, {});
+        else window_->replyToCQ (QTime {12, 0, 7}, -10, 0.3f, 1250, "+", "CQ W9XYZ EN50", false, 0);
+        auto const selectedMessages = messages ();
+        bool const txFirst = window_->ui->txFirstCheckBox->isChecked ();
+        if (!require (!pounce && !window_->m_pounceSelectionTimer.isActive ()
+                      && !window_->stopWCTimer.isActive () && window_->m_auto
+                      && window_->ui->dxCallEntry->text () == "W9XYZ",
+                      "An accepted manual selection did not retain Auto Tx and cancel Pounce.")) return false;
+        candidate (policy);
+        if (!require (window_->ui->dxCallEntry->text () == "W9XYZ"
+                      && messages () == selectedMessages && window_->ui->RxFreqSpinBox->value () == 1250
+                      && window_->ui->txFirstCheckBox->isChecked () == txFirst && window_->m_auto,
+                      "A better automatic candidate replaced the manual call, messages, frequency, or period.")) return false;
+        auto const progress = window_->m_QSOProgress;
+        scripted->record ("K1ABC W9XYZ -05", -5, 1250, "120007");
+        if (!require (window_->ui->dxCallEntry->text () == "W9XYZ" && window_->m_auto
+                      && window_->m_QSOProgress != progress,
+                      "A directed reply did not advance the manually selected QSO.")
+            || !complete ("W9XYZ")) return false;
+      }
+
+  for (auto const policy : {AutoRespondPolicy::First, AutoRespondPolicy::MaxDistance,
+                            AutoRespondPolicy::MaxSignal, AutoRespondPolicy::MinSignal})
+    {
+      if (!begin (policy, QString {"Pounce policy %1 retains automatic ranking and non-selection actions"}
+                  .arg (static_cast<int> (policy)))) return false;
+      scripted->record ("CQ W1AW FN31");
+      window_->m_pounceSelectionTimer.start (90);
+      auto const originalRemaining = window_->m_pounceSelectionTimer.remainingTime ();
+      window_->doubleClickOnCall2 ("malformed", {}, Qt::NoModifier, {});
+      window_->doubleClickOnCall2 ("120000  Tx      1259 +  CQ K1ABC FN42", {}, Qt::NoModifier, {});
+      window_->setFreq4 (1600, 1800);
+      if (!require (pounce && window_->m_pounceSelectionTimer.isActive (),
+                    "A rejected selection or audio-frequency change canceled Pounce.")) return false;
+      candidate (policy);
+      auto const expected = policy == AutoRespondPolicy::First ? "W1AW" : "JA1ABC";
+      if (!require (pounce && window_->ui->dxCallEntry->text () == expected
+                    && window_->m_pounceSelectionTimer.remainingTime () <= originalRemaining,
+                    "Automatic ranking failed or extended the original selection window.")) return false;
+      window_->m_pounceSelectionTimer.start (1);
+      wait (10);
+      if (!require (!pounce && window_->stopWCTimer.isActive (),
+                    "The selection window did not expire independently of the Wait and Call timeout.")) return false;
+      window_->ui->txb6->click ();
+      if (!require (!window_->stopWCTimer.isActive () && window_->m_auto,
+                    "An explicit Tx6 action did not stop the Pounce timeout while retaining Auto Tx.")
+          || !complete (expected)) return false;
+    }
+
+  if (!begin (AutoRespondPolicy::MaxSignal, "typing cancels Pounce while programmatic updates preserve it")) return false;
+  window_->ui->dxCallEntry->setText ("W1AW");
+  if (!require (pounce, "A programmatic target update canceled Pounce.")) return false;
+  window_->ui->dxCallEntry->setFocus ();
+  window_->ui->dxCallEntry->selectAll ();
+  QKeyEvent edit {QEvent::KeyPress, Qt::Key_W, Qt::NoModifier, "W"};
+  QApplication::sendEvent (window_->ui->dxCallEntry, &edit);
+  if (!require (!pounce && window_->ui->dxCallEntry->text () == "W",
+                "A real DX Call edit did not cancel Pounce.")) return false;
+  window_->auto_tx_mode (true);
+  candidate (AutoRespondPolicy::MaxSignal);
+  if (!require (!pounce && window_->ui->dxCallEntry->text () == "W",
+                "Ordinary Enable Tx resurrected canceled Pounce.") || !complete ("W")) return false;
+
+  for (auto const policy : {AutoRespondPolicy::First, AutoRespondPolicy::MaxSignal})
+    {
+      if (!begin (policy, QString {"Pounce policy %1 rearms without stale scores, latch, or timeout"}
+                  .arg (static_cast<int> (policy)))) return false;
+      candidate (policy);
+      window_->m_pounceSelectionTimer.start (30);
+      window_->ui->txb2->click ();
+      if (!require (!pounce && !window_->m_autoRespondSelectionLatch.isSelected ()
+                    && !window_->m_pounceSelectionTimer.isActive (),
+                    "An explicit transmit-message control did not cancel automatic selection.")) return false;
+      window_->auto_tx_mode (false);
+      if (!arm ()) return false;
+      wait (60);
+      if (!require (pounce, "A canceled selection timeout cleared the new Pounce intent.")) return false;
+      scripted->record ("CQ W1AW FN31", -15);
+      if (!require (window_->ui->dxCallEntry->text () == "W1AW",
+                    "Fresh Pounce arming retained an earlier First latch or better score.")
+          || !complete ("W1AW")) return false;
+    }
+  return true;
 }
 
 bool BestSPApplicationTestController::armingEligibility ()

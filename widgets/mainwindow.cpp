@@ -1206,12 +1206,15 @@ MainWindow::MainWindow(QDir const& temp_directory,
   set_dateTimeQSO(-1);
   connect (m_tx_message_button_group, QOverload<QAbstractButton *>::of (&QButtonGroup::buttonClicked),
            this, [this] (QAbstractButton *button) {
-             m_autoRespondPeriodState.disarm();
+             cancelAutomaticCQSelection ();
              set_ntx(m_tx_message_button_group->id(button));
            });
   connect (ui->decodedTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall2);
   connect (ui->decodedTextBrowser2, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall);
-  connect (ui->dxCallEntry, &QLineEdit::textEdited, this, [this] {setBestSPArmed (false);});
+  connect (ui->dxCallEntry, &QLineEdit::textEdited, this, [this] {
+    cancelAutomaticCQSelection ();
+    setBestSPArmed (false);
+  });
   connect (ui->houndQueueTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnFoxQueue);
   connect (ui->foxTxListTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnFoxInProgress);
   connect (ui->decodedTextBrowser, &DisplayText::erased, this, &MainWindow::band_activity_cleared);
@@ -1477,6 +1480,9 @@ MainWindow::MainWindow(QDir const& temp_directory,
 
   stopWCTimer.setSingleShot(true);
   connect(&stopWCTimer, &QTimer::timeout, this, &MainWindow::stopWCTimeout);
+
+  m_pounceSelectionTimer.setSingleShot (true);
+  connect (&m_pounceSelectionTimer, &QTimer::timeout, this, [] {pounce = false;});
 
   ptt0Timer.setSingleShot(true);
   connect(&ptt0Timer, &QTimer::timeout, this, &MainWindow::stopTx2);
@@ -3966,6 +3972,7 @@ void MainWindow::stopWRTimeout()
 
 void MainWindow::stopWCTimeout()
 {
+  m_pounceWaitCallTimeout = false;
   if (ui->DX_Call_Button->isChecked()) {
     ui->DX_Call_Button->click ();
     auto_tx_mode(false);
@@ -4067,7 +4074,7 @@ void MainWindow::statusChanged()
   if (SpecOp::FOX==m_specOp) {
     ui->pbFreeText->setVisible(true);
     ui->cbSendMsg->setVisible(true);
-    ui->txb6->click();
+    if (ui->txb6->isEnabled ()) selectTx6Message ();
     if (m_config.superFox()) {
       ui->sbNslots->setVisible(true);
       m_operatingFrequency.requestTxPlan ({m_operatingFrequency.tx (), 0}, {}, false, false);
@@ -4094,7 +4101,7 @@ void MainWindow::statusChanged()
     m_wideGraph->setSuperHound(false);
   }
   if (ui->tx1->text()=="" && !(m_mode=="FT8" && (SpecOp::HOUND==m_specOp or SpecOp::FOX==m_specOp))
-      && !m_bDoubleClicked) ui->txb6->click();
+      && !m_bDoubleClicked && ui->txb6->isEnabled ()) selectTx6Message ();
   if (ui->actionBand_Buttons->isChecked()) {
     ui->actionVHF_UHF_Buttons->setVisible(true);
   } else {
@@ -6966,7 +6973,7 @@ void MainWindow::callSandP2(int n)
       refreshPileupList();
       return;
     }
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_deGrid=w[3];
     m_bDoubleClicked=true;
     m_txFirst=true;
@@ -6994,7 +7001,7 @@ void MainWindow::callSandP2(int n)
     applyQ65StationSelection ({w[4], w[5], w[3], w[2], w[6]=="0"});
   } else {
     if(w.size() < 6) return;
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_deCall=w[0];
     m_deGrid=w[1];
     ui->RxFreqSpinBox->setValue(w[4].toInt());
@@ -7044,7 +7051,7 @@ void MainWindow::callSandP2(int n)
 void MainWindow::applyQ65StationSelection (Q65StationSelection const& selection)
 {
   QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
-  m_autoRespondPeriodState.disarm();
+  cancelAutomaticCQSelection ();
   m_deCall=selection.call;
   m_deGrid=selection.grid;
   m_txFirst=selection.txFirst;
@@ -9519,7 +9526,7 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
   using Effect = DecodedMessageReaction::QsoReactionEffect;
   switch (effect.kind) {
   case Effect::Kind::DisarmAutoRespondSelection:
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     break;
   case Effect::Kind::SetRxFrequency:
     ui->RxFreqSpinBox->setValue(effect.intValue);
@@ -9682,6 +9689,7 @@ void MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
     stopWRTimer.start(effect.intValue);
     break;
   case Effect::Kind::StartWaitCallTimer:
+    m_pounceWaitCallTimeout = false;
     stopWCTimer.start(effect.intValue);
     break;
   case Effect::Kind::ScheduleStopTx:
@@ -9898,7 +9906,7 @@ void MainWindow::ScrollBarPosition(int n) {
 
 void MainWindow::genStdMsgsForSelection(QString const& rpt, bool unconditional)
 {
-  if (!m_hisCall.isEmpty()) m_autoRespondPeriodState.disarm();
+  if (!m_hisCall.isEmpty()) cancelAutomaticCQSelection ();
   genStdMsgs(rpt, unconditional);
 }
 
@@ -10443,13 +10451,15 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       });
     } else {
       if (!pounce && !m_auto && m_config.Wait_features_enabled() && SpecOp::FOX!=m_specOp) {
+        cancelAutomaticCQSelection ();
+        m_autoRespondScores.reset ();
         pounce = true;
         check_button_color();
         cancelBestSPForCQSelection ();
         stopWRTimer.stop();           // Stop any Wait & Reply timeout
         stopWCTimer.stop();           // Stop any Wait & Call timeout
       } else {
-        pounce = false;
+        cancelAutomaticCQSelection ();
         check_button_color();
       }
       ui->autoButton->clearFocus();
@@ -18064,7 +18074,10 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
     auto now = QDateTime::currentDateTimeUtc();
     m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+    if (pounce) {
+      m_pounceWaitCallTimeout = true;
+      stopWCTimer.start(int(6200.0*m_TRperiod));
+    }
   }
 
   QString deCall;
@@ -18095,7 +18108,10 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
       m_bDoubleClicked=true;
       auto_tx_mode(true);
       processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
-      if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+      if (pounce) {
+        m_pounceWaitCallTimeout = true;
+        stopWCTimer.start(int(6200.0*m_TRperiod));
+      }
       ui->dxCallEntry->setText(deCall);
       genStdMsgs(QString::number(decodedtext.snr()));
       ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
@@ -18122,7 +18138,10 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     m_bDoubleClicked=true;
     auto_tx_mode(true);
     processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
-    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+    if (pounce) {
+      m_pounceWaitCallTimeout = true;
+      stopWCTimer.start(int(6200.0*m_TRperiod));
+    }
     ui->dxCallEntry->setText(deCall);
     genStdMsgs(QString::number(decodedtext.snr()));
     ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
@@ -18148,7 +18167,10 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     m_bDoubleClicked=true;
     auto_tx_mode(true);
     processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
-    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+    if (pounce) {
+      m_pounceWaitCallTimeout = true;
+      stopWCTimer.start(int(6200.0*m_TRperiod));
+    }
     ui->dxCallEntry->setText(deCall);
     genStdMsgs(QString::number(decodedtext.snr()));
     ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());

@@ -155,10 +155,10 @@ void MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
           && !(m_qsoCompletion->phase == QsoCompletion::Phase::TimedOut
                && repeatContextIsCurrent (m_qsoCompletion))) endQsoRepeat (QsoRepeatEnd::Superseded);
       m_auto = checked;
-      QTimer::singleShot (3000, [=] {pounce = false;});  // ensure to select only CQ messages
+      if (pounce && !m_pounceSelectionTimer.isActive ()) m_pounceSelectionTimer.start (3000);
   } else {
       endQsoRepeat (QsoRepeatEnd::OperatorStop);
-      pounce = false;
+      cancelAutomaticCQSelection ();
       m_auto = false;
       m_bCallingCQ = false;
       ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
@@ -212,7 +212,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
       if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
     }
   }
-  pounce = false;
+  cancelAutomaticCQSelection ();
   ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
   filtered = false;
   ignored = false;
@@ -291,7 +291,7 @@ void MainWindow::on_EraseButton_clicked ()
 
 void MainWindow::on_txb1_clicked()
 {
-  m_autoRespondPeriodState.disarm();
+  cancelAutomaticCQSelection ();
   if (ui->tx1->isEnabled ()) {
     m_ntx=1;
     m_QSOProgress = REPLYING;
@@ -305,7 +305,7 @@ void MainWindow::on_txb1_clicked()
 
 void MainWindow::on_txb2_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=2;
     m_QSOProgress = REPORT;
     ui->txrb2->setChecked(true);
@@ -314,7 +314,7 @@ void MainWindow::on_txb2_clicked()
 
 void MainWindow::on_txb3_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=3;
     m_QSOProgress = ROGER_REPORT;
     ui->txrb3->setChecked(true);
@@ -323,7 +323,7 @@ void MainWindow::on_txb3_clicked()
 
 void MainWindow::on_txb4_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=4;
     m_QSOProgress = ROGERS;
     ui->txrb4->setChecked(true);
@@ -332,7 +332,7 @@ void MainWindow::on_txb4_clicked()
 
 void MainWindow::on_txb5_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=5;
     m_QSOProgress = SIGNOFF;
     ui->txrb5->setChecked(true);
@@ -341,7 +341,13 @@ void MainWindow::on_txb5_clicked()
 
 void MainWindow::on_txb6_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+  cancelAutomaticCQSelection ();
+  selectTx6Message ();
+}
+
+void MainWindow::selectTx6Message ()
+{
+    m_autoRespondPeriodState.disarm ();
     m_ntx=6;
     m_QSOProgress = CALLING;
     set_dateTimeQSO(-1);
@@ -597,7 +603,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {
       m_autoRespondScores.reset();
   }
-  pounce = false;
+  cancelAutomaticCQSelection ();
   ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
   ui->tuneButton->setChecked (false);
   ui->tuneButton->setText("Tune");
@@ -784,6 +790,16 @@ void MainWindow::on_pbFreeText_clicked()
 void MainWindow::on_pbBestSP_toggled (bool checked)
 {
   setBestSPArmed (checked);
+}
+
+void MainWindow::cancelAutomaticCQSelection ()
+{
+  m_autoRespondPeriodState.disarm ();
+  pounce = false;
+  m_autoRespondSelectionLatch.clear ();
+  m_pounceSelectionTimer.stop ();
+  if (m_pounceWaitCallTimeout) stopWCTimer.stop ();
+  m_pounceWaitCallTimeout = false;
 }
 
 MainWindow::CompetingCQSelection MainWindow::competingCQSelection () const

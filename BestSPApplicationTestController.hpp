@@ -43,6 +43,7 @@ private:
   bool armingEligibility ();
   bool audioFrequencyChanges ();
   bool competingCQSelections ();
+  bool pounceSelections ();
   bool settingsCQSelection ();
   bool feedbackMatches (bool armed, QString const& expected);
   bool feedbackLifecycle ();

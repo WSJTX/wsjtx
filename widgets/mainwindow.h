@@ -763,6 +763,8 @@ private:
   DecodeOutputPlan::KeywordFilterDecision decodeFilterDecision (
     DecodedText const&, bool initiallyFiltered, DecodeClassification const *) const;
   void setBestSPArmed (bool armed, QString const& feedback = {});
+  void cancelAutomaticCQSelection ();
+  void selectTx6Message ();
   enum class CompetingCQSelection {None, WaitAndCall, WaitAndPounce};
   CompetingCQSelection competingCQSelection () const;
   void cancelBestSPForCQSelection ();
@@ -1341,6 +1343,8 @@ private:
   QTimer m_guiTimer;
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
+  QTimer m_pounceSelectionTimer;
+  bool m_pounceWaitCallTimeout {false};
   QTimer ptt1Timer;                 //StartTx delay
   QTimer ptt0Timer;                 //StopTx delay
   QTimer logQSOTimer;

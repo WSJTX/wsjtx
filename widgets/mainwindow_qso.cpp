@@ -304,9 +304,11 @@ void MainWindow::showNextLogQso ()
   m_pendingLogQsos.pop_front ();
   auto const context = m_openLogQso->context;
   m_logDlg->initLogQSO (m_openLogQso->data);
+  if (context == m_qsoCompletion && pounce
+      && (!m_pounceSelectionTimer.isActive () || m_pounceSelectionTimer.remainingTime () > 2000))
+    m_pounceSelectionTimer.start (2000);
   QTimer::singleShot (2000, this, [this, context] {
     if (context == m_qsoCompletion) {
-      pounce = false;
       filtered = false;
       check_button_color ();
     }
