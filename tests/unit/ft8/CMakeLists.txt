@@ -103,3 +103,18 @@ add_executable (test_ft8_a7_suffix_calls test_ft8_a7_suffix_calls.f90)
 target_include_directories (test_ft8_a7_suffix_calls PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_ft8_a7_suffix_calls)
 add_test (NAME test_ft8_a7_suffix_calls COMMAND test_ft8_a7_suffix_calls)
+
+add_executable (test_ft8_callsign_database
+  test_ft8_callsign_database.f90
+  ${CMAKE_SOURCE_DIR}/lib/ft8var/jt65_mod9.f90
+  ${CMAKE_SOURCE_DIR}/lib/ft8var/searchcallsvar.f90)
+set (callsign_database_module_dir "${CMAKE_CURRENT_BINARY_DIR}/callsign-database-modules")
+file (MAKE_DIRECTORY "${callsign_database_module_dir}")
+set_target_properties (test_ft8_callsign_database PROPERTIES
+  Fortran_MODULE_DIRECTORY "${callsign_database_module_dir}")
+target_include_directories (test_ft8_callsign_database BEFORE PRIVATE "${callsign_database_module_dir}")
+target_compile_options (test_ft8_callsign_database PRIVATE
+  $<$<COMPILE_LANG_AND_ID:Fortran,GNU>:-fcheck=bounds>)
+add_test (NAME test_ft8_callsign_database
+  COMMAND test_ft8_callsign_database "${CMAKE_SOURCE_DIR}/ALLCALL7.TXT")
+set_tests_properties (test_ft8_callsign_database PROPERTIES TIMEOUT 30)
