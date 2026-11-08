@@ -377,6 +377,61 @@ namespace Jtty
     return compileNativeMacro (macroTemplate, context);
   }
 
+  // The text a function key's template expands to, for display on its button.
+  // Matches what the key sends when every value is known. A macro whose value
+  // is blank stays visible as its placeholder (%H, say) instead of vanishing.
+  inline QString functionKeyPreview (QString const& macroTemplate,
+                                     NativeMacroContext const& context, bool lowerCase)
+  {
+    bool const noHisCall = context.hisCall.trimmed ().isEmpty ();
+    bool const noExchange = context.exchangeProfile != NativeExchangeProfile::None
+      && context.configuredExchange.trimmed ().isEmpty ();
+    struct Placeholder
+    {
+      QLatin1String token;
+      bool blank;
+      QChar sentinel;  // private-use character that survives expansion
+    };
+    Placeholder const placeholders[] = {
+      {QLatin1String {"%M"}, context.myCall.trimmed ().isEmpty (), QChar {0xE000}},
+      {QLatin1String {"%H"}, noHisCall, QChar {0xE001}},
+      {QLatin1String {"%Q"}, noHisCall, QChar {0xE002}},
+      {QLatin1String {"%G"}, context.grid.trimmed ().isEmpty (), QChar {0xE003}},
+      {QLatin1String {"%E"}, noExchange, QChar {0xE004}},
+    };
+
+    QString protectedTemplate = macroTemplate;
+    bool anyBlank = false;
+    for (auto const& placeholder : placeholders) {
+      if (placeholder.blank && protectedTemplate.contains (placeholder.token)) {
+        protectedTemplate.replace (placeholder.token, QString {placeholder.sentinel});
+        anyBlank = true;
+      }
+    }
+
+    QString preview;
+    if (anyBlank) {
+      // Native exchange forms send "599 007" where a literal %E is just "007".
+      QString const normalized = macroTemplate.simplified ().toUpper ();
+      if (normalized == fromEncoder (Encoder::nativeFormTemplate (Encoder::NativeForm::CallExchange))
+          || normalized == fromEncoder (Encoder::nativeFormTemplate (Encoder::NativeForm::TuNowExchange))) {
+        auto const exchange = nativeExchange (context);
+        if (exchange.valid) protectedTemplate.replace (QLatin1String {"%E"}, exchange.text);
+      }
+      preview = expandLiteralMacro (protectedTemplate, context);
+    } else {
+      auto const compiled = compileNativeMacro (macroTemplate, context);
+      preview = compiled.status == NativeMacroStatus::InvalidRuntime
+        ? expandLiteralMacro (macroTemplate, context) : compiled.text;
+    }
+
+    if (lowerCase) preview = preview.toLower ();
+    for (auto const& placeholder : placeholders) {
+      preview.replace (placeholder.sentinel, placeholder.token);
+    }
+    return preview.simplified ();
+  }
+
   // Resolve a JTTY message start from the WAV anchor, preserving the raw-time fallback for test-generated files.
   inline QDateTime jttyLineStartTimeUtc (QDateTime const& diskDateTime,
                                          qint32 utcDiskRaw, float tsyncSeconds)

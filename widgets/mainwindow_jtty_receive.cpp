@@ -166,6 +166,7 @@ void MainWindow::refreshJttyReceiveLines()
 void MainWindow::on_cbLowerCase_toggled(bool)
 {
   if (m_mode == "JTTY") refreshJttyReceiveLines();
+  updateJttyFunctionKeyLabels();
 }
 
 void MainWindow::cancelJttyReview()

@@ -10,9 +10,13 @@
 #include "models/DecodeHighlightingModel.hpp"
 #include <QByteArray>
 #include <QDateTime>
+#include <QFontMetrics>
 #include <QSettings>
+#include <QStyle>
+#include <QStyleOptionButton>
 #include <QTextCharFormat>
 #include <QTextCursor>
+#include <QTextDocument>
 #include <algorithm>
 #include "Modulator/Modulator.hpp"
 #ifdef WIN32
@@ -46,6 +50,13 @@ namespace
       configuration.my_callsign(), hisCall, serialNumber, configuration.my_grid(), snr,
       profile, profile == Jtty::NativeExchangeProfile::FieldDay
         ? configuration.Field_Day_Exchange() : configuration.RTTY_Exchange());
+  }
+
+  // Forced to rich text with the content escaped, so < in a message can't be read as markup.
+  QString jttyFunctionKeyToolTip(QString const& baseToolTip, QString const& expansion)
+  {
+    return expansion.isEmpty() ? baseToolTip
+      : Qt::convertFromPlainText(baseToolTip + '\n' + expansion, Qt::WhiteSpaceNormal);
   }
 }
 
@@ -1018,6 +1029,86 @@ QString MainWindow::jtty_msg_expand(QString t)
   auto const context = jttyNativeMacroContext(
     m_config, m_hisCall, ui->sbSerialNumber_2->value(), m_jttyHisCallSnr);
   return Jtty::expandLiteralMacro(t, context);
+}
+
+void MainWindow::setupJttyFunctionKeys()
+{
+  QPushButton * const buttons[] = {ui->pbF1, ui->pbF2, ui->pbF3, ui->pbF4,
+                                   ui->pbF5, ui->pbF6, ui->pbF7, ui->pbF8};
+  QLineEdit * const macros[] = {ui->msg1, ui->msg2, ui->msg3, ui->msg4,
+                                ui->msg5, ui->msg6, ui->msg7, ui->msg8};
+  for (int i = 0; i < 8; ++i) {
+    auto& key = m_jttyFunctionKeys[i];
+    key.button = buttons[i];
+    key.macro = macros[i];
+    key.keyName = buttons[i]->text();
+    key.baseToolTip = buttons[i]->toolTip();
+
+    auto policy = buttons[i]->sizePolicy();
+    policy.setHorizontalPolicy(QSizePolicy::Ignored);
+    buttons[i]->setSizePolicy(policy);
+    buttons[i]->installEventFilter(this);
+    connect(macros[i], &QLineEdit::textChanged, this, &MainWindow::updateJttyFunctionKeyLabels);
+  }
+  connect(ui->sbSerialNumber_2, QOverload<int>::of(&QSpinBox::valueChanged), this,
+          &MainWindow::updateJttyFunctionKeyLabels);
+  updateJttyFunctionKeyLabels();
+}
+
+void MainWindow::updateJttyFunctionKeyLabels()
+{
+  auto const context = jttyNativeMacroContext(
+    m_config, m_hisCall, ui->sbSerialNumber_2->value(), m_jttyHisCallSnr);
+  bool const lowerCase = ui->cbLowerCase->isChecked();
+
+  for (auto& key : m_jttyFunctionKeys) {
+    if (!key.button) return;  // not set up yet
+
+    key.expansion = Jtty::functionKeyPreview(key.macro->text(), context, lowerCase);
+    QString const toolTip = jttyFunctionKeyToolTip(key.baseToolTip, key.expansion);
+    if (key.button->toolTip() != toolTip) {
+      key.button->setToolTip(toolTip);
+      key.button->setAccessibleDescription(key.expansion.isEmpty()
+        ? key.baseToolTip : key.baseToolTip + '\n' + key.expansion);
+    }
+    fitJttyFunctionKeyLabel(key);
+  }
+}
+
+void MainWindow::fitJttyFunctionKeyLabel(JttyFunctionKey& key)
+{
+  auto * const button = key.button;
+  auto const * const style = button->style();
+  QFontMetrics const metrics {button->font()};
+  QStyleOptionButton option;
+  option.initFrom(button);
+
+  // The button's width no longer follows its text, so keep room for the key name by hand.
+  option.text = key.keyName;
+  QSize const keyContents {metrics.horizontalAdvance(key.keyName), metrics.height()};
+  int const minimumWidth =
+    style->sizeFromContents(QStyle::CT_PushButton, &option, keyContents, button).width();
+  if (button->minimumWidth() != minimumWidth) button->setMinimumWidth(minimumWidth);
+
+  int const available = style->subElementRect(QStyle::SE_PushButtonContents, &option, button).width()
+    - style->pixelMetric(QStyle::PM_ButtonMargin, &option, button);
+  QString const prefix = key.keyName + QStringLiteral(": ");
+  QString const elided = metrics.elidedText(
+    key.expansion, Qt::ElideRight, available - metrics.horizontalAdvance(prefix));
+
+  QString label = key.keyName;
+  if (elided == key.expansion) {
+    if (!key.expansion.isEmpty()) label = prefix + key.expansion;
+  } else {
+    // Qt ends elided text with U+2026, or three periods if the font has no such glyph.
+    QString const trailer = elided.endsWith(QChar {0x2026}) ? QString {QChar {0x2026}}
+      : elided.endsWith(QStringLiteral("...")) ? QStringLiteral("...") : QString {};
+    QString const shown = elided.left(elided.size() - trailer.size()).trimmed();
+    if (!shown.isEmpty()) label = prefix + shown + trailer;
+  }
+
+  label.replace('&', QStringLiteral("&&"));  // a literal & must not become a mnemonic
+  if (button->text() != label) button->setText(label);
 }
 
 void MainWindow::on_RxFreqSpinBox_2_valueChanged(int n)

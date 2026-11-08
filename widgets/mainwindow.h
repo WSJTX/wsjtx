@@ -126,6 +126,7 @@ class QSharedMemory;
 class QSplashScreen;
 class QSettings;
 class QLineEdit;
+class QPushButton;
 class QFont;
 class QHostInfo;
 class EchoGraph;
@@ -316,6 +317,8 @@ public:
   // abort.
   qint64 submitJttyText(QString message);
   void updateJttyDecodeHeadings();
+  // Refreshes the F1-F8 button labels and tooltips from the macros and current QSO values.
+  void updateJttyFunctionKeyLabels();
   void dataSink(qint64 frames);
   void fastSink(qint64 frames);
   void tci_mod_active(bool on) {m_tci_mod_active = on;}
@@ -885,6 +888,21 @@ private:
   void startJttyTxWatchdog(int durationMs);
   bool jtty_key_struck(QKeyEvent * e);
   bool sendJttyFunctionKey(int index);
+
+  // One F1-F8 button with its macro field and the text shown for it.
+  struct JttyFunctionKey
+  {
+    QPushButton * button {};
+    QLineEdit * macro {};
+    QString keyName;      // the button's .ui text, such as F1
+    QString baseToolTip;  // the button's .ui tooltip
+    QString expansion;    // the macro expanded for display, empty if the macro is blank
+  };
+
+  // Wires up the F1-F8 buttons. Their width stops following their text, so long labels can't widen the window.
+  void setupJttyFunctionKeys();
+  // Shows as much of the key's expansion as fits the button, ending with an ellipsis if cut short.
+  void fitJttyFunctionKeyLabel(JttyFunctionKey& key);
   struct JttyReceiveState;
   std::shared_ptr<JttyReceiveState> m_jttyReceive;
   void initializeJttyReceive();
@@ -1319,6 +1337,7 @@ private:
   QString m_hisCall;
   QString m_hisGrid;
   int m_jttyHisCallSnr = -10;  // SNR of the decode selected as DX call, for %R; cleared when the DX call changes
+  JttyFunctionKey m_jttyFunctionKeys[8];  // filled by setupJttyFunctionKeys
   int m_jttyMessageStyle = 0;  // Jtty::MessageStyle: 0=Contest, 1=Ft8 (see JttyMessages.hpp)
   QString m_appDir;
   QString m_cqStr;

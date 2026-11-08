@@ -8,6 +8,55 @@ class TestJttyMessages final
   Q_OBJECT
 
 private slots:
+  void functionKeyPreviewExpandsKnownValues ()
+  {
+    Jtty::NativeMacroContext context {QString {"AA2TR"}, QString {"W9XYZ"}, 7};
+    context.grid = QString {"FN42"};
+
+    QCOMPARE (Jtty::functionKeyPreview (QString {"CQ %M CQ"}, context, false),
+              QString {"CQ AA2TR CQ"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"%H 599 %N"}, context, false),
+              QString {"W9XYZ 599 007"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"HELLO  %H  DE %M %G"}, context, false),
+              QString {"HELLO W9XYZ DE AA2TR FN42"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"CQ %M CQ"}, context, true),
+              QString {"cq aa2tr cq"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {}, context, false), QString {});
+  }
+
+  void functionKeyPreviewKeepsBlankValuePlaceholders ()
+  {
+    Jtty::NativeMacroContext blank {QString {}, QString {}, 1};
+    QCOMPARE (Jtty::functionKeyPreview (QString {"%H 599 %N"}, blank, false),
+              QString {"%H 599 001"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"TU NOW %Q 599 %N"}, blank, false),
+              QString {"TU NOW %Q 599 001"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"CQ %M %G"}, blank, false),
+              QString {"CQ %M %G"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"cq %H"}, blank, true), QString {"cq %H"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"%H %E"}, blank, false),
+              QString {"%H 599 001"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"TU NOW %Q %E"}, blank, false),
+              QString {"TU NOW %Q 599 001"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"NEXT %H %E"}, blank, false),
+              QString {"NEXT %H 001"});
+
+    Jtty::NativeMacroContext noExchange {QString {"AA2TR"}, QString {"W9XYZ"}, 1,
+                                         Jtty::NativeExchangeProfile::FieldDay};
+    QCOMPARE (Jtty::functionKeyPreview (QString {"%H %E"}, noExchange, false),
+              QString {"W9XYZ %E"});
+  }
+
+  void functionKeyPreviewShowsMacrosWithoutNativeForm ()
+  {
+    // A compound call can't compile natively, but the label still shows the message.
+    Jtty::NativeMacroContext const compound {QString {"AA2TR"}, QString {"PJ4/K1ABC"}, 7};
+    QCOMPARE (Jtty::compileNativeMacro (QString {"%H 599 %N"}, compound).status,
+              Jtty::NativeMacroStatus::InvalidRuntime);
+    QCOMPARE (Jtty::functionKeyPreview (QString {"%H 599 %N"}, compound, false),
+              QString {"PJ4/K1ABC 599 007"});
+  }
+
   void nativeMacroMappings ()
   {
     Jtty::NativeMacroContext const context {QString {"k1abc"}, QString {"w9xyz"}, 7};
