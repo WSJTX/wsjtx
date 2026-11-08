@@ -102,6 +102,11 @@ public:
   int     m_soundInDevice {-1};
   int     m_soundInChannels {0};
   bool    m_soundInStopped {false};
+  int     m_lastCardDevice {-1};     // last sound-card device SoundIn was started with
+  int     m_lastCardChannels {0};
+  bool    m_soundInFailedNoticeShown {false};
+  bool    m_soundOutFailedNoticeShown {false};
+  bool    m_soundOutTxNoticeShown {false};
   bool    m_IQswap;
   bool    m_initIQplus;
   bool    m_bIQxt;
@@ -360,6 +365,17 @@ private:
   bool stopSoundIn(bool report = true);
 public:
   bool soundInRunning() const { return soundInThread.isRunning(); }
+  // SoundIn has its device open: running, or its start failed and the stream is held.
+  // The sound-card device SoundIn has open, and its channel count: while it
+  // runs, or after a failed start, when the stream stays open until exit
+  // (whatever input runs meanwhile). -1 when none.
+  int soundInOpenDevice() const {
+    if (soundInThread.m_streamLeftOpen) return m_lastCardDevice;
+    return soundInThread.isRunning() ? m_soundInDevice : -1;
+  }
+  int soundInOpenChannels() const {
+    return soundInThread.m_streamLeftOpen ? m_lastCardChannels : m_soundInChannels;
+  }
 private:
   void findSavedDevices();
   void genStdMsgs(QString rpt);

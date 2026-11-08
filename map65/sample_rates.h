@@ -148,7 +148,8 @@ inline int savedInputDevice(int runningDevice, int pendingDevice)
 }
 
 // A device name without the parts the system changes when the same hardware
-// comes back: ALSA's trailing "(hw:2,0)" card number, and the "2- " Windows
+// comes back: the card number in ALSA's trailing "(hw:2,0)" (the PCM number
+// stays, so the endpoints of one card remain different), and the "2- " Windows
 // puts in front of the name of a second identical device.
 inline std::string stableDeviceName(std::string name)
 {
@@ -166,7 +167,8 @@ inline std::string stableDeviceName(std::string name)
       std::size_t const card = digits(open + 2 + k + 3);
       std::size_t end = card;
       if (end > open + 2 + k + 3 && end < name.size() && name[end] == ',') end = digits(end + 1);
-      if (card > open + 2 + k + 3 && end == name.size() - 1) name.erase(open);
+      if (card > open + 2 + k + 3 && end == name.size() - 1)
+        name.erase(open + 2 + k + 3, card - (open + 2 + k + 3));
     }
   }
   for (std::size_t p = name.find('('); p != std::string::npos; p = name.find('(', p + 1)) {
@@ -209,6 +211,36 @@ inline int resolveSavedDevice(int number, std::string const& name, int count, Na
     found = i;
   }
   return found;
+}
+
+// Whether input can be (re)started now with the settings just chosen. Code 0
+// times input at 95238.1 Hz, which only network input delivers; a sound card
+// would capture at 96 kHz, so it waits for the restart. Otherwise a sound
+// card needs a device that fits the running rate and channel count. Network
+// input that arrives at a rate other than the running one (switched over from
+// a sound card, or still stopped since then, with a rate change pending) waits
+// too: it would be timed at the running rate.
+inline bool inputRunsNow(bool soundCard, int runningCode, InputFit fit,
+                         bool networkAtOtherRate = false)
+{
+  return soundCard ? (runningCode != 0 && fit == InputFit::Listed) : !networkAtOtherRate;
+}
+
+// Whether network input chosen in Settings would arrive at a rate other than
+// the running one: a rate change is pending and input was not already network
+// input running at the running rate (it was a sound card, or input is stopped).
+inline bool networkInputAtOtherRate(bool networkChosen, bool ratePending,
+                                    bool runningNetwork, bool inputStopped)
+{
+  return networkChosen && ratePending && (!runningNetwork || inputStopped);
+}
+
+// The rate code to run with at start-up: a sound card can't capture at
+// 95238 Hz, so code 0 with a sound card (an older or edited map65.ini) runs at
+// 96 kHz.
+inline int startupSampleRateCode(bool network, int code)
+{
+  return !network && code == 0 ? 1 : code;
 }
 
 // A saved code the build can't hold falls back to 192 kHz instead of leaving

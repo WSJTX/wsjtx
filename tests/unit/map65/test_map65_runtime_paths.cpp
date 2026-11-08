@@ -247,8 +247,8 @@ private slots:
 
   void savedDeviceSurvivesACardNumberOrWindowsPrefixChange()
   {
-    QCOMPARE(stableDeviceName("USB Audio: - (hw:2,0)"), std::string("USB Audio: -"));
-    QCOMPARE(stableDeviceName("USB Audio: - (plughw:10,1)"), std::string("USB Audio: -"));
+    QCOMPARE(stableDeviceName("USB Audio: - (hw:2,0)"), std::string("USB Audio: - (hw:,0)"));
+    QCOMPARE(stableDeviceName("USB Audio: - (plughw:10,1)"), std::string("USB Audio: - (plughw:,1)"));
     QCOMPARE(stableDeviceName("Microphone (2- USB Audio Device)"),
              std::string("Microphone (USB Audio Device)"));
     QCOMPARE(stableDeviceName("pulse"), std::string("pulse"));
@@ -263,6 +263,15 @@ private slots:
     QCOMPARE(resolveSavedDevice(7, "USB Audio: - (hw:2,0)", 3, alsaOf), 2);
     QCOMPARE(resolveSavedDevice(2, "Other USB: - (hw:2,0)", 3, alsaOf), -1);
 
+    // The two endpoints of one card differ only in the PCM number. The card
+    // number changed from 2 to 3 and the saved endpoint is (hw:2,1); the device
+    // now at the saved PortAudio index is (hw:3,0), which must not be taken
+    // for it.
+    std::vector<std::string> const loop {"Loopback: PCM (hw:3,0)", "Loopback: PCM (hw:3,1)"};
+    auto loopOf = [&](int i) { return loop[i]; };
+    QCOMPARE(resolveSavedDevice(0, "Loopback: PCM (hw:2,1)", 2, loopOf), 1);
+    QCOMPARE(resolveSavedDevice(0, "Loopback: PCM (hw:2,0)", 2, loopOf), 0);
+
     // Two identical cards that came back in the other order: the saved
     // number picks the one at that position, never a second choice.
     std::vector<std::string> const twins {"USB Audio: - (hw:1,0)", "USB Audio: - (hw:2,0)"};
@@ -275,6 +284,45 @@ private slots:
     std::vector<std::string> const win {"Microphone (USB Audio Device)", "Speakers (Realtek)"};
     auto winOf = [&](int i) { return win[i]; };
     QCOMPARE(resolveSavedDevice(4, "Microphone (2- USB Audio Device)", 2, winOf), 0);
+  }
+
+  void aSoundCardWaitsForTheRestartWhile95238Runs()
+  {
+    // Network input at 95238 Hz switching to a card: wait, whatever the device.
+    QVERIFY(!inputRunsNow(true, 0, InputFit::Listed));
+    // Network input with no rate change pending runs now.
+    QVERIFY(inputRunsNow(false, 0, InputFit::Listed));
+    // Network input that arrives at a different rate than the running one
+    // (from a card, with a rate change pending) waits too.
+    QVERIFY(!inputRunsNow(false, 1, InputFit::Listed, true));
+    // At the other rates a card runs now only if the device fits.
+    QVERIFY(inputRunsNow(true, 1, InputFit::Listed));
+    QVERIFY(inputRunsNow(true, 4, InputFit::Listed));
+    QVERIFY(!inputRunsNow(true, 2, InputFit::TooFewChannels));
+    QVERIFY(!inputRunsNow(true, 2, InputFit::RateNotSupported));
+    QVERIFY(!inputRunsNow(true, 2, InputFit::Busy));
+  }
+
+  void networkInputWaitsOnlyWhenItWouldArriveAtAnotherRate()
+  {
+    // networkInputAtOtherRate(networkChosen, ratePending, runningNetwork, stopped)
+    QVERIFY(networkInputAtOtherRate(true, true, false, false));   // card -> network, rate pending
+    QVERIFY(networkInputAtOtherRate(true, true, true, true));     // network, stopped since then
+    QVERIFY(!networkInputAtOtherRate(true, true, true, false));   // network already running
+    QVERIFY(!networkInputAtOtherRate(true, false, false, false)); // card -> network, no rate pending
+    QVERIFY(!networkInputAtOtherRate(false, true, false, false)); // a card is chosen
+  }
+
+  void aSoundCardIniWithCode0StartsAt96k()
+  {
+    // A sound card can't capture at 95238 Hz; network input keeps code 0, so
+    // switching back to network later is unaffected.
+    QCOMPARE(startupSampleRateCode(false, 0), 1);
+    QCOMPARE(startupSampleRateCode(true, 0), 0);
+    for (int code = 1; code <= kMaxSampleRateCode; ++code) {
+      QCOMPARE(startupSampleRateCode(false, code), code);
+      QCOMPARE(startupSampleRateCode(true, code), code);
+    }
   }
 
   void inputListFollowsTheSelectedRate()

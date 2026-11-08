@@ -211,7 +211,7 @@ for (id = 0; id < numDevices; id++) {
     // For the device SoundIn has open, use the channel count PortAudio found
     // at start-up and no rate range: the answers kept from before SoundIn
     // opened it decide at every rate.
-    if (maxChan[id] == 0 && id == mw->m_soundInDevice) {
+    if (maxChan[id] == 0 && id == mw->soundInOpenDevice()) {
       PaDeviceInfo const* info = Pa_GetDeviceInfo(id);
       PaHostApiInfo const* api = info ? Pa_GetHostApiInfo(info->hostApi) : nullptr;
       if (!api || api->type != paALSA || info->maxInputChannels < 1) continue;
@@ -426,14 +426,22 @@ void DevSetup::accept()
   // SoundIn restarts at the running rate, so in sound-card mode a device that
   // was listed for a pending rate but can't run at the running one (or not
   // with the new channel count) waits for the restart, and input stops until
-  // then.
+  // then. So does any sound card while the running rate is 95238 Hz, and
+  // network input switched over from a sound card while a rate change is
+  // pending (see inputRunsNow).
   bool const soundCard = ui.soundCardRadioButton->isChecked();
   int const channels = ui.cbXpol->isChecked() ? 4 : 2;
-  bool const runsNow = !soundCard ||
-      inputFit(newInDev, inputListSampleRate(mw->m_fs96000), channels) == InputFit::Listed;
+  bool const networkAtOtherRate = networkInputAtOtherRate(!soundCard, m_pendingFs96000 >= 0,
+                                                         mw->m_network, mw->m_soundInStopped);
+  bool const runsNow = inputRunsNow(soundCard, mw->m_fs96000,
+      soundCard ? inputFit(newInDev, inputListSampleRate(mw->m_fs96000), channels)
+                : InputFit::Listed,
+      networkAtOtherRate);
+  // A wait for network input doesn't make the chosen card device a pending one.
+  bool const deviceRunsNow = !soundCard || runsNow;
   int const previousPendingIn = mw->m_pendingPaInDevice;
   int pendingInDev;
-  int const inDev = inputDeviceToApply(mw->m_paInDevice, newInDev, runsNow,
+  int const inDev = inputDeviceToApply(mw->m_paInDevice, newInDev, deviceRunsNow,
                                        m_pendingFs96000 >= 0, previousPendingIn, pendingInDev);
 
   if(mw->m_network!=ui.networkRadioButton->isChecked() or
@@ -511,9 +519,12 @@ void DevSetup::accept()
           QString("%1%2Please exit MAP65 and start it again.")
               .arg(m_pendingFs96000 >= 0
                    ? "Changing sample rate requires MAP65 to be restarted.\n" : "")
-              .arg(!runsNow
-                   ? "The selected input device can't run at the current sample rate\n"
-                     "with these settings, so input stops until the restart.\n" : ""));
+              .arg(runsNow ? ""
+                   : soundCard
+                       ? "The selected input device can't run at the current sample rate\n"
+                         "with these settings, so input stops until the restart.\n"
+                       : "Network input isn't started at the current sample rate while a new\n"
+                         "rate is pending, so input stops until the restart.\n"));
   }
 
   // Normal path
@@ -545,10 +556,11 @@ int DevSetup::outDevice(int index) const
 // Whether the input device can run at rate with channels, and if not, why.
 InputFit DevSetup::inputFit(int device, int rate, int channels)
 {
-  // SoundIn has this device open at the running rate and channel count; an
-  // open ALSA hw: device can't be asked.
-  if (device >= 0 && device == mw->m_soundInDevice && mw->soundInRunning() &&
-      rate == inputListSampleRate(mw->m_fs96000) && channels == mw->m_soundInChannels)
+  // SoundIn has this device open at the running rate and channel count (also
+  // when its start failed and the stream is still held); an open ALSA hw:
+  // device can't be asked.
+  if (device >= 0 && device == mw->soundInOpenDevice() &&
+      rate == inputListSampleRate(mw->m_fs96000) && channels == mw->soundInOpenChannels())
     return InputFit::Listed;
   for (auto const& d : m_inputDevices) {
     if (d.id != device) continue;

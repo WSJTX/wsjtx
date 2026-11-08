@@ -464,6 +464,10 @@ MainWindow::MainWindow(QWidget *parent) :
     soundInThread.start(QThread::HighestPriority);
     m_soundInDevice = m_network ? -1 : m_paInDevice;
     m_soundInChannels = m_xpol ? 4 : 2;
+    if (!m_network) {
+      m_lastCardDevice = m_soundInDevice;
+      m_lastCardChannels = m_soundInChannels;
+    }
   } else {
     m_soundInStopped = true;            // Settings starts it once a device is chosen
   }
@@ -1092,6 +1096,7 @@ void MainWindow::readSettings()
   soundInThread.setFadd(m_fAdd);
   m_network = settings.value("NetworkInput",true).toBool();
   m_fs96000 = readFSam96000(settings,1);
+  m_fs96000 = startupSampleRateCode(m_network, m_fs96000);
   qDebug() << "In MainWindow::readSettings FSam96000 is read as:" << m_fs96000;
   m_nDevIn = settings.value("SoundInIndex", 0).toInt();
   m_paInDevice = settings.value("paInDevice",0).toInt();
@@ -1623,7 +1628,22 @@ void MainWindow::on_actionDeviceSetup_triggered()
         //
         // Apply runtime effects for SoundIn
         //
-        if (dlg.m_restartSoundIn && stopSoundIn())
+        if (dlg.m_restartSoundIn && soundInThread.m_streamLeftOpen && !m_network)
+        {
+            // Network input may be running (chosen after the failed start);
+            // it stops too, so input matches the settings until the restart.
+            bool const stoppedNow = soundInThread.isRunning() && stopSoundIn();
+            if (stoppedNow) {
+                m_soundInDevice = -1;
+                m_soundInStopped = true;
+            }
+            if (!m_soundInFailedNoticeShown || stoppedNow)
+                msgBox("Sound input failed to start earlier, so the new input settings take "
+                       "effect only after a restart. They have been saved. Please exit MAP65 "
+                       "and start it again.");
+            m_soundInFailedNoticeShown = true;
+        }
+        else if (dlg.m_restartSoundIn && stopSoundIn())
         {
             if(!m_network) cacheInputDeviceRates(m_paInDevice);
             soundInThread.setInputDevice(m_paInDevice);
@@ -1639,12 +1659,24 @@ void MainWindow::on_actionDeviceSetup_triggered()
       m_soundInDevice = m_network ? -1 : m_paInDevice;
       m_soundInChannels = m_xpol ? 4 : 2;
       m_soundInStopped = false;
+      if (!m_network) {
+        m_lastCardDevice = m_soundInDevice;
+        m_lastCardChannels = m_soundInChannels;
+      }
     }
 
         //
         // Apply runtime effects for SoundOut
         //
-        if (dlg.m_restartSoundOut)
+        if (dlg.m_restartSoundOut && soundOutThread.m_streamLeftOpen)
+        {
+            if (!m_soundOutFailedNoticeShown)
+                msgBox("Sound output failed to start earlier, so the new output settings take "
+                       "effect only after a restart. They have been saved. Please exit MAP65 "
+                       "and start it again.");
+            m_soundOutFailedNoticeShown = true;
+        }
+        else if (dlg.m_restartSoundOut)
         {
       soundOutThread.quitExecution=true;
       soundOutThread.wait(1000);
@@ -2575,6 +2607,16 @@ void MainWindow::guiUpdate()
         m_noOutputShown = true;
         msgBox("No output device is selected, so MAP65 can't transmit.\n"
                "Choose one in Setup > Options > I/O Devices.");
+      }
+    } else if ((bTxTime or bTune) && iptt == 0 && !m_txMute && soundOutThread.m_streamLeftOpen) {
+      // Its start failed and the stream is still held: don't key a silent carrier.
+      on_stopTxButton_clicked();
+      if (bTune && g_pTxTune) g_pTxTune->accept();
+      bTune = false;
+      if (!m_soundOutTxNoticeShown) {
+        m_soundOutTxNoticeShown = true;
+        msgBox("Sound output failed to start, so MAP65 can't transmit.\n"
+               "Please exit MAP65 and start it again.");
       }
     } else if ((bTxTime or bTune) && iptt == 0 && !m_txMute) {
       pttPath = m_pttPath;
