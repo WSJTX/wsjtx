@@ -18,12 +18,19 @@ fi
 mkdir -p "$prefix/share/wsjtx"
 prefix="$(cd "$prefix" && pwd)"
 compiler="$(command -v "${CXX:-g++}")"
-cxxflags="-fPIC ${CXXFLAGS:-}"
+triplet="$($compiler -dumpmachine)"
+host_arch="$(dpkg-architecture -t "$triplet" -qDEB_HOST_ARCH)"
+# The build images match the target distribution; select its target-architecture
+# compile hardening without applying executable PIE link flags to static archives.
+export DEB_HOST_ARCH="$host_arch" DEB_HOST_GNU_TYPE="$triplet"
+export DEB_BUILD_MAINT_OPTIONS="${DEB_BUILD_MAINT_OPTIONS:-} hardening=+all"
+distro_cppflags="$(dpkg-buildflags --get CPPFLAGS)"
+distro_cxxflags="$(dpkg-buildflags --get CXXFLAGS)"
+cxxflags="$distro_cppflags $distro_cxxflags ${CPPFLAGS:-} ${CXXFLAGS:-} -fPIC"
 linkflags="${LDFLAGS:-}"
 target_options=()
 if [ -n "${BOOST_SYSROOT:-}" ]; then
   # Debian's headers and start files live below triplet-qualified directories.
-  triplet="$($compiler -dumpmachine)"
   test "$triplet" = arm-linux-gnueabihf
   cxxflags+=" --sysroot=$BOOST_SYSROOT -isystem $BOOST_SYSROOT/usr/include/$triplet -B$BOOST_SYSROOT/usr/lib/$triplet/"
   linkflags+=" --sysroot=$BOOST_SYSROOT -B$BOOST_SYSROOT/usr/lib/$triplet/ -L$BOOST_SYSROOT/usr/lib/$triplet -Wl,-rpath-link,$BOOST_SYSROOT/lib/$triplet -Wl,-rpath-link,$BOOST_SYSROOT/usr/lib/$triplet"

@@ -184,4 +184,3 @@ except (OSError, ValueError, AssertionError, StopIteration) as error:
 print(f'Validated CMake config and linker Boost inputs: {root}')
 PY
 }
-
