@@ -1,4 +1,5 @@
 ; CPack install script designed for a nmake build
+Unicode true
 
 ;--------------------------------
 ; You must define these values
@@ -23,6 +24,9 @@
   Var CB_INSTALL_DESKTOP
   Var INSTALL_DESKTOP
   Var IS_DEFAULT_INSTALLDIR
+  Var DestinationModified
+  Var PreflightPath
+  Var PreflightError
 
 ;--------------------------------
 ;Include Modern UI
@@ -72,6 +76,7 @@
 
   ;Require administrator access
   RequestExecutionLevel admin
+  AllowSkipFiles off
 
 @CPACK_NSIS_DEFINES@
 @CPACK_NSIS_EXTRA_DEFINES@
@@ -564,6 +569,129 @@ FunctionEnd
 ; Installation types
 @CPACK_NSIS_INSTALLATION_TYPES@
 
+; Existing files must be checked before any component can change the destination.
+!system '"@CMAKE_COMMAND@" "-DSTAGING_DIR=${INST_DIR}" "-DOUTPUT_FILE=@CPACK_TOPLEVEL_DIRECTORY@/destination-preflight.nsh" -P "@WSJTX_NSIS_PREFLIGHT_SCRIPT@"' = 0
+!searchreplace PREFLIGHT_INCLUDE "@CPACK_TOPLEVEL_DIRECTORY@/destination-preflight.nsh" "/" "\"
+!include /CHARSET=UTF8 "${PREFLIGHT_INCLUDE}"
+
+Function CheckDestinationDirectory
+  Pop $0
+  StrCpy $PreflightPath "$INSTDIR\$0"
+  StrCmp $0 "" 0 +2
+    StrCpy $PreflightPath $INSTDIR
+  StrCpy $PreflightError 0
+  StrCmp $PreflightPath "" 0 directory_parent
+  StrCpy $PreflightError 123
+  Return
+directory_parent:
+  StrCpy $0 $PreflightPath
+  System::Call 'kernel32::GetFileAttributesW(w r0) i .r2 ?e'
+  Pop $1
+  ${If} $2 == -1
+    ${If} $1 == 2
+    ${OrIf} $1 == 3
+      ; A missing child can conceal an existing file in place of a parent directory.
+      StrCpy $0 "$PreflightPath\.."
+      System::Call 'kernel32::GetFullPathNameW(w r0, i ${NSIS_MAX_STRLEN}, w .r2, p 0) i .r3 ?e'
+      Pop $4
+      ${If} $3 == 0
+        StrCpy $PreflightError $4
+        Return
+      ${ElseIf} $3 >= ${NSIS_MAX_STRLEN}
+        StrCpy $PreflightError 206
+        Return
+      ${EndIf}
+      ${If} $2 != $PreflightPath
+        StrCpy $PreflightPath $2
+        Goto directory_parent
+      ${EndIf}
+    ${EndIf}
+    StrCpy $PreflightError $1
+  ${Else}
+    IntOp $2 $2 & 0x10
+    ${If} $2 == 0
+      StrCpy $PreflightError 267
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+Function CheckDestinationFile
+  Pop $0
+  StrCpy $PreflightPath "$INSTDIR\$0"
+  StrCpy $2 0x40000000
+  StrCpy $3 1
+  ${If} $0 == "bin\jt9stream.exe"
+    ; NSIS Delete clears a read-only attribute but does not write file contents.
+    StrCpy $2 0x10000
+    StrCpy $3 7
+    StrCpy $0 $PreflightPath
+    System::Call 'kernel32::GetFileAttributesW(w r0) i .r1 ?e'
+    Pop $4
+    ${If} $1 != -1
+      IntOp $1 $1 & 1
+      ${If} $1 != 0
+        IntOp $2 $2 | 0x100
+      ${EndIf}
+    ${ElseIf} $4 != 2
+    ${AndIf} $4 != 3
+      StrCpy $PreflightError $4
+      Return
+    ${EndIf}
+  ${EndIf}
+  Call CheckDestinationAccess
+FunctionEnd
+
+Function CheckDestinationAccess
+  StrCpy $PreflightError 0
+  StrCpy $0 $PreflightPath
+  ; OPEN_EXISTING never creates or truncates the destination.
+  System::Call 'kernel32::CreateFileW(w r0, i r2, i r3, p 0, i 3, i 0, p 0) p .r0 ?e'
+  Pop $1
+  ${If} $0 != -1
+    System::Call 'kernel32::CloseHandle(p r0)'
+  ${ElseIf} $1 != 2
+  ${AndIf} $1 != 3
+    StrCpy $PreflightError $1
+  ${EndIf}
+FunctionEnd
+
+Function ReportPreflightFailure
+  DetailPrint "Cannot update $PreflightPath (Windows error $PreflightError). No installation files have been changed."
+  IfSilent 0 report_done
+  ClearErrors
+  CreateDirectory "$TEMP\WSJT-X-installer"
+  IfErrors report_done
+  GetTempFileName $0 "$TEMP\WSJT-X-installer"
+  IfErrors report_done
+  FileOpen $1 "$0" w
+  IfErrors report_done
+  System::Call 'kernel32::GetCurrentProcessId() i .r2'
+  FileWriteUTF16LE /BOM $1 "WSJT-X installer preflight failure (process $2)$\r$\nDestination: $INSTDIR$\r$\nFile: $PreflightPath$\r$\nWindows error: $PreflightError$\r$\nNo installation files have been changed.$\r$\n"
+  FileClose $1
+  Rename "$0" "$0.log"
+report_done:
+FunctionEnd
+
+Section "-Destination preflight"
+  SectionIn RO
+preflight_retry:
+  Call CheckDestination
+  ${If} $PreflightError != 0
+    Call ReportPreflightFailure
+    IfSilent preflight_cancel
+    ${If} $PreflightError == 32
+    ${OrIf} $PreflightError == 33
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$PreflightPath$\r$\n$\r$\nSetup cannot update this file while it is in use. Close WSJT-X or other programs using this installation, then choose Retry. No installation files have been changed." IDRETRY preflight_retry
+    ${Else}
+      MessageBox MB_RETRYCANCEL|MB_ICONSTOP "$PreflightPath$\r$\n$\r$\nSetup cannot update this file or directory (Windows error $PreflightError). Check its access permissions, then choose Retry. No installation files have been changed." IDRETRY preflight_retry
+    ${EndIf}
+preflight_cancel:
+    SetErrorLevel 1
+    Abort
+  ${EndIf}
+  StrCpy $DestinationModified 1
+SectionEnd
+
 ;--------------------------------
 ; Component sections
 @CPACK_NSIS_COMPONENT_SECTIONS@
@@ -681,6 +809,14 @@ FunctionEnd
 ;--------------------------------
 ;Installer Sections
 
+Function .onInstFailed
+  SetErrorLevel 1
+  StrCmp $DestinationModified 1 0 preflight_failed
+  IfSilent +2
+    MessageBox MB_OK|MB_ICONSTOP "Installation did not complete. Close any programs using files in the installation folder, then run the installer again to repair the installation."
+preflight_failed:
+FunctionEnd
+
 Section "-Core installation"
   ;Use the entire tree produced by the INSTALL target.  Keep the
   ;list of directories here in sync with the RMDir commands below.
@@ -692,7 +828,13 @@ Section "-Core installation"
   WriteRegStr SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "" $INSTDIR
 
   ;Create uninstaller
+  ClearErrors
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+  IfErrors install_failed
+  ; Remove the obsolete decoder only after the complete destination preflight.
+  ClearErrors
+  Delete "$INSTDIR\bin\jt9stream.exe"
+  IfErrors install_failed
   Push "DisplayName"
   Push "@CPACK_NSIS_DISPLAY_NAME@"
   Call ConditionalAddToRegisty
@@ -758,6 +900,11 @@ Section "-Core installation"
 
 @CPACK_NSIS_EXTRA_INSTALL_COMMANDS@
 
+  Goto install_done
+install_failed:
+  SetErrorLevel 1
+  Abort
+install_done:
 SectionEnd
 
 Section "-Add to path"
@@ -986,51 +1133,21 @@ SectionEnd
 ; "Program Files" for AllUsers, "My Documents" for JustMe...
 
 Function .onInit
-  ; --- WSJT-X running-process check (custom) ---
-  ; Abort cleanly if WSJT-X is already running, to avoid a half-installed
-  ; mess when the user upgrades over a live instance. Uses tasklist+findstr
-  ; (built into every supported Windows version) so no NSIS plugin is
-  ; required.
-  wsjtx_running_check:
-    nsExec::Exec '"$SYSDIR\cmd.exe" /c ""$SYSDIR\tasklist.exe" /FI "IMAGENAME eq wsjtx.exe" 2>NUL | "$SYSDIR\findstr.exe" /I "wsjtx.exe" >NUL"'
-    Pop $0
-    ${If} $0 == "0"
-      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION \
-        "WSJT-X is currently running. $\n$\nPlease close it before installing or upgrading." \
-        /SD IDCANCEL IDRETRY wsjtx_running_check
-      Abort
-    ${EndIf}
-  ; --- end WSJT-X running-process check ---
-
   Push $0
   Push $1
   Push $2
   Push $3
 
-  StrCmp "@CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL@" "ON" 0 inst
+  StrCpy $DestinationModified 0
+  ; NSIS substitutes the default for an invalid /D path before .onInit.
+  System::Call 'kernel32::GetCommandLineW() w .r0'
+  StrLen $1 $CMDLINE
+  StrCpy $0 $0 "" $1
+  StrCpy $1 $0 4
+  StrCmp $1 " /D=" 0 init_directory_override_done
+  StrCpy $INSTDIR $0 "" 4
+init_directory_override_done:
 
-  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "UninstallString"
-  StrCmp $0 "" inst
-
-  MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION \
-  "@CPACK_NSIS_PACKAGE_NAME@ is already installed. $\n$\nDo you want to uninstall the old version before installing the new one?" \
-  IDYES uninst IDNO inst
-  Abort
-
-;Run the uninstaller
-uninst:
-  ClearErrors
-  StrLen $2 "\Uninstall.exe"
-  StrCpy $3 $0 -$2 # remove "\Uninstall.exe" from UninstallString to get path
-  ExecWait '$0 _?=$3' ;Do not copy the uninstaller to a temp file
-
-  IfErrors uninst_failed inst
-uninst_failed:
-  MessageBox MB_OK|MB_ICONSTOP "Uninstall failed."
-  Abort
-
-
-inst:
   ; Reads components status for registry
   !insertmacro SectionList "InitSection"
 
@@ -1080,6 +1197,17 @@ inst:
   IntOp $INSTALL_DESKTOP 0 + ${BST_UNCHECKED} ; set to unchecked
 
   @CPACK_NSIS_EXTRA_INIT_COMMANDS@
+
+  ; Report invalid silent destinations before NSIS can reject them outside the sections.
+  IfSilent 0 init_directory_checked
+  Push ""
+  Call CheckDestinationDirectory
+  ${If} $PreflightError != 0
+    Call ReportPreflightFailure
+    SetErrorLevel 1
+    Abort
+  ${EndIf}
+init_directory_checked:
 
   Pop $3
   Pop $2
