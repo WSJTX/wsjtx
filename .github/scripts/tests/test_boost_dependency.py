@@ -118,6 +118,7 @@ elif name == 'dpkg-buildflags':
     assert os.environ['DEB_HOST_ARCH'] == os.environ['BOOST_TEST_ARCH']
     assert os.environ['DEB_HOST_GNU_TYPE'] == os.environ['BOOST_TEST_TRIPLET']
     assert 'hardening=+all' in os.environ['DEB_BUILD_MAINT_OPTIONS'].split()
+    assert 'optimize=-lto' in os.environ['DEB_BUILD_MAINT_OPTIONS'].split()
     flags = {'CPPFLAGS': '-D_FORTIFY_SOURCE=2',
              'CXXFLAGS': '-O2 -fstack-protector-strong -Wformat -Werror=format-security'}
     assert sys.argv[1] == '--get'
@@ -150,6 +151,8 @@ else:
                 flags = next(arg.removeprefix("cxxflags=") for arg in arguments if arg.startswith("cxxflags="))
                 self.assertIn("-D_FORTIFY_SOURCE=2 -O2 -fstack-protector-strong -Wformat -Werror=format-security", flags)
                 self.assertIn("-DCALLER_CPP=1 -O1 -DCALLER_CXX=1 -fPIE -fPIC", flags)
+                self.assertNotIn("-flto", flags)
+                self.assertNotIn("-ffat-lto-objects", flags)
                 linkflags = next(arg for arg in arguments if arg.startswith("linkflags="))
                 self.assertTrue(linkflags.startswith("linkflags=-Wl,--as-needed"), linkflags)
                 self.assertNotIn("-pie", linkflags)

@@ -20,10 +20,10 @@ prefix="$(cd "$prefix" && pwd)"
 compiler="$(command -v "${CXX:-g++}")"
 triplet="$($compiler -dumpmachine)"
 host_arch="$(dpkg-architecture -t "$triplet" -qDEB_HOST_ARCH)"
-# The build images match the target distribution; select its target-architecture
-# compile hardening without applying executable PIE link flags to static archives.
+# Use target-distribution compile hardening, but leave LTO and executable
+# linker policy to consumers of the static archives.
 export DEB_HOST_ARCH="$host_arch" DEB_HOST_GNU_TYPE="$triplet"
-export DEB_BUILD_MAINT_OPTIONS="${DEB_BUILD_MAINT_OPTIONS:-} hardening=+all"
+export DEB_BUILD_MAINT_OPTIONS="${DEB_BUILD_MAINT_OPTIONS:-} hardening=+all optimize=-lto"
 distro_cppflags="$(dpkg-buildflags --get CPPFLAGS)"
 distro_cxxflags="$(dpkg-buildflags --get CXXFLAGS)"
 cxxflags="$distro_cppflags $distro_cxxflags ${CPPFLAGS:-} ${CXXFLAGS:-} -fPIC"
