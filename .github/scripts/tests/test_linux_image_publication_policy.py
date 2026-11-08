@@ -96,12 +96,24 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         for key, value in (("PROMOTE", "true"), ("INCLUDE_ARMHF", "true"),
-                           ("IMAGE_SET", "normal-and-tsan"), ("PUBLICATION_TARGET", "public-release")):
+                           ("IMAGE_SET", "tsan"), ("PUBLICATION_TARGET", "public-release")):
             with self.subTest(key=key):
                 result = subprocess.run(["bash", "-c", body], env={**environment, key: value},
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("Single-profile candidates require", result.stdout)
+
+    def test_publisher_rejects_combined_cohort_requests(self):
+        body = textwrap.dedent(job("validate-inputs").split("        run: |\n", 1)[1])
+        environment = {
+            **os.environ, "MODE": "refresh", "ROLLBACK_TAG": "", "IMAGE_SET": "normal-and-tsan",
+            "INCLUDE_ARMHF": "true", "CANDIDATE_PROFILE": "all", "PROMOTE": "true",
+            "REQUEST_REF": "refs/heads/develop", "REQUEST_REPOSITORY": "WSJTX/wsjtx-internal",
+            "PUBLICATION_TARGET": "internal",
+        }
+        result = subprocess.run(["bash", "-c", body], env=environment, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Publish normal and TSan cohorts separately", result.stdout)
 
     def test_candidate_profiles_select_only_their_image_jobs(self):
         names = {"build-normal", "build-arm64", "build-tsan", "build-armhf-cross",
@@ -290,7 +302,7 @@ git() {
         for condition in (
             "needs.promote.result == 'success'", "inputs.publication_target == 'internal'",
             "inputs.mode == 'refresh'", "inputs.promote", "inputs.include_armhf",
-            "(inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')",
+            "inputs.image_set == 'normal'",
             "image_tag: ${{ needs.metadata.outputs.build_tag }}",
         ):
             self.assertIn(condition, published)
@@ -352,7 +364,7 @@ git() {
         self.assertIn("inputs.publication_target == 'internal'", warm)
         self.assertIn("inputs.mode == 'refresh'", warm)
         self.assertIn("inputs.promote", warm)
-        self.assertIn("(inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')", warm)
+        self.assertIn("inputs.image_set == 'normal'", warm)
         self.assertIn("image_tag: ${{ needs.metadata.outputs.build_tag }}", warm)
         self.assertNotIn("warm-asan-ubsan-ccache", job("promote"))
 
@@ -426,7 +438,8 @@ git() {
         all_case = re.search(r"all\)\n(?P<body>.*?);;", WARM, re.DOTALL).group("body")
         self.assertIn("enable_all", all_case)
         self.assertNotIn("tsan_images=true", all_case)
-        self.assertIn("image_set: ${{ needs.detect.outputs.image_set }}", WARM)
+        self.assertIn("image_set: normal", job("refresh-linux-images", WARM))
+        self.assertIn("image_set: tsan", job("refresh-tsan-image", WARM))
         self.assertRegex(
             WARM,
             r'if \[ "\$SCHEDULE" = "17 9 1 \* \*" \][\s\S]*?normal_images=true\s+tsan_images=true',
@@ -485,6 +498,59 @@ git() {
         self.assertIn("needs.warm-normal-ccache.result == 'success'", promote)
         self.assertIn("- warm-normal-ccache", promote)
 
+
+    def test_refresh_requests_select_independent_cohorts(self):
+        for image_set, expected in (("none", set()), ("normal", {"refresh-linux-images"}),
+                                    ("tsan", {"refresh-tsan-image"}),
+                                    ("normal-and-tsan", {"refresh-linux-images", "refresh-tsan-image"})):
+            with self.subTest(image_set=image_set):
+                selected = set()
+                for name in ("refresh-linux-images", "refresh-tsan-image"):
+                    body = job(name, WARM)
+                    condition = re.search(r"    if: (.*?)(?=    uses:)", body, re.DOTALL).group(1)
+                    condition = " ".join(condition.removeprefix(">-").split())
+                    condition = condition.replace("needs.detect.outputs.image_set", repr(image_set))
+                    condition = condition.replace("&&", " and ").replace("||", " or ")
+                    if eval(condition, {"__builtins__": {}}, {}):
+                        selected.add(name)
+                    self.assertIn("    needs: detect\n", body)
+                    self.assertNotIn("needs.refresh-", body)
+                self.assertEqual(selected, expected)
+        self.assertIn("include_armhf: true", job("refresh-linux-images", WARM))
+        self.assertIn("include_armhf: false", job("refresh-tsan-image", WARM))
+        self.assertIn("- refresh-tsan-image", job("summary", WARM))
+
+    def test_cohort_locks_do_not_serialize_normal_refresh_behind_tsan(self):
+        self.assertNotRegex(WARM, r"(?m)^concurrency:")
+        self.assertIn("group: linux-ci-image-publishing-${{ inputs.image_set }}", PUBLISH)
+        self.assertIn("cancel-in-progress: false", PUBLISH)
+        for name, cohort in (("retain-linux-images", "normal"), ("retain-tsan-image", "tsan")):
+            retention = job(name, WARM)
+            self.assertIn(f"group: linux-ci-image-publishing-{cohort}", retention)
+            self.assertIn("cancel-in-progress: false", retention)
+            if cohort == "normal":
+                self.assertNotIn("linux-tsan-noble", retention)
+                self.assertNotIn("refresh-tsan-image", retention)
+            else:
+                self.assertNotIn("wsjtx-internal/linux-noble", retention)
+                self.assertNotIn("needs.refresh-linux-images", retention)
+        self.assertNotIn("continue-on-error", job("refresh-tsan-image", WARM))
+
+    def test_tsan_promotion_requires_its_own_success(self):
+        promote = job("promote")
+        expression = promote.split("    if:", 1)[1].split("    needs:", 1)[0]
+        expression = " ".join(expression.strip().removeprefix(">-").split())
+        for result in ("success", "failure", "cancelled", "skipped"):
+            with self.subTest(result=result):
+                condition = expression.replace("always()", "True").replace("cancelled()", "False")
+                condition = re.sub(r"inputs\.(\w+)", lambda m: repr({
+                    "mode": "refresh", "promote": True, "image_set": "tsan", "include_armhf": False,
+                }[m[1]]), condition)
+                condition = re.sub(r"needs\.([a-z0-9-]+)\.result", lambda m: repr(
+                    result if m[1] == "build-tsan" else "skipped"), condition)
+                condition = condition.replace("&&", " and ").replace("||", " or ")
+                self.assertEqual(bool(eval(condition, {"__builtins__": {}}, {})), result == "success")
+
     def test_metadata_loads_only_the_selected_image_cohort(self):
         metadata = job("metadata")
         self.assertIn('if [ "$IMAGE_SET" != tsan ]; then', metadata)
@@ -521,7 +587,7 @@ git() {
 
     def test_tsan_only_jobs_and_tag_moves_exclude_normal_images(self):
         validate = job("validate-inputs")
-        self.assertIn("normal|tsan|normal-and-tsan", validate)
+        self.assertIn("normal|tsan) ;;", validate)
         self.assertIn('[ "$IMAGE_SET" = tsan ] && [ "$INCLUDE_ARMHF" = true ]', validate)
         self.assertIn("inputs.image_set == 'tsan'", job("build-tsan"))
         self.assertIn("inputs.image_set == 'normal'", job("build-normal"))
