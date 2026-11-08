@@ -44,8 +44,7 @@ curl -L --fail --retry 5 --retry-delay 10 -o "$archive" "$LINUX_BOOST_SOURCE_URL
 printf '%s  %s\n' "$LINUX_BOOST_SOURCE_SHA256" "$archive" | sha256sum -c -
 tar -xjf "$archive" -C "$build_root"
 cd "$build_root/boost_${LINUX_BOOST_VERSION//./_}"
-python3 "$script_dir/patch-boost-log-queue.py" "$PWD" \
-  --manifest "$prefix/share/wsjtx/boost-log-queue-patch.json"
+patch --batch --forward --fuzz=0 -p1 < "$script_dir/boost-log-queue.patch"
 
 printf 'using gcc : wsjtx : "%s" ;\n' "$compiler" > user-config.jam
 # Bootstrap builds the build engine for the host, including during cross builds.
@@ -87,7 +86,6 @@ manifest = {
                  'target': subprocess.check_output([compiler, '-dumpmachine'], text=True).strip()},
     'cxxflags': cxxflags, 'linkflags': linkflags, 'link': 'static',
     'runtime_link': 'shared', 'threading': 'multi', 'recipe_sha256': recipe_hash,
-    'patch_manifest': 'boost-log-queue-patch.json',
     'archives': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in archives},
     'version_header_sha256': hashlib.sha256((root / 'include/boost/version.hpp').read_bytes()).hexdigest(),
 }

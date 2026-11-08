@@ -346,24 +346,9 @@ validate_linux_static_boost_tree "$TREE"
         root = directory / "prefix"
         scripts = directory / "scripts"
         scripts.mkdir()
-        for name in ("linux-boost-validation.sh", "linux-boost-config.sh", "boost-version.sh", "build-boost-linux.sh"):
+        for name in ("linux-boost-validation.sh", "linux-boost-config.sh", "boost-version.sh", "build-boost-linux.sh", "boost-log-queue.patch"):
             shutil.copyfile(HELPER.parent / name, scripts / name)
-        header = "fixture patched queue header\n"
-        header_hash = hashlib.sha256(header.encode()).hexdigest()
-        source_files = {"boost/log/detail/threadsafe_queue.hpp": header_hash,
-                        "libs/log/src/threadsafe_queue.cpp": "a" * 64}
-        # Fixtures isolate provenance validation from Boost source downloads.
-        helper = scripts / "patch-boost-log-queue.py"
-        helper.write_text(
-            "import hashlib\n"
-            "def digest(data): return hashlib.sha256(data).hexdigest()\n"
-            "SUPPORTED = {109200: '1.92.0'}\n"
-            "HEADER = 'boost/log/detail/threadsafe_queue.hpp'\n"
-            f"SOURCE_HASHES = {source_files!r}\n"
-            f"PATCHED_HASHES = {source_files!r}\n"
-        )
-        (root / "include/boost/log/detail").mkdir(parents=True)
-        (root / "include/boost/log/detail/threadsafe_queue.hpp").write_text(header)
+        (root / "include/boost").mkdir(parents=True)
         version_header = root / "include/boost/version.hpp"
         version_header.write_text("#define BOOST_VERSION 109200\n")
         (root / "lib").mkdir()
@@ -376,21 +361,14 @@ validate_linux_static_boost_tree "$TREE"
             archives[archive.name] = hashlib.sha256(archive.read_bytes()).hexdigest()
         provenance = root / "share/wsjtx"
         provenance.mkdir(parents=True)
-        (provenance / "boost-log-queue-patch.json").write_text(json.dumps({
-            "boost_version": "1.92.0", "patch": "boost-log-queue-release-acquire-v1",
-            "patch_helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
-            "files": {name: {"original_sha256": value, "patched_sha256": value}
-                      for name, value in source_files.items()},
-        }))
         recipe = "".join(hashlib.sha256((scripts / name).read_bytes()).hexdigest() + "\n"
-                         for name in ("build-boost-linux.sh", "linux-boost-config.sh", "boost-version.sh", "patch-boost-log-queue.py"))
+                         for name in ("build-boost-linux.sh", "linux-boost-config.sh", "boost-version.sh", "boost-log-queue.patch"))
         manifest = {
             "version": "1.92.0",
             "source_url": "https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.bz2",
             "source_sha256": "5c1d40cb8e19adbf740a4ec2da35b3e58f3f5804b1dce44deb53df72193cbc6c",
             "recipe_sha256": hashlib.sha256(recipe.encode()).hexdigest(),
             "link": "static", "runtime_link": "shared", "threading": "multi",
-            "patch_manifest": "boost-log-queue-patch.json",
             "compiler": {"path": "/usr/bin/arm-linux-gnueabihf-g++", "version": "12.2.0", "target": "arm-linux-gnueabihf"},
             "archives": archives,
             "version_header_sha256": hashlib.sha256(version_header.read_bytes()).hexdigest(),
@@ -417,8 +395,6 @@ validate_linux_boost_archives "$TREE" armhf 1.92.0
             ("archive", "archive hash mismatch"),
             ("recipe", "recipe_sha256 mismatch"),
             ("source", "source_sha256 mismatch"),
-            ("patch", "queue patch hash mismatch"),
-            ("header", "installed queue header differs"),
             ("shared", "shared Boost libraries"),
             ("escape", "archive escapes Boost prefix"),
         ):
@@ -431,13 +407,6 @@ validate_linux_boost_archives "$TREE" armhf 1.92.0
                 elif mutation in ("recipe", "source"):
                     manifest[mutation + "_sha256"] = "0" * 64
                     manifest_path.write_text(json.dumps(manifest))
-                elif mutation == "patch":
-                    path = root / "share/wsjtx/boost-log-queue-patch.json"
-                    patch = json.loads(path.read_text())
-                    patch["files"]["libs/log/src/threadsafe_queue.cpp"]["patched_sha256"] = "0" * 64
-                    path.write_text(json.dumps(patch))
-                elif mutation == "header":
-                    (root / "include/boost/log/detail/threadsafe_queue.hpp").write_text("unpatched")
                 elif mutation == "shared":
                     (root / "lib/libboost_log.so.1.92.0").touch()
                 else:

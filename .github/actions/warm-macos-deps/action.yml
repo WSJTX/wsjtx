@@ -238,7 +238,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: boost-static-prefix
-        key: boost-static-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ env.BOOST_VERSION }}-${{ env.BOOST_SOURCE_SHA256 }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/boost-version.sh', '.github/scripts/build-boost-macos.sh', '.github/scripts/patch-boost-log-queue.py') }}
+        key: boost-static-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ env.BOOST_VERSION }}-${{ env.BOOST_SOURCE_SHA256 }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/boost-version.sh', '.github/scripts/build-boost-macos.sh', '.github/scripts/boost-log-queue.patch') }}
 
     - name: Build Boost
       id: boost-build
@@ -255,13 +255,6 @@ runs:
     - name: Verify static Boost archives
       shell: bash
       run: |
-        python3 - "${GITHUB_WORKSPACE}/boost-static-prefix/share/wsjtx-build/boost-log-queue-patch.json" "${{ env.BOOST_VERSION }}" <<'PY'
-        import hashlib, json, pathlib, sys
-        manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
-        helper_hash = hashlib.sha256(pathlib.Path('.github/scripts/patch-boost-log-queue.py').read_bytes()).hexdigest()
-        if manifest['boost_version'] != sys.argv[2] or manifest['patch_helper_sha256'] != helper_hash:
-            raise SystemExit('Cached Boost queue patch provenance does not match the build recipe')
-        PY
         .github/scripts/verify-macos-static-archives.sh \
           --target "${{ inputs.deployment_target }}" \
           --arch "${{ inputs.arch }}" \

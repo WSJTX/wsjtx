@@ -101,7 +101,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: boost-static-prefix
-        key: boost-static-windows-windows-latest-ucrt64-${{ steps.paths.outputs.boost_version }}-${{ steps.paths.outputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/boost-version.sh', '.github/scripts/build-boost-windows.sh', '.github/scripts/patch-boost-log-queue.py') }}
+        key: boost-static-windows-windows-latest-ucrt64-${{ steps.paths.outputs.boost_version }}-${{ steps.paths.outputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/boost-version.sh', '.github/scripts/build-boost-windows.sh', '.github/scripts/boost-log-queue.patch') }}
 
     - name: Build Boost
       id: boost-build
@@ -113,18 +113,6 @@ runs:
       shell: msys2 {0}
       run: |
         prefix="${{ steps.paths.outputs.boost_prefix }}"
-        python3 - "$prefix/share/wsjtx-build/boost-log-queue-patch.json" "${{ steps.paths.outputs.boost_version }}" <<'PY'
-        import hashlib
-        import json
-        from pathlib import Path
-        import sys
-
-        manifest = json.loads(Path(sys.argv[1]).read_text())
-        helper_hash = hashlib.sha256(Path('.github/scripts/patch-boost-log-queue.py').read_bytes()).hexdigest()
-        if manifest['boost_version'] != sys.argv[2] or manifest['patch_helper_sha256'] != helper_hash:
-            raise SystemExit('Boost.Log queue patch provenance does not match the selected recipe')
-        print(json.dumps(manifest, indent=2, sort_keys=True))
-        PY
         boost_archives=("$prefix"/lib/libboost_*.a)
         if [ ! -e "${boost_archives[0]}" ]; then
           echo "::error::Boost archives not found under $prefix/lib"

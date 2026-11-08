@@ -39,9 +39,8 @@ if [ "$actual_sha256" != "$source_sha256" ]; then
   exit 1
 fi
 tar -xjf boost.tar.bz2
-python3 "$script_dir/patch-boost-log-queue.py" "boost_${version_underscores}" \
-  --manifest "$prefix/share/wsjtx-build/boost-log-queue-patch.json"
 cd "boost_${version_underscores}"
+patch --batch --forward --fuzz=0 -p1 < "$script_dir/boost-log-queue.patch"
 
 ./bootstrap.sh --prefix="$prefix" --with-libraries=log
 ./b2 -j"$(sysctl -n hw.ncpu)" \

@@ -20,7 +20,7 @@ linux_boost_source_config() {
 linux_boost_recipe_hash() {
   local script_dir file
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-  for file in build-boost-linux.sh linux-boost-config.sh boost-version.sh patch-boost-log-queue.py; do
+  for file in build-boost-linux.sh linux-boost-config.sh boost-version.sh boost-log-queue.patch; do
     sha256sum "$script_dir/$file" | awk '{print $1}'
   done | sha256sum | awk '{print $1}'
 }

@@ -453,9 +453,9 @@ git() {
                     self.assertEqual(outputs[cache], "true")
 
     def test_boost_queue_patch_refreshes_each_compiled_dependency(self):
-        path = ".github/scripts/patch-boost-log-queue.py"
+        path = ".github/scripts/boost-log-queue.patch"
         self.assertIn(f'      - "{path}"', WARM)
-        case = re.search(r"\.github/scripts/patch-boost-log-queue\.py\)\n(?P<body>.*?);;",
+        case = re.search(r"\.github/scripts/boost-log-queue\.patch\)\n(?P<body>.*?);;",
                          WARM, re.DOTALL).group("body")
         self.assertIn("enable_cache_all", case)
         profiles = ("normal-noble", "normal-bookworm", "tsan-noble",

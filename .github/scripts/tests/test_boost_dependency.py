@@ -85,13 +85,16 @@ class LinuxBoostBuildFlagsTests(unittest.TestCase):
                 scripts.mkdir()
                 builder = scripts / "build-boost-linux.sh"
                 builder.write_bytes((ROOT / ".github/scripts/build-boost-linux.sh").read_bytes())
-                (scripts / "patch-boost-log-queue.py").write_text("")
+                (scripts / "boost-log-queue.patch").write_text(
+                    "--- a/fixture.txt\n+++ b/fixture.txt\n@@ -1 +1 @@\n-old\n+new\n")
                 archive = root / "source.tar.bz2"
                 b2 = (f"#!{sys.executable}\nimport json, os, pathlib, sys\n"
+                      "assert pathlib.Path('fixture.txt').read_text().strip() == 'new'\n"
                       "pathlib.Path(os.environ['BOOST_TEST_B2']).write_text(json.dumps(sys.argv[1:]))\n"
                       "sys.exit(77)\n")
                 with tarfile.open(archive, "w:bz2") as output:
-                    for name, content in (("bootstrap.sh", "#!/bin/sh\nexit 0\n"), ("b2", b2)):
+                    for name, content in (("bootstrap.sh", "#!/bin/sh\nexit 0\n"), ("b2", b2),
+                                          ("fixture.txt", "old\n")):
                         data = content.encode()
                         member = tarfile.TarInfo(f"boost_1_92_0/{name}")
                         member.size, member.mode = len(data), 0o755
@@ -154,6 +157,13 @@ else:
                 if cross:
                     self.assertIn(f"--sysroot={root}/sysroot", flags)
                     self.assertIn("architecture=arm", arguments)
+                capture.unlink()
+                (scripts / "boost-log-queue.patch").write_text(
+                    "--- a/fixture.txt\n+++ b/fixture.txt\n@@ -1 +1 @@\n-unexpected\n+new\n")
+                result = subprocess.run(["bash", str(builder), "1.92.0", str(root / "rejected-prefix")],
+                                        env=environment, text=True, capture_output=True)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertFalse(capture.exists(), "Boost must not build after a patch failure")
 
 
 if __name__ == "__main__":

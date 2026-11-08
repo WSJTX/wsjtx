@@ -38,7 +38,7 @@ on:
       - ".github/scripts/build-boost-linux.sh"
       - ".github/scripts/linux-boost-config.sh"
       - ".github/scripts/linux-boost-validation.sh"
-      - ".github/scripts/patch-boost-log-queue.py"
+      - ".github/scripts/boost-log-queue.patch"
       - ".github/scripts/build-hamlib-tsan-linux.sh"
       - ".github/scripts/verify-linux-ci-image.sh"
       - ".github/scripts/verify-tsan-deps-linux.sh"
@@ -241,7 +241,7 @@ jobs:
                     normal_images=true
                     tsan_images=true
                     ;;
-                  .github/scripts/patch-boost-log-queue.py)
+                  .github/scripts/boost-log-queue.patch)
                     enable_cache_all
                     ;;
                   .github/workflows/ci.yml|.github/workflows/release.yml|.github/workflows/warm-dependency-caches.yml|.github/scripts/select-ccache-key-suffix.sh)
@@ -481,7 +481,7 @@ jobs:
           update: true
           cache: true
           install: >-
-            git make tar curl zstd
+            git make tar curl zstd patch
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-gcc-fortran
             mingw-w64-ucrt-x86_64-libgomp

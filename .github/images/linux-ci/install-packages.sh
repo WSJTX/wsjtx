@@ -8,7 +8,7 @@ fi
 
 normal_packages=(
   ca-certificates curl git
-  build-essential cmake ccache
+  build-essential cmake ccache patch
   libfftw3-dev bzip2
   qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev
   libqt5sql5-sqlite libqt5websockets5-dev
@@ -26,7 +26,7 @@ normal_packages=(
 
 tsan_packages=(
   ca-certificates curl git xz-utils bzip2 perl python3
-  build-essential binutils cmake ccache file make pkg-config xauth xvfb
+  build-essential binutils cmake ccache file make patch pkg-config xauth xvfb
   gcc-13 g++-13 gfortran-13
   autoconf automake libtool texinfo
   libfftw3-dev libreadline-dev libusb-1.0-0-dev portaudio19-dev

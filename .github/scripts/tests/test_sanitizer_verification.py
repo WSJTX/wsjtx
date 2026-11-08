@@ -1,6 +1,4 @@
 import importlib.util
-import hashlib
-import json
 import os
 from pathlib import Path
 import shutil
@@ -157,25 +155,6 @@ class TSanDependencyVerificationTests(unittest.TestCase):
             self.file(self.qt / f"lib/cmake/Qt5{component}/Qt5{component}Config.cmake")
         self.file(self.qt / "lib/libQt5Core.so.5")
         self.file(self.boost / "include/boost/log/core.hpp")
-        header = "boost/log/detail/threadsafe_queue.hpp"
-        cpp = "libs/log/src/threadsafe_queue.cpp"
-        header_data = b"fixture queue header\n"
-        source_hashes = {header: hashlib.sha256(header_data).hexdigest(), cpp: "1" * 64}
-        patched_hashes = {header: source_hashes[header], cpp: "2" * 64}
-        helper = self.root / "patch-boost-log-queue.py"
-        helper.write_text(
-            "import hashlib\n"
-            "def digest(data): return hashlib.sha256(data).hexdigest()\n"
-            f"HEADER = {header!r}\nSUPPORTED = {{109200: '1.92.0'}}\n"
-            f"SOURCE_HASHES = {source_hashes!r}\nPATCHED_HASHES = {patched_hashes!r}\n"
-        )
-        self.file(self.boost / "share/wsjtx/boost-log-queue-patch.json", json.dumps({
-            "boost_version": "1.92.0", "patch": "boost-log-queue-release-acquire-v1",
-            "patch_helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
-            "files": {name: {"original_sha256": source_hashes[name],
-                             "patched_sha256": patched_hashes[name]} for name in (header, cpp)},
-        }).encode())
-        self.file(self.boost / "include" / header, header_data)
         for component in ("log", "log_setup", "filesystem", "thread", "container", "chrono", "atomic"):
             self.file(self.boost / f"lib/libboost_{component}.a", b"!<arch>\n")
         self.file(self.hamlib / "lib/libhamlib.a", b"!<arch>\n")
@@ -215,19 +194,13 @@ class TSanDependencyVerificationTests(unittest.TestCase):
         result = self.run_verifier()
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_rejects_missing_patch_provenance(self):
-        (self.boost / "share/wsjtx/boost-log-queue-patch.json").unlink()
-        result = self.run_verifier()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Boost queue provenance validation failed", result.stderr)
-
-    def test_patch_helper_change_invalidates_dependency_cache(self):
-        for name in ("tsan-linux-deps-config.sh", "build-boost-tsan-linux.sh", "boost-version.sh"):
+    def test_patch_change_invalidates_dependency_cache(self):
+        for name in ("tsan-linux-deps-config.sh", "build-boost-tsan-linux.sh", "boost-version.sh", "boost-log-queue.patch"):
             shutil.copyfile(SCRIPTS / name, self.root / name)
         command = ["bash", "-c", 'source "$1"; TSAN_TOOLCHAIN_ID=fixture; '
                    'tsan_dependency_cache_key boost', "test", str(self.root / "tsan-linux-deps-config.sh")]
         before = subprocess.check_output(command, text=True)
-        with (self.root / "patch-boost-log-queue.py").open("a") as stream:
+        with (self.root / "boost-log-queue.patch").open("a") as stream:
             stream.write("\n# Changed patch recipe\n")
         after = subprocess.check_output(command, text=True)
         self.assertNotEqual(before, after)

@@ -127,7 +127,7 @@ jobs:
           update: true
           cache: ${{ !inputs.cold_build }}
           install: >-
-            git make tar curl zstd
+            git make tar curl zstd patch
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-gcc-fortran
             mingw-w64-ucrt-x86_64-libgomp

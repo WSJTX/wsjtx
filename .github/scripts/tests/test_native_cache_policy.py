@@ -163,7 +163,7 @@ class NativeCachePolicyTests(unittest.TestCase):
                 cache = next(part for part in re.split(r"^\s+- name: ", text, flags=re.M)
                              if part.startswith("Restore Boost cache"))
                 recipe = re.search(r"hashFiles\(([^)]+)\)", cache).group(1)
-                self.assertIn("'.github/scripts/patch-boost-log-queue.py'", recipe)
+                self.assertIn("'.github/scripts/boost-log-queue.patch'", recipe)
 
     def test_windows_declares_openmp_without_relying_on_fftw_package_dependencies(self):
         for path in (".github/workflows/build-windows.yml",

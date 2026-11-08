@@ -89,7 +89,6 @@ verify_static_tsan_symbols() {
 verify_manifest qt "$qt_prefix"
 verify_manifest boost "$boost_prefix"
 verify_manifest hamlib "$hamlib_prefix"
-validate_linux_boost_patch "$boost_prefix" "$TSAN_BOOST_VERSION"
 
 qt_core="${qt_prefix}/lib/libQt5Core.so.5"
 hamlib_archive="${hamlib_prefix}/lib/libhamlib.a"

@@ -103,7 +103,7 @@ if [ "${1:-}" = "--self-test" ]; then
   expect_image_set normal ".github/scripts/build-hamlib-linux.sh"
   expect_image_set tsan ".github/scripts/build-qt-tsan-linux.sh"
   expect_image_set normal-and-tsan ".github/scripts/verify-linux-ci-image.sh"
-  expect_image_set normal-and-tsan ".github/scripts/patch-boost-log-queue.py"
+  expect_image_set normal-and-tsan ".github/scripts/boost-log-queue.patch"
   expect_image_set normal-and-tsan ".github/scripts/boost-version.sh"
   expect_input armhf-cross-bookworm ".github/scripts/boost-version.sh"
   expect_input armhf-cross-trixie ".github/scripts/boost-version.sh"
@@ -111,8 +111,8 @@ if [ "${1:-}" = "--self-test" ]; then
   expect_image_set normal-and-tsan ".github/scripts/linux-boost-validation.sh"
   expect_input armhf-cross-bookworm ".github/scripts/linux-boost-validation.sh"
   expect_input armhf-cross-trixie ".github/scripts/linux-boost-validation.sh"
-  expect_input armhf-cross-bookworm ".github/scripts/patch-boost-log-queue.py"
-  expect_input armhf-cross-trixie ".github/scripts/patch-boost-log-queue.py"
+  expect_input armhf-cross-bookworm ".github/scripts/boost-log-queue.patch"
+  expect_input armhf-cross-trixie ".github/scripts/boost-log-queue.patch"
   expect_image_set normal-and-tsan \
     ".github/scripts/build-hamlib-linux.sh" \
     ".github/scripts/build-qt-tsan-linux.sh"

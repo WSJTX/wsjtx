@@ -6,43 +6,6 @@ linux_boost_validation_error() {
   return 1
 }
 
-validate_linux_boost_patch() {
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-  python3 - "$1" "$2" "$script_dir/patch-boost-log-queue.py" <<'PY'
-import hashlib
-import importlib.util
-import json
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1]).resolve()
-version, helper = sys.argv[2:]
-try:
-    spec = importlib.util.spec_from_file_location('boost_queue_patch', helper)
-    patch = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(patch)
-    manifest = json.loads((root / 'share/wsjtx/boost-log-queue-patch.json').read_text())
-    expected = patch.SOURCE_HASHES
-    patched = patch.PATCHED_HASHES
-    assert version in patch.SUPPORTED.values(), 'unsupported Boost version'
-    assert manifest['boost_version'] == version, 'patch version mismatch'
-    assert manifest['patch'] == 'boost-log-queue-release-acquire-v1', 'queue patch missing'
-    assert manifest['patch_helper_sha256'] == patch.digest(Path(helper).read_bytes()), 'stale queue patch recipe'
-    assert set(manifest['files']) == set(expected), 'queue patch source manifest mismatch'
-    for name, original in expected.items():
-        entry = manifest['files'][name]
-        assert entry['original_sha256'] == original, f'unrecognized queue source: {name}'
-        assert entry['patched_sha256'] == patched[name], f'queue patch hash mismatch: {name}'
-    header = root / 'include' / patch.HEADER
-    assert root in header.resolve().parents, 'queue header escapes Boost prefix'
-    assert hashlib.sha256(header.read_bytes()).hexdigest() == manifest['files'][patch.HEADER]['patched_sha256'], 'installed queue header differs from patched source'
-except (OSError, ValueError, KeyError, AssertionError) as error:
-    raise SystemExit(f'Boost queue provenance validation failed: {error}')
-print(f'Validated Boost {version} queue patch: {root}')
-PY
-}
-
 validate_linux_boost_archives() {
   local root="$1" arch="$2" version="$3" component archive headers machine expected script_dir members
   local readelf_command="${READELF:-readelf}"
@@ -51,7 +14,6 @@ validate_linux_boost_archives() {
   # shellcheck source=.github/scripts/linux-boost-config.sh
   . "$script_dir/linux-boost-config.sh"
   linux_boost_source_config "$version" || return
-  validate_linux_boost_patch "$root" "$version" || return
   python3 - "$root" "$version" "$arch" "$LINUX_BOOST_SOURCE_URL" \
     "$LINUX_BOOST_SOURCE_SHA256" "$(linux_boost_recipe_hash)" <<'PY' || return
 import hashlib
@@ -66,7 +28,7 @@ try:
     manifest = json.loads((root / 'share/wsjtx/boost-build.json').read_text())
     for key, expected in {'version': version, 'source_url': url, 'source_sha256': source_hash,
                           'recipe_sha256': recipe_hash, 'link': 'static', 'runtime_link': 'shared',
-                          'threading': 'multi', 'patch_manifest': 'boost-log-queue-patch.json'}.items():
+                          'threading': 'multi'}.items():
         assert manifest[key] == expected, f'{key} mismatch (rebuild Boost in a fresh prefix)'
     targets = {'armhf': r'arm.*-linux-gnueabihf', 'aarch64': r'aarch64.*-linux-gnu', 'x86_64': r'x86_64.*-linux-gnu'}
     assert re.fullmatch(targets[arch], manifest['compiler']['target']), 'compiler target mismatch'

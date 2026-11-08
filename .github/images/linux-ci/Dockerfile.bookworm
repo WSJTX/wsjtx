@@ -27,7 +27,7 @@ COPY .github/scripts/linux-ci-image-config.sh \
      .github/scripts/linux-boost-config.sh \
      .github/scripts/boost-version.sh \
      .github/scripts/build-boost-linux.sh \
-     .github/scripts/patch-boost-log-queue.py \
+     .github/scripts/boost-log-queue.patch \
      .github/scripts/linux-boost-validation.sh \
      .github/scripts/fftw-version.sh \
      .github/scripts/build-fftw.sh \

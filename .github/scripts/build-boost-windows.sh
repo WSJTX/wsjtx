@@ -36,8 +36,7 @@ if [ "$actual_sha256" != "$BOOST_SOURCE_SHA256" ]; then
 fi
 tar -xjf boost.tar.bz2
 cd "boost_${version_underscores}"
-python3 "$script_dir/patch-boost-log-queue.py" . \
-  --manifest "${install_prefix}/share/wsjtx-build/boost-log-queue-patch.json"
+patch --batch --forward --fuzz=0 -p1 < "$script_dir/boost-log-queue.patch"
 
 python3 - <<'PY'
 from pathlib import Path
