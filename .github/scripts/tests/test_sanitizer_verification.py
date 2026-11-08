@@ -141,7 +141,7 @@ class TSanDependencyVerificationTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.script = self.root / "verify-tsan-deps-linux.sh"
         shutil.copyfile(SCRIPTS / self.script.name, self.script)
-        for name in ("linux-artifact-validation.sh", "boost-version.sh"):
+        for name in ("linux-boost-validation.sh", "boost-version.sh"):
             shutil.copyfile(SCRIPTS / name, self.root / name)
         (self.root / "tsan-linux-deps-config.sh").write_text(
             'TSAN_BOOST_VERSION=1.92.0\n'

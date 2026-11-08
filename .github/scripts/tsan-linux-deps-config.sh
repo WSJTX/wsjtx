@@ -112,7 +112,7 @@ tsan_dependency_recipe_hash() {
   if [ "$dependency" = boost ]; then
     recipe_files+=("${tsan_config_dir}/boost-version.sh"
                    "${tsan_config_dir}/patch-boost-log-queue.py"
-                   "${tsan_config_dir}/linux-artifact-validation.sh")
+                   "${tsan_config_dir}/linux-boost-validation.sh")
   fi
   tsan_sha256_files "${recipe_files[@]}"
 }

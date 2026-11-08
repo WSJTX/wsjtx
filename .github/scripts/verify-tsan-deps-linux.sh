@@ -13,8 +13,8 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 # shellcheck source=.github/scripts/tsan-linux-deps-config.sh
 . "${script_dir}/tsan-linux-deps-config.sh"
-# shellcheck source=.github/scripts/linux-artifact-validation.sh
-. "${script_dir}/linux-artifact-validation.sh"
+# shellcheck source=.github/scripts/linux-boost-validation.sh
+. "${script_dir}/linux-boost-validation.sh"
 
 qt_prefix=$1
 boost_prefix=$2

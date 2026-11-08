@@ -170,7 +170,7 @@ runs:
         WSJT_RELEASE_CHANNEL: ${{ inputs.release_channel }}
         WSJT_PRERELEASE_NUMBER: ${{ inputs.prerelease_number }}
       run: |
-        source .github/scripts/linux-artifact-validation.sh
+        source .github/scripts/linux-boost-validation.sh
         validate_linux_boost_archives "${{ steps.image.outputs.boost_prefix }}" "${{ inputs.arch }}" "${{ steps.image.outputs.boost_version }}"
         cmake -S . -B wsjtx-build \
           -DBoost_USE_STATIC_LIBS=ON \

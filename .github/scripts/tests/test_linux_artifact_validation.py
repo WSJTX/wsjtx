@@ -346,7 +346,7 @@ validate_linux_static_boost_tree "$TREE"
         root = directory / "prefix"
         scripts = directory / "scripts"
         scripts.mkdir()
-        for name in ("linux-artifact-validation.sh", "linux-boost-config.sh", "boost-version.sh", "build-boost-linux.sh"):
+        for name in ("linux-boost-validation.sh", "linux-boost-config.sh", "boost-version.sh", "build-boost-linux.sh"):
             shutil.copyfile(HELPER.parent / name, scripts / name)
         header = "fixture patched queue header\n"
         header_hash = hashlib.sha256(header.encode()).hexdigest()
@@ -396,7 +396,7 @@ validate_linux_static_boost_tree "$TREE"
             "version_header_sha256": hashlib.sha256(version_header.read_bytes()).hexdigest(),
         }
         (provenance / "boost-build.json").write_text(json.dumps(manifest))
-        return root, scripts / HELPER.name
+        return root, scripts / "linux-boost-validation.sh"
 
     def test_archives_require_real_archives_and_target_architecture(self):
         root, helper = self.make_boost_prefix()

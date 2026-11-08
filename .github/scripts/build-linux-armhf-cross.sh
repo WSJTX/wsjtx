@@ -22,6 +22,8 @@ cd /work
 source .github/scripts/armhf-ci-image-config.sh
 # shellcheck source=.github/scripts/linux-artifact-validation.sh
 source .github/scripts/linux-artifact-validation.sh
+# shellcheck source=.github/scripts/linux-boost-validation.sh
+source .github/scripts/linux-boost-validation.sh
 # shellcheck source=.github/scripts/linux-boost-config.sh
 source .github/scripts/linux-boost-config.sh
 .github/scripts/verify-armhf-ci-image.sh cross-builder "$ARCH" "$HAMLIB_BRANCH"

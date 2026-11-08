@@ -2,6 +2,7 @@ import fnmatch
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -27,6 +28,58 @@ def job(name: str, workflow: str = PUBLISH) -> str:
 
 
 class LinuxImagePublicationPolicyTests(unittest.TestCase):
+    def test_dependency_fingerprints_exclude_package_only_validation(self):
+        profiles = ("normal-noble", "normal-bookworm", "tsan-noble",
+                    "armhf-cross-bookworm", "armhf-cross-trixie",
+                    "armhf-runtime-bookworm", "armhf-runtime-trixie")
+        package_helper = ".github/scripts/linux-artifact-validation.sh"
+        dependency_helper = ".github/scripts/linux-boost-validation.sh"
+        inputs_script = ".github/scripts/linux-ci-image-inputs.sh"
+        paths = {inputs_script, package_helper}
+        for profile in profiles:
+            result = subprocess.check_output(
+                ["bash", "-c", 'source "$1"; linux_ci_image_inputs "$2"',
+                 "test", str(ROOT / inputs_script), profile], text=True,
+            )
+            paths.update(result.splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            for relative in paths:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / relative, target)
+
+            def fingerprints():
+                values = {profile: subprocess.check_output(
+                    ["bash", ".github/scripts/linux-ci-image-fingerprint.sh", profile],
+                    cwd=root, text=True,
+                ) for profile in profiles}
+                values["boost-tsan"] = subprocess.check_output(
+                    ["bash", "-c", 'source .github/scripts/tsan-linux-deps-config.sh; '
+                     'TSAN_TOOLCHAIN_ID=fixture; tsan_dependency_cache_key boost'],
+                    cwd=root, text=True,
+                )
+                return values
+
+            before = fingerprints()
+            with (root / package_helper).open("a") as stream:
+                stream.write("\n# Packaging validation policy changed.\n")
+            self.assertEqual(fingerprints(), before)
+            with (root / dependency_helper).open("a") as stream:
+                stream.write("\n# Dependency validation policy changed.\n")
+            after = fingerprints()
+            for profile in (*profiles, "boost-tsan"):
+                with self.subTest(profile=profile):
+                    self.assertEqual(before[profile] == after[profile], "runtime" in profile)
+
+        for filename in ("Dockerfile.noble", "Dockerfile.bookworm",
+                         "Dockerfile.armhf-cross", "Dockerfile.armhf-cross-trixie"):
+            recipe = (ROOT / ".github/images/linux-ci" / filename).read_text()
+            self.assertIn(dependency_helper, recipe)
+            self.assertNotIn(package_helper, recipe)
+        outputs = self.select_warmers("push", paths=[dependency_helper])
+        self.assertEqual(outputs["image_set"], "normal-and-tsan")
+
     def test_single_profile_candidates_cannot_promote_or_select_other_cohorts(self):
         validate = job("validate-inputs")
         body = textwrap.dedent(validate.split("        run: |\n", 1)[1])
@@ -211,9 +264,7 @@ git() {
                 self.assertTrue(any(fnmatch.fnmatchcase(path, pattern) for pattern in push_filters))
                 outputs = self.select_warmers("push", paths=[path])
                 self.assertEqual(outputs["linux_armhf"], "true")
-                expected_images = ("normal-and-tsan" if path ==
-                                   ".github/scripts/linux-artifact-validation.sh" else "none")
-                self.assertEqual(outputs["image_set"], expected_images)
+                self.assertEqual(outputs["image_set"], "none")
 
     def test_armhf_warmers_share_configuration_and_serialize(self):
         standalone = job("warm-linux-armhf-ccache", WARM)

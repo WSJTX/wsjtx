@@ -85,8 +85,8 @@ case "$expected_flavor" in
     fi
     test -f "$image_prefix/hamlib/lib/libhamlib.a"
     if [ "${WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS:-false}" != true ]; then
-      # shellcheck source=.github/scripts/linux-artifact-validation.sh
-      . "$config_dir/linux-artifact-validation.sh"
+      # shellcheck source=.github/scripts/linux-boost-validation.sh
+      . "$config_dir/linux-boost-validation.sh"
       validate_linux_boost_archives "$boost_prefix" "$expected_arch" "$boost_version"
       qt_core_config="$(find /usr -path '*/cmake/Qt5Core/Qt5CoreConfig.cmake' -print -quit)"
       qt_multimedia_config="$(find /usr -path '*/cmake/Qt5Multimedia/Qt5MultimediaConfig.cmake' -print -quit)"
@@ -284,8 +284,8 @@ EOF
   if [ "$expected_flavor" = normal ]; then
     validate_linux_boost_selection "$smoke_dir/build" "$boost_prefix"
   else
-    # shellcheck source=.github/scripts/linux-artifact-validation.sh
-    . "$config_dir/linux-artifact-validation.sh"
+    # shellcheck source=.github/scripts/linux-boost-validation.sh
+    . "$config_dir/linux-boost-validation.sh"
     validate_linux_boost_selection "$smoke_dir/build" "$image_prefix/tsan/boost-static"
   fi
   cmake --build "$smoke_dir/build" --parallel "$(nproc)"

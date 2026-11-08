@@ -16,7 +16,7 @@ linux_ci_image_inputs() {
     .github/scripts/boost-version.sh
     .github/scripts/build-boost-linux.sh
     .github/scripts/patch-boost-log-queue.py
-    .github/scripts/linux-artifact-validation.sh
+    .github/scripts/linux-boost-validation.sh
     tests/dependencies/test_fftw_runtime.c
     .github/scripts/linux-ccache-compiler-signature.sh
     .github/scripts/run-apt-get.sh
@@ -54,7 +54,7 @@ linux_ci_image_inputs() {
         .github/scripts/boost-version.sh \
         .github/scripts/build-boost-linux.sh \
         .github/scripts/patch-boost-log-queue.py \
-        .github/scripts/linux-artifact-validation.sh \
+        .github/scripts/linux-boost-validation.sh \
         .github/scripts/linux-ccache-compiler-signature.sh \
         .github/scripts/linux-ci-image-config.sh \
         .github/scripts/fftw-version.sh \

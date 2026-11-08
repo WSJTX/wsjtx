@@ -37,6 +37,7 @@ on:
       - ".github/scripts/build-boost-tsan-linux.sh"
       - ".github/scripts/build-boost-linux.sh"
       - ".github/scripts/linux-boost-config.sh"
+      - ".github/scripts/linux-boost-validation.sh"
       - ".github/scripts/patch-boost-log-queue.py"
       - ".github/scripts/build-hamlib-tsan-linux.sh"
       - ".github/scripts/verify-linux-ci-image.sh"

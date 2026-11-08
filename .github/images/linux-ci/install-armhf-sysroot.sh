@@ -26,8 +26,8 @@ export PATH="$ARMHF_TOOLCHAIN_PREFIX/bin:$PATH"
 CXX="$ARMHF_TARGET_TRIPLET-g++" CXXFLAGS="${ARMHF_ABI_FLAGS[*]}" \
   BOOST_SYSROOT="$ARMHF_SYSROOT" \
   /usr/local/share/wsjtx-ci/build-boost-linux.sh "$BOOST_VERSION" "$ARMHF_SYSROOT$LINUX_BOOST_PREFIX"
-# shellcheck source=.github/scripts/linux-artifact-validation.sh
-. /usr/local/share/wsjtx-ci/linux-artifact-validation.sh
+# shellcheck source=.github/scripts/linux-boost-validation.sh
+. /usr/local/share/wsjtx-ci/linux-boost-validation.sh
 READELF="$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-readelf" \
   validate_linux_boost_archives "$ARMHF_SYSROOT$LINUX_BOOST_PREFIX" armhf "$BOOST_VERSION"
 fftw_cflags="--sysroot=$ARMHF_SYSROOT -isystem $ARMHF_SYSROOT/usr/include/$ARMHF_TARGET_TRIPLET ${ARMHF_ABI_FLAGS[*]} -O3"

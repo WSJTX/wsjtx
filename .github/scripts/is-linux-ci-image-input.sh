@@ -107,7 +107,10 @@ if [ "${1:-}" = "--self-test" ]; then
   expect_image_set normal-and-tsan ".github/scripts/boost-version.sh"
   expect_input armhf-cross-bookworm ".github/scripts/boost-version.sh"
   expect_input armhf-cross-trixie ".github/scripts/boost-version.sh"
-  expect_image_set normal-and-tsan ".github/scripts/linux-artifact-validation.sh"
+  expect_image_set none ".github/scripts/linux-artifact-validation.sh"
+  expect_image_set normal-and-tsan ".github/scripts/linux-boost-validation.sh"
+  expect_input armhf-cross-bookworm ".github/scripts/linux-boost-validation.sh"
+  expect_input armhf-cross-trixie ".github/scripts/linux-boost-validation.sh"
   expect_input armhf-cross-bookworm ".github/scripts/patch-boost-log-queue.py"
   expect_input armhf-cross-trixie ".github/scripts/patch-boost-log-queue.py"
   expect_image_set normal-and-tsan \
