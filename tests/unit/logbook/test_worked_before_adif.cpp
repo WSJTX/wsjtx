@@ -8,6 +8,10 @@
 #include <QMessageBox>
 #include <QTimer>
 #include <memory>
+#include <atomic>
+#include <functional>
+#include <QSemaphore>
+#include <QRunnable>
 
 #include "Configuration.cpp"
 #include "logbook/WorkedBefore.hpp"
@@ -17,6 +21,31 @@
 
 int volatile itone[MAX_NUM_SYMBOLS] {};
 float gran () {return 0;}
+
+namespace
+{
+  std::function<void (char const *, std::atomic_bool const&)> history_checkpoint;
+
+  class ScopedHistoryCheckpoints final
+  {
+  public:
+    ~ScopedHistoryCheckpoints () {history_checkpoint = {};}
+  };
+}
+
+// Compile the loader here so checkpoint observers are absent from the production library.
+#define WSJT_WORKED_BEFORE_LOAD_CHECKPOINT(point, stop) \
+  do {if (history_checkpoint) history_checkpoint (point, stop);} while (false)
+#if defined (__GNUC__) && !defined (__clang__)
+// The included implementation keeps its future result type local to this translation unit.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsubobject-linkage"
+#endif
+#include "logbook/WorkedBefore.cpp"
+#if defined (__GNUC__) && !defined (__clang__)
+#pragma GCC diagnostic pop
+#endif
+#undef WSJT_WORKED_BEFORE_LOAD_CHECKPOINT
 
 class TestWorkedBeforeAdif final : public QObject
 {
@@ -42,6 +71,14 @@ private Q_SLOTS:
   void comment_cannot_supply_a_missing_band ();
   void country_views_survive_loading_and_live_additions ();
   void logbook_changes_country_view_without_rescanning ();
+  void cancels_worker_without_partial_results_data ();
+  void cancels_worker_without_partial_results ();
+  void shutdown_during_scan_preserves_published_history ();
+  void destruction_cancels_running_scan_data ();
+  void destruction_cancels_running_scan ();
+  void shutdown_discards_queued_completion ();
+  void shutdown_during_completion_prevents_restart ();
+  void destruction_cancels_queued_scan ();
 
 private:
   QString data_directory () const;
@@ -589,6 +626,285 @@ void TestWorkedBeforeAdif::logbook_changes_country_view_without_rescanning ()
   QVERIFY (country_worked ("Z62BB"));
   QCOMPARE (started.count (), 0);
   QCOMPARE (finished.count (), 1);
+}
+
+void TestWorkedBeforeAdif::cancels_worker_without_partial_results_data ()
+{
+  QTest::addColumn<QByteArray> ("primary");
+  QTest::addColumn<QByteArray> ("supplemental");
+  QTest::addColumn<QByteArray> ("checkpoint");
+  QTest::addColumn<int> ("occurrence");
+  QTest::addColumn<bool> ("recursive");
+  QByteArray const record {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<EOR>"};
+  auto row = [&] (char const * name, char const * checkpoint, int occurrence,
+                  QByteArray primary, QByteArray supplemental = {}, bool recursive = false) {
+    QTest::newRow (name) << primary << supplemental << QByteArray {checkpoint} << occurrence << recursive;
+  };
+  row ("before-discovery", "load_start", 1, record);
+  row ("nested-directory", "directory", 2, record, {}, true);
+  row ("directory-entry", "directory_entry", 1, record, {}, true);
+  row ("chunk-read", "read_complete", 2, QByteArray (64 * 1024, ' ') + record);
+  row ("long-header", "read", 2, QByteArray {"ADIF Export"} + QByteArray (64 * 1024, 'x'));
+  row ("whitespace-loop", "whitespace", 2, QByteArray (8192, ' ') + record);
+  row ("length-loop", "field_length", 2,
+       QByteArray {"<COMMENT:"} + QByteArray (8192, '0') + "1>x<EOH>" + record);
+  row ("field-data-loop", "field_data", 2,
+       QByteArray {"<COMMENT:8192>"} + QByteArray (8192, 'x') + "<EOH>" + record);
+  row ("unicode-fallback", "field_characters", 1,
+       record.left (record.size () - 5) + "<COMMENT:12>" + QString (4, QChar {0x00e9}).toUtf8 () + "<EOR>");
+  row ("between-records", "record", 2, record + record);
+  QByteArray supplemental;
+  for (int i = 0; i != 257; ++i)
+    supplemental += QString {"<CALL:6>K%1<BAND:3>20M<MODE:3>FT8<EOR>"}.arg (10000 + i).toUtf8 ();
+  row ("merge-loop", "merge", 2, record, supplemental);
+  row ("after-source-error", "file", 3, record, record);
+  row ("before-publication", "load_complete", 1, record, record);
+}
+
+void TestWorkedBeforeAdif::cancels_worker_without_partial_results ()
+{
+  QFETCH (QByteArray, primary);
+  QFETCH (QByteArray, supplemental);
+  QFETCH (QByteArray, checkpoint);
+  QFETCH (int, occurrence);
+  QFETCH (bool, recursive);
+  QVERIFY (write_data_file ("wsjtx_log.adi", primary));
+  auto const station = settings_dir_.filePath ("station.adi");
+  {
+    QFile file {station};
+    QVERIFY (file.open (QIODevice::WriteOnly));
+    QCOMPARE (file.write (supplemental), static_cast<qint64> (supplemental.size ()));
+  }
+  HistoryFolders folders;
+  QTemporaryDir tree;
+  if (recursive)
+    {
+      QVERIFY (tree.isValid ());
+      QVERIFY (QDir {}.mkpath (tree.filePath ("nested")));
+      folders.append ({tree.path (), true});
+    }
+  AD1CCty prefixes {configuration_.get ()};
+  prefixes.reload (configuration_.get ());
+  std::atomic_bool stop {false};
+  int matching_checks {0};
+  int checks_after_stop {0};
+  ScopedHistoryCheckpoints checkpoints;
+  history_checkpoint = [&] (char const * point, std::atomic_bool const&) {
+    if (stop.load (std::memory_order_relaxed)) ++checks_after_stop;
+    if (checkpoint == point && ++matching_checks == occurrence)
+      stop.store (true, std::memory_order_relaxed);
+  };
+  auto const result = load_sources (configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi"),
+                                    {settings_dir_.filePath ("missing.adi"), station}, folders, &prefixes, 0, stop);
+  QCOMPARE (matching_checks, occurrence);
+  QCOMPARE (checks_after_stop, 0);
+  QVERIFY (result.cancelled);
+  QVERIFY (result.worked.empty ());
+  QVERIFY (result.errors.isEmpty ());
+  QVERIFY (result.folder_summaries.isEmpty ());
+  QCOMPARE (result.files_read, 0);
+  QCOMPARE (result.files_incomplete, 0);
+  QCOMPARE (result.files_failed, 0);
+  QCOMPARE (result.files_expected, 0);
+  QCOMPARE (result.directory_failures, 0);
+  for (auto const& file_contents : {qMakePair (configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi"), primary),
+                                   qMakePair (station, supplemental)})
+    {
+      QFile file {file_contents.first};
+      QVERIFY (file.open (QIODevice::ReadOnly));
+      QCOMPARE (file.readAll (), file_contents.second);
+    }
+}
+
+void TestWorkedBeforeAdif::shutdown_during_scan_preserves_published_history ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  QSemaphore entered, release;
+  std::atomic_bool blocked {false}, timed_out {false};
+  ScopedHistoryCheckpoints checkpoints;
+  WorkedBefore worked {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (worked, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>W1XYZ<EOR>"));
+  history_checkpoint = [&] (char const * point, std::atomic_bool const&) {
+    if (!qstrcmp (point, "stop_requested")) release.release ();
+    if (!qstrcmp (point, "read") && !blocked.exchange (true))
+      {
+        entered.release ();
+        if (!release.tryAcquire (1, 5000)) timed_out.store (true);
+      }
+  };
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QSignalSpy started {&worked, &WorkedBefore::loading_started};
+  worked.reload ();
+  QVERIFY (entered.tryAcquire (1, 5000));
+  auto const status = worked.load_status ();
+  worked.reload ();
+  QVERIFY (QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection));
+  worked.reload ();
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QCoreApplication::processEvents ();
+  QVERIFY (!timed_out.load ());
+  QCOMPARE (finished.count (), 0);
+  QCOMPARE (started.count (), 2);
+  QCOMPARE (worked.load_status (), status);
+  QVERIFY (worked.load_errors ().isEmpty ());
+  QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+  QVERIFY (!worked.call_worked ("W1XYZ", {}, {}));
+  QVERIFY (worked.add ("K3NEW", "FN20", "20M", "FT8", "<CALL:5>K3NEW"));
+  QVERIFY (worked.call_worked ("K3NEW", "FT8", "20M"));
+}
+
+void TestWorkedBeforeAdif::destruction_cancels_running_scan_data ()
+{
+  QTest::addColumn<bool> ("pending_rescan");
+  QTest::newRow ("active") << false;
+  QTest::newRow ("pending-rescan") << true;
+}
+
+void TestWorkedBeforeAdif::destruction_cancels_running_scan ()
+{
+  QFETCH (bool, pending_rescan);
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  QSemaphore entered, release;
+  std::atomic_bool timed_out {false};
+  std::atomic<int> starts {0}, files {0};
+  std::atomic<std::atomic_bool const *> selected {nullptr};
+  ScopedHistoryCheckpoints checkpoints;
+  history_checkpoint = [&] (char const * point, std::atomic_bool const& stop) {
+    if (!qstrcmp (point, "load_start")) ++starts;
+    if (!qstrcmp (point, "file")) ++files;
+    if (!qstrcmp (point, "stop_requested") && selected.load () == &stop) release.release ();
+    if (!qstrcmp (point, "read"))
+      {
+        std::atomic_bool const * expected = nullptr;
+        if (selected.compare_exchange_strong (expected, &stop))
+          {
+            entered.release ();
+            if (!release.tryAcquire (1, 5000)) timed_out.store (true);
+          }
+      }
+  };
+  auto worked = std::make_unique<WorkedBefore> (configuration_.get ());
+  QSignalSpy finished {worked.get (), &WorkedBefore::finished_loading};
+  QVERIFY (entered.tryAcquire (1, 5000));
+  if (pending_rescan) worked->reload ();
+  WorkedBefore other {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (other, count, error), qPrintable (error));
+  worked.reset ();
+  QVERIFY (!timed_out.load ());
+  QCOMPARE (finished.count (), 0);
+  QCOMPARE (starts.load (), 2);
+  QCOMPARE (files.load (), 2);
+  other.reload ();
+  QVERIFY2 (wait_for_load (other, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+  WorkedBefore fresh {configuration_.get ()};
+  QVERIFY2 (wait_for_load (fresh, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+}
+
+void TestWorkedBeforeAdif::shutdown_discards_queued_completion ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  WorkedBefore worked {configuration_.get ()};
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QSignalSpy started {&worked, &WorkedBefore::loading_started};
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QCOMPARE (finished.count (), 0);
+  worked.reload ();
+  QVERIFY (QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection));
+  QVERIFY (QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection));
+  auto const status = worked.load_status ();
+  QCoreApplication::processEvents ();
+  worked.reload ();
+  QCOMPARE (finished.count (), 0);
+  QCOMPARE (started.count (), 1);
+  QCOMPARE (worked.load_status (), status);
+  QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
+  WorkedBefore fresh {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (fresh, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+}
+
+void TestWorkedBeforeAdif::shutdown_during_completion_prevents_restart ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  WorkedBefore worked {configuration_.get ()};
+  bool quit_notified {false};
+  connect (&worked, &WorkedBefore::finished_loading, &worked, [&] {
+    worked.reload ();
+    quit_notified = QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection);
+  });
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QSignalSpy started {&worked, &WorkedBefore::loading_started};
+  QVERIFY (finished.wait (5000));
+  QVERIFY (quit_notified);
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QCoreApplication::processEvents ();
+  QCOMPARE (finished.count (), 1);
+  QCOMPARE (started.count (), 1);
+  QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+}
+
+void TestWorkedBeforeAdif::destruction_cancels_queued_scan ()
+{
+  class BlockedPool final
+  {
+    class Blocker final : public QRunnable
+    {
+    public:
+      Blocker (QSemaphore& entered, QSemaphore& release, std::atomic_bool& timed_out)
+        : entered_ {entered}, release_ {release}, timed_out_ {timed_out} {}
+      void run () override
+      {
+        entered_.release ();
+        if (!release_.tryAcquire (1, 5000)) timed_out_.store (true);
+      }
+    private:
+      QSemaphore& entered_;
+      QSemaphore& release_;
+      std::atomic_bool& timed_out_;
+    };
+  public:
+    BlockedPool () : previous_max_ {QThreadPool::globalInstance ()->maxThreadCount ()}
+    {
+      QThreadPool::globalInstance ()->setMaxThreadCount (1);
+      QThreadPool::globalInstance ()->start (new Blocker {entered, release, timed_out});
+    }
+    ~BlockedPool ()
+    {
+      release.release ();
+      QThreadPool::globalInstance ()->waitForDone ();
+      QThreadPool::globalInstance ()->setMaxThreadCount (previous_max_);
+    }
+    QSemaphore entered, release;
+    std::atomic_bool timed_out {false};
+  private:
+    int previous_max_;
+  } pool;
+  QVERIFY (pool.entered.tryAcquire (1, 5000));
+  std::atomic<int> starts {0}, files {0};
+  ScopedHistoryCheckpoints checkpoints;
+  history_checkpoint = [&] (char const * point, std::atomic_bool const&) {
+    if (!qstrcmp (point, "stop_requested")) pool.release.release ();
+    if (!qstrcmp (point, "load_start")) ++starts;
+    if (!qstrcmp (point, "file")) ++files;
+  };
+  {
+    WorkedBefore worked {configuration_.get ()};
+    QCOMPARE (starts.load (), 0);
+    worked.reload ();
+  }
+  QCOMPARE (starts.load (), 1);
+  QCOMPARE (files.load (), 0);
+  QVERIFY (!pool.timed_out.load ());
 }
 
 QTEST_MAIN (TestWorkedBeforeAdif)

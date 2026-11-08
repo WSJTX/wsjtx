@@ -1,5 +1,6 @@
 #include "WorkedBefore.hpp"
 
+#include <atomic>
 #include <functional>
 #include <stdexcept>
 #include <boost/functional/hash.hpp>
@@ -262,6 +263,18 @@ namespace
     QString error_;
   };
 
+  struct LoadCancelled {};
+
+  void check_load_cancelled (std::atomic_bool const& stop, char const * checkpoint)
+  {
+#ifdef WSJT_WORKED_BEFORE_LOAD_CHECKPOINT
+    WSJT_WORKED_BEFORE_LOAD_CHECKPOINT (checkpoint, stop);
+#else
+    Q_UNUSED (checkpoint);
+#endif
+    if (stop.load (std::memory_order_relaxed)) throw LoadCancelled {};
+  }
+
   struct adif_field
   {
     QString name;
@@ -272,8 +285,10 @@ namespace
     bool recover_boundary {false};
   };
 
-  adif_field read_adif_field (QString const& input, int position, int closing, bool at_eof, bool character_lengths = false)
+  adif_field read_adif_field (QString const& input, int position, int closing, bool at_eof,
+                            std::atomic_bool const& stop, bool character_lengths = false)
   {
+    check_load_cancelled (stop, character_lengths ? "field_characters" : "field");
     auto descriptor = input.mid (position + 1, closing - position - 1);
     auto delimiter = descriptor.indexOf (QChar {':'});
     adif_field field {descriptor.left (delimiter).toUpper (), closing + 1, closing + 1};
@@ -288,8 +303,12 @@ namespace
     auto length_text = descriptor.mid (delimiter + 1,
       (type_delimiter < 0 ? descriptor.size () : type_delimiter) - delimiter - 1);
     bool digits {!length_text.isEmpty ()};
+    int characters {0};
     for (auto character : length_text)
-      digits = digits && character >= QChar {'0'} && character <= QChar {'9'};
+      {
+        if (!(characters++ % 4096)) check_load_cancelled (stop, "field_length");
+        digits = digits && character >= QChar {'0'} && character <= QChar {'9'};
+      }
     bool ok {false};
     auto length = digits ? length_text.toULongLong (&ok) : 0;
     if (!ok) return field;
@@ -297,8 +316,10 @@ namespace
 
     quint64 bytes {0};
     int end = field.data_start;
+    characters = 0;
     while (!character_lengths && end < input.size () && bytes < length)
       {
+        if (!(characters++ % 4096)) check_load_cancelled (stop, "field_data");
         auto character = input[end++].unicode ();
         if (QChar::isHighSurrogate (character))
           {
@@ -348,7 +369,7 @@ namespace
                   {
                     // A byte endpoint inside a tag can be character-counted field data.
                     // Resolve it before exposing embedded delimiters to boundary recovery.
-                    auto characters = read_adif_field (input, position, closing, at_eof, true);
+                    auto characters = read_adif_field (input, position, closing, at_eof, stop, true);
                     if (characters.needs_more || !characters.recover_boundary) return characters;
                   }
                 field.recover_boundary = true;
@@ -360,14 +381,17 @@ namespace
     return field;
   }
 
-  QString extractField (QString const& record, QString const& fieldName, bool character_lengths = false)
+  QString extractField (QString const& record, QString const& fieldName, std::atomic_bool const& stop,
+                        bool character_lengths = false)
   {
+    check_load_cancelled (stop, "extract_field");
     int position {0};
     while ((position = record.indexOf (QChar {'<'}, position)) >= 0)
       {
+        check_load_cancelled (stop, "extract_field");
         auto closing = record.indexOf (QChar {'>'}, position + 1);
         if (closing < 0) break;
-        auto field = read_adif_field (record, position, closing, true, character_lengths);
+        auto field = read_adif_field (record, position, closing, true, stop, character_lengths);
         if (field.name.compare (fieldName, Qt::CaseInsensitive) == 0)
           {
             if (!field.valid_length || field.recover_boundary)
@@ -380,11 +404,14 @@ namespace
     return {};
   }
 
-  int find_adif_tag (QString const& input, QString const& tag, int start, int& tag_end, bool at_eof, bool character_lengths = false)
+  int find_adif_tag (QString const& input, QString const& tag, int start, int& tag_end, bool at_eof,
+                    std::atomic_bool const& stop, bool character_lengths = false)
   {
+    check_load_cancelled (stop, character_lengths ? "tag_characters" : "tag");
     int position {start};
     while ((position = input.indexOf (QChar {'<'}, position)) >= 0)
       {
+        check_load_cancelled (stop, "tag");
         auto closing = input.indexOf (QChar {'>'}, position + 1);
         auto opening = input.indexOf (QChar {'<'}, position + 1);
         if (opening >= 0 && (closing < 0 || opening < closing))
@@ -393,7 +420,7 @@ namespace
             continue;
           }
         if (closing < 0) return -1;
-        auto field = read_adif_field (input, position, closing, at_eof, character_lengths);
+        auto field = read_adif_field (input, position, closing, at_eof, stop, character_lengths);
         if (input.mid (position + 1, closing - position - 1).compare (tag, Qt::CaseInsensitive) == 0)
           {
             tag_end = closing + 1;
@@ -415,8 +442,9 @@ namespace
   };
 
   source_result loader (QString const& path, AD1CCty const * prefixes,
-                        PerformanceTrace::RunId run)
+                        PerformanceTrace::RunId run, std::atomic_bool const& stop)
   {
+    check_load_cancelled (stop, "file");
     PerformanceTrace::Phase parse {run, "logbook.parse"};
     source_result result;
     auto& worked = result.worked;
@@ -425,6 +453,7 @@ namespace
         QFile inputFile {path};
         if (inputFile.open (QFile::ReadOnly))
           {
+            check_load_cancelled (stop, "file_opened");
             if (inputFile.size ())
               {
                 QTextStream in {&inputFile};
@@ -432,9 +461,11 @@ namespace
                 QString buffer;
                 constexpr int read_chunk_size {64 * 1024};
                 bool eof {false};
-                auto read_more = [&in, &buffer, &eof] ()
+                auto read_more = [&in, &buffer, &eof, &stop] ()
                   {
+                    check_load_cancelled (stop, "read");
                     auto chunk = in.read (read_chunk_size);
+                    check_load_cancelled (stop, "read_complete");
                     buffer += chunk;
                     eof = chunk.isEmpty ();
                     return !eof;
@@ -444,6 +475,7 @@ namespace
                     int first_character {0};
                     while (first_character < buffer.size () && buffer[first_character].isSpace ())
                       {
+                        if (!(first_character % 4096)) check_load_cancelled (stop, "whitespace");
                         ++first_character;
                       }
                     if (first_character == buffer.size ())
@@ -455,7 +487,7 @@ namespace
                     if (buffer[first_character] != QChar {'<'})
                       {
                         int header_end {0};
-                        while (find_adif_tag (buffer, "EOH", 0, header_end, eof) < 0)
+                        while (find_adif_tag (buffer, "EOH", 0, header_end, eof, stop) < 0)
                           {
                             if (eof)
                               {
@@ -471,8 +503,8 @@ namespace
                           {
                             int header_end {0};
                             int record_end {0};
-                            auto header_position = find_adif_tag (buffer, "EOH", 0, header_end, eof);
-                            auto record_position = find_adif_tag (buffer, "EOR", 0, record_end, eof);
+                            auto header_position = find_adif_tag (buffer, "EOH", 0, header_end, eof, stop);
+                            auto record_position = find_adif_tag (buffer, "EOR", 0, record_end, eof, stop);
                             if (header_position >= 0 && (record_position < 0 || header_position < record_position))
                               {
                                 buffer.remove (0, header_end);
@@ -486,15 +518,16 @@ namespace
                   }
 
                 auto append_record = [&] (QString const& record, bool character_lengths) {
-                    auto call = extractField (record, "CALL", character_lengths);
+                    check_load_cancelled (stop, character_lengths ? "record_characters" : "record");
+                    auto call = extractField (record, "CALL", stop, character_lengths);
                     if (call.isEmpty ()) return;
                     auto const& entity = prefixes->lookup (call);
-                    auto mode = extractField (record, "MODE", character_lengths).toUpper ();
+                    auto mode = extractField (record, "MODE", stop, character_lengths).toUpper ();
                     if (mode.isEmpty () || mode == "MFSK")
-                      mode = extractField (record, "SUBMODE", character_lengths).toUpper ();
+                      mode = extractField (record, "SUBMODE", stop, character_lengths).toUpper ();
                     worked.emplace (call.toUpper ()
-                                    , extractField (record, "GRIDSQUARE", character_lengths).left (4).toUpper ()
-                                    , extractField (record, "BAND", character_lengths).toUpper ()
+                                    , extractField (record, "GRIDSQUARE", stop, character_lengths).left (4).toUpper ()
+                                    , extractField (record, "BAND", stop, character_lengths).toUpper ()
                                     , mode, entity);
                   };
                 int buffer_start {0};
@@ -502,10 +535,10 @@ namespace
                   {
                     int record_end {0};
                     bool character_lengths {false};
-                    auto end_position = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof);
+                    auto end_position = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, stop);
                     if (end_position < 0 && eof)
                       {
-                        end_position = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, true);
+                        end_position = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, stop, true);
                         character_lengths = true;
                       }
                     if (end_position >= 0)
@@ -518,7 +551,7 @@ namespace
                         catch (LoaderException const&)
                           {
                             if (character_lengths || record.toLatin1 () == record.toUtf8 ()) throw;
-                            auto fallback = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, true);
+                            auto fallback = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, stop, true);
                             if (fallback < 0)
                               {
                                 if (eof) throw;
@@ -565,6 +598,7 @@ namespace
         result.error = e.error ();
         result.status = worked.empty () ? source_status::Failed : source_status::Incomplete;
       }
+    check_load_cancelled (stop, "file_complete");
     parse.finish (QString {"unique_entries=%1"}.arg (worked.size ()));
     return result;
   }
@@ -580,6 +614,7 @@ namespace
     int files_failed {0};
     int files_expected {0};
     bool primary_absent {false};
+    bool cancelled {false};
   };
 
   QString history_path_key (QString path)
@@ -590,13 +625,14 @@ namespace
     return path;
   }
 
-  QStringList discover_folder (HistoryFolder const& folder, load_result& result)
+  QStringList discover_folder (HistoryFolder const& folder, load_result& result, std::atomic_bool const& stop)
   {
     QStringList matches;
     QStringList directories {folder.path};
     QStringList errors;
     while (!directories.isEmpty ())
       {
+        check_load_cancelled (stop, "directory");
         auto path = directories.takeLast ();
         QFileInfo info {path};
         if (path != folder.path && info.isSymLink ()) continue;
@@ -620,7 +656,9 @@ namespace
         QStringList children;
         while (entries.hasNext ())
           {
+            check_load_cancelled (stop, "directory_entry");
             entries.next ();
+            check_load_cancelled (stop, "directory_entry_ready");
             auto const entry = entries.fileInfo ();
             if (entry.isDir ())
               {
@@ -632,10 +670,18 @@ namespace
                          || entry.suffix ().compare ("adif", Qt::CaseInsensitive) == 0))
               matches.append (entry.absoluteFilePath ());
           }
+        check_load_cancelled (stop, "directory_sort");
         children.sort ();
-        for (auto it = children.crbegin (); it != children.crend (); ++it) directories.append (*it);
+        check_load_cancelled (stop, "directory_sort_complete");
+        for (auto it = children.crbegin (); it != children.crend (); ++it)
+          {
+            check_load_cancelled (stop, "directory_queue");
+            directories.append (*it);
+          }
       }
+    check_load_cancelled (stop, "folder_sort");
     matches.sort ();
+    check_load_cancelled (stop, "folder_sort_complete");
     auto summary = QCoreApplication::translate ("WorkedBefore", "Folder — %1 — %2 — %3 matching files")
       .arg (QDir::toNativeSeparators (folder.path))
       .arg (folder.include_subfolders
@@ -651,53 +697,81 @@ namespace
   }
 
   load_result load_sources (QString const& primary, QStringList const& supplemental, HistoryFolders const& folders,
-                            AD1CCty const * prefixes, PerformanceTrace::RunId run)
+                            AD1CCty const * prefixes, PerformanceTrace::RunId run, std::atomic_bool const& stop)
   {
-    load_result result;
-    auto configured = WorkedBefore::normalize_history_files (supplemental, primary);
-    configured.prepend (primary);
-    QStringList discovered;
-    for (auto const& folder : folders) discovered.append (discover_folder (folder, result));
-    discovered.sort ();
-    configured.append (discovered);
-    QStringList sources;
-    QSet<QString> seen;
-    for (auto const& path : configured)
+    try
       {
-        auto canonical = QFileInfo {path}.canonicalFilePath ();
-        auto key = history_path_key (canonical.isEmpty () ? path : canonical);
-        if (!seen.contains (key))
+        check_load_cancelled (stop, "load_start");
+        load_result result;
+        auto configured = WorkedBefore::normalize_history_files (supplemental, primary);
+        check_load_cancelled (stop, "sources_normalized");
+        configured.prepend (primary);
+        QStringList discovered;
+        for (auto const& folder : folders)
           {
-            seen.insert (key);
-            sources.append (path);
+            check_load_cancelled (stop, "folder");
+            discovered.append (discover_folder (folder, result, stop));
           }
+        check_load_cancelled (stop, "sources_sort");
+        discovered.sort ();
+        check_load_cancelled (stop, "sources_sort_complete");
+        configured.append (discovered);
+        QStringList sources;
+        QSet<QString> seen;
+        for (auto const& path : configured)
+          {
+            check_load_cancelled (stop, "canonical_path");
+            auto canonical = QFileInfo {path}.canonicalFilePath ();
+            auto key = history_path_key (canonical.isEmpty () ? path : canonical);
+            if (!seen.contains (key))
+              {
+                seen.insert (key);
+                sources.append (path);
+              }
+          }
+        result.files_expected = sources.size ();
+        for (auto const& path : sources)
+          {
+            check_load_cancelled (stop, "source");
+            if (path == primary && !QFileInfo::exists (path) && !QFileInfo {path}.isSymLink ())
+              {
+                result.primary_absent = true;
+                --result.files_expected;
+                continue;
+              }
+            auto source = loader (path, prefixes, run, stop);
+            bool recovered = path == primary && source.status == source_status::Incomplete;
+            if (source.status == source_status::Complete || recovered)
+              {
+                if (result.worked.empty ()) result.worked.swap (source.worked);
+                else
+                  {
+                    unsigned merged {0};
+                    for (auto const& entry : source.worked)
+                      {
+                        if (!(merged++ % 256)) check_load_cancelled (stop, "merge");
+                        result.worked.insert (entry);
+                      }
+                  }
+                if (recovered) ++result.files_incomplete;
+                else ++result.files_read;
+              }
+            else
+              {
+                ++result.files_failed;
+              }
+            if (!source.error.isEmpty ())
+              result.errors.append (QDir::toNativeSeparators (path) + ": " + source.error);
+          }
+        check_load_cancelled (stop, "load_complete");
+        return result;
       }
-    result.files_expected = sources.size ();
-    for (auto const& path : sources)
+    catch (LoadCancelled const&)
       {
-        if (path == primary && !QFileInfo::exists (path) && !QFileInfo {path}.isSymLink ())
-          {
-            result.primary_absent = true;
-            --result.files_expected;
-            continue;
-          }
-        auto source = loader (path, prefixes, run);
-        bool recovered = path == primary && source.status == source_status::Incomplete;
-        if (source.status == source_status::Complete || recovered)
-          {
-            if (result.worked.empty ()) result.worked.swap (source.worked);
-            else result.worked.insert (source.worked.begin (), source.worked.end ());
-            if (recovered) ++result.files_incomplete;
-            else ++result.files_read;
-          }
-        else
-          {
-            ++result.files_failed;
-          }
-        if (!source.error.isEmpty ())
-          result.errors.append (QDir::toNativeSeparators (path) + ": " + source.error);
+        load_result result;
+        result.cancelled = true;
+        return result;
       }
-    return result;
   }
 }
 
@@ -713,16 +787,30 @@ public:
     construction_trace_.finish ();
   }
 
+  bool stopping () const {return stop_requested_.load (std::memory_order_relaxed);}
+
+  void request_stop ()
+  {
+    stop_requested_.store (true, std::memory_order_relaxed);
+#ifdef WSJT_WORKED_BEFORE_LOAD_CHECKPOINT
+    WSJT_WORKED_BEFORE_LOAD_CHECKPOINT ("stop_requested", stop_requested_);
+#endif
+  }
+
   void start_loader ()
   {
+    if (stopping ()) return;
     loader_run_ = PerformanceTrace::current_run ();
     {
       PerformanceTrace::Phase prefixes_reload {loader_run_, "logbook.prefixes_reload"};
       prefixes_.reload (configuration_);
     }
     PerformanceTrace::milestone (loader_run_, "logbook.load_started");
-    async_loader_ = QtConcurrent::run (load_sources, path_, configuration_->supplemental_history_files (),
-                                     configuration_->supplemental_history_folders (), &prefixes_, loader_run_);
+    async_loader_ = QtConcurrent::run ([primary = path_, files = configuration_->supplemental_history_files (),
+                                       folders = configuration_->supplemental_history_folders (), prefixes = &prefixes_,
+                                       run = loader_run_, stop = &stop_requested_] {
+        return load_sources (primary, files, folders, prefixes, run, *stop);
+      });
     loader_watcher_.setFuture (async_loader_);
   }
 
@@ -732,6 +820,7 @@ public:
   AD1CCty prefixes_;
   QFutureWatcher<load_result> loader_watcher_;
   QFuture<load_result> async_loader_;
+  std::atomic_bool stop_requested_ {false};
   worked_before_database_type worked_;
   worked_before_database_type added_during_load_;
   QString load_status_;
@@ -747,11 +836,13 @@ WorkedBefore::WorkedBefore (Configuration const * configuration)
   connect (&m_->loader_watcher_, &QFutureWatcher<load_result>::finished,
            this, &WorkedBefore::handle_loader_finished);
   connect (configuration, &Configuration::supplemental_history_sources_changed, this, &WorkedBefore::reload);
+  connect (QCoreApplication::instance (), &QCoreApplication::aboutToQuit, this, [this] {m_->request_stop ();});
   reload ();
 }
 
 void WorkedBefore::handle_loader_finished ()
 {
+  if (m_->stopping ()) return;
   m_->load_state_.begin_completion ();
   if (m_->load_state_.reload_pending ())
     {
@@ -768,6 +859,7 @@ void WorkedBefore::handle_loader_finished ()
     {
       result.errors.append (e.error ());
     }
+  if (result.cancelled) return;
   result.worked.insert (m_->added_during_load_.begin (), m_->added_during_load_.end ());
   m_->worked_.swap (result.worked);
   auto n = m_->worked_.size ();
@@ -802,7 +894,7 @@ void WorkedBefore::handle_loader_finished ()
   LOG_DEBUG(QString{"WorkedBefore::reload: CTY.DAT version %1"}.arg (cty_ver));
   QPointer<WorkedBefore> guard {this};
   Q_EMIT finished_loading (n, cty_ver, error);
-  if (!guard)
+  if (!guard || m_->stopping ())
     {
       return;
     }
@@ -825,6 +917,7 @@ QString WorkedBefore::cty_version () const
 
 void WorkedBefore::reload ()
 {
+  if (m_->stopping ()) return;
   auto action = m_->load_state_.request_reload ();
   m_->load_status_ = tr ("Loading history… Previous results remain in use until loading completes.");
   m_->load_errors_.clear ();
@@ -839,6 +932,9 @@ void WorkedBefore::reload ()
 WorkedBefore::~WorkedBefore ()
 {
   PerformanceTrace::Phase shutdown_wait {"logbook.shutdown_wait"};
+  m_->request_stop ();
+  disconnect (&m_->loader_watcher_, nullptr, this, nullptr);
+  // The worker borrows the prefix database and stop flag until it has exited.
   m_->async_loader_.waitForFinished ();
 }
 
