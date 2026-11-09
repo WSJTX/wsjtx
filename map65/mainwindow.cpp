@@ -1628,62 +1628,88 @@ void MainWindow::on_actionDeviceSetup_triggered()
         //
         // Apply runtime effects for SoundIn
         //
-        if (dlg.m_restartSoundIn && soundInThread.m_streamLeftOpen && !m_network)
-        {
-            // Network input may be running (chosen after the failed start);
-            // it stops too, so input matches the settings until the restart.
-            bool const stoppedNow = soundInThread.isRunning() && stopSoundIn();
+        // notify false: SoundIn's own start-failure box is already on its way.
+        auto holdSoundIn = [this](bool stoppedNow, bool notify = true) {
             if (stoppedNow) {
                 m_soundInDevice = -1;
                 m_soundInStopped = true;
             }
-            if (!m_soundInFailedNoticeShown || stoppedNow)
+            if (notify && (!m_soundInFailedNoticeShown || stoppedNow))
                 msgBox("Sound input failed to start earlier, so the new input settings take "
                        "effect only after a restart. They have been saved. Please exit MAP65 "
                        "and start it again.");
             m_soundInFailedNoticeShown = true;
+        };
+        if (dlg.m_restartSoundIn && soundInThread.m_streamLeftOpen && !m_network)
+        {
+            // Network input may be running (chosen after the failed start);
+            // it stops too, so input matches the settings until the restart.
+            holdSoundIn(soundInThread.isRunning() && stopSoundIn());
         }
         else if (dlg.m_restartSoundIn && stopSoundIn())
         {
-            if(!m_network) cacheInputDeviceRates(m_paInDevice);
-            soundInThread.setInputDevice(m_paInDevice);
-      soundInThread.setNetwork(m_network);
-      soundInThread.setFadd(m_fAdd);
-            soundInThread.setRate(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)));
-            soundInThread.setSwapIQ(m_IQswap);
-            soundInThread.setScale(m_dB);
-            soundInThread.setPort(m_udpPort);
-            soundInThread.setNrx(m_xpol ? 2 : 1);
+            // SoundIn may still have been opening its stream when Settings was
+            // accepted; m_streamLeftOpen is final only once the thread has stopped.
+            if (!m_network && soundInThread.m_streamLeftOpen)
+            {
+                holdSoundIn(true, false);
+            }
+            else
+            {
+                if(!m_network) cacheInputDeviceRates(m_paInDevice);
+                soundInThread.setInputDevice(m_paInDevice);
+                soundInThread.setNetwork(m_network);
+                soundInThread.setFadd(m_fAdd);
+                soundInThread.setRate(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)));
+                soundInThread.setSwapIQ(m_IQswap);
+                soundInThread.setScale(m_dB);
+                soundInThread.setPort(m_udpPort);
+                soundInThread.setNrx(m_xpol ? 2 : 1);
 
-      soundInThread.start(QThread::HighestPriority);
-      m_soundInDevice = m_network ? -1 : m_paInDevice;
-      m_soundInChannels = m_xpol ? 4 : 2;
-      m_soundInStopped = false;
-      if (!m_network) {
-        m_lastCardDevice = m_soundInDevice;
-        m_lastCardChannels = m_soundInChannels;
-      }
-    }
+                soundInThread.start(QThread::HighestPriority);
+                m_soundInDevice = m_network ? -1 : m_paInDevice;
+                m_soundInChannels = m_xpol ? 4 : 2;
+                m_soundInStopped = false;
+                if (!m_network) {
+                    m_lastCardDevice = m_soundInDevice;
+                    m_lastCardChannels = m_soundInChannels;
+                }
+            }
+        }
 
         //
         // Apply runtime effects for SoundOut
         //
-        if (dlg.m_restartSoundOut && soundOutThread.m_streamLeftOpen)
+        if (dlg.m_restartSoundOut)
         {
-            if (!m_soundOutFailedNoticeShown)
-                msgBox("Sound output failed to start earlier, so the new output settings take "
+            bool stopped = true;
+            if (!soundOutThread.m_streamLeftOpen)
+            {
+                soundOutThread.quitExecution=true;
+                stopped = soundOutThread.wait(1000);
+            }
+            // SoundOut may still have been opening its stream when Settings was
+            // accepted; m_streamLeftOpen is final only once the thread has stopped.
+            if (soundOutThread.m_streamLeftOpen)
+            {
+                if (!m_soundOutFailedNoticeShown)
+                    msgBox("Sound output failed to start earlier, so the new output settings take "
+                           "effect only after a restart. They have been saved. Please exit MAP65 "
+                           "and start it again.");
+                m_soundOutFailedNoticeShown = true;
+            }
+            else if (!stopped)
+            {
+                msgBox("Sound output is still starting, so the new output settings take "
                        "effect only after a restart. They have been saved. Please exit MAP65 "
                        "and start it again.");
-            m_soundOutFailedNoticeShown = true;
+            }
+            else
+            {
+                soundOutThread.setOutputDevice(m_paOutDevice);
+                soundOutThread.start();
+            }
         }
-        else if (dlg.m_restartSoundOut)
-        {
-      soundOutThread.quitExecution=true;
-      soundOutThread.wait(1000);
-
-      soundOutThread.setOutputDevice(m_paOutDevice);
-            soundOutThread.start();
-    }
 
         //
         // GUI updates
