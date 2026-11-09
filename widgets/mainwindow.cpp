@@ -12269,7 +12269,7 @@ void MainWindow::updateRigMeters (Transceiver::TransceiverState const& s)
   bool const enabled = m_config.PWR_and_SWR ();
   swr_label.setVisible (enabled && m_mode != "Echo");
 
-  if (enabled && s.online () && (s.ptt () || m_transmitting || m_tune))
+  if (enabled && s.online () && s.power () && (s.ptt () || m_transmitting || m_tune))
     {
       auto const power = round (s.power () / 1000.);
       ui->label->setText (tr ("%1 W").arg (power));
