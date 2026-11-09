@@ -12113,8 +12113,10 @@ void MainWindow::on_actionJTTY_triggered()
   m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   if (enteringJtty)
     {
-      ui->TxFreqSpinBox_2->setValue(1500);
-      ui->RxFreqSpinBox_2->setValue(1500);
+      QTimer::singleShot (50, this, [=] {
+        ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
+        ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
+      });
     }
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({2, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
