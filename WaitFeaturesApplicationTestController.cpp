@@ -14,12 +14,17 @@
 #include <QDialog>
 #include <QEventLoop>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QMouseEvent>
+#include <QScopedValueRollback>
 #include <QPushButton>
 #include <QSettings>
 
 #include "BestSPApplicationTestController.hpp"
 #include "DecoderBackend.hpp"
+#include "DecodedMessageReaction.hpp"
 #include "OperatingFrequency.hpp"
+#include "QsoCompletion.hpp"
 #include "commons.h"
 #include "models/Bands.hpp"
 #include "ui_mainwindow.h"
@@ -29,6 +34,8 @@ extern dec_data_t& dec_data;
 extern int g_iptt;
 extern bool m_txing;
 extern bool pounce;
+extern bool filtered;
+extern bool ignored;
 extern bool wait_and_call;
 extern bool no_wait_and_call;
 extern QString ignoreList;
@@ -269,35 +276,7 @@ bool WaitFeaturesApplicationTestController::run ()
                 "Returning to live reception did not restore Wait and Reply.")) return false;
 
   auto const setQuickCall = [this] (bool enabled) {
-    bool visited {false};
-    bool timedOut {false};
-    QTimer guard;
-    guard.setSingleShot (true);
-    connect (&guard, &QTimer::timeout, window_, [&] {
-      timedOut = true;
-      if (auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ())) dialog->reject ();
-    });
-    QTimer::singleShot (0, window_, [&] {
-      auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ());
-      if (!dialog) return;
-      auto * option = dialog->findChild<QCheckBox *> ("quick_call_check_box");
-      if (!option) {dialog->reject (); return;}
-      visited = true;
-      option->setChecked (enabled);
-      for (auto const name : {"sound_input_combo_box", "sound_output_combo_box"})
-        {
-          auto * devices = dialog->findChild<QComboBox *> (name);
-          if (devices && devices->currentIndex () < 0)
-            devices->addItem ("Silent test device", QVariant::fromValue (QAudioDeviceInfo {}));
-        }
-      dialog->accept ();
-    });
-    guard.start (3000);
-    window_->on_actionSettings_triggered ();
-    guard.stop ();
-    window_->m_guiTimer.stop ();
-    return require (visited && !timedOut && window_->m_config.quick_call () == enabled,
-                    "The isolated Quick Call setting was not applied.");
+    return setOption ("quick_call_check_box", enabled);
   };
   for (bool const quickCall : {false, true})
     {
@@ -403,8 +382,295 @@ bool WaitFeaturesApplicationTestController::run ()
                 && window_->m_waitReplyAttempt->generation != generation,
                 "The reply after Halt Tx did not create a fresh attempt.")) return false;
   drainEvents ();
-  return require (enableTxIs (true) && window_->stopWRTimer.isActive (),
-                  "An old retry deadline affected the newly armed attempt.");
+  if (!require (enableTxIs (true) && window_->stopWRTimer.isActive (),
+                "An old retry deadline affected the newly armed attempt.")) return false;
+  return correctionScenarios ();
+}
+
+bool WaitFeaturesApplicationTestController::setOption (QString const& name, bool enabled)
+{
+    bool visited {false};
+    bool optionApplied {false};
+    bool timedOut {false};
+    QTimer guard;
+    guard.setSingleShot (true);
+    connect (&guard, &QTimer::timeout, window_, [&] {
+      timedOut = true;
+      if (auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ())) dialog->reject ();
+    });
+    QTimer::singleShot (0, window_, [&] {
+      auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ());
+      if (!dialog) return;
+      auto * option = dialog->findChild<QCheckBox *> (name);
+      if (!option) {dialog->reject (); return;}
+      visited = true;
+      option->setChecked (enabled);
+      optionApplied = option->isChecked () == enabled;
+      for (auto const name : {"sound_input_combo_box", "sound_output_combo_box"})
+        {
+          auto * devices = dialog->findChild<QComboBox *> (name);
+          if (devices && devices->currentIndex () < 0)
+            devices->addItem ("Silent test device", QVariant::fromValue (QAudioDeviceInfo {}));
+        }
+      dialog->accept ();
+    });
+    guard.start (3000);
+    window_->on_actionSettings_triggered ();
+    guard.stop ();
+    window_->m_guiTimer.stop ();
+    if (name == "quick_call_check_box") optionApplied = window_->m_config.quick_call () == enabled;
+    if (name == "enable_Wait_features_check_box") optionApplied = window_->m_config.Wait_features_enabled () == enabled;
+    if (name == "cbAutoLog") optionApplied = window_->m_config.autoLog () == enabled;
+    return require (visited && !timedOut && optionApplied,
+                    "The isolated setting was not applied: " + name);
+}
+
+bool WaitFeaturesApplicationTestController::correctionScenarios ()
+{
+  auto selectPolicy = [this] (AutoRespondPolicy policy) {
+    window_->ui->respondComboBox->setVisible (true);
+    window_->ui->respondComboBox->setCurrentIndex (
+      window_->ui->respondComboBox->findData (static_cast<int> (policy)));
+  };
+  auto candidate = [this] (QString const& payload) {
+    DecodedText decoded {"120000 -10  0.3 1900 ~  " + payload};
+    window_->updateRespondTarget (decoded, decoded.string (), pounce,
+                                 window_->m_dateTimeSeqStart, false);
+  };
+  for (auto const policy : {AutoRespondPolicy::First, AutoRespondPolicy::MaxDistance,
+                           AutoRespondPolicy::MaxSignal, AutoRespondPolicy::MinSignal}) {
+    if (!startReception ("FT8", "rejected Pounce candidate leaves selection available")) return false;
+    selectPolicy (policy);
+    pounce = true;
+    filtered = ignored = false;
+    window_->m_autoRespondScores.reset ();
+    auto const call = window_->ui->dxCallEntry->text ();
+    auto const tx1 = window_->ui->tx1->text ();
+    auto const tx3 = window_->ui->tx3->text ();
+    window_->rigTuneTimer.start (30000);
+    candidate ("CQ JA1ABC PM95");
+    if (!require (!window_->m_auto && window_->ui->dxCallEntry->text () == call
+                  && window_->ui->tx1->text () == tx1 && window_->ui->tx3->text () == tx3
+                  && !window_->m_autoRespondSelectionLatch.isSelected ()
+                  && !window_->m_waitCallAttempt && !window_->stopWCTimer.isActive (),
+                  "Rejected Pounce activation changed the contact or consumed its selection.")) return false;
+    window_->rigTuneTimer.stop ();
+    candidate ("CQ JA1ABC PM95");
+    if (!require (window_->m_auto && window_->m_hisCall == "JA1ABC"
+                  && window_->m_waitCallAttempt && window_->stopWCTimer.isActive (),
+                  "The same candidate remained blocked after rig Tune ended.")) return false;
+  }
+
+  if (!startReception ("FT8", "a rejected current-period First candidate remains eligible")) return false;
+  selectPolicy (AutoRespondPolicy::First);
+  window_->m_QSOProgress = QsoProgress::Calling;
+  window_->m_bCallingCQ = true;
+  window_->setTxMsg (6);
+  window_->auto_tx_mode (true);
+  window_->m_autoRespondPeriodState.observePeriod (window_->m_dateTimeSeqStart, true, true,
+                                                  AutoRespondPolicy::First);
+  window_->rigTuneTimer.start (30000);
+  candidate ("K1ABC JA1ABC PM95");
+  if (!require (window_->m_autoRespondPeriodState.canClaimFirst (window_->m_dateTimeSeqStart)
+                && window_->m_hisCall == "W1AW",
+                "Rejected activation consumed the receive period's First claim.")) return false;
+  window_->rigTuneTimer.stop ();
+  candidate ("K1ABC JA1ABC PM95");
+  if (!require (window_->m_hisCall == "JA1ABC",
+                "A later valid First candidate did not select the caller.")) return false;
+
+  if (!startReception ("FT8", "MSK144 directed answer disarms an unfired Wait and Call")) return false;
+  window_->m_mode = "MSK144";
+  window_->m_bFastMode = true;
+  window_->m_TRperiod = 15;
+  window_->ui->DX_Call_Button->click ();
+  if (!require (wait_and_call && !window_->m_waitCallAttempt,
+                "MSK144 Wait and Call did not arm without an attempt.")) return false;
+  DecodedText direct {"120000 -10  0.3 1500 &  K1ABC W1AW -10"};
+  window_->processWaitReplyCall (direct, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (window_->m_auto && !wait_and_call && !window_->ui->DX_Call_Button->isChecked (),
+                "The spontaneous MSK144 answer left Wait and Call armed.")) return false;
+  DecodedText cq {"120000 -10  0.3 1500 &  CQ W1AW FN31"};
+  window_->processWaitReplyCall (cq, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (!window_->m_waitCallAttempt,
+                "A subsequent MSK144 CQ started a new calling attempt.")) return false;
+
+  if (!startReception ("FT8", "same-period MSK144 answer retires a retained calling deadline")) return false;
+  window_->m_mode = "MSK144";
+  window_->m_bFastMode = true;
+  window_->m_TRperiod = 15;
+  window_->ui->DX_Call_Button->click ();
+  window_->processWaitReplyCall (cq, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (window_->m_auto && window_->m_waitCallAttempt,
+                "The MSK144 calling attempt did not start.")) return false;
+  auto const callingPeriod = window_->m_waitCallAttempt->receivedPeriod;
+  if (!setOption ("enable_Wait_features_check_box", false)) return false;
+  window_->m_dateTimeSeqStart = callingPeriod;
+  window_->processWaitReplyCall (direct, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (window_->m_auto && !window_->m_waitCallAttempt && !window_->stopWCTimer.isActive (),
+                "A same-period answer left the retained calling deadline armed.")) return false;
+  if (!setOption ("enable_Wait_features_check_box", true)) return false;
+
+  for (bool const pounceAttempt : {false, true}) {
+    if (!startReception ("FT8", "disabling Wait preserves an unanswered attempt's deadline")) return false;
+    if (pounceAttempt) {
+      selectPolicy (AutoRespondPolicy::First);
+      pounce = true;
+      candidate ("CQ JA1ABC PM95");
+    } else {
+      window_->ui->DX_Call_Button->click ();
+      record ("CQ W1AW FN31");
+    }
+    if (!require (window_->m_auto && window_->m_waitCallAttempt,
+                  "The unanswered attempt did not start.")) return false;
+    auto const generation = window_->m_waitCallAttempt->generation;
+    if (!setOption ("enable_Wait_features_check_box", false)) return false;
+    if (!require (!window_->m_config.Wait_features_enabled () && window_->m_auto
+                  && window_->stopWCTimer.isActive () && window_->m_waitCallAttempt
+                  && window_->m_waitCallAttempt->generation == generation,
+                  "Disabling Wait removed the active attempt's retry limit.")) return false;
+    window_->stopWCTimer.setInterval (1);
+    drainEvents ();
+    if (!require (!window_->m_auto && !window_->m_waitCallAttempt,
+                  "The preserved retry deadline failed after Wait was disabled.")) return false;
+    if (!setOption ("enable_Wait_features_check_box", true)) return false;
+  }
+
+  for (bool const quickCall : {false, true}) {
+    if (!setOption ("quick_call_check_box", quickCall)
+        || !startReception ("FT8", "SuperHound Wait selection is independent of Quick Call")) return false;
+    if (!window_->m_config.superFox ()) window_->m_config.toggle_SF ();
+    window_->m_config.setSpecial_Hound ();
+    window_->m_specOp = MainWindow::SpecOp::HOUND;
+    window_->m_bDoubleClicked = false;
+    window_->ui->DX_Call_Button->click ();
+    if (!require (wait_and_call && window_->m_hisCall == "W1AW",
+                  "SuperHound Wait and Call did not arm the typed Fox.")) return false;
+    if (!require (!window_->setAutoTxEnabled (true, MainWindow::TxControlOrigin::Local)
+                  && !window_->m_auto && !window_->ui->autoButton->isChecked (),
+                  "A typed Fox alone authorized SuperHound transmission.")) return false;
+    DecodedText fox {"120000 -10  0.3 1500 ~  CQ W1AW/P FN31"};
+    window_->rigTuneTimer.start (30000);
+    window_->processWaitReplyCall (fox, DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
+    if (!require (!window_->m_auto && window_->m_hisCall == "W1AW"
+                  && !window_->m_waitCallAttempt,
+                  "Rejected SuperHound activation changed or cleared the selected Fox.")) return false;
+    window_->rigTuneTimer.stop ();
+    window_->processWaitReplyCall (fox, DecodedMessageReaction::WaitDecodeSource::SlowDecoder);
+    if (!require (window_->m_auto && window_->ui->autoButton->isChecked ()
+                  && window_->m_hisCall == "W1AW/P"
+                  && window_->ui->tx1->text ().contains ("W1AW/P")
+                  && window_->ui->tx3->text ().contains ("W1AW/P")
+                  && window_->m_waitCallAttempt,
+                  "An eligible SuperHound selection failed or its generated exchange was cleared.")) return false;
+    window_->m_config.setSpecial_None ();
+    window_->m_specOp = MainWindow::SpecOp::NONE;
+  }
+
+  if (!startReception ("FT8", "rejected enabling still finalizes a queued contest hint")) return false;
+  using Effect = DecodedMessageReaction::QsoReactionEffect;
+  DecodedMessageReaction::QsoReactionPlan hintPlan;
+  Effect hint;
+  hint.kind = Effect::Kind::QueueContestHint;
+  hint.contestHint = DecodedMessageReaction::ContestHint::FieldDay;
+  hintPlan.effects.append (hint);
+  Effect enable;
+  enable.kind = Effect::Kind::SetAutoEnabled;
+  enable.boolValue = true;
+  hintPlan.effects.append (enable);
+  Effect cleanup;
+  cleanup.kind = Effect::Kind::SetDoubleClicked;
+  cleanup.boolValue = false;
+  hintPlan.effects.append (cleanup);
+  window_->m_contestModeHintShown = false;
+  window_->m_bDoubleClicked = true;
+  window_->m_tune = true;
+  window_->ui->tuneButton->setChecked (true);
+  int hints = 0;
+  QTimer closeHint;
+  connect (&closeHint, &QTimer::timeout, window_, [&] {
+    if (auto * box = qobject_cast<QMessageBox *> (QApplication::activeModalWidget ())) {
+      ++hints;
+      box->accept ();
+    }
+  });
+  closeHint.start (1);
+  window_->applyQsoReactionPlan (hintPlan, direct);
+  drainEvents ();
+  closeHint.stop ();
+  if (!require (!window_->m_auto && !window_->m_bDoubleClicked
+                && window_->m_contestModeHintShown && hints == 1,
+                "Rejected enabling discarded finalization or consumed an undisplayed hint.")) return false;
+  window_->m_tune = false;
+  window_->ui->tuneButton->setChecked (false);
+  return legacyMessageScenarios ();
+}
+
+bool WaitFeaturesApplicationTestController::legacyMessageScenarios ()
+{
+  if (!setOption ("cbAutoLog", true)
+      || !startReception ("FT8", "repeated RR73 recovers a logged contact without logging it again")) return false;
+  window_->m_QSOProgress = QsoProgress::Calling;
+  auto const logged = window_->currentQsoCompletion ();
+  logged->logState = QsoCompletion::LogState::Accepted;
+  window_->m_currentMessage = "W1AW K1ABC 73";
+  window_->m_currentMessageType = 0;
+  window_->m_lastMessageSent = window_->m_currentMessage;
+  window_->m_lastMessageType = 0;
+  record ("K1ABC W1AW RR73");
+  if (!require (window_->m_auto && window_->m_ntx == 5,
+                "The retained logged contact did not select its recovery 73.")) return false;
+  auto const cycle = qint64 (2 * window_->m_TRperiod * 1000);
+  auto const phase = QDateTime::currentMSecsSinceEpoch () % cycle;
+  window_->m_txFirst = phase >= cycle / 2;
+  window_->ui->txFirstCheckBox->setChecked (window_->m_txFirst);
+  window_->m_restart = true;
+  window_->guiUpdate ();
+  window_->m_guiTimer.stop ();
+  drainEvents ();
+  if (!require (!window_->m_restart && !window_->m_generated_message_error
+                && window_->m_currentMessage.trimmed () == "W1AW K1ABC 73"
+                && window_->m_qsoCompletion == logged && logged->logState == QsoCompletion::LogState::Accepted
+                && !window_->logQSOTimer.isActive () && window_->m_pendingLogQsos.empty ()
+                && !window_->m_openLogQso,
+                "Generating the recovery 73 queued a duplicate automatic log.")) return false;
+  if (!setOption ("cbAutoLog", false)) return false;
+
+  if (!setOption ("quick_call_check_box", true)) return false;
+  for (bool const padded : {false, true}) {
+    if (!startReception ("FT8", "UDP RR73 acceptance is independent of payload padding")) return false;
+    window_->ui->cbHoldTxFreq->setChecked (false);
+    window_->m_QSOProgress = QsoProgress::Rogers;
+    auto const payload = QString {"K1ABC W1AW RR73"} + (padded ? " " : "");
+    window_->replyToCQ (QTime {12, 0}, -10, 0.3f, 1500, "~", payload, false, 0);
+    if (!require (enableTxIs (true) && window_->m_ntx == 5,
+                  "UDP RR73 failed to select and enable the final response consistently.")) return false;
+    if (!startReception ("FT8", "UDP final 73 does not rearm transmission")) return false;
+    window_->ui->cbHoldTxFreq->setChecked (false);
+    window_->m_QSOProgress = QsoProgress::Signoff;
+    window_->replyToCQ (QTime {12, 0}, -10, 0.3f, 1500, "~",
+                        QString {"K1ABC W1AW 73"} + (padded ? " " : ""), false, 0);
+    if (!require (enableTxIs (false), "UDP final 73 restarted transmission.")) return false;
+  }
+
+  for (int const frequency : {1473, 1474}) {
+    if (!startReception ("FT8", "legacy Hound RRR sequencing is independent of audio frequency")) return false;
+    if (window_->m_config.superFox ()) window_->m_config.toggle_SF ();
+    window_->m_config.setSpecial_Hound ();
+    window_->m_specOp = MainWindow::SpecOp::HOUND;
+    window_->genStdMsgs ("-10");
+    window_->setTxMsg (3);
+    window_->m_QSOProgress = QsoProgress::RogerReport;
+    if (!require (!window_->ui->tx3->text ().isEmpty (), "The Hound response fixture has no Tx3.")) return false;
+    if (!window_->setAutoTxEnabled (true, MainWindow::TxControlOrigin::Local)) return false;
+    if (!nextReception ()) return false;
+    record ("K1ABC W1AW RRR", frequency);
+    if (!require (window_->m_auto && window_->m_ntx == 5,
+                  "The legacy Hound fallback failed to select the same RRR response at both frequencies.")) return false;
+    window_->m_config.setSpecial_None ();
+    window_->m_specOp = MainWindow::SpecOp::NONE;
+  }
+  return true;
 }
 
 bool WaitFeaturesApplicationTestController::require (bool condition, QString const& message)

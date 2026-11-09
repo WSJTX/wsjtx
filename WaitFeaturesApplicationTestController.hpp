@@ -21,6 +21,9 @@ public:
 private:
   void prepare ();
   bool run ();
+  bool correctionScenarios ();
+  bool legacyMessageScenarios ();
+  bool setOption (QString const& name, bool enabled);
   bool startReception (QString const& mode, QString const& scenario);
   bool nextReception ();
   bool publishReception ();
