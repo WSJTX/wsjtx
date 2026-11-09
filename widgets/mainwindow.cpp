@@ -4030,7 +4030,8 @@ void MainWindow::acknowledgeWaitReply(DecodedText const& message, QDateTime cons
   }
   auto acknowledge = [&] (bool reply, std::optional<WaitRetryContext> const& attempt) {
     if (!attempt || !attempt->acknowledgeReply || !receivedPeriod.isValid()
-        || receivedPeriod <= attempt->receivedPeriod) return;
+        || receivedPeriod < attempt->receivedPeriod
+        || ((reply || m_mode != "MSK144") && receivedPeriod == attempt->receivedPeriod)) return;
     if (attempt->call != Radio::base_callsign(m_hisCall) || attempt->mode != m_mode
         || attempt->band != m_currentBand || attempt->period != m_TRperiod) return;
     bool const waitCall = !reply && m_waitCallTimeoutOwner == WaitCallTimeoutOwner::WaitAndCall;
