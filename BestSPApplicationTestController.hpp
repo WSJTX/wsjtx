@@ -17,6 +17,8 @@ class QSettings;
 std::unique_ptr<DecoderBackend> makeBestSPTestBackend ();
 std::unique_ptr<AudioInputSource> makeBestSPTestAudioInput ();
 std::unique_ptr<AudioOutputSink> makeBestSPTestAudioOutput ();
+void deliverScriptedTestDecode (DecoderBackend *, QString const& line);
+void completeScriptedTestDecode (DecoderBackend *);
 
 class BestSPTestEnvironment final
 {

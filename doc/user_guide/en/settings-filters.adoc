@@ -40,7 +40,9 @@ A click on the *Ignore* button (located on the main window below the
 *Ignore List*. If you have also checked the box *Ignore stations from
 the Ignore List* on the main-window *Filters* menu, such stations are
 automatically ignored when you use one of the *CQ: ...* options or
-*Wait and Reply*. The "Ignore List" will be created in your log
+*Wait and Reply* or *Wait and Call*. These two Wait features respect
+the Ignore List independently of filters that only hide displayed
+messages. The "Ignore List" will be created in your log
 directory the first time a station is added to it.  You can erase the
 "Ignore List" from the *File* menu.
 

@@ -40,6 +40,7 @@
 #include <optional>
 
 class QHBoxLayout;
+class WaitFeaturesApplicationTestController;
 namespace DecoderIpc {class Session;}
 
 #include "DecodedGridHistory.hpp"
@@ -354,6 +355,7 @@ public:
 private:
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   friend class BestSPApplicationTestController;
+  friend class WaitFeaturesApplicationTestController;
 #endif
   enum class DecodeOwner
   {
@@ -818,7 +820,7 @@ private:
 
 private:
   enum class TxControlOrigin { Automatic, Local };
-  void setAutoTxEnabled (bool, TxControlOrigin);
+  bool setAutoTxEnabled (bool, TxControlOrigin);
   void setTuneEnabled (bool, TxControlOrigin);
   void startPendingRigTune ();
   void cancelRigTune ();
@@ -1345,7 +1347,21 @@ private:
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
   QTimer m_pounceSelectionTimer;
-  bool m_pounceWaitCallTimeout {false};
+  struct WaitRetryContext
+  {
+    QString call;
+    QString mode;
+    QString band;
+    double period {0};
+    QDateTime receivedPeriod;
+    quint64 generation {0};
+    bool acknowledgeReply {true};
+  };
+  enum class WaitCallTimeoutOwner {None, WaitAndCall, Pounce};
+  WaitCallTimeoutOwner m_waitCallTimeoutOwner {WaitCallTimeoutOwner::None};
+  std::optional<WaitRetryContext> m_waitReplyAttempt;
+  std::optional<WaitRetryContext> m_waitCallAttempt;
+  quint64 m_waitRetryGeneration {0};
   QTimer ptt1Timer;                 //StartTx delay
   QTimer ptt0Timer;                 //StopTx delay
   QTimer logQSOTimer;
@@ -1650,10 +1666,14 @@ private:
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
     Qt::KeyboardModifiers modifiers,
     DecodedMessageReaction::SelectionOrigin selection_origin) const;
-  void applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
+  bool applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
                             DecodedText const& message, bool * block_right_display = nullptr);
-  void applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
+  bool applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
                               DecodedText const& message, bool * block_right_display);
+  void startWaitRetry (bool reply, int milliseconds, QDateTime const& receivedPeriod, bool acknowledge = true);
+  void cancelWaitRetry (bool reply);
+  void acknowledgeWaitReply (DecodedText const&, QDateTime const&);
+  void invalidateWaitRetries ();
   void showContestHint(DecodedMessageReaction::ContestHint hint);
   void refreshQsoPane(DecodedText const& message);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);

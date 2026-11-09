@@ -114,6 +114,17 @@ answered. *Wait and Reply* is effective for all modes where
 auto-sequencing is available and a callsign is present in the *DX
 Call* field.
 
+Turning off *Enable Tx* during a QSO leaves it yellow while *Wait and
+Reply* is available. A subsequent report or acknowledgment from the
+selected station, addressed to your callsign or its base callsign,
+turns *Enable Tx* red again and selects the appropriate response. An
+`RR73` message can restart transmission of your final `73`; a received
+final `73` does not restart transmission. Averaged decodes can also
+resume the QSO in modes that support averaging.
+
+*Wait and Reply* does not activate while *Tune* is on. Clear *DX Call*
+to prevent further automatic replies to the selected station.
+
 NOTE: Especially if *Enable Wait features* is checked, it's good
 practice to clear the *DX Call* field after a QSO.  Use the *F4* key
 or right-click on the *DX Call* button.
@@ -127,7 +138,10 @@ for a time, perhaps in a deep fade. To enable the feature, click on the
 containing CQ, RR73, RRR or 73, you will call him automatically up to
 three times. Any manual intervention, such as pressing the *Halt Tx*
 or *Stop* buttons, will disable *Wait and Call* and give you the
-normal manual control over the QSO.
+normal manual control over the QSO. CQ messages with a directional or
+contest qualifier, such as `CQ EU` or `CQ TEST`, can also trigger the
+call. Once the selected station answers you in a later receive period,
+the initial calling timeout no longer limits the continuing QSO.
 
 .Wait and Pounce
 

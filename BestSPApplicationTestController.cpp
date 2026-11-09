@@ -104,12 +104,16 @@ namespace
     void record (QString const& payload, int snr = -10, int frequency = 1900,
                  QString const& time = "120000")
     {
+      recordLine (QString {"%1 %2  0.3 %3 +  "}.arg (time).arg (snr, 3).arg (frequency, 4)
+                  + payload + '\n');
+    }
+    void recordLine (QString const& line)
+    {
       Output output;
       output.kind = Output::Kind::Record;
       output.current = true;
       output.request = active_;
-      output.text = (QString {"%1 %2  0.3 %3 +  "}.arg (time).arg (snr, 3).arg (frequency, 4)
-                     + payload + '\n').toUtf8 ();
+      output.text = line.toUtf8 ();
       deliver (output);
     }
     void complete (bool stale = false)
@@ -173,6 +177,16 @@ std::unique_ptr<AudioInputSource> makeBestSPTestAudioInput ()
 std::unique_ptr<AudioOutputSink> makeBestSPTestAudioOutput ()
 {
   return std::make_unique<SilentAudioOutput> ();
+}
+
+void deliverScriptedTestDecode (DecoderBackend * backend, QString const& line)
+{
+  static_cast<ScriptedDecoderBackend *> (backend)->recordLine (line);
+}
+
+void completeScriptedTestDecode (DecoderBackend * backend)
+{
+  static_cast<ScriptedDecoderBackend *> (backend)->complete ();
 }
 
 BestSPTestEnvironment::BestSPTestEnvironment ()

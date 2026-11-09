@@ -125,25 +125,28 @@ void MainWindow::on_autoButton_clicked (bool checked)
   setAutoTxEnabled (checked, TxControlOrigin::Local);
 }
 
-void MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
+bool MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
 {
+  auto rejectEnable = [this] {
+    ui->autoButton->setChecked (m_auto);
+    return false;
+  };
   if (checked && origin == TxControlOrigin::Automatic
-      && (m_pendingRigTune || rigTuneTimer.isActive ())) return;
+      && (m_pendingRigTune || rigTuneTimer.isActive ())) return rejectEnable ();
   cancelRigTune ();
-  if (checked && ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
-  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return; // not allowed while tuning
+  if (checked && ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return rejectEnable ();  // for Wait & Call
+  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return rejectEnable (); // not allowed while tuning
   if (checked && ((origin == TxControlOrigin::Automatic && m_config.radio_mode_yielded ())
                   || !m_config.prepare_radio_mode ()))
     {
-      ui->autoButton->setChecked (false);
       updateRadioModeStatus ();
-      return;
+      return rejectEnable ();
     }
   ui->autoButton->setChecked (checked);
   m_config.transceiver_tune (false);  // reset rig tuning
-  stopWRTimer.stop();                                       // stop any Wait & Reply timeout
+  if (checked) cancelWaitRetry (true);
+  else invalidateWaitRetries ();
   if (!checked && ui->DX_Call_Button->isChecked()) {
-      stopWCTimer.stop();                                   // stop any Wait & Call timeout
       ui->DX_Call_Button->click ();                         // disable Wait & Call
       no_wait_and_call = false;                             // reset Wait & Call
   }
@@ -191,6 +194,7 @@ void MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
   if(m_mode=="Echo") m_echoRunning=false;
   if (checked) setXIT (ui->TxFreqSpinBox->value ());
   check_button_color();
+  return true;
 }
 
 void MainWindow::on_stopButton_clicked()                       //stopButton
@@ -200,8 +204,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   m_loopall=false;
   finishReferenceSpectrumMeasurement(true);
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
+  invalidateWaitRetries ();
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
   if (ui->respondComboBox->isVisible() and autoRespondPolicy () != AutoRespondPolicy::None and !m_diskData) {
@@ -475,6 +478,8 @@ void MainWindow::on_ignoreButton_clicked()                    //Ignore button
 
 void MainWindow::on_DX_Call_Button_clicked (bool checked)
 {
+  cancelWaitRetry (false);
+  no_wait_and_call = false;
   WaitFeatureContext const waitContext {
     m_mode,
     m_specOp,
@@ -548,8 +553,7 @@ void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
       processBeaconActions (m_beaconTxController.tuneStarted (BeaconTx::TuneKind::Manual));
     }
   if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W")) ui->autoButton->click();   // stop any other transmission
-  stopWRTimer.stop();           // stop any Wait & Reply timeout
-  stopWCTimer.stop();           // stop any Wait & Call timeout
+  invalidateWaitRetries ();
   if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
       tuneATU_Timer.start (m_config.tune_watchdog_time()*1000); // tune watchdog
   }
@@ -595,8 +599,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   m_bAutoReply = false;         // ready for next
   m_maxPoints=-1;
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
+  invalidateWaitRetries ();
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
@@ -798,8 +801,7 @@ void MainWindow::cancelAutomaticCQSelection ()
   pounce = false;
   m_autoRespondSelectionLatch.clear ();
   m_pounceSelectionTimer.stop ();
-  if (m_pounceWaitCallTimeout) stopWCTimer.stop ();
-  m_pounceWaitCallTimeout = false;
+  if (m_waitCallTimeoutOwner == WaitCallTimeoutOwner::Pounce) cancelWaitRetry (false);
 }
 
 MainWindow::CompetingCQSelection MainWindow::competingCQSelection () const

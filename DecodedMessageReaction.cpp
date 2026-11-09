@@ -937,6 +937,14 @@ namespace DecodedMessageReaction
       plan.reason = "decoder source does not match Wait policy";
       return plan;
     }
+    if (snapshot.tuning) {
+      plan.reason = "tuning does not accept Wait messages";
+      return plan;
+    }
+    if (snapshot.specOp == SpecOp::NONE && snapshot.waitStationIgnored) {
+      plan.reason = "selected station is ignored";
+      return plan;
+    }
 
     bool const nccc = slowPolicy && nccc_sprint_auto_reply (waitContext);
     if (!snapshot.waitFeaturesEnabled && !nccc
@@ -946,39 +954,25 @@ namespace DecodedMessageReaction
     }
 
     auto const fields = parseDecodedMessage(message.message());
-    if (fields.sender == "..." || fields.sender != snapshot.hisCall) {
+    if (!sameStation(fields.sender, snapshot.hisCall)) {
       plan.reason = "Wait message is not from the selected station";
       return plan;
     }
-    bool const direct = fields.destination == snapshot.myCall;
+    bool const direct = sameStation(fields.destination, snapshot.myCall);
 
-    QString text = message.string();
-    text.replace("<", "").replace(">", "");
-
-    if (nccc && !snapshot.hisGrid.isEmpty()
-        && text.contains(" " + snapshot.myCall + " " + snapshot.hisCall
-                         + " R " + snapshot.hisGrid.left(4))) {
+    if (nccc && direct && fields.exchange == "R" && !snapshot.hisGrid.isEmpty()
+        && fields.grid.left(4) == snapshot.hisGrid.left(4)) {
       if (snapshot.loggingEnabled) appendEffect(plan, QsoReactionEffect::Kind::RequestLogQso);
       appendIntEffect(plan, QsoReactionEffect::Kind::ScheduleStopTx, 500);
       plan.disposition = ReactionDisposition::Reacted;
     }
 
-    bool waitAndCall = snapshot.waitAndCall;
-    if (fastPolicy && snapshot.waitAndCallControlChecked && direct) {
-      appendEffect(plan, QsoReactionEffect::Kind::StopWaitCallTimer);
-      appendEffect(plan, QsoReactionEffect::Kind::DisableWaitAndCallControl);
-      appendBoolEffect(plan, QsoReactionEffect::Kind::SetNoWaitAndCall, false);
-      waitAndCall = false;
-      plan.disposition = ReactionDisposition::Reacted;
-    }
-
     bool const fullDuplexBlocked = fastPolicy && snapshot.fullDuplexEnabled && snapshot.txing;
-    bool const reply = direct
-      && (((!text.contains("73 ") && snapshot.waitFeaturesEnabled
-            && !snapshot.autoButtonChecked && !fullDuplexBlocked)) || nccc);
+    bool const reply = direct && fields.exchange != "73" && !fullDuplexBlocked
+      && ((snapshot.waitFeaturesEnabled && !snapshot.autoButtonChecked) || nccc);
 
     if (reply && slowPolicy && snapshot.specOp == SpecOp::HOUND
-        && (text.mid(4, 2).contains("15") || text.mid(4, 2).contains("45"))) {
+        && (message.mid(4, 2).contains("15") || message.mid(4, 2).contains("45"))) {
       plan.disposition = ReactionDisposition::IgnoreDecode;
       plan.reason = "hound ignores slow decode from wrong time slot";
       return plan;
@@ -998,13 +992,10 @@ namespace DecodedMessageReaction
     }
 
     bool call = false;
-    if (waitAndCall && snapshot.specOp != SpecOp::FOX && snapshot.autoSequenceChecked
+    if (!direct && snapshot.waitAndCall && snapshot.specOp != SpecOp::FOX && snapshot.autoSequenceChecked
         && snapshot.waitFeaturesEnabled && (fastPolicy || !snapshot.noWaitAndCall)) {
-      bool const callTrigger = text.contains("CQ " + snapshot.hisCall)
-        || text.contains("CQ DX " + snapshot.hisCall)
-        || text.contains(snapshot.hisCall + " RR73")
-        || text.contains(snapshot.hisCall + " RRR")
-        || text.contains(snapshot.hisCall + " 73");
+      bool const callTrigger = fields.cq || fields.exchange == "RR73"
+        || fields.exchange == "RRR" || fields.exchange == "73";
       call = callTrigger && !fullDuplexBlocked;
     }
 
