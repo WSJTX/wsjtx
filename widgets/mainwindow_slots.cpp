@@ -129,7 +129,8 @@ bool MainWindow::canEnableAutoTx (TxControlOrigin origin, TxEnableIntent intent)
 {
   if (origin == TxControlOrigin::Automatic
       && (m_pendingRigTune || rigTuneTimer.isActive () || m_config.radio_mode_yielded ())) return false;
-  if (ui->tuneButton->isChecked () && m_mode != "WSPR" && m_mode != "FST4W") return false;
+  if (m_mode != "WSPR" && m_mode != "FST4W"
+      && (ui->tuneButton->isChecked () || m_tune || tuneButtonTimer.isActive ())) return false;
   return !(ui->DX_Call_Button->isChecked () && m_specOp == SpecOp::HOUND && m_config.superFox ()
            && !m_bDoubleClicked && intent != TxEnableIntent::DecodedSelection);
 }

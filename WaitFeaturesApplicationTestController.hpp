@@ -25,6 +25,7 @@ private:
   bool run ();
   bool correctionScenarios ();
   bool legacyMessageScenarios ();
+  bool tuneShutdownScenarios ();
   bool waitUntil (std::function<bool()> const&, QString const& failure);
   bool setOption (QString const& name, bool enabled,
                   std::function<bool()> const& afterAccept = {});

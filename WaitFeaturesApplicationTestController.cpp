@@ -659,7 +659,7 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
                 "Rejected enabling discarded finalization or consumed an undisplayed hint.")) return false;
   window_->m_tune = false;
   window_->ui->tuneButton->setChecked (false);
-  return legacyMessageScenarios ();
+  return legacyMessageScenarios () && tuneShutdownScenarios ();
 }
 
 bool WaitFeaturesApplicationTestController::legacyMessageScenarios ()
@@ -725,6 +725,75 @@ bool WaitFeaturesApplicationTestController::legacyMessageScenarios ()
                   "The legacy Hound fallback failed to select the same RRR response at both frequencies.")) return false;
     window_->m_config.setSpecial_None ();
     window_->m_specOp = MainWindow::SpecOp::NONE;
+  }
+  return true;
+}
+
+bool WaitFeaturesApplicationTestController::tuneShutdownScenarios ()
+{
+  enum class Start {Manual, Reply, Pounce};
+  for (auto const start : {Start::Manual, Start::Reply, Start::Pounce}) {
+    for (bool const explicitStop : {false, true}) {
+      auto const name = QString {"%1 waits for %2 Tune shutdown"}
+        .arg (start == Start::Manual ? "Manual Enable Tx" : start == Start::Reply ? "Wait and Reply" : "Pounce")
+        .arg (explicitStop ? "explicit" : "button");
+      if (!startReception ("FT8", name)) return false;
+      if (start == Start::Pounce) {
+        window_->ui->respondComboBox->setVisible (true);
+        window_->ui->respondComboBox->setCurrentIndex (
+          window_->ui->respondComboBox->findData (static_cast<int> (AutoRespondPolicy::First)));
+      }
+      window_->ui->tuneButton->click ();
+      if (!require (window_->m_tune && window_->ui->tuneButton->isChecked (),
+                    "The Tune fixture did not start.")) return false;
+      auto const call = window_->ui->dxCallEntry->text ();
+      auto const messages = [this] {
+        return QStringList {window_->ui->tx1->text (), window_->ui->tx2->text (),
+          window_->ui->tx3->text (), window_->ui->tx4->text (),
+          window_->ui->tx5->currentText (), window_->ui->tx6->text ()};
+      };
+      auto const prepared = messages ();
+      auto const request = [this, start] {
+        if (start == Start::Manual) window_->ui->autoButton->click ();
+        else if (start == Start::Reply) record ("K1ABC W1AW -10");
+        else {
+          pounce = true;
+          DecodedText cq {"120000 -10  0.3 1900 ~  CQ JA1ABC PM95"};
+          window_->updateRespondTarget (cq, cq.string (), pounce,
+                                       window_->m_dateTimeSeqStart, false);
+        }
+      };
+      auto const rejected = [&] {
+        request ();
+        return require (!window_->m_auto && !window_->ui->autoButton->isChecked (),
+                        "Tune admitted a Tx start before shutdown completed.")
+          && require (window_->ui->dxCallEntry->text () == call && messages () == prepared,
+                      "Rejected enabling changed the selected contact or prepared messages.")
+          && require (!window_->m_autoRespondSelectionLatch.isSelected ()
+                      && window_->m_autoRespondScores.wouldImproveDistance (0)
+                      && window_->m_autoRespondScores.wouldImproveMaximumDb (-10)
+                      && window_->m_autoRespondScores.wouldImproveMinimumDb (-10),
+                      "Rejected enabling consumed selection eligibility or a ranking score.")
+          && require (!window_->m_waitReplyAttempt && !window_->m_waitCallAttempt
+                      && !window_->stopWRTimer.isActive () && !window_->stopWCTimer.isActive (),
+                      "Rejected enabling created a retry deadline.");
+      };
+      if (!rejected ()) return false;
+      if (explicitStop) window_->stop_tuning ();
+      else window_->ui->tuneButton->click ();
+      if (!require (!window_->ui->tuneButton->isChecked () && window_->tuneButtonTimer.isActive ()
+                    && window_->m_tune == !explicitStop,
+                    "The Tune shutdown fixture does not represent the requested pending state.")) return false;
+      if (start == Start::Reply && !nextReception ()) return false;
+      if (!rejected ()) return false;
+      if (!waitUntil ([this] {return !window_->m_tune && !window_->tuneButtonTimer.isActive ();},
+                      "The real Tune shutdown did not complete.")) return false;
+      if (start == Start::Reply && !nextReception ()) return false;
+      request ();
+      if (!require (enableTxIs (true), "The same request failed after Tune shutdown completed.")) return false;
+      drainEvents ();
+      if (!require (enableTxIs (true), "Old Tune cleanup stopped the accepted transmission.")) return false;
+    }
   }
   return true;
 }
