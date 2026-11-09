@@ -122,6 +122,8 @@ bool WaitFeaturesApplicationTestController::startReception (
   window_->cancelWaitRetry (false);
   window_->auto_tx_mode (false);
   window_->m_guiTimer.stop ();
+  if (!require (!window_->m_tune && !window_->tuneButtonTimer.isActive (),
+                "The preceding scenario left Tune shutdown unfinished.")) return false;
   if (mode == "Q65") window_->on_actionQ65_triggered ();
   else window_->on_actionFT8_triggered ();
   window_->m_guiTimer.stop ();
@@ -302,6 +304,8 @@ bool WaitFeaturesApplicationTestController::run ()
                 && !window_->m_waitReplyAttempt,
                 "A rejected reply armed Auto-Tx or its deadline while tuning.")) return false;
   window_->stop_tuning ();
+  if (!waitUntil ([this] {return !window_->m_tune && !window_->tuneButtonTimer.isActive ();},
+                  "Tune shutdown did not complete before testing reply recovery.")) return false;
   if (!nextReception ()) return false;
   record ("K1ABC W1AW -10");
   if (!require (enableTxIs (true) && window_->stopWRTimer.isActive (),
@@ -387,10 +391,29 @@ bool WaitFeaturesApplicationTestController::run ()
   return correctionScenarios ();
 }
 
-bool WaitFeaturesApplicationTestController::setOption (QString const& name, bool enabled)
+bool WaitFeaturesApplicationTestController::waitUntil (
+  std::function<bool()> const& ready, QString const& failure)
+{
+  if (ready ()) return true;
+  QEventLoop loop;
+  QTimer poll;
+  QTimer guard;
+  poll.setInterval (5);
+  guard.setSingleShot (true);
+  connect (&poll, &QTimer::timeout, &loop, [&] {if (ready ()) loop.quit ();});
+  connect (&guard, &QTimer::timeout, &loop, &QEventLoop::quit);
+  poll.start ();
+  guard.start (1000);
+  loop.exec ();
+  return require (ready (), failure);
+}
+
+bool WaitFeaturesApplicationTestController::setOption (
+  QString const& name, bool enabled, std::function<bool()> const& afterAccept)
 {
     bool visited {false};
     bool optionApplied {false};
+    bool afterAcceptApplied {true};
     bool timedOut {false};
     QTimer guard;
     guard.setSingleShot (true);
@@ -413,6 +436,7 @@ bool WaitFeaturesApplicationTestController::setOption (QString const& name, bool
             devices->addItem ("Silent test device", QVariant::fromValue (QAudioDeviceInfo {}));
         }
       dialog->accept ();
+      if (afterAccept) afterAcceptApplied = afterAccept ();
     });
     guard.start (3000);
     window_->on_actionSettings_triggered ();
@@ -421,7 +445,7 @@ bool WaitFeaturesApplicationTestController::setOption (QString const& name, bool
     if (name == "quick_call_check_box") optionApplied = window_->m_config.quick_call () == enabled;
     if (name == "enable_Wait_features_check_box") optionApplied = window_->m_config.Wait_features_enabled () == enabled;
     if (name == "cbAutoLog") optionApplied = window_->m_config.autoLog () == enabled;
-    return require (visited && !timedOut && optionApplied,
+    return require (visited && !timedOut && optionApplied && afterAcceptApplied,
                     "The isolated setting was not applied: " + name);
 }
 
@@ -512,28 +536,60 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
   if (!setOption ("enable_Wait_features_check_box", true)) return false;
 
   for (bool const pounceAttempt : {false, true}) {
-    if (!startReception ("FT8", "disabling Wait preserves an unanswered attempt's deadline")) return false;
-    if (pounceAttempt) {
-      selectPolicy (AutoRespondPolicy::First);
-      pounce = true;
-      candidate ("CQ JA1ABC PM95");
-    } else {
-      window_->ui->DX_Call_Button->click ();
-      record ("CQ W1AW FN31");
+    for (bool const deferredFirst : {false, true}) {
+      auto const name = QString {"%1 keeps its retry with %2 refresh first"}
+        .arg (pounceAttempt ? "Pounce" : "Wait and Call")
+        .arg (deferredFirst ? "deferred" : "ordinary");
+      if (!startReception ("FT8", name)) return false;
+      if (pounceAttempt) {
+        selectPolicy (AutoRespondPolicy::First);
+        pounce = true;
+        candidate ("CQ JA1ABC PM95");
+      } else {
+        window_->ui->DX_Call_Button->click ();
+        record ("CQ W1AW FN31");
+      }
+      if (!require (window_->m_auto && window_->m_waitCallAttempt,
+                    "The unanswered attempt did not start.")) return false;
+      auto const attempt = *window_->m_waitCallAttempt;
+      auto const owner = window_->m_waitCallTimeoutOwner;
+      auto const interval = window_->stopWCTimer.interval ();
+      auto const remaining = window_->stopWCTimer.remainingTime ();
+      auto const refresh = [this] {
+        bool completed {false};
+        QObject scope;
+        QTimer::singleShot (0, &scope, [&] {
+          window_->refreshWaitFeatureControls ();
+          completed = true;
+        });
+        return waitUntil ([&] {return completed;}, "The deferred Wait refresh did not run.");
+      };
+      if (!setOption ("enable_Wait_features_check_box", false, [&] {
+        if (!require (!window_->m_config.Wait_features_enabled (),
+                      "The refresh ran before the new Wait setting was accepted.")) return false;
+        return !deferredFirst || refresh ();
+      })) return false;
+      if (!deferredFirst && !refresh ()) return false;
+      if (!require (window_->m_auto, "Disabling Wait stopped the active transmission.")
+          || !require (window_->stopWCTimer.isActive (), "Disabling Wait stopped the retry timer.")
+          || !require (bool (window_->m_waitCallAttempt), "Disabling Wait removed the retry attempt.")) return false;
+      auto const& retained = *window_->m_waitCallAttempt;
+      if (!require (retained.generation == attempt.generation, "The refresh replaced the retry generation.")
+          || !require (window_->m_waitCallTimeoutOwner == owner, "The refresh changed the timeout owner.")
+          || !require (retained.call == attempt.call && retained.mode == attempt.mode
+                        && retained.band == attempt.band && retained.period == attempt.period
+                        && retained.receivedPeriod == attempt.receivedPeriod,
+                        "The refresh changed the retry context.")
+          || !require (window_->stopWCTimer.interval () == interval
+                        && window_->stopWCTimer.remainingTime () <= remaining,
+                        "The refresh restarted the retry deadline.")
+          || !require (!window_->ui->DX_Call_Button->isChecked () && !wait_and_call && !pounce,
+                        "Disabling Wait left new automatic selections armed.")) return false;
+      window_->stopWCTimer.setInterval (1);
+      if (!waitUntil ([this] {return !window_->m_auto && !window_->m_waitCallAttempt;},
+                      "The preserved retry deadline failed after Wait was disabled.")) return false;
+      if (!setOption ("enable_Wait_features_check_box", true)) return false;
     }
-    if (!require (window_->m_auto && window_->m_waitCallAttempt,
-                  "The unanswered attempt did not start.")) return false;
-    auto const generation = window_->m_waitCallAttempt->generation;
-    if (!setOption ("enable_Wait_features_check_box", false)) return false;
-    if (!require (!window_->m_config.Wait_features_enabled () && window_->m_auto
-                  && window_->stopWCTimer.isActive () && window_->m_waitCallAttempt
-                  && window_->m_waitCallAttempt->generation == generation,
-                  "Disabling Wait removed the active attempt's retry limit.")) return false;
-    window_->stopWCTimer.setInterval (1);
-    drainEvents ();
-    if (!require (!window_->m_auto && !window_->m_waitCallAttempt,
-                  "The preserved retry deadline failed after Wait was disabled.")) return false;
-    if (!setOption ("enable_Wait_features_check_box", true)) return false;
   }
 
   for (bool const quickCall : {false, true}) {

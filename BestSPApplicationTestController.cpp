@@ -628,24 +628,36 @@ bool BestSPApplicationTestController::settingsCQSelection ()
     window_->m_guiTimer.stop ();
     return require (visited && !timedOut, "The isolated Wait-features Settings edit did not finish.");
   };
-  if (!startRequest (14080000, "Settings reactivates dormant Pounce only on acceptance")) return false;
+  auto const armPounce = [this] {
+    QApplication::setActiveWindow (window_);
+    window_->ui->autoButton->setFocus ();
+    if (!require (window_->ui->autoButton->hasFocus (),
+                  "The Pounce activation control did not receive focus.")) return false;
+    QMouseEvent event {QEvent::MouseButtonPress, QPointF {}, Qt::RightButton,
+                       Qt::RightButton, Qt::NoModifier};
+    QApplication::sendEvent (window_, &event);
+    return require (pounce, "Right-click did not arm Pounce.");
+  };
+  if (!startRequest (14080000, "Settings preserve Best S+P until Pounce is explicitly rearmed")) return false;
   window_->setBestSPArmed (false);
   window_->ui->cbAutoSeq->setChecked (true);
   window_->ui->respondComboBox->setCurrentIndex (
     window_->ui->respondComboBox->findData (static_cast<int> (AutoRespondPolicy::First)));
-  if (!editWaitFeatures (false, true)
-      || !require (!window_->m_config.Wait_features_enabled (), "Wait features were not disabled.")) return false;
-  pounce = true;
+  if (!armPounce () || !editWaitFeatures (false, true)
+      || !require (!window_->m_config.Wait_features_enabled () && !pounce,
+                   "Disabling Wait left Pounce armed.")) return false;
   window_->ui->pbBestSP->click ();
   if (!require (window_->m_bestSP.armed (), "Disabled Wait features prevented Best S+P arming.")) return false;
   auto const feedback = window_->ui->pbBestSP->accessibleDescription ();
   if (!editWaitFeatures (true, false)
-      || !require (!window_->m_config.Wait_features_enabled (), "Settings Cancel changed Wait features.")
+      || !require (!window_->m_config.Wait_features_enabled () && !pounce,
+                   "Settings Cancel changed Wait features or Pounce intent.")
       || !feedbackMatches (true, feedback)
       || !editWaitFeatures (true, true)
-      || !require (window_->m_config.Wait_features_enabled () && pounce,
-                   QString {"Settings acceptance did not reactivate Pounce: Wait features=%1, Pounce=%2."}
-                     .arg (window_->m_config.Wait_features_enabled ()).arg (pounce))
+      || !require (window_->m_config.Wait_features_enabled () && !pounce,
+                   "Enabling Wait resurrected previously disarmed Pounce intent.")
+      || !feedbackMatches (true, feedback)
+      || !armPounce ()
       || !feedbackMatches (false, QCoreApplication::translate (
            "MainWindow", "Best S+P canceled: Wait & Pounce is active."))) return false;
   return complete ({});

@@ -4073,20 +4073,7 @@ void MainWindow::statusChanged()
     m_q65PileupCopiedCallers.clear();
   }
   if (m_specOp==SpecOp::Q65_PILEUP && m_mode != "Q65") on_actionQ65_triggered();
-  QTimer::singleShot (50, this, [=] {
-      WaitFeatureContext const waitContext {
-        m_mode,
-        m_specOp,
-        m_config.Wait_features_enabled(),
-        ui->cbAutoSeq->isChecked(),
-        !m_hisCall.isEmpty(),
-        m_config.NCCC_Sprint()
-      };
-      if (ui->DX_Call_Button->isChecked()
-          && !wait_and_call_arming_eligible (waitContext)) {
-        ui->DX_Call_Button->click ();
-      }
-  });
+  QTimer::singleShot (50, this, &MainWindow::refreshWaitFeatureControls);
   statusUpdate ();
   QFile f {m_config.temp_dir ().absoluteFilePath ("wsjtx_status.txt")};
   if(f.open(QFile::WriteOnly | QIODevice::Text)) {
@@ -16929,6 +16916,11 @@ void MainWindow:: on_actionBand_Buttons_triggered ()
 }
 
 void MainWindow:: on_actionVHF_UHF_Buttons_triggered ()
+{
+  check_button_color();
+}
+
+void MainWindow::refreshWaitFeatureControls()
 {
   check_button_color();
 }

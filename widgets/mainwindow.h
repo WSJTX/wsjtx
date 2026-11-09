@@ -431,6 +431,7 @@ private slots:
   void on_pb10G_clicked();
   void on_pb24G_clicked();
   void check_button_color();
+  void refreshWaitFeatureControls();
   void reset_transmit_controls_after_stop ();
   void stopWRTimeout();
   void stopWCTimeout();

@@ -2,6 +2,8 @@
 #ifndef WAIT_FEATURES_APPLICATION_TEST_CONTROLLER_HPP
 #define WAIT_FEATURES_APPLICATION_TEST_CONTROLLER_HPP
 
+#include <functional>
+
 #include <QObject>
 #include <QString>
 #include <QTimer>
@@ -23,7 +25,9 @@ private:
   bool run ();
   bool correctionScenarios ();
   bool legacyMessageScenarios ();
-  bool setOption (QString const& name, bool enabled);
+  bool waitUntil (std::function<bool()> const&, QString const& failure);
+  bool setOption (QString const& name, bool enabled,
+                  std::function<bool()> const& afterAccept = {});
   bool startReception (QString const& mode, QString const& scenario);
   bool nextReception ();
   bool publishReception ();
