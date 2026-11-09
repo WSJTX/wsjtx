@@ -14154,8 +14154,9 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
       showNormal ();
       raise ();
     }
-  if ((message_text.contains (reply_cq_or_qrz_regexp))
-      || message_text.contains("73 ") || (ui->cbHoldTxFreq->isChecked ())) {
+  auto const fields = parseDecodedMessage(message_text);
+  if (fields.cq || fields.destination == "QRZ" || fields.exchange == "73"
+      || fields.exchange == "RR73" || ui->cbHoldTxFreq->isChecked ()) {
     // a message we are willing to accept and auto reply to
     m_bDoubleClicked = true;
     }
