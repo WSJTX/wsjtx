@@ -1677,7 +1677,9 @@ private:
                             DecodedText const& message, bool * block_right_display = nullptr);
   bool applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
                               DecodedText const& message, bool * block_right_display);
-  void startWaitRetry (bool reply, int milliseconds, QDateTime const& receivedPeriod, bool acknowledge = true);
+  void startWaitRetry (bool reply, int milliseconds, QDateTime const& receivedPeriod,
+                       bool acknowledge = true,
+                       WaitCallTimeoutOwner owner = WaitCallTimeoutOwner::WaitAndCall);
   void cancelWaitRetry (bool reply);
   void acknowledgeWaitReply (DecodedText const&, QDateTime const&);
   void invalidateWaitRetries ();

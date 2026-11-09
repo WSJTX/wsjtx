@@ -3985,7 +3985,8 @@ void MainWindow::invalidateWaitRetries()
   cancelWaitRetry(false);
 }
 
-void MainWindow::startWaitRetry(bool reply, int milliseconds, QDateTime const& receivedPeriod, bool acknowledge)
+void MainWindow::startWaitRetry(bool reply, int milliseconds, QDateTime const& receivedPeriod,
+                                bool acknowledge, WaitCallTimeoutOwner owner)
 {
   cancelWaitRetry(reply);
   WaitRetryContext context {Radio::base_callsign(m_hisCall), m_mode, m_currentBand,
@@ -4003,8 +4004,8 @@ void MainWindow::startWaitRetry(bool reply, int milliseconds, QDateTime const& r
     stopWRTimer.start(milliseconds);
   } else {
     m_waitCallAttempt = context;
-    m_waitCallTimeoutOwner = WaitCallTimeoutOwner::WaitAndCall;
-    no_wait_and_call = true;
+    m_waitCallTimeoutOwner = owner;
+    no_wait_and_call = owner == WaitCallTimeoutOwner::WaitAndCall;
     stopWCTimer.start(milliseconds);
   }
 }
@@ -4019,6 +4020,14 @@ void MainWindow::acknowledgeWaitReply(DecodedText const& message, QDateTime cons
       || fields.sender == "..." || fields.destination == "..."
       || Radio::base_callsign(fields.sender) != Radio::base_callsign(m_hisCall)
       || Radio::base_callsign(fields.destination) != m_baseCall) return;
+  if (m_mode == "MSK144" && ui->DX_Call_Button->isChecked()) {
+    if (m_waitCallTimeoutOwner == WaitCallTimeoutOwner::WaitAndCall) cancelWaitRetry(false);
+    QSignalBlocker const blocker {ui->DX_Call_Button};
+    ui->DX_Call_Button->setChecked(false);
+    wait_and_call = false;
+    no_wait_and_call = false;
+    check_button_color();
+  }
   auto acknowledge = [&] (bool reply, std::optional<WaitRetryContext> const& attempt) {
     if (!attempt || !attempt->acknowledgeReply || !receivedPeriod.isValid()
         || receivedPeriod <= attempt->receivedPeriod) return;
@@ -4048,12 +4057,10 @@ void MainWindow::stopWCTimeout()
   cancelWaitRetry(false);
   if (!attempt || attempt->call != Radio::base_callsign(m_hisCall) || attempt->mode != m_mode
       || attempt->band != m_currentBand || attempt->period != m_TRperiod) return;
-  if (owner == WaitCallTimeoutOwner::Pounce) {
-    auto_tx_mode(false);
-  } else if (ui->DX_Call_Button->isChecked()) {
+  if (owner == WaitCallTimeoutOwner::None) return;
+  if (owner == WaitCallTimeoutOwner::WaitAndCall && ui->DX_Call_Button->isChecked())
     ui->DX_Call_Button->click();
-    auto_tx_mode(false);
-  }
+  auto_tx_mode(false);
 }
 
 void MainWindow::statusChanged()
@@ -16916,14 +16923,19 @@ void MainWindow::check_button_color()
     auto const enableTxWarning = enable_tx_warning (waitContext);
     auto expiredContext = [this] (std::optional<WaitRetryContext> const& attempt) {
       return attempt && (attempt->call != Radio::base_callsign(m_hisCall)
-        || attempt->mode != m_mode || attempt->band != m_currentBand || attempt->period != m_TRperiod
-        || (attempt->acknowledgeReply && !m_config.Wait_features_enabled()));
+        || attempt->mode != m_mode || attempt->band != m_currentBand || attempt->period != m_TRperiod);
     };
     if (expiredContext(m_waitReplyAttempt)) cancelWaitRetry(true);
     if (expiredContext(m_waitCallAttempt)
-        || (m_waitCallTimeoutOwner == WaitCallTimeoutOwner::WaitAndCall && !waitAndCallEligible))
+        || (m_waitCallTimeoutOwner == WaitCallTimeoutOwner::WaitAndCall
+            && m_config.Wait_features_enabled() && !waitAndCallEligible))
       cancelWaitRetry(false);
 
+    if (!m_config.Wait_features_enabled()) {
+      pounce = false;
+      m_pounceSelectionTimer.stop();
+      m_autoRespondSelectionLatch.clear();
+    }
     if (!waitAndCallEligible) {
       ui->DX_Call_Button->setChecked (false);
       wait_and_call = false;
@@ -18216,8 +18228,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     auto now = QDateTime::currentDateTimeUtc();
     m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
     if (pounce) {
-      startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart);
-      m_waitCallTimeoutOwner = WaitCallTimeoutOwner::Pounce;
+      startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart, true, WaitCallTimeoutOwner::Pounce);
     }
   }
 
@@ -18248,8 +18259,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
       m_autoRespondScores.considerDistance(distancePoints);
       m_deCall=deCall;
       if (pounce) {
-        startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart);
-        m_waitCallTimeoutOwner = WaitCallTimeoutOwner::Pounce;
+        startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart, true, WaitCallTimeoutOwner::Pounce);
       }
       ui->dxCallEntry->setText(deCall);
       genStdMsgs(QString::number(decodedtext.snr()));
@@ -18276,8 +18286,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     m_autoRespondScores.considerMaximumDb(decodedtext.snr());
     m_deCall=deCall;
     if (pounce) {
-      startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart);
-      m_waitCallTimeoutOwner = WaitCallTimeoutOwner::Pounce;
+      startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart, true, WaitCallTimeoutOwner::Pounce);
     }
     ui->dxCallEntry->setText(deCall);
     genStdMsgs(QString::number(decodedtext.snr()));
@@ -18303,8 +18312,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     m_autoRespondScores.considerMinimumDb(decodedtext.snr());
     m_deCall=deCall;
     if (pounce) {
-      startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart);
-      m_waitCallTimeoutOwner = WaitCallTimeoutOwner::Pounce;
+      startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart, true, WaitCallTimeoutOwner::Pounce);
     }
     ui->dxCallEntry->setText(deCall);
     genStdMsgs(QString::number(decodedtext.snr()));
