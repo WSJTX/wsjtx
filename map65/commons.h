@@ -2,8 +2,6 @@
 #define COMMONS_H
 
 #define NFFT 32768
-#define BASELINE_RATE 96000
-#define BASELINE_NFFT 32768
 
 
 #include <QString>

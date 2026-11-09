@@ -213,6 +213,23 @@ contains
     call unlock_decode_requests()
   end subroutine
 
+  ! symspec FFT size: the next power of 2 at or above 32768 * rate / 96000.
+  ! That gives 2.93 Hz bins at 96 and 192 kHz and 1.95 Hz bins at 128 and
+  ! 256 kHz. At 128 kHz a 49152-point FFT (2.93 Hz bins, as at 96 kHz) was
+  ! measured less sensitive for Q65 candidates than 65536.
+  integer(c_int) function symspec_fft_size(rate_hz) bind(C, name="symspec_fft_size_")
+    use iso_c_binding
+    implicit none
+    integer(c_int), value :: rate_hz
+    integer(c_int64_t) :: want
+
+    want = (32768_c_int64_t * rate_hz) / 96000_c_int64_t
+    symspec_fft_size = 1
+    do while (symspec_fft_size < want)
+      symspec_fft_size = 2 * symspec_fft_size
+    end do
+  end function symspec_fft_size
+
   subroutine set_runtime_params(rate_hz, nfft, nfft_big) bind(C, name="set_runtime_params_")
     use iso_c_binding
     implicit none
