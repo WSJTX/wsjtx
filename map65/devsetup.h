@@ -2,11 +2,22 @@
 #define DEVSETUP_H
 
 #include <QDialog>
+#include <QString>
+#include <set>
+#include <tuple>
+#include <vector>
+#include "sample_rates.h"
 #include "ui_devsetup.h"
 #include "commons.h"
 
 
 class MainWindow;
+
+// Before SoundIn opens device, asks PortAudio which of 96, 128, 192 and
+// 256 kHz it accepts with 2 and 4 channels, so Settings can list it while
+// SoundIn has it open. Only ALSA devices are asked; other host APIs answer
+// while a device is open. Stops at the first "busy" answer.
+void cacheInputDeviceRates(int device);
 
 class DevSetup : public QDialog
 {
@@ -21,7 +32,7 @@ public:
   qint32  m_outDevList[1024];
   bool    m_restartSoundIn;
   bool    m_restartSoundOut;
-  bool    m_restartRequired;
+  bool    m_stopSoundIn = false;
   int     m_pendingFs96000;
 
 signals:
@@ -60,13 +71,30 @@ private slots:
   void on_sb_dB_valueChanged(int n);
 
 private:
+  struct InputDevice {
+    int id;
+    int maxChan;
+    int minSpeed;
+    int maxSpeed;
+    QString name;
+    QString label;
+  };
+  InputFit inputFit(int device, int rate, int channels);
+  InputFit fillInputList(int preferredDevice);
+  void rebuildInputList();
   int selectedSampleRateCode() const;
   int inDevice(int index) const;
   int outDevice(int index) const;
   MainWindow *mw;
+  std::vector<InputDevice> m_inputDevices;
+  bool m_inputListReady = false;
+  int  m_listRate = 0;
+  int  m_listChannels = 0;
+  int  m_wantedInDevice = -1;   // last device chosen; kept while it isn't listed
+  // devices found busy; not asked again while this dialog is open
+  std::set<std::tuple<int, int, int>> m_busyProbes;
   int r,g,b,r0,g0,b0,r1,g1,b1,r2,g2,b2,r3,g3,b3;
   Ui::DialogSndCard ui;
-  int oldSampleRate;
 };
 
 #endif // DEVSETUP_H
