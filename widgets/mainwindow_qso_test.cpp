@@ -42,9 +42,6 @@ QString MainWindow::checkQsoCompletionTest ()
   QUdpSocket notifications;
   if (!notifications.bind (QHostAddress {QHostAddress::LocalHost}, 0))
     return "Unable to listen for local QSO notifications.";
-  m_messageClient->set_server ("127.0.0.1", {});
-  m_messageClient->set_server_port (notifications.localPort ());
-  drain ();
   int accepted = 0;
   int loggedNotifications = 0;
   int adifNotifications = 0;
@@ -61,6 +58,11 @@ QString MainWindow::checkQsoCompletionTest ()
       if (message.type () == NetworkMessage::LoggedADIF) ++adifNotifications;
     }
   };
+  // Drain status traffic too, so it cannot crowd out the log notifications.
+  connect (&notifications, &QUdpSocket::readyRead, &notifications, collectNotifications);
+  m_messageClient->set_server ("127.0.0.1", {});
+  m_messageClient->set_server_port (notifications.localPort ());
+  drain ();
   auto adifRecords = [&] {
     QFile file {m_logBook.path ()};
     return file.open (QIODevice::ReadOnly) ? file.readAll ().toUpper ().count ("<EOR>") : 0;
