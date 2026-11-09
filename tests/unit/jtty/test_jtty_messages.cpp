@@ -34,6 +34,7 @@ private slots:
     QCOMPARE (Jtty::functionKeyPreview (QString {"CQ %M %G"}, blank, false),
               QString {"CQ %M %G"});
     QCOMPARE (Jtty::functionKeyPreview (QString {"cq %H"}, blank, true), QString {"cq %H"});
+    QCOMPARE (Jtty::functionKeyPreview (QString {"CQ %H %Q"}, blank, true), QString {"cq %H %Q"});
     QCOMPARE (Jtty::functionKeyPreview (QString {"%H %E"}, blank, false),
               QString {"%H 599 001"});
     QCOMPARE (Jtty::functionKeyPreview (QString {"TU NOW %Q %E"}, blank, false),
