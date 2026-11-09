@@ -7671,7 +7671,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   hound_reply (decodedtext.string().mid(16,4).toInt());
                 } else {
                   if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) return;
-                  if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))  processSyntheticMessage(decodedtext0);   // needed for MSHV multistream messages
+                  auto const fields = parseDecodedMessage(decodedtext.message());
+                  if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall)
+                      && fields.exchange != "73" && fields.exchange != "RR73")
+                    processSyntheticMessage(decodedtext0);
                 }
               }
             }

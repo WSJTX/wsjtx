@@ -600,6 +600,51 @@ private slots:
     QCOMPARE(intEffect(plan, Effect::Kind::SetReport), expected);
   }
 
+  void fallbackSelectionUsesMessageTokens_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<bool>("preservesReport");
+    QTest::newRow("cq") << "CQ W1AW FN31" << false;
+    QTest::newRow("numbered-cq") << "CQ 173 W1AW FN31" << false;
+    QTest::newRow("rrr") << "K9XYZ W1AW RRR" << false;
+    QTest::newRow("rr73") << "K9XYZ W1AW RR73" << true;
+    QTest::newRow("73") << "K9XYZ W1AW 73" << true;
+  }
+
+  void fallbackSelectionUsesMessageTokens()
+  {
+    QFETCH(QString, payload);
+    QFETCH(bool, preservesReport);
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    for (int frequency : {1473, 1474}) {
+      for (bool padded : {false, true}) {
+        auto const message = decode(padded ? payload.leftJustified(37, ' ') : payload,
+                                    "~", "060500", frequency);
+        QVERIFY(message.isStandardMessage());
+        for (auto const origin : {Origin::Synthetic, Origin::ManualLeftPane, Origin::Udp}) {
+          for (bool autoEnabled : {false, true}) {
+            for (int selectedMessage : {2, 3}) {
+              auto snapshot = baseSnapshot();
+              snapshot.autoEnabled = autoEnabled;
+              snapshot.selectedTxMessage = selectedMessage;
+              snapshot.qsoProgress = QsoProgress::RogerReport;
+              snapshot.selectionOrigin = origin;
+              snapshot.doubleClicked = origin != Origin::Synthetic;
+              auto const plan = DecodedMessageReaction::planProcessMessage(message, snapshot);
+              QVERIFY2(plan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted,
+                       qPrintable(plan.reason));
+              bool const preserve = preservesReport && autoEnabled && selectedMessage == 3
+                && origin == Origin::Synthetic;
+              auto const state = finalState(plan, snapshot);
+              QCOMPARE(state.txMessage, preserve ? selectedMessage : 1);
+              QCOMPARE(state.progress, preserve ? snapshot.qsoProgress : QsoProgress::Replying);
+            }
+          }
+        }
+      }
+    }
+  }
+
   void selectionOrigins_data()
   {
     QTest::addColumn<int>("origin");

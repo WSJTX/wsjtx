@@ -765,7 +765,7 @@ namespace DecodedMessageReaction
       reacted = true;
     } else if (isExplicitStationSelection(snapshot.selectionOrigin)
                || !(snapshot.autoEnabled && snapshot.selectedTxMessage == 3
-                 && message.string().contains("73 "))) {
+                 && analysis.is73)) {
       if (snapshot.tx1Enabled) {
         selectMessageWithProgressBetween(plan, progress, 1, QsoProgress::Replying);
       } else {
