@@ -17887,7 +17887,6 @@ DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
     }
   }
   auto const plan = DecodedMessageReaction::planWaitReplyCall(message, snapshot, source);
-  QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, true};
   if (!applyWaitReactionPlan(plan, message, block_right_display))
     return DecodedMessageReaction::ReactionDisposition::NoReaction;
   return plan.disposition;
