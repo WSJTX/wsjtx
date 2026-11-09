@@ -9586,21 +9586,40 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
 bool MainWindow::applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
                                       DecodedText const& message, bool * block_right_display)
 {
+  bool accepted = true;
   bool contestHintQueued = false;
   DecodedMessageReaction::ContestHint contestHint {};
   for (auto const& effect : plan.effects) {
     if (effect.kind == DecodedMessageReaction::QsoReactionEffect::Kind::QueueContestHint) {
-      m_contestModeHintShown = true;
       if (!contestHintQueued) {
         contestHint = effect.contestHint;
         contestHintQueued = true;
       }
       continue;
     }
-    if (!applyQsoReactionEffect(effect, message, block_right_display)) return false;
+    if (!applyQsoReactionEffect(effect, message, block_right_display)) accepted = false;
   }
   if (contestHintQueued) {
     QTimer::singleShot(0, this, [this, contestHint] {showContestHint(contestHint);});
+    m_contestModeHintShown = true;
+  }
+  return accepted;
+}
+
+bool MainWindow::applyWaitReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
+                                       DecodedText const& message, bool * block_right_display)
+{
+  using Kind = DecodedMessageReaction::QsoReactionEffect::Kind;
+  bool activated = false;
+  for (auto const& effect : plan.effects) {
+    if (effect.kind == Kind::ProcessAutomaticSelectionNow) {
+      if (!tryAutomaticSelection(message, block_right_display)) return false;
+      activated = true;
+    } else if (effect.kind == Kind::SetAutoEnabled && effect.boolValue) {
+      if (!activated) return false;
+    } else if (!applyQsoReactionEffect(effect, message, block_right_display)) {
+      return false;
+    }
   }
   return true;
 }
@@ -17869,7 +17888,7 @@ DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
   }
   auto const plan = DecodedMessageReaction::planWaitReplyCall(message, snapshot, source);
   QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, true};
-  if (!applyQsoReactionPlan(plan, message, block_right_display))
+  if (!applyWaitReactionPlan(plan, message, block_right_display))
     return DecodedMessageReaction::ReactionDisposition::NoReaction;
   return plan.disposition;
 }
