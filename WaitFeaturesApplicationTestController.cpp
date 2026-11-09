@@ -124,7 +124,8 @@ bool WaitFeaturesApplicationTestController::startReception (
   window_->m_guiTimer.stop ();
   if (!require (!window_->m_tune && !window_->tuneButtonTimer.isActive (),
                 "The preceding scenario left Tune shutdown unfinished.")) return false;
-  if (mode == "Q65") window_->on_actionQ65_triggered ();
+  if (mode == "MSK144") window_->on_actionMSK144_triggered ();
+  else if (mode == "Q65") window_->on_actionQ65_triggered ();
   else window_->on_actionFT8_triggered ();
   window_->m_guiTimer.stop ();
   window_->m_operatingFrequency = OperatingFrequency {14074000};
@@ -176,7 +177,7 @@ bool WaitFeaturesApplicationTestController::startReception (
   window_->check_button_color ();
   return require (window_->m_config.Wait_features_enabled (), "Wait features are not enabled.")
     && require (enableTxIs (false), "The waiting Enable Tx control is not yellow.")
-    && publishReception ();
+    && (mode == "MSK144" || publishReception ());
 }
 
 bool WaitFeaturesApplicationTestController::publishReception ()
@@ -503,38 +504,6 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
   if (!require (window_->m_hisCall == "JA1ABC",
                 "A later valid First candidate did not select the caller.")) return false;
 
-  if (!startReception ("FT8", "MSK144 directed answer disarms an unfired Wait and Call")) return false;
-  window_->m_mode = "MSK144";
-  window_->m_bFastMode = true;
-  window_->m_TRperiod = 15;
-  window_->ui->DX_Call_Button->click ();
-  if (!require (wait_and_call && !window_->m_waitCallAttempt,
-                "MSK144 Wait and Call did not arm without an attempt.")) return false;
-  DecodedText direct {"120000 -10  0.3 1500 &  K1ABC W1AW -10"};
-  window_->processWaitReplyCall (direct, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
-  if (!require (window_->m_auto && !wait_and_call && !window_->ui->DX_Call_Button->isChecked (),
-                "The spontaneous MSK144 answer left Wait and Call armed.")) return false;
-  DecodedText cq {"120000 -10  0.3 1500 &  CQ W1AW FN31"};
-  window_->processWaitReplyCall (cq, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
-  if (!require (!window_->m_waitCallAttempt,
-                "A subsequent MSK144 CQ started a new calling attempt.")) return false;
-
-  if (!startReception ("FT8", "same-period MSK144 answer retires a retained calling deadline")) return false;
-  window_->m_mode = "MSK144";
-  window_->m_bFastMode = true;
-  window_->m_TRperiod = 15;
-  window_->ui->DX_Call_Button->click ();
-  window_->processWaitReplyCall (cq, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
-  if (!require (window_->m_auto && window_->m_waitCallAttempt,
-                "The MSK144 calling attempt did not start.")) return false;
-  auto const callingPeriod = window_->m_waitCallAttempt->receivedPeriod;
-  if (!setOption ("enable_Wait_features_check_box", false)) return false;
-  window_->m_dateTimeSeqStart = callingPeriod;
-  window_->processWaitReplyCall (direct, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
-  if (!require (window_->m_auto && !window_->m_waitCallAttempt && !window_->stopWCTimer.isActive (),
-                "A same-period answer left the retained calling deadline armed.")) return false;
-  if (!setOption ("enable_Wait_features_check_box", true)) return false;
-
   for (bool const pounceAttempt : {false, true}) {
     for (bool const deferredFirst : {false, true}) {
       auto const name = QString {"%1 keeps its retry with %2 refresh first"}
@@ -651,6 +620,7 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
     }
   });
   closeHint.start (1);
+  DecodedText direct {"120000 -10  0.3 1500 ~  K1ABC W1AW -10"};
   window_->applyQsoReactionPlan (hintPlan, direct);
   drainEvents ();
   closeHint.stop ();
@@ -659,7 +629,7 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
                 "Rejected enabling discarded finalization or consumed an undisplayed hint.")) return false;
   window_->m_tune = false;
   window_->ui->tuneButton->setChecked (false);
-  return legacyMessageScenarios () && tuneShutdownScenarios ();
+  return legacyMessageScenarios () && tuneShutdownScenarios () && msk144Scenarios ();
 }
 
 bool WaitFeaturesApplicationTestController::legacyMessageScenarios ()
@@ -795,6 +765,48 @@ bool WaitFeaturesApplicationTestController::tuneShutdownScenarios ()
       if (!require (enableTxIs (true), "Old Tune cleanup stopped the accepted transmission.")) return false;
     }
   }
+  return true;
+}
+
+bool WaitFeaturesApplicationTestController::msk144Scenarios ()
+{
+  if (!startReception ("MSK144", "MSK144 directed answer disarms an unfired Wait and Call")) return false;
+  window_->ui->DX_Call_Button->click ();
+  if (!require (wait_and_call && !window_->m_waitCallAttempt,
+                "MSK144 Wait and Call did not arm without an attempt.")) return false;
+  DecodedText direct {"120000 -10  0.3 1500 &  K1ABC W1AW -10"};
+  window_->processWaitReplyCall (direct, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (window_->m_auto && !wait_and_call && !window_->ui->DX_Call_Button->isChecked (),
+                "The spontaneous MSK144 answer left Wait and Call armed.")) return false;
+  DecodedText cq {"120000 -10  0.3 1500 &  CQ W1AW FN31"};
+  window_->processWaitReplyCall (cq, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (!window_->m_waitCallAttempt,
+                "A subsequent MSK144 CQ started a new calling attempt.")) return false;
+
+  if (!startReception ("MSK144", "same-period MSK144 answer retires a retained calling deadline")) return false;
+  window_->ui->DX_Call_Button->click ();
+  window_->processWaitReplyCall (cq, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (window_->m_auto && window_->m_waitCallAttempt,
+                "The MSK144 calling attempt did not start.")) return false;
+  auto const attempt = *window_->m_waitCallAttempt;
+  auto const owner = window_->m_waitCallTimeoutOwner;
+  auto const callingPeriod = attempt.receivedPeriod;
+  if (!setOption ("enable_Wait_features_check_box", false)) return false;
+  if (!require (window_->m_auto && window_->stopWCTimer.isActive () && window_->m_waitCallAttempt,
+                "Settings retired the MSK144 attempt before its answer arrived.")) return false;
+  auto const& retained = *window_->m_waitCallAttempt;
+  if (!require (retained.generation == attempt.generation && window_->m_waitCallTimeoutOwner == owner
+                && retained.call == window_->m_hisCall && retained.mode == window_->m_mode
+                && retained.band == window_->m_currentBand && retained.period == window_->m_TRperiod
+                && retained.period == window_->ui->sbTR->value ()
+                && retained.receivedPeriod == callingPeriod,
+                "Settings changed the MSK144 attempt or its mode/period preconditions.")) return false;
+  window_->m_dateTimeSeqStart = callingPeriod;
+  window_->processWaitReplyCall (direct, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder);
+  if (!require (window_->m_auto && !window_->m_waitCallAttempt && !window_->stopWCTimer.isActive (),
+                "A same-period answer left the retained calling deadline armed.")) return false;
+  if (!setOption ("enable_Wait_features_check_box", true)) return false;
+
   return true;
 }
 
