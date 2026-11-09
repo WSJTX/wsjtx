@@ -181,8 +181,22 @@ private:
     QVERIFY (!recorder.terminalSessions ().last ().terminal_playout_observed);
   }
 
+  Q_SLOT void unavailable_start_is_retained_and_obvious_data ()
+  {
+    QTest::addColumn<int> ("state");
+    QTest::addColumn<QString> ("diagnostic");
+    QTest::newRow ("unconfigured-device")
+      << static_cast<int> (TxEvidence::TxBackendState::Unavailable)
+      << QStringLiteral ("No audio output device configured");
+    QTest::newRow ("failed-backend-start")
+      << static_cast<int> (TxEvidence::TxBackendState::Stopped)
+      << QStringLiteral ("Audio output backend failed to start");
+  }
+
   Q_SLOT void unavailable_start_is_retained_and_obvious ()
   {
+    QFETCH (int, state);
+    QFETCH (QString, diagnostic);
     TxEvidence::TxPlaybackDiagnostics recorder;
     auto const session = recorder.beginSession ("FT8", 48000, 47999, true);
     auto const generation = recorder.beginGeneration (session);
@@ -191,18 +205,36 @@ private:
     raw.start_event = true;
     raw.backend_start_sequence = 20;
     raw.tier = TxEvidence::TxPlayoutTier::Unavailable;
-    raw.state = TxEvidence::TxBackendState::Unavailable;
-    raw.diagnostic = "No audio output device configured";
+    raw.state = static_cast<TxEvidence::TxBackendState> (state);
+    raw.error = TxEvidence::TxBackendError::Open;
+    raw.diagnostic = diagnostic;
     QVERIFY (recorder.observe (raw));
     recorder.stop (session, generation, TxEvidence::TxStopReason::Error, 200);
     auto const terminal = recorder.terminalSessions ().last ();
+    QCOMPARE (terminal.session_id, session);
+    QCOMPARE (terminal.generation, generation);
+    QCOMPARE (terminal.backend_start_sequence, qint64 (20));
     QCOMPARE (terminal.tier, TxEvidence::TxPlayoutTier::Unavailable);
+    QCOMPARE (terminal.consumed_samples, qint64 (-1));
+    QCOMPARE (terminal.uncertainty_samples, qint64 (-1));
+    QVERIFY (!terminal.truncated_known);
     QVERIFY (!terminal.terminal_playout_observed);
+    QVERIFY (terminal.diagnostic.contains (diagnostic));
     QVERIFY (recorder.diagnosticDump ().contains ("tier=unavailable"));
+  }
+
+  Q_SLOT void weaker_snapshot_does_not_replace_device_clock_evidence_data ()
+  {
+    QTest::addColumn<int> ("state");
+    QTest::newRow ("removed-stream")
+      << static_cast<int> (TxEvidence::TxBackendState::Unavailable);
+    QTest::newRow ("stopped-stream")
+      << static_cast<int> (TxEvidence::TxBackendState::Stopped);
   }
 
   Q_SLOT void weaker_snapshot_does_not_replace_device_clock_evidence ()
   {
+    QFETCH (int, state);
     TxEvidence::TxPlaybackDiagnostics recorder;
     auto const session = recorder.beginSession ("JTTY", 12000, 2999, true);
     auto const generation = recorder.beginGeneration (session);
@@ -213,13 +245,16 @@ private:
     TxEvidence::TxRawPlayoutSnapshot unavailable;
     unavailable.context = {session, generation};
     unavailable.backend_start_sequence = 21;
-    unavailable.diagnostic = "No audio output stream is active";
+    unavailable.state = static_cast<TxEvidence::TxBackendState> (state);
+    unavailable.diagnostic = "Audio output cleanup has no playback metrics";
     QVERIFY (!recorder.observe (unavailable));
 
     auto const terminal = recorder.terminalSessions ().last ();
+    QCOMPARE (terminal.backend_start_sequence, qint64 (21));
     QCOMPARE (terminal.tier, TxEvidence::TxPlayoutTier::DeviceClock);
     QCOMPARE (terminal.consumed_samples, qint64 (3000));
     QVERIFY (terminal.terminal_playout_observed);
+    QVERIFY (!terminal.diagnostic.contains (unavailable.diagnostic));
   }
 
   Q_SLOT void rejects_stale_and_regressing_events ()

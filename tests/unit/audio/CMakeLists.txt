@@ -86,6 +86,15 @@ add_executable (test_sound_output
   ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp
   ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
 target_link_libraries (test_sound_output wsjt_qt Qt5::Test Qt5::Multimedia)
+add_library (sound_output_test_plugin MODULE sound_output_test_plugin.cpp)
+target_link_libraries (sound_output_test_plugin Qt5::Multimedia)
+set (sound_output_test_plugin_root "${CMAKE_CURRENT_BINARY_DIR}/sound-output-plugins/$<CONFIG>")
+set_target_properties (sound_output_test_plugin PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY "${sound_output_test_plugin_root}/audio"
+  RUNTIME_OUTPUT_DIRECTORY "${sound_output_test_plugin_root}/audio")
+target_compile_definitions (test_sound_output PRIVATE
+  SOUND_OUTPUT_TEST_PLUGIN_ROOT="${sound_output_test_plugin_root}")
+add_dependencies (test_sound_output sound_output_test_plugin)
 add_test (NAME test_sound_output COMMAND test_sound_output)
 
 add_executable (test_modulator
