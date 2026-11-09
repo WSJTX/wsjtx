@@ -74,7 +74,25 @@ program test_map65_pass_snapshots
   call snapshot_release()
   call require(claim_decode_request(), 'second request claimed')
   call require(active_request_expired, 'request whose fill was skipped is dropped')
-  call require(active_request_lagged, 'request dropped for an overwritten snapshot is lag')
+  call require(active_request_lagged, 'request whose fill was refused is lag')
+  call require(get_decoder_lag_count() == lag0 + 1, 'one lost pass (refused fill) is counted once')
+
+  ! 2b. Two refused fills while one pass runs: each lost pass is counted once,
+  !     whichever order the requests are claimed in.
+  dd = 4.5
+  call snapshot_buffers(2, 3800, 12)
+  rid = publish_decode_request()
+  call require(claim_decode_request(), 'running request claimed')
+  lag0 = get_decoder_lag_count()
+  call snapshot_buffers(2, 3800, 12)
+  rid = publish_decode_request()
+  call snapshot_buffers(2, 3800, 12)
+  rid = publish_decode_request()
+  call require(get_decoder_lag_count() == lag0 + 2, 'two refused fills are two events')
+  call snapshot_release()
+  call require(claim_decode_request(), 'first refused request claimed')
+  call require(claim_decode_request(), 'second refused request claimed')
+  call require(get_decoder_lag_count() == lag0 + 2, 'refused requests are not counted again')
 
   ! 3. A queued request whose slot is refilled before it is claimed is dropped.
   dd = 5.0
@@ -82,7 +100,10 @@ program test_map65_pass_snapshots
   rid = publish_decode_request()
   dd = 6.0
   call snapshot_buffers(2, 3800, 12)
+  lag0 = get_decoder_lag_count()
   call require(claim_decode_request(), 'third request claimed')
+  call require(get_decoder_lag_count() == lag0 + 1, 'overwritten snapshot counted once')
+  call require(get_decoder_lag_kind() == 2, 'overwritten snapshot is event kind 2')
   call require(active_request_expired, 'overwritten snapshot request is dropped')
   call require(active_request_lagged, 'overwritten snapshot request is lag')
 
@@ -91,7 +112,9 @@ program test_map65_pass_snapshots
   rid = publish_decode_request()
   call advance_live_input_generation()
   call advance_live_input_generation()
+  lag0 = get_decoder_lag_count()
   call require(claim_decode_request(), 'fourth request claimed')
+  call require(get_decoder_lag_count() == lag0, 'request dropped by monitoring stopping is not counted')
   call require(active_request_expired, 'request two generations old is dropped')
   call require(.not. active_request_lagged, 'request dropped by monitoring stopping is not lag')
 

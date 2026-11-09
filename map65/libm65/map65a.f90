@@ -1250,13 +1250,6 @@ endif
          endif         
          call sec0(1, tsec0)
 
-         call system_clock(t_now, t_rate)
-         if (real(t_now - t_start)/real(t_rate) > 40.0) then
-            call dbg('Decode abort: exceeded 40 seconds at end of do nqd = 1, 0, -1 pass, nqd=' // itoa(nqd))
-            abort_decode = .true.
-            go to 700
-         endif
-
       enddo  ! nqd
 
 700   continue
