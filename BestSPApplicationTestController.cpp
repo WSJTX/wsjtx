@@ -23,6 +23,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTimerEvent>
 #include <QTranslator>
 #include <QVector>
 
@@ -667,11 +668,6 @@ bool BestSPApplicationTestController::pounceSelections ()
   auto const candidate = [scripted] (AutoRespondPolicy policy) {
     scripted->record ("CQ JA1ABC PM95", policy == AutoRespondPolicy::MinSignal ? -25 : -2, 2400);
   };
-  auto const wait = [] (int milliseconds) {
-    QEventLoop loop;
-    QTimer::singleShot (milliseconds, &loop, &QEventLoop::quit);
-    loop.exec ();
-  };
   for (auto const policy : {AutoRespondPolicy::MaxDistance, AutoRespondPolicy::MaxSignal,
                             AutoRespondPolicy::MinSignal})
     for (int origin = 0; origin != 3; ++origin)
@@ -711,8 +707,10 @@ bool BestSPApplicationTestController::pounceSelections ()
       if (!begin (policy, QString {"Pounce policy %1 retains automatic ranking and non-selection actions"}
                   .arg (static_cast<int> (policy)))) return false;
       scripted->record ("CQ W1AW FN31");
-      window_->m_pounceSelectionTimer.start (90);
-      auto const originalRemaining = window_->m_pounceSelectionTimer.remainingTime ();
+      // A distinct interval exposes unintended restarts without measuring elapsed time.
+      window_->m_pounceSelectionTimer.start (60000);
+      auto const selectionTimerId = window_->m_pounceSelectionTimer.timerId ();
+      auto const selectionInterval = window_->m_pounceSelectionTimer.interval ();
       window_->doubleClickOnCall2 ("malformed", {}, Qt::NoModifier, {});
       window_->doubleClickOnCall2 ("120000  Tx      1259 +  CQ K1ABC FN42", {}, Qt::NoModifier, {});
       window_->setFreq4 (1600, 1800);
@@ -721,11 +719,14 @@ bool BestSPApplicationTestController::pounceSelections ()
       candidate (policy);
       auto const expected = policy == AutoRespondPolicy::First ? "W1AW" : "JA1ABC";
       if (!require (pounce && window_->ui->dxCallEntry->text () == expected
-                    && window_->m_pounceSelectionTimer.remainingTime () <= originalRemaining,
-                    "Automatic ranking failed or extended the original selection window.")) return false;
-      window_->m_pounceSelectionTimer.start (1);
-      wait (10);
-      if (!require (!pounce && window_->stopWCTimer.isActive (),
+                    && window_->m_pounceSelectionTimer.timerId () == selectionTimerId
+                    && window_->m_pounceSelectionTimer.interval () == selectionInterval,
+                    "Automatic ranking failed or changed the original selection window.")) return false;
+      // Deliver expiry synchronously without depending on platform timer scheduling.
+      QTimerEvent selectionTimeout {selectionTimerId};
+      QApplication::sendEvent (&window_->m_pounceSelectionTimer, &selectionTimeout);
+      if (!require (!window_->m_pounceSelectionTimer.isActive () && !pounce
+                    && window_->stopWCTimer.isActive (),
                     "The selection window did not expire independently of the Wait and Call timeout.")) return false;
       window_->ui->txb6->click ();
       if (!require (!window_->stopWCTimer.isActive () && window_->m_auto,
@@ -752,14 +753,17 @@ bool BestSPApplicationTestController::pounceSelections ()
       if (!begin (policy, QString {"Pounce policy %1 rearms without stale scores, latch, or timeout"}
                   .arg (static_cast<int> (policy)))) return false;
       candidate (policy);
-      window_->m_pounceSelectionTimer.start (30);
+      if (!require (window_->m_pounceSelectionTimer.isActive (),
+                    "The automatic candidate did not open its selection window.")) return false;
+      auto const canceledTimerId = window_->m_pounceSelectionTimer.timerId ();
       window_->ui->txb2->click ();
       if (!require (!pounce && !window_->m_autoRespondSelectionLatch.isSelected ()
                     && !window_->m_pounceSelectionTimer.isActive (),
                     "An explicit transmit-message control did not cancel automatic selection.")) return false;
       window_->auto_tx_mode (false);
       if (!arm ()) return false;
-      wait (60);
+      QTimerEvent canceledTimeout {canceledTimerId};
+      QApplication::sendEvent (&window_->m_pounceSelectionTimer, &canceledTimeout);
       if (!require (pounce, "A canceled selection timeout cleared the new Pounce intent.")) return false;
       scripted->record ("CQ W1AW FN31", -15);
       if (!require (window_->ui->dxCallEntry->text () == "W1AW",
