@@ -18167,6 +18167,22 @@ MainWindow::DecodeAlertSound MainWindow::selectDecodeAlertSound(bool alertsEnabl
   return DecodeAlertSound::None;
 }
 
+bool MainWindow::tryAutomaticSelection(DecodedText const& message, bool * block_right_display)
+{
+  auto snapshot = qsoReactionSnapshot(Qt::NoModifier, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
+  snapshot.doubleClicked = true;
+  snapshot.quickCall = false;
+  auto const selection = DecodedMessageReaction::planProcessMessage(message, snapshot);
+  if (selection.disposition != DecodedMessageReaction::ReactionDisposition::Reacted
+      || !prepareAutoTxEnable(TxControlOrigin::Automatic, TxEnableIntent::DecodedSelection)) return false;
+  {
+    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, true};
+    if (!applyQsoReactionPlan(selection, message, block_right_display)) return false;
+  }
+  if (!canEnableAutoTx(TxControlOrigin::Automatic, TxEnableIntent::DecodedSelection)) return false;
+  return installAutoTxEnabled(true);
+}
+
 void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool pounce,
                                      QDateTime const& decodePeriodStart, bool diskData)
 {
@@ -18192,13 +18208,11 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     && pouncePolicy == AutoRespondPolicy::First;
   bool const selectCurrentFirst = currentPeriodCaller
     && AutoRespondPolicy::First == periodPolicy
-    && m_autoRespondPeriodState.claimFirst(decodePeriodStart);
+    && m_autoRespondPeriodState.canClaimFirst(decodePeriodStart);
   if (selectPounceFirst || selectCurrentFirst) {
-    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
-    m_bDoubleClicked=true;
+    if (!tryAutomaticSelection(decodedtext)) return;
     if (selectPounceFirst) m_autoRespondSelectionLatch.selectFor();
-    if (!setAutoTxEnabled(true, TxControlOrigin::Automatic)) return;
-    processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
+    if (selectCurrentFirst) m_autoRespondPeriodState.claimFirst(decodePeriodStart);
     auto now = QDateTime::currentDateTimeUtc();
     m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
     if (pounce) {
@@ -18229,12 +18243,10 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
             &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
     int distancePoints=nDkm;
     if (!deGrid.contains(MainWindow::grid_regexp)) distancePoints=1;
-    if(m_autoRespondScores.considerDistance(distancePoints)) {
-      QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
+    if(m_autoRespondScores.wouldImproveDistance(distancePoints)) {
+      if (!tryAutomaticSelection(decodedtext)) return;
+      m_autoRespondScores.considerDistance(distancePoints);
       m_deCall=deCall;
-      m_bDoubleClicked=true;
-      if (!setAutoTxEnabled(true, TxControlOrigin::Automatic)) return;
-      processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
       if (pounce) {
         startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart);
         m_waitCallTimeoutOwner = WaitCallTimeoutOwner::Pounce;
@@ -18259,12 +18271,10 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
   bool const selectCurrentMaximum = currentPeriodCaller
     && AutoRespondPolicy::MaxSignal == periodPolicy;
   if ((selectPounceMaximum || selectCurrentMaximum)
-      && m_autoRespondScores.considerMaximumDb(decodedtext.snr())) {
-    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
+      && m_autoRespondScores.wouldImproveMaximumDb(decodedtext.snr())) {
+    if (!tryAutomaticSelection(decodedtext)) return;
+    m_autoRespondScores.considerMaximumDb(decodedtext.snr());
     m_deCall=deCall;
-    m_bDoubleClicked=true;
-    if (!setAutoTxEnabled(true, TxControlOrigin::Automatic)) return;
-    processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
     if (pounce) {
       startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart);
       m_waitCallTimeoutOwner = WaitCallTimeoutOwner::Pounce;
@@ -18288,12 +18298,10 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
   bool const selectCurrentMinimum = currentPeriodCaller
     && AutoRespondPolicy::MinSignal == periodPolicy;
   if ((selectPounceMinimum || selectCurrentMinimum)
-      && m_autoRespondScores.considerMinimumDb(decodedtext.snr())) {
-    QScopedValueRollback<bool> selectionContext {m_bDoubleClicked};
+      && m_autoRespondScores.wouldImproveMinimumDb(decodedtext.snr())) {
+    if (!tryAutomaticSelection(decodedtext)) return;
+    m_autoRespondScores.considerMinimumDb(decodedtext.snr());
     m_deCall=deCall;
-    m_bDoubleClicked=true;
-    if (!setAutoTxEnabled(true, TxControlOrigin::Automatic)) return;
-    processSyntheticMessage(decodedtext, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
     if (pounce) {
       startWaitRetry(false, int(6200.0*m_TRperiod), decodePeriodStart);
       m_waitCallTimeoutOwner = WaitCallTimeoutOwner::Pounce;

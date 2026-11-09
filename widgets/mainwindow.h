@@ -820,7 +820,14 @@ private:
 
 private:
   enum class TxControlOrigin { Automatic, Local };
-  bool setAutoTxEnabled (bool, TxControlOrigin);
+  enum class TxEnableIntent { Ordinary, DecodedSelection };
+  bool canEnableAutoTx (TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary) const;
+  bool prepareAutoTxEnable (TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary);
+  bool installAutoTxEnabled (bool);
+  bool setAutoTxEnabled (bool, TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary);
+  bool tryAutomaticSelection (DecodedText const&, bool * block_right_display = nullptr);
+  bool applyWaitReactionPlan (DecodedMessageReaction::QsoReactionPlan const&, DecodedText const&,
+                              bool * block_right_display);
   void setTuneEnabled (bool, TxControlOrigin);
   void startPendingRigTune ();
   void cancelRigTune ();

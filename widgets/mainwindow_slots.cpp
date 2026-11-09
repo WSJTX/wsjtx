@@ -125,23 +125,36 @@ void MainWindow::on_autoButton_clicked (bool checked)
   setAutoTxEnabled (checked, TxControlOrigin::Local);
 }
 
-bool MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
+bool MainWindow::canEnableAutoTx (TxControlOrigin origin, TxEnableIntent intent) const
 {
-  auto rejectEnable = [this] {
+  if (origin == TxControlOrigin::Automatic
+      && (m_pendingRigTune || rigTuneTimer.isActive () || m_config.radio_mode_yielded ())) return false;
+  if (ui->tuneButton->isChecked () && m_mode != "WSPR" && m_mode != "FST4W") return false;
+  return !(ui->DX_Call_Button->isChecked () && m_specOp == SpecOp::HOUND && m_config.superFox ()
+           && !m_bDoubleClicked && intent != TxEnableIntent::DecodedSelection);
+}
+
+bool MainWindow::prepareAutoTxEnable (TxControlOrigin origin, TxEnableIntent intent)
+{
+  if (!canEnableAutoTx (origin, intent)) return false;
+  cancelRigTune ();
+  if (m_config.prepare_radio_mode ()) return true;
+  updateRadioModeStatus ();
+  return false;
+}
+
+bool MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin, TxEnableIntent intent)
+{
+  if (checked && !prepareAutoTxEnable (origin, intent)) {
     ui->autoButton->setChecked (m_auto);
     return false;
-  };
-  if (checked && origin == TxControlOrigin::Automatic
-      && (m_pendingRigTune || rigTuneTimer.isActive ())) return rejectEnable ();
-  cancelRigTune ();
-  if (checked && ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return rejectEnable ();  // for Wait & Call
-  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return rejectEnable (); // not allowed while tuning
-  if (checked && ((origin == TxControlOrigin::Automatic && m_config.radio_mode_yielded ())
-                  || !m_config.prepare_radio_mode ()))
-    {
-      updateRadioModeStatus ();
-      return rejectEnable ();
-    }
+  }
+  if (!checked) cancelRigTune ();
+  return installAutoTxEnabled (checked);
+}
+
+bool MainWindow::installAutoTxEnabled (bool checked)
+{
   ui->autoButton->setChecked (checked);
   m_config.transceiver_tune (false);  // reset rig tuning
   if (checked) cancelWaitRetry (true);
