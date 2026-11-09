@@ -468,7 +468,8 @@ bool BestSPApplicationTestController::attemptArming (bool shortcut, QString cons
   return feedbackMatches (false, expectedFeedback);
 }
 
-bool BestSPApplicationTestController::feedbackMatches (bool armed, QString const& expected)
+bool BestSPApplicationTestController::feedbackMatches (
+  bool armed, QString const& expected, bool checkStatusMessage)
 {
   auto * button = window_->ui->pbBestSP;
   auto * accessible = QAccessible::queryAccessibleInterface (button);
@@ -477,9 +478,12 @@ bool BestSPApplicationTestController::feedbackMatches (bool armed, QString const
                   && accessible->state ().checked == armed,
                   "Controller, button, and accessible checked states diverged.")
     && require (button->accessibleDescription () == expected && button->statusTip () == expected
-                && accessible->text (QAccessible::Description) == expected
-                && window_->statusBar ()->currentMessage () == expected,
-                "The expected feedback or accessible description was replaced.");
+                && accessible->text (QAccessible::Description) == expected,
+                "The persistent feedback or accessible description was replaced.")
+    && (!checkStatusMessage
+        || require (window_->statusBar ()->currentMessage () == expected,
+                    QString {"Expected status message '%1', got '%2'."}
+                      .arg (expected, window_->statusBar ()->currentMessage ())));
 }
 
 bool BestSPApplicationTestController::competingCQSelections ()
@@ -652,11 +656,11 @@ bool BestSPApplicationTestController::settingsCQSelection ()
   if (!editWaitFeatures (true, false)
       || !require (!window_->m_config.Wait_features_enabled () && !pounce,
                    "Settings Cancel changed Wait features or Pounce intent.")
-      || !feedbackMatches (true, feedback)
+      || !feedbackMatches (true, feedback, false)
       || !editWaitFeatures (true, true)
       || !require (window_->m_config.Wait_features_enabled () && !pounce,
                    "Enabling Wait resurrected previously disarmed Pounce intent.")
-      || !feedbackMatches (true, feedback)
+      || !feedbackMatches (true, feedback, false)
       || !armPounce ()
       || !feedbackMatches (false, QCoreApplication::translate (
            "MainWindow", "Best S+P canceled: Wait & Pounce is active."))) return false;
@@ -870,6 +874,21 @@ bool BestSPApplicationTestController::feedbackLifecycle ()
   bool const feedbackRetained = feedbackMatches (false, selectedFeedback);
   window_->requestTxStop (TxEvidence::TxStopReason::UserHalt);
   m_txing = false;
+  auto const txStopped = [this] {
+    return !window_->m_tune && !window_->tuneButtonTimer.isActive ()
+      && !window_->ptt0Timer.isActive () && !window_->m_rigState.ptt ()
+      && !window_->m_rigState.tune ();
+  };
+  if (!txStopped ()) {
+    QEventLoop stopped;
+    auto const completed = [&] {if (txStopped ()) stopped.quit ();};
+    connect (&window_->tuneButtonTimer, &QTimer::timeout, &stopped, completed);
+    connect (&window_->ptt0Timer, &QTimer::timeout, &stopped, completed);
+    connect (&window_->m_config, &Configuration::transceiver_update, &stopped, completed);
+    QTimer::singleShot (2000, &stopped, &QEventLoop::quit);
+    stopped.exec ();
+  }
+  if (!require (txStopped (), "The synthetic Tune shutdown did not release the dummy radio PTT.")) return false;
   if (!require (txRequested, "The common TX-start request path was not exercised.")
       || !feedbackRetained) return false;
   std::cerr << "WSJT-X Best S+P integration: " << scenario_.toStdString () << " passed" << std::endl;

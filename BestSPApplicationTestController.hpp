@@ -47,7 +47,7 @@ private:
   bool competingCQSelections ();
   bool pounceSelections ();
   bool settingsCQSelection ();
-  bool feedbackMatches (bool armed, QString const& expected);
+  bool feedbackMatches (bool armed, QString const& expected, bool checkStatusMessage = true);
   bool feedbackLifecycle ();
   bool contextAndReplyPaths ();
   bool translatedSelections ();
