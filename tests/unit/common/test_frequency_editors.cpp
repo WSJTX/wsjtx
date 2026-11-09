@@ -319,12 +319,12 @@ void TestFrequencyEditors::frequency_list_rejects_invalid_enum_variants ()
   QSignalSpy changes {&frequencies, &QAbstractItemModel::dataChanged};
   for (auto const& value : {QVariant {}, QVariant {2}, QVariant {"Region 2"},
                            QVariant::fromValue (Modes::JT9),
-                           QVariant::fromValue (static_cast<IARURegions::Region> (-1)),
+                           QVariant {-1},
                            QVariant::fromValue (IARURegions::SENTINAL)})
     QVERIFY (!frequencies.setData (region, value, Qt::EditRole));
   for (auto const& value : {QVariant {}, QVariant {9}, QVariant {"FT4"},
                            QVariant::fromValue (IARURegions::R2),
-                           QVariant::fromValue (static_cast<Modes::Mode> (-1)),
+                           QVariant {-1},
                            QVariant::fromValue (Modes::MODES_END_SENTINAL_AND_COUNT)})
     QVERIFY (!frequencies.setData (mode, value, Qt::EditRole));
   QCOMPARE (region.data (Qt::EditRole).value<IARURegions::Region> (), IARURegions::R2);
