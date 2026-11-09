@@ -2,7 +2,39 @@
 #include <QBuffer>
 #include <QPointer>
 
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/sync_frontend.hpp>
+#include <boost/log/sinks/text_ostream_backend.hpp>
+#include <boost/make_shared.hpp>
+
+#include <sstream>
+
 #include "Audio/soundout.h"
+
+namespace
+{
+  class StartupLogCapture
+  {
+    using Sink = boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>;
+
+  public:
+    StartupLogCapture ()
+      : m_stream {boost::make_shared<std::ostringstream> ()}
+      , m_sink {boost::make_shared<Sink> ()}
+    {
+      m_sink->locked_backend ()->add_stream (m_stream);
+      m_sink->set_formatter (boost::log::expressions::stream << boost::log::expressions::smessage);
+      boost::log::core::get ()->add_sink (m_sink);
+    }
+    ~StartupLogCapture () {boost::log::core::get ()->remove_sink (m_sink);}
+    QString text () const {return QString::fromStdString (m_stream->str ());}
+
+  private:
+    boost::shared_ptr<std::ostringstream> m_stream;
+    boost::shared_ptr<Sink> m_sink;
+  };
+}
 
 class TestSoundOutput : public QObject
 {
@@ -40,6 +72,71 @@ private Q_SLOTS:
                               << int (TxEvidence::TxBackendError::Open);
     QTest::newRow ("fatal-start") << QStringLiteral ("fatal-start")
                                  << int (TxEvidence::TxBackendError::Fatal);
+  }
+
+  void startup_log_precedes_callbacks_and_retains_attempt_data ()
+  {
+    QTest::addColumn<QString> ("scenario");
+    QTest::addColumn<QString> ("phase");
+    QTest::newRow ("configuration") << QString {} << QStringLiteral ("configuration");
+    QTest::newRow ("construction") << QStringLiteral ("constructor-open") << QStringLiteral ("construction");
+    QTest::newRow ("silent-start") << QStringLiteral ("silent-open") << QStringLiteral ("start");
+    QTest::newRow ("synchronous-start") << QStringLiteral ("sync-open") << QStringLiteral ("start");
+    QTest::newRow ("queued-start") << QStringLiteral ("queued-open") << QStringLiteral ("start");
+  }
+
+  void startup_log_precedes_callbacks_and_retains_attempt ()
+  {
+    QFETCH (QString, scenario);
+    QFETCH (QString, phase);
+    StartupLogCapture capture;
+    SoundOutput output;
+    output.setFormat (scenario.isEmpty () ? QAudioDeviceInfo {} : device (scenario), 2, 128);
+    QBuffer source;
+    QVERIFY (source.open (QIODevice::ReadOnly));
+    bool loggedBeforeSnapshot {false};
+    bool loggedBeforeError {false};
+    connect (&output, &AudioOutputSink::rawTxPlayoutSnapshot, this,
+             [&] (TxEvidence::TxRawPlayoutSnapshot const& snapshot) {
+      if (snapshot.start_event && snapshot.context == context (41))
+        loggedBeforeSnapshot = capture.text ().count ("Audio output startup failed") == 1;
+    });
+    QSignalSpy errors {&output, &AudioOutputSink::error};
+    connect (&output, &AudioOutputSink::error, this,
+             [&] (TxEvidence::TxOutputError const& error) {
+      if (error.context != context (41)) return;
+      loggedBeforeError = capture.text ().count ("Audio output startup failed") == 1;
+      output.setFormat (device ("active"), 1);
+      output.restart (&source, context (42));
+    });
+
+    output.restart (&source, context (41));
+    output.reset ();
+    output.stop ();
+    QCoreApplication::processEvents ();
+
+    QVERIFY (loggedBeforeSnapshot);
+    QVERIFY (loggedBeforeError);
+    QCOMPARE (errors.count (), 1);
+    auto const text = capture.text ();
+    QCOMPARE (text.count ("Audio output startup failed"), 1);
+    QVERIFY (text.contains ("phase=" + phase));
+    QVERIFY (text.contains ("backend=qt-audio qt="));
+    QVERIFY (text.contains (" platform="));
+    QVERIFY (text.contains (" os_version="));
+    QVERIFY (text.contains (" buffer_frames=128"));
+    QVERIFY (text.contains (" state=" + QString::number (int (QAudio::StoppedState))));
+    QVERIFY (text.contains (" error=" + QString::number (int (QAudio::OpenError))));
+    QVERIFY (text.contains (" session=41 generation=41 backend_start_sequence=1"));
+    QVERIFY (!text.contains ("session=42"));
+    if (!scenario.isEmpty ())
+      {
+        QVERIFY (text.contains ("device=\"WSJTX test " + scenario + '"'));
+        QVERIFY (text.contains (" rate_hz=48000 channels=2 sample_bits=16"));
+        QVERIFY (text.contains (" sample_type=" + QString::number (int (QAudioFormat::SignedInt))));
+        QVERIFY (text.contains (" byte_order="));
+        QVERIFY (text.contains (" buffer_bytes=512"));
+      }
   }
 
   void failed_start_is_reported_before_cancellation ()
@@ -119,6 +216,8 @@ private Q_SLOTS:
     QTest::addColumn<bool> ("resetFromStatus");
     QTest::newRow ("failed-snapshot-reset") << QStringLiteral ("clear-reset-open") << false;
     QTest::newRow ("synchronous-status-reset") << QStringLiteral ("sync-clear-reset-open") << true;
+    QTest::newRow ("sticky-error-snapshot-reset") << QStringLiteral ("silent-open") << false;
+    QTest::newRow ("sticky-construction-snapshot-reset") << QStringLiteral ("constructor-open") << false;
   }
 
   void startup_failure_survives_reentrant_error_clearing ()
@@ -148,7 +247,7 @@ private Q_SLOTS:
     output.restart (&source, context ());
 
     QVERIFY (reset);
-    QCOMPARE (output.m_stream->error (), QAudio::NoError);
+    QCOMPARE (output.m_stream->error (), scenario.contains ("clear-reset") ? QAudio::NoError : QAudio::OpenError);
     QCOMPARE (errors.count (), 1);
     auto const error = qvariant_cast<TxEvidence::TxOutputError> (errors.front ().front ());
     QCOMPARE (error.context, context ());

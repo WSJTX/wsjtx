@@ -8911,9 +8911,11 @@ void MainWindow::beginTxEvidenceGeneration (qint64 committedEndSample, bool targ
   auto const sessionId = m_txEvidenceSourceSession;
   auto const generation = m_txEvidenceGeneration;
   auto const mode = m_mode;
-  QTimer::singleShot (0, this, [this, sessionId, generation, mode] {
-    LOG_INFO (QString ("TX playout evidence begin session=%1 generation=%2 mode=%3\n%4")
+  auto const tuning = m_tune;
+  QTimer::singleShot (0, this, [this, sessionId, generation, mode, tuning] {
+    LOG_INFO (QString ("TX playout evidence begin session=%1 generation=%2 mode=%3 tuning=%4\n%5")
               .arg (sessionId.value ()).arg (generation.value ()).arg (mode)
+              .arg (tuning)
               .arg (m_txPlaybackDiagnostics.diagnosticDump ()));
   });
 }

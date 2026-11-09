@@ -50,6 +50,8 @@ private:
 
   bool checkStream (bool startup = false);
   bool reportStreamError (QAudio::Error, bool startup = false);
+  void logStartupFailure (char const * phase, QAudioFormat const&, QAudio::State,
+                          QAudio::Error, QString const& diagnostic = {}) const;
   bool isCurrentStream (TxEvidence::TxPlaybackContext, qint64 sequence) const;
   TxEvidence::TxRawPlayoutSnapshot makeRawTxPlayoutSnapshot (bool startEvent = false) const;
   void publishRawTxPlayoutSnapshot (bool startEvent = false) const;

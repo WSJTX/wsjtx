@@ -55,6 +55,32 @@ bool SoundOutput::isCurrentStream (TxEvidence::TxPlaybackContext context, qint64
   return m_stream && context == m_context && sequence == m_backendStartSequence;
 }
 
+void SoundOutput::logStartupFailure (char const * phase, QAudioFormat const& format,
+                                    QAudio::State state, QAudio::Error streamError,
+                                    QString const& diagnostic) const
+{
+  auto deviceName = m_device.deviceName ();
+  deviceName.replace ('\n', ' ').replace ('\r', ' ');
+  LOG_ERROR ("Audio output startup failed phase=" << phase
+             << " backend=qt-audio qt=" << qVersion ()
+             << " platform=" << QSysInfo::productType ().toStdString ()
+             << " os_version=" << QSysInfo::productVersion ().toStdString ()
+             << " device=\"" << deviceName.toStdString () << '"'
+             << " rate_hz=" << format.sampleRate ()
+             << " channels=" << format.channelCount ()
+             << " sample_bits=" << format.sampleSize ()
+             << " sample_type=" << int (format.sampleType ())
+             << " byte_order=" << int (format.byteOrder ())
+             << " buffer_frames=" << m_framesBuffered
+             << " buffer_bytes=" << (m_framesBuffered > 0 && format.isValid ()
+                                      ? format.bytesForFrames (m_framesBuffered) : 0)
+             << " state=" << int (state) << " error=" << int (streamError)
+             << " session=" << m_context.session_id.value ()
+             << " generation=" << m_context.generation.value ()
+             << " backend_start_sequence=" << m_backendStartSequence
+             << " diagnostic=" << diagnostic.toStdString ());
+}
+
 bool SoundOutput::checkStream (bool startup)
 {
   if (!m_stream) return false;
@@ -122,9 +148,10 @@ void SoundOutput::restart (QIODevice * source, TxEvidence::TxPlaybackContext con
   m_startupError = QAudio::NoError;
   m_deferredStartupError = QAudio::NoError;
   QString failure;
+  QAudioFormat format;
   if (!m_device.isNull ())
     {
-      QAudioFormat format (m_device.preferredFormat ());
+      format = m_device.preferredFormat ();
       //  qDebug () << "Preferred audio output format:" << format;
       format.setChannelCount (m_channels);
       format.setCodec ("audio/pcm");
@@ -147,7 +174,11 @@ void SoundOutput::restart (QIODevice * source, TxEvidence::TxPlaybackContext con
           if (m_stream->error () != QAudio::NoError)
             {
               auto const streamError = m_stream->error ();
-              publishRawTxPlayoutSnapshot (true);
+              logStartupFailure ("construction", format, m_stream->state (), streamError);
+              {
+                QScopedValueRollback<qint64> starting {m_startingSequence, backendStartSequence};
+                publishRawTxPlayoutSnapshot (true);
+              }
               if (isCurrentStream (context, backendStartSequence)) reportStreamError (streamError, true);
               return;
             }
@@ -178,6 +209,7 @@ void SoundOutput::restart (QIODevice * source, TxEvidence::TxPlaybackContext con
     }
   if (!failure.isEmpty ())
     {
+      logStartupFailure ("configuration", format, QAudio::StoppedState, QAudio::OpenError, failure);
       publishUnavailableTxPlayoutSnapshot (true, failure);
       if (context == m_context && backendStartSequence == m_backendStartSequence)
         Q_EMIT error ({context, TxEvidence::TxBackendError::Open, failure});
@@ -208,7 +240,14 @@ void SoundOutput::restart (QIODevice * source, TxEvidence::TxPlaybackContext con
       snapshot.tier = TxEvidence::TxPlayoutTier::Unavailable;
       snapshot.available = false;
     }
-  Q_EMIT rawTxPlayoutSnapshot (snapshot);
+  if (streamError != QAudio::NoError && streamError != QAudio::UnderrunError)
+    logStartupFailure ("start", format,
+                       m_deferredStartupError != QAudio::NoError ? QAudio::StoppedState : m_stream->state (),
+                       streamError);
+  {
+    QScopedValueRollback<qint64> starting {m_startingSequence, backendStartSequence};
+    Q_EMIT rawTxPlayoutSnapshot (snapshot);
+  }
   if (isCurrentStream (context, backendStartSequence)) reportStreamError (streamError, true);
 //  LOG_DEBUG ("Selected buffer size (bytes): " << m_stream->bufferSize () << " period size: " << m_stream->periodSize ());
 }
