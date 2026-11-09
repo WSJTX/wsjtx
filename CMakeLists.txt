@@ -1267,6 +1267,36 @@ if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS AND NOT WIN32)
   endforeach ()
 endif ()
 
+# Windows shows message boxes instead; the macOS bundle is not covered here.
+if (WSJT_ENABLE_TESTS AND NOT WIN32 AND NOT APPLE)
+  set (wsjtx_cli_help_test_root "${CMAKE_BINARY_DIR}/Testing/Startup/test_wsjtx_cli_help")
+  file (MAKE_DIRECTORY
+    "${wsjtx_cli_help_test_root}/config"
+    "${wsjtx_cli_help_test_root}/data"
+    "${wsjtx_cli_help_test_root}/cache"
+    "${wsjtx_cli_help_test_root}/tmp")
+  set (wsjtx_cli_help_test_environment
+    "QT_QPA_PLATFORM=offscreen"
+    "XDG_CONFIG_HOME=${wsjtx_cli_help_test_root}/config"
+    "XDG_DATA_HOME=${wsjtx_cli_help_test_root}/data"
+    "XDG_CACHE_HOME=${wsjtx_cli_help_test_root}/cache"
+    "TMPDIR=${wsjtx_cli_help_test_root}/tmp"
+    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_cli_help")
+  if (WSJT_ENABLE_TSAN)
+    list (APPEND wsjtx_cli_help_test_environment "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
+  add_test (
+    NAME test_wsjtx_cli_help
+    COMMAND ${CMAKE_COMMAND} -DWSJTX=$<TARGET_FILE:wsjtx>
+      -P "${CMAKE_SOURCE_DIR}/test/wsjtx-cli-help.cmake"
+  )
+  set_tests_properties (test_wsjtx_cli_help PROPERTIES
+    ENVIRONMENT "${wsjtx_cli_help_test_environment}"
+    PROCESSORS 1
+    TIMEOUT 90
+  )
+endif ()
+
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
     AND WSJT_BUILD_FORTRAN_OPENMP
     AND (APPLE OR
