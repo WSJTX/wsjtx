@@ -585,6 +585,7 @@ void TCITransceiver::do_stop ()
   if (commander_)
   {
     if (inConnected) commander_->close(QWebSocketProtocol::CloseCodeNormal,"end");
+    inConnected = false;
     delete commander_, commander_ = nullptr;
     CAT_TRACE ("deleted commander & closed websocket & deleted:");
   }
