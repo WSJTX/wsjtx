@@ -102,6 +102,11 @@ condition is met. Be alert, and take any necessary precautions!
 
 image::wait1.png[align="center",alt="wait1"]
 
+Disabling *Enable Wait features* prevents new Wait-triggered transmissions. An
+unanswered automatic call already in progress retains its original retry
+limit. Use *Halt Tx* to cancel that attempt immediately. An established
+QSO continues under the normal sequencing controls.
+
 .Wait and Reply
 
 If a callsign is present in the *DX Call* field, *Wait and Reply* will
@@ -140,8 +145,14 @@ three times. Any manual intervention, such as pressing the *Halt Tx*
 or *Stop* buttons, will disable *Wait and Call* and give you the
 normal manual control over the QSO. CQ messages with a directional or
 contest qualifier, such as `CQ EU` or `CQ TEST`, can also trigger the
-call. Once the selected station answers you in a later receive period,
-the initial calling timeout no longer limits the continuing QSO.
+call. Once the selected station answers you,
+the initial calling timeout no longer limits the continuing QSO. In
+MSK144, a directed answer also disarms *Wait and Call* when the station
+answers before the first automatic call has been sent.
+
+In SuperHound operation, an eligible decoded Fox can trigger *Wait and
+Call* with *Quick Call* either enabled or disabled. Entering a Fox
+callsign alone does not enable transmission.
 
 .Wait and Pounce
 
