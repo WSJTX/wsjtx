@@ -2,6 +2,7 @@
 #define CONFIGURATION_HPP_
 
 #include <QObject>
+#include <functional>
 #include <QByteArray>
 #include <QFont>
 #include <QString>
@@ -16,6 +17,7 @@
 #include "Audio/AudioDevice.hpp"
 #include "Transceiver/Transceiver.hpp"
 #include "Network/CloudlogConfiguration.hpp"
+#include "logbook/HistoryFolder.hpp"
 
 // Qt 5 moc generates unqualified argument names for these value types.
 using TxSessionId = TxEvidence::TxSessionId;
@@ -203,6 +205,8 @@ public:
   QString cloudlog_api_url () const override;
   QString cloudlog_api_key () const override;
   qint32 cloudlog_api_station_id () const override;
+  bool cloudlog_radio_enabled () const override;
+  QString cloudlog_radio_name () const override;
   bool prompt_to_log () const;
   bool autoLog() const;
   bool contestingOnly() const;
@@ -284,6 +288,11 @@ public:
   Cloudlog const& cloudlog () const;
   DecodeHighlightingModel const& decode_highlighting () const;
   bool highlight_by_mode () const;
+  bool best_sp_new_dxcc () const;
+  bool best_sp_new_call_on_band () const;
+  QStringList const& supplemental_history_files () const;
+  HistoryFolders const& supplemental_history_folders () const;
+  void set_worked_before_status (QString const& status, QString const& errors);
   bool highlight_only_fields () const;
   bool include_WAE_entities () const;
   bool highlight_73 () const;
@@ -393,10 +402,22 @@ public:
 
   // Set transceiver frequency in Hertz.
   Q_SLOT bool transceiver_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
+  bool request_frequency (RigFrequency::Request const&, RigFrequencyChangePolicy::ChangeKind);
+  quint64 frequency_generation () const;
+  void set_frequency_activity_provider (std::function<RigFrequencyChangePolicy::Activity ()>);
+  Q_SIGNAL void frequency_result (RigFrequency::Result const&);
+  Q_SIGNAL void frequency_observation (RigFrequency::Evidence const&);
+  Q_SIGNAL void frequency_failure (QString const&);
 
   // Setting a non zero TX frequency means split operation
   // rationalise_mode means ensure TX uses same mode as RX.
   Q_SLOT bool transceiver_tx_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
+
+  // Request configured mode at the observed dial; readiness is asynchronous.
+  bool prepare_radio_mode ();
+  bool radio_mode_ready () const;
+  bool radio_mode_yielded () const;
+  Q_SIGNAL void radio_mode_control_changed (bool yielded, bool ready) const;
 
   // Set transceiver mode.
   Q_SLOT void transceiver_mode (MODE);
@@ -484,6 +505,8 @@ public:
   // signal updates to decode highlighting
   Q_SIGNAL void decode_highlighting_changed (DecodeHighlightingModel const&) const;
   Q_SIGNAL void decodes_from_top_changed (bool enabled) const;
+  Q_SIGNAL void supplemental_history_sources_changed () const;
+  Q_SIGNAL void worked_before_status_changed () const;
 
   //
   // These signals are emitted and reflect transceiver state changes

@@ -4,11 +4,13 @@
 #include <QCoreApplication>
 #include <QDialog>
 #include <QDir>
+#include <QFile>
 #include <QMouseEvent>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QScrollBar>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -16,6 +18,7 @@
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QToolButton>
+#include <QTranslator>
 
 #include <memory>
 
@@ -23,6 +26,9 @@
 #include "Configuration.hpp"
 #include "MetaDataRegistry.hpp"
 #include "JttyReceiveLine.hpp"
+#include "Decoder/decodedtext.h"
+#include "logbook/logbook.h"
+#include "models/DecodeHighlightingModel.hpp"
 #include "widgets/JttyMessages.hpp"
 #include "widgets/displaytext.h"
 
@@ -121,12 +127,21 @@ private:
     QApplication::processEvents ();
   }
 
-  void createConfiguration (bool decodes_from_top)
+  void createConfiguration (bool decodes_from_top, bool include_wae = false, bool show_countries = false)
   {
     configuration_.reset ();
     settings_.reset (new QSettings {directory_.filePath ("settings.ini"), QSettings::IniFormat});
     settings_->clear ();
     settings_->setValue ("Configuration/DecodesFromTop", decodes_from_top);
+    settings_->setValue ("Configuration/IncludeWAEEntities", include_wae);
+    settings_->setValue ("Configuration/AlwaysShowCountryNames", show_countries);
+    if (show_countries)
+      {
+        auto highlights = DecodeHighlightingModel::default_items ();
+        for (auto& highlight : highlights)
+          highlight.enabled_ = highlight.type_ == DecodeHighlightingModel::Highlight::CQ;
+        settings_->setValue ("Configuration/DecodeHighlighting", QVariant::fromValue (highlights));
+      }
     settings_->sync ();
     configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
   }
@@ -176,12 +191,213 @@ private:
   }
 
 private slots:
+  void workedFactsRespectSharedMatchingOptions_data ()
+  {
+    QTest::addColumn<bool> ("byMode");
+    QTest::addColumn<bool> ("includeWae");
+    for (bool byMode : {false, true})
+      for (bool includeWae : {false, true})
+        QTest::newRow (qPrintable (QString {"mode-%1-wae-%2"}.arg (byMode).arg (includeWae)))
+          << byMode << includeWae;
+  }
+
+  void workedFactsRespectSharedMatchingOptions ()
+  {
+    QFETCH (bool, byMode);
+    QFETCH (bool, includeWae);
+    createConfiguration (false, includeWae);
+    configuration_.reset ();
+    settings_->setValue ("Configuration/HighlightByMode", byMode);
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    LogBook logbook {configuration_.get ()};
+    QSignalSpy loaded {&logbook, &LogBook::finished_loading};
+    QTRY_VERIFY (!loaded.isEmpty ());
+    QVERIFY (logbook.add ("TA2ABC", "KN40", "20m", "FT8", QByteArray {}));
+
+    auto const sameCall = classifyDecode (DecodedText {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"},
+                                           "FT4", "20m", logbook);
+    QVERIFY (sameCall.workedOnBand);
+    QCOMPARE (sameCall.workedOnBand->call, !byMode);
+    auto const otherEntity = classifyDecode (DecodedText {"060522 -10  0.3  815 ~ CQ TA1ABC KN40"},
+                                              "FT4", "20m", logbook);
+    QVERIFY (otherEntity.worked);
+    QCOMPARE (otherEntity.worked->entity, !byMode && !includeWae);
+  }
+
+  void japaneseCatalogPreservesDecodeFacts ()
+  {
+    createConfiguration (false);
+    LogBook logbook {configuration_.get ()};
+    QSignalSpy loaded {&logbook, &LogBook::finished_loading};
+    QTRY_VERIFY (!loaded.isEmpty ());
+    DecodedText cq {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"};
+    auto const original = classifyDecode (cq, "FT4", "20m", logbook);
+    QTranslator translator;
+    QVERIFY (translator.load (QString::fromUtf8 (WSJT_JAPANESE_QM)));
+    QCoreApplication::installTranslator (&translator);
+    QVERIFY (DecodeHighlightingModel::highlight_name (DecodeHighlightingModel::Highlight::DXCC) != "New DXCC");
+    auto const translated = classifyDecode (cq, "FT4", "20m", logbook);
+    QCOMPARE (translated.sender, original.sender);
+    QCOMPARE (translated.grid, original.grid);
+    QVERIFY (translated.highlights == original.highlights);
+    QCOMPARE (translated.worked->entity, original.worked->entity);
+    QCOMPARE (translated.workedOnBand->call, original.workedOnBand->call);
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m",
+                                         false, false, false, 0.0, false, -99, {}, false, &translated));
+    auto const withFacts = display.toPlainText ();
+    display.clear ();
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    QCOMPARE (display.toPlainText (), withFacts);
+    QCoreApplication::removeTranslator (&translator);
+  }
+
+  void classificationUsesIdentityAndHasNoWidgetHistory ()
+  {
+    class Translator final : public QTranslator
+    {
+      QString translate (char const *, char const * source, char const *, int) const override
+      {
+        return QString {source}.startsWith ("New ") ? QStringLiteral ("Duplicate translated label") : QString {};
+      }
+    } translator;
+    createConfiguration (false);
+    LogBook logbook {configuration_.get ()};
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    DecodedText cq {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"};
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    auto const facts = classifyDecode (cq, "FT4", "20m", logbook);
+    QVERIFY (facts.worked);
+    auto const original = display.toPlainText ();
+    QCoreApplication::installTranslator (&translator);
+    QCOMPARE (DecodeHighlightingModel::highlight_name (DecodeHighlightingModel::Highlight::DXCC),
+              QStringLiteral ("Duplicate translated label"));
+    display.clear ();
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    auto const translated = classifyDecode (cq, "FT4", "20m", logbook);
+    QVERIFY (translated.highlights == facts.highlights);
+    QCOMPARE (translated.sender, facts.sender);
+    QCOMPARE (translated.grid, facts.grid);
+    QCOMPARE (translated.worked->entity, facts.worked->entity);
+    QCOMPARE (translated.workedOnBand->call, facts.workedOnBand->call);
+    QCOMPARE (display.toPlainText (), original);
+    DecodedText reply {"060522 -10  0.3  815 ~ W1AAA TA2ABC -10"};
+    QVERIFY (!display.displayDecodedText (reply, "W1AAA", "FT4", true, logbook, "20m", false, true));
+    auto const missing = classifyDecode (DecodedText {"."}, "FT4", "20m", logbook);
+    QVERIFY (!missing.worked);
+    QVERIFY (!missing.workedOnBand);
+    QVERIFY (missing.highlights.empty ());
+    QVERIFY (missing.sender.isEmpty ());
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", false, logbook, "20m"));
+    QCoreApplication::removeTranslator (&translator);
+  }
+
+  void workedStatusDoesNotFollowWinningHighlight ()
+  {
+    createConfiguration (false);
+    configuration_.reset ();
+    auto highlights = DecodeHighlightingModel::default_items ();
+    for (auto& highlight : highlights)
+      highlight.enabled_ = highlight.type_ == DecodeHighlightingModel::Highlight::DXCC
+        || highlight.type_ == DecodeHighlightingModel::Highlight::CQ;
+    settings_->setValue ("Configuration/DecodeHighlighting", QVariant::fromValue (highlights));
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    LogBook logbook {configuration_.get ()};
+    QSignalSpy loaded {&logbook, &LogBook::finished_loading};
+    QTRY_VERIFY (!loaded.isEmpty ());
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    DecodedText cq {"060522 -10  0.3  815 ~ CQ TA2ABC KN40"};
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    auto facts = classifyDecode (cq, "FT4", "20m", logbook);
+    auto priority = [&] {
+      return DecodeHighlightingModel::resolve_colors (highlights, facts.highlights, {}, {}).type_;
+    };
+    QVERIFY (priority () == DecodeHighlightingModel::Highlight::DXCC);
+    QVERIFY (facts.workedOnBand);
+    QVERIFY (!facts.workedOnBand->call);
+    QVERIFY (logbook.add ("TA2ABC", "KN40", "20m", "FT4", QByteArray {}));
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "20m"));
+    facts = classifyDecode (cq, "FT4", "20m", logbook);
+    QVERIFY (priority () == DecodeHighlightingModel::Highlight::CQ);
+    QVERIFY (facts.workedOnBand->call);
+    QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", true, logbook, "40m"));
+    facts = classifyDecode (cq, "FT4", "40m", logbook);
+    QVERIFY (!facts.workedOnBand->call);
+    facts = classifyDecode (cq, "FT4", "", logbook);
+    QVERIFY (!facts.workedOnBand);
+  }
+
   void initTestCase ()
   {
     register_types ();
     QStandardPaths::setTestModeEnabled (true);
     QCoreApplication::setApplicationName ("test_displaytext");
     QVERIFY (directory_.isValid ());
+    QDir data_dir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
+    QVERIFY (QDir {}.mkpath (data_dir.path ()));
+    QFile countries {data_dir.filePath ("cty.dat")};
+    QVERIFY (countries.open (QIODevice::WriteOnly | QIODevice::Text));
+    QByteArray const contents {
+      "Asiatic Turkey:20:39:AS:39:-35:-3:TA\nTA;\n"
+      "European Turkey:20:39:EU:41:-28:-3:*TA1\nTA1;\n"
+      "Asiatic Russia:17:30:AS:55:-80:-6:UA9\nUA9;\n"};
+    QCOMPARE (countries.write (contents), qint64 {contents.size ()});
+  }
+
+  void cleanupTestCase ()
+  {
+    configuration_.reset ();
+    QFile::remove (QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.filePath ("cty.dat"));
+  }
+
+  void countryLabelsRespectEntityView_data ()
+  {
+    QTest::addColumn<bool> ("include_wae");
+    QTest::addColumn<bool> ("cq");
+    QTest::addColumn<bool> ("principal_prefix");
+    QTest::addColumn<QString> ("call");
+    QTest::addColumn<QString> ("expected");
+    for (bool include_wae : {false, true})
+      for (bool cq : {false, true})
+        for (bool principal_prefix : {false, true})
+          for (auto const * call : {"TA1ABC", "TA2ABC", "UA9ABC"})
+            {
+              bool const european_turkey = QString {call}.startsWith ("TA1");
+              bool const russia = QString {call}.startsWith ("UA9");
+              QString const expected = principal_prefix
+                ? (russia ? "UA9" : include_wae && european_turkey ? "TA1" : "TA")
+                : (russia ? "AS Russia" : !include_wae ? "Turkey" : european_turkey ? "EU Turkey" : "AS Turkey");
+              auto const row = QString {"%1-%2-%3-%4"}.arg (include_wae ? "WAE" : "DXCC")
+                .arg (cq ? "CQ" : "reply").arg (principal_prefix ? "prefix" : "name").arg (call);
+              QTest::newRow (qPrintable (row)) << include_wae << cq << principal_prefix << QString {call} << expected;
+            }
+  }
+
+  void countryLabelsRespectEntityView ()
+  {
+    QFETCH (bool, include_wae);
+    QFETCH (bool, cq);
+    QFETCH (bool, principal_prefix);
+    QFETCH (QString, call);
+    QFETCH (QString, expected);
+    createConfiguration (false, include_wae, true);
+    LogBook logbook {configuration_.get ()};
+    DecodedText decoded {QString {"060522 -10  0.3  815 ~ %1 %2 %3"}
+      .arg (cq ? "CQ" : "W1AAA").arg (call).arg (cq ? "KN40" : "-10")};
+    QString sender;
+    QString grid;
+    decoded.deCallAndGrid (sender, grid);
+    QCOMPARE (sender, call);
+
+    DisplayText display;
+    display.set_configuration (configuration_.get ());
+    QVERIFY (display.displayDecodedText (decoded, "W1AAA", "FT8", true, logbook, "20m", principal_prefix));
+    auto const rendered = display.toPlainText ();
+    QVERIFY (rendered.startsWith (decoded.string ()));
+    QCOMPARE (rendered.mid (decoded.string ().size ()).trimmed (), expected);
   }
 
   void jttyTransmitHighlightDoesNotLeakIntoNewLines_data ()

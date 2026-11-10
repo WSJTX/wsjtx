@@ -11,7 +11,7 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
   real, target, intent(in) :: residual(180000)
   include 'ft8_params.f90'
   complex cx(0:NH1)
-  real, save :: s(NH1,NHSYM)
+  real, allocatable, save :: s(:,:)
   !$omp threadprivate(s)
   real x(NFFT1),sync2d(NH1,jzb:jzt),red(NH1),candidate0(5,450),candidate(4,460),tall(30),freq,rcandthin,dtcenter
   real candidate_sync(450),baseline_sum
@@ -64,6 +64,8 @@ subroutine sync8var(residual,nfa,nfb,syncmin,nfqso,candidate,ncand,jzb,jzt,ipass
     call coarse_cache_lookup(cache_epoch,cache_generation,cache_fields,red,jpeak,redcq,cache_hit)
     if(cache_hit) goto 800
   endif
+
+  if(.not.allocated(s)) allocate(s(NH1,NHSYM))
 
   if(ipass.eq.1 .or. ipass.eq.4 .or. ipass.eq.7) then
     do j=1,NHSYM

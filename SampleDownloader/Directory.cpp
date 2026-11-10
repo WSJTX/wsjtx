@@ -15,10 +15,10 @@
 #include <QJsonParseError>
 #include <QJsonArray>
 #include <QJsonObject>
-#include <QRegularExpression>
 
 #include "Configuration.hpp"
 #include "DirectoryNode.hpp"
+#include "EntryName.hpp"
 #include "FileNode.hpp"
 #include "revision_utils.hpp"
 #include "widgets/MessageBox.hpp"
@@ -102,7 +102,8 @@ bool Directory::refresh ()
   root_dir_ = configuration_->save_directory ();
   QDir contents_dir {root_dir_.absoluteFilePath (samples_dir_name)};
   contents_.local_file_path (contents_dir.absoluteFilePath (contents_file_name));
-  QUrl url {url_root_.resolved (QDir {root_dir_.relativeFilePath (samples_dir_name)}.filePath (contents_file_name))};
+  auto const relative_path = QDir {samples_dir_name}.filePath (contents_file_name);
+  QUrl url {sample_downloader::entry_url (url_root_, relative_path)};
   if (url.isValid ())
     {
       return contents_.sync (url, true, true); // attempt to fetch contents
@@ -144,7 +145,12 @@ void Directory::download_finished (bool success)
           parent = new DirectoryNode {parent, samples_dir_name};
           parent->setIcon (0, dir_icon_);
           parent->setExpanded (true);
-          parse_entries (content.array (), root_dir_.relativeFilePath (samples_dir_name), parent);
+          auto const rejected = parse_entries (content.array (), QDir {samples_dir_name}, parent);
+          if (rejected)
+            {
+              MessageBox::warning_message (this, tr ("JSON Error")
+                                           , tr ("Invalid contents entries ignored: %1").arg (rejected));
+            }
         }
       else
         {
@@ -157,9 +163,12 @@ void Directory::download_finished (bool success)
     }
 }
 
-void Directory::parse_entries (QJsonArray const& entries, QDir const& dir, QTreeWidgetItem * parent)
+int Directory::parse_entries (QJsonArray const& entries, QDir const& dir, QTreeWidgetItem * parent)
 {
-  if (dir.isRelative () && !dir.path ().startsWith ('.'))
+  int rejected {0};
+  if (dir.isRelative ()
+      && (dir.path () == samples_dir_name
+          || dir.path ().startsWith (QString {samples_dir_name} + '/')))
     {
       for (auto const& value: entries)
         {
@@ -167,16 +176,17 @@ void Directory::parse_entries (QJsonArray const& entries, QDir const& dir, QTree
             {
               auto const& entry = value.toObject ();
               auto const& name = entry["name"].toString ();
-              if (name.size () && !name.contains (QRegularExpression {R"([/:;])"}))
+              auto const relative_path = sample_downloader::relative_entry_path (dir, name);
+              if (!relative_path.isEmpty ())
                 {
                   auto const& type = entry["type"].toString ();
                   if ("file" == type)
                     {
-                      QUrl url {url_root_.resolved (dir.filePath (name))};
+                      QUrl url {sample_downloader::entry_url (url_root_, relative_path)};
                       if (url.isValid ())
                         {
                           auto node = new FileNode {parent, network_manager_
-                                                    , QDir {root_dir_.filePath (dir.path ())}.absoluteFilePath (name)
+                                                    , root_dir_.absoluteFilePath (relative_path)
                                                     , url};
                           FileNode::sync_blocker b {node};
                           node->setIcon (0, file_icon_);
@@ -185,54 +195,45 @@ void Directory::parse_entries (QJsonArray const& entries, QDir const& dir, QTree
                         }
                       else
                         {
-                          MessageBox::warning_message (this
-                                                       , tr ("URL Error")
-                                                       , tr ("Invalid URL:\n\"%1\"")
-                                                       .arg (url.toDisplayString ()));
+                          ++rejected;
                         }
                     }
                   else if ("directory" == type)
                     {
+                      auto const& child_entries = entry["entries"];
+                      if (child_entries.isArray ())
+                        {
                           auto node = new DirectoryNode {parent, name};
                           node->setIcon (0, dir_icon_);
-                          auto const& entries = entry["entries"];
-                          if (entries.isArray ())
-                            {
-                              parse_entries (entries.toArray ()
-                                             , QDir {root_dir_.relativeFilePath (dir.path ())}.filePath (name)
-                                             , node);
-                            }
-                          else
-                            {
-                              MessageBox::warning_message (this, tr ("JSON Error")
-                                                           , tr ("Contents entries must be a JSON array"));
-                            }
+                          rejected += parse_entries (child_entries.toArray ()
+                                                     , QDir {relative_path}, node);
+                        }
+                      else
+                        {
+                          ++rejected;
+                        }
                     }
                   else
                     {
-                      MessageBox::warning_message (this, tr ("JSON Error")
-                                                   , tr ("Contents entries must have a valid type"));
+                      ++rejected;
                     }
                 }
               else
                 {
-                  MessageBox::warning_message (this, tr ("JSON Error")
-                                               , tr ("Contents entries must have a valid name"));
+                  ++rejected;
                 }
             }
           else
             {
-              MessageBox::warning_message (this, tr ("JSON Error")
-                                           , tr ("Contents entries must be JSON objects"));
+              ++rejected;
             }
         }
     }
   else
     {
-      MessageBox::warning_message (this, tr ("JSON Error")
-                                   , tr ("Contents directories must be relative and within \"%1\"")
-                                   .arg (samples_dir_name));
+      rejected += entries.size ();
     }
+  return rejected;
 }
 
 void Directory::abort ()

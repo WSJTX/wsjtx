@@ -7,7 +7,7 @@ subroutine fftbig(dd,nmax)
   use FFTW3
   use timer_module, only: timer
   use cacb_mod, only: ca, init_cacb, free_cacb
-  parameter (MAXFFT1=5376000)
+  use qmap_params, only: nfft_big_active, nrate_active
   real*4  dd(2,nmax)                         !Input data
   real*8 df
   type(C_PTR) :: plan1                       !Pointer to FFTW plan
@@ -18,7 +18,7 @@ subroutine fftbig(dd,nmax)
 
   if(nmax.lt.0) go to 900
 
-  nfft1=MAXFFT1
+  nfft1=nfft_big_active                      !56*nrate_active
   call init_cacb(nfft1)
   if(first) then
      nflags=FFTW_ESTIMATE
@@ -31,7 +31,7 @@ subroutine fftbig(dd,nmax)
      call timer('FFTplan ',0)
      plan1=fftwf_plan_dft_1d(nfft1,ca,ca,+1,nflags)
      call timer('FFTplan ',1)
-     df=96000.d0/nfft1
+     df=real(nrate_active,8)/nfft1
      first=.false.
   endif
 

@@ -785,10 +785,16 @@ QVariant FrequencyList_v2_101::impl::data (QModelIndex const& index, int role) c
           switch (role)
             {
             case SortRole:
-            case Qt::DisplayRole:
-            case Qt::EditRole:
-            case Qt::AccessibleTextRole:
               item = IARURegions::name (frequency_item.region_);
+              break;
+
+            case Qt::EditRole:
+              item = QVariant::fromValue (frequency_item.region_);
+              break;
+
+            case Qt::DisplayRole:
+            case Qt::AccessibleTextRole:
+              item = IARURegions::display_name (frequency_item.region_);
               break;
 
             case Qt::ToolTipRole:
@@ -807,9 +813,12 @@ QVariant FrequencyList_v2_101::impl::data (QModelIndex const& index, int role) c
             {
             case SortRole:
             case Qt::DisplayRole:
-            case Qt::EditRole:
             case Qt::AccessibleTextRole:
               item = Modes::name (frequency_item.mode_);
+              break;
+
+            case Qt::EditRole:
+              item = QVariant::fromValue (frequency_item.mode_);
               break;
 
             case Qt::ToolTipRole:
@@ -1088,7 +1097,9 @@ bool FrequencyList_v2_101::impl::setData (QModelIndex const& model_index, QVaria
         {
           case region_column:
             {
-              auto region = IARURegions::value(value.toString());
+              if (value.userType () != qMetaTypeId<IARURegions::Region> ()) return false;
+              auto const region = value.value<IARURegions::Region> ();
+              if (region < IARURegions::ALL || region >= IARURegions::SENTINAL) return false;
               if (region != item.region_)
                 {
                   item.region_ = region;
@@ -1100,7 +1111,9 @@ bool FrequencyList_v2_101::impl::setData (QModelIndex const& model_index, QVaria
 
           case mode_column:
             {
-              auto mode = Modes::value(value.toString());
+              if (value.userType () != qMetaTypeId<Modes::Mode> ()) return false;
+              auto const mode = value.value<Modes::Mode> ();
+              if (mode < Modes::ALL || mode >= Modes::MODES_END_SENTINAL_AND_COUNT) return false;
               if (mode != item.mode_)
                 {
                   item.mode_ = mode;

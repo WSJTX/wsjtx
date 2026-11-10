@@ -5,13 +5,14 @@ program test_qmap_q65_connection
   use qmap_decode_ipc, only: ndecodes, result
   use q65_decode, only: msg0, nfreq0, nsnr0, xdt0
   use timer_impl, only: init_timer, fini_timer
+  use qmap_params, only: MAX_NSMAX, MAX_NFFT
   implicit none
 
   integer, parameter :: nfft=32768, nsmax=5760000, sample_rate=96000
   integer, parameter :: max_candidates=50
   real(real64), parameter :: sync_hz=16817.0_real64*sample_rate/nfft
   real(real64), parameter :: twopi=2.0_real64*acos(-1.0_real64)
-  real :: dd(2,nsmax),ss(400,nfft),savg(nfft)
+  real :: dd(2,MAX_NSMAX),ss(400,MAX_NFFT),savg(MAX_NFFT)
   real(real64) :: fcenter
   integer :: nutc
   integer :: junk(42)
@@ -46,8 +47,9 @@ program test_qmap_q65_connection
   allocate(seed(seed_size))
   seed=104729
   call random_seed(put=seed)
-  call random_number(dd)
-  dd=2.0*(dd-0.5)
+  dd=0.0
+  call random_number(dd(:,1:nsmax))
+  dd(:,1:nsmax)=2.0*(dd(:,1:nsmax)-0.5)
   ss=0.0
   savg=0.0
   fcenter=144.125_real64
@@ -78,7 +80,7 @@ program test_qmap_q65_connection
   enddo
   call require(ihsym==390, 'complete QMAP symbol spectra')
 
-  savg_fresh=savg
+  savg_fresh=savg(1:nfft)
   also30=period==30
   call getcand2(ss,savg_fresh,nts_q65,1,ihsym,0,0,15,real(sync_hz/1000.0_real64), &
        also30,cand,ncand)

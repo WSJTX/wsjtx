@@ -8,6 +8,8 @@
 namespace
 {
   constexpr int minor_tick_interval = 50;
+  // Minimum HSL lightness difference (0-255) between scale and background.
+  constexpr int min_scale_contrast = 40;
 }
 
 TxDriveSlider::TxDriveSlider (QWidget * parent)
@@ -18,6 +20,21 @@ TxDriveSlider::TxDriveSlider (QWidget * parent)
   setTickPosition (QSlider::TicksRight);
   setTickInterval (minor_tick_interval);
 #endif
+}
+
+QColor TxDriveSlider::scaleColor (QPalette const& palette)
+{
+  // Some application styles use an accent color for Mid. This scale conveys
+  // attenuation positions, not a filled level, so retain its lightness while
+  // removing hue and saturation. A light desktop palette can put Mid too near
+  // the window background for the translucent scale to show, so fall back to
+  // the text color there.
+  auto lightness = palette.color (QPalette::Mid).lightness ();
+  if (qAbs (lightness - palette.color (QPalette::Window).lightness ()) < min_scale_contrast)
+    {
+      lightness = palette.color (QPalette::WindowText).lightness ();
+    }
+  return QColor::fromHsl (0, 0, lightness);
 }
 
 QSize TxDriveSlider::sizeHint () const
@@ -84,11 +101,7 @@ void TxDriveSlider::paintEvent (QPaintEvent * event)
 
   QPainter painter {this};
 
-  auto const palette_mid = palette ().color (QPalette::Mid);
-  // Some application styles use an accent color for Mid. This scale conveys
-  // attenuation positions, not a filled level, so retain its lightness while
-  // removing hue and saturation.
-  auto const neutral_mid = QColor::fromHsl (0, 0, palette_mid.lightness ());
+  auto const neutral_mid = scaleColor (palette ());
   auto groove_color = neutral_mid;
   groove_color.setAlpha (120);
   painter.setRenderHint (QPainter::Antialiasing, true);

@@ -29,6 +29,11 @@ on:
         required: false
         type: boolean
         default: false
+      image_tag:
+        description: "Immutable Linux candidate/build image tag; empty uses the validated generation"
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets }}-${{ inputs.mode }}
@@ -45,6 +50,8 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
+      runtime_matrix: ${{ steps.runtime-matrix.outputs.matrix }}
+      validate_linux: ${{ steps.runtime-matrix.outputs.enabled }}
     steps:
       - uses: actions/checkout@v7
       - id: v
@@ -57,7 +64,45 @@ jobs:
         name: Resolve Linux CI image generation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .github/scripts/resolve-linux-ci-image-tag.py
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [ -n "$REQUESTED_TAG" ]; then
+            IMAGE_TAG="$REQUESTED_TAG" .github/scripts/validate-ci-inputs.sh
+            if [[ ! "$REQUESTED_TAG" =~ ^(candidate-[0-9]+-[0-9]+|(validated-)?build-[0-9]{8}-[0-9]+-[0-9]+)$ ]]; then
+              echo "::error::image_tag must identify an immutable candidate or build generation"
+              exit 2
+            fi
+            echo "image_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          else
+            .github/scripts/resolve-linux-ci-image-tag.py
+          fi
+      - id: runtime-matrix
+        name: Select clean Linux installation checks
+        env:
+          TARGETS: ${{ inputs.targets }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          rows = []
+          targets = os.environ["TARGETS"]
+          for arch, target, runner in (
+              ("x86_64", "linux-x64", "ubuntu-24.04"),
+              ("aarch64", "linux-arm64", "ubuntu-24.04-arm"),
+          ):
+              if targets not in (target, "all") and not (arch == "x86_64" and os.environ["MODE"] == "linux-smoke-first"):
+                  continue
+              images = [("ubuntu", "24.04", "deb"), ("ubuntu", "26.10", "deb"), ("fedora", "44", "rpm")]
+              if arch == "aarch64":
+                  images.append(("debian", "12", "deb"))
+              for distro, version, package_format in images:
+                  rows.append(dict(arch=arch, runner=runner, distro=f"{distro}-{version}",
+                                   image=f"{distro}:{version}", format=package_format))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print("matrix=" + json.dumps({"include": rows}), file=output)
+              print("enabled=" + str(bool(rows)).lower(), file=output)
+          PY
 
   # In linux-smoke-first mode, this is both the cheap gate and a normal Linux
   # x64 artifact build. Do not also run linux-x64 for the same dispatch.
@@ -159,3 +204,61 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       recache: ${{ inputs.recache }}
+
+  linux-clean-install:
+    needs: [prepare, linux-smoke-x64, linux-x64, linux-arm64]
+    if: >-
+      always() && !cancelled() && needs.prepare.result == 'success' &&
+      needs.prepare.outputs.validate_linux == 'true' &&
+      (needs.linux-smoke-x64.result == 'success' || needs.linux-smoke-x64.result == 'skipped') &&
+      (needs.linux-x64.result == 'success' || needs.linux-x64.result == 'skipped') &&
+      (needs.linux-arm64.result == 'success' || needs.linux-arm64.result == 'skipped')
+    name: Clean ${{ matrix.distro }} ${{ matrix.arch }} install
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.runtime_matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download native package
+        uses: actions/download-artifact@v8
+        with:
+          name: wsjtx-${{ needs.prepare.outputs.version }}-linux-${{ matrix.arch }}-${{ matrix.format }}
+          path: packages
+      - name: Download AppImage
+        uses: actions/download-artifact@v8
+        with:
+          name: wsjtx-${{ needs.prepare.outputs.version }}-linux-${{ matrix.arch }}-AppImage
+          path: appimages
+      - name: Install and exercise packaged applications in a clean distribution
+        env:
+          DISTRO: ${{ matrix.distro }}
+          IMAGE: ${{ matrix.image }}
+          ARCH: ${{ matrix.arch }}
+          PACKAGE_FORMAT: ${{ matrix.format }}
+        run: |
+          mkdir -p install-logs
+          packages=(packages/*."$PACKAGE_FORMAT")
+          appimages=(appimages/*.AppImage)
+          if [ "${#packages[@]}" -ne 1 ] || [ ! -f "${packages[0]}" ] ||
+             [ "${#appimages[@]}" -ne 1 ] || [ ! -f "${appimages[0]}" ]; then
+            echo "::error::Expected exactly one native package and one AppImage"
+            exit 1
+          fi
+          docker pull "$IMAGE"
+          docker image inspect "$IMAGE" > install-logs/container-image.json
+          docker run --rm \
+            -v "$PWD/packages:/packages:ro" \
+            -v "$PWD/appimages:/appimages:ro" \
+            -v "$PWD/.github/scripts:/validation:ro" \
+            -v "$PWD/install-logs:/logs" \
+            "$IMAGE" bash /validation/validate-linux-package-install.sh \
+            "/${packages[0]}" "$DISTRO" "$ARCH" /logs "/${appimages[0]}"
+      - name: Upload clean installation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-clean-install-${{ matrix.distro }}-${{ matrix.arch }}
+          path: install-logs/
+          if-no-files-found: warn

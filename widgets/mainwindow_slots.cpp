@@ -4,6 +4,7 @@
 #include <QUrl>
 #include <QDateTime>
 #include <QTimer>
+#include <QSignalBlocker>
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
@@ -13,13 +14,11 @@
 #include <QSettings>
 #include <QtMath>
 #include "MessageBox.hpp"
-#include "DecodedMessageReaction.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "commons.h"
 #include "echograph.h"
 #include "widegraph.h"
 #include "messageaveraging.h"
-#include "logqso.h"
 
 using SpecOp = Configuration::SpecialOperatingActivity;
 
@@ -79,10 +78,17 @@ void MainWindow::on_monitorButton_clicked (bool checked)
   if (!m_transmitting) {
     if (checked)
       {
+        if (m_config.radio_mode_yielded ())
+          {
+            applyMonitorEffects (true, false);
+            return;
+          }
+        auto const online = m_config.transceiver_online ();
+        m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation (), online);
         auto const transition = m_operatingFrequency.enableMonitor (
-          operatingFrequencyContext (), [this] (Frequency corrected) {
-            return dispatchNominalFrequency (corrected, FrequencyRequestOrigin::User, true);
-          });
+          operatingFrequencyContext (), [this] (RigFrequency::Request const& request) {
+            return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
+          }, online);
         applyOperatingFrequencyTransition (transition);
         applyMonitorEffects (true, transition.restorationAccepted);
       }
@@ -116,9 +122,25 @@ void MainWindow::applyMonitorEffects (bool checked, bool restored)
 
 void MainWindow::on_autoButton_clicked (bool checked)
 {
-  if (ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
-  m_config.transceiver_tune (false);  // reset rig tuning
+  setAutoTxEnabled (checked, TxControlOrigin::Local);
+}
+
+void MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
+{
+  if (checked && origin == TxControlOrigin::Automatic
+      && (m_pendingRigTune || rigTuneTimer.isActive ())) return;
+  cancelRigTune ();
+  if (checked && ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
   if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return; // not allowed while tuning
+  if (checked && ((origin == TxControlOrigin::Automatic && m_config.radio_mode_yielded ())
+                  || !m_config.prepare_radio_mode ()))
+    {
+      ui->autoButton->setChecked (false);
+      updateRadioModeStatus ();
+      return;
+    }
+  ui->autoButton->setChecked (checked);
+  m_config.transceiver_tune (false);  // reset rig tuning
   stopWRTimer.stop();                                       // stop any Wait & Reply timeout
   if (!checked && ui->DX_Call_Button->isChecked()) {
       stopWCTimer.stop();                                   // stop any Wait & Call timeout
@@ -128,10 +150,15 @@ void MainWindow::on_autoButton_clicked (bool checked)
   m_specOp=m_config.special_op_id();
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   if (checked) {
+      if (m_qsoCompletion && !m_qsoCompletion->waiting ()
+          && m_qsoCompletion->phase != QsoCompletion::Phase::Ordinary
+          && !(m_qsoCompletion->phase == QsoCompletion::Phase::TimedOut
+               && repeatContextIsCurrent (m_qsoCompletion))) endQsoRepeat (QsoRepeatEnd::Superseded);
       m_auto = checked;
-      QTimer::singleShot (3000, [=] {pounce = false;});  // ensure to select only CQ messages
+      if (pounce && !m_pounceSelectionTimer.isActive ()) m_pounceSelectionTimer.start (3000);
   } else {
-      pounce = false;
+      endQsoRepeat (QsoRepeatEnd::OperatorStop);
+      cancelAutomaticCQSelection ();
       m_auto = false;
       m_bCallingCQ = false;
       ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
@@ -162,6 +189,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
   }
   m_tAutoOn=QDateTime::currentMSecsSinceEpoch()/1000;
   if(m_mode=="Echo") m_echoRunning=false;
+  if (checked) setXIT (ui->TxFreqSpinBox->value ());
   check_button_color();
 }
 
@@ -184,7 +212,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
       if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
     }
   }
-  pounce = false;
+  cancelAutomaticCQSelection ();
   ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
   filtered = false;
   ignored = false;
@@ -263,7 +291,7 @@ void MainWindow::on_EraseButton_clicked ()
 
 void MainWindow::on_txb1_clicked()
 {
-  m_autoRespondPeriodState.disarm();
+  cancelAutomaticCQSelection ();
   if (ui->tx1->isEnabled ()) {
     m_ntx=1;
     m_QSOProgress = REPLYING;
@@ -277,7 +305,7 @@ void MainWindow::on_txb1_clicked()
 
 void MainWindow::on_txb2_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=2;
     m_QSOProgress = REPORT;
     ui->txrb2->setChecked(true);
@@ -286,7 +314,7 @@ void MainWindow::on_txb2_clicked()
 
 void MainWindow::on_txb3_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=3;
     m_QSOProgress = ROGER_REPORT;
     ui->txrb3->setChecked(true);
@@ -295,7 +323,7 @@ void MainWindow::on_txb3_clicked()
 
 void MainWindow::on_txb4_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=4;
     m_QSOProgress = ROGERS;
     ui->txrb4->setChecked(true);
@@ -304,7 +332,7 @@ void MainWindow::on_txb4_clicked()
 
 void MainWindow::on_txb5_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+    cancelAutomaticCQSelection ();
     m_ntx=5;
     m_QSOProgress = SIGNOFF;
     ui->txrb5->setChecked(true);
@@ -313,7 +341,13 @@ void MainWindow::on_txb5_clicked()
 
 void MainWindow::on_txb6_clicked()
 {
-    m_autoRespondPeriodState.disarm();
+  cancelAutomaticCQSelection ();
+  selectTx6Message ();
+}
+
+void MainWindow::selectTx6Message ()
+{
+    m_autoRespondPeriodState.disarm ();
     m_ntx=6;
     m_QSOProgress = CALLING;
     set_dateTimeQSO(-1);
@@ -457,6 +491,7 @@ void MainWindow::on_DX_Call_Button_clicked (bool checked)
       if (m_specOp==SpecOp::HOUND && m_config.superFox() && !m_auto) clearDX();
   }
   check_button_color();
+  cancelBestSPForCQSelection ();
 }
 
 void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
@@ -475,94 +510,23 @@ void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
   }
 }
 
-void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
-{
-  auto stopAutoTx = [this] {
-    if (SpecOp::NA_VHF==m_specOp && m_mode=="FT4" && m_config.NCCC_Sprint()) {
-      QTimer::singleShot (int(850.0*m_TRperiod), [this] {cease_auto_Tx_after_QSO ();});
-    } else {
-      cease_auto_Tx_after_QSO ();
-    }
-  };
-  DecodedMessageReaction::applyAutoTxStopAfterLogging(
-    m_mode, m_config.repeat_Tx(), send_rr73_for_tx4 (), stopAutoTx);
-
-  if (!m_hisCall.size ()) {
-    MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));
-    if ((SpecOp::NA_VHF == m_specOp or SpecOp::WW_DIGI == m_specOp) && m_config.autoLog()) return;  // prevent program crash
-  }
-  // m_dateTimeQSOOn should really already be set but we'll ensure it gets set to something just in case
-  if (!m_dateTimeQSOOn.isValid ()) {
-    auto now = QDateTime::currentDateTimeUtc();
-    m_dateTimeQSOOn = now.addSecs (-(m_ntx - 2) * int(m_TRperiod) -
-                                   int(fmod(double(now.time().second()),m_TRperiod)));
-  }
-  auto dateTimeQSOOff = QDateTime::currentDateTimeUtc();
-  if (dateTimeQSOOff < m_dateTimeQSOOn) dateTimeQSOOff = m_dateTimeQSOOn;
-  QString grid=m_hisGrid;
-  if(grid=="....") grid="";
-
-  // Optionally replace empty grids by "ZZ00"
-  if(m_config.ZZ00() && m_hisGrid=="" && m_specOp!=SpecOp::NONE && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND) m_hisGrid = "ZZ00";
-
-  switch( m_specOp )
-    {
-      case SpecOp::NA_VHF:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::EU_VHF:
-        m_rptSent=m_xSent.split(" ").at(0).left(2);
-        m_rptRcvd=m_xRcvd.split(" ").at(0).left(2);
-        if(m_xRcvd.split(" ").size()>=2) m_hisGrid=m_xRcvd.split(" ").at(1);
-        grid=m_hisGrid;
-        ui->dxGridEntry->setText(grid);
-        break;
-      case SpecOp::FIELD_DAY:
-        m_rptSent=m_xSent.split(" ").at(0);
-        m_rptRcvd=m_xRcvd.split(" ").at(0);
-        break;
-      case SpecOp::RTTY:
-        m_rptSent=m_xSent.split(" ").at(0);
-        m_rptRcvd=m_xRcvd.split(" ").at(0);
-        break;
-      case SpecOp::WW_DIGI:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::ARRL_DIGI:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::Q65_PILEUP:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid;
-        break;
-      default: break;
-    }
-
-  m_logDlg->initLogQSO (m_hisCall, grid, m_mode, m_rptSent, m_rptRcvd,
-                        m_dateTimeQSOOn, dateTimeQSOOff, m_operatingFrequency.rx () +
-                        ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
-  m_inQSOwith="";
-  if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {
-        m_autoRespondScores.reset();
-  }
-  QTimer::singleShot (2000, [=] {
-      pounce = false;
-      filtered = false;
-      read_txLog();
-      check_button_color();
-  });
-  QTimer::singleShot (7000, [=] {
-      read_txLog();
-  });
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
-}
-
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
+  setTuneEnabled (checked, TxControlOrigin::Local);
+}
+
+void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
+{
+  if (checked) endQsoRepeat (QsoRepeatEnd::Superseded);
+  cancelRigTune ();
+  bool const recovering_mode = checked && !m_config.radio_mode_ready ();
+  if (checked && ((origin == TxControlOrigin::Automatic && m_config.radio_mode_yielded ())
+                  || !m_config.prepare_radio_mode ()))
+    {
+      ui->tuneButton->setChecked (false);
+      updateRadioModeStatus ();
+      return;
+    }
   if (checked) m_autoRespondPeriodState.disarm();
   rigTuneTimer.stop ();
   ui->pbBandHopping->setChecked(false); // disable band hopping
@@ -612,7 +576,9 @@ void MainWindow::on_tuneButton_clicked (bool checked)
   } else {
     m_sentFirst73=false;
     itone[0]=0;
-    on_monitorButton_clicked (true);
+    if (recovering_mode) applyMonitorEffects (true, false);
+    else on_monitorButton_clicked (true);
+    setXIT (ui->TxFreqSpinBox->value ());
     m_tune=true;
   }
   if (m_tci_audio) Q_EMIT m_config.transceiver_tune(checked);
@@ -621,6 +587,7 @@ void MainWindow::on_tuneButton_clicked (bool checked)
 
 void MainWindow::reset_transmit_controls_after_stop ()
 {
+  endQsoRepeat (QsoRepeatEnd::AutoDisabled);
   m_autoRespondPeriodState.setEnableTx(false);
   ui->pbBandHopping->setChecked(false); // disable band hopping
   m_btxok=false;
@@ -636,7 +603,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   if (ui->respondComboBox->isVisible() && autoRespondPolicy () != AutoRespondPolicy::None) {
       m_autoRespondScores.reset();
   }
-  pounce = false;
+  cancelAutomaticCQSelection ();
   ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
   ui->tuneButton->setChecked (false);
   ui->tuneButton->setText("Tune");
@@ -655,10 +622,16 @@ void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
 
 void MainWindow::requestTxStop (TxEvidence::TxStopReason reason)
 {
+  if (reason == TxEvidence::TxStopReason::UserHalt)
+    endQsoRepeat (QsoRepeatEnd::OperatorStop);
+  else endQsoRepeat (QsoRepeatEnd::Fault);
+  cancelRigTune ();
+  setBestSPArmed (false);
   noteTxStopReason (reason);
   bool const pending_start = m_tx_when_ready || ptt1Timer.isActive ();
   m_tx_when_ready = false;
   ptt1Timer.stop ();
+  TxAgainTimer.stop ();
   m_restart = false;
   if (m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::Decided
       || m_beaconTxController.txLifecycle () == BeaconTx::TxLifecycle::StartRequested)
@@ -709,6 +682,13 @@ void MainWindow::on_pbT2R_2_clicked()
 void MainWindow::on_readFreq_clicked()
 {
   if (m_transmitting) return;
+
+  if (m_operatingFrequency.recoveryRequired ())
+    {
+      m_frequencyRetryRequested = true;
+      rigOpen ();
+      return;
+    }
 
   if (m_config.transceiver_online ())
     {
@@ -807,12 +787,101 @@ void MainWindow::on_pbFreeText_clicked()
   m_freeTextMsg0=m_freeTextMsg;
 }
 
-void MainWindow::on_pbBestSP_clicked()
+void MainWindow::on_pbBestSP_toggled (bool checked)
 {
-  m_bBestSPArmed = !m_bBestSPArmed;
-  if(m_bBestSPArmed and !m_transmitting) ui->pbBestSP->setStyleSheet ("QPushButton{color:red}");
-  if(!m_bBestSPArmed) ui->pbBestSP->setStyleSheet ("");
-  if(m_bBestSPArmed) m_dateTimeBestSP=QDateTime::currentDateTimeUtc();
+  setBestSPArmed (checked);
+}
+
+void MainWindow::cancelAutomaticCQSelection ()
+{
+  m_autoRespondPeriodState.disarm ();
+  pounce = false;
+  m_autoRespondSelectionLatch.clear ();
+  m_pounceSelectionTimer.stop ();
+  if (m_pounceWaitCallTimeout) stopWCTimer.stop ();
+  m_pounceWaitCallTimeout = false;
+}
+
+MainWindow::CompetingCQSelection MainWindow::competingCQSelection () const
+{
+  WaitFeatureContext const context {
+    m_mode, m_specOp, m_config.Wait_features_enabled (), ui->cbAutoSeq->isChecked (),
+    !m_hisCall.isEmpty (), m_config.NCCC_Sprint ()
+  };
+  if (wait_and_call && !no_wait_and_call && wait_and_call_arming_eligible (context))
+    return CompetingCQSelection::WaitAndCall;
+  if (pounce && context.waitFeaturesEnabled && ui->respondComboBox->isVisible ()
+      && autoRespondPolicy () != AutoRespondPolicy::None)
+    return CompetingCQSelection::WaitAndPounce;
+  return CompetingCQSelection::None;
+}
+
+void MainWindow::cancelBestSPForCQSelection ()
+{
+  if (!m_bestSP.armed ()) return;
+  switch (competingCQSelection ())
+    {
+    case CompetingCQSelection::WaitAndCall:
+      setBestSPArmed (false, tr ("Best S+P canceled: Wait & Call is active."));
+      break;
+    case CompetingCQSelection::WaitAndPounce:
+      setBestSPArmed (false, tr ("Best S+P canceled: Wait & Pounce is active."));
+      break;
+    case CompetingCQSelection::None:
+      break;
+    }
+}
+
+void MainWindow::setBestSPArmed (bool armed, QString const& feedback)
+{
+  bool const wasArmed = m_bestSP.armed ();
+  auto status = feedback;
+  if (armed && (!m_config.best_sp_new_dxcc () && !m_config.best_sp_new_call_on_band ()))
+    {
+      armed = false;
+      status = tr ("Enable a selection category in Settings > Advanced > Best S+P.");
+    }
+  if (armed && (m_mode != "FT4" || m_transmitting || m_txing || g_iptt
+                || m_tx_when_ready || ptt1Timer.isActive ()))
+    {
+      armed = false;
+      status = tr ("Best S+P is available in FT4 while receiving.");
+    }
+  if (armed && CALLING != m_QSOProgress)
+    {
+      armed = false;
+      status = tr ("Best S+P is available before starting a QSO.");
+    }
+  if (armed)
+    switch (competingCQSelection ())
+      {
+      case CompetingCQSelection::WaitAndCall:
+        armed = false;
+        status = tr ("Turn off Wait & Call before arming Best S+P.");
+        break;
+      case CompetingCQSelection::WaitAndPounce:
+        armed = false;
+        status = tr ("Turn off Wait & Pounce before arming Best S+P.");
+        break;
+      case CompetingCQSelection::None:
+        break;
+      }
+  if (armed && !wasArmed) m_bestSP.arm (QDateTime::currentDateTimeUtc ());
+  else if (!armed && wasArmed) m_bestSP.cancel ();
+  QSignalBlocker const blocker {ui->pbBestSP};
+  ui->pbBestSP->setChecked (m_bestSP.armed ());
+  QString const style = m_bestSP.armed () && !m_config.button_coloring_disabled ()
+    ? "QPushButton{color:red}" : "";
+  if (ui->pbBestSP->styleSheet () != style) ui->pbBestSP->setStyleSheet (style);
+  if (status.isEmpty ())
+    {
+      if (armed && !wasArmed) status = tr ("Best S+P armed. Waiting for decode completion.");
+      else if (!armed && wasArmed) status = tr ("Best S+P canceled.");
+    }
+  if (status.isEmpty ()) return;
+  ui->pbBestSP->setAccessibleDescription (status);
+  ui->pbBestSP->setStatusTip (status);
+  showStatusMessage (status);
 }
 
 void MainWindow::on_houndButton_clicked (bool checked)
@@ -864,6 +933,9 @@ void MainWindow::on_q65Button_clicked()
       m_q65PileupCopiedCallers.clear();
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
+      // Pileup mode starts QSOs with Tx2 and disables Tx1; restore the saved preference.
+      ui->tx1->setEnabled(m_tx1_enabled_preference);
+      ui->txb1->setEnabled(true);
     }
     on_actionQ65_triggered();
 }

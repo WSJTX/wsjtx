@@ -2,7 +2,9 @@
 #define WORKWED_BEFORE_HPP_
 
 #include <QObject>
+#include <QStringList>
 #include "AD1CCty.hpp"
+#include "HistoryFolder.hpp"
 #include "pimpl_h.hpp"
 
 class Configuration;
@@ -29,8 +31,13 @@ public:
                    , QByteArray const& ADIF_record);
 
   QString const& path () const;
+  QString const& load_status () const;
+  QString const& load_errors () const;
+  static QStringList normalize_history_files (QStringList const&, QString const& primary_path);
+  static HistoryFolders normalize_history_folders (HistoryFolders const&);
   AD1CCty const * countries () const;
-  bool country_worked (QString const& call, QString const& mode, QString const& band) const;
+  bool country_worked (QString const& country, QString const& mode, QString const& band,
+                       AD1CCty::EntityView view) const;
   bool grid_worked (QString const& grid, QString const& mode, QString const& band) const;
   bool call_worked (QString const& call, QString const& mode, QString const& band) const;
   bool continent_worked (Continent continent, QString const& mode, QString const& band) const;
@@ -39,6 +46,7 @@ public:
   QString cty_version () const;
 
   Q_SIGNAL void finished_loading (int worked_before_record_count, QString const, QString const& error) const;
+  Q_SIGNAL void loading_started () const;
 
 private:
   Q_SLOT void handle_loader_finished ();

@@ -1221,9 +1221,10 @@ private:
                       qPrintable (what + ": " + QJsonDocument {reply.encoded}.toJson (QJsonDocument::Compact).left (200)));
             if (k == 0) continue;
             auto const audio = k == 1 ? every4th (gui.audio) : gui.audio;
-            auto const precomputed = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4"
-              || row.mode == "FST4" || row.mode == "FST4W" || (row.mode == "ECHO" && row.kind != "tone");
-            auto const difference = firstDifference (reply.audio, audio, precomputed ? 0 : 1);
+            auto const exactSamples = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4"
+              || row.mode == "FST4" || row.mode == "FST4W" || row.mode == "TUNE"
+              || (row.mode == "ECHO" && row.kind != "tone");
+            auto const difference = firstDifference (reply.audio, audio, exactSamples ? 0 : 1);
             QVERIFY2 (difference < 0, qPrintable (QString {"%1: sample %2 of %3 (%4) differs from the GUI's (%5 of %6)"}
                                                   .arg (what).arg (difference).arg (reply.audio.size ())
                                                   .arg (reply.audio.value (difference)).arg (audio.value (difference))
@@ -1337,6 +1338,42 @@ private slots:
     parity (rows);
   }
 
+  void ft4PhaseWrap ()
+  {
+    int nsym = 103;
+    int itone[103] {};
+    double const phasePeriod = 8.0 * std::atan (1.0);
+    for (int nsps : {576, 2304})
+      for (float frequency : {-100000.0f, -1500.0f, 0.0f, 1500.0f, 100000.0f})
+        for (int icmplx : {0, 1})
+          {
+            int nwave = (nsym + 2) * nsps;
+            float rate = nsps == 576 ? 12000.0f : 48000.0f;
+            double const increment = phasePeriod * frequency / rate;
+            QVector<float> wave (nwave), complexWave (2 * nwave);
+            gen_ft4wave_ (itone, &nsym, &nsps, &rate, &frequency, complexWave.data (),
+                          wave.data (), &icmplx, &nwave);
+            double phi = 0.0;
+            float error = 0.0f;
+            for (int i = 0; i < nwave; ++i)
+              {
+                if (i >= nsps && i < (nsym + 1) * nsps)
+                  {
+                    if (icmplx == 0) error = std::max (error, std::abs (wave[i] - std::sin (float (phi))));
+                    else
+                      {
+                        error = std::max (error, std::abs (complexWave[2 * i] - std::cos (float (phi))));
+                        error = std::max (error, std::abs (complexWave[2 * i + 1] - std::sin (float (phi))));
+                      }
+                  }
+                phi = std::fmod (phi + increment, phasePeriod);
+              }
+            QVERIFY2 (error <= 1.0e-6f,
+                      qPrintable (QString {"FT4 phase mismatch: nsps %1, frequency %2, complex %3, error %4"}
+                                  .arg (nsps).arg (frequency).arg (icmplx).arg (error, 0, 'g', 9)));
+          }
+  }
+
   void fst4 ()
   {
     auto rows = messages77 ("FST4", -1, 15);
@@ -1439,8 +1476,23 @@ private slots:
       return t;
     };
     parity ({r ("FT8", 1500, 10), r ("FT4", 2350, 3), r ("MSK144", 1000, 4, 15), r ("WSPR", 1500, 2),
-             r ("FST4", 1200, 2, 60), r ("JT65", 700, 2), r ("Q65", 1500, 1, 30), r ("JT9", 1000, 600)});
+             r ("FST4", 1200, 2, 60), r ("JT65", 700, 2), r ("Q65", 1500, 1, 30), r ("JT9", 3844, 600),
+             r ("FT8", 200, 1), r ("FT8", 4999, 2), r ("FT8", 5000, 1)});
     if (QTest::currentTestFailed ()) return;
+    for (double const frequency : {200.125, 1234.56789, 4999.75})
+      {
+        auto low = render (1, r ("FT8", 1500, 3), 12000);
+        auto high = render (2, r ("FT8", 1500, 3), 48000);
+        low.insert ("freq", frequency);
+        high.insert ("freq", frequency);
+        auto const run = runCodec (control (low) + control (high));
+        QVERIFY2 (run.finished && run.exitCode == 0 && run.error.isEmpty (), qPrintable (run.error));
+        auto const lowAudio = run.replies.value (1).audio;
+        auto const highAudio = run.replies.value (2).audio;
+        QCOMPARE (lowAudio.size (), 3 * 12000);
+        QCOMPARE (highAudio.size (), 3 * 48000);
+        QVERIFY (firstDifference (lowAudio, every4th (highAudio)) < 0);
+      }
     auto const audio = gui (r ("FT4", 1500, 121)).audio;
     int const end = 9999 * 576;
     QCOMPARE (audio.size (), 121 * 48000);

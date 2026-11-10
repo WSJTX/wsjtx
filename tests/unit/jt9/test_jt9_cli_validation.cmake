@@ -1,31 +1,222 @@
 function (require_rejection option value)
   execute_process (
-    COMMAND "${JT9}" "${option}" "${value}"
+    COMMAND "${program}" "${option}" "${value}"
     RESULT_VARIABLE result
     ERROR_VARIABLE stderr)
-  if (result EQUAL 0)
-    message (FATAL_ERROR "${option}=${value} unexpectedly succeeded")
+  if (NOT "${result}" STREQUAL "2")
+    message (FATAL_ERROR "${program_name} ${option}=${value} exited with ${result}, expected 2")
   endif ()
-  if (NOT stderr MATCHES "jt9: invalid value")
+  if (NOT stderr MATCHES "${program_name}: invalid value")
     message (FATAL_ERROR "${option}=${value} did not report a validation error: ${stderr}")
   endif ()
 endfunction ()
 
-require_rejection (-Q 6)
-require_rejection (-Q invalid)
-require_rejection (-N 25)
-require_rejection (-p invalid)
-require_rejection (-m invalid)
-
-foreach (option --patience -w)
+function (require_acceptance)
   execute_process (
-    COMMAND "${JT9}" "${option}" 0 --version
+    COMMAND "${program}" ${ARGN} --version
     RESULT_VARIABLE result
     OUTPUT_VARIABLE stdout
     ERROR_VARIABLE stderr)
-  if (NOT result EQUAL 0 OR NOT stdout MATCHES "^jt9 [0-9]" OR NOT stderr STREQUAL "")
-    message (FATAL_ERROR "${option} did not consume exactly one argument: ${stdout}${stderr}")
+  if (NOT "${result}" STREQUAL "0" OR NOT stdout MATCHES "^${program_name} [0-9]" OR
+      NOT stderr STREQUAL "")
+    message (FATAL_ERROR "${program_name} ${ARGN} did not accept its arguments: ${stdout}${stderr}")
+  endif ()
+endfunction ()
+
+function (require_text_acceptance option value)
+  execute_process (
+    COMMAND "${program}" "${option}" "${value}" --version
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE stdout
+    ERROR_VARIABLE stderr)
+  if (NOT "${result}" STREQUAL "0" OR NOT stdout MATCHES "^${program_name} [0-9]" OR
+      NOT stderr STREQUAL "")
+    message (FATAL_ERROR "${program_name} ${option}=${value} did not accept its argument: ${stdout}${stderr}")
+  endif ()
+endfunction ()
+
+function (require_mode_result expected_stderr)
+  execute_process (
+    COMMAND "${program}" ${ARGN} "${missing_wav}"
+    RESULT_VARIABLE result
+    ERROR_VARIABLE stderr
+    TIMEOUT 10)
+  if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "${expected_stderr}")
+    message (FATAL_ERROR "${program_name} ${ARGN} produced an unexpected result (${result}): ${stderr}")
+  endif ()
+endfunction ()
+
+set (missing_wav "${CMAKE_CURRENT_BINARY_DIR}/jt9-cli-validation-missing.wav")
+if (EXISTS "${missing_wav}")
+  message (FATAL_ERROR "CLI validation requires an absent WAV path: ${missing_wav}")
+endif ()
+
+foreach (program "${JT9}" "${WSJT_CODEC}")
+  get_filename_component (program_name "${program}" NAME_WE)
+
+  foreach (option --help -h --version -v)
+    execute_process (
+      COMMAND "${program}" -D 5 -E 4 "${option}" "${missing_wav}"
+      RESULT_VARIABLE result
+      OUTPUT_VARIABLE stdout
+      ERROR_VARIABLE stderr
+      TIMEOUT 10)
+    if (option MATCHES "help|^-h$")
+      set (expected_output "Usage: ${program_name}")
+    else ()
+      set (expected_output "^${program_name} [0-9]")
+    endif ()
+    if (NOT "${result}" STREQUAL "0" OR NOT stdout MATCHES "${expected_output}" OR
+        NOT stderr STREQUAL "")
+      message (FATAL_ERROR "${program_name} ${option} with a WAV argument failed: ${stdout}${stderr}")
+    endif ()
+  endforeach ()
+
+  string (RANDOM LENGTH 12 ALPHABET 0123456789abcdef run_id)
+  set (empty_dir "${CMAKE_CURRENT_BINARY_DIR}/Testing/Temporary/jt9-missing-mode-${program_name}-${run_id}")
+  file (MAKE_DIRECTORY "${empty_dir}")
+  execute_process (
+    COMMAND "${program}" "${missing_wav}"
+    WORKING_DIRECTORY "${empty_dir}"
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE stdout
+    ERROR_VARIABLE stderr
+    TIMEOUT 10)
+  file (GLOB written LIST_DIRECTORIES true "${empty_dir}/*")
+  if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "WAV decoding requires a mode" OR written)
+    message (FATAL_ERROR "${program_name} missing-mode check failed (${result}, files: ${written}): ${stdout}${stderr}")
+  endif ()
+  file (REMOVE_RECURSE "${empty_dir}")
+  require_mode_result ("cannot read WAV file" --ft8)
+  foreach (option -D --MTft8-StartTime)
+    foreach (value 5)
+      require_mode_result ("invalid value for -D: ${value}.*between 0 and 4" --ft8 "${option}" "${value}")
+      require_mode_result ("invalid value for -D: ${value}.*between 0 and 4" --jt65 "${option}" "${value}")
+      require_acceptance ("${option}" "${value}")
+    endforeach ()
+    foreach (value 0 4)
+      require_mode_result ("cannot read WAV file" --ft8 "${option}" "${value}")
+    endforeach ()
+  endforeach ()
+  foreach (option -E --MTft8-DecSens)
+    foreach (value 0 4)
+      require_mode_result ("invalid value for -E: ${value}.*between 1 and 3" --ft8 -M "${option}" "${value}")
+      require_mode_result ("invalid value for -E: ${value}.*between 1 and 3" --jt65 "${option}" "${value}")
+      require_acceptance ("${option}" "${value}")
+    endforeach ()
+    foreach (value 1 3)
+      require_mode_result ("cannot read WAV file" --ft8 "${option}" "${value}")
+    endforeach ()
+  endforeach ()
+
+  require_rejection (-Q 6)
+  require_rejection (-Q invalid)
+  require_rejection (-N 25)
+  require_rejection (-p invalid)
+  require_rejection (-m invalid)
+  require_rejection (--tr-period invalid)
+
+  foreach (option --patience -w)
+    require_acceptance ("${option}" 0)
+  endforeach ()
+
+  foreach (option -W --fst4w -Y --fst4w-hash)
+    require_acceptance ("${option}")
+  endforeach ()
+  execute_process (
+    COMMAND "${program}" --help
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE help
+    ERROR_VARIABLE stderr)
+  if (NOT "${result}" STREQUAL "0" OR NOT stderr STREQUAL "" OR
+      NOT help MATCHES "select a mode" OR
+      NOT help MATCHES "-W[\r\n ]+--fst4w[\r\n]" OR
+      NOT help MATCHES "-Y[\r\n ]+--fst4w-hash[\r\n]")
+    message (FATAL_ERROR "${program_name} has incorrect FST4W option mappings: ${help}${stderr}")
+  endif ()
+
+  foreach (option -c --my-call -x --his-call)
+    require_text_acceptance ("${option}" "\tPJ4/K1ABC\t")
+    require_rejection ("${option}" K1ABC/P123456)
+  endforeach ()
+
+  foreach (option -G --my-grid -g --his-grid)
+    require_text_acceptance ("${option}" "\tEN37aa ")
+    require_rejection ("${option}" EN37abc)
+  endforeach ()
+
+  # Exercise argument transport here; the Fortran test checks normalized values.
+  foreach (option -c -x -G -g)
+    require_text_acceptance ("${option}" "")
+    require_text_acceptance ("${option}" " \t ")
+  endforeach ()
+  string (REPEAT K 501 oversized_call)
+  foreach (option -c -x)
+    require_text_acceptance ("${option}" " b ")
+    require_rejection ("${option}" "K1 ABC")
+    require_rejection ("${option}" "${oversized_call}")
+  endforeach ()
+  foreach (option -G -g)
+    require_rejection ("${option}" "EN 37")
+    require_rejection ("${option}" "EN\t37")
+  endforeach ()
+
+  foreach (option -b --sub-mode)
+    foreach (submode A B C D E F G H)
+      require_acceptance ("${option}" "${submode}")
+    endforeach ()
+    foreach (submode "" a h AA AB "A " 1 I Z @ /)
+      require_rejection ("${option}" "${submode}")
+    endforeach ()
+
+    foreach (mode -6 --jt65)
+      require_mode_result ("cannot read WAV file" "${mode}" "${option}" C)
+      require_mode_result ("invalid value for -b: D.*A-C for JT65" "${mode}" "${option}" D)
+      require_mode_result ("invalid value for -b: D.*A-C for JT65" "${option}" D "${mode}")
+    endforeach ()
+    require_mode_result ("cannot read WAV file" -4 "${option}" G)
+    require_mode_result ("invalid value for -b: H.*A-G for JT4" -4 "${option}" H)
+    require_mode_result ("invalid value for -b: H.*A-G for JT4" "${option}" H -4)
+    require_mode_result ("cannot read WAV file" -9 "${option}" H)
+    foreach (period 15 30 60 120 300)
+      require_mode_result ("cannot read WAV file" --q65 -p "${period}" "${option}" F)
+      require_mode_result ("invalid value for -b: G.*A-F for Q65" --q65 -p "${period}" "${option}" G)
+      require_mode_result ("invalid value for -b: G.*A-F for Q65" "${option}" G -p "${period}" --q65)
+    endforeach ()
+
+    require_mode_result ("WAV decoding requires a mode" "${option}" H)
+    require_mode_result ("cannot read WAV file" -6 -9 "${option}" H)
+    require_mode_result ("invalid value for -b: D.*A-C for JT65" -9 -6 "${option}" D)
+    require_mode_result ("invalid value for -b: D.*A-C for JT65" -8 -6 "${option}" D)
+    require_mode_result ("cannot read WAV file" -6 -8 "${option}" H)
+    require_mode_result ("cannot read WAV file" -8 "${option}" H)
+    require_mode_result ("cannot read WAV file" -k "${option}" H)
+  endforeach ()
+
+  if (program_name STREQUAL "wsjt-codec")
+    require_mode_result ("WAV decoding requires a mode" --stream)
+    set (empty_stdin "${CMAKE_CURRENT_BINARY_DIR}/Testing/Temporary/jt9-cli-empty-stdin")
+    file (MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Testing/Temporary")
+    file (WRITE "${empty_stdin}" "")
+    execute_process (
+      COMMAND "${program}" -b D --jt65
+      INPUT_FILE "${empty_stdin}"
+      RESULT_VARIABLE result
+      ERROR_VARIABLE stderr
+      TIMEOUT 10)
+    if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "invalid value for -b: D.*A-C for JT65")
+      message (FATAL_ERROR "wsjt-codec did not reject its invalid startup submode: ${stderr}")
+    endif ()
+    foreach (mode_flags "-6;-9" "-9;-6")
+      execute_process (
+        COMMAND "${program}" ${mode_flags} -T -b D
+        INPUT_FILE "${empty_stdin}"
+        RESULT_VARIABLE result
+        ERROR_VARIABLE stderr
+        TIMEOUT 10)
+      if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "invalid value for -b: D.*A-C for JT9[+]JT65")
+        message (FATAL_ERROR "wsjt-codec lost combined-mode startup for ${mode_flags}: ${stderr}")
+      endif ()
+    endforeach ()
   endif ()
 endforeach ()
-
-require_rejection (--tr-period invalid)

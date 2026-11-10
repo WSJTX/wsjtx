@@ -807,6 +807,8 @@ private slots:
         << QString {" 500  599 K1ABC "} << 500 << QString {"599 K1ABC"} << true;
     QTest::newRow ("numeric-leading-message-is-preserved")
         << QString {"1500  599 K1ABC"} << 1500 << QString {"599 K1ABC"} << true;
+    QTest::newRow ("numeric-report-and-serial")
+        << QString {"1500  599 001"} << 1500 << QString {"599 001"} << true;
     QTest::newRow ("frequency-only")
         << QString {"1500"} << 1500 << QString {} << true;
     QTest::newRow ("malformed-frequency")
@@ -825,6 +827,37 @@ private slots:
     auto const decoded = Jtty::parseDecodeLine (line);
 
     QCOMPARE (decoded.frequency, frequency);
+    QCOMPARE (decoded.message, message);
+    QCOMPARE (decoded.valid, valid);
+  }
+
+  void parseDecodeLineWithSnr_data ()
+  {
+    QTest::addColumn<QString> ("line");
+    QTest::addColumn<int> ("snr");
+    QTest::addColumn<QString> ("message");
+    QTest::addColumn<bool> ("valid");
+    QTest::newRow ("negative-snr")
+      << QString {"1500 -12  CQ K1ABC"} << -12 << QString {"CQ K1ABC"} << true;
+    QTest::newRow ("positive-snr")
+      << QString {"1500   8  CQ K1ABC"} << 8 << QString {"CQ K1ABC"} << true;
+    QTest::newRow ("numeric-message")
+      << QString {"1500 -12  599 001"} << -12 << QString {"599 001"} << true;
+    QTest::newRow ("zero-snr") << QString {"1500   0  599 001"} << 0 << QString {"599 001"} << true;
+    QTest::newRow ("no-message") << QString {"1500 -12"} << -12 << QString {} << true;
+    QTest::newRow ("missing-snr")
+      << QString {"1500 CQ K1ABC"} << 0 << QString {"CQ K1ABC"} << false;
+  }
+
+  void parseDecodeLineWithSnr ()
+  {
+    QFETCH (QString, line);
+    QFETCH (int, snr);
+    QFETCH (QString, message);
+    QFETCH (bool, valid);
+    auto const decoded = Jtty::parseDecodeLine (line, true);
+    QCOMPARE (decoded.frequency, 1500);
+    QCOMPARE (decoded.snr, snr);
     QCOMPARE (decoded.message, message);
     QCOMPARE (decoded.valid, valid);
   }

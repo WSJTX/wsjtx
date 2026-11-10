@@ -178,11 +178,13 @@ contains
 
   subroutine check_q65_ap_flag_masks()
     integer :: apsym0(58),apmask(78),apsymbols(78),iaptype
-    integer :: codewords(63,Q65_MAX_CODEWORDS),ncw,j
+    integer, allocatable :: codewords(:,:)
+    integer :: ncw,j
     character(len=12) :: list_mycall,list_hiscall
     character(len=6) :: list_hisgrid
     type(q3list) :: callers(Q65_MAX_CALLERS)
 
+    allocate(codewords(63,Q65_MAX_CODEWORDS))
     apsym0=0
     call q65_ap(5,1,0,.false.,.false.,iaptype,apsym0,apmask,apsymbols)
     if(iaptype.ne.3 .or. apmask(78).ne.1 .or. apsymbols(78).ne.0) then

@@ -1,7 +1,5 @@
 #include "Modes.hpp"
 
-#include <algorithm>
-
 #include <QString>
 #include <QVariant>
 #include <QModelIndex>
@@ -43,21 +41,11 @@ char const * Modes::name (Mode m)
   return mode_names[static_cast<int> (m)];
 }
 
-auto Modes::value (QString const& s) -> Mode
-{
-  auto end = mode_names + mode_names_size;
-  auto p = std::find_if (mode_names, end
-                         , [&s] (char const * const name) {
-                           return name == s;
-                         });
-  return p != end ? static_cast<Mode> (p - mode_names) : ALL;
-}
-
 QVariant Modes::data (QModelIndex const& index, int role) const
 {
   QVariant item;
 
-  if (index.isValid ())
+  if (index.isValid () && index.row () >= 0 && index.row () < MODES_END_SENTINAL_AND_COUNT)
     {
       auto const& row = index.row ();
       switch (role)
@@ -68,7 +56,7 @@ QVariant Modes::data (QModelIndex const& index, int role) const
           break;
 
         case Qt::EditRole:
-          item = static_cast<Mode> (row);
+          item = QVariant::fromValue (static_cast<Mode> (row));
           break;
 
         case Qt::DisplayRole:

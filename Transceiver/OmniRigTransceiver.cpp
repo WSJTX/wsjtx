@@ -563,7 +563,7 @@ void OmniRigTransceiver::handle_params_change (int rig_number, int params)
           CAT_TRACE (QString {"VFOEQUAL f=%1 m=%2"}.arg (f).arg (m));
           update_rx_frequency (f);
           update_other_frequency (f);
-          update_mode (m);
+          observe_mode (m);
         }
       if (params & OmniRig::PM_VFOSWAP)
         {
@@ -571,7 +571,7 @@ void OmniRigTransceiver::handle_params_change (int rig_number, int params)
           auto f = state ().tx_frequency ();
           update_other_frequency (state ().frequency ());
           update_rx_frequency (f);
-          update_mode (map_mode (rig_->Mode ()));
+          observe_mode (map_mode (rig_->Mode ()));
         }
       if (params & OmniRig::PM_SPLITON)
         {
@@ -612,42 +612,42 @@ void OmniRigTransceiver::handle_params_change (int rig_number, int params)
       if (params & OmniRig::PM_CW_U)
         {
           CAT_TRACE ("CW-R");
-          update_mode (CW_R);
+          observe_mode (CW_R);
         }
       if (params & OmniRig::PM_CW_L)
         {
           CAT_TRACE ("CW");
-          update_mode (CW);
+          observe_mode (CW);
         }
       if (params & OmniRig::PM_SSB_U)
         {
           CAT_TRACE ("USB");
-          update_mode (USB);
+          observe_mode (USB);
         }
       if (params & OmniRig::PM_SSB_L)
         {
           CAT_TRACE ("LSB");
-          update_mode (LSB);
+          observe_mode (LSB);
         }
       if (params & OmniRig::PM_DIG_U)
         {
           CAT_TRACE ("DATA-U");
-          update_mode (DIG_U);
+          observe_mode (DIG_U);
         }
       if (params & OmniRig::PM_DIG_L)
         {
           CAT_TRACE ("DATA-L");
-          update_mode (DIG_L);
+          observe_mode (DIG_L);
         }
       if (params & OmniRig::PM_AM)
         {
           CAT_TRACE ("AM");
-          update_mode (AM);
+          observe_mode (AM);
         }
       if (params & OmniRig::PM_FM)
         {
           CAT_TRACE ("FM");
-          update_mode (FM);
+          observe_mode (FM);
         }
 
       if (old_state != state () || send_update_signal_)
@@ -782,6 +782,7 @@ void OmniRigTransceiver::do_tx_frequency (Frequency tx, MODE m, bool /*no_ignore
       CAT_TRACE ("set SPLIT mode off");
       rig_->SetSimplexMode (state ().frequency ());
       update_split (false);
+      update_other_frequency (0, RigFrequency::Basis::BackendOperation);
     }
   bool notify {false};
   if (readable_params_ & OmniRig::PM_FREQ || !(readable_params_ & (OmniRig::PM_FREQA | OmniRig::PM_FREQB)))
@@ -820,4 +821,18 @@ void OmniRigTransceiver::do_mode (MODE mode)
     {
       offline ("OmniRig invalid mode");
     }
+}
+
+bool OmniRigTransceiver::mode_readback_expected () const
+{
+  return readable_params_ & (OmniRig::PM_CW_U | OmniRig::PM_CW_L
+                            | OmniRig::PM_SSB_U | OmniRig::PM_SSB_L
+                            | OmniRig::PM_DIG_U | OmniRig::PM_DIG_L
+                            | OmniRig::PM_AM | OmniRig::PM_FM);
+}
+
+void OmniRigTransceiver::refresh_mode_observation ()
+{
+  if (rig_ && !rig_->isNull () && mode_readback_expected ())
+    observe_mode (map_mode (rig_->Mode ()));
 }

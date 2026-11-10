@@ -23,6 +23,7 @@ public:
     ++set_calls;
     last_set_thread = QThread::currentThread ();
     last_state = state;
+    states.append (state);
     last_sequence_number = sequence_number;
   }
 
@@ -43,8 +44,11 @@ public:
   }
 
   void send_receive_audio (ReceiveAudio audio) { Q_EMIT receiveAudio (audio); }
+  void send_mode (ModeStatus const& status, unsigned sequence)
+  { Q_EMIT mode_status (status, sequence); }
 
   TransceiverState last_state;
+  QVector<TransceiverState> states;
   unsigned last_sequence_number {0};
   bool stopped {false};
   bool started {false};
@@ -88,6 +92,50 @@ class TestTxInhibitTransceiver : public QObject
 
 private:
   Q_SIGNAL void command (QString controller, quint32 ttl, QString station);
+
+  Q_SLOT void forwardsModeStatusWithoutChangingItsSequence ()
+  {
+    auto * fake = new FakeInhibitTransceiver;
+    TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    QSignalSpy statuses {&transceiver, &Transceiver::mode_status};
+    fake->send_mode ({Transceiver::CW, Transceiver::ModeStatusKind::Observed}, 17);
+    QCOMPARE (statuses.size (), 1);
+    auto const status = qvariant_cast<Transceiver::ModeStatus> (statuses.first ().at (0));
+    QCOMPARE (status.mode, Transceiver::CW);
+    QCOMPARE (status.kind, Transceiver::ModeStatusKind::Observed);
+    QCOMPARE (statuses.first ().at (1).toUInt (), 17u);
+  }
+
+  Q_SLOT void intermediateUnkeyRetainsOldFrequencyIdentity ()
+  {
+    using namespace RigFrequency;
+    auto * fake = new FakeInhibitTransceiver;
+    TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    transceiver.start (1);
+    Transceiver::TransceiverState state;
+    state.online (true);
+    state.frequency (144200000);
+    state.tx_frequency (144201000);
+    state.ptt (true);
+    state.frequency_request ({4, 1, Path::Rx, state.frequency ()});
+    state.frequency_request ({4, 2, Path::Tx, state.tx_frequency ()});
+    transceiver.set (state, 2);
+    QCOMPARE (fake->states.size (), 2);
+    QCOMPARE (fake->states.first ().frequency_request (Path::Tx).id, quint64 (2));
+    QVERIFY (!fake->states.first ().ptt ());
+    state.ptt (false);
+    state.tx_frequency (144202000);
+    state.frequency_request ({4, 3, Path::Tx, state.tx_frequency ()});
+    transceiver.set (state, 3);
+    QCOMPARE (fake->states.size (), 4);
+    auto const unkey = fake->states.at (2);
+    auto const final = fake->states.at (3);
+    QVERIFY (!unkey.ptt ());
+    QCOMPARE (unkey.frequency_request (Path::Tx).id, quint64 (2));
+    QCOMPARE (unkey.tx_frequency (), Radio::Frequency (144201000));
+    QCOMPARE (final.frequency_request (Path::Tx).id, quint64 (3));
+    QCOMPARE (final.tx_frequency (), Radio::Frequency (144202000));
+  }
 
   Q_SLOT void forwardsReceiveAudio ()
   {

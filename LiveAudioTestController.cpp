@@ -859,6 +859,15 @@ void LiveAudioTestController::prepareFt8WhenReady ()
 void LiveAudioTestController::prepareJttyWhenReady ()
 {
   if (m_finished || m_armed) return;
+  if (m_jttyCheckStage == JttyCheckStage::Frequency) {
+    prepareJttyInput ();
+    return;
+  }
+  if (!m_window->liveAudioTestJttyRigReady ())
+    {
+      m_prepareTimer.start (50);
+      return;
+    }
 
   auto * jttyAction = m_window->findChild<QAction *> ("actionJTTY");
   auto * monitorButton = m_window->findChild<QAbstractButton *> ("monitorButton");
@@ -918,11 +927,27 @@ void LiveAudioTestController::prepareJttyWhenReady ()
   unsplitLog->trigger ();
   saveDecoded->trigger ();
 
-  auto const frequencyError = m_window->checkLiveAudioTestJttyFrequencyChanges ();
-  if (!frequencyError.isEmpty ()) {
-    fail (frequencyError);
+  m_jttyCheckStage = JttyCheckStage::Frequency;
+  m_jttyCheckElapsed.start ();
+  prepareJttyInput ();
+}
+
+void LiveAudioTestController::prepareJttyInput ()
+{
+  if (m_jttyCheckElapsed.elapsed () > 10000) {
+    fail (tr ("Timed out waiting for JTTY frequency checks to complete."));
     return;
   }
+  auto const frequencyError = m_window->pollLiveAudioTestJttyFrequencyChanges ();
+  if (!frequencyError) {
+    m_prepareTimer.start (50);
+    return;
+  }
+  if (!frequencyError->isEmpty ()) {
+    fail (*frequencyError);
+    return;
+  }
+  m_jttyCheckStage = JttyCheckStage::Live;
   auto const mailboxError = m_window->checkLiveAudioTestJttyMailboxOverflow ();
   if (!mailboxError.isEmpty ()) { fail (mailboxError); return; }
   auto * includeTime = m_window->findChild<QAbstractButton *> ("cbIncludeTime");
@@ -1203,6 +1228,22 @@ void LiveAudioTestController::maybeFinishJtty ()
       fail (tr ("The displayed JTTY message could not be located: %1").arg (message));
       return;
     }
+    auto const displayFields = QRegularExpression {
+      QStringLiteral ("^[0-9]{6} +([0-9]{3,4}) +(-?[0-9]+) +")}.match (allBlock.text ());
+    QString loggedLine;
+    for (auto const& line : liveLog.split (QLatin1Char {'\n'})) {
+      if (line.contains (message)) loggedLine = line;
+    }
+    auto const logFields = QRegularExpression {
+      QStringLiteral ("^[0-9]{6}_[0-9]{6} +[^ ]+ +Rx +JTTY +(-?[0-9]+) +0[.]0 +([0-9]+) +(.+)$"),
+      QRegularExpression::CaseInsensitiveOption}.match (loggedLine.trimmed ());
+    if (!displayFields.hasMatch () || !logFields.hasMatch ()
+        || logFields.captured (1).toInt () != displayFields.captured (2).toInt ()
+        || logFields.captured (2).toInt () != displayFields.captured (1).toInt ()
+        || logFields.captured (3) != message) {
+      fail (tr ("JTTY ALL.TXT SNR, audio frequency, or message differs from the received decode."));
+      return;
+    }
     m_jttyAllLiveBlocks.append (allBlock);
     m_jttyQsoLiveBlocks.append (qsoBlock);
   }
@@ -1449,6 +1490,7 @@ void LiveAudioTestController::fail (QString const& reason)
     {
       char const* stage = "Live";
       switch (m_jttyCheckStage) {
+      case JttyCheckStage::Frequency: stage = "Frequency"; break;
       case JttyCheckStage::Live: break;
       case JttyCheckStage::Review: stage = "Review"; break;
       case JttyCheckStage::Stopped: stage = "Stopped"; break;

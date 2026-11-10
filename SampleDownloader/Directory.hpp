@@ -44,7 +44,7 @@ protected:
 
 private:
   Q_SLOT void authentication (QNetworkReply *, QAuthenticator *);
-  void parse_entries (QJsonArray const& entries, QDir const& dir, QTreeWidgetItem * parent);
+  int parse_entries (QJsonArray const& entries, QDir const& dir, QTreeWidgetItem * parent);
 
   Configuration const * configuration_;
   QNetworkAccessManager * network_manager_;

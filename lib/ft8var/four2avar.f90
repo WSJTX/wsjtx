@@ -29,6 +29,7 @@ end subroutine four2avar
 
 ! Borrow a buffer-bound plan until cache cleanup after all decoding has joined.
 subroutine four2avar_get_plan(a,nfft,ndim,isign,iform,fft_plan)
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
   parameter (NPMAX=2100)                 !Max numberf of stored plans
   parameter (NSMALL=16385)               !Max size of "small" FFTs
@@ -94,6 +95,7 @@ subroutine four2avar_get_plan(a,nfft,ndim,isign,iform,fft_plan)
      endif
 
      !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
+     call wsjt_tsan_acquire_fftw()
      if(isign.eq.-1 .and. iform.eq.1) then
         call sfftw_plan_dft_1d(plan(i),nfft,a,a,FFTW_FORWARD,nflags)
      else if(isign.eq.1 .and. iform.eq.1) then
@@ -105,6 +107,7 @@ subroutine four2avar_get_plan(a,nfft,ndim,isign,iform,fft_plan)
      else
         stop 'Unsupported request in four2avar'
      endif
+     call wsjt_tsan_release_fftw()
      !$omp end critical(fftw)
 
      if(nfft.le.NSMALL) then
@@ -127,7 +130,9 @@ subroutine four2avar_get_plan(a,nfft,ndim,isign,iform,fft_plan)
 ! The test is only to silence a compiler warning:
      if(ndim.ne.-999) then
         !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
+        call wsjt_tsan_acquire_fftw()
         call sfftw_destroy_plan(plan(i))
+        call wsjt_tsan_release_fftw()
         !$omp end critical(fftw)
      end if
   enddo

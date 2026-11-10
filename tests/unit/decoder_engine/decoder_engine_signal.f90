@@ -14,12 +14,13 @@ contains
     real, intent(in) :: carrier
     character(len=37), intent(in) :: message
     type(pack77_state) :: knowledge
-    real :: wave(wave_samples)
+    real, allocatable :: wave(:)
     complex :: complex_wave(1)
     integer :: tones(79),i3,n3,i,j
     integer(c_int64_t) :: random_state
     character(len=37) :: sent
 
+    allocate(wave(wave_samples))
     i3=-1
     n3=-1
     call genft8_for_state(knowledge,message,i3,n3,sent,payload,tones)
@@ -100,12 +101,13 @@ subroutine decoder_engine_test_message(mode,text,samples,payload,expected_tones,
   integer(c_int16_t), intent(out) :: samples(180000)
   integer(c_int8_t), intent(out) :: payload(77),expected_tones(103)
   type(pack77_state) :: knowledge
-  real :: wave(151680)
+  real, allocatable :: wave(:)
   complex :: complex_wave(1)
   integer :: tones(103),i3,n3,i,j,nwave
   integer(c_int64_t) :: random_state
   character(len=37) :: message,sent
 
+  allocate(wave(151680))
   message=transfer(text,message)
   if(mode==5) then
      call genft4_for_state(knowledge,message,0,sent,payload,tones)
@@ -174,9 +176,10 @@ subroutine decoder_engine_test_host_windows() bind(C)
   type(params_block) :: params
   type(decode_completion_result) :: completion
   integer(c_int8_t) :: zeros(c_sizeof(params))
-  integer(c_short), target :: samples(180000)
+  integer(c_short), allocatable, target :: samples(:)
   integer :: extent,case_no
 
+  allocate(samples(180000))
   zeros=0
   params=transfer(zeros,params)
   params%nmode=8

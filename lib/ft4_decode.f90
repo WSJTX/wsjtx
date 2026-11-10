@@ -54,7 +54,7 @@ contains
       parameter (NSS=NSPS/NDOWN,NDMAX=NMAX/NDOWN)
       character message*37,msgsent*37
       character c77*77
-      character*37 decodes(100)
+      character*37 decodes(MAXCAND)
       character*12 mycall,hiscall
 
       complex cd2(0:NDMAX-1)                  !Complex waveform
@@ -465,6 +465,7 @@ contains
                         if(decodes(i).eq.message) idupe=1
                      enddo
                      if(idupe.eq.1) exit
+                     if(ndecodes.ge.size(decodes)) cycle
                      ndecodes=ndecodes+1
                      decodes(ndecodes)=message
                      if(snr.gt.0.0) then

@@ -17,6 +17,7 @@ LogBook::LogBook (Configuration const * configuration)
 {
   Q_ASSERT (configuration);
   connect (&worked_before_, &WorkedBefore::finished_loading, this, &LogBook::finished_loading);
+  connect (&worked_before_, &WorkedBefore::loading_started, this, &LogBook::loading_started);
 }
 
 LogBook::~LogBook ()
@@ -47,10 +48,12 @@ void LogBook::match (QString const& call, QString const& mode, QString const& gr
       auto const& mode_to_check = (config_ && !config_->highlight_by_mode ()) ? QString {} : mode;
       callB4 = worked_before_.call_worked (call, mode_to_check, band);
       gridB4 = worked_before_.grid_worked(grid, mode_to_check, band);
-      auto const& countryName = looked_up.entity_name;
+      auto const view = config_ && config_->include_WAE_entities ()
+        ? AD1CCty::EntityView::WAE : AD1CCty::EntityView::DXCC;
+      auto const& countryName = looked_up.identity (view).name;
       if (countryName.size ())
         {
-          countryB4 = worked_before_.country_worked (countryName, mode_to_check, band);
+          countryB4 = worked_before_.country_worked (countryName, mode_to_check, band, view);
           continentB4 = worked_before_.continent_worked (looked_up.continent, mode_to_check, band);
           CQZoneB4 = worked_before_.CQ_zone_worked (looked_up.CQ_zone, mode_to_check, band);
           ITUZoneB4 = worked_before_.ITU_zone_worked (looked_up.ITU_zone, mode_to_check, band);
@@ -90,11 +93,11 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
                                QString const& name, QString const& strDialFreq, QString const& myCall,
                                QString const& myGrid, QString const& txPower, QString const& operator_call,
                                QString const& xSent, QString const& xRcvd, QString const& propmode,
-                               QString const& satellite, QString const& satmode, QString const& freqRx)
+                               QString const& satellite, QString const& satmode, QString const& freqRx,
+                               SpecialOperatingActivity activity)
 {
-  Q_ASSERT (config_);
   auto contest = AdifQso::Contest::None;
-  switch (config_->special_op_id ())
+  switch (activity)
     {
     case Configuration::SpecialOperatingActivity::FIELD_DAY:
       contest = AdifQso::Contest::FieldDay;

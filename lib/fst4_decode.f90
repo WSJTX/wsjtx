@@ -14,6 +14,8 @@ module fst4_decode
    private
    public :: fst4_decoder,fst4_options,fst4_decode_callback,fst4_diagnostic_callback,fst4_spectrum_callback
 
+   integer, parameter :: MAXCAND=200
+
    type fst4_options
       integer :: utc=0,period=15,receive_frequency=1500,low_frequency=200,high_frequency=4000
       integer :: tolerance=100,effort=1,qso_progress=0,blanker_percent=0,blanker_step=0
@@ -128,11 +130,7 @@ contains
       if(allocated(this%metrics%one)) deallocate(this%metrics%one,this%metrics%zero)
       if(allocated(this%metrics%s2)) deallocate(this%metrics%s2)
       this%metrics%nss=0
-      if(allocated(this%wavegen%ctab)) deallocate(this%wavegen%ctab)
-      if(allocated(this%wavegen%pulse)) deallocate(this%wavegen%pulse)
-      if(allocated(this%wavegen%dphi)) deallocate(this%wavegen%dphi,this%wavegen%scaled_pulse)
-      this%wavegen%first=.true.
-      this%wavegen%nsps=0
+      this%wavegen=fst4_wavegen_workspace()
       if(associated(this%knowledge).and.this%owns_knowledge) deallocate(this%knowledge)
       this%owns_knowledge=.false.
       nullify(this%knowledge,this%callback,this%diagnostic,this%spectrum_sink)
@@ -145,11 +143,14 @@ contains
    end subroutine
 
    subroutine clear_fft_plans(this)
+     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
       class(fst4_decoder), intent(inout) :: this
       !$omp critical(fftw)
+      call wsjt_tsan_acquire_fftw()
       if(c_associated(this%big_plan)) call fftwf_destroy_plan(this%big_plan)
       if(c_associated(this%baseband_plan)) call fftwf_destroy_plan(this%baseband_plan)
       if(c_associated(this%dop_plan)) call fftwf_destroy_plan(this%dop_plan)
+      call wsjt_tsan_release_fftw()
       !$omp end critical(fftw)
       this%big_plan=c_null_ptr
       this%baseband_plan=c_null_ptr
@@ -262,25 +263,26 @@ contains
    subroutine decode_kernel(this,callback,iwave,nutc,nQSOProgress,nfa,nfb,nfqso, &
       ndepth,ntrperiod,blanker_percent,blanker_step,single_decode,ntol,emedelay,lapcqonly,mycall, &
       hiscall,iwspr,status)
+     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
       use timer_module, only: timer
       use packjt77
       use, intrinsic :: iso_c_binding
       include 'fst4/fst4_params.f90'
-      parameter (MAXCAND=100,MAXWCALLS=100)
+      parameter (MAXWCALLS=100)
       class(fst4_decoder), intent(inout) :: this
       procedure(fst4_decode_callback) :: callback
       integer, intent(in) :: blanker_percent,blanker_step
       logical, intent(in) :: single_decode
-      character*37 decodes(100)
-      integer decoded_hashes(100),unresolved_hash
+      character*37 decodes(MAXCAND)
+      integer decoded_hashes(MAXCAND),unresolved_hash
       character*37 msg,msgsent
       character*20 wpart
       character*77 c77
       character*12 mycall,hiscall
       complex(c_float_complex), pointer, contiguous :: c2(:),cframe(:),c_bigfft(:)
       real llr(240),llrs(240,4)
-      real candidates0(200,5),candidates(200,5)
+      real candidates0(MAXCAND,5),candidates(MAXCAND,5)
       real bitmetrics(320,4)
       real s4(0:3,NN)
       real minsync
@@ -317,7 +319,10 @@ contains
       this%knowledge%dxcall13=hiscall
       this%knowledge%mycall13=mycall
 
-      if(iwspr.ne.0 .and. iwspr.ne.1) return 
+      if(iwspr.ne.0 .and. iwspr.ne.1) return
+
+      fa=0.
+      fb=0.
 
       if(this%first) then
          this%apbits=0
@@ -444,14 +449,18 @@ contains
       call c_f_pointer(this%big_storage,fft_input,[nfft1+2])
       if(this%fft_length/=nfft1.or..not.c_associated(this%big_plan)) then
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          if(c_associated(this%big_plan)) call fftwf_destroy_plan(this%big_plan)
          this%big_plan=fftwf_plan_dft_r2c_1d(nfft1,fft_input,this%big,this%fft_flags)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%fft_length=nfft1
       endif
       if(this%down_length/=nfft2.or..not.c_associated(this%baseband_plan)) then
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          if(c_associated(this%baseband_plan)) call fftwf_destroy_plan(this%baseband_plan)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%baseband_plan=c_null_ptr
          if(associated(this%baseband)) then
@@ -462,7 +471,10 @@ contains
          endif
          if(.not.associated(this%baseband)) allocate(this%baseband(0:nfft2-1))
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
+         ! in==out requests an intentional in-place FFTW transform.
          this%baseband_plan=fftwf_plan_dft_1d(nfft2,this%baseband,this%baseband,FFTW_BACKWARD,this%fft_flags)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%down_length=nfft2
       endif
@@ -817,6 +829,7 @@ contains
                         if(decodes(i)==msg.and.decoded_hashes(i)==unresolved_hash) idupe=1
                      enddo
                      if(idupe.eq.1) goto 800
+                     if(ndecodes.ge.size(decodes)) goto 800
                      ndecodes=ndecodes+1
                      decodes(ndecodes)=msg
                      decoded_hashes(ndecodes)=unresolved_hash
@@ -1064,7 +1077,7 @@ contains
       complex c_bigfft(0:nfft1/2)              !Full length FFT of raw data
       integer hmod                             !Modulation index (submode)
       integer im(1)                            !For maxloc
-      real candidates(200,5)                   !Candidate list
+      real candidates(MAXCAND,5)               !Candidate list
       real xdb(-3:3)                           !Model 4-tone CCF peaks
       real minsync
       integer, intent(out) :: status
@@ -1129,7 +1142,7 @@ contains
 ! Find candidates, using the CLEAN algorithm to remove a model of each one
 ! from s2() after it has been found.
       pval=99.99
-      do while(ncand.lt.200)
+      do while(ncand.lt.size(candidates,1))
          im=maxloc(s2(ia:ib))
          iploc=ia+im(1)-1                         !Index of CCF peak
          pval=s2(iploc)                           !Peak value
@@ -1206,6 +1219,7 @@ contains
    end subroutine fst4_sync_search
 
    subroutine dopspread(this,itone,iwave,nsps,nmax,ndown,hmod,i0,fc,fmid,w50,status)
+     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
 
 ! On "plotspec" special request, compute Doppler spread for a decoded signal
 
@@ -1228,8 +1242,11 @@ contains
       if(status/=0) return
       if(this%dop_length/=nfft.or..not.c_associated(this%dop_plan)) then
          !$omp critical(fftw)
+         call wsjt_tsan_acquire_fftw()
          if(c_associated(this%dop_plan)) call fftwf_destroy_plan(this%dop_plan)
+         ! in==out requests an intentional in-place FFTW transform.
          this%dop_plan=fftwf_plan_dft_1d(nfft,this%dopgain,this%dopgain,FFTW_FORWARD,this%fft_flags)
+         call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%dop_length=nfft
       endif

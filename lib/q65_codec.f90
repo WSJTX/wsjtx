@@ -5,9 +5,10 @@ module q65_codec
   public :: q65_codec_create, q65_codec_destroy, select_q65_codec, q65_codec_status
   public :: q65_enc, q65_intrinsics_ff, q65_dec, q65_dec_fullaplist
 
-  ! Codec selection is scoped to one serialized decoder operation.
+  ! Codec selection is scoped to one serialized decoder operation on its thread.
   type(c_ptr), save :: selected_codec=c_null_ptr
   integer, save :: codec_status=0
+  !$omp threadprivate(selected_codec,codec_status)
 
   interface
     function q65_codec_create() bind(C) result(handle)
@@ -92,10 +93,20 @@ contains
     q65_codec_status=codec_status
   end function
 
-  subroutine q65_enc(x,y)
+  ! With codec, that codec (null: the legacy one), whatever this thread selected.
+  subroutine q65_enc(x,y,codec)
     integer, intent(in) :: x(13)
     integer, intent(out) :: y(63)
+    type(c_ptr), intent(in), optional :: codec
     y=0
+    if(present(codec)) then
+      if(.not.c_associated(codec)) then
+        call legacy_encode(x,y)
+      else if(codec_encode(codec,x,y)/=0) then
+        y=0
+      endif
+      return
+    endif
     if(codec_status/=0) return
     if(c_associated(selected_codec)) then
       codec_status=codec_encode(selected_codec,x,y)

@@ -19,6 +19,7 @@ class EQSL : public QObject
 
 public:
   explicit EQSL(QObject *parent = nullptr);
+  EQSL(QNetworkAccessManager * networkManager, QObject * parent);
     void upload(QString const& eqsl_username, QString const& eqsl_passwd, QString const& eqsl_nickname
                   , QString const& call, QString const& mode
                   , QDateTime const& QSO_date_on
@@ -35,8 +36,10 @@ public slots:
 private:
     QNetworkAccessManager *networkManager;
     QString myadif;
+    QString username;
+    QString password;
     QTimer *uploadTimer;
-    QNetworkReply *reply;
+    QNetworkReply *reply {nullptr};
     bool m_in_progress;
 };
 

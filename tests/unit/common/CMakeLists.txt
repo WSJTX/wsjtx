@@ -32,17 +32,35 @@ target_include_directories (test_qt_helpers PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_qt_helpers Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_qt_helpers COMMAND test_qt_helpers)
 
-add_executable (test_configuration_radio test_configuration_radio.cpp)
+add_executable (test_configuration_radio
+  test_configuration_radio.cpp
+  ${CMAKE_SOURCE_DIR}/OperatingFrequency.cpp)
 add_dependencies (test_configuration_radio wsjt_qt_autogen)
 target_include_directories (test_configuration_radio PRIVATE
   ${CMAKE_BINARY_DIR}
   ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include
   ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include_$<CONFIG>)
 target_link_libraries (test_configuration_radio wsjt_qt wsjt_cxx wsjt_fort_common
-  Boost::log_setup Qt5::Test)
+  Boost::log_setup Qt5::Test tci_simulator)
 add_test (NAME test_configuration_radio COMMAND test_configuration_radio)
 set_tests_properties (test_configuration_radio PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  LABELS "frequency-control;threading"
+  TIMEOUT 90)
+if (WSJT_ENABLE_TSAN)
+  set_property (TEST test_configuration_radio APPEND PROPERTY ENVIRONMENT
+    "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
+endif ()
+
+add_test (NAME test_configuration_history_sources_fusion
+  COMMAND test_configuration_radio historySourceDialogKeepsControlsReachable)
+set_tests_properties (test_configuration_history_sources_fusion PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_STYLE_OVERRIDE=Fusion"
+  TIMEOUT 60)
+add_test (NAME test_configuration_history_sources_scaled
+  COMMAND test_configuration_radio historySourceDialogKeepsControlsReachable)
+set_tests_properties (test_configuration_history_sources_scaled PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_ENABLE_HIGHDPI_SCALING=1;QT_SCALE_FACTOR=1.5"
   TIMEOUT 60)
 
 add_executable (test_callsign_validator
@@ -194,6 +212,8 @@ add_test (NAME test_auto_respond_period COMMAND test_auto_respond_period)
 
 add_executable (test_emulate_split_transceiver
   test_emulate_split_transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/OperatingFrequency.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/TransceiverBase.cpp
   ${CMAKE_SOURCE_DIR}/Transceiver/EmulateSplitTransceiver.cpp
   ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
   ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
@@ -212,6 +232,20 @@ add_executable (test_tx_inhibit_transceiver
 target_include_directories (test_tx_inhibit_transceiver PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_tx_inhibit_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_tx_inhibit_transceiver COMMAND test_tx_inhibit_transceiver)
+
+add_executable (test_transceiver_frequency
+  test_transceiver_frequency.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/TransceiverBase.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
+)
+target_include_directories (test_transceiver_frequency PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_transceiver_frequency Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
+add_test (NAME test_transceiver_frequency COMMAND test_transceiver_frequency)
+
+add_executable (test_radio_mode_policy test_radio_mode_policy.cpp)
+target_link_libraries (test_radio_mode_policy wsjt_qt Qt5::Test)
+add_test (NAME test_radio_mode_policy COMMAND test_radio_mode_policy)
 
 add_executable (test_hamlib_mode
   test_hamlib_mode.cpp
@@ -244,7 +278,7 @@ add_executable (test_frequency_editors
   test_frequency_editors.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp
 )
-target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets)
+target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets Qt5::Sql)
 add_test (NAME test_frequency_editors COMMAND test_frequency_editors)
 
 add_executable (test_frequency_suggestions
@@ -261,6 +295,10 @@ add_executable (test_decoded_message_reaction
 )
 target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)
+
+add_executable (test_best_sp_controller test_best_sp_controller.cpp)
+target_link_libraries (test_best_sp_controller wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_best_sp_controller COMMAND test_best_sp_controller)
 
 add_executable (test_decode_output_plan
   test_decode_output_plan.cpp
@@ -363,6 +401,10 @@ target_include_directories (test_operating_frequency PRIVATE ${CMAKE_BINARY_DIR}
 target_link_libraries (test_operating_frequency Qt5::Test)
 add_test (NAME test_operating_frequency COMMAND test_operating_frequency)
 
+add_executable (test_frequency_adapter test_frequency_adapter.cpp)
+target_link_libraries (test_frequency_adapter Qt5::Test)
+add_test (NAME test_frequency_adapter COMMAND test_frequency_adapter)
+
 add_executable (test_mainwindow_compact_controls
   test_mainwindow_compact_controls.cpp
   ${CMAKE_SOURCE_DIR}/widgets/TxDriveSlider.cpp
@@ -403,13 +445,18 @@ target_link_libraries (test_l10n_loader Boost::log_setup Qt5::Test Qt5::Widgets 
 add_test (NAME test_l10n_loader COMMAND test_l10n_loader)
 set_tests_properties (test_l10n_loader PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable (test_configuration_language test_configuration_language.cpp)
-target_link_libraries (test_configuration_language wsjt_qt wsjt_cxx wsjt_fort_common
+add_executable (test_configuration_preferences test_configuration_preferences.cpp)
+target_link_libraries (test_configuration_preferences wsjt_qt wsjt_cxx wsjt_fort_common
   Boost::log_setup Qt5::Test)
-add_test (NAME test_configuration_language COMMAND test_configuration_language)
-set_tests_properties (test_configuration_language PROPERTIES
+add_test (NAME test_configuration_preferences COMMAND test_configuration_preferences)
+set_tests_properties (test_configuration_preferences PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
+
+foreach (target test_displaytext test_frequency_editors)
+  add_dependencies (${target} translations)
+  target_compile_definitions (${target} PRIVATE WSJT_JAPANESE_QM="${CMAKE_BINARY_DIR}/wsjtx_ja.qm")
+endforeach ()
 
 add_executable (test_configuration_udp_destinations test_configuration_udp_destinations.cpp)
 target_link_libraries (test_configuration_udp_destinations wsjt_qt wsjt_cxx wsjt_fort_common

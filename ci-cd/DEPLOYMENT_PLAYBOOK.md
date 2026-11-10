@@ -207,7 +207,18 @@ Linux candidate and public builds compile WSJT-X from the selected source commit
 
 Native build summaries show dependency cache hits, misses, and rebuild results. Compiler-cache rows distinguish exact and fallback restores from a miss; a forced recompile is reported separately. The dependency warmer also summarizes each selected platform's result. A cache hit alone does not establish that the application build passed.
 
-Use `cold_build=true` on a manually dispatched macOS or Windows build to bypass workflow-managed dependency and compiler-cache restores and saves. Windows also bypasses the MSYS2 package cache. This leaves the runner's preinstalled software in place. `recache` only forces application recompilation and does not make dependencies cold. The macOS build budget is 180 minutes; confirm a cold run completes dependency builds, tests, and packaging within that budget before relying on it for a release.
+Use `cold_build=true` on a manually dispatched macOS or Windows build to bypass workflow-managed dependency and compiler-cache restores and saves. Windows also bypasses the MSYS2 package cache. This leaves the runner's preinstalled software in place. `recache` only forces application recompilation and does not make dependencies cold. The build budget is 360 minutes on macOS, GitHub's limit for a hosted job, and 150 on Windows (`validate-workflow-timeouts.py` holds minimums of 180 and 150); confirm a cold run completes dependency builds, tests, and packaging within that budget before relying on it for a release.
+
+A tag's run in `WSJTX/wsjtx` restores only caches saved under that tag or on `master`, so unless `master` holds matching caches, a public build compiles its native dependencies cold. Its macOS Intel dependencies build first in their own `macos-intel-deps` job, with a 300-minute budget, and the Intel build restores them in the same run.
+
+### Why macOS Intel is the slow leg
+
+macOS Intel (`x86_64`, deployment target 10.13) costs more time than any other leg and needs its own budgets:
+
+- **Slow, uneven runners.** It builds only on GitHub's `macos-15-intel` runners, where the same sources build several times slower than on Apple silicon (`macos-15`). In one public build, Qt took 96 minutes on Intel against 15 on Apple silicon, Boost 16 against 2, and FFTW 10 against 1.5. The time also varies by host: with the same Qt source, Intel's Qt step has taken anywhere from 54 to 107 minutes.
+- **Everything from source.** `build-qt-macos.sh` compiles the pinned Qt 5 source for the 10.13 deployment target, and the other native dependencies build the same way, so an Intel build without caches spends 75-140 minutes before it compiles WSJT-X.
+- **Its own Fortran compiler.** Intel builds with xPack GCC 12.4 (`install-xpack-gfortran-macos.sh`), while Apple silicon uses R's gfortran 14.2 (`install-r-macos-gfortran.sh`). Compiler-specific Fortran behaviour seen on one architecture says nothing about the other.
+- **Cold public builds.** Public tag builds start without its caches (above). Without the separate `macos-intel-deps` job, the cold dependency build and the WSJT-X build together can exceed 180 minutes.
 
 ### Prepared Linux release images
 
@@ -750,17 +761,18 @@ gh run list --repo WSJTX/wsjtx-internal --limit 5
 
 ### Step 3: Check the Selected Platforms
 
-An ordinary push runs the default Linux x86_64 check. Before a candidate, apply the `full-ci` label to a PR or manually dispatch full CI and confirm all six target builds. Expected times (first run, no cache):
+An ordinary push runs the default Linux x86_64 check. Before a candidate, apply the `full-ci` label to a PR or manually dispatch full CI and confirm all six target builds. Expected times, with no cache and with caches restored:
 
 | Platform | First Run | Cached Run |
 |----------|-----------|------------|
-| macOS arm64 | ~12-15 min | ~8 min |
-| macOS x86_64 (Intel) | ~15-20 min | ~10 min |
-| Linux x86_64 | ~10-12 min | ~7 min |
-| Linux aarch64 | ~10-12 min | ~7 min |
-| Windows x86_64 | ~40-45 min | ~15 min |
+| macOS arm64 | ~50 min | ~26 min |
+| macOS x86_64 (Intel) | 110 min to over 3 h (dependencies 75-155 min); has exceeded 180 minutes | ~25-60 min |
+| Linux x86_64 | ~38 min | ~38 min |
+| Linux aarch64 | ~26 min | ~27 min |
+| Linux armhf (each distro, build and test) | ~36 min | ~37 min |
+| Windows x86_64 | ~77 min | ~77 min |
 
-Windows is the slowest because MSYS2 package installation is slow on first run.
+macOS Intel is the slowest first run: its Qt build alone takes 55-95 minutes. Windows spends 30-40 minutes of its run in the test suite.
 
 ### Step 4: Inspect Failures
 
@@ -778,7 +790,7 @@ Common first-run failures:
 | "Resource not accessible by integration" | Workflow permissions too restrictive | Org Settings → Actions → Workflow permissions → "Read and write" |
 | macOS signing fails with empty identity | Application P12 is present, but the credential set is incomplete or invalid | Verify the application P12, its password, and the imported identity |
 | macOS notarization fails | Missing, revoked, or mismatched App Store Connect API credential | Verify the API key, key ID, issuer ID, and expected Team ID in `apple-release-signing` |
-| Windows build timeout (>60 min) | MSYS2 cache miss + slow package install | Re-run — the cache will be populated for next time |
+| Windows build timeout (150 min) | Cold dependency caches on a slow runner, or test-suite growth | Re-run. Outside pull requests the first attempt saved its dependency caches and the re-run restores them; if the test step alone nears the budget, raise it |
 | "refusing to allow an OAuth App to create or update workflow" | This error can appear at PR merge time if the branch contains workflow files and was pushed with a deploy key | Push the branch using a PAT or via the GitHub web UI instead |
 
 ### Step 5: Revert the Test Commit
@@ -1032,7 +1044,7 @@ A successful re-run publishes the beta, and the next cut moves on to N+1 when `d
 
 ### Actions minutes
 
-The estimate for each beta with Apple silicon as the only macOS build is 125 to 135 private-repository minutes, about $1.40 at the rates in [where CI runs](DEVELOPMENT_WORKFLOW.md#where-ci-runs), or about 500 to 680 included minutes for four or five betas a month. These estimates need remeasurement with both macOS architectures. A cold macOS dependency build can run to the 180-minute macOS budget in [Cache readiness](#cache-readiness). The public builds run in `WSJTX/wsjtx`, where standard GitHub-hosted runners are free.
+The estimate for each beta with Apple silicon as the only macOS build is 125 to 135 private-repository minutes, about $1.40 at the rates in [where CI runs](DEVELOPMENT_WORKFLOW.md#where-ci-runs), or about 500 to 680 included minutes for four or five betas a month. These estimates need remeasurement with both macOS architectures. A cold macOS dependency build can run to 180 minutes ([Cache readiness](#cache-readiness)). The public builds run in `WSJTX/wsjtx`, where standard GitHub-hosted runners are free.
 
 ---
 

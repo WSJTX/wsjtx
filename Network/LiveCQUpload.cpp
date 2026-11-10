@@ -51,6 +51,7 @@ LiveCQUpload::~LiveCQUpload ()
 bool LiveCQUpload::setEndpoint (QUrl const& endpoint)
 {
   if (!endpoint.isValid ()
+      || endpoint.host ().isEmpty ()
       || endpoint.scheme ().compare ("https", Qt::CaseInsensitive) != 0)
     {
       Q_EMIT errorOccurred (
@@ -71,6 +72,8 @@ void LiveCQUpload::postSpot (QUrlQuery const& query)
     }
 
   QNetworkRequest request {endpoint_};
+  request.setAttribute (QNetworkRequest::RedirectPolicyAttribute,
+                        QNetworkRequest::ManualRedirectPolicy);
   request.setHeader (QNetworkRequest::ContentTypeHeader,
                      "application/x-www-form-urlencoded");
   if (!user_agent_.isEmpty ())
@@ -107,7 +110,7 @@ void LiveCQUpload::handleReply (QNetworkReply *reply)
     {
       Q_EMIT errorOccurred (QString {"LiveCQ upload failed: %1"}.arg (reply->errorString ()));
     }
-  else if (http_status >= 400)
+  else if (http_status < 200 || http_status >= 300)
     {
       Q_EMIT errorOccurred (QString {"LiveCQ upload failed: HTTP %1"}.arg (http_status));
     }

@@ -48,10 +48,24 @@ endif ()
 #
 # Boost
 #
-if (WIN32)
-  set (Boost_USE_STATIC_LIBS OFF)
-endif ()
+option (Boost_USE_STATIC_LIBS "Link Boost statically" OFF)
 find_package (Boost 1.62 REQUIRED COMPONENTS log_setup log)
+get_target_property (_boost_log_setup_links Boost::log_setup INTERFACE_LINK_LIBRARIES)
+if (NOT "Boost::log" IN_LIST _boost_log_setup_links)
+  # FindBoost reverses this dependency; static setup users also need the Log core.
+  get_target_property (_boost_log_links Boost::log INTERFACE_LINK_LIBRARIES)
+  if (_boost_log_links)
+    list (REMOVE_ITEM _boost_log_links Boost::log_setup)
+    set_property (TARGET Boost::log PROPERTY INTERFACE_LINK_LIBRARIES "${_boost_log_links}")
+  endif ()
+  set_property (TARGET Boost::log_setup APPEND PROPERTY INTERFACE_LINK_LIBRARIES Boost::log)
+endif ()
+unset (_boost_log_links)
+unset (_boost_log_setup_links)
+if (Boost_USE_STATIC_LIBS)
+  include ("${CMAKE_CURRENT_LIST_DIR}/Modules/verify_static_boost.cmake")
+  wsjt_verify_static_boost (Boost::log_setup Boost::log)
+endif ()
 
 #
 # OpenMP

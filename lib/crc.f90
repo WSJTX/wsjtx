@@ -1,54 +1,162 @@
-module crc 
-  use, intrinsic :: iso_c_binding, only: c_int, c_loc, c_int8_t, c_bool, c_short
-  interface
+module crc
+  use, intrinsic :: iso_fortran_env, only: int8, int16, int32
+  implicit none
+  private
+  public :: crc10, crc13, crc14
 
-    function crc14 (data, length) bind (C, name="crc14")
-      use, intrinsic :: iso_c_binding, only: c_short, c_ptr, c_int
-      implicit none
-      integer (c_short) :: crc14
-      type (c_ptr), value :: data
-      integer (c_int), value :: length
-    end function crc14
- 
-    function crc14_check (data, length) bind (C, name="crc14_check")
-      use, intrinsic :: iso_c_binding, only: c_bool, c_ptr, c_int
-      implicit none
-      logical (c_bool) :: crc14_check
-      type (c_ptr), value :: data
-      integer (c_int), value :: length
-    end function crc14_check
+  ! Byte-division remainders for x**10+0x08F, x**13+0x15D7, and x**14+0x2757.
+  integer(int16), parameter :: table10(0:255) = [ &
+        0,   143,   286,   401,   572,   691,   802,   941, &
+      247,   120,   489,   358,   715,   580,   981,   858, &
+      494,   353,   240,   127,   978,   861,   716,   579, &
+      281,   406,     7,   136,   805,   938,   571,   692, &
+      988,   851,   706,   589,   480,   367,   254,   113, &
+      811,   932,   565,   698,   279,   408,     9,   134, &
+      562,   701,   812,   931,    14,   129,   272,   415, &
+      709,   586,   987,   852,   249,   118,   487,   360, &
+      823,   952,   553,   678,   267,   388,    21,   154, &
+      960,   847,   734,   593,   508,   371,   226,   109, &
+      729,   598,   967,   840,   229,   106,   507,   372, &
+      558,   673,   816,   959,    18,   157,   268,   387, &
+      235,   100,   501,   378,   727,   600,   969,   838, &
+       28,   147,   258,   397,   544,   687,   830,   945, &
+      261,   394,    27,   148,   825,   950,   551,   680, &
+      498,   381,   236,    99,   974,   833,   720,   607, &
+      737,   622,  1023,   880,   221,    82,   451,   332, &
+      534,   665,   776,   903,    42,   165,   308,   443, &
+      783,   896,   529,   670,   307,   444,    45,   162, &
+     1016,   887,   742,   617,   452,   331,   218,    85, &
+      317,   434,    35,   172,   769,   910,   543,   656, &
+      458,   325,   212,    91,  1014,   889,   744,   615, &
+      211,    92,   461,   322,   751,   608,  1009,   894, &
+       36,   171,   314,   437,   536,   663,   774,   905, &
+      470,   345,   200,    71,  1002,   869,   756,   635, &
+      289,   430,    63,   176,   797,   914,   515,   652, &
+       56,   183,   294,   425,   516,   651,   794,   917, &
+      207,    64,   465,   350,   755,   636,  1005,   866, &
+      522,   645,   788,   923,    54,   185,   296,   423, &
+      765,   626,   995,   876,   193,    78,   479,   336, &
+      996,   875,   762,   629,   472,   343,   198,    73, &
+      787,   924,   525,   642,   303,   416,    49,   190 ]
 
-    function crc13 (data, length) bind (C, name="crc13")
-      use, intrinsic :: iso_c_binding, only: c_short, c_ptr, c_int
-      implicit none
-      integer (c_short) :: crc13
-      type (c_ptr), value :: data
-      integer (c_int), value :: length
-    end function crc13
- 
-    function crc13_check (data, length) bind (C, name="crc13_check")
-      use, intrinsic :: iso_c_binding, only: c_bool, c_ptr, c_int
-      implicit none
-      logical (c_bool) :: crc13_check
-      type (c_ptr), value :: data
-      integer (c_int), value :: length
-    end function crc13_check
+  integer(int16), parameter :: table13(0:255) = [ &
+        0,  5591,  7801,  2990,  2341,  7410,  5980,   651, &
+     4682,  1949,  3123,  6628,  7023,  3768,  1302,  4289, &
+     4419,  1172,  3898,  6893,  6246,  3505,  1567,  5064, &
+      777,  5854,  7536,  2215,  2604,  8187,  5205,   386, &
+     5969,   646,  2344,  7423,  7796,  2979,    13,  5594, &
+     1307,  4300,  7010,  3765,  3134,  6633,  4679,  1936, &
+     1554,  5061,  6251,  3516,  3895,  6880,  4430,  1177, &
+     5208,   399,  2593,  8182,  7549,  2218,   772,  5843, &
+     7029,  3746,  1292,  4315,  4688,  1927,  3113,  6654, &
+     2367,  7400,  5958,   657,    26,  5581,  7779,  2996, &
+     2614,  8161,  5199,   408,   787,  5828,  7530,  2237, &
+     6268,  3499,  1541,  5074,  4441,  1166,  3872,  6903, &
+     3108,  6643,  4701,  1930,  1281,  4310,  7032,  3759, &
+     7790,  3001,    23,  5568,  5963,   668,  2354,  7397, &
+     7527,  2224,   798,  5833,  5186,   405,  2619,  8172, &
+     3885,  6906,  4436,  1155,  1544,  5087,  6257,  3494, &
+      829,  5866,  7492,  2195,  2584,  8143,  5217,   438, &
+     4471,  1184,  3854,  6873,  6226,  3461,  1579,  5116, &
+     4734,  1961,  3079,  6608,  7003,  3724,  1314,  4341, &
+       52,  5603,  7757,  2970,  2321,  7366,  5992,   703, &
+     5228,   443,  2581,  8130,  7497,  2206,   816,  5863, &
+     1574,  5105,  6239,  3464,  3843,  6868,  4474,  1197, &
+     1327,  4344,  6998,  3713,  3082,  6621,  4723,  1956, &
+     5989,   690,  2332,  7371,  7744,  2967,    57,  5614, &
+     6216,  3487,  1585,  5094,  4461,  1210,  3860,  6851, &
+     2562,  8149,  5243,   428,   807,  5872,  7518,  2185, &
+     2315,  7388,  6002,   677,    46,  5625,  7767,  2944, &
+     6977,  3734,  1336,  4335,  4708,  1971,  3101,  6602, &
+     3865,  6862,  4448,  1207,  1596,  5099,  6213,  3474, &
+     7507,  2180,   810,  5885,  5238,   417,  2575,  8152, &
+     7770,  2957,    35,  5620,  6015,   680,  2310,  7377, &
+     3088,  6599,  4713,  1982,  1333,  4322,  6988,  3739 ]
 
-    function crc10 (data, length) bind (C, name="crc10")
-      use, intrinsic :: iso_c_binding, only: c_short, c_ptr, c_int
-      implicit none
-      integer (c_short) :: crc10
-      type (c_ptr), value :: data
-      integer (c_int), value :: length
-    end function crc10
+  integer(int16), parameter :: table14(0:255) = [ &
+        0, 10071, 10745,  3758, 13477,  5106,  7516, 14859, &
+     3613, 10570, 10212,   179, 15032,  7663,  4929, 13334, &
+     7226, 15213, 13763,  4756, 10399,  4040,   358,  9777, &
+     4647, 13680, 15326,  7305,  9858,   469,  3963, 10284, &
+    14452,  7971,  4493, 14042,  3281, 11142,  9512,   639, &
+    13929,  4414,  8080, 14535,   716,  9627, 11061,  3170, &
+     9294,   793,  3511, 10976,  4331, 14268, 14610,  7749, &
+    10835,  3332,   938,  9469,  7926, 14753, 14095,  4184, &
+     6079, 12520, 15942,  6417,  8986,  1101,  2787, 11700, &
+     6562, 16117, 12379,  5900, 11527,  2640,  1278,  9129, &
+     2949, 11474,  8828,  1323, 16160,  6263,  5849, 12686, &
+     1432,  8911, 11361,  2870, 12605,  5738,  6340, 16275, &
+    12235,  2204,  1586,  8549,  7022, 15417, 12951,  5568, &
+     8662,  1665,  2095, 12152,  5491, 12836, 15498,  7133, &
+    13297,  5286,  6664, 15711,  1876,  8195, 11949,  2554, &
+    15852,  6843,  5141, 13122,  2377, 11806,  8368,  2023, &
+    12158,  2089,  1671,  8656,  7131, 15500, 12834,  5493, &
+     8547,  1588,  2202, 12237,  5574, 12945, 15423,  7016, &
+    13124,  5139,  6845, 15850,  2017,  8374, 11800,  2383, &
+    15705,  6670,  5280, 13303,  2556, 11947,  8197,  1874, &
+     5898, 12381, 16115,  6564,  9135,  1272,  2646, 11521, &
+     6423, 15936, 12526,  6073, 11698,  2789,  1099,  8988, &
+     2864, 11367,  8905,  1438, 16277,  6338,  5740, 12603, &
+     1325,  8826, 11476,  2947, 12680,  5855,  6257, 16166, &
+    14529,  8086,  4408, 13935,  3172, 11059,  9629,   714, &
+    14044,  4491,  7973, 14450,   633,  9518, 11136,  3287, &
+     9467,   940,  3330, 10837,  4190, 14089, 14759,  7920, &
+    10982,  3505,   799,  9288,  7747, 14612, 14266,  4333, &
+      181, 10210, 10572,  3611, 13328,  4935,  7657, 15038, &
+     3752, 10751, 10065,     6, 14861,  7514,  5108, 13475, &
+     7311, 15320, 13686,  4641, 10282,  3965,   467,  9860, &
+     4754, 13765, 15211,  7228,  9783,   352,  4046, 10393 ]
 
-    function crc10_check (data, length) bind (C, name="crc10_check")
-      use, intrinsic :: iso_c_binding, only: c_bool, c_ptr, c_int
-      implicit none
-      logical (c_bool) :: crc10_check
-      type (c_ptr), value :: data
-      integer (c_int), value :: length
-    end function crc10_check
+contains
 
-  end interface
+  ! Bits are 0/1, most significant first, with augmentation supplied by the caller.
+  pure function crc10(bits) result(remainder)
+    integer(int8), intent(in) :: bits(:)
+    integer(int32) :: remainder
+
+    remainder = crc_remainder(bits, 10, int(z'08F', int32), table10)
+  end function crc10
+
+  pure function crc13(bits) result(remainder)
+    integer(int8), intent(in) :: bits(:)
+    integer(int32) :: remainder
+
+    remainder = crc_remainder(bits, 13, int(z'15D7', int32), table13)
+  end function crc13
+
+  pure function crc14(bits) result(remainder)
+    integer(int8), intent(in) :: bits(:)
+    integer(int32) :: remainder
+
+    remainder = crc_remainder(bits, 14, int(z'2757', int32), table14)
+  end function crc14
+
+  pure function crc_remainder(bits, width, polynomial, table) result(remainder)
+    integer(int8), intent(in) :: bits(:)
+    integer, intent(in) :: width
+    integer(int32), intent(in) :: polynomial
+    integer(int16), intent(in) :: table(0:255)
+    integer(int32) :: remainder, mask, byte, index
+    integer :: i, full_bytes
+    logical :: feedback
+
+    remainder = 0
+    mask = shiftl(1_int32, width) - 1
+    full_bytes = size(bits) / 8
+    do i = 1, 8 * full_bytes, 8
+      byte = shiftl(int(bits(i), int32), 7) + shiftl(int(bits(i+1), int32), 6) + &
+             shiftl(int(bits(i+2), int32), 5) + shiftl(int(bits(i+3), int32), 4) + &
+             shiftl(int(bits(i+4), int32), 3) + shiftl(int(bits(i+5), int32), 2) + &
+             shiftl(int(bits(i+6), int32), 1) + int(bits(i+7), int32)
+      index = shiftr(remainder, width - 8)
+      remainder = ieor(ior(iand(shiftl(remainder, 8), mask), byte), int(table(index), int32))
+    enddo
+
+    do i = 8 * full_bytes + 1, size(bits)
+      feedback = btest(remainder, width - 1)
+      remainder = iand(ior(shiftl(remainder, 1), int(bits(i), int32)), mask)
+      if (feedback) remainder = ieor(remainder, polynomial)
+    enddo
+  end function crc_remainder
+
 end module crc

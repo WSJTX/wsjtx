@@ -6,11 +6,13 @@ program test_map65_pass_snapshots
   use datcom_ptrs_mod, only: dd, ss, savg, snap, snapshot_buffers
   use npar_ptrs_mod, only: snap_latest_idx, set_nhsym, set_nagain, set_ndiskdat, &
        publish_decode_request, claim_decode_request, active_request_expired, &
-       active_snap_idx, snapshot_release, advance_live_input_generation
+       active_request_lagged, active_snap_idx, snapshot_release, advance_live_input_generation, &
+       get_decoder_lag_count, get_decoder_lag_kind, note_decoder_lag
   implicit none
 
   integer, parameter :: nsmax = 4000, ncol = 12, nfft = 16
   integer(8) :: rid
+  integer :: lag0
 
   allocate(dd(4,nsmax), ss(4,ncol,nfft), savg(4,nfft))
   allocate(snap(1)%dd(4,nsmax), snap(1)%ss(4,ncol,nfft), snap(1)%savg(4,nfft))
@@ -58,16 +60,39 @@ program test_map65_pass_snapshots
   call require(claim_decode_request(), 'request claimed')
   call require(.not. active_request_expired, 'late request with intact snapshot runs')
   call require(active_snap_idx == 2, 'late request reads its own slot')
+  call require(.not. active_request_lagged, 'intact request is not lag')
 
   ! 2. While that pass is running, the next cycle's fill must not overwrite
   !    the slot; the request published for it is then dropped, not mis-decoded.
   dd = 4.0
+  lag0 = get_decoder_lag_count()
   call snapshot_buffers(2, 3800, 12)
   call require(all(snap(2)%dd(:,1:3800) == 3.0), 'busy slot not overwritten')
+  call require(get_decoder_lag_count() == lag0 + 1, 'refused fill counts as a decoder-behind event')
+  call require(get_decoder_lag_kind() == 1, 'refused fill is event kind 1')
   rid = publish_decode_request()
   call snapshot_release()
   call require(claim_decode_request(), 'second request claimed')
   call require(active_request_expired, 'request whose fill was skipped is dropped')
+  call require(active_request_lagged, 'request whose fill was refused is lag')
+  call require(get_decoder_lag_count() == lag0 + 1, 'one lost pass (refused fill) is counted once')
+
+  ! 2b. Two refused fills while one pass runs: each lost pass is counted once,
+  !     whichever order the requests are claimed in.
+  dd = 4.5
+  call snapshot_buffers(2, 3800, 12)
+  rid = publish_decode_request()
+  call require(claim_decode_request(), 'running request claimed')
+  lag0 = get_decoder_lag_count()
+  call snapshot_buffers(2, 3800, 12)
+  rid = publish_decode_request()
+  call snapshot_buffers(2, 3800, 12)
+  rid = publish_decode_request()
+  call require(get_decoder_lag_count() == lag0 + 2, 'two refused fills are two events')
+  call snapshot_release()
+  call require(claim_decode_request(), 'first refused request claimed')
+  call require(claim_decode_request(), 'second refused request claimed')
+  call require(get_decoder_lag_count() == lag0 + 2, 'refused requests are not counted again')
 
   ! 3. A queued request whose slot is refilled before it is claimed is dropped.
   dd = 5.0
@@ -75,16 +100,29 @@ program test_map65_pass_snapshots
   rid = publish_decode_request()
   dd = 6.0
   call snapshot_buffers(2, 3800, 12)
+  lag0 = get_decoder_lag_count()
   call require(claim_decode_request(), 'third request claimed')
+  call require(get_decoder_lag_count() == lag0 + 1, 'overwritten snapshot counted once')
+  call require(get_decoder_lag_kind() == 2, 'overwritten snapshot is event kind 2')
   call require(active_request_expired, 'overwritten snapshot request is dropped')
+  call require(active_request_lagged, 'overwritten snapshot request is lag')
 
   ! 4. More than one generation old (monitoring stopped etc.) is dropped.
   call snapshot_buffers(2, 3800, 12)
   rid = publish_decode_request()
   call advance_live_input_generation()
   call advance_live_input_generation()
+  lag0 = get_decoder_lag_count()
   call require(claim_decode_request(), 'fourth request claimed')
+  call require(get_decoder_lag_count() == lag0, 'request dropped by monitoring stopping is not counted')
   call require(active_request_expired, 'request two generations old is dropped')
+  call require(.not. active_request_lagged, 'request dropped by monitoring stopping is not lag')
+
+  ! 5. Other decoder-behind events are counted with their kind.
+  lag0 = get_decoder_lag_count()
+  call note_decoder_lag(3)
+  call require(get_decoder_lag_count() == lag0 + 1, 'budget abort counted')
+  call require(get_decoder_lag_kind() == 3, 'budget abort is event kind 3')
   print *, 'test_map65_pass_snapshots: PASS'
 
 contains

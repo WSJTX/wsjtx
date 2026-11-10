@@ -149,6 +149,20 @@ private slots:
     QCOMPARE(spots.first().utcDateTime, expected);
   }
 
+  void datesLatePeriodBeforeAndAfterMidnight()
+  {
+    QDate const date {2026, 8, 17};
+    for (auto const clock : {QTime {23, 59, 55}, QTime {0, 0, 5}}) {
+      QStringList seen;
+      auto const spots = Map65LiveCQ::parseSpots(
+        {decodeLine({"CQ", "K1ABC", "1200.0", "#A"}, "2359")},
+        "N0CALL", "FN21", false, QDateTime {date, clock, Qt::UTC}, seen);
+      QCOMPARE(spots.size(), 1);
+      auto const expectedDate = clock.hour() == 23 ? date : date.addDays(-1);
+      QCOMPARE(spots.first().utcDateTime, QDateTime(expectedDate, QTime(23, 59), Qt::UTC));
+    }
+  }
+
   void buildsExpectedQueryFields()
   {
     QStringList seen;

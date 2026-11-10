@@ -103,7 +103,7 @@ contains
          lnomycall,lnohisgrid
     character msg37*37,msg37_2*37,msg26*37,call2*12 !ft8md msg26 was *26
     character*37 msgsrcvd(130)
-    integer nsnr
+    integer nsnr,nmsgcopy
     type(pack77_state), pointer :: codec
     type(ft8_signal_evidence) :: evidence
 
@@ -423,17 +423,23 @@ contains
 !$omp critical(update_structures)
        call wsjt_tsan_acquire_ft8_update_structures()
        if(levenint) then
-          even(nmsg+1:nmsg+nmsgloc)%msg=eventmp(1:nmsgloc)%msg
-          even(nmsg+1:nmsg+nmsgloc)%freq=eventmp(1:nmsgloc)%freq
-          even(nmsg+1:nmsg+nmsgloc)%dt=eventmp(1:nmsgloc)%dt
-          even(nmsg+1:nmsg+nmsgloc)%lstate=eventmp(1:nmsgloc)%lstate
-          nmsg=nmsg+nmsgloc
+          nmsgcopy=min(nmsgloc,max(0,size(even)-nmsg))
+          if(nmsgcopy.gt.0) then
+             even(nmsg+1:nmsg+nmsgcopy)%msg=eventmp(1:nmsgcopy)%msg
+             even(nmsg+1:nmsg+nmsgcopy)%freq=eventmp(1:nmsgcopy)%freq
+             even(nmsg+1:nmsg+nmsgcopy)%dt=eventmp(1:nmsgcopy)%dt
+             even(nmsg+1:nmsg+nmsgcopy)%lstate=eventmp(1:nmsgcopy)%lstate
+             nmsg=nmsg+nmsgcopy
+          endif
        else if(loddint) then
-          odd(nmsg+1:nmsg+nmsgloc)%msg=oddtmp(1:nmsgloc)%msg
-          odd(nmsg+1:nmsg+nmsgloc)%freq=oddtmp(1:nmsgloc)%freq
-          odd(nmsg+1:nmsg+nmsgloc)%dt=oddtmp(1:nmsgloc)%dt
-          odd(nmsg+1:nmsg+nmsgloc)%lstate=oddtmp(1:nmsgloc)%lstate
-          nmsg=nmsg+nmsgloc
+          nmsgcopy=min(nmsgloc,max(0,size(odd)-nmsg))
+          if(nmsgcopy.gt.0) then
+             odd(nmsg+1:nmsg+nmsgcopy)%msg=oddtmp(1:nmsgcopy)%msg
+             odd(nmsg+1:nmsg+nmsgcopy)%freq=oddtmp(1:nmsgcopy)%freq
+             odd(nmsg+1:nmsg+nmsgcopy)%dt=oddtmp(1:nmsgcopy)%dt
+             odd(nmsg+1:nmsg+nmsgcopy)%lstate=oddtmp(1:nmsgcopy)%lstate
+             nmsg=nmsg+nmsgcopy
+          endif
        endif
        call wsjt_tsan_release_ft8_update_structures()
 !$omp end critical(update_structures)

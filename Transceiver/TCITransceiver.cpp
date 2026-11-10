@@ -454,7 +454,6 @@ int TCITransceiver::do_start ()
   requested_PTT_ = false;
   mode_ = "";
   requested_mode_ = "";
-  started_mode_ = "";
   requested_rx_frequency_ = "";
   rx_frequency_ = "";
   requested_other_frequency_ = "";
@@ -573,7 +572,6 @@ void TCITransceiver::do_stop ()
     busy_split_ = false;
     requested_split_ = false;
     rig_split();
-    if (started_mode_ != mode_) sendTextMessage(mode_to_command(started_mode_));
     if (!started_rx2_ && rx2_) {
       rx2_enable (false);
     }
@@ -751,10 +749,11 @@ void TCITransceiver::onMessageReceived(const QString &str)
         auto const received_frequency_text = QString::number (received_frequency);
         if(args.at(1) == "0") {
           rx_frequency_ = received_frequency_text;
+          update_rx_frequency (received_frequency, RigFrequency::Basis::Readback);
           CAT_TRACE("Rx VFO Frequency from SDR is :");
           CAT_TRACE(rx_frequency_);
           if (!tci_Ready && requested_rx_frequency_.isEmpty()) requested_rx_frequency_ = rx_frequency_;
-          if (busy_rx_frequency_ && !band_change) {
+          if (busy_rx_frequency_ && rx_frequency_ == requested_rx_frequency_) {
             printf (" cmdvfo0 done1");
             tci_done7();
           } else if (!tci_timer2_->isActive() && split_) {
@@ -764,6 +763,8 @@ void TCITransceiver::onMessageReceived(const QString &str)
         }
         else {
           other_frequency_ = received_frequency_text;
+          if (split_ || busy_other_frequency_)
+            update_other_frequency (received_frequency, RigFrequency::Basis::Readback);
           CAT_TRACE("Tx VFO (other) Frequency from SDR is :");
           CAT_TRACE(other_frequency_);
           if (!tci_Ready && requested_other_frequency_.isEmpty()) requested_other_frequency_ = other_frequency_;
@@ -771,14 +772,14 @@ void TCITransceiver::onMessageReceived(const QString &str)
             printf (" cmdvfo1 done1");
             band_change = false;
             tci_timer2_->start(210);
-            tci_done7();
-          } else if (busy_other_frequency_) {
+          } else if (busy_other_frequency_ && other_frequency_ == requested_other_frequency_) {
             printf (" cmdvfo1 done2");
             tci_done2();
-          } else if (tci_timer2_->isActive()) {
+          } else if (tci_timer2_->isActive() && !busy_other_frequency_) {
             printf (" cmdvfo1 timer2 reset 210");
             tci_timer2_->start(210);
-          } else if (other_frequency_ != requested_other_frequency_ && tci_Ready && split_ && !tci_timer2_->isActive()) {
+          } else if (other_frequency_ != requested_other_frequency_ && tci_Ready && split_
+                     && !busy_other_frequency_ && !tci_timer2_->isActive()) {
             printf (" cmdvfo1 timer2 start 210");
             tci_timer2_->start(210);
           }
@@ -797,13 +798,10 @@ void TCITransceiver::onMessageReceived(const QString &str)
               mode_ = args.at(1).toLower();
             }
           } else mode_ = args.at(1);
-          if (started_mode_.isEmpty()) started_mode_ = mode_;
+          observe_mode (get_mode ());
           if (busy_mode_) {
             if (requested_mode_.isEmpty() || requested_mode_ == mode_) tci_done8();
             return;
-          }
-          else if (!requested_mode_.isEmpty() && requested_mode_ != mode_ && !band_change) {
-            sendTextMessage(mode_to_command(requested_mode_));
           }
         }
         break;
@@ -1424,10 +1422,11 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
   TRACE_CAT ("TCITransceiver", f << state ());
   auto f_string = frequency_to_string (f);
   if (busy_rx_frequency_) {
+    defer_frequency (RigFrequency::Path::Rx);
     return;
   } else {
     requested_rx_frequency_ = f_string;
-    requested_mode_ = map_mode (m);
+    if (m != UNK) requested_mode_ = map_mode (m);
   }
   if (tci_Ready && _power_) {
     if ((rx_frequency_ != requested_rx_frequency_)) {
@@ -1436,10 +1435,13 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
         string_to_frequency (rx_frequency_), f, band_change_threshold_hz);
       const QString cmd = CmdVFO + SmDP + rx_ + SmCM + "0" + SmCM + requested_rx_frequency_ + SmTZ;
       if(f > 100000 && f< 250000000000) sendTextMessage(cmd);
-      mysleep7(2000);
-      band_change2 = TciProtocol::frequency_difference_exceeds (
-        string_to_frequency (rx_frequency_), f, band_change_threshold_hz);
-      if (!band_change2) update_rx_frequency (f);
+      QElapsedTimer deadline;
+      deadline.start ();
+      while (string_to_frequency (rx_frequency_) != f && inConnected
+             && error_.isEmpty () && deadline.elapsed () < 2000)
+        mysleep7 (static_cast<int> (2000 - deadline.elapsed ()));
+      band_change2 = string_to_frequency (rx_frequency_) != f;
+      if (!band_change2) update_rx_frequency (f, RigFrequency::Basis::Readback);
       else {
         printf("%s TCI failed set rxfreq:%s->%s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),rx_frequency_.toStdString().c_str(),requested_rx_frequency_.toStdString().c_str());
         error_ = tr ("TCI failed set rxfreq");
@@ -1449,25 +1451,25 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
         CAT_TRACE(requested_rx_frequency_);
         printf("rx_frequency is %s and requested_rx_frequency is %s\n",rx_frequency_.toStdString().c_str(),requested_rx_frequency_.toStdString().c_str());
         tci_Ready = false;
+        busy_rx_frequency_ = false;
         throw error {tr ("TCI failed set rxfreq")};
       }
       busy_rx_frequency_ = false;
-    } else update_rx_frequency (string_to_frequency (rx_frequency_));
+    } else update_rx_frequency (string_to_frequency (rx_frequency_), RigFrequency::Basis::Readback);
 
-    if (!requested_mode_.isEmpty() && requested_mode_ != mode_ && !busy_mode_) {
+    if (m != UNK && !requested_mode_.isEmpty() && requested_mode_ != mode_ && !busy_mode_) {
       busy_mode_ = true;
       sendTextMessage(mode_to_command(requested_mode_));
       mysleep8(1000);
       if (requested_mode_.isEmpty() || requested_mode_ == mode_) update_mode (m);
       else {
         printf("%s TCI failed set mode %s->%s",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),mode_.toStdString().c_str(),requested_mode_.toStdString().c_str());
-        error_ = tr ("TCI failed set mode");
+        CAT_WARNING ("mode preparation did not reach " << requested_mode_);
       }
       busy_mode_ = false;
     }
   } else {
-    update_rx_frequency (f);
-    update_mode (m);
+    defer_frequency (RigFrequency::Path::Rx);
   }
 }
 
@@ -1479,9 +1481,9 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
       CAT_TRACE("TCI do_txfrequency critical no_ignore set tx vfo will be missed\n");
     printf("%s TCI do_txfrequency critical no_ignore set tx vfo will be missed\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
   }
-  if (busy_other_frequency_) return;
+  if (busy_other_frequency_ || busy_split_) { defer_frequency (RigFrequency::Path::Tx); return; }
   requested_other_frequency_ = f_string;
-  requested_mode_ = map_mode (mode);
+  if (mode != UNK) requested_mode_ = map_mode (mode);
   if (tx) {
     requested_split_ = true;
     if (tci_Ready && _power_) {
@@ -1496,25 +1498,30 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
       }
       if (requested_split_ != split_) rig_split();
       else update_split (split_);
+      if (!split_) throw error {tr ("TCI failed to enable split")};
       if (other_frequency_ != requested_other_frequency_) {
         busy_other_frequency_ = true;
         printf("%s TCI VFO1 command sent\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
         const QString cmd = CmdVFO + SmDP + rx_ + SmCM + "1" + SmCM + requested_other_frequency_ + SmTZ;
         if(tx > 100000 && tx < 250000000000) sendTextMessage(cmd);
-        mysleep2(1000);
-        other_band_change = TciProtocol::frequency_difference_exceeds (
-          string_to_frequency (other_frequency_), tx, band_change_threshold_hz);
-        if (!other_band_change) update_other_frequency (tx);
+        QElapsedTimer deadline;
+        deadline.start ();
+        while (string_to_frequency (other_frequency_) != tx && inConnected
+               && error_.isEmpty () && deadline.elapsed () < 1000)
+          mysleep2 (static_cast<int> (1000 - deadline.elapsed ()));
+        other_band_change = string_to_frequency (other_frequency_) != tx;
+        if (!other_band_change) update_other_frequency (tx, RigFrequency::Basis::Readback);
         else {
           printf("%s TCI failed set txfreq:%s->%s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),other_frequency_.toStdString().c_str(),requested_other_frequency_.toStdString().c_str());
           CAT_TRACE("TCI failed set txfreq");
+          busy_other_frequency_ = false;
+          throw error {tr ("TCI failed set txfreq")};
         }
         busy_other_frequency_ = false;
-      } else update_other_frequency (string_to_frequency (other_frequency_));
+      } else update_other_frequency (string_to_frequency (other_frequency_), RigFrequency::Basis::Readback);
 
     } else {
-      update_split (requested_split_);
-      update_other_frequency (tx);
+      defer_frequency (RigFrequency::Path::Tx);
     }
   }
   else {
@@ -1528,10 +1535,10 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
       if (tci_timer2_->isActive()) mysleep2(0);
       if (requested_split_ != split_) rig_split();
       else update_split (split_);
+      if (split_) throw error {tr ("TCI failed to disable split")};
       update_other_frequency (tx);
     } else {
-      update_split (requested_split_);
-      update_other_frequency (tx);
+      defer_frequency (RigFrequency::Path::Tx);
     }
   }
 }
@@ -1539,6 +1546,7 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
 void TCITransceiver::do_mode (MODE m)
 {
   TRACE_CAT ("TCITransceiver", m << state ());
+  if (m == UNK) return;
   auto m_string = map_mode (m);
   if (requested_mode_ != m_string) requested_mode_ = m_string;
   if (!requested_mode_.isEmpty() && mode_ != requested_mode_ && !busy_mode_) {
@@ -1548,7 +1556,7 @@ void TCITransceiver::do_mode (MODE m)
     if (requested_mode_ == mode_) update_mode (m);
     else {
       printf("%s TCI failed set mode %s->%s",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),mode_.toStdString().c_str(),requested_mode_.toStdString().c_str());
-      error_ = tr ("TCI failed set mode");
+      CAT_WARNING ("mode preparation did not reach " << requested_mode_);
     }
     busy_mode_ = false;
   }
@@ -1558,13 +1566,8 @@ void TCITransceiver::do_poll ()
 {
   if (!error_.isEmpty()) {tci_Ready = false; throw error {error_};}
   else if (!tci_Ready) throw error {tr ("TCI could not be opened")};
-  update_rx_frequency (string_to_frequency (rx_frequency_));
   update_split(split_);
-  if (state ().split ()) {
-    if (other_frequency_ == requested_other_frequency_) update_other_frequency (string_to_frequency (other_frequency_));
-    else if (!busy_rx_frequency_) do_tx_frequency(string_to_frequency (requested_other_frequency_),get_mode(true),false);
-  }
-  update_mode (get_mode());
+  observe_mode (get_mode());
   if (do_pwr_ && PTT_) {update_power (power_ * 100); update_swr (swr_*10);}
   if (do_snr_ && !PTT_) {
     update_level (level_);

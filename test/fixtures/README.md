@@ -31,7 +31,7 @@ Two independent ways to run these:
   test/run-golden-fixtures.sh
   ```
   Exits 0 on pass, 1 on regression.
-- **ctest** (this is what CI actually runs): each fixture above is also registered as a `test_jt9_golden_*`/`test_wsprd_golden_*` test via `wsjt_add_jt9_golden_test`/`wsjt_add_wsprd_golden_test` in the top-level `CMakeLists.txt`, using `tests/integration/{jt9,wsprd}/compare_*_output.cmake` for an isolated, byte-exact comparison. These are gated to Linux x86-64 only (`ctest -R test_jt9_golden` / `test_wsprd_golden` to run just these) -- decoder output can drift in small ways across compilers/architectures, so the byte-exact check is pinned to one canonical platform; the other four CI legs still run everything else in `ctest`.
+- **ctest** (this is what CI actually runs): each fixture above is also registered as a `test_jt9_golden_*`/`test_wsprd_golden_*` test via `wsjt_add_jt9_golden_test`/`wsjt_add_wsprd_golden_test` in the top-level `CMakeLists.txt`, using `tests/integration/{jt9,wsprd}/compare_*_output.cmake` for an isolated, byte-exact comparison. These are gated to Linux x86-64 only (`ctest -R test_jt9_golden` / `test_wsprd_golden` to run just these) -- decoder output can drift in small ways across compilers/architectures, so the byte-exact check is pinned to one canonical platform; the other CI legs run everything else in `ctest`, except the long decode-thread rows where [the test policy](../../ci-cd/DEVELOPMENT_WORKFLOW.md#test-failure-policy) leaves them out.
 
 ## Adding a fixture
 

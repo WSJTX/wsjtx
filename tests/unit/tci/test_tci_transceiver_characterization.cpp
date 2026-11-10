@@ -8,6 +8,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QTest>
+#include <QSignalSpy>
 #include <QTimer>
 #include <QVector>
 
@@ -1102,6 +1103,93 @@ private slots:
                             QStringLiteral ("modulation")), mode_count);
   }
 
+  void unsolicited_mode_survives_frequency_maintenance_until_explicit_restore ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    auto cursor = harness.set (digital, 10);
+    QVERIFY2 (harness.wait_for_state (cursor, 10, [] (State const& state) {
+      return state.mode () == Transceiver::DIG_U;
+    }), qPrintable (harness.diagnostics ()));
+    QTest::qWait (1600);
+    auto& server = harness.server ();
+    auto const mode_commands = server.count (Direction::ClientToServer, "modulation");
+    QSignalSpy statuses {&harness.rig (), &Transceiver::mode_status};
+    server.send_text ("modulation:0,cw");
+    QVERIFY2 (harness.wait_for_current_state ([] (State const& state) {
+      return state.mode () == Transceiver::CW;
+    }, 2000), qPrintable (harness.diagnostics ()));
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), mode_commands);
+    QVERIFY (!statuses.isEmpty ());
+    auto const observed = qvariant_cast<Transceiver::ModeStatus> (statuses.last ().at (0));
+    QCOMPARE (observed.kind, Transceiver::ModeStatusKind::Observed);
+    QCOMPARE (observed.mode, Transceiver::CW);
+
+    auto correction = state_from (harness);
+    correction.frequency (correction.frequency () + 1);
+    correction.mode (Transceiver::UNK);
+    cursor = harness.set (correction, 11);
+    QVERIFY2 (harness.wait_for_state (cursor, 11, [&] (State const& state) {
+      return state.frequency () == correction.frequency () && state.mode () == Transceiver::CW;
+    }), qPrintable (harness.diagnostics ()));
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), mode_commands);
+
+    digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    cursor = harness.set (digital, 12);
+    QVERIFY2 (harness.wait_for_state (cursor, 12, [] (State const& state) {
+      return state.mode () == Transceiver::DIG_U;
+    }), qPrintable (harness.diagnostics ()));
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), mode_commands + 1);
+    QCOMPARE (harness.failure_count (), 0);
+  }
+
+  void mode_preparation_conflict_keeps_connection_available_for_recovery ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto& server = harness.server ();
+    server.send_text ("modulation:0,cw");
+    QVERIFY2 (harness.wait_for_current_state ([] (State const& state) {
+      return state.mode () == Transceiver::CW;
+    }, 2000), qPrintable (harness.diagnostics ()));
+    QSignalSpy statuses {&harness.rig (), &Transceiver::mode_status};
+    harness.set_command_handler ([&server] (QString const& verb, QStringList const&, int) {
+      if (verb != "modulation") return false;
+      server.send_text_later ("modulation:0,cw", 10);
+      return true;
+    });
+    auto digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    auto const command_start = server.count (Direction::ClientToServer, "modulation");
+    harness.set (digital, 10);
+    QVERIFY2 (server.wait_for ([&statuses] {
+      if (statuses.isEmpty ()) return false;
+      auto const status = qvariant_cast<Transceiver::ModeStatus> (statuses.last ().at (0));
+      return status.kind == Transceiver::ModeStatusKind::Observed && status.mode == Transceiver::CW;
+    }, 3000), qPrintable (harness.diagnostics ()));
+    QCOMPARE (harness.failure_count (), 0);
+    QVERIFY (harness.state ().online ());
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), command_start + 1);
+    QTest::qWait (600);
+    QCOMPARE (server.count (Direction::ClientToServer, "modulation"), command_start + 1);
+    QCOMPARE (harness.failure_count (), 0);
+
+    harness.set_command_handler ({});
+    digital = state_from (harness);
+    digital.mode (Transceiver::DIG_U);
+    auto const cursor = harness.set (digital, 11);
+    QVERIFY2 (harness.wait_for_state (cursor, 11, [] (State const& state) {
+      return state.mode () == Transceiver::DIG_U;
+    }), qPrintable (harness.diagnostics ()));
+    QCOMPARE (harness.failure_count (), 0);
+    QVERIFY (harness.state ().online ());
+  }
+
   void unacknowledged_rx_vfo_fails_boundedly_without_dependent_commands ()
   {
     RigHarness harness;
@@ -1519,6 +1607,100 @@ private slots:
     QCOMPARE (harness.failure_count (), failure_cursor);
     QCOMPARE (harness.state ().frequency (), latest_target);
     QVERIFY (reentered);
+  }
+
+  void frequency_contract_requires_matching_vfo_evidence ()
+  {
+    using namespace RigFrequency;
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QSignalSpy results {&harness.rig (), &Transceiver::frequency_result};
+    QSignalSpy evidence {&harness.rig (), &Transceiver::frequency_observation};
+    harness.set_command_handler (
+      [&harness] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb != QStringLiteral ("vfo")
+            || args != QStringList {"0", "0", "14074400"}) return false;
+        harness.server ().send_text (QStringLiteral ("vfo:0,0,14074399"));
+        harness.server ().send_text_later (QStringLiteral ("vfo:0,0,14074400"), 10);
+        return true;
+      });
+    auto state = state_from (harness);
+    state.frequency (14074400);
+    state.frequency_request ({7, 500, Path::Rx, 14074400});
+    harness.set_now (state, 25);
+    QVERIFY (results.size () >= 2);
+    auto result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.request.generation, quint64 {7});
+    QCOMPARE (result.request.id, quint64 {500});
+    QCOMPARE (result.outcome, Outcome::Established);
+    QCOMPARE (result.basis, Basis::Readback);
+    QCOMPARE (result.applied, Frequency {14074400});
+    QVERIFY (evidence.size () >= 2);
+    for (auto const& arguments : results)
+      {
+        result = qvariant_cast<Result> (arguments.at (0));
+        if (result.outcome == Outcome::Established)
+          QCOMPARE (result.applied, Frequency {14074400});
+      }
+  }
+
+  void nearby_unacknowledged_frequency_is_a_failed_operation ()
+  {
+    using namespace RigFrequency;
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QSignalSpy results {&harness.rig (), &Transceiver::frequency_result};
+    harness.set_command_handler (
+      [&harness] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb != QStringLiteral ("vfo")
+            || args != QStringList {"0", "0", "14074450"}) return false;
+        harness.server ().send_text (QStringLiteral ("vfo:0,0,14074449"));
+        return true;
+      });
+    auto state = state_from (harness);
+    state.frequency (14074450);
+    state.frequency_request ({8, 501, Path::Rx, 14074450});
+    harness.set_now (state, 26);
+    QVERIFY (results.size () >= 2);
+    auto const result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.request.id, quint64 {501});
+    QCOMPARE (result.outcome, Outcome::Failed);
+    for (auto const& arguments : results)
+      QVERIFY (qvariant_cast<Result> (arguments.at (0)).outcome != Outcome::Established);
+  }
+
+  void repeated_mismatched_tx_reports_cannot_extend_the_deadline ()
+  {
+    using namespace RigFrequency;
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QSignalSpy results {&harness.rig (), &Transceiver::frequency_result};
+    harness.set_command_handler (
+      [&harness] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb != QStringLiteral ("vfo")
+            || args != QStringList {"0", "1", "14074500"}) return false;
+        for (int i = 0; i < 30; ++i)
+          harness.server ().send_text_later (QStringLiteral ("vfo:0,1,14074499"), i * 50);
+        return true;
+      });
+    auto state = state_from (harness);
+    state.tx_frequency (14074500);
+    state.split (true);
+    state.frequency_request ({9, 502, Path::Tx, 14074500});
+    QElapsedTimer deadline;
+    deadline.start ();
+    harness.set_now (state, 27);
+    QVERIFY2 (deadline.elapsed () < 1400, qPrintable (harness.diagnostics ()));
+    QVERIFY (results.size () >= 2);
+    auto const result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.request.id, quint64 {502});
+    QCOMPARE (result.outcome, Outcome::Failed);
   }
 };
 

@@ -1047,42 +1047,42 @@ or bandwidth is selected).</string>
                  </property>
                  <item>
                   <property name="text">
-                   <string>1200</string>
+                   <string notr="true">1200</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>2400</string>
+                   <string notr="true">2400</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>4800</string>
+                   <string notr="true">4800</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>9600</string>
+                   <string notr="true">9600</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>19200</string>
+                   <string notr="true">19200</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>38400</string>
+                   <string notr="true">38400</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>57600</string>
+                   <string notr="true">57600</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>115200</string>
+                   <string notr="true">115200</string>
                   </property>
                  </item>
                 </widget>
@@ -1361,44 +1361,46 @@ a few, particularly some Kenwood rigs, require it).</string>
         </widget>
        </item>
        <item row="10" column="2">
-        <layout class="QHBoxLayout" name="horizontalLayout_11">
+        <layout class="QVBoxLayout" name="ptt_test_layout">
          <item>
-          <widget class="QPushButton" name="test_CAT_push_button">
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Test CAT</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_3">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Preferred</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QPushButton" name="test_PTT_push_button">
-           <property name="toolTip">
-            <string>Attempt to activate the transmitter.
+          <layout class="QHBoxLayout" name="horizontalLayout_11">
+           <item>
+            <widget class="QPushButton" name="test_CAT_push_button">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Test CAT</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Preferred</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="test_PTT_push_button">
+             <property name="toolTip">
+              <string>Attempt to activate the transmitter.
 Click again to deactivate. Normally no power should be
 output since there is no audio being generated at this time.
 Check that any Tx indication on your radio and/or your
 radio interface behave as expected.</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton:checked {
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton:checked {
 	background-color: red;
 	border-style	: outset;
 	border-width: 1px;
@@ -1407,11 +1409,32 @@ radio interface behave as expected.</string>
 	min-width: 5em;
 	padding: 3px;
 }</string>
+             </property>
+             <property name="text">
+              <string>Test PTT</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QLabel" name="test_PTT_status_label">
+           <property name="visible">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <property name="text">
-            <string>Test PTT</string>
+            <string/>
            </property>
-           <property name="checkable">
+           <property name="wordWrap">
             <bool>true</bool>
            </property>
           </widget>
@@ -3223,16 +3246,6 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
-             <widget class="QPushButton" name="rescan_log_push_button">
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Rescan ADIF Log</string>
-              </property>
-             </widget>
-            </item>
             <item>
              <spacer name="highlighting_global_actions_spacer">
               <property name="orientation">
@@ -3289,6 +3302,59 @@ Right click for insert and delete options.</string>
            </widget>
           </item>
           <item row="3" column="0" colspan="2">
+           <layout class="QHBoxLayout" name="worked_before_actions_layout">
+            <item>
+             <widget class="QPushButton" name="history_sources_push_button">
+              <property name="toolTip">
+               <string>Select additional ADIF files and folders to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
+              </property>
+              <property name="text">
+               <string>History sources...</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="rescan_log_push_button">
+              <property name="toolTip">
+               <string>Reload the writable ADIF log and saved supplemental history sources. Pending source changes take effect after Settings OK.</string>
+              </property>
+              <property name="text">
+               <string>Rescan ADIF Log</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="worked_before_actions_spacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item row="4" column="0" colspan="2">
+           <widget class="QLineEdit" name="worked_before_status_line_edit">
+            <property name="text">
+             <string>Worked-before history has not been scanned.</string>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0" colspan="2">
            <layout class="QGridLayout" name="gridLayout_23">
             <item row="1" column="0">
              <widget class="QCheckBox" name="only_fields_check_box">
@@ -3569,6 +3635,49 @@ Right click for insert and delete options.</string>
        <string>Advanced</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_9">
+       <item row="1" column="0" colspan="2">
+        <widget class="QGroupBox" name="best_sp_group_box">
+         <property name="title">
+          <string>Best S+P</string>
+         </property>
+         <layout class="QGridLayout" name="best_sp_layout">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="best_sp_new_dxcc_check_box">
+            <property name="text">
+             <string>New DXCC entity</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="best_sp_new_call_on_band_check_box">
+            <property name="text">
+             <string>Callsign not worked on this band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_explanation_label">
+            <property name="text">
+             <string>New DXCC entities have priority. Highlight colors, enabled rules, and rule order do not affect selection.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_matching_explanation_label">
+            <property name="text">
+             <string>Worked-before matching follows 'Highlight by Mode' and 'Include extra WAE entities' on Colors.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QGroupBox" name="gbCloudlog">
          <property name="sizePolicy">
@@ -3593,7 +3702,7 @@ Right click for insert and delete options.</string>
           <item row="0" column="0">
            <widget class="QCheckBox" name="cbCloudlog">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Upload logged QSOs to Cloudlog or Wavelog.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Upload logged QSOs to Cloudlog or Wavelog. Disable this if WaveLogGate already uploads these contacts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="accessibleName">
              <string>Upload QSOs to Cloudlog or Wavelog</string>
@@ -3680,6 +3789,9 @@ Right click for insert and delete options.</string>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your API key.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
+              <property name="echoMode">
+               <enum>QLineEdit::Password</enum>
+              </property>
              </widget>
             </item>
             <item row="0" column="1" colspan="3">
@@ -3699,12 +3811,48 @@ Right click for insert and delete options.</string>
               </property>
              </widget>
             </item>
+            <item row="3" column="0" colspan="4">
+             <widget class="QCheckBox" name="cbCloudlogRadio">
+              <property name="toolTip">
+               <string>Send live frequency and mode changes to Cloudlog or Wavelog. Wavelog API v2 tokens also need the radio:write scope. Enable only one live-status publisher per radio. Disable this if WaveLogGate already reports this radio.</string>
+              </property>
+              <property name="accessibleName">
+               <string>Report live radio status to Cloudlog or Wavelog</string>
+              </property>
+              <property name="text">
+               <string>Report live radio status</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="cloudlog_radio_name_label">
+              <property name="text">
+               <string>Radio name: </string>
+              </property>
+              <property name="buddy">
+               <cstring>leCloudlogRadioName</cstring>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1" colspan="3">
+             <widget class="QLineEdit" name="leCloudlogRadioName">
+              <property name="toolTip">
+               <string>Name identifying this WSJT-X radio in Cloudlog or Wavelog. Use a different name for each running instance.</string>
+              </property>
+              <property name="maxLength">
+               <number>250</number>
+              </property>
+              <property name="placeholderText">
+               <string>WSJT-X</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
          </layout>
         </widget>
        </item>
-       <item row="0" column="1" rowspan="2">
+       <item row="0" column="1">
         <widget class="QGroupBox" name="groupBox_5">
          <property name="title">
           <string>Miscellaneous</string>
@@ -4036,6 +4184,9 @@ Right click for insert and delete options.</string>
              <widget class="QLineEdit" name="eqslpasswd_edit">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your logon password.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="echoMode">
+               <enum>QLineEdit::Password</enum>
               </property>
              </widget>
             </item>
@@ -5529,6 +5680,8 @@ Right click for insert and delete options.</string>
   <tabstop>cbx4ToneSpacing</tabstop>
   <tabstop>rbLowSidelobes</tabstop>
   <tabstop>rbMaxSensitivity</tabstop>
+  <tabstop>best_sp_new_dxcc_check_box</tabstop>
+  <tabstop>best_sp_new_call_on_band_check_box</tabstop>
   <tabstop>cbSpecialOpActivity</tabstop>
   <tabstop>rbFox</tabstop>
   <tabstop>cbSuperFox</tabstop>
@@ -5555,6 +5708,8 @@ Right click for insert and delete options.</string>
   <tabstop>leCloudlogApiKey</tabstop>
   <tabstop>cbCloudlogStationProfile</tabstop>
   <tabstop>pbTestCloudlog</tabstop>
+  <tabstop>cbCloudlogRadio</tabstop>
+  <tabstop>leCloudlogRadioName</tabstop>
   <tabstop>cbEQSL</tabstop>
   <tabstop>eqsluser_edit</tabstop>
   <tabstop>eqslpasswd_edit</tabstop>

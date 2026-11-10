@@ -3,9 +3,52 @@ module jt9_input_validation
   implicit none
 
   private
-  public :: parse_integer, parse_real, parse_wav_filename_nutc
+  public :: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc
+  public :: submode_limit, adjust_wav_nutc
 
 contains
+
+  pure integer function submode_limit(mode) result(limit)
+    integer, intent(in) :: mode
+
+    ! Modes that ignore submode retain the CLI token range.
+    limit = 7
+    select case (mode)
+    case (4)
+      limit = 6
+    case (65)
+      limit = 2
+    case (66)
+      limit = 5
+    end select
+  end function submode_limit
+
+  subroutine parse_fixed_text(text, text_length, value, ok)
+    character(len=*), intent(in) :: text
+    integer, intent(in) :: text_length
+    character(len=*), intent(out) :: value
+    logical, intent(out) :: ok
+
+    character(len=*), parameter :: whitespace = ' ' // achar(9) // achar(10) // &
+         achar(11) // achar(12) // achar(13)
+    integer :: first, last
+
+    value = ' '
+    ok = .false.
+    if (text_length < 0 .or. text_length > len(text)) return
+
+    first = verify(text(:text_length), whitespace)
+    if (first == 0) then
+      ok = .true.
+      return
+    end if
+    last = verify(text(:text_length), whitespace, back=.true.)
+    if (last - first + 1 > len(value)) return
+    if (scan(text(first:last), whitespace) /= 0) return
+
+    value = text(first:last)
+    ok = .true.
+  end subroutine parse_fixed_text
 
   subroutine parse_integer(text, value, ok)
     character(len=*), intent(in) :: text
@@ -101,6 +144,16 @@ contains
 
     is_real_token = i > length
   end function is_real_token
+
+  pure integer function adjust_wav_nutc(mode, utc, has_seconds) result(adjusted)
+    integer, intent(in) :: mode, utc
+    logical, intent(in) :: has_seconds
+
+    adjusted = utc
+    if (mode == 4 .and. has_seconds) adjusted = utc / 100
+    if ((mode == 66 .or. mode == 240 .or. mode == 241 .or. mode == 242) .and. .not. has_seconds) &
+         adjusted = 100 * utc
+  end function adjust_wav_nutc
 
   subroutine parse_wav_filename_nutc(filename, nutc, includes_seconds)
     character(len=*), intent(in) :: filename

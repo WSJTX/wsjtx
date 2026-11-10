@@ -57,6 +57,13 @@ add_test (
     -D GIT_EXECUTABLE=${GIT_EXECUTABLE}
     -P ${CMAKE_SOURCE_DIR}/tests/release/test_build_type.cmake)
 
+add_test (
+  NAME test_nsis_launcher_config
+  COMMAND ${CMAKE_COMMAND}
+    -D SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/nsis-launcher-config
+    -P ${CMAKE_SOURCE_DIR}/tests/release/test_nsis_launcher_config.cmake)
+
 # A cross-compiled tree runs its tests in another container than the one that built it.
 if (NOT CMAKE_CROSSCOMPILING)
   add_test (
@@ -96,6 +103,8 @@ include_directories (${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 add_subdirectory (unit/audio)
 add_subdirectory (unit/band_hopping)
 add_subdirectory (unit/common)
+add_subdirectory (unit/crc)
+add_subdirectory (unit/logging)
 add_subdirectory (unit/decoder_ipc)
 add_subdirectory (unit/decoder_engine)
 add_subdirectory (unit/hrd)
@@ -119,4 +128,5 @@ add_subdirectory (unit/jt65)
 add_subdirectory (unit/superfox)
 add_subdirectory (unit/streaming)
 add_subdirectory (unit/tci)
+add_subdirectory (unit/waveform)
 add_subdirectory (unit/wsprd)

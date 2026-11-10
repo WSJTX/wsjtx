@@ -221,6 +221,8 @@ option (WSJT_SKIP_QMAP "Skip building QMAP." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 option (WSJT_ENABLE_GUI_SMOKE_TESTS
   "Register GUI-driven smoke tests with CTest." OFF)
+option (WSJT_ENABLE_STREAM_TIMING_TESTS
+  "Register the stream codec's timing and measurement tests with CTest." OFF)
 option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
 option (WSJT_ENABLE_TSAN "Instrument in-tree code with ThreadSanitizer." OFF)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
@@ -279,28 +281,6 @@ if (WSJT_ENABLE_TESTS)
 # 10 seconds or longer a representative COST so parallel CTest runs start them
 # early; relative ordering matters more than an exact duration.
 
-if (WSJT_ENABLE_TSAN)
-  # A CTest ENVIRONMENT assignment replaces the inherited TSAN_OPTIONS. Build
-  # complete per-family suppression files from the cross-cutting baseline so
-  # scoped tests retain the same TSan controls and classified Hamlib/Boost
-  # suppressions as the rest of the suite.
-  set (wsjt_tsan_suppression_directory
-    "${CMAKE_BINARY_DIR}/tsan-suppressions")
-  file (MAKE_DIRECTORY "${wsjt_tsan_suppression_directory}")
-  file (READ "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan.supp"
-    wsjt_tsan_base_suppressions)
-  foreach (wsjt_tsan_scope IN ITEMS fortran network gui)
-    file (READ
-      "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan-${wsjt_tsan_scope}.supp"
-      wsjt_tsan_scope_suppressions)
-    file (GENERATE
-      OUTPUT "${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp"
-      CONTENT "${wsjt_tsan_base_suppressions}\n${wsjt_tsan_scope_suppressions}")
-    set (wsjt_tsan_${wsjt_tsan_scope}_options
-      "halt_on_error=0:second_deadlock_stack=1:suppressions=${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp")
-  endforeach ()
-endif ()
-
 include (CMake/Sources.cmake)
 #
 # decide on platform specifc packing and fixing up
@@ -319,10 +299,37 @@ endif (APPLE)
 
 
 include (CMake/Dependencies.cmake)
+
+if (WSJT_ENABLE_TSAN)
+  # CTest ENVIRONMENT replaces inherited TSAN_OPTIONS, so every scoped file
+  # must include the baseline dependency suppressions.
+  set (wsjt_tsan_suppression_directory
+    "${CMAKE_BINARY_DIR}/tsan-suppressions")
+  file (MAKE_DIRECTORY "${wsjt_tsan_suppression_directory}")
+  file (READ "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan.supp"
+    wsjt_tsan_base_suppressions)
+  file (GENERATE
+    OUTPUT "${wsjt_tsan_suppression_directory}/tsan.supp"
+    CONTENT "${wsjt_tsan_base_suppressions}")
+  foreach (wsjt_tsan_scope IN ITEMS fortran network gui)
+    file (READ
+      "${CMAKE_SOURCE_DIR}/tests/sanitizers/tsan-${wsjt_tsan_scope}.supp"
+      wsjt_tsan_scope_suppressions)
+    file (GENERATE
+      OUTPUT "${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp"
+      CONTENT "${wsjt_tsan_base_suppressions}\n${wsjt_tsan_scope_suppressions}")
+    set (wsjt_tsan_${wsjt_tsan_scope}_options
+      "halt_on_error=0:second_deadlock_stack=1:suppressions=${wsjt_tsan_suppression_directory}/tsan-${wsjt_tsan_scope}.supp")
+  endforeach ()
+endif ()
+
 include (CMake/CompilerFlags.cmake)
 
 # project definitions
-add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1 -DBOOST_ALL_DYN_LINK)
+add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1)
+if (NOT Boost_USE_STATIC_LIBS)
+  add_definitions (-DBOOST_ALL_DYN_LINK)
+endif ()
 if (CMAKE_HOST_UNIX)
   add_definitions (-DUNIX)
 elseif (CMAKE_HOST_WIN32)
@@ -715,11 +722,38 @@ if (WSJT_ENABLE_TESTS)
   endforeach ()
   add_test (NAME test_jt9_cli_validation
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9>
+            -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_cli_validation.cmake)
   add_test (NAME test_jt9_stream_option
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
             -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/StreamOption
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_stream_option.cmake)
+
+  if (EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav" AND
+      EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav")
+    add_test (NAME test_jt9_msk144_wav
+      COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
+              -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+              -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/Msk144Wav
+              -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav
+              -DSECOND_SAMPLE=${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav
+              -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/test_msk144_wav.cmake)
+    set_tests_properties (test_jt9_msk144_wav PROPERTIES
+      LABELS "decoder;msk144;integration" TIMEOUT 400)
+    if (WSJT_ENABLE_TSAN)
+      set_tests_properties (test_jt9_msk144_wav PROPERTIES
+        ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+    endif ()
+  else ()
+    set (missing_msk144_samples)
+    foreach (msk144_sample IN ITEMS 181211_120800.wav 181211_120500.wav)
+      if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/${msk144_sample}")
+        list (APPEND missing_msk144_samples "samples/MSK144/${msk144_sample}")
+      endif ()
+    endforeach ()
+    list (JOIN missing_msk144_samples ", " missing_msk144_samples)
+    message (STATUS "Skipping test_jt9_msk144_wav: missing optional recordings: ${missing_msk144_samples}")
+  endif ()
 
   find_package (Python3 COMPONENTS Interpreter QUIET)
   if (Python3_Interpreter_FOUND)
@@ -994,9 +1028,9 @@ generate_version_info (wsjt_codec_VERSION_RESOURCES
 add_executable (wsjt-codec ${wsjt_codec_FSRCS} ${wsjt_codec_VERSION_RESOURCES})
 target_compile_definitions (wsjt-codec PRIVATE JT9_PROGRAM_NAME=\"wsjt-codec\")
 # wsjt-codec shares jt9's Fortran module directory (fortran_modules_omp) so it
-# can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
-# is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
-# target emits no .mod of its own — sharing the dir is collision-free.
+# can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). Of its
+# own sources only streaming_decode.f90 is a module, a name no library module
+# has, so sharing the dir is collision-free.
 if (WSJT_BUILD_FORTRAN_OPENMP)
   wsjt_link_fortran_openmp (wsjt-codec)
   if (WIN32)
@@ -1084,9 +1118,18 @@ add_executable (wsjtx MACOSX_BUNDLE
   )
 
 wsjt_enable_qt_automoc (wsjtx)
+target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
 if (WSJT_ENABLE_TESTS)
+  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
+  add_test (NAME test_wsjtx_best_sp
+    COMMAND $<TARGET_FILE:wsjtx> --best-sp-test --rig-name CTEST-BEST-SP)
+  set_tests_properties (test_wsjtx_best_sp PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_best_sp"
+    LABELS "gui;ft4;integration"
+    PROCESSORS 1
+    TIMEOUT 30)
 endif ()
 
 if (APPLE)
@@ -1140,46 +1183,118 @@ if (APPLE AND WSJT_ENABLE_TESTS)
 endif ()
 
 if (WSJT_ENABLE_TESTS AND NOT WIN32)
-  set (wsjtx_startup_test_root
-    "${CMAKE_BINARY_DIR}/Testing/Startup/test_wsjtx_startup")
+  foreach (startup_scenario IN ITEMS default mmtty_port_only mmtty_ft8 mmtty_ft4 mmtty_jtty)
+    set (startup_test test_wsjtx_startup)
+    set (startup_arguments)
+    if (NOT startup_scenario STREQUAL "default")
+      set (startup_test "test_wsjtx_startup_${startup_scenario}")
+      # Port zero exercises command-line locking without opening an MMTTY connection.
+      list (APPEND startup_arguments --n1mm-tcp-port 0)
+      if (NOT startup_scenario STREQUAL "mmtty_port_only")
+        string (REPLACE "mmtty_" "" startup_mode "${startup_scenario}")
+        list (APPEND startup_arguments --mode "${startup_mode}")
+      endif ()
+    endif ()
+    set (wsjtx_startup_test_root
+      "${CMAKE_BINARY_DIR}/Testing/Startup/${startup_test}")
+    file (MAKE_DIRECTORY
+      "${wsjtx_startup_test_root}/config"
+      "${wsjtx_startup_test_root}/data"
+      "${wsjtx_startup_test_root}/cache"
+      "${wsjtx_startup_test_root}/tmp")
+    set (wsjtx_startup_test_environment
+      "XDG_CONFIG_HOME=${wsjtx_startup_test_root}/config"
+      "XDG_DATA_HOME=${wsjtx_startup_test_root}/data"
+      "XDG_CACHE_HOME=${wsjtx_startup_test_root}/cache"
+      "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-${startup_test}")
+    if (NOT APPLE)
+      list (APPEND wsjtx_startup_test_environment
+        "TMPDIR=${wsjtx_startup_test_root}/tmp")
+    endif ()
+    if (APPLE)
+      add_test (
+        NAME ${startup_test}
+        COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/test/run-wsjtx-startup-macos.sh"
+          "${CMAKE_BINARY_DIR}/startup-smoke-diagnostics/${startup_test}"
+          "$<TARGET_FILE:wsjtx>" --startup-smoke-test --rig-name "CTEST-${startup_scenario}"
+          ${startup_arguments}
+      )
+      set (wsjtx_startup_test_timeout 45)
+    else ()
+      add_test (
+        NAME ${startup_test}
+        COMMAND $<TARGET_FILE:wsjtx> --startup-smoke-test --rig-name "CTEST-${startup_scenario}"
+          ${startup_arguments}
+      )
+      set (wsjtx_startup_test_timeout 20)
+    endif ()
+    if (WSJT_ENABLE_TSAN)
+      list (APPEND wsjtx_startup_test_environment "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+    endif ()
+    set_tests_properties (${startup_test} PROPERTIES
+      ENVIRONMENT "${wsjtx_startup_test_environment}"
+      PROCESSORS 1
+      TIMEOUT ${wsjtx_startup_test_timeout}
+    )
+  endforeach ()
+endif ()
+
+if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS AND NOT WIN32)
+  foreach (profile IN ITEMS automatic prompt disabled automatic-keep prompt-keep disabled-keep
+      automatic-keep-call automatic-keep-grid)
+    set (qso_test_root "${CMAKE_BINARY_DIR}/Testing/QsoCompletion/${profile}")
+    file (MAKE_DIRECTORY
+      "${qso_test_root}/config" "${qso_test_root}/data"
+      "${qso_test_root}/cache" "${qso_test_root}/tmp")
+    set (qso_test_environment
+      "XDG_CONFIG_HOME=${qso_test_root}/config"
+      "XDG_DATA_HOME=${qso_test_root}/data"
+      "XDG_CACHE_HOME=${qso_test_root}/cache"
+      "QT_QPA_PLATFORM=offscreen"
+      "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-qso-completion-${profile}")
+    if (NOT APPLE)
+      list (APPEND qso_test_environment "TMPDIR=${qso_test_root}/tmp")
+    endif ()
+    if (WSJT_ENABLE_TSAN)
+      list (APPEND qso_test_environment "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+    endif ()
+    add_test (NAME test_wsjtx_qso_completion_${profile}
+      COMMAND $<TARGET_FILE:wsjtx> --test-mode --qso-completion-test ${profile}
+        --rig-name CTEST-QSO-COMPLETION-${profile})
+    set_tests_properties (test_wsjtx_qso_completion_${profile} PROPERTIES
+      ENVIRONMENT "${qso_test_environment}" LABELS "gui;qso;integration"
+      PROCESSORS 1 TIMEOUT 30)
+  endforeach ()
+endif ()
+
+# Windows shows message boxes instead; the macOS bundle is not covered here.
+if (WSJT_ENABLE_TESTS AND NOT WIN32 AND NOT APPLE)
+  set (wsjtx_cli_help_test_root "${CMAKE_BINARY_DIR}/Testing/Startup/test_wsjtx_cli_help")
   file (MAKE_DIRECTORY
-    "${wsjtx_startup_test_root}/config"
-    "${wsjtx_startup_test_root}/data"
-    "${wsjtx_startup_test_root}/cache"
-    "${wsjtx_startup_test_root}/tmp")
-  set (wsjtx_startup_test_environment
-    "XDG_CONFIG_HOME=${wsjtx_startup_test_root}/config"
-    "XDG_DATA_HOME=${wsjtx_startup_test_root}/data"
-    "XDG_CACHE_HOME=${wsjtx_startup_test_root}/cache"
-    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_startup")
-  if (NOT APPLE)
-    list (APPEND wsjtx_startup_test_environment
-      "TMPDIR=${wsjtx_startup_test_root}/tmp")
-  endif ()
-  if (APPLE)
-    add_test (
-      NAME test_wsjtx_startup
-      COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/test/run-wsjtx-startup-macos.sh"
-        "${CMAKE_BINARY_DIR}/startup-smoke-diagnostics"
-        "$<TARGET_FILE:wsjtx>" --startup-smoke-test --rig-name CTEST-STARTUP
-    )
-    set (wsjtx_startup_test_timeout 45)
-  else ()
-    add_test (
-      NAME test_wsjtx_startup
-      COMMAND $<TARGET_FILE:wsjtx> --startup-smoke-test --rig-name CTEST-STARTUP
-    )
-    set (wsjtx_startup_test_timeout 20)
-  endif ()
-  set_tests_properties (test_wsjtx_startup PROPERTIES
-    ENVIRONMENT "${wsjtx_startup_test_environment}"
-    PROCESSORS 1
-    TIMEOUT ${wsjtx_startup_test_timeout}
-  )
+    "${wsjtx_cli_help_test_root}/config"
+    "${wsjtx_cli_help_test_root}/data"
+    "${wsjtx_cli_help_test_root}/cache"
+    "${wsjtx_cli_help_test_root}/tmp")
+  set (wsjtx_cli_help_test_environment
+    "QT_QPA_PLATFORM=offscreen"
+    "XDG_CONFIG_HOME=${wsjtx_cli_help_test_root}/config"
+    "XDG_DATA_HOME=${wsjtx_cli_help_test_root}/data"
+    "XDG_CACHE_HOME=${wsjtx_cli_help_test_root}/cache"
+    "TMPDIR=${wsjtx_cli_help_test_root}/tmp"
+    "WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_cli_help")
   if (WSJT_ENABLE_TSAN)
-    set_tests_properties (test_wsjtx_startup PROPERTIES
-      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+    list (APPEND wsjtx_cli_help_test_environment "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
   endif ()
+  add_test (
+    NAME test_wsjtx_cli_help
+    COMMAND ${CMAKE_COMMAND} -DWSJTX=$<TARGET_FILE:wsjtx>
+      -P "${CMAKE_SOURCE_DIR}/test/wsjtx-cli-help.cmake"
+  )
+  set_tests_properties (test_wsjtx_cli_help PROPERTIES
+    ENVIRONMENT "${wsjtx_cli_help_test_environment}"
+    PROCESSORS 1
+    TIMEOUT 90
+  )
 endif ()
 
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS
@@ -1627,6 +1742,8 @@ set (CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}
 
 if (WIN32)
   set (CPACK_GENERATOR "NSIS")
+  add_subdirectory (CMake/NSIS)
+  add_dependencies (wsjtx wsjtx-launch-user)
 elseif (APPLE)
   set (CPACK_GENERATOR "DragNDrop")
 else ()
@@ -1661,7 +1778,10 @@ endif ()
 set (CPACK_DEBIAN_PACKAGE_VERSION "${wsjtx_PACKAGE_VERSION}")
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
 set (CPACK_DEBIAN_PACKAGE_SECTION "hamradio")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5websockets5 (>=5.7),  libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0) | libboost-log1.81.0 (>=1.81.0) | libboost-log1.83.0 (>=1.83.0) | libboost-log1.85.0 (>=1.85.0)")
+set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5websockets5 (>=5.7),  libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21)")
+if (NOT Boost_USE_STATIC_LIBS)
+  string (APPEND CPACK_DEBIAN_PACKAGE_DEPENDS ", libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0) | libboost-log1.81.0 (>=1.81.0) | libboost-log1.83.0 (>=1.83.0) | libboost-log1.85.0 (>=1.85.0)")
+endif ()
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 if (CPACK_DEBIAN_PACKAGE_ARCHITECTURE STREQUAL "armhf")
   # Private-prefix FFTW and runtime-loaded plugins need explicit dependencies.
@@ -1682,7 +1802,10 @@ if (NOT CPACK_RPM_PACKAGE_ARCHITECTURE)
   set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
 endif ()
 set (CPACK_RPM_PACKAGE_VERSION "${wsjtx_PACKAGE_VERSION}")
-set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtwebsockets >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3, boost-log >= 1.62")
+set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtwebsockets >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3")
+if (NOT Boost_USE_STATIC_LIBS)
+  string (APPEND CPACK_RPM_PACKAGE_REQUIRES ", boost-log >= 1.62")
+endif ()
 set (CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/pixmaps /usr/share/applications /usr/share/man /usr/share/man1)
 
 configure_file ("${PROJECT_SOURCE_DIR}/CMakeCPackOptions.cmake.in"

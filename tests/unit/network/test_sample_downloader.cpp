@@ -11,6 +11,7 @@
 #include <QUrl>
 
 #include "SampleDownloader.hpp"
+#include "SampleDownloader/EntryName.hpp"
 #include "SampleDownloader/RemoteFile.hpp"
 
 namespace
@@ -84,6 +85,86 @@ class TestSampleDownloader final
   Q_OBJECT
 
 private Q_SLOTS:
+  void entry_name_validation_data ()
+  {
+    QTest::addColumn<QString> ("name");
+    QTest::addColumn<bool> ("valid");
+
+    QTest::newRow ("file") << "FT8.wav" << true;
+    QTest::newRow ("space") << "Fox sample.wav" << true;
+    QTest::newRow ("leading dots") << "..sample.wav" << true;
+    QTest::newRow ("hash") << "sample#1.wav" << true;
+    QTest::newRow ("percent") << "sample%2F1.wav" << true;
+    QTest::newRow ("unicode") << QString::fromUtf8 ("échantillon.wav") << true;
+    QTest::newRow ("empty") << "" << false;
+    QTest::newRow ("current directory") << "." << false;
+    QTest::newRow ("parent directory") << ".." << false;
+    QTest::newRow ("forward slash") << "../outside.wav" << false;
+    QTest::newRow ("backslash") << "..\\outside.wav" << false;
+    QTest::newRow ("absolute path") << "/tmp/outside.wav" << false;
+    QTest::newRow ("drive path") << "C:\\outside.wav" << false;
+    QTest::newRow ("colon") << "sample:name.wav" << false;
+    QTest::newRow ("semicolon") << "sample;name.wav" << false;
+    QTest::newRow ("question mark") << "sample?.wav" << false;
+    QTest::newRow ("angle bracket") << "sample<1>.wav" << false;
+    QTest::newRow ("quote") << "sample\"1.wav" << false;
+    QTest::newRow ("pipe") << "sample|1.wav" << false;
+    QTest::newRow ("asterisk") << "sample*.wav" << false;
+    QTest::newRow ("control") << QString {"sample\n1.wav"} << false;
+    QTest::newRow ("delete") << QString {"sample"} + QChar {0x7f} + ".wav" << false;
+    QTest::newRow ("trailing dot") << "sample.wav." << false;
+    QTest::newRow ("trailing space") << "sample.wav " << false;
+    QTest::newRow ("device") << "NUL" << false;
+    QTest::newRow ("device extension") << "con.wav" << false;
+    QTest::newRow ("spaced device extension") << "NUL .wav" << false;
+    QTest::newRow ("serial device") << "CoM9.log" << false;
+    QTest::newRow ("parallel device") << "lpt1.txt" << false;
+    QTest::newRow ("superscript serial one") << QString::fromUtf8 ("COM¹") << false;
+    QTest::newRow ("superscript serial two") << QString::fromUtf8 ("com².wav") << false;
+    QTest::newRow ("superscript serial three") << QString::fromUtf8 ("CoM³.log") << false;
+    QTest::newRow ("superscript parallel one") << QString::fromUtf8 ("LPT¹") << false;
+    QTest::newRow ("superscript parallel two") << QString::fromUtf8 ("lpt².txt") << false;
+    QTest::newRow ("superscript parallel three") << QString::fromUtf8 ("LpT³.wav") << false;
+    QTest::newRow ("non-device serial") << "COM10.wav" << true;
+    QTest::newRow ("non-device superscript") << QString::fromUtf8 ("COM⁴.wav") << true;
+    QTest::newRow ("non-device superscript suffix") << QString::fromUtf8 ("COM¹0.wav") << true;
+    QTest::newRow ("ordinary superscript") << QString::fromUtf8 ("sample¹.wav") << true;
+  }
+
+  void entry_name_validation ()
+  {
+    QFETCH (QString, name);
+    QFETCH (bool, valid);
+
+    QCOMPARE (sample_downloader::valid_entry_name (name), valid);
+  }
+
+  void relative_entry_paths_stay_in_samples ()
+  {
+    QCOMPARE (sample_downloader::relative_entry_path (QDir {"samples"}, "FT8.wav")
+              , QString {"samples/FT8.wav"});
+    QCOMPARE (sample_downloader::relative_entry_path (QDir {"samples/Q65"}, "sample#1.wav")
+              , QString {"samples/Q65/sample#1.wav"});
+    QVERIFY (sample_downloader::relative_entry_path (QDir {"samples/../outside"}, "sample.wav").isEmpty ());
+    QVERIFY (sample_downloader::relative_entry_path (QDir {"samples"}, "../outside.wav").isEmpty ());
+  }
+
+  void entry_urls_encode_path_metacharacters ()
+  {
+    QUrl const root {"https://mirror.example/wsjtx/"};
+
+    auto const hash_url = sample_downloader::entry_url (root, "samples/sample#1.wav");
+    QCOMPARE (hash_url.toString (QUrl::FullyEncoded)
+              , QString {"https://mirror.example/wsjtx/samples/sample%231.wav"});
+    QVERIFY (hash_url.query ().isEmpty ());
+    QVERIFY (hash_url.fragment ().isEmpty ());
+
+    auto const percent_url = sample_downloader::entry_url (root, "samples/%2e%2e.wav");
+    QCOMPARE (percent_url.toString (QUrl::FullyEncoded)
+              , QString {"https://mirror.example/wsjtx/samples/%252e%252e.wav"});
+    QCOMPARE (percent_url.path (QUrl::FullyDecoded), QString {"/wsjtx/samples/%2e%2e.wav"});
+  }
+
   void unsaved_url_reads_as_pages ()
   {
     QTemporaryDir directory;

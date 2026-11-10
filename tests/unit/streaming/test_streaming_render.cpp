@@ -423,7 +423,7 @@ private slots:
          false, false, true);
     row ("jt65-seq-vhf-avg", jt65Files, jt65Options + QStringList {"51", "-X", "64"}, 60,
          with (jt65, {{"depth", 51}, {"vhf_features", true}}));
-    row ("jt65jt9", {"JT65/JT65B/000000_0004.wav"}, {"-6", "-9", "-T", "-b", "B", "-f", "1700", "-d", "3"}, 60,
+    row ("jt65jt9", {"JT65/JT65B/000000_0004.wav"}, jt65Options + QStringList {"3"}, 60,
          {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"submode", 1}, {"rxfreq", 1700}, {"depth", 3}});
     row ("jt4f", {"JT4/JT4F/OK1KIR_141105_175700.WAV"}, {"--jt4", "-b", "F", "-f", "1200", "-d", "3"}, 60,
          {{"mode", "JT4"}, {"submode", 5}, {"rxfreq", 1200}, {"depth", 3}, {"ntol", 20}});

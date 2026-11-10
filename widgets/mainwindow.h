@@ -37,10 +37,12 @@
 #include <array>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 
 class QHBoxLayout;
 namespace DecoderIpc {class Session;}
 
+#include "DecodedGridHistory.hpp"
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
@@ -84,6 +86,8 @@ namespace DecoderIpc {class Session;}
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
+#include "DecodeOutputPlan.hpp"
+#include "BestSPController.hpp"
 #include "DecoderBackend.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
@@ -167,6 +171,8 @@ class Cloudlog;
 
 #include "Audio/TxAudioQueue.hpp"
 #include "Modulator/JttyTxStream.hpp"
+#include "QsoCompletion.hpp"
+#include <deque>
 
 #ifdef WIN32
 class MMTTYIF;
@@ -199,13 +205,16 @@ public:
   static QRegularExpression const grid_regexp;
   static QRegularExpression const non_r_db_regexp;
 
-  explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
+  explicit MainWindow(QDir const& temp_directory, MultiSettings *,
                       DecoderIpc::Session& decoderSession, unsigned downSampleFactor,
                       QSplashScreen *, QProcessEnvironment const&, bool automated_test,
                       QString base_style_sheet,
                       std::unique_ptr<AudioInputSource> audio_input_source = {},
                       std::unique_ptr<AudioOutputSink> sound_output = {},
                       QString decoder_data_path = {},
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+                      std::unique_ptr<DecoderBackend> decoder_backend = {},
+#endif
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -252,11 +261,16 @@ public:
   quint64 liveAudioTestReceiveEpoch () const {return m_receiveConsumer.epoch ();}
   bool liveAudioTestReceivingAudio () const {return m_receivingAudio;}
   int liveAudioTestHalfSymbols () const {return m_ihsym;}
-  QString checkLiveAudioTestJttyFrequencyChanges();
+  std::optional<QString> pollLiveAudioTestJttyFrequencyChanges();
+  bool liveAudioTestJttyRigReady() const
+  {
+    return m_startup_rig_reported && m_rigState.online() && m_rigState.frequency();
+  }
   bool startLiveAudioTestJttyWav(QString const& path);
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
   QString checkLiveAudioTestOutputFaults ();
+  QString checkQsoCompletionTest ();
   bool liveAudioTestJttyStreamActive () const
   {
     return m_jttyTxStream && m_jttyTxStream->isActive ();
@@ -338,6 +352,9 @@ public:
   void jttyDecodeAgainAtSample(quint64 reception, qint64 sample);
 
 private:
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  friend class BestSPApplicationTestController;
+#endif
   enum class DecodeOwner
   {
     None,
@@ -602,6 +619,7 @@ private slots:
   void on_outAttenuation_valueChanged (int);
   void rigOpen ();
   void handle_transceiver_update (Transceiver::TransceiverState const&);
+  void handleRadioModeControl (bool yielded, bool ready);
   void handle_transceiver_closing (bool failed);
   void handle_transceiver_failure (QString const& reason);
   void handle_leavingSettings();
@@ -684,7 +702,7 @@ private slots:
   void FoxReset(QString reason);
   void on_comboBoxHoundSort_activated (int index);
   void checkMSK144ContestType();
-  void on_pbBestSP_clicked();
+  void on_pbBestSP_toggled (bool checked);
   void on_RoundRobin_currentTextChanged(QString);
   void setTxMsg(int n);
   bool stdCall(QString const& w);
@@ -741,9 +759,18 @@ private:
   DecodedMessageReaction::ReactionDisposition processWaitReplyCall(
     DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
     bool * block_right_display = nullptr);
-  bool applyFiltering(const DecodedText& dt, bool& filtered);
+  bool applyFiltering(const DecodedText& dt, bool& filtered, DecodeClassification const * classification = nullptr);
+  DecodeOutputPlan::KeywordFilterDecision decodeFilterDecision (
+    DecodedText const&, bool initiallyFiltered, DecodeClassification const *) const;
+  void setBestSPArmed (bool armed, QString const& feedback = {});
+  void cancelAutomaticCQSelection ();
+  void selectTx6Message ();
+  enum class CompetingCQSelection {None, WaitAndCall, WaitAndPounce};
+  CompetingCQSelection competingCQSelection () const;
+  void cancelBestSPForCQSelection ();
+  void completeBestSP (quint64 backendRequest);
   void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
-                         bool& play_Wanted, bool& play_DXcall);
+                         bool& play_Wanted, bool& play_DXcall, DecodeClassification const * classification = nullptr);
   void cycleRespondMode();
   static DecodeAlertSound selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled, bool wantedAlertEnabled,
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
@@ -754,7 +781,9 @@ private:
   QString selectedTxMessage() const;
   AutoRespondPolicy autoRespondPolicy() const;
   bool pendingCqAutoRespondIntent() const;
-  void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
+  void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance,
+                              bool haveFSpread, float fSpread, bool bDisplayPoints,
+                              DecodeClassification const& classification);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt);
 
@@ -787,6 +816,12 @@ private:
   Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
 
 private:
+  enum class TxControlOrigin { Automatic, Local };
+  void setAutoTxEnabled (bool, TxControlOrigin);
+  void setTuneEnabled (bool, TxControlOrigin);
+  void startPendingRigTune ();
+  void cancelRigTune ();
+  void updateRadioModeStatus ();
   void set_mode (QString const& mode);
   void dispatchTxRequest (TxEvidence::TxRequest const& request);
   void beginTxEvidenceSession ();
@@ -814,7 +849,21 @@ private:
   bool rr73_tx4_allowed () const;
   bool send_rr73_for_tx4 () const;
   void set_rr73_tx4 (bool enabled);
+  void scheduleLogQso (bool automatic = true);
+  void showNextLogQso ();
+  void processLogRequests ();
+  void applyLogCompletionEffects (QsoLogRequest const&);
+  bool ownsQsoContact (QsoLogRequest const&) const;
+  QsoLogData captureLogQso ();
+  std::shared_ptr<QsoCompletion> currentQsoCompletion ();
+  bool repeatIsCurrent (std::shared_ptr<QsoCompletion> const&) const;
+  bool repeatContextIsCurrent (std::shared_ptr<QsoCompletion> const&) const;
+  void recordFinalConfirmation ();
+  void applyPendingQsoClear (std::shared_ptr<QsoCompletion> const&);
+  bool updateRepeatTransmission (QStringList const& messageParts);
+  void endQsoRepeat (QsoRepeatEnd, std::shared_ptr<QsoCompletion> context = {});
   void readWidebandDecodes();
+  void refreshQmapActiveStations(QDateTime const& nowUtc);
   void configActiveStations();
   bool sfox_tx();
   void clearSuperFoxPreparedTx();
@@ -837,6 +886,7 @@ private:
   double jttyRequestSentFraction(qint64 requestId) const;
   int jttyRequestFramesDone(qint64 requestId) const;
   int countJttyTransmitFrames(QString const& preparedMessage) const;
+  Q_SLOT void switchToJttyAfterMmttyStartup();
 #ifdef WIN32
   void handleMmttyTxString(QString message);
   void handleMmttyStartTx();
@@ -935,7 +985,6 @@ private:
   bool m_valid;
   QSplashScreen * m_splash;
   QString m_revision;
-  bool m_multiple;
   bool m_automated_test;
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
@@ -1015,7 +1064,6 @@ private:
   quint64  m_mslastTX;   //ft8md
   qint32  m_nlasttx;     //ft8md
   qint32  m_lapmyc;      //ft8md
-  Astro::Correction m_astroCorrection;
   bool m_reverse_Doppler;
 
   double  m_tRemaining;
@@ -1039,7 +1087,6 @@ private:
   bool m_gen_message_is_cq;
   bool m_send_RR73;
   qint32  m_timeout;
-  qint32  m_XIT;
   qint32  m_setftx;
   qint32  m_ndepth;
   qint32  m_ncandthin; //ft8md
@@ -1218,7 +1265,7 @@ private:
   bool    m_contestModeHintShown;
   bool    m_bWarnedSplit=false;
   bool    m_bTUmsg;
-  bool    m_bBestSPArmed=false;
+  BestSPController m_bestSP;
   bool    m_bOK_to_chk=false;
   bool    m_bSentReport=false;
   bool    m_discard_decoded_hounds_this_cycle=false;     // if something changes, like frequency, discard decoded messages that may be in-flight.
@@ -1252,6 +1299,8 @@ private:
 
   // labels in status bar
   QLabel tx_status_label;
+  bool m_radioModeStatusVisible {false};
+  bool m_pendingRigTune {false};
   bool m_tx_inhibited {false};
   QLabel config_label;
   QLabel mode_label;
@@ -1294,9 +1343,16 @@ private:
   QTimer m_guiTimer;
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
+  QTimer m_pounceSelectionTimer;
+  bool m_pounceWaitCallTimeout {false};
   QTimer ptt1Timer;                 //StartTx delay
   QTimer ptt0Timer;                 //StopTx delay
   QTimer logQSOTimer;
+  QTimer m_repeatDeadline;
+  bool m_processingLogRequests {false};
+  std::shared_ptr<QsoCompletion> m_qsoCompletion;
+  std::deque<QsoLogRequest> m_pendingLogQsos;
+  std::optional<QsoLogRequest> m_openLogQso;
   QTimer killFileTimer;
   QTimer tuneButtonTimer;
   QTimer rigTuneTimer;
@@ -1348,7 +1404,6 @@ private:
   QString m_nextGrid;
   QString m_fileDateTime;
   QString m_inQSOwith;
-  QString m_BestCQpriority;
   QString m_deCall;
   QString m_deGrid;
   QString m_freeTextMsg;
@@ -1403,7 +1458,7 @@ private:
     double frx;
     double fsked;
     qint32 nsnr;
-    qint32 t;
+    QDateTime lastHeard;
     bool worked;
     bool ready2call;
     QString submode;
@@ -1411,6 +1466,8 @@ private:
   QMap<QString,EMECall> m_EMECall;
 
   QMap<QString,bool> m_EMEworked;
+
+  DecodedGridHistory m_decodedGridHistory;
 
   struct RecentCall
   {
@@ -1438,7 +1495,6 @@ private:
   QDateTime m_dateTimeLastTX;
   QDateTime m_dateTimeSentTx3;
   QDateTime m_dateTimeRcvdRR73;
-  QDateTime m_dateTimeBestSP;
   QDateTime m_dateTimeSeqStart;        //Nominal start time of Rx sequence about to be decoded
 
   std::unique_ptr<DecoderBackend> m_decoderBackend;
@@ -1619,7 +1675,8 @@ private:
     RigFrequencyChangePolicy::ChangeKind) const;
   bool nominalFrequencyChangeAllowed (FrequencyRequestOrigin);
   bool requestNominalFrequencyChange (Frequency, FrequencyRequestOrigin);
-  bool dispatchNominalFrequency (Frequency corrected, FrequencyRequestOrigin, bool monitoring);
+  bool dispatchNominalFrequency (RigFrequency::Request const&, FrequencyRequestOrigin, bool monitoring);
+  bool m_frequencyRetryRequested = false;
   bool requestBandChange (Frequency, FrequencyRequestOrigin);
   bool workingFrequencyAt (int row, Frequency&) const;
   void applyBandChange (Frequency, Frequency previous_frequency);
@@ -1783,7 +1840,6 @@ private:
 #endif
 };
 
-extern int killbyname(const char* progName);
 extern void getDev(int* numDevices,char hostAPI_DeviceName[][50],
                    int minChan[], int maxChan[],
                    int minSpeed[], int maxSpeed[]);

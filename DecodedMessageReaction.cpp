@@ -1,6 +1,7 @@
 #include "DecodedMessageReaction.hpp"
 
 #include "Decoder/decodedtext.h"
+#include "Decoder/DecoderAnnotations.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "qt_helpers.hpp"
 
@@ -140,6 +141,65 @@ namespace
     return messageWords.contains(call) || messageWords.contains(Radio::base_callsign(call));
   }
 
+  struct FinalReply
+  {
+    QString marker;
+    QStringList payload;
+
+    bool contains73 () const {return payload.contains ("73");}
+
+    bool isDirectedTo (QsoReactionSnapshot const& snapshot, QString const& partner = {}) const
+    {
+      if (payload.size () != 3 || payload.at (2) != "73"
+          || !isSupportedModeMarker (snapshot.mode, marker)) return false;
+      auto const recipient = QString {payload.at (0)}.remove ('<').remove ('>');
+      auto const sender = QString {payload.at (1)}.remove ('<').remove ('>');
+      return sameStation (recipient, snapshot.baseCall)
+        && sameStation (sender, partner.isEmpty () ? snapshot.hisCall : partner);
+    }
+  };
+
+  FinalReply parseFinalReply (DecodedText const& message)
+  {
+    auto const fields = DecoderAnnotations::normalized_message (message.clean_string ())
+      .split (' ', SkipEmptyParts);
+    return {fields.value (4), fields.mid (5)};
+  }
+
+  bool appendFinalReplyPlan(DecodedText const& message, FinalReply const& reply, QsoReactionSnapshot const& snapshot,
+                            QsoReactionPlan& plan, bool allowPartnerSelection = false)
+  {
+    bool const timedOut = snapshot.completion.phase == QsoCompletionPhase::TimedOut;
+    if ((snapshot.completion.phase != QsoCompletionPhase::AwaitingFinal73
+         && snapshot.completion.phase != QsoCompletionPhase::FinalReplyPending && !timedOut)
+        || (!snapshot.autoEnabled && !timedOut) || snapshot.tuning
+        || !snapshot.repeatTx || !snapshot.sendRr73
+        || (snapshot.mode != "MSK144" && snapshot.mode != "Q65") || message.isTX()) {
+      return false;
+    }
+
+    if (!reply.contains73 ()) return false;
+    bool const directed = reply.isDirectedTo (snapshot);
+    if (!directed && allowPartnerSelection) return false;
+    plan.reason = "73 does not match RR73 repeat QSO";
+    if (!directed) return true;
+
+    plan.disposition = ReactionDisposition::Reacted;
+    plan.reason = "final reply completes RR73 repeat";
+    if (snapshot.completion.phase == QsoCompletionPhase::FinalReplyPending) return true;
+    appendEffect(plan, QsoReactionEffect::Kind::RecordFinalConfirmation);
+    if (snapshot.loggingEnabled && !snapshot.completion.logRequested) {
+      appendEffect(plan, QsoReactionEffect::Kind::RequestLogQso);
+    }
+    if (snapshot.mode == "MSK144" && !timedOut) {
+      appendIntEffect(plan, QsoReactionEffect::Kind::ScheduleRepeatFinish,
+                      int(750.0 * snapshot.trPeriod));
+    } else {
+      appendEffect(plan, QsoReactionEffect::Kind::FinishRepeat);
+    }
+    return true;
+  }
+
   bool isExplicitStationSelection(DecodedMessageReaction::SelectionOrigin origin)
   {
     using Origin = DecodedMessageReaction::SelectionOrigin;
@@ -235,7 +295,8 @@ namespace
           effect.frequency = dialFrequency;
           effect.text = QString {"QSY %1"}.arg(snapshot.nominalFrequency / 1e6, 7, 'f', 3);
           effect.boolValue = snapshot.mode == "MSK144";
-          effect.userInitiated = snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None;
+          effect.userInitiated = snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane
+            || snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualRightPane;
           plan.effects.append(effect);
         } else if (snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::None) {
           appendEffect(plan, QsoReactionEffect::Kind::RejectNominalQsy);
@@ -377,6 +438,8 @@ namespace
     }
     if (!freeText73 && analysis.hisGrid.contains(gridExpression())) {
       appendTextEffect(plan, QsoReactionEffect::Kind::SetDxGrid, analysis.hisGrid);
+    } else if (!freeText73) {
+      appendEffect(plan, QsoReactionEffect::Kind::LookupDecodedGrid);
     }
     appendEffect(plan, QsoReactionEffect::Kind::Lookup);
     appendEffect(plan, QsoReactionEffect::Kind::CaptureHisGrid);
@@ -409,7 +472,12 @@ namespace
     }
     if (snapshot.autoSequenceEnabled && !snapshot.doubleClicked && snapshot.mode != "FT4") return;
     if (snapshot.quickCall && snapshot.doubleClicked) {
-      appendBoolEffect(plan, QsoReactionEffect::Kind::SetAutoEnabled, true);
+      QsoReactionEffect effect;
+      effect.kind = QsoReactionEffect::Kind::SetAutoEnabled;
+      effect.boolValue = true;
+      effect.userInitiated = snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane
+        || snapshot.selectionOrigin == DecodedMessageReaction::SelectionOrigin::ManualRightPane;
+      plan.effects.append(effect);
     }
     appendBoolEffect(plan, QsoReactionEffect::Kind::SetDoubleClicked, false);
   }
@@ -433,6 +501,8 @@ namespace DecodedMessageReaction
   QsoReactionPlan planProcessMessage(DecodedText const& message, QsoReactionSnapshot const& snapshot)
   {
     QsoReactionPlan plan;
+    if (appendFinalReplyPlan(message, parseFinalReply (message), snapshot, plan,
+                            isExplicitStationSelection(snapshot.selectionOrigin))) return plan;
     EntryAnalysis const analysis = analyzeEntry(message, snapshot, plan);
     if (!analysis.continueProcessing) {
       plan.reason = analysis.reason;
@@ -747,6 +817,33 @@ namespace DecodedMessageReaction
       return plan;
     }
 
+    auto const finalReply = parseFinalReply (message);
+    if ((snapshot.completion.phase == QsoCompletionPhase::Cancelled
+         || (snapshot.completion.phase == QsoCompletionPhase::Finished && snapshot.completion.confirmed))
+        && finalReply.isDirectedTo (snapshot, snapshot.completion.call)) {
+      plan.reason = "repeat contact no longer accepts automatic final replies";
+      return plan;
+    }
+    if (appendFinalReplyPlan(message, finalReply, snapshot, plan)) return plan;
+
+    if (snapshot.mode == "Q65" && snapshot.repeatTx && !snapshot.sendRr73
+        && snapshot.autoEnabled
+        && snapshot.qsoProgress == QsoProgress::Rogers && snapshot.selectedTxMessage == 4
+        && !message.isTX()
+        && finalReply.isDirectedTo (snapshot)) {
+      if (snapshot.tuning) {
+        plan.reason = "tuning does not complete a Q65 repeat";
+        return plan;
+      }
+      appendEffect(plan, QsoReactionEffect::Kind::RecordFinalConfirmation);
+      if (snapshot.loggingEnabled && !snapshot.completion.logRequested)
+        appendEffect(plan, QsoReactionEffect::Kind::RequestLogQso);
+      appendEffect(plan, QsoReactionEffect::Kind::FinishRepeat);
+      plan.disposition = ReactionDisposition::Reacted;
+      plan.reason = "final Q65 repeat reply ends the QSO";
+      return plan;
+    }
+
     QStringList const messageWords = message.messageWords();
     bool const is73 = messageWords.filter(QRegularExpression {"^(73|RR73)$"}).size();
     QString const messageWithoutHash = message.clean_string().mid(22).remove("<").remove(">");
@@ -848,9 +945,15 @@ namespace DecodedMessageReaction
       return plan;
     }
 
+    auto const fields = parseDecodedMessage(message.message());
+    if (fields.sender == "..." || fields.sender != snapshot.hisCall) {
+      plan.reason = "Wait message is not from the selected station";
+      return plan;
+    }
+    bool const direct = fields.destination == snapshot.myCall;
+
     QString text = message.string();
     text.replace("<", "").replace(">", "");
-    bool const direct = text.contains(" " + snapshot.myCall + " " + snapshot.hisCall);
 
     if (nccc && !snapshot.hisGrid.isEmpty()
         && text.contains(" " + snapshot.myCall + " " + snapshot.hisCall

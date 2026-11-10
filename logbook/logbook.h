@@ -11,6 +11,7 @@
 #include <QScopedPointer>
 
 #include "WorkedBefore.hpp"
+#include "SpecialOperatingActivity.hpp"
 
 class Configuration;
 class QByteArray;
@@ -28,6 +29,8 @@ public:
   LogBook (Configuration const *);
   ~LogBook ();
   QString const& path () const {return worked_before_.path ();}
+  QString const& load_status () const {return worked_before_.load_status ();}
+  QString const& load_errors () const {return worked_before_.load_errors ();}
   bool add (QString const& call
             , QString const& grid
             , QString const& band
@@ -45,11 +48,13 @@ public:
                         QString const& name, QString const& strDialFreq, QString const& myCall,
                         QString const& m_myGrid, QString const& m_txPower, QString const& operator_call,
                         QString const& xSent, QString const& xRcvd, QString const& propmode,
-                        QString const& satellite, QString const& satmode, QString const& freqRx);
+                        QString const& satellite, QString const& satmode, QString const& freqRx,
+                        SpecialOperatingActivity activity);
 
   QString const cty_version() const;
 
   Q_SIGNAL void finished_loading (int worked_before_record_count, QString const cty_version, QString const& error) const;
+  Q_SIGNAL void loading_started () const;
 
   CabrilloLog * contest_log ();
   Multiplier const * multiplier () const;

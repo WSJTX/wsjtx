@@ -17,6 +17,7 @@ contains
       use debug_log, only: dbg, itoa, rtoa
       use sec_midn_mod, only: sec_midn
       use q65b_mod
+      use q65_cursor_mod, only: q65_cursor_f0, qso_sync_window
       use decode1a_mod
       use ccf65_legacy_mod
       use pctile_mod
@@ -28,7 +29,8 @@ contains
       use getdphi_mod
       use datcom_ptrs_mod, only: ss_old, savg_old
       use npar_ptrs_mod,  only: nsmax_active, nrate_active, nfft_active, t_start, abort_decode, &
-                               manualDecodeFlag, active_input_generation
+                               manualDecodeFlag, active_input_generation, note_decoder_lag, &
+                               active_snap_idx
       use sec0_mod, only: sec0
       use q65_decode, only: nsnr0, msg0, xdt0, nfreq0
 
@@ -41,6 +43,32 @@ contains
       ! this is ~+/-15 Hz, covering the couple-of-bin spread a single real
       ! JT65 signal can show across separate automatic calls.
       integer, parameter :: JT65_LOCAL_BINS = 5
+      ! A strong JT65 signal that has decoded also looks like several Q65
+      ! candidates ("ghosts") across its span, and each failed Q65 attempt
+      ! on one costs seconds. A JT65 signal's tones span about
+      ! JT65_BW_HZ * nts_jt65 above its sync tone, so Q65 candidates inside
+      ! that span (plus a small guard on each side) of a decoded sync tone
+      ! are screened:
+      !   - one on the sync tone itself (within JT65_SYNC_HZ) is always
+      !     skipped;
+      !   - any other is skipped only if its sync strength is below
+      !     Q65_GHOST_FACTOR times the JT65 signal's own spectral power at
+      !     sync bin (the strongest bin near it, relative to the local noise
+      !     floor, as in the JT65 sweep). Ghosts never exceeded about 0.62
+      !     times that power in testing, whereas a real Q65 signal in the
+      !     span is usually stronger, so it is still tried.
+      ! The two guards are named from the JT65 signal's side: BELOW its sync
+      ! tone, ABOVE its top tone.
+      real, parameter :: JT65_BW_HZ = 178.0
+      real, parameter :: JT65_EXCL_BELOW_HZ = 10.0
+      real, parameter :: JT65_EXCL_ABOVE_HZ = 10.0
+      real, parameter :: JT65_SYNC_HZ = 10.0
+      ! A decoded JT65 signal's flagged bin can be several bins off its true
+      ! sync tone (a quick decode near the cursor accepts weak sync), so its
+      ! power and sync position are taken from the strongest bin within
+      ! JT65_SLOP_HZ of it.
+      real, parameter :: JT65_SLOP_HZ = 60.0
+      real, parameter :: Q65_GHOST_FACTOR = 0.7
       real, intent(in) :: dd(4, nsmax_active)
       integer, intent(inout) :: newdat
       integer, intent(inout) :: nutc
@@ -78,7 +106,10 @@ contains
       integer :: noffset, npol, nqd, nqual, nsync1, nsync2, ntry
       integer :: nts_jt65, nts_q65, ntxpol, nutc0, nwrite, nwrite_q65, nz
       integer :: idec
-      logical xpol, bq65, q65b_called
+      logical xpol, bq65, q65b_called, q65_on_jt65
+      integer :: nq65bin, nq65_back, nq65_ahead, nq65_sync, nq65_slop
+      real :: pjt65
+      logical :: near_sync
       logical candec(MAX_CANDIDATES)
       character(len=22) decoded, blank, decoded_jt65
       character(len=2) cmode
@@ -94,6 +125,9 @@ contains
       integer :: t_now, t_rate
       logical :: m65_inited = .false.
       logical :: abort_saved
+      logical :: early_window
+      integer :: mfa_s, mfb_s, nhsym_rows
+      integer, parameter :: EARLY_MARGIN_KHZ = 2
       integer :: icenter
       logical :: initialization_only, shorthand_detected, jt65_success, q65_success
       logical :: already_decoded_nearby
@@ -127,6 +161,10 @@ contains
       ! once the next cycle's UDP data starts arriving.
       ss_dec   => ss_old
       savg_dec => savg_old
+      ! The early snapshot holds only nhsym1 rows, even when a manual request
+      ! arrives with nhsym2.
+      nhsym_rows = nhsym
+      if (active_snap_idx .eq. 1) nhsym_rows = min(nhsym, nhsym1)
 
       abort_decode = .false.
 
@@ -173,6 +211,14 @@ contains
       mode_q65 = nmode/10
       nts_jt65 = mode65
       nts_q65 = 2**(mode_q65 - 1)
+      ! Search window around a Q65 candidate's bin, for a decoded JT65 sync
+      ! tone: nq65_back bins below the candidate (a candidate on a JT65
+      ! signal sits above that signal's sync tone, up to its full span) and
+      ! nq65_ahead bins above it (the guard below the sync tone).
+      nq65_back = ceiling((JT65_BW_HZ*nts_jt65 + JT65_EXCL_ABOVE_HZ)/df)
+      nq65_ahead = ceiling(JT65_EXCL_BELOW_HZ/df)
+      nq65_sync = ceiling(JT65_SYNC_HZ/df)
+      nq65_slop = ceiling(JT65_SLOP_HZ/df)
       xpol = (nxpol .ne. 0)
 
       nwrite_q65 = 0
@@ -249,7 +295,7 @@ contains
 
             ssmax = 1.e30
             call timer('ccf65   ',0)
-            call ccf65(ss_dec(:,:,iii), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+            call ccf65(ss_dec(:,:,iii), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                      syncshort_tmp, snr2_tmp, ipol2_tmp, dt2_tmp)
             call timer('ccf65   ',1)
 
@@ -304,12 +350,12 @@ contains
                   iu = il + jsep
                   if (il < 51 .or. iu > nfft_active - 51) cycle
                   ssmax = 1.e30
-                  call ccf65(ss_dec(:,:,iu), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+                  call ccf65(ss_dec(:,:,iu), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                              syncshort_tmp, u_snr2, u_ipol2, u_dt2)
                   if (syncshort_tmp <= sh_sync) cycle
                   syncshort = syncshort_tmp
                   ssmax = 1.e30
-                  call ccf65(ss_dec(:,:,il), nhsym, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
+                  call ccf65(ss_dec(:,:,il), nhsym_rows, ssmax, sync1_tmp, ipol_tmp, jpz, dt_tmp, flipk_tmp, &
                              syncshort_tmp, snr2_tmp, ipol2_tmp, dt2_tmp)
                   if (syncshort_tmp <= thresh0) cycle
                   sh_sync  = syncshort
@@ -462,9 +508,12 @@ contains
             ! is centered on the actual clicked frequency, not just rounded
             ! to the nearest kHz -- matters once q65b targets this exactly
             ! (see the manualDecodeFlag handling around k0 in q65b.F90).
+            ! f0 and the sync window below both use the current center, which the
+            ! last automatic pass may not have set to this fcenter yet.
+            nkhz_center = nint(1000.0*(fcenter - int(fcenter)))
             freq = mousefqso + 0.001*mousedf
             freq_q65 = freq
-            f0       = freq_q65 - (nkhz_center - real(nrate_active)/2000.0 - 1.27046)
+            f0       = q65_cursor_f0(mousefqso, mousedf, nkhz_center, nrate_active, nfcal)
             nqd      = 1   ! target-frequency decode, like wideband's quick pass at
                            ! fQSO; also required so q65b's own write_stdout/output
                            ! path (gated on nqd==1) actually emits the result
@@ -479,6 +528,19 @@ contains
             ! gate's reference-frame mismatch is now fixed inside q65b.F90
             ! itself instead, from f0 (already unambiguous), leaving this
             ! mousedf untouched for f_mouse/k0 to keep working correctly.
+
+            ! q65b reads sync() near the click for the polarization and the
+            ! combining angle. The last automatic pass may have covered only
+            ! its own window, or have expired without running at all (monitoring
+            ! stopped), so refresh sync() around this click first.
+            mfa = nfa - nkhz_center + int(nrate_active/2000.0)
+            mfb = nfb - nkhz_center + int(nrate_active/2000.0)
+            call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
+                 EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, sync_narrow)
+            call timer('get_cand', 0)
+            call get_candidates(ss_dec, savg_dec, xpol, nhsym_rows, mfa_s, mfb_s, nts_jt65, nts_q65, &
+                 cand, ncand, mfa, mfb)
+            call timer('get_cand', 1)
 
             call dbg('map65a manual: Q65 call nutc=' // itoa(nutc) // ' nqd=' // itoa(nqd) // &
                      ' ikhz=' // itoa(ikhz) // ' mousedf=' // itoa(mousedf) // ' ntol=' // itoa(ntol) // &
@@ -647,10 +709,28 @@ else
    rms = 0.0d0
 endif
 
-if (nagain .eq. 0) then
+! The automatic early pass (nhsym1) decodes only near the QSO frequency and
+! stops before the wideband search, so it needs sync() only there. Keep a
+! margin around the window that q65b's cursor search (+/- ntol) and the
+! candidate filter below look at.
+early_window = nagain .eq. 0 .and. nhsym .eq. nhsym1 .and. &
+               manualDecodeFlag_initial .eq. 0 .and. ndiskdat .eq. 0
+mfa_s = mfa
+mfb_s = mfb
+if (early_window) then
+   call qso_sync_window(nrate_active, nkhz_center, mousefqso, mousedf, nfcal, ntol, &
+        EARLY_MARGIN_KHZ, mfa, mfb, mfa_s, mfb_s, early_window)
+endif
+if (nagain .eq. 0 .or. sync_narrow) then
+   ! A manual repeat (nagain=1) reuses the last pass's sync(); if that covered only
+   ! a narrow window, redo it over the full span.
    call timer('get_cand', 0)
-   call get_candidates(ss_dec, savg_dec, xpol, nhsym, mfa, mfb, nts_jt65, nts_q65, cand, ncand)
+   ! mfa..mfb stays the reference for the score scale, so a narrowed search
+   ! scores a signal as the full-span search would.
+   call get_candidates(ss_dec, savg_dec, xpol, nhsym_rows, mfa_s, mfb_s, nts_jt65, nts_q65, cand, ncand, &
+        mfa, mfb)
    call timer('get_cand', 1)
+   sync_narrow = early_window
    candec = .false.
    ! TEMP diagnostic 2026-09-09 for the missing-upper-Q65-decode investigation.
    call dbg('map65a: get_candidates done at t=' // rtoa(sec_midn()) // &
@@ -763,7 +843,7 @@ endif
 !  Look for JT65 sync patterns and shorthand square-wave patterns.
                call timer('ccf65   ', 0)
                ssmax = 1.e30
-               call ccf65(ss_dec(:,:,i), nhsym, ssmax, sync1, ipol, jpz, dt, flipk, &
+               call ccf65(ss_dec(:,:,i), nhsym_rows, ssmax, sync1, ipol, jpz, dt, flipk, &
                   syncshort, snr2, ipol2, dt2)
                call timer('ccf65   ', 1)
                ! 2026-09-12: instrumentation for the "identical anomalous
@@ -1036,6 +1116,21 @@ endif
                q65b_called = .false.
                do icand = 1, ncand
                   if (cand(icand)%iflip .ne. 0) cycle        !Keep only Q65 candidates
+                  q65_on_jt65 = .false.
+                  pjt65 = -1.0
+                  near_sync = .false.
+                  if (nagain .eq. 0 .and. manualDecodeFlag_initial .eq. 0 .and. nts_jt65 .gt. 0) then
+                     nq65bin = nint(1000.0*cand(icand)%f/df) + 1
+                     call jt65_span_power(nq65bin, pjt65, near_sync)
+                     q65_on_jt65 = pjt65 .ge. 0.0 .and. &
+                                   (near_sync .or. cand(icand)%snr .lt. Q65_GHOST_FACTOR*pjt65)
+                  endif
+                  if (pjt65 .ge. 0.0) &
+                     call dbg('map65a: Q65 cand in JT65 span f=' // rtoa(real(cand(icand)%f)) // &
+                              ' snr=' // rtoa(real(cand(icand)%snr)) // ' pjt65=' // rtoa(pjt65) // &
+                              ' near_sync=' // itoa(merge(1,0,near_sync)) // &
+                              ' skip=' // itoa(merge(1,0,q65_on_jt65)) // ' nqd=' // itoa(nqd))
+                  if (q65_on_jt65) cycle
                   freq = cand(icand)%f + nkhz_center - real(nrate_active)/2000.0 - 1.27046
                   nhzdiff = nint(1000.0*(freq - mousefqso) - mousedf) - nfcal
 ! Now looking for "quick decode" (nqd=1) candidates at cursor freq +/- ntol.
@@ -1063,7 +1158,7 @@ endif
                if (.not. q65b_called) then
                   freq = mousefqso + 0.001*mousedf
                   ikhz = mousefqso
-                  f0 = freq - (nkhz_center - real(nrate_active)/2000.0 - 1.27046)
+                  f0 = q65_cursor_f0(mousefqso, mousedf, nkhz_center, nrate_active, nfcal)
                   call timer('q65b    ', 0)
                  
                   call q65b(nutc, nqd, nxant, fcenter, nfcal, nfsample, ikhz, mousedf, &
@@ -1101,8 +1196,10 @@ endif
          call sec0(1, tsec0)
          call dbg('map65a: end of nqd=' // itoa(nqd) // ' body at t=' // rtoa(sec_midn()) // &
                   ' tsec0=' // rtoa(tsec0) // ' nhsym=' // itoa(nhsym) // ' nagain=' // itoa(nagain))
-         if (nhsym .eq. nhsym1 .and. tsec0 .gt. 3.0) then
-            call dbg('map65a: ABORT (early-pass 3s budget) at t=' // rtoa(sec_midn()) // &
+         ! The automatic early pass does not run the wideband (nqd=0) decode; with
+         ! early_window set, sync() then holds only the QSO window.
+         if (nhsym .eq. nhsym1 .and. (early_window .or. tsec0 .gt. 3.0)) then
+            call dbg('map65a: early pass skips nqd=0 at t=' // rtoa(sec_midn()) // &
                      ' tsec0=' // rtoa(tsec0) // ' -- nqd=0 will NOT run this pass')
             go to 700
          endif
@@ -1116,6 +1213,21 @@ endif
             do icand = 1, ncand
                if (cand(icand)%iflip .ne. 0) cycle    !Do only Q65 candidates here
                if (candec(icand)) cycle             !Skip if already decoded
+               q65_on_jt65 = .false.
+               pjt65 = -1.0
+               near_sync = .false.
+               if (nagain .eq. 0 .and. manualDecodeFlag_initial .eq. 0 .and. nts_jt65 .gt. 0) then
+                  nq65bin = nint(1000.0*cand(icand)%f/df) + 1
+                  call jt65_span_power(nq65bin, pjt65, near_sync)
+                  q65_on_jt65 = pjt65 .ge. 0.0 .and. &
+                                (near_sync .or. cand(icand)%snr .lt. Q65_GHOST_FACTOR*pjt65)
+               endif
+               if (pjt65 .ge. 0.0) &
+                  call dbg('map65a: Q65 cand in JT65 span f=' // rtoa(real(cand(icand)%f)) // &
+                           ' snr=' // rtoa(real(cand(icand)%snr)) // ' pjt65=' // rtoa(pjt65) // &
+                           ' near_sync=' // itoa(merge(1,0,near_sync)) // &
+                           ' skip=' // itoa(merge(1,0,q65_on_jt65)) // ' nqd=' // itoa(nqd))
+               if (q65_on_jt65) cycle
                freq = cand(icand)%f + nkhz_center - real(nrate_active)/2000.0 - 1.27046
 !###! If here at nqd=1, do only candidates at mousefqso +/- ntol
 !###           if(nqd.eq.1 .and. abs(freq-mousefqso).gt.0.001*ntol) cycle
@@ -1138,16 +1250,10 @@ endif
          endif         
          call sec0(1, tsec0)
 
-         call system_clock(t_now, t_rate)
-         if (real(t_now - t_start)/real(t_rate) > 40.0) then
-            call dbg('Decode abort: exceeded 40 seconds at end of do nqd = 1, 0, -1 pass, nqd=' // itoa(nqd))
-            abort_decode = .true.
-            go to 700
-         endif
-
       enddo  ! nqd
 
 700   continue
+      if (abort_decode) call note_decoder_lag(3)
       ! TEMP diagnostic 2026-09-09 for the missing-other-signals-in-Messages investigation.
       call dbg('map65a: reached label 700 at t=' // rtoa(sec_midn()) // &
                ' km=' // itoa(km) // ' abort_decode=' // itoa(merge(1,0,abort_decode)) // &
@@ -1229,6 +1335,46 @@ endif
       mcall3b = mcall3a
 
       return
+
+   contains
+
+      subroutine jt65_span_power(nbin, pmax, near)
+         ! For a Q65 candidate at bin nbin: among decoded JT65 sync bins that
+         ! it could be a ghost of (nq65_back bins below to nq65_ahead above),
+         ! return the strongest one's spectral power relative to the local
+         ! noise floor (-1 if there is none), and whether the candidate sits
+         ! on a decoded sync tone.
+         integer, intent(in)  :: nbin
+         real,    intent(out) :: pmax
+         logical, intent(out) :: near
+         integer :: jj, jp, ii, iii, kk, kbest
+         real :: tav(-50:50), bas, p
+
+         pmax = -1.0
+         near = .false.
+         do jj = max(1, nbin - nq65_back), min(nfft_active, nbin + nq65_ahead)
+            if (.not. ljt65decoded(jj)) cycle
+            p = 0.0
+            kbest = jj
+            do jp = 1, jpz
+               do ii = -50, 50
+                  iii = jj + ii
+                  tav(ii) = 1.0
+                  if (iii .ge. 1 .and. iii .le. nfft_active) tav(ii) = savg_dec(jp, iii)
+               enddo
+               call pctile(tav, 101, 50, bas)
+               if (bas .le. 0.0) cycle
+               do kk = max(1, jj - nq65_slop), min(nfft_active, jj + nq65_slop)
+                  if (savg_dec(jp, kk)/bas .gt. p) then
+                     p = savg_dec(jp, kk)/bas
+                     kbest = kk
+                  endif
+               enddo
+            enddo
+            if (abs(nbin - kbest) .le. nq65_sync) near = .true.
+            pmax = max(pmax, p)
+         enddo
+      end subroutine jt65_span_power
    end subroutine map65a
 
 end module map65a_mod

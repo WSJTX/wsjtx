@@ -4,9 +4,12 @@
 #include <stdexcept>
 
 #include <QString>
+#include <QElapsedTimer>
 
 #include "Logger.hpp"
 #include "Transceiver.hpp"
+
+class QTimer;
 
 //
 // Base Transceiver Implementation
@@ -62,6 +65,7 @@ class TransceiverBase
   Q_OBJECT;
 
 protected:
+  static constexpr unsigned polls_to_stabilize = 3;
   TransceiverBase (logger_type * logger, QObject * parent)
     : Transceiver {logger, parent}
     , last_sequence_number_ {0}
@@ -129,12 +133,19 @@ protected:
   virtual void do_modulator_stop(bool) {}
 
   virtual bool do_pre_update () {return true;}
+  virtual bool frequency_readback_expected (RigFrequency::Path, Frequency) const {return false;}
+  virtual bool mode_readback_expected () const {return false;}
+  virtual void refresh_mode_observation () {}
 
   // sub classes report rig state changes with these methods
-  void update_rx_frequency (Frequency);
-  void update_other_frequency (Frequency = 0);
+  void update_rx_frequency (Frequency, RigFrequency::Basis = RigFrequency::Basis::Retained);
+  void update_other_frequency (Frequency = 0, RigFrequency::Basis = RigFrequency::Basis::Retained);
+  void defer_frequency (RigFrequency::Path);
+  void fail_pending_frequencies ();
+  void frequency_poll_complete ();
   void update_split (bool);
   void update_mode (MODE);
+  void observe_mode (MODE);
   void update_PTT (bool = true);
   void update_level (int = 0);
   void update_power (unsigned int = 0);
@@ -150,6 +161,13 @@ private:
   void startup ();
   void shutdown ();
   bool maybe_low_resolution (Frequency low_res, Frequency high_res);
+  void apply_frequency (TransceiverState const&, RigFrequency::Path, bool force);
+  void frequency_evidence (RigFrequency::Path, Frequency, RigFrequency::Basis);
+  void begin_mode_command (TransceiverState const&, unsigned sequence_number);
+  void finish_mode_command (unsigned sequence_number);
+  void settle_mode ();
+  void publish_mode_observation ();
+  void publish_mode_status (MODE, ModeStatusKind, unsigned sequence_number);
 
   // use this convenience class to notify in update methods
   class may_update
@@ -169,8 +187,29 @@ private:
   TransceiverState actual_;
   TransceiverState last_;
   unsigned last_sequence_number_;    // from set state operation
+  RigFrequency::Request active_frequency_[2];
+  RigFrequency::Result * active_frequency_result_[2] {nullptr, nullptr};
+  RigFrequency::Result frequency_results_[2];
+  RigFrequency::Basis frequency_basis_[2] {RigFrequency::Basis::Retained, RigFrequency::Basis::Retained};
+  unsigned frequency_polls_remaining_[2] {0, 0};
+  quint64 frequency_generation_ {0};
+  quint64 frequency_serial_ {0};
+  Frequency frequency_resolution_ {1};
+  bool failure_reported_ {false};
   bool period_applied_ {false};
   double applied_period_ {0.0};
+  QTimer * mode_timer_ {nullptr};
+  QElapsedTimer mode_settling_clock_;
+  MODE mode_expected_ {UNK};
+  MODE mode_observed_ {UNK};
+  MODE mode_published_ {UNK};
+  ModeStatusKind mode_published_kind_ {ModeStatusKind::Unavailable};
+  Frequency mode_frequency_ {0};
+  unsigned mode_sequence_ {0};
+  unsigned mode_observation_sequence_ {0};
+  bool mode_command_active_ {false};
+  bool mode_settling_ {false};
+  bool mode_observation_pending_ {false};
 };
 
 // some loggimg macros

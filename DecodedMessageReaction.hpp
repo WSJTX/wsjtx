@@ -2,6 +2,7 @@
 #define DECODEDMESSAGEREACTION_HPP
 
 #include "QsoProgress.hpp"
+#include "QsoCompletionPhase.hpp"
 #include "Radio.hpp"
 #include "SpecialOperatingActivity.hpp"
 #include "AutoRespondPolicy.hpp"
@@ -57,6 +58,14 @@ namespace DecodedMessageReaction
     bool alt {false};
   };
 
+  struct QsoCompletionSnapshot
+  {
+    QsoCompletionPhase phase {QsoCompletionPhase::Ordinary};
+    bool logRequested {false};
+    QString call {};
+    bool confirmed {false};
+  };
+
   struct QsoReactionSnapshot
   {
     QString mode;
@@ -79,6 +88,7 @@ namespace DecodedMessageReaction
     bool shortMessages {false};
     bool sendRr73 {false};
     bool transmitting {false};
+    bool tuning {false};
     bool transmittingSignoff {false};
 
     bool doubleClicked {false};
@@ -108,6 +118,7 @@ namespace DecodedMessageReaction
     bool contestHintShown {false};
     bool ncccSprint {false};
     int tx73Count {0};
+    QsoCompletionSnapshot completion;
 
     bool waitFeaturesEnabled {false};
     bool waitAndCall {false};
@@ -152,14 +163,18 @@ namespace DecodedMessageReaction
       SetBlockRightDisplay,
       SetAutoEnabled,
       RefreshQsoPaneIfChanged,
+      LookupDecodedGrid,
       Lookup,
       CaptureHisGrid,
       ExtractReceivedReport,
       GenerateStandardMessages,
       RecordRr73Received,
+      RecordFinalConfirmation,
       RequestLogQso,
       RequestLogQsoUnlessSuppressed,
       CeaseAutoTx,
+      ScheduleRepeatFinish,
+      FinishRepeat,
       StopTx,
       ClickStopTx,
       LogStopped,

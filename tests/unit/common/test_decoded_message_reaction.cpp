@@ -2,6 +2,7 @@
 
 #include "QsoReactionTestSupport.hpp"
 #include "AutoRespondPeriod.hpp"
+#include "DecodedGridHistory.hpp"
 
 namespace
 {
@@ -40,6 +41,71 @@ class TestDecodedMessageReaction final
   Q_OBJECT
 
 private slots:
+  void rememberedGridSelection()
+  {
+    DecodedGridHistory history;
+    auto context = baseContext();
+    context.doubleClicked = true;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::ManualLeftPane;
+    DecodedText const cq {"122445 -16  0.3 0719 ~  CQ W1AW FN31"};
+    DecodedText const report {"122500 -16  0.3 0719 ~  K1ABC W1AW -10"};
+    QVERIFY(cq.isStandardMessage());
+    history.observe(cq);
+    history.observe(report);
+    QCOMPARE(history.lookup("W1AW"), QString {"FN31"});
+    QVERIFY(history.lookup("W1AW/P").isEmpty());
+    QVERIFY(history.lookup("K1ABC").isEmpty());
+    QCOMPARE(history.lookup("K1ABC", "FN20"), QString {"FN20"});
+    QCOMPARE(history.lookup("W1AW", "FN20"), QString {"FN20"});
+    QCOMPARE(history.lookup("W1AW", "FN20AA"), QString {"FN20AA"});
+    QCOMPARE(history.lookup("W1AW", "FN31PR"), QString {"FN31PR"});
+
+    auto plan = DecodedMessageReaction::planProcessMessage(report, context);
+    QVERIFY(hasEffect(plan, Effect::Kind::LookupDecodedGrid));
+    QVERIFY(!hasEffect(plan, Effect::Kind::SetDxGrid));
+    plan = DecodedMessageReaction::planProcessMessage(cq, context);
+    QVERIFY(!hasEffect(plan, Effect::Kind::LookupDecodedGrid));
+    QCOMPARE(textEffect(plan, Effect::Kind::SetDxGrid), QString {"FN31"});
+
+    DecodedText const moved {"122515 -16  0.3 0719 ~  CQ W1AW FN32"};
+    history.observe(moved);
+    QCOMPARE(history.lookup("W1AW", "FN31PR"), QString {"FN31PR"});
+    // Selecting an older grid-bearing message must not rewind received history.
+    plan = DecodedMessageReaction::planProcessMessage(cq, context);
+    QCOMPARE(textEffect(plan, Effect::Kind::SetDxGrid), QString {"FN31"});
+    QCOMPARE(history.lookup("W1AW"), QString {"FN32"});
+  }
+
+  void rememberedGridPrecisionAndPortableIdentity()
+  {
+    DecodedGridHistory history;
+    DecodedText const precise {"122445 -16  0.3 0719 ~  <K1ABC> <W1AW> R 520001 FN31AA"};
+    DecodedText const portable {"122500 -16  0.3 0719 ~  CQ W1AW/P FN32"};
+    QVERIFY(precise.isStandardMessage());
+    QVERIFY(portable.isStandardMessage());
+    history.observe(precise);
+    history.observe(portable);
+    history.observe(DecodedText {"122515 -16  0.3 0719 ~  CQ W1AW FN31"});
+    QCOMPARE(history.lookup("W1AW"), QString {"FN31AA"});
+    QCOMPARE(history.lookup("W1AW", "FN31"), QString {"FN31"});
+    QCOMPARE(history.lookup("W1AW", "FN31PR"), QString {"FN31PR"});
+    QCOMPARE(history.lookup("W1AW/P"), QString {"FN32"});
+  }
+
+  void untrustedDecodesDoNotReplaceRememberedGrid()
+  {
+    DecodedGridHistory history;
+    history.observe(DecodedText {"122445 -16  0.3 0719 ~  CQ W1AW FN31"});
+    DecodedText const uncertain {QString {"122500 -16  0.3 0719 ~  "}
+      + QString {"CQ W1AW FN32"}.leftJustified(36, ' ') + "?"};
+    QVERIFY(uncertain.isLowConfidence());
+    history.observe(uncertain);
+    history.observe(DecodedText {"122515 -16  0.3 0719 ~  K1ABC W1AW RR73"});
+    history.observe(DecodedText {"122530 -16  0.3 0719 ~  CQ <...> FN33"});
+    QCOMPARE(history.lookup("W1AW"), QString {"FN31"});
+    QVERIFY(history.lookup("...").isEmpty());
+  }
+
   void unresolvedRecipientSelectionStartsContact_data()
   {
     QTest::addColumn<int>("origin");
@@ -457,6 +523,30 @@ private slots:
     }
 
     QVERIFY(foundQsy);
+  }
+
+  void fastCqQsyIdentifiesOnlyLocalControl()
+  {
+    using Origin = DecodedMessageReaction::SelectionOrigin;
+    for (auto origin : {Origin::ManualLeftPane, Origin::ManualRightPane,
+                        Origin::Udp, Origin::AutomaticSelection, Origin::Synthetic}) {
+      auto context = baseContext();
+      context.mode = "MSK144";
+      context.fastMode = true;
+      context.transceiverOnline = true;
+      context.nominalFrequency = 50260000;
+      context.selectionOrigin = origin;
+      DecodedText message {"060522 -10  0.3 0815 &  CQ 260 W1AW FN31"};
+      auto const plan = DecodedMessageReaction::planProcessMessage(message, context);
+      bool found {false};
+      for (auto const& effect : plan.effects) {
+        if (effect.kind != Effect::Kind::ApplyFastCqQsy) continue;
+        found = true;
+        QCOMPARE(effect.userInitiated,
+                 origin == Origin::ManualLeftPane || origin == Origin::ManualRightPane);
+      }
+      QVERIFY(found);
+    }
   }
 
   void blockedFastCqSuppressesOnlyNominalQsyEffects()

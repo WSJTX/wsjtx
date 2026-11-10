@@ -6,6 +6,44 @@ linux_validation_error() {
   return 1
 }
 
+validate_linux_boost_dynamic() {
+  local label="$1" dynamic="$2"
+  if printf '%s\n' "$dynamic" | awk '/\(NEEDED\)/ && /\[libboost_/ { found=1 } END { exit !found }'; then
+    linux_validation_error "$label imports a Boost shared library"
+    return 1
+  fi
+}
+
+validate_linux_boost_dependencies() {
+  local label="$1" dependencies="$2"
+  if [[ "$(printf '%s' "$dependencies" | tr '[:upper:]' '[:lower:]')" == *boost* ]]; then
+    linux_validation_error "$label declares a Boost runtime dependency: $dependencies"
+    return 1
+  fi
+}
+
+validate_linux_static_boost_tree() {
+  local root="$1" path metadata dynamic versions
+  local readelf_command="${READELF:-readelf}"
+  while IFS= read -r -d '' path; do
+    case "${path##*/}" in
+      libboost_*) linux_validation_error "Unexpected bundled Boost library: $path"; return 1 ;;
+    esac
+    [ -f "$path" ] || continue
+    metadata=$(file -- "$path") || return
+    [[ "$metadata" == *ELF* && "$metadata" != *relocatable* ]] || continue
+    dynamic=$("$readelf_command" -dW -- "$path") || return
+    validate_linux_boost_dynamic "$path" "$dynamic" || return
+    versions=$("$readelf_command" -VW -- "$path") || return
+    printf 'Runtime symbol requirements: %s\n' "$path"
+    printf '%s\n' "$versions" | awk '
+      /^Version needs section/ { needs = 1; next }
+      /^Version (definition|symbols) section/ { needs = 0 }
+      needs && /Name: (GLIBC|GLIBCXX|CXXABI|GFORTRAN|GOMP)_/ { print }
+    '
+  done < <(find "$root" \( -type f -o -type l \) -print0)
+}
+
 validate_elf_metadata() {
   local arch="$1"
   local path="$2"
@@ -82,8 +120,9 @@ validate_elf_executable() {
   program_output=$(readelf -lW -- "$path") || return
   echo "$file_output"
   validate_elf_metadata "$arch" "$path" "$file_output" "$header_output" "$program_output" || return
+  dynamic_output=$(readelf -dW -- "$path") || return
+  validate_linux_boost_dynamic "$path" "$dynamic_output" || return
   if [ "${path##*/}" = jt9 ]; then
-    dynamic_output=$(readelf -dW -- "$path") || return
     if printf '%s\n' "$dynamic_output" | awk '/\(NEEDED\)/ && /\[libQt/ { found=1 } END { exit found ? 0 : 1 }'; then
       linux_validation_error "$path must not depend on Qt"
       return 1
@@ -99,6 +138,7 @@ validate_armhf_elf_tree() {
     trixie) ceiling=2.41 ;;
     *) linux_validation_error "Unknown ARMHF distro: $distro"; return 2 ;;
   esac
+  validate_linux_static_boost_tree "$root" || return
   while IFS= read -r -d '' path; do
     metadata=$(file -- "$path") || return
     [[ "$metadata" == *ELF* ]] || continue
@@ -185,19 +225,40 @@ validate_linux_package_manifest() {
 
 validate_deb_package() {
   local package="$1"
-  local manifest
+  local manifest dependencies
 
   manifest=$(dpkg-deb --fsys-tarfile "$package" | tar -tf -) || return
-  validate_linux_package_manifest "$manifest" "DEB $package"
+  validate_linux_package_manifest "$manifest" "DEB $package" || return
+  dependencies=$(dpkg-deb -f "$package" Depends Pre-Depends Recommends) || return
+  validate_linux_boost_dependencies "DEB $package" "$dependencies" || return
+  (
+    local payload
+    payload=$(mktemp -d) || exit
+    trap 'rm -rf "$payload"' EXIT
+    dpkg-deb -x "$package" "$payload" || exit
+    validate_linux_static_boost_tree "$payload"
+  )
 }
 
 validate_rpm_package() {
   local package="$1"
-  local manifest
+  local manifest dependencies
 
   manifest=$(rpm -qpl "$package") || return
   printf '%s\n' "$manifest" | sed -n '1,40p'
-  validate_linux_package_manifest "$manifest" "RPM $package"
+  validate_linux_package_manifest "$manifest" "RPM $package" || return
+  dependencies=$(rpm -qpR "$package") || return
+  validate_linux_boost_dependencies "RPM $package" "$dependencies" || return
+  (
+    local payload archive
+    payload=$(mktemp -d) || exit
+    trap 'rm -rf "$payload"' EXIT
+    archive="$payload/payload.cpio"
+    rpm2cpio "$package" > "$archive" || exit
+    mkdir "$payload/root" || exit
+    (cd "$payload/root" && cpio -idm --quiet < "$archive") || exit
+    validate_linux_static_boost_tree "$payload/root"
+  )
 }
 
 linux_require_executable() {
@@ -270,6 +331,11 @@ validate_linux_application_layout() {
     fi
   done
 
+  if [ -f "$root/usr/lib/libgcrypt.so.20" ]; then
+    linux_require_file "$root/usr/lib/libgpg-error.so.0" || return
+    linux_require_file "$root/usr/share/doc/libgpg-error0/copyright" || return
+  fi
+
   if [ -z "$(find "$root" -path '*/plugins/audio/*.so' -print -quit 2>/dev/null)" ]; then
     linux_validation_error "No Qt audio backend plugin is bundled in the AppImage"
     echo "AppImage plugin tree:"
@@ -285,6 +351,7 @@ validate_linux_application_tree() {
   local executable
 
   validate_linux_application_layout "$root" "$kind" || return
+  validate_linux_static_boost_tree "$root" || return
   for executable in wsjtx jt9 qmap map65 ft8code; do
     validate_elf_executable "$arch" "$root/usr/bin/$executable" || return
   done

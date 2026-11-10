@@ -79,72 +79,30 @@ end subroutine sftx_for_state
 ! with short ramp-up and ramp-down symbols of duration NSPS/BT at the
 ! beginning and end of the waveform.
 subroutine sfox_wave_for_tones(itone,wave)
+  use iso_fortran_env, only: real32,real64
+  use waveform_kernels, only: waveform_workspace,render_gfsk,apply_waveform_ramp
+  implicit none
+  integer, parameter :: nsym=151,nsps=4096,npts=(nsym+2)*nsps,nramp=nsps/8
+  real(real64), parameter :: twopi=8.0_real64*atan(1.0_real64)
+  real(real64), parameter :: carrier=twopi*750.0_real64*(1.0_real64/48000)
+  integer, intent(in) :: itone(nsym)
+  real(real32), intent(out) :: wave(npts)
+  type(waveform_workspace) :: workspace
+  integer :: k1
 
-  parameter (NSYM=151,NSPS=1024*4)
-  parameter (NPTS=(NSYM+2)*NSPS)
-  parameter (BT=8)
-  integer itone(151)
-  real wave(NPTS)
-  real*8 dt,twopi,f0,phi,dphi_peak
-  real*8, allocatable :: dphi(:)
-  real*8 pulse(3*NSPS)
-  logical first/.true./
-  save first,twopi,dt,hmod,dphi_peak,pulse
-
-  if(first) then
-    fsample=48000.0
-    twopi=8.d0*atan(1.d0)
-    dt=1.d0/fsample
-    hmod=1.0
-    dphi_peak=twopi*hmod/real(NSPS)
-    do i=1,3*NSPS
-      tt=(i-1.5*NSPS)/real(NSPS)
-      pulse(i)=gfsk_pulse(BT,tt)
-    enddo
-    first=.false.
+  if(itone(1).lt.0.or.itone(1).gt.128) then
+     wave=0
+     return
   endif
-  wave=0.
 
-  if(itone(1).lt.0 .or. itone(1).gt.128) go to 999
-
-! Generate the SuperFox waveform.
-
-  allocate(dphi(0:NPTS-1))
-  dphi=0.d0
-  do j=1,NSYM
-    ib=(j-1)*NSPS
-    ie=ib+3*NSPS-1
-    dphi(ib:ie)=dphi(ib:ie)+dphi_peak*pulse(1:3*NSPS)*itone(j)
-  enddo
-  dphi(0:2*NSPS-1)=dphi(0:2*NSPS-1)+dphi_peak*itone(1)*pulse(NSPS+1:3*NSPS)
-  dphi(NSYM*NSPS:(NSYM+2)*NSPS-1)=dphi(NSYM*NSPS:(NSYM+2)*NSPS-1)+dphi_peak*itone(NSYM)*pulse(1:2*NSPS)
-
-  phi=0.d0
-  f0=750.0d0
-  dphi=dphi+twopi*f0*dt
-  k=0
-  do j=1,NSPS*(NSYM+2)-1
-    k=k+1
-    wave(k)=sin(phi)
-    phi=phi+dphi(j)
-  enddo
-
-! Add raised cosine ramps at the beginning and end of the waveform.
-! Since the modulator expects an integral number of symbols, dummy
-! symbols are added to the beginning and end of the waveform to
-! hold the ramps. All but nramp of the samples in each dummy
-! symbol will be zero.
-
-  nramp=NSPS/BT
-  wave(1:NSPS-nramp)=0.0
-  wave(NSPS-nramp+1:NSPS)=wave(NSPS-nramp+1:NSPS) *                   &
-       (1.0-cos(twopi*(/(i,i=0,nramp-1)/)/(2.0*nramp)))/2.0
-  k1=(NSYM+1)*NSPS+1
-  wave(k1:k1+nramp-1)=wave(k1:k1+nramp-1) *                           &
-       (1.0+cos(twopi*(/(i,i=0,nramp-1)/)/(2.0*nramp)))/2.0
-  wave(k1+nramp:NPTS)=0.0
-
-999 return
+  ! SuperFox advances from source sample 1 after emitting its initial zero phase.
+  call render_gfsk(workspace,itone,nsps,8.0_real32,1,carrier, &
+       1,npts-1,1,.true.,.false.,wave=wave)
+  wave(1:nsps-nramp)=0
+  call apply_waveform_ramp(wave,1,nsps-nramp,nramp,real(2*nramp,real64),-1.0_real64)
+  k1=(nsym+1)*nsps+1
+  call apply_waveform_ramp(wave,1,k1-1,nramp,real(2*nramp,real64),1.0_real64)
+  wave(k1+nramp:npts)=0
 end subroutine sfox_wave_for_tones
 
 end module sfox_tx

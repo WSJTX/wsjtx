@@ -21,3 +21,29 @@ add_test (NAME test_worked_before_adif COMMAND test_worked_before_adif)
 set_tests_properties (test_worked_before_adif PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
+
+add_executable (test_ad1c_cty test_ad1c_cty.cpp)
+add_dependencies (test_ad1c_cty wsjt_qt_autogen)
+target_include_directories (test_ad1c_cty PRIVATE
+  ${CMAKE_BINARY_DIR}
+  ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include
+  ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include_$<CONFIG>)
+target_link_libraries (test_ad1c_cty wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test)
+add_test (NAME test_ad1c_cty COMMAND test_ad1c_cty)
+set_tests_properties (test_ad1c_cty PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 60)
+
+add_executable (test_cabrillo_log test_cabrillo_log.cpp)
+add_dependencies (test_cabrillo_log wsjt_qt_autogen)
+target_include_directories (test_cabrillo_log PRIVATE
+  ${CMAKE_BINARY_DIR}
+  ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include
+  ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include_$<CONFIG>)
+target_link_libraries (test_cabrillo_log wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test Qt5::Sql)
+add_test (NAME test_cabrillo_log COMMAND test_cabrillo_log)
+set_tests_properties (test_cabrillo_log PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 60)

@@ -49,7 +49,7 @@ namespace
     {"1mm",   241000000000u,250000000000u},
   };
 
-  QString const oob_name {QObject::tr ("OOB")};
+  QString const oob_name {QStringLiteral ("OOB")};
 
   int constexpr table_rows ()
   {

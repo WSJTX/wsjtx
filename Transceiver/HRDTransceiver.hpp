@@ -51,6 +51,7 @@ protected:
 
   // Implement the PollingTransceiver interface.
   void do_poll () override;
+  bool frequency_readback_expected (RigFrequency::Path, Frequency) const override;
 
 private:
   QString send_command (QString const&, bool prepend_context = true, bool recurse = false);

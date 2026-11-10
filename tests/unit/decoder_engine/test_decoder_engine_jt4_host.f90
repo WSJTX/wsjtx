@@ -1,6 +1,7 @@
 program test_decoder_engine_jt4_host
   use iso_c_binding, only: c_int,c_int8_t,c_int16_t,c_int64_t,c_float,c_sizeof
-  use decoder_engine, only: engine_host_decode
+  use decoder_engine, only: engine_host_decode, engine_host_decode_request, &
+       attempt_request, host_decode_context, params_to_request
   use decoder_engine_types, only: engine_jt4_options
   use ft8_engine_kernel, only: params_block
   use jt4_decode, only: jt4_decoder
@@ -21,7 +22,7 @@ program test_decoder_engine_jt4_host
   logical :: exists
   common/patience/npatience,nthreads
   interface
-     subroutine signal(rate,submode,seed,amplitude,noise,frequency,samples) bind(C,name='decoder_engine_test_jt4_signal')
+     subroutine gen_signal(rate,submode,seed,amplitude,noise,frequency,samples) bind(C,name='decoder_engine_test_jt4_signal')
        import c_int,c_int16_t,c_float
        integer(c_int), value :: rate,submode,seed
        real(c_float), value :: amplitude,noise,frequency
@@ -90,12 +91,16 @@ program test_decoder_engine_jt4_host
   params%ndepth=1
   params%newdat=.true.
   params%ndiskdat=.true.
+  call compare_gate(4)
+  call compare_gate(5)
+  call new_period(1234)
+  params%nmode=4
   params%nclearave=.true.
   samples=0
   before=samples
   call run(0)
   params%nclearave=.false.
-  call signal(11025,0,1,300.0,100.0,1000.0,samples)
+  call gen_signal(11025,0,1,300.0,100.0,1000.0,samples)
   before=samples
   call run(1)
   call require(output_contains('K1ABC W9XYZ FN42'),'legacy host prints recovered message')
@@ -117,7 +122,7 @@ program test_decoder_engine_jt4_host
   call require(.not.output_contains('K1ABC'),'no-sync output cannot reuse prior message')
   call new_period(1234)
   params%ndepth=3+16
-  call signal(11025,0,5,5.0,100.0,1000.0,samples)
+  call gen_signal(11025,0,5,5.0,100.0,1000.0,samples)
   before=samples
   call run(0)
   call require(average_rows()==1,'weak synchronized reception enters average history')
@@ -140,10 +145,18 @@ program test_decoder_engine_jt4_host
   params%nclearave=.false.
 
   call new_period(1236)
-  call signal(11025,0,6,5.0,100.0,1000.0,samples)
+  call gen_signal(11025,0,6,5.0,100.0,1000.0,samples)
   before=samples
   call run(0)
   call require(average_rows()==1,'quiet clear prevents reuse of the preceding weak reception')
+
+  call new_period(1237)
+  params%nmode=4
+  params%ndepth=1
+  params%nclearave=.true.
+  call gen_signal(11025,0,1,300.0,100.0,1000.0,samples)
+  before=samples
+  call compare_typed_decode()
   deallocate(samples,before)
 
 contains
@@ -165,6 +178,100 @@ contains
     call require(completion%available.and.completion%decoded==expected,'host completion counts only recovered messages')
     call require(all(before==samples),'host leaves supplied PCM unchanged')
     call require(all(transfer(params,zeros)==transfer(before_params,zeros)),'host leaves packed parameters unchanged')
+  end subroutine
+
+  subroutine make_request(request,context)
+    type(attempt_request), intent(out) :: request
+    type(host_decode_context), intent(out) :: context
+    request=attempt_request()
+    context=host_decode_context()
+    request%mode=params%nmode
+    request%input_id=input_id
+    request%analysis_id=analysis_id
+    request%attempt_no=attempt
+    request%source=1
+    call params_to_request(params,request)
+    context%legacy_mode=params%nmode
+    context%utc=params%nutc
+    context%half_symbol_stage=params%nzhsym
+    context%again=params%nagain
+    context%clear_average=params%nclearave
+  end subroutine
+
+  subroutine compare_gate(mode)
+    integer, intent(in) :: mode
+    type(attempt_request) :: request
+    type(host_decode_context) :: context
+    type(decode_completion_result) :: legacy
+    integer :: entry,sample_rate,valid_samples
+    logical :: decoded_file_exists
+
+    params%nmode=mode
+    params%nclearave=.false.
+    params%ndepth=1
+    params%nfa=200
+    params%nfb=4000
+    sample_rate=merge(11025,12000,mode==4)
+    valid_samples=merge(size(samples),180000,mode==4)
+    samples=0
+    before=samples
+    do entry=1,2
+       call new_period(1236)
+       call remove_file('decoded.txt')
+       open(unit=6,file='host-output.txt',status='replace')
+       if(entry==1) then
+          call engine_host_decode(samples,params,sample_rate,legacy,0,input_id,analysis_id,attempt,valid_samples)
+       else
+          call make_request(request,context)
+          call engine_host_decode_request(samples,request,context,sample_rate,completion,0,valid_samples)
+       endif
+       close(6)
+       call require(.not.output_contains('<DecodeRejected>'),'quiet input is not a rejected request')
+       inquire(file='decoded.txt',exist=decoded_file_exists)
+       call require(.not.decoded_file_exists,'quiet gate returns before opening decoder output')
+       call require(all(samples==before),'quiet gate leaves PCM unchanged')
+    enddo
+    call require(legacy%available.and.completion%available,'both gated completions available')
+    call require(legacy%decoded==0.and.completion%decoded==legacy%decoded,'typed and legacy quiet gates agree')
+  end subroutine
+
+  subroutine compare_typed_decode()
+    type(attempt_request) :: request
+    type(host_decode_context) :: context
+    type(decode_completion_result) :: legacy
+    character(len=256) :: expected(100),row
+    integer :: count,status,file_unit,i
+    call run(1)
+    legacy=completion
+    count=0
+    open(newunit=file_unit,file='host-output.txt',status='old')
+    do
+       read(file_unit,'(a)',iostat=status) row
+       if(status/=0) exit
+       count=count+1
+       call require(count<=size(expected),'legacy output fits test buffer')
+       expected(count)=row
+    enddo
+    close(file_unit)
+    call require(count>0,'legacy decode emitted output')
+    input_id=input_id+1
+    analysis_id=analysis_id+1
+    call make_request(request,context)
+    open(unit=6,file='host-output.txt',status='replace')
+    call engine_host_decode_request(samples,request,context,11025,completion,0,size(samples))
+    close(6)
+    call require(completion%available.eqv.legacy%available,'typed completion availability matches')
+    call require(completion%decoded==legacy%decoded,'typed completion count matches')
+    call require(all(samples==before),'typed host leaves PCM unchanged')
+    open(newunit=file_unit,file='host-output.txt',status='old')
+    do i=1,count
+       read(file_unit,'(a)',iostat=status) row
+       call require(status==0,'typed output has all legacy lines')
+       call require(row==expected(i),'typed output matches legacy line')
+    enddo
+    read(file_unit,'(a)',iostat=status) row
+    call require(status<0,'typed output has no extra lines')
+    close(file_unit)
   end subroutine
 
   subroutine new_period(utc)

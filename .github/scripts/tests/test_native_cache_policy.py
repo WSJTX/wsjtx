@@ -81,6 +81,26 @@ class NativeCachePolicyTests(unittest.TestCase):
         warmer = (ROOT / ".github/workflows/warm-dependency-caches.yml").read_text()
         self.assertIn("  summary:\n    if: always()", warmer)
 
+    def test_windows_boost_recipe_and_cache_use_the_common_pin(self):
+        action = (ROOT / ".github/actions/build-windows-deps/action.yml").read_text()
+        workflow = (ROOT / ".github/workflows/build-windows.yml").read_text()
+        recipe = (ROOT / ".github/scripts/build-boost-windows.sh").read_text()
+        self.assertLess(action.index(". .github/scripts/boost-version.sh"),
+                        action.index("id: boost-cache"))
+        cache = next(part for part in re.split(r"^\s+- name: ", action, flags=re.M)
+                     if part.startswith("Restore Boost cache"))
+        self.assertIn("${{ steps.paths.outputs.boost_version }}", cache)
+        self.assertIn("${{ steps.paths.outputs.boost_source_sha256 }}", cache)
+        self.assertIn("'.github/scripts/boost-version.sh'", cache)
+        self.assertNotIn("inputs.boost_version", action)
+        self.assertNotIn("inputs.boost_source_sha256", action)
+        self.assertNotIn("BOOST_VERSION:", workflow)
+        self.assertNotIn("BOOST_SOURCE_SHA256:", workflow)
+        self.assertIn('. "$script_dir/boost-version.sh"', recipe)
+        self.assertIn('"$BOOST_SOURCE_URL"', recipe)
+        self.assertIn('"$actual_sha256" != "$BOOST_SOURCE_SHA256"', recipe)
+        self.assertNotIn("VERSION SOURCE_SHA256", recipe)
+
     def test_windows_fftw_cache_and_linkage_use_the_selected_package(self):
         action = (ROOT / ".github/actions/build-windows-deps/action.yml").read_text()
         windows = (ROOT / ".github/workflows/build-windows.yml").read_text()
@@ -103,6 +123,47 @@ class NativeCachePolicyTests(unittest.TestCase):
                 self.assertIn("${{ env.FFTW_VERSION }}", cache)
                 self.assertIn("hashFiles('.github/scripts/fftw-version.sh',", cache)
                 self.assertNotIn("3.3.10", cache)
+
+    def test_macos_boost_cache_tracks_shared_source_policy(self):
+        for path in (".github/workflows/build-macos.yml",
+                     ".github/actions/warm-macos-deps/action.yml"):
+            with self.subTest(path=path):
+                text = (ROOT / path).read_text()
+                self.assertLess(text.index(". .github/scripts/boost-version.sh"),
+                                text.index("id: boost-cache"))
+                cache = next(part for part in re.split(r"^\s+- name: ", text, flags=re.M)
+                             if part.startswith("Restore Boost cache"))
+                self.assertIn("${{ env.BOOST_VERSION }}", cache)
+                self.assertIn("${{ env.BOOST_SOURCE_SHA256 }}", cache)
+                self.assertIn("hashFiles('.github/scripts/boost-version.sh',", cache)
+                self.assertNotIn("1.85.0", text)
+
+    def test_macos_dependency_warmer_saves_what_the_build_restores(self):
+        build = (ROOT / ".github/workflows/build-macos.yml").read_text()
+        action = (ROOT / ".github/actions/warm-macos-deps/action.yml").read_text()
+        self.assertNotIn("env.RUNNER", action)
+        self.assertNotIn("env.DEPLOYMENT_TARGET", action)
+        action = action.replace("inputs.runner", "env.RUNNER").replace("inputs.deployment_target", "env.DEPLOYMENT_TARGET")
+
+        def caches(text):
+            qt = re.search(r"macos-qt-cache-key\.sh \\\n((?:\s+--.*\n)+)", text).group(1).split()
+            return qt, {match["id"]: (match["path"], match["key"]) for match in re.finditer(
+                r"id: (?P<id>[a-z0-9-]+-cache)\n(?:.*\n){1,3}?\s+path: (?P<path>.+)\n\s+key: (?P<key>.+)\n", text)}
+
+        self.assertEqual(set(caches(action)[1]),
+                         {f"{name}-cache" for name in ("qt", "libusb", "portaudio", "fftw", "boost", "hamlib", "pfunit")})
+        self.assertEqual(caches(action), caches(build))
+
+    def test_boost_caches_track_the_queue_publication_patch(self):
+        for path in (".github/workflows/build-macos.yml",
+                     ".github/actions/warm-macos-deps/action.yml",
+                     ".github/actions/build-windows-deps/action.yml"):
+            with self.subTest(path=path):
+                text = (ROOT / path).read_text()
+                cache = next(part for part in re.split(r"^\s+- name: ", text, flags=re.M)
+                             if part.startswith("Restore Boost cache"))
+                recipe = re.search(r"hashFiles\(([^)]+)\)", cache).group(1)
+                self.assertIn("'.github/scripts/boost-log-queue.patch'", recipe)
 
     def test_windows_declares_openmp_without_relying_on_fftw_package_dependencies(self):
         for path in (".github/workflows/build-windows.yml",

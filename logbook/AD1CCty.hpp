@@ -26,20 +26,34 @@ public:
   static char const * continent (Continent);
   Q_ENUM (Continent)
 
+  enum class EntityView { DXCC, WAE };
+
+  struct EntityIdentity
+  {
+    QString name;
+    QString abbreviated_name;
+    QString primary_prefix;
+    bool WAE_only {false};
+  };
+
   struct Record
   {
     explicit Record ();
 
+    // Use the WAE identity when the requested DXCC identity is unknown.
+    EntityIdentity const& identity (EntityView view) const;
+    QString display_name (EntityView view) const;
+
+    EntityIdentity dxcc;
+    EntityIdentity wae;
+
+    // Geography follows the WAE match, including any alias overrides.
     Continent continent;
     int CQ_zone;
     int ITU_zone;
-    QString entity_name;
-    QString abbreviated_entity_name;
-    bool WAE_only;
     float latitude;
     float longtitude;
     int UTC_offset;
-    QString primary_prefix;
   };
 
   explicit AD1CCty (Configuration const *);

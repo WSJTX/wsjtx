@@ -7,11 +7,11 @@
 
 #include <QTimer>
 #include <QFile>
+#include <QHttpMultiPart>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QUrl>
-#include <QUrlQuery>
 #include <QDebug>
 
 #include "moc_eqsl.cpp"
@@ -20,11 +20,26 @@ namespace
 {
   char const * const EqslUrl = "https://www.eqsl.cc/qslcard/importADIF.cfm";
   // char const * const wsprNetUrl = "http://127.0.0.1/post?";
+
+  QHttpPart formField (char const * name, QString const& value)
+  {
+    QHttpPart part;
+    part.setHeader (QNetworkRequest::ContentDispositionHeader,
+                    QVariant {QStringLiteral ("form-data; name=\"%1\"").arg (QLatin1String {name})});
+    part.setBody (value.toUtf8 ());
+    return part;
+  }
 };
 
 EQSL::EQSL(QObject *parent)
+  : EQSL {new QNetworkAccessManager, parent}
+{
+  networkManager->setParent (this);
+}
+
+EQSL::EQSL(QNetworkAccessManager * networkManager, QObject * parent)
   : QObject{parent}
-  , networkManager {new QNetworkAccessManager(this)}
+  , networkManager {networkManager}
   , uploadTimer {new QTimer {this}}
   , m_in_progress {false}
 {
@@ -44,9 +59,9 @@ void EQSL::upload(QString const& eqsl_username, QString const& eqsl_passwd, QStr
         reply->abort();
         m_in_progress = false;
     }
+    username = eqsl_username;
+    password = eqsl_passwd;
     myadif="<ADIF_VER:5>3.1.8";
-    myadif+="<EQSL_USER:" + QString::number(eqsl_username.length()) + ">" + eqsl_username;
-    myadif+="<EQSL_PSWD:" + QString::number(eqsl_passwd.length()) + ">" + eqsl_passwd;
     myadif+="<PROGRAMID:4>JTDX<EOH><APP_EQSL_QTH_NICKNAME:" + QString::number(eqsl_nickname.length()) + ">" + eqsl_nickname;
     myadif+="<CALL:" + QString::number(call.length()) + ">" + call;
     auto const adif_mode = AdifQso::base_mode (mode);
@@ -93,13 +108,20 @@ void EQSL::work()
 #endif
     m_in_progress = true;
     QUrl url(EqslUrl);
-    QUrlQuery query;
-    query.addQueryItem("ADIFdata", myadif);
-    url.setQuery(query.query());
-    m_in_progress = true;
 //    printf ("eqsl upload request:%s\n",myadif.toStdString().c_str());
     QNetworkRequest request(url);
-    reply = networkManager->get(request);
+    request.setAttribute (QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    auto * form = new QHttpMultiPart {QHttpMultiPart::FormDataType};
+    form->append (formField ("EQSL_USER", username));
+    form->append (formField ("EQSL_PSWD", password));
+    QHttpPart adif;
+    adif.setHeader (QNetworkRequest::ContentDispositionHeader,
+                    QVariant {QStringLiteral ("form-data; name=\"Filename\"; filename=\"wsjtx.adi\"")});
+    adif.setHeader (QNetworkRequest::ContentTypeHeader, QVariant {QStringLiteral ("application/octet-stream")});
+    adif.setBody (myadif.toUtf8 ());
+    form->append (adif);
+    reply = networkManager->post(request, form);
+    form->setParent (reply);
 //    printf ("sent\n");
 }
 

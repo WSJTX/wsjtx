@@ -10,12 +10,19 @@ program jt9
   use timer_module, only: timer
   use timer_impl, only: init_timer, fini_timer
   use readwav
-  use jt9_input_validation, only: parse_integer, parse_real, parse_wav_filename_nutc
+  use jt9_input_validation, only: parse_integer, parse_real, parse_fixed_text, parse_wav_filename_nutc, &
+       adjust_wav_nutc, submode_limit
   use, intrinsic :: iso_fortran_env, only: error_unit
   use streaming_emit, only: streaming_emit_set_enabled, streaming_emit_error
   use jt9_params_init, only: init_default_params, init_streaming_extra_fields, &
-       apply_per_mode_policy, cli_args_t
+       cli_args_t, cli_tolerance, cli_exp_decode, normalize_station_options
   use decode_completion_module, only: decode_completion_result, write_decode_completion
+  use decoder_engine, only: attempt_request, host_decode_context, engine_host_decode_request
+  use jt9_wav_request, only: build_wav_request
+  use jt9_wav_policy, only: WAV_BLOCK_SAMPLES, wav_read_plan, wav_decode_pass, wav_pass_plan, &
+       plan_wav_read, plan_wav_passes
+  use msk144_file, only: msk144_file_options, decode_msk144_file
+  use fftw_wisdom, only: save_wisdom
 
   include 'jt9com.f90'
 
@@ -33,12 +40,17 @@ program jt9
   end interface
 
   type(cli_args_t) :: args
+  type(decode_completion_result) :: msk_completion
+  type(msk144_file_options) :: msk_options
+  type(wav_read_plan) :: read_plan
+  type(wav_pass_plan) :: pass_plan
+  integer :: ipass, prefix_samples
   integer*2 id2a(180000)
+  integer(c_short), allocatable :: wav_samples(:)
   integer(C_INT) iret
   type(wav_header) wav
-  real*4 s(NSMAX)
   real*8 TRperiod
-  integer npct_unused
+  integer :: validation_mode, wav_mode=0
   integer(c_int) :: engine_attempt_no, engine_valid_samples
   integer(c_int64_t) :: engine_input_id
 
@@ -52,9 +64,9 @@ program jt9
        nft8rxfsens=3,nmt=0,nmtft8decsens=3,ndecoderstart=3, samples_read, wav_status
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
        display_version = .false.,                                            &
-       bLowSidelobes = .false., nexp_decode_set = .false.,                   &
+       nexp_decode_set = .false.,                                             &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
-       lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.,      &
+       lwidedxcsearch = .true.,                                           &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
   type (option) :: long_options(45) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
@@ -118,17 +130,19 @@ program jt9
     option ('jt65', .false.,'6', 'JT65 mode', ''),                           &
     option ('fst4', .false., '7', 'FST4 mode', ''),                          &
     option ('fst4w', .false., 'W', 'FST4W mode', ''),                        &
-    option ('fst4w', .false., 'Y', 'FST4W mode, print hash22 values', ''),   &
+    option ('fst4w-hash', .false., 'Y', 'FST4W mode, print hash22 values', ''), &
     option ('ft8', .false., '8', 'FT8 mode', ''),                            &
     option ('jt9', .false., '9', 'JT9 mode', ''),                            &
     option ('quiet', .false., 'q', 'Quiet mode, no <DecodeFinished>', ''),   &
     option ('msk144', .false., 'k', 'MSK144 mode', ''),                      &
     option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=1',&
         'QSOprogress'),                                                      &
-    option ('sub-mode', .true., 'b', 'Sub mode, default SUBMODE=A', 'A'),    &
+    option ('sub-mode', .true., 'b',                                        &
+        'Sub mode (mode-dependent A-H), default SUBMODE=A', 'SUBMODE'),      &
     option ('depth', .true., 'd',                                            &
         'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
-    option ('tx-jt9', .false., 'T', 'Tx mode is JT9', ''),                   &
+    option ('tx-jt9', .false., 'T',                                         &
+        'Tx mode is JT9 (combined-mode streaming only)', ''),                &
     option ('my-call', .true., 'c', 'my callsign', 'CALL'),                  &
     option ('my-grid', .true., 'G', 'my grid locator', 'GRID'),              &
     option ('his-call', .true., 'x', 'his callsign', 'CALL'),                &
@@ -175,6 +189,9 @@ program jt9
         case ('r')
            share_dir = optarg(:arglen)   ! read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...)
         case ('b')
+           if (arglen /= 1 .or. optarg(:1) < 'A' .or. optarg(:1) > 'H') then
+              call invalid_option('b', optarg, 'must be one uppercase letter A-H')
+           end if
            nsubmode = ichar (optarg(:1)) - ichar ('A')
         case ('t')
            temp_dir = optarg(:arglen)
@@ -221,6 +238,7 @@ program jt9
            lquiet=.true.
         case ('k')
            mode = 144
+           wav_mode = mode
         case ('Q')
            call require_integer('Q', optarg(:arglen), nQSOProg)
            if (nQSOProg < 0 .or. nQSOProg > 5) then
@@ -228,34 +246,43 @@ program jt9
            end if
         case ('3')
            mode = 66
+           wav_mode = mode
         case ('4')
            mode = 4
+           wav_mode = mode
         case ('5')
            mode = 5
+           wav_mode = mode
         case ('6')
            if (mode.lt.65) mode = mode + 65
+           wav_mode = 65
         case ('7')
            mode = 240
+           wav_mode = mode
         case ('8')
            mode = 8
+           wav_mode = mode
         case ('9')
            if (mode.lt.9.or.mode.eq.65) mode = mode + 9
+           wav_mode = 9
         case ('T')
            tx9 = .true.
         case ('w')
            call require_integer('w', optarg(:arglen), npatience)
         case ('W')
            mode = 241
+           wav_mode = mode
         case ('Y')
            mode = 242
+           wav_mode = mode
         case ('c')
-           read (optarg(:arglen), *) mycall
+           call require_text('c', optarg, arglen, mycall)
         case ('G')
-           read (optarg(:arglen), *) mygrid
+           call require_text('G', optarg, arglen, mygrid)
         case ('x')
-           read (optarg(:arglen), *) hiscall
+           call require_text('x', optarg, arglen, hiscall)
         case ('g')
-           read (optarg(:arglen), *) hisgrid
+           call require_text('g', optarg, arglen, hisgrid)
         case ('X')
            call require_integer('X', optarg(:arglen), nexp_decode)
            nexp_decode_set = .true.
@@ -281,7 +308,7 @@ program jt9
        .or. (read_files .and. remain .lt. 1)) then
 
      print *, 'Usage: '//trim(program_name)//' [OPTIONS] file1 [file2 ...]'
-     print *, '       Reads data from *.wav files.'
+     print *, '       Reads data from *.wav files; select a mode (for example, --ft8).'
      print *, ''
      if (jt9_stream_available()) then
         print *, '       cat <pcm-stream> | '//trim(program_name)//' [OPTIONS]'
@@ -306,7 +333,30 @@ program jt9
      stop
   endif
 
-  iret=fftwf_init_threads()            !Initialize FFTW threading 
+  ! WAV decoding selects one mode; stream startup retains the legacy mode combinations.
+  if (read_files) mode = wav_mode
+  if (read_files .and. mode == 0) then
+     write(error_unit, '(A)') trim(program_name) // ': WAV decoding requires a mode (for example, --ft8)'
+     stop 2
+  end if
+  if (read_files .or. stream_mode) then
+     validation_mode = mode
+     if (stream_mode .and. validation_mode == 0) validation_mode = 8
+     call require_mode_submode(validation_mode)
+  end if
+
+  if (read_files) then
+     if (ndecoderstart < 0 .or. ndecoderstart > 4) then
+        write(optarg, '(I0)') ndecoderstart
+        call invalid_option('D', optarg, 'must be between 0 and 4')
+     end if
+     if (nmtft8decsens < 1 .or. nmtft8decsens > 3) then
+        write(optarg, '(I0)') nmtft8decsens
+        call invalid_option('E', optarg, 'must be between 1 and 3')
+     end if
+  end if
+
+  iret=fftwf_init_threads()            !Initialize FFTW threading
 
 ! Default to 1 thread, but use nthreads for the big ones
   call fftwf_plan_with_nthreads(1)
@@ -324,8 +374,6 @@ program jt9
 
   if (.not. read_files) then
      if (stream_mode) then
-        ! Streaming subprocess mode. Mirror the WAV path's shared_data setup,
-        ! then hand off to the streaming reader.
         call streaming_emit_set_enabled(.true.)
         if (mode .eq. 0) then
            mode = 8                            ! default: FT8
@@ -334,29 +382,9 @@ program jt9
         if (mode .eq. 5  .and. TRperiod .eq. 60.d0) TRperiod = 7.5d0   ! FT4
         if (mode .eq. 144 .and. TRperiod .eq. 60.d0) TRperiod = 30.d0  ! MSK144
 
-        ! Per-mode ntol defaulting (mirrors WAV path lines 277–285).
-        if (mode .eq. 241 .or. mode .eq. 242) then
-           ntol = min(ntol, 100)
-        else if (mode .eq. 65 + 9 .and. .not. have_ntol) then
-           ntol = 20
-        else if (mode .eq. 66 .and. .not. have_ntol) then
-           ntol = 10
-        else
-           ntol = min(ntol, 1000)
-        end if
-
-        ! Per-mode nexp_decode default (mirrors WAV path lines 287–291).
-        if (.not. nexp_decode_set) then
-           if (mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) then
-              nexp_decode = 3 * 256   ! FST4: single decode off, nb=0
-           end if
-        end if
-
-        if (mycall.eq.'b') mycall = '            '
-        if (hiscall.eq.'b') then
-           hiscall = '            '
-           hisgrid = '      '
-        end if
+        ntol=cli_tolerance(mode,ntol,have_ntol)
+        nexp_decode=cli_exp_decode(mode,nexp_decode,nexp_decode_set)
+        call normalize_station_options(mycall,hiscall,hisgrid)
         allocate(shared_data)
         ! jt9's stub refuses here, before anything is written.
         if (.not. jt9_stream_available()) call jt9_stream(shared_data, mode, TRperiod)
@@ -391,29 +419,11 @@ program jt9
      go to 999
   endif
 
-  if(mycall.eq.'b') mycall='            '
-  if(hiscall.eq.'b') then
-     hiscall='            '
-     hisgrid='      '
-  endif
+  call normalize_station_options(mycall,hiscall,hisgrid)
+  ntol=cli_tolerance(mode,ntol,have_ntol)
+  nexp_decode=cli_exp_decode(mode,nexp_decode,nexp_decode_set)
 
-  if (mode .eq. 241 .or. mode .eq. 242) then
-     ntol = min (ntol, 100)
-  else if (mode .eq. 65 + 9 .and. .not. have_ntol) then
-     ntol = 20
-  else if (mode .eq. 66 .and. .not. have_ntol) then
-     ntol = 10
-  else
-     ntol = min (ntol, 1000)
-  end if
-
-  if (.not. nexp_decode_set) then
-     if (mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) then
-        nexp_decode = 3 * 256   ! single decode off and nb=0
-     end if
-  end if
-  
-  allocate(shared_data)
+  allocate(wav_samples(NMAX))
   nflatten=0
   do iarg = offset + 1, offset + remain
      call get_command_argument (iarg, optarg, arglen)
@@ -432,33 +442,23 @@ program jt9
         stop 2
      end if
      call parse_wav_filename_nutc(infile, nutc, wav_utc_has_seconds)
-     if(mode.eq.4.and.wav_utc_has_seconds) nutc=nutc/100
-     if((mode.eq.66.or.mode.eq.240.or.mode.eq.241.or.mode.eq.242).and..not.wav_utc_has_seconds) &
-          nutc=100*nutc
-     nsps=6912
-     npts=TRperiod*12000.d0
-     kstep=nsps/2
+     nutc=adjust_wav_nutc(mode,nutc,wav_utc_has_seconds)
+     read_plan=plan_wav_read(mode,TRperiod,nfsample)
+     kstep=WAV_BLOCK_SAMPLES
      k=0
      engine_valid_samples=0
      nhsym=0
-     nhsym0=-999
      if(iarg .eq. offset + 1) then
         call init_timer (trim(data_dir)//'/timer.out')
         call timer('jt9     ',0)
      endif
-     shared_data%id2=0          !??? Why is this necessary ???
-     if(mode.eq.4) npts=52*nfsample
-     if(mode.eq.5) npts=21*3456
-     if(mode.eq.66) npts=TRperiod*12000
-     nblocks=npts/kstep
-     if(mode.eq.4.or.mode.eq.9.or.mode.eq.240.or.mode.eq.241.or.mode.eq.242) &
-          nblocks=(npts+kstep-1)/kstep
-     do iblk=1,nblocks
+     wav_samples=0          ! Fixed-window decoders and gates need silence beyond this file.
+     do iblk=1,read_plan%block_count
         k0=(iblk-1)*kstep
-        k=min(iblk*kstep,npts)
-        if(mode.eq.8 .and. k.gt.179712) exit
+        k=min(iblk*kstep,read_plan%sample_count)
+        if(k.gt.read_plan%read_limit) exit
         call timer('read_wav',0)
-        call wav%read_samples(shared_data%id2(k0+1:k), samples_read, &
+        call wav%read_samples(wav_samples(k0+1:k), samples_read, &
              wav_status, optarg)
         call timer('read_wav',1)
         if (wav_status /= 0) then
@@ -473,20 +473,7 @@ program jt9
         end if
         engine_valid_samples=k0+samples_read
         nhsym=(k-2048)/kstep
-        if(nhsym.ge.1 .and. nhsym.ne.nhsym0) then
-           if(mode.eq.74) then
-! Compute rough symbol spectra for the JT9 decoder
-              ingain=0
-              call timer('symspec ',0)
-              nminw=1
-              call symspec(shared_data,k,nsps,ingain,      &
-                   bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax,npct_unused)
-              call timer('symspec ',1)
-           endif
-           nhsym0=nhsym
-           if(nhsym.ge.181 .and. mode.ne.9 .and. mode.ne.240 .and. mode.ne.241 .and. &
-              mode.ne.242 .and. mode.ne.66) exit
-        endif
+        if(read_plan%half_symbol_limit>0 .and. nhsym>=read_plan%half_symbol_limit) exit
         if (samples_read < k-k0) then
            if(mode.ne.9) print*,'EOF on input file ',trim(infile)
            exit
@@ -496,132 +483,36 @@ program jt9
      engine_input_id=int(iarg-offset,c_int64_t)
      engine_attempt_no=0
 
-     ! WAV-path-only mode adjustment (mode=164 with submode<100 bumps by 100).
-     ! Hoisted before init_default_params so the bumped value is threaded
-     ! through the args bundle.
-     if (mode.eq.164 .and. nsubmode.lt.100) nsubmode = nsubmode + 100
-
-     ! WAV mode initializes only fields historically set by this path.
      args = cli_args_t(                                                    &
-          flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,           &
-          ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                     &
+          flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,            &
+          ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                      &
           nexp_decode=nexp_decode, ncycles=ncycles,                         &
-          nft8rxfsens=nft8rxfsens, nmt=nmt, ndecoderstart=ndecoderstart,   &
-          nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,               &
+          nft8rxfsens=nft8rxfsens, nmt=nmt,                                 &
+          nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,                 &
           mygrid=mygrid, hisgrid=hisgrid,                                   &
-          datetime='2013-Apr-16 15:13   ',                                 &
-          tx9=tx9, multift8=multift8, hidedupes=hidedupes,                 &
-          lft8lowth=lft8lowth, lft8subpass=lft8subpass,                    &
-          lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,              &
-          nexp_decode_set=nexp_decode_set)
-     call init_default_params(shared_data%params, mode, TRperiod, args)
-
-     ! WAV-path post-init overrides.
-     shared_data%params%ntr = int(TRperiod)
-     shared_data%params%nutc      = nutc        ! parsed from filename
-     shared_data%params%ndiskdat  = .true.      ! reading from disk
-     shared_data%params%nzhsym    = nhsym       ! per-period (matches former jt9.f90:486)
-     if (mode.eq.0) shared_data%params%nmode = 65 + 9   ! WAV-only mode=0 → JT65+JT9
-
-     if (multift8 .and. mode.eq.8) then
-        shared_data%params%lft8subpass = .true.
-        shared_data%params%lhideft8dupes = hidedupes
-        shared_data%params%nft8cycles = ncycles
-        shared_data%params%nmt = nmt
-        if(nmtft8decsens.eq.1) then
-           lft8lowth = .false.
-           lft8subpass = .false.
-        elseif(nmtft8decsens.eq.2) then
-           lft8lowth = .true.
-           lft8subpass = .false.        
-        elseif(nmtft8decsens.eq.3) then
-           lft8lowth = .true.
-           lft8subpass = .true.              
-        end if
-        shared_data%params%lft8lowth = lft8lowth
-        shared_data%params%lft8subpass = lft8subpass
-        shared_data%params%ndecoderstart = ndecoderstart 
-        shared_data%params%lwidedxcsearch = lwidedxcsearch
-        shared_data%params%ndtcenter = 0
-        shared_data%params%lmodechanged = .false.
-        shared_data%params%nsecbandchanged = 0
-        shared_data%params%ncandthin = 100
-        shared_data%params%nft8rxfsens = nft8rxfsens
-        shared_data%params%lhound = .false.
-        shared_data%params%lcommonft8b = .true.
-        shared_data%params%lbandchanged = .false.
-        shared_data%params%lmultinst = .false.
-        shared_data%params%nlasttx = 0
-        shared_data%params%nhint = .false.
-        shared_data%params%ndelay = 0
-        shared_data%params%nprepass = 4
-        shared_data%params%nharmonicsdepth = 0
-        shared_data%params%nsdecatt = 1
-      !print*,'lwidedxcsearch ',shared_data%params%lwidedxcsearch
-     end if
-     ! emedelay (Q65 60s), datetime placeholder, and mode=9 nfa=fsplit
-     ! handled by init_default_params + apply_per_mode_policy above.
-
-     nearly=50
-     if(mode.eq.8 .and. .not.  shared_data%params%lmultift8) then
-! "Early" decoding pass, FT8 only, when jt9 reads data from disk
-        nearly=41
-        shared_data%params%nzhsym=nearly
-        id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
-        id2a(nearly*3456+1:)=0
-        call run_engine_wav(id2a,nearly*3456)
-        nearly=47
-        shared_data%params%nzhsym=nearly
-        id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
-        id2a(nearly*3456+1:)=0
-        call run_engine_wav(id2a,nearly*3456)
-        id2a(nearly*3456+1:50*3456)=shared_data%id2(nearly*3456+1:50*3456)
-        id2a(50*3456+1:)=0
-        shared_data%params%nzhsym=50
-        call run_engine_wav(id2a,50*3456)
+          multift8=multift8, hidedupes=hidedupes,                            &
+          lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol)
+     if (mode.eq.144) then
+        msk_options=msk144_file_options(int(TRperiod),nutc,ntol,nrxfreq,ndepth,mycall,hiscall)
+        call decode_msk144_file(wav_samples, msk_options, data_dir, msk_completion)
+        if (.not. lquiet) call write_decode_completion(msk_completion)
+        call flush(6)
         cycle
-     else if(mode.eq.8 .and. shared_data%params%lmultift8) then
-        if(shared_data%params%ndecoderstart.lt.2) then
-           nearly=41
-           shared_data%params%lmultift8=.false.
-           shared_data%params%nzhsym=nearly
-           id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
-           id2a(nearly*3456+1:)=0
-           call run_engine_wav(id2a,nearly*3456)
-           if(shared_data%params%ndecoderstart.lt.2) then
-              nearly=46
-              shared_data%params%lmultift8=.false.
-              shared_data%params%nzhsym=nearly
-              id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
-              id2a(nearly*3456+1:)=0
-              call run_engine_wav(id2a,nearly*3456)
-           endif
-           if(shared_data%params%ndecoderstart.eq.0) nearly=49
-           if(shared_data%params%ndecoderstart.eq.1) nearly=50
-           shared_data%params%lmultift8=.true.
-           shared_data%params%nzhsym=nearly
+     endif
+
+     pass_plan=plan_wav_passes(mode,multift8,ndecoderstart,nmtft8decsens,nhsym,engine_valid_samples)
+     args%lft8lowth=pass_plan%low_threshold
+     args%lft8subpass=pass_plan%subtract_pass
+     do ipass=1,pass_plan%count
+        if(pass_plan%passes(ipass)%prefix_copy) then
+           prefix_samples=pass_plan%passes(ipass)%stage*WAV_BLOCK_SAMPLES
+           id2a(:prefix_samples)=wav_samples(:prefix_samples)
+           id2a(prefix_samples+1:)=0
+           call run_engine_wav(id2a,pass_plan%passes(ipass))
         else
-           if(shared_data%params%ndecoderstart.eq.2) nearly=48
-           if(shared_data%params%ndecoderstart.eq.3) nearly=49
-           if(shared_data%params%ndecoderstart.eq.4) nearly=50
-           shared_data%params%nzhsym=nearly
+           call run_engine_wav(wav_samples,pass_plan%passes(ipass))
         endif
-
-     ! MSK144        
-     else if (mode .eq. 144) then
-        call decode_msk144(shared_data%id2, shared_data%params, data_dir)
-     endif
-
-! Normal decoding pass
-     if(mode.eq.4.or.mode.eq.8.or.mode.eq.9.or.mode.eq.65.or.mode.eq.66.or. &
-          mode.eq.240.or.mode.eq.241.or.mode.eq.242) then
-        call run_engine_wav(shared_data%id2,engine_valid_samples)
-     else if(mode.eq.5) then
-        call run_engine_wav(shared_data%id2,72576)
-     else
-        call multimode_decoder(shared_data%ss,shared_data%id2, &
-             shared_data%params,nfsample)
-     endif
+     enddo
   enddo
 
   call timer('jt9     ',1)
@@ -632,9 +523,19 @@ program jt9
 ! Output decoder statistics
   call fini_timer ()
 
-! Save FFTW wisdom and free memory
-  if(len(trim(wisfile)).gt.0) iret=fftwf_export_wisdom_to_filename(wisfile)
-  if(allocated(shared_data)) then
+! Save FFTW wisdom (jt9, the GUI's worker, in place) and free memory
+  if(len(trim(wisfile)).gt.0) then
+     if(.not.jt9_stream_available()) then
+        iret=fftwf_export_wisdom_to_filename(wisfile)
+     else if(.not.save_wisdom(wisfile)) then
+        write(error_unit,'(4a)') trim(program_name),                         &
+             ': could not save the FFTW wisdom to ',trim(data_dir),          &
+             '/jt9_wisdom.dat; the old file stays'
+     endif
+  endif
+  if (allocated(wav_samples)) then
+     use_mtd_fft_plans=mode.eq.8 .and. multift8
+  else if (allocated(shared_data)) then
      use_mtd_fft_plans=mode.eq.8 .and. shared_data%params%lmultift8
   endif
   if(use_mtd_fft_plans) then
@@ -645,19 +546,70 @@ program jt9
   endif
   call fftwf_cleanup_threads()
   call fftwf_cleanup()
+  if (allocated(wav_samples)) deallocate(wav_samples)
   if (allocated(shared_data)) deallocate(shared_data)
 
 contains
 
-  subroutine run_engine_wav(samples, pass_samples)
-    integer*2, intent(inout) :: samples(*)
-    integer, intent(in) :: pass_samples
-    type(decode_completion_result) :: completion
+  subroutine require_mode_submode(selected_mode)
+    integer, intent(in) :: selected_mode
 
+    integer :: maximum
+    character(len=16) :: mode_name
+    character(len=64) :: reason
+
+    maximum = submode_limit(selected_mode)
+    if (selected_mode == 74 .and. tx9) maximum = submode_limit(65)
+    if (nsubmode <= maximum) return
+    select case (selected_mode)
+    case (4)
+       mode_name = 'JT4'
+    case (65)
+       mode_name = 'JT65'
+    case (66)
+       mode_name = 'Q65'
+    case (74)
+       mode_name = 'JT9+JT65'
+    case default
+       mode_name = 'selected mode'
+    end select
+    reason = 'must be A-' // achar(iachar('A') + maximum) // ' for ' // trim(mode_name)
+    call invalid_option('b', achar(iachar('A') + nsubmode), trim(reason))
+  end subroutine require_mode_submode
+
+  subroutine require_text(option, text, text_length, value)
+    character(len=*), intent(in) :: option, text
+    integer, intent(in) :: text_length
+    character(len=*), intent(out) :: value
+
+    logical :: ok
+    character(len=96) :: reason
+
+    call parse_fixed_text(text, text_length, value, ok)
+    if (.not. ok) then
+       write(reason, '(A,I0,A)') 'must be at most ', len(value), ' characters with no internal whitespace'
+       call invalid_option(option, text, trim(reason))
+    end if
+  end subroutine require_text
+
+  subroutine run_engine_wav(samples, pass)
+    integer*2, intent(inout) :: samples(*)
+    type(wav_decode_pass), intent(in) :: pass
+    type(decode_completion_result) :: completion
+    type(attempt_request) :: wav_request
+    type(host_decode_context) :: wav_context
+    integer :: now
+    intrinsic :: time
+
+    now=0
+    if(mode==66) now=time()
     engine_attempt_no=engine_attempt_no+1
-    call run_decoder_engine(samples,shared_data%params, &
-         nfsample,completion,0,engine_input_id,engine_input_id, &
-         engine_attempt_no,min(engine_valid_samples,pass_samples))
+    call build_wav_request(args,mode,TRperiod,nutc,pass%stage,pass%mtd, &
+         engine_input_id,engine_attempt_no,now,wav_request)
+    wav_context=host_decode_context(legacy_mode=mode,utc=nutc,half_symbol_stage=pass%stage, &
+         print_hash22=mode.eq.242)
+    call engine_host_decode_request(samples,wav_request,wav_context,nfsample,completion,0, &
+         pass%sample_count)
     if(.not.completion%available) return
     if(.not.lquiet) call write_decode_completion(completion)
     call flush(6)

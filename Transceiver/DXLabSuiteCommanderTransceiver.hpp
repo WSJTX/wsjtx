@@ -40,6 +40,7 @@ protected:
   void do_ptt (bool on) override;
 
   void do_poll () override;
+  bool frequency_readback_expected (RigFrequency::Path, Frequency) const override;
 
 private:
   MODE get_mode ();

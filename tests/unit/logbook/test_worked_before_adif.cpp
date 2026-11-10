@@ -2,15 +2,50 @@
 #include <QtTest>
 #include <QTemporaryDir>
 #include <QStandardPaths>
+#include <QThreadPool>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QMessageBox>
+#include <QTimer>
 #include <memory>
+#include <atomic>
+#include <functional>
+#include <QSemaphore>
+#include <QRunnable>
 
 #include "Configuration.cpp"
 #include "logbook/WorkedBefore.hpp"
 #include "logbook/AdifQso.hpp"
+#include "logbook/logbook.h"
 #include "widgets/itoneAndicw.h"
 
 int volatile itone[MAX_NUM_SYMBOLS] {};
 float gran () {return 0;}
+
+namespace
+{
+  std::function<void (char const *, std::atomic_bool const&)> history_checkpoint;
+
+  class ScopedHistoryCheckpoints final
+  {
+  public:
+    ~ScopedHistoryCheckpoints () {history_checkpoint = {};}
+  };
+}
+
+// Compile the loader here so checkpoint observers are absent from the production library.
+#define WSJT_WORKED_BEFORE_LOAD_CHECKPOINT(point, stop) \
+  do {if (history_checkpoint) history_checkpoint (point, stop);} while (false)
+#if defined (__GNUC__) && !defined (__clang__)
+// The included implementation keeps its future result type local to this translation unit.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsubobject-linkage"
+#endif
+#include "logbook/WorkedBefore.cpp"
+#if defined (__GNUC__) && !defined (__clang__)
+#pragma GCC diagnostic pop
+#endif
+#undef WSJT_WORKED_BEFORE_LOAD_CHECKPOINT
 
 class TestWorkedBeforeAdif final : public QObject
 {
@@ -20,24 +55,86 @@ class TestWorkedBeforeAdif final : public QObject
   QNetworkAccessManager network_;
   std::unique_ptr<QSettings> settings_;
   std::unique_ptr<Configuration> configuration_;
+  std::unique_ptr<QSettings> supplemental_settings_;
+  std::unique_ptr<Configuration> supplemental_configuration_;
 
 private Q_SLOTS:
   void initTestCase ();
   void cleanupTestCase ();
   void init ();
-  void cleanup ();
   void jtty_round_trips_with_current_header ();
   void imports_records_across_layouts_and_length_errors_data ();
   void imports_records_across_layouts_and_length_errors ();
+  void reports_incomplete_sources_data ();
+  void reports_incomplete_sources ();
+  void primary_rescan_recovers_records_and_preserves_live_qsos ();
+  void comment_cannot_supply_a_missing_band ();
+  void country_views_survive_loading_and_live_additions ();
+  void logbook_changes_country_view_without_rescanning ();
+  void cancels_worker_without_partial_results_data ();
+  void cancels_worker_without_partial_results ();
+  void shutdown_during_scan_preserves_published_history ();
+  void destruction_cancels_running_scan_data ();
+  void destruction_cancels_running_scan ();
+  void shutdown_discards_queued_completion ();
+  void shutdown_during_completion_prevents_restart ();
+  void destruction_cancels_queued_scan ();
 
 private:
   QString data_directory () const;
   bool wait_for_load (WorkedBefore& worked_before, int& record_count, QString& error);
+  bool write_data_file (QString const& name, QByteArray const& contents);
+  bool write_country_views ();
+  bool set_wae_enabled (Configuration const&, QWidget& parent, bool enabled);
 };
 
 QString TestWorkedBeforeAdif::data_directory () const
 {
   return QStandardPaths::writableLocation (QStandardPaths::DataLocation);
+}
+
+bool TestWorkedBeforeAdif::write_data_file (QString const& name, QByteArray const& contents)
+{
+  QFile file {QDir {data_directory ()}.filePath (name)};
+  return file.open (QIODevice::WriteOnly | QIODevice::Text) && file.write (contents) == contents.size ();
+}
+
+bool TestWorkedBeforeAdif::write_country_views ()
+{
+  return write_data_file ("cty.dat", QByteArray {
+    "Scotland:14:27:EU:56:4:0:GM\nGM,2M,=G0FBJ;\n"
+    "Shetland Islands:14:27:EU:60:1:0:*GM/s\n=G0FBJ,=2M0BDR;\n"
+    "WAE Only:15:28:EU:42:-21:-1:*Z6\nZ6;\n"});
+}
+
+bool TestWorkedBeforeAdif::set_wae_enabled (Configuration const& configuration, QWidget& parent, bool enabled)
+{
+  QDialog * dialog {};
+  for (auto * candidate : parent.findChildren<QDialog *> ())
+    {
+      if (candidate->findChild<QCheckBox *> ("include_WAE_check_box"))
+        {
+          dialog = candidate;
+          break;
+        }
+    }
+  if (!dialog) return false;
+  dialog->findChild<QCheckBox *> ("include_WAE_check_box")->setChecked (enabled);
+  auto ensure_option = [dialog] (char const * object_name, char const * option) {
+    if (auto * combo = dialog->findChild<QComboBox *> (object_name);
+        combo && combo->currentIndex () < 0) combo->addItem (option);
+  };
+  ensure_option ("sound_input_combo_box", "Test input");
+  ensure_option ("sound_input_channel_combo_box", "Mono");
+  ensure_option ("sound_output_combo_box", "Test output");
+  QTimer dismiss_message;
+  dismiss_message.setSingleShot (true);
+  connect (&dismiss_message, &QTimer::timeout, [&parent] {
+    for (auto * message : parent.findChildren<QMessageBox *> ()) message->accept ();
+  });
+  dismiss_message.start (1000);
+  auto const invoked = QMetaObject::invokeMethod (dialog, "accept", Qt::DirectConnection);
+  return invoked && configuration.include_WAE_entities () == enabled;
 }
 
 void TestWorkedBeforeAdif::initTestCase ()
@@ -49,29 +146,34 @@ void TestWorkedBeforeAdif::initTestCase ()
   QVERIFY (settings_dir_.isValid ());
 
   QVERIFY (QDir {}.mkpath (data_directory ()));
-  QFile cty_file {QDir {data_directory ()}.filePath ("cty.dat")};
-  QVERIFY (cty_file.open (QIODevice::WriteOnly | QIODevice::Text));
-  QByteArray cty_data {"Test Entity:5:8:NA:37:-96:-5:K\nK,W;\n"};
-  QCOMPARE (cty_file.write (cty_data), static_cast<qint64> (cty_data.size ()));
+  QVERIFY (write_data_file ("cty.dat", QByteArray {"Test Entity:5:8:NA:37:-96:-5:K\nK,W;\n"}));
+  settings_.reset (new QSettings {settings_dir_.filePath ("settings.ini"), QSettings::IniFormat});
+  settings_->clear ();
+  configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, settings_.get (), nullptr});
+  supplemental_settings_.reset (new QSettings {settings_dir_.filePath ("supplemental-settings.ini"), QSettings::IniFormat});
+  supplemental_settings_->clear ();
+  supplemental_settings_->setValue ("Configuration/SupplementalHistoryFiles", QStringList {settings_dir_.filePath ("station.adi")});
+  supplemental_configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, supplemental_settings_.get (), nullptr});
 }
 
 void TestWorkedBeforeAdif::cleanupTestCase ()
 {
+  supplemental_configuration_.reset ();
   configuration_.reset ();
-  QDir {data_directory ()}.removeRecursively ();
+  supplemental_settings_.reset ();
+  settings_.reset ();
+  QVERIFY (QDir {data_directory ()}.removeRecursively ());
 }
 
 void TestWorkedBeforeAdif::init ()
 {
-  settings_.reset (new QSettings {settings_dir_.filePath ("settings.ini"), QSettings::IniFormat});
-  settings_->clear ();
-  configuration_.reset (new Configuration {&network_, QDir {settings_dir_.path ()}, settings_.get (), nullptr});
-}
-
-void TestWorkedBeforeAdif::cleanup ()
-{
-  configuration_.reset ();
-  settings_.reset ();
+  for (auto const& path : {QDir {data_directory ()}.filePath ("wsjtx_log.adi"), settings_dir_.filePath ("station.adi")})
+    if (QFile::exists (path)) QVERIFY (QFile::remove (path));
+  QVERIFY (write_data_file ("cty.dat", QByteArray {"Test Entity:5:8:NA:37:-96:-5:K\nK,W;\n"}));
+  QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
+  QCOMPARE (supplemental_configuration_->supplemental_history_files (), QStringList {settings_dir_.filePath ("station.adi")});
+  QVERIFY (!configuration_->include_WAE_entities ());
+  QVERIFY (!supplemental_configuration_->include_WAE_entities ());
 }
 
 void TestWorkedBeforeAdif::jtty_round_trips_with_current_header ()
@@ -160,6 +262,68 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
     << (QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:8>oops<EOR>"} + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
 
+  for (auto const& field : {"CALL", "BAND", "MODE", "SUBMODE", "GRIDSQUARE"})
+    {
+      auto text = QString {"<%1:999>"}.arg (field).toUtf8 ();
+      auto adif = QByteArray {"<COMMENT:"} + QByteArray::number (text.size ()) + ":S>" + text
+        + record ("K1ABC").toUtf8 ();
+      QTest::newRow (qPrintable (QString {"descriptor-inside-comment-%1"}.arg (field)))
+        << adif << QStringList {"K1ABC"};
+    }
+  QTest::newRow ("fake-band-after-real-call")
+    << QByteArray {"<CALL:5>K1ABC<COMMENT:10><BAND:999><BAND:3>20M<MODE:3>FT8<EOR>"}
+    << QStringList {"K1ABC"};
+
+  QTest::newRow ("character-counted-comment-containing-eor")
+    << (QString {"<CALL:5>K1ABC<COMMENT:9>"} + QString (4, QChar {0x00e9})
+        + "<EOR><BAND:3>20M<MODE:3>FT8<EOR>").toUtf8 ()
+    << QStringList {"K1ABC"};
+
+  for (auto const& tag : {"<eOr>", "<eOh>", "<BAND:999:S>", "<BAND:3>40M"})
+    for (int count : {1, 2, 3, 4})
+      for (bool byte_counted : {false, true})
+        {
+          auto value = QString (count, QChar {0x00e9}) + tag;
+          auto length = byte_counted ? value.toUtf8 ().size () : value.size ();
+          auto row = QString {"unicode-comment-%1-%2-%3"}.arg (tag).arg (count)
+            .arg (byte_counted ? "bytes" : "characters");
+          QTest::newRow (qPrintable (row))
+            << (QString {"<CALL:5>K1ABC<COMMENT:%1:S>%2<BAND:3>20M<MODE:3>FT8<EOR>"}
+                .arg (length).arg (value).toUtf8 () + record ("W1XYZ").toUtf8 ())
+            << QStringList {"K1ABC", "W1XYZ"};
+        }
+
+  auto unicode_header = QString (4, QChar {0x00e9}) + "<EOH>";
+  for (bool byte_counted : {false, true})
+    for (bool preamble : {false, true})
+      {
+        auto row = QString {"unicode-header-%1-%2"}.arg (byte_counted ? "bytes" : "characters")
+          .arg (preamble ? "preamble" : "field-first");
+        QTest::newRow (qPrintable (row))
+          << ((preamble ? QByteArray {"ADIF Export"} : QByteArray {})
+              + QString {"<PROGRAMID:%1>%2<EOH>"}
+                .arg (byte_counted ? unicode_header.toUtf8 ().size () : unicode_header.size ())
+                .arg (unicode_header).toUtf8 () + record ("K1ABC").toUtf8 ())
+          << QStringList {"K1ABC"};
+      }
+
+  QTest::newRow ("unicode-malformed-length-crosses-tags-in-both-interpretations")
+    << ((QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:14>"}
+         + QString (4, QChar {0x00e9}) + "oops<EOR>").toUtf8 () + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
+  QTest::newRow ("maximum-length-recovers-without-overflow")
+    << (QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:18446744073709551615>oops<EOR>"}
+        + record ("W1XYZ").toUtf8 ())
+    << QStringList {"K1ABC", "W1XYZ"};
+  QTest::newRow ("unicode-malformed-length-beyond-eof")
+    << (QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:12>"}
+        + QString (4, QChar {0x00e9}) + "<EOR>").toUtf8 ()
+    << QStringList {"K1ABC"};
+
+  auto unicode_comment = QString (5, QChar {0x00e9}) + "<BAND:999>";
+  QTest::newRow ("character-counted-comment-containing-descriptor")
+    << (QString {"<COMMENT:%1>%2"}.arg (unicode_comment.size ()).arg (unicode_comment).toUtf8 ()
+        + record ("K1ABC").toUtf8 ()) << QStringList {"K1ABC"};
   auto name = QString {"Jos"} + QChar {0x00e9};
   auto name_record = QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<NAME:%1>%2<EOR>"};
   auto utf8_bom = QByteArray::fromHex ("efbbbf");
@@ -169,6 +333,25 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
   QTest::newRow ("utf8-character-counted-name")
     << (utf8_bom + name_record.arg (name.size ()).arg (name).toUtf8 () + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
+
+  for (int count : {4, 5, 20})
+    for (bool byte_counted : {false, true})
+      for (bool newline : {false, true})
+        {
+          auto value = QString (count, QChar {0x00e9});
+          auto length = byte_counted ? value.toUtf8 ().size () : value.size ();
+          auto final_record = name_record.arg (length).arg (value).toUtf8 ();
+          if (newline) final_record += "\n";
+          auto row = QString {"final-utf8-name-%1-%2-%3"}.arg (count)
+            .arg (byte_counted ? "bytes" : "characters").arg (newline ? "newline" : "eof");
+          QTest::newRow (qPrintable (row))
+            << (record ("W1XYZ").toUtf8 () + final_record) << QStringList {"W1XYZ", "K1ABC"};
+        }
+  auto split_name = name_record.arg (10).arg (QString (5, QChar {0x00e9})).toUtf8 ();
+  auto name_start = split_name.indexOf ("<NAME:10>") + QByteArray {"<NAME:10>"}.size ();
+  QTest::newRow ("utf8-name-crosses-read-chunk")
+    << (QByteArray (64 * 1024 - name_start - 2, ' ') + split_name)
+    << QStringList {"K1ABC"};
 
   QTest::newRow ("embedded-eor-with-text-between-fields")
     << QByteArray {"<CALL:5>K1ABC<COMMENT:5><EOR>padding<BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>"}
@@ -184,6 +367,16 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
     << QStringList {"K1ABC"};
 
   constexpr int chunk_size {64 * 1024};
+  auto unicode_split_record = QString {"<CALL:5>K1ABC<COMMENT:12>"} + QString (4, QChar {0x00e9})
+    + "<EOR>abc<BAND:3>20M<MODE:3>FT8<EOR>";
+  auto embedded_eor = unicode_split_record.indexOf ("<EOR>");
+  for (int offset : {-1, 0, 1, 4, 5, 6, 8, 9})
+    {
+      QTest::newRow (qPrintable (QString {"character-counted-eor-crosses-chunk-%1"}.arg (offset)))
+        << (QByteArray (chunk_size - embedded_eor - offset, ' ') + unicode_split_record.toUtf8 ()
+            + record ("W1XYZ").toUtf8 ())
+        << QStringList {"K1ABC", "W1XYZ"};
+    }
   auto split_endpoint_tag = [] (QByteArray const& adif, int field_length) {
     auto data_start = adif.indexOf ('>', adif.indexOf ("<COMMENT:")) + 1;
     return QByteArray (chunk_size - data_start - field_length - 1, ' ') + adif;
@@ -240,6 +433,478 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors ()
       QVERIFY2 (worked_before.call_worked (call, "FT8", "20M"), qPrintable (call));
     }
   QVERIFY (!worked_before.call_worked ("N0NOT", "FT8", "20M"));
+}
+
+void TestWorkedBeforeAdif::reports_incomplete_sources_data ()
+{
+  QTest::addColumn<QByteArray> ("contents");
+  QTest::addColumn<bool> ("primary");
+  QTest::addColumn<bool> ("accepted");
+  QTest::addColumn<int> ("entries");
+  auto row = [] (char const * name, QByteArray contents, bool accepted, int entries) {
+    for (bool primary : {false, true})
+      QTest::newRow (qPrintable (QString {"%1-%2"}.arg (name).arg (primary ? "primary" : "supplemental")))
+        << contents << primary << accepted << entries;
+  };
+  row ("empty", {}, true, 0);
+  row ("whitespace", " \t\r\n", true, 0);
+  row ("whitespace-across-chunks", QByteArray (128 * 1024, ' '), true, 0);
+  row ("header-only", "ADIF Export\n<adif_ver:5>3.1.1\n<eoh>\n", true, 0);
+  row ("field-starting-header-only", "<adif_ver:5>3.1.1<eoh>", true, 0);
+  row ("header-marker-in-comment", "<call:5>K1ABC<band:3>20m<mode:3>FT8<comment:5><EOH><eor>", true, 1);
+  row ("typed-header-marker-in-comment", "<call:5>K1ABC<band:3>20m<mode:3>FT8<comment:5:S><eOh><eor>", true, 1);
+  row ("header-comment-before-header-end", "ADIF Export\n<comment:5><EOH><eoh><call:5>K1ABC<band:3>20m<mode:3>FT8<eor>", true, 1);
+  row ("ignored-footer", "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>\nExport complete\n", true, 1);
+  row ("invalid-header", "not an ADIF export", false, 0);
+  row ("invalid-field-length", "<call:bad>K1ABC<eor>", false, 0);
+  row ("invalid-field-type", "<call:5:BAD>K1ABC<eor>", false, 0);
+  row ("empty-field-type", "<call:5:>K1ABC<eor>", false, 0);
+  row ("extra-field-colon", "<call:5:S:S>K1ABC<eor>", false, 0);
+  row ("truncated-field", "<call:100>K1ABC<eor>", false, 0);
+  row ("unterminated-record", "<call:5>K1ABC<band:3>20m<mode:3>FT8", false, 0);
+  QByteArray complete {"<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"};
+  row ("unterminated-record-after-valid-record", complete + "<call:5>W1XYZ<band:3>20m<mode:3>FT8", false, 1);
+  row ("bad-field-after-valid-record", complete + "<call:bad>W1XYZ<eor>", false, 1);
+  row ("bad-band-after-valid-record", complete + "<call:5>W1XYZ<band:bad>20m<eor>", false, 1);
+  row ("bad-field-before-another-valid-record", complete + "<call:bad>W1XYZ<eor><call:5>N2AAA<band:3>20m<mode:3>FT8<eor>", false, 1);
+}
+
+void TestWorkedBeforeAdif::reports_incomplete_sources ()
+{
+  QFETCH (QByteArray, contents);
+  QFETCH (bool, primary);
+  QFETCH (bool, accepted);
+  QFETCH (int, entries);
+  auto const primary_path = configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi");
+  if (QFile::exists (primary_path)) QVERIFY (QFile::remove (primary_path));
+  auto const source = primary ? primary_path : settings_dir_.filePath ("station.adi");
+  QFile file {source};
+  QVERIFY (file.open (QIODevice::WriteOnly));
+  QCOMPARE (file.write (contents), static_cast<qint64> (contents.size ()));
+  file.close ();
+  WorkedBefore worked {primary ? configuration_.get () : supplemental_configuration_.get ()};
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QVERIFY (finished.count () || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
+  int expected = primary || accepted ? entries : 0;
+  QCOMPARE (finished.at (0).at (0).toInt (), expected);
+  QCOMPARE (worked.load_errors ().isEmpty (), accepted);
+  QCOMPARE (worked.call_worked ("K1ABC", "FT8", "20M"), expected > 0);
+  if (!accepted)
+    {
+      QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (source)));
+      QVERIFY (worked.load_status ().contains (primary && entries ? "1 partially recovered" : "1 failed"));
+    }
+}
+
+void TestWorkedBeforeAdif::primary_rescan_recovers_records_and_preserves_live_qsos ()
+{
+  auto const primary = configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi");
+  auto write = [&] (QByteArray const& contents) {
+    QFile file {primary};
+    return file.open (QIODevice::WriteOnly) && file.write (contents) == contents.size ();
+  };
+  QVERIFY (write ("<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<EOR>"));
+  WorkedBefore worked {configuration_.get ()};
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
+  QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+  QVERIFY (write ("<CALL:5>W1XYZ<BAND:3>20M<MODE:3>FT8<EOR><CALL:5>N2AAA"));
+  worked.reload ();
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QVERIFY (worked.add ("K3NEW", "FN20", "20M", "FT8", "<CALL:5>K3NEW<BAND:3>20M<MODE:3>FT8"));
+  QVERIFY (finished.count () >= 2 || finished.wait (5000));
+  QCOMPARE (finished.count (), 2);
+  QCOMPARE (finished.at (1).at (0).toInt (), 2);
+  QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
+  QVERIFY (worked.call_worked ("W1XYZ", "FT8", "20M"));
+  QVERIFY (worked.call_worked ("K3NEW", "FT8", "20M"));
+  QVERIFY (!worked.call_worked ("N2AAA", {}, {}));
+  QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (primary)));
+  QVERIFY (worked.load_status ().contains ("1 partially recovered"));
+}
+
+void TestWorkedBeforeAdif::comment_cannot_supply_a_missing_band ()
+{
+  QFile file {configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi")};
+  QVERIFY (file.open (QIODevice::WriteOnly));
+  QByteArray const contents {"<CALL:5>K1ABC<COMMENT:10><BAND:999><MODE:3>FT8<EOR>"};
+  QCOMPARE (file.write (contents), static_cast<qint64> (contents.size ()));
+  file.close ();
+  WorkedBefore worked {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (worked, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+  QVERIFY (worked.call_worked ("K1ABC", "FT8", {}));
+  QVERIFY (!worked.call_worked ("K1ABC", "FT8", "20M"));
+}
+
+void TestWorkedBeforeAdif::country_views_survive_loading_and_live_additions ()
+{
+  using View = AD1CCty::EntityView;
+  QVERIFY (write_country_views ());
+  QVERIFY (write_data_file ("wsjtx_log.adi", QByteArray {
+    "<CALL:6>2M0BDR<BAND:3>20M<MODE:3>FT8<EOR>\n"
+    "<CALL:5>Z61AA<BAND:3>40M<MODE:3>FT4<EOR>\n"}));
+  WorkedBefore worked {configuration_.get ()};
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
+  QCOMPARE (finished.at (0).at (0).toInt (), 2);
+  auto const shetland = worked.countries ()->lookup ("2M0BDR");
+  auto const wae_only = worked.countries ()->lookup ("Z61AA");
+  QVERIFY (wae_only.dxcc.name.isEmpty ());
+  for (auto view : {View::DXCC, View::WAE, View::DXCC})
+    {
+      auto const country = shetland.identity (view).name;
+      QCOMPARE (country, view == View::DXCC ? QString {"Scotland"} : QString {"Shetland Islands"});
+      QVERIFY (worked.country_worked (country, "ft8", "20m", view));
+      QVERIFY (worked.country_worked (country, "ft8", {}, view));
+      QVERIFY (worked.country_worked (country, {}, "20m", view));
+      QVERIFY (worked.country_worked (country, {}, {}, view));
+      QVERIFY (!worked.country_worked (country, "FT4", "20M", view));
+      QVERIFY (!worked.country_worked (country, "FT8", "40M", view));
+      QVERIFY (worked.country_worked (wae_only.identity (view).name, "FT4", "40M", view));
+    }
+  QCOMPARE (finished.count (), 1);
+  QVERIFY (!worked.country_worked ("Scotland", {}, {}, View::WAE));
+  QVERIFY (!worked.country_worked ("Shetland Islands", {}, {}, View::DXCC));
+  QVERIFY (worked.continent_worked (AD1CCty::Continent::EU, "FT8", "20M"));
+  QVERIFY (worked.CQ_zone_worked (14, "FT8", "20M"));
+  QVERIFY (worked.ITU_zone_worked (27, "FT8", "20M"));
+
+  worked.reload ();
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  // The loader has read the file, but its result has not reached the GUI thread.
+  QVERIFY (worked.add ("G0FBJ", "IO99", "15M", "FT4", "<CALL:5>G0FBJ<BAND:3>15M<MODE:3>FT4"));
+  QVERIFY (finished.count () >= 2 || finished.wait (5000));
+  QCOMPARE (finished.count (), 2);
+  QCOMPARE (finished.at (1).at (0).toInt (), 3);
+  QVERIFY (worked.country_worked ("Scotland", "FT4", "15M", View::DXCC));
+  QVERIFY (worked.country_worked ("Shetland Islands", "FT4", "15M", View::WAE));
+  worked.reload ();
+  QVERIFY (finished.count () >= 3 || finished.wait (5000));
+  QCOMPARE (finished.count (), 3);
+  QCOMPARE (finished.at (2).at (0).toInt (), 3);
+  QVERIFY (worked.country_worked ("Scotland", "FT4", "15M", View::DXCC));
+  QVERIFY (worked.country_worked ("Shetland Islands", "FT4", "15M", View::WAE));
+}
+
+void TestWorkedBeforeAdif::logbook_changes_country_view_without_rescanning ()
+{
+  QVERIFY (write_country_views ());
+  QVERIFY (write_data_file ("wsjtx_log.adi", QByteArray {
+    "<CALL:6>2M0BDR<BAND:3>20M<MODE:3>FT8<EOR>\n"
+    "<CALL:5>Z61AA<BAND:3>20M<MODE:3>FT8<EOR>\n"}));
+  QSettings settings {settings_dir_.filePath ("wae-settings.ini"), QSettings::IniFormat};
+  settings.clear ();
+  QWidget parent;
+  Configuration configuration {&network_, QDir {settings_dir_.path ()}, &settings, nullptr, &parent};
+  LogBook logbook {&configuration};
+  QSignalSpy finished {&logbook, &LogBook::finished_loading};
+  QSignalSpy started {&logbook, &LogBook::loading_started};
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
+  auto country_worked = [&] (QString const& call) {
+    bool call_b4, country_b4, grid_b4, continent_b4, cq_b4, itu_b4;
+    logbook.match (call, "FT8", {}, logbook.countries ()->lookup (call),
+                   call_b4, country_b4, grid_b4, continent_b4, cq_b4, itu_b4, "20M");
+    return country_b4;
+  };
+  QVERIFY (!configuration.include_WAE_entities ());
+  QVERIFY (country_worked ("GM4ABC"));
+  QVERIFY (country_worked ("G0FBJ"));
+  QVERIFY (country_worked ("Z62BB"));
+  QVERIFY (set_wae_enabled (configuration, parent, true));
+  QVERIFY (!country_worked ("GM4ABC"));
+  QVERIFY (country_worked ("G0FBJ"));
+  QVERIFY (country_worked ("Z62BB"));
+  QVERIFY (set_wae_enabled (configuration, parent, false));
+  QVERIFY (country_worked ("GM4ABC"));
+  QVERIFY (country_worked ("Z62BB"));
+  QCOMPARE (started.count (), 0);
+  QCOMPARE (finished.count (), 1);
+}
+
+void TestWorkedBeforeAdif::cancels_worker_without_partial_results_data ()
+{
+  QTest::addColumn<QByteArray> ("primary");
+  QTest::addColumn<QByteArray> ("supplemental");
+  QTest::addColumn<QByteArray> ("checkpoint");
+  QTest::addColumn<int> ("occurrence");
+  QTest::addColumn<bool> ("recursive");
+  QByteArray const record {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<EOR>"};
+  auto row = [&] (char const * name, char const * checkpoint, int occurrence,
+                  QByteArray primary, QByteArray supplemental = {}, bool recursive = false) {
+    QTest::newRow (name) << primary << supplemental << QByteArray {checkpoint} << occurrence << recursive;
+  };
+  row ("before-discovery", "load_start", 1, record);
+  row ("nested-directory", "directory", 2, record, {}, true);
+  row ("directory-entry", "directory_entry", 1, record, {}, true);
+  row ("chunk-read", "read_complete", 2, QByteArray (64 * 1024, ' ') + record);
+  row ("long-header", "read", 2, QByteArray {"ADIF Export"} + QByteArray (64 * 1024, 'x'));
+  row ("whitespace-loop", "whitespace", 2, QByteArray (8192, ' ') + record);
+  row ("length-loop", "field_length", 2,
+       QByteArray {"<COMMENT:"} + QByteArray (8192, '0') + "1>x<EOH>" + record);
+  row ("field-data-loop", "field_data", 2,
+       QByteArray {"<COMMENT:8192>"} + QByteArray (8192, 'x') + "<EOH>" + record);
+  row ("unicode-fallback", "field_characters", 1,
+       record.left (record.size () - 5) + "<COMMENT:12>" + QString (4, QChar {0x00e9}).toUtf8 () + "<EOR>");
+  row ("between-records", "record", 2, record + record);
+  QByteArray supplemental;
+  for (int i = 0; i != 257; ++i)
+    supplemental += QString {"<CALL:6>K%1<BAND:3>20M<MODE:3>FT8<EOR>"}.arg (10000 + i).toUtf8 ();
+  row ("merge-loop", "merge", 2, record, supplemental);
+  row ("after-source-error", "file", 3, record, record);
+  row ("before-publication", "load_complete", 1, record, record);
+}
+
+void TestWorkedBeforeAdif::cancels_worker_without_partial_results ()
+{
+  QFETCH (QByteArray, primary);
+  QFETCH (QByteArray, supplemental);
+  QFETCH (QByteArray, checkpoint);
+  QFETCH (int, occurrence);
+  QFETCH (bool, recursive);
+  QVERIFY (write_data_file ("wsjtx_log.adi", primary));
+  auto const station = settings_dir_.filePath ("station.adi");
+  {
+    QFile file {station};
+    QVERIFY (file.open (QIODevice::WriteOnly));
+    QCOMPARE (file.write (supplemental), static_cast<qint64> (supplemental.size ()));
+  }
+  HistoryFolders folders;
+  QTemporaryDir tree;
+  if (recursive)
+    {
+      QVERIFY (tree.isValid ());
+      QVERIFY (QDir {}.mkpath (tree.filePath ("nested")));
+      folders.append ({tree.path (), true});
+    }
+  AD1CCty prefixes {configuration_.get ()};
+  prefixes.reload (configuration_.get ());
+  std::atomic_bool stop {false};
+  int matching_checks {0};
+  int checks_after_stop {0};
+  ScopedHistoryCheckpoints checkpoints;
+  history_checkpoint = [&] (char const * point, std::atomic_bool const&) {
+    if (stop.load (std::memory_order_relaxed)) ++checks_after_stop;
+    if (checkpoint == point && ++matching_checks == occurrence)
+      stop.store (true, std::memory_order_relaxed);
+  };
+  auto const result = load_sources (configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi"),
+                                    {settings_dir_.filePath ("missing.adi"), station}, folders, &prefixes, 0, stop);
+  QCOMPARE (matching_checks, occurrence);
+  QCOMPARE (checks_after_stop, 0);
+  QVERIFY (result.cancelled);
+  QVERIFY (result.worked.empty ());
+  QVERIFY (result.errors.isEmpty ());
+  QVERIFY (result.folder_summaries.isEmpty ());
+  QCOMPARE (result.files_read, 0);
+  QCOMPARE (result.files_incomplete, 0);
+  QCOMPARE (result.files_failed, 0);
+  QCOMPARE (result.files_expected, 0);
+  QCOMPARE (result.directory_failures, 0);
+  for (auto const& file_contents : {qMakePair (configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi"), primary),
+                                   qMakePair (station, supplemental)})
+    {
+      QFile file {file_contents.first};
+      QVERIFY (file.open (QIODevice::ReadOnly));
+      QCOMPARE (file.readAll (), file_contents.second);
+    }
+}
+
+void TestWorkedBeforeAdif::shutdown_during_scan_preserves_published_history ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  QSemaphore entered, release;
+  std::atomic_bool blocked {false}, timed_out {false};
+  ScopedHistoryCheckpoints checkpoints;
+  WorkedBefore worked {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (worked, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>W1XYZ<EOR>"));
+  history_checkpoint = [&] (char const * point, std::atomic_bool const&) {
+    if (!qstrcmp (point, "stop_requested")) release.release ();
+    if (!qstrcmp (point, "read") && !blocked.exchange (true))
+      {
+        entered.release ();
+        if (!release.tryAcquire (1, 5000)) timed_out.store (true);
+      }
+  };
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QSignalSpy started {&worked, &WorkedBefore::loading_started};
+  worked.reload ();
+  QVERIFY (entered.tryAcquire (1, 5000));
+  auto const status = worked.load_status ();
+  worked.reload ();
+  QVERIFY (QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection));
+  worked.reload ();
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QCoreApplication::processEvents ();
+  QVERIFY (!timed_out.load ());
+  QCOMPARE (finished.count (), 0);
+  QCOMPARE (started.count (), 2);
+  QCOMPARE (worked.load_status (), status);
+  QVERIFY (worked.load_errors ().isEmpty ());
+  QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+  QVERIFY (!worked.call_worked ("W1XYZ", {}, {}));
+  QVERIFY (worked.add ("K3NEW", "FN20", "20M", "FT8", "<CALL:5>K3NEW"));
+  QVERIFY (worked.call_worked ("K3NEW", "FT8", "20M"));
+}
+
+void TestWorkedBeforeAdif::destruction_cancels_running_scan_data ()
+{
+  QTest::addColumn<bool> ("pending_rescan");
+  QTest::newRow ("active") << false;
+  QTest::newRow ("pending-rescan") << true;
+}
+
+void TestWorkedBeforeAdif::destruction_cancels_running_scan ()
+{
+  QFETCH (bool, pending_rescan);
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  QSemaphore entered, release;
+  std::atomic_bool timed_out {false};
+  std::atomic<int> starts {0}, files {0};
+  std::atomic<std::atomic_bool const *> selected {nullptr};
+  ScopedHistoryCheckpoints checkpoints;
+  history_checkpoint = [&] (char const * point, std::atomic_bool const& stop) {
+    if (!qstrcmp (point, "load_start")) ++starts;
+    if (!qstrcmp (point, "file")) ++files;
+    if (!qstrcmp (point, "stop_requested") && selected.load () == &stop) release.release ();
+    if (!qstrcmp (point, "read"))
+      {
+        std::atomic_bool const * expected = nullptr;
+        if (selected.compare_exchange_strong (expected, &stop))
+          {
+            entered.release ();
+            if (!release.tryAcquire (1, 5000)) timed_out.store (true);
+          }
+      }
+  };
+  auto worked = std::make_unique<WorkedBefore> (configuration_.get ());
+  QSignalSpy finished {worked.get (), &WorkedBefore::finished_loading};
+  QVERIFY (entered.tryAcquire (1, 5000));
+  if (pending_rescan) worked->reload ();
+  WorkedBefore other {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (other, count, error), qPrintable (error));
+  worked.reset ();
+  QVERIFY (!timed_out.load ());
+  QCOMPARE (finished.count (), 0);
+  QCOMPARE (starts.load (), 2);
+  QCOMPARE (files.load (), 2);
+  other.reload ();
+  QVERIFY2 (wait_for_load (other, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+  WorkedBefore fresh {configuration_.get ()};
+  QVERIFY2 (wait_for_load (fresh, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+}
+
+void TestWorkedBeforeAdif::shutdown_discards_queued_completion ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  WorkedBefore worked {configuration_.get ()};
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QSignalSpy started {&worked, &WorkedBefore::loading_started};
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QCOMPARE (finished.count (), 0);
+  worked.reload ();
+  QVERIFY (QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection));
+  QVERIFY (QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection));
+  auto const status = worked.load_status ();
+  QCoreApplication::processEvents ();
+  worked.reload ();
+  QCOMPARE (finished.count (), 0);
+  QCOMPARE (started.count (), 1);
+  QCOMPARE (worked.load_status (), status);
+  QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
+  WorkedBefore fresh {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (fresh, count, error), qPrintable (error));
+  QCOMPARE (count, 1);
+}
+
+void TestWorkedBeforeAdif::shutdown_during_completion_prevents_restart ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
+  WorkedBefore worked {configuration_.get ()};
+  bool quit_notified {false};
+  connect (&worked, &WorkedBefore::finished_loading, &worked, [&] {
+    worked.reload ();
+    quit_notified = QMetaObject::invokeMethod (qApp, "aboutToQuit", Qt::DirectConnection);
+  });
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QSignalSpy started {&worked, &WorkedBefore::loading_started};
+  QVERIFY (finished.wait (5000));
+  QVERIFY (quit_notified);
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QCoreApplication::processEvents ();
+  QCOMPARE (finished.count (), 1);
+  QCOMPARE (started.count (), 1);
+  QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+}
+
+void TestWorkedBeforeAdif::destruction_cancels_queued_scan ()
+{
+  class BlockedPool final
+  {
+    class Blocker final : public QRunnable
+    {
+    public:
+      Blocker (QSemaphore& entered, QSemaphore& release, std::atomic_bool& timed_out)
+        : entered_ {entered}, release_ {release}, timed_out_ {timed_out} {}
+      void run () override
+      {
+        entered_.release ();
+        if (!release_.tryAcquire (1, 5000)) timed_out_.store (true);
+      }
+    private:
+      QSemaphore& entered_;
+      QSemaphore& release_;
+      std::atomic_bool& timed_out_;
+    };
+  public:
+    BlockedPool () : previous_max_ {QThreadPool::globalInstance ()->maxThreadCount ()}
+    {
+      QThreadPool::globalInstance ()->setMaxThreadCount (1);
+      QThreadPool::globalInstance ()->start (new Blocker {entered, release, timed_out});
+    }
+    ~BlockedPool ()
+    {
+      release.release ();
+      QThreadPool::globalInstance ()->waitForDone ();
+      QThreadPool::globalInstance ()->setMaxThreadCount (previous_max_);
+    }
+    QSemaphore entered, release;
+    std::atomic_bool timed_out {false};
+  private:
+    int previous_max_;
+  } pool;
+  QVERIFY (pool.entered.tryAcquire (1, 5000));
+  std::atomic<int> starts {0}, files {0};
+  ScopedHistoryCheckpoints checkpoints;
+  history_checkpoint = [&] (char const * point, std::atomic_bool const&) {
+    if (!qstrcmp (point, "stop_requested")) pool.release.release ();
+    if (!qstrcmp (point, "load_start")) ++starts;
+    if (!qstrcmp (point, "file")) ++files;
+  };
+  {
+    WorkedBefore worked {configuration_.get ()};
+    QCOMPARE (starts.load (), 0);
+    worked.reload ();
+  }
+  QCOMPARE (starts.load (), 1);
+  QCOMPARE (files.load (), 0);
+  QVERIFY (!pool.timed_out.load ());
 }
 
 QTEST_MAIN (TestWorkedBeforeAdif)

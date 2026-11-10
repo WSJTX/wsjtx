@@ -7,8 +7,12 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QPointer>
+#include <QRunnable>
+#include <QSemaphore>
 #include <QTemporaryDir>
 #include <QThread>
+#include <QThreadPool>
 #include <QTimer>
 
 #ifdef Q_OS_UNIX
@@ -38,24 +42,28 @@ namespace
   class FailingReply final : public QNetworkReply
   {
   public:
-    FailingReply (QNetworkAccessManager::Operation operation, QNetworkRequest const& request, QObject * parent)
+    FailingReply (QNetworkAccessManager::Operation operation, QNetworkRequest const& request,
+                  QObject * parent, bool automatic_failure)
       : QNetworkReply {parent}
     {
       setOperation (operation);
       setRequest (request);
       setUrl (request.url ());
       open (QIODevice::ReadOnly | QIODevice::Unbuffered);
-      QTimer::singleShot (0, this, [this] {
-        if (isFinished ()) return;
-        setError (QNetworkReply::HostNotFoundError, "Simulated download failure");
+      if (automatic_failure) QTimer::singleShot (0, this, &FailingReply::fail);
+    }
+
+    void fail ()
+    {
+      if (isFinished ()) return;
+      setError (QNetworkReply::HostNotFoundError, "Simulated download failure");
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-        Q_EMIT errorOccurred (QNetworkReply::HostNotFoundError);
+      Q_EMIT errorOccurred (QNetworkReply::HostNotFoundError);
 #else
-        Q_EMIT error (QNetworkReply::HostNotFoundError);
+      Q_EMIT error (QNetworkReply::HostNotFoundError);
 #endif
-        setFinished (true);
-        Q_EMIT finished ();
-      });
+      setFinished (true);
+      Q_EMIT finished ();
     }
 
     void abort () override
@@ -72,13 +80,57 @@ namespace
 
   class FailingNetworkAccessManager final : public QNetworkAccessManager
   {
+  public:
+    bool automatic_failure {true};
+    QPointer<FailingReply> reply;
+
   protected:
     QNetworkReply * createRequest (Operation operation, QNetworkRequest const& request,
                                    QIODevice * outgoing_data) override
     {
       Q_UNUSED (outgoing_data);
-      return new FailingReply {operation, request, this};
+      reply = new FailingReply {operation, request, this, automatic_failure};
+      return reply;
     }
+  };
+
+  class BlockedThreadPool final
+  {
+    class Blocker final : public QRunnable
+    {
+    public:
+      Blocker (QSemaphore& entered, QSemaphore& released) : entered_ {entered}, released_ {released} {}
+      void run () override
+      {
+        entered_.release ();
+        released_.acquire ();
+      }
+    private:
+      QSemaphore& entered_;
+      QSemaphore& released_;
+    };
+
+  public:
+    BlockedThreadPool () : previous_max_ {QThreadPool::globalInstance ()->maxThreadCount ()}
+    {
+      auto pool = QThreadPool::globalInstance ();
+      pool->setMaxThreadCount (1);
+      pool->start (new Blocker {entered_, released_});
+    }
+
+    ~BlockedThreadPool ()
+    {
+      released_.release ();
+      QThreadPool::globalInstance ()->waitForDone ();
+      QThreadPool::globalInstance ()->setMaxThreadCount (previous_max_);
+    }
+
+    bool wait_until_blocked () { return entered_.tryAcquire (1, 5000); }
+
+  private:
+    int previous_max_;
+    QSemaphore entered_;
+    QSemaphore released_;
   };
 
 #ifdef Q_OS_UNIX
@@ -211,6 +263,57 @@ private Q_SLOTS:
     QTRY_COMPARE (errors.size (), 1);
     QTRY_COMPARE (finished.size (), 1);
     QVERIFY (users.user ("CACHED"));
+  }
+
+  void failed_fetch_finishes_after_missing_cache_data ()
+  {
+    QTest::addColumn<bool> ("downloadFirst");
+    QTest::newRow ("download finishes first") << true;
+    QTest::newRow ("cache finishes first") << false;
+  }
+
+  void failed_fetch_finishes_after_missing_cache ()
+  {
+    QFETCH (bool, downloadFirst);
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    auto const path = directory.filePath ("users.csv");
+    QVERIFY (write_csv (path, record ("PUBLISHED", utc_today ())));
+    FailingNetworkAccessManager network;
+    network.automatic_failure = false;
+    LotWUsers users {&network};
+    QSignalSpy errors {&users, &LotWUsers::LotW_users_error};
+    QSignalSpy finished {&users, &LotWUsers::load_finished};
+    users.set_local_file_path (path);
+    users.load ({}, false);
+    QTRY_COMPARE (finished.size (), 1);
+    QVERIFY (users.user ("PUBLISHED"));
+    finished.clear ();
+    {
+      BlockedThreadPool blocked;
+      QVERIFY (blocked.wait_until_blocked ());
+      users.load ({}, false);
+      QVERIFY (QFile::remove (path));
+      users.load ("https://example.invalid/lotw-user-activity.csv", true, true);
+      QVERIFY (network.reply);
+      if (downloadFirst)
+        {
+          network.reply->fail ();
+          QTRY_COMPARE (errors.size (), 1);
+          QCOMPARE (finished.size (), 0);
+        }
+    }
+    if (!downloadFirst)
+      {
+        QCoreApplication::processEvents ();
+        QCOMPARE (finished.size (), 0);
+        network.reply->fail ();
+      }
+    QTRY_COMPARE (errors.size (), 1);
+    QTRY_COMPARE (finished.size (), 1);
+    QCoreApplication::processEvents ();
+    QCOMPARE (finished.size (), 1);
+    QVERIFY (users.user ("PUBLISHED"));
   }
 
   void completion_publishes_once_on_owner_thread ()

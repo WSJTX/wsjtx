@@ -258,7 +258,6 @@ private:
   // Rig state
   QString requested_mode_;
   QString mode_;
-  QString started_mode_;
   QString requested_rx_frequency_;
   QString rx_frequency_;
   QString requested_other_frequency_;

@@ -30,7 +30,7 @@ typedef struct {
   int hash_count, hash_seen;
   const char *expected_message;
 } fixture;
-static int long_periods;
+static int long_periods, smoke;
 
 static void observe(const decoder_observation *o, void *opaque)
 {
@@ -274,6 +274,43 @@ static void run_tests(void)
   CHECK(decoder_engine_destroy(f.engine)==DECODER_OK);
   free(short_pcm); free(f.samples); free(f.before);
 }
+static void run_smoke(void)
+{
+  decoder_engine_options options={DECODER_ENGINE_ABI};
+  decoder_engine_capabilities caps;
+  fixture f={0};
+  const int capacity=120*12000;
+  f.samples=malloc((size_t)capacity*sizeof *f.samples);
+  f.before=malloc((size_t)capacity*sizeof *f.before);
+  CHECK(f.samples && f.before);
+  CHECK(decoder_engine_create(&options,&f.engine)==DECODER_OK);
+  CHECK(decoder_engine_get_capabilities(f.engine,&caps)==DECODER_OK);
+  CHECK((caps.supported_modes&(DECODER_SUPPORT_FST4|DECODER_SUPPORT_FST4W))==(DECODER_SUPPORT_FST4|DECODER_SUPPORT_FST4W));
+  decoder_engine_test_fst4_signal(DECODER_MODE_FST4W,120,1500,f.samples);
+  configure(&f,DECODER_MODE_FST4W,120);
+  decode(&f,1);
+  repeat(&f);
+  decode(&f,1);
+  release(&f);
+  decoder_engine_test_fst4_signal(DECODER_MODE_FST4,15,1500,f.samples);
+  configure(&f,DECODER_MODE_FST4,15);
+  decode(&f,1);
+  release(&f);
+  decoder_engine_test_fst4_hash_signals(2,f.samples);
+  configure(&f,DECODER_MODE_FST4W,15);
+  f.hash_count=2;
+  f.request.fst4.single_decode=0;
+  f.request.fst4.tolerance_hz=100;
+  f.request.fst4.blanker_mode=5;
+  decode(&f,2);
+  repeat(&f);
+  decode(&f,2);
+  release(&f);
+  CHECK(decoder_engine_reset_session(f.engine)==DECODER_OK);
+  CHECK(decoder_engine_destroy(f.engine)==DECODER_OK);
+  free(f.samples); free(f.before);
+}
+
 static void run_long_periods(void)
 {
   decoder_engine_options options={DECODER_ENGINE_ABI};
@@ -323,6 +360,7 @@ static void *run_on_small_stack(void *unused)
 {
   (void)unused;
   if(long_periods) run_long_periods();
+  else if(smoke) run_smoke();
   else run_tests();
   return 0;
 }
@@ -346,8 +384,9 @@ int main(int argc,char **argv)
     write_wav(argv[2],atoi(argv[3]),atoi(argv[4]));
     return EXIT_SUCCESS;
   }
-  CHECK(argc==1 || (argc==2 && (!strcmp(argv[1],"--small-stack") || !strcmp(argv[1],"--long-periods"))));
+  CHECK(argc==1 || (argc==2 && (!strcmp(argv[1],"--small-stack") || !strcmp(argv[1],"--small-stack-smoke") || !strcmp(argv[1],"--long-periods"))));
   long_periods=argc==2 && !strcmp(argv[1],"--long-periods");
+  smoke=argc==2 && !strcmp(argv[1],"--small-stack-smoke");
 #ifdef _WIN32
   HANDLE thread=CreateThread(NULL,1024*1024,run_on_small_stack,NULL,STACK_SIZE_PARAM_IS_A_RESERVATION,NULL);
   CHECK(thread!=NULL && WaitForSingleObject(thread,INFINITE)==WAIT_OBJECT_0);

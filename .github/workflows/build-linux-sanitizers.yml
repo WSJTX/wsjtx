@@ -1,6 +1,25 @@
 name: Build Linux Sanitizers
 
 on:
+  workflow_dispatch:
+    inputs:
+      hamlib_branch:
+        description: "Hamlib version baked into the CI image"
+        type: string
+        default: "4.7.2"
+      sanitizer:
+        description: "Sanitizer configuration to qualify"
+        type: choice
+        options: [asan-ubsan, tsan]
+        default: asan-ubsan
+      image_tag:
+        description: "Immutable candidate image tag to qualify"
+        required: true
+        type: string
+      run_tests:
+        description: "Run sanitizer tests after compiling production and test targets"
+        type: boolean
+        default: true
   workflow_call:
     inputs:
       hamlib_branch:
@@ -75,8 +94,8 @@ jobs:
     needs: resolve-image
     name: ${{ inputs.sanitizer == 'tsan' && 'Linux x86_64 TSan' || 'Linux x86_64 ASan + UBSan' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ inputs.sanitizer == 'tsan' && 180 || 60 }}
-    continue-on-error: ${{ inputs.advisory }}
+    timeout-minutes: 180
+    continue-on-error: ${{ inputs.advisory == true }}
     container:
       image: ${{ inputs.sanitizer == 'tsan' && format('ghcr.io/wsjtx/wsjtx-internal/linux-tsan-noble:{0}', needs.resolve-image.outputs.image_tag) || format('ghcr.io/wsjtx/wsjtx-internal/linux-noble:{0}', needs.resolve-image.outputs.image_tag) }}
       options: --shm-size=1g
@@ -94,7 +113,7 @@ jobs:
         with:
           hamlib_branch: ${{ inputs.hamlib_branch }}
           sanitizer: ${{ inputs.sanitizer }}
-          recache: ${{ inputs.recache }}
-          save_ccache: ${{ inputs.save_ccache }}
+          recache: ${{ inputs.recache == true }}
+          save_ccache: ${{ inputs.save_ccache == true }}
           run_tests: ${{ inputs.run_tests }}
-          allow_stale_image: ${{ inputs.allow_stale_image }}
+          allow_stale_image: ${{ inputs.allow_stale_image == true }}

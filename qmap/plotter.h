@@ -15,6 +15,7 @@
 #include <QList>
 #include <cstring>
 #include "commons.h"
+#include "qmap_runtime_config.h"
 #include "decode_click_coalescer.h"
 #include "decode_label.h"
 
@@ -56,6 +57,7 @@ public:
   qint64 freqOffset();
   int  plotWidth();
   void setNSpan(int n);
+  void applySpan(int n);       //Set the span (kHz) and redraw the wide waterfall at the new scale
   void UpdateOverlay();
   void setDataFromDisk(bool b);
   void setTol(int n);
@@ -141,12 +143,13 @@ private:
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;
   QPixmap m_2DPixmap;
-  unsigned char m_zwf[32768*400] {};
+  unsigned char m_zwf[qmap_runtime::MAX_NFFT*400] {};   //Waterfall, rows of m_nfft bins
   QPixmap m_ScalePixmap;
   QPixmap m_ZoomScalePixmap;
   QSize   m_Size;
   QString m_Str;
-  QString m_HDivText[483];
+  //One label per 0.2 kHz of zoomed scale: 480 at 96 kHz, so it grows with the sample rate
+  QString m_HDivText[qmap_runtime::MAX_RATE_HZ/200 + 3];
   bool    m_Running {};
   bool    m_paintEventBusy {};
   bool    m_2Dspec {};
@@ -169,7 +172,8 @@ private:
   qint32  m_z1 {};
   qint32  m_z2 {};
   qint32  m_nkhz {};
-  qint32  m_fSample {96000};
+  qint32  m_fSample {qmap_runtime::activeRateHz()};   //Set before the plot is first sized
+  qint32  m_nfft {qmap_runtime::activeNfft()};   //Spectrum bins per row, fixed for the run
   qint32  m_mode65 {};
   qint32  m_i0 {};
   qint32  m_xClick {};

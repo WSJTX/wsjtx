@@ -87,6 +87,8 @@ void MainWindow::on_cbIncludeTime_toggled(bool)
 
 void MainWindow::jtty_tx(QString message)
 {
+  if (!m_config.prepare_radio_mode ()) return;
+  setXIT (ui->TxFreqSpinBox->value ());
   // Render and enqueue immediately; the shared transmit buffer chains messages
   // gaplessly while playback is underway.
   submitJttyText(message);
@@ -103,6 +105,10 @@ qint64 MainWindow::submitJttyText(QString message)
 void MainWindow::commitJttyLiveEntry()
 {
   if (m_mode != "JTTY") return;
+  if (!ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted).trimmed ().isEmpty ()) {
+    if (!m_config.prepare_radio_mode ()) return;
+    setXIT (ui->TxFreqSpinBox->value ());
+  }
   m_jttyAutoAdvanceIdleTimer.stop ();
   commitJttyLiveEntryPlan (/*forceFlush=*/true, Jtty::maxCompactAtomWords, /*isFinal=*/true);
   m_jttyLiveEntryArmed = false;
@@ -111,7 +117,8 @@ void MainWindow::commitJttyLiveEntry()
 // Alt+J: force-flushes like Ctrl+K but never marks final, and arms auto-advance/idle-flush; stays open (continuously filler-padded by finishJttyDrain) until Alt+K signs off or Halt Tx/Esc cancels it.
 void MainWindow::startJttyLiveStream()
 {
-  if (m_mode != "JTTY") return;
+  if (m_mode != "JTTY" || !m_config.prepare_radio_mode ()) return;
+  setXIT (ui->TxFreqSpinBox->value ());
   m_jttyLiveEntryArmed = true;
   m_jttyAutoAdvanceIdleTimer.stop ();
   commitJttyLiveEntryPlan (/*forceFlush=*/true, Jtty::maxCompactAtomWords, /*isFinal=*/false);
@@ -230,6 +237,8 @@ void MainWindow::insertJttyChatOpener()
 // Alt+K: sign-off ("DE <myCall> K "), then finalizes (marks EOM) and disarms, so finishJttyDrain stops topping up with filler and PTT drops once this finishes playing.
 void MainWindow::insertJttyChatSignoff()
 {
+  if (!m_config.prepare_radio_mode ()) return;
+  setXIT (ui->TxFreqSpinBox->value ());
   insertJttyLiveEntryText (QStringLiteral ("DE %M K "));
   m_jttyAutoAdvanceIdleTimer.stop ();
   commitJttyLiveEntryPlan (/*forceFlush=*/true, Jtty::maxCompactAtomWords, /*isFinal=*/true);
@@ -434,7 +443,7 @@ void MainWindow::enqueueJttySegments(
     qint64 requestId, QVector<Jtty::TransmitSegment> segments)
 {
   if (m_mode != "JTTY" || m_closing || jttyDrainInProgress()
-      || segments.isEmpty()) {
+      || m_config.radio_mode_yielded () || segments.isEmpty()) {
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::NotAvailable);
     return;
   }
@@ -499,7 +508,7 @@ void MainWindow::execute_jtty_tones(qint64 requestId, QString const& message,
   }
   m_nsym_jtty=nsym;
 
-  float const f0=(frequency >= 0 ? frequency : ui->TxFreqSpinBox_2->value ()) - m_XIT;
+  float const f0=(frequency >= 0 ? frequency : ui->TxFreqSpinBox_2->value ()) - m_operatingFrequency.audioOffset ();
   auto const samples = Jtty::renderTransmitTones(itone, m_nsym_jtty, 48000, f0);
   if (samples.isEmpty()) {
     Q_EMIT jttyTextRejected(requestId, JttyTxRejectReason::EncodingFailed);
@@ -986,6 +995,8 @@ bool MainWindow::sendJttyFunctionKey(int index)
   default: return false;
   }
   if(macro.simplified().isEmpty()) return false;
+  if (!m_config.prepare_radio_mode ()) return true;
+  setXIT (ui->TxFreqSpinBox->value ());
 
   auto const context = jttyNativeMacroContext(
     m_config, m_hisCall, ui->sbSerialNumber_2->value(), m_jttyHisCallSnr);
@@ -1059,6 +1070,17 @@ void MainWindow::on_comboBoxJttyStyle_currentIndexChanged(int index)
   m_jttyMessageStyle = index;
 }
 
+void MainWindow::switchToJttyAfterMmttyStartup()
+{
+  if (m_modeLocked || m_closing) return;
+  bool const idle = !m_transmitting && !m_tune && g_iptt != 1
+    && !ptt0Timer.isActive () && !m_jttyTxLifecycle.active ();
+#ifdef WIN32
+  if (m_mmttyHandoff.active ()) return;
+#endif
+  if (idle && m_mode != "JTTY") set_mode("JTTY");
+}
+
 #ifdef WIN32
 void MainWindow::logText(const QString &text) {
   LOG_INFO(text);
@@ -1080,6 +1102,7 @@ QString MainWindow::jttyRejectReasonText(JttyTxRejectReason reason) const
 
 void MainWindow::handleMmttyTxString(QString message)
 {
+  if (m_config.radio_mode_yielded ()) return;
   if (m_mmttyJttyOutput.finishRequested()) {
     logText(QStringLiteral("MMTTY/N1MM JTTY text ignored after graceful OFF"));
     return;
@@ -1139,6 +1162,7 @@ void MainWindow::handleMmttyTxString(QString message)
 
 void MainWindow::handleMmttyStartTx()
 {
+  if (m_config.radio_mode_yielded ()) return;
   m_mmttyJttyOutput.start();
   if (mmttyNeedsHandoff ()) {
     beginMmttyHandoff ();
@@ -1338,12 +1362,7 @@ void MainWindow::initMMTTY(quint16 port) {
         close();
     });
 
-    QTimer::singleShot(3000, this, [this]() {
-         bool const idle = !m_transmitting && !m_tune && g_iptt != 1
-           && !ptt0Timer.isActive () && !m_jttyTxLifecycle.active ()
-           && !m_mmttyHandoff.active ();
-         if (idle && m_mode != "JTTY") set_mode("JTTY");
-    });
+    QTimer::singleShot(3000, this, &MainWindow::switchToJttyAfterMmttyStartup);
 }
 
 MMTTYIF *MainWindow::getMmttyIf() const {

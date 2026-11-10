@@ -4059,7 +4059,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1512"/>
         <source>Enable auto response to the first decode from a new DXCC or new call on the current band.</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2052"/>
@@ -4807,87 +4807,87 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2562"/>
         <source>CQ AF</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2567"/>
         <source>CQ AN</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2572"/>
         <source>CQ AS</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2577"/>
         <source>CQ EU</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2582"/>
         <source>CQ NA</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2587"/>
         <source>CQ OC</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2592"/>
         <source>CQ SA</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2597"/>
         <source>CQ 0</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2602"/>
         <source>CQ 1</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2607"/>
         <source>CQ 2</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2612"/>
         <source>CQ 3</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2617"/>
         <source>CQ 4</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2622"/>
         <source>CQ 5</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2627"/>
         <source>CQ 6</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2632"/>
         <source>CQ 7</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2637"/>
         <source>CQ 8</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2642"/>
         <source>CQ 9</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2670"/>
@@ -8194,6 +8194,98 @@ Type 1 Suffixes:    /0 /1 /2 /3 /4 /5 /6 /7 /8 /9 /A /P</source>
         <source>Review uses retained audio; earlier message context may be missing.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1512"/>
+        <source>After decoding finishes, select a new DXCC entity first, then a callsign not worked on this band. Configure selection in Settings &gt; Advanced &gt; Best S+P. Highlighting does not affect selection. Arming times out after two minutes.</source>
+        <translation type="vanished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1518"/>
+        <location filename="../widgets/mainwindow_slots.cpp" line="849"/>
+        <source>Best S+P is not armed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow_slots.cpp" line="832"/>
+        <source>Enable a selection category in Settings &gt; Advanced &gt; Best S+P.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow_slots.cpp" line="837"/>
+        <source>Best S+P is available in FT4 while receiving.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow_slots.cpp" line="846"/>
+        <source>Best S+P armed. Waiting for decode completion.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow_slots.cpp" line="847"/>
+        <source>Best S+P canceled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="8560"/>
+        <location filename="../widgets/mainwindow.cpp" line="17652"/>
+        <source>Best S+P timed out.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="17688"/>
+        <source>new DXCC entity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="17688"/>
+        <source>callsign not worked on this band</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="17689"/>
+        <source>Best S+P selected %1: %2.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1512"/>
+        <source>After decoding finishes, select a new DXCC entity first, then a callsign not worked on this band. Arm before starting a QSO. Configure selection in Settings &gt; Advanced &gt; Best S+P. Highlight colors, enabled rules, and rule order do not affect selection. Worked-before matching follows &apos;Highlight by Mode&apos; and &apos;Include extra WAE entities&apos; on Colors. Arming times out after two minutes.</source>
+        <translation type="vanished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow_slots.cpp" line="844"/>
+        <source>Best S+P is available before starting a QSO.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1512"/>
+        <source>After decoding finishes, select a new DXCC entity first, then a callsign not worked on this band. Arm before starting a QSO, with Wait &amp; Call and Wait &amp; Pounce inactive. Activating either cancels Best S+P; directed replies continue normally. Rx and Tx audio-frequency adjustments preserve arming. Configure selection in Settings &gt; Advanced &gt; Best S+P. Highlight colors, enabled rules, and rule order do not affect selection. Worked-before matching follows &apos;Highlight by Mode&apos; and &apos;Include extra WAE entities&apos; on Colors. Arming times out after two minutes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../BestSPApplicationTestController.cpp" line="477"/>
+        <location filename="../widgets/mainwindow_slots.cpp" line="882"/>
+        <source>Turn off Wait &amp; Call before arming Best S+P.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../BestSPApplicationTestController.cpp" line="479"/>
+        <location filename="../widgets/mainwindow_slots.cpp" line="886"/>
+        <source>Turn off Wait &amp; Pounce before arming Best S+P.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../BestSPApplicationTestController.cpp" line="481"/>
+        <location filename="../widgets/mainwindow_slots.cpp" line="847"/>
+        <source>Best S+P canceled: Wait &amp; Call is active.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../BestSPApplicationTestController.cpp" line="483"/>
+        <location filename="../BestSPApplicationTestController.cpp" line="612"/>
+        <location filename="../widgets/mainwindow_slots.cpp" line="850"/>
+        <source>Best S+P canceled: Wait &amp; Pounce is active.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>MessageAveraging</name>
@@ -10270,42 +10362,42 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="996"/>
         <source>1200</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1001"/>
         <source>2400</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1006"/>
         <source>4800</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1011"/>
         <source>9600</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1016"/>
         <source>19200</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1021"/>
         <source>38400</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1026"/>
         <source>57600</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1031"/>
         <source>115200</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1041"/>
@@ -12362,6 +12454,36 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="5272"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Discard (Cancel) or apply (OK) configuration changes including&lt;/p&gt;&lt;p&gt;resetting the radio interface and applying any soundcard changes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3618"/>
+        <source>Best S+P</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3624"/>
+        <source>New DXCC entity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3631"/>
+        <source>Callsign not worked on this band</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3638"/>
+        <source>New DXCC entities have priority. Highlighting settings do not affect selection.</source>
+        <translation type="vanished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3638"/>
+        <source>New DXCC entities have priority. Highlight colors, enabled rules, and rule order do not affect selection.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3648"/>
+        <source>Worked-before matching follows &apos;Highlight by Mode&apos; and &apos;Include extra WAE entities&apos; on Colors.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

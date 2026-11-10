@@ -9,6 +9,7 @@ module decode_completion_module
   public :: set_decode_completion
   public :: write_decode_completion
   public :: write_decode_progress
+  public :: set_progress_receiver
 
   type :: decode_completion_result
      logical :: available = .false.
@@ -23,6 +24,14 @@ module decode_completion_module
   integer(int64), save :: progress_thread_rate = 0_int64
 !$omp threadprivate(progress_thread_generation, progress_thread_calls, &
 !$omp& progress_thread_count, progress_thread_rate)
+
+  ! Called, when set, with each report's generation.
+  abstract interface
+     subroutine progress_receiver(generation)
+       integer, intent(in) :: generation
+     end subroutine progress_receiver
+  end interface
+  procedure(progress_receiver), pointer, save :: receive_progress => null()
 
 contains
 
@@ -85,6 +94,12 @@ contains
     progress_thread_count = count
     progress_thread_rate = rate
     call decoder_ipc_progress_report(generation)
+    if (associated(receive_progress)) call receive_progress(generation)
   end subroutine write_decode_progress
+
+  subroutine set_progress_receiver(receiver)
+    procedure(progress_receiver) :: receiver
+    receive_progress => receiver
+  end subroutine set_progress_receiver
 
 end module decode_completion_module

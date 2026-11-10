@@ -69,6 +69,7 @@ private:
   void prepareWhenReady ();
   void prepareFt8WhenReady ();
   void prepareJttyWhenReady ();
+  void prepareJttyInput ();
   void maybeFinish ();
   void maybeFinishFt8 ();
   void maybeFinishJtty ();
@@ -126,7 +127,7 @@ private:
   qint64 m_emittedFrames {0};
   qint64 m_captureStartMs {0};
   QTextBlock m_jttyAllPrefixBlock, m_jttyQsoPrefixBlock;
-  enum class JttyCheckStage { Live, Review, Stopped, Wav, Drain, TimedMode };
+  enum class JttyCheckStage { Frequency, Live, Review, Stopped, Wav, Drain, TimedMode };
   JttyCheckStage m_jttyCheckStage {JttyCheckStage::Live};
   QElapsedTimer m_jttyCheckElapsed;
   QString m_jttyAllBeforeReview, m_jttyQsoBeforeReview;

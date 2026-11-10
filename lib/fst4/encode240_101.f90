@@ -2,6 +2,7 @@ subroutine encode240_101(message,codeword)
    use, intrinsic :: iso_c_binding
    use iso_c_binding, only: c_loc,c_size_t
    use crc
+   use first_call_tsan, only: wsjt_tsan_acquire_first_call,wsjt_tsan_release_first_call
 
    integer, parameter:: N=240, K=101, M=N-K
    integer*1 codeword(N)
@@ -12,21 +13,31 @@ subroutine encode240_101(message,codeword)
    logical first
    data first/.true./
    save first,gen
+   logical building
 
-   if( first ) then ! fill the generator matrix
-      gen=0
-      do i=1,M
-         do j=1,26
-            read(g(i)(j:j),"(Z1)") istr
-            ibmax=4
-            if(j.eq.26) ibmax=1
-            do jj=1, ibmax
-               icol=(j-1)*4+jj
-               if( btest(istr,4-jj) ) gen(i,icol)=1
+   !$omp atomic read seq_cst
+   building=first
+   if(building) then
+      !$omp critical(first_call)
+      call wsjt_tsan_acquire_first_call()
+      if( first ) then ! fill the generator matrix
+         gen=0
+         do i=1,M
+            do j=1,26
+               read(g(i)(j:j),"(Z1)") istr
+               ibmax=4
+               if(j.eq.26) ibmax=1
+               do jj=1, ibmax
+                  icol=(j-1)*4+jj
+                  if( btest(istr,4-jj) ) gen(i,icol)=1
+               enddo
             enddo
          enddo
-      enddo
-      first=.false.
+         !$omp atomic write seq_cst
+         first=.false.
+      endif
+      call wsjt_tsan_release_first_call()
+      !$omp end critical(first_call)
    endif
 
    do i=1,M

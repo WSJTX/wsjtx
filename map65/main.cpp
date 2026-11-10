@@ -14,10 +14,12 @@
 #include "fortran_mutex.hpp"
 #include "globals.h"
 #include "runtime_paths.h"
+#include "sample_rates.h"
 
 #include <cstdio>
 
 extern "C" void set_runtime_params_(int rate_hz, int nfft, int nfft_big);
+extern "C" int symspec_fft_size_(int rate_hz);
 
 extern "C" {
   // Fortran procedures we need
@@ -45,7 +47,7 @@ int main(int argc, char *argv[])
 #endif
   QApplication a {argc, argv};
   a.setApplicationName ("MAP65");
-  a.setApplicationVersion ("3.8.3");
+  a.setApplicationVersion ("3.8.5");
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   
   QString appDir = QApplication::applicationDirPath();
@@ -54,29 +56,15 @@ int main(int argc, char *argv[])
   settings.beginGroup("Common");
   int srFlag = readFSam96000(settings, 1);
   settings.endGroup();
-  if(srFlag <= 1) g_sampleRate = 96000;
-  else if(srFlag == 2) g_sampleRate = 192000;
-  if (g_sampleRate != 96000 && g_sampleRate != 192000)
-      g_sampleRate = 96000;
+  g_sampleRate = sampleRateForCode(srFlag);
+  if (g_sampleRate == 95238) g_sampleRate = 96000;   // 95238 still sizes buffers at 96000
 
 // ------------------------------------------------------------
 // NEW: compute active FFT sizes for MAP65
 // ------------------------------------------------------------
 int active_rate = g_sampleRate;
 
-// Keep ~3 Hz bin resolution like WSJT-X/QMAP
-auto round_pow2 = [](int x) {
-    int p = 1;
-    while (p < x) p <<= 1;
-    return p;
-};
-
-// symspec FFT size
-active_nfft = round_pow2(
-    static_cast<int>(
-        static_cast<long long>(BASELINE_NFFT) * active_rate / BASELINE_RATE
-    )
-);
+active_nfft = symspec_fft_size_(active_rate);
 
 g_activeNfft = active_nfft;
 

@@ -1509,18 +1509,13 @@ Not available to nonstandard callsign holders.</string>
                     <item>
                      <widget class="QPushButton" name="pbBestSP">
                       <property name="toolTip">
-                       <string>Enable auto response to the first decode from a new DXCC or new call on the current band.</string>
+                       <string>After decoding finishes, select a new DXCC entity first, then a callsign not worked on this band. Arm before starting a QSO, with Wait &amp; Call and Wait &amp; Pounce inactive. Activating either cancels Best S+P; directed replies continue normally. Rx and Tx audio-frequency adjustments preserve arming. Configure selection in Settings &gt; Advanced &gt; Best S+P. Highlight colors, enabled rules, and rule order do not affect selection. Worked-before matching follows 'Highlight by Mode' and 'Include extra WAE entities' on Colors. Arming times out after two minutes.</string>
                       </property>
-                      <property name="styleSheet">
-                       <string notr="true">QPushButton:checked {
-	color: rgb(0, 0, 0);
-	background-color: red;
-	border-style: outset;
-	border-width: 1px;
-	border-radius: 5px;
-	border-color: black;
-	padding: 3px;
-}</string>
+                      <property name="accessibleName">
+                       <string>Best S+P</string>
+                      </property>
+                      <property name="accessibleDescription">
+                       <string>Best S+P is not armed.</string>
                       </property>
                       <property name="text">
                        <string>Best S+P</string>
@@ -2550,96 +2545,96 @@ Double-click to reset to the standard 73 message</string>
                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a specific CQ message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
                         <property name="currentText">
-                         <string>CQ</string>
+                         <string notr="true">CQ</string>
                         </property>
                         <item>
                          <property name="text">
-                          <string>CQ</string>
+                          <string notr="true">CQ</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ AF</string>
+                          <string notr="true">CQ AF</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ AN</string>
+                          <string notr="true">CQ AN</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ AS</string>
+                          <string notr="true">CQ AS</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ EU</string>
+                          <string notr="true">CQ EU</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ NA</string>
+                          <string notr="true">CQ NA</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ OC</string>
+                          <string notr="true">CQ OC</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ SA</string>
+                          <string notr="true">CQ SA</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 0</string>
+                          <string notr="true">CQ 0</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 1</string>
+                          <string notr="true">CQ 1</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 2</string>
+                          <string notr="true">CQ 2</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 3</string>
+                          <string notr="true">CQ 3</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 4</string>
+                          <string notr="true">CQ 4</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 5</string>
+                          <string notr="true">CQ 5</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 6</string>
+                          <string notr="true">CQ 6</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 7</string>
+                          <string notr="true">CQ 7</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 8</string>
+                          <string notr="true">CQ 8</string>
                          </property>
                         </item>
                         <item>
                          <property name="text">
-                          <string>CQ 9</string>
+                          <string notr="true">CQ 9</string>
                          </property>
                         </item>
                        </widget>
@@ -5080,10 +5075,10 @@ QLabel[oob=&quot;true&quot;] {
               <bool>false</bool>
              </property>
              <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Orange or red indicates that rig control needs recovery. Click to retry rig control and restore the requested frequency. S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
              <property name="accessibleDescription">
-              <string>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</string>
+              <string>Orange or red indicates that rig control needs recovery. Click to retry rig control and restore the requested frequency. S implies split mode.</string>
              </property>
              <property name="styleSheet">
               <string notr="true">QPushButton {

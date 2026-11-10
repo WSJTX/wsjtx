@@ -79,6 +79,10 @@ struct MainWindow::JttyReceiveState {
   bool draining = false, drainCutoff = false, closeAfterDrain = false;
   std::function<void()> drainProgress;
 #if defined(WSJT_ENABLE_LIVE_AUDIO_TEST)
+  enum class FrequencyCheckStage { Initialize, Unchanged, Retune, Restore, Complete };
+  FrequencyCheckStage frequencyCheckStage = FrequencyCheckStage::Initialize;
+  Radio::Frequency frequencyCheckNominal = 0;
+  quint64 frequencyCheckContext = 0;
   int drainIgnoredSources = 0;
   int drainTimeoutMs = 5000;
 #endif
@@ -239,29 +243,58 @@ void MainWindow::updateJttySavePolicy()
 }
 
 #if defined(WSJT_ENABLE_LIVE_AUDIO_TEST)
-QString MainWindow::checkLiveAudioTestJttyFrequencyChanges()
+std::optional<QString> MainWindow::pollLiveAudioTestJttyFrequencyChanges()
 {
   if (!m_automated_test || !m_config.is_dummy_rig() || m_mode != "JTTY" || !m_jttyReceive)
     return "JTTY frequency checks require the isolated test receiver.";
-  if (!m_operatingFrequency.rx()
-      && !requestNominalFrequencyChange(14078000, FrequencyRequestOrigin::User))
-    return "Unable to initialize the isolated JTTY receiver frequency.";
-  auto const context = m_jttyReceive->currentContext;
-  int const audioFrequency = ui->RxFreqSpinBox_2->value();
-  ui->RxFreqSpinBox_2->setValue(audioFrequency + 1);
-  ui->RxFreqSpinBox_2->setValue(audioFrequency);
-  if (m_jttyReceive->currentContext != context)
-    return "Changing the JTTY audio-frequency selection ended reception.";
-  auto const frequency = m_operatingFrequency.rx();
-  if (!requestNominalFrequencyChange(frequency, FrequencyRequestOrigin::User)
-      || m_jttyReceive->currentContext != context)
-    return "An unchanged JTTY RF frequency reset the receive context.";
-  if (!requestNominalFrequencyChange(frequency + 100, FrequencyRequestOrigin::User)
-      || m_jttyReceive->currentContext == context)
-    return "An actual JTTY RF retune did not replace the receive context.";
-  if (!requestNominalFrequencyChange(frequency, FrequencyRequestOrigin::User))
-    return "Unable to restore the isolated JTTY receiver frequency.";
-  return {};
+  auto const snapshot = m_operatingFrequency.snapshot();
+  if (snapshot.recoveryRequired)
+    return "The isolated JTTY receiver frequency requires CAT recovery.";
+  if (snapshot.pendingRx || snapshot.pendingTx) return std::nullopt;
+
+  auto& state = *m_jttyReceive;
+  using Stage = JttyReceiveState::FrequencyCheckStage;
+  switch (state.frequencyCheckStage) {
+  case Stage::Initialize:
+    if (!snapshot.rx
+        && !requestNominalFrequencyChange(14078000, FrequencyRequestOrigin::User))
+      return "Unable to initialize the isolated JTTY receiver frequency.";
+    state.frequencyCheckStage = Stage::Unchanged;
+    break;
+  case Stage::Unchanged: {
+    state.frequencyCheckNominal = snapshot.rx;
+    state.frequencyCheckContext = state.currentContext;
+    int const audioFrequency = ui->RxFreqSpinBox_2->value();
+    ui->RxFreqSpinBox_2->setValue(audioFrequency + 1);
+    ui->RxFreqSpinBox_2->setValue(audioFrequency);
+    if (state.currentContext != state.frequencyCheckContext)
+      return "Changing the JTTY audio-frequency selection ended reception.";
+    if (!requestNominalFrequencyChange(state.frequencyCheckNominal, FrequencyRequestOrigin::User))
+      return "The isolated JTTY receiver rejected an unchanged RF frequency.";
+    state.frequencyCheckStage = Stage::Retune;
+    break;
+  }
+  case Stage::Retune:
+    if (state.currentContext != state.frequencyCheckContext)
+      return "An unchanged JTTY RF frequency reset the receive context.";
+    if (!requestNominalFrequencyChange(state.frequencyCheckNominal + 100, FrequencyRequestOrigin::User))
+      return "The isolated JTTY receiver rejected an RF retune.";
+    state.frequencyCheckStage = Stage::Restore;
+    break;
+  case Stage::Restore:
+    if (state.currentContext == state.frequencyCheckContext)
+      return "An actual JTTY RF retune did not replace the receive context.";
+    if (!requestNominalFrequencyChange(state.frequencyCheckNominal, FrequencyRequestOrigin::User))
+      return "Unable to restore the isolated JTTY receiver frequency.";
+    state.frequencyCheckStage = Stage::Complete;
+    break;
+  case Stage::Complete:
+    if (snapshot.rx != state.frequencyCheckNominal
+        || snapshot.correctedRx != state.frequencyCheckNominal)
+      return "The isolated JTTY receiver did not restore its RF frequency.";
+    return QString {};
+  }
+  return std::nullopt;
 }
 
 bool MainWindow::startLiveAudioTestJttyWav(QString const& path)
@@ -269,6 +302,8 @@ bool MainWindow::startLiveAudioTestJttyWav(QString const& path)
   if (!m_automated_test || !m_config.is_dummy_rig() || m_mode != "JTTY"
       || m_monitoring || decoderBusy()) return false;
   m_diskData = true;
+  // A previous load can be invalidated while its result callback processes events.
+  m_discardJttyWavLoad = true;
   read_wav_file(path);
   return true;
 }
@@ -336,6 +371,23 @@ QString MainWindow::checkLiveAudioTestJttyDrain()
     bool lateEndNotified = false;
     bool playbackStopped = false;
     QTimer heartbeat;
+    auto const wavFrames = dec_data.params.kin;
+    auto const wavSample = dec_data.d2[0];
+    QEventLoop loadLoop;
+    connect(&m_wav_load_coordinator, &WavLoadCoordinator::loadingChanged,
+            &loadLoop, [&loadLoop](bool loading) { if (!loading) loadLoop.quit(); });
+    m_discardJttyWavLoad = false;
+    if (!m_wav_load_coordinator.start([] {
+      auto result = std::make_shared<Radio::WavInputResult>();
+      result->valid = true;
+      result->frames = 1;
+      result->samples = {12345};
+      return result;
+    })) {
+      error = "Unable to start the isolated WAV load before JTTY drain.";
+      break;
+    }
+    m_loopall = m_startAnother = m_bNoMoreFiles = m_diskData = true;
     connect(this, &MainWindow::endTransmitMessage, &heartbeat, [&] { playbackStopped = true; });
     if (missingAcknowledgement) {
       auto const epoch = m_jttyTxLifecycle.begin (JttyTxLifecycle::Backend::Local);
@@ -363,6 +415,16 @@ QString MainWindow::checkLiveAudioTestJttyDrain()
     heartbeat.start(0);
     drainJttyReceive();
     heartbeat.stop();
+    if (m_wav_load_coordinator.isLoading()) {
+      QTimer timeout;
+      timeout.setSingleShot(true);
+      connect(&timeout, &QTimer::timeout, &loadLoop, &QEventLoop::quit);
+      timeout.start(2000);
+      loadLoop.exec(QEventLoop::ExcludeUserInputEvents);
+    }
+    if (m_wav_load_coordinator.isLoading() || m_loopall || m_startAnother || m_bNoMoreFiles
+        || m_diskData || dec_data.params.kin != wavFrames || dec_data.d2[0] != wavSample)
+      error = "JTTY drain did not discard its pending WAV batch.";
     qint64 const expected = blocks * qint64(samples.size());
     if (state.active || !state.mailboxes.empty() || state.history.end(state.liveSpan.id) != expected
         || state.live.nextSearchSample() + windowSamples <= expected)
@@ -390,6 +452,11 @@ QString MainWindow::checkLiveAudioTestJttyDrain()
   m_saveAll = saveAll;
   m_saveDecoded = saveDecoded;
   updateJttySavePolicy();
+  updateDecodeControls();
+  if (error.isEmpty() && (!ui->actionOpen->isEnabled()
+      || !ui->actionDecode_remaining_files_in_directory->isEnabled()
+      || !ui->monitorButton->isEnabled()))
+    error = "A cancelled JTTY WAV load left file controls disabled.";
   return error;
 }
 #endif

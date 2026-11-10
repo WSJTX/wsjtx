@@ -165,6 +165,9 @@ macos_closure() {
     id=$(otool -D "${SOURCE}/${file}" | awk 'NR == 2 { print; exit }')
     while IFS= read -r ref; do
       [ "$ref" != "$id" ] || continue
+      case "${ref##*/}" in
+        libboost_*) fail "${file} imports a Boost shared library: ${ref}" ;;
+      esac
       found=""
       case "$ref" in
         /usr/lib/*|/System/Library/*) continue ;;
@@ -235,6 +238,9 @@ windows_closure() {
     imports=$(objdump -p "$bin") || fail "objdump failed on ${bin##*/}"
     while read -r dep; do
       lower=$(printf '%s' "$dep" | tr '[:upper:]' '[:lower:]')
+      case "$lower" in
+        libboost_*|boost_*) fail "${bin##*/} imports a Boost shared library: ${dep}" ;;
+      esac
       # The Universal C Runtime's API sets are names the Windows 10 loader
       # maps; no file by that name need exist in the system directory.
       case "$lower" in api-ms-win-crt-*) continue ;; esac
@@ -301,6 +307,9 @@ linux_check() {
   : > "${WORK}/host-versions.txt"
   while IFS= read -r file; do
     relative="${file#"${DEST}"/}"
+    case "${file##*/}" in
+      libboost_*) fail "unexpected bundled Boost library: ${relative}" ;;
+    esac
     dynamic=$(readelf -dW "$file") || fail "readelf failed on ${relative}"
     directory=$(dirname "$file")
     searched=()
@@ -323,6 +332,9 @@ linux_check() {
     while IFS= read -r line; do
       [[ "$line" =~ \(NEEDED\).*Shared[[:space:]]library:[[:space:]]\[([^]]+)\] ]] || continue
       library="${BASH_REMATCH[1]}"
+      case "$library" in
+        libboost_*) fail "${relative} imports a Boost shared library: ${library}" ;;
+      esac
       if in_excludelist "$library"; then
         printf '%s\n' "$library" >> "${WORK}/host-libraries.txt"
         continue
@@ -336,10 +348,12 @@ linux_check() {
     readelf -VW "$file" | awk '
       /^Version needs section/ { needs = 1; next }
       /^Version (definition|symbols) section/ { needs = 0 }
-      needs && match($0, /Name: (GLIBC|GLIBCXX)_[0-9.]+/) { print substr($0, RSTART + 6, RLENGTH - 6) }
+      needs && match($0, /Name: (GLIBC|GLIBCXX|CXXABI|GFORTRAN|GOMP)_[0-9.]+/) { print substr($0, RSTART + 6, RLENGTH - 6) }
     ' >> "${WORK}/host-versions.txt" || fail "readelf failed on ${relative}"
   done < <(find "${DEST}/bin" "${DEST}/lib" -type f)
   [ "${#unresolved[@]}" -eq 0 ] || fail "libraries that resolve neither inside ${NAME} nor to linuxdeploy's excludelist: ${unresolved[*]}"
+  printf 'Runtime symbol requirements: %s\n' "$NAME"
+  LC_ALL=C sort -u "${WORK}/host-versions.txt"
 }
 
 highest_version() {
@@ -505,6 +519,12 @@ for index in "${!GROUP_NAMES[@]}"; do
       windows_closure
       ;;
   esac
+  while IFS= read -r -d '' file; do
+    lower=$(printf '%s' "${file##*/}" | tr '[:upper:]' '[:lower:]')
+    case "$lower" in
+      libboost_*|boost_*.dll|boost_*.lib) fail "unexpected bundled Boost library: ${file#"$DEST"/}" ;;
+    esac
+  done < <(find "$DEST" \( -type f -o -type l \) -print0)
   cp "$COPYING" "${DEST}/COPYING"
   write_notices
   write_readme "$group" "$programs"

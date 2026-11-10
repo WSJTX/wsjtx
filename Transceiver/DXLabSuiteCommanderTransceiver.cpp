@@ -204,6 +204,11 @@ void DXLabSuiteCommanderTransceiver::do_ptt (bool on)
     }
 }
 
+bool DXLabSuiteCommanderTransceiver::frequency_readback_expected (RigFrequency::Path path, Frequency target) const
+{
+  return !state ().ptt () && (path == RigFrequency::Path::Rx || target);
+}
+
 void DXLabSuiteCommanderTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 {
   CAT_TRACE (f << ' ' << state ());
@@ -375,7 +380,7 @@ auto DXLabSuiteCommanderTransceiver::get_mode () -> MODE
           CAT_ERROR ("unexpected mode name" << mode);
           throw error {tr ("DX Lab Suite Commander sent an unrecognised mode: \"") + mode + '"'};
         }
-      update_mode (m);
+      observe_mode (m);
     }
   else
     {

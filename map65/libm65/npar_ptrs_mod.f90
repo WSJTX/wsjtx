@@ -103,14 +103,27 @@ module npar_ptrs_mod
     integer(c_int64_t) :: input_generation
     integer(c_int) :: snap_idx = 0            ! snapshot slot (1 = nhsym1, 2 = nhsym2); 0 = none
     integer(c_int64_t) :: snap_seq = 0        ! fill number of that slot when published
+    logical :: lag_counted = .false.          ! its fill was refused and counted as kind 1
     type(decode_request), pointer :: next => null()
   end type
   type(decode_request), pointer, save :: pending_head => null(), pending_tail => null()
   integer(c_int64_t), save :: published_request_id = 0
+  ! Decoder-behind events, for the status-bar indicator: a decode pass dropped
+  ! or cut short because the decoder could not keep up with the minute.
+  !   1 = snapshot refill refused (previous pass still reading it)
+  !   2 = queued request skipped (its snapshot was overwritten)
+  !   3 = pass aborted at the 40 s budget
+  ! A pass lost to a refused refill is counted once, as kind 1: the request
+  ! published for that fill is marked so claiming it does not add a kind 2 event.
+  integer(c_int), save :: lag_event_count = 0
+  integer(c_int), save :: lag_last_kind = 0
   integer(c_int64_t), save :: active_request_id = 0
   integer(c_int64_t), save :: live_input_generation = 0
   integer(c_int64_t), save :: active_input_generation = 0
   logical, save :: active_request_expired = .false.
+  ! The expired request's snapshot was overwritten before it ran (the decoder
+  ! fell behind), as opposed to a request invalidated by monitoring stopping.
+  logical, save :: active_request_lagged = .false.
 
   ! Decoder data snapshots (see datcom_ptrs_mod). All of this state is
   ! protected by lock_decode_requests().
@@ -122,6 +135,7 @@ module npar_ptrs_mod
   integer(c_int64_t), save :: snap_seq(2) = 0
   integer(c_int64_t), save :: snap_valid_seq(2) = 0
   logical, save :: snap_busy(2) = .false.
+  integer(c_int64_t), save :: snap_refused_seq(2) = 0   ! fill refused and already counted
   integer(c_int), save :: snap_latest_idx = 0   ! most recently completed fill
   integer(c_int), save :: active_snap_idx = 0   ! slot read by the active pass
 
@@ -202,6 +216,23 @@ contains
     draft%ftol_nb = val
     call unlock_decode_requests()
   end subroutine
+
+  ! symspec FFT size: the next power of 2 at or above 32768 * rate / 96000.
+  ! That gives 2.93 Hz bins at 96 and 192 kHz and 1.95 Hz bins at 128 and
+  ! 256 kHz. At 128 kHz a 49152-point FFT (2.93 Hz bins, as at 96 kHz) was
+  ! measured less sensitive for Q65 candidates than 65536.
+  integer(c_int) function symspec_fft_size(rate_hz) bind(C, name="symspec_fft_size_")
+    use iso_c_binding
+    implicit none
+    integer(c_int), value :: rate_hz
+    integer(c_int64_t) :: want
+
+    want = (32768_c_int64_t * rate_hz) / 96000_c_int64_t
+    symspec_fft_size = 1
+    do while (symspec_fft_size < want)
+      symspec_fft_size = 2 * symspec_fft_size
+    end do
+  end function symspec_fft_size
 
   subroutine set_runtime_params(rate_hz, nfft, nfft_big) bind(C, name="set_runtime_params_")
     use iso_c_binding
@@ -823,6 +854,7 @@ end subroutine
         (draft%nhsym == 280 .or. draft%nhsym == 302)) then
       request%snap_idx = merge(1, 2, draft%nhsym == 280)
       request%snap_seq = snap_seq(request%snap_idx)
+      request%lag_counted = snap_refused_seq(request%snap_idx) == request%snap_seq
       ! No fill has ever happened for this slot (no snapshot support in the
       ! caller): fall back to the input-generation rule.
       if (request%snap_seq == 0) request%snap_idx = 0
@@ -851,11 +883,21 @@ end subroutine
       active_request_id = request%id
       active_input_generation = request%input_generation
       active_snap_idx = 0
+      active_request_lagged = .false.
       if (request%snap_idx > 0) then
         ! Automatic pass: valid while its snapshot is intact, even if the
         ! minute has rolled over. A live request more than one generation old
         ! (monitoring stopped, period changed) is still dropped.
         active_request_expired = snap_valid_seq(request%snap_idx) /= request%snap_seq
+        ! Counted before the generation rule below, so a request that is both
+        ! overwritten and from before a monitoring stop still counts: its
+        ! snapshot was lost because the decoder did not get to the pass in time,
+        ! whether or not a stop also happened.
+        active_request_lagged = active_request_expired
+        if (active_request_lagged .and. (.not. request%lag_counted)) then
+          lag_event_count = lag_event_count + 1
+          lag_last_kind = 2
+        endif
         if (active%ndiskdat == 0 .and. &
             live_input_generation - request%input_generation >= 2) active_request_expired = .true.
         if (.not. active_request_expired) then
@@ -890,8 +932,33 @@ end subroutine
     snap_seq(idx) = snap_seq(idx) + 1
     snap_valid_seq(idx) = 0
     ok = .not. snap_busy(idx)
+    if (.not. ok) then
+      snap_refused_seq(idx) = snap_seq(idx)
+      lag_event_count = lag_event_count + 1
+      lag_last_kind = 1
+    endif
     call unlock_decode_requests()
   end subroutine
+
+  subroutine note_decoder_lag(kind)
+    integer, intent(in) :: kind
+    call lock_decode_requests()
+    lag_event_count = lag_event_count + 1
+    lag_last_kind = kind
+    call unlock_decode_requests()
+  end subroutine
+
+  integer(c_int) function get_decoder_lag_count() bind(C, name="get_decoder_lag_count")
+    call lock_decode_requests()
+    get_decoder_lag_count = lag_event_count
+    call unlock_decode_requests()
+  end function
+
+  integer(c_int) function get_decoder_lag_kind() bind(C, name="get_decoder_lag_kind")
+    call lock_decode_requests()
+    get_decoder_lag_kind = lag_last_kind
+    call unlock_decode_requests()
+  end function
 
   subroutine snapshot_fill_end(idx)
     integer, intent(in) :: idx

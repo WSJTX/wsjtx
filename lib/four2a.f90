@@ -1,4 +1,13 @@
+module four2a_patience
+  implicit none
+  ! The calling thread's planning patience for four2a; below 0, /patience/'s.
+  integer :: patience_override = -1
+  !$omp threadprivate(patience_override)
+end module four2a_patience
+
 subroutine four2a(a,nfft,ndim,isign,iform)
+  use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw,      &
+       wsjt_tsan_acquire_four2a_setup, wsjt_tsan_release_four2a_setup
 
 ! IFORM = 1, 0 or -1, as data is
 ! complex, real, or the first half of a complex array.  Transform
@@ -20,6 +29,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
 ! actual computations.
 
   use fftw3
+  use four2a_patience, only: patience_override
   parameter (NPMAX=2100)                 !Max number of stored plans
   parameter (NSMALL=16385)               !Max half complex size of "small" FFTs
   complex a(nfft)                        !Array to be transformed
@@ -38,6 +48,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
 
   found_plan = .false.
   !$omp critical(four2a_setup)
+  call wsjt_tsan_acquire_four2a_setup()
   do i=1,nplan
      if(nfft.eq.nn(i) .and. isign.eq.ns(i) .and.                     &
           iform.eq.nf(i) .and. nloc.eq.nl(i)) then
@@ -59,11 +70,13 @@ subroutine four2a(a,nfft,ndim,isign,iform)
 
 ! Planning: FFTW_ESTIMATE, FFTW_ESTIMATE_PATIENT, FFTW_MEASURE, 
 !            FFTW_PATIENT,  FFTW_EXHAUSTIVE
+     npat=npatience
+     if(patience_override.ge.0) npat=patience_override
      nflags=FFTW_ESTIMATE
-     if(npatience.eq.1) nflags=FFTW_ESTIMATE_PATIENT
-     if(npatience.eq.2) nflags=FFTW_MEASURE
-     if(npatience.eq.3) nflags=FFTW_PATIENT
-     if(npatience.eq.4) nflags=FFTW_EXHAUSTIVE
+     if(npat.eq.1) nflags=FFTW_ESTIMATE_PATIENT
+     if(npat.eq.2) nflags=FFTW_MEASURE
+     if(npat.eq.3) nflags=FFTW_PATIENT
+     if(npat.eq.4) nflags=FFTW_EXHAUSTIVE
 
      if(nfft.le.NSMALL) then
         jz=nfft
@@ -72,6 +85,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
      endif
 
      !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
+     call wsjt_tsan_acquire_fftw()
      if(isign.eq.-1 .and. iform.eq.1) then
         call sfftw_plan_dft_1d(plan(i),nfft,a,a,FFTW_FORWARD,nflags)
      else if(isign.eq.1 .and. iform.eq.1) then
@@ -83,6 +97,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
      else
         stop 'Unsupported request in four2a'
      endif
+     call wsjt_tsan_release_fftw()
      !$omp end critical(fftw)
 
      if(nfft.le.NSMALL) then
@@ -91,6 +106,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
         a(1:jz)=aa(1:jz)
      endif
   end if
+  call wsjt_tsan_release_four2a_setup()
   !$omp end critical(four2a_setup)
 
   call sfftw_execute(plan(i))
@@ -103,7 +119,9 @@ subroutine four2a(a,nfft,ndim,isign,iform)
 ! The test is only to silence a compiler warning:
      if(ndim.ne.-999) then
         !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
+        call wsjt_tsan_acquire_fftw()
         call sfftw_destroy_plan(plan(i))
+        call wsjt_tsan_release_fftw()
         !$omp end critical(fftw)
      end if
   enddo

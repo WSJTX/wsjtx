@@ -17,6 +17,7 @@ namespace
 void TransceiverBase::start (unsigned sequence_number) noexcept
 {
   CAT_TRACE ("#: " << sequence_number);
+  failure_reported_ = false;
 
   QString message;
   try
@@ -72,6 +73,8 @@ void TransceiverBase::set (TransceiverState const& s,
         }
       if (requested_.online ())
         {
+          bool const prepare_mode = s.mode () != UNK && !s.ptt ();
+          if (prepare_mode) begin_mode_command (s, sequence_number);
           bool audio_cmd {false};
           if (requested_.receive_policy () != s.receive_policy ()) {
             do_receive_policy (s.receive_policy ());
@@ -149,7 +152,21 @@ void TransceiverBase::set (TransceiverState const& s,
                                        // Tx to Rx
               }
 
-          if (s.frequency ()    // ignore bogus zero frequencies
+          if (s.frequency_request (RigFrequency::Path::Rx)
+              || s.frequency_request (RigFrequency::Path::Tx))
+            {
+              apply_frequency (s, RigFrequency::Path::Rx, ptt_off);
+              apply_frequency (s, RigFrequency::Path::Tx, ptt_on);
+              if (s.mode () != UNK && s.mode () != requested_.mode ())
+                {
+                  do_mode (s.mode ());
+                  do_post_mode (s.mode ());
+                }
+              requested_.frequency (actual_.frequency ());
+              requested_.tx_frequency (actual_.tx_frequency ());
+              requested_.split (actual_.split ());
+            }
+          else if (s.frequency ()    // ignore bogus zero frequencies
               && ((s.frequency () != requested_.frequency () // and QSY
                    || (s.mode () != UNK && s.mode () != requested_.mode ())))) // or mode change
             {
@@ -181,6 +198,7 @@ void TransceiverBase::set (TransceiverState const& s,
                   requested_.split (actual_.split ());
                 }
             }
+          if (prepare_mode) finish_mode_command (sequence_number);
           if (ptt_on)
             {
               do_ptt (true);
@@ -193,6 +211,27 @@ void TransceiverBase::set (TransceiverState const& s,
           // record what actually changed
             if (ptt_on || ptt_off) requested_.ptt (actual_.ptt ());
         }
+          else
+            {
+              if (prepare_mode)
+                {
+                  do_mode (s.mode ());
+                  do_post_mode (s.mode ());
+                  finish_mode_command (sequence_number);
+                }
+              for (auto path : {RigFrequency::Path::Rx, RigFrequency::Path::Tx})
+                {
+                  auto const request = s.frequency_request (path);
+                  auto& result = frequency_results_[path == RigFrequency::Path::Tx];
+                  if (request && !(RigFrequency::same_operation (request, result.request)
+                                   && result.outcome == RigFrequency::Outcome::Established))
+                    {
+                      result = {request, RigFrequency::Outcome::Deferred, RigFrequency::Basis::Retained,
+                        path == RigFrequency::Path::Tx ? actual_.tx_frequency () : actual_.frequency ()};
+                      Q_EMIT frequency_result (result);
+                    }
+                }
+            }
     }
 	}
   catch (std::exception const& e)
@@ -207,6 +246,18 @@ void TransceiverBase::set (TransceiverState const& s,
     }
   if (!message.isEmpty ())
     {
+      for (auto path : {RigFrequency::Path::Rx, RigFrequency::Path::Tx})
+        {
+          auto const request = s.frequency_request (path);
+          auto& result = frequency_results_[path == RigFrequency::Path::Tx];
+          if (request && (!RigFrequency::same_operation (request, result.request)
+                          || result.outcome == RigFrequency::Outcome::Pending))
+            {
+              result = {request, RigFrequency::Outcome::Failed, RigFrequency::Basis::Retained,
+                path == RigFrequency::Path::Tx ? actual_.tx_frequency () : actual_.frequency ()};
+              Q_EMIT frequency_result (result);
+            }
+        }
       offline (message);
     }
 }
@@ -214,12 +265,16 @@ void TransceiverBase::set (TransceiverState const& s,
 void TransceiverBase::startup ()
 {
   CAT_TRACE ("startup\n");
+  failure_reported_ = false;
+  for (auto& basis : frequency_basis_) basis = RigFrequency::Basis::Retained;
+  for (auto& result : frequency_results_) result = RigFrequency::Result {};
   QString message;
   try
     {
       actual_.online (true);
       requested_.online (true);
       auto res = do_start ();
+      frequency_resolution_ = RigFrequency::resolution_hz (res);
       do_post_start ();
       Q_EMIT resolution (res);
     }
@@ -242,6 +297,14 @@ void TransceiverBase::startup ()
 void TransceiverBase::shutdown ()
 {
   CAT_TRACE ("shutdown\n");
+  if (mode_timer_) mode_timer_->stop ();
+  mode_command_active_ = false;
+  mode_settling_ = false;
+  mode_observation_pending_ = false;
+  mode_expected_ = UNK;
+  mode_observed_ = UNK;
+  mode_published_ = UNK;
+  mode_published_kind_ = ModeStatusKind::Unavailable;
   may_update u {this};
   if (requested_.online ())
     {
@@ -300,20 +363,152 @@ void TransceiverBase::stop () noexcept
     }
 }
 
-void TransceiverBase::update_rx_frequency (Frequency rx)
+void TransceiverBase::apply_frequency (TransceiverState const& s, RigFrequency::Path path, bool force)
+{
+  using namespace RigFrequency;
+  auto const index = path == Path::Tx;
+  auto const request = s.frequency_request (path);
+  if (!request) return;
+  auto const cached = frequency_results_[index];
+  if (request.generation < frequency_generation_) return;
+  auto const value = index ? s.tx_frequency () : s.frequency ();
+  auto const current = index ? actual_.tx_frequency () : actual_.frequency ();
+  bool const arrangement_matches = (!index || actual_.split () == (value != 0))
+    && (s.mode () == UNK || s.mode () == actual_.mode ());
+  if (same_operation (request, cached.request)
+      && cached.outcome != Outcome::Deferred
+      && (cached.outcome != Outcome::Established || (current == value && arrangement_matches && !force)))
+    {
+      Q_EMIT frequency_result (cached);
+      return;
+    }
+  frequency_generation_ = request.generation;
+  if (cached.request && cached.outcome == Outcome::Pending
+      && cached.request.path != request.path && !same_operation (cached.request, request))
+    Q_EMIT frequency_result (Result {cached.request, Outcome::Deferred, Basis::Retained, current});
+  Result result {request, Outcome::Pending, Basis::Retained, current};
+  frequency_results_[index] = result;
+  frequency_polls_remaining_[index] = polls_to_stabilize;
+  if (request.target != value || (!index && !value))
+    {
+      result.outcome = Outcome::Rejected;
+      frequency_results_[index] = result;
+      Q_EMIT frequency_result (result);
+      return;
+    }
+  if (current == value && frequency_basis_[index] != Basis::Retained && arrangement_matches && !force
+      && (!frequency_readback_expected (path, value) || frequency_basis_[index] == Basis::Readback))
+    {
+      result = {request, Outcome::Established, frequency_basis_[index], current};
+      frequency_results_[index] = result;
+      Q_EMIT frequency_result (result);
+      return;
+    }
+  Q_EMIT frequency_result (result);
+  auto const previous = active_frequency_[index];
+  auto const previous_result = active_frequency_result_[index];
+  active_frequency_[index] = request;
+  active_frequency_result_[index] = &result;
+  try
+    {
+      if (index)
+        {
+          do_tx_frequency (value, s.mode (), force);
+          if (result.outcome != Outcome::Deferred) do_post_tx_frequency (value, s.mode ());
+        }
+      else
+        {
+          do_frequency (value, s.mode (), force);
+          if (result.outcome != Outcome::Deferred) do_post_frequency (value, s.mode ());
+        }
+    }
+  catch (...)
+    {
+      active_frequency_[index] = previous;
+      active_frequency_result_[index] = previous_result;
+      result = {request, Outcome::Failed, Basis::Retained, current};
+      if (same_operation (frequency_results_[index].request, request)) frequency_results_[index] = result;
+      Q_EMIT frequency_result (result);
+      throw;
+    }
+  active_frequency_[index] = previous;
+  active_frequency_result_[index] = previous_result;
+  if (same_operation (frequency_results_[index].request, request)) frequency_results_[index] = result;
+  Q_EMIT frequency_result (result);
+}
+
+void TransceiverBase::defer_frequency (RigFrequency::Path path)
+{
+  auto result = active_frequency_result_[path == RigFrequency::Path::Tx];
+  if (result) result->outcome = RigFrequency::Outcome::Deferred;
+}
+
+void TransceiverBase::fail_pending_frequencies ()
+{
+  for (auto& result : frequency_results_)
+    if (result.request && result.outcome == RigFrequency::Outcome::Pending)
+      {
+        result.outcome = RigFrequency::Outcome::Failed;
+        Q_EMIT frequency_result (result);
+      }
+}
+
+void TransceiverBase::frequency_poll_complete ()
+{
+  using namespace RigFrequency;
+  for (auto path : {Path::Rx, Path::Tx})
+    {
+      auto const index = path == Path::Tx;
+      auto& result = frequency_results_[index];
+      if (result.request && result.outcome == Outcome::Pending
+          && frequency_readback_expected (path, result.request.target)
+          && frequency_polls_remaining_[index] && !--frequency_polls_remaining_[index])
+        {
+          result.outcome = Outcome::Failed;
+          Q_EMIT frequency_result (result);
+        }
+    }
+}
+
+void TransceiverBase::frequency_evidence (RigFrequency::Path path, Frequency value,
+                                         RigFrequency::Basis basis)
+{
+  using namespace RigFrequency;
+  auto const index = path == Path::Tx;
+  auto const operation = active_frequency_[index];
+  if (basis == Basis::Retained) basis = operation ? Basis::BackendOperation : Basis::Readback;
+  frequency_basis_[index] = basis;
+  if (operation && basis == Basis::BackendOperation
+      && frequency_readback_expected (path, operation.target)) return;
+  auto& result = active_frequency_result_[index] ? *active_frequency_result_[index] : frequency_results_[index];
+  auto const pending = operation ? operation :
+    (result.outcome == Outcome::Pending ? result.request : Request {});
+  Q_EMIT frequency_observation (Evidence {pending ? pending.generation : frequency_generation_, ++frequency_serial_,
+    pending ? pending.path : path, value, basis, pending});
+  if (pending && same_operation (result.request, pending)
+      && within_resolution (value, pending.target, frequency_resolution_))
+    {
+      result = {pending, Outcome::Established, basis, value};
+      if (!operation) Q_EMIT frequency_result (result);
+    }
+}
+
+void TransceiverBase::update_rx_frequency (Frequency rx, RigFrequency::Basis basis)
 {
   CAT_TRACE ("frequency: " << rx);
   if (rx)
     {
       actual_.frequency (rx);
-      requested_.frequency (rx);    // track rig changes
+      if (!active_frequency_[0]) requested_.frequency (rx);
+      frequency_evidence (RigFrequency::Path::Rx, rx, basis);
     }
 }
 
-void TransceiverBase::update_other_frequency (Frequency tx)
+void TransceiverBase::update_other_frequency (Frequency tx, RigFrequency::Basis basis)
 {
   CAT_TRACE ("frequency: " << tx);
   actual_.tx_frequency (tx);
+  frequency_evidence (RigFrequency::Path::Tx, tx, basis);
 }
 
 void TransceiverBase::update_split (bool state)
@@ -327,6 +522,91 @@ void TransceiverBase::update_mode (MODE m)
   CAT_TRACE ("mode: " << m);
   actual_.mode (m);
   requested_.mode (m);    // track rig changes
+}
+
+void TransceiverBase::observe_mode (MODE m)
+{
+  update_mode (m);
+  if (m == UNK) return;
+  mode_observed_ = m;
+  mode_observation_sequence_ = last_sequence_number_;
+  mode_observation_pending_ = true;
+}
+
+void TransceiverBase::begin_mode_command (TransceiverState const& s, unsigned sequence_number)
+{
+  bool const same_pending = mode_settling_ && mode_expected_ == s.mode ()
+    && mode_frequency_ == s.frequency ();
+  mode_expected_ = s.mode ();
+  mode_frequency_ = s.frequency ();
+  mode_sequence_ = sequence_number;
+  mode_command_active_ = true;
+  mode_observation_pending_ = false;
+  publish_mode_status (mode_expected_, ModeStatusKind::Preparing, sequence_number);
+  if (same_pending) return;
+  if (!mode_timer_)
+    {
+      mode_timer_ = new QTimer {this};
+      mode_timer_->setSingleShot (true);
+      connect (mode_timer_, &QTimer::timeout, this, &TransceiverBase::settle_mode);
+    }
+  mode_settling_ = true;
+  mode_settling_clock_.start ();
+  mode_timer_->start (polls_to_stabilize * 500);
+}
+
+void TransceiverBase::finish_mode_command (unsigned sequence_number)
+{
+  if (!mode_command_active_ || sequence_number != mode_sequence_) return;
+  refresh_mode_observation ();
+  mode_command_active_ = false;
+  if (!mode_readback_expected ())
+    {
+      mode_timer_->stop ();
+      mode_settling_ = false;
+      publish_mode_status (mode_expected_, ModeStatusKind::Applied, mode_sequence_);
+    }
+  else if (mode_settling_clock_.elapsed () >= polls_to_stabilize * 500)
+    {
+      settle_mode ();
+    }
+  else
+    {
+      publish_mode_observation ();
+    }
+}
+
+void TransceiverBase::settle_mode ()
+{
+  if (mode_command_active_ || !mode_settling_) return;
+  mode_settling_ = false;
+  if (mode_observation_pending_)
+    publish_mode_observation ();
+  else
+    publish_mode_status (UNK, ModeStatusKind::Unavailable, mode_sequence_);
+}
+
+void TransceiverBase::publish_mode_observation ()
+{
+  if (!mode_observation_pending_ || mode_command_active_) return;
+  if (!actual_.online () || actual_.ptt ())
+    {
+      mode_observation_pending_ = false;
+      return;
+    }
+  if (mode_settling_ && (mode_observed_ != mode_expected_
+                          || mode_observation_sequence_ < mode_sequence_)) return;
+  publish_mode_status (mode_observed_, ModeStatusKind::Observed, mode_observation_sequence_);
+  if (!mode_settling_) mode_observation_pending_ = false;
+}
+
+void TransceiverBase::publish_mode_status (MODE mode, ModeStatusKind kind, unsigned sequence_number)
+{
+  if (kind != ModeStatusKind::Preparing
+      && mode_published_ == mode && mode_published_kind_ == kind) return;
+  mode_published_ = mode;
+  mode_published_kind_ = kind;
+  Q_EMIT mode_status ({mode, kind}, sequence_number);
 }
 
 void TransceiverBase::update_PTT (bool state)
@@ -357,6 +637,7 @@ void TransceiverBase::update_swr (unsigned int p)
 void TransceiverBase::update_complete (bool force_signal)
 {
   CAT_TRACE ("force signal: " << force_signal) << '\n';
+  publish_mode_observation ();
   if ((do_pre_update () && actual_ != last_) || force_signal)
     {
       Q_EMIT update (actual_, last_sequence_number_);
@@ -367,6 +648,8 @@ void TransceiverBase::update_complete (bool force_signal)
 void TransceiverBase::offline (QString const& reason)
 {
   CAT_TRACE ("reason: " << reason << '\n');
+  if (failure_reported_) return;
+  failure_reported_ = true;
   Q_EMIT failure (reason);
   try
     {
