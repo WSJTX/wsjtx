@@ -1075,6 +1075,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (m_messageClient, &MessageClient::highlight_callsign, ui->decodedTextBrowser, &DisplayText::highlight_callsign);
   connect (m_messageClient, &MessageClient::switch_configuration, m_multi_settings, &MultiSettings::select_configuration);
   connect (m_messageClient, &MessageClient::configure, this, &MainWindow::remote_configure);
+  connect (m_messageClient, &MessageClient::annotation_info, this, &MainWindow::annotate_callsign);
 
   // Hook up WSPR band hopping
   connect (ui->band_hopping_schedule_push_button, &QPushButton::clicked
@@ -16586,6 +16587,23 @@ void MainWindow::remote_configure (QString const& mode, quint32 frequency_tolera
     }
   tx_watchdog (false);
   QApplication::alert (this);
+}
+
+// AnnotationInfo from a UDP server: a value per Hound callsign, shown in the Score column of the Fox
+// "Stations calling" list and used by its "User defined" sort. A sort_order of 0xFFFFFFFF removes the
+// callsign's value; the callsign "CLEARALL!" removes them all.
+void MainWindow::annotate_callsign(QString const &callsign, bool sort_order_provided, quint32 sort_order) {
+  // if callsign is CLEARALL! clear the list
+  if (callsign == "CLEARALL!") {
+    m_annotated_callsigns.clear();
+    return;
+  }
+  if (sort_order_provided) {
+    if (sort_order == quint32_max)
+      m_annotated_callsigns.remove(callsign);
+    else
+      m_annotated_callsigns[callsign] = sort_order;
+  }
 }
 
 QString MainWindow::WSPR_message()
