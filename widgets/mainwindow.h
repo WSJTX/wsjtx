@@ -870,8 +870,14 @@ private:
   void abortSuperFoxTxStart();
   void displayFoxTxMsgs();
   void jtty_tx(QString message);
-  void commitJttyLiveEntry();
-  void startJttyLiveStream();
+  void setJttyPttEnabled(bool on);
+  void updateJttyPttStateLabel();
+  void maybeCommitJttyLiveEntry();
+  void maybeTopUpJttyFiller();
+  bool jttyPendingIsOnlyFiller() const;
+  qint64 jttyQueuedSamples() const;
+  void commitJttyLiveEntry();     // deprecated alias, Ctrl+K
+  void startJttyLiveStream();     // deprecated alias, Alt+J
   void autoAdvanceJttyLiveEntry();
   void idleFlushJttyLiveEntry();
   bool commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, bool isFinal);
@@ -1536,6 +1542,8 @@ private:
   TxAudioQueueProgress m_jttyQueueProgress;
   bool m_feedingJttyTransmitQueue {false};
   qint64 m_jttyDisplayedEndSample {0};
+  // Most recently started segment was filler; drives the Diddle/Tx label.
+  bool m_jttyDiddling {false};
   QString m_jttyQueueNotice;
   bool m_jttyLiveEntryArmed {false};
   bool m_guardingJttyLiveEntryLock {false};
@@ -1546,7 +1554,7 @@ private:
   QVector<PendingLiveEntryCommit> m_jttyLiveEntryPending;
   // Frames from commits that have fully drained since the box was last cleared; the frame-count label adds this to still-pending progress.
   int m_jttyLiveEntryFramesSent {0};
-  // Fires a batch flush of whatever's safely committable after a short typing pause, so auto-advance doesn't wait indefinitely for kJttyAutoAdvanceBatchWords to pile up on a short message.
+  // Releases a trailing unterminated word once typing pauses.
   QTimer m_jttyAutoAdvanceIdleTimer;
   qint64 m_jttyTxRequestId;
   qint64 m_jttyEnqueueId;

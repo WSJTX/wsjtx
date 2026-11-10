@@ -17,8 +17,9 @@
 namespace Jtty
 {
   // A content-free "keep transmitting" pattern (ordinary TEXT5-encoded text, nothing protocol-special) used to bridge a typing pause without PTT dropping/re-keying; '<' isn't used in normal chat text, so it's recognized and suppressed wherever JTTY text is displayed or logged.
+  // One block = one frame; longer filler delays typed text and PTT-off.
   inline QString const jttyFillerText =
-    QStringLiteral ("<<<<< <<<<<");
+    QStringLiteral ("<<<<<");
 
   inline bool isJttyFillerText (QString const& text)
   {

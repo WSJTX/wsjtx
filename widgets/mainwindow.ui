@@ -4061,6 +4061,16 @@ Double-click to reset to the standard 73 message</string>
                <item row="1" column="0">
                 <layout class="QVBoxLayout" name="verticalLayout_jttySend">
                  <item>
+                  <widget class="QLabel" name="labelJttyPttState">
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
+                   </property>
+                   <property name="toolTip">
+                    <string>JTTY transmit state. F9 turns PTT on and off; Esc stops immediately and clears the message.</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
                   <widget class="QPushButton" name="pbSendMessage">
                    <property name="minimumSize">
                     <size>
