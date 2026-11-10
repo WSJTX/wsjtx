@@ -1016,27 +1016,6 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
   }
 }
 
-void TCITransceiver::txAudioData(quint32 len, float * data)
-{
-  if (len % TciStream::DefaultChannels || (len && !data)) {
-    return;
-  }
-
-  TciStream::Header chrono {};
-  chrono.receiver = 0u;
-  chrono.sampleRate = audioSampleRate;
-  chrono.length = len;
-  QByteArray tx;
-  if (!TciStream::prepare_tx_audio_frame (&tx, chrono, TciStream::DefaultChannels)) {
-    return;
-  }
-
-  if (len) {
-    std::memcpy (TciStream::float_payload (&tx), data, len * sizeof (float));
-  }
-  commander_->sendBinaryMessage(tx);
-}
-
 void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples,
                                        TxAudioQueueEpoch epoch,
                                        qint64 enqueueId) noexcept
