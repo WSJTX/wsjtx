@@ -1213,33 +1213,27 @@ bool MainWindow::sendJttyFunctionKey(int index)
   case 8: macro=ui->msg8->text(); break;
   default: return false;
   }
-  if(macro.simplified().isEmpty()) return false;
-  if (!m_config.prepare_radio_mode ()) return true;
-  setXIT (ui->TxFreqSpinBox->value ());
-
-  auto const context = jttyNativeMacroContext(
-    m_config, m_hisCall, ui->sbSerialNumber_2->value(), m_jttyHisCallSnr);
-  auto const compiled=Jtty::compileNativeMacro(macro,context);
-  if(compiled.status == Jtty::NativeMacroStatus::LiteralFallback) {
-    jtty_tx(compiled.text);
+  auto const control = Jtty::parseMacroPtt (macro);
+  if (control.text.isEmpty () && !control.pttOn && !control.pttOff) return false;
+  if ((control.text.contains (QStringLiteral ("%H"), Qt::CaseInsensitive)
+       || control.text.contains (QStringLiteral ("%Q"), Qt::CaseInsensitive))
+      && m_hisCall.trimmed ().isEmpty ()) {
+    showStatusWarning (tr ("Enter a DX Call before sending this macro."));
     return true;
   }
 
-  qint64 const requestId=++m_jttyTxRequestId;
-  if(compiled.status == Jtty::NativeMacroStatus::InvalidRuntime) {
-    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1").arg(compiled.error));
-    Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
-    return true;
+  // Expanded now, so the operator sees exactly what will go out. The trailing
+  // space completes the last word, so the whole macro commits in one piece:
+  // split word by word it can cost up to 2.5 times as many frames.
+  QString const text = jtty_msg_expand (control.text);
+  if (!text.isEmpty ()) {
+    QString const box = ui->Tx_Message->toPlainText ();
+    bool const needsSeparator = !box.isEmpty () && !box.at (box.size () - 1).isSpace ();
+    appendJttyTxBoxText ((needsSeparator ? QStringLiteral (" ") : QString {}) + text
+                         + QStringLiteral (" "));
   }
-
-  auto const encoded=Jtty::encodeNativeAtoms(compiled.atoms);
-  if(encoded.tones.isEmpty()) {
-    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1").arg(encoded.error));
-    Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
-    return true;
-  }
-  enqueueJttyToneSegment(requestId, compiled.text, encoded.tones.constData(),
-                         encoded.tones.size());
+  if (control.pttOn) setJttyPttEnabled (true);
+  if (control.pttOff) setJttyPttEnabled (false);
   return true;
 }
 

@@ -234,6 +234,33 @@ namespace Jtty
     return templates[functionKey - 1];
   }
 
+  // Run-set defaults: the native forms, each keying and unkeying the transmitter.
+  inline QString runMacroTemplate (int functionKey)
+  {
+    QString const body = nativeMacroTemplate (functionKey);
+    return body.isEmpty () ? body : QStringLiteral ("%[") + body + QStringLiteral ("%]");
+  }
+
+  // %[ and %] turn PTT on and off. They apply to the whole macro wherever they
+  // appear: PTT off already sends everything queued before dropping.
+  struct MacroPttControl
+  {
+    QString text;
+    bool pttOn {false};
+    bool pttOff {false};
+  };
+
+  inline MacroPttControl parseMacroPtt (QString macro)
+  {
+    MacroPttControl result;
+    result.pttOn = macro.contains (QStringLiteral ("%["));
+    result.pttOff = macro.contains (QStringLiteral ("%]"));
+    macro.replace (QStringLiteral ("%["), QStringLiteral (" "));
+    macro.replace (QStringLiteral ("%]"), QStringLiteral (" "));
+    result.text = macro.simplified ();
+    return result;
+  }
+
   enum class MessageStyle : qint8 { Contest = 0, Ft8 = 1 };
 
   // QSettings key for one function key's template under the given style, so
@@ -242,13 +269,13 @@ namespace Jtty
   {
     return style == MessageStyle::Ft8
       ? QStringLiteral ("JTTY_FT8_msg%1").arg (functionKey)
-      : QStringLiteral ("JTTY_msg%1").arg (functionKey);
+      : QStringLiteral ("JTTY_Run_msg%1").arg (functionKey);
   }
 
   inline QString messageStyleDefaultTemplate (MessageStyle style, int functionKey)
   {
     return style == MessageStyle::Ft8
-      ? ft8StyleMacroTemplate (functionKey) : nativeMacroTemplate (functionKey);
+      ? ft8StyleMacroTemplate (functionKey) : runMacroTemplate (functionKey);
   }
 
   inline QString formatSnr (int snr)

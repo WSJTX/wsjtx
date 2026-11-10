@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include "widgets/JttyMessages.hpp"
+#include "widgets/JttyTransmitText.hpp"
 
 class TestJttyMessages final
   : public QObject
@@ -1090,11 +1091,11 @@ private slots:
   void messageStyleHelpersDistinguishContestAndFt8 ()
   {
     QCOMPARE (Jtty::messageStyleSettingsKey (Jtty::MessageStyle::Contest, 3),
-              QString {"JTTY_msg3"});
+              QString {"JTTY_Run_msg3"});
     QCOMPARE (Jtty::messageStyleSettingsKey (Jtty::MessageStyle::Ft8, 3),
               QString {"JTTY_FT8_msg3"});
     QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Contest, 1),
-              Jtty::nativeMacroTemplate (1));
+              Jtty::runMacroTemplate (1));
     QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Ft8, 1),
               Jtty::ft8StyleMacroTemplate (1));
   }
@@ -1108,6 +1109,81 @@ private slots:
     QVERIFY (!Jtty::isJttyFillerText (QStringLiteral ("FOX <<<<<")));
   }
 
+  void macroPttTokensAreStrippedAndReported ()
+  {
+    auto c = Jtty::parseMacroPtt (QStringLiteral ("%[CQ %M CQ%]"));
+    QCOMPARE (c.text, QStringLiteral ("CQ %M CQ"));
+    QVERIFY (c.pttOn);
+    QVERIFY (c.pttOff);
+
+    c = Jtty::parseMacroPtt (QStringLiteral ("%[%H DE %M "));
+    QCOMPARE (c.text, QStringLiteral ("%H DE %M"));
+    QVERIFY (c.pttOn);
+    QVERIFY (!c.pttOff);
+
+    c = Jtty::parseMacroPtt (QStringLiteral ("BTU %H DE %M K%]"));
+    QCOMPARE (c.text, QStringLiteral ("BTU %H DE %M K"));
+    QVERIFY (!c.pttOn);
+    QVERIFY (c.pttOff);
+
+    c = Jtty::parseMacroPtt (QStringLiteral ("599%]%[TU"));
+    QCOMPARE (c.text, QStringLiteral ("599 TU"));
+
+    c = Jtty::parseMacroPtt (QStringLiteral ("%]"));
+    QVERIFY (c.text.isEmpty ());
+    QVERIFY (c.pttOff);
+
+    c = Jtty::parseMacroPtt (QStringLiteral ("%H AGN?"));
+    QCOMPARE (c.text, QStringLiteral ("%H AGN?"));
+    QVERIFY (!c.pttOn);
+    QVERIFY (!c.pttOff);
+  }
+
+  void runDefaultsWrapTheNativeForms ()
+  {
+    for (int k = 1; k <= 8; ++k) {
+      QCOMPARE (Jtty::runMacroTemplate (k),
+                QStringLiteral ("%[") + Jtty::nativeMacroTemplate (k) + QStringLiteral ("%]"));
+      QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Contest, k),
+                Jtty::runMacroTemplate (k));
+    }
+    QVERIFY (Jtty::runMacroTemplate (0).isEmpty ());
+  }
+
+  // F-keys now send their expanded text through the Tx box rather than as
+  // native atoms. Sent whole, that text must cost no more frames.
+  void runDefaultsAsTextCostNoMoreFramesThanNativeForms ()
+  {
+    struct Profile { Jtty::NativeExchangeProfile profile; QString exchange; };
+    Profile const profiles[] {
+      {Jtty::NativeExchangeProfile::None, {}},
+      {Jtty::NativeExchangeProfile::RttyRoundup, QStringLiteral ("MA")},
+      {Jtty::NativeExchangeProfile::FieldDay, QStringLiteral ("1A EMA")},
+    };
+    for (auto const& p : profiles) {
+      auto const context = Jtty::nativeMacroContext (
+        QStringLiteral ("K1ABC"), QStringLiteral ("W9XYZ"), 107, QStringLiteral ("FN42"), -7,
+        p.profile, p.exchange);
+      for (int k = 1; k <= 8; ++k) {
+        auto const compiled = Jtty::compileNativeMacro (Jtty::nativeMacroTemplate (k), context);
+        QVERIFY (compiled.isNative ());
+        int const nativeFrames =
+          Jtty::encodeNativeAtoms (compiled.atoms).tones.size () / Jtty::transmitFrameSymbols;
+
+        auto const control = Jtty::parseMacroPtt (Jtty::runMacroTemplate (k));
+        auto const text = Jtty::expandLiteralMacro (control.text, context);
+        auto const encoded = Jtty::encodeTransmitText (text, p.profile, true);
+        QCOMPARE (encoded.status, Jtty::TransmitTextStatus::Encoded);
+        int textFrames = 0;
+        for (auto const& segment : encoded.segments) {
+          textFrames += segment.transmit.tones.size () / Jtty::transmitFrameSymbols;
+        }
+        QVERIFY2 (textFrames <= nativeFrames,
+                  qPrintable (QStringLiteral ("F%1 [%2]: %3 frames as text, %4 native")
+                              .arg (k).arg (text).arg (textFrames).arg (nativeFrames)));
+      }
+    }
+  }
   void fillerStripLeavesRealTextUnaffected ()
   {
     QCOMPARE (Jtty::stripJttyFillerText (QStringLiteral ("FOX JUMPED OVER")),

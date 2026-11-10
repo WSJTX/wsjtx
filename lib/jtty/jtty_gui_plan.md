@@ -4,14 +4,14 @@ A companion to `jtty_gui.md`, offered for discussion. It proposes how the guidel
 
 ## Where things stand (`feat/jtty-new-GUI`)
 
-Phase 1 is implemented and bench-tested; phase 2 is implemented and awaiting
-hands-on testing; phases 3–5 are not started. The
+Phases 1 and 2 are implemented and tested; phase 3a is implemented and
+awaiting hands-on testing; phases 3b–5 are not started. The
 transmit machinery the guidelines describe already existed — what phase 1
 replaced was the control layer on top of it.
 
 - **One PTT state.** `F9` turns PTT on and off. On, the Tx box streams out frame by frame and diddle fills any gap; off finishes what is queued, then drops PTT. `Esc` aborts immediately and clears the box. Ctrl+K, Alt+J, Alt+K, Ctrl+H and Ctrl+Shift+K survive as aliases for one beta. The **Enable Tx** button is deliberately not involved — it stays hidden in JTTY, so none of the auto-sequencing behind it is touched.
-- **Commits are frame-driven.** Text leaves the box when the audio backlog falls below one frame, not in 5-word batches. The compaction holdback is 0 for typed text, kept at 3 for macro text the box will carry from phase 3.
-- **F-keys still skip the Tx box.** F1–F8 encode the macro directly and queue it, so macro text never appears in the box and never gets the yellow "sent" highlighting. Phase 3 changes this.
+- **Commits are frame-driven.** Text leaves the box when the audio backlog falls below one frame, not in 5-word batches. The compaction holdback is 0; phase 3a found macro text doesn't need one either (see phase 3).
+- **F-keys go through the Tx box (phase 3a).** An F-key expands its macro, appends it to the box, and obeys `%[` / `%]`, so macro text gets the same highlighting as typed text and `Esc` stops both.
 - **Keyboard capture (phase 2).** `Esc`, F1–F10 work regardless of focus, in the main window and the Wide Graph; typing anywhere except an editable field goes to the end of the Tx box.
 - **Already done and worth keeping:** unlimited message length, gapless chaining of queued messages, yellow sent / gray queued coloring, locking of committed text against edits, and the holdback that keeps the compact encoder from splitting a shorthand.
 - **Known gaps:** the Tx echo is segment-granular while transmission is frame-granular (see phase 5), and PTT state shows only in a minimal Rx/Tx/Diddle label.
@@ -53,11 +53,63 @@ box without moving focus there.
 
 ### Phase 3: Macros
 
-- **Add `%[` and `%]` to the macro language**. A typical run-mode exchange becomes `%[%H 599 %N%]`.
-- **F-keys insert their text into the Tx box** rather than queuing it separately, so macro and typed text get the same highlighting and both can be stopped with `Esc`.
-  - *To verify first:* F-keys now use dedicated compact native encodings (`NativeForm::CallExchange` etc.). Confirm that the typed-text encoder, with its 3-word lookahead, produces equally compact frames for the same text. If not, macro text in the box must carry a marker so it keeps its compact encoding.
-- **Macro sets:** Run, S&P and Chat by default, plus user-defined sets, replacing the present Contest/FT8 combo box. Shift+F1–F8 could give a second bank, as in MMTTY.
-- **A macro editor dialog with user-editable button labels**, replacing the eight always-visible line edits and freeing space on the main panel.
+Split into 3a (F-keys through the Tx box; implemented, awaiting hands-on
+test) and 3b (macro sets and editor; not started).
+
+**Compactness check (done).** All 15 native forms, in each of the None, RTTY
+Roundup and Field Day exchange profiles, take exactly as many frames when
+their expanded text is encoded in one piece as they do as native atoms. Tones
+are identical in 33 of the 45 cases; the other 12 (`%E` and `599 %N` forms)
+send the exchange as plain text rather than a structured atom, at the same
+frame count. Committed one word at a time, though, a macro costs up to 2.5×
+the frames (`%H TU CQ %M CQ`: 2 whole, 5 split), so a macro must be committed
+in one piece. Appending the whole expanded macro, with a trailing space, in a
+single step guarantees that; no holdback is needed.
+
+- *To revisit:* decoding is not affected by sending exchanges as plain text
+  rather than structured atoms, so we accept it for now. We might reconsider
+  later — David (`dchristle`) to comment.
+
+**3a — F-keys through the Tx box (implemented)**
+- **`%[` and `%]`** turn PTT on and off, through the same `setJttyPttEnabled()`
+  `F9` uses. They apply to the whole macro wherever they appear: the text is
+  appended first, then `%[` keys up, then `%]` stops gracefully (PTT off
+  already sends everything in the box before dropping). A macro with neither
+  just queues as type-ahead. A typical run-mode exchange is `%[%H %E%]`.
+- **An F-key expands its macro when pressed** and appends the result plus a
+  trailing space to the Tx box, so the operator sees exactly what will go out
+  and can still edit it until it is sent.
+- **A macro using `%H` or `%Q` is refused while DX Call is empty**, with a
+  red status-bar warning (`showStatusWarning()`), rather than sending an
+  exchange without a call (the
+  native path used to refuse these).
+- The separate native-atom F-key path is gone from the GUI. The N1MM/MMTTY
+  route keeps its own native compilation and is unaffected.
+- Contest-set defaults are now the Run set below, stored under a new settings
+  key (`JTTY_Run_msg1`–`8`), so earlier saved Contest macros are ignored.
+- The serial-number bump still keys on a sent message starting with `TU `;
+  phase 4's `%L` replaces that heuristic.
+- Tests: `test_jtty_messages` checks `%[` / `%]` parsing, the Run defaults, and
+  that every Run default costs no more frames as text than as native atoms.
+
+**3b — Macro sets and editor (next)**
+- **Macro sets:** Run, S&P and Chat, plus user-defined sets, chosen from a
+  combo box that replaces Contest/FT8. The FT8-style placeholders are
+  dropped; anyone who wants them can make a user set. Existing saved macros
+  are simply overwritten — there have been no JTTY contests yet.
+- **Shift+F1–F8 as a second bank**, 16 macros per set. In JTTY this overrides
+  Shift+F1 (copyright notice) and Shift+F6 (decode remaining files); WAV
+  testing in JTTY uses Ctrl+X and Alt+F6 instead anyway.
+- **A macro editor dialog with user-editable button labels**, replacing the
+  eight always-visible line edits and freeing space on the main panel.
+- Proposed defaults, to be tried:
+  - **Run:** F1 `%[CQ %M CQ%]`, F2 `%[%H %E%]`, F3 `%[%H TU CQ %M CQ%]`,
+    F4 `%[%M%]`, F5 `%[%H%]`, F6 `%[TU NOW %Q %E%]`, F7 `%[%H AGN?%]`,
+    F8 `%[%E%]`.
+  - **S&P:** F1 `%[%M%]`, F2 `%[%H %E%]`, F3 `%[TU %M%]`, F4 `%[%M%]`,
+    F5 `%[%H%]`, F7 `%[AGN?%]`, F8 `%[%E%]`.
+  - **Chat:** F1 `%[CQ CQ CQ DE %M %M K%]`, F2 `%[%H DE %M ` (opens an over,
+    PTT stays on for typing), F3 `BTU %H DE %M K%]`, F4 `%H DE %M SK%]`.
 
 ### Phase 4: Contest workflow
 
@@ -120,8 +172,9 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   - Transmit queue: `commitJttyLiveEntryPlan()`, `execute_jtty_tx()`,
     `feedJttyTransmitQueue()`, `onJttyBackendProgress()`,
     `finishJttyDrain()`, `abort_jtty_tx()`.
-  - Macros: `sendJttyFunctionKey()` (native macro compile and direct
-    enqueue), `jtty_msg_expand()`,
+  - Macros: `sendJttyFunctionKey()` (parse `%[`/`%]` with
+    `Jtty::parseMacroPtt()`, expand, append to the box, toggle PTT),
+    `jtty_msg_expand()`,
     `on_comboBoxJttyStyle_currentIndexChanged()` (Contest/FT8 set swap via
     QSettings).
 - `widgets/JttyKeyRouter.{hpp,cpp}` — pure key-routing rules
@@ -136,8 +189,9 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
 - `widgets/mainwindow.ui` — JTTY page `page_4`: `msg1`–`msg8`, `pbF1`–`pbF8`,
   `comboBoxJttyStyle`, `sbSerialNumber_2`, `pbSendMessage`,
   `labelJttyFrameCount`, `Tx_Message`.
-- `widgets/JttyMessages.hpp` — filler text (`jttyFillerText`), macro
-  templates (`nativeMacroTemplate`, `ft8StyleMacroTemplate`), macro context.
+- `widgets/JttyMessages.hpp` — filler text (`jttyFillerText`), `parseMacroPtt()`, macro
+  templates (`nativeMacroTemplate`, `runMacroTemplate`, `ft8StyleMacroTemplate`),
+  macro context.
 - `widgets/JttyLiveEntry.hpp` — `planIncrementalCommit()`,
   `maxCompactAtomWords` (3).
 - `lib/jtty/JttyTransmit.{hpp,cpp}` — encoder: `NativeForm` list,

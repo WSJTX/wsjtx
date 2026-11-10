@@ -323,6 +323,7 @@ public:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(TxEvidence::TxOutputError const& error);
   void showStatusMessage(const QString& statusMsg);
+  void showStatusWarning(const QString& statusMsg);
   // JTTY text submission is asynchronous. The returned request id is completed
   // by accepted/rejected signals; accepted means queued for backend transmit,
   // not finished on RF. Graceful external OFF commands should stop submitting
@@ -1407,6 +1408,8 @@ private:
   QString m_fm0;
   QString m_fm1;
   QString m_xSent;               //Contest exchange sent
+  QMetaObject::Connection m_statusWarningConnection;
+  QString m_statusBarStyleBeforeWarning;
   QString m_xRcvd;               //Contest exchange received
   QString m_currentBand;
   QString m_currentBandPeriod;
