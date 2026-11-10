@@ -164,6 +164,8 @@ on the *Enable Tx* button, which will turn orange. In your next Tx
 sequence a reply will be sent automatically to a CQing station that
 satisfies your chosen selection rule.
 
+Disabling Wait features disarms Pounce; re-enabling them does not rearm it.
+
 image::cqtype.png[align="center",alt="cqtype"]
 
 TIP: When using *Max Dist*, *Max dB*, or *Min dB* the program
