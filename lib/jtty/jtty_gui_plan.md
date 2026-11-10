@@ -2,18 +2,27 @@
 
 A companion to `jtty_gui.md`, offered for discussion. It proposes how the guidelines in that document could be implemented, and adds a few suggestions aimed at making JTTY comfortable for operators who already know RTTY, for contesting and for rag-chewing.
 
-## Where things stand (3.3.0-beta5 / `develop`)
+## Where things stand (`feat/jtty-new-GUI`)
 
-Most of the transmit machinery the guidelines describe already exists. What needs replacing is the control layer on top of it.
+Phase 1 is implemented and bench-tested; phases 2–5 are not started. The
+transmit machinery the guidelines describe already existed — what phase 1
+replaced was the control layer on top of it.
 
-- **Three ways to transmit.** Ctrl+K sends the Tx box once. Alt+J starts a live session that sends as you type and fills pauses with `<<<<< <<<<<` (effectively the diddle). Alt+K sends a sign-off and ends the session. An RTTY operator has to learn a model their other programs don't use.
-- **F-keys skip the Tx box.** F1–F8 encode the macro directly and queue it, so macro text never appears in the box and never gets the yellow "sent" highlighting.
-- **Keyboard capture is partial.** Only Esc and F1–F8 work from anywhere in the main window. Typing reaches the Tx box only when it already has focus. 
-- **Already done and worth keeping:** unlimited message length, gapless chaining of queued messages, yellow sent / gray queued coloring, locking of committed text against edits, and a 3-word holdback so the compact encoder never splits a shorthand.
+- **One PTT state.** `F9` turns PTT on and off. On, the Tx box streams out frame by frame and diddle fills any gap; off finishes what is queued, then drops PTT. `Esc` aborts immediately and clears the box. Ctrl+K, Alt+J, Alt+K, Ctrl+H and Ctrl+Shift+K survive as aliases for one beta. The **Enable Tx** button is deliberately not involved — it stays hidden in JTTY, so none of the auto-sequencing behind it is touched.
+- **Commits are frame-driven.** Text leaves the box when the audio backlog falls below one frame, not in 5-word batches. The compaction holdback is 0 for typed text, kept at 3 for macro text the box will carry from phase 3.
+- **F-keys still skip the Tx box.** F1–F8 encode the macro directly and queue it, so macro text never appears in the box and never gets the yellow "sent" highlighting. Phase 3 changes this.
+- **Keyboard capture is still partial.** Only `Esc`, `F9` and F1–F8 work from anywhere in the main window. Typing reaches the Tx box only when it already has focus — this is phase 2's job, and no routing code exists yet.
+- **Already done and worth keeping:** unlimited message length, gapless chaining of queued messages, yellow sent / gray queued coloring, locking of committed text against edits, and the holdback that keeps the compact encoder from splitting a shorthand.
+- **Known gaps:** the Tx echo is segment-granular while transmission is frame-granular (see phase 5), and PTT state shows only in a minimal Rx/Tx/Diddle label.
 
 ## Proposed plan
 
-### Phase 1: One PTT model (the core change)
+### Phase 1: One PTT model (the core change) — implemented
+
+Shipped as proposed except: **Enable Tx** is not a PTT control (it stays hidden
+in JTTY, so `F9` is the only toggle until `%[` / `%]` arrive in phase 3), and
+the old shortcuts were kept as aliases rather than retired. Diddle also had to
+shrink to one frame and be queued half a frame ahead; see the commit for why.
 
 - **One state replaces three.** "PTT on" means the existing armed live session. **Enable Tx**, `F9` and `%[` all turn it on. With PTT on, the Tx box is streamed out frame by frame, and diddle fills any time it runs empty.
 - `%]`, `F9`-while-on, and **EnableTX**-while-on stop a transmission gracefully. Whatever is already in the box
@@ -69,9 +78,9 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
 
 ## Open questions
 
-1. **Esc:** clear the whole box, or only the unsent part? (I think a visible record of what went out will be available in the QSO Frequency pane.)
-2. **Enter:** drive the "Enter Sends Message" sequence, or leave that for a later version?
-3. **Old shortcuts:** remove them now, or keep as aliases for one beta?
+1. ~~**Esc:** clear the whole box, or only the unsent part?~~ Resolved: clears the whole box.
+2. **Enter:** drive the "Enter Sends Message" sequence, or leave that for a later version? (Still open; phase 4.)
+3. ~~**Old shortcuts:** remove them now, or keep as aliases for one beta?~~ Resolved: kept as aliases for one beta.
 
 ## Appendix: code map for implementers
 
