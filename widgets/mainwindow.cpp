@@ -1565,6 +1565,16 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (&m_footswitch, &FootswitchInput::restored, this, [this] (QString const& port) {
       showStatusMessage (tr ("Footswitch active again on %1").arg (port));
     });
+  // Settings is about to open CAT or PTT (e.g. Test CAT) on the port the
+  // running footswitch holds: let go of it first. It is started again
+  // when Settings closes (applyFootswitchSettings refuses a clashing port).
+  connect (&m_config, &Configuration::footswitch_port_needed, this, [this] {
+      if (!(m_footswitch.isActive () || m_footswitch.isRetrying ())) return;
+      stopFootswitchTx ();
+      m_footswitch.stop ();
+      m_footswitchPortReleased = true;
+      statusBar ()->showMessage (tr ("Footswitch released: its port is needed for CAT or PTT"));
+    });
   applyFootswitchSettings ();
 
   killFileTimer.setSingleShot(true);
@@ -3568,6 +3578,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   } else {
     keep_frequency = false;
     inSettings = false;
+    if (m_footswitchPortReleased) applyFootswitchSettings ();  // Test CAT/PTT released its port
   }
 }
 
@@ -13104,6 +13115,7 @@ void MainWindow::applyFootswitchSettings ()
 {
   stopFootswitchTx ();           // drop any footswitch TX first
   m_footswitch.stop ();
+  m_footswitchPortReleased = false;
   if (!m_config.footswitch_enabled ()) return;
   auto const port = m_config.footswitch_port ();
   if (port.isEmpty ())
@@ -13175,6 +13187,10 @@ void MainWindow::stopFootswitchTx ()
   // Decide from our own state, not the button: a rig tune can uncheck the
   // button while footswitch TX is still running.
   if (!(m_footswitchTune && m_tune)) return;
+  // Must not be lost: logging a QSO sets 'blocked' for 50 ms, which makes
+  // on_tuneButton_clicked() return early, and the 3-minute limit timer is
+  // already stopped. Stopping TX overrides it.
+  QScopedValueRollback<bool> unblock {blocked, false};
   ui->tuneButton->setChecked (false);
   on_tuneButton_clicked (false); // same path as clicking Tune off
 }
@@ -13864,7 +13880,10 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
 {
   QString tt_str;
   qreal dBAttn {a / 10.};
-  if (m_tune && m_config.pwrBandTuneMemory()) {
+  // Footswitch TX runs at the transmit drive, so slider moves during it
+  // must not change the saved Tune power.
+  bool const tuneDrive = m_tune && !m_footswitchPowerBypass;
+  if (tuneDrive && m_config.pwrBandTuneMemory()) {
     tt_str = tr ("Tune drive ");
   } else {
     tt_str = tr ("Transmit drive ");
@@ -13874,10 +13893,10 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
     QToolTip::showText (QCursor::pos (), tt_str, ui->outAttenuation);
   }
   QString curBand = ui->bandComboBox->currentText();
-  if (m_PwrBandSetOK && !m_tune && m_config.pwrBandTxMemory ()) {
+  if (m_PwrBandSetOK && !tuneDrive && m_config.pwrBandTxMemory ()) {
     m_pwrBandTxMemory[curBand] = a; // remember our Tx pwr
   }
-  if (m_PwrBandSetOK && m_tune && m_config.pwrBandTuneMemory()) {
+  if (m_PwrBandSetOK && tuneDrive && m_config.pwrBandTuneMemory()) {
     m_pwrBandTuneMemory[curBand] = a; // remember our Tune pwr
   }
   // Updating attenuation for tuning is done in stop_tuning

@@ -1394,6 +1394,7 @@ private:
   bool m_footswitchPowerBypass {false}; // Tune power memory untouched by footswitch TX
   QTimer m_footswitchLimitTimer;        // upper limit on one footswitch transmission
   bool m_footswitchLimitReached {false}; // limit message showing until release
+  bool m_footswitchPortReleased {false}; // stopped so Settings could test CAT/PTT on its port
   static int constexpr footswitch_tx_limit_ms {3 * 60 * 1000};
   QTimer TxAgainTimer;
   QTimer minuteTimer;

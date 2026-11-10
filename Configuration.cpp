@@ -4529,12 +4529,26 @@ bool Configuration::impl::footswitch_port_clashes (QString const& footswitch_por
                                                    TransceiverFactory::PTTMethod ptt_method,
                                                    QString const& ptt_port)
 {
-  auto normalized = [] (QString port) {
-    return port.trimmed ().remove (QRegularExpression {R"(^\\\\\.\\)"});
+  // Reduce a port name to the device it identifies, so different names for
+  // the same adapter match: \\.\COM4 and COM4 on Windows; on Linux and
+  // macOS symlinks such as /dev/serial/by-id/... resolve to /dev/ttyUSB0.
+  auto device = [] (QString port) {
+    port = port.trimmed ().remove (QRegularExpression {R"(^\\\\\.\\)"});
+#ifndef Q_OS_WIN
+    if (!port.isEmpty () && !port.startsWith ('/')) port.prepend ("/dev/");
+    auto const canonical = QFileInfo {port}.canonicalFilePath ();
+    if (!canonical.isEmpty ()) port = canonical;
+#endif
+    return port;
   };
+#ifdef Q_OS_WIN
+  auto constexpr case_sensitivity = Qt::CaseInsensitive;
+#else
+  auto constexpr case_sensitivity = Qt::CaseSensitive;
+#endif
   auto same = [&] (QString const& a, QString const& b) {
     return !b.trimmed ().isEmpty ()
-      && 0 == QString::compare (normalized (a), normalized (b), Qt::CaseInsensitive);
+      && 0 == QString::compare (device (a), device (b), case_sensitivity);
   };
   if (footswitch_port.trimmed ().isEmpty ()) return false;
   if (same (footswitch_port, cat_serial_port)) return true;
@@ -7298,6 +7312,17 @@ bool Configuration::impl::open_rig (bool force)
       try
         {
           if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
+          // The running footswitch still holds its saved port, which the
+          // settings being opened (e.g. Test CAT) may now use for CAT or PTT.
+          if (footswitch_enabled_
+              && footswitch_port_clashes (footswitch_port_,
+                                          TransceiverFactory::Capabilities::serial
+                                          == transceiver_factory_.CAT_port_type (rig_data.rig_name)
+                                          ? rig_data.serial_port : QString {},
+                                          rig_data.ptt_type, rig_data.ptt_port))
+            {
+              Q_EMIT self_->footswitch_port_needed ();
+            }
           close_rig ();
           frequency_adapter_.default_projection (
             {0, calibration_.intercept, calibration_.slope_ppm, !frequency_calibration_disabled_});
