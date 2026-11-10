@@ -53,6 +53,8 @@ Most of the transmit machinery the guidelines describe already exists. What need
 - A large Tx / Rx / Diddle indicator.
 - Clear text states in the Tx box: sent (yellow), committed (gray, locked), editable (plain).
 - Transmitted text echoed into the QSO Frequency pane in its own color, as RTTY programs do.
+  - Phase 1's frame-driven commits make this more visible: each commit is its own message, so a slowly typed over is echoed as one line per ~1.9 s frame rather than one line per over. Only the local echo fragments — the frames chain gaplessly and `jtty_mdecode.f90` stitches them, so the receiving station sees continuous text. Accumulating the echo and emitting it when PTT drops would fix it.
+  - The echo is also still segment-granular (80 characters) while transmission is frame-granular (~1.9 s). Phase 1 moved it from segment start to segment completion, so aborted text is no longer echoed or written to ALL.TXT as sent; the remaining gap is the reverse, that frames sent before an `Esc` go unrecorded locally even though the far end decodes them. Echoing per frame via `segment.frameCharStarts` (already captured for the highlight split) closes both, and could reuse the growing-message display the receive side uses.
 - Rag-chew comforts: adjustable font size for Rx and Tx panes; a recallable history of recent transmissions (e.g. Ctrl+Up).
 
 ### Testing
