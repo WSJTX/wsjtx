@@ -709,6 +709,10 @@ MainWindow::MainWindow(QDir const& temp_directory,
   updateJttySendButton ();
   ui->Tx_Message->setToolTip (tr ("Ctrl+K sends now (one-shot). Alt+J starts a live session that keeps sending as you type, until Alt+K signs off. Ctrl+Shift+K clears the box. Ctrl+H inserts a chat opener."));
   ui->Tx_Message->installEventFilter (this);
+#ifdef Q_OS_MAC
+  // Qt maps the Command key to ControlModifier on macOS, so the shortcut is Cmd+right-click there
+  ui->q65Button->setToolTip (tr ("<html><head/><body><p>Switch to Q65 mode.<br> Cmd+right-click to switch to Q65 Pileup mode.</p></body></html>"));
+#endif
   configureModeControlsLayout ();
   // A non-editable QComboBox always left-aligns its closed-box text, so fake a
   // centered "label" via a read-only editable line edit; the dropdown list's
