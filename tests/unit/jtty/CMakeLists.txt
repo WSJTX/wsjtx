@@ -272,6 +272,13 @@ target_link_libraries (test_jtty_live_entry PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_live_entry)
 add_test (NAME test_jtty_live_entry COMMAND test_jtty_live_entry)
 
+add_executable (test_jtty_key_router
+  test_jtty_key_router.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/JttyKeyRouter.cpp)
+target_link_libraries (test_jtty_key_router PRIVATE Qt5::Test Qt5::Widgets)
+add_test (NAME test_jtty_key_router COMMAND test_jtty_key_router)
+set_tests_properties (test_jtty_key_router PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
 target_link_libraries (test_jtty_n1mm PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_n1mm)

@@ -168,6 +168,7 @@ set (wsjtx_CXXSRCS
   widgets/TxDriveSlider.cpp
   widgets/plotter.cpp
   widgets/JttySpectrum.cpp
+  widgets/JttyKeyRouter.cpp
   widgets/widegraph.cpp
   widgets/echograph.cpp
   widgets/echoplot.cpp

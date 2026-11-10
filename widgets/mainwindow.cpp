@@ -984,6 +984,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect(m_wideGraph.data (), SIGNAL(setXIT2(int)),this,SLOT(setXIT(int)));
   connect(m_wideGraph.data(), &WideGraph::jttyDecodeAgainAtSample,
           this, &MainWindow::jttyDecodeAgainAtSample);
+  installJttyWideGraphKeyFilter ();
   m_wideGraph->setReferenceSpectrumAvailable(
         QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")));
 
@@ -4180,6 +4181,7 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
           }
 
         auto const key_event = static_cast<QKeyEvent *> (event);
+        if (jtty_key_struck (key_event)) return true;
         if (object == ui->Tx_Message && !key_event->isAutoRepeat ()
             && key_event->key () == Qt::Key_K
             && key_event->modifiers () == (Qt::ControlModifier | Qt::ShiftModifier))

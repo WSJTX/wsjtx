@@ -2,14 +2,18 @@
 #include "ui_mainwindow.h"
 #include "widegraph.h"
 #include "commons.h"
+#include "JttyKeyRouter.hpp"
 #include "JttyMessages.hpp"
 #include "JttyN1mm.hpp"
 #include "JttyReceiveLine.hpp"
 #include "JttyTransmitText.hpp"
 #include "Logger.hpp"
 #include "models/DecodeHighlightingModel.hpp"
+#include <QApplication>
 #include <QByteArray>
 #include <QDateTime>
+#include <QKeyEvent>
+#include <functional>
 #include <QSettings>
 #include <QTextCharFormat>
 #include <QTextCursor>
@@ -1089,20 +1093,110 @@ void MainWindow::jttyDecodeAgainAtSample(quint64 reception, qint64 sample)
   startJttyReview(reception, sample, true);
 }
 
+// Called for every key press in the main window and the Wide Graph, before
+// the focused widget sees it. Returns true when the key has been consumed.
 bool MainWindow::jtty_key_struck(QKeyEvent * e)
 {
-  // Hard abort: stop mid-frame and clear the box, unlike F9's graceful stop.
-  if(e->key() == Qt::Key_Escape) {
-    clearJttyLiveEntry();
+  if (m_mode != "JTTY") return false;
+  // Child dialogs (Log QSO, message boxes) also pass through MainWindow's filter.
+  auto * const focusWidget = QApplication::focusWidget ();
+  auto * const window = focusWidget ? focusWidget->window () : QApplication::activeWindow ();
+  if (window != this && window != m_wideGraph.data ()) return false;
+  auto const focus = Jtty::classifyKeyFocus (focusWidget, ui->Tx_Message);
+  auto const route = Jtty::routeKey (e->key (), e->modifiers (), e->text (), focus);
+  using Action = Jtty::KeyRoute::Action;
+  bool const repeat = e->isAutoRepeat ();
+  switch (route.action) {
+  case Action::None:
+    return false;
+  case Action::AppendToTxBox:
+    appendJttyTxBoxText (route.text);
+    return true;
+  case Action::BackspaceTxBox:
+    backspaceJttyTxBox ();
+    return true;
+  case Action::Abort:
+    // Hard abort: stop mid-frame and clear the box, unlike F9's graceful stop.
+    if (!repeat) clearJttyLiveEntry ();
+    return true;
+  case Action::TogglePtt:
+    if (!repeat) setJttyPttEnabled (!m_jttyLiveEntryArmed);
+    return true;
+  case Action::FocusDxCall:
+    if (!repeat) focusJttyDxCall ();
+    return true;
+  case Action::FunctionKey:
+    if (!repeat) sendJttyFunctionKey (route.functionKey);
+    return true;
+  case Action::StepTxFrequency:
+    ui->TxFreqSpinBox_2->setValue (ui->TxFreqSpinBox_2->value () + route.txStepHz);
     return true;
   }
-  if(e->key() == Qt::Key_F9) {
-    setJttyPttEnabled(!m_jttyLiveEntryArmed);
-    return true;
+  return false;
+}
+
+void MainWindow::appendJttyTxBoxText(QString const& text)
+{
+  QTextCursor cursor = ui->Tx_Message->textCursor ();
+  cursor.movePosition (QTextCursor::End);
+  cursor.insertText (text, QTextCharFormat {});
+  ui->Tx_Message->setTextCursor (cursor);
+  ui->Tx_Message->ensureCursorVisible ();
+}
+
+// Only unsent text can be deleted; the committed prefix is locked.
+void MainWindow::backspaceJttyTxBox()
+{
+  if (ui->Tx_Message->document ()->characterCount () - 1 <= m_jttyLiveEntryCommitted) return;
+  QTextCursor cursor = ui->Tx_Message->textCursor ();
+  cursor.movePosition (QTextCursor::End);
+  cursor.deletePreviousChar ();
+  ui->Tx_Message->setTextCursor (cursor);
+}
+
+void MainWindow::focusJttyDxCall()
+{
+  activateWindow ();
+  raise ();
+  ui->dxCallEntry->setFocus (Qt::ShortcutFocusReason);
+  ui->dxCallEntry->selectAll ();
+}
+
+namespace
+{
+  class JttyKeyForwarder final
+    : public QObject
+  {
+  public:
+    JttyKeyForwarder (std::function<bool (QKeyEvent *)> handler, QObject * parent)
+      : QObject {parent}
+      , m_handler {std::move (handler)}
+    {
+    }
+
+  protected:
+    bool eventFilter (QObject * object, QEvent * event) override
+    {
+      if (event->type () == QEvent::KeyPress
+          && m_handler (static_cast<QKeyEvent *> (event))) return true;
+      return QObject::eventFilter (object, event);
+    }
+
+  private:
+    std::function<bool (QKeyEvent *)> m_handler;
+  };
+}
+
+// The Wide Graph is a separate top-level window: operators click the
+// waterfall to tune, then keep typing, so its keys must reach the Tx box too.
+void MainWindow::installJttyWideGraphKeyFilter()
+{
+  auto * forwarder = new JttyKeyForwarder {
+    [this] (QKeyEvent * e) { return jtty_key_struck (e); }, m_wideGraph.data ()};
+  m_wideGraph->installEventFilter (forwarder);
+  for (auto * child : m_wideGraph->findChildren<QWidget *> ()) {
+    child->installEventFilter (forwarder);
   }
-  int const functionKey=e->key()-Qt::Key_F1+1;
-  if(functionKey < 1 || functionKey > 8) return false;
-  return sendJttyFunctionKey(functionKey);
 }
 
 bool MainWindow::sendJttyFunctionKey(int index)

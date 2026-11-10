@@ -4,14 +4,15 @@ A companion to `jtty_gui.md`, offered for discussion. It proposes how the guidel
 
 ## Where things stand (`feat/jtty-new-GUI`)
 
-Phase 1 is implemented and bench-tested; phases 2–5 are not started. The
+Phase 1 is implemented and bench-tested; phase 2 is implemented and awaiting
+hands-on testing; phases 3–5 are not started. The
 transmit machinery the guidelines describe already existed — what phase 1
 replaced was the control layer on top of it.
 
 - **One PTT state.** `F9` turns PTT on and off. On, the Tx box streams out frame by frame and diddle fills any gap; off finishes what is queued, then drops PTT. `Esc` aborts immediately and clears the box. Ctrl+K, Alt+J, Alt+K, Ctrl+H and Ctrl+Shift+K survive as aliases for one beta. The **Enable Tx** button is deliberately not involved — it stays hidden in JTTY, so none of the auto-sequencing behind it is touched.
 - **Commits are frame-driven.** Text leaves the box when the audio backlog falls below one frame, not in 5-word batches. The compaction holdback is 0 for typed text, kept at 3 for macro text the box will carry from phase 3.
 - **F-keys still skip the Tx box.** F1–F8 encode the macro directly and queue it, so macro text never appears in the box and never gets the yellow "sent" highlighting. Phase 3 changes this.
-- **Keyboard capture is still partial.** Only `Esc`, `F9` and F1–F8 work from anywhere in the main window. Typing reaches the Tx box only when it already has focus — this is phase 2's job, and no routing code exists yet.
+- **Keyboard capture (phase 2).** `Esc`, F1–F10 work regardless of focus, in the main window and the Wide Graph; typing anywhere except an editable field goes to the end of the Tx box.
 - **Already done and worth keeping:** unlimited message length, gapless chaining of queued messages, yellow sent / gray queued coloring, locking of committed text against edits, and the holdback that keeps the compact encoder from splitting a shorthand.
 - **Known gaps:** the Tx echo is segment-granular while transmission is frame-granular (see phase 5), and PTT state shows only in a minimal Rx/Tx/Diddle label.
 
@@ -31,12 +32,24 @@ shrink to one frame and be queued half a frame ahead; see the commit for why.
 - **Commit text as each frame is needed, not in 5-word batches.** Today text is committed every 5 words or after a 1.5 s pause. Instead, take text from the box only when the audio queue drops below about one frame (~1.9 s) of audio. Text stays editable as long as possible and latency is lowest.
 - **Retire the old shortcuts** (Ctrl+K, Alt+J, Alt+K, Ctrl+H), perhaps keeping them as quiet aliases for one beta.
 
-### Phase 2: Keyboard routing
+### Phase 2: Keyboard routing — implemented, awaiting hands-on test
+
+Decisions taken: `F10` jumps to **DX Call** (selecting its contents, so typing
+replaces them); the Wide Graph counts as part of the main window; Backspace
+away from any field deletes the last *unsent* character of the Tx box, while
+arrows, Page Up/Down, Home/End and Tab stay with the focused widget; `Enter`
+is unchanged until phase 4. Global keys act only when unmodified, so
+Shift+F1, Shift+F6, Ctrl+F11 and similar keep their existing meanings, and
+auto-repeat never re-fires F1–F10 or `Esc`. Keys in child dialogs (Log QSO,
+message boxes) are never routed. Typing from elsewhere is appended to the Tx
+box without moving focus there.
 
 - **Move JTTY key routing** into its own small, unit-testable class (e.g. `widgets/JttyKeyRouter.{hpp,cpp}`), following the `DecodeOutputPlan` precedent.
 - **Fields that need typing keep their keystrokes.** "Typing anywhere goes to the Tx box" must exempt **DX Call**, **DX Grid**, the serial-number box, spin boxes and the macro editor. Proposed rule: if focus is in an editable field, that field keeps the key; otherwise printable keys go to the end of the Tx box.
 - **Global keys work regardless of focus:** `F1` – `F8`, `F9`, `Esc`, and whatever key (perhaps `Tab` or `F10`?) is used to initiate entering a to-be-worked **Dx Call** (Phase 4).
 - Existing bindings to respect: `F11`/`F12` for Rx frequency step — useful for tuning.
+- **Shift+F11 / Shift+F12** step the Tx frequency down / up by 150 Hz in
+  JTTY (60 Hz in other modes), from any focus and from the Wide Graph.
 
 ### Phase 3: Macros
 
@@ -85,25 +98,41 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
 ## Appendix: code map for implementers
 
 - `widgets/mainwindow_jtty.cpp` — JTTY GUI logic:
-  - `jtty_key_struck()` (Esc, F1–F8), `sendJttyFunctionKey()` (native macro
-    compile and direct enqueue), `jtty_msg_expand()`.
-  - Live entry: `commitJttyLiveEntry()` (Ctrl+K), `startJttyLiveStream()`
-    (Alt+J), `insertJttyChatSignoff()` (Alt+K), `insertJttyChatOpener()`
-    (Ctrl+H), `clearJttyLiveEntry()` (Ctrl+Shift+K),
-    `autoAdvanceJttyLiveEntry()` / `idleFlushJttyLiveEntry()` (5-word batch /
-    1.5 s idle commits), `commitJttyLiveEntryPlan()`.
-  - Display: `applyJttyLiveEntryFormatting()`, `guardJttyLiveEntryLock()`,
-    `updateJttyLiveEntryFrameLabel()`.
-  - Transmit queue: `execute_jtty_tx()`, `feedJttyTransmitQueue()`,
-    `onJttyBackendProgress()`, `finishJttyDrain()` (keeps an armed session
-    filler-padded), `abort_jtty_tx()`.
-  - `on_comboBoxJttyStyle_currentIndexChanged()` — Contest/FT8 macro set
-    swap via QSettings.
-- `widgets/mainwindow.cpp` — `keyPressEvent` calls `jtty_key_struck()`; the
-  Tx_Message shortcuts (Ctrl+K, Alt+J, Alt+K, Ctrl+H, undo/redo block) live in
-  `eventFilter`'s `QEvent::KeyPress` case; `on_actionJTTY_triggered()` sets up
-  the mode; `WSPR_config()` selects JTTY controls page
-  (`controls_stack_widget` index 1).
+  - Keys: `jtty_key_struck()` asks `Jtty::routeKey()` what to do with each
+    key press and acts on it (`appendJttyTxBoxText()`,
+    `backspaceJttyTxBox()`, `focusJttyDxCall()`, `setJttyPttEnabled()`,
+    `sendJttyFunctionKey()`, `clearJttyLiveEntry()`).
+    `installJttyWideGraphKeyFilter()` routes the Wide Graph's keys the same
+    way.
+  - PTT (phase 1): `setJttyPttEnabled()` is the single on/off entry point;
+    `maybeCommitJttyLiveEntry()` commits text when the backlog
+    (`jttyQueuedSamples()`) drops below a frame; `maybeTopUpJttyFiller()` /
+    `jttyPendingIsOnlyFiller()` keep diddle half a frame ahead;
+    `idleFlushJttyLiveEntry()` releases a trailing unterminated word after a
+    pause; `updateJttyPttStateLabel()` shows Rx/Tx/Diddle.
+  - Phase-1 aliases: `commitJttyLiveEntry()` (Ctrl+K),
+    `startJttyLiveStream()` (Alt+J), `insertJttyChatSignoff()` (Alt+K),
+    `insertJttyChatOpener()` (Ctrl+H), `clearJttyLiveEntry()` (Ctrl+Shift+K,
+    and `Esc`).
+  - Tx box display: `applyJttyLiveEntryFormatting()`,
+    `guardJttyLiveEntryLock()`, `updateJttyLiveEntryFrameLabel()`;
+    `m_jttyLiveEntryCommitted` is the length of the locked prefix.
+  - Transmit queue: `commitJttyLiveEntryPlan()`, `execute_jtty_tx()`,
+    `feedJttyTransmitQueue()`, `onJttyBackendProgress()`,
+    `finishJttyDrain()`, `abort_jtty_tx()`.
+  - Macros: `sendJttyFunctionKey()` (native macro compile and direct
+    enqueue), `jtty_msg_expand()`,
+    `on_comboBoxJttyStyle_currentIndexChanged()` (Contest/FT8 set swap via
+    QSettings).
+- `widgets/JttyKeyRouter.{hpp,cpp}` — pure key-routing rules
+  (`classifyKeyFocus()`, `routeKey()`); unit tests in
+  `tests/unit/jtty/test_jtty_key_router.cpp`.
+- `widgets/mainwindow.cpp` — `eventFilter`'s `QEvent::KeyPress` case calls
+  `jtty_key_struck()` first (the filter is installed on every main-window
+  child), then handles the Tx_Message alias shortcuts; `keyPressEvent` also
+  calls it as a fallback; `on_actionJTTY_triggered()` sets up the mode;
+  `WSPR_config()` selects the JTTY controls page (`controls_stack_widget`
+  index 1).
 - `widgets/mainwindow.ui` — JTTY page `page_4`: `msg1`–`msg8`, `pbF1`–`pbF8`,
   `comboBoxJttyStyle`, `sbSerialNumber_2`, `pbSendMessage`,
   `labelJttyFrameCount`, `Tx_Message`.

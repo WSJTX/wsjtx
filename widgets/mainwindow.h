@@ -940,6 +940,10 @@ private:
   void handleJttyTxWatchdog();
   void startJttyTxWatchdog(int durationMs);
   bool jtty_key_struck(QKeyEvent * e);
+  void appendJttyTxBoxText(QString const& text);
+  void backspaceJttyTxBox();
+  void focusJttyDxCall();
+  void installJttyWideGraphKeyFilter();
   bool sendJttyFunctionKey(int index);
   struct JttyReceiveState;
   std::shared_ptr<JttyReceiveState> m_jttyReceive;
