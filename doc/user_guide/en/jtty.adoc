@@ -32,16 +32,17 @@ Decoding from a WAV file is nearly instantaneous, but in live operation
 you will see each message grow, one frame at a time, as it arrives.
 
 - Click on the waterfall to move the Rx frequency to a signal, or set
-*Rx* directly. *F11* and *F12* move the Rx frequency down or up by
-1 Hz.
+*Rx* directly. *F11* and *F12* move the Rx frequency down or up by 1
+Hz. *Shift+F11* and *Shift+F12* move Tx frequency down or up by 150
+Hz.
 
 - Check *Lower case* if you find lower-case text easier to read.
 
 .Transmitting
 
 Text to be sent goes into the *Tx message* box at the bottom right of
-the main window. You don't need to click in the box first: whenever
-the keyboard focus is not in an entry field such as *DX Call*, any
+the main window. You don't need to click in the box first: when
+keyboard focus is not in an entry field such as *DX Call*, any
 letters, digits and punctuation you type will go to the end of the
 box.
 
@@ -58,15 +59,16 @@ press *F9* (or a macro key) to send it.
 - *Send message* sends what is in the box and then returns to receive,
 like pressing *F9* twice.
 
-- *Esc* stops a transmission immediately and clears the box.
+- *Esc* stops a transmission immediately and clears the *Tx message*
+box.
 
-Text in the box changes appearance as it moves along. Text you can
-still edit is plain. Text committed for transmission turns gray and
-can no longer be changed. Text already sent is highlighted in the same
-color as your transmissions in the *QSO Frequency* window, a frame at a
-time. When PTT drops, the sent text is removed from the box, but
-anything you have typed ahead stays. A label below *Send message*
-shows the number of frames sent and the total required.
+Text in the box changes appearance as a transmission progresses. Text
+you can still edit is plain. Text committed for transmission turns
+gray and can no longer be changed. Text already sent is highlighted in
+the same color as your transmissions in the *QSO Frequency* window, one
+frame at a time. When PTT drops, already-sent text is removed from the
+box, but anything you have typed ahead remains. A label below *Send
+message* shows the number of frames sent and the total required.
 
 A large indicator above *Send message* shows the transmitter state:
 *Tx* (red) while sending text, *Diddle* (orange) while PTT is on with
@@ -81,16 +83,18 @@ shows exactly the frames that went out.
 
 TIP: To try transmitting without going on the air, put your radio in
 test mode, turn the output power to zero, or use a dummy load, and
-listen to the JTTY waveform on your computer's speaker.
+listen to the JTTY waveform with the radio's monitor function or the
+computer's speaker.
 
 .Function-Key Macros
 
 Function keys *F1* through *F8*, and *Shift+F1* through *Shift+F8*,
 send programmable macros. The same 16 macros appear as a 4×4 grid of
-buttons on the JTTY panel; hover over a button to see its macro. A
-macro key expands its macro and appends the result to the *Tx message*
-box, so you see exactly what will be sent and can still edit it until
-it goes out. The following tokens are available:
+buttons on the JTTY panel. Hover the mouse pointer over a button to
+see its macro. A macro key or button expands its macro content and
+appends the result to the *Tx message* box, so you see exactly what
+will be sent and can still edit it until it goes out. The following
+macro tokens are available:
 
 [width="80%",cols="1,6",options="header"]
 |===
@@ -167,7 +171,7 @@ either one before logging. *Rcvd* is cleared when the call changes.
 
 Mouse shortcuts in the decode windows help you fill these fields:
 
-- Double-click a callsign to make it the DX Call.
+- Double-click a callsign to make it the *DX Call*.
 
 - Shift+double-click a word to add it to *Rcvd*.
 
