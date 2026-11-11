@@ -1246,6 +1246,19 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
   endforeach ()
 endif ()
 
+if (WSJT_ENABLE_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSSCOMPILING)
+  add_test (NAME test_q65_submode_startup
+    COMMAND ${CMAKE_COMMAND}
+      -DAPPLICATION=$<TARGET_FILE:wsjtx>
+      -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/Q65Submode
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/q65/test_submode_startup.cmake)
+  set_tests_properties (test_q65_submode_startup PROPERTIES TIMEOUT 30)
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (test_q65_submode_startup PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
+endif ()
+
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS AND NOT WIN32)
   foreach (profile IN ITEMS automatic prompt disabled automatic-keep prompt-keep disabled-keep
       automatic-keep-call automatic-keep-grid)

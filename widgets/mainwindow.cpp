@@ -1708,7 +1708,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
     });
   }
 
-  ui->sbSubmode->setValue (vhf ? m_nSubMode : 0);  //Submodes require VHF features
+  ui->sbSubmode->setValue (vhf || m_mode == "Q65" ? m_nSubMode : 0);
 
   if(m_mode=="MSK144") {
     if (m_tci_audio) {
@@ -3469,7 +3469,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     if (rigFailed or ui->bandComboBox->currentText()=="OOB") displayDialFrequency ();   // reset frequency only when needed
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
-    if (!vhf) ui->sbSubmode->setValue (0);
+    if (!vhf && m_mode != "Q65") ui->sbSubmode->setValue (0);
 
     setup_status_bar (vhf);
     bool b = vhf && (m_mode=="JT4" or m_mode=="JT65" or
@@ -4568,7 +4568,7 @@ void MainWindow::update_generated_message_error ()
 void MainWindow::setup_status_bar (bool vhf)
 {
   auto submode = current_submode ();
-  if (vhf && submode != QChar::Null) {
+  if ((vhf || m_mode == "Q65") && submode != QChar::Null) {
     QString t{m_mode + " " + submode};
     if(m_mode=="Q65") t=m_mode + "-" + QString::number(m_TRperiod) + submode;
     mode_label.setText (t);
@@ -12028,8 +12028,8 @@ void MainWindow::on_actionQ65_triggered()
   // restore last used parameters
   ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());
   ui->sbFtol->setValue (m_settings->value ("Ftol_Q65", 50).toInt());
-  m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
   ui->sbSubmode->setValue(m_settings->value("SubMode_Q65",0).toInt());
+  m_nSubMode=ui->sbSubmode->value();
   QTimer::singleShot (50, this, [=] {
     on_sbTR_valueChanged (ui->sbTR->value());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
@@ -13990,7 +13990,7 @@ QChar MainWindow::current_submode () const
 {
   QChar submode {0};
   if (m_mode.contains (QRegularExpression {R"(^(JT65|JT9|JT4|Q65)$)"})
-      && (m_config.enable_VHF_features () || "JT4" == m_mode))
+      && (m_config.enable_VHF_features () || "JT4" == m_mode || "Q65" == m_mode))
     {
       submode = m_nSubMode + 65;
     }
