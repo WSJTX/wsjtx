@@ -48,8 +48,8 @@ JttyMacroEditor::JttyMacroEditor (Jtty::MacroLibrary const& library, QWidget * p
                          int (Jtty::EnterRole::Run));
   m_enterCombo->addItem (tr ("S&P: F4 my call, F2 exchange, F3 TU"),
                          int (Jtty::EnterRole::SearchAndPounce));
-  m_enterCombo->addItem (tr ("Nothing"), int (Jtty::EnterRole::Off));
-  m_enterCombo->setToolTip (tr ("With Enter sends message checked, what Enter sends while this set is in use."));
+  m_enterCombo->addItem (tr ("Send message (the Tx box)"), int (Jtty::EnterRole::Off));
+  m_enterCombo->setToolTip (tr ("With Enter sends message checked, what Enter does while this set is in use: step through a contest QSO, or act like the Send message button."));
   auto * enterRow = new QHBoxLayout;
   enterRow->addWidget (new QLabel {tr ("Enter sends:")});
   enterRow->addWidget (m_enterCombo);

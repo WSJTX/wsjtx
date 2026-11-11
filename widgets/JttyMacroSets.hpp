@@ -24,7 +24,8 @@ namespace Jtty
     }
   };
 
-  // What Enter sends when Enter Sends Message is on (see enterSendsKey).
+  // What Enter does when Enter Sends Message is on: step through a contest
+  // QSO (see enterSendsKey), or for Off act like the Send message button.
   enum class EnterRole { Off, Run, SearchAndPounce };
 
   struct MacroSet

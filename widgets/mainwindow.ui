@@ -4114,7 +4114,7 @@ Double-click to reset to the standard 73 message</string>
                <item row="2" column="2" alignment="Qt::AlignLeft">
                 <widget class="QCheckBox" name="cbJttyEnterSends">
                  <property name="toolTip">
-                  <string>Enter sends the next message of the QSO, as chosen for the macro set in Edit macros. Run: CQ, then call + exchange, then TU and log. S&amp;P: my call, then exchange, then TU and log.</string>
+                  <string>Enter sends, as chosen for the macro set in Edit macros. Run: CQ, then call + exchange, then TU and log. S&amp;P: my call, then exchange, then TU and log. Chat: like Send message, sending the Tx box with PTT off or ending the over with PTT on.</string>
                  </property>
                  <property name="text">
                   <string>Enter sends message</string>

@@ -136,7 +136,9 @@ single step guarantees that; no holdback is needed.
   "Enter sends"):
   - Run: no DX call, F1 (CQ); then F2 (call + exchange); then F3 (TU, log).
   - S&P: F4 (my call); then F2 (exchange); then F3 (TU, log).
-  - Nothing (Chat): Enter behaves as before.
+  - Send message (Chat): Enter in the Tx box, or anywhere typing goes to
+    it, acts like the Send message button: with PTT off it sends the box,
+    with PTT on it ends the over. Enter in DX Call keeps its usual meaning.
 
   The step follows whichever macro key was last sent, however it was sent
   (Enter, F-key or button), and resets when DX Call changes. After logging,

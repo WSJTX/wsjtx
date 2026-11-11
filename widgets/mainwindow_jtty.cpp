@@ -839,6 +839,10 @@ void MainWindow::logJttyQso()
 void MainWindow::jttyEnterSendsMessage()
 {
   auto const role = m_jttyMacros.current ().enterRole;
+  if (role == Jtty::EnterRole::Off) {
+    commitJttyLiveEntry ();  // as Send message: send the box, or end the over
+    return;
+  }
   bool const haveDxCall = !m_hisCall.trimmed ().isEmpty ();
   int const key = Jtty::enterSendsKey (role, m_jttyEnterStep, haveDxCall);
   if (!key) {
@@ -1130,8 +1134,11 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
   if (window != this && window != m_wideGraph.data ()) return false;
   auto const focus = Jtty::classifyKeyFocus (
     focusWidget, ui->Tx_Message, {ui->dxCallEntry, ui->jttyCallEntry, ui->jttySentEntry, ui->jttyReceivedEntry});
+  // A set without a QSO sequence (Chat) sends the Tx box, so Enter in DX Call
+  // keeps its usual meaning there.
   bool const enterSends = ui->cbJttyEnterSends->isChecked ()
-    && m_jttyMacros.current ().enterRole != Jtty::EnterRole::Off;
+    && (m_jttyMacros.current ().enterRole != Jtty::EnterRole::Off
+        || focus != Jtty::KeyFocus::QsoField);
   auto const route = Jtty::routeKey (e->key (), e->modifiers (), e->text (), focus, enterSends);
   using Action = Jtty::KeyRoute::Action;
   bool const repeat = e->isAutoRepeat ();
