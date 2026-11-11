@@ -255,6 +255,27 @@ private:
     QVERIFY (!input.isRetrying ());
   }
 
+  Q_SLOT void portGuardIsAskedBeforeEveryOpen ()
+  {
+    FootswitchInput input;
+    QStringList asked;
+    input.setPortGuard ([&asked] (QString const& port) {
+        asked << port;
+        return QStringLiteral ("also the PTT port");
+      });
+    QSignalSpy error {&input, &FootswitchInput::error};
+    QVERIFY (!input.start (QStringLiteral ("WSJTX_TEST_NO_SUCH_PORT"), Pin::CTS));
+    QCOMPARE (asked, QStringList {QStringLiteral ("WSJTX_TEST_NO_SUCH_PORT")});
+    QCOMPARE (error.count (), 1);
+    QVERIFY (error.at (0).at (0).toString ().contains (QStringLiteral ("also the PTT port")));
+    QVERIFY (input.isRetrying ());
+
+    // Each reconnection attempt asks again.
+    QTRY_COMPARE_WITH_TIMEOUT (asked.size (), 2, FootswitchInput::retry_interval_ms + 2000);
+    input.stop ();
+    QVERIFY (!input.isRetrying ());
+  }
+
   Q_SLOT void eachPinReadsItsOwnLine_data ()
   {
     QTest::addColumn<int> ("pin");

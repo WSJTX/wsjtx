@@ -31,7 +31,7 @@ bool FootswitchInput::start (QString const& port_name, Pin pin)
   if (!openPort ())
     {
       Q_EMIT error (tr ("Footswitch: cannot open %1: %2")
-                    .arg (port_name, port_->errorString ()));
+                    .arg (port_name, open_error_));
       retry_timer_.start ();
       return false;
     }
@@ -63,9 +63,23 @@ void FootswitchInput::stop ()
 bool FootswitchInput::openPort ()
 {
   if (port_->isOpen ()) port_->close ();
+  open_error_.clear ();
+  guard_refused_ = false;
+  // Check again on every open: a device name can refer to a different
+  // adapter after adapters are plugged in or out, and opening asserts DTR.
+  if (port_guard_)
+    {
+      open_error_ = port_guard_ (port_name_);
+      guard_refused_ = !open_error_.isEmpty ();
+      if (guard_refused_) return false;
+    }
   port_->clearError ();
   port_->setPortName (port_name_);
-  if (!port_->open (QIODevice::ReadWrite)) return false;
+  if (!port_->open (QIODevice::ReadWrite))
+    {
+      open_error_ = port_->errorString ();
+      return false;
+    }
   port_->setFlowControl (QSerialPort::NoFlowControl);
   port_->setDataTerminalReady (true); // supply for the footswitch contact
   port_->setRequestToSend (false);
@@ -110,6 +124,11 @@ void FootswitchInput::retryPort ()
       retry_timer_.stop ();
       startPolling ([this] {return readPort ();});
       Q_EMIT restored (port_name_);
+    }
+  else if (guard_refused_)
+    {
+      // Refused by the guard (not a missing device): say why.
+      Q_EMIT error (tr ("Footswitch: cannot open %1: %2").arg (port_name_, open_error_));
     }
 }
 

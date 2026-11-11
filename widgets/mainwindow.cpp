@@ -1540,6 +1540,13 @@ MainWindow::MainWindow(QDir const& temp_directory,
   tuneATU_Timer.setSingleShot(true);
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
 
+  // Checked before every open of the footswitch port, including reconnects:
+  // on Linux a /dev/serial/by-id/... name only resolves once its adapter is
+  // plugged in, so a clash can appear after the check in Settings.
+  m_footswitch.setPortGuard ([this] (QString const&) {
+      return m_config.footswitch_port_clash ()
+        ? tr ("it is also the CAT or PTT port") : QString {};
+    });
   connect (&m_footswitch, &FootswitchInput::pressed, this, &MainWindow::footswitchPressed);
   connect (&m_footswitch, &FootswitchInput::released, this, &MainWindow::footswitchReleased);
   connect (&m_footswitch, &FootswitchInput::error, this, [this] (QString const& reason) {
@@ -13193,6 +13200,15 @@ void MainWindow::stopFootswitchTx ()
   QScopedValueRollback<bool> unblock {blocked, false};
   ui->tuneButton->setChecked (false);
   on_tuneButton_clicked (false); // same path as clicking Tune off
+  // A quick tap can press and release between two guiUpdate () ticks, so
+  // PTT has not been asserted yet. Tune-off leaves m_tune set for its
+  // 250 ms delay, and the next tick would then key the transmitter with
+  // the pedal already up, so end it now instead.
+  if (0 == g_iptt && tuneButtonTimer.isActive ())
+    {
+      tuneButtonTimer.stop ();
+      end_tuning ();
+    }
 }
 
 void MainWindow::stopTuneATU()

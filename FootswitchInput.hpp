@@ -45,6 +45,11 @@ public:
   };
   using Reader = std::function<Reading ()>;
 
+  // Asked just before every open of the serial port, including each
+  // reconnection retry. Returns why the port must not be opened now
+  // (e.g. it is also the CAT or PTT port), or an empty string if it may.
+  using PortGuard = std::function<QString (QString const& port_name)>;
+
   static int constexpr poll_interval_ms {20};
   static int constexpr debounce_count {3}; // consecutive identical reads
   static int constexpr retry_interval_ms {2000};
@@ -62,6 +67,8 @@ public:
   void start (Reader reader, Pin pin);
 
   void stop ();
+
+  void setPortGuard (PortGuard guard) {port_guard_ = std::move (guard);}
 
   bool isActive () const {return poll_timer_.isActive ();}
   bool isRetrying () const {return retry_timer_.isActive ();}
@@ -94,6 +101,9 @@ private:
   QTimer poll_timer_;
   QTimer retry_timer_;
   QString port_name_;          // empty unless using a serial port
+  PortGuard port_guard_;
+  QString open_error_;         // why the last openPort () failed
+  bool guard_refused_ {false}; // ... and it was the port guard
   Pin pin_;
   bool armed_;                 // a stable release has been seen
   bool reported_waiting_;
