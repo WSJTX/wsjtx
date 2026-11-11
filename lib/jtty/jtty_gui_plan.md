@@ -182,6 +182,15 @@ single step guarantees that; no holdback is needed.
 
 ### Phase 5: Display
 
+**Echo (implemented, awaiting hands-on test).** Transmitted text is echoed
+a frame at a time, as each frame finishes sending, into one growing line
+per over (PTT on to PTT off) in the QSO Frequency pane; diddle is left
+out. `Esc` leaves exactly the frames that went out. The whole over goes to
+ALL.TXT as one line when PTT drops; the N1MM echo is still per segment.
+Code: `Jtty::sentChars()` and `Jtty::TransmitEcho` in
+`widgets/JttyTransmitEcho.hpp` (tests in `test_jtty_transmit_queue`),
+used by `updateJttyTransmitDisplay()` / `endJttyTxEcho()`.
+
 - A large Tx / Rx / Diddle indicator.
 - Clear text states in the Tx box: sent (yellow), committed (gray, locked), editable (plain).
 - Transmitted text echoed into the QSO Frequency pane in its own color, as RTTY programs do.

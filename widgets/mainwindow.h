@@ -84,6 +84,7 @@ namespace DecoderIpc {class Session;}
 #include "HoundTransmissionPolicy.hpp"
 #include "JttyLiveEntry.hpp"
 #include "JttyMacroSets.hpp"
+#include "JttyTransmitEcho.hpp"
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
@@ -128,6 +129,7 @@ class QButtonGroup;
 class QProcessEnvironment;
 class QPaintEvent;
 class QSharedMemory;
+class JttyReceiveLine;
 class QSplashScreen;
 class QSettings;
 class QLineEdit;
@@ -929,6 +931,7 @@ private:
                               int const tones[], int toneCount);
   void feedJttyTransmitQueue();
   void updateJttyTransmitDisplay(qint64 servedSamples);
+  void endJttyTxEcho();
   void updateJttySendButton();
   void onJttyBackendProgress(TxAudioQueueProgress progress);
   qint64 jttyTxCommittedSamples() const;
@@ -1563,7 +1566,10 @@ private:
   Jtty::TransmitQueue m_jttyTransmitQueue;
   TxAudioQueueProgress m_jttyQueueProgress;
   bool m_feedingJttyTransmitQueue {false};
-  qint64 m_jttyDisplayedEndSample {0};
+  // The over being echoed into the QSO Frequency pane, frame by frame.
+  Jtty::TransmitEcho m_jttyTxEcho;
+  std::shared_ptr<JttyReceiveLine> m_jttyTxEchoLine;
+  QDateTime m_jttyTxEchoStart;
   // Most recently started segment was filler; drives the Diddle/Tx label.
   bool m_jttyDiddling {false};
   QString m_jttyQueueNotice;

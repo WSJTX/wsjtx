@@ -1,5 +1,6 @@
 #include <QtTest>
 
+#include "widgets/JttyTransmitEcho.hpp"
 #include "widgets/JttyTransmitQueue.hpp"
 
 class TestJttyTransmitQueue final
@@ -99,6 +100,73 @@ private slots:
     QCOMPARE (queue.nextSegment ()->text, QString {"FRESH"});
     QVERIFY (queue.commitNext (3072));
     QCOMPARE (queue.complete (3072), QVector<qint64> {44});
+  }
+
+  // Three frames; frame starts at characters 0, 5 and 11.
+  static Jtty::TransmitSegment framed (QString const& text, qint64 endSample,
+                                       QVector<int> starts = {0, 5, 11})
+  {
+    return {text, QVector<int> (59 * 3, 1), endSample, 1500, starts};
+  }
+
+  void sentCharsStepsOneFrameAtATime ()
+  {
+    qint64 const frame = Jtty::transmitFrameSamples;
+    auto const s = framed (QStringLiteral ("CQ K1ABC CQ TEST"), 10 * frame);
+    qint64 const start = 7 * frame;
+    QCOMPARE (Jtty::sentChars (s, start), 0);
+    QCOMPARE (Jtty::sentChars (s, start + frame - 1), 0);
+    QCOMPARE (Jtty::sentChars (s, start + frame), 5);
+    QCOMPARE (Jtty::sentChars (s, start + 2 * frame), 11);
+    QCOMPARE (Jtty::sentChars (s, start + 3 * frame), s.text.size ());
+    QCOMPARE (Jtty::sentChars (s, 99 * frame), s.text.size ());
+
+    auto unframed = s;
+    unframed.frameCharStarts.clear ();
+    QCOMPARE (Jtty::sentChars (unframed, start + 2 * frame), 0);
+    QCOMPARE (Jtty::sentChars (unframed, start + 3 * frame), s.text.size ());
+
+    auto uncommitted = s;
+    uncommitted.endSample = 0;
+    QCOMPARE (Jtty::sentChars (uncommitted, 99 * frame), 0);
+  }
+
+  void echoGrowsOneOverAndSkipsDiddle ()
+  {
+    qint64 const frame = Jtty::transmitFrameSamples;
+    auto const isFiller = [] (QString const& text) { return text == QStringLiteral ("<<<"); };
+    Jtty::TransmitQueue::Request first {7, {framed (QStringLiteral ("CQ K1ABC CQ TEST"), 3 * frame)}, 1};
+    Jtty::TransmitQueue::Request diddle {8, {framed (QStringLiteral ("<<<"), 6 * frame, {0, 1, 2})}, 1};
+    Jtty::TransmitQueue::Request second {9, {framed (QStringLiteral ("DE K1ABC K"), 9 * frame, {0, 3, 6})}, 1};
+    QVector<Jtty::TransmitQueue::Request> const requests {first, diddle, second};
+
+    Jtty::TransmitEcho echo;
+    auto update = echo.update (requests, 0, isFiller);
+    QVERIFY (!update.grew);
+    QVERIFY (echo.isEmpty ());
+
+    update = echo.update (requests, frame, isFiller);
+    QVERIFY (update.grew);
+    QCOMPARE (echo.text (), QStringLiteral ("CQ K1"));
+    QCOMPARE (echo.firstRequestId (), qint64 {7});
+    QCOMPARE (echo.frequency (), 1500);
+    QVERIFY (update.completedSegments.isEmpty ());
+
+    QVERIFY (!echo.update (requests, frame + 10, isFiller).grew);
+
+    update = echo.update (requests, 6 * frame, isFiller);
+    QCOMPARE (echo.text (), QStringLiteral ("CQ K1ABC CQ TEST"));
+    QCOMPARE (update.completedSegments, QStringList {QStringLiteral ("CQ K1ABC CQ TEST")});
+
+    // A separately committed piece gets the space between words back.
+    echo.update (requests, 7 * frame, isFiller);
+    QCOMPARE (echo.text (), QStringLiteral ("CQ K1ABC CQ TEST DE"));
+    update = echo.update (requests, 9 * frame, isFiller);
+    QCOMPARE (echo.text (), QStringLiteral ("CQ K1ABC CQ TEST DE K1ABC K"));
+    QCOMPARE (update.completedSegments, QStringList {QStringLiteral ("DE K1ABC K")});
+
+    echo.reset ();
+    QVERIFY (echo.isEmpty ());
   }
 };
 

@@ -609,7 +609,7 @@ void MainWindow::execute_jtty_tones(qint64 requestId, QString const& message,
     }
     m_jttyQueueProgress = {};
     m_jttyQueueProgress.epoch = epoch;
-    m_jttyDisplayedEndSample = 0;
+    endJttyTxEcho ();
   }
 
   QByteArray bytes(reinterpret_cast<char const *> (samples.constData ()),
@@ -729,44 +729,55 @@ void MainWindow::onJttyBackendProgress(TxAudioQueueProgress progress)
 
 void MainWindow::updateJttyTransmitDisplay(qint64 servedSamples)
 {
+  // The label follows what is playing; the echo, what has been sent.
   for (auto const& request : m_jttyTransmitQueue.requests ()) {
     for (auto const& segment : request.segments) {
-      if (!segment.endSample) continue;
-      // The label follows what is playing; the echo below, what has been sent.
-      if (segment.endSample > servedSamples
+      if (segment.endSample && segment.endSample > servedSamples
           && segment.endSample - segment.sampleCount () < servedSamples) {
         m_jttyDiddling = Jtty::isJttyFillerText (segment.text);
       }
-      // Echoing at segment start would put up to 80 characters in the pane and
-      // in ALL.TXT about 30 s early, and Esc would leave them there unsent.
-      if (segment.endSample <= m_jttyDisplayedEndSample
-          || segment.endSample > servedSamples) continue;
-      m_jttyDisplayedEndSample = segment.endSample;
-      if (Jtty::isJttyFillerText (segment.text)) continue;   // idle-padding; never shown
-      m_currentMessage = segment.text;
-      write_all ("Tx", segment.text);
-      auto const resolved = DecodeHighlightingModel::resolve_colors (
-        m_config.decode_highlighting ().items (),
-        {DecodeHighlightingModel::Highlight::Tx}, QColor (Qt::yellow),
-        QColor (Qt::black));
-      JttyReceiveLine::Presentation const presentation {
-        0, request.id, QDateTime::currentDateTimeUtc (), 0.0,
-        segment.frequency, segment.text, -10, true,
-        resolved.background_, resolved.foreground_};
-      JttyReceiveLine::Options const options {
-        ui->cbLowerCase->isChecked ()};
-      JttyReceiveLine txLine;
-      auto const cursor = txLine.render (*ui->decodedTextBrowser2->document (),
-        presentation, options, ui->decodedTextBrowser2->contentFont ());
-      if (!cursor.isNull ()) {
-        ui->decodedTextBrowser2->setTextCursor (cursor);
-        ui->decodedTextBrowser2->ensureCursorVisible ();
-      }
-#ifdef WIN32
-      if (m_mmttyif) m_mmttyif->echo_message_to_n1mm (append_separator (segment.text));
-#endif
     }
   }
+
+  // Echoed a frame at a time, as the far end decodes it, into one growing
+  // line per over; echoing ahead of the audio would show text Esc never sent.
+  auto const update = m_jttyTxEcho.update (
+    m_jttyTransmitQueue.requests (), servedSamples,
+    [] (QString const& text) { return Jtty::isJttyFillerText (text); });
+  for (auto const& text : update.completedSegments) {
+    m_currentMessage = text;
+#ifdef WIN32
+    if (m_mmttyif) m_mmttyif->echo_message_to_n1mm (append_separator (text));
+#endif
+  }
+  if (!update.grew || m_jttyTxEcho.isEmpty ()) return;
+  if (!m_jttyTxEchoLine) {
+    m_jttyTxEchoLine = std::make_shared<JttyReceiveLine> ();
+    m_jttyTxEchoStart = QDateTime::currentDateTimeUtc ();
+  }
+  auto const resolved = DecodeHighlightingModel::resolve_colors (
+    m_config.decode_highlighting ().items (),
+    {DecodeHighlightingModel::Highlight::Tx}, QColor (Qt::yellow),
+    QColor (Qt::black));
+  JttyReceiveLine::Presentation const presentation {
+    0, m_jttyTxEcho.firstRequestId (), m_jttyTxEchoStart, 0.0,
+    m_jttyTxEcho.frequency (), m_jttyTxEcho.text (), -10, true,
+    resolved.background_, resolved.foreground_};
+  JttyReceiveLine::Options const options {ui->cbLowerCase->isChecked ()};
+  auto const cursor = m_jttyTxEchoLine->render (*ui->decodedTextBrowser2->document (),
+    presentation, options, ui->decodedTextBrowser2->contentFont ());
+  if (!cursor.isNull ()) {
+    ui->decodedTextBrowser2->setTextCursor (cursor);
+    ui->decodedTextBrowser2->ensureCursorVisible ();
+  }
+}
+
+// PTT has dropped: the over is complete, and ALL.TXT gets it as one line.
+void MainWindow::endJttyTxEcho()
+{
+  if (!m_jttyTxEcho.isEmpty ()) write_all ("Tx", m_jttyTxEcho.text ());
+  m_jttyTxEcho.reset ();
+  m_jttyTxEchoLine.reset ();
 }
 
 void MainWindow::updateJttySendButton()
@@ -877,6 +888,10 @@ void MainWindow::interruptJttyTx()
     captureJttyTxEvidenceTotals (-1, stop->progress.total_samples,
                                  QStringLiteral ("TCI JTTY committed total captured before abort"));
   }
+  updateJttyTransmitDisplay (stop->backend == JttyTxLifecycle::Backend::Local
+                             ? m_jttyTxQueue->progress ().served_samples
+                             : m_jttyQueueProgress.served_samples);
+  endJttyTxEcho ();
   rejectPendingJttyMessages(JttyTxRejectReason::Aborted);
   auto const cancelled = m_jttyTransmitQueue.cancel ();
   for (auto requestId : cancelled) {
@@ -942,6 +957,7 @@ void MainWindow::finishJttyDrain(JttyTxLifecycle::Drain const& drain)
     updateJttySendButton ();
     return;
   }
+  endJttyTxEcho ();
   stopTx();
   m_jttyQueueNotice = tr ("JTTY transmission complete.");
   updateJttySendButton ();
