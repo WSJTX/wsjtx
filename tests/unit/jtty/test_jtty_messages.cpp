@@ -1066,34 +1066,41 @@ private slots:
     QVERIFY (!Jtty::isJttyFillerText (QStringLiteral ("FOX <<<<<")));
   }
 
-  void macroPttTokensAreStrippedAndReported ()
+  void macroControlTokensAreStrippedAndReported ()
   {
-    auto c = Jtty::parseMacroPtt (QStringLiteral ("%[CQ %M CQ%]"));
+    auto c = Jtty::parseMacroControl (QStringLiteral ("%[CQ %M CQ%]"));
     QCOMPARE (c.text, QStringLiteral ("CQ %M CQ"));
     QVERIFY (c.pttOn);
     QVERIFY (c.pttOff);
 
-    c = Jtty::parseMacroPtt (QStringLiteral ("%[%H DE %M "));
+    c = Jtty::parseMacroControl (QStringLiteral ("%[%H DE %M "));
     QCOMPARE (c.text, QStringLiteral ("%H DE %M"));
     QVERIFY (c.pttOn);
     QVERIFY (!c.pttOff);
 
-    c = Jtty::parseMacroPtt (QStringLiteral ("BTU %H DE %M K%]"));
+    c = Jtty::parseMacroControl (QStringLiteral ("BTU %H DE %M K%]"));
     QCOMPARE (c.text, QStringLiteral ("BTU %H DE %M K"));
     QVERIFY (!c.pttOn);
     QVERIFY (c.pttOff);
 
-    c = Jtty::parseMacroPtt (QStringLiteral ("599%]%[TU"));
+    c = Jtty::parseMacroControl (QStringLiteral ("599%]%[TU"));
     QCOMPARE (c.text, QStringLiteral ("599 TU"));
 
-    c = Jtty::parseMacroPtt (QStringLiteral ("%]"));
+    c = Jtty::parseMacroControl (QStringLiteral ("%]"));
     QVERIFY (c.text.isEmpty ());
     QVERIFY (c.pttOff);
 
-    c = Jtty::parseMacroPtt (QStringLiteral ("%H AGN?"));
+    c = Jtty::parseMacroControl (QStringLiteral ("%H AGN?"));
     QCOMPARE (c.text, QStringLiteral ("%H AGN?"));
     QVERIFY (!c.pttOn);
     QVERIFY (!c.pttOff);
+    QVERIFY (!c.logQso);
+
+    c = Jtty::parseMacroControl (QStringLiteral ("%[TU %M%L%]"));
+    QCOMPARE (c.text, QStringLiteral ("TU %M"));
+    QVERIFY (c.logQso);
+    QVERIFY (c.pttOn);
+    QVERIFY (c.pttOff);
   }
 
   void fillerStripLeavesRealTextUnaffected ()

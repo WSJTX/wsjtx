@@ -5,6 +5,8 @@
 #include <Qt>
 #include <QString>
 
+#include <initializer_list>
+
 class QWidget;
 
 namespace Jtty
@@ -13,6 +15,7 @@ namespace Jtty
   enum class KeyFocus
   {
     TxBox,      // the Tx message box itself
+    QsoField,   // DX Call, Call or Received: keeps typing, but Enter can send
     TextEntry,  // any other field that accepts typing; it keeps its keys
     Other       // buttons, decode panes, the waterfall, no focus at all
   };
@@ -28,7 +31,8 @@ namespace Jtty
       TogglePtt,      // F9
       FunctionKey,    // F1-F8 give 1..8, Shift+F1-F8 give 9..16, in functionKey
       FocusDxCall,    // F10
-      StepTxFrequency // Shift+F11 / Shift+F12; txStepHz holds the signed step
+      StepTxFrequency, // Shift+F11 / Shift+F12; txStepHz holds the signed step
+      EnterSendsMessage // Enter, when Enter Sends Message is on
     };
 
     Action action {Action::None};
@@ -39,10 +43,12 @@ namespace Jtty
 
   inline constexpr int txFrequencyStepHz = 150;
 
-  KeyFocus classifyKeyFocus (QWidget const * focus, QWidget const * txBox);
+  KeyFocus classifyKeyFocus (QWidget const * focus, QWidget const * txBox,
+                             std::initializer_list<QWidget const *> qsoFields = {});
 
   KeyRoute routeKey (int key, Qt::KeyboardModifiers modifiers,
-                     QString const& text, KeyFocus focus);
+                     QString const& text, KeyFocus focus,
+                     bool enterSendsMessage = false);
 }
 
 #endif

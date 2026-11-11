@@ -105,7 +105,7 @@ private slots:
     QCOMPARE (h.qso.blockCount (), 3);
     QCOMPARE (h.all.begin (), firstBlock);
     QCOMPARE (h.qso.begin (), firstQsoBlock);
-    QCOMPARE (h.all.toPlainText (), QString {"1500  -7  CQ K1ABC FN42\n1500  -7  OTHER\n1500  -7  CQ K1ABC FN42"});
+    QCOMPARE (h.all.toPlainText (), QString {"123458 1500  -7  CQ K1ABC FN42\n123458 1500  -7  OTHER\n123458 1500  -7  CQ K1ABC FN42"});
     QCOMPARE (h.logs.size (), 2);
     QCOMPARE (h.logs.front (), QString {"1500  -7  CQ K1ABC FN42"});
     QCOMPARE (h.spots.size (), 2);
@@ -186,7 +186,7 @@ private slots:
     Harness h;
     auto const firstAnchor = h.reception.anchor;
     h.reception.displayAnchor = firstAnchor.addDays (1);
-    h.display = {true, true};
+    h.display = {true};
     h.apply ({update (1, "CQ K1ABC")});
     auto const trace = h.trace;
     h.apply ({update (1, {}, Terminal::Complete)});
@@ -317,8 +317,8 @@ private slots:
     QCOMPARE (h.intervals.size (), 2);
     auto const trace = h.trace;
     auto const original = h.all.toPlainText ();
-    JttyReceiveLine::refresh (h.all, {true, true}, h.font);
-    JttyReceiveLine::refresh (h.qso, {true, true}, h.font);
+    JttyReceiveLine::refresh (h.all, {true}, h.font);
+    JttyReceiveLine::refresh (h.qso, {true}, h.font);
     QVERIFY (h.all.toPlainText ().contains ("live complete"));
     JttyReceiveLine::refresh (h.all, {}, h.font);
     QCOMPARE (h.all.toPlainText (), original);
@@ -333,7 +333,7 @@ private slots:
     h.all.clear ();
     h.qso.clear ();
     h.apply ({update (2, "RETAINED"), update (1, "REMOVED COMPLETE", Terminal::Complete)});
-    QCOMPARE (h.all.toPlainText (), QString {"1500  -7  RETAINED"});
+    QCOMPARE (h.all.toPlainText (), QString {"123458 1500  -7  RETAINED"});
     QCOMPARE (h.qso.toPlainText (), h.all.toPlainText ());
     QCOMPARE (h.logs.size (), 1);
     QVERIFY (h.logs.front ().contains ("REMOVED COMPLETE"));

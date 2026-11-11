@@ -86,6 +86,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxNslots",m_Nslots0);
   m_settings->setValue("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->setValue("SerialNumberJTTY",ui->sbSerialNumber_2->value ());
+  m_settings->setValue ("JTTY_EnterSendsMessage", ui->cbJttyEnterSends->isChecked ());
   m_jttyMacros.save (*m_settings);
   // Superseded by the macro sets above.
   m_settings->remove ("JTTY_MessageStyle");
@@ -97,7 +98,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
   m_settings->setValue("JTTY_LowerCase",ui->cbLowerCase->isChecked());
-  m_settings->setValue("JTTY_IncludeTime",ui->cbIncludeTime->isChecked());
+  m_settings->remove ("JTTY_IncludeTime");
   m_settings->endGroup();
 
   // do this in the General group because we save the parameters from various places
@@ -288,7 +289,6 @@ void MainWindow::readSettings()
   ui->actionSWL_Mode->setChecked (SWL_mode);
   ui->cbMenus->setChecked (show_menus);
   ui->cbLowerCase->setChecked(m_settings->value("JTTY_LowerCase",false).toBool());
-  ui->cbIncludeTime->setChecked(m_settings->value("JTTY_IncludeTime",false).toBool());
   auto current_view_mode = SWL_mode ? 1 : show_menus ? 0 : 2;
   change_layout (current_view_mode);
   geometries (current_view_mode, the_geometries);
@@ -317,6 +317,7 @@ void MainWindow::readSettings()
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
   ui->sbSerialNumber_2->setValue (m_settings->value ("SerialNumberJTTY", 1).toInt ());
   m_jttyMacros.load (*m_settings);
+  ui->cbJttyEnterSends->setChecked (m_settings->value ("JTTY_EnterSendsMessage", true).toBool ());
   refreshJttyMacroControls ();
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;

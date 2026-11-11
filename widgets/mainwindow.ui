@@ -351,13 +351,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="cbIncludeTime">
-        <property name="text">
-         <string>Include Time</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <spacer name="horizontalSpacer_9">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -369,6 +362,131 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QWidget" name="jttyQsoFieldsWidget" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_jttyQsoFields">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="labelJttyCall">
+           <property name="text">
+            <string>Call:</string>
+           </property>
+           <property name="buddy">
+            <cstring>jttyCallEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="jttyCallEntry">
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>120</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Callsign being worked (the same as DX Call). F10 jumps here; double-click a callsign in a decode pane to fill it.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_jttyQsoFields">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelJttySent">
+           <property name="text">
+            <string>Sent:</string>
+           </property>
+           <property name="buddy">
+            <cstring>jttySentEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="jttySentEntry">
+           <property name="minimumSize">
+            <size>
+             <width>120</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Exchange sent to this station, saved in the log. Filled in from the serial number or the contest exchange; edit it if needed.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_jttyQsoFields2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelJttyReceived">
+           <property name="text">
+            <string>Rcvd:</string>
+           </property>
+           <property name="buddy">
+            <cstring>jttyReceivedEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="jttyReceivedEntry">
+           <property name="minimumSize">
+            <size>
+             <width>160</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Exchange received from this station, saved in the log. Shift+double-click a word in a decode pane to add it.</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
       </item>
      </layout>
     </item>
@@ -3992,6 +4110,19 @@ Double-click to reset to the standard 73 message</string>
                   </size>
                  </property>
                 </spacer>
+               </item>
+               <item row="2" column="2" alignment="Qt::AlignLeft">
+                <widget class="QCheckBox" name="cbJttyEnterSends">
+                 <property name="toolTip">
+                  <string>Enter sends the next message of the QSO, as chosen for the macro set in Edit macros. Run: CQ, then call + exchange, then TU and log. S&amp;P: my call, then exchange, then TU and log.</string>
+                 </property>
+                 <property name="text">
+                  <string>Enter sends message</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
                </item>
                <item row="3" column="2">
                 <spacer name="horizontalSpacer_8">

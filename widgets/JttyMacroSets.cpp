@@ -10,25 +10,44 @@ namespace Jtty
   {
     QString const groupName {QStringLiteral ("JttyMacroSets")};
 
-    MacroSet makeSet (QString const& name, QString const& builtIn,
+    MacroSet makeSet (QString const& name, QString const& builtIn, EnterRole enterRole,
                       std::initializer_list<Macro> macros)
     {
       MacroSet set;
       set.name = name;
       set.builtIn = builtIn;
+      set.enterRole = enterRole;
       int i = 0;
       for (auto const& macro : macros) set.macros[i++] = macro;
       return set;
+    }
+
+    QString enterRoleKey (EnterRole role)
+    {
+      switch (role) {
+      case EnterRole::Run: return QStringLiteral ("Run");
+      case EnterRole::SearchAndPounce: return QStringLiteral ("S&P");
+      case EnterRole::Off: break;
+      }
+      return QStringLiteral ("Off");
+    }
+
+    EnterRole enterRoleFromKey (QString const& key, EnterRole fallback)
+    {
+      if (key == QStringLiteral ("Run")) return EnterRole::Run;
+      if (key == QStringLiteral ("S&P")) return EnterRole::SearchAndPounce;
+      if (key == QStringLiteral ("Off")) return EnterRole::Off;
+      return fallback;
     }
   }
 
   MacroSet defaultMacroSet (QString const& builtIn)
   {
     if (builtIn == QStringLiteral ("Run")) {
-      return makeSet (builtIn, builtIn, {
+      return makeSet (builtIn, builtIn, EnterRole::Run, {
           {QStringLiteral ("CQ"), QStringLiteral ("%[CQ %M CQ%]")},
           {QStringLiteral ("Call Exch"), QStringLiteral ("%[%H %E%]")},
-          {QStringLiteral ("TU CQ"), QStringLiteral ("%[%H TU CQ %M CQ%]")},
+          {QStringLiteral ("TU CQ"), QStringLiteral ("%[%H TU CQ %M CQ%L%]")},
           {QStringLiteral ("My call"), QStringLiteral ("%[%M%]")},
           {QStringLiteral ("His call"), QStringLiteral ("%[%H%]")},
           {QStringLiteral ("TU Now"), QStringLiteral ("%[TU NOW %Q %E%]")},
@@ -37,10 +56,10 @@ namespace Jtty
         });
     }
     if (builtIn == QStringLiteral ("S&P")) {
-      return makeSet (builtIn, builtIn, {
+      return makeSet (builtIn, builtIn, EnterRole::SearchAndPounce, {
           {QStringLiteral ("My call"), QStringLiteral ("%[%M%]")},
           {QStringLiteral ("Call Exch"), QStringLiteral ("%[%H %E%]")},
-          {QStringLiteral ("TU"), QStringLiteral ("%[TU %M%]")},
+          {QStringLiteral ("TU"), QStringLiteral ("%[TU %M%L%]")},
           {QStringLiteral ("My call"), QStringLiteral ("%[%M%]")},
           {QStringLiteral ("His call"), QStringLiteral ("%[%H%]")},
           {},
@@ -49,7 +68,7 @@ namespace Jtty
         });
     }
     if (builtIn == QStringLiteral ("Chat")) {
-      return makeSet (builtIn, builtIn, {
+      return makeSet (builtIn, builtIn, EnterRole::Off, {
           {QStringLiteral ("CQ"), QStringLiteral ("%[CQ CQ CQ DE %M %M K%]")},
           {QStringLiteral ("Open"), QStringLiteral ("%[%H DE %M ")},
           {QStringLiteral ("Over"), QStringLiteral ("BTU %H DE %M K%]")},
@@ -71,6 +90,45 @@ namespace Jtty
     if (key < 1 || key > macroKeyCount) return {};
     return key <= 8 ? QStringLiteral ("F%1").arg (key)
                     : QStringLiteral ("Shift+F%1").arg (key - 8);
+  }
+
+  int enterSendsKey (EnterRole role, EnterStep step, bool haveDxCall)
+  {
+    switch (role) {
+    case EnterRole::Off:
+      return 0;
+    case EnterRole::Run:
+      if (!haveDxCall) return 1;
+      switch (step) {
+      case EnterStep::Idle:
+      case EnterStep::CallSent: return 2;
+      case EnterStep::ExchangeSent: return 3;
+      case EnterStep::Done: return 1;
+      }
+      return 0;
+    case EnterRole::SearchAndPounce:
+      if (!haveDxCall) return 0;
+      switch (step) {
+      case EnterStep::Idle: return 4;
+      case EnterStep::CallSent: return 2;
+      case EnterStep::ExchangeSent: return 3;
+      case EnterStep::Done: return 0;
+      }
+      return 0;
+    }
+    return 0;
+  }
+
+  EnterStep stepAfterKey (EnterRole role, int key, EnterStep step)
+  {
+    if (role == EnterRole::Off) return step;
+    switch (key) {
+    case 1: return role == EnterRole::Run ? EnterStep::Idle : step;
+    case 2: return EnterStep::ExchangeSent;
+    case 3: return EnterStep::Done;
+    case 4: return role == EnterRole::SearchAndPounce ? EnterStep::CallSent : step;
+    default: return step;
+    }
   }
 
   MacroLibrary::MacroLibrary ()
@@ -104,6 +162,11 @@ namespace Jtty
   {
     if (setIndex < 0 || setIndex >= m_sets.size () || key < 1 || key > macroKeyCount) return;
     m_sets[setIndex].macros[key - 1] = macro;
+  }
+
+  void MacroLibrary::setEnterRole (int setIndex, EnterRole role)
+  {
+    if (setIndex >= 0 && setIndex < m_sets.size ()) m_sets[setIndex].enterRole = role;
   }
 
   QString MacroLibrary::uniqueName (QString const& base) const
@@ -157,7 +220,9 @@ namespace Jtty
   bool MacroLibrary::restoreDefaults (int index)
   {
     if (index < 0 || index >= m_sets.size () || !m_sets[index].isBuiltIn ()) return false;
-    m_sets[index].macros = defaultMacroSet (m_sets[index].builtIn).macros;
+    auto const defaults = defaultMacroSet (m_sets[index].builtIn);
+    m_sets[index].macros = defaults.macros;
+    m_sets[index].enterRole = defaults.enterRole;
     return true;
   }
 
@@ -173,6 +238,8 @@ namespace Jtty
       set.builtIn = settings.value (QStringLiteral ("BuiltIn")).toString ();
       if (set.isBuiltIn () && defaultMacroSet (set.builtIn).name.isEmpty ()) continue;
       if (set.isBuiltIn ()) set.name = set.builtIn;
+      set.enterRole = enterRoleFromKey (settings.value (QStringLiteral ("Enter")).toString (),
+                                        defaultMacroSet (set.builtIn).enterRole);
       if (set.name.isEmpty ()) continue;
       for (int key = 1; key <= macroKeyCount; ++key) {
         set.macros[key - 1].label = settings.value (QStringLiteral ("Label%1").arg (key)).toString ();
@@ -214,6 +281,7 @@ namespace Jtty
       auto const& set = m_sets[i];
       settings.setValue (QStringLiteral ("Name"), set.name);
       settings.setValue (QStringLiteral ("BuiltIn"), set.builtIn);
+      settings.setValue (QStringLiteral ("Enter"), enterRoleKey (set.enterRole));
       for (int key = 1; key <= macroKeyCount; ++key) {
         settings.setValue (QStringLiteral ("Label%1").arg (key), set.macros[key - 1].label);
         settings.setValue (QStringLiteral ("Text%1").arg (key), set.macros[key - 1].text);

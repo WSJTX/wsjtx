@@ -28,7 +28,7 @@ private slots:
 
   void globalKeysWorkFromEveryFocus ()
   {
-    for (auto focus : {KeyFocus::TxBox, KeyFocus::TextEntry, KeyFocus::Other}) {
+    for (auto focus : {KeyFocus::TxBox, KeyFocus::QsoField, KeyFocus::TextEntry, KeyFocus::Other}) {
       QCOMPARE (route (Qt::Key_Escape, Qt::NoModifier, QStringLiteral ("\x1b"), focus).action,
                 Action::Abort);
       QCOMPARE (route (Qt::Key_F9, Qt::NoModifier, {}, focus).action, Action::TogglePtt);
@@ -45,7 +45,7 @@ private slots:
   {
     // In JTTY these override Shift+F1 (copyright notice) and Shift+F6
     // (decode remaining files).
-    for (auto focus : {KeyFocus::TxBox, KeyFocus::TextEntry, KeyFocus::Other}) {
+    for (auto focus : {KeyFocus::TxBox, KeyFocus::QsoField, KeyFocus::TextEntry, KeyFocus::Other}) {
       for (int n = 1; n <= 8; ++n) {
         auto const r = route (Qt::Key_F1 + n - 1, Qt::ShiftModifier, {}, focus);
         QCOMPARE (r.action, Action::FunctionKey);
@@ -74,7 +74,7 @@ private slots:
 
   void shiftF11F12StepTxFrequencyFromEveryFocus ()
   {
-    for (auto focus : {KeyFocus::TxBox, KeyFocus::TextEntry, KeyFocus::Other}) {
+    for (auto focus : {KeyFocus::TxBox, KeyFocus::QsoField, KeyFocus::TextEntry, KeyFocus::Other}) {
       auto r = route (Qt::Key_F11, Qt::ShiftModifier, {}, focus);
       QCOMPARE (r.action, Action::StepTxFrequency);
       QCOMPARE (r.txStepHz, -150);
@@ -117,7 +117,7 @@ private slots:
 
   void fieldsThatTakeTypingKeepTheirKeys ()
   {
-    for (auto focus : {KeyFocus::TxBox, KeyFocus::TextEntry}) {
+    for (auto focus : {KeyFocus::TxBox, KeyFocus::QsoField, KeyFocus::TextEntry}) {
       QCOMPARE (route (Qt::Key_A, Qt::NoModifier, QStringLiteral ("a"), focus).action, Action::None);
       QCOMPARE (route (Qt::Key_Backspace, Qt::NoModifier, QStringLiteral ("\b"), focus).action,
                 Action::None);
@@ -142,11 +142,36 @@ private slots:
               Action::None);
   }
 
+  void enterSendsMessageWhenOn ()
+  {
+    for (int key : {Qt::Key_Return, Qt::Key_Enter}) {
+      for (auto focus : {KeyFocus::TxBox, KeyFocus::QsoField, KeyFocus::Other}) {
+        QCOMPARE (Jtty::routeKey (key, Qt::NoModifier, QStringLiteral ("\r"), focus, true).action,
+                  Action::EnterSendsMessage);
+        QCOMPARE (Jtty::routeKey (key, Qt::NoModifier, QStringLiteral ("\r"), focus, false).action,
+                  Action::None);
+      }
+      QCOMPARE (Jtty::routeKey (key, Qt::KeypadModifier, QStringLiteral ("\r"), KeyFocus::TxBox, true).action,
+                Action::EnterSendsMessage);
+      // Other fields keep Enter, and modified Enter is never ours.
+      QCOMPARE (Jtty::routeKey (key, Qt::NoModifier, QStringLiteral ("\r"), KeyFocus::TextEntry, true).action,
+                Action::None);
+      QCOMPARE (Jtty::routeKey (key, Qt::ShiftModifier, QStringLiteral ("\r"), KeyFocus::TxBox, true).action,
+                Action::None);
+    }
+  }
+
   void classifiesFocusWidgets ()
   {
     QPlainTextEdit txBox;
     QCOMPARE (Jtty::classifyKeyFocus (&txBox, &txBox), KeyFocus::TxBox);
     QCOMPARE (Jtty::classifyKeyFocus (nullptr, &txBox), KeyFocus::Other);
+
+    QLineEdit dxCall;
+    QLineEdit received;
+    QCOMPARE (Jtty::classifyKeyFocus (&received, &txBox, {&received, &dxCall}), KeyFocus::QsoField);
+    QCOMPARE (Jtty::classifyKeyFocus (&dxCall, &txBox, {&received, &dxCall}), KeyFocus::QsoField);
+    QCOMPARE (Jtty::classifyKeyFocus (&dxCall, &txBox), KeyFocus::TextEntry);
 
     QLineEdit edit;
     QCOMPARE (Jtty::classifyKeyFocus (&edit, &txBox), KeyFocus::TextEntry);

@@ -24,6 +24,9 @@ namespace Jtty
     }
   };
 
+  // What Enter sends when Enter Sends Message is on (see enterSendsKey).
+  enum class EnterRole { Off, Run, SearchAndPounce };
+
   struct MacroSet
   {
     QString name;
@@ -31,6 +34,7 @@ namespace Jtty
     // whose contents can be restored; empty for a user set.
     QString builtIn;
     std::array<Macro, macroKeyCount> macros;
+    EnterRole enterRole {EnterRole::Off};
 
     bool isBuiltIn () const { return !builtIn.isEmpty (); }
   };
@@ -40,6 +44,17 @@ namespace Jtty
 
   // Keys are 1-based: 1-8 are F1-F8, 9-16 are Shift+F1-F8.
   QString macroKeyName (int key);
+
+  // Enter Sends Message, as in N1MM: how far the QSO with the current DX
+  // call has got, by which macro key was last sent to it.
+  enum class EnterStep { Idle, CallSent, ExchangeSent, Done };
+
+  // The macro key Enter sends next, or 0 for none.
+  //   Run: no DX call F1 (CQ); then F2 (call + exchange); then F3 (TU, log).
+  //   S&P: F4 (my call); then F2 (exchange); then F3 (TU, log).
+  int enterSendsKey (EnterRole role, EnterStep step, bool haveDxCall);
+  // The step after macro key 'key' was sent, however it was sent.
+  EnterStep stepAfterKey (EnterRole role, int key, EnterStep step);
 
   class MacroLibrary
   {
@@ -55,6 +70,7 @@ namespace Jtty
     bool selectByName (QString const& name);
 
     void setMacro (int setIndex, int key, Macro const& macro);
+    void setEnterRole (int setIndex, EnterRole role);
 
     // A name not already in use, made from base.
     QString uniqueName (QString const& base) const;

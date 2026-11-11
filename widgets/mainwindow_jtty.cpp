@@ -79,18 +79,9 @@ static QString append_separator(QString message) {
 
 void MainWindow::updateJttyDecodeHeadings()
 {
-  QString const prefix = ui->cbIncludeTime->isChecked()
-    ? QStringLiteral("  UTC  Freq  dB  ") : QStringLiteral("Freq  dB  ");
+  QString const prefix = QStringLiteral("  UTC  Freq  dB  ");
   ui->lh_decodes_headings_label->setText(prefix + tr ("Message"));
   ui->rh_decodes_headings_label->setText(prefix + tr ("Message"));
-}
-
-void MainWindow::on_cbIncludeTime_toggled(bool)
-{
-  if (m_mode == "JTTY") {
-    updateJttyDecodeHeadings();
-    refreshJttyReceiveLines();
-  }
 }
 
 void MainWindow::jtty_tx(QString message)
@@ -652,7 +643,7 @@ qint64 MainWindow::jttyTxCommittedSamples() const
   return m_jttyTxLifecycle.committedTotal ();
 }
 
-void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
+void MainWindow::completeJttyTxEnqueue(qint64 requestId,
                                        TxAudioQueueProgress progress,
                                        bool newSession, bool useTciAudio)
 {
@@ -683,7 +674,6 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   updateJttyTransmitDisplay (progress.served_samples);
   updateJttySendButton ();
   if (firstSegment) {
-    handleJttyContestSerial (message);
     Q_EMIT jttyTextAccepted (requestId);
   }
 
@@ -764,7 +754,7 @@ void MainWindow::updateJttyTransmitDisplay(qint64 servedSamples)
         segment.frequency, segment.text, -10, true,
         resolved.background_, resolved.foreground_};
       JttyReceiveLine::Options const options {
-        ui->cbLowerCase->isChecked (), ui->cbIncludeTime->isChecked ()};
+        ui->cbLowerCase->isChecked ()};
       JttyReceiveLine txLine;
       auto const cursor = txLine.render (*ui->decodedTextBrowser2->document (),
         presentation, options, ui->decodedTextBrowser2->contentFont ());
@@ -826,14 +816,32 @@ void MainWindow::updateJttyPttStateLabel()
   }
 }
 
-void MainWindow::handleJttyContestSerial(QString const& message)
+// %L: log the QSO with the exchange just sent, then bump the serial number.
+void MainWindow::logJttyQso()
 {
-  if(message.left(3).compare("TU ", Qt::CaseInsensitive) == 0) {
-    logQSOTimer.start(0);
-    int nr = ui->sbSerialNumber_2->value();
-    m_xSent = QString::number(nr);
-    ui->sbSerialNumber_2->setValue(nr+1);
+  m_xSent = ui->jttySentEntry->text ().simplified ().toUpper ();
+  m_xRcvd = ui->jttyReceivedEntry->text ().simplified ().toUpper ();
+  scheduleLogQso (false);
+  ui->sbSerialNumber_2->setValue (ui->sbSerialNumber_2->value () + 1);
+}
+
+void MainWindow::jttyEnterSendsMessage()
+{
+  auto const role = m_jttyMacros.current ().enterRole;
+  bool const haveDxCall = !m_hisCall.trimmed ().isEmpty ();
+  int const key = Jtty::enterSendsKey (role, m_jttyEnterStep, haveDxCall);
+  if (!key) {
+    showStatusWarning (haveDxCall ? tr ("QSO already logged. Enter a new DX Call.")
+                                  : tr ("Enter a DX Call first."));
+    return;
   }
+  // After Enter in a QSO field, typing should go to the Tx box again.
+  auto * const focus = QApplication::focusWidget ();
+  if (focus == ui->dxCallEntry || focus == ui->jttyCallEntry || focus == ui->jttySentEntry
+      || focus == ui->jttyReceivedEntry) {
+    ui->Tx_Message->setFocus ();
+  }
+  sendJttyFunctionKey (key);
 }
 
 void MainWindow::abort_jtty_tx()
@@ -959,7 +967,7 @@ void MainWindow::onJttyBackendEnqueueAccepted(qint64 enqueueId, qint64 sampleCou
       LOG_WARN("JTTY transmit backend accepted unexpected PCM sample count");
     }
     bool const startsSession = pending.newSession || previousTotal <= 0;
-    completeJttyTxEnqueue(pending.requestId, pending.message, progress,
+    completeJttyTxEnqueue(pending.requestId, progress,
                           startsSession,
                           m_jttyTxLifecycle.backend () == JttyTxLifecycle::Backend::Tci);
     if (resolved.drain) finishJttyDrain (*resolved.drain);
@@ -1104,8 +1112,11 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
   auto * const focusWidget = QApplication::focusWidget ();
   auto * const window = focusWidget ? focusWidget->window () : QApplication::activeWindow ();
   if (window != this && window != m_wideGraph.data ()) return false;
-  auto const focus = Jtty::classifyKeyFocus (focusWidget, ui->Tx_Message);
-  auto const route = Jtty::routeKey (e->key (), e->modifiers (), e->text (), focus);
+  auto const focus = Jtty::classifyKeyFocus (
+    focusWidget, ui->Tx_Message, {ui->dxCallEntry, ui->jttyCallEntry, ui->jttySentEntry, ui->jttyReceivedEntry});
+  bool const enterSends = ui->cbJttyEnterSends->isChecked ()
+    && m_jttyMacros.current ().enterRole != Jtty::EnterRole::Off;
+  auto const route = Jtty::routeKey (e->key (), e->modifiers (), e->text (), focus, enterSends);
   using Action = Jtty::KeyRoute::Action;
   bool const repeat = e->isAutoRepeat ();
   switch (route.action) {
@@ -1132,6 +1143,9 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     return true;
   case Action::StepTxFrequency:
     ui->TxFreqSpinBox_2->setValue (ui->TxFreqSpinBox_2->value () + route.txStepHz);
+    return true;
+  case Action::EnterSendsMessage:
+    if (!repeat) jttyEnterSendsMessage ();
     return true;
   }
   return false;
@@ -1160,8 +1174,35 @@ void MainWindow::focusJttyDxCall()
 {
   activateWindow ();
   raise ();
-  ui->dxCallEntry->setFocus (Qt::ShortcutFocusReason);
-  ui->dxCallEntry->selectAll ();
+  auto * const field = ui->jttyQsoFieldsWidget->isVisible () ? ui->jttyCallEntry : ui->dxCallEntry;
+  field->setFocus (Qt::ShortcutFocusReason);
+  field->selectAll ();
+}
+
+// What %E sends, with the report in front except for Field Day, whose
+// exchange has none. Logging reads the report from the first word.
+void MainWindow::updateJttySentExchange()
+{
+  if (m_mode != "JTTY") return;
+  QString const exchange = jtty_msg_expand (QStringLiteral ("%E"));
+  ui->jttySentEntry->setText (
+    jttyExchangeProfile (m_config) == Jtty::NativeExchangeProfile::FieldDay
+      ? exchange : QStringLiteral ("599 ") + exchange);
+}
+
+// Call, Sent and Received are for contest QSOs: shown for Run and S&P sets.
+void MainWindow::updateJttyQsoFieldsVisibility()
+{
+  ui->jttyQsoFieldsWidget->setVisible (
+    m_mode == "JTTY" && m_jttyMacros.current ().enterRole != Jtty::EnterRole::Off);
+}
+
+void MainWindow::appendJttyReceivedExchange(QString const& word)
+{
+  if (word.isEmpty ()) return;
+  QString const text = ui->jttyReceivedEntry->text ().simplified ();
+  ui->jttyReceivedEntry->setText (text.isEmpty () ? word.toUpper ()
+                                                  : text + QStringLiteral (" ") + word.toUpper ());
 }
 
 namespace
@@ -1204,10 +1245,11 @@ void MainWindow::installJttyWideGraphKeyFilter()
 bool MainWindow::sendJttyFunctionKey(int index)
 {
   if (index < 1 || index > Jtty::macroKeyCount) return false;
-  auto const control = Jtty::parseMacroPtt (m_jttyMacros.macro (index).text);
+  auto const control = Jtty::parseMacroControl (m_jttyMacros.macro (index).text);
   if (control.text.isEmpty () && !control.pttOn && !control.pttOff) return false;
   if ((control.text.contains (QStringLiteral ("%H"), Qt::CaseInsensitive)
-       || control.text.contains (QStringLiteral ("%Q"), Qt::CaseInsensitive))
+       || control.text.contains (QStringLiteral ("%Q"), Qt::CaseInsensitive)
+       || control.logQso)
       && m_hisCall.trimmed ().isEmpty ()) {
     showStatusWarning (tr ("Enter a DX Call before sending this macro."));
     return true;
@@ -1225,6 +1267,9 @@ bool MainWindow::sendJttyFunctionKey(int index)
   }
   if (control.pttOn) setJttyPttEnabled (true);
   if (control.pttOff) setJttyPttEnabled (false);
+  m_jttyEnterStep = Jtty::stepAfterKey (m_jttyMacros.current ().enterRole, index, m_jttyEnterStep);
+  // Last: the Log QSO dialog may take focus, and logging may clear DX Call.
+  if (control.logQso) logJttyQso ();
   return true;
 }
 
@@ -1282,6 +1327,7 @@ void MainWindow::refreshJttyMacroControls()
                                               : QStringLiteral ("%1: %2").arg (name, macro.text));
     button->setEnabled (!macro.text.isEmpty ());
   }
+  updateJttyQsoFieldsVisibility ();
 }
 
 void MainWindow::switchToJttyAfterMmttyStartup()

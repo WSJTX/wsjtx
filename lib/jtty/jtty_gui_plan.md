@@ -4,7 +4,7 @@ A companion to `jtty_gui.md`, offered for discussion. It proposes how the guidel
 
 ## Where things stand (`feat/jtty-new-GUI`)
 
-Phases 1–3 are implemented and tested; phases 4–5 are not started. The
+Phases 1–4 are implemented and tested; phase 5 is not started. The
 transmit machinery the guidelines describe already existed — what phase 1
 replaced was the control layer on top of it.
 
@@ -34,7 +34,7 @@ shrink to one frame and be queued half a frame ahead; see the commit for why.
 
 ### Phase 2: Keyboard routing — implemented, awaiting hands-on test
 
-Decisions taken: `F10` jumps to **DX Call** (selecting its contents, so typing
+Decisions taken: `F10` jumps to **DX Call** (since phase 4, to the **Call** field that mirrors it) (selecting its contents, so typing
 replaces them); the Wide Graph counts as part of the main window; Backspace
 away from any field deletes the last *unsent* character of the Tx box, while
 arrows, Page Up/Down, Home/End and Tab stay with the focused widget; `Enter`
@@ -127,7 +127,42 @@ single step guarantees that; no holdback is needed.
   - **Chat:** F1 `%[CQ CQ CQ DE %M %M K%]`, F2 `%[%H DE %M ` (opens an over,
     PTT stays on for typing), F3 `BTU %H DE %M K%]`, F4 `%H DE %M SK%]`.
 
-### Phase 4: Contest workflow
+### Phase 4: Contest workflow — implemented
+
+**As implemented:**
+- **Enter Sends Message.** A checkbox on the JTTY panel (on by default,
+  saved) turns it on. Each macro set says what Enter sends (editor:
+  "Enter sends"):
+  - Run: no DX call, F1 (CQ); then F2 (call + exchange); then F3 (TU, log).
+  - S&P: F4 (my call); then F2 (exchange); then F3 (TU, log).
+  - Nothing (Chat): Enter behaves as before.
+
+  The step follows whichever macro key was last sent, however it was sent
+  (Enter, F-key or button), and resets when DX Call changes. After logging,
+  Run's Enter goes back to CQ; S&P's does nothing until a new DX Call. Enter
+  works from the Tx box, DX Call, or anywhere that isn't a text field; Enter
+  in DX Call also moves focus back to the Tx box.
+- **`%L`** logs the QSO when the key is pressed, as the Log QSO button does
+  (so the "prompt to log" and "auto log" settings apply), records the
+  exchange sent, and bumps the serial number. It replaces the old rule that
+  logged whenever a transmission began with "TU ". Run F3 and S&P F3 now end
+  in `%L`. With DX Call empty it is refused, like `%H`.
+- **Call, Sent and Rcvd fields** sit under the QSO Frequency pane, in
+  the row with **Lower case**, shown only when the macro set's Enter role is
+  Run or S&P. Call mirrors DX Call (either can be edited), and `F10` jumps
+  to it (to DX Call when the fields are hidden). Sent is filled in as `%E`
+  expands, with 599 in front except for Field Day, and refreshes when the
+  serial number, call or settings change; it can be edited. Rcvd (received) holds
+  the exchange received and clears when the call changes. `%L` logs Sent
+  and Rcvd as shown. Enter in any of these fields sends, like Enter in
+  DX Call.
+- **Click a callsign:** double-click sets the call (and its SNR), as before.
+  Shift+double-click adds the clicked word to Rcvd.
+- **Include Time is gone:** decode lines always start with the UTC time.
+- **N1MM / MMTTY:** untouched. That path never uses the macro sets, and key
+  routing is limited to the main window and the Wide Graph.
+
+**As proposed:**
 
 - **Click a callsign in a receive pane to make it the DX Call (`%H`).** Shift-click could grab the received exchange.
 - **Enter sends the next logical message** (like N1MM's "Enter Sends Message"):
@@ -160,7 +195,7 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
 ## Open questions
 
 1. ~~**Esc:** clear the whole box, or only the unsent part?~~ Resolved: clears the whole box.
-2. **Enter:** drive the "Enter Sends Message" sequence, or leave that for a later version? (Still open; phase 4.)
+2. ~~**Enter:** drive the "Enter Sends Message" sequence, or leave that for a later version?~~ Resolved: implemented in phase 4, with a checkbox to turn it off.
 3. ~~**Old shortcuts:** remove them now, or keep as aliases for one beta?~~ Resolved: kept as aliases for one beta.
 
 ## Appendix: code map for implementers
@@ -169,7 +204,9 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   - Keys: `jtty_key_struck()` asks `Jtty::routeKey()` what to do with each
     key press and acts on it (`appendJttyTxBoxText()`,
     `backspaceJttyTxBox()`, `focusJttyDxCall()`, `setJttyPttEnabled()`,
-    `sendJttyFunctionKey()`, `clearJttyLiveEntry()`).
+    `sendJttyFunctionKey()`, `clearJttyLiveEntry()`). Enter goes to
+    `jttyEnterSendsMessage()` (step in `m_jttyEnterStep`, rules in
+    `Jtty::enterSendsKey()` / `stepAfterKey()`).
     `installJttyWideGraphKeyFilter()` routes the Wide Graph's keys the same
     way.
   - PTT (phase 1): `setJttyPttEnabled()` is the single on/off entry point;
@@ -188,8 +225,9 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   - Transmit queue: `commitJttyLiveEntryPlan()`, `execute_jtty_tx()`,
     `feedJttyTransmitQueue()`, `onJttyBackendProgress()`,
     `finishJttyDrain()`, `abort_jtty_tx()`.
-  - Macros: `sendJttyFunctionKey()` (parse `%[`/`%]` with
-    `Jtty::parseMacroPtt()`, expand, append to the box, toggle PTT),
+  - Macros: `sendJttyFunctionKey()` (parse `%[`/`%]`/`%L` with
+    `Jtty::parseMacroControl()`, expand, append to the box, toggle PTT;
+    `%L` calls `logJttyQso()`),
     `jtty_msg_expand()`,
     `on_comboBoxJttyStyle_currentIndexChanged()` (select a set),
     `refreshJttyMacroControls()` (combo items, button labels and tooltips);
@@ -208,9 +246,10 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   `WSPR_config()` selects the JTTY controls page (`controls_stack_widget`
   index 1).
 - `widgets/mainwindow.ui` — JTTY page `page_4`: `pbF1`–`pbF8`, `pbSF1`–`pbSF8`,
-  `comboBoxJttyStyle`, `pbEditJttyMacros`, `sbSerialNumber_2`, `pbSendMessage`,
-  `labelJttyFrameCount`, `Tx_Message`.
-- `widgets/JttyMessages.hpp` — filler text (`jttyFillerText`), `parseMacroPtt()`, macro
+  `comboBoxJttyStyle`, `pbEditJttyMacros`, `cbJttyEnterSends`, `sbSerialNumber_2`, `pbSendMessage`,
+  `labelJttyFrameCount`, `Tx_Message`. Under the decode panes (JTTY only):
+  `cbLowerCase` and `jttyQsoFieldsWidget` (`jttyCallEntry`, `jttySentEntry`, `jttyReceivedEntry`).
+- `widgets/JttyMessages.hpp` — filler text (`jttyFillerText`), `parseMacroControl()`, macro
   templates (`nativeMacroTemplate`), macro context.
 - `widgets/JttyLiveEntry.hpp` — `planIncrementalCommit()`,
   `maxCompactAtomWords` (3).

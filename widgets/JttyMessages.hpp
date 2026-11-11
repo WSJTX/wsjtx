@@ -216,22 +216,25 @@ namespace Jtty
     return fromEncoder (Encoder::nativeFormTemplate (forms[functionKey - 1]));
   }
 
-  // %[ and %] turn PTT on and off. They apply to the whole macro wherever they
-  // appear: PTT off already sends everything queued before dropping.
-  struct MacroPttControl
+  // %[ and %] turn PTT on and off, and %L logs the QSO. They apply to the whole
+  // macro wherever they appear: PTT off already sends everything queued first.
+  struct MacroControl
   {
     QString text;
     bool pttOn {false};
     bool pttOff {false};
+    bool logQso {false};
   };
 
-  inline MacroPttControl parseMacroPtt (QString macro)
+  inline MacroControl parseMacroControl (QString macro)
   {
-    MacroPttControl result;
+    MacroControl result;
     result.pttOn = macro.contains (QStringLiteral ("%["));
     result.pttOff = macro.contains (QStringLiteral ("%]"));
+    result.logQso = macro.contains (QStringLiteral ("%L"));
     macro.replace (QStringLiteral ("%["), QStringLiteral (" "));
     macro.replace (QStringLiteral ("%]"), QStringLiteral (" "));
+    macro.replace (QStringLiteral ("%L"), QStringLiteral (" "));
     result.text = macro.simplified ();
     return result;
   }

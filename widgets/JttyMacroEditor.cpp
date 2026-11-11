@@ -16,6 +16,7 @@ JttyMacroEditor::JttyMacroEditor (Jtty::MacroLibrary const& library, QWidget * p
   : QDialog {parent}
   , m_library {library}
   , m_setCombo {new QComboBox}
+  , m_enterCombo {new QComboBox}
   , m_renameButton {new QPushButton {tr ("Rename...")}}
   , m_deleteButton {new QPushButton {tr ("Delete")}}
   , m_restoreButton {new QPushButton {tr ("Restore defaults")}}
@@ -43,9 +44,20 @@ JttyMacroEditor::JttyMacroEditor (Jtty::MacroLibrary const& library, QWidget * p
   m_table->setColumnWidth (1, 120);
   m_table->setSelectionMode (QAbstractItemView::SingleSelection);
 
+  m_enterCombo->addItem (tr ("Run: F1 CQ, F2 exchange, F3 TU"),
+                         int (Jtty::EnterRole::Run));
+  m_enterCombo->addItem (tr ("S&P: F4 my call, F2 exchange, F3 TU"),
+                         int (Jtty::EnterRole::SearchAndPounce));
+  m_enterCombo->addItem (tr ("Nothing"), int (Jtty::EnterRole::Off));
+  m_enterCombo->setToolTip (tr ("With Enter sends message checked, what Enter sends while this set is in use."));
+  auto * enterRow = new QHBoxLayout;
+  enterRow->addWidget (new QLabel {tr ("Enter sends:")});
+  enterRow->addWidget (m_enterCombo);
+  enterRow->addStretch (1);
+
   auto * help = new QLabel {tr (
       "%M my call · %H DX call · %Q DX call (queued) · %N serial number · "
-      "%E exchange · %G grid · %R report · %[ PTT on · %] PTT off")};
+      "%E exchange · %G grid · %R report · %[ PTT on · %] PTT off · %L log QSO")};
   help->setWordWrap (true);
 
   auto * buttons = new QDialogButtonBox {QDialogButtonBox::Ok | QDialogButtonBox::Cancel};
@@ -53,6 +65,7 @@ JttyMacroEditor::JttyMacroEditor (Jtty::MacroLibrary const& library, QWidget * p
   auto * layout = new QVBoxLayout {this};
   layout->addLayout (setRow);
   layout->addWidget (m_table, 1);
+  layout->addLayout (enterRow);
   layout->addWidget (help);
   layout->addWidget (buttons);
   resize (640, 560);
@@ -64,6 +77,11 @@ JttyMacroEditor::JttyMacroEditor (Jtty::MacroLibrary const& library, QWidget * p
   connect (m_deleteButton, &QPushButton::clicked, this, &JttyMacroEditor::deleteSet);
   connect (m_restoreButton, &QPushButton::clicked, this, &JttyMacroEditor::restoreDefaults);
   connect (m_table, &QTableWidget::cellChanged, this, &JttyMacroEditor::storeCell);
+  connect (m_enterCombo, QOverload<int>::of (&QComboBox::currentIndexChanged), this, [this] (int i) {
+    if (!m_populating)
+      m_library.setEnterRole (m_library.currentIndex (),
+                              Jtty::EnterRole (m_enterCombo->itemData (i).toInt ()));
+  });
   connect (buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
   connect (buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
@@ -94,6 +112,7 @@ void JttyMacroEditor::showSet (int index)
     m_table->setItem (key - 1, 1, new QTableWidgetItem {set.macros[key - 1].label});
     m_table->setItem (key - 1, 2, new QTableWidgetItem {set.macros[key - 1].text});
   }
+  m_enterCombo->setCurrentIndex (m_enterCombo->findData (int (set.enterRole)));
   m_populating = false;
   updateButtons ();
 }

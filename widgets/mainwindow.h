@@ -656,7 +656,6 @@ private slots:
   void on_cbTx6_toggled(bool b);
   void on_cbMenus_toggled(bool b);
   void on_cbAutoSeq_toggled(bool b);
-  void on_cbIncludeTime_toggled(bool b);
   void on_cbLowerCase_toggled(bool);
   void networkError (QString const&);
   void on_ClrAvgButton_clicked();
@@ -933,10 +932,14 @@ private:
   void updateJttySendButton();
   void onJttyBackendProgress(TxAudioQueueProgress progress);
   qint64 jttyTxCommittedSamples() const;
-  void completeJttyTxEnqueue(qint64 requestId, QString const& message,
+  void completeJttyTxEnqueue(qint64 requestId,
                              TxAudioQueueProgress progress, bool newSession,
                              bool useTciAudio);
-  void handleJttyContestSerial(QString const& message);
+  void logJttyQso();
+  void jttyEnterSendsMessage();
+  void appendJttyReceivedExchange(QString const& word);
+  void updateJttySentExchange();
+  void updateJttyQsoFieldsVisibility();
   void abort_jtty_tx();
   void interruptJttyTx();
   void rejectPendingJttyMessages(JttyTxRejectReason reason);
@@ -1398,6 +1401,7 @@ private:
   QString m_hisGrid;
   int m_jttyHisCallSnr = -10;  // SNR of the decode selected as DX call, for %R; cleared when the DX call changes
   Jtty::MacroLibrary m_jttyMacros;
+  Jtty::EnterStep m_jttyEnterStep {Jtty::EnterStep::Idle};
   QString m_appDir;
   QString m_cqStr;
   QString m_palette;

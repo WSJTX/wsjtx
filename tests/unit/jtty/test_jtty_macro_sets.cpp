@@ -36,8 +36,11 @@ private slots:
   {
     auto const run = Jtty::defaultMacroSet (QStringLiteral ("Run"));
     for (int key = 1; key <= 8; ++key) {
-      QCOMPARE (run.macros[key - 1].text,
-                QStringLiteral ("%[") + Jtty::nativeMacroTemplate (key) + QStringLiteral ("%]"));
+      auto const control = Jtty::parseMacroControl (run.macros[key - 1].text);
+      QCOMPARE (control.text, Jtty::nativeMacroTemplate (key));
+      QVERIFY (control.pttOn);
+      QVERIFY (control.pttOff);
+      QCOMPARE (control.logQso, key == 3);
       QVERIFY (!run.macros[key - 1].label.isEmpty ());
     }
     for (int key = 9; key <= Jtty::macroKeyCount; ++key) {
@@ -48,12 +51,90 @@ private slots:
   void chatOpenerLeavesPttOn ()
   {
     auto const chat = Jtty::defaultMacroSet (QStringLiteral ("Chat"));
-    auto const open = Jtty::parseMacroPtt (chat.macros[1].text);
+    auto const open = Jtty::parseMacroControl (chat.macros[1].text);
     QVERIFY (open.pttOn);
     QVERIFY (!open.pttOff);
-    auto const over = Jtty::parseMacroPtt (chat.macros[2].text);
+    auto const over = Jtty::parseMacroControl (chat.macros[2].text);
     QVERIFY (!over.pttOn);
     QVERIFY (over.pttOff);
+  }
+
+  void enterRolesOfTheBuiltInSets ()
+  {
+    QCOMPARE (Jtty::defaultMacroSet (QStringLiteral ("Run")).enterRole, Jtty::EnterRole::Run);
+    QCOMPARE (Jtty::defaultMacroSet (QStringLiteral ("S&P")).enterRole,
+              Jtty::EnterRole::SearchAndPounce);
+    QCOMPARE (Jtty::defaultMacroSet (QStringLiteral ("Chat")).enterRole, Jtty::EnterRole::Off);
+    // The keys Enter sends must log at F3 and nowhere else.
+    for (QString const& name : {QStringLiteral ("Run"), QStringLiteral ("S&P")}) {
+      auto const set = Jtty::defaultMacroSet (name);
+      for (int key = 1; key <= Jtty::macroKeyCount; ++key) {
+        QCOMPARE (Jtty::parseMacroControl (set.macros[key - 1].text).logQso, key == 3);
+      }
+    }
+  }
+
+  // Each step: what Enter sends, then the step that follows.
+  void runEnterSequence ()
+  {
+    using Jtty::EnterStep;
+    auto const run = Jtty::EnterRole::Run;
+    QCOMPARE (Jtty::enterSendsKey (run, EnterStep::Idle, false), 1);
+    QCOMPARE (Jtty::stepAfterKey (run, 1, EnterStep::Idle), EnterStep::Idle);
+    QCOMPARE (Jtty::enterSendsKey (run, EnterStep::Idle, true), 2);
+    QCOMPARE (Jtty::stepAfterKey (run, 2, EnterStep::Idle), EnterStep::ExchangeSent);
+    QCOMPARE (Jtty::enterSendsKey (run, EnterStep::ExchangeSent, true), 3);
+    QCOMPARE (Jtty::stepAfterKey (run, 3, EnterStep::ExchangeSent), EnterStep::Done);
+    // DX Call not cleared after logging: back to CQ.
+    QCOMPARE (Jtty::enterSendsKey (run, EnterStep::Done, true), 1);
+    // AGN? and the like leave the step alone.
+    QCOMPARE (Jtty::stepAfterKey (run, 7, EnterStep::ExchangeSent), EnterStep::ExchangeSent);
+    QCOMPARE (Jtty::stepAfterKey (run, 4, EnterStep::ExchangeSent), EnterStep::ExchangeSent);
+  }
+
+  void searchAndPounceEnterSequence ()
+  {
+    using Jtty::EnterStep;
+    auto const sp = Jtty::EnterRole::SearchAndPounce;
+    QCOMPARE (Jtty::enterSendsKey (sp, EnterStep::Idle, false), 0);
+    QCOMPARE (Jtty::enterSendsKey (sp, EnterStep::Idle, true), 4);
+    QCOMPARE (Jtty::stepAfterKey (sp, 4, EnterStep::Idle), EnterStep::CallSent);
+    QCOMPARE (Jtty::enterSendsKey (sp, EnterStep::CallSent, true), 2);
+    QCOMPARE (Jtty::stepAfterKey (sp, 2, EnterStep::CallSent), EnterStep::ExchangeSent);
+    QCOMPARE (Jtty::enterSendsKey (sp, EnterStep::ExchangeSent, true), 3);
+    QCOMPARE (Jtty::stepAfterKey (sp, 3, EnterStep::ExchangeSent), EnterStep::Done);
+    QCOMPARE (Jtty::enterSendsKey (sp, EnterStep::Done, true), 0);
+    QCOMPARE (Jtty::stepAfterKey (sp, 1, EnterStep::CallSent), EnterStep::CallSent);
+  }
+
+  void enterOffSendsNothing ()
+  {
+    using Jtty::EnterStep;
+    auto const off = Jtty::EnterRole::Off;
+    for (bool haveCall : {false, true}) {
+      QCOMPARE (Jtty::enterSendsKey (off, EnterStep::Idle, haveCall), 0);
+    }
+    QCOMPARE (Jtty::stepAfterKey (off, 2, EnterStep::Idle), EnterStep::Idle);
+  }
+
+  void enterRoleIsCopiedSavedAndRestored ()
+  {
+    Jtty::MacroLibrary library;
+    int const user = library.addUserSet (QStringLiteral ("Sprint"), 1);
+    QCOMPARE (library.sets ()[user].enterRole, Jtty::EnterRole::SearchAndPounce);
+    library.setEnterRole (user, Jtty::EnterRole::Run);
+    library.setEnterRole (0, Jtty::EnterRole::Off);
+    {
+      QSettings settings {settingsPath (QStringLiteral ("enter")), QSettings::IniFormat};
+      library.save (settings);
+    }
+    QSettings settings {settingsPath (QStringLiteral ("enter")), QSettings::IniFormat};
+    Jtty::MacroLibrary loaded;
+    loaded.load (settings);
+    QCOMPARE (loaded.sets ()[0].enterRole, Jtty::EnterRole::Off);
+    QCOMPARE (loaded.sets ()[user].enterRole, Jtty::EnterRole::Run);
+    QVERIFY (loaded.restoreDefaults (0));
+    QCOMPARE (loaded.sets ()[0].enterRole, Jtty::EnterRole::Run);
   }
 
   void keyNames ()
@@ -196,7 +277,7 @@ private slots:
         int const nativeFrames =
           Jtty::encodeNativeAtoms (compiled.atoms).tones.size () / Jtty::transmitFrameSymbols;
 
-        auto const control = Jtty::parseMacroPtt (run.macros[key - 1].text);
+        auto const control = Jtty::parseMacroControl (run.macros[key - 1].text);
         auto const text = Jtty::expandLiteralMacro (control.text, context);
         auto const encoded = Jtty::encodeTransmitText (text, p.profile, true);
         QCOMPARE (encoded.status, Jtty::TransmitTextStatus::Encoded);
@@ -219,7 +300,7 @@ private slots:
     for (auto const& set : Jtty::defaultMacroSets ()) {
       for (auto const& macro : set.macros) {
         if (macro.text.isEmpty ()) continue;
-        auto const text = Jtty::expandLiteralMacro (Jtty::parseMacroPtt (macro.text).text, context);
+        auto const text = Jtty::expandLiteralMacro (Jtty::parseMacroControl (macro.text).text, context);
         QVERIFY2 (Jtty::encodeTransmitText (text, Jtty::NativeExchangeProfile::None, true).status
                   == Jtty::TransmitTextStatus::Encoded,
                   qPrintable (set.name + QStringLiteral (": ") + text));

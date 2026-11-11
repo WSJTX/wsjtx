@@ -34,6 +34,7 @@ private:
 
   Jtty::MacroLibrary m_library;
   QComboBox * m_setCombo;
+  QComboBox * m_enterCombo;
   QPushButton * m_renameButton;
   QPushButton * m_deleteButton;
   QPushButton * m_restoreButton;

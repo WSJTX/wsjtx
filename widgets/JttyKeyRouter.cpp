@@ -9,10 +9,14 @@
 
 namespace Jtty
 {
-  KeyFocus classifyKeyFocus (QWidget const * focus, QWidget const * txBox)
+  KeyFocus classifyKeyFocus (QWidget const * focus, QWidget const * txBox,
+                             std::initializer_list<QWidget const *> qsoFields)
   {
     if (!focus) return KeyFocus::Other;
     if (focus == txBox) return KeyFocus::TxBox;
+    for (auto const * field : qsoFields) {
+      if (focus == field) return KeyFocus::QsoField;
+    }
     // A spin box's or editable combo's focus may sit on its embedded line edit.
     if (auto const * edit = qobject_cast<QLineEdit const *> (focus)) {
       return edit->isReadOnly () ? KeyFocus::Other : KeyFocus::TextEntry;
@@ -50,7 +54,8 @@ namespace Jtty
   }
 
   KeyRoute routeKey (int key, Qt::KeyboardModifiers modifiers,
-                     QString const& text, KeyFocus focus)
+                     QString const& text, KeyFocus focus,
+                     bool enterSendsMessage)
   {
     using Action = KeyRoute::Action;
     auto const mods = modifiers & ~Qt::KeypadModifier;
@@ -67,6 +72,11 @@ namespace Jtty
     if ((key == Qt::Key_F11 || key == Qt::Key_F12) && mods == Qt::ShiftModifier) {
       return {Action::StepTxFrequency, {}, 0,
               key == Qt::Key_F11 ? -txFrequencyStepHz : txFrequencyStepHz};
+    }
+
+    if ((key == Qt::Key_Return || key == Qt::Key_Enter) && mods == Qt::NoModifier
+        && enterSendsMessage && focus != KeyFocus::TextEntry) {
+      return {Action::EnterSendsMessage, {}, 0};
     }
 
     if (focus != KeyFocus::Other) return {};

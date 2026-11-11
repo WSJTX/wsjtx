@@ -779,6 +779,13 @@ MainWindow::MainWindow(QDir const& temp_directory,
   add_child_to_event_filter (this);
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
+  ui->jttyCallEntry->setValidator (new CallsignValidator {this});
+  connect (ui->jttyCallEntry, &QLineEdit::textEdited, ui->dxCallEntry, &QLineEdit::setText);
+  connect (ui->jttyReceivedEntry, &QLineEdit::textChanged, this, [this] (QString const& text) {
+    m_xRcvd = text.simplified ().toUpper ();
+  });
+  connect (ui->sbSerialNumber_2, QOverload<int>::of (&QSpinBox::valueChanged),
+           this, &MainWindow::updateJttySentExchange);
   ui->leEchoMessage->setValidator (new CallsignValidator {this, false});
   ui->sbTR->values ({5, 10, 15, 30, 60, 120, 300, 900, 1800});
   ui->sbTR_FST4W->values ({120, 300, 900, 1800});
@@ -3387,6 +3394,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   auto psk_on = m_config.spot_to_psk_reporter ();
   if (QDialog::Accepted == m_config.exec ()) {
     cancelPendingFt8Decode ("settings changed");
+    updateJttySentExchange ();  // the contest exchange may have changed
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
       m_baseCall = Radio::base_callsign (m_config.my_callsign ());
@@ -9309,6 +9317,11 @@ void MainWindow::handleDecodeSelection(
   QString const& line, Qt::KeyboardModifiers modifiers,
   DecodedMessageReaction::SelectionOrigin selection_origin, QString const& clicked_token)
 {
+  // Shift+double-click adds to the received exchange; the QSO itself is unchanged.
+  if (m_mode == "JTTY" && (modifiers & Qt::ShiftModifier)) {
+    appendJttyReceivedExchange (Jtty::trimJttyChatPunctuation (clicked_token));
+    return;
+  }
   setBestSPArmed (false);
   m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
@@ -10642,7 +10655,13 @@ void MainWindow::on_dxCallEntry_textChanged (QString const& call)
   }
   set_dateTimeQSO (-1);  // reset the QSO start time when DXCall changes
   m_hisCall = call;
-  if (m_mode=="JTTY") m_jttyHisCallSnr = -10;  // stale SNR belonged to the previous DX call
+  if (ui->jttyCallEntry->text () != call) ui->jttyCallEntry->setText (call);
+  if (m_mode=="JTTY") {
+    m_jttyHisCallSnr = -10;  // stale SNR belonged to the previous DX call
+    m_jttyEnterStep = Jtty::EnterStep::Idle;
+    ui->jttyReceivedEntry->clear ();
+    updateJttySentExchange ();
+  }
   if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget->getDxBase(QString(Radio::base_callsign(call)));
   if (!blocked) ui->dxGridEntry->clear();  // conditional because not always useful with highlightDXCall/DXGrid feature
   if (ui->DX_Call_Button->isChecked() && !(m_mode=="FT8" && SpecOp::HOUND==m_specOp)) ui->DX_Call_Button->click ();
@@ -12325,7 +12344,8 @@ void MainWindow::WSPR_config(bool b)
   bool const jtty = m_mode == "JTTY";
   progressBar.setVisible(!jtty);
   ui->cbLowerCase->setVisible(jtty);
-  ui->cbIncludeTime->setVisible(jtty);
+  updateJttyQsoFieldsVisibility();
+  if (jtty) updateJttySentExchange();
   ui->autoButton->setEnabled(!jtty);
   ui->autoButton->setVisible(!jtty);
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version
