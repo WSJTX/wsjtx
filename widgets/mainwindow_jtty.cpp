@@ -905,8 +905,19 @@ void MainWindow::updateJttyPttStateLabel()
 // %L: log the QSO with the exchange just sent, then bump the serial number.
 void MainWindow::logJttyQso()
 {
-  m_xSent = ui->jttySentEntry->text ().simplified ().toUpper ();
-  m_xRcvd = ui->jttyReceivedEntry->text ().simplified ().toUpper ();
+  // The log reads the report from the first word, except for Field Day,
+  // whose exchange has none.
+  bool const report =
+    jttyExchangeProfile (m_config) != Jtty::NativeExchangeProfile::FieldDay;
+  auto const logged = [report] (QString const& text) {
+    QString const exchange = text.simplified ().toUpper ();
+    if (!report || exchange.isEmpty () || exchange.startsWith (QStringLiteral ("599 "))) {
+      return exchange;
+    }
+    return QStringLiteral ("599 ") + exchange;
+  };
+  m_xSent = logged (ui->jttySentEntry->text ());
+  m_xRcvd = logged (ui->jttyReceivedEntry->text ());
   scheduleLogQso (false);
   ui->sbSerialNumber_2->setValue (ui->sbSerialNumber_2->value () + 1);
 }
@@ -1284,15 +1295,11 @@ void MainWindow::focusJttyDxCall()
   field->selectAll ();
 }
 
-// What %E sends, with the report in front except for Field Day, whose
-// exchange has none. Logging reads the report from the first word.
+// What %E sends. JTTY sends no report; logJttyQso() adds 599 for the log.
 void MainWindow::updateJttySentExchange()
 {
   if (m_mode != "JTTY") return;
-  QString const exchange = jtty_msg_expand (QStringLiteral ("%E"));
-  ui->jttySentEntry->setText (
-    jttyExchangeProfile (m_config) == Jtty::NativeExchangeProfile::FieldDay
-      ? exchange : QStringLiteral ("599 ") + exchange);
+  ui->jttySentEntry->setText (jtty_msg_expand (QStringLiteral ("%E")));
 }
 
 // Call, Sent and Received are for contest QSOs: shown for Run and S&P sets.

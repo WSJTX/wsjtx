@@ -154,10 +154,11 @@ single step guarantees that; no holdback is needed.
   the row with **Lower case**, shown only when the macro set's Enter role is
   Run or S&P. Call mirrors DX Call (either can be edited), and `F10` jumps
   to it (to DX Call when the fields are hidden). Sent is filled in as `%E`
-  expands, with 599 in front except for Field Day, and refreshes when the
+  expands (no 599: it carries no information), and refreshes when the
   serial number, call or settings change; it can be edited. Rcvd (received) holds
   the exchange received and clears when the call changes. `%L` logs Sent
-  and Rcvd as shown. Enter in any of these fields sends, like Enter in
+  and Rcvd as shown, with 599 added in front for the log except for
+  Field Day. Enter in any of these fields sends, like Enter in
   DX Call.
 - **Click a callsign:** double-click sets the call (and its SNR), as before.
   Shift+double-click adds the clicked word to Rcvd.
