@@ -70,6 +70,7 @@ end subroutine decoder_engine_test_ft8_message
 subroutine decoder_engine_test_records(records,record_size) bind(C)
   use iso_c_binding, only: c_size_t,c_sizeof
   use decoder_engine_types
+  use decoded_message, only: parse_received_message
   implicit none
   type(engine_observation), intent(out) :: records(2)
   integer(c_size_t), intent(out) :: record_size
@@ -97,6 +98,8 @@ subroutine decoder_engine_test_records(records,record_size) bind(C)
   records(2)%wspr%message_type=2
   records(2)%wspr%has_call=1
   records(2)%wspr%call(12)='X'
+  records(1)%low_confidence=1
+  call parse_received_message(engine_mode_ft4,'<K1ABC> W1AW R-10',records(1)%parsed_message)
   records(2)%variant=2
   records(2)%superfox%symbols(50)=127
   records(2)%superfox%kind=sf_kind_verification

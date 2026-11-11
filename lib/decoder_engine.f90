@@ -1,6 +1,7 @@
 module decoder_engine
   use, intrinsic :: iso_c_binding
   use decoder_engine_types
+  use decoded_message, only: parse_received_message
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use packjt77, only: pack77_state,initialize_pack77_state,reset_pack77_state
   use ft8_engine_kernel, only: ft8_kernel_state,params_block,run_ft8_kernel,reset_ft8_kernel,release_ft8_input
@@ -1374,11 +1375,19 @@ contains
     type(engine_observation), intent(in) :: observation
     type(engine_observation) :: record
     procedure(observation_callback), pointer :: callback
+    character(len=37) :: payload
+    integer :: i
     if(.not.valid_handle(user)) return
     record=observation
     record%input_id=session%request%input_id
     record%analysis_id=session%request%analysis_id
     record%attempt_no=session%request%attempt_no
+    payload=''
+    do i=1,37
+       if(record%message(i)==c_null_char) exit
+       payload(i:i)=record%message(i)
+    enddo
+    call parse_received_message(record%mode,trim(payload),record%parsed_message)
     session%emitted=session%emitted+1
     if(session%retained<evidence_capacity) then
        session%retained=session%retained+1

@@ -127,6 +127,7 @@ contains
     observation%dt_seconds=dt
     observation%sync=this%sync_strength
     observation%quality=qual
+    observation%low_confidence=merge(1,0,have_sync.and.is_deep.and.qual<3.0.and.len_trim(decoded0)>0)
     if(have_sync) then
        observation%jt4%kind=1
        observation%jt4%sync_polarity=merge(-1,1,sync=='#')
@@ -232,6 +233,7 @@ contains
     observation%dt_seconds=dt
     observation%sync=sync
     observation%quality=real(qual)
+    observation%low_confidence=merge(1,0,context%bVHF.and.ft==2.and.qual<3.and.len_trim(decoded0)>0)
     observation%ap_type=ishft(ft,-2)
     observation%jt65%kind=merge(1,0,len_trim(decoded0)>0)
     observation%jt65%method=iand(ft,3)
@@ -242,8 +244,14 @@ contains
     if(context%bVHF) observation%jt65%width_hz=width
     observation%jt65%has_drift=merge(1,0,nflip/=0)
     if(nflip/=0) observation%jt65%drift_hz=real(drift)
-    do i=1,len_trim(decoded0)
-       observation%message(i)=decoded0(i:i)
+    decoded=decoded0
+    if(context%bVHF.and.nflip==-1.and.sync>=max(0.0,real(minsync)).and.len_trim(decoded)>0) then
+       observation%jt65%ooo=1
+       i=min(len_trim(decoded),18)
+       decoded(i+2:i+4)='OOO'
+    endif
+    do i=1,len_trim(decoded)
+       observation%message(i)=decoded(i:i)
     enddo
     if(associated(context%sink)) call context%sink(context%sink_user,observation)
 
@@ -549,6 +557,7 @@ contains
     observation%dt_seconds=dt
     observation%ap_type=nap
     observation%quality=qual
+    observation%low_confidence=merge(1,0,nap/=0.and.qual<0.17)
     do message_index=1,min(len_trim(decodedvar),37)
        observation%message(message_index)=decodedvar(message_index:message_index)
     enddo
@@ -698,6 +707,7 @@ contains
     observation%dt_seconds=dt
     observation%ap_type=nap
     observation%quality=qual
+    observation%low_confidence=merge(1,0,nap/=0.and.qual<0.17)
     observation%sync=sync
     do message_index=1,min(len_trim(decoded),37)
        observation%message(message_index)=decoded(message_index:message_index)
@@ -748,6 +758,7 @@ contains
     observation%frequency_hz=freq
     observation%sync=sync
     observation%quality=qual
+    observation%low_confidence=merge(1,0,nap/=0.and.qual<0.17)
     observation%ft4=evidence
     do i=1,len_trim(decoded)
        observation%message(i)=decoded(i:i)
@@ -883,7 +894,9 @@ contains
     observation%frequency_hz=freq
     observation%sync=sync
     observation%quality=qual
+    observation%low_confidence=merge(1,0,nap/=0.and.qual<0.17)
     if(present(result)) observation%fst4=result
+    observation%fst4%period_seconds=ntrperiod
     do message_index=1,min(len_trim(decoded),37)
        observation%message(message_index)=decoded(message_index:message_index)
     enddo

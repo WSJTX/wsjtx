@@ -1,12 +1,13 @@
 #ifndef WSJTX_DECODER_ENGINE_H
 #define WSJTX_DECODER_ENGINE_H
 #include <stdint.h>
+#include "DecoderMessage.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef void *decoder_engine_handle;
-enum { DECODER_ENGINE_ABI = 10, DECODER_MODE_JT4 = 4, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
+enum { DECODER_ENGINE_ABI = 11, DECODER_MODE_JT4 = 4, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
        DECODER_MODE_JT9 = 9, DECODER_MODE_JT65 = 65, DECODER_MODE_Q65 = 66,
        DECODER_MODE_FST4 = 240, DECODER_MODE_FST4W = 241, DECODER_MODE_WSPR = 243 };
 enum { DECODER_SUPPORT_FT8 = 1, DECODER_SUPPORT_FT4 = 2, DECODER_SUPPORT_JT9 = 4,
@@ -315,11 +316,13 @@ typedef struct {
 
 /* Synchronization-only observations have no message. Width is available only
    for VHF processing. Drift describes the estimated frequency change across
-   the AFC input span, not a waveform reconstruction parameter. */
+   the AFC input span, not a waveform reconstruction parameter. ooo identifies
+   the OOO qualifier already included in message. */
 typedef struct {
   int32_t kind, method, average_count, sync_polarity, smoothing;
   int32_t has_width, has_drift;
   float width_hz, drift_hz;
+  int32_t ooo;
 } decoder_jt65_result;
 
 /* method is the displayed qN qualifier: 0 = no AP, 1 = CQ AP, 2 = own-call AP,
@@ -358,7 +361,9 @@ typedef struct {
    JT65 variant is its submode (0..2 for A..C); JT65 has no waveform evidence.
    Q65 variant is its submode (0..5 for A..F); Q65 has no waveform evidence.
    For Q65, ap_type is an alias of q65.method.
-   Availability flags and payload_origin govern fields in the active record. */
+   Availability flags and payload_origin govern fields in the active record.
+   message is undecorated protocol text; low_confidence carries its confidence
+   indication separately. parsed_message is its stateless receive analysis. */
 typedef struct {
   int64_t input_id, analysis_id;
   int32_t attempt_no, mode, variant;
@@ -374,6 +379,8 @@ typedef struct {
   decoder_fst4_result fst4;
   decoder_jt4_result jt4;
   decoder_wspr_result wspr;
+  int32_t low_confidence;
+  decoder_message_fields parsed_message;
 } decoder_observation;
 
 typedef struct {

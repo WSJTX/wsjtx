@@ -75,6 +75,14 @@ static void check_evidence_layout(void)
   CHECK(records[0].ft4.has_tones == 1 && records[0].ft4.has_waveform_start == 1);
   CHECK(records[0].ft4.waveform_start_seconds == -0.125f);
   CHECK(records[0].ft8.payload_origin == DECODER_PAYLOAD_NONE);
+  CHECK(records[0].low_confidence == 1);
+  CHECK(records[0].parsed_message.destination_state == DECODER_CALL_RESOLVED_HASH);
+  CHECK(strcmp(records[0].parsed_message.destination, "K1ABC") == 0);
+  CHECK(strcmp(records[0].parsed_message.sender, "W1AW") == 0);
+  CHECK(records[0].parsed_message.exchange_kind == DECODER_EXCHANGE_RREPORT);
+  CHECK(records[0].parsed_message.report_present && records[0].parsed_message.report == -10);
+  CHECK(records[0].parsed_message.complete_tail == 1);
+  CHECK(strcmp(records[0].parsed_message.words[2], "R-10") == 0);
   CHECK(records[1].mode == DECODER_MODE_FT8);
   CHECK(records[1].variant == DECODER_FT8_SUPERFOX);
   CHECK(records[1].superfox.symbols[49] == 127);
@@ -128,6 +136,20 @@ static void observe(const decoder_observation *record, void *opaque)
   context->retained = *record;
 
   if (strcmp(record->message, context->expected_message) == 0) {
+    CHECK(record->parsed_message.word_count == 3);
+    CHECK(record->parsed_message.malformed == 0);
+    CHECK(record->parsed_message.structured == 1);
+    CHECK(record->parsed_message.complete_tail == 1);
+    if (strcmp(context->expected_message, "CQ K1JT FN20") == 0) {
+      CHECK(record->parsed_message.cq == 1);
+      CHECK(strcmp(record->parsed_message.sender, "K1JT") == 0);
+      CHECK(strcmp(record->parsed_message.grid, "FN20") == 0);
+    } else {
+      CHECK(strcmp(record->parsed_message.destination, "K1JT") == 0);
+      CHECK(strcmp(record->parsed_message.sender, "HA0DU") == 0);
+      CHECK(record->parsed_message.exchange_kind == DECODER_EXCHANGE_REPORT);
+      CHECK(record->parsed_message.report_present && record->parsed_message.report == -10);
+    }
     CHECK(record->ft8.payload_origin == DECODER_PAYLOAD_DECODED);
     CHECK(memcmp(record->ft8.payload77, context->expected_payload, 77) == 0);
     CHECK(memcmp(record->ft8.tones, context->expected_tones, 79) == 0);
