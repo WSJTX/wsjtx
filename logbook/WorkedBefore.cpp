@@ -834,6 +834,8 @@ namespace
     QByteArray appended;
   };
 
+  constexpr qint64 max_append_bytes {256 * 1024};
+
   bool ends_at_record_boundary (QByteArray const& bytes)
   {
     auto const end = bytes.trimmed ().toLower ();
@@ -862,12 +864,20 @@ namespace
     result.known = *old;
     auto const current = signature_of (primary);
     if (!current.exists || current.size <= old->size) return result;
+    // A large addition is parsed more cheaply, and off the GUI thread, by a full reload.
+    if (current.size - old->size > max_append_bytes) return result;
     QFile file {primary};
     auto const start = old->size - old->anchor.size ();
     if (!file.open (QIODevice::ReadOnly) || !file.seek (start)) return result;
     auto const data = file.read (current.size - start);
     if (data.size () != current.size - start || !data.startsWith (old->anchor)) return result;
     result.appended = data.mid (old->anchor.size ());
+    if (!ends_at_record_boundary (result.appended))
+      {
+        // Another program is partway through a record: look again at the next check.
+        result.what = poll_result::action::None;
+        return result;
+      }
     result.current = current;
     result.current.anchor = data.right (anchor_size);
     result.what = poll_result::action::Append;
@@ -899,8 +909,21 @@ public:
 
   QStringList watched_paths () const
   {
+    // A history file that is the same file as the log (a link, another spelling) must
+    // not be watched on its own: our own appends would then look like foreign changes.
+    auto key = [] (QString const& path) {
+      auto const canonical = QFileInfo {path}.canonicalFilePath ();
+      return canonical.isEmpty () ? QDir::cleanPath (path) : canonical;
+    };
     QStringList paths {path_};
-    paths.append (configuration_->supplemental_history_files ());
+    QStringList keys {key (path_)};
+    for (auto const& file : configuration_->supplemental_history_files ())
+      {
+        auto const k = key (file);
+        if (keys.contains (k, Qt::CaseSensitive)) continue;
+        keys.append (k);
+        paths.append (file);
+      }
     return paths;
   }
 
@@ -1187,6 +1210,7 @@ bool WorkedBefore::erase_log ()
   bool const erased = !QFile::exists (m_->path_) || QFile::remove (m_->path_);
   if (!erased) LOG_ERROR ("Could not erase ADIF log file: " << m_->path_);
   lock.unlock ();
+  if (erased) m_->added_during_load_.clear ();
   reload ();
   return erased;
 }
@@ -1253,7 +1277,7 @@ bool WorkedBefore::add (QString const& call
 #ifdef Q_OS_WIN
           bytes.replace ("\n", "\r\n");
 #endif
-          file.seek (file.size ()); // Windows append mode need not write at the true end
+          file.seek (file.size ()); // on Windows Qt's append mode is fixed when the file is opened, so another writer may have extended it since
           if (file.write (bytes) != bytes.size () || !file.flush ())
             {
               LOG_ERROR ("Error writing ADIF log file: " << file.fileName ()

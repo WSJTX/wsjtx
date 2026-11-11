@@ -86,6 +86,7 @@ private Q_SLOTS:
   void a_replaced_log_triggers_a_full_reload ();
   void erasing_the_log_removes_file_and_history ();
   void a_half_written_record_is_picked_up_once_completed ();
+  void a_very_large_addition_is_loaded_by_a_full_reload ();
   void a_relative_log_path_is_made_absolute ();
   void own_appends_do_not_trigger_a_rescan ();
   void history_source_changes_are_picked_up ();
@@ -1102,6 +1103,7 @@ void TestWorkedBeforeAdif::a_half_written_record_is_picked_up_once_completed ()
   QVERIFY (add_qso (a, "N2AAA"));
   a.reload ();
   QTRY_COMPARE_WITH_TIMEOUT (a_loaded.count (), 2, 5000);
+  QSignalSpy started {&a, &WorkedBefore::loading_started};
   a.set_source_poll_interval (50);
   auto append_raw = [&a] (QByteArray const& bytes) {
     QFile log {a.path ()};
@@ -1114,6 +1116,29 @@ void TestWorkedBeforeAdif::a_half_written_record_is_picked_up_once_completed ()
   QVERIFY (!a.call_worked ("K1ABC", "FT8", "20M"));
   append_raw ("<mode:3>FT8 <gridsquare:4>FN42 <eor>\r\n");
   QTRY_VERIFY_WITH_TIMEOUT (a.call_worked ("K1ABC", "FT8", "20M"), 5000);
+  // the unfinished record was waited for, not reported as a broken log
+  QCOMPARE (started.count (), 0);
+  QVERIFY (a.load_errors ().isEmpty ());
+}
+
+void TestWorkedBeforeAdif::a_very_large_addition_is_loaded_by_a_full_reload ()
+{
+  WorkedBefore a {configuration_.get ()};
+  QSignalSpy a_loaded {&a, &WorkedBefore::finished_loading};
+  QTRY_VERIFY_WITH_TIMEOUT (!a_loaded.isEmpty (), 5000);
+  QVERIFY (add_qso (a, "N2AAA"));
+  a.reload ();
+  QTRY_COMPARE_WITH_TIMEOUT (a_loaded.count (), 2, 5000);
+  QSignalSpy started {&a, &WorkedBefore::loading_started};
+  a.set_source_poll_interval (50);
+  QByteArray bulk;
+  while (bulk.size () < 300 * 1024) bulk += shared_log_record ("K1ABC") + " <eor>\n";
+  QFile log {a.path ()};
+  QVERIFY (log.open (QIODevice::WriteOnly | QIODevice::Append));
+  QCOMPARE (log.write (bulk), static_cast<qint64> (bulk.size ()));
+  log.close ();
+  QTRY_VERIFY_WITH_TIMEOUT (a.call_worked ("K1ABC", "FT8", "20M"), 10000);
+  QVERIFY (started.count () >= 1);
 }
 
 void TestWorkedBeforeAdif::a_relative_log_path_is_made_absolute ()
@@ -1123,7 +1148,8 @@ void TestWorkedBeforeAdif::a_relative_log_path_is_made_absolute ()
   QSettings settings {dir.filePath ("relative.ini"), QSettings::IniFormat};
   settings.setValue ("Configuration/AdifLogFile", "some/where/../our_relative_log.adi");
   Configuration configuration {&network_, QDir {dir.path ()}, &settings, nullptr};
-  auto const expected = QDir::cleanPath (QFileInfo {"some/where/../our_relative_log.adi"}.absoluteFilePath ());
+  // relative to the data directory, so instances started from different folders agree
+  auto const expected = QDir::cleanPath (configuration.writeable_data_dir ().absoluteFilePath ("some/where/../our_relative_log.adi"));
   QCOMPARE (configuration.adif_log_file_path (), expected);
   QVERIFY (QFileInfo {configuration.adif_log_file_path ()}.isAbsolute ());
 }

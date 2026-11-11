@@ -49,6 +49,8 @@ contacts logged by the others within a few seconds; a very large log or
 history folder can make that take longer. Use a log on a local disk, or on
 a network share that reports file sizes and modification times promptly.
 Click *Default log* to go back to `wsjtx_log.adi` in your log directory.
+*File | Open ADIF log folder* opens the folder holding the log in use, while
+*File | Open log directory* always opens the data directory.
 
 * Only the log you choose is read as the primary log. Contacts in
 `wsjtx_log.adi` stop counting for worked-before status unless you add that

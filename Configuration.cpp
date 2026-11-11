@@ -3829,7 +3829,7 @@ void Configuration::impl::read_settings ()
   highlight_by_mode_ = settings_->value("HighlightByMode", false).toBool ();
   adif_log_file_ = settings_->value ("AdifLogFile").toString ().trimmed ();
   if (!adif_log_file_.isEmpty ())
-    adif_log_file_ = QDir::cleanPath (QFileInfo {adif_log_file_}.absoluteFilePath ());
+    adif_log_file_ = QDir::cleanPath (writeable_data_dir_.absoluteFilePath (adif_log_file_));
   supplemental_history_files_ = WorkedBefore::normalize_history_files (
     settings_->value ("SupplementalHistoryFiles").toStringList (),
     adif_log_path (adif_log_file_));
@@ -5081,7 +5081,7 @@ void Configuration::impl::accept ()
     }
 
   auto const adif_log_file = next_adif_log_file_.trimmed ().isEmpty ()
-    ? QString {} : QDir::cleanPath (QFileInfo {next_adif_log_file_.trimmed ()}.absoluteFilePath ());
+    ? QString {} : QDir::cleanPath (writeable_data_dir_.absoluteFilePath (next_adif_log_file_.trimmed ()));
   auto history_files = WorkedBefore::normalize_history_files (
     next_supplemental_history_files_, adif_log_path (adif_log_file));
   auto history_folders = WorkedBefore::normalize_history_folders (next_supplemental_history_folders_);

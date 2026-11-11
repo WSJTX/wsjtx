@@ -12728,7 +12728,7 @@ void MainWindow::on_actionErase_wsjtx_log_adi_triggered()
 {
   int ret = MessageBox::query_message (this, tr ("Confirm Erase"),
                                        tr ("Are you sure you want to erase file %1?\n\n"
-                                           "If other WSJT-X instances share this log, their worked-before history is erased too.")
+                                           "If other WSJT-X instances share this log, they lose these contacts too.")
                                        .arg (QDir::toNativeSeparators (m_config.adif_log_file_path ())));
   if(ret==MessageBox::Yes) {
     if (!m_logBook.erase_log ()) {
