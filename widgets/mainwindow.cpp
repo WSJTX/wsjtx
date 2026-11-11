@@ -12754,6 +12754,11 @@ void MainWindow::on_actionOpen_log_directory_triggered ()
   QDesktopServices::openUrl (QUrl::fromLocalFile (m_config.writeable_data_dir ().absolutePath ()));
 }
 
+void MainWindow::on_actionOpen_ADIF_log_folder_triggered ()
+{
+  QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {m_config.adif_log_file_path ()}.absolutePath ()));
+}
+
 void MainWindow::on_bandComboBox_currentIndexChanged (int index)
 {
   if (keep_frequency)
