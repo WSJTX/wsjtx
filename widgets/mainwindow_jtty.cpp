@@ -801,7 +801,6 @@ void MainWindow::updateJttySendButton()
   updateModeControlLock ();
 }
 
-// Minimal PTT state until Phase 5's full indicator.
 void MainWindow::updateJttyPttStateLabel()
 {
   if (m_mode != "JTTY") {
@@ -810,20 +809,28 @@ void MainWindow::updateJttyPttStateLabel()
     return;
   }
 
+  // Large and colour-coded, readable at a glance from across the shack.
+  auto const style = [] (char const * background) {
+    return QStringLiteral ("QLabel{background-color: %1; color: black; font-weight: bold;"
+                           " font-size: 14pt; border-radius: 4px; padding: 2px 8px}")
+      .arg (QLatin1String {background});
+  };
   QString text;
-  QString style;
-  if (m_jttyLiveEntryArmed || m_jttyTxLifecycle.active ()) {
+  QString sheet;
+  if (m_jttyLiveEntryArmed) {
     text = m_jttyDiddling ? tr ("Diddle") : tr ("Tx");
-    style = m_jttyDiddling
-      ? QStringLiteral ("QLabel{background-color: #ffb266; font-weight: bold}")
-      : QStringLiteral ("QLabel{background-color: #ff6666; font-weight: bold}");
+    sheet = style (m_jttyDiddling ? "#ffb266" : "#ff6666");
+  } else if (m_jttyTxLifecycle.active ()) {
+    // PTT is off (or a one-shot send) and queued text is still going out.
+    text = tr ("Tx → Rx");
+    sheet = style ("#ff9999");
   } else {
     text = tr ("Rx");
-    style = QStringLiteral ("QLabel{font-weight: bold}");
+    sheet = style ("#99dd99");
   }
   if (ui->labelJttyPttState->text () != text) {
     ui->labelJttyPttState->setText (text);
-    ui->labelJttyPttState->setStyleSheet (style);
+    ui->labelJttyPttState->setStyleSheet (sheet);
   }
 }
 

@@ -193,6 +193,12 @@ Code: `Jtty::sentChars()` and `Jtty::TransmitEcho` in
 `widgets/JttyTransmitEcho.hpp` (tests in `test_jtty_transmit_queue`),
 used by `updateJttyTransmitDisplay()` / `endJttyTxEcho()`.
 
+**PTT indicator (implemented, awaiting hands-on test).** The label above
+Send message is now large (14 pt bold) and colour-coded: **Rx** green,
+**Tx** red, **Diddle** orange, and **Tx → Rx** pink while queued text
+finishes after PTT off or during a one-shot send
+(`updateJttyPttStateLabel()`).
+
 - A large Tx / Rx / Diddle indicator.
 - Clear text states in the Tx box: sent (yellow), committed (gray, locked), editable (plain).
 - Transmitted text echoed into the QSO Frequency pane in its own color, as RTTY programs do.
