@@ -585,6 +585,7 @@ void TCITransceiver::do_stop ()
   if (commander_)
   {
     if (inConnected) commander_->close(QWebSocketProtocol::CloseCodeNormal,"end");
+    inConnected = false;
     delete commander_, commander_ = nullptr;
     CAT_TRACE ("deleted commander & closed websocket & deleted:");
   }
@@ -1013,27 +1014,6 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
     m_tciSuccessfullyWrittenFrames += frames;
     emit_tci_playout_snapshot (false, m_state == Idle);
   }
-}
-
-void TCITransceiver::txAudioData(quint32 len, float * data)
-{
-  if (len % TciStream::DefaultChannels || (len && !data)) {
-    return;
-  }
-
-  TciStream::Header chrono {};
-  chrono.receiver = 0u;
-  chrono.sampleRate = audioSampleRate;
-  chrono.length = len;
-  QByteArray tx;
-  if (!TciStream::prepare_tx_audio_frame (&tx, chrono, TciStream::DefaultChannels)) {
-    return;
-  }
-
-  if (len) {
-    std::memcpy (TciStream::float_payload (&tx), data, len * sizeof (float));
-  }
-  commander_->sendBinaryMessage(tx);
 }
 
 void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples,

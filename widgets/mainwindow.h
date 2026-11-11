@@ -40,6 +40,7 @@
 #include <optional>
 
 class QHBoxLayout;
+class WaitFeaturesApplicationTestController;
 namespace DecoderIpc {class Session;}
 
 #include "DecodedGridHistory.hpp"
@@ -359,6 +360,7 @@ public:
 private:
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   friend class BestSPApplicationTestController;
+  friend class WaitFeaturesApplicationTestController;
 #endif
   enum class DecodeOwner
   {
@@ -434,6 +436,7 @@ private slots:
   void on_pb10G_clicked();
   void on_pb24G_clicked();
   void check_button_color();
+  void refreshWaitFeatureControls();
   void reset_transmit_controls_after_stop ();
   void stopWRTimeout();
   void stopWCTimeout();
@@ -713,6 +716,7 @@ private slots:
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
                          , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
                          , QString const& dx_grid, bool generate_messages);
+  void annotate_callsign (QString const& callsign, bool sort_order_provided, quint32 sort_order);
   void callSandP2(int nline);
   void qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick);
   void refreshHoundQueueDisplay();
@@ -830,7 +834,14 @@ private:
 
 private:
   enum class TxControlOrigin { Automatic, Local };
-  void setAutoTxEnabled (bool, TxControlOrigin);
+  enum class TxEnableIntent { Ordinary, DecodedSelection };
+  bool canEnableAutoTx (TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary) const;
+  bool prepareAutoTxEnable (TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary);
+  bool installAutoTxEnabled (bool);
+  bool setAutoTxEnabled (bool, TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary);
+  bool tryAutomaticSelection (DecodedText const&, bool * block_right_display = nullptr);
+  bool applyWaitReactionPlan (DecodedMessageReaction::QsoReactionPlan const&, DecodedText const&,
+                              bool * block_right_display);
   void setTuneEnabled (bool, TxControlOrigin);
   void startPendingRigTune ();
   void cancelRigTune ();
@@ -1377,7 +1388,21 @@ private:
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
   QTimer m_pounceSelectionTimer;
-  bool m_pounceWaitCallTimeout {false};
+  struct WaitRetryContext
+  {
+    QString call;
+    QString mode;
+    QString band;
+    double period {0};
+    QDateTime receivedPeriod;
+    quint64 generation {0};
+    bool acknowledgeReply {true};
+  };
+  enum class WaitCallTimeoutOwner {None, WaitAndCall, Pounce};
+  WaitCallTimeoutOwner m_waitCallTimeoutOwner {WaitCallTimeoutOwner::None};
+  std::optional<WaitRetryContext> m_waitReplyAttempt;
+  std::optional<WaitRetryContext> m_waitCallAttempt;
+  quint64 m_waitRetryGeneration {0};
   QTimer ptt1Timer;                 //StartTx delay
   QTimer ptt0Timer;                 //StopTx delay
   QTimer logQSOTimer;
@@ -1693,10 +1718,16 @@ private:
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
     Qt::KeyboardModifiers modifiers,
     DecodedMessageReaction::SelectionOrigin selection_origin) const;
-  void applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
+  bool applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
                             DecodedText const& message, bool * block_right_display = nullptr);
-  void applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
+  bool applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
                               DecodedText const& message, bool * block_right_display);
+  void startWaitRetry (bool reply, int milliseconds, QDateTime const& receivedPeriod,
+                       bool acknowledge = true,
+                       WaitCallTimeoutOwner owner = WaitCallTimeoutOwner::WaitAndCall);
+  void cancelWaitRetry (bool reply);
+  void acknowledgeWaitReply (DecodedText const&, QDateTime const&);
+  void invalidateWaitRetries ();
   void showContestHint(DecodedMessageReaction::ContestHint hint);
   void refreshQsoPane(DecodedText const& message);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);

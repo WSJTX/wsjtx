@@ -108,7 +108,6 @@ qreal txAtten;
 
 public slots:
   void sendTextMessage(const QString &message);
-  void txAudioData(quint32 len, float * data);
   void enqueue_jtty_pcm (QByteArray const& samples, TxAudioQueueEpoch epoch,
                          qint64 enqueueId) noexcept override;
   void clear_jtty_pcm (TxAudioQueueEpoch epoch) noexcept override;

@@ -15,6 +15,7 @@ struct DecodedMessageFields
 {
   QString destination;
   QString sender;
+  QString exchange;
   QString grid;
   bool cq {};
 };

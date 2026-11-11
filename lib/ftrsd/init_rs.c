@@ -3,6 +3,7 @@
  * Copyright 2002 Phil Karn, KA9Q
  * May be used under the terms of the GNU General Public License (GPL)
  */
+#include <limits.h>
 #include <stdlib.h>
 
 #ifdef CCSDS
@@ -34,19 +35,21 @@ void *INIT_RS(unsigned int symsize,unsigned int gfpoly,unsigned fcr,unsigned pri
   struct rs *rs;
   int i, j, sr,root,iprim;
 
-  if(symsize > 8*sizeof(DTYPE))
-    return NULL; /* Need version with ints rather than chars */
+  /* Field generation shifts a signed symbol one bit left. */
+  if(symsize > CHAR_BIT*sizeof(DTYPE) || symsize >= CHAR_BIT*sizeof(int)-1)
+    return NULL;
 
-  if(fcr >= (1<<symsize))
+  const unsigned int field_size = 1U << symsize;
+  if(fcr >= field_size)
     return NULL;
-  if(prim == 0 || prim >= (1<<symsize))
+  if(prim == 0 || prim >= field_size)
     return NULL;
-  if(nroots >= (1<<symsize))
+  if(nroots >= field_size)
     return NULL; /* Can't have more roots than symbol values! */
 
   rs = (struct rs *)calloc(1,sizeof(struct rs));
   rs->mm = symsize;
-  rs->nn = (1<<symsize)-1;
+  rs->nn = (int)(field_size-1U);
 
   rs->alpha_to = (DTYPE *)malloc(sizeof(DTYPE)*(rs->nn+1));
   if(rs->alpha_to == NULL){
@@ -68,7 +71,7 @@ void *INIT_RS(unsigned int symsize,unsigned int gfpoly,unsigned fcr,unsigned pri
     rs->index_of[sr] = i;
     rs->alpha_to[i] = sr;
     sr <<= 1;
-    if(sr & (1<<symsize))
+    if(sr & (int)field_size)
       sr ^= gfpoly;
     sr &= rs->nn;
   }
@@ -90,7 +93,7 @@ void *INIT_RS(unsigned int symsize,unsigned int gfpoly,unsigned fcr,unsigned pri
   }
   rs->fcr = fcr;
   rs->prim = prim;
-  rs->nroots = nroots;
+  rs->nroots = (int)nroots;
 
   /* Find prim-th root of 1, used in decoding */
   for(iprim=1;(iprim % prim) != 0;iprim += rs->nn)
@@ -98,7 +101,7 @@ void *INIT_RS(unsigned int symsize,unsigned int gfpoly,unsigned fcr,unsigned pri
   rs->iprim = iprim / prim;
 
   rs->genpoly[0] = 1;
-  for (i = 0,root=fcr*prim; i < nroots; i++,root += prim) {
+  for (i = 0,root=fcr*prim; i < rs->nroots; i++,root += prim) {
     rs->genpoly[i+1] = 1;
 
     /* Multiply rs->genpoly[] by  @**(root + x) */
@@ -112,7 +115,7 @@ void *INIT_RS(unsigned int symsize,unsigned int gfpoly,unsigned fcr,unsigned pri
     rs->genpoly[0] = rs->alpha_to[modnn(rs,rs->index_of[rs->genpoly[0]] + root)];
   }
   /* convert rs->genpoly[] to index form for quicker encoding */
-  for (i = 0; i <= nroots; i++)
+  for (i = 0; i <= rs->nroots; i++)
     rs->genpoly[i] = rs->index_of[rs->genpoly[i]];
 
   return rs;

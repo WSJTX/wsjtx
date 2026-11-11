@@ -675,7 +675,6 @@ set (ka9q_CSRCS
   lib/ftrsd/encode_rs.c
   lib/ftrsd/init_rs.c
   )
-set_source_files_properties (${ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (qra_CSRCS
   lib/qra/qracodes/qra12_63_64_irr_b.c

@@ -17,6 +17,8 @@ class QSettings;
 std::unique_ptr<DecoderBackend> makeBestSPTestBackend ();
 std::unique_ptr<AudioInputSource> makeBestSPTestAudioInput ();
 std::unique_ptr<AudioOutputSink> makeBestSPTestAudioOutput ();
+void deliverScriptedTestDecode (DecoderBackend *, QString const& line);
+void completeScriptedTestDecode (DecoderBackend *);
 
 class BestSPTestEnvironment final
 {
@@ -45,7 +47,7 @@ private:
   bool competingCQSelections ();
   bool pounceSelections ();
   bool settingsCQSelection ();
-  bool feedbackMatches (bool armed, QString const& expected);
+  bool feedbackMatches (bool armed, QString const& expected, bool checkStatusMessage = true);
   bool feedbackLifecycle ();
   bool contextAndReplyPaths ();
   bool translatedSelections ();

@@ -273,8 +273,7 @@ void MainWindow::applyLogCompletionEffects (QsoLogRequest const& request)
     m_inQSOwith.clear ();
     if (ui->respondComboBox->isVisible () && autoRespondPolicy () != AutoRespondPolicy::None)
       m_autoRespondScores.reset ();
-    stopWRTimer.stop ();
-    stopWCTimer.stop ();
+    invalidateWaitRetries ();
   }
 }
 
