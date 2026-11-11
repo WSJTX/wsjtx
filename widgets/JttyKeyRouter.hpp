@@ -32,13 +32,17 @@ namespace Jtty
       FunctionKey,    // F1-F8 give 1..8, Shift+F1-F8 give 9..16, in functionKey
       FocusDxCall,    // F10
       StepTxFrequency, // Shift+F11 / Shift+F12; txStepHz holds the signed step
-      EnterSendsMessage // Enter, when Enter Sends Message is on
+      EnterSendsMessage, // Enter, when Enter Sends Message is on
+      RecallHistory,    // Ctrl+Up / Ctrl+Down; recallStep is -1 (older) or +1
+      ZoomFont          // Ctrl+= / Ctrl+- / Ctrl+0; zoomStep is +1, -1 or 0 (reset)
     };
 
     Action action {Action::None};
     QString text;
     int functionKey {0};
     int txStepHz {0};
+    int recallStep {0};
+    int zoomStep {0};
   };
 
   inline constexpr int txFrequencyStepHz = 150;

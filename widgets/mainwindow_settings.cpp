@@ -87,6 +87,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->setValue("SerialNumberJTTY",ui->sbSerialNumber_2->value ());
   m_settings->setValue ("JTTY_EnterSendsMessage", ui->cbJttyEnterSends->isChecked ());
+  m_settings->setValue ("JTTY_FontZoom", m_jttyFontZoom);
   m_jttyMacros.save (*m_settings);
   // Superseded by the macro sets above.
   m_settings->remove ("JTTY_MessageStyle");
@@ -318,6 +319,7 @@ void MainWindow::readSettings()
   ui->sbSerialNumber_2->setValue (m_settings->value ("SerialNumberJTTY", 1).toInt ());
   m_jttyMacros.load (*m_settings);
   ui->cbJttyEnterSends->setChecked (m_settings->value ("JTTY_EnterSendsMessage", true).toBool ());
+  m_jttyFontZoom = m_settings->value ("JTTY_FontZoom", 0).toInt ();
   refreshJttyMacroControls ();
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;

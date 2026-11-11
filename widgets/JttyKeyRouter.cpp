@@ -74,9 +74,25 @@ namespace Jtty
               key == Qt::Key_F11 ? -txFrequencyStepHz : txFrequencyStepHz};
     }
 
+    // Ctrl+Shift+= types Key_Plus on most layouts, so take either.
+    bool const zoomIn = (key == Qt::Key_Equal || key == Qt::Key_Plus)
+      && (mods == Qt::ControlModifier || mods == (Qt::ControlModifier | Qt::ShiftModifier));
+    if (zoomIn || ((key == Qt::Key_Minus || key == Qt::Key_0) && mods == Qt::ControlModifier)) {
+      KeyRoute route {Action::ZoomFont, {}, 0};
+      route.zoomStep = zoomIn ? 1 : key == Qt::Key_Minus ? -1 : 0;
+      return route;
+    }
+
     if ((key == Qt::Key_Return || key == Qt::Key_Enter) && mods == Qt::NoModifier
         && enterSendsMessage && focus != KeyFocus::TextEntry) {
       return {Action::EnterSendsMessage, {}, 0};
+    }
+
+    if ((key == Qt::Key_Up || key == Qt::Key_Down) && mods == Qt::ControlModifier
+        && (focus == KeyFocus::TxBox || focus == KeyFocus::Other)) {
+      KeyRoute route {Action::RecallHistory, {}, 0};
+      route.recallStep = key == Qt::Key_Up ? -1 : 1;
+      return route;
     }
 
     if (focus != KeyFocus::Other) return {};

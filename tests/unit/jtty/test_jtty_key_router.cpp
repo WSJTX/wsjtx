@@ -161,6 +161,47 @@ private slots:
     }
   }
 
+  void ctrlUpDownRecallFromTheTxBoxOrAway ()
+  {
+    for (auto focus : {KeyFocus::TxBox, KeyFocus::Other}) {
+      auto r = route (Qt::Key_Up, Qt::ControlModifier, {}, focus);
+      QCOMPARE (r.action, Action::RecallHistory);
+      QCOMPARE (r.recallStep, -1);
+      r = route (Qt::Key_Down, Qt::ControlModifier, {}, focus);
+      QCOMPARE (r.action, Action::RecallHistory);
+      QCOMPARE (r.recallStep, 1);
+    }
+    for (auto focus : {KeyFocus::QsoField, KeyFocus::TextEntry}) {
+      QCOMPARE (route (Qt::Key_Up, Qt::ControlModifier, {}, focus).action, Action::None);
+    }
+    QCOMPARE (route (Qt::Key_Up, Qt::NoModifier, {}, KeyFocus::TxBox).action, Action::None);
+  }
+
+  void ctrlPlusMinusZeroZoomFromAnywhere ()
+  {
+    for (auto focus : {KeyFocus::TxBox, KeyFocus::QsoField, KeyFocus::TextEntry, KeyFocus::Other}) {
+      auto r = route (Qt::Key_Equal, Qt::ControlModifier, {}, focus);
+      QCOMPARE (r.action, Action::ZoomFont);
+      QCOMPARE (r.zoomStep, 1);
+      r = route (Qt::Key_Plus, Qt::ControlModifier | Qt::ShiftModifier, {}, focus);
+      QCOMPARE (r.action, Action::ZoomFont);
+      QCOMPARE (r.zoomStep, 1);
+      r = route (Qt::Key_Plus, Qt::ControlModifier | Qt::KeypadModifier, {}, focus);
+      QCOMPARE (r.zoomStep, 1);
+      r = route (Qt::Key_Minus, Qt::ControlModifier, {}, focus);
+      QCOMPARE (r.action, Action::ZoomFont);
+      QCOMPARE (r.zoomStep, -1);
+      r = route (Qt::Key_0, Qt::ControlModifier, {}, focus);
+      QCOMPARE (r.action, Action::ZoomFont);
+      QCOMPARE (r.zoomStep, 0);
+    }
+    // Unmodified they are ordinary typing.
+    QCOMPARE (route (Qt::Key_Minus, Qt::NoModifier, QStringLiteral ("-"), KeyFocus::Other).action,
+              Action::AppendToTxBox);
+    QCOMPARE (route (Qt::Key_0, Qt::NoModifier, QStringLiteral ("0"), KeyFocus::TxBox).action,
+              Action::None);
+  }
+
   void classifiesFocusWidgets ()
   {
     QPlainTextEdit txBox;

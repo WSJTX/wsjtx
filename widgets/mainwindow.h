@@ -85,6 +85,7 @@ namespace DecoderIpc {class Session;}
 #include "JttyLiveEntry.hpp"
 #include "JttyMacroSets.hpp"
 #include "JttyTransmitEcho.hpp"
+#include "JttyTransmitHistory.hpp"
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
@@ -932,6 +933,10 @@ private:
   void feedJttyTransmitQueue();
   void updateJttyTransmitDisplay(qint64 servedSamples);
   void endJttyTxEcho();
+  void recallJttyTransmission(int step);
+  void clearJttySentText();
+  void zoomJttyFont(int step);
+  QFont jttyDisplayFont() const;
   void updateJttySendButton();
   void onJttyBackendProgress(TxAudioQueueProgress progress);
   qint64 jttyTxCommittedSamples() const;
@@ -1570,6 +1575,9 @@ private:
   Jtty::TransmitEcho m_jttyTxEcho;
   std::shared_ptr<JttyReceiveLine> m_jttyTxEchoLine;
   QDateTime m_jttyTxEchoStart;
+  Jtty::TransmitHistory m_jttyTxHistory;
+  bool m_jttyRecalling {false};
+  int m_jttyFontZoom {0};   // points added to the Decoded Text Font in JTTY
   // Most recently started segment was filler; drives the Diddle/Tx label.
   bool m_jttyDiddling {false};
   QString m_jttyQueueNotice;

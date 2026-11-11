@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include "widgets/JttyTransmitEcho.hpp"
+#include "widgets/JttyTransmitHistory.hpp"
 #include "widgets/JttyTransmitQueue.hpp"
 
 class TestJttyTransmitQueue final
@@ -167,6 +168,42 @@ private slots:
 
     echo.reset ();
     QVERIFY (echo.isEmpty ());
+  }
+
+  void historyRecallsLikeAShell ()
+  {
+    Jtty::TransmitHistory history;
+    QString text {QStringLiteral ("unchanged")};
+    QVERIFY (!history.recall (-1, {}, &text));
+    QCOMPARE (text, QStringLiteral ("unchanged"));
+
+    history.add (QStringLiteral ("  CQ  K1ABC "));
+    history.add (QStringLiteral ("CQ K1ABC"));   // repeat of the newest: not added
+    history.add (QStringLiteral ("W2ZQ 599 MA"));
+    history.add (QString {});
+    QCOMPARE (history.overs (), (QStringList {QStringLiteral ("CQ K1ABC"), QStringLiteral ("W2ZQ 599 MA")}));
+
+    QVERIFY (history.recall (-1, QStringLiteral ("draft"), &text));
+    QCOMPARE (text, QStringLiteral ("W2ZQ 599 MA"));
+    QVERIFY (history.recall (-1, text, &text));
+    QCOMPARE (text, QStringLiteral ("CQ K1ABC"));
+    QVERIFY (!history.recall (-1, text, &text));
+    QVERIFY (history.recall (1, text, &text));
+    QCOMPARE (text, QStringLiteral ("W2ZQ 599 MA"));
+    QVERIFY (history.recall (1, text, &text));
+    QCOMPARE (text, QStringLiteral ("draft"));
+    QVERIFY (!history.recall (1, text, &text));
+
+    // An edit ends recall: the next Ctrl+Up starts from the newest again.
+    QVERIFY (history.recall (-1, QStringLiteral ("x"), &text));
+    QVERIFY (history.recall (-1, text, &text));
+    history.endRecall ();
+    QVERIFY (history.recall (-1, QStringLiteral ("y"), &text));
+    QCOMPARE (text, QStringLiteral ("W2ZQ 599 MA"));
+
+    for (int i = 0; i < 30; ++i) history.add (QString::number (i));
+    QCOMPARE (history.overs ().size (), Jtty::TransmitHistory::capacity);
+    QCOMPARE (history.overs ().constLast (), QStringLiteral ("29"));
   }
 };
 

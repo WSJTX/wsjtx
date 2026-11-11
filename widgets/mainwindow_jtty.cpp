@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <functional>
+#include <QScopedValueRollback>
 #include <QSettings>
 #include <QTextCharFormat>
 #include <QTextCursor>
@@ -772,10 +773,77 @@ void MainWindow::updateJttyTransmitDisplay(qint64 servedSamples)
   }
 }
 
+// Ctrl+Up / Ctrl+Down: replace the unsent part of the Tx box with an earlier
+// over, ready to edit or send again.
+void MainWindow::recallJttyTransmission(int step)
+{
+  int const unsentFrom = m_jttyLiveEntryCommitted;
+  QString const draft = ui->Tx_Message->toPlainText ().mid (unsentFrom);
+  QString text;
+  if (!m_jttyTxHistory.recall (step, draft, &text)) return;
+  QScopedValueRollback<bool> recalling {m_jttyRecalling, true};
+  QTextCursor cursor = ui->Tx_Message->textCursor ();
+  cursor.setPosition (unsentFrom);
+  cursor.movePosition (QTextCursor::End, QTextCursor::KeepAnchor);
+  cursor.insertText (text, QTextCharFormat {});
+  ui->Tx_Message->setTextCursor (cursor);
+  ui->Tx_Message->ensureCursorVisible ();
+}
+
+// PTT has dropped: the over is echoed in the QSO Frequency pane and Ctrl+Up
+// recalls it, so its text leaves the Tx box. Unsent type-ahead stays.
+void MainWindow::clearJttySentText()
+{
+  if (m_mode != "JTTY") return;
+  int const cut = m_jttyLiveEntryPending.isEmpty ()
+    ? m_jttyLiveEntryCommitted : m_jttyLiveEntryPending.constFirst ().start;
+  if (cut <= 0) return;
+  m_guardingJttyLiveEntryLock = true;
+  QTextCursor cursor (ui->Tx_Message->document ());
+  cursor.setPosition (cut, QTextCursor::KeepAnchor);
+  cursor.removeSelectedText ();
+  for (auto& pending : m_jttyLiveEntryPending) {
+    pending.start -= cut;
+    pending.end -= cut;
+  }
+  m_jttyLiveEntryCommitted -= cut;
+  if (m_jttyLiveEntryPending.isEmpty ()) m_jttyLiveEntryFramesSent = 0;
+  applyJttyLiveEntryFormatting ();
+  // The lock guard reverts bad edits with undo(), so the removal mustn't be undoable.
+  ui->Tx_Message->document ()->clearUndoRedoStacks ();
+  m_guardingJttyLiveEntryLock = false;
+  updateJttyLiveEntryFrameLabel ();
+}
+
+QFont MainWindow::jttyDisplayFont() const
+{
+  QFont font = m_config.decoded_text_font ();
+  if (m_mode == "JTTY" && m_jttyFontZoom && font.pointSize () > 0) {
+    font.setPointSize (qMax (6, font.pointSize () + m_jttyFontZoom));
+  }
+  return font;
+}
+
+// Ctrl+= / Ctrl+- / Ctrl+0: JTTY's own offset from the Decoded Text Font size.
+void MainWindow::zoomJttyFont(int step)
+{
+  int const base = m_config.decoded_text_font ().pointSize ();
+  if (base <= 0) return;
+  int const zoom = step ? qBound (6 - base, m_jttyFontZoom + step, 40 - base) : 0;
+  if (zoom != m_jttyFontZoom) {
+    m_jttyFontZoom = zoom;
+    setDecodedTextFont (jttyDisplayFont ());
+  }
+  showStatusMessage (tr ("JTTY font size %1 pt").arg (base + zoom));
+}
+
 // PTT has dropped: the over is complete, and ALL.TXT gets it as one line.
 void MainWindow::endJttyTxEcho()
 {
-  if (!m_jttyTxEcho.isEmpty ()) write_all ("Tx", m_jttyTxEcho.text ());
+  if (!m_jttyTxEcho.isEmpty ()) {
+    write_all ("Tx", m_jttyTxEcho.text ());
+    m_jttyTxHistory.add (m_jttyTxEcho.text ());
+  }
   m_jttyTxEcho.reset ();
   m_jttyTxEchoLine.reset ();
 }
@@ -969,6 +1037,7 @@ void MainWindow::finishJttyDrain(JttyTxLifecycle::Drain const& drain)
     return;
   }
   endJttyTxEcho ();
+  clearJttySentText ();
   stopTx();
   m_jttyQueueNotice = tr ("JTTY transmission complete.");
   updateJttySendButton ();
@@ -1176,6 +1245,12 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     return true;
   case Action::EnterSendsMessage:
     if (!repeat) jttyEnterSendsMessage ();
+    return true;
+  case Action::RecallHistory:
+    recallJttyTransmission (route.recallStep);
+    return true;
+  case Action::ZoomFont:
+    zoomJttyFont (route.zoomStep);
     return true;
   }
   return false;

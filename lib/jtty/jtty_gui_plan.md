@@ -199,6 +199,27 @@ Send message is now large (14 pt bold) and colour-coded: **Rx** green,
 finishes after PTT off or during a one-shot send
 (`updateJttyPttStateLabel()`).
 
+**Recall (implemented, awaiting hands-on test).** Ctrl+Up / Ctrl+Down, from
+the Tx box or anywhere typing goes to it, step through the last 20 overs
+like a shell history, replacing the unsent part of the Tx box; stepping
+down past the newest restores the draft. Any edit ends the recall.
+Code: `Jtty::TransmitHistory` in `widgets/JttyTransmitHistory.hpp`,
+`recallJttyTransmission()`; overs are added by `endJttyTxEcho()`.
+
+**Tx box states:** already correct (sent highlighted, committed gray and
+locked, editable plain), stepping a frame at a time like the echo.
+**Sent text clears at PTT drop (implemented, awaiting hands-on test).**
+When an over finishes and PTT drops, its text leaves the Tx box (it is in
+the QSO pane and in recall); unsent type-ahead stays. Esc still clears all.
+Code: `clearJttySentText()`, called from `finishJttyDrain()`.
+
+**Font size (implemented, awaiting hands-on test).** The base is Settings →
+General → Decoded Text Font (both decode panes and the Tx box). In JTTY,
+Ctrl+= (or Ctrl++) and Ctrl+- step it a point at a time and Ctrl+0
+restores it; the offset is saved as `JTTY_FontZoom` and other modes keep
+the base size. Code: `zoomJttyFont()`, `jttyDisplayFont()`; key route
+`ZoomFont`.
+
 - A large Tx / Rx / Diddle indicator.
 - Clear text states in the Tx box: sent (yellow), committed (gray, locked), editable (plain).
 - Transmitted text echoed into the QSO Frequency pane in its own color, as RTTY programs do.

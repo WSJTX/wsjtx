@@ -707,7 +707,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   ui->setupUi(this);
   ui->pbBestSP->setStatusTip (ui->pbBestSP->accessibleDescription ());
   updateJttySendButton ();
-  ui->Tx_Message->setToolTip (tr ("Ctrl+K sends now (one-shot). Alt+J starts a live session that keeps sending as you type, until Alt+K signs off. Ctrl+Shift+K clears the box. Ctrl+H inserts a chat opener."));
+  ui->Tx_Message->setToolTip (tr ("Ctrl+K sends now (one-shot). Alt+J starts a live session that keeps sending as you type, until Alt+K signs off. Ctrl+Shift+K clears the box. Ctrl+H inserts a chat opener. Ctrl+Up and Ctrl+Down recall earlier overs. Ctrl+= and Ctrl+- change the JTTY font size; Ctrl+0 restores it."));
   ui->Tx_Message->installEventFilter (this);
   configureModeControlsLayout ();
   // A non-editable QComboBox always left-aligns its closed-box text, so fake a
@@ -723,6 +723,9 @@ MainWindow::MainWindow(QDir const& temp_directory,
            &MainWindow::autoAdvanceJttyLiveEntry);
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,
            &MainWindow::updateJttyLiveEntryFrameLabel);
+  connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this, [this] {
+    if (!m_jttyRecalling) m_jttyTxHistory.endRecall ();
+  });
   m_jttyAutoAdvanceIdleTimer.setSingleShot (true);
   connect (&m_jttyAutoAdvanceIdleTimer, &QTimer::timeout, this,
            &MainWindow::idleFlushJttyLiveEntry);
@@ -1238,8 +1241,8 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (&m_config, &Configuration::text_font_changed, [this] (QFont const& font) {
       set_application_font (font);
     });
-  connect (&m_config, &Configuration::decoded_text_font_changed, [this] (QFont const& font) {
-      setDecodedTextFont (font);
+  connect (&m_config, &Configuration::decoded_text_font_changed, [this] (QFont const&) {
+      setDecodedTextFont (jttyDisplayFont ());
     });
 
   setWindowTitle (branded_program_title ());
@@ -1871,7 +1874,7 @@ void MainWindow::handle_leavingSettings ()
 void MainWindow::initialize_fonts ()
 {
   set_application_font (m_config.text_font ());
-  setDecodedTextFont (m_config.decoded_text_font ());
+  setDecodedTextFont (jttyDisplayFont ());
 }
 
 void MainWindow::splash_done ()
@@ -12352,6 +12355,7 @@ void MainWindow::WSPR_config(bool b)
   ui->cbLowerCase->setVisible(jtty);
   updateJttyQsoFieldsVisibility();
   if (jtty) updateJttySentExchange();
+  if (ui->Tx_Message->font () != jttyDisplayFont ()) setDecodedTextFont (jttyDisplayFont ());
   ui->autoButton->setEnabled(!jtty);
   ui->autoButton->setVisible(!jtty);
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version
