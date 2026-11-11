@@ -780,6 +780,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
   ui->jttyCallEntry->setValidator (new CallsignValidator {this});
+  ui->jttyNextCallEntry->setValidator (new CallsignValidator {this});
   connect (ui->jttyCallEntry, &QLineEdit::textEdited, ui->dxCallEntry, &QLineEdit::setText);
   connect (ui->jttyReceivedEntry, &QLineEdit::textChanged, this, [this] (QString const& text) {
     m_xRcvd = text.simplified ().toUpper ();
@@ -9317,9 +9318,14 @@ void MainWindow::handleDecodeSelection(
   QString const& line, Qt::KeyboardModifiers modifiers,
   DecodedMessageReaction::SelectionOrigin selection_origin, QString const& clicked_token)
 {
-  // Shift+double-click adds to the received exchange; the QSO itself is unchanged.
+  // Shift+double-click adds to the received exchange and Ctrl+double-click
+  // sets the next call; the QSO in progress is unchanged.
   if (m_mode == "JTTY" && (modifiers & Qt::ShiftModifier)) {
     appendJttyReceivedExchange (Jtty::trimJttyChatPunctuation (clicked_token));
+    return;
+  }
+  if (m_mode == "JTTY" && (modifiers & Qt::ControlModifier)) {
+    ui->jttyNextCallEntry->setText (Jtty::trimJttyChatPunctuation (clicked_token).toUpper ());
     return;
   }
   setBestSPArmed (false);

@@ -4,7 +4,8 @@ A companion to `jtty_gui.md`, offered for discussion. It proposes how the guidel
 
 ## Where things stand (`feat/jtty-new-GUI`)
 
-Phases 1–4 are implemented and tested; phase 5 is not started. The
+Phases 1–4 (including 4b, Call next and TU NOW) are implemented and tested;
+phase 5 is not started. The
 transmit machinery the guidelines describe already existed — what phase 1
 replaced was the control layer on top of it.
 
@@ -158,6 +159,12 @@ single step guarantees that; no holdback is needed.
   DX Call.
 - **Click a callsign:** double-click sets the call (and its SNR), as before.
   Shift+double-click adds the clicked word to Rcvd.
+- **Call next and TU NOW (phase 4b).** Ctrl+double-click a callsign to put
+  it in **Call next** (`jttyNextCallEntry`), which `%Q` now sends (it used
+  to repeat the DX call). A macro with both `%Q` and `%L`, such as Run F6
+  `%[TU NOW %Q %E%L%]`, logs the current QSO, sends the exchange with the
+  *next* serial number, moves Call next into Call and clears it, and leaves
+  Enter ready to send TU. `%Q` with Call next empty is refused.
 - **Include Time is gone:** decode lines always start with the UTC time.
 - **N1MM / MMTTY:** untouched. That path never uses the macro sets, and key
   routing is limited to the main window and the Wide Graph.
@@ -246,7 +253,7 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   `WSPR_config()` selects the JTTY controls page (`controls_stack_widget`
   index 1).
 - `widgets/mainwindow.ui` — JTTY page `page_4`: `pbF1`–`pbF8`, `pbSF1`–`pbSF8`,
-  `comboBoxJttyStyle`, `pbEditJttyMacros`, `cbJttyEnterSends`, `sbSerialNumber_2`, `pbSendMessage`,
+  `comboBoxJttyStyle`, `pbEditJttyMacros`, `cbJttyEnterSends`, `jttyNextCallEntry`, `sbSerialNumber_2`, `pbSendMessage`,
   `labelJttyFrameCount`, `Tx_Message`. Under the decode panes (JTTY only):
   `cbLowerCase` and `jttyQsoFieldsWidget` (`jttyCallEntry`, `jttySentEntry`, `jttyReceivedEntry`).
 - `widgets/JttyMessages.hpp` — filler text (`jttyFillerText`), `parseMacroControl()`, macro

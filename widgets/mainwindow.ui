@@ -4260,7 +4260,7 @@ Double-click to reset to the standard 73 message</string>
                 </widget>
                </item>
                <item row="2" column="1">
-                <widget class="QLineEdit" name="lineEdit">
+                <widget class="QLineEdit" name="jttyNextCallEntry">
                  <property name="maximumSize">
                   <size>
                    <width>100</width>
@@ -4268,7 +4268,7 @@ Double-click to reset to the standard 73 message</string>
                   </size>
                  </property>
                  <property name="toolTip">
-                  <string>Callsign to be worked next.</string>
+                  <string>Callsign to be worked next, sent by %Q. Ctrl+double-click a callsign in a decode pane to fill it. A macro with both %Q and %L (Run F6, TU NOW) logs the current QSO and makes this the new call.</string>
                  </property>
                 </widget>
                </item>

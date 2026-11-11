@@ -983,7 +983,7 @@ private:
   bool m_discardJttyWavLoad = false;
   void drainJttyReceive();
   void jtty_again();
-  QString jtty_msg_expand(QString msg);
+  QString jtty_msg_expand(QString msg, int serialNumber = -1);
   int jttySnrForSelectedWord(QString const& word, bool leftPane) const;
   QString specOpLabel() const;
   void initializeFFT(int nsps);

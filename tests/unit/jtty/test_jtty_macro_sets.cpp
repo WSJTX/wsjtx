@@ -40,7 +40,8 @@ private slots:
       QCOMPARE (control.text, Jtty::nativeMacroTemplate (key));
       QVERIFY (control.pttOn);
       QVERIFY (control.pttOff);
-      QCOMPARE (control.logQso, key == 3);
+      QCOMPARE (control.logQso, key == 3 || key == 6);
+      QCOMPARE (control.startsNextQso (), key == 6);
       QVERIFY (!run.macros[key - 1].label.isEmpty ());
     }
     for (int key = 9; key <= Jtty::macroKeyCount; ++key) {
@@ -65,11 +66,13 @@ private slots:
     QCOMPARE (Jtty::defaultMacroSet (QStringLiteral ("S&P")).enterRole,
               Jtty::EnterRole::SearchAndPounce);
     QCOMPARE (Jtty::defaultMacroSet (QStringLiteral ("Chat")).enterRole, Jtty::EnterRole::Off);
-    // The keys Enter sends must log at F3 and nowhere else.
+    // Logging only at F3 (TU) and, in Run, F6 (TU NOW, which opens the next QSO).
     for (QString const& name : {QStringLiteral ("Run"), QStringLiteral ("S&P")}) {
       auto const set = Jtty::defaultMacroSet (name);
+      bool const run = name == QStringLiteral ("Run");
       for (int key = 1; key <= Jtty::macroKeyCount; ++key) {
-        QCOMPARE (Jtty::parseMacroControl (set.macros[key - 1].text).logQso, key == 3);
+        QCOMPARE (Jtty::parseMacroControl (set.macros[key - 1].text).logQso,
+                  key == 3 || (run && key == 6));
       }
     }
   }

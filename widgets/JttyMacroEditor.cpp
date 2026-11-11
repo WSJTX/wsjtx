@@ -56,7 +56,7 @@ JttyMacroEditor::JttyMacroEditor (Jtty::MacroLibrary const& library, QWidget * p
   enterRow->addStretch (1);
 
   auto * help = new QLabel {tr (
-      "%M my call · %H DX call · %Q DX call (queued) · %N serial number · "
+      "%M my call · %H DX call · %Q call next · %N serial number · "
       "%E exchange · %G grid · %R report · %[ PTT on · %] PTT off · %L log QSO")};
   help->setWordWrap (true);
 

@@ -50,7 +50,7 @@ namespace Jtty
           {QStringLiteral ("TU CQ"), QStringLiteral ("%[%H TU CQ %M CQ%L%]")},
           {QStringLiteral ("My call"), QStringLiteral ("%[%M%]")},
           {QStringLiteral ("His call"), QStringLiteral ("%[%H%]")},
-          {QStringLiteral ("TU Now"), QStringLiteral ("%[TU NOW %Q %E%]")},
+          {QStringLiteral ("TU Now"), QStringLiteral ("%[TU NOW %Q %E%L%]")},
           {QStringLiteral ("AGN?"), QStringLiteral ("%[%H AGN?%]")},
           {QStringLiteral ("Exch"), QStringLiteral ("%[%E%]")},
         });

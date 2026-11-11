@@ -1247,18 +1247,25 @@ bool MainWindow::sendJttyFunctionKey(int index)
   if (index < 1 || index > Jtty::macroKeyCount) return false;
   auto const control = Jtty::parseMacroControl (m_jttyMacros.macro (index).text);
   if (control.text.isEmpty () && !control.pttOn && !control.pttOff) return false;
-  if ((control.text.contains (QStringLiteral ("%H"), Qt::CaseInsensitive)
-       || control.text.contains (QStringLiteral ("%Q"), Qt::CaseInsensitive)
-       || control.logQso)
+  if ((control.text.contains (QStringLiteral ("%H"), Qt::CaseInsensitive) || control.logQso)
       && m_hisCall.trimmed ().isEmpty ()) {
     showStatusWarning (tr ("Enter a DX Call before sending this macro."));
     return true;
   }
+  QString const nextCall = ui->jttyNextCallEntry->text ().trimmed ().toUpper ();
+  if (control.text.contains (QStringLiteral ("%Q")) && nextCall.isEmpty ()) {
+    showStatusWarning (tr ("Enter a Call next before sending this macro."));
+    return true;
+  }
+  bool const startsNextQso = control.startsNextQso ();
 
   // Expanded now, so the operator sees exactly what will go out. The trailing
   // space completes the last word, so the whole macro commits in one piece:
   // split word by word it can cost up to 2.5 times as many frames.
-  QString const text = jtty_msg_expand (control.text);
+  QString macro = control.text;
+  macro.replace (QStringLiteral ("%Q"), nextCall);
+  QString const text = jtty_msg_expand (
+    macro, ui->sbSerialNumber_2->value () + (startsNextQso ? 1 : 0));
   if (!text.isEmpty ()) {
     QString const box = ui->Tx_Message->toPlainText ();
     bool const needsSeparator = !box.isEmpty () && !box.at (box.size () - 1).isSpace ();
@@ -1270,13 +1277,20 @@ bool MainWindow::sendJttyFunctionKey(int index)
   m_jttyEnterStep = Jtty::stepAfterKey (m_jttyMacros.current ().enterRole, index, m_jttyEnterStep);
   // Last: the Log QSO dialog may take focus, and logging may clear DX Call.
   if (control.logQso) logJttyQso ();
+  if (startsNextQso) {
+    // Logged after its data was captured, so the old QSO keeps its call.
+    ui->dxCallEntry->setText (nextCall);
+    ui->jttyNextCallEntry->clear ();
+    if (control.text.contains (QStringLiteral ("%E"))) m_jttyEnterStep = Jtty::EnterStep::ExchangeSent;
+  }
   return true;
 }
 
-QString MainWindow::jtty_msg_expand(QString t)
+QString MainWindow::jtty_msg_expand(QString t, int serialNumber)
 {
   auto const context = jttyNativeMacroContext(
-    m_config, m_hisCall, ui->sbSerialNumber_2->value(), m_jttyHisCallSnr);
+    m_config, m_hisCall, serialNumber < 0 ? ui->sbSerialNumber_2->value() : serialNumber,
+    m_jttyHisCallSnr);
   return Jtty::expandLiteralMacro(t, context);
 }
 

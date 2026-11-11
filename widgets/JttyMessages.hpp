@@ -224,6 +224,14 @@ namespace Jtty
     bool pttOn {false};
     bool pttOff {false};
     bool logQso {false};
+
+    // With %Q and %L together ("TU NOW %Q %E%L"), the macro logs the current
+    // QSO and opens the next: its exchange takes the next serial number, and
+    // the next call becomes the DX call.
+    bool startsNextQso () const
+    {
+      return logQso && text.contains (QStringLiteral ("%Q"));
+    }
   };
 
   inline MacroControl parseMacroControl (QString macro)

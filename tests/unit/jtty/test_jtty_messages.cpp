@@ -1101,6 +1101,12 @@ private slots:
     QVERIFY (c.logQso);
     QVERIFY (c.pttOn);
     QVERIFY (c.pttOff);
+    QVERIFY (!c.startsNextQso ());
+
+    c = Jtty::parseMacroControl (QStringLiteral ("%[TU NOW %Q %E%L%]"));
+    QCOMPARE (c.text, QStringLiteral ("TU NOW %Q %E"));
+    QVERIFY (c.startsNextQso ());
+    QVERIFY (!Jtty::parseMacroControl (QStringLiteral ("%[%Q?%]")).startsNextQso ());
   }
 
   void fillerStripLeavesRealTextUnaffected ()
