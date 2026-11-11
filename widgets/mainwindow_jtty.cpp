@@ -13,6 +13,8 @@
 #include <QByteArray>
 #include <QDateTime>
 #include <QKeyEvent>
+#include <QPushButton>
+#include <QSignalBlocker>
 #include <functional>
 #include <QSettings>
 #include <QTextCharFormat>
@@ -1201,19 +1203,8 @@ void MainWindow::installJttyWideGraphKeyFilter()
 
 bool MainWindow::sendJttyFunctionKey(int index)
 {
-  QString macro;
-  switch(index) {
-  case 1: macro=ui->msg1->text(); break;
-  case 2: macro=ui->msg2->text(); break;
-  case 3: macro=ui->msg3->text(); break;
-  case 4: macro=ui->msg4->text(); break;
-  case 5: macro=ui->msg5->text(); break;
-  case 6: macro=ui->msg6->text(); break;
-  case 7: macro=ui->msg7->text(); break;
-  case 8: macro=ui->msg8->text(); break;
-  default: return false;
-  }
-  auto const control = Jtty::parseMacroPtt (macro);
+  if (index < 1 || index > Jtty::macroKeyCount) return false;
+  auto const control = Jtty::parseMacroPtt (m_jttyMacros.macro (index).text);
   if (control.text.isEmpty () && !control.pttOn && !control.pttOff) return false;
   if ((control.text.contains (QStringLiteral ("%H"), Qt::CaseInsensitive)
        || control.text.contains (QStringLiteral ("%Q"), Qt::CaseInsensitive))
@@ -1261,26 +1252,36 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
 
 void MainWindow::on_comboBoxJttyStyle_currentIndexChanged(int index)
 {
-  auto const previousStyle = static_cast<Jtty::MessageStyle>(m_jttyMessageStyle);
-  auto const newStyle = static_cast<Jtty::MessageStyle>(index);
-  QLineEdit* const msgFields[8] = {ui->msg1, ui->msg2, ui->msg3, ui->msg4,
-                                    ui->msg5, ui->msg6, ui->msg7, ui->msg8};
+  if (index < 0 || index == m_jttyMacros.currentIndex ()) return;
+  m_jttyMacros.setCurrentIndex (index);
+  refreshJttyMacroControls ();
+}
 
-  m_settings->beginGroup("MainWindow");
-  for (int i = 0; i < 8; ++i) {
-    // Save the outgoing style's currently displayed text before switching away,
-    // so in-session edits aren't lost.
-    m_settings->setValue(Jtty::messageStyleSettingsKey(previousStyle, i + 1),
-                          msgFields[i]->text());
+void MainWindow::refreshJttyMacroControls()
+{
+  {
+    QSignalBlocker const blocker {ui->comboBoxJttyStyle};
+    ui->comboBoxJttyStyle->clear ();
+    for (auto const& set : m_jttyMacros.sets ()) ui->comboBoxJttyStyle->addItem (set.name);
+    for (int i = 0; i < ui->comboBoxJttyStyle->count (); ++i) {
+      ui->comboBoxJttyStyle->setItemData (i, Qt::AlignCenter, Qt::TextAlignmentRole);
+    }
+    ui->comboBoxJttyStyle->setCurrentIndex (m_jttyMacros.currentIndex ());
   }
-  for (int i = 0; i < 8; ++i) {
-    int const functionKey = i + 1;
-    msgFields[i]->setText(m_settings->value(
-      Jtty::messageStyleSettingsKey(newStyle, functionKey),
-      Jtty::messageStyleDefaultTemplate(newStyle, functionKey)).toString());
+  QPushButton * const buttons[Jtty::macroKeyCount] {
+    ui->pbF1, ui->pbF2, ui->pbF3, ui->pbF4, ui->pbF5, ui->pbF6, ui->pbF7, ui->pbF8,
+    ui->pbSF1, ui->pbSF2, ui->pbSF3, ui->pbSF4, ui->pbSF5, ui->pbSF6, ui->pbSF7, ui->pbSF8};
+  for (int key = 1; key <= Jtty::macroKeyCount; ++key) {
+    auto const macro = m_jttyMacros.macro (key);
+    QString const name = Jtty::macroKeyName (key);
+    QString const shortName = key <= 8 ? name : QStringLiteral ("S-F%1").arg (key - 8);
+    auto * const button = buttons[key - 1];
+    button->setText (macro.label.isEmpty () ? shortName
+                                            : QStringLiteral ("%1: %2").arg (shortName, macro.label));
+    button->setToolTip (macro.text.isEmpty () ? tr ("%1: empty").arg (name)
+                                              : QStringLiteral ("%1: %2").arg (name, macro.text));
+    button->setEnabled (!macro.text.isEmpty ());
   }
-  m_settings->endGroup();
-  m_jttyMessageStyle = index;
 }
 
 void MainWindow::switchToJttyAfterMmttyStartup()

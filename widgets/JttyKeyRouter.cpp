@@ -21,7 +21,8 @@ namespace Jtty
       return spin->isReadOnly () ? KeyFocus::Other : KeyFocus::TextEntry;
     }
     if (auto const * combo = qobject_cast<QComboBox const *> (focus)) {
-      return combo->isEditable () ? KeyFocus::TextEntry : KeyFocus::Other;
+      return combo->isEditable () && combo->lineEdit () && !combo->lineEdit ()->isReadOnly ()
+        ? KeyFocus::TextEntry : KeyFocus::Other;
     }
     if (auto const * plain = qobject_cast<QPlainTextEdit const *> (focus)) {
       return plain->isReadOnly () ? KeyFocus::Other : KeyFocus::TextEntry;
@@ -59,6 +60,9 @@ namespace Jtty
     if (key == Qt::Key_F10 && mods == Qt::NoModifier) return {Action::FocusDxCall, {}, 0};
     if (key >= Qt::Key_F1 && key <= Qt::Key_F8 && mods == Qt::NoModifier) {
       return {Action::FunctionKey, {}, key - Qt::Key_F1 + 1};
+    }
+    if (key >= Qt::Key_F1 && key <= Qt::Key_F8 && mods == Qt::ShiftModifier) {
+      return {Action::FunctionKey, {}, key - Qt::Key_F1 + 9};
     }
     if ((key == Qt::Key_F11 || key == Qt::Key_F12) && mods == Qt::ShiftModifier) {
       return {Action::StepTxFrequency, {}, 0,

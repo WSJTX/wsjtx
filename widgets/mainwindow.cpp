@@ -717,9 +717,6 @@ MainWindow::MainWindow(QDir const& temp_directory,
   ui->comboBoxJttyStyle->setEditable (true);
   ui->comboBoxJttyStyle->lineEdit ()->setReadOnly (true);
   ui->comboBoxJttyStyle->lineEdit ()->setAlignment (Qt::AlignCenter);
-  for (int i = 0; i < ui->comboBoxJttyStyle->count (); ++i) {
-    ui->comboBoxJttyStyle->setItemData (i, Qt::AlignCenter, Qt::TextAlignmentRole);
-  }
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,
            &MainWindow::guardJttyLiveEntryLock);
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,

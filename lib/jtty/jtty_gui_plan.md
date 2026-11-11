@@ -4,14 +4,14 @@ A companion to `jtty_gui.md`, offered for discussion. It proposes how the guidel
 
 ## Where things stand (`feat/jtty-new-GUI`)
 
-Phases 1 and 2 are implemented and tested; phase 3a is implemented and
-awaiting hands-on testing; phases 3b–5 are not started. The
+Phases 1–3 are implemented and tested; phases 4–5 are not started. The
 transmit machinery the guidelines describe already existed — what phase 1
 replaced was the control layer on top of it.
 
 - **One PTT state.** `F9` turns PTT on and off. On, the Tx box streams out frame by frame and diddle fills any gap; off finishes what is queued, then drops PTT. `Esc` aborts immediately and clears the box. Ctrl+K, Alt+J, Alt+K, Ctrl+H and Ctrl+Shift+K survive as aliases for one beta. The **Enable Tx** button is deliberately not involved — it stays hidden in JTTY, so none of the auto-sequencing behind it is touched.
 - **Commits are frame-driven.** Text leaves the box when the audio backlog falls below one frame, not in 5-word batches. The compaction holdback is 0; phase 3a found macro text doesn't need one either (see phase 3).
 - **F-keys go through the Tx box (phase 3a).** An F-key expands its macro, appends it to the box, and obeys `%[` / `%]`, so macro text gets the same highlighting as typed text and `Esc` stops both.
+- **Macro sets (phase 3b).** Run, S&P, Chat and user sets, 16 macros each (F1–F8, Shift+F1–F8), shown as a 4×4 grid of labelled buttons and edited in a dialog.
 - **Keyboard capture (phase 2).** `Esc`, F1–F10 work regardless of focus, in the main window and the Wide Graph; typing anywhere except an editable field goes to the end of the Tx box.
 - **Already done and worth keeping:** unlimited message length, gapless chaining of queued messages, yellow sent / gray queued coloring, locking of committed text against edits, and the holdback that keeps the compact encoder from splitting a shorthand.
 - **Known gaps:** the Tx echo is segment-granular while transmission is frame-granular (see phase 5), and PTT state shows only in a minimal Rx/Tx/Diddle label.
@@ -53,8 +53,8 @@ box without moving focus there.
 
 ### Phase 3: Macros
 
-Split into 3a (F-keys through the Tx box; implemented, awaiting hands-on
-test) and 3b (macro sets and editor; not started).
+Split into 3a (F-keys through the Tx box) and 3b (macro sets and editor),
+both implemented and tested.
 
 **Compactness check (done).** All 15 native forms, in each of the None, RTTY
 Roundup and Field Day exchange profiles, take exactly as many frames when
@@ -85,14 +85,30 @@ single step guarantees that; no holdback is needed.
   native path used to refuse these).
 - The separate native-atom F-key path is gone from the GUI. The N1MM/MMTTY
   route keeps its own native compilation and is unaffected.
-- Contest-set defaults are now the Run set below, stored under a new settings
-  key (`JTTY_Run_msg1`–`8`), so earlier saved Contest macros are ignored.
+- Contest-set defaults became the Run set (superseded by 3b's macro sets).
 - The serial-number bump still keys on a sent message starting with `TU `;
   phase 4's `%L` replaces that heuristic.
-- Tests: `test_jtty_messages` checks `%[` / `%]` parsing, the Run defaults, and
-  that every Run default costs no more frames as text than as native atoms.
+- Tests: `test_jtty_messages` checks `%[` / `%]` parsing;
+  `test_jtty_macro_sets` checks that every Run macro costs no more frames as
+  text than as native atoms.
 
-**3b — Macro sets and editor (next)**
+**3b — Macro sets and editor (done)**
+- **Model:** `widgets/JttyMacroSets` (`Jtty::MacroLibrary`) holds the sets,
+  saved under `JttyMacroSets` in the settings. Built-in sets can be edited and
+  restored to defaults but not renamed or deleted, and are always present;
+  user sets can be copied from any set, renamed and deleted. The old
+  `JTTY_msgN`, `JTTY_FT8_msgN`, `JTTY_Run_msgN` and `JTTY_MessageStyle` keys
+  are removed on save.
+- **Main panel:** the eight line edits became Shift-bank buttons, giving a
+  4×4 grid (F1–F4, Shift+F1–F4, F5–F8, Shift+F5–F8). Each button shows its
+  key and label, its tooltip shows the macro, and empty keys are disabled.
+  The combo selects the set; **Edit macros...** opens the editor.
+- **Editor** (`widgets/JttyMacroEditor`): set chooser with New / Rename /
+  Delete / Restore defaults, a 16-row Key / Label / Macro table, and a
+  token reference line. It edits a copy; Cancel discards everything, OK
+  adopts it with the set last shown as current.
+- The key router's focus check now treats an editable combo whose line edit
+  is read-only (like the macro-set combo) as not taking typing.
 - **Macro sets:** Run, S&P and Chat, plus user-defined sets, chosen from a
   combo box that replaces Contest/FT8. The FT8-style placeholders are
   dropped; anyone who wants them can make a user set. Existing saved macros
@@ -175,8 +191,13 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   - Macros: `sendJttyFunctionKey()` (parse `%[`/`%]` with
     `Jtty::parseMacroPtt()`, expand, append to the box, toggle PTT),
     `jtty_msg_expand()`,
-    `on_comboBoxJttyStyle_currentIndexChanged()` (Contest/FT8 set swap via
-    QSettings).
+    `on_comboBoxJttyStyle_currentIndexChanged()` (select a set),
+    `refreshJttyMacroControls()` (combo items, button labels and tooltips);
+    `on_pbEditJttyMacros_clicked()` in `mainwindow_slots.cpp` runs the
+    editor.
+- `widgets/JttyMacroSets.{hpp,cpp}` — `Jtty::MacroLibrary`, default sets,
+  settings load/save; tests in `tests/unit/jtty/test_jtty_macro_sets.cpp`.
+- `widgets/JttyMacroEditor.{hpp,cpp}` — the macro editor dialog.
 - `widgets/JttyKeyRouter.{hpp,cpp}` — pure key-routing rules
   (`classifyKeyFocus()`, `routeKey()`); unit tests in
   `tests/unit/jtty/test_jtty_key_router.cpp`.
@@ -186,12 +207,11 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   calls it as a fallback; `on_actionJTTY_triggered()` sets up the mode;
   `WSPR_config()` selects the JTTY controls page (`controls_stack_widget`
   index 1).
-- `widgets/mainwindow.ui` — JTTY page `page_4`: `msg1`–`msg8`, `pbF1`–`pbF8`,
-  `comboBoxJttyStyle`, `sbSerialNumber_2`, `pbSendMessage`,
+- `widgets/mainwindow.ui` — JTTY page `page_4`: `pbF1`–`pbF8`, `pbSF1`–`pbSF8`,
+  `comboBoxJttyStyle`, `pbEditJttyMacros`, `sbSerialNumber_2`, `pbSendMessage`,
   `labelJttyFrameCount`, `Tx_Message`.
 - `widgets/JttyMessages.hpp` — filler text (`jttyFillerText`), `parseMacroPtt()`, macro
-  templates (`nativeMacroTemplate`, `runMacroTemplate`, `ft8StyleMacroTemplate`),
-  macro context.
+  templates (`nativeMacroTemplate`), macro context.
 - `widgets/JttyLiveEntry.hpp` — `planIncrementalCommit()`,
   `maxCompactAtomWords` (3).
 - `lib/jtty/JttyTransmit.{hpp,cpp}` — encoder: `NativeForm` list,

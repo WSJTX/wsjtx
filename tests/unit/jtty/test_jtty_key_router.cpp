@@ -41,12 +41,25 @@ private slots:
     }
   }
 
-  void modifiedFunctionKeysKeepTheirExistingMeaning ()
+  void shiftF1ToF8AreTheSecondMacroBank ()
   {
-    // Shift+F1 (copyright notice), Shift+F6 (decode remaining files), etc.
-    QCOMPARE (route (Qt::Key_F1, Qt::ShiftModifier, {}, KeyFocus::Other).action, Action::None);
-    QCOMPARE (route (Qt::Key_F6, Qt::ShiftModifier, {}, KeyFocus::Other).action, Action::None);
+    // In JTTY these override Shift+F1 (copyright notice) and Shift+F6
+    // (decode remaining files).
+    for (auto focus : {KeyFocus::TxBox, KeyFocus::TextEntry, KeyFocus::Other}) {
+      for (int n = 1; n <= 8; ++n) {
+        auto const r = route (Qt::Key_F1 + n - 1, Qt::ShiftModifier, {}, focus);
+        QCOMPARE (r.action, Action::FunctionKey);
+        QCOMPARE (r.functionKey, n + 8);
+      }
+    }
+  }
+
+  void otherModifiedFunctionKeysKeepTheirMeaning ()
+  {
+    QCOMPARE (route (Qt::Key_F1, Qt::ControlModifier, {}, KeyFocus::Other).action, Action::None);
+    QCOMPARE (route (Qt::Key_F6, Qt::AltModifier, {}, KeyFocus::Other).action, Action::None);
     QCOMPARE (route (Qt::Key_F9, Qt::ControlModifier, {}, KeyFocus::Other).action, Action::None);
+    QCOMPARE (route (Qt::Key_F9, Qt::ShiftModifier, {}, KeyFocus::Other).action, Action::None);
   }
 
   void rxFrequencyStepKeysPassThrough ()
@@ -148,6 +161,10 @@ private slots:
     combo.setEditable (true);
     QCOMPARE (Jtty::classifyKeyFocus (&combo, &txBox), KeyFocus::TextEntry);
     QCOMPARE (Jtty::classifyKeyFocus (combo.lineEdit (), &txBox), KeyFocus::TextEntry);
+    // Editable only to centre its text, like the JTTY macro-set combo.
+    combo.lineEdit ()->setReadOnly (true);
+    QCOMPARE (Jtty::classifyKeyFocus (&combo, &txBox), KeyFocus::Other);
+    QCOMPARE (Jtty::classifyKeyFocus (combo.lineEdit (), &txBox), KeyFocus::Other);
 
     QPlainTextEdit otherPlain;
     QCOMPARE (Jtty::classifyKeyFocus (&otherPlain, &txBox), KeyFocus::TextEntry);

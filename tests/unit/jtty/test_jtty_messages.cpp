@@ -1,7 +1,6 @@
 #include <QtTest>
 
 #include "widgets/JttyMessages.hpp"
-#include "widgets/JttyTransmitText.hpp"
 
 class TestJttyMessages final
   : public QObject
@@ -214,24 +213,6 @@ private slots:
     QCOMPARE (Jtty::nativeMacroTemplate (2), QString {"%H %E"});
     QCOMPARE (Jtty::nativeMacroTemplate (6), QString {"TU NOW %Q %E"});
     QCOMPARE (Jtty::nativeMacroTemplate (8), QString {"%E"});
-  }
-
-  void savedDefaultMigrationIsExactAndNarrow ()
-  {
-    for (int functionKey : {2, 6, 8}) {
-      QCOMPARE (Jtty::migratedNativeMacroTemplate (
-                  functionKey, Jtty::legacyNativeMacroTemplate (functionKey)),
-                Jtty::nativeMacroTemplate (functionKey));
-    }
-
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (1, QString {"CQ %M CQ"}),
-              QString {"CQ %M CQ"});
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (2, QString {"%h 599 %n"}),
-              QString {"%h 599 %n"});
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (8, QString {" 599 %N "}),
-              QString {" 599 %N "});
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (8, QString {"TEST 599 %N"}),
-              QString {"TEST 599 %N"});
   }
 
   void noneProfileUsesLiveSerial ()
@@ -1057,19 +1038,7 @@ private slots:
     QCOMPARE (Jtty::formatSnr (100), QString {"+100"});
   }
 
-  void ft8StyleTemplatesMatchSpec ()
-  {
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (1), QString {"%H %M %G"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (2), QString {"%H %M %R"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (3), QString {"%H %M R%R"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (4), QString {"%H %M RRR"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (5), QString {"%H %M 73"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (6), QString {"CQ %M %G"});
-    QVERIFY (Jtty::ft8StyleMacroTemplate (7).isEmpty ());
-    QVERIFY (Jtty::ft8StyleMacroTemplate (8).isEmpty ());
-  }
-
-  void ft8StyleLiteralExpansionSubstitutesGridAndSnr ()
+  void literalExpansionSubstitutesGridAndSnr ()
   {
     // %G's own truncate-to-4 behavior for extended subsquare grids is covered
     // separately by configuredSubsquareProducesGrid4InBothNativeAndLiteralExpansion;
@@ -1078,26 +1047,14 @@ private slots:
     context.grid = QStringLiteral ("FN20");
     context.snr = -7;
 
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (1), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("%H %M %G"), context),
               QString {"W9XYZ K1ABC FN20"});
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (2), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("%H %M %R"), context),
               QString {"W9XYZ K1ABC -07"});
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (3), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("%H %M R%R"), context),
               QString {"W9XYZ K1ABC R-07"});
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (6), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("CQ %M %G"), context),
               QString {"CQ K1ABC FN20"});
-  }
-
-  void messageStyleHelpersDistinguishContestAndFt8 ()
-  {
-    QCOMPARE (Jtty::messageStyleSettingsKey (Jtty::MessageStyle::Contest, 3),
-              QString {"JTTY_Run_msg3"});
-    QCOMPARE (Jtty::messageStyleSettingsKey (Jtty::MessageStyle::Ft8, 3),
-              QString {"JTTY_FT8_msg3"});
-    QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Contest, 1),
-              Jtty::runMacroTemplate (1));
-    QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Ft8, 1),
-              Jtty::ft8StyleMacroTemplate (1));
   }
 
   void fillerTextIsRecognizedStandalone ()
@@ -1139,51 +1096,6 @@ private slots:
     QVERIFY (!c.pttOff);
   }
 
-  void runDefaultsWrapTheNativeForms ()
-  {
-    for (int k = 1; k <= 8; ++k) {
-      QCOMPARE (Jtty::runMacroTemplate (k),
-                QStringLiteral ("%[") + Jtty::nativeMacroTemplate (k) + QStringLiteral ("%]"));
-      QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Contest, k),
-                Jtty::runMacroTemplate (k));
-    }
-    QVERIFY (Jtty::runMacroTemplate (0).isEmpty ());
-  }
-
-  // F-keys now send their expanded text through the Tx box rather than as
-  // native atoms. Sent whole, that text must cost no more frames.
-  void runDefaultsAsTextCostNoMoreFramesThanNativeForms ()
-  {
-    struct Profile { Jtty::NativeExchangeProfile profile; QString exchange; };
-    Profile const profiles[] {
-      {Jtty::NativeExchangeProfile::None, {}},
-      {Jtty::NativeExchangeProfile::RttyRoundup, QStringLiteral ("MA")},
-      {Jtty::NativeExchangeProfile::FieldDay, QStringLiteral ("1A EMA")},
-    };
-    for (auto const& p : profiles) {
-      auto const context = Jtty::nativeMacroContext (
-        QStringLiteral ("K1ABC"), QStringLiteral ("W9XYZ"), 107, QStringLiteral ("FN42"), -7,
-        p.profile, p.exchange);
-      for (int k = 1; k <= 8; ++k) {
-        auto const compiled = Jtty::compileNativeMacro (Jtty::nativeMacroTemplate (k), context);
-        QVERIFY (compiled.isNative ());
-        int const nativeFrames =
-          Jtty::encodeNativeAtoms (compiled.atoms).tones.size () / Jtty::transmitFrameSymbols;
-
-        auto const control = Jtty::parseMacroPtt (Jtty::runMacroTemplate (k));
-        auto const text = Jtty::expandLiteralMacro (control.text, context);
-        auto const encoded = Jtty::encodeTransmitText (text, p.profile, true);
-        QCOMPARE (encoded.status, Jtty::TransmitTextStatus::Encoded);
-        int textFrames = 0;
-        for (auto const& segment : encoded.segments) {
-          textFrames += segment.transmit.tones.size () / Jtty::transmitFrameSymbols;
-        }
-        QVERIFY2 (textFrames <= nativeFrames,
-                  qPrintable (QStringLiteral ("F%1 [%2]: %3 frames as text, %4 native")
-                              .arg (k).arg (text).arg (textFrames).arg (nativeFrames)));
-      }
-    }
-  }
   void fillerStripLeavesRealTextUnaffected ()
   {
     QCOMPARE (Jtty::stripJttyFillerText (QStringLiteral ("FOX JUMPED OVER")),

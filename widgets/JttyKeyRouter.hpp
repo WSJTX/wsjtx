@@ -26,7 +26,7 @@ namespace Jtty
       BackspaceTxBox, // delete the last unsent character of the Tx box
       Abort,          // Esc: stop mid-frame and clear the Tx box
       TogglePtt,      // F9
-      FunctionKey,    // F1-F8; functionKey holds 1..8
+      FunctionKey,    // F1-F8 give 1..8, Shift+F1-F8 give 9..16, in functionKey
       FocusDxCall,    // F10
       StepTxFrequency // Shift+F11 / Shift+F12; txStepHz holds the signed step
     };

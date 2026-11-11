@@ -216,31 +216,6 @@ namespace Jtty
     return fromEncoder (Encoder::nativeFormTemplate (forms[functionKey - 1]));
   }
 
-  // Chat/QSO-style templates for JTTY's "FT8 style" message preset (as opposed
-  // to the contest-exchange-oriented templates above). F7/F8 are left blank.
-  inline QString ft8StyleMacroTemplate (int functionKey)
-  {
-    static QString const templates[] {
-      QStringLiteral ("%H %M %G"),
-      QStringLiteral ("%H %M %R"),
-      QStringLiteral ("%H %M R%R"),
-      QStringLiteral ("%H %M RRR"),
-      QStringLiteral ("%H %M 73"),
-      QStringLiteral ("CQ %M %G"),
-      QString {},
-      QString {}
-    };
-    if (functionKey < 1 || functionKey > 8) return {};
-    return templates[functionKey - 1];
-  }
-
-  // Run-set defaults: the native forms, each keying and unkeying the transmitter.
-  inline QString runMacroTemplate (int functionKey)
-  {
-    QString const body = nativeMacroTemplate (functionKey);
-    return body.isEmpty () ? body : QStringLiteral ("%[") + body + QStringLiteral ("%]");
-  }
-
   // %[ and %] turn PTT on and off. They apply to the whole macro wherever they
   // appear: PTT off already sends everything queued before dropping.
   struct MacroPttControl
@@ -261,23 +236,6 @@ namespace Jtty
     return result;
   }
 
-  enum class MessageStyle : qint8 { Contest = 0, Ft8 = 1 };
-
-  // QSettings key for one function key's template under the given style, so
-  // Contest- and FT8-style edits persist independently of each other.
-  inline QString messageStyleSettingsKey (MessageStyle style, int functionKey)
-  {
-    return style == MessageStyle::Ft8
-      ? QStringLiteral ("JTTY_FT8_msg%1").arg (functionKey)
-      : QStringLiteral ("JTTY_Run_msg%1").arg (functionKey);
-  }
-
-  inline QString messageStyleDefaultTemplate (MessageStyle style, int functionKey)
-  {
-    return style == MessageStyle::Ft8
-      ? ft8StyleMacroTemplate (functionKey) : runMacroTemplate (functionKey);
-  }
-
   inline QString formatSnr (int snr)
   {
     return fromEncoder (Encoder::formatSnr (snr));
@@ -287,15 +245,6 @@ namespace Jtty
                                      NativeMacroContext const& context)
   {
     return fromEncoder (Encoder::expandLiteralMacro (toEncoder (macroTemplate), toEncoder (context)));
-  }
-
-  inline QString migratedNativeMacroTemplate (int functionKey, QString const& savedValue)
-  {
-    if ((functionKey == 2 || functionKey == 6 || functionKey == 8)
-        && savedValue == legacyNativeMacroTemplate (functionKey)) {
-      return nativeMacroTemplate (functionKey);
-    }
-    return savedValue;
   }
 
   inline bool isNativeCall (QString const& rawCall)

@@ -83,6 +83,7 @@ namespace DecoderIpc {class Session;}
 #include "AutoRespondPeriod.hpp"
 #include "HoundTransmissionPolicy.hpp"
 #include "JttyLiveEntry.hpp"
+#include "JttyMacroSets.hpp"
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
@@ -731,6 +732,15 @@ private slots:
   void on_pbF6_clicked();
   void on_pbF7_clicked();
   void on_pbF8_clicked();
+  void on_pbSF1_clicked();
+  void on_pbSF2_clicked();
+  void on_pbSF3_clicked();
+  void on_pbSF4_clicked();
+  void on_pbSF5_clicked();
+  void on_pbSF6_clicked();
+  void on_pbSF7_clicked();
+  void on_pbSF8_clicked();
+  void on_pbEditJttyMacros_clicked();
 #ifdef WIN32
   void logText(const QString &text);
 #endif
@@ -946,6 +956,7 @@ private:
   void focusJttyDxCall();
   void installJttyWideGraphKeyFilter();
   bool sendJttyFunctionKey(int index);
+  void refreshJttyMacroControls();
   struct JttyReceiveState;
   std::shared_ptr<JttyReceiveState> m_jttyReceive;
   void initializeJttyReceive();
@@ -1386,7 +1397,7 @@ private:
   QString m_hisCall;
   QString m_hisGrid;
   int m_jttyHisCallSnr = -10;  // SNR of the decode selected as DX call, for %R; cleared when the DX call changes
-  int m_jttyMessageStyle = 0;  // Jtty::MessageStyle: 0=Contest, 1=Ft8 (see JttyMessages.hpp)
+  Jtty::MacroLibrary m_jttyMacros;
   QString m_appDir;
   QString m_cqStr;
   QString m_palette;
